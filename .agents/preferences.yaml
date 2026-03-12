@@ -6,8 +6,8 @@ integrations:
   jira:
     enabled: false
 project:
-  slug: node-monorepo
-  ticket_prefix: NMR-
+  slug: node-monorepo-tools
+  ticket_prefix: '#'
 repository:
   default_remote:
     - name: origin

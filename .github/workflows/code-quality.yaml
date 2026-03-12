@@ -24,4 +24,4 @@ jobs:
       GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
     with:
       node-version: '24.14.0'
-      pnpm-version: '10.30.3'
+      pnpm-version: '10.32.1'
