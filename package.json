@@ -50,7 +50,6 @@
     "update:latest": "pnpm update --latest --recursive"
   },
   "devDependencies": {
-    "@changesets/cli": "2.30.0",
     "@types/eslint": "9.6.1",
     "@types/js-yaml": "4.0.9",
     "@types/node": "22.19.15",
