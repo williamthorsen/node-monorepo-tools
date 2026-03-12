@@ -13,18 +13,7 @@ export default [
   ...config,
   {
     // Completely ignore these files
-    ignores: [
-      '**/*.sh',
-      '**/.astro/**',
-      '**/.claude/**',
-      '**/.next/**',
-      '**/coverage/**',
-      '**/dist/**',
-      '**/local/**',
-      'packages/cdk/.*/**/*',
-      // 'packages/cdk/src/bin/**/*',
-      'packages/**/.next/**/*',
-    ],
+    ignores: ['**/*.sh', '**/.claude/**', '**/coverage/**', '**/dist/**', '**/local/**'],
   },
   {
     files: ['**/*.js', '**/*.cjs', '**/*.mjs', '**/*.ts', '**/*.tsx'],

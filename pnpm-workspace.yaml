@@ -2,8 +2,5 @@ packages:
   - packages/*
 
 onlyBuiltDependencies:
-  - '@tailwindcss/oxide'
   - esbuild
   - lefthook
-  - sharp
-  - svelte-preprocess
