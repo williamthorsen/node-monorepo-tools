@@ -1,0 +1,6 @@
+# Use this file in preference to .prettierignore so that other tools can use the same exclusions.
+
+.next/
+coverage/
+next-env.d.ts
+node_modules/

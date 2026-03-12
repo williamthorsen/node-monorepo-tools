@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Code quality checks
+
+# Note: This workflow will be automatically skipped if the commit message includes
+# any of the following strings: [skip ci], [ci skip], [no ci], [skip actions], or [actions skip]
+
+on:
+  push:
+    branches:
+      - main
+      - next
+
+  pull_request:
+    branches:
+      - main
+      - next
+
+  workflow_dispatch: {}
+
+jobs:
+  code-quality:
+    uses: williamthorsen/.github/.github/workflows/code-quality-pnpm.yaml@v1
+    secrets:
+      GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
+    with:
+      node-version: '24.14.0'
+      pnpm-version: '10.30.3'

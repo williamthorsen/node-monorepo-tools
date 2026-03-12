@@ -1,0 +1,4 @@
+# Use this file in preference to .prettierignore so that other tools can use the same exclusions.
+
+coverage/
+node_modules/

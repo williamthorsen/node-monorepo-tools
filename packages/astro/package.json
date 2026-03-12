@@ -1,0 +1,29 @@
+{
+  "name": "node-monorepo-astro-template",
+  "version": "1.3.0",
+  "private": true,
+  "description": "Astro application template",
+  "keywords": [],
+  "license": "UNLICENSED",
+  "author": "William Thorsen <william@thorsen.dev> (https://github.com/williamthorsen)",
+  "type": "module",
+  "scripts": {
+    "astro": "astro",
+    "build": "astro build",
+    "dev": "astro dev",
+    "preview": "astro preview",
+    "start": "astro dev",
+    "typecheck": "astro check && tsgo --noEmit",
+    "ws": "node --import tsx ../../scripts/run-workspace-script.ts"
+  },
+  "dependencies": {
+    "astro": "5.18.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.6",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3"
+  }
+}

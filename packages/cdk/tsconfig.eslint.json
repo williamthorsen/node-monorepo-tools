@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "noEmit": true, // ensure that nobody can accidentally use this config for a build
+    "strictNullChecks": true, // needed to satisfy `@typescript-eslint/no-unnecessary-condition`
+  },
+  "include": ["src/", "*.ts", "*.json"],
+}
