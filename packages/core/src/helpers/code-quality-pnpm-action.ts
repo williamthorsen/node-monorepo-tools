@@ -19,7 +19,3 @@ export type CodeQualityPnpmWorkflow = z.infer<typeof CodeQualityPnpmWorkflowSche
 export function getPnpmVersion(workflow: CodeQualityPnpmWorkflow): string {
   return workflow.jobs['code-quality'].with['pnpm-version'];
 }
-
-export function updatePnpmVersion(workflow: CodeQualityPnpmWorkflow, newVersion: string): void {
-  workflow.jobs['code-quality'].with['pnpm-version'] = newVersion;
-}

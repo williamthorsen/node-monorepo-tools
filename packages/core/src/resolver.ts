@@ -2,12 +2,13 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import type { NmrConfig } from './config.js';
+import { isObject } from './helpers/type-guards.js';
 import type { ScriptRegistry, ScriptValue } from './registries.js';
 import { getDefaultRootScripts, getDefaultWorkspaceScripts } from './registries.js';
 
 export interface ResolvedScript {
   command: string;
-  source: 'default' | 'config' | 'package';
+  source: 'default' | 'package';
 }
 
 /**
@@ -31,10 +32,6 @@ export function describeScript(script: ScriptValue): string {
 /**
  * Reads a package.json file and returns the scripts object.
  */
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
 function readPackageJsonScripts(packageDir: string): Record<string, string> | undefined {
   try {
     const raw = readFileSync(path.join(packageDir, 'package.json'), 'utf8');

@@ -1,16 +1,14 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { isObject } from './type-guards.js';
+
 export interface PackageJson {
   name?: string;
   version?: string;
   packageManager?: string;
   scripts?: Record<string, string>;
   pnpm?: { overrides?: Record<string, string> };
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
 
 /**

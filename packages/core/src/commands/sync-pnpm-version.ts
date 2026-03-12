@@ -27,9 +27,9 @@ export function syncPnpmVersion(monorepoRoot: string): void {
   const pnpmVersion = extractPnpmVersion(pkg.packageManager);
 
   if (!pnpmVersion) {
-    console.error('Could not extract pnpm version from package.json packageManager field');
-    console.error(`packageManager field: ${pkg.packageManager ?? '(not set)'}`);
-    process.exit(1);
+    throw new Error(
+      `Could not extract pnpm version from package.json packageManager field\npackageManager field: ${pkg.packageManager ?? '(not set)'}`,
+    );
   }
 
   console.info(`Package.json pnpm version: ${pnpmVersion}`);

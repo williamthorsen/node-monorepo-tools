@@ -8,6 +8,14 @@ import { generateHelp } from './help.js';
 import { buildRootRegistry, buildWorkspaceRegistry, resolveScript } from './resolver.js';
 import { runCommand } from './runner.js';
 
+/**
+ * Shell-escapes a single argument by wrapping in single quotes
+ * and escaping any embedded single quotes.
+ */
+function shellQuote(arg: string): string {
+  return "'" + arg.replace(/'/g, String.raw`'\''`) + "'";
+}
+
 interface ParsedArgs {
   filter?: string;
   recursive: boolean;
@@ -84,11 +92,11 @@ async function main(): Promise<void> {
   }
 
   const { command } = parsed;
-  const passthrough = parsed.passthrough.length > 0 ? ' ' + parsed.passthrough.join(' ') : '';
+  const passthrough = parsed.passthrough.length > 0 ? ' ' + parsed.passthrough.map(shellQuote).join(' ') : '';
 
   // -F: delegate to pnpm --filter
   if (parsed.filter) {
-    const delegateCmd = `pnpm --filter ${parsed.filter} exec nmr ${command}${passthrough}`;
+    const delegateCmd = `pnpm --filter ${shellQuote(parsed.filter)} exec nmr ${command}${passthrough}`;
     const code = runCommand(delegateCmd, context.monorepoRoot);
     process.exit(code);
   }

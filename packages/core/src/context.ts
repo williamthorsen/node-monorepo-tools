@@ -5,6 +5,7 @@ import yaml from 'js-yaml';
 
 import type { NmrConfig } from './config.js';
 import { loadConfig } from './config.js';
+import { isObject } from './helpers/type-guards.js';
 
 export interface ResolvedContext {
   monorepoRoot: string;
@@ -90,10 +91,6 @@ export function findContainingPackageDir(dir: string, workspacePackageDirs: stri
     }
   }
   return undefined;
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
 
 function getPackagesFromParsedYaml(parsed: unknown): string[] | undefined {

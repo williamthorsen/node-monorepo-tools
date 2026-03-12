@@ -17,9 +17,6 @@ function getDefaultWorkspaceScripts(useIntTests: boolean): ScriptRegistry {
     lint: 'eslint --fix .',
     'lint:check': 'eslint .',
     'lint:strict': 'strict-lint',
-    test: 'vitest',
-    'test:coverage': 'vitest --coverage',
-    'test:watch': 'vitest --watch',
     typecheck: 'tsgo --noEmit',
     'view-coverage': 'open coverage/index.html',
   };
