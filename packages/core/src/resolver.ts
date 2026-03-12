@@ -31,11 +31,24 @@ export function describeScript(script: ScriptValue): string {
 /**
  * Reads a package.json file and returns the scripts object.
  */
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 function readPackageJsonScripts(packageDir: string): Record<string, string> | undefined {
   try {
     const raw = readFileSync(path.join(packageDir, 'package.json'), 'utf8');
-    const parsed = JSON.parse(raw) as { scripts?: Record<string, string> };
-    return parsed.scripts;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isObject(parsed)) return undefined;
+
+    const scripts = parsed.scripts;
+    if (!isObject(scripts)) return undefined;
+
+    const result: Record<string, string> = {};
+    for (const [key, val] of Object.entries(scripts)) {
+      if (typeof val === 'string') result[key] = val;
+    }
+    return result;
   } catch {
     return undefined;
   }

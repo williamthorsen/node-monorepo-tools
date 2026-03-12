@@ -8,23 +8,21 @@ import { describeScript } from './resolver.js';
  * from both workspace and root script registries.
  */
 export function generateHelp(config: NmrConfig): string {
-  const lines: string[] = [];
+  const lines: string[] = [
+    'Usage: nmr [flags] <command> [args...]',
+    '',
+    'Flags:',
+    '  -F, --filter <pattern>   Run command in matching packages',
+    '  -R, --recursive          Run command in all packages',
+    '  -w, --workspace-root     Run root command regardless of cwd',
+    '  -?, --help               Show this help',
+    '      --int-test           Use integration test scripts',
+    '',
+    'Workspace commands:',
+  ];
 
-  lines.push('Usage: nmr [flags] <command> [args...]');
-  lines.push('');
-  lines.push('Flags:');
-  lines.push('  -F, --filter <pattern>   Run command in matching packages');
-  lines.push('  -R, --recursive          Run command in all packages');
-  lines.push('  -w, --workspace-root     Run root command regardless of cwd');
-  lines.push('  -?, --help               Show this help');
-  lines.push('      --int-test           Use integration test scripts');
-  lines.push('');
-
-  lines.push('Workspace commands:');
   formatRegistry(buildWorkspaceRegistry(config, false), lines);
-  lines.push('');
-
-  lines.push('Root commands:');
+  lines.push('', 'Root commands:');
   formatRegistry(buildRootRegistry(config), lines);
 
   return lines.join('\n');

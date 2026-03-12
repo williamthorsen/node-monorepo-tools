@@ -15,12 +15,16 @@ function runNmr(args: string, options: { cwd?: string } = {}): { stdout: string;
       timeout: 10_000,
     });
     return { stdout, exitCode: 0 };
-  } catch (error) {
-    const err = error as { stdout?: string; status?: number };
-    return {
-      stdout: (err.stdout ?? '') as string,
-      exitCode: err.status ?? 1,
-    };
+  } catch (error: unknown) {
+    const stdout =
+      error !== null && typeof error === 'object' && 'stdout' in error && typeof error.stdout === 'string'
+        ? error.stdout
+        : '';
+    const exitCode =
+      error !== null && typeof error === 'object' && 'status' in error && typeof error.status === 'number'
+        ? error.status
+        : 1;
+    return { stdout, exitCode };
   }
 }
 

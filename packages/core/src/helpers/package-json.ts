@@ -24,7 +24,31 @@ export function readPackageJson(dir: string): PackageJson {
     throw new TypeError(`Invalid package.json in ${dir}: expected an object`);
   }
 
-  return parsed as PackageJson;
+  // After isObject guard, we know parsed is Record<string, unknown>.
+  // PackageJson fields are all optional, so this is structurally compatible.
+  const pkg: PackageJson = {};
+  if (typeof parsed.name === 'string') pkg.name = parsed.name;
+  if (typeof parsed.version === 'string') pkg.version = parsed.version;
+  if (typeof parsed.packageManager === 'string') pkg.packageManager = parsed.packageManager;
+  if (isObject(parsed.scripts)) {
+    const scripts: Record<string, string> = {};
+    for (const [key, val] of Object.entries(parsed.scripts)) {
+      if (typeof val === 'string') scripts[key] = val;
+    }
+    pkg.scripts = scripts;
+  }
+  if (isObject(parsed.pnpm)) {
+    const pnpm = parsed.pnpm;
+    if (isObject(pnpm.overrides)) {
+      const overrides: Record<string, string> = {};
+      for (const [key, val] of Object.entries(pnpm.overrides)) {
+        if (typeof val === 'string') overrides[key] = val;
+      }
+      pkg.pnpm = { overrides };
+    }
+  }
+
+  return pkg;
 }
 
 /**
@@ -41,5 +65,5 @@ export function getPnpmOverrides(pkg: PackageJson): Record<string, string> | und
     if (typeof value !== 'string') return undefined;
   }
 
-  return overrides as Record<string, string>;
+  return overrides;
 }

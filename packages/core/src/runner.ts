@@ -15,8 +15,8 @@ export function runCommand(command: string, cwd?: string): number {
     // execSync throws on non-zero exit code.
     // The error object has a `status` property with the exit code.
     if (error !== null && typeof error === 'object' && 'status' in error) {
-      const status = (error as { status: number | null }).status;
-      return status ?? 1;
+      const { status } = error;
+      return typeof status === 'number' ? status : 1;
     }
     return 1;
   }

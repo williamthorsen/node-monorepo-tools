@@ -44,13 +44,13 @@ describe('buildWorkspaceRegistry', () => {
     );
 
     expect(registry['copy-content']).toBe('tsx scripts/copy-content.ts');
-    expect(registry['build']).toEqual(['compile', 'generate-typings']);
+    expect(registry.build).toEqual(['compile', 'generate-typings']);
   });
 
   it('allows config to override default scripts', () => {
     const registry = buildWorkspaceRegistry({ workspaceScripts: { clean: 'rm -rf dist' } }, false);
 
-    expect(registry['clean']).toBe('rm -rf dist');
+    expect(registry.clean).toBe('rm -rf dist');
   });
 });
 
@@ -61,7 +61,7 @@ describe('buildRootRegistry', () => {
     });
 
     expect(registry['demo:catwalk']).toBe('pnpx http-server --port=5189');
-    expect(registry['ci']).toEqual(['check:strict', 'build']);
+    expect(registry.ci).toEqual(['check:strict', 'build']);
   });
 });
 

@@ -36,7 +36,7 @@ export async function loadConfig(monorepoRoot: string): Promise<NmrConfig> {
   }
 
   const jiti = createJiti(path.join(monorepoRoot, 'package.json'));
-  const loaded = (await jiti.import(configPath, { default: true })) as NmrConfig;
+  const loaded: NmrConfig = await jiti.import(configPath, { default: true });
 
   return loaded;
 }

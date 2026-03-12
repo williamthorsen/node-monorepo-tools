@@ -27,7 +27,7 @@ describe('defineConfig', () => {
       },
     });
 
-    expect(config.workspaceScripts?.['build']).toEqual(['compile', 'generate-typings']);
+    expect(config.workspaceScripts?.build).toEqual(['compile', 'generate-typings']);
   });
 
   it('accepts an empty config', () => {

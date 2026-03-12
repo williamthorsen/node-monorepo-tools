@@ -20,7 +20,7 @@ function extractPnpmVersion(packageManager: string | undefined): string | null {
  * and the GitHub code-quality workflow file.
  */
 export function syncPnpmVersion(monorepoRoot: string): void {
-  console.log('Synchronizing pnpm version in GitHub workflow...');
+  console.info('Synchronizing pnpm version in GitHub workflow...');
 
   // Read the consumer's root package.json at runtime
   const pkg = readPackageJson(monorepoRoot);
@@ -32,7 +32,7 @@ export function syncPnpmVersion(monorepoRoot: string): void {
     process.exit(1);
   }
 
-  console.log(`Package.json pnpm version: ${pnpmVersion}`);
+  console.info(`Package.json pnpm version: ${pnpmVersion}`);
 
   // Read and validate workflow file
   const workflowPath = path.join(monorepoRoot, WORKFLOW_RELATIVE_PATH);
@@ -40,10 +40,10 @@ export function syncPnpmVersion(monorepoRoot: string): void {
   const workflow = CodeQualityPnpmWorkflowSchema.parse(workflowData);
 
   const currentWorkflowVersion = getPnpmVersion(workflow);
-  console.log(`Current workflow pnpm version: ${currentWorkflowVersion}`);
+  console.info(`Current workflow pnpm version: ${currentWorkflowVersion}`);
 
   if (currentWorkflowVersion === pnpmVersion) {
-    console.log('Workflow pnpm version is already up to date');
+    console.info('Workflow pnpm version is already up to date');
     return;
   }
 
@@ -52,7 +52,7 @@ export function syncPnpmVersion(monorepoRoot: string): void {
   const updatedContent = originalContent.replace(/(\s+pnpm-version:\s+)(['"]?)[\d.]+\2/, `$1$2${pnpmVersion}$2`);
 
   writeFileSync(workflowPath, updatedContent, 'utf8');
-  console.log(`✓ Updated workflow pnpm version: ${currentWorkflowVersion} → ${pnpmVersion}`);
+  console.info(`✓ Updated workflow pnpm version: ${currentWorkflowVersion} → ${pnpmVersion}`);
 }
 
 export { extractPnpmVersion };

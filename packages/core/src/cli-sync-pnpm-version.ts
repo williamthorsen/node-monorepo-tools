@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 

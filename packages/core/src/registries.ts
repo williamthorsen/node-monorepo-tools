@@ -79,4 +79,4 @@ function getDefaultRootScripts(): ScriptRegistry {
   };
 }
 
-export { getDefaultWorkspaceScripts, getDefaultRootScripts };
+export { getDefaultRootScripts, getDefaultWorkspaceScripts };

@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
@@ -126,7 +125,9 @@ async function main(): Promise<void> {
   process.exit(code);
 }
 
-main().catch((error: unknown) => {
+try {
+  await main();
+} catch (error: unknown) {
   console.error(error);
   process.exit(1);
-});
+}
