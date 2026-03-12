@@ -2,14 +2,8 @@
   "$schema": "https://github.com/IBM/audit-ci/raw/main/docs/schema.json",
   "moderate": true,
   "allowlist": [
-    // lodash - Transitive from Astro language server (dev-only)
-    "GHSA-xxjr-mmjv-4gpg", // Prototype pollution
-    // js-yaml - Transitive from @changesets/cli (dev-only)
-    "GHSA-mh29-5h37-fv8m", // Prototype pollution
-    // ajv - Transitive from Astro language server (dev-only)
-    "GHSA-2g4f-4pwh-qvx6", // Prototype pollution
     // minimatch - Transitive from ESLint (dev-only)
-    "GHSA-3ppc-4f35-3m26", // ReDoS vulnerability
+    // "GHSA-3ppc-4f35-3m26", // ReDoS vulnerability
   ],
   "extra-args": ["--dev"],
   "report-type": "summary",
