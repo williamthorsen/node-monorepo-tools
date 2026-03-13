@@ -6,7 +6,6 @@ import process from 'node:process';
 import { resolveContext } from './context.js';
 import { generateHelp } from './help.js';
 import { buildRootRegistry, buildWorkspaceRegistry, resolveScript } from './resolver.js';
-import type { RunCommandOptions } from './runner.js';
 import { runCommand } from './runner.js';
 
 /**
@@ -101,7 +100,7 @@ async function main(): Promise<void> {
 
   const { command } = parsed;
   const passthrough = parsed.passthrough.length > 0 ? ' ' + parsed.passthrough.map(shellQuote).join(' ') : '';
-  const runOptions: RunCommandOptions = { quiet: parsed.quiet };
+  const runOptions = { quiet: parsed.quiet };
 
   // -F: delegate to pnpm --filter
   if (parsed.filter) {
