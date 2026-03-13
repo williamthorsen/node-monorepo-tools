@@ -129,7 +129,9 @@ async function main(): Promise<void> {
   }
 
   if (resolved.command === '') {
-    console.info('Override script is defined but empty. Skipping.');
+    if (!parsed.quiet) {
+      console.info('Override script is defined but empty. Skipping.');
+    }
     process.exit(0);
   }
 
