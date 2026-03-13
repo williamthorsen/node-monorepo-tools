@@ -15,6 +15,7 @@ export function generateHelp(config: NmrConfig): string {
     '  -F, --filter <pattern>   Run command in matching packages',
     '  -R, --recursive          Run command in all packages',
     '  -w, --workspace-root     Run root command regardless of cwd',
+    '  -q, --quiet              Suppress output on success; show full output on failure',
     '  -?, --help               Show this help',
     '      --int-test           Use integration test scripts',
     '',
