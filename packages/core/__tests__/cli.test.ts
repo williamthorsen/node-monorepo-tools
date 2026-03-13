@@ -76,9 +76,17 @@ describe('nmr CLI', () => {
       expect(stdout).toContain('-q, --quiet');
     });
 
+    it('suppresses output on successful command in quiet mode', () => {
+      const { stdout, stderr, exitCode } = runNmr('-q typecheck', { cwd: CORE_PACKAGE_DIR });
+      expect(exitCode).toBe(0);
+      expect(stdout).toBe('');
+      expect(stderr).toBe('');
+    });
+
     it('still exits with error for unknown command when quiet', () => {
-      const { exitCode } = runNmr('--quiet nonexistent-command');
+      const { stderr, exitCode } = runNmr('--quiet nonexistent-command');
       expect(exitCode).toBe(1);
+      expect(stderr).toContain('Unknown command');
     });
   });
 });
