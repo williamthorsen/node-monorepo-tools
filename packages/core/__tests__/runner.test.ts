@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process';
 import process from 'node:process';
 
-import { type MockInstance, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest';
 
 import { runCommand } from '../src/runner.js';
 
@@ -112,6 +112,21 @@ describe(runCommand, () => {
 
       expect(code).toBe(1);
       expect(stderrWriteSpy).not.toHaveBeenCalled();
+    });
+
+    it('writes captured output even when error lacks a status property', () => {
+      const stdout = Buffer.from('partial output\n');
+      const stderr = Buffer.from('crash details\n');
+      const error = Object.assign(new Error('unexpected error'), { stdout, stderr });
+      mockedExecSync.mockImplementation(() => {
+        throw error;
+      });
+
+      const code = runCommand('lint', undefined, { quiet: true });
+
+      expect(code).toBe(1);
+      expect(stderrWriteSpy).toHaveBeenCalledWith(stdout);
+      expect(stderrWriteSpy).toHaveBeenCalledWith(stderr);
     });
   });
 });

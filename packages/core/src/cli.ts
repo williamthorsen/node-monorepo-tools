@@ -133,7 +133,7 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  if (resolved.source === 'package') {
+  if (resolved.source === 'package' && !parsed.quiet) {
     console.info(`Using override script: ${resolved.command}`);
   }
 
