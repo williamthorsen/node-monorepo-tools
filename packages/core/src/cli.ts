@@ -18,6 +18,7 @@ function shellQuote(arg: string): string {
 
 interface ParsedArgs {
   filter?: string;
+  quiet: boolean;
   recursive: boolean;
   workspaceRoot: boolean;
   help: boolean;
@@ -29,6 +30,7 @@ interface ParsedArgs {
 function parseArgs(argv: string[]): ParsedArgs {
   const args = argv.slice(2);
   const result: ParsedArgs = {
+    quiet: false,
     recursive: false,
     workspaceRoot: false,
     help: false,
@@ -67,6 +69,11 @@ function parseArgs(argv: string[]): ParsedArgs {
       i++;
       continue;
     }
+    if (arg === '-q' || arg === '--quiet') {
+      result.quiet = true;
+      i++;
+      continue;
+    }
     if (arg === '--int-test') {
       result.intTest = true;
       i++;
@@ -93,18 +100,19 @@ async function main(): Promise<void> {
 
   const { command } = parsed;
   const passthrough = parsed.passthrough.length > 0 ? ' ' + parsed.passthrough.map(shellQuote).join(' ') : '';
+  const runOptions = { quiet: parsed.quiet };
 
   // -F: delegate to pnpm --filter
   if (parsed.filter) {
     const delegateCmd = `pnpm --filter ${shellQuote(parsed.filter)} exec nmr ${command}${passthrough}`;
-    const code = runCommand(delegateCmd, context.monorepoRoot);
+    const code = runCommand(delegateCmd, context.monorepoRoot, runOptions);
     process.exit(code);
   }
 
   // -R: delegate to pnpm --recursive
   if (parsed.recursive) {
     const delegateCmd = `pnpm --recursive exec nmr ${command}${passthrough}`;
-    const code = runCommand(delegateCmd, context.monorepoRoot);
+    const code = runCommand(delegateCmd, context.monorepoRoot, runOptions);
     process.exit(code);
   }
 
@@ -120,16 +128,18 @@ async function main(): Promise<void> {
   }
 
   if (resolved.command === '') {
-    console.info('Override script is defined but empty. Skipping.');
+    if (!parsed.quiet) {
+      console.info('Override script is defined but empty. Skipping.');
+    }
     process.exit(0);
   }
 
-  if (resolved.source === 'package') {
+  if (resolved.source === 'package' && !parsed.quiet) {
     console.info(`Using override script: ${resolved.command}`);
   }
 
   const fullCommand = resolved.command + passthrough;
-  const code = runCommand(fullCommand);
+  const code = runCommand(fullCommand, undefined, runOptions);
   process.exit(code);
 }
 
