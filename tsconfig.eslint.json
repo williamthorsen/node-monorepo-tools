@@ -11,9 +11,9 @@
     "noEmit": true, // ensure that nobody can accidentally use this config for a build
   },
   // These files will be linted
-  // These files will be linted
   "include": [
-    "__tests__", //
+    ".config/**/*.ts", //
+    "__tests__",
     "config/",
     "scripts/",
     "eslint.config.js",
