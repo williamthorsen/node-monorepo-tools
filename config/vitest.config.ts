@@ -1,8 +1,6 @@
-import tsconfigPaths from 'vite-tsconfig-paths';
 import { defineConfig, mergeConfig } from 'vitest/config';
 
 export const baseConfig = defineConfig({
-  plugins: [tsconfigPaths()],
   test: {
     coverage: {
       enabled: false, // don't check coverage unless the `--coverage` flag is passed
