@@ -70,6 +70,9 @@ function rewriteTsExtensions(): Plugin {
         let shebang = '';
         if (code.startsWith('#!')) {
           const newlineIndex = code.indexOf('\n');
+          if (newlineIndex === -1) {
+            return { contents: code, loader: 'ts' };
+          }
           shebang = code.slice(0, newlineIndex + 1);
           code = code.slice(newlineIndex + 1);
         }
