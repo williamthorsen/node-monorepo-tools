@@ -41,7 +41,8 @@ export function bumpAllVersions(packageFiles: readonly string[], releaseType: Re
       continue;
     }
 
-    const pkg = readPackageJson(filePath);
+    // Reuse the already-parsed first file instead of reading it again.
+    const pkg = filePath === firstFile ? firstPkg : readPackageJson(filePath);
     pkg.version = newVersion;
 
     try {

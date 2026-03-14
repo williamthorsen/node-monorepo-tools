@@ -17,5 +17,5 @@ export const DEFAULT_WORK_TYPES: Record<string, WorkTypeConfig> = {
 /** Default version bump patterns. */
 export const DEFAULT_VERSION_PATTERNS: VersionPatterns = {
   major: ['!'],
-  minor: ['feat', 'feature'],
+  minor: ['feat'],
 };

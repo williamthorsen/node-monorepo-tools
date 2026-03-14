@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import { glob } from 'glob';
 import { load } from 'js-yaml';
 
+import { isRecord } from './typeGuards.ts';
+
 /**
  * Reads `pnpm-workspace.yaml` and resolves its `packages` globs to discover workspace directories.
  *
@@ -60,8 +62,4 @@ export async function discoverWorkspaces(): Promise<string[] | undefined> {
 
   // eslint-disable-next-line unicorn/no-array-sort -- toSorted requires Node 20+; engine target is >=18.17.0
   return directories.length > 0 ? [...directories].sort() : undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
