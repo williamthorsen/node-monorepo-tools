@@ -42,6 +42,10 @@
     "noUncheckedIndexedAccess": true,
     // Report an error when a variable is declared but never used.
     "noUnusedLocals": true,
+    "paths": {
+      "@williamthorsen/release-kit": ["./packages/release-kit/src/index.ts"],
+      "~/*": ["./*"],
+    },
     "removeComments": true,
 
     // Enable JSON imports.
@@ -63,6 +67,7 @@
   "exclude": ["node_modules"],
   "include": [
     // This file covers only the monorepo root. Packages have their own tsconfig.json files that extend this one.
+    ".config/**/*.ts",
     "__tests__/",
     "config/",
     "scripts/",

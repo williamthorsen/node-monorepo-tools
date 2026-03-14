@@ -1,0 +1,51 @@
+{
+  "name": "@williamthorsen/release-kit",
+  "version": "1.0.1",
+  "description": "Version-bumping and changelog-generation toolkit for release workflows",
+  "keywords": [],
+  "homepage": "https://github.com/williamthorsen/node-monorepo-tools/tree/main/packages/release-kit#readme",
+  "bugs": {
+    "url": "https://github.com/williamthorsen/node-monorepo-tools/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/williamthorsen/node-monorepo-tools.git",
+    "directory": "packages/release-kit"
+  },
+  "license": "UNLICENSED",
+  "author": "William Thorsen <william@thorsen.dev> (https://github.com/williamthorsen)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/esm/index.js"
+    }
+  },
+  "bin": {
+    "release-kit": "./dist/esm/bin/release-kit.js"
+  },
+  "files": [
+    "dist/*",
+    "cliff.toml.template",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "prepare": "pnpm run ws build",
+    "prepublishOnly": "pnpm run ws build",
+    "ws": "node --import tsx ../../scripts/run-workspace-script.ts --int-test"
+  },
+  "dependencies": {
+    "glob": "13.0.6",
+    "jiti": "2.6.1",
+    "js-yaml": "4.1.1"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "4.0.9"
+  },
+  "engines": {
+    "node": ">=18.17.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  }
+}

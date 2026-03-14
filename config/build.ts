@@ -66,10 +66,18 @@ function rewriteTsExtensions(): Plugin {
         const fileDir = path.dirname(args.path);
         let code = await readFile(args.path, 'utf8');
 
+        // Detect and strip shebang before transforms, then reattach it afterward
+        let shebang = '';
+        if (code.startsWith('#!')) {
+          const newlineIndex = code.indexOf('\n');
+          shebang = code.slice(0, newlineIndex + 1);
+          code = code.slice(newlineIndex + 1);
+        }
+
         code = resolveAliasImports(code, fileDir, aliases);
         code = rewriteTsImportExtensions(code);
 
-        return { contents: code, loader: 'ts' };
+        return { contents: `${shebang}${code}`, loader: 'ts' };
       });
     },
   };
