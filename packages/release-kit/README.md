@@ -362,6 +362,23 @@ runReleasePrepare(config);
 
 The key difference: the script-based approach requires manually listing every component, while the CLI auto-discovers them from `pnpm-workspace.yaml`.
 
+## Breaking changes
+
+### v1.1.0: `formatCommand` receives file paths as trailing arguments
+
+Previously, `formatCommand` was executed as-is (e.g., `pnpm run fmt` would run without arguments). Now, the paths of all modified files (package.json files and changelogs) are appended as trailing arguments.
+
+If your format command does not accept file arguments, update it to one that does:
+
+```diff
+-formatCommand: 'pnpm run fmt',
++formatCommand: 'npx prettier --write',
+```
+
+### v1.1.0: `git-cliff` is no longer a required dev dependency
+
+`git-cliff` is now invoked via `npx --yes git-cliff` instead of requiring it as a dev dependency. You can remove it from your `devDependencies`. The version is not pinned, so `npx` downloads and caches the latest version on first invocation. To pin a specific version, use `npx --yes git-cliff@2.12.0` by wrapping the call in a custom script.
+
 ## Migration from changesets
 
 1. Add `@williamthorsen/release-kit` as a dev dependency.

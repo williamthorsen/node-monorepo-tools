@@ -188,7 +188,7 @@ describe(releasePrepareMono, () => {
   it('does not write files or run formatCommand when dryRun is true', () => {
     const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
     const config = makeConfig({
-      formatCommand: 'pnpm run fmt',
+      formatCommand: 'npx prettier --write',
       components: [
         {
           dir: 'arrays',
@@ -220,14 +220,14 @@ describe(releasePrepareMono, () => {
 
     // Verify the dry-run log includes modified file paths
     expect(infoSpy).toHaveBeenCalledWith(
-      expect.stringContaining('pnpm run fmt packages/arrays/package.json packages/arrays/CHANGELOG.md'),
+      expect.stringContaining('npx prettier --write packages/arrays/package.json packages/arrays/CHANGELOG.md'),
     );
     infoSpy.mockRestore();
   });
 
   it('runs formatCommand once after all components are processed', () => {
     const config = makeConfig({
-      formatCommand: 'pnpm run fmt',
+      formatCommand: 'npx prettier --write',
       components: [
         {
           dir: 'arrays',
@@ -263,7 +263,7 @@ describe(releasePrepareMono, () => {
 
     expect(mockExecSync).toHaveBeenCalledTimes(1);
     expect(mockExecSync).toHaveBeenCalledWith(
-      'pnpm run fmt packages/arrays/package.json packages/arrays/CHANGELOG.md packages/strings/package.json packages/strings/CHANGELOG.md',
+      'npx prettier --write packages/arrays/package.json packages/arrays/CHANGELOG.md packages/strings/package.json packages/strings/CHANGELOG.md',
       { stdio: 'inherit' },
     );
   });
@@ -341,7 +341,7 @@ describe(releasePrepareMono, () => {
 
   it('does not run formatCommand when no components have commits', () => {
     const config = makeConfig({
-      formatCommand: 'pnpm run fmt',
+      formatCommand: 'npx prettier --write',
       components: [
         {
           dir: 'arrays',
