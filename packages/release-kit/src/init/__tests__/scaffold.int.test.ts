@@ -1,10 +1,12 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-const distScaffoldPath = join(__dirname, '..', '..', '..', 'dist', 'esm', 'init', 'scaffold.js');
+const thisDir = dirname(fileURLToPath(import.meta.url));
+const distScaffoldPath = join(thisDir, '..', '..', '..', 'dist', 'esm', 'init', 'scaffold.js');
 
 interface ScaffoldModule {
   copyCliffTemplate: (dryRun: boolean) => void;
