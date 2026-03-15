@@ -99,6 +99,16 @@ describe(prepareCommand, () => {
     });
   });
 
+  it('passes force from --force flag', async () => {
+    await prepareCommand(['--force', '--bump=patch']);
+
+    expect(mockReleasePrepareMono).toHaveBeenCalledWith(expect.any(Object), {
+      dryRun: false,
+      force: true,
+      bumpOverride: 'patch',
+    });
+  });
+
   it('filters components when --only is provided', async () => {
     await prepareCommand(['--only=arrays']);
 

@@ -162,6 +162,26 @@ describe(runReleasePrepare, () => {
     );
   });
 
+  it('passes force true when --force and --bump are provided', () => {
+    process.argv = ['node', 'script.ts', '--force', '--bump=patch'];
+
+    runReleasePrepare(makeConfig());
+
+    expect(mockReleasePrepareMono).toHaveBeenCalledWith(expect.any(Object), {
+      dryRun: false,
+      force: true,
+      bumpOverride: 'patch',
+    });
+  });
+
+  it('exits with code 1 when --force is used without --bump', () => {
+    process.argv = ['node', 'script.ts', '--force'];
+
+    expect(() => runReleasePrepare(makeConfig())).toThrow(ExitError);
+    expect(process.exit).toHaveBeenCalledWith(1);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('--force requires --bump'));
+  });
+
   it('exits with code 1 for an invalid bump type', () => {
     process.argv = ['node', 'script.ts', '--bump=invalid'];
 

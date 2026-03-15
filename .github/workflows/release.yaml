@@ -17,6 +17,11 @@ on:
           - patch
           - minor
           - major
+      force:
+        description: 'Bypass "no commits since last tag" check (requires bump)'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -28,3 +33,4 @@ jobs:
     with:
       only: ${{ inputs.only }}
       bump: ${{ inputs.bump }}
+      force: ${{ inputs.force }}

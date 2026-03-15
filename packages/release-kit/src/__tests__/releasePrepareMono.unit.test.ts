@@ -339,6 +339,87 @@ describe(releasePrepareMono, () => {
     expect(countCliffCalls()).toBe(0);
   });
 
+  it('bypasses the no-commits check when force is true', () => {
+    const config = makeConfig({
+      components: [
+        {
+          dir: 'arrays',
+          tagPrefix: 'arrays-v',
+          packageFiles: ['packages/arrays/package.json'],
+          changelogPaths: ['packages/arrays'],
+          paths: ['packages/arrays/**'],
+        },
+      ],
+    });
+
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') {
+        return 'arrays-v1.0.0\n';
+      }
+      if (cmd === 'git' && args[0] === 'log') {
+        return '';
+      }
+      return '';
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+
+    const result = releasePrepareMono(config, { dryRun: false, force: true, bumpOverride: 'patch' });
+
+    expect(result).toStrictEqual(['arrays-v1.0.1']);
+    expect(mockWriteFileSync).toHaveBeenCalledWith(
+      'packages/arrays/package.json',
+      expect.stringContaining('"version": "1.0.1"'),
+      'utf8',
+    );
+    expect(countCliffCalls()).toBe(1);
+  });
+
+  it('force-bumps one component while skipping another with no commits', () => {
+    const config = makeConfig({
+      components: [
+        {
+          dir: 'arrays',
+          tagPrefix: 'arrays-v',
+          packageFiles: ['packages/arrays/package.json'],
+          changelogPaths: ['packages/arrays'],
+          paths: ['packages/arrays/**'],
+        },
+        {
+          dir: 'strings',
+          tagPrefix: 'strings-v',
+          packageFiles: ['packages/strings/package.json'],
+          changelogPaths: ['packages/strings'],
+          paths: ['packages/strings/**'],
+        },
+      ],
+    });
+
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') {
+        const matchArg = args.find((a: string) => a.startsWith('--match='));
+        if (matchArg?.includes('arrays-v')) return 'arrays-v1.0.0\n';
+        if (matchArg?.includes('strings-v')) return 'strings-v2.0.0\n';
+      }
+      if (cmd === 'git' && args[0] === 'log') {
+        const hasStringsPath = args.includes('packages/strings/**');
+        if (hasStringsPath) {
+          return 'feat: add string helper\u001Fabc123';
+        }
+        return '';
+      }
+      return '';
+    });
+    mockReadFileSync.mockImplementation((filePath: string) => {
+      if (filePath.includes('arrays')) return JSON.stringify({ version: '1.0.0' });
+      return JSON.stringify({ version: '2.0.0' });
+    });
+
+    const result = releasePrepareMono(config, { dryRun: false, force: true, bumpOverride: 'patch' });
+
+    // Both components should be bumped: arrays via force, strings via commits
+    expect(result).toStrictEqual(['arrays-v1.0.1', 'strings-v2.0.1']);
+  });
+
   it('does not run formatCommand when no components have commits', () => {
     const config = makeConfig({
       formatCommand: 'npx prettier --write',
