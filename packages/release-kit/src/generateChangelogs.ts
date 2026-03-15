@@ -11,9 +11,11 @@ export interface GenerateChangelogOptions {
 /**
  * Generates a single changelog using git-cliff.
  *
- * Invokes `git-cliff` via `npx` using `execFileSync` with an argument array,
- * avoiding shell interpretation of paths. The `npx` command downloads
- * `git-cliff` on first invocation and caches it for subsequent calls.
+ * Invokes `git-cliff` via `npx --yes` using `execFileSync` with an argument array,
+ * avoiding shell interpretation of paths. The `--yes` flag auto-accepts the
+ * download prompt so the command does not hang in non-interactive CI environments.
+ * The `npx` command downloads `git-cliff` on first invocation and caches it for
+ * subsequent calls.
  *
  * @param config - Object containing the optional `cliffConfigPath` (defaults to 'cliff.toml').
  * @param changelogPath - Directory in which to write the CHANGELOG.md file.
@@ -38,13 +40,13 @@ export function generateChangelog(
   }
 
   if (dryRun) {
-    console.info(`  [dry-run] Would run: npx git-cliff ${args.join(' ')}`);
+    console.info(`  [dry-run] Would run: npx --yes git-cliff ${args.join(' ')}`);
     return;
   }
 
   console.info(`  Generating changelog: ${outputFile}`);
   try {
-    execFileSync('npx', ['git-cliff', ...args], { stdio: 'inherit' });
+    execFileSync('npx', ['--yes', 'git-cliff', ...args], { stdio: 'inherit' });
   } catch (error: unknown) {
     throw new Error(
       `Failed to generate changelog for ${outputFile}: ${error instanceof Error ? error.message : String(error)}`,

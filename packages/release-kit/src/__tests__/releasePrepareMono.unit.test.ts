@@ -34,7 +34,7 @@ function makeConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoRelease
 /** Find the first npx git-cliff call's args from the mock call history. */
 function findCliffCallArgs(): readonly unknown[] {
   for (const call of mockExecFileSync.mock.calls) {
-    if (call[0] === 'npx' && Array.isArray(call[1]) && call[1][0] === 'git-cliff') {
+    if (call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff')) {
       return call[1];
     }
   }
@@ -44,7 +44,7 @@ function findCliffCallArgs(): readonly unknown[] {
 /** Count how many npx git-cliff calls occurred. */
 function countCliffCalls(): number {
   return mockExecFileSync.mock.calls.filter(
-    (call: unknown[]) => call[0] === 'npx' && Array.isArray(call[1]) && call[1][0] === 'git-cliff',
+    (call: unknown[]) => call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff'),
   ).length;
 }
 
@@ -186,6 +186,7 @@ describe(releasePrepareMono, () => {
   });
 
   it('does not write files or run formatCommand when dryRun is true', () => {
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
     const config = makeConfig({
       formatCommand: 'pnpm run fmt',
       components: [
@@ -216,6 +217,12 @@ describe(releasePrepareMono, () => {
     expect(mockWriteFileSync).not.toHaveBeenCalled();
     expect(countCliffCalls()).toBe(0);
     expect(mockExecSync).not.toHaveBeenCalled();
+
+    // Verify the dry-run log includes modified file paths
+    expect(infoSpy).toHaveBeenCalledWith(
+      expect.stringContaining('pnpm run fmt packages/arrays/package.json packages/arrays/CHANGELOG.md'),
+    );
+    infoSpy.mockRestore();
   });
 
   it('runs formatCommand once after all components are processed', () => {

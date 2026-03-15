@@ -35,7 +35,11 @@ export interface ReleaseKitConfig {
   versionPatterns?: VersionPatterns;
   /** Work type overrides. Merged with defaults by key. */
   workTypes?: Record<string, WorkTypeConfig>;
-  /** Shell command to run after all changelogs are generated (e.g., 'pnpm run fmt'). */
+  /**
+   * Shell command to run after all changelogs are generated (e.g., 'pnpm run fmt').
+   * Modified file paths (package.json files and CHANGELOGs) are appended as space-separated
+   * arguments. Paths are repo-relative; file paths containing spaces are not supported.
+   */
   formatCommand?: string;
   /** Path to the cliff.toml file; defaults to 'cliff.toml' when absent. */
   cliffConfigPath?: string;
@@ -103,7 +107,11 @@ export interface MonorepoReleaseConfig {
   workTypes?: Record<string, WorkTypeConfig>;
   /** Version bump patterns. Defaults to `DEFAULT_VERSION_PATTERNS`. */
   versionPatterns?: VersionPatterns;
-  /** Shell command to run after all changelogs are generated (e.g., 'pnpm run fmt'). */
+  /**
+   * Shell command to run after all changelogs are generated (e.g., 'pnpm run fmt').
+   * Modified file paths (package.json files and CHANGELOGs) are appended as space-separated
+   * arguments. Paths are repo-relative; file paths containing spaces are not supported.
+   */
   formatCommand?: string;
   /** Path to the cliff.toml file; defaults to 'cliff.toml' when absent. */
   cliffConfigPath?: string;
@@ -127,7 +135,11 @@ export interface ReleaseConfig {
   workTypes?: Record<string, WorkTypeConfig>;
   /** Version bump patterns. Defaults to `DEFAULT_VERSION_PATTERNS`. */
   versionPatterns?: VersionPatterns;
-  /** Shell command to run after changelog generation (e.g., 'pnpm run fmt'). */
+  /**
+   * Shell command to run after changelog generation (e.g., 'pnpm run fmt').
+   * Modified file paths (package.json files and CHANGELOGs) are appended as space-separated
+   * arguments. Paths are repo-relative; file paths containing spaces are not supported.
+   */
   formatCommand?: string;
   /** Path to the cliff.toml file; defaults to 'cliff.toml' when absent. */
   cliffConfigPath?: string;
