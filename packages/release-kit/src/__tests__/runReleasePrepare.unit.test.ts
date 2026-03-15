@@ -100,6 +100,7 @@ describe(runReleasePrepare, () => {
 
     expect(mockReleasePrepareMono).toHaveBeenCalledWith(expect.objectContaining({ components: expect.any(Array) }), {
       dryRun: false,
+      force: false,
     });
   });
 
@@ -108,7 +109,10 @@ describe(runReleasePrepare, () => {
 
     runReleasePrepare(makeConfig());
 
-    expect(mockReleasePrepareMono).toHaveBeenCalledWith(expect.any(Object), { dryRun: true });
+    expect(mockReleasePrepareMono).toHaveBeenCalledWith(expect.any(Object), {
+      dryRun: true,
+      force: false,
+    });
   });
 
   it('passes bumpOverride when --bump is provided', () => {
@@ -118,6 +122,7 @@ describe(runReleasePrepare, () => {
 
     expect(mockReleasePrepareMono).toHaveBeenCalledWith(expect.any(Object), {
       dryRun: false,
+      force: false,
       bumpOverride: 'major',
     });
   });
@@ -129,6 +134,7 @@ describe(runReleasePrepare, () => {
 
     expect(mockReleasePrepareMono).toHaveBeenCalledWith(expect.any(Object), {
       dryRun: true,
+      force: false,
       bumpOverride: 'patch',
     });
   });
@@ -297,7 +303,10 @@ describe(runReleasePrepare, () => {
 
       runReleasePrepare(makeSingleConfig());
 
-      expect(mockReleasePrepare).toHaveBeenCalledWith(expect.objectContaining({ tagPrefix: 'v' }), { dryRun: false });
+      expect(mockReleasePrepare).toHaveBeenCalledWith(expect.objectContaining({ tagPrefix: 'v' }), {
+        dryRun: false,
+        force: false,
+      });
       expect(mockReleasePrepareMono).not.toHaveBeenCalled();
     });
 
@@ -308,6 +317,7 @@ describe(runReleasePrepare, () => {
 
       expect(mockReleasePrepare).toHaveBeenCalledWith(expect.any(Object), {
         dryRun: true,
+        force: false,
         bumpOverride: 'minor',
       });
     });

@@ -107,7 +107,7 @@ export function runReleasePrepare(config: MonorepoReleaseConfig | ReleaseConfig)
   const { dryRun, force, bumpOverride, only } = parseArgs(process.argv.slice(2));
   const options = {
     dryRun,
-    ...(force ? { force } : {}),
+    force,
     ...(bumpOverride === undefined ? {} : { bumpOverride }),
   };
 

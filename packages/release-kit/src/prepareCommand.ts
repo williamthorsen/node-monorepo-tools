@@ -22,7 +22,7 @@ export async function prepareCommand(argv: string[]): Promise<void> {
   const { dryRun, force, bumpOverride, only } = parseArgs(argv);
   const options = {
     dryRun,
-    ...(force ? { force } : {}),
+    force,
     ...(bumpOverride === undefined ? {} : { bumpOverride }),
   };
 
