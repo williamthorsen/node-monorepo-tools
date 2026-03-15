@@ -94,6 +94,7 @@ describe('checks', () => {
       });
 
       expect(() => usesPnpm()).toThrow('EACCES: permission denied');
+      expect(mockReadFileSync).toHaveBeenCalledWith('package.json', 'utf8');
     });
   });
 

@@ -48,7 +48,7 @@ describe('copyCliffTemplate (integration)', () => {
       expect(existsSync(cliffTomlPath)).toBe(true);
 
       const content = readFileSync(cliffTomlPath, 'utf8');
-      expect(content.length).toBeGreaterThan(0);
+      expect(content).toContain('# git-cliff configuration');
     } finally {
       process.chdir(originalCwd);
       rmSync(tempDir, { recursive: true, force: true });
