@@ -24,9 +24,7 @@ permissions:
 
 jobs:
   release:
-    uses: williamthorsen/.github/.github/workflows/release-pnpm.yaml@v2
+    uses: williamthorsen/.github/.github/workflows/release-pnpm.yaml@v3
     with:
-      node-version: '24.14.0'
-      pnpm-version: '10.32.1'
       only: ${{ inputs.only }}
       bump: ${{ inputs.bump }}
