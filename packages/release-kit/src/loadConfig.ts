@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { component } from './component.ts';
 import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
+import { isRecord } from './typeGuards.ts';
 import type { ComponentConfig, MonorepoReleaseConfig, ReleaseConfig, ReleaseKitConfig } from './types.ts';
 
 /** The path where the consumer-facing config file is expected. */
@@ -38,10 +39,6 @@ export async function loadConfig(): Promise<unknown> {
   }
 
   return resolved;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**

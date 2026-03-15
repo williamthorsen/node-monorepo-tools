@@ -86,6 +86,16 @@ describe('checks', () => {
       const result = usesPnpm();
       expect(result.ok).toBe(false);
     });
+
+    it('throws when readFileSync throws', () => {
+      mockExistsSync.mockReturnValue(false);
+      mockReadFileSync.mockImplementation(() => {
+        throw new Error('EACCES: permission denied');
+      });
+
+      expect(() => usesPnpm()).toThrow('EACCES: permission denied');
+      expect(mockReadFileSync).toHaveBeenCalledWith('package.json', 'utf8');
+    });
   });
 
   describe(hasCliffToml, () => {

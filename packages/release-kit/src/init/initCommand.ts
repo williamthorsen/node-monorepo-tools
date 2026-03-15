@@ -70,7 +70,13 @@ export async function initCommand({ dryRun }: InitOptions): Promise<number> {
     console.info('[dry-run mode]');
   }
 
-  const eligibility = await checkEligibility(dryRun);
+  let eligibility: EligibilityResult;
+  try {
+    eligibility = await checkEligibility(dryRun);
+  } catch (error: unknown) {
+    printError(`Eligibility check failed: ${error instanceof Error ? error.message : String(error)}`);
+    return 1;
+  }
   if (eligibility.status === 'fail') return 1;
   if (eligibility.status === 'abort') return 0;
 

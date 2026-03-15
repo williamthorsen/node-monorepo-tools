@@ -1,6 +1,4 @@
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
+import { isRecord } from '../typeGuards.ts';
 
 /**
  * Parse a JSON string and return the result if it is a plain object (Record<string, unknown>).

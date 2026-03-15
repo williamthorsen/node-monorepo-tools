@@ -41,7 +41,7 @@ export function bumpAllVersions(packageFiles: readonly string[], releaseType: Re
       continue;
     }
 
-    const pkg = readPackageJson(filePath);
+    const pkg = filePath === firstFile ? firstPkg : readPackageJson(filePath);
     pkg.version = newVersion;
 
     try {

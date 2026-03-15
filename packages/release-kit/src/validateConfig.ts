@@ -1,3 +1,4 @@
+import { isRecord } from './typeGuards.ts';
 import type { ReleaseKitConfig } from './types.ts';
 
 /**
@@ -39,10 +40,6 @@ export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors
   validateWorkspaceAliases(raw.workspaceAliases, config, errors);
 
   return { config, errors };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function isStringArray(value: unknown): value is string[] {

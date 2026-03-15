@@ -33,14 +33,10 @@ export function usesPnpm(): CheckResult {
     return { ok: true };
   }
 
-  try {
-    const raw = readFileSync('package.json', 'utf8');
-    const pkg = parseJsonRecord(raw);
-    if (pkg !== undefined && typeof pkg.packageManager === 'string' && pkg.packageManager.startsWith('pnpm')) {
-      return { ok: true };
-    }
-  } catch {
-    // Fall through to failure
+  const raw = readFileSync('package.json', 'utf8');
+  const pkg = parseJsonRecord(raw);
+  if (pkg !== undefined && typeof pkg.packageManager === 'string' && pkg.packageManager.startsWith('pnpm')) {
+    return { ok: true };
   }
 
   return {
