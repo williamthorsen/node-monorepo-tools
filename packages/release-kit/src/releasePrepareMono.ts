@@ -28,7 +28,7 @@ import type { MonorepoReleaseConfig, ParsedCommit, ReleaseType } from './types.t
  * @param options - Options controlling dry-run mode and optional bump override.
  */
 export function releasePrepareMono(config: MonorepoReleaseConfig, options: ReleasePrepareOptions): string[] {
-  const { dryRun, bumpOverride } = options;
+  const { dryRun, force, bumpOverride } = options;
   const workTypes = config.workTypes ?? { ...DEFAULT_WORK_TYPES };
   const versionPatterns = config.versionPatterns ?? { ...DEFAULT_VERSION_PATTERNS };
   const tags: string[] = [];
@@ -44,11 +44,11 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
     const since = tag === undefined ? '(no previous release found)' : `since ${tag}`;
     console.info(`  Found ${commits.length} commits ${since}`);
 
-    // Skip components with no changes. "No changes" means no commits touched
-    // paths matching the component's glob patterns. Root-level or cross-cutting
-    // commits not captured by the component's path globs are not counted and
-    // may cause a skip even when those changes semantically apply.
-    if (commits.length === 0) {
+    // Skip components with no changes unless --force is set. "No changes" means
+    // no commits touched paths matching the component's glob patterns. Root-level
+    // or cross-cutting commits not captured by the component's path globs are not
+    // counted and may cause a skip even when those changes semantically apply.
+    if (commits.length === 0 && !force) {
       console.info(`  No changes for ${name} ${since}. Skipping.`);
       continue;
     }

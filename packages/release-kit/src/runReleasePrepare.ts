@@ -35,6 +35,7 @@ Legacy entry point for release preparation. Prefer the CLI:
 Options:
   --dry-run             Run without modifying any files
   --bump=major|minor|patch  Override the bump type for all components
+  --force               Bypass the "no commits since last tag" check (monorepo only, requires --bump)
   --only=name1,name2    Only process the named components (comma-separated, monorepo only)
   --help                Show this help message
 `);
@@ -43,16 +44,20 @@ Options:
 /** Parse CLI arguments into structured options. */
 export function parseArgs(argv: string[]): {
   dryRun: boolean;
+  force: boolean;
   bumpOverride: ReleaseType | undefined;
   only: string[] | undefined;
 } {
   let dryRun = false;
+  let force = false;
   let bumpOverride: ReleaseType | undefined;
   let only: string[] | undefined;
 
   for (const arg of argv) {
     if (arg === '--dry-run') {
       dryRun = true;
+    } else if (arg === '--force') {
+      force = true;
     } else if (arg.startsWith('--bump=')) {
       const value = arg.slice('--bump='.length);
       if (!isReleaseType(value)) {
@@ -76,7 +81,12 @@ export function parseArgs(argv: string[]): {
     }
   }
 
-  return { dryRun, bumpOverride, only };
+  if (force && bumpOverride === undefined) {
+    console.error('Error: --force requires --bump to specify the version bump type');
+    process.exit(1);
+  }
+
+  return { dryRun, force, bumpOverride, only };
 }
 
 /**
@@ -94,8 +104,12 @@ export function parseArgs(argv: string[]): {
  * @param config - A monorepo or single-package release configuration.
  */
 export function runReleasePrepare(config: MonorepoReleaseConfig | ReleaseConfig): void {
-  const { dryRun, bumpOverride, only } = parseArgs(process.argv.slice(2));
-  const options = { dryRun, ...(bumpOverride === undefined ? {} : { bumpOverride }) };
+  const { dryRun, force, bumpOverride, only } = parseArgs(process.argv.slice(2));
+  const options = {
+    dryRun,
+    force,
+    ...(bumpOverride === undefined ? {} : { bumpOverride }),
+  };
 
   if (!isMonorepoConfig(config)) {
     if (only !== undefined) {

@@ -19,8 +19,12 @@ import { validateConfig } from './validateConfig.ts';
  * 5. Writes `.release-tags` for CI consumption.
  */
 export async function prepareCommand(argv: string[]): Promise<void> {
-  const { dryRun, bumpOverride, only } = parseArgs(argv);
-  const options = { dryRun, ...(bumpOverride === undefined ? {} : { bumpOverride }) };
+  const { dryRun, force, bumpOverride, only } = parseArgs(argv);
+  const options = {
+    dryRun,
+    force,
+    ...(bumpOverride === undefined ? {} : { bumpOverride }),
+  };
 
   // 1. Load config file
   let rawConfig: unknown;

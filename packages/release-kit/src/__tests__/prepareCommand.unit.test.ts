@@ -72,7 +72,7 @@ describe(prepareCommand, () => {
       expect.objectContaining({
         components: expect.arrayContaining([expect.objectContaining({ tagPrefix: 'arrays-v' })]),
       }),
-      { dryRun: false },
+      { dryRun: false, force: false },
     );
   });
 
@@ -81,13 +81,19 @@ describe(prepareCommand, () => {
 
     await prepareCommand([]);
 
-    expect(mockReleasePrepare).toHaveBeenCalledWith(expect.objectContaining({ tagPrefix: 'v' }), { dryRun: false });
+    expect(mockReleasePrepare).toHaveBeenCalledWith(expect.objectContaining({ tagPrefix: 'v' }), {
+      dryRun: false,
+      force: false,
+    });
   });
 
   it('passes dryRun from --dry-run flag', async () => {
     await prepareCommand(['--dry-run']);
 
-    expect(mockReleasePrepareMono).toHaveBeenCalledWith(expect.any(Object), { dryRun: true });
+    expect(mockReleasePrepareMono).toHaveBeenCalledWith(expect.any(Object), {
+      dryRun: true,
+      force: false,
+    });
   });
 
   it('passes bumpOverride from --bump flag', async () => {
@@ -95,7 +101,18 @@ describe(prepareCommand, () => {
 
     expect(mockReleasePrepareMono).toHaveBeenCalledWith(expect.any(Object), {
       dryRun: false,
+      force: false,
       bumpOverride: 'minor',
+    });
+  });
+
+  it('passes force from --force flag', async () => {
+    await prepareCommand(['--force', '--bump=patch']);
+
+    expect(mockReleasePrepareMono).toHaveBeenCalledWith(expect.any(Object), {
+      dryRun: false,
+      force: true,
+      bumpOverride: 'patch',
     });
   });
 
