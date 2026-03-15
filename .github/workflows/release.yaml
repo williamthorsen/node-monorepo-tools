@@ -34,5 +34,5 @@ jobs:
       only: ${{ inputs.only }}
       bump: ${{ inputs.bump }}
       # TODO: The reusable workflow (release-pnpm.yaml@v3) does not yet accept `force`.
-      # Update williamthorsen/.github to declare and forward this input before it takes effect.
-      force: ${{ inputs.force }}
+      # After updating williamthorsen/.github to declare and forward this input,
+      # add `force: ${{ inputs.force }}` here.
