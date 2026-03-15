@@ -32,6 +32,7 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
   const workTypes = config.workTypes ?? { ...DEFAULT_WORK_TYPES };
   const versionPatterns = config.versionPatterns ?? { ...DEFAULT_VERSION_PATTERNS };
   const tags: string[] = [];
+  const modifiedFiles: string[] = [];
 
   for (const component of config.components) {
     const name = component.dir;
@@ -77,6 +78,7 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
     const newVersion = bumpAllVersions(component.packageFiles, releaseType, dryRun);
     const newTag = `${component.tagPrefix}${newVersion}`;
     tags.push(newTag);
+    modifiedFiles.push(...component.packageFiles, ...component.changelogPaths.map((p) => `${p}/CHANGELOG.md`));
 
     // 4. Generate changelogs for each configured path with include-path filtering
     console.info('  Generating changelogs...');
@@ -86,17 +88,18 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
     console.info(`  Component release prepared: ${newTag}`);
   }
 
-  // 5. Run format command once after all components are processed
+  // 5. Run format command once after all components are processed, appending modified file paths
   if (tags.length > 0 && config.formatCommand !== undefined) {
+    const fullCommand = `${config.formatCommand} ${modifiedFiles.join(' ')}`;
     if (dryRun) {
-      console.info(`\n  [dry-run] Would run format command: ${config.formatCommand}`);
+      console.info(`\n  [dry-run] Would run format command: ${fullCommand}`);
     } else {
-      console.info(`\n  Running format command: ${config.formatCommand}`);
+      console.info(`\n  Running format command: ${fullCommand}`);
       try {
-        execSync(config.formatCommand, { stdio: 'inherit' });
+        execSync(fullCommand, { stdio: 'inherit' });
       } catch (error: unknown) {
         throw new Error(
-          `Format command failed ('${config.formatCommand}'): ${error instanceof Error ? error.message : String(error)}`,
+          `Format command failed ('${fullCommand}'): ${error instanceof Error ? error.message : String(error)}`,
         );
       }
     }

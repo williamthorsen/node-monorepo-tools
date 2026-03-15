@@ -7,7 +7,7 @@ Provides a self-contained CLI that auto-discovers workspaces from `pnpm-workspac
 ## Installation
 
 ```bash
-pnpm add -D @williamthorsen/release-kit git-cliff
+pnpm add -D @williamthorsen/release-kit
 ```
 
 ## Quick start
@@ -88,8 +88,8 @@ const config: ReleaseKitConfig = {
   // Exclude a component from release processing
   components: [{ dir: 'internal-tools', shouldExclude: true }],
 
-  // Run a formatter after changelog generation
-  formatCommand: 'pnpm run fmt',
+  // Run a formatter after changelog generation (modified file paths are appended as arguments)
+  formatCommand: 'npx prettier --write',
 
   // Override the default version patterns
   versionPatterns: { major: ['!'], minor: ['feat', 'feature'] },
@@ -105,14 +105,14 @@ The config file supports both `export default config` and `export const config =
 
 ### `ReleaseKitConfig` reference
 
-| Field              | Type                             | Description                                                  |
-| ------------------ | -------------------------------- | ------------------------------------------------------------ |
-| `cliffConfigPath`  | `string`                         | Path to `cliff.toml` (defaults to `'cliff.toml'`)            |
-| `components`       | `ComponentOverride[]`            | Override or exclude discovered components (matched by `dir`) |
-| `formatCommand`    | `string`                         | Shell command to run after changelog generation              |
-| `versionPatterns`  | `VersionPatterns`                | Rules for which commit types trigger major/minor bumps       |
-| `workspaceAliases` | `Record<string, string>`         | Maps shorthand workspace names to canonical names in commits |
-| `workTypes`        | `Record<string, WorkTypeConfig>` | Work type definitions, merged with defaults by key           |
+| Field              | Type                             | Description                                                                                    |
+| ------------------ | -------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `cliffConfigPath`  | `string`                         | Path to `cliff.toml` (defaults to `'cliff.toml'`)                                              |
+| `components`       | `ComponentOverride[]`            | Override or exclude discovered components (matched by `dir`)                                   |
+| `formatCommand`    | `string`                         | Shell command to run after changelog generation; modified file paths are appended as arguments |
+| `versionPatterns`  | `VersionPatterns`                | Rules for which commit types trigger major/minor bumps                                         |
+| `workspaceAliases` | `Record<string, string>`         | Maps shorthand workspace names to canonical names in commits                                   |
+| `workTypes`        | `Record<string, WorkTypeConfig>` | Work type definitions, merged with defaults by key                                             |
 
 All fields are optional.
 
@@ -230,14 +230,9 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: pnpm/action-setup@v4
-
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'pnpm'
-
-      - run: pnpm install
+          node-version: '24'
 
       - name: Run release preparation
         run: |
@@ -340,7 +335,7 @@ Then customize as needed for your project.
 This package shells out to two external tools:
 
 - **`git`** — must be available on `PATH`. Used to find tags and retrieve commit history.
-- **`git-cliff`** — must be available on `PATH`. Add `git-cliff` as a dev dependency to make it available in CI.
+- **`git-cliff`** — automatically downloaded and cached via `npx` on first invocation. No need to install it as a dev dependency.
 
 ## Legacy script-based approach
 
@@ -353,7 +348,7 @@ import { component } from '@williamthorsen/release-kit';
 
 export const config: MonorepoReleaseConfig = {
   components: [component('packages/arrays'), component('packages/strings')],
-  formatCommand: 'pnpm run fmt',
+  formatCommand: 'npx prettier --write',
 };
 ```
 
@@ -369,7 +364,7 @@ The key difference: the script-based approach requires manually listing every co
 
 ## Migration from changesets
 
-1. Add `@williamthorsen/release-kit` and `git-cliff` as dev dependencies.
+1. Add `@williamthorsen/release-kit` as a dev dependency.
 2. Remove `@changesets/cli` from dev dependencies.
 3. Delete the `.changeset/` directory.
 4. Run `npx @williamthorsen/release-kit init` to scaffold workflow and config files.
