@@ -44,8 +44,7 @@ describe(bumpAllVersions, () => {
 
     bumpAllVersions(['packages/a/package.json', 'packages/b/package.json', 'packages/c/package.json'], 'minor', false);
 
-    // First file is read once (before the loop). The loop reuses it for the first entry,
-    // so only two additional reads for b and c.
+    // One read per file: the first file is read before the loop and reused inside it.
     expect(mockReadFileSync).toHaveBeenCalledTimes(3);
     expect(mockReadFileSync).toHaveBeenCalledWith('packages/a/package.json', 'utf8');
     expect(mockReadFileSync).toHaveBeenCalledWith('packages/b/package.json', 'utf8');

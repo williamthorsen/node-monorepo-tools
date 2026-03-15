@@ -29,15 +29,7 @@ async function checkEligibility(dryRun: boolean): Promise<EligibilityResult> {
 
   if (!runRequiredCheck('Git repository detected', isGitRepo())) return { status: 'fail', overwrite: false };
   if (!runRequiredCheck('package.json found', hasPackageJson())) return { status: 'fail', overwrite: false };
-
-  let pnpmResult: CheckResult;
-  try {
-    pnpmResult = usesPnpm();
-  } catch (error: unknown) {
-    printError(`Failed to check pnpm usage: ${error instanceof Error ? error.message : String(error)}`);
-    return { status: 'fail', overwrite: false };
-  }
-  if (!runRequiredCheck('pnpm detected', pnpmResult)) return { status: 'fail', overwrite: false };
+  if (!runRequiredCheck('pnpm detected', usesPnpm())) return { status: 'fail', overwrite: false };
 
   const cliffCheck = hasCliffToml();
   if (cliffCheck.ok) {
@@ -78,7 +70,13 @@ export async function initCommand({ dryRun }: InitOptions): Promise<number> {
     console.info('[dry-run mode]');
   }
 
-  const eligibility = await checkEligibility(dryRun);
+  let eligibility: EligibilityResult;
+  try {
+    eligibility = await checkEligibility(dryRun);
+  } catch (error: unknown) {
+    printError(`Eligibility check failed: ${error instanceof Error ? error.message : String(error)}`);
+    return 1;
+  }
   if (eligibility.status === 'fail') return 1;
   if (eligibility.status === 'abort') return 0;
 
