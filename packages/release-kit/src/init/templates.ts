@@ -14,12 +14,15 @@ const config: ReleaseKitConfig = {
   // components: [
   //   { dir: 'my-package', shouldExclude: true },
   // ],
-  // Uncomment to override the default version patterns:
-  // versionPatterns: { major: ['!'], minor: ['feat', 'feature'] },
-  // Uncomment to add custom work types (merged with defaults):
-  // workTypes: { perf: { header: 'Performance' } },
+
   // TODO: Uncomment and adjust if you have a format command
   // formatCommand: 'npx prettier --write',
+
+  // Uncomment to override the default version patterns:
+  // versionPatterns: { major: ['!'], minor: ['feat', 'feature'] },
+
+  // Uncomment to add custom work types (merged with defaults):
+  // workTypes: { perf: { header: 'Performance' } },
 };
 
 export default config;
@@ -29,12 +32,14 @@ export default config;
   return `import type { ReleaseKitConfig } from '@williamthorsen/release-kit';
 
 const config: ReleaseKitConfig = {
-  // Uncomment to override the default version patterns:
-  // versionPatterns: { major: ['!'], minor: ['feat', 'feature'] },
-  // Uncomment to add custom work types (merged with defaults):
-  // workTypes: { perf: { header: 'Performance' } },
   // TODO: Uncomment and adjust if you have a format command
   // formatCommand: 'npx prettier --write',
+
+  // Uncomment to override the default version patterns:
+  // versionPatterns: { major: ['!'], minor: ['feat', 'feature'] },
+
+  // Uncomment to add custom work types (merged with defaults):
+  // workTypes: { perf: { header: 'Performance' } },
 };
 
 export default config;
@@ -70,7 +75,7 @@ permissions:
 
 jobs:
   release:
-    uses: williamthorsen/.github/.github/workflows/release-pnpm.yaml@v3
+    uses: williamthorsen/node-monorepo-tools/.github/workflows/release-workflow.yaml@release-workflow-v1
     with:
       only: \${{ inputs.only }}
       bump: \${{ inputs.bump }}
@@ -99,7 +104,7 @@ permissions:
 
 jobs:
   release:
-    uses: williamthorsen/.github/.github/workflows/release-pnpm.yaml@v3
+    uses: williamthorsen/node-monorepo-tools/.github/workflows/release-workflow.yaml@release-workflow-v1
     with:
       bump: \${{ inputs.bump }}
 `;
