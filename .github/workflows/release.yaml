@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   release:
-    uses: williamthorsen/.github/.github/workflows/release-pnpm.yaml@v3
+    uses: ./.github/workflows/release-workflow.yaml
     with:
       only: ${{ inputs.only }}
       bump: ${{ inputs.bump }}

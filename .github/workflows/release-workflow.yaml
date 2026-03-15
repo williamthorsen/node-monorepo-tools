@@ -1,0 +1,113 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Release
+
+# Reusable release workflow for projects using @williamthorsen/release-kit.
+#
+# Runs `npx @williamthorsen/release-kit prepare` to bump versions and generate
+# changelogs. The CLI writes computed tag names to `/tmp/release-kit/.release-tags`.
+# This workflow reads that file instead of deriving tags independently,
+# so `tagPrefix` in the release config is the single source of truth.
+#
+# pnpm install is intentionally omitted: release-kit runs git-cliff and prettier
+# via `npx`, so no local dependencies are needed.
+#
+# Usage:
+#   jobs:
+#     release:
+#       uses: williamthorsen/node-monorepo-tools/.github/workflows/release-workflow.yaml@release-workflow-v1
+#       with:
+#         node-version: '24'
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        type: string
+        default: '24'
+      prepare-command:
+        description: 'Command to run for release preparation (override for repos that need custom logic)'
+        type: string
+        default: 'npx @williamthorsen/release-kit prepare'
+      only:
+        description: 'Components to release (comma-separated, monorepo only)'
+        type: string
+        default: ''
+      bump:
+        description: 'Override version bump type'
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+  packages: read
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Run release preparation
+        run: |
+          ARGS=""
+          if [ -n "${{ inputs.only }}" ]; then
+            ARGS="$ARGS --only=${{ inputs.only }}"
+          fi
+          if [ -n "${{ inputs.bump }}" ]; then
+            ARGS="$ARGS --bump=${{ inputs.bump }}"
+          fi
+          ${{ inputs.prepare-command }} $ARGS
+
+      - name: Check for changes
+        id: check
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No release-worthy changes found."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Determine tags
+        if: steps.check.outputs.changed == 'true'
+        id: tags
+        run: |
+          TAGS_FILE="/tmp/release-kit/.release-tags"
+          if [ ! -f "$TAGS_FILE" ]; then
+            echo "Error: $TAGS_FILE not found" >&2
+            exit 1
+          fi
+          TAGS=$(tr '\n' ' ' < "$TAGS_FILE" | xargs)
+          echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
+          echo "Releasing: $TAGS"
+
+      - name: Commit, tag, and push
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          TAGS="${{ steps.tags.outputs.tags }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "release: ${TAGS}"
+
+          for TAG in $TAGS; do
+            git tag "$TAG"
+          done
+
+          git push origin main $TAGS
