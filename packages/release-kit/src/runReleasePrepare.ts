@@ -35,7 +35,7 @@ Legacy entry point for release preparation. Prefer the CLI:
 Options:
   --dry-run             Run without modifying any files
   --bump=major|minor|patch  Override the bump type for all components
-  --force               Bypass the "no commits since last tag" check (requires --bump)
+  --force               Bypass the "no commits since last tag" check (monorepo only, requires --bump)
   --only=name1,name2    Only process the named components (comma-separated, monorepo only)
   --help                Show this help message
 `);

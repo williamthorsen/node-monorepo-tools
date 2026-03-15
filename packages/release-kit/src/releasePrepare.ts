@@ -12,7 +12,7 @@ import type { ParsedCommit, ReleaseConfig, ReleaseType } from './types.ts';
 export interface ReleasePrepareOptions {
   /** If true, logs actions without modifying files. */
   dryRun: boolean;
-  /** Bypass the "no commits since last tag" check. Requires `bumpOverride`. */
+  /** Bypass the "no commits since last tag" check (monorepo only). Requires `bumpOverride`. */
   force?: boolean;
   /** Override the bump type instead of determining it from commits. */
   bumpOverride?: ReleaseType;

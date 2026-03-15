@@ -374,7 +374,7 @@ describe(releasePrepareMono, () => {
     expect(countCliffCalls()).toBe(1);
   });
 
-  it('force-bumps one component while skipping another with no commits', () => {
+  it('force-bumps a component with no commits while also bumping one with commits', () => {
     const config = makeConfig({
       components: [
         {
@@ -416,8 +416,39 @@ describe(releasePrepareMono, () => {
 
     const result = releasePrepareMono(config, { dryRun: false, force: true, bumpOverride: 'patch' });
 
-    // Both components should be bumped: arrays via force, strings via commits
+    // arrays is bumped via --force (0 commits); strings is bumped via commits; both use bumpOverride: 'patch'
     expect(result).toStrictEqual(['arrays-v1.0.1', 'strings-v2.0.1']);
+  });
+
+  it('does not write files when force and dryRun are both true', () => {
+    const config = makeConfig({
+      components: [
+        {
+          dir: 'arrays',
+          tagPrefix: 'arrays-v',
+          packageFiles: ['packages/arrays/package.json'],
+          changelogPaths: ['packages/arrays'],
+          paths: ['packages/arrays/**'],
+        },
+      ],
+    });
+
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') {
+        return 'arrays-v1.0.0\n';
+      }
+      if (cmd === 'git' && args[0] === 'log') {
+        return '';
+      }
+      return '';
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+
+    const result = releasePrepareMono(config, { dryRun: true, force: true, bumpOverride: 'patch' });
+
+    expect(result).toStrictEqual(['arrays-v1.0.1']);
+    expect(mockWriteFileSync).not.toHaveBeenCalled();
+    expect(countCliffCalls()).toBe(0);
   });
 
   it('does not run formatCommand when no components have commits', () => {
