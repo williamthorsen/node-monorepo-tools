@@ -39,7 +39,7 @@ describe(releaseWorkflow, () => {
   it('generates a monorepo workflow with only input but no monorepo flag', () => {
     const workflow = releaseWorkflow('monorepo');
 
-    expect(workflow).toContain('release-pnpm.yaml@v2');
+    expect(workflow).toContain('release-pnpm.yaml@v3');
     expect(workflow).not.toContain('monorepo:');
     expect(workflow).toContain('only:');
     expect(workflow).toContain('inputs.only');
@@ -48,18 +48,18 @@ describe(releaseWorkflow, () => {
   it('generates a single-package workflow without only input', () => {
     const workflow = releaseWorkflow('single-package');
 
-    expect(workflow).toContain('release-pnpm.yaml@v2');
+    expect(workflow).toContain('release-pnpm.yaml@v3');
     expect(workflow).not.toContain('monorepo:');
     expect(workflow).not.toContain('inputs.only');
   });
 
-  it('includes TODO for node and pnpm versions in both types', () => {
+  it('does not include version inputs', () => {
     const mono = releaseWorkflow('monorepo');
     const single = releaseWorkflow('single-package');
 
-    expect(mono).toContain('# TODO:');
-    expect(single).toContain('# TODO:');
-    expect(mono).toContain('node-version:');
-    expect(single).toContain('node-version:');
+    expect(mono).not.toContain('node-version:');
+    expect(single).not.toContain('node-version:');
+    expect(mono).not.toContain('pnpm-version:');
+    expect(single).not.toContain('pnpm-version:');
   });
 });

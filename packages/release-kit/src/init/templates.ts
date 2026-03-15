@@ -19,7 +19,7 @@ const config: ReleaseKitConfig = {
   // Uncomment to add custom work types (merged with defaults):
   // workTypes: { perf: { header: 'Performance' } },
   // TODO: Uncomment and adjust if you have a format command
-  // formatCommand: 'pnpm run fmt',
+  // formatCommand: 'npx prettier --write',
 };
 
 export default config;
@@ -34,7 +34,7 @@ const config: ReleaseKitConfig = {
   // Uncomment to add custom work types (merged with defaults):
   // workTypes: { perf: { header: 'Performance' } },
   // TODO: Uncomment and adjust if you have a format command
-  // formatCommand: 'pnpm run fmt',
+  // formatCommand: 'npx prettier --write',
 };
 
 export default config;
@@ -70,11 +70,8 @@ permissions:
 
 jobs:
   release:
-    uses: williamthorsen/.github/.github/workflows/release-pnpm.yaml@v2
+    uses: williamthorsen/.github/.github/workflows/release-pnpm.yaml@v3
     with:
-      # TODO: Set the Node.js and pnpm versions for your project
-      node-version: '24'
-      pnpm-version: '10.32.1'
       only: \${{ inputs.only }}
       bump: \${{ inputs.bump }}
 `;
@@ -102,11 +99,8 @@ permissions:
 
 jobs:
   release:
-    uses: williamthorsen/.github/.github/workflows/release-pnpm.yaml@v2
+    uses: williamthorsen/.github/.github/workflows/release-pnpm.yaml@v3
     with:
-      # TODO: Set the Node.js and pnpm versions for your project
-      node-version: '24'
-      pnpm-version: '10.32.1'
       bump: \${{ inputs.bump }}
 `;
 }

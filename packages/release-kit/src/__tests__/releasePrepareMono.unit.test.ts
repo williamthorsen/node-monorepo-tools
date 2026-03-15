@@ -31,19 +31,21 @@ function makeConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoRelease
   };
 }
 
-/** Find the first git-cliff call's args from the mock call history. */
+/** Find the first npx git-cliff call's args from the mock call history. */
 function findCliffCallArgs(): readonly unknown[] {
   for (const call of mockExecFileSync.mock.calls) {
-    if (call[0] === 'git-cliff' && Array.isArray(call[1])) {
+    if (call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff')) {
       return call[1];
     }
   }
-  throw new Error('No git-cliff call found in mock history');
+  throw new Error('No npx git-cliff call found in mock history');
 }
 
-/** Count how many git-cliff calls occurred. */
+/** Count how many npx git-cliff calls occurred. */
 function countCliffCalls(): number {
-  return mockExecFileSync.mock.calls.filter((call: unknown[]) => call[0] === 'git-cliff').length;
+  return mockExecFileSync.mock.calls.filter(
+    (call: unknown[]) => call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff'),
+  ).length;
 }
 
 describe(releasePrepareMono, () => {
@@ -184,8 +186,9 @@ describe(releasePrepareMono, () => {
   });
 
   it('does not write files or run formatCommand when dryRun is true', () => {
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
     const config = makeConfig({
-      formatCommand: 'pnpm run fmt',
+      formatCommand: 'npx prettier --write',
       components: [
         {
           dir: 'arrays',
@@ -214,11 +217,17 @@ describe(releasePrepareMono, () => {
     expect(mockWriteFileSync).not.toHaveBeenCalled();
     expect(countCliffCalls()).toBe(0);
     expect(mockExecSync).not.toHaveBeenCalled();
+
+    // Verify the dry-run log includes modified file paths
+    expect(infoSpy).toHaveBeenCalledWith(
+      expect.stringContaining('npx prettier --write packages/arrays/package.json packages/arrays/CHANGELOG.md'),
+    );
+    infoSpy.mockRestore();
   });
 
   it('runs formatCommand once after all components are processed', () => {
     const config = makeConfig({
-      formatCommand: 'pnpm run fmt',
+      formatCommand: 'npx prettier --write',
       components: [
         {
           dir: 'arrays',
@@ -253,7 +262,10 @@ describe(releasePrepareMono, () => {
     releasePrepareMono(config, { dryRun: false });
 
     expect(mockExecSync).toHaveBeenCalledTimes(1);
-    expect(mockExecSync).toHaveBeenCalledWith('pnpm run fmt', { stdio: 'inherit' });
+    expect(mockExecSync).toHaveBeenCalledWith(
+      'npx prettier --write packages/arrays/package.json packages/arrays/CHANGELOG.md packages/strings/package.json packages/strings/CHANGELOG.md',
+      { stdio: 'inherit' },
+    );
   });
 
   it('uses bumpOverride instead of commit-derived bump type', () => {
@@ -329,7 +341,7 @@ describe(releasePrepareMono, () => {
 
   it('does not run formatCommand when no components have commits', () => {
     const config = makeConfig({
-      formatCommand: 'pnpm run fmt',
+      formatCommand: 'npx prettier --write',
       components: [
         {
           dir: 'arrays',

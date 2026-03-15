@@ -1,7 +1,7 @@
 import type { ReleaseKitConfig } from '@williamthorsen/release-kit';
 
 const config: ReleaseKitConfig = {
-  formatCommand: 'pnpm run fmt',
+  formatCommand: 'npx prettier --write',
 };
 
 export default config;

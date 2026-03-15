@@ -67,17 +67,19 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   console.info('Generating changelogs...');
   generateChangelogs(config, newTag, dryRun);
 
-  // 5. Run format command if configured
+  // 5. Run format command if configured, appending modified file paths
   if (config.formatCommand !== undefined) {
+    const modifiedFiles = [...config.packageFiles, ...config.changelogPaths.map((p) => `${p}/CHANGELOG.md`)];
+    const fullCommand = `${config.formatCommand} ${modifiedFiles.join(' ')}`;
     if (dryRun) {
-      console.info(`  [dry-run] Would run format command: ${config.formatCommand}`);
+      console.info(`  [dry-run] Would run format command: ${fullCommand}`);
     } else {
-      console.info(`  Running format command: ${config.formatCommand}`);
+      console.info(`  Running format command: ${fullCommand}`);
       try {
-        execSync(config.formatCommand, { stdio: 'inherit' });
+        execSync(fullCommand, { stdio: 'inherit' });
       } catch (error: unknown) {
         throw new Error(
-          `Format command failed ('${config.formatCommand}'): ${error instanceof Error ? error.message : String(error)}`,
+          `Format command failed ('${fullCommand}'): ${error instanceof Error ? error.message : String(error)}`,
         );
       }
     }

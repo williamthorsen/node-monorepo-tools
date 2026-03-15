@@ -20,8 +20,8 @@ describe(generateChangelog, () => {
     generateChangelog(config, 'packages/arrays', 'v1.0.0', false);
 
     expect(mockExecFileSync).toHaveBeenCalledWith(
-      'git-cliff',
-      ['--config', 'cliff.toml', '--output', 'packages/arrays/CHANGELOG.md', '--tag', 'v1.0.0'],
+      'npx',
+      ['--yes', 'git-cliff', '--config', 'cliff.toml', '--output', 'packages/arrays/CHANGELOG.md', '--tag', 'v1.0.0'],
       { stdio: 'inherit' },
     );
   });
@@ -34,8 +34,10 @@ describe(generateChangelog, () => {
     });
 
     expect(mockExecFileSync).toHaveBeenCalledWith(
-      'git-cliff',
+      'npx',
       [
+        '--yes',
+        'git-cliff',
         '--config',
         'cliff.toml',
         '--output',
@@ -57,8 +59,10 @@ describe(generateChangelog, () => {
     });
 
     expect(mockExecFileSync).toHaveBeenCalledWith(
-      'git-cliff',
+      'npx',
       [
+        '--yes',
+        'git-cliff',
         '--config',
         'cliff.toml',
         '--output',
@@ -80,8 +84,8 @@ describe(generateChangelog, () => {
     generateChangelog(config, 'packages/arrays', 'v1.0.0', false, { includePaths: [] });
 
     expect(mockExecFileSync).toHaveBeenCalledWith(
-      'git-cliff',
-      ['--config', 'cliff.toml', '--output', 'packages/arrays/CHANGELOG.md', '--tag', 'v1.0.0'],
+      'npx',
+      ['--yes', 'git-cliff', '--config', 'cliff.toml', '--output', 'packages/arrays/CHANGELOG.md', '--tag', 'v1.0.0'],
       { stdio: 'inherit' },
     );
   });
@@ -103,8 +107,8 @@ describe(generateChangelog, () => {
     generateChangelog(config, 'packages/arrays', 'v1.0.0', false);
 
     expect(mockExecFileSync).toHaveBeenCalledWith(
-      'git-cliff',
-      ['--config', 'cliff.toml', '--output', 'packages/arrays/CHANGELOG.md', '--tag', 'v1.0.0'],
+      'npx',
+      ['--yes', 'git-cliff', '--config', 'cliff.toml', '--output', 'packages/arrays/CHANGELOG.md', '--tag', 'v1.0.0'],
       { stdio: 'inherit' },
     );
   });
@@ -128,13 +132,13 @@ describe(generateChangelogs, () => {
 
     expect(mockExecFileSync).toHaveBeenCalledTimes(2);
     expect(mockExecFileSync).toHaveBeenCalledWith(
-      'git-cliff',
-      ['--config', 'cliff.toml', '--output', 'packages/arrays/CHANGELOG.md', '--tag', 'v1.0.0'],
+      'npx',
+      ['--yes', 'git-cliff', '--config', 'cliff.toml', '--output', 'packages/arrays/CHANGELOG.md', '--tag', 'v1.0.0'],
       { stdio: 'inherit' },
     );
     expect(mockExecFileSync).toHaveBeenCalledWith(
-      'git-cliff',
-      ['--config', 'cliff.toml', '--output', 'packages/strings/CHANGELOG.md', '--tag', 'v1.0.0'],
+      'npx',
+      ['--yes', 'git-cliff', '--config', 'cliff.toml', '--output', 'packages/strings/CHANGELOG.md', '--tag', 'v1.0.0'],
       { stdio: 'inherit' },
     );
   });
