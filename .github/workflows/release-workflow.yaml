@@ -22,7 +22,7 @@ on:
       prepare-command:
         description: 'Command to run for release preparation (override for repos that need custom logic)'
         type: string
-        default: 'npx @williamthorsen/release-kit prepare'
+        default: 'npx --yes @williamthorsen/release-kit prepare'
       only:
         description: 'Components to release (comma-separated, monorepo only)'
         type: string
