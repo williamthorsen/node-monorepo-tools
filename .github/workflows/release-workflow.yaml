@@ -123,4 +123,4 @@ jobs:
             git tag "$TAG"
           done
 
-          git push origin main $TAGS
+          git push origin HEAD $TAGS
