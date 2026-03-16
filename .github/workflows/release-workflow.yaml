@@ -3,7 +3,7 @@ name: Release
 
 # Reusable release workflow for projects using @williamthorsen/release-kit.
 #
-# Runs `npx @williamthorsen/release-kit prepare` to bump versions and generate
+# Runs `@williamthorsen/release-kit prepare` via npm exec to bump versions and generate
 # changelogs. The CLI writes computed tag names to `/tmp/release-kit/.release-tags`.
 # This workflow reads that file instead of deriving tags independently,
 # so `tagPrefix` in the release config is the single source of truth.
@@ -22,7 +22,7 @@ on:
       prepare-command:
         description: 'Command to run for release preparation (override for repos that need custom logic)'
         type: string
-        default: 'npx --yes @williamthorsen/release-kit prepare'
+        default: 'npm exec --yes --package=@williamthorsen/release-kit -- release-kit prepare'
       only:
         description: 'Components to release (comma-separated, monorepo only)'
         type: string
