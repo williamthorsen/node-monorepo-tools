@@ -65,6 +65,9 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Disable Corepack
+        run: corepack disable
+
       - name: Run release preparation
         run: |
           ARGS=""
