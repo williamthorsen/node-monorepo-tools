@@ -57,16 +57,16 @@ jobs:
           fetch-depth: 0
           token: ${{ github.token }}
 
+      # Disable Corepack before Node.js setup so that actions/setup-node
+      # does not attempt to install the package manager declared in
+      # package.json. This workflow only uses npx, which works with plain npm.
+      - name: Disable Corepack
+        run: corepack disable
+
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
           node-version: ${{ inputs.node-version }}
-
-      # Disable Corepack so that repos declaring a packageManager field
-      # (e.g., pnpm) don't require that package manager to be installed.
-      # This workflow only uses npx, which works with plain npm.
-      - name: Disable Corepack
-        run: corepack disable
 
       - name: Run release preparation
         run: |
