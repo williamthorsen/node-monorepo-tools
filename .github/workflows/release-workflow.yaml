@@ -54,9 +54,13 @@ jobs:
 
       # Disable Corepack so that repos declaring a packageManager field
       # (e.g., pnpm) don't require that package manager to be installed.
-      # This workflow only uses npx, which works with the runner's pre-installed Node.
       - name: Disable Corepack
         run: corepack disable
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
 
       - name: Run release preparation
         run: |
