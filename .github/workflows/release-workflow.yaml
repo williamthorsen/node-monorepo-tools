@@ -55,6 +55,11 @@ jobs:
           fetch-depth: 0
           token: ${{ github.token }}
 
+      # Strip the packageManager field so that actions/setup-node does not
+      # try to install it. The field is irrelevant for release preparation.
+      - name: Neutralize packageManager field
+        run: node -e "const fs=require('fs'),f='package.json',p=JSON.parse(fs.readFileSync(f));delete p.packageManager;fs.writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
+
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
