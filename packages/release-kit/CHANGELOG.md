@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [release-kit-v2.0.0] - 2026-03-16
+
+### Features
+
+- #20 release-kit|feat!: Move reusable release workflow into repo (#26)
+
+Move the reusable release workflow from `williamthorsen/.github` into this repository as `.github/workflows/release-workflow.yaml`, versioned independently via `release-workflow-v{major}` tags. Update `release-kit init` templates to reference the new workflow location. The workflow no longer requires pnpm: it installs release-kit globally and runs it directly.
+
+- #22 release-kit|feat: Add --force flag to release-kit prepare (#25)
+
+Add a `--force` flag that allows release preparation to proceed even when no release-worthy commits are found.
+
+- #7 release-kit|feat!: Slim down release workflow by removing unnecessary pnpm install (#21)
+
+Remove pnpm setup steps from the reusable release workflow. Release-kit is self-contained and invokes git-cliff and prettier via `npx`, so no local dependency installation is needed.
+
+### Refactoring
+
+- #6 release-kit|refactor: Clean up release-kit post-migration issues (#19)
+
 ## [release-kit-v1.0.1] - 2026-03-12
 
 ### Bug fixes
