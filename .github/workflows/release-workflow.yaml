@@ -69,12 +69,11 @@ jobs:
       - name: Disable Corepack
         run: corepack disable
 
-      # Install globally so binaries are on PATH.
+      # Install globally so the binary is on PATH.
       # npm exec / npx binary resolution is unreliable with scoped packages
       # on newer npm versions (11.x), so explicit install is more robust.
-      # git-cliff is included because release-kit invokes it directly.
-      - name: Install release tools
-        run: npm install --global @williamthorsen/release-kit git-cliff
+      - name: Install release-kit
+        run: npm install --global @williamthorsen/release-kit
 
       - name: Run release preparation
         run: |
@@ -124,4 +123,4 @@ jobs:
             git tag "$TAG"
           done
 
-          git push origin main $TAGS
+          git push origin HEAD $TAGS
