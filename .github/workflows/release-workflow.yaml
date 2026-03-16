@@ -3,13 +3,14 @@ name: Release
 
 # Reusable release workflow for projects using @williamthorsen/release-kit.
 #
-# Runs `@williamthorsen/release-kit prepare` via npm exec to bump versions and generate
-# changelogs. The CLI writes computed tag names to `/tmp/release-kit/.release-tags`.
-# This workflow reads that file instead of deriving tags independently,
-# so `tagPrefix` in the release config is the single source of truth.
+# Installs `@williamthorsen/release-kit` globally and runs `release-kit prepare`
+# to bump versions and generate changelogs. The CLI writes computed tag names to
+# `/tmp/release-kit/.release-tags`. This workflow reads that file instead of
+# deriving tags independently, so `tagPrefix` in the release config is the
+# single source of truth.
 #
-# pnpm install is intentionally omitted: release-kit runs git-cliff and prettier
-# via `npx`, so no local dependencies are needed.
+# Project dependencies are not installed: release-kit runs git-cliff and prettier
+# via `npx`, so no local node_modules are needed.
 #
 # Usage:
 #   jobs:
@@ -22,7 +23,7 @@ on:
       prepare-command:
         description: 'Command to run for release preparation (override for repos that need custom logic)'
         type: string
-        default: 'npm exec --yes --package=@williamthorsen/release-kit -- release-kit prepare'
+        default: 'release-kit prepare'
       only:
         description: 'Components to release (comma-separated, monorepo only)'
         type: string
@@ -67,6 +68,12 @@ jobs:
 
       - name: Disable Corepack
         run: corepack disable
+
+      # Install globally so the `release-kit` binary is on PATH.
+      # npm exec / npx binary resolution is unreliable with scoped packages
+      # on newer npm versions (11.x), so explicit install is more robust.
+      - name: Install release-kit
+        run: npm install --global @williamthorsen/release-kit
 
       - name: Run release preparation
         run: |
