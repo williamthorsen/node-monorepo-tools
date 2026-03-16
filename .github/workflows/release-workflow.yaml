@@ -44,6 +44,9 @@ jobs:
 
     env:
       GITHUB_TOKEN: ${{ github.token }}
+      # Allow npx to run even when package.json declares a different package
+      # manager (e.g., pnpm). Without this, Corepack blocks npm/npx.
+      COREPACK_ENABLE_STRICT: '0'
 
     steps:
       - name: Check out repository
@@ -51,16 +54,6 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ github.token }}
-
-      # Disable Corepack so that repos declaring a packageManager field
-      # (e.g., pnpm) don't require that package manager to be installed.
-      - name: Disable Corepack
-        run: corepack disable
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: '24'
 
       - name: Run release preparation
         run: |
