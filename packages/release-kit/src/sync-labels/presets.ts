@@ -1,21 +1,16 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 
 import { load } from 'js-yaml';
 
+import { findPackageRoot } from '../findPackageRoot.ts';
 import { isRecord } from '../typeGuards.ts';
 import type { LabelDefinition } from './types.ts';
 
-/**
- * Resolve a preset name to the path of its bundled YAML file.
- *
- * Preset files live in `presets/labels/` at the package root.
- * From `dist/esm/sync-labels/presets.js`, the package root is at `../../../`.
- */
+/** Resolve a preset name to the path of its bundled YAML file. */
 function resolvePresetPath(presetName: string): string {
-  const thisDir = dirname(fileURLToPath(import.meta.url));
-  return resolve(thisDir, '..', '..', '..', 'presets', 'labels', `${presetName}.yaml`);
+  const root = findPackageRoot(import.meta.url);
+  return resolve(root, 'presets', 'labels', `${presetName}.yaml`);
 }
 
 /**

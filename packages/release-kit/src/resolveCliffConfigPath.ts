@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
+
+import { findPackageRoot } from './findPackageRoot.ts';
 
 /**
  * Resolve the git-cliff configuration file path.
@@ -27,9 +28,8 @@ export function resolveCliffConfigPath(cliffConfigPath: string | undefined, meta
   }
 
   // Bundled template fallback.
-  // From dist/esm/resolveCliffConfigPath.js the template is at ../../cliff.toml.template.
-  const thisDir = dirname(fileURLToPath(metaUrl));
-  const bundledPath = resolve(thisDir, '..', '..', 'cliff.toml.template');
+  const root = findPackageRoot(metaUrl);
+  const bundledPath = resolve(root, 'cliff.toml.template');
   if (existsSync(bundledPath)) {
     return bundledPath;
   }

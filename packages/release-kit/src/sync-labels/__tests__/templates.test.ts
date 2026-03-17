@@ -1,7 +1,24 @@
 import { describe, expect, it } from 'vitest';
 
-import { syncLabelsConfigScript } from '../templates.ts';
+import { syncLabelsConfigScript, syncLabelsWorkflow } from '../templates.ts';
 import type { LabelDefinition } from '../types.ts';
+
+describe(syncLabelsWorkflow, () => {
+  it('produces a workflow_dispatch trigger that calls the reusable workflow', () => {
+    const result = syncLabelsWorkflow();
+
+    expect(result).toContain('workflow_dispatch:');
+    expect(result).toContain(
+      'uses: williamthorsen/node-monorepo-tools/.github/workflows/sync-labels.yaml@sync-labels-v1',
+    );
+  });
+
+  it('includes the yaml-language-server schema comment', () => {
+    const result = syncLabelsWorkflow();
+
+    expect(result).toContain('# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json');
+  });
+});
 
 describe(syncLabelsConfigScript, () => {
   it('contains the expected import and export lines', () => {

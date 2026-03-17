@@ -4,7 +4,7 @@ const mockExistsSync = vi.hoisted(() => vi.fn());
 const mockMkdirSync = vi.hoisted(() => vi.fn());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockWriteFileSync = vi.hoisted(() => vi.fn());
-const mockFileURLToPath = vi.hoisted(() => vi.fn());
+const mockFindPackageRoot = vi.hoisted(() => vi.fn().mockReturnValue('/fake/package'));
 const mockPrintError = vi.hoisted(() => vi.fn());
 const mockPrintSkip = vi.hoisted(() => vi.fn());
 const mockPrintSuccess = vi.hoisted(() => vi.fn());
@@ -16,8 +16,8 @@ vi.mock(import('node:fs'), () => ({
   writeFileSync: mockWriteFileSync,
 }));
 
-vi.mock(import('node:url'), () => ({
-  fileURLToPath: mockFileURLToPath,
+vi.mock(import('../../findPackageRoot.ts'), () => ({
+  findPackageRoot: mockFindPackageRoot,
 }));
 
 vi.mock(import('../prompt.ts'), () => ({
@@ -34,7 +34,7 @@ describe('scaffold', () => {
     mockMkdirSync.mockReset();
     mockReadFileSync.mockReset();
     mockWriteFileSync.mockReset();
-    mockFileURLToPath.mockReset();
+    mockFindPackageRoot.mockReset().mockReturnValue('/fake/package');
     mockPrintError.mockReset();
     mockPrintSkip.mockReset();
     mockPrintSuccess.mockReset();
@@ -56,7 +56,6 @@ describe('scaffold', () => {
     });
 
     it('creates workflow and config files when withConfig is true', () => {
-      mockFileURLToPath.mockReturnValue('/fake/dist/esm/init/scaffold.js');
       mockExistsSync
         .mockReturnValueOnce(false) // workflow file exists?
         .mockReturnValueOnce(false) // config file exists?
@@ -96,7 +95,6 @@ describe('scaffold', () => {
     });
 
     it('skips cliff template when withConfig is true and overwrite is false and target exists', () => {
-      mockFileURLToPath.mockReturnValue('/fake/dist/esm/init/scaffold.js');
       // All files exist
       mockExistsSync.mockReturnValue(true);
       mockReadFileSync.mockReturnValue('template content');
@@ -113,7 +111,6 @@ describe('scaffold', () => {
     });
 
     it('overwrites cliff template when withConfig is true and overwrite is true', () => {
-      mockFileURLToPath.mockReturnValue('/fake/dist/esm/init/scaffold.js');
       // existsSync: workflow (true), template path (true), git-cliff.toml target (true)
       mockExistsSync.mockReturnValue(true);
       mockReadFileSync.mockReturnValue('[changelog]\nbody = "overwritten"');
@@ -154,7 +151,6 @@ describe('scaffold', () => {
 
   describe(copyCliffTemplate, () => {
     it('prints an error when the template file is not found', () => {
-      mockFileURLToPath.mockReturnValue('/fake/dist/esm/init/scaffold.js');
       mockExistsSync.mockReturnValue(false);
 
       copyCliffTemplate(false, false);
@@ -163,7 +159,6 @@ describe('scaffold', () => {
     });
 
     it('reads the template and writes .config/git-cliff.toml when template exists', () => {
-      mockFileURLToPath.mockReturnValue('/fake/dist/esm/init/scaffold.js');
       // First call: existsSync for templatePath (true), second: existsSync for .config/git-cliff.toml (false)
       mockExistsSync.mockReturnValueOnce(true).mockReturnValueOnce(false);
       mockReadFileSync.mockReturnValue('[changelog]\nbody = "template content"');
@@ -179,7 +174,6 @@ describe('scaffold', () => {
     });
 
     it('prints an error when readFileSync fails for the template', () => {
-      mockFileURLToPath.mockReturnValue('/fake/dist/esm/init/scaffold.js');
       mockExistsSync.mockReturnValueOnce(true);
       mockReadFileSync.mockImplementation(() => {
         throw new Error('EACCES: permission denied');
@@ -192,7 +186,6 @@ describe('scaffold', () => {
     });
 
     it('does not write in dry-run mode', () => {
-      mockFileURLToPath.mockReturnValue('/fake/dist/esm/init/scaffold.js');
       mockExistsSync.mockReturnValueOnce(true).mockReturnValueOnce(false);
       mockReadFileSync.mockReturnValue('template content');
 

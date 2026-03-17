@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
+import { findPackageRoot } from '../findPackageRoot.ts';
 import type { RepoType } from './detectRepoType.ts';
 import { printError, printSkip, printSuccess } from './prompt.ts';
 import { releaseConfigScript, releaseWorkflow } from './templates.ts';
@@ -52,10 +52,8 @@ function writeIfAbsent(filePath: string, content: string, dryRun: boolean, overw
 
 /** Copy the bundled cliff.toml.template to `.config/git-cliff.toml` in the target repo. */
 export function copyCliffTemplate(dryRun: boolean, overwrite: boolean): void {
-  // Resolve the template relative to this file's compiled location.
-  // From dist/esm/init/scaffold.js, the template is at ../../../cliff.toml.template.
-  const thisDir = dirname(fileURLToPath(import.meta.url));
-  const templatePath = resolve(thisDir, '..', '..', '..', 'cliff.toml.template');
+  const root = findPackageRoot(import.meta.url);
+  const templatePath = resolve(root, 'cliff.toml.template');
 
   if (!existsSync(templatePath)) {
     printError(`Could not find cliff.toml.template at ${templatePath}`);

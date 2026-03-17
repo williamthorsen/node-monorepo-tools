@@ -2,10 +2,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockExistsSync = vi.hoisted(() => vi.fn());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
+const mockFindPackageRoot = vi.hoisted(() => vi.fn().mockReturnValue('/fake/package'));
 
 vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
   readFileSync: mockReadFileSync,
+}));
+
+vi.mock(import('../../findPackageRoot.ts'), () => ({
+  findPackageRoot: mockFindPackageRoot,
 }));
 
 import { loadPreset } from '../presets.ts';
