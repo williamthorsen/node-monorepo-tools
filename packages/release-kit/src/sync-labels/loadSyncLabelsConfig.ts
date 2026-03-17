@@ -70,12 +70,8 @@ function validateSyncLabelsConfig(value: unknown): SyncLabelsConfig {
     }
   }
 
-  const config: SyncLabelsConfig = {};
-  if (presets !== undefined) {
-    config.presets = presets;
-  }
-  if (labels !== undefined) {
-    config.labels = labels;
-  }
-  return config;
+  return {
+    ...(presets !== undefined && { presets }),
+    ...(labels !== undefined && { labels }),
+  };
 }

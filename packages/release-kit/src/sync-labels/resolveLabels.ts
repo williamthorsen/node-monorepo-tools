@@ -16,12 +16,11 @@ export function resolveLabels(config: SyncLabelsConfig): LabelDefinition[] {
   }
 
   const customLabels = config.labels ?? [];
-  const allLabels = [...presetLabels, ...customLabels];
 
   detectCollisions(presetLabels, customLabels);
 
   // Sort alphabetically by name for stable output
-  return sortLabels(allLabels);
+  return sortLabels([...presetLabels, ...customLabels]);
 }
 
 /** Detect duplicate label names within presets and between preset and custom labels. Throws with a list of conflicts. */

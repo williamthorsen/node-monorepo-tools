@@ -1,3 +1,5 @@
+import { basename } from 'node:path';
+
 import type { LabelDefinition } from './types.ts';
 
 /** Generate the caller workflow YAML for `sync-labels`. */
@@ -21,8 +23,8 @@ export function buildScopeLabels(workspacePaths: string[]): LabelDefinition[] {
   ];
 
   for (const workspacePath of workspacePaths) {
-    const basename = workspacePath.split('/').pop() ?? workspacePath;
-    labels.push({ name: `scope:${basename}`, color: '00ff96', description: `${basename} package` });
+    const name = basename(workspacePath);
+    labels.push({ name: `scope:${name}`, color: '00ff96', description: `${name} package` });
   }
 
   return labels;
