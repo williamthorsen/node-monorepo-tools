@@ -50,8 +50,8 @@ function writeIfAbsent(filePath: string, content: string, dryRun: boolean, overw
   }
 }
 
-/** Copy the bundled cliff.toml.template to `.config/git-cliff.toml` in the target repo. */
-export function copyCliffTemplate(dryRun: boolean, overwrite: boolean): void {
+/** Copy the bundled cliff.toml.template to `.config/git-cliff.toml` in the target repo. Returns true on success. */
+export function copyCliffTemplate(dryRun: boolean, overwrite: boolean): boolean {
   // Resolve the template relative to this file's compiled location.
   // From dist/esm/init/scaffold.js, the template is at ../../../cliff.toml.template.
   const thisDir = dirname(fileURLToPath(import.meta.url));
@@ -59,7 +59,7 @@ export function copyCliffTemplate(dryRun: boolean, overwrite: boolean): void {
 
   if (!existsSync(templatePath)) {
     printError(`Could not find cliff.toml.template at ${templatePath}`);
-    return;
+    return false;
   }
 
   let content: string;
@@ -68,9 +68,10 @@ export function copyCliffTemplate(dryRun: boolean, overwrite: boolean): void {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     printError(`Failed to read cliff.toml.template: ${message}`);
-    return;
+    return false;
   }
   writeIfAbsent('.config/git-cliff.toml', content, dryRun, overwrite);
+  return true;
 }
 
 /** Scaffold release-kit files for the target repo. */

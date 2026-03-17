@@ -44,23 +44,3 @@ export function usesPnpm(): CheckResult {
     message: 'This project does not appear to use pnpm. A pnpm-lock.yaml or packageManager field is required.',
   };
 }
-
-/** Verify that cliff.toml exists in the current directory. */
-export function hasCliffToml(): CheckResult {
-  if (existsSync('cliff.toml')) {
-    return { ok: true };
-  }
-  return { ok: false, message: 'No cliff.toml found. This file is required for changelog generation.' };
-}
-
-/** Verify that release-kit has not already been initialized. */
-export function notAlreadyInitialized(): CheckResult {
-  // Check both old and new config locations
-  if (!existsSync('.config/release-kit.config.ts') && !existsSync('.github/scripts/release.config.ts')) {
-    return { ok: true };
-  }
-  return {
-    ok: false,
-    message: 'release-kit appears to be already initialized.',
-  };
-}

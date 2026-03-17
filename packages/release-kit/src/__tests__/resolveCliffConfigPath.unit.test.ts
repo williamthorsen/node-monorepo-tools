@@ -49,7 +49,7 @@ describe(resolveCliffConfigPath, () => {
 
     const result = resolveCliffConfigPath(undefined, 'file:///fake/dist/esm/resolveCliffConfigPath.js');
 
-    expect(result).toContain('cliff.toml.template');
+    expect(result).toBe('/fake/cliff.toml.template');
   });
 
   it('throws when no config file can be found', () => {

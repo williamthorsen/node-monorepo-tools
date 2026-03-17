@@ -13,7 +13,7 @@ vi.mock(import('node:fs'), () => ({
   readFileSync: mockReadFileSync,
 }));
 
-import { hasCliffToml, hasPackageJson, isGitRepo, notAlreadyInitialized, usesPnpm } from '../checks.ts';
+import { hasPackageJson, isGitRepo, usesPnpm } from '../checks.ts';
 
 describe('checks', () => {
   afterEach(() => {
@@ -95,38 +95,6 @@ describe('checks', () => {
 
       expect(() => usesPnpm()).toThrow('EACCES: permission denied');
       expect(mockReadFileSync).toHaveBeenCalledWith('package.json', 'utf8');
-    });
-  });
-
-  describe(hasCliffToml, () => {
-    it('returns ok when cliff.toml exists', () => {
-      mockExistsSync.mockReturnValue(true);
-
-      expect(hasCliffToml()).toStrictEqual({ ok: true });
-    });
-
-    it('returns not ok when cliff.toml is missing', () => {
-      mockExistsSync.mockReturnValue(false);
-
-      const result = hasCliffToml();
-      expect(result.ok).toBe(false);
-      expect(result.message).toContain('cliff.toml');
-    });
-  });
-
-  describe(notAlreadyInitialized, () => {
-    it('returns ok when release.config.ts does not exist', () => {
-      mockExistsSync.mockReturnValue(false);
-
-      expect(notAlreadyInitialized()).toStrictEqual({ ok: true });
-    });
-
-    it('returns not ok when release.config.ts exists', () => {
-      mockExistsSync.mockReturnValue(true);
-
-      const result = notAlreadyInitialized();
-      expect(result.ok).toBe(false);
-      expect(result.message).toContain('already initialized');
     });
   });
 });

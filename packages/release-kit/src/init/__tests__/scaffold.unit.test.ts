@@ -157,12 +157,13 @@ describe('scaffold', () => {
   });
 
   describe(copyCliffTemplate, () => {
-    it('prints an error when the template file is not found', () => {
+    it('prints an error and returns false when the template file is not found', () => {
       mockFileURLToPath.mockReturnValue('/fake/dist/esm/init/scaffold.js');
       mockExistsSync.mockReturnValue(false);
 
-      copyCliffTemplate(false, false);
+      const result = copyCliffTemplate(false, false);
 
+      expect(result).toBe(false);
       expect(mockPrintError).toHaveBeenCalledWith(expect.stringContaining('Could not find cliff.toml.template'));
     });
 
@@ -172,8 +173,9 @@ describe('scaffold', () => {
       mockExistsSync.mockReturnValueOnce(true).mockReturnValueOnce(false);
       mockReadFileSync.mockReturnValue('[changelog]\nbody = "template content"');
 
-      copyCliffTemplate(false, false);
+      const result = copyCliffTemplate(false, false);
 
+      expect(result).toBe(true);
       expect(mockReadFileSync).toHaveBeenCalledWith(expect.stringContaining('cliff.toml.template'), 'utf8');
       expect(mockWriteFileSync).toHaveBeenCalledWith(
         '.config/git-cliff.toml',
@@ -182,15 +184,16 @@ describe('scaffold', () => {
       );
     });
 
-    it('prints an error when readFileSync fails for the template', () => {
+    it('prints an error and returns false when readFileSync fails for the template', () => {
       mockFileURLToPath.mockReturnValue('/fake/dist/esm/init/scaffold.js');
       mockExistsSync.mockReturnValueOnce(true);
       mockReadFileSync.mockImplementation(() => {
         throw new Error('EACCES: permission denied');
       });
 
-      copyCliffTemplate(false, false);
+      const result = copyCliffTemplate(false, false);
 
+      expect(result).toBe(false);
       expect(mockPrintError).toHaveBeenCalledWith(expect.stringContaining('Failed to read cliff.toml.template'));
       expect(mockWriteFileSync).not.toHaveBeenCalled();
     });

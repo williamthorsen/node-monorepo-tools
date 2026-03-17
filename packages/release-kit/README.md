@@ -13,17 +13,14 @@ pnpm add -D @williamthorsen/release-kit
 ## Quick start
 
 ```bash
-# 1. Set up release-kit in your repo (scaffolds workflow + optional config)
+# 1. Set up release-kit in your repo (scaffolds the release workflow)
 npx @williamthorsen/release-kit init
 
 # 2. Preview what a release would do
 npx @williamthorsen/release-kit prepare --dry-run
-
-# 3. Copy cliff.toml.template to your repo root (if init didn't create one)
-cp node_modules/@williamthorsen/release-kit/cliff.toml.template cliff.toml
 ```
 
-That's it for most repos. The CLI auto-discovers workspaces and applies sensible defaults. Customize only what you need via `.config/release-kit.config.ts`.
+That's it for most repos. The CLI auto-discovers workspaces and applies sensible defaults. The bundled `cliff.toml.template` is used automatically — no need to copy it. Customize only what you need via `.config/release-kit.config.ts`.
 
 ## How it works
 
@@ -59,21 +56,23 @@ node packages/release-kit/dist/esm/bin/release-kit.js prepare --dry-run
 
 ### `release-kit init`
 
-Initialize release-kit in the current repository. Scaffolds a GitHub Actions workflow and an optional config file.
+Initialize release-kit in the current repository. By default, scaffolds only the GitHub Actions workflow file. Use `--with-config` to also scaffold configuration files.
 
 ```
 Usage: release-kit init [options]
 
 Options:
-  --dry-run     Preview changes without writing files
-  --help, -h    Show help
+  --with-config    Also scaffold .config/release-kit.config.ts and .config/git-cliff.toml
+  --force          Overwrite existing files instead of skipping them
+  --dry-run        Preview changes without writing files
+  --help, -h       Show help
 ```
 
 Scaffolded files:
 
-- `.config/release-kit.config.ts` — starter config with commented-out customization examples
 - `.github/workflows/release.yaml` — workflow that delegates to a reusable release workflow
-- `cliff.toml` — copied from the bundled template (prompted if missing)
+- `.config/release-kit.config.ts` — starter config with commented-out customization examples (with `--with-config`)
+- `.config/git-cliff.toml` — copied from the bundled template (with `--with-config`)
 
 ## Configuration
 
@@ -105,14 +104,14 @@ The config file supports both `export default config` and `export const config =
 
 ### `ReleaseKitConfig` reference
 
-| Field              | Type                             | Description                                                                                    |
-| ------------------ | -------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `cliffConfigPath`  | `string`                         | Path to `cliff.toml` (defaults to `'cliff.toml'`)                                              |
-| `components`       | `ComponentOverride[]`            | Override or exclude discovered components (matched by `dir`)                                   |
-| `formatCommand`    | `string`                         | Shell command to run after changelog generation; modified file paths are appended as arguments |
-| `versionPatterns`  | `VersionPatterns`                | Rules for which commit types trigger major/minor bumps                                         |
-| `workspaceAliases` | `Record<string, string>`         | Maps shorthand workspace names to canonical names in commits                                   |
-| `workTypes`        | `Record<string, WorkTypeConfig>` | Work type definitions, merged with defaults by key                                             |
+| Field              | Type                             | Description                                                                                                                   |
+| ------------------ | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `cliffConfigPath`  | `string`                         | Explicit path to cliff config. If omitted, resolved automatically: `.config/git-cliff.toml` → `cliff.toml` → bundled template |
+| `components`       | `ComponentOverride[]`            | Override or exclude discovered components (matched by `dir`)                                                                  |
+| `formatCommand`    | `string`                         | Shell command to run after changelog generation; modified file paths are appended as arguments                                |
+| `versionPatterns`  | `VersionPatterns`                | Rules for which commit types trigger major/minor bumps                                                                        |
+| `workspaceAliases` | `Record<string, string>`         | Maps shorthand workspace names to canonical names in commits                                                                  |
+| `workTypes`        | `Record<string, WorkTypeConfig>` | Work type definitions, merged with defaults by key                                                                            |
 
 All fields are optional.
 
@@ -316,19 +315,20 @@ Or use the GitHub UI: Actions > Release > Run workflow.
 
 ## cliff.toml setup
 
-The package includes a `cliff.toml.template` with a generic git-cliff configuration that:
+The package includes a bundled `cliff.toml.template` that is used automatically when no custom config is found. The resolution order is:
+
+1. Explicit `cliffConfigPath` in `.config/release-kit.config.ts`
+2. `.config/git-cliff.toml`
+3. `cliff.toml` (repo root)
+4. Bundled `cliff.toml.template` (automatic fallback)
+
+The bundled template provides a generic git-cliff configuration that:
 
 - Strips issue-ticket prefixes matching `^[A-Z]+-\d+\s+` (e.g., `TOOL-123 `, `AFG-456 `)
 - Handles both `type: description` and `workspace|type: description` commit formats
 - Groups commits by work type into changelog sections
 
-Copy it to your repo root:
-
-```bash
-cp node_modules/@williamthorsen/release-kit/cliff.toml.template cliff.toml
-```
-
-Then customize as needed for your project.
+To customize, scaffold a local copy with `release-kit init --with-config` and edit `.config/git-cliff.toml`.
 
 ## External dependencies
 
@@ -386,5 +386,6 @@ If your format command does not accept file arguments, update it to one that doe
 3. Delete the `.changeset/` directory.
 4. Run `npx @williamthorsen/release-kit init` to scaffold workflow and config files.
 5. Remove `changeset:*` scripts from `package.json` (no replacement needed — the CLI handles everything).
-6. Copy `cliff.toml.template` to your repo root as `cliff.toml` (if `init` didn't create one).
-7. Create an initial version tag for each package (e.g., `git tag v1.0.0` or `git tag arrays-v1.0.0`).
+6. Create an initial version tag for each package (e.g., `git tag v1.0.0` or `git tag arrays-v1.0.0`).
+
+No cliff config copy is needed — the bundled template is used automatically. To customize, run `release-kit init --with-config`.
