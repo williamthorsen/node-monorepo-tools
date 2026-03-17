@@ -28,4 +28,5 @@ export { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 export { parseCommitMessage } from './parseCommitMessage.ts';
 export { releasePrepare } from './releasePrepare.ts';
 export { releasePrepareMono } from './releasePrepareMono.ts';
+export { resolveCliffConfigPath } from './resolveCliffConfigPath.ts';
 export { RELEASE_TAGS_FILE, runReleasePrepare, writeReleaseTags } from './runReleasePrepare.ts';

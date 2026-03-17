@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 
+import { resolveCliffConfigPath } from './resolveCliffConfigPath.ts';
 import type { ReleaseConfig } from './types.ts';
 
 /** Options for single-changelog generation. */
@@ -17,7 +18,7 @@ export interface GenerateChangelogOptions {
  * The `npx` command downloads `git-cliff` on first invocation and caches it for
  * subsequent calls.
  *
- * @param config - Object containing the optional `cliffConfigPath` (defaults to 'cliff.toml').
+ * @param config - Object containing the optional `cliffConfigPath`.
  * @param changelogPath - Directory in which to write the CHANGELOG.md file.
  * @param tag - The git tag to generate the changelog up to (e.g., 'v1.2.3').
  * @param dryRun - If true, logs the command without executing it.
@@ -30,7 +31,7 @@ export function generateChangelog(
   dryRun: boolean,
   options?: GenerateChangelogOptions,
 ): void {
-  const cliffConfigPath = config.cliffConfigPath ?? 'cliff.toml';
+  const cliffConfigPath = resolveCliffConfigPath(config.cliffConfigPath, import.meta.url);
   const outputFile = `${changelogPath}/CHANGELOG.md`;
   const args = ['--config', cliffConfigPath, '--output', outputFile, '--tag', tag];
 
