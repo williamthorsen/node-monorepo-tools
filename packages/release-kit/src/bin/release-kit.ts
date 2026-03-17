@@ -4,6 +4,9 @@
 
 import { initCommand } from '../init/initCommand.ts';
 import { prepareCommand } from '../prepareCommand.ts';
+import { generateCommand } from '../sync-labels/generateCommand.ts';
+import { syncLabelsInitCommand } from '../sync-labels/initCommand.ts';
+import { syncLabelsCommand } from '../sync-labels/syncCommand.ts';
 
 function showUsage(): void {
   console.info(`
@@ -12,9 +15,62 @@ Usage: release-kit <command> [options]
 Commands:
   prepare       Run release preparation (auto-discovers workspaces)
   init          Initialize release-kit in the current repository
+  sync-labels   Manage GitHub label synchronization
 
 Options:
   --dry-run     Preview changes without writing files
+  --help, -h    Show this help message
+`);
+}
+
+function showSyncLabelsHelp(): void {
+  console.info(`
+Usage: release-kit sync-labels <subcommand> [options]
+
+Manage GitHub label synchronization via preset and custom label definitions.
+
+Subcommands:
+  init          Scaffold caller workflow and config, then generate labels
+  generate      Regenerate .github/labels.yaml from config
+  sync          Trigger the sync-labels workflow via gh CLI
+
+Options:
+  --help, -h    Show this help message
+`);
+}
+
+function showSyncLabelsInitHelp(): void {
+  console.info(`
+Usage: release-kit sync-labels init [options]
+
+Scaffold the sync-labels caller workflow and config file, auto-discover workspaces
+for scope labels, then generate .github/labels.yaml.
+
+Options:
+  --dry-run     Preview changes without writing files
+  --force       Overwrite existing files instead of skipping them
+  --help, -h    Show this help message
+`);
+}
+
+function showSyncLabelsGenerateHelp(): void {
+  console.info(`
+Usage: release-kit sync-labels generate
+
+Regenerate .github/labels.yaml from .config/sync-labels.config.ts.
+
+Options:
+  --help, -h    Show this help message
+`);
+}
+
+function showSyncLabelsSyncHelp(): void {
+  console.info(`
+Usage: release-kit sync-labels sync
+
+Trigger the sync-labels GitHub Actions workflow via the gh CLI.
+
+Options:
   --help, -h    Show this help message
 `);
 }
@@ -85,6 +141,69 @@ if (command === 'init') {
   const withConfig = flags.includes('--with-config');
   const exitCode = initCommand({ dryRun, force, withConfig });
   process.exit(exitCode);
+}
+
+if (command === 'sync-labels') {
+  const subcommand = flags[0];
+  const subflags = flags.slice(1);
+
+  if (subcommand === '--help' || subcommand === '-h' || subcommand === undefined) {
+    showSyncLabelsHelp();
+    process.exit(0);
+  }
+
+  if (subcommand === 'init') {
+    if (subflags.some((f) => f === '--help' || f === '-h')) {
+      showSyncLabelsInitHelp();
+      process.exit(0);
+    }
+
+    const knownFlags = new Set(['--dry-run', '--force', '--help', '-h']);
+    const unknownFlags = subflags.filter((f) => !knownFlags.has(f));
+    if (unknownFlags.length > 0) {
+      console.error(`Error: Unknown option: ${unknownFlags[0]}`);
+      process.exit(1);
+    }
+
+    const dryRun = subflags.includes('--dry-run');
+    const force = subflags.includes('--force');
+    const exitCode = await syncLabelsInitCommand({ dryRun, force });
+    process.exit(exitCode);
+  }
+
+  if (subcommand === 'generate') {
+    if (subflags.some((f) => f === '--help' || f === '-h')) {
+      showSyncLabelsGenerateHelp();
+      process.exit(0);
+    }
+
+    if (subflags.length > 0) {
+      console.error(`Error: Unknown option: ${subflags[0]}`);
+      process.exit(1);
+    }
+
+    const exitCode = await generateCommand();
+    process.exit(exitCode);
+  }
+
+  if (subcommand === 'sync') {
+    if (subflags.some((f) => f === '--help' || f === '-h')) {
+      showSyncLabelsSyncHelp();
+      process.exit(0);
+    }
+
+    if (subflags.length > 0) {
+      console.error(`Error: Unknown option: ${subflags[0]}`);
+      process.exit(1);
+    }
+
+    const exitCode = syncLabelsCommand();
+    process.exit(exitCode);
+  }
+
+  console.error(`Error: Unknown subcommand: ${subcommand}`);
+  showSyncLabelsHelp();
+  process.exit(1);
 }
 
 console.error(`Error: Unknown command: ${command}`);
