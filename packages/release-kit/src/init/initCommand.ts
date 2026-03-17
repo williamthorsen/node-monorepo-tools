@@ -1,5 +1,6 @@
 import type { CheckResult } from './checks.ts';
 import { hasPackageJson, isGitRepo, usesPnpm } from './checks.ts';
+import type { RepoType } from './detectRepoType.ts';
 import { detectRepoType } from './detectRepoType.ts';
 import { printError, printStep, printSuccess } from './prompt.ts';
 import { scaffoldFiles } from './scaffold.ts';
@@ -53,7 +54,7 @@ export function initCommand({ dryRun, force, withConfig }: InitOptions): number 
 
   // Detect repo type
   printStep('Detecting repo type');
-  let repoType: ReturnType<typeof detectRepoType>;
+  let repoType: RepoType;
   try {
     repoType = detectRepoType();
   } catch (error: unknown) {

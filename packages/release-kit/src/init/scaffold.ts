@@ -13,11 +13,6 @@ interface ScaffoldOptions {
   withConfig: boolean;
 }
 
-interface FileToWrite {
-  path: string;
-  content: string;
-}
-
 /** Attempt to write a file, printing a user-friendly error on failure. Returns true on success. */
 function tryWriteFile(filePath: string, content: string): boolean {
   try {
@@ -80,17 +75,10 @@ export function copyCliffTemplate(dryRun: boolean, overwrite: boolean): void {
 
 /** Scaffold release-kit files for the target repo. */
 export function scaffoldFiles({ repoType, dryRun, overwrite, withConfig }: ScaffoldOptions): void {
-  const files: FileToWrite[] = [{ path: '.github/workflows/release.yaml', content: releaseWorkflow(repoType) }];
+  writeIfAbsent('.github/workflows/release.yaml', releaseWorkflow(repoType), dryRun, overwrite);
 
   if (withConfig) {
-    files.push({ path: '.config/release-kit.config.ts', content: releaseConfigScript(repoType) });
-  }
-
-  for (const file of files) {
-    writeIfAbsent(file.path, file.content, dryRun, overwrite);
-  }
-
-  if (withConfig) {
+    writeIfAbsent('.config/release-kit.config.ts', releaseConfigScript(repoType), dryRun, overwrite);
     copyCliffTemplate(dryRun, overwrite);
   }
 }
