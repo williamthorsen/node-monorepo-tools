@@ -1,6 +1,7 @@
 // Types
 export type { GenerateChangelogOptions } from './generateChangelogs.ts';
 export type { ReleasePrepareOptions } from './releasePrepare.ts';
+export type { LabelDefinition, SyncLabelsConfig } from './sync-labels/types.ts';
 export type {
   Commit,
   ComponentConfig,
