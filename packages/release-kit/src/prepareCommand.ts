@@ -42,7 +42,7 @@ export async function prepareCommand(argv: string[]): Promise<void> {
     if (errors.length > 0) {
       console.error('Invalid config:');
       for (const err of errors) {
-        console.error(`  - ${err}`);
+        console.error(`  ❌ ${err}`);
       }
       process.exit(1);
     }
