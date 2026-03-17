@@ -57,7 +57,16 @@ describe('scaffold', () => {
 
     it('creates workflow and config files when withConfig is true', () => {
       mockFileURLToPath.mockReturnValue('/fake/dist/esm/init/scaffold.js');
-      mockExistsSync.mockReturnValue(false);
+      // existsSync calls: workflow file (false), config file (false), template path (true), git-cliff.toml (false)
+      mockExistsSync.mockReturnValue(false).mockReturnValueOnce(false).mockReturnValueOnce(false);
+      // After the two writeIfAbsent existsSync calls, copyCliffTemplate calls existsSync for template (true), then for target (false)
+      mockExistsSync.mockReset();
+      mockExistsSync
+        .mockReturnValueOnce(false) // workflow file exists?
+        .mockReturnValueOnce(false) // config file exists?
+        .mockReturnValueOnce(true) // template path exists?
+        .mockReturnValueOnce(false); // .config/git-cliff.toml exists?
+      mockReadFileSync.mockReturnValue('[changelog]\nbody = "template"');
 
       scaffoldFiles({ repoType: 'single-package', dryRun: false, overwrite: false, withConfig: true });
 
@@ -65,6 +74,11 @@ describe('scaffold', () => {
       expect(mockMkdirSync).toHaveBeenCalledWith('.config', { recursive: true });
       expect(mockWriteFileSync).toHaveBeenCalledWith('.github/workflows/release.yaml', expect.any(String), 'utf8');
       expect(mockWriteFileSync).toHaveBeenCalledWith('.config/release-kit.config.ts', expect.any(String), 'utf8');
+      expect(mockWriteFileSync).toHaveBeenCalledWith(
+        '.config/git-cliff.toml',
+        '[changelog]\nbody = "template"',
+        'utf8',
+      );
     });
 
     it('skips files that already exist when overwrite is false', () => {
@@ -82,6 +96,41 @@ describe('scaffold', () => {
       scaffoldFiles({ repoType: 'single-package', dryRun: false, overwrite: true, withConfig: false });
 
       expect(mockWriteFileSync).toHaveBeenCalledWith('.github/workflows/release.yaml', expect.any(String), 'utf8');
+      expect(mockPrintSkip).not.toHaveBeenCalled();
+    });
+
+    it('skips cliff template when withConfig is true and overwrite is false and target exists', () => {
+      mockFileURLToPath.mockReturnValue('/fake/dist/esm/init/scaffold.js');
+      // All files exist
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue('template content');
+
+      scaffoldFiles({ repoType: 'single-package', dryRun: false, overwrite: false, withConfig: true });
+
+      // Workflow file should be skipped
+      expect(mockPrintSkip).toHaveBeenCalledWith(expect.stringContaining('.github/workflows/release.yaml'));
+      // Config file should be skipped
+      expect(mockPrintSkip).toHaveBeenCalledWith(expect.stringContaining('.config/release-kit.config.ts'));
+      // Cliff template target should be skipped
+      expect(mockPrintSkip).toHaveBeenCalledWith(expect.stringContaining('.config/git-cliff.toml'));
+      expect(mockWriteFileSync).not.toHaveBeenCalled();
+    });
+
+    it('overwrites cliff template when withConfig is true and overwrite is true', () => {
+      mockFileURLToPath.mockReturnValue('/fake/dist/esm/init/scaffold.js');
+      // existsSync: workflow (true), template path (true), git-cliff.toml target (true)
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue('[changelog]\nbody = "overwritten"');
+
+      scaffoldFiles({ repoType: 'single-package', dryRun: false, overwrite: true, withConfig: true });
+
+      expect(mockWriteFileSync).toHaveBeenCalledWith('.github/workflows/release.yaml', expect.any(String), 'utf8');
+      expect(mockWriteFileSync).toHaveBeenCalledWith('.config/release-kit.config.ts', expect.any(String), 'utf8');
+      expect(mockWriteFileSync).toHaveBeenCalledWith(
+        '.config/git-cliff.toml',
+        '[changelog]\nbody = "overwritten"',
+        'utf8',
+      );
       expect(mockPrintSkip).not.toHaveBeenCalled();
     });
 
