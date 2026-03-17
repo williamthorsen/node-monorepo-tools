@@ -28,7 +28,7 @@ That's it for most repos. The CLI auto-discovers workspaces and applies sensible
 2. **Config loading**: loads `.config/release-kit.config.ts` (if present) via [jiti](https://github.com/unjs/jiti) and merges it with discovered defaults.
 3. **Commit analysis**: for each component, finds commits since the last version tag, parses them for type and scope, and determines the appropriate version bump.
 4. **Version bump + changelog**: bumps `package.json` versions and generates changelogs via `git-cliff`.
-5. **Release tags file**: writes computed tags to `/tmp/release-kit/.release-tags` for CI consumption.
+5. **Release tags file**: writes computed tags to `tmp/.release-tags` for the release workflow to read when tagging and pushing.
 
 ## CLI reference
 
@@ -258,7 +258,7 @@ jobs:
         if: steps.check.outputs.changed == 'true'
         id: tags
         run: |
-          TAGS=$(cat /tmp/release-kit/.release-tags | tr '\n' ' ')
+          TAGS=$(cat tmp/.release-tags | tr '\n' ' ')
           echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
           echo "Releasing: $TAGS"
 
@@ -296,7 +296,7 @@ And the tag step with:
   if: steps.check.outputs.changed == 'true'
   id: tags
   run: |
-    TAG=$(cat /tmp/release-kit/.release-tags)
+    TAG=$(cat tmp/.release-tags)
     echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 ```
 

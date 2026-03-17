@@ -10,9 +10,9 @@ import type { MonorepoReleaseConfig, ReleaseConfig, ReleaseType } from './types.
 
 /**
  * File written by the release preparation step, containing one tag per line.
- * Located in `/tmp` because it only needs to survive within a single CI job.
+ * Relative to the project root so it works identically in CI and local runs.
  */
-export const RELEASE_TAGS_FILE = '/tmp/release-kit/.release-tags';
+export const RELEASE_TAGS_FILE = 'tmp/.release-tags';
 
 const VALID_BUMP_TYPES: readonly string[] = ['major', 'minor', 'patch'];
 
