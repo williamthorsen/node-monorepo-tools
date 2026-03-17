@@ -53,12 +53,23 @@ export function initCommand({ dryRun, force, withConfig }: InitOptions): number 
 
   // Detect repo type
   printStep('Detecting repo type');
-  const repoType = detectRepoType();
+  let repoType: ReturnType<typeof detectRepoType>;
+  try {
+    repoType = detectRepoType();
+  } catch (error: unknown) {
+    printError(`Failed to detect repo type: ${error instanceof Error ? error.message : String(error)}`);
+    return 1;
+  }
   printSuccess(`Detected: ${repoType}`);
 
   // Scaffold files
   printStep('Scaffolding files');
-  scaffoldFiles({ repoType, dryRun, overwrite: force, withConfig });
+  try {
+    scaffoldFiles({ repoType, dryRun, overwrite: force, withConfig });
+  } catch (error: unknown) {
+    printError(`Failed to scaffold files: ${error instanceof Error ? error.message : String(error)}`);
+    return 1;
+  }
 
   // Print next steps
   printStep('Next steps');
