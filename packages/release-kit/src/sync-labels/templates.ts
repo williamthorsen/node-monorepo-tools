@@ -28,10 +28,20 @@ export function buildScopeLabels(workspacePaths: string[]): LabelDefinition[] {
   return labels;
 }
 
+/** Escape a value for embedding in a single-quoted TypeScript string literal. */
+function escapeForSingleQuotedString(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/'/g, String.raw`\'`);
+}
+
 /** Generate the `.config/sync-labels.config.ts` config file content. */
 export function syncLabelsConfigScript(scopeLabels: LabelDefinition[]): string {
   const labelsArray = scopeLabels
-    .map((label) => `  { name: '${label.name}', color: '${label.color}', description: '${label.description}' },`)
+    .map((label) => {
+      const name = escapeForSingleQuotedString(label.name);
+      const color = escapeForSingleQuotedString(label.color);
+      const description = escapeForSingleQuotedString(label.description);
+      return `  { name: '${name}', color: '${color}', description: '${description}' },`;
+    })
     .join('\n');
 
   return `import type { SyncLabelsConfig } from '@williamthorsen/release-kit';

@@ -24,13 +24,28 @@ export function resolveLabels(config: SyncLabelsConfig): LabelDefinition[] {
   return sortLabels(allLabels);
 }
 
-/** Detect duplicate label names across preset and custom labels. Throws with a list of conflicts. */
+/** Detect duplicate label names within presets and between preset and custom labels. Throws with a list of conflicts. */
 function detectCollisions(presetLabels: LabelDefinition[], customLabels: LabelDefinition[]): void {
-  const presetNames = new Set(presetLabels.map((label) => label.name));
-  const conflicts: string[] = [];
+  // Check for duplicates within preset labels (e.g., two presets both define 'bug')
+  const seenPresetNames = new Set<string>();
+  const withinPresetDuplicates: string[] = [];
+  for (const label of presetLabels) {
+    if (seenPresetNames.has(label.name)) {
+      withinPresetDuplicates.push(label.name);
+    }
+    seenPresetNames.add(label.name);
+  }
 
+  if (withinPresetDuplicates.length > 0) {
+    throw new Error(
+      `Label name collision within presets: the following labels are defined by multiple presets: ${withinPresetDuplicates.join(', ')}. Remove the duplicates or use different presets.`,
+    );
+  }
+
+  // Check for collisions between preset and custom labels
+  const conflicts: string[] = [];
   for (const label of customLabels) {
-    if (presetNames.has(label.name)) {
+    if (seenPresetNames.has(label.name)) {
       conflicts.push(label.name);
     }
   }

@@ -44,8 +44,13 @@ export async function syncLabelsInitCommand({ dryRun, force }: InitOptions): Pro
 
   // Scaffold caller workflow
   console.info('\n> Scaffolding files');
-  writeIfAbsent(WORKFLOW_PATH, syncLabelsWorkflow(), dryRun, force);
-  writeIfAbsent(SYNC_LABELS_CONFIG_PATH, syncLabelsConfigScript(scopeLabels), dryRun, force);
+  const workflowResult = writeIfAbsent(WORKFLOW_PATH, syncLabelsWorkflow(), dryRun, force);
+  const configResult = writeIfAbsent(SYNC_LABELS_CONFIG_PATH, syncLabelsConfigScript(scopeLabels), dryRun, force);
+
+  if (workflowResult.action === 'failed' || configResult.action === 'failed') {
+    console.error('Failed to scaffold one or more files.');
+    return 1;
+  }
 
   // Generate .github/labels.yaml
   if (dryRun) {
