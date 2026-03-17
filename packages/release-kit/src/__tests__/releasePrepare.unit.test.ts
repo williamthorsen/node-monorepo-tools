@@ -15,6 +15,10 @@ vi.mock('node:fs', () => ({
   writeFileSync: mockWriteFileSync,
 }));
 
+vi.mock('../resolveCliffConfigPath.ts', () => ({
+  resolveCliffConfigPath: () => 'cliff.toml',
+}));
+
 import { releasePrepare } from '../releasePrepare.ts';
 import type { ReleaseConfig, WorkTypeConfig } from '../types.ts';
 

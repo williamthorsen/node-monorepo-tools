@@ -5,7 +5,7 @@ name: Release
 #
 # Installs `@williamthorsen/release-kit` globally and runs `release-kit prepare`
 # to bump versions and generate changelogs. The CLI writes computed tag names to
-# `/tmp/release-kit/.release-tags`. This workflow reads that file instead of
+# `tmp/.release-tags` (relative to the project root). This workflow reads that file instead of
 # deriving tags independently, so `tagPrefix` in the release config is the
 # single source of truth.
 #
@@ -100,7 +100,7 @@ jobs:
         if: steps.check.outputs.changed == 'true'
         id: tags
         run: |
-          TAGS_FILE="/tmp/release-kit/.release-tags"
+          TAGS_FILE="tmp/.release-tags"
           if [ ! -f "$TAGS_FILE" ]; then
             echo "Error: $TAGS_FILE not found" >&2
             exit 1

@@ -24,11 +24,13 @@ function showInitHelp(): void {
 Usage: release-kit init [options]
 
 Initialize release-kit in the current repository.
-Scaffolds workflow and config files.
+By default, scaffolds only the GitHub Actions workflow file.
 
 Options:
-  --dry-run     Preview changes without writing files
-  --help, -h    Show this help message
+  --with-config   Also scaffold .config/release-kit.config.ts and .config/git-cliff.toml
+  --force         Overwrite existing files instead of skipping them
+  --dry-run       Preview changes without writing files
+  --help, -h      Show this help message
 `);
 }
 
@@ -71,14 +73,17 @@ if (command === 'init') {
     process.exit(0);
   }
 
-  const unknownFlags = flags.filter((f) => f !== '--dry-run' && f !== '--help' && f !== '-h');
+  const knownInitFlags = new Set(['--dry-run', '--force', '--with-config', '--help', '-h']);
+  const unknownFlags = flags.filter((f) => !knownInitFlags.has(f));
   if (unknownFlags.length > 0) {
     console.error(`Error: Unknown option: ${unknownFlags[0]}`);
     process.exit(1);
   }
 
   const dryRun = flags.includes('--dry-run');
-  const exitCode = await initCommand({ dryRun });
+  const force = flags.includes('--force');
+  const withConfig = flags.includes('--with-config');
+  const exitCode = initCommand({ dryRun, force, withConfig });
   process.exit(exitCode);
 }
 

@@ -10,11 +10,7 @@ interface ScaffoldOptions {
   repoType: RepoType;
   dryRun: boolean;
   overwrite: boolean;
-}
-
-interface FileToWrite {
-  path: string;
-  content: string;
+  withConfig: boolean;
 }
 
 /** Attempt to write a file, printing a user-friendly error on failure. Returns true on success. */
@@ -54,8 +50,8 @@ function writeIfAbsent(filePath: string, content: string, dryRun: boolean, overw
   }
 }
 
-/** Copy the bundled cliff.toml.template to cliff.toml in the target repo. */
-export function copyCliffTemplate(dryRun: boolean): void {
+/** Copy the bundled cliff.toml.template to `.config/git-cliff.toml` in the target repo. */
+export function copyCliffTemplate(dryRun: boolean, overwrite: boolean): void {
   // Resolve the template relative to this file's compiled location.
   // From dist/esm/init/scaffold.js, the template is at ../../../cliff.toml.template.
   const thisDir = dirname(fileURLToPath(import.meta.url));
@@ -74,17 +70,15 @@ export function copyCliffTemplate(dryRun: boolean): void {
     printError(`Failed to read cliff.toml.template: ${message}`);
     return;
   }
-  writeIfAbsent('cliff.toml', content, dryRun, false);
+  writeIfAbsent('.config/git-cliff.toml', content, dryRun, overwrite);
 }
 
-/** Scaffold all release-kit files for the target repo. */
-export function scaffoldFiles({ repoType, dryRun, overwrite }: ScaffoldOptions): void {
-  const files: FileToWrite[] = [
-    { path: '.config/release-kit.config.ts', content: releaseConfigScript(repoType) },
-    { path: '.github/workflows/release.yaml', content: releaseWorkflow(repoType) },
-  ];
+/** Scaffold release-kit files for the target repo. */
+export function scaffoldFiles({ repoType, dryRun, overwrite, withConfig }: ScaffoldOptions): void {
+  writeIfAbsent('.github/workflows/release.yaml', releaseWorkflow(repoType), dryRun, overwrite);
 
-  for (const file of files) {
-    writeIfAbsent(file.path, file.content, dryRun, overwrite);
+  if (withConfig) {
+    writeIfAbsent('.config/release-kit.config.ts', releaseConfigScript(repoType), dryRun, overwrite);
+    copyCliffTemplate(dryRun, overwrite);
   }
 }

@@ -240,8 +240,8 @@ describe(runReleasePrepare, () => {
   });
 
   describe('release-tags file', () => {
-    it('writes to /tmp, not the project root', () => {
-      expect(RELEASE_TAGS_FILE).toMatch(/^\/tmp\//);
+    it('writes to tmp/ relative to the project root', () => {
+      expect(RELEASE_TAGS_FILE).toBe('tmp/.release-tags');
     });
 
     it('creates the parent directory before writing', () => {
@@ -250,7 +250,7 @@ describe(runReleasePrepare, () => {
 
       runReleasePrepare(makeConfig());
 
-      expect(mockMkdirSync).toHaveBeenCalledWith('/tmp/release-kit', { recursive: true });
+      expect(mockMkdirSync).toHaveBeenCalledWith('tmp', { recursive: true });
 
       // Verify mkdir was called before writeFileSync
       const mkdirOrder = mockMkdirSync.mock.invocationCallOrder[0];

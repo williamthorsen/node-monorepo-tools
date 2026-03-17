@@ -1,9 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockExecFileSync = vi.hoisted(() => vi.fn());
+const mockResolveCliffConfigPath = vi.hoisted(() => vi.fn());
 
 vi.mock('node:child_process', () => ({
   execFileSync: mockExecFileSync,
+}));
+
+vi.mock('../resolveCliffConfigPath.ts', () => ({
+  resolveCliffConfigPath: mockResolveCliffConfigPath,
 }));
 
 import { generateChangelog, generateChangelogs } from '../generateChangelogs.ts';
@@ -12,9 +17,11 @@ import type { ReleaseConfig } from '../types.ts';
 describe(generateChangelog, () => {
   afterEach(() => {
     mockExecFileSync.mockReset();
+    mockResolveCliffConfigPath.mockReset();
   });
 
   it('calls git-cliff with base args when no includePaths are provided', () => {
+    mockResolveCliffConfigPath.mockReturnValue('cliff.toml');
     const config = { cliffConfigPath: 'cliff.toml' };
 
     generateChangelog(config, 'packages/arrays', 'v1.0.0', false);
@@ -27,6 +34,7 @@ describe(generateChangelog, () => {
   });
 
   it('appends --include-path flags when includePaths are provided', () => {
+    mockResolveCliffConfigPath.mockReturnValue('cliff.toml');
     const config = { cliffConfigPath: 'cliff.toml' };
 
     generateChangelog(config, 'packages/arrays', 'arrays-v1.0.0', false, {
@@ -52,6 +60,7 @@ describe(generateChangelog, () => {
   });
 
   it('appends multiple --include-path flags for multiple paths', () => {
+    mockResolveCliffConfigPath.mockReturnValue('cliff.toml');
     const config = { cliffConfigPath: 'cliff.toml' };
 
     generateChangelog(config, '.', 'v2.0.0', false, {
@@ -79,6 +88,7 @@ describe(generateChangelog, () => {
   });
 
   it('does not append --include-path flags when includePaths is an empty array', () => {
+    mockResolveCliffConfigPath.mockReturnValue('cliff.toml');
     const config = { cliffConfigPath: 'cliff.toml' };
 
     generateChangelog(config, 'packages/arrays', 'v1.0.0', false, { includePaths: [] });
@@ -91,6 +101,7 @@ describe(generateChangelog, () => {
   });
 
   it('does not call execFileSync when dryRun is true', () => {
+    mockResolveCliffConfigPath.mockReturnValue('cliff.toml');
     const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
     const config = { cliffConfigPath: 'cliff.toml' };
 
@@ -101,14 +112,25 @@ describe(generateChangelog, () => {
     infoSpy.mockRestore();
   });
 
-  it('defaults cliffConfigPath to cliff.toml when absent', () => {
+  it('uses the path returned by resolveCliffConfigPath when cliffConfigPath is absent', () => {
+    mockResolveCliffConfigPath.mockReturnValue('/bundled/cliff.toml.template');
     const config = {};
 
     generateChangelog(config, 'packages/arrays', 'v1.0.0', false);
 
+    expect(mockResolveCliffConfigPath).toHaveBeenCalledWith(undefined, expect.any(String));
     expect(mockExecFileSync).toHaveBeenCalledWith(
       'npx',
-      ['--yes', 'git-cliff', '--config', 'cliff.toml', '--output', 'packages/arrays/CHANGELOG.md', '--tag', 'v1.0.0'],
+      [
+        '--yes',
+        'git-cliff',
+        '--config',
+        '/bundled/cliff.toml.template',
+        '--output',
+        'packages/arrays/CHANGELOG.md',
+        '--tag',
+        'v1.0.0',
+      ],
       { stdio: 'inherit' },
     );
   });
@@ -117,9 +139,11 @@ describe(generateChangelog, () => {
 describe(generateChangelogs, () => {
   afterEach(() => {
     mockExecFileSync.mockReset();
+    mockResolveCliffConfigPath.mockReset();
   });
 
   it('calls git-cliff for each configured changelog path', () => {
+    mockResolveCliffConfigPath.mockReturnValue('cliff.toml');
     const config = {
       tagPrefix: 'v',
       packageFiles: [],

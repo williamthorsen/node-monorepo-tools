@@ -9,7 +9,7 @@ const thisDir = dirname(fileURLToPath(import.meta.url));
 const distScaffoldPath = join(thisDir, '..', '..', '..', 'dist', 'esm', 'init', 'scaffold.js');
 
 interface ScaffoldModule {
-  copyCliffTemplate: (dryRun: boolean) => void;
+  copyCliffTemplate: (dryRun: boolean, overwrite: boolean) => void;
 }
 
 /** Check whether a dynamic import result exports `copyCliffTemplate` as a function. */
@@ -23,7 +23,7 @@ function isScaffoldModule(value: unknown): value is ScaffoldModule {
 }
 
 describe('copyCliffTemplate (integration)', () => {
-  it('resolves cliff.toml.template from the built output and writes cliff.toml', async () => {
+  it('resolves cliff.toml.template from the built output and writes .config/git-cliff.toml', async () => {
     if (!existsSync(distScaffoldPath)) {
       throw new Error(
         `Built output not found at ${distScaffoldPath}. Run \`pnpm run ws build\` before running integration tests.`,
@@ -42,9 +42,9 @@ describe('copyCliffTemplate (integration)', () => {
         throw new Error('Module does not export `copyCliffTemplate` as a function');
       }
 
-      mod.copyCliffTemplate(false);
+      mod.copyCliffTemplate(false, false);
 
-      const cliffTomlPath = join(tempDir, 'cliff.toml');
+      const cliffTomlPath = join(tempDir, '.config', 'git-cliff.toml');
       expect(existsSync(cliffTomlPath)).toBe(true);
 
       const content = readFileSync(cliffTomlPath, 'utf8');
