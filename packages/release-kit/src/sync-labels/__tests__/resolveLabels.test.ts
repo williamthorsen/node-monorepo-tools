@@ -83,6 +83,19 @@ describe(resolveLabels, () => {
     expect(() => resolveLabels(config)).toThrow(/bug/);
   });
 
+  it('throws when two presets define the same label name', () => {
+    mockLoadPreset.mockImplementation((name: string) => {
+      if (name === 'preset-a') return [bugLabel];
+      if (name === 'preset-b') return [{ ...bugLabel, color: 'ff0000' }];
+      return [];
+    });
+
+    const config: SyncLabelsConfig = { presets: ['preset-a', 'preset-b'] };
+
+    expect(() => resolveLabels(config)).toThrow(/Label name collision within presets/);
+    expect(() => resolveLabels(config)).toThrow(/bug/);
+  });
+
   it('produces identical output for the same config (idempotent)', () => {
     mockLoadPreset.mockReturnValue([featureLabel, bugLabel]);
 

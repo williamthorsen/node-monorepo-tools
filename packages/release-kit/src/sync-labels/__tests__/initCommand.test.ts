@@ -74,6 +74,18 @@ describe(syncLabelsInitCommand, () => {
     expect(exitCode).toBe(1);
   });
 
+  it('returns 1 when scaffolding fails', async () => {
+    mockDiscoverWorkspaces.mockResolvedValue(undefined);
+    mockWriteIfAbsent.mockReturnValue({ action: 'failed', filePath: 'some/file' });
+    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false });
+
+    expect(exitCode).toBe(1);
+    expect(mockGenerateCommand).not.toHaveBeenCalled();
+  });
+
   it('skips generate in dry-run mode', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(undefined);
     mockWriteIfAbsent.mockReturnValue({ action: 'dry-run', filePath: '' });
