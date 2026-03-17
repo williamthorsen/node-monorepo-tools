@@ -41,34 +41,46 @@ describe('scaffold', () => {
   });
 
   describe(scaffoldFiles, () => {
-    it('creates scaffold files when they do not exist', () => {
+    it('creates only the workflow file by default', () => {
       mockExistsSync.mockReturnValue(false);
 
-      scaffoldFiles({ repoType: 'single-package', dryRun: false, overwrite: false });
+      scaffoldFiles({ repoType: 'single-package', dryRun: false, overwrite: false, withConfig: false });
 
-      expect(mockMkdirSync).toHaveBeenCalledWith('.config', { recursive: true });
       expect(mockMkdirSync).toHaveBeenCalledWith('.github/workflows', { recursive: true });
-      expect(mockWriteFileSync).toHaveBeenCalledWith('.config/release-kit.config.ts', expect.any(String), 'utf8');
       expect(mockWriteFileSync).toHaveBeenCalledWith('.github/workflows/release.yaml', expect.any(String), 'utf8');
+      expect(mockWriteFileSync).not.toHaveBeenCalledWith(
+        '.config/release-kit.config.ts',
+        expect.any(String),
+        expect.any(String),
+      );
+    });
+
+    it('creates workflow and config files when withConfig is true', () => {
+      mockFileURLToPath.mockReturnValue('/fake/dist/esm/init/scaffold.js');
+      mockExistsSync.mockReturnValue(false);
+
+      scaffoldFiles({ repoType: 'single-package', dryRun: false, overwrite: false, withConfig: true });
+
+      expect(mockMkdirSync).toHaveBeenCalledWith('.github/workflows', { recursive: true });
+      expect(mockMkdirSync).toHaveBeenCalledWith('.config', { recursive: true });
+      expect(mockWriteFileSync).toHaveBeenCalledWith('.github/workflows/release.yaml', expect.any(String), 'utf8');
+      expect(mockWriteFileSync).toHaveBeenCalledWith('.config/release-kit.config.ts', expect.any(String), 'utf8');
     });
 
     it('skips files that already exist when overwrite is false', () => {
       mockExistsSync.mockReturnValue(true);
 
-      scaffoldFiles({ repoType: 'single-package', dryRun: false, overwrite: false });
+      scaffoldFiles({ repoType: 'single-package', dryRun: false, overwrite: false, withConfig: false });
 
-      // writeIfAbsent should skip, not write
       expect(mockWriteFileSync).not.toHaveBeenCalled();
-      expect(mockPrintSkip).toHaveBeenCalledTimes(2);
+      expect(mockPrintSkip).toHaveBeenCalledTimes(1);
     });
 
     it('overwrites existing files when overwrite is true', () => {
       mockExistsSync.mockReturnValue(true);
 
-      scaffoldFiles({ repoType: 'single-package', dryRun: false, overwrite: true });
+      scaffoldFiles({ repoType: 'single-package', dryRun: false, overwrite: true, withConfig: false });
 
-      // Should write files even though they exist
-      expect(mockWriteFileSync).toHaveBeenCalledWith('.config/release-kit.config.ts', expect.any(String), 'utf8');
       expect(mockWriteFileSync).toHaveBeenCalledWith('.github/workflows/release.yaml', expect.any(String), 'utf8');
       expect(mockPrintSkip).not.toHaveBeenCalled();
     });
@@ -76,9 +88,8 @@ describe('scaffold', () => {
     it('logs but does not write in dry-run mode', () => {
       mockExistsSync.mockReturnValue(false);
 
-      scaffoldFiles({ repoType: 'single-package', dryRun: true, overwrite: false });
+      scaffoldFiles({ repoType: 'single-package', dryRun: true, overwrite: false, withConfig: false });
 
-      // mkdirSync and writeFileSync should not be called for the scaffold files
       expect(mockMkdirSync).not.toHaveBeenCalled();
       expect(mockWriteFileSync).not.toHaveBeenCalled();
       expect(mockPrintSuccess).toHaveBeenCalledWith(expect.stringContaining('[dry-run]'));
@@ -90,7 +101,7 @@ describe('scaffold', () => {
         throw new Error('EACCES: permission denied');
       });
 
-      scaffoldFiles({ repoType: 'single-package', dryRun: false, overwrite: false });
+      scaffoldFiles({ repoType: 'single-package', dryRun: false, overwrite: false, withConfig: false });
 
       expect(mockPrintError).toHaveBeenCalledWith(expect.stringContaining('Failed to create directory for'));
     });
@@ -101,21 +112,25 @@ describe('scaffold', () => {
       mockFileURLToPath.mockReturnValue('/fake/dist/esm/init/scaffold.js');
       mockExistsSync.mockReturnValue(false);
 
-      copyCliffTemplate(false);
+      copyCliffTemplate(false, false);
 
       expect(mockPrintError).toHaveBeenCalledWith(expect.stringContaining('Could not find cliff.toml.template'));
     });
 
-    it('reads the template and writes cliff.toml when template exists', () => {
+    it('reads the template and writes .config/git-cliff.toml when template exists', () => {
       mockFileURLToPath.mockReturnValue('/fake/dist/esm/init/scaffold.js');
-      // First call: existsSync for templatePath (true), second call: existsSync for cliff.toml (false)
+      // First call: existsSync for templatePath (true), second: existsSync for .config/git-cliff.toml (false)
       mockExistsSync.mockReturnValueOnce(true).mockReturnValueOnce(false);
       mockReadFileSync.mockReturnValue('[changelog]\nbody = "template content"');
 
-      copyCliffTemplate(false);
+      copyCliffTemplate(false, false);
 
       expect(mockReadFileSync).toHaveBeenCalledWith(expect.stringContaining('cliff.toml.template'), 'utf8');
-      expect(mockWriteFileSync).toHaveBeenCalledWith('cliff.toml', '[changelog]\nbody = "template content"', 'utf8');
+      expect(mockWriteFileSync).toHaveBeenCalledWith(
+        '.config/git-cliff.toml',
+        '[changelog]\nbody = "template content"',
+        'utf8',
+      );
     });
 
     it('prints an error when readFileSync fails for the template', () => {
@@ -125,7 +140,7 @@ describe('scaffold', () => {
         throw new Error('EACCES: permission denied');
       });
 
-      copyCliffTemplate(false);
+      copyCliffTemplate(false, false);
 
       expect(mockPrintError).toHaveBeenCalledWith(expect.stringContaining('Failed to read cliff.toml.template'));
       expect(mockWriteFileSync).not.toHaveBeenCalled();
@@ -136,7 +151,7 @@ describe('scaffold', () => {
       mockExistsSync.mockReturnValueOnce(true).mockReturnValueOnce(false);
       mockReadFileSync.mockReturnValue('template content');
 
-      copyCliffTemplate(true);
+      copyCliffTemplate(true, false);
 
       expect(mockWriteFileSync).not.toHaveBeenCalled();
       expect(mockPrintSuccess).toHaveBeenCalledWith(expect.stringContaining('[dry-run]'));
