@@ -1,9 +1,4 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-🚨**Important:** On startup read and follow the instructions in `.agents/shared/startup.md`.
-Be aware that `.agents/shared` is a symlink.
+# Node Monorepo Tools monorepo
 
 ## Project Structure
 
@@ -31,13 +26,6 @@ This is a PNPM monorepo with multiple package templates including React, Next.js
 - `pnpm run ws test:coverage` - Run tests with coverage
 - `pnpm run ws lint` - Lint current package
 - `pnpm run ws typecheck` - TypeScript check current package
-
-**Package-specific commands:**
-
-- React: `pnpm dev` (Vite dev server)
-- Next.js: `pnpm dev` (Next.js dev server)
-- Svelte: `pnpm dev` (Vite dev server)
-- Astro: `pnpm dev` (Astro dev server)
 
 ## Architecture
 
@@ -69,17 +57,6 @@ This is a PNPM monorepo with multiple package templates including React, Next.js
 - TypeScript strict mode
 - Optional strict linting with `@williamthorsen/strict-lint`
 
-## Package Types
-
-- **API**: Node.js API with TypeScript compilation
-- **React**: Vite + React with testing setup
-- **Next.js**: Next.js with Tailwind CSS
-- **Svelte**: SvelteKit with Vite
-- **Astro**: Astro static site generator
-- **Chrome**: Browser extension with Vite build
-- **CDK**: AWS CDK infrastructure as code
-- **\_workspace**: Template for new packages
-
 ## Code Style Guidelines
 
 - Be type-safe! Never use the `any` type, type assertions, or non-null assertions.
@@ -88,7 +65,6 @@ This is a PNPM monorepo with multiple package templates including React, Next.js
 
 ALWAYS proceed step by step, asking for confirmation at any significant decision point, unless otherwise instructed.
 ALWAYS suggest adding guidance to agent rules, when doing will help avoid making the same mistakes twice. Ask for confirmation before creating or editing rules.
-ALWAYS prefer to add rules in [.agents/shared](.agents/shared) if they are not specific to the current project.
 ALWAYS use `pnpm run {script}` to run package.json scripts and `pnpm exec {binary}` to run binaries. This maintains clear distinction between scripts and binaries.
 ALWAYS suggest updates to documentation when it would otherwise become out of date.
 ALWAYS add newlines to text files (including all source code files, json, and md).

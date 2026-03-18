@@ -29,6 +29,9 @@ importers:
       '@williamthorsen/eslint-config-typescript':
         specifier: 5.16.2
         version: 5.16.2(@types/estree@1.0.8)(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
+      '@williamthorsen/release-kit':
+        specifier: workspace:*
+        version: link:packages/release-kit
       '@williamthorsen/strict-lint':
         specifier: 6.1.2
         version: 6.1.2(eslint@9.39.4(jiti@2.6.1))
