@@ -25,9 +25,27 @@ function tryWriteFile(filePath: string, content: string): boolean {
   }
 }
 
+/** Strip trailing whitespace from each line and from EOF. */
+function normalizeTrailingWhitespace(content: string): string {
+  return content
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .join('\n')
+    .trimEnd();
+}
+
 /** Write a file, creating parent directories as needed. Skips if the file already exists and overwrite is false. */
 function writeIfAbsent(filePath: string, content: string, dryRun: boolean, overwrite: boolean): void {
   if (existsSync(filePath) && !overwrite) {
+    try {
+      const existing = readFileSync(filePath, 'utf8');
+      if (normalizeTrailingWhitespace(existing) === normalizeTrailingWhitespace(content)) {
+        printSuccess(`${filePath} (up to date)`);
+        return;
+      }
+    } catch {
+      // Fall through to skip message if reading fails.
+    }
     printSkip(`${filePath} (already exists)`);
     return;
   }
