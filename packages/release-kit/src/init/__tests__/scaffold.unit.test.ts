@@ -76,8 +76,9 @@ describe('scaffold', () => {
       );
     });
 
-    it('skips files that already exist when overwrite is false', () => {
+    it('skips files that already exist with different content when overwrite is false', () => {
       mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue('different content');
 
       scaffoldFiles({ repoType: 'single-package', dryRun: false, overwrite: false, withConfig: false });
 
@@ -94,18 +95,18 @@ describe('scaffold', () => {
       expect(mockPrintSkip).not.toHaveBeenCalled();
     });
 
-    it('skips cliff template when withConfig is true and overwrite is false and target exists', () => {
-      // All files exist
+    it('skips all files when withConfig is true, overwrite is false, and all targets have different content', () => {
       mockExistsSync.mockReturnValue(true);
-      mockReadFileSync.mockReturnValue('template content');
+      mockReadFileSync.mockImplementation((path: string) => {
+        // Return template content for the bundled template read; return different content for file-existence reads.
+        if (path.includes('cliff.toml.template')) return '[changelog]\nbody = "template"';
+        return 'different content';
+      });
 
       scaffoldFiles({ repoType: 'single-package', dryRun: false, overwrite: false, withConfig: true });
 
-      // Workflow file should be skipped
       expect(mockPrintSkip).toHaveBeenCalledWith(expect.stringContaining('.github/workflows/release.yaml'));
-      // Config file should be skipped
       expect(mockPrintSkip).toHaveBeenCalledWith(expect.stringContaining('.config/release-kit.config.ts'));
-      // Cliff template target should be skipped
       expect(mockPrintSkip).toHaveBeenCalledWith(expect.stringContaining('.config/git-cliff.toml'));
       expect(mockWriteFileSync).not.toHaveBeenCalled();
     });
@@ -146,6 +147,73 @@ describe('scaffold', () => {
       scaffoldFiles({ repoType: 'single-package', dryRun: false, overwrite: false, withConfig: false });
 
       expect(mockPrintError).toHaveBeenCalledWith(expect.stringContaining('Failed to create directory for'));
+    });
+  });
+
+  describe('content-aware skip reporting', () => {
+    it('reports up to date when existing file matches the intended content', () => {
+      // Template file exists, target file exists with same content
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue('same content');
+
+      copyCliffTemplate(false, false);
+
+      expect(mockPrintSuccess).toHaveBeenCalledWith(expect.stringContaining('(up to date)'));
+      expect(mockPrintSkip).not.toHaveBeenCalled();
+      expect(mockWriteFileSync).not.toHaveBeenCalled();
+    });
+
+    it('reports already exists when existing file differs from intended content', () => {
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockImplementation((path: string) => {
+        if (path.includes('cliff.toml.template')) return 'template content';
+        return 'different content on disk';
+      });
+
+      copyCliffTemplate(false, false);
+
+      expect(mockPrintSkip).toHaveBeenCalledWith(expect.stringContaining('(already exists)'));
+      expect(mockPrintSuccess).not.toHaveBeenCalled();
+    });
+
+    it('treats files as identical when they differ only in trailing whitespace', () => {
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockImplementation((path: string) => {
+        if (path.includes('cliff.toml.template')) return 'line one\nline two\n';
+        return 'line one  \nline two  \n\n';
+      });
+
+      copyCliffTemplate(false, false);
+
+      expect(mockPrintSuccess).toHaveBeenCalledWith(expect.stringContaining('(up to date)'));
+      expect(mockPrintSkip).not.toHaveBeenCalled();
+    });
+
+    it('falls back to already exists when reading the existing file throws', () => {
+      let callCount = 0;
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockImplementation((path: string) => {
+        if (path.includes('cliff.toml.template')) return 'template content';
+        callCount++;
+        if (callCount === 1) throw new Error('EACCES: permission denied');
+        return 'unreachable';
+      });
+
+      copyCliffTemplate(false, false);
+
+      expect(mockPrintSkip).toHaveBeenCalledWith(expect.stringContaining('(already exists)'));
+      expect(mockPrintSuccess).not.toHaveBeenCalled();
+    });
+
+    it('reports up to date in dry-run mode when existing file matches', () => {
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue('same content');
+
+      copyCliffTemplate(true, false);
+
+      expect(mockPrintSuccess).toHaveBeenCalledWith(expect.stringContaining('(up to date)'));
+      expect(mockPrintSkip).not.toHaveBeenCalled();
+      expect(mockWriteFileSync).not.toHaveBeenCalled();
     });
   });
 
