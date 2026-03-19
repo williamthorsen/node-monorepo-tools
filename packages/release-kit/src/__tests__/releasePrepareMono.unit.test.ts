@@ -4,6 +4,7 @@ const mockExecFileSync = vi.hoisted(() => vi.fn());
 const mockExecSync = vi.hoisted(() => vi.fn());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockWriteFileSync = vi.hoisted(() => vi.fn());
+const mockHasPrettierConfig = vi.hoisted(() => vi.fn());
 
 vi.mock('node:child_process', () => ({
   execFileSync: mockExecFileSync,
@@ -17,6 +18,10 @@ vi.mock('node:fs', () => ({
 
 vi.mock('../resolveCliffConfigPath.ts', () => ({
   resolveCliffConfigPath: () => 'cliff.toml',
+}));
+
+vi.mock('../hasPrettierConfig.ts', () => ({
+  hasPrettierConfig: mockHasPrettierConfig,
 }));
 
 import { releasePrepareMono } from '../releasePrepareMono.ts';
@@ -58,6 +63,7 @@ describe(releasePrepareMono, () => {
     mockExecSync.mockReset();
     mockReadFileSync.mockReset();
     mockWriteFileSync.mockReset();
+    mockHasPrettierConfig.mockReset();
   });
 
   it('processes a component that has commits', () => {
@@ -482,6 +488,70 @@ describe(releasePrepareMono, () => {
     const result = releasePrepareMono(config, { dryRun: false });
 
     expect(result).toStrictEqual([]);
+    expect(mockExecSync).not.toHaveBeenCalled();
+  });
+
+  it('defaults to prettier when no formatCommand is set and prettier config exists', () => {
+    const config = makeConfig({
+      components: [
+        {
+          dir: 'arrays',
+          tagPrefix: 'arrays-v',
+          packageFiles: ['packages/arrays/package.json'],
+          changelogPaths: ['packages/arrays'],
+          paths: ['packages/arrays/**'],
+        },
+      ],
+    });
+    mockHasPrettierConfig.mockReturnValue(true);
+
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') {
+        return 'arrays-v1.0.0\n';
+      }
+      if (cmd === 'git' && args[0] === 'log') {
+        return 'feat: add feature\u001Fabc123';
+      }
+      return '';
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+
+    releasePrepareMono(config, { dryRun: false });
+
+    expect(mockExecSync).toHaveBeenCalledTimes(1);
+    expect(mockExecSync).toHaveBeenCalledWith(
+      'npx prettier --write packages/arrays/package.json packages/arrays/CHANGELOG.md',
+      { stdio: 'inherit' },
+    );
+  });
+
+  it('skips formatting when no formatCommand is set and no prettier config exists', () => {
+    const config = makeConfig({
+      components: [
+        {
+          dir: 'arrays',
+          tagPrefix: 'arrays-v',
+          packageFiles: ['packages/arrays/package.json'],
+          changelogPaths: ['packages/arrays'],
+          paths: ['packages/arrays/**'],
+        },
+      ],
+    });
+    mockHasPrettierConfig.mockReturnValue(false);
+
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') {
+        return 'arrays-v1.0.0\n';
+      }
+      if (cmd === 'git' && args[0] === 'log') {
+        return 'feat: add feature\u001Fabc123';
+      }
+      return '';
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+
+    releasePrepareMono(config, { dryRun: false });
+
     expect(mockExecSync).not.toHaveBeenCalled();
   });
 });

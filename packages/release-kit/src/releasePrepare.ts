@@ -5,6 +5,7 @@ import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { determineBumpType } from './determineBumpType.ts';
 import { generateChangelogs } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
+import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import { parseCommitMessage } from './parseCommitMessage.ts';
 import type { ParsedCommit, ReleaseConfig, ReleaseType } from './types.ts';
 
@@ -69,10 +70,11 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   console.info('Generating changelogs...');
   generateChangelogs(config, newTag, dryRun);
 
-  // 5. Run format command if configured, appending modified file paths
-  if (config.formatCommand !== undefined) {
+  // 5. Run format command, appending modified file paths
+  const formatCommand = config.formatCommand ?? (hasPrettierConfig() ? 'npx prettier --write' : undefined);
+  if (formatCommand !== undefined) {
     const modifiedFiles = [...config.packageFiles, ...config.changelogPaths.map((p) => `${p}/CHANGELOG.md`)];
-    const fullCommand = `${config.formatCommand} ${modifiedFiles.join(' ')}`;
+    const fullCommand = `${formatCommand} ${modifiedFiles.join(' ')}`;
     if (dryRun) {
       console.info(`  [dry-run] Would run format command: ${fullCommand}`);
     } else {
