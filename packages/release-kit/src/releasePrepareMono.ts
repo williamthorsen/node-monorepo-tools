@@ -5,6 +5,7 @@ import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { determineBumpType } from './determineBumpType.ts';
 import { generateChangelog } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
+import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import { parseCommitMessage } from './parseCommitMessage.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
 import type { MonorepoReleaseConfig, ParsedCommit, ReleaseType } from './types.ts';
@@ -89,8 +90,9 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
   }
 
   // 5. Run format command once after all components are processed, appending modified file paths
-  if (tags.length > 0 && config.formatCommand !== undefined) {
-    const fullCommand = `${config.formatCommand} ${modifiedFiles.join(' ')}`;
+  const formatCommand = config.formatCommand ?? (hasPrettierConfig() ? 'npx prettier --write' : undefined);
+  if (tags.length > 0 && formatCommand !== undefined) {
+    const fullCommand = `${formatCommand} ${modifiedFiles.join(' ')}`;
     if (dryRun) {
       console.info(`\n  [dry-run] Would run format command: ${fullCommand}`);
     } else {

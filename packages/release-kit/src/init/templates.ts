@@ -15,8 +15,7 @@ const config: ReleaseKitConfig = {
   //   { dir: 'my-package', shouldExclude: true },
   // ],
 
-  // TODO: Uncomment and adjust if you have a format command
-  // formatCommand: 'npx prettier --write',
+  // Formatting: prettier is auto-detected. Set formatCommand to override.
 
   // Uncomment to override the default version patterns:
   // versionPatterns: { major: ['!'], minor: ['feat', 'feature'] },
@@ -32,8 +31,7 @@ export default config;
   return `import type { ReleaseKitConfig } from '@williamthorsen/release-kit';
 
 const config: ReleaseKitConfig = {
-  // TODO: Uncomment and adjust if you have a format command
-  // formatCommand: 'npx prettier --write',
+  // Formatting: prettier is auto-detected. Set formatCommand to override.
 
   // Uncomment to override the default version patterns:
   // versionPatterns: { major: ['!'], minor: ['feat', 'feature'] },
