@@ -32,6 +32,10 @@ on:
         description: 'Override version bump type'
         type: string
         default: ''
+      force:
+        description: 'Force a version bump even when there are no release-worthy changes'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -83,6 +87,9 @@ jobs:
           fi
           if [ -n "${{ inputs.bump }}" ]; then
             ARGS="$ARGS --bump=${{ inputs.bump }}"
+          fi
+          if [ "${{ inputs.force }}" = "true" ]; then
+            ARGS="$ARGS --force"
           fi
           ${{ inputs.prepare-command }} $ARGS
 

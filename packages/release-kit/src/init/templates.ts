@@ -68,6 +68,11 @@ on:
           - patch
           - minor
           - major
+      force:
+        description: 'Force a version bump even when there are no release-worthy changes'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -79,6 +84,7 @@ jobs:
     with:
       only: \${{ inputs.only }}
       bump: \${{ inputs.bump }}
+      force: \${{ inputs.force }}
 `;
   }
 
@@ -97,6 +103,11 @@ on:
           - patch
           - minor
           - major
+      force:
+        description: 'Force a version bump even when there are no release-worthy changes'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -107,5 +118,6 @@ jobs:
     uses: williamthorsen/node-monorepo-tools/.github/workflows/release-workflow.yaml@release-workflow-v1
     with:
       bump: \${{ inputs.bump }}
+      force: \${{ inputs.force }}
 `;
 }
