@@ -21,7 +21,7 @@
   "scripts": {
     "bootstrap": "cd packages/core && tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json",
     "ci": "nmr ci",
-    "postinstall": "node packages/core/dist/esm/cli-report-overrides.js",
+    "postinstall": "node --input-type=module -e \"import{existsSync}from'node:fs';if(existsSync('packages/core/dist/esm/cli-report-overrides.js'))await import('./packages/core/dist/esm/cli-report-overrides.js')\"",
     "prepare": "lefthook install"
   },
   "devDependencies": {
