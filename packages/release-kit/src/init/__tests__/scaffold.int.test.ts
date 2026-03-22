@@ -26,7 +26,7 @@ describe('copyCliffTemplate (integration)', () => {
   it('resolves cliff.toml.template from the built output and writes .config/git-cliff.toml', async () => {
     if (!existsSync(distScaffoldPath)) {
       throw new Error(
-        `Built output not found at ${distScaffoldPath}. Run \`pnpm run ws build\` before running integration tests.`,
+        `Built output not found at ${distScaffoldPath}. Run \`nmr build\` before running integration tests.`,
       );
     }
 

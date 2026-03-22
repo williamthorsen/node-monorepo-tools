@@ -25,8 +25,7 @@
     "dist"
   ],
   "scripts": {
-    "prepare": "pnpm run ws build",
-    "ws": "node --import tsx ../../scripts/run-workspace-script.ts"
+    "prepare": "tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json"
   },
   "dependencies": {
     "jiti": "2.6.1",
