@@ -21,7 +21,7 @@
   "scripts": {
     "bootstrap": "cd packages/core && tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json",
     "ci": "nmr ci",
-    "postinstall": "node scripts/postinstall.mjs",
+    "postinstall": "node scripts/postinstall.js",
     "prepare": "lefthook install"
   },
   "devDependencies": {

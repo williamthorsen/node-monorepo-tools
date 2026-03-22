@@ -25,7 +25,7 @@ describe('resolveCliffConfigPath (integration)', () => {
   it('resolves the bundled cliff.toml.template from the built output', async () => {
     if (!existsSync(distResolverPath)) {
       throw new Error(
-        `Built output not found at ${distResolverPath}. Run \`pnpm run ws build\` before running integration tests.`,
+        `Built output not found at ${distResolverPath}. Run \`nmr build\` before running integration tests.`,
       );
     }
 
