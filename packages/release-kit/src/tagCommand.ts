@@ -3,14 +3,13 @@
 
 import { createTags } from './createTags.ts';
 
-// Help flags are handled upstream in the CLI entry point (bin/release-kit.ts).
-const KNOWN_FLAGS = new Set(['--dry-run', '--no-git-checks']);
-
 /**
  * Orchestrate the CLI `tag` command: parse flags and delegate to `createTags`.
  */
 export function tagCommand(argv: string[]): void {
-  const unknownFlags = argv.filter((f) => !KNOWN_FLAGS.has(f));
+  // Help flags are handled upstream in the CLI entry point (bin/release-kit.ts).
+  const knownFlags = new Set(['--dry-run', '--no-git-checks']);
+  const unknownFlags = argv.filter((f) => !knownFlags.has(f));
   if (unknownFlags.length > 0) {
     console.error(`Error: Unknown option: ${unknownFlags[0]}`);
     process.exit(1);
