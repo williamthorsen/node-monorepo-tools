@@ -1,0 +1,129 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mockExecFileSync = vi.hoisted(() => vi.fn());
+
+vi.mock('node:child_process', () => ({
+  execFileSync: mockExecFileSync,
+}));
+
+import { publish } from '../publish.ts';
+import type { ResolvedTag } from '../resolveReleaseTags.ts';
+
+describe(publish, () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    mockExecFileSync.mockReset();
+    vi.restoreAllMocks();
+  });
+
+  const singleTag: ResolvedTag[] = [{ tag: 'v1.0.0', dir: '.', workspacePath: '.' }];
+  const multiTags: ResolvedTag[] = [
+    { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
+    { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit' },
+  ];
+
+  it('does nothing when resolvedTags is empty', () => {
+    publish([], 'npm', { dryRun: false, noGitChecks: false });
+
+    expect(mockExecFileSync).not.toHaveBeenCalled();
+    expect(console.info).not.toHaveBeenCalled();
+  });
+
+  it('runs npm publish from the correct directory', () => {
+    publish(singleTag, 'npm', { dryRun: false, noGitChecks: false });
+
+    expect(mockExecFileSync).toHaveBeenCalledWith('npm', ['publish'], {
+      cwd: '.',
+      stdio: 'inherit',
+    });
+  });
+
+  it('runs pnpm publish from the correct directory for each package', () => {
+    publish(multiTags, 'pnpm', { dryRun: false, noGitChecks: false });
+
+    expect(mockExecFileSync).toHaveBeenCalledWith('pnpm', ['publish'], {
+      cwd: 'packages/core',
+      stdio: 'inherit',
+    });
+    expect(mockExecFileSync).toHaveBeenCalledWith('pnpm', ['publish'], {
+      cwd: 'packages/release-kit',
+      stdio: 'inherit',
+    });
+  });
+
+  it('forwards --dry-run flag', () => {
+    publish(singleTag, 'npm', { dryRun: true, noGitChecks: false });
+
+    expect(mockExecFileSync).toHaveBeenCalledWith('npm', ['publish', '--dry-run'], {
+      cwd: '.',
+      stdio: 'inherit',
+    });
+  });
+
+  it('forwards --no-git-checks only for pnpm', () => {
+    publish(singleTag, 'pnpm', { dryRun: false, noGitChecks: true });
+
+    expect(mockExecFileSync).toHaveBeenCalledWith('pnpm', ['publish', '--no-git-checks'], {
+      cwd: '.',
+      stdio: 'inherit',
+    });
+  });
+
+  it('does not forward --no-git-checks for npm', () => {
+    publish(singleTag, 'npm', { dryRun: false, noGitChecks: true });
+
+    expect(mockExecFileSync).toHaveBeenCalledWith('npm', ['publish'], {
+      cwd: '.',
+      stdio: 'inherit',
+    });
+  });
+
+  it('does not forward --no-git-checks for yarn', () => {
+    publish(singleTag, 'yarn', { dryRun: false, noGitChecks: true });
+
+    expect(mockExecFileSync).toHaveBeenCalledWith('yarn', ['publish'], {
+      cwd: '.',
+      stdio: 'inherit',
+    });
+  });
+
+  it('forwards both --dry-run and --no-git-checks for pnpm', () => {
+    publish(singleTag, 'pnpm', { dryRun: true, noGitChecks: true });
+
+    expect(mockExecFileSync).toHaveBeenCalledWith('pnpm', ['publish', '--dry-run', '--no-git-checks'], {
+      cwd: '.',
+      stdio: 'inherit',
+    });
+  });
+
+  it('prints confirmation listing before publishing', () => {
+    publish(multiTags, 'pnpm', { dryRun: false, noGitChecks: false });
+
+    expect(console.info).toHaveBeenCalledWith('Publishing:');
+    expect(console.info).toHaveBeenCalledWith('  core-v1.3.0 (packages/core)');
+    expect(console.info).toHaveBeenCalledWith('  release-kit-v2.1.0 (packages/release-kit)');
+  });
+
+  it('prints dry-run confirmation listing', () => {
+    publish(multiTags, 'pnpm', { dryRun: true, noGitChecks: false });
+
+    expect(console.info).toHaveBeenCalledWith('[dry-run] Would publish:');
+  });
+
+  it('reports successfully published packages when a subsequent publish fails', () => {
+    mockExecFileSync.mockImplementation((_cmd: string, _args: string[], opts: { cwd: string }) => {
+      if (opts.cwd === 'packages/release-kit') {
+        throw new Error('publish failed');
+      }
+    });
+
+    expect(() => publish(multiTags, 'pnpm', { dryRun: false, noGitChecks: false })).toThrow('publish failed');
+
+    expect(console.warn).toHaveBeenCalledWith('Packages published before failure:');
+    expect(console.warn).toHaveBeenCalledWith('  core-v1.3.0');
+  });
+});
