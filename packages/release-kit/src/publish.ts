@@ -50,10 +50,7 @@ export function publish(resolvedTags: ResolvedTag[], packageManager: PackageMana
 }
 
 /** Build the argument list for `{pm} publish`. */
-function buildPublishArgs(
-  packageManager: PackageManager,
-  options: { dryRun: boolean; noGitChecks: boolean },
-): string[] {
+function buildPublishArgs(packageManager: PackageManager, options: PublishOptions): string[] {
   const args = ['publish'];
 
   if (options.dryRun) {

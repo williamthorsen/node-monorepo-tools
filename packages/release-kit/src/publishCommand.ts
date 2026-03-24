@@ -24,7 +24,7 @@ export async function publishCommand(argv: string[]): Promise<void> {
   const noGitChecks = argv.includes('--no-git-checks');
 
   const onlyArg = argv.find((f) => f.startsWith('--only='));
-  const only = onlyArg === undefined ? undefined : onlyArg.slice('--only='.length).split(',');
+  const only = onlyArg?.slice('--only='.length).split(',');
 
   // Discover workspaces to determine single-package vs monorepo mode
   let discoveredPaths: string[] | undefined;
@@ -45,13 +45,7 @@ export async function publishCommand(argv: string[]): Promise<void> {
     discoveredPaths === undefined ? undefined : new Map(discoveredPaths.map((p) => [basename(p), p]));
 
   // Resolve tags from HEAD
-  let resolvedTags;
-  try {
-    resolvedTags = resolveReleaseTags(workspaceMap);
-  } catch (error: unknown) {
-    console.error(`Error resolving tags: ${error instanceof Error ? error.message : String(error)}`);
-    process.exit(1);
-  }
+  let resolvedTags = resolveReleaseTags(workspaceMap);
 
   if (resolvedTags.length === 0) {
     console.error('Error: No release tags found on HEAD. Create tags with `release-kit tag` first.');

@@ -23,10 +23,6 @@ export function resolveReleaseTags(workspaceMap?: Map<string, string>): Resolved
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
 
-  if (tags.length === 0) {
-    return [];
-  }
-
   if (workspaceMap === undefined) {
     return resolveSinglePackageTags(tags);
   }
@@ -36,15 +32,7 @@ export function resolveReleaseTags(workspaceMap?: Map<string, string>): Resolved
 
 /** Match single-package tags of the form `v{semver}`. */
 function resolveSinglePackageTags(tags: string[]): ResolvedTag[] {
-  const resolved: ResolvedTag[] = [];
-
-  for (const tag of tags) {
-    if (VERSION_PATTERN.test(tag)) {
-      resolved.push({ tag, dir: '.', workspacePath: '.' });
-    }
-  }
-
-  return resolved;
+  return tags.filter((tag) => VERSION_PATTERN.test(tag)).map((tag) => ({ tag, dir: '.', workspacePath: '.' }));
 }
 
 /** Match monorepo tags of the form `{dir}-v{semver}` against the workspace map. */
