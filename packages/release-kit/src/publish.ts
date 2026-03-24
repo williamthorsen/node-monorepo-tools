@@ -29,13 +29,12 @@ export function publish(resolvedTags: ResolvedTag[], packageManager: PackageMana
   const published: string[] = [];
 
   for (const { tag, workspacePath } of resolvedTags) {
+    const executable = resolveExecutable(packageManager);
     const args = buildPublishArgs(packageManager, { dryRun, noGitChecks });
 
     try {
-      console.info(
-        `\n${dryRun ? '[dry-run] ' : ''}Running: ${packageManager} ${args.join(' ')} (cwd: ${workspacePath})`,
-      );
-      execFileSync(packageManager, args, { cwd: workspacePath, stdio: 'inherit' });
+      console.info(`\n${dryRun ? '[dry-run] ' : ''}Running: ${executable} ${args.join(' ')} (cwd: ${workspacePath})`);
+      execFileSync(executable, args, { cwd: workspacePath, stdio: 'inherit' });
       published.push(tag);
     } catch (error: unknown) {
       if (published.length > 0) {
@@ -49,9 +48,17 @@ export function publish(resolvedTags: ResolvedTag[], packageManager: PackageMana
   }
 }
 
-/** Build the argument list for `{pm} publish`. */
+/** Map the `PackageManager` value to the actual CLI executable name. */
+function resolveExecutable(packageManager: PackageManager): string {
+  if (packageManager === 'yarn-berry') {
+    return 'yarn';
+  }
+  return packageManager;
+}
+
+/** Build the argument list for the publish command. */
 function buildPublishArgs(packageManager: PackageManager, options: PublishOptions): string[] {
-  const args = ['publish'];
+  const args = packageManager === 'yarn-berry' ? ['npm', 'publish'] : ['publish'];
 
   if (options.dryRun) {
     args.push('--dry-run');

@@ -91,6 +91,33 @@ describe(publish, () => {
     });
   });
 
+  it('runs yarn npm publish for yarn-berry', () => {
+    publish(singleTag, 'yarn-berry', { dryRun: false, noGitChecks: false });
+
+    expect(mockExecFileSync).toHaveBeenCalledWith('yarn', ['npm', 'publish'], {
+      cwd: '.',
+      stdio: 'inherit',
+    });
+  });
+
+  it('forwards --dry-run for yarn-berry', () => {
+    publish(singleTag, 'yarn-berry', { dryRun: true, noGitChecks: false });
+
+    expect(mockExecFileSync).toHaveBeenCalledWith('yarn', ['npm', 'publish', '--dry-run'], {
+      cwd: '.',
+      stdio: 'inherit',
+    });
+  });
+
+  it('does not forward --no-git-checks for yarn-berry', () => {
+    publish(singleTag, 'yarn-berry', { dryRun: false, noGitChecks: true });
+
+    expect(mockExecFileSync).toHaveBeenCalledWith('yarn', ['npm', 'publish'], {
+      cwd: '.',
+      stdio: 'inherit',
+    });
+  });
+
   it('forwards both --dry-run and --no-git-checks for pnpm', () => {
     publish(singleTag, 'pnpm', { dryRun: true, noGitChecks: true });
 

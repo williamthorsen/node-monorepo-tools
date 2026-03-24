@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockExecFileSync = vi.hoisted(() => vi.fn());
 
@@ -9,8 +9,13 @@ vi.mock('node:child_process', () => ({
 import { resolveReleaseTags } from '../resolveReleaseTags.ts';
 
 describe(resolveReleaseTags, () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
   afterEach(() => {
     mockExecFileSync.mockReset();
+    vi.restoreAllMocks();
   });
 
   it('returns an empty array when no tags point at HEAD', () => {
@@ -76,5 +81,24 @@ describe(resolveReleaseTags, () => {
     const workspaceMap = new Map([['core', 'packages/core']]);
 
     expect(resolveReleaseTags(workspaceMap)).toEqual([]);
+  });
+
+  it('warns and returns only the first tag when multiple single-package version tags exist', () => {
+    mockExecFileSync.mockReturnValue('v1.0.0\nv1.1.0\n');
+
+    const result = resolveReleaseTags();
+
+    expect(result).toEqual([{ tag: 'v1.0.0', dir: '.', workspacePath: '.' }]);
+    expect(console.warn).toHaveBeenCalledWith(
+      expect.stringContaining('Multiple version tags found on HEAD: v1.0.0, v1.1.0'),
+    );
+  });
+
+  it('does not warn when only one single-package version tag exists', () => {
+    mockExecFileSync.mockReturnValue('v1.2.3\n');
+
+    resolveReleaseTags();
+
+    expect(console.warn).not.toHaveBeenCalled();
   });
 });

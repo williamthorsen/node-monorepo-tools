@@ -33,8 +33,32 @@ describe(detectPackageManager, () => {
     expect(detectPackageManager()).toBe('npm');
   });
 
-  it('detects yarn from the packageManager field', () => {
+  it('detects Yarn Classic from the packageManager field', () => {
+    mockReadFileSync.mockReturnValue(JSON.stringify({ packageManager: 'yarn@1.22.19' }));
+
+    expect(detectPackageManager()).toBe('yarn');
+  });
+
+  it('detects Yarn Berry from the packageManager field', () => {
     mockReadFileSync.mockReturnValue(JSON.stringify({ packageManager: 'yarn@4.1.0' }));
+
+    expect(detectPackageManager()).toBe('yarn-berry');
+  });
+
+  it('detects Yarn Berry for v2', () => {
+    mockReadFileSync.mockReturnValue(JSON.stringify({ packageManager: 'yarn@2.0.0' }));
+
+    expect(detectPackageManager()).toBe('yarn-berry');
+  });
+
+  it('detects Yarn Berry for v3', () => {
+    mockReadFileSync.mockReturnValue(JSON.stringify({ packageManager: 'yarn@3.6.4' }));
+
+    expect(detectPackageManager()).toBe('yarn-berry');
+  });
+
+  it('treats yarn without version as Classic', () => {
+    mockReadFileSync.mockReturnValue(JSON.stringify({ packageManager: 'yarn' }));
 
     expect(detectPackageManager()).toBe('yarn');
   });

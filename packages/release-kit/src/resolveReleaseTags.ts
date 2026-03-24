@@ -30,9 +30,19 @@ export function resolveReleaseTags(workspaceMap?: Map<string, string>): Resolved
   return resolveMonorepoTags(tags, workspaceMap);
 }
 
-/** Match single-package tags of the form `v{semver}`. */
+/** Match single-package tags of the form `v{semver}`, warning if multiple are found. */
 function resolveSinglePackageTags(tags: string[]): ResolvedTag[] {
-  return tags.filter((tag) => VERSION_PATTERN.test(tag)).map((tag) => ({ tag, dir: '.', workspacePath: '.' }));
+  const matched = tags.filter((tag) => VERSION_PATTERN.test(tag));
+
+  if (matched.length > 1) {
+    console.warn(
+      `Warning: Multiple version tags found on HEAD: ${matched.join(', ')}. ` +
+        `Publishing the same package multiple times is almost certainly unintended. Using only the first tag.`,
+    );
+    return matched.slice(0, 1).map((tag) => ({ tag, dir: '.', workspacePath: '.' }));
+  }
+
+  return matched.map((tag) => ({ tag, dir: '.', workspacePath: '.' }));
 }
 
 /** Match monorepo tags of the form `{dir}-v{semver}` against the workspace map. */
