@@ -5,8 +5,8 @@
  * avoid hardcoding internal dist paths. Fall back to a direct path for the
  * bootstrap case where the package is linked but not yet built.
  */
-import { createRequire } from 'node:module';
 import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
