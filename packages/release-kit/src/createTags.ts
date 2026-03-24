@@ -39,8 +39,20 @@ export function createTags(options: CreateTagsOptions): string[] {
   if (dryRun) {
     console.info('[dry-run] Would create tags:');
   } else {
+    const created: string[] = [];
     for (const tag of tags) {
-      execFileSync('git', ['tag', '-a', tag, '-m', tag]);
+      try {
+        execFileSync('git', ['tag', '-a', tag, '-m', tag]);
+        created.push(tag);
+      } catch (error: unknown) {
+        if (created.length > 0) {
+          console.warn('Tags created before failure:');
+          for (const t of created) {
+            console.warn(`  ${t}`);
+          }
+        }
+        throw error;
+      }
     }
     console.info('Created tags:');
   }
@@ -57,9 +69,17 @@ function assertCleanWorkingTree(): void {
   try {
     execFileSync('git', ['diff', '--quiet']);
     execFileSync('git', ['diff', '--quiet', '--cached']);
-  } catch {
+  } catch (error: unknown) {
+    if (isSpawnError(error)) {
+      throw error;
+    }
     throw new Error(
       'Working tree is dirty. Commit or stash changes before tagging, or use `--no-git-checks` to skip this check.',
     );
   }
+}
+
+/** Detect errors from spawning the process itself (e.g. `ENOENT` when git is not on PATH). */
+function isSpawnError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && 'errno' in error;
 }

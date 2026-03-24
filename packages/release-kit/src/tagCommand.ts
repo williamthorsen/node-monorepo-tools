@@ -3,7 +3,8 @@
 
 import { createTags } from './createTags.ts';
 
-const KNOWN_FLAGS = new Set(['--dry-run', '--no-git-checks', '--help', '-h']);
+// Help flags are handled upstream in the CLI entry point (bin/release-kit.ts).
+const KNOWN_FLAGS = new Set(['--dry-run', '--no-git-checks']);
 
 /**
  * Orchestrate the CLI `tag` command: parse flags and delegate to `createTags`.

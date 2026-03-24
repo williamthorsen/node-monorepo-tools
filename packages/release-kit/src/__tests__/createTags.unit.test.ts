@@ -16,6 +16,7 @@ import { createTags } from '../createTags.ts';
 describe(createTags, () => {
   beforeEach(() => {
     vi.spyOn(console, 'info').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -134,5 +135,45 @@ describe(createTags, () => {
     const result = createTags({ dryRun: false, noGitChecks: true });
 
     expect(result).toEqual(['alpha-v1.0.0', 'beta-v2.0.0']);
+  });
+
+  it('skips the dirty-tree check when the tags file is empty', () => {
+    mockReadFileSync.mockReturnValue('');
+    mockExecFileSync.mockImplementation(() => {
+      throw new Error('dirty');
+    });
+
+    const result = createTags({ dryRun: false, noGitChecks: false });
+
+    expect(result).toEqual([]);
+    expect(mockExecFileSync).not.toHaveBeenCalled();
+  });
+
+  it('reports successfully created tags when a subsequent tag fails', () => {
+    mockReadFileSync.mockReturnValue('tag-a\ntag-b\ntag-c\n');
+    mockExecFileSync.mockImplementation((_cmd: string, args: string[]) => {
+      if (args.includes('tag-b')) {
+        throw new Error('tag already exists');
+      }
+    });
+
+    expect(() => createTags({ dryRun: false, noGitChecks: true })).toThrow('tag already exists');
+
+    expect(console.warn).toHaveBeenCalledWith('Tags created before failure:');
+    expect(console.warn).toHaveBeenCalledWith('  tag-a');
+  });
+
+  it('re-throws spawn errors from assertCleanWorkingTree without masking', () => {
+    mockReadFileSync.mockReturnValue('v1.0.0\n');
+    const spawnError = Object.assign(new Error('spawn git ENOENT'), {
+      errno: -2,
+      code: 'ENOENT',
+      syscall: 'spawn git',
+    });
+    mockExecFileSync.mockImplementation(() => {
+      throw spawnError;
+    });
+
+    expect(() => createTags({ dryRun: false, noGitChecks: false })).toThrow('spawn git ENOENT');
   });
 });

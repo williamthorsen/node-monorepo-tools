@@ -55,8 +55,17 @@ describe(tagCommand, () => {
   });
 
   it('exits with code 1 on unknown flags', () => {
-    expect(() => tagCommand(['--unknown'])).toThrow(ExitError);
+    let thrown: ExitError | undefined;
+    try {
+      tagCommand(['--unknown']);
+    } catch (error: unknown) {
+      if (error instanceof ExitError) {
+        thrown = error;
+      }
+    }
 
+    expect(thrown).toBeInstanceOf(ExitError);
+    expect(thrown?.code).toBe(1);
     expect(console.error).toHaveBeenCalledWith('Error: Unknown option: --unknown');
     expect(mockCreateTags).not.toHaveBeenCalled();
   });
@@ -66,8 +75,17 @@ describe(tagCommand, () => {
       throw new Error('No tags file found. Run `release-kit prepare` first.');
     });
 
-    expect(() => tagCommand([])).toThrow(ExitError);
+    let thrown: ExitError | undefined;
+    try {
+      tagCommand([]);
+    } catch (error: unknown) {
+      if (error instanceof ExitError) {
+        thrown = error;
+      }
+    }
 
+    expect(thrown).toBeInstanceOf(ExitError);
+    expect(thrown?.code).toBe(1);
     expect(console.error).toHaveBeenCalledWith('No tags file found. Run `release-kit prepare` first.');
   });
 });
