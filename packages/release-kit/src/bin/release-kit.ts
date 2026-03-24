@@ -4,6 +4,7 @@
 
 import { initCommand } from '../init/initCommand.ts';
 import { prepareCommand } from '../prepareCommand.ts';
+import { publishCommand } from '../publishCommand.ts';
 import { generateCommand } from '../sync-labels/generateCommand.ts';
 import { syncLabelsInitCommand } from '../sync-labels/initCommand.ts';
 import { syncLabelsCommand } from '../sync-labels/syncCommand.ts';
@@ -16,6 +17,7 @@ Usage: release-kit <command> [options]
 Commands:
   prepare       Run release preparation (auto-discovers workspaces)
   tag           Create annotated git tags from the tags file
+  publish       Publish packages with release tags on HEAD
   init          Initialize release-kit in the current repository
   sync-labels   Manage GitHub label synchronization
 
@@ -119,6 +121,20 @@ Options:
 `);
 }
 
+function showPublishHelp(): void {
+  console.info(`
+Usage: release-kit publish [options]
+
+Publish packages that have release tags on HEAD.
+
+Options:
+  --dry-run              Preview without publishing
+  --no-git-checks        Skip git checks (pnpm only)
+  --only=name1,name2     Only publish the named packages (comma-separated, monorepo only)
+  --help, -h             Show this help message
+`);
+}
+
 const args = process.argv.slice(2);
 const command = args[0];
 const flags = args.slice(1);
@@ -145,6 +161,16 @@ if (command === 'tag') {
   }
 
   tagCommand(flags);
+  process.exit(0);
+}
+
+if (command === 'publish') {
+  if (flags.some((f) => f === '--help' || f === '-h')) {
+    showPublishHelp();
+    process.exit(0);
+  }
+
+  await publishCommand(flags);
   process.exit(0);
 }
 

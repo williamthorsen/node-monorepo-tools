@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockReadFileSync = vi.hoisted(() => vi.fn());
+const mockUnlinkSync = vi.hoisted(() => vi.fn());
 const mockExecFileSync = vi.hoisted(() => vi.fn());
 
 vi.mock('node:fs', () => ({
   readFileSync: mockReadFileSync,
+  unlinkSync: mockUnlinkSync,
 }));
 
 vi.mock('node:child_process', () => ({
@@ -21,6 +23,7 @@ describe(createTags, () => {
 
   afterEach(() => {
     mockReadFileSync.mockReset();
+    mockUnlinkSync.mockReset();
     mockExecFileSync.mockReset();
     vi.restoreAllMocks();
   });
@@ -175,5 +178,30 @@ describe(createTags, () => {
     });
 
     expect(() => createTags({ dryRun: false, noGitChecks: false })).toThrow('spawn git ENOENT');
+  });
+
+  it('deletes the tags file after successful tag creation', () => {
+    mockReadFileSync.mockReturnValue('v1.0.0\n');
+
+    createTags({ dryRun: false, noGitChecks: true });
+
+    expect(mockUnlinkSync).toHaveBeenCalledWith('tmp/.release-tags');
+  });
+
+  it('does not delete the tags file in dry-run mode', () => {
+    mockReadFileSync.mockReturnValue('v1.0.0\n');
+
+    createTags({ dryRun: true, noGitChecks: false });
+
+    expect(mockUnlinkSync).not.toHaveBeenCalled();
+  });
+
+  it('tolerates missing tags file on deletion', () => {
+    mockReadFileSync.mockReturnValue('v1.0.0\n');
+    mockUnlinkSync.mockImplementation(() => {
+      throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+    });
+
+    expect(() => createTags({ dryRun: false, noGitChecks: true })).not.toThrow();
   });
 });
