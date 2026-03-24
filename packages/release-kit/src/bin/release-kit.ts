@@ -7,6 +7,7 @@ import { prepareCommand } from '../prepareCommand.ts';
 import { generateCommand } from '../sync-labels/generateCommand.ts';
 import { syncLabelsInitCommand } from '../sync-labels/initCommand.ts';
 import { syncLabelsCommand } from '../sync-labels/syncCommand.ts';
+import { tagCommand } from '../tagCommand.ts';
 
 function showUsage(): void {
   console.info(`
@@ -14,6 +15,7 @@ Usage: release-kit <command> [options]
 
 Commands:
   prepare       Run release preparation (auto-discovers workspaces)
+  tag           Create annotated git tags from the tags file
   init          Initialize release-kit in the current repository
   sync-labels   Manage GitHub label synchronization
 
@@ -104,6 +106,19 @@ Options:
 `);
 }
 
+function showTagHelp(): void {
+  console.info(`
+Usage: release-kit tag [options]
+
+Create annotated git tags from the tags file produced by \`prepare\`.
+
+Options:
+  --dry-run          Preview without creating tags
+  --no-git-checks    Skip dirty working tree check
+  --help, -h         Show this help message
+`);
+}
+
 const args = process.argv.slice(2);
 const command = args[0];
 const flags = args.slice(1);
@@ -120,6 +135,16 @@ if (command === 'prepare') {
   }
 
   await prepareCommand(flags);
+  process.exit(0);
+}
+
+if (command === 'tag') {
+  if (flags.some((f) => f === '--help' || f === '-h')) {
+    showTagHelp();
+    process.exit(0);
+  }
+
+  tagCommand(flags);
   process.exit(0);
 }
 

@@ -1,4 +1,5 @@
 // Types
+export type { CreateTagsOptions } from './createTags.ts';
 export type { GenerateChangelogOptions } from './generateChangelogs.ts';
 export type { ReleasePrepareOptions } from './releasePrepare.ts';
 export type { LabelDefinition, SyncLabelsConfig } from './sync-labels/types.ts';
@@ -22,6 +23,7 @@ export { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 export { bumpAllVersions } from './bumpAllVersions.ts';
 export { bumpVersion } from './bumpVersion.ts';
 export { component } from './component.ts';
+export { createTags } from './createTags.ts';
 export { determineBumpType } from './determineBumpType.ts';
 export { discoverWorkspaces } from './discoverWorkspaces.ts';
 export { generateChangelog, generateChangelogs } from './generateChangelogs.ts';
