@@ -17,11 +17,12 @@
     "./tests": "./dist/esm/tests/consistency.js"
   },
   "bin": {
-    "nmr": "dist/esm/cli.js",
-    "nmr-report-overrides": "dist/esm/cli-report-overrides.js",
-    "nmr-sync-pnpm-version": "dist/esm/cli-sync-pnpm-version.js"
+    "nmr": "bin/nmr.js",
+    "nmr-report-overrides": "bin/nmr-report-overrides.js",
+    "nmr-sync-pnpm-version": "bin/nmr-sync-pnpm-version.js"
   },
   "files": [
+    "bin",
     "dist"
   ],
   "scripts": {

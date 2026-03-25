@@ -21,9 +21,10 @@
     }
   },
   "bin": {
-    "release-kit": "./dist/esm/bin/release-kit.js"
+    "release-kit": "./bin/release-kit.js"
   },
   "files": [
+    "bin",
     "dist/*",
     "cliff.toml.template",
     "presets/**",
