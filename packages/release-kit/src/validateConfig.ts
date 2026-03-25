@@ -65,6 +65,20 @@ function validateComponents(value: unknown, config: ReleaseKitConfig, errors: st
       continue;
     }
 
+    // Detect unknown or removed fields
+    const knownComponentFields = new Set(['dir', 'shouldExclude']);
+    for (const key of Object.keys(entry)) {
+      if (!knownComponentFields.has(key)) {
+        if (key === 'tagPrefix') {
+          errors.push(
+            `components[${i}]: 'tagPrefix' is no longer supported; remove it to use the default '${entry.dir}-v'`,
+          );
+        } else {
+          errors.push(`components[${i}]: unknown field '${key}'`);
+        }
+      }
+    }
+
     const component: NonNullable<ReleaseKitConfig['components']>[number] = { dir: entry.dir };
 
     if (entry.shouldExclude !== undefined) {

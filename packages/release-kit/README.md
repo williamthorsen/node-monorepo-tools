@@ -114,7 +114,6 @@ All fields are optional.
 ```typescript
 interface ComponentOverride {
   dir: string; // Package directory name (e.g., 'arrays')
-  tagPrefix?: string; // Custom git tag prefix (defaults to '${dir}-v')
   shouldExclude?: boolean; // If true, exclude from release processing
 }
 ```
@@ -178,12 +177,9 @@ component('packages/arrays');
 //   changelogPaths: ['packages/arrays'],
 //   paths: ['packages/arrays/**'],
 // }
-
-// Custom tag prefix
-component('libs/core', 'core-v');
 ```
 
-The `dir` field is derived from `path.basename()`, so `packages/arrays` and `libs/arrays` both produce `dir: 'arrays'`.
+The `dir` field is derived from `path.basename()`, so `packages/arrays` and `libs/arrays` both produce `dir: 'arrays'`. The `tagPrefix` is always `${dir}-v` — it cannot be customized.
 
 ## GitHub Actions workflow
 

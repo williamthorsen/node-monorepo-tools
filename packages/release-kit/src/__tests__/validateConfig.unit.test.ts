@@ -43,6 +43,22 @@ describe(validateConfig, () => {
       });
       expect(errors).toContain("components[0]: 'shouldExclude' must be a boolean");
     });
+
+    it('returns a deprecation error when tagPrefix is present', () => {
+      const { errors } = validateConfig({
+        components: [{ dir: 'arrays', tagPrefix: 'my-v' }],
+      });
+      expect(errors).toContain(
+        "components[0]: 'tagPrefix' is no longer supported; remove it to use the default 'arrays-v'",
+      );
+    });
+
+    it('returns an error for unknown component fields', () => {
+      const { errors } = validateConfig({
+        components: [{ dir: 'arrays', bogusField: true }],
+      });
+      expect(errors).toContain("components[0]: unknown field 'bogusField'");
+    });
   });
 
   describe('versionPatterns', () => {
