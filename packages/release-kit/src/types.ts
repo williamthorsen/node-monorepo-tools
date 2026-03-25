@@ -55,8 +55,6 @@ export interface ReleaseKitConfig {
 export interface ComponentOverride {
   /** The package directory name (e.g., 'arrays'). */
   dir: string;
-  /** Custom git tag prefix. Defaults to `${dir}-v`. */
-  tagPrefix?: string;
   /** If true, exclude this component from release processing. */
   shouldExclude?: boolean;
 }

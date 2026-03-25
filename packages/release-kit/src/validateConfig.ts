@@ -55,6 +55,7 @@ function validateComponents(value: unknown, config: ReleaseKitConfig, errors: st
   }
 
   const components: NonNullable<ReleaseKitConfig['components']> = [];
+  const knownComponentFields = new Set(['dir', 'shouldExclude']);
   for (const [i, entry] of value.entries()) {
     if (!isRecord(entry)) {
       errors.push(`components[${i}]: must be an object`);
@@ -65,15 +66,21 @@ function validateComponents(value: unknown, config: ReleaseKitConfig, errors: st
       continue;
     }
 
-    const component: NonNullable<ReleaseKitConfig['components']>[number] = { dir: entry.dir };
-
-    if (entry.tagPrefix !== undefined) {
-      if (typeof entry.tagPrefix === 'string') {
-        component.tagPrefix = entry.tagPrefix;
-      } else {
-        errors.push(`components[${i}]: 'tagPrefix' must be a string`);
+    // Detect unknown or removed fields
+    for (const key of Object.keys(entry)) {
+      if (!knownComponentFields.has(key)) {
+        if (key === 'tagPrefix') {
+          errors.push(
+            `components[${i}]: 'tagPrefix' is no longer supported; remove it to use the default '${entry.dir}-v'`,
+          );
+        } else {
+          errors.push(`components[${i}]: unknown field '${key}'`);
+        }
       }
     }
+
+    const component: NonNullable<ReleaseKitConfig['components']>[number] = { dir: entry.dir };
+
     if (entry.shouldExclude !== undefined) {
       if (typeof entry.shouldExclude === 'boolean') {
         component.shouldExclude = entry.shouldExclude;

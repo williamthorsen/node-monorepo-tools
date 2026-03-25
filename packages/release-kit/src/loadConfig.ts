@@ -45,8 +45,8 @@ export async function loadConfig(): Promise<unknown> {
  * Resolves a final monorepo config from discovered workspaces and an optional user config overlay.
  *
  * Merging rules:
- * - `components`: match overlay entries by `dir` against discovered list; `shouldExclude` removes;
- *   other fields override; unlisted packages keep defaults.
+ * - `components`: match overlay entries by `dir` against discovered list; `shouldExclude: true`
+ *   removes the component; unlisted packages keep defaults.
  * - `workTypes`: shallow merge — consumer entries override or add to defaults by key.
  * - `versionPatterns`: consumer value replaces defaults entirely.
  * - `formatCommand`, `cliffConfigPath`, `workspaceAliases`: consumer value wins.
@@ -62,18 +62,10 @@ export function mergeMonorepoConfig(
   if (userConfig?.components !== undefined) {
     const overrides = new Map(userConfig.components.map((c) => [c.dir, c]));
 
-    components = components
-      .filter((c) => {
-        const override = overrides.get(c.dir);
-        return override?.shouldExclude !== true;
-      })
-      .map((c) => {
-        const override = overrides.get(c.dir);
-        if (override?.tagPrefix !== undefined) {
-          return { ...c, tagPrefix: override.tagPrefix };
-        }
-        return c;
-      });
+    components = components.filter((c) => {
+      const override = overrides.get(c.dir);
+      return override?.shouldExclude !== true;
+    });
   }
 
   // Merge workTypes
