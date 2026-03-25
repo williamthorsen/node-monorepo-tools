@@ -57,6 +57,22 @@ function countCliffCalls(): number {
   ).length;
 }
 
+/** Collect the --output path from every npx git-cliff call. */
+function findAllCliffOutputPaths(): string[] {
+  const paths: string[] = [];
+  for (const call of mockExecFileSync.mock.calls) {
+    if (call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff')) {
+      const args = call[1];
+      const outputIndex = args.indexOf('--output');
+      const outputPath = outputIndex === -1 ? undefined : args[outputIndex + 1];
+      if (typeof outputPath === 'string') {
+        paths.push(outputPath);
+      }
+    }
+  }
+  return paths;
+}
+
 describe(releasePrepareMono, () => {
   afterEach(() => {
     mockExecFileSync.mockReset();
@@ -553,5 +569,39 @@ describe(releasePrepareMono, () => {
     releasePrepareMono(config, { dryRun: false });
 
     expect(mockExecSync).not.toHaveBeenCalled();
+  });
+
+  it('generates a changelog for each entry in changelogPaths', () => {
+    const config = makeConfig({
+      components: [
+        {
+          dir: 'arrays',
+          tagPrefix: 'arrays-v',
+          packageFiles: ['packages/arrays/package.json'],
+          changelogPaths: ['packages/arrays', 'packages/arrays/docs'],
+          paths: ['packages/arrays/**'],
+        },
+      ],
+    });
+
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') {
+        return 'arrays-v1.0.0\n';
+      }
+      if (cmd === 'git' && args[0] === 'log') {
+        return 'feat: add utility\u001Fabc123';
+      }
+      return '';
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+
+    const result = releasePrepareMono(config, { dryRun: false });
+
+    expect(result).toStrictEqual(['arrays-v1.1.0']);
+    expect(countCliffCalls()).toBe(2);
+    expect(findAllCliffOutputPaths()).toStrictEqual([
+      'packages/arrays/CHANGELOG.md',
+      'packages/arrays/docs/CHANGELOG.md',
+    ]);
   });
 });

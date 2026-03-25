@@ -134,4 +134,31 @@ describe(getCommitsSinceTarget, () => {
     const logArgs = findLogCallArgs();
     expect(logArgs[1]).toBe('HEAD');
   });
+
+  it('propagates git describe errors with a non-128 status', () => {
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') {
+        throw Object.assign(new Error('permission denied'), { status: 1 });
+      }
+      return '';
+    });
+
+    expect(() => getCommitsSinceTarget('v')).toThrow("Failed to run 'git describe': permission denied");
+  });
+
+  it('wraps and re-throws git log failures', () => {
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') {
+        return 'v1.0.0\n';
+      }
+      if (cmd === 'git' && args[0] === 'log') {
+        throw new Error('spawn git ENOENT');
+      }
+      return '';
+    });
+
+    expect(() => getCommitsSinceTarget('v')).toThrow(
+      "Failed to run 'git log' for range 'v1.0.0..HEAD': spawn git ENOENT",
+    );
+  });
 });
