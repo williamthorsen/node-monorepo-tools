@@ -62,18 +62,10 @@ export function mergeMonorepoConfig(
   if (userConfig?.components !== undefined) {
     const overrides = new Map(userConfig.components.map((c) => [c.dir, c]));
 
-    components = components
-      .filter((c) => {
-        const override = overrides.get(c.dir);
-        return override?.shouldExclude !== true;
-      })
-      .map((c) => {
-        const override = overrides.get(c.dir);
-        if (override?.tagPrefix !== undefined) {
-          return { ...c, tagPrefix: override.tagPrefix };
-        }
-        return c;
-      });
+    components = components.filter((c) => {
+      const override = overrides.get(c.dir);
+      return override?.shouldExclude !== true;
+    });
   }
 
   // Merge workTypes

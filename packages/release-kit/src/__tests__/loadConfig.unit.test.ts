@@ -142,14 +142,6 @@ describe(mergeMonorepoConfig, () => {
     expect(result.components[0]?.tagPrefix).toBe('arrays-v');
   });
 
-  it('applies tagPrefix override to a matched component', () => {
-    const result = mergeMonorepoConfig(discoveredPaths, {
-      components: [{ dir: 'arrays', tagPrefix: 'my-arrays-v' }],
-    });
-
-    expect(result.components[0]?.tagPrefix).toBe('my-arrays-v');
-  });
-
   it('merges custom workTypes with defaults', () => {
     const result = mergeMonorepoConfig(discoveredPaths, {
       workTypes: { perf: { header: 'Performance' } },

@@ -13,16 +13,6 @@ describe(component, () => {
     });
   });
 
-  it('uses a custom tag prefix when provided', () => {
-    expect(component('packages/basic', 'my-lib-v')).toStrictEqual({
-      dir: 'basic',
-      tagPrefix: 'my-lib-v',
-      packageFiles: ['packages/basic/package.json'],
-      changelogPaths: ['packages/basic'],
-      paths: ['packages/basic/**'],
-    });
-  });
-
   it('works with non-standard workspace paths', () => {
     expect(component('libs/core')).toStrictEqual({
       dir: 'core',

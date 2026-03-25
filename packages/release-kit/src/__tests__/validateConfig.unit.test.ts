@@ -21,7 +21,7 @@ describe(validateConfig, () => {
   describe('components', () => {
     it('validates a valid components array', () => {
       const { config, errors } = validateConfig({
-        components: [{ dir: 'arrays' }, { dir: 'strings', tagPrefix: 'str-v', shouldExclude: false }],
+        components: [{ dir: 'arrays' }, { dir: 'strings', shouldExclude: false }],
       });
       expect(errors).toStrictEqual([]);
       expect(config.components).toHaveLength(2);
@@ -33,7 +33,7 @@ describe(validateConfig, () => {
     });
 
     it('returns an error when dir is missing', () => {
-      const { errors } = validateConfig({ components: [{ tagPrefix: 'test-v' }] });
+      const { errors } = validateConfig({ components: [{ shouldExclude: true }] });
       expect(errors).toContain("components[0]: 'dir' is required");
     });
 

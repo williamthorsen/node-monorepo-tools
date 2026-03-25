@@ -67,13 +67,6 @@ function validateComponents(value: unknown, config: ReleaseKitConfig, errors: st
 
     const component: NonNullable<ReleaseKitConfig['components']>[number] = { dir: entry.dir };
 
-    if (entry.tagPrefix !== undefined) {
-      if (typeof entry.tagPrefix === 'string') {
-        component.tagPrefix = entry.tagPrefix;
-      } else {
-        errors.push(`components[${i}]: 'tagPrefix' must be a string`);
-      }
-    }
     if (entry.shouldExclude !== undefined) {
       if (typeof entry.shouldExclude === 'boolean') {
         component.shouldExclude = entry.shouldExclude;
