@@ -45,8 +45,8 @@ export async function loadConfig(): Promise<unknown> {
  * Resolves a final monorepo config from discovered workspaces and an optional user config overlay.
  *
  * Merging rules:
- * - `components`: match overlay entries by `dir` against discovered list; `shouldExclude` removes;
- *   other fields override; unlisted packages keep defaults.
+ * - `components`: match overlay entries by `dir` against discovered list; `shouldExclude: true`
+ *   removes the component; unlisted packages keep defaults.
  * - `workTypes`: shallow merge — consumer entries override or add to defaults by key.
  * - `versionPatterns`: consumer value replaces defaults entirely.
  * - `formatCommand`, `cliffConfigPath`, `workspaceAliases`: consumer value wins.

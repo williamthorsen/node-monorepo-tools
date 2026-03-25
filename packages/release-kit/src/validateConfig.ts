@@ -55,6 +55,7 @@ function validateComponents(value: unknown, config: ReleaseKitConfig, errors: st
   }
 
   const components: NonNullable<ReleaseKitConfig['components']> = [];
+  const knownComponentFields = new Set(['dir', 'shouldExclude']);
   for (const [i, entry] of value.entries()) {
     if (!isRecord(entry)) {
       errors.push(`components[${i}]: must be an object`);
@@ -66,7 +67,6 @@ function validateComponents(value: unknown, config: ReleaseKitConfig, errors: st
     }
 
     // Detect unknown or removed fields
-    const knownComponentFields = new Set(['dir', 'shouldExclude']);
     for (const key of Object.keys(entry)) {
       if (!knownComponentFields.has(key)) {
         if (key === 'tagPrefix') {
