@@ -62,8 +62,7 @@ function getDefaultRootScripts(): ScriptRegistry {
     'report-overrides': 'nmr-report-overrides',
     'root:lint': "eslint --fix --ignore-pattern 'packages/**' .",
     'root:lint:check': "eslint --ignore-pattern 'packages/**' .",
-    'root:lint:strict':
-      'echo "Strict linting for the workspace root cannot be enabled until a pattern is accepted as an argument. Falling back to normal linting." && nmr root:lint:check',
+    'root:lint:strict': "strict-lint --ignore-pattern 'packages/**' .",
     'root:test': 'vitest --config ./vitest.root.config.ts',
     'root:typecheck': 'tsgo --noEmit',
     'sync-pnpm-version': 'nmr-sync-pnpm-version',
