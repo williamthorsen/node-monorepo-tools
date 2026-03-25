@@ -49,4 +49,10 @@ describe('getDefaultRootScripts', () => {
     expect(scripts.test).toBe('nmr root:test && pnpm --recursive exec nmr test');
     expect(scripts.typecheck).toBe('nmr root:typecheck && pnpm --recursive exec nmr typecheck');
   });
+
+  it('runs strict-lint against the monorepo root, excluding packages', () => {
+    const scripts = getDefaultRootScripts();
+
+    expect(scripts['root:lint:strict']).toBe("strict-lint --ignore-pattern 'packages/**' .");
+  });
 });
