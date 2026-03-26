@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 
+import { dim } from './format.ts';
 import { resolveCliffConfigPath } from './resolveCliffConfigPath.ts';
 import type { ReleaseConfig } from './types.ts';
 
@@ -41,11 +42,11 @@ export function generateChangelog(
   }
 
   if (dryRun) {
-    console.info(`  [dry-run] Would run: npx --yes git-cliff ${args.join(' ')}`);
+    console.info(dim(`  [dry-run] Would run: npx --yes git-cliff ${args.join(' ')}`));
     return;
   }
 
-  console.info(`  Generating changelog: ${outputFile}`);
+  console.info(dim(`  Generating changelog: ${outputFile}`));
   try {
     execFileSync('npx', ['--yes', 'git-cliff', ...args], { stdio: 'inherit' });
   } catch (error: unknown) {

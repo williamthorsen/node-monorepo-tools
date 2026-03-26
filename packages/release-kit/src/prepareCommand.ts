@@ -2,6 +2,7 @@
 /* eslint unicorn/no-process-exit: off */
 
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
+import { dim } from './format.ts';
 import { loadConfig, mergeMonorepoConfig, mergeSinglePackageConfig } from './loadConfig.ts';
 import { releasePrepare } from './releasePrepare.ts';
 import { releasePrepareMono } from './releasePrepareMono.ts';
@@ -25,6 +26,10 @@ export async function prepareCommand(argv: string[]): Promise<void> {
     force,
     ...(bumpOverride === undefined ? {} : { bumpOverride }),
   };
+
+  if (dryRun) {
+    console.info('\n🔍 DRY RUN — no files will be modified\n');
+  }
 
   // 1. Load config file
   let rawConfig: unknown;
@@ -105,6 +110,6 @@ export async function prepareCommand(argv: string[]): Promise<void> {
   }
 
   if (tags.length > 0) {
-    console.info(`\nRelease tags file: ${RELEASE_TAGS_FILE}`);
+    console.info(dim(`\n   Release tags file: ${RELEASE_TAGS_FILE}`));
   }
 }

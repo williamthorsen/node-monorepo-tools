@@ -4,6 +4,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
+import { dim } from './format.ts';
 import { releasePrepare } from './releasePrepare.ts';
 import { releasePrepareMono } from './releasePrepareMono.ts';
 import type { MonorepoReleaseConfig, ReleaseConfig, ReleaseType } from './types.ts';
@@ -164,11 +165,11 @@ export function writeReleaseTags(tags: string[], dryRun: boolean): void {
   }
 
   if (dryRun) {
-    console.info(`  [dry-run] Would write ${RELEASE_TAGS_FILE}: ${tags.join(' ')}`);
+    console.info(dim(`  [dry-run] Would write ${RELEASE_TAGS_FILE}: ${tags.join(' ')}`));
     return;
   }
 
   mkdirSync(dirname(RELEASE_TAGS_FILE), { recursive: true });
   writeFileSync(RELEASE_TAGS_FILE, tags.join('\n'), 'utf8');
-  console.info(`  Wrote ${RELEASE_TAGS_FILE}: ${tags.join(' ')}`);
+  console.info(dim(`  Wrote ${RELEASE_TAGS_FILE}: ${tags.join(' ')}`));
 }
