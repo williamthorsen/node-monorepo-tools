@@ -39,6 +39,31 @@ describe(reportPrepare, () => {
       expect(output).toContain(`   🏷️  ${bold('v1.1.0')}`);
     });
 
+    it('renders "the beginning" when previousTag is undefined', () => {
+      const result: PrepareResult = {
+        components: [
+          {
+            status: 'released',
+            previousTag: undefined,
+            commitCount: 5,
+            parsedCommitCount: 3,
+            releaseType: 'minor',
+            currentVersion: '0.0.0',
+            newVersion: '0.1.0',
+            tag: 'v0.1.0',
+            bumpedFiles: ['package.json'],
+            changelogFiles: ['./CHANGELOG.md'],
+          },
+        ],
+        tags: ['v0.1.0'],
+        dryRun: false,
+      };
+
+      const output = reportPrepare(result);
+
+      expect(output).toContain(dim('Found 5 commits since the beginning'));
+    });
+
     it('formats a skipped single-package release', () => {
       const result: PrepareResult = {
         components: [
@@ -122,6 +147,20 @@ describe(reportPrepare, () => {
     });
   });
 
+  describe('empty components', () => {
+    it('returns an empty string when components array is empty', () => {
+      const result: PrepareResult = {
+        components: [],
+        tags: [],
+        dryRun: false,
+      };
+
+      const output = reportPrepare(result);
+
+      expect(output).toBe('');
+    });
+  });
+
   describe('monorepo mode', () => {
     it('formats a multi-component release', () => {
       const result: PrepareResult = {
@@ -166,6 +205,59 @@ describe(reportPrepare, () => {
       expect(output).toContain('✅ Release preparation complete.');
       expect(output).toContain(`   🏷️  ${bold('arrays-v1.1.0')}`);
       expect(output).toContain(`   🏷️  ${bold('strings-v2.0.1')}`);
+    });
+
+    it('renders "(no previous release found)" when previousTag is undefined', () => {
+      const result: PrepareResult = {
+        components: [
+          {
+            name: 'arrays',
+            status: 'released',
+            previousTag: undefined,
+            commitCount: 4,
+            parsedCommitCount: 2,
+            releaseType: 'minor',
+            currentVersion: '0.0.0',
+            newVersion: '0.1.0',
+            tag: 'arrays-v0.1.0',
+            bumpedFiles: ['packages/arrays/package.json'],
+            changelogFiles: ['packages/arrays/CHANGELOG.md'],
+          },
+        ],
+        tags: ['arrays-v0.1.0'],
+        dryRun: false,
+      };
+
+      const output = reportPrepare(result);
+
+      expect(output).toContain(dim('  Found 4 commits (no previous release found)'));
+    });
+
+    it('renders the changelog header with no file entries when changelogFiles is empty', () => {
+      const result: PrepareResult = {
+        components: [
+          {
+            name: 'arrays',
+            status: 'released',
+            previousTag: 'arrays-v1.0.0',
+            commitCount: 2,
+            parsedCommitCount: 1,
+            releaseType: 'patch',
+            currentVersion: '1.0.0',
+            newVersion: '1.0.1',
+            tag: 'arrays-v1.0.1',
+            bumpedFiles: ['packages/arrays/package.json'],
+            changelogFiles: [],
+          },
+        ],
+        tags: ['arrays-v1.0.1'],
+        dryRun: false,
+      };
+
+      const output = reportPrepare(result);
+
+      expect(output).toContain(dim('  Generating changelogs...'));
+      expect(output).not.toContain('Generating changelog:');
     });
 
     it('formats a partial skip in monorepo mode', () => {

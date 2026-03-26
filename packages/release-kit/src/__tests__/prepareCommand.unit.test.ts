@@ -176,6 +176,22 @@ describe(prepareCommand, () => {
     expect(mockWriteFileSync).toHaveBeenCalledWith(RELEASE_TAGS_FILE, 'arrays-v1.0.0', 'utf8');
   });
 
+  it('does not write release tags file during a dry run', async () => {
+    mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['arrays-v1.0.0'], dryRun: true }));
+
+    await prepareCommand(['--dry-run']);
+
+    expect(mockWriteFileSync).not.toHaveBeenCalled();
+  });
+
+  it('joins multiple tags with newlines in the release tags file', async () => {
+    mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['arrays-v1.0.0', 'strings-v2.0.1'] }));
+
+    await prepareCommand([]);
+
+    expect(mockWriteFileSync).toHaveBeenCalledWith(RELEASE_TAGS_FILE, 'arrays-v1.0.0\nstrings-v2.0.1', 'utf8');
+  });
+
   it('prints release tags file path when tags are produced', async () => {
     mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['arrays-v1.0.0'] }));
 
