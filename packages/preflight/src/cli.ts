@@ -1,6 +1,3 @@
-/* eslint n/no-process-exit: off */
-/* eslint unicorn/no-process-exit: off */
-
 import process from 'node:process';
 
 import { loadPreflightConfig } from './config.ts';
@@ -8,22 +5,21 @@ import { reportPreflight } from './reportPreflight.ts';
 import { runPreflight } from './runPreflight.ts';
 import type { FixLocation, PreflightCheckList, PreflightConfig, StagedPreflightCheckList } from './types.ts';
 
-interface ParsedArgs {
+interface ParsedRunArgs {
   configPath?: string;
   names: string[];
 }
 
-/** Parse CLI arguments into a structured object. */
-export function parseArgs(argv: string[]): ParsedArgs {
-  const args = argv.slice(2);
-  const result: ParsedArgs = { names: [] };
+/** Parse run-subcommand flags into a structured object. */
+export function parseRunArgs(flags: string[]): ParsedRunArgs {
+  const result: ParsedRunArgs = { names: [] };
 
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
+  for (let i = 0; i < flags.length; i++) {
+    const arg = flags[i];
     if (arg === undefined) break;
     if (arg === '--config' || arg === '-c') {
       i++;
-      const configValue = args[i];
+      const configValue = flags[i];
       if (configValue === undefined) {
         throw new Error('--config requires a path argument');
       }
@@ -52,37 +48,33 @@ function resolveFixLocation(
   return checklist.fixLocation ?? configDefault ?? 'END';
 }
 
-/** Entry point for the preflight CLI. */
-export async function main(): Promise<void> {
-  let parsed: ParsedArgs;
-  try {
-    parsed = parseArgs(process.argv);
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`Error: ${message}\n`);
-    process.exit(1);
-  }
+interface RunCommandOptions {
+  names: string[];
+  configPath?: string;
+}
 
+/** Run preflight checklists. Returns a numeric exit code. */
+export async function runCommand({ names, configPath }: RunCommandOptions): Promise<number> {
   let config: PreflightConfig;
   try {
-    config = await loadPreflightConfig(parsed.configPath);
+    config = await loadPreflightConfig(configPath);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`Error: ${message}\n`);
-    process.exit(1);
+    return 1;
   }
 
   // Determine which checklists to run
   let checklists = config.checklists;
-  if (parsed.names.length > 0) {
+  if (names.length > 0) {
     const availableNames = new Set(config.checklists.map((c) => c.name));
-    const unknownNames = parsed.names.filter((n) => !availableNames.has(n));
+    const unknownNames = names.filter((n) => !availableNames.has(n));
     if (unknownNames.length > 0) {
       const available = [...availableNames].join(', ');
       process.stderr.write(`Error: unknown checklist(s): ${unknownNames.join(', ')}. Available: ${available}\n`);
-      process.exit(1);
+      return 1;
     }
-    const requestedNames = new Set(parsed.names);
+    const requestedNames = new Set(names);
     checklists = config.checklists.filter((c) => requestedNames.has(c.name));
   }
 
@@ -104,5 +96,5 @@ export async function main(): Promise<void> {
     }
   }
 
-  process.exit(allPassed ? 0 : 1);
+  return allPassed ? 0 : 1;
 }
