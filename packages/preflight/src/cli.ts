@@ -19,10 +19,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
   const result: ParsedArgs = { names: [] };
 
   let i = 0;
-  while (i < args.length) {
-    const arg = args[i];
-    if (arg === undefined) break;
-
+  let arg: string | undefined;
+  while ((arg = args[i]) !== undefined) {
     if (arg === '--config' || arg === '-c') {
       i++;
       const configValue = args[i];
@@ -56,17 +54,6 @@ function resolveFixLocation(
   return checklist.fixLocation ?? configDefault ?? 'END';
 }
 
-/** Load config, handling errors with a message to stderr and process exit. */
-async function loadConfigOrExit(configPath?: string): Promise<PreflightConfig> {
-  try {
-    return await loadPreflightConfig(configPath);
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`Error: ${message}\n`);
-    return process.exit(1);
-  }
-}
-
 /** Entry point for the preflight CLI. */
 export async function main(): Promise<void> {
   let parsed: ParsedArgs;
@@ -77,7 +64,15 @@ export async function main(): Promise<void> {
     process.stderr.write(`Error: ${message}\n`);
     process.exit(1);
   }
-  const config = await loadConfigOrExit(parsed.configPath);
+
+  let config: PreflightConfig;
+  try {
+    config = await loadPreflightConfig(parsed.configPath);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`Error: ${message}\n`);
+    process.exit(1);
+  }
 
   // Determine which checklists to run
   let checklists = config.checklists;

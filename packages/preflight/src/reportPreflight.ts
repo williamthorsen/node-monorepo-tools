@@ -44,24 +44,24 @@ export function reportPreflight(report: PreflightReport, options?: ReportOptions
     lines.push(`${icon} ${result.name} (${formatDuration(result.durationMs)})`);
 
     if (result.status === 'failed') {
-      if (fixLocation === 'INLINE') {
-        lines.push(...collectInlineDetails(result, true));
-      } else {
-        // END mode: show error inline, collect fixes separately
-        if (result.error !== undefined) {
-          lines.push(`  Error: ${result.error.message}`);
-        }
-        if (result.fix !== undefined) {
-          collectedFixes.push(result.fix);
-        }
+      const includeFix = fixLocation === 'INLINE';
+      lines.push(...collectInlineDetails(result, includeFix));
+
+      if (!includeFix && result.fix !== undefined) {
+        collectedFixes.push(result.fix);
       }
     }
   }
 
   // Summary
-  const passed = report.results.filter((r) => r.status === 'passed').length;
-  const failed = report.results.filter((r) => r.status === 'failed').length;
-  const skipped = report.results.filter((r) => r.status === 'skipped').length;
+  let passed = 0;
+  let failed = 0;
+  let skipped = 0;
+  for (const r of report.results) {
+    if (r.status === 'passed') passed++;
+    else if (r.status === 'failed') failed++;
+    else skipped++;
+  }
   lines.push('', `${passed} passed, ${failed} failed, ${skipped} skipped (${formatDuration(report.durationMs)})`);
 
   // Collected fixes section for END mode
