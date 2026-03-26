@@ -2,7 +2,7 @@
 
 ## Project structure
 
-A PNPM monorepo containing `@williamthorsen/nmr` (the `nmr` script runner), `@williamthorsen/node-monorepo-core` (shared utilities), and `@williamthorsen/release-kit` (version-bumping and changelog toolkit). Packages live under `packages/`.
+A PNPM monorepo containing `@williamthorsen/nmr` (the `nmr` script runner), `@williamthorsen/node-monorepo-core` (empty shell, reserved for future shared utilities), and `@williamthorsen/release-kit` (version-bumping and changelog toolkit). Packages live under `packages/`.
 
 ## Common commands
 

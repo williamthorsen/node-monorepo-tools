@@ -25,7 +25,7 @@ describe('syncPnpmVersion', () => {
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-sync-test-'));
-    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'info').mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -58,6 +58,26 @@ jobs:
     const updated = fs.readFileSync(path.join(workflowDir, 'code-quality.yaml'), 'utf8');
     expect(updated).toContain('pnpm-version: 10.32.1');
     expect(updated).not.toContain('10.30.0');
+  });
+
+  it('throws when packageManager field is missing', () => {
+    fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify({ name: 'test' }));
+
+    const workflowDir = path.join(tmpDir, '.github', 'workflows');
+    fs.mkdirSync(workflowDir, { recursive: true });
+    fs.writeFileSync(path.join(workflowDir, 'code-quality.yaml'), 'name: CI\n');
+
+    expect(() => syncPnpmVersion(tmpDir)).toThrow('Could not extract pnpm version');
+  });
+
+  it('throws when packageManager is not pnpm', () => {
+    fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify({ name: 'test', packageManager: 'yarn@4.0.0' }));
+
+    const workflowDir = path.join(tmpDir, '.github', 'workflows');
+    fs.mkdirSync(workflowDir, { recursive: true });
+    fs.writeFileSync(path.join(workflowDir, 'code-quality.yaml'), 'name: CI\n');
+
+    expect(() => syncPnpmVersion(tmpDir)).toThrow('Could not extract pnpm version');
   });
 
   it('does not modify workflow when versions match', () => {

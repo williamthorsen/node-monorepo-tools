@@ -6,7 +6,7 @@ import { findContainingPackageDir, findMonorepoRoot, getWorkspacePackageDirs } f
 
 // The monorepo root is two levels up from packages/nmr
 const MONOREPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
-const CORE_PACKAGE_DIR = path.resolve(MONOREPO_ROOT, 'packages', 'core');
+const NMR_PACKAGE_DIR = path.resolve(import.meta.dirname, '..');
 
 describe('findMonorepoRoot', () => {
   it('finds root from the monorepo root', () => {
@@ -14,11 +14,11 @@ describe('findMonorepoRoot', () => {
   });
 
   it('finds root from a package directory', () => {
-    expect(findMonorepoRoot(CORE_PACKAGE_DIR)).toBe(MONOREPO_ROOT);
+    expect(findMonorepoRoot(NMR_PACKAGE_DIR)).toBe(MONOREPO_ROOT);
   });
 
   it('finds root from a nested directory within a package', () => {
-    const nestedDir = path.join(CORE_PACKAGE_DIR, 'src');
+    const nestedDir = path.join(NMR_PACKAGE_DIR, 'src');
     expect(findMonorepoRoot(nestedDir)).toBe(MONOREPO_ROOT);
   });
 
@@ -32,7 +32,7 @@ describe('findMonorepoRoot', () => {
 describe('getWorkspacePackageDirs', () => {
   it('returns directories matching workspace patterns', () => {
     const dirs = getWorkspacePackageDirs(MONOREPO_ROOT);
-    expect(dirs).toContainEqual(CORE_PACKAGE_DIR);
+    expect(dirs).toContainEqual(NMR_PACKAGE_DIR);
   });
 
   it('only returns directories with package.json', () => {
@@ -44,15 +44,15 @@ describe('getWorkspacePackageDirs', () => {
 });
 
 describe('findContainingPackageDir', () => {
-  const workspaceDirs = [CORE_PACKAGE_DIR];
+  const workspaceDirs = [NMR_PACKAGE_DIR];
 
   it('returns the package dir when cwd is the package root', () => {
-    expect(findContainingPackageDir(CORE_PACKAGE_DIR, workspaceDirs)).toBe(CORE_PACKAGE_DIR);
+    expect(findContainingPackageDir(NMR_PACKAGE_DIR, workspaceDirs)).toBe(NMR_PACKAGE_DIR);
   });
 
   it('returns the package dir when cwd is nested inside a package', () => {
-    const nestedDir = path.join(CORE_PACKAGE_DIR, 'src', 'commands');
-    expect(findContainingPackageDir(nestedDir, workspaceDirs)).toBe(CORE_PACKAGE_DIR);
+    const nestedDir = path.join(NMR_PACKAGE_DIR, 'src', 'commands');
+    expect(findContainingPackageDir(nestedDir, workspaceDirs)).toBe(NMR_PACKAGE_DIR);
   });
 
   it('returns undefined when cwd is the monorepo root', () => {

@@ -1,10 +1,9 @@
-import path from 'node:path';
+import fs from 'node:fs';
+import os from 'node:os';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { defineConfig, loadConfig } from '../src/config.js';
-
-const MONOREPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
 
 describe('defineConfig', () => {
   it('returns the config unchanged (identity function)', () => {
@@ -36,9 +35,18 @@ describe('defineConfig', () => {
 });
 
 describe('loadConfig', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(os.tmpdir() + '/nmr-config-test-');
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
   it('returns empty config when config file does not exist', async () => {
-    const config = await loadConfig(MONOREPO_ROOT);
-    // The test monorepo doesn't have .config/nmr.config.ts yet
+    const config = await loadConfig(tmpDir);
     expect(config).toEqual({});
   });
 
