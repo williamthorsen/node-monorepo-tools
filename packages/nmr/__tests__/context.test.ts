@@ -1,6 +1,8 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { findContainingPackageDir, findMonorepoRoot, getWorkspacePackageDirs } from '../src/context.js';
 
@@ -40,6 +42,33 @@ describe('getWorkspacePackageDirs', () => {
     for (const dir of dirs) {
       expect(dir).toMatch(/packages\//);
     }
+  });
+
+  describe('exact-path patterns', () => {
+    let tempRoot: string;
+
+    beforeEach(() => {
+      tempRoot = mkdtempSync(path.join(tmpdir(), 'nmr-context-test-'));
+      mkdirSync(path.join(tempRoot, 'tools', 'cli'), { recursive: true });
+      writeFileSync(path.join(tempRoot, 'tools', 'cli', 'package.json'), '{}');
+    });
+
+    afterEach(() => {
+      rmSync(tempRoot, { recursive: true, force: true });
+    });
+
+    it('resolves exact-path workspace patterns', () => {
+      writeFileSync(path.join(tempRoot, 'pnpm-workspace.yaml'), 'packages:\n  - tools/cli\n');
+      const dirs = getWorkspacePackageDirs(tempRoot);
+      expect(dirs).toEqual([path.join(tempRoot, 'tools', 'cli')]);
+    });
+
+    it('ignores exact-path patterns where the directory has no package.json', () => {
+      mkdirSync(path.join(tempRoot, 'tools', 'empty'), { recursive: true });
+      writeFileSync(path.join(tempRoot, 'pnpm-workspace.yaml'), 'packages:\n  - tools/empty\n');
+      const dirs = getWorkspacePackageDirs(tempRoot);
+      expect(dirs).toEqual([]);
+    });
   });
 });
 
