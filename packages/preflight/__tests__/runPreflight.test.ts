@@ -52,6 +52,28 @@ describe(runPreflight, () => {
       expect(report.results[0]?.error?.message).toBe('boom');
     });
 
+    it('wraps non-Error thrown values in an Error', async () => {
+      const checklist: PreflightCheckList = {
+        name: 'throwing-string',
+        checks: [
+          {
+            name: 'throws-string',
+            check: () => {
+              // eslint-disable-next-line no-throw-literal
+              throw 'a plain string';
+            },
+          },
+        ],
+      };
+
+      const report = await runPreflight(checklist);
+
+      expect(report.passed).toBe(false);
+      expect(report.results[0]?.status).toBe('failed');
+      expect(report.results[0]?.error).toBeInstanceOf(Error);
+      expect(report.results[0]?.error?.message).toBe('a plain string');
+    });
+
     it('handles async check functions', async () => {
       const checklist: PreflightCheckList = {
         name: 'async',

@@ -87,6 +87,25 @@ describe(reportPreflight, () => {
       expect(errorLineIndex).toBe(checkLineIndex + 1);
     });
 
+    it('shows fix without error when error is absent', () => {
+      const report = makeReport({
+        results: [
+          {
+            name: 'broken',
+            status: 'failed',
+            fix: 'Run npm install',
+            durationMs: 5,
+          },
+        ],
+        passed: false,
+      });
+
+      const output = reportPreflight(report, { fixLocation: 'INLINE' });
+
+      expect(output).toContain('Fix: Run npm install');
+      expect(output).not.toContain('Error:');
+    });
+
     it('shows error without fix when fix is absent', () => {
       const report = makeReport({
         results: [
