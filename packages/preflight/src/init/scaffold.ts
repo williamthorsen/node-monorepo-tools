@@ -62,8 +62,10 @@ function writeIfAbsent(filePath: string, content: string, dryRun: boolean, overw
     return false;
   }
 
+  const alreadyExists = existsSync(filePath);
   if (tryWriteFile(filePath, content)) {
-    printSuccess(`Created ${filePath}`);
+    const verb = alreadyExists ? 'Overwrote' : 'Created';
+    printSuccess(`${verb} ${filePath}`);
     return true;
   }
   return false;
