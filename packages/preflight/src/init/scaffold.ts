@@ -27,25 +27,31 @@ function tryWriteFile(filePath: string, content: string): boolean {
   }
 }
 
-/** Write a file, creating parent directories as needed. Skip if the file already exists and overwrite is false. */
-function writeIfAbsent(filePath: string, content: string, dryRun: boolean, overwrite: boolean): void {
+/** Write a file, creating parent directories as needed. Skip if the file already exists and overwrite is false. Returns true on success. */
+function writeIfAbsent(filePath: string, content: string, dryRun: boolean, overwrite: boolean): boolean {
   if (existsSync(filePath) && !overwrite) {
     try {
       const existing = readFileSync(filePath, 'utf8');
       if (normalizeTrailingWhitespace(existing) === normalizeTrailingWhitespace(content)) {
         printSuccess(`${filePath} (up to date)`);
-        return;
+        return true;
       }
-    } catch {
-      // Fall through to skip message if reading fails.
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      printError(`Could not read ${filePath}: ${message}`);
     }
-    printSkip(`${filePath} (already exists)`);
-    return;
+    if (dryRun) {
+      printSkip(`[dry-run] Would skip ${filePath} (already exists)`);
+    } else {
+      printSkip(`${filePath} (already exists)`);
+    }
+    return true;
   }
 
   if (dryRun) {
-    printSuccess(`[dry-run] Would create ${filePath}`);
-    return;
+    const verb = existsSync(filePath) ? 'overwrite' : 'create';
+    printSuccess(`[dry-run] Would ${verb} ${filePath}`);
+    return true;
   }
 
   try {
@@ -53,12 +59,14 @@ function writeIfAbsent(filePath: string, content: string, dryRun: boolean, overw
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     printError(`Failed to create directory for ${filePath}: ${message}`);
-    return;
+    return false;
   }
 
   if (tryWriteFile(filePath, content)) {
     printSuccess(`Created ${filePath}`);
+    return true;
   }
+  return false;
 }
 
 interface ScaffoldOptions {
@@ -66,7 +74,7 @@ interface ScaffoldOptions {
   force: boolean;
 }
 
-/** Scaffold the preflight config file. */
-export function scaffoldConfig({ dryRun, force }: ScaffoldOptions): void {
-  writeIfAbsent(CONFIG_PATH, preflightConfigTemplate(), dryRun, force);
+/** Scaffold the preflight config file. Returns true on success. */
+export function scaffoldConfig({ dryRun, force }: ScaffoldOptions): boolean {
+  return writeIfAbsent(CONFIG_PATH, preflightConfigTemplate(), dryRun, force);
 }

@@ -19,18 +19,23 @@ export function initCommand({ dryRun, force }: InitOptions): number {
 
   printStep('Scaffolding config');
   try {
-    scaffoldConfig({ dryRun, force });
+    const ok = scaffoldConfig({ dryRun, force });
+    if (!ok) {
+      return 1;
+    }
   } catch (error: unknown) {
     printError(`Failed to scaffold config: ${error instanceof Error ? error.message : String(error)}`);
     return 1;
   }
 
-  printStep('Next steps');
-  console.info(`
+  if (!dryRun) {
+    printStep('Next steps');
+    console.info(`
   1. Customize .config/preflight.config.ts with your checklists and checks.
-  2. Test by running: npx @williamthorsen/preflight run --dry-run
+  2. Test by running: npx @williamthorsen/preflight run
   3. Commit the generated file.
 `);
+  }
 
   return 0;
 }

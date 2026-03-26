@@ -1,4 +1,4 @@
-// Terminal output helpers duplicated from release-kit's src/init/prompt.ts for consistency across the monorepo.
+// Terminal output helpers for styled CLI messages.
 
 /** Print a step label with a right-arrow prefix. */
 export function printStep(message: string): void {

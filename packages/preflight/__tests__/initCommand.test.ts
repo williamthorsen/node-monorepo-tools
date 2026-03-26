@@ -71,7 +71,42 @@ describe(initCommand, () => {
     const exitCode = initCommand({ dryRun: false, force: false });
 
     expect(exitCode).toBe(0);
-    // File is unchanged
     expect(readFileSync(join(TEST_DIR, CONFIG_PATH), 'utf8')).toBe(preflightConfigTemplate());
+  });
+
+  it('does not modify an existing file during dry-run', () => {
+    mkdirSync(join(TEST_DIR, '.config'), { recursive: true });
+    writeFileSync(join(TEST_DIR, CONFIG_PATH), 'existing content', 'utf8');
+
+    const exitCode = initCommand({ dryRun: true, force: false });
+
+    expect(exitCode).toBe(0);
+    expect(readFileSync(join(TEST_DIR, CONFIG_PATH), 'utf8')).toBe('existing content');
+  });
+
+  it('does not overwrite during dry-run even with force', () => {
+    mkdirSync(join(TEST_DIR, '.config'), { recursive: true });
+    writeFileSync(join(TEST_DIR, CONFIG_PATH), 'existing content', 'utf8');
+
+    const exitCode = initCommand({ dryRun: true, force: true });
+
+    expect(exitCode).toBe(0);
+    expect(readFileSync(join(TEST_DIR, CONFIG_PATH), 'utf8')).toBe('existing content');
+  });
+
+  it('does not print next steps during dry-run', () => {
+    const exitCode = initCommand({ dryRun: true, force: false });
+
+    expect(exitCode).toBe(0);
+    const infoMessages = vi.mocked(console.info).mock.calls.map((c) => String(c[0]));
+    expect(infoMessages.some((m) => m.includes('Next steps'))).toBe(false);
+  });
+
+  it('prints next steps after successful scaffolding', () => {
+    const exitCode = initCommand({ dryRun: false, force: false });
+
+    expect(exitCode).toBe(0);
+    const infoMessages = vi.mocked(console.info).mock.calls.map((c) => String(c[0]));
+    expect(infoMessages.some((m) => m.includes('Next steps'))).toBe(true);
   });
 });
