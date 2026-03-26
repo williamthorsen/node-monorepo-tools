@@ -4,7 +4,8 @@ const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
 const mockLoadConfig = vi.hoisted(() => vi.fn());
 const mockReleasePrepareMono = vi.hoisted(() => vi.fn());
 const mockReleasePrepare = vi.hoisted(() => vi.fn());
-const mockWriteReleaseTags = vi.hoisted(() => vi.fn());
+const mockMkdirSync = vi.hoisted(() => vi.fn());
+const mockWriteFileSync = vi.hoisted(() => vi.fn());
 
 vi.mock('../discoverWorkspaces.ts', () => ({
   discoverWorkspaces: mockDiscoverWorkspaces,
@@ -26,15 +27,13 @@ vi.mock('../releasePrepare.ts', () => ({
   releasePrepare: mockReleasePrepare,
 }));
 
-vi.mock('../runReleasePrepare.ts', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../runReleasePrepare.ts')>();
-  return {
-    ...actual,
-    writeReleaseTags: mockWriteReleaseTags,
-  };
-});
+vi.mock('node:fs', () => ({
+  mkdirSync: mockMkdirSync,
+  writeFileSync: mockWriteFileSync,
+}));
 
-import { prepareCommand } from '../prepareCommand.ts';
+import { parseArgs, prepareCommand, RELEASE_TAGS_FILE } from '../prepareCommand.ts';
+import type { PrepareResult } from '../types.ts';
 
 /** Sentinel error thrown by the mocked process.exit. */
 class ExitError extends Error {
@@ -43,17 +42,28 @@ class ExitError extends Error {
   }
 }
 
+/** Build a minimal PrepareResult for mocking. */
+function makePrepareResult(overrides?: Partial<PrepareResult>): PrepareResult {
+  return {
+    components: [],
+    tags: [],
+    dryRun: false,
+    ...overrides,
+  };
+}
+
 describe(prepareCommand, () => {
   beforeEach(() => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/arrays', 'packages/strings']);
     mockLoadConfig.mockResolvedValue(undefined);
-    mockReleasePrepareMono.mockReturnValue([]);
-    mockReleasePrepare.mockReturnValue([]);
+    mockReleasePrepareMono.mockReturnValue(makePrepareResult());
+    mockReleasePrepare.mockReturnValue(makePrepareResult());
     vi.spyOn(process, 'exit').mockImplementation((code) => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
     vi.spyOn(console, 'info').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {
@@ -61,7 +71,8 @@ describe(prepareCommand, () => {
     mockLoadConfig.mockReset();
     mockReleasePrepareMono.mockReset();
     mockReleasePrepare.mockReset();
-    mockWriteReleaseTags.mockReset();
+    mockMkdirSync.mockReset();
+    mockWriteFileSync.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -157,15 +168,16 @@ describe(prepareCommand, () => {
   });
 
   it('writes release tags after successful preparation', async () => {
-    mockReleasePrepareMono.mockReturnValue(['arrays-v1.0.0']);
+    mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['arrays-v1.0.0'] }));
 
     await prepareCommand([]);
 
-    expect(mockWriteReleaseTags).toHaveBeenCalledWith(['arrays-v1.0.0'], false);
+    expect(mockMkdirSync).toHaveBeenCalledWith('tmp', { recursive: true });
+    expect(mockWriteFileSync).toHaveBeenCalledWith(RELEASE_TAGS_FILE, 'arrays-v1.0.0', 'utf8');
   });
 
   it('prints release tags file path when tags are produced', async () => {
-    mockReleasePrepareMono.mockReturnValue(['arrays-v1.0.0']);
+    mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['arrays-v1.0.0'] }));
 
     await prepareCommand([]);
 
@@ -173,7 +185,7 @@ describe(prepareCommand, () => {
   });
 
   it('does not print release tags file path when no tags are produced', async () => {
-    mockReleasePrepareMono.mockReturnValue([]);
+    mockReleasePrepareMono.mockReturnValue(makePrepareResult());
 
     await prepareCommand([]);
 
@@ -193,5 +205,63 @@ describe(prepareCommand, () => {
       }),
       expect.any(Object),
     );
+  });
+
+  it('writes the result of reportPrepare to stdout', async () => {
+    mockReleasePrepareMono.mockReturnValue(makePrepareResult());
+
+    await prepareCommand([]);
+
+    expect(process.stdout.write).toHaveBeenCalledWith(expect.any(String));
+  });
+});
+
+describe(parseArgs, () => {
+  beforeEach(() => {
+    vi.spyOn(process, 'exit').mockImplementation((code) => {
+      throw new ExitError(typeof code === 'number' ? code : undefined);
+    });
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('exits with code 1 for an invalid bump type', () => {
+    expect(() => parseArgs(['--bump=invalid'])).toThrow(ExitError);
+    expect(process.exit).toHaveBeenCalledWith(1);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Invalid bump type'));
+  });
+
+  it('exits with code 1 for an unknown argument', () => {
+    expect(() => parseArgs(['--foo'])).toThrow(ExitError);
+    expect(process.exit).toHaveBeenCalledWith(1);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Unknown argument'));
+  });
+
+  it('exits with code 0 when --help is provided', () => {
+    expect(() => parseArgs(['--help'])).toThrow(ExitError);
+    expect(process.exit).toHaveBeenCalledWith(0);
+    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('npx @williamthorsen/release-kit prepare'));
+  });
+
+  it('exits with code 1 when --force is used without --bump', () => {
+    expect(() => parseArgs(['--force'])).toThrow(ExitError);
+    expect(process.exit).toHaveBeenCalledWith(1);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('--force requires --bump'));
+  });
+
+  it('exits with code 1 when --only value is empty', () => {
+    expect(() => parseArgs(['--only='])).toThrow(ExitError);
+    expect(process.exit).toHaveBeenCalledWith(1);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('--only requires'));
+  });
+});
+
+describe('RELEASE_TAGS_FILE', () => {
+  it('points to tmp/ relative to the project root', () => {
+    expect(RELEASE_TAGS_FILE).toBe('tmp/.release-tags');
   });
 });

@@ -1,8 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
 import { bumpVersion } from './bumpVersion.ts';
-import { bold, dim } from './format.ts';
-import type { ReleaseType } from './types.ts';
+import type { BumpResult, ReleaseType } from './types.ts';
 
 interface PackageJson {
   version: string;
@@ -14,18 +13,17 @@ function isPackageJson(value: unknown): value is PackageJson {
 }
 
 /**
- * Bumps the version field in all specified package.json files.
+ * Bump the version field in all specified package.json files.
  *
  * Reads each file, parses the JSON, bumps the `version` field, and writes
  * the result back with the original formatting (2-space indentation, trailing newline).
- *
- * @param packageFiles - Paths to package.json files to bump.
- * @param releaseType - The semver release type to apply.
- * @param dryRun - If true, logs the changes without writing to disk.
- * @returns The new version string after bumping.
- * @throws If any package.json does not contain a valid `version` field.
+ * Returns a structured result with the current version, new version, and processed files.
  */
-export function bumpAllVersions(packageFiles: readonly string[], releaseType: ReleaseType, dryRun: boolean): string {
+export function bumpAllVersions(
+  packageFiles: readonly string[],
+  releaseType: ReleaseType,
+  dryRun: boolean,
+): BumpResult {
   const firstFile = packageFiles[0];
   if (firstFile === undefined) {
     throw new Error('No package files specified');
@@ -34,11 +32,9 @@ export function bumpAllVersions(packageFiles: readonly string[], releaseType: Re
   const firstPkg = readPackageJson(firstFile);
   const currentVersion = firstPkg.version;
   const newVersion = bumpVersion(currentVersion, releaseType);
-  console.info(`📦 ${currentVersion} → ${bold(newVersion)} (${releaseType})`);
 
   for (const filePath of packageFiles) {
     if (dryRun) {
-      console.info(dim(`  [dry-run] Would bump ${filePath}`));
       continue;
     }
 
@@ -50,15 +46,13 @@ export function bumpAllVersions(packageFiles: readonly string[], releaseType: Re
     } catch (error: unknown) {
       throw new Error(`Failed to write ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
     }
-
-    console.info(dim(`  Bumped ${filePath}`));
   }
 
-  return newVersion;
+  return { currentVersion, newVersion, files: [...packageFiles] };
 }
 
 /**
- * Reads and parses a package.json file, returning a validated object with a `version` field.
+ * Read and parse a package.json file, returning a validated object with a `version` field.
  *
  * @throws If the file cannot be read, contains invalid JSON, or lacks a `version` field.
  */

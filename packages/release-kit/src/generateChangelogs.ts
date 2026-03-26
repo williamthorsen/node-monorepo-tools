@@ -1,6 +1,5 @@
 import { execFileSync } from 'node:child_process';
 
-import { dim } from './format.ts';
 import { resolveCliffConfigPath } from './resolveCliffConfigPath.ts';
 import type { ReleaseConfig } from './types.ts';
 
@@ -11,19 +10,11 @@ export interface GenerateChangelogOptions {
 }
 
 /**
- * Generates a single changelog using git-cliff.
+ * Generate a single changelog using git-cliff.
  *
  * Invokes `git-cliff` via `npx --yes` using `execFileSync` with an argument array,
- * avoiding shell interpretation of paths. The `--yes` flag auto-accepts the
- * download prompt so the command does not hang in non-interactive CI environments.
- * The `npx` command downloads `git-cliff` on first invocation and caches it for
- * subsequent calls.
- *
- * @param config - Object containing the optional `cliffConfigPath`.
- * @param changelogPath - Directory in which to write the CHANGELOG.md file.
- * @param tag - The git tag to generate the changelog up to (e.g., 'v1.2.3').
- * @param dryRun - If true, logs the command without executing it.
- * @param options - Optional settings including paths to filter by.
+ * avoiding shell interpretation of paths. Returns the output file path as a
+ * single-element array for consistency with `generateChangelogs`.
  */
 export function generateChangelog(
   config: Pick<ReleaseConfig, 'cliffConfigPath'>,
@@ -31,7 +22,7 @@ export function generateChangelog(
   tag: string,
   dryRun: boolean,
   options?: GenerateChangelogOptions,
-): void {
+): string[] {
   const cliffConfigPath = resolveCliffConfigPath(config.cliffConfigPath, import.meta.url);
   const outputFile = `${changelogPath}/CHANGELOG.md`;
   const args = ['--config', cliffConfigPath, '--output', outputFile, '--tag', tag];
@@ -41,30 +32,28 @@ export function generateChangelog(
     args.push('--include-path', includePath);
   }
 
-  if (dryRun) {
-    console.info(dim(`  [dry-run] Would run: npx --yes git-cliff ${args.join(' ')}`));
-    return;
+  if (!dryRun) {
+    try {
+      execFileSync('npx', ['--yes', 'git-cliff', ...args], { stdio: 'inherit' });
+    } catch (error: unknown) {
+      throw new Error(
+        `Failed to generate changelog for ${outputFile}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
-  console.info(dim(`  Generating changelog: ${outputFile}`));
-  try {
-    execFileSync('npx', ['--yes', 'git-cliff', ...args], { stdio: 'inherit' });
-  } catch (error: unknown) {
-    throw new Error(
-      `Failed to generate changelog for ${outputFile}: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
+  return [outputFile];
 }
 
 /**
- * Generates changelogs for each configured changelog path by delegating to `generateChangelog`.
+ * Generate changelogs for each configured changelog path by delegating to `generateChangelog`.
  *
- * @param config - The release configuration containing changelog paths and optional cliff config path.
- * @param tag - The git tag to generate the changelog up to (e.g., 'v1.2.3').
- * @param dryRun - If true, logs the commands without executing them.
+ * Returns the collected output file paths from all `generateChangelog` calls.
  */
-export function generateChangelogs(config: ReleaseConfig, tag: string, dryRun: boolean): void {
+export function generateChangelogs(config: ReleaseConfig, tag: string, dryRun: boolean): string[] {
+  const results: string[] = [];
   for (const changelogPath of config.changelogPaths) {
-    generateChangelog(config, changelogPath, tag, dryRun);
+    results.push(...generateChangelog(config, changelogPath, tag, dryRun));
   }
+  return results;
 }
