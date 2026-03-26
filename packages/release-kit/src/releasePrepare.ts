@@ -3,6 +3,7 @@ import { execSync } from 'node:child_process';
 import { bumpAllVersions } from './bumpAllVersions.ts';
 import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { determineBumpType } from './determineBumpType.ts';
+import { bold, dim } from './format.ts';
 import { generateChangelogs } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
@@ -37,9 +38,8 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   const versionPatterns = config.versionPatterns ?? { ...DEFAULT_VERSION_PATTERNS };
 
   // 1. Get commits since last tag
-  console.info('Finding commits since last release...');
   const { tag, commits } = getCommitsSinceTarget(config.tagPrefix);
-  console.info(`  Found ${commits.length} commits since ${tag ?? 'the beginning'}`);
+  console.info(dim(`Found ${commits.length} commits since ${tag ?? 'the beginning'}`));
 
   // 2. Determine bump type
   let releaseType: ReleaseType | undefined;
@@ -49,7 +49,7 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
       .map((c) => parseCommitMessage(c.message, c.hash, workTypes, config.workspaceAliases))
       .filter((c): c is ParsedCommit => c !== undefined);
 
-    console.info(`  Parsed ${parsedCommits.length} typed commits`);
+    console.info(dim(`  Parsed ${parsedCommits.length} typed commits`));
     releaseType = determineBumpType(parsedCommits, workTypes, versionPatterns);
   } else {
     releaseType = bumpOverride;
@@ -57,17 +57,17 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   }
 
   if (releaseType === undefined) {
-    console.info('No release-worthy changes found. Skipping.');
+    console.info('⏭️  No release-worthy changes found. Skipping.');
     return [];
   }
 
   // 3. Bump all versions
-  console.info(`Bumping versions (${releaseType})...`);
+  console.info(dim(`Bumping versions (${releaseType})...`));
   const newVersion = bumpAllVersions(config.packageFiles, releaseType, dryRun);
   const newTag = `${config.tagPrefix}${newVersion}`;
 
   // 4. Generate changelogs
-  console.info('Generating changelogs...');
+  console.info(dim('Generating changelogs...'));
   generateChangelogs(config, newTag, dryRun);
 
   // 5. Run format command, appending modified file paths
@@ -76,9 +76,9 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
     const modifiedFiles = [...config.packageFiles, ...config.changelogPaths.map((p) => `${p}/CHANGELOG.md`)];
     const fullCommand = `${formatCommand} ${modifiedFiles.join(' ')}`;
     if (dryRun) {
-      console.info(`  [dry-run] Would run format command: ${fullCommand}`);
+      console.info(dim(`  [dry-run] Would run format command: ${fullCommand}`));
     } else {
-      console.info(`  Running format command: ${fullCommand}`);
+      console.info(dim(`  Running format command: ${fullCommand}`));
       try {
         execSync(fullCommand, { stdio: 'inherit' });
       } catch (error: unknown) {
@@ -89,6 +89,7 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
     }
   }
 
-  console.info(`Release preparation complete: ${newTag}`);
+  console.info(`✅ Release preparation complete.`);
+  console.info(`   🏷️  ${bold(newTag)}`);
   return [newTag];
 }

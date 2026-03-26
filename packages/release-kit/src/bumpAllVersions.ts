@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
 import { bumpVersion } from './bumpVersion.ts';
+import { bold, dim } from './format.ts';
 import type { ReleaseType } from './types.ts';
 
 interface PackageJson {
@@ -33,11 +34,11 @@ export function bumpAllVersions(packageFiles: readonly string[], releaseType: Re
   const firstPkg = readPackageJson(firstFile);
   const currentVersion = firstPkg.version;
   const newVersion = bumpVersion(currentVersion, releaseType);
-  console.info(`Bumping version: ${currentVersion} -> ${newVersion} (${releaseType})`);
+  console.info(`📦 ${currentVersion} → ${bold(newVersion)} (${releaseType})`);
 
   for (const filePath of packageFiles) {
     if (dryRun) {
-      console.info(`  [dry-run] Would bump ${filePath}`);
+      console.info(dim(`  [dry-run] Would bump ${filePath}`));
       continue;
     }
 
@@ -50,7 +51,7 @@ export function bumpAllVersions(packageFiles: readonly string[], releaseType: Re
       throw new Error(`Failed to write ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
     }
 
-    console.info(`  Bumped ${filePath}`);
+    console.info(dim(`  Bumped ${filePath}`));
   }
 
   return newVersion;
