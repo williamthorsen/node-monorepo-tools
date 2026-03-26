@@ -28,7 +28,7 @@
     "@types/eslint": "9.6.1",
     "@types/js-yaml": "4.0.9",
     "@types/node": "22.19.15",
-    "@typescript/native-preview": "7.0.0-dev.20260324.1",
+    "@typescript/native-preview": "7.0.0-dev.20260326.1",
     "@vitest/coverage-v8": "4.1.1",
     "@vitest/eslint-plugin": "1.6.13",
     "@williamthorsen/eslint-config-typescript": "5.16.2",
@@ -46,7 +46,7 @@
     "tsx": "4.21.0",
     "typescript": "5.9.3",
     "typescript-eslint": "8.57.2",
-    "vite": "8.0.2",
+    "vite": "8.0.3",
     "vitest": "4.1.1",
     "zod": "4.3.6"
   },
