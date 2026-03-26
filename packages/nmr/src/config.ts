@@ -26,9 +26,7 @@ export function defineConfig(config: NmrConfig): NmrConfig {
   return config;
 }
 
-/**
- * Validates that a loaded value conforms to the expected NmrConfig shape.
- */
+/** Narrow an unknown value to a record of script entries. */
 function isScriptRecord(value: unknown): value is Record<string, string | string[]> {
   if (!isObject(value)) return false;
   for (const v of Object.values(value)) {

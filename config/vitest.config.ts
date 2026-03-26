@@ -15,7 +15,6 @@ export const baseConfig = defineConfig({
       provider: 'v8',
     },
     exclude: ['**/node_modules/**'],
-    passWithNoTests: true, // core has no tests; remove when it acquires source
     watch: false, // don't enter watch mode unless the `--watch` flag is passed
   },
 });
