@@ -1,6 +1,44 @@
 /** Semver release type for version bumping. */
 export type ReleaseType = 'major' | 'minor' | 'patch';
 
+/** Structured result from bumping version fields in package.json files. */
+export interface BumpResult {
+  currentVersion: string;
+  newVersion: string;
+  files: string[];
+}
+
+/** Result of preparing a single component (package) for release. */
+export interface ComponentPrepareResult {
+  /** Component name; absent in single-package mode, present in monorepo mode. */
+  name?: string | undefined;
+  status: 'released' | 'skipped';
+  previousTag?: string | undefined;
+  commitCount: number;
+  parsedCommitCount?: number | undefined;
+  releaseType?: ReleaseType | undefined;
+  currentVersion?: string | undefined;
+  newVersion?: string | undefined;
+  tag?: string | undefined;
+  bumpedFiles: string[];
+  changelogFiles: string[];
+  skipReason?: string | undefined;
+}
+
+/** Aggregate result of the prepare workflow for both single-package and monorepo modes. */
+export interface PrepareResult {
+  components: ComponentPrepareResult[];
+  tags: string[];
+  formatCommand?:
+    | {
+        command: string;
+        executed: boolean;
+        files: string[];
+      }
+    | undefined;
+  dryRun: boolean;
+}
+
 /** Configuration for a single work type used in commit categorization. */
 export interface WorkTypeConfig {
   /** Human-readable label for the section heading in changelogs. */

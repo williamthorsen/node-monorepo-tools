@@ -40,6 +40,13 @@ function makeConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoRelease
   };
 }
 
+/** Count how many npx git-cliff calls occurred. */
+function countCliffCalls(): number {
+  return mockExecFileSync.mock.calls.filter(
+    (call: unknown[]) => call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff'),
+  ).length;
+}
+
 /** Find the first npx git-cliff call's args from the mock call history. */
 function findCliffCallArgs(): readonly unknown[] {
   for (const call of mockExecFileSync.mock.calls) {
@@ -48,13 +55,6 @@ function findCliffCallArgs(): readonly unknown[] {
     }
   }
   throw new Error('No npx git-cliff call found in mock history');
-}
-
-/** Count how many npx git-cliff calls occurred. */
-function countCliffCalls(): number {
-  return mockExecFileSync.mock.calls.filter(
-    (call: unknown[]) => call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff'),
-  ).length;
 }
 
 /** Collect the --output path from every npx git-cliff call. */
@@ -108,7 +108,16 @@ describe(releasePrepareMono, () => {
 
     const result = releasePrepareMono(config, { dryRun: false });
 
-    expect(result).toStrictEqual(['arrays-v1.1.0']);
+    expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
+    expect(result.components).toHaveLength(1);
+    expect(result.components[0]).toMatchObject({
+      name: 'arrays',
+      status: 'released',
+      tag: 'arrays-v1.1.0',
+      currentVersion: '1.0.0',
+      newVersion: '1.1.0',
+      changelogFiles: ['packages/arrays/CHANGELOG.md'],
+    });
 
     // Verify bumpAllVersions wrote a new version
     expect(mockWriteFileSync).toHaveBeenCalledWith(
@@ -150,7 +159,13 @@ describe(releasePrepareMono, () => {
 
     const result = releasePrepareMono(config, { dryRun: false });
 
-    expect(result).toStrictEqual([]);
+    expect(result.tags).toStrictEqual([]);
+    expect(result.components).toHaveLength(1);
+    expect(result.components[0]).toMatchObject({
+      name: 'arrays',
+      status: 'skipped',
+      commitCount: 0,
+    });
     expect(mockWriteFileSync).not.toHaveBeenCalled();
     expect(countCliffCalls()).toBe(0);
   });
@@ -199,7 +214,10 @@ describe(releasePrepareMono, () => {
 
     const result = releasePrepareMono(config, { dryRun: false });
 
-    expect(result).toStrictEqual(['arrays-v1.0.1']);
+    expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
+    expect(result.components).toHaveLength(2);
+    expect(result.components[0]).toMatchObject({ name: 'arrays', status: 'released' });
+    expect(result.components[1]).toMatchObject({ name: 'strings', status: 'skipped' });
 
     // Only arrays package.json should be written
     expect(mockWriteFileSync).toHaveBeenCalledTimes(1);
@@ -212,7 +230,6 @@ describe(releasePrepareMono, () => {
   });
 
   it('does not write files or run formatCommand when dryRun is true', () => {
-    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
     const config = makeConfig({
       formatCommand: 'npx prettier --write',
       components: [
@@ -239,16 +256,17 @@ describe(releasePrepareMono, () => {
 
     const result = releasePrepareMono(config, { dryRun: true });
 
-    expect(result).toStrictEqual(['arrays-v1.1.0']);
+    expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
+    expect(result.dryRun).toBe(true);
     expect(mockWriteFileSync).not.toHaveBeenCalled();
     expect(countCliffCalls()).toBe(0);
     expect(mockExecSync).not.toHaveBeenCalled();
 
-    // Verify the dry-run log includes modified file paths
-    expect(infoSpy).toHaveBeenCalledWith(
-      expect.stringContaining('npx prettier --write packages/arrays/package.json packages/arrays/CHANGELOG.md'),
-    );
-    infoSpy.mockRestore();
+    // Verify the format command is captured but not executed
+    expect(result.formatCommand).toMatchObject({
+      command: 'npx prettier --write packages/arrays/package.json packages/arrays/CHANGELOG.md',
+      executed: false,
+    });
   });
 
   it('runs formatCommand once after all components are processed', () => {
@@ -320,7 +338,7 @@ describe(releasePrepareMono, () => {
 
     const result = releasePrepareMono(config, { dryRun: false, bumpOverride: 'minor' });
 
-    expect(result).toStrictEqual(['arrays-v1.1.0']);
+    expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
 
     // Should use the override (minor) rather than the commit-derived type (patch)
     expect(mockWriteFileSync).toHaveBeenCalledWith(
@@ -360,7 +378,12 @@ describe(releasePrepareMono, () => {
 
     const result = releasePrepareMono(config, { dryRun: false });
 
-    expect(result).toStrictEqual([]);
+    expect(result.tags).toStrictEqual([]);
+    expect(result.components[0]).toMatchObject({
+      status: 'skipped',
+      commitCount: 1,
+      parsedCommitCount: 0,
+    });
     expect(mockWriteFileSync).not.toHaveBeenCalled();
     expect(countCliffCalls()).toBe(0);
   });
@@ -391,7 +414,7 @@ describe(releasePrepareMono, () => {
 
     const result = releasePrepareMono(config, { dryRun: false, force: true, bumpOverride: 'patch' });
 
-    expect(result).toStrictEqual(['arrays-v1.0.1']);
+    expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
     expect(mockWriteFileSync).toHaveBeenCalledWith(
       'packages/arrays/package.json',
       expect.stringContaining('"version": "1.0.1"'),
@@ -443,7 +466,7 @@ describe(releasePrepareMono, () => {
     const result = releasePrepareMono(config, { dryRun: false, force: true, bumpOverride: 'patch' });
 
     // arrays is bumped via --force (0 commits); strings is bumped via commits; both use bumpOverride: 'patch'
-    expect(result).toStrictEqual(['arrays-v1.0.1', 'strings-v2.0.1']);
+    expect(result.tags).toStrictEqual(['arrays-v1.0.1', 'strings-v2.0.1']);
   });
 
   it('does not write files when force and dryRun are both true', () => {
@@ -472,7 +495,7 @@ describe(releasePrepareMono, () => {
 
     const result = releasePrepareMono(config, { dryRun: true, force: true, bumpOverride: 'patch' });
 
-    expect(result).toStrictEqual(['arrays-v1.0.1']);
+    expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
     expect(mockWriteFileSync).not.toHaveBeenCalled();
     expect(countCliffCalls()).toBe(0);
   });
@@ -503,7 +526,7 @@ describe(releasePrepareMono, () => {
 
     const result = releasePrepareMono(config, { dryRun: false });
 
-    expect(result).toStrictEqual([]);
+    expect(result.tags).toStrictEqual([]);
     expect(mockExecSync).not.toHaveBeenCalled();
   });
 
@@ -597,7 +620,11 @@ describe(releasePrepareMono, () => {
 
     const result = releasePrepareMono(config, { dryRun: false });
 
-    expect(result).toStrictEqual(['arrays-v1.1.0']);
+    expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
+    expect(result.components[0]?.changelogFiles).toStrictEqual([
+      'packages/arrays/CHANGELOG.md',
+      'packages/arrays/docs/CHANGELOG.md',
+    ]);
     expect(countCliffCalls()).toBe(2);
     expect(findAllCliffOutputPaths()).toStrictEqual([
       'packages/arrays/CHANGELOG.md',

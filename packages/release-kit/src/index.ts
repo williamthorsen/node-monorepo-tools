@@ -7,11 +7,14 @@ export type { ReleasePrepareOptions } from './releasePrepare.ts';
 export type { ResolvedTag } from './resolveReleaseTags.ts';
 export type { LabelDefinition, SyncLabelsConfig } from './sync-labels/types.ts';
 export type {
+  BumpResult,
   Commit,
   ComponentConfig,
   ComponentOverride,
+  ComponentPrepareResult,
   MonorepoReleaseConfig,
   ParsedCommit,
+  PrepareResult,
   ReleaseConfig,
   ReleaseKitConfig,
   ReleaseType,
@@ -33,8 +36,9 @@ export { discoverWorkspaces } from './discoverWorkspaces.ts';
 export { generateChangelog, generateChangelogs } from './generateChangelogs.ts';
 export { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 export { parseCommitMessage } from './parseCommitMessage.ts';
+export { RELEASE_TAGS_FILE, writeReleaseTags } from './prepareCommand.ts';
 export { publish } from './publish.ts';
 export { releasePrepare } from './releasePrepare.ts';
 export { releasePrepareMono } from './releasePrepareMono.ts';
+export { reportPrepare } from './reportPrepare.ts';
 export { resolveReleaseTags } from './resolveReleaseTags.ts';
-export { RELEASE_TAGS_FILE, runReleasePrepare, writeReleaseTags } from './runReleasePrepare.ts';

@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, unlinkSync } from 'node:fs';
 
-import { RELEASE_TAGS_FILE } from './runReleasePrepare.ts';
+import { RELEASE_TAGS_FILE } from './prepareCommand.ts';
 
 export interface CreateTagsOptions {
   dryRun: boolean;

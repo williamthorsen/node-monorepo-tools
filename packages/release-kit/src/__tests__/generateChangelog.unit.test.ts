@@ -24,8 +24,9 @@ describe(generateChangelog, () => {
     mockResolveCliffConfigPath.mockReturnValue('cliff.toml');
     const config = { cliffConfigPath: 'cliff.toml' };
 
-    generateChangelog(config, 'packages/arrays', 'v1.0.0', false);
+    const result = generateChangelog(config, 'packages/arrays', 'v1.0.0', false);
 
+    expect(result).toStrictEqual(['packages/arrays/CHANGELOG.md']);
     expect(mockExecFileSync).toHaveBeenCalledWith(
       'npx',
       ['--yes', 'git-cliff', '--config', 'cliff.toml', '--output', 'packages/arrays/CHANGELOG.md', '--tag', 'v1.0.0'],
@@ -37,10 +38,11 @@ describe(generateChangelog, () => {
     mockResolveCliffConfigPath.mockReturnValue('cliff.toml');
     const config = { cliffConfigPath: 'cliff.toml' };
 
-    generateChangelog(config, 'packages/arrays', 'arrays-v1.0.0', false, {
+    const result = generateChangelog(config, 'packages/arrays', 'arrays-v1.0.0', false, {
       includePaths: ['packages/arrays'],
     });
 
+    expect(result).toStrictEqual(['packages/arrays/CHANGELOG.md']);
     expect(mockExecFileSync).toHaveBeenCalledWith(
       'npx',
       [
@@ -63,10 +65,11 @@ describe(generateChangelog, () => {
     mockResolveCliffConfigPath.mockReturnValue('cliff.toml');
     const config = { cliffConfigPath: 'cliff.toml' };
 
-    generateChangelog(config, '.', 'v2.0.0', false, {
+    const result = generateChangelog(config, '.', 'v2.0.0', false, {
       includePaths: ['packages/arrays', 'packages/strings'],
     });
 
+    expect(result).toStrictEqual(['./CHANGELOG.md']);
     expect(mockExecFileSync).toHaveBeenCalledWith(
       'npx',
       [
@@ -100,24 +103,23 @@ describe(generateChangelog, () => {
     );
   });
 
-  it('does not call execFileSync when dryRun is true', () => {
+  it('returns the output file path without calling execFileSync when dryRun is true', () => {
     mockResolveCliffConfigPath.mockReturnValue('cliff.toml');
-    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
     const config = { cliffConfigPath: 'cliff.toml' };
 
-    generateChangelog(config, 'packages/arrays', 'v1.0.0', true);
+    const result = generateChangelog(config, 'packages/arrays', 'v1.0.0', true);
 
+    expect(result).toStrictEqual(['packages/arrays/CHANGELOG.md']);
     expect(mockExecFileSync).not.toHaveBeenCalled();
-    expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('[dry-run]'));
-    infoSpy.mockRestore();
   });
 
   it('uses the path returned by resolveCliffConfigPath when cliffConfigPath is absent', () => {
     mockResolveCliffConfigPath.mockReturnValue('/bundled/cliff.toml.template');
     const config = {};
 
-    generateChangelog(config, 'packages/arrays', 'v1.0.0', false);
+    const result = generateChangelog(config, 'packages/arrays', 'v1.0.0', false);
 
+    expect(result).toStrictEqual(['packages/arrays/CHANGELOG.md']);
     expect(mockResolveCliffConfigPath).toHaveBeenCalledWith(undefined, expect.any(String));
     expect(mockExecFileSync).toHaveBeenCalledWith(
       'npx',
@@ -142,7 +144,7 @@ describe(generateChangelogs, () => {
     mockResolveCliffConfigPath.mockReset();
   });
 
-  it('calls git-cliff for each configured changelog path', () => {
+  it('returns collected file paths from all changelog paths', () => {
     mockResolveCliffConfigPath.mockReturnValue('cliff.toml');
     const config = {
       tagPrefix: 'v',
@@ -152,18 +154,9 @@ describe(generateChangelogs, () => {
       cliffConfigPath: 'cliff.toml',
     } satisfies ReleaseConfig;
 
-    generateChangelogs(config, 'v1.0.0', false);
+    const result = generateChangelogs(config, 'v1.0.0', false);
 
+    expect(result).toStrictEqual(['packages/arrays/CHANGELOG.md', 'packages/strings/CHANGELOG.md']);
     expect(mockExecFileSync).toHaveBeenCalledTimes(2);
-    expect(mockExecFileSync).toHaveBeenCalledWith(
-      'npx',
-      ['--yes', 'git-cliff', '--config', 'cliff.toml', '--output', 'packages/arrays/CHANGELOG.md', '--tag', 'v1.0.0'],
-      { stdio: 'inherit' },
-    );
-    expect(mockExecFileSync).toHaveBeenCalledWith(
-      'npx',
-      ['--yes', 'git-cliff', '--config', 'cliff.toml', '--output', 'packages/strings/CHANGELOG.md', '--tag', 'v1.0.0'],
-      { stdio: 'inherit' },
-    );
   });
 });

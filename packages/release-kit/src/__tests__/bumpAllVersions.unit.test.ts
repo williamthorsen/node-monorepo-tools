@@ -18,7 +18,6 @@ describe(bumpAllVersions, () => {
   });
 
   it('reads the first file only once when packageFiles has a single entry', () => {
-    vi.spyOn(console, 'info').mockImplementation(() => {});
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '1.0.0' }));
 
     bumpAllVersions(['packages/a/package.json'], 'patch', false);
@@ -28,7 +27,6 @@ describe(bumpAllVersions, () => {
   });
 
   it('reads each additional file exactly once without re-reading the first', () => {
-    vi.spyOn(console, 'info').mockImplementation(() => {});
     mockReadFileSync.mockImplementation((filePath: string) => {
       if (filePath === 'packages/a/package.json') {
         return JSON.stringify({ name: 'a', version: '2.1.0' });
@@ -51,13 +49,23 @@ describe(bumpAllVersions, () => {
     expect(mockReadFileSync).toHaveBeenCalledWith('packages/c/package.json', 'utf8');
   });
 
-  it('writes the bumped version to all files', () => {
-    vi.spyOn(console, 'info').mockImplementation(() => {});
+  it('returns a BumpResult with currentVersion, newVersion, and files', () => {
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '1.2.3' }));
 
     const result = bumpAllVersions(['packages/a/package.json', 'packages/b/package.json'], 'patch', false);
 
-    expect(result).toBe('1.2.4');
+    expect(result).toStrictEqual({
+      currentVersion: '1.2.3',
+      newVersion: '1.2.4',
+      files: ['packages/a/package.json', 'packages/b/package.json'],
+    });
+  });
+
+  it('writes the bumped version to all files', () => {
+    mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '1.2.3' }));
+
+    bumpAllVersions(['packages/a/package.json', 'packages/b/package.json'], 'patch', false);
+
     expect(mockWriteFileSync).toHaveBeenCalledTimes(2);
     expect(mockWriteFileSync).toHaveBeenNthCalledWith(
       1,
@@ -74,12 +82,11 @@ describe(bumpAllVersions, () => {
   });
 
   it('skips writing in dry-run mode', () => {
-    vi.spyOn(console, 'info').mockImplementation(() => {});
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
 
     const result = bumpAllVersions(['packages/a/package.json'], 'major', true);
 
-    expect(result).toBe('1.0.0');
+    expect(result.newVersion).toBe('1.0.0');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
   });
 
