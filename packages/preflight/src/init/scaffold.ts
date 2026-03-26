@@ -29,7 +29,8 @@ function tryWriteFile(filePath: string, content: string): boolean {
 
 /** Write a file, creating parent directories as needed. Skip if the file already exists and overwrite is false. Returns true on success. */
 function writeIfAbsent(filePath: string, content: string, dryRun: boolean, overwrite: boolean): boolean {
-  if (existsSync(filePath) && !overwrite) {
+  const fileAlreadyExists = existsSync(filePath);
+  if (fileAlreadyExists && !overwrite) {
     try {
       const existing = readFileSync(filePath, 'utf8');
       if (normalizeTrailingWhitespace(existing) === normalizeTrailingWhitespace(content)) {
@@ -49,7 +50,7 @@ function writeIfAbsent(filePath: string, content: string, dryRun: boolean, overw
   }
 
   if (dryRun) {
-    const verb = existsSync(filePath) ? 'overwrite' : 'create';
+    const verb = fileAlreadyExists ? 'overwrite' : 'create';
     printSuccess(`[dry-run] Would ${verb} ${filePath}`);
     return true;
   }
@@ -62,9 +63,8 @@ function writeIfAbsent(filePath: string, content: string, dryRun: boolean, overw
     return false;
   }
 
-  const alreadyExists = existsSync(filePath);
   if (tryWriteFile(filePath, content)) {
-    const verb = alreadyExists ? 'Overwrote' : 'Created';
+    const verb = fileAlreadyExists ? 'Overwrote' : 'Created';
     printSuccess(`${verb} ${filePath}`);
     return true;
   }
@@ -78,5 +78,5 @@ interface ScaffoldOptions {
 
 /** Scaffold the preflight config file. Returns true on success. */
 export function scaffoldConfig({ dryRun, force }: ScaffoldOptions): boolean {
-  return writeIfAbsent(CONFIG_PATH, preflightConfigTemplate(), dryRun, force);
+  return writeIfAbsent(CONFIG_PATH, preflightConfigTemplate, dryRun, force);
 }

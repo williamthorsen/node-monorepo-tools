@@ -1,6 +1,5 @@
-/** Return the starter preflight config file content. */
-export function preflightConfigTemplate(): string {
-  return `import { definePreflightConfig } from '@williamthorsen/preflight';
+/** Starter preflight config file content. */
+export const preflightConfigTemplate = `import { definePreflightConfig } from '@williamthorsen/preflight';
 
 /**
  * Preflight configuration.
@@ -23,4 +22,3 @@ export default definePreflightConfig({
   ],
 });
 `;
-}

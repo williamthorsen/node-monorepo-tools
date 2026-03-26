@@ -33,7 +33,7 @@ describe(initCommand, () => {
     expect(existsSync(join(TEST_DIR, CONFIG_PATH))).toBe(true);
 
     const content = readFileSync(join(TEST_DIR, CONFIG_PATH), 'utf8');
-    expect(content).toBe(preflightConfigTemplate());
+    expect(content).toBe(preflightConfigTemplate);
   });
 
   it('skips with a warning when the config file already exists', () => {
@@ -54,7 +54,7 @@ describe(initCommand, () => {
 
     expect(exitCode).toBe(0);
     const content = readFileSync(join(TEST_DIR, CONFIG_PATH), 'utf8');
-    expect(content).toBe(preflightConfigTemplate());
+    expect(content).toBe(preflightConfigTemplate);
   });
 
   it('previews without writing when dry-run is true', () => {
@@ -66,12 +66,12 @@ describe(initCommand, () => {
 
   it('reports up-to-date when the config file matches the template', () => {
     mkdirSync(join(TEST_DIR, '.config'), { recursive: true });
-    writeFileSync(join(TEST_DIR, CONFIG_PATH), preflightConfigTemplate(), 'utf8');
+    writeFileSync(join(TEST_DIR, CONFIG_PATH), preflightConfigTemplate, 'utf8');
 
     const exitCode = initCommand({ dryRun: false, force: false });
 
     expect(exitCode).toBe(0);
-    expect(readFileSync(join(TEST_DIR, CONFIG_PATH), 'utf8')).toBe(preflightConfigTemplate());
+    expect(readFileSync(join(TEST_DIR, CONFIG_PATH), 'utf8')).toBe(preflightConfigTemplate);
   });
 
   it('does not modify an existing file during dry-run', () => {
