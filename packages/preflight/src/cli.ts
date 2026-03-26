@@ -18,9 +18,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
   const args = argv.slice(2);
   const result: ParsedArgs = { names: [] };
 
-  let i = 0;
-  let arg: string | undefined;
-  while ((arg = args[i]) !== undefined) {
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === undefined) break;
     if (arg === '--config' || arg === '-c') {
       i++;
       const configValue = args[i];
@@ -39,8 +39,6 @@ export function parseArgs(argv: string[]): ParsedArgs {
     } else {
       result.names.push(arg);
     }
-
-    i++;
   }
 
   return result;

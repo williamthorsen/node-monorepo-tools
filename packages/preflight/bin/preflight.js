@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-import('../dist/esm/bin/preflight.js').catch((err) => {
-  process.stderr.write(`preflight: failed to load: ${err.message}\n`);
+try {
+  await import('../dist/esm/bin/preflight.js');
+} catch (error) {
+  process.stderr.write(`preflight: failed to load: ${error.message}\n`);
   process.exit(1);
-});
+}

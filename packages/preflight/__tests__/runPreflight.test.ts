@@ -59,7 +59,7 @@ describe(runPreflight, () => {
           {
             name: 'throws-string',
             check: () => {
-              // eslint-disable-next-line no-throw-literal
+              // eslint-disable-next-line @typescript-eslint/only-throw-error
               throw 'a plain string';
             },
           },
