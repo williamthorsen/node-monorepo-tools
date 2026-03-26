@@ -4,8 +4,8 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const MONOREPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
-const CORE_PACKAGE_DIR = path.resolve(MONOREPO_ROOT, 'packages', 'core');
-const CLI_PATH = path.join(CORE_PACKAGE_DIR, 'dist', 'esm', 'cli.js');
+const NMR_PACKAGE_DIR = path.resolve(MONOREPO_ROOT, 'packages', 'nmr');
+const CLI_PATH = path.join(NMR_PACKAGE_DIR, 'dist', 'esm', 'cli.js');
 
 function runNmr(args: string, options: { cwd?: string } = {}): { stdout: string; stderr: string; exitCode: number } {
   try {
@@ -77,7 +77,7 @@ describe('nmr CLI', () => {
     });
 
     it('suppresses output on successful command in quiet mode', () => {
-      const { stdout, stderr, exitCode } = runNmr('-q typecheck', { cwd: CORE_PACKAGE_DIR });
+      const { stdout, stderr, exitCode } = runNmr('-q typecheck', { cwd: NMR_PACKAGE_DIR });
       expect(exitCode).toBe(0);
       expect(stdout).toBe('');
       expect(stderr).toBe('');

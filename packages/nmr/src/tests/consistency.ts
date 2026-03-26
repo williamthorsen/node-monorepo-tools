@@ -85,7 +85,7 @@ async function getNodeVersionFromAction(monorepoRoot: string): Promise<string> {
  *
  * Call this from a test file in your monorepo:
  * ```ts
- * import { runConsistencyChecks } from '@williamthorsen/node-monorepo-core/tests';
+ * import { runConsistencyChecks } from '@williamthorsen/nmr/tests';
  * runConsistencyChecks();
  * ```
  */

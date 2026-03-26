@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { findContainingPackageDir, findMonorepoRoot, getWorkspacePackageDirs } from '../src/context.js';
 
-// The monorepo root is two levels up from packages/core
+// The monorepo root is two levels up from packages/nmr
 const MONOREPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
 const CORE_PACKAGE_DIR = path.resolve(MONOREPO_ROOT, 'packages', 'core');
 

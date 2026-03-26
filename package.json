@@ -2,7 +2,7 @@
   "name": "node-monorepo-tools",
   "version": "0.0.0",
   "private": true,
-  "description": "Monorepo for @williamthorsen/node-monorepo-core and related packages",
+  "description": "Monorepo for @williamthorsen/nmr and related packages",
   "keywords": [],
   "homepage": "https://github.com/williamthorsen/node-monorepo-tools#readme",
   "bugs": {
@@ -19,7 +19,7 @@
     "packages/*"
   ],
   "scripts": {
-    "bootstrap": "cd packages/core && tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json",
+    "bootstrap": "cd packages/nmr && tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json",
     "ci": "nmr ci",
     "postinstall": "node scripts/postinstall.js",
     "prepare": "lefthook install"
@@ -32,7 +32,7 @@
     "@vitest/coverage-v8": "4.1.2",
     "@vitest/eslint-plugin": "1.6.13",
     "@williamthorsen/eslint-config-typescript": "5.16.2",
-    "@williamthorsen/node-monorepo-core": "workspace:*",
+    "@williamthorsen/nmr": "workspace:*",
     "@williamthorsen/release-kit": "workspace:*",
     "@williamthorsen/strict-lint": "6.1.2",
     "@williamthorsen/toolbelt.objects": "3.2.6",

@@ -16,14 +16,14 @@ const cliFilename = 'cli-report-overrides.js';
 function resolveFromPackage() {
   try {
     const require = createRequire(import.meta.url);
-    const entryPath = require.resolve('@williamthorsen/node-monorepo-core');
+    const entryPath = require.resolve('@williamthorsen/nmr');
     return join(dirname(entryPath), cliFilename);
   } catch {
     return null;
   }
 }
 
-const cliPath = resolveFromPackage() ?? join('packages', 'core', 'dist', 'esm', cliFilename);
+const cliPath = resolveFromPackage() ?? join('packages', 'nmr', 'dist', 'esm', cliFilename);
 
 if (existsSync(cliPath)) {
   await import(pathToFileURL(cliPath).href);

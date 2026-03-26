@@ -16,7 +16,7 @@ const CONFIG_DIR = '.config';
  *
  * Usage in `.config/nmr.config.ts`:
  * ```ts
- * import { defineConfig } from '@williamthorsen/node-monorepo-core';
+ * import { defineConfig } from '@williamthorsen/nmr';
  * export default defineConfig({ ... });
  * ```
  */

@@ -2,11 +2,11 @@
 
 ## Project structure
 
-A PNPM monorepo containing `@williamthorsen/node-monorepo-core` (the `nmr` script runner) and `@williamthorsen/release-kit` (version-bumping and changelog toolkit). Packages live under `packages/`.
+A PNPM monorepo containing `@williamthorsen/nmr` (the `nmr` script runner), `@williamthorsen/node-monorepo-core` (shared utilities), and `@williamthorsen/release-kit` (version-bumping and changelog toolkit). Packages live under `packages/`.
 
 ## Common commands
 
-All script execution goes through `nmr` (`@williamthorsen/node-monorepo-core`), which provides a unified interface for both root and workspace contexts. Configuration lives in `.config/nmr.config.ts`.
+All script execution goes through `nmr` (`@williamthorsen/nmr`), which provides a unified interface for both root and workspace contexts. Configuration lives in `.config/nmr.config.ts`.
 
 **Root-level development:**
 
@@ -33,7 +33,7 @@ All script execution goes through `nmr` (`@williamthorsen/node-monorepo-core`), 
 ### nmr script runner
 
 - Context-aware: detects whether it is running at the monorepo root or inside a workspace package and resolves the appropriate script registry
-- Default scripts are defined in `packages/core/src/registries.ts`; per-repo overrides go in `.config/nmr.config.ts`
+- Default scripts are defined in `packages/nmr/src/registries.ts`; per-repo overrides go in `.config/nmr.config.ts`
 - Packages with integration tests (detected via `vitest.integration.config.ts`) automatically get split test commands
 
 ### Build system

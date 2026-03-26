@@ -2,36 +2,23 @@
   "name": "@williamthorsen/node-monorepo-core",
   "version": "0.1.0",
   "private": false,
-  "description": "Context-aware script runner for PNPM monorepos",
+  "description": "Shared utilities for node-monorepo-tools packages",
   "keywords": [
     "monorepo",
     "pnpm",
-    "script-runner",
-    "workspace"
+    "utilities"
   ],
   "license": "MIT",
   "author": "William Thorsen <william@thorsen.dev> (https://github.com/williamthorsen)",
   "type": "module",
   "exports": {
-    ".": "./dist/esm/index.js",
-    "./tests": "./dist/esm/tests/consistency.js"
-  },
-  "bin": {
-    "nmr": "bin/nmr.js",
-    "nmr-report-overrides": "bin/nmr-report-overrides.js",
-    "nmr-sync-pnpm-version": "bin/nmr-sync-pnpm-version.js"
+    ".": "./dist/esm/index.js"
   },
   "files": [
-    "bin",
     "dist"
   ],
   "scripts": {
     "prepare": "tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json"
-  },
-  "dependencies": {
-    "jiti": "2.6.1",
-    "js-yaml": "4.1.1",
-    "zod": "4.3.6"
   },
   "publishConfig": {
     "access": "public"
