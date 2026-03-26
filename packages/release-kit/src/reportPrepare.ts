@@ -86,7 +86,8 @@ function formatMultiComponent(result: PrepareResult): string {
       lines.push(`\n${sectionHeader(component.name)}`);
     }
 
-    const since = formatSince(component);
+    const since =
+      component.previousTag === undefined ? '(no previous release found)' : `since ${component.previousTag}`;
 
     lines.push(dim(`  Found ${component.commitCount} commits ${since}`));
 
@@ -138,11 +139,6 @@ function formatMultiComponent(result: PrepareResult): string {
   }
 
   return lines.join('\n');
-}
-
-/** Format the "since" text for a component. */
-function formatSince(component: ComponentPrepareResult): string {
-  return component.previousTag === undefined ? '(no previous release found)' : `since ${component.previousTag}`;
 }
 
 /** Append bump file detail lines. */

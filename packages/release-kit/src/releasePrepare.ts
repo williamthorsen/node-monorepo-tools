@@ -63,7 +63,7 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
           parsedCommitCount,
           bumpedFiles: [],
           changelogFiles: [],
-          skipReason: 'No release-worthy changes found',
+          skipReason: 'No release-worthy changes found. Skipping.',
         },
       ],
       tags: [],

@@ -52,7 +52,7 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
         commitCount: 0,
         bumpedFiles: [],
         changelogFiles: [],
-        skipReason: `No changes for ${name} ${since}`,
+        skipReason: `No changes for ${name} ${since}. Skipping.`,
       });
       continue;
     }
@@ -81,7 +81,7 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
         parsedCommitCount,
         bumpedFiles: [],
         changelogFiles: [],
-        skipReason: `No release-worthy changes for ${name} ${since}`,
+        skipReason: `No release-worthy changes for ${name} ${since}. Skipping.`,
       });
       continue;
     }

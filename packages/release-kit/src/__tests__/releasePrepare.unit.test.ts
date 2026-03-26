@@ -109,7 +109,7 @@ describe(releasePrepare, () => {
       status: 'skipped',
       commitCount: 1,
       parsedCommitCount: 0,
-      skipReason: 'No release-worthy changes found',
+      skipReason: 'No release-worthy changes found. Skipping.',
     });
     expect(mockExecSync).not.toHaveBeenCalled();
   });

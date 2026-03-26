@@ -49,7 +49,7 @@ describe(reportPrepare, () => {
             parsedCommitCount: 0,
             bumpedFiles: [],
             changelogFiles: [],
-            skipReason: 'No release-worthy changes found',
+            skipReason: 'No release-worthy changes found. Skipping.',
           },
         ],
         tags: [],
@@ -59,7 +59,7 @@ describe(reportPrepare, () => {
       const output = reportPrepare(result);
 
       expect(output).toContain(dim('Found 1 commits since v1.0.0'));
-      expect(output).toContain('⏭️  No release-worthy changes found');
+      expect(output).toContain('⏭️  No release-worthy changes found. Skipping.');
       expect(output).not.toContain('✅');
     });
 
@@ -191,7 +191,7 @@ describe(reportPrepare, () => {
             commitCount: 0,
             bumpedFiles: [],
             changelogFiles: [],
-            skipReason: 'No changes for strings since strings-v2.0.0',
+            skipReason: 'No changes for strings since strings-v2.0.0. Skipping.',
           },
         ],
         tags: ['arrays-v1.0.1'],
@@ -202,7 +202,7 @@ describe(reportPrepare, () => {
 
       expect(output).toContain(sectionHeader('arrays'));
       expect(output).toContain(sectionHeader('strings'));
-      expect(output).toContain('  ⏭️  No changes for strings since strings-v2.0.0');
+      expect(output).toContain('  ⏭️  No changes for strings since strings-v2.0.0. Skipping.');
       expect(output).toContain('✅ Release preparation complete.');
     });
 
@@ -216,7 +216,7 @@ describe(reportPrepare, () => {
             commitCount: 0,
             bumpedFiles: [],
             changelogFiles: [],
-            skipReason: 'No changes for arrays since arrays-v1.0.0',
+            skipReason: 'No changes for arrays since arrays-v1.0.0. Skipping.',
           },
         ],
         tags: [],
