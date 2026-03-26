@@ -18,16 +18,7 @@ vi.mock('../src/reportPreflight.ts', () => ({
   reportPreflight: mockReportPreflight,
 }));
 
-import { main, parseArgs } from '../src/cli.ts';
-
-/** Sentinel error thrown by the mocked `process.exit` so tests can detect early termination. */
-class ExitError extends Error {
-  code: number;
-  constructor(code: number) {
-    super(`process.exit(${code})`);
-    this.code = code;
-  }
-}
+import { parseRunArgs, runCommand } from '../src/cli.ts';
 
 function makeConfig(overrides?: Partial<PreflightConfig>): PreflightConfig {
   return {
@@ -39,158 +30,135 @@ function makeConfig(overrides?: Partial<PreflightConfig>): PreflightConfig {
   };
 }
 
-describe(parseArgs, () => {
+describe(parseRunArgs, () => {
   it('parses positional names', () => {
-    const result = parseArgs(['node', 'preflight', 'deploy', 'infra']);
+    const result = parseRunArgs(['deploy', 'infra']);
 
     expect(result.names).toStrictEqual(['deploy', 'infra']);
     expect(result.configPath).toBeUndefined();
   });
 
   it('parses --config flag', () => {
-    const result = parseArgs(['node', 'preflight', '--config', 'custom/path.ts']);
+    const result = parseRunArgs(['--config', 'custom/path.ts']);
 
     expect(result.configPath).toBe('custom/path.ts');
     expect(result.names).toStrictEqual([]);
   });
 
   it('parses --config= syntax', () => {
-    const result = parseArgs(['node', 'preflight', '--config=custom/path.ts']);
+    const result = parseRunArgs(['--config=custom/path.ts']);
 
     expect(result.configPath).toBe('custom/path.ts');
   });
 
   it('parses -c flag', () => {
-    const result = parseArgs(['node', 'preflight', '-c', 'custom/path.ts']);
+    const result = parseRunArgs(['-c', 'custom/path.ts']);
 
     expect(result.configPath).toBe('custom/path.ts');
   });
 
   it('parses mixed flags and names', () => {
-    const result = parseArgs(['node', 'preflight', '-c', 'config.ts', 'deploy']);
+    const result = parseRunArgs(['-c', 'config.ts', 'deploy']);
 
     expect(result.configPath).toBe('config.ts');
     expect(result.names).toStrictEqual(['deploy']);
   });
 
   it('throws when --config has no value', () => {
-    expect(() => parseArgs(['node', 'preflight', '--config'])).toThrow('--config requires a path argument');
+    expect(() => parseRunArgs(['--config'])).toThrow('--config requires a path argument');
   });
 
   it('throws when -c has no value', () => {
-    expect(() => parseArgs(['node', 'preflight', '-c'])).toThrow('--config requires a path argument');
+    expect(() => parseRunArgs(['-c'])).toThrow('--config requires a path argument');
   });
 
   it('throws when --config= has an empty value', () => {
-    expect(() => parseArgs(['node', 'preflight', '--config='])).toThrow('--config requires a path argument');
+    expect(() => parseRunArgs(['--config='])).toThrow('--config requires a path argument');
   });
 
   it('throws on unknown flags', () => {
-    expect(() => parseArgs(['node', 'preflight', '--unknown'])).toThrow("unknown flag '--unknown'");
+    expect(() => parseRunArgs(['--unknown'])).toThrow("unknown flag '--unknown'");
   });
 });
 
-describe(main, () => {
+describe(runCommand, () => {
   let stdoutSpy: MockInstance;
   let stderrSpy: MockInstance;
-  let originalArgv: string[];
-  let lastExitCode: number | undefined;
 
   beforeEach(() => {
-    lastExitCode = undefined;
     stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    vi.spyOn(process, 'exit').mockImplementation((code) => {
-      lastExitCode = code;
-      throw new ExitError(code);
-    });
-    originalArgv = process.argv;
     mockReportPreflight.mockReturnValue('report output');
   });
 
   afterEach(() => {
-    process.argv = originalArgv;
     vi.restoreAllMocks();
     mockLoadPreflightConfig.mockReset();
     mockRunPreflight.mockReset();
     mockReportPreflight.mockReset();
   });
 
-  /** Run main, catching ExitError so tests can inspect the exit code. */
-  async function runMain(): Promise<void> {
-    try {
-      await main();
-    } catch (error: unknown) {
-      if (!(error instanceof ExitError)) throw error;
-    }
-  }
-
   it('runs all checklists when no names are given', async () => {
-    process.argv = ['node', 'preflight'];
     const config = makeConfig();
     mockLoadPreflightConfig.mockResolvedValue(config);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runMain();
+    const exitCode = await runCommand({ names: [] });
 
     expect(mockRunPreflight).toHaveBeenCalledTimes(2);
-    expect(lastExitCode).toBe(0);
+    expect(exitCode).toBe(0);
   });
 
   it('filters to named checklists only', async () => {
-    process.argv = ['node', 'preflight', 'deploy'];
     const config = makeConfig();
     mockLoadPreflightConfig.mockResolvedValue(config);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runMain();
+    const exitCode = await runCommand({ names: ['deploy'] });
 
     expect(mockRunPreflight).toHaveBeenCalledTimes(1);
     expect(mockRunPreflight).toHaveBeenCalledWith(config.checklists[0]);
+    expect(exitCode).toBe(0);
   });
 
   it('errors when an unknown checklist name is given', async () => {
-    process.argv = ['node', 'preflight', 'nonexistent'];
     const config = makeConfig();
     mockLoadPreflightConfig.mockResolvedValue(config);
 
-    await runMain();
+    const exitCode = await runCommand({ names: ['nonexistent'] });
 
     expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('unknown checklist(s): nonexistent'));
-    expect(lastExitCode).toBe(1);
+    expect(exitCode).toBe(1);
   });
 
-  it('exits with code 1 when any checklist fails', async () => {
-    process.argv = ['node', 'preflight'];
+  it('returns exit code 1 when any checklist fails', async () => {
     const config = makeConfig();
     mockLoadPreflightConfig.mockResolvedValue(config);
     mockRunPreflight
       .mockResolvedValueOnce({ results: [], passed: true, durationMs: 0 })
       .mockResolvedValueOnce({ results: [], passed: false, durationMs: 0 });
 
-    await runMain();
+    const exitCode = await runCommand({ names: [] });
 
-    expect(lastExitCode).toBe(1);
+    expect(exitCode).toBe(1);
   });
 
-  it('passes --config flag to config loader', async () => {
-    process.argv = ['node', 'preflight', '--config', 'custom/path.ts'];
+  it('passes configPath to config loader', async () => {
     const config = makeConfig();
     mockLoadPreflightConfig.mockResolvedValue(config);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runMain();
+    await runCommand({ names: [], configPath: 'custom/path.ts' });
 
     expect(mockLoadPreflightConfig).toHaveBeenCalledWith('custom/path.ts');
   });
 
   it('shows headers when running multiple checklists', async () => {
-    process.argv = ['node', 'preflight'];
     const config = makeConfig();
     mockLoadPreflightConfig.mockResolvedValue(config);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runMain();
+    await runCommand({ names: [] });
 
     const allOutput = stdoutSpy.mock.calls.map((c) => String(c[0])).join('');
     expect(allOutput).toContain('--- deploy ---');
@@ -198,19 +166,17 @@ describe(main, () => {
   });
 
   it('does not show headers for a single checklist', async () => {
-    process.argv = ['node', 'preflight', 'deploy'];
     const config = makeConfig();
     mockLoadPreflightConfig.mockResolvedValue(config);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runMain();
+    await runCommand({ names: ['deploy'] });
 
     const allOutput = stdoutSpy.mock.calls.map((c) => String(c[0])).join('');
     expect(allOutput).not.toContain('---');
   });
 
   it('uses per-checklist fixLocation over config default', async () => {
-    process.argv = ['node', 'preflight'];
     const config = makeConfig({
       fixLocation: 'END',
       checklists: [{ name: 'deploy', checks: [{ name: 'a', check: () => true }], fixLocation: 'INLINE' }],
@@ -218,13 +184,12 @@ describe(main, () => {
     mockLoadPreflightConfig.mockResolvedValue(config);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runMain();
+    await runCommand({ names: [] });
 
     expect(mockReportPreflight).toHaveBeenCalledWith(expect.anything(), { fixLocation: 'INLINE' });
   });
 
   it('falls back to config-level fixLocation when checklist has none', async () => {
-    process.argv = ['node', 'preflight'];
     const config = makeConfig({
       fixLocation: 'END',
       checklists: [{ name: 'deploy', checks: [{ name: 'a', check: () => true }] }],
@@ -232,18 +197,17 @@ describe(main, () => {
     mockLoadPreflightConfig.mockResolvedValue(config);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runMain();
+    await runCommand({ names: [] });
 
     expect(mockReportPreflight).toHaveBeenCalledWith(expect.anything(), { fixLocation: 'END' });
   });
 
   it('reports config loading errors to stderr', async () => {
-    process.argv = ['node', 'preflight'];
     mockLoadPreflightConfig.mockRejectedValue(new Error('Config not found'));
 
-    await runMain();
+    const exitCode = await runCommand({ names: [] });
 
     expect(stderrSpy).toHaveBeenCalledWith('Error: Config not found\n');
-    expect(lastExitCode).toBe(1);
+    expect(exitCode).toBe(1);
   });
 });
