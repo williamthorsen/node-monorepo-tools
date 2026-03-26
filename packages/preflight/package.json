@@ -1,0 +1,48 @@
+{
+  "name": "@williamthorsen/preflight",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Run pre-deployment checks to verify environment and configuration",
+  "keywords": [
+    "checks",
+    "deploy",
+    "preflight",
+    "verification"
+  ],
+  "homepage": "https://github.com/williamthorsen/node-monorepo-tools/tree/main/packages/preflight#readme",
+  "bugs": {
+    "url": "https://github.com/williamthorsen/node-monorepo-tools/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/williamthorsen/node-monorepo-tools.git",
+    "directory": "packages/preflight"
+  },
+  "license": "MIT",
+  "author": "William Thorsen <william@thorsen.dev> (https://github.com/williamthorsen)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/esm/index.js"
+    }
+  },
+  "bin": {
+    "preflight": "bin/preflight.js"
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "scripts": {
+    "prepare": "tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json"
+  },
+  "dependencies": {
+    "jiti": "2.6.1"
+  },
+  "engines": {
+    "node": ">=18.17.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
