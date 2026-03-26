@@ -1,3 +1,5 @@
+import process from 'node:process';
+
 import { parseRunArgs, runCommand } from '../cli.ts';
 import { initCommand } from '../init/initCommand.ts';
 
