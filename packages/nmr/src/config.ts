@@ -36,9 +36,24 @@ function isScriptRecord(value: unknown): value is Record<string, string | string
   return true;
 }
 
-/**
- * Validates that a loaded value conforms to the expected NmrConfig shape.
- */
+/** Validate and extract a single script-record field from the raw config object. */
+function validateScriptField(
+  value: Record<string, unknown>,
+  fieldName: string,
+  configPath: string,
+): Record<string, string | string[]> | undefined {
+  if (!(fieldName in value) || value[fieldName] === undefined) {
+    return undefined;
+  }
+  if (!isScriptRecord(value[fieldName])) {
+    throw new Error(
+      `Invalid nmr config at ${configPath}: \`${fieldName}\` must be a Record<string, string | string[]>`,
+    );
+  }
+  return value[fieldName];
+}
+
+/** Validate that a loaded value conforms to the expected `NmrConfig` shape. */
 function validateConfig(value: unknown, configPath: string): NmrConfig {
   if (!isObject(value)) {
     throw new Error(`Invalid nmr config at ${configPath}: expected an object, got ${typeof value}`);
@@ -46,23 +61,11 @@ function validateConfig(value: unknown, configPath: string): NmrConfig {
 
   const config: NmrConfig = {};
 
-  if ('workspaceScripts' in value && value.workspaceScripts !== undefined) {
-    if (!isScriptRecord(value.workspaceScripts)) {
-      throw new Error(
-        `Invalid nmr config at ${configPath}: \`workspaceScripts\` must be a Record<string, string | string[]>`,
-      );
-    }
-    config.workspaceScripts = value.workspaceScripts;
-  }
+  const workspaceScripts = validateScriptField(value, 'workspaceScripts', configPath);
+  if (workspaceScripts) config.workspaceScripts = workspaceScripts;
 
-  if ('rootScripts' in value && value.rootScripts !== undefined) {
-    if (!isScriptRecord(value.rootScripts)) {
-      throw new Error(
-        `Invalid nmr config at ${configPath}: \`rootScripts\` must be a Record<string, string | string[]>`,
-      );
-    }
-    config.rootScripts = value.rootScripts;
-  }
+  const rootScripts = validateScriptField(value, 'rootScripts', configPath);
+  if (rootScripts) config.rootScripts = rootScripts;
 
   return config;
 }
