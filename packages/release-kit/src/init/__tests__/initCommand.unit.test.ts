@@ -147,4 +147,43 @@ describe(initCommand, () => {
 
     expect(mockScaffoldFiles).toHaveBeenCalledWith(expect.objectContaining({ repoType: 'monorepo' }));
   });
+
+  it('returns 1 when hasPackageJson fails', () => {
+    mockIsGitRepo.mockReturnValue({ ok: true });
+    mockHasPackageJson.mockReturnValue({ ok: false, message: 'No package.json found' });
+
+    const exitCode = initCommand({ dryRun: false, force: false, withConfig: false });
+
+    expect(exitCode).toBe(1);
+    expect(mockScaffoldFiles).not.toHaveBeenCalled();
+  });
+
+  it('returns 1 when usesPnpm fails', () => {
+    mockIsGitRepo.mockReturnValue({ ok: true });
+    mockHasPackageJson.mockReturnValue({ ok: true });
+    mockUsesPnpm.mockReturnValue({ ok: false, message: 'pnpm not detected' });
+
+    const exitCode = initCommand({ dryRun: false, force: false, withConfig: false });
+
+    expect(exitCode).toBe(1);
+    expect(mockScaffoldFiles).not.toHaveBeenCalled();
+  });
+
+  it('does not call hasPackageJson or usesPnpm when isGitRepo fails', () => {
+    mockIsGitRepo.mockReturnValue({ ok: false, message: 'Not a git repo' });
+
+    initCommand({ dryRun: false, force: false, withConfig: false });
+
+    expect(mockHasPackageJson).not.toHaveBeenCalled();
+    expect(mockUsesPnpm).not.toHaveBeenCalled();
+  });
+
+  it('does not call usesPnpm when hasPackageJson fails', () => {
+    mockIsGitRepo.mockReturnValue({ ok: true });
+    mockHasPackageJson.mockReturnValue({ ok: false, message: 'No package.json found' });
+
+    initCommand({ dryRun: false, force: false, withConfig: false });
+
+    expect(mockUsesPnpm).not.toHaveBeenCalled();
+  });
 });
