@@ -2,6 +2,88 @@
 
 All notable changes to this project will be documented in this file.
 
+## [release-kit-v2.2.0] - 2026-03-27
+
+### Features
+
+- #27 release-kit|feat: Auto-detect Prettier for CHANGELOG formatting (#36)
+
+When `formatCommand` is not configured, release-kit now auto-detects whether the repo uses Prettier by checking for config files (`.prettierrc*`, `prettier.config.*`) or a `"prettier"` key in root `package.json`. If found, it defaults to `npx prettier --write` on generated files. If not found, formatting is skipped.
+
+- #28 release-kit|feat: Add tag-creation command (#40)
+
+Adds a `release-kit tag` CLI command that reads computed tag names from the `tmp/.release-tags` file produced by `prepare` and creates annotated git tags. The command supports `--dry-run` (preview without creating tags) and `--no-git-checks` (skip dirty working tree validation). The `createTags` function and its options type are exported for programmatic use.
+
+- #29 release-kit|feat: Add publish command (#42)
+
+Adds a `release-kit publish` subcommand that derives packages to publish from git tags on HEAD and delegates to the repo's detected package manager. Also cleans up the `.release-tags` file after tag creation.
+
+- #41 release-kit|feat: Remove tagPrefix customization from component config (#49)
+
+Removes the ability to customize `tagPrefix` per component, enforcing the deterministic `{dir}-v` convention universally. The internal `tagPrefix` property on `ComponentConfig` and `ReleaseConfig` is preserved — only the override/customization entry points are removed. Existing configs that still include `tagPrefix` now receive a clear deprecation error.
+
+- #54 release-kit|feat: Add styled terminal output to prepare command (#55)
+
+Adds ANSI formatting and emoji markers to the `release-kit prepare` command output. Progress chatter is dimmed, key results (version bumps, release tags, completion status) are highlighted with bold text and emoji, and monorepo components are separated by box-drawing section headers.
+
+- #59 feat: Extract nmr CLI from core package (#61)
+
+Extracts all nmr CLI code from `packages/core` into a new `packages/nmr` package (`@williamthorsen/nmr`). Core is reduced to an empty shared-library shell ready for cross-cutting utilities. All internal references are rewired and the full build/test pipeline passes.
+
+Scopes: core, nmr
+
+### Refactoring
+
+- #43 refactor: Replace dist bin targets with thin wrapper scripts (#48)
+
+The `bin` entries in `packages/core` and `packages/release-kit` pointed directly into `dist/esm/`, causing `pnpm install` to emit "Failed to create bin" warnings in fresh worktrees where `dist/` does not yet exist. Each bin entry now points to a committed wrapper script in `bin/` that dynamically imports the real entry point. The `files` field in both packages includes `bin` so the wrappers are published.
+
+- #53 release-kit|refactor: Separate presentation from logic in prepare workflow (#57)
+
+Extracts all `console.info` calls from the prepare workflow's logic functions (`bumpAllVersions`, `generateChangelogs`, `releasePrepare`, `releasePrepareMono`) into a dedicated `reportPrepare` formatter. Logic functions now return structured result types (`BumpResult`, `ComponentPrepareResult`, `PrepareResult`). The legacy `runReleasePrepare` entry point is retired, with its utilities absorbed into `prepareCommand`.
+
+### Tests
+
+- #17 release-kit|tests: Cover multi-changelogPaths and error paths (#44)
+
+Add three tests for previously untested code paths:
+
+- `releasePrepareMono`: component with two `changelogPaths` entries, asserting `git-cliff` is invoked once per path with the correct `--output` target.
+- `getCommitsSinceTarget`: `git describe` failure with a non-128 exit status propagates as a wrapped error instead of being swallowed.
+- `getCommitsSinceTarget`: `git log` failure is wrapped and re-thrown with the commit range in the message.
+
+Also adds a `findAllCliffOutputPaths()` test helper that collects the `--output` arg from every `git-cliff` mock call.
+
+### Tooling
+
+- #37 root|tooling: Adopt nmr to run monorepo and workspace scripts (#38)
+
+Replaces the legacy workspace script runner and ~25 root `package.json` scripts with `nmr`, the monorepo's own context-aware script runner. Root scripts are reduced to 4 (`prepare`, `postinstall`, `ci`, `bootstrap`), packages use direct build commands for bootstrap, and release-kit declares tier-3 test overrides for its integration test configs.
+
+## [release-workflow-v1] - 2026-03-19
+
+### Dependencies
+
+- Root|deps: Add release-kit as root devDependency
+
+Make `npx release-kit` and `pnpm exec release-kit` resolve within
+this repo by adding a `workspace:*` dependency that symlinks the bin.
+
+### Features
+
+- #23 release-kit|feat: Add sync-labels command (#33)
+
+Add a `release-kit sync-labels` command group with three subcommands (`init`, `generate`, `sync`) for declarative GitHub label management in monorepos. Bundle a reusable GitHub Actions workflow and composable label presets with the release-kit package. Introduce a `findPackageRoot` utility to replace fragile hardcoded path resolutions across the codebase.
+
+- #34 release-kit|feat: Report up-to-date status for unchanged init files (#35)
+
+`release-kit init` now compares existing file content against the default before reporting status. When an existing file is identical to the default (after normalizing trailing whitespace), it reports `✅ (up to date)` instead of the misleading `⚠️ (already exists)`.
+
+- Release-workflow|feat: Accept force input
+
+Pass `--force` to the prepare command so callers can force a version
+bump even when there are no release-worthy changes.
+
 ## [release-kit-v2.1.0] - 2026-03-17
 
 ### Features
