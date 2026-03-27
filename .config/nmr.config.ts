@@ -1,4 +1,4 @@
-import { defineConfig } from '@williamthorsen/node-monorepo-core';
+import { defineConfig } from '@williamthorsen/nmr';
 
 /**
  * nmr configuration for this monorepo.

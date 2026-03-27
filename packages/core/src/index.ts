@@ -1,3 +1,2 @@
-export type { NmrConfig } from './config.js';
-export { defineConfig } from './config.js';
-export type { ResolvedContext } from './context.js';
+// Placeholder — shared utilities will be added here as the monorepo grows.
+export const PACKAGE_NAME = '@williamthorsen/node-monorepo-core';

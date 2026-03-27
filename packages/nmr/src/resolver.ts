@@ -46,8 +46,11 @@ function readPackageJsonScripts(packageDir: string): Record<string, string> | un
       if (typeof val === 'string') result[key] = val;
     }
     return result;
-  } catch {
-    return undefined;
+  } catch (error: unknown) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      return undefined;
+    }
+    throw error;
   }
 }
 
