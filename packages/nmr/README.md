@@ -70,6 +70,19 @@ Script values can be `string` or `string[]`. Arrays expand to chained `nmr` invo
 // expands to: nmr compile && nmr generate-typings
 ```
 
+## Consumer migration
+
+After installing, a consuming repo's root `package.json` scripts shrink to lifecycle hooks:
+
+```json
+{
+  "prepare": "lefthook install",
+  "postinstall": "nmr report-overrides"
+}
+```
+
+Per-package `package.json` files no longer need script entries. Run `nmr <command>` directly.
+
 ## Consistency tests
 
 Export structural consistency checks for use in your test suite:
