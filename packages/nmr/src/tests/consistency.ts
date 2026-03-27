@@ -1,12 +1,11 @@
-import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import yaml from 'js-yaml';
 import { describe, expect, it } from 'vitest';
 
 import { findMonorepoRoot } from '../context.js';
 import { getRuntimeVersionFromAsdf } from './helpers/get-runtime-version-from-asdf.js';
+import { getStringFromYamlFile } from './helpers/get-string-from-yaml-file.js';
 import { getValueAtPathOrThrow } from './helpers/get-value-at-path.js';
 
 const GITHUB_ACTION_FILE_PATH = '.github/workflows/code-quality.yaml';
@@ -35,14 +34,7 @@ function checkNodeVersionConsistency(monorepoRoot: string): void {
 
 async function getPnpmVersionFromAction(monorepoRoot: string): Promise<string> {
   const actionPath = path.join(monorepoRoot, GITHUB_ACTION_FILE_PATH);
-  const actionYaml = await fs.promises.readFile(actionPath, { encoding: 'utf8' });
-  const action = yaml.load(actionYaml);
-  assert.ok(action, 'Action YAML not found');
-
-  const version = getValueAtPathOrThrow(action, 'jobs.code-quality.with.pnpm-version');
-  assert.ok(typeof version === 'string' && version.length > 0, 'pnpm version not found in action');
-
-  return version;
+  return getStringFromYamlFile(actionPath, 'jobs.code-quality.with.pnpm-version', 'pnpm version');
 }
 
 function getPnpmVersionFromPackageJson(monorepoRoot: string): string {
@@ -69,14 +61,7 @@ function getPnpmVersionFromPackageJson(monorepoRoot: string): string {
 
 async function getNodeVersionFromAction(monorepoRoot: string): Promise<string> {
   const actionPath = path.join(monorepoRoot, GITHUB_ACTION_FILE_PATH);
-  const actionYaml = await fs.promises.readFile(actionPath, { encoding: 'utf8' });
-  const action = yaml.load(actionYaml);
-  assert.ok(action, 'Action YAML not found');
-
-  const version = getValueAtPathOrThrow(action, 'jobs.code-quality.with.node-version');
-  assert.ok(typeof version === 'string' && version.length > 0, 'Node.js version not found in action');
-
-  return version;
+  return getStringFromYamlFile(actionPath, 'jobs.code-quality.with.node-version', 'Node.js version');
 }
 
 /**
