@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [release-kit-v2.3.0] - 2026-03-28
+
+### Features
+
+- #8 feat: Add shared writeFileWithCheck utility and overwrite reporting (#66)
+
+Extracts three duplicated `writeIfAbsent` implementations and two duplicated terminal helper sets into shared utilities in `@williamthorsen/node-monorepo-core`, then migrates all consumers (`release-kit init`, `preflight init`, `sync-labels`) to use them. All init commands now report which files were created, overwritten, skipped, or failed — including when `--force` replaces existing files.
+
+- #11 release-kit|feat: Separate tag-write errors from release preparation errors (#67)
+
+When tag-file writing fails, the error message now reads "Error writing release tags:" instead of the misleading "Error preparing release:", which only appeared because both operations shared a single try/catch.
+
+Refactors `writeReleaseTags` to use the shared `writeFileWithCheck` utility from `@node-monorepo-tools/core` instead of raw `mkdirSync`/`writeFileSync`. The function now returns a structured `WriteResult` instead of throwing, and contains no `console` calls — all presentation moves to `runAndReport`.
+
+### Tests
+
+- #14 release-kit|tests: Add eligibility check failure and short-circuit tests (#63)
+
+Adds 4 unit tests to `initCommand.unit.test.ts` covering the remaining `checkEligibility` orchestration gaps: individual failure exit codes for `hasPackageJson` and `usesPnpm`, and short-circuit verification ensuring downstream checks are skipped when an earlier check fails.
+
+- #13 release-kit|tests: Add cliff.toml.template alignment test (#64)
+
+Adds a unit test that enforces bidirectional alignment between `DEFAULT_WORK_TYPES` and the bundled `cliff.toml.template` commit parsers. The test parses the TOML template using `smol-toml`, then verifies that every canonical type name and alias is matched by a parser with the correct group heading, and that every parser group maps to a known work type header.
+
+- #12 release-kit|tests: Add releasePrepare coverage for bumpOverride, tagPrefix, and dry-run tags (#65)
+
+Adds three unit tests to `releasePrepare.unit.test.ts` covering previously untested code paths: the `bumpOverride` bypass of commit-based bump detection, custom `tagPrefix` propagation into tags, and tag computation in dry-run mode.
+
 ## [release-kit-v2.2.0] - 2026-03-27
 
 ### Features
