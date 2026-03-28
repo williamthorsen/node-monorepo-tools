@@ -6,6 +6,8 @@ import type { ComponentConfig } from './types.ts';
 export interface DependencyGraph {
   /** Resolve a package name to its component `dir`. */
   packageNameToDir: Map<string, string>;
+  /** Resolve a component `dir` to its package name (inverse of `packageNameToDir`). */
+  dirToPackageName: Map<string, string>;
   /** Map a package name to the components that depend on it. */
   dependentsOf: Map<string, ComponentConfig[]>;
 }
@@ -30,10 +32,11 @@ function isPackageJsonSubset(value: unknown): value is PackageJsonSubset {
  */
 export function buildDependencyGraph(components: readonly ComponentConfig[]): DependencyGraph {
   const packageNameToDir = new Map<string, string>();
+  const dirToPackageName = new Map<string, string>();
   const dependentsOf = new Map<string, ComponentConfig[]>();
 
-  // First pass: resolve package names from each component's package.json.
-  const componentPackageNames = new Map<ComponentConfig, string>();
+  // First pass: read each component's package.json, cache the result, and register its name.
+  const componentPackages = new Map<ComponentConfig, PackageJsonSubset>();
   for (const component of components) {
     const primaryPackageFile = component.packageFiles[0];
     if (primaryPackageFile === undefined) {
@@ -41,22 +44,18 @@ export function buildDependencyGraph(components: readonly ComponentConfig[]): De
     }
 
     const pkg = readPackageJsonSubset(primaryPackageFile);
+    componentPackages.set(component, pkg);
+
     if (pkg.name === undefined) {
       continue;
     }
 
     packageNameToDir.set(pkg.name, component.dir);
-    componentPackageNames.set(component, pkg.name);
+    dirToPackageName.set(component.dir, pkg.name);
   }
 
-  // Second pass: build the reverse adjacency map.
-  for (const component of components) {
-    const primaryPackageFile = component.packageFiles[0];
-    if (primaryPackageFile === undefined) {
-      continue;
-    }
-
-    const pkg = readPackageJsonSubset(primaryPackageFile);
+  // Second pass: build the reverse adjacency map using cached package data.
+  for (const [component, pkg] of componentPackages) {
     const allDeps = { ...pkg.dependencies, ...pkg.peerDependencies };
 
     for (const [depName, depVersion] of Object.entries(allDeps)) {
@@ -73,7 +72,7 @@ export function buildDependencyGraph(components: readonly ComponentConfig[]): De
     }
   }
 
-  return { packageNameToDir, dependentsOf };
+  return { packageNameToDir, dirToPackageName, dependentsOf };
 }
 
 /** Read and parse a package.json file, returning only the fields needed for graph building. */

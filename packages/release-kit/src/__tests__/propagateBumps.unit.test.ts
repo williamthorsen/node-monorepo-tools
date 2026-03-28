@@ -19,8 +19,11 @@ function makeGraph(
   nameToDir: Record<string, string>,
   dependentsOf: Record<string, ComponentConfig[]>,
 ): DependencyGraph {
+  const packageNameToDir = new Map(Object.entries(nameToDir));
+  const dirToPackageName = new Map(Object.entries(nameToDir).map(([name, dir]) => [dir, name]));
   return {
-    packageNameToDir: new Map(Object.entries(nameToDir)),
+    packageNameToDir,
+    dirToPackageName,
     dependentsOf: new Map(Object.entries(dependentsOf)),
   };
 }

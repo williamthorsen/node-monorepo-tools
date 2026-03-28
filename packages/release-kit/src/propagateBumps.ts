@@ -47,7 +47,7 @@ export function propagateBumps(
     visited.add(dir);
 
     // Resolve the package name for this component dir.
-    const packageName = resolvePackageName(dir, graph.packageNameToDir);
+    const packageName = graph.dirToPackageName.get(dir);
     if (packageName === undefined) {
       continue;
     }
@@ -92,14 +92,4 @@ export function propagateBumps(
   }
 
   return result;
-}
-
-/** Resolve a component `dir` to its package name by reverse-looking up `packageNameToDir`. */
-function resolvePackageName(dir: string, packageNameToDir: Map<string, string>): string | undefined {
-  for (const [name, componentDir] of packageNameToDir) {
-    if (componentDir === dir) {
-      return name;
-    }
-  }
-  return undefined;
 }

@@ -54,6 +54,8 @@ describe(buildDependencyGraph, () => {
 
     expect(graph.packageNameToDir.get('@scope/core')).toBe('core');
     expect(graph.packageNameToDir.get('@scope/release-kit')).toBe('release-kit');
+    expect(graph.dirToPackageName.get('core')).toBe('@scope/core');
+    expect(graph.dirToPackageName.get('release-kit')).toBe('@scope/release-kit');
     expect(graph.dependentsOf.get('@scope/core')).toStrictEqual([compB, compC]);
   });
 

@@ -234,8 +234,8 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
   // Reorder components to match original config order.
   const configOrder = new Map(config.components.map((c, i) => [c.dir, i]));
   components.sort((a, b) => {
-    const orderA = a.name === undefined ? 0 : (configOrder.get(a.name) ?? 0);
-    const orderB = b.name === undefined ? 0 : (configOrder.get(b.name) ?? 0);
+    const orderA = configOrder.get(a.name ?? '') ?? 0;
+    const orderB = configOrder.get(b.name ?? '') ?? 0;
     return orderA - orderB;
   });
 

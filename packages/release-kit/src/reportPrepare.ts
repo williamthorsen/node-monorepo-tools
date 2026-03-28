@@ -98,10 +98,11 @@ function formatMultiComponent(result: PrepareResult): string {
       continue;
     }
 
-    const isPropagatedOnly = component.propagatedFrom !== undefined && component.commitCount === 0;
+    const { propagatedFrom } = component;
+    const isPropagatedOnly = propagatedFrom !== undefined && component.commitCount === 0;
 
-    if (isPropagatedOnly && component.propagatedFrom !== undefined) {
-      const depNames = component.propagatedFrom.map((p) => p.packageName).join(', ');
+    if (isPropagatedOnly) {
+      const depNames = propagatedFrom.map((p) => p.packageName).join(', ');
       lines.push(dim(`  0 commits (bumped via dependency: ${depNames})`));
     } else if (component.parsedCommitCount !== undefined) {
       lines.push(dim(`  Parsed ${component.parsedCommitCount} typed commits`));
@@ -122,7 +123,7 @@ function formatMultiComponent(result: PrepareResult): string {
       component.newVersion !== undefined &&
       component.releaseType !== undefined
     ) {
-      const suffix = isPropagatedOnly ? formatPropagationSuffix(component.propagatedFrom) : '';
+      const suffix = isPropagatedOnly ? formatPropagationSuffix(propagatedFrom) : '';
       lines.push(
         `  📦 ${component.currentVersion} → ${bold(component.newVersion)} (${component.releaseType}${suffix})`,
       );
