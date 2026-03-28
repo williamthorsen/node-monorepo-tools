@@ -141,6 +141,9 @@ function formatMultiComponent(result: PrepareResult): string {
   // Format command
   formatFormatCommand(lines, result);
 
+  // Warnings
+  formatWarnings(lines, result);
+
   // Tag summary
   if (result.tags.length > 0) {
     lines.push(`\n✅ Release preparation complete.`);
@@ -204,6 +207,19 @@ function formatPropagationSuffix(
   }
   const names = propagatedFrom.map((p) => p.packageName).join(', ');
   return `, dependency: ${names}`;
+}
+
+/** Append warning lines when the prepare result includes warnings. */
+function formatWarnings(lines: string[], result: PrepareResult): void {
+  const { warnings } = result;
+  if (warnings === undefined || warnings.length === 0) {
+    return;
+  }
+
+  lines.push('');
+  for (const warning of warnings) {
+    lines.push(`⚠️  ${warning}`);
+  }
 }
 
 /** Append format command lines. */

@@ -41,6 +41,8 @@ export interface PrepareResult {
       }
     | undefined;
   dryRun: boolean;
+  /** Warnings surfaced during preparation (e.g., circular dependency detection). */
+  warnings?: string[] | undefined;
 }
 
 /** Configuration for a single work type used in commit categorization. */

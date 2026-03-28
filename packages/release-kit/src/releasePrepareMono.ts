@@ -139,7 +139,14 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
   const fullReleaseSet = propagateBumps(directBumps, graph, currentVersions);
 
   // === Phase 2b: Topologically sort the release set ===
-  const sortedDirs = topologicalSort(fullReleaseSet, graph);
+  const { sorted: sortedDirs, cyclicDirs } = topologicalSort(fullReleaseSet, graph);
+  const warnings: string[] = [];
+  if (cyclicDirs.length > 0) {
+    warnings.push(
+      `Circular workspace dependencies detected among: ${cyclicDirs.join(', ')}. ` +
+        'Propagation metadata may be incomplete for these components.',
+    );
+  }
 
   // === Phase 3: Execute bumps and generate changelogs ===
   const tags: string[] = [];
@@ -265,6 +272,7 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
     tags,
     formatCommand,
     dryRun,
+    ...(warnings.length > 0 ? { warnings } : {}),
   };
 }
 
@@ -295,12 +303,15 @@ function readCurrentVersion(filePath: string): string | undefined {
  * Topologically sort component dirs so dependencies are processed before their dependents.
  *
  * Uses Kahn's algorithm. Components not in the release set are excluded. If the graph has
- * cycles, the remaining nodes are appended in arbitrary order.
+ * cycles, the remaining nodes are appended in arbitrary order and reported via `cyclicDirs`.
  */
-function topologicalSort(releaseSet: Map<string, ReleaseEntry>, graph: DependencyGraph): string[] {
+function topologicalSort(
+  releaseSet: Map<string, ReleaseEntry>,
+  graph: DependencyGraph,
+): { sorted: string[]; cyclicDirs: string[] } {
   const releaseDirs = new Set(releaseSet.keys());
   if (releaseDirs.size === 0) {
-    return [];
+    return { sorted: [], cyclicDirs: [] };
   }
 
   // Build a forward adjacency list (dependency -> dependent) restricted to the release set.
@@ -359,11 +370,14 @@ function topologicalSort(releaseSet: Map<string, ReleaseEntry>, graph: Dependenc
   }
 
   // Append any remaining (cyclic) nodes.
+  const sortedSet = new Set(sorted);
+  const cyclicDirs: string[] = [];
   for (const dir of releaseDirs) {
-    if (!sorted.includes(dir)) {
+    if (!sortedSet.has(dir)) {
       sorted.push(dir);
+      cyclicDirs.push(dir);
     }
   }
 
-  return sorted;
+  return { sorted, cyclicDirs };
 }
