@@ -1,5 +1,5 @@
 import { bold, dim, sectionHeader } from './format.ts';
-import type { ComponentPrepareResult, PrepareResult } from './types.ts';
+import type { ComponentPrepareResult, PrepareResult, PropagationSource } from './types.ts';
 
 /**
  * Format a `PrepareResult` into styled terminal output.
@@ -199,9 +199,7 @@ function formatUnparseableWarning(lines: string[], component: ComponentPrepareRe
 }
 
 /** Format the propagation suffix for the version bump line (e.g., `, dependency: core`). */
-function formatPropagationSuffix(
-  propagatedFrom: Array<{ packageName: string; newVersion: string }> | undefined,
-): string {
+function formatPropagationSuffix(propagatedFrom: PropagationSource[] | undefined): string {
   if (propagatedFrom === undefined || propagatedFrom.length === 0) {
     return '';
   }

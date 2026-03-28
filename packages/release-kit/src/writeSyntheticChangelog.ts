@@ -1,11 +1,13 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
+import type { PropagationSource } from './types.ts';
+
 /** Parameters for writing a synthetic changelog entry for propagated bumps. */
 export interface WriteSyntheticChangelogParams {
   changelogPath: string;
   newVersion: string;
   date: string;
-  propagatedFrom: Array<{ packageName: string; newVersion: string }>;
+  propagatedFrom: PropagationSource[];
   dryRun?: boolean;
 }
 

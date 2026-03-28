@@ -1,12 +1,12 @@
 import type { DependencyGraph } from './buildDependencyGraph.ts';
 import { bumpVersion } from './bumpVersion.ts';
-import type { ReleaseType } from './types.ts';
+import type { PropagationSource, ReleaseType } from './types.ts';
 
 /** Entry in the full release set produced by propagation. */
 export interface ReleaseEntry {
   releaseType: ReleaseType;
   /** Present when this component was bumped (wholly or partly) due to a dependency update. */
-  propagatedFrom?: Array<{ packageName: string; newVersion: string }>;
+  propagatedFrom?: PropagationSource[];
 }
 
 /** Map from component `dir` to its current version string (read from package.json). */
