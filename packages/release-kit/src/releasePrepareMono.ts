@@ -3,7 +3,7 @@ import { execSync } from 'node:child_process';
 import { bumpAllVersions } from './bumpAllVersions.ts';
 import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { determineBumpFromCommits } from './determineBumpFromCommits.ts';
-import { generateChangelog } from './generateChangelogs.ts';
+import { buildTagPattern, generateChangelog } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
@@ -89,7 +89,10 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
     const changelogFiles: string[] = [];
     for (const changelogPath of component.changelogPaths) {
       changelogFiles.push(
-        ...generateChangelog(config, changelogPath, newTag, dryRun, { includePaths: component.paths }),
+        ...generateChangelog(config, changelogPath, newTag, dryRun, {
+          tagPattern: buildTagPattern(component.tagPrefix),
+          includePaths: component.paths,
+        }),
       );
     }
 
