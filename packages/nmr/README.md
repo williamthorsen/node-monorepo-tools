@@ -70,6 +70,39 @@ Script values can be `string` or `string[]`. Arrays expand to chained `nmr` invo
 // expands to: nmr compile && nmr generate-typings
 ```
 
+## Additional subcommands
+
+These commands are available as `nmr` subcommands and as standalone `nmr-`-prefixed binaries (for use in lifecycle hooks).
+
+### `report-overrides`
+
+Report any active `pnpm.overrides` in the root `package.json`. Useful as a `postinstall` hook to remind developers of active overrides that may need cleanup.
+
+```bash
+nmr report-overrides
+```
+
+### `sync-pnpm-version`
+
+Synchronize the pnpm version from the root `package.json` `packageManager` field into the GitHub `code-quality.yaml` workflow file.
+
+```bash
+nmr sync-pnpm-version
+```
+
+## Standalone utilities
+
+### `ensure-prepublish-hooks`
+
+Verify that all publishable workspace packages have a `prepublishOnly` script. Exits non-zero if any are missing.
+
+```bash
+ensure-prepublish-hooks              # Check only
+ensure-prepublish-hooks --fix        # Add missing hooks (default: "npm run build")
+ensure-prepublish-hooks --dry-run    # Preview what --fix would do
+ensure-prepublish-hooks --command "pnpm build"  # Use a custom hook command
+```
+
 ## Consumer migration
 
 After installing, a consuming repo's root `package.json` scripts shrink to lifecycle hooks:
