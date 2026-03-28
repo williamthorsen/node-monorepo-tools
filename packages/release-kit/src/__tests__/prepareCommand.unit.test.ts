@@ -4,8 +4,7 @@ const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
 const mockLoadConfig = vi.hoisted(() => vi.fn());
 const mockReleasePrepareMono = vi.hoisted(() => vi.fn());
 const mockReleasePrepare = vi.hoisted(() => vi.fn());
-const mockMkdirSync = vi.hoisted(() => vi.fn());
-const mockWriteFileSync = vi.hoisted(() => vi.fn());
+const mockWriteFileWithCheck = vi.hoisted(() => vi.fn());
 
 vi.mock('../discoverWorkspaces.ts', () => ({
   discoverWorkspaces: mockDiscoverWorkspaces,
@@ -27,9 +26,8 @@ vi.mock('../releasePrepare.ts', () => ({
   releasePrepare: mockReleasePrepare,
 }));
 
-vi.mock('node:fs', () => ({
-  mkdirSync: mockMkdirSync,
-  writeFileSync: mockWriteFileSync,
+vi.mock(import('@williamthorsen/node-monorepo-core'), () => ({
+  writeFileWithCheck: mockWriteFileWithCheck,
 }));
 
 import { parseArgs, prepareCommand, RELEASE_TAGS_FILE } from '../prepareCommand.ts';
@@ -58,6 +56,7 @@ describe(prepareCommand, () => {
     mockLoadConfig.mockResolvedValue(undefined);
     mockReleasePrepareMono.mockReturnValue(makePrepareResult());
     mockReleasePrepare.mockReturnValue(makePrepareResult());
+    mockWriteFileWithCheck.mockReturnValue({ filePath: RELEASE_TAGS_FILE, outcome: 'created' });
     vi.spyOn(process, 'exit').mockImplementation((code) => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
@@ -71,8 +70,7 @@ describe(prepareCommand, () => {
     mockLoadConfig.mockReset();
     mockReleasePrepareMono.mockReset();
     mockReleasePrepare.mockReset();
-    mockMkdirSync.mockReset();
-    mockWriteFileSync.mockReset();
+    mockWriteFileWithCheck.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -168,28 +166,54 @@ describe(prepareCommand, () => {
   });
 
   it('writes release tags after successful preparation', async () => {
+    mockWriteFileWithCheck.mockReturnValue({ filePath: RELEASE_TAGS_FILE, outcome: 'created' });
     mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['arrays-v1.0.0'] }));
 
     await prepareCommand([]);
 
-    expect(mockMkdirSync).toHaveBeenCalledWith('tmp', { recursive: true });
-    expect(mockWriteFileSync).toHaveBeenCalledWith(RELEASE_TAGS_FILE, 'arrays-v1.0.0', 'utf8');
+    expect(mockWriteFileWithCheck).toHaveBeenCalledWith(RELEASE_TAGS_FILE, 'arrays-v1.0.0', {
+      dryRun: false,
+      overwrite: true,
+    });
   });
 
-  it('does not write release tags file during a dry run', async () => {
+  it('passes dryRun to writeFileWithCheck during a dry run', async () => {
+    mockWriteFileWithCheck.mockReturnValue({ filePath: RELEASE_TAGS_FILE, outcome: 'created' });
     mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['arrays-v1.0.0'], dryRun: true }));
 
     await prepareCommand(['--dry-run']);
 
-    expect(mockWriteFileSync).not.toHaveBeenCalled();
+    expect(mockWriteFileWithCheck).toHaveBeenCalledWith(RELEASE_TAGS_FILE, 'arrays-v1.0.0', {
+      dryRun: true,
+      overwrite: true,
+    });
   });
 
   it('joins multiple tags with newlines in the release tags file', async () => {
+    mockWriteFileWithCheck.mockReturnValue({ filePath: RELEASE_TAGS_FILE, outcome: 'created' });
     mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['arrays-v1.0.0', 'strings-v2.0.1'] }));
 
     await prepareCommand([]);
 
-    expect(mockWriteFileSync).toHaveBeenCalledWith(RELEASE_TAGS_FILE, 'arrays-v1.0.0\nstrings-v2.0.1', 'utf8');
+    expect(mockWriteFileWithCheck).toHaveBeenCalledWith(
+      RELEASE_TAGS_FILE,
+      'arrays-v1.0.0\nstrings-v2.0.1',
+      expect.any(Object),
+    );
+  });
+
+  it('exits with a distinct error when writing release tags fails', async () => {
+    mockWriteFileWithCheck.mockReturnValue({
+      filePath: RELEASE_TAGS_FILE,
+      outcome: 'failed',
+      error: 'permission denied',
+    });
+    mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['arrays-v1.0.0'] }));
+
+    await expect(prepareCommand([])).rejects.toThrow(ExitError);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('release tags'));
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('permission denied'));
+    expect(console.error).not.toHaveBeenCalledWith(expect.stringContaining('Error preparing release'));
   });
 
   it('prints release tags file path when tags are produced', async () => {
@@ -198,6 +222,14 @@ describe(prepareCommand, () => {
     await prepareCommand([]);
 
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Release tags file:'));
+  });
+
+  it('does not print release tags file path during a dry run', async () => {
+    mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['arrays-v1.0.0'], dryRun: true }));
+
+    await prepareCommand(['--dry-run']);
+
+    expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('Release tags file:'));
   });
 
   it('does not print release tags file path when no tags are produced', async () => {

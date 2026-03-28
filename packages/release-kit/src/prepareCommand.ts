@@ -1,8 +1,8 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import type { WriteResult } from '@williamthorsen/node-monorepo-core';
+import { writeFileWithCheck } from '@williamthorsen/node-monorepo-core';
 
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
 import { dim } from './format.ts';
@@ -91,19 +91,12 @@ export function parseArgs(argv: string[]): {
  * Write computed tags to the `.release-tags` file so the CI workflow can read them
  * instead of deriving tag names independently.
  */
-export function writeReleaseTags(tags: string[], dryRun: boolean): void {
+export function writeReleaseTags(tags: string[], dryRun: boolean): WriteResult | undefined {
   if (tags.length === 0) {
-    return;
+    return undefined;
   }
 
-  if (dryRun) {
-    console.info(dim(`  [dry-run] Would write ${RELEASE_TAGS_FILE}: ${tags.join(' ')}`));
-    return;
-  }
-
-  mkdirSync(dirname(RELEASE_TAGS_FILE), { recursive: true });
-  writeFileSync(RELEASE_TAGS_FILE, tags.join('\n'), 'utf8');
-  console.info(dim(`  Wrote ${RELEASE_TAGS_FILE}: ${tags.join(' ')}`));
+  return writeFileWithCheck(RELEASE_TAGS_FILE, tags.join('\n'), { dryRun, overwrite: true });
 }
 
 /**
@@ -194,16 +187,29 @@ export async function prepareCommand(argv: string[]): Promise<void> {
 
 /** Execute the prepare workflow, format the result, write to stdout, and handle errors. */
 function runAndReport(execute: () => PrepareResult, dryRun: boolean): void {
+  let result: PrepareResult;
   try {
-    const result = execute();
-    process.stdout.write(reportPrepare(result) + '\n');
-    writeReleaseTags(result.tags, dryRun);
-
-    if (result.tags.length > 0) {
-      console.info(dim(`\n   Release tags file: ${RELEASE_TAGS_FILE}`));
-    }
+    result = execute();
   } catch (error: unknown) {
     console.error('Error preparing release:', error instanceof Error ? error.message : String(error));
     process.exit(1);
+  }
+
+  process.stdout.write(reportPrepare(result) + '\n');
+
+  const writeResult = writeReleaseTags(result.tags, dryRun);
+
+  if (writeResult?.outcome === 'failed') {
+    console.error(`Error writing release tags: ${writeResult.error ?? 'unknown error'}`);
+    process.exit(1);
+  }
+
+  if (writeResult) {
+    if (dryRun) {
+      console.info(dim(`  [dry-run] Would write ${RELEASE_TAGS_FILE}: ${result.tags.join(' ')}`));
+    } else {
+      console.info(dim(`  Wrote ${RELEASE_TAGS_FILE}: ${result.tags.join(' ')}`));
+      console.info(dim(`\n   Release tags file: ${RELEASE_TAGS_FILE}`));
+    }
   }
 }
