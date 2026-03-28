@@ -13,7 +13,10 @@ vi.mock(import('../generateCommand.ts'), async (importOriginal) => {
   return { ...original, generateCommand: mockGenerateCommand };
 });
 
+const mockReportWriteResult = vi.hoisted(() => vi.fn());
+
 vi.mock(import('@williamthorsen/node-monorepo-core'), () => ({
+  reportWriteResult: mockReportWriteResult,
   writeFileWithCheck: mockWriteFileWithCheck,
 }));
 
@@ -24,6 +27,7 @@ describe(syncLabelsInitCommand, () => {
   afterEach(() => {
     mockDiscoverWorkspaces.mockReset();
     mockGenerateCommand.mockReset();
+    mockReportWriteResult.mockReset();
     mockWriteFileWithCheck.mockReset();
     vi.restoreAllMocks();
   });

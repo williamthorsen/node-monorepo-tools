@@ -1,5 +1,7 @@
 // Terminal output helpers for styled CLI messages.
 
+import type { WriteResult } from './writeFileWithCheck.ts';
+
 /** Print a step label with a right-arrow prefix. */
 export function printStep(message: string): void {
   console.info(`\n> ${message}`);
@@ -18,4 +20,33 @@ export function printSkip(message: string): void {
 /** Print an error message to stderr. */
 export function printError(message: string): void {
   console.error(`  ❌ ${message}`);
+}
+
+/** Print a terminal message for a write result based on its outcome. */
+export function reportWriteResult(result: WriteResult, dryRun: boolean): void {
+  switch (result.outcome) {
+    case 'created':
+      if (dryRun) {
+        printSuccess(`[dry-run] Would create ${result.filePath}`);
+      } else {
+        printSuccess(`Created ${result.filePath}`);
+      }
+      break;
+    case 'overwritten':
+      if (dryRun) {
+        printSuccess(`[dry-run] Would overwrite ${result.filePath}`);
+      } else {
+        printSuccess(`Overwrote ${result.filePath}`);
+      }
+      break;
+    case 'up-to-date':
+      printSuccess(`${result.filePath} (up to date)`);
+      break;
+    case 'skipped':
+      printSkip(`${result.filePath} (already exists)`);
+      break;
+    case 'failed':
+      printError(`Failed to write ${result.filePath}`);
+      break;
+  }
 }

@@ -28,7 +28,8 @@ export function copyCliffTemplate(dryRun: boolean, overwrite: boolean): WriteRes
   let content: string;
   try {
     content = readFileSync(templatePath, 'utf8');
-  } catch {
+  } catch (error: unknown) {
+    console.error(`Failed to read template ${templatePath}: ${error instanceof Error ? error.message : String(error)}`);
     return { filePath: destPath, outcome: 'failed' };
   }
 

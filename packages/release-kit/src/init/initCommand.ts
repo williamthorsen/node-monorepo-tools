@@ -1,4 +1,4 @@
-import { printError, printSkip, printStep, printSuccess } from '@williamthorsen/node-monorepo-core';
+import { printError, printStep, printSuccess, reportWriteResult } from '@williamthorsen/node-monorepo-core';
 import type { WriteResult } from '@williamthorsen/node-monorepo-core';
 
 import type { CheckResult } from './checks.ts';
@@ -11,35 +11,6 @@ interface InitOptions {
   dryRun: boolean;
   force: boolean;
   withConfig: boolean;
-}
-
-/** Print a terminal message for a write result based on its outcome. */
-function reportResult(result: WriteResult, dryRun: boolean): void {
-  switch (result.outcome) {
-    case 'created':
-      if (dryRun) {
-        printSuccess(`[dry-run] Would create ${result.filePath}`);
-      } else {
-        printSuccess(`Created ${result.filePath}`);
-      }
-      break;
-    case 'overwritten':
-      if (dryRun) {
-        printSuccess(`[dry-run] Would overwrite ${result.filePath}`);
-      } else {
-        printSuccess(`Overwrote ${result.filePath}`);
-      }
-      break;
-    case 'up-to-date':
-      printSuccess(`${result.filePath} (up to date)`);
-      break;
-    case 'skipped':
-      printSkip(`${result.filePath} (already exists)`);
-      break;
-    case 'failed':
-      printError(`Failed to write ${result.filePath}`);
-      break;
-  }
 }
 
 /** Run a required check and print the result. Returns false if the check failed. */
@@ -105,7 +76,11 @@ export function initCommand({ dryRun, force, withConfig }: InitOptions): number 
   }
 
   for (const result of results) {
-    reportResult(result, dryRun);
+    reportWriteResult(result, dryRun);
+  }
+
+  if (results.some((r) => r.outcome === 'failed')) {
+    return 1;
   }
 
   // Print next steps

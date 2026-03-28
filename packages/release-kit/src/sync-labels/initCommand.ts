@@ -1,4 +1,4 @@
-import { writeFileWithCheck } from '@williamthorsen/node-monorepo-core';
+import { reportWriteResult, writeFileWithCheck } from '@williamthorsen/node-monorepo-core';
 
 import { discoverWorkspaces } from '../discoverWorkspaces.ts';
 import { generateCommand, LABELS_OUTPUT_PATH } from './generateCommand.ts';
@@ -50,6 +50,9 @@ export async function syncLabelsInitCommand({ dryRun, force }: InitOptions): Pro
     dryRun,
     overwrite: force,
   });
+
+  reportWriteResult(workflowResult, dryRun);
+  reportWriteResult(configResult, dryRun);
 
   if (workflowResult.outcome === 'failed' || configResult.outcome === 'failed') {
     console.error('Failed to scaffold one or more files.');
