@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [release-kit-v2.3.2] - 2026-03-28
+
+### Bug fixes
+
+- #71 release-kit|fix: Prevent unparseable commits from being silently dropped (#76)
+
+Prevents `releasePrepareMono` and `releasePrepare` from silently skipping components whose commits have unparseable messages. Adds ticket-prefix stripping to `parseCommitMessage` (mirroring cliff.toml's `commit_preprocessors`), a patch-floor safety net when commits exist but none parse, and unparseable-commit reporting in `reportPrepare`.
+
 ## [release-kit-v2.3.0] - 2026-03-28
 
 ### Features

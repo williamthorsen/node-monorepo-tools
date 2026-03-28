@@ -2,7 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
-## [nmr-v0.1.1] - 2026-03-28
+## [nmr-v0.2.0] - 2026-03-28
+
+### Documentation
+
+- #74 nmr|docs: Document utility binaries
+
+Add README sections for the package's additional commands. Subcommands (report-overrides, sync-pnpm-version) are documented under "Additional subcommands" with nmr invocation syntax. The standalone ensure-prepublish-hooks utility is documented separately under "Standalone utilities".
+
+Also fix the executable bit on bin/ensure-prepublish-hooks.js to match the other bin entries.
+
+### Features
+
+- #74 nmr|feat: Add ensure-prepublish-hooks binary (#75)
+
+New binary that checks whether all publishable (non-private) workspace packages have a `prepublishOnly` script, and optionally adds one.
+
+- Check mode (default): reports each non-private package's `prepublishOnly` status, exits non-zero if any are missing.
+- Fix mode (`--fix`): inserts `prepublishOnly` into packages that lack it. Supports `--dry-run`.
+- Custom command (`--command`): overrides the default hook value (`npm run build`).
+
+Also adds `private` field extraction to the shared `PackageJson` interface.
+
+## [release-kit-v2.3.0] - 2026-03-28
 
 ### Features
 
