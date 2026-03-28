@@ -6,6 +6,13 @@ vi.mock('../src/init/scaffold.ts', () => ({
   scaffoldConfig: mockScaffoldConfig,
 }));
 
+vi.mock(import('@williamthorsen/node-monorepo-core'), () => ({
+  printError: vi.fn(),
+  printSkip: vi.fn(),
+  printStep: vi.fn(),
+  printSuccess: vi.fn(),
+}));
+
 import { initCommand } from '../src/init/initCommand.ts';
 
 describe(`${initCommand.name} error handling`, () => {
@@ -29,16 +36,16 @@ describe(`${initCommand.name} error handling`, () => {
     expect(exitCode).toBe(1);
   });
 
-  it('returns exit code 1 when scaffoldConfig returns false', () => {
-    mockScaffoldConfig.mockReturnValue(false);
+  it('returns exit code 1 when scaffoldConfig returns a failed result', () => {
+    mockScaffoldConfig.mockReturnValue({ filePath: '.config/preflight.config.ts', outcome: 'failed' });
 
     const exitCode = initCommand({ dryRun: false, force: false });
 
     expect(exitCode).toBe(1);
   });
 
-  it('returns exit code 0 when scaffoldConfig returns true', () => {
-    mockScaffoldConfig.mockReturnValue(true);
+  it('returns exit code 0 when scaffoldConfig returns a created result', () => {
+    mockScaffoldConfig.mockReturnValue({ filePath: '.config/preflight.config.ts', outcome: 'created' });
 
     const exitCode = initCommand({ dryRun: false, force: false });
 

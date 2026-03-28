@@ -1,9 +1,40 @@
-import { printError, printStep } from '../lib/terminal.ts';
+import { printError, printSkip, printStep, printSuccess } from '@williamthorsen/node-monorepo-core';
+import type { WriteResult } from '@williamthorsen/node-monorepo-core';
+
 import { scaffoldConfig } from './scaffold.ts';
 
 interface InitOptions {
   dryRun: boolean;
   force: boolean;
+}
+
+/** Print a terminal message for a write result based on its outcome. */
+function reportResult(result: WriteResult, dryRun: boolean): void {
+  switch (result.outcome) {
+    case 'created':
+      if (dryRun) {
+        printSuccess(`[dry-run] Would create ${result.filePath}`);
+      } else {
+        printSuccess(`Created ${result.filePath}`);
+      }
+      break;
+    case 'overwritten':
+      if (dryRun) {
+        printSuccess(`[dry-run] Would overwrite ${result.filePath}`);
+      } else {
+        printSuccess(`Overwrote ${result.filePath}`);
+      }
+      break;
+    case 'up-to-date':
+      printSuccess(`${result.filePath} (up to date)`);
+      break;
+    case 'skipped':
+      printSkip(`${result.filePath} (already exists)`);
+      break;
+    case 'failed':
+      printError(`Failed to write ${result.filePath}`);
+      break;
+  }
 }
 
 /**
@@ -18,13 +49,17 @@ export function initCommand({ dryRun, force }: InitOptions): number {
   }
 
   printStep('Scaffolding config');
+  let result: WriteResult;
   try {
-    const ok = scaffoldConfig({ dryRun, force });
-    if (!ok) {
-      return 1;
-    }
+    result = scaffoldConfig({ dryRun, force });
   } catch (error: unknown) {
     printError(`Failed to scaffold config: ${error instanceof Error ? error.message : String(error)}`);
+    return 1;
+  }
+
+  reportResult(result, dryRun);
+
+  if (result.outcome === 'failed') {
     return 1;
   }
 

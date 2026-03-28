@@ -6,8 +6,10 @@ const mockUsesPnpm = vi.hoisted(() => vi.fn());
 const mockDetectRepoType = vi.hoisted(() => vi.fn());
 const mockScaffoldFiles = vi.hoisted(() => vi.fn());
 const mockPrintError = vi.hoisted(() => vi.fn());
+const mockPrintSkip = vi.hoisted(() => vi.fn());
 const mockPrintStep = vi.hoisted(() => vi.fn());
 const mockPrintSuccess = vi.hoisted(() => vi.fn());
+
 vi.mock(import('../checks.ts'), () => ({
   isGitRepo: mockIsGitRepo,
   hasPackageJson: mockHasPackageJson,
@@ -22,8 +24,9 @@ vi.mock(import('../scaffold.ts'), () => ({
   scaffoldFiles: mockScaffoldFiles,
 }));
 
-vi.mock(import('../prompt.ts'), () => ({
+vi.mock(import('@williamthorsen/node-monorepo-core'), () => ({
   printError: mockPrintError,
+  printSkip: mockPrintSkip,
   printStep: mockPrintStep,
   printSuccess: mockPrintSuccess,
 }));
@@ -36,6 +39,7 @@ function setupPassingChecks(): void {
   mockHasPackageJson.mockReturnValue({ ok: true });
   mockUsesPnpm.mockReturnValue({ ok: true });
   mockDetectRepoType.mockReturnValue('single-package');
+  mockScaffoldFiles.mockReturnValue([{ filePath: '.github/workflows/release.yaml', outcome: 'created' }]);
 }
 
 describe(initCommand, () => {
@@ -46,6 +50,7 @@ describe(initCommand, () => {
     mockDetectRepoType.mockReset();
     mockScaffoldFiles.mockReset();
     mockPrintError.mockReset();
+    mockPrintSkip.mockReset();
     mockPrintStep.mockReset();
     mockPrintSuccess.mockReset();
     vi.restoreAllMocks();
