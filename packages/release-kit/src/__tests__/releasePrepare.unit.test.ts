@@ -171,4 +171,48 @@ describe(releasePrepare, () => {
     expect(mockExecSync).not.toHaveBeenCalled();
     expect(result.formatCommand).toBeUndefined();
   });
+
+  it('uses bumpOverride directly, bypassing commit-based bump detection', () => {
+    setupFeatCommit();
+
+    const result = releasePrepare(makeConfig(), { dryRun: false, bumpOverride: 'patch' });
+
+    expect(result.tags).toStrictEqual(['v1.0.1']);
+    expect(result.components[0]).toMatchObject({
+      status: 'released',
+      releaseType: 'patch',
+      newVersion: '1.0.1',
+      tag: 'v1.0.1',
+    });
+    expect(result.components[0]?.parsedCommitCount).toBeUndefined();
+  });
+
+  it('constructs tags using the configured tagPrefix', () => {
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') {
+        return 'my-lib-v1.0.0\n';
+      }
+      if (cmd === 'git' && args[0] === 'log') {
+        return 'feat: add feature\u001Fabc123';
+      }
+      return '';
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+
+    const result = releasePrepare(makeConfig({ tagPrefix: 'my-lib-v' }), { dryRun: false });
+
+    expect(result.tags).toStrictEqual(['my-lib-v1.1.0']);
+    expect(result.components[0]).toMatchObject({
+      tag: 'my-lib-v1.1.0',
+    });
+  });
+
+  it('populates tags in dry-run mode', () => {
+    setupFeatCommit();
+
+    const result = releasePrepare(makeConfig(), { dryRun: true });
+
+    expect(result.tags).toStrictEqual(['v1.1.0']);
+    expect(result.dryRun).toBe(true);
+  });
 });
