@@ -6,6 +6,7 @@ import { parse } from 'smol-toml';
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_WORK_TYPES } from '../defaults.ts';
+import { COMMIT_PREPROCESSOR_PATTERNS } from '../parseCommitMessage.ts';
 
 const thisDir = dirname(fileURLToPath(import.meta.url));
 const templatePath = resolve(thisDir, '..', '..', 'cliff.toml.template');
@@ -16,18 +17,28 @@ interface CommitParser {
   group: string;
 }
 
+interface CommitPreprocessor {
+  pattern: string;
+  replace: string;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** Parse cliff.toml.template and extract the commit_parsers array with runtime validation. */
-function getCommitParsers(): CommitParser[] {
+/** Parse the [git] section from cliff.toml.template with runtime validation. */
+function getGitSection(): Record<string, unknown> {
   const config = parse(templateContent);
   const git = config.git;
   if (!isRecord(git)) {
     throw new Error('cliff.toml.template is missing [git] section');
   }
+  return git;
+}
 
+/** Extract the commit_parsers array from the TOML [git] section. */
+function getCommitParsers(): CommitParser[] {
+  const git = getGitSection();
   const parsers = git.commit_parsers;
   if (!Array.isArray(parsers)) {
     throw new TypeError('cliff.toml.template is missing git.commit_parsers array');
@@ -38,6 +49,22 @@ function getCommitParsers(): CommitParser[] {
       throw new Error(`Invalid commit_parser entry: ${JSON.stringify(entry)}`);
     }
     return { message: entry.message, group: entry.group };
+  });
+}
+
+/** Extract the commit_preprocessors array from the TOML [git] section. */
+function getCommitPreprocessors(): CommitPreprocessor[] {
+  const git = getGitSection();
+  const preprocessors = git.commit_preprocessors;
+  if (!Array.isArray(preprocessors)) {
+    throw new TypeError('cliff.toml.template is missing git.commit_preprocessors array');
+  }
+
+  return preprocessors.map((entry) => {
+    if (!isRecord(entry) || typeof entry.pattern !== 'string' || typeof entry.replace !== 'string') {
+      throw new Error(`Invalid commit_preprocessor entry: ${JSON.stringify(entry)}`);
+    }
+    return { pattern: entry.pattern, replace: entry.replace };
   });
 }
 
@@ -85,4 +112,26 @@ describe('cliff.toml.template alignment with DEFAULT_WORK_TYPES', () => {
       });
     }
   });
+});
+
+describe('cliff.toml.template alignment with COMMIT_PREPROCESSOR_PATTERNS', () => {
+  const tomlPreprocessors = getCommitPreprocessors();
+  const tomlPatterns = tomlPreprocessors.map((p) => p.pattern);
+  const tsPatterns = COMMIT_PREPROCESSOR_PATTERNS.map((r) => r.source);
+
+  it('has the same number of preprocessor patterns in both locations', () => {
+    expect(tsPatterns).toHaveLength(tomlPatterns.length);
+  });
+
+  for (const pattern of tsPatterns) {
+    it(`TypeScript pattern "${pattern}" exists in cliff.toml.template`, () => {
+      expect(tomlPatterns).toContain(pattern);
+    });
+  }
+
+  for (const pattern of tomlPatterns) {
+    it(`TOML pattern "${pattern}" exists in COMMIT_PREPROCESSOR_PATTERNS`, () => {
+      expect(tsPatterns).toContain(pattern);
+    });
+  }
 });

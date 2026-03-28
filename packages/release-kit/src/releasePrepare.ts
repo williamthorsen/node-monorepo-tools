@@ -7,7 +7,7 @@ import { generateChangelogs } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import { parseCommitMessage } from './parseCommitMessage.ts';
-import type { ParsedCommit, PrepareResult, ReleaseConfig, ReleaseType } from './types.ts';
+import type { Commit, ParsedCommit, PrepareResult, ReleaseConfig, ReleaseType } from './types.ts';
 
 /** Options for the release preparation workflow. */
 export interface ReleasePrepareOptions {
@@ -41,14 +41,32 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   // 2. Determine bump type
   let releaseType: ReleaseType | undefined;
   let parsedCommitCount: number | undefined;
+  let unparseableCommits: Commit[] | undefined;
 
   if (bumpOverride === undefined) {
-    const parsedCommits = commits
-      .map((c) => parseCommitMessage(c.message, c.hash, workTypes, config.workspaceAliases))
-      .filter((c): c is ParsedCommit => c !== undefined);
+    const parsedCommits: ParsedCommit[] = [];
+    const unparseable: Commit[] = [];
+
+    for (const commit of commits) {
+      const parsed = parseCommitMessage(commit.message, commit.hash, workTypes, config.workspaceAliases);
+      if (parsed === undefined) {
+        unparseable.push(commit);
+      } else {
+        parsedCommits.push(parsed);
+      }
+    }
 
     parsedCommitCount = parsedCommits.length;
+    if (unparseable.length > 0) {
+      unparseableCommits = unparseable;
+    }
+
     releaseType = determineBumpType(parsedCommits, workTypes, versionPatterns);
+
+    // Apply patch floor: commits exist but none determined a bump type
+    if (releaseType === undefined && commits.length > 0) {
+      releaseType = 'patch';
+    }
   } else {
     releaseType = bumpOverride;
   }
@@ -61,6 +79,7 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
           previousTag: tag,
           commitCount: commits.length,
           parsedCommitCount,
+          unparseableCommits,
           bumpedFiles: [],
           changelogFiles: [],
           skipReason: 'No release-worthy changes found. Skipping.',
@@ -113,6 +132,7 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
         tag: newTag,
         bumpedFiles: bump.files,
         changelogFiles,
+        unparseableCommits,
       },
     ],
     tags: [newTag],

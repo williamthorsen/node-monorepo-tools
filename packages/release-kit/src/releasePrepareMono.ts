@@ -9,12 +9,21 @@ import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import { parseCommitMessage } from './parseCommitMessage.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
 import type {
+  Commit,
   ComponentPrepareResult,
   MonorepoReleaseConfig,
   ParsedCommit,
   PrepareResult,
   ReleaseType,
+  VersionPatterns,
+  WorkTypeConfig,
 } from './types.ts';
+
+interface BumpDetermination {
+  releaseType: ReleaseType | undefined;
+  parsedCommitCount: number;
+  unparseableCommits: Commit[] | undefined;
+}
 
 /**
  * Orchestrate release preparation for a monorepo with multiple components.
@@ -60,14 +69,13 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
     // 2. Determine bump type
     let releaseType: ReleaseType | undefined;
     let parsedCommitCount: number | undefined;
+    let unparseableCommits: Commit[] | undefined;
 
     if (bumpOverride === undefined) {
-      const parsedCommits = commits
-        .map((c) => parseCommitMessage(c.message, c.hash, workTypes, config.workspaceAliases))
-        .filter((c): c is ParsedCommit => c !== undefined);
-
-      parsedCommitCount = parsedCommits.length;
-      releaseType = determineBumpType(parsedCommits, workTypes, versionPatterns);
+      const determination = determineBumpFromCommits(commits, workTypes, versionPatterns, config.workspaceAliases);
+      parsedCommitCount = determination.parsedCommitCount;
+      unparseableCommits = determination.unparseableCommits;
+      releaseType = determination.releaseType;
     } else {
       releaseType = bumpOverride;
     }
@@ -79,6 +87,7 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
         previousTag: tag,
         commitCount: commits.length,
         parsedCommitCount,
+        unparseableCommits,
         bumpedFiles: [],
         changelogFiles: [],
         skipReason: `No release-worthy changes for ${name} ${since}. Skipping.`,
@@ -112,6 +121,7 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
       tag: newTag,
       bumpedFiles: bump.files,
       changelogFiles,
+      unparseableCommits,
     });
   }
 
@@ -141,5 +151,38 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
     tags,
     formatCommand,
     dryRun,
+  };
+}
+
+/** Parse commits, determine bump type, and apply patch floor when commits exist but none parsed. */
+function determineBumpFromCommits(
+  commits: Commit[],
+  workTypes: Record<string, WorkTypeConfig>,
+  versionPatterns: VersionPatterns,
+  workspaceAliases: Record<string, string> | undefined,
+): BumpDetermination {
+  const parsedCommits: ParsedCommit[] = [];
+  const unparseable: Commit[] = [];
+
+  for (const commit of commits) {
+    const parsed = parseCommitMessage(commit.message, commit.hash, workTypes, workspaceAliases);
+    if (parsed === undefined) {
+      unparseable.push(commit);
+    } else {
+      parsedCommits.push(parsed);
+    }
+  }
+
+  let releaseType = determineBumpType(parsedCommits, workTypes, versionPatterns);
+
+  // Apply patch floor: commits exist but none determined a bump type
+  if (releaseType === undefined && commits.length > 0) {
+    releaseType = 'patch';
+  }
+
+  return {
+    releaseType,
+    parsedCommitCount: parsedCommits.length,
+    unparseableCommits: unparseable.length > 0 ? unparseable : undefined,
   };
 }

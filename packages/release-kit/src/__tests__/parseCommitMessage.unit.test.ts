@@ -129,6 +129,58 @@ describe(parseCommitMessage, () => {
     });
   });
 
+  describe('ticket-prefix stripping', () => {
+    it('strips a GitHub-style ticket prefix before parsing', () => {
+      const result = parseCommitMessage('#8 feat: add thing', 'tp1', workTypes);
+      expect(result).toStrictEqual({
+        message: '#8 feat: add thing',
+        hash: 'tp1',
+        type: 'feat',
+        description: 'add thing',
+        breaking: false,
+      });
+    });
+
+    it('strips a Jira-style ticket prefix before parsing', () => {
+      const result = parseCommitMessage('TOOL-123 fix: resolve bug', 'tp2', workTypes);
+      expect(result).toStrictEqual({
+        message: 'TOOL-123 fix: resolve bug',
+        hash: 'tp2',
+        type: 'fix',
+        description: 'resolve bug',
+        breaking: false,
+      });
+    });
+
+    it('strips a ticket prefix with workspace format', () => {
+      const result = parseCommitMessage('#8 web|feat: add thing', 'tp3', workTypes);
+      expect(result).toStrictEqual({
+        message: '#8 web|feat: add thing',
+        hash: 'tp3',
+        type: 'feat',
+        description: 'add thing',
+        workspace: 'web',
+        breaking: false,
+      });
+    });
+
+    it('preserves the original message including prefix in the result', () => {
+      const result = parseCommitMessage('#42 docs: update guide', 'tp4', workTypes);
+      expect(result?.message).toBe('#42 docs: update guide');
+    });
+
+    it('does not strip patterns that are not at the start of the message', () => {
+      const result = parseCommitMessage('feat: close #8 issue', 'tp5', workTypes);
+      expect(result).toStrictEqual({
+        message: 'feat: close #8 issue',
+        hash: 'tp5',
+        type: 'feat',
+        description: 'close #8 issue',
+        breaking: false,
+      });
+    });
+  });
+
   describe('workspace alias resolution', () => {
     const aliases: Record<string, string> = {
       api: 'backend-api',

@@ -35,6 +35,8 @@ function formatSingleComponent(result: PrepareResult): string {
     lines.push(dim(`  Parsed ${component.parsedCommitCount} typed commits`));
   }
 
+  formatUnparseableWarning(lines, component);
+
   if (component.status === 'skipped') {
     lines.push(`⏭️  ${component.skipReason ?? 'Skipped'}`);
     return lines.join('\n');
@@ -100,6 +102,8 @@ function formatMultiComponent(result: PrepareResult): string {
       lines.push(dim(`  Parsed ${component.parsedCommitCount} typed commits`));
     }
 
+    formatUnparseableWarning(lines, component, '  ');
+
     if (component.parsedCommitCount === undefined && component.releaseType !== undefined) {
       lines.push(`  Using bump override: ${component.releaseType}`);
     }
@@ -160,6 +164,25 @@ function formatChangelogFiles(lines: string[], component: ComponentPrepareResult
     } else {
       lines.push(dim(`${indent}  Generating changelog: ${file}`));
     }
+  }
+}
+
+/** Append unparseable commit warning lines when applicable. */
+function formatUnparseableWarning(lines: string[], component: ComponentPrepareResult, indent = ''): void {
+  const unparseable = component.unparseableCommits;
+  if (unparseable === undefined || unparseable.length === 0) {
+    return;
+  }
+
+  const count = unparseable.length;
+  const isPatchFloor = component.parsedCommitCount === 0;
+  const suffix = isPatchFloor ? ' (defaulting to patch bump)' : '';
+  lines.push(`${indent}  ⚠️  ${count} commit${count === 1 ? '' : 's'} could not be parsed${suffix}`);
+
+  for (const commit of unparseable) {
+    const shortHash = commit.hash.slice(0, 7);
+    const truncatedMessage = commit.message.length > 72 ? `${commit.message.slice(0, 69)}...` : commit.message;
+    lines.push(`${indent}    · ${shortHash} ${truncatedMessage}`);
   }
 }
 

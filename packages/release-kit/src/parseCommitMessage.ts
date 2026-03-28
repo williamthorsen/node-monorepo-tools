@@ -1,18 +1,20 @@
 import type { ParsedCommit, WorkTypeConfig } from './types.ts';
 
 /**
- * Parses a commit message into structured metadata.
+ * Regex patterns stripped from the start of commit messages before parsing.
+ *
+ * Kept in sync with `commit_preprocessors` in cliff.toml.template so that
+ * both git-cliff and this parser see the same normalized messages.
+ */
+export const COMMIT_PREPROCESSOR_PATTERNS: readonly RegExp[] = [/^#\d+\s+/, /^[A-Z]+-\d+\s+/];
+
+/**
+ * Parse a commit message into structured metadata.
  *
  * Supports both `type: description` and `workspace|type: description` formats.
  * Resolves aliases (e.g., 'feature' -> 'feat') using the provided work type configs.
  * Resolves workspace aliases when a `workspaceAliases` map is provided.
  * Detects breaking changes via `type!:` or `BREAKING CHANGE:` in the message.
- *
- * @param message - The commit message (first line).
- * @param hash - The commit hash.
- * @param workTypes - Record of work type configurations keyed by canonical type name.
- * @param workspaceAliases - Optional map of workspace shorthand names to canonical names.
- * @returns A parsed commit, or undefined if the message does not match a known format.
  */
 export function parseCommitMessage(
   message: string,
@@ -20,9 +22,12 @@ export function parseCommitMessage(
   workTypes: Record<string, WorkTypeConfig>,
   workspaceAliases?: Record<string, string>,
 ): ParsedCommit | undefined {
+  // Strip ticket prefixes (e.g., "#8 " or "TOOL-123 ") before matching
+  const stripped = stripTicketPrefix(message);
+
   // Match both `type: desc` and `workspace|type: desc` formats
   // The `!` before `:` indicates a breaking change
-  const match = message.match(/^(?:([^|]+)\|)?(\w+)(!)?:\s*(.*)$/);
+  const match = stripped.match(/^(?:([^|]+)\|)?(\w+)(!)?:\s*(.*)$/);
   if (!match) {
     return undefined;
   }
@@ -78,4 +83,13 @@ function resolveType(rawType: string, workTypes: Record<string, WorkTypeConfig>)
   }
 
   return undefined;
+}
+
+/** Remove ticket-prefix patterns (e.g., "#8 " or "TOOL-123 ") from the start of a message. */
+function stripTicketPrefix(message: string): string {
+  let result = message;
+  for (const pattern of COMMIT_PREPROCESSOR_PATTERNS) {
+    result = result.replace(pattern, '');
+  }
+  return result;
 }

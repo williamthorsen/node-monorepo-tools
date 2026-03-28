@@ -22,6 +22,8 @@ export interface ComponentPrepareResult {
   tag?: string | undefined;
   bumpedFiles: string[];
   changelogFiles: string[];
+  /** Commits that could not be parsed into a recognized work type. */
+  unparseableCommits?: Commit[] | undefined;
   skipReason?: string | undefined;
 }
 
