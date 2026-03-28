@@ -1,8 +1,10 @@
+import type { WriteResult } from '@williamthorsen/node-monorepo-core';
+import { printError, printStep, printSuccess, reportWriteResult } from '@williamthorsen/node-monorepo-core';
+
 import type { CheckResult } from './checks.ts';
 import { hasPackageJson, isGitRepo, usesPnpm } from './checks.ts';
 import type { RepoType } from './detectRepoType.ts';
 import { detectRepoType } from './detectRepoType.ts';
-import { printError, printStep, printSuccess } from './prompt.ts';
 import { scaffoldFiles } from './scaffold.ts';
 
 interface InitOptions {
@@ -65,10 +67,19 @@ export function initCommand({ dryRun, force, withConfig }: InitOptions): number 
 
   // Scaffold files
   printStep('Scaffolding files');
+  let results: WriteResult[];
   try {
-    scaffoldFiles({ repoType, dryRun, overwrite: force, withConfig });
+    results = scaffoldFiles({ repoType, dryRun, overwrite: force, withConfig });
   } catch (error: unknown) {
     printError(`Failed to scaffold files: ${error instanceof Error ? error.message : String(error)}`);
+    return 1;
+  }
+
+  for (const result of results) {
+    reportWriteResult(result, dryRun);
+  }
+
+  if (results.some((r) => r.outcome === 'failed')) {
     return 1;
   }
 

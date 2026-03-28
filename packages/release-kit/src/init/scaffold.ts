@@ -1,9 +1,11 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+import type { WriteResult } from '@williamthorsen/node-monorepo-core';
+import { writeFileWithCheck } from '@williamthorsen/node-monorepo-core';
 
 import { findPackageRoot } from '../findPackageRoot.ts';
 import type { RepoType } from './detectRepoType.ts';
-import { printError, printSkip, printSuccess } from './prompt.ts';
 import { releaseConfigScript, releaseWorkflow } from './templates.ts';
 
 interface ScaffoldOptions {
@@ -13,69 +15,14 @@ interface ScaffoldOptions {
   withConfig: boolean;
 }
 
-/** Attempt to write a file, printing a user-friendly error on failure. Returns true on success. */
-function tryWriteFile(filePath: string, content: string): boolean {
-  try {
-    writeFileSync(filePath, content, 'utf8');
-    return true;
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    printError(`Failed to write ${filePath}: ${message}`);
-    return false;
-  }
-}
-
-/** Strip trailing whitespace from each line and from EOF. */
-function normalizeTrailingWhitespace(content: string): string {
-  return content
-    .split('\n')
-    .map((line) => line.trimEnd())
-    .join('\n')
-    .trimEnd();
-}
-
-/** Write a file, creating parent directories as needed. Skips if the file already exists and overwrite is false. */
-function writeIfAbsent(filePath: string, content: string, dryRun: boolean, overwrite: boolean): void {
-  if (existsSync(filePath) && !overwrite) {
-    try {
-      const existing = readFileSync(filePath, 'utf8');
-      if (normalizeTrailingWhitespace(existing) === normalizeTrailingWhitespace(content)) {
-        printSuccess(`${filePath} (up to date)`);
-        return;
-      }
-    } catch {
-      // Fall through to skip message if reading fails.
-    }
-    printSkip(`${filePath} (already exists)`);
-    return;
-  }
-
-  if (dryRun) {
-    printSuccess(`[dry-run] Would create ${filePath}`);
-    return;
-  }
-
-  try {
-    mkdirSync(dirname(filePath), { recursive: true });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    printError(`Failed to create directory for ${filePath}: ${message}`);
-    return;
-  }
-
-  if (tryWriteFile(filePath, content)) {
-    printSuccess(`Created ${filePath}`);
-  }
-}
-
 /** Copy the bundled cliff.toml.template to `.config/git-cliff.toml` in the target repo. */
-export function copyCliffTemplate(dryRun: boolean, overwrite: boolean): void {
+export function copyCliffTemplate(dryRun: boolean, overwrite: boolean): WriteResult {
+  const destPath = '.config/git-cliff.toml';
   const root = findPackageRoot(import.meta.url);
   const templatePath = resolve(root, 'cliff.toml.template');
 
   if (!existsSync(templatePath)) {
-    printError(`Could not find cliff.toml.template at ${templatePath}`);
-    return;
+    return { filePath: destPath, outcome: 'failed', error: `Could not find bundled template at ${templatePath}` };
   }
 
   let content: string;
@@ -83,18 +30,24 @@ export function copyCliffTemplate(dryRun: boolean, overwrite: boolean): void {
     content = readFileSync(templatePath, 'utf8');
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    printError(`Failed to read cliff.toml.template: ${message}`);
-    return;
+    return { filePath: destPath, outcome: 'failed', error: `Failed to read template ${templatePath}: ${message}` };
   }
-  writeIfAbsent('.config/git-cliff.toml', content, dryRun, overwrite);
+
+  return writeFileWithCheck(destPath, content, { dryRun, overwrite });
 }
 
-/** Scaffold release-kit files for the target repo. */
-export function scaffoldFiles({ repoType, dryRun, overwrite, withConfig }: ScaffoldOptions): void {
-  writeIfAbsent('.github/workflows/release.yaml', releaseWorkflow(repoType), dryRun, overwrite);
+/** Scaffold release-kit files for the target repo. Returns a result for each file attempted. */
+export function scaffoldFiles({ repoType, dryRun, overwrite, withConfig }: ScaffoldOptions): WriteResult[] {
+  const results: WriteResult[] = [
+    writeFileWithCheck('.github/workflows/release.yaml', releaseWorkflow(repoType), { dryRun, overwrite }),
+  ];
 
   if (withConfig) {
-    writeIfAbsent('.config/release-kit.config.ts', releaseConfigScript(repoType), dryRun, overwrite);
-    copyCliffTemplate(dryRun, overwrite);
+    results.push(
+      writeFileWithCheck('.config/release-kit.config.ts', releaseConfigScript(repoType), { dryRun, overwrite }),
+      copyCliffTemplate(dryRun, overwrite),
+    );
   }
+
+  return results;
 }

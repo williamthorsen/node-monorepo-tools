@@ -37,6 +37,7 @@
     "prepare": "tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json"
   },
   "dependencies": {
+    "@williamthorsen/node-monorepo-core": "workspace:*",
     "jiti": "2.6.1"
   },
   "engines": {

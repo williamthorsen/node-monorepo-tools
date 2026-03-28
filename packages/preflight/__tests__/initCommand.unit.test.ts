@@ -6,6 +6,16 @@ vi.mock('../src/init/scaffold.ts', () => ({
   scaffoldConfig: mockScaffoldConfig,
 }));
 
+const mockReportWriteResult = vi.hoisted(() => vi.fn());
+
+vi.mock(import('@williamthorsen/node-monorepo-core'), () => ({
+  printError: vi.fn(),
+  printSkip: vi.fn(),
+  printStep: vi.fn(),
+  printSuccess: vi.fn(),
+  reportWriteResult: mockReportWriteResult,
+}));
+
 import { initCommand } from '../src/init/initCommand.ts';
 
 describe(`${initCommand.name} error handling`, () => {
@@ -17,6 +27,7 @@ describe(`${initCommand.name} error handling`, () => {
   afterEach(() => {
     vi.restoreAllMocks();
     mockScaffoldConfig.mockReset();
+    mockReportWriteResult.mockReset();
   });
 
   it('returns exit code 1 when scaffoldConfig throws', () => {
@@ -29,19 +40,35 @@ describe(`${initCommand.name} error handling`, () => {
     expect(exitCode).toBe(1);
   });
 
-  it('returns exit code 1 when scaffoldConfig returns false', () => {
-    mockScaffoldConfig.mockReturnValue(false);
+  it('returns exit code 1 when scaffoldConfig returns a failed result', () => {
+    mockScaffoldConfig.mockReturnValue({ filePath: '.config/preflight.config.ts', outcome: 'failed' });
 
     const exitCode = initCommand({ dryRun: false, force: false });
 
     expect(exitCode).toBe(1);
   });
 
-  it('returns exit code 0 when scaffoldConfig returns true', () => {
-    mockScaffoldConfig.mockReturnValue(true);
+  it('returns exit code 0 when scaffoldConfig returns a created result', () => {
+    mockScaffoldConfig.mockReturnValue({ filePath: '.config/preflight.config.ts', outcome: 'created' });
 
     const exitCode = initCommand({ dryRun: false, force: false });
 
     expect(exitCode).toBe(0);
+  });
+
+  it.each([
+    { outcome: 'created', dryRun: false },
+    { outcome: 'overwritten', dryRun: false },
+    { outcome: 'overwritten', dryRun: true },
+    { outcome: 'up-to-date', dryRun: false },
+    { outcome: 'skipped', dryRun: false },
+    { outcome: 'failed', dryRun: false },
+  ])('calls reportWriteResult for $outcome outcome (dryRun=$dryRun)', ({ outcome, dryRun }) => {
+    const result = { filePath: '.config/preflight.config.ts', outcome };
+    mockScaffoldConfig.mockReturnValue(result);
+
+    initCommand({ dryRun, force: false });
+
+    expect(mockReportWriteResult).toHaveBeenCalledWith(result, dryRun);
   });
 });

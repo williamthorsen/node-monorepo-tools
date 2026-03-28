@@ -1,4 +1,6 @@
-import { printError, printStep } from '../lib/terminal.ts';
+import type { WriteResult } from '@williamthorsen/node-monorepo-core';
+import { printError, printStep, reportWriteResult } from '@williamthorsen/node-monorepo-core';
+
 import { scaffoldConfig } from './scaffold.ts';
 
 interface InitOptions {
@@ -18,13 +20,17 @@ export function initCommand({ dryRun, force }: InitOptions): number {
   }
 
   printStep('Scaffolding config');
+  let result: WriteResult;
   try {
-    const ok = scaffoldConfig({ dryRun, force });
-    if (!ok) {
-      return 1;
-    }
+    result = scaffoldConfig({ dryRun, force });
   } catch (error: unknown) {
     printError(`Failed to scaffold config: ${error instanceof Error ? error.message : String(error)}`);
+    return 1;
+  }
+
+  reportWriteResult(result, dryRun);
+
+  if (result.outcome === 'failed') {
     return 1;
   }
 

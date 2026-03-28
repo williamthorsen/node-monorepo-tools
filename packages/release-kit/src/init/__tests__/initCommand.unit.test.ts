@@ -6,8 +6,11 @@ const mockUsesPnpm = vi.hoisted(() => vi.fn());
 const mockDetectRepoType = vi.hoisted(() => vi.fn());
 const mockScaffoldFiles = vi.hoisted(() => vi.fn());
 const mockPrintError = vi.hoisted(() => vi.fn());
+const mockPrintSkip = vi.hoisted(() => vi.fn());
 const mockPrintStep = vi.hoisted(() => vi.fn());
 const mockPrintSuccess = vi.hoisted(() => vi.fn());
+const mockReportWriteResult = vi.hoisted(() => vi.fn());
+
 vi.mock(import('../checks.ts'), () => ({
   isGitRepo: mockIsGitRepo,
   hasPackageJson: mockHasPackageJson,
@@ -22,10 +25,12 @@ vi.mock(import('../scaffold.ts'), () => ({
   scaffoldFiles: mockScaffoldFiles,
 }));
 
-vi.mock(import('../prompt.ts'), () => ({
+vi.mock(import('@williamthorsen/node-monorepo-core'), () => ({
   printError: mockPrintError,
+  printSkip: mockPrintSkip,
   printStep: mockPrintStep,
   printSuccess: mockPrintSuccess,
+  reportWriteResult: mockReportWriteResult,
 }));
 
 import { initCommand } from '../initCommand.ts';
@@ -36,6 +41,7 @@ function setupPassingChecks(): void {
   mockHasPackageJson.mockReturnValue({ ok: true });
   mockUsesPnpm.mockReturnValue({ ok: true });
   mockDetectRepoType.mockReturnValue('single-package');
+  mockScaffoldFiles.mockReturnValue([{ filePath: '.github/workflows/release.yaml', outcome: 'created' }]);
 }
 
 describe(initCommand, () => {
@@ -46,8 +52,10 @@ describe(initCommand, () => {
     mockDetectRepoType.mockReset();
     mockScaffoldFiles.mockReset();
     mockPrintError.mockReset();
+    mockPrintSkip.mockReset();
     mockPrintStep.mockReset();
     mockPrintSuccess.mockReset();
+    mockReportWriteResult.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -185,5 +193,31 @@ describe(initCommand, () => {
     initCommand({ dryRun: false, force: false, withConfig: false });
 
     expect(mockUsesPnpm).not.toHaveBeenCalled();
+  });
+
+  it('returns 1 when scaffoldFiles returns a failed result', () => {
+    setupPassingChecks();
+    mockScaffoldFiles.mockReturnValue([{ filePath: '.github/workflows/release.yaml', outcome: 'failed' }]);
+
+    const exitCode = initCommand({ dryRun: false, force: false, withConfig: false });
+
+    expect(exitCode).toBe(1);
+  });
+
+  it.each([
+    { outcome: 'created', dryRun: false },
+    { outcome: 'overwritten', dryRun: false },
+    { outcome: 'overwritten', dryRun: true },
+    { outcome: 'up-to-date', dryRun: false },
+    { outcome: 'skipped', dryRun: false },
+    { outcome: 'failed', dryRun: false },
+  ])('calls reportWriteResult for $outcome outcome (dryRun=$dryRun)', ({ outcome, dryRun }) => {
+    setupPassingChecks();
+    const result = { filePath: '.github/workflows/release.yaml', outcome };
+    mockScaffoldFiles.mockReturnValue([result]);
+
+    initCommand({ dryRun, force: false, withConfig: false });
+
+    expect(mockReportWriteResult).toHaveBeenCalledWith(result, dryRun);
   });
 });

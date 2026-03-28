@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
 const mockGenerateCommand = vi.hoisted(() => vi.fn());
-const mockWriteIfAbsent = vi.hoisted(() => vi.fn());
+const mockWriteFileWithCheck = vi.hoisted(() => vi.fn());
 
 vi.mock(import('../../discoverWorkspaces.ts'), () => ({
   discoverWorkspaces: mockDiscoverWorkspaces,
@@ -13,8 +13,11 @@ vi.mock(import('../generateCommand.ts'), async (importOriginal) => {
   return { ...original, generateCommand: mockGenerateCommand };
 });
 
-vi.mock(import('../scaffold.ts'), () => ({
-  writeIfAbsent: mockWriteIfAbsent,
+const mockReportWriteResult = vi.hoisted(() => vi.fn());
+
+vi.mock(import('@williamthorsen/node-monorepo-core'), () => ({
+  reportWriteResult: mockReportWriteResult,
+  writeFileWithCheck: mockWriteFileWithCheck,
 }));
 
 import { syncLabelsInitCommand } from '../initCommand.ts';
@@ -24,33 +27,34 @@ describe(syncLabelsInitCommand, () => {
   afterEach(() => {
     mockDiscoverWorkspaces.mockReset();
     mockGenerateCommand.mockReset();
-    mockWriteIfAbsent.mockReset();
+    mockReportWriteResult.mockReset();
+    mockWriteFileWithCheck.mockReset();
     vi.restoreAllMocks();
   });
 
   it('returns 0 on success with workspaces', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/utils']);
     mockGenerateCommand.mockResolvedValue(0);
-    mockWriteIfAbsent.mockReturnValue({ action: 'created', filePath: '' });
+    mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
     vi.spyOn(console, 'info').mockImplementation(() => undefined);
 
     const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false });
 
     expect(exitCode).toBe(0);
-    expect(mockWriteIfAbsent).toHaveBeenCalledTimes(2);
+    expect(mockWriteFileWithCheck).toHaveBeenCalledTimes(2);
     expect(mockGenerateCommand).toHaveBeenCalledOnce();
   });
 
   it('returns 0 on success for single-package repos', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(undefined);
     mockGenerateCommand.mockResolvedValue(0);
-    mockWriteIfAbsent.mockReturnValue({ action: 'created', filePath: '' });
+    mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
     vi.spyOn(console, 'info').mockImplementation(() => undefined);
 
     const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false });
 
     expect(exitCode).toBe(0);
-    expect(mockWriteIfAbsent).toHaveBeenCalledTimes(2);
+    expect(mockWriteFileWithCheck).toHaveBeenCalledTimes(2);
   });
 
   it('returns 1 when workspace discovery throws', async () => {
@@ -66,7 +70,7 @@ describe(syncLabelsInitCommand, () => {
   it('returns 1 when generate fails', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(undefined);
     mockGenerateCommand.mockResolvedValue(1);
-    mockWriteIfAbsent.mockReturnValue({ action: 'created', filePath: '' });
+    mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
     vi.spyOn(console, 'info').mockImplementation(() => undefined);
 
     const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false });
@@ -76,7 +80,7 @@ describe(syncLabelsInitCommand, () => {
 
   it('returns 1 when scaffolding fails', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(undefined);
-    mockWriteIfAbsent.mockReturnValue({ action: 'failed', filePath: 'some/file' });
+    mockWriteFileWithCheck.mockReturnValue({ outcome: 'failed', filePath: 'some/file' });
     vi.spyOn(console, 'info').mockImplementation(() => undefined);
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
@@ -88,7 +92,7 @@ describe(syncLabelsInitCommand, () => {
 
   it('skips generate in dry-run mode', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(undefined);
-    mockWriteIfAbsent.mockReturnValue({ action: 'dry-run', filePath: '' });
+    mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
     vi.spyOn(console, 'info').mockImplementation(() => undefined);
 
     const exitCode = await syncLabelsInitCommand({ dryRun: true, force: false });
@@ -97,32 +101,55 @@ describe(syncLabelsInitCommand, () => {
     expect(mockGenerateCommand).not.toHaveBeenCalled();
   });
 
-  it('passes force to writeIfAbsent', async () => {
+  it('passes force as overwrite option to writeFileWithCheck', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(undefined);
     mockGenerateCommand.mockResolvedValue(0);
-    mockWriteIfAbsent.mockReturnValue({ action: 'created', filePath: '' });
+    mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
     vi.spyOn(console, 'info').mockImplementation(() => undefined);
 
     await syncLabelsInitCommand({ dryRun: false, force: true });
 
-    expect(mockWriteIfAbsent).toHaveBeenCalledWith(expect.any(String), expect.any(String), false, true);
+    expect(mockWriteFileWithCheck).toHaveBeenCalledWith(expect.any(String), expect.any(String), {
+      dryRun: false,
+      overwrite: true,
+    });
   });
 
   it('scaffolds workflow and config files', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
     mockGenerateCommand.mockResolvedValue(0);
-    mockWriteIfAbsent.mockReturnValue({ action: 'created', filePath: '' });
+    mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
     vi.spyOn(console, 'info').mockImplementation(() => undefined);
 
     await syncLabelsInitCommand({ dryRun: false, force: false });
 
-    expect(mockWriteIfAbsent).toHaveBeenCalledWith(
-      '.github/workflows/sync-labels.yaml',
-      expect.any(String),
-      false,
-      false,
-    );
-    expect(mockWriteIfAbsent).toHaveBeenCalledWith('.config/sync-labels.config.ts', expect.any(String), false, false);
+    expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.github/workflows/sync-labels.yaml', expect.any(String), {
+      dryRun: false,
+      overwrite: false,
+    });
+    expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.config/sync-labels.config.ts', expect.any(String), {
+      dryRun: false,
+      overwrite: false,
+    });
+  });
+
+  it.each([
+    { outcome: 'created', dryRun: false },
+    { outcome: 'overwritten', dryRun: false },
+    { outcome: 'overwritten', dryRun: true },
+    { outcome: 'up-to-date', dryRun: false },
+    { outcome: 'skipped', dryRun: false },
+  ])('calls reportWriteResult for $outcome outcome (dryRun=$dryRun)', async ({ outcome, dryRun }) => {
+    const result = { filePath: 'test/path', outcome };
+    mockDiscoverWorkspaces.mockResolvedValue(undefined);
+    mockGenerateCommand.mockResolvedValue(0);
+    mockWriteFileWithCheck.mockReturnValue(result);
+    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+
+    await syncLabelsInitCommand({ dryRun, force: false });
+
+    expect(mockReportWriteResult).toHaveBeenCalledWith(result, dryRun);
+    expect(mockReportWriteResult).toHaveBeenCalledTimes(2);
   });
 });
 
