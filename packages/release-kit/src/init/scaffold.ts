@@ -22,6 +22,7 @@ export function copyCliffTemplate(dryRun: boolean, overwrite: boolean): WriteRes
   const templatePath = resolve(root, 'cliff.toml.template');
 
   if (!existsSync(templatePath)) {
+    console.error(`Could not find bundled template at ${templatePath}`);
     return { filePath: destPath, outcome: 'failed' };
   }
 

@@ -78,15 +78,17 @@ describe(writeFileWithCheck, () => {
       expect(mockWriteFileSync).not.toHaveBeenCalled();
     });
 
-    it('returns "skipped" when reading existing file throws and overwrite is false', () => {
+    it('returns "skipped" and warns when reading existing file throws and overwrite is false', () => {
       mockExistsSync.mockReturnValue(true);
       mockReadFileSync.mockImplementation(() => {
         throw new Error('EACCES: permission denied');
       });
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
       const result = writeFileWithCheck('some/file.ts', 'content', { dryRun: false, overwrite: false });
 
       expect(result).toEqual({ filePath: 'some/file.ts', outcome: 'skipped' });
+      expect(warnSpy).toHaveBeenCalledWith('Could not read some/file.ts for comparison: EACCES: permission denied');
     });
   });
 

@@ -41,8 +41,10 @@ export function writeFileWithCheck(
       if (normalizeTrailingWhitespace(existing) === normalizeTrailingWhitespace(content)) {
         return { filePath, outcome: 'up-to-date' };
       }
-    } catch {
-      // Cannot read existing file; treat as skipped since we can't overwrite.
+    } catch (error: unknown) {
+      console.warn(
+        `Could not read ${filePath} for comparison: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
     return { filePath, outcome: 'skipped' };
   }

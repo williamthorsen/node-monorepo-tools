@@ -132,6 +132,25 @@ describe(syncLabelsInitCommand, () => {
       overwrite: false,
     });
   });
+
+  it.each([
+    { outcome: 'created', dryRun: false },
+    { outcome: 'overwritten', dryRun: false },
+    { outcome: 'overwritten', dryRun: true },
+    { outcome: 'up-to-date', dryRun: false },
+    { outcome: 'skipped', dryRun: false },
+  ])('calls reportWriteResult for $outcome outcome (dryRun=$dryRun)', async ({ outcome, dryRun }) => {
+    const result = { filePath: 'test/path', outcome };
+    mockDiscoverWorkspaces.mockResolvedValue(undefined);
+    mockGenerateCommand.mockResolvedValue(0);
+    mockWriteFileWithCheck.mockReturnValue(result);
+    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+
+    await syncLabelsInitCommand({ dryRun, force: false });
+
+    expect(mockReportWriteResult).toHaveBeenCalledWith(result, dryRun);
+    expect(mockReportWriteResult).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe(buildScopeLabels, () => {
