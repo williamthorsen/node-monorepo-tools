@@ -35,7 +35,7 @@ export { determineBumpType } from './determineBumpType.ts';
 export { discoverWorkspaces } from './discoverWorkspaces.ts';
 export { generateChangelog, generateChangelogs } from './generateChangelogs.ts';
 export { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
-export { parseCommitMessage } from './parseCommitMessage.ts';
+export { COMMIT_PREPROCESSOR_PATTERNS, parseCommitMessage } from './parseCommitMessage.ts';
 export { RELEASE_TAGS_FILE, writeReleaseTags } from './prepareCommand.ts';
 export { publish } from './publish.ts';
 export { releasePrepare } from './releasePrepare.ts';

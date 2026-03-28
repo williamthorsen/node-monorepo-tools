@@ -2,19 +2,12 @@ import { execSync } from 'node:child_process';
 
 import { bumpAllVersions } from './bumpAllVersions.ts';
 import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
-import { determineBumpType } from './determineBumpType.ts';
+import { determineBumpFromCommits } from './determineBumpFromCommits.ts';
 import { generateChangelog } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
-import { parseCommitMessage } from './parseCommitMessage.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
-import type {
-  ComponentPrepareResult,
-  MonorepoReleaseConfig,
-  ParsedCommit,
-  PrepareResult,
-  ReleaseType,
-} from './types.ts';
+import type { Commit, ComponentPrepareResult, MonorepoReleaseConfig, PrepareResult, ReleaseType } from './types.ts';
 
 /**
  * Orchestrate release preparation for a monorepo with multiple components.
@@ -60,14 +53,13 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
     // 2. Determine bump type
     let releaseType: ReleaseType | undefined;
     let parsedCommitCount: number | undefined;
+    let unparseableCommits: Commit[] | undefined;
 
     if (bumpOverride === undefined) {
-      const parsedCommits = commits
-        .map((c) => parseCommitMessage(c.message, c.hash, workTypes, config.workspaceAliases))
-        .filter((c): c is ParsedCommit => c !== undefined);
-
-      parsedCommitCount = parsedCommits.length;
-      releaseType = determineBumpType(parsedCommits, workTypes, versionPatterns);
+      const determination = determineBumpFromCommits(commits, workTypes, versionPatterns, config.workspaceAliases);
+      parsedCommitCount = determination.parsedCommitCount;
+      unparseableCommits = determination.unparseableCommits;
+      releaseType = determination.releaseType;
     } else {
       releaseType = bumpOverride;
     }
@@ -79,6 +71,7 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
         previousTag: tag,
         commitCount: commits.length,
         parsedCommitCount,
+        unparseableCommits,
         bumpedFiles: [],
         changelogFiles: [],
         skipReason: `No release-worthy changes for ${name} ${since}. Skipping.`,
@@ -112,6 +105,7 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
       tag: newTag,
       bumpedFiles: bump.files,
       changelogFiles,
+      unparseableCommits,
     });
   }
 

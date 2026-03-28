@@ -145,6 +145,91 @@ describe(reportPrepare, () => {
 
       expect(output).toContain('Using bump override: major');
     });
+
+    it('shows unparseable commit warning when all commits are unparseable (patch floor)', () => {
+      const result: PrepareResult = {
+        components: [
+          {
+            status: 'released',
+            previousTag: 'v1.0.0',
+            commitCount: 2,
+            parsedCommitCount: 0,
+            releaseType: 'patch',
+            currentVersion: '1.0.0',
+            newVersion: '1.0.1',
+            tag: 'v1.0.1',
+            bumpedFiles: ['package.json'],
+            changelogFiles: ['./CHANGELOG.md'],
+            unparseableCommits: [
+              { message: 'chore: update deps', hash: 'abc1234' },
+              { message: 'misc: tidy up', hash: 'def5678' },
+            ],
+          },
+        ],
+        tags: ['v1.0.1'],
+        dryRun: false,
+      };
+
+      const output = reportPrepare(result);
+
+      expect(output).toContain('⚠️  2 commits could not be parsed (defaulting to patch bump)');
+      expect(output).toContain('· abc1234 chore: update deps');
+      expect(output).toContain('· def5678 misc: tidy up');
+    });
+
+    it('shows unparseable commit warning without patch-floor note when some commits parsed', () => {
+      const result: PrepareResult = {
+        components: [
+          {
+            status: 'released',
+            previousTag: 'v1.0.0',
+            commitCount: 3,
+            parsedCommitCount: 2,
+            releaseType: 'minor',
+            currentVersion: '1.0.0',
+            newVersion: '1.1.0',
+            tag: 'v1.1.0',
+            bumpedFiles: ['package.json'],
+            changelogFiles: ['./CHANGELOG.md'],
+            unparseableCommits: [{ message: 'chore: update deps', hash: 'abc1234' }],
+          },
+        ],
+        tags: ['v1.1.0'],
+        dryRun: false,
+      };
+
+      const output = reportPrepare(result);
+
+      expect(output).toContain('⚠️  1 commit could not be parsed');
+      expect(output).not.toContain('defaulting to patch bump');
+      expect(output).toContain('· abc1234 chore: update deps');
+    });
+
+    it('does not show unparseable warning when there are no unparseable commits', () => {
+      const result: PrepareResult = {
+        components: [
+          {
+            status: 'released',
+            previousTag: 'v1.0.0',
+            commitCount: 1,
+            parsedCommitCount: 1,
+            releaseType: 'minor',
+            currentVersion: '1.0.0',
+            newVersion: '1.1.0',
+            tag: 'v1.1.0',
+            bumpedFiles: ['package.json'],
+            changelogFiles: ['./CHANGELOG.md'],
+          },
+        ],
+        tags: ['v1.1.0'],
+        dryRun: false,
+      };
+
+      const output = reportPrepare(result);
+
+      expect(output).not.toContain('⚠️');
+      expect(output).not.toContain('could not be parsed');
+    });
   });
 
   describe('empty components', () => {
@@ -318,6 +403,34 @@ describe(reportPrepare, () => {
       const output = reportPrepare(result);
 
       expect(output).toContain('⏭️  No components had release-worthy changes.');
+    });
+
+    it('shows unparseable commit warning in monorepo mode', () => {
+      const result: PrepareResult = {
+        components: [
+          {
+            name: 'arrays',
+            status: 'released',
+            previousTag: 'arrays-v1.0.0',
+            commitCount: 2,
+            parsedCommitCount: 0,
+            releaseType: 'patch',
+            currentVersion: '1.0.0',
+            newVersion: '1.0.1',
+            tag: 'arrays-v1.0.1',
+            bumpedFiles: ['packages/arrays/package.json'],
+            changelogFiles: ['packages/arrays/CHANGELOG.md'],
+            unparseableCommits: [{ message: 'chore: update deps', hash: 'abc1234' }],
+          },
+        ],
+        tags: ['arrays-v1.0.1'],
+        dryRun: false,
+      };
+
+      const output = reportPrepare(result);
+
+      expect(output).toContain('⚠️  1 commit could not be parsed (defaulting to patch bump)');
+      expect(output).toContain('· abc1234 chore: update deps');
     });
 
     it('formats format command in monorepo mode', () => {

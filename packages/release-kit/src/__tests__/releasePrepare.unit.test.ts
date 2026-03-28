@@ -90,7 +90,7 @@ describe(releasePrepare, () => {
     expect(component?.changelogFiles).toStrictEqual(['./CHANGELOG.md']);
   });
 
-  it('returns a skipped component when no release-worthy changes exist', () => {
+  it('applies patch floor when commits exist but none are release-worthy', () => {
     mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
       if (cmd === 'git' && args[0] === 'describe') {
         return 'v1.0.0\n';
@@ -100,18 +100,41 @@ describe(releasePrepare, () => {
       }
       return '';
     });
+    mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepare(makeConfig({ formatCommand: 'npx prettier --write' }), { dryRun: false });
+    const result = releasePrepare(makeConfig(), { dryRun: false });
 
-    expect(result.tags).toStrictEqual([]);
+    expect(result.tags).toStrictEqual(['v1.0.1']);
     expect(result.components).toHaveLength(1);
     expect(result.components[0]).toMatchObject({
-      status: 'skipped',
+      status: 'released',
       commitCount: 1,
       parsedCommitCount: 0,
-      skipReason: 'No release-worthy changes found. Skipping.',
+      releaseType: 'patch',
     });
-    expect(mockExecSync).not.toHaveBeenCalled();
+    expect(result.components[0]?.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'abc123' }]);
+  });
+
+  it('uses parsed bump type when mix of parseable and unparseable commits exist', () => {
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') {
+        return 'v1.0.0\n';
+      }
+      if (cmd === 'git' && args[0] === 'log') {
+        return 'feat: add feature\u001Fabc123\nchore: update deps\u001Fdef456';
+      }
+      return '';
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+
+    const result = releasePrepare(makeConfig(), { dryRun: false });
+
+    expect(result.components[0]).toMatchObject({
+      status: 'released',
+      releaseType: 'minor',
+      parsedCommitCount: 1,
+    });
+    expect(result.components[0]?.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'def456' }]);
   });
 
   it('runs format command with package files and changelog paths appended', () => {

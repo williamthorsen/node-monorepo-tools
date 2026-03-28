@@ -39,7 +39,9 @@ filter_unconventional = false
 split_commits = false
 # regex for preprocessing the commit messages
 commit_preprocessors = [
-  # Strip issue-ticket prefixes like "TOOL-123 " or "AFG-456 "
+  # Strip GitHub-style issue prefixes like "#8 " or "#123 "
+  { pattern = '^#\d+\s+', replace = "" },
+  # Strip Jira-style ticket prefixes like "TOOL-123 " or "AFG-456 "
   { pattern = '^[A-Z]+-\d+\s+', replace = "" },
 ]
 # regex for parsing and grouping commits
