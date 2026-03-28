@@ -11,8 +11,18 @@ vi.mock('../resolveCliffConfigPath.ts', () => ({
   resolveCliffConfigPath: mockResolveCliffConfigPath,
 }));
 
-import { generateChangelog, generateChangelogs } from '../generateChangelogs.ts';
+import { buildTagPattern, generateChangelog, generateChangelogs } from '../generateChangelogs.ts';
 import type { ReleaseConfig } from '../types.ts';
+
+describe(buildTagPattern, () => {
+  it('constructs a tag pattern from a single-package prefix', () => {
+    expect(buildTagPattern('v')).toBe('v[0-9].*');
+  });
+
+  it('constructs a tag pattern from a monorepo component prefix', () => {
+    expect(buildTagPattern('release-kit-v')).toBe('release-kit-v[0-9].*');
+  });
+});
 
 describe(generateChangelog, () => {
   afterEach(() => {

@@ -35,7 +35,7 @@ export function generateChangelog(
   const args = ['--config', cliffConfigPath, '--output', outputFile, '--tag', tag];
 
   // Append --tag-pattern flag when a tag pattern is provided.
-  if (options?.tagPattern) {
+  if (options?.tagPattern !== undefined) {
     args.push('--tag-pattern', options.tagPattern);
   }
 
