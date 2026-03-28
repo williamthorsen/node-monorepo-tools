@@ -5,6 +5,7 @@ import { isObject } from './type-guards.js';
 
 export interface PackageJson {
   name?: string;
+  private?: boolean;
   version?: string;
   packageManager?: string;
   scripts?: Record<string, string>;
@@ -26,6 +27,7 @@ export function readPackageJson(dir: string): PackageJson {
   // PackageJson fields are all optional, so this is structurally compatible.
   const pkg: PackageJson = {};
   if (typeof parsed.name === 'string') pkg.name = parsed.name;
+  if (parsed.private === true) pkg.private = true;
   if (typeof parsed.version === 'string') pkg.version = parsed.version;
   if (typeof parsed.packageManager === 'string') pkg.packageManager = parsed.packageManager;
   if (isObject(parsed.scripts)) {
