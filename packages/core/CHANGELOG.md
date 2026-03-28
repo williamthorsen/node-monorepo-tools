@@ -2,7 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
-## [core-v0.2.0] - 2026-03-27
+## [core-v0.2.1] - 2026-03-28
+
+### Features
+
+- #8 feat: Add shared writeFileWithCheck utility and overwrite reporting (#66)
+
+Extracts three duplicated `writeIfAbsent` implementations and two duplicated terminal helper sets into shared utilities in `@williamthorsen/node-monorepo-core`, then migrates all consumers (`release-kit init`, `preflight init`, `sync-labels`) to use them. All init commands now report which files were created, overwritten, skipped, or failed — including when `--force` replaces existing files.
+
+## [release-kit-v2.2.0] - 2026-03-27
 
 ### Dependencies
 
