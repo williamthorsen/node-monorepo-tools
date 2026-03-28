@@ -1,8 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { writeFileWithCheck } from '@williamthorsen/node-monorepo-core';
 import type { WriteResult } from '@williamthorsen/node-monorepo-core';
+import { writeFileWithCheck } from '@williamthorsen/node-monorepo-core';
 
 import { findPackageRoot } from '../findPackageRoot.ts';
 import type { RepoType } from './detectRepoType.ts';
@@ -22,16 +22,15 @@ export function copyCliffTemplate(dryRun: boolean, overwrite: boolean): WriteRes
   const templatePath = resolve(root, 'cliff.toml.template');
 
   if (!existsSync(templatePath)) {
-    console.error(`Could not find bundled template at ${templatePath}`);
-    return { filePath: destPath, outcome: 'failed' };
+    return { filePath: destPath, outcome: 'failed', error: `Could not find bundled template at ${templatePath}` };
   }
 
   let content: string;
   try {
     content = readFileSync(templatePath, 'utf8');
   } catch (error: unknown) {
-    console.error(`Failed to read template ${templatePath}: ${error instanceof Error ? error.message : String(error)}`);
-    return { filePath: destPath, outcome: 'failed' };
+    const message = error instanceof Error ? error.message : String(error);
+    return { filePath: destPath, outcome: 'failed', error: `Failed to read template ${templatePath}: ${message}` };
   }
 
   return writeFileWithCheck(destPath, content, { dryRun, overwrite });
@@ -39,15 +38,15 @@ export function copyCliffTemplate(dryRun: boolean, overwrite: boolean): WriteRes
 
 /** Scaffold release-kit files for the target repo. Returns a result for each file attempted. */
 export function scaffoldFiles({ repoType, dryRun, overwrite, withConfig }: ScaffoldOptions): WriteResult[] {
-  const results: WriteResult[] = [];
-
-  results.push(writeFileWithCheck('.github/workflows/release.yaml', releaseWorkflow(repoType), { dryRun, overwrite }));
+  const results: WriteResult[] = [
+    writeFileWithCheck('.github/workflows/release.yaml', releaseWorkflow(repoType), { dryRun, overwrite }),
+  ];
 
   if (withConfig) {
     results.push(
       writeFileWithCheck('.config/release-kit.config.ts', releaseConfigScript(repoType), { dryRun, overwrite }),
+      copyCliffTemplate(dryRun, overwrite),
     );
-    results.push(copyCliffTemplate(dryRun, overwrite));
   }
 
   return results;

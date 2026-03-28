@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { WriteResult } from '../src/writeFileWithCheck.ts';
 import { reportWriteResult } from '../src/terminal.ts';
+import type { WriteResult } from '../src/writeFileWithCheck.ts';
 
 describe(reportWriteResult, () => {
   afterEach(() => {
@@ -62,6 +62,17 @@ describe(reportWriteResult, () => {
     expect(spy).toHaveBeenCalledWith(expect.stringContaining('some/file.ts (already exists)'));
   });
 
+  it('prints skip with error detail when skipped outcome has an error', () => {
+    const spy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    const result: WriteResult = { filePath: 'some/file.ts', outcome: 'skipped', error: 'EACCES: permission denied' };
+
+    reportWriteResult(result, false);
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining('some/file.ts (could not read for comparison: EACCES: permission denied)'),
+    );
+  });
+
   it('prints error for failed outcome', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const result: WriteResult = { filePath: 'some/file.ts', outcome: 'failed' };
@@ -69,5 +80,20 @@ describe(reportWriteResult, () => {
     reportWriteResult(result, false);
 
     expect(spy).toHaveBeenCalledWith(expect.stringContaining('Failed to write some/file.ts'));
+  });
+
+  it('prints error with detail when failed outcome has an error', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const result: WriteResult = {
+      filePath: 'some/file.ts',
+      outcome: 'failed',
+      error: 'ENOSPC: no space left on device',
+    };
+
+    reportWriteResult(result, false);
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to write some/file.ts: ENOSPC: no space left on device'),
+    );
   });
 });

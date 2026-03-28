@@ -110,12 +110,16 @@ describe('scaffold', () => {
   });
 
   describe(copyCliffTemplate, () => {
-    it('returns failed when the template file is not found', () => {
+    it('returns failed with error when the template file is not found', () => {
       mockExistsSync.mockReturnValue(false);
 
       const result = copyCliffTemplate(false, false);
 
-      expect(result).toEqual({ filePath: '.config/git-cliff.toml', outcome: 'failed' });
+      expect(result).toEqual({
+        filePath: '.config/git-cliff.toml',
+        outcome: 'failed',
+        error: expect.stringContaining('Could not find bundled template at'),
+      });
     });
 
     it('reads the template and delegates to writeFileWithCheck', () => {
@@ -134,7 +138,7 @@ describe('scaffold', () => {
       expect(result).toEqual({ filePath: '.config/git-cliff.toml', outcome: 'created' });
     });
 
-    it('returns failed when readFileSync throws for the template', () => {
+    it('returns failed with error when readFileSync throws for the template', () => {
       mockExistsSync.mockReturnValue(true);
       mockReadFileSync.mockImplementation(() => {
         throw new Error('EACCES: permission denied');
@@ -142,7 +146,11 @@ describe('scaffold', () => {
 
       const result = copyCliffTemplate(false, false);
 
-      expect(result).toEqual({ filePath: '.config/git-cliff.toml', outcome: 'failed' });
+      expect(result).toEqual({
+        filePath: '.config/git-cliff.toml',
+        outcome: 'failed',
+        error: expect.stringContaining('EACCES: permission denied'),
+      });
       expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
     });
 

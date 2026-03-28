@@ -43,10 +43,18 @@ export function reportWriteResult(result: WriteResult, dryRun: boolean): void {
       printSuccess(`${result.filePath} (up to date)`);
       break;
     case 'skipped':
-      printSkip(`${result.filePath} (already exists)`);
+      if (result.error) {
+        printSkip(`${result.filePath} (could not read for comparison: ${result.error})`);
+      } else {
+        printSkip(`${result.filePath} (already exists)`);
+      }
       break;
     case 'failed':
-      printError(`Failed to write ${result.filePath}`);
+      if (result.error) {
+        printError(`Failed to write ${result.filePath}: ${result.error}`);
+      } else {
+        printError(`Failed to write ${result.filePath}`);
+      }
       break;
   }
 }

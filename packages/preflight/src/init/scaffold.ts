@@ -1,5 +1,5 @@
-import { writeFileWithCheck } from '@williamthorsen/node-monorepo-core';
 import type { WriteResult } from '@williamthorsen/node-monorepo-core';
+import { writeFileWithCheck } from '@williamthorsen/node-monorepo-core';
 
 import { preflightConfigTemplate } from './templates.ts';
 

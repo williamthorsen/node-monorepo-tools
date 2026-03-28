@@ -78,22 +78,24 @@ describe(writeFileWithCheck, () => {
       expect(mockWriteFileSync).not.toHaveBeenCalled();
     });
 
-    it('returns "skipped" and warns when reading existing file throws and overwrite is false', () => {
+    it('returns "skipped" with error detail when reading existing file throws and overwrite is false', () => {
       mockExistsSync.mockReturnValue(true);
       mockReadFileSync.mockImplementation(() => {
         throw new Error('EACCES: permission denied');
       });
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
       const result = writeFileWithCheck('some/file.ts', 'content', { dryRun: false, overwrite: false });
 
-      expect(result).toEqual({ filePath: 'some/file.ts', outcome: 'skipped' });
-      expect(warnSpy).toHaveBeenCalledWith('Could not read some/file.ts for comparison: EACCES: permission denied');
+      expect(result).toEqual({
+        filePath: 'some/file.ts',
+        outcome: 'skipped',
+        error: 'EACCES: permission denied',
+      });
     });
   });
 
   describe('failed outcome', () => {
-    it('returns "failed" when mkdirSync throws', () => {
+    it('returns "failed" with error detail when mkdirSync throws', () => {
       mockExistsSync.mockReturnValue(false);
       mockMkdirSync.mockImplementation(() => {
         throw new Error('EACCES: permission denied');
@@ -101,10 +103,14 @@ describe(writeFileWithCheck, () => {
 
       const result = writeFileWithCheck('some/file.ts', 'content', { dryRun: false, overwrite: false });
 
-      expect(result).toEqual({ filePath: 'some/file.ts', outcome: 'failed' });
+      expect(result).toEqual({
+        filePath: 'some/file.ts',
+        outcome: 'failed',
+        error: 'EACCES: permission denied',
+      });
     });
 
-    it('returns "failed" when writeFileSync throws', () => {
+    it('returns "failed" with error detail when writeFileSync throws', () => {
       mockExistsSync.mockReturnValue(false);
       mockWriteFileSync.mockImplementation(() => {
         throw new Error('ENOSPC: no space left on device');
@@ -112,7 +118,11 @@ describe(writeFileWithCheck, () => {
 
       const result = writeFileWithCheck('some/file.ts', 'content', { dryRun: false, overwrite: false });
 
-      expect(result).toEqual({ filePath: 'some/file.ts', outcome: 'failed' });
+      expect(result).toEqual({
+        filePath: 'some/file.ts',
+        outcome: 'failed',
+        error: 'ENOSPC: no space left on device',
+      });
     });
   });
 

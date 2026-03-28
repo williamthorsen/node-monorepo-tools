@@ -8,6 +8,7 @@ export type WriteOutcome = 'created' | 'overwritten' | 'up-to-date' | 'skipped' 
 export interface WriteResult {
   filePath: string;
   outcome: WriteOutcome;
+  error?: string;
 }
 
 /** Strip trailing whitespace from each line and from EOF. */
@@ -42,9 +43,8 @@ export function writeFileWithCheck(
         return { filePath, outcome: 'up-to-date' };
       }
     } catch (error: unknown) {
-      console.warn(
-        `Could not read ${filePath} for comparison: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      const message = error instanceof Error ? error.message : String(error);
+      return { filePath, outcome: 'skipped', error: message };
     }
     return { filePath, outcome: 'skipped' };
   }
@@ -57,14 +57,16 @@ export function writeFileWithCheck(
 
   try {
     mkdirSync(dirname(filePath), { recursive: true });
-  } catch {
-    return { filePath, outcome: 'failed' };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { filePath, outcome: 'failed', error: message };
   }
 
   try {
     writeFileSync(filePath, content, 'utf8');
-  } catch {
-    return { filePath, outcome: 'failed' };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { filePath, outcome: 'failed', error: message };
   }
 
   return { filePath, outcome };

@@ -1,5 +1,5 @@
-import { printError, printStep, reportWriteResult } from '@williamthorsen/node-monorepo-core';
 import type { WriteResult } from '@williamthorsen/node-monorepo-core';
+import { printError, printStep, reportWriteResult } from '@williamthorsen/node-monorepo-core';
 
 import { scaffoldConfig } from './scaffold.ts';
 
