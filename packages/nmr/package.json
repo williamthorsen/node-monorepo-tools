@@ -17,6 +17,7 @@
     "./tests": "./dist/esm/tests/consistency.js"
   },
   "bin": {
+    "ensure-prepublish-hooks": "bin/ensure-prepublish-hooks.js",
     "nmr": "bin/nmr.js",
     "nmr-report-overrides": "bin/nmr-report-overrides.js",
     "nmr-sync-pnpm-version": "bin/nmr-sync-pnpm-version.js"
