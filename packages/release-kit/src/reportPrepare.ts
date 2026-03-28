@@ -98,13 +98,18 @@ function formatMultiComponent(result: PrepareResult): string {
       continue;
     }
 
-    if (component.parsedCommitCount !== undefined) {
+    const isPropagatedOnly = component.propagatedFrom !== undefined && component.commitCount === 0;
+
+    if (isPropagatedOnly && component.propagatedFrom !== undefined) {
+      const depNames = component.propagatedFrom.map((p) => p.packageName).join(', ');
+      lines.push(dim(`  0 commits (bumped via dependency: ${depNames})`));
+    } else if (component.parsedCommitCount !== undefined) {
       lines.push(dim(`  Parsed ${component.parsedCommitCount} typed commits`));
     }
 
     formatUnparseableWarning(lines, component, '  ');
 
-    if (component.parsedCommitCount === undefined && component.releaseType !== undefined) {
+    if (component.parsedCommitCount === undefined && component.releaseType !== undefined && !isPropagatedOnly) {
       lines.push(`  Using bump override: ${component.releaseType}`);
     }
 
@@ -117,7 +122,10 @@ function formatMultiComponent(result: PrepareResult): string {
       component.newVersion !== undefined &&
       component.releaseType !== undefined
     ) {
-      lines.push(`  📦 ${component.currentVersion} → ${bold(component.newVersion)} (${component.releaseType})`);
+      const suffix = isPropagatedOnly ? formatPropagationSuffix(component.propagatedFrom) : '';
+      lines.push(
+        `  📦 ${component.currentVersion} → ${bold(component.newVersion)} (${component.releaseType}${suffix})`,
+      );
     }
 
     formatBumpFiles(lines, component, result.dryRun, '  ');
@@ -184,6 +192,17 @@ function formatUnparseableWarning(lines: string[], component: ComponentPrepareRe
     const truncatedMessage = commit.message.length > 72 ? `${commit.message.slice(0, 69)}...` : commit.message;
     lines.push(`${indent}    · ${shortHash} ${truncatedMessage}`);
   }
+}
+
+/** Format the propagation suffix for the version bump line (e.g., `, dependency: core`). */
+function formatPropagationSuffix(
+  propagatedFrom: Array<{ packageName: string; newVersion: string }> | undefined,
+): string {
+  if (propagatedFrom === undefined || propagatedFrom.length === 0) {
+    return '';
+  }
+  const names = propagatedFrom.map((p) => p.packageName).join(', ');
+  return `, dependency: ${names}`;
 }
 
 /** Append format command lines. */

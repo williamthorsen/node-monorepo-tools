@@ -1,0 +1,200 @@
+import { describe, expect, it } from 'vitest';
+
+import type { DependencyGraph } from '../buildDependencyGraph.ts';
+import type { ReleaseEntry } from '../propagateBumps.ts';
+import { propagateBumps } from '../propagateBumps.ts';
+import type { ComponentConfig } from '../types.ts';
+
+function makeComponent(dir: string): ComponentConfig {
+  return {
+    dir,
+    tagPrefix: `${dir}-v`,
+    packageFiles: [`packages/${dir}/package.json`],
+    changelogPaths: [`packages/${dir}`],
+    paths: [`packages/${dir}/**`],
+  };
+}
+
+function makeGraph(
+  nameToDir: Record<string, string>,
+  dependentsOf: Record<string, ComponentConfig[]>,
+): DependencyGraph {
+  return {
+    packageNameToDir: new Map(Object.entries(nameToDir)),
+    dependentsOf: new Map(Object.entries(dependentsOf)),
+  };
+}
+
+describe(propagateBumps, () => {
+  it('propagates a patch bump to a single dependent', () => {
+    const dependent = makeComponent('release-kit');
+
+    const graph = makeGraph(
+      { '@scope/core': 'core', '@scope/release-kit': 'release-kit' },
+      { '@scope/core': [dependent] },
+    );
+
+    const directBumps = new Map<string, ReleaseEntry>([['core', { releaseType: 'minor' }]]);
+
+    const currentVersions = new Map([
+      ['core', '1.0.0'],
+      ['release-kit', '2.0.0'],
+    ]);
+
+    const result = propagateBumps(directBumps, graph, currentVersions);
+
+    expect(result.get('core')).toMatchObject({ releaseType: 'minor' });
+    expect(result.get('release-kit')).toMatchObject({
+      releaseType: 'patch',
+      propagatedFrom: [{ packageName: '@scope/core', newVersion: '1.1.0' }],
+    });
+  });
+
+  it('propagates transitively (A -> B -> C)', () => {
+    const compB = makeComponent('middle');
+    const compC = makeComponent('app');
+
+    const graph = makeGraph(
+      { '@scope/core': 'core', '@scope/middle': 'middle', '@scope/app': 'app' },
+      { '@scope/core': [compB], '@scope/middle': [compC] },
+    );
+
+    const directBumps = new Map<string, ReleaseEntry>([['core', { releaseType: 'patch' }]]);
+
+    const currentVersions = new Map([
+      ['core', '1.0.0'],
+      ['middle', '2.0.0'],
+      ['app', '3.0.0'],
+    ]);
+
+    const result = propagateBumps(directBumps, graph, currentVersions);
+
+    expect(result.get('core')).toMatchObject({ releaseType: 'patch' });
+    expect(result.get('middle')).toMatchObject({
+      releaseType: 'patch',
+      propagatedFrom: [{ packageName: '@scope/core', newVersion: '1.0.1' }],
+    });
+    expect(result.get('app')).toMatchObject({
+      releaseType: 'patch',
+      propagatedFrom: [{ packageName: '@scope/middle', newVersion: '2.0.1' }],
+    });
+  });
+
+  it('does not downgrade a higher direct bump', () => {
+    const dependent = makeComponent('release-kit');
+
+    const graph = makeGraph(
+      { '@scope/core': 'core', '@scope/release-kit': 'release-kit' },
+      { '@scope/core': [dependent] },
+    );
+
+    const directBumps = new Map<string, ReleaseEntry>([
+      ['core', { releaseType: 'patch' }],
+      ['release-kit', { releaseType: 'minor' }],
+    ]);
+
+    const currentVersions = new Map([
+      ['core', '1.0.0'],
+      ['release-kit', '2.0.0'],
+    ]);
+
+    const result = propagateBumps(directBumps, graph, currentVersions);
+
+    // release-kit keeps its minor bump but gains propagatedFrom metadata.
+    expect(result.get('release-kit')).toMatchObject({
+      releaseType: 'minor',
+      propagatedFrom: [{ packageName: '@scope/core', newVersion: '1.0.1' }],
+    });
+  });
+
+  it('handles circular dependencies without infinite loops', () => {
+    const compA = makeComponent('alpha');
+    const compB = makeComponent('beta');
+
+    const graph = makeGraph(
+      { '@scope/alpha': 'alpha', '@scope/beta': 'beta' },
+      { '@scope/alpha': [compB], '@scope/beta': [compA] },
+    );
+
+    const directBumps = new Map<string, ReleaseEntry>([['alpha', { releaseType: 'patch' }]]);
+
+    const currentVersions = new Map([
+      ['alpha', '1.0.0'],
+      ['beta', '2.0.0'],
+    ]);
+
+    // Should terminate without infinite loop.
+    const result = propagateBumps(directBumps, graph, currentVersions);
+
+    expect(result.get('alpha')).toMatchObject({ releaseType: 'patch' });
+    expect(result.get('beta')).toMatchObject({
+      releaseType: 'patch',
+      propagatedFrom: [{ packageName: '@scope/alpha', newVersion: '1.0.1' }],
+    });
+  });
+
+  it('adds propagatedFrom metadata to a directly bumped component with a propagated dependency', () => {
+    const dependent = makeComponent('kit');
+
+    const graph = makeGraph({ '@scope/core': 'core', '@scope/kit': 'kit' }, { '@scope/core': [dependent] });
+
+    const directBumps = new Map<string, ReleaseEntry>([
+      ['core', { releaseType: 'major' }],
+      ['kit', { releaseType: 'patch' }],
+    ]);
+
+    const currentVersions = new Map([
+      ['core', '1.0.0'],
+      ['kit', '1.0.0'],
+    ]);
+
+    const result = propagateBumps(directBumps, graph, currentVersions);
+
+    // kit is already in set with patch; propagation adds metadata but keeps bump type.
+    expect(result.get('kit')).toMatchObject({
+      releaseType: 'patch',
+      propagatedFrom: [{ packageName: '@scope/core', newVersion: '2.0.0' }],
+    });
+  });
+
+  it('handles multiple dependencies triggering propagation to the same component', () => {
+    const compC = makeComponent('app');
+
+    const graph = makeGraph(
+      { '@scope/core': 'core', '@scope/utils': 'utils', '@scope/app': 'app' },
+      { '@scope/core': [compC], '@scope/utils': [compC] },
+    );
+
+    const directBumps = new Map<string, ReleaseEntry>([
+      ['core', { releaseType: 'patch' }],
+      ['utils', { releaseType: 'minor' }],
+    ]);
+
+    const currentVersions = new Map([
+      ['core', '1.0.0'],
+      ['utils', '2.0.0'],
+      ['app', '3.0.0'],
+    ]);
+
+    const result = propagateBumps(directBumps, graph, currentVersions);
+
+    const appEntry = result.get('app');
+    expect(appEntry).toBeDefined();
+    expect(appEntry?.releaseType).toBe('patch');
+    expect(appEntry?.propagatedFrom).toHaveLength(2);
+    expect(appEntry?.propagatedFrom).toContainEqual({ packageName: '@scope/core', newVersion: '1.0.1' });
+    expect(appEntry?.propagatedFrom).toContainEqual({ packageName: '@scope/utils', newVersion: '2.1.0' });
+  });
+
+  it('returns only direct bumps when there are no dependents', () => {
+    const graph = makeGraph({ '@scope/core': 'core' }, {});
+
+    const directBumps = new Map<string, ReleaseEntry>([['core', { releaseType: 'minor' }]]);
+    const currentVersions = new Map([['core', '1.0.0']]);
+
+    const result = propagateBumps(directBumps, graph, currentVersions);
+
+    expect(result.size).toBe(1);
+    expect(result.get('core')).toMatchObject({ releaseType: 'minor' });
+  });
+});

@@ -24,6 +24,8 @@ export interface ComponentPrepareResult {
   changelogFiles: string[];
   /** Commits that could not be parsed into a recognized work type. */
   unparseableCommits?: Commit[] | undefined;
+  /** Dependencies that triggered a propagated bump (present for propagated or mixed components). */
+  propagatedFrom?: Array<{ packageName: string; newVersion: string }> | undefined;
   skipReason?: string | undefined;
 }
 
