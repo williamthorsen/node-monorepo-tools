@@ -2,12 +2,11 @@ import { execSync } from 'node:child_process';
 
 import { bumpAllVersions } from './bumpAllVersions.ts';
 import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
-import { determineBumpType } from './determineBumpType.ts';
+import { determineBumpFromCommits } from './determineBumpFromCommits.ts';
 import { generateChangelogs } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
-import { parseCommitMessage } from './parseCommitMessage.ts';
-import type { Commit, ParsedCommit, PrepareResult, ReleaseConfig, ReleaseType } from './types.ts';
+import type { Commit, PrepareResult, ReleaseConfig, ReleaseType } from './types.ts';
 
 /** Options for the release preparation workflow. */
 export interface ReleasePrepareOptions {
@@ -44,29 +43,10 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   let unparseableCommits: Commit[] | undefined;
 
   if (bumpOverride === undefined) {
-    const parsedCommits: ParsedCommit[] = [];
-    const unparseable: Commit[] = [];
-
-    for (const commit of commits) {
-      const parsed = parseCommitMessage(commit.message, commit.hash, workTypes, config.workspaceAliases);
-      if (parsed === undefined) {
-        unparseable.push(commit);
-      } else {
-        parsedCommits.push(parsed);
-      }
-    }
-
-    parsedCommitCount = parsedCommits.length;
-    if (unparseable.length > 0) {
-      unparseableCommits = unparseable;
-    }
-
-    releaseType = determineBumpType(parsedCommits, workTypes, versionPatterns);
-
-    // Apply patch floor: commits exist but none determined a bump type
-    if (releaseType === undefined && commits.length > 0) {
-      releaseType = 'patch';
-    }
+    const determination = determineBumpFromCommits(commits, workTypes, versionPatterns, config.workspaceAliases);
+    parsedCommitCount = determination.parsedCommitCount;
+    unparseableCommits = determination.unparseableCommits;
+    releaseType = determination.releaseType;
   } else {
     releaseType = bumpOverride;
   }
