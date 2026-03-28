@@ -3,8 +3,15 @@ import { execFileSync } from 'node:child_process';
 import { resolveCliffConfigPath } from './resolveCliffConfigPath.ts';
 import type { ReleaseConfig } from './types.ts';
 
+/** Build a git-cliff tag pattern from a tag prefix (e.g., `"release-kit-v"` → `"release-kit-v[0-9].*"`). */
+export function buildTagPattern(tagPrefix: string): string {
+  return `${tagPrefix}[0-9].*`;
+}
+
 /** Options for single-changelog generation. */
 export interface GenerateChangelogOptions {
+  /** Tag pattern to match release tags (passed as --tag-pattern to git-cliff). */
+  tagPattern?: string;
   /** Paths to include in the changelog (passed as --include-path to git-cliff). */
   includePaths?: string[];
 }
@@ -26,6 +33,11 @@ export function generateChangelog(
   const cliffConfigPath = resolveCliffConfigPath(config.cliffConfigPath, import.meta.url);
   const outputFile = `${changelogPath}/CHANGELOG.md`;
   const args = ['--config', cliffConfigPath, '--output', outputFile, '--tag', tag];
+
+  // Append --tag-pattern flag when a tag pattern is provided.
+  if (options?.tagPattern !== undefined) {
+    args.push('--tag-pattern', options.tagPattern);
+  }
 
   // Append --include-path flags when path filtering is requested.
   for (const includePath of options?.includePaths ?? []) {
@@ -51,9 +63,10 @@ export function generateChangelog(
  * Returns the collected output file paths from all `generateChangelog` calls.
  */
 export function generateChangelogs(config: ReleaseConfig, tag: string, dryRun: boolean): string[] {
+  const tagPattern = buildTagPattern(config.tagPrefix);
   const results: string[] = [];
   for (const changelogPath of config.changelogPaths) {
-    results.push(...generateChangelog(config, changelogPath, tag, dryRun));
+    results.push(...generateChangelog(config, changelogPath, tag, dryRun, { tagPattern }));
   }
   return results;
 }

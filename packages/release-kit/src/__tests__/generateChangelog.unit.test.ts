@@ -11,8 +11,18 @@ vi.mock('../resolveCliffConfigPath.ts', () => ({
   resolveCliffConfigPath: mockResolveCliffConfigPath,
 }));
 
-import { generateChangelog, generateChangelogs } from '../generateChangelogs.ts';
+import { buildTagPattern, generateChangelog, generateChangelogs } from '../generateChangelogs.ts';
 import type { ReleaseConfig } from '../types.ts';
+
+describe(buildTagPattern, () => {
+  it('constructs a tag pattern from a single-package prefix', () => {
+    expect(buildTagPattern('v')).toBe('v[0-9].*');
+  });
+
+  it('constructs a tag pattern from a monorepo component prefix', () => {
+    expect(buildTagPattern('release-kit-v')).toBe('release-kit-v[0-9].*');
+  });
+});
 
 describe(generateChangelog, () => {
   afterEach(() => {
@@ -90,6 +100,48 @@ describe(generateChangelog, () => {
     );
   });
 
+  it('appends --tag-pattern flag when tagPattern is provided', () => {
+    mockResolveCliffConfigPath.mockReturnValue('cliff.toml');
+    const config = { cliffConfigPath: 'cliff.toml' };
+
+    generateChangelog(config, 'packages/arrays', 'arrays-v1.0.0', false, {
+      tagPattern: 'arrays-v[0-9].*',
+      includePaths: ['packages/arrays'],
+    });
+
+    expect(mockExecFileSync).toHaveBeenCalledWith(
+      'npx',
+      [
+        '--yes',
+        'git-cliff',
+        '--config',
+        'cliff.toml',
+        '--output',
+        'packages/arrays/CHANGELOG.md',
+        '--tag',
+        'arrays-v1.0.0',
+        '--tag-pattern',
+        'arrays-v[0-9].*',
+        '--include-path',
+        'packages/arrays',
+      ],
+      { stdio: 'inherit' },
+    );
+  });
+
+  it('does not append --tag-pattern flag when tagPattern is not provided', () => {
+    mockResolveCliffConfigPath.mockReturnValue('cliff.toml');
+    const config = { cliffConfigPath: 'cliff.toml' };
+
+    generateChangelog(config, 'packages/arrays', 'v1.0.0', false);
+
+    expect(mockExecFileSync).toHaveBeenCalledWith(
+      'npx',
+      ['--yes', 'git-cliff', '--config', 'cliff.toml', '--output', 'packages/arrays/CHANGELOG.md', '--tag', 'v1.0.0'],
+      { stdio: 'inherit' },
+    );
+  });
+
   it('does not append --include-path flags when includePaths is an empty array', () => {
     mockResolveCliffConfigPath.mockReturnValue('cliff.toml');
     const config = { cliffConfigPath: 'cliff.toml' };
@@ -158,5 +210,35 @@ describe(generateChangelogs, () => {
 
     expect(result).toStrictEqual(['packages/arrays/CHANGELOG.md', 'packages/strings/CHANGELOG.md']);
     expect(mockExecFileSync).toHaveBeenCalledTimes(2);
+  });
+
+  it('passes --tag-pattern derived from tagPrefix', () => {
+    mockResolveCliffConfigPath.mockReturnValue('cliff.toml');
+    const config = {
+      tagPrefix: 'release-kit-v',
+      packageFiles: [],
+      changelogPaths: ['packages/release-kit'],
+      workTypes: {},
+      cliffConfigPath: 'cliff.toml',
+    } satisfies ReleaseConfig;
+
+    generateChangelogs(config, 'release-kit-v2.3.0', false);
+
+    expect(mockExecFileSync).toHaveBeenCalledWith(
+      'npx',
+      [
+        '--yes',
+        'git-cliff',
+        '--config',
+        'cliff.toml',
+        '--output',
+        'packages/release-kit/CHANGELOG.md',
+        '--tag',
+        'release-kit-v2.3.0',
+        '--tag-pattern',
+        'release-kit-v[0-9].*',
+      ],
+      { stdio: 'inherit' },
+    );
   });
 });
