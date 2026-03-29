@@ -68,7 +68,6 @@ permissions:
 jobs:
   publish:
     uses: williamthorsen/node-monorepo-tools/.github/workflows/publish-workflow.yaml@publish-workflow-v1
-    secrets: inherit
 `;
 }
 

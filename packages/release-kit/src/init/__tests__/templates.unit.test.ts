@@ -44,7 +44,7 @@ describe(publishWorkflow, () => {
     expect(workflow).toContain('publish-workflow.yaml@publish-workflow-v1');
     expect(workflow).toContain('id-token: write');
     expect(workflow).toContain('contents: read');
-    expect(workflow).toContain('secrets: inherit');
+    expect(workflow).not.toContain('secrets:');
   });
 
   it('generates a single-package workflow with v-prefixed tag pattern', () => {
@@ -55,7 +55,7 @@ describe(publishWorkflow, () => {
     expect(workflow).toContain('publish-workflow.yaml@publish-workflow-v1');
     expect(workflow).toContain('id-token: write');
     expect(workflow).toContain('contents: read');
-    expect(workflow).toContain('secrets: inherit');
+    expect(workflow).not.toContain('secrets:');
   });
 });
 
