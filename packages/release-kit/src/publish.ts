@@ -28,11 +28,10 @@ export function publish(resolvedTags: ResolvedTag[], packageManager: PackageMana
   }
 
   const published: string[] = [];
+  const executable = resolveExecutable(packageManager);
+  const args = buildPublishArgs(packageManager, { dryRun, noGitChecks, provenance });
 
   for (const { tag, workspacePath } of resolvedTags) {
-    const executable = resolveExecutable(packageManager);
-    const args = buildPublishArgs(packageManager, { dryRun, noGitChecks, provenance });
-
     try {
       console.info(`\n${dryRun ? '[dry-run] ' : ''}Running: ${executable} ${args.join(' ')} (cwd: ${workspacePath})`);
       execFileSync(executable, args, { cwd: workspacePath, stdio: 'inherit' });
