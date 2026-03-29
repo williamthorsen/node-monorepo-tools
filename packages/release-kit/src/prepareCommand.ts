@@ -4,6 +4,7 @@
 import type { WriteResult } from '@williamthorsen/node-monorepo-core';
 import { writeFileWithCheck } from '@williamthorsen/node-monorepo-core';
 
+import { buildReleaseSummary } from './buildReleaseSummary.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
 import { dim } from './format.ts';
 import { loadConfig, mergeMonorepoConfig, mergeSinglePackageConfig } from './loadConfig.ts';
@@ -18,6 +19,12 @@ import { validateConfig } from './validateConfig.ts';
  * Relative to the project root so it works identically in CI and local runs.
  */
 export const RELEASE_TAGS_FILE = 'tmp/.release-tags';
+
+/**
+ * File written by the release preparation step, containing the commit body summary.
+ * Relative to the project root so it works identically in CI and local runs.
+ */
+export const RELEASE_SUMMARY_FILE = 'tmp/.release-summary';
 
 const VALID_BUMP_TYPES: readonly string[] = ['major', 'minor', 'patch'];
 
@@ -211,5 +218,26 @@ function runAndReport(execute: () => PrepareResult, dryRun: boolean): void {
       console.info(dim(`  Wrote ${RELEASE_TAGS_FILE}: ${result.tags.join(' ')}`));
       console.info(dim(`\n   Release tags file: ${RELEASE_TAGS_FILE}`));
     }
+  }
+
+  // Write the release summary file for the commit command.
+  const summary = buildReleaseSummary(result);
+  if (summary.length > 0) {
+    const summaryResult = writeFileWithCheck(RELEASE_SUMMARY_FILE, summary, { dryRun, overwrite: true });
+
+    if (summaryResult.outcome === 'failed') {
+      console.error(`Error writing release summary: ${summaryResult.error ?? 'unknown error'}`);
+      process.exit(1);
+    }
+
+    if (dryRun) {
+      console.info(dim(`  [dry-run] Would write ${RELEASE_SUMMARY_FILE}`));
+    } else {
+      console.info(dim(`  Wrote ${RELEASE_SUMMARY_FILE}`));
+    }
+  }
+
+  if (writeResult && !dryRun) {
+    console.error(`\nRun 'release-kit commit' to create the release commit.`);
   }
 }

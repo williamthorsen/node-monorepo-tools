@@ -293,6 +293,7 @@ function executeReleaseSet(
       tag: newTag,
       bumpedFiles: bump.files,
       changelogFiles,
+      commits: directResult?.commits,
       unparseableCommits: directResult?.unparseableCommits,
       propagatedFrom: releaseEntry.propagatedFrom,
     });

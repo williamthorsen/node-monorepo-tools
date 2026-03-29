@@ -28,6 +28,8 @@ export interface ComponentPrepareResult {
   tag?: string | undefined;
   bumpedFiles: string[];
   changelogFiles: string[];
+  /** Raw commits associated with this component (present for direct releases, absent for propagation-only). */
+  commits?: Commit[] | undefined;
   /** Commits that could not be parsed into a recognized work type. */
   unparseableCommits?: Commit[] | undefined;
   /** Dependencies that triggered a propagated bump (present for propagated or mixed components). */
