@@ -6,6 +6,7 @@ import type { ResolvedTag } from './resolveReleaseTags.ts';
 export interface PublishOptions {
   dryRun: boolean;
   noGitChecks: boolean;
+  provenance: boolean;
 }
 
 /**
@@ -15,7 +16,7 @@ export interface PublishOptions {
  * reporting which packages were successfully published before the error.
  */
 export function publish(resolvedTags: ResolvedTag[], packageManager: PackageManager, options: PublishOptions): void {
-  const { dryRun, noGitChecks } = options;
+  const { dryRun, noGitChecks, provenance } = options;
 
   if (resolvedTags.length === 0) {
     return;
@@ -30,7 +31,7 @@ export function publish(resolvedTags: ResolvedTag[], packageManager: PackageMana
 
   for (const { tag, workspacePath } of resolvedTags) {
     const executable = resolveExecutable(packageManager);
-    const args = buildPublishArgs(packageManager, { dryRun, noGitChecks });
+    const args = buildPublishArgs(packageManager, { dryRun, noGitChecks, provenance });
 
     try {
       console.info(`\n${dryRun ? '[dry-run] ' : ''}Running: ${executable} ${args.join(' ')} (cwd: ${workspacePath})`);
@@ -66,6 +67,11 @@ function buildPublishArgs(packageManager: PackageManager, options: PublishOption
 
   if (options.noGitChecks && packageManager === 'pnpm') {
     args.push('--no-git-checks');
+  }
+
+  // Classic yarn does not support --provenance
+  if (options.provenance && packageManager !== 'yarn') {
+    args.push('--provenance');
   }
 
   return args;

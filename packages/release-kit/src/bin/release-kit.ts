@@ -146,6 +146,7 @@ Options:
   --dry-run              Preview without publishing
   --no-git-checks        Skip git checks (pnpm only)
   --only=name1,name2     Only publish the named packages (comma-separated, monorepo only)
+  --provenance           Generate provenance statement (requires OIDC, not supported by classic yarn)
   --help, -h             Show this help message
 `);
 }
