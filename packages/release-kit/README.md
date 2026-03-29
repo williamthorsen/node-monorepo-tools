@@ -154,7 +154,6 @@ release-kit parses commits in these formats:
 
 ```
 type: description              # e.g., feat: add utility
-type(scope): description       # e.g., fix(parser): handle edge case
 scope|type: description        # e.g., arrays|feat: add compact function
 type(scope): description       # e.g., feat(arrays): add compact function
 type!: description             # breaking change (triggers major bump)

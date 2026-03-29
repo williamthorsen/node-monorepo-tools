@@ -108,8 +108,8 @@ describe(determineBumpFromCommits, () => {
     });
   });
 
-  describe('workspace alias resolution', () => {
-    it('passes workspace aliases through to parseCommitMessage', () => {
+  describe('scope alias resolution', () => {
+    it('passes scope aliases through to parseCommitMessage', () => {
       const aliases = { rk: 'release-kit' };
       const commits = [makeCommit('rk|feat: add thing')];
       const result = determineBumpFromCommits(commits, workTypes, versionPatterns, aliases);
