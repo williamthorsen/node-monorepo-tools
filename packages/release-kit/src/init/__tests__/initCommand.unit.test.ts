@@ -141,6 +141,17 @@ describe(initCommand, () => {
     expect(mockScaffoldFiles).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }));
   });
 
+  it('includes provenance and trusted publisher hints in next steps', () => {
+    setupPassingChecks();
+    const spy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+
+    initCommand({ dryRun: false, force: false, withConfig: false });
+
+    const allOutput = spy.mock.calls.map((call) => String(call[0])).join('\n');
+    expect(allOutput).toContain('provenance: true');
+    expect(allOutput).toContain('trusted publisher');
+  });
+
   it('prints dry-run banner when dryRun is true', () => {
     setupPassingChecks();
     const spy = vi.spyOn(console, 'info').mockImplementation(() => undefined);

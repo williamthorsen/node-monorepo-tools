@@ -57,6 +57,16 @@ describe(publishWorkflow, () => {
     expect(workflow).toContain('contents: read');
     expect(workflow).not.toContain('secrets:');
   });
+
+  it.each(['monorepo', 'single-package'] as const)(
+    'includes provenance: false with an explanatory comment (%s)',
+    (repoType) => {
+      const workflow = publishWorkflow(repoType);
+
+      expect(workflow).toContain('provenance: false');
+      expect(workflow).toContain('# Set to true for public repos to generate npm provenance attestations');
+    },
+  );
 });
 
 describe(releaseWorkflow, () => {

@@ -13,3 +13,5 @@ permissions:
 jobs:
   publish:
     uses: ./.github/workflows/publish-workflow.yaml
+    with:
+      provenance: true

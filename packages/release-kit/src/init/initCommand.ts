@@ -90,8 +90,10 @@ export function initCommand({ dryRun, force, withConfig }: InitOptions): number 
     : '1. (Optional) Run again with --with-config to scaffold config files.';
   console.info(`
   ${configHint}
-  2. Test by running: npx @williamthorsen/release-kit prepare --dry-run
-  3. Commit the generated files.
+  2. If this is a public repo, set provenance: true in .github/workflows/publish.yaml.
+  3. Test by running: npx @williamthorsen/release-kit prepare --dry-run
+  4. Commit the generated files.
+  5. Register each package as a trusted publisher on npmjs.com.
 `);
 
   return 0;
