@@ -149,15 +149,15 @@ describe(validateConfig, () => {
       expect(config.cliffConfigPath).toBe('custom/cliff.toml');
     });
 
-    it('validates workspaceAliases as a string record', () => {
-      const { config, errors } = validateConfig({ workspaceAliases: { api: 'backend-api' } });
+    it('validates scopeAliases as a string record', () => {
+      const { config, errors } = validateConfig({ scopeAliases: { api: 'backend-api' } });
       expect(errors).toStrictEqual([]);
-      expect(config.workspaceAliases).toStrictEqual({ api: 'backend-api' });
+      expect(config.scopeAliases).toStrictEqual({ api: 'backend-api' });
     });
 
-    it('returns an error when workspaceAliases values are not strings', () => {
-      const { errors } = validateConfig({ workspaceAliases: { api: 123 } });
-      expect(errors).toContain('workspaceAliases.api: value must be a string');
+    it('returns an error when scopeAliases values are not strings', () => {
+      const { errors } = validateConfig({ scopeAliases: { api: 123 } });
+      expect(errors).toContain('scopeAliases.api: value must be a string');
     });
   });
 });

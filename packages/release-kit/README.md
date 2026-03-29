@@ -98,14 +98,14 @@ The config file supports both `export default config` and `export const config =
 
 ### `ReleaseKitConfig` reference
 
-| Field              | Type                             | Description                                                                                                                   |
-| ------------------ | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `cliffConfigPath`  | `string`                         | Explicit path to cliff config. If omitted, resolved automatically: `.config/git-cliff.toml` → `cliff.toml` → bundled template |
-| `components`       | `ComponentOverride[]`            | Override or exclude discovered components (matched by `dir`)                                                                  |
-| `formatCommand`    | `string`                         | Shell command to run after changelog generation; modified file paths are appended as arguments                                |
-| `versionPatterns`  | `VersionPatterns`                | Rules for which commit types trigger major/minor bumps                                                                        |
-| `workspaceAliases` | `Record<string, string>`         | Maps shorthand workspace names to canonical names in commits                                                                  |
-| `workTypes`        | `Record<string, WorkTypeConfig>` | Work type definitions, merged with defaults by key                                                                            |
+| Field             | Type                             | Description                                                                                                                   |
+| ----------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `cliffConfigPath` | `string`                         | Explicit path to cliff config. If omitted, resolved automatically: `.config/git-cliff.toml` → `cliff.toml` → bundled template |
+| `components`      | `ComponentOverride[]`            | Override or exclude discovered components (matched by `dir`)                                                                  |
+| `formatCommand`   | `string`                         | Shell command to run after changelog generation; modified file paths are appended as arguments                                |
+| `versionPatterns` | `VersionPatterns`                | Rules for which commit types trigger major/minor bumps                                                                        |
+| `scopeAliases`    | `Record<string, string>`         | Maps shorthand scope names to canonical names in commits                                                                      |
+| `workTypes`       | `Record<string, WorkTypeConfig>` | Work type definitions, merged with defaults by key                                                                            |
 
 All fields are optional.
 
@@ -155,11 +155,14 @@ release-kit parses commits in these formats:
 ```
 type: description              # e.g., feat: add utility
 type(scope): description       # e.g., fix(parser): handle edge case
-workspace|type: description    # e.g., arrays|feat: add compact function
-!type: description             # breaking change (triggers major bump)
+scope|type: description        # e.g., arrays|feat: add compact function
+type(scope): description       # e.g., feat(arrays): add compact function
+type!: description             # breaking change (triggers major bump)
+scope|type!: description       # scoped breaking change
+type(scope)!: description      # conventional scoped breaking change
 ```
 
-The `workspace|type:` format scopes a commit to a specific workspace in a monorepo. Use `workspaceAliases` in your config to map shorthand names to canonical workspace names.
+The `scope|type:` format scopes a commit to a specific component in a monorepo. Use `scopeAliases` in your config to map shorthand names to canonical scope names.
 
 ## Using `component()` for manual configuration
 

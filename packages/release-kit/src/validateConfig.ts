@@ -23,7 +23,7 @@ export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors
     'workTypes',
     'formatCommand',
     'cliffConfigPath',
-    'workspaceAliases',
+    'scopeAliases',
   ]);
 
   for (const key of Object.keys(raw)) {
@@ -37,7 +37,7 @@ export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors
   validateWorkTypes(raw.workTypes, config, errors);
   validateStringField('formatCommand', raw.formatCommand, config, errors);
   validateStringField('cliffConfigPath', raw.cliffConfigPath, config, errors);
-  validateWorkspaceAliases(raw.workspaceAliases, config, errors);
+  validateScopeAliases(raw.scopeAliases, config, errors);
 
   return { config, errors };
 }
@@ -158,11 +158,11 @@ function validateStringField(
   config[fieldName] = value;
 }
 
-function validateWorkspaceAliases(value: unknown, config: ReleaseKitConfig, errors: string[]): void {
+function validateScopeAliases(value: unknown, config: ReleaseKitConfig, errors: string[]): void {
   if (value === undefined) return;
 
   if (!isRecord(value)) {
-    errors.push("'workspaceAliases' must be a record (object)");
+    errors.push("'scopeAliases' must be a record (object)");
     return;
   }
 
@@ -172,7 +172,7 @@ function validateWorkspaceAliases(value: unknown, config: ReleaseKitConfig, erro
     if (typeof v === 'string') {
       aliases[key] = v;
     } else {
-      errors.push(`workspaceAliases.${key}: value must be a string`);
+      errors.push(`scopeAliases.${key}: value must be a string`);
       valid = false;
     }
   }
@@ -180,6 +180,6 @@ function validateWorkspaceAliases(value: unknown, config: ReleaseKitConfig, erro
   // Unlike `validateComponents`, partial results are not useful for aliases
   // because the mapping is consumed as a complete lookup table.
   if (valid) {
-    config.workspaceAliases = aliases;
+    config.scopeAliases = aliases;
   }
 }

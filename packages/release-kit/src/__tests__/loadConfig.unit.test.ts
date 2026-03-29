@@ -176,12 +176,12 @@ describe(mergeMonorepoConfig, () => {
     expect(result.cliffConfigPath).toBe('custom/cliff.toml');
   });
 
-  it('passes through workspaceAliases from config', () => {
+  it('passes through scopeAliases from config', () => {
     const result = mergeMonorepoConfig(discoveredPaths, {
-      workspaceAliases: { api: 'backend-api' },
+      scopeAliases: { api: 'backend-api' },
     });
 
-    expect(result.workspaceAliases).toStrictEqual({ api: 'backend-api' });
+    expect(result.scopeAliases).toStrictEqual({ api: 'backend-api' });
   });
 });
 
@@ -216,11 +216,11 @@ describe(mergeSinglePackageConfig, () => {
     const result = mergeSinglePackageConfig({
       formatCommand: 'pnpm run fmt',
       cliffConfigPath: 'custom/cliff.toml',
-      workspaceAliases: { api: 'backend-api' },
+      scopeAliases: { api: 'backend-api' },
     });
 
     expect(result.formatCommand).toBe('pnpm run fmt');
     expect(result.cliffConfigPath).toBe('custom/cliff.toml');
-    expect(result.workspaceAliases).toStrictEqual({ api: 'backend-api' });
+    expect(result.scopeAliases).toStrictEqual({ api: 'backend-api' });
   });
 });

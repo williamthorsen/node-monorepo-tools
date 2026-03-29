@@ -49,7 +49,7 @@ export async function loadConfig(): Promise<unknown> {
  *   removes the component; unlisted packages keep defaults.
  * - `workTypes`: shallow merge — consumer entries override or add to defaults by key.
  * - `versionPatterns`: consumer value replaces defaults entirely.
- * - `formatCommand`, `cliffConfigPath`, `workspaceAliases`: consumer value wins.
+ * - `formatCommand`, `cliffConfigPath`, `scopeAliases`: consumer value wins.
  */
 export function mergeMonorepoConfig(
   discoveredPaths: string[],
@@ -94,9 +94,9 @@ export function mergeMonorepoConfig(
     result.cliffConfigPath = cliffConfigPath;
   }
 
-  const workspaceAliases = userConfig?.workspaceAliases;
-  if (workspaceAliases !== undefined) {
-    result.workspaceAliases = workspaceAliases;
+  const scopeAliases = userConfig?.scopeAliases;
+  if (scopeAliases !== undefined) {
+    result.scopeAliases = scopeAliases;
   }
 
   return result;
@@ -132,9 +132,9 @@ export function mergeSinglePackageConfig(userConfig: ReleaseKitConfig | undefine
     result.cliffConfigPath = cliffConfigPath;
   }
 
-  const workspaceAliases = userConfig?.workspaceAliases;
-  if (workspaceAliases !== undefined) {
-    result.workspaceAliases = workspaceAliases;
+  const scopeAliases = userConfig?.scopeAliases;
+  if (scopeAliases !== undefined) {
+    result.scopeAliases = scopeAliases;
   }
 
   return result;

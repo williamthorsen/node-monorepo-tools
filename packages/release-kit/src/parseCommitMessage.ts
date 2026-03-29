@@ -11,31 +11,40 @@ export const COMMIT_PREPROCESSOR_PATTERNS: readonly RegExp[] = [/^#\d+\s+/, /^[A
 /**
  * Parse a commit message into structured metadata.
  *
- * Supports both `type: description` and `workspace|type: description` formats.
+ * Supports three formats:
+ * - `type: description`
+ * - `scope|type: description` (pipe-prefixed scope)
+ * - `type(scope): description` (conventional commit parenthesized scope)
+ *
  * Resolves aliases (e.g., 'feature' -> 'feat') using the provided work type configs.
- * Resolves workspace aliases when a `workspaceAliases` map is provided.
+ * Resolves scope aliases when a `scopeAliases` map is provided.
  * Detects breaking changes via `type!:` or `BREAKING CHANGE:` in the message.
  */
 export function parseCommitMessage(
   message: string,
   hash: string,
   workTypes: Record<string, WorkTypeConfig>,
-  workspaceAliases?: Record<string, string>,
+  scopeAliases?: Record<string, string>,
 ): ParsedCommit | undefined {
   // Strip ticket prefixes (e.g., "#8 " or "TOOL-123 ") before matching
   const stripped = stripTicketPrefix(message);
 
-  // Match both `type: desc` and `workspace|type: desc` formats
-  // The `!` before `:` indicates a breaking change
-  const match = stripped.match(/^(?:([^|]+)\|)?(\w+)(!)?:\s*(.*)$/);
+  // Match pipe-prefixed scope, type, optional parenthesized scope, breaking marker, description.
+  // Group 1: pipe-prefixed scope (e.g., "web" in "web|feat: ...")
+  // Group 2: type (e.g., "feat")
+  // Group 3: parenthesized scope (e.g., "parser" in "fix(parser): ...")
+  // Group 4: breaking marker ("!")
+  // Group 5: description
+  const match = stripped.match(/^(?:([^|]+)\|)?(\w+)(?:\(([^)]+)\))?(!)?:\s*(.*)$/);
   if (!match) {
     return undefined;
   }
 
-  const workspace = match[1];
+  const pipeScope = match[1];
   const rawType = match[2];
-  const breakingMarker = match[3];
-  const description = match[4];
+  const parenthesizedScope = match[3];
+  const breakingMarker = match[4];
+  const description = match[5];
 
   if (rawType === undefined || description === undefined) {
     return undefined;
@@ -49,9 +58,12 @@ export function parseCommitMessage(
 
   const breaking = breakingMarker === '!' || message.includes('BREAKING CHANGE:');
 
-  // Resolve workspace alias to canonical name if a mapping is provided
-  const resolvedWorkspace =
-    workspace !== undefined && workspaceAliases !== undefined ? (workspaceAliases[workspace] ?? workspace) : workspace;
+  // Pipe scope takes precedence; fall back to parenthesized scope
+  const rawScope = pipeScope ?? parenthesizedScope;
+
+  // Resolve scope alias to canonical name if a mapping is provided
+  const resolvedScope =
+    rawScope !== undefined && scopeAliases !== undefined ? (scopeAliases[rawScope] ?? rawScope) : rawScope;
 
   return {
     message,
@@ -59,7 +71,7 @@ export function parseCommitMessage(
     type: resolvedType,
     description,
     breaking,
-    ...(resolvedWorkspace !== undefined && { workspace: resolvedWorkspace }),
+    ...(resolvedScope !== undefined && { scope: resolvedScope }),
   };
 }
 

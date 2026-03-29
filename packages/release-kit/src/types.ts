@@ -94,11 +94,11 @@ export interface ReleaseKitConfig {
   /** Path to the cliff.toml file; defaults to 'cliff.toml' when absent. */
   cliffConfigPath?: string;
   /**
-   * Maps workspace shorthand names to their canonical names.
-   * When a commit uses `shorthand|type: description`, the shorthand is resolved
-   * to the canonical workspace name before the parsed commit is returned.
+   * Maps scope shorthand names to their canonical names.
+   * When a commit uses `shorthand|type: description` or `type(shorthand): description`,
+   * the shorthand is resolved to the canonical scope name before the parsed commit is returned.
    */
-  workspaceAliases?: Record<string, string>;
+  scopeAliases?: Record<string, string>;
 }
 
 /** Override for a single component in the config file. */
@@ -127,8 +127,8 @@ export interface ParsedCommit {
   type: string;
   /** The commit description after the type prefix. */
   description: string;
-  /** The workspace scope if the commit used `workspace|type:` format. */
-  workspace?: string;
+  /** The scope extracted from `scope|type:` or `type(scope):` format. */
+  scope?: string;
   /** Whether this is a breaking change. */
   breaking: boolean;
 }
@@ -164,11 +164,11 @@ export interface MonorepoReleaseConfig {
   /** Path to the cliff.toml file; defaults to 'cliff.toml' when absent. */
   cliffConfigPath?: string;
   /**
-   * Maps workspace shorthand names to their canonical names.
-   * When a commit uses `shorthand|type: description`, the shorthand is resolved
-   * to the canonical workspace name before the parsed commit is returned.
+   * Maps scope shorthand names to their canonical names.
+   * When a commit uses `shorthand|type: description` or `type(shorthand): description`,
+   * the shorthand is resolved to the canonical scope name before the parsed commit is returned.
    */
-  workspaceAliases?: Record<string, string>;
+  scopeAliases?: Record<string, string>;
 }
 
 /** Configuration for the release workflow. */
@@ -192,9 +192,9 @@ export interface ReleaseConfig {
   /** Path to the cliff.toml file; defaults to 'cliff.toml' when absent. */
   cliffConfigPath?: string;
   /**
-   * Maps workspace shorthand names to their canonical names.
-   * When a commit uses `shorthand|type: description`, the shorthand is resolved
-   * to the canonical workspace name before the parsed commit is returned.
+   * Maps scope shorthand names to their canonical names.
+   * When a commit uses `shorthand|type: description` or `type(shorthand): description`,
+   * the shorthand is resolved to the canonical scope name before the parsed commit is returned.
    */
-  workspaceAliases?: Record<string, string>;
+  scopeAliases?: Record<string, string>;
 }
