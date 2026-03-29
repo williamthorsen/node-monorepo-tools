@@ -13,7 +13,7 @@ import { resolveReleaseTags } from './resolveReleaseTags.ts';
  * detect the package manager, validate `--only`, and delegate to `publish`.
  */
 export async function publishCommand(argv: string[]): Promise<void> {
-  const knownFlags = new Set(['--dry-run', '--no-git-checks']);
+  const knownFlags = new Set(['--dry-run', '--no-git-checks', '--provenance']);
   const unknownFlags = argv.filter((f) => !f.startsWith('--only=') && !knownFlags.has(f));
   if (unknownFlags.length > 0) {
     console.error(`Error: Unknown option: ${unknownFlags[0]}`);
@@ -22,6 +22,7 @@ export async function publishCommand(argv: string[]): Promise<void> {
 
   const dryRun = argv.includes('--dry-run');
   const noGitChecks = argv.includes('--no-git-checks');
+  const provenance = argv.includes('--provenance');
 
   const onlyArg = argv.find((f) => f.startsWith('--only='));
   const only = onlyArg?.slice('--only='.length).split(',');
@@ -67,7 +68,7 @@ export async function publishCommand(argv: string[]): Promise<void> {
   const packageManager = detectPackageManager();
 
   try {
-    publish(resolvedTags, packageManager, { dryRun, noGitChecks });
+    publish(resolvedTags, packageManager, { dryRun, noGitChecks, provenance });
   } catch (error: unknown) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);

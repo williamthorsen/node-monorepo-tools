@@ -56,19 +56,38 @@ describe(publishCommand, () => {
     expect(mockPublish).toHaveBeenCalledWith([{ tag: 'v1.0.0', dir: '.', workspacePath: '.' }], 'npm', {
       dryRun: false,
       noGitChecks: false,
+      provenance: false,
     });
   });
 
   it('passes dryRun when --dry-run is provided', async () => {
     await publishCommand(['--dry-run']);
 
-    expect(mockPublish).toHaveBeenCalledWith(expect.anything(), 'npm', { dryRun: true, noGitChecks: false });
+    expect(mockPublish).toHaveBeenCalledWith(expect.anything(), 'npm', {
+      dryRun: true,
+      noGitChecks: false,
+      provenance: false,
+    });
   });
 
   it('passes noGitChecks when --no-git-checks is provided', async () => {
     await publishCommand(['--no-git-checks']);
 
-    expect(mockPublish).toHaveBeenCalledWith(expect.anything(), 'npm', { dryRun: false, noGitChecks: true });
+    expect(mockPublish).toHaveBeenCalledWith(expect.anything(), 'npm', {
+      dryRun: false,
+      noGitChecks: true,
+      provenance: false,
+    });
+  });
+
+  it('passes provenance when --provenance is provided', async () => {
+    await publishCommand(['--provenance']);
+
+    expect(mockPublish).toHaveBeenCalledWith(expect.anything(), 'npm', {
+      dryRun: false,
+      noGitChecks: false,
+      provenance: true,
+    });
   });
 
   it('exits with code 1 on unknown flags', async () => {
@@ -135,7 +154,7 @@ describe(publishCommand, () => {
     expect(mockPublish).toHaveBeenCalledWith(
       [{ tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' }],
       'npm',
-      { dryRun: false, noGitChecks: false },
+      { dryRun: false, noGitChecks: false, provenance: false },
     );
   });
 
