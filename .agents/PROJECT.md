@@ -1,70 +1,75 @@
-# Node Monorepo Tools monorepo
+# Node Monorepo Tools
+
+## Overview
+
+A PNPM monorepo of CLI tools for Node.js monorepo development. Packages provide a unified script runner (`nmr`), pre-deployment checks (`preflight`), and release automation (`release-kit`), with shared utilities in `core`.
 
 ## Project structure
 
-A PNPM monorepo containing `@williamthorsen/nmr` (the `nmr` script runner), `@williamthorsen/node-monorepo-core` (empty shell, reserved for future shared utilities), and `@williamthorsen/release-kit` (version-bumping and changelog toolkit). Packages live under `packages/`.
+Packages live under `packages/`:
 
-## Common commands
+- **`@williamthorsen/nmr`** — Context-aware script runner for PNPM monorepos. Detects root vs workspace context and resolves the appropriate script registry.
+- **`@williamthorsen/node-monorepo-core`** — Shared utilities consumed by `release-kit` and `preflight`.
+- **`@williamthorsen/preflight`** — Pre-deployment verification checks for environment and configuration.
+- **`@williamthorsen/release-kit`** — Version-bumping and changelog-generation toolkit. Has integration tests (`vitest.integration.config.ts`).
 
-All script execution goes through `nmr` (`@williamthorsen/nmr`), which provides a unified interface for both root and workspace contexts. Configuration lives in `.config/nmr.config.ts`.
+Key files:
 
-**Root-level development:**
+- `.config/nmr.config.ts` — Per-repo nmr overrides (currently empty; dogfoods the config-loading feature)
+- `config/build.ts` — Shared esbuild build script with content-hash caching, `.ts`→`.js` extension rewriting, and `~src/` alias resolution
+- `config/vitest.config.ts` — Shared Vitest base configuration
 
-- `pnpm install` - Install all dependencies
-- `nmr ci` - Full CI pipeline (strict checks + build)
-- `nmr check` - Run typecheck, format check, lint check, and tests
-- `nmr check:strict` - Strict checks including coverage and audit
-- `nmr build` - Build all packages
-- `nmr test` - Run tests across all packages
-- `nmr lint` - Lint all packages
-- `nmr typecheck` - TypeScript check all packages
+## Commands
 
-**Package-level development (from any package directory):**
+Use `nmr {command}` for all monorepo scripts. Use `pnpm run {script}` only for scripts defined directly in a package's `package.json`.
 
-- `nmr build` - Build current package
-- `nmr test` - Run tests for current package
-- `nmr test:watch` - Run tests in watch mode
-- `nmr test:coverage` - Run tests with coverage
-- `nmr lint` - Lint current package
-- `nmr typecheck` - TypeScript check current package
+**Root-level (from repo root):**
+
+- `pnpm install` — Install all dependencies
+- `nmr ci` — Full CI pipeline (strict checks + build)
+- `nmr check` — Typecheck, format check, lint check, and tests
+- `nmr check:strict` — Strict checks including coverage and audit
+- `nmr build` — Build all packages
+- `nmr test` — Run tests across all packages
+
+**Package-level (from any package directory):**
+
+- `nmr build` — Build current package (compile + generate typings)
+- `nmr test` — Run tests for current package
+- `nmr test:watch` — Tests in watch mode
+- `nmr test:coverage` — Tests with coverage
+
+**Bootstrap (when nmr isn't built yet):**
+
+- `pnpm run bootstrap` — Build nmr from the root to resolve the chicken-and-egg dependency
 
 ## Architecture
 
 ### nmr script runner
 
-- Context-aware: detects whether it is running at the monorepo root or inside a workspace package and resolves the appropriate script registry
-- Default scripts are defined in `packages/nmr/src/registries.ts`; per-repo overrides go in `.config/nmr.config.ts`
-- Packages with integration tests (detected via `vitest.integration.config.ts`) automatically get split test commands
+- Default scripts defined in `packages/nmr/src/registries.ts`; per-repo overrides in `.config/nmr.config.ts`
+- Packages with `vitest.integration.config.ts` automatically get split test commands (`test`, `test:integration`, `test:watch`)
+- Root scripts delegate to workspaces via `pnpm --recursive exec nmr {command}`
 
 ### Build system
 
-- Uses esbuild via custom `config/build.ts` for TypeScript packages
-- Intelligent caching based on content hashes
-- Automatic `.ts` to `.js` extension rewriting
-- Alias resolution support (`~src/` -> `src/`)
+- esbuild via `config/build.ts`, run as `tsx ../../config/build.ts` from each package
+- Content-hash caching in `dist/esm/.cache` — skips rebuild when sources haven't changed
+- Each package also generates `.d.ts` typings via `tsc --project tsconfig.generate-typings.json`
+- ESM-only output (`type: "module"` in all packages)
 
 ### Testing
 
-- Vitest across all packages with shared configuration
-- Base config in `config/vitest.config.ts`
-- Coverage reporting with v8 provider
-- Package-specific configurations for different test types
+- Vitest with v8 coverage provider
+- `release-kit` has integration tests requiring a separate vitest config
+- Typecheck uses `tsgo` (TypeScript native preview)
 
 ### Code quality
 
-- ESLint with `@williamthorsen/eslint-config-typescript`
-- Prettier for formatting
-- TypeScript strict mode
-- Optional strict linting with `@williamthorsen/strict-lint`
+- Lefthook pre-commit hook auto-formats staged files with Prettier
+- ESLint with `@williamthorsen/eslint-config-typescript`; optional strict linting via `@williamthorsen/strict-lint`
 
-## Code style guidelines
+## Gotchas
 
-- Be type-safe! Never use the `any` type, type assertions, or non-null assertions.
-
-# Important instruction reminders
-
-ALWAYS proceed step by step, asking for confirmation at any significant decision point, unless otherwise instructed.
-ALWAYS suggest adding guidance to agent rules, when doing will help avoid making the same mistakes twice. Ask for confirmation before creating or editing rules.
-ALWAYS use `nmr {command}` to run monorepo scripts. Use `pnpm run {script}` only for scripts defined directly in a package's `package.json`.
-ALWAYS suggest updates to documentation when it would otherwise become out of date.
-ALWAYS add newlines to text files (including all source code files, json, and md).
+- **Bootstrap ordering**: nmr is both a workspace dependency and the script runner. After a fresh clone or if nmr's build output is missing, run `pnpm run bootstrap` from the root before using `nmr` commands.
+- **Build caching**: The content-hash cache (`dist/esm/.cache`) means a rebuild won't run if only non-source files change. Delete the cache file to force a rebuild.
