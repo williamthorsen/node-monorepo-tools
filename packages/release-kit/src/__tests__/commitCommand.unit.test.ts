@@ -13,6 +13,11 @@ vi.mock('node:child_process', () => ({
 
 import { commitCommand } from '../commitCommand.ts';
 
+/** Create an Error with a `code` property, matching Node's ErrnoException shape. */
+function errnoError(message: string, code: string): Error {
+  return Object.assign(new Error(message), { code });
+}
+
 /** Sentinel error thrown by the mocked process.exit. */
 class ExitError extends Error {
   constructor(public readonly code: number | undefined) {
@@ -65,7 +70,7 @@ describe(commitCommand, () => {
   it('throws when tags file is empty', () => {
     mockReadFileSync.mockImplementation((path: string) => {
       if (path === 'tmp/.release-tags') return '  \n  ';
-      throw new Error('ENOENT');
+      throw errnoError('ENOENT', 'ENOENT');
     });
 
     expect(() => commitCommand([])).toThrow('Tags file is empty. Run `release-kit prepare` first.');
@@ -74,7 +79,7 @@ describe(commitCommand, () => {
   it('falls back to empty body when summary file is missing', () => {
     mockReadFileSync.mockImplementation((path: string) => {
       if (path === 'tmp/.release-tags') return 'v1.0.0\n';
-      throw new Error('ENOENT');
+      throw errnoError('ENOENT', 'ENOENT');
     });
 
     commitCommand([]);
@@ -86,7 +91,7 @@ describe(commitCommand, () => {
     mockReadFileSync.mockImplementation((path: string) => {
       if (path === 'tmp/.release-tags') return 'v1.0.0\n';
       if (path === 'tmp/.release-summary') return 'v1.0.0\n- feat: New feature';
-      throw new Error('ENOENT');
+      throw errnoError('ENOENT', 'ENOENT');
     });
     mockExecFileSync.mockReturnValue('M package.json\n');
 
@@ -94,9 +99,49 @@ describe(commitCommand, () => {
 
     expect(console.info).toHaveBeenCalledWith('[dry-run] Would create commit with message:\n');
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining('release: v1.0.0'));
+    expect(mockExecFileSync).toHaveBeenCalledWith('git', ['status', '--porcelain'], { encoding: 'utf8' });
+    expect(console.info).toHaveBeenCalledWith('\nUncommitted changes:');
     // Should not call git add or git commit.
     expect(mockExecFileSync).not.toHaveBeenCalledWith('git', expect.arrayContaining(['add']));
     expect(mockExecFileSync).not.toHaveBeenCalledWith('git', expect.arrayContaining(['commit']));
+  });
+
+  it('falls back to empty body when summary file contains only whitespace', () => {
+    mockReadFileSync.mockImplementation((path: string) => {
+      if (path === 'tmp/.release-tags') return 'v1.0.0\n';
+      if (path === 'tmp/.release-summary') return '  \n  ';
+      throw errnoError('ENOENT', 'ENOENT');
+    });
+
+    commitCommand([]);
+
+    expect(mockExecFileSync).toHaveBeenCalledWith('git', ['commit', '-m', 'release: v1.0.0']);
+  });
+
+  it('re-throws non-ENOENT errors when reading summary file', () => {
+    mockReadFileSync.mockImplementation((path: string) => {
+      if (path === 'tmp/.release-tags') return 'v1.0.0\n';
+      if (path === 'tmp/.release-summary') {
+        throw errnoError('EACCES: permission denied', 'EACCES');
+      }
+      throw new Error('ENOENT');
+    });
+
+    expect(() => commitCommand([])).toThrow('EACCES: permission denied');
+  });
+
+  it('logs a diagnostic when dry-run git status fails', () => {
+    mockReadFileSync.mockImplementation((path: string) => {
+      if (path === 'tmp/.release-tags') return 'v1.0.0\n';
+      throw errnoError('ENOENT', 'ENOENT');
+    });
+    mockExecFileSync.mockImplementation(() => {
+      throw new Error('git not found');
+    });
+
+    commitCommand(['--dry-run']);
+
+    expect(console.info).toHaveBeenCalledWith('(Could not determine uncommitted changes)');
   });
 
   it('exits with error for unknown flags', () => {

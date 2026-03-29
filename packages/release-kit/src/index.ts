@@ -1,5 +1,4 @@
 // Types
-export type { CommitCommandOptions } from './commitCommand.ts';
 export type { CreateTagsOptions } from './createTags.ts';
 export type { PackageManager } from './detectPackageManager.ts';
 export type { GenerateChangelogOptions } from './generateChangelogs.ts';

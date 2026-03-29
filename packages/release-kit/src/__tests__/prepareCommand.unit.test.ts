@@ -223,6 +223,21 @@ describe(prepareCommand, () => {
     expect(console.error).not.toHaveBeenCalledWith(expect.stringContaining('Error preparing release'));
   });
 
+  it('exits with a distinct error when writing release summary fails', async () => {
+    mockBuildReleaseSummary.mockReturnValue('arrays-v1.0.0\n- feat: Something');
+    mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['arrays-v1.0.0'] }));
+    mockWriteFileWithCheck.mockImplementation((_path: string) => {
+      if (_path === RELEASE_SUMMARY_FILE) {
+        return { filePath: RELEASE_SUMMARY_FILE, outcome: 'failed', error: 'permission denied' };
+      }
+      return { filePath: RELEASE_TAGS_FILE, outcome: 'created' };
+    });
+
+    await expect(prepareCommand([])).rejects.toThrow(ExitError);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('release summary'));
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('permission denied'));
+  });
+
   it('prints release tags file path when tags are produced', async () => {
     mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['arrays-v1.0.0'] }));
 

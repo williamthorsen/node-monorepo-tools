@@ -6,11 +6,6 @@ import { readFileSync } from 'node:fs';
 
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './prepareCommand.ts';
 
-/** Options for the commit command. */
-export interface CommitCommandOptions {
-  dryRun: boolean;
-}
-
 /**
  * Orchestrate the CLI `commit` command.
  *
@@ -48,8 +43,12 @@ export function commitCommand(argv: string[]): void {
   let summary = '';
   try {
     summary = readFileSync(RELEASE_SUMMARY_FILE, 'utf8').trim();
-  } catch {
-    // Missing summary is acceptable.
+  } catch (error: unknown) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      // Missing summary is acceptable.
+    } else {
+      throw error;
+    }
   }
 
   // Build commit message.
@@ -63,11 +62,11 @@ export function commitCommand(argv: string[]): void {
     try {
       const status = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' });
       if (status.trim().length > 0) {
-        console.info('\nStaged files:');
+        console.info('\nUncommitted changes:');
         console.info(status.trimEnd());
       }
     } catch {
-      // Ignore git status errors in dry-run.
+      console.info('(Could not determine uncommitted changes)');
     }
 
     return;
