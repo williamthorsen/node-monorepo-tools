@@ -2,6 +2,7 @@
 /* eslint n/hashbang: off, n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
+import { commitCommand } from '../commitCommand.ts';
 import { initCommand } from '../init/initCommand.ts';
 import { prepareCommand } from '../prepareCommand.ts';
 import { publishCommand } from '../publishCommand.ts';
@@ -16,6 +17,7 @@ Usage: release-kit <command> [options]
 
 Commands:
   prepare       Run release preparation (auto-discovers workspaces)
+  commit        Stage changes and create the release commit
   tag           Create annotated git tags from the tags file
   publish       Publish packages with release tags on HEAD
   init          Initialize release-kit in the current repository
@@ -108,6 +110,19 @@ Options:
 `);
 }
 
+function showCommitHelp(): void {
+  console.info(`
+Usage: release-kit commit [options]
+
+Stage all changes and create the release commit using tags and summary
+produced by \`prepare\`.
+
+Options:
+  --dry-run     Preview the commit message without creating it
+  --help, -h    Show this help message
+`);
+}
+
 function showTagHelp(): void {
   console.info(`
 Usage: release-kit tag [options]
@@ -151,6 +166,21 @@ if (command === 'prepare') {
   }
 
   await prepareCommand(flags);
+  process.exit(0);
+}
+
+if (command === 'commit') {
+  if (flags.some((f) => f === '--help' || f === '-h')) {
+    showCommitHelp();
+    process.exit(0);
+  }
+
+  try {
+    commitCommand(flags);
+  } catch (error: unknown) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
   process.exit(0);
 }
 

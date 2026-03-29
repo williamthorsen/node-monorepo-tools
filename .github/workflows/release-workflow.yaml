@@ -119,15 +119,10 @@ jobs:
       - name: Commit, tag, and push
         if: steps.check.outputs.changed == 'true'
         run: |
-          TAGS="${{ steps.tags.outputs.tags }}"
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "release: ${TAGS}"
 
-          for TAG in $TAGS; do
-            git tag "$TAG"
-          done
+          release-kit commit
+          release-kit tag --no-git-checks
 
-          git push origin HEAD $TAGS
+          git push origin HEAD ${{ steps.tags.outputs.tags }}

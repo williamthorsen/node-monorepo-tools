@@ -1,10 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const mockBuildReleaseSummary = vi.hoisted(() => vi.fn());
 const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
 const mockLoadConfig = vi.hoisted(() => vi.fn());
 const mockReleasePrepareMono = vi.hoisted(() => vi.fn());
 const mockReleasePrepare = vi.hoisted(() => vi.fn());
 const mockWriteFileWithCheck = vi.hoisted(() => vi.fn());
+
+vi.mock('../buildReleaseSummary.ts', () => ({
+  buildReleaseSummary: mockBuildReleaseSummary,
+}));
 
 vi.mock('../discoverWorkspaces.ts', () => ({
   discoverWorkspaces: mockDiscoverWorkspaces,
@@ -30,7 +35,7 @@ vi.mock(import('@williamthorsen/node-monorepo-core'), () => ({
   writeFileWithCheck: mockWriteFileWithCheck,
 }));
 
-import { parseArgs, prepareCommand, RELEASE_TAGS_FILE } from '../prepareCommand.ts';
+import { parseArgs, prepareCommand, RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from '../prepareCommand.ts';
 import type { PrepareResult } from '../types.ts';
 
 /** Sentinel error thrown by the mocked process.exit. */
@@ -52,6 +57,7 @@ function makePrepareResult(overrides?: Partial<PrepareResult>): PrepareResult {
 
 describe(prepareCommand, () => {
   beforeEach(() => {
+    mockBuildReleaseSummary.mockReturnValue('');
     mockDiscoverWorkspaces.mockResolvedValue(['packages/arrays', 'packages/strings']);
     mockLoadConfig.mockResolvedValue(undefined);
     mockReleasePrepareMono.mockReturnValue(makePrepareResult());
@@ -66,6 +72,7 @@ describe(prepareCommand, () => {
   });
 
   afterEach(() => {
+    mockBuildReleaseSummary.mockReset();
     mockDiscoverWorkspaces.mockReset();
     mockLoadConfig.mockReset();
     mockReleasePrepareMono.mockReset();
@@ -240,6 +247,48 @@ describe(prepareCommand, () => {
     expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('Release tags file:'));
   });
 
+  it('writes the release summary file when summary is non-empty', async () => {
+    mockBuildReleaseSummary.mockReturnValue('release-kit-v2.4.0\n- feat: Add commit command');
+    mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['release-kit-v2.4.0'] }));
+
+    await prepareCommand([]);
+
+    expect(mockWriteFileWithCheck).toHaveBeenCalledWith(
+      RELEASE_SUMMARY_FILE,
+      'release-kit-v2.4.0\n- feat: Add commit command',
+      { dryRun: false, overwrite: true },
+    );
+  });
+
+  it('does not write the release summary file when summary is empty', async () => {
+    mockBuildReleaseSummary.mockReturnValue('');
+    mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['core-v1.0.0'] }));
+
+    await prepareCommand([]);
+
+    expect(mockWriteFileWithCheck).not.toHaveBeenCalledWith(
+      RELEASE_SUMMARY_FILE,
+      expect.any(String),
+      expect.any(Object),
+    );
+  });
+
+  it('prints follow-up message after successful non-dry-run with tags', async () => {
+    mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['v1.0.0'] }));
+
+    await prepareCommand([]);
+
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining("Run 'release-kit commit'"));
+  });
+
+  it('does not print follow-up message during dry run', async () => {
+    mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['v1.0.0'], dryRun: true }));
+
+    await prepareCommand(['--dry-run']);
+
+    expect(console.error).not.toHaveBeenCalledWith(expect.stringContaining("Run 'release-kit commit'"));
+  });
+
   it('applies component exclusion from config', async () => {
     mockLoadConfig.mockResolvedValue({
       components: [{ dir: 'strings', shouldExclude: true }],
@@ -311,5 +360,11 @@ describe(parseArgs, () => {
 describe('RELEASE_TAGS_FILE', () => {
   it('points to tmp/ relative to the project root', () => {
     expect(RELEASE_TAGS_FILE).toBe('tmp/.release-tags');
+  });
+});
+
+describe('RELEASE_SUMMARY_FILE', () => {
+  it('points to tmp/ relative to the project root', () => {
+    expect(RELEASE_SUMMARY_FILE).toBe('tmp/.release-summary');
   });
 });

@@ -188,6 +188,14 @@ describe(createTags, () => {
     expect(mockUnlinkSync).toHaveBeenCalledWith('tmp/.release-tags');
   });
 
+  it('deletes the summary file after successful tag creation', () => {
+    mockReadFileSync.mockReturnValue('v1.0.0\n');
+
+    createTags({ dryRun: false, noGitChecks: true });
+
+    expect(mockUnlinkSync).toHaveBeenCalledWith('tmp/.release-summary');
+  });
+
   it('does not delete the tags file in dry-run mode', () => {
     mockReadFileSync.mockReturnValue('v1.0.0\n');
 
@@ -200,6 +208,20 @@ describe(createTags, () => {
     mockReadFileSync.mockReturnValue('v1.0.0\n');
     mockUnlinkSync.mockImplementation(() => {
       throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+    });
+
+    expect(() => createTags({ dryRun: false, noGitChecks: true })).not.toThrow();
+  });
+
+  it('tolerates missing summary file on deletion', () => {
+    mockReadFileSync.mockReturnValue('v1.0.0\n');
+    let callCount = 0;
+    mockUnlinkSync.mockImplementation(() => {
+      callCount++;
+      // First call is tags file (succeeds), second is summary file (ENOENT).
+      if (callCount === 2) {
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      }
     });
 
     expect(() => createTags({ dryRun: false, noGitChecks: true })).not.toThrow();

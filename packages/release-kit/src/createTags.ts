@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, unlinkSync } from 'node:fs';
 
-import { RELEASE_TAGS_FILE } from './prepareCommand.ts';
+import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './prepareCommand.ts';
 
 export interface CreateTagsOptions {
   dryRun: boolean;
@@ -66,6 +66,7 @@ export function createTags(options: CreateTagsOptions): string[] {
   }
 
   deleteTagsFile();
+  deleteSummaryFile();
 
   return tags;
 }
@@ -74,6 +75,18 @@ export function createTags(options: CreateTagsOptions): string[] {
 function deleteTagsFile(): void {
   try {
     unlinkSync(RELEASE_TAGS_FILE);
+  } catch (error: unknown) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      return;
+    }
+    throw error;
+  }
+}
+
+/** Remove the summary file after successful tag creation. Tolerate missing file. */
+function deleteSummaryFile(): void {
+  try {
+    unlinkSync(RELEASE_SUMMARY_FILE);
   } catch (error: unknown) {
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
       return;

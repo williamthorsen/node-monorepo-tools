@@ -112,6 +112,7 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
         tag: newTag,
         bumpedFiles: bump.files,
         changelogFiles,
+        commits,
         unparseableCommits,
       },
     ],
