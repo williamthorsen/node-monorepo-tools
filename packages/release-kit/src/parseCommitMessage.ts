@@ -46,6 +46,7 @@ export function parseCommitMessage(
   const breakingMarker = match[4];
   const description = match[5];
 
+  // Both groups are non-optional in the regex, but TypeScript cannot infer that
   if (rawType === undefined || description === undefined) {
     return undefined;
   }
