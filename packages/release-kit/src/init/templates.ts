@@ -68,6 +68,8 @@ permissions:
 jobs:
   publish:
     uses: williamthorsen/node-monorepo-tools/.github/workflows/publish-workflow.yaml@publish-workflow-v1
+    with:
+      provenance: false # Set to true for public repos to generate npm provenance attestations
 `;
 }
 
