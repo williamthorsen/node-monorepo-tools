@@ -111,6 +111,7 @@ async function main(): Promise<void> {
 
   // -R: delegate to pnpm --recursive
   if (parsed.recursive) {
+    process.env.NMR_RUN_IF_PRESENT = '1';
     const delegateCmd = `pnpm --recursive exec nmr ${command}${passthrough}`;
     const code = runCommand(delegateCmd, context.monorepoRoot, runOptions);
     process.exit(code);
@@ -120,9 +121,13 @@ async function main(): Promise<void> {
   const useRoot = parsed.workspaceRoot || context.isRoot;
   const registry = useRoot ? buildRootRegistry(context.config) : buildWorkspaceRegistry(context.config, parsed.intTest);
 
-  const resolved = resolveScript(command, registry, context.packageDir);
+  const packageDir = context.packageDir ?? context.monorepoRoot;
+  const resolved = resolveScript(command, registry, packageDir);
 
   if (!resolved) {
+    if (process.env.NMR_RUN_IF_PRESENT === '1') {
+      process.exit(0);
+    }
     console.error(`Unknown command: ${command}`);
     process.exit(1);
   }
@@ -134,7 +139,7 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  if (resolved.source === 'package' && !parsed.quiet) {
+  if (resolved.source === 'package' && !parsed.quiet && registry[command] !== undefined) {
     console.info(`Using override script: ${resolved.command}`);
   }
 

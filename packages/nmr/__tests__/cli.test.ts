@@ -7,10 +7,14 @@ const MONOREPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
 const NMR_PACKAGE_DIR = path.resolve(MONOREPO_ROOT, 'packages', 'nmr');
 const CLI_PATH = path.join(NMR_PACKAGE_DIR, 'dist', 'esm', 'cli.js');
 
-function runNmr(args: string, options: { cwd?: string } = {}): { stdout: string; stderr: string; exitCode: number } {
+function runNmr(
+  args: string,
+  options: { cwd?: string; env?: Record<string, string> } = {},
+): { stdout: string; stderr: string; exitCode: number } {
   try {
     const stdout = execSync(`node ${CLI_PATH} ${args}`, {
       cwd: options.cwd ?? MONOREPO_ROOT,
+      env: { ...process.env, ...options.env },
       encoding: 'utf8',
       timeout: 10_000,
     });
@@ -56,6 +60,32 @@ describe('nmr CLI', () => {
   it('exits with error for unknown command', () => {
     const { exitCode } = runNmr('nonexistent-command');
     expect(exitCode).toBe(1);
+  });
+
+  it('resolves root package.json scripts at monorepo root', () => {
+    const { exitCode } = runNmr('postinstall');
+    expect(exitCode).toBe(0);
+  });
+
+  it('does not log override message for package.json scripts not in registry', () => {
+    const { stdout, exitCode } = runNmr('postinstall');
+    expect(exitCode).toBe(0);
+    expect(stdout).not.toContain('Using override script');
+  });
+
+  describe('NMR_RUN_IF_PRESENT', () => {
+    it('exits 0 for unknown command when set', () => {
+      const { exitCode, stderr } = runNmr('nonexistent-command', {
+        env: { NMR_RUN_IF_PRESENT: '1' },
+      });
+      expect(exitCode).toBe(0);
+      expect(stderr).toBe('');
+    });
+
+    it('still exits 1 for unknown command when not set', () => {
+      const { exitCode } = runNmr('nonexistent-command');
+      expect(exitCode).toBe(1);
+    });
   });
 
   describe('--quiet flag', () => {

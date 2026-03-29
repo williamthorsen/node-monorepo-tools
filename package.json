@@ -20,7 +20,6 @@
   ],
   "scripts": {
     "bootstrap": "cd packages/nmr && tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json",
-    "ci": "nmr ci",
     "postinstall": "node scripts/postinstall.js",
     "prepare": "lefthook install"
   },
