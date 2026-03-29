@@ -110,7 +110,9 @@ describe('scaffold', () => {
     });
 
     it('returns dry-run outcomes without writing', () => {
-      mockWriteFileWithCheck.mockReturnValue({ filePath: '.github/workflows/release.yaml', outcome: 'created' });
+      mockWriteFileWithCheck
+        .mockReturnValueOnce({ filePath: '.github/workflows/release.yaml', outcome: 'created' })
+        .mockReturnValueOnce({ filePath: '.github/workflows/publish.yaml', outcome: 'created' });
 
       const results = scaffoldFiles({
         repoType: 'single-package',
@@ -121,6 +123,10 @@ describe('scaffold', () => {
 
       expect(results).toHaveLength(2);
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.github/workflows/release.yaml', expect.any(String), {
+        dryRun: true,
+        overwrite: false,
+      });
+      expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.github/workflows/publish.yaml', expect.any(String), {
         dryRun: true,
         overwrite: false,
       });
