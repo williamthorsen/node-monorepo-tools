@@ -41,7 +41,10 @@ function setupPassingChecks(): void {
   mockHasPackageJson.mockReturnValue({ ok: true });
   mockUsesPnpm.mockReturnValue({ ok: true });
   mockDetectRepoType.mockReturnValue('single-package');
-  mockScaffoldFiles.mockReturnValue([{ filePath: '.github/workflows/release.yaml', outcome: 'created' }]);
+  mockScaffoldFiles.mockReturnValue([
+    { filePath: '.github/workflows/release.yaml', outcome: 'created' },
+    { filePath: '.github/workflows/publish.yaml', outcome: 'created' },
+  ]);
 }
 
 describe(initCommand, () => {

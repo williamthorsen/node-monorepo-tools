@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { releaseConfigScript, releaseWorkflow } from '../templates.ts';
+import { publishWorkflow, releaseConfigScript, releaseWorkflow } from '../templates.ts';
 
 describe(releaseConfigScript, () => {
   it('generates a ReleaseKitConfig for monorepo type', () => {
@@ -32,6 +32,27 @@ describe(releaseConfigScript, () => {
     expect(single).toContain('header:');
     expect(mono).not.toContain('heading:');
     expect(single).not.toContain('heading:');
+  });
+});
+
+describe(publishWorkflow, () => {
+  it('generates a monorepo workflow with wildcard tag pattern', () => {
+    const workflow = publishWorkflow('monorepo');
+
+    expect(workflow).toContain("'*-v[0-9]*'");
+    expect(workflow).toContain('publish-workflow.yaml@publish-workflow-v1');
+    expect(workflow).toContain('id-token: write');
+    expect(workflow).toContain('contents: read');
+  });
+
+  it('generates a single-package workflow with v-prefixed tag pattern', () => {
+    const workflow = publishWorkflow('single-package');
+
+    expect(workflow).toContain("'v[0-9]*'");
+    expect(workflow).not.toContain("'*-v[0-9]*'");
+    expect(workflow).toContain('publish-workflow.yaml@publish-workflow-v1');
+    expect(workflow).toContain('id-token: write');
+    expect(workflow).toContain('contents: read');
   });
 });
 

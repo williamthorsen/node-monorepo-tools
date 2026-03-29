@@ -29,8 +29,10 @@ describe('scaffold', () => {
   });
 
   describe(scaffoldFiles, () => {
-    it('creates only the workflow file by default', () => {
-      mockWriteFileWithCheck.mockReturnValue({ filePath: '.github/workflows/release.yaml', outcome: 'created' });
+    it('creates release and publish workflow files by default', () => {
+      mockWriteFileWithCheck
+        .mockReturnValueOnce({ filePath: '.github/workflows/release.yaml', outcome: 'created' })
+        .mockReturnValueOnce({ filePath: '.github/workflows/publish.yaml', outcome: 'created' });
 
       const results = scaffoldFiles({
         repoType: 'single-package',
@@ -39,18 +41,24 @@ describe('scaffold', () => {
         withConfig: false,
       });
 
-      expect(results).toHaveLength(1);
+      expect(results).toHaveLength(2);
       expect(results[0]).toEqual({ filePath: '.github/workflows/release.yaml', outcome: 'created' });
-      expect(mockWriteFileWithCheck).toHaveBeenCalledTimes(1);
+      expect(results[1]).toEqual({ filePath: '.github/workflows/publish.yaml', outcome: 'created' });
+      expect(mockWriteFileWithCheck).toHaveBeenCalledTimes(2);
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.github/workflows/release.yaml', expect.any(String), {
+        dryRun: false,
+        overwrite: false,
+      });
+      expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.github/workflows/publish.yaml', expect.any(String), {
         dryRun: false,
         overwrite: false,
       });
     });
 
-    it('creates workflow, config, and cliff template when withConfig is true', () => {
+    it('creates workflow, publish, config, and cliff template when withConfig is true', () => {
       mockWriteFileWithCheck
         .mockReturnValueOnce({ filePath: '.github/workflows/release.yaml', outcome: 'created' })
+        .mockReturnValueOnce({ filePath: '.github/workflows/publish.yaml', outcome: 'created' })
         .mockReturnValueOnce({ filePath: '.config/release-kit.config.ts', outcome: 'created' })
         .mockReturnValueOnce({ filePath: '.config/git-cliff.toml', outcome: 'created' });
       mockExistsSync.mockReturnValue(true); // template path exists
@@ -63,8 +71,8 @@ describe('scaffold', () => {
         withConfig: true,
       });
 
-      expect(results).toHaveLength(3);
-      expect(mockWriteFileWithCheck).toHaveBeenCalledTimes(3);
+      expect(results).toHaveLength(4);
+      expect(mockWriteFileWithCheck).toHaveBeenCalledTimes(4);
     });
 
     it('returns skipped results when overwrite is false and files exist', () => {
@@ -101,7 +109,7 @@ describe('scaffold', () => {
         withConfig: false,
       });
 
-      expect(results).toHaveLength(1);
+      expect(results).toHaveLength(2);
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.github/workflows/release.yaml', expect.any(String), {
         dryRun: true,
         overwrite: false,
