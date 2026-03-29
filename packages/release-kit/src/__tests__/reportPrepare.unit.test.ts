@@ -467,5 +467,74 @@ describe(reportPrepare, () => {
         ),
       );
     });
+
+    it('shows warnings when present in the result', () => {
+      const result: PrepareResult = {
+        components: [
+          {
+            name: 'core',
+            status: 'released',
+            previousTag: 'core-v1.0.0',
+            commitCount: 1,
+            parsedCommitCount: 1,
+            releaseType: 'patch',
+            currentVersion: '1.0.0',
+            newVersion: '1.0.1',
+            tag: 'core-v1.0.1',
+            bumpedFiles: ['packages/core/package.json'],
+            changelogFiles: ['packages/core/CHANGELOG.md'],
+          },
+        ],
+        tags: ['core-v1.0.1'],
+        dryRun: false,
+        warnings: [
+          'Circular workspace dependencies detected among: a, b. Propagation metadata may be incomplete for these components.',
+        ],
+      };
+
+      const output = reportPrepare(result);
+
+      expect(output).toContain('⚠️  Circular workspace dependencies detected among: a, b');
+    });
+
+    it('shows propagation info for a propagated-only component', () => {
+      const result: PrepareResult = {
+        components: [
+          {
+            name: 'core',
+            status: 'released',
+            previousTag: 'core-v1.0.0',
+            commitCount: 1,
+            parsedCommitCount: 1,
+            releaseType: 'patch',
+            currentVersion: '1.0.0',
+            newVersion: '1.0.1',
+            tag: 'core-v1.0.1',
+            bumpedFiles: ['packages/core/package.json'],
+            changelogFiles: ['packages/core/CHANGELOG.md'],
+          },
+          {
+            name: 'app',
+            status: 'released',
+            previousTag: 'app-v2.0.0',
+            commitCount: 0,
+            releaseType: 'patch',
+            currentVersion: '2.0.0',
+            newVersion: '2.0.1',
+            tag: 'app-v2.0.1',
+            bumpedFiles: ['packages/app/package.json'],
+            changelogFiles: ['packages/app/CHANGELOG.md'],
+            propagatedFrom: [{ packageName: '@scope/core', newVersion: '1.0.1' }],
+          },
+        ],
+        tags: ['core-v1.0.1', 'app-v2.0.1'],
+        dryRun: false,
+      };
+
+      const output = reportPrepare(result);
+
+      expect(output).toContain('0 commits (bumped via dependency: @scope/core)');
+      expect(output).toContain('(patch, dependency: @scope/core)');
+    });
   });
 });

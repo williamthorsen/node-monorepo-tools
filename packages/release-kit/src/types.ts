@@ -1,6 +1,12 @@
 /** Semver release type for version bumping. */
 export type ReleaseType = 'major' | 'minor' | 'patch';
 
+/** Identifies a dependency whose version bump triggered a propagated release. */
+export interface PropagationSource {
+  packageName: string;
+  newVersion: string;
+}
+
 /** Structured result from bumping version fields in package.json files. */
 export interface BumpResult {
   currentVersion: string;
@@ -24,6 +30,8 @@ export interface ComponentPrepareResult {
   changelogFiles: string[];
   /** Commits that could not be parsed into a recognized work type. */
   unparseableCommits?: Commit[] | undefined;
+  /** Dependencies that triggered a propagated bump (present for propagated or mixed components). */
+  propagatedFrom?: PropagationSource[] | undefined;
   skipReason?: string | undefined;
 }
 
@@ -39,6 +47,8 @@ export interface PrepareResult {
       }
     | undefined;
   dryRun: boolean;
+  /** Warnings surfaced during preparation (e.g., circular dependency detection). */
+  warnings?: string[] | undefined;
 }
 
 /** Configuration for a single work type used in commit categorization. */

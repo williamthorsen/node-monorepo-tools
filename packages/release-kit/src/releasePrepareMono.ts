@@ -1,56 +1,163 @@
 import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 
+import type { DependencyGraph } from './buildDependencyGraph.ts';
+import { buildDependencyGraph } from './buildDependencyGraph.ts';
 import { bumpAllVersions } from './bumpAllVersions.ts';
 import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { determineBumpFromCommits } from './determineBumpFromCommits.ts';
 import { buildTagPattern, generateChangelog } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
+import type { CurrentVersions, ReleaseEntry } from './propagateBumps.ts';
+import { propagateBumps } from './propagateBumps.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
-import type { Commit, ComponentPrepareResult, MonorepoReleaseConfig, PrepareResult, ReleaseType } from './types.ts';
+import type {
+  Commit,
+  ComponentConfig,
+  ComponentPrepareResult,
+  MonorepoReleaseConfig,
+  PrepareResult,
+  ReleaseType,
+} from './types.ts';
+import { writeSyntheticChangelog } from './writeSyntheticChangelog.ts';
+
+/** Intermediate result from Phase 1 (determine direct bumps). */
+interface DirectBumpResult {
+  component: ComponentConfig;
+  tag: string | undefined;
+  commits: Commit[];
+  releaseType: ReleaseType;
+  parsedCommitCount: number | undefined;
+  unparseableCommits: Commit[] | undefined;
+}
+
+/** Intermediate result for a skipped component. */
+interface SkippedResult {
+  component: ComponentConfig;
+  tag: string | undefined;
+  commitCount: number;
+  parsedCommitCount: number | undefined;
+  unparseableCommits: Commit[] | undefined;
+  skipReason: string;
+}
+
+/** Aggregate result from Phase 1 (determine direct bumps). */
+interface Phase1Result {
+  directBumps: Map<string, ReleaseEntry>;
+  directResults: Map<string, DirectBumpResult>;
+  skippedResults: SkippedResult[];
+  currentVersions: CurrentVersions;
+}
 
 /**
  * Orchestrate release preparation for a monorepo with multiple components.
  *
- * For each component:
- * 1. Gets path-filtered commits since the last component-specific tag.
- * 2. Determines the bump type from those commits (or uses the override).
- * 3. Bumps all configured package.json version fields.
- * 4. Generates changelogs via git-cliff with `--include-path` filtering.
- *
- * After all components are processed, runs the optional format command once.
- * Returns a structured `PrepareResult` with all data needed for presentation.
+ * Phase 1: Determine direct bumps from commits for each component.
+ * Phase 2: Build the dependency graph and propagate bumps to dependents.
+ * Phase 2b: Topologically sort the full release set.
+ * Phase 3: Execute bumps and generate changelogs in dependency order.
  */
 export function releasePrepareMono(config: MonorepoReleaseConfig, options: ReleasePrepareOptions): PrepareResult {
-  const { dryRun, force, bumpOverride } = options;
+  const { dryRun } = options;
+
+  // === Phase 1: Determine direct bumps ===
+  const { directBumps, directResults, skippedResults, currentVersions } = determineDirectBumps(config, options);
+
+  // Build a lookup of previous tags for all components (needed for propagated ones).
+  const previousTags = new Map<string, string | undefined>();
+  for (const result of directResults.values()) {
+    previousTags.set(result.component.dir, result.tag);
+  }
+  for (const skipped of skippedResults) {
+    previousTags.set(skipped.component.dir, skipped.tag);
+  }
+
+  // === Phase 2: Build graph and propagate bumps ===
+  const graph = buildDependencyGraph(config.components);
+  const fullReleaseSet = propagateBumps(directBumps, graph, currentVersions);
+
+  // === Phase 2b: Topologically sort the release set ===
+  const { sorted: sortedDirs, cyclicDirs } = topologicalSort(fullReleaseSet, graph);
+  const warnings: string[] = [];
+  if (cyclicDirs.length > 0) {
+    warnings.push(
+      `Circular workspace dependencies detected among: ${cyclicDirs.join(', ')}. ` +
+        'Propagation metadata may be incomplete for these components.',
+    );
+  }
+
+  // === Phase 3: Execute bumps and generate changelogs ===
+  const components = collectSkippedComponents(skippedResults, fullReleaseSet);
+  const { tags, modifiedFiles } = executeReleaseSet(
+    sortedDirs,
+    fullReleaseSet,
+    config,
+    directResults,
+    previousTags,
+    dryRun,
+    components,
+  );
+
+  // Reorder components to match original config order.
+  const configOrder = new Map(config.components.map((c, i) => [c.dir, i]));
+  components.sort((a, b) => {
+    const orderA = configOrder.get(a.name ?? '') ?? 0;
+    const orderB = configOrder.get(b.name ?? '') ?? 0;
+    return orderA - orderB;
+  });
+
+  // === Phase 4: Format ===
+  const formatCommand = runFormatCommand(config, tags, modifiedFiles, dryRun);
+
+  return {
+    components,
+    tags,
+    formatCommand,
+    dryRun,
+    ...(warnings.length > 0 ? { warnings } : {}),
+  };
+}
+
+/** Determine direct bumps from commits for each component. */
+function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePrepareOptions): Phase1Result {
+  const { force, bumpOverride } = options;
   const workTypes = config.workTypes ?? { ...DEFAULT_WORK_TYPES };
   const versionPatterns = config.versionPatterns ?? { ...DEFAULT_VERSION_PATTERNS };
-  const tags: string[] = [];
-  const modifiedFiles: string[] = [];
-  const components: ComponentPrepareResult[] = [];
+
+  const directBumps = new Map<string, ReleaseEntry>();
+  const directResults = new Map<string, DirectBumpResult>();
+  const skippedResults: SkippedResult[] = [];
+  const currentVersions: CurrentVersions = new Map();
 
   for (const component of config.components) {
     const name = component.dir;
-
-    // 1. Get path-filtered commits since last tag
     const { tag, commits } = getCommitsSinceTarget(component.tagPrefix, component.paths);
     const since = tag === undefined ? '(no previous release found)' : `since ${tag}`;
 
+    // Read current version from the first package file.
+    const primaryPackageFile = component.packageFiles[0];
+    if (primaryPackageFile !== undefined) {
+      const currentVersion = readCurrentVersion(primaryPackageFile);
+      if (currentVersion !== undefined) {
+        currentVersions.set(component.dir, currentVersion);
+      }
+    }
+
     // Skip components with no changes unless --force is set.
     if (commits.length === 0 && !force) {
-      components.push({
-        name,
-        status: 'skipped',
-        previousTag: tag,
+      skippedResults.push({
+        component,
+        tag,
         commitCount: 0,
-        bumpedFiles: [],
-        changelogFiles: [],
+        parsedCommitCount: undefined,
+        unparseableCommits: undefined,
         skipReason: `No changes for ${name} ${since}. Skipping.`,
       });
       continue;
     }
 
-    // 2. Determine bump type
+    // Determine bump type.
     let releaseType: ReleaseType | undefined;
     let parsedCommitCount: number | undefined;
     let unparseableCommits: Commit[] | undefined;
@@ -65,78 +172,267 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
     }
 
     if (releaseType === undefined) {
-      components.push({
-        name,
-        status: 'skipped',
-        previousTag: tag,
+      skippedResults.push({
+        component,
+        tag,
         commitCount: commits.length,
         parsedCommitCount,
         unparseableCommits,
-        bumpedFiles: [],
-        changelogFiles: [],
         skipReason: `No release-worthy changes for ${name} ${since}. Skipping.`,
       });
       continue;
     }
 
-    // 3. Bump all versions for this component
-    const bump = bumpAllVersions(component.packageFiles, releaseType, dryRun);
+    directBumps.set(component.dir, { releaseType });
+    directResults.set(component.dir, {
+      component,
+      tag,
+      commits,
+      releaseType,
+      parsedCommitCount,
+      unparseableCommits,
+    });
+  }
+
+  return { directBumps, directResults, skippedResults, currentVersions };
+}
+
+/** Collect skipped components, excluding those promoted via propagation. */
+function collectSkippedComponents(
+  skippedResults: SkippedResult[],
+  fullReleaseSet: Map<string, ReleaseEntry>,
+): ComponentPrepareResult[] {
+  const components: ComponentPrepareResult[] = [];
+  for (const skipped of skippedResults) {
+    if (fullReleaseSet.has(skipped.component.dir)) {
+      continue;
+    }
+    components.push({
+      name: skipped.component.dir,
+      status: 'skipped',
+      previousTag: skipped.tag,
+      commitCount: skipped.commitCount,
+      parsedCommitCount: skipped.parsedCommitCount,
+      unparseableCommits: skipped.unparseableCommits,
+      bumpedFiles: [],
+      changelogFiles: [],
+      skipReason: skipped.skipReason,
+    });
+  }
+  return components;
+}
+
+/** Execute bumps and generate changelogs for each component in dependency order. */
+function executeReleaseSet(
+  sortedDirs: string[],
+  fullReleaseSet: Map<string, ReleaseEntry>,
+  config: MonorepoReleaseConfig,
+  directResults: Map<string, DirectBumpResult>,
+  previousTags: Map<string, string | undefined>,
+  dryRun: boolean,
+  components: ComponentPrepareResult[],
+): { tags: string[]; modifiedFiles: string[] } {
+  const tags: string[] = [];
+  const modifiedFiles: string[] = [];
+  const today = new Date().toISOString().slice(0, 10);
+
+  for (const dir of sortedDirs) {
+    const releaseEntry = fullReleaseSet.get(dir);
+    if (releaseEntry === undefined) {
+      continue;
+    }
+
+    const component = findComponent(config.components, dir);
+    if (component === undefined) {
+      continue;
+    }
+
+    // Bump all versions for this component.
+    const bump = bumpAllVersions(component.packageFiles, releaseEntry.releaseType, dryRun);
     const newTag = `${component.tagPrefix}${bump.newVersion}`;
     tags.push(newTag);
     modifiedFiles.push(...component.packageFiles, ...component.changelogPaths.map((p) => `${p}/CHANGELOG.md`));
 
-    // 4. Generate changelogs for each configured path with include-path filtering
+    // Generate changelogs: git-cliff for direct bumps, synthetic for propagation-only.
     const changelogFiles: string[] = [];
-    for (const changelogPath of component.changelogPaths) {
-      changelogFiles.push(
-        ...generateChangelog(config, changelogPath, newTag, dryRun, {
-          tagPattern: buildTagPattern(component.tagPrefix),
-          includePaths: component.paths,
-        }),
-      );
+    const directResult = directResults.get(dir);
+    const isPropagationOnly = directResult === undefined;
+
+    if (isPropagationOnly && releaseEntry.propagatedFrom !== undefined) {
+      for (const changelogPath of component.changelogPaths) {
+        changelogFiles.push(
+          writeSyntheticChangelog({
+            changelogPath,
+            newVersion: bump.newVersion,
+            date: today,
+            propagatedFrom: releaseEntry.propagatedFrom,
+            dryRun,
+          }),
+        );
+      }
+    } else {
+      for (const changelogPath of component.changelogPaths) {
+        changelogFiles.push(
+          ...generateChangelog(config, changelogPath, newTag, dryRun, {
+            tagPattern: buildTagPattern(component.tagPrefix),
+            includePaths: component.paths,
+          }),
+        );
+      }
     }
 
     components.push({
-      name,
+      name: dir,
       status: 'released',
-      previousTag: tag,
-      commitCount: commits.length,
-      parsedCommitCount,
-      releaseType,
+      previousTag: directResult?.tag ?? previousTags.get(dir),
+      commitCount: directResult?.commits.length ?? 0,
+      parsedCommitCount: directResult?.parsedCommitCount,
+      releaseType: releaseEntry.releaseType,
       currentVersion: bump.currentVersion,
       newVersion: bump.newVersion,
       tag: newTag,
       bumpedFiles: bump.files,
       changelogFiles,
-      unparseableCommits,
+      unparseableCommits: directResult?.unparseableCommits,
+      propagatedFrom: releaseEntry.propagatedFrom,
     });
   }
 
-  // 5. Run format command once after all components are processed, appending modified file paths
+  return { tags, modifiedFiles };
+}
+
+/** Run the format command on modified files, if configured. */
+function runFormatCommand(
+  config: MonorepoReleaseConfig,
+  tags: string[],
+  modifiedFiles: string[],
+  dryRun: boolean,
+): PrepareResult['formatCommand'] {
   const formatCommandStr = config.formatCommand ?? (hasPrettierConfig() ? 'npx prettier --write' : undefined);
-  let formatCommand: PrepareResult['formatCommand'];
 
-  if (tags.length > 0 && formatCommandStr !== undefined) {
-    const fullCommand = `${formatCommandStr} ${modifiedFiles.join(' ')}`;
+  if (tags.length === 0 || formatCommandStr === undefined) {
+    return undefined;
+  }
 
-    if (dryRun) {
-      formatCommand = { command: fullCommand, executed: false, files: modifiedFiles };
-    } else {
-      try {
-        execSync(fullCommand, { stdio: 'inherit' });
-      } catch (error: unknown) {
-        throw new Error(
-          `Format command failed ('${fullCommand}'): ${error instanceof Error ? error.message : String(error)}`,
-        );
+  const fullCommand = `${formatCommandStr} ${modifiedFiles.join(' ')}`;
+
+  if (dryRun) {
+    return { command: fullCommand, executed: false, files: modifiedFiles };
+  }
+
+  try {
+    execSync(fullCommand, { stdio: 'inherit' });
+  } catch (error: unknown) {
+    throw new Error(
+      `Format command failed ('${fullCommand}'): ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+
+  return { command: fullCommand, executed: true, files: modifiedFiles };
+}
+
+/** Find a component by its `dir` in the components array. */
+function findComponent(components: readonly ComponentConfig[], dir: string): ComponentConfig | undefined {
+  return components.find((c) => c.dir === dir);
+}
+
+function hasVersionField(value: unknown): value is { version: string } {
+  return typeof value === 'object' && value !== null && 'version' in value && typeof value.version === 'string';
+}
+
+/** Read the `version` field from a package.json file. */
+function readCurrentVersion(filePath: string): string | undefined {
+  try {
+    const content = readFileSync(filePath, 'utf8');
+    const parsed: unknown = JSON.parse(content);
+    if (hasVersionField(parsed)) {
+      return parsed.version;
+    }
+  } catch {
+    // Return undefined if the file can't be read or parsed.
+  }
+  return undefined;
+}
+
+/**
+ * Topologically sort component dirs so dependencies are processed before their dependents.
+ *
+ * Uses Kahn's algorithm. Components not in the release set are excluded. If the graph has
+ * cycles, the remaining nodes are appended in arbitrary order and reported via `cyclicDirs`.
+ */
+function topologicalSort(
+  releaseSet: Map<string, ReleaseEntry>,
+  graph: DependencyGraph,
+): { sorted: string[]; cyclicDirs: string[] } {
+  const releaseDirs = new Set(releaseSet.keys());
+  if (releaseDirs.size === 0) {
+    return { sorted: [], cyclicDirs: [] };
+  }
+
+  // Build a forward adjacency list (dependency -> dependent) restricted to the release set.
+  const inDegree = new Map<string, number>();
+  const forwardEdges = new Map<string, string[]>();
+
+  for (const dir of releaseDirs) {
+    inDegree.set(dir, 0);
+    forwardEdges.set(dir, []);
+  }
+
+  // For each released component, find its dependencies that are also in the release set.
+  for (const [packageName, dependents] of graph.dependentsOf) {
+    const depDir = graph.packageNameToDir.get(packageName);
+    if (depDir === undefined || !releaseDirs.has(depDir)) {
+      continue;
+    }
+
+    for (const dependent of dependents) {
+      if (!releaseDirs.has(dependent.dir)) {
+        continue;
       }
-      formatCommand = { command: fullCommand, executed: true, files: modifiedFiles };
+
+      const edges = forwardEdges.get(depDir);
+      if (edges !== undefined) {
+        edges.push(dependent.dir);
+      }
+
+      inDegree.set(dependent.dir, (inDegree.get(dependent.dir) ?? 0) + 1);
     }
   }
 
-  return {
-    components,
-    tags,
-    formatCommand,
-    dryRun,
-  };
+  // Kahn's algorithm.
+  const queue: string[] = [];
+  for (const [dir, degree] of inDegree) {
+    if (degree === 0) {
+      queue.push(dir);
+    }
+  }
+
+  const sorted: string[] = [];
+  while (queue.length > 0) {
+    const dir = queue.shift();
+    if (dir === undefined) {
+      break;
+    }
+    sorted.push(dir);
+
+    for (const dependent of forwardEdges.get(dir) ?? []) {
+      const newDegree = (inDegree.get(dependent) ?? 1) - 1;
+      inDegree.set(dependent, newDegree);
+      if (newDegree === 0) {
+        queue.push(dependent);
+      }
+    }
+  }
+
+  // Append any remaining (cyclic) nodes.
+  const sortedSet = new Set(sorted);
+  const cyclicDirs: string[] = [];
+  for (const dir of releaseDirs) {
+    if (!sortedSet.has(dir)) {
+      sorted.push(dir);
+      cyclicDirs.push(dir);
+    }
+  }
+
+  return { sorted, cyclicDirs };
 }

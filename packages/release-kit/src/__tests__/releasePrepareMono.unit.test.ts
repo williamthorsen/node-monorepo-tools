@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockExecFileSync = vi.hoisted(() => vi.fn());
 const mockExecSync = vi.hoisted(() => vi.fn());
+const mockExistsSync = vi.hoisted(() => vi.fn());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockWriteFileSync = vi.hoisted(() => vi.fn());
 const mockHasPrettierConfig = vi.hoisted(() => vi.fn());
@@ -12,6 +13,7 @@ vi.mock('node:child_process', () => ({
 }));
 
 vi.mock('node:fs', () => ({
+  existsSync: mockExistsSync,
   readFileSync: mockReadFileSync,
   writeFileSync: mockWriteFileSync,
 }));
@@ -77,6 +79,7 @@ describe(releasePrepareMono, () => {
   afterEach(() => {
     mockExecFileSync.mockReset();
     mockExecSync.mockReset();
+    mockExistsSync.mockReset();
     mockReadFileSync.mockReset();
     mockWriteFileSync.mockReset();
     mockHasPrettierConfig.mockReset();
@@ -156,6 +159,7 @@ describe(releasePrepareMono, () => {
       }
       return '';
     });
+    mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
 
     const result = releasePrepareMono(config, { dryRun: false });
 
@@ -558,6 +562,7 @@ describe(releasePrepareMono, () => {
       }
       return '';
     });
+    mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
 
     const result = releasePrepareMono(config, { dryRun: false });
 
@@ -665,5 +670,237 @@ describe(releasePrepareMono, () => {
       'packages/arrays/CHANGELOG.md',
       'packages/arrays/docs/CHANGELOG.md',
     ]);
+  });
+
+  describe('dependency propagation', () => {
+    it('propagates a patch bump to a dependent when a dependency is bumped', () => {
+      const config = makeConfig({
+        components: [
+          {
+            dir: 'core',
+            tagPrefix: 'core-v',
+            packageFiles: ['packages/core/package.json'],
+            changelogPaths: ['packages/core'],
+            paths: ['packages/core/**'],
+          },
+          {
+            dir: 'app',
+            tagPrefix: 'app-v',
+            packageFiles: ['packages/app/package.json'],
+            changelogPaths: ['packages/app'],
+            paths: ['packages/app/**'],
+          },
+        ],
+      });
+
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') {
+          const matchArg = args.find((a: string) => a.startsWith('--match='));
+          if (matchArg?.includes('core-v')) return 'core-v1.0.0\n';
+          if (matchArg?.includes('app-v')) return 'app-v2.0.0\n';
+        }
+        if (cmd === 'git' && args[0] === 'log') {
+          const hasCorePath = args.includes('packages/core/**');
+          if (hasCorePath) return 'feat: add utility\u001Fabc123';
+          return '';
+        }
+        return '';
+      });
+
+      mockReadFileSync.mockImplementation((filePath: string) => {
+        if (filePath.includes('core')) {
+          return JSON.stringify({
+            name: '@test/core',
+            version: '1.0.0',
+          });
+        }
+        if (filePath.includes('app')) {
+          return JSON.stringify({
+            name: '@test/app',
+            version: '2.0.0',
+            dependencies: { '@test/core': 'workspace:*' },
+          });
+        }
+        return '{}';
+      });
+      mockExistsSync.mockReturnValue(false);
+
+      const result = releasePrepareMono(config, { dryRun: false });
+
+      // core is bumped directly (minor), app is propagated (patch).
+      expect(result.tags).toContain('core-v1.1.0');
+      expect(result.tags).toContain('app-v2.0.1');
+      expect(result.components).toHaveLength(2);
+
+      const coreResult = result.components.find((c) => c.name === 'core');
+      expect(coreResult).toMatchObject({
+        status: 'released',
+        releaseType: 'minor',
+        newVersion: '1.1.0',
+      });
+
+      const appResult = result.components.find((c) => c.name === 'app');
+      expect(appResult).toMatchObject({
+        status: 'released',
+        releaseType: 'patch',
+        newVersion: '2.0.1',
+        commitCount: 0,
+        propagatedFrom: [{ packageName: '@test/core', newVersion: '1.1.0' }],
+      });
+    });
+
+    it('writes a synthetic changelog for propagated-only components', () => {
+      const config = makeConfig({
+        components: [
+          {
+            dir: 'core',
+            tagPrefix: 'core-v',
+            packageFiles: ['packages/core/package.json'],
+            changelogPaths: ['packages/core'],
+            paths: ['packages/core/**'],
+          },
+          {
+            dir: 'app',
+            tagPrefix: 'app-v',
+            packageFiles: ['packages/app/package.json'],
+            changelogPaths: ['packages/app'],
+            paths: ['packages/app/**'],
+          },
+        ],
+      });
+
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') {
+          const matchArg = args.find((a: string) => a.startsWith('--match='));
+          if (matchArg?.includes('core-v')) return 'core-v1.0.0\n';
+          if (matchArg?.includes('app-v')) return 'app-v1.0.0\n';
+        }
+        if (cmd === 'git' && args[0] === 'log') {
+          const hasCorePath = args.includes('packages/core/**');
+          if (hasCorePath) return 'fix: bug fix\u001Fabc123';
+          return '';
+        }
+        return '';
+      });
+
+      mockReadFileSync.mockImplementation((filePath: string) => {
+        if (filePath.includes('core')) {
+          return JSON.stringify({ name: '@test/core', version: '1.0.0' });
+        }
+        if (filePath.includes('app')) {
+          return JSON.stringify({
+            name: '@test/app',
+            version: '1.0.0',
+            dependencies: { '@test/core': 'workspace:*' },
+          });
+        }
+        return '{}';
+      });
+      mockExistsSync.mockReturnValue(false);
+
+      releasePrepareMono(config, { dryRun: false });
+
+      // git-cliff should be called only for core (direct), not for app (propagated).
+      expect(countCliffCalls()).toBe(1);
+      const cliffArgs = findCliffCallArgs();
+      expect(cliffArgs).toContain('packages/core/CHANGELOG.md');
+
+      // Synthetic changelog written for app.
+      const writeCallArgs = mockWriteFileSync.mock.calls;
+      const syntheticWrite = writeCallArgs.find(
+        (call: unknown[]) => typeof call[0] === 'string' && call[0] === 'packages/app/CHANGELOG.md',
+      );
+      expect(syntheticWrite).toBeDefined();
+      expect(syntheticWrite?.[1]).toContain('Dependency updates');
+      expect(syntheticWrite?.[1]).toContain('@test/core');
+    });
+
+    it('does not propagate to components excluded from config.components', () => {
+      // Only include "core" in config — "app" that depends on core is not listed.
+      const config = makeConfig({
+        components: [
+          {
+            dir: 'core',
+            tagPrefix: 'core-v',
+            packageFiles: ['packages/core/package.json'],
+            changelogPaths: ['packages/core'],
+            paths: ['packages/core/**'],
+          },
+        ],
+      });
+
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') return 'core-v1.0.0\n';
+        if (cmd === 'git' && args[0] === 'log') return 'feat: new feature\u001Fabc123';
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '1.0.0' }));
+
+      const result = releasePrepareMono(config, { dryRun: false });
+
+      // Only core should be released since app is not in config.components.
+      expect(result.tags).toStrictEqual(['core-v1.1.0']);
+      expect(result.components).toHaveLength(1);
+    });
+
+    it('preserves a direct higher bump when propagation would add a patch', () => {
+      const config = makeConfig({
+        components: [
+          {
+            dir: 'core',
+            tagPrefix: 'core-v',
+            packageFiles: ['packages/core/package.json'],
+            changelogPaths: ['packages/core'],
+            paths: ['packages/core/**'],
+          },
+          {
+            dir: 'app',
+            tagPrefix: 'app-v',
+            packageFiles: ['packages/app/package.json'],
+            changelogPaths: ['packages/app'],
+            paths: ['packages/app/**'],
+          },
+        ],
+      });
+
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') {
+          const matchArg = args.find((a: string) => a.startsWith('--match='));
+          if (matchArg?.includes('core-v')) return 'core-v1.0.0\n';
+          if (matchArg?.includes('app-v')) return 'app-v2.0.0\n';
+        }
+        if (cmd === 'git' && args[0] === 'log') {
+          // Both have commits.
+          const hasCorePath = args.includes('packages/core/**');
+          if (hasCorePath) return 'fix: core fix\u001Fabc123';
+          return 'feat: app feature\u001Fdef456';
+        }
+        return '';
+      });
+
+      mockReadFileSync.mockImplementation((filePath: string) => {
+        if (filePath.includes('core')) {
+          return JSON.stringify({ name: '@test/core', version: '1.0.0' });
+        }
+        if (filePath.includes('app')) {
+          return JSON.stringify({
+            name: '@test/app',
+            version: '2.0.0',
+            dependencies: { '@test/core': 'workspace:*' },
+          });
+        }
+        return '{}';
+      });
+
+      const result = releasePrepareMono(config, { dryRun: false });
+
+      // app has its own minor bump from commits; propagation adds metadata but keeps minor.
+      const appResult = result.components.find((c) => c.name === 'app');
+      expect(appResult).toMatchObject({
+        status: 'released',
+        releaseType: 'minor',
+        propagatedFrom: [{ packageName: '@test/core', newVersion: '1.0.1' }],
+      });
+    });
   });
 });
