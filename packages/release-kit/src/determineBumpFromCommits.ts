@@ -14,13 +14,13 @@ export function determineBumpFromCommits(
   commits: Commit[],
   workTypes: Record<string, WorkTypeConfig>,
   versionPatterns: VersionPatterns,
-  workspaceAliases: Record<string, string> | undefined,
+  scopeAliases: Record<string, string> | undefined,
 ): BumpDetermination {
   const parsedCommits: ParsedCommit[] = [];
   const unparseable: Commit[] = [];
 
   for (const commit of commits) {
-    const parsed = parseCommitMessage(commit.message, commit.hash, workTypes, workspaceAliases);
+    const parsed = parseCommitMessage(commit.message, commit.hash, workTypes, scopeAliases);
     if (parsed === undefined) {
       unparseable.push(commit);
     } else {

@@ -43,19 +43,20 @@ commit_preprocessors = [
   { pattern = '^[A-Z]+-\d+\s+', replace = "" },
 ]
 # regex for parsing and grouping commits
-# Supports both "type: description" and "workspace|type: description" formats
+# Supports "type: desc", "scope|type: desc", and "type(scope): desc" formats
 commit_parsers = [
-  { message = "^.*\\|?fix(!)?:", group = "Bug fixes" },
-  { message = "^.*\\|?feat(!)?:", group = "Features" },
-  { message = "^.*\\|?feature(!)?:", group = "Features" },
-  { message = "^.*\\|?internal(!)?:", group = "Internal" },
-  { message = "^.*\\|?refactor(!)?:", group = "Refactoring" },
-  { message = "^.*\\|?tests?(!)?:", group = "Tests" },
-  { message = "^.*\\|?tooling(!)?:", group = "Tooling" },
-  { message = "^.*\\|?ci(!)?:", group = "CI" },
-  { message = "^.*\\|?deps?(!)?:", group = "Dependencies" },
-  { message = "^.*\\|?docs?(!)?:", group = "Documentation" },
-  { message = "^.*\\|?fmt(!)?:", group = "Formatting" },
+  { message = "^(.*\\|)?fix(\\(.*\\))?(!)?:", group = "Bug fixes" },
+  { message = "^(.*\\|)?bugfix(\\(.*\\))?(!)?:", group = "Bug fixes" },
+  { message = "^(.*\\|)?feat(\\(.*\\))?(!)?:", group = "Features" },
+  { message = "^(.*\\|)?feature(\\(.*\\))?(!)?:", group = "Features" },
+  { message = "^(.*\\|)?internal(\\(.*\\))?(!)?:", group = "Internal" },
+  { message = "^(.*\\|)?refactor(\\(.*\\))?(!)?:", group = "Refactoring" },
+  { message = "^(.*\\|)?tests?(\\(.*\\))?(!)?:", group = "Tests" },
+  { message = "^(.*\\|)?tooling(\\(.*\\))?(!)?:", group = "Tooling" },
+  { message = "^(.*\\|)?ci(\\(.*\\))?(!)?:", group = "CI" },
+  { message = "^(.*\\|)?deps?(\\(.*\\))?(!)?:", group = "Dependencies" },
+  { message = "^(.*\\|)?docs?(\\(.*\\))?(!)?:", group = "Documentation" },
+  { message = "^(.*\\|)?fmt(\\(.*\\))?(!)?:", group = "Formatting" },
 ]
 # protect breaking changes from being skipped due to matching a skipping commit_parser
 protect_breaking_commits = false

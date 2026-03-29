@@ -43,7 +43,7 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   let unparseableCommits: Commit[] | undefined;
 
   if (bumpOverride === undefined) {
-    const determination = determineBumpFromCommits(commits, workTypes, versionPatterns, config.workspaceAliases);
+    const determination = determineBumpFromCommits(commits, workTypes, versionPatterns, config.scopeAliases);
     parsedCommitCount = determination.parsedCommitCount;
     unparseableCommits = determination.unparseableCommits;
     releaseType = determination.releaseType;

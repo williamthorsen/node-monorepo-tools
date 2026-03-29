@@ -90,16 +90,51 @@ describe('cliff.toml.template alignment with DEFAULT_WORK_TYPES', () => {
   const expectedTypes = getExpectedTypes();
   const knownHeaders = getKnownHeaders();
 
-  describe('every work type and alias is matched by a commit parser', () => {
-    for (const { typeName, header } of expectedTypes) {
-      it(`"${typeName}" is matched and grouped as "${header}"`, () => {
-        const syntheticMessage = `${typeName}: test`;
-        const matchingParser = parsers.find((parser) => new RegExp(parser.message).test(syntheticMessage));
+  /** Assert that a synthetic commit message is matched by a parser and grouped under the expected header. */
+  function assertParsedAs(message: string, expectedGroup: string): void {
+    const matchingParser = parsers.find((parser) => new RegExp(parser.message).test(message));
+    if (matchingParser === undefined) {
+      expect.fail(`No commit parser matches "${message}"`);
+    }
+    expect(matchingParser.group).toBe(expectedGroup);
+  }
 
-        if (matchingParser === undefined) {
-          expect.fail(`No commit parser matches "${syntheticMessage}"`);
-        }
-        expect(matchingParser.group).toBe(header);
+  describe('every work type and alias is matched by a commit parser (bare format)', () => {
+    for (const { typeName, header } of expectedTypes) {
+      it(`"${typeName}: test" is matched and grouped as "${header}"`, () => {
+        assertParsedAs(`${typeName}: test`, header);
+      });
+    }
+  });
+
+  describe('every work type is matched in pipe-prefixed scope format', () => {
+    for (const { typeName, header } of expectedTypes) {
+      it(`"scope|${typeName}: test" is matched and grouped as "${header}"`, () => {
+        assertParsedAs(`scope|${typeName}: test`, header);
+      });
+    }
+  });
+
+  describe('every work type is matched in conventional commit format', () => {
+    for (const { typeName, header } of expectedTypes) {
+      it(`"${typeName}(scope): test" is matched and grouped as "${header}"`, () => {
+        assertParsedAs(`${typeName}(scope): test`, header);
+      });
+    }
+  });
+
+  describe('breaking variants are matched in all formats', () => {
+    for (const { typeName, header } of expectedTypes) {
+      it(`"${typeName}!: test" (bare breaking) is matched as "${header}"`, () => {
+        assertParsedAs(`${typeName}!: test`, header);
+      });
+
+      it(`"${typeName}(scope)!: test" (conventional breaking) is matched as "${header}"`, () => {
+        assertParsedAs(`${typeName}(scope)!: test`, header);
+      });
+
+      it(`"scope|${typeName}!: test" (pipe breaking) is matched as "${header}"`, () => {
+        assertParsedAs(`scope|${typeName}!: test`, header);
       });
     }
   });
