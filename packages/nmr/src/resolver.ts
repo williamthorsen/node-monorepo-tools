@@ -77,6 +77,15 @@ export function buildRootRegistry(config: NmrConfig): ScriptRegistry {
 }
 
 /**
+ * Check whether a package.json script simply re-invokes the same nmr command,
+ * e.g. `"build": "nmr build"` or `"build": "nmr build --verbose"`.
+ */
+function isSelfReferential(script: string, commandName: string): boolean {
+  const prefix = `nmr ${commandName}`;
+  return script === prefix || script.startsWith(`${prefix} `);
+}
+
+/**
  * Resolves a script command using the three-tier override system:
  * 1. Package defaults (built-in registry)
  * 2. Repo-wide config (.config/nmr.config.ts)
@@ -96,7 +105,7 @@ export function resolveScript(
     const pkgScripts = readPackageJsonScripts(packageDir);
     if (pkgScripts && commandName in pkgScripts) {
       const override = pkgScripts[commandName];
-      if (override !== undefined) {
+      if (override !== undefined && !isSelfReferential(override, commandName)) {
         return { command: override, source: 'package' };
       }
     }

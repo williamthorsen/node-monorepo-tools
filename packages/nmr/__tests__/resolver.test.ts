@@ -119,6 +119,48 @@ describe('resolveScript', () => {
     expect(result).toEqual({ command: '', source: 'package' });
   });
 
+  it('skips self-referential package.json override (exact match)', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'package.json'),
+      JSON.stringify({ name: 'test-pkg', scripts: { build: 'nmr build' } }),
+    );
+
+    const registry = { build: ['compile', 'generate-typings'] };
+    const result = resolveScript('build', registry, tmpDir);
+
+    expect(result).toEqual({
+      command: 'nmr compile && nmr generate-typings',
+      source: 'default',
+    });
+  });
+
+  it('skips self-referential package.json override (with trailing args)', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'package.json'),
+      JSON.stringify({ name: 'test-pkg', scripts: { build: 'nmr build --verbose' } }),
+    );
+
+    const registry = { build: ['compile', 'generate-typings'] };
+    const result = resolveScript('build', registry, tmpDir);
+
+    expect(result).toEqual({
+      command: 'nmr compile && nmr generate-typings',
+      source: 'default',
+    });
+  });
+
+  it('does not skip non-self-referential nmr override', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'package.json'),
+      JSON.stringify({ name: 'test-pkg', scripts: { build: 'nmr compile' } }),
+    );
+
+    const registry = { build: ['compile', 'generate-typings'] };
+    const result = resolveScript('build', registry, tmpDir);
+
+    expect(result).toEqual({ command: 'nmr compile', source: 'package' });
+  });
+
   it('falls through to registry when package.json has no matching script', () => {
     fs.writeFileSync(
       path.join(tmpDir, 'package.json'),
