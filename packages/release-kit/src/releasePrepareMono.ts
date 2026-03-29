@@ -42,6 +42,14 @@ interface SkippedResult {
   skipReason: string;
 }
 
+/** Aggregate result from Phase 1 (determine direct bumps). */
+interface Phase1Result {
+  directBumps: Map<string, ReleaseEntry>;
+  directResults: Map<string, DirectBumpResult>;
+  skippedResults: SkippedResult[];
+  currentVersions: CurrentVersions;
+}
+
 /**
  * Orchestrate release preparation for a monorepo with multiple components.
  *
@@ -51,11 +59,72 @@ interface SkippedResult {
  * Phase 3: Execute bumps and generate changelogs in dependency order.
  */
 export function releasePrepareMono(config: MonorepoReleaseConfig, options: ReleasePrepareOptions): PrepareResult {
-  const { dryRun, force, bumpOverride } = options;
+  const { dryRun } = options;
+
+  // === Phase 1: Determine direct bumps ===
+  const { directBumps, directResults, skippedResults, currentVersions } = determineDirectBumps(config, options);
+
+  // Build a lookup of previous tags for all components (needed for propagated ones).
+  const previousTags = new Map<string, string | undefined>();
+  for (const result of directResults.values()) {
+    previousTags.set(result.component.dir, result.tag);
+  }
+  for (const skipped of skippedResults) {
+    previousTags.set(skipped.component.dir, skipped.tag);
+  }
+
+  // === Phase 2: Build graph and propagate bumps ===
+  const graph = buildDependencyGraph(config.components);
+  const fullReleaseSet = propagateBumps(directBumps, graph, currentVersions);
+
+  // === Phase 2b: Topologically sort the release set ===
+  const { sorted: sortedDirs, cyclicDirs } = topologicalSort(fullReleaseSet, graph);
+  const warnings: string[] = [];
+  if (cyclicDirs.length > 0) {
+    warnings.push(
+      `Circular workspace dependencies detected among: ${cyclicDirs.join(', ')}. ` +
+        'Propagation metadata may be incomplete for these components.',
+    );
+  }
+
+  // === Phase 3: Execute bumps and generate changelogs ===
+  const components = collectSkippedComponents(skippedResults, fullReleaseSet);
+  const { tags, modifiedFiles } = executeReleaseSet(
+    sortedDirs,
+    fullReleaseSet,
+    config,
+    directResults,
+    previousTags,
+    dryRun,
+    components,
+  );
+
+  // Reorder components to match original config order.
+  const configOrder = new Map(config.components.map((c, i) => [c.dir, i]));
+  components.sort((a, b) => {
+    const orderA = configOrder.get(a.name ?? '') ?? 0;
+    const orderB = configOrder.get(b.name ?? '') ?? 0;
+    return orderA - orderB;
+  });
+
+  // === Phase 4: Format ===
+  const formatCommand = runFormatCommand(config, tags, modifiedFiles, dryRun);
+
+  return {
+    components,
+    tags,
+    formatCommand,
+    dryRun,
+    ...(warnings.length > 0 ? { warnings } : {}),
+  };
+}
+
+/** Determine direct bumps from commits for each component. */
+function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePrepareOptions): Phase1Result {
+  const { force, bumpOverride } = options;
   const workTypes = config.workTypes ?? { ...DEFAULT_WORK_TYPES };
   const versionPatterns = config.versionPatterns ?? { ...DEFAULT_VERSION_PATTERNS };
 
-  // === Phase 1: Determine direct bumps ===
   const directBumps = new Map<string, ReleaseEntry>();
   const directResults = new Map<string, DirectBumpResult>();
   const skippedResults: SkippedResult[] = [];
@@ -125,35 +194,15 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
     });
   }
 
-  // Build a lookup of previous tags for all components (needed for propagated ones).
-  const previousTags = new Map<string, string | undefined>();
-  for (const result of directResults.values()) {
-    previousTags.set(result.component.dir, result.tag);
-  }
-  for (const skipped of skippedResults) {
-    previousTags.set(skipped.component.dir, skipped.tag);
-  }
+  return { directBumps, directResults, skippedResults, currentVersions };
+}
 
-  // === Phase 2: Build graph and propagate bumps ===
-  const graph = buildDependencyGraph(config.components);
-  const fullReleaseSet = propagateBumps(directBumps, graph, currentVersions);
-
-  // === Phase 2b: Topologically sort the release set ===
-  const { sorted: sortedDirs, cyclicDirs } = topologicalSort(fullReleaseSet, graph);
-  const warnings: string[] = [];
-  if (cyclicDirs.length > 0) {
-    warnings.push(
-      `Circular workspace dependencies detected among: ${cyclicDirs.join(', ')}. ` +
-        'Propagation metadata may be incomplete for these components.',
-    );
-  }
-
-  // === Phase 3: Execute bumps and generate changelogs ===
-  const tags: string[] = [];
-  const modifiedFiles: string[] = [];
+/** Collect skipped components, excluding those promoted via propagation. */
+function collectSkippedComponents(
+  skippedResults: SkippedResult[],
+  fullReleaseSet: Map<string, ReleaseEntry>,
+): ComponentPrepareResult[] {
   const components: ComponentPrepareResult[] = [];
-
-  // Collect skipped results (excluding components that were added via propagation).
   for (const skipped of skippedResults) {
     if (fullReleaseSet.has(skipped.component.dir)) {
       continue;
@@ -170,8 +219,21 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
       skipReason: skipped.skipReason,
     });
   }
+  return components;
+}
 
-  // Process released components in topological order.
+/** Execute bumps and generate changelogs for each component in dependency order. */
+function executeReleaseSet(
+  sortedDirs: string[],
+  fullReleaseSet: Map<string, ReleaseEntry>,
+  config: MonorepoReleaseConfig,
+  directResults: Map<string, DirectBumpResult>,
+  previousTags: Map<string, string | undefined>,
+  dryRun: boolean,
+  components: ComponentPrepareResult[],
+): { tags: string[]; modifiedFiles: string[] } {
+  const tags: string[] = [];
+  const modifiedFiles: string[] = [];
   const today = new Date().toISOString().slice(0, 10);
 
   for (const dir of sortedDirs) {
@@ -197,7 +259,6 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
     const isPropagationOnly = directResult === undefined;
 
     if (isPropagationOnly && releaseEntry.propagatedFrom !== undefined) {
-      // Propagation-only: write synthetic changelog.
       for (const changelogPath of component.changelogPaths) {
         changelogFiles.push(
           writeSyntheticChangelog({
@@ -210,7 +271,6 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
         );
       }
     } else {
-      // Direct bump (possibly with propagatedFrom metadata): use git-cliff.
       for (const changelogPath of component.changelogPaths) {
         changelogFiles.push(
           ...generateChangelog(config, changelogPath, newTag, dryRun, {
@@ -238,42 +298,37 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
     });
   }
 
-  // Reorder components to match original config order.
-  const configOrder = new Map(config.components.map((c, i) => [c.dir, i]));
-  components.sort((a, b) => {
-    const orderA = configOrder.get(a.name ?? '') ?? 0;
-    const orderB = configOrder.get(b.name ?? '') ?? 0;
-    return orderA - orderB;
-  });
+  return { tags, modifiedFiles };
+}
 
-  // === Phase 4: Format ===
+/** Run the format command on modified files, if configured. */
+function runFormatCommand(
+  config: MonorepoReleaseConfig,
+  tags: string[],
+  modifiedFiles: string[],
+  dryRun: boolean,
+): PrepareResult['formatCommand'] {
   const formatCommandStr = config.formatCommand ?? (hasPrettierConfig() ? 'npx prettier --write' : undefined);
-  let formatCommand: PrepareResult['formatCommand'];
 
-  if (tags.length > 0 && formatCommandStr !== undefined) {
-    const fullCommand = `${formatCommandStr} ${modifiedFiles.join(' ')}`;
-
-    if (dryRun) {
-      formatCommand = { command: fullCommand, executed: false, files: modifiedFiles };
-    } else {
-      try {
-        execSync(fullCommand, { stdio: 'inherit' });
-      } catch (error: unknown) {
-        throw new Error(
-          `Format command failed ('${fullCommand}'): ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
-      formatCommand = { command: fullCommand, executed: true, files: modifiedFiles };
-    }
+  if (tags.length === 0 || formatCommandStr === undefined) {
+    return undefined;
   }
 
-  return {
-    components,
-    tags,
-    formatCommand,
-    dryRun,
-    ...(warnings.length > 0 ? { warnings } : {}),
-  };
+  const fullCommand = `${formatCommandStr} ${modifiedFiles.join(' ')}`;
+
+  if (dryRun) {
+    return { command: fullCommand, executed: false, files: modifiedFiles };
+  }
+
+  try {
+    execSync(fullCommand, { stdio: 'inherit' });
+  } catch (error: unknown) {
+    throw new Error(
+      `Format command failed ('${fullCommand}'): ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+
+  return { command: fullCommand, executed: true, files: modifiedFiles };
 }
 
 /** Find a component by its `dir` in the components array. */
