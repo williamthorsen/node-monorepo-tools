@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [nmr-v0.3.0] - 2026-03-29
+
+### Features
+
+- #86 nmr|feat: Resolve package.json scripts at root level and skip in recursive mode (#95)
+
+Pass `monorepoRoot` as `packageDir` when `isRoot` is true so root `package.json` scripts participate in the same override tier that workspace packages already use.
+
+Set `NMR_RUN_IF_PRESENT=1` in the `-R` codepath so child processes that can't resolve a command exit 0 (skip) instead of exit 1.
+
+Only log "Using override script" when the `package.json` script actually overrides a registry command.
+
+Remove the self-referencing `ci: "nmr ci"` script from root `package.json` and update the CI workflow to use `code-quality-pnpm-workflow.yaml@v4` with an explicit `check-command`.
+
 ## [nmr-v0.2.0] - 2026-03-28
 
 ### Documentation
@@ -24,15 +38,7 @@ New binary that checks whether all publishable (non-private) workspace packages 
 
 Also adds `private` field extraction to the shared `PackageJson` interface.
 
-## [release-kit-v2.3.0] - 2026-03-28
-
-### Features
-
-- #59 feat: Extract nmr CLI from core package (#61)
-
-Extracts all nmr CLI code from `packages/core` into a new `packages/nmr` package (`@williamthorsen/nmr`). Core is reduced to an empty shared-library shell ready for cross-cutting utilities. All internal references are rewired and the full build/test pipeline passes.
-
-Scopes: core, nmr
+## [nmr-v0.1.1] - 2026-03-28
 
 ### Refactoring
 

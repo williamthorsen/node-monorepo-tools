@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## [release-kit-v3.0.0] - 2026-03-29
+
+### Bug fixes
+
+- #68 release-kit|fix: Pass tag pattern to git-cliff based on tagPrefix (#77)
+
+Fixes the issue that git-cliff was processing the entire commit history on every run instead of only commits since the last release.
+
+Constructs the pattern from `tagPrefix` at invocation time (e.g., `release-kit-v` → `release-kit-v[0-9].*`) and pass it via `--tag-pattern`, which overrides the config file default.
+
+- #72 release-kit|fix: Propagate version bumps to workspace dependents (#80)
+
+Restructures `releasePrepareMono` from a single-pass loop into a phased pipeline that automatically patch-bumps workspace dependents when a component is released. A reverse dependency graph is built from `workspace:` references in `dependencies` and `peerDependencies`, then BFS propagation walks upward from bumped components to their dependents. Propagated-only components receive synthetic changelog entries instead of git-cliff invocations.
+
+### Features
+
+- #73 release-kit|feat!: Support conventional-commit format in commit parsing (#85)
+
+Adds support for the conventional commits format (`type(scope): description`) alongside the existing pipe-prefixed format (`scope|type: description`) in release-kit's commit parser. Renames `workspace` to `scope` throughout release-kit types, config, validation, and consumers.
+
+- #70 release-kit|feat: Add commit command for local release flow (#89)
+
+Adds a `release-kit commit` command that centralizes the release commit step between `prepare` and `tag`. The command reads tag names and a per-component commit summary from temporary files written by `prepare`, stages all changes, and creates a formatted commit. Two new utilities — `stripScope` and `buildReleaseSummary` — support building the commit body by stripping redundant scope indicators and formatting commits under their component headings. The CI workflow is simplified to use `release-kit commit` and `release-kit tag` instead of inline shell logic.
+
+- #69 release-kit|feat: Add CI publish workflow with OIDC trusted publishing (#90)
+
+Adds automated npm publication via a tag-push-triggered GitHub Actions workflow using OIDC trusted publishing. Extends `release-kit publish` with a `--provenance` flag and `release-kit init` with publish workflow scaffolding.
+
+- #91 release-kit|feat: Make --provenance opt-in to support private repos (#94)
+
+Adds a `provenance` boolean input (default `false`) to the reusable `publish-workflow.yaml` so private repos using OIDC trusted publishing no longer fail at publish time. The `--provenance` flag is only passed to `release-kit publish` when the caller sets `provenance: true`.
+
+Updates the scaffolded `publish.yaml` template to include `provenance: false` with an inline comment guiding public repos to opt in. Expand the `release-kit init` next-steps output with hints about the provenance setting and trusted publisher registration. Set `provenance: true` in this repo's own `publish.yaml` since it is public.
+
 ## [release-kit-v2.3.2] - 2026-03-28
 
 ### Bug fixes
@@ -13,10 +47,6 @@ Prevents `releasePrepareMono` and `releasePrepare` from silently skipping compon
 ## [release-kit-v2.3.0] - 2026-03-28
 
 ### Features
-
-- #8 feat: Add shared writeFileWithCheck utility and overwrite reporting (#66)
-
-Extracts three duplicated `writeIfAbsent` implementations and two duplicated terminal helper sets into shared utilities in `@williamthorsen/node-monorepo-core`, then migrates all consumers (`release-kit init`, `preflight init`, `sync-labels`) to use them. All init commands now report which files were created, overwritten, skipped, or failed — including when `--force` replaces existing files.
 
 - #11 release-kit|feat: Separate tag-write errors from release preparation errors (#67)
 
@@ -40,7 +70,27 @@ Adds three unit tests to `releasePrepare.unit.test.ts` covering previously untes
 
 ## [release-kit-v2.2.0] - 2026-03-27
 
+### Dependencies
+
+- Root|deps: Add release-kit as root devDependency
+
+Make `npx release-kit` and `pnpm exec release-kit` resolve within
+this repo by adding a `workspace:*` dependency that symlinks the bin.
+
 ### Features
+
+- #23 release-kit|feat: Add sync-labels command (#33)
+
+Add a `release-kit sync-labels` command group with three subcommands (`init`, `generate`, `sync`) for declarative GitHub label management in monorepos. Bundle a reusable GitHub Actions workflow and composable label presets with the release-kit package. Introduce a `findPackageRoot` utility to replace fragile hardcoded path resolutions across the codebase.
+
+- #34 release-kit|feat: Report up-to-date status for unchanged init files (#35)
+
+`release-kit init` now compares existing file content against the default before reporting status. When an existing file is identical to the default (after normalizing trailing whitespace), it reports `✅ (up to date)` instead of the misleading `⚠️ (already exists)`.
+
+- Release-workflow|feat: Accept force input
+
+Pass `--force` to the prepare command so callers can force a version
+bump even when there are no release-worthy changes.
 
 - #27 release-kit|feat: Auto-detect Prettier for CHANGELOG formatting (#36)
 
@@ -62,17 +112,7 @@ Removes the ability to customize `tagPrefix` per component, enforcing the determ
 
 Adds ANSI formatting and emoji markers to the `release-kit prepare` command output. Progress chatter is dimmed, key results (version bumps, release tags, completion status) are highlighted with bold text and emoji, and monorepo components are separated by box-drawing section headers.
 
-- #59 feat: Extract nmr CLI from core package (#61)
-
-Extracts all nmr CLI code from `packages/core` into a new `packages/nmr` package (`@williamthorsen/nmr`). Core is reduced to an empty shared-library shell ready for cross-cutting utilities. All internal references are rewired and the full build/test pipeline passes.
-
-Scopes: core, nmr
-
 ### Refactoring
-
-- #43 refactor: Replace dist bin targets with thin wrapper scripts (#48)
-
-The `bin` entries in `packages/core` and `packages/release-kit` pointed directly into `dist/esm/`, causing `pnpm install` to emit "Failed to create bin" warnings in fresh worktrees where `dist/` does not yet exist. Each bin entry now points to a committed wrapper script in `bin/` that dynamically imports the real entry point. The `files` field in both packages includes `bin` so the wrappers are published.
 
 - #53 release-kit|refactor: Separate presentation from logic in prepare workflow (#57)
 
@@ -95,30 +135,6 @@ Also adds a `findAllCliffOutputPaths()` test helper that collects the `--output`
 - #37 root|tooling: Adopt nmr to run monorepo and workspace scripts (#38)
 
 Replaces the legacy workspace script runner and ~25 root `package.json` scripts with `nmr`, the monorepo's own context-aware script runner. Root scripts are reduced to 4 (`prepare`, `postinstall`, `ci`, `bootstrap`), packages use direct build commands for bootstrap, and release-kit declares tier-3 test overrides for its integration test configs.
-
-## [release-workflow-v1] - 2026-03-19
-
-### Dependencies
-
-- Root|deps: Add release-kit as root devDependency
-
-Make `npx release-kit` and `pnpm exec release-kit` resolve within
-this repo by adding a `workspace:*` dependency that symlinks the bin.
-
-### Features
-
-- #23 release-kit|feat: Add sync-labels command (#33)
-
-Add a `release-kit sync-labels` command group with three subcommands (`init`, `generate`, `sync`) for declarative GitHub label management in monorepos. Bundle a reusable GitHub Actions workflow and composable label presets with the release-kit package. Introduce a `findPackageRoot` utility to replace fragile hardcoded path resolutions across the codebase.
-
-- #34 release-kit|feat: Report up-to-date status for unchanged init files (#35)
-
-`release-kit init` now compares existing file content against the default before reporting status. When an existing file is identical to the default (after normalizing trailing whitespace), it reports `✅ (up to date)` instead of the misleading `⚠️ (already exists)`.
-
-- Release-workflow|feat: Accept force input
-
-Pass `--force` to the prepare command so callers can force a version
-bump even when there are no release-worthy changes.
 
 ## [release-kit-v2.1.0] - 2026-03-17
 
