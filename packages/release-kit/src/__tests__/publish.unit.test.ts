@@ -163,6 +163,33 @@ describe(publish, () => {
     });
   });
 
+  it('forwards --dry-run and --provenance together for pnpm', () => {
+    publish(singleTag, 'pnpm', { dryRun: true, noGitChecks: false, provenance: true });
+
+    expect(mockExecFileSync).toHaveBeenCalledWith('pnpm', ['publish', '--dry-run', '--provenance'], {
+      cwd: '.',
+      stdio: 'inherit',
+    });
+  });
+
+  it('forwards all three flags in deterministic order for pnpm', () => {
+    publish(singleTag, 'pnpm', { dryRun: true, noGitChecks: true, provenance: true });
+
+    expect(mockExecFileSync).toHaveBeenCalledWith('pnpm', ['publish', '--dry-run', '--no-git-checks', '--provenance'], {
+      cwd: '.',
+      stdio: 'inherit',
+    });
+  });
+
+  it('forwards --dry-run but suppresses --provenance for classic yarn', () => {
+    publish(singleTag, 'yarn', { dryRun: true, noGitChecks: false, provenance: true });
+
+    expect(mockExecFileSync).toHaveBeenCalledWith('yarn', ['publish', '--dry-run'], {
+      cwd: '.',
+      stdio: 'inherit',
+    });
+  });
+
   it('prints confirmation listing before publishing', () => {
     publish(multiTags, 'pnpm', { dryRun: false, noGitChecks: false, provenance: false });
 

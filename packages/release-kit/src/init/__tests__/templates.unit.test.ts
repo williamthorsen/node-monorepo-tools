@@ -40,9 +40,11 @@ describe(publishWorkflow, () => {
     const workflow = publishWorkflow('monorepo');
 
     expect(workflow).toContain("'*-v[0-9]*'");
+    expect(workflow).not.toContain("- 'v[0-9]*'");
     expect(workflow).toContain('publish-workflow.yaml@publish-workflow-v1');
     expect(workflow).toContain('id-token: write');
     expect(workflow).toContain('contents: read');
+    expect(workflow).toContain('secrets: inherit');
   });
 
   it('generates a single-package workflow with v-prefixed tag pattern', () => {
@@ -53,6 +55,7 @@ describe(publishWorkflow, () => {
     expect(workflow).toContain('publish-workflow.yaml@publish-workflow-v1');
     expect(workflow).toContain('id-token: write');
     expect(workflow).toContain('contents: read');
+    expect(workflow).toContain('secrets: inherit');
   });
 });
 

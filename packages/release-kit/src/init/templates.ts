@@ -44,7 +44,12 @@ export default config;
 `;
 }
 
-/** Generate the publish.yaml GitHub Actions entry-point workflow. */
+/**
+ * Generate the publish.yaml GitHub Actions entry-point workflow.
+ *
+ * The `permissions` block is present for explicitness; the reusable workflow declares its own
+ * permissions, so GitHub uses those rather than the caller's block.
+ */
 export function publishWorkflow(repoType: RepoType): string {
   const tagPattern = repoType === 'monorepo' ? "'*-v[0-9]*'" : "'v[0-9]*'";
 
@@ -63,6 +68,7 @@ permissions:
 jobs:
   publish:
     uses: williamthorsen/node-monorepo-tools/.github/workflows/publish-workflow.yaml@publish-workflow-v1
+    secrets: inherit
 `;
 }
 

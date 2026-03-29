@@ -76,7 +76,9 @@ describe('scaffold', () => {
     });
 
     it('returns skipped results when overwrite is false and files exist', () => {
-      mockWriteFileWithCheck.mockReturnValue({ filePath: '.github/workflows/release.yaml', outcome: 'skipped' });
+      mockWriteFileWithCheck
+        .mockReturnValueOnce({ filePath: '.github/workflows/release.yaml', outcome: 'skipped' })
+        .mockReturnValueOnce({ filePath: '.github/workflows/publish.yaml', outcome: 'skipped' });
 
       const results = scaffoldFiles({
         repoType: 'single-package',
@@ -85,15 +87,23 @@ describe('scaffold', () => {
         withConfig: false,
       });
 
+      expect(results).toHaveLength(2);
       expect(results[0]).toEqual({ filePath: '.github/workflows/release.yaml', outcome: 'skipped' });
+      expect(results[1]).toEqual({ filePath: '.github/workflows/publish.yaml', outcome: 'skipped' });
     });
 
     it('passes overwrite option to writeFileWithCheck', () => {
-      mockWriteFileWithCheck.mockReturnValue({ filePath: '.github/workflows/release.yaml', outcome: 'overwritten' });
+      mockWriteFileWithCheck
+        .mockReturnValueOnce({ filePath: '.github/workflows/release.yaml', outcome: 'overwritten' })
+        .mockReturnValueOnce({ filePath: '.github/workflows/publish.yaml', outcome: 'overwritten' });
 
       scaffoldFiles({ repoType: 'single-package', dryRun: false, overwrite: true, withConfig: false });
 
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.github/workflows/release.yaml', expect.any(String), {
+        dryRun: false,
+        overwrite: true,
+      });
+      expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.github/workflows/publish.yaml', expect.any(String), {
         dryRun: false,
         overwrite: true,
       });
