@@ -5,6 +5,7 @@ import type {
   PreflightCheckList,
   PreflightReport,
   PreflightResult,
+  Progress,
   StagedPreflightCheckList,
 } from './types.ts';
 import { isFlatCheckList } from './types.ts';
@@ -16,6 +17,8 @@ function buildResult(
   durationMs: number,
   fix?: string,
   error?: Error,
+  detail?: string,
+  progress?: Progress,
 ): PreflightResult {
   const result: PreflightResult = { name, status, durationMs };
   if (fix !== undefined) {
@@ -24,6 +27,12 @@ function buildResult(
   if (error !== undefined) {
     result.error = error;
   }
+  if (detail !== undefined) {
+    result.detail = detail;
+  }
+  if (progress !== undefined) {
+    result.progress = progress;
+  }
   return result;
 }
 
@@ -31,9 +40,20 @@ function buildResult(
 async function executeCheck(check: PreflightCheck): Promise<PreflightResult> {
   const start = performance.now();
   try {
-    const passed = await check.check();
+    const raw = await check.check();
     const durationMs = performance.now() - start;
-    return buildResult(check.name, passed ? 'passed' : 'failed', durationMs, check.fix);
+    if (typeof raw === 'boolean') {
+      return buildResult(check.name, raw ? 'passed' : 'failed', durationMs, check.fix);
+    }
+    return buildResult(
+      check.name,
+      raw.ok ? 'passed' : 'failed',
+      durationMs,
+      check.fix,
+      undefined,
+      raw.detail,
+      raw.progress,
+    );
   } catch (error_: unknown) {
     const durationMs = performance.now() - start;
     const error = error_ instanceof Error ? error_ : new Error(String(error_));

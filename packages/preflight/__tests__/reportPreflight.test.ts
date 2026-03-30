@@ -174,6 +174,80 @@ describe(reportPreflight, () => {
     });
   });
 
+  describe('detail and progress rendering', () => {
+    it('renders detail inline after duration', () => {
+      const report = makeReport({
+        results: [{ name: 'check-a', status: 'passed', durationMs: 10, detail: 'some info' }],
+      });
+
+      const output = reportPreflight(report);
+
+      expect(output).toContain('\u2705 check-a (10ms) \u2014 some info');
+    });
+
+    it('renders fraction progress', () => {
+      const report = makeReport({
+        results: [{ name: 'check-b', status: 'failed', durationMs: 5, progress: { passedCount: 7, count: 10 } }],
+        passed: false,
+      });
+
+      const output = reportPreflight(report);
+
+      expect(output).toContain('\u274C check-b (5ms) \u2014 7 of 10');
+    });
+
+    it('renders percent progress', () => {
+      const report = makeReport({
+        results: [{ name: 'check-c', status: 'failed', durationMs: 3, progress: { percent: 85 } }],
+        passed: false,
+      });
+
+      const output = reportPreflight(report);
+
+      expect(output).toContain('\u274C check-c (3ms) \u2014 85%');
+    });
+
+    it('renders both detail and progress as separate segments', () => {
+      const report = makeReport({
+        results: [
+          {
+            name: 'check-d',
+            status: 'failed',
+            durationMs: 5,
+            detail: 'some detail',
+            progress: { passedCount: 7, count: 10 },
+          },
+        ],
+        passed: false,
+      });
+
+      const output = reportPreflight(report);
+
+      expect(output).toContain('\u274C check-d (5ms) \u2014 some detail \u2014 7 of 10');
+    });
+
+    it('renders detail and progress on passing checks', () => {
+      const report = makeReport({
+        results: [{ name: 'check-e', status: 'passed', durationMs: 2, detail: 'all good', progress: { percent: 100 } }],
+      });
+
+      const output = reportPreflight(report);
+
+      expect(output).toContain('\u2705 check-e (2ms) \u2014 all good \u2014 100%');
+    });
+
+    it('omits detail segment when detail is undefined', () => {
+      const report = makeReport({
+        results: [{ name: 'check-f', status: 'passed', durationMs: 1 }],
+      });
+
+      const output = reportPreflight(report);
+
+      expect(output).toContain('\u2705 check-f (1ms)');
+      expect(output).not.toContain('\u2014');
+    });
+  });
+
   it('defaults to END mode when no options are provided', () => {
     const report = makeReport({
       results: [

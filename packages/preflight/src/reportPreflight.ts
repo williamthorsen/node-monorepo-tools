@@ -1,4 +1,5 @@
-import type { PreflightReport, PreflightResult, ReportOptions } from './types.ts';
+import type { PreflightReport, PreflightResult, Progress, ReportOptions } from './types.ts';
+import { isPercentProgress } from './types.ts';
 
 const ICON_PASSED = '\u2705';
 const ICON_FAILED = '\u274C';
@@ -14,6 +15,14 @@ function getIcon(status: PreflightResult['status']): string {
   if (status === 'passed') return ICON_PASSED;
   if (status === 'failed') return ICON_FAILED;
   return ICON_SKIPPED;
+}
+
+/** Format a progress value for display. */
+function formatProgress(progress: Progress): string {
+  if (isPercentProgress(progress)) {
+    return `${progress.percent}%`;
+  }
+  return `${progress.passedCount} of ${progress.count}`;
 }
 
 /** Collect inline detail lines (error and/or fix) for a failed result. */
@@ -41,7 +50,14 @@ export function reportPreflight(report: PreflightReport, options?: ReportOptions
 
   for (const result of report.results) {
     const icon = getIcon(result.status);
-    lines.push(`${icon} ${result.name} (${formatDuration(result.durationMs)})`);
+    let checkLine = `${icon} ${result.name} (${formatDuration(result.durationMs)})`;
+    if (result.detail !== undefined) {
+      checkLine += ` \u2014 ${result.detail}`;
+    }
+    if (result.progress !== undefined) {
+      checkLine += ` \u2014 ${formatProgress(result.progress)}`;
+    }
+    lines.push(checkLine);
 
     if (result.status === 'failed') {
       const includeFix = fixLocation === 'INLINE';

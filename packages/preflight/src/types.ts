@@ -1,10 +1,41 @@
 /** Placement of fix messages in the report output. */
 export type FixLocation = 'INLINE' | 'END';
 
+/** Progress expressed as a fraction with passed and total counts. */
+export interface FractionProgress {
+  passedCount: number;
+  count: number;
+  failedCount?: number;
+  skippedCount?: number;
+}
+
+/** Progress expressed as a percentage. */
+export interface PercentProgress {
+  percent: number;
+}
+
+/** Union of progress representations, discriminated by the presence of `percent`. */
+export type Progress = FractionProgress | PercentProgress;
+
+/** Return true if a progress value uses the percentage representation. */
+export function isPercentProgress(progress: Progress): progress is PercentProgress {
+  return 'percent' in progress;
+}
+
+/** Structured outcome from a check, carrying diagnostic data alongside the pass/fail status. */
+export interface CheckOutcome {
+  ok: boolean;
+  detail?: string;
+  progress?: Progress;
+}
+
+/** The value a check function may return (or resolve to). */
+export type CheckReturnValue = boolean | CheckOutcome;
+
 /** A single check to run during preflight. */
 export interface PreflightCheck {
   name: string;
-  check: () => boolean | Promise<boolean>;
+  check: () => CheckReturnValue | Promise<CheckReturnValue>;
   fix?: string;
 }
 
@@ -14,6 +45,8 @@ export interface PreflightResult {
   status: 'passed' | 'failed' | 'skipped';
   fix?: string;
   error?: Error;
+  detail?: string;
+  progress?: Progress;
   durationMs: number;
 }
 

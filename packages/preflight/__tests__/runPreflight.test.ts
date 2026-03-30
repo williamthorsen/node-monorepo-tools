@@ -193,6 +193,77 @@ describe(runPreflight, () => {
     });
   });
 
+  describe('structured check outcomes', () => {
+    it('carries detail from a passing CheckOutcome', async () => {
+      const checklist: PreflightCheckList = {
+        name: 'outcome',
+        checks: [{ name: 'with-detail', check: () => ({ ok: true, detail: 'all files present' }) }],
+      };
+
+      const report = await runPreflight(checklist);
+
+      expect(report.passed).toBe(true);
+      expect(report.results[0]?.status).toBe('passed');
+      expect(report.results[0]?.detail).toBe('all files present');
+    });
+
+    it('carries progress from a failing CheckOutcome', async () => {
+      const checklist: PreflightCheckList = {
+        name: 'outcome',
+        checks: [{ name: 'with-progress', check: () => ({ ok: false, progress: { passedCount: 7, count: 10 } }) }],
+      };
+
+      const report = await runPreflight(checklist);
+
+      expect(report.passed).toBe(false);
+      expect(report.results[0]?.status).toBe('failed');
+      expect(report.results[0]?.progress).toStrictEqual({ passedCount: 7, count: 10 });
+    });
+
+    it('carries both detail and progress', async () => {
+      const checklist: PreflightCheckList = {
+        name: 'outcome',
+        checks: [
+          {
+            name: 'full-outcome',
+            check: () => ({ ok: false, detail: 'missing deps', progress: { percent: 85 } }),
+          },
+        ],
+      };
+
+      const report = await runPreflight(checklist);
+
+      expect(report.results[0]?.detail).toBe('missing deps');
+      expect(report.results[0]?.progress).toStrictEqual({ percent: 85 });
+    });
+
+    it('does not set detail or progress on skipped results', async () => {
+      const checklist: PreflightCheckList = {
+        name: 'outcome',
+        preconditions: [{ name: 'pre-fail', check: () => false }],
+        checks: [{ name: 'skipped-check', check: () => ({ ok: true, detail: 'should not appear' }) }],
+      };
+
+      const report = await runPreflight(checklist);
+
+      const skipped = report.results.find((r) => r.status === 'skipped');
+      expect(skipped?.detail).toBeUndefined();
+      expect(skipped?.progress).toBeUndefined();
+    });
+
+    it('handles async CheckOutcome', async () => {
+      const checklist: PreflightCheckList = {
+        name: 'async-outcome',
+        checks: [{ name: 'async-detail', check: () => Promise.resolve({ ok: true, detail: 'async info' }) }],
+      };
+
+      const report = await runPreflight(checklist);
+
+      expect(report.passed).toBe(true);
+      expect(report.results[0]?.detail).toBe('async info');
+    });
+  });
+
   it('computes total duration', async () => {
     const checklist: PreflightCheckList = {
       name: 'timing',
