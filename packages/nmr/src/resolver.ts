@@ -3,8 +3,8 @@ import path from 'node:path';
 
 import type { NmrConfig } from './config.js';
 import { isObject } from './helpers/type-guards.js';
-import type { ScriptRegistry, ScriptValue } from './registries.js';
-import { getDefaultRootScripts, getDefaultWorkspaceScripts } from './registries.js';
+import type { ScriptRegistry, ScriptValue } from './resolve-scripts.js';
+import { getDefaultRootScripts, getDefaultWorkspaceScripts } from './resolve-scripts.js';
 
 export interface ResolvedScript {
   command: string;
