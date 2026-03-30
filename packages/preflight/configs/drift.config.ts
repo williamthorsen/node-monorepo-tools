@@ -165,14 +165,16 @@ function fileExists(relativePath: string): boolean {
 function readFile(relativePath: string): string | undefined {
   const fullPath = join(process.cwd(), relativePath);
   if (!existsSync(fullPath)) return undefined;
-  return readFileSync(fullPath, 'utf-8');
+  return readFileSync(fullPath, 'utf8');
 }
 
 /** Read and parse the root package.json. Return undefined if it doesn't exist. */
 function readPackageJson(): Record<string, unknown> | undefined {
   const content = readFile('package.json');
   if (content === undefined) return undefined;
-  return JSON.parse(content) as Record<string, unknown>;
+  const parsed: unknown = JSON.parse(content);
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return undefined;
+  return parsed;
 }
 
 /** Check whether a dev dependency is present in package.json. */
