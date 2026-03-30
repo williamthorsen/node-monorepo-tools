@@ -10,28 +10,33 @@ import type {
 } from './types.ts';
 import { isFlatCheckList } from './types.ts';
 
+/** Optional fields that may appear on a preflight result. */
+interface ResultOptions {
+  fix?: string;
+  error?: Error;
+  detail?: string;
+  progress?: Progress;
+}
+
 /** Build a result object, only including optional fields when defined. */
 function buildResult(
   name: string,
   status: PreflightResult['status'],
   durationMs: number,
-  fix?: string,
-  error?: Error,
-  detail?: string,
-  progress?: Progress,
+  options: ResultOptions = {},
 ): PreflightResult {
   const result: PreflightResult = { name, status, durationMs };
-  if (fix !== undefined) {
-    result.fix = fix;
+  if (options.fix !== undefined) {
+    result.fix = options.fix;
   }
-  if (error !== undefined) {
-    result.error = error;
+  if (options.error !== undefined) {
+    result.error = options.error;
   }
-  if (detail !== undefined) {
-    result.detail = detail;
+  if (options.detail !== undefined) {
+    result.detail = options.detail;
   }
-  if (progress !== undefined) {
-    result.progress = progress;
+  if (options.progress !== undefined) {
+    result.progress = options.progress;
   }
   return result;
 }
@@ -43,27 +48,23 @@ async function executeCheck(check: PreflightCheck): Promise<PreflightResult> {
     const raw = await check.check();
     const durationMs = performance.now() - start;
     if (typeof raw === 'boolean') {
-      return buildResult(check.name, raw ? 'passed' : 'failed', durationMs, check.fix);
+      return buildResult(check.name, raw ? 'passed' : 'failed', durationMs, { fix: check.fix });
     }
-    return buildResult(
-      check.name,
-      raw.ok ? 'passed' : 'failed',
-      durationMs,
-      check.fix,
-      undefined,
-      raw.detail,
-      raw.progress,
-    );
+    return buildResult(check.name, raw.ok ? 'passed' : 'failed', durationMs, {
+      fix: check.fix,
+      detail: raw.detail,
+      progress: raw.progress,
+    });
   } catch (error_: unknown) {
     const durationMs = performance.now() - start;
     const error = error_ instanceof Error ? error_ : new Error(String(error_));
-    return buildResult(check.name, 'failed', durationMs, check.fix, error);
+    return buildResult(check.name, 'failed', durationMs, { fix: check.fix, error });
   }
 }
 
 /** Mark a check as skipped with zero duration. */
 function skipCheck(check: PreflightCheck): PreflightResult {
-  return buildResult(check.name, 'skipped', 0, check.fix);
+  return buildResult(check.name, 'skipped', 0, { fix: check.fix });
 }
 
 /** Run preconditions concurrently. Return true if all passed. */

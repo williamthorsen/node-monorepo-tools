@@ -5,8 +5,6 @@ export type FixLocation = 'INLINE' | 'END';
 export interface FractionProgress {
   passedCount: number;
   count: number;
-  failedCount?: number;
-  skippedCount?: number;
 }
 
 /** Progress expressed as a percentage. */
