@@ -61,6 +61,7 @@ export const rootScripts: ScriptRegistry = {
   outdated: 'pnpm outdated --compatible --recursive',
   'outdated:latest': 'pnpm outdated --recursive',
   'report-overrides': 'nmr-report-overrides',
+  'root:check': ['root:typecheck', 'fmt:check', 'root:lint:check', 'root:test'],
   'root:lint': "eslint --fix --ignore-pattern 'packages/**' .",
   'root:lint:check': "eslint --ignore-pattern 'packages/**' .",
   'root:lint:strict': "strict-lint --ignore-pattern 'packages/**' .",

@@ -41,6 +41,7 @@ describe('getDefaultRootScripts', () => {
     expect(scripts.clean).toBe('pnpm --recursive exec nmr clean');
     expect(scripts['fmt:all']).toEqual(['fmt', 'fmt:sh']);
     expect(scripts['fmt:sh']).toBe('shfmt --write **/*.sh');
+    expect(scripts['root:check']).toEqual(['root:typecheck', 'fmt:check', 'root:lint:check', 'root:test']);
     expect(scripts['report-overrides']).toBe('nmr-report-overrides');
     expect(scripts['sync-pnpm-version']).toBe('nmr-sync-pnpm-version');
   });
