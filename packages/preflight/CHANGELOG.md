@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [preflight-v0.3.1] - 2026-03-30
+
+### Bug fixes
+
+- #92 preflight|fix: Add types export condition for nodenext resolution
+
+TypeScript with --moduleResolution nodenext could not resolve types from
+@williamthorsen/preflight because the exports map lacked a types condition.
+
 ## [preflight-v0.2.0] - 2026-03-27
 
 ### Features

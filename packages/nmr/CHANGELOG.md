@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [nmr-v0.4.0] - 2026-03-30
+
+### Bug fixes
+
+- Nmr|fix: Skip self-referential package.json script overrides
+
+When v0.3.0 began resolving root-level package.json scripts as tier-3 overrides, leftover wrapper scripts like `"build": "nmr build"` caused infinite recursion. `resolveScript` now detects overrides that simply re-invoke `nmr <same-command>` and falls through to the registry instead.
+
+### Features
+
+- #83 nmr|feat: Add default root scripts and split registry module (#96)
+
+Adds four new default root scripts to nmr (`fmt:sh`, `fmt:all`, `clean`, `root:check`) and split the monolithic `registries.ts` into a data-only `default-scripts.ts` and a composition-logic `resolve-scripts.ts`.
+
+Also fixes the `ci` and `check:strict` script ordering to run build before strict checks, and corrects stale test assertions.
+
 ## [nmr-v0.3.0] - 2026-03-29
 
 ### Features
