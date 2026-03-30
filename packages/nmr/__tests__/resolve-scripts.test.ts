@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getDefaultRootScripts, getDefaultWorkspaceScripts } from '../src/registries.js';
+import { getDefaultRootScripts, getDefaultWorkspaceScripts } from '../src/resolve-scripts.js';
 
 describe('getDefaultWorkspaceScripts', () => {
   it('includes all expected default workspace scripts', () => {
@@ -35,9 +35,12 @@ describe('getDefaultRootScripts', () => {
   it('includes all expected default root scripts', () => {
     const scripts = getDefaultRootScripts();
 
-    expect(scripts.ci).toEqual(['check:strict', 'build']);
-    expect(scripts.check).toEqual(['typecheck', 'fmt:check', 'lint:check', 'test']);
     expect(scripts.audit).toEqual(['audit:prod', 'audit:dev']);
+    expect(scripts.check).toEqual(['typecheck', 'fmt:check', 'lint:check', 'test']);
+    expect(scripts.ci).toEqual(['build', 'check:strict']);
+    expect(scripts.clean).toBe('pnpm --recursive exec nmr clean');
+    expect(scripts['fmt:all']).toEqual(['fmt', 'fmt:sh']);
+    expect(scripts['fmt:sh']).toBe('shfmt --write **/*.sh');
     expect(scripts['report-overrides']).toBe('nmr-report-overrides');
     expect(scripts['sync-pnpm-version']).toBe('nmr-sync-pnpm-version');
   });

@@ -1,5 +1,5 @@
 import type { NmrConfig } from './config.js';
-import type { ScriptRegistry } from './registries.js';
+import type { ScriptRegistry } from './resolve-scripts.js';
 import { buildRootRegistry, buildWorkspaceRegistry } from './resolver.js';
 import { describeScript } from './resolver.js';
 
