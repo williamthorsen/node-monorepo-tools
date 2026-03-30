@@ -48,23 +48,30 @@ async function executeCheck(check: PreflightCheck): Promise<PreflightResult> {
     const raw = await check.check();
     const durationMs = performance.now() - start;
     if (typeof raw === 'boolean') {
-      return buildResult(check.name, raw ? 'passed' : 'failed', durationMs, { fix: check.fix });
+      return buildResult(
+        check.name,
+        raw ? 'passed' : 'failed',
+        durationMs,
+        check.fix !== undefined ? { fix: check.fix } : {},
+      );
     }
-    return buildResult(check.name, raw.ok ? 'passed' : 'failed', durationMs, {
-      fix: check.fix,
-      detail: raw.detail,
-      progress: raw.progress,
-    });
+    const opts: ResultOptions = {};
+    if (check.fix !== undefined) opts.fix = check.fix;
+    if (raw.detail !== undefined) opts.detail = raw.detail;
+    if (raw.progress !== undefined) opts.progress = raw.progress;
+    return buildResult(check.name, raw.ok ? 'passed' : 'failed', durationMs, opts);
   } catch (error_: unknown) {
     const durationMs = performance.now() - start;
     const error = error_ instanceof Error ? error_ : new Error(String(error_));
-    return buildResult(check.name, 'failed', durationMs, { fix: check.fix, error });
+    const opts: ResultOptions = { error };
+    if (check.fix !== undefined) opts.fix = check.fix;
+    return buildResult(check.name, 'failed', durationMs, opts);
   }
 }
 
 /** Mark a check as skipped with zero duration. */
 function skipCheck(check: PreflightCheck): PreflightResult {
-  return buildResult(check.name, 'skipped', 0, { fix: check.fix });
+  return buildResult(check.name, 'skipped', 0, check.fix !== undefined ? { fix: check.fix } : {});
 }
 
 /** Run preconditions concurrently. Return true if all passed. */
