@@ -5,24 +5,38 @@ import type {
   PreflightCheckList,
   PreflightReport,
   PreflightResult,
+  Progress,
   StagedPreflightCheckList,
 } from './types.ts';
 import { isFlatCheckList } from './types.ts';
+
+/** Optional fields that may appear on a preflight result. */
+interface ResultOptions {
+  fix?: string;
+  error?: Error;
+  detail?: string;
+  progress?: Progress;
+}
 
 /** Build a result object, only including optional fields when defined. */
 function buildResult(
   name: string,
   status: PreflightResult['status'],
   durationMs: number,
-  fix?: string,
-  error?: Error,
+  options: ResultOptions = {},
 ): PreflightResult {
   const result: PreflightResult = { name, status, durationMs };
-  if (fix !== undefined) {
-    result.fix = fix;
+  if (options.fix !== undefined) {
+    result.fix = options.fix;
   }
-  if (error !== undefined) {
-    result.error = error;
+  if (options.error !== undefined) {
+    result.error = options.error;
+  }
+  if (options.detail !== undefined) {
+    result.detail = options.detail;
+  }
+  if (options.progress !== undefined) {
+    result.progress = options.progress;
   }
   return result;
 }
@@ -31,19 +45,33 @@ function buildResult(
 async function executeCheck(check: PreflightCheck): Promise<PreflightResult> {
   const start = performance.now();
   try {
-    const passed = await check.check();
+    const raw = await check.check();
     const durationMs = performance.now() - start;
-    return buildResult(check.name, passed ? 'passed' : 'failed', durationMs, check.fix);
+    if (typeof raw === 'boolean') {
+      return buildResult(
+        check.name,
+        raw ? 'passed' : 'failed',
+        durationMs,
+        check.fix !== undefined ? { fix: check.fix } : {},
+      );
+    }
+    const opts: ResultOptions = {};
+    if (check.fix !== undefined) opts.fix = check.fix;
+    if (raw.detail !== undefined) opts.detail = raw.detail;
+    if (raw.progress !== undefined) opts.progress = raw.progress;
+    return buildResult(check.name, raw.ok ? 'passed' : 'failed', durationMs, opts);
   } catch (error_: unknown) {
     const durationMs = performance.now() - start;
     const error = error_ instanceof Error ? error_ : new Error(String(error_));
-    return buildResult(check.name, 'failed', durationMs, check.fix, error);
+    const opts: ResultOptions = { error };
+    if (check.fix !== undefined) opts.fix = check.fix;
+    return buildResult(check.name, 'failed', durationMs, opts);
   }
 }
 
 /** Mark a check as skipped with zero duration. */
 function skipCheck(check: PreflightCheck): PreflightResult {
-  return buildResult(check.name, 'skipped', 0, check.fix);
+  return buildResult(check.name, 'skipped', 0, check.fix !== undefined ? { fix: check.fix } : {});
 }
 
 /** Run preconditions concurrently. Return true if all passed. */
