@@ -24,6 +24,7 @@ Run preflight checklists. If no names are given, all checklists are run.
 
 Options:
   --config, -c <path>   Path to the config file
+  --json                Output results as JSON
   --help, -h            Show this help message
 `);
 }
