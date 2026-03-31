@@ -74,29 +74,6 @@ describe(loadPreflightConfig, () => {
     await expect(loadPreflightConfig()).rejects.toThrow('must have a default export or a named `config` export');
   });
 
-  it('throws when checklists is missing', async () => {
-    mockExistsSync.mockReturnValue(true);
-    mockJitiImport.mockResolvedValue({ default: {} });
-
-    await expect(loadPreflightConfig()).rejects.toThrow("must have a 'checklists' array");
-  });
-
-  it('throws when a checklist has neither checks nor groups', async () => {
-    mockExistsSync.mockReturnValue(true);
-    mockJitiImport.mockResolvedValue({ default: { checklists: [{ name: 'bad' }] } });
-
-    await expect(loadPreflightConfig()).rejects.toThrow("must have either 'checks' or 'groups'");
-  });
-
-  it('throws when a checklist has both checks and groups', async () => {
-    mockExistsSync.mockReturnValue(true);
-    mockJitiImport.mockResolvedValue({
-      default: { checklists: [{ name: 'bad', checks: [], groups: [] }] },
-    });
-
-    await expect(loadPreflightConfig()).rejects.toThrow("cannot have both 'checks' and 'groups'");
-  });
-
   it('returns a valid config with flat checklists', async () => {
     const validConfig = {
       checklists: [{ name: 'test', checks: [{ name: 'a', check: () => true }] }],

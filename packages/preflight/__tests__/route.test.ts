@@ -76,23 +76,23 @@ describe(routeCommand, () => {
   });
 
   it('delegates to runCommand for run subcommand', async () => {
-    mockParseRunArgs.mockReturnValue({ names: ['deploy'], json: false, configPath: undefined });
+    mockParseRunArgs.mockReturnValue({ names: ['deploy'], configSource: { type: 'local' }, json: false });
     mockRunCommand.mockResolvedValue(0);
 
     const exitCode = await routeCommand(['run', 'deploy']);
 
     expect(mockParseRunArgs).toHaveBeenCalledWith(['deploy']);
-    expect(mockRunCommand).toHaveBeenCalledWith({ names: ['deploy'], json: false, configPath: undefined });
+    expect(mockRunCommand).toHaveBeenCalledWith({ names: ['deploy'], configSource: { type: 'local' }, json: false });
     expect(exitCode).toBe(0);
   });
 
   it('passes --json flag through to runCommand', async () => {
-    mockParseRunArgs.mockReturnValue({ names: [], json: true, configPath: undefined });
+    mockParseRunArgs.mockReturnValue({ names: [], configSource: { type: 'local' }, json: true });
     mockRunCommand.mockResolvedValue(0);
 
     const exitCode = await routeCommand(['run', '--json']);
 
-    expect(mockRunCommand).toHaveBeenCalledWith({ names: [], json: true, configPath: undefined });
+    expect(mockRunCommand).toHaveBeenCalledWith({ names: [], configSource: { type: 'local' }, json: true });
     expect(exitCode).toBe(0);
   });
 

@@ -22,10 +22,14 @@ Usage: preflight run [names...] [options]
 
 Run preflight checklists. If no names are given, all checklists are run.
 
+Config source (mutually exclusive):
+  --config, -c <path>              Path to a local config file
+  --github <org/repo/path[@ref]>   Fetch config from a GitHub repository
+  --url <url>                      Fetch config from a URL
+
 Options:
-  --config, -c <path>   Path to the config file
-  --json                Output results as JSON
-  --help, -h            Show this help message
+  --json                           Output results as JSON
+  --help, -h                       Show this help message
 `);
 }
 
