@@ -203,7 +203,14 @@ describe(reportPreflight, () => {
 
     it('renders fraction progress', () => {
       const report = makeReport({
-        results: [{ name: 'check-b', status: 'failed', durationMs: 5, progress: { passedCount: 7, count: 10 } }],
+        results: [
+          {
+            name: 'check-b',
+            status: 'failed',
+            durationMs: 5,
+            progress: { type: 'fraction', passedCount: 7, count: 10 },
+          },
+        ],
         passed: false,
       });
 
@@ -214,7 +221,7 @@ describe(reportPreflight, () => {
 
     it('renders percent progress', () => {
       const report = makeReport({
-        results: [{ name: 'check-c', status: 'failed', durationMs: 3, progress: { percent: 85 } }],
+        results: [{ name: 'check-c', status: 'failed', durationMs: 3, progress: { type: 'percent', percent: 85 } }],
         passed: false,
       });
 
@@ -231,7 +238,7 @@ describe(reportPreflight, () => {
             status: 'failed',
             durationMs: 5,
             detail: 'some detail',
-            progress: { passedCount: 7, count: 10 },
+            progress: { type: 'fraction', passedCount: 7, count: 10 },
           },
         ],
         passed: false,
@@ -244,7 +251,15 @@ describe(reportPreflight, () => {
 
     it('renders detail and progress on passing checks', () => {
       const report = makeReport({
-        results: [{ name: 'check-e', status: 'passed', durationMs: 2, detail: 'all good', progress: { percent: 100 } }],
+        results: [
+          {
+            name: 'check-e',
+            status: 'passed',
+            durationMs: 2,
+            detail: 'all good',
+            progress: { type: 'percent', percent: 100 },
+          },
+        ],
       });
 
       const output = reportPreflight(report);
