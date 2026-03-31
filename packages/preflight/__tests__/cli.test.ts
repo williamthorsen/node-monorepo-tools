@@ -6,6 +6,8 @@ const mockLoadPreflightConfig = vi.hoisted(() => vi.fn());
 const mockRunPreflight = vi.hoisted(() => vi.fn());
 const mockReportPreflight = vi.hoisted(() => vi.fn());
 const mockFormatCombinedSummary = vi.hoisted(() => vi.fn());
+const mockFormatJsonReport = vi.hoisted(() => vi.fn());
+const mockFormatJsonError = vi.hoisted(() => vi.fn());
 
 vi.mock('../src/config.ts', () => ({
   loadPreflightConfig: mockLoadPreflightConfig,
@@ -21,6 +23,14 @@ vi.mock('../src/reportPreflight.ts', () => ({
 
 vi.mock('../src/formatCombinedSummary.ts', () => ({
   formatCombinedSummary: mockFormatCombinedSummary,
+}));
+
+vi.mock('../src/formatJsonReport.ts', () => ({
+  formatJsonReport: mockFormatJsonReport,
+}));
+
+vi.mock('../src/formatJsonError.ts', () => ({
+  formatJsonError: mockFormatJsonError,
 }));
 
 import { parseRunArgs, runCommand } from '../src/cli.ts';
@@ -81,6 +91,26 @@ describe(parseRunArgs, () => {
     expect(() => parseRunArgs(['--config='])).toThrow('--config requires a path argument');
   });
 
+  it('parses --json flag', () => {
+    const result = parseRunArgs(['--json']);
+
+    expect(result.json).toBe(true);
+    expect(result.names).toStrictEqual([]);
+  });
+
+  it('parses --json with positional names', () => {
+    const result = parseRunArgs(['--json', 'deploy']);
+
+    expect(result.json).toBe(true);
+    expect(result.names).toStrictEqual(['deploy']);
+  });
+
+  it('defaults json to false', () => {
+    const result = parseRunArgs([]);
+
+    expect(result.json).toBe(false);
+  });
+
   it('throws on unknown flags', () => {
     expect(() => parseRunArgs(['--unknown'])).toThrow("unknown flag '--unknown'");
   });
@@ -103,6 +133,8 @@ describe(runCommand, () => {
     mockRunPreflight.mockReset();
     mockReportPreflight.mockReset();
     mockFormatCombinedSummary.mockReset();
+    mockFormatJsonReport.mockReset();
+    mockFormatJsonError.mockReset();
   });
 
   it('runs all checklists when no names are given', async () => {
@@ -270,5 +302,86 @@ describe(runCommand, () => {
       expect.objectContaining({ name: 'deploy', passed: 1, failed: 1, skipped: 0, allPassed: false }),
       expect.objectContaining({ name: 'infra', passed: 0, failed: 0, skipped: 1, allPassed: false }),
     ]);
+  });
+
+  describe('JSON mode', () => {
+    beforeEach(() => {
+      mockFormatJsonReport.mockReturnValue('{"allPassed":true}');
+      mockFormatJsonError.mockReturnValue('{"error":"boom"}');
+    });
+
+    it('emits JSON output and no human-readable text', async () => {
+      const config = makeConfig();
+      mockLoadPreflightConfig.mockResolvedValue(config);
+      mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
+
+      const exitCode = await runCommand({ names: [], json: true });
+
+      expect(mockFormatJsonReport).toHaveBeenCalledTimes(1);
+      expect(mockReportPreflight).not.toHaveBeenCalled();
+      expect(mockFormatCombinedSummary).not.toHaveBeenCalled();
+      expect(stdoutSpy).toHaveBeenCalledWith('{"allPassed":true}\n');
+      expect(exitCode).toBe(0);
+    });
+
+    it('returns exit code 1 when any checklist fails in JSON mode', async () => {
+      const config = makeConfig();
+      mockLoadPreflightConfig.mockResolvedValue(config);
+      mockRunPreflight
+        .mockResolvedValueOnce({ results: [], passed: true, durationMs: 0 })
+        .mockResolvedValueOnce({ results: [], passed: false, durationMs: 0 });
+
+      const exitCode = await runCommand({ names: [], json: true });
+
+      expect(exitCode).toBe(1);
+    });
+
+    it('emits JSON error to stdout for config loading errors', async () => {
+      mockLoadPreflightConfig.mockRejectedValue(new Error('Config not found'));
+
+      const exitCode = await runCommand({ names: [], json: true });
+
+      expect(mockFormatJsonError).toHaveBeenCalledWith('Config not found');
+      expect(stdoutSpy).toHaveBeenCalledWith('{"error":"boom"}\n');
+      expect(stderrSpy).not.toHaveBeenCalled();
+      expect(exitCode).toBe(1);
+    });
+
+    it('emits JSON error to stdout for unknown checklist names', async () => {
+      const config = makeConfig();
+      mockLoadPreflightConfig.mockResolvedValue(config);
+
+      const exitCode = await runCommand({ names: ['nonexistent'], json: true });
+
+      expect(mockFormatJsonError).toHaveBeenCalledWith(expect.stringContaining('unknown checklist(s): nonexistent'));
+      expect(stderrSpy).not.toHaveBeenCalled();
+      expect(exitCode).toBe(1);
+    });
+
+    it('passes checklist name-report pairs to formatJsonReport', async () => {
+      const config = makeConfig();
+      mockLoadPreflightConfig.mockResolvedValue(config);
+      const report1 = { results: [], passed: true, durationMs: 10 };
+      const report2 = { results: [], passed: true, durationMs: 20 };
+      mockRunPreflight.mockResolvedValueOnce(report1).mockResolvedValueOnce(report2);
+
+      await runCommand({ names: [], json: true });
+
+      expect(mockFormatJsonReport).toHaveBeenCalledWith([
+        { name: 'deploy', report: report1 },
+        { name: 'infra', report: report2 },
+      ]);
+    });
+
+    it('does not write headers in JSON mode', async () => {
+      const config = makeConfig();
+      mockLoadPreflightConfig.mockResolvedValue(config);
+      mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
+
+      await runCommand({ names: [], json: true });
+
+      const allOutput = stdoutSpy.mock.calls.map((c) => String(c[0])).join('');
+      expect(allOutput).not.toContain('---');
+    });
   });
 });

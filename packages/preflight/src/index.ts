@@ -27,4 +27,5 @@ export { runPreflight } from './runPreflight.ts';
 
 // Reporter
 export { formatCombinedSummary } from './formatCombinedSummary.ts';
+export { formatJsonReport } from './formatJsonReport.ts';
 export { formatSummaryCounts, reportPreflight } from './reportPreflight.ts';
