@@ -37,6 +37,7 @@ interface JsonReport {
   passedCount: number;
   failedCount: number;
   skippedCount: number;
+  durationMs: number;
   checklists: JsonChecklist[];
 }
 
@@ -74,11 +75,14 @@ export function formatJsonReport(entries: ChecklistEntry[]): string {
     };
   });
 
+  const totalDurationMs = checklists.reduce((sum, c) => sum + c.durationMs, 0);
+
   const output: JsonReport = {
     allPassed: totalFailed === 0,
     passedCount: totalPassed,
     failedCount: totalFailed,
     skippedCount: totalSkipped,
+    durationMs: totalDurationMs,
     checklists,
   };
 

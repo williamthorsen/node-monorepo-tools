@@ -118,10 +118,19 @@ describe(formatJsonReport, () => {
       durationMs: 10,
     });
 
-    const parsed = JSON.parse(formatJsonReport([{ name: 'deploy', report }])) as Record<string, unknown>;
+    const parsed: unknown = JSON.parse(formatJsonReport([{ name: 'deploy', report }]));
+    if (typeof parsed !== 'object' || parsed === null) throw new Error('expected object');
+    // eslint-disable-next-line unicorn/no-array-sort -- toSorted requires Node 20+; engine target is >=18.17.0
     const topLevelKeys = Object.keys(parsed).sort();
 
-    expect(topLevelKeys).toStrictEqual(['allPassed', 'checklists', 'failedCount', 'passedCount', 'skippedCount']);
+    expect(topLevelKeys).toStrictEqual([
+      'allPassed',
+      'checklists',
+      'durationMs',
+      'failedCount',
+      'passedCount',
+      'skippedCount',
+    ]);
   });
 
   it('serializes error as a string message', () => {

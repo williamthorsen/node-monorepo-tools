@@ -150,7 +150,7 @@ describe(runCommand, () => {
     mockLoadPreflightConfig.mockResolvedValue(config);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    const exitCode = await runCommand({ names: [] });
+    const exitCode = await runCommand({ names: [], json: false });
 
     expect(mockRunPreflight).toHaveBeenCalledTimes(2);
     expect(exitCode).toBe(0);
@@ -161,7 +161,7 @@ describe(runCommand, () => {
     mockLoadPreflightConfig.mockResolvedValue(config);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    const exitCode = await runCommand({ names: ['deploy'] });
+    const exitCode = await runCommand({ names: ['deploy'], json: false });
 
     expect(mockRunPreflight).toHaveBeenCalledTimes(1);
     expect(mockRunPreflight).toHaveBeenCalledWith(config.checklists[0]);
@@ -172,7 +172,7 @@ describe(runCommand, () => {
     const config = makeConfig();
     mockLoadPreflightConfig.mockResolvedValue(config);
 
-    const exitCode = await runCommand({ names: ['nonexistent'] });
+    const exitCode = await runCommand({ names: ['nonexistent'], json: false });
 
     expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('unknown checklist(s): nonexistent'));
     expect(exitCode).toBe(1);
@@ -185,7 +185,7 @@ describe(runCommand, () => {
       .mockResolvedValueOnce({ results: [], passed: true, durationMs: 0 })
       .mockResolvedValueOnce({ results: [], passed: false, durationMs: 0 });
 
-    const exitCode = await runCommand({ names: [] });
+    const exitCode = await runCommand({ names: [], json: false });
 
     expect(exitCode).toBe(1);
   });
@@ -195,7 +195,7 @@ describe(runCommand, () => {
     mockLoadPreflightConfig.mockResolvedValue(config);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runCommand({ names: [], configPath: 'custom/path.ts' });
+    await runCommand({ names: [], configPath: 'custom/path.ts', json: false });
 
     expect(mockLoadPreflightConfig).toHaveBeenCalledWith('custom/path.ts');
   });
@@ -205,7 +205,7 @@ describe(runCommand, () => {
     mockLoadPreflightConfig.mockResolvedValue(config);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runCommand({ names: [] });
+    await runCommand({ names: [], json: false });
 
     const allOutput = stdoutSpy.mock.calls.map((c) => String(c[0])).join('');
     expect(allOutput).toContain('--- deploy ---');
@@ -217,7 +217,7 @@ describe(runCommand, () => {
     mockLoadPreflightConfig.mockResolvedValue(config);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runCommand({ names: ['deploy'] });
+    await runCommand({ names: ['deploy'], json: false });
 
     const allOutput = stdoutSpy.mock.calls.map((c) => String(c[0])).join('');
     expect(allOutput).not.toContain('---');
@@ -231,7 +231,7 @@ describe(runCommand, () => {
     mockLoadPreflightConfig.mockResolvedValue(config);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runCommand({ names: [] });
+    await runCommand({ names: [], json: false });
 
     expect(mockReportPreflight).toHaveBeenCalledWith(expect.anything(), { fixLocation: 'INLINE' });
   });
@@ -244,7 +244,7 @@ describe(runCommand, () => {
     mockLoadPreflightConfig.mockResolvedValue(config);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runCommand({ names: [] });
+    await runCommand({ names: [], json: false });
 
     expect(mockReportPreflight).toHaveBeenCalledWith(expect.anything(), { fixLocation: 'END' });
   });
@@ -252,7 +252,7 @@ describe(runCommand, () => {
   it('reports config loading errors to stderr', async () => {
     mockLoadPreflightConfig.mockRejectedValue(new Error('Config not found'));
 
-    const exitCode = await runCommand({ names: [] });
+    const exitCode = await runCommand({ names: [], json: false });
 
     expect(stderrSpy).toHaveBeenCalledWith('Error: Config not found\n');
     expect(exitCode).toBe(1);
@@ -267,7 +267,7 @@ describe(runCommand, () => {
       durationMs: 10,
     });
 
-    await runCommand({ names: [] });
+    await runCommand({ names: [], json: false });
 
     expect(mockFormatCombinedSummary).toHaveBeenCalledTimes(1);
     expect(mockFormatCombinedSummary).toHaveBeenCalledWith([
@@ -281,7 +281,7 @@ describe(runCommand, () => {
     mockLoadPreflightConfig.mockResolvedValue(config);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runCommand({ names: ['deploy'] });
+    await runCommand({ names: ['deploy'], json: false });
 
     expect(mockFormatCombinedSummary).not.toHaveBeenCalled();
   });
@@ -304,7 +304,7 @@ describe(runCommand, () => {
         durationMs: 0,
       });
 
-    await runCommand({ names: [] });
+    await runCommand({ names: [], json: false });
 
     expect(mockFormatCombinedSummary).toHaveBeenCalledWith([
       expect.objectContaining({ name: 'deploy', passed: 1, failed: 1, skipped: 0, allPassed: false }),
