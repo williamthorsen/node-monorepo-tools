@@ -529,7 +529,7 @@ describe(runCommand, () => {
     expect(mockLoadRemoteConfig).toHaveBeenCalledWith({
       url: 'https://raw.githubusercontent.com/org/repo/main/config.js',
     });
-    expect(Object.keys(mockLoadRemoteConfig.mock.calls[0][0] as Record<string, unknown>)).not.toContain('token');
+    expect(mockLoadRemoteConfig.mock.calls[0][0]).not.toHaveProperty('token');
   });
 
   // URL source tests

@@ -21,6 +21,12 @@ describe(expandGitHubShorthand, () => {
     expect(() => expandGitHubShorthand('org/repo')).toThrow('expected at least "org/repo/file"');
   });
 
+  it('splits on the last @ when multiple @ symbols are present', () => {
+    expect(expandGitHubShorthand('org/repo/path.js@v1@v2')).toBe(
+      'https://raw.githubusercontent.com/org/repo/v2/path.js@v1',
+    );
+  });
+
   it('throws when ref after @ is empty', () => {
     expect(() => expandGitHubShorthand('org/repo/path.js@')).toThrow("ref after '@' must not be empty");
   });
