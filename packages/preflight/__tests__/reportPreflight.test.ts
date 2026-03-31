@@ -20,7 +20,7 @@ describe(reportPreflight, () => {
 
     const output = reportPreflight(report);
 
-    expect(output).toContain('\u2705 check-a (10ms)');
+    expect(output).toContain('\u{1F7E2} check-a (10ms)');
   });
 
   it('shows failed checks with cross icon', () => {
@@ -31,7 +31,7 @@ describe(reportPreflight, () => {
 
     const output = reportPreflight(report);
 
-    expect(output).toContain('\u274C check-b (5ms)');
+    expect(output).toContain('\u{1F534} check-b (5ms)');
   });
 
   it('shows skipped checks with circle icon', () => {
@@ -41,7 +41,7 @@ describe(reportPreflight, () => {
 
     const output = reportPreflight(report);
 
-    expect(output).toContain('\u26AA check-c (0ms)');
+    expect(output).toContain('\u26D4 check-c (0ms)');
   });
 
   it('renders the summary line', () => {
@@ -57,7 +57,7 @@ describe(reportPreflight, () => {
 
     const output = reportPreflight(report);
 
-    expect(output).toContain('✅ 1 passed, ❌ 1 failed, 🚫 1 skipped (142ms)');
+    expect(output).toContain('🟢 1 passed, 🔴 1 failed, ⛔ 1 skipped (142ms)');
   });
 
   it('omits zero counts from the summary line', () => {
@@ -71,7 +71,7 @@ describe(reportPreflight, () => {
 
     const output = reportPreflight(report);
 
-    expect(output).toContain('✅ 2 passed (25ms)');
+    expect(output).toContain('🟢 2 passed (25ms)');
     expect(output).not.toContain('failed');
     expect(output).not.toContain('skipped');
   });
@@ -198,7 +198,7 @@ describe(reportPreflight, () => {
 
       const output = reportPreflight(report);
 
-      expect(output).toContain('\u2705 check-a (10ms) \u2014 some info');
+      expect(output).toContain('\u{1F7E2} check-a (10ms) \u2014 some info');
     });
 
     it('renders fraction progress', () => {
@@ -209,7 +209,7 @@ describe(reportPreflight, () => {
 
       const output = reportPreflight(report);
 
-      expect(output).toContain('\u274C check-b (5ms) \u2014 7 of 10');
+      expect(output).toContain('\u{1F534} check-b (5ms) \u2014 7 of 10');
     });
 
     it('renders percent progress', () => {
@@ -220,7 +220,7 @@ describe(reportPreflight, () => {
 
       const output = reportPreflight(report);
 
-      expect(output).toContain('\u274C check-c (3ms) \u2014 85%');
+      expect(output).toContain('\u{1F534} check-c (3ms) \u2014 85%');
     });
 
     it('renders both detail and progress as separate segments', () => {
@@ -239,7 +239,7 @@ describe(reportPreflight, () => {
 
       const output = reportPreflight(report);
 
-      expect(output).toContain('\u274C check-d (5ms) \u2014 some detail \u2014 7 of 10');
+      expect(output).toContain('\u{1F534} check-d (5ms) \u2014 some detail \u2014 7 of 10');
     });
 
     it('renders detail and progress on passing checks', () => {
@@ -249,7 +249,7 @@ describe(reportPreflight, () => {
 
       const output = reportPreflight(report);
 
-      expect(output).toContain('\u2705 check-e (2ms) \u2014 all good \u2014 100%');
+      expect(output).toContain('\u{1F7E2} check-e (2ms) \u2014 all good \u2014 100%');
     });
 
     it('omits detail segment when detail is undefined', () => {
@@ -259,7 +259,7 @@ describe(reportPreflight, () => {
 
       const output = reportPreflight(report);
 
-      expect(output).toContain('\u2705 check-f (1ms)');
+      expect(output).toContain('\u{1F7E2} check-f (1ms)');
       expect(output).not.toContain('\u2014');
     });
   });
@@ -288,15 +288,15 @@ describe(reportPreflight, () => {
 
 describe(formatSummaryCounts, () => {
   it('includes all non-zero counts with icons', () => {
-    expect(formatSummaryCounts(3, 1, 2)).toBe('✅ 3 passed, ❌ 1 failed, 🚫 2 skipped');
+    expect(formatSummaryCounts(3, 1, 2)).toBe('🟢 3 passed, 🔴 1 failed, ⛔ 2 skipped');
   });
 
   it('omits zero counts', () => {
-    expect(formatSummaryCounts(5, 0, 0)).toBe('✅ 5 passed');
+    expect(formatSummaryCounts(5, 0, 0)).toBe('🟢 5 passed');
   });
 
   it('omits passed when zero', () => {
-    expect(formatSummaryCounts(0, 2, 1)).toBe('❌ 2 failed, 🚫 1 skipped');
+    expect(formatSummaryCounts(0, 2, 1)).toBe('🔴 2 failed, ⛔ 1 skipped');
   });
 
   it('returns empty string when all counts are zero', () => {

@@ -1,10 +1,9 @@
 import type { PreflightReport, PreflightResult, Progress, ReportOptions } from './types.ts';
 import { isPercentProgress } from './types.ts';
 
-const ICON_PASSED = '\u2705';
-const ICON_FAILED = '\u274C';
-const ICON_SKIPPED = '\u26AA';
-const ICON_SKIPPED_SUMMARY = '\u{1F6AB}';
+const ICON_PASSED = '\u{1F7E2}';
+const ICON_FAILED = '\u{1F534}';
+const ICON_SKIPPED = '\u26D4';
 
 /** Format a duration in milliseconds for display. */
 function formatDuration(ms: number): string {
@@ -31,7 +30,7 @@ export function formatSummaryCounts(passed: number, failed: number, skipped: num
   const parts: string[] = [];
   if (passed > 0) parts.push(`${ICON_PASSED} ${passed} passed`);
   if (failed > 0) parts.push(`${ICON_FAILED} ${failed} failed`);
-  if (skipped > 0) parts.push(`${ICON_SKIPPED_SUMMARY} ${skipped} skipped`);
+  if (skipped > 0) parts.push(`${ICON_SKIPPED} ${skipped} skipped`);
   return parts.join(', ');
 }
 

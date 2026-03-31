@@ -1,8 +1,8 @@
 import { formatSummaryCounts } from './reportPreflight.ts';
 import type { ChecklistSummary } from './types.ts';
 
-const ICON_PASSED = '\u2705';
-const ICON_FAILED = '\u274C';
+const ICON_PASSED = '\u{1F7E2}';
+const ICON_FAILED = '\u{1F534}';
 
 /** Format a duration in milliseconds for display. */
 function formatDuration(ms: number): string {
@@ -24,11 +24,15 @@ export function formatCombinedSummary(summaries: ChecklistSummary[]): string {
     '\u2500\u2500 Summary \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500';
   const lines: string[] = [HEADER];
 
+  const maxNameLen = Math.max(...summaries.map((s) => s.name.length));
+  const maxDurationLen = Math.max(...summaries.map((s) => formatDuration(s.durationMs).length));
+
   for (const summary of summaries) {
     const icon = summary.allPassed ? ICON_PASSED : ICON_FAILED;
-    const duration = formatDuration(summary.durationMs);
+    const name = summary.name.padEnd(maxNameLen);
+    const duration = formatDuration(summary.durationMs).padStart(maxDurationLen);
     const counts = formatRowCounts(summary);
-    lines.push(`${icon} ${summary.name}  ${duration}  ${counts}`);
+    lines.push(`${icon} ${name}  ${duration}  ${counts}`);
   }
 
   lines.push(
