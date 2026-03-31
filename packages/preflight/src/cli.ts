@@ -77,7 +77,7 @@ function summarizeReport(name: string, report: PreflightReport): ChecklistSummar
 interface RunCommandOptions {
   names: string[];
   configPath?: string;
-  json?: boolean;
+  json: boolean;
 }
 
 /** Run preflight checklists. Returns a numeric exit code. */
@@ -126,10 +126,16 @@ async function runJsonMode(checklists: Array<PreflightCheckList | StagedPrefligh
   const entries: Array<{ name: string; report: PreflightReport }> = [];
   let allPassed = true;
 
-  for (const checklist of checklists) {
-    const report = await runPreflight(checklist);
-    entries.push({ name: checklist.name, report });
-    if (!report.passed) allPassed = false;
+  try {
+    for (const checklist of checklists) {
+      const report = await runPreflight(checklist);
+      entries.push({ name: checklist.name, report });
+      if (!report.passed) allPassed = false;
+    }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stdout.write(formatJsonError(message) + '\n');
+    return 1;
   }
 
   process.stdout.write(formatJsonReport(entries) + '\n');

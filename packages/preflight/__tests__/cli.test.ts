@@ -111,6 +111,14 @@ describe(parseRunArgs, () => {
     expect(result.json).toBe(false);
   });
 
+  it('parses --json combined with --config and positional names', () => {
+    const result = parseRunArgs(['--json', '--config', '/path/to/config', 'deploy']);
+
+    expect(result.json).toBe(true);
+    expect(result.configPath).toBe('/path/to/config');
+    expect(result.names).toStrictEqual(['deploy']);
+  });
+
   it('throws on unknown flags', () => {
     expect(() => parseRunArgs(['--unknown'])).toThrow("unknown flag '--unknown'");
   });
@@ -371,6 +379,18 @@ describe(runCommand, () => {
         { name: 'deploy', report: report1 },
         { name: 'infra', report: report2 },
       ]);
+    });
+
+    it('emits JSON error to stdout when runPreflight throws', async () => {
+      const config = makeConfig();
+      mockLoadPreflightConfig.mockResolvedValue(config);
+      mockRunPreflight.mockRejectedValue(new Error('runner crashed'));
+
+      const exitCode = await runCommand({ names: ['deploy'], json: true });
+
+      expect(mockFormatJsonError).toHaveBeenCalledWith('runner crashed');
+      expect(stderrSpy).not.toHaveBeenCalled();
+      expect(exitCode).toBe(1);
     });
 
     it('does not write headers in JSON mode', async () => {

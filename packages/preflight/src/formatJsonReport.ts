@@ -75,7 +75,7 @@ export function formatJsonReport(entries: ChecklistEntry[]): string {
   });
 
   const output: JsonReport = {
-    allPassed: totalFailed === 0 && totalSkipped === 0,
+    allPassed: totalFailed === 0,
     passedCount: totalPassed,
     failedCount: totalFailed,
     skippedCount: totalSkipped,

@@ -91,6 +91,39 @@ describe(formatJsonReport, () => {
     });
   });
 
+  it('sets top-level allPassed to true when checks are skipped but none failed', () => {
+    const report = makeReport({
+      results: [
+        { name: 'a', status: 'skipped', durationMs: 0 },
+        { name: 'b', status: 'skipped', durationMs: 0 },
+      ],
+      passed: true,
+      durationMs: 0,
+    });
+
+    const parsed: unknown = JSON.parse(formatJsonReport([{ name: 'deploy', report }]));
+
+    expect(parsed).toMatchObject({
+      allPassed: true,
+      passedCount: 0,
+      failedCount: 0,
+      skippedCount: 2,
+    });
+  });
+
+  it('emits the expected top-level shape with no summary wrapper', () => {
+    const report = makeReport({
+      results: [{ name: 'a', status: 'passed', durationMs: 10 }],
+      passed: true,
+      durationMs: 10,
+    });
+
+    const parsed = JSON.parse(formatJsonReport([{ name: 'deploy', report }])) as Record<string, unknown>;
+    const topLevelKeys = Object.keys(parsed).sort();
+
+    expect(topLevelKeys).toStrictEqual(['allPassed', 'checklists', 'failedCount', 'passedCount', 'skippedCount']);
+  });
+
   it('serializes error as a string message', () => {
     const report = makeReport({
       results: [{ name: 'a', status: 'failed', error: new Error('connection refused'), durationMs: 5 }],
