@@ -88,10 +88,11 @@ describe(loadRemoteConfig, () => {
   it('cleans up temp directory even on failure', async () => {
     mockFetch.mockResolvedValue(mockResponse('export default {};'));
     mockMkdtempSync.mockReturnValue('/tmp/preflight-abc');
-
-    await loadRemoteConfig({ url: 'https://example.com/config.js' }).catch(() => {
-      // Expected to throw due to invalid config
+    mockWriteFileSync.mockImplementation(() => {
+      throw new Error('disk full');
     });
+
+    await expect(loadRemoteConfig({ url: 'https://example.com/config.js' })).rejects.toThrow('disk full');
 
     expect(mockRmSync).toHaveBeenCalledWith('/tmp/preflight-abc', { recursive: true, force: true });
   });
