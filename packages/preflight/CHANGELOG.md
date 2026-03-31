@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## [preflight-v0.4.0] - 2026-03-31
+
+### Features
+
+- #24 prerelease|feat: Add drift-detection config for convention compliance (#101)
+
+Adds a portable preflight config (`packages/preflight/configs/drift.config.ts`) with five checklists that detect convention drift across repos. The config covers release-kit adoption, label-sync setup, nmr installation, code-quality workflow versioning, and general repo setup conventions (agent guidance files, editor configs, audit-ci configs, package.json fields, and tool-version hygiene).
+
+- #98 preflight|feat: Support structured check outcomes with detail and progress (#102)
+
+Widens the preflight check return type from `boolean` to `boolean | CheckOutcome`, where `CheckOutcome` carries an `ok` boolean plus optional `detail` (string) and `progress` (fraction or percentage) fields. The runner normalizes both return shapes, propagates `detail` and `progress` through `PreflightResult`, and the reporter renders them inline with em-dash separators for all check statuses.
+
+- #104 preflight|feat: Add combined summary after all checklists run (#108)
+
+Adds a combined summary table that prints after all checklists complete when two or more checklists run. Each row shows a pass/fail icon, checklist name, aligned duration, and non-zero counts. A Total line aggregates across all checklists with icon-prefixed counts and total duration. The single-checklist summary line is also updated to use icon-prefixed counts with zero omission. All status icons are changed to a traffic-light scheme (🟢/🔴/⛔) to align with the planned "greenlight" package name.
+
+- #107 preflight|feat: Add `--json` flag for structured output (#111)
+
+Adds `--json` to the `run` subcommand so consumers can pipe structured output. When the flag is set, all human-readable output (headers, `reportPreflight`, `formatCombinedSummary`) is suppressed and a single JSON object is emitted to stdout. Error paths (config loading, unknown checklist names) also emit JSON to stdout instead of plain text to stderr, while the exit code still signals success or failure.
+
+New modules: `formatJsonReport` transforms `PreflightReport[]` into the JSON shape, and `formatJsonError` wraps error messages. `formatJsonReport` is exported from the package index for library consumers.
+
+- #103 preflight|feat: Support remote config URLs (#115)
+
+Adds `--github` and `--url` flags to `preflight run` so it can fetch and evaluate remote `.js` config bundles hosted on GitHub or any URL. Extracts config validation into a shared module reused by both local and remote loaders.
+
+### Refactoring
+
+- #109 preflight|refactor: Add `type` discriminant to `Progress` union (#112)
+
+Adds a `type` field (`"fraction"` | `"percent"`) to `FractionProgress` and `PercentProgress` so consumers can switch on a single key instead of checking for the presence of specific fields. This is especially important for JSON consumers who don't have TypeScript's type narrowing.
+
+Updates `isPercentProgress` to use `progress.type === "percent"`. Upgrade `JsonProgress` from a flat optional-field bag to a proper discriminated union mirroring the source type.
+
 ## [preflight-v0.3.1] - 2026-03-30
 
 ### Bug fixes

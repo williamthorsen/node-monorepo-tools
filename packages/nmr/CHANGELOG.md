@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [nmr-v0.5.0] - 2026-03-31
+
+### Features
+
+- #105 nmr|feat: Add `fix` script to workspace and root registries (#106)
+
+Adds a `fix` composite script to both the workspace and root script registries in nmr. The script runs `lint` then `fmt` in sequence, providing a single command to auto-fix linting and formatting issues.
+
+- Preflight|feat: Update preflight checks for v5 workflow and nmr test conventions
+
+Bump the expected code-quality-pnpm-workflow version from v4 to v5 and add a dependent check that pnpm-version is absent when v5 is in use (v5 infers the version from the packageManager field). Add nmr checks enforcing that repos have **tests**/version-alignment.app.test.ts using checkNodeVersionConsistency and that superseded test files (consistency.app.test.ts, nodejs-version-app.test.ts, pnpm-version-app.test.ts) no longer exist.
+
+Re-export findMonorepoRoot from the @williamthorsen/nmr/tests subpath so consumers of the individual check functions can resolve the monorepo root without reaching into internal modules.
+
+Replace the hand-rolled version-consistency tests and their local helpers with a thin version-alignment test that delegates to the nmr library's exported check functions.
+
+### Tests
+
+- Nmr|tests: Add unit tests for consistency check helpers
+
+Export the five previously-private functions from `consistency.ts` so consumers can import individual checks and extraction helpers. Add fixture-based tests covering `getPnpmVersionFromPackageJson` (valid input, wrong manager, missing version, non-string field, missing field), `getPnpmVersionFromAction`, and `getNodeVersionFromAction`.
+
 ## [nmr-v0.4.0] - 2026-03-30
 
 ### Bug fixes
