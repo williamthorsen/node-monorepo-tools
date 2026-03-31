@@ -56,6 +56,40 @@ const nmr: PreflightCheckList = {
       check: () => hasDevDependency('@williamthorsen/nmr'),
       fix: 'pnpm add --save-dev @williamthorsen/nmr',
     },
+    {
+      name: '__tests__/version-alignment.app.test.ts exists',
+      check: () => fileExists('__tests__/version-alignment.app.test.ts'),
+      fix: 'Add __tests__/version-alignment.app.test.ts with version-alignment checks',
+    },
+    {
+      name: 'version-alignment test contains checkNodeVersionConsistency (requires file)',
+      check: () =>
+        !fileExists('__tests__/version-alignment.app.test.ts') ||
+        fileContains('__tests__/version-alignment.app.test.ts', /checkNodeVersionConsistency/),
+      fix: 'Update __tests__/version-alignment.app.test.ts to use checkNodeVersionConsistency',
+    },
+    {
+      name: 'version-alignment test does not contain runConsistencyChecks (requires file)',
+      check: () =>
+        !fileExists('__tests__/version-alignment.app.test.ts') ||
+        fileDoesNotContain('__tests__/version-alignment.app.test.ts', /runConsistencyChecks/),
+      fix: 'Replace runConsistencyChecks with checkNodeVersionConsistency in __tests__/version-alignment.app.test.ts',
+    },
+    {
+      name: '__tests__/consistency.app.test.ts does not exist',
+      check: () => !fileExists('__tests__/consistency.app.test.ts'),
+      fix: 'Remove __tests__/consistency.app.test.ts — superseded by __tests__/version-alignment.app.test.ts',
+    },
+    {
+      name: '__tests__/nodejs-version-app.test.ts does not exist',
+      check: () => !fileExists('__tests__/nodejs-version-app.test.ts'),
+      fix: 'Remove __tests__/nodejs-version-app.test.ts — superseded by __tests__/version-alignment.app.test.ts',
+    },
+    {
+      name: '__tests__/pnpm-version-app.test.ts does not exist',
+      check: () => !fileExists('__tests__/pnpm-version-app.test.ts'),
+      fix: 'Remove __tests__/pnpm-version-app.test.ts — superseded by __tests__/version-alignment.app.test.ts',
+    },
   ],
 };
 
@@ -68,13 +102,22 @@ const codeQuality: PreflightCheckList = {
       fix: 'Add .github/workflows/code-quality.yaml using the code-quality workflow template',
     },
     {
-      name: 'code-quality workflow references @v4',
+      name: 'code-quality workflow references @v5',
       check: () =>
         fileContains(
           '.github/workflows/code-quality.yaml',
-          /uses:\s*williamthorsen\/.github\/.github\/workflows\/code-quality-pnpm-workflow\.yaml@v4/,
+          /uses:\s*williamthorsen\/.github\/.github\/workflows\/code-quality-pnpm-workflow\.yaml@v5/,
         ),
-      fix: 'Update code-quality.yaml to reference code-quality-pnpm-workflow.yaml@v4',
+      fix: 'Update code-quality.yaml to reference code-quality-pnpm-workflow.yaml@v5',
+    },
+    {
+      name: 'code-quality workflow does not reference pnpm-version (requires @v5)',
+      check: () =>
+        !fileContains(
+          '.github/workflows/code-quality.yaml',
+          /uses:\s*williamthorsen\/.github\/.github\/workflows\/code-quality-pnpm-workflow\.yaml@v5/,
+        ) || fileDoesNotContain('.github/workflows/code-quality.yaml', /pnpm-version/),
+      fix: 'Remove pnpm-version from code-quality.yaml — v5 workflow infers the version from packageManager',
     },
     {
       name: 'code-quality workflow does not reference GH_PACKAGES_TOKEN',

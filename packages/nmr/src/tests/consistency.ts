@@ -4,6 +4,8 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { findMonorepoRoot } from '../context.ts';
+
+export { findMonorepoRoot } from '../context.ts';
 import { getRuntimeVersionFromAsdf } from './helpers/get-runtime-version-from-asdf.ts';
 import { getStringFromYamlFile } from './helpers/get-string-from-yaml-file.ts';
 import { getValueAtPathOrThrow } from './helpers/get-value-at-path.ts';

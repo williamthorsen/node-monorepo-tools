@@ -19,8 +19,7 @@ on:
 
 jobs:
   code-quality:
-    uses: williamthorsen/.github/.github/workflows/code-quality-pnpm-workflow.yaml@v4
+    uses: williamthorsen/.github/.github/workflows/code-quality-pnpm-workflow.yaml@v5
     with:
       check-command: pnpm exec nmr ci
       node-version: '24.14.1'
-      pnpm-version: '10.33.0'
