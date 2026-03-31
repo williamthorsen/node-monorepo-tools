@@ -3,21 +3,23 @@ export type FixLocation = 'INLINE' | 'END';
 
 /** Progress expressed as a fraction with passed and total counts. */
 export interface FractionProgress {
+  type: 'fraction';
   passedCount: number;
   count: number;
 }
 
 /** Progress expressed as a percentage. */
 export interface PercentProgress {
+  type: 'percent';
   percent: number;
 }
 
-/** Union of progress representations, discriminated by the presence of `percent`. */
+/** Union of progress representations, discriminated by `type`. */
 export type Progress = FractionProgress | PercentProgress;
 
 /** Return true if a progress value uses the percentage representation. */
 export function isPercentProgress(progress: Progress): progress is PercentProgress {
-  return 'percent' in progress;
+  return progress.type === 'percent';
 }
 
 /** Structured outcome from a check, carrying diagnostic data alongside the pass/fail status. */

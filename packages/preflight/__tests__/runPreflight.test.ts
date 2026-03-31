@@ -210,14 +210,19 @@ describe(runPreflight, () => {
     it('carries progress from a failing CheckOutcome', async () => {
       const checklist: PreflightCheckList = {
         name: 'outcome',
-        checks: [{ name: 'with-progress', check: () => ({ ok: false, progress: { passedCount: 7, count: 10 } }) }],
+        checks: [
+          {
+            name: 'with-progress',
+            check: () => ({ ok: false, progress: { type: 'fraction', passedCount: 7, count: 10 } }),
+          },
+        ],
       };
 
       const report = await runPreflight(checklist);
 
       expect(report.passed).toBe(false);
       expect(report.results[0]?.status).toBe('failed');
-      expect(report.results[0]?.progress).toStrictEqual({ passedCount: 7, count: 10 });
+      expect(report.results[0]?.progress).toStrictEqual({ type: 'fraction', passedCount: 7, count: 10 });
     });
 
     it('carries both detail and progress', async () => {
@@ -226,7 +231,7 @@ describe(runPreflight, () => {
         checks: [
           {
             name: 'full-outcome',
-            check: () => ({ ok: false, detail: 'missing deps', progress: { percent: 85 } }),
+            check: () => ({ ok: false, detail: 'missing deps', progress: { type: 'percent', percent: 85 } }),
           },
         ],
       };
@@ -234,7 +239,7 @@ describe(runPreflight, () => {
       const report = await runPreflight(checklist);
 
       expect(report.results[0]?.detail).toBe('missing deps');
-      expect(report.results[0]?.progress).toStrictEqual({ percent: 85 });
+      expect(report.results[0]?.progress).toStrictEqual({ type: 'percent', percent: 85 });
     });
 
     it('does not set detail or progress on skipped results', async () => {

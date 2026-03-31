@@ -16,10 +16,17 @@ interface JsonCheckResult {
   progress?: JsonProgress;
 }
 
-interface JsonProgress {
-  percent?: number;
-  passedCount?: number;
-  count?: number;
+type JsonProgress = JsonFractionProgress | JsonPercentProgress;
+
+interface JsonFractionProgress {
+  type: 'fraction';
+  passedCount: number;
+  count: number;
+}
+
+interface JsonPercentProgress {
+  type: 'percent';
+  percent: number;
 }
 
 interface JsonChecklist {
@@ -108,7 +115,7 @@ function buildCheckResult(result: PreflightResult): JsonCheckResult {
 /** Serialize a Progress union into a plain object with only the relevant fields. */
 function serializeProgress(progress: Progress): JsonProgress {
   if (isPercentProgress(progress)) {
-    return { percent: progress.percent };
+    return { type: 'percent', percent: progress.percent };
   }
-  return { passedCount: progress.passedCount, count: progress.count };
+  return { type: 'fraction', passedCount: progress.passedCount, count: progress.count };
 }

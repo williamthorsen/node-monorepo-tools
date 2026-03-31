@@ -170,7 +170,7 @@ describe(formatJsonReport, () => {
           status: 'failed',
           fix: 'run npm install',
           detail: 'missing dependency',
-          progress: { passedCount: 3, count: 5 },
+          progress: { type: 'fraction', passedCount: 3, count: 5 },
           durationMs: 10,
         },
       ],
@@ -187,7 +187,7 @@ describe(formatJsonReport, () => {
             {
               fix: 'run npm install',
               detail: 'missing dependency',
-              progress: { passedCount: 3, count: 5 },
+              progress: { type: 'fraction', passedCount: 3, count: 5 },
             },
           ],
         },
@@ -201,7 +201,7 @@ describe(formatJsonReport, () => {
         {
           name: 'a',
           status: 'passed',
-          progress: { percent: 75 },
+          progress: { type: 'percent', percent: 75 },
           durationMs: 10,
         },
       ],
@@ -212,7 +212,7 @@ describe(formatJsonReport, () => {
     const parsed: unknown = JSON.parse(formatJsonReport([{ name: 'deploy', report }]));
 
     expect(parsed).toMatchObject({
-      checklists: [{ checks: [{ progress: { percent: 75 } }] }],
+      checklists: [{ checks: [{ progress: { type: 'percent', percent: 75 } }] }],
     });
   });
 });
