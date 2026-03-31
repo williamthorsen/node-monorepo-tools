@@ -1,9 +1,17 @@
 import process from 'node:process';
 
 import { loadPreflightConfig } from './config.ts';
+import { formatCombinedSummary } from './formatCombinedSummary.ts';
 import { reportPreflight } from './reportPreflight.ts';
 import { runPreflight } from './runPreflight.ts';
-import type { FixLocation, PreflightCheckList, PreflightConfig, StagedPreflightCheckList } from './types.ts';
+import type {
+  ChecklistSummary,
+  FixLocation,
+  PreflightCheckList,
+  PreflightConfig,
+  PreflightReport,
+  StagedPreflightCheckList,
+} from './types.ts';
 
 interface ParsedRunArgs {
   configPath?: string;
@@ -48,6 +56,19 @@ function resolveFixLocation(
   return checklist.fixLocation ?? configDefault ?? 'END';
 }
 
+/** Build a checklist summary from a report and its checklist name. */
+function summarizeReport(name: string, report: PreflightReport): ChecklistSummary {
+  let passed = 0;
+  let failed = 0;
+  let skipped = 0;
+  for (const r of report.results) {
+    if (r.status === 'passed') passed++;
+    else if (r.status === 'failed') failed++;
+    else skipped++;
+  }
+  return { name, passed, failed, skipped, allPassed: report.passed, durationMs: report.durationMs };
+}
+
 interface RunCommandOptions {
   names: string[];
   configPath?: string;
@@ -80,6 +101,7 @@ export async function runCommand({ names, configPath }: RunCommandOptions): Prom
 
   const showHeader = checklists.length > 1;
   let allPassed = true;
+  const summaries: ChecklistSummary[] = [];
 
   for (const checklist of checklists) {
     if (showHeader) {
@@ -94,6 +116,14 @@ export async function runCommand({ names, configPath }: RunCommandOptions): Prom
     if (!report.passed) {
       allPassed = false;
     }
+
+    if (showHeader) {
+      summaries.push(summarizeReport(checklist.name, report));
+    }
+  }
+
+  if (summaries.length > 1) {
+    process.stdout.write('\n' + formatCombinedSummary(summaries) + '\n');
   }
 
   return allPassed ? 0 : 1;

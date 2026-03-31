@@ -1,5 +1,6 @@
 // Types
 export type {
+  ChecklistSummary,
   CheckOutcome,
   CheckReturnValue,
   FixLocation,
@@ -25,4 +26,5 @@ export { definePreflightCheckList, definePreflightConfig, defineStagedPreflightC
 export { runPreflight } from './runPreflight.ts';
 
 // Reporter
-export { reportPreflight } from './reportPreflight.ts';
+export { formatCombinedSummary } from './formatCombinedSummary.ts';
+export { formatSummaryCounts, reportPreflight } from './reportPreflight.ts';
