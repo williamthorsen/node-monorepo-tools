@@ -42,16 +42,12 @@ export async function loadRemoteConfig({ url, token }: LoadRemoteConfigOptions):
   try {
     writeFileSync(tempFile, body, 'utf8');
 
-    const fileUrl = pathToFileURL(tempFile).href + `?t=${Date.now()}`;
+    const fileUrl = `${pathToFileURL(tempFile).href}?t=${Date.now()}`;
     const imported: unknown = await import(fileUrl);
-
-    if (!isRecord(imported)) {
-      throw new Error(
-        `Remote config must export an object, got ${Array.isArray(imported) ? 'array' : typeof imported}`,
-      );
-    }
-
-    const resolved = imported.default ?? imported.config;
+    // Narrow the module namespace to access exports. `import()` always returns an object,
+    // but TypeScript types it as `any`; narrowing avoids unsafe-member-access lint errors.
+    const moduleRecord = isRecord(imported) ? imported : {};
+    const resolved: unknown = moduleRecord.default ?? moduleRecord.config;
     if (resolved === undefined) {
       throw new Error('Remote config must have a default export or a named `config` export');
     }
