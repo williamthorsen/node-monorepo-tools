@@ -4,6 +4,7 @@ import { isPercentProgress } from './types.ts';
 const ICON_PASSED = '\u2705';
 const ICON_FAILED = '\u274C';
 const ICON_SKIPPED = '\u26AA';
+const ICON_SKIPPED_SUMMARY = '\u{1F6AB}';
 
 /** Format a duration in milliseconds for display. */
 function formatDuration(ms: number): string {
@@ -23,6 +24,15 @@ function formatProgress(progress: Progress): string {
     return `${progress.percent}%`;
   }
   return `${progress.passedCount} of ${progress.count}`;
+}
+
+/** Build an icon-prefixed summary string, omitting counts that are zero. */
+export function formatSummaryCounts(passed: number, failed: number, skipped: number): string {
+  const parts: string[] = [];
+  if (passed > 0) parts.push(`${ICON_PASSED} ${passed} passed`);
+  if (failed > 0) parts.push(`${ICON_FAILED} ${failed} failed`);
+  if (skipped > 0) parts.push(`${ICON_SKIPPED_SUMMARY} ${skipped} skipped`);
+  return parts.join(', ');
 }
 
 /** Collect inline detail lines (error and/or fix) for a failed result. */
@@ -78,7 +88,7 @@ export function reportPreflight(report: PreflightReport, options?: ReportOptions
     else if (r.status === 'failed') failed++;
     else skipped++;
   }
-  lines.push('', `${passed} passed, ${failed} failed, ${skipped} skipped (${formatDuration(report.durationMs)})`);
+  lines.push('', `${formatSummaryCounts(passed, failed, skipped)} (${formatDuration(report.durationMs)})`);
 
   // Collected fixes section for END mode
   if (fixLocation === 'END' && collectedFixes.length > 0) {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { reportPreflight } from '../src/reportPreflight.ts';
+import { formatSummaryCounts, reportPreflight } from '../src/reportPreflight.ts';
 import type { PreflightReport } from '../src/types.ts';
 
 function makeReport(overrides?: Partial<PreflightReport>): PreflightReport {
@@ -57,7 +57,23 @@ describe(reportPreflight, () => {
 
     const output = reportPreflight(report);
 
-    expect(output).toContain('1 passed, 1 failed, 1 skipped (142ms)');
+    expect(output).toContain('✅ 1 passed, ❌ 1 failed, 🚫 1 skipped (142ms)');
+  });
+
+  it('omits zero counts from the summary line', () => {
+    const report = makeReport({
+      results: [
+        { name: 'a', status: 'passed', durationMs: 10 },
+        { name: 'b', status: 'passed', durationMs: 15 },
+      ],
+      durationMs: 25,
+    });
+
+    const output = reportPreflight(report);
+
+    expect(output).toContain('✅ 2 passed (25ms)');
+    expect(output).not.toContain('failed');
+    expect(output).not.toContain('skipped');
   });
 
   describe('INLINE mode', () => {
@@ -267,5 +283,23 @@ describe(reportPreflight, () => {
     expect(output).toContain('Fixes:');
     expect(output).toContain('  Fix it');
     expect(output).not.toContain('Fix: Fix it');
+  });
+});
+
+describe(formatSummaryCounts, () => {
+  it('includes all non-zero counts with icons', () => {
+    expect(formatSummaryCounts(3, 1, 2)).toBe('✅ 3 passed, ❌ 1 failed, 🚫 2 skipped');
+  });
+
+  it('omits zero counts', () => {
+    expect(formatSummaryCounts(5, 0, 0)).toBe('✅ 5 passed');
+  });
+
+  it('omits passed when zero', () => {
+    expect(formatSummaryCounts(0, 2, 1)).toBe('❌ 2 failed, 🚫 1 skipped');
+  });
+
+  it('returns empty string when all counts are zero', () => {
+    expect(formatSummaryCounts(0, 0, 0)).toBe('');
   });
 });

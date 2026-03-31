@@ -5,6 +5,7 @@ import type { PreflightConfig } from '../src/types.ts';
 const mockLoadPreflightConfig = vi.hoisted(() => vi.fn());
 const mockRunPreflight = vi.hoisted(() => vi.fn());
 const mockReportPreflight = vi.hoisted(() => vi.fn());
+const mockFormatCombinedSummary = vi.hoisted(() => vi.fn());
 
 vi.mock('../src/config.ts', () => ({
   loadPreflightConfig: mockLoadPreflightConfig,
@@ -16,6 +17,10 @@ vi.mock('../src/runPreflight.ts', () => ({
 
 vi.mock('../src/reportPreflight.ts', () => ({
   reportPreflight: mockReportPreflight,
+}));
+
+vi.mock('../src/formatCombinedSummary.ts', () => ({
+  formatCombinedSummary: mockFormatCombinedSummary,
 }));
 
 import { parseRunArgs, runCommand } from '../src/cli.ts';
@@ -89,6 +94,7 @@ describe(runCommand, () => {
     stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     mockReportPreflight.mockReturnValue('report output');
+    mockFormatCombinedSummary.mockReturnValue('combined summary');
   });
 
   afterEach(() => {
@@ -96,6 +102,7 @@ describe(runCommand, () => {
     mockLoadPreflightConfig.mockReset();
     mockRunPreflight.mockReset();
     mockReportPreflight.mockReset();
+    mockFormatCombinedSummary.mockReset();
   });
 
   it('runs all checklists when no names are given', async () => {
@@ -209,5 +216,59 @@ describe(runCommand, () => {
 
     expect(stderrSpy).toHaveBeenCalledWith('Error: Config not found\n');
     expect(exitCode).toBe(1);
+  });
+
+  it('prints combined summary when multiple checklists run', async () => {
+    const config = makeConfig();
+    mockLoadPreflightConfig.mockResolvedValue(config);
+    mockRunPreflight.mockResolvedValue({
+      results: [{ name: 'a', status: 'passed', durationMs: 10 }],
+      passed: true,
+      durationMs: 10,
+    });
+
+    await runCommand({ names: [] });
+
+    expect(mockFormatCombinedSummary).toHaveBeenCalledTimes(1);
+    expect(mockFormatCombinedSummary).toHaveBeenCalledWith([
+      expect.objectContaining({ name: 'deploy', passed: 1, failed: 0, skipped: 0, allPassed: true }),
+      expect.objectContaining({ name: 'infra', passed: 1, failed: 0, skipped: 0, allPassed: true }),
+    ]);
+  });
+
+  it('does not print combined summary for a single checklist', async () => {
+    const config = makeConfig();
+    mockLoadPreflightConfig.mockResolvedValue(config);
+    mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
+
+    await runCommand({ names: ['deploy'] });
+
+    expect(mockFormatCombinedSummary).not.toHaveBeenCalled();
+  });
+
+  it('includes failure counts in combined summary', async () => {
+    const config = makeConfig();
+    mockLoadPreflightConfig.mockResolvedValue(config);
+    mockRunPreflight
+      .mockResolvedValueOnce({
+        results: [
+          { name: 'a', status: 'passed', durationMs: 10 },
+          { name: 'b', status: 'failed', durationMs: 5 },
+        ],
+        passed: false,
+        durationMs: 15,
+      })
+      .mockResolvedValueOnce({
+        results: [{ name: 'c', status: 'skipped', durationMs: 0 }],
+        passed: false,
+        durationMs: 0,
+      });
+
+    await runCommand({ names: [] });
+
+    expect(mockFormatCombinedSummary).toHaveBeenCalledWith([
+      expect.objectContaining({ name: 'deploy', passed: 1, failed: 1, skipped: 0, allPassed: false }),
+      expect.objectContaining({ name: 'infra', passed: 0, failed: 0, skipped: 1, allPassed: false }),
+    ]);
   });
 });

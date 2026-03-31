@@ -71,6 +71,16 @@ export interface StagedPreflightCheckList {
   fixLocation?: FixLocation;
 }
 
+/** Per-checklist aggregate for the combined summary table. */
+export interface ChecklistSummary {
+  name: string;
+  passed: number;
+  failed: number;
+  skipped: number;
+  allPassed: boolean;
+  durationMs: number;
+}
+
 /** Options controlling how the report is formatted. */
 export interface ReportOptions {
   fixLocation?: FixLocation;
