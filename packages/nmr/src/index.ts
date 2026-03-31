@@ -1,3 +1,3 @@
-export type { NmrConfig } from './config.js';
-export { defineConfig } from './config.js';
-export type { ResolvedContext } from './context.js';
+export type { NmrConfig } from './config.ts';
+export { defineConfig } from './config.ts';
+export type { ResolvedContext } from './context.ts';

@@ -3,14 +3,14 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { findMonorepoRoot } from '../context.js';
-import { getRuntimeVersionFromAsdf } from './helpers/get-runtime-version-from-asdf.js';
-import { getStringFromYamlFile } from './helpers/get-string-from-yaml-file.js';
-import { getValueAtPathOrThrow } from './helpers/get-value-at-path.js';
+import { findMonorepoRoot } from '../context.ts';
+import { getRuntimeVersionFromAsdf } from './helpers/get-runtime-version-from-asdf.ts';
+import { getStringFromYamlFile } from './helpers/get-string-from-yaml-file.ts';
+import { getValueAtPathOrThrow } from './helpers/get-value-at-path.ts';
 
 const GITHUB_ACTION_FILE_PATH = '.github/workflows/code-quality.yaml';
 
-function checkPnpmVersionConsistency(monorepoRoot: string): void {
+export function checkPnpmVersionConsistency(monorepoRoot: string): void {
   describe('pnpm version consistency', () => {
     it('pnpm version is the same in GitHub action and package.json', async () => {
       const actionVersion = await getPnpmVersionFromAction(monorepoRoot);
@@ -21,7 +21,7 @@ function checkPnpmVersionConsistency(monorepoRoot: string): void {
   });
 }
 
-function checkNodeVersionConsistency(monorepoRoot: string): void {
+export function checkNodeVersionConsistency(monorepoRoot: string): void {
   describe('Node.js version consistency', () => {
     it('version is the same in GitHub action and .tool-versions', async () => {
       const toolVersion = await getRuntimeVersionFromAsdf('nodejs', monorepoRoot);
@@ -32,12 +32,12 @@ function checkNodeVersionConsistency(monorepoRoot: string): void {
   });
 }
 
-async function getPnpmVersionFromAction(monorepoRoot: string): Promise<string> {
+export async function getPnpmVersionFromAction(monorepoRoot: string): Promise<string> {
   const actionPath = path.join(monorepoRoot, GITHUB_ACTION_FILE_PATH);
   return getStringFromYamlFile(actionPath, 'jobs.code-quality.with.pnpm-version', 'pnpm version');
 }
 
-function getPnpmVersionFromPackageJson(monorepoRoot: string): string {
+export function getPnpmVersionFromPackageJson(monorepoRoot: string): string {
   const pkgPath = path.join(monorepoRoot, 'package.json');
   const raw = fs.readFileSync(pkgPath, 'utf8');
   const pkg: unknown = JSON.parse(raw);
@@ -59,7 +59,7 @@ function getPnpmVersionFromPackageJson(monorepoRoot: string): string {
   return version;
 }
 
-async function getNodeVersionFromAction(monorepoRoot: string): Promise<string> {
+export async function getNodeVersionFromAction(monorepoRoot: string): Promise<string> {
   const actionPath = path.join(monorepoRoot, GITHUB_ACTION_FILE_PATH);
   return getStringFromYamlFile(actionPath, 'jobs.code-quality.with.node-version', 'Node.js version');
 }
