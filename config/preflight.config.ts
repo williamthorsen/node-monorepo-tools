@@ -2,10 +2,10 @@
  * Drift-detection config for convention compliance across repos.
  *
  * Run from a target repo's working directory:
- *   preflight run --config <path-to>/packages/preflight/configs/drift.config.ts
+ *   preflight run --config <path-to>/config/preflight.config.ts
  */
-import { definePreflightConfig } from '../src/config.ts';
-import type { PreflightCheck, PreflightCheckList } from '../src/types.ts';
+import type { PreflightCheck, PreflightCheckList } from '@williamthorsen/preflight';
+import { definePreflightConfig } from '@williamthorsen/preflight';
 
 const releaseKit: PreflightCheckList = {
   name: 'release-kit',
@@ -72,9 +72,14 @@ const codeQuality: PreflightCheckList = {
       check: () =>
         fileContains(
           '.github/workflows/code-quality.yaml',
-          /uses:\s*williamthorsen\/.github\/.github\/workflows\/code-quality-pnpm\.yaml@v4/,
+          /uses:\s*williamthorsen\/.github\/.github\/workflows\/code-quality-pnpm-workflow\.yaml@v4/,
         ),
-      fix: 'Update code-quality.yaml to reference code-quality-pnpm.yaml@v4',
+      fix: 'Update code-quality.yaml to reference code-quality-pnpm-workflow.yaml@v4',
+    },
+    {
+      name: 'code-quality workflow does not reference GH_PACKAGES_TOKEN',
+      check: () => fileDoesNotContain('.github/workflows/code-quality.yaml', /GH_PACKAGES_TOKEN/),
+      fix: 'Remove all references to GH_PACKAGES_TOKEN from code-quality.yaml',
     },
   ],
 };
@@ -174,7 +179,7 @@ function readPackageJson(): Record<string, unknown> | undefined {
   if (content === undefined) return undefined;
   const parsed: unknown = JSON.parse(content);
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return undefined;
-  return parsed;
+  return Object.fromEntries(Object.entries(parsed));
 }
 
 /** Check whether a dev dependency is present in package.json. */
@@ -198,6 +203,13 @@ function fileContains(relativePath: string, pattern: RegExp): boolean {
   const content = readFile(relativePath);
   if (content === undefined) return false;
   return pattern.test(content);
+}
+
+/** Check that a file does not contain content matching a regex. Passes if the file is absent. */
+function fileDoesNotContain(relativePath: string, pattern: RegExp): boolean {
+  const content = readFile(relativePath);
+  if (content === undefined) return true;
+  return !pattern.test(content);
 }
 
 /** Verify that .agents/preferences.yaml contains project.slug and project.ticket_prefix. */

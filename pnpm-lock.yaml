@@ -32,6 +32,9 @@ importers:
       '@williamthorsen/nmr':
         specifier: workspace:*
         version: link:packages/nmr
+      '@williamthorsen/preflight':
+        specifier: workspace:*
+        version: link:packages/preflight
       '@williamthorsen/release-kit':
         specifier: workspace:*
         version: link:packages/release-kit
