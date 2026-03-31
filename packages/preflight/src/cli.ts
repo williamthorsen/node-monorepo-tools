@@ -1,10 +1,13 @@
 import process from 'node:process';
 
 import { loadPreflightConfig } from './config.ts';
+import { expandGitHubShorthand } from './expandGitHubShorthand.ts';
 import { formatCombinedSummary } from './formatCombinedSummary.ts';
 import { formatJsonError } from './formatJsonError.ts';
 import { formatJsonReport } from './formatJsonReport.ts';
+import { loadRemoteConfig, type LoadRemoteConfigOptions } from './loadRemoteConfig.ts';
 import { reportPreflight } from './reportPreflight.ts';
+import { resolveGitHubToken } from './resolveGitHubToken.ts';
 import { runPreflight } from './runPreflight.ts';
 import type {
   ChecklistSummary,
@@ -15,42 +18,88 @@ import type {
   StagedPreflightCheckList,
 } from './types.ts';
 
+/** Discriminated union describing how to locate the preflight config. */
+export type ConfigSource =
+  | { type: 'local'; path?: string }
+  | { type: 'github'; shorthand: string }
+  | { type: 'url'; url: string };
+
 interface ParsedRunArgs {
-  configPath?: string;
+  configSource: ConfigSource;
   json: boolean;
   names: string[];
 }
 
+/** Extract a flag value from either `--flag value` or `--flag=value` form, advancing the index when needed. */
+function extractFlagValue(
+  flagName: string,
+  arg: string,
+  flags: string[],
+  index: number,
+  errorHint: string,
+): { value: string; nextIndex: number } {
+  const eqPrefix = `${flagName}=`;
+  if (arg.startsWith(eqPrefix)) {
+    const value = arg.slice(eqPrefix.length);
+    if (value === '') {
+      throw new Error(`${flagName} requires ${errorHint}`);
+    }
+    return { value, nextIndex: index };
+  }
+  const next = flags[index + 1];
+  if (next === undefined || next.startsWith('-')) {
+    throw new Error(`${flagName} requires ${errorHint}`);
+  }
+  return { value: next, nextIndex: index + 1 };
+}
+
+/** Throw if a config source flag has already been set. */
+function assertNoExistingSource(existing: ConfigSource | undefined): void {
+  if (existing !== undefined) {
+    throw new Error('Cannot combine --config, --github, and --url flags');
+  }
+}
+
 /** Parse run-subcommand flags into a structured object. */
 export function parseRunArgs(flags: string[]): ParsedRunArgs {
-  const result: ParsedRunArgs = { json: false, names: [] };
+  const names: string[] = [];
+  let configSource: ConfigSource | undefined;
+  let json = false;
 
   for (let i = 0; i < flags.length; i++) {
-    const arg = flags[i];
-    if (arg === undefined) break;
+    const arg = flags[i] ?? '';
+
     if (arg === '--json') {
-      result.json = true;
-    } else if (arg === '--config' || arg === '-c') {
-      i++;
-      const configValue = flags[i];
-      if (configValue === undefined) {
-        throw new Error('--config requires a path argument');
-      }
-      result.configPath = configValue;
-    } else if (arg.startsWith('--config=')) {
-      const configValue = arg.slice('--config='.length);
-      if (configValue === '') {
-        throw new Error('--config requires a path argument');
-      }
-      result.configPath = configValue;
+      json = true;
+    } else if (arg === '--config' || arg === '-c' || arg.startsWith('--config=')) {
+      assertNoExistingSource(configSource);
+      const { value, nextIndex } = extractFlagValue('--config', arg, flags, i, 'a path argument');
+      i = nextIndex;
+      configSource = { type: 'local', path: value };
+    } else if (arg === '--github' || arg.startsWith('--github=')) {
+      assertNoExistingSource(configSource);
+      const { value, nextIndex } = extractFlagValue(
+        '--github',
+        arg,
+        flags,
+        i,
+        'a shorthand argument (org/repo/path[@ref])',
+      );
+      i = nextIndex;
+      configSource = { type: 'github', shorthand: value };
+    } else if (arg === '--url' || arg.startsWith('--url=')) {
+      assertNoExistingSource(configSource);
+      const { value, nextIndex } = extractFlagValue('--url', arg, flags, i, 'a URL argument');
+      i = nextIndex;
+      configSource = { type: 'url', url: value };
     } else if (arg.startsWith('-')) {
       throw new Error(`unknown flag '${arg}'`);
     } else {
-      result.names.push(arg);
+      names.push(arg);
     }
   }
 
-  return result;
+  return { configSource: configSource ?? { type: 'local' }, json, names };
 }
 
 /** Resolve the effective fixLocation for a checklist, falling back to the config-level default. */
@@ -76,15 +125,34 @@ function summarizeReport(name: string, report: PreflightReport): ChecklistSummar
 
 interface RunCommandOptions {
   names: string[];
-  configPath?: string;
+  configSource: ConfigSource;
   json: boolean;
 }
 
+/** Load a preflight config from the appropriate source. */
+async function loadConfig(source: ConfigSource): Promise<PreflightConfig> {
+  switch (source.type) {
+    case 'local':
+      return loadPreflightConfig(source.path);
+    case 'github': {
+      const url = expandGitHubShorthand(source.shorthand);
+      const token = resolveGitHubToken();
+      const options: LoadRemoteConfigOptions = { url };
+      if (token !== undefined) {
+        options.token = token;
+      }
+      return loadRemoteConfig(options);
+    }
+    case 'url':
+      return loadRemoteConfig({ url: source.url });
+  }
+}
+
 /** Run preflight checklists. Returns a numeric exit code. */
-export async function runCommand({ names, configPath, json }: RunCommandOptions): Promise<number> {
+export async function runCommand({ names, configSource, json }: RunCommandOptions): Promise<number> {
   let config: PreflightConfig;
   try {
-    config = await loadPreflightConfig(configPath);
+    config = await loadConfig(configSource);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     if (json) {

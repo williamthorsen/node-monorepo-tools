@@ -8,6 +8,9 @@ const mockReportPreflight = vi.hoisted(() => vi.fn());
 const mockFormatCombinedSummary = vi.hoisted(() => vi.fn());
 const mockFormatJsonReport = vi.hoisted(() => vi.fn());
 const mockFormatJsonError = vi.hoisted(() => vi.fn());
+const mockExpandGitHubShorthand = vi.hoisted(() => vi.fn());
+const mockResolveGitHubToken = vi.hoisted(() => vi.fn());
+const mockLoadRemoteConfig = vi.hoisted(() => vi.fn());
 
 vi.mock('../src/config.ts', () => ({
   loadPreflightConfig: mockLoadPreflightConfig,
@@ -33,6 +36,18 @@ vi.mock('../src/formatJsonError.ts', () => ({
   formatJsonError: mockFormatJsonError,
 }));
 
+vi.mock('../src/expandGitHubShorthand.ts', () => ({
+  expandGitHubShorthand: mockExpandGitHubShorthand,
+}));
+
+vi.mock('../src/resolveGitHubToken.ts', () => ({
+  resolveGitHubToken: mockResolveGitHubToken,
+}));
+
+vi.mock('../src/loadRemoteConfig.ts', () => ({
+  loadRemoteConfig: mockLoadRemoteConfig,
+}));
+
 import { parseRunArgs, runCommand } from '../src/cli.ts';
 
 function makeConfig(overrides?: Partial<PreflightConfig>): PreflightConfig {
@@ -46,36 +61,36 @@ function makeConfig(overrides?: Partial<PreflightConfig>): PreflightConfig {
 }
 
 describe(parseRunArgs, () => {
-  it('parses positional names', () => {
+  it('parses positional names with default local source', () => {
     const result = parseRunArgs(['deploy', 'infra']);
 
     expect(result.names).toStrictEqual(['deploy', 'infra']);
-    expect(result.configPath).toBeUndefined();
+    expect(result.configSource).toStrictEqual({ type: 'local' });
   });
 
   it('parses --config flag', () => {
     const result = parseRunArgs(['--config', 'custom/path.ts']);
 
-    expect(result.configPath).toBe('custom/path.ts');
+    expect(result.configSource).toStrictEqual({ type: 'local', path: 'custom/path.ts' });
     expect(result.names).toStrictEqual([]);
   });
 
   it('parses --config= syntax', () => {
     const result = parseRunArgs(['--config=custom/path.ts']);
 
-    expect(result.configPath).toBe('custom/path.ts');
+    expect(result.configSource).toStrictEqual({ type: 'local', path: 'custom/path.ts' });
   });
 
   it('parses -c flag', () => {
     const result = parseRunArgs(['-c', 'custom/path.ts']);
 
-    expect(result.configPath).toBe('custom/path.ts');
+    expect(result.configSource).toStrictEqual({ type: 'local', path: 'custom/path.ts' });
   });
 
   it('parses mixed flags and names', () => {
     const result = parseRunArgs(['-c', 'config.ts', 'deploy']);
 
-    expect(result.configPath).toBe('config.ts');
+    expect(result.configSource).toStrictEqual({ type: 'local', path: 'config.ts' });
     expect(result.names).toStrictEqual(['deploy']);
   });
 
@@ -115,12 +130,79 @@ describe(parseRunArgs, () => {
     const result = parseRunArgs(['--json', '--config', '/path/to/config', 'deploy']);
 
     expect(result.json).toBe(true);
-    expect(result.configPath).toBe('/path/to/config');
+    expect(result.configSource).toStrictEqual({ type: 'local', path: '/path/to/config' });
     expect(result.names).toStrictEqual(['deploy']);
   });
 
   it('throws on unknown flags', () => {
     expect(() => parseRunArgs(['--unknown'])).toThrow("unknown flag '--unknown'");
+  });
+
+  // --github flag
+  it('parses --github flag with space-separated value', () => {
+    const result = parseRunArgs(['--github', 'org/repo/path.js@v1']);
+
+    expect(result.configSource).toStrictEqual({ type: 'github', shorthand: 'org/repo/path.js@v1' });
+  });
+
+  it('parses --github= syntax', () => {
+    const result = parseRunArgs(['--github=org/repo/path.js']);
+
+    expect(result.configSource).toStrictEqual({ type: 'github', shorthand: 'org/repo/path.js' });
+  });
+
+  it('throws when --github has no value', () => {
+    expect(() => parseRunArgs(['--github'])).toThrow('--github requires a shorthand argument');
+  });
+
+  it('throws when --github= has an empty value', () => {
+    expect(() => parseRunArgs(['--github='])).toThrow('--github requires a shorthand argument');
+  });
+
+  // --url flag
+  it('parses --url flag with space-separated value', () => {
+    const result = parseRunArgs(['--url', 'https://example.com/config.js']);
+
+    expect(result.configSource).toStrictEqual({ type: 'url', url: 'https://example.com/config.js' });
+  });
+
+  it('parses --url= syntax', () => {
+    const result = parseRunArgs(['--url=https://example.com/config.js']);
+
+    expect(result.configSource).toStrictEqual({ type: 'url', url: 'https://example.com/config.js' });
+  });
+
+  it('throws when --url has no value', () => {
+    expect(() => parseRunArgs(['--url'])).toThrow('--url requires a URL argument');
+  });
+
+  it('throws when --url= has an empty value', () => {
+    expect(() => parseRunArgs(['--url='])).toThrow('--url requires a URL argument');
+  });
+
+  // Mutual exclusivity
+  it('throws when --config and --github are combined', () => {
+    expect(() => parseRunArgs(['--config', 'path.ts', '--github', 'org/repo/path.js'])).toThrow(
+      'Cannot combine --config, --github, and --url flags',
+    );
+  });
+
+  it('throws when --config and --url are combined', () => {
+    expect(() => parseRunArgs(['--config', 'path.ts', '--url', 'https://example.com/config.js'])).toThrow(
+      'Cannot combine --config, --github, and --url flags',
+    );
+  });
+
+  it('throws when a flag name is passed as value to another flag', () => {
+    expect(() => parseRunArgs(['--github', '--url'])).toThrow('--github requires a shorthand argument');
+    expect(() => parseRunArgs(['--url', '--github'])).toThrow('--url requires a URL argument');
+    expect(() => parseRunArgs(['--config', '--github'])).toThrow('--config requires a path argument');
+  });
+
+  it('throws when --github and --url are combined', () => {
+    expect(() => parseRunArgs(['--github', 'org/repo/path.js', '--url', 'https://example.com/config.js'])).toThrow(
+      'Cannot combine --config, --github, and --url flags',
+    );
   });
 });
 
@@ -143,6 +225,9 @@ describe(runCommand, () => {
     mockFormatCombinedSummary.mockReset();
     mockFormatJsonReport.mockReset();
     mockFormatJsonError.mockReset();
+    mockExpandGitHubShorthand.mockReset();
+    mockResolveGitHubToken.mockReset();
+    mockLoadRemoteConfig.mockReset();
   });
 
   it('runs all checklists when no names are given', async () => {
@@ -150,7 +235,7 @@ describe(runCommand, () => {
     mockLoadPreflightConfig.mockResolvedValue(config);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    const exitCode = await runCommand({ names: [], json: false });
+    const exitCode = await runCommand({ names: [], configSource: { type: 'local' }, json: false });
 
     expect(mockRunPreflight).toHaveBeenCalledTimes(2);
     expect(exitCode).toBe(0);
@@ -161,7 +246,7 @@ describe(runCommand, () => {
     mockLoadPreflightConfig.mockResolvedValue(config);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    const exitCode = await runCommand({ names: ['deploy'], json: false });
+    const exitCode = await runCommand({ names: ['deploy'], configSource: { type: 'local' }, json: false });
 
     expect(mockRunPreflight).toHaveBeenCalledTimes(1);
     expect(mockRunPreflight).toHaveBeenCalledWith(config.checklists[0]);
@@ -172,7 +257,7 @@ describe(runCommand, () => {
     const config = makeConfig();
     mockLoadPreflightConfig.mockResolvedValue(config);
 
-    const exitCode = await runCommand({ names: ['nonexistent'], json: false });
+    const exitCode = await runCommand({ names: ['nonexistent'], configSource: { type: 'local' }, json: false });
 
     expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('unknown checklist(s): nonexistent'));
     expect(exitCode).toBe(1);
@@ -185,17 +270,17 @@ describe(runCommand, () => {
       .mockResolvedValueOnce({ results: [], passed: true, durationMs: 0 })
       .mockResolvedValueOnce({ results: [], passed: false, durationMs: 0 });
 
-    const exitCode = await runCommand({ names: [], json: false });
+    const exitCode = await runCommand({ names: [], configSource: { type: 'local' }, json: false });
 
     expect(exitCode).toBe(1);
   });
 
-  it('passes configPath to config loader', async () => {
+  it('passes config path to local config loader', async () => {
     const config = makeConfig();
     mockLoadPreflightConfig.mockResolvedValue(config);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runCommand({ names: [], configPath: 'custom/path.ts', json: false });
+    await runCommand({ names: [], configSource: { type: 'local', path: 'custom/path.ts' }, json: false });
 
     expect(mockLoadPreflightConfig).toHaveBeenCalledWith('custom/path.ts');
   });
@@ -205,7 +290,7 @@ describe(runCommand, () => {
     mockLoadPreflightConfig.mockResolvedValue(config);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runCommand({ names: [], json: false });
+    await runCommand({ names: [], configSource: { type: 'local' }, json: false });
 
     const allOutput = stdoutSpy.mock.calls.map((c) => String(c[0])).join('');
     expect(allOutput).toContain('--- deploy ---');
@@ -217,7 +302,7 @@ describe(runCommand, () => {
     mockLoadPreflightConfig.mockResolvedValue(config);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runCommand({ names: ['deploy'], json: false });
+    await runCommand({ names: ['deploy'], configSource: { type: 'local' }, json: false });
 
     const allOutput = stdoutSpy.mock.calls.map((c) => String(c[0])).join('');
     expect(allOutput).not.toContain('---');
@@ -231,7 +316,7 @@ describe(runCommand, () => {
     mockLoadPreflightConfig.mockResolvedValue(config);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runCommand({ names: [], json: false });
+    await runCommand({ names: [], configSource: { type: 'local' }, json: false });
 
     expect(mockReportPreflight).toHaveBeenCalledWith(expect.anything(), { fixLocation: 'INLINE' });
   });
@@ -244,7 +329,7 @@ describe(runCommand, () => {
     mockLoadPreflightConfig.mockResolvedValue(config);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runCommand({ names: [], json: false });
+    await runCommand({ names: [], configSource: { type: 'local' }, json: false });
 
     expect(mockReportPreflight).toHaveBeenCalledWith(expect.anything(), { fixLocation: 'END' });
   });
@@ -252,7 +337,7 @@ describe(runCommand, () => {
   it('reports config loading errors to stderr', async () => {
     mockLoadPreflightConfig.mockRejectedValue(new Error('Config not found'));
 
-    const exitCode = await runCommand({ names: [], json: false });
+    const exitCode = await runCommand({ names: [], configSource: { type: 'local' }, json: false });
 
     expect(stderrSpy).toHaveBeenCalledWith('Error: Config not found\n');
     expect(exitCode).toBe(1);
@@ -267,7 +352,7 @@ describe(runCommand, () => {
       durationMs: 10,
     });
 
-    await runCommand({ names: [], json: false });
+    await runCommand({ names: [], configSource: { type: 'local' }, json: false });
 
     expect(mockFormatCombinedSummary).toHaveBeenCalledTimes(1);
     expect(mockFormatCombinedSummary).toHaveBeenCalledWith([
@@ -281,7 +366,7 @@ describe(runCommand, () => {
     mockLoadPreflightConfig.mockResolvedValue(config);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runCommand({ names: ['deploy'], json: false });
+    await runCommand({ names: ['deploy'], configSource: { type: 'local' }, json: false });
 
     expect(mockFormatCombinedSummary).not.toHaveBeenCalled();
   });
@@ -304,7 +389,7 @@ describe(runCommand, () => {
         durationMs: 0,
       });
 
-    await runCommand({ names: [], json: false });
+    await runCommand({ names: [], configSource: { type: 'local' }, json: false });
 
     expect(mockFormatCombinedSummary).toHaveBeenCalledWith([
       expect.objectContaining({ name: 'deploy', passed: 1, failed: 1, skipped: 0, allPassed: false }),
@@ -323,7 +408,7 @@ describe(runCommand, () => {
       mockLoadPreflightConfig.mockResolvedValue(config);
       mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-      const exitCode = await runCommand({ names: [], json: true });
+      const exitCode = await runCommand({ names: [], configSource: { type: 'local' }, json: true });
 
       expect(mockFormatJsonReport).toHaveBeenCalledTimes(1);
       expect(mockReportPreflight).not.toHaveBeenCalled();
@@ -339,7 +424,7 @@ describe(runCommand, () => {
         .mockResolvedValueOnce({ results: [], passed: true, durationMs: 0 })
         .mockResolvedValueOnce({ results: [], passed: false, durationMs: 0 });
 
-      const exitCode = await runCommand({ names: [], json: true });
+      const exitCode = await runCommand({ names: [], configSource: { type: 'local' }, json: true });
 
       expect(exitCode).toBe(1);
     });
@@ -347,7 +432,7 @@ describe(runCommand, () => {
     it('emits JSON error to stdout for config loading errors', async () => {
       mockLoadPreflightConfig.mockRejectedValue(new Error('Config not found'));
 
-      const exitCode = await runCommand({ names: [], json: true });
+      const exitCode = await runCommand({ names: [], configSource: { type: 'local' }, json: true });
 
       expect(mockFormatJsonError).toHaveBeenCalledWith('Config not found');
       expect(stdoutSpy).toHaveBeenCalledWith('{"error":"boom"}\n');
@@ -359,7 +444,7 @@ describe(runCommand, () => {
       const config = makeConfig();
       mockLoadPreflightConfig.mockResolvedValue(config);
 
-      const exitCode = await runCommand({ names: ['nonexistent'], json: true });
+      const exitCode = await runCommand({ names: ['nonexistent'], configSource: { type: 'local' }, json: true });
 
       expect(mockFormatJsonError).toHaveBeenCalledWith(expect.stringContaining('unknown checklist(s): nonexistent'));
       expect(stderrSpy).not.toHaveBeenCalled();
@@ -373,7 +458,7 @@ describe(runCommand, () => {
       const report2 = { results: [], passed: true, durationMs: 20 };
       mockRunPreflight.mockResolvedValueOnce(report1).mockResolvedValueOnce(report2);
 
-      await runCommand({ names: [], json: true });
+      await runCommand({ names: [], configSource: { type: 'local' }, json: true });
 
       expect(mockFormatJsonReport).toHaveBeenCalledWith([
         { name: 'deploy', report: report1 },
@@ -386,7 +471,7 @@ describe(runCommand, () => {
       mockLoadPreflightConfig.mockResolvedValue(config);
       mockRunPreflight.mockRejectedValue(new Error('runner crashed'));
 
-      const exitCode = await runCommand({ names: ['deploy'], json: true });
+      const exitCode = await runCommand({ names: ['deploy'], configSource: { type: 'local' }, json: true });
 
       expect(mockFormatJsonError).toHaveBeenCalledWith('runner crashed');
       expect(stderrSpy).not.toHaveBeenCalled();
@@ -398,10 +483,84 @@ describe(runCommand, () => {
       mockLoadPreflightConfig.mockResolvedValue(config);
       mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-      await runCommand({ names: [], json: true });
+      await runCommand({ names: [], configSource: { type: 'local' }, json: true });
 
       const allOutput = stdoutSpy.mock.calls.map((c) => String(c[0])).join('');
       expect(allOutput).not.toContain('---');
     });
+  });
+
+  // GitHub source tests
+  it('expands shorthand and resolves token for --github source', async () => {
+    const config = makeConfig();
+    mockExpandGitHubShorthand.mockReturnValue('https://raw.githubusercontent.com/org/repo/main/config.js');
+    mockResolveGitHubToken.mockReturnValue('token-abc');
+    mockLoadRemoteConfig.mockResolvedValue(config);
+    mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
+
+    const exitCode = await runCommand({
+      names: [],
+      configSource: { type: 'github', shorthand: 'org/repo/config.js' },
+      json: false,
+    });
+
+    expect(mockExpandGitHubShorthand).toHaveBeenCalledWith('org/repo/config.js');
+    expect(mockResolveGitHubToken).toHaveBeenCalled();
+    expect(mockLoadRemoteConfig).toHaveBeenCalledWith({
+      url: 'https://raw.githubusercontent.com/org/repo/main/config.js',
+      token: 'token-abc',
+    });
+    expect(exitCode).toBe(0);
+  });
+
+  it('omits token when resolveGitHubToken returns undefined for --github source', async () => {
+    const config = makeConfig();
+    mockExpandGitHubShorthand.mockReturnValue('https://raw.githubusercontent.com/org/repo/main/config.js');
+    mockResolveGitHubToken.mockReturnValue(undefined);
+    mockLoadRemoteConfig.mockResolvedValue(config);
+    mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
+
+    await runCommand({
+      names: [],
+      configSource: { type: 'github', shorthand: 'org/repo/config.js' },
+      json: false,
+    });
+
+    expect(mockLoadRemoteConfig).toHaveBeenCalledWith({
+      url: 'https://raw.githubusercontent.com/org/repo/main/config.js',
+    });
+    expect(Object.keys(mockLoadRemoteConfig.mock.calls[0][0] as Record<string, unknown>)).not.toContain('token');
+  });
+
+  // URL source tests
+  it('fetches directly for --url source without token resolution', async () => {
+    const config = makeConfig();
+    mockLoadRemoteConfig.mockResolvedValue(config);
+    mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
+
+    const exitCode = await runCommand({
+      names: [],
+      configSource: { type: 'url', url: 'https://example.com/config.js' },
+      json: false,
+    });
+
+    expect(mockResolveGitHubToken).not.toHaveBeenCalled();
+    expect(mockLoadRemoteConfig).toHaveBeenCalledWith({
+      url: 'https://example.com/config.js',
+    });
+    expect(exitCode).toBe(0);
+  });
+
+  it('reports remote config loading errors to stderr', async () => {
+    mockLoadRemoteConfig.mockRejectedValue(new Error('Failed to fetch remote config'));
+
+    const exitCode = await runCommand({
+      names: [],
+      configSource: { type: 'url', url: 'https://example.com/config.js' },
+      json: false,
+    });
+
+    expect(stderrSpy).toHaveBeenCalledWith('Error: Failed to fetch remote config\n');
+    expect(exitCode).toBe(1);
   });
 });
