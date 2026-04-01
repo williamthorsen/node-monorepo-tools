@@ -9,7 +9,7 @@ import type { PreflightChecklist, PreflightCollection, PreflightConfig, Prefligh
  * The legacy default collection file path, resolved relative to `process.cwd()`.
  *
  * Retained for backward compatibility with repos that use the single-file collection pattern.
- * New repos should use internal collections under `.preflight/collections/`.
+ * New repos should use internal collections under `.config/preflight/collections/`.
  */
 export const COLLECTION_FILE_PATH = '.config/preflight.config.ts';
 

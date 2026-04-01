@@ -4,8 +4,8 @@ export const preflightConfigTemplate = `import { definePreflightConfig } from '@
 /** Repo-level preflight settings. */
 export default definePreflightConfig({
   compile: {
-    srcDir: '.preflight/collections',
-    outDir: '.preflight/collections',
+    srcDir: '.preflight/distribution',
+    outDir: '.preflight/distribution',
   },
 });
 `;

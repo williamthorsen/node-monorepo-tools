@@ -555,7 +555,7 @@ describe(runCommand, () => {
 
     expect(mockResolveGitHubToken).toHaveBeenCalled();
     expect(mockLoadRemoteCollection).toHaveBeenCalledWith({
-      url: 'https://raw.githubusercontent.com/org/repo/main/.preflight/collections/nmr.js',
+      url: 'https://raw.githubusercontent.com/org/repo/main/.preflight/distribution/nmr.js',
       token: 'token-abc',
     });
     expect(exitCode).toBe(0);
@@ -574,7 +574,7 @@ describe(runCommand, () => {
     });
 
     expect(mockLoadRemoteCollection).toHaveBeenCalledWith({
-      url: 'https://raw.githubusercontent.com/org/repo/v2/.preflight/collections/nmr.js',
+      url: 'https://raw.githubusercontent.com/org/repo/v2/.preflight/distribution/nmr.js',
     });
     expect(mockLoadRemoteCollection.mock.calls[0][0]).not.toHaveProperty('token');
   });

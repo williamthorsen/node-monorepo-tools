@@ -25,7 +25,7 @@ describe(loadConfig, () => {
     const config = await loadConfig();
 
     expect(config).toStrictEqual({
-      compile: { srcDir: '.preflight/collections', outDir: '.preflight/collections' },
+      compile: { srcDir: '.preflight/distribution', outDir: '.preflight/distribution' },
     });
   });
 
@@ -105,8 +105,8 @@ describe(loadConfig, () => {
 
     const config = await loadConfig('config.ts');
 
-    expect(config.compile.srcDir).toBe('.preflight/collections');
-    expect(config.compile.outDir).toBe('.preflight/collections');
+    expect(config.compile.srcDir).toBe('.preflight/distribution');
+    expect(config.compile.outDir).toBe('.preflight/distribution');
   });
 
   it('supports named exports (no default)', async () => {

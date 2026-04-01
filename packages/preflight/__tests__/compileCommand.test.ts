@@ -108,7 +108,7 @@ describe(compileCommand, () => {
   // Config-driven compile tests (no input file)
   it('compiles all .ts files from config srcDir when no input is given', async () => {
     mockLoadConfig.mockResolvedValue({
-      compile: { srcDir: '.preflight/collections', outDir: '.preflight/collections' },
+      compile: { srcDir: '.preflight/distribution', outDir: '.preflight/distribution' },
     });
     mockExistsSync.mockReturnValue(true);
     mockReaddirSync.mockReturnValue(['a.ts', 'b.ts', 'readme.md']);
@@ -123,7 +123,7 @@ describe(compileCommand, () => {
 
   it('returns 1 when srcDir does not exist and no input is given', async () => {
     mockLoadConfig.mockResolvedValue({
-      compile: { srcDir: '.preflight/collections', outDir: '.preflight/collections' },
+      compile: { srcDir: '.preflight/distribution', outDir: '.preflight/distribution' },
     });
     mockExistsSync.mockReturnValue(false);
 
@@ -135,7 +135,7 @@ describe(compileCommand, () => {
 
   it('returns 1 when srcDir has no .ts files and no input is given', async () => {
     mockLoadConfig.mockResolvedValue({
-      compile: { srcDir: '.preflight/collections', outDir: '.preflight/collections' },
+      compile: { srcDir: '.preflight/distribution', outDir: '.preflight/distribution' },
     });
     mockExistsSync.mockReturnValue(true);
     mockReaddirSync.mockReturnValue(['readme.md']);

@@ -136,7 +136,7 @@ describe(defineChecklists, () => {
 describe(definePreflightConfig, () => {
   it('returns its input unchanged', () => {
     const config = {
-      compile: { srcDir: '.preflight/collections', outDir: '.preflight/collections' },
+      compile: { srcDir: '.preflight/distribution', outDir: '.preflight/distribution' },
     };
 
     expect(definePreflightConfig(config)).toBe(config);

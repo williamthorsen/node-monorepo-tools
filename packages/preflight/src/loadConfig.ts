@@ -6,8 +6,8 @@ import type { PreflightConfig, ResolvedPreflightConfig } from './types.ts';
 /** Default config values when no config file is found. */
 const DEFAULT_CONFIG: ResolvedPreflightConfig = {
   compile: {
-    srcDir: '.preflight/collections',
-    outDir: '.preflight/collections',
+    srcDir: '.preflight/distribution',
+    outDir: '.preflight/distribution',
   },
 };
 

@@ -14,7 +14,7 @@ import path2 from 'node:path';
 // packages/preflight/dist/esm/runPreflight.js
 import { performance } from 'node:perf_hooks';
 
-// .preflight/collections/nmr.ts
+// .preflight/distribution/nmr.ts
 import { existsSync as existsSync3, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 var releaseKit = {

@@ -189,7 +189,7 @@ interface RunCommandOptions {
 
 /** Build the GitHub raw content URL for a collection. */
 function buildGitHubCollectionUrl(repo: string, ref: string, collection: string): string {
-  return `https://raw.githubusercontent.com/${repo}/${ref}/.preflight/collections/${collection}.js`;
+  return `https://raw.githubusercontent.com/${repo}/${ref}/.preflight/distribution/${collection}.js`;
 }
 
 /** Load a preflight collection from an explicit source (local file, GitHub, or URL). */
