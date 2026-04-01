@@ -24,6 +24,9 @@ export function resolveCollectionExports(moduleRecord: Record<string, unknown>):
   if (source.fixLocation !== undefined) {
     resolved.fixLocation = source.fixLocation;
   }
+  if (source.suites !== undefined) {
+    resolved.suites = source.suites;
+  }
 
   return resolved;
 }

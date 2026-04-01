@@ -301,7 +301,7 @@ describe(runCommand, () => {
       json: false,
     });
 
-    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('unknown checklist(s): nonexistent'));
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('Unknown name(s): nonexistent'));
     expect(exitCode).toBe(1);
   });
 
@@ -544,7 +544,7 @@ describe(runCommand, () => {
         json: true,
       });
 
-      expect(mockFormatJsonError).toHaveBeenCalledWith(expect.stringContaining('unknown checklist(s): nonexistent'));
+      expect(mockFormatJsonError).toHaveBeenCalledWith(expect.stringContaining('Unknown name(s): nonexistent'));
       expect(stderrSpy).not.toHaveBeenCalled();
       expect(exitCode).toBe(1);
     });

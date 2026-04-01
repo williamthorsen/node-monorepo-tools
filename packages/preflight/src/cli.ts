@@ -7,6 +7,7 @@ import { formatJsonReport } from './formatJsonReport.ts';
 import { loadRemoteCollection, type LoadRemoteCollectionOptions } from './loadRemoteCollection.ts';
 import { reportPreflight } from './reportPreflight.ts';
 import { resolveGitHubToken } from './resolveGitHubToken.ts';
+import { resolveRequestedNames } from './resolveRequestedNames.ts';
 import { runPreflight } from './runPreflight.ts';
 import type {
   ChecklistSummary,
@@ -235,24 +236,25 @@ async function runSingleCollection(
   collection: PreflightCollection,
   { names, json }: { names: string[]; json: boolean },
 ): Promise<number> {
-  // Determine which checklists to run
-  let checklists = collection.checklists;
-  if (names.length > 0) {
-    const availableNames = new Set(collection.checklists.map((c) => c.name));
-    const unknownNames = names.filter((n) => !availableNames.has(n));
-    if (unknownNames.length > 0) {
-      const available = [...availableNames].join(', ');
-      const message = `unknown checklist(s): ${unknownNames.join(', ')}. Available: ${available}`;
-      if (json) {
-        process.stdout.write(formatJsonError(message) + '\n');
-      } else {
-        process.stderr.write(`Error: ${message}\n`);
-      }
-      return 1;
+  // Resolve requested names (expanding suite names) and filter checklists
+  let resolvedNames: string[];
+  try {
+    resolvedNames = resolveRequestedNames(names, collection);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (json) {
+      process.stdout.write(formatJsonError(message) + '\n');
+    } else {
+      process.stderr.write(`Error: ${message}\n`);
     }
-    const requestedNames = new Set(names);
-    checklists = collection.checklists.filter((c) => requestedNames.has(c.name));
+    return 1;
   }
+
+  const checklistByName = new Map(collection.checklists.map((c) => [c.name, c]));
+  const checklists = resolvedNames.flatMap((name) => {
+    const checklist = checklistByName.get(name);
+    return checklist !== undefined ? [checklist] : [];
+  });
 
   if (json) {
     return runJsonMode(checklists);
