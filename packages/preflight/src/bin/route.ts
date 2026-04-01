@@ -1,6 +1,7 @@
 import process from 'node:process';
 
 import { parseRunArgs, runCommand } from '../cli.ts';
+import { compileCommand } from '../compile/compileCommand.ts';
 import { initCommand } from '../init/initCommand.ts';
 
 function showHelp(): void {
@@ -8,8 +9,9 @@ function showHelp(): void {
 Usage: preflight <command> [options]
 
 Commands:
-  run [names...]   Run preflight checklists
-  init             Scaffold a starter config file
+  run [names...]       Run preflight checklists
+  compile <input>      Bundle a TypeScript config into a self-contained ESM file
+  init                 Scaffold a starter config file
 
 Options:
   --help, -h       Show this help message
@@ -30,6 +32,18 @@ Config source (mutually exclusive):
 Options:
   --json                           Output results as JSON
   --help, -h                       Show this help message
+`);
+}
+
+function showCompileHelp(): void {
+  console.info(`
+Usage: preflight compile <input> [options]
+
+Bundle a TypeScript checklist file into a self-contained ESM bundle.
+
+Options:
+  --output, -o <path>  Output file path (default: input with .ts replaced by .js)
+  --help, -h           Show this help message
 `);
 }
 
@@ -76,6 +90,15 @@ export async function routeCommand(args: string[]): Promise<number> {
     }
 
     return runCommand(parsed);
+  }
+
+  if (command === 'compile') {
+    if (flags.some((f) => f === '--help' || f === '-h')) {
+      showCompileHelp();
+      return 0;
+    }
+
+    return compileCommand(flags);
   }
 
   if (command === 'init') {

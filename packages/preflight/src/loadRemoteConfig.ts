@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { assertIsPreflightConfig, isRecord } from './assertIsPreflightConfig.ts';
+import { resolveConfigExports } from './resolveConfigExports.ts';
 import type { PreflightConfig } from './types.ts';
 
 export interface LoadRemoteConfigOptions {
@@ -47,11 +48,7 @@ export async function loadRemoteConfig({ url, token }: LoadRemoteConfigOptions):
     // Narrow the module namespace to access exports. `import()` always returns an object,
     // but TypeScript types it as `any`; narrowing avoids unsafe-member-access lint errors.
     const moduleRecord = isRecord(imported) ? imported : {};
-    const resolved: unknown = moduleRecord.default ?? moduleRecord.config;
-    if (resolved === undefined) {
-      throw new Error('Remote config must have a default export or a named `config` export');
-    }
-
+    const resolved = resolveConfigExports(moduleRecord);
     assertIsPreflightConfig(resolved);
     return resolved;
   } finally {

@@ -41,6 +41,14 @@
     "@williamthorsen/node-monorepo-core": "workspace:*",
     "jiti": "2.6.1"
   },
+  "peerDependencies": {
+    "esbuild": ">=0.17.0"
+  },
+  "peerDependenciesMeta": {
+    "esbuild": {
+      "optional": true
+    }
+  },
   "engines": {
     "node": ">=18.17.0"
   },

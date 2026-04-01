@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 
 import { assertIsPreflightConfig, isRecord } from './assertIsPreflightConfig.ts';
+import { resolveConfigExports } from './resolveConfigExports.ts';
 import type { PreflightCheckList, PreflightConfig, StagedPreflightCheckList } from './types.ts';
 
 /** The default config file path, resolved relative to `process.cwd()`. */
@@ -10,6 +11,13 @@ export const CONFIG_FILE_PATH = '.config/preflight.config.ts';
 /** Type-safe identity function for defining a preflight config in a config file. */
 export function definePreflightConfig(config: PreflightConfig): PreflightConfig {
   return config;
+}
+
+/** Type-safe identity function for defining an array of checklists in a config file. */
+export function defineChecklists(
+  checklists: Array<PreflightCheckList | StagedPreflightCheckList>,
+): Array<PreflightCheckList | StagedPreflightCheckList> {
+  return checklists;
 }
 
 /** Type-safe identity function for defining a flat checklist. */
@@ -43,13 +51,7 @@ export async function loadPreflightConfig(configPath?: string): Promise<Prefligh
     throw new Error(`Config file must export an object, got ${Array.isArray(imported) ? 'array' : typeof imported}`);
   }
 
-  const resolved = imported.default ?? imported.config;
-  if (resolved === undefined) {
-    throw new Error(
-      'Config file must have a default export or a named `config` export (e.g., `export default definePreflightConfig({ ... })`)',
-    );
-  }
-
+  const resolved = resolveConfigExports(imported);
   assertIsPreflightConfig(resolved);
   return resolved;
 }

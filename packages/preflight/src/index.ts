@@ -20,7 +20,12 @@ export type {
 export { isFlatCheckList, isPercentProgress } from './types.ts';
 
 // Config helpers
-export { definePreflightCheckList, definePreflightConfig, defineStagedPreflightCheckList } from './config.ts';
+export {
+  defineChecklists,
+  definePreflightCheckList,
+  definePreflightConfig,
+  defineStagedPreflightCheckList,
+} from './config.ts';
 
 // Runner
 export { runPreflight } from './runPreflight.ts';
