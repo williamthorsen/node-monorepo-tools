@@ -29,6 +29,9 @@ export {
   definePreflightStagedChecklist,
 } from './config.ts';
 
+// Config loader
+export { loadConfig } from './loadConfig.ts';
+
 // Runner
 export { runPreflight } from './runPreflight.ts';
 
