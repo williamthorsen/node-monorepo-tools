@@ -35,8 +35,16 @@ export async function compileCommand(args: string[]): Promise<number> {
   for (let i = 0; i < args.length; i++) {
     const arg = args[i] ?? '';
 
-    if (arg === '--output' || arg === '-o' || arg.startsWith('--output=')) {
-      const extracted = extractFlagValue('--output', arg === '-o' ? '--output' : arg, args, i);
+    if (arg === '-o') {
+      const next = args[i + 1];
+      if (next === undefined || next.startsWith('-')) {
+        process.stderr.write('Error: --output requires a path argument\n');
+        return 1;
+      }
+      outputPath = next;
+      i += 1;
+    } else if (arg === '--output' || arg.startsWith('--output=')) {
+      const extracted = extractFlagValue('--output', arg, args, i);
       if (extracted === undefined) {
         process.stderr.write('Error: --output requires a path argument\n');
         return 1;

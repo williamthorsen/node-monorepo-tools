@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 
 import { assertIsPreflightConfig, isRecord } from './assertIsPreflightConfig.ts';
+import { resolveConfigExports } from './resolveConfigExports.ts';
 import type { PreflightCheckList, PreflightConfig, StagedPreflightCheckList } from './types.ts';
 
 /** The default config file path, resolved relative to `process.cwd()`. */
@@ -50,26 +51,7 @@ export async function loadPreflightConfig(configPath?: string): Promise<Prefligh
     throw new Error(`Config file must export an object, got ${Array.isArray(imported) ? 'array' : typeof imported}`);
   }
 
-  let checklists: unknown = imported.checklists;
-
-  // Fall back to default export for backward compatibility with `export default definePreflightConfig(...)`.
-  if (checklists === undefined && isRecord(imported.default)) {
-    checklists = imported.default.checklists;
-  }
-
-  if (checklists === undefined) {
-    throw new Error(
-      'Config file must export a named `checklists` export (e.g., `export const checklists = defineChecklists([...])`)',
-    );
-  }
-
-  const defaultExport = isRecord(imported.default) ? imported.default : undefined;
-  const fixLocation: unknown = imported.fixLocation ?? defaultExport?.fixLocation;
-  const resolved: Record<string, unknown> = { checklists };
-  if (fixLocation !== undefined) {
-    resolved.fixLocation = fixLocation;
-  }
-
+  const resolved = resolveConfigExports(imported);
   assertIsPreflightConfig(resolved);
   return resolved;
 }

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { assertIsPreflightConfig, isRecord } from './assertIsPreflightConfig.ts';
+import { resolveConfigExports } from './resolveConfigExports.ts';
 import type { PreflightConfig } from './types.ts';
 
 export interface LoadRemoteConfigOptions {
@@ -47,26 +48,7 @@ export async function loadRemoteConfig({ url, token }: LoadRemoteConfigOptions):
     // Narrow the module namespace to access exports. `import()` always returns an object,
     // but TypeScript types it as `any`; narrowing avoids unsafe-member-access lint errors.
     const moduleRecord = isRecord(imported) ? imported : {};
-    let checklists: unknown = moduleRecord.checklists;
-
-    // Fall back to default export for backward compatibility with `export default definePreflightConfig(...)`.
-    const defaultExport = isRecord(moduleRecord.default) ? moduleRecord.default : undefined;
-    if (checklists === undefined && defaultExport !== undefined) {
-      checklists = defaultExport.checklists;
-    }
-
-    if (checklists === undefined) {
-      throw new Error(
-        'Config file must export a named `checklists` export (e.g., `export const checklists = defineChecklists([...])`)',
-      );
-    }
-
-    const fixLocation: unknown = moduleRecord.fixLocation ?? defaultExport?.fixLocation;
-    const resolved: Record<string, unknown> = { checklists };
-    if (fixLocation !== undefined) {
-      resolved.fixLocation = fixLocation;
-    }
-
+    const resolved = resolveConfigExports(moduleRecord);
     assertIsPreflightConfig(resolved);
     return resolved;
   } finally {
