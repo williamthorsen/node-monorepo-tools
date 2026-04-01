@@ -11,6 +11,7 @@ export type {
   PreflightCollection,
   PreflightConfig,
   PreflightReport,
+  ResolvedPreflightConfig,
   PreflightResult,
   PreflightStagedChecklist,
   Progress,

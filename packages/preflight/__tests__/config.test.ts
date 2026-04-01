@@ -69,7 +69,28 @@ describe(loadPreflightCollection, () => {
     mockExistsSync.mockReturnValue(true);
     mockJitiImport.mockResolvedValue({ unrelated: true });
 
-    await expect(loadPreflightCollection()).rejects.toThrow('must export a named `checklists` export');
+    await expect(loadPreflightCollection()).rejects.toThrow('Collection file must export checklists');
+  });
+
+  it('loads a collection from a default export', async () => {
+    const validChecklists = [{ name: 'test', checks: [{ name: 'a', check: () => true }] }];
+    mockExistsSync.mockReturnValue(true);
+    mockJitiImport.mockResolvedValue({ default: { checklists: validChecklists } });
+
+    const collection = await loadPreflightCollection();
+
+    expect(collection.checklists).toHaveLength(1);
+    expect(collection.checklists[0]?.name).toBe('test');
+  });
+
+  it('loads a collection from a default export with fixLocation', async () => {
+    const validChecklists = [{ name: 'test', checks: [{ name: 'a', check: () => true }] }];
+    mockExistsSync.mockReturnValue(true);
+    mockJitiImport.mockResolvedValue({ default: { checklists: validChecklists, fixLocation: 'INLINE' } });
+
+    const collection = await loadPreflightCollection();
+
+    expect(collection.fixLocation).toBe('INLINE');
   });
 
   it('returns a valid collection with flat checklists', async () => {

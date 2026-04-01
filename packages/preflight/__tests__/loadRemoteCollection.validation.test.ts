@@ -43,7 +43,7 @@ describe('loadRemoteCollection validation', () => {
     mockFetch.mockResolvedValue(mockResponse(jsBody));
 
     await expect(loadRemoteCollection({ url: 'https://example.com/config.js' })).rejects.toThrow(
-      'must export a named `checklists` export',
+      'Collection file must export checklists',
     );
   });
 

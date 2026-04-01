@@ -1,10 +1,10 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
-import type { PreflightConfig } from './types.ts';
+import type { PreflightConfig, ResolvedPreflightConfig } from './types.ts';
 
 /** Default config values when no config file is found. */
-const DEFAULT_CONFIG: PreflightConfig = {
+const DEFAULT_CONFIG: ResolvedPreflightConfig = {
   compile: {
     srcDir: '.preflight/collections',
     outDir: '.preflight/collections',
@@ -44,7 +44,7 @@ function assertIsPreflightConfig(raw: unknown): asserts raw is PreflightConfig {
  * Checks `.config/preflight/config.ts` first, then `.config/preflight.config.ts`.
  * Returns defaults if neither exists. An explicit override path skips the lookup chain.
  */
-export async function loadConfig(overridePath?: string): Promise<PreflightConfig> {
+export async function loadConfig(overridePath?: string): Promise<ResolvedPreflightConfig> {
   let resolvedPath: string | undefined;
 
   if (overridePath !== undefined) {

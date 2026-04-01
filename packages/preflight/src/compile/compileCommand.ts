@@ -81,35 +81,43 @@ export async function compileCommand(args: string[]): Promise<number> {
   }
 
   // No input — use config-driven compilation
+  let config;
   try {
-    const config = await loadConfig();
-    const srcDir = path.resolve(process.cwd(), config.compile.srcDir);
-    const outDir = path.resolve(process.cwd(), config.compile.outDir);
-
-    if (!existsSync(srcDir)) {
-      process.stderr.write(`Error: Source directory not found: ${srcDir}\n`);
-      return 1;
-    }
-
-    const entries = readdirSync(srcDir);
-    const tsFiles = entries.filter((name) => name.endsWith('.ts')).sort();
-
-    if (tsFiles.length === 0) {
-      process.stderr.write(`Error: No .ts files found in ${srcDir}\n`);
-      return 1;
-    }
-
-    for (const fileName of tsFiles) {
-      const srcFile = path.join(srcDir, fileName);
-      const outFile = path.join(outDir, fileName.replace(/\.ts$/, '.js'));
-      const result = await compileConfig(srcFile, outFile);
-      process.stdout.write(`Compiled: ${result.outputPath}\n`);
-    }
-
-    return 0;
+    config = await loadConfig();
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`Error: ${message}\n`);
     return 1;
   }
+
+  const srcDir = path.resolve(process.cwd(), config.compile.srcDir);
+  const outDir = path.resolve(process.cwd(), config.compile.outDir);
+
+  if (!existsSync(srcDir)) {
+    process.stderr.write(`Error: Source directory not found: ${srcDir}\n`);
+    return 1;
+  }
+
+  const entries = readdirSync(srcDir);
+  const tsFiles = entries.filter((name) => name.endsWith('.ts')).sort();
+
+  if (tsFiles.length === 0) {
+    process.stderr.write(`Error: No .ts files found in ${srcDir}\n`);
+    return 1;
+  }
+
+  for (const fileName of tsFiles) {
+    const srcFile = path.join(srcDir, fileName);
+    const outFile = path.join(outDir, fileName.replace(/\.ts$/, '.js'));
+    try {
+      const result = await compileConfig(srcFile, outFile);
+      process.stdout.write(`Compiled: ${result.outputPath}\n`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      process.stderr.write(`Error compiling ${fileName}: ${message}\n`);
+      return 1;
+    }
+  }
+
+  return 0;
 }

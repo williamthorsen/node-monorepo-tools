@@ -95,8 +95,16 @@ export interface PreflightCollection {
   suites?: Record<string, string[]>;
 }
 
-/** Repo-level settings for the preflight CLI. */
+/** Repo-level settings for the preflight CLI (user-facing, all fields optional). */
 export interface PreflightConfig {
+  compile?: {
+    srcDir?: string;
+    outDir?: string;
+  };
+}
+
+/** Fully-resolved config with defaults applied, returned by `loadConfig`. */
+export interface ResolvedPreflightConfig {
   compile: {
     srcDir: string;
     outDir: string;

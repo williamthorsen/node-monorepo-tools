@@ -10,6 +10,8 @@ const mockFormatJsonReport = vi.hoisted(() => vi.fn());
 const mockFormatJsonError = vi.hoisted(() => vi.fn());
 const mockResolveGitHubToken = vi.hoisted(() => vi.fn());
 const mockLoadRemoteCollection = vi.hoisted(() => vi.fn());
+const mockDiscoverInternalCollections = vi.hoisted(() => vi.fn());
+const mockLoadConfig = vi.hoisted(() => vi.fn());
 
 vi.mock('../src/config.ts', () => ({
   loadPreflightCollection: mockLoadPreflightCollection,
@@ -41,6 +43,14 @@ vi.mock('../src/resolveGitHubToken.ts', () => ({
 
 vi.mock('../src/loadRemoteCollection.ts', () => ({
   loadRemoteCollection: mockLoadRemoteCollection,
+}));
+
+vi.mock('../src/discoverInternalCollections.ts', () => ({
+  discoverInternalCollections: mockDiscoverInternalCollections,
+}));
+
+vi.mock('../src/loadConfig.ts', () => ({
+  loadConfig: mockLoadConfig,
 }));
 
 import { parseRunArgs, runCommand } from '../src/cli.ts';
@@ -264,6 +274,8 @@ describe(runCommand, () => {
     mockFormatJsonError.mockReset();
     mockResolveGitHubToken.mockReset();
     mockLoadRemoteCollection.mockReset();
+    mockDiscoverInternalCollections.mockReset();
+    mockLoadConfig.mockReset();
   });
 
   it('runs all checklists when no names are given', async () => {
@@ -603,5 +615,64 @@ describe(runCommand, () => {
 
     expect(stderrSpy).toHaveBeenCalledWith('Error: Failed to fetch remote collection\n');
     expect(exitCode).toBe(1);
+  });
+
+  // Internal source tests
+  describe('internal source', () => {
+    it('forwards configPath to loadConfig', async () => {
+      const collection = makeCollection();
+      mockLoadConfig.mockResolvedValue({
+        compile: { srcDir: '.preflight/collections', outDir: '.preflight/collections' },
+      });
+      mockDiscoverInternalCollections.mockResolvedValue([collection]);
+      mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
+
+      await runCommand({
+        names: [],
+        collectionSource: { type: 'internal' },
+        configPath: '/custom/config.ts',
+        json: false,
+      });
+
+      expect(mockLoadConfig).toHaveBeenCalledWith('/custom/config.ts');
+    });
+
+    it('uses srcDir from config for internal collection discovery', async () => {
+      const collection = makeCollection();
+      mockLoadConfig.mockResolvedValue({ compile: { srcDir: 'custom/src', outDir: 'custom/out' } });
+      mockDiscoverInternalCollections.mockResolvedValue([collection]);
+      mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
+
+      await runCommand({
+        names: [],
+        collectionSource: { type: 'internal' },
+        json: false,
+      });
+
+      expect(mockDiscoverInternalCollections).toHaveBeenCalledWith('custom/src');
+    });
+
+    it('runs checklists from all discovered internal collections', async () => {
+      const collection1 = makeCollection({
+        checklists: [{ name: 'a', checks: [{ name: 'c1', check: () => true }] }],
+      });
+      const collection2 = makeCollection({
+        checklists: [{ name: 'b', checks: [{ name: 'c2', check: () => true }] }],
+      });
+      mockLoadConfig.mockResolvedValue({
+        compile: { srcDir: '.preflight/collections', outDir: '.preflight/collections' },
+      });
+      mockDiscoverInternalCollections.mockResolvedValue([collection1, collection2]);
+      mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
+
+      const exitCode = await runCommand({
+        names: [],
+        collectionSource: { type: 'internal' },
+        json: false,
+      });
+
+      expect(mockRunPreflight).toHaveBeenCalledTimes(2);
+      expect(exitCode).toBe(0);
+    });
   });
 });

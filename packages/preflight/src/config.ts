@@ -5,7 +5,12 @@ import { assertIsPreflightCollection, isRecord } from './assertIsPreflightCollec
 import { resolveCollectionExports } from './resolveCollectionExports.ts';
 import type { PreflightChecklist, PreflightCollection, PreflightConfig, PreflightStagedChecklist } from './types.ts';
 
-/** The default collection file path, resolved relative to `process.cwd()`. */
+/**
+ * The legacy default collection file path, resolved relative to `process.cwd()`.
+ *
+ * Retained for backward compatibility with repos that use the single-file collection pattern.
+ * New repos should use internal collections under `.preflight/collections/`.
+ */
 export const COLLECTION_FILE_PATH = '.config/preflight.config.ts';
 
 /** Type-safe identity function for defining repo-level preflight settings. */
@@ -38,7 +43,8 @@ export function definePreflightStagedChecklist(checklist: PreflightStagedCheckli
 /**
  * Load and validate a preflight collection file.
  *
- * Searches `.config/preflight.config.ts` by default, or a custom path if provided.
+ * Falls back to the legacy path `.config/preflight.config.ts` when no path is provided.
+ * New repos should use internal collections via `discoverInternalCollections` instead.
  * Uses jiti to load TypeScript config files at runtime.
  */
 export async function loadPreflightCollection(collectionPath?: string): Promise<PreflightCollection> {

@@ -57,6 +57,19 @@ describe(discoverInternalCollections, () => {
     expect(collections[1]?.checklists[0]?.name).toBe('beta');
   });
 
+  it('returns collections from default-export modules', async () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReaddirSync.mockReturnValue(['a.ts']);
+    mockJitiImport.mockResolvedValueOnce({
+      default: { checklists: [{ name: 'alpha', checks: [{ name: 'c1', check: () => true }] }] },
+    });
+
+    const collections = await discoverInternalCollections('.config/preflight/collections');
+
+    expect(collections).toHaveLength(1);
+    expect(collections[0]?.checklists[0]?.name).toBe('alpha');
+  });
+
   it('throws a file-specific error for invalid collection files', async () => {
     mockExistsSync.mockReturnValue(true);
     mockReaddirSync.mockReturnValue(['bad.ts']);

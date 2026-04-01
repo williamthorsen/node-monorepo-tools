@@ -2,6 +2,7 @@ import process from 'node:process';
 
 import { loadPreflightCollection } from './config.ts';
 import { discoverInternalCollections } from './discoverInternalCollections.ts';
+import { loadConfig } from './loadConfig.ts';
 import { formatCombinedSummary } from './formatCombinedSummary.ts';
 import { formatJsonError } from './formatJsonError.ts';
 import { formatJsonReport } from './formatJsonReport.ts';
@@ -18,12 +19,14 @@ import type {
   PreflightStagedChecklist,
 } from './types.ts';
 
-/** Discriminated union describing how to locate the preflight collection. */
-export type CollectionSource =
+/** Collection source types that require explicit loading from a file or URL. */
+type ExplicitCollectionSource =
   | { type: 'local'; path?: string }
   | { type: 'github'; repo: string; ref: string; collection: string }
-  | { type: 'url'; url: string }
-  | { type: 'internal' };
+  | { type: 'url'; url: string };
+
+/** Discriminated union describing how to locate the preflight collection. */
+export type CollectionSource = ExplicitCollectionSource | { type: 'internal' };
 
 interface ParsedRunArgs {
   collectionSource: CollectionSource;
@@ -191,11 +194,8 @@ function buildGitHubCollectionUrl(repo: string, ref: string, collection: string)
   return `https://raw.githubusercontent.com/${repo}/${ref}/.preflight/collections/${collection}.js`;
 }
 
-/** The default directory for internal collections. */
-const INTERNAL_COLLECTIONS_DIR = '.config/preflight/collections';
-
-/** Load a preflight collection from the appropriate source. */
-async function loadCollection(source: CollectionSource): Promise<PreflightCollection> {
+/** Load a preflight collection from an explicit source (local file, GitHub, or URL). */
+async function loadCollection(source: ExplicitCollectionSource): Promise<PreflightCollection> {
   switch (source.type) {
     case 'local':
       return loadPreflightCollection(source.path);
@@ -210,21 +210,19 @@ async function loadCollection(source: CollectionSource): Promise<PreflightCollec
     }
     case 'url':
       return loadRemoteCollection({ url: source.url });
-    case 'internal':
-      // Internal mode is handled separately in runCommand
-      throw new Error('Internal collection source should be handled by runCommand');
   }
 }
 
-/** Load and merge all internal collections from the default directory. */
-async function loadInternalCollections(): Promise<PreflightCollection[]> {
-  return discoverInternalCollections(INTERNAL_COLLECTIONS_DIR);
+/** Load and merge all internal collections using the config's `srcDir`. */
+async function loadInternalCollections(configPath?: string): Promise<PreflightCollection[]> {
+  const config = await loadConfig(configPath);
+  return discoverInternalCollections(config.compile.srcDir);
 }
 
 /** Run preflight checklists. Returns a numeric exit code. */
-export async function runCommand({ names, collectionSource, json }: RunCommandOptions): Promise<number> {
+export async function runCommand({ names, collectionSource, configPath, json }: RunCommandOptions): Promise<number> {
   if (collectionSource.type === 'internal') {
-    return runInternalCollections({ names, json });
+    return runInternalCollections({ names, configPath, json });
   }
 
   let collection: PreflightCollection;
@@ -243,11 +241,19 @@ export async function runCommand({ names, collectionSource, json }: RunCommandOp
   return runSingleCollection(collection, { names, json });
 }
 
-/** Run all internal collections from the default directory. */
-async function runInternalCollections({ names, json }: { names: string[]; json: boolean }): Promise<number> {
+/** Run all internal collections from the config-derived directory. */
+async function runInternalCollections({
+  names,
+  configPath,
+  json,
+}: {
+  names: string[];
+  configPath?: string;
+  json: boolean;
+}): Promise<number> {
   let collections: PreflightCollection[];
   try {
-    collections = await loadInternalCollections();
+    collections = await loadInternalCollections(configPath);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     if (json) {

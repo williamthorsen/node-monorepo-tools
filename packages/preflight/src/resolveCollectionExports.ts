@@ -1,19 +1,28 @@
+/** Check whether a value is a plain object (non-null, non-array). */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 /**
  * Extract `checklists` and `fixLocation` from an imported module namespace.
  *
- * Requires the named-export convention (`export const checklists = ...`). Returns a plain
- * record suitable for passing to `assertIsPreflightCollection`.
+ * Supports both `export default definePreflightCollection({...})` and the named-export
+ * convention (`export const checklists = ...`). Returns a plain record suitable for passing
+ * to `assertIsPreflightCollection`.
  */
 export function resolveCollectionExports(moduleRecord: Record<string, unknown>): Record<string, unknown> {
-  if (moduleRecord.checklists === undefined) {
+  // Unwrap default export when present (e.g., `export default definePreflightCollection({...})`)
+  const source = isRecord(moduleRecord.default) ? moduleRecord.default : moduleRecord;
+
+  if (source.checklists === undefined) {
     throw new Error(
-      'Collection file must export a named `checklists` export (e.g., `export const checklists = defineChecklists([...])`)',
+      'Collection file must export checklists (e.g., `export default definePreflightCollection({ checklists: [...] })` or `export const checklists = [...]`)',
     );
   }
 
-  const resolved: Record<string, unknown> = { checklists: moduleRecord.checklists };
-  if (moduleRecord.fixLocation !== undefined) {
-    resolved.fixLocation = moduleRecord.fixLocation;
+  const resolved: Record<string, unknown> = { checklists: source.checklists };
+  if (source.fixLocation !== undefined) {
+    resolved.fixLocation = source.fixLocation;
   }
 
   return resolved;
