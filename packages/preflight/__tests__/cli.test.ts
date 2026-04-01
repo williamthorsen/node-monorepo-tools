@@ -619,27 +619,8 @@ describe(runCommand, () => {
 
   // Internal source tests
   describe('internal source', () => {
-    it('forwards configPath to loadConfig', async () => {
+    it('discovers collections from the convention directory', async () => {
       const collection = makeCollection();
-      mockLoadConfig.mockResolvedValue({
-        compile: { srcDir: '.preflight/collections', outDir: '.preflight/collections' },
-      });
-      mockDiscoverInternalCollections.mockResolvedValue([collection]);
-      mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
-
-      await runCommand({
-        names: [],
-        collectionSource: { type: 'internal' },
-        configPath: '/custom/config.ts',
-        json: false,
-      });
-
-      expect(mockLoadConfig).toHaveBeenCalledWith('/custom/config.ts');
-    });
-
-    it('uses srcDir from config for internal collection discovery', async () => {
-      const collection = makeCollection();
-      mockLoadConfig.mockResolvedValue({ compile: { srcDir: 'custom/src', outDir: 'custom/out' } });
       mockDiscoverInternalCollections.mockResolvedValue([collection]);
       mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
@@ -649,7 +630,7 @@ describe(runCommand, () => {
         json: false,
       });
 
-      expect(mockDiscoverInternalCollections).toHaveBeenCalledWith('custom/src');
+      expect(mockDiscoverInternalCollections).toHaveBeenCalledWith('.config/preflight/collections');
     });
 
     it('runs checklists from all discovered internal collections', async () => {
@@ -658,9 +639,6 @@ describe(runCommand, () => {
       });
       const collection2 = makeCollection({
         checklists: [{ name: 'b', checks: [{ name: 'c2', check: () => true }] }],
-      });
-      mockLoadConfig.mockResolvedValue({
-        compile: { srcDir: '.preflight/collections', outDir: '.preflight/collections' },
       });
       mockDiscoverInternalCollections.mockResolvedValue([collection1, collection2]);
       mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });

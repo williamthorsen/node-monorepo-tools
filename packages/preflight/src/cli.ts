@@ -2,7 +2,6 @@ import process from 'node:process';
 
 import { loadPreflightCollection } from './config.ts';
 import { discoverInternalCollections } from './discoverInternalCollections.ts';
-import { loadConfig } from './loadConfig.ts';
 import { formatCombinedSummary } from './formatCombinedSummary.ts';
 import { formatJsonError } from './formatJsonError.ts';
 import { formatJsonReport } from './formatJsonReport.ts';
@@ -185,7 +184,6 @@ function summarizeReport(name: string, report: PreflightReport): ChecklistSummar
 interface RunCommandOptions {
   names: string[];
   collectionSource: CollectionSource;
-  configPath?: string;
   json: boolean;
 }
 
@@ -213,16 +211,18 @@ async function loadCollection(source: ExplicitCollectionSource): Promise<Preflig
   }
 }
 
-/** Load and merge all internal collections using the config's `srcDir`. */
-async function loadInternalCollections(configPath?: string): Promise<PreflightCollection[]> {
-  const config = await loadConfig(configPath);
-  return discoverInternalCollections(config.compile.srcDir);
+/** Convention path for internal collections, relative to the repo root. */
+const INTERNAL_COLLECTIONS_DIR = '.config/preflight/collections';
+
+/** Load and merge all internal collections from the convention directory. */
+async function loadInternalCollections(): Promise<PreflightCollection[]> {
+  return discoverInternalCollections(INTERNAL_COLLECTIONS_DIR);
 }
 
 /** Run preflight checklists. Returns a numeric exit code. */
-export async function runCommand({ names, collectionSource, configPath, json }: RunCommandOptions): Promise<number> {
+export async function runCommand({ names, collectionSource, json }: RunCommandOptions): Promise<number> {
   if (collectionSource.type === 'internal') {
-    return runInternalCollections({ names, configPath, json });
+    return runInternalCollections({ names, json });
   }
 
   let collection: PreflightCollection;
@@ -241,19 +241,11 @@ export async function runCommand({ names, collectionSource, configPath, json }: 
   return runSingleCollection(collection, { names, json });
 }
 
-/** Run all internal collections from the config-derived directory. */
-async function runInternalCollections({
-  names,
-  configPath,
-  json,
-}: {
-  names: string[];
-  configPath?: string;
-  json: boolean;
-}): Promise<number> {
+/** Run all internal collections from the convention directory. */
+async function runInternalCollections({ names, json }: { names: string[]; json: boolean }): Promise<number> {
   let collections: PreflightCollection[];
   try {
-    collections = await loadInternalCollections(configPath);
+    collections = await loadInternalCollections();
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     if (json) {
