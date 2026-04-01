@@ -26,16 +26,15 @@ Run preflight checklists. If no names are given, all checklists are run.
 
 Collection source (mutually exclusive):
   --file <path>                      Path to a local collection file
-  --github <org/repo[@ref]>          Fetch collection from a GitHub repository (requires --collection)
+  --github <org/repo[@ref]>          Fetch collection from a GitHub repository
   --url <url>                        Fetch collection from a URL
 
 Options:
-  --collection <name>                Collection name (required with --github)
-  --config, -c <path>                Path to a settings config file
+  --collection <name>                Collection name (default: "default")
   --json                             Output results as JSON
   --help, -h                         Show this help message
 
-When no collection source is given, runs all collections from .config/preflight/collections/.
+Defaults to .config/preflight/collections/default.ts when no source is given.
 `);
 }
 

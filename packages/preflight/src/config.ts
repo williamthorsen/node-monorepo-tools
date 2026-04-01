@@ -50,6 +50,12 @@ export async function loadPreflightCollection(collectionPath?: string): Promise<
   const resolvedPath = path.resolve(process.cwd(), collectionPath ?? COLLECTION_FILE_PATH);
 
   if (!existsSync(resolvedPath)) {
+    const effectiveName = collectionPath ?? COLLECTION_FILE_PATH;
+    const isConventionPath = effectiveName.startsWith('.config/preflight/collections/');
+    if (isConventionPath) {
+      const baseName = path.basename(effectiveName, '.ts');
+      throw new Error(`Collection "${baseName}" not found. Run 'preflight init' to create one.`);
+    }
     throw new Error(`Preflight collection not found: ${resolvedPath}`);
   }
 

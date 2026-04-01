@@ -223,6 +223,18 @@ describe(parseRunArgs, () => {
       'Cannot combine --file, --github, and --url flags',
     );
   });
+
+  it('throws when --collection is combined with --file', () => {
+    expect(() => parseRunArgs(['--file', 'path.ts', '--collection', 'deploy'])).toThrow(
+      '--collection cannot be used with --file',
+    );
+  });
+
+  it('throws when --collection is combined with --url', () => {
+    expect(() => parseRunArgs(['--url', 'https://example.com/config.js', '--collection', 'deploy'])).toThrow(
+      '--collection cannot be used with --url',
+    );
+  });
 });
 
 describe(runCommand, () => {

@@ -151,18 +151,24 @@ function resolveCollectionSource({
   urlValue: string | undefined;
   collectionName: string | undefined;
 }): CollectionSource {
-  const name = collectionName ?? 'default';
-
   if (sourceType === 'file' && filePath !== undefined) {
+    if (collectionName !== undefined) {
+      throw new Error('--collection cannot be used with --file');
+    }
     return { path: filePath };
   }
   if (sourceType === 'github' && githubValue !== undefined) {
+    const name = collectionName ?? 'default';
     const { repo, ref } = parseGitHubArg(githubValue);
     return { url: buildGitHubCollectionUrl(repo, ref, name) };
   }
   if (sourceType === 'url' && urlValue !== undefined) {
+    if (collectionName !== undefined) {
+      throw new Error('--collection cannot be used with --url');
+    }
     return { url: urlValue };
   }
+  const name = collectionName ?? 'default';
   return { path: `${COLLECTIONS_DIR}/${name}.ts` };
 }
 
