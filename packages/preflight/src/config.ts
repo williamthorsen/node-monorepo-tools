@@ -12,6 +12,13 @@ export function definePreflightConfig(config: PreflightConfig): PreflightConfig 
   return config;
 }
 
+/** Type-safe identity function for defining an array of checklists in a config file. */
+export function defineChecklists(
+  checklists: Array<PreflightCheckList | StagedPreflightCheckList>,
+): Array<PreflightCheckList | StagedPreflightCheckList> {
+  return checklists;
+}
+
 /** Type-safe identity function for defining a flat checklist. */
 export function definePreflightCheckList(checklist: PreflightCheckList): PreflightCheckList {
   return checklist;
@@ -43,11 +50,17 @@ export async function loadPreflightConfig(configPath?: string): Promise<Prefligh
     throw new Error(`Config file must export an object, got ${Array.isArray(imported) ? 'array' : typeof imported}`);
   }
 
-  const resolved = imported.default ?? imported.config;
-  if (resolved === undefined) {
+  const checklists: unknown = imported.checklists;
+  if (checklists === undefined) {
     throw new Error(
-      'Config file must have a default export or a named `config` export (e.g., `export default definePreflightConfig({ ... })`)',
+      'Config file must export a named `checklists` export (e.g., `export const checklists = defineChecklists([...])`)',
     );
+  }
+
+  const fixLocation: unknown = imported.fixLocation;
+  const resolved: Record<string, unknown> = { checklists };
+  if (fixLocation !== undefined) {
+    resolved.fixLocation = fixLocation;
   }
 
   assertIsPreflightConfig(resolved);

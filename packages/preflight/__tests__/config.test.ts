@@ -15,6 +15,7 @@ vi.mock('jiti', () => ({
 
 import {
   CONFIG_FILE_PATH,
+  defineChecklists,
   definePreflightCheckList,
   definePreflightConfig,
   defineStagedPreflightCheckList,
@@ -35,11 +36,9 @@ describe(loadPreflightConfig, () => {
 
   it('resolves the default config path against process.cwd()', async () => {
     const expectedPath = path.resolve(process.cwd(), CONFIG_FILE_PATH);
-    const validConfig = {
-      checklists: [{ name: 'test', checks: [{ name: 'a', check: () => true }] }],
-    };
+    const validChecklists = [{ name: 'test', checks: [{ name: 'a', check: () => true }] }];
     mockExistsSync.mockReturnValue(true);
-    mockJitiImport.mockResolvedValue({ default: validConfig });
+    mockJitiImport.mockResolvedValue({ checklists: validChecklists });
 
     await loadPreflightConfig();
 
@@ -49,11 +48,9 @@ describe(loadPreflightConfig, () => {
   it('uses a custom config path when provided', async () => {
     const customPath = 'custom/config.ts';
     const expectedPath = path.resolve(process.cwd(), customPath);
-    const validConfig = {
-      checklists: [{ name: 'test', checks: [{ name: 'a', check: () => true }] }],
-    };
+    const validChecklists = [{ name: 'test', checks: [{ name: 'a', check: () => true }] }];
     mockExistsSync.mockReturnValue(true);
-    mockJitiImport.mockResolvedValue({ default: validConfig });
+    mockJitiImport.mockResolvedValue({ checklists: validChecklists });
 
     await loadPreflightConfig(customPath);
 
@@ -67,19 +64,17 @@ describe(loadPreflightConfig, () => {
     await expect(loadPreflightConfig()).rejects.toThrow('Config file must export an object, got string');
   });
 
-  it('throws when no default or config export exists', async () => {
+  it('throws when no checklists export exists', async () => {
     mockExistsSync.mockReturnValue(true);
     mockJitiImport.mockResolvedValue({ unrelated: true });
 
-    await expect(loadPreflightConfig()).rejects.toThrow('must have a default export or a named `config` export');
+    await expect(loadPreflightConfig()).rejects.toThrow('must export a named `checklists` export');
   });
 
   it('returns a valid config with flat checklists', async () => {
-    const validConfig = {
-      checklists: [{ name: 'test', checks: [{ name: 'a', check: () => true }] }],
-    };
+    const validChecklists = [{ name: 'test', checks: [{ name: 'a', check: () => true }] }];
     mockExistsSync.mockReturnValue(true);
-    mockJitiImport.mockResolvedValue({ default: validConfig });
+    mockJitiImport.mockResolvedValue({ checklists: validChecklists });
 
     const config = await loadPreflightConfig();
 
@@ -87,16 +82,32 @@ describe(loadPreflightConfig, () => {
     expect(config.checklists[0]?.name).toBe('test');
   });
 
-  it('returns a valid config via named config export', async () => {
-    const validConfig = {
-      checklists: [{ name: 'test', checks: [{ name: 'a', check: () => true }] }],
-    };
+  it('carries through fixLocation when present', async () => {
+    const validChecklists = [{ name: 'test', checks: [{ name: 'a', check: () => true }] }];
     mockExistsSync.mockReturnValue(true);
-    mockJitiImport.mockResolvedValue({ config: validConfig });
+    mockJitiImport.mockResolvedValue({ checklists: validChecklists, fixLocation: 'INLINE' });
 
     const config = await loadPreflightConfig();
 
-    expect(config.checklists).toHaveLength(1);
+    expect(config.fixLocation).toBe('INLINE');
+  });
+
+  it('omits fixLocation when the module does not export it', async () => {
+    const validChecklists = [{ name: 'test', checks: [{ name: 'a', check: () => true }] }];
+    mockExistsSync.mockReturnValue(true);
+    mockJitiImport.mockResolvedValue({ checklists: validChecklists });
+
+    const config = await loadPreflightConfig();
+
+    expect(config.fixLocation).toBeUndefined();
+  });
+});
+
+describe(defineChecklists, () => {
+  it('returns its input unchanged', () => {
+    const checklists = [{ name: 'test', checks: [{ name: 'a', check: () => true }] }];
+
+    expect(defineChecklists(checklists)).toBe(checklists);
   });
 });
 

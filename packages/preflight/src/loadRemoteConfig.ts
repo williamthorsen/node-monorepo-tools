@@ -47,9 +47,17 @@ export async function loadRemoteConfig({ url, token }: LoadRemoteConfigOptions):
     // Narrow the module namespace to access exports. `import()` always returns an object,
     // but TypeScript types it as `any`; narrowing avoids unsafe-member-access lint errors.
     const moduleRecord = isRecord(imported) ? imported : {};
-    const resolved: unknown = moduleRecord.default ?? moduleRecord.config;
-    if (resolved === undefined) {
-      throw new Error('Remote config must have a default export or a named `config` export');
+    const checklists: unknown = moduleRecord.checklists;
+    if (checklists === undefined) {
+      throw new Error(
+        'Config file must export a named `checklists` export (e.g., `export const checklists = defineChecklists([...])`)',
+      );
+    }
+
+    const fixLocation: unknown = moduleRecord.fixLocation;
+    const resolved: Record<string, unknown> = { checklists };
+    if (fixLocation !== undefined) {
+      resolved.fixLocation = fixLocation;
     }
 
     assertIsPreflightConfig(resolved);

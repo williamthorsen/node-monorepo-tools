@@ -5,7 +5,7 @@
  *   preflight run --config <path-to>/config/preflight.config.ts
  */
 import type { PreflightCheck, PreflightCheckList } from '@williamthorsen/preflight';
-import { definePreflightConfig } from '@williamthorsen/preflight';
+import { defineChecklists } from '@williamthorsen/preflight';
 
 const releaseKit: PreflightCheckList = {
   name: 'release-kit',
@@ -195,9 +195,9 @@ const repoSetup: PreflightCheckList = {
   checks: repoSetupChecks,
 };
 
-export default definePreflightConfig({
-  checklists: [releaseKit, labelSync, nmr, codeQuality, repoSetup],
-});
+// Optional: export a config-level fixLocation to override per-checklist defaults:
+// export const fixLocation: FixLocation = 'INLINE';
+export const checklists = defineChecklists([releaseKit, labelSync, nmr, codeQuality, repoSetup]);
 
 // -- Helpers ------------------------------------------------------------------
 

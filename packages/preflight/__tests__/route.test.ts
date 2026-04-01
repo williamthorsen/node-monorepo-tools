@@ -2,11 +2,16 @@ import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } fr
 
 const mockRunCommand = vi.hoisted(() => vi.fn());
 const mockInitCommand = vi.hoisted(() => vi.fn());
+const mockCompileCommand = vi.hoisted(() => vi.fn());
 const mockParseRunArgs = vi.hoisted(() => vi.fn());
 
 vi.mock('../src/cli.ts', () => ({
   parseRunArgs: mockParseRunArgs,
   runCommand: mockRunCommand,
+}));
+
+vi.mock('../src/compile/compileCommand.ts', () => ({
+  compileCommand: mockCompileCommand,
 }));
 
 vi.mock('../src/init/initCommand.ts', () => ({
@@ -27,6 +32,7 @@ describe(routeCommand, () => {
   afterEach(() => {
     vi.restoreAllMocks();
     mockRunCommand.mockReset();
+    mockCompileCommand.mockReset();
     mockInitCommand.mockReset();
     mockParseRunArgs.mockReset();
   });
@@ -112,6 +118,45 @@ describe(routeCommand, () => {
 
     expect(exitCode).toBe(1);
     expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining("unknown flag '--bad'"));
+  });
+
+  it('shows compile help and returns 0 for compile --help', async () => {
+    const exitCode = await routeCommand(['compile', '--help']);
+
+    expect(exitCode).toBe(0);
+    const output = infoSpy.mock.calls.map((c) => String(c[0])).join('');
+    expect(output).toContain('Usage: preflight compile');
+  });
+
+  it('shows compile help and returns 0 for compile -h', async () => {
+    const exitCode = await routeCommand(['compile', '-h']);
+
+    expect(exitCode).toBe(0);
+  });
+
+  it('delegates to compileCommand for compile subcommand', async () => {
+    mockCompileCommand.mockResolvedValue(0);
+
+    const exitCode = await routeCommand(['compile', 'input.ts']);
+
+    expect(mockCompileCommand).toHaveBeenCalledWith(['input.ts']);
+    expect(exitCode).toBe(0);
+  });
+
+  it('passes --output flag through to compileCommand', async () => {
+    mockCompileCommand.mockResolvedValue(0);
+
+    const exitCode = await routeCommand(['compile', 'input.ts', '--output', 'out.js']);
+
+    expect(mockCompileCommand).toHaveBeenCalledWith(['input.ts', '--output', 'out.js']);
+    expect(exitCode).toBe(0);
+  });
+
+  it('lists compile in top-level help', async () => {
+    await routeCommand([]);
+
+    const output = infoSpy.mock.calls.map((c) => String(c[0])).join('');
+    expect(output).toContain('compile');
   });
 
   it('delegates to initCommand for init subcommand', async () => {
