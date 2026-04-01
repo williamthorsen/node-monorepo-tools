@@ -1,0 +1,76 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+const mockFetch = vi.hoisted(() => vi.fn());
+vi.stubGlobal('fetch', mockFetch);
+
+import { loadRemoteConfig } from '../src/loadRemoteConfig.ts';
+
+/** Build a minimal mock Response with the given body and status. */
+function mockResponse(
+  body: string,
+  init?: { status?: number; statusText?: string },
+): Pick<Response, 'ok' | 'status' | 'statusText' | 'text' | 'headers'> {
+  return {
+    ok: (init?.status ?? 200) >= 200 && (init?.status ?? 200) < 300,
+    status: init?.status ?? 200,
+    statusText: init?.statusText ?? 'OK',
+    text: () => Promise.resolve(body),
+    headers: new Headers(),
+  };
+}
+
+describe('loadRemoteConfig validation', () => {
+  afterEach(() => {
+    mockFetch.mockReset();
+  });
+
+  it('resolves a module with a valid checklists export', async () => {
+    const jsBody = `
+      export const checklists = [
+        { name: 'test', checks: [{ name: 'check-a', check: () => true }] },
+      ];
+    `;
+    mockFetch.mockResolvedValue(mockResponse(jsBody));
+
+    const config = await loadRemoteConfig({ url: 'https://example.com/config.js' });
+
+    expect(config.checklists).toHaveLength(1);
+    expect(config.checklists[0].name).toBe('test');
+  });
+
+  it('throws when the module lacks a checklists export', async () => {
+    const jsBody = 'export default {};';
+    mockFetch.mockResolvedValue(mockResponse(jsBody));
+
+    await expect(loadRemoteConfig({ url: 'https://example.com/config.js' })).rejects.toThrow(
+      'must export a named `checklists` export',
+    );
+  });
+
+  it('carries through fixLocation when exported', async () => {
+    const jsBody = `
+      export const fixLocation = 'INLINE';
+      export const checklists = [
+        { name: 'test', checks: [{ name: 'check-a', check: () => true }] },
+      ];
+    `;
+    mockFetch.mockResolvedValue(mockResponse(jsBody));
+
+    const config = await loadRemoteConfig({ url: 'https://example.com/config.js' });
+
+    expect(config.fixLocation).toBe('INLINE');
+  });
+
+  it('omits fixLocation when not exported', async () => {
+    const jsBody = `
+      export const checklists = [
+        { name: 'test', checks: [{ name: 'check-a', check: () => true }] },
+      ];
+    `;
+    mockFetch.mockResolvedValue(mockResponse(jsBody));
+
+    const config = await loadRemoteConfig({ url: 'https://example.com/config.js' });
+
+    expect(config.fixLocation).toBeUndefined();
+  });
+});

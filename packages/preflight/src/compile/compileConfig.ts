@@ -26,9 +26,10 @@ export async function compileConfig(inputPath: string, outputPath?: string): Pro
   let esbuild: typeof import('esbuild');
   try {
     esbuild = await import('esbuild');
-  } catch {
+  } catch (error: unknown) {
     throw new Error(
       'esbuild is required for the compile command but is not installed. Install it with: pnpm add --save-dev esbuild',
+      { cause: error },
     );
   }
 

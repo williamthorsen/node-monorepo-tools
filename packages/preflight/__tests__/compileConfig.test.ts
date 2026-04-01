@@ -61,22 +61,43 @@ describe(compileConfig, () => {
     expect(result.outputPath).toBe(path.resolve(expectedSuffix));
   });
 
-  it('throws a clear error when esbuild is not installed', async () => {
-    // Temporarily override the mock to simulate missing esbuild
-    vi.doUnmock('esbuild');
-
-    // Re-import to get the version without the esbuild mock
-    const freshModule = await import('../src/compile/compileConfig.ts');
-    // The dynamic import inside compileConfig will fail because we doUnmock'd
-    // but the module-level mock is already resolved. We need a different approach.
-
-    // Restore the mock for other tests
-    vi.doMock('esbuild', () => ({ build: mockBuild }));
-
-    // For this test, we make the build throw to simulate import failure
-    // This is a pragmatic approach since vi.doUnmock doesn't affect already-loaded modules
+  it('propagates errors from esbuild.build', async () => {
     mockBuild.mockRejectedValue(new Error('Build failed'));
 
-    await expect(freshModule.compileConfig('input.ts')).rejects.toThrow('Build failed');
+    await expect(compileConfig('input.ts')).rejects.toThrow('Build failed');
+  });
+
+  it('throws a clear error when esbuild is not installed', async () => {
+    vi.doMock('esbuild', () => {
+      throw new Error('Cannot find module esbuild');
+    });
+    vi.resetModules();
+
+    const { compileConfig: freshCompile } = await import('../src/compile/compileConfig.ts');
+
+    await expect(freshCompile('input.ts')).rejects.toThrow('esbuild is required');
+
+    // Restore the mock for subsequent tests
+    vi.doMock('esbuild', () => ({ build: mockBuild }));
+    vi.resetModules();
+  });
+
+  it('chains the original error as cause when esbuild import fails', async () => {
+    vi.doMock('esbuild', () => {
+      throw new Error('Cannot find module esbuild');
+    });
+    vi.resetModules();
+
+    const { compileConfig: freshCompile } = await import('../src/compile/compileConfig.ts');
+
+    const thrownError = await freshCompile('input.ts').catch((error: unknown) => error);
+    expect(thrownError).toBeInstanceOf(Error);
+    if (thrownError instanceof Error) {
+      expect(thrownError.cause).toBeInstanceOf(Error);
+    }
+
+    // Restore the mock for subsequent tests
+    vi.doMock('esbuild', () => ({ build: mockBuild }));
+    vi.resetModules();
   });
 });

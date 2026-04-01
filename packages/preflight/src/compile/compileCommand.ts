@@ -47,6 +47,10 @@ export async function compileCommand(args: string[]): Promise<number> {
       process.stderr.write(`Error: Unknown option: ${arg}\n`);
       return 1;
     } else {
+      if (inputPath !== undefined) {
+        process.stderr.write('Error: Too many arguments. Expected a single input file.\n');
+        return 1;
+      }
       inputPath = arg;
     }
   }

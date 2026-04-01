@@ -196,6 +196,7 @@ const repoSetup: PreflightCheckList = {
 };
 
 // Optional: export a config-level fixLocation to override per-checklist defaults:
+// import type { FixLocation } from '@williamthorsen/preflight';
 // export const fixLocation: FixLocation = 'INLINE';
 export const checklists = defineChecklists([releaseKit, labelSync, nmr, codeQuality, repoSetup]);
 
