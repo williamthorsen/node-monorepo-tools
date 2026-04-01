@@ -4,10 +4,10 @@
  * Run from a target repo's working directory:
  *   preflight run --config <path-to>/config/preflight.config.ts
  */
-import type { PreflightCheck, PreflightCheckList } from '@williamthorsen/preflight';
+import type { PreflightCheck, PreflightChecklist } from '@williamthorsen/preflight';
 import { defineChecklists } from '@williamthorsen/preflight';
 
-const releaseKit: PreflightCheckList = {
+const releaseKit: PreflightChecklist = {
   name: 'release-kit',
   checks: [
     {
@@ -32,7 +32,7 @@ const releaseKit: PreflightCheckList = {
   ],
 };
 
-const labelSync: PreflightCheckList = {
+const labelSync: PreflightChecklist = {
   name: 'label-sync',
   checks: [
     {
@@ -48,7 +48,7 @@ const labelSync: PreflightCheckList = {
   ],
 };
 
-const nmr: PreflightCheckList = {
+const nmr: PreflightChecklist = {
   name: 'nmr',
   checks: [
     {
@@ -93,7 +93,7 @@ const nmr: PreflightCheckList = {
   ],
 };
 
-const codeQuality: PreflightCheckList = {
+const codeQuality: PreflightChecklist = {
   name: 'code-quality',
   checks: [
     {
@@ -190,7 +190,7 @@ const repoSetupChecks: PreflightCheck[] = [
   },
 ];
 
-const repoSetup: PreflightCheckList = {
+const repoSetup: PreflightChecklist = {
   name: 'repo-setup',
   checks: repoSetupChecks,
 };

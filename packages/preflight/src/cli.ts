@@ -12,10 +12,10 @@ import { runPreflight } from './runPreflight.ts';
 import type {
   ChecklistSummary,
   FixLocation,
-  PreflightCheckList,
+  PreflightChecklist,
   PreflightConfig,
   PreflightReport,
-  StagedPreflightCheckList,
+  PreflightStagedChecklist,
 } from './types.ts';
 
 /** Discriminated union describing how to locate the preflight config. */
@@ -104,7 +104,7 @@ export function parseRunArgs(flags: string[]): ParsedRunArgs {
 
 /** Resolve the effective fixLocation for a checklist, falling back to the config-level default. */
 function resolveFixLocation(
-  checklist: PreflightCheckList | StagedPreflightCheckList,
+  checklist: PreflightChecklist | PreflightStagedChecklist,
   configDefault?: FixLocation,
 ): FixLocation {
   return checklist.fixLocation ?? configDefault ?? 'END';
@@ -190,7 +190,7 @@ export async function runCommand({ names, configSource, json }: RunCommandOption
 }
 
 /** Run checklists and emit a single JSON object to stdout. */
-async function runJsonMode(checklists: Array<PreflightCheckList | StagedPreflightCheckList>): Promise<number> {
+async function runJsonMode(checklists: Array<PreflightChecklist | PreflightStagedChecklist>): Promise<number> {
   const entries: Array<{ name: string; report: PreflightReport }> = [];
   let allPassed = true;
 
@@ -212,7 +212,7 @@ async function runJsonMode(checklists: Array<PreflightCheckList | StagedPrefligh
 
 /** Run checklists with human-readable output. */
 async function runHumanMode(
-  checklists: Array<PreflightCheckList | StagedPreflightCheckList>,
+  checklists: Array<PreflightChecklist | PreflightStagedChecklist>,
   config: PreflightConfig,
 ): Promise<number> {
   const showHeader = checklists.length > 1;

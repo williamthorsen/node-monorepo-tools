@@ -16,9 +16,9 @@ vi.mock('jiti', () => ({
 import {
   CONFIG_FILE_PATH,
   defineChecklists,
-  definePreflightCheckList,
+  definePreflightChecklist,
   definePreflightConfig,
-  defineStagedPreflightCheckList,
+  definePreflightStagedChecklist,
   loadPreflightConfig,
 } from '../src/config.ts';
 
@@ -121,18 +121,18 @@ describe(definePreflightConfig, () => {
   });
 });
 
-describe(definePreflightCheckList, () => {
+describe(definePreflightChecklist, () => {
   it('returns its input unchanged', () => {
     const checklist = { name: 'test', checks: [{ name: 'a', check: () => true }] };
 
-    expect(definePreflightCheckList(checklist)).toBe(checklist);
+    expect(definePreflightChecklist(checklist)).toBe(checklist);
   });
 });
 
-describe(defineStagedPreflightCheckList, () => {
+describe(definePreflightStagedChecklist, () => {
   it('returns its input unchanged', () => {
     const checklist = { name: 'test', groups: [[{ name: 'a', check: () => true }]] };
 
-    expect(defineStagedPreflightCheckList(checklist)).toBe(checklist);
+    expect(definePreflightStagedChecklist(checklist)).toBe(checklist);
   });
 });

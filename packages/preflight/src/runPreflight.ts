@@ -2,13 +2,13 @@ import { performance } from 'node:perf_hooks';
 
 import type {
   PreflightCheck,
-  PreflightCheckList,
+  PreflightChecklist,
   PreflightReport,
   PreflightResult,
+  PreflightStagedChecklist,
   Progress,
-  StagedPreflightCheckList,
 } from './types.ts';
-import { isFlatCheckList } from './types.ts';
+import { isFlatChecklist } from './types.ts';
 
 /** Optional fields that may appear on a preflight result. */
 interface ResultOptions {
@@ -86,7 +86,7 @@ async function runPreconditions(preconditions: PreflightCheck[], results: Prefli
 
 /** Run a flat checklist: all checks concurrently. */
 async function runFlatChecks(
-  checklist: PreflightCheckList,
+  checklist: PreflightChecklist,
   results: PreflightResult[],
   preconditionsPassed: boolean,
 ): Promise<void> {
@@ -101,7 +101,7 @@ async function runFlatChecks(
 
 /** Run a staged checklist: groups sequentially, checks within each group concurrently. */
 async function runStagedChecks(
-  checklist: StagedPreflightCheckList,
+  checklist: PreflightStagedChecklist,
   results: PreflightResult[],
   preconditionsPassed: boolean,
 ): Promise<void> {
@@ -135,13 +135,13 @@ async function runStagedChecks(
  * Flat checklists run all checks concurrently. Staged checklists run groups
  * sequentially, bailing on later groups when an earlier group has a failure.
  */
-export async function runPreflight(checklist: PreflightCheckList | StagedPreflightCheckList): Promise<PreflightReport> {
+export async function runPreflight(checklist: PreflightChecklist | PreflightStagedChecklist): Promise<PreflightReport> {
   const start = performance.now();
   const results: PreflightResult[] = [];
 
   const preconditionsPassed = await runPreconditions(checklist.preconditions ?? [], results);
 
-  await (isFlatCheckList(checklist)
+  await (isFlatChecklist(checklist)
     ? runFlatChecks(checklist, results, preconditionsPassed)
     : runStagedChecks(checklist, results, preconditionsPassed));
 

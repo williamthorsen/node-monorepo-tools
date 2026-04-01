@@ -58,7 +58,7 @@ export interface PreflightReport {
 }
 
 /** A flat checklist where all checks run concurrently. */
-export interface PreflightCheckList {
+export interface PreflightChecklist {
   name: string;
   preconditions?: PreflightCheck[];
   checks: PreflightCheck[];
@@ -66,7 +66,7 @@ export interface PreflightCheckList {
 }
 
 /** A staged checklist where groups run sequentially and checks within each group run concurrently. */
-export interface StagedPreflightCheckList {
+export interface PreflightStagedChecklist {
   name: string;
   preconditions?: PreflightCheck[];
   groups: PreflightCheck[][];
@@ -91,12 +91,12 @@ export interface ReportOptions {
 /** Top-level configuration for the preflight CLI. */
 export interface PreflightConfig {
   fixLocation?: FixLocation;
-  checklists: Array<PreflightCheckList | StagedPreflightCheckList>;
+  checklists: Array<PreflightChecklist | PreflightStagedChecklist>;
 }
 
 /** Distinguish a flat checklist from a staged checklist by the presence of `checks`. */
-export function isFlatCheckList(
-  checklist: PreflightCheckList | StagedPreflightCheckList,
-): checklist is PreflightCheckList {
+export function isFlatChecklist(
+  checklist: PreflightChecklist | PreflightStagedChecklist,
+): checklist is PreflightChecklist {
   return 'checks' in checklist;
 }

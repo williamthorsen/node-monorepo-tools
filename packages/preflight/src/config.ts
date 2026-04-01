@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { assertIsPreflightConfig, isRecord } from './assertIsPreflightConfig.ts';
 import { resolveConfigExports } from './resolveConfigExports.ts';
-import type { PreflightCheckList, PreflightConfig, StagedPreflightCheckList } from './types.ts';
+import type { PreflightChecklist, PreflightConfig, PreflightStagedChecklist } from './types.ts';
 
 /** The default config file path, resolved relative to `process.cwd()`. */
 export const CONFIG_FILE_PATH = '.config/preflight.config.ts';
@@ -15,18 +15,18 @@ export function definePreflightConfig(config: PreflightConfig): PreflightConfig 
 
 /** Type-safe identity function for defining an array of checklists in a config file. */
 export function defineChecklists(
-  checklists: Array<PreflightCheckList | StagedPreflightCheckList>,
-): Array<PreflightCheckList | StagedPreflightCheckList> {
+  checklists: Array<PreflightChecklist | PreflightStagedChecklist>,
+): Array<PreflightChecklist | PreflightStagedChecklist> {
   return checklists;
 }
 
 /** Type-safe identity function for defining a flat checklist. */
-export function definePreflightCheckList(checklist: PreflightCheckList): PreflightCheckList {
+export function definePreflightChecklist(checklist: PreflightChecklist): PreflightChecklist {
   return checklist;
 }
 
 /** Type-safe identity function for defining a staged checklist. */
-export function defineStagedPreflightCheckList(checklist: StagedPreflightCheckList): StagedPreflightCheckList {
+export function definePreflightStagedChecklist(checklist: PreflightStagedChecklist): PreflightStagedChecklist {
   return checklist;
 }
 
