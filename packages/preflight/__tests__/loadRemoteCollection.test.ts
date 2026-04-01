@@ -13,7 +13,7 @@ vi.mock('node:fs', () => ({
 const mockFetch = vi.hoisted(() => vi.fn());
 vi.stubGlobal('fetch', mockFetch);
 
-import { loadRemoteConfig } from '../src/loadRemoteConfig.ts';
+import { loadRemoteCollection } from '../src/loadRemoteCollection.ts';
 
 /** Build a minimal mock Response with the given body and status. */
 function mockResponse(
@@ -29,7 +29,7 @@ function mockResponse(
   };
 }
 
-describe(loadRemoteConfig, () => {
+describe(loadRemoteCollection, () => {
   afterEach(() => {
     mockMkdtempSync.mockReset();
     mockRmSync.mockReset();
@@ -40,31 +40,31 @@ describe(loadRemoteConfig, () => {
   it('throws on non-2xx responses', async () => {
     mockFetch.mockResolvedValue(mockResponse('Not Found', { status: 404, statusText: 'Not Found' }));
 
-    await expect(loadRemoteConfig({ url: 'https://example.com/config.js' })).rejects.toThrow(
-      'Failed to fetch remote config from https://example.com/config.js: 404 Not Found',
+    await expect(loadRemoteCollection({ url: 'https://example.com/config.js' })).rejects.toThrow(
+      'Failed to fetch remote collection from https://example.com/config.js: 404 Not Found',
     );
   });
 
   it('detects HTML error pages', async () => {
     mockFetch.mockResolvedValue(mockResponse('<!DOCTYPE html><html><body>Error</body></html>'));
 
-    await expect(loadRemoteConfig({ url: 'https://example.com/config.js' })).rejects.toThrow(
-      'Remote config URL returned an HTML page instead of JavaScript',
+    await expect(loadRemoteCollection({ url: 'https://example.com/config.js' })).rejects.toThrow(
+      'Remote collection URL returned an HTML page instead of JavaScript',
     );
   });
 
   it('detects HTML pages with <html prefix', async () => {
     mockFetch.mockResolvedValue(mockResponse('<html><body>Error</body></html>'));
 
-    await expect(loadRemoteConfig({ url: 'https://example.com/config.js' })).rejects.toThrow(
-      'Remote config URL returned an HTML page instead of JavaScript',
+    await expect(loadRemoteCollection({ url: 'https://example.com/config.js' })).rejects.toThrow(
+      'Remote collection URL returned an HTML page instead of JavaScript',
     );
   });
 
   it('sends authorization header when token is provided', async () => {
     mockFetch.mockResolvedValue(mockResponse('Not Found', { status: 404, statusText: 'Not Found' }));
 
-    await loadRemoteConfig({ url: 'https://example.com/config.js', token: 'my-token' }).catch(() => {
+    await loadRemoteCollection({ url: 'https://example.com/config.js', token: 'my-token' }).catch(() => {
       // Expected to throw due to 404
     });
 
@@ -76,7 +76,7 @@ describe(loadRemoteConfig, () => {
   it('does not send authorization header when no token is provided', async () => {
     mockFetch.mockResolvedValue(mockResponse('Not Found', { status: 404, statusText: 'Not Found' }));
 
-    await loadRemoteConfig({ url: 'https://example.com/config.js' }).catch(() => {
+    await loadRemoteCollection({ url: 'https://example.com/config.js' }).catch(() => {
       // Expected to throw due to 404
     });
 
@@ -92,7 +92,7 @@ describe(loadRemoteConfig, () => {
       throw new Error('disk full');
     });
 
-    await expect(loadRemoteConfig({ url: 'https://example.com/config.js' })).rejects.toThrow('disk full');
+    await expect(loadRemoteCollection({ url: 'https://example.com/config.js' })).rejects.toThrow('disk full');
 
     expect(mockRmSync).toHaveBeenCalledWith('/tmp/preflight-abc', { recursive: true, force: true });
   });

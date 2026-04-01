@@ -1,4 +1,4 @@
-import type { PreflightConfig } from './types.ts';
+import type { PreflightCollection } from './types.ts';
 
 /** Check whether a value is a plain object (non-null, non-array). */
 export function isRecord(value: unknown): value is Record<string, unknown> {
@@ -6,19 +6,19 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Validate that a raw value conforms to the PreflightConfig shape.
+ * Validate that a raw value conforms to the PreflightCollection shape.
  *
- * Throws on invalid input. When it returns without throwing, the value is a valid PreflightConfig.
+ * Throws on invalid input. When it returns without throwing, the value is a valid PreflightCollection.
  * Because jiti loads the actual TypeScript module, the config objects retain their original types
  * including function-valued properties like `check`.
  */
-export function assertIsPreflightConfig(raw: unknown): asserts raw is PreflightConfig {
+export function assertIsPreflightCollection(raw: unknown): asserts raw is PreflightCollection {
   if (!isRecord(raw)) {
-    throw new TypeError(`Preflight config must be an object, got ${Array.isArray(raw) ? 'array' : typeof raw}`);
+    throw new TypeError(`Preflight collection must be an object, got ${Array.isArray(raw) ? 'array' : typeof raw}`);
   }
 
   if (!Array.isArray(raw.checklists)) {
-    throw new TypeError("Preflight config must have a 'checklists' array");
+    throw new TypeError("Preflight collection must have a 'checklists' array");
   }
 
   for (const [i, entry] of raw.checklists.entries()) {

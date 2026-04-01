@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const mockFetch = vi.hoisted(() => vi.fn());
 vi.stubGlobal('fetch', mockFetch);
 
-import { loadRemoteConfig } from '../src/loadRemoteConfig.ts';
+import { loadRemoteCollection } from '../src/loadRemoteCollection.ts';
 
 /** Build a minimal mock Response with the given body and status. */
 function mockResponse(
@@ -19,7 +19,7 @@ function mockResponse(
   };
 }
 
-describe('loadRemoteConfig validation', () => {
+describe('loadRemoteCollection validation', () => {
   afterEach(() => {
     mockFetch.mockReset();
   });
@@ -32,18 +32,18 @@ describe('loadRemoteConfig validation', () => {
     `;
     mockFetch.mockResolvedValue(mockResponse(jsBody));
 
-    const config = await loadRemoteConfig({ url: 'https://example.com/config.js' });
+    const collection = await loadRemoteCollection({ url: 'https://example.com/config.js' });
 
-    expect(config.checklists).toHaveLength(1);
-    expect(config.checklists[0].name).toBe('test');
+    expect(collection.checklists).toHaveLength(1);
+    expect(collection.checklists[0].name).toBe('test');
   });
 
   it('throws when the module lacks a checklists export', async () => {
     const jsBody = 'export default {};';
     mockFetch.mockResolvedValue(mockResponse(jsBody));
 
-    await expect(loadRemoteConfig({ url: 'https://example.com/config.js' })).rejects.toThrow(
-      'must export a named `checklists` export',
+    await expect(loadRemoteCollection({ url: 'https://example.com/config.js' })).rejects.toThrow(
+      'Collection file must export checklists',
     );
   });
 
@@ -56,9 +56,9 @@ describe('loadRemoteConfig validation', () => {
     `;
     mockFetch.mockResolvedValue(mockResponse(jsBody));
 
-    const config = await loadRemoteConfig({ url: 'https://example.com/config.js' });
+    const collection = await loadRemoteCollection({ url: 'https://example.com/config.js' });
 
-    expect(config.fixLocation).toBe('INLINE');
+    expect(collection.fixLocation).toBe('INLINE');
   });
 
   it('omits fixLocation when not exported', async () => {
@@ -69,8 +69,8 @@ describe('loadRemoteConfig validation', () => {
     `;
     mockFetch.mockResolvedValue(mockResponse(jsBody));
 
-    const config = await loadRemoteConfig({ url: 'https://example.com/config.js' });
+    const collection = await loadRemoteCollection({ url: 'https://example.com/config.js' });
 
-    expect(config.fixLocation).toBeUndefined();
+    expect(collection.fixLocation).toBeUndefined();
   });
 });

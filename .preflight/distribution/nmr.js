@@ -1,13 +1,23 @@
-/**
- * Drift-detection config for convention compliance across repos.
- *
- * Run from a target repo's working directory:
- *   preflight run --config <path-to>/config/preflight.config.ts
- */
-import type { PreflightCheck, PreflightCheckList } from '@williamthorsen/preflight';
-import { defineChecklists } from '@williamthorsen/preflight';
+// @generated — do not edit. Compiled by preflight.
 
-const releaseKit: PreflightCheckList = {
+// packages/preflight/dist/esm/config.js
+import { existsSync } from 'node:fs';
+import path from 'node:path';
+function definePreflightCollection(collection) {
+  return collection;
+}
+
+// packages/preflight/dist/esm/loadConfig.js
+import { existsSync as existsSync2 } from 'node:fs';
+import path2 from 'node:path';
+
+// packages/preflight/dist/esm/runPreflight.js
+import { performance } from 'node:perf_hooks';
+
+// .preflight/distribution/nmr.ts
+import { existsSync as existsSync3, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+var releaseKit = {
   name: 'release-kit',
   checks: [
     {
@@ -31,8 +41,7 @@ const releaseKit: PreflightCheckList = {
     },
   ],
 };
-
-const labelSync: PreflightCheckList = {
+var labelSync = {
   name: 'label-sync',
   checks: [
     {
@@ -47,8 +56,7 @@ const labelSync: PreflightCheckList = {
     },
   ],
 };
-
-const nmr: PreflightCheckList = {
+var nmr = {
   name: 'nmr',
   checks: [
     {
@@ -78,22 +86,21 @@ const nmr: PreflightCheckList = {
     {
       name: '__tests__/consistency.app.test.ts does not exist',
       check: () => !fileExists('__tests__/consistency.app.test.ts'),
-      fix: 'Remove __tests__/consistency.app.test.ts — superseded by __tests__/version-alignment.app.test.ts',
+      fix: 'Remove __tests__/consistency.app.test.ts \u2014 superseded by __tests__/version-alignment.app.test.ts',
     },
     {
       name: '__tests__/nodejs-version-app.test.ts does not exist',
       check: () => !fileExists('__tests__/nodejs-version-app.test.ts'),
-      fix: 'Remove __tests__/nodejs-version-app.test.ts — superseded by __tests__/version-alignment.app.test.ts',
+      fix: 'Remove __tests__/nodejs-version-app.test.ts \u2014 superseded by __tests__/version-alignment.app.test.ts',
     },
     {
       name: '__tests__/pnpm-version-app.test.ts does not exist',
       check: () => !fileExists('__tests__/pnpm-version-app.test.ts'),
-      fix: 'Remove __tests__/pnpm-version-app.test.ts — superseded by __tests__/version-alignment.app.test.ts',
+      fix: 'Remove __tests__/pnpm-version-app.test.ts \u2014 superseded by __tests__/version-alignment.app.test.ts',
     },
   ],
 };
-
-const codeQuality: PreflightCheckList = {
+var codeQuality = {
   name: 'code-quality',
   checks: [
     {
@@ -117,7 +124,7 @@ const codeQuality: PreflightCheckList = {
           '.github/workflows/code-quality.yaml',
           /uses:\s*williamthorsen\/.github\/.github\/workflows\/code-quality-pnpm-workflow\.yaml@v5/,
         ) || fileDoesNotContain('.github/workflows/code-quality.yaml', /pnpm-version/),
-      fix: 'Remove pnpm-version from code-quality.yaml — v5 workflow infers the version from packageManager',
+      fix: 'Remove pnpm-version from code-quality.yaml \u2014 v5 workflow infers the version from packageManager',
     },
     {
       name: 'code-quality workflow does not reference GH_PACKAGES_TOKEN',
@@ -126,8 +133,7 @@ const codeQuality: PreflightCheckList = {
     },
   ],
 };
-
-const repoSetupChecks: PreflightCheck[] = [
+var repoSetupChecks = [
   {
     name: '.envrc exists',
     check: () => fileExists('.envrc'),
@@ -186,88 +192,63 @@ const repoSetupChecks: PreflightCheck[] = [
   {
     name: '.tool-versions does not contain pnpm',
     check: () => toolVersionsHasNoPnpm(),
-    fix: 'Remove pnpm from .tool-versions — manage via packageManager field and corepack',
+    fix: 'Remove pnpm from .tool-versions \u2014 manage via packageManager field and corepack',
   },
 ];
-
-const repoSetup: PreflightCheckList = {
+var repoSetup = {
   name: 'repo-setup',
   checks: repoSetupChecks,
 };
-
-// Optional: export a config-level fixLocation to override per-checklist defaults:
-// import type { FixLocation } from '@williamthorsen/preflight';
-// export const fixLocation: FixLocation = 'INLINE';
-export const checklists = defineChecklists([releaseKit, labelSync, nmr, codeQuality, repoSetup]);
-
-// -- Helpers ------------------------------------------------------------------
-
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
-/** Check whether a file exists relative to the working directory. */
-function fileExists(relativePath: string): boolean {
-  return existsSync(join(process.cwd(), relativePath));
+var nmr_default = definePreflightCollection({
+  checklists: [releaseKit, labelSync, nmr, codeQuality, repoSetup],
+});
+function fileExists(relativePath) {
+  return existsSync3(join(process.cwd(), relativePath));
 }
-
-/** Read a file relative to the working directory. Return undefined if it doesn't exist. */
-function readFile(relativePath: string): string | undefined {
+function readFile(relativePath) {
   const fullPath = join(process.cwd(), relativePath);
-  if (!existsSync(fullPath)) return undefined;
+  if (!existsSync3(fullPath)) return void 0;
   return readFileSync(fullPath, 'utf8');
 }
-
-/** Read and parse the root package.json. Return undefined if it doesn't exist. */
-function readPackageJson(): Record<string, unknown> | undefined {
+function readPackageJson() {
   const content = readFile('package.json');
-  if (content === undefined) return undefined;
-  const parsed: unknown = JSON.parse(content);
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return undefined;
+  if (content === void 0) return void 0;
+  const parsed = JSON.parse(content);
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return void 0;
   return Object.fromEntries(Object.entries(parsed));
 }
-
-/** Check whether a dev dependency is present in package.json. */
-function hasDevDependency(name: string): boolean {
+function hasDevDependency(name) {
   const pkg = readPackageJson();
-  if (pkg === undefined) return false;
+  if (pkg === void 0) return false;
   const devDeps = pkg.devDependencies;
   return typeof devDeps === 'object' && devDeps !== null && name in devDeps;
 }
-
-/** Check whether package.json has a field, optionally with a specific value. */
-function hasPackageJsonField(field: string, expectedValue?: string): boolean {
+function hasPackageJsonField(field, expectedValue) {
   const pkg = readPackageJson();
-  if (pkg === undefined) return false;
-  if (expectedValue !== undefined) return pkg[field] === expectedValue;
+  if (pkg === void 0) return false;
+  if (expectedValue !== void 0) return pkg[field] === expectedValue;
   return field in pkg;
 }
-
-/** Check whether a file contains content matching a regex. */
-function fileContains(relativePath: string, pattern: RegExp): boolean {
+function fileContains(relativePath, pattern) {
   const content = readFile(relativePath);
-  if (content === undefined) return false;
+  if (content === void 0) return false;
   return pattern.test(content);
 }
-
-/** Check that a file does not contain content matching a regex. Passes if the file is absent. */
-function fileDoesNotContain(relativePath: string, pattern: RegExp): boolean {
+function fileDoesNotContain(relativePath, pattern) {
   const content = readFile(relativePath);
-  if (content === undefined) return true;
+  if (content === void 0) return true;
   return !pattern.test(content);
 }
-
-/** Verify that .agents/preferences.yaml contains project.slug and project.ticket_prefix. */
-function preferencesHasRequiredFields(): boolean {
+function preferencesHasRequiredFields() {
   const content = readFile('.agents/preferences.yaml');
-  if (content === undefined) return false;
+  if (content === void 0) return false;
   const hasSlug = /^\s+slug:\s*\S/m.test(content);
   const hasTicketPrefix = /^\s+ticket_prefix:\s*\S/m.test(content);
   return hasSlug && hasTicketPrefix;
 }
-
-/** Check that .tool-versions does not list pnpm. Passes if the file is absent. */
-function toolVersionsHasNoPnpm(): boolean {
+function toolVersionsHasNoPnpm() {
   const content = readFile('.tool-versions');
-  if (content === undefined) return true;
+  if (content === void 0) return true;
   return !/^pnpm\s/m.test(content);
 }
+export { nmr_default as default };

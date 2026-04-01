@@ -1,31 +1,35 @@
 import process from 'node:process';
 
-import { loadPreflightConfig } from './config.ts';
-import { expandGitHubShorthand } from './expandGitHubShorthand.ts';
+import { loadPreflightCollection } from './config.ts';
+import { discoverInternalCollections } from './discoverInternalCollections.ts';
 import { formatCombinedSummary } from './formatCombinedSummary.ts';
 import { formatJsonError } from './formatJsonError.ts';
 import { formatJsonReport } from './formatJsonReport.ts';
-import { loadRemoteConfig, type LoadRemoteConfigOptions } from './loadRemoteConfig.ts';
+import { loadRemoteCollection, type LoadRemoteCollectionOptions } from './loadRemoteCollection.ts';
 import { reportPreflight } from './reportPreflight.ts';
 import { resolveGitHubToken } from './resolveGitHubToken.ts';
 import { runPreflight } from './runPreflight.ts';
 import type {
   ChecklistSummary,
   FixLocation,
-  PreflightCheckList,
-  PreflightConfig,
+  PreflightChecklist,
+  PreflightCollection,
   PreflightReport,
-  StagedPreflightCheckList,
+  PreflightStagedChecklist,
 } from './types.ts';
 
-/** Discriminated union describing how to locate the preflight config. */
-export type ConfigSource =
+/** Collection source types that require explicit loading from a file or URL. */
+type ExplicitCollectionSource =
   | { type: 'local'; path?: string }
-  | { type: 'github'; shorthand: string }
+  | { type: 'github'; repo: string; ref: string; collection: string }
   | { type: 'url'; url: string };
 
+/** Discriminated union describing how to locate the preflight collection. */
+export type CollectionSource = ExplicitCollectionSource | { type: 'internal' };
+
 interface ParsedRunArgs {
-  configSource: ConfigSource;
+  collectionSource: CollectionSource;
+  configPath?: string;
   json: boolean;
   names: string[];
 }
@@ -53,17 +57,40 @@ function extractFlagValue(
   return { value: next, nextIndex: index + 1 };
 }
 
-/** Throw if a config source flag has already been set. */
-function assertNoExistingSource(existing: ConfigSource | undefined): void {
+/** Throw if a collection source flag has already been set. */
+function assertNoExistingSource(existing: string | undefined): void {
   if (existing !== undefined) {
-    throw new Error('Cannot combine --config, --github, and --url flags');
+    throw new Error('Cannot combine --file, --github, and --url flags');
   }
+}
+
+/**
+ * Parse `org/repo[@ref]` into repo and ref components.
+ *
+ * The `@ref` part is optional; defaults to `main`.
+ */
+function parseGitHubArg(value: string): { repo: string; ref: string } {
+  const atIndex = value.lastIndexOf('@');
+  if (atIndex === -1) {
+    return { repo: value, ref: 'main' };
+  }
+  const repo = value.slice(0, atIndex);
+  const ref = value.slice(atIndex + 1);
+  if (ref === '') {
+    throw new Error(`Invalid --github value: ref after '@' must not be empty in "${value}"`);
+  }
+  return { repo, ref };
 }
 
 /** Parse run-subcommand flags into a structured object. */
 export function parseRunArgs(flags: string[]): ParsedRunArgs {
   const names: string[] = [];
-  let configSource: ConfigSource | undefined;
+  let sourceType: string | undefined;
+  let filePath: string | undefined;
+  let githubValue: string | undefined;
+  let urlValue: string | undefined;
+  let collectionName: string | undefined;
+  let configPath: string | undefined;
   let json = false;
 
   for (let i = 0; i < flags.length; i++) {
@@ -72,26 +99,37 @@ export function parseRunArgs(flags: string[]): ParsedRunArgs {
     if (arg === '--json') {
       json = true;
     } else if (arg === '--config' || arg === '-c' || arg.startsWith('--config=')) {
-      assertNoExistingSource(configSource);
       const { value, nextIndex } = extractFlagValue('--config', arg, flags, i, 'a path argument');
       i = nextIndex;
-      configSource = { type: 'local', path: value };
+      configPath = value;
+    } else if (arg === '--file' || arg.startsWith('--file=')) {
+      assertNoExistingSource(sourceType);
+      const { value, nextIndex } = extractFlagValue('--file', arg, flags, i, 'a path argument');
+      i = nextIndex;
+      sourceType = 'file';
+      filePath = value;
     } else if (arg === '--github' || arg.startsWith('--github=')) {
-      assertNoExistingSource(configSource);
+      assertNoExistingSource(sourceType);
       const { value, nextIndex } = extractFlagValue(
         '--github',
         arg,
         flags,
         i,
-        'a shorthand argument (org/repo/path[@ref])',
+        'a repository argument (org/repo[@ref])',
       );
       i = nextIndex;
-      configSource = { type: 'github', shorthand: value };
+      sourceType = 'github';
+      githubValue = value;
     } else if (arg === '--url' || arg.startsWith('--url=')) {
-      assertNoExistingSource(configSource);
+      assertNoExistingSource(sourceType);
       const { value, nextIndex } = extractFlagValue('--url', arg, flags, i, 'a URL argument');
       i = nextIndex;
-      configSource = { type: 'url', url: value };
+      sourceType = 'url';
+      urlValue = value;
+    } else if (arg === '--collection' || arg.startsWith('--collection=')) {
+      const { value, nextIndex } = extractFlagValue('--collection', arg, flags, i, 'a collection name');
+      i = nextIndex;
+      collectionName = value;
     } else if (arg.startsWith('-')) {
       throw new Error(`unknown flag '${arg}'`);
     } else {
@@ -99,15 +137,55 @@ export function parseRunArgs(flags: string[]): ParsedRunArgs {
     }
   }
 
-  return { configSource: configSource ?? { type: 'local' }, json, names };
+  const collectionSource = resolveCollectionSource({ sourceType, filePath, githubValue, urlValue, collectionName });
+
+  const result: ParsedRunArgs = { collectionSource, json, names };
+  if (configPath !== undefined) {
+    result.configPath = configPath;
+  }
+  return result;
 }
 
-/** Resolve the effective fixLocation for a checklist, falling back to the config-level default. */
+/** Validate flag co-dependencies and build the CollectionSource from parsed flag state. */
+function resolveCollectionSource({
+  sourceType,
+  filePath,
+  githubValue,
+  urlValue,
+  collectionName,
+}: {
+  sourceType: string | undefined;
+  filePath: string | undefined;
+  githubValue: string | undefined;
+  urlValue: string | undefined;
+  collectionName: string | undefined;
+}): CollectionSource {
+  if (sourceType === 'github' && collectionName === undefined) {
+    throw new Error('--github requires --collection');
+  }
+  if (collectionName !== undefined && sourceType !== 'github') {
+    throw new Error('--collection requires --github');
+  }
+
+  if (sourceType === 'file') {
+    return filePath !== undefined ? { type: 'local', path: filePath } : { type: 'local' };
+  }
+  if (sourceType === 'github' && githubValue !== undefined && collectionName !== undefined) {
+    const { repo, ref } = parseGitHubArg(githubValue);
+    return { type: 'github', repo, ref, collection: collectionName };
+  }
+  if (sourceType === 'url' && urlValue !== undefined) {
+    return { type: 'url', url: urlValue };
+  }
+  return { type: 'internal' };
+}
+
+/** Resolve the effective fixLocation for a checklist, falling back to the collection-level default. */
 function resolveFixLocation(
-  checklist: PreflightCheckList | StagedPreflightCheckList,
-  configDefault?: FixLocation,
+  checklist: PreflightChecklist | PreflightStagedChecklist,
+  collectionDefault?: FixLocation,
 ): FixLocation {
-  return checklist.fixLocation ?? configDefault ?? 'END';
+  return checklist.fixLocation ?? collectionDefault ?? 'END';
 }
 
 /** Build a checklist summary from a report and its checklist name. */
@@ -125,34 +203,51 @@ function summarizeReport(name: string, report: PreflightReport): ChecklistSummar
 
 interface RunCommandOptions {
   names: string[];
-  configSource: ConfigSource;
+  collectionSource: CollectionSource;
   json: boolean;
 }
 
-/** Load a preflight config from the appropriate source. */
-async function loadConfig(source: ConfigSource): Promise<PreflightConfig> {
+/** Build the GitHub raw content URL for a collection. */
+function buildGitHubCollectionUrl(repo: string, ref: string, collection: string): string {
+  return `https://raw.githubusercontent.com/${repo}/${ref}/.preflight/distribution/${collection}.js`;
+}
+
+/** Load a preflight collection from an explicit source (local file, GitHub, or URL). */
+async function loadCollection(source: ExplicitCollectionSource): Promise<PreflightCollection> {
   switch (source.type) {
     case 'local':
-      return loadPreflightConfig(source.path);
+      return loadPreflightCollection(source.path);
     case 'github': {
-      const url = expandGitHubShorthand(source.shorthand);
+      const url = buildGitHubCollectionUrl(source.repo, source.ref, source.collection);
       const token = resolveGitHubToken();
-      const options: LoadRemoteConfigOptions = { url };
+      const options: LoadRemoteCollectionOptions = { url };
       if (token !== undefined) {
         options.token = token;
       }
-      return loadRemoteConfig(options);
+      return loadRemoteCollection(options);
     }
     case 'url':
-      return loadRemoteConfig({ url: source.url });
+      return loadRemoteCollection({ url: source.url });
   }
 }
 
+/** Convention path for internal collections, relative to the repo root. */
+const INTERNAL_COLLECTIONS_DIR = '.config/preflight/collections';
+
+/** Load and merge all internal collections from the convention directory. */
+async function loadInternalCollections(): Promise<PreflightCollection[]> {
+  return discoverInternalCollections(INTERNAL_COLLECTIONS_DIR);
+}
+
 /** Run preflight checklists. Returns a numeric exit code. */
-export async function runCommand({ names, configSource, json }: RunCommandOptions): Promise<number> {
-  let config: PreflightConfig;
+export async function runCommand({ names, collectionSource, json }: RunCommandOptions): Promise<number> {
+  if (collectionSource.type === 'internal') {
+    return runInternalCollections({ names, json });
+  }
+
+  let collection: PreflightCollection;
   try {
-    config = await loadConfig(configSource);
+    collection = await loadCollection(collectionSource);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     if (json) {
@@ -163,10 +258,43 @@ export async function runCommand({ names, configSource, json }: RunCommandOption
     return 1;
   }
 
+  return runSingleCollection(collection, { names, json });
+}
+
+/** Run all internal collections from the convention directory. */
+async function runInternalCollections({ names, json }: { names: string[]; json: boolean }): Promise<number> {
+  let collections: PreflightCollection[];
+  try {
+    collections = await loadInternalCollections();
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (json) {
+      process.stdout.write(formatJsonError(message) + '\n');
+    } else {
+      process.stderr.write(`Error: ${message}\n`);
+    }
+    return 1;
+  }
+
+  let allPassed = true;
+  for (const collection of collections) {
+    const exitCode = await runSingleCollection(collection, { names, json });
+    if (exitCode !== 0) {
+      allPassed = false;
+    }
+  }
+  return allPassed ? 0 : 1;
+}
+
+/** Run checklists from a single collection. */
+async function runSingleCollection(
+  collection: PreflightCollection,
+  { names, json }: { names: string[]; json: boolean },
+): Promise<number> {
   // Determine which checklists to run
-  let checklists = config.checklists;
+  let checklists = collection.checklists;
   if (names.length > 0) {
-    const availableNames = new Set(config.checklists.map((c) => c.name));
+    const availableNames = new Set(collection.checklists.map((c) => c.name));
     const unknownNames = names.filter((n) => !availableNames.has(n));
     if (unknownNames.length > 0) {
       const available = [...availableNames].join(', ');
@@ -179,18 +307,18 @@ export async function runCommand({ names, configSource, json }: RunCommandOption
       return 1;
     }
     const requestedNames = new Set(names);
-    checklists = config.checklists.filter((c) => requestedNames.has(c.name));
+    checklists = collection.checklists.filter((c) => requestedNames.has(c.name));
   }
 
   if (json) {
     return runJsonMode(checklists);
   }
 
-  return runHumanMode(checklists, config);
+  return runHumanMode(checklists, collection);
 }
 
 /** Run checklists and emit a single JSON object to stdout. */
-async function runJsonMode(checklists: Array<PreflightCheckList | StagedPreflightCheckList>): Promise<number> {
+async function runJsonMode(checklists: Array<PreflightChecklist | PreflightStagedChecklist>): Promise<number> {
   const entries: Array<{ name: string; report: PreflightReport }> = [];
   let allPassed = true;
 
@@ -212,8 +340,8 @@ async function runJsonMode(checklists: Array<PreflightCheckList | StagedPrefligh
 
 /** Run checklists with human-readable output. */
 async function runHumanMode(
-  checklists: Array<PreflightCheckList | StagedPreflightCheckList>,
-  config: PreflightConfig,
+  checklists: Array<PreflightChecklist | PreflightStagedChecklist>,
+  collection: PreflightCollection,
 ): Promise<number> {
   const showHeader = checklists.length > 1;
   let allPassed = true;
@@ -225,7 +353,7 @@ async function runHumanMode(
     }
 
     const report = await runPreflight(checklist);
-    const fixLocation = resolveFixLocation(checklist, config.fixLocation);
+    const fixLocation = resolveFixLocation(checklist, collection.fixLocation);
     const output = reportPreflight(report, { fixLocation });
     process.stdout.write(output + '\n');
 

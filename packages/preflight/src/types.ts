@@ -58,7 +58,7 @@ export interface PreflightReport {
 }
 
 /** A flat checklist where all checks run concurrently. */
-export interface PreflightCheckList {
+export interface PreflightChecklist {
   name: string;
   preconditions?: PreflightCheck[];
   checks: PreflightCheck[];
@@ -66,7 +66,7 @@ export interface PreflightCheckList {
 }
 
 /** A staged checklist where groups run sequentially and checks within each group run concurrently. */
-export interface StagedPreflightCheckList {
+export interface PreflightStagedChecklist {
   name: string;
   preconditions?: PreflightCheck[];
   groups: PreflightCheck[][];
@@ -88,15 +88,32 @@ export interface ReportOptions {
   fixLocation?: FixLocation;
 }
 
-/** Top-level configuration for the preflight CLI. */
-export interface PreflightConfig {
+/** A collection of checklists with an optional default fixLocation. */
+export interface PreflightCollection {
   fixLocation?: FixLocation;
-  checklists: Array<PreflightCheckList | StagedPreflightCheckList>;
+  checklists: Array<PreflightChecklist | PreflightStagedChecklist>;
+  suites?: Record<string, string[]>;
+}
+
+/** Repo-level settings for the preflight CLI (user-facing, all fields optional). */
+export interface PreflightConfig {
+  compile?: {
+    srcDir?: string;
+    outDir?: string;
+  };
+}
+
+/** Fully-resolved config with defaults applied, returned by `loadConfig`. */
+export interface ResolvedPreflightConfig {
+  compile: {
+    srcDir: string;
+    outDir: string;
+  };
 }
 
 /** Distinguish a flat checklist from a staged checklist by the presence of `checks`. */
-export function isFlatCheckList(
-  checklist: PreflightCheckList | StagedPreflightCheckList,
-): checklist is PreflightCheckList {
+export function isFlatChecklist(
+  checklist: PreflightChecklist | PreflightStagedChecklist,
+): checklist is PreflightChecklist {
   return 'checks' in checklist;
 }

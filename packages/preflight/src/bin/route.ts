@@ -10,8 +10,8 @@ Usage: preflight <command> [options]
 
 Commands:
   run [names...]       Run preflight checklists
-  compile <input>      Bundle a TypeScript config into a self-contained ESM file
-  init                 Scaffold a starter config file
+  compile [input]      Bundle TypeScript collection(s) into self-contained ESM file(s)
+  init                 Scaffold a starter config and collection
 
 Options:
   --help, -h       Show this help message
@@ -24,22 +24,27 @@ Usage: preflight run [names...] [options]
 
 Run preflight checklists. If no names are given, all checklists are run.
 
-Config source (mutually exclusive):
-  --config, -c <path>              Path to a local config file
-  --github <org/repo/path[@ref]>   Fetch config from a GitHub repository
-  --url <url>                      Fetch config from a URL
+Collection source (mutually exclusive):
+  --file <path>                      Path to a local collection file
+  --github <org/repo[@ref]>          Fetch collection from a GitHub repository (requires --collection)
+  --url <url>                        Fetch collection from a URL
 
 Options:
-  --json                           Output results as JSON
-  --help, -h                       Show this help message
+  --collection <name>                Collection name (required with --github)
+  --config, -c <path>                Path to a settings config file
+  --json                             Output results as JSON
+  --help, -h                         Show this help message
+
+When no collection source is given, runs all collections from .config/preflight/collections/.
 `);
 }
 
 function showCompileHelp(): void {
   console.info(`
-Usage: preflight compile <input> [options]
+Usage: preflight compile [input] [options]
 
-Bundle a TypeScript checklist file into a self-contained ESM bundle.
+Bundle TypeScript collection(s) into self-contained ESM bundle(s).
+When no input is given, compiles all sources from the config's srcDir to outDir.
 
 Options:
   --output, -o <path>  Output file path (default: input with .ts replaced by .js)
@@ -51,11 +56,11 @@ function showInitHelp(): void {
   console.info(`
 Usage: preflight init [options]
 
-Scaffold a starter .config/preflight.config.ts file.
+Scaffold a starter config and collection file.
 
 Options:
   --dry-run     Preview changes without writing files
-  --force       Overwrite an existing config file
+  --force       Overwrite existing files
   --help, -h    Show this help message
 `);
 }

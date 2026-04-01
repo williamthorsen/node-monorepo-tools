@@ -1,4 +1,3 @@
-import type { WriteResult } from '@williamthorsen/node-monorepo-core';
 import { printError, printStep, reportWriteResult } from '@williamthorsen/node-monorepo-core';
 
 import { scaffoldConfig } from './scaffold.ts';
@@ -11,7 +10,7 @@ interface InitOptions {
 /**
  * Run the `preflight init` command.
  *
- * Scaffolds a starter config file and prints next steps.
+ * Scaffolds a starter config file and collection file, then prints next steps.
  * Returns the process exit code (0 for success, 1 for failure).
  */
 export function initCommand({ dryRun, force }: InitOptions): number {
@@ -20,7 +19,7 @@ export function initCommand({ dryRun, force }: InitOptions): number {
   }
 
   printStep('Scaffolding config');
-  let result: WriteResult;
+  let result: ReturnType<typeof scaffoldConfig>;
   try {
     result = scaffoldConfig({ dryRun, force });
   } catch (error: unknown) {
@@ -28,18 +27,26 @@ export function initCommand({ dryRun, force }: InitOptions): number {
     return 1;
   }
 
-  reportWriteResult(result, dryRun);
+  if (result.oldConfigWarning) {
+    console.warn(
+      '⚠ Old-style config found at .config/preflight.config.ts — consider migrating to .config/preflight/config.ts',
+    );
+  }
 
-  if (result.outcome === 'failed') {
+  reportWriteResult(result.configResult, dryRun);
+  reportWriteResult(result.collectionResult, dryRun);
+
+  if (result.configResult.outcome === 'failed' || result.collectionResult.outcome === 'failed') {
     return 1;
   }
 
   if (!dryRun) {
     printStep('Next steps');
     console.info(`
-  1. Customize .config/preflight.config.ts with your checklists and checks.
-  2. Test by running: npx @williamthorsen/preflight run
-  3. Commit the generated file.
+  1. Customize .config/preflight/config.ts with your compile settings.
+  2. Add checklists to .config/preflight/collections/.
+  3. Test by running: npx @williamthorsen/preflight run
+  4. Commit the generated files.
 `);
   }
 

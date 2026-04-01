@@ -5,6 +5,9 @@ export interface CompileResult {
   outputPath: string;
 }
 
+/** Generated-file header prepended to compiled output. */
+const GENERATED_HEADER = '// @generated — do not edit. Compiled by preflight.\n';
+
 /** Derive the default output path by replacing the `.ts` extension with `.js`. */
 function deriveOutputPath(inputPath: string): string {
   const ext = path.extname(inputPath);
@@ -18,6 +21,7 @@ function deriveOutputPath(inputPath: string): string {
  * Bundle a TypeScript checklist file into a self-contained ESM bundle using esbuild.
  *
  * Node built-in modules are kept external; all other imports are inlined.
+ * Prepends a generated-file header comment to the output.
  */
 export async function compileConfig(inputPath: string, outputPath?: string): Promise<CompileResult> {
   const resolvedInput = path.resolve(inputPath);
@@ -41,6 +45,7 @@ export async function compileConfig(inputPath: string, outputPath?: string): Pro
     platform: 'node',
     target: 'es2022',
     external: ['node:*'],
+    banner: { js: GENERATED_HEADER },
   });
 
   return { outputPath: resolvedOutput };

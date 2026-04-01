@@ -7,25 +7,31 @@ export type {
   FractionProgress,
   PercentProgress,
   PreflightCheck,
-  PreflightCheckList,
+  PreflightChecklist,
+  PreflightCollection,
   PreflightConfig,
   PreflightReport,
   PreflightResult,
+  PreflightStagedChecklist,
   Progress,
   ReportOptions,
-  StagedPreflightCheckList,
+  ResolvedPreflightConfig,
 } from './types.ts';
 
 // Type guards
-export { isFlatCheckList, isPercentProgress } from './types.ts';
+export { isFlatChecklist, isPercentProgress } from './types.ts';
 
 // Config helpers
 export {
   defineChecklists,
-  definePreflightCheckList,
+  definePreflightChecklist,
+  definePreflightCollection,
   definePreflightConfig,
-  defineStagedPreflightCheckList,
+  definePreflightStagedChecklist,
 } from './config.ts';
+
+// Config loader
+export { loadConfig } from './loadConfig.ts';
 
 // Runner
 export { runPreflight } from './runPreflight.ts';

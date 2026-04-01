@@ -28,6 +28,7 @@ describe(compileConfig, () => {
       platform: 'node',
       target: 'es2022',
       external: ['node:*'],
+      banner: { js: expect.stringContaining('@generated') },
     });
   });
 

@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { runPreflight } from '../src/runPreflight.ts';
-import type { PreflightCheckList, StagedPreflightCheckList } from '../src/types.ts';
+import type { PreflightChecklist, PreflightStagedChecklist } from '../src/types.ts';
 
 describe(runPreflight, () => {
   describe('flat checklists', () => {
     it('marks passing checks as passed', async () => {
-      const checklist: PreflightCheckList = {
+      const checklist: PreflightChecklist = {
         name: 'basic',
         checks: [{ name: 'always-true', check: () => true }],
       };
@@ -20,7 +20,7 @@ describe(runPreflight, () => {
     });
 
     it('marks failing checks as failed', async () => {
-      const checklist: PreflightCheckList = {
+      const checklist: PreflightChecklist = {
         name: 'basic',
         checks: [{ name: 'always-false', check: () => false, fix: 'Do something' }],
       };
@@ -33,7 +33,7 @@ describe(runPreflight, () => {
     });
 
     it('captures errors from throwing checks', async () => {
-      const checklist: PreflightCheckList = {
+      const checklist: PreflightChecklist = {
         name: 'throwing',
         checks: [
           {
@@ -53,7 +53,7 @@ describe(runPreflight, () => {
     });
 
     it('wraps non-Error thrown values in an Error', async () => {
-      const checklist: PreflightCheckList = {
+      const checklist: PreflightChecklist = {
         name: 'throwing-string',
         checks: [
           {
@@ -75,7 +75,7 @@ describe(runPreflight, () => {
     });
 
     it('handles async check functions', async () => {
-      const checklist: PreflightCheckList = {
+      const checklist: PreflightChecklist = {
         name: 'async',
         checks: [{ name: 'async-true', check: () => Promise.resolve(true) }],
       };
@@ -88,7 +88,7 @@ describe(runPreflight, () => {
 
     it('runs all checks concurrently', async () => {
       const order: string[] = [];
-      const checklist: PreflightCheckList = {
+      const checklist: PreflightChecklist = {
         name: 'concurrent',
         checks: [
           {
@@ -118,7 +118,7 @@ describe(runPreflight, () => {
 
   describe('preconditions', () => {
     it('skips all checks when a precondition fails', async () => {
-      const checklist: PreflightCheckList = {
+      const checklist: PreflightChecklist = {
         name: 'gated',
         preconditions: [{ name: 'pre-fail', check: () => false }],
         checks: [{ name: 'should-skip', check: () => true }],
@@ -133,7 +133,7 @@ describe(runPreflight, () => {
     });
 
     it('runs checks when all preconditions pass', async () => {
-      const checklist: PreflightCheckList = {
+      const checklist: PreflightChecklist = {
         name: 'gated',
         preconditions: [{ name: 'pre-pass', check: () => true }],
         checks: [{ name: 'runs', check: () => true }],
@@ -150,7 +150,7 @@ describe(runPreflight, () => {
 
   describe('staged checklists', () => {
     it('skips subsequent groups when a group fails', async () => {
-      const checklist: StagedPreflightCheckList = {
+      const checklist: PreflightStagedChecklist = {
         name: 'staged',
         groups: [[{ name: 'g1-fail', check: () => false }], [{ name: 'g2-skip', check: () => true }]],
       };
@@ -164,7 +164,7 @@ describe(runPreflight, () => {
     });
 
     it('runs all groups when earlier groups pass', async () => {
-      const checklist: StagedPreflightCheckList = {
+      const checklist: PreflightStagedChecklist = {
         name: 'staged',
         groups: [[{ name: 'g1-pass', check: () => true }], [{ name: 'g2-pass', check: () => true }]],
       };
@@ -177,7 +177,7 @@ describe(runPreflight, () => {
     });
 
     it('skips all groups when preconditions fail', async () => {
-      const checklist: StagedPreflightCheckList = {
+      const checklist: PreflightStagedChecklist = {
         name: 'staged-gated',
         preconditions: [{ name: 'pre-fail', check: () => false }],
         groups: [[{ name: 'g1', check: () => true }], [{ name: 'g2', check: () => true }]],
@@ -195,7 +195,7 @@ describe(runPreflight, () => {
 
   describe('structured check outcomes', () => {
     it('carries detail from a passing CheckOutcome', async () => {
-      const checklist: PreflightCheckList = {
+      const checklist: PreflightChecklist = {
         name: 'outcome',
         checks: [{ name: 'with-detail', check: () => ({ ok: true, detail: 'all files present' }) }],
       };
@@ -208,7 +208,7 @@ describe(runPreflight, () => {
     });
 
     it('carries progress from a failing CheckOutcome', async () => {
-      const checklist: PreflightCheckList = {
+      const checklist: PreflightChecklist = {
         name: 'outcome',
         checks: [
           {
@@ -226,7 +226,7 @@ describe(runPreflight, () => {
     });
 
     it('carries both detail and progress', async () => {
-      const checklist: PreflightCheckList = {
+      const checklist: PreflightChecklist = {
         name: 'outcome',
         checks: [
           {
@@ -243,7 +243,7 @@ describe(runPreflight, () => {
     });
 
     it('does not set detail or progress on skipped results', async () => {
-      const checklist: PreflightCheckList = {
+      const checklist: PreflightChecklist = {
         name: 'outcome',
         preconditions: [{ name: 'pre-fail', check: () => false }],
         checks: [{ name: 'skipped-check', check: () => ({ ok: true, detail: 'should not appear' }) }],
@@ -257,7 +257,7 @@ describe(runPreflight, () => {
     });
 
     it('handles async CheckOutcome', async () => {
-      const checklist: PreflightCheckList = {
+      const checklist: PreflightChecklist = {
         name: 'async-outcome',
         checks: [{ name: 'async-detail', check: () => Promise.resolve({ ok: true, detail: 'async info' }) }],
       };
@@ -270,7 +270,7 @@ describe(runPreflight, () => {
   });
 
   it('computes total duration', async () => {
-    const checklist: PreflightCheckList = {
+    const checklist: PreflightChecklist = {
       name: 'timing',
       checks: [{ name: 'quick', check: () => true }],
     };

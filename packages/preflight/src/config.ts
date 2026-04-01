@@ -1,46 +1,57 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
-import { assertIsPreflightConfig, isRecord } from './assertIsPreflightConfig.ts';
-import { resolveConfigExports } from './resolveConfigExports.ts';
-import type { PreflightCheckList, PreflightConfig, StagedPreflightCheckList } from './types.ts';
+import { assertIsPreflightCollection, isRecord } from './assertIsPreflightCollection.ts';
+import { resolveCollectionExports } from './resolveCollectionExports.ts';
+import type { PreflightChecklist, PreflightCollection, PreflightConfig, PreflightStagedChecklist } from './types.ts';
 
-/** The default config file path, resolved relative to `process.cwd()`. */
-export const CONFIG_FILE_PATH = '.config/preflight.config.ts';
+/**
+ * The legacy default collection file path, resolved relative to `process.cwd()`.
+ *
+ * Retained for backward compatibility with repos that use the single-file collection pattern.
+ * New repos should use internal collections under `.config/preflight/collections/`.
+ */
+export const COLLECTION_FILE_PATH = '.config/preflight.config.ts';
 
-/** Type-safe identity function for defining a preflight config in a config file. */
+/** Type-safe identity function for defining repo-level preflight settings. */
 export function definePreflightConfig(config: PreflightConfig): PreflightConfig {
   return config;
 }
 
+/** Type-safe identity function for defining a preflight collection in a config file. */
+export function definePreflightCollection(collection: PreflightCollection): PreflightCollection {
+  return collection;
+}
+
 /** Type-safe identity function for defining an array of checklists in a config file. */
 export function defineChecklists(
-  checklists: Array<PreflightCheckList | StagedPreflightCheckList>,
-): Array<PreflightCheckList | StagedPreflightCheckList> {
+  checklists: Array<PreflightChecklist | PreflightStagedChecklist>,
+): Array<PreflightChecklist | PreflightStagedChecklist> {
   return checklists;
 }
 
 /** Type-safe identity function for defining a flat checklist. */
-export function definePreflightCheckList(checklist: PreflightCheckList): PreflightCheckList {
+export function definePreflightChecklist(checklist: PreflightChecklist): PreflightChecklist {
   return checklist;
 }
 
 /** Type-safe identity function for defining a staged checklist. */
-export function defineStagedPreflightCheckList(checklist: StagedPreflightCheckList): StagedPreflightCheckList {
+export function definePreflightStagedChecklist(checklist: PreflightStagedChecklist): PreflightStagedChecklist {
   return checklist;
 }
 
 /**
- * Load and validate a preflight config file.
+ * Load and validate a preflight collection file.
  *
- * Searches `.config/preflight.config.ts` by default, or a custom path if provided.
+ * Falls back to the legacy path `.config/preflight.config.ts` when no path is provided.
+ * New repos should use internal collections via `discoverInternalCollections` instead.
  * Uses jiti to load TypeScript config files at runtime.
  */
-export async function loadPreflightConfig(configPath?: string): Promise<PreflightConfig> {
-  const resolvedPath = path.resolve(process.cwd(), configPath ?? CONFIG_FILE_PATH);
+export async function loadPreflightCollection(collectionPath?: string): Promise<PreflightCollection> {
+  const resolvedPath = path.resolve(process.cwd(), collectionPath ?? COLLECTION_FILE_PATH);
 
   if (!existsSync(resolvedPath)) {
-    throw new Error(`Preflight config not found: ${resolvedPath}`);
+    throw new Error(`Preflight collection not found: ${resolvedPath}`);
   }
 
   const { createJiti } = await import('jiti');
@@ -48,10 +59,12 @@ export async function loadPreflightConfig(configPath?: string): Promise<Prefligh
   const imported: unknown = await jiti.import(resolvedPath);
 
   if (!isRecord(imported)) {
-    throw new Error(`Config file must export an object, got ${Array.isArray(imported) ? 'array' : typeof imported}`);
+    throw new Error(
+      `Collection file must export an object, got ${Array.isArray(imported) ? 'array' : typeof imported}`,
+    );
   }
 
-  const resolved = resolveConfigExports(imported);
-  assertIsPreflightConfig(resolved);
+  const resolved = resolveCollectionExports(imported);
+  assertIsPreflightCollection(resolved);
   return resolved;
 }
