@@ -88,10 +88,19 @@ export interface ReportOptions {
   fixLocation?: FixLocation;
 }
 
-/** Top-level configuration for the preflight CLI. */
-export interface PreflightConfig {
+/** A collection of checklists with an optional default fixLocation. */
+export interface PreflightCollection {
   fixLocation?: FixLocation;
   checklists: Array<PreflightChecklist | PreflightStagedChecklist>;
+  suites?: Record<string, string[]>;
+}
+
+/** Repo-level settings for the preflight CLI. */
+export interface PreflightConfig {
+  compile: {
+    srcDir: string;
+    outDir: string;
+  };
 }
 
 /** Distinguish a flat checklist from a staged checklist by the presence of `checks`. */

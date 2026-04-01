@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest';
 
-import type { PreflightConfig } from '../src/types.ts';
+import type { PreflightCollection } from '../src/types.ts';
 
-const mockLoadPreflightConfig = vi.hoisted(() => vi.fn());
+const mockLoadPreflightCollection = vi.hoisted(() => vi.fn());
 const mockRunPreflight = vi.hoisted(() => vi.fn());
 const mockReportPreflight = vi.hoisted(() => vi.fn());
 const mockFormatCombinedSummary = vi.hoisted(() => vi.fn());
@@ -10,10 +10,10 @@ const mockFormatJsonReport = vi.hoisted(() => vi.fn());
 const mockFormatJsonError = vi.hoisted(() => vi.fn());
 const mockExpandGitHubShorthand = vi.hoisted(() => vi.fn());
 const mockResolveGitHubToken = vi.hoisted(() => vi.fn());
-const mockLoadRemoteConfig = vi.hoisted(() => vi.fn());
+const mockLoadRemoteCollection = vi.hoisted(() => vi.fn());
 
 vi.mock('../src/config.ts', () => ({
-  loadPreflightConfig: mockLoadPreflightConfig,
+  loadPreflightCollection: mockLoadPreflightCollection,
 }));
 
 vi.mock('../src/runPreflight.ts', () => ({
@@ -44,13 +44,13 @@ vi.mock('../src/resolveGitHubToken.ts', () => ({
   resolveGitHubToken: mockResolveGitHubToken,
 }));
 
-vi.mock('../src/loadRemoteConfig.ts', () => ({
-  loadRemoteConfig: mockLoadRemoteConfig,
+vi.mock('../src/loadRemoteCollection.ts', () => ({
+  loadRemoteCollection: mockLoadRemoteCollection,
 }));
 
 import { parseRunArgs, runCommand } from '../src/cli.ts';
 
-function makeConfig(overrides?: Partial<PreflightConfig>): PreflightConfig {
+function makeCollection(overrides?: Partial<PreflightCollection>): PreflightCollection {
   return {
     checklists: [
       { name: 'deploy', checks: [{ name: 'a', check: () => true }] },
@@ -65,32 +65,32 @@ describe(parseRunArgs, () => {
     const result = parseRunArgs(['deploy', 'infra']);
 
     expect(result.names).toStrictEqual(['deploy', 'infra']);
-    expect(result.configSource).toStrictEqual({ type: 'local' });
+    expect(result.collectionSource).toStrictEqual({ type: 'local' });
   });
 
   it('parses --config flag', () => {
     const result = parseRunArgs(['--config', 'custom/path.ts']);
 
-    expect(result.configSource).toStrictEqual({ type: 'local', path: 'custom/path.ts' });
+    expect(result.collectionSource).toStrictEqual({ type: 'local', path: 'custom/path.ts' });
     expect(result.names).toStrictEqual([]);
   });
 
   it('parses --config= syntax', () => {
     const result = parseRunArgs(['--config=custom/path.ts']);
 
-    expect(result.configSource).toStrictEqual({ type: 'local', path: 'custom/path.ts' });
+    expect(result.collectionSource).toStrictEqual({ type: 'local', path: 'custom/path.ts' });
   });
 
   it('parses -c flag', () => {
     const result = parseRunArgs(['-c', 'custom/path.ts']);
 
-    expect(result.configSource).toStrictEqual({ type: 'local', path: 'custom/path.ts' });
+    expect(result.collectionSource).toStrictEqual({ type: 'local', path: 'custom/path.ts' });
   });
 
   it('parses mixed flags and names', () => {
     const result = parseRunArgs(['-c', 'config.ts', 'deploy']);
 
-    expect(result.configSource).toStrictEqual({ type: 'local', path: 'config.ts' });
+    expect(result.collectionSource).toStrictEqual({ type: 'local', path: 'config.ts' });
     expect(result.names).toStrictEqual(['deploy']);
   });
 
@@ -130,7 +130,7 @@ describe(parseRunArgs, () => {
     const result = parseRunArgs(['--json', '--config', '/path/to/config', 'deploy']);
 
     expect(result.json).toBe(true);
-    expect(result.configSource).toStrictEqual({ type: 'local', path: '/path/to/config' });
+    expect(result.collectionSource).toStrictEqual({ type: 'local', path: '/path/to/config' });
     expect(result.names).toStrictEqual(['deploy']);
   });
 
@@ -142,13 +142,13 @@ describe(parseRunArgs, () => {
   it('parses --github flag with space-separated value', () => {
     const result = parseRunArgs(['--github', 'org/repo/path.js@v1']);
 
-    expect(result.configSource).toStrictEqual({ type: 'github', shorthand: 'org/repo/path.js@v1' });
+    expect(result.collectionSource).toStrictEqual({ type: 'github', shorthand: 'org/repo/path.js@v1' });
   });
 
   it('parses --github= syntax', () => {
     const result = parseRunArgs(['--github=org/repo/path.js']);
 
-    expect(result.configSource).toStrictEqual({ type: 'github', shorthand: 'org/repo/path.js' });
+    expect(result.collectionSource).toStrictEqual({ type: 'github', shorthand: 'org/repo/path.js' });
   });
 
   it('throws when --github has no value', () => {
@@ -163,13 +163,13 @@ describe(parseRunArgs, () => {
   it('parses --url flag with space-separated value', () => {
     const result = parseRunArgs(['--url', 'https://example.com/config.js']);
 
-    expect(result.configSource).toStrictEqual({ type: 'url', url: 'https://example.com/config.js' });
+    expect(result.collectionSource).toStrictEqual({ type: 'url', url: 'https://example.com/config.js' });
   });
 
   it('parses --url= syntax', () => {
     const result = parseRunArgs(['--url=https://example.com/config.js']);
 
-    expect(result.configSource).toStrictEqual({ type: 'url', url: 'https://example.com/config.js' });
+    expect(result.collectionSource).toStrictEqual({ type: 'url', url: 'https://example.com/config.js' });
   });
 
   it('throws when --url has no value', () => {
@@ -219,7 +219,7 @@ describe(runCommand, () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    mockLoadPreflightConfig.mockReset();
+    mockLoadPreflightCollection.mockReset();
     mockRunPreflight.mockReset();
     mockReportPreflight.mockReset();
     mockFormatCombinedSummary.mockReset();
@@ -227,70 +227,70 @@ describe(runCommand, () => {
     mockFormatJsonError.mockReset();
     mockExpandGitHubShorthand.mockReset();
     mockResolveGitHubToken.mockReset();
-    mockLoadRemoteConfig.mockReset();
+    mockLoadRemoteCollection.mockReset();
   });
 
   it('runs all checklists when no names are given', async () => {
-    const config = makeConfig();
-    mockLoadPreflightConfig.mockResolvedValue(config);
+    const collection = makeCollection();
+    mockLoadPreflightCollection.mockResolvedValue(collection);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    const exitCode = await runCommand({ names: [], configSource: { type: 'local' }, json: false });
+    const exitCode = await runCommand({ names: [], collectionSource: { type: 'local' }, json: false });
 
     expect(mockRunPreflight).toHaveBeenCalledTimes(2);
     expect(exitCode).toBe(0);
   });
 
   it('filters to named checklists only', async () => {
-    const config = makeConfig();
-    mockLoadPreflightConfig.mockResolvedValue(config);
+    const collection = makeCollection();
+    mockLoadPreflightCollection.mockResolvedValue(collection);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    const exitCode = await runCommand({ names: ['deploy'], configSource: { type: 'local' }, json: false });
+    const exitCode = await runCommand({ names: ['deploy'], collectionSource: { type: 'local' }, json: false });
 
     expect(mockRunPreflight).toHaveBeenCalledTimes(1);
-    expect(mockRunPreflight).toHaveBeenCalledWith(config.checklists[0]);
+    expect(mockRunPreflight).toHaveBeenCalledWith(collection.checklists[0]);
     expect(exitCode).toBe(0);
   });
 
   it('errors when an unknown checklist name is given', async () => {
-    const config = makeConfig();
-    mockLoadPreflightConfig.mockResolvedValue(config);
+    const collection = makeCollection();
+    mockLoadPreflightCollection.mockResolvedValue(collection);
 
-    const exitCode = await runCommand({ names: ['nonexistent'], configSource: { type: 'local' }, json: false });
+    const exitCode = await runCommand({ names: ['nonexistent'], collectionSource: { type: 'local' }, json: false });
 
     expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('unknown checklist(s): nonexistent'));
     expect(exitCode).toBe(1);
   });
 
   it('returns exit code 1 when any checklist fails', async () => {
-    const config = makeConfig();
-    mockLoadPreflightConfig.mockResolvedValue(config);
+    const collection = makeCollection();
+    mockLoadPreflightCollection.mockResolvedValue(collection);
     mockRunPreflight
       .mockResolvedValueOnce({ results: [], passed: true, durationMs: 0 })
       .mockResolvedValueOnce({ results: [], passed: false, durationMs: 0 });
 
-    const exitCode = await runCommand({ names: [], configSource: { type: 'local' }, json: false });
+    const exitCode = await runCommand({ names: [], collectionSource: { type: 'local' }, json: false });
 
     expect(exitCode).toBe(1);
   });
 
-  it('passes config path to local config loader', async () => {
-    const config = makeConfig();
-    mockLoadPreflightConfig.mockResolvedValue(config);
+  it('passes collection path to local collection loader', async () => {
+    const collection = makeCollection();
+    mockLoadPreflightCollection.mockResolvedValue(collection);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runCommand({ names: [], configSource: { type: 'local', path: 'custom/path.ts' }, json: false });
+    await runCommand({ names: [], collectionSource: { type: 'local', path: 'custom/path.ts' }, json: false });
 
-    expect(mockLoadPreflightConfig).toHaveBeenCalledWith('custom/path.ts');
+    expect(mockLoadPreflightCollection).toHaveBeenCalledWith('custom/path.ts');
   });
 
   it('shows headers when running multiple checklists', async () => {
-    const config = makeConfig();
-    mockLoadPreflightConfig.mockResolvedValue(config);
+    const collection = makeCollection();
+    mockLoadPreflightCollection.mockResolvedValue(collection);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runCommand({ names: [], configSource: { type: 'local' }, json: false });
+    await runCommand({ names: [], collectionSource: { type: 'local' }, json: false });
 
     const allOutput = stdoutSpy.mock.calls.map((c) => String(c[0])).join('');
     expect(allOutput).toContain('--- deploy ---');
@@ -298,61 +298,61 @@ describe(runCommand, () => {
   });
 
   it('does not show headers for a single checklist', async () => {
-    const config = makeConfig();
-    mockLoadPreflightConfig.mockResolvedValue(config);
+    const collection = makeCollection();
+    mockLoadPreflightCollection.mockResolvedValue(collection);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runCommand({ names: ['deploy'], configSource: { type: 'local' }, json: false });
+    await runCommand({ names: ['deploy'], collectionSource: { type: 'local' }, json: false });
 
     const allOutput = stdoutSpy.mock.calls.map((c) => String(c[0])).join('');
     expect(allOutput).not.toContain('---');
   });
 
-  it('uses per-checklist fixLocation over config default', async () => {
-    const config = makeConfig({
+  it('uses per-checklist fixLocation over collection default', async () => {
+    const collection = makeCollection({
       fixLocation: 'END',
       checklists: [{ name: 'deploy', checks: [{ name: 'a', check: () => true }], fixLocation: 'INLINE' }],
     });
-    mockLoadPreflightConfig.mockResolvedValue(config);
+    mockLoadPreflightCollection.mockResolvedValue(collection);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runCommand({ names: [], configSource: { type: 'local' }, json: false });
+    await runCommand({ names: [], collectionSource: { type: 'local' }, json: false });
 
     expect(mockReportPreflight).toHaveBeenCalledWith(expect.anything(), { fixLocation: 'INLINE' });
   });
 
-  it('falls back to config-level fixLocation when checklist has none', async () => {
-    const config = makeConfig({
+  it('falls back to collection-level fixLocation when checklist has none', async () => {
+    const collection = makeCollection({
       fixLocation: 'END',
       checklists: [{ name: 'deploy', checks: [{ name: 'a', check: () => true }] }],
     });
-    mockLoadPreflightConfig.mockResolvedValue(config);
+    mockLoadPreflightCollection.mockResolvedValue(collection);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runCommand({ names: [], configSource: { type: 'local' }, json: false });
+    await runCommand({ names: [], collectionSource: { type: 'local' }, json: false });
 
     expect(mockReportPreflight).toHaveBeenCalledWith(expect.anything(), { fixLocation: 'END' });
   });
 
-  it('reports config loading errors to stderr', async () => {
-    mockLoadPreflightConfig.mockRejectedValue(new Error('Config not found'));
+  it('reports collection loading errors to stderr', async () => {
+    mockLoadPreflightCollection.mockRejectedValue(new Error('Collection not found'));
 
-    const exitCode = await runCommand({ names: [], configSource: { type: 'local' }, json: false });
+    const exitCode = await runCommand({ names: [], collectionSource: { type: 'local' }, json: false });
 
-    expect(stderrSpy).toHaveBeenCalledWith('Error: Config not found\n');
+    expect(stderrSpy).toHaveBeenCalledWith('Error: Collection not found\n');
     expect(exitCode).toBe(1);
   });
 
   it('prints combined summary when multiple checklists run', async () => {
-    const config = makeConfig();
-    mockLoadPreflightConfig.mockResolvedValue(config);
+    const collection = makeCollection();
+    mockLoadPreflightCollection.mockResolvedValue(collection);
     mockRunPreflight.mockResolvedValue({
       results: [{ name: 'a', status: 'passed', durationMs: 10 }],
       passed: true,
       durationMs: 10,
     });
 
-    await runCommand({ names: [], configSource: { type: 'local' }, json: false });
+    await runCommand({ names: [], collectionSource: { type: 'local' }, json: false });
 
     expect(mockFormatCombinedSummary).toHaveBeenCalledTimes(1);
     expect(mockFormatCombinedSummary).toHaveBeenCalledWith([
@@ -362,18 +362,18 @@ describe(runCommand, () => {
   });
 
   it('does not print combined summary for a single checklist', async () => {
-    const config = makeConfig();
-    mockLoadPreflightConfig.mockResolvedValue(config);
+    const collection = makeCollection();
+    mockLoadPreflightCollection.mockResolvedValue(collection);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runCommand({ names: ['deploy'], configSource: { type: 'local' }, json: false });
+    await runCommand({ names: ['deploy'], collectionSource: { type: 'local' }, json: false });
 
     expect(mockFormatCombinedSummary).not.toHaveBeenCalled();
   });
 
   it('includes failure counts in combined summary', async () => {
-    const config = makeConfig();
-    mockLoadPreflightConfig.mockResolvedValue(config);
+    const collection = makeCollection();
+    mockLoadPreflightCollection.mockResolvedValue(collection);
     mockRunPreflight
       .mockResolvedValueOnce({
         results: [
@@ -389,7 +389,7 @@ describe(runCommand, () => {
         durationMs: 0,
       });
 
-    await runCommand({ names: [], configSource: { type: 'local' }, json: false });
+    await runCommand({ names: [], collectionSource: { type: 'local' }, json: false });
 
     expect(mockFormatCombinedSummary).toHaveBeenCalledWith([
       expect.objectContaining({ name: 'deploy', passed: 1, failed: 1, skipped: 0, allPassed: false }),
@@ -404,11 +404,11 @@ describe(runCommand, () => {
     });
 
     it('emits JSON output and no human-readable text', async () => {
-      const config = makeConfig();
-      mockLoadPreflightConfig.mockResolvedValue(config);
+      const collection = makeCollection();
+      mockLoadPreflightCollection.mockResolvedValue(collection);
       mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-      const exitCode = await runCommand({ names: [], configSource: { type: 'local' }, json: true });
+      const exitCode = await runCommand({ names: [], collectionSource: { type: 'local' }, json: true });
 
       expect(mockFormatJsonReport).toHaveBeenCalledTimes(1);
       expect(mockReportPreflight).not.toHaveBeenCalled();
@@ -418,33 +418,37 @@ describe(runCommand, () => {
     });
 
     it('returns exit code 1 when any checklist fails in JSON mode', async () => {
-      const config = makeConfig();
-      mockLoadPreflightConfig.mockResolvedValue(config);
+      const collection = makeCollection();
+      mockLoadPreflightCollection.mockResolvedValue(collection);
       mockRunPreflight
         .mockResolvedValueOnce({ results: [], passed: true, durationMs: 0 })
         .mockResolvedValueOnce({ results: [], passed: false, durationMs: 0 });
 
-      const exitCode = await runCommand({ names: [], configSource: { type: 'local' }, json: true });
+      const exitCode = await runCommand({ names: [], collectionSource: { type: 'local' }, json: true });
 
       expect(exitCode).toBe(1);
     });
 
-    it('emits JSON error to stdout for config loading errors', async () => {
-      mockLoadPreflightConfig.mockRejectedValue(new Error('Config not found'));
+    it('emits JSON error to stdout for collection loading errors', async () => {
+      mockLoadPreflightCollection.mockRejectedValue(new Error('Collection not found'));
 
-      const exitCode = await runCommand({ names: [], configSource: { type: 'local' }, json: true });
+      const exitCode = await runCommand({ names: [], collectionSource: { type: 'local' }, json: true });
 
-      expect(mockFormatJsonError).toHaveBeenCalledWith('Config not found');
+      expect(mockFormatJsonError).toHaveBeenCalledWith('Collection not found');
       expect(stdoutSpy).toHaveBeenCalledWith('{"error":"boom"}\n');
       expect(stderrSpy).not.toHaveBeenCalled();
       expect(exitCode).toBe(1);
     });
 
     it('emits JSON error to stdout for unknown checklist names', async () => {
-      const config = makeConfig();
-      mockLoadPreflightConfig.mockResolvedValue(config);
+      const collection = makeCollection();
+      mockLoadPreflightCollection.mockResolvedValue(collection);
 
-      const exitCode = await runCommand({ names: ['nonexistent'], configSource: { type: 'local' }, json: true });
+      const exitCode = await runCommand({
+        names: ['nonexistent'],
+        collectionSource: { type: 'local' },
+        json: true,
+      });
 
       expect(mockFormatJsonError).toHaveBeenCalledWith(expect.stringContaining('unknown checklist(s): nonexistent'));
       expect(stderrSpy).not.toHaveBeenCalled();
@@ -452,13 +456,13 @@ describe(runCommand, () => {
     });
 
     it('passes checklist name-report pairs to formatJsonReport', async () => {
-      const config = makeConfig();
-      mockLoadPreflightConfig.mockResolvedValue(config);
+      const collection = makeCollection();
+      mockLoadPreflightCollection.mockResolvedValue(collection);
       const report1 = { results: [], passed: true, durationMs: 10 };
       const report2 = { results: [], passed: true, durationMs: 20 };
       mockRunPreflight.mockResolvedValueOnce(report1).mockResolvedValueOnce(report2);
 
-      await runCommand({ names: [], configSource: { type: 'local' }, json: true });
+      await runCommand({ names: [], collectionSource: { type: 'local' }, json: true });
 
       expect(mockFormatJsonReport).toHaveBeenCalledWith([
         { name: 'deploy', report: report1 },
@@ -467,11 +471,11 @@ describe(runCommand, () => {
     });
 
     it('emits JSON error to stdout when runPreflight throws', async () => {
-      const config = makeConfig();
-      mockLoadPreflightConfig.mockResolvedValue(config);
+      const collection = makeCollection();
+      mockLoadPreflightCollection.mockResolvedValue(collection);
       mockRunPreflight.mockRejectedValue(new Error('runner crashed'));
 
-      const exitCode = await runCommand({ names: ['deploy'], configSource: { type: 'local' }, json: true });
+      const exitCode = await runCommand({ names: ['deploy'], collectionSource: { type: 'local' }, json: true });
 
       expect(mockFormatJsonError).toHaveBeenCalledWith('runner crashed');
       expect(stderrSpy).not.toHaveBeenCalled();
@@ -479,11 +483,11 @@ describe(runCommand, () => {
     });
 
     it('does not write headers in JSON mode', async () => {
-      const config = makeConfig();
-      mockLoadPreflightConfig.mockResolvedValue(config);
+      const collection = makeCollection();
+      mockLoadPreflightCollection.mockResolvedValue(collection);
       mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-      await runCommand({ names: [], configSource: { type: 'local' }, json: true });
+      await runCommand({ names: [], collectionSource: { type: 'local' }, json: true });
 
       const allOutput = stdoutSpy.mock.calls.map((c) => String(c[0])).join('');
       expect(allOutput).not.toContain('---');
@@ -492,21 +496,21 @@ describe(runCommand, () => {
 
   // GitHub source tests
   it('expands shorthand and resolves token for --github source', async () => {
-    const config = makeConfig();
+    const collection = makeCollection();
     mockExpandGitHubShorthand.mockReturnValue('https://raw.githubusercontent.com/org/repo/main/config.js');
     mockResolveGitHubToken.mockReturnValue('token-abc');
-    mockLoadRemoteConfig.mockResolvedValue(config);
+    mockLoadRemoteCollection.mockResolvedValue(collection);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
     const exitCode = await runCommand({
       names: [],
-      configSource: { type: 'github', shorthand: 'org/repo/config.js' },
+      collectionSource: { type: 'github', shorthand: 'org/repo/config.js' },
       json: false,
     });
 
     expect(mockExpandGitHubShorthand).toHaveBeenCalledWith('org/repo/config.js');
     expect(mockResolveGitHubToken).toHaveBeenCalled();
-    expect(mockLoadRemoteConfig).toHaveBeenCalledWith({
+    expect(mockLoadRemoteCollection).toHaveBeenCalledWith({
       url: 'https://raw.githubusercontent.com/org/repo/main/config.js',
       token: 'token-abc',
     });
@@ -514,53 +518,53 @@ describe(runCommand, () => {
   });
 
   it('omits token when resolveGitHubToken returns undefined for --github source', async () => {
-    const config = makeConfig();
+    const collection = makeCollection();
     mockExpandGitHubShorthand.mockReturnValue('https://raw.githubusercontent.com/org/repo/main/config.js');
     mockResolveGitHubToken.mockReturnValue(undefined);
-    mockLoadRemoteConfig.mockResolvedValue(config);
+    mockLoadRemoteCollection.mockResolvedValue(collection);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
     await runCommand({
       names: [],
-      configSource: { type: 'github', shorthand: 'org/repo/config.js' },
+      collectionSource: { type: 'github', shorthand: 'org/repo/config.js' },
       json: false,
     });
 
-    expect(mockLoadRemoteConfig).toHaveBeenCalledWith({
+    expect(mockLoadRemoteCollection).toHaveBeenCalledWith({
       url: 'https://raw.githubusercontent.com/org/repo/main/config.js',
     });
-    expect(mockLoadRemoteConfig.mock.calls[0][0]).not.toHaveProperty('token');
+    expect(mockLoadRemoteCollection.mock.calls[0][0]).not.toHaveProperty('token');
   });
 
   // URL source tests
   it('fetches directly for --url source without token resolution', async () => {
-    const config = makeConfig();
-    mockLoadRemoteConfig.mockResolvedValue(config);
+    const collection = makeCollection();
+    mockLoadRemoteCollection.mockResolvedValue(collection);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
     const exitCode = await runCommand({
       names: [],
-      configSource: { type: 'url', url: 'https://example.com/config.js' },
+      collectionSource: { type: 'url', url: 'https://example.com/config.js' },
       json: false,
     });
 
     expect(mockResolveGitHubToken).not.toHaveBeenCalled();
-    expect(mockLoadRemoteConfig).toHaveBeenCalledWith({
+    expect(mockLoadRemoteCollection).toHaveBeenCalledWith({
       url: 'https://example.com/config.js',
     });
     expect(exitCode).toBe(0);
   });
 
-  it('reports remote config loading errors to stderr', async () => {
-    mockLoadRemoteConfig.mockRejectedValue(new Error('Failed to fetch remote config'));
+  it('reports remote collection loading errors to stderr', async () => {
+    mockLoadRemoteCollection.mockRejectedValue(new Error('Failed to fetch remote collection'));
 
     const exitCode = await runCommand({
       names: [],
-      configSource: { type: 'url', url: 'https://example.com/config.js' },
+      collectionSource: { type: 'url', url: 'https://example.com/config.js' },
       json: false,
     });
 
-    expect(stderrSpy).toHaveBeenCalledWith('Error: Failed to fetch remote config\n');
+    expect(stderrSpy).toHaveBeenCalledWith('Error: Failed to fetch remote collection\n');
     expect(exitCode).toBe(1);
   });
 });

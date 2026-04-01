@@ -2,12 +2,12 @@
  * Extract `checklists` and `fixLocation` from an imported module namespace.
  *
  * Requires the named-export convention (`export const checklists = ...`). Returns a plain
- * record suitable for passing to `assertIsPreflightConfig`.
+ * record suitable for passing to `assertIsPreflightCollection`.
  */
-export function resolveConfigExports(moduleRecord: Record<string, unknown>): Record<string, unknown> {
+export function resolveCollectionExports(moduleRecord: Record<string, unknown>): Record<string, unknown> {
   if (moduleRecord.checklists === undefined) {
     throw new Error(
-      'Config file must export a named `checklists` export (e.g., `export const checklists = defineChecklists([...])`)',
+      'Collection file must export a named `checklists` export (e.g., `export const checklists = defineChecklists([...])`)',
     );
   }
 

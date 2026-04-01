@@ -1,11 +1,11 @@
 import process from 'node:process';
 
-import { loadPreflightConfig } from './config.ts';
+import { loadPreflightCollection } from './config.ts';
 import { expandGitHubShorthand } from './expandGitHubShorthand.ts';
 import { formatCombinedSummary } from './formatCombinedSummary.ts';
 import { formatJsonError } from './formatJsonError.ts';
 import { formatJsonReport } from './formatJsonReport.ts';
-import { loadRemoteConfig, type LoadRemoteConfigOptions } from './loadRemoteConfig.ts';
+import { loadRemoteCollection, type LoadRemoteCollectionOptions } from './loadRemoteCollection.ts';
 import { reportPreflight } from './reportPreflight.ts';
 import { resolveGitHubToken } from './resolveGitHubToken.ts';
 import { runPreflight } from './runPreflight.ts';
@@ -13,19 +13,19 @@ import type {
   ChecklistSummary,
   FixLocation,
   PreflightChecklist,
-  PreflightConfig,
+  PreflightCollection,
   PreflightReport,
   PreflightStagedChecklist,
 } from './types.ts';
 
-/** Discriminated union describing how to locate the preflight config. */
-export type ConfigSource =
+/** Discriminated union describing how to locate the preflight collection. */
+export type CollectionSource =
   | { type: 'local'; path?: string }
   | { type: 'github'; shorthand: string }
   | { type: 'url'; url: string };
 
 interface ParsedRunArgs {
-  configSource: ConfigSource;
+  collectionSource: CollectionSource;
   json: boolean;
   names: string[];
 }
@@ -53,8 +53,8 @@ function extractFlagValue(
   return { value: next, nextIndex: index + 1 };
 }
 
-/** Throw if a config source flag has already been set. */
-function assertNoExistingSource(existing: ConfigSource | undefined): void {
+/** Throw if a collection source flag has already been set. */
+function assertNoExistingSource(existing: CollectionSource | undefined): void {
   if (existing !== undefined) {
     throw new Error('Cannot combine --config, --github, and --url flags');
   }
@@ -63,7 +63,7 @@ function assertNoExistingSource(existing: ConfigSource | undefined): void {
 /** Parse run-subcommand flags into a structured object. */
 export function parseRunArgs(flags: string[]): ParsedRunArgs {
   const names: string[] = [];
-  let configSource: ConfigSource | undefined;
+  let collectionSource: CollectionSource | undefined;
   let json = false;
 
   for (let i = 0; i < flags.length; i++) {
@@ -72,12 +72,12 @@ export function parseRunArgs(flags: string[]): ParsedRunArgs {
     if (arg === '--json') {
       json = true;
     } else if (arg === '--config' || arg === '-c' || arg.startsWith('--config=')) {
-      assertNoExistingSource(configSource);
+      assertNoExistingSource(collectionSource);
       const { value, nextIndex } = extractFlagValue('--config', arg, flags, i, 'a path argument');
       i = nextIndex;
-      configSource = { type: 'local', path: value };
+      collectionSource = { type: 'local', path: value };
     } else if (arg === '--github' || arg.startsWith('--github=')) {
-      assertNoExistingSource(configSource);
+      assertNoExistingSource(collectionSource);
       const { value, nextIndex } = extractFlagValue(
         '--github',
         arg,
@@ -86,12 +86,12 @@ export function parseRunArgs(flags: string[]): ParsedRunArgs {
         'a shorthand argument (org/repo/path[@ref])',
       );
       i = nextIndex;
-      configSource = { type: 'github', shorthand: value };
+      collectionSource = { type: 'github', shorthand: value };
     } else if (arg === '--url' || arg.startsWith('--url=')) {
-      assertNoExistingSource(configSource);
+      assertNoExistingSource(collectionSource);
       const { value, nextIndex } = extractFlagValue('--url', arg, flags, i, 'a URL argument');
       i = nextIndex;
-      configSource = { type: 'url', url: value };
+      collectionSource = { type: 'url', url: value };
     } else if (arg.startsWith('-')) {
       throw new Error(`unknown flag '${arg}'`);
     } else {
@@ -99,15 +99,15 @@ export function parseRunArgs(flags: string[]): ParsedRunArgs {
     }
   }
 
-  return { configSource: configSource ?? { type: 'local' }, json, names };
+  return { collectionSource: collectionSource ?? { type: 'local' }, json, names };
 }
 
-/** Resolve the effective fixLocation for a checklist, falling back to the config-level default. */
+/** Resolve the effective fixLocation for a checklist, falling back to the collection-level default. */
 function resolveFixLocation(
   checklist: PreflightChecklist | PreflightStagedChecklist,
-  configDefault?: FixLocation,
+  collectionDefault?: FixLocation,
 ): FixLocation {
-  return checklist.fixLocation ?? configDefault ?? 'END';
+  return checklist.fixLocation ?? collectionDefault ?? 'END';
 }
 
 /** Build a checklist summary from a report and its checklist name. */
@@ -125,34 +125,34 @@ function summarizeReport(name: string, report: PreflightReport): ChecklistSummar
 
 interface RunCommandOptions {
   names: string[];
-  configSource: ConfigSource;
+  collectionSource: CollectionSource;
   json: boolean;
 }
 
-/** Load a preflight config from the appropriate source. */
-async function loadConfig(source: ConfigSource): Promise<PreflightConfig> {
+/** Load a preflight collection from the appropriate source. */
+async function loadCollection(source: CollectionSource): Promise<PreflightCollection> {
   switch (source.type) {
     case 'local':
-      return loadPreflightConfig(source.path);
+      return loadPreflightCollection(source.path);
     case 'github': {
       const url = expandGitHubShorthand(source.shorthand);
       const token = resolveGitHubToken();
-      const options: LoadRemoteConfigOptions = { url };
+      const options: LoadRemoteCollectionOptions = { url };
       if (token !== undefined) {
         options.token = token;
       }
-      return loadRemoteConfig(options);
+      return loadRemoteCollection(options);
     }
     case 'url':
-      return loadRemoteConfig({ url: source.url });
+      return loadRemoteCollection({ url: source.url });
   }
 }
 
 /** Run preflight checklists. Returns a numeric exit code. */
-export async function runCommand({ names, configSource, json }: RunCommandOptions): Promise<number> {
-  let config: PreflightConfig;
+export async function runCommand({ names, collectionSource, json }: RunCommandOptions): Promise<number> {
+  let collection: PreflightCollection;
   try {
-    config = await loadConfig(configSource);
+    collection = await loadCollection(collectionSource);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     if (json) {
@@ -164,9 +164,9 @@ export async function runCommand({ names, configSource, json }: RunCommandOption
   }
 
   // Determine which checklists to run
-  let checklists = config.checklists;
+  let checklists = collection.checklists;
   if (names.length > 0) {
-    const availableNames = new Set(config.checklists.map((c) => c.name));
+    const availableNames = new Set(collection.checklists.map((c) => c.name));
     const unknownNames = names.filter((n) => !availableNames.has(n));
     if (unknownNames.length > 0) {
       const available = [...availableNames].join(', ');
@@ -179,14 +179,14 @@ export async function runCommand({ names, configSource, json }: RunCommandOption
       return 1;
     }
     const requestedNames = new Set(names);
-    checklists = config.checklists.filter((c) => requestedNames.has(c.name));
+    checklists = collection.checklists.filter((c) => requestedNames.has(c.name));
   }
 
   if (json) {
     return runJsonMode(checklists);
   }
 
-  return runHumanMode(checklists, config);
+  return runHumanMode(checklists, collection);
 }
 
 /** Run checklists and emit a single JSON object to stdout. */
@@ -213,7 +213,7 @@ async function runJsonMode(checklists: Array<PreflightChecklist | PreflightStage
 /** Run checklists with human-readable output. */
 async function runHumanMode(
   checklists: Array<PreflightChecklist | PreflightStagedChecklist>,
-  config: PreflightConfig,
+  collection: PreflightCollection,
 ): Promise<number> {
   const showHeader = checklists.length > 1;
   let allPassed = true;
@@ -225,7 +225,7 @@ async function runHumanMode(
     }
 
     const report = await runPreflight(checklist);
-    const fixLocation = resolveFixLocation(checklist, config.fixLocation);
+    const fixLocation = resolveFixLocation(checklist, collection.fixLocation);
     const output = reportPreflight(report, { fixLocation });
     process.stdout.write(output + '\n');
 

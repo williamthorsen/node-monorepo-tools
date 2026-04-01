@@ -14,45 +14,46 @@ vi.mock('jiti', () => ({
 }));
 
 import {
-  CONFIG_FILE_PATH,
+  COLLECTION_FILE_PATH,
   defineChecklists,
   definePreflightChecklist,
+  definePreflightCollection,
   definePreflightConfig,
   definePreflightStagedChecklist,
-  loadPreflightConfig,
+  loadPreflightCollection,
 } from '../src/config.ts';
 
-describe(loadPreflightConfig, () => {
+describe(loadPreflightCollection, () => {
   afterEach(() => {
     mockExistsSync.mockReset();
     mockJitiImport.mockReset();
   });
 
-  it('throws when the config file does not exist', async () => {
+  it('throws when the collection file does not exist', async () => {
     mockExistsSync.mockReturnValue(false);
 
-    await expect(loadPreflightConfig()).rejects.toThrow('Preflight config not found');
+    await expect(loadPreflightCollection()).rejects.toThrow('Preflight collection not found');
   });
 
-  it('resolves the default config path against process.cwd()', async () => {
-    const expectedPath = path.resolve(process.cwd(), CONFIG_FILE_PATH);
+  it('resolves the default collection path against process.cwd()', async () => {
+    const expectedPath = path.resolve(process.cwd(), COLLECTION_FILE_PATH);
     const validChecklists = [{ name: 'test', checks: [{ name: 'a', check: () => true }] }];
     mockExistsSync.mockReturnValue(true);
     mockJitiImport.mockResolvedValue({ checklists: validChecklists });
 
-    await loadPreflightConfig();
+    await loadPreflightCollection();
 
     expect(mockExistsSync).toHaveBeenCalledWith(expectedPath);
   });
 
-  it('uses a custom config path when provided', async () => {
+  it('uses a custom collection path when provided', async () => {
     const customPath = 'custom/config.ts';
     const expectedPath = path.resolve(process.cwd(), customPath);
     const validChecklists = [{ name: 'test', checks: [{ name: 'a', check: () => true }] }];
     mockExistsSync.mockReturnValue(true);
     mockJitiImport.mockResolvedValue({ checklists: validChecklists });
 
-    await loadPreflightConfig(customPath);
+    await loadPreflightCollection(customPath);
 
     expect(mockExistsSync).toHaveBeenCalledWith(expectedPath);
   });
@@ -61,25 +62,25 @@ describe(loadPreflightConfig, () => {
     mockExistsSync.mockReturnValue(true);
     mockJitiImport.mockResolvedValue('not-an-object');
 
-    await expect(loadPreflightConfig()).rejects.toThrow('Config file must export an object, got string');
+    await expect(loadPreflightCollection()).rejects.toThrow('Collection file must export an object, got string');
   });
 
   it('throws when no checklists export exists', async () => {
     mockExistsSync.mockReturnValue(true);
     mockJitiImport.mockResolvedValue({ unrelated: true });
 
-    await expect(loadPreflightConfig()).rejects.toThrow('must export a named `checklists` export');
+    await expect(loadPreflightCollection()).rejects.toThrow('must export a named `checklists` export');
   });
 
-  it('returns a valid config with flat checklists', async () => {
+  it('returns a valid collection with flat checklists', async () => {
     const validChecklists = [{ name: 'test', checks: [{ name: 'a', check: () => true }] }];
     mockExistsSync.mockReturnValue(true);
     mockJitiImport.mockResolvedValue({ checklists: validChecklists });
 
-    const config = await loadPreflightConfig();
+    const collection = await loadPreflightCollection();
 
-    expect(config.checklists).toHaveLength(1);
-    expect(config.checklists[0]?.name).toBe('test');
+    expect(collection.checklists).toHaveLength(1);
+    expect(collection.checklists[0]?.name).toBe('test');
   });
 
   it('carries through fixLocation when present', async () => {
@@ -87,9 +88,9 @@ describe(loadPreflightConfig, () => {
     mockExistsSync.mockReturnValue(true);
     mockJitiImport.mockResolvedValue({ checklists: validChecklists, fixLocation: 'INLINE' });
 
-    const config = await loadPreflightConfig();
+    const collection = await loadPreflightCollection();
 
-    expect(config.fixLocation).toBe('INLINE');
+    expect(collection.fixLocation).toBe('INLINE');
   });
 
   it('omits fixLocation when the module does not export it', async () => {
@@ -97,9 +98,9 @@ describe(loadPreflightConfig, () => {
     mockExistsSync.mockReturnValue(true);
     mockJitiImport.mockResolvedValue({ checklists: validChecklists });
 
-    const config = await loadPreflightConfig();
+    const collection = await loadPreflightCollection();
 
-    expect(config.fixLocation).toBeUndefined();
+    expect(collection.fixLocation).toBeUndefined();
   });
 });
 
@@ -114,10 +115,20 @@ describe(defineChecklists, () => {
 describe(definePreflightConfig, () => {
   it('returns its input unchanged', () => {
     const config = {
-      checklists: [{ name: 'test', checks: [{ name: 'a', check: () => true }] }],
+      compile: { srcDir: '.preflight/collections', outDir: '.preflight/collections' },
     };
 
     expect(definePreflightConfig(config)).toBe(config);
+  });
+});
+
+describe(definePreflightCollection, () => {
+  it('returns its input unchanged', () => {
+    const collection = {
+      checklists: [{ name: 'test', checks: [{ name: 'a', check: () => true }] }],
+    };
+
+    expect(definePreflightCollection(collection)).toBe(collection);
   });
 });
 

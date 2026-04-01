@@ -8,6 +8,7 @@ export type {
   PercentProgress,
   PreflightCheck,
   PreflightChecklist,
+  PreflightCollection,
   PreflightConfig,
   PreflightReport,
   PreflightResult,
@@ -23,6 +24,7 @@ export { isFlatChecklist, isPercentProgress } from './types.ts';
 export {
   defineChecklists,
   definePreflightChecklist,
+  definePreflightCollection,
   definePreflightConfig,
   definePreflightStagedChecklist,
 } from './config.ts';
