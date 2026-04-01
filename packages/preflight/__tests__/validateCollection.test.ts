@@ -60,4 +60,16 @@ describe(validateCollection, () => {
 
     expect(() => validateCollection(collection)).not.toThrow();
   });
+
+  it('passes when a suite has an empty checklist array', () => {
+    const collection = makeCollection({ suites: { s: [] } });
+
+    expect(() => validateCollection(collection)).not.toThrow();
+  });
+
+  it('passes when a suite contains duplicate entries', () => {
+    const collection = makeCollection({ suites: { s: ['a', 'a'] } });
+
+    expect(() => validateCollection(collection)).not.toThrow();
+  });
 });
