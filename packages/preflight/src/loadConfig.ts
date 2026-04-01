@@ -79,10 +79,11 @@ export async function loadConfig(overridePath?: string): Promise<ResolvedPreflig
 
   assertIsPreflightConfig(raw);
 
+  const compile = raw.compile;
   return {
     compile: {
-      srcDir: typeof raw.compile?.srcDir === 'string' ? raw.compile.srcDir : DEFAULT_CONFIG.compile.srcDir,
-      outDir: typeof raw.compile?.outDir === 'string' ? raw.compile.outDir : DEFAULT_CONFIG.compile.outDir,
+      srcDir: isRecord(compile) && typeof compile.srcDir === 'string' ? compile.srcDir : DEFAULT_CONFIG.compile.srcDir,
+      outDir: isRecord(compile) && typeof compile.outDir === 'string' ? compile.outDir : DEFAULT_CONFIG.compile.outDir,
     },
   };
 }

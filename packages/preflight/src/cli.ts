@@ -137,7 +137,29 @@ export function parseRunArgs(flags: string[]): ParsedRunArgs {
     }
   }
 
-  // Post-loop validation for --github / --collection mutual dependency
+  const collectionSource = resolveCollectionSource({ sourceType, filePath, githubValue, urlValue, collectionName });
+
+  const result: ParsedRunArgs = { collectionSource, json, names };
+  if (configPath !== undefined) {
+    result.configPath = configPath;
+  }
+  return result;
+}
+
+/** Validate flag co-dependencies and build the CollectionSource from parsed flag state. */
+function resolveCollectionSource({
+  sourceType,
+  filePath,
+  githubValue,
+  urlValue,
+  collectionName,
+}: {
+  sourceType: string | undefined;
+  filePath: string | undefined;
+  githubValue: string | undefined;
+  urlValue: string | undefined;
+  collectionName: string | undefined;
+}): CollectionSource {
   if (sourceType === 'github' && collectionName === undefined) {
     throw new Error('--github requires --collection');
   }
@@ -145,19 +167,17 @@ export function parseRunArgs(flags: string[]): ParsedRunArgs {
     throw new Error('--collection requires --github');
   }
 
-  let collectionSource: CollectionSource;
   if (sourceType === 'file') {
-    collectionSource = { type: 'local', path: filePath };
-  } else if (sourceType === 'github' && githubValue !== undefined && collectionName !== undefined) {
-    const { repo, ref } = parseGitHubArg(githubValue);
-    collectionSource = { type: 'github', repo, ref, collection: collectionName };
-  } else if (sourceType === 'url' && urlValue !== undefined) {
-    collectionSource = { type: 'url', url: urlValue };
-  } else {
-    collectionSource = { type: 'internal' };
+    return filePath !== undefined ? { type: 'local', path: filePath } : { type: 'local' };
   }
-
-  return { collectionSource, configPath, json, names };
+  if (sourceType === 'github' && githubValue !== undefined && collectionName !== undefined) {
+    const { repo, ref } = parseGitHubArg(githubValue);
+    return { type: 'github', repo, ref, collection: collectionName };
+  }
+  if (sourceType === 'url' && urlValue !== undefined) {
+    return { type: 'url', url: urlValue };
+  }
+  return { type: 'internal' };
 }
 
 /** Resolve the effective fixLocation for a checklist, falling back to the collection-level default. */

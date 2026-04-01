@@ -19,6 +19,7 @@ export async function discoverInternalCollections(dirPath: string): Promise<Pref
   }
 
   const entries = readdirSync(resolvedDir);
+  // eslint-disable-next-line unicorn/no-array-sort -- filter() returns a new array; toSorted() requires es2023 lib
   const tsFiles = entries.filter((name) => name.endsWith('.ts')).sort();
 
   if (tsFiles.length === 0) {

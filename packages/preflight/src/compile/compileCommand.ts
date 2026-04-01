@@ -81,6 +81,11 @@ export async function compileCommand(args: string[]): Promise<number> {
   }
 
   // No input — use config-driven compilation
+  return compileBatch();
+}
+
+/** Compile all `.ts` files from the config-driven source directory. */
+async function compileBatch(): Promise<number> {
   let config;
   try {
     config = await loadConfig();
@@ -99,6 +104,7 @@ export async function compileCommand(args: string[]): Promise<number> {
   }
 
   const entries = readdirSync(srcDir);
+  // eslint-disable-next-line unicorn/no-array-sort -- filter() returns a new array; toSorted() requires es2023 lib
   const tsFiles = entries.filter((name) => name.endsWith('.ts')).sort();
 
   if (tsFiles.length === 0) {

@@ -11,11 +11,11 @@ export type {
   PreflightCollection,
   PreflightConfig,
   PreflightReport,
-  ResolvedPreflightConfig,
   PreflightResult,
   PreflightStagedChecklist,
   Progress,
   ReportOptions,
+  ResolvedPreflightConfig,
 } from './types.ts';
 
 // Type guards
