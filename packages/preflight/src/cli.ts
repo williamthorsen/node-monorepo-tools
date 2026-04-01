@@ -1,7 +1,6 @@
 import process from 'node:process';
 
 import { loadPreflightCollection } from './config.ts';
-import { discoverInternalCollections } from './discoverInternalCollections.ts';
 import { formatCombinedSummary } from './formatCombinedSummary.ts';
 import { formatJsonError } from './formatJsonError.ts';
 import { formatJsonReport } from './formatJsonReport.ts';
@@ -18,18 +17,11 @@ import type {
   PreflightStagedChecklist,
 } from './types.ts';
 
-/** Collection source types that require explicit loading from a file or URL. */
-type ExplicitCollectionSource =
-  | { type: 'local'; path?: string }
-  | { type: 'github'; repo: string; ref: string; collection: string }
-  | { type: 'url'; url: string };
-
 /** Discriminated union describing how to locate the preflight collection. */
-export type CollectionSource = ExplicitCollectionSource | { type: 'internal' };
+export type CollectionSource = { path: string } | { url: string };
 
 interface ParsedRunArgs {
   collectionSource: CollectionSource;
-  configPath?: string;
   json: boolean;
   names: string[];
 }
@@ -82,6 +74,14 @@ function parseGitHubArg(value: string): { repo: string; ref: string } {
   return { repo, ref };
 }
 
+/** Convention path for internal collections, relative to the repo root. */
+const COLLECTIONS_DIR = '.config/preflight/collections';
+
+/** Build the GitHub raw content URL for a collection. */
+function buildGitHubCollectionUrl(repo: string, ref: string, collection: string): string {
+  return `https://raw.githubusercontent.com/${repo}/${ref}/.preflight/distribution/${collection}.js`;
+}
+
 /** Parse run-subcommand flags into a structured object. */
 export function parseRunArgs(flags: string[]): ParsedRunArgs {
   const names: string[] = [];
@@ -90,7 +90,6 @@ export function parseRunArgs(flags: string[]): ParsedRunArgs {
   let githubValue: string | undefined;
   let urlValue: string | undefined;
   let collectionName: string | undefined;
-  let configPath: string | undefined;
   let json = false;
 
   for (let i = 0; i < flags.length; i++) {
@@ -98,10 +97,6 @@ export function parseRunArgs(flags: string[]): ParsedRunArgs {
 
     if (arg === '--json') {
       json = true;
-    } else if (arg === '--config' || arg === '-c' || arg.startsWith('--config=')) {
-      const { value, nextIndex } = extractFlagValue('--config', arg, flags, i, 'a path argument');
-      i = nextIndex;
-      configPath = value;
     } else if (arg === '--file' || arg.startsWith('--file=')) {
       assertNoExistingSource(sourceType);
       const { value, nextIndex } = extractFlagValue('--file', arg, flags, i, 'a path argument');
@@ -139,11 +134,7 @@ export function parseRunArgs(flags: string[]): ParsedRunArgs {
 
   const collectionSource = resolveCollectionSource({ sourceType, filePath, githubValue, urlValue, collectionName });
 
-  const result: ParsedRunArgs = { collectionSource, json, names };
-  if (configPath !== undefined) {
-    result.configPath = configPath;
-  }
-  return result;
+  return { collectionSource, json, names };
 }
 
 /** Validate flag co-dependencies and build the CollectionSource from parsed flag state. */
@@ -160,24 +151,19 @@ function resolveCollectionSource({
   urlValue: string | undefined;
   collectionName: string | undefined;
 }): CollectionSource {
-  if (sourceType === 'github' && collectionName === undefined) {
-    throw new Error('--github requires --collection');
-  }
-  if (collectionName !== undefined && sourceType !== 'github') {
-    throw new Error('--collection requires --github');
-  }
+  const name = collectionName ?? 'default';
 
-  if (sourceType === 'file') {
-    return filePath !== undefined ? { type: 'local', path: filePath } : { type: 'local' };
+  if (sourceType === 'file' && filePath !== undefined) {
+    return { path: filePath };
   }
-  if (sourceType === 'github' && githubValue !== undefined && collectionName !== undefined) {
+  if (sourceType === 'github' && githubValue !== undefined) {
     const { repo, ref } = parseGitHubArg(githubValue);
-    return { type: 'github', repo, ref, collection: collectionName };
+    return { url: buildGitHubCollectionUrl(repo, ref, name) };
   }
   if (sourceType === 'url' && urlValue !== undefined) {
-    return { type: 'url', url: urlValue };
+    return { url: urlValue };
   }
-  return { type: 'internal' };
+  return { path: `${COLLECTIONS_DIR}/${name}.ts` };
 }
 
 /** Resolve the effective fixLocation for a checklist, falling back to the collection-level default. */
@@ -207,44 +193,23 @@ interface RunCommandOptions {
   json: boolean;
 }
 
-/** Build the GitHub raw content URL for a collection. */
-function buildGitHubCollectionUrl(repo: string, ref: string, collection: string): string {
-  return `https://raw.githubusercontent.com/${repo}/${ref}/.preflight/distribution/${collection}.js`;
-}
-
-/** Load a preflight collection from an explicit source (local file, GitHub, or URL). */
-async function loadCollection(source: ExplicitCollectionSource): Promise<PreflightCollection> {
-  switch (source.type) {
-    case 'local':
-      return loadPreflightCollection(source.path);
-    case 'github': {
-      const url = buildGitHubCollectionUrl(source.repo, source.ref, source.collection);
+/** Load a preflight collection from a path or URL source. */
+async function loadCollection(source: CollectionSource): Promise<PreflightCollection> {
+  if ('url' in source) {
+    const options: LoadRemoteCollectionOptions = { url: source.url };
+    if (source.url.includes('raw.githubusercontent.com')) {
       const token = resolveGitHubToken();
-      const options: LoadRemoteCollectionOptions = { url };
       if (token !== undefined) {
         options.token = token;
       }
-      return loadRemoteCollection(options);
     }
-    case 'url':
-      return loadRemoteCollection({ url: source.url });
+    return loadRemoteCollection(options);
   }
-}
-
-/** Convention path for internal collections, relative to the repo root. */
-const INTERNAL_COLLECTIONS_DIR = '.config/preflight/collections';
-
-/** Load and merge all internal collections from the convention directory. */
-async function loadInternalCollections(): Promise<PreflightCollection[]> {
-  return discoverInternalCollections(INTERNAL_COLLECTIONS_DIR);
+  return loadPreflightCollection(source.path);
 }
 
 /** Run preflight checklists. Returns a numeric exit code. */
 export async function runCommand({ names, collectionSource, json }: RunCommandOptions): Promise<number> {
-  if (collectionSource.type === 'internal') {
-    return runInternalCollections({ names, json });
-  }
-
   let collection: PreflightCollection;
   try {
     collection = await loadCollection(collectionSource);
@@ -259,31 +224,6 @@ export async function runCommand({ names, collectionSource, json }: RunCommandOp
   }
 
   return runSingleCollection(collection, { names, json });
-}
-
-/** Run all internal collections from the convention directory. */
-async function runInternalCollections({ names, json }: { names: string[]; json: boolean }): Promise<number> {
-  let collections: PreflightCollection[];
-  try {
-    collections = await loadInternalCollections();
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (json) {
-      process.stdout.write(formatJsonError(message) + '\n');
-    } else {
-      process.stderr.write(`Error: ${message}\n`);
-    }
-    return 1;
-  }
-
-  let allPassed = true;
-  for (const collection of collections) {
-    const exitCode = await runSingleCollection(collection, { names, json });
-    if (exitCode !== 0) {
-      allPassed = false;
-    }
-  }
-  return allPassed ? 0 : 1;
 }
 
 /** Run checklists from a single collection. */

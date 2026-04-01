@@ -22,7 +22,7 @@ import { initCommand } from '../src/init/initCommand.ts';
 function makeScaffoldResult(outcome: string, oldConfigWarning = false) {
   return {
     configResult: { filePath: '.config/preflight/config.ts', outcome },
-    collectionResult: { filePath: '.config/preflight/collections/starter.ts', outcome },
+    collectionResult: { filePath: '.config/preflight/collections/default.ts', outcome },
     oldConfigWarning,
   };
 }
@@ -61,7 +61,7 @@ describe(`${initCommand.name} error handling`, () => {
   it('returns exit code 1 when collection result is failed', () => {
     mockScaffoldConfig.mockReturnValue({
       configResult: { filePath: '.config/preflight/config.ts', outcome: 'created' },
-      collectionResult: { filePath: '.config/preflight/collections/starter.ts', outcome: 'failed' },
+      collectionResult: { filePath: '.config/preflight/collections/default.ts', outcome: 'failed' },
       oldConfigWarning: false,
     });
 

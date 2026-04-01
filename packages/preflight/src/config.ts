@@ -44,7 +44,6 @@ export function definePreflightStagedChecklist(checklist: PreflightStagedCheckli
  * Load and validate a preflight collection file.
  *
  * Falls back to the legacy path `.config/preflight.config.ts` when no path is provided.
- * New repos should use internal collections via `discoverInternalCollections` instead.
  * Uses jiti to load TypeScript config files at runtime.
  */
 export async function loadPreflightCollection(collectionPath?: string): Promise<PreflightCollection> {
