@@ -132,37 +132,35 @@ export function parseRunArgs(flags: string[]): ParsedRunArgs {
     }
   }
 
-  const collectionSource = resolveCollectionSource({ sourceType, filePath, githubValue, urlValue, collectionName });
+  const collectionSource = resolveCollectionSource({ filePath, githubValue, urlValue, collectionName });
 
   return { collectionSource, json, names };
 }
 
 /** Validate flag co-dependencies and build the CollectionSource from parsed flag state. */
 function resolveCollectionSource({
-  sourceType,
   filePath,
   githubValue,
   urlValue,
   collectionName,
 }: {
-  sourceType: string | undefined;
   filePath: string | undefined;
   githubValue: string | undefined;
   urlValue: string | undefined;
   collectionName: string | undefined;
 }): CollectionSource {
-  if (sourceType === 'file' && filePath !== undefined) {
+  if (filePath !== undefined) {
     if (collectionName !== undefined) {
       throw new Error('--collection cannot be used with --file');
     }
     return { path: filePath };
   }
-  if (sourceType === 'github' && githubValue !== undefined) {
+  if (githubValue !== undefined) {
     const name = collectionName ?? 'default';
     const { repo, ref } = parseGitHubArg(githubValue);
     return { url: buildGitHubCollectionUrl(repo, ref, name) };
   }
-  if (sourceType === 'url' && urlValue !== undefined) {
+  if (urlValue !== undefined) {
     if (collectionName !== undefined) {
       throw new Error('--collection cannot be used with --url');
     }

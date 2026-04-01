@@ -9,7 +9,7 @@ import type { PreflightChecklist, PreflightCollection, PreflightConfig, Prefligh
  * The legacy default collection file path, resolved relative to `process.cwd()`.
  *
  * Retained for backward compatibility with repos that use the single-file collection pattern.
- * New repos should use internal collections under `.config/preflight/collections/`.
+ * New repos should use `.config/preflight/collections/default.ts` instead.
  */
 export const COLLECTION_FILE_PATH = '.config/preflight.config.ts';
 
@@ -50,10 +50,8 @@ export async function loadPreflightCollection(collectionPath?: string): Promise<
   const resolvedPath = path.resolve(process.cwd(), collectionPath ?? COLLECTION_FILE_PATH);
 
   if (!existsSync(resolvedPath)) {
-    const effectiveName = collectionPath ?? COLLECTION_FILE_PATH;
-    const isConventionPath = effectiveName.startsWith('.config/preflight/collections/');
-    if (isConventionPath) {
-      const baseName = path.basename(effectiveName, '.ts');
+    if (collectionPath?.startsWith('.config/preflight/collections/')) {
+      const baseName = path.basename(collectionPath, '.ts');
       throw new Error(`Collection "${baseName}" not found. Run 'preflight init' to create one.`);
     }
     throw new Error(`Preflight collection not found: ${resolvedPath}`);
