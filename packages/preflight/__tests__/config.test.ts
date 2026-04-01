@@ -35,6 +35,20 @@ describe(loadPreflightCollection, () => {
     await expect(loadPreflightCollection()).rejects.toThrow('Preflight collection not found');
   });
 
+  it('throws with a preflight init hint when a convention-path collection is missing', async () => {
+    mockExistsSync.mockReturnValue(false);
+
+    await expect(loadPreflightCollection('.config/preflight/collections/default.ts')).rejects.toThrow(
+      'Collection "default" not found. Run \'preflight init\' to create one.',
+    );
+  });
+
+  it('throws a generic error when a non-convention-path collection is missing', async () => {
+    mockExistsSync.mockReturnValue(false);
+
+    await expect(loadPreflightCollection('custom/path.ts')).rejects.toThrow('Preflight collection not found');
+  });
+
   it('resolves the default collection path against process.cwd()', async () => {
     const expectedPath = path.resolve(process.cwd(), COLLECTION_FILE_PATH);
     const validChecklists = [{ name: 'test', checks: [{ name: 'a', check: () => true }] }];
