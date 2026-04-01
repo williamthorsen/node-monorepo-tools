@@ -8,7 +8,6 @@ const mockReportPreflight = vi.hoisted(() => vi.fn());
 const mockFormatCombinedSummary = vi.hoisted(() => vi.fn());
 const mockFormatJsonReport = vi.hoisted(() => vi.fn());
 const mockFormatJsonError = vi.hoisted(() => vi.fn());
-const mockExpandGitHubShorthand = vi.hoisted(() => vi.fn());
 const mockResolveGitHubToken = vi.hoisted(() => vi.fn());
 const mockLoadRemoteCollection = vi.hoisted(() => vi.fn());
 
@@ -36,10 +35,6 @@ vi.mock('../src/formatJsonError.ts', () => ({
   formatJsonError: mockFormatJsonError,
 }));
 
-vi.mock('../src/expandGitHubShorthand.ts', () => ({
-  expandGitHubShorthand: mockExpandGitHubShorthand,
-}));
-
 vi.mock('../src/resolveGitHubToken.ts', () => ({
   resolveGitHubToken: mockResolveGitHubToken,
 }));
@@ -61,51 +56,74 @@ function makeCollection(overrides?: Partial<PreflightCollection>): PreflightColl
 }
 
 describe(parseRunArgs, () => {
-  it('parses positional names with default local source', () => {
+  it('defaults to internal source when no flags are given', () => {
+    const result = parseRunArgs([]);
+
+    expect(result.collectionSource).toStrictEqual({ type: 'internal' });
+    expect(result.json).toBe(false);
+  });
+
+  it('parses positional names with default internal source', () => {
     const result = parseRunArgs(['deploy', 'infra']);
 
     expect(result.names).toStrictEqual(['deploy', 'infra']);
-    expect(result.collectionSource).toStrictEqual({ type: 'local' });
+    expect(result.collectionSource).toStrictEqual({ type: 'internal' });
   });
 
-  it('parses --config flag', () => {
-    const result = parseRunArgs(['--config', 'custom/path.ts']);
+  // --file flag (replaces old --config for collections)
+  it('parses --file flag', () => {
+    const result = parseRunArgs(['--file', 'custom/path.ts']);
 
     expect(result.collectionSource).toStrictEqual({ type: 'local', path: 'custom/path.ts' });
     expect(result.names).toStrictEqual([]);
   });
 
+  it('parses --file= syntax', () => {
+    const result = parseRunArgs(['--file=custom/path.ts']);
+
+    expect(result.collectionSource).toStrictEqual({ type: 'local', path: 'custom/path.ts' });
+  });
+
+  it('throws when --file has no value', () => {
+    expect(() => parseRunArgs(['--file'])).toThrow('--file requires a path argument');
+  });
+
+  it('throws when --file= has an empty value', () => {
+    expect(() => parseRunArgs(['--file='])).toThrow('--file requires a path argument');
+  });
+
+  // --config flag (for settings config)
+  it('parses --config flag as settings config path', () => {
+    const result = parseRunArgs(['--config', '/path/to/config.ts']);
+
+    expect(result.configPath).toBe('/path/to/config.ts');
+    expect(result.collectionSource).toStrictEqual({ type: 'internal' });
+  });
+
+  it('parses -c flag as settings config path', () => {
+    const result = parseRunArgs(['-c', '/path/to/config.ts']);
+
+    expect(result.configPath).toBe('/path/to/config.ts');
+  });
+
   it('parses --config= syntax', () => {
-    const result = parseRunArgs(['--config=custom/path.ts']);
+    const result = parseRunArgs(['--config=/path/to/config.ts']);
 
-    expect(result.collectionSource).toStrictEqual({ type: 'local', path: 'custom/path.ts' });
-  });
-
-  it('parses -c flag', () => {
-    const result = parseRunArgs(['-c', 'custom/path.ts']);
-
-    expect(result.collectionSource).toStrictEqual({ type: 'local', path: 'custom/path.ts' });
-  });
-
-  it('parses mixed flags and names', () => {
-    const result = parseRunArgs(['-c', 'config.ts', 'deploy']);
-
-    expect(result.collectionSource).toStrictEqual({ type: 'local', path: 'config.ts' });
-    expect(result.names).toStrictEqual(['deploy']);
+    expect(result.configPath).toBe('/path/to/config.ts');
   });
 
   it('throws when --config has no value', () => {
     expect(() => parseRunArgs(['--config'])).toThrow('--config requires a path argument');
   });
 
-  it('throws when -c has no value', () => {
-    expect(() => parseRunArgs(['-c'])).toThrow('--config requires a path argument');
+  it('allows --config with --file (independent flags)', () => {
+    const result = parseRunArgs(['--file', 'collection.ts', '--config', 'config.ts']);
+
+    expect(result.collectionSource).toStrictEqual({ type: 'local', path: 'collection.ts' });
+    expect(result.configPath).toBe('config.ts');
   });
 
-  it('throws when --config= has an empty value', () => {
-    expect(() => parseRunArgs(['--config='])).toThrow('--config requires a path argument');
-  });
-
+  // --json flag
   it('parses --json flag', () => {
     const result = parseRunArgs(['--json']);
 
@@ -120,43 +138,62 @@ describe(parseRunArgs, () => {
     expect(result.names).toStrictEqual(['deploy']);
   });
 
-  it('defaults json to false', () => {
-    const result = parseRunArgs([]);
-
-    expect(result.json).toBe(false);
-  });
-
-  it('parses --json combined with --config and positional names', () => {
-    const result = parseRunArgs(['--json', '--config', '/path/to/config', 'deploy']);
-
-    expect(result.json).toBe(true);
-    expect(result.collectionSource).toStrictEqual({ type: 'local', path: '/path/to/config' });
-    expect(result.names).toStrictEqual(['deploy']);
-  });
-
   it('throws on unknown flags', () => {
     expect(() => parseRunArgs(['--unknown'])).toThrow("unknown flag '--unknown'");
   });
 
   // --github flag
-  it('parses --github flag with space-separated value', () => {
-    const result = parseRunArgs(['--github', 'org/repo/path.js@v1']);
+  it('parses --github with --collection', () => {
+    const result = parseRunArgs(['--github', 'org/repo@v1', '--collection', 'nmr']);
 
-    expect(result.collectionSource).toStrictEqual({ type: 'github', shorthand: 'org/repo/path.js@v1' });
+    expect(result.collectionSource).toStrictEqual({
+      type: 'github',
+      repo: 'org/repo',
+      ref: 'v1',
+      collection: 'nmr',
+    });
   });
 
-  it('parses --github= syntax', () => {
-    const result = parseRunArgs(['--github=org/repo/path.js']);
+  it('parses --github= with --collection=', () => {
+    const result = parseRunArgs(['--github=org/repo', '--collection=nmr']);
 
-    expect(result.collectionSource).toStrictEqual({ type: 'github', shorthand: 'org/repo/path.js' });
+    expect(result.collectionSource).toStrictEqual({
+      type: 'github',
+      repo: 'org/repo',
+      ref: 'main',
+      collection: 'nmr',
+    });
+  });
+
+  it('defaults --github ref to main', () => {
+    const result = parseRunArgs(['--github', 'org/repo', '--collection', 'nmr']);
+
+    expect(result.collectionSource).toStrictEqual({
+      type: 'github',
+      repo: 'org/repo',
+      ref: 'main',
+      collection: 'nmr',
+    });
   });
 
   it('throws when --github has no value', () => {
-    expect(() => parseRunArgs(['--github'])).toThrow('--github requires a shorthand argument');
+    expect(() => parseRunArgs(['--github'])).toThrow('--github requires a repository argument');
   });
 
   it('throws when --github= has an empty value', () => {
-    expect(() => parseRunArgs(['--github='])).toThrow('--github requires a shorthand argument');
+    expect(() => parseRunArgs(['--github='])).toThrow('--github requires a repository argument');
+  });
+
+  it('throws when --github is used without --collection', () => {
+    expect(() => parseRunArgs(['--github', 'org/repo'])).toThrow('--github requires --collection');
+  });
+
+  it('throws when --collection is used without --github', () => {
+    expect(() => parseRunArgs(['--collection', 'nmr'])).toThrow('--collection requires --github');
+  });
+
+  it('throws when --collection has no value', () => {
+    expect(() => parseRunArgs(['--collection'])).toThrow('--collection requires a collection name');
   });
 
   // --url flag
@@ -181,27 +218,27 @@ describe(parseRunArgs, () => {
   });
 
   // Mutual exclusivity
-  it('throws when --config and --github are combined', () => {
-    expect(() => parseRunArgs(['--config', 'path.ts', '--github', 'org/repo/path.js'])).toThrow(
-      'Cannot combine --config, --github, and --url flags',
+  it('throws when --file and --github are combined', () => {
+    expect(() => parseRunArgs(['--file', 'path.ts', '--github', 'org/repo'])).toThrow(
+      'Cannot combine --file, --github, and --url flags',
     );
   });
 
-  it('throws when --config and --url are combined', () => {
-    expect(() => parseRunArgs(['--config', 'path.ts', '--url', 'https://example.com/config.js'])).toThrow(
-      'Cannot combine --config, --github, and --url flags',
+  it('throws when --file and --url are combined', () => {
+    expect(() => parseRunArgs(['--file', 'path.ts', '--url', 'https://example.com/config.js'])).toThrow(
+      'Cannot combine --file, --github, and --url flags',
     );
   });
 
   it('throws when a flag name is passed as value to another flag', () => {
-    expect(() => parseRunArgs(['--github', '--url'])).toThrow('--github requires a shorthand argument');
+    expect(() => parseRunArgs(['--github', '--url'])).toThrow('--github requires a repository argument');
     expect(() => parseRunArgs(['--url', '--github'])).toThrow('--url requires a URL argument');
-    expect(() => parseRunArgs(['--config', '--github'])).toThrow('--config requires a path argument');
+    expect(() => parseRunArgs(['--file', '--github'])).toThrow('--file requires a path argument');
   });
 
   it('throws when --github and --url are combined', () => {
-    expect(() => parseRunArgs(['--github', 'org/repo/path.js', '--url', 'https://example.com/config.js'])).toThrow(
-      'Cannot combine --config, --github, and --url flags',
+    expect(() => parseRunArgs(['--github', 'org/repo', '--url', 'https://example.com/config.js'])).toThrow(
+      'Cannot combine --file, --github, and --url flags',
     );
   });
 });
@@ -225,7 +262,6 @@ describe(runCommand, () => {
     mockFormatCombinedSummary.mockReset();
     mockFormatJsonReport.mockReset();
     mockFormatJsonError.mockReset();
-    mockExpandGitHubShorthand.mockReset();
     mockResolveGitHubToken.mockReset();
     mockLoadRemoteCollection.mockReset();
   });
@@ -280,7 +316,11 @@ describe(runCommand, () => {
     mockLoadPreflightCollection.mockResolvedValue(collection);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runCommand({ names: [], collectionSource: { type: 'local', path: 'custom/path.ts' }, json: false });
+    await runCommand({
+      names: [],
+      collectionSource: { type: 'local', path: 'custom/path.ts' },
+      json: false,
+    });
 
     expect(mockLoadPreflightCollection).toHaveBeenCalledWith('custom/path.ts');
   });
@@ -495,23 +535,21 @@ describe(runCommand, () => {
   });
 
   // GitHub source tests
-  it('expands shorthand and resolves token for --github source', async () => {
+  it('builds correct URL and resolves token for --github source', async () => {
     const collection = makeCollection();
-    mockExpandGitHubShorthand.mockReturnValue('https://raw.githubusercontent.com/org/repo/main/config.js');
     mockResolveGitHubToken.mockReturnValue('token-abc');
     mockLoadRemoteCollection.mockResolvedValue(collection);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
     const exitCode = await runCommand({
       names: [],
-      collectionSource: { type: 'github', shorthand: 'org/repo/config.js' },
+      collectionSource: { type: 'github', repo: 'org/repo', ref: 'main', collection: 'nmr' },
       json: false,
     });
 
-    expect(mockExpandGitHubShorthand).toHaveBeenCalledWith('org/repo/config.js');
     expect(mockResolveGitHubToken).toHaveBeenCalled();
     expect(mockLoadRemoteCollection).toHaveBeenCalledWith({
-      url: 'https://raw.githubusercontent.com/org/repo/main/config.js',
+      url: 'https://raw.githubusercontent.com/org/repo/main/.preflight/collections/nmr.js',
       token: 'token-abc',
     });
     expect(exitCode).toBe(0);
@@ -519,19 +557,18 @@ describe(runCommand, () => {
 
   it('omits token when resolveGitHubToken returns undefined for --github source', async () => {
     const collection = makeCollection();
-    mockExpandGitHubShorthand.mockReturnValue('https://raw.githubusercontent.com/org/repo/main/config.js');
     mockResolveGitHubToken.mockReturnValue(undefined);
     mockLoadRemoteCollection.mockResolvedValue(collection);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
     await runCommand({
       names: [],
-      collectionSource: { type: 'github', shorthand: 'org/repo/config.js' },
+      collectionSource: { type: 'github', repo: 'org/repo', ref: 'v2', collection: 'nmr' },
       json: false,
     });
 
     expect(mockLoadRemoteCollection).toHaveBeenCalledWith({
-      url: 'https://raw.githubusercontent.com/org/repo/main/config.js',
+      url: 'https://raw.githubusercontent.com/org/repo/v2/.preflight/collections/nmr.js',
     });
     expect(mockLoadRemoteCollection.mock.calls[0][0]).not.toHaveProperty('token');
   });

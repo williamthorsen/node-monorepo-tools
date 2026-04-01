@@ -21,11 +21,13 @@ import type {
 /** Discriminated union describing how to locate the preflight collection. */
 export type CollectionSource =
   | { type: 'local'; path?: string }
-  | { type: 'github'; shorthand: string }
-  | { type: 'url'; url: string };
+  | { type: 'github'; repo: string; ref: string; collection: string }
+  | { type: 'url'; url: string }
+  | { type: 'internal' };
 
 interface ParsedRunArgs {
   collectionSource: CollectionSource;
+  configPath?: string;
   json: boolean;
   names: string[];
 }
@@ -54,16 +56,39 @@ function extractFlagValue(
 }
 
 /** Throw if a collection source flag has already been set. */
-function assertNoExistingSource(existing: CollectionSource | undefined): void {
+function assertNoExistingSource(existing: string | undefined): void {
   if (existing !== undefined) {
-    throw new Error('Cannot combine --config, --github, and --url flags');
+    throw new Error('Cannot combine --file, --github, and --url flags');
   }
+}
+
+/**
+ * Parse `org/repo[@ref]` into repo and ref components.
+ *
+ * The `@ref` part is optional; defaults to `main`.
+ */
+function parseGitHubArg(value: string): { repo: string; ref: string } {
+  const atIndex = value.lastIndexOf('@');
+  if (atIndex === -1) {
+    return { repo: value, ref: 'main' };
+  }
+  const repo = value.slice(0, atIndex);
+  const ref = value.slice(atIndex + 1);
+  if (ref === '') {
+    throw new Error(`Invalid --github value: ref after '@' must not be empty in "${value}"`);
+  }
+  return { repo, ref };
 }
 
 /** Parse run-subcommand flags into a structured object. */
 export function parseRunArgs(flags: string[]): ParsedRunArgs {
   const names: string[] = [];
-  let collectionSource: CollectionSource | undefined;
+  let sourceType: string | undefined;
+  let filePath: string | undefined;
+  let githubValue: string | undefined;
+  let urlValue: string | undefined;
+  let collectionName: string | undefined;
+  let configPath: string | undefined;
   let json = false;
 
   for (let i = 0; i < flags.length; i++) {
@@ -72,26 +97,37 @@ export function parseRunArgs(flags: string[]): ParsedRunArgs {
     if (arg === '--json') {
       json = true;
     } else if (arg === '--config' || arg === '-c' || arg.startsWith('--config=')) {
-      assertNoExistingSource(collectionSource);
       const { value, nextIndex } = extractFlagValue('--config', arg, flags, i, 'a path argument');
       i = nextIndex;
-      collectionSource = { type: 'local', path: value };
+      configPath = value;
+    } else if (arg === '--file' || arg.startsWith('--file=')) {
+      assertNoExistingSource(sourceType);
+      const { value, nextIndex } = extractFlagValue('--file', arg, flags, i, 'a path argument');
+      i = nextIndex;
+      sourceType = 'file';
+      filePath = value;
     } else if (arg === '--github' || arg.startsWith('--github=')) {
-      assertNoExistingSource(collectionSource);
+      assertNoExistingSource(sourceType);
       const { value, nextIndex } = extractFlagValue(
         '--github',
         arg,
         flags,
         i,
-        'a shorthand argument (org/repo/path[@ref])',
+        'a repository argument (org/repo[@ref])',
       );
       i = nextIndex;
-      collectionSource = { type: 'github', shorthand: value };
+      sourceType = 'github';
+      githubValue = value;
     } else if (arg === '--url' || arg.startsWith('--url=')) {
-      assertNoExistingSource(collectionSource);
+      assertNoExistingSource(sourceType);
       const { value, nextIndex } = extractFlagValue('--url', arg, flags, i, 'a URL argument');
       i = nextIndex;
-      collectionSource = { type: 'url', url: value };
+      sourceType = 'url';
+      urlValue = value;
+    } else if (arg === '--collection' || arg.startsWith('--collection=')) {
+      const { value, nextIndex } = extractFlagValue('--collection', arg, flags, i, 'a collection name');
+      i = nextIndex;
+      collectionName = value;
     } else if (arg.startsWith('-')) {
       throw new Error(`unknown flag '${arg}'`);
     } else {
@@ -99,7 +135,27 @@ export function parseRunArgs(flags: string[]): ParsedRunArgs {
     }
   }
 
-  return { collectionSource: collectionSource ?? { type: 'local' }, json, names };
+  // Post-loop validation for --github / --collection mutual dependency
+  if (sourceType === 'github' && collectionName === undefined) {
+    throw new Error('--github requires --collection');
+  }
+  if (collectionName !== undefined && sourceType !== 'github') {
+    throw new Error('--collection requires --github');
+  }
+
+  let collectionSource: CollectionSource;
+  if (sourceType === 'file') {
+    collectionSource = { type: 'local', path: filePath };
+  } else if (sourceType === 'github' && githubValue !== undefined && collectionName !== undefined) {
+    const { repo, ref } = parseGitHubArg(githubValue);
+    collectionSource = { type: 'github', repo, ref, collection: collectionName };
+  } else if (sourceType === 'url' && urlValue !== undefined) {
+    collectionSource = { type: 'url', url: urlValue };
+  } else {
+    collectionSource = { type: 'internal' };
+  }
+
+  return { collectionSource, configPath, json, names };
 }
 
 /** Resolve the effective fixLocation for a checklist, falling back to the collection-level default. */
@@ -126,7 +182,13 @@ function summarizeReport(name: string, report: PreflightReport): ChecklistSummar
 interface RunCommandOptions {
   names: string[];
   collectionSource: CollectionSource;
+  configPath?: string;
   json: boolean;
+}
+
+/** Build the GitHub raw content URL for a collection. */
+function buildGitHubCollectionUrl(repo: string, ref: string, collection: string): string {
+  return `https://raw.githubusercontent.com/${repo}/${ref}/.preflight/collections/${collection}.js`;
 }
 
 /** Load a preflight collection from the appropriate source. */
@@ -135,7 +197,7 @@ async function loadCollection(source: CollectionSource): Promise<PreflightCollec
     case 'local':
       return loadPreflightCollection(source.path);
     case 'github': {
-      const url = expandGitHubShorthand(source.shorthand);
+      const url = buildGitHubCollectionUrl(source.repo, source.ref, source.collection);
       const token = resolveGitHubToken();
       const options: LoadRemoteCollectionOptions = { url };
       if (token !== undefined) {
@@ -145,6 +207,8 @@ async function loadCollection(source: CollectionSource): Promise<PreflightCollec
     }
     case 'url':
       return loadRemoteCollection({ url: source.url });
+    case 'internal':
+      throw new Error('Internal collection loading not yet implemented');
   }
 }
 
