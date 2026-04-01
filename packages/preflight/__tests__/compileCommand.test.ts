@@ -1,9 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest';
 
 const mockCompileConfig = vi.hoisted(() => vi.fn());
+const mockLoadConfig = vi.hoisted(() => vi.fn());
+const mockExistsSync = vi.hoisted(() => vi.fn());
+const mockReaddirSync = vi.hoisted(() => vi.fn());
 
 vi.mock('../src/compile/compileConfig.ts', () => ({
   compileConfig: mockCompileConfig,
+}));
+
+vi.mock('../src/loadConfig.ts', () => ({
+  loadConfig: mockLoadConfig,
+}));
+
+vi.mock(import('node:fs'), () => ({
+  existsSync: mockExistsSync,
+  readdirSync: mockReaddirSync,
 }));
 
 import { compileCommand } from '../src/compile/compileCommand.ts';
@@ -20,15 +32,12 @@ describe(compileCommand, () => {
   afterEach(() => {
     vi.restoreAllMocks();
     mockCompileConfig.mockReset();
+    mockLoadConfig.mockReset();
+    mockExistsSync.mockReset();
+    mockReaddirSync.mockReset();
   });
 
-  it('returns 1 with error when no input file is provided', async () => {
-    const exitCode = await compileCommand([]);
-
-    expect(exitCode).toBe(1);
-    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('Missing input file'));
-  });
-
+  // Explicit input file tests
   it('returns 0 and writes output path on success', async () => {
     mockCompileConfig.mockResolvedValue({ outputPath: '/abs/out.js' });
 
@@ -94,5 +103,46 @@ describe(compileCommand, () => {
 
     expect(exitCode).toBe(1);
     expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('Too many arguments'));
+  });
+
+  // Config-driven compile tests (no input file)
+  it('compiles all .ts files from config srcDir when no input is given', async () => {
+    mockLoadConfig.mockResolvedValue({
+      compile: { srcDir: '.preflight/collections', outDir: '.preflight/collections' },
+    });
+    mockExistsSync.mockReturnValue(true);
+    mockReaddirSync.mockReturnValue(['a.ts', 'b.ts', 'readme.md']);
+    mockCompileConfig.mockResolvedValue({ outputPath: '/abs/a.js' });
+
+    const exitCode = await compileCommand([]);
+
+    expect(exitCode).toBe(0);
+    expect(mockCompileConfig).toHaveBeenCalledTimes(2);
+    expect(stdoutSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns 1 when srcDir does not exist and no input is given', async () => {
+    mockLoadConfig.mockResolvedValue({
+      compile: { srcDir: '.preflight/collections', outDir: '.preflight/collections' },
+    });
+    mockExistsSync.mockReturnValue(false);
+
+    const exitCode = await compileCommand([]);
+
+    expect(exitCode).toBe(1);
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('Source directory not found'));
+  });
+
+  it('returns 1 when srcDir has no .ts files and no input is given', async () => {
+    mockLoadConfig.mockResolvedValue({
+      compile: { srcDir: '.preflight/collections', outDir: '.preflight/collections' },
+    });
+    mockExistsSync.mockReturnValue(true);
+    mockReaddirSync.mockReturnValue(['readme.md']);
+
+    const exitCode = await compileCommand([]);
+
+    expect(exitCode).toBe(1);
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('No .ts files found'));
   });
 });

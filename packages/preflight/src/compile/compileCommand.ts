@@ -1,5 +1,8 @@
+import { existsSync, readdirSync } from 'node:fs';
+import path from 'node:path';
 import process from 'node:process';
 
+import { loadConfig } from '../loadConfig.ts';
 import { compileConfig } from './compileConfig.ts';
 
 /** Extract a flag value from either `--flag value` or `--flag=value` form. */
@@ -26,6 +29,7 @@ function extractFlagValue(
 /**
  * Handle the `compile` subcommand: parse arguments, invoke the bundler, and report the result.
  *
+ * When no input file is given, compiles all `.ts` files from the config's `srcDir` to `outDir`.
  * Returns a numeric exit code.
  */
 export async function compileCommand(args: string[]): Promise<number> {
@@ -63,14 +67,45 @@ export async function compileCommand(args: string[]): Promise<number> {
     }
   }
 
-  if (inputPath === undefined) {
-    process.stderr.write('Error: Missing input file. Usage: preflight compile <input> [--output <path>]\n');
-    return 1;
+  // Explicit input file — compile just that one
+  if (inputPath !== undefined) {
+    try {
+      const result = await compileConfig(inputPath, outputPath);
+      process.stdout.write(`Compiled: ${result.outputPath}\n`);
+      return 0;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      process.stderr.write(`Error: ${message}\n`);
+      return 1;
+    }
   }
 
+  // No input — use config-driven compilation
   try {
-    const result = await compileConfig(inputPath, outputPath);
-    process.stdout.write(`Compiled: ${result.outputPath}\n`);
+    const config = await loadConfig();
+    const srcDir = path.resolve(process.cwd(), config.compile.srcDir);
+    const outDir = path.resolve(process.cwd(), config.compile.outDir);
+
+    if (!existsSync(srcDir)) {
+      process.stderr.write(`Error: Source directory not found: ${srcDir}\n`);
+      return 1;
+    }
+
+    const entries = readdirSync(srcDir);
+    const tsFiles = entries.filter((name) => name.endsWith('.ts')).sort();
+
+    if (tsFiles.length === 0) {
+      process.stderr.write(`Error: No .ts files found in ${srcDir}\n`);
+      return 1;
+    }
+
+    for (const fileName of tsFiles) {
+      const srcFile = path.join(srcDir, fileName);
+      const outFile = path.join(outDir, fileName.replace(/\.ts$/, '.js'));
+      const result = await compileConfig(srcFile, outFile);
+      process.stdout.write(`Compiled: ${result.outputPath}\n`);
+    }
+
     return 0;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);

@@ -1,7 +1,7 @@
 import process from 'node:process';
 
 import { loadPreflightCollection } from './config.ts';
-import { expandGitHubShorthand } from './expandGitHubShorthand.ts';
+import { discoverInternalCollections } from './discoverInternalCollections.ts';
 import { formatCombinedSummary } from './formatCombinedSummary.ts';
 import { formatJsonError } from './formatJsonError.ts';
 import { formatJsonReport } from './formatJsonReport.ts';
@@ -191,6 +191,9 @@ function buildGitHubCollectionUrl(repo: string, ref: string, collection: string)
   return `https://raw.githubusercontent.com/${repo}/${ref}/.preflight/collections/${collection}.js`;
 }
 
+/** The default directory for internal collections. */
+const INTERNAL_COLLECTIONS_DIR = '.config/preflight/collections';
+
 /** Load a preflight collection from the appropriate source. */
 async function loadCollection(source: CollectionSource): Promise<PreflightCollection> {
   switch (source.type) {
@@ -208,12 +211,22 @@ async function loadCollection(source: CollectionSource): Promise<PreflightCollec
     case 'url':
       return loadRemoteCollection({ url: source.url });
     case 'internal':
-      throw new Error('Internal collection loading not yet implemented');
+      // Internal mode is handled separately in runCommand
+      throw new Error('Internal collection source should be handled by runCommand');
   }
+}
+
+/** Load and merge all internal collections from the default directory. */
+async function loadInternalCollections(): Promise<PreflightCollection[]> {
+  return discoverInternalCollections(INTERNAL_COLLECTIONS_DIR);
 }
 
 /** Run preflight checklists. Returns a numeric exit code. */
 export async function runCommand({ names, collectionSource, json }: RunCommandOptions): Promise<number> {
+  if (collectionSource.type === 'internal') {
+    return runInternalCollections({ names, json });
+  }
+
   let collection: PreflightCollection;
   try {
     collection = await loadCollection(collectionSource);
@@ -227,6 +240,39 @@ export async function runCommand({ names, collectionSource, json }: RunCommandOp
     return 1;
   }
 
+  return runSingleCollection(collection, { names, json });
+}
+
+/** Run all internal collections from the default directory. */
+async function runInternalCollections({ names, json }: { names: string[]; json: boolean }): Promise<number> {
+  let collections: PreflightCollection[];
+  try {
+    collections = await loadInternalCollections();
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (json) {
+      process.stdout.write(formatJsonError(message) + '\n');
+    } else {
+      process.stderr.write(`Error: ${message}\n`);
+    }
+    return 1;
+  }
+
+  let allPassed = true;
+  for (const collection of collections) {
+    const exitCode = await runSingleCollection(collection, { names, json });
+    if (exitCode !== 0) {
+      allPassed = false;
+    }
+  }
+  return allPassed ? 0 : 1;
+}
+
+/** Run checklists from a single collection. */
+async function runSingleCollection(
+  collection: PreflightCollection,
+  { names, json }: { names: string[]; json: boolean },
+): Promise<number> {
   // Determine which checklists to run
   let checklists = collection.checklists;
   if (names.length > 0) {
