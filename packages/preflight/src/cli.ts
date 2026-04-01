@@ -250,6 +250,8 @@ async function runSingleCollection(
     return 1;
   }
 
+  // All names in `resolvedNames` are guaranteed valid by `resolveRequestedNames`; the
+  // flatMap guard serves only as a type-narrowing filter for the `Map.get` return type.
   const checklistByName = new Map(collection.checklists.map((c) => [c.name, c]));
   const checklists = resolvedNames.flatMap((name) => {
     const checklist = checklistByName.get(name);

@@ -20,13 +20,9 @@ export function resolveCollectionExports(moduleRecord: Record<string, unknown>):
     );
   }
 
-  const resolved: Record<string, unknown> = { checklists: source.checklists };
-  if (source.fixLocation !== undefined) {
-    resolved.fixLocation = source.fixLocation;
-  }
-  if (source.suites !== undefined) {
-    resolved.suites = source.suites;
-  }
-
-  return resolved;
+  return {
+    checklists: source.checklists,
+    ...(source.fixLocation !== undefined && { fixLocation: source.fixLocation }),
+    ...(source.suites !== undefined && { suites: source.suites }),
+  };
 }
