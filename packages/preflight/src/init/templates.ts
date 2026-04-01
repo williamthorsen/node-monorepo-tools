@@ -10,11 +10,11 @@ export default definePreflightConfig({
 });
 `;
 
-/** Starter preflight collection file content. */
+/** Default preflight collection file content. */
 export const preflightCollectionTemplate = `import { definePreflightCollection } from '@williamthorsen/preflight';
 
 /**
- * Starter preflight collection.
+ * Default preflight collection.
  *
  * Each checklist contains checks that run before a deployment or other operation.
  * Checks run concurrently within a checklist. Use \`fix\` to provide remediation hints.

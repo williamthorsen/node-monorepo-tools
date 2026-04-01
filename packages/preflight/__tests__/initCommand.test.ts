@@ -8,7 +8,7 @@ import { preflightCollectionTemplate, preflightConfigTemplate } from '../src/ini
 
 const TEST_DIR = join(import.meta.dirname, '../.test-tmp');
 const CONFIG_PATH = '.config/preflight/config.ts';
-const COLLECTION_PATH = '.config/preflight/collections/starter.ts';
+const COLLECTION_PATH = '.config/preflight/collections/default.ts';
 const OLD_CONFIG_PATH = '.config/preflight.config.ts';
 
 describe(initCommand, () => {

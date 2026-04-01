@@ -10,7 +10,6 @@ const mockFormatJsonReport = vi.hoisted(() => vi.fn());
 const mockFormatJsonError = vi.hoisted(() => vi.fn());
 const mockResolveGitHubToken = vi.hoisted(() => vi.fn());
 const mockLoadRemoteCollection = vi.hoisted(() => vi.fn());
-const mockDiscoverInternalCollections = vi.hoisted(() => vi.fn());
 
 vi.mock('../src/config.ts', () => ({
   loadPreflightCollection: mockLoadPreflightCollection,
@@ -44,10 +43,6 @@ vi.mock('../src/loadRemoteCollection.ts', () => ({
   loadRemoteCollection: mockLoadRemoteCollection,
 }));
 
-vi.mock('../src/discoverInternalCollections.ts', () => ({
-  discoverInternalCollections: mockDiscoverInternalCollections,
-}));
-
 import { parseRunArgs, runCommand } from '../src/cli.ts';
 
 function makeCollection(overrides?: Partial<PreflightCollection>): PreflightCollection {
@@ -61,32 +56,45 @@ function makeCollection(overrides?: Partial<PreflightCollection>): PreflightColl
 }
 
 describe(parseRunArgs, () => {
-  it('defaults to internal source when no flags are given', () => {
+  it('defaults to the default collection path when no flags are given', () => {
     const result = parseRunArgs([]);
 
-    expect(result.collectionSource).toStrictEqual({ type: 'internal' });
+    expect(result.collectionSource).toStrictEqual({ path: '.config/preflight/collections/default.ts' });
     expect(result.json).toBe(false);
   });
 
-  it('parses positional names with default internal source', () => {
+  it('parses positional names with default collection path', () => {
     const result = parseRunArgs(['deploy', 'infra']);
 
     expect(result.names).toStrictEqual(['deploy', 'infra']);
-    expect(result.collectionSource).toStrictEqual({ type: 'internal' });
+    expect(result.collectionSource).toStrictEqual({ path: '.config/preflight/collections/default.ts' });
   });
 
-  // --file flag (replaces old --config for collections)
+  // --collection flag (standalone, without --github)
+  it('resolves --collection to a local convention path', () => {
+    const result = parseRunArgs(['--collection', 'deploy']);
+
+    expect(result.collectionSource).toStrictEqual({ path: '.config/preflight/collections/deploy.ts' });
+  });
+
+  it('resolves --collection= to a local convention path', () => {
+    const result = parseRunArgs(['--collection=deploy']);
+
+    expect(result.collectionSource).toStrictEqual({ path: '.config/preflight/collections/deploy.ts' });
+  });
+
+  // --file flag
   it('parses --file flag', () => {
     const result = parseRunArgs(['--file', 'custom/path.ts']);
 
-    expect(result.collectionSource).toStrictEqual({ type: 'local', path: 'custom/path.ts' });
+    expect(result.collectionSource).toStrictEqual({ path: 'custom/path.ts' });
     expect(result.names).toStrictEqual([]);
   });
 
   it('parses --file= syntax', () => {
     const result = parseRunArgs(['--file=custom/path.ts']);
 
-    expect(result.collectionSource).toStrictEqual({ type: 'local', path: 'custom/path.ts' });
+    expect(result.collectionSource).toStrictEqual({ path: 'custom/path.ts' });
   });
 
   it('throws when --file has no value', () => {
@@ -95,37 +103,6 @@ describe(parseRunArgs, () => {
 
   it('throws when --file= has an empty value', () => {
     expect(() => parseRunArgs(['--file='])).toThrow('--file requires a path argument');
-  });
-
-  // --config flag (for settings config)
-  it('parses --config flag as settings config path', () => {
-    const result = parseRunArgs(['--config', '/path/to/config.ts']);
-
-    expect(result.configPath).toBe('/path/to/config.ts');
-    expect(result.collectionSource).toStrictEqual({ type: 'internal' });
-  });
-
-  it('parses -c flag as settings config path', () => {
-    const result = parseRunArgs(['-c', '/path/to/config.ts']);
-
-    expect(result.configPath).toBe('/path/to/config.ts');
-  });
-
-  it('parses --config= syntax', () => {
-    const result = parseRunArgs(['--config=/path/to/config.ts']);
-
-    expect(result.configPath).toBe('/path/to/config.ts');
-  });
-
-  it('throws when --config has no value', () => {
-    expect(() => parseRunArgs(['--config'])).toThrow('--config requires a path argument');
-  });
-
-  it('allows --config with --file (independent flags)', () => {
-    const result = parseRunArgs(['--file', 'collection.ts', '--config', 'config.ts']);
-
-    expect(result.collectionSource).toStrictEqual({ type: 'local', path: 'collection.ts' });
-    expect(result.configPath).toBe('config.ts');
   });
 
   // --json flag
@@ -147,15 +124,21 @@ describe(parseRunArgs, () => {
     expect(() => parseRunArgs(['--unknown'])).toThrow("unknown flag '--unknown'");
   });
 
+  // --config is no longer supported
+  it('rejects --config as an unknown flag', () => {
+    expect(() => parseRunArgs(['--config', 'x'])).toThrow("unknown flag '--config'");
+  });
+
+  it('rejects -c as an unknown flag', () => {
+    expect(() => parseRunArgs(['-c', 'x'])).toThrow("unknown flag '-c'");
+  });
+
   // --github flag
   it('parses --github with --collection', () => {
     const result = parseRunArgs(['--github', 'org/repo@v1', '--collection', 'nmr']);
 
     expect(result.collectionSource).toStrictEqual({
-      type: 'github',
-      repo: 'org/repo',
-      ref: 'v1',
-      collection: 'nmr',
+      url: 'https://raw.githubusercontent.com/org/repo/v1/.preflight/distribution/nmr.js',
     });
   });
 
@@ -163,10 +146,7 @@ describe(parseRunArgs, () => {
     const result = parseRunArgs(['--github=org/repo', '--collection=nmr']);
 
     expect(result.collectionSource).toStrictEqual({
-      type: 'github',
-      repo: 'org/repo',
-      ref: 'main',
-      collection: 'nmr',
+      url: 'https://raw.githubusercontent.com/org/repo/main/.preflight/distribution/nmr.js',
     });
   });
 
@@ -174,10 +154,15 @@ describe(parseRunArgs, () => {
     const result = parseRunArgs(['--github', 'org/repo', '--collection', 'nmr']);
 
     expect(result.collectionSource).toStrictEqual({
-      type: 'github',
-      repo: 'org/repo',
-      ref: 'main',
-      collection: 'nmr',
+      url: 'https://raw.githubusercontent.com/org/repo/main/.preflight/distribution/nmr.js',
+    });
+  });
+
+  it('defaults --github collection to default when --collection is omitted', () => {
+    const result = parseRunArgs(['--github', 'org/repo']);
+
+    expect(result.collectionSource).toStrictEqual({
+      url: 'https://raw.githubusercontent.com/org/repo/main/.preflight/distribution/default.js',
     });
   });
 
@@ -189,14 +174,6 @@ describe(parseRunArgs, () => {
     expect(() => parseRunArgs(['--github='])).toThrow('--github requires a repository argument');
   });
 
-  it('throws when --github is used without --collection', () => {
-    expect(() => parseRunArgs(['--github', 'org/repo'])).toThrow('--github requires --collection');
-  });
-
-  it('throws when --collection is used without --github', () => {
-    expect(() => parseRunArgs(['--collection', 'nmr'])).toThrow('--collection requires --github');
-  });
-
   it('throws when --collection has no value', () => {
     expect(() => parseRunArgs(['--collection'])).toThrow('--collection requires a collection name');
   });
@@ -205,13 +182,13 @@ describe(parseRunArgs, () => {
   it('parses --url flag with space-separated value', () => {
     const result = parseRunArgs(['--url', 'https://example.com/config.js']);
 
-    expect(result.collectionSource).toStrictEqual({ type: 'url', url: 'https://example.com/config.js' });
+    expect(result.collectionSource).toStrictEqual({ url: 'https://example.com/config.js' });
   });
 
   it('parses --url= syntax', () => {
     const result = parseRunArgs(['--url=https://example.com/config.js']);
 
-    expect(result.collectionSource).toStrictEqual({ type: 'url', url: 'https://example.com/config.js' });
+    expect(result.collectionSource).toStrictEqual({ url: 'https://example.com/config.js' });
   });
 
   it('throws when --url has no value', () => {
@@ -246,6 +223,18 @@ describe(parseRunArgs, () => {
       'Cannot combine --file, --github, and --url flags',
     );
   });
+
+  it('throws when --collection is combined with --file', () => {
+    expect(() => parseRunArgs(['--file', 'path.ts', '--collection', 'deploy'])).toThrow(
+      '--collection cannot be used with --file',
+    );
+  });
+
+  it('throws when --collection is combined with --url', () => {
+    expect(() => parseRunArgs(['--url', 'https://example.com/config.js', '--collection', 'deploy'])).toThrow(
+      '--collection cannot be used with --url',
+    );
+  });
 });
 
 describe(runCommand, () => {
@@ -269,7 +258,6 @@ describe(runCommand, () => {
     mockFormatJsonError.mockReset();
     mockResolveGitHubToken.mockReset();
     mockLoadRemoteCollection.mockReset();
-    mockDiscoverInternalCollections.mockReset();
   });
 
   it('runs all checklists when no names are given', async () => {
@@ -277,7 +265,11 @@ describe(runCommand, () => {
     mockLoadPreflightCollection.mockResolvedValue(collection);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    const exitCode = await runCommand({ names: [], collectionSource: { type: 'local' }, json: false });
+    const exitCode = await runCommand({
+      names: [],
+      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      json: false,
+    });
 
     expect(mockRunPreflight).toHaveBeenCalledTimes(2);
     expect(exitCode).toBe(0);
@@ -288,7 +280,11 @@ describe(runCommand, () => {
     mockLoadPreflightCollection.mockResolvedValue(collection);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    const exitCode = await runCommand({ names: ['deploy'], collectionSource: { type: 'local' }, json: false });
+    const exitCode = await runCommand({
+      names: ['deploy'],
+      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      json: false,
+    });
 
     expect(mockRunPreflight).toHaveBeenCalledTimes(1);
     expect(mockRunPreflight).toHaveBeenCalledWith(collection.checklists[0]);
@@ -299,7 +295,11 @@ describe(runCommand, () => {
     const collection = makeCollection();
     mockLoadPreflightCollection.mockResolvedValue(collection);
 
-    const exitCode = await runCommand({ names: ['nonexistent'], collectionSource: { type: 'local' }, json: false });
+    const exitCode = await runCommand({
+      names: ['nonexistent'],
+      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      json: false,
+    });
 
     expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('unknown checklist(s): nonexistent'));
     expect(exitCode).toBe(1);
@@ -312,7 +312,11 @@ describe(runCommand, () => {
       .mockResolvedValueOnce({ results: [], passed: true, durationMs: 0 })
       .mockResolvedValueOnce({ results: [], passed: false, durationMs: 0 });
 
-    const exitCode = await runCommand({ names: [], collectionSource: { type: 'local' }, json: false });
+    const exitCode = await runCommand({
+      names: [],
+      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      json: false,
+    });
 
     expect(exitCode).toBe(1);
   });
@@ -324,7 +328,7 @@ describe(runCommand, () => {
 
     await runCommand({
       names: [],
-      collectionSource: { type: 'local', path: 'custom/path.ts' },
+      collectionSource: { path: 'custom/path.ts' },
       json: false,
     });
 
@@ -336,7 +340,11 @@ describe(runCommand, () => {
     mockLoadPreflightCollection.mockResolvedValue(collection);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runCommand({ names: [], collectionSource: { type: 'local' }, json: false });
+    await runCommand({
+      names: [],
+      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      json: false,
+    });
 
     const allOutput = stdoutSpy.mock.calls.map((c) => String(c[0])).join('');
     expect(allOutput).toContain('--- deploy ---');
@@ -348,7 +356,11 @@ describe(runCommand, () => {
     mockLoadPreflightCollection.mockResolvedValue(collection);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runCommand({ names: ['deploy'], collectionSource: { type: 'local' }, json: false });
+    await runCommand({
+      names: ['deploy'],
+      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      json: false,
+    });
 
     const allOutput = stdoutSpy.mock.calls.map((c) => String(c[0])).join('');
     expect(allOutput).not.toContain('---');
@@ -362,7 +374,11 @@ describe(runCommand, () => {
     mockLoadPreflightCollection.mockResolvedValue(collection);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runCommand({ names: [], collectionSource: { type: 'local' }, json: false });
+    await runCommand({
+      names: [],
+      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      json: false,
+    });
 
     expect(mockReportPreflight).toHaveBeenCalledWith(expect.anything(), { fixLocation: 'INLINE' });
   });
@@ -375,7 +391,11 @@ describe(runCommand, () => {
     mockLoadPreflightCollection.mockResolvedValue(collection);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runCommand({ names: [], collectionSource: { type: 'local' }, json: false });
+    await runCommand({
+      names: [],
+      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      json: false,
+    });
 
     expect(mockReportPreflight).toHaveBeenCalledWith(expect.anything(), { fixLocation: 'END' });
   });
@@ -383,7 +403,11 @@ describe(runCommand, () => {
   it('reports collection loading errors to stderr', async () => {
     mockLoadPreflightCollection.mockRejectedValue(new Error('Collection not found'));
 
-    const exitCode = await runCommand({ names: [], collectionSource: { type: 'local' }, json: false });
+    const exitCode = await runCommand({
+      names: [],
+      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      json: false,
+    });
 
     expect(stderrSpy).toHaveBeenCalledWith('Error: Collection not found\n');
     expect(exitCode).toBe(1);
@@ -398,7 +422,11 @@ describe(runCommand, () => {
       durationMs: 10,
     });
 
-    await runCommand({ names: [], collectionSource: { type: 'local' }, json: false });
+    await runCommand({
+      names: [],
+      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      json: false,
+    });
 
     expect(mockFormatCombinedSummary).toHaveBeenCalledTimes(1);
     expect(mockFormatCombinedSummary).toHaveBeenCalledWith([
@@ -412,7 +440,11 @@ describe(runCommand, () => {
     mockLoadPreflightCollection.mockResolvedValue(collection);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-    await runCommand({ names: ['deploy'], collectionSource: { type: 'local' }, json: false });
+    await runCommand({
+      names: ['deploy'],
+      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      json: false,
+    });
 
     expect(mockFormatCombinedSummary).not.toHaveBeenCalled();
   });
@@ -435,7 +467,11 @@ describe(runCommand, () => {
         durationMs: 0,
       });
 
-    await runCommand({ names: [], collectionSource: { type: 'local' }, json: false });
+    await runCommand({
+      names: [],
+      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      json: false,
+    });
 
     expect(mockFormatCombinedSummary).toHaveBeenCalledWith([
       expect.objectContaining({ name: 'deploy', passed: 1, failed: 1, skipped: 0, allPassed: false }),
@@ -454,7 +490,11 @@ describe(runCommand, () => {
       mockLoadPreflightCollection.mockResolvedValue(collection);
       mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-      const exitCode = await runCommand({ names: [], collectionSource: { type: 'local' }, json: true });
+      const exitCode = await runCommand({
+        names: [],
+        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        json: true,
+      });
 
       expect(mockFormatJsonReport).toHaveBeenCalledTimes(1);
       expect(mockReportPreflight).not.toHaveBeenCalled();
@@ -470,7 +510,11 @@ describe(runCommand, () => {
         .mockResolvedValueOnce({ results: [], passed: true, durationMs: 0 })
         .mockResolvedValueOnce({ results: [], passed: false, durationMs: 0 });
 
-      const exitCode = await runCommand({ names: [], collectionSource: { type: 'local' }, json: true });
+      const exitCode = await runCommand({
+        names: [],
+        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        json: true,
+      });
 
       expect(exitCode).toBe(1);
     });
@@ -478,7 +522,11 @@ describe(runCommand, () => {
     it('emits JSON error to stdout for collection loading errors', async () => {
       mockLoadPreflightCollection.mockRejectedValue(new Error('Collection not found'));
 
-      const exitCode = await runCommand({ names: [], collectionSource: { type: 'local' }, json: true });
+      const exitCode = await runCommand({
+        names: [],
+        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        json: true,
+      });
 
       expect(mockFormatJsonError).toHaveBeenCalledWith('Collection not found');
       expect(stdoutSpy).toHaveBeenCalledWith('{"error":"boom"}\n');
@@ -492,7 +540,7 @@ describe(runCommand, () => {
 
       const exitCode = await runCommand({
         names: ['nonexistent'],
-        collectionSource: { type: 'local' },
+        collectionSource: { path: '.config/preflight/collections/default.ts' },
         json: true,
       });
 
@@ -508,7 +556,11 @@ describe(runCommand, () => {
       const report2 = { results: [], passed: true, durationMs: 20 };
       mockRunPreflight.mockResolvedValueOnce(report1).mockResolvedValueOnce(report2);
 
-      await runCommand({ names: [], collectionSource: { type: 'local' }, json: true });
+      await runCommand({
+        names: [],
+        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        json: true,
+      });
 
       expect(mockFormatJsonReport).toHaveBeenCalledWith([
         { name: 'deploy', report: report1 },
@@ -521,7 +573,11 @@ describe(runCommand, () => {
       mockLoadPreflightCollection.mockResolvedValue(collection);
       mockRunPreflight.mockRejectedValue(new Error('runner crashed'));
 
-      const exitCode = await runCommand({ names: ['deploy'], collectionSource: { type: 'local' }, json: true });
+      const exitCode = await runCommand({
+        names: ['deploy'],
+        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        json: true,
+      });
 
       expect(mockFormatJsonError).toHaveBeenCalledWith('runner crashed');
       expect(stderrSpy).not.toHaveBeenCalled();
@@ -533,15 +589,19 @@ describe(runCommand, () => {
       mockLoadPreflightCollection.mockResolvedValue(collection);
       mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
-      await runCommand({ names: [], collectionSource: { type: 'local' }, json: true });
+      await runCommand({
+        names: [],
+        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        json: true,
+      });
 
       const allOutput = stdoutSpy.mock.calls.map((c) => String(c[0])).join('');
       expect(allOutput).not.toContain('---');
     });
   });
 
-  // GitHub source tests
-  it('builds correct URL and resolves token for --github source', async () => {
+  // GitHub source tests (via URL with raw.githubusercontent.com)
+  it('resolves token for GitHub raw URLs', async () => {
     const collection = makeCollection();
     mockResolveGitHubToken.mockReturnValue('token-abc');
     mockLoadRemoteCollection.mockResolvedValue(collection);
@@ -549,7 +609,7 @@ describe(runCommand, () => {
 
     const exitCode = await runCommand({
       names: [],
-      collectionSource: { type: 'github', repo: 'org/repo', ref: 'main', collection: 'nmr' },
+      collectionSource: { url: 'https://raw.githubusercontent.com/org/repo/main/.preflight/distribution/nmr.js' },
       json: false,
     });
 
@@ -561,7 +621,7 @@ describe(runCommand, () => {
     expect(exitCode).toBe(0);
   });
 
-  it('omits token when resolveGitHubToken returns undefined for --github source', async () => {
+  it('omits token when resolveGitHubToken returns undefined for GitHub URLs', async () => {
     const collection = makeCollection();
     mockResolveGitHubToken.mockReturnValue(undefined);
     mockLoadRemoteCollection.mockResolvedValue(collection);
@@ -569,7 +629,7 @@ describe(runCommand, () => {
 
     await runCommand({
       names: [],
-      collectionSource: { type: 'github', repo: 'org/repo', ref: 'v2', collection: 'nmr' },
+      collectionSource: { url: 'https://raw.githubusercontent.com/org/repo/v2/.preflight/distribution/nmr.js' },
       json: false,
     });
 
@@ -580,14 +640,14 @@ describe(runCommand, () => {
   });
 
   // URL source tests
-  it('fetches directly for --url source without token resolution', async () => {
+  it('fetches directly for non-GitHub URL source without token resolution', async () => {
     const collection = makeCollection();
     mockLoadRemoteCollection.mockResolvedValue(collection);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
 
     const exitCode = await runCommand({
       names: [],
-      collectionSource: { type: 'url', url: 'https://example.com/config.js' },
+      collectionSource: { url: 'https://example.com/config.js' },
       json: false,
     });
 
@@ -603,48 +663,11 @@ describe(runCommand, () => {
 
     const exitCode = await runCommand({
       names: [],
-      collectionSource: { type: 'url', url: 'https://example.com/config.js' },
+      collectionSource: { url: 'https://example.com/config.js' },
       json: false,
     });
 
     expect(stderrSpy).toHaveBeenCalledWith('Error: Failed to fetch remote collection\n');
     expect(exitCode).toBe(1);
-  });
-
-  // Internal source tests
-  describe('internal source', () => {
-    it('discovers collections from the convention directory', async () => {
-      const collection = makeCollection();
-      mockDiscoverInternalCollections.mockResolvedValue([collection]);
-      mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
-
-      await runCommand({
-        names: [],
-        collectionSource: { type: 'internal' },
-        json: false,
-      });
-
-      expect(mockDiscoverInternalCollections).toHaveBeenCalledWith('.config/preflight/collections');
-    });
-
-    it('runs checklists from all discovered internal collections', async () => {
-      const collection1 = makeCollection({
-        checklists: [{ name: 'a', checks: [{ name: 'c1', check: () => true }] }],
-      });
-      const collection2 = makeCollection({
-        checklists: [{ name: 'b', checks: [{ name: 'c2', check: () => true }] }],
-      });
-      mockDiscoverInternalCollections.mockResolvedValue([collection1, collection2]);
-      mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
-
-      const exitCode = await runCommand({
-        names: [],
-        collectionSource: { type: 'internal' },
-        json: false,
-      });
-
-      expect(mockRunPreflight).toHaveBeenCalledTimes(2);
-      expect(exitCode).toBe(0);
-    });
   });
 });
