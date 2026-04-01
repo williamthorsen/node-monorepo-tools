@@ -22,10 +22,10 @@ export async function validateCompiledOutput(outputPath: string): Promise<void> 
   }
 
   const moduleRecord = isRecord(imported) ? imported : {};
-  const resolved = resolveCollectionExports(moduleRecord);
-  assertIsPreflightCollection(resolved);
 
   try {
+    const resolved = resolveCollectionExports(moduleRecord);
+    assertIsPreflightCollection(resolved);
     validateCollection(resolved);
   } catch (error: unknown) {
     rmSync(outputPath, { force: true });
