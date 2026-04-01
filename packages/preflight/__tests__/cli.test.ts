@@ -11,7 +11,6 @@ const mockFormatJsonError = vi.hoisted(() => vi.fn());
 const mockResolveGitHubToken = vi.hoisted(() => vi.fn());
 const mockLoadRemoteCollection = vi.hoisted(() => vi.fn());
 const mockDiscoverInternalCollections = vi.hoisted(() => vi.fn());
-const mockLoadConfig = vi.hoisted(() => vi.fn());
 
 vi.mock('../src/config.ts', () => ({
   loadPreflightCollection: mockLoadPreflightCollection,
@@ -47,10 +46,6 @@ vi.mock('../src/loadRemoteCollection.ts', () => ({
 
 vi.mock('../src/discoverInternalCollections.ts', () => ({
   discoverInternalCollections: mockDiscoverInternalCollections,
-}));
-
-vi.mock('../src/loadConfig.ts', () => ({
-  loadConfig: mockLoadConfig,
 }));
 
 import { parseRunArgs, runCommand } from '../src/cli.ts';
@@ -275,7 +270,6 @@ describe(runCommand, () => {
     mockResolveGitHubToken.mockReset();
     mockLoadRemoteCollection.mockReset();
     mockDiscoverInternalCollections.mockReset();
-    mockLoadConfig.mockReset();
   });
 
   it('runs all checklists when no names are given', async () => {
