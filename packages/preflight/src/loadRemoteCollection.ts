@@ -3,7 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { assertIsPreflightCollection, isRecord } from './assertIsPreflightCollection.ts';
+import { assertIsPreflightCollection } from './assertIsPreflightCollection.ts';
+import { isRecord } from './isRecord.ts';
 import { resolveCollectionExports } from './resolveCollectionExports.ts';
 import type { PreflightCollection } from './types.ts';
 import { validateCollection } from './validateCollection.ts';
