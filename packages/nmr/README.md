@@ -8,34 +8,72 @@ Context-aware script runner for PNPM monorepos. Ships an `nmr` (node-monorepo ru
 pnpm add -D @williamthorsen/nmr
 ```
 
-## CLI usage
+## Quick start
 
-```
-nmr <command>                         # Context-aware: root vs package
-nmr -F, --filter <pattern> <command>  # Run in matching packages
-nmr -R, --recursive <command>         # Run in all packages
-nmr -w, --workspace-root <command>    # Force root script registry
-nmr -?, --help                        # Show available commands
-nmr --int-test <command>              # Use integration test scripts
-```
+nmr works out of the box with no configuration. It ships with built-in scripts for common monorepo tasks.
 
-### Examples
+From a package directory:
 
 ```bash
-# From a package directory
-nmr test                    # Runs workspace test script
-nmr build                   # Runs compile && generate-typings
+nmr test          # Run tests for the current package
+nmr build         # Compile + generate typings
+nmr check         # Typecheck, format check, lint check, and tests
+```
 
-# From the monorepo root
-nmr test                    # Runs root test + recursive workspace tests
-nmr ci                      # Runs check:strict && build
+From the monorepo root:
 
-# Targeting specific packages
-nmr -F core test            # Test only the core package
-nmr -R lint                 # Lint all workspace packages
+```bash
+nmr test          # Run root tests + recursive workspace tests
+nmr build         # Build all packages
+nmr ci            # Run check:strict && build (full CI pipeline)
+```
 
-# Force root context from anywhere
-nmr -w check                # Run root check from a package dir
+nmr detects where you are and selects the right scripts automatically — see [context-aware resolution](#context-aware-resolution) below.
+
+## Context-aware resolution
+
+nmr's key feature is that the same command runs different scripts depending on where you invoke it. It walks up from your current directory to find `pnpm-workspace.yaml`, then checks whether your CWD is inside a workspace package directory.
+
+| Where you run `nmr`        | Registry used     | `nmr test` runs                               |
+| -------------------------- | ----------------- | --------------------------------------------- |
+| Monorepo root              | Root scripts      | Root tests + `pnpm --recursive exec nmr test` |
+| Inside a workspace package | Workspace scripts | `pnpm exec vitest` (for that package only)    |
+| Anywhere, with `-w` flag   | Root scripts      | Forces root registry regardless of location   |
+
+Use `-w` to escape package context:
+
+```bash
+# From inside packages/core, run the root check suite
+nmr -w check
+```
+
+## Three-tier override system
+
+Scripts resolve through three tiers. Higher tiers override lower ones:
+
+1. **Built-in defaults** — scripts shipped with this package
+2. **Repo-wide config** — additions and overrides in `.config/nmr.config.ts`
+3. **Per-package overrides** — scripts in a package's `package.json`
+
+### Resolution example
+
+Given the `build` command for a package that defines its own build script:
+
+| Tier | Source                  | Value                             | Wins? |
+| ---- | ----------------------- | --------------------------------- | ----- |
+| 1    | Built-in default        | `['compile', 'generate-typings']` | —     |
+| 2    | `.config/nmr.config.ts` | _(not set)_                       | —     |
+| 3    | `package.json` scripts  | `"tsx custom-build.ts"`           | ✓     |
+
+If no per-package override exists, the highest-tier value that is set wins. Set a script to `""` in `package.json` to skip it for that package.
+
+### Script values
+
+Script values can be `string` or `string[]`. Arrays expand to chained `nmr` sub-invocations:
+
+```ts
+// "build": ["compile", "generate-typings"]
+// expands to: nmr compile && nmr generate-typings
 ```
 
 ## Configuration
@@ -55,19 +93,171 @@ export default defineConfig({
 });
 ```
 
-## Three-tier override system
+### `defineConfig` fields
 
-1. **Package defaults** — built-in scripts shipped with this package
-2. **Repo-wide config** — additions/overrides in `.config/nmr.config.ts`
-3. **Per-package overrides** — in a package's `package.json` `scripts` field
+| Field              | Type                                 | Description                                                    |
+| ------------------ | ------------------------------------ | -------------------------------------------------------------- |
+| `workspaceScripts` | `Record<string, string \| string[]>` | Scripts added or overridden in the workspace registry (tier 2) |
+| `rootScripts`      | `Record<string, string \| string[]>` | Scripts added or overridden in the root registry (tier 2)      |
 
-Per-package overrides take highest precedence. Set a script to `""` in `package.json` to skip it for that package.
+Both fields are optional. Values follow the same `string | string[]` convention described in [script values](#script-values).
 
-Script values can be `string` or `string[]`. Arrays expand to chained `nmr` invocations:
+## Default script registries
 
-```ts
-// "build": ["compile", "generate-typings"]
-// expands to: nmr compile && nmr generate-typings
+These scripts are available out of the box. Repo-wide config (tier 2) and per-package overrides (tier 3) can add to or replace any of them.
+
+### Workspace scripts
+
+| Command            | Runs                                                     |
+| ------------------ | -------------------------------------------------------- |
+| `build`            | `compile`, `generate-typings`                            |
+| `check`            | `typecheck`, `fmt:check`, `lint:check`, `test`           |
+| `check:strict`     | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage` |
+| `clean`            | `pnpm exec rimraf dist/*`                                |
+| `compile`          | `tsx ../../config/build.ts`                              |
+| `fix`              | `lint`, `fmt`                                            |
+| `fmt`              | `prettier --list-different --write .`                    |
+| `fmt:check`        | `prettier --check .`                                     |
+| `generate-typings` | `tsc --project tsconfig.generate-typings.json`           |
+| `lint`             | `eslint --fix .`                                         |
+| `lint:check`       | `eslint .`                                               |
+| `lint:strict`      | `strict-lint`                                            |
+| `test`             | `pnpm exec vitest`                                       |
+| `test:coverage`    | `pnpm exec vitest --coverage`                            |
+| `test:watch`       | `pnpm exec vitest --watch`                               |
+| `typecheck`        | `tsgo --noEmit`                                          |
+| `view-coverage`    | `open coverage/index.html`                               |
+
+#### Integration test variant
+
+Packages with a `vitest.integration.config.ts` file get different test commands. Use the `--int-test` flag to select this variant.
+
+| Command            | Runs                                                               |
+| ------------------ | ------------------------------------------------------------------ |
+| `test`             | `pnpm exec vitest --config=vitest.standalone.config.ts`            |
+| `test:coverage`    | `pnpm exec vitest --config=vitest.standalone.config.ts --coverage` |
+| `test:integration` | `pnpm exec vitest --config=vitest.integration.config.ts`           |
+| `test:watch`       | `pnpm exec vitest --config=vitest.standalone.config.ts --watch`    |
+
+### Root scripts
+
+#### Build and CI
+
+| Command | Runs                              |
+| ------- | --------------------------------- |
+| `build` | `pnpm --recursive exec nmr build` |
+| `ci`    | `build`, `check:strict`           |
+| `clean` | `pnpm --recursive exec nmr clean` |
+
+#### Check and quality
+
+| Command        | Runs                                                              |
+| -------------- | ----------------------------------------------------------------- |
+| `check`        | `typecheck`, `fmt:check`, `lint:check`, `test`                    |
+| `check:strict` | `typecheck`, `fmt:check`, `audit`, `lint:strict`, `test:coverage` |
+
+#### Test
+
+| Command         | Runs                                                       |
+| --------------- | ---------------------------------------------------------- |
+| `test`          | `nmr root:test && pnpm --recursive exec nmr test`          |
+| `test:coverage` | `nmr root:test && pnpm --recursive exec nmr test:coverage` |
+| `test:watch`    | `vitest --watch`                                           |
+
+#### Typecheck
+
+| Command     | Runs                                                        |
+| ----------- | ----------------------------------------------------------- |
+| `typecheck` | `nmr root:typecheck && pnpm --recursive exec nmr typecheck` |
+
+#### Lint
+
+| Command       | Runs                                                            |
+| ------------- | --------------------------------------------------------------- |
+| `lint`        | `nmr root:lint && pnpm --recursive exec nmr lint`               |
+| `lint:check`  | `nmr root:lint:check && pnpm --recursive exec nmr lint:check`   |
+| `lint:strict` | `nmr root:lint:strict && pnpm --recursive exec nmr lint:strict` |
+
+#### Format
+
+| Command     | Runs                                  |
+| ----------- | ------------------------------------- |
+| `fmt`       | `prettier --list-different --write .` |
+| `fmt:all`   | `fmt`, `fmt:sh`                       |
+| `fmt:check` | `prettier --check .`                  |
+| `fmt:sh`    | `shfmt --write **/*.sh`               |
+
+#### Audit
+
+| Command      | Runs                                                        |
+| ------------ | ----------------------------------------------------------- |
+| `audit`      | `audit:prod`, `audit:dev`                                   |
+| `audit:dev`  | `pnpm dlx audit-ci@^6 --config .audit-ci/config.dev.json5`  |
+| `audit:prod` | `pnpm dlx audit-ci@^6 --config .audit-ci/config.prod.json5` |
+
+#### Dependencies
+
+| Command           | Runs                                     |
+| ----------------- | ---------------------------------------- |
+| `outdated`        | `pnpm outdated --compatible --recursive` |
+| `outdated:latest` | `pnpm outdated --recursive`              |
+| `update`          | `pnpm update --recursive`                |
+| `update:latest`   | `pnpm update --latest --recursive`       |
+
+#### Root-only
+
+These scripts operate on root-level code only (not workspace packages):
+
+| Command            | Runs                                                          |
+| ------------------ | ------------------------------------------------------------- |
+| `root:check`       | `root:typecheck`, `fmt:check`, `root:lint:check`, `root:test` |
+| `root:lint`        | `eslint --fix --ignore-pattern 'packages/**' .`               |
+| `root:lint:check`  | `eslint --ignore-pattern 'packages/**' .`                     |
+| `root:lint:strict` | `strict-lint --ignore-pattern 'packages/**' .`                |
+| `root:test`        | `vitest --config ./vitest.root.config.ts`                     |
+| `root:typecheck`   | `tsgo --noEmit`                                               |
+
+#### Utilities
+
+| Command             | Runs                    |
+| ------------------- | ----------------------- |
+| `report-overrides`  | `nmr-report-overrides`  |
+| `sync-pnpm-version` | `nmr-sync-pnpm-version` |
+
+## CLI reference
+
+### `nmr`
+
+```
+nmr [flags] <command> [args...]
+```
+
+| Flag                     | Description                                         | Default |
+| ------------------------ | --------------------------------------------------- | ------- |
+| `-F, --filter <pattern>` | Run command in matching packages                    | —       |
+| `-R, --recursive`        | Run command in all packages                         | —       |
+| `-w, --workspace-root`   | Force root script registry                          | —       |
+| `-q, --quiet`            | Suppress info messages; show full output on failure | —       |
+| `-?, --help`             | Show available commands                             | —       |
+| `--int-test`             | Use integration test scripts                        | —       |
+
+### Examples
+
+```bash
+# From a package directory
+nmr test                    # Run workspace test script
+nmr build                   # Compile + generate typings
+
+# From the monorepo root
+nmr test                    # Root tests + recursive workspace tests
+nmr ci                      # check:strict + build
+
+# Target specific packages
+nmr -F core test            # Test only the core package
+nmr -R lint                 # Lint all workspace packages
+
+# Force root context from anywhere
+nmr -w check                # Run root check from a package dir
 ```
 
 ## Additional subcommands
@@ -97,11 +287,14 @@ nmr sync-pnpm-version
 Verify that all publishable workspace packages have a `prepublishOnly` script. Exits non-zero if any are missing.
 
 ```bash
-ensure-prepublish-hooks              # Check only
-ensure-prepublish-hooks --fix        # Add missing hooks (default: "npm run build")
-ensure-prepublish-hooks --dry-run    # Preview what --fix would do
-ensure-prepublish-hooks --command "pnpm build"  # Use a custom hook command
+ensure-prepublish-hooks
 ```
+
+| Flag                  | Description                   | Default           |
+| --------------------- | ----------------------------- | ----------------- |
+| `--fix`               | Add missing hooks             | —                 |
+| `--dry-run`           | Preview what `--fix` would do | —                 |
+| `--command <command>` | Custom hook command           | `"npm run build"` |
 
 ## Consumer migration
 
