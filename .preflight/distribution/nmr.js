@@ -1,4 +1,4 @@
-// @generated — do not edit. Compiled by preflight.
+/** @noformat — @generated. Do not edit. Compiled by preflight. */
 /* eslint-disable */
 
 var __defProp = Object.defineProperty;

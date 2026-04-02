@@ -6,7 +6,7 @@ export interface CompileResult {
 }
 
 /** Generated-file header prepended to compiled output. */
-const GENERATED_HEADER = '// @generated — do not edit. Compiled by preflight.\n/* eslint-disable */\n';
+const GENERATED_HEADER = '/** @noformat — @generated. Do not edit. Compiled by preflight. */\n/* eslint-disable */\n';
 
 /** Derive the default output path by replacing the `.ts` extension with `.js`. */
 function deriveOutputPath(inputPath: string): string {

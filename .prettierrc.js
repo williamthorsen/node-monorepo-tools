@@ -1,4 +1,5 @@
 export default {
+  checkIgnorePragma: true,
   singleQuote: true,
   jsxSingleQuote: false,
   trailingComma: 'all',
