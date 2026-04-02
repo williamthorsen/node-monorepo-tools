@@ -6,6 +6,8 @@ name: Publish
 # Triggered by tag pushes. Installs `@williamthorsen/release-kit` globally and
 # runs `release-kit publish` with OIDC-based npm authentication.
 # Pass `provenance: true` to enable npm provenance attestations (requires a public repo).
+# Pass `build-local: true` to build release-kit from source instead of installing from npm
+# (required when publishing release-kit itself to avoid bootstrap problems).
 # The calling workflow must grant `id-token: write` and `contents: read` permissions.
 #
 # Usage:
@@ -23,6 +25,11 @@ on:
         default: '24'
       provenance:
         description: 'Generate npm provenance attestations (requires a public repo)'
+        required: false
+        type: boolean
+        default: false
+      build-local:
+        description: 'Build release-kit from source instead of installing from npm'
         required: false
         type: boolean
         default: false
@@ -49,19 +56,42 @@ jobs:
       # Strip the packageManager field so that actions/setup-node does not
       # try to install it. The field is irrelevant for publishing.
       - name: Neutralize packageManager field
+        if: ${{ !inputs.build-local }}
         run: node -e "const fs=require('fs'),f='package.json',p=JSON.parse(fs.readFileSync(f));delete p.packageManager;fs.writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
+
+      # Preserve the packageManager field so pnpm/action-setup can read the version.
+      - name: Set up pnpm
+        if: ${{ inputs.build-local }}
+        uses: pnpm/action-setup@v4
 
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
           node-version: ${{ inputs.node-version }}
           registry-url: https://registry.npmjs.org
+          cache: ${{ inputs.build-local && 'pnpm' || '' }}
 
       - name: Disable Corepack
+        if: ${{ !inputs.build-local }}
         run: corepack disable
 
-      - name: Install release-kit
+      - name: Install release-kit from npm
+        if: ${{ !inputs.build-local }}
         run: npm install --global @williamthorsen/release-kit
+
+      # Build release-kit from source to avoid bootstrap problems when
+      # publishing a version that introduces new CLI flags.
+      - name: Install dependencies
+        if: ${{ inputs.build-local }}
+        run: pnpm install --frozen-lockfile
+
+      - name: Build release-kit from source
+        if: ${{ inputs.build-local }}
+        run: pnpm --filter @williamthorsen/release-kit... run prepare
+
+      - name: Link release-kit onto PATH
+        if: ${{ inputs.build-local }}
+        run: npm link --workspace packages/release-kit
 
       - name: Publish
         run: release-kit publish ${{ inputs.provenance && '--provenance' || '' }} --no-git-checks
