@@ -262,7 +262,7 @@ function hasMinDevDependencyVersion(name: string, minVersion: string): boolean {
   if (pkg === undefined) return false;
   const devDeps = pkg.devDependencies;
   if (typeof devDeps !== 'object' || devDeps === null || !(name in devDeps)) return false;
-  const range = (devDeps as Record<string, string>)[name];
+  const range = (devDeps as Record<string, unknown>)[name];
   if (typeof range !== 'string') return false;
   // Strip leading semver range operators to extract the base version.
   const versionMatch = /(\d+\.\d+\.\d+)/.exec(range);

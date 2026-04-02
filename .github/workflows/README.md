@@ -2,8 +2,8 @@
 
 ## Naming convention
 
-- **Caller workflows:** `{name}.yaml` -- repo-specific workflows that trigger on events (e.g., `workflow_dispatch`) and delegate to a reusable workflow.
-- **Reusable workflows:** `{name}.reusable.yaml` -- shared workflows invoked via `workflow_call`. These can be consumed by this repo (via relative path) or by other repos (via full reference).
+- **Caller workflows:** `{name}.yaml` — repo-specific workflows that trigger on events (e.g., `workflow_dispatch`) and delegate to a reusable workflow.
+- **Reusable workflows:** `{name}.reusable.yaml` — shared workflows invoked via `workflow_call`. These can be consumed by this repo (via relative path) or by other repos (via full reference).
 
 ## Versioning
 
