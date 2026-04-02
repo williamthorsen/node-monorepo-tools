@@ -15,7 +15,7 @@ name: Release
 # Usage:
 #   jobs:
 #     release:
-#       uses: williamthorsen/node-monorepo-tools/.github/workflows/release-workflow.yaml@release-workflow-v1
+#       uses: williamthorsen/node-monorepo-tools/.github/workflows/release.reusable.yaml@release-workflow-v1
 
 on:
   workflow_call:

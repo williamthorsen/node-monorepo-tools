@@ -12,7 +12,7 @@ on:
 
 jobs:
   sync:
-    uses: williamthorsen/node-monorepo-tools/.github/workflows/sync-labels.yaml@sync-labels-v1
+    uses: williamthorsen/node-monorepo-tools/.github/workflows/sync-labels.reusable.yaml@sync-labels-workflow-v1
 `;
 }
 

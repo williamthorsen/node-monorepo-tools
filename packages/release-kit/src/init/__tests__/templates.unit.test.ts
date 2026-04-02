@@ -41,7 +41,7 @@ describe(publishWorkflow, () => {
 
     expect(workflow).toContain("'*-v[0-9]*'");
     expect(workflow).not.toContain("- 'v[0-9]*'");
-    expect(workflow).toContain('publish-workflow.yaml@publish-workflow-v1');
+    expect(workflow).toContain('publish.reusable.yaml@publish-workflow-v1');
     expect(workflow).toContain('id-token: write');
     expect(workflow).toContain('contents: read');
     expect(workflow).not.toContain('secrets:');
@@ -52,7 +52,7 @@ describe(publishWorkflow, () => {
 
     expect(workflow).toContain("'v[0-9]*'");
     expect(workflow).not.toContain("'*-v[0-9]*'");
-    expect(workflow).toContain('publish-workflow.yaml@publish-workflow-v1');
+    expect(workflow).toContain('publish.reusable.yaml@publish-workflow-v1');
     expect(workflow).toContain('id-token: write');
     expect(workflow).toContain('contents: read');
     expect(workflow).not.toContain('secrets:');
@@ -73,7 +73,7 @@ describe(releaseWorkflow, () => {
   it('generates a monorepo workflow with only input but no monorepo flag', () => {
     const workflow = releaseWorkflow('monorepo');
 
-    expect(workflow).toContain('release-workflow.yaml@release-workflow-v1');
+    expect(workflow).toContain('release.reusable.yaml@release-workflow-v1');
     expect(workflow).not.toContain('monorepo:');
     expect(workflow).toContain('only:');
     expect(workflow).toContain('inputs.only');
@@ -82,7 +82,7 @@ describe(releaseWorkflow, () => {
   it('generates a single-package workflow without only input', () => {
     const workflow = releaseWorkflow('single-package');
 
-    expect(workflow).toContain('release-workflow.yaml@release-workflow-v1');
+    expect(workflow).toContain('release.reusable.yaml@release-workflow-v1');
     expect(workflow).not.toContain('monorepo:');
     expect(workflow).not.toContain('inputs.only');
   });

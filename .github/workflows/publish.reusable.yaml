@@ -11,7 +11,7 @@ name: Publish
 # Usage:
 #   jobs:
 #     publish:
-#       uses: williamthorsen/node-monorepo-tools/.github/workflows/publish-workflow.yaml@publish-workflow-v1
+#       uses: williamthorsen/node-monorepo-tools/.github/workflows/publish.reusable.yaml@publish-workflow-v1
 
 on:
   workflow_call:

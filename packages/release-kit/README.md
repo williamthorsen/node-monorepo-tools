@@ -68,6 +68,21 @@ Scaffolded files:
 - `.config/release-kit.config.ts` — starter config with commented-out customization examples (with `--with-config`)
 - `.config/git-cliff.toml` — copied from the bundled template (with `--with-config`)
 
+### `release-kit sync-labels`
+
+Manage GitHub label definitions via config-driven YAML files.
+
+```
+Usage: release-kit sync-labels <command> [options]
+
+Commands:
+  init        Scaffold sync-labels config and caller workflow
+  generate    Generate .github/labels.yaml from config
+  sync        Generate labels and push to GitHub (runs generate + gh label sync)
+```
+
+`init` scaffolds `.config/sync-labels.config.ts` with auto-detected workspace scope labels and a `.github/workflows/sync-labels.yaml` caller workflow. `generate` reads the config and writes `.github/labels.yaml`. `sync` runs `generate` and then applies labels to the GitHub repo.
+
 ## Configuration
 
 Configuration is optional. The CLI works out of the box by auto-discovering workspaces and applying defaults. Create `.config/release-kit.config.ts` only when you need to customize behavior.
