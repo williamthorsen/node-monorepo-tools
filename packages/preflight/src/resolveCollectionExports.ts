@@ -1,7 +1,4 @@
-/** Check whether a value is a plain object (non-null, non-array). */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
+import { isRecord } from './isRecord.ts';
 
 /**
  * Extract `checklists`, `fixLocation`, and `suites` from an imported module namespace.

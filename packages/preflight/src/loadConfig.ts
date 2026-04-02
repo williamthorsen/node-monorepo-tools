@@ -1,6 +1,9 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
+import { z } from 'zod';
+
+import { isRecord } from './isRecord.ts';
 import type { PreflightConfig, ResolvedPreflightConfig } from './types.ts';
 
 /** Default config values when no config file is found. */
@@ -14,28 +17,19 @@ const DEFAULT_CONFIG: ResolvedPreflightConfig = {
 /** Ordered lookup paths for the config file, resolved relative to `process.cwd()`. */
 const LOOKUP_PATHS = ['.config/preflight/config.ts', '.config/preflight.config.ts'];
 
-/** Check whether a value is a plain object (non-null, non-array). */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
+/** Structural schema for PreflightConfig. */
+const PreflightConfigSchema = z.looseObject({
+  compile: z
+    .looseObject({
+      srcDir: z.string().optional(),
+      outDir: z.string().optional(),
+    })
+    .optional(),
+});
 
 /** Validate that a raw value has the expected PreflightConfig shape. */
 function assertIsPreflightConfig(raw: unknown): asserts raw is PreflightConfig {
-  if (!isRecord(raw)) {
-    throw new TypeError(`Preflight config must be an object, got ${Array.isArray(raw) ? 'array' : typeof raw}`);
-  }
-
-  if (raw.compile !== undefined) {
-    if (!isRecord(raw.compile)) {
-      throw new TypeError("'compile' must be an object");
-    }
-    if (raw.compile.srcDir !== undefined && typeof raw.compile.srcDir !== 'string') {
-      throw new TypeError("'compile.srcDir' must be a string");
-    }
-    if (raw.compile.outDir !== undefined && typeof raw.compile.outDir !== 'string') {
-      throw new TypeError("'compile.outDir' must be a string");
-    }
-  }
+  PreflightConfigSchema.parse(raw);
 }
 
 /**
@@ -79,11 +73,13 @@ export async function loadConfig(overridePath?: string): Promise<ResolvedPreflig
 
   assertIsPreflightConfig(raw);
 
-  const compile = raw.compile;
+  // Guard is redundant at runtime (Zod already validated) but needed for type narrowing
+  // because `raw` is `Record<string, unknown> & PreflightConfig` after the assertion.
+  const compile = isRecord(raw.compile) ? raw.compile : undefined;
   return {
     compile: {
-      srcDir: isRecord(compile) && typeof compile.srcDir === 'string' ? compile.srcDir : DEFAULT_CONFIG.compile.srcDir,
-      outDir: isRecord(compile) && typeof compile.outDir === 'string' ? compile.outDir : DEFAULT_CONFIG.compile.outDir,
+      srcDir: typeof compile?.srcDir === 'string' ? compile.srcDir : DEFAULT_CONFIG.compile.srcDir,
+      outDir: typeof compile?.outDir === 'string' ? compile.outDir : DEFAULT_CONFIG.compile.outDir,
     },
   };
 }

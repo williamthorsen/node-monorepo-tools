@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ZodError } from 'zod';
 
 const mockExistsSync = vi.hoisted(() => vi.fn());
 const mockJitiImport = vi.hoisted(() => vi.fn());
@@ -82,21 +83,21 @@ describe(loadConfig, () => {
     mockExistsSync.mockReturnValue(true);
     mockJitiImport.mockResolvedValue({ compile: 'bad' });
 
-    await expect(loadConfig('config.ts')).rejects.toThrow("'compile' must be an object");
+    await expect(loadConfig('config.ts')).rejects.toThrow(ZodError);
   });
 
   it('throws when compile.srcDir is not a string', async () => {
     mockExistsSync.mockReturnValue(true);
     mockJitiImport.mockResolvedValue({ compile: { srcDir: 42 } });
 
-    await expect(loadConfig('config.ts')).rejects.toThrow("'compile.srcDir' must be a string");
+    await expect(loadConfig('config.ts')).rejects.toThrow(ZodError);
   });
 
   it('throws when compile.outDir is not a string', async () => {
     mockExistsSync.mockReturnValue(true);
     mockJitiImport.mockResolvedValue({ compile: { outDir: false } });
 
-    await expect(loadConfig('config.ts')).rejects.toThrow("'compile.outDir' must be a string");
+    await expect(loadConfig('config.ts')).rejects.toThrow(ZodError);
   });
 
   it('applies defaults for missing compile fields', async () => {

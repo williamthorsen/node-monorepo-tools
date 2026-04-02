@@ -1,40 +1,39 @@
+import { z } from 'zod';
+
 import type { PreflightCollection } from './types.ts';
 
-/** Check whether a value is a plain object (non-null, non-array). */
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
+/** Schema for a flat checklist (has `checks`, no `groups`). */
+const FlatChecklistSchema = z.looseObject({
+  name: z.string().min(1),
+  checks: z.array(z.unknown()),
+});
+
+/** Schema for a staged checklist (has `groups`, no `checks`). */
+const StagedChecklistSchema = z.looseObject({
+  name: z.string().min(1),
+  groups: z.array(z.unknown()),
+});
+
+const ChecklistSchema = z
+  .union([FlatChecklistSchema, StagedChecklistSchema])
+  .refine((val) => !('checks' in val && 'groups' in val), {
+    message: "Checklist cannot have both 'checks' and 'groups'",
+  });
+
+/** Structural schema for a PreflightCollection. */
+const PreflightCollectionSchema = z.looseObject({
+  fixLocation: z.enum(['INLINE', 'END']).optional(),
+  checklists: z.array(ChecklistSchema),
+  suites: z.record(z.string(), z.array(z.string())).optional(),
+});
 
 /**
  * Validate that a raw value conforms to the PreflightCollection shape.
  *
- * Throws on invalid input. When it returns without throwing, the value is a valid PreflightCollection.
- * Because jiti loads the actual TypeScript module, the config objects retain their original types
- * including function-valued properties like `check`.
+ * Throws a ZodError on invalid input. When it returns without throwing, the value is a valid
+ * PreflightCollection. Function-valued properties like `check` are passed through without
+ * validation because jiti loads the actual TypeScript module and preserves original types.
  */
 export function assertIsPreflightCollection(raw: unknown): asserts raw is PreflightCollection {
-  if (!isRecord(raw)) {
-    throw new TypeError(`Preflight collection must be an object, got ${Array.isArray(raw) ? 'array' : typeof raw}`);
-  }
-
-  if (!Array.isArray(raw.checklists)) {
-    throw new TypeError("Preflight collection must have a 'checklists' array");
-  }
-
-  for (const [i, entry] of raw.checklists.entries()) {
-    if (!isRecord(entry)) {
-      throw new Error(`checklists[${i}]: must be an object`);
-    }
-    if (typeof entry.name !== 'string' || entry.name === '') {
-      throw new Error(`checklists[${i}]: 'name' is required and must be a non-empty string`);
-    }
-    const hasChecks = 'checks' in entry;
-    const hasGroups = 'groups' in entry;
-    if (!hasChecks && !hasGroups) {
-      throw new Error(`checklists[${i}]: must have either 'checks' or 'groups'`);
-    }
-    if (hasChecks && hasGroups) {
-      throw new Error(`checklists[${i}]: cannot have both 'checks' and 'groups'`);
-    }
-  }
+  PreflightCollectionSchema.parse(raw);
 }

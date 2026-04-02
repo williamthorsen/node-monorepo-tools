@@ -1,7 +1,8 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
-import { assertIsPreflightCollection, isRecord } from './assertIsPreflightCollection.ts';
+import { assertIsPreflightCollection } from './assertIsPreflightCollection.ts';
+import { isRecord } from './isRecord.ts';
 import { resolveCollectionExports } from './resolveCollectionExports.ts';
 import type { PreflightChecklist, PreflightCollection, PreflightConfig, PreflightStagedChecklist } from './types.ts';
 import { validateCollection } from './validateCollection.ts';
