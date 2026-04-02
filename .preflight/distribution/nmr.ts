@@ -12,7 +12,10 @@ const releaseKit: PreflightChecklist = {
   checks: [
     {
       name: '@williamthorsen/release-kit >= 4.0.0 in devDependencies',
-      check: () => hasMinDevDependencyVersion('@williamthorsen/release-kit', '4.0.0'),
+      check: () =>
+        hasMinDevDependencyVersion('@williamthorsen/release-kit', '4.0.0', {
+          exempt: (range) => range.startsWith('workspace:'),
+        }),
       fix: 'pnpm add --save-dev @williamthorsen/release-kit@^4.0.0',
     },
     {
@@ -262,13 +265,18 @@ function hasDevDependency(name: string): boolean {
 }
 
 /** Check whether a dev dependency exists and its semver range satisfies a minimum version. */
-function hasMinDevDependencyVersion(name: string, minVersion: string): boolean {
+function hasMinDevDependencyVersion(
+  name: string,
+  minVersion: string,
+  options?: { exempt?: (range: string) => boolean },
+): boolean {
   const pkg = readPackageJson();
   if (pkg === undefined) return false;
   const devDeps = pkg.devDependencies;
   if (!isRecord(devDeps) || !(name in devDeps)) return false;
   const range = devDeps[name];
   if (typeof range !== 'string') return false;
+  if (options?.exempt?.(range)) return true;
   // Strip leading semver range operators to extract the base version.
   const versionMatch = /(\d+\.\d+\.\d+)/.exec(range);
   if (versionMatch === null) return false;

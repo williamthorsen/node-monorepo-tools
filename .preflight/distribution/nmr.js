@@ -13823,7 +13823,9 @@ var releaseKit = {
   checks: [
     {
       name: "@williamthorsen/release-kit >= 4.0.0 in devDependencies",
-      check: () => hasMinDevDependencyVersion("@williamthorsen/release-kit", "4.0.0"),
+      check: () => hasMinDevDependencyVersion("@williamthorsen/release-kit", "4.0.0", {
+        exempt: (range) => range.startsWith("workspace:")
+      }),
       fix: "pnpm add --save-dev @williamthorsen/release-kit@^4.0.0"
     },
     {
@@ -14041,13 +14043,14 @@ function hasDevDependency(name) {
   const devDeps = pkg.devDependencies;
   return isRecord2(devDeps) && name in devDeps;
 }
-function hasMinDevDependencyVersion(name, minVersion) {
+function hasMinDevDependencyVersion(name, minVersion, options) {
   const pkg = readPackageJson();
   if (pkg === void 0) return false;
   const devDeps = pkg.devDependencies;
   if (!isRecord2(devDeps) || !(name in devDeps)) return false;
   const range = devDeps[name];
   if (typeof range !== "string") return false;
+  if (options?.exempt?.(range)) return true;
   const versionMatch = /(\d+\.\d+\.\d+)/.exec(range);
   if (versionMatch === null) return false;
   return compareVersions(versionMatch[1], minVersion) >= 0;
