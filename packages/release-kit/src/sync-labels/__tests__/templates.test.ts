@@ -9,7 +9,7 @@ describe(syncLabelsWorkflow, () => {
 
     expect(result).toContain('workflow_dispatch:');
     expect(result).toContain(
-      'uses: williamthorsen/node-monorepo-tools/.github/workflows/sync-labels.yaml@sync-labels-v1',
+      'uses: williamthorsen/node-monorepo-tools/.github/workflows/sync-labels.reusable.yaml@sync-labels-workflow-v1',
     );
   });
 

@@ -67,7 +67,7 @@ permissions:
 
 jobs:
   publish:
-    uses: williamthorsen/node-monorepo-tools/.github/workflows/publish-workflow.yaml@publish-workflow-v1
+    uses: williamthorsen/node-monorepo-tools/.github/workflows/publish.reusable.yaml@publish-workflow-v1
     with:
       provenance: false # Set to true for public repos to generate npm provenance attestations
 `;
@@ -107,7 +107,7 @@ permissions:
 
 jobs:
   release:
-    uses: williamthorsen/node-monorepo-tools/.github/workflows/release-workflow.yaml@release-workflow-v1
+    uses: williamthorsen/node-monorepo-tools/.github/workflows/release.reusable.yaml@release-workflow-v1
     with:
       only: \${{ inputs.only }}
       bump: \${{ inputs.bump }}
@@ -142,7 +142,7 @@ permissions:
 
 jobs:
   release:
-    uses: williamthorsen/node-monorepo-tools/.github/workflows/release-workflow.yaml@release-workflow-v1
+    uses: williamthorsen/node-monorepo-tools/.github/workflows/release.reusable.yaml@release-workflow-v1
     with:
       bump: \${{ inputs.bump }}
       force: \${{ inputs.force }}

@@ -29,7 +29,7 @@ permissions:
 
 jobs:
   release:
-    uses: williamthorsen/node-monorepo-tools/.github/workflows/release-workflow.yaml@release-workflow-v1
+    uses: ./.github/workflows/release.reusable.yaml
     with:
       only: ${{ inputs.only }}
       bump: ${{ inputs.bump }}

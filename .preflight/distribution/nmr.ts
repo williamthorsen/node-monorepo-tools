@@ -11,9 +11,9 @@ const releaseKit: PreflightChecklist = {
   name: 'release-kit',
   checks: [
     {
-      name: '@williamthorsen/release-kit in devDependencies',
-      check: () => hasDevDependency('@williamthorsen/release-kit'),
-      fix: 'pnpm add --save-dev @williamthorsen/release-kit',
+      name: '@williamthorsen/release-kit >= 4.0.0 in devDependencies',
+      check: () => hasMinDevDependencyVersion('@williamthorsen/release-kit', '4.0.0'),
+      fix: 'pnpm add --save-dev @williamthorsen/release-kit@^4.0.0',
     },
     {
       name: 'release.yaml workflow exists',
@@ -21,29 +21,52 @@ const releaseKit: PreflightChecklist = {
       fix: 'Add .github/workflows/release.yaml using the release workflow template',
     },
     {
-      name: 'release workflow references reusable workflow',
+      name: 'release workflow references release.reusable.yaml',
       check: () =>
         fileContains(
           '.github/workflows/release.yaml',
-          /uses:\s*williamthorsen\/node-monorepo-tools\/.github\/workflows\/release-workflow\.yaml@/,
+          /uses:\s*(?:\.\/\.github\/workflows\/|williamthorsen\/node-monorepo-tools\/.github\/workflows\/)release\.reusable\.yaml/,
         ),
-      fix: 'Update release.yaml to use williamthorsen/node-monorepo-tools/.github/workflows/release-workflow.yaml@release-workflow-v1',
+      fix: 'Update release.yaml to use williamthorsen/node-monorepo-tools/.github/workflows/release.reusable.yaml@release-workflow-v1',
+    },
+    {
+      name: 'publish.yaml workflow exists',
+      check: () => fileExists('.github/workflows/publish.yaml'),
+      fix: 'Add .github/workflows/publish.yaml using the publish workflow template',
+    },
+    {
+      name: 'publish workflow references publish.reusable.yaml',
+      check: () =>
+        fileContains(
+          '.github/workflows/publish.yaml',
+          /uses:\s*(?:\.\/\.github\/workflows\/|williamthorsen\/node-monorepo-tools\/.github\/workflows\/)publish\.reusable\.yaml/,
+        ),
+      fix: 'Update publish.yaml to use williamthorsen/node-monorepo-tools/.github/workflows/publish.reusable.yaml@publish-workflow-v1',
     },
   ],
 };
 
-const labelSync: PreflightChecklist = {
-  name: 'label-sync',
+const syncLabels: PreflightChecklist = {
+  name: 'sync-labels',
   checks: [
     {
-      name: 'set-repo-labels.yaml workflow exists',
-      check: () => fileExists('.github/workflows/set-repo-labels.yaml'),
-      fix: 'Add .github/workflows/set-repo-labels.yaml using the label-sync workflow template',
+      name: 'sync-labels.yaml workflow exists',
+      check: () => fileExists('.github/workflows/sync-labels.yaml'),
+      fix: 'Add .github/workflows/sync-labels.yaml using the sync-labels workflow template',
     },
     {
-      name: '.github/labels.yml exists',
-      check: () => fileExists('.github/labels.yml'),
-      fix: 'Add .github/labels.yml with repo-specific label definitions',
+      name: 'sync-labels workflow references sync-labels.reusable.yaml',
+      check: () =>
+        fileContains(
+          '.github/workflows/sync-labels.yaml',
+          /uses:\s*(?:\.\/\.github\/workflows\/|williamthorsen\/node-monorepo-tools\/.github\/workflows\/)sync-labels\.reusable\.yaml/,
+        ),
+      fix: 'Update sync-labels.yaml to use williamthorsen/node-monorepo-tools/.github/workflows/sync-labels.reusable.yaml@sync-labels-workflow-v1',
+    },
+    {
+      name: '.github/labels.yaml exists',
+      check: () => fileExists('.github/labels.yaml'),
+      fix: 'Add .github/labels.yaml with repo-specific label definitions (use release-kit sync-labels generate)',
     },
   ],
 };
@@ -196,7 +219,7 @@ const repoSetup: PreflightChecklist = {
 };
 
 export default definePreflightCollection({
-  checklists: [releaseKit, labelSync, nmr, codeQuality, repoSetup],
+  checklists: [releaseKit, syncLabels, nmr, codeQuality, repoSetup],
 });
 
 // -- Helpers ------------------------------------------------------------------
@@ -231,6 +254,31 @@ function hasDevDependency(name: string): boolean {
   if (pkg === undefined) return false;
   const devDeps = pkg.devDependencies;
   return typeof devDeps === 'object' && devDeps !== null && name in devDeps;
+}
+
+/** Check whether a dev dependency exists and its semver range satisfies a minimum version. */
+function hasMinDevDependencyVersion(name: string, minVersion: string): boolean {
+  const pkg = readPackageJson();
+  if (pkg === undefined) return false;
+  const devDeps = pkg.devDependencies;
+  if (typeof devDeps !== 'object' || devDeps === null || !(name in devDeps)) return false;
+  const range = (devDeps as Record<string, string>)[name];
+  if (typeof range !== 'string') return false;
+  // Strip leading semver range operators to extract the base version.
+  const versionMatch = /(\d+\.\d+\.\d+)/.exec(range);
+  if (versionMatch === null) return false;
+  return compareVersions(versionMatch[1], minVersion) >= 0;
+}
+
+/** Compare two semver version strings. Return negative if a < b, 0 if equal, positive if a > b. */
+function compareVersions(a: string, b: string): number {
+  const partsA = a.split('.').map(Number);
+  const partsB = b.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    const diff = (partsA[i] ?? 0) - (partsB[i] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
 }
 
 /** Check whether package.json has a field, optionally with a specific value. */
