@@ -1,12 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest';
 
 const mockCompileConfig = vi.hoisted(() => vi.fn());
+const mockValidateCompiledOutput = vi.hoisted(() => vi.fn());
 const mockLoadConfig = vi.hoisted(() => vi.fn());
 const mockExistsSync = vi.hoisted(() => vi.fn());
 const mockReaddirSync = vi.hoisted(() => vi.fn());
 
 vi.mock('../src/compile/compileConfig.ts', () => ({
   compileConfig: mockCompileConfig,
+}));
+
+vi.mock('../src/compile/validateCompiledOutput.ts', () => ({
+  validateCompiledOutput: mockValidateCompiledOutput,
 }));
 
 vi.mock('../src/loadConfig.ts', () => ({
@@ -27,11 +32,13 @@ describe(compileCommand, () => {
   beforeEach(() => {
     stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    mockValidateCompiledOutput.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
     mockCompileConfig.mockReset();
+    mockValidateCompiledOutput.mockReset();
     mockLoadConfig.mockReset();
     mockExistsSync.mockReset();
     mockReaddirSync.mockReset();
@@ -144,5 +151,31 @@ describe(compileCommand, () => {
 
     expect(exitCode).toBe(1);
     expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('No .ts files found'));
+  });
+
+  // Post-compile validation tests
+  it('returns 1 when post-compile validation fails for explicit input', async () => {
+    mockCompileConfig.mockResolvedValue({ outputPath: '/abs/out.js' });
+    mockValidateCompiledOutput.mockRejectedValue(new Error('Suite name(s) collide with checklist name(s): deploy'));
+
+    const exitCode = await compileCommand(['input.ts']);
+
+    expect(exitCode).toBe(1);
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('Suite name(s) collide'));
+  });
+
+  it('returns 1 when post-compile validation fails during batch compile', async () => {
+    mockLoadConfig.mockResolvedValue({
+      compile: { srcDir: '.preflight/distribution', outDir: '.preflight/distribution' },
+    });
+    mockExistsSync.mockReturnValue(true);
+    mockReaddirSync.mockReturnValue(['a.ts']);
+    mockCompileConfig.mockResolvedValue({ outputPath: '/abs/a.js' });
+    mockValidateCompiledOutput.mockRejectedValue(new Error('suite "ci" references unknown checklist "missing"'));
+
+    const exitCode = await compileCommand([]);
+
+    expect(exitCode).toBe(1);
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('references unknown checklist'));
   });
 });

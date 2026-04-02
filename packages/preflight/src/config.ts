@@ -4,6 +4,7 @@ import path from 'node:path';
 import { assertIsPreflightCollection, isRecord } from './assertIsPreflightCollection.ts';
 import { resolveCollectionExports } from './resolveCollectionExports.ts';
 import type { PreflightChecklist, PreflightCollection, PreflightConfig, PreflightStagedChecklist } from './types.ts';
+import { validateCollection } from './validateCollection.ts';
 
 /**
  * The legacy default collection file path, resolved relative to `process.cwd()`.
@@ -69,5 +70,6 @@ export async function loadPreflightCollection(collectionPath?: string): Promise<
 
   const resolved = resolveCollectionExports(imported);
   assertIsPreflightCollection(resolved);
+  validateCollection(resolved);
   return resolved;
 }

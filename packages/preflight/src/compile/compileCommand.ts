@@ -4,6 +4,7 @@ import process from 'node:process';
 
 import { loadConfig } from '../loadConfig.ts';
 import { compileConfig } from './compileConfig.ts';
+import { validateCompiledOutput } from './validateCompiledOutput.ts';
 
 /** Extract a flag value from either `--flag value` or `--flag=value` form. */
 function extractFlagValue(
@@ -71,6 +72,7 @@ export async function compileCommand(args: string[]): Promise<number> {
   if (inputPath !== undefined) {
     try {
       const result = await compileConfig(inputPath, outputPath);
+      await validateCompiledOutput(result.outputPath);
       process.stdout.write(`Compiled: ${result.outputPath}\n`);
       return 0;
     } catch (error: unknown) {
@@ -117,6 +119,7 @@ async function compileBatch(): Promise<number> {
     const outFile = path.join(outDir, fileName.replace(/\.ts$/, '.js'));
     try {
       const result = await compileConfig(srcFile, outFile);
+      await validateCompiledOutput(result.outputPath);
       process.stdout.write(`Compiled: ${result.outputPath}\n`);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);

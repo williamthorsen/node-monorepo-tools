@@ -4,7 +4,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Extract `checklists` and `fixLocation` from an imported module namespace.
+ * Extract `checklists`, `fixLocation`, and `suites` from an imported module namespace.
  *
  * Supports both `export default definePreflightCollection({...})` and the named-export
  * convention (`export const checklists = ...`). Returns a plain record suitable for passing
@@ -20,10 +20,9 @@ export function resolveCollectionExports(moduleRecord: Record<string, unknown>):
     );
   }
 
-  const resolved: Record<string, unknown> = { checklists: source.checklists };
-  if (source.fixLocation !== undefined) {
-    resolved.fixLocation = source.fixLocation;
-  }
-
-  return resolved;
+  return {
+    checklists: source.checklists,
+    ...(source.fixLocation !== undefined && { fixLocation: source.fixLocation }),
+    ...(source.suites !== undefined && { suites: source.suites }),
+  };
 }

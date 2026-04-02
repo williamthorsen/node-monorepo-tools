@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { assertIsPreflightCollection, isRecord } from './assertIsPreflightCollection.ts';
 import { resolveCollectionExports } from './resolveCollectionExports.ts';
 import type { PreflightCollection } from './types.ts';
+import { validateCollection } from './validateCollection.ts';
 
 export interface LoadRemoteCollectionOptions {
   url: string;
@@ -50,6 +51,7 @@ export async function loadRemoteCollection({ url, token }: LoadRemoteCollectionO
     const moduleRecord = isRecord(imported) ? imported : {};
     const resolved = resolveCollectionExports(moduleRecord);
     assertIsPreflightCollection(resolved);
+    validateCollection(resolved);
     return resolved;
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
