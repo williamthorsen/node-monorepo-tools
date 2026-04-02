@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [preflight-v0.5.0] - 2026-04-02
+
+### Features
+
+- #116 preflight|feat: Add `preflight compile` CLI command for bundling remote configs (#117)
+
+Adds `preflight compile <input>` CLI command that bundles TypeScript checklist files into self-contained ESM bundles using esbuild (optional peer dependency). The bundler externalizes `node:*` builtins and inlines all other imports.
+
+Standardizes config loaders (`loadPreflightConfig`, `loadRemoteConfig`) on named `checklists` and `fixLocation` exports instead of `default`/`config`. Add `defineChecklists` identity helper as the recommended way to author checklist files. Migrate `config/preflight.config.ts` to the new convention.
+
+- #118 preflight|feat: Separate checklist collection from preflight config (#120)
+
+Splits the `PreflightConfig` type into two distinct concepts: `PreflightConfig` for repo-level settings (`compile.srcDir`/`outDir`) and `PreflightCollection` for checklist files. Normalized all `CheckList` identifiers to `Checklist`, overhauled CLI flags to separate collection sources from config, added a config file loader with lookup chain, implemented internal collection discovery, updated init scaffolding to produce both a config and a collection file, and migrated the repo's own checklists to `.preflight/distribution/`.
+
+- #99 preflight|feat: Support named suites of checklists (#123)
+
+Wires up the existing `suites` stub on `PreflightCollection` end-to-end: pass through export resolution, adds a shared validator for name-collision and referential-integrity checks, integrate validation into the compile path, and expand suite names in CLI checklist selection.
+
+- #122 preflight|feat: Validate suites field shape with Zod schemas (#124)
+
+Replaces hand-rolled structural assertions in `assertIsPreflightCollection` and `assertIsPreflightConfig` with declarative Zod schemas. This adds the missing `suites` field validation (`Record<string, string[]>`) and consolidates three identical `isRecord` helper definitions into a single shared utility.
+
 ## [preflight-v0.4.0] - 2026-03-31
 
 ### Features
