@@ -248,12 +248,17 @@ function readPackageJson(): Record<string, unknown> | undefined {
   return Object.fromEntries(Object.entries(parsed));
 }
 
+/** Narrow an unknown value to a string-keyed record without type assertions. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 /** Check whether a dev dependency is present in package.json. */
 function hasDevDependency(name: string): boolean {
   const pkg = readPackageJson();
   if (pkg === undefined) return false;
   const devDeps = pkg.devDependencies;
-  return typeof devDeps === 'object' && devDeps !== null && name in devDeps;
+  return isRecord(devDeps) && name in devDeps;
 }
 
 /** Check whether a dev dependency exists and its semver range satisfies a minimum version. */
@@ -261,8 +266,8 @@ function hasMinDevDependencyVersion(name: string, minVersion: string): boolean {
   const pkg = readPackageJson();
   if (pkg === undefined) return false;
   const devDeps = pkg.devDependencies;
-  if (typeof devDeps !== 'object' || devDeps === null || !(name in devDeps)) return false;
-  const range = (devDeps as Record<string, unknown>)[name];
+  if (!isRecord(devDeps) || !(name in devDeps)) return false;
+  const range = devDeps[name];
   if (typeof range !== 'string') return false;
   // Strip leading semver range operators to extract the base version.
   const versionMatch = /(\d+\.\d+\.\d+)/.exec(range);
