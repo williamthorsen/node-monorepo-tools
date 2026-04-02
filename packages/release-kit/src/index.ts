@@ -32,6 +32,7 @@ export { bumpVersion } from './bumpVersion.ts';
 export { commitCommand } from './commitCommand.ts';
 export { component } from './component.ts';
 export { createTags } from './createTags.ts';
+export { deleteFileIfExists } from './deleteFileIfExists.ts';
 export { detectPackageManager } from './detectPackageManager.ts';
 export { determineBumpType } from './determineBumpType.ts';
 export { discoverWorkspaces } from './discoverWorkspaces.ts';
