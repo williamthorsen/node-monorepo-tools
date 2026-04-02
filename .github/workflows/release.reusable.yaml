@@ -12,6 +12,9 @@ name: Release
 # Project dependencies are not installed: release-kit runs git-cliff and prettier
 # via `npx`, so no local node_modules are needed.
 #
+# Pass `build-local: true` to build release-kit from source instead of installing from npm
+# (required when releasing release-kit itself to avoid bootstrap problems).
+#
 # Usage:
 #   jobs:
 #     release:
@@ -34,6 +37,11 @@ on:
         default: ''
       force:
         description: 'Force a version bump even when there are no release-worthy changes'
+        type: boolean
+        default: false
+      build-local:
+        description: 'Build release-kit from source instead of installing from npm'
+        required: false
         type: boolean
         default: false
 
@@ -63,21 +71,44 @@ jobs:
       # Strip the packageManager field so that actions/setup-node does not
       # try to install it. The field is irrelevant for release preparation.
       - name: Neutralize packageManager field
+        if: ${{ !inputs.build-local }}
         run: node -e "const fs=require('fs'),f='package.json',p=JSON.parse(fs.readFileSync(f));delete p.packageManager;fs.writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
+
+      # Preserve the packageManager field so pnpm/action-setup can read the version.
+      - name: Set up pnpm
+        if: ${{ inputs.build-local }}
+        uses: pnpm/action-setup@v4
 
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
           node-version: '24'
+          cache: ${{ inputs.build-local && 'pnpm' || '' }}
 
       - name: Disable Corepack
+        if: ${{ !inputs.build-local }}
         run: corepack disable
 
       # Install globally so the binary is on PATH.
       # npm exec / npx binary resolution is unreliable with scoped packages
       # on newer npm versions (11.x), so explicit install is more robust.
-      - name: Install release-kit
+      - name: Install release-kit from npm
+        if: ${{ !inputs.build-local }}
         run: npm install --global @williamthorsen/release-kit
+
+      # Build release-kit from source to avoid bootstrap problems when
+      # releasing a version that introduces new CLI flags.
+      - name: Install dependencies
+        if: ${{ inputs.build-local }}
+        run: pnpm install --frozen-lockfile
+
+      - name: Build release-kit from source
+        if: ${{ inputs.build-local }}
+        run: pnpm --filter @williamthorsen/release-kit... run prepare
+
+      - name: Link release-kit onto PATH
+        if: ${{ inputs.build-local }}
+        run: npm link --workspace packages/release-kit
 
       - name: Run release preparation
         run: |

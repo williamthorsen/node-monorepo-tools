@@ -31,6 +31,7 @@ jobs:
   release:
     uses: ./.github/workflows/release.reusable.yaml
     with:
+      build-local: true
       only: ${{ inputs.only }}
       bump: ${{ inputs.bump }}
       # TODO: The reusable workflow (release-pnpm.yaml@v3) does not yet accept `force`.
