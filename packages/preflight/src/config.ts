@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 
 import { assertIsPreflightCollection } from './assertIsPreflightCollection.ts';
-import { isRecord } from './isRecord.ts';
+import { jitiImport } from './jitiImport.ts';
 import { resolveCollectionExports } from './resolveCollectionExports.ts';
 import type { PreflightChecklist, PreflightCollection, PreflightConfig, PreflightStagedChecklist } from './types.ts';
 import { validateCollection } from './validateCollection.ts';
@@ -59,34 +59,12 @@ export async function loadPreflightCollection(collectionPath?: string): Promise<
     throw new Error(`Preflight collection not found: ${collectionPath ?? resolvedPath}`);
   }
 
-  const { createJiti } = await import('jiti');
-  const jiti = createJiti(resolvedPath);
-
-  let imported: unknown;
-  try {
-    imported = await jiti.import(resolvedPath);
-  } catch (error: unknown) {
-    if (
-      error instanceof Error &&
-      'code' in error &&
-      (error.code === 'MODULE_NOT_FOUND' || error.code === 'ERR_MODULE_NOT_FOUND')
-    ) {
-      const moduleMatch = error.message.match(/Cannot find (?:module|package) '([^']+)'/);
-      const moduleName = moduleMatch?.[1] ?? 'unknown module';
-      throw new Error(
-        `Cannot resolve '${moduleName}'. ` +
-          `Uncompiled collections require the package to be installed as a project dependency. ` +
-          `Alternatively, run 'preflight compile' to produce a self-contained bundle that does not need a local install.`,
-      );
-    }
-    throw error;
-  }
-
-  if (!isRecord(imported)) {
-    throw new Error(
-      `Collection file must export an object, got ${Array.isArray(imported) ? 'array' : typeof imported}`,
-    );
-  }
+  const imported = await jitiImport(
+    resolvedPath,
+    'Uncompiled collections require the package to be installed as a project dependency. ' +
+      "Alternatively, run 'preflight compile' to produce a self-contained bundle that does not need a local install.",
+    'Collection file',
+  );
 
   const resolved = resolveCollectionExports(imported);
   assertIsPreflightCollection(resolved);
