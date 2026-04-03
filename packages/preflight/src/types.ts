@@ -1,5 +1,28 @@
+// ---------------------------------------------------------------------------
+// Severity
+// ---------------------------------------------------------------------------
+
+/** Severity levels for assertive checks, ordered from most to least urgent. */
+export type Severity = 'error' | 'warn' | 'recommend';
+
+// ---------------------------------------------------------------------------
+// Skip conditions
+// ---------------------------------------------------------------------------
+
+/**
+ * Return value from a skip function.
+ *
+ * - `false`: the check is applicable; run it.
+ * - `string`: the check is not applicable; skip it with this reason as detail.
+ */
+export type SkipResult = false | string;
+
+// ---------------------------------------------------------------------------
+// Check outcomes
+// ---------------------------------------------------------------------------
+
 /** Placement of fix messages in the report output. */
-export type FixLocation = 'INLINE' | 'END';
+export type FixLocation = 'inline' | 'end';
 
 /** Progress expressed as a fraction with passed and total counts. */
 export interface FractionProgress {
@@ -32,45 +55,108 @@ export interface CheckOutcome {
 /** The value a check function may return (or resolve to). */
 export type CheckReturnValue = boolean | CheckOutcome;
 
-/** A single check to run during preflight. */
+// ---------------------------------------------------------------------------
+// Check definition
+// ---------------------------------------------------------------------------
+
+/** A single preflight check. */
 export interface PreflightCheck {
+  /** Display name shown in output. */
   name: string;
+
+  /** Assert a condition. Return true/false or a CheckOutcome. */
   check: () => CheckReturnValue | Promise<CheckReturnValue>;
+
+  /**
+   * Severity of this check. Determines failure and reporting behavior.
+   * Default: collection's `defaultSeverity`, falling back to 'error'.
+   */
+  severity?: Severity;
+
+  /**
+   * Skip condition. When provided, evaluated before the check runs.
+   * Return `false` to run the check, or a reason string to skip it.
+   */
+  skip?: () => SkipResult | Promise<SkipResult>;
+
+  /** Remediation message shown when the check fails. */
   fix?: string;
 }
 
-/** The outcome of running a single check. */
-export interface PreflightResult {
+// ---------------------------------------------------------------------------
+// Results
+// ---------------------------------------------------------------------------
+
+/** Shared fields present on every result regardless of outcome. */
+interface PreflightResultBase {
+  /** Check name. */
   name: string;
-  status: 'passed' | 'failed' | 'skipped';
-  fix?: string;
-  error?: Error;
-  detail?: string;
-  progress?: Progress;
+
+  /** Resolved severity for this check. */
+  severity: Severity;
+
+  /** Diagnostic detail (failure reason, skip reason, or supplementary info). */
+  detail: string | null;
+
+  /** Remediation message, carried from the check definition. */
+  fix: string | null;
+
+  /** Error thrown by the check function, if any. */
+  error: Error | null;
+
+  /** Progress data, if the check reported it. */
+  progress: Progress | null;
+
+  /** Wall-clock time to execute the check, in milliseconds. */
   durationMs: number;
 }
 
-/** Aggregate report from running a checklist. */
+/** Result for a check that ran and passed. */
+export interface PassedResult extends PreflightResultBase {
+  status: 'passed';
+  ok: true;
+}
+
+/** Result for a check that ran and failed. */
+export interface FailedResult extends PreflightResultBase {
+  status: 'failed';
+  ok: false;
+}
+
+/** Result for a check that was skipped. */
+export interface SkippedResult extends PreflightResultBase {
+  status: 'skipped';
+  ok: null;
+  /** Why the check was skipped. */
+  skipReason: 'n/a' | 'precondition';
+}
+
+/**
+ * The outcome of running a single check, discriminated by `status`.
+ *
+ * - `passed`: check ran and the condition was met.
+ * - `failed`: check ran and the condition was not met.
+ * - `skipped`: check did not run (`skipReason` explains why).
+ */
+export type PreflightResult = PassedResult | FailedResult | SkippedResult;
+
+// ---------------------------------------------------------------------------
+// Reports
+// ---------------------------------------------------------------------------
+
+/** Aggregate report from running a single checklist. */
 export interface PreflightReport {
+  /** Individual check results. */
   results: PreflightResult[];
+
+  /**
+   * True when no check at or above the failure threshold has `ok: false`.
+   * Skipped checks do not affect this.
+   */
   passed: boolean;
+
+  /** Total wall-clock time for the checklist, in milliseconds. */
   durationMs: number;
-}
-
-/** A flat checklist where all checks run concurrently. */
-export interface PreflightChecklist {
-  name: string;
-  preconditions?: PreflightCheck[];
-  checks: PreflightCheck[];
-  fixLocation?: FixLocation;
-}
-
-/** A staged checklist where groups run sequentially and checks within each group run concurrently. */
-export interface PreflightStagedChecklist {
-  name: string;
-  preconditions?: PreflightCheck[];
-  groups: PreflightCheck[][];
-  fixLocation?: FixLocation;
 }
 
 /** Per-checklist aggregate for the combined summary table. */
@@ -83,16 +169,77 @@ export interface ChecklistSummary {
   durationMs: number;
 }
 
-/** Options controlling how the report is formatted. */
-export interface ReportOptions {
+// ---------------------------------------------------------------------------
+// Checklists
+// ---------------------------------------------------------------------------
+
+/** A flat checklist where all checks run concurrently. */
+export interface PreflightChecklist {
+  name: string;
+
+  /**
+   * Gating checks. If any precondition fails, all downstream checks are skipped.
+   *
+   * Reporting of precondition results and skipped dependent checks follows the
+   * same reporting-threshold rule as all other results: a result appears in
+   * output only when its severity is at or above the reporting threshold.
+   * Each dependent check's own severity determines whether its skipped entry
+   * is shown.
+   */
+  preconditions?: PreflightCheck[];
+
+  checks: PreflightCheck[];
+
   fixLocation?: FixLocation;
 }
 
-/** A collection of checklists with an optional default fixLocation. */
-export interface PreflightCollection {
+/** A staged checklist where groups run sequentially; checks within each group run concurrently. */
+export interface PreflightStagedChecklist {
+  name: string;
+  preconditions?: PreflightCheck[];
+  groups: PreflightCheck[][];
   fixLocation?: FixLocation;
+}
+
+/** Distinguish a flat checklist from a staged checklist by the presence of `checks`. */
+export function isFlatChecklist(
+  checklist: PreflightChecklist | PreflightStagedChecklist,
+): checklist is PreflightChecklist {
+  return 'checks' in checklist;
+}
+
+// ---------------------------------------------------------------------------
+// Collection
+// ---------------------------------------------------------------------------
+
+/** A collection of checklists with shared configuration. */
+export interface PreflightCollection {
+  /** Checklists in this collection. */
   checklists: Array<PreflightChecklist | PreflightStagedChecklist>;
+
+  /** Named subsets of checklists. */
   suites?: Record<string, string[]>;
+
+  /**
+   * Default severity for checks that don't declare one.
+   * Default: 'error'.
+   */
+  defaultSeverity?: Severity;
+
+  /**
+   * Minimum severity at which a failed check causes the run to fail.
+   * Default: 'error'.
+   */
+  failOn?: Severity;
+
+  /**
+   * Minimum severity at which results appear in output.
+   * Default: 'recommend' (show all assertive results).
+   */
+  reportOn?: Severity;
+
+  /** Default placement of fix messages across all checklists. */
+  fixLocation?: FixLocation;
 }
 
 /** Repo-level settings for the preflight CLI (user-facing, all fields optional). */
@@ -111,9 +258,46 @@ export interface ResolvedPreflightConfig {
   };
 }
 
-/** Distinguish a flat checklist from a staged checklist by the presence of `checks`. */
-export function isFlatChecklist(
-  checklist: PreflightChecklist | PreflightStagedChecklist,
-): checklist is PreflightChecklist {
-  return 'checks' in checklist;
+// ---------------------------------------------------------------------------
+// JSON output
+// ---------------------------------------------------------------------------
+
+/**
+ * Serialize a PreflightResult for JSON output.
+ *
+ * All fields are non-optional with explicit `null` for absent values. `skipReason` is
+ * present on every entry (not just skipped results) so JSON consumers see a uniform shape.
+ */
+export interface JsonCheckEntry {
+  name: string;
+  status: 'passed' | 'failed' | 'skipped';
+  ok: true | false | null;
+  severity: Severity;
+  skipReason: 'n/a' | 'precondition' | null;
+  detail: string | null;
+  fix: string | null;
+  error: string | null;
+  progress: Progress | null;
+  durationMs: number;
+}
+
+/** Shape of a single checklist entry in `--json` output. */
+export interface JsonChecklistEntry {
+  name: string;
+  passed: number;
+  failed: number;
+  skipped: number;
+  allPassed: boolean;
+  durationMs: number;
+  checks: JsonCheckEntry[];
+}
+
+/** Top-level shape of `--json` output. */
+export interface JsonReport {
+  allPassed: boolean;
+  passed: number;
+  failed: number;
+  skipped: number;
+  durationMs: number;
+  checklists: JsonChecklistEntry[];
 }

@@ -19,7 +19,10 @@ export function resolveCollectionExports(moduleRecord: Record<string, unknown>):
 
   return {
     checklists: source.checklists,
+    ...(source.defaultSeverity !== undefined && { defaultSeverity: source.defaultSeverity }),
+    ...(source.failOn !== undefined && { failOn: source.failOn }),
     ...(source.fixLocation !== undefined && { fixLocation: source.fixLocation }),
+    ...(source.reportOn !== undefined && { reportOn: source.reportOn }),
     ...(source.suites !== undefined && { suites: source.suites }),
   };
 }

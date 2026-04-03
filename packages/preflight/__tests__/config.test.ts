@@ -140,11 +140,11 @@ describe(loadPreflightCollection, () => {
   it('loads a collection from a default export with fixLocation', async () => {
     const validChecklists = [{ name: 'test', checks: [{ name: 'a', check: () => true }] }];
     mockExistsSync.mockReturnValue(true);
-    mockJitiImport.mockResolvedValue({ default: { checklists: validChecklists, fixLocation: 'INLINE' } });
+    mockJitiImport.mockResolvedValue({ default: { checklists: validChecklists, fixLocation: 'inline' } });
 
     const collection = await loadPreflightCollection();
 
-    expect(collection.fixLocation).toBe('INLINE');
+    expect(collection.fixLocation).toBe('inline');
   });
 
   it('returns a valid collection with flat checklists', async () => {
@@ -161,11 +161,11 @@ describe(loadPreflightCollection, () => {
   it('carries through fixLocation when present', async () => {
     const validChecklists = [{ name: 'test', checks: [{ name: 'a', check: () => true }] }];
     mockExistsSync.mockReturnValue(true);
-    mockJitiImport.mockResolvedValue({ checklists: validChecklists, fixLocation: 'INLINE' });
+    mockJitiImport.mockResolvedValue({ checklists: validChecklists, fixLocation: 'inline' });
 
     const collection = await loadPreflightCollection();
 
-    expect(collection.fixLocation).toBe('INLINE');
+    expect(collection.fixLocation).toBe('inline');
   });
 
   it('omits fixLocation when the module does not export it', async () => {

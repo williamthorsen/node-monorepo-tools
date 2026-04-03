@@ -8,7 +8,7 @@ import { loadRemoteCollection, type LoadRemoteCollectionOptions } from './loadRe
 import { reportPreflight } from './reportPreflight.ts';
 import { resolveGitHubToken } from './resolveGitHubToken.ts';
 import { resolveRequestedNames } from './resolveRequestedNames.ts';
-import { runPreflight } from './runPreflight.ts';
+import { meetsThreshold, runPreflight } from './runPreflight.ts';
 import type {
   ChecklistSummary,
   FixLocation,
@@ -16,15 +16,21 @@ import type {
   PreflightCollection,
   PreflightReport,
   PreflightStagedChecklist,
+  Severity,
 } from './types.ts';
+
+/** Valid severity values for CLI flag validation. */
+const VALID_SEVERITIES = new Set<string>(['error', 'warn', 'recommend']);
 
 /** Discriminated union describing how to locate the preflight collection. */
 export type CollectionSource = { path: string } | { url: string };
 
 interface ParsedRunArgs {
   collectionSource: CollectionSource;
+  failOn?: Severity;
   json: boolean;
   names: string[];
+  reportOn?: Severity;
 }
 
 /** Extract a flag value from either `--flag value` or `--flag=value` form, advancing the index when needed. */
@@ -75,6 +81,17 @@ function parseGitHubArg(value: string): { repo: string; ref: string } {
   return { repo, ref };
 }
 
+/** Validate and narrow a string to a Severity value. */
+function parseSeverityFlag(flagName: string, value: string): Severity {
+  if (!VALID_SEVERITIES.has(value)) {
+    throw new Error(`${flagName} must be one of: error, warn, recommend (got "${value}")`);
+  }
+  // Validated above; narrow without assertion by returning the matched literal.
+  if (value === 'error') return 'error';
+  if (value === 'warn') return 'warn';
+  return 'recommend';
+}
+
 /** Convention path for internal collections, relative to the repo root. */
 const COLLECTIONS_DIR = '.config/preflight/collections';
 
@@ -92,6 +109,8 @@ export function parseRunArgs(flags: string[]): ParsedRunArgs {
   let urlValue: string | undefined;
   let collectionName: string | undefined;
   let json = false;
+  let failOn: Severity | undefined;
+  let reportOn: Severity | undefined;
 
   for (let i = 0; i < flags.length; i++) {
     const arg = flags[i] ?? '';
@@ -126,6 +145,26 @@ export function parseRunArgs(flags: string[]): ParsedRunArgs {
       const { value, nextIndex } = extractFlagValue('--collection', arg, flags, i, 'a collection name');
       i = nextIndex;
       collectionName = value;
+    } else if (arg === '--fail-on' || arg.startsWith('--fail-on=')) {
+      const { value, nextIndex } = extractFlagValue(
+        '--fail-on',
+        arg,
+        flags,
+        i,
+        'a severity level (error, warn, recommend)',
+      );
+      i = nextIndex;
+      failOn = parseSeverityFlag('--fail-on', value);
+    } else if (arg === '--report-on' || arg.startsWith('--report-on=')) {
+      const { value, nextIndex } = extractFlagValue(
+        '--report-on',
+        arg,
+        flags,
+        i,
+        'a severity level (error, warn, recommend)',
+      );
+      i = nextIndex;
+      reportOn = parseSeverityFlag('--report-on', value);
     } else if (arg.startsWith('-')) {
       throw new Error(`unknown flag '${arg}'`);
     } else {
@@ -135,7 +174,10 @@ export function parseRunArgs(flags: string[]): ParsedRunArgs {
 
   const collectionSource = resolveCollectionSource({ filePath, githubValue, urlValue, collectionName });
 
-  return { collectionSource, json, names };
+  const result: ParsedRunArgs = { collectionSource, json, names };
+  if (failOn !== undefined) result.failOn = failOn;
+  if (reportOn !== undefined) result.reportOn = reportOn;
+  return result;
 }
 
 /** Validate flag co-dependencies and build the CollectionSource from parsed flag state. */
@@ -176,15 +218,16 @@ function resolveFixLocation(
   checklist: PreflightChecklist | PreflightStagedChecklist,
   collectionDefault?: FixLocation,
 ): FixLocation {
-  return checklist.fixLocation ?? collectionDefault ?? 'END';
+  return checklist.fixLocation ?? collectionDefault ?? 'end';
 }
 
-/** Build a checklist summary from a report and its checklist name. */
-function summarizeReport(name: string, report: PreflightReport): ChecklistSummary {
+/** Build a checklist summary from a report, filtering results by reporting threshold. */
+function summarizeReport(name: string, report: PreflightReport, reportOn: Severity): ChecklistSummary {
   let passed = 0;
   let failed = 0;
   let skipped = 0;
   for (const r of report.results) {
+    if (!meetsThreshold(r.severity, reportOn)) continue;
     if (r.status === 'passed') passed++;
     else if (r.status === 'failed') failed++;
     else skipped++;
@@ -192,10 +235,25 @@ function summarizeReport(name: string, report: PreflightReport): ChecklistSummar
   return { name, passed, failed, skipped, allPassed: report.passed, durationMs: report.durationMs };
 }
 
+/** Resolve threshold values from the cascade: CLI flag > collection field > default. */
+function resolveThresholds(
+  collection: PreflightCollection,
+  cliFailOn: Severity | undefined,
+  cliReportOn: Severity | undefined,
+): { defaultSeverity: Severity; failOn: Severity; reportOn: Severity } {
+  return {
+    defaultSeverity: collection.defaultSeverity ?? 'error',
+    failOn: cliFailOn ?? collection.failOn ?? 'error',
+    reportOn: cliReportOn ?? collection.reportOn ?? 'recommend',
+  };
+}
+
 interface RunCommandOptions {
-  names: string[];
   collectionSource: CollectionSource;
   json: boolean;
+  names: string[];
+  failOn?: Severity;
+  reportOn?: Severity;
 }
 
 /** Load a preflight collection from a path or URL source. */
@@ -214,7 +272,13 @@ async function loadCollection(source: CollectionSource): Promise<PreflightCollec
 }
 
 /** Run preflight checklists. Returns a numeric exit code. */
-export async function runCommand({ names, collectionSource, json }: RunCommandOptions): Promise<number> {
+export async function runCommand({
+  names,
+  collectionSource,
+  json,
+  failOn,
+  reportOn,
+}: RunCommandOptions): Promise<number> {
   let collection: PreflightCollection;
   try {
     collection = await loadCollection(collectionSource);
@@ -228,13 +292,16 @@ export async function runCommand({ names, collectionSource, json }: RunCommandOp
     return 1;
   }
 
-  return runSingleCollection(collection, { names, json });
+  return runSingleCollection(collection, names, json, failOn, reportOn);
 }
 
 /** Run checklists from a single collection. */
 async function runSingleCollection(
   collection: PreflightCollection,
-  { names, json }: { names: string[]; json: boolean },
+  names: string[],
+  json: boolean,
+  failOn: Severity | undefined,
+  reportOn: Severity | undefined,
 ): Promise<number> {
   // Resolve requested names (expanding suite names) and filter checklists
   let resolvedNames: string[];
@@ -258,21 +325,26 @@ async function runSingleCollection(
     return checklist !== undefined ? [checklist] : [];
   });
 
+  const thresholds = resolveThresholds(collection, failOn, reportOn);
+
   if (json) {
-    return runJsonMode(checklists);
+    return runJsonMode(checklists, thresholds);
   }
 
-  return runHumanMode(checklists, collection);
+  return runHumanMode(checklists, collection, thresholds);
 }
 
 /** Run checklists and emit a single JSON object to stdout. */
-async function runJsonMode(checklists: Array<PreflightChecklist | PreflightStagedChecklist>): Promise<number> {
+async function runJsonMode(
+  checklists: Array<PreflightChecklist | PreflightStagedChecklist>,
+  thresholds: { defaultSeverity: Severity; failOn: Severity; reportOn: Severity },
+): Promise<number> {
   const entries: Array<{ name: string; report: PreflightReport }> = [];
   let allPassed = true;
 
   try {
     for (const checklist of checklists) {
-      const report = await runPreflight(checklist);
+      const report = await runPreflight(checklist, thresholds);
       entries.push({ name: checklist.name, report });
       if (!report.passed) allPassed = false;
     }
@@ -282,7 +354,7 @@ async function runJsonMode(checklists: Array<PreflightChecklist | PreflightStage
     return 1;
   }
 
-  process.stdout.write(formatJsonReport(entries) + '\n');
+  process.stdout.write(formatJsonReport(entries, { reportOn: thresholds.reportOn }) + '\n');
   return allPassed ? 0 : 1;
 }
 
@@ -290,6 +362,7 @@ async function runJsonMode(checklists: Array<PreflightChecklist | PreflightStage
 async function runHumanMode(
   checklists: Array<PreflightChecklist | PreflightStagedChecklist>,
   collection: PreflightCollection,
+  thresholds: { defaultSeverity: Severity; failOn: Severity; reportOn: Severity },
 ): Promise<number> {
   const showHeader = checklists.length > 1;
   let allPassed = true;
@@ -300,9 +373,9 @@ async function runHumanMode(
       process.stdout.write(`\n--- ${checklist.name} ---\n\n`);
     }
 
-    const report = await runPreflight(checklist);
+    const report = await runPreflight(checklist, thresholds);
     const fixLocation = resolveFixLocation(checklist, collection.fixLocation);
-    const output = reportPreflight(report, { fixLocation });
+    const output = reportPreflight(report, { fixLocation, reportOn: thresholds.reportOn });
     process.stdout.write(output + '\n');
 
     if (!report.passed) {
@@ -310,7 +383,7 @@ async function runHumanMode(
     }
 
     if (showHeader) {
-      summaries.push(summarizeReport(checklist.name, report));
+      summaries.push(summarizeReport(checklist.name, report, thresholds.reportOn));
     }
   }
 

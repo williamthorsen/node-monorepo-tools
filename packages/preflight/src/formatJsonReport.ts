@@ -1,70 +1,44 @@
-import type { PreflightReport, PreflightResult, Progress } from './types.ts';
-import { isPercentProgress } from './types.ts';
+import { meetsThreshold } from './runPreflight.ts';
+import type {
+  JsonCheckEntry,
+  JsonChecklistEntry,
+  JsonReport,
+  PreflightReport,
+  PreflightResult,
+  Severity,
+} from './types.ts';
 
 interface ChecklistEntry {
   name: string;
   report: PreflightReport;
 }
 
-interface JsonCheckResult {
-  name: string;
-  status: 'passed' | 'failed' | 'skipped';
-  durationMs: number;
-  fix?: string;
-  error?: string;
-  detail?: string;
-  progress?: JsonProgress;
+/** Options controlling which results appear in JSON output. */
+export interface FormatJsonReportOptions {
+  reportOn?: Severity;
 }
 
-type JsonProgress = JsonFractionProgress | JsonPercentProgress;
-
-interface JsonFractionProgress {
-  type: 'fraction';
-  passedCount: number;
-  count: number;
-}
-
-interface JsonPercentProgress {
-  type: 'percent';
-  percent: number;
-}
-
-interface JsonChecklist {
-  name: string;
-  allPassed: boolean;
-  durationMs: number;
-  passedCount: number;
-  failedCount: number;
-  skippedCount: number;
-  checks: JsonCheckResult[];
-}
-
-interface JsonReport {
-  allPassed: boolean;
-  passedCount: number;
-  failedCount: number;
-  skippedCount: number;
-  durationMs: number;
-  checklists: JsonChecklist[];
-}
-
-/** Transform an array of checklist results into a JSON-serializable report object. */
-export function formatJsonReport(entries: ChecklistEntry[]): string {
+/** Transform an array of checklist results into a JSON-serializable report string. */
+export function formatJsonReport(entries: ChecklistEntry[], options?: FormatJsonReportOptions): string {
+  const reportOn = options?.reportOn ?? 'recommend';
   let totalPassed = 0;
   let totalFailed = 0;
   let totalSkipped = 0;
 
-  const checklists: JsonChecklist[] = entries.map(({ name, report }) => {
+  const checklists: JsonChecklistEntry[] = entries.map(({ name, report }) => {
     let passed = 0;
     let failed = 0;
     let skipped = 0;
 
-    const checks: JsonCheckResult[] = report.results.map((result) => {
+    // Filter results by reporting threshold.
+    const visibleResults = report.results.filter((r) => meetsThreshold(r.severity, reportOn));
+
+    const checks: JsonCheckEntry[] = visibleResults.map((result) => {
       if (result.status === 'passed') passed++;
       else if (result.status === 'failed') failed++;
       else skipped++;
 
-      return buildCheckResult(result);
+      return buildCheckEntry(result);
     });
 
     totalPassed += passed;
@@ -75,9 +49,9 @@ export function formatJsonReport(entries: ChecklistEntry[]): string {
       name,
       allPassed: report.passed,
       durationMs: report.durationMs,
-      passedCount: passed,
-      failedCount: failed,
-      skippedCount: skipped,
+      passed,
+      failed,
+      skipped,
       checks,
     };
   });
@@ -86,9 +60,9 @@ export function formatJsonReport(entries: ChecklistEntry[]): string {
 
   const output: JsonReport = {
     allPassed: totalFailed === 0,
-    passedCount: totalPassed,
-    failedCount: totalFailed,
-    skippedCount: totalSkipped,
+    passed: totalPassed,
+    failed: totalFailed,
+    skipped: totalSkipped,
     durationMs: totalDurationMs,
     checklists,
   };
@@ -96,26 +70,40 @@ export function formatJsonReport(entries: ChecklistEntry[]): string {
   return JSON.stringify(output);
 }
 
-/** Build a single check result, omitting undefined optional fields. */
-function buildCheckResult(result: PreflightResult): JsonCheckResult {
-  const entry: JsonCheckResult = {
+/**
+ * Build a single JSON check entry, normalizing the union to include all fields.
+ *
+ * Non-skipped results get `skipReason: null` for uniform JSON shape.
+ * Error objects are serialized to their message string.
+ */
+function buildCheckEntry(result: PreflightResult): JsonCheckEntry {
+  const errorString = result.error !== null ? result.error.message : null;
+
+  if (result.status === 'skipped') {
+    return {
+      name: result.name,
+      status: result.status,
+      ok: result.ok,
+      severity: result.severity,
+      skipReason: result.skipReason,
+      detail: result.detail,
+      fix: result.fix,
+      error: errorString,
+      progress: result.progress,
+      durationMs: result.durationMs,
+    };
+  }
+
+  return {
     name: result.name,
     status: result.status,
+    ok: result.ok,
+    severity: result.severity,
+    skipReason: null,
+    detail: result.detail,
+    fix: result.fix,
+    error: errorString,
+    progress: result.progress,
     durationMs: result.durationMs,
   };
-
-  if (result.fix !== undefined) entry.fix = result.fix;
-  if (result.error !== undefined) entry.error = result.error.message;
-  if (result.detail !== undefined) entry.detail = result.detail;
-  if (result.progress !== undefined) entry.progress = serializeProgress(result.progress);
-
-  return entry;
-}
-
-/** Serialize a Progress union into a plain object with only the relevant fields. */
-function serializeProgress(progress: Progress): JsonProgress {
-  if (isPercentProgress(progress)) {
-    return { type: 'percent', percent: progress.percent };
-  }
-  return { type: 'fraction', passedCount: progress.passedCount, count: progress.count };
 }

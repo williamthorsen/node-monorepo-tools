@@ -24,6 +24,8 @@ Run options:
   --url <url>                        Fetch collection from a URL
   --collection <name>                Collection name (default: "default")
   --json                             Output results as JSON
+  --fail-on <severity>               Fail on this severity or above (error, warn, recommend)
+  --report-on <severity>             Report this severity or above (error, warn, recommend)
 
 Global options:
   --help, -h           Show this help message
@@ -45,6 +47,8 @@ Collection source (mutually exclusive):
 Options:
   --collection <name>                Collection name (default: "default")
   --json                             Output results as JSON
+  --fail-on <severity>               Fail on this severity or above (error, warn, recommend)
+  --report-on <severity>             Report this severity or above (error, warn, recommend)
   --help, -h                         Show this help message
 
 Defaults to .config/preflight/collections/default.ts when no source is given.

@@ -2,6 +2,9 @@ import { z } from 'zod';
 
 import type { PreflightCollection } from './types.ts';
 
+/** Schema for valid severity levels. */
+const SeveritySchema = z.enum(['error', 'warn', 'recommend']);
+
 /** Schema for a flat checklist (has `checks`, no `groups`). */
 const FlatChecklistSchema = z.looseObject({
   name: z.string().min(1),
@@ -22,8 +25,11 @@ const ChecklistSchema = z
 
 /** Structural schema for a PreflightCollection. */
 const PreflightCollectionSchema = z.looseObject({
-  fixLocation: z.enum(['INLINE', 'END']).optional(),
   checklists: z.array(ChecklistSchema),
+  defaultSeverity: SeveritySchema.optional(),
+  failOn: SeveritySchema.optional(),
+  fixLocation: z.enum(['inline', 'end']).optional(),
+  reportOn: SeveritySchema.optional(),
   suites: z.record(z.string(), z.array(z.string())).optional(),
 });
 

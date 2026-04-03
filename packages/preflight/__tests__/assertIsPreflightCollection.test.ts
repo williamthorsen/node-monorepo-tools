@@ -134,7 +134,7 @@ describe(assertIsPreflightCollection, () => {
     expect(() =>
       assertIsPreflightCollection({
         checklists: [{ name: 'test', checks: [] }],
-        fixLocation: 'INLINE',
+        fixLocation: 'inline',
       }),
     ).not.toThrow();
   });
@@ -146,5 +146,80 @@ describe(assertIsPreflightCollection, () => {
         fixLocation: 'WRONG',
       }),
     ).toThrow(ZodError);
+  });
+
+  it('throws when fixLocation uses old uppercase casing', () => {
+    expect(() =>
+      assertIsPreflightCollection({
+        checklists: [{ name: 'test', checks: [] }],
+        fixLocation: 'INLINE',
+      }),
+    ).toThrow(ZodError);
+  });
+
+  it('accepts valid defaultSeverity', () => {
+    expect(() =>
+      assertIsPreflightCollection({
+        checklists: [{ name: 'test', checks: [] }],
+        defaultSeverity: 'warn',
+      }),
+    ).not.toThrow();
+  });
+
+  it('throws when defaultSeverity is invalid', () => {
+    expect(() =>
+      assertIsPreflightCollection({
+        checklists: [{ name: 'test', checks: [] }],
+        defaultSeverity: 'critical',
+      }),
+    ).toThrow(ZodError);
+  });
+
+  it('accepts valid failOn', () => {
+    expect(() =>
+      assertIsPreflightCollection({
+        checklists: [{ name: 'test', checks: [] }],
+        failOn: 'recommend',
+      }),
+    ).not.toThrow();
+  });
+
+  it('throws when failOn is invalid', () => {
+    expect(() =>
+      assertIsPreflightCollection({
+        checklists: [{ name: 'test', checks: [] }],
+        failOn: 'none',
+      }),
+    ).toThrow(ZodError);
+  });
+
+  it('accepts valid reportOn', () => {
+    expect(() =>
+      assertIsPreflightCollection({
+        checklists: [{ name: 'test', checks: [] }],
+        reportOn: 'error',
+      }),
+    ).not.toThrow();
+  });
+
+  it('throws when reportOn is invalid', () => {
+    expect(() =>
+      assertIsPreflightCollection({
+        checklists: [{ name: 'test', checks: [] }],
+        reportOn: 'verbose',
+      }),
+    ).toThrow(ZodError);
+  });
+
+  it('accepts a collection with all new fields', () => {
+    expect(() =>
+      assertIsPreflightCollection({
+        checklists: [{ name: 'test', checks: [] }],
+        defaultSeverity: 'warn',
+        failOn: 'warn',
+        reportOn: 'recommend',
+        fixLocation: 'end',
+      }),
+    ).not.toThrow();
   });
 });

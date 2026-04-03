@@ -3,8 +3,13 @@ export type {
   ChecklistSummary,
   CheckOutcome,
   CheckReturnValue,
+  FailedResult,
   FixLocation,
   FractionProgress,
+  JsonCheckEntry,
+  JsonChecklistEntry,
+  JsonReport,
+  PassedResult,
   PercentProgress,
   PreflightCheck,
   PreflightChecklist,
@@ -14,8 +19,10 @@ export type {
   PreflightResult,
   PreflightStagedChecklist,
   Progress,
-  ReportOptions,
   ResolvedPreflightConfig,
+  Severity,
+  SkippedResult,
+  SkipResult,
 } from './types.ts';
 
 // Type guards
