@@ -18,6 +18,10 @@ vi.mock('../src/init/initCommand.ts', () => ({
   initCommand: mockInitCommand,
 }));
 
+vi.mock('../src/version.ts', () => ({
+  VERSION: '1.2.3',
+}));
+
 import { routeCommand } from '../src/bin/route.ts';
 
 describe(routeCommand, () => {
@@ -57,6 +61,39 @@ describe(routeCommand, () => {
     const exitCode = await routeCommand(['-h']);
 
     expect(exitCode).toBe(0);
+  });
+
+  it('prints version and returns 0 for --version', async () => {
+    const exitCode = await routeCommand(['--version']);
+
+    expect(exitCode).toBe(0);
+    expect(infoSpy).toHaveBeenCalledWith('1.2.3');
+  });
+
+  it('prints version and returns 0 for -V', async () => {
+    const exitCode = await routeCommand(['-V']);
+
+    expect(exitCode).toBe(0);
+    expect(infoSpy).toHaveBeenCalledWith('1.2.3');
+  });
+
+  it('includes run options in top-level help', async () => {
+    await routeCommand(['--help']);
+
+    const output = infoSpy.mock.calls.map((c) => String(c[0])).join('');
+    expect(output).toContain('--file');
+    expect(output).toContain('--github');
+    expect(output).toContain('--url');
+    expect(output).toContain('--collection');
+    expect(output).toContain('--json');
+    expect(output).toContain('--version, -V');
+  });
+
+  it('marks run as the default command in top-level help', async () => {
+    await routeCommand(['--help']);
+
+    const output = infoSpy.mock.calls.map((c) => String(c[0])).join('');
+    expect(output).toContain('(default)');
   });
 
   it('shows run help and returns 0 for run --help', async () => {
@@ -200,10 +237,76 @@ describe(routeCommand, () => {
     expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('Unknown option: --unknown'));
   });
 
-  it('returns 1 for unknown commands', async () => {
-    const exitCode = await routeCommand(['bogus']);
+  describe('default command routing', () => {
+    it('routes flags to run when no subcommand is given', async () => {
+      mockParseRunArgs.mockReturnValue({
+        names: [],
+        collectionSource: { path: 'foo.ts' },
+        json: false,
+      });
+      mockRunCommand.mockResolvedValue(0);
 
-    expect(exitCode).toBe(1);
-    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('Unknown command: bogus'));
+      const exitCode = await routeCommand(['--file', 'foo.ts']);
+
+      expect(mockParseRunArgs).toHaveBeenCalledWith(['--file', 'foo.ts']);
+      expect(exitCode).toBe(0);
+    });
+
+    it('routes positional args to run as checklist names', async () => {
+      mockParseRunArgs.mockReturnValue({
+        names: ['onboarding'],
+        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        json: false,
+      });
+      mockRunCommand.mockResolvedValue(0);
+
+      const exitCode = await routeCommand(['onboarding']);
+
+      expect(mockParseRunArgs).toHaveBeenCalledWith(['onboarding']);
+      expect(exitCode).toBe(0);
+    });
+  });
+
+  describe('typo detection', () => {
+    it.each([
+      ['compil', 'compile'],
+      ['compi', 'compile'],
+      ['comp', 'compile'],
+      ['ini', 'init'],
+    ])('suggests "%s" -> "%s"', async (input, expected) => {
+      const exitCode = await routeCommand([input]);
+
+      expect(exitCode).toBe(1);
+      expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining(`Did you mean 'preflight ${expected}'?`));
+    });
+
+    it('does not suggest for prefixes shorter than 3 characters', async () => {
+      mockParseRunArgs.mockReturnValue({
+        names: ['co'],
+        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        json: false,
+      });
+      mockRunCommand.mockResolvedValue(0);
+
+      const exitCode = await routeCommand(['co']);
+
+      expect(exitCode).toBe(0);
+      expect(stderrSpy).not.toHaveBeenCalled();
+    });
+
+    it('does not suggest when input matches a subcommand exactly', async () => {
+      mockParseRunArgs.mockReturnValue({
+        names: [],
+        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        json: false,
+      });
+      mockRunCommand.mockResolvedValue(0);
+
+      // 'run' is handled before typo detection, so this verifies
+      // the explicit subcommand path
+      const exitCode = await routeCommand(['run']);
+
+      expect(exitCode).toBe(0);
+    });
   });
 });

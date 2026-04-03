@@ -43,10 +43,38 @@ describe(loadPreflightCollection, () => {
     );
   });
 
-  it('throws a generic error when a non-convention-path collection is missing', async () => {
+  it('shows the user-provided path in file-not-found errors', async () => {
     mockExistsSync.mockReturnValue(false);
 
-    await expect(loadPreflightCollection('custom/path.ts')).rejects.toThrow('Preflight collection not found');
+    await expect(loadPreflightCollection('custom/path.ts')).rejects.toThrow(
+      'Preflight collection not found: custom/path.ts',
+    );
+  });
+
+  it('shows the resolved path when no collection path is provided', async () => {
+    mockExistsSync.mockReturnValue(false);
+
+    await expect(loadPreflightCollection()).rejects.toThrow(
+      `Preflight collection not found: ${path.resolve(process.cwd(), COLLECTION_FILE_PATH)}`,
+    );
+  });
+
+  it.each(['MODULE_NOT_FOUND', 'ERR_MODULE_NOT_FOUND'])(
+    'catches %s errors with an actionable message',
+    async (code) => {
+      mockExistsSync.mockReturnValue(true);
+      const moduleError = Object.assign(new Error("Cannot find package '@williamthorsen/preflight'"), { code });
+      mockJitiImport.mockRejectedValue(moduleError);
+
+      await expect(loadPreflightCollection()).rejects.toThrow("Cannot resolve '@williamthorsen/preflight'");
+    },
+  );
+
+  it('re-throws non-module-resolution errors from jiti', async () => {
+    mockExistsSync.mockReturnValue(true);
+    mockJitiImport.mockRejectedValue(new SyntaxError('Unexpected token'));
+
+    await expect(loadPreflightCollection()).rejects.toThrow(SyntaxError);
   });
 
   it('resolves the default collection path against process.cwd()', async () => {

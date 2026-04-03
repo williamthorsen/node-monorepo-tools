@@ -56,12 +56,31 @@ export async function loadPreflightCollection(collectionPath?: string): Promise<
       const baseName = path.basename(collectionPath, '.ts');
       throw new Error(`Collection "${baseName}" not found. Run 'preflight init' to create one.`);
     }
-    throw new Error(`Preflight collection not found: ${resolvedPath}`);
+    throw new Error(`Preflight collection not found: ${collectionPath ?? resolvedPath}`);
   }
 
   const { createJiti } = await import('jiti');
-  const jiti = createJiti(import.meta.url);
-  const imported: unknown = await jiti.import(resolvedPath);
+  const jiti = createJiti(resolvedPath);
+
+  let imported: unknown;
+  try {
+    imported = await jiti.import(resolvedPath);
+  } catch (error: unknown) {
+    if (
+      error instanceof Error &&
+      'code' in error &&
+      (error.code === 'MODULE_NOT_FOUND' || error.code === 'ERR_MODULE_NOT_FOUND')
+    ) {
+      const moduleMatch = error.message.match(/Cannot find (?:module|package) '([^']+)'/);
+      const moduleName = moduleMatch?.[1] ?? 'unknown module';
+      throw new Error(
+        `Cannot resolve '${moduleName}'. ` +
+          `Uncompiled collections require the package to be installed as a project dependency. ` +
+          `Alternatively, run 'preflight compile' to produce a self-contained bundle that does not need a local install.`,
+      );
+    }
+    throw error;
+  }
 
   if (!isRecord(imported)) {
     throw new Error(
