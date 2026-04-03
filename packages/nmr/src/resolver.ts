@@ -11,7 +11,7 @@ import { getDefaultRootScripts, getDefaultWorkspaceScripts } from './resolve-scr
  * Relative paths in the replacement are resolved from `monorepoRoot`.
  */
 export function applyDevBin(command: string, devBin: Record<string, string> | undefined, monorepoRoot: string): string {
-  if (!devBin || Object.keys(devBin).length === 0) {
+  if (!devBin) {
     return command;
   }
 
