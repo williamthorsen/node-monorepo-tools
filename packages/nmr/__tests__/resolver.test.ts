@@ -56,12 +56,11 @@ describe(applyDevBin, () => {
     expect(result).toBe('node /repo/scripts/build.js --config /repo/config/build.json src/');
   });
 
-  it('leaves the runner binary (first token) as-is', () => {
-    const devBin = { 'my-cli': 'tsx packages/cli/index.ts' };
+  it('does not resolve the runner binary even if it contains a slash', () => {
+    const devBin = { 'my-cli': 'runners/tsx packages/cli/index.ts' };
     const result = applyDevBin('my-cli', devBin, monorepoRoot);
 
-    expect(result).toBe('tsx /repo/packages/cli/index.ts');
-    // tsx should not be resolved — it's the runner binary
+    expect(result).toBe('runners/tsx /repo/packages/cli/index.ts');
   });
 });
 
