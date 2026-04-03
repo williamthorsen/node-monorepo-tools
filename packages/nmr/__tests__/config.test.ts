@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import os from 'node:os';
+import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -63,5 +64,38 @@ describe('loadConfig', () => {
   it('returns empty config for a non-existent directory', async () => {
     const config = await loadConfig('/tmp/nonexistent-monorepo-root');
     expect(config).toEqual({});
+  });
+
+  it('loads a config with a valid devBin mapping', async () => {
+    const configDir = path.join(tmpDir, '.config');
+    fs.mkdirSync(configDir);
+    fs.writeFileSync(
+      path.join(configDir, 'nmr.config.ts'),
+      `export default { devBin: { 'my-cli': 'tsx packages/my-cli/src/cli.ts' } };`,
+    );
+
+    const config = await loadConfig(tmpDir);
+    expect(config.devBin).toEqual({ 'my-cli': 'tsx packages/my-cli/src/cli.ts' });
+  });
+
+  it('throws when devBin contains a non-string value', async () => {
+    const configDir = path.join(tmpDir, '.config');
+    fs.mkdirSync(configDir);
+    fs.writeFileSync(path.join(configDir, 'nmr.config.ts'), `export default { devBin: { 'my-cli': 123 } };`);
+
+    await expect(loadConfig(tmpDir)).rejects.toThrow('`devBin` must be a Record<string, string>');
+  });
+
+  it('loads a config without devBin (backward compatibility)', async () => {
+    const configDir = path.join(tmpDir, '.config');
+    fs.mkdirSync(configDir);
+    fs.writeFileSync(
+      path.join(configDir, 'nmr.config.ts'),
+      `export default { workspaceScripts: { hello: 'echo hello' } };`,
+    );
+
+    const config = await loadConfig(tmpDir);
+    expect(config.devBin).toBeUndefined();
+    expect(config.workspaceScripts).toEqual({ hello: 'echo hello' });
   });
 });

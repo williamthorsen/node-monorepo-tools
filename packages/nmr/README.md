@@ -103,7 +103,7 @@ export default defineConfig({
 | `rootScripts`      | `Record<string, string \| string[]>` | Scripts added or overridden in the root registry (tier 2)      |
 | `devBin`           | `Record<string, string>`             | Map binary names to source-repo replacement commands           |
 
-`workspaceScripts` and `rootScripts` are optional. Values follow the same `string | string[]` convention described in [script values](#script-values).
+All fields are optional. `workspaceScripts` and `rootScripts` values follow the same `string | string[]` convention described in [script values](#script-values).
 
 ### `devBin` — source-repo binary substitution
 
@@ -120,6 +120,8 @@ export default defineConfig({
 When nmr resolves a command whose first token matches a `devBin` key, it replaces that token with the mapped command. Arguments are preserved. Relative paths in the replacement are resolved from the monorepo root.
 
 For example, if a workspace script resolves to `my-cli --verbose`, nmr rewrites it to `tsx /absolute/path/to/packages/my-cli/src/cli.ts --verbose`.
+
+> **Note:** Path resolution uses a heuristic: any non-flag token containing `/` is treated as a relative path. This works well for typical dev-tool commands but may incorrectly resolve URL-like values or glob patterns. Flags using `--flag=value` syntax are not resolved; use the spaced form `--flag value` for paths that need resolution.
 
 ## Default script registries
 

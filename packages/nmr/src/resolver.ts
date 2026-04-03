@@ -32,6 +32,11 @@ export function applyDevBin(command: string, devBin: Record<string, string> | un
  * Resolve relative paths in a replacement command against `monorepoRoot`.
  * The first token (the runner binary) is left as-is; subsequent tokens
  * that contain `/` and don't start with `-` are resolved.
+ *
+ * Limitations: any non-flag token containing `/` is treated as a path,
+ * which may incorrectly resolve URL-like values or glob patterns.
+ * Tokens using `--flag=path` syntax are skipped entirely because the
+ * leading `-` excludes them; use the spaced form `--flag path` instead.
  */
 function resolveReplacementPaths(replacement: string, monorepoRoot: string): string {
   const tokens = replacement.split(' ');
