@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { runPreflight } from '../src/runPreflight.ts';
+import { meetsThreshold, runPreflight } from '../src/runPreflight.ts';
 import type { PreflightChecklist, PreflightStagedChecklist } from '../src/types.ts';
 
 describe(runPreflight, () => {
@@ -16,6 +16,8 @@ describe(runPreflight, () => {
       expect(report.passed).toBe(true);
       expect(report.results).toHaveLength(1);
       expect(report.results[0]?.status).toBe('passed');
+      expect(report.results[0]?.ok).toBe(true);
+      expect(report.results[0]?.severity).toBe('error');
       expect(report.results[0]?.durationMs).toBeGreaterThanOrEqual(0);
     });
 
@@ -29,6 +31,7 @@ describe(runPreflight, () => {
 
       expect(report.passed).toBe(false);
       expect(report.results[0]?.status).toBe('failed');
+      expect(report.results[0]?.ok).toBe(false);
       expect(report.results[0]?.fix).toBe('Do something');
     });
 
@@ -132,6 +135,22 @@ describe(runPreflight, () => {
       expect(report.results[1]?.status).toBe('skipped');
     });
 
+    it('assigns precondition skipReason to dependent checks', async () => {
+      const checklist: PreflightChecklist = {
+        name: 'gated',
+        preconditions: [{ name: 'pre-fail', check: () => false }],
+        checks: [{ name: 'should-skip', check: () => true }],
+      };
+
+      const report = await runPreflight(checklist);
+      const skipped = report.results[1];
+
+      expect(skipped?.status).toBe('skipped');
+      if (skipped?.status === 'skipped') {
+        expect(skipped.skipReason).toBe('precondition');
+      }
+    });
+
     it('runs checks when all preconditions pass', async () => {
       const checklist: PreflightChecklist = {
         name: 'gated',
@@ -191,6 +210,40 @@ describe(runPreflight, () => {
       expect(report.results[1]?.status).toBe('skipped');
       expect(report.results[2]?.status).toBe('skipped');
     });
+
+    it('continues staged progression when failure is below failOn threshold', async () => {
+      const checklist: PreflightStagedChecklist = {
+        name: 'staged-threshold',
+        groups: [
+          [{ name: 'g1-warn-fail', check: () => false, severity: 'warn' }],
+          [{ name: 'g2-runs', check: () => true }],
+        ],
+      };
+
+      const report = await runPreflight(checklist, { failOn: 'error' });
+
+      expect(report.passed).toBe(true);
+      expect(report.results).toHaveLength(2);
+      expect(report.results[0]?.status).toBe('failed');
+      expect(report.results[1]?.status).toBe('passed');
+    });
+
+    it('halts staged progression when failure meets failOn threshold', async () => {
+      const checklist: PreflightStagedChecklist = {
+        name: 'staged-threshold',
+        groups: [
+          [{ name: 'g1-warn-fail', check: () => false, severity: 'warn' }],
+          [{ name: 'g2-skipped', check: () => true }],
+        ],
+      };
+
+      const report = await runPreflight(checklist, { failOn: 'warn' });
+
+      expect(report.passed).toBe(false);
+      expect(report.results).toHaveLength(2);
+      expect(report.results[0]?.status).toBe('failed');
+      expect(report.results[1]?.status).toBe('skipped');
+    });
   });
 
   describe('structured check outcomes', () => {
@@ -242,7 +295,7 @@ describe(runPreflight, () => {
       expect(report.results[0]?.progress).toStrictEqual({ type: 'percent', percent: 85 });
     });
 
-    it('does not set detail or progress on skipped results', async () => {
+    it('sets null for detail and progress on skipped results', async () => {
       const checklist: PreflightChecklist = {
         name: 'outcome',
         preconditions: [{ name: 'pre-fail', check: () => false }],
@@ -252,8 +305,8 @@ describe(runPreflight, () => {
       const report = await runPreflight(checklist);
 
       const skipped = report.results.find((r) => r.status === 'skipped');
-      expect(skipped?.detail).toBeUndefined();
-      expect(skipped?.progress).toBeUndefined();
+      expect(skipped?.detail).toBeNull();
+      expect(skipped?.progress).toBeNull();
     });
 
     it('handles async CheckOutcome', async () => {
@@ -269,6 +322,199 @@ describe(runPreflight, () => {
     });
   });
 
+  describe('severity', () => {
+    it('defaults severity to error', async () => {
+      const checklist: PreflightChecklist = {
+        name: 'severity',
+        checks: [{ name: 'default', check: () => true }],
+      };
+
+      const report = await runPreflight(checklist);
+
+      expect(report.results[0]?.severity).toBe('error');
+    });
+
+    it('uses check-level severity when provided', async () => {
+      const checklist: PreflightChecklist = {
+        name: 'severity',
+        checks: [{ name: 'warn-check', check: () => true, severity: 'warn' }],
+      };
+
+      const report = await runPreflight(checklist);
+
+      expect(report.results[0]?.severity).toBe('warn');
+    });
+
+    it('falls back to defaultSeverity from options', async () => {
+      const checklist: PreflightChecklist = {
+        name: 'severity',
+        checks: [{ name: 'no-severity', check: () => true }],
+      };
+
+      const report = await runPreflight(checklist, { defaultSeverity: 'recommend' });
+
+      expect(report.results[0]?.severity).toBe('recommend');
+    });
+
+    it('prefers check-level severity over defaultSeverity', async () => {
+      const checklist: PreflightChecklist = {
+        name: 'severity',
+        checks: [{ name: 'explicit', check: () => true, severity: 'error' }],
+      };
+
+      const report = await runPreflight(checklist, { defaultSeverity: 'recommend' });
+
+      expect(report.results[0]?.severity).toBe('error');
+    });
+  });
+
+  describe('failure threshold', () => {
+    it('passes when a failed check is below the failOn threshold', async () => {
+      const checklist: PreflightChecklist = {
+        name: 'threshold',
+        checks: [{ name: 'warn-fail', check: () => false, severity: 'warn' }],
+      };
+
+      const report = await runPreflight(checklist, { failOn: 'error' });
+
+      expect(report.passed).toBe(true);
+    });
+
+    it('fails when a failed check meets the failOn threshold', async () => {
+      const checklist: PreflightChecklist = {
+        name: 'threshold',
+        checks: [{ name: 'warn-fail', check: () => false, severity: 'warn' }],
+      };
+
+      const report = await runPreflight(checklist, { failOn: 'warn' });
+
+      expect(report.passed).toBe(false);
+    });
+
+    it('fails when a failed check exceeds the failOn threshold', async () => {
+      const checklist: PreflightChecklist = {
+        name: 'threshold',
+        checks: [{ name: 'error-fail', check: () => false, severity: 'error' }],
+      };
+
+      const report = await runPreflight(checklist, { failOn: 'recommend' });
+
+      expect(report.passed).toBe(false);
+    });
+  });
+
+  describe('skip conditions', () => {
+    it('skips a check when skip returns a reason string', async () => {
+      const checklist: PreflightChecklist = {
+        name: 'skip',
+        checks: [{ name: 'not-applicable', check: () => true, skip: () => 'tool not installed' }],
+      };
+
+      const report = await runPreflight(checklist);
+
+      expect(report.results[0]?.status).toBe('skipped');
+      if (report.results[0]?.status === 'skipped') {
+        expect(report.results[0].skipReason).toBe('n/a');
+        expect(report.results[0].detail).toBe('tool not installed');
+      }
+    });
+
+    it('runs a check when skip returns false', async () => {
+      const checklist: PreflightChecklist = {
+        name: 'skip',
+        checks: [{ name: 'applicable', check: () => true, skip: () => false }],
+      };
+
+      const report = await runPreflight(checklist);
+
+      expect(report.results[0]?.status).toBe('passed');
+    });
+
+    it('supports async skip functions', async () => {
+      const checklist: PreflightChecklist = {
+        name: 'skip',
+        checks: [{ name: 'async-skip', check: () => true, skip: () => Promise.resolve('skipped async') }],
+      };
+
+      const report = await runPreflight(checklist);
+
+      expect(report.results[0]?.status).toBe('skipped');
+    });
+
+    it('treats skip function throws as check failures', async () => {
+      const checklist: PreflightChecklist = {
+        name: 'skip',
+        checks: [
+          {
+            name: 'skip-throws',
+            check: () => true,
+            skip: () => {
+              throw new Error('skip error');
+            },
+          },
+        ],
+      };
+
+      const report = await runPreflight(checklist);
+
+      expect(report.results[0]?.status).toBe('failed');
+      expect(report.results[0]?.error?.message).toBe('skip error');
+    });
+
+    it('evaluates skip before running the check function', async () => {
+      let checkCalled = false;
+      const checklist: PreflightChecklist = {
+        name: 'skip',
+        checks: [
+          {
+            name: 'skip-first',
+            check: () => {
+              checkCalled = true;
+              return true;
+            },
+            skip: () => 'skipped',
+          },
+        ],
+      };
+
+      await runPreflight(checklist);
+
+      expect(checkCalled).toBe(false);
+    });
+  });
+
+  describe('result shape', () => {
+    it('sets null for optional fields on passed results', async () => {
+      const checklist: PreflightChecklist = {
+        name: 'shape',
+        checks: [{ name: 'simple', check: () => true }],
+      };
+
+      const report = await runPreflight(checklist);
+      const result = report.results[0];
+
+      expect(result?.detail).toBeNull();
+      expect(result?.fix).toBeNull();
+      expect(result?.error).toBeNull();
+      expect(result?.progress).toBeNull();
+    });
+
+    it('sets null for optional fields on failed results without extras', async () => {
+      const checklist: PreflightChecklist = {
+        name: 'shape',
+        checks: [{ name: 'simple-fail', check: () => false }],
+      };
+
+      const report = await runPreflight(checklist);
+      const result = report.results[0];
+
+      expect(result?.detail).toBeNull();
+      expect(result?.fix).toBeNull();
+      expect(result?.error).toBeNull();
+      expect(result?.progress).toBeNull();
+    });
+  });
+
   it('computes total duration', async () => {
     const checklist: PreflightChecklist = {
       name: 'timing',
@@ -278,5 +524,21 @@ describe(runPreflight, () => {
     const report = await runPreflight(checklist);
 
     expect(report.durationMs).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe(meetsThreshold, () => {
+  it.each([
+    { severity: 'error', threshold: 'error', expected: true },
+    { severity: 'error', threshold: 'warn', expected: true },
+    { severity: 'error', threshold: 'recommend', expected: true },
+    { severity: 'warn', threshold: 'error', expected: false },
+    { severity: 'warn', threshold: 'warn', expected: true },
+    { severity: 'warn', threshold: 'recommend', expected: true },
+    { severity: 'recommend', threshold: 'error', expected: false },
+    { severity: 'recommend', threshold: 'warn', expected: false },
+    { severity: 'recommend', threshold: 'recommend', expected: true },
+  ] as const)('returns $expected for severity=$severity, threshold=$threshold', ({ severity, threshold, expected }) => {
+    expect(meetsThreshold(severity, threshold)).toBe(expected);
   });
 });

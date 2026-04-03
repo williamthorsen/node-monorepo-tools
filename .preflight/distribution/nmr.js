@@ -13780,6 +13780,7 @@ function date4(params) {
 config(en_default());
 
 // packages/preflight/dist/esm/assertIsPreflightCollection.js
+var SeveritySchema = external_exports.enum(["error", "warn", "recommend"]);
 var FlatChecklistSchema = external_exports.looseObject({
   name: external_exports.string().min(1),
   checks: external_exports.array(external_exports.unknown())
@@ -13792,8 +13793,11 @@ var ChecklistSchema = external_exports.union([FlatChecklistSchema, StagedCheckli
   message: "Checklist cannot have both 'checks' and 'groups'"
 });
 var PreflightCollectionSchema = external_exports.looseObject({
-  fixLocation: external_exports.enum(["INLINE", "END"]).optional(),
   checklists: external_exports.array(ChecklistSchema),
+  defaultSeverity: SeveritySchema.optional(),
+  failOn: SeveritySchema.optional(),
+  fixLocation: external_exports.enum(["inline", "end"]).optional(),
+  reportOn: SeveritySchema.optional(),
   suites: external_exports.record(external_exports.string(), external_exports.array(external_exports.string())).optional()
 });
 

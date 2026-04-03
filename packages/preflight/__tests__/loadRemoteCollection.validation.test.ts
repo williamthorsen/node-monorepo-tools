@@ -49,7 +49,7 @@ describe('loadRemoteCollection validation', () => {
 
   it('carries through fixLocation when exported', async () => {
     const jsBody = `
-      export const fixLocation = 'INLINE';
+      export const fixLocation = 'inline';
       export const checklists = [
         { name: 'test', checks: [{ name: 'check-a', check: () => true }] },
       ];
@@ -58,7 +58,7 @@ describe('loadRemoteCollection validation', () => {
 
     const collection = await loadRemoteCollection({ url: 'https://example.com/config.js' });
 
-    expect(collection.fixLocation).toBe('INLINE');
+    expect(collection.fixLocation).toBe('inline');
   });
 
   it('omits fixLocation when not exported', async () => {

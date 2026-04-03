@@ -16,6 +16,15 @@ vi.mock('../src/config.ts', () => ({
 }));
 
 vi.mock('../src/runPreflight.ts', () => ({
+  meetsThreshold: (severity: string, threshold: string) => {
+    const rank: Record<string, number> = { error: 0, warn: 1, recommend: 2 };
+    const severityRank = rank[severity];
+    const thresholdRank = rank[threshold];
+    if (severityRank === undefined || thresholdRank === undefined) {
+      throw new Error(`Invalid severity in meetsThreshold mock: severity="${severity}", threshold="${threshold}"`);
+    }
+    return severityRank <= thresholdRank;
+  },
   runPreflight: mockRunPreflight,
 }));
 
@@ -235,6 +244,59 @@ describe(parseRunArgs, () => {
       '--collection cannot be used with --url',
     );
   });
+
+  // --fail-on flag
+  it('parses --fail-on with valid severity', () => {
+    const result = parseRunArgs(['--fail-on', 'warn']);
+
+    expect(result.failOn).toBe('warn');
+  });
+
+  it('parses --fail-on= syntax', () => {
+    const result = parseRunArgs(['--fail-on=recommend']);
+
+    expect(result.failOn).toBe('recommend');
+  });
+
+  it('throws when --fail-on has an invalid value', () => {
+    expect(() => parseRunArgs(['--fail-on', 'critical'])).toThrow(
+      '--fail-on must be one of: error, warn, recommend (got "critical")',
+    );
+  });
+
+  it('throws when --fail-on has no value', () => {
+    expect(() => parseRunArgs(['--fail-on'])).toThrow('--fail-on requires a severity level');
+  });
+
+  // --report-on flag
+  it('parses --report-on with valid severity', () => {
+    const result = parseRunArgs(['--report-on', 'error']);
+
+    expect(result.reportOn).toBe('error');
+  });
+
+  it('parses --report-on= syntax', () => {
+    const result = parseRunArgs(['--report-on=warn']);
+
+    expect(result.reportOn).toBe('warn');
+  });
+
+  it('throws when --report-on has an invalid value', () => {
+    expect(() => parseRunArgs(['--report-on', 'debug'])).toThrow(
+      '--report-on must be one of: error, warn, recommend (got "debug")',
+    );
+  });
+
+  it('throws when --report-on has no value', () => {
+    expect(() => parseRunArgs(['--report-on'])).toThrow('--report-on requires a severity level');
+  });
+
+  it('omits failOn and reportOn when not specified', () => {
+    const result = parseRunArgs([]);
+
+    expect(result).not.toHaveProperty('failOn');
+    expect(result).not.toHaveProperty('reportOn');
+  });
 });
 
 describe(runCommand, () => {
@@ -287,7 +349,10 @@ describe(runCommand, () => {
     });
 
     expect(mockRunPreflight).toHaveBeenCalledTimes(1);
-    expect(mockRunPreflight).toHaveBeenCalledWith(collection.checklists[0]);
+    expect(mockRunPreflight).toHaveBeenCalledWith(
+      collection.checklists[0],
+      expect.objectContaining({ defaultSeverity: 'error', failOn: 'error' }),
+    );
     expect(exitCode).toBe(0);
   });
 
@@ -368,8 +433,8 @@ describe(runCommand, () => {
 
   it('uses per-checklist fixLocation over collection default', async () => {
     const collection = makeCollection({
-      fixLocation: 'END',
-      checklists: [{ name: 'deploy', checks: [{ name: 'a', check: () => true }], fixLocation: 'INLINE' }],
+      fixLocation: 'end',
+      checklists: [{ name: 'deploy', checks: [{ name: 'a', check: () => true }], fixLocation: 'inline' }],
     });
     mockLoadPreflightCollection.mockResolvedValue(collection);
     mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
@@ -380,12 +445,15 @@ describe(runCommand, () => {
       json: false,
     });
 
-    expect(mockReportPreflight).toHaveBeenCalledWith(expect.anything(), { fixLocation: 'INLINE' });
+    expect(mockReportPreflight).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ fixLocation: 'inline' }),
+    );
   });
 
   it('falls back to collection-level fixLocation when checklist has none', async () => {
     const collection = makeCollection({
-      fixLocation: 'END',
+      fixLocation: 'end',
       checklists: [{ name: 'deploy', checks: [{ name: 'a', check: () => true }] }],
     });
     mockLoadPreflightCollection.mockResolvedValue(collection);
@@ -397,7 +465,10 @@ describe(runCommand, () => {
       json: false,
     });
 
-    expect(mockReportPreflight).toHaveBeenCalledWith(expect.anything(), { fixLocation: 'END' });
+    expect(mockReportPreflight).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ fixLocation: 'end' }),
+    );
   });
 
   it('reports collection loading errors to stderr', async () => {
@@ -417,7 +488,19 @@ describe(runCommand, () => {
     const collection = makeCollection();
     mockLoadPreflightCollection.mockResolvedValue(collection);
     mockRunPreflight.mockResolvedValue({
-      results: [{ name: 'a', status: 'passed', durationMs: 10 }],
+      results: [
+        {
+          name: 'a',
+          status: 'passed',
+          ok: true,
+          severity: 'error',
+          detail: null,
+          fix: null,
+          error: null,
+          progress: null,
+          durationMs: 10,
+        },
+      ],
       passed: true,
       durationMs: 10,
     });
@@ -455,14 +538,47 @@ describe(runCommand, () => {
     mockRunPreflight
       .mockResolvedValueOnce({
         results: [
-          { name: 'a', status: 'passed', durationMs: 10 },
-          { name: 'b', status: 'failed', durationMs: 5 },
+          {
+            name: 'a',
+            status: 'passed',
+            ok: true,
+            severity: 'error',
+            detail: null,
+            fix: null,
+            error: null,
+            progress: null,
+            durationMs: 10,
+          },
+          {
+            name: 'b',
+            status: 'failed',
+            ok: false,
+            severity: 'error',
+            detail: null,
+            fix: null,
+            error: null,
+            progress: null,
+            durationMs: 5,
+          },
         ],
         passed: false,
         durationMs: 15,
       })
       .mockResolvedValueOnce({
-        results: [{ name: 'c', status: 'skipped', durationMs: 0 }],
+        results: [
+          {
+            name: 'c',
+            status: 'skipped',
+            ok: null,
+            severity: 'error',
+            skipReason: 'precondition',
+            detail: null,
+            fix: null,
+            error: null,
+            progress: null,
+            durationMs: 0,
+          },
+        ],
         passed: false,
         durationMs: 0,
       });
@@ -477,6 +593,94 @@ describe(runCommand, () => {
       expect.objectContaining({ name: 'deploy', passed: 1, failed: 1, skipped: 0, allPassed: false }),
       expect.objectContaining({ name: 'infra', passed: 0, failed: 0, skipped: 1, allPassed: false }),
     ]);
+  });
+
+  describe('threshold cascade', () => {
+    it('uses CLI --fail-on flag over collection default', async () => {
+      const collection = makeCollection({ failOn: 'error' });
+      mockLoadPreflightCollection.mockResolvedValue(collection);
+      mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
+
+      await runCommand({
+        names: ['deploy'],
+        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        json: false,
+        failOn: 'warn',
+      });
+
+      expect(mockRunPreflight).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ failOn: 'warn' }));
+    });
+
+    it('falls back to collection failOn when CLI flag is absent', async () => {
+      const collection = makeCollection({ failOn: 'recommend' });
+      mockLoadPreflightCollection.mockResolvedValue(collection);
+      mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
+
+      await runCommand({
+        names: ['deploy'],
+        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        json: false,
+      });
+
+      expect(mockRunPreflight).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ failOn: 'recommend' }),
+      );
+    });
+
+    it('falls back to collection reportOn when CLI flag is absent', async () => {
+      const collection = makeCollection({ reportOn: 'warn' });
+      mockLoadPreflightCollection.mockResolvedValue(collection);
+      mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
+
+      await runCommand({
+        names: ['deploy'],
+        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        json: false,
+      });
+
+      expect(mockReportPreflight).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ reportOn: 'warn' }),
+      );
+    });
+
+    it('passes reportOn to reportPreflight', async () => {
+      const collection = makeCollection();
+      mockLoadPreflightCollection.mockResolvedValue(collection);
+      mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
+
+      await runCommand({
+        names: ['deploy'],
+        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        json: false,
+        reportOn: 'warn',
+      });
+
+      expect(mockReportPreflight).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ reportOn: 'warn' }),
+      );
+    });
+
+    it('passes reportOn to formatJsonReport', async () => {
+      const collection = makeCollection();
+      mockLoadPreflightCollection.mockResolvedValue(collection);
+      mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
+      mockFormatJsonReport.mockReturnValue('{"allPassed":true}');
+
+      await runCommand({
+        names: ['deploy'],
+        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        json: true,
+        reportOn: 'error',
+      });
+
+      expect(mockFormatJsonReport).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ reportOn: 'error' }),
+      );
+    });
   });
 
   describe('JSON mode', () => {
@@ -562,10 +766,13 @@ describe(runCommand, () => {
         json: true,
       });
 
-      expect(mockFormatJsonReport).toHaveBeenCalledWith([
-        { name: 'deploy', report: report1 },
-        { name: 'infra', report: report2 },
-      ]);
+      expect(mockFormatJsonReport).toHaveBeenCalledWith(
+        [
+          { name: 'deploy', report: report1 },
+          { name: 'infra', report: report2 },
+        ],
+        expect.objectContaining({ reportOn: 'recommend' }),
+      );
     });
 
     it('emits JSON error to stdout when runPreflight throws', async () => {

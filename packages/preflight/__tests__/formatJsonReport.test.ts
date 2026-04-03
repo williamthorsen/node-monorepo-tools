@@ -1,9 +1,55 @@
 import { describe, expect, it } from 'vitest';
 
 import { formatJsonReport } from '../src/formatJsonReport.ts';
-import type { PreflightReport } from '../src/types.ts';
+import type { FailedResult, PassedResult, PreflightReport, PreflightResult, SkippedResult } from '../src/types.ts';
 
-function makeReport(overrides?: Partial<PreflightReport>): PreflightReport {
+function makePassedResult(overrides?: Partial<PassedResult>): PassedResult {
+  return {
+    name: 'check',
+    status: 'passed',
+    ok: true,
+    severity: 'error',
+    detail: null,
+    fix: null,
+    error: null,
+    progress: null,
+    durationMs: 10,
+    ...overrides,
+  };
+}
+
+function makeFailedResult(overrides?: Partial<FailedResult>): FailedResult {
+  return {
+    name: 'check',
+    status: 'failed',
+    ok: false,
+    severity: 'error',
+    detail: null,
+    fix: null,
+    error: null,
+    progress: null,
+    durationMs: 5,
+    ...overrides,
+  };
+}
+
+function makeSkippedResult(overrides?: Partial<SkippedResult>): SkippedResult {
+  return {
+    name: 'check',
+    status: 'skipped',
+    ok: null,
+    severity: 'error',
+    skipReason: 'precondition',
+    detail: null,
+    fix: null,
+    error: null,
+    progress: null,
+    durationMs: 0,
+    ...overrides,
+  };
+}
+
+function makeReport(overrides?: Partial<PreflightReport> & { results?: PreflightResult[] }): PreflightReport {
   return { results: [], passed: true, durationMs: 0, ...overrides };
 }
 
@@ -18,11 +64,7 @@ describe(formatJsonReport, () => {
 
   it('returns correct summary counts for a single checklist', () => {
     const report = makeReport({
-      results: [
-        { name: 'a', status: 'passed', durationMs: 10 },
-        { name: 'b', status: 'failed', durationMs: 5 },
-        { name: 'c', status: 'skipped', durationMs: 0 },
-      ],
+      results: [makePassedResult({ name: 'a' }), makeFailedResult({ name: 'b' }), makeSkippedResult({ name: 'c' })],
       passed: false,
       durationMs: 15,
     });
@@ -30,24 +72,21 @@ describe(formatJsonReport, () => {
     const parsed: unknown = JSON.parse(formatJsonReport([{ name: 'deploy', report }]));
 
     expect(parsed).toMatchObject({
-      passedCount: 1,
-      failedCount: 1,
-      skippedCount: 1,
+      passed: 1,
+      failed: 1,
+      skipped: 1,
       allPassed: false,
     });
   });
 
   it('aggregates counts across multiple checklists', () => {
     const report1 = makeReport({
-      results: [
-        { name: 'a', status: 'passed', durationMs: 10 },
-        { name: 'b', status: 'passed', durationMs: 5 },
-      ],
+      results: [makePassedResult({ name: 'a' }), makePassedResult({ name: 'b' })],
       passed: true,
       durationMs: 15,
     });
     const report2 = makeReport({
-      results: [{ name: 'c', status: 'failed', durationMs: 3 }],
+      results: [makeFailedResult({ name: 'c' })],
       passed: false,
       durationMs: 3,
     });
@@ -60,9 +99,9 @@ describe(formatJsonReport, () => {
     );
 
     expect(parsed).toMatchObject({
-      passedCount: 2,
-      failedCount: 1,
-      skippedCount: 0,
+      passed: 2,
+      failed: 1,
+      skipped: 0,
       allPassed: false,
       checklists: expect.arrayContaining([expect.anything(), expect.anything()]),
     });
@@ -70,7 +109,7 @@ describe(formatJsonReport, () => {
 
   it('includes checklist-level allPassed and counts', () => {
     const report = makeReport({
-      results: [{ name: 'a', status: 'passed', durationMs: 10 }],
+      results: [makePassedResult({ name: 'a' })],
       passed: true,
       durationMs: 10,
     });
@@ -82,9 +121,9 @@ describe(formatJsonReport, () => {
         {
           name: 'deploy',
           allPassed: true,
-          passedCount: 1,
-          failedCount: 0,
-          skippedCount: 0,
+          passed: 1,
+          failed: 0,
+          skipped: 0,
           durationMs: 10,
         },
       ],
@@ -93,10 +132,7 @@ describe(formatJsonReport, () => {
 
   it('sets top-level allPassed to true when checks are skipped but none failed', () => {
     const report = makeReport({
-      results: [
-        { name: 'a', status: 'skipped', durationMs: 0 },
-        { name: 'b', status: 'skipped', durationMs: 0 },
-      ],
+      results: [makeSkippedResult({ name: 'a' }), makeSkippedResult({ name: 'b' })],
       passed: true,
       durationMs: 0,
     });
@@ -105,15 +141,15 @@ describe(formatJsonReport, () => {
 
     expect(parsed).toMatchObject({
       allPassed: true,
-      passedCount: 0,
-      failedCount: 0,
-      skippedCount: 2,
+      passed: 0,
+      failed: 0,
+      skipped: 2,
     });
   });
 
   it('emits the expected top-level shape with no summary wrapper', () => {
     const report = makeReport({
-      results: [{ name: 'a', status: 'passed', durationMs: 10 }],
+      results: [makePassedResult({ name: 'a' })],
       passed: true,
       durationMs: 10,
     });
@@ -123,19 +159,12 @@ describe(formatJsonReport, () => {
     // eslint-disable-next-line unicorn/no-array-sort -- toSorted requires Node 20+; engine target is >=18.17.0
     const topLevelKeys = Object.keys(parsed).sort();
 
-    expect(topLevelKeys).toStrictEqual([
-      'allPassed',
-      'checklists',
-      'durationMs',
-      'failedCount',
-      'passedCount',
-      'skippedCount',
-    ]);
+    expect(topLevelKeys).toStrictEqual(['allPassed', 'checklists', 'durationMs', 'failed', 'passed', 'skipped']);
   });
 
   it('serializes error as a string message', () => {
     const report = makeReport({
-      results: [{ name: 'a', status: 'failed', error: new Error('connection refused'), durationMs: 5 }],
+      results: [makeFailedResult({ name: 'a', error: new Error('connection refused') })],
       passed: false,
       durationMs: 5,
     });
@@ -147,32 +176,72 @@ describe(formatJsonReport, () => {
     });
   });
 
-  it('omits optional fields when undefined', () => {
+  it('includes all fields as non-optional (null, not absent)', () => {
     const report = makeReport({
-      results: [{ name: 'a', status: 'passed', durationMs: 10 }],
+      results: [makePassedResult({ name: 'a' })],
       passed: true,
       durationMs: 10,
     });
 
     const output = formatJsonReport([{ name: 'deploy', report }]);
+    const parsed: unknown = JSON.parse(output);
 
-    expect(output).not.toContain('"fix"');
-    expect(output).not.toContain('"error"');
-    expect(output).not.toContain('"detail"');
-    expect(output).not.toContain('"progress"');
+    expect(parsed).toMatchObject({
+      checklists: [
+        {
+          checks: [
+            {
+              name: 'a',
+              status: 'passed',
+              ok: true,
+              severity: 'error',
+              skipReason: null,
+              detail: null,
+              fix: null,
+              error: null,
+              progress: null,
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('includes severity, ok, and skipReason on every check entry', () => {
+    const report = makeReport({
+      results: [
+        makePassedResult({ name: 'a', severity: 'warn' }),
+        makeFailedResult({ name: 'b', severity: 'error' }),
+        makeSkippedResult({ name: 'c', severity: 'recommend', skipReason: 'n/a' }),
+      ],
+      passed: false,
+      durationMs: 15,
+    });
+
+    const parsed: unknown = JSON.parse(formatJsonReport([{ name: 'deploy', report }]));
+
+    expect(parsed).toMatchObject({
+      checklists: [
+        {
+          checks: [
+            { severity: 'warn', ok: true, skipReason: null },
+            { severity: 'error', ok: false, skipReason: null },
+            { severity: 'recommend', ok: null, skipReason: 'n/a' },
+          ],
+        },
+      ],
+    });
   });
 
   it('includes optional fields when present', () => {
     const report = makeReport({
       results: [
-        {
+        makeFailedResult({
           name: 'a',
-          status: 'failed',
           fix: 'run npm install',
           detail: 'missing dependency',
           progress: { type: 'fraction', passedCount: 3, count: 5 },
-          durationMs: 10,
-        },
+        }),
       ],
       passed: false,
       durationMs: 10,
@@ -198,12 +267,10 @@ describe(formatJsonReport, () => {
   it('serializes percent-based progress', () => {
     const report = makeReport({
       results: [
-        {
+        makePassedResult({
           name: 'a',
-          status: 'passed',
           progress: { type: 'percent', percent: 75 },
-          durationMs: 10,
-        },
+        }),
       ],
       passed: true,
       durationMs: 10,
@@ -213,6 +280,44 @@ describe(formatJsonReport, () => {
 
     expect(parsed).toMatchObject({
       checklists: [{ checks: [{ progress: { type: 'percent', percent: 75 } }] }],
+    });
+  });
+
+  describe('reporting threshold', () => {
+    it('excludes results below the reporting threshold', () => {
+      const report = makeReport({
+        results: [
+          makePassedResult({ name: 'error-check', severity: 'error' }),
+          makePassedResult({ name: 'recommend-check', severity: 'recommend' }),
+        ],
+        passed: true,
+        durationMs: 20,
+      });
+
+      const parsed: unknown = JSON.parse(formatJsonReport([{ name: 'deploy', report }], { reportOn: 'error' }));
+
+      expect(parsed).toMatchObject({
+        checklists: [{ checks: [{ name: 'error-check' }] }],
+      });
+    });
+
+    it('counts only visible results', () => {
+      const report = makeReport({
+        results: [
+          makePassedResult({ name: 'a', severity: 'error' }),
+          makeFailedResult({ name: 'b', severity: 'recommend' }),
+        ],
+        passed: false,
+        durationMs: 15,
+      });
+
+      const parsed: unknown = JSON.parse(formatJsonReport([{ name: 'deploy', report }], { reportOn: 'error' }));
+
+      expect(parsed).toMatchObject({
+        passed: 1,
+        failed: 0,
+        skipped: 0,
+      });
     });
   });
 });

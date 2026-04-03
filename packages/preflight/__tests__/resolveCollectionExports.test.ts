@@ -19,9 +19,9 @@ describe(resolveCollectionExports, () => {
 
   it('forwards fixLocation when defined', () => {
     const checklists = [{ name: 'a', checks: [] }];
-    const result = resolveCollectionExports({ checklists, fixLocation: 'INLINE' });
+    const result = resolveCollectionExports({ checklists, fixLocation: 'inline' });
 
-    expect(result).toStrictEqual({ checklists, fixLocation: 'INLINE' });
+    expect(result).toStrictEqual({ checklists, fixLocation: 'inline' });
   });
 
   it('omits fixLocation when undefined', () => {
@@ -49,9 +49,9 @@ describe(resolveCollectionExports, () => {
   it('forwards both fixLocation and suites from a default export', () => {
     const checklists = [{ name: 'a', checks: [] }];
     const suites = { ci: ['a'] };
-    const result = resolveCollectionExports({ default: { checklists, fixLocation: 'END', suites } });
+    const result = resolveCollectionExports({ default: { checklists, fixLocation: 'end', suites } });
 
-    expect(result).toStrictEqual({ checklists, fixLocation: 'END', suites });
+    expect(result).toStrictEqual({ checklists, fixLocation: 'end', suites });
   });
 
   it('throws when checklists is missing', () => {
