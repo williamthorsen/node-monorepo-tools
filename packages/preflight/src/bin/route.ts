@@ -5,7 +5,7 @@ import { compileCommand } from '../compile/compileCommand.ts';
 import { initCommand } from '../init/initCommand.ts';
 import { VERSION } from '../version.ts';
 
-const SUBCOMMANDS = ['run', 'compile', 'init'];
+const SUBCOMMANDS = ['compile', 'init'];
 const MIN_PREFIX_LENGTH = 3;
 
 function showHelp(): void {

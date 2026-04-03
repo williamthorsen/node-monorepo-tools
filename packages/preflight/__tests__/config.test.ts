@@ -66,9 +66,21 @@ describe(loadPreflightCollection, () => {
       const moduleError = Object.assign(new Error("Cannot find package '@williamthorsen/preflight'"), { code });
       mockJitiImport.mockRejectedValue(moduleError);
 
-      await expect(loadPreflightCollection()).rejects.toThrow("Cannot resolve '@williamthorsen/preflight'");
+      await expect(loadPreflightCollection()).rejects.toThrow(
+        /Cannot resolve '@williamthorsen\/preflight'.*installed as a project dependency.*'preflight compile'/,
+      );
     },
   );
+
+  it('falls back to "unknown module" when the error message does not match the expected pattern', async () => {
+    mockExistsSync.mockReturnValue(true);
+    const moduleError = Object.assign(new Error('Module load failed'), { code: 'MODULE_NOT_FOUND' });
+    mockJitiImport.mockRejectedValue(moduleError);
+
+    await expect(loadPreflightCollection()).rejects.toThrow(
+      /Cannot resolve 'unknown module'.*installed as a project dependency/,
+    );
+  });
 
   it('re-throws non-module-resolution errors from jiti', async () => {
     mockExistsSync.mockReturnValue(true);
