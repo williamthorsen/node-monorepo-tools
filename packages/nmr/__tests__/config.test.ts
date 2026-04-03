@@ -32,6 +32,16 @@ describe('defineConfig', () => {
   it('accepts an empty config', () => {
     expect(defineConfig({})).toEqual({});
   });
+
+  it('accepts a config with devBin', () => {
+    const config = defineConfig({
+      devBin: {
+        'my-cli': 'tsx packages/my-cli/src/cli.ts',
+      },
+    });
+
+    expect(config.devBin).toEqual({ 'my-cli': 'tsx packages/my-cli/src/cli.ts' });
+  });
 });
 
 describe('loadConfig', () => {
