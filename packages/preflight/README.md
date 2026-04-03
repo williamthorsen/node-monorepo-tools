@@ -328,6 +328,22 @@ The `--github` flag constructs the URL: `https://raw.githubusercontent.com/{org}
 
 ## CLI reference
 
+`run` is the default command. These two invocations are equivalent:
+
+```bash
+preflight run deploy --file checks.ts
+preflight deploy --file checks.ts
+```
+
+When the first argument is not a recognized subcommand (`run`, `compile`, `init`) or a global flag, preflight treats the entire argument list as `run` arguments. If the argument looks like a mistyped subcommand (e.g., `preflight compil`), preflight suggests the correct spelling.
+
+### Global options
+
+| Flag            | Description         |
+| --------------- | ------------------- |
+| `--help, -h`    | Show help message   |
+| `--version, -V` | Show version number |
+
 ### `preflight run`
 
 Run preflight checklists. If no names are given, all checklists in the collection are run.
@@ -375,6 +391,10 @@ preflight init [options]
 | `--force`   | Overwrite existing files              |
 
 Creates `.config/preflight/config.ts` and `.config/preflight/collections/default.ts`.
+
+### Error messages
+
+When an uncompiled collection references a package that is not installed, preflight explains that the package must be a project dependency and suggests `preflight compile` as an alternative for self-contained bundles.
 
 ## JSON output
 

@@ -61,7 +61,7 @@ export async function loadConfig(overridePath?: string): Promise<ResolvedPreflig
   }
 
   const { createJiti } = await import('jiti');
-  const jiti = createJiti(import.meta.url);
+  const jiti = createJiti(resolvedPath);
   const imported: unknown = await jiti.import(resolvedPath);
 
   if (!isRecord(imported)) {

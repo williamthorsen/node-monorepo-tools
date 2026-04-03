@@ -3,18 +3,31 @@ import process from 'node:process';
 import { parseRunArgs, runCommand } from '../cli.ts';
 import { compileCommand } from '../compile/compileCommand.ts';
 import { initCommand } from '../init/initCommand.ts';
+import { VERSION } from '../version.ts';
+
+const SUBCOMMANDS = ['compile', 'init'];
+const MIN_PREFIX_LENGTH = 3;
 
 function showHelp(): void {
   console.info(`
-Usage: preflight <command> [options]
+Usage: preflight [names...] [options]
+       preflight <command> [options]
 
 Commands:
-  run [names...]       Run preflight checklists
+  run [names...]       Run preflight checklists (default)
   compile [input]      Bundle TypeScript collection(s) into self-contained ESM file(s)
   init                 Scaffold a starter config and collection
 
-Options:
-  --help, -h       Show this help message
+Run options:
+  --file <path>                      Path to a local collection file
+  --github <org/repo[@ref]>          Fetch collection from a GitHub repository
+  --url <url>                        Fetch collection from a URL
+  --collection <name>                Collection name (default: "default")
+  --json                             Output results as JSON
+
+Global options:
+  --help, -h           Show this help message
+  --version, -V        Show version number
 `);
 }
 
@@ -64,6 +77,19 @@ Options:
 `);
 }
 
+/** Check whether a positional arg is a close prefix of a known subcommand. */
+function findTypoMatch(input: string): string | undefined {
+  if (input.length < MIN_PREFIX_LENGTH || input.startsWith('-')) {
+    return undefined;
+  }
+  for (const cmd of SUBCOMMANDS) {
+    if (cmd !== input && cmd.startsWith(input)) {
+      return cmd;
+    }
+  }
+  return undefined;
+}
+
 /**
  * Route CLI arguments to the appropriate subcommand.
  *
@@ -71,41 +97,32 @@ Options:
  */
 export async function routeCommand(args: string[]): Promise<number> {
   const command = args[0];
-  const flags = args.slice(1);
 
-  if (command === '--help' || command === '-h' || command === undefined) {
+  if (command === undefined || command === '--help' || command === '-h') {
     showHelp();
     return 0;
   }
 
+  if (command === '--version' || command === '-V') {
+    console.info(VERSION);
+    return 0;
+  }
+
   if (command === 'run') {
-    if (flags.some((f) => f === '--help' || f === '-h')) {
-      showRunHelp();
-      return 0;
-    }
-
-    let parsed: ReturnType<typeof parseRunArgs>;
-    try {
-      parsed = parseRunArgs(flags);
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      process.stderr.write(`Error: ${message}\n`);
-      return 1;
-    }
-
-    return runCommand(parsed);
+    return handleRun(args.slice(1));
   }
 
   if (command === 'compile') {
+    const flags = args.slice(1);
     if (flags.some((f) => f === '--help' || f === '-h')) {
       showCompileHelp();
       return 0;
     }
-
     return compileCommand(flags);
   }
 
   if (command === 'init') {
+    const flags = args.slice(1);
     if (flags.some((f) => f === '--help' || f === '-h')) {
       showInitHelp();
       return 0;
@@ -123,7 +140,32 @@ export async function routeCommand(args: string[]): Promise<number> {
     return initCommand({ dryRun, force });
   }
 
-  process.stderr.write(`Error: Unknown command: ${command}\n`);
-  showHelp();
-  return 1;
+  // Check for typos before falling through to the default command
+  const typoMatch = findTypoMatch(command);
+  if (typoMatch !== undefined) {
+    process.stderr.write(`Error: Unknown command '${command}'. Did you mean 'preflight ${typoMatch}'?\n`);
+    return 1;
+  }
+
+  // Default: treat all args as `run` arguments
+  return handleRun(args);
+}
+
+/** Parse and execute the `run` subcommand. */
+async function handleRun(flags: string[]): Promise<number> {
+  if (flags.some((f) => f === '--help' || f === '-h')) {
+    showRunHelp();
+    return 0;
+  }
+
+  let parsed: ReturnType<typeof parseRunArgs>;
+  try {
+    parsed = parseRunArgs(flags);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`Error: ${message}\n`);
+    return 1;
+  }
+
+  return runCommand(parsed);
 }
