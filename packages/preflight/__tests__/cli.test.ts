@@ -628,6 +628,23 @@ describe(runCommand, () => {
       );
     });
 
+    it('falls back to collection reportOn when CLI flag is absent', async () => {
+      const collection = makeCollection({ reportOn: 'warn' });
+      mockLoadPreflightCollection.mockResolvedValue(collection);
+      mockRunPreflight.mockResolvedValue({ results: [], passed: true, durationMs: 0 });
+
+      await runCommand({
+        names: ['deploy'],
+        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        json: false,
+      });
+
+      expect(mockReportPreflight).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ reportOn: 'warn' }),
+      );
+    });
+
     it('passes reportOn to reportPreflight', async () => {
       const collection = makeCollection();
       mockLoadPreflightCollection.mockResolvedValue(collection);

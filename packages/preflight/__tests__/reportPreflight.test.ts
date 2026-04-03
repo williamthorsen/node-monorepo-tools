@@ -370,6 +370,35 @@ describe(reportPreflight, () => {
       expect(output).not.toContain('2 passed');
     });
 
+    it('hides precondition result when its severity is below the reporting threshold', () => {
+      const report = makeReport({
+        results: [
+          makeSkippedResult({ name: 'precond', severity: 'recommend', skipReason: 'precondition' }),
+          makeFailedResult({ name: 'error-check', severity: 'error' }),
+        ],
+        passed: false,
+      });
+
+      const output = reportPreflight(report, { reportOn: 'error' });
+
+      expect(output).toContain('error-check');
+      expect(output).not.toContain('precond');
+    });
+
+    it('shows only skipped dependents whose severity meets the reporting threshold', () => {
+      const report = makeReport({
+        results: [
+          makeSkippedResult({ name: 'high-sev-dep', severity: 'error', skipReason: 'precondition' }),
+          makeSkippedResult({ name: 'low-sev-dep', severity: 'recommend', skipReason: 'precondition' }),
+        ],
+      });
+
+      const output = reportPreflight(report, { reportOn: 'warn' });
+
+      expect(output).toContain('high-sev-dep');
+      expect(output).not.toContain('low-sev-dep');
+    });
+
     it('defaults reportOn to recommend (show all)', () => {
       const report = makeReport({
         results: [makePassedResult({ name: 'recommend-check', severity: 'recommend' })],
