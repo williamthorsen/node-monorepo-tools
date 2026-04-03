@@ -344,7 +344,10 @@ async function runJsonMode(
 
   try {
     for (const checklist of checklists) {
-      const report = await runPreflight(checklist, thresholds);
+      const report = await runPreflight(checklist, {
+        defaultSeverity: thresholds.defaultSeverity,
+        failOn: thresholds.failOn,
+      });
       entries.push({ name: checklist.name, report });
       if (!report.passed) allPassed = false;
     }
@@ -368,23 +371,32 @@ async function runHumanMode(
   let allPassed = true;
   const summaries: ChecklistSummary[] = [];
 
-  for (const checklist of checklists) {
-    if (showHeader) {
-      process.stdout.write(`\n--- ${checklist.name} ---\n\n`);
-    }
+  try {
+    for (const checklist of checklists) {
+      if (showHeader) {
+        process.stdout.write(`\n--- ${checklist.name} ---\n\n`);
+      }
 
-    const report = await runPreflight(checklist, thresholds);
-    const fixLocation = resolveFixLocation(checklist, collection.fixLocation);
-    const output = reportPreflight(report, { fixLocation, reportOn: thresholds.reportOn });
-    process.stdout.write(output + '\n');
+      const report = await runPreflight(checklist, {
+        defaultSeverity: thresholds.defaultSeverity,
+        failOn: thresholds.failOn,
+      });
+      const fixLocation = resolveFixLocation(checklist, collection.fixLocation);
+      const output = reportPreflight(report, { fixLocation, reportOn: thresholds.reportOn });
+      process.stdout.write(output + '\n');
 
-    if (!report.passed) {
-      allPassed = false;
-    }
+      if (!report.passed) {
+        allPassed = false;
+      }
 
-    if (showHeader) {
-      summaries.push(summarizeReport(checklist.name, report, thresholds.reportOn));
+      if (showHeader) {
+        summaries.push(summarizeReport(checklist.name, report, thresholds.reportOn));
+      }
     }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`Error: ${message}\n`);
+    return 1;
   }
 
   if (summaries.length > 1) {

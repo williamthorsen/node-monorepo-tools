@@ -59,7 +59,7 @@ export function formatJsonReport(entries: ChecklistEntry[], options?: FormatJson
   const totalDurationMs = checklists.reduce((sum, c) => sum + c.durationMs, 0);
 
   const output: JsonReport = {
-    allPassed: totalFailed === 0,
+    allPassed: entries.every(({ report }) => report.passed),
     passed: totalPassed,
     failed: totalFailed,
     skipped: totalSkipped,

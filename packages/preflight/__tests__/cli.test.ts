@@ -18,7 +18,12 @@ vi.mock('../src/config.ts', () => ({
 vi.mock('../src/runPreflight.ts', () => ({
   meetsThreshold: (severity: string, threshold: string) => {
     const rank: Record<string, number> = { error: 0, warn: 1, recommend: 2 };
-    return (rank[severity] ?? 0) <= (rank[threshold] ?? 0);
+    const severityRank = rank[severity];
+    const thresholdRank = rank[threshold];
+    if (severityRank === undefined || thresholdRank === undefined) {
+      throw new Error(`Invalid severity in meetsThreshold mock: severity="${severity}", threshold="${threshold}"`);
+    }
+    return severityRank <= thresholdRank;
   },
   runPreflight: mockRunPreflight,
 }));
@@ -346,7 +351,7 @@ describe(runCommand, () => {
     expect(mockRunPreflight).toHaveBeenCalledTimes(1);
     expect(mockRunPreflight).toHaveBeenCalledWith(
       collection.checklists[0],
-      expect.objectContaining({ defaultSeverity: 'error', failOn: 'error', reportOn: 'recommend' }),
+      expect.objectContaining({ defaultSeverity: 'error', failOn: 'error' }),
     );
     expect(exitCode).toBe(0);
   });

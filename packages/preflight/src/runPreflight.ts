@@ -17,7 +17,6 @@ import { isFlatChecklist } from './types.ts';
 export interface RunPreflightOptions {
   defaultSeverity?: Severity;
   failOn?: Severity;
-  reportOn?: Severity;
 }
 
 /**
