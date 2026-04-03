@@ -4,6 +4,7 @@ import path from 'node:path';
 import { z } from 'zod';
 
 import { isRecord } from './isRecord.ts';
+import { jitiImport } from './jitiImport.ts';
 import type { PreflightConfig, ResolvedPreflightConfig } from './types.ts';
 
 /** Default config values when no config file is found. */
@@ -60,13 +61,11 @@ export async function loadConfig(overridePath?: string): Promise<ResolvedPreflig
     return { ...DEFAULT_CONFIG };
   }
 
-  const { createJiti } = await import('jiti');
-  const jiti = createJiti(resolvedPath);
-  const imported: unknown = await jiti.import(resolvedPath);
-
-  if (!isRecord(imported)) {
-    throw new Error(`Config file must export an object, got ${Array.isArray(imported) ? 'array' : typeof imported}`);
-  }
+  const imported = await jitiImport(
+    resolvedPath,
+    'External packages imported by the config file must be installed in the project.',
+    'Config file',
+  );
 
   // Support both default export and named exports
   const raw = imported.default !== undefined && isRecord(imported.default) ? imported.default : imported;

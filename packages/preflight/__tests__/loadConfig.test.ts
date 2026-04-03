@@ -110,6 +110,36 @@ describe(loadConfig, () => {
     expect(config.compile.outDir).toBe('.preflight/distribution');
   });
 
+  it.each(['MODULE_NOT_FOUND', 'ERR_MODULE_NOT_FOUND'])(
+    'catches %s errors with an actionable message',
+    async (code) => {
+      mockExistsSync.mockReturnValue(true);
+      const moduleError = Object.assign(new Error("Cannot find package 'some-lib'"), { code });
+      mockJitiImport.mockRejectedValue(moduleError);
+
+      await expect(loadConfig('config.ts')).rejects.toThrow(
+        /Cannot resolve 'some-lib'.*must be installed in the project/,
+      );
+    },
+  );
+
+  it('falls back to "unknown module" when the error message does not match the expected pattern', async () => {
+    mockExistsSync.mockReturnValue(true);
+    const moduleError = Object.assign(new Error('Module load failed'), { code: 'MODULE_NOT_FOUND' });
+    mockJitiImport.mockRejectedValue(moduleError);
+
+    await expect(loadConfig('config.ts')).rejects.toThrow(
+      /Cannot resolve 'unknown module'.*must be installed in the project/,
+    );
+  });
+
+  it('re-throws non-module-resolution errors from jiti', async () => {
+    mockExistsSync.mockReturnValue(true);
+    mockJitiImport.mockRejectedValue(new SyntaxError('Unexpected token'));
+
+    await expect(loadConfig('config.ts')).rejects.toThrow(SyntaxError);
+  });
+
   it('supports named exports (no default)', async () => {
     mockExistsSync.mockReturnValue(true);
     mockJitiImport.mockResolvedValue({ compile: { srcDir: 'named/src', outDir: 'named/out' } });
