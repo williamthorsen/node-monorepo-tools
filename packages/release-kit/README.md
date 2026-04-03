@@ -157,6 +157,13 @@ Work types from your config are merged with these defaults by key — your entri
 
 ## CLI reference
 
+### Global options
+
+| Flag              | Description         |
+| ----------------- | ------------------- |
+| `--help`, `-h`    | Show help message   |
+| `--version`, `-V` | Show version number |
+
 ### `release-kit prepare`
 
 Run release preparation with automatic workspace discovery.

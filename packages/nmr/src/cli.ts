@@ -7,6 +7,7 @@ import { resolveContext } from './context.js';
 import { generateHelp } from './help.js';
 import { buildRootRegistry, buildWorkspaceRegistry, resolveScript } from './resolver.js';
 import { runCommand } from './runner.js';
+import { VERSION } from './version.js';
 
 /**
  * Shell-escapes a single argument by wrapping in single quotes
@@ -22,6 +23,7 @@ interface ParsedArgs {
   recursive: boolean;
   workspaceRoot: boolean;
   help: boolean;
+  version: boolean;
   intTest: boolean;
   command?: string;
   passthrough: string[];
@@ -34,6 +36,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     recursive: false,
     workspaceRoot: false,
     help: false,
+    version: false,
     intTest: false,
     passthrough: [],
   };
@@ -69,6 +72,11 @@ function parseArgs(argv: string[]): ParsedArgs {
       i++;
       continue;
     }
+    if (arg === '-V' || arg === '--version') {
+      result.version = true;
+      i++;
+      continue;
+    }
     if (arg === '-q' || arg === '--quiet') {
       result.quiet = true;
       i++;
@@ -91,6 +99,12 @@ function parseArgs(argv: string[]): ParsedArgs {
 
 async function main(): Promise<void> {
   const parsed = parseArgs(process.argv);
+
+  if (parsed.version) {
+    console.info(VERSION);
+    process.exit(0);
+  }
+
   const context = await resolveContext();
 
   if (parsed.help || !parsed.command) {

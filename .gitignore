@@ -57,7 +57,7 @@ coverage/
 .vitest-result.json
 
 # Generated files
-packages/preflight/src/version.ts
+packages/*/src/version.ts
 
 # TypeScript
 *.tsbuildinfo

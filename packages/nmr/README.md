@@ -239,6 +239,7 @@ nmr [flags] <command> [args...]
 | `-w, --workspace-root`   | Force root script registry                          | —       |
 | `-q, --quiet`            | Suppress info messages; show full output on failure | —       |
 | `-?, --help`             | Show available commands                             | —       |
+| `-V, --version`          | Show version number                                 | —       |
 | `--int-test`             | Use integration test scripts                        | —       |
 
 ### Examples
