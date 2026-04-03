@@ -6,6 +6,7 @@ import { createJiti } from 'jiti';
 import { isObject } from './helpers/type-guards.js';
 
 export interface NmrConfig {
+  devBin?: Record<string, string>;
   workspaceScripts?: Record<string, string | string[]>;
   rootScripts?: Record<string, string | string[]>;
 }
@@ -53,6 +54,30 @@ function validateScriptField(
   return value[fieldName];
 }
 
+/** Narrow an unknown value to a record of plain strings. */
+function isStringRecord(value: unknown): value is Record<string, string> {
+  if (!isObject(value)) return false;
+  for (const v of Object.values(value)) {
+    if (typeof v !== 'string') return false;
+  }
+  return true;
+}
+
+/** Validate and extract a `Record<string, string>` field from the raw config object. */
+function validateStringRecordField(
+  value: Record<string, unknown>,
+  fieldName: string,
+  configPath: string,
+): Record<string, string> | undefined {
+  if (!(fieldName in value) || value[fieldName] === undefined) {
+    return undefined;
+  }
+  if (!isStringRecord(value[fieldName])) {
+    throw new Error(`Invalid nmr config at ${configPath}: \`${fieldName}\` must be a Record<string, string>`);
+  }
+  return value[fieldName];
+}
+
 /** Validate that a loaded value conforms to the expected `NmrConfig` shape. */
 function validateConfig(value: unknown, configPath: string): NmrConfig {
   if (!isObject(value)) {
@@ -60,6 +85,9 @@ function validateConfig(value: unknown, configPath: string): NmrConfig {
   }
 
   const config: NmrConfig = {};
+
+  const devBin = validateStringRecordField(value, 'devBin', configPath);
+  if (devBin) config.devBin = devBin;
 
   const workspaceScripts = validateScriptField(value, 'workspaceScripts', configPath);
   if (workspaceScripts) config.workspaceScripts = workspaceScripts;

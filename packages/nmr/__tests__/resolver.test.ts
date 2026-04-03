@@ -5,12 +5,64 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  applyDevBin,
   buildRootRegistry,
   buildWorkspaceRegistry,
   describeScript,
   expandScript,
   resolveScript,
 } from '../src/resolver.js';
+
+describe(applyDevBin, () => {
+  const monorepoRoot = '/repo';
+
+  it('replaces a matching first token with the devBin command', () => {
+    const devBin = { 'my-cli': 'tsx packages/my-cli/src/cli.ts' };
+    const result = applyDevBin('my-cli --verbose', devBin, monorepoRoot);
+
+    expect(result).toBe('tsx /repo/packages/my-cli/src/cli.ts --verbose');
+  });
+
+  it('replaces a command with no arguments', () => {
+    const devBin = { 'my-cli': 'tsx packages/my-cli/src/cli.ts' };
+    const result = applyDevBin('my-cli', devBin, monorepoRoot);
+
+    expect(result).toBe('tsx /repo/packages/my-cli/src/cli.ts');
+  });
+
+  it('returns the command unchanged when no match exists', () => {
+    const devBin = { 'other-cli': 'tsx other.ts' };
+    const result = applyDevBin('my-cli --flag', devBin, monorepoRoot);
+
+    expect(result).toBe('my-cli --flag');
+  });
+
+  it('returns the command unchanged when devBin is undefined', () => {
+    const result = applyDevBin('my-cli --flag', undefined, monorepoRoot);
+
+    expect(result).toBe('my-cli --flag');
+  });
+
+  it('returns the command unchanged when devBin is empty', () => {
+    const result = applyDevBin('my-cli --flag', {}, monorepoRoot);
+
+    expect(result).toBe('my-cli --flag');
+  });
+
+  it('resolves relative paths in replacement but not flags', () => {
+    const devBin = { build: 'node scripts/build.js --config config/build.json' };
+    const result = applyDevBin('build src/', devBin, monorepoRoot);
+
+    expect(result).toBe('node /repo/scripts/build.js --config /repo/config/build.json src/');
+  });
+
+  it('does not resolve the runner binary even if it contains a slash', () => {
+    const devBin = { 'my-cli': 'runners/tsx packages/cli/index.ts' };
+    const result = applyDevBin('my-cli', devBin, monorepoRoot);
+
+    expect(result).toBe('runners/tsx /repo/packages/cli/index.ts');
+  });
+});
 
 describe('expandScript', () => {
   it('returns a string script unchanged', () => {

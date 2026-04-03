@@ -6,6 +6,50 @@ import { isObject } from './helpers/type-guards.js';
 import type { ScriptRegistry, ScriptValue } from './resolve-scripts.js';
 import { getDefaultRootScripts, getDefaultWorkspaceScripts } from './resolve-scripts.js';
 
+/**
+ * Replace the first token of a command with a `devBin` substitute.
+ * Relative paths in the replacement are resolved from `monorepoRoot`.
+ */
+export function applyDevBin(command: string, devBin: Record<string, string> | undefined, monorepoRoot: string): string {
+  if (!devBin) {
+    return command;
+  }
+
+  const spaceIndex = command.indexOf(' ');
+  const firstToken = spaceIndex === -1 ? command : command.slice(0, spaceIndex);
+  const rest = spaceIndex === -1 ? '' : command.slice(spaceIndex);
+
+  const replacement = devBin[firstToken];
+  if (replacement === undefined) {
+    return command;
+  }
+
+  const resolvedReplacement = resolveReplacementPaths(replacement, monorepoRoot);
+  return resolvedReplacement + rest;
+}
+
+/**
+ * Resolve relative paths in a replacement command against `monorepoRoot`.
+ * The first token (the runner binary) is left as-is; subsequent tokens
+ * that contain `/` and don't start with `-` are resolved.
+ *
+ * Limitations: any non-flag token containing `/` is treated as a path,
+ * which may incorrectly resolve URL-like values or glob patterns.
+ * Tokens using `--flag=path` syntax are skipped entirely because the
+ * leading `-` excludes them; use the spaced form `--flag path` instead.
+ */
+function resolveReplacementPaths(replacement: string, monorepoRoot: string): string {
+  const tokens = replacement.split(' ');
+  return tokens
+    .map((token, index) => {
+      if (index === 0) return token;
+      if (token.startsWith('-')) return token;
+      if (!token.includes('/')) return token;
+      return path.resolve(monorepoRoot, token);
+    })
+    .join(' ');
+}
+
 export interface ResolvedScript {
   command: string;
   source: 'default' | 'package';

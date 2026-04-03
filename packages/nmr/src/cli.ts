@@ -5,7 +5,7 @@ import process from 'node:process';
 
 import { resolveContext } from './context.js';
 import { generateHelp } from './help.js';
-import { buildRootRegistry, buildWorkspaceRegistry, resolveScript } from './resolver.js';
+import { applyDevBin, buildRootRegistry, buildWorkspaceRegistry, resolveScript } from './resolver.js';
 import { runCommand } from './runner.js';
 import { VERSION } from './version.js';
 
@@ -157,7 +157,8 @@ async function main(): Promise<void> {
     console.info(`Using override script: ${resolved.command}`);
   }
 
-  const fullCommand = resolved.command + passthrough;
+  const substitutedCommand = applyDevBin(resolved.command, context.config.devBin, context.monorepoRoot);
+  const fullCommand = substitutedCommand + passthrough;
   const code = runCommand(fullCommand, undefined, runOptions);
   process.exit(code);
 }

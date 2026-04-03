@@ -67,6 +67,8 @@ Given the `build` command for a package that defines its own build script:
 
 If no per-package override exists, the highest-tier value that is set wins. Set a script to `""` in `package.json` to skip it for that package.
 
+> **Tip:** If your repo uses `eslint-plugin-package-json/valid-scripts`, empty strings are flagged as invalid. Use `":"` (the POSIX null command) instead — nmr treats it as a regular override that exits successfully and does nothing.
+
 ### Script values
 
 Script values can be `string` or `string[]`. Arrays expand to chained `nmr` sub-invocations:
@@ -99,8 +101,27 @@ export default defineConfig({
 | ------------------ | ------------------------------------ | -------------------------------------------------------------- |
 | `workspaceScripts` | `Record<string, string \| string[]>` | Scripts added or overridden in the workspace registry (tier 2) |
 | `rootScripts`      | `Record<string, string \| string[]>` | Scripts added or overridden in the root registry (tier 2)      |
+| `devBin`           | `Record<string, string>`             | Map binary names to source-repo replacement commands           |
 
-Both fields are optional. Values follow the same `string | string[]` convention described in [script values](#script-values).
+All fields are optional. `workspaceScripts` and `rootScripts` values follow the same `string | string[]` convention described in [script values](#script-values).
+
+### `devBin` — source-repo binary substitution
+
+When developing a CLI tool inside the monorepo, the published binary may not reflect your latest source changes. `devBin` lets you map a binary name to a replacement command that runs from source:
+
+```ts
+export default defineConfig({
+  devBin: {
+    'my-cli': 'tsx packages/my-cli/src/cli.ts',
+  },
+});
+```
+
+When nmr resolves a command whose first token matches a `devBin` key, it replaces that token with the mapped command. Arguments are preserved. Relative paths in the replacement are resolved from the monorepo root.
+
+For example, if a workspace script resolves to `my-cli --verbose`, nmr rewrites it to `tsx /absolute/path/to/packages/my-cli/src/cli.ts --verbose`.
+
+> **Note:** Path resolution uses a heuristic: any non-flag token containing `/` is treated as a relative path. This works well for typical dev-tool commands but may incorrectly resolve URL-like values or glob patterns. Flags using `--flag=value` syntax are not resolved; use the spaced form `--flag value` for paths that need resolution.
 
 ## Default script registries
 
