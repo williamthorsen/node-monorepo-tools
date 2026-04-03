@@ -2,9 +2,8 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const packageDir = process.cwd();
 const raw: unknown = JSON.parse(readFileSync(path.join(packageDir, 'package.json'), 'utf8'));
 
 if (typeof raw !== 'object' || raw === null || !('version' in raw) || typeof raw.version !== 'string') {

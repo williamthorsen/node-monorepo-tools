@@ -10,6 +10,7 @@ import { generateCommand } from '../sync-labels/generateCommand.ts';
 import { syncLabelsInitCommand } from '../sync-labels/initCommand.ts';
 import { syncLabelsCommand } from '../sync-labels/syncCommand.ts';
 import { tagCommand } from '../tagCommand.ts';
+import { VERSION } from '../version.ts';
 
 function showUsage(): void {
   console.info(`
@@ -154,6 +155,11 @@ Options:
 const args = process.argv.slice(2);
 const command = args[0];
 const flags = args.slice(1);
+
+if (command === '--version' || command === '-V') {
+  console.info(VERSION);
+  process.exit(0);
+}
 
 if (command === '--help' || command === '-h' || command === undefined) {
   showUsage();
