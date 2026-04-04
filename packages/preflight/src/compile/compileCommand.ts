@@ -2,7 +2,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
-import { parseArgs } from '@williamthorsen/node-monorepo-core';
+import { parseArgs, translateParseError } from '@williamthorsen/node-monorepo-core';
 
 import { loadConfig } from '../loadConfig.ts';
 import { compileConfig } from './compileConfig.ts';
@@ -27,12 +27,8 @@ export async function compileCommand(args: string[]): Promise<number> {
     // Translate generic "requires a value" to domain hint.
     if (message === '--output requires a value') {
       process.stderr.write('Error: --output requires a path argument\n');
-    } else if (message.startsWith("unknown flag '")) {
-      // Convert "unknown flag '--x'" to "Unknown option: --x".
-      const flag = message.slice("unknown flag '".length, -1);
-      process.stderr.write(`Error: Unknown option: ${flag}\n`);
     } else {
-      process.stderr.write(`Error: ${message}\n`);
+      process.stderr.write(`Error: ${translateParseError(error)}\n`);
     }
     return 1;
   }
