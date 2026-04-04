@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## [release-kit-v4.4.0] - 2026-04-04
+
+### Documentation
+
+- #135 release-kit|docs: Refine README to match preflight documentation standard (#138)
+
+Restructures the release-kit README to match the documentation standard established by the preflight README (#114). Reorders sections to follow the cross-package convention, converts CLI flag listings from code blocks to tables, adds representative `prepare --dry-run` output to the quick start, and condenses ~90 lines of inline workflow YAML into a summary with an inputs table and trigger examples. Fixes several accuracy gaps found by verifying documentation against source.
+
+### Features
+
+- #142 feat: Add --version flag to nmr and release-kit (#143)
+
+Adds `--version` / `-V` support to the `nmr` and `release-kit` CLIs, matching the existing `preflight` behavior. Moves the build-time version generation script to the shared `config/` directory so all three packages use a single `generateVersion.ts`.
+
+- #150 feat: Detect and report missing build output in bin wrappers (#152)
+
+Adds try/catch with `ERR_MODULE_NOT_FOUND` detection to all six bin wrappers across `nmr`, `preflight`, and `release-kit`. Previously, five of the six wrappers used bare `import()` calls that produced cryptic unhandled rejections when `dist/` was missing, and `preflight`'s existing try/catch gave no actionable guidance.
+
+### Refactoring
+
+- #88 release-kit|refactor: Extract deleteFileIfExists helper (#136)
+
+Replaces the duplicate `deleteTagsFile` and `deleteSummaryFile` functions in `createTags.ts` with a single parameterized `deleteFileIfExists(path)` utility. The new helper lives in its own module and is exported from the package barrel for reuse.
+
+- #145 refactor: Extract shared CLI argument-parsing utility into core (#151)
+
+Add a schema-driven `parseArgs` function to `@williamthorsen/node-monorepo-core` that handles boolean flags, string flags (both `--flag=value` and `--flag value`), short aliases, positional collection, the `--` delimiter, and unknown-flag errors. Migrate all CLI argument-parsing sites in preflight (3 sites) and release-kit (5 sites) to use it. A companion `translateParseError` helper normalizes internal error messages for consistent user-facing output.
+
+## [release-kit-v4.0.0] - 2026-04-02
+
+### Features
+
+- #125 feat: Rename reusable workflows to .reusable.yaml convention (#129)
+
+Renames all three reusable GitHub Actions workflow files from the inconsistent `-workflow.yaml`/bare `.yaml` convention to a uniform `.reusable.yaml` suffix. Updates all references across caller workflows, release-kit templates, tests, preflight collection, and documentation. Scaffolds the sync-labels caller workflow and labels file for this repo. Deletes superseded legacy files.
+
 ## [release-kit-v3.0.0] - 2026-03-29
 
 ### Bug fixes
@@ -47,6 +83,10 @@ Prevents `releasePrepareMono` and `releasePrepare` from silently skipping compon
 ## [release-kit-v2.3.0] - 2026-03-28
 
 ### Features
+
+- #8 feat: Add shared writeFileWithCheck utility and overwrite reporting (#66)
+
+Extracts three duplicated `writeIfAbsent` implementations and two duplicated terminal helper sets into shared utilities in `@williamthorsen/node-monorepo-core`, then migrates all consumers (`release-kit init`, `preflight init`, `sync-labels`) to use them. All init commands now report which files were created, overwritten, skipped, or failed — including when `--force` replaces existing files.
 
 - #11 release-kit|feat: Separate tag-write errors from release preparation errors (#67)
 
@@ -112,7 +152,17 @@ Removes the ability to customize `tagPrefix` per component, enforcing the determ
 
 Adds ANSI formatting and emoji markers to the `release-kit prepare` command output. Progress chatter is dimmed, key results (version bumps, release tags, completion status) are highlighted with bold text and emoji, and monorepo components are separated by box-drawing section headers.
 
+- #59 feat: Extract nmr CLI from core package (#61)
+
+Extracts all nmr CLI code from `packages/core` into a new `packages/nmr` package (`@williamthorsen/nmr`). Core is reduced to an empty shared-library shell ready for cross-cutting utilities. All internal references are rewired and the full build/test pipeline passes.
+
+Scopes: core, nmr
+
 ### Refactoring
+
+- #43 refactor: Replace dist bin targets with thin wrapper scripts (#48)
+
+The `bin` entries in `packages/core` and `packages/release-kit` pointed directly into `dist/esm/`, causing `pnpm install` to emit "Failed to create bin" warnings in fresh worktrees where `dist/` does not yet exist. Each bin entry now points to a committed wrapper script in `bin/` that dynamically imports the real entry point. The `files` field in both packages includes `bin` so the wrappers are published.
 
 - #53 release-kit|refactor: Separate presentation from logic in prepare workflow (#57)
 

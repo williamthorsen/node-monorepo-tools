@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [nmr-v0.9.0] - 2026-04-04
+
+### Documentation
+
+- #134 nmr|docs: Refine README to match preflight documentation standard (#137)
+
+Rewrites the nmr README to match the documentation standard established by the preflight README (#114). Restructures content to follow the cross-package convention (header → installation → quick start → concepts → CLI reference), adds comprehensive reference tables for CLI flags, `defineConfig` fields, and all built-in script registries (workspace and root), and introduces visual aids for context-aware resolution and three-tier override precedence.
+
+### Features
+
+- #142 feat: Add --version flag to nmr and release-kit (#143)
+
+Adds `--version` / `-V` support to the `nmr` and `release-kit` CLIs, matching the existing `preflight` behavior. Moves the build-time version generation script to the shared `config/` directory so all three packages use a single `generateVersion.ts`.
+
+- #78 nmr|feat: Add devBin config for source-repo binary substitution (#146)
+
+Adds a `devBin` config field to nmr that maps binary names to replacement commands, with relative paths resolved from the monorepo root. Documents `":"` as the recommended way to disable a script when `eslint-plugin-package-json/valid-scripts` forbids empty strings.
+
+- #150 feat: Detect and report missing build output in bin wrappers (#152)
+
+Adds try/catch with `ERR_MODULE_NOT_FOUND` detection to all six bin wrappers across `nmr`, `preflight`, and `release-kit`. Previously, five of the six wrappers used bare `import()` calls that produced cryptic unhandled rejections when `dist/` was missing, and `preflight`'s existing try/catch gave no actionable guidance.
+
 ## [nmr-v0.5.0] - 2026-03-31
 
 ### Features
@@ -77,6 +99,14 @@ New binary that checks whether all publishable (non-private) workspace packages 
 Also adds `private` field extraction to the shared `PackageJson` interface.
 
 ## [nmr-v0.1.1] - 2026-03-28
+
+### Features
+
+- #59 feat: Extract nmr CLI from core package (#61)
+
+Extracts all nmr CLI code from `packages/core` into a new `packages/nmr` package (`@williamthorsen/nmr`). Core is reduced to an empty shared-library shell ready for cross-cutting utilities. All internal references are rewired and the full build/test pipeline passes.
+
+Scopes: core, nmr
 
 ### Refactoring
 

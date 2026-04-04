@@ -2,6 +2,60 @@
 
 All notable changes to this project will be documented in this file.
 
+## [preflight-v0.10.0] - 2026-04-04
+
+### Bug fixes
+
+- #140 preflight|fix: Catch module-resolution errors in loadConfig (#144)
+
+Wraps the `jiti.import()` call in `loadConfig` with a try/catch that catches `MODULE_NOT_FOUND` and `ERR_MODULE_NOT_FOUND` errors and rethrows with an actionable message. Extracts the shared jiti-import-with-error-handling pattern from both `loadConfig` and `loadPreflightCollection` into a new `jitiImport` helper to deduplicate the logic and resolve a cyclomatic complexity lint violation.
+
+### Documentation
+
+- #114 preflight|docs: Add README (#133)
+
+Adds a comprehensive README for the `@williamthorsen/preflight` package, covering installation, quick start, configuration authoring API, remote distribution workflow, CLI reference, and JSON output format.
+
+### Features
+
+- #139 preflight|feat: Improve CLI ergonomics and error handling (#141)
+
+Makes `run` the implicit default command, fix jiti module resolution to use the config file's path, replace raw Node.js errors with actionable messages for missing dependencies, add `--version`/`-V` support, improve top-level help to surface run-subcommand flags, and show relative paths in file-not-found errors.
+
+- #142 feat: Add --version flag to nmr and release-kit (#143)
+
+Adds `--version` / `-V` support to the `nmr` and `release-kit` CLIs, matching the existing `preflight` behavior. Moves the build-time version generation script to the shared `config/` directory so all three packages use a single `generateVersion.ts`.
+
+- #128 preflight|feat: Add severity levels, thresholds, and skip conditions (#147)
+
+`PreflightResult` is now a discriminated union (`PassedResult | FailedResult | SkippedResult`) with all fields non-optional using explicit `null`. Every result carries a `severity` field (`error | warn | recommend`).
+
+Checks can declare a `skip` function returning `false | string` to mark themselves as not applicable. Skip function throws are treated as check failures.
+
+Two new thresholds control run behavior: `failOn` (which severity causes exit code 1) and `reportOn` (which severity appears in output). Both are configurable at the collection level and overridable via `--fail-on` and `--report-on` CLI flags. The cascade is: CLI flag > collection field > default.
+
+Staged checklist progression halts only when a failure meets the `failOn` threshold. Summary counts in both human and JSON output reflect only results above the `reportOn` threshold.
+
+`FixLocation` normalized from `'INLINE' | 'END'` to `'inline' | 'end'`. `ReportOptions` removed from the public API. JSON count fields renamed from `passedCount`/`failedCount`/`skippedCount` to `passed`/`failed`/`skipped`. `JsonCheckEntry` includes `skipReason: null` on non-skipped entries for uniform JSON shape.
+
+- #150 feat: Detect and report missing build output in bin wrappers (#152)
+
+Adds try/catch with `ERR_MODULE_NOT_FOUND` detection to all six bin wrappers across `nmr`, `preflight`, and `release-kit`. Previously, five of the six wrappers used bare `import()` calls that produced cryptic unhandled rejections when `dist/` was missing, and `preflight`'s existing try/catch gave no actionable guidance.
+
+### Refactoring
+
+- #145 refactor: Extract shared CLI argument-parsing utility into core (#151)
+
+Add a schema-driven `parseArgs` function to `@williamthorsen/node-monorepo-core` that handles boolean flags, string flags (both `--flag=value` and `--flag value`), short aliases, positional collection, the `--` delimiter, and unknown-flag errors. Migrate all CLI argument-parsing sites in preflight (3 sites) and release-kit (5 sites) to use it. A companion `translateParseError` helper normalizes internal error messages for consistent user-facing output.
+
+## [preflight-v0.6.0] - 2026-04-02
+
+### Features
+
+- #125 feat: Rename reusable workflows to .reusable.yaml convention (#129)
+
+Renames all three reusable GitHub Actions workflow files from the inconsistent `-workflow.yaml`/bare `.yaml` convention to a uniform `.reusable.yaml` suffix. Updates all references across caller workflows, release-kit templates, tests, preflight collection, and documentation. Scaffolds the sync-labels caller workflow and labels file for this repo. Deletes superseded legacy files.
+
 ## [preflight-v0.5.0] - 2026-04-02
 
 ### Features
@@ -66,6 +120,14 @@ Updates `isPercentProgress` to use `progress.type === "percent"`. Upgrade `JsonP
 
 TypeScript with --moduleResolution nodenext could not resolve types from
 @williamthorsen/preflight because the exports map lacked a types condition.
+
+## [preflight-v0.3.0] - 2026-03-29
+
+### Features
+
+- #8 feat: Add shared writeFileWithCheck utility and overwrite reporting (#66)
+
+Extracts three duplicated `writeIfAbsent` implementations and two duplicated terminal helper sets into shared utilities in `@williamthorsen/node-monorepo-core`, then migrates all consumers (`release-kit init`, `preflight init`, `sync-labels`) to use them. All init commands now report which files were created, overwritten, skipped, or failed — including when `--force` replaces existing files.
 
 ## [preflight-v0.2.0] - 2026-03-27
 

@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [core-v0.2.5] - 2026-04-04
+
+### Refactoring
+
+- #145 refactor: Extract shared CLI argument-parsing utility into core (#151)
+
+Add a schema-driven `parseArgs` function to `@williamthorsen/node-monorepo-core` that handles boolean flags, string flags (both `--flag=value` and `--flag value`), short aliases, positional collection, the `--` delimiter, and unknown-flag errors. Migrate all CLI argument-parsing sites in preflight (3 sites) and release-kit (5 sites) to use it. A companion `translateParseError` helper normalizes internal error messages for consistent user-facing output.
+
 ## [core-v0.2.1] - 2026-03-28
 
 ### Features
@@ -10,7 +18,7 @@ All notable changes to this project will be documented in this file.
 
 Extracts three duplicated `writeIfAbsent` implementations and two duplicated terminal helper sets into shared utilities in `@williamthorsen/node-monorepo-core`, then migrates all consumers (`release-kit init`, `preflight init`, `sync-labels`) to use them. All init commands now report which files were created, overwritten, skipped, or failed — including when `--force` replaces existing files.
 
-## [release-kit-v2.2.0] - 2026-03-27
+## [core-v0.2.0] - 2026-03-27
 
 ### Dependencies
 
