@@ -338,23 +338,18 @@ describe(parseArgs, () => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
     vi.spyOn(console, 'info').mockImplementation(() => {});
-    vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('exits with code 1 for an invalid bump type', () => {
-    expect(() => parseArgs(['--bump=invalid'])).toThrow(ExitError);
-    expect(process.exit).toHaveBeenCalledWith(1);
-    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Invalid bump type'));
+  it('throws for an invalid bump type', () => {
+    expect(() => parseArgs(['--bump=invalid'])).toThrow('Invalid bump type');
   });
 
-  it('exits with code 1 for an unknown argument', () => {
-    expect(() => parseArgs(['--foo'])).toThrow(ExitError);
-    expect(process.exit).toHaveBeenCalledWith(1);
-    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Unknown argument'));
+  it('throws for an unknown flag with the flag name in the message', () => {
+    expect(() => parseArgs(['--foo'])).toThrow('Unknown option: --foo');
   });
 
   it('exits with code 0 when --help is provided', () => {
@@ -363,16 +358,12 @@ describe(parseArgs, () => {
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining('npx @williamthorsen/release-kit prepare'));
   });
 
-  it('exits with code 1 when --force is used without --bump', () => {
-    expect(() => parseArgs(['--force'])).toThrow(ExitError);
-    expect(process.exit).toHaveBeenCalledWith(1);
-    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('--force requires --bump'));
+  it('throws when --force is used without --bump', () => {
+    expect(() => parseArgs(['--force'])).toThrow('--force requires --bump');
   });
 
-  it('exits with code 1 when --only value is empty', () => {
-    expect(() => parseArgs(['--only='])).toThrow(ExitError);
-    expect(process.exit).toHaveBeenCalledWith(1);
-    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('--only requires'));
+  it('throws when --only value is empty', () => {
+    expect(() => parseArgs(['--only='])).toThrow('--only requires');
   });
 });
 

@@ -54,7 +54,7 @@ const prepareFlagSchema = {
   help: { long: '--help', type: 'boolean' as const, short: '-h' },
 };
 
-/** Parse CLI arguments into structured options. */
+/** Parse CLI arguments into structured options. Throws on invalid input. */
 export function parseArgs(argv: string[]): {
   dryRun: boolean;
   force: boolean;
@@ -66,8 +66,11 @@ export function parseArgs(argv: string[]): {
     parsed = coreParseArgs(argv, prepareFlagSchema);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error(`Error: Unknown argument: ${message.replace(/^unknown flag '(.+)'$/, '$1')}`);
-    process.exit(1);
+    const flagMatch = message.match(/^unknown flag '(.+)'$/);
+    if (flagMatch?.[1] !== undefined) {
+      throw new Error(`Unknown option: ${flagMatch[1]}`);
+    }
+    throw new Error(message);
   }
 
   const { flags } = parsed;
@@ -80,8 +83,7 @@ export function parseArgs(argv: string[]): {
   let bumpOverride: ReleaseType | undefined;
   if (flags.bump !== undefined) {
     if (!isReleaseType(flags.bump)) {
-      console.error(`Error: Invalid bump type "${flags.bump}". Must be one of: ${VALID_BUMP_TYPES.join(', ')}`);
-      process.exit(1);
+      throw new Error(`Invalid bump type "${flags.bump}". Must be one of: ${VALID_BUMP_TYPES.join(', ')}`);
     }
     bumpOverride = flags.bump;
   }
@@ -89,15 +91,13 @@ export function parseArgs(argv: string[]): {
   let only: string[] | undefined;
   if (flags.only !== undefined) {
     if (flags.only === '') {
-      console.error('Error: --only requires a comma-separated list of component names');
-      process.exit(1);
+      throw new Error('--only requires a comma-separated list of component names');
     }
     only = flags.only.split(',');
   }
 
   if (flags.force && bumpOverride === undefined) {
-    console.error('Error: --force requires --bump to specify the version bump type');
-    process.exit(1);
+    throw new Error('--force requires --bump to specify the version bump type');
   }
 
   return { dryRun: flags.dryRun, force: flags.force, bumpOverride, only };
@@ -126,7 +126,16 @@ export function writeReleaseTags(tags: string[], dryRun: boolean): WriteResult |
  * 6. Writes `.release-tags` for CI consumption.
  */
 export async function prepareCommand(argv: string[]): Promise<void> {
-  const { dryRun, force, bumpOverride, only } = parseArgs(argv);
+  let dryRun: boolean;
+  let force: boolean;
+  let bumpOverride: ReleaseType | undefined;
+  let only: string[] | undefined;
+  try {
+    ({ dryRun, force, bumpOverride, only } = parseArgs(argv));
+  } catch (error: unknown) {
+    console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  }
   const options = {
     dryRun,
     force,
