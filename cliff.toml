@@ -38,25 +38,25 @@ filter_unconventional = false
 # process each line of a commit as an individual commit
 split_commits = false
 # regex for preprocessing the commit messages
-commit_preprocessors = [
-  # Strip issue-ticket prefixes like "TOOL-123 " or "AFG-456 "
-  { pattern = '^[A-Z]+-\d+\s+', replace = "" },
-]
+commit_preprocessors = []
 # regex for parsing and grouping commits
-# Supports "type: desc", "scope|type: desc", and "type(scope): desc" formats
+# Supports "type: desc", "scope|type: desc", and "type(scope): desc" formats.
+# Each parser tolerates an optional ticket-ID prefix: "TOOL-123 ", "#150 ", "#123-1 ", "#123.1 ".
+#   ticket_prefix = ([A-Z]+-\d+\s+|\#\d+([.\-]\d+)?\s+)?
 commit_parsers = [
-  { message = "^(.*\\|)?fix(\\(.*\\))?(!)?:", group = "Bug fixes" },
-  { message = "^(.*\\|)?bugfix(\\(.*\\))?(!)?:", group = "Bug fixes" },
-  { message = "^(.*\\|)?feat(\\(.*\\))?(!)?:", group = "Features" },
-  { message = "^(.*\\|)?feature(\\(.*\\))?(!)?:", group = "Features" },
-  { message = "^(.*\\|)?internal(\\(.*\\))?(!)?:", group = "Internal" },
-  { message = "^(.*\\|)?refactor(\\(.*\\))?(!)?:", group = "Refactoring" },
-  { message = "^(.*\\|)?tests?(\\(.*\\))?(!)?:", group = "Tests" },
-  { message = "^(.*\\|)?tooling(\\(.*\\))?(!)?:", group = "Tooling" },
-  { message = "^(.*\\|)?ci(\\(.*\\))?(!)?:", group = "CI" },
-  { message = "^(.*\\|)?deps?(\\(.*\\))?(!)?:", group = "Dependencies" },
-  { message = "^(.*\\|)?docs?(\\(.*\\))?(!)?:", group = "Documentation" },
-  { message = "^(.*\\|)?fmt(\\(.*\\))?(!)?:", group = "Formatting" },
+  { message = "^release:", skip = true },
+  { message = "^([A-Z]+-\\d+\\s+|\\#\\d+([.\\-]\\d+)?\\s+)?(.*\\|)?fix(\\(.*\\))?(!)?:", group = "Bug fixes" },
+  { message = "^([A-Z]+-\\d+\\s+|\\#\\d+([.\\-]\\d+)?\\s+)?(.*\\|)?bugfix(\\(.*\\))?(!)?:", group = "Bug fixes" },
+  { message = "^([A-Z]+-\\d+\\s+|\\#\\d+([.\\-]\\d+)?\\s+)?(.*\\|)?feat(\\(.*\\))?(!)?:", group = "Features" },
+  { message = "^([A-Z]+-\\d+\\s+|\\#\\d+([.\\-]\\d+)?\\s+)?(.*\\|)?feature(\\(.*\\))?(!)?:", group = "Features" },
+  { message = "^([A-Z]+-\\d+\\s+|\\#\\d+([.\\-]\\d+)?\\s+)?(.*\\|)?internal(\\(.*\\))?(!)?:", group = "Internal" },
+  { message = "^([A-Z]+-\\d+\\s+|\\#\\d+([.\\-]\\d+)?\\s+)?(.*\\|)?refactor(\\(.*\\))?(!)?:", group = "Refactoring" },
+  { message = "^([A-Z]+-\\d+\\s+|\\#\\d+([.\\-]\\d+)?\\s+)?(.*\\|)?tests?(\\(.*\\))?(!)?:", group = "Tests" },
+  { message = "^([A-Z]+-\\d+\\s+|\\#\\d+([.\\-]\\d+)?\\s+)?(.*\\|)?tooling(\\(.*\\))?(!)?:", group = "Tooling" },
+  { message = "^([A-Z]+-\\d+\\s+|\\#\\d+([.\\-]\\d+)?\\s+)?(.*\\|)?ci(\\(.*\\))?(!)?:", group = "CI" },
+  { message = "^([A-Z]+-\\d+\\s+|\\#\\d+([.\\-]\\d+)?\\s+)?(.*\\|)?deps?(\\(.*\\))?(!)?:", group = "Dependencies" },
+  { message = "^([A-Z]+-\\d+\\s+|\\#\\d+([.\\-]\\d+)?\\s+)?(.*\\|)?docs?(\\(.*\\))?(!)?:", group = "Documentation" },
+  { message = "^([A-Z]+-\\d+\\s+|\\#\\d+([.\\-]\\d+)?\\s+)?(.*\\|)?fmt(\\(.*\\))?(!)?:", group = "Formatting" },
 ]
 # protect breaking changes from being skipped due to matching a skipping commit_parser
 protect_breaking_commits = false
