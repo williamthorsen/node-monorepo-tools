@@ -2,7 +2,7 @@
 /* eslint unicorn/no-process-exit: off */
 
 import type { WriteResult } from '@williamthorsen/node-monorepo-core';
-import { writeFileWithCheck } from '@williamthorsen/node-monorepo-core';
+import { parseArgs as coreParseArgs, writeFileWithCheck } from '@williamthorsen/node-monorepo-core';
 
 import { buildReleaseSummary } from './buildReleaseSummary.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
@@ -46,6 +46,14 @@ Options:
 `);
 }
 
+const prepareFlagSchema = {
+  dryRun: { long: '--dry-run', type: 'boolean' as const },
+  force: { long: '--force', type: 'boolean' as const },
+  bump: { long: '--bump', type: 'string' as const },
+  only: { long: '--only', type: 'string' as const },
+  help: { long: '--help', type: 'boolean' as const, short: '-h' },
+};
+
 /** Parse CLI arguments into structured options. */
 export function parseArgs(argv: string[]): {
   dryRun: boolean;
@@ -53,45 +61,46 @@ export function parseArgs(argv: string[]): {
   bumpOverride: ReleaseType | undefined;
   only: string[] | undefined;
 } {
-  let dryRun = false;
-  let force = false;
-  let bumpOverride: ReleaseType | undefined;
-  let only: string[] | undefined;
-
-  for (const arg of argv) {
-    if (arg === '--dry-run') {
-      dryRun = true;
-    } else if (arg === '--force') {
-      force = true;
-    } else if (arg.startsWith('--bump=')) {
-      const value = arg.slice('--bump='.length);
-      if (!isReleaseType(value)) {
-        console.error(`Error: Invalid bump type "${value}". Must be one of: ${VALID_BUMP_TYPES.join(', ')}`);
-        process.exit(1);
-      }
-      bumpOverride = value;
-    } else if (arg.startsWith('--only=')) {
-      const value = arg.slice('--only='.length);
-      if (!value) {
-        console.error('Error: --only requires a comma-separated list of component names');
-        process.exit(1);
-      }
-      only = value.split(',');
-    } else if (arg === '--help' || arg === '-h') {
-      showHelp();
-      process.exit(0);
-    } else {
-      console.error(`Error: Unknown argument: ${arg}`);
-      process.exit(1);
-    }
+  let parsed;
+  try {
+    parsed = coreParseArgs(argv, prepareFlagSchema);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Error: Unknown argument: ${message.replace(/^unknown flag '(.+)'$/, '$1')}`);
+    process.exit(1);
   }
 
-  if (force && bumpOverride === undefined) {
+  const { flags } = parsed;
+
+  if (flags.help) {
+    showHelp();
+    process.exit(0);
+  }
+
+  let bumpOverride: ReleaseType | undefined;
+  if (flags.bump !== undefined) {
+    if (!isReleaseType(flags.bump)) {
+      console.error(`Error: Invalid bump type "${flags.bump}". Must be one of: ${VALID_BUMP_TYPES.join(', ')}`);
+      process.exit(1);
+    }
+    bumpOverride = flags.bump;
+  }
+
+  let only: string[] | undefined;
+  if (flags.only !== undefined) {
+    if (flags.only === '') {
+      console.error('Error: --only requires a comma-separated list of component names');
+      process.exit(1);
+    }
+    only = flags.only.split(',');
+  }
+
+  if (flags.force && bumpOverride === undefined) {
     console.error('Error: --force requires --bump to specify the version bump type');
     process.exit(1);
   }
 
-  return { dryRun, force, bumpOverride, only };
+  return { dryRun: flags.dryRun, force: flags.force, bumpOverride, only };
 }
 
 /**

@@ -3,29 +3,41 @@
 
 import { basename } from 'node:path';
 
+import { parseArgs } from '@williamthorsen/node-monorepo-core';
+
 import { detectPackageManager } from './detectPackageManager.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
 import { publish } from './publish.ts';
 import { resolveReleaseTags } from './resolveReleaseTags.ts';
+
+const publishFlagSchema = {
+  dryRun: { long: '--dry-run', type: 'boolean' as const },
+  noGitChecks: { long: '--no-git-checks', type: 'boolean' as const },
+  provenance: { long: '--provenance', type: 'boolean' as const },
+  only: { long: '--only', type: 'string' as const },
+};
 
 /**
  * Orchestrate the CLI `publish` command: parse flags, discover workspaces, resolve tags from HEAD,
  * detect the package manager, validate `--only`, and delegate to `publish`.
  */
 export async function publishCommand(argv: string[]): Promise<void> {
-  const knownFlags = new Set(['--dry-run', '--no-git-checks', '--provenance']);
-  const unknownFlags = argv.filter((f) => !f.startsWith('--only=') && !knownFlags.has(f));
-  if (unknownFlags.length > 0) {
-    console.error(`Error: Unknown option: ${unknownFlags[0]}`);
+  let parsed;
+  try {
+    parsed = parseArgs(argv, publishFlagSchema);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    const flagMatch = message.match(/^unknown flag '(.+)'$/);
+    if (flagMatch?.[1] !== undefined) {
+      console.error(`Error: Unknown option: ${flagMatch[1]}`);
+    } else {
+      console.error(`Error: ${message}`);
+    }
     process.exit(1);
   }
 
-  const dryRun = argv.includes('--dry-run');
-  const noGitChecks = argv.includes('--no-git-checks');
-  const provenance = argv.includes('--provenance');
-
-  const onlyArg = argv.find((f) => f.startsWith('--only='));
-  const only = onlyArg?.slice('--only='.length).split(',');
+  const { dryRun, noGitChecks, provenance } = parsed.flags;
+  const only = parsed.flags.only?.split(',');
 
   // Discover workspaces to determine single-package vs monorepo mode
   let discoveredPaths: string[] | undefined;

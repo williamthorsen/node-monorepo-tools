@@ -2,30 +2,15 @@ import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
+import { parseArgs } from '@williamthorsen/node-monorepo-core';
+
 import { loadConfig } from '../loadConfig.ts';
 import { compileConfig } from './compileConfig.ts';
 import { validateCompiledOutput } from './validateCompiledOutput.ts';
 
-/** Extract a flag value from either `--flag value` or `--flag=value` form. */
-function extractFlagValue(
-  flagName: string,
-  arg: string,
-  args: string[],
-  index: number,
-): { value: string; nextIndex: number } | undefined {
-  const eqPrefix = `${flagName}=`;
-  if (arg.startsWith(eqPrefix)) {
-    const value = arg.slice(eqPrefix.length);
-    if (value === '') return undefined;
-    return { value, nextIndex: index };
-  }
-  if (arg === flagName) {
-    const next = args[index + 1];
-    if (next === undefined || next.startsWith('-')) return undefined;
-    return { value: next, nextIndex: index + 1 };
-  }
-  return undefined;
-}
+const compileFlagSchema = {
+  output: { long: '--output', type: 'string' as const, short: '-o' },
+};
 
 /**
  * Handle the `compile` subcommand: parse arguments, invoke the bundler, and report the result.
@@ -34,39 +19,33 @@ function extractFlagValue(
  * Returns a numeric exit code.
  */
 export async function compileCommand(args: string[]): Promise<number> {
-  let inputPath: string | undefined;
-  let outputPath: string | undefined;
-
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i] ?? '';
-
-    if (arg === '-o') {
-      const next = args[i + 1];
-      if (next === undefined || next.startsWith('-')) {
-        process.stderr.write('Error: --output requires a path argument\n');
-        return 1;
-      }
-      outputPath = next;
-      i += 1;
-    } else if (arg === '--output' || arg.startsWith('--output=')) {
-      const extracted = extractFlagValue('--output', arg, args, i);
-      if (extracted === undefined) {
-        process.stderr.write('Error: --output requires a path argument\n');
-        return 1;
-      }
-      outputPath = extracted.value;
-      i = extracted.nextIndex;
-    } else if (arg.startsWith('-')) {
-      process.stderr.write(`Error: Unknown option: ${arg}\n`);
-      return 1;
+  let parsed;
+  try {
+    parsed = parseArgs(args, compileFlagSchema);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    // Translate generic "requires a value" to domain hint.
+    if (message === '--output requires a value') {
+      process.stderr.write('Error: --output requires a path argument\n');
+    } else if (message.startsWith("unknown flag '")) {
+      // Convert "unknown flag '--x'" to "Unknown option: --x".
+      const flag = message.slice("unknown flag '".length, -1);
+      process.stderr.write(`Error: Unknown option: ${flag}\n`);
     } else {
-      if (inputPath !== undefined) {
-        process.stderr.write('Error: Too many arguments. Expected a single input file.\n');
-        return 1;
-      }
-      inputPath = arg;
+      process.stderr.write(`Error: ${message}\n`);
     }
+    return 1;
   }
+
+  const outputPath = parsed.flags.output;
+  const positionals = parsed.positionals;
+
+  if (positionals.length > 1) {
+    process.stderr.write('Error: Too many arguments. Expected a single input file.\n');
+    return 1;
+  }
+
+  const inputPath = positionals[0];
 
   // Explicit input file — compile just that one
   if (inputPath !== undefined) {

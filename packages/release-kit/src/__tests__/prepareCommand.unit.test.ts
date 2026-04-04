@@ -31,9 +31,13 @@ vi.mock('../releasePrepare.ts', () => ({
   releasePrepare: mockReleasePrepare,
 }));
 
-vi.mock(import('@williamthorsen/node-monorepo-core'), () => ({
-  writeFileWithCheck: mockWriteFileWithCheck,
-}));
+vi.mock(import('@williamthorsen/node-monorepo-core'), async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    writeFileWithCheck: mockWriteFileWithCheck,
+  };
+});
 
 import { parseArgs, prepareCommand, RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from '../prepareCommand.ts';
 import type { PrepareResult } from '../types.ts';
