@@ -1,7 +1,7 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
-import { parseArgs } from '@williamthorsen/node-monorepo-core';
+import { parseArgs, translateParseError } from '@williamthorsen/node-monorepo-core';
 
 import { createTags } from './createTags.ts';
 
@@ -17,13 +17,7 @@ export function tagCommand(argv: string[]): void {
   try {
     parsed = parseArgs(argv, tagFlagSchema);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    const flagMatch = message.match(/^unknown flag '(.+)'$/);
-    if (flagMatch?.[1] !== undefined) {
-      console.error(`Error: Unknown option: ${flagMatch[1]}`);
-    } else {
-      console.error(`Error: ${message}`);
-    }
+    console.error(`Error: ${translateParseError(error)}`);
     process.exit(1);
   }
 

@@ -1,6 +1,6 @@
 import process from 'node:process';
 
-import { parseArgs } from '@williamthorsen/node-monorepo-core';
+import { parseArgs, translateParseError } from '@williamthorsen/node-monorepo-core';
 
 import { parseRunArgs, runCommand } from '../cli.ts';
 import { compileCommand } from '../compile/compileCommand.ts';
@@ -149,14 +149,7 @@ export async function routeCommand(args: string[]): Promise<number> {
     try {
       parsed = parseArgs(flags, initFlagSchema);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      // Translate "unknown flag '--x'" to "Unknown option: --x".
-      const flagMatch = message.match(/^unknown flag '(.+)'$/);
-      if (flagMatch?.[1] !== undefined) {
-        process.stderr.write(`Error: Unknown option: ${flagMatch[1]}\n`);
-      } else {
-        process.stderr.write(`Error: ${message}\n`);
-      }
+      process.stderr.write(`Error: ${translateParseError(error)}\n`);
       return 1;
     }
 

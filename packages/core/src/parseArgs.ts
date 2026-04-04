@@ -19,11 +19,6 @@ export interface ParsedArgs<S extends FlagSchema> {
   positionals: string[];
 }
 
-/** Resolve a flag key from its long or short form, or return `undefined` if unknown. */
-function resolveKey(arg: string, longToKey: Map<string, string>, shortToKey: Map<string, string>): string | undefined {
-  return longToKey.get(arg) ?? shortToKey.get(arg);
-}
-
 /** Handle a `--flag=value` argument, returning the key and value to assign. */
 function handleEqualsForm(
   arg: string,
@@ -56,7 +51,7 @@ function handleBareFlag(
   shortToKey: Map<string, string>,
   definitions: Map<string, FlagDefinition>,
 ): { key: string; value: boolean | string; advance: number } {
-  const key = resolveKey(arg, longToKey, shortToKey);
+  const key = longToKey.get(arg) ?? shortToKey.get(arg);
   if (key === undefined) {
     throw new Error(`unknown flag '${arg}'`);
   }
@@ -162,4 +157,19 @@ function parseArgsInternal(
 export function parseArgs<S extends FlagSchema>(argv: string[], schema: S): ParsedArgs<S> {
   // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- The internal parser works with dynamic keys; the generic return type is guaranteed by schema-driven initialization.
   return parseArgsInternal(argv, schema) as ParsedArgs<S>;
+}
+
+/**
+ * Translate a `parseArgs` error into a user-facing message.
+ *
+ * Rewrites the internal `"unknown flag '--x'"` format to `"Unknown option: --x"`;
+ * passes other messages through unchanged.
+ */
+export function translateParseError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const flagMatch = message.match(/^unknown flag '(.+)'$/);
+  if (flagMatch?.[1] !== undefined) {
+    return `Unknown option: ${flagMatch[1]}`;
+  }
+  return message;
 }

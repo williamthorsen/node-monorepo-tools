@@ -4,7 +4,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
-import { parseArgs } from '@williamthorsen/node-monorepo-core';
+import { parseArgs, translateParseError } from '@williamthorsen/node-monorepo-core';
 
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './prepareCommand.ts';
 
@@ -23,13 +23,7 @@ export function commitCommand(argv: string[]): void {
   try {
     parsed = parseArgs(argv, commitFlagSchema);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    const flagMatch = message.match(/^unknown flag '(.+)'$/);
-    if (flagMatch?.[1] !== undefined) {
-      console.error(`Error: Unknown option: ${flagMatch[1]}`);
-    } else {
-      console.error(`Error: ${message}`);
-    }
+    console.error(`Error: ${translateParseError(error)}`);
     process.exit(1);
   }
 

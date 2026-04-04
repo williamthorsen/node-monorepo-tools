@@ -2,7 +2,11 @@
 /* eslint unicorn/no-process-exit: off */
 
 import type { WriteResult } from '@williamthorsen/node-monorepo-core';
-import { parseArgs as coreParseArgs, writeFileWithCheck } from '@williamthorsen/node-monorepo-core';
+import {
+  parseArgs as coreParseArgs,
+  translateParseError,
+  writeFileWithCheck,
+} from '@williamthorsen/node-monorepo-core';
 
 import { buildReleaseSummary } from './buildReleaseSummary.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
@@ -65,12 +69,7 @@ export function parseArgs(argv: string[]): {
   try {
     parsed = coreParseArgs(argv, prepareFlagSchema);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    const flagMatch = message.match(/^unknown flag '(.+)'$/);
-    if (flagMatch?.[1] !== undefined) {
-      throw new Error(`Unknown option: ${flagMatch[1]}`);
-    }
-    throw new Error(message);
+    throw new Error(translateParseError(error));
   }
 
   const { flags } = parsed;
@@ -90,9 +89,6 @@ export function parseArgs(argv: string[]): {
 
   let only: string[] | undefined;
   if (flags.only !== undefined) {
-    if (flags.only === '') {
-      throw new Error('--only requires a comma-separated list of component names');
-    }
     only = flags.only.split(',');
   }
 
