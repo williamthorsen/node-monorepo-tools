@@ -1,5 +1,7 @@
 import process from 'node:process';
 
+import { parseArgs } from '@williamthorsen/node-monorepo-core';
+
 import { loadPreflightCollection } from './config.ts';
 import { formatCombinedSummary } from './formatCombinedSummary.ts';
 import { formatJsonError } from './formatJsonError.ts';
@@ -33,28 +35,15 @@ interface ParsedRunArgs {
   reportOn?: Severity;
 }
 
-/** Extract a flag value from either `--flag value` or `--flag=value` form, advancing the index when needed. */
-function extractFlagValue(
-  flagName: string,
-  arg: string,
-  flags: string[],
-  index: number,
-  errorHint: string,
-): { value: string; nextIndex: number } {
-  const eqPrefix = `${flagName}=`;
-  if (arg.startsWith(eqPrefix)) {
-    const value = arg.slice(eqPrefix.length);
-    if (value === '') {
-      throw new Error(`${flagName} requires ${errorHint}`);
-    }
-    return { value, nextIndex: index };
-  }
-  const next = flags[index + 1];
-  if (next === undefined || next.startsWith('-')) {
-    throw new Error(`${flagName} requires ${errorHint}`);
-  }
-  return { value: next, nextIndex: index + 1 };
-}
+const runFlagSchema = {
+  file: { long: '--file', type: 'string' as const },
+  github: { long: '--github', type: 'string' as const },
+  url: { long: '--url', type: 'string' as const },
+  collection: { long: '--collection', type: 'string' as const },
+  json: { long: '--json', type: 'boolean' as const },
+  failOn: { long: '--fail-on', type: 'string' as const },
+  reportOn: { long: '--report-on', type: 'string' as const },
+};
 
 /** Throw if a collection source flag has already been set. */
 function assertNoExistingSource(existing: string | undefined): void {
@@ -100,84 +89,69 @@ function buildGitHubCollectionUrl(repo: string, ref: string, collection: string)
   return `https://raw.githubusercontent.com/${repo}/${ref}/.preflight/distribution/${collection}.js`;
 }
 
-/** Parse run-subcommand flags into a structured object. */
-export function parseRunArgs(flags: string[]): ParsedRunArgs {
-  const names: string[] = [];
-  let sourceType: string | undefined;
-  let filePath: string | undefined;
-  let githubValue: string | undefined;
-  let urlValue: string | undefined;
-  let collectionName: string | undefined;
-  let json = false;
-  let failOn: Severity | undefined;
-  let reportOn: Severity | undefined;
+/** Map generic "requires a value" errors to domain-specific hints for run-subcommand flags. */
+const flagErrorHints: Record<string, string> = {
+  '--file': '--file requires a path argument',
+  '--github': '--github requires a repository argument (org/repo[@ref])',
+  '--url': '--url requires a URL argument',
+  '--collection': '--collection requires a collection name',
+  '--fail-on': '--fail-on requires a severity level (error, warn, recommend)',
+  '--report-on': '--report-on requires a severity level (error, warn, recommend)',
+};
 
-  for (let i = 0; i < flags.length; i++) {
-    const arg = flags[i] ?? '';
-
-    if (arg === '--json') {
-      json = true;
-    } else if (arg === '--file' || arg.startsWith('--file=')) {
-      assertNoExistingSource(sourceType);
-      const { value, nextIndex } = extractFlagValue('--file', arg, flags, i, 'a path argument');
-      i = nextIndex;
-      sourceType = 'file';
-      filePath = value;
-    } else if (arg === '--github' || arg.startsWith('--github=')) {
-      assertNoExistingSource(sourceType);
-      const { value, nextIndex } = extractFlagValue(
-        '--github',
-        arg,
-        flags,
-        i,
-        'a repository argument (org/repo[@ref])',
-      );
-      i = nextIndex;
-      sourceType = 'github';
-      githubValue = value;
-    } else if (arg === '--url' || arg.startsWith('--url=')) {
-      assertNoExistingSource(sourceType);
-      const { value, nextIndex } = extractFlagValue('--url', arg, flags, i, 'a URL argument');
-      i = nextIndex;
-      sourceType = 'url';
-      urlValue = value;
-    } else if (arg === '--collection' || arg.startsWith('--collection=')) {
-      const { value, nextIndex } = extractFlagValue('--collection', arg, flags, i, 'a collection name');
-      i = nextIndex;
-      collectionName = value;
-    } else if (arg === '--fail-on' || arg.startsWith('--fail-on=')) {
-      const { value, nextIndex } = extractFlagValue(
-        '--fail-on',
-        arg,
-        flags,
-        i,
-        'a severity level (error, warn, recommend)',
-      );
-      i = nextIndex;
-      failOn = parseSeverityFlag('--fail-on', value);
-    } else if (arg === '--report-on' || arg.startsWith('--report-on=')) {
-      const { value, nextIndex } = extractFlagValue(
-        '--report-on',
-        arg,
-        flags,
-        i,
-        'a severity level (error, warn, recommend)',
-      );
-      i = nextIndex;
-      reportOn = parseSeverityFlag('--report-on', value);
-    } else if (arg.startsWith('-')) {
-      throw new Error(`unknown flag '${arg}'`);
-    } else {
-      names.push(arg);
+/** Translate generic parseArgs errors into domain-specific messages where applicable. */
+function translateParseError(error: unknown): never {
+  if (error instanceof Error) {
+    const match = error.message.match(/^(--\S+) requires a value$/);
+    if (match?.[1] !== undefined) {
+      const hint = flagErrorHints[match[1]];
+      if (hint !== undefined) {
+        throw new Error(hint);
+      }
     }
   }
+  throw error;
+}
 
-  const collectionSource = resolveCollectionSource({ filePath, githubValue, urlValue, collectionName });
+/** Parse run-subcommand flags into a structured object. */
+export function parseRunArgs(flags: string[]): ParsedRunArgs {
+  let result;
+  try {
+    result = parseArgs(flags, runFlagSchema);
+  } catch (error: unknown) {
+    translateParseError(error);
+  }
+  const { flags: parsed, positionals } = result;
 
-  const result: ParsedRunArgs = { collectionSource, json, names };
-  if (failOn !== undefined) result.failOn = failOn;
-  if (reportOn !== undefined) result.reportOn = reportOn;
-  return result;
+  // Validate mutual exclusivity of source flags.
+  let sourceType: string | undefined;
+  if (parsed.file !== undefined) {
+    sourceType = 'file';
+  }
+  if (parsed.github !== undefined) {
+    assertNoExistingSource(sourceType);
+    sourceType = 'github';
+  }
+  if (parsed.url !== undefined) {
+    assertNoExistingSource(sourceType);
+    sourceType = 'url';
+  }
+
+  // Validate severity flags.
+  const failOn = parsed.failOn !== undefined ? parseSeverityFlag('--fail-on', parsed.failOn) : undefined;
+  const reportOn = parsed.reportOn !== undefined ? parseSeverityFlag('--report-on', parsed.reportOn) : undefined;
+
+  const collectionSource = resolveCollectionSource({
+    filePath: parsed.file,
+    githubValue: parsed.github,
+    urlValue: parsed.url,
+    collectionName: parsed.collection,
+  });
+
+  const parsedArgs: ParsedRunArgs = { collectionSource, json: parsed.json, names: positionals };
+  if (failOn !== undefined) parsedArgs.failOn = failOn;
+  if (reportOn !== undefined) parsedArgs.reportOn = reportOn;
+  return parsedArgs;
 }
 
 /** Validate flag co-dependencies and build the CollectionSource from parsed flag state. */

@@ -4,7 +4,13 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
+import { parseArgs, translateParseError } from '@williamthorsen/node-monorepo-core';
+
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './prepareCommand.ts';
+
+const commitFlagSchema = {
+  dryRun: { long: '--dry-run', type: 'boolean' as const },
+};
 
 /**
  * Orchestrate the CLI `commit` command.
@@ -13,14 +19,15 @@ import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './prepareCommand.ts';
  * changes, and creates a release commit with a formatted message.
  */
 export function commitCommand(argv: string[]): void {
-  const knownFlags = new Set(['--dry-run']);
-  const unknownFlags = argv.filter((f) => !knownFlags.has(f));
-  if (unknownFlags.length > 0) {
-    console.error(`Error: Unknown option: ${unknownFlags[0]}`);
+  let parsed;
+  try {
+    parsed = parseArgs(argv, commitFlagSchema);
+  } catch (error: unknown) {
+    console.error(`Error: ${translateParseError(error)}`);
     process.exit(1);
   }
 
-  const dryRun = argv.includes('--dry-run');
+  const dryRun = parsed.flags.dryRun;
 
   // Read tags file.
   let tagsContent: string;

@@ -1,5 +1,7 @@
 import process from 'node:process';
 
+import { parseArgs, translateParseError } from '@williamthorsen/node-monorepo-core';
+
 import { parseRunArgs, runCommand } from '../cli.ts';
 import { compileCommand } from '../compile/compileCommand.ts';
 import { initCommand } from '../init/initCommand.ts';
@@ -122,7 +124,13 @@ export async function routeCommand(args: string[]): Promise<number> {
       showCompileHelp();
       return 0;
     }
-    return compileCommand(flags);
+    try {
+      return await compileCommand(flags);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      process.stderr.write(`Error: ${message}\n`);
+      return 1;
+    }
   }
 
   if (command === 'init') {
@@ -132,16 +140,20 @@ export async function routeCommand(args: string[]): Promise<number> {
       return 0;
     }
 
-    const knownInitFlags = new Set(['--dry-run', '--force', '--help', '-h']);
-    const unknownFlags = flags.filter((f) => !knownInitFlags.has(f));
-    if (unknownFlags.length > 0) {
-      process.stderr.write(`Error: Unknown option: ${unknownFlags[0]}\n`);
+    const initFlagSchema = {
+      dryRun: { long: '--dry-run', type: 'boolean' as const },
+      force: { long: '--force', type: 'boolean' as const },
+    };
+
+    let parsed;
+    try {
+      parsed = parseArgs(flags, initFlagSchema);
+    } catch (error: unknown) {
+      process.stderr.write(`Error: ${translateParseError(error)}\n`);
       return 1;
     }
 
-    const dryRun = flags.includes('--dry-run');
-    const force = flags.includes('--force');
-    return initCommand({ dryRun, force });
+    return initCommand({ dryRun: parsed.flags.dryRun, force: parsed.flags.force });
   }
 
   // Check for typos before falling through to the default command

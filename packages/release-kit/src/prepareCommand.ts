@@ -2,7 +2,11 @@
 /* eslint unicorn/no-process-exit: off */
 
 import type { WriteResult } from '@williamthorsen/node-monorepo-core';
-import { writeFileWithCheck } from '@williamthorsen/node-monorepo-core';
+import {
+  parseArgs as coreParseArgs,
+  translateParseError,
+  writeFileWithCheck,
+} from '@williamthorsen/node-monorepo-core';
 
 import { buildReleaseSummary } from './buildReleaseSummary.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
@@ -46,52 +50,53 @@ Options:
 `);
 }
 
-/** Parse CLI arguments into structured options. */
+const prepareFlagSchema = {
+  dryRun: { long: '--dry-run', type: 'boolean' as const },
+  force: { long: '--force', type: 'boolean' as const },
+  bump: { long: '--bump', type: 'string' as const },
+  only: { long: '--only', type: 'string' as const },
+  help: { long: '--help', type: 'boolean' as const, short: '-h' },
+};
+
+/** Parse CLI arguments into structured options. Throws on invalid input. */
 export function parseArgs(argv: string[]): {
   dryRun: boolean;
   force: boolean;
   bumpOverride: ReleaseType | undefined;
   only: string[] | undefined;
 } {
-  let dryRun = false;
-  let force = false;
+  let parsed;
+  try {
+    parsed = coreParseArgs(argv, prepareFlagSchema);
+  } catch (error: unknown) {
+    throw new Error(translateParseError(error));
+  }
+
+  const { flags } = parsed;
+
+  if (flags.help) {
+    showHelp();
+    process.exit(0);
+  }
+
   let bumpOverride: ReleaseType | undefined;
-  let only: string[] | undefined;
-
-  for (const arg of argv) {
-    if (arg === '--dry-run') {
-      dryRun = true;
-    } else if (arg === '--force') {
-      force = true;
-    } else if (arg.startsWith('--bump=')) {
-      const value = arg.slice('--bump='.length);
-      if (!isReleaseType(value)) {
-        console.error(`Error: Invalid bump type "${value}". Must be one of: ${VALID_BUMP_TYPES.join(', ')}`);
-        process.exit(1);
-      }
-      bumpOverride = value;
-    } else if (arg.startsWith('--only=')) {
-      const value = arg.slice('--only='.length);
-      if (!value) {
-        console.error('Error: --only requires a comma-separated list of component names');
-        process.exit(1);
-      }
-      only = value.split(',');
-    } else if (arg === '--help' || arg === '-h') {
-      showHelp();
-      process.exit(0);
-    } else {
-      console.error(`Error: Unknown argument: ${arg}`);
-      process.exit(1);
+  if (flags.bump !== undefined) {
+    if (!isReleaseType(flags.bump)) {
+      throw new Error(`Invalid bump type "${flags.bump}". Must be one of: ${VALID_BUMP_TYPES.join(', ')}`);
     }
+    bumpOverride = flags.bump;
   }
 
-  if (force && bumpOverride === undefined) {
-    console.error('Error: --force requires --bump to specify the version bump type');
-    process.exit(1);
+  let only: string[] | undefined;
+  if (flags.only !== undefined) {
+    only = flags.only.split(',');
   }
 
-  return { dryRun, force, bumpOverride, only };
+  if (flags.force && bumpOverride === undefined) {
+    throw new Error('--force requires --bump to specify the version bump type');
+  }
+
+  return { dryRun: flags.dryRun, force: flags.force, bumpOverride, only };
 }
 
 /**
@@ -117,7 +122,16 @@ export function writeReleaseTags(tags: string[], dryRun: boolean): WriteResult |
  * 6. Writes `.release-tags` for CI consumption.
  */
 export async function prepareCommand(argv: string[]): Promise<void> {
-  const { dryRun, force, bumpOverride, only } = parseArgs(argv);
+  let dryRun: boolean;
+  let force: boolean;
+  let bumpOverride: ReleaseType | undefined;
+  let only: string[] | undefined;
+  try {
+    ({ dryRun, force, bumpOverride, only } = parseArgs(argv));
+  } catch (error: unknown) {
+    console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  }
   const options = {
     dryRun,
     force,

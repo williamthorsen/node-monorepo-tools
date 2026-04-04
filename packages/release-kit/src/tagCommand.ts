@@ -1,22 +1,27 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
+import { parseArgs, translateParseError } from '@williamthorsen/node-monorepo-core';
+
 import { createTags } from './createTags.ts';
 
-/**
- * Orchestrate the CLI `tag` command: parse flags and delegate to `createTags`.
- */
+const tagFlagSchema = {
+  dryRun: { long: '--dry-run', type: 'boolean' as const },
+  noGitChecks: { long: '--no-git-checks', type: 'boolean' as const },
+};
+
+/** Orchestrate the CLI `tag` command: parse flags and delegate to `createTags`. */
 export function tagCommand(argv: string[]): void {
   // Help flags are handled upstream in the CLI entry point (bin/release-kit.ts).
-  const knownFlags = new Set(['--dry-run', '--no-git-checks']);
-  const unknownFlags = argv.filter((f) => !knownFlags.has(f));
-  if (unknownFlags.length > 0) {
-    console.error(`Error: Unknown option: ${unknownFlags[0]}`);
+  let parsed;
+  try {
+    parsed = parseArgs(argv, tagFlagSchema);
+  } catch (error: unknown) {
+    console.error(`Error: ${translateParseError(error)}`);
     process.exit(1);
   }
 
-  const dryRun = argv.includes('--dry-run');
-  const noGitChecks = argv.includes('--no-git-checks');
+  const { dryRun, noGitChecks } = parsed.flags;
 
   try {
     createTags({ dryRun, noGitChecks });
