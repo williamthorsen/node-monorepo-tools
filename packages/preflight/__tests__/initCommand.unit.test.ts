@@ -19,11 +19,10 @@ vi.mock(import('@williamthorsen/node-monorepo-core'), () => ({
 import { initCommand } from '../src/init/initCommand.ts';
 
 /** Build a scaffold result with both files having the same outcome. */
-function makeScaffoldResult(outcome: string, oldConfigWarning = false) {
+function makeScaffoldResult(outcome: string) {
   return {
-    configResult: { filePath: '.config/preflight/config.ts', outcome },
-    collectionResult: { filePath: '.config/preflight/collections/default.ts', outcome },
-    oldConfigWarning,
+    configResult: { filePath: '.config/preflight.config.ts', outcome },
+    collectionResult: { filePath: '.preflight/collections/default.ts', outcome },
   };
 }
 
@@ -60,9 +59,8 @@ describe(`${initCommand.name} error handling`, () => {
 
   it('returns exit code 1 when collection result is failed', () => {
     mockScaffoldConfig.mockReturnValue({
-      configResult: { filePath: '.config/preflight/config.ts', outcome: 'created' },
-      collectionResult: { filePath: '.config/preflight/collections/default.ts', outcome: 'failed' },
-      oldConfigWarning: false,
+      configResult: { filePath: '.config/preflight.config.ts', outcome: 'created' },
+      collectionResult: { filePath: '.preflight/collections/default.ts', outcome: 'failed' },
     });
 
     const exitCode = initCommand({ dryRun: false, force: false });
@@ -93,14 +91,5 @@ describe(`${initCommand.name} error handling`, () => {
 
     expect(mockReportWriteResult).toHaveBeenCalledWith(result.configResult, dryRun);
     expect(mockReportWriteResult).toHaveBeenCalledWith(result.collectionResult, dryRun);
-  });
-
-  it('prints warning when old config is detected', () => {
-    mockScaffoldConfig.mockReturnValue(makeScaffoldResult('created', true));
-
-    initCommand({ dryRun: false, force: false });
-
-    const warnMessages = vi.mocked(console.warn).mock.calls.map((c) => String(c[0]));
-    expect(warnMessages.some((m) => m.includes('Old-style config'))).toBe(true);
   });
 });

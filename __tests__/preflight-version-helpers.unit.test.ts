@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 /**
- * Mirror of `compareVersions` from `.preflight/distribution/nmr.ts`.
+ * Mirror of `compareVersions` from `.preflight/collections/nmr.ts`.
  *
- * Duplicated here because the distribution script does not export its helpers.
+ * Duplicated here because the collection script does not export its helpers.
  * Keep in sync with the source if the algorithm changes.
  */
 function compareVersions(a: string, b: string): number {

@@ -81,11 +81,12 @@ describe(routeCommand, () => {
     await routeCommand(['--help']);
 
     const output = infoSpy.mock.calls.map((c) => String(c[0])).join('');
-    expect(output).toContain('--file');
-    expect(output).toContain('--github');
-    expect(output).toContain('--url');
-    expect(output).toContain('--collection');
-    expect(output).toContain('--json');
+    expect(output).toContain('--file, -f');
+    expect(output).toContain('--github, -g');
+    expect(output).toContain('--local, -l');
+    expect(output).toContain('--url, -u');
+    expect(output).toContain('--collection, -c');
+    expect(output).toContain('--json, -j');
     expect(output).toContain('--version, -V');
   });
 
@@ -121,7 +122,7 @@ describe(routeCommand, () => {
   it('delegates to runCommand for run subcommand', async () => {
     mockParseRunArgs.mockReturnValue({
       names: ['deploy'],
-      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      collectionSource: { path: '.preflight/collections/default.ts' },
       json: false,
     });
     mockRunCommand.mockResolvedValue(0);
@@ -131,7 +132,7 @@ describe(routeCommand, () => {
     expect(mockParseRunArgs).toHaveBeenCalledWith(['deploy']);
     expect(mockRunCommand).toHaveBeenCalledWith({
       names: ['deploy'],
-      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      collectionSource: { path: '.preflight/collections/default.ts' },
       json: false,
     });
     expect(exitCode).toBe(0);
@@ -140,7 +141,7 @@ describe(routeCommand, () => {
   it('passes --json flag through to runCommand', async () => {
     mockParseRunArgs.mockReturnValue({
       names: [],
-      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      collectionSource: { path: '.preflight/collections/default.ts' },
       json: true,
     });
     mockRunCommand.mockResolvedValue(0);
@@ -149,7 +150,7 @@ describe(routeCommand, () => {
 
     expect(mockRunCommand).toHaveBeenCalledWith({
       names: [],
-      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      collectionSource: { path: '.preflight/collections/default.ts' },
       json: true,
     });
     expect(exitCode).toBe(0);
@@ -179,6 +180,7 @@ describe(routeCommand, () => {
     expect(exitCode).toBe(0);
     const output = infoSpy.mock.calls.map((c) => String(c[0])).join('');
     expect(output).toContain('Usage: preflight compile');
+    expect(output).toContain('--all');
   });
 
   it('shows compile help and returns 0 for compile -h', async () => {
@@ -230,6 +232,15 @@ describe(routeCommand, () => {
     expect(exitCode).toBe(0);
   });
 
+  it('passes -n and -f short flags to initCommand', async () => {
+    mockInitCommand.mockReturnValue(0);
+
+    const exitCode = await routeCommand(['init', '-n', '-f']);
+
+    expect(mockInitCommand).toHaveBeenCalledWith({ dryRun: true, force: true });
+    expect(exitCode).toBe(0);
+  });
+
   it('returns 1 for unknown init flags', async () => {
     const exitCode = await routeCommand(['init', '--unknown']);
 
@@ -255,7 +266,7 @@ describe(routeCommand, () => {
     it('routes positional args to run as checklist names', async () => {
       mockParseRunArgs.mockReturnValue({
         names: ['onboarding'],
-        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        collectionSource: { path: '.preflight/collections/default.ts' },
         json: false,
       });
       mockRunCommand.mockResolvedValue(0);
@@ -283,7 +294,7 @@ describe(routeCommand, () => {
     it('does not suggest for prefixes shorter than 3 characters', async () => {
       mockParseRunArgs.mockReturnValue({
         names: ['co'],
-        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        collectionSource: { path: '.preflight/collections/default.ts' },
         json: false,
       });
       mockRunCommand.mockResolvedValue(0);
@@ -297,7 +308,7 @@ describe(routeCommand, () => {
     it('does not suggest when input matches a subcommand exactly', async () => {
       mockParseRunArgs.mockReturnValue({
         names: [],
-        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        collectionSource: { path: '.preflight/collections/default.ts' },
         json: false,
       });
       mockRunCommand.mockResolvedValue(0);

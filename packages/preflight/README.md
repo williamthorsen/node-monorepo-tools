@@ -18,20 +18,20 @@ preflight init
 
 This creates two files:
 
-**`.config/preflight/config.ts`** — repo-level settings:
+**`.config/preflight.config.ts`** — repo-level settings:
 
 ```ts
 import { definePreflightConfig } from '@williamthorsen/preflight';
 
 export default definePreflightConfig({
   compile: {
-    srcDir: '.preflight/distribution',
-    outDir: '.preflight/distribution',
+    srcDir: '.preflight/collections',
+    outDir: '.preflight/collections',
   },
 });
 ```
 
-**`.config/preflight/collections/default.ts`** — a collection with one example checklist:
+**`.preflight/collections/default.ts`** — a collection with one example checklist:
 
 ```ts
 import { definePreflightCollection } from '@williamthorsen/preflight';
@@ -87,22 +87,16 @@ Fixes:
 
 ## Configuration
 
-### Config file locations
+### Config file location
 
-Preflight looks for a config file in this order:
-
-| Priority | Path                          | Notes           |
-| -------- | ----------------------------- | --------------- |
-| 1        | `.config/preflight/config.ts` | Preferred       |
-| 2        | `.config/preflight.config.ts` | Legacy fallback |
-
-If neither exists, defaults are used. The config controls compilation settings only:
+Preflight looks for a config file at `.config/preflight.config.ts`. If it does not exist, defaults are used. The config controls compilation settings:
 
 ```ts
 interface PreflightConfig {
   compile?: {
-    srcDir?: string; // default: '.preflight/distribution'
-    outDir?: string; // default: '.preflight/distribution'
+    srcDir?: string; // default: '.preflight/collections'
+    outDir?: string; // default: '.preflight/collections'
+    include?: string; // glob pattern to filter files during compile --all
   };
 }
 ```
@@ -120,8 +114,9 @@ import { definePreflightConfig } from '@williamthorsen/preflight';
 
 export default definePreflightConfig({
   compile: {
-    srcDir: '.preflight/distribution',
-    outDir: '.preflight/distribution',
+    srcDir: '.preflight/collections',
+    outDir: '.preflight/collections',
+    include: 'shared/*.ts',
   },
 });
 ```
@@ -274,10 +269,10 @@ author .ts collection
 
 ### 1. Author a collection
 
-Write your collection in TypeScript under `.preflight/distribution/`:
+Write your collection in TypeScript under `.preflight/collections/`:
 
 ```ts
-// .preflight/distribution/default.ts
+// .preflight/collections/default.ts
 import { definePreflightCollection } from '@williamthorsen/preflight';
 
 export default definePreflightCollection({
@@ -292,21 +287,45 @@ export default definePreflightCollection({
 Bundle the TypeScript into a self-contained ESM file with all dependencies inlined (except Node built-ins):
 
 ```bash
-preflight compile .preflight/distribution/default.ts
-# Produces .preflight/distribution/default.js
+preflight compile .preflight/collections/default.ts
+# Produces .preflight/collections/default.js
 ```
 
 Or compile all sources from the config's `srcDir` at once:
 
 ```bash
-preflight compile
+preflight compile --all
 ```
 
-### 3. Commit and push
+Use `compile.include` in your config to filter which files `--all` compiles:
+
+```ts
+export default definePreflightConfig({
+  compile: {
+    srcDir: '.preflight/collections',
+    outDir: '.preflight/collections',
+    include: 'shared/*.ts', // only compile files matching this glob
+  },
+});
+```
+
+### 3. Test locally before pushing
+
+Use `--local` to test a compiled collection from another repository on your filesystem:
+
+```bash
+preflight run --local ../shared-checks-repo
+# Loads ../shared-checks-repo/.preflight/collections/default.js
+
+preflight run --local ../shared-checks-repo --collection production
+# Loads ../shared-checks-repo/.preflight/collections/production.js
+```
+
+### 4. Commit and push
 
 Commit the compiled `.js` files. Consumers fetch them via raw URL.
 
-### 4. Consume remotely
+### 5. Consume remotely
 
 From any repo:
 
@@ -324,7 +343,7 @@ preflight run --github myorg/shared-checks --collection production
 preflight run --url https://example.com/preflight/default.js
 ```
 
-The `--github` flag constructs the URL: `https://raw.githubusercontent.com/{org}/{repo}/{ref}/.preflight/distribution/{collection}.js`
+The `--github` flag constructs the URL: `https://raw.githubusercontent.com/{org}/{repo}/{ref}/.preflight/collections/{collection}.js`
 
 ## CLI reference
 
@@ -352,15 +371,20 @@ Run preflight checklists. If no names are given, all checklists in the collectio
 preflight run [names...] [options]
 ```
 
-| Flag                        | Description                               | Default   |
-| --------------------------- | ----------------------------------------- | --------- |
-| `--file <path>`             | Path to a local collection file           | —         |
-| `--github <org/repo[@ref]>` | Fetch collection from a GitHub repository | —         |
-| `--url <url>`               | Fetch collection from a URL               | —         |
-| `--collection <name>`       | Collection name (used with `--github`)    | `default` |
-| `--json`                    | Output results as JSON                    | —         |
+| Flag                            | Description                                | Default     |
+| ------------------------------- | ------------------------------------------ | ----------- |
+| `--file, -f <path>`             | Path to a local collection file            | —           |
+| `--github, -g <org/repo[@ref]>` | Fetch collection from a GitHub repository  | —           |
+| `--local, -l <path>`            | Load compiled collection from a local repo | —           |
+| `--url, -u <url>`               | Fetch collection from a URL                | —           |
+| `--collection, -c <name>`       | Collection name                            | `default`   |
+| `--json, -j`                    | Output results as JSON                     | —           |
+| `--fail-on, -F <severity>`      | Fail on this severity or above             | `error`     |
+| `--report-on, -R <severity>`    | Report this severity or above              | `recommend` |
 
-`--file`, `--github`, and `--url` are mutually exclusive. When none is given, preflight loads `.config/preflight/collections/default.ts` (or the named collection via `--collection`).
+`--file`, `--github`, `--local`, and `--url` are mutually exclusive. When none is given, preflight loads `.preflight/collections/default.ts` (or the named collection via `--collection`).
+
+`--collection` accepts relative paths (e.g., `--collection shared/deploy` resolves to `.preflight/collections/shared/deploy.ts`).
 
 `[names...]` can be checklist names, suite names, or a mix.
 
@@ -369,13 +393,17 @@ preflight run [names...] [options]
 Bundle TypeScript collection(s) into self-contained ESM file(s).
 
 ```
-preflight compile [input] [options]
+preflight compile <file> [options]
+preflight compile --all
 ```
 
-| Flag                  | Description           | Default                        |
-| --------------------- | --------------------- | ------------------------------ |
-| `[input]`             | Input TypeScript file | All sources in config `srcDir` |
-| `--output, -o <path>` | Output file path      | Input path with `.ts` → `.js`  |
+| Flag                  | Description                              | Default                       |
+| --------------------- | ---------------------------------------- | ----------------------------- |
+| `<file>`              | Input TypeScript file                    | —                             |
+| `--all, -a`           | Compile all sources from config `srcDir` | —                             |
+| `--output, -o <path>` | Output file path                         | Input path with `.ts` → `.js` |
+
+When neither `<file>` nor `--all` is given, an error with a usage hint is printed. `--output` cannot be used with `--all`.
 
 ### `preflight init`
 
@@ -385,12 +413,12 @@ Scaffold a starter config and collection.
 preflight init [options]
 ```
 
-| Flag        | Description                           |
-| ----------- | ------------------------------------- |
-| `--dry-run` | Preview changes without writing files |
-| `--force`   | Overwrite existing files              |
+| Flag            | Description                           |
+| --------------- | ------------------------------------- |
+| `--dry-run, -n` | Preview changes without writing files |
+| `--force, -f`   | Overwrite existing files              |
 
-Creates `.config/preflight/config.ts` and `.config/preflight/collections/default.ts`.
+Creates `.config/preflight.config.ts` and `.preflight/collections/default.ts`.
 
 ### Error messages
 

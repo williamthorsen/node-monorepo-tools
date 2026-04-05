@@ -21,13 +21,14 @@ Commands:
   init                 Scaffold a starter config and collection
 
 Run options:
-  --file <path>                      Path to a local collection file
-  --github <org/repo[@ref]>          Fetch collection from a GitHub repository
-  --url <url>                        Fetch collection from a URL
-  --collection <name>                Collection name (default: "default")
-  --json                             Output results as JSON
-  --fail-on <severity>               Fail on this severity or above (error, warn, recommend)
-  --report-on <severity>             Report this severity or above (error, warn, recommend)
+  --file, -f <path>                  Path to a local collection file
+  --github, -g <org/repo[@ref]>      Fetch collection from a GitHub repository
+  --local, -l <path>                 Load compiled collection from a local repository
+  --url, -u <url>                    Fetch collection from a URL
+  --collection, -c <name>            Collection name (default: "default")
+  --json, -j                         Output results as JSON
+  --fail-on, -F <severity>           Fail on this severity or above (error, warn, recommend)
+  --report-on, -R <severity>         Report this severity or above (error, warn, recommend)
 
 Global options:
   --help, -h           Show this help message
@@ -42,27 +43,33 @@ Usage: preflight run [names...] [options]
 Run preflight checklists. If no names are given, all checklists are run.
 
 Collection source (mutually exclusive):
-  --file <path>                      Path to a local collection file
-  --github <org/repo[@ref]>          Fetch collection from a GitHub repository
-  --url <url>                        Fetch collection from a URL
+  --file, -f <path>                  Path to a local collection file
+  --github, -g <org/repo[@ref]>      Fetch collection from a GitHub repository
+  --local, -l <path>                 Load compiled collection from a local repository
+  --url, -u <url>                    Fetch collection from a URL
 
 Options:
-  --collection <name>                Collection name (default: "default")
-  --json                             Output results as JSON
-  --fail-on <severity>               Fail on this severity or above (error, warn, recommend)
-  --report-on <severity>             Report this severity or above (error, warn, recommend)
+  --collection, -c <name>            Collection name (default: "default")
+  --json, -j                         Output results as JSON
+  --fail-on, -F <severity>           Fail on this severity or above (error, warn, recommend)
+  --report-on, -R <severity>         Report this severity or above (error, warn, recommend)
   --help, -h                         Show this help message
 
-Defaults to .config/preflight/collections/default.ts when no source is given.
+--collection accepts relative paths (e.g., --collection shared/deploy).
+Defaults to .preflight/collections/default.ts when no source is given.
 `);
 }
 
 function showCompileHelp(): void {
   console.info(`
-Usage: preflight compile [input] [options]
+Usage: preflight compile <file> [options]
+       preflight compile --all
 
 Bundle TypeScript collection(s) into self-contained ESM bundle(s).
-When no input is given, compiles all sources from the config's srcDir to outDir.
+
+Modes:
+  preflight compile <file>           Compile a single file
+  preflight compile --all, -a        Compile all sources from the config's srcDir
 
 Options:
   --output, -o <path>  Output file path (default: input with .ts replaced by .js)
@@ -77,9 +84,9 @@ Usage: preflight init [options]
 Scaffold a starter config and collection file.
 
 Options:
-  --dry-run     Preview changes without writing files
-  --force       Overwrite existing files
-  --help, -h    Show this help message
+  --dry-run, -n   Preview changes without writing files
+  --force, -f     Overwrite existing files
+  --help, -h      Show this help message
 `);
 }
 
@@ -141,8 +148,8 @@ export async function routeCommand(args: string[]): Promise<number> {
     }
 
     const initFlagSchema = {
-      dryRun: { long: '--dry-run', type: 'boolean' as const },
-      force: { long: '--force', type: 'boolean' as const },
+      dryRun: { long: '--dry-run', type: 'boolean' as const, short: '-n' },
+      force: { long: '--force', type: 'boolean' as const, short: '-f' },
     };
 
     let parsed;
