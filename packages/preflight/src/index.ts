@@ -28,25 +28,11 @@ export type {
 // Type guards
 export { isFlatChecklist, isPercentProgress } from './types.ts';
 
-// Config helpers
+// Authoring helpers
 export {
   defineChecklists,
   definePreflightChecklist,
   definePreflightCollection,
   definePreflightConfig,
   definePreflightStagedChecklist,
-} from './config.ts';
-
-// Config loader
-export { loadConfig } from './loadConfig.ts';
-
-// Runner
-export type { RunPreflightOptions } from './runPreflight.ts';
-export { runPreflight } from './runPreflight.ts';
-
-// Reporter
-export { formatCombinedSummary } from './formatCombinedSummary.ts';
-export type { FormatJsonReportOptions } from './formatJsonReport.ts';
-export { formatJsonReport } from './formatJsonReport.ts';
-export type { ReportPreflightOptions } from './reportPreflight.ts';
-export { formatSummaryCounts, reportPreflight } from './reportPreflight.ts';
+} from './authoring.ts';
