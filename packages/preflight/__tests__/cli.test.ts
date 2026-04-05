@@ -303,6 +303,12 @@ describe(parseRunArgs, () => {
     );
   });
 
+  it('throws when --github and --file are combined (reverse order)', () => {
+    expect(() => parseRunArgs(['--github', 'org/repo', '--file', 'path.ts'])).toThrow(
+      'Cannot combine --file, --github, --local, and --url flags',
+    );
+  });
+
   it('throws when --file and --url are combined', () => {
     expect(() => parseRunArgs(['--file', 'path.ts', '--url', 'https://example.com/config.js'])).toThrow(
       'Cannot combine --file, --github, --local, and --url flags',
