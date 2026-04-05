@@ -7,9 +7,78 @@ function definePreflightCollection(collection) {
   return collection;
 }
 
-// .preflight/collections/nmr.ts
+// packages/preflight/dist/esm/check-utils/filesystem.js
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+function fileExists(relativePath) {
+  return existsSync(join(process.cwd(), relativePath));
+}
+function readFile(relativePath) {
+  const fullPath = join(process.cwd(), relativePath);
+  if (!existsSync(fullPath)) return void 0;
+  return readFileSync(fullPath, "utf8");
+}
+function fileContains(relativePath, pattern) {
+  const content = readFile(relativePath);
+  if (content === void 0) return false;
+  return pattern.test(content);
+}
+function fileDoesNotContain(relativePath, pattern) {
+  const content = readFile(relativePath);
+  if (content === void 0) return true;
+  return !pattern.test(content);
+}
+
+// packages/preflight/dist/esm/isRecord.js
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// packages/preflight/dist/esm/check-utils/semver.js
+function compareVersions(a, b) {
+  const partsA = a.split(".").map(Number);
+  const partsB = b.split(".").map(Number);
+  for (let i = 0; i < 3; i++) {
+    const diff = (partsA[i] ?? 0) - (partsB[i] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
+// packages/preflight/dist/esm/check-utils/package-json.js
+function readPackageJson() {
+  const content = readFile("package.json");
+  if (content === void 0) return void 0;
+  const parsed = JSON.parse(content);
+  if (!isRecord(parsed)) return void 0;
+  return Object.fromEntries(Object.entries(parsed));
+}
+function hasPackageJsonField(field, expectedValue) {
+  const pkg = readPackageJson();
+  if (pkg === void 0) return false;
+  if (expectedValue !== void 0) return pkg[field] === expectedValue;
+  return field in pkg;
+}
+function hasDevDependency(name) {
+  const pkg = readPackageJson();
+  if (pkg === void 0) return false;
+  const devDeps = pkg.devDependencies;
+  return isRecord(devDeps) && name in devDeps;
+}
+function hasMinDevDependencyVersion(name, minVersion, options) {
+  const pkg = readPackageJson();
+  if (pkg === void 0) return false;
+  const devDeps = pkg.devDependencies;
+  if (!isRecord(devDeps) || !(name in devDeps)) return false;
+  const range = devDeps[name];
+  if (typeof range !== "string") return false;
+  if (options?.exempt?.(range)) return true;
+  const versionMatch = /(\d+\.\d+\.\d+)/.exec(range)?.[1];
+  if (versionMatch === void 0) return false;
+  return compareVersions(versionMatch, minVersion) >= 0;
+}
+
+// .preflight/collections/nmr.ts
 var releaseKit = {
   name: "release-kit",
   checks: [
@@ -211,67 +280,6 @@ var repoSetup = {
 var nmr_default = definePreflightCollection({
   checklists: [releaseKit, syncLabels, nmr, codeQuality, repoSetup]
 });
-function fileExists(relativePath) {
-  return existsSync(join(process.cwd(), relativePath));
-}
-function readFile(relativePath) {
-  const fullPath = join(process.cwd(), relativePath);
-  if (!existsSync(fullPath)) return void 0;
-  return readFileSync(fullPath, "utf8");
-}
-function readPackageJson() {
-  const content = readFile("package.json");
-  if (content === void 0) return void 0;
-  const parsed = JSON.parse(content);
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return void 0;
-  return Object.fromEntries(Object.entries(parsed));
-}
-function isRecord(value) {
-  return typeof value === "object" && value !== null;
-}
-function hasDevDependency(name) {
-  const pkg = readPackageJson();
-  if (pkg === void 0) return false;
-  const devDeps = pkg.devDependencies;
-  return isRecord(devDeps) && name in devDeps;
-}
-function hasMinDevDependencyVersion(name, minVersion, options) {
-  const pkg = readPackageJson();
-  if (pkg === void 0) return false;
-  const devDeps = pkg.devDependencies;
-  if (!isRecord(devDeps) || !(name in devDeps)) return false;
-  const range = devDeps[name];
-  if (typeof range !== "string") return false;
-  if (options?.exempt?.(range)) return true;
-  const versionMatch = /(\d+\.\d+\.\d+)/.exec(range);
-  if (versionMatch === null) return false;
-  return compareVersions(versionMatch[1], minVersion) >= 0;
-}
-function compareVersions(a, b) {
-  const partsA = a.split(".").map(Number);
-  const partsB = b.split(".").map(Number);
-  for (let i = 0; i < 3; i++) {
-    const diff = (partsA[i] ?? 0) - (partsB[i] ?? 0);
-    if (diff !== 0) return diff;
-  }
-  return 0;
-}
-function hasPackageJsonField(field, expectedValue) {
-  const pkg = readPackageJson();
-  if (pkg === void 0) return false;
-  if (expectedValue !== void 0) return pkg[field] === expectedValue;
-  return field in pkg;
-}
-function fileContains(relativePath, pattern) {
-  const content = readFile(relativePath);
-  if (content === void 0) return false;
-  return pattern.test(content);
-}
-function fileDoesNotContain(relativePath, pattern) {
-  const content = readFile(relativePath);
-  if (content === void 0) return true;
-  return !pattern.test(content);
-}
 function preferencesHasRequiredFields() {
   const content = readFile(".agents/preferences.yaml");
   if (content === void 0) return false;
