@@ -40,7 +40,11 @@
   "dependencies": {
     "@williamthorsen/node-monorepo-core": "workspace:*",
     "jiti": "2.6.1",
+    "picomatch": "4.0.4",
     "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "@types/picomatch": "4.0.3"
   },
   "peerDependencies": {
     "esbuild": ">=0.17.0"

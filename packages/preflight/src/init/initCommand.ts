@@ -27,12 +27,6 @@ export function initCommand({ dryRun, force }: InitOptions): number {
     return 1;
   }
 
-  if (result.oldConfigWarning) {
-    console.warn(
-      '⚠ Old-style config found at .config/preflight.config.ts — consider migrating to .config/preflight/config.ts',
-    );
-  }
-
   reportWriteResult(result.configResult, dryRun);
   reportWriteResult(result.collectionResult, dryRun);
 
@@ -43,8 +37,8 @@ export function initCommand({ dryRun, force }: InitOptions): number {
   if (!dryRun) {
     printStep('Next steps');
     console.info(`
-  1. Customize .config/preflight/config.ts with your compile settings.
-  2. Add checklists to .config/preflight/collections/.
+  1. Customize .config/preflight.config.ts with your compile settings.
+  2. Add checklists to .preflight/collections/.
   3. Test by running: npx @williamthorsen/preflight run
   4. Commit the generated files.
 `);

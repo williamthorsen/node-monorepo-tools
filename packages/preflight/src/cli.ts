@@ -1,3 +1,4 @@
+import path from 'node:path';
 import process from 'node:process';
 
 import { parseArgs } from '@williamthorsen/node-monorepo-core';
@@ -36,19 +37,20 @@ interface ParsedRunArgs {
 }
 
 const runFlagSchema = {
-  file: { long: '--file', type: 'string' as const },
-  github: { long: '--github', type: 'string' as const },
-  url: { long: '--url', type: 'string' as const },
-  collection: { long: '--collection', type: 'string' as const },
-  json: { long: '--json', type: 'boolean' as const },
-  failOn: { long: '--fail-on', type: 'string' as const },
-  reportOn: { long: '--report-on', type: 'string' as const },
+  file: { long: '--file', type: 'string' as const, short: '-f' },
+  github: { long: '--github', type: 'string' as const, short: '-g' },
+  url: { long: '--url', type: 'string' as const, short: '-u' },
+  collection: { long: '--collection', type: 'string' as const, short: '-c' },
+  local: { long: '--local', type: 'string' as const, short: '-l' },
+  json: { long: '--json', type: 'boolean' as const, short: '-j' },
+  failOn: { long: '--fail-on', type: 'string' as const, short: '-F' },
+  reportOn: { long: '--report-on', type: 'string' as const, short: '-R' },
 };
 
 /** Throw if a collection source flag has already been set. */
 function assertNoExistingSource(existing: string | undefined): void {
   if (existing !== undefined) {
-    throw new Error('Cannot combine --file, --github, and --url flags');
+    throw new Error('Cannot combine --file, --github, --local, and --url flags');
   }
 }
 
@@ -82,21 +84,22 @@ function parseSeverityFlag(flagName: string, value: string): Severity {
 }
 
 /** Convention path for internal collections, relative to the repo root. */
-const COLLECTIONS_DIR = '.config/preflight/collections';
+const COLLECTIONS_DIR = '.preflight/collections';
 
 /** Build the GitHub raw content URL for a collection. */
 function buildGitHubCollectionUrl(repo: string, ref: string, collection: string): string {
-  return `https://raw.githubusercontent.com/${repo}/${ref}/.preflight/distribution/${collection}.js`;
+  return `https://raw.githubusercontent.com/${repo}/${ref}/${COLLECTIONS_DIR}/${collection}.js`;
 }
 
 /** Map generic "requires a value" errors to domain-specific hints for run-subcommand flags. */
 const flagErrorHints: Record<string, string> = {
-  '--file': '--file requires a path argument',
-  '--github': '--github requires a repository argument (org/repo[@ref])',
-  '--url': '--url requires a URL argument',
   '--collection': '--collection requires a collection name',
   '--fail-on': '--fail-on requires a severity level (error, warn, recommend)',
+  '--file': '--file requires a path argument',
+  '--github': '--github requires a repository argument (org/repo[@ref])',
+  '--local': '--local requires a path to a local repository',
   '--report-on': '--report-on requires a severity level (error, warn, recommend)',
+  '--url': '--url requires a URL argument',
 };
 
 /** Translate generic parseArgs errors into domain-specific messages where applicable. */
@@ -132,6 +135,10 @@ export function parseRunArgs(flags: string[]): ParsedRunArgs {
     assertNoExistingSource(sourceType);
     sourceType = 'github';
   }
+  if (parsed.local !== undefined) {
+    assertNoExistingSource(sourceType);
+    sourceType = 'local';
+  }
   if (parsed.url !== undefined) {
     assertNoExistingSource(sourceType);
     sourceType = 'url';
@@ -144,6 +151,7 @@ export function parseRunArgs(flags: string[]): ParsedRunArgs {
   const collectionSource = resolveCollectionSource({
     filePath: parsed.file,
     githubValue: parsed.github,
+    localValue: parsed.local,
     urlValue: parsed.url,
     collectionName: parsed.collection,
   });
@@ -158,11 +166,13 @@ export function parseRunArgs(flags: string[]): ParsedRunArgs {
 function resolveCollectionSource({
   filePath,
   githubValue,
+  localValue,
   urlValue,
   collectionName,
 }: {
   filePath: string | undefined;
   githubValue: string | undefined;
+  localValue: string | undefined;
   urlValue: string | undefined;
   collectionName: string | undefined;
 }): CollectionSource {
@@ -176,6 +186,11 @@ function resolveCollectionSource({
     const name = collectionName ?? 'default';
     const { repo, ref } = parseGitHubArg(githubValue);
     return { url: buildGitHubCollectionUrl(repo, ref, name) };
+  }
+  if (localValue !== undefined) {
+    const name = collectionName ?? 'default';
+    const resolvedBase = path.resolve(process.cwd(), localValue);
+    return { path: path.join(resolvedBase, COLLECTIONS_DIR, `${name}.js`) };
   }
   if (urlValue !== undefined) {
     if (collectionName !== undefined) {

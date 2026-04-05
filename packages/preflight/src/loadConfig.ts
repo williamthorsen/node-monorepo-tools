@@ -10,13 +10,14 @@ import type { PreflightConfig, ResolvedPreflightConfig } from './types.ts';
 /** Default config values when no config file is found. */
 const DEFAULT_CONFIG: ResolvedPreflightConfig = {
   compile: {
-    srcDir: '.preflight/distribution',
-    outDir: '.preflight/distribution',
+    srcDir: '.preflight/collections',
+    outDir: '.preflight/collections',
+    include: undefined,
   },
 };
 
 /** Ordered lookup paths for the config file, resolved relative to `process.cwd()`. */
-const LOOKUP_PATHS = ['.config/preflight/config.ts', '.config/preflight.config.ts'];
+const LOOKUP_PATHS = ['.config/preflight.config.ts'];
 
 /** Structural schema for PreflightConfig. */
 const PreflightConfigSchema = z.looseObject({
@@ -24,6 +25,7 @@ const PreflightConfigSchema = z.looseObject({
     .looseObject({
       srcDir: z.string().optional(),
       outDir: z.string().optional(),
+      include: z.string().optional(),
     })
     .optional(),
 });
@@ -34,10 +36,10 @@ function assertIsPreflightConfig(raw: unknown): asserts raw is PreflightConfig {
 }
 
 /**
- * Load preflight config from the filesystem with a lookup chain.
+ * Load preflight config from the filesystem.
  *
- * Checks `.config/preflight/config.ts` first, then `.config/preflight.config.ts`.
- * Returns defaults if neither exists. An explicit override path skips the lookup chain.
+ * Checks `.config/preflight.config.ts` and returns defaults if not found.
+ * An explicit override path skips the lookup chain.
  */
 export async function loadConfig(overridePath?: string): Promise<ResolvedPreflightConfig> {
   let resolvedPath: string | undefined;
@@ -79,6 +81,7 @@ export async function loadConfig(overridePath?: string): Promise<ResolvedPreflig
     compile: {
       srcDir: typeof compile?.srcDir === 'string' ? compile.srcDir : DEFAULT_CONFIG.compile.srcDir,
       outDir: typeof compile?.outDir === 'string' ? compile.outDir : DEFAULT_CONFIG.compile.outDir,
+      include: typeof compile?.include === 'string' ? compile.include : undefined,
     },
   };
 }

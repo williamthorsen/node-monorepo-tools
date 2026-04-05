@@ -5,13 +5,13 @@ import { describe, expect, it } from 'vitest';
 
 import { compileConfig } from '../packages/preflight/src/compile/compileConfig.js';
 
-const distributionDir = join(import.meta.dirname, '..', '.preflight', 'distribution');
+const collectionsDir = join(import.meta.dirname, '..', '.preflight', 'collections');
 
-describe('preflight distribution', () => {
+describe('preflight collections', () => {
   it('nmr.js is up to date with nmr.ts', async () => {
-    const srcPath = join(distributionDir, 'nmr.ts');
-    const checkedInPath = join(distributionDir, 'nmr.js');
-    const tmpPath = join(distributionDir, 'nmr.compiled-check.js');
+    const srcPath = join(collectionsDir, 'nmr.ts');
+    const checkedInPath = join(collectionsDir, 'nmr.js');
+    const tmpPath = join(collectionsDir, 'nmr.compiled-check.js');
 
     try {
       await compileConfig(srcPath, tmpPath);

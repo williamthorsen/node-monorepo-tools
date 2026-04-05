@@ -7,9 +7,8 @@ import { initCommand } from '../src/init/initCommand.ts';
 import { preflightCollectionTemplate, preflightConfigTemplate } from '../src/init/templates.ts';
 
 const TEST_DIR = join(import.meta.dirname, '../.test-tmp');
-const CONFIG_PATH = '.config/preflight/config.ts';
-const COLLECTION_PATH = '.config/preflight/collections/default.ts';
-const OLD_CONFIG_PATH = '.config/preflight.config.ts';
+const CONFIG_PATH = '.config/preflight.config.ts';
+const COLLECTION_PATH = '.preflight/collections/default.ts';
 
 describe(initCommand, () => {
   let originalCwd: string;
@@ -44,7 +43,8 @@ describe(initCommand, () => {
   });
 
   it('skips with a warning when both files already exist', () => {
-    mkdirSync(join(TEST_DIR, '.config/preflight/collections'), { recursive: true });
+    mkdirSync(join(TEST_DIR, '.config'), { recursive: true });
+    mkdirSync(join(TEST_DIR, '.preflight/collections'), { recursive: true });
     writeFileSync(join(TEST_DIR, CONFIG_PATH), 'existing config', 'utf8');
     writeFileSync(join(TEST_DIR, COLLECTION_PATH), 'existing collection', 'utf8');
 
@@ -56,7 +56,8 @@ describe(initCommand, () => {
   });
 
   it('overwrites existing files when force is true', () => {
-    mkdirSync(join(TEST_DIR, '.config/preflight/collections'), { recursive: true });
+    mkdirSync(join(TEST_DIR, '.config'), { recursive: true });
+    mkdirSync(join(TEST_DIR, '.preflight/collections'), { recursive: true });
     writeFileSync(join(TEST_DIR, CONFIG_PATH), 'old config', 'utf8');
     writeFileSync(join(TEST_DIR, COLLECTION_PATH), 'old collection', 'utf8');
 
@@ -76,7 +77,8 @@ describe(initCommand, () => {
   });
 
   it('reports up-to-date when both files match the templates', () => {
-    mkdirSync(join(TEST_DIR, '.config/preflight/collections'), { recursive: true });
+    mkdirSync(join(TEST_DIR, '.config'), { recursive: true });
+    mkdirSync(join(TEST_DIR, '.preflight/collections'), { recursive: true });
     writeFileSync(join(TEST_DIR, CONFIG_PATH), preflightConfigTemplate, 'utf8');
     writeFileSync(join(TEST_DIR, COLLECTION_PATH), preflightCollectionTemplate, 'utf8');
 
@@ -88,7 +90,8 @@ describe(initCommand, () => {
   });
 
   it('does not modify existing files during dry-run', () => {
-    mkdirSync(join(TEST_DIR, '.config/preflight/collections'), { recursive: true });
+    mkdirSync(join(TEST_DIR, '.config'), { recursive: true });
+    mkdirSync(join(TEST_DIR, '.preflight/collections'), { recursive: true });
     writeFileSync(join(TEST_DIR, CONFIG_PATH), 'existing config', 'utf8');
     writeFileSync(join(TEST_DIR, COLLECTION_PATH), 'existing collection', 'utf8');
 
@@ -100,7 +103,8 @@ describe(initCommand, () => {
   });
 
   it('does not overwrite during dry-run even with force', () => {
-    mkdirSync(join(TEST_DIR, '.config/preflight/collections'), { recursive: true });
+    mkdirSync(join(TEST_DIR, '.config'), { recursive: true });
+    mkdirSync(join(TEST_DIR, '.preflight/collections'), { recursive: true });
     writeFileSync(join(TEST_DIR, CONFIG_PATH), 'existing config', 'utf8');
     writeFileSync(join(TEST_DIR, COLLECTION_PATH), 'existing collection', 'utf8');
 
@@ -125,22 +129,5 @@ describe(initCommand, () => {
     expect(exitCode).toBe(0);
     const infoMessages = vi.mocked(console.info).mock.calls.map((c) => String(c[0]));
     expect(infoMessages.some((m) => m.includes('Next steps'))).toBe(true);
-  });
-
-  it('warns when old-style config exists', () => {
-    mkdirSync(join(TEST_DIR, '.config'), { recursive: true });
-    writeFileSync(join(TEST_DIR, OLD_CONFIG_PATH), 'old config', 'utf8');
-
-    initCommand({ dryRun: false, force: false });
-
-    const warnMessages = vi.mocked(console.warn).mock.calls.map((c) => String(c[0]));
-    expect(warnMessages.some((m) => m.includes('Old-style config'))).toBe(true);
-  });
-
-  it('does not warn when old-style config does not exist', () => {
-    initCommand({ dryRun: false, force: false });
-
-    const warnMessages = vi.mocked(console.warn).mock.calls.map((c) => String(c[0]));
-    expect(warnMessages.some((m) => m.includes('Old-style config'))).toBe(false);
   });
 });

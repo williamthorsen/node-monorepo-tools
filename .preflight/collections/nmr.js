@@ -13812,14 +13812,15 @@ import path2 from "node:path";
 var PreflightConfigSchema = external_exports.looseObject({
   compile: external_exports.looseObject({
     srcDir: external_exports.string().optional(),
-    outDir: external_exports.string().optional()
+    outDir: external_exports.string().optional(),
+    include: external_exports.string().optional()
   }).optional()
 });
 
 // packages/preflight/dist/esm/runPreflight.js
 import { performance } from "node:perf_hooks";
 
-// .preflight/distribution/nmr.ts
+// .preflight/collections/nmr.ts
 import { existsSync as existsSync3, readFileSync } from "node:fs";
 import { join } from "node:path";
 var releaseKit = {

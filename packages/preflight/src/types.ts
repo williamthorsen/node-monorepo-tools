@@ -247,6 +247,7 @@ export interface PreflightConfig {
   compile?: {
     srcDir?: string;
     outDir?: string;
+    include?: string;
   };
 }
 
@@ -255,6 +256,7 @@ export interface ResolvedPreflightConfig {
   compile: {
     srcDir: string;
     outDir: string;
+    include: string | undefined;
   };
 }
 

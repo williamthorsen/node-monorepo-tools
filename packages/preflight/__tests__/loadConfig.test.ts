@@ -26,12 +26,12 @@ describe(loadConfig, () => {
     const config = await loadConfig();
 
     expect(config).toStrictEqual({
-      compile: { srcDir: '.preflight/distribution', outDir: '.preflight/distribution' },
+      compile: { srcDir: '.preflight/collections', outDir: '.preflight/collections', include: undefined },
     });
   });
 
-  it('loads from .config/preflight/config.ts when it exists', async () => {
-    mockExistsSync.mockImplementation((p: string) => p.includes('.config/preflight/config.ts'));
+  it('loads from .config/preflight.config.ts when it exists', async () => {
+    mockExistsSync.mockImplementation((p: string) => p.includes('.config/preflight.config.ts'));
     mockJitiImport.mockResolvedValue({
       default: { compile: { srcDir: 'src/collections', outDir: 'dist/collections' } },
     });
@@ -40,19 +40,6 @@ describe(loadConfig, () => {
 
     expect(config.compile.srcDir).toBe('src/collections');
     expect(config.compile.outDir).toBe('dist/collections');
-  });
-
-  it('falls back to .config/preflight.config.ts', async () => {
-    mockExistsSync.mockImplementation(
-      (p: string) => p.includes('.config/preflight.config.ts') && !p.includes('.config/preflight/config.ts'),
-    );
-    mockJitiImport.mockResolvedValue({
-      default: { compile: { srcDir: 'custom/src', outDir: 'custom/out' } },
-    });
-
-    const config = await loadConfig();
-
-    expect(config.compile.srcDir).toBe('custom/src');
   });
 
   it('uses override path and skips lookup chain', async () => {
@@ -106,8 +93,19 @@ describe(loadConfig, () => {
 
     const config = await loadConfig('config.ts');
 
-    expect(config.compile.srcDir).toBe('.preflight/distribution');
-    expect(config.compile.outDir).toBe('.preflight/distribution');
+    expect(config.compile.srcDir).toBe('.preflight/collections');
+    expect(config.compile.outDir).toBe('.preflight/collections');
+  });
+
+  it('loads compile.include from config', async () => {
+    mockExistsSync.mockReturnValue(true);
+    mockJitiImport.mockResolvedValue({
+      default: { compile: { include: 'shared/**/*.ts' } },
+    });
+
+    const config = await loadConfig('config.ts');
+
+    expect(config.compile.include).toBe('shared/**/*.ts');
   });
 
   it.each(['MODULE_NOT_FOUND', 'ERR_MODULE_NOT_FOUND'])(

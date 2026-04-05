@@ -1,3 +1,6 @@
+import path from 'node:path';
+import process from 'node:process';
+
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest';
 
 import type { PreflightCollection } from '../src/types.ts';
@@ -68,7 +71,7 @@ describe(parseRunArgs, () => {
   it('defaults to the default collection path when no flags are given', () => {
     const result = parseRunArgs([]);
 
-    expect(result.collectionSource).toStrictEqual({ path: '.config/preflight/collections/default.ts' });
+    expect(result.collectionSource).toStrictEqual({ path: '.preflight/collections/default.ts' });
     expect(result.json).toBe(false);
   });
 
@@ -76,20 +79,26 @@ describe(parseRunArgs, () => {
     const result = parseRunArgs(['deploy', 'infra']);
 
     expect(result.names).toStrictEqual(['deploy', 'infra']);
-    expect(result.collectionSource).toStrictEqual({ path: '.config/preflight/collections/default.ts' });
+    expect(result.collectionSource).toStrictEqual({ path: '.preflight/collections/default.ts' });
   });
 
   // --collection flag (standalone, without --github)
   it('resolves --collection to a local convention path', () => {
     const result = parseRunArgs(['--collection', 'deploy']);
 
-    expect(result.collectionSource).toStrictEqual({ path: '.config/preflight/collections/deploy.ts' });
+    expect(result.collectionSource).toStrictEqual({ path: '.preflight/collections/deploy.ts' });
+  });
+
+  it('resolves --collection with a slash-separated path', () => {
+    const result = parseRunArgs(['--collection', 'shared/deploy']);
+
+    expect(result.collectionSource).toStrictEqual({ path: '.preflight/collections/shared/deploy.ts' });
   });
 
   it('resolves --collection= to a local convention path', () => {
     const result = parseRunArgs(['--collection=deploy']);
 
-    expect(result.collectionSource).toStrictEqual({ path: '.config/preflight/collections/deploy.ts' });
+    expect(result.collectionSource).toStrictEqual({ path: '.preflight/collections/deploy.ts' });
   });
 
   // --file flag
@@ -138,8 +147,49 @@ describe(parseRunArgs, () => {
     expect(() => parseRunArgs(['--config', 'x'])).toThrow("unknown flag '--config'");
   });
 
-  it('rejects -c as an unknown flag', () => {
-    expect(() => parseRunArgs(['-c', 'x'])).toThrow("unknown flag '-c'");
+  // Short options
+  it('parses -c as short form of --collection', () => {
+    const result = parseRunArgs(['-c', 'deploy']);
+
+    expect(result.collectionSource).toStrictEqual({ path: '.preflight/collections/deploy.ts' });
+  });
+
+  it('parses -f as short form of --file', () => {
+    const result = parseRunArgs(['-f', 'custom/path.ts']);
+
+    expect(result.collectionSource).toStrictEqual({ path: 'custom/path.ts' });
+  });
+
+  it('parses -g as short form of --github', () => {
+    const result = parseRunArgs(['-g', 'org/repo', '-c', 'nmr']);
+
+    expect(result.collectionSource).toStrictEqual({
+      url: 'https://raw.githubusercontent.com/org/repo/main/.preflight/collections/nmr.js',
+    });
+  });
+
+  it('parses -u as short form of --url', () => {
+    const result = parseRunArgs(['-u', 'https://example.com/config.js']);
+
+    expect(result.collectionSource).toStrictEqual({ url: 'https://example.com/config.js' });
+  });
+
+  it('parses -j as short form of --json', () => {
+    const result = parseRunArgs(['-j']);
+
+    expect(result.json).toBe(true);
+  });
+
+  it('parses -F as short form of --fail-on', () => {
+    const result = parseRunArgs(['-F', 'warn']);
+
+    expect(result.failOn).toBe('warn');
+  });
+
+  it('parses -R as short form of --report-on', () => {
+    const result = parseRunArgs(['-R', 'error']);
+
+    expect(result.reportOn).toBe('error');
   });
 
   // --github flag
@@ -147,7 +197,7 @@ describe(parseRunArgs, () => {
     const result = parseRunArgs(['--github', 'org/repo@v1', '--collection', 'nmr']);
 
     expect(result.collectionSource).toStrictEqual({
-      url: 'https://raw.githubusercontent.com/org/repo/v1/.preflight/distribution/nmr.js',
+      url: 'https://raw.githubusercontent.com/org/repo/v1/.preflight/collections/nmr.js',
     });
   });
 
@@ -155,7 +205,7 @@ describe(parseRunArgs, () => {
     const result = parseRunArgs(['--github=org/repo', '--collection=nmr']);
 
     expect(result.collectionSource).toStrictEqual({
-      url: 'https://raw.githubusercontent.com/org/repo/main/.preflight/distribution/nmr.js',
+      url: 'https://raw.githubusercontent.com/org/repo/main/.preflight/collections/nmr.js',
     });
   });
 
@@ -163,7 +213,7 @@ describe(parseRunArgs, () => {
     const result = parseRunArgs(['--github', 'org/repo', '--collection', 'nmr']);
 
     expect(result.collectionSource).toStrictEqual({
-      url: 'https://raw.githubusercontent.com/org/repo/main/.preflight/distribution/nmr.js',
+      url: 'https://raw.githubusercontent.com/org/repo/main/.preflight/collections/nmr.js',
     });
   });
 
@@ -171,7 +221,7 @@ describe(parseRunArgs, () => {
     const result = parseRunArgs(['--github', 'org/repo']);
 
     expect(result.collectionSource).toStrictEqual({
-      url: 'https://raw.githubusercontent.com/org/repo/main/.preflight/distribution/default.js',
+      url: 'https://raw.githubusercontent.com/org/repo/main/.preflight/collections/default.js',
     });
   });
 
@@ -208,16 +258,54 @@ describe(parseRunArgs, () => {
     expect(() => parseRunArgs(['--url='])).toThrow('--url requires a URL argument');
   });
 
+  // --local flag
+  it('resolves --local to a .js file under .preflight/collections/', () => {
+    const result = parseRunArgs(['--local', '/path/to/repo']);
+
+    expect(result.collectionSource).toStrictEqual({
+      path: '/path/to/repo/.preflight/collections/default.js',
+    });
+  });
+
+  it('resolves --local with --collection to a named .js file', () => {
+    const result = parseRunArgs(['--local', '/path/to/repo', '--collection', 'deploy']);
+
+    expect(result.collectionSource).toStrictEqual({
+      path: '/path/to/repo/.preflight/collections/deploy.js',
+    });
+  });
+
+  it('parses -l as short form of --local', () => {
+    const result = parseRunArgs(['-l', '/path/to/repo']);
+
+    expect(result.collectionSource).toStrictEqual({
+      path: '/path/to/repo/.preflight/collections/default.js',
+    });
+  });
+
+  it('resolves --local with a relative path against cwd', () => {
+    const result = parseRunArgs(['--local', '../sibling-repo']);
+    const expected = path.resolve(process.cwd(), '../sibling-repo');
+
+    expect(result.collectionSource).toStrictEqual({
+      path: `${expected}/.preflight/collections/default.js`,
+    });
+  });
+
+  it('throws when --local has no value', () => {
+    expect(() => parseRunArgs(['--local'])).toThrow('--local requires a path to a local repository');
+  });
+
   // Mutual exclusivity
   it('throws when --file and --github are combined', () => {
     expect(() => parseRunArgs(['--file', 'path.ts', '--github', 'org/repo'])).toThrow(
-      'Cannot combine --file, --github, and --url flags',
+      'Cannot combine --file, --github, --local, and --url flags',
     );
   });
 
   it('throws when --file and --url are combined', () => {
     expect(() => parseRunArgs(['--file', 'path.ts', '--url', 'https://example.com/config.js'])).toThrow(
-      'Cannot combine --file, --github, and --url flags',
+      'Cannot combine --file, --github, --local, and --url flags',
     );
   });
 
@@ -229,7 +317,25 @@ describe(parseRunArgs, () => {
 
   it('throws when --github and --url are combined', () => {
     expect(() => parseRunArgs(['--github', 'org/repo', '--url', 'https://example.com/config.js'])).toThrow(
-      'Cannot combine --file, --github, and --url flags',
+      'Cannot combine --file, --github, --local, and --url flags',
+    );
+  });
+
+  it('throws when --local and --file are combined', () => {
+    expect(() => parseRunArgs(['--file', 'path.ts', '--local', '/other/repo'])).toThrow(
+      'Cannot combine --file, --github, --local, and --url flags',
+    );
+  });
+
+  it('throws when --local and --url are combined', () => {
+    expect(() => parseRunArgs(['--local', '/other/repo', '--url', 'https://example.com/config.js'])).toThrow(
+      'Cannot combine --file, --github, --local, and --url flags',
+    );
+  });
+
+  it('throws when --github and --local are combined', () => {
+    expect(() => parseRunArgs(['--github', 'org/repo', '--local', '/path'])).toThrow(
+      'Cannot combine --file, --github, --local, and --url flags',
     );
   });
 
@@ -329,7 +435,7 @@ describe(runCommand, () => {
 
     const exitCode = await runCommand({
       names: [],
-      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      collectionSource: { path: '.preflight/collections/default.ts' },
       json: false,
     });
 
@@ -344,7 +450,7 @@ describe(runCommand, () => {
 
     const exitCode = await runCommand({
       names: ['deploy'],
-      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      collectionSource: { path: '.preflight/collections/default.ts' },
       json: false,
     });
 
@@ -362,7 +468,7 @@ describe(runCommand, () => {
 
     const exitCode = await runCommand({
       names: ['nonexistent'],
-      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      collectionSource: { path: '.preflight/collections/default.ts' },
       json: false,
     });
 
@@ -379,7 +485,7 @@ describe(runCommand, () => {
 
     const exitCode = await runCommand({
       names: [],
-      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      collectionSource: { path: '.preflight/collections/default.ts' },
       json: false,
     });
 
@@ -407,7 +513,7 @@ describe(runCommand, () => {
 
     await runCommand({
       names: [],
-      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      collectionSource: { path: '.preflight/collections/default.ts' },
       json: false,
     });
 
@@ -423,7 +529,7 @@ describe(runCommand, () => {
 
     await runCommand({
       names: ['deploy'],
-      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      collectionSource: { path: '.preflight/collections/default.ts' },
       json: false,
     });
 
@@ -441,7 +547,7 @@ describe(runCommand, () => {
 
     await runCommand({
       names: [],
-      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      collectionSource: { path: '.preflight/collections/default.ts' },
       json: false,
     });
 
@@ -461,7 +567,7 @@ describe(runCommand, () => {
 
     await runCommand({
       names: [],
-      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      collectionSource: { path: '.preflight/collections/default.ts' },
       json: false,
     });
 
@@ -476,7 +582,7 @@ describe(runCommand, () => {
 
     const exitCode = await runCommand({
       names: [],
-      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      collectionSource: { path: '.preflight/collections/default.ts' },
       json: false,
     });
 
@@ -507,7 +613,7 @@ describe(runCommand, () => {
 
     await runCommand({
       names: [],
-      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      collectionSource: { path: '.preflight/collections/default.ts' },
       json: false,
     });
 
@@ -525,7 +631,7 @@ describe(runCommand, () => {
 
     await runCommand({
       names: ['deploy'],
-      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      collectionSource: { path: '.preflight/collections/default.ts' },
       json: false,
     });
 
@@ -585,7 +691,7 @@ describe(runCommand, () => {
 
     await runCommand({
       names: [],
-      collectionSource: { path: '.config/preflight/collections/default.ts' },
+      collectionSource: { path: '.preflight/collections/default.ts' },
       json: false,
     });
 
@@ -603,7 +709,7 @@ describe(runCommand, () => {
 
       await runCommand({
         names: ['deploy'],
-        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        collectionSource: { path: '.preflight/collections/default.ts' },
         json: false,
         failOn: 'warn',
       });
@@ -618,7 +724,7 @@ describe(runCommand, () => {
 
       await runCommand({
         names: ['deploy'],
-        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        collectionSource: { path: '.preflight/collections/default.ts' },
         json: false,
       });
 
@@ -635,7 +741,7 @@ describe(runCommand, () => {
 
       await runCommand({
         names: ['deploy'],
-        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        collectionSource: { path: '.preflight/collections/default.ts' },
         json: false,
       });
 
@@ -652,7 +758,7 @@ describe(runCommand, () => {
 
       await runCommand({
         names: ['deploy'],
-        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        collectionSource: { path: '.preflight/collections/default.ts' },
         json: false,
         reportOn: 'warn',
       });
@@ -671,7 +777,7 @@ describe(runCommand, () => {
 
       await runCommand({
         names: ['deploy'],
-        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        collectionSource: { path: '.preflight/collections/default.ts' },
         json: true,
         reportOn: 'error',
       });
@@ -696,7 +802,7 @@ describe(runCommand, () => {
 
       const exitCode = await runCommand({
         names: [],
-        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        collectionSource: { path: '.preflight/collections/default.ts' },
         json: true,
       });
 
@@ -716,7 +822,7 @@ describe(runCommand, () => {
 
       const exitCode = await runCommand({
         names: [],
-        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        collectionSource: { path: '.preflight/collections/default.ts' },
         json: true,
       });
 
@@ -728,7 +834,7 @@ describe(runCommand, () => {
 
       const exitCode = await runCommand({
         names: [],
-        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        collectionSource: { path: '.preflight/collections/default.ts' },
         json: true,
       });
 
@@ -744,7 +850,7 @@ describe(runCommand, () => {
 
       const exitCode = await runCommand({
         names: ['nonexistent'],
-        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        collectionSource: { path: '.preflight/collections/default.ts' },
         json: true,
       });
 
@@ -762,7 +868,7 @@ describe(runCommand, () => {
 
       await runCommand({
         names: [],
-        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        collectionSource: { path: '.preflight/collections/default.ts' },
         json: true,
       });
 
@@ -782,7 +888,7 @@ describe(runCommand, () => {
 
       const exitCode = await runCommand({
         names: ['deploy'],
-        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        collectionSource: { path: '.preflight/collections/default.ts' },
         json: true,
       });
 
@@ -798,7 +904,7 @@ describe(runCommand, () => {
 
       await runCommand({
         names: [],
-        collectionSource: { path: '.config/preflight/collections/default.ts' },
+        collectionSource: { path: '.preflight/collections/default.ts' },
         json: true,
       });
 
@@ -816,13 +922,13 @@ describe(runCommand, () => {
 
     const exitCode = await runCommand({
       names: [],
-      collectionSource: { url: 'https://raw.githubusercontent.com/org/repo/main/.preflight/distribution/nmr.js' },
+      collectionSource: { url: 'https://raw.githubusercontent.com/org/repo/main/.preflight/collections/nmr.js' },
       json: false,
     });
 
     expect(mockResolveGitHubToken).toHaveBeenCalled();
     expect(mockLoadRemoteCollection).toHaveBeenCalledWith({
-      url: 'https://raw.githubusercontent.com/org/repo/main/.preflight/distribution/nmr.js',
+      url: 'https://raw.githubusercontent.com/org/repo/main/.preflight/collections/nmr.js',
       token: 'token-abc',
     });
     expect(exitCode).toBe(0);
@@ -836,12 +942,12 @@ describe(runCommand, () => {
 
     await runCommand({
       names: [],
-      collectionSource: { url: 'https://raw.githubusercontent.com/org/repo/v2/.preflight/distribution/nmr.js' },
+      collectionSource: { url: 'https://raw.githubusercontent.com/org/repo/v2/.preflight/collections/nmr.js' },
       json: false,
     });
 
     expect(mockLoadRemoteCollection).toHaveBeenCalledWith({
-      url: 'https://raw.githubusercontent.com/org/repo/v2/.preflight/distribution/nmr.js',
+      url: 'https://raw.githubusercontent.com/org/repo/v2/.preflight/collections/nmr.js',
     });
     expect(mockLoadRemoteCollection.mock.calls[0][0]).not.toHaveProperty('token');
   });
