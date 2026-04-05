@@ -129,6 +129,7 @@ export function parseRunArgs(flags: string[]): ParsedRunArgs {
   // Validate mutual exclusivity of source flags.
   let sourceType: string | undefined;
   if (parsed.file !== undefined) {
+    assertNoExistingSource(sourceType);
     sourceType = 'file';
   }
   if (parsed.github !== undefined) {
