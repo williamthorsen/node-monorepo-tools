@@ -36,3 +36,16 @@ export {
   definePreflightConfig,
   definePreflightStagedChecklist,
 } from './authoring.ts';
+
+// Check utilities
+export {
+  compareVersions,
+  fileContains,
+  fileDoesNotContain,
+  fileExists,
+  hasDevDependency,
+  hasMinDevDependencyVersion,
+  hasPackageJsonField,
+  readFile,
+  readPackageJson,
+} from './check-utils/index.ts';

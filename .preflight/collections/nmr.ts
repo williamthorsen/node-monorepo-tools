@@ -5,7 +5,16 @@
  *   preflight run --file <path-to>/nmr.js
  */
 import type { PreflightCheck, PreflightChecklist } from '@williamthorsen/preflight';
-import { definePreflightCollection } from '@williamthorsen/preflight';
+import {
+  definePreflightCollection,
+  fileContains,
+  fileDoesNotContain,
+  fileExists,
+  hasDevDependency,
+  hasMinDevDependencyVersion,
+  hasPackageJsonField,
+  readFile,
+} from '@williamthorsen/preflight';
 
 const releaseKit: PreflightChecklist = {
   name: 'release-kit',
@@ -225,96 +234,7 @@ export default definePreflightCollection({
   checklists: [releaseKit, syncLabels, nmr, codeQuality, repoSetup],
 });
 
-// -- Helpers ------------------------------------------------------------------
-
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
-/** Check whether a file exists relative to the working directory. */
-function fileExists(relativePath: string): boolean {
-  return existsSync(join(process.cwd(), relativePath));
-}
-
-/** Read a file relative to the working directory. Return undefined if it doesn't exist. */
-function readFile(relativePath: string): string | undefined {
-  const fullPath = join(process.cwd(), relativePath);
-  if (!existsSync(fullPath)) return undefined;
-  return readFileSync(fullPath, 'utf8');
-}
-
-/** Read and parse the root package.json. Return undefined if it doesn't exist. */
-function readPackageJson(): Record<string, unknown> | undefined {
-  const content = readFile('package.json');
-  if (content === undefined) return undefined;
-  const parsed: unknown = JSON.parse(content);
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return undefined;
-  return Object.fromEntries(Object.entries(parsed));
-}
-
-/** Narrow an unknown value to a string-keyed record without type assertions. */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-/** Check whether a dev dependency is present in package.json. */
-function hasDevDependency(name: string): boolean {
-  const pkg = readPackageJson();
-  if (pkg === undefined) return false;
-  const devDeps = pkg.devDependencies;
-  return isRecord(devDeps) && name in devDeps;
-}
-
-/** Check whether a dev dependency exists and its semver range satisfies a minimum version. */
-function hasMinDevDependencyVersion(
-  name: string,
-  minVersion: string,
-  options?: { exempt?: (range: string) => boolean },
-): boolean {
-  const pkg = readPackageJson();
-  if (pkg === undefined) return false;
-  const devDeps = pkg.devDependencies;
-  if (!isRecord(devDeps) || !(name in devDeps)) return false;
-  const range = devDeps[name];
-  if (typeof range !== 'string') return false;
-  if (options?.exempt?.(range)) return true;
-  // Strip leading semver range operators to extract the base version.
-  const versionMatch = /(\d+\.\d+\.\d+)/.exec(range);
-  if (versionMatch === null) return false;
-  return compareVersions(versionMatch[1], minVersion) >= 0;
-}
-
-/** Compare two semver version strings. Return negative if a < b, 0 if equal, positive if a > b. */
-function compareVersions(a: string, b: string): number {
-  const partsA = a.split('.').map(Number);
-  const partsB = b.split('.').map(Number);
-  for (let i = 0; i < 3; i++) {
-    const diff = (partsA[i] ?? 0) - (partsB[i] ?? 0);
-    if (diff !== 0) return diff;
-  }
-  return 0;
-}
-
-/** Check whether package.json has a field, optionally with a specific value. */
-function hasPackageJsonField(field: string, expectedValue?: string): boolean {
-  const pkg = readPackageJson();
-  if (pkg === undefined) return false;
-  if (expectedValue !== undefined) return pkg[field] === expectedValue;
-  return field in pkg;
-}
-
-/** Check whether a file contains content matching a regex. */
-function fileContains(relativePath: string, pattern: RegExp): boolean {
-  const content = readFile(relativePath);
-  if (content === undefined) return false;
-  return pattern.test(content);
-}
-
-/** Check that a file does not contain content matching a regex. Passes if the file is absent. */
-function fileDoesNotContain(relativePath: string, pattern: RegExp): boolean {
-  const content = readFile(relativePath);
-  if (content === undefined) return true;
-  return !pattern.test(content);
-}
+// -- Collection-specific helpers ----------------------------------------------
 
 /** Verify that .agents/preferences.yaml contains project.slug and project.ticket_prefix. */
 function preferencesHasRequiredFields(): boolean {
@@ -325,7 +245,7 @@ function preferencesHasRequiredFields(): boolean {
   return hasSlug && hasTicketPrefix;
 }
 
-/** Check that .tool-versions does not list pnpm. Passes if the file is absent. */
+/** Check that .tool-versions does not list pnpm. Pass if the file is absent. */
 function toolVersionsHasNoPnpm(): boolean {
   const content = readFile('.tool-versions');
   if (content === undefined) return true;
