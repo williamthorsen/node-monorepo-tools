@@ -45,6 +45,9 @@
 - name: scope:root
   color: 00ff96
   description: Monorepo root configuration
+- name: spike
+  color: '000000'
+  description: Investigation
 - name: tests
   color: edc287
   description: Tests

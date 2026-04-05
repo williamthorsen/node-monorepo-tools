@@ -14,6 +14,9 @@
 - name: feature
   color: '0075ca'
   description: Added or improved external functionality
+- name: spike
+  color: '000000'
+  description: Investigation
 
 # Guidance
 - name: good first issue
