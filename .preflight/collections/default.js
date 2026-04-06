@@ -34,17 +34,6 @@ function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-// packages/preflight/dist/esm/check-utils/semver.js
-function compareVersions(a, b) {
-  const partsA = a.split(".").map(Number);
-  const partsB = b.split(".").map(Number);
-  for (let i = 0; i < 3; i++) {
-    const diff = (partsA[i] ?? 0) - (partsB[i] ?? 0);
-    if (diff !== 0) return diff;
-  }
-  return 0;
-}
-
 // packages/preflight/dist/esm/check-utils/package-json.js
 function readPackageJson() {
   const content = readFile("package.json");
@@ -59,58 +48,8 @@ function hasPackageJsonField(field, expectedValue) {
   if (expectedValue !== void 0) return pkg[field] === expectedValue;
   return field in pkg;
 }
-function hasMinDevDependencyVersion(name, minVersion, options) {
-  const pkg = readPackageJson();
-  if (pkg === void 0) return false;
-  const devDeps = pkg.devDependencies;
-  if (!isRecord(devDeps) || !(name in devDeps)) return false;
-  const range = devDeps[name];
-  if (typeof range !== "string") return false;
-  if (options?.exempt?.(range)) return true;
-  const versionMatch = /(\d+\.\d+\.\d+)/.exec(range)?.[1];
-  if (versionMatch === void 0) return false;
-  return compareVersions(versionMatch, minVersion) >= 0;
-}
 
 // .preflight/collections/default.ts
-var releaseKit = {
-  name: "release-kit",
-  checks: [
-    {
-      name: "@williamthorsen/release-kit >= 4.0.0 in devDependencies",
-      check: () => hasMinDevDependencyVersion("@williamthorsen/release-kit", "4.0.0", {
-        exempt: (range) => range.startsWith("workspace:")
-      }),
-      fix: "pnpm add --save-dev @williamthorsen/release-kit@^4.0.0"
-    },
-    {
-      name: "release.yaml workflow exists",
-      check: () => fileExists(".github/workflows/release.yaml"),
-      fix: "Add .github/workflows/release.yaml using the release workflow template"
-    },
-    {
-      name: "release workflow references release.reusable.yaml",
-      check: () => fileContains(
-        ".github/workflows/release.yaml",
-        /uses:\s*(?:\.\/\.github\/workflows\/|williamthorsen\/node-monorepo-tools\/.github\/workflows\/)release\.reusable\.yaml/
-      ),
-      fix: "Update release.yaml to use williamthorsen/node-monorepo-tools/.github/workflows/release.reusable.yaml@release-workflow-v1"
-    },
-    {
-      name: "publish.yaml workflow exists",
-      check: () => fileExists(".github/workflows/publish.yaml"),
-      fix: "Add .github/workflows/publish.yaml using the publish workflow template"
-    },
-    {
-      name: "publish workflow references publish.reusable.yaml",
-      check: () => fileContains(
-        ".github/workflows/publish.yaml",
-        /uses:\s*(?:\.\/\.github\/workflows\/|williamthorsen\/node-monorepo-tools\/.github\/workflows\/)publish\.reusable\.yaml/
-      ),
-      fix: "Update publish.yaml to use williamthorsen/node-monorepo-tools/.github/workflows/publish.reusable.yaml@publish-workflow-v1"
-    }
-  ]
-};
 var syncLabels = {
   name: "sync-labels",
   checks: [
@@ -232,7 +171,7 @@ var repoSetup = {
   checks: repoSetupChecks
 };
 var default_default = definePreflightCollection({
-  checklists: [releaseKit, syncLabels, codeQuality, repoSetup]
+  checklists: [syncLabels, codeQuality, repoSetup]
 });
 function preferencesHasRequiredFields() {
   const content = readFile(".agents/preferences.yaml");
