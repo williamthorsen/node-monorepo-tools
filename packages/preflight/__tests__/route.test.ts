@@ -200,6 +200,44 @@ describe(routeCommand, () => {
     expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining("unknown flag '--bad'"));
   });
 
+  it('returns 1 and writes to stderr when resolveCollectionSource throws', async () => {
+    mockParseRunArgs.mockReturnValue({
+      names: [],
+      collectionName: 'deploy',
+      filePath: 'path.ts',
+      githubValue: undefined,
+      localValue: undefined,
+      urlValue: undefined,
+      json: false,
+    });
+    mockResolveCollectionSource.mockImplementation(() => {
+      throw new Error('--collection cannot be used with --file');
+    });
+
+    const exitCode = await routeCommand(['run', '--file', 'path.ts', '--collection', 'deploy']);
+
+    expect(exitCode).toBe(1);
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('--collection cannot be used with --file'));
+  });
+
+  it('returns 1 and writes to stderr when loadConfig rejects', async () => {
+    mockParseRunArgs.mockReturnValue({
+      names: [],
+      collectionName: undefined,
+      filePath: undefined,
+      githubValue: undefined,
+      localValue: undefined,
+      urlValue: undefined,
+      json: false,
+    });
+    mockLoadConfig.mockRejectedValue(new Error('bad config'));
+
+    const exitCode = await routeCommand(['run']);
+
+    expect(exitCode).toBe(1);
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('bad config'));
+  });
+
   it('shows compile help and returns 0 for compile --help', async () => {
     const exitCode = await routeCommand(['compile', '--help']);
 

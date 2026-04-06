@@ -183,14 +183,14 @@ describe(loadConfig, () => {
 
   it('throws when internal.dir is not a string', async () => {
     mockExistsSync.mockReturnValue(true);
-    mockJitiImport.mockResolvedValue({ internal: { dir: 42 } });
+    mockJitiImport.mockResolvedValue({ default: { internal: { dir: 42 } } });
 
     await expect(loadConfig('config.ts')).rejects.toThrow(ZodError);
   });
 
   it('throws when internal.extension is not a string', async () => {
     mockExistsSync.mockReturnValue(true);
-    mockJitiImport.mockResolvedValue({ internal: { extension: false } });
+    mockJitiImport.mockResolvedValue({ default: { internal: { extension: false } } });
 
     await expect(loadConfig('config.ts')).rejects.toThrow(ZodError);
   });

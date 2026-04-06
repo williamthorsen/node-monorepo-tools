@@ -191,7 +191,14 @@ async function handleRun(flags: string[]): Promise<number> {
     return 1;
   }
 
-  const config = await loadConfig();
+  let config;
+  try {
+    config = await loadConfig();
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`Error: ${message}\n`);
+    return 1;
+  }
 
   let collectionSource;
   try {
