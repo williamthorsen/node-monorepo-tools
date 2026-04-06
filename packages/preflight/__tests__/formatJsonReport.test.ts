@@ -307,6 +307,20 @@ describe(formatJsonReport, () => {
       });
     });
 
+    it('places result without depth property at the top level of the tree', () => {
+      const report = makeReport({
+        results: [makePassedResult({ name: 'no-depth-check' })],
+        passed: true,
+        durationMs: 10,
+      });
+
+      const parsed: unknown = JSON.parse(formatJsonReport([{ name: 'deploy', report }]));
+
+      expect(parsed).toMatchObject({
+        checklists: [{ checks: [{ name: 'no-depth-check', checks: [] }] }],
+      });
+    });
+
     it('reconstructs multi-level nesting from flat depth-first results', () => {
       const report = makeReport({
         results: [

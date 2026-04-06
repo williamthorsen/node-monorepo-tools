@@ -358,6 +358,17 @@ describe(reportPreflight, () => {
       expect(lines[2]).toBe('    \u{1F7E2} grandchild (3ms)');
     });
 
+    it('renders result without depth property at depth 0 (no indentation)', () => {
+      const report = makeReport({
+        results: [makePassedResult({ name: 'no-depth-check', durationMs: 7 })],
+      });
+
+      const output = reportPreflight(report);
+      const lines = output.split('\n');
+
+      expect(lines[0]).toBe('\u{1F7E2} no-depth-check (7ms)');
+    });
+
     it('suppresses n/a subtrees from output', () => {
       const report = makeReport({
         results: [

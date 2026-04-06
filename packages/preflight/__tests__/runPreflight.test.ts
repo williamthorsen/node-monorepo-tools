@@ -151,6 +151,28 @@ describe(runPreflight, () => {
       expect(skipped.skipReason).toBe('precondition');
     });
 
+    it('skips nested children of checks under a failing precondition', async () => {
+      const checklist: PreflightChecklist = {
+        name: 'gated-nested',
+        preconditions: [{ name: 'pre-fail', check: () => false }],
+        checks: [
+          {
+            name: 'parent',
+            check: () => true,
+            checks: [{ name: 'child', check: () => true }],
+          },
+        ],
+      };
+
+      const report = await runPreflight(checklist);
+
+      expect(report.results).toHaveLength(3);
+      const child = report.results[2];
+      assert(child?.status === 'skipped');
+      expect(child.skipReason).toBe('precondition');
+      expect(child.depth).toBe(1);
+    });
+
     it('runs checks when all preconditions pass', async () => {
       const checklist: PreflightChecklist = {
         name: 'gated',
