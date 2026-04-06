@@ -143,45 +143,51 @@ var release_kit_default = definePreflightCollection({
           name: "@williamthorsen/release-kit in devDependencies",
           severity: "error",
           check: () => hasDevDependency("@williamthorsen/release-kit"),
-          fix: "pnpm add --save-dev @williamthorsen/release-kit"
-        },
-        {
-          name: `@williamthorsen/release-kit >= ${MIN_VERSION}`,
-          severity: "error",
-          check: () => hasMinDevDependencyVersion("@williamthorsen/release-kit", MIN_VERSION, {
-            exempt: (range) => range.startsWith("workspace:")
-          }),
-          fix: `pnpm add --save-dev @williamthorsen/release-kit@^${MIN_VERSION}`
+          fix: "pnpm add --save-dev @williamthorsen/release-kit",
+          checks: [
+            {
+              name: `@williamthorsen/release-kit >= ${MIN_VERSION}`,
+              severity: "error",
+              check: () => hasMinDevDependencyVersion("@williamthorsen/release-kit", MIN_VERSION, {
+                exempt: (range) => range.startsWith("workspace:")
+              }),
+              fix: `pnpm add --save-dev @williamthorsen/release-kit@^${MIN_VERSION}`
+            }
+          ]
         },
         {
           name: "release.yaml workflow exists",
           severity: "warn",
           check: () => fileExists(".github/workflows/release.yaml"),
-          fix: "Add .github/workflows/release.yaml using the release workflow template"
-        },
-        {
-          name: "release workflow references release.reusable.yaml",
-          severity: "warn",
-          check: () => fileContains(
-            ".github/workflows/release.yaml",
-            /uses:\s*(?:\.\/\.github\/workflows\/|williamthorsen\/node-monorepo-tools\/.github\/workflows\/)release\.reusable\.yaml/
-          ),
-          fix: "Update release.yaml to use williamthorsen/node-monorepo-tools/.github/workflows/release.reusable.yaml@release-workflow-v1"
+          fix: "Add .github/workflows/release.yaml using the release workflow template",
+          checks: [
+            {
+              name: "release workflow references release.reusable.yaml",
+              severity: "warn",
+              check: () => fileContains(
+                ".github/workflows/release.yaml",
+                /uses:\s*(?:\.\/\.github\/workflows\/|williamthorsen\/node-monorepo-tools\/.github\/workflows\/)release\.reusable\.yaml/
+              ),
+              fix: "Update release.yaml to use williamthorsen/node-monorepo-tools/.github/workflows/release.reusable.yaml@release-workflow-v1"
+            }
+          ]
         },
         {
           name: "publish.yaml workflow exists",
           severity: "warn",
           check: () => fileExists(".github/workflows/publish.yaml"),
-          fix: "Add .github/workflows/publish.yaml using the publish workflow template"
-        },
-        {
-          name: "publish workflow references publish.reusable.yaml",
-          severity: "warn",
-          check: () => fileContains(
-            ".github/workflows/publish.yaml",
-            /uses:\s*(?:\.\/\.github\/workflows\/|williamthorsen\/node-monorepo-tools\/.github\/workflows\/)publish\.reusable\.yaml/
-          ),
-          fix: "Update publish.yaml to use williamthorsen/node-monorepo-tools/.github/workflows/publish.reusable.yaml@publish-workflow-v1"
+          fix: "Add .github/workflows/publish.yaml using the publish workflow template",
+          checks: [
+            {
+              name: "publish workflow references publish.reusable.yaml",
+              severity: "warn",
+              check: () => fileContains(
+                ".github/workflows/publish.yaml",
+                /uses:\s*(?:\.\/\.github\/workflows\/|williamthorsen\/node-monorepo-tools\/.github\/workflows\/)publish\.reusable\.yaml/
+              ),
+              fix: "Update publish.yaml to use williamthorsen/node-monorepo-tools/.github/workflows/publish.reusable.yaml@publish-workflow-v1"
+            }
+          ]
         },
         {
           name: "config does not use removed tagPrefix",

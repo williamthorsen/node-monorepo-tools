@@ -147,7 +147,7 @@ describe(runPreflight, () => {
       const report = await runPreflight(checklist);
       const skipped = report.results[1];
 
-      assert(skipped?.status === 'skipped');
+      assert.ok(skipped?.status === 'skipped');
       expect(skipped.skipReason).toBe('precondition');
     });
 
@@ -168,7 +168,7 @@ describe(runPreflight, () => {
 
       expect(report.results).toHaveLength(3);
       const child = report.results[2];
-      assert(child?.status === 'skipped');
+      assert.ok(child?.status === 'skipped');
       expect(child.skipReason).toBe('precondition');
       expect(child.depth).toBe(1);
     });
@@ -506,7 +506,7 @@ describe(runPreflight, () => {
       const report = await runPreflight(checklist);
 
       const result = report.results[0];
-      assert(result?.status === 'skipped');
+      assert.ok(result?.status === 'skipped');
       expect(result.skipReason).toBe('n/a');
       expect(result.detail).toBe('tool not installed');
     });
@@ -660,7 +660,7 @@ describe(runPreflight, () => {
       expect(report.results[0]?.status).toBe('failed');
       expect(report.results[1]?.name).toBe('child');
       const child = report.results[1];
-      assert(child?.status === 'skipped');
+      assert.ok(child?.status === 'skipped');
       expect(child.skipReason).toBe('precondition');
       expect(child.depth).toBe(1);
     });
@@ -684,7 +684,7 @@ describe(runPreflight, () => {
       expect(report.results[0]?.status).toBe('skipped');
       expect(report.results[1]?.name).toBe('child');
       const child = report.results[1];
-      assert(child?.status === 'skipped');
+      assert.ok(child?.status === 'skipped');
       expect(child.skipReason).toBe('n/a');
     });
 

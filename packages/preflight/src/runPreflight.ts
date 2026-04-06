@@ -48,7 +48,7 @@ function buildPassedResult(
   detail: string | null,
   fix: string | null,
   progress: import('./types.ts').Progress | null,
-  depth: number = 0,
+  depth = 0,
 ): PassedResult {
   return { name, status: 'passed', ok: true, severity, detail, fix, error: null, progress, durationMs, depth };
 }
@@ -62,7 +62,7 @@ function buildFailedResult(
   fix: string | null,
   error: Error | null,
   progress: import('./types.ts').Progress | null,
-  depth: number = 0,
+  depth = 0,
 ): FailedResult {
   return { name, status: 'failed', ok: false, severity, detail, fix, error, progress, durationMs, depth };
 }
@@ -74,7 +74,7 @@ function buildSkippedResult(
   skipReason: 'n/a' | 'precondition',
   detail: string | null,
   fix: string | null,
-  depth: number = 0,
+  depth = 0,
 ): SkippedResult {
   return {
     name,
@@ -96,11 +96,7 @@ function buildSkippedResult(
  *
  * Returns the check's own result followed by all descendant results in depth-first order.
  */
-async function executeCheck(
-  check: PreflightCheck,
-  defaultSeverity: Severity,
-  depth: number = 0,
-): Promise<PreflightResult[]> {
+async function executeCheck(check: PreflightCheck, defaultSeverity: Severity, depth = 0): Promise<PreflightResult[]> {
   const severity = resolveSeverity(check, defaultSeverity);
   const fix = check.fix ?? null;
   const children = check.checks ?? [];
@@ -216,7 +212,7 @@ function skipCheck(
   check: PreflightCheck,
   defaultSeverity: Severity,
   skipReason: 'n/a' | 'precondition' = 'precondition',
-  depth: number = 0,
+  depth = 0,
 ): PreflightResult {
   const severity = resolveSeverity(check, defaultSeverity);
   return buildSkippedResult(check.name, severity, skipReason, null, check.fix ?? null, depth);
