@@ -11,6 +11,11 @@ import { VERSION } from '../version.ts';
 const SUBCOMMANDS = ['compile', 'init'];
 const MIN_PREFIX_LENGTH = 3;
 
+/** Extract a displayable message from an unknown thrown value. */
+function extractMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function showHelp(): void {
   console.info(`
 Usage: preflight [names...] [options]
@@ -135,8 +140,7 @@ export async function routeCommand(args: string[]): Promise<number> {
     try {
       return await compileCommand(flags);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      process.stderr.write(`Error: ${message}\n`);
+      process.stderr.write(`Error: ${extractMessage(error)}\n`);
       return 1;
     }
   }
@@ -186,8 +190,7 @@ async function handleRun(flags: string[]): Promise<number> {
   try {
     parsed = parseRunArgs(flags);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`Error: ${message}\n`);
+    process.stderr.write(`Error: ${extractMessage(error)}\n`);
     return 1;
   }
 
@@ -195,8 +198,7 @@ async function handleRun(flags: string[]): Promise<number> {
   try {
     config = await loadConfig();
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`Error: ${message}\n`);
+    process.stderr.write(`Error: ${extractMessage(error)}\n`);
     return 1;
   }
 
@@ -212,18 +214,15 @@ async function handleRun(flags: string[]): Promise<number> {
       internalExtension: config.internal.extension,
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`Error: ${message}\n`);
+    process.stderr.write(`Error: ${extractMessage(error)}\n`);
     return 1;
   }
 
-  const options: Parameters<typeof runCommand>[0] = {
+  return runCommand({
     collectionSource,
     json: parsed.json,
     names: parsed.names,
-  };
-  if (parsed.failOn !== undefined) options.failOn = parsed.failOn;
-  if (parsed.reportOn !== undefined) options.reportOn = parsed.reportOn;
-
-  return runCommand(options);
+    ...(parsed.failOn !== undefined && { failOn: parsed.failOn }),
+    ...(parsed.reportOn !== undefined && { reportOn: parsed.reportOn }),
+  });
 }
