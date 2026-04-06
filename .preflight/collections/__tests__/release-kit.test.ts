@@ -4,7 +4,10 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest';
 
+import releaseKitPackageJson from '../../../packages/release-kit/package.json';
 import collection from '../release-kit.ts';
+
+const MIN_VERSION = releaseKitPackageJson.version;
 
 const [checklist] = collection.checklists;
 const checks = checklist.checks;
@@ -37,7 +40,7 @@ describe('@williamthorsen/release-kit in devDependencies', () => {
   const check = findCheck('@williamthorsen/release-kit in devDependencies');
 
   it('passes when release-kit is in devDependencies', () => {
-    writePackageJson({ devDependencies: { '@williamthorsen/release-kit': '^4.4.0' } });
+    writePackageJson({ devDependencies: { '@williamthorsen/release-kit': `^${MIN_VERSION}` } });
 
     expect(check.check()).toBe(true);
   });
@@ -57,7 +60,7 @@ describe('@williamthorsen/release-kit >= minimum version', () => {
   const check = findCheck('@williamthorsen/release-kit >=');
 
   it('passes when version meets minimum', () => {
-    writePackageJson({ devDependencies: { '@williamthorsen/release-kit': '^4.4.0' } });
+    writePackageJson({ devDependencies: { '@williamthorsen/release-kit': `^${MIN_VERSION}` } });
 
     expect(check.check()).toBe(true);
   });
