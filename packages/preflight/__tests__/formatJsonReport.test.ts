@@ -14,6 +14,7 @@ function makePassedResult(overrides?: Partial<PassedResult>): PassedResult {
     error: null,
     progress: null,
     durationMs: 10,
+    depth: 0,
     ...overrides,
   };
 }
@@ -29,6 +30,7 @@ function makeFailedResult(overrides?: Partial<FailedResult>): FailedResult {
     error: null,
     progress: null,
     durationMs: 5,
+    depth: 0,
     ...overrides,
   };
 }
@@ -45,6 +47,7 @@ function makeSkippedResult(overrides?: Partial<SkippedResult>): SkippedResult {
     error: null,
     progress: null,
     durationMs: 0,
+    depth: 0,
     ...overrides,
   };
 }
@@ -307,9 +310,9 @@ describe(formatJsonReport, () => {
       });
     });
 
-    it('places result without depth property at the top level of the tree', () => {
+    it('places depth-0 result at the top level of the tree', () => {
       const report = makeReport({
-        results: [makePassedResult({ name: 'no-depth-check' })],
+        results: [makePassedResult({ name: 'top-check', depth: 0 })],
         passed: true,
         durationMs: 10,
       });
@@ -317,7 +320,7 @@ describe(formatJsonReport, () => {
       const parsed: unknown = JSON.parse(formatJsonReport([{ name: 'deploy', report }]));
 
       expect(parsed).toMatchObject({
-        checklists: [{ checks: [{ name: 'no-depth-check', checks: [] }] }],
+        checklists: [{ checks: [{ name: 'top-check', checks: [] }] }],
       });
     });
 

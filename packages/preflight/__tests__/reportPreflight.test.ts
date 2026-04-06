@@ -14,6 +14,7 @@ function makePassedResult(overrides?: Partial<PassedResult>): PassedResult {
     error: null,
     progress: null,
     durationMs: 10,
+    depth: 0,
     ...overrides,
   };
 }
@@ -29,6 +30,7 @@ function makeFailedResult(overrides?: Partial<FailedResult>): FailedResult {
     error: null,
     progress: null,
     durationMs: 5,
+    depth: 0,
     ...overrides,
   };
 }
@@ -45,6 +47,7 @@ function makeSkippedResult(overrides?: Partial<SkippedResult>): SkippedResult {
     error: null,
     progress: null,
     durationMs: 0,
+    depth: 0,
     ...overrides,
   };
 }
@@ -358,15 +361,15 @@ describe(reportPreflight, () => {
       expect(lines[2]).toBe('    \u{1F7E2} grandchild (3ms)');
     });
 
-    it('renders result without depth property at depth 0 (no indentation)', () => {
+    it('renders top-level result at depth 0 with no indentation', () => {
       const report = makeReport({
-        results: [makePassedResult({ name: 'no-depth-check', durationMs: 7 })],
+        results: [makePassedResult({ name: 'top-check', depth: 0, durationMs: 7 })],
       });
 
       const output = reportPreflight(report);
       const lines = output.split('\n');
 
-      expect(lines[0]).toBe('\u{1F7E2} no-depth-check (7ms)');
+      expect(lines[0]).toBe('\u{1F7E2} top-check (7ms)');
     });
 
     it('suppresses n/a subtrees from output', () => {

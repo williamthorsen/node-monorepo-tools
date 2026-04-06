@@ -93,7 +93,7 @@ function buildCheckEntries(
   while (index < results.length) {
     const result = results[index];
     if (result === undefined) break;
-    const depth = result.depth ?? 0;
+    const depth = result.depth;
 
     // Stop when we encounter a result shallower than what we expect at this level.
     if (depth < expectedDepth) break;

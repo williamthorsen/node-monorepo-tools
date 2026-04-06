@@ -82,7 +82,7 @@ export function reportPreflight(report: PreflightReport, options?: ReportPreflig
   let suppressBelowDepth: number | null = null;
 
   for (const result of visibleResults) {
-    const depth = result.depth ?? 0;
+    const depth = result.depth;
 
     // Suppress N/A subtrees: skip the N/A parent and all deeper results.
     if (suppressBelowDepth !== null) {
@@ -123,7 +123,7 @@ export function reportPreflight(report: PreflightReport, options?: ReportPreflig
   let skipped = 0;
   let countSuppressBelowDepth: number | null = null;
   for (const r of visibleResults) {
-    const d = r.depth ?? 0;
+    const d = r.depth;
     if (countSuppressBelowDepth !== null) {
       if (d > countSuppressBelowDepth) continue;
       countSuppressBelowDepth = null;

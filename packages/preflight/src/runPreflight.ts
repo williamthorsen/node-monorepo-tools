@@ -235,7 +235,7 @@ async function runPreconditions(
   results.push(...flat);
 
   // Only top-level precondition results (depth 0) determine pass/fail.
-  return flat.filter((r) => (r.depth ?? 0) === 0).every((r) => r.status === 'passed');
+  return flat.filter((r) => r.depth === 0).every((r) => r.status === 'passed');
 }
 
 /** Run a flat checklist: all checks concurrently. */
@@ -282,7 +282,7 @@ async function runStagedChecks(
     // Only top-level group results (depth 0) determine whether to halt subsequent groups,
     // consistent with how precondition pass/fail uses only depth-0 results.
     const topLevelFailed = groupResults
-      .filter((r) => (r.depth ?? 0) === 0)
+      .filter((r) => r.depth === 0)
       .some((r) => r.status === 'failed' && meetsThreshold(r.severity, failOn));
     if (topLevelFailed) {
       shouldSkipRemaining = true;

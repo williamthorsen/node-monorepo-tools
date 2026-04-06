@@ -114,7 +114,7 @@ interface PreflightResultBase {
   durationMs: number;
 
   /** Nesting depth (0 for top-level checks). */
-  depth?: number;
+  depth: number;
 }
 
 /** Result for a check that ran and passed. */
