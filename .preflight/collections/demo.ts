@@ -171,38 +171,43 @@ const optionalIntegrations: PreflightChecklist = {
 };
 
 // -- Staged checklist with halt-on-failure ------------------------------------
-// Demonstrates: groups run sequentially. A failure in group 2 (missing LICENSE)
-// halts group 3 — its checks appear as ⛔ skipped.
+// Demonstrates: groups run sequentially, each depending on the previous.
+// A missing LICENSE in the compliance stage halts the release automation
+// stage — npm publish rejects packages without a license, so there's no
+// point verifying workflows that would produce unpublishable artifacts.
 
-const releaseReadiness: PreflightStagedChecklist = {
-  name: 'release-readiness',
+const publishingPipeline: PreflightStagedChecklist = {
+  name: 'publishing-pipeline',
   groups: [
-    // Group 1: repository metadata (all pass)
+    // Stage 1: Build infrastructure — can the project compile at all?
     [
       {
-        name: 'package.json has "repository" field',
-        check: () => hasPackageJsonField('repository'),
-        fix: 'Add "repository" to package.json',
+        name: 'shared build script exists',
+        check: () => fileExists('config/build.ts'),
+        fix: 'Add config/build.ts — packages depend on the shared esbuild configuration',
       },
       {
-        name: 'package.json has "homepage" field',
-        check: () => hasPackageJsonField('homepage'),
-        fix: 'Add "homepage" to package.json',
+        name: 'shared Vitest config exists',
+        check: () => fileExists('config/vitest.config.ts'),
+        fix: 'Add config/vitest.config.ts — packages inherit the shared test configuration',
       },
     ],
-    // Group 2: open-source readiness (LICENSE fails → halts group 3)
+    // Stage 2: Compliance — is the project legally publishable?
+    // npm publish warns on missing license; corporate consumers cannot use unlicensed packages.
     [
-      {
-        name: 'CHANGELOG.md exists',
-        check: () => fileExists('CHANGELOG.md'),
-      },
       {
         name: 'LICENSE file exists',
         check: () => fileExists('LICENSE') || fileExists('LICENSE.md'),
-        fix: 'Add a LICENSE file to the repo root',
+        fix: 'Add a LICENSE file — npm publish will warn and corporate consumers cannot use unlicensed packages',
+      },
+      {
+        name: '.npmrc configures save-exact',
+        check: () => fileContains('.npmrc', /save-exact\s*=\s*true/),
+        fix: 'Add save-exact=true to .npmrc for reproducible installs',
       },
     ],
-    // Group 3: publishing automation (skipped because group 2 failed)
+    // Stage 3: Release automation — are the workflows in place?
+    // No point verifying release workflows if the package can't be legally published.
     [
       {
         name: 'release workflow exists',
@@ -212,17 +217,11 @@ const releaseReadiness: PreflightStagedChecklist = {
         name: 'publish workflow exists',
         check: () => fileExists('.github/workflows/publish.yaml'),
       },
-      {
-        name: 'git-cliff not in devDependencies',
-        severity: 'recommend',
-        check: () => !hasDevDependency('git-cliff'),
-        fix: 'pnpm remove git-cliff — release-kit handles changelog generation',
-      },
     ],
   ],
   fixLocation: 'inline',
 };
 
 export default definePreflightCollection({
-  checklists: [projectFoundations, ciWorkflows, optionalIntegrations, releaseReadiness],
+  checklists: [projectFoundations, ciWorkflows, optionalIntegrations, publishingPipeline],
 });
