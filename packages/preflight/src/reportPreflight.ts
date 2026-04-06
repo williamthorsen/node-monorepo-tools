@@ -84,7 +84,7 @@ export function reportPreflight(report: PreflightReport, options?: ReportPreflig
   for (const result of visibleResults) {
     const depth = result.depth;
 
-    // Suppress N/A subtrees: skip the N/A parent and all deeper results.
+    // Suppress N/A descendants: show the N/A parent, hide deeper results.
     if (suppressBelowDepth !== null) {
       if (depth > suppressBelowDepth) continue;
       suppressBelowDepth = null;
@@ -92,7 +92,6 @@ export function reportPreflight(report: PreflightReport, options?: ReportPreflig
 
     if (result.status === 'skipped' && result.skipReason === 'n/a') {
       suppressBelowDepth = depth;
-      continue;
     }
 
     const indent = '  '.repeat(depth);
@@ -117,7 +116,7 @@ export function reportPreflight(report: PreflightReport, options?: ReportPreflig
     }
   }
 
-  // Summary counts from visible results, applying N/A subtree suppression.
+  // Summary counts from visible results, suppressing N/A descendants only.
   let passed = 0;
   let failed = 0;
   let skipped = 0;
@@ -130,7 +129,6 @@ export function reportPreflight(report: PreflightReport, options?: ReportPreflig
     }
     if (r.status === 'skipped' && r.skipReason === 'n/a') {
       countSuppressBelowDepth = d;
-      continue;
     }
     if (r.status === 'passed') passed++;
     else if (r.status === 'failed') failed++;

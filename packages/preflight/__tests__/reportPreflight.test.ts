@@ -105,14 +105,14 @@ describe(reportPreflight, () => {
     expect(output).toContain('\u{1F7E1} check-rec (5ms)');
   });
 
-  it('suppresses standalone n/a-skipped checks from output', () => {
+  it('shows n/a-skipped checks with white circle icon', () => {
     const report = makeReport({
       results: [makeSkippedResult({ name: 'check-na', skipReason: 'n/a' })],
     });
 
     const output = reportPreflight(report);
 
-    expect(output).not.toContain('check-na');
+    expect(output).toContain('\u26AA check-na (0ms)');
   });
 
   it('shows precondition-skipped checks with no-entry icon', () => {
@@ -372,7 +372,7 @@ describe(reportPreflight, () => {
       expect(lines[0]).toBe('\u{1F7E2} top-check (7ms)');
     });
 
-    it('suppresses n/a subtrees from output', () => {
+    it('shows n/a parent but suppresses descendants', () => {
       const report = makeReport({
         results: [
           makeSkippedResult({ name: 'na-parent', skipReason: 'n/a', depth: 0 }),
@@ -383,7 +383,7 @@ describe(reportPreflight, () => {
 
       const output = reportPreflight(report);
 
-      expect(output).not.toContain('na-parent');
+      expect(output).toContain('na-parent');
       expect(output).not.toContain('na-child');
       expect(output).toContain('next-sibling');
     });
@@ -452,7 +452,7 @@ describe(reportPreflight, () => {
       expect(output).toContain('\u{1F7E2} 2 passed, \u{1F534} 1 failed');
     });
 
-    it('excludes suppressed n/a children from summary counts', () => {
+    it('counts n/a parent but excludes suppressed descendants from summary', () => {
       const report = makeReport({
         results: [
           makeSkippedResult({ name: 'na-parent', skipReason: 'n/a', depth: 0 }),
@@ -464,10 +464,10 @@ describe(reportPreflight, () => {
 
       const output = reportPreflight(report);
 
-      // na-parent and na-child are both suppressed; only sibling counts as passed.
+      // na-parent counts as skipped; na-child is suppressed; sibling counts as passed.
       expect(output).toContain('\u{1F7E2} 1 passed');
-      expect(output).not.toContain('skipped');
-      expect(output).not.toContain('na-parent');
+      expect(output).toContain('\u{26D4} 1 skipped');
+      expect(output).toContain('na-parent');
       expect(output).not.toContain('na-child');
     });
 
@@ -482,7 +482,7 @@ describe(reportPreflight, () => {
 
       const output = reportPreflight(report);
 
-      expect(output).not.toContain('na-check');
+      expect(output).toContain('na-check');
       expect(output).not.toContain('na-child');
       expect(output).toContain('sibling');
     });
