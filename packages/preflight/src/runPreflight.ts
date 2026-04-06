@@ -279,8 +279,12 @@ async function runStagedChecks(
     const groupResults = await runSiblingChecks(group, defaultSeverity, 0);
     results.push(...groupResults);
 
-    // Halt subsequent groups only when a failure meets the failure threshold.
-    if (groupResults.some((r) => r.status === 'failed' && meetsThreshold(r.severity, failOn))) {
+    // Only top-level group results (depth 0) determine whether to halt subsequent groups,
+    // consistent with how precondition pass/fail uses only depth-0 results.
+    const topLevelFailed = groupResults
+      .filter((r) => (r.depth ?? 0) === 0)
+      .some((r) => r.status === 'failed' && meetsThreshold(r.severity, failOn));
+    if (topLevelFailed) {
       shouldSkipRemaining = true;
     }
   }

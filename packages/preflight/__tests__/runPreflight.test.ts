@@ -1,3 +1,5 @@
+import assert from 'node:assert';
+
 import { describe, expect, it } from 'vitest';
 
 import { meetsThreshold, runPreflight } from '../src/runPreflight.ts';
@@ -145,10 +147,8 @@ describe(runPreflight, () => {
       const report = await runPreflight(checklist);
       const skipped = report.results[1];
 
-      expect(skipped?.status).toBe('skipped');
-      if (skipped?.status === 'skipped') {
-        expect(skipped.skipReason).toBe('precondition');
-      }
+      assert(skipped?.status === 'skipped');
+      expect(skipped.skipReason).toBe('precondition');
     });
 
     it('runs checks when all preconditions pass', async () => {
@@ -243,6 +243,77 @@ describe(runPreflight, () => {
       expect(report.results).toHaveLength(2);
       expect(report.results[0]?.status).toBe('failed');
       expect(report.results[1]?.status).toBe('skipped');
+    });
+
+    it('executes nested checks within a staged group', async () => {
+      const checklist: PreflightStagedChecklist = {
+        name: 'staged-nested',
+        groups: [
+          [
+            {
+              name: 'g1-parent',
+              check: () => true,
+              checks: [{ name: 'g1-child', check: () => true }],
+            },
+          ],
+          [{ name: 'g2-runs', check: () => true }],
+        ],
+      };
+
+      const report = await runPreflight(checklist);
+
+      expect(report.results).toHaveLength(3);
+      expect(report.results[0]?.name).toBe('g1-parent');
+      expect(report.results[0]?.depth).toBe(0);
+      expect(report.results[1]?.name).toBe('g1-child');
+      expect(report.results[1]?.depth).toBe(1);
+      expect(report.results[2]?.name).toBe('g2-runs');
+      expect(report.results[2]?.status).toBe('passed');
+    });
+
+    it('does not halt subsequent groups when only a nested child fails', async () => {
+      const checklist: PreflightStagedChecklist = {
+        name: 'staged-nested-child-fail',
+        groups: [
+          [
+            {
+              name: 'g1-parent',
+              check: () => true,
+              checks: [{ name: 'g1-child-fail', check: () => false }],
+            },
+          ],
+          [{ name: 'g2-runs', check: () => true }],
+        ],
+      };
+
+      const report = await runPreflight(checklist);
+
+      expect(report.results).toHaveLength(3);
+      expect(report.results[1]?.name).toBe('g1-child-fail');
+      expect(report.results[1]?.status).toBe('failed');
+      expect(report.results[2]?.name).toBe('g2-runs');
+      expect(report.results[2]?.status).toBe('passed');
+    });
+
+    it('does not halt subsequent groups when nested child fails below failOn', async () => {
+      const checklist: PreflightStagedChecklist = {
+        name: 'staged-nested-threshold',
+        groups: [
+          [
+            {
+              name: 'g1-parent',
+              check: () => true,
+              checks: [{ name: 'g1-child-warn', check: () => false, severity: 'warn' }],
+            },
+          ],
+          [{ name: 'g2-runs', check: () => true }],
+        ],
+      };
+
+      const report = await runPreflight(checklist, { failOn: 'error' });
+
+      expect(report.results[2]?.name).toBe('g2-runs');
+      expect(report.results[2]?.status).toBe('passed');
     });
   });
 
@@ -412,11 +483,10 @@ describe(runPreflight, () => {
 
       const report = await runPreflight(checklist);
 
-      expect(report.results[0]?.status).toBe('skipped');
-      if (report.results[0]?.status === 'skipped') {
-        expect(report.results[0].skipReason).toBe('n/a');
-        expect(report.results[0].detail).toBe('tool not installed');
-      }
+      const result = report.results[0];
+      assert(result?.status === 'skipped');
+      expect(result.skipReason).toBe('n/a');
+      expect(result.detail).toBe('tool not installed');
     });
 
     it('runs a check when skip returns false', async () => {
@@ -567,11 +637,10 @@ describe(runPreflight, () => {
       expect(report.results).toHaveLength(2);
       expect(report.results[0]?.status).toBe('failed');
       expect(report.results[1]?.name).toBe('child');
-      expect(report.results[1]?.status).toBe('skipped');
-      if (report.results[1]?.status === 'skipped') {
-        expect(report.results[1].skipReason).toBe('precondition');
-      }
-      expect(report.results[1]?.depth).toBe(1);
+      const child = report.results[1];
+      assert(child?.status === 'skipped');
+      expect(child.skipReason).toBe('precondition');
+      expect(child.depth).toBe(1);
     });
 
     it('skips children of an n/a-skipped check with n/a reason', async () => {
@@ -592,10 +661,9 @@ describe(runPreflight, () => {
       expect(report.results).toHaveLength(2);
       expect(report.results[0]?.status).toBe('skipped');
       expect(report.results[1]?.name).toBe('child');
-      expect(report.results[1]?.status).toBe('skipped');
-      if (report.results[1]?.status === 'skipped') {
-        expect(report.results[1].skipReason).toBe('n/a');
-      }
+      const child = report.results[1];
+      assert(child?.status === 'skipped');
+      expect(child.skipReason).toBe('n/a');
     });
 
     it('produces depth-first ordering for multi-level nesting', async () => {

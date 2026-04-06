@@ -397,6 +397,31 @@ describe(reportPreflight, () => {
       expect(lines[childLine + 2]).toBe('    Fix: fix child');
     });
 
+    it('collects fixes from nested failed checks in end mode', () => {
+      const report = makeReport({
+        results: [
+          makePassedResult({ name: 'parent', depth: 0 }),
+          makeFailedResult({
+            name: 'child',
+            depth: 1,
+            error: new Error('child error'),
+            fix: 'fix the child',
+          }),
+        ],
+        passed: false,
+      });
+
+      const output = reportPreflight(report, { fixLocation: 'end' });
+      const lines = output.split('\n');
+
+      const childLine = lines.findIndex((l) => l.includes('child'));
+      expect(lines[childLine + 1]).toBe('    Error: child error');
+      expect(output).toContain('Fixes:');
+      expect(output).toContain('  fix the child');
+      // Fix should not appear inline.
+      expect(output).not.toContain('Fix: fix the child');
+    });
+
     it('includes nested results in summary counts', () => {
       const report = makeReport({
         results: [
@@ -411,6 +436,24 @@ describe(reportPreflight, () => {
       const output = reportPreflight(report);
 
       expect(output).toContain('\u{1F7E2} 2 passed, \u{1F534} 1 failed');
+    });
+
+    it('excludes suppressed n/a children from summary counts', () => {
+      const report = makeReport({
+        results: [
+          makeSkippedResult({ name: 'na-parent', skipReason: 'n/a', depth: 0 }),
+          makeSkippedResult({ name: 'na-child', skipReason: 'n/a', depth: 1 }),
+          makePassedResult({ name: 'sibling', depth: 0, durationMs: 10 }),
+        ],
+        durationMs: 50,
+      });
+
+      const output = reportPreflight(report);
+
+      // na-parent counts as skipped, na-child is suppressed, sibling counts as passed.
+      expect(output).toContain('\u{1F7E2} 1 passed');
+      expect(output).toContain('\u26D4 1 skipped');
+      expect(output).not.toContain('2 skipped');
     });
 
     it('resumes output after n/a subtree at same depth', () => {

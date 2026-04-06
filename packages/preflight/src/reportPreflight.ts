@@ -116,11 +116,20 @@ export function reportPreflight(report: PreflightReport, options?: ReportPreflig
     }
   }
 
-  // Summary counts from visible results only.
+  // Summary counts from visible results, applying N/A subtree suppression.
   let passed = 0;
   let failed = 0;
   let skipped = 0;
+  let countSuppressBelowDepth: number | null = null;
   for (const r of visibleResults) {
+    const d = r.depth ?? 0;
+    if (countSuppressBelowDepth !== null) {
+      if (d > countSuppressBelowDepth) continue;
+      countSuppressBelowDepth = null;
+    }
+    if (r.status === 'skipped' && r.skipReason === 'n/a') {
+      countSuppressBelowDepth = d;
+    }
     if (r.status === 'passed') passed++;
     else if (r.status === 'failed') failed++;
     else skipped++;

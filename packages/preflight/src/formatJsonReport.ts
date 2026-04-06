@@ -77,6 +77,10 @@ export function formatJsonReport(entries: ChecklistEntry[], options?: FormatJson
  *
  * Consumes results at `expectedDepth` as siblings, recursing into deeper results
  * as children. Returns the parsed entries and the index of the first unconsumed result.
+ *
+ * Assumes contiguous, monotonically increasing depths as produced by `runPreflight`.
+ * A depth gap (e.g., depth 0 followed by depth 2 with no depth 1) will silently
+ * promote the deeper result to the nearest parent level.
  */
 function buildCheckEntries(
   results: PreflightResult[],
