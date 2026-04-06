@@ -48,8 +48,9 @@ function buildPassedResult(
   detail: string | null,
   fix: string | null,
   progress: import('./types.ts').Progress | null,
+  depth = 0,
 ): PassedResult {
-  return { name, status: 'passed', ok: true, severity, detail, fix, error: null, progress, durationMs };
+  return { name, status: 'passed', ok: true, severity, detail, fix, error: null, progress, durationMs, depth };
 }
 
 /** Build a failed result. */
@@ -61,8 +62,9 @@ function buildFailedResult(
   fix: string | null,
   error: Error | null,
   progress: import('./types.ts').Progress | null,
+  depth = 0,
 ): FailedResult {
-  return { name, status: 'failed', ok: false, severity, detail, fix, error, progress, durationMs };
+  return { name, status: 'failed', ok: false, severity, detail, fix, error, progress, durationMs, depth };
 }
 
 /** Build a skipped result. */
@@ -72,6 +74,7 @@ function buildSkippedResult(
   skipReason: 'n/a' | 'precondition',
   detail: string | null,
   fix: string | null,
+  depth = 0,
 ): SkippedResult {
   return {
     name,
@@ -84,13 +87,19 @@ function buildSkippedResult(
     error: null,
     progress: null,
     durationMs: 0,
+    depth,
   };
 }
 
-/** Execute a single check and return its result. */
-async function executeCheck(check: PreflightCheck, defaultSeverity: Severity): Promise<PreflightResult> {
+/**
+ * Execute a single check and recursively process its dependent checks.
+ *
+ * Returns the check's own result followed by all descendant results in depth-first order.
+ */
+async function executeCheck(check: PreflightCheck, defaultSeverity: Severity, depth = 0): Promise<PreflightResult[]> {
   const severity = resolveSeverity(check, defaultSeverity);
   const fix = check.fix ?? null;
+  const children = check.checks ?? [];
 
   // Evaluate skip condition before running the check.
   if (check.skip !== undefined) {
@@ -98,12 +107,16 @@ async function executeCheck(check: PreflightCheck, defaultSeverity: Severity): P
     try {
       const skipResult = await check.skip();
       if (typeof skipResult === 'string') {
-        return buildSkippedResult(check.name, severity, 'n/a', skipResult, fix);
+        const result = buildSkippedResult(check.name, severity, 'n/a', skipResult, fix, depth);
+        const childResults = skipAllDescendants(children, defaultSeverity, 'n/a', depth + 1);
+        return [result, ...childResults];
       }
     } catch (error_: unknown) {
       const durationMs = performance.now() - start;
       const error = error_ instanceof Error ? error_ : new Error(String(error_));
-      return buildFailedResult(check.name, severity, durationMs, null, fix, error, null);
+      const result = buildFailedResult(check.name, severity, durationMs, null, fix, error, null, depth);
+      const childResults = skipAllDescendants(children, defaultSeverity, 'precondition', depth + 1);
+      return [result, ...childResults];
     }
   }
 
@@ -111,29 +124,98 @@ async function executeCheck(check: PreflightCheck, defaultSeverity: Severity): P
   try {
     const raw = await check.check();
     const durationMs = performance.now() - start;
+    let result: PreflightResult;
     if (typeof raw === 'boolean') {
-      if (raw) {
-        return buildPassedResult(check.name, severity, durationMs, null, fix, null);
-      }
-      return buildFailedResult(check.name, severity, durationMs, null, fix, null, null);
+      result = raw
+        ? buildPassedResult(check.name, severity, durationMs, null, fix, null, depth)
+        : buildFailedResult(check.name, severity, durationMs, null, fix, null, null, depth);
+    } else {
+      const detail = raw.detail ?? null;
+      const progress = raw.progress ?? null;
+      result = raw.ok
+        ? buildPassedResult(check.name, severity, durationMs, detail, fix, progress, depth)
+        : buildFailedResult(check.name, severity, durationMs, detail, fix, null, progress, depth);
     }
-    const detail = raw.detail ?? null;
-    const progress = raw.progress ?? null;
-    if (raw.ok) {
-      return buildPassedResult(check.name, severity, durationMs, detail, fix, progress);
-    }
-    return buildFailedResult(check.name, severity, durationMs, detail, fix, null, progress);
+
+    const childResults = await collectChildResults(result, children, defaultSeverity, depth + 1);
+    return [result, ...childResults];
   } catch (error_: unknown) {
     const durationMs = performance.now() - start;
     const error = error_ instanceof Error ? error_ : new Error(String(error_));
-    return buildFailedResult(check.name, severity, durationMs, null, fix, error, null);
+    const result = buildFailedResult(check.name, severity, durationMs, null, fix, error, null, depth);
+    const childResults = skipAllDescendants(children, defaultSeverity, 'precondition', depth + 1);
+    return [result, ...childResults];
   }
 }
 
-/** Mark a check as skipped due to a failed precondition. */
-function skipCheck(check: PreflightCheck, defaultSeverity: Severity): PreflightResult {
+/**
+ * Collect results from child checks based on the parent's outcome.
+ *
+ * Passed parents: execute children concurrently, then iterate in declaration order
+ * to produce depth-first results. Failed/skipped parents: skip all descendants.
+ */
+async function collectChildResults(
+  parentResult: PreflightResult,
+  children: PreflightCheck[],
+  defaultSeverity: Severity,
+  childDepth: number,
+): Promise<PreflightResult[]> {
+  if (children.length === 0) return [];
+
+  if (parentResult.status === 'failed') {
+    return skipAllDescendants(children, defaultSeverity, 'precondition', childDepth);
+  }
+
+  if (parentResult.status === 'skipped') {
+    const reason = parentResult.skipReason === 'n/a' ? 'n/a' : 'precondition';
+    return skipAllDescendants(children, defaultSeverity, reason, childDepth);
+  }
+
+  return runSiblingChecks(children, defaultSeverity, childDepth);
+}
+
+/**
+ * Run sibling checks concurrently, then collect results in depth-first declaration order.
+ *
+ * All siblings execute concurrently via `Promise.all`, but the returned array
+ * preserves declaration order: each sibling's own result is followed by its
+ * subtree before the next sibling appears.
+ */
+async function runSiblingChecks(
+  checks: PreflightCheck[],
+  defaultSeverity: Severity,
+  depth: number,
+): Promise<PreflightResult[]> {
+  const siblingTrees = await Promise.all(checks.map((c) => executeCheck(c, defaultSeverity, depth)));
+  return siblingTrees.flat();
+}
+
+/** Recursively skip a check and all its descendants. */
+function skipAllDescendants(
+  checks: PreflightCheck[],
+  defaultSeverity: Severity,
+  skipReason: 'n/a' | 'precondition',
+  depth: number,
+): PreflightResult[] {
+  const results: PreflightResult[] = [];
+  for (const check of checks) {
+    results.push(skipCheck(check, defaultSeverity, skipReason, depth));
+    if (check.checks !== undefined && check.checks.length > 0) {
+      results.push(...skipAllDescendants(check.checks, defaultSeverity, skipReason, depth + 1));
+    }
+  }
+  return results;
+}
+
+/** Mark a check as skipped due to a failed precondition or N/A parent. */
+function skipCheck(
+  check: PreflightCheck,
+  defaultSeverity: Severity,
+  skipReason: 'n/a' | 'precondition' = 'precondition',
+  depth = 0,
+): PreflightResult {
   const severity = resolveSeverity(check, defaultSeverity);
-  return buildSkippedResult(check.name, severity, 'precondition', null, check.fix ?? null);
+  return buildSkippedResult(check.name, severity, skipReason, null, check.fix ?? null, depth);
 }
 
 /** Run preconditions concurrently. Return true if all passed. */
@@ -144,10 +226,12 @@ async function runPreconditions(
 ): Promise<boolean> {
   if (preconditions.length === 0) return true;
 
-  const preconditionResults = await Promise.all(preconditions.map((c) => executeCheck(c, defaultSeverity)));
-  results.push(...preconditionResults);
+  const trees = await Promise.all(preconditions.map((c) => executeCheck(c, defaultSeverity)));
+  const flat = trees.flat();
+  results.push(...flat);
 
-  return preconditionResults.every((r) => r.status === 'passed');
+  // Only top-level precondition results (depth 0) determine pass/fail.
+  return flat.filter((r) => r.depth === 0).every((r) => r.status === 'passed');
 }
 
 /** Run a flat checklist: all checks concurrently. */
@@ -158,11 +242,11 @@ async function runFlatChecks(
   defaultSeverity: Severity,
 ): Promise<void> {
   if (!preconditionsPassed) {
-    results.push(...checklist.checks.map((c) => skipCheck(c, defaultSeverity)));
+    results.push(...skipAllDescendants(checklist.checks, defaultSeverity, 'precondition', 0));
     return;
   }
 
-  const checkResults = await Promise.all(checklist.checks.map((c) => executeCheck(c, defaultSeverity)));
+  const checkResults = await runSiblingChecks(checklist.checks, defaultSeverity, 0);
   results.push(...checkResults);
 }
 
@@ -176,7 +260,7 @@ async function runStagedChecks(
 ): Promise<void> {
   if (!preconditionsPassed) {
     for (const group of checklist.groups) {
-      results.push(...group.map((c) => skipCheck(c, defaultSeverity)));
+      results.push(...skipAllDescendants(group, defaultSeverity, 'precondition', 0));
     }
     return;
   }
@@ -184,15 +268,19 @@ async function runStagedChecks(
   let shouldSkipRemaining = false;
   for (const group of checklist.groups) {
     if (shouldSkipRemaining) {
-      results.push(...group.map((c) => skipCheck(c, defaultSeverity)));
+      results.push(...skipAllDescendants(group, defaultSeverity, 'precondition', 0));
       continue;
     }
 
-    const groupResults = await Promise.all(group.map((c) => executeCheck(c, defaultSeverity)));
+    const groupResults = await runSiblingChecks(group, defaultSeverity, 0);
     results.push(...groupResults);
 
-    // Halt subsequent groups only when a failure meets the failure threshold.
-    if (groupResults.some((r) => r.status === 'failed' && meetsThreshold(r.severity, failOn))) {
+    // Only top-level group results (depth 0) determine whether to halt subsequent groups,
+    // consistent with how precondition pass/fail uses only depth-0 results.
+    const topLevelFailed = groupResults
+      .filter((r) => r.depth === 0)
+      .some((r) => r.status === 'failed' && meetsThreshold(r.severity, failOn));
+    if (topLevelFailed) {
       shouldSkipRemaining = true;
     }
   }

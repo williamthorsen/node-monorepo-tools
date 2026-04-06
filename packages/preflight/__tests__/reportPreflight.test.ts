@@ -14,6 +14,7 @@ function makePassedResult(overrides?: Partial<PassedResult>): PassedResult {
     error: null,
     progress: null,
     durationMs: 10,
+    depth: 0,
     ...overrides,
   };
 }
@@ -29,6 +30,7 @@ function makeFailedResult(overrides?: Partial<FailedResult>): FailedResult {
     error: null,
     progress: null,
     durationMs: 5,
+    depth: 0,
     ...overrides,
   };
 }
@@ -45,6 +47,7 @@ function makeSkippedResult(overrides?: Partial<SkippedResult>): SkippedResult {
     error: null,
     progress: null,
     durationMs: 0,
+    depth: 0,
     ...overrides,
   };
 }
@@ -168,7 +171,7 @@ describe(reportPreflight, () => {
       const lines = output.split('\n');
 
       expect(output).toContain('Error: Something went wrong');
-      expect(output).toContain('Fix: Run npm install');
+      expect(output).toContain('\u{1F48A} Fix: Run npm install');
 
       const checkLineIndex = lines.findIndex((l) => l.includes('broken'));
       const errorLineIndex = lines.findIndex((l) => l.includes('Error: Something went wrong'));
@@ -183,7 +186,7 @@ describe(reportPreflight, () => {
 
       const output = reportPreflight(report, { fixLocation: 'inline' });
 
-      expect(output).toContain('Fix: Run npm install');
+      expect(output).toContain('\u{1F48A} Fix: Run npm install');
       expect(output).not.toContain('Error:');
     });
 
@@ -196,7 +199,7 @@ describe(reportPreflight, () => {
       const output = reportPreflight(report, { fixLocation: 'inline' });
 
       expect(output).toContain('Error: Missing file');
-      expect(output).not.toContain('Fix:');
+      expect(output).not.toContain('\u{1F48A}');
     });
   });
 
@@ -221,7 +224,7 @@ describe(reportPreflight, () => {
       expect(errorLineIndex).toBe(checkLineIndex + 1);
 
       expect(output).toContain('Fixes:');
-      expect(output).toContain('  Update config file');
+      expect(output).toContain(`  \u{1F48A} Update config file`);
     });
 
     it('omits Fixes section when no fixes are present', () => {
@@ -336,8 +339,153 @@ describe(reportPreflight, () => {
     const output = reportPreflight(report);
 
     expect(output).toContain('Fixes:');
-    expect(output).toContain('  Fix it');
+    expect(output).toContain(`  \u{1F48A} Fix it`);
     expect(output).not.toContain('Fix: Fix it');
+  });
+
+  describe('nested checks', () => {
+    it('indents nested results by depth', () => {
+      const report = makeReport({
+        results: [
+          makePassedResult({ name: 'parent', depth: 0, durationMs: 10 }),
+          makePassedResult({ name: 'child', depth: 1, durationMs: 5 }),
+          makePassedResult({ name: 'grandchild', depth: 2, durationMs: 3 }),
+        ],
+      });
+
+      const output = reportPreflight(report);
+      const lines = output.split('\n');
+
+      expect(lines[0]).toBe('\u{1F7E2} parent (10ms)');
+      expect(lines[1]).toBe('  \u{1F7E2} child (5ms)');
+      expect(lines[2]).toBe('    \u{1F7E2} grandchild (3ms)');
+    });
+
+    it('renders top-level result at depth 0 with no indentation', () => {
+      const report = makeReport({
+        results: [makePassedResult({ name: 'top-check', depth: 0, durationMs: 7 })],
+      });
+
+      const output = reportPreflight(report);
+      const lines = output.split('\n');
+
+      expect(lines[0]).toBe('\u{1F7E2} top-check (7ms)');
+    });
+
+    it('shows n/a parent but suppresses descendants', () => {
+      const report = makeReport({
+        results: [
+          makeSkippedResult({ name: 'na-parent', skipReason: 'n/a', depth: 0 }),
+          makeSkippedResult({ name: 'na-child', skipReason: 'n/a', depth: 1 }),
+          makePassedResult({ name: 'next-sibling', depth: 0, durationMs: 10 }),
+        ],
+      });
+
+      const output = reportPreflight(report);
+
+      expect(output).toContain('na-parent');
+      expect(output).not.toContain('na-child');
+      expect(output).toContain('next-sibling');
+    });
+
+    it('indents inline detail lines at parent depth', () => {
+      const report = makeReport({
+        results: [
+          makePassedResult({ name: 'parent', depth: 0 }),
+          makeFailedResult({
+            name: 'child',
+            depth: 1,
+            error: new Error('child error'),
+            fix: 'fix child',
+          }),
+        ],
+        passed: false,
+      });
+
+      const output = reportPreflight(report, { fixLocation: 'inline' });
+      const lines = output.split('\n');
+
+      const childLine = lines.findIndex((l) => l.includes('child'));
+      expect(lines[childLine]).toMatch(/^ {2}/);
+      expect(lines[childLine + 1]).toBe('    Error: child error');
+      expect(lines[childLine + 2]).toBe('    \u{1F48A} Fix: fix child');
+    });
+
+    it('collects fixes from nested failed checks in end mode', () => {
+      const report = makeReport({
+        results: [
+          makePassedResult({ name: 'parent', depth: 0 }),
+          makeFailedResult({
+            name: 'child',
+            depth: 1,
+            error: new Error('child error'),
+            fix: 'fix the child',
+          }),
+        ],
+        passed: false,
+      });
+
+      const output = reportPreflight(report, { fixLocation: 'end' });
+      const lines = output.split('\n');
+
+      const childLine = lines.findIndex((l) => l.includes('child'));
+      expect(lines[childLine + 1]).toBe('    Error: child error');
+      expect(output).toContain('Fixes:');
+      expect(output).toContain(`  \u{1F48A} fix the child`);
+      // Fix should not appear inline after the error line.
+      expect(lines[childLine + 2]).not.toContain('fix the child');
+    });
+
+    it('includes nested results in summary counts', () => {
+      const report = makeReport({
+        results: [
+          makePassedResult({ name: 'parent', depth: 0 }),
+          makePassedResult({ name: 'child', depth: 1 }),
+          makeFailedResult({ name: 'child-fail', depth: 1 }),
+        ],
+        passed: false,
+        durationMs: 50,
+      });
+
+      const output = reportPreflight(report);
+
+      expect(output).toContain('\u{1F7E2} 2 passed, \u{1F534} 1 failed');
+    });
+
+    it('counts n/a parent but excludes suppressed descendants from summary', () => {
+      const report = makeReport({
+        results: [
+          makeSkippedResult({ name: 'na-parent', skipReason: 'n/a', depth: 0 }),
+          makeSkippedResult({ name: 'na-child', skipReason: 'n/a', depth: 1 }),
+          makePassedResult({ name: 'sibling', depth: 0, durationMs: 10 }),
+        ],
+        durationMs: 50,
+      });
+
+      const output = reportPreflight(report);
+
+      // na-parent counts as skipped; na-child is suppressed; sibling counts as passed.
+      expect(output).toContain('\u{1F7E2} 1 passed');
+      expect(output).toContain('\u{26D4} 1 skipped');
+      expect(output).toContain('na-parent');
+      expect(output).not.toContain('na-child');
+    });
+
+    it('resumes output after n/a subtree at same depth', () => {
+      const report = makeReport({
+        results: [
+          makeSkippedResult({ name: 'na-check', skipReason: 'n/a', depth: 1 }),
+          makeSkippedResult({ name: 'na-child', skipReason: 'n/a', depth: 2 }),
+          makePassedResult({ name: 'sibling', depth: 1, durationMs: 5 }),
+        ],
+      });
+
+      const output = reportPreflight(report);
+
+      expect(output).toContain('na-check');
+      expect(output).not.toContain('na-child');
+      expect(output).toContain('sibling');
+    });
   });
 
   describe('reporting threshold', () => {

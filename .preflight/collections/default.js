@@ -56,15 +56,17 @@ var syncLabels = {
     {
       name: "sync-labels.yaml workflow exists",
       check: () => fileExists(".github/workflows/sync-labels.yaml"),
-      fix: "Add .github/workflows/sync-labels.yaml using the sync-labels workflow template"
-    },
-    {
-      name: "sync-labels workflow references sync-labels.reusable.yaml",
-      check: () => fileContains(
-        ".github/workflows/sync-labels.yaml",
-        /uses:\s*(?:\.\/\.github\/workflows\/|williamthorsen\/node-monorepo-tools\/.github\/workflows\/)sync-labels\.reusable\.yaml/
-      ),
-      fix: "Update sync-labels.yaml to use williamthorsen/node-monorepo-tools/.github/workflows/sync-labels.reusable.yaml@sync-labels-workflow-v1"
+      fix: "Add .github/workflows/sync-labels.yaml using the sync-labels workflow template",
+      checks: [
+        {
+          name: "sync-labels workflow references sync-labels.reusable.yaml",
+          check: () => fileContains(
+            ".github/workflows/sync-labels.yaml",
+            /uses:\s*(?:\.\/\.github\/workflows\/|williamthorsen\/node-monorepo-tools\/.github\/workflows\/)sync-labels\.reusable\.yaml/
+          ),
+          fix: "Update sync-labels.yaml to use williamthorsen/node-monorepo-tools/.github/workflows/sync-labels.reusable.yaml@sync-labels-workflow-v1"
+        }
+      ]
     },
     {
       name: ".github/labels.yaml exists",
@@ -79,28 +81,32 @@ var codeQuality = {
     {
       name: "code-quality.yaml workflow exists",
       check: () => fileExists(".github/workflows/code-quality.yaml"),
-      fix: "Add .github/workflows/code-quality.yaml using the code-quality workflow template"
-    },
-    {
-      name: "code-quality workflow references @v5",
-      check: () => fileContains(
-        ".github/workflows/code-quality.yaml",
-        /uses:\s*williamthorsen\/.github\/.github\/workflows\/code-quality-pnpm-workflow\.yaml@v5/
-      ),
-      fix: "Update code-quality.yaml to reference code-quality-pnpm-workflow.yaml@v5"
-    },
-    {
-      name: "code-quality workflow does not reference pnpm-version (requires @v5)",
-      check: () => !fileContains(
-        ".github/workflows/code-quality.yaml",
-        /uses:\s*williamthorsen\/.github\/.github\/workflows\/code-quality-pnpm-workflow\.yaml@v5/
-      ) || fileDoesNotContain(".github/workflows/code-quality.yaml", /pnpm-version/),
-      fix: "Remove pnpm-version from code-quality.yaml \u2014 v5 workflow infers the version from packageManager"
-    },
-    {
-      name: "code-quality workflow does not reference GH_PACKAGES_TOKEN",
-      check: () => fileDoesNotContain(".github/workflows/code-quality.yaml", /GH_PACKAGES_TOKEN/),
-      fix: "Remove all references to GH_PACKAGES_TOKEN from code-quality.yaml"
+      fix: "Add .github/workflows/code-quality.yaml using the code-quality workflow template",
+      checks: [
+        {
+          name: "code-quality workflow references @v5",
+          check: () => fileContains(
+            ".github/workflows/code-quality.yaml",
+            /uses:\s*williamthorsen\/.github\/.github\/workflows\/code-quality-pnpm-workflow\.yaml@v5/
+          ),
+          fix: "Update code-quality.yaml to reference code-quality-pnpm-workflow.yaml@v5",
+          checks: [
+            {
+              name: "code-quality workflow does not reference pnpm-version (requires @v5)",
+              check: () => !fileContains(
+                ".github/workflows/code-quality.yaml",
+                /uses:\s*williamthorsen\/.github\/.github\/workflows\/code-quality-pnpm-workflow\.yaml@v5/
+              ) || fileDoesNotContain(".github/workflows/code-quality.yaml", /pnpm-version/),
+              fix: "Remove pnpm-version from code-quality.yaml \u2014 v5 workflow infers the version from packageManager"
+            }
+          ]
+        },
+        {
+          name: "code-quality workflow does not reference GH_PACKAGES_TOKEN",
+          check: () => fileDoesNotContain(".github/workflows/code-quality.yaml", /GH_PACKAGES_TOKEN/),
+          fix: "Remove all references to GH_PACKAGES_TOKEN from code-quality.yaml"
+        }
+      ]
     }
   ]
 };

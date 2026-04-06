@@ -81,6 +81,9 @@ export interface PreflightCheck {
 
   /** Remediation message shown when the check fails. */
   fix?: string;
+
+  /** Dependent checks that run only if this check passes. */
+  checks?: PreflightCheck[];
 }
 
 // ---------------------------------------------------------------------------
@@ -109,6 +112,9 @@ interface PreflightResultBase {
 
   /** Wall-clock time to execute the check, in milliseconds. */
   durationMs: number;
+
+  /** Nesting depth (0 for top-level checks). */
+  depth: number;
 }
 
 /** Result for a check that ran and passed. */
@@ -289,6 +295,7 @@ export interface JsonCheckEntry {
   error: string | null;
   progress: Progress | null;
   durationMs: number;
+  checks: JsonCheckEntry[];
 }
 
 /** Shape of a single checklist entry in `--json` output. */

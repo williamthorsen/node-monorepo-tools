@@ -8,6 +8,7 @@ const ICON_WARN_FAILED = '\u{1F7E0}';
 const ICON_RECOMMEND_FAILED = '\u{1F7E1}';
 const ICON_SKIPPED_NA = '\u26AA';
 const ICON_SKIPPED_PRECONDITION = '\u26D4';
+const ICON_FIX = '\u{1F48A}';
 
 /** Options controlling how the report is formatted. */
 export interface ReportPreflightOptions {
@@ -56,9 +57,41 @@ function collectInlineDetails(result: PreflightResult, includeFix: boolean): str
     details.push(`  Error: ${result.error.message}`);
   }
   if (includeFix && result.fix !== null) {
-    details.push(`  Fix: ${result.fix}`);
+    details.push(`  ${ICON_FIX} Fix: ${result.fix}`);
   }
   return details;
+}
+
+/** Iterate visible results, skipping N/A descendants (depth > N/A parent). */
+function* iterateWithNaSuppression(results: PreflightResult[]): Generator<PreflightResult> {
+  let suppressBelowDepth: number | null = null;
+  for (const result of results) {
+    if (suppressBelowDepth !== null) {
+      if (result.depth > suppressBelowDepth) continue;
+      suppressBelowDepth = null;
+    }
+    if (result.status === 'skipped' && result.skipReason === 'n/a') {
+      suppressBelowDepth = result.depth;
+    }
+    yield result;
+  }
+}
+
+/** Count passed, failed, and skipped results after N/A descendant suppression. */
+function countResults(results: PreflightResult[]): {
+  passed: number;
+  failed: number;
+  skipped: number;
+} {
+  let passed = 0;
+  let failed = 0;
+  let skipped = 0;
+  for (const r of iterateWithNaSuppression(results)) {
+    if (r.status === 'passed') passed++;
+    else if (r.status === 'failed') failed++;
+    else skipped++;
+  }
+  return { passed, failed, skipped };
 }
 
 /**
@@ -74,12 +107,12 @@ export function reportPreflight(report: PreflightReport, options?: ReportPreflig
   const lines: string[] = [];
   const collectedFixes: string[] = [];
 
-  // Filter results by reporting threshold.
   const visibleResults = report.results.filter((r) => meetsThreshold(r.severity, reportOn));
 
-  for (const result of visibleResults) {
+  for (const result of iterateWithNaSuppression(visibleResults)) {
+    const indent = '  '.repeat(result.depth);
     const icon = getIcon(result);
-    let checkLine = `${icon} ${result.name} (${formatDuration(result.durationMs)})`;
+    let checkLine = `${indent}${icon} ${result.name} (${formatDuration(result.durationMs)})`;
     if (result.detail !== null) {
       checkLine += ` \u2014 ${result.detail}`;
     }
@@ -90,7 +123,8 @@ export function reportPreflight(report: PreflightReport, options?: ReportPreflig
 
     if (result.status === 'failed') {
       const includeFix = fixLocation === 'inline';
-      lines.push(...collectInlineDetails(result, includeFix));
+      const details = collectInlineDetails(result, includeFix);
+      lines.push(...details.map((line) => `${indent}${line}`));
 
       if (!includeFix && result.fix !== null) {
         collectedFixes.push(result.fix);
@@ -98,20 +132,11 @@ export function reportPreflight(report: PreflightReport, options?: ReportPreflig
     }
   }
 
-  // Summary counts from visible results only.
-  let passed = 0;
-  let failed = 0;
-  let skipped = 0;
-  for (const r of visibleResults) {
-    if (r.status === 'passed') passed++;
-    else if (r.status === 'failed') failed++;
-    else skipped++;
-  }
+  const { passed, failed, skipped } = countResults(visibleResults);
   lines.push('', `${formatSummaryCounts(passed, failed, skipped)} (${formatDuration(report.durationMs)})`);
 
-  // Collected fixes section for end mode.
   if (fixLocation === 'end' && collectedFixes.length > 0) {
-    lines.push('', 'Fixes:', ...collectedFixes.map((fix) => `  ${fix}`));
+    lines.push('', 'Fixes:', ...collectedFixes.map((fix) => `  ${ICON_FIX} ${fix}`));
   }
 
   return lines.join('\n');

@@ -32,15 +32,17 @@ export default definePreflightCollection({
           severity: 'error',
           check: () => hasDevDependency('@williamthorsen/nmr'),
           fix: 'pnpm add --save-dev @williamthorsen/nmr',
-        },
-        {
-          name: `@williamthorsen/nmr >= ${MIN_VERSION}`,
-          severity: 'error',
-          check: () =>
-            hasMinDevDependencyVersion('@williamthorsen/nmr', MIN_VERSION, {
-              exempt: (range) => range.startsWith('workspace:'),
-            }),
-          fix: `pnpm add --save-dev @williamthorsen/nmr@^${MIN_VERSION}`,
+          checks: [
+            {
+              name: `@williamthorsen/nmr >= ${MIN_VERSION}`,
+              severity: 'error',
+              check: () =>
+                hasMinDevDependencyVersion('@williamthorsen/nmr', MIN_VERSION, {
+                  exempt: (range) => range.startsWith('workspace:'),
+                }),
+              fix: `pnpm add --save-dev @williamthorsen/nmr@^${MIN_VERSION}`,
+            },
+          ],
         },
         {
           name: 'pnpm-workspace.yaml exists',

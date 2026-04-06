@@ -14,6 +14,7 @@ function makePassedResult(overrides?: Partial<PassedResult>): PassedResult {
     error: null,
     progress: null,
     durationMs: 10,
+    depth: 0,
     ...overrides,
   };
 }
@@ -29,6 +30,7 @@ function makeFailedResult(overrides?: Partial<FailedResult>): FailedResult {
     error: null,
     progress: null,
     durationMs: 5,
+    depth: 0,
     ...overrides,
   };
 }
@@ -45,6 +47,7 @@ function makeSkippedResult(overrides?: Partial<SkippedResult>): SkippedResult {
     error: null,
     progress: null,
     durationMs: 0,
+    depth: 0,
     ...overrides,
   };
 }
@@ -280,6 +283,175 @@ describe(formatJsonReport, () => {
 
     expect(parsed).toMatchObject({
       checklists: [{ checks: [{ progress: { type: 'percent', percent: 75 } }] }],
+    });
+  });
+
+  describe('nested checks', () => {
+    it('nests child results under their parent checks array', () => {
+      const report = makeReport({
+        results: [makePassedResult({ name: 'parent', depth: 0 }), makePassedResult({ name: 'child', depth: 1 })],
+        passed: true,
+        durationMs: 20,
+      });
+
+      const parsed: unknown = JSON.parse(formatJsonReport([{ name: 'deploy', report }]));
+
+      expect(parsed).toMatchObject({
+        checklists: [
+          {
+            checks: [
+              {
+                name: 'parent',
+                checks: [{ name: 'child', checks: [] }],
+              },
+            ],
+          },
+        ],
+      });
+    });
+
+    it('places depth-0 result at the top level of the tree', () => {
+      const report = makeReport({
+        results: [makePassedResult({ name: 'top-check', depth: 0 })],
+        passed: true,
+        durationMs: 10,
+      });
+
+      const parsed: unknown = JSON.parse(formatJsonReport([{ name: 'deploy', report }]));
+
+      expect(parsed).toMatchObject({
+        checklists: [{ checks: [{ name: 'top-check', checks: [] }] }],
+      });
+    });
+
+    it('reconstructs multi-level nesting from flat depth-first results', () => {
+      const report = makeReport({
+        results: [
+          makePassedResult({ name: 'A', depth: 0 }),
+          makePassedResult({ name: 'A1', depth: 1 }),
+          makePassedResult({ name: 'A2', depth: 1 }),
+          makePassedResult({ name: 'B', depth: 0 }),
+          makePassedResult({ name: 'B1', depth: 1 }),
+        ],
+        passed: true,
+        durationMs: 50,
+      });
+
+      const parsed: unknown = JSON.parse(formatJsonReport([{ name: 'deploy', report }]));
+
+      expect(parsed).toMatchObject({
+        checklists: [
+          {
+            checks: [
+              {
+                name: 'A',
+                checks: [
+                  { name: 'A1', checks: [] },
+                  { name: 'A2', checks: [] },
+                ],
+              },
+              {
+                name: 'B',
+                checks: [{ name: 'B1', checks: [] }],
+              },
+            ],
+          },
+        ],
+      });
+    });
+
+    it('produces empty checks array for leaf entries', () => {
+      const report = makeReport({
+        results: [makePassedResult({ name: 'leaf', depth: 0 })],
+        passed: true,
+        durationMs: 10,
+      });
+
+      const parsed: unknown = JSON.parse(formatJsonReport([{ name: 'deploy', report }]));
+
+      expect(parsed).toMatchObject({
+        checklists: [{ checks: [{ name: 'leaf', checks: [] }] }],
+      });
+    });
+
+    it('includes n/a subtrees in JSON output', () => {
+      const report = makeReport({
+        results: [
+          makeSkippedResult({ name: 'na-parent', skipReason: 'n/a', depth: 0 }),
+          makeSkippedResult({ name: 'na-child', skipReason: 'n/a', depth: 1 }),
+        ],
+        passed: true,
+        durationMs: 0,
+      });
+
+      const parsed: unknown = JSON.parse(formatJsonReport([{ name: 'deploy', report }]));
+
+      expect(parsed).toMatchObject({
+        checklists: [
+          {
+            checks: [
+              {
+                name: 'na-parent',
+                checks: [{ name: 'na-child' }],
+              },
+            ],
+          },
+        ],
+      });
+    });
+
+    it('counts all results across nesting levels in summary', () => {
+      const report = makeReport({
+        results: [
+          makePassedResult({ name: 'parent', depth: 0 }),
+          makePassedResult({ name: 'child-pass', depth: 1 }),
+          makeFailedResult({ name: 'child-fail', depth: 1 }),
+          makeSkippedResult({ name: 'child-skip', depth: 1 }),
+        ],
+        passed: false,
+        durationMs: 30,
+      });
+
+      const parsed: unknown = JSON.parse(formatJsonReport([{ name: 'deploy', report }]));
+
+      expect(parsed).toMatchObject({
+        passed: 2,
+        failed: 1,
+        skipped: 1,
+        checklists: [{ passed: 2, failed: 1, skipped: 1 }],
+      });
+    });
+
+    it('reconstructs three levels of nesting', () => {
+      const report = makeReport({
+        results: [
+          makePassedResult({ name: 'L0', depth: 0 }),
+          makePassedResult({ name: 'L1', depth: 1 }),
+          makePassedResult({ name: 'L2', depth: 2 }),
+        ],
+        passed: true,
+        durationMs: 30,
+      });
+
+      const parsed: unknown = JSON.parse(formatJsonReport([{ name: 'deploy', report }]));
+
+      expect(parsed).toMatchObject({
+        checklists: [
+          {
+            checks: [
+              {
+                name: 'L0',
+                checks: [
+                  {
+                    name: 'L1',
+                    checks: [{ name: 'L2', checks: [] }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
     });
   });
 

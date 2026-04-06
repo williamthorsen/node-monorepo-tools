@@ -7,11 +7,22 @@ import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } fr
 import collection from '../nmr.ts';
 
 const [checklist] = collection.checklists;
-const checks = checklist.checks;
 
-/** Find a check by name prefix. */
+/** Search nested checks recursively for a check matching a name prefix. */
+function searchChecks(prefix: string, checks: typeof checklist.checks): (typeof checks)[number] | undefined {
+  for (const check of checks) {
+    if (check.name.startsWith(prefix)) return check;
+    if (check.checks) {
+      const found = searchChecks(prefix, check.checks);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
+/** Find a check by name prefix, throwing if not found. */
 function findCheck(prefix: string) {
-  const check = checks.find((c) => c.name.startsWith(prefix));
+  const check = searchChecks(prefix, checklist.checks);
   if (!check) throw new Error(`No check found with prefix "${prefix}"`);
   return check;
 }
