@@ -10,7 +10,6 @@ import { compileConfig } from './compileConfig.ts';
 import { validateCompiledOutput } from './validateCompiledOutput.ts';
 
 const compileFlagSchema = {
-  all: { long: '--all', type: 'boolean' as const, short: '-a' },
   output: { long: '--output', type: 'string' as const, short: '-o' },
 };
 
@@ -36,12 +35,6 @@ export async function compileCommand(args: string[]): Promise<number> {
 
   const outputPath = parsed.flags.output;
   const positionals = parsed.positionals;
-  const useAll = parsed.flags.all;
-
-  if (useAll && outputPath !== undefined) {
-    process.stderr.write('Error: --output cannot be used with --all\n');
-    return 1;
-  }
 
   if (positionals.length > 1) {
     process.stderr.write('Error: Too many arguments. Expected a single input file.\n');
@@ -49,11 +42,6 @@ export async function compileCommand(args: string[]): Promise<number> {
   }
 
   const inputPath = positionals[0];
-
-  if (useAll && inputPath !== undefined) {
-    process.stderr.write('Error: Cannot specify both an input file and --all.\n');
-    return 1;
-  }
 
   // Explicit input file -- compile just that one
   if (inputPath !== undefined) {
@@ -69,16 +57,13 @@ export async function compileCommand(args: string[]): Promise<number> {
     }
   }
 
-  // Batch mode with --all
-  if (useAll) {
-    return compileBatch();
+  // No input file -- compile all sources from config
+  if (outputPath !== undefined) {
+    process.stderr.write('Error: --output requires an input file\n');
+    return 1;
   }
 
-  // No input and no --all -- show usage hint
-  process.stderr.write(
-    "Error: No input file specified. Use 'preflight compile <file>' or 'preflight compile --all'.\n",
-  );
-  return 1;
+  return compileBatch();
 }
 
 /** Collect `.ts` files matching the optional `include` glob, falling back to all `.ts` files. */

@@ -23,7 +23,7 @@ Usage: preflight [names...] [options]
 
 Commands:
   run [names...]       Run preflight checklists (default)
-  compile [input]      Bundle TypeScript collection(s) into self-contained ESM file(s)
+  compile [file]       Bundle TypeScript collection(s) into self-contained ESM file(s)
   init                 Scaffold a starter config and collection
 
 Run options:
@@ -68,17 +68,17 @@ Defaults to .preflight/collections/default.ts when no source is given.
 
 function showCompileHelp(): void {
   console.info(`
-Usage: preflight compile <file> [options]
-       preflight compile --all
+Usage: preflight compile [<file>] [options]
 
 Bundle TypeScript collection(s) into self-contained ESM bundle(s).
+If no file is given, all sources from the config's srcDir are compiled.
 
 Modes:
+  preflight compile                  Compile all sources from the config's srcDir
   preflight compile <file>           Compile a single file
-  preflight compile --all, -a        Compile all sources from the config's srcDir
 
 Options:
-  --output, -o <path>  Output file path (default: input with .ts replaced by .js)
+  --output, -o <path>  Output file path (single-file mode only)
   --help, -h           Show this help message
 `);
 }

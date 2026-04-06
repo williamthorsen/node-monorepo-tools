@@ -42,6 +42,7 @@ out/
 local/
 tmp/
 *.local
+*.local.*
 *.private.env.json
 *.tmp
 
