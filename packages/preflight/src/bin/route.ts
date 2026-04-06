@@ -2,13 +2,19 @@ import process from 'node:process';
 
 import { parseArgs, translateParseError } from '@williamthorsen/node-monorepo-core';
 
-import { parseRunArgs, runCommand } from '../cli.ts';
+import { parseRunArgs, resolveCollectionSource, runCommand } from '../cli.ts';
 import { compileCommand } from '../compile/compileCommand.ts';
 import { initCommand } from '../init/initCommand.ts';
+import { loadConfig } from '../loadConfig.ts';
 import { VERSION } from '../version.ts';
 
 const SUBCOMMANDS = ['compile', 'init'];
 const MIN_PREFIX_LENGTH = 3;
+
+/** Extract a displayable message from an unknown thrown value. */
+function extractMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 function showHelp(): void {
   console.info(`
@@ -134,8 +140,7 @@ export async function routeCommand(args: string[]): Promise<number> {
     try {
       return await compileCommand(flags);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      process.stderr.write(`Error: ${message}\n`);
+      process.stderr.write(`Error: ${extractMessage(error)}\n`);
       return 1;
     }
   }
@@ -185,10 +190,39 @@ async function handleRun(flags: string[]): Promise<number> {
   try {
     parsed = parseRunArgs(flags);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`Error: ${message}\n`);
+    process.stderr.write(`Error: ${extractMessage(error)}\n`);
     return 1;
   }
 
-  return runCommand(parsed);
+  let config;
+  try {
+    config = await loadConfig();
+  } catch (error: unknown) {
+    process.stderr.write(`Error: ${extractMessage(error)}\n`);
+    return 1;
+  }
+
+  let collectionSource;
+  try {
+    collectionSource = resolveCollectionSource({
+      filePath: parsed.filePath,
+      githubValue: parsed.githubValue,
+      localValue: parsed.localValue,
+      urlValue: parsed.urlValue,
+      collectionName: parsed.collectionName,
+      internalDir: config.internal.dir,
+      internalExtension: config.internal.extension,
+    });
+  } catch (error: unknown) {
+    process.stderr.write(`Error: ${extractMessage(error)}\n`);
+    return 1;
+  }
+
+  return runCommand({
+    collectionSource,
+    json: parsed.json,
+    names: parsed.names,
+    ...(parsed.failOn !== undefined && { failOn: parsed.failOn }),
+    ...(parsed.reportOn !== undefined && { reportOn: parsed.reportOn }),
+  });
 }

@@ -14,6 +14,10 @@ const DEFAULT_CONFIG: ResolvedPreflightConfig = {
     outDir: '.preflight/collections',
     include: undefined,
   },
+  internal: {
+    dir: '.',
+    extension: '.ts',
+  },
 };
 
 /** Ordered lookup paths for the config file, resolved relative to `process.cwd()`. */
@@ -26,6 +30,12 @@ const PreflightConfigSchema = z.looseObject({
       srcDir: z.string().optional(),
       outDir: z.string().optional(),
       include: z.string().optional(),
+    })
+    .optional(),
+  internal: z
+    .looseObject({
+      dir: z.string().optional(),
+      extension: z.string().optional(),
     })
     .optional(),
 });
@@ -77,11 +87,16 @@ export async function loadConfig(overridePath?: string): Promise<ResolvedPreflig
   // Guard is redundant at runtime (Zod already validated) but needed for type narrowing
   // because `raw` is `Record<string, unknown> & PreflightConfig` after the assertion.
   const compile = isRecord(raw.compile) ? raw.compile : undefined;
+  const internal = isRecord(raw.internal) ? raw.internal : undefined;
   return {
     compile: {
       srcDir: typeof compile?.srcDir === 'string' ? compile.srcDir : DEFAULT_CONFIG.compile.srcDir,
       outDir: typeof compile?.outDir === 'string' ? compile.outDir : DEFAULT_CONFIG.compile.outDir,
       include: typeof compile?.include === 'string' ? compile.include : undefined,
+    },
+    internal: {
+      dir: typeof internal?.dir === 'string' ? internal.dir : DEFAULT_CONFIG.internal.dir,
+      extension: typeof internal?.extension === 'string' ? internal.extension : DEFAULT_CONFIG.internal.extension,
     },
   };
 }

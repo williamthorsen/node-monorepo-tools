@@ -29,11 +29,15 @@ const VALID_SEVERITIES = new Set<string>(['error', 'warn', 'recommend']);
 export type CollectionSource = { path: string } | { url: string };
 
 interface ParsedRunArgs {
-  collectionSource: CollectionSource;
+  collectionName: string | undefined;
   failOn?: Severity;
+  filePath: string | undefined;
+  githubValue: string | undefined;
   json: boolean;
+  localValue: string | undefined;
   names: string[];
   reportOn?: Severity;
+  urlValue: string | undefined;
 }
 
 const runFlagSchema = {
@@ -149,33 +153,37 @@ export function parseRunArgs(flags: string[]): ParsedRunArgs {
   const failOn = parsed.failOn !== undefined ? parseSeverityFlag('--fail-on', parsed.failOn) : undefined;
   const reportOn = parsed.reportOn !== undefined ? parseSeverityFlag('--report-on', parsed.reportOn) : undefined;
 
-  const collectionSource = resolveCollectionSource({
+  const parsedArgs: ParsedRunArgs = {
+    collectionName: parsed.collection,
     filePath: parsed.file,
     githubValue: parsed.github,
+    json: parsed.json,
     localValue: parsed.local,
+    names: positionals,
     urlValue: parsed.url,
-    collectionName: parsed.collection,
-  });
-
-  const parsedArgs: ParsedRunArgs = { collectionSource, json: parsed.json, names: positionals };
+  };
   if (failOn !== undefined) parsedArgs.failOn = failOn;
   if (reportOn !== undefined) parsedArgs.reportOn = reportOn;
   return parsedArgs;
 }
 
 /** Validate flag co-dependencies and build the CollectionSource from parsed flag state. */
-function resolveCollectionSource({
+export function resolveCollectionSource({
   filePath,
   githubValue,
   localValue,
   urlValue,
   collectionName,
+  internalDir,
+  internalExtension,
 }: {
   filePath: string | undefined;
   githubValue: string | undefined;
   localValue: string | undefined;
   urlValue: string | undefined;
   collectionName: string | undefined;
+  internalDir: string;
+  internalExtension: string;
 }): CollectionSource {
   if (filePath !== undefined) {
     if (collectionName !== undefined) {
@@ -200,7 +208,7 @@ function resolveCollectionSource({
     return { url: urlValue };
   }
   const name = collectionName ?? 'default';
-  return { path: `${COLLECTIONS_DIR}/${name}.ts` };
+  return { path: path.join(COLLECTIONS_DIR, internalDir, `${name}${internalExtension}`) };
 }
 
 /** Resolve the effective fixLocation for a checklist, falling back to the collection-level default. */

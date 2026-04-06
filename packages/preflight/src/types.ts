@@ -249,6 +249,10 @@ export interface PreflightConfig {
     outDir?: string;
     include?: string;
   };
+  internal?: {
+    dir?: string;
+    extension?: string;
+  };
 }
 
 /** Fully-resolved config with defaults applied, returned by `loadConfig`. */
@@ -257,6 +261,10 @@ export interface ResolvedPreflightConfig {
     srcDir: string;
     outDir: string;
     include: string | undefined;
+  };
+  internal: {
+    dir: string;
+    extension: string;
   };
 }
 

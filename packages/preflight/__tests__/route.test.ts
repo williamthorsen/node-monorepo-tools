@@ -4,10 +4,17 @@ const mockRunCommand = vi.hoisted(() => vi.fn());
 const mockInitCommand = vi.hoisted(() => vi.fn());
 const mockCompileCommand = vi.hoisted(() => vi.fn());
 const mockParseRunArgs = vi.hoisted(() => vi.fn());
+const mockResolveCollectionSource = vi.hoisted(() => vi.fn());
+const mockLoadConfig = vi.hoisted(() => vi.fn());
 
 vi.mock('../src/cli.ts', () => ({
   parseRunArgs: mockParseRunArgs,
+  resolveCollectionSource: mockResolveCollectionSource,
   runCommand: mockRunCommand,
+}));
+
+vi.mock('../src/loadConfig.ts', () => ({
+  loadConfig: mockLoadConfig,
 }));
 
 vi.mock('../src/compile/compileCommand.ts', () => ({
@@ -31,6 +38,11 @@ describe(routeCommand, () => {
   beforeEach(() => {
     infoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
     stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    mockLoadConfig.mockResolvedValue({
+      compile: { srcDir: '.preflight/collections', outDir: '.preflight/collections', include: undefined },
+      internal: { dir: '.', extension: '.ts' },
+    });
+    mockResolveCollectionSource.mockReturnValue({ path: '.preflight/collections/default.ts' });
   });
 
   afterEach(() => {
@@ -39,6 +51,8 @@ describe(routeCommand, () => {
     mockCompileCommand.mockReset();
     mockInitCommand.mockReset();
     mockParseRunArgs.mockReset();
+    mockResolveCollectionSource.mockReset();
+    mockLoadConfig.mockReset();
   });
 
   it('shows help and returns 0 when no arguments are given', async () => {
@@ -122,7 +136,11 @@ describe(routeCommand, () => {
   it('delegates to runCommand for run subcommand', async () => {
     mockParseRunArgs.mockReturnValue({
       names: ['deploy'],
-      collectionSource: { path: '.preflight/collections/default.ts' },
+      collectionName: undefined,
+      filePath: undefined,
+      githubValue: undefined,
+      localValue: undefined,
+      urlValue: undefined,
       json: false,
     });
     mockRunCommand.mockResolvedValue(0);
@@ -130,29 +148,37 @@ describe(routeCommand, () => {
     const exitCode = await routeCommand(['run', 'deploy']);
 
     expect(mockParseRunArgs).toHaveBeenCalledWith(['deploy']);
-    expect(mockRunCommand).toHaveBeenCalledWith({
-      names: ['deploy'],
-      collectionSource: { path: '.preflight/collections/default.ts' },
-      json: false,
-    });
+    expect(mockRunCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        names: ['deploy'],
+        collectionSource: { path: '.preflight/collections/default.ts' },
+        json: false,
+      }),
+    );
     expect(exitCode).toBe(0);
   });
 
   it('passes --json flag through to runCommand', async () => {
     mockParseRunArgs.mockReturnValue({
       names: [],
-      collectionSource: { path: '.preflight/collections/default.ts' },
+      collectionName: undefined,
+      filePath: undefined,
+      githubValue: undefined,
+      localValue: undefined,
+      urlValue: undefined,
       json: true,
     });
     mockRunCommand.mockResolvedValue(0);
 
     const exitCode = await routeCommand(['run', '--json']);
 
-    expect(mockRunCommand).toHaveBeenCalledWith({
-      names: [],
-      collectionSource: { path: '.preflight/collections/default.ts' },
-      json: true,
-    });
+    expect(mockRunCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        names: [],
+        collectionSource: { path: '.preflight/collections/default.ts' },
+        json: true,
+      }),
+    );
     expect(exitCode).toBe(0);
   });
 
@@ -172,6 +198,44 @@ describe(routeCommand, () => {
 
     expect(exitCode).toBe(1);
     expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining("unknown flag '--bad'"));
+  });
+
+  it('returns 1 and writes to stderr when resolveCollectionSource throws', async () => {
+    mockParseRunArgs.mockReturnValue({
+      names: [],
+      collectionName: 'deploy',
+      filePath: 'path.ts',
+      githubValue: undefined,
+      localValue: undefined,
+      urlValue: undefined,
+      json: false,
+    });
+    mockResolveCollectionSource.mockImplementation(() => {
+      throw new Error('--collection cannot be used with --file');
+    });
+
+    const exitCode = await routeCommand(['run', '--file', 'path.ts', '--collection', 'deploy']);
+
+    expect(exitCode).toBe(1);
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('--collection cannot be used with --file'));
+  });
+
+  it('returns 1 and writes to stderr when loadConfig rejects', async () => {
+    mockParseRunArgs.mockReturnValue({
+      names: [],
+      collectionName: undefined,
+      filePath: undefined,
+      githubValue: undefined,
+      localValue: undefined,
+      urlValue: undefined,
+      json: false,
+    });
+    mockLoadConfig.mockRejectedValue(new Error('bad config'));
+
+    const exitCode = await routeCommand(['run']);
+
+    expect(exitCode).toBe(1);
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('bad config'));
   });
 
   it('shows compile help and returns 0 for compile --help', async () => {
@@ -252,7 +316,11 @@ describe(routeCommand, () => {
     it('routes flags to run when no subcommand is given', async () => {
       mockParseRunArgs.mockReturnValue({
         names: [],
-        collectionSource: { path: 'foo.ts' },
+        collectionName: undefined,
+        filePath: 'foo.ts',
+        githubValue: undefined,
+        localValue: undefined,
+        urlValue: undefined,
         json: false,
       });
       mockRunCommand.mockResolvedValue(0);
@@ -266,7 +334,11 @@ describe(routeCommand, () => {
     it('routes positional args to run as checklist names', async () => {
       mockParseRunArgs.mockReturnValue({
         names: ['onboarding'],
-        collectionSource: { path: '.preflight/collections/default.ts' },
+        collectionName: undefined,
+        filePath: undefined,
+        githubValue: undefined,
+        localValue: undefined,
+        urlValue: undefined,
         json: false,
       });
       mockRunCommand.mockResolvedValue(0);
@@ -294,7 +366,11 @@ describe(routeCommand, () => {
     it('does not suggest for prefixes shorter than 3 characters', async () => {
       mockParseRunArgs.mockReturnValue({
         names: ['co'],
-        collectionSource: { path: '.preflight/collections/default.ts' },
+        collectionName: undefined,
+        filePath: undefined,
+        githubValue: undefined,
+        localValue: undefined,
+        urlValue: undefined,
         json: false,
       });
       mockRunCommand.mockResolvedValue(0);
@@ -308,7 +384,11 @@ describe(routeCommand, () => {
     it('does not suggest when input matches a subcommand exactly', async () => {
       mockParseRunArgs.mockReturnValue({
         names: [],
-        collectionSource: { path: '.preflight/collections/default.ts' },
+        collectionName: undefined,
+        filePath: undefined,
+        githubValue: undefined,
+        localValue: undefined,
+        urlValue: undefined,
         json: false,
       });
       mockRunCommand.mockResolvedValue(0);

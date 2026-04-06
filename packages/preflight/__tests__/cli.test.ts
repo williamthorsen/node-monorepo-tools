@@ -55,7 +55,7 @@ vi.mock('../src/loadRemoteCollection.ts', () => ({
   loadRemoteCollection: mockLoadRemoteCollection,
 }));
 
-import { parseRunArgs, runCommand } from '../src/cli.ts';
+import { parseRunArgs, resolveCollectionSource, runCommand } from '../src/cli.ts';
 
 function makeCollection(overrides?: Partial<PreflightCollection>): PreflightCollection {
   return {
@@ -68,51 +68,54 @@ function makeCollection(overrides?: Partial<PreflightCollection>): PreflightColl
 }
 
 describe(parseRunArgs, () => {
-  it('defaults to the default collection path when no flags are given', () => {
+  it('returns undefined source flags when no flags are given', () => {
     const result = parseRunArgs([]);
 
-    expect(result.collectionSource).toStrictEqual({ path: '.preflight/collections/default.ts' });
+    expect(result.collectionName).toBeUndefined();
+    expect(result.filePath).toBeUndefined();
+    expect(result.githubValue).toBeUndefined();
+    expect(result.localValue).toBeUndefined();
+    expect(result.urlValue).toBeUndefined();
     expect(result.json).toBe(false);
   });
 
-  it('parses positional names with default collection path', () => {
+  it('parses positional names', () => {
     const result = parseRunArgs(['deploy', 'infra']);
 
     expect(result.names).toStrictEqual(['deploy', 'infra']);
-    expect(result.collectionSource).toStrictEqual({ path: '.preflight/collections/default.ts' });
   });
 
-  // --collection flag (standalone, without --github)
-  it('resolves --collection to a local convention path', () => {
+  // --collection flag
+  it('parses --collection flag', () => {
     const result = parseRunArgs(['--collection', 'deploy']);
 
-    expect(result.collectionSource).toStrictEqual({ path: '.preflight/collections/deploy.ts' });
+    expect(result.collectionName).toBe('deploy');
   });
 
-  it('resolves --collection with a slash-separated path', () => {
+  it('parses --collection with a slash-separated path', () => {
     const result = parseRunArgs(['--collection', 'shared/deploy']);
 
-    expect(result.collectionSource).toStrictEqual({ path: '.preflight/collections/shared/deploy.ts' });
+    expect(result.collectionName).toBe('shared/deploy');
   });
 
-  it('resolves --collection= to a local convention path', () => {
+  it('parses --collection= syntax', () => {
     const result = parseRunArgs(['--collection=deploy']);
 
-    expect(result.collectionSource).toStrictEqual({ path: '.preflight/collections/deploy.ts' });
+    expect(result.collectionName).toBe('deploy');
   });
 
   // --file flag
   it('parses --file flag', () => {
     const result = parseRunArgs(['--file', 'custom/path.ts']);
 
-    expect(result.collectionSource).toStrictEqual({ path: 'custom/path.ts' });
+    expect(result.filePath).toBe('custom/path.ts');
     expect(result.names).toStrictEqual([]);
   });
 
   it('parses --file= syntax', () => {
     const result = parseRunArgs(['--file=custom/path.ts']);
 
-    expect(result.collectionSource).toStrictEqual({ path: 'custom/path.ts' });
+    expect(result.filePath).toBe('custom/path.ts');
   });
 
   it('throws when --file has no value', () => {
@@ -151,27 +154,25 @@ describe(parseRunArgs, () => {
   it('parses -c as short form of --collection', () => {
     const result = parseRunArgs(['-c', 'deploy']);
 
-    expect(result.collectionSource).toStrictEqual({ path: '.preflight/collections/deploy.ts' });
+    expect(result.collectionName).toBe('deploy');
   });
 
   it('parses -f as short form of --file', () => {
     const result = parseRunArgs(['-f', 'custom/path.ts']);
 
-    expect(result.collectionSource).toStrictEqual({ path: 'custom/path.ts' });
+    expect(result.filePath).toBe('custom/path.ts');
   });
 
   it('parses -g as short form of --github', () => {
-    const result = parseRunArgs(['-g', 'org/repo', '-c', 'nmr']);
+    const result = parseRunArgs(['-g', 'org/repo']);
 
-    expect(result.collectionSource).toStrictEqual({
-      url: 'https://raw.githubusercontent.com/org/repo/main/.preflight/collections/nmr.js',
-    });
+    expect(result.githubValue).toBe('org/repo');
   });
 
   it('parses -u as short form of --url', () => {
     const result = parseRunArgs(['-u', 'https://example.com/config.js']);
 
-    expect(result.collectionSource).toStrictEqual({ url: 'https://example.com/config.js' });
+    expect(result.urlValue).toBe('https://example.com/config.js');
   });
 
   it('parses -j as short form of --json', () => {
@@ -193,36 +194,16 @@ describe(parseRunArgs, () => {
   });
 
   // --github flag
-  it('parses --github with --collection', () => {
-    const result = parseRunArgs(['--github', 'org/repo@v1', '--collection', 'nmr']);
+  it('parses --github with ref', () => {
+    const result = parseRunArgs(['--github', 'org/repo@v1']);
 
-    expect(result.collectionSource).toStrictEqual({
-      url: 'https://raw.githubusercontent.com/org/repo/v1/.preflight/collections/nmr.js',
-    });
+    expect(result.githubValue).toBe('org/repo@v1');
   });
 
-  it('parses --github= with --collection=', () => {
-    const result = parseRunArgs(['--github=org/repo', '--collection=nmr']);
+  it('parses --github= syntax', () => {
+    const result = parseRunArgs(['--github=org/repo']);
 
-    expect(result.collectionSource).toStrictEqual({
-      url: 'https://raw.githubusercontent.com/org/repo/main/.preflight/collections/nmr.js',
-    });
-  });
-
-  it('defaults --github ref to main', () => {
-    const result = parseRunArgs(['--github', 'org/repo', '--collection', 'nmr']);
-
-    expect(result.collectionSource).toStrictEqual({
-      url: 'https://raw.githubusercontent.com/org/repo/main/.preflight/collections/nmr.js',
-    });
-  });
-
-  it('defaults --github collection to default when --collection is omitted', () => {
-    const result = parseRunArgs(['--github', 'org/repo']);
-
-    expect(result.collectionSource).toStrictEqual({
-      url: 'https://raw.githubusercontent.com/org/repo/main/.preflight/collections/default.js',
-    });
+    expect(result.githubValue).toBe('org/repo');
   });
 
   it('throws when --github has no value', () => {
@@ -241,13 +222,13 @@ describe(parseRunArgs, () => {
   it('parses --url flag with space-separated value', () => {
     const result = parseRunArgs(['--url', 'https://example.com/config.js']);
 
-    expect(result.collectionSource).toStrictEqual({ url: 'https://example.com/config.js' });
+    expect(result.urlValue).toBe('https://example.com/config.js');
   });
 
   it('parses --url= syntax', () => {
     const result = parseRunArgs(['--url=https://example.com/config.js']);
 
-    expect(result.collectionSource).toStrictEqual({ url: 'https://example.com/config.js' });
+    expect(result.urlValue).toBe('https://example.com/config.js');
   });
 
   it('throws when --url has no value', () => {
@@ -259,37 +240,16 @@ describe(parseRunArgs, () => {
   });
 
   // --local flag
-  it('resolves --local to a .js file under .preflight/collections/', () => {
+  it('parses --local flag', () => {
     const result = parseRunArgs(['--local', '/path/to/repo']);
 
-    expect(result.collectionSource).toStrictEqual({
-      path: '/path/to/repo/.preflight/collections/default.js',
-    });
-  });
-
-  it('resolves --local with --collection to a named .js file', () => {
-    const result = parseRunArgs(['--local', '/path/to/repo', '--collection', 'deploy']);
-
-    expect(result.collectionSource).toStrictEqual({
-      path: '/path/to/repo/.preflight/collections/deploy.js',
-    });
+    expect(result.localValue).toBe('/path/to/repo');
   });
 
   it('parses -l as short form of --local', () => {
     const result = parseRunArgs(['-l', '/path/to/repo']);
 
-    expect(result.collectionSource).toStrictEqual({
-      path: '/path/to/repo/.preflight/collections/default.js',
-    });
-  });
-
-  it('resolves --local with a relative path against cwd', () => {
-    const result = parseRunArgs(['--local', '../sibling-repo']);
-    const expected = path.resolve(process.cwd(), '../sibling-repo');
-
-    expect(result.collectionSource).toStrictEqual({
-      path: `${expected}/.preflight/collections/default.js`,
-    });
+    expect(result.localValue).toBe('/path/to/repo');
   });
 
   it('throws when --local has no value', () => {
@@ -345,18 +305,6 @@ describe(parseRunArgs, () => {
     );
   });
 
-  it('throws when --collection is combined with --file', () => {
-    expect(() => parseRunArgs(['--file', 'path.ts', '--collection', 'deploy'])).toThrow(
-      '--collection cannot be used with --file',
-    );
-  });
-
-  it('throws when --collection is combined with --url', () => {
-    expect(() => parseRunArgs(['--url', 'https://example.com/config.js', '--collection', 'deploy'])).toThrow(
-      '--collection cannot be used with --url',
-    );
-  });
-
   // --fail-on flag
   it('parses --fail-on with valid severity', () => {
     const result = parseRunArgs(['--fail-on', 'warn']);
@@ -408,6 +356,138 @@ describe(parseRunArgs, () => {
 
     expect(result).not.toHaveProperty('failOn');
     expect(result).not.toHaveProperty('reportOn');
+  });
+});
+
+describe(resolveCollectionSource, () => {
+  /** Build args with defaults for internal config. */
+  function resolve(overrides: Partial<Parameters<typeof resolveCollectionSource>[0]> = {}) {
+    return resolveCollectionSource({
+      filePath: undefined,
+      githubValue: undefined,
+      localValue: undefined,
+      urlValue: undefined,
+      collectionName: undefined,
+      internalDir: '.',
+      internalExtension: '.ts',
+      ...overrides,
+    });
+  }
+
+  it('resolves default collection path with default internal config', () => {
+    expect(resolve()).toStrictEqual({ path: '.preflight/collections/default.ts' });
+  });
+
+  it('resolves named collection with default internal config', () => {
+    expect(resolve({ collectionName: 'deploy' })).toStrictEqual({ path: '.preflight/collections/deploy.ts' });
+  });
+
+  it('resolves slash-separated collection name', () => {
+    expect(resolve({ collectionName: 'shared/deploy' })).toStrictEqual({
+      path: '.preflight/collections/shared/deploy.ts',
+    });
+  });
+
+  it('applies custom internal dir and extension', () => {
+    expect(resolve({ internalDir: 'internal', internalExtension: '.int.ts' })).toStrictEqual({
+      path: '.preflight/collections/internal/default.int.ts',
+    });
+  });
+
+  it('applies custom internal dir with named collection', () => {
+    expect(resolve({ collectionName: 'deploy', internalDir: 'internal', internalExtension: '.int.ts' })).toStrictEqual({
+      path: '.preflight/collections/internal/deploy.int.ts',
+    });
+  });
+
+  it('resolves --file to a path source', () => {
+    expect(resolve({ filePath: 'custom/path.ts' })).toStrictEqual({ path: 'custom/path.ts' });
+  });
+
+  it('resolves --github without ref to a URL with main ref', () => {
+    expect(resolve({ githubValue: 'org/repo', collectionName: 'nmr' })).toStrictEqual({
+      url: 'https://raw.githubusercontent.com/org/repo/main/.preflight/collections/nmr.js',
+    });
+  });
+
+  it('resolves --github with ref to a URL with that ref', () => {
+    expect(resolve({ githubValue: 'org/repo@v1', collectionName: 'nmr' })).toStrictEqual({
+      url: 'https://raw.githubusercontent.com/org/repo/v1/.preflight/collections/nmr.js',
+    });
+  });
+
+  it('defaults --github collection to "default"', () => {
+    expect(resolve({ githubValue: 'org/repo' })).toStrictEqual({
+      url: 'https://raw.githubusercontent.com/org/repo/main/.preflight/collections/default.js',
+    });
+  });
+
+  it('resolves --local to a .js path under .preflight/collections/', () => {
+    expect(resolve({ localValue: '/path/to/repo' })).toStrictEqual({
+      path: '/path/to/repo/.preflight/collections/default.js',
+    });
+  });
+
+  it('resolves --local with --collection to a named .js file', () => {
+    expect(resolve({ localValue: '/path/to/repo', collectionName: 'deploy' })).toStrictEqual({
+      path: '/path/to/repo/.preflight/collections/deploy.js',
+    });
+  });
+
+  it('resolves --local with a relative path against cwd', () => {
+    const expected = path.resolve(process.cwd(), '../sibling-repo');
+
+    expect(resolve({ localValue: '../sibling-repo' })).toStrictEqual({
+      path: `${expected}/.preflight/collections/default.js`,
+    });
+  });
+
+  it('resolves --url to a URL source', () => {
+    expect(resolve({ urlValue: 'https://example.com/config.js' })).toStrictEqual({
+      url: 'https://example.com/config.js',
+    });
+  });
+
+  it('throws when --collection is combined with --file', () => {
+    expect(() => resolve({ filePath: 'path.ts', collectionName: 'deploy' })).toThrow(
+      '--collection cannot be used with --file',
+    );
+  });
+
+  it('throws when --collection is combined with --url', () => {
+    expect(() => resolve({ urlValue: 'https://example.com/config.js', collectionName: 'deploy' })).toThrow(
+      '--collection cannot be used with --url',
+    );
+  });
+
+  it('ignores internal config when --file is used', () => {
+    expect(
+      resolve({ filePath: 'custom/path.ts', internalDir: 'internal', internalExtension: '.int.ts' }),
+    ).toStrictEqual({
+      path: 'custom/path.ts',
+    });
+  });
+
+  it('ignores internal config when --github is used', () => {
+    expect(resolve({ githubValue: 'org/repo', internalDir: 'internal', internalExtension: '.int.ts' })).toStrictEqual({
+      url: 'https://raw.githubusercontent.com/org/repo/main/.preflight/collections/default.js',
+    });
+  });
+
+  it('ignores internal config when --local is used', () => {
+    expect(
+      resolve({ localValue: '/path/to/repo', internalDir: 'internal', internalExtension: '.int.ts' }),
+    ).toStrictEqual({
+      path: '/path/to/repo/.preflight/collections/default.js',
+    });
+  });
+
+  it('ignores internal config when --url is used', () => {
+    expect(
+      resolve({ urlValue: 'https://example.com/config.js', internalDir: 'internal', internalExtension: '.int.ts' }),
+    ).toStrictEqual({
+      url: 'https://example.com/config.js',
+    });
   });
 });
 

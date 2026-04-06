@@ -27,6 +27,7 @@ describe(loadConfig, () => {
 
     expect(config).toStrictEqual({
       compile: { srcDir: '.preflight/collections', outDir: '.preflight/collections', include: undefined },
+      internal: { dir: '.', extension: '.ts' },
     });
   });
 
@@ -146,5 +147,51 @@ describe(loadConfig, () => {
 
     expect(config.compile.srcDir).toBe('named/src');
     expect(config.compile.outDir).toBe('named/out');
+  });
+
+  it('resolves internal block from config', async () => {
+    mockExistsSync.mockReturnValue(true);
+    mockJitiImport.mockResolvedValue({
+      default: { internal: { dir: 'internal', extension: '.int.ts' } },
+    });
+
+    const config = await loadConfig('config.ts');
+
+    expect(config.internal.dir).toBe('internal');
+    expect(config.internal.extension).toBe('.int.ts');
+  });
+
+  it('applies internal defaults when internal block is absent', async () => {
+    mockExistsSync.mockReturnValue(true);
+    mockJitiImport.mockResolvedValue({ default: {} });
+
+    const config = await loadConfig('config.ts');
+
+    expect(config.internal.dir).toBe('.');
+    expect(config.internal.extension).toBe('.ts');
+  });
+
+  it('applies internal defaults for missing fields within internal block', async () => {
+    mockExistsSync.mockReturnValue(true);
+    mockJitiImport.mockResolvedValue({ default: { internal: { dir: 'custom' } } });
+
+    const config = await loadConfig('config.ts');
+
+    expect(config.internal.dir).toBe('custom');
+    expect(config.internal.extension).toBe('.ts');
+  });
+
+  it('throws when internal.dir is not a string', async () => {
+    mockExistsSync.mockReturnValue(true);
+    mockJitiImport.mockResolvedValue({ default: { internal: { dir: 42 } } });
+
+    await expect(loadConfig('config.ts')).rejects.toThrow(ZodError);
+  });
+
+  it('throws when internal.extension is not a string', async () => {
+    mockExistsSync.mockReturnValue(true);
+    mockJitiImport.mockResolvedValue({ default: { internal: { extension: false } } });
+
+    await expect(loadConfig('config.ts')).rejects.toThrow(ZodError);
   });
 });
