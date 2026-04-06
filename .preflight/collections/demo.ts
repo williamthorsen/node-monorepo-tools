@@ -146,14 +146,20 @@ const optionalIntegrations: PreflightChecklist = {
               fix: 'Add a pre-commit section to lefthook.yml',
               checks: [
                 {
+                  name: 'formatter runs on pre-commit',
+                  check: () => fileContains('lefthook.yml', /prettier/),
+                  checks: [
+                    {
+                      name: 'unknown files are ignored',
+                      check: () => fileContains('lefthook.yml', /--ignore-unknown/),
+                    },
+                  ],
+                },
+                {
                   name: 'linter runs on pre-commit',
                   severity: 'recommend',
                   check: () => fileContains('lefthook.yml', /eslint|lint/),
                   fix: 'Add an ESLint command to the pre-commit hook',
-                },
-                {
-                  name: 'unknown files are ignored',
-                  check: () => fileContains('lefthook.yml', /--ignore-unknown/),
                 },
               ],
             },
