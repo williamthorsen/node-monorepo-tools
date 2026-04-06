@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## [preflight-v0.11.0] - 2026-04-06
+
+### Bug fixes
+
+- #154 preflight|fix: Add missing mutual-exclusivity guard for `--file` flag (#163)
+
+Add the missing `assertNoExistingSource` guard to the `--file` branch in `parseRunArgs`, making the mutual-exclusivity check for source flags symmetric regardless of flag order.
+
+### Features
+
+- #153 preflight|feat: Unify collections under .preflight/collections/ (#158)
+
+Consolidates the split between .config/preflight/collections/ (internal) and .preflight/distribution/ (distributable) into a single .preflight/collections/ directory. Simplifies the config path from .config/preflight/config.ts to .config/preflight.config.ts now that the nested directory no longer holds collections.
+
+- #130 preflight|feat: Export reusable check-utils for collection authors (#165)
+
+Extracts 9 inline helper functions from `.preflight/collections/nmr.ts` into `packages/preflight/src/check-utils/`, organized by domain (filesystem, package-json, semver). Re-exports all functions from the main `@williamthorsen/preflight` entry point so collection authors can import them directly. Updates the collection file to use the package imports instead of inline definitions.
+
+- #166 preflight|feat: Support configurable internal collections directory (#171)
+
+Adds an `internal` config block to preflight with `dir` and `extension` fields that control where default (no-source-flag) collections are resolved from. Extracts `resolveCollectionSource` from `parseRunArgs` into a standalone function so that async config loading can feed internal config values into source resolution.
+
+- #169 preflight|feat: Default to batch compilation when no arguments given (#172)
+
+`preflight compile` with no arguments now compiles all sources from the config's `srcDir`, matching the convention already established by `preflight run`. The `--all` / `-a` flag is removed.
+
+The no-arguments path in `compileCommand` now falls through to `compileBatch()` instead of printing an error. A new validation rejects `--output` without a positional argument, since batch mode does not support per-file output paths.
+
+### Refactoring
+
+- #156 preflight|refactor: Extract authoring helpers from entry point (#159)
+
+Extracts the five `define*` identity functions from `config.ts` into a new `authoring.ts` module with zero transitive dependencies on zod or jiti. Slims `index.ts` to export only the lightweight authoring API and types, removing all runtime exports (`loadConfig`, `runPreflight`, formatters).
+
 ## [preflight-v0.10.0] - 2026-04-04
 
 ### Bug fixes

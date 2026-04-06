@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [release-kit-v4.5.0] - 2026-04-06
+
+### Features
+
+- Release-kit|feat: Add spike to common repo labels
+
 ## [release-kit-v4.4.0] - 2026-04-04
 
 ### Documentation
