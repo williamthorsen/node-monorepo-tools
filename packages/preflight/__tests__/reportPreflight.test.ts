@@ -102,14 +102,14 @@ describe(reportPreflight, () => {
     expect(output).toContain('\u{1F7E1} check-rec (5ms)');
   });
 
-  it('shows n/a-skipped checks with white circle icon', () => {
+  it('suppresses standalone n/a-skipped checks from output', () => {
     const report = makeReport({
       results: [makeSkippedResult({ name: 'check-na', skipReason: 'n/a' })],
     });
 
     const output = reportPreflight(report);
 
-    expect(output).toContain('\u26AA check-na (0ms)');
+    expect(output).not.toContain('check-na');
   });
 
   it('shows precondition-skipped checks with no-entry icon', () => {
@@ -369,7 +369,7 @@ describe(reportPreflight, () => {
 
       const output = reportPreflight(report);
 
-      expect(output).toContain('na-parent');
+      expect(output).not.toContain('na-parent');
       expect(output).not.toContain('na-child');
       expect(output).toContain('next-sibling');
     });
@@ -450,10 +450,11 @@ describe(reportPreflight, () => {
 
       const output = reportPreflight(report);
 
-      // na-parent counts as skipped, na-child is suppressed, sibling counts as passed.
+      // na-parent and na-child are both suppressed; only sibling counts as passed.
       expect(output).toContain('\u{1F7E2} 1 passed');
-      expect(output).toContain('\u26D4 1 skipped');
-      expect(output).not.toContain('2 skipped');
+      expect(output).not.toContain('skipped');
+      expect(output).not.toContain('na-parent');
+      expect(output).not.toContain('na-child');
     });
 
     it('resumes output after n/a subtree at same depth', () => {
@@ -467,7 +468,7 @@ describe(reportPreflight, () => {
 
       const output = reportPreflight(report);
 
-      expect(output).toContain('na-check');
+      expect(output).not.toContain('na-check');
       expect(output).not.toContain('na-child');
       expect(output).toContain('sibling');
     });
