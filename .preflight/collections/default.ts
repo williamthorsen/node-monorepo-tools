@@ -10,52 +10,9 @@ import {
   fileContains,
   fileDoesNotContain,
   fileExists,
-  hasMinDevDependencyVersion,
   hasPackageJsonField,
   readFile,
 } from '@williamthorsen/preflight';
-
-const releaseKit: PreflightChecklist = {
-  name: 'release-kit',
-  checks: [
-    {
-      name: '@williamthorsen/release-kit >= 4.0.0 in devDependencies',
-      check: () =>
-        hasMinDevDependencyVersion('@williamthorsen/release-kit', '4.0.0', {
-          exempt: (range) => range.startsWith('workspace:'),
-        }),
-      fix: 'pnpm add --save-dev @williamthorsen/release-kit@^4.0.0',
-    },
-    {
-      name: 'release.yaml workflow exists',
-      check: () => fileExists('.github/workflows/release.yaml'),
-      fix: 'Add .github/workflows/release.yaml using the release workflow template',
-    },
-    {
-      name: 'release workflow references release.reusable.yaml',
-      check: () =>
-        fileContains(
-          '.github/workflows/release.yaml',
-          /uses:\s*(?:\.\/\.github\/workflows\/|williamthorsen\/node-monorepo-tools\/.github\/workflows\/)release\.reusable\.yaml/,
-        ),
-      fix: 'Update release.yaml to use williamthorsen/node-monorepo-tools/.github/workflows/release.reusable.yaml@release-workflow-v1',
-    },
-    {
-      name: 'publish.yaml workflow exists',
-      check: () => fileExists('.github/workflows/publish.yaml'),
-      fix: 'Add .github/workflows/publish.yaml using the publish workflow template',
-    },
-    {
-      name: 'publish workflow references publish.reusable.yaml',
-      check: () =>
-        fileContains(
-          '.github/workflows/publish.yaml',
-          /uses:\s*(?:\.\/\.github\/workflows\/|williamthorsen\/node-monorepo-tools\/.github\/workflows\/)publish\.reusable\.yaml/,
-        ),
-      fix: 'Update publish.yaml to use williamthorsen/node-monorepo-tools/.github/workflows/publish.reusable.yaml@publish-workflow-v1',
-    },
-  ],
-};
 
 const syncLabels: PreflightChecklist = {
   name: 'sync-labels',
@@ -185,7 +142,7 @@ const repoSetup: PreflightChecklist = {
 };
 
 export default definePreflightCollection({
-  checklists: [releaseKit, syncLabels, codeQuality, repoSetup],
+  checklists: [syncLabels, codeQuality, repoSetup],
 });
 
 // -- Collection-specific helpers ----------------------------------------------
