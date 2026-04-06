@@ -2,9 +2,10 @@ import process from 'node:process';
 
 import { parseArgs, translateParseError } from '@williamthorsen/node-monorepo-core';
 
-import { parseRunArgs, runCommand } from '../cli.ts';
+import { parseRunArgs, resolveCollectionSource, runCommand } from '../cli.ts';
 import { compileCommand } from '../compile/compileCommand.ts';
 import { initCommand } from '../init/initCommand.ts';
+import { loadConfig } from '../loadConfig.ts';
 import { VERSION } from '../version.ts';
 
 const SUBCOMMANDS = ['compile', 'init'];
@@ -190,5 +191,32 @@ async function handleRun(flags: string[]): Promise<number> {
     return 1;
   }
 
-  return runCommand(parsed);
+  const config = await loadConfig();
+
+  let collectionSource;
+  try {
+    collectionSource = resolveCollectionSource({
+      filePath: parsed.filePath,
+      githubValue: parsed.githubValue,
+      localValue: parsed.localValue,
+      urlValue: parsed.urlValue,
+      collectionName: parsed.collectionName,
+      internalDir: config.internal.dir,
+      internalExtension: config.internal.extension,
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`Error: ${message}\n`);
+    return 1;
+  }
+
+  const options: Parameters<typeof runCommand>[0] = {
+    collectionSource,
+    json: parsed.json,
+    names: parsed.names,
+  };
+  if (parsed.failOn !== undefined) options.failOn = parsed.failOn;
+  if (parsed.reportOn !== undefined) options.reportOn = parsed.reportOn;
+
+  return runCommand(options);
 }
