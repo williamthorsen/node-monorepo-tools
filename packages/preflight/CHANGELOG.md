@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [preflight-v0.12.0] - 2026-04-06
+
+### Features
+
+- #157 preflight|feat: Nest dependent checks in the preflight report (#174)
+
+Makes `PreflightCheck` recursive by adding an optional `checks` field for dependent checks.
+
+The runner executes children when a parent passes, skips descendants when a parent fails or is N/A, and produces results in depth-first order with a `depth` field. The human-readable report indents nested checks, suppresses N/A descendants (showing the N/A parent with its skip reason), and prefixes fix messages with 💊.
+
+The JSON report reconstructs the tree from flat results, nesting child entries under their parent's `checks` array. Existing collections are restructured to use nesting where natural dependencies exist, and a new demo collection exercises every preflight feature.
+
 ## [preflight-v0.11.0] - 2026-04-06
 
 ### Bug fixes
