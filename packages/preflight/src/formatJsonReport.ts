@@ -33,13 +33,15 @@ export function formatJsonReport(entries: ChecklistEntry[], options?: FormatJson
     // Filter results by reporting threshold.
     const visibleResults = report.results.filter((r) => meetsThreshold(r.severity, reportOn));
 
-    const checks: JsonCheckEntry[] = visibleResults.map((result) => {
+    // Count all visible results (flat count across all nesting levels).
+    for (const result of visibleResults) {
       if (result.status === 'passed') passed++;
       else if (result.status === 'failed') failed++;
       else skipped++;
+    }
 
-      return buildCheckEntry(result);
-    });
+    // Reconstruct tree from flat depth-first results.
+    const { entries: checks } = buildCheckEntries(visibleResults, 0, 0);
 
     totalPassed += passed;
     totalFailed += failed;
@@ -71,12 +73,46 @@ export function formatJsonReport(entries: ChecklistEntry[], options?: FormatJson
 }
 
 /**
+ * Reconstruct a tree of check entries from a flat depth-first results slice.
+ *
+ * Consumes results at `expectedDepth` as siblings, recursing into deeper results
+ * as children. Returns the parsed entries and the index of the first unconsumed result.
+ */
+function buildCheckEntries(
+  results: PreflightResult[],
+  startIndex: number,
+  expectedDepth: number,
+): { entries: JsonCheckEntry[]; nextIndex: number } {
+  const entries: JsonCheckEntry[] = [];
+  let index = startIndex;
+
+  while (index < results.length) {
+    const result = results[index];
+    if (result === undefined) break;
+    const depth = result.depth ?? 0;
+
+    // Stop when we encounter a result shallower than what we expect at this level.
+    if (depth < expectedDepth) break;
+
+    index++;
+
+    // Recursively collect children (results at depth + 1 and deeper).
+    const { entries: children, nextIndex } = buildCheckEntries(results, index, depth + 1);
+    index = nextIndex;
+
+    entries.push(buildCheckEntry(result, children));
+  }
+
+  return { entries, nextIndex: index };
+}
+
+/**
  * Build a single JSON check entry, normalizing the union to include all fields.
  *
  * Non-skipped results get `skipReason: null` for uniform JSON shape.
  * Error objects are serialized to their message string.
  */
-function buildCheckEntry(result: PreflightResult): JsonCheckEntry {
+function buildCheckEntry(result: PreflightResult, children: JsonCheckEntry[] = []): JsonCheckEntry {
   const errorString = result.error !== null ? result.error.message : null;
 
   if (result.status === 'skipped') {
@@ -91,6 +127,7 @@ function buildCheckEntry(result: PreflightResult): JsonCheckEntry {
       error: errorString,
       progress: result.progress,
       durationMs: result.durationMs,
+      checks: children,
     };
   }
 
@@ -105,5 +142,6 @@ function buildCheckEntry(result: PreflightResult): JsonCheckEntry {
     error: errorString,
     progress: result.progress,
     durationMs: result.durationMs,
+    checks: children,
   };
 }

@@ -77,9 +77,26 @@ export function reportPreflight(report: PreflightReport, options?: ReportPreflig
   // Filter results by reporting threshold.
   const visibleResults = report.results.filter((r) => meetsThreshold(r.severity, reportOn));
 
+  // Track N/A subtree suppression: when a result is skipped with n/a reason,
+  // skip all immediately following results with greater depth.
+  let suppressBelowDepth: number | null = null;
+
   for (const result of visibleResults) {
+    const depth = result.depth ?? 0;
+
+    // Suppress N/A subtrees: skip results deeper than the N/A parent.
+    if (suppressBelowDepth !== null) {
+      if (depth > suppressBelowDepth) continue;
+      suppressBelowDepth = null;
+    }
+
+    if (result.status === 'skipped' && result.skipReason === 'n/a') {
+      suppressBelowDepth = depth;
+    }
+
+    const indent = '  '.repeat(depth);
     const icon = getIcon(result);
-    let checkLine = `${icon} ${result.name} (${formatDuration(result.durationMs)})`;
+    let checkLine = `${indent}${icon} ${result.name} (${formatDuration(result.durationMs)})`;
     if (result.detail !== null) {
       checkLine += ` \u2014 ${result.detail}`;
     }
@@ -90,7 +107,8 @@ export function reportPreflight(report: PreflightReport, options?: ReportPreflig
 
     if (result.status === 'failed') {
       const includeFix = fixLocation === 'inline';
-      lines.push(...collectInlineDetails(result, includeFix));
+      const details = collectInlineDetails(result, includeFix);
+      lines.push(...details.map((line) => `${indent}${line}`));
 
       if (!includeFix && result.fix !== null) {
         collectedFixes.push(result.fix);

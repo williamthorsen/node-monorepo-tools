@@ -340,6 +340,96 @@ describe(reportPreflight, () => {
     expect(output).not.toContain('Fix: Fix it');
   });
 
+  describe('nested checks', () => {
+    it('indents nested results by depth', () => {
+      const report = makeReport({
+        results: [
+          makePassedResult({ name: 'parent', depth: 0, durationMs: 10 }),
+          makePassedResult({ name: 'child', depth: 1, durationMs: 5 }),
+          makePassedResult({ name: 'grandchild', depth: 2, durationMs: 3 }),
+        ],
+      });
+
+      const output = reportPreflight(report);
+      const lines = output.split('\n');
+
+      expect(lines[0]).toBe('\u{1F7E2} parent (10ms)');
+      expect(lines[1]).toBe('  \u{1F7E2} child (5ms)');
+      expect(lines[2]).toBe('    \u{1F7E2} grandchild (3ms)');
+    });
+
+    it('suppresses n/a subtrees from output', () => {
+      const report = makeReport({
+        results: [
+          makeSkippedResult({ name: 'na-parent', skipReason: 'n/a', depth: 0 }),
+          makeSkippedResult({ name: 'na-child', skipReason: 'n/a', depth: 1 }),
+          makePassedResult({ name: 'next-sibling', depth: 0, durationMs: 10 }),
+        ],
+      });
+
+      const output = reportPreflight(report);
+
+      expect(output).toContain('na-parent');
+      expect(output).not.toContain('na-child');
+      expect(output).toContain('next-sibling');
+    });
+
+    it('indents inline detail lines at parent depth', () => {
+      const report = makeReport({
+        results: [
+          makePassedResult({ name: 'parent', depth: 0 }),
+          makeFailedResult({
+            name: 'child',
+            depth: 1,
+            error: new Error('child error'),
+            fix: 'fix child',
+          }),
+        ],
+        passed: false,
+      });
+
+      const output = reportPreflight(report, { fixLocation: 'inline' });
+      const lines = output.split('\n');
+
+      const childLine = lines.findIndex((l) => l.includes('child'));
+      expect(lines[childLine]).toMatch(/^ {2}/);
+      expect(lines[childLine + 1]).toBe('    Error: child error');
+      expect(lines[childLine + 2]).toBe('    Fix: fix child');
+    });
+
+    it('includes nested results in summary counts', () => {
+      const report = makeReport({
+        results: [
+          makePassedResult({ name: 'parent', depth: 0 }),
+          makePassedResult({ name: 'child', depth: 1 }),
+          makeFailedResult({ name: 'child-fail', depth: 1 }),
+        ],
+        passed: false,
+        durationMs: 50,
+      });
+
+      const output = reportPreflight(report);
+
+      expect(output).toContain('\u{1F7E2} 2 passed, \u{1F534} 1 failed');
+    });
+
+    it('resumes output after n/a subtree at same depth', () => {
+      const report = makeReport({
+        results: [
+          makeSkippedResult({ name: 'na-check', skipReason: 'n/a', depth: 1 }),
+          makeSkippedResult({ name: 'na-child', skipReason: 'n/a', depth: 2 }),
+          makePassedResult({ name: 'sibling', depth: 1, durationMs: 5 }),
+        ],
+      });
+
+      const output = reportPreflight(report);
+
+      expect(output).toContain('na-check');
+      expect(output).not.toContain('na-child');
+      expect(output).toContain('sibling');
+    });
+  });
+
   describe('reporting threshold', () => {
     it('excludes results below the reporting threshold', () => {
       const report = makeReport({
