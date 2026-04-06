@@ -57,7 +57,7 @@ function collectInlineDetails(result: PreflightResult, includeFix: boolean): str
     details.push(`  Error: ${result.error.message}`);
   }
   if (includeFix && result.fix !== null) {
-    details.push(`  ${ICON_FIX} ${result.fix}`);
+    details.push(`  ${ICON_FIX} Fix: ${result.fix}`);
   }
   return details;
 }
@@ -78,7 +78,11 @@ function* iterateWithNaSuppression(results: PreflightResult[]): Generator<Prefli
 }
 
 /** Count passed, failed, and skipped results after N/A descendant suppression. */
-function countResults(results: PreflightResult[]): { passed: number; failed: number; skipped: number } {
+function countResults(results: PreflightResult[]): {
+  passed: number;
+  failed: number;
+  skipped: number;
+} {
   let passed = 0;
   let failed = 0;
   let skipped = 0;

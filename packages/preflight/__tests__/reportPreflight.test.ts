@@ -171,7 +171,7 @@ describe(reportPreflight, () => {
       const lines = output.split('\n');
 
       expect(output).toContain('Error: Something went wrong');
-      expect(output).toContain('\u{1F48A} Run npm install');
+      expect(output).toContain('\u{1F48A} Fix: Run npm install');
 
       const checkLineIndex = lines.findIndex((l) => l.includes('broken'));
       const errorLineIndex = lines.findIndex((l) => l.includes('Error: Something went wrong'));
@@ -186,7 +186,7 @@ describe(reportPreflight, () => {
 
       const output = reportPreflight(report, { fixLocation: 'inline' });
 
-      expect(output).toContain('\u{1F48A} Run npm install');
+      expect(output).toContain('\u{1F48A} Fix: Run npm install');
       expect(output).not.toContain('Error:');
     });
 
@@ -408,7 +408,7 @@ describe(reportPreflight, () => {
       const childLine = lines.findIndex((l) => l.includes('child'));
       expect(lines[childLine]).toMatch(/^ {2}/);
       expect(lines[childLine + 1]).toBe('    Error: child error');
-      expect(lines[childLine + 2]).toBe('    \u{1F48A} fix child');
+      expect(lines[childLine + 2]).toBe('    \u{1F48A} Fix: fix child');
     });
 
     it('collects fixes from nested failed checks in end mode', () => {
