@@ -61,6 +61,34 @@ function collectInlineDetails(result: PreflightResult, includeFix: boolean): str
   return details;
 }
 
+/** Iterate visible results, skipping N/A descendants (depth > N/A parent). */
+function* iterateWithNaSuppression(results: PreflightResult[]): Generator<PreflightResult> {
+  let suppressBelowDepth: number | null = null;
+  for (const result of results) {
+    if (suppressBelowDepth !== null) {
+      if (result.depth > suppressBelowDepth) continue;
+      suppressBelowDepth = null;
+    }
+    if (result.status === 'skipped' && result.skipReason === 'n/a') {
+      suppressBelowDepth = result.depth;
+    }
+    yield result;
+  }
+}
+
+/** Count passed, failed, and skipped results after N/A descendant suppression. */
+function countResults(results: PreflightResult[]): { passed: number; failed: number; skipped: number } {
+  let passed = 0;
+  let failed = 0;
+  let skipped = 0;
+  for (const r of iterateWithNaSuppression(results)) {
+    if (r.status === 'passed') passed++;
+    else if (r.status === 'failed') failed++;
+    else skipped++;
+  }
+  return { passed, failed, skipped };
+}
+
 /**
  * Format a preflight report as a human-readable string for terminal output.
  *
@@ -74,27 +102,10 @@ export function reportPreflight(report: PreflightReport, options?: ReportPreflig
   const lines: string[] = [];
   const collectedFixes: string[] = [];
 
-  // Filter results by reporting threshold.
   const visibleResults = report.results.filter((r) => meetsThreshold(r.severity, reportOn));
 
-  // Track N/A subtree suppression: when a result is skipped with n/a reason,
-  // skip all immediately following results with greater depth.
-  let suppressBelowDepth: number | null = null;
-
-  for (const result of visibleResults) {
-    const depth = result.depth;
-
-    // Suppress N/A descendants: show the N/A parent, hide deeper results.
-    if (suppressBelowDepth !== null) {
-      if (depth > suppressBelowDepth) continue;
-      suppressBelowDepth = null;
-    }
-
-    if (result.status === 'skipped' && result.skipReason === 'n/a') {
-      suppressBelowDepth = depth;
-    }
-
-    const indent = '  '.repeat(depth);
+  for (const result of iterateWithNaSuppression(visibleResults)) {
+    const indent = '  '.repeat(result.depth);
     const icon = getIcon(result);
     let checkLine = `${indent}${icon} ${result.name} (${formatDuration(result.durationMs)})`;
     if (result.detail !== null) {
@@ -116,27 +127,9 @@ export function reportPreflight(report: PreflightReport, options?: ReportPreflig
     }
   }
 
-  // Summary counts from visible results, suppressing N/A descendants only.
-  let passed = 0;
-  let failed = 0;
-  let skipped = 0;
-  let countSuppressBelowDepth: number | null = null;
-  for (const r of visibleResults) {
-    const d = r.depth;
-    if (countSuppressBelowDepth !== null) {
-      if (d > countSuppressBelowDepth) continue;
-      countSuppressBelowDepth = null;
-    }
-    if (r.status === 'skipped' && r.skipReason === 'n/a') {
-      countSuppressBelowDepth = d;
-    }
-    if (r.status === 'passed') passed++;
-    else if (r.status === 'failed') failed++;
-    else skipped++;
-  }
+  const { passed, failed, skipped } = countResults(visibleResults);
   lines.push('', `${formatSummaryCounts(passed, failed, skipped)} (${formatDuration(report.durationMs)})`);
 
-  // Collected fixes section for end mode.
   if (fixLocation === 'end' && collectedFixes.length > 0) {
     lines.push('', 'Fixes:', ...collectedFixes.map((fix) => `  ${fix}`));
   }
