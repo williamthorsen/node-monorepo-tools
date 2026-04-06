@@ -96,7 +96,7 @@ interface PreflightConfig {
   compile?: {
     srcDir?: string; // default: '.preflight/collections'
     outDir?: string; // default: '.preflight/collections'
-    include?: string; // glob pattern to filter files during compile --all
+    include?: string; // glob pattern to filter files during batch compile
   };
 }
 ```
@@ -294,10 +294,10 @@ preflight compile .preflight/collections/default.ts
 Or compile all sources from the config's `srcDir` at once:
 
 ```bash
-preflight compile --all
+preflight compile
 ```
 
-Use `compile.include` in your config to filter which files `--all` compiles:
+Use `compile.include` in your config to filter which files are compiled:
 
 ```ts
 export default definePreflightConfig({
@@ -393,17 +393,15 @@ preflight run [names...] [options]
 Bundle TypeScript collection(s) into self-contained ESM file(s).
 
 ```
-preflight compile <file> [options]
-preflight compile --all
+preflight compile [<file>] [options]
 ```
 
 | Flag                  | Description                              | Default                       |
 | --------------------- | ---------------------------------------- | ----------------------------- |
 | `<file>`              | Input TypeScript file                    | —                             |
-| `--all, -a`           | Compile all sources from config `srcDir` | —                             |
-| `--output, -o <path>` | Output file path                         | Input path with `.ts` → `.js` |
+| `--output, -o <path>` | Output file path (single-file mode only) | Input path with `.ts` → `.js` |
 
-When neither `<file>` nor `--all` is given, an error with a usage hint is printed. `--output` cannot be used with `--all`.
+If no file is given, all sources from the config's `srcDir` are compiled.
 
 ### `preflight init`
 

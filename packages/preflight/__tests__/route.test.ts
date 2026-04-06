@@ -244,7 +244,7 @@ describe(routeCommand, () => {
     expect(exitCode).toBe(0);
     const output = infoSpy.mock.calls.map((c) => String(c[0])).join('');
     expect(output).toContain('Usage: preflight compile');
-    expect(output).toContain('--all');
+    expect(output).toContain('If no file is given');
   });
 
   it('shows compile help and returns 0 for compile -h', async () => {

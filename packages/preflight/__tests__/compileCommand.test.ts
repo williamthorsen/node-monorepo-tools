@@ -118,18 +118,8 @@ describe(compileCommand, () => {
     expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('Too many arguments'));
   });
 
-  // No-args behavior (error with usage hint)
-  it('returns 1 with usage hint when no input and no --all', async () => {
-    const exitCode = await compileCommand([]);
-
-    expect(exitCode).toBe(1);
-    expect(stderrSpy).toHaveBeenCalledWith(
-      expect.stringContaining("Use 'preflight compile <file>' or 'preflight compile --all'"),
-    );
-  });
-
-  // --all flag tests
-  it('compiles all .ts files from config srcDir with --all', async () => {
+  // No-args behavior (batch compile)
+  it('compiles all .ts files from config srcDir when no arguments given', async () => {
     mockLoadConfig.mockResolvedValue({
       compile: { srcDir: '.preflight/collections', outDir: '.preflight/collections', include: undefined },
     });
@@ -137,42 +127,28 @@ describe(compileCommand, () => {
     mockReaddirSync.mockReturnValue(['a.ts', 'b.ts', 'readme.md']);
     mockCompileConfig.mockResolvedValue({ outputPath: '/abs/a.js' });
 
-    const exitCode = await compileCommand(['--all']);
+    const exitCode = await compileCommand([]);
 
     expect(exitCode).toBe(0);
     expect(mockCompileConfig).toHaveBeenCalledTimes(2);
     expect(stdoutSpy).toHaveBeenCalledTimes(2);
   });
 
-  it('parses -a as short form of --all', async () => {
-    mockLoadConfig.mockResolvedValue({
-      compile: { srcDir: '.preflight/collections', outDir: '.preflight/collections', include: undefined },
-    });
-    mockExistsSync.mockReturnValue(true);
-    mockReaddirSync.mockReturnValue(['a.ts']);
-    mockCompileConfig.mockResolvedValue({ outputPath: '/abs/a.js' });
-
-    const exitCode = await compileCommand(['-a']);
-
-    expect(exitCode).toBe(0);
-    expect(mockCompileConfig).toHaveBeenCalledTimes(1);
-  });
-
-  it('returns 1 when --all is combined with --output', async () => {
-    const exitCode = await compileCommand(['--all', '--output', 'out.js']);
+  it('returns 1 when --output is given without an input file', async () => {
+    const exitCode = await compileCommand(['--output', 'out.js']);
 
     expect(exitCode).toBe(1);
-    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('--output cannot be used with --all'));
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('--output requires an input file'));
   });
 
-  it('returns 1 when --all is combined with an input file', async () => {
-    const exitCode = await compileCommand(['input.ts', '--all']);
+  it('returns 1 for --all (removed flag)', async () => {
+    const exitCode = await compileCommand(['--all']);
 
     expect(exitCode).toBe(1);
-    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('Cannot specify both an input file and --all'));
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('Unknown option: --all'));
   });
 
-  it('uses compile.include glob to filter files with --all', async () => {
+  it('uses compile.include glob to filter files during batch compile', async () => {
     mockLoadConfig.mockResolvedValue({
       compile: { srcDir: '.preflight/collections', outDir: '.preflight/collections', include: 'shared/*.ts' },
     });
@@ -182,33 +158,33 @@ describe(compileCommand, () => {
     mockPicomatch.mockReturnValue(matchFn);
     mockCompileConfig.mockResolvedValue({ outputPath: '/abs/a.js' });
 
-    const exitCode = await compileCommand(['--all']);
+    const exitCode = await compileCommand([]);
 
     expect(exitCode).toBe(0);
     expect(mockPicomatch).toHaveBeenCalledWith('shared/*.ts');
     expect(mockCompileConfig).toHaveBeenCalledTimes(2);
   });
 
-  it('returns 1 when srcDir does not exist with --all', async () => {
+  it('returns 1 when srcDir does not exist', async () => {
     mockLoadConfig.mockResolvedValue({
       compile: { srcDir: '.preflight/collections', outDir: '.preflight/collections', include: undefined },
     });
     mockExistsSync.mockReturnValue(false);
 
-    const exitCode = await compileCommand(['--all']);
+    const exitCode = await compileCommand([]);
 
     expect(exitCode).toBe(1);
     expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('Source directory not found'));
   });
 
-  it('returns 1 when srcDir has no .ts files with --all', async () => {
+  it('returns 1 when srcDir has no .ts files', async () => {
     mockLoadConfig.mockResolvedValue({
       compile: { srcDir: '.preflight/collections', outDir: '.preflight/collections', include: undefined },
     });
     mockExistsSync.mockReturnValue(true);
     mockReaddirSync.mockReturnValue(['readme.md']);
 
-    const exitCode = await compileCommand(['--all']);
+    const exitCode = await compileCommand([]);
 
     expect(exitCode).toBe(1);
     expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('No .ts files found'));
@@ -234,13 +210,13 @@ describe(compileCommand, () => {
     mockCompileConfig.mockResolvedValue({ outputPath: '/abs/a.js' });
     mockValidateCompiledOutput.mockRejectedValue(new Error('suite "ci" references unknown checklist "missing"'));
 
-    const exitCode = await compileCommand(['--all']);
+    const exitCode = await compileCommand([]);
 
     expect(exitCode).toBe(1);
     expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('references unknown checklist'));
   });
 
-  it('returns 1 with structured error when readdirSync throws during --all', async () => {
+  it('returns 1 with structured error when readdirSync throws during batch compile', async () => {
     mockLoadConfig.mockResolvedValue({
       compile: { srcDir: '.preflight/collections', outDir: '.preflight/collections', include: undefined },
     });
@@ -249,14 +225,14 @@ describe(compileCommand, () => {
       throw new Error('EACCES: permission denied');
     });
 
-    const exitCode = await compileCommand(['--all']);
+    const exitCode = await compileCommand([]);
 
     expect(exitCode).toBe(1);
     expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to read source directory'));
     expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('EACCES'));
   });
 
-  it('returns 1 when glob matches only non-.ts files with --all', async () => {
+  it('returns 1 when glob matches only non-.ts files during batch compile', async () => {
     mockLoadConfig.mockResolvedValue({
       compile: { srcDir: '.preflight/collections', outDir: '.preflight/collections', include: 'data/*' },
     });
@@ -264,7 +240,7 @@ describe(compileCommand, () => {
     mockReaddirSync.mockReturnValue(['data/readme.md', 'data/config.json']);
     mockPicomatch.mockReturnValue(() => true);
 
-    const exitCode = await compileCommand(['--all']);
+    const exitCode = await compileCommand([]);
 
     expect(exitCode).toBe(1);
     expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('No .ts files found'));
