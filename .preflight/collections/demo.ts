@@ -8,6 +8,8 @@
  * Run from the repo root:
  *   preflight run --file .preflight/collections/demo.js
  */
+import { execFileSync } from 'node:child_process';
+
 import type { PreflightChecklist, PreflightStagedChecklist } from '@williamthorsen/preflight';
 import {
   definePreflightCollection,
@@ -16,6 +18,16 @@ import {
   hasDevDependency,
   hasPackageJsonField,
 } from '@williamthorsen/preflight';
+
+/** Return true if a CLI command is available on PATH. */
+function commandExists(name: string): boolean {
+  try {
+    execFileSync('which', [name], { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // -- Flat checklist with preconditions and nested checks ----------------------
 // Demonstrates: precondition gating, passing hierarchy with indentation.
@@ -55,6 +67,12 @@ const projectFoundations: PreflightChecklist = {
       check: () => fileExists('.editorconfig'),
       fix: 'Add .editorconfig to repo root',
     },
+    {
+      name: 'jq is installed',
+      severity: 'warn',
+      check: () => commandExists('jq'),
+      fix: 'brew install jq — required for JSON processing in shell scripts and CI pipelines',
+    },
   ],
 };
 
@@ -65,6 +83,20 @@ const projectFoundations: PreflightChecklist = {
 const ciWorkflows: PreflightChecklist = {
   name: 'ci-workflows',
   checks: [
+    {
+      name: 'actionlint is installed',
+      severity: 'warn',
+      check: () => commandExists('actionlint'),
+      fix: 'brew install actionlint — catches workflow syntax errors before they fail in CI',
+      checks: [
+        {
+          name: 'shellcheck is installed',
+          severity: 'warn',
+          check: () => commandExists('shellcheck'),
+          fix: 'brew install shellcheck — actionlint uses shellcheck to lint run: blocks in workflows',
+        },
+      ],
+    },
     {
       name: 'code-quality.yaml workflow exists',
       check: () => fileExists('.github/workflows/code-quality.yaml'),
