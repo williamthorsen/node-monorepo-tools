@@ -131,13 +131,33 @@ const optionalIntegrations: PreflightChecklist = {
       ],
     },
     {
-      name: 'Lefthook',
-      check: () => fileExists('lefthook.yml'),
-      fix: 'Add lefthook.yml for git hook management',
+      name: 'lefthook in devDependencies',
+      check: () => hasDevDependency('lefthook'),
+      fix: 'pnpm add --save-dev lefthook',
       checks: [
         {
-          name: 'pre-commit hook configured',
-          check: () => fileContains('lefthook.yml', /pre-commit:/),
+          name: 'lefthook.yml exists',
+          check: () => fileExists('lefthook.yml'),
+          fix: 'Add lefthook.yml for git hook management',
+          checks: [
+            {
+              name: 'pre-commit hook configured',
+              check: () => fileContains('lefthook.yml', /pre-commit:/),
+              fix: 'Add a pre-commit section to lefthook.yml',
+              checks: [
+                {
+                  name: 'linter runs on pre-commit',
+                  severity: 'recommend',
+                  check: () => fileContains('lefthook.yml', /eslint|lint/),
+                  fix: 'Add an ESLint command to the pre-commit hook',
+                },
+                {
+                  name: 'unknown files are ignored',
+                  check: () => fileContains('lefthook.yml', /--ignore-unknown/),
+                },
+              ],
+            },
+          ],
         },
       ],
     },
