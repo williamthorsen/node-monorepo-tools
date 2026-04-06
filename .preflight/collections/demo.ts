@@ -33,13 +33,11 @@ const projectFoundations: PreflightChecklist = {
       name: 'ESM project ("type": "module")',
       check: () => hasPackageJsonField('type', 'module'),
       fix: 'Add "type": "module" to package.json',
-      checks: [
-        {
-          name: 'packageManager field is set',
-          check: () => hasPackageJsonField('packageManager'),
-          fix: 'Add "packageManager" to package.json (e.g., "pnpm@10.x.x")',
-        },
-      ],
+    },
+    {
+      name: 'packageManager field is set',
+      check: () => hasPackageJsonField('packageManager'),
+      fix: 'Add "packageManager" to package.json (e.g., "pnpm@10.x.x")',
     },
     {
       name: 'pnpm-workspace.yaml exists',
