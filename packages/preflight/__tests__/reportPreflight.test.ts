@@ -171,7 +171,7 @@ describe(reportPreflight, () => {
       const lines = output.split('\n');
 
       expect(output).toContain('Error: Something went wrong');
-      expect(output).toContain('Fix: Run npm install');
+      expect(output).toContain('\u{1F48A} Run npm install');
 
       const checkLineIndex = lines.findIndex((l) => l.includes('broken'));
       const errorLineIndex = lines.findIndex((l) => l.includes('Error: Something went wrong'));
@@ -186,7 +186,7 @@ describe(reportPreflight, () => {
 
       const output = reportPreflight(report, { fixLocation: 'inline' });
 
-      expect(output).toContain('Fix: Run npm install');
+      expect(output).toContain('\u{1F48A} Run npm install');
       expect(output).not.toContain('Error:');
     });
 
@@ -199,7 +199,7 @@ describe(reportPreflight, () => {
       const output = reportPreflight(report, { fixLocation: 'inline' });
 
       expect(output).toContain('Error: Missing file');
-      expect(output).not.toContain('Fix:');
+      expect(output).not.toContain('\u{1F48A}');
     });
   });
 
@@ -224,7 +224,7 @@ describe(reportPreflight, () => {
       expect(errorLineIndex).toBe(checkLineIndex + 1);
 
       expect(output).toContain('Fixes:');
-      expect(output).toContain('  Update config file');
+      expect(output).toContain(`  \u{1F48A} Update config file`);
     });
 
     it('omits Fixes section when no fixes are present', () => {
@@ -339,7 +339,7 @@ describe(reportPreflight, () => {
     const output = reportPreflight(report);
 
     expect(output).toContain('Fixes:');
-    expect(output).toContain('  Fix it');
+    expect(output).toContain(`  \u{1F48A} Fix it`);
     expect(output).not.toContain('Fix: Fix it');
   });
 
@@ -408,7 +408,7 @@ describe(reportPreflight, () => {
       const childLine = lines.findIndex((l) => l.includes('child'));
       expect(lines[childLine]).toMatch(/^ {2}/);
       expect(lines[childLine + 1]).toBe('    Error: child error');
-      expect(lines[childLine + 2]).toBe('    Fix: fix child');
+      expect(lines[childLine + 2]).toBe('    \u{1F48A} fix child');
     });
 
     it('collects fixes from nested failed checks in end mode', () => {
@@ -431,9 +431,9 @@ describe(reportPreflight, () => {
       const childLine = lines.findIndex((l) => l.includes('child'));
       expect(lines[childLine + 1]).toBe('    Error: child error');
       expect(output).toContain('Fixes:');
-      expect(output).toContain('  fix the child');
-      // Fix should not appear inline.
-      expect(output).not.toContain('Fix: fix the child');
+      expect(output).toContain(`  \u{1F48A} fix the child`);
+      // Fix should not appear inline after the error line.
+      expect(lines[childLine + 2]).not.toContain('fix the child');
     });
 
     it('includes nested results in summary counts', () => {

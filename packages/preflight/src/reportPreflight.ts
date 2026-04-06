@@ -8,6 +8,7 @@ const ICON_WARN_FAILED = '\u{1F7E0}';
 const ICON_RECOMMEND_FAILED = '\u{1F7E1}';
 const ICON_SKIPPED_NA = '\u26AA';
 const ICON_SKIPPED_PRECONDITION = '\u26D4';
+const ICON_FIX = '\u{1F48A}';
 
 /** Options controlling how the report is formatted. */
 export interface ReportPreflightOptions {
@@ -56,7 +57,7 @@ function collectInlineDetails(result: PreflightResult, includeFix: boolean): str
     details.push(`  Error: ${result.error.message}`);
   }
   if (includeFix && result.fix !== null) {
-    details.push(`  Fix: ${result.fix}`);
+    details.push(`  ${ICON_FIX} ${result.fix}`);
   }
   return details;
 }
@@ -131,7 +132,7 @@ export function reportPreflight(report: PreflightReport, options?: ReportPreflig
   lines.push('', `${formatSummaryCounts(passed, failed, skipped)} (${formatDuration(report.durationMs)})`);
 
   if (fixLocation === 'end' && collectedFixes.length > 0) {
-    lines.push('', 'Fixes:', ...collectedFixes.map((fix) => `  ${fix}`));
+    lines.push('', 'Fixes:', ...collectedFixes.map((fix) => `  ${ICON_FIX} ${fix}`));
   }
 
   return lines.join('\n');
