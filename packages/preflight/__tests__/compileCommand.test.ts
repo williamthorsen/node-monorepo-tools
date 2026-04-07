@@ -51,18 +51,36 @@ describe(compileCommand, () => {
   });
 
   // Explicit input file tests
-  it('returns 0 and writes output path on success', async () => {
-    mockCompileConfig.mockResolvedValue({ outputPath: '/abs/out.js' });
+  it('returns 0 and writes "Compiling collection:" header for single file', async () => {
+    mockCompileConfig.mockResolvedValue({ outputPath: '/abs/out.js', changed: true });
 
     const exitCode = await compileCommand(['input.ts']);
 
     expect(exitCode).toBe(0);
     expect(mockCompileConfig).toHaveBeenCalledWith('input.ts', undefined);
-    expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('/abs/out.js'));
+    expect(stdoutSpy).toHaveBeenCalledWith('Compiling collection:\n');
+  });
+
+  it('shows 📦 indicator for a changed single file', async () => {
+    mockCompileConfig.mockResolvedValue({ outputPath: '/abs/out.js', changed: true });
+
+    await compileCommand(['input.ts']);
+
+    expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('📦'));
+    expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('→'));
+  });
+
+  it('shows ⚪ indicator for an unchanged single file', async () => {
+    mockCompileConfig.mockResolvedValue({ outputPath: '/abs/out.js', changed: false });
+
+    await compileCommand(['input.ts']);
+
+    expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('⚪'));
+    expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('no changes'));
   });
 
   it('passes --output value to compileConfig', async () => {
-    mockCompileConfig.mockResolvedValue({ outputPath: '/abs/custom.js' });
+    mockCompileConfig.mockResolvedValue({ outputPath: '/abs/custom.js', changed: true });
 
     const exitCode = await compileCommand(['input.ts', '--output', 'custom.js']);
 
@@ -71,7 +89,7 @@ describe(compileCommand, () => {
   });
 
   it('passes --output=value inline form to compileConfig', async () => {
-    mockCompileConfig.mockResolvedValue({ outputPath: '/abs/custom.js' });
+    mockCompileConfig.mockResolvedValue({ outputPath: '/abs/custom.js', changed: true });
 
     const exitCode = await compileCommand(['input.ts', '--output=custom.js']);
 
@@ -80,7 +98,7 @@ describe(compileCommand, () => {
   });
 
   it('passes -o value short form to compileConfig', async () => {
-    mockCompileConfig.mockResolvedValue({ outputPath: '/abs/custom.js' });
+    mockCompileConfig.mockResolvedValue({ outputPath: '/abs/custom.js', changed: true });
 
     const exitCode = await compileCommand(['input.ts', '-o', 'custom.js']);
 
@@ -118,20 +136,53 @@ describe(compileCommand, () => {
     expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('Too many arguments'));
   });
 
-  // No-args behavior (batch compile)
-  it('compiles all .ts files from config srcDir when no arguments given', async () => {
+  // Batch compile tests
+  it('prints "Compiling collections in" header when srcDir equals outDir', async () => {
+    mockLoadConfig.mockResolvedValue({
+      compile: { srcDir: '.preflight/collections', outDir: '.preflight/collections', include: undefined },
+    });
+    mockExistsSync.mockReturnValue(true);
+    mockReaddirSync.mockReturnValue(['a.ts']);
+    mockCompileConfig.mockResolvedValue({ outputPath: '/abs/a.js', changed: true });
+
+    await compileCommand([]);
+
+    expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('Compiling collections in'));
+    expect(stdoutSpy).not.toHaveBeenCalledWith(expect.stringContaining(' to '));
+  });
+
+  it('prints "from ... to ..." header when srcDir differs from outDir', async () => {
+    mockLoadConfig.mockResolvedValue({
+      compile: { srcDir: '.preflight/collections', outDir: '.preflight/dist', include: undefined },
+    });
+    mockExistsSync.mockReturnValue(true);
+    mockReaddirSync.mockReturnValue(['a.ts']);
+    mockCompileConfig.mockResolvedValue({ outputPath: '/abs/a.js', changed: true });
+
+    await compileCommand([]);
+
+    expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('from'));
+    expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('to'));
+  });
+
+  it('compiles all .ts files and shows per-file status lines', async () => {
     mockLoadConfig.mockResolvedValue({
       compile: { srcDir: '.preflight/collections', outDir: '.preflight/collections', include: undefined },
     });
     mockExistsSync.mockReturnValue(true);
     mockReaddirSync.mockReturnValue(['a.ts', 'b.ts', 'readme.md']);
-    mockCompileConfig.mockResolvedValue({ outputPath: '/abs/a.js' });
+    mockCompileConfig
+      .mockResolvedValueOnce({ outputPath: '/abs/a.js', changed: true })
+      .mockResolvedValueOnce({ outputPath: '/abs/b.js', changed: false });
 
     const exitCode = await compileCommand([]);
 
     expect(exitCode).toBe(0);
     expect(mockCompileConfig).toHaveBeenCalledTimes(2);
-    expect(stdoutSpy).toHaveBeenCalledTimes(2);
+    // Header + 2 status lines
+    expect(stdoutSpy).toHaveBeenCalledTimes(3);
+    expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('📦 a.ts → a.js'));
+    expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('⚪ b.ts — no changes'));
   });
 
   it('returns 1 when --output is given without an input file', async () => {
@@ -156,7 +207,7 @@ describe(compileCommand, () => {
     mockReaddirSync.mockReturnValue(['shared/deploy.ts', 'shared/infra.ts', 'other.ts']);
     const matchFn = vi.fn((name: string) => name.startsWith('shared/'));
     mockPicomatch.mockReturnValue(matchFn);
-    mockCompileConfig.mockResolvedValue({ outputPath: '/abs/a.js' });
+    mockCompileConfig.mockResolvedValue({ outputPath: '/abs/a.js', changed: true });
 
     const exitCode = await compileCommand([]);
 
@@ -192,7 +243,7 @@ describe(compileCommand, () => {
 
   // Post-compile validation tests
   it('returns 1 when post-compile validation fails for explicit input', async () => {
-    mockCompileConfig.mockResolvedValue({ outputPath: '/abs/out.js' });
+    mockCompileConfig.mockResolvedValue({ outputPath: '/abs/out.js', changed: true });
     mockValidateCompiledOutput.mockRejectedValue(new Error('Suite name(s) collide with checklist name(s): deploy'));
 
     const exitCode = await compileCommand(['input.ts']);
@@ -207,7 +258,7 @@ describe(compileCommand, () => {
     });
     mockExistsSync.mockReturnValue(true);
     mockReaddirSync.mockReturnValue(['a.ts']);
-    mockCompileConfig.mockResolvedValue({ outputPath: '/abs/a.js' });
+    mockCompileConfig.mockResolvedValue({ outputPath: '/abs/a.js', changed: true });
     mockValidateCompiledOutput.mockRejectedValue(new Error('suite "ci" references unknown checklist "missing"'));
 
     const exitCode = await compileCommand([]);
