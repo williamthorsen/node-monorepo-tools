@@ -48,7 +48,10 @@ export async function compileCommand(args: string[]): Promise<number> {
     try {
       const result = await compileConfig(inputPath, outputPath);
       await validateCompiledOutput(result.outputPath);
-      process.stdout.write(`Compiled: ${result.outputPath}\n`);
+      const relInput = path.relative(process.cwd(), path.resolve(inputPath));
+      const relOutput = path.relative(process.cwd(), result.outputPath);
+      process.stdout.write('Compiling collection:\n');
+      process.stdout.write(formatResultLine(relInput, relOutput, result.changed));
       return 0;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
@@ -107,13 +110,22 @@ async function compileBatch(): Promise<number> {
     return 1;
   }
 
+  const relSrcDir = path.relative(process.cwd(), srcDir);
+  const relOutDir = path.relative(process.cwd(), outDir);
+  const header =
+    srcDir === outDir
+      ? `Compiling collections in ${relSrcDir}:\n`
+      : `Compiling collections from ${relSrcDir} to ${relOutDir}:\n`;
+  process.stdout.write(header);
+
   for (const fileName of tsFiles) {
     const srcFile = path.join(srcDir, fileName);
     const outFile = path.join(outDir, fileName.replace(/\.ts$/, '.js'));
     try {
       const result = await compileConfig(srcFile, outFile);
       await validateCompiledOutput(result.outputPath);
-      process.stdout.write(`Compiled: ${result.outputPath}\n`);
+      const outName = fileName.replace(/\.ts$/, '.js');
+      process.stdout.write(formatResultLine(fileName, outName, result.changed));
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       process.stderr.write(`Error compiling ${fileName}: ${message}\n`);
@@ -122,4 +134,9 @@ async function compileBatch(): Promise<number> {
   }
 
   return 0;
+}
+
+/** Format a single compile-result line with a change indicator. */
+function formatResultLine(srcName: string, outName: string, changed: boolean): string {
+  return changed ? `  📦 ${srcName} → ${outName}\n` : `  ⚪ ${srcName} — no changes\n`;
 }
