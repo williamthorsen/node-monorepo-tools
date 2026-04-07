@@ -14,6 +14,7 @@
   "type": "module",
   "exports": {
     ".": "./dist/esm/index.js",
+    "./scripts": "./dist/esm/scripts.js",
     "./tests": "./dist/esm/tests/consistency.js"
   },
   "bin": {
