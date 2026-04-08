@@ -120,6 +120,14 @@ describe(formatLabelsYaml, () => {
     expect(result).toContain('- name: feature');
   });
 
+  it('uses single quotes for values that need quoting', () => {
+    const labels: LabelDefinition[] = [{ name: 'true', color: 'd73a4a', description: 'A boolean-like name' }];
+
+    const result = formatLabelsYaml(labels);
+
+    expect(result).toContain("name: 'true'");
+  });
+
   it('produces valid YAML with an empty labels array', () => {
     const result = formatLabelsYaml([]);
 
