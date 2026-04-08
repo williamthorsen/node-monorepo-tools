@@ -8,6 +8,7 @@ A PNPM monorepo of CLI tools for Node.js monorepo development. Packages provide 
 
 Packages live under `packages/`:
 
+- **`@williamthorsen/audit-deps`** — Wraps audit-ci with a richer config model, typed JSON source of truth, and a sync workflow that automates allowlist management.
 - **`@williamthorsen/nmr`** — Context-aware script runner for PNPM monorepos. Detects root vs workspace context and resolves the appropriate script registry.
 - **`@williamthorsen/node-monorepo-core`** — Shared utilities consumed by `release-kit` and `preflight`.
 - **`@williamthorsen/preflight`** — Pre-deployment verification checks for environment and configuration.
