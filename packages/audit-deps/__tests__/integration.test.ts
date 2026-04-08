@@ -1,9 +1,11 @@
+import { existsSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { routeCommand } from '../src/bin/route.ts';
 import { loadConfig } from '../src/config.ts';
 import { generateAuditCiConfig } from '../src/generate.ts';
 import { computeSyncDiff, buildUpdatedConfig, serializeConfig } from '../src/sync.ts';
@@ -114,5 +116,35 @@ describe('integration: generate -> sync cycle', () => {
 
     const content = JSON.parse(await readFile(devPath, 'utf8'));
     expect(content.allowlist).toEqual([]);
+  });
+});
+
+describe('integration: --config flag via routeCommand', () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = path.join(tmpdir(), `audit-deps-config-flag-${Date.now()}`);
+    await mkdir(tempDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  it('generates config files at the expected outDir when --config is passed', async () => {
+    const customConfigPath = path.join(tempDir, 'my-audit-deps.json');
+    const config: AuditDepsConfig = {
+      outDir: './generated',
+      dev: { allowlist: [] },
+      prod: { allowlist: [] },
+    };
+    await writeFile(customConfigPath, JSON.stringify(config, null, 2), 'utf8');
+
+    await routeCommand(['generate', '--config', customConfigPath]);
+
+    const expectedDevPath = path.join(tempDir, 'generated', 'audit-ci.dev.json');
+    const expectedProdPath = path.join(tempDir, 'generated', 'audit-ci.prod.json');
+    expect(existsSync(expectedDevPath)).toBe(true);
+    expect(existsSync(expectedProdPath)).toBe(true);
   });
 });

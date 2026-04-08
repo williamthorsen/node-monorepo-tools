@@ -22,10 +22,14 @@ vi.mock('../src/generate.ts', () => ({
   generateAuditCiConfig: mocks.generateAuditCiConfig,
 }));
 
-vi.mock('../src/run-audit.ts', () => ({
-  runAudit: mocks.runAudit,
-  runReport: mocks.runReport,
-}));
+vi.mock('../src/run-audit.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/run-audit.ts')>();
+  return {
+    ...actual,
+    runAudit: mocks.runAudit,
+    runReport: mocks.runReport,
+  };
+});
 
 vi.mock('../src/sync.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../src/sync.ts')>();
@@ -158,20 +162,25 @@ describe(auditCommand, () => {
     expect(exitCode).toBe(0);
   });
 
-  it('writes stdout in JSON mode', async () => {
+  it('writes deduplicated JSON in JSON mode', async () => {
     setupLoadConfig();
     mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.dev.json');
     mocks.runAudit.mockReturnValue({
       exitCode: 0,
       staleEntries: [],
       stderr: '',
-      stdout: '{"advisories":{}}',
+      stdout: JSON.stringify({
+        advisories: {
+          'GHSA-1': { id: 'GHSA-1', module_name: 'pkg', url: 'https://example.com/1', findings: [{ paths: ['pkg'] }] },
+        },
+      }),
       warnings: [],
     });
 
     await auditCommand(makeOptions({ json: true, scopes: ['dev'] }));
 
-    expect(stdoutOutput).toBe('{"advisories":{}}');
+    const parsed: unknown = JSON.parse(stdoutOutput);
+    expect(parsed).toEqual([{ id: 'GHSA-1', path: 'pkg', url: 'https://example.com/1' }]);
   });
 
   it('writes stderr when stdout is empty and stderr has content', async () => {
@@ -188,6 +197,63 @@ describe(auditCommand, () => {
     await auditCommand(makeOptions({ scopes: ['dev'] }));
 
     expect(stderrOutput).toContain('audit-ci error output');
+  });
+
+  it('deduplicates advisory IDs across scopes in JSON mode', async () => {
+    setupLoadConfig();
+    mocks.generateAuditCiConfig
+      .mockResolvedValueOnce('/fake/out/audit-ci.dev.json')
+      .mockResolvedValueOnce('/fake/out/audit-ci.prod.json');
+
+    const sharedAdvisory = {
+      id: 'GHSA-shared',
+      module_name: 'shared-pkg',
+      url: 'https://example.com/shared',
+      findings: [{ paths: ['shared-pkg'] }],
+    };
+    const devOnlyAdvisory = {
+      id: 'GHSA-dev-only',
+      module_name: 'dev-pkg',
+      url: 'https://example.com/dev',
+      findings: [{ paths: ['dev-pkg'] }],
+    };
+    const prodOnlyAdvisory = {
+      id: 'GHSA-prod-only',
+      module_name: 'prod-pkg',
+      url: 'https://example.com/prod',
+      findings: [{ paths: ['prod-pkg'] }],
+    };
+
+    mocks.runAudit
+      .mockReturnValueOnce({
+        exitCode: 1,
+        staleEntries: [],
+        stderr: '',
+        stdout: JSON.stringify({
+          advisories: { 'GHSA-shared': sharedAdvisory, 'GHSA-dev-only': devOnlyAdvisory },
+        }),
+        warnings: [],
+      })
+      .mockReturnValueOnce({
+        exitCode: 1,
+        staleEntries: [],
+        stderr: '',
+        stdout: JSON.stringify({
+          advisories: { 'GHSA-shared': sharedAdvisory, 'GHSA-prod-only': prodOnlyAdvisory },
+        }),
+        warnings: [],
+      });
+
+    await auditCommand(makeOptions({ json: true }));
+
+    const parsed = JSON.parse(stdoutOutput) as Array<{ id: string }>;
+    const ids = parsed.map((r) => r.id);
+    expect(ids).toHaveLength(3);
+    expect(ids).toContain('GHSA-shared');
+    expect(ids).toContain('GHSA-dev-only');
+    expect(ids).toContain('GHSA-prod-only');
+    // Verify no duplicates
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
   it('audits both scopes when no scopes are specified', async () => {
@@ -365,6 +431,26 @@ describe(syncCommand, () => {
 
     await expect(syncCommand(makeOptions({ scopes: ['dev'] }))).rejects.toThrow(
       "Failed to generate config for scope 'dev': EACCES: permission denied",
+    );
+  });
+
+  it('throws when post-sync generateAuditCiConfig fails', async () => {
+    const config = makeConfig();
+    setupLoadConfig(config);
+
+    // First call (stripped config) succeeds
+    mocks.generateAuditCiConfig.mockResolvedValueOnce('/fake/out/audit-ci.dev.json');
+    mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
+    mocks.syncAllowlist.mockResolvedValue({
+      syncResult: { added: [], kept: [], removed: [], scope: 'dev' },
+      updatedConfig: config,
+    });
+
+    // Second call (post-sync regeneration) fails
+    mocks.generateAuditCiConfig.mockRejectedValueOnce(new Error('Disk full'));
+
+    await expect(syncCommand(makeOptions({ scopes: ['dev'] }))).rejects.toThrow(
+      "Failed to generate config for scope 'dev'",
     );
   });
 });

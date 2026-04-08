@@ -4,7 +4,7 @@ import type { AuditDepsConfig, AuditScope, CommandOptions } from './types.ts';
 import { AUDIT_SCOPES } from './types.ts';
 import { loadConfig } from './config.ts';
 import { generateAuditCiConfig } from './generate.ts';
-import { runAudit, runReport } from './run-audit.ts';
+import { parseAuditCiOutput, runAudit, runReport } from './run-audit.ts';
 import { syncAllowlist } from './sync.ts';
 
 /**
@@ -18,6 +18,7 @@ export async function auditCommand(options: CommandOptions): Promise<number> {
 
   const { scopes, generatedPaths } = loaded;
   let exitCode = 0;
+  const allResults: Array<{ id: string; path: string; url: string }> = [];
 
   for (const scope of scopes) {
     const configPath = generatedPaths.get(scope);
@@ -34,8 +35,18 @@ export async function auditCommand(options: CommandOptions): Promise<number> {
     }
 
     if (options.json) {
-      process.stdout.write(result.stdout);
+      // Collect parsed results for cross-scope deduplication
+      const parsed = parseAuditCiOutput(result.stdout);
+      for (const warning of parsed.warnings) {
+        process.stderr.write(`warning: ${warning}\n`);
+      }
+      for (const r of parsed.results) {
+        if (!allResults.some((existing) => existing.id === r.id)) {
+          allResults.push(r);
+        }
+      }
     } else if (result.stdout.length > 0) {
+      // Text mode: output raw stdout per scope (dedup not possible without structure)
       process.stdout.write(result.stdout);
     } else if (result.stderr.length > 0) {
       process.stderr.write(result.stderr);
@@ -44,6 +55,10 @@ export async function auditCommand(options: CommandOptions): Promise<number> {
     if (result.exitCode !== 0) {
       exitCode = result.exitCode;
     }
+  }
+
+  if (options.json) {
+    process.stdout.write(JSON.stringify(allResults, null, 2) + '\n');
   }
 
   return exitCode;

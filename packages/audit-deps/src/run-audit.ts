@@ -4,7 +4,7 @@ import process from 'node:process';
 import type { AuditResult } from './types.ts';
 
 /** Resolve the audit-ci binary path from node_modules. */
-function resolveAuditCiBin(): string {
+export function resolveAuditCiBin(): string {
   try {
     const resolved = import.meta.resolve('audit-ci');
     // Strip the file:// protocol and navigate to the bin entry
@@ -18,7 +18,7 @@ function resolveAuditCiBin(): string {
 }
 
 interface AuditCiAdvisory {
-  id: number;
+  id: number | string;
   module_name: string;
   url: string;
   findings: Array<{ paths: string[] }>;

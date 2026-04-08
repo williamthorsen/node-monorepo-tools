@@ -117,4 +117,19 @@ describe(routeCommand, () => {
     expect(exitCode).toBe(0);
     expect(initCommand).not.toHaveBeenCalled();
   });
+
+  it('forwards --config flag to reportCommand', async () => {
+    await routeCommand(['report', '--config', '/custom/audit.json']);
+    expect(reportCommand).toHaveBeenCalledWith(expect.objectContaining({ configPath: '/custom/audit.json' }));
+  });
+
+  it('forwards --dry-run flag to initCommand', async () => {
+    await routeCommand(['init', '--dry-run']);
+    expect(initCommand).toHaveBeenCalledWith({ dryRun: true, force: false });
+  });
+
+  it('forwards --force flag to initCommand', async () => {
+    await routeCommand(['init', '--force']);
+    expect(initCommand).toHaveBeenCalledWith({ dryRun: false, force: true });
+  });
 });
