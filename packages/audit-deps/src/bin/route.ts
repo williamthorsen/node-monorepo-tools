@@ -52,6 +52,56 @@ Options:
 `);
 }
 
+function showReportHelp(): void {
+  console.info(`
+Usage: audit-deps report [options]
+
+Report vulnerabilities without failing.
+
+Scope options:
+  --dev              Target dev dependencies only
+  --prod             Target production dependencies only
+
+Other options:
+  --config <path>    Path to config file (default: .config/audit-deps.config.json)
+  --json             Output results as JSON
+  --help, -h         Show this help message
+`);
+}
+
+function showSyncHelp(): void {
+  console.info(`
+Usage: audit-deps sync [options]
+
+Synchronize allowlists with current audit findings.
+
+Scope options:
+  --dev              Target dev dependencies only
+  --prod             Target production dependencies only
+
+Other options:
+  --config <path>    Path to config file (default: .config/audit-deps.config.json)
+  --json             Output results as JSON
+  --help, -h         Show this help message
+`);
+}
+
+function showGenerateHelp(): void {
+  console.info(`
+Usage: audit-deps generate [options]
+
+Regenerate flat audit-ci config files.
+
+Scope options:
+  --dev              Target dev dependencies only
+  --prod             Target production dependencies only
+
+Other options:
+  --config <path>    Path to config file (default: .config/audit-deps.config.json)
+  --help, -h         Show this help message
+`);
+}
+
 /** Parse the shared flags (--dev, --prod, --config, --json) from argv. */
 function parseSharedFlags(flags: string[]): CommandOptions {
   const flagSchema = {
@@ -114,15 +164,15 @@ export async function routeCommand(args: string[]): Promise<number> {
   }
 
   if (command === 'report') {
-    return handleSubcommand(args.slice(1), reportCommand);
+    return handleSubcommand(args.slice(1), reportCommand, showReportHelp);
   }
 
   if (command === 'sync') {
-    return handleSubcommand(args.slice(1), syncCommand);
+    return handleSubcommand(args.slice(1), syncCommand, showSyncHelp);
   }
 
   if (command === 'generate') {
-    return handleSubcommand(args.slice(1), generateCommand);
+    return handleSubcommand(args.slice(1), generateCommand, showGenerateHelp);
   }
 
   // Check for typos before falling through to the default command
@@ -140,9 +190,10 @@ export async function routeCommand(args: string[]): Promise<number> {
 async function handleSubcommand(
   flags: string[],
   handler: (options: CommandOptions) => Promise<number>,
+  helpFn: () => void = showHelp,
 ): Promise<number> {
   if (flags.some((f) => f === '--help' || f === '-h')) {
-    showHelp();
+    helpFn();
     return 0;
   }
 

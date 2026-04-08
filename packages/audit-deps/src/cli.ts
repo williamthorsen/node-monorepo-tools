@@ -25,11 +25,17 @@ export async function auditCommand(options: CommandOptions): Promise<number> {
 
     const result = runAudit({ configPath, json: options.json });
 
+    for (const warning of result.warnings) {
+      process.stderr.write(`warning: ${warning}\n`);
+    }
+
     if (result.staleEntries.length > 0) {
       process.stderr.write(`warning: stale allowlist entries in ${scope}: ${result.staleEntries.join(', ')}\n`);
     }
 
     if (options.json) {
+      process.stdout.write(result.stdout);
+    } else if (result.stdout.length > 0) {
       process.stdout.write(result.stdout);
     } else if (result.stderr.length > 0) {
       process.stderr.write(result.stderr);
@@ -60,6 +66,9 @@ export async function reportCommand(options: CommandOptions): Promise<number> {
     if (configPath === undefined) continue;
 
     const report = runReport({ configPath });
+    for (const warning of report.warnings) {
+      process.stderr.write(`warning: ${warning}\n`);
+    }
     for (const result of report.results) {
       if (!allResults.some((r) => r.id === result.id)) {
         allResults.push(result);
@@ -85,19 +94,26 @@ export async function reportCommand(options: CommandOptions): Promise<number> {
 /**
  * Run the `sync` subcommand.
  *
- * Audits each scope in report mode, then updates the allowlist to match current findings.
+ * Audits each scope in report mode without allowlist filtering, then updates
+ * the allowlist to match current findings. Uses a stripped config so audit-ci
+ * reports ALL current vulnerabilities, not just un-allowlisted ones.
  */
 export async function syncCommand(options: CommandOptions): Promise<number> {
   const loaded = await loadAndGenerate(options);
   if (loaded === undefined) return 1;
 
-  let { config, configDir, configFilePath, scopes, generatedPaths } = loaded;
+  const { configDir, configFilePath, scopes } = loaded;
+  let { config } = loaded;
 
   for (const scope of scopes) {
-    const configPath = generatedPaths.get(scope);
-    if (configPath === undefined) continue;
+    // Generate a config without the allowlist so sync sees all vulnerabilities
+    const strippedScope = { ...config[scope], allowlist: [] };
+    const strippedConfigPath = await generateAuditCiConfig(strippedScope, scope, configDir, config.outDir);
 
-    const report = runReport({ configPath });
+    const report = runReport({ configPath: strippedConfigPath });
+    for (const warning of report.warnings) {
+      process.stderr.write(`warning: ${warning}\n`);
+    }
     const { syncResult, updatedConfig } = await syncAllowlist(config, scope, report.results, configFilePath);
     config = updatedConfig;
 
@@ -164,7 +180,13 @@ async function loadAndGenerate(options: CommandOptions): Promise<LoadedState | u
   const generatedPaths = new Map<AuditScope, string>();
 
   for (const scope of scopes) {
-    const outputPath = await generateAuditCiConfig(config[scope], scope, configDir, config.outDir);
+    let outputPath: string;
+    try {
+      outputPath = await generateAuditCiConfig(config[scope], scope, configDir, config.outDir);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to generate config for scope '${scope}': ${message}`);
+    }
     generatedPaths.set(scope, outputPath);
   }
 

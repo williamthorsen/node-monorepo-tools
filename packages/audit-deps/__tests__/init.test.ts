@@ -1,0 +1,115 @@
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { tmpdir } from 'node:os';
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { scaffoldConfig } from '../src/init/scaffold.ts';
+import { initCommand } from '../src/init/initCommand.ts';
+
+describe(scaffoldConfig, () => {
+  let originalCwd: string;
+  let tempDir: string;
+
+  beforeEach(() => {
+    originalCwd = process.cwd();
+    tempDir = path.join(tmpdir(), `audit-deps-init-test-${Date.now()}`);
+    mkdirSync(tempDir, { recursive: true });
+    process.chdir(tempDir);
+  });
+
+  afterEach(() => {
+    process.chdir(originalCwd);
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it('creates config file with expected template content', () => {
+    const result = scaffoldConfig({ dryRun: false, force: false });
+
+    expect(result.configResult.outcome).toBe('created');
+    const configPath = path.join(tempDir, '.config', 'audit-deps.config.json');
+    expect(existsSync(configPath)).toBe(true);
+
+    const content = JSON.parse(readFileSync(configPath, 'utf8'));
+    expect(content).toHaveProperty('dev');
+    expect(content).toHaveProperty('prod');
+    expect(content.dev).toHaveProperty('allowlist');
+    expect(content.prod).toHaveProperty('allowlist');
+  });
+
+  it('skips without error when config already exists and force is false', () => {
+    const configPath = path.join(tempDir, '.config', 'audit-deps.config.json');
+    mkdirSync(path.dirname(configPath), { recursive: true });
+    writeFileSync(configPath, '{"existing": true}', 'utf8');
+
+    const result = scaffoldConfig({ dryRun: false, force: false });
+    expect(result.configResult.outcome).toBe('skipped');
+
+    // Existing file should be unchanged
+    const content = readFileSync(configPath, 'utf8');
+    expect(JSON.parse(content)).toEqual({ existing: true });
+  });
+
+  it('overwrites existing file when force is true', () => {
+    const configPath = path.join(tempDir, '.config', 'audit-deps.config.json');
+    mkdirSync(path.dirname(configPath), { recursive: true });
+    writeFileSync(configPath, '{"existing": true}', 'utf8');
+
+    const result = scaffoldConfig({ dryRun: false, force: true });
+    expect(result.configResult.outcome).toBe('overwritten');
+
+    const content = JSON.parse(readFileSync(configPath, 'utf8'));
+    expect(content).toHaveProperty('dev');
+    expect(content).toHaveProperty('prod');
+  });
+
+  it('returns created outcome without writing in dry-run mode', () => {
+    const result = scaffoldConfig({ dryRun: true, force: false });
+
+    expect(result.configResult.outcome).toBe('created');
+    const configPath = path.join(tempDir, '.config', 'audit-deps.config.json');
+    expect(existsSync(configPath)).toBe(false);
+  });
+});
+
+describe(initCommand, () => {
+  let originalCwd: string;
+  let tempDir: string;
+
+  beforeEach(() => {
+    originalCwd = process.cwd();
+    tempDir = path.join(tmpdir(), `audit-deps-initcmd-test-${Date.now()}`);
+    mkdirSync(tempDir, { recursive: true });
+    process.chdir(tempDir);
+    // Suppress console output during tests
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    process.chdir(originalCwd);
+    rmSync(tempDir, { recursive: true, force: true });
+    vi.restoreAllMocks();
+  });
+
+  it('returns 0 on successful scaffold', () => {
+    const exitCode = initCommand({ dryRun: false, force: false });
+    expect(exitCode).toBe(0);
+  });
+
+  it('returns 0 in dry-run mode and does not write files', () => {
+    const exitCode = initCommand({ dryRun: true, force: false });
+    expect(exitCode).toBe(0);
+
+    const configPath = path.join(tempDir, '.config', 'audit-deps.config.json');
+    expect(existsSync(configPath)).toBe(false);
+  });
+
+  it('returns 0 when config already exists (skip, not error)', () => {
+    const configPath = path.join(tempDir, '.config', 'audit-deps.config.json');
+    mkdirSync(path.dirname(configPath), { recursive: true });
+    writeFileSync(configPath, '{"existing": true}', 'utf8');
+
+    const exitCode = initCommand({ dryRun: false, force: false });
+    expect(exitCode).toBe(0);
+  });
+});

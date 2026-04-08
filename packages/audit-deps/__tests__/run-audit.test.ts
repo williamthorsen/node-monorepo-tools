@@ -15,7 +15,7 @@ describe(parseAuditCiOutput, () => {
       },
     });
 
-    const results = parseAuditCiOutput(json);
+    const { results } = parseAuditCiOutput(json);
     expect(results).toHaveLength(1);
     expect(results[0]).toEqual({
       id: '1234',
@@ -38,17 +38,48 @@ describe(parseAuditCiOutput, () => {
       },
     ]);
 
-    const results = parseAuditCiOutput(json);
+    const { results } = parseAuditCiOutput(json);
     expect(results).toHaveLength(1);
     expect(results[0]?.id).toBe('5678');
   });
 
-  it('returns an empty array for invalid JSON', () => {
-    expect(parseAuditCiOutput('not json')).toEqual([]);
+  it('parses advisory with GHSA-format string ID', () => {
+    const json = JSON.stringify({
+      advisories: {
+        'GHSA-23c5-xmqv-rm74': {
+          id: 'GHSA-23c5-xmqv-rm74',
+          module_name: 'some-pkg',
+          url: 'https://github.com/advisories/GHSA-23c5-xmqv-rm74',
+          findings: [{ paths: ['some-pkg>dep'] }],
+        },
+      },
+    });
+
+    const { results } = parseAuditCiOutput(json);
+    expect(results).toHaveLength(1);
+    expect(results[0]).toEqual({
+      id: 'GHSA-23c5-xmqv-rm74',
+      path: 'some-pkg>dep',
+      url: 'https://github.com/advisories/GHSA-23c5-xmqv-rm74',
+    });
   });
 
-  it('returns an empty array for JSON with no advisories', () => {
-    expect(parseAuditCiOutput(JSON.stringify({}))).toEqual([]);
+  it('returns empty results and no warnings for invalid JSON when input is empty', () => {
+    const { results, warnings } = parseAuditCiOutput('');
+    expect(results).toEqual([]);
+    expect(warnings).toEqual([]);
+  });
+
+  it('returns empty results with a warning for non-empty invalid JSON', () => {
+    const { results, warnings } = parseAuditCiOutput('not json');
+    expect(results).toEqual([]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatch(/Failed to parse/);
+  });
+
+  it('returns empty results for JSON with no advisories', () => {
+    const { results } = parseAuditCiOutput(JSON.stringify({}));
+    expect(results).toEqual([]);
   });
 
   it('uses module_name as fallback path when findings are empty', () => {
@@ -63,7 +94,7 @@ describe(parseAuditCiOutput, () => {
       },
     });
 
-    const results = parseAuditCiOutput(json);
+    const { results } = parseAuditCiOutput(json);
     expect(results[0]?.path).toBe('some-pkg');
   });
 });
@@ -74,14 +105,23 @@ describe(extractStaleEntries, () => {
       allowlistedAdvisoriesNotFound: ['GHSA-old1', 'GHSA-old2'],
     });
 
-    expect(extractStaleEntries(json)).toEqual(['GHSA-old1', 'GHSA-old2']);
+    expect(extractStaleEntries(json).entries).toEqual(['GHSA-old1', 'GHSA-old2']);
   });
 
-  it('returns an empty array when no stale entries exist', () => {
-    expect(extractStaleEntries(JSON.stringify({}))).toEqual([]);
+  it('returns empty entries when no stale entries exist', () => {
+    expect(extractStaleEntries(JSON.stringify({})).entries).toEqual([]);
   });
 
-  it('returns an empty array for invalid JSON', () => {
-    expect(extractStaleEntries('not json')).toEqual([]);
+  it('returns empty entries and no warnings for empty input', () => {
+    const { entries, warnings } = extractStaleEntries('');
+    expect(entries).toEqual([]);
+    expect(warnings).toEqual([]);
+  });
+
+  it('returns empty entries with a warning for non-empty invalid JSON', () => {
+    const { entries, warnings } = extractStaleEntries('not json');
+    expect(entries).toEqual([]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatch(/Failed to parse/);
   });
 });

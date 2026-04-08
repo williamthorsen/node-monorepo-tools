@@ -12,11 +12,11 @@ function formatUtcDate(date: Date): string {
  *
  * Produces consistent, reviewable JSON diffs regardless of insertion order.
  */
-function serializeEntry(entry: AllowlistEntry): Record<string, string | undefined> {
+function serializeEntry(entry: AllowlistEntry): Record<string, string> {
   return {
     id: entry.id,
     path: entry.path,
-    reason: entry.reason,
+    ...(entry.reason !== undefined && { reason: entry.reason }),
     url: entry.url,
   };
 }
@@ -128,7 +128,12 @@ export async function syncAllowlist(
   const { added, kept, removed } = computeSyncDiff(config[scope].allowlist, auditResults, date);
   const updatedConfig = buildUpdatedConfig(config, scope, [...kept, ...added]);
 
-  await writeFile(configFilePath, serializeConfig(updatedConfig), 'utf8');
+  try {
+    await writeFile(configFilePath, serializeConfig(updatedConfig), 'utf8');
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to write config file '${configFilePath}': ${message}`);
+  }
 
   return {
     syncResult: { added, kept, removed, scope },

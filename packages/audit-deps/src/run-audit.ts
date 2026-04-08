@@ -9,9 +9,9 @@ function resolveAuditCiBin(): string {
     const resolved = import.meta.resolve('audit-ci');
     // Strip the file:// protocol and navigate to the bin entry
     const modulePath = new URL(resolved).pathname;
-    // audit-ci's bin is at the package root's bin/audit-ci.js
+    // audit-ci v7 ships its CLI at dist/bin.js
     const pkgDir = modulePath.replace(/\/dist\/.*$/, '');
-    return `${pkgDir}/lib/audit-ci.js`;
+    return `${pkgDir}/dist/bin.js`;
   } catch {
     return 'audit-ci';
   }
@@ -24,29 +24,40 @@ interface AuditCiAdvisory {
   findings: Array<{ paths: string[] }>;
 }
 
+/** Result of parsing audit-ci output, including any warnings. */
+export interface ParseResult {
+  results: AuditResult[];
+  warnings: string[];
+}
+
 /**
  * Parse audit-ci JSON output into typed audit results.
  *
  * Extracts advisories from the JSON, mapping each to an `AuditResult` with
- * the first discovered dependency path.
+ * the first discovered dependency path. Returns warnings when input is
+ * non-empty but not parseable.
  */
-export function parseAuditCiOutput(jsonString: string): AuditResult[] {
-  const results: AuditResult[] = [];
+export function parseAuditCiOutput(jsonString: string): ParseResult {
+  const warnings: string[] = [];
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(jsonString);
   } catch {
-    return results;
+    if (jsonString.trim().length > 0) {
+      warnings.push(`Failed to parse audit-ci output as JSON (${jsonString.length} bytes)`);
+    }
+    return { results: [], warnings };
   }
 
   if (typeof parsed !== 'object' || parsed === null) {
-    return results;
+    return { results: [], warnings };
   }
 
   // audit-ci outputs an array of action objects; advisories live inside them.
   // Try multiple known output shapes.
   const advisories = extractAdvisories(parsed);
+  const results: AuditResult[] = [];
   for (const advisory of advisories) {
     results.push({
       id: String(advisory.id),
@@ -55,7 +66,7 @@ export function parseAuditCiOutput(jsonString: string): AuditResult[] {
     });
   }
 
-  return results;
+  return { results, warnings };
 }
 
 /** Extract advisory objects from various audit-ci output shapes. */
@@ -92,24 +103,35 @@ function extractPath(advisory: AuditCiAdvisory): string {
   return firstPath ?? advisory.module_name ?? 'unknown';
 }
 
+/** Result of extracting stale entries, including any warnings. */
+export interface StaleEntriesResult {
+  entries: string[];
+  warnings: string[];
+}
+
 /** Extract stale allowlist entries from audit-ci JSON output. */
-export function extractStaleEntries(jsonString: string): string[] {
+export function extractStaleEntries(jsonString: string): StaleEntriesResult {
+  const warnings: string[] = [];
+
   let parsed: unknown;
   try {
     parsed = JSON.parse(jsonString);
   } catch {
-    return [];
+    if (jsonString.trim().length > 0) {
+      warnings.push(`Failed to parse audit-ci output as JSON for stale entry detection (${jsonString.length} bytes)`);
+    }
+    return { entries: [], warnings };
   }
 
-  if (typeof parsed !== 'object' || parsed === null) return [];
+  if (typeof parsed !== 'object' || parsed === null) return { entries: [], warnings };
 
   const record = parsed as Record<string, unknown>;
   const notFound = record['allowlistedAdvisoriesNotFound'];
   if (Array.isArray(notFound)) {
-    return notFound.filter((item): item is string => typeof item === 'string');
+    return { entries: notFound.filter((item): item is string => typeof item === 'string'), warnings };
   }
 
-  return [];
+  return { entries: [], warnings };
 }
 
 /** Options for running audit-ci. */
@@ -125,6 +147,7 @@ export interface AuditRunResult {
   staleEntries: string[];
   stdout: string;
   stderr: string;
+  warnings: string[];
 }
 
 /**
@@ -136,7 +159,8 @@ export interface AuditRunResult {
  */
 export function runAudit({ configPath, cwd, json }: RunAuditOptions): AuditRunResult {
   const bin = resolveAuditCiBin();
-  const args = ['--config', configPath, '--output-format', 'json'];
+  const outputFormat = json ? 'json' : 'text';
+  const args = ['--config', configPath, '--output-format', outputFormat];
 
   const result = spawnSync(process.execPath, [bin, ...args], {
     cwd: cwd ?? process.cwd(),
@@ -144,15 +168,21 @@ export function runAudit({ configPath, cwd, json }: RunAuditOptions): AuditRunRe
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
-  const stdout = result.stdout ?? '';
-  const stderr = result.stderr ?? '';
-  const staleEntries = extractStaleEntries(stdout);
-
-  if (json) {
-    return { exitCode: result.status ?? 1, staleEntries, stdout, stderr };
+  if (result.error) {
+    throw new Error(`Failed to launch audit-ci: ${result.error.message}`);
   }
 
-  return { exitCode: result.status ?? 1, staleEntries, stdout, stderr };
+  const stdout = result.stdout ?? '';
+  const stderr = result.stderr ?? '';
+  const staleResult = json ? extractStaleEntries(stdout) : { entries: [], warnings: [] };
+
+  return {
+    exitCode: result.status ?? 1,
+    staleEntries: staleResult.entries,
+    stdout,
+    stderr,
+    warnings: staleResult.warnings,
+  };
 }
 
 /** Result from a report-mode audit run. */
@@ -160,6 +190,7 @@ export interface ReportResult {
   results: AuditResult[];
   stdout: string;
   stderr: string;
+  warnings: string[];
 }
 
 /**
@@ -177,9 +208,13 @@ export function runReport({ configPath, cwd }: Omit<RunAuditOptions, 'json'>): R
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
+  if (result.error) {
+    throw new Error(`Failed to launch audit-ci: ${result.error.message}`);
+  }
+
   const stdout = result.stdout ?? '';
   const stderr = result.stderr ?? '';
-  const results = parseAuditCiOutput(stdout);
+  const parseResult = parseAuditCiOutput(stdout);
 
-  return { results, stdout, stderr };
+  return { results: parseResult.results, stdout, stderr, warnings: parseResult.warnings };
 }

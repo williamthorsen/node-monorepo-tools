@@ -48,6 +48,16 @@ describe(computeSyncDiff, () => {
     expect(removed).toHaveLength(0);
   });
 
+  it('keeps entry without reason when ID is still in audit output', () => {
+    const current: AllowlistEntry[] = [{ id: '1001', path: 'lodash', url: 'https://example.com/1001' }];
+    const audit: AuditResult[] = [{ id: '1001', path: 'lodash', url: 'https://example.com/1001' }];
+
+    const { kept } = computeSyncDiff(current, audit, fixedDate);
+
+    expect(kept).toHaveLength(1);
+    expect(kept[0]?.reason).toBeUndefined();
+  });
+
   it('computes a mixed diff with additions and removals', () => {
     const current: AllowlistEntry[] = [
       { id: '1001', path: 'lodash', url: 'https://example.com/1001' },
@@ -109,6 +119,20 @@ describe(serializeConfig, () => {
     const parsed = JSON.parse(json);
     const keys = Object.keys(parsed.dev.allowlist[0]);
     expect(keys).toEqual(['id', 'path', 'reason', 'url']);
+  });
+
+  it('omits reason key when entry has no reason', () => {
+    const config: AuditDepsConfig = {
+      dev: {
+        allowlist: [{ id: '1001', path: 'lodash', url: 'https://example.com' }],
+      },
+      prod: { allowlist: [] },
+    };
+
+    const json = serializeConfig(config);
+    const parsed = JSON.parse(json);
+    expect(Object.keys(parsed.dev.allowlist[0])).toEqual(['id', 'path', 'url']);
+    expect(parsed.dev.allowlist[0]).not.toHaveProperty('reason');
   });
 });
 
