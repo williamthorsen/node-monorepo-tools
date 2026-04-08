@@ -108,7 +108,13 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
   for (const scope of scopes) {
     // Generate a config without the allowlist so sync sees all vulnerabilities
     const strippedScope = { ...config[scope], allowlist: [] };
-    const strippedConfigPath = await generateAuditCiConfig(strippedScope, scope, configDir, config.outDir);
+    let strippedConfigPath: string;
+    try {
+      strippedConfigPath = await generateAuditCiConfig(strippedScope, scope, configDir, config.outDir);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to generate config for scope '${scope}': ${message}`);
+    }
 
     const report = runReport({ configPath: strippedConfigPath });
     for (const warning of report.warnings) {
@@ -129,7 +135,12 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
 
   // Regenerate flat configs after sync
   for (const scope of scopes) {
-    await generateAuditCiConfig(config[scope], scope, configDir, config.outDir);
+    try {
+      await generateAuditCiConfig(config[scope], scope, configDir, config.outDir);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to generate config for scope '${scope}': ${message}`);
+    }
   }
 
   return 0;

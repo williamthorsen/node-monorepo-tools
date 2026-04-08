@@ -182,6 +182,12 @@ export async function routeCommand(args: string[]): Promise<number> {
     return 1;
   }
 
+  // Reject non-flag positional arguments that don't match a known subcommand
+  if (!command.startsWith('-')) {
+    process.stderr.write(`Error: Unknown command '${command}'.\n`);
+    return 1;
+  }
+
   // Default: treat all args as audit command options
   return handleSubcommand(args, auditCommand);
 }
