@@ -46,17 +46,32 @@ describe(routeCommand, () => {
 
   it('dispatches "report" to reportCommand', async () => {
     await routeCommand(['report']);
-    expect(reportCommand).toHaveBeenCalled();
+    expect(reportCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: [] }));
+  });
+
+  it('dispatches "report --dev" with scopes ["dev"]', async () => {
+    await routeCommand(['report', '--dev']);
+    expect(reportCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: ['dev'] }));
+  });
+
+  it('dispatches "report --prod" with scopes ["prod"]', async () => {
+    await routeCommand(['report', '--prod']);
+    expect(reportCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: ['prod'] }));
   });
 
   it('dispatches "sync" to syncCommand', async () => {
     await routeCommand(['sync']);
-    expect(syncCommand).toHaveBeenCalled();
+    expect(syncCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: [] }));
+  });
+
+  it('dispatches "sync --dev" with scopes ["dev"]', async () => {
+    await routeCommand(['sync', '--dev']);
+    expect(syncCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: ['dev'] }));
   });
 
   it('dispatches "generate" to generateCommand', async () => {
     await routeCommand(['generate']);
-    expect(generateCommand).toHaveBeenCalled();
+    expect(generateCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: [] }));
   });
 
   it('dispatches "init" to initCommand', async () => {
@@ -66,11 +81,16 @@ describe(routeCommand, () => {
 
   it('falls through to auditCommand for unknown flags', async () => {
     await routeCommand(['--json']);
-    expect(auditCommand).toHaveBeenCalled();
+    expect(auditCommand).toHaveBeenCalledWith(expect.objectContaining({ json: true }));
   });
 
   it('returns 1 for unknown command with typo match', async () => {
     const exitCode = await routeCommand(['rep']);
+    expect(exitCode).toBe(1);
+  });
+
+  it('returns 1 for unknown positional argument', async () => {
+    const exitCode = await routeCommand(['foo']);
     expect(exitCode).toBe(1);
   });
 
