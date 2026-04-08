@@ -13,6 +13,14 @@ describe(syncLabelsWorkflow, () => {
     );
   });
 
+  it('includes permissions for contents and issues', () => {
+    const result = syncLabelsWorkflow();
+
+    expect(result).toContain('permissions:');
+    expect(result).toContain('contents: read');
+    expect(result).toContain('issues: write');
+  });
+
   it('includes the yaml-language-server schema comment', () => {
     const result = syncLabelsWorkflow();
 
@@ -35,6 +43,16 @@ describe(syncLabelsConfigScript, () => {
     expect(result).toContain("presets: ['common']");
     expect(result).toContain('labels: [');
     expect(result).toContain('],');
+  });
+
+  it('indents label objects by 4 spaces', () => {
+    const scopeLabels: LabelDefinition[] = [
+      { name: 'scope:root', color: '00ff96', description: 'Monorepo root configuration' },
+    ];
+
+    const result = syncLabelsConfigScript(scopeLabels);
+
+    expect(result).toContain("    { name: 'scope:root'");
   });
 
   it('interpolates scope labels correctly', () => {

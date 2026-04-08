@@ -10,6 +10,10 @@ name: Sync labels
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   sync:
     uses: williamthorsen/node-monorepo-tools/.github/workflows/sync-labels.reusable.yaml@sync-labels-workflow-v1
@@ -42,7 +46,7 @@ export function syncLabelsConfigScript(scopeLabels: LabelDefinition[]): string {
       const name = escapeForSingleQuotedString(label.name);
       const color = escapeForSingleQuotedString(label.color);
       const description = escapeForSingleQuotedString(label.description);
-      return `  { name: '${name}', color: '${color}', description: '${description}' },`;
+      return `    { name: '${name}', color: '${color}', description: '${description}' },`;
     })
     .join('\n');
 
