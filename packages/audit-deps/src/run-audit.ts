@@ -62,11 +62,30 @@ export function parseAuditCiOutput(jsonString: string): ParseResult {
     results.push({
       id: String(advisory.id),
       path: extractPath(advisory),
-      url: advisory.url ?? `https://github.com/advisories/GHSA-${advisory.id}`,
+      url: advisory.url,
     });
   }
 
   return { results, warnings };
+}
+
+/** Narrow an unknown value to a non-null object. */
+function isObject(value: unknown): value is object {
+  return typeof value === 'object' && value !== null;
+}
+
+/** Check whether a value has the shape of an AuditCiAdvisory. */
+function isAuditCiAdvisory(value: unknown): value is AuditCiAdvisory {
+  if (!isObject(value)) return false;
+  return 'id' in value && 'url' in value && 'findings' in value;
+}
+
+/** Extract advisories from an object that has an `advisories` record. */
+function collectAdvisories(obj: object): AuditCiAdvisory[] {
+  if (!('advisories' in obj) || typeof obj.advisories !== 'object' || obj.advisories === null) {
+    return [];
+  }
+  return Object.values(obj.advisories).filter(isAuditCiAdvisory);
 }
 
 /** Extract advisory objects from various audit-ci output shapes. */
@@ -74,20 +93,16 @@ function extractAdvisories(parsed: unknown): AuditCiAdvisory[] {
   if (typeof parsed !== 'object' || parsed === null) return [];
 
   // Shape: { advisories: { [id]: advisory } }
-  const record = parsed as Record<string, unknown>;
-  if (record['advisories'] !== undefined && typeof record['advisories'] === 'object' && record['advisories'] !== null) {
-    return Object.values(record['advisories'] as Record<string, AuditCiAdvisory>);
+  if ('advisories' in parsed) {
+    return collectAdvisories(parsed);
   }
 
   // Shape: array of objects with an advisories field
   if (Array.isArray(parsed)) {
     const advisories: AuditCiAdvisory[] = [];
     for (const item of parsed) {
-      if (typeof item === 'object' && item !== null) {
-        const obj = item as Record<string, unknown>;
-        if (obj['advisories'] !== undefined && typeof obj['advisories'] === 'object' && obj['advisories'] !== null) {
-          advisories.push(...Object.values(obj['advisories'] as Record<string, AuditCiAdvisory>));
-        }
+      if (isObject(item)) {
+        advisories.push(...collectAdvisories(item));
       }
     }
     return advisories;
@@ -98,9 +113,9 @@ function extractAdvisories(parsed: unknown): AuditCiAdvisory[] {
 
 /** Extract the first dependency path from an advisory's findings. */
 function extractPath(advisory: AuditCiAdvisory): string {
-  const firstFinding = advisory.findings?.[0];
-  const firstPath = firstFinding?.paths?.[0];
-  return firstPath ?? advisory.module_name ?? 'unknown';
+  const firstFinding = advisory.findings[0];
+  const firstPath = firstFinding?.paths[0];
+  return firstPath ?? advisory.module_name;
 }
 
 /** Result of extracting stale entries, including any warnings. */
@@ -124,9 +139,9 @@ export function extractStaleEntries(jsonString: string): StaleEntriesResult {
   }
 
   if (typeof parsed !== 'object' || parsed === null) return { entries: [], warnings };
+  if (!('allowlistedAdvisoriesNotFound' in parsed)) return { entries: [], warnings };
 
-  const record = parsed as Record<string, unknown>;
-  const notFound = record['allowlistedAdvisoriesNotFound'];
+  const notFound = parsed.allowlistedAdvisoriesNotFound;
   if (Array.isArray(notFound)) {
     return { entries: notFound.filter((item): item is string => typeof item === 'string'), warnings };
   }
@@ -172,8 +187,8 @@ export function runAudit({ configPath, cwd, json }: RunAuditOptions): AuditRunRe
     throw new Error(`Failed to launch audit-ci: ${result.error.message}`);
   }
 
-  const stdout = result.stdout ?? '';
-  const stderr = result.stderr ?? '';
+  const stdout = result.stdout;
+  const stderr = result.stderr;
   const staleResult = json ? extractStaleEntries(stdout) : { entries: [], warnings: [] };
 
   return {
@@ -212,8 +227,8 @@ export function runReport({ configPath, cwd }: Omit<RunAuditOptions, 'json'>): R
     throw new Error(`Failed to launch audit-ci: ${result.error.message}`);
   }
 
-  const stdout = result.stdout ?? '';
-  const stderr = result.stderr ?? '';
+  const stdout = result.stdout;
+  const stderr = result.stderr;
   const parseResult = parseAuditCiOutput(stdout);
 
   return { results: parseResult.results, stdout, stderr, warnings: parseResult.warnings };

@@ -1,11 +1,11 @@
 import process from 'node:process';
 
-import type { AuditDepsConfig, AuditScope, CommandOptions } from './types.ts';
-import { AUDIT_SCOPES } from './types.ts';
 import { loadConfig } from './config.ts';
 import { generateAuditCiConfig } from './generate.ts';
 import { parseAuditCiOutput, runAudit, runReport } from './run-audit.ts';
 import { syncAllowlist } from './sync.ts';
+import type { AuditDepsConfig, AuditScope, CommandOptions } from './types.ts';
+import { AUDIT_SCOPES } from './types.ts';
 
 /**
  * Run the default audit command (CI mode).

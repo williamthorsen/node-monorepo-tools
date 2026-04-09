@@ -246,14 +246,15 @@ describe(auditCommand, () => {
 
     await auditCommand(makeOptions({ json: true }));
 
-    const parsed = JSON.parse(stdoutOutput) as Array<{ id: string }>;
-    const ids = parsed.map((r) => r.id);
-    expect(ids).toHaveLength(3);
-    expect(ids).toContain('GHSA-shared');
-    expect(ids).toContain('GHSA-dev-only');
-    expect(ids).toContain('GHSA-prod-only');
-    // Verify no duplicates
-    expect(new Set(ids).size).toBe(ids.length);
+    const parsed: unknown = JSON.parse(stdoutOutput);
+    expect(parsed).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'GHSA-shared' }),
+        expect.objectContaining({ id: 'GHSA-dev-only' }),
+        expect.objectContaining({ id: 'GHSA-prod-only' }),
+      ]),
+    );
+    expect(parsed).toHaveLength(3);
   });
 
   it('audits both scopes when no scopes are specified', async () => {

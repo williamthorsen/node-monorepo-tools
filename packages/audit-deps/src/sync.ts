@@ -83,6 +83,7 @@ export function buildUpdatedConfig(
   scope: AuditScope,
   newAllowlist: AllowlistEntry[],
 ): AuditDepsConfig {
+  // eslint-disable-next-line unicorn/no-array-sort -- toSorted requires Node 20+; engine target is >=18.17.0
   const sorted = [...newAllowlist].sort((a, b) => a.id.localeCompare(b.id));
   return {
     ...config,

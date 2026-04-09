@@ -1,14 +1,14 @@
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import path from 'node:path';
 import { tmpdir } from 'node:os';
+import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { routeCommand } from '../src/bin/route.ts';
 import { loadConfig } from '../src/config.ts';
 import { generateAuditCiConfig } from '../src/generate.ts';
-import { computeSyncDiff, buildUpdatedConfig, serializeConfig } from '../src/sync.ts';
+import { buildUpdatedConfig, computeSyncDiff, serializeConfig } from '../src/sync.ts';
 import type { AuditDepsConfig, AuditResult } from '../src/types.ts';
 
 describe('integration: generate -> sync cycle', () => {
@@ -53,13 +53,13 @@ describe('integration: generate -> sync cycle', () => {
     expect(prodPath).toBe(path.join(outDir, 'audit-ci.prod.json'));
 
     // Verify generated content
-    const devContent = JSON.parse(await readFile(devPath, 'utf8'));
-    expect(devContent.moderate).toBe(true);
-    expect(devContent.allowlist).toEqual([]);
+    const devContent: unknown = JSON.parse(await readFile(devPath, 'utf8'));
+    expect(devContent).toHaveProperty('moderate', true);
+    expect(devContent).toHaveProperty('allowlist', []);
 
-    const prodContent = JSON.parse(await readFile(prodPath, 'utf8'));
-    expect(prodContent.high).toBe(true);
-    expect(prodContent.allowlist).toEqual(['GHSA-stale']);
+    const prodContent: unknown = JSON.parse(await readFile(prodPath, 'utf8'));
+    expect(prodContent).toHaveProperty('high', true);
+    expect(prodContent).toHaveProperty('allowlist', ['GHSA-stale']);
 
     // Step 4: Simulate audit results (mocking audit-ci output)
     const prodAuditResults: AuditResult[] = [{ id: 'GHSA-new1', path: 'new-pkg', url: 'https://example.com/new1' }];
@@ -91,8 +91,8 @@ describe('integration: generate -> sync cycle', () => {
       path.dirname(configFilePath),
       reloaded.config.outDir,
     );
-    const updatedProdContent = JSON.parse(await readFile(updatedProdPath, 'utf8'));
-    expect(updatedProdContent.allowlist).toEqual(['GHSA-new1']);
+    const updatedProdContent: unknown = JSON.parse(await readFile(updatedProdPath, 'utf8'));
+    expect(updatedProdContent).toHaveProperty('allowlist', ['GHSA-new1']);
   });
 
   it('works with a custom config path', async () => {
@@ -114,8 +114,8 @@ describe('integration: generate -> sync cycle', () => {
     const devPath = await generateAuditCiConfig(loaded.config.dev, 'dev', customConfigDir, loaded.config.outDir);
     expect(devPath).toBe(path.join(customConfigDir, 'out', 'audit-ci.dev.json'));
 
-    const content = JSON.parse(await readFile(devPath, 'utf8'));
-    expect(content.allowlist).toEqual([]);
+    const content: unknown = JSON.parse(await readFile(devPath, 'utf8'));
+    expect(content).toHaveProperty('allowlist', []);
   });
 });
 

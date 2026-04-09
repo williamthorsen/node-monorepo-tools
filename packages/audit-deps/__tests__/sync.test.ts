@@ -1,6 +1,6 @@
 import { mkdir, readFile, rm } from 'node:fs/promises';
-import path from 'node:path';
 import { tmpdir } from 'node:os';
+import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -116,9 +116,10 @@ describe(serializeConfig, () => {
     };
 
     const json = serializeConfig(config);
-    const parsed = JSON.parse(json);
-    const keys = Object.keys(parsed.dev.allowlist[0]);
-    expect(keys).toEqual(['id', 'path', 'reason', 'url']);
+    // Re-parse through the typed loader to verify key order in raw JSON
+    const devMatch = json.match(/"allowlist":\s*\[\s*\{([^}]+)\}/);
+    const keyOrder = devMatch?.[1]?.match(/"(\w+)":/g)?.map((k) => k.replace(/"/g, '').replace(':', ''));
+    expect(keyOrder).toEqual(['id', 'path', 'reason', 'url']);
   });
 
   it('omits reason key when entry has no reason', () => {
@@ -130,9 +131,10 @@ describe(serializeConfig, () => {
     };
 
     const json = serializeConfig(config);
-    const parsed = JSON.parse(json);
-    expect(Object.keys(parsed.dev.allowlist[0])).toEqual(['id', 'path', 'url']);
-    expect(parsed.dev.allowlist[0]).not.toHaveProperty('reason');
+    const devMatch = json.match(/"allowlist":\s*\[\s*\{([^}]+)\}/);
+    const keyOrder = devMatch?.[1]?.match(/"(\w+)":/g)?.map((k) => k.replace(/"/g, '').replace(':', ''));
+    expect(keyOrder).toEqual(['id', 'path', 'url']);
+    expect(json).not.toContain('"reason"');
   });
 });
 
@@ -163,8 +165,8 @@ describe(syncAllowlist, () => {
     expect(syncResult.scope).toBe('dev');
     expect(updatedConfig.dev.allowlist).toHaveLength(1);
 
-    const written = JSON.parse(await readFile(configPath, 'utf8'));
-    expect(written.dev.allowlist).toHaveLength(1);
-    expect(written.dev.allowlist[0].id).toBe('1001');
+    const written: unknown = JSON.parse(await readFile(configPath, 'utf8'));
+    expect(written).toHaveProperty('dev.allowlist.length', 1);
+    expect(written).toHaveProperty('dev.allowlist[0].id', '1001');
   });
 });

@@ -1,6 +1,6 @@
 import { mkdir, readFile, rm } from 'node:fs/promises';
-import path from 'node:path';
 import { tmpdir } from 'node:os';
+import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -57,9 +57,9 @@ describe(generateAuditCiConfig, () => {
     const outputPath = await generateAuditCiConfig(scopeConfig, 'dev', tempDir);
 
     expect(outputPath).toBe(path.join(tempDir, 'audit-ci.dev.json'));
-    const content = JSON.parse(await readFile(outputPath, 'utf8'));
-    expect(content.allowlist).toEqual([]);
-    expect(content.moderate).toBe(true);
+    const content: unknown = JSON.parse(await readFile(outputPath, 'utf8'));
+    expect(content).toHaveProperty('allowlist', []);
+    expect(content).toHaveProperty('moderate', true);
   });
 
   it('resolves outDir relative to config directory', async () => {
@@ -69,8 +69,8 @@ describe(generateAuditCiConfig, () => {
     const expected = path.resolve(tempDir, '../tmp', 'audit-ci.prod.json');
     expect(outputPath).toBe(expected);
 
-    const content = JSON.parse(await readFile(outputPath, 'utf8'));
-    expect(content.high).toBe(true);
+    const content: unknown = JSON.parse(await readFile(outputPath, 'utf8'));
+    expect(content).toHaveProperty('high', true);
   });
 
   it('round-trips: load config values appear in generated JSON', async () => {
@@ -79,10 +79,10 @@ describe(generateAuditCiConfig, () => {
       critical: true,
     };
     const outputPath = await generateAuditCiConfig(scopeConfig, 'dev', tempDir);
-    const content = JSON.parse(await readFile(outputPath, 'utf8'));
+    const content: unknown = JSON.parse(await readFile(outputPath, 'utf8'));
 
-    expect(content.allowlist).toEqual(['GHSA-abcd']);
-    expect(content.critical).toBe(true);
-    expect(content['show-not-found']).toBe(true);
+    expect(content).toHaveProperty('allowlist', ['GHSA-abcd']);
+    expect(content).toHaveProperty('critical', true);
+    expect(content).toHaveProperty('show-not-found', true);
   });
 });

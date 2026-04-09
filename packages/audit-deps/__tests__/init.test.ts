@@ -1,11 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import path from 'node:path';
 import { tmpdir } from 'node:os';
+import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { scaffoldConfig } from '../src/init/scaffold.ts';
 import { initCommand } from '../src/init/initCommand.ts';
+import { scaffoldConfig } from '../src/init/scaffold.ts';
 
 describe(scaffoldConfig, () => {
   let originalCwd: string;
@@ -30,11 +30,9 @@ describe(scaffoldConfig, () => {
     const configPath = path.join(tempDir, '.config', 'audit-deps.config.json');
     expect(existsSync(configPath)).toBe(true);
 
-    const content = JSON.parse(readFileSync(configPath, 'utf8'));
-    expect(content).toHaveProperty('dev');
-    expect(content).toHaveProperty('prod');
-    expect(content.dev).toHaveProperty('allowlist');
-    expect(content.prod).toHaveProperty('allowlist');
+    const content: unknown = JSON.parse(readFileSync(configPath, 'utf8'));
+    expect(content).toHaveProperty('dev.allowlist');
+    expect(content).toHaveProperty('prod.allowlist');
   });
 
   it('skips without error when config already exists and force is false', () => {

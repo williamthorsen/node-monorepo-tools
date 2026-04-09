@@ -11,9 +11,9 @@ vi.mock('../src/init/initCommand.ts', () => ({
   initCommand: vi.fn().mockReturnValue(0),
 }));
 
+import { routeCommand } from '../src/bin/route.ts';
 import { auditCommand, generateCommand, reportCommand, syncCommand } from '../src/cli.ts';
 import { initCommand } from '../src/init/initCommand.ts';
-import { routeCommand } from '../src/bin/route.ts';
 
 describe(routeCommand, () => {
   afterEach(() => {
