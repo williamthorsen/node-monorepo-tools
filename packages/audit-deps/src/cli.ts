@@ -7,6 +7,11 @@ import { syncAllowlist } from './sync.ts';
 import type { AuditDepsConfig, AuditScope, CommandOptions } from './types.ts';
 import { AUDIT_SCOPES } from './types.ts';
 
+/** Extract a displayable message from an unknown thrown value. */
+export function extractMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 /**
  * Run the default audit command (CI mode).
  *
@@ -45,11 +50,14 @@ export async function auditCommand(options: CommandOptions): Promise<number> {
           allResults.push(r);
         }
       }
-    } else if (result.stdout.length > 0) {
-      // Text mode: output raw stdout per scope (dedup not possible without structure)
-      process.stdout.write(result.stdout);
-    } else if (result.stderr.length > 0) {
-      process.stderr.write(result.stderr);
+    } else {
+      // Text mode: forward both stdout and stderr independently
+      if (result.stdout.length > 0) {
+        process.stdout.write(result.stdout);
+      }
+      if (result.stderr.length > 0) {
+        process.stderr.write(result.stderr);
+      }
     }
 
     if (result.exitCode !== 0) {
@@ -114,11 +122,18 @@ export async function reportCommand(options: CommandOptions): Promise<number> {
  * reports ALL current vulnerabilities, not just un-allowlisted ones.
  */
 export async function syncCommand(options: CommandOptions): Promise<number> {
-  const loaded = await loadAndGenerate(options);
-  if (loaded === undefined) return 1;
+  let config: AuditDepsConfig;
+  let configDir: string;
+  let configFilePath: string;
 
-  const { configDir, configFilePath, scopes } = loaded;
-  let { config } = loaded;
+  try {
+    ({ config, configDir, configFilePath } = await loadConfig(options.configPath));
+  } catch (error: unknown) {
+    process.stderr.write(`Error: ${extractMessage(error)}\n`);
+    return 1;
+  }
+
+  const scopes = options.scopes.length > 0 ? options.scopes : [...AUDIT_SCOPES];
 
   for (const scope of scopes) {
     // Generate a config without the allowlist so sync sees all vulnerabilities
@@ -127,8 +142,7 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
     try {
       strippedConfigPath = await generateAuditCiConfig(strippedScope, scope, configDir, config.outDir);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to generate config for scope '${scope}': ${message}`);
+      throw new Error(`Failed to generate config for scope '${scope}': ${extractMessage(error)}`);
     }
 
     const report = runReport({ configPath: strippedConfigPath });
@@ -153,8 +167,7 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
     try {
       await generateAuditCiConfig(config[scope], scope, configDir, config.outDir);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to generate config for scope '${scope}': ${message}`);
+      throw new Error(`Failed to generate config for scope '${scope}': ${extractMessage(error)}`);
     }
   }
 
@@ -198,7 +211,7 @@ async function loadAndGenerate(options: CommandOptions): Promise<LoadedState | u
   try {
     ({ config, configDir, configFilePath } = await loadConfig(options.configPath));
   } catch (error: unknown) {
-    process.stderr.write(`Error: ${error instanceof Error ? error.message : String(error)}\n`);
+    process.stderr.write(`Error: ${extractMessage(error)}\n`);
     return undefined;
   }
 
@@ -210,8 +223,7 @@ async function loadAndGenerate(options: CommandOptions): Promise<LoadedState | u
     try {
       outputPath = await generateAuditCiConfig(config[scope], scope, configDir, config.outDir);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to generate config for scope '${scope}': ${message}`);
+      throw new Error(`Failed to generate config for scope '${scope}': ${extractMessage(error)}`);
     }
     generatedPaths.set(scope, outputPath);
   }

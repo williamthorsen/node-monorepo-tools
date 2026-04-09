@@ -2,18 +2,13 @@ import process from 'node:process';
 
 import { parseArgs, translateParseError } from '@williamthorsen/node-monorepo-core';
 
-import { auditCommand, generateCommand, reportCommand, syncCommand } from '../cli.ts';
+import { auditCommand, extractMessage, generateCommand, reportCommand, syncCommand } from '../cli.ts';
 import { initCommand } from '../init/initCommand.ts';
 import type { AuditScope, CommandOptions } from '../types.ts';
 import { VERSION } from '../version.ts';
 
 const SUBCOMMANDS = ['generate', 'init', 'report', 'sync'];
 const MIN_PREFIX_LENGTH = 3;
-
-/** Extract a displayable message from an unknown thrown value. */
-function extractMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 
 function showHelp(): void {
   console.info(`
