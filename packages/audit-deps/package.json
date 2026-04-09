@@ -1,0 +1,52 @@
+{
+  "name": "@williamthorsen/audit-deps",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Wrap audit-ci with a richer config model, typed JSON source of truth, and sync workflow",
+  "keywords": [
+    "audit",
+    "audit-ci",
+    "dependencies",
+    "security",
+    "vulnerabilities"
+  ],
+  "homepage": "https://github.com/williamthorsen/node-monorepo-tools/tree/main/packages/audit-deps#readme",
+  "bugs": {
+    "url": "https://github.com/williamthorsen/node-monorepo-tools/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/williamthorsen/node-monorepo-tools.git",
+    "directory": "packages/audit-deps"
+  },
+  "license": "MIT",
+  "author": "William Thorsen <william@thorsen.dev> (https://github.com/williamthorsen)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/esm/index.js",
+      "types": "./dist/esm/index.d.ts"
+    }
+  },
+  "bin": {
+    "audit-deps": "bin/audit-deps.js"
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "scripts": {
+    "prepare": "tsx ../../config/generateVersion.ts && tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json"
+  },
+  "dependencies": {
+    "@williamthorsen/node-monorepo-core": "workspace:*",
+    "audit-ci": "7.1.0",
+    "zod": "4.3.6"
+  },
+  "engines": {
+    "node": ">=18.17.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,5 +1,15 @@
 # PNPM Node monorepo
 
+## Packages
+
+| Package                                               | Description                                                 |
+| ----------------------------------------------------- | ----------------------------------------------------------- |
+| [`@williamthorsen/audit-deps`](packages/audit-deps)   | Wraps audit-ci with a richer config model and sync workflow |
+| [`@williamthorsen/nmr`](packages/nmr)                 | Context-aware script runner for PNPM monorepos              |
+| [`@williamthorsen/node-monorepo-core`](packages/core) | Shared utilities for monorepo tools                         |
+| [`@williamthorsen/preflight`](packages/preflight)     | Pre-deployment verification checks                          |
+| [`@williamthorsen/release-kit`](packages/release-kit) | Version-bumping and changelog generation                    |
+
 ## Getting started
 
 This project uses [pnpm](https://github.com/pnpm/pnpm) and NodeJS. The versions of each are set in `.tool-versions`.
