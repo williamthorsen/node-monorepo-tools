@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [nmr-v0.9.1] - 2026-04-10
+
+### Tooling
+
+- Nmr|tooling: Improve migration checklist
+
 ## [nmr-v0.9.0] - 2026-04-04
 
 ### Documentation

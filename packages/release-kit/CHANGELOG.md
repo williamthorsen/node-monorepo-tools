@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [release-kit-v4.5.1] - 2026-04-10
+
+### Bug fixes
+
+- #178 release-kit|fix: Fix sync-labels init scaffolding output (#179)
+
+Fixes three issues in `release-kit sync-labels init` scaffolding output that cause immediate errors for consumers: adds missing workflow permissions, corrects config template indentation from 2 to 4 spaces, and switches YAML quoting from double to single quotes.
+
 ## [release-kit-v4.5.0] - 2026-04-06
 
 ### Features
