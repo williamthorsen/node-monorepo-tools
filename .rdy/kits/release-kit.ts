@@ -27,7 +27,7 @@ const MIN_VERSION = releaseKitPackageJson.version;
 // SHA-256 hashes of sync-labels artifacts. Keep in sync —
 // verified by __tests__/rdy-kit-hashes.app.test.ts.
 export const SYNC_LABELS_WORKFLOW_HASH = 'c0206871afadf1bf12a8dbe51afbd8e6d49724ca48875c168fbf1da891abcfad';
-export const COMMON_PRESET_HASH = 'c90abef185c018b2a1de7e5f79c7649fc3a06227c9b1708b08c0be2d1c20f0c2';
+export const COMMON_PRESET_HASH = 'd12ffccbd5e4d9af8ecf47744b143f6c9f80bcf5e496cf1983b66834f0ae7825';
 
 export default defineRdyKit({
   checklists: [
