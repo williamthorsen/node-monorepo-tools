@@ -32,6 +32,14 @@ function fileDoesNotContain(relativePath, pattern) {
 
 // node_modules/.pnpm/readyup@0.15.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/hashing.js
 import { createHash } from "node:crypto";
+function computeHash(content) {
+  return createHash("sha256").update(content).digest("hex");
+}
+function fileMatchesHash(relativePath, expectedHash) {
+  const content = readFile(relativePath);
+  if (content === void 0) return false;
+  return computeHash(content) === expectedHash;
+}
 
 // node_modules/.pnpm/readyup@0.15.0_esbuild@0.28.0/node_modules/readyup/dist/esm/isRecord.js
 function isRecord(value) {
@@ -150,6 +158,7 @@ var package_default = {
 
 // .rdy/kits/release-kit.ts
 var MIN_VERSION = package_default.version;
+var SYNC_LABELS_WORKFLOW_HASH = "c0206871afadf1bf12a8dbe51afbd8e6d49724ca48875c168fbf1da891abcfad";
 var release_kit_default = defineRdyKit({
   checklists: [
     {
@@ -217,11 +226,32 @@ var release_kit_default = defineRdyKit({
           severity: "recommend",
           check: () => !hasDevDependency("git-cliff"),
           fix: "pnpm remove git-cliff \u2014 release-kit handles changelog generation directly"
+        },
+        {
+          name: "sync-labels.yaml workflow exists",
+          severity: "warn",
+          check: () => fileExists(".github/workflows/sync-labels.yaml"),
+          fix: "Run `release-kit sync-labels init` to scaffold the workflow",
+          checks: [
+            {
+              name: "sync-labels.yaml matches template",
+              severity: "warn",
+              check: () => fileMatchesHash(".github/workflows/sync-labels.yaml", SYNC_LABELS_WORKFLOW_HASH),
+              fix: "Run `release-kit sync-labels init --force` to regenerate the workflow from the current template"
+            }
+          ]
+        },
+        {
+          name: ".config/sync-labels.config.ts exists",
+          severity: "recommend",
+          check: () => fileExists(".config/sync-labels.config.ts"),
+          fix: "Run `release-kit sync-labels init` to scaffold the config, then customize labels"
         }
       ]
     }
   ]
 });
 export {
+  SYNC_LABELS_WORKFLOW_HASH,
   release_kit_default as default
 };

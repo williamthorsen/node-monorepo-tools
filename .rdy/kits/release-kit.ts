@@ -14,6 +14,7 @@ import {
   fileContains,
   fileDoesNotContain,
   fileExists,
+  fileMatchesHash,
   hasDevDependency,
   hasMinDevDependencyVersion,
 } from 'readyup';
@@ -21,6 +22,10 @@ import {
 import releaseKitPackageJson from '../../packages/release-kit/package.json' with { type: 'json' };
 
 const MIN_VERSION = releaseKitPackageJson.version;
+
+// SHA-256 hash of the sync-labels caller workflow template. Keep in sync —
+// verified by __tests__/release-kit-hashes.test.ts.
+export const SYNC_LABELS_WORKFLOW_HASH = 'c0206871afadf1bf12a8dbe51afbd8e6d49724ca48875c168fbf1da891abcfad';
 
 export default defineRdyKit({
   checklists: [
@@ -92,6 +97,26 @@ export default defineRdyKit({
           severity: 'recommend',
           check: () => !hasDevDependency('git-cliff'),
           fix: 'pnpm remove git-cliff — release-kit handles changelog generation directly',
+        },
+        {
+          name: 'sync-labels.yaml workflow exists',
+          severity: 'warn',
+          check: () => fileExists('.github/workflows/sync-labels.yaml'),
+          fix: 'Run `release-kit sync-labels init` to scaffold the workflow',
+          checks: [
+            {
+              name: 'sync-labels.yaml matches template',
+              severity: 'warn',
+              check: () => fileMatchesHash('.github/workflows/sync-labels.yaml', SYNC_LABELS_WORKFLOW_HASH),
+              fix: 'Run `release-kit sync-labels init --force` to regenerate the workflow from the current template',
+            },
+          ],
+        },
+        {
+          name: '.config/sync-labels.config.ts exists',
+          severity: 'recommend',
+          check: () => fileExists('.config/sync-labels.config.ts'),
+          fix: 'Run `release-kit sync-labels init` to scaffold the config, then customize labels',
         },
       ],
     },
