@@ -11,9 +11,21 @@
 - name: documentation
   color: a2eeef
   description: Improvements or additions to documentation
+- name: deprecation
+  color: fbca04
+  description: Marks functionality for future removal
 - name: feature
   color: '0075ca'
   description: Added or improved external functionality
+- name: fix
+  color: d73a4a
+  description: Fixes a bug
+- name: performance
+  color: '0075ca'
+  description: Improves performance without changing behavior
+- name: security
+  color: b60205
+  description: Security vulnerability or hardening
 - name: spike
   color: '000000'
   description: Investigation
@@ -47,6 +59,34 @@
 - name: utility
   color: 1d76db
   description: Changed internal functionality
+
+# Priority
+- name: 'priority:critical'
+  color: b60205
+  description: Demands immediate attention
+- name: 'priority:high'
+  color: d93f0b
+  description: Address soon
+- name: 'priority:medium'
+  color: fbca04
+  description: No rush but don't forget
+- name: 'priority:low'
+  color: cfd3d7
+  description: Get to it eventually
+
+# Value
+- name: 'value:must-have'
+  color: 7057ff
+  description: Essential for the application to fulfill its purpose
+- name: 'value:should-have'
+  color: 8d83fc
+  description: Important but the application is usable without it
+- name: 'value:nice-to-have'
+  color: a8b2f8
+  description: A nice-to-have enhancement
+- name: 'value:questionable'
+  color: c5def5
+  description: Decision needed on whether this would add sufficient value
 
 # Triage
 - name: duplicate
