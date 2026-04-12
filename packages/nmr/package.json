@@ -9,6 +9,15 @@
     "script-runner",
     "workspace"
   ],
+  "homepage": "https://github.com/williamthorsen/node-monorepo-tools/tree/main/packages/nmr#readme",
+  "bugs": {
+    "url": "https://github.com/williamthorsen/node-monorepo-tools/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/williamthorsen/node-monorepo-tools.git",
+    "directory": "packages/nmr"
+  },
   "license": "MIT",
   "author": "William Thorsen <william@thorsen.dev> (https://github.com/williamthorsen)",
   "type": "module",
