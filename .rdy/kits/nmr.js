@@ -152,7 +152,16 @@ var package_default = {
     "script-runner",
     "workspace"
   ],
-  license: "MIT",
+  homepage: "https://github.com/williamthorsen/node-monorepo-tools/tree/main/packages/nmr#readme",
+  bugs: {
+    url: "https://github.com/williamthorsen/node-monorepo-tools/issues"
+  },
+  repository: {
+    type: "git",
+    url: "https://github.com/williamthorsen/node-monorepo-tools.git",
+    directory: "packages/nmr"
+  },
+  license: "ISC",
   author: "William Thorsen <william@thorsen.dev> (https://github.com/williamthorsen)",
   type: "module",
   exports: {
