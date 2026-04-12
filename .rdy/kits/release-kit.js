@@ -2,12 +2,13 @@
 /* eslint-disable */
 
 
-// node_modules/.pnpm/readyup@0.13.0_esbuild@0.28.0/node_modules/readyup/dist/esm/authoring.js
+// node_modules/.pnpm/readyup@0.15.0_esbuild@0.28.0/node_modules/readyup/dist/esm/authoring.js
 function defineRdyKit(kit) {
   return kit;
 }
 
-// node_modules/.pnpm/readyup@0.13.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/filesystem.js
+// node_modules/.pnpm/readyup@0.15.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/filesystem.js
+import { execSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 function fileExists(relativePath) {
@@ -29,12 +30,34 @@ function fileDoesNotContain(relativePath, pattern) {
   return !pattern.test(content);
 }
 
-// node_modules/.pnpm/readyup@0.13.0_esbuild@0.28.0/node_modules/readyup/dist/esm/isRecord.js
+// node_modules/.pnpm/readyup@0.15.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/hashing.js
+import { createHash } from "node:crypto";
+
+// node_modules/.pnpm/readyup@0.15.0_esbuild@0.28.0/node_modules/readyup/dist/esm/isRecord.js
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-// node_modules/.pnpm/readyup@0.13.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/semver.js
+// node_modules/.pnpm/readyup@0.15.0_esbuild@0.28.0/node_modules/readyup/dist/esm/safeJsonParse.js
+function safeJsonParse(content) {
+  try {
+    const parsed = JSON.parse(content);
+    return parsed;
+  } catch {
+    return void 0;
+  }
+}
+
+// node_modules/.pnpm/readyup@0.15.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/json.js
+function readJsonFile(relativePath) {
+  const content = readFile(relativePath);
+  if (content === void 0) return void 0;
+  const parsed = safeJsonParse(content);
+  if (!isRecord(parsed)) return void 0;
+  return parsed;
+}
+
+// node_modules/.pnpm/readyup@0.15.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/semver.js
 function compareVersions(a, b) {
   const partsA = a.split(".").map(Number);
   const partsB = b.split(".").map(Number);
@@ -45,22 +68,15 @@ function compareVersions(a, b) {
   return 0;
 }
 
-// node_modules/.pnpm/readyup@0.13.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/package-json.js
-function readPackageJson() {
-  const content = readFile("package.json");
-  if (content === void 0) return void 0;
-  const parsed = JSON.parse(content);
-  if (!isRecord(parsed)) return void 0;
-  return Object.fromEntries(Object.entries(parsed));
-}
+// node_modules/.pnpm/readyup@0.15.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/package-json.js
 function hasDevDependency(name) {
-  const pkg = readPackageJson();
+  const pkg = readJsonFile("package.json");
   if (pkg === void 0) return false;
   const devDeps = pkg.devDependencies;
   return isRecord(devDeps) && name in devDeps;
 }
 function hasMinDevDependencyVersion(name, minVersion, options) {
-  const pkg = readPackageJson();
+  const pkg = readJsonFile("package.json");
   if (pkg === void 0) return false;
   const devDeps = pkg.devDependencies;
   if (!isRecord(devDeps) || !(name in devDeps)) return false;
@@ -75,7 +91,7 @@ function hasMinDevDependencyVersion(name, minVersion, options) {
 // packages/release-kit/package.json
 var package_default = {
   name: "@williamthorsen/release-kit",
-  version: "4.5.0",
+  version: "4.5.1",
   description: "Version-bumping and changelog-generation toolkit for release workflows",
   keywords: [],
   homepage: "https://github.com/williamthorsen/node-monorepo-tools/tree/main/packages/release-kit#readme",
