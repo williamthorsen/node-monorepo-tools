@@ -8,6 +8,7 @@ import {
   writeFileWithCheck,
 } from '@williamthorsen/node-monorepo-core';
 
+import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { buildReleaseSummary } from './buildReleaseSummary.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
 import { dim } from './format.ts';
@@ -36,7 +37,7 @@ function isReleaseType(value: string): value is ReleaseType {
   return VALID_BUMP_TYPES.includes(value);
 }
 
-/** Display CLI usage information. */
+/** Displays CLI usage information. */
 function showHelp(): void {
   console.info(`
 Usage: npx @williamthorsen/release-kit prepare [options]
@@ -45,6 +46,7 @@ Options:
   --dry-run             Run without modifying any files
   --bump=major|minor|patch  Override the bump type for all components
   --force               Bypass the "no commits since last tag" check (monorepo only, requires --bump)
+  --no-git-checks, -n   Skip the clean-working-tree check
   --only=name1,name2    Only process the named components (comma-separated, monorepo only)
   --help                Show this help message
 `);
@@ -53,15 +55,21 @@ Options:
 const prepareFlagSchema = {
   dryRun: { long: '--dry-run', type: 'boolean' as const },
   force: { long: '--force', type: 'boolean' as const },
+  noGitChecks: {
+    long: '--no-git-checks',
+    type: 'boolean' as const,
+    short: '-n',
+  },
   bump: { long: '--bump', type: 'string' as const },
   only: { long: '--only', type: 'string' as const },
   help: { long: '--help', type: 'boolean' as const, short: '-h' },
 };
 
-/** Parse CLI arguments into structured options. Throws on invalid input. */
+/** Parses CLI arguments into structured options. Throws on invalid input. */
 export function parseArgs(argv: string[]): {
   dryRun: boolean;
   force: boolean;
+  noGitChecks: boolean;
   bumpOverride: ReleaseType | undefined;
   only: string[] | undefined;
 } {
@@ -96,11 +104,17 @@ export function parseArgs(argv: string[]): {
     throw new Error('--force requires --bump to specify the version bump type');
   }
 
-  return { dryRun: flags.dryRun, force: flags.force, bumpOverride, only };
+  return {
+    dryRun: flags.dryRun,
+    force: flags.force,
+    noGitChecks: flags.noGitChecks,
+    bumpOverride,
+    only,
+  };
 }
 
 /**
- * Write computed tags to the `.release-tags` file so the CI workflow can read them
+ * Writes computed tags to the `.release-tags` file so the CI workflow can read them
  * instead of deriving tag names independently.
  */
 export function writeReleaseTags(tags: string[], dryRun: boolean): WriteResult | undefined {
@@ -108,11 +122,14 @@ export function writeReleaseTags(tags: string[], dryRun: boolean): WriteResult |
     return undefined;
   }
 
-  return writeFileWithCheck(RELEASE_TAGS_FILE, tags.join('\n'), { dryRun, overwrite: true });
+  return writeFileWithCheck(RELEASE_TAGS_FILE, tags.join('\n'), {
+    dryRun,
+    overwrite: true,
+  });
 }
 
 /**
- * Orchestrate the CLI `prepare` command.
+ * Orchestrates the CLI `prepare` command.
  *
  * 1. Discovers workspaces from `pnpm-workspace.yaml`.
  * 2. Loads and validates `.config/release-kit.config.ts` (if present).
@@ -124,10 +141,11 @@ export function writeReleaseTags(tags: string[], dryRun: boolean): WriteResult |
 export async function prepareCommand(argv: string[]): Promise<void> {
   let dryRun: boolean;
   let force: boolean;
+  let noGitChecks: boolean;
   let bumpOverride: ReleaseType | undefined;
   let only: string[] | undefined;
   try {
-    ({ dryRun, force, bumpOverride, only } = parseArgs(argv));
+    ({ dryRun, force, noGitChecks, bumpOverride, only } = parseArgs(argv));
   } catch (error: unknown) {
     console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
@@ -142,28 +160,17 @@ export async function prepareCommand(argv: string[]): Promise<void> {
     console.info('\n🔍 DRY RUN — no files will be modified\n');
   }
 
-  // 1. Load config file
-  let rawConfig: unknown;
-  try {
-    rawConfig = await loadConfig();
-  } catch (error: unknown) {
-    console.error(`Error loading config: ${error instanceof Error ? error.message : String(error)}`);
-    process.exit(1);
-  }
-
-  // 2. Validate config
-  let userConfig: ReleaseKitConfig | undefined;
-  if (rawConfig !== undefined) {
-    const { config, errors } = validateConfig(rawConfig);
-    if (errors.length > 0) {
-      console.error('Invalid config:');
-      for (const err of errors) {
-        console.error(`  ❌ ${err}`);
-      }
+  // Guard against running on a dirty working tree (skip for dry runs and --no-git-checks).
+  if (!dryRun && !noGitChecks) {
+    try {
+      assertCleanWorkingTree();
+    } catch (error: unknown) {
+      console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
       process.exit(1);
     }
-    userConfig = config;
   }
+
+  const userConfig = await loadAndValidateConfig();
 
   // 3. Discover workspaces
   let discoveredPaths: string[] | undefined;
@@ -206,7 +213,33 @@ export async function prepareCommand(argv: string[]): Promise<void> {
   }
 }
 
-/** Execute the prepare workflow, format the result, write to stdout, and handle errors. */
+/** Loads and validate the release-kit config file, exiting on errors. */
+async function loadAndValidateConfig(): Promise<ReleaseKitConfig | undefined> {
+  let rawConfig: unknown;
+  try {
+    rawConfig = await loadConfig();
+  } catch (error: unknown) {
+    console.error(`Error loading config: ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  }
+
+  if (rawConfig === undefined) {
+    return undefined;
+  }
+
+  const { config, errors } = validateConfig(rawConfig);
+  if (errors.length > 0) {
+    console.error('Invalid config:');
+    for (const err of errors) {
+      console.error(`  ❌ ${err}`);
+    }
+    process.exit(1);
+  }
+
+  return config;
+}
+
+/** Executes the prepare workflow, format the result, write to stdout, and handle errors. */
 function runAndReport(execute: () => PrepareResult, dryRun: boolean): void {
   let result: PrepareResult;
   try {
@@ -234,10 +267,13 @@ function runAndReport(execute: () => PrepareResult, dryRun: boolean): void {
     }
   }
 
-  // Write the release summary file for the commit command.
+  // Writes the release summary file for the commit command.
   const summary = buildReleaseSummary(result);
   if (summary.length > 0) {
-    const summaryResult = writeFileWithCheck(RELEASE_SUMMARY_FILE, summary, { dryRun, overwrite: true });
+    const summaryResult = writeFileWithCheck(RELEASE_SUMMARY_FILE, summary, {
+      dryRun,
+      overwrite: true,
+    });
 
     if (summaryResult.outcome === 'failed') {
       console.error(`Error writing release summary: ${summaryResult.error ?? 'unknown error'}`);

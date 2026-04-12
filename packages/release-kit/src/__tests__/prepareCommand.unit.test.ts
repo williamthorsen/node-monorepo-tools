@@ -1,11 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const mockAssertCleanWorkingTree = vi.hoisted(() => vi.fn());
 const mockBuildReleaseSummary = vi.hoisted(() => vi.fn());
 const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
 const mockLoadConfig = vi.hoisted(() => vi.fn());
 const mockReleasePrepareMono = vi.hoisted(() => vi.fn());
 const mockReleasePrepare = vi.hoisted(() => vi.fn());
 const mockWriteFileWithCheck = vi.hoisted(() => vi.fn());
+
+vi.mock('../assertCleanWorkingTree.ts', () => ({
+  assertCleanWorkingTree: mockAssertCleanWorkingTree,
+}));
 
 vi.mock('../buildReleaseSummary.ts', () => ({
   buildReleaseSummary: mockBuildReleaseSummary,
@@ -76,6 +81,7 @@ describe(prepareCommand, () => {
   });
 
   afterEach(() => {
+    mockAssertCleanWorkingTree.mockReset();
     mockBuildReleaseSummary.mockReset();
     mockDiscoverWorkspaces.mockReset();
     mockLoadConfig.mockReset();
@@ -330,6 +336,33 @@ describe(prepareCommand, () => {
 
     expect(process.stdout.write).toHaveBeenCalledWith(expect.any(String));
   });
+
+  it('exits with error when the working tree is dirty', async () => {
+    mockAssertCleanWorkingTree.mockImplementation(() => {
+      throw new Error('Working tree has uncommitted changes.');
+    });
+
+    await expect(prepareCommand([])).rejects.toThrow(ExitError);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('uncommitted changes'));
+  });
+
+  it('skips the clean-tree check when --no-git-checks is provided', async () => {
+    await prepareCommand(['--no-git-checks']);
+
+    expect(mockAssertCleanWorkingTree).not.toHaveBeenCalled();
+  });
+
+  it('skips the clean-tree check when -n is provided', async () => {
+    await prepareCommand(['-n']);
+
+    expect(mockAssertCleanWorkingTree).not.toHaveBeenCalled();
+  });
+
+  it('skips the clean-tree check during dry run', async () => {
+    await prepareCommand(['--dry-run']);
+
+    expect(mockAssertCleanWorkingTree).not.toHaveBeenCalled();
+  });
 });
 
 describe(parseArgs, () => {
@@ -364,6 +397,21 @@ describe(parseArgs, () => {
 
   it('throws when --only value is empty', () => {
     expect(() => parseArgs(['--only='])).toThrow('--only requires');
+  });
+
+  it('parses --no-git-checks flag', () => {
+    const result = parseArgs(['--no-git-checks']);
+    expect(result.noGitChecks).toBe(true);
+  });
+
+  it('parses -n as shorthand for --no-git-checks', () => {
+    const result = parseArgs(['-n']);
+    expect(result.noGitChecks).toBe(true);
+  });
+
+  it('defaults noGitChecks to false', () => {
+    const result = parseArgs([]);
+    expect(result.noGitChecks).toBe(false);
   });
 });
 
