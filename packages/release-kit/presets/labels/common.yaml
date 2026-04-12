@@ -30,6 +30,8 @@
   description: Further information is needed
 
 # Refactoring
+- name: ci
+  color: edc287
 - name: dependencies
   color: edc287
   description: Change to dependencies
