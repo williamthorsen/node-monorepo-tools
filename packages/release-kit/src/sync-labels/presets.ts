@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -11,6 +12,16 @@ import type { LabelDefinition } from './types.ts';
 function resolvePresetPath(presetName: string): string {
   const root = findPackageRoot(import.meta.url);
   return resolve(root, 'presets', 'labels', `${presetName}.yaml`);
+}
+
+/** Compute SHA-256 hex digest of a preset file's raw content. Throws if the preset does not exist. */
+export function hashPresetFile(presetName: string): string {
+  const presetPath = resolvePresetPath(presetName);
+  if (!existsSync(presetPath)) {
+    throw new Error(`Unknown preset "${presetName}". No file found at ${presetPath}`);
+  }
+  const content = readFileSync(presetPath, 'utf8');
+  return createHash('sha256').update(content).digest('hex');
 }
 
 /**
