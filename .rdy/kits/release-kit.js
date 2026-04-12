@@ -103,7 +103,7 @@ var package_default = {
     url: "https://github.com/williamthorsen/node-monorepo-tools.git",
     directory: "packages/release-kit"
   },
-  license: "UNLICENSED",
+  license: "ISC",
   author: "William Thorsen <william@thorsen.dev> (https://github.com/williamthorsen)",
   type: "module",
   exports: {
