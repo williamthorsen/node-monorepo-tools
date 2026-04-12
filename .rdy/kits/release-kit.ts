@@ -17,15 +17,17 @@ import {
   fileMatchesHash,
   hasDevDependency,
   hasMinDevDependencyVersion,
+  readFile,
 } from 'readyup';
 
 import releaseKitPackageJson from '../../packages/release-kit/package.json' with { type: 'json' };
 
 const MIN_VERSION = releaseKitPackageJson.version;
 
-// SHA-256 hash of the sync-labels caller workflow template. Keep in sync —
-// verified by __tests__/release-kit-hashes.test.ts.
+// SHA-256 hashes of sync-labels artifacts. Keep in sync —
+// verified by __tests__/rdy-kit-hashes.app.test.ts.
 export const SYNC_LABELS_WORKFLOW_HASH = 'c0206871afadf1bf12a8dbe51afbd8e6d49724ca48875c168fbf1da891abcfad';
+export const COMMON_PRESET_HASH = 'c90abef185c018b2a1de7e5f79c7649fc3a06227c9b1708b08c0be2d1c20f0c2';
 
 export default defineRdyKit({
   checklists: [
@@ -118,7 +120,33 @@ export default defineRdyKit({
           check: () => fileExists('.config/sync-labels.config.ts'),
           fix: 'Run `release-kit sync-labels init` to scaffold the config, then customize labels',
         },
+        {
+          name: '.github/labels.yaml exists',
+          severity: 'warn',
+          skip: () => (!fileExists('.config/sync-labels.config.ts') ? 'no sync-labels config' : false),
+          check: () => fileExists('.github/labels.yaml'),
+          fix: 'Run `release-kit sync-labels generate` to produce the labels file',
+          checks: [
+            {
+              name: 'labels.yaml has current common preset',
+              severity: 'warn',
+              check: () => labelsHaveCurrentPresetHash('common', COMMON_PRESET_HASH),
+              fix: 'Run `release-kit sync-labels generate` to incorporate updated common labels',
+            },
+          ],
+        },
       ],
     },
   ],
 });
+
+// -- Helpers ------------------------------------------------------------------
+
+/** Check that `.github/labels.yaml` contains the expected hash for a named preset. */
+function labelsHaveCurrentPresetHash(presetName: string, expectedHash: string): boolean {
+  const content = readFile('.github/labels.yaml');
+  if (content === undefined) return false;
+  const pattern = new RegExp(`^# ${presetName} preset hash: (.+)$`, 'm');
+  const match = pattern.exec(content);
+  return match !== null && match[1] === expectedHash;
+}

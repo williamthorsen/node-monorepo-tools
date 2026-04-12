@@ -159,6 +159,7 @@ var package_default = {
 // .rdy/kits/release-kit.ts
 var MIN_VERSION = package_default.version;
 var SYNC_LABELS_WORKFLOW_HASH = "c0206871afadf1bf12a8dbe51afbd8e6d49724ca48875c168fbf1da891abcfad";
+var COMMON_PRESET_HASH = "c90abef185c018b2a1de7e5f79c7649fc3a06227c9b1708b08c0be2d1c20f0c2";
 var release_kit_default = defineRdyKit({
   checklists: [
     {
@@ -246,12 +247,35 @@ var release_kit_default = defineRdyKit({
           severity: "recommend",
           check: () => fileExists(".config/sync-labels.config.ts"),
           fix: "Run `release-kit sync-labels init` to scaffold the config, then customize labels"
+        },
+        {
+          name: ".github/labels.yaml exists",
+          severity: "warn",
+          skip: () => !fileExists(".config/sync-labels.config.ts") ? "no sync-labels config" : false,
+          check: () => fileExists(".github/labels.yaml"),
+          fix: "Run `release-kit sync-labels generate` to produce the labels file",
+          checks: [
+            {
+              name: "labels.yaml has current common preset",
+              severity: "warn",
+              check: () => labelsHaveCurrentPresetHash("common", COMMON_PRESET_HASH),
+              fix: "Run `release-kit sync-labels generate` to incorporate updated common labels"
+            }
+          ]
         }
       ]
     }
   ]
 });
+function labelsHaveCurrentPresetHash(presetName, expectedHash) {
+  const content = readFile(".github/labels.yaml");
+  if (content === void 0) return false;
+  const pattern = new RegExp(`^# ${presetName} preset hash: (.+)$`, "m");
+  const match = pattern.exec(content);
+  return match !== null && match[1] === expectedHash;
+}
 export {
+  COMMON_PRESET_HASH,
   SYNC_LABELS_WORKFLOW_HASH,
   release_kit_default as default
 };
