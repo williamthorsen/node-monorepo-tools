@@ -1,7 +1,8 @@
 import { execSync } from 'node:child_process';
-import { existsSync, globSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, globSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import type { RdyCheck } from 'readyup';
 import {
   defineRdyChecklist,
   defineRdyKit,
@@ -11,7 +12,6 @@ import {
   readFile,
   readJsonFile,
 } from 'readyup';
-import type { RdyCheck } from 'readyup';
 
 // -- Primary logic --
 
@@ -58,7 +58,7 @@ const repoChecklist = defineRdyStagedChecklist({
         name: 'Provenance setting matches repo visibility',
         check: checkProvenanceMatchesVisibility,
         get fix() {
-          return provenanceFix;
+          return provenanceFix ?? 'Provenance setting does not match repo visibility';
         },
       },
     ],
@@ -207,7 +207,7 @@ function discoverPackages(): PackageInfo[] {
 
 /** Parse pnpm-workspace.yaml and expand globs to find workspace packages. */
 function discoverWorkspacePackages(workspaceConfigPath: string): PackageInfo[] {
-  const content = readFileSync(workspaceConfigPath, 'utf-8');
+  const content = readFileSync(workspaceConfigPath, 'utf8');
   const globs = parseWorkspaceGlobs(content);
   const results: PackageInfo[] = [];
 
@@ -233,24 +233,24 @@ function discoverWorkspacePackages(workspaceConfigPath: string): PackageInfo[] {
 
 /** Extract the node major version from process.versions. */
 function getNodeMajorVersion(): number {
-  return parseInt(process.versions.node.split('.')[0] ?? '0', 10);
+  return Number.parseInt(process.versions.node.split('.')[0] ?? '0', 10);
 }
 
 /** Safely access a nested string value in a record. */
 function getNestedString(obj: Record<string, unknown>, ...keys: string[]): string | undefined {
   let current: unknown = obj;
   for (const key of keys) {
-    if (typeof current !== 'object' || current === null || Array.isArray(current)) {
+    if (!isRecord(current)) {
       return undefined;
     }
-    current = (current as Record<string, unknown>)[key];
+    current = current[key];
   }
   return typeof current === 'string' ? current : undefined;
 }
 
 /** Derive {owner}/{repo} from the git remote origin URL. */
 function getOwnerRepo(): string {
-  const url = execSync('git remote get-url origin', { encoding: 'utf-8' }).trim();
+  const url = execSync('git remote get-url origin', { encoding: 'utf8' }).trim();
 
   // Handle SSH: git@github.com:owner/repo.git
   const sshMatch = url.match(/git@github\.com:(.+?)(?:\.git)?$/);
@@ -282,7 +282,7 @@ function hasTokenReferences(): boolean {
   const files = readdirSync(workflowDir).filter((f: string) => f.endsWith('.yaml') || f.endsWith('.yml'));
 
   for (const file of files) {
-    const content = readFileSync(path.join(workflowDir, file), 'utf-8');
+    const content = readFileSync(path.join(workflowDir, file), 'utf8');
     if (content.includes('NPM_TOKEN') || content.includes('NODE_AUTH_TOKEN')) {
       return true;
     }
@@ -294,7 +294,7 @@ function hasTokenReferences(): boolean {
 /** Check whether a package exists on the npm registry. */
 function isPublishedToNpm(packageName: string): boolean {
   try {
-    execSync(`npm view ${packageName} version`, { encoding: 'utf-8', stdio: 'pipe' });
+    execSync(`npm view ${packageName} version`, { encoding: 'utf8', stdio: 'pipe' });
     return true;
   } catch {
     return false;
@@ -304,13 +304,17 @@ function isPublishedToNpm(packageName: string): boolean {
 /** Query the GitHub API to determine whether the current repo is private. */
 function isRepoPrivate(): boolean {
   const ownerRepo = getOwnerRepo();
-  const result = execSync(`gh api repos/${ownerRepo} --jq .private`, { encoding: 'utf-8' }).trim();
+  const result = execSync(`gh api repos/${ownerRepo} --jq .private`, { encoding: 'utf8' }).trim();
   return result === 'true';
 }
 
 /** Check whether the publish.yaml workflow has provenance enabled. */
 function parseProvenanceSetting(workflowContent: string): boolean {
   return /^[^#]*provenance:\s*['"]?true['"]?/im.test(workflowContent);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /** Extract workspace glob patterns from pnpm-workspace.yaml content. */

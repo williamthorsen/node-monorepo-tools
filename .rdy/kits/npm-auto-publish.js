@@ -4,7 +4,7 @@
 
 // .rdy/kits/npm-auto-publish.ts
 import { execSync as execSync2 } from "node:child_process";
-import { existsSync as existsSync2, globSync, readFileSync as readFileSync2, readdirSync } from "node:fs";
+import { existsSync as existsSync2, globSync, readdirSync, readFileSync as readFileSync2 } from "node:fs";
 import path from "node:path";
 
 // node_modules/.pnpm/readyup@0.15.0_esbuild@0.28.0/node_modules/readyup/dist/esm/authoring.js
@@ -97,7 +97,7 @@ var repoChecklist = defineRdyStagedChecklist({
         name: "Provenance setting matches repo visibility",
         check: checkProvenanceMatchesVisibility,
         get fix() {
-          return provenanceFix;
+          return provenanceFix ?? "Provenance setting does not match repo visibility";
         }
       }
     ]
@@ -211,7 +211,7 @@ function discoverPackages() {
   return [{ name: getPackageName(rootPkg), dir: process.cwd(), relativePath: ".", packageJson: rootPkg }];
 }
 function discoverWorkspacePackages(workspaceConfigPath) {
-  const content = readFileSync2(workspaceConfigPath, "utf-8");
+  const content = readFileSync2(workspaceConfigPath, "utf8");
   const globs = parseWorkspaceGlobs(content);
   const results = [];
   for (const pattern of globs) {
@@ -233,12 +233,12 @@ function discoverWorkspacePackages(workspaceConfigPath) {
   return results;
 }
 function getNodeMajorVersion() {
-  return parseInt(process.versions.node.split(".")[0] ?? "0", 10);
+  return Number.parseInt(process.versions.node.split(".")[0] ?? "0", 10);
 }
 function getNestedString(obj, ...keys) {
   let current = obj;
   for (const key of keys) {
-    if (typeof current !== "object" || current === null || Array.isArray(current)) {
+    if (!isRecord2(current)) {
       return void 0;
     }
     current = current[key];
@@ -246,7 +246,7 @@ function getNestedString(obj, ...keys) {
   return typeof current === "string" ? current : void 0;
 }
 function getOwnerRepo() {
-  const url = execSync2("git remote get-url origin", { encoding: "utf-8" }).trim();
+  const url = execSync2("git remote get-url origin", { encoding: "utf8" }).trim();
   const sshMatch = url.match(/git@github\.com:(.+?)(?:\.git)?$/);
   if (sshMatch?.[1]) {
     return sshMatch[1];
@@ -267,7 +267,7 @@ function hasTokenReferences() {
   }
   const files = readdirSync(workflowDir).filter((f) => f.endsWith(".yaml") || f.endsWith(".yml"));
   for (const file of files) {
-    const content = readFileSync2(path.join(workflowDir, file), "utf-8");
+    const content = readFileSync2(path.join(workflowDir, file), "utf8");
     if (content.includes("NPM_TOKEN") || content.includes("NODE_AUTH_TOKEN")) {
       return true;
     }
@@ -276,7 +276,7 @@ function hasTokenReferences() {
 }
 function isPublishedToNpm(packageName) {
   try {
-    execSync2(`npm view ${packageName} version`, { encoding: "utf-8", stdio: "pipe" });
+    execSync2(`npm view ${packageName} version`, { encoding: "utf8", stdio: "pipe" });
     return true;
   } catch {
     return false;
@@ -284,11 +284,14 @@ function isPublishedToNpm(packageName) {
 }
 function isRepoPrivate() {
   const ownerRepo = getOwnerRepo();
-  const result = execSync2(`gh api repos/${ownerRepo} --jq .private`, { encoding: "utf-8" }).trim();
+  const result = execSync2(`gh api repos/${ownerRepo} --jq .private`, { encoding: "utf8" }).trim();
   return result === "true";
 }
 function parseProvenanceSetting(workflowContent) {
   return /^[^#]*provenance:\s*['"]?true['"]?/im.test(workflowContent);
+}
+function isRecord2(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function parseWorkspaceGlobs(content) {
   const globs = [];

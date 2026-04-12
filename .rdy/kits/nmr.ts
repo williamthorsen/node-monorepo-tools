@@ -11,6 +11,7 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { getDefaultRootScripts } from '@williamthorsen/nmr/scripts';
 import type { CheckOutcome } from 'readyup';
 import {
   defineRdyKit,
@@ -22,9 +23,8 @@ import {
   readFile,
   readPackageJson,
 } from 'readyup';
-import { getDefaultRootScripts } from '@williamthorsen/nmr/scripts';
 
-import nmrPackageJson from '../../packages/nmr/package.json';
+import nmrPackageJson from '../../packages/nmr/package.json' with { type: 'json' };
 
 const MIN_VERSION = nmrPackageJson.version;
 

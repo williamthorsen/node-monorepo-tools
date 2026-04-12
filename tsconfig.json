@@ -68,6 +68,7 @@
   "include": [
     // This file covers only the monorepo root. Packages have their own tsconfig.json files that extend this one.
     ".config/**/*.ts",
+    ".rdy/**/*.ts",
     "__tests__/",
     "config/",
     "scripts/",

@@ -18,7 +18,7 @@ import {
   hasMinDevDependencyVersion,
 } from 'readyup';
 
-import releaseKitPackageJson from '../../packages/release-kit/package.json';
+import releaseKitPackageJson from '../../packages/release-kit/package.json' with { type: 'json' };
 
 const MIN_VERSION = releaseKitPackageJson.version;
 

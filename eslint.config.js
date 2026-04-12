@@ -13,7 +13,7 @@ export default [
   ...config,
   {
     // Completely ignore these files
-    ignores: ['**/*.sh', '**/.claude/**', '**/.rdy/**', '**/coverage/**', '**/dist/**', '**/local/**'],
+    ignores: ['**/*.sh', '**/.claude/**', '**/.rdy/**/*.js', '**/coverage/**', '**/dist/**', '**/local/**'],
   },
   {
     files: ['**/*.js', '**/*.cjs', '**/*.mjs', '**/*.ts', '**/*.tsx'],
