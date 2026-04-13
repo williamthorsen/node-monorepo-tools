@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { CLIFF_TEMPLATE_HASH, COMMON_PRESET_HASH, SYNC_LABELS_WORKFLOW_HASH } from '../.rdy/kits/release-kit.ts';
+import { CLIFF_TEMPLATE_HASH, COMMON_PRESET_HASH, SYNC_LABELS_WORKFLOW_HASH } from '../.readyup/kits/release-kit.ts';
 import { syncLabelsWorkflow } from '../packages/release-kit/src/sync-labels/templates.ts';
 
 /** Compute SHA-256 hex digest, matching readyup's computeHash implementation. */
@@ -17,7 +17,7 @@ const presetsDir = join(releaseKitDir, 'presets', 'labels');
 
 /**
  * Verify that embedded hashes in the rdy kit stay in sync with the source
- * files. If a hash check fails, update the constant in .rdy/kits/release-kit.ts
+ * files. If a hash check fails, update the constant in .readyup/kits/release-kit.ts
  * to match the new hash shown in the error message.
  */
 describe('rdy kit hashes match source files', () => {
@@ -25,9 +25,10 @@ describe('rdy kit hashes match source files', () => {
     const content = readFileSync(join(releaseKitDir, 'cliff.toml.template'), 'utf8');
     const actualHash = sha256(content);
 
-    expect(actualHash, `CLIFF_TEMPLATE_HASH in .rdy/kits/release-kit.ts is stale — update it to: ${actualHash}`).toBe(
-      CLIFF_TEMPLATE_HASH,
-    );
+    expect(
+      actualHash,
+      `CLIFF_TEMPLATE_HASH in .readyup/kits/release-kit.ts is stale — update it to: ${actualHash}`,
+    ).toBe(CLIFF_TEMPLATE_HASH);
   });
 
   it('SYNC_LABELS_WORKFLOW_HASH matches syncLabelsWorkflow()', () => {
@@ -35,7 +36,7 @@ describe('rdy kit hashes match source files', () => {
 
     expect(
       actualHash,
-      `SYNC_LABELS_WORKFLOW_HASH in .rdy/kits/release-kit.ts is stale — update it to: ${actualHash}`,
+      `SYNC_LABELS_WORKFLOW_HASH in .readyup/kits/release-kit.ts is stale — update it to: ${actualHash}`,
     ).toBe(SYNC_LABELS_WORKFLOW_HASH);
   });
 
@@ -43,8 +44,9 @@ describe('rdy kit hashes match source files', () => {
     const content = readFileSync(join(presetsDir, 'common.yaml'), 'utf8');
     const actualHash = sha256(content);
 
-    expect(actualHash, `COMMON_PRESET_HASH in .rdy/kits/release-kit.ts is stale — update it to: ${actualHash}`).toBe(
-      COMMON_PRESET_HASH,
-    );
+    expect(
+      actualHash,
+      `COMMON_PRESET_HASH in .readyup/kits/release-kit.ts is stale — update it to: ${actualHash}`,
+    ).toBe(COMMON_PRESET_HASH);
   });
 });

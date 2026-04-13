@@ -2,12 +2,17 @@
 /* eslint-disable */
 
 
-// node_modules/.pnpm/readyup@0.15.0_esbuild@0.28.0/node_modules/readyup/dist/esm/authoring.js
+// node_modules/.pnpm/readyup@0.16.0_esbuild@0.28.0/node_modules/readyup/dist/esm/authoring.js
 function defineRdyKit(kit) {
   return kit;
 }
 
-// node_modules/.pnpm/readyup@0.15.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/filesystem.js
+// node_modules/.pnpm/readyup@0.16.0_esbuild@0.28.0/node_modules/readyup/dist/esm/isRecord.js
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// node_modules/.pnpm/readyup@0.16.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/filesystem.js
 import { execSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -30,7 +35,7 @@ function fileDoesNotContain(relativePath, pattern) {
   return !pattern.test(content);
 }
 
-// node_modules/.pnpm/readyup@0.15.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/hashing.js
+// node_modules/.pnpm/readyup@0.16.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/hashing.js
 import { createHash } from "node:crypto";
 function computeHash(content) {
   return createHash("sha256").update(content).digest("hex");
@@ -41,12 +46,7 @@ function fileMatchesHash(relativePath, expectedHash) {
   return computeHash(content) === expectedHash;
 }
 
-// node_modules/.pnpm/readyup@0.15.0_esbuild@0.28.0/node_modules/readyup/dist/esm/isRecord.js
-function isRecord(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-// node_modules/.pnpm/readyup@0.15.0_esbuild@0.28.0/node_modules/readyup/dist/esm/safeJsonParse.js
+// node_modules/.pnpm/readyup@0.16.0_esbuild@0.28.0/node_modules/readyup/dist/esm/safeJsonParse.js
 function safeJsonParse(content) {
   try {
     const parsed = JSON.parse(content);
@@ -56,7 +56,7 @@ function safeJsonParse(content) {
   }
 }
 
-// node_modules/.pnpm/readyup@0.15.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/json.js
+// node_modules/.pnpm/readyup@0.16.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/json.js
 function readJsonFile(relativePath) {
   const content = readFile(relativePath);
   if (content === void 0) return void 0;
@@ -65,7 +65,7 @@ function readJsonFile(relativePath) {
   return parsed;
 }
 
-// node_modules/.pnpm/readyup@0.15.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/semver.js
+// node_modules/.pnpm/readyup@0.16.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/semver.js
 function compareVersions(a, b) {
   const partsA = a.split(".").map(Number);
   const partsB = b.split(".").map(Number);
@@ -76,7 +76,7 @@ function compareVersions(a, b) {
   return 0;
 }
 
-// node_modules/.pnpm/readyup@0.15.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/package-json.js
+// node_modules/.pnpm/readyup@0.16.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/package-json.js
 function hasDevDependency(name) {
   const pkg = readJsonFile("package.json");
   if (pkg === void 0) return false;
@@ -156,7 +156,7 @@ var package_default = {
   }
 };
 
-// .rdy/kits/release-kit.ts
+// .readyup/kits/release-kit.ts
 var MIN_VERSION = package_default.version;
 var CLIFF_TEMPLATE_HASH = "8bddb90021f6e501ce4c3b014185b1181e6d1c7be049468f3773e852a8874308";
 var COMMON_PRESET_HASH = "d12ffccbd5e4d9af8ecf47744b143f6c9f80bcf5e496cf1983b66834f0ae7825";

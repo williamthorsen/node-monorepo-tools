@@ -13,7 +13,7 @@
   // These files will be linted
   "include": [
     ".config/**/*.ts", //
-    ".rdy/**/*.ts",
+    ".readyup/**/*.ts",
     "__tests__",
     "config/",
     "scripts/",
