@@ -1,4 +1,7 @@
 import { execFileSync } from 'node:child_process';
+import { copyFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { resolveCliffConfigPath } from './resolveCliffConfigPath.ts';
 import type { ReleaseConfig } from './types.ts';
@@ -30,7 +33,17 @@ export function generateChangelog(
   dryRun: boolean,
   options?: GenerateChangelogOptions,
 ): string[] {
-  const cliffConfigPath = resolveCliffConfigPath(config.cliffConfigPath, import.meta.url);
+  const resolvedConfigPath = resolveCliffConfigPath(config.cliffConfigPath, import.meta.url);
+
+  // git-cliff rejects non-.toml extensions. Copy bundled .template files to a temp .toml file.
+  let cliffConfigPath = resolvedConfigPath;
+  let tempDir: string | undefined;
+  if (resolvedConfigPath.endsWith('.template')) {
+    tempDir = mkdtempSync(join(tmpdir(), 'cliff-'));
+    cliffConfigPath = join(tempDir, 'cliff.toml');
+    copyFileSync(resolvedConfigPath, cliffConfigPath);
+  }
+
   const outputFile = `${changelogPath}/CHANGELOG.md`;
   const args = ['--config', cliffConfigPath, '--output', outputFile, '--tag', tag];
 
@@ -44,17 +57,23 @@ export function generateChangelog(
     args.push('--include-path', includePath);
   }
 
-  if (!dryRun) {
-    try {
-      execFileSync('npx', ['--yes', 'git-cliff', ...args], { stdio: 'inherit' });
-    } catch (error: unknown) {
-      throw new Error(
-        `Failed to generate changelog for ${outputFile}: ${error instanceof Error ? error.message : String(error)}`,
-      );
+  try {
+    if (!dryRun) {
+      try {
+        execFileSync('npx', ['--yes', 'git-cliff', ...args], { stdio: 'inherit' });
+      } catch (error: unknown) {
+        throw new Error(
+          `Failed to generate changelog for ${outputFile}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    return [outputFile];
+  } finally {
+    if (tempDir !== undefined) {
+      rmSync(tempDir, { recursive: true, force: true });
     }
   }
-
-  return [outputFile];
 }
 
 /**

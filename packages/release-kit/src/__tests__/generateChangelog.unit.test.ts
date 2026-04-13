@@ -2,9 +2,18 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockExecFileSync = vi.hoisted(() => vi.fn());
 const mockResolveCliffConfigPath = vi.hoisted(() => vi.fn());
+const mockCopyFileSync = vi.hoisted(() => vi.fn());
+const mockMkdtempSync = vi.hoisted(() => vi.fn(() => '/tmp/cliff-abc123'));
+const mockRmSync = vi.hoisted(() => vi.fn());
 
 vi.mock('node:child_process', () => ({
   execFileSync: mockExecFileSync,
+}));
+
+vi.mock('node:fs', () => ({
+  copyFileSync: mockCopyFileSync,
+  mkdtempSync: mockMkdtempSync,
+  rmSync: mockRmSync,
 }));
 
 vi.mock('../resolveCliffConfigPath.ts', () => ({
@@ -28,6 +37,9 @@ describe(generateChangelog, () => {
   afterEach(() => {
     mockExecFileSync.mockReset();
     mockResolveCliffConfigPath.mockReset();
+    mockCopyFileSync.mockReset();
+    mockMkdtempSync.mockReset().mockReturnValue('/tmp/cliff-abc123');
+    mockRmSync.mockReset();
   });
 
   it('calls git-cliff with base args when no includePaths are provided', () => {
@@ -165,7 +177,7 @@ describe(generateChangelog, () => {
     expect(mockExecFileSync).not.toHaveBeenCalled();
   });
 
-  it('uses the path returned by resolveCliffConfigPath when cliffConfigPath is absent', () => {
+  it('copies .template files to a temp .toml before passing to git-cliff', () => {
     mockResolveCliffConfigPath.mockReturnValue('/bundled/cliff.toml.template');
     const config = {};
 
@@ -173,13 +185,14 @@ describe(generateChangelog, () => {
 
     expect(result).toStrictEqual(['packages/arrays/CHANGELOG.md']);
     expect(mockResolveCliffConfigPath).toHaveBeenCalledWith(undefined, expect.any(String));
+    expect(mockCopyFileSync).toHaveBeenCalledWith('/bundled/cliff.toml.template', '/tmp/cliff-abc123/cliff.toml');
     expect(mockExecFileSync).toHaveBeenCalledWith(
       'npx',
       [
         '--yes',
         'git-cliff',
         '--config',
-        '/bundled/cliff.toml.template',
+        '/tmp/cliff-abc123/cliff.toml',
         '--output',
         'packages/arrays/CHANGELOG.md',
         '--tag',
@@ -187,6 +200,7 @@ describe(generateChangelog, () => {
       ],
       { stdio: 'inherit' },
     );
+    expect(mockRmSync).toHaveBeenCalledWith('/tmp/cliff-abc123', { recursive: true, force: true });
   });
 });
 
