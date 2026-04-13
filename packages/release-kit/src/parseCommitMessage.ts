@@ -1,11 +1,6 @@
 import type { ParsedCommit, WorkTypeConfig } from './types.ts';
 
-/**
- * Regex patterns stripped from the start of commit messages before parsing.
- *
- * Kept in sync with `commit_preprocessors` in cliff.toml.template so that
- * both git-cliff and this parser see the same normalized messages.
- */
+/** Regex patterns stripped from the start of commit messages before parsing. */
 export const COMMIT_PREPROCESSOR_PATTERNS: readonly RegExp[] = [/^#\d+\s+/, /^[A-Z]+-\d+\s+/];
 
 /**

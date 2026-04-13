@@ -6,7 +6,6 @@ import { parse } from 'smol-toml';
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_WORK_TYPES } from '../defaults.ts';
-import { COMMIT_PREPROCESSOR_PATTERNS } from '../parseCommitMessage.ts';
 
 const thisDir = dirname(fileURLToPath(import.meta.url));
 const templatePath = resolve(thisDir, '..', '..', 'cliff.toml.template');
@@ -15,11 +14,6 @@ const templateContent = readFileSync(templatePath, 'utf8');
 interface CommitParser {
   message: string;
   group: string;
-}
-
-interface CommitPreprocessor {
-  pattern: string;
-  replace: string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -36,8 +30,8 @@ function getGitSection(): Record<string, unknown> {
   return git;
 }
 
-/** Extract the commit_parsers array from the TOML [git] section. */
-function getCommitParsers(): CommitParser[] {
+/** Extract all raw commit_parsers entries from the TOML [git] section. */
+function getRawCommitParsers(): Array<Record<string, unknown>> {
   const git = getGitSection();
   const parsers = git.commit_parsers;
   if (!Array.isArray(parsers)) {
@@ -45,27 +39,23 @@ function getCommitParsers(): CommitParser[] {
   }
 
   return parsers.map((entry) => {
-    if (!isRecord(entry) || typeof entry.message !== 'string' || typeof entry.group !== 'string') {
+    if (!isRecord(entry)) {
       throw new Error(`Invalid commit_parser entry: ${JSON.stringify(entry)}`);
     }
-    return { message: entry.message, group: entry.group };
+    return entry;
   });
 }
 
-/** Extract the commit_preprocessors array from the TOML [git] section. */
-function getCommitPreprocessors(): CommitPreprocessor[] {
-  const git = getGitSection();
-  const preprocessors = git.commit_preprocessors;
-  if (!Array.isArray(preprocessors)) {
-    throw new TypeError('cliff.toml.template is missing git.commit_preprocessors array');
-  }
-
-  return preprocessors.map((entry) => {
-    if (!isRecord(entry) || typeof entry.pattern !== 'string' || typeof entry.replace !== 'string') {
-      throw new Error(`Invalid commit_preprocessor entry: ${JSON.stringify(entry)}`);
-    }
-    return { pattern: entry.pattern, replace: entry.replace };
-  });
+/** Extract only the group-mapping commit_parsers (skip entries excluded). */
+function getCommitParsers(): CommitParser[] {
+  return getRawCommitParsers()
+    .filter((entry) => entry.skip !== true)
+    .map((entry) => {
+      if (typeof entry.message !== 'string' || typeof entry.group !== 'string') {
+        throw new TypeError(`Invalid commit_parser entry: ${JSON.stringify(entry)}`);
+      }
+      return { message: entry.message, group: entry.group };
+    });
 }
 
 /** Collect all type names and aliases from DEFAULT_WORK_TYPES, each paired with its expected header. */
@@ -99,42 +89,50 @@ describe('cliff.toml.template alignment with DEFAULT_WORK_TYPES', () => {
     expect(matchingParser.group).toBe(expectedGroup);
   }
 
-  describe('every work type and alias is matched by a commit parser (bare format)', () => {
+  describe('every work type is matched with GitHub-style ticket prefix', () => {
     for (const { typeName, header } of expectedTypes) {
-      it(`"${typeName}: test" is matched and grouped as "${header}"`, () => {
-        assertParsedAs(`${typeName}: test`, header);
+      it(`"#1 ${typeName}: test" is matched and grouped as "${header}"`, () => {
+        assertParsedAs(`#1 ${typeName}: test`, header);
+      });
+    }
+  });
+
+  describe('every work type is matched with Jira-style ticket prefix', () => {
+    for (const { typeName, header } of expectedTypes) {
+      it(`"PROJ-1 ${typeName}: test" is matched and grouped as "${header}"`, () => {
+        assertParsedAs(`PROJ-1 ${typeName}: test`, header);
       });
     }
   });
 
   describe('every work type is matched in pipe-prefixed scope format', () => {
     for (const { typeName, header } of expectedTypes) {
-      it(`"scope|${typeName}: test" is matched and grouped as "${header}"`, () => {
-        assertParsedAs(`scope|${typeName}: test`, header);
+      it(`"#1 scope|${typeName}: test" is matched and grouped as "${header}"`, () => {
+        assertParsedAs(`#1 scope|${typeName}: test`, header);
       });
     }
   });
 
-  describe('every work type is matched in conventional commit format', () => {
+  describe('breaking variants are matched', () => {
     for (const { typeName, header } of expectedTypes) {
-      it(`"${typeName}(scope): test" is matched and grouped as "${header}"`, () => {
-        assertParsedAs(`${typeName}(scope): test`, header);
+      it(`"#1 ${typeName}!: test" (breaking) is matched as "${header}"`, () => {
+        assertParsedAs(`#1 ${typeName}!: test`, header);
+      });
+
+      it(`"#1 scope|${typeName}!: test" (pipe breaking) is matched as "${header}"`, () => {
+        assertParsedAs(`#1 scope|${typeName}!: test`, header);
       });
     }
   });
 
-  describe('breaking variants are matched in all formats', () => {
+  describe('sub-ticket variants are matched', () => {
     for (const { typeName, header } of expectedTypes) {
-      it(`"${typeName}!: test" (bare breaking) is matched as "${header}"`, () => {
-        assertParsedAs(`${typeName}!: test`, header);
+      it(`"#1.2 ${typeName}: test" (dot sub-ticket) is matched as "${header}"`, () => {
+        assertParsedAs(`#1.2 ${typeName}: test`, header);
       });
 
-      it(`"${typeName}(scope)!: test" (conventional breaking) is matched as "${header}"`, () => {
-        assertParsedAs(`${typeName}(scope)!: test`, header);
-      });
-
-      it(`"scope|${typeName}!: test" (pipe breaking) is matched as "${header}"`, () => {
-        assertParsedAs(`scope|${typeName}!: test`, header);
+      it(`"#1-2 ${typeName}: test" (dash sub-ticket) is matched as "${header}"`, () => {
+        assertParsedAs(`#1-2 ${typeName}: test`, header);
       });
     }
   });
@@ -149,24 +147,41 @@ describe('cliff.toml.template alignment with DEFAULT_WORK_TYPES', () => {
   });
 });
 
-describe('cliff.toml.template alignment with COMMIT_PREPROCESSOR_PATTERNS', () => {
-  const tomlPreprocessors = getCommitPreprocessors();
-  const tomlPatterns = tomlPreprocessors.map((p) => p.pattern);
-  const tsPatterns = COMMIT_PREPROCESSOR_PATTERNS.map((r) => r.source);
+describe('cliff.toml.template skip rules', () => {
+  const rawParsers = getRawCommitParsers();
+  const skipParsers = rawParsers.filter((entry) => entry.skip === true);
+  const groupParsers = getCommitParsers();
 
-  it('has the same number of preprocessor patterns in both locations', () => {
-    expect(tsPatterns).toHaveLength(tomlPatterns.length);
+  it('includes a catch-all `.*` skip rule', () => {
+    const catchAll = skipParsers.find((entry) => entry.message === '.*');
+    expect(catchAll).toBeDefined();
   });
 
-  for (const pattern of tsPatterns) {
-    it(`TypeScript pattern "${pattern}" exists in cliff.toml.template`, () => {
-      expect(tomlPatterns).toContain(pattern);
-    });
-  }
+  it('places the catch-all `.*` skip rule last in commit_parsers', () => {
+    const lastEntry = rawParsers.at(-1);
+    expect(lastEntry).toMatchObject({ message: '.*', skip: true });
+  });
 
-  for (const pattern of tomlPatterns) {
-    it(`TOML pattern "${pattern}" exists in COMMIT_PREPROCESSOR_PATTERNS`, () => {
-      expect(tsPatterns).toContain(pattern);
-    });
-  }
+  it('includes a skip rule for merge commits', () => {
+    const mergeSkip = skipParsers.find(
+      (entry) => typeof entry.message === 'string' && new RegExp(entry.message).test('Merge pull request #1'),
+    );
+    expect(mergeSkip).toBeDefined();
+  });
+
+  it('does not match unticketed commits against any group-mapping parser', () => {
+    const untimedMessages = [
+      'feat: Add new feature',
+      'scope|fix: Fix bug',
+      'tooling: Generate repo labels',
+      'chore: bump deps',
+      'Update readme',
+      'wip stuff',
+    ];
+
+    for (const message of untimedMessages) {
+      const match = groupParsers.find((parser) => new RegExp(parser.message).test(message));
+      expect(match, `"${message}" unexpectedly matched group "${match?.group}"`).toBeUndefined();
+    }
+  });
 });

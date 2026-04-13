@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { COMMON_PRESET_HASH, SYNC_LABELS_WORKFLOW_HASH } from '../.rdy/kits/release-kit.ts';
+import { CLIFF_TEMPLATE_HASH, COMMON_PRESET_HASH, SYNC_LABELS_WORKFLOW_HASH } from '../.rdy/kits/release-kit.ts';
 import { syncLabelsWorkflow } from '../packages/release-kit/src/sync-labels/templates.ts';
 
 /** Compute SHA-256 hex digest, matching readyup's computeHash implementation. */
@@ -12,7 +12,8 @@ function sha256(content: string): string {
   return createHash('sha256').update(content).digest('hex');
 }
 
-const presetsDir = join(import.meta.dirname, '..', 'packages', 'release-kit', 'presets', 'labels');
+const releaseKitDir = join(import.meta.dirname, '..', 'packages', 'release-kit');
+const presetsDir = join(releaseKitDir, 'presets', 'labels');
 
 /**
  * Verify that embedded hashes in the rdy kit stay in sync with the source
@@ -20,6 +21,15 @@ const presetsDir = join(import.meta.dirname, '..', 'packages', 'release-kit', 'p
  * to match the new hash shown in the error message.
  */
 describe('rdy kit hashes match source files', () => {
+  it('CLIFF_TEMPLATE_HASH matches cliff.toml.template', () => {
+    const content = readFileSync(join(releaseKitDir, 'cliff.toml.template'), 'utf8');
+    const actualHash = sha256(content);
+
+    expect(actualHash, `CLIFF_TEMPLATE_HASH in .rdy/kits/release-kit.ts is stale — update it to: ${actualHash}`).toBe(
+      CLIFF_TEMPLATE_HASH,
+    );
+  });
+
   it('SYNC_LABELS_WORKFLOW_HASH matches syncLabelsWorkflow()', () => {
     const actualHash = sha256(syncLabelsWorkflow());
 

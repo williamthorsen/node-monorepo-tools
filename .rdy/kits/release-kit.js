@@ -158,8 +158,9 @@ var package_default = {
 
 // .rdy/kits/release-kit.ts
 var MIN_VERSION = package_default.version;
-var SYNC_LABELS_WORKFLOW_HASH = "c0206871afadf1bf12a8dbe51afbd8e6d49724ca48875c168fbf1da891abcfad";
+var CLIFF_TEMPLATE_HASH = "8bddb90021f6e501ce4c3b014185b1181e6d1c7be049468f3773e852a8874308";
 var COMMON_PRESET_HASH = "d12ffccbd5e4d9af8ecf47744b143f6c9f80bcf5e496cf1983b66834f0ae7825";
+var SYNC_LABELS_WORKFLOW_HASH = "c0206871afadf1bf12a8dbe51afbd8e6d49724ca48875c168fbf1da891abcfad";
 var release_kit_default = defineRdyKit({
   checklists: [
     {
@@ -229,6 +230,13 @@ var release_kit_default = defineRdyKit({
           fix: "pnpm remove git-cliff \u2014 release-kit handles changelog generation directly"
         },
         {
+          name: ".config/git-cliff.toml matches current template",
+          severity: "warn",
+          skip: () => !fileExists(".config/git-cliff.toml") ? "no local cliff config (using fallback)" : false,
+          check: () => fileMatchesHash(".config/git-cliff.toml", CLIFF_TEMPLATE_HASH),
+          fix: "Update .config/git-cliff.toml to match the current cliff.toml.template from release-kit, or delete it to use the bundled fallback"
+        },
+        {
           name: "sync-labels.yaml workflow exists",
           severity: "warn",
           check: () => fileExists(".github/workflows/sync-labels.yaml"),
@@ -275,6 +283,7 @@ function labelsHaveCurrentPresetHash(presetName, expectedHash) {
   return match !== null && match[1] === expectedHash;
 }
 export {
+  CLIFF_TEMPLATE_HASH,
   COMMON_PRESET_HASH,
   SYNC_LABELS_WORKFLOW_HASH,
   release_kit_default as default
