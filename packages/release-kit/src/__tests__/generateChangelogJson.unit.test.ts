@@ -136,6 +136,50 @@ describe(generateChangelogJson, () => {
     });
   });
 
+  it('preserves full first line when commit message has no colon separator', () => {
+    const cliffContext = [
+      {
+        version: 'v1.0.0',
+        timestamp: 1700000000,
+        commits: [{ message: 'Initial commit', group: 'Other' }],
+      },
+    ];
+
+    mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+
+    generateChangelogJson(makeConfig(), tempDir, 'v1.0.0', false);
+
+    const outputPath = join(tempDir, '.meta', 'changelog.json');
+    const entries: ChangelogEntry[] = JSON.parse(readFileSync(outputPath, 'utf8'));
+
+    expect(entries[0]?.sections[0]?.items[0]?.description).toBe('Initial commit');
+  });
+
+  it('recovers gracefully when existing changelog JSON is malformed', () => {
+    const outputPath = join(tempDir, '.meta', 'changelog.json');
+    mkdirSync(join(tempDir, '.meta'), { recursive: true });
+    writeFileSync(outputPath, '{invalid json', 'utf8');
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const cliffContext = [
+      {
+        version: 'v1.0.0',
+        timestamp: 1700000000,
+        commits: [{ message: '#1 feat: New feature', group: 'Features' }],
+      },
+    ];
+
+    mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+
+    generateChangelogJson(makeConfig(), tempDir, 'v1.0.0', false);
+
+    const entries: ChangelogEntry[] = JSON.parse(readFileSync(outputPath, 'utf8'));
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.version).toBe('1.0.0');
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('could not parse existing'));
+  });
+
   it('merges new entries with existing entries and sorts newest-first', () => {
     const outputPath = join(tempDir, '.meta', 'changelog.json');
     mkdirSync(join(tempDir, '.meta'), { recursive: true });

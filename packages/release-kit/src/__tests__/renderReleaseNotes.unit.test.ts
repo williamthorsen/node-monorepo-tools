@@ -42,6 +42,11 @@ describe(renderReleaseNotesSingle, () => {
     expect(result).toContain('### Features');
   });
 
+  it('does not produce a leading newline when includeHeading is false', () => {
+    const result = renderReleaseNotesSingle(sampleEntry, { includeHeading: false });
+    expect(result.startsWith('###')).toBe(true);
+  });
+
   it('filters sections using a predicate', () => {
     const result = renderReleaseNotesSingle(sampleEntry, { filter: matchesAudience('all') });
     expect(result).toContain('### Features');

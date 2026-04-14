@@ -130,7 +130,7 @@ describe(createGithubRelease, () => {
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('failed to create'));
   });
 
-  it('extracts version from prefixed tags', () => {
+  it('extracts version from prefixed tags and matches correct entry', () => {
     writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
 
     createGithubRelease({
@@ -139,6 +139,17 @@ describe(createGithubRelease, () => {
       dryRun: false,
     });
 
-    expect(mockedExecFileSync).toHaveBeenCalled();
+    expect(mockedExecFileSync).toHaveBeenCalledWith(
+      'gh',
+      expect.arrayContaining(['release', 'create', 'release-kit-v1.0.0']),
+      expect.anything(),
+    );
+    const callArgs = mockedExecFileSync.mock.calls[0];
+    const args = callArgs?.[1];
+    if (Array.isArray(args)) {
+      const notesIndex = args.indexOf('--notes');
+      const body = args[notesIndex + 1];
+      expect(body).toContain('Add widget');
+    }
   });
 });

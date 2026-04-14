@@ -1,10 +1,10 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { extractVersion, readChangelogEntries } from './changelogJsonUtils.ts';
 import { matchesAudience, renderReleaseNotesSingle } from './renderReleaseNotes.ts';
-import { isRecord, isUnknownArray } from './typeGuards.ts';
-import type { ChangelogEntry, ReleaseNotesConfig } from './types.ts';
+import type { ReleaseNotesConfig } from './types.ts';
 
 /** Options for creating a GitHub Release. */
 export interface CreateGithubReleaseOptions {
@@ -28,7 +28,7 @@ export function createGithubRelease(options: CreateGithubReleaseOptions): boolea
   }
 
   const version = extractVersion(tag);
-  const entries = readChangelogJson(changelogJsonPath);
+  const entries = readChangelogEntries(changelogJsonPath);
 
   if (entries === undefined) {
     console.warn(`Warning: could not parse ${changelogJsonPath}; skipping GitHub Release creation`);
@@ -83,34 +83,4 @@ export function createGithubReleases(
     const changelogJsonPath = join(workspacePath, changelogJsonOutputPath);
     createGithubRelease({ tag, changelogJsonPath, dryRun });
   }
-}
-
-/** Extract the version from a tag by stripping the prefix up to the first digit. */
-function extractVersion(tag: string): string {
-  const match = /(\d+\.\d+\.\d+.*)$/.exec(tag);
-  return match?.[1] ?? tag;
-}
-
-/** Read and parse a changelog JSON file. */
-function readChangelogJson(filePath: string): ChangelogEntry[] | undefined {
-  try {
-    const content = readFileSync(filePath, 'utf8');
-    const parsed: unknown = JSON.parse(content);
-    if (!isUnknownArray(parsed)) {
-      return undefined;
-    }
-    return parsed.filter(isChangelogEntry);
-  } catch {
-    return undefined;
-  }
-}
-
-/** Type guard for `ChangelogEntry` values parsed from JSON. */
-function isChangelogEntry(value: unknown): value is ChangelogEntry {
-  return (
-    isRecord(value) &&
-    typeof value.version === 'string' &&
-    typeof value.date === 'string' &&
-    isUnknownArray(value.sections)
-  );
 }

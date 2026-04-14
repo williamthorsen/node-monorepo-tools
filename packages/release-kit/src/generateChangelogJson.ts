@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 
 import stringify from 'json-stringify-pretty-compact';
 
+import { isChangelogEntry } from './changelogJsonUtils.ts';
 import type { GenerateChangelogOptions } from './generateChangelogs.ts';
 import { resolveCliffConfigPath } from './resolveCliffConfigPath.ts';
 import { isRecord, isUnknownArray } from './typeGuards.ts';
@@ -37,7 +38,7 @@ export function generateChangelogJson(
   dryRun: boolean,
   options?: GenerateChangelogOptions,
 ): string[] {
-  const outputFile = `${changelogPath}/${config.changelogJson.outputPath}`;
+  const outputFile = join(changelogPath, config.changelogJson.outputPath);
 
   if (dryRun) {
     return [outputFile];
@@ -104,7 +105,7 @@ export function generateSyntheticChangelogJson(
   propagatedFrom: Array<{ packageName: string; newVersion: string }>,
   dryRun: boolean,
 ): string[] {
-  const outputFile = `${changelogPath}/${config.changelogJson.outputPath}`;
+  const outputFile = join(changelogPath, config.changelogJson.outputPath);
 
   if (dryRun) {
     return [outputFile];
@@ -233,22 +234,19 @@ function readExistingEntries(filePath: string): ChangelogEntry[] {
   if (!existsSync(filePath)) {
     return [];
   }
-  const content = readFileSync(filePath, 'utf8');
-  const parsed: unknown = JSON.parse(content);
-  if (!isUnknownArray(parsed)) {
+  try {
+    const content = readFileSync(filePath, 'utf8');
+    const parsed: unknown = JSON.parse(content);
+    if (!isUnknownArray(parsed)) {
+      return [];
+    }
+    return parsed.filter(isChangelogEntry);
+  } catch (error: unknown) {
+    console.warn(
+      `Warning: could not parse existing ${filePath}: ${error instanceof Error ? error.message : String(error)}; treating as empty`,
+    );
     return [];
   }
-  return parsed.filter(isChangelogEntry);
-}
-
-/** Type guard for `ChangelogEntry` values parsed from JSON. */
-function isChangelogEntry(value: unknown): value is ChangelogEntry {
-  return (
-    isRecord(value) &&
-    typeof value.version === 'string' &&
-    typeof value.date === 'string' &&
-    isUnknownArray(value.sections)
-  );
 }
 
 /** Merge new entries with existing ones, replacing entries with matching versions. */
@@ -264,8 +262,14 @@ function mergeEntries(newEntries: ChangelogEntry[], existingEntries: ChangelogEn
 
   // eslint-disable-next-line unicorn/no-array-sort -- spread already creates a fresh copy; toSorted requires Node >=20
   return [...versionMap.values()].sort((a, b) => {
-    const partsA = a.version.split('.').map(Number);
-    const partsB = b.version.split('.').map(Number);
+    const partsA = a.version.split('.').map((s) => {
+      const n = Number(s);
+      return Number.isNaN(n) ? 0 : n;
+    });
+    const partsB = b.version.split('.').map((s) => {
+      const n = Number(s);
+      return Number.isNaN(n) ? 0 : n;
+    });
     for (let i = 0; i < 3; i++) {
       const diff = (partsB[i] ?? 0) - (partsA[i] ?? 0);
       if (diff !== 0) return diff;

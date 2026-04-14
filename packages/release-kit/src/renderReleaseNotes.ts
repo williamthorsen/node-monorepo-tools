@@ -44,7 +44,10 @@ export function renderReleaseNotesSingle(entry: ChangelogEntry, options?: Render
   }
 
   for (const section of sections) {
-    lines.push('', `### ${section.title}`, '');
+    if (lines.length > 0) {
+      lines.push('');
+    }
+    lines.push(`### ${section.title}`, '');
     for (const item of section.items) {
       lines.push(`- ${item.description}`);
     }

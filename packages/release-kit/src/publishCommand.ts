@@ -83,15 +83,20 @@ export async function publishCommand(argv: string[]): Promise<void> {
   try {
     const rawConfig = await loadConfig();
     if (rawConfig !== undefined) {
-      const { config } = validateConfig(rawConfig);
+      const { config, warnings } = validateConfig(rawConfig);
+      for (const warning of warnings) {
+        console.warn(`  ⚠️  ${warning}`);
+      }
       releaseNotes = {
         ...DEFAULT_RELEASE_NOTES_CONFIG,
         ...config.releaseNotes,
       };
       changelogJsonOutputPath = config.changelogJson?.outputPath ?? DEFAULT_CHANGELOG_JSON_CONFIG.outputPath;
     }
-  } catch {
-    // Config loading failure is non-fatal for publish; use defaults.
+  } catch (error: unknown) {
+    console.warn(
+      `Warning: failed to load config; using defaults: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 
   try {

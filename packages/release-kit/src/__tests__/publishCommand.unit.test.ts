@@ -215,4 +215,65 @@ describe(publishCommand, () => {
 
     expect(mockPublish).toHaveBeenCalledWith(expect.anything(), 'pnpm', expect.anything());
   });
+
+  describe('config loading', () => {
+    it('passes releaseNotes and changelogJsonOutputPath from loaded config', async () => {
+      mockLoadConfig.mockResolvedValue({
+        releaseNotes: { shouldCreateGithubRelease: true, shouldInjectIntoReadme: true },
+        changelogJson: { outputPath: 'custom/changelog.json' },
+      });
+
+      await publishCommand([]);
+
+      expect(mockPublish).toHaveBeenCalledWith(
+        expect.anything(),
+        'npm',
+        expect.objectContaining({
+          releaseNotes: expect.objectContaining({
+            shouldCreateGithubRelease: true,
+            shouldInjectIntoReadme: true,
+          }),
+          changelogJsonOutputPath: 'custom/changelog.json',
+        }),
+      );
+      expect(mockCreateGithubReleases).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ shouldCreateGithubRelease: true }),
+        'custom/changelog.json',
+        false,
+      );
+    });
+
+    it('uses defaults when loadConfig throws', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      mockLoadConfig.mockRejectedValue(new Error('config read failure'));
+
+      await publishCommand([]);
+
+      expect(mockPublish).toHaveBeenCalledWith(
+        expect.anything(),
+        'npm',
+        expect.objectContaining({
+          releaseNotes: expect.objectContaining({
+            shouldCreateGithubRelease: false,
+            shouldInjectIntoReadme: false,
+          }),
+        }),
+      );
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('failed to load config'));
+    });
+
+    it('prints validation warnings from config', async () => {
+      // Config with releaseNotes enabled but changelogJson disabled triggers a warning
+      mockLoadConfig.mockResolvedValue({
+        changelogJson: { enabled: false },
+        releaseNotes: { shouldCreateGithubRelease: true },
+      });
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      await publishCommand([]);
+
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('shouldCreateGithubRelease'));
+    });
+  });
 });
