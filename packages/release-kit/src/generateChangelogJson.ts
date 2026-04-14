@@ -190,13 +190,12 @@ function transformReleases(releases: CliffContextRelease[], devOnlySections: Set
       const group = commit.group ?? 'Other';
       const description = extractDescription(commit.message);
 
-      if (!sectionMap.has(group)) {
-        sectionMap.set(group, []);
+      let items = sectionMap.get(group);
+      if (items === undefined) {
+        items = [];
+        sectionMap.set(group, items);
       }
-      const items = sectionMap.get(group);
-      if (items !== undefined) {
-        items.push({ description });
-      }
+      items.push({ description });
     }
 
     const sections: ChangelogSection[] = [];
@@ -261,19 +260,24 @@ function mergeEntries(newEntries: ChangelogEntry[], existingEntries: ChangelogEn
   }
 
   // eslint-disable-next-line unicorn/no-array-sort -- spread already creates a fresh copy; toSorted requires Node >=20
-  return [...versionMap.values()].sort((a, b) => {
-    const partsA = a.version.split('.').map((s) => {
-      const n = Number(s);
-      return Number.isNaN(n) ? 0 : n;
-    });
-    const partsB = b.version.split('.').map((s) => {
-      const n = Number(s);
-      return Number.isNaN(n) ? 0 : n;
-    });
-    for (let i = 0; i < 3; i++) {
-      const diff = (partsB[i] ?? 0) - (partsA[i] ?? 0);
-      if (diff !== 0) return diff;
-    }
-    return 0;
+  return [...versionMap.values()].sort((a, b) => compareVersionsDescending(a.version, b.version));
+}
+
+/** Parse a version string into numeric parts for comparison. */
+function parseVersionParts(version: string): number[] {
+  return version.split('.').map((s) => {
+    const n = Number(s);
+    return Number.isNaN(n) ? 0 : n;
   });
+}
+
+/** Compare two version strings in descending order (newest first). */
+function compareVersionsDescending(a: string, b: string): number {
+  const partsA = parseVersionParts(a);
+  const partsB = parseVersionParts(b);
+  for (let i = 0; i < 3; i++) {
+    const diff = (partsB[i] ?? 0) - (partsA[i] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
 }
