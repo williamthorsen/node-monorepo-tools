@@ -6,6 +6,8 @@ const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockWriteFileSync = vi.hoisted(() => vi.fn());
 const mockExtractVersion = vi.hoisted(() => vi.fn());
 const mockReadChangelogEntries = vi.hoisted(() => vi.fn());
+const mockMatchesAudience = vi.hoisted(() => vi.fn());
+const mockRenderReleaseNotesSingle = vi.hoisted(() => vi.fn());
 
 vi.mock('node:child_process', () => ({
   execFileSync: mockExecFileSync,
@@ -20,6 +22,11 @@ vi.mock('node:fs', () => ({
 vi.mock('../changelogJsonUtils.ts', () => ({
   extractVersion: mockExtractVersion,
   readChangelogEntries: mockReadChangelogEntries,
+}));
+
+vi.mock('../renderReleaseNotes.ts', () => ({
+  matchesAudience: mockMatchesAudience,
+  renderReleaseNotesSingle: mockRenderReleaseNotesSingle,
 }));
 
 import { publish } from '../publish.ts';
@@ -40,6 +47,8 @@ describe(publish, () => {
     mockWriteFileSync.mockReset();
     mockExtractVersion.mockReset();
     mockReadChangelogEntries.mockReset();
+    mockMatchesAudience.mockReset();
+    mockRenderReleaseNotesSingle.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -269,6 +278,8 @@ describe(publish, () => {
           sections: [{ title: 'Features', audience: 'all', items: [{ description: 'Add widget' }] }],
         },
       ]);
+      mockMatchesAudience.mockReturnValue(() => true);
+      mockRenderReleaseNotesSingle.mockReturnValue('### Features\n\n- Add widget\n');
     }
 
     it('injects release notes into README before publish when enabled', () => {
@@ -317,6 +328,30 @@ describe(publish, () => {
 
       expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('not found; skipping README injection'));
       // Only the publish happens, no README write
+      expect(mockWriteFileSync).not.toHaveBeenCalled();
+    });
+
+    it('warns and skips injection when changelog.json is malformed', () => {
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue('# README\n');
+      mockExtractVersion.mockReturnValue('1.0.0');
+      mockReadChangelogEntries.mockReturnValue(undefined);
+
+      publish(tag, 'npm', injectionOptions);
+
+      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('could not parse'));
+      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('skipping README injection'));
+      expect(mockWriteFileSync).not.toHaveBeenCalled();
+    });
+
+    it('warns and skips injection when all sections are dev-only', () => {
+      setupInjectionMocks();
+      mockRenderReleaseNotesSingle.mockReturnValue('');
+
+      publish(tag, 'npm', injectionOptions);
+
+      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('no user-facing release notes'));
+      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('skipping README injection'));
       expect(mockWriteFileSync).not.toHaveBeenCalled();
     });
 

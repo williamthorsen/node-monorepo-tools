@@ -106,6 +106,7 @@ function injectReleaseNotesIntoReadme(readmePath: string, changelogJsonPath: str
   const version = extractVersion(tag);
   const entries = readChangelogEntries(changelogJsonPath);
   if (entries === undefined) {
+    console.warn(`Warning: could not parse ${changelogJsonPath}; skipping README injection`);
     return undefined;
   }
 
@@ -119,6 +120,11 @@ function injectReleaseNotesIntoReadme(readmePath: string, changelogJsonPath: str
     filter: matchesAudience('all'),
     includeHeading: false,
   });
+
+  if (releaseNotesMarkdown.trimEnd().length === 0) {
+    console.warn(`Warning: no user-facing release notes for version ${version}; skipping README injection`);
+    return undefined;
+  }
 
   const injected = injectSection(originalReadme, 'release-notes', releaseNotesMarkdown.trimEnd());
   writeFileSync(readmePath, injected, 'utf8');
