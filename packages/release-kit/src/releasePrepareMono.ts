@@ -6,6 +6,7 @@ import { buildDependencyGraph } from './buildDependencyGraph.ts';
 import { bumpAllVersions } from './bumpAllVersions.ts';
 import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { determineBumpFromCommits } from './determineBumpFromCommits.ts';
+import { generateChangelogJson, generateSyntheticChangelogJson } from './generateChangelogJson.ts';
 import { buildTagPattern, generateChangelog } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
@@ -270,6 +271,21 @@ function executeReleaseSet(
           }),
         );
       }
+
+      // Generate synthetic changelog JSON for propagation-only bumps.
+      if (config.changelogJson.enabled) {
+        for (const changelogPath of component.changelogPaths) {
+          const jsonFiles = generateSyntheticChangelogJson(
+            config,
+            changelogPath,
+            bump.newVersion,
+            today,
+            releaseEntry.propagatedFrom,
+            dryRun,
+          );
+          modifiedFiles.push(...jsonFiles);
+        }
+      }
     } else {
       for (const changelogPath of component.changelogPaths) {
         changelogFiles.push(
@@ -278,6 +294,17 @@ function executeReleaseSet(
             includePaths: component.paths,
           }),
         );
+      }
+
+      // Generate changelog JSON for direct bumps.
+      if (config.changelogJson.enabled) {
+        for (const changelogPath of component.changelogPaths) {
+          const jsonFiles = generateChangelogJson(config, changelogPath, newTag, dryRun, {
+            tagPattern: buildTagPattern(component.tagPrefix),
+            includePaths: component.paths,
+          });
+          modifiedFiles.push(...jsonFiles);
+        }
       }
     }
 

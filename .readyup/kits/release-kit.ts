@@ -96,6 +96,13 @@ export default defineRdyKit({
           fix: "Remove 'tagPrefix' from .config/release-kit.config.ts — it is no longer supported; the default '{dir}-v' is used automatically",
         },
         {
+          name: 'releaseNotes config is consistent with changelogJson',
+          severity: 'warn',
+          skip: () => (!fileExists('.config/release-kit.config.ts') ? 'no release-kit config file' : false),
+          check: () => releaseNotesConfigIsConsistent(),
+          fix: 'Either enable changelogJson.enabled or disable releaseNotes features (shouldCreateGithubRelease, shouldInjectIntoReadme)',
+        },
+        {
           name: 'git-cliff not in devDependencies',
           severity: 'recommend',
           check: () => !hasDevDependency('git-cliff'),
@@ -149,6 +156,23 @@ export default defineRdyKit({
 });
 
 // -- Helpers ------------------------------------------------------------------
+
+/**
+ * Check that releaseNotes features are not enabled while changelogJson is disabled.
+ *
+ * Uses regex matching against the raw config file to avoid importing it.
+ */
+function releaseNotesConfigIsConsistent(): boolean {
+  const content = readFile('.config/release-kit.config.ts');
+  if (content === undefined) return true;
+
+  const changelogJsonDisabled = /changelogJson\s*:\s*\{[^}]*enabled\s*:\s*false/.test(content);
+  if (!changelogJsonDisabled) return true;
+
+  const hasGithubRelease = /shouldCreateGithubRelease\s*:\s*true/.test(content);
+  const hasReadmeInjection = /shouldInjectIntoReadme\s*:\s*true/.test(content);
+  return !hasGithubRelease && !hasReadmeInjection;
+}
 
 /** Check that `.github/labels.yaml` contains the expected hash for a named preset. */
 function labelsHaveCurrentPresetHash(presetName: string, expectedHash: string): boolean {

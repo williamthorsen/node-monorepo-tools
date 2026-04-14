@@ -24,6 +24,7 @@ vi.mock('../hasPrettierConfig.ts', () => ({
   hasPrettierConfig: mockHasPrettierConfig,
 }));
 
+import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';
 import { releasePrepare } from '../releasePrepare.ts';
 import type { ReleaseConfig, WorkTypeConfig } from '../types.ts';
 
@@ -38,6 +39,8 @@ function makeConfig(overrides?: Partial<ReleaseConfig>): ReleaseConfig {
     packageFiles: ['package.json'],
     changelogPaths: ['.'],
     workTypes,
+    changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: false },
+    releaseNotes: { ...DEFAULT_RELEASE_NOTES_CONFIG },
     ...overrides,
   };
 }

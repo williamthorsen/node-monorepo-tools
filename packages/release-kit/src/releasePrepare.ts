@@ -3,6 +3,7 @@ import { execSync } from 'node:child_process';
 import { bumpAllVersions } from './bumpAllVersions.ts';
 import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { determineBumpFromCommits } from './determineBumpFromCommits.ts';
+import { generateChangelogJson } from './generateChangelogJson.ts';
 import { generateChangelogs } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
@@ -77,12 +78,24 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   // 4. Generate changelogs
   const changelogFiles = generateChangelogs(config, newTag, dryRun);
 
+  // 4b. Generate changelog JSON if enabled
+  const changelogJsonFiles: string[] = [];
+  if (config.changelogJson.enabled) {
+    for (const changelogPath of config.changelogPaths) {
+      changelogJsonFiles.push(...generateChangelogJson(config, changelogPath, newTag, dryRun));
+    }
+  }
+
   // 5. Run format command, appending modified file paths
   const formatCommandStr = config.formatCommand ?? (hasPrettierConfig() ? 'npx prettier --write' : undefined);
   let formatCommand: PrepareResult['formatCommand'];
 
   if (formatCommandStr !== undefined) {
-    const modifiedFiles = [...config.packageFiles, ...config.changelogPaths.map((p) => `${p}/CHANGELOG.md`)];
+    const modifiedFiles = [
+      ...config.packageFiles,
+      ...config.changelogPaths.map((p) => `${p}/CHANGELOG.md`),
+      ...changelogJsonFiles,
+    ];
     const fullCommand = `${formatCommandStr} ${modifiedFiles.join(' ')}`;
 
     if (dryRun) {

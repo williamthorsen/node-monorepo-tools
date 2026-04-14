@@ -2,9 +2,21 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 
 import { component } from './component.ts';
-import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
+import {
+  DEFAULT_CHANGELOG_JSON_CONFIG,
+  DEFAULT_RELEASE_NOTES_CONFIG,
+  DEFAULT_VERSION_PATTERNS,
+  DEFAULT_WORK_TYPES,
+} from './defaults.ts';
 import { isRecord } from './typeGuards.ts';
-import type { ComponentConfig, MonorepoReleaseConfig, ReleaseConfig, ReleaseKitConfig } from './types.ts';
+import type {
+  ChangelogJsonConfig,
+  ComponentConfig,
+  MonorepoReleaseConfig,
+  ReleaseConfig,
+  ReleaseKitConfig,
+  ReleaseNotesConfig,
+} from './types.ts';
 
 /** The path where the consumer-facing config file is expected. */
 export const CONFIG_FILE_PATH = '.config/release-kit.config.ts';
@@ -78,10 +90,15 @@ export function mergeMonorepoConfig(
   const versionPatterns =
     userConfig?.versionPatterns === undefined ? { ...DEFAULT_VERSION_PATTERNS } : { ...userConfig.versionPatterns };
 
+  const changelogJson = mergeChangelogJsonConfig(userConfig?.changelogJson);
+  const releaseNotes = mergeReleaseNotesConfig(userConfig?.releaseNotes);
+
   const result: MonorepoReleaseConfig = {
     components,
     workTypes,
     versionPatterns,
+    changelogJson,
+    releaseNotes,
   };
 
   const formatCommand = userConfig?.formatCommand;
@@ -114,12 +131,17 @@ export function mergeSinglePackageConfig(userConfig: ReleaseKitConfig | undefine
   const versionPatterns =
     userConfig?.versionPatterns === undefined ? { ...DEFAULT_VERSION_PATTERNS } : { ...userConfig.versionPatterns };
 
+  const changelogJson = mergeChangelogJsonConfig(userConfig?.changelogJson);
+  const releaseNotes = mergeReleaseNotesConfig(userConfig?.releaseNotes);
+
   const result: ReleaseConfig = {
     tagPrefix: 'v',
     packageFiles: ['package.json'],
     changelogPaths: ['.'],
     workTypes,
     versionPatterns,
+    changelogJson,
+    releaseNotes,
   };
 
   const formatCommand = userConfig?.formatCommand;
@@ -138,4 +160,28 @@ export function mergeSinglePackageConfig(userConfig: ReleaseKitConfig | undefine
   }
 
   return result;
+}
+
+/** Merge user-provided changelog JSON config with defaults. */
+function mergeChangelogJsonConfig(partial: Partial<ChangelogJsonConfig> | undefined): ChangelogJsonConfig {
+  if (partial === undefined) {
+    return { ...DEFAULT_CHANGELOG_JSON_CONFIG };
+  }
+  return {
+    enabled: partial.enabled ?? DEFAULT_CHANGELOG_JSON_CONFIG.enabled,
+    outputPath: partial.outputPath ?? DEFAULT_CHANGELOG_JSON_CONFIG.outputPath,
+    devOnlySections: partial.devOnlySections ?? [...DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections],
+  };
+}
+
+/** Merge user-provided release notes config with defaults. */
+function mergeReleaseNotesConfig(partial: Partial<ReleaseNotesConfig> | undefined): ReleaseNotesConfig {
+  if (partial === undefined) {
+    return { ...DEFAULT_RELEASE_NOTES_CONFIG };
+  }
+  return {
+    shouldInjectIntoReadme: partial.shouldInjectIntoReadme ?? DEFAULT_RELEASE_NOTES_CONFIG.shouldInjectIntoReadme,
+    shouldCreateGithubRelease:
+      partial.shouldCreateGithubRelease ?? DEFAULT_RELEASE_NOTES_CONFIG.shouldCreateGithubRelease,
+  };
 }

@@ -8,6 +8,11 @@ export type { ResolvedTag } from './resolveReleaseTags.ts';
 export type { LabelDefinition, SyncLabelsConfig } from './sync-labels/types.ts';
 export type {
   BumpResult,
+  ChangelogAudience,
+  ChangelogEntry,
+  ChangelogItem,
+  ChangelogJsonConfig,
+  ChangelogSection,
   Commit,
   ComponentConfig,
   ComponentOverride,
@@ -17,13 +22,19 @@ export type {
   PrepareResult,
   ReleaseConfig,
   ReleaseKitConfig,
+  ReleaseNotesConfig,
   ReleaseType,
   VersionPatterns,
   WorkTypeConfig,
 } from './types.ts';
 
 // Defaults
-export { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
+export {
+  DEFAULT_CHANGELOG_JSON_CONFIG,
+  DEFAULT_RELEASE_NOTES_CONFIG,
+  DEFAULT_VERSION_PATTERNS,
+  DEFAULT_WORK_TYPES,
+} from './defaults.ts';
 
 // Functions
 export { buildReleaseSummary } from './buildReleaseSummary.ts';
@@ -31,18 +42,24 @@ export { bumpAllVersions } from './bumpAllVersions.ts';
 export { bumpVersion } from './bumpVersion.ts';
 export { commitCommand } from './commitCommand.ts';
 export { component } from './component.ts';
+export type { CreateGithubReleaseOptions } from './createGithubRelease.ts';
+export { createGithubRelease, createGithubReleases } from './createGithubRelease.ts';
 export { createTags } from './createTags.ts';
 export { deleteFileIfExists } from './deleteFileIfExists.ts';
 export { detectPackageManager } from './detectPackageManager.ts';
 export { determineBumpType } from './determineBumpType.ts';
 export { discoverWorkspaces } from './discoverWorkspaces.ts';
+export { generateChangelogJson, generateSyntheticChangelogJson } from './generateChangelogJson.ts';
 export { generateChangelog, generateChangelogs } from './generateChangelogs.ts';
 export { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
+export { injectSection } from './injectSection.ts';
 export { COMMIT_PREPROCESSOR_PATTERNS, parseCommitMessage } from './parseCommitMessage.ts';
 export { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE, writeReleaseTags } from './prepareCommand.ts';
 export { publish } from './publish.ts';
 export { releasePrepare } from './releasePrepare.ts';
 export { releasePrepareMono } from './releasePrepareMono.ts';
+export type { RenderOptions } from './renderReleaseNotes.ts';
+export { matchesAudience, renderReleaseNotesMulti, renderReleaseNotesSingle } from './renderReleaseNotes.ts';
 export { reportPrepare } from './reportPrepare.ts';
 export { resolveReleaseTags } from './resolveReleaseTags.ts';
 export { stripScope } from './stripScope.ts';

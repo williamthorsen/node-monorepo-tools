@@ -160,4 +160,117 @@ describe(validateConfig, () => {
       expect(errors).toContain('scopeAliases.api: value must be a string');
     });
   });
+
+  describe('changelogJson', () => {
+    it('validates a complete changelogJson object', () => {
+      const { config, errors } = validateConfig({
+        changelogJson: { enabled: true, outputPath: '.meta/changelog.json', devOnlySections: ['CI'] },
+      });
+      expect(errors).toStrictEqual([]);
+      expect(config.changelogJson).toStrictEqual({
+        enabled: true,
+        outputPath: '.meta/changelog.json',
+        devOnlySections: ['CI'],
+      });
+    });
+
+    it('validates a partial changelogJson object', () => {
+      const { config, errors } = validateConfig({ changelogJson: { enabled: false } });
+      expect(errors).toStrictEqual([]);
+      expect(config.changelogJson).toStrictEqual({ enabled: false });
+    });
+
+    it('returns an error when changelogJson is not an object', () => {
+      const { errors } = validateConfig({ changelogJson: 'invalid' });
+      expect(errors).toContain("'changelogJson' must be an object");
+    });
+
+    it('returns an error when enabled is not a boolean', () => {
+      const { errors } = validateConfig({ changelogJson: { enabled: 'yes' } });
+      expect(errors).toContain('changelogJson.enabled: must be a boolean');
+    });
+
+    it('returns an error when outputPath is not a string', () => {
+      const { errors } = validateConfig({ changelogJson: { outputPath: 123 } });
+      expect(errors).toContain('changelogJson.outputPath: must be a string');
+    });
+
+    it('returns an error when devOnlySections is not a string array', () => {
+      const { errors } = validateConfig({ changelogJson: { devOnlySections: [1, 2] } });
+      expect(errors).toContain('changelogJson.devOnlySections: must be a string array');
+    });
+
+    it('returns an error for unknown changelogJson fields', () => {
+      const { errors } = validateConfig({ changelogJson: { bogus: true } });
+      expect(errors).toContain("changelogJson: unknown field 'bogus'");
+    });
+  });
+
+  describe('releaseNotes', () => {
+    it('validates a complete releaseNotes object', () => {
+      const { config, errors } = validateConfig({
+        releaseNotes: { shouldInjectIntoReadme: true, shouldCreateGithubRelease: false },
+      });
+      expect(errors).toStrictEqual([]);
+      expect(config.releaseNotes).toStrictEqual({
+        shouldInjectIntoReadme: true,
+        shouldCreateGithubRelease: false,
+      });
+    });
+
+    it('returns an error when releaseNotes is not an object', () => {
+      const { errors } = validateConfig({ releaseNotes: 'invalid' });
+      expect(errors).toContain("'releaseNotes' must be an object");
+    });
+
+    it('returns an error when shouldInjectIntoReadme is not a boolean', () => {
+      const { errors } = validateConfig({ releaseNotes: { shouldInjectIntoReadme: 'yes' } });
+      expect(errors).toContain('releaseNotes.shouldInjectIntoReadme: must be a boolean');
+    });
+
+    it('returns an error when shouldCreateGithubRelease is not a boolean', () => {
+      const { errors } = validateConfig({ releaseNotes: { shouldCreateGithubRelease: 42 } });
+      expect(errors).toContain('releaseNotes.shouldCreateGithubRelease: must be a boolean');
+    });
+
+    it('returns an error for unknown releaseNotes fields', () => {
+      const { errors } = validateConfig({ releaseNotes: { unknownField: true } });
+      expect(errors).toContain("releaseNotes: unknown field 'unknownField'");
+    });
+  });
+
+  describe('cross-field warnings', () => {
+    it('warns when shouldCreateGithubRelease is true but changelogJson is disabled', () => {
+      const { warnings } = validateConfig({
+        changelogJson: { enabled: false },
+        releaseNotes: { shouldCreateGithubRelease: true },
+      });
+      expect(warnings).toContain(
+        'releaseNotes.shouldCreateGithubRelease is enabled but changelogJson.enabled is false; GitHub Releases will be skipped at runtime',
+      );
+    });
+
+    it('warns when shouldInjectIntoReadme is true but changelogJson is disabled', () => {
+      const { warnings } = validateConfig({
+        changelogJson: { enabled: false },
+        releaseNotes: { shouldInjectIntoReadme: true },
+      });
+      expect(warnings).toContain(
+        'releaseNotes.shouldInjectIntoReadme is enabled but changelogJson.enabled is false; README injection will be skipped at runtime',
+      );
+    });
+
+    it('returns no warnings when config is consistent', () => {
+      const { warnings } = validateConfig({
+        changelogJson: { enabled: true },
+        releaseNotes: { shouldCreateGithubRelease: true },
+      });
+      expect(warnings).toStrictEqual([]);
+    });
+
+    it('returns no warnings for empty config', () => {
+      const { warnings } = validateConfig({});
+      expect(warnings).toStrictEqual([]);
+    });
+  });
 });

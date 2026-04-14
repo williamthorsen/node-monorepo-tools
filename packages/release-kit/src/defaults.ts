@@ -1,4 +1,4 @@
-import type { VersionPatterns, WorkTypeConfig } from './types.ts';
+import type { ChangelogJsonConfig, ReleaseNotesConfig, VersionPatterns, WorkTypeConfig } from './types.ts';
 
 /** Default work types ordered by priority, matching the skypilot-site convention. */
 export const DEFAULT_WORK_TYPES: Record<string, WorkTypeConfig> = {
@@ -21,4 +21,17 @@ export const DEFAULT_WORK_TYPES: Record<string, WorkTypeConfig> = {
 export const DEFAULT_VERSION_PATTERNS: VersionPatterns = {
   major: ['!'],
   minor: ['feat'],
+};
+
+/** Default configuration for structured changelog JSON generation. */
+export const DEFAULT_CHANGELOG_JSON_CONFIG: ChangelogJsonConfig = {
+  enabled: true,
+  outputPath: '.meta/changelog.json',
+  devOnlySections: ['CI', 'Dependencies', 'Formatting', 'Internal', 'Tests', 'Tooling'],
+};
+
+/** Default configuration for release notes consumption. */
+export const DEFAULT_RELEASE_NOTES_CONFIG: ReleaseNotesConfig = {
+  shouldInjectIntoReadme: false,
+  shouldCreateGithubRelease: false,
 };
