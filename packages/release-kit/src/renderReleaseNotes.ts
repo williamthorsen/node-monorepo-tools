@@ -8,6 +8,14 @@ export interface RenderOptions {
   includeHeading?: boolean;
 }
 
+function allSections() {
+  return true;
+}
+
+function publicSections(section: ChangelogSection) {
+  return section.audience === 'all';
+}
+
 /**
  * Create a predicate that matches sections visible to the given audience.
  *
@@ -15,10 +23,7 @@ export interface RenderOptions {
  * `"dev"` matches all sections (developers see everything).
  */
 export function matchesAudience(audience: ChangelogAudience): (section: ChangelogSection) => boolean {
-  if (audience === 'dev') {
-    return () => true;
-  }
-  return (section) => section.audience === 'all';
+  return audience === 'dev' ? allSections : publicSections;
 }
 
 /**

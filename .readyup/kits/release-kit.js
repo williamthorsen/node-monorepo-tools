@@ -141,7 +141,8 @@ var package_default = {
     "@williamthorsen/node-monorepo-core": "workspace:*",
     glob: "13.0.6",
     jiti: "2.6.1",
-    "js-yaml": "4.1.1"
+    "js-yaml": "4.1.1",
+    "json-stringify-pretty-compact": "4.0.0"
   },
   devDependencies: {
     "@types/js-yaml": "4.0.9",
@@ -224,6 +225,13 @@ var release_kit_default = defineRdyKit({
           fix: "Remove 'tagPrefix' from .config/release-kit.config.ts \u2014 it is no longer supported; the default '{dir}-v' is used automatically"
         },
         {
+          name: "releaseNotes config is consistent with changelogJson",
+          severity: "warn",
+          skip: () => !fileExists(".config/release-kit.config.ts") ? "no release-kit config file" : false,
+          check: () => releaseNotesConfigIsConsistent(),
+          fix: "Either enable changelogJson.enabled or disable releaseNotes features (shouldCreateGithubRelease, shouldInjectIntoReadme)"
+        },
+        {
           name: "git-cliff not in devDependencies",
           severity: "recommend",
           check: () => !hasDevDependency("git-cliff"),
@@ -275,6 +283,15 @@ var release_kit_default = defineRdyKit({
     }
   ]
 });
+function releaseNotesConfigIsConsistent() {
+  const content = readFile(".config/release-kit.config.ts");
+  if (content === void 0) return true;
+  const changelogJsonDisabled = /changelogJson\s*:\s*\{[^}]*enabled\s*:\s*false/.test(content);
+  if (!changelogJsonDisabled) return true;
+  const hasGithubRelease = /shouldCreateGithubRelease\s*:\s*true/.test(content);
+  const hasReadmeInjection = /shouldInjectIntoReadme\s*:\s*true/.test(content);
+  return !hasGithubRelease && !hasReadmeInjection;
+}
 function labelsHaveCurrentPresetHash(presetName, expectedHash) {
   const content = readFile(".github/labels.yaml");
   if (content === void 0) return false;

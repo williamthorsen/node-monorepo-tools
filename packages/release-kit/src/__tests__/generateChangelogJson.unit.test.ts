@@ -57,7 +57,7 @@ describe(generateChangelogJson, () => {
     const cliffContext = [
       {
         version: 'v1.0.0',
-        timestamp: 1700000000,
+        timestamp: 1_700_000_000,
         commits: [
           { message: '#1 feat: Add new feature', group: 'Features' },
           { message: '#2 fix: Fix a bug', group: 'Bug fixes' },
@@ -91,7 +91,7 @@ describe(generateChangelogJson, () => {
       { commits: [{ message: '#1 feat: Unreleased', group: 'Features' }] },
       {
         version: 'v1.0.0',
-        timestamp: 1700000000,
+        timestamp: 1_700_000_000,
         commits: [{ message: '#2 feat: Released', group: 'Features' }],
       },
     ];
@@ -111,7 +111,7 @@ describe(generateChangelogJson, () => {
     const cliffContext = [
       {
         version: 'v2.0.0',
-        timestamp: 1700000000,
+        timestamp: 1_700_000_000,
         commits: [
           { message: '#1 feat: Feature', group: 'Features' },
           { message: '#2 deps: Bump deps', group: 'Dependencies' },
@@ -140,7 +140,7 @@ describe(generateChangelogJson, () => {
     const cliffContext = [
       {
         version: 'v1.0.0',
-        timestamp: 1700000000,
+        timestamp: 1_700_000_000,
         commits: [{ message: 'Initial commit', group: 'Other' }],
       },
     ];
@@ -165,7 +165,7 @@ describe(generateChangelogJson, () => {
     const cliffContext = [
       {
         version: 'v1.0.0',
-        timestamp: 1700000000,
+        timestamp: 1_700_000_000,
         commits: [{ message: '#1 feat: New feature', group: 'Features' }],
       },
     ];
@@ -196,7 +196,7 @@ describe(generateChangelogJson, () => {
     const cliffContext = [
       {
         version: 'v1.0.0',
-        timestamp: 1700000000,
+        timestamp: 1_700_000_000,
         commits: [{ message: '#1 feat: New feature', group: 'Features' }],
       },
     ];
