@@ -80,23 +80,32 @@ export async function publishCommand(argv: string[]): Promise<void> {
   // Load config for releaseNotes and changelogJson settings.
   let releaseNotes = { ...DEFAULT_RELEASE_NOTES_CONFIG };
   let changelogJsonOutputPath = DEFAULT_CHANGELOG_JSON_CONFIG.outputPath;
+  let rawConfig: unknown;
   try {
-    const rawConfig = await loadConfig();
-    if (rawConfig !== undefined) {
-      const { config, warnings } = validateConfig(rawConfig);
-      for (const warning of warnings) {
-        console.warn(`  ⚠️  ${warning}`);
-      }
-      releaseNotes = {
-        ...DEFAULT_RELEASE_NOTES_CONFIG,
-        ...config.releaseNotes,
-      };
-      changelogJsonOutputPath = config.changelogJson?.outputPath ?? DEFAULT_CHANGELOG_JSON_CONFIG.outputPath;
-    }
+    rawConfig = await loadConfig();
   } catch (error: unknown) {
     console.warn(
       `Warning: failed to load config; using defaults: ${error instanceof Error ? error.message : String(error)}`,
     );
+  }
+
+  if (rawConfig !== undefined) {
+    const { config, errors, warnings } = validateConfig(rawConfig);
+    if (errors.length > 0) {
+      console.error('Invalid config:');
+      for (const err of errors) {
+        console.error(`  ❌ ${err}`);
+      }
+      process.exit(1);
+    }
+    for (const warning of warnings) {
+      console.warn(`  ⚠️  ${warning}`);
+    }
+    releaseNotes = {
+      ...DEFAULT_RELEASE_NOTES_CONFIG,
+      ...config.releaseNotes,
+    };
+    changelogJsonOutputPath = config.changelogJson?.outputPath ?? DEFAULT_CHANGELOG_JSON_CONFIG.outputPath;
   }
 
   try {

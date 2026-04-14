@@ -5,6 +5,7 @@ const mockResolveReleaseTags = vi.hoisted(() => vi.fn());
 const mockDetectPackageManager = vi.hoisted(() => vi.fn());
 const mockPublish = vi.hoisted(() => vi.fn());
 const mockLoadConfig = vi.hoisted(() => vi.fn());
+const mockValidateConfig = vi.hoisted(() => vi.fn());
 const mockCreateGithubReleases = vi.hoisted(() => vi.fn());
 
 vi.mock('../discoverWorkspaces.ts', () => ({
@@ -27,6 +28,10 @@ vi.mock('../loadConfig.ts', () => ({
   loadConfig: mockLoadConfig,
 }));
 
+vi.mock('../validateConfig.ts', () => ({
+  validateConfig: mockValidateConfig,
+}));
+
 vi.mock('../createGithubRelease.ts', () => ({
   createGithubReleases: mockCreateGithubReleases,
 }));
@@ -46,6 +51,7 @@ describe(publishCommand, () => {
     mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.' }]);
     mockDetectPackageManager.mockReturnValue('npm');
     mockLoadConfig.mockResolvedValue(undefined);
+    mockValidateConfig.mockReturnValue({ config: {}, errors: [], warnings: [] });
     vi.spyOn(process, 'exit').mockImplementation((code) => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
@@ -59,6 +65,7 @@ describe(publishCommand, () => {
     mockDetectPackageManager.mockReset();
     mockPublish.mockReset();
     mockLoadConfig.mockReset();
+    mockValidateConfig.mockReset();
     mockCreateGithubReleases.mockReset();
     vi.restoreAllMocks();
   });
@@ -218,9 +225,14 @@ describe(publishCommand, () => {
 
   describe('config loading', () => {
     it('passes releaseNotes and changelogJsonOutputPath from loaded config', async () => {
-      mockLoadConfig.mockResolvedValue({
-        releaseNotes: { shouldCreateGithubRelease: true, shouldInjectIntoReadme: true },
-        changelogJson: { outputPath: 'custom/changelog.json' },
+      mockLoadConfig.mockResolvedValue({ releaseNotes: {}, changelogJson: {} });
+      mockValidateConfig.mockReturnValue({
+        config: {
+          releaseNotes: { shouldCreateGithubRelease: true, shouldInjectIntoReadme: true },
+          changelogJson: { outputPath: 'custom/changelog.json' },
+        },
+        errors: [],
+        warnings: [],
       });
 
       await publishCommand([]);
@@ -264,16 +276,41 @@ describe(publishCommand, () => {
     });
 
     it('prints validation warnings from config', async () => {
-      // Config with releaseNotes enabled but changelogJson disabled triggers a warning
-      mockLoadConfig.mockResolvedValue({
-        changelogJson: { enabled: false },
-        releaseNotes: { shouldCreateGithubRelease: true },
+      mockLoadConfig.mockResolvedValue({ releaseNotes: {} });
+      mockValidateConfig.mockReturnValue({
+        config: { releaseNotes: { shouldCreateGithubRelease: true } },
+        errors: [],
+        warnings: ['releaseNotes.shouldCreateGithubRelease is enabled but changelogJson.enabled is false'],
       });
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       await publishCommand([]);
 
       expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('shouldCreateGithubRelease'));
+    });
+
+    it('exits with code 1 when config has validation errors', async () => {
+      mockLoadConfig.mockResolvedValue({ bogus: 123 });
+      mockValidateConfig.mockReturnValue({
+        config: {},
+        errors: ["Unknown field: 'bogus'"],
+        warnings: [],
+      });
+
+      let thrown: ExitError | undefined;
+      try {
+        await publishCommand([]);
+      } catch (error: unknown) {
+        if (error instanceof ExitError) {
+          thrown = error;
+        }
+      }
+
+      expect(thrown).toBeInstanceOf(ExitError);
+      expect(thrown?.code).toBe(1);
+      expect(console.error).toHaveBeenCalledWith('Invalid config:');
+      expect(console.error).toHaveBeenCalledWith("  ❌ Unknown field: 'bogus'");
+      expect(mockPublish).not.toHaveBeenCalled();
     });
   });
 });
