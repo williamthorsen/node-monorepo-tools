@@ -5,10 +5,14 @@ import { basename } from 'node:path';
 
 import { parseArgs, translateParseError } from '@williamthorsen/node-monorepo-core';
 
+import { createGithubReleases } from './createGithubRelease.ts';
+import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from './defaults.ts';
 import { detectPackageManager } from './detectPackageManager.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
+import { loadConfig } from './loadConfig.ts';
 import { publish } from './publish.ts';
 import { resolveReleaseTags } from './resolveReleaseTags.ts';
+import { validateConfig } from './validateConfig.ts';
 
 const publishFlagSchema = {
   dryRun: { long: '--dry-run', type: 'boolean' as const },
@@ -73,10 +77,36 @@ export async function publishCommand(argv: string[]): Promise<void> {
 
   const packageManager = detectPackageManager();
 
+  // Load config for releaseNotes and changelogJson settings.
+  let releaseNotes = { ...DEFAULT_RELEASE_NOTES_CONFIG };
+  let changelogJsonOutputPath = DEFAULT_CHANGELOG_JSON_CONFIG.outputPath;
   try {
-    publish(resolvedTags, packageManager, { dryRun, noGitChecks, provenance });
+    const rawConfig = await loadConfig();
+    if (rawConfig !== undefined) {
+      const { config } = validateConfig(rawConfig);
+      releaseNotes = {
+        ...DEFAULT_RELEASE_NOTES_CONFIG,
+        ...config.releaseNotes,
+      };
+      changelogJsonOutputPath = config.changelogJson?.outputPath ?? DEFAULT_CHANGELOG_JSON_CONFIG.outputPath;
+    }
+  } catch {
+    // Config loading failure is non-fatal for publish; use defaults.
+  }
+
+  try {
+    publish(resolvedTags, packageManager, {
+      dryRun,
+      noGitChecks,
+      provenance,
+      releaseNotes,
+      changelogJsonOutputPath,
+    });
   } catch (error: unknown) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
+
+  // Create GitHub Releases after successful publish.
+  createGithubReleases(resolvedTags, releaseNotes, changelogJsonOutputPath, dryRun);
 }

@@ -227,13 +227,17 @@ async function loadAndValidateConfig(): Promise<ReleaseKitConfig | undefined> {
     return undefined;
   }
 
-  const { config, errors } = validateConfig(rawConfig);
+  const { config, errors, warnings } = validateConfig(rawConfig);
   if (errors.length > 0) {
     console.error('Invalid config:');
     for (const err of errors) {
       console.error(`  ❌ ${err}`);
     }
     process.exit(1);
+  }
+
+  for (const warning of warnings) {
+    console.warn(`  ⚠️  ${warning}`);
   }
 
   return config;

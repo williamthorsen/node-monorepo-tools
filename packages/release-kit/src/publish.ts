@@ -1,12 +1,20 @@
 import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import type { PackageManager } from './detectPackageManager.ts';
+import { injectSection } from './injectSection.ts';
+import { matchesAudience, renderReleaseNotesSingle } from './renderReleaseNotes.ts';
 import type { ResolvedTag } from './resolveReleaseTags.ts';
+import { isRecord, isUnknownArray } from './typeGuards.ts';
+import type { ChangelogEntry, ReleaseNotesConfig } from './types.ts';
 
 export interface PublishOptions {
   dryRun: boolean;
   noGitChecks: boolean;
   provenance: boolean;
+  releaseNotes?: ReleaseNotesConfig;
+  changelogJsonOutputPath?: string;
 }
 
 /**
@@ -31,7 +39,20 @@ export function publish(resolvedTags: ResolvedTag[], packageManager: PackageMana
   const executable = resolveExecutable(packageManager);
   const args = buildPublishArgs(packageManager, { dryRun, noGitChecks, provenance });
 
+  const shouldInject = options.releaseNotes?.shouldInjectIntoReadme === true;
+  const changelogJsonOutputPath = options.changelogJsonOutputPath ?? '.meta/changelog.json';
+
   for (const { tag, workspacePath } of resolvedTags) {
+    let readmePath: string | undefined;
+    let originalReadme: string | undefined;
+
+    if (shouldInject) {
+      readmePath = resolveReadmePath(workspacePath);
+      if (readmePath !== undefined) {
+        originalReadme = injectReleaseNotesIntoReadme(readmePath, join(workspacePath, changelogJsonOutputPath), tag);
+      }
+    }
+
     try {
       console.info(`\n${dryRun ? '[dry-run] ' : ''}Running: ${executable} ${args.join(' ')} (cwd: ${workspacePath})`);
       execFileSync(executable, args, { cwd: workspacePath, stdio: 'inherit' });
@@ -44,6 +65,10 @@ export function publish(resolvedTags: ResolvedTag[], packageManager: PackageMana
         }
       }
       throw error;
+    } finally {
+      if (readmePath !== undefined && originalReadme !== undefined) {
+        writeFileSync(readmePath, originalReadme, 'utf8');
+      }
     }
   }
 }
@@ -54,6 +79,81 @@ function resolveExecutable(packageManager: PackageManager): string {
     return 'yarn';
   }
   return packageManager;
+}
+
+/** Find the README file in a workspace directory. */
+function resolveReadmePath(workspacePath: string): string | undefined {
+  const readmePath = join(workspacePath, 'README.md');
+  if (existsSync(readmePath)) {
+    return readmePath;
+  }
+  return undefined;
+}
+
+/**
+ * Inject release notes into a README and return the original content for restoration.
+ *
+ * Returns the original README content, or `undefined` if injection was skipped.
+ */
+function injectReleaseNotesIntoReadme(readmePath: string, changelogJsonPath: string, tag: string): string | undefined {
+  if (!existsSync(changelogJsonPath)) {
+    console.warn(`Warning: ${changelogJsonPath} not found; skipping README injection`);
+    return undefined;
+  }
+
+  const originalReadme = readFileSync(readmePath, 'utf8');
+
+  const version = extractVersion(tag);
+  const entries = readChangelogJsonFile(changelogJsonPath);
+  if (entries === undefined) {
+    return undefined;
+  }
+
+  const entry = entries.find((e) => e.version === version);
+  if (entry === undefined) {
+    console.warn(`Warning: no changelog entry for version ${version}; skipping README injection`);
+    return undefined;
+  }
+
+  const releaseNotesMarkdown = renderReleaseNotesSingle(entry, {
+    filter: matchesAudience('all'),
+    includeHeading: false,
+  });
+
+  const injected = injectSection(originalReadme, 'release-notes', releaseNotesMarkdown.trimEnd());
+  writeFileSync(readmePath, injected, 'utf8');
+
+  return originalReadme;
+}
+
+/** Extract the version from a tag by stripping the prefix up to the first digit. */
+function extractVersion(tag: string): string {
+  const match = /(\d+\.\d+\.\d+.*)$/.exec(tag);
+  return match?.[1] ?? tag;
+}
+
+/** Read and parse a changelog JSON file. */
+function readChangelogJsonFile(filePath: string): ChangelogEntry[] | undefined {
+  try {
+    const content = readFileSync(filePath, 'utf8');
+    const parsed: unknown = JSON.parse(content);
+    if (!isUnknownArray(parsed)) {
+      return undefined;
+    }
+    return parsed.filter(isChangelogEntry);
+  } catch {
+    return undefined;
+  }
+}
+
+/** Type guard for `ChangelogEntry` values parsed from JSON. */
+function isChangelogEntry(value: unknown): value is ChangelogEntry {
+  return (
+    isRecord(value) &&
+    typeof value.version === 'string' &&
+    typeof value.date === 'string' &&
+    isUnknownArray(value.sections)
+  );
 }
 
 /** Build the argument list for the publish command. */

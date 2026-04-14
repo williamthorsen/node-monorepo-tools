@@ -1,6 +1,41 @@
 /** Semver release type for version bumping. */
 export type ReleaseType = 'major' | 'minor' | 'patch';
 
+/** Target audience for a changelog section. */
+export type ChangelogAudience = 'all' | 'dev';
+
+/** A single item in a changelog section (typically one commit). */
+export interface ChangelogItem {
+  description: string;
+}
+
+/** A grouped section within a changelog entry (e.g., "Features", "Bug fixes"). */
+export interface ChangelogSection {
+  title: string;
+  audience: ChangelogAudience;
+  items: ChangelogItem[];
+}
+
+/** A single version's changelog data. */
+export interface ChangelogEntry {
+  version: string;
+  date: string;
+  sections: ChangelogSection[];
+}
+
+/** Configuration for structured changelog JSON generation. */
+export interface ChangelogJsonConfig {
+  enabled: boolean;
+  outputPath: string;
+  devOnlySections: string[];
+}
+
+/** Configuration for release notes consumption (GitHub Releases, README injection). */
+export interface ReleaseNotesConfig {
+  shouldInjectIntoReadme: boolean;
+  shouldCreateGithubRelease: boolean;
+}
+
 /** Identifies a dependency whose version bump triggered a propagated release. */
 export interface PropagationSource {
   packageName: string;
@@ -101,6 +136,10 @@ export interface ReleaseKitConfig {
    * the shorthand is resolved to the canonical scope name before the parsed commit is returned.
    */
   scopeAliases?: Record<string, string>;
+  /** Controls structured changelog JSON generation. */
+  changelogJson?: Partial<ChangelogJsonConfig>;
+  /** Controls release notes consumption (GitHub Releases, README injection). */
+  releaseNotes?: Partial<ReleaseNotesConfig>;
 }
 
 /** Override for a single component in the config file. */
@@ -171,6 +210,10 @@ export interface MonorepoReleaseConfig {
    * the shorthand is resolved to the canonical scope name before the parsed commit is returned.
    */
   scopeAliases?: Record<string, string>;
+  /** Controls structured changelog JSON generation. */
+  changelogJson: ChangelogJsonConfig;
+  /** Controls release notes consumption (GitHub Releases, README injection). */
+  releaseNotes: ReleaseNotesConfig;
 }
 
 /** Configuration for the release workflow. */
@@ -199,4 +242,8 @@ export interface ReleaseConfig {
    * the shorthand is resolved to the canonical scope name before the parsed commit is returned.
    */
   scopeAliases?: Record<string, string>;
+  /** Controls structured changelog JSON generation. */
+  changelogJson: ChangelogJsonConfig;
+  /** Controls release notes consumption (GitHub Releases, README injection). */
+  releaseNotes: ReleaseNotesConfig;
 }

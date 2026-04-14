@@ -42,7 +42,8 @@
     "@williamthorsen/node-monorepo-core": "workspace:*",
     "glob": "13.0.6",
     "jiti": "2.6.1",
-    "js-yaml": "4.1.1"
+    "js-yaml": "4.1.1",
+    "json-stringify-pretty-compact": "4.0.0"
   },
   "devDependencies": {
     "@types/js-yaml": "4.0.9",
