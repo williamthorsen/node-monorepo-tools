@@ -7,23 +7,25 @@ import type { ReleaseKitConfig } from './types.ts';
  * Returns an array of validation error messages. An empty array means the config is valid.
  * Uses hand-coded type guards rather than a schema library.
  */
-export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors: string[] } {
+export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors: string[]; warnings: string[] } {
   const errors: string[] = [];
 
   if (!isRecord(raw)) {
-    return { config: {}, errors: ['Config must be an object'] };
+    return { config: {}, errors: ['Config must be an object'], warnings: [] };
   }
 
   const config: ReleaseKitConfig = {};
 
   // Detect unknown fields
   const knownFields = new Set([
+    'changelogJson',
+    'cliffConfigPath',
     'components',
+    'formatCommand',
+    'releaseNotes',
+    'scopeAliases',
     'versionPatterns',
     'workTypes',
-    'formatCommand',
-    'cliffConfigPath',
-    'scopeAliases',
   ]);
 
   for (const key of Object.keys(raw)) {
@@ -32,14 +34,112 @@ export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors
     }
   }
 
+  validateChangelogJson(raw.changelogJson, config, errors);
   validateComponents(raw.components, config, errors);
+  validateReleaseNotes(raw.releaseNotes, config, errors);
   validateVersionPatterns(raw.versionPatterns, config, errors);
   validateWorkTypes(raw.workTypes, config, errors);
   validateStringField('formatCommand', raw.formatCommand, config, errors);
   validateStringField('cliffConfigPath', raw.cliffConfigPath, config, errors);
   validateScopeAliases(raw.scopeAliases, config, errors);
 
-  return { config, errors };
+  // Cross-field warnings: releaseNotes features require changelogJson to be enabled.
+  const warnings: string[] = [];
+  const changelogJsonEnabled = config.changelogJson?.enabled ?? true;
+  if (!changelogJsonEnabled) {
+    if (config.releaseNotes?.shouldCreateGithubRelease) {
+      warnings.push(
+        'releaseNotes.shouldCreateGithubRelease is enabled but changelogJson.enabled is false; GitHub Releases will be skipped at runtime',
+      );
+    }
+    if (config.releaseNotes?.shouldInjectIntoReadme) {
+      warnings.push(
+        'releaseNotes.shouldInjectIntoReadme is enabled but changelogJson.enabled is false; README injection will be skipped at runtime',
+      );
+    }
+  }
+
+  return { config, errors, warnings };
+}
+
+function validateChangelogJson(value: unknown, config: ReleaseKitConfig, errors: string[]): void {
+  if (value === undefined) return;
+
+  if (!isRecord(value)) {
+    errors.push("'changelogJson' must be an object");
+    return;
+  }
+
+  const knownChangelogJsonFields = new Set(['enabled', 'outputPath', 'devOnlySections']);
+  for (const key of Object.keys(value)) {
+    if (!knownChangelogJsonFields.has(key)) {
+      errors.push(`changelogJson: unknown field '${key}'`);
+    }
+  }
+
+  const result: NonNullable<ReleaseKitConfig['changelogJson']> = {};
+
+  if (value.enabled !== undefined) {
+    if (typeof value.enabled === 'boolean') {
+      result.enabled = value.enabled;
+    } else {
+      errors.push('changelogJson.enabled: must be a boolean');
+    }
+  }
+
+  if (value.outputPath !== undefined) {
+    if (typeof value.outputPath === 'string') {
+      result.outputPath = value.outputPath;
+    } else {
+      errors.push('changelogJson.outputPath: must be a string');
+    }
+  }
+
+  if (value.devOnlySections !== undefined) {
+    if (isStringArray(value.devOnlySections)) {
+      result.devOnlySections = value.devOnlySections;
+    } else {
+      errors.push('changelogJson.devOnlySections: must be a string array');
+    }
+  }
+
+  config.changelogJson = result;
+}
+
+function validateReleaseNotes(value: unknown, config: ReleaseKitConfig, errors: string[]): void {
+  if (value === undefined) return;
+
+  if (!isRecord(value)) {
+    errors.push("'releaseNotes' must be an object");
+    return;
+  }
+
+  const knownReleaseNotesFields = new Set(['shouldInjectIntoReadme', 'shouldCreateGithubRelease']);
+  for (const key of Object.keys(value)) {
+    if (!knownReleaseNotesFields.has(key)) {
+      errors.push(`releaseNotes: unknown field '${key}'`);
+    }
+  }
+
+  const result: NonNullable<ReleaseKitConfig['releaseNotes']> = {};
+
+  if (value.shouldInjectIntoReadme !== undefined) {
+    if (typeof value.shouldInjectIntoReadme === 'boolean') {
+      result.shouldInjectIntoReadme = value.shouldInjectIntoReadme;
+    } else {
+      errors.push('releaseNotes.shouldInjectIntoReadme: must be a boolean');
+    }
+  }
+
+  if (value.shouldCreateGithubRelease !== undefined) {
+    if (typeof value.shouldCreateGithubRelease === 'boolean') {
+      result.shouldCreateGithubRelease = value.shouldCreateGithubRelease;
+    } else {
+      errors.push('releaseNotes.shouldCreateGithubRelease: must be a boolean');
+    }
+  }
+
+  config.releaseNotes = result;
 }
 
 function isStringArray(value: unknown): value is string[] {
