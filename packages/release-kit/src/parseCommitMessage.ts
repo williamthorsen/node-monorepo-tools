@@ -1,7 +1,7 @@
 import type { ParsedCommit, WorkTypeConfig } from './types.ts';
 
 /** Regex patterns stripped from the start of commit messages before parsing. */
-export const COMMIT_PREPROCESSOR_PATTERNS: readonly RegExp[] = [/^#\d+([.-]\d+)?\s+/, /^[A-Z]+-\d+\s+/];
+export const COMMIT_PREPROCESSOR_PATTERNS: readonly RegExp[] = [/^##\s+/, /^#\d+([.-]\d+)?\s+/, /^[A-Z]+-\d+\s+/];
 
 /**
  * Parse a commit message into structured metadata.

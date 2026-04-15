@@ -130,6 +130,29 @@ describe(parseCommitMessage, () => {
   });
 
   describe('ticket-prefix stripping', () => {
+    it('strips the ## synthetic prefix before parsing', () => {
+      const result = parseCommitMessage('## feat: add quick utility', 'sp1', workTypes);
+      expect(result).toStrictEqual({
+        message: '## feat: add quick utility',
+        hash: 'sp1',
+        type: 'feat',
+        description: 'add quick utility',
+        breaking: false,
+      });
+    });
+
+    it('strips the ## prefix with scope|type format', () => {
+      const result = parseCommitMessage('## web|fix: patch layout', 'sp2', workTypes);
+      expect(result).toStrictEqual({
+        message: '## web|fix: patch layout',
+        hash: 'sp2',
+        type: 'fix',
+        description: 'patch layout',
+        breaking: false,
+        scope: 'web',
+      });
+    });
+
     it('strips a GitHub-style ticket prefix before parsing', () => {
       const result = parseCommitMessage('#8 feat: add thing', 'tp1', workTypes);
       expect(result).toStrictEqual({

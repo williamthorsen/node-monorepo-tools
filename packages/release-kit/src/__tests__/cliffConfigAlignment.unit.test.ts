@@ -105,6 +105,14 @@ describe('cliff.toml.template alignment with DEFAULT_WORK_TYPES', () => {
     }
   });
 
+  describe('every work type is matched with ## synthetic prefix', () => {
+    for (const { typeName, header } of expectedTypes) {
+      it(`"## ${typeName}: test" is matched and grouped as "${header}"`, () => {
+        assertParsedAs(`## ${typeName}: test`, header);
+      });
+    }
+  });
+
   describe('every work type is matched in pipe-prefixed scope format', () => {
     for (const { typeName, header } of expectedTypes) {
       it(`"#1 scope|${typeName}: test" is matched and grouped as "${header}"`, () => {

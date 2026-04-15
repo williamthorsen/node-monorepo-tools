@@ -5,9 +5,11 @@
 # Examples:
 #   #19 rdy|feat: Add utility functions for common check patterns (#26)
 #   AFG-42 panel|fix: Fix button layout (#73)
+#   ## feat: Quick utility added during interactive session
 #
-# Only ticketed commits (leading #NN or PROJ-NN) are included.
+# Only ticketed commits (leading #NN, PROJ-NN, or ##) are included.
 # Unticketed maintenance commits (deps upgrades, tooling tweaks) are skipped.
+# Use ## as a synthetic ticket prefix for ad-hoc commits that belong in the changelog.
 
 [changelog]
 header = """
@@ -55,27 +57,27 @@ filter_unconventional = false
 split_commits = false
 commit_preprocessors = []
 # Require a ticket-ID prefix for inclusion.
-# Supported prefixes: "#123 ", "#123-1 ", "#123.1 ", "TOOL-123 "
+# Supported prefixes: "#123 ", "#123-1 ", "#123.1 ", "TOOL-123 ", "## "
 commit_parsers = [
   { message = "^release:", skip = true },
   { message = "^Merge", skip = true },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?bugfix(!)?:", group = "Bug fixes" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?ci(!)?:", group = "CI" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?deprecate(!)?:", group = "Deprecated" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?deps?(!)?:", group = "Dependencies" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?docs?(!)?:", group = "Documentation" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?feat(!)?:", group = "Features" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?feature(!)?:", group = "Features" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?fix(!)?:", group = "Bug fixes" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?fmt(!)?:", group = "Formatting" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?internal(!)?:", group = "Internal" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?perf(!)?:", group = "Performance" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?performance(!)?:", group = "Performance" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?refactor(!)?:", group = "Refactoring" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?sec(!)?:", group = "Security" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?security(!)?:", group = "Security" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?tests?(!)?:", group = "Tests" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?tooling(!)?:", group = "Tooling" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?bugfix(!)?:", group = "Bug fixes" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?ci(!)?:", group = "CI" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?deprecate(!)?:", group = "Deprecated" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?deps?(!)?:", group = "Dependencies" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?docs?(!)?:", group = "Documentation" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?feat(!)?:", group = "Features" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?feature(!)?:", group = "Features" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?fix(!)?:", group = "Bug fixes" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?fmt(!)?:", group = "Formatting" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?internal(!)?:", group = "Internal" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?perf(!)?:", group = "Performance" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?performance(!)?:", group = "Performance" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?refactor(!)?:", group = "Refactoring" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?sec(!)?:", group = "Security" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?security(!)?:", group = "Security" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?tests?(!)?:", group = "Tests" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?tooling(!)?:", group = "Tooling" },
   # Skip unticketed commits (maintenance, deps, initial scaffolding, etc.)
   { message = ".*", skip = true },
 ]

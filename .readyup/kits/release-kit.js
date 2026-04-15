@@ -159,7 +159,7 @@ var package_default = {
 
 // .readyup/kits/release-kit.ts
 var MIN_VERSION = package_default.version;
-var CLIFF_TEMPLATE_HASH = "7cdde9cd562a5b0900043fc5f3f51957d534cc6fb9f7ab7c910a64d8d1b7950a";
+var CLIFF_TEMPLATE_HASH = "fb5e7d3c5e4856272aa788ed0e69cc491c8f765ba4241643999436410584278e";
 var COMMON_PRESET_HASH = "d12ffccbd5e4d9af8ecf47744b143f6c9f80bcf5e496cf1983b66834f0ae7825";
 var SYNC_LABELS_WORKFLOW_HASH = "c0206871afadf1bf12a8dbe51afbd8e6d49724ca48875c168fbf1da891abcfad";
 var release_kit_default = defineRdyKit({
