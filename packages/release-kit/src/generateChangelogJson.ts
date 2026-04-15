@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 
 import stringify from 'json-stringify-pretty-compact';
 
-import { isChangelogEntry } from './changelogJsonUtils.ts';
+import { extractVersion, isChangelogEntry } from './changelogJsonUtils.ts';
 import type { GenerateChangelogOptions } from './generateChangelogs.ts';
 import { resolveCliffConfigPath } from './resolveCliffConfigPath.ts';
 import { isRecord, isUnknownArray } from './typeGuards.ts';
@@ -180,7 +180,7 @@ function transformReleases(releases: CliffContextRelease[], devOnlySections: Set
       continue;
     }
 
-    const version = release.version.replace(/^v/, '');
+    const version = extractVersion(release.version);
     const date =
       release.timestamp !== undefined ? new Date(release.timestamp * 1000).toISOString().slice(0, 10) : 'unreleased';
 
