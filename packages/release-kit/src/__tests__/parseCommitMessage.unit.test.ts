@@ -169,6 +169,40 @@ describe(parseCommitMessage, () => {
       expect(result?.message).toBe('#42 docs: update guide');
     });
 
+    it('strips a GitHub-style sub-ticket prefix with hyphen separator', () => {
+      const result = parseCommitMessage('#123-1 feat: add thing', 'tp6', workTypes);
+      expect(result).toStrictEqual({
+        message: '#123-1 feat: add thing',
+        hash: 'tp6',
+        type: 'feat',
+        description: 'add thing',
+        breaking: false,
+      });
+    });
+
+    it('strips a GitHub-style sub-ticket prefix with dot separator', () => {
+      const result = parseCommitMessage('#123.2 fix: resolve bug', 'tp7', workTypes);
+      expect(result).toStrictEqual({
+        message: '#123.2 fix: resolve bug',
+        hash: 'tp7',
+        type: 'fix',
+        description: 'resolve bug',
+        breaking: false,
+      });
+    });
+
+    it('strips a sub-ticket prefix with scope|type format', () => {
+      const result = parseCommitMessage('#42-3 web|feat: add dashboard', 'tp8', workTypes);
+      expect(result).toStrictEqual({
+        message: '#42-3 web|feat: add dashboard',
+        hash: 'tp8',
+        type: 'feat',
+        description: 'add dashboard',
+        scope: 'web',
+        breaking: false,
+      });
+    });
+
     it('does not strip patterns that are not at the start of the message', () => {
       const result = parseCommitMessage('feat: close #8 issue', 'tp5', workTypes);
       expect(result).toStrictEqual({
