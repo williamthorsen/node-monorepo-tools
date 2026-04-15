@@ -41,10 +41,18 @@ export function createGithubRelease(options: CreateGithubReleaseOptions): boolea
     return false;
   }
 
+  if (!entry.sections.some(matchesAudience('all'))) {
+    return false;
+  }
+
   const body = renderReleaseNotesSingle(entry, {
     filter: matchesAudience('all'),
     includeHeading: false,
   });
+
+  if (body.trim() === '') {
+    return false;
+  }
 
   const args = ['release', 'create', tag, '--title', tag, '--notes', body];
 

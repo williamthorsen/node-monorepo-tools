@@ -130,6 +130,30 @@ describe(createGithubRelease, () => {
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('failed to create'));
   });
 
+  it('skips release when entry has only dev-audience sections', () => {
+    mockedExecFileSync.mockClear();
+    const devOnlyEntries: ChangelogEntry[] = [
+      {
+        version: '2.0.0',
+        date: '2024-12-01',
+        sections: [
+          { title: 'CI', audience: 'dev', items: [{ description: 'Update pipeline' }] },
+          { title: 'Tooling', audience: 'dev', items: [{ description: 'Enable npm publish' }] },
+        ],
+      },
+    ];
+    writeFileSync(changelogJsonPath, JSON.stringify(devOnlyEntries), 'utf8');
+
+    const result = createGithubRelease({
+      tag: 'v2.0.0',
+      changelogJsonPath,
+      dryRun: false,
+    });
+
+    expect(result).toBe(false);
+    expect(mockedExecFileSync).not.toHaveBeenCalled();
+  });
+
   it('extracts version from prefixed tags and matches correct entry', () => {
     writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
 
