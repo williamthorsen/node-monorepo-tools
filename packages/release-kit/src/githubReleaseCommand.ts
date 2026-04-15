@@ -7,7 +7,7 @@ import { parseArgs, translateParseError } from '@williamthorsen/node-monorepo-co
 
 import { createGithubReleases } from './createGithubRelease.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
-import { resolveReleaseNotesConfig } from './publishCommand.ts';
+import { resolveReleaseNotesConfig } from './resolveReleaseNotesConfig.ts';
 import { resolveReleaseTags } from './resolveReleaseTags.ts';
 
 const githubReleaseFlagSchema = {
@@ -72,10 +72,15 @@ export async function githubReleaseCommand(argv: string[]): Promise<void> {
   const { releaseNotes, changelogJsonOutputPath } = await resolveReleaseNotesConfig();
 
   // Force GitHub Release creation regardless of config setting — this command's sole purpose.
-  createGithubReleases(
-    resolvedTags,
-    { ...releaseNotes, shouldCreateGithubRelease: true },
-    changelogJsonOutputPath,
-    dryRun,
-  );
+  try {
+    createGithubReleases(
+      resolvedTags,
+      { ...releaseNotes, shouldCreateGithubRelease: true },
+      changelogJsonOutputPath,
+      dryRun,
+    );
+  } catch (error: unknown) {
+    console.error(`Error creating GitHub Releases: ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  }
 }

@@ -231,6 +231,26 @@ describe(publishCommand, () => {
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
     expect(console.error).toHaveBeenCalledWith('publish failed');
+    expect(mockCreateGithubReleases).not.toHaveBeenCalled();
+  });
+
+  it('exits with code 1 when createGithubReleases throws', async () => {
+    mockCreateGithubReleases.mockImplementation(() => {
+      throw new Error('gh release failed');
+    });
+
+    let thrown: ExitError | undefined;
+    try {
+      await publishCommand([]);
+    } catch (error: unknown) {
+      if (error instanceof ExitError) {
+        thrown = error;
+      }
+    }
+
+    expect(thrown).toBeInstanceOf(ExitError);
+    expect(thrown?.code).toBe(1);
+    expect(console.error).toHaveBeenCalledWith('Error creating GitHub Releases: gh release failed');
   });
 
   it('uses the detected package manager', async () => {
@@ -406,6 +426,17 @@ describe(publishCommand, () => {
 
       expect(mockInjectReleaseNotesIntoReadme).not.toHaveBeenCalled();
       expect(mockPublishPackage).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips restore when injectReleaseNotesIntoReadme returns undefined', async () => {
+      mockResolveReadmePath.mockReturnValue('/pkg/README.md');
+      mockInjectReleaseNotesIntoReadme.mockReturnValue(undefined);
+
+      await publishCommand([]);
+
+      expect(mockInjectReleaseNotesIntoReadme).toHaveBeenCalledTimes(1);
+      expect(mockPublishPackage).toHaveBeenCalledTimes(1);
+      expect(mockWriteFileSync).not.toHaveBeenCalled();
     });
 
     it('skips injection when shouldInjectIntoReadme is false', async () => {

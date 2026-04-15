@@ -17,7 +17,7 @@ vi.mock('../createGithubRelease.ts', () => ({
   createGithubReleases: mockCreateGithubReleases,
 }));
 
-vi.mock('../publishCommand.ts', () => ({
+vi.mock('../resolveReleaseNotesConfig.ts', () => ({
   resolveReleaseNotesConfig: mockResolveReleaseNotesConfig,
 }));
 
@@ -157,6 +157,42 @@ describe(githubReleaseCommand, () => {
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
     expect(console.error).toHaveBeenCalledWith('Error: --only is only supported for monorepo configurations');
+  });
+
+  it('exits with code 1 when discoverWorkspaces throws', async () => {
+    mockDiscoverWorkspaces.mockRejectedValue(new Error('discovery failed'));
+
+    let thrown: ExitError | undefined;
+    try {
+      await githubReleaseCommand([]);
+    } catch (error: unknown) {
+      if (error instanceof ExitError) {
+        thrown = error;
+      }
+    }
+
+    expect(thrown).toBeInstanceOf(ExitError);
+    expect(thrown?.code).toBe(1);
+    expect(console.error).toHaveBeenCalledWith('Error discovering workspaces: discovery failed');
+  });
+
+  it('exits with code 1 when createGithubReleases throws', async () => {
+    mockCreateGithubReleases.mockImplementation(() => {
+      throw new Error('gh release failed');
+    });
+
+    let thrown: ExitError | undefined;
+    try {
+      await githubReleaseCommand([]);
+    } catch (error: unknown) {
+      if (error instanceof ExitError) {
+        thrown = error;
+      }
+    }
+
+    expect(thrown).toBeInstanceOf(ExitError);
+    expect(thrown?.code).toBe(1);
+    expect(console.error).toHaveBeenCalledWith('Error creating GitHub Releases: gh release failed');
   });
 
   it('exits with code 1 when --only references an unmatched name', async () => {

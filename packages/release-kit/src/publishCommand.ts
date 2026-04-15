@@ -2,21 +2,17 @@
 /* eslint unicorn/no-process-exit: off */
 
 import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { basename } from 'node:path';
+import { basename, join } from 'node:path';
 
 import { parseArgs, translateParseError } from '@williamthorsen/node-monorepo-core';
 
 import { createGithubReleases } from './createGithubRelease.ts';
-import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from './defaults.ts';
 import { detectPackageManager } from './detectPackageManager.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
 import { injectReleaseNotesIntoReadme, resolveReadmePath } from './injectReleaseNotesIntoReadme.ts';
-import { loadConfig } from './loadConfig.ts';
 import { publishPackage } from './publish.ts';
+import { resolveReleaseNotesConfig } from './resolveReleaseNotesConfig.ts';
 import { resolveReleaseTags } from './resolveReleaseTags.ts';
-import type { ReleaseNotesConfig } from './types.ts';
-import { validateConfig } from './validateConfig.ts';
 
 const publishFlagSchema = {
   dryRun: { long: '--dry-run', type: 'boolean' as const },
@@ -24,47 +20,6 @@ const publishFlagSchema = {
   provenance: { long: '--provenance', type: 'boolean' as const },
   only: { long: '--only', type: 'string' as const },
 };
-
-export interface ResolvedReleaseNotesConfig {
-  releaseNotes: ReleaseNotesConfig;
-  changelogJsonOutputPath: string;
-}
-
-/** Load and validate the release-kit config, falling back to defaults on load failure. */
-export async function resolveReleaseNotesConfig(): Promise<ResolvedReleaseNotesConfig> {
-  let rawConfig: unknown;
-  try {
-    rawConfig = await loadConfig();
-  } catch (error: unknown) {
-    console.warn(
-      `Warning: failed to load config; using defaults: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
-
-  if (rawConfig === undefined) {
-    return {
-      releaseNotes: { ...DEFAULT_RELEASE_NOTES_CONFIG },
-      changelogJsonOutputPath: DEFAULT_CHANGELOG_JSON_CONFIG.outputPath,
-    };
-  }
-
-  const { config, errors, warnings } = validateConfig(rawConfig);
-  if (errors.length > 0) {
-    console.error('Invalid config:');
-    for (const err of errors) {
-      console.error(`  ❌ ${err}`);
-    }
-    process.exit(1);
-  }
-  for (const warning of warnings) {
-    console.warn(`  ⚠️  ${warning}`);
-  }
-
-  return {
-    releaseNotes: { ...DEFAULT_RELEASE_NOTES_CONFIG, ...config.releaseNotes },
-    changelogJsonOutputPath: config.changelogJson?.outputPath ?? DEFAULT_CHANGELOG_JSON_CONFIG.outputPath,
-  };
-}
 
 /**
  * Orchestrate the CLI `publish` command: parse flags, discover workspaces, resolve tags from HEAD,
@@ -174,5 +129,10 @@ export async function publishCommand(argv: string[]): Promise<void> {
   }
 
   // Create GitHub Releases after successful publish.
-  createGithubReleases(resolvedTags, releaseNotes, changelogJsonOutputPath, dryRun);
+  try {
+    createGithubReleases(resolvedTags, releaseNotes, changelogJsonOutputPath, dryRun);
+  } catch (error: unknown) {
+    console.error(`Error creating GitHub Releases: ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  }
 }
