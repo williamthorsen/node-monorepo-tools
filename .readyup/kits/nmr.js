@@ -143,7 +143,7 @@ function hasMinDevDependencyVersion(name, minVersion, options) {
 // packages/nmr/package.json
 var package_default = {
   name: "@williamthorsen/nmr",
-  version: "0.9.2",
+  version: "0.9.3",
   private: false,
   description: "Context-aware script runner for PNPM monorepos",
   keywords: [
