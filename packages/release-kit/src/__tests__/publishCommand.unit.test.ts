@@ -3,10 +3,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
 const mockResolveReleaseTags = vi.hoisted(() => vi.fn());
 const mockDetectPackageManager = vi.hoisted(() => vi.fn());
-const mockPublish = vi.hoisted(() => vi.fn());
+const mockPublishPackage = vi.hoisted(() => vi.fn());
 const mockLoadConfig = vi.hoisted(() => vi.fn());
 const mockValidateConfig = vi.hoisted(() => vi.fn());
 const mockCreateGithubReleases = vi.hoisted(() => vi.fn());
+const mockInjectReleaseNotesIntoReadme = vi.hoisted(() => vi.fn());
+const mockResolveReadmePath = vi.hoisted(() => vi.fn());
+const mockWriteFileSync = vi.hoisted(() => vi.fn());
+
+vi.mock('node:fs', () => ({
+  writeFileSync: mockWriteFileSync,
+}));
 
 vi.mock('../discoverWorkspaces.ts', () => ({
   discoverWorkspaces: mockDiscoverWorkspaces,
@@ -21,7 +28,7 @@ vi.mock('../detectPackageManager.ts', () => ({
 }));
 
 vi.mock('../publish.ts', () => ({
-  publish: mockPublish,
+  publishPackage: mockPublishPackage,
 }));
 
 vi.mock('../loadConfig.ts', () => ({
@@ -34,6 +41,11 @@ vi.mock('../validateConfig.ts', () => ({
 
 vi.mock('../createGithubRelease.ts', () => ({
   createGithubReleases: mockCreateGithubReleases,
+}));
+
+vi.mock('../injectReleaseNotesIntoReadme.ts', () => ({
+  injectReleaseNotesIntoReadme: mockInjectReleaseNotesIntoReadme,
+  resolveReadmePath: mockResolveReadmePath,
 }));
 
 import { publishCommand } from '../publishCommand.ts';
@@ -52,29 +64,34 @@ describe(publishCommand, () => {
     mockDetectPackageManager.mockReturnValue('npm');
     mockLoadConfig.mockResolvedValue(undefined);
     mockValidateConfig.mockReturnValue({ config: {}, errors: [], warnings: [] });
+    mockResolveReadmePath.mockReturnValue(undefined);
     vi.spyOn(process, 'exit').mockImplementation((code) => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
     vi.spyOn(console, 'info').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
   afterEach(() => {
     mockDiscoverWorkspaces.mockReset();
     mockResolveReleaseTags.mockReset();
     mockDetectPackageManager.mockReset();
-    mockPublish.mockReset();
+    mockPublishPackage.mockReset();
     mockLoadConfig.mockReset();
     mockValidateConfig.mockReset();
     mockCreateGithubReleases.mockReset();
+    mockInjectReleaseNotesIntoReadme.mockReset();
+    mockResolveReadmePath.mockReset();
+    mockWriteFileSync.mockReset();
     vi.restoreAllMocks();
   });
 
-  it('delegates to publish with default options', async () => {
+  it('calls publishPackage for each resolved tag', async () => {
     await publishCommand([]);
 
-    expect(mockPublish).toHaveBeenCalledWith(
-      [{ tag: 'v1.0.0', dir: '.', workspacePath: '.' }],
+    expect(mockPublishPackage).toHaveBeenCalledWith(
+      { tag: 'v1.0.0', dir: '.', workspacePath: '.' },
       'npm',
       expect.objectContaining({ dryRun: false, noGitChecks: false, provenance: false }),
     );
@@ -83,7 +100,7 @@ describe(publishCommand, () => {
   it('passes dryRun when --dry-run is provided', async () => {
     await publishCommand(['--dry-run']);
 
-    expect(mockPublish).toHaveBeenCalledWith(
+    expect(mockPublishPackage).toHaveBeenCalledWith(
       expect.anything(),
       'npm',
       expect.objectContaining({ dryRun: true, noGitChecks: false, provenance: false }),
@@ -93,7 +110,7 @@ describe(publishCommand, () => {
   it('passes noGitChecks when --no-git-checks is provided', async () => {
     await publishCommand(['--no-git-checks']);
 
-    expect(mockPublish).toHaveBeenCalledWith(
+    expect(mockPublishPackage).toHaveBeenCalledWith(
       expect.anything(),
       'npm',
       expect.objectContaining({ dryRun: false, noGitChecks: true, provenance: false }),
@@ -103,7 +120,7 @@ describe(publishCommand, () => {
   it('passes provenance when --provenance is provided', async () => {
     await publishCommand(['--provenance']);
 
-    expect(mockPublish).toHaveBeenCalledWith(
+    expect(mockPublishPackage).toHaveBeenCalledWith(
       expect.anything(),
       'npm',
       expect.objectContaining({ dryRun: false, noGitChecks: false, provenance: true }),
@@ -123,7 +140,7 @@ describe(publishCommand, () => {
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
     expect(console.error).toHaveBeenCalledWith('Error: Unknown option: --unknown');
-    expect(mockPublish).not.toHaveBeenCalled();
+    expect(mockPublishPackage).not.toHaveBeenCalled();
   });
 
   it('exits with code 1 when no release tags are found on HEAD', async () => {
@@ -171,8 +188,9 @@ describe(publishCommand, () => {
 
     await publishCommand(['--only=core']);
 
-    expect(mockPublish).toHaveBeenCalledWith(
-      [{ tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' }],
+    expect(mockPublishPackage).toHaveBeenCalledTimes(1);
+    expect(mockPublishPackage).toHaveBeenCalledWith(
+      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
       'npm',
       expect.objectContaining({ dryRun: false, noGitChecks: false, provenance: false }),
     );
@@ -196,8 +214,8 @@ describe(publishCommand, () => {
     expect(console.error).toHaveBeenCalledWith('Error: Unknown package "nonexistent" in --only. Available: core');
   });
 
-  it('exits with code 1 when publish throws', async () => {
-    mockPublish.mockImplementation(() => {
+  it('exits with code 1 when publishPackage throws', async () => {
+    mockPublishPackage.mockImplementation(() => {
       throw new Error('publish failed');
     });
 
@@ -213,6 +231,26 @@ describe(publishCommand, () => {
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
     expect(console.error).toHaveBeenCalledWith('publish failed');
+    expect(mockCreateGithubReleases).not.toHaveBeenCalled();
+  });
+
+  it('exits with code 1 when createGithubReleases throws', async () => {
+    mockCreateGithubReleases.mockImplementation(() => {
+      throw new Error('gh release failed');
+    });
+
+    let thrown: ExitError | undefined;
+    try {
+      await publishCommand([]);
+    } catch (error: unknown) {
+      if (error instanceof ExitError) {
+        thrown = error;
+      }
+    }
+
+    expect(thrown).toBeInstanceOf(ExitError);
+    expect(thrown?.code).toBe(1);
+    expect(console.error).toHaveBeenCalledWith('Error creating GitHub Releases: gh release failed');
   });
 
   it('uses the detected package manager', async () => {
@@ -220,11 +258,57 @@ describe(publishCommand, () => {
 
     await publishCommand([]);
 
-    expect(mockPublish).toHaveBeenCalledWith(expect.anything(), 'pnpm', expect.anything());
+    expect(mockPublishPackage).toHaveBeenCalledWith(expect.anything(), 'pnpm', expect.anything());
+  });
+
+  it('prints confirmation listing before publishing', async () => {
+    mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/release-kit']);
+    mockResolveReleaseTags.mockReturnValue([
+      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
+      { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit' },
+    ]);
+
+    await publishCommand([]);
+
+    expect(console.info).toHaveBeenCalledWith('Publishing:');
+    expect(console.info).toHaveBeenCalledWith('  core-v1.3.0 (packages/core)');
+    expect(console.info).toHaveBeenCalledWith('  release-kit-v2.1.0 (packages/release-kit)');
+  });
+
+  it('prints dry-run confirmation listing', async () => {
+    await publishCommand(['--dry-run']);
+
+    expect(console.info).toHaveBeenCalledWith('[dry-run] Would publish:');
+  });
+
+  it('reports successfully published packages when a subsequent publish fails', async () => {
+    mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/release-kit']);
+    mockResolveReleaseTags.mockReturnValue([
+      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
+      { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit' },
+    ]);
+    mockPublishPackage.mockImplementation((resolvedTag: { tag: string }) => {
+      if (resolvedTag.tag === 'release-kit-v2.1.0') {
+        throw new Error('publish failed');
+      }
+    });
+
+    let thrown: ExitError | undefined;
+    try {
+      await publishCommand([]);
+    } catch (error: unknown) {
+      if (error instanceof ExitError) {
+        thrown = error;
+      }
+    }
+
+    expect(thrown).toBeInstanceOf(ExitError);
+    expect(console.warn).toHaveBeenCalledWith('Packages published before failure:');
+    expect(console.warn).toHaveBeenCalledWith('  core-v1.3.0');
   });
 
   describe('config loading', () => {
-    it('passes releaseNotes and changelogJsonOutputPath from loaded config', async () => {
+    it('passes config-derived options to createGithubReleases', async () => {
       mockLoadConfig.mockResolvedValue({ releaseNotes: {}, changelogJson: {} });
       mockValidateConfig.mockReturnValue({
         config: {
@@ -237,17 +321,6 @@ describe(publishCommand, () => {
 
       await publishCommand([]);
 
-      expect(mockPublish).toHaveBeenCalledWith(
-        expect.anything(),
-        'npm',
-        expect.objectContaining({
-          releaseNotes: expect.objectContaining({
-            shouldCreateGithubRelease: true,
-            shouldInjectIntoReadme: true,
-          }),
-          changelogJsonOutputPath: 'custom/changelog.json',
-        }),
-      );
       expect(mockCreateGithubReleases).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({ shouldCreateGithubRelease: true }),
@@ -257,22 +330,12 @@ describe(publishCommand, () => {
     });
 
     it('uses defaults when loadConfig throws', async () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       mockLoadConfig.mockRejectedValue(new Error('config read failure'));
 
       await publishCommand([]);
 
-      expect(mockPublish).toHaveBeenCalledWith(
-        expect.anything(),
-        'npm',
-        expect.objectContaining({
-          releaseNotes: expect.objectContaining({
-            shouldCreateGithubRelease: false,
-            shouldInjectIntoReadme: false,
-          }),
-        }),
-      );
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('failed to load config'));
+      expect(mockPublishPackage).toHaveBeenCalled();
+      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('failed to load config'));
     });
 
     it('prints validation warnings from config', async () => {
@@ -282,11 +345,10 @@ describe(publishCommand, () => {
         errors: [],
         warnings: ['releaseNotes.shouldCreateGithubRelease is enabled but changelogJson.enabled is false'],
       });
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       await publishCommand([]);
 
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('shouldCreateGithubRelease'));
+      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('shouldCreateGithubRelease'));
     });
 
     it('exits with code 1 when config has validation errors', async () => {
@@ -310,7 +372,86 @@ describe(publishCommand, () => {
       expect(thrown?.code).toBe(1);
       expect(console.error).toHaveBeenCalledWith('Invalid config:');
       expect(console.error).toHaveBeenCalledWith("  ❌ Unknown field: 'bogus'");
-      expect(mockPublish).not.toHaveBeenCalled();
+      expect(mockPublishPackage).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('README injection lifecycle', () => {
+    beforeEach(() => {
+      mockLoadConfig.mockResolvedValue({ releaseNotes: {} });
+      mockValidateConfig.mockReturnValue({
+        config: {
+          releaseNotes: { shouldInjectIntoReadme: true, shouldCreateGithubRelease: false },
+        },
+        errors: [],
+        warnings: [],
+      });
+    });
+
+    it('injects before publish and restores after', async () => {
+      mockResolveReadmePath.mockReturnValue('/pkg/README.md');
+      mockInjectReleaseNotesIntoReadme.mockReturnValue('# Original README\n');
+
+      await publishCommand([]);
+
+      expect(mockInjectReleaseNotesIntoReadme).toHaveBeenCalledTimes(1);
+      expect(mockPublishPackage).toHaveBeenCalledTimes(1);
+      expect(mockWriteFileSync).toHaveBeenCalledWith('/pkg/README.md', '# Original README\n', 'utf8');
+    });
+
+    it('restores README when publishPackage throws', async () => {
+      mockResolveReadmePath.mockReturnValue('/pkg/README.md');
+      mockInjectReleaseNotesIntoReadme.mockReturnValue('# Original README\n');
+      mockPublishPackage.mockImplementation(() => {
+        throw new Error('publish failed');
+      });
+
+      let thrown: ExitError | undefined;
+      try {
+        await publishCommand([]);
+      } catch (error: unknown) {
+        if (error instanceof ExitError) {
+          thrown = error;
+        }
+      }
+
+      expect(thrown).toBeInstanceOf(ExitError);
+      expect(mockWriteFileSync).toHaveBeenCalledWith('/pkg/README.md', '# Original README\n', 'utf8');
+    });
+
+    it('skips injection when resolveReadmePath returns undefined', async () => {
+      mockResolveReadmePath.mockReturnValue(undefined);
+
+      await publishCommand([]);
+
+      expect(mockInjectReleaseNotesIntoReadme).not.toHaveBeenCalled();
+      expect(mockPublishPackage).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips restore when injectReleaseNotesIntoReadme returns undefined', async () => {
+      mockResolveReadmePath.mockReturnValue('/pkg/README.md');
+      mockInjectReleaseNotesIntoReadme.mockReturnValue(undefined);
+
+      await publishCommand([]);
+
+      expect(mockInjectReleaseNotesIntoReadme).toHaveBeenCalledTimes(1);
+      expect(mockPublishPackage).toHaveBeenCalledTimes(1);
+      expect(mockWriteFileSync).not.toHaveBeenCalled();
+    });
+
+    it('skips injection when shouldInjectIntoReadme is false', async () => {
+      mockValidateConfig.mockReturnValue({
+        config: {
+          releaseNotes: { shouldInjectIntoReadme: false, shouldCreateGithubRelease: false },
+        },
+        errors: [],
+        warnings: [],
+      });
+
+      await publishCommand([]);
+
+      expect(mockResolveReadmePath).not.toHaveBeenCalled();
+      expect(mockInjectReleaseNotesIntoReadme).not.toHaveBeenCalled();
     });
   });
 });
