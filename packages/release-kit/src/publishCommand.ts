@@ -1,6 +1,8 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { basename } from 'node:path';
 
 import { parseArgs, translateParseError } from '@williamthorsen/node-monorepo-core';
@@ -9,9 +11,11 @@ import { createGithubReleases } from './createGithubRelease.ts';
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from './defaults.ts';
 import { detectPackageManager } from './detectPackageManager.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
+import { injectReleaseNotesIntoReadme, resolveReadmePath } from './injectReleaseNotesIntoReadme.ts';
 import { loadConfig } from './loadConfig.ts';
-import { publish } from './publish.ts';
+import { publishPackage } from './publish.ts';
 import { resolveReleaseTags } from './resolveReleaseTags.ts';
+import type { ReleaseNotesConfig } from './types.ts';
 import { validateConfig } from './validateConfig.ts';
 
 const publishFlagSchema = {
@@ -21,13 +25,13 @@ const publishFlagSchema = {
   only: { long: '--only', type: 'string' as const },
 };
 
-interface ResolvedPublishConfig {
-  releaseNotes: typeof DEFAULT_RELEASE_NOTES_CONFIG;
+export interface ResolvedReleaseNotesConfig {
+  releaseNotes: ReleaseNotesConfig;
   changelogJsonOutputPath: string;
 }
 
 /** Load and validate the release-kit config, falling back to defaults on load failure. */
-async function resolvePublishConfig(): Promise<ResolvedPublishConfig> {
+export async function resolveReleaseNotesConfig(): Promise<ResolvedReleaseNotesConfig> {
   let rawConfig: unknown;
   try {
     rawConfig = await loadConfig();
@@ -64,7 +68,7 @@ async function resolvePublishConfig(): Promise<ResolvedPublishConfig> {
 
 /**
  * Orchestrate the CLI `publish` command: parse flags, discover workspaces, resolve tags from HEAD,
- * detect the package manager, validate `--only`, and delegate to `publish`.
+ * detect the package manager, validate `--only`, and publish each tag with inject/restore lifecycle.
  */
 export async function publishCommand(argv: string[]): Promise<void> {
   let parsed;
@@ -116,18 +120,55 @@ export async function publishCommand(argv: string[]): Promise<void> {
     resolvedTags = resolvedTags.filter((t) => only.includes(t.dir));
   }
 
+  if (resolvedTags.length === 0) {
+    return;
+  }
+
   const packageManager = detectPackageManager();
-  const { releaseNotes, changelogJsonOutputPath } = await resolvePublishConfig();
+  const { releaseNotes, changelogJsonOutputPath } = await resolveReleaseNotesConfig();
+
+  const shouldInject = releaseNotes.shouldInjectIntoReadme === true;
+
+  // Print confirmation listing before publishing.
+  console.info(dryRun ? '[dry-run] Would publish:' : 'Publishing:');
+  for (const { tag, workspacePath } of resolvedTags) {
+    console.info(`  ${tag} (${workspacePath})`);
+  }
+
+  const published: string[] = [];
 
   try {
-    publish(resolvedTags, packageManager, {
-      dryRun,
-      noGitChecks,
-      provenance,
-      releaseNotes,
-      changelogJsonOutputPath,
-    });
+    for (const resolvedTag of resolvedTags) {
+      let readmePath: string | undefined;
+      let originalReadme: string | undefined;
+
+      if (shouldInject) {
+        readmePath = resolveReadmePath(resolvedTag.workspacePath);
+        if (readmePath !== undefined) {
+          originalReadme = injectReleaseNotesIntoReadme(
+            readmePath,
+            join(resolvedTag.workspacePath, changelogJsonOutputPath),
+            resolvedTag.tag,
+          );
+        }
+      }
+
+      try {
+        publishPackage(resolvedTag, packageManager, { dryRun, noGitChecks, provenance });
+        published.push(resolvedTag.tag);
+      } finally {
+        if (readmePath !== undefined && originalReadme !== undefined) {
+          writeFileSync(readmePath, originalReadme, 'utf8');
+        }
+      }
+    }
   } catch (error: unknown) {
+    if (published.length > 0) {
+      console.warn('Packages published before failure:');
+      for (const t of published) {
+        console.warn(`  ${t}`);
+      }
+    }
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }

@@ -5,6 +5,7 @@
 import { parseArgs, translateParseError } from '@williamthorsen/node-monorepo-core';
 
 import { commitCommand } from '../commitCommand.ts';
+import { githubReleaseCommand } from '../githubReleaseCommand.ts';
 import { initCommand } from '../init/initCommand.ts';
 import { prepareCommand } from '../prepareCommand.ts';
 import { publishCommand } from '../publishCommand.ts';
@@ -19,12 +20,13 @@ function showUsage(): void {
 Usage: release-kit <command> [options]
 
 Commands:
-  prepare       Run release preparation (auto-discovers workspaces)
-  commit        Stage changes and create the release commit
-  tag           Create annotated git tags from the tags file
-  publish       Publish packages with release tags on HEAD
-  init          Initialize release-kit in the current repository
-  sync-labels   Manage GitHub label synchronization
+  prepare          Run release preparation (auto-discovers workspaces)
+  commit           Stage changes and create the release commit
+  tag              Create annotated git tags from the tags file
+  publish          Publish packages with release tags on HEAD
+  github-release   Create GitHub Releases from changelog.json for tags on HEAD
+  init             Initialize release-kit in the current repository
+  sync-labels      Manage GitHub label synchronization
 
 Options:
   --dry-run     Preview changes without writing files
@@ -140,6 +142,19 @@ Options:
 `);
 }
 
+function showGithubReleaseHelp(): void {
+  console.info(`
+Usage: release-kit github-release [options]
+
+Create GitHub Releases from changelog.json for tags on HEAD.
+
+Options:
+  --dry-run              Preview without creating releases
+  --only=name1,name2     Only create releases for the named packages (comma-separated, monorepo only)
+  --help, -h             Show this help message
+`);
+}
+
 function showPublishHelp(): void {
   console.info(`
 Usage: release-kit publish [options]
@@ -201,6 +216,16 @@ if (command === 'tag') {
   }
 
   tagCommand(flags);
+  process.exit(0);
+}
+
+if (command === 'github-release') {
+  if (flags.some((f) => f === '--help' || f === '-h')) {
+    showGithubReleaseHelp();
+    process.exit(0);
+  }
+
+  await githubReleaseCommand(flags);
   process.exit(0);
 }
 
