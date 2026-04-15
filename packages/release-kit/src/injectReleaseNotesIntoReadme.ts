@@ -54,8 +54,5 @@ export function injectReleaseNotesIntoReadme(
 /** Find the README file in a workspace directory. */
 export function resolveReadmePath(workspacePath: string): string | undefined {
   const readmePath = join(workspacePath, 'README.md');
-  if (existsSync(readmePath)) {
-    return readmePath;
-  }
-  return undefined;
+  return existsSync(readmePath) ? readmePath : undefined;
 }
