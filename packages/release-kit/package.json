@@ -1,6 +1,6 @@
 {
   "name": "@williamthorsen/release-kit",
-  "version": "4.5.1",
+  "version": "4.6.0",
   "description": "Version-bumping and changelog-generation toolkit for release workflows",
   "keywords": [],
   "homepage": "https://github.com/williamthorsen/node-monorepo-tools/tree/main/packages/release-kit#readme",

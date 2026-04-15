@@ -1,0 +1,106 @@
+[
+  {
+    "version": "0.9.2",
+    "date": "2026-04-15",
+    "sections": [
+      {
+        "title": "Tooling",
+        "audience": "dev",
+        "items": [{ "description": "Enable automated publication to npm (#187)" }]
+      }
+    ]
+  },
+  {
+    "version": "0.9.0",
+    "date": "2026-04-04",
+    "sections": [
+      {
+        "title": "Documentation",
+        "audience": "all",
+        "items": [{ "description": "Refine README to match preflight documentation standard (#137)" }]
+      },
+      {
+        "title": "Features",
+        "audience": "all",
+        "items": [
+          { "description": "Add --version flag to nmr and release-kit (#143)" },
+          { "description": "Add devBin config for source-repo binary substitution (#146)" },
+          { "description": "Detect and report missing build output in bin wrappers (#152)" }
+        ]
+      }
+    ]
+  },
+  {
+    "version": "0.5.0",
+    "date": "2026-03-31",
+    "sections": [
+      {
+        "title": "Features",
+        "audience": "all",
+        "items": [{ "description": "Add `fix` script to workspace and root registries (#106)" }]
+      }
+    ]
+  },
+  {
+    "version": "0.4.0",
+    "date": "2026-03-30",
+    "sections": [
+      {
+        "title": "Features",
+        "audience": "all",
+        "items": [{ "description": "Add default root scripts and split registry module (#96)" }]
+      }
+    ]
+  },
+  {
+    "version": "0.3.0",
+    "date": "2026-03-29",
+    "sections": [
+      {
+        "title": "Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Resolve package.json scripts at root level and skip in recursive mode (#95)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "version": "0.2.0",
+    "date": "2026-03-28",
+    "sections": [
+      {
+        "title": "Features",
+        "audience": "all",
+        "items": [{ "description": "Add ensure-prepublish-hooks binary (#75)" }]
+      },
+      {
+        "title": "Documentation",
+        "audience": "all",
+        "items": [{ "description": "Document utility binaries" }]
+      }
+    ]
+  },
+  {
+    "version": "0.1.1",
+    "date": "2026-03-28",
+    "sections": [
+      {
+        "title": "Features",
+        "audience": "all",
+        "items": [{ "description": "Extract nmr CLI from core package (#61)" }]
+      },
+      {
+        "title": "Refactoring",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Extract helpers to reduce duplication in config and consistency modules (#62)"
+          }
+        ]
+      }
+    ]
+  }
+]

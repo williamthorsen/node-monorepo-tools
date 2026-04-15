@@ -2,66 +2,74 @@
 
 All notable changes to this project will be documented in this file.
 
+## [core-v0.2.6] - 2026-04-15
+
+### Tooling
+
+- Enable automated publication to npm (#187)
+
+  Prepares the repository for reliable tag-triggered npm publishing by adding missing package metadata, standardizing licensing, and introducing a readyup kit that validates publish readiness across all packages.
+
 ## [core-v0.2.5] - 2026-04-04
 
 ### Refactoring
 
-- #145 refactor: Extract shared CLI argument-parsing utility into core (#151)
+- Extract shared CLI argument-parsing utility into core (#151)
 
-Add a schema-driven `parseArgs` function to `@williamthorsen/node-monorepo-core` that handles boolean flags, string flags (both `--flag=value` and `--flag value`), short aliases, positional collection, the `--` delimiter, and unknown-flag errors. Migrate all CLI argument-parsing sites in preflight (3 sites) and release-kit (5 sites) to use it. A companion `translateParseError` helper normalizes internal error messages for consistent user-facing output.
+  Add a schema-driven `parseArgs` function to `@williamthorsen/node-monorepo-core` that handles boolean flags, string flags (both `--flag=value` and `--flag value`), short aliases, positional collection, the `--` delimiter, and unknown-flag errors. Migrate all CLI argument-parsing sites in preflight (3 sites) and release-kit (5 sites) to use it. A companion `translateParseError` helper normalizes internal error messages for consistent user-facing output.
 
 ## [core-v0.2.1] - 2026-03-28
 
 ### Features
 
-- #8 feat: Add shared writeFileWithCheck utility and overwrite reporting (#66)
+- Add shared writeFileWithCheck utility and overwrite reporting (#66)
 
-Extracts three duplicated `writeIfAbsent` implementations and two duplicated terminal helper sets into shared utilities in `@williamthorsen/node-monorepo-core`, then migrates all consumers (`release-kit init`, `preflight init`, `sync-labels`) to use them. All init commands now report which files were created, overwritten, skipped, or failed — including when `--force` replaces existing files.
+  Extracts three duplicated `writeIfAbsent` implementations and two duplicated terminal helper sets into shared utilities in `@williamthorsen/node-monorepo-core`, then migrates all consumers (`release-kit init`, `preflight init`, `sync-labels`) to use them. All init commands now report which files were created, overwritten, skipped, or failed — including when `--force` replaces existing files.
 
 ## [core-v0.2.0] - 2026-03-27
 
 ### Dependencies
 
-- #45 core|deps: Remove vitest optional peer dependency (#46)
+- Remove vitest optional peer dependency (#46)
 
-Removes the `peerDependencies` and `peerDependenciesMeta` entries for vitest from `packages/core/package.json` and regenerates the lockfile to eliminate the stale `vitest@4.1.0` resolution.
+  Removes the `peerDependencies` and `peerDependenciesMeta` entries for vitest from `packages/core/package.json` and regenerates the lockfile to eliminate the stale `vitest@4.1.0` resolution.
 
-The peer dependency caused pnpm to resolve a stale `vitest@4.1.0` in the lockfile, conflicting with the root-pinned `vitest@4.1.1` and breaking coverage runs with a mixed-versions error. Consumers of the `./tests` export already provide vitest as a root devDependency, so the declaration was unnecessary.
+  The peer dependency caused pnpm to resolve a stale `vitest@4.1.0` in the lockfile, conflicting with the root-pinned `vitest@4.1.1` and breaking coverage runs with a mixed-versions error. Consumers of the `./tests` export already provide vitest as a root devDependency, so the declaration was unnecessary.
 
 ### Features
 
-- #3 core|feat: Add --quiet flag to nmr CLI (#4)
+- Add --quiet flag to nmr CLI (#4)
 
-Adds a `-q`/`--quiet` flag to the `nmr` CLI that suppresses command output on success while preserving full output on failure. When quiet mode is active, `runCommand()` uses `stdio: 'pipe'` to capture child process output, discards it on success, and writes captured stdout and stderr to `process.stderr` on failure. All informational messages on success paths (`console.info` calls for override script notifications) are also suppressed.
+  Adds a `-q`/`--quiet` flag to the `nmr` CLI that suppresses command output on success while preserving full output on failure. When quiet mode is active, `runCommand()` uses `stdio: 'pipe'` to capture child process output, discards it on success, and writes captured stdout and stderr to `process.stderr` on failure. All informational messages on success paths (`console.info` calls for override script notifications) are also suppressed.
 
-- #47 core|feat: Enable strict linting of monorepo root (#50)
+- Enable strict linting of monorepo root (#50)
 
-Replaces the `root:lint:strict` echo fallback with a direct `strict-lint --ignore-pattern 'packages/**' .` invocation, now that the `strict-lint` package supports the full `eslint` CLI API.
+  Replaces the `root:lint:strict` echo fallback with a direct `strict-lint --ignore-pattern 'packages/**' .` invocation, now that the `strict-lint` package supports the full `eslint` CLI API.
 
-- #59 feat: Extract nmr CLI from core package (#61)
+- Extract nmr CLI from core package (#61)
 
-Extracts all nmr CLI code from `packages/core` into a new `packages/nmr` package (`@williamthorsen/nmr`). Core is reduced to an empty shared-library shell ready for cross-cutting utilities. All internal references are rewired and the full build/test pipeline passes.
+  Extracts all nmr CLI code from `packages/core` into a new `packages/nmr` package (`@williamthorsen/nmr`). Core is reduced to an empty shared-library shell ready for cross-cutting utilities. All internal references are rewired and the full build/test pipeline passes.
 
-Scopes: core, nmr
+  Scopes: core, nmr
 
 ### Refactoring
 
-- #43 refactor: Replace dist bin targets with thin wrapper scripts (#48)
+- Replace dist bin targets with thin wrapper scripts (#48)
 
-The `bin` entries in `packages/core` and `packages/release-kit` pointed directly into `dist/esm/`, causing `pnpm install` to emit "Failed to create bin" warnings in fresh worktrees where `dist/` does not yet exist. Each bin entry now points to a committed wrapper script in `bin/` that dynamically imports the real entry point. The `files` field in both packages includes `bin` so the wrappers are published.
+  The `bin` entries in `packages/core` and `packages/release-kit` pointed directly into `dist/esm/`, causing `pnpm install` to emit "Failed to create bin" warnings in fresh worktrees where `dist/` does not yet exist. Each bin entry now points to a committed wrapper script in `bin/` that dynamically imports the real entry point. The `files` field in both packages includes `bin` so the wrappers are published.
 
 ### Tooling
 
-- #37 root|tooling: Adopt nmr to run monorepo and workspace scripts (#38)
+- Adopt nmr to run monorepo and workspace scripts (#38)
 
-Replaces the legacy workspace script runner and ~25 root `package.json` scripts with `nmr`, the monorepo's own context-aware script runner. Root scripts are reduced to 4 (`prepare`, `postinstall`, `ci`, `bootstrap`), packages use direct build commands for bootstrap, and release-kit declares tier-3 test overrides for its integration test configs.
+  Replaces the legacy workspace script runner and ~25 root `package.json` scripts with `nmr`, the monorepo's own context-aware script runner. Root scripts are reduced to 4 (`prepare`, `postinstall`, `ci`, `bootstrap`), packages use direct build commands for bootstrap, and release-kit declares tier-3 test overrides for its integration test configs.
 
 ## [core-v0.1.0] - 2026-03-12
 
 ### Features
 
-- #1 core|feat: Implement nmr CLI and core package (#2)
+- Implement nmr CLI and core package (#2)
 
-Adds the `@williamthorsen/node-monorepo-core` package, implementing the `nmr` CLI tool for unified script execution across a PNPM monorepo. Removes all example/template packages that were scaffolding from the original template repository.
+  Adds the `@williamthorsen/node-monorepo-core` package, implementing the `nmr` CLI tool for unified script execution across a PNPM monorepo. Removes all example/template packages that were scaffolding from the original template repository.
 
 <!-- generated by git-cliff -->

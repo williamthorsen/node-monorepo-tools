@@ -1,0 +1,76 @@
+[
+  {
+    "version": "0.2.6",
+    "date": "2026-04-15",
+    "sections": [
+      {
+        "title": "Tooling",
+        "audience": "dev",
+        "items": [{ "description": "Enable automated publication to npm (#187)" }]
+      }
+    ]
+  },
+  {
+    "version": "0.2.5",
+    "date": "2026-04-04",
+    "sections": [
+      {
+        "title": "Refactoring",
+        "audience": "all",
+        "items": [{ "description": "Extract shared CLI argument-parsing utility into core (#151)" }]
+      }
+    ]
+  },
+  {
+    "version": "0.2.1",
+    "date": "2026-03-28",
+    "sections": [
+      {
+        "title": "Features",
+        "audience": "all",
+        "items": [{ "description": "Add shared writeFileWithCheck utility and overwrite reporting (#66)" }]
+      }
+    ]
+  },
+  {
+    "version": "0.2.0",
+    "date": "2026-03-27",
+    "sections": [
+      {
+        "title": "Features",
+        "audience": "all",
+        "items": [
+          { "description": "Add --quiet flag to nmr CLI (#4)" },
+          { "description": "Enable strict linting of monorepo root (#50)" },
+          { "description": "Extract nmr CLI from core package (#61)" }
+        ]
+      },
+      {
+        "title": "Tooling",
+        "audience": "dev",
+        "items": [{ "description": "Adopt nmr to run monorepo and workspace scripts (#38)" }]
+      },
+      {
+        "title": "Dependencies",
+        "audience": "dev",
+        "items": [{ "description": "Remove vitest optional peer dependency (#46)" }]
+      },
+      {
+        "title": "Refactoring",
+        "audience": "all",
+        "items": [{ "description": "Replace dist bin targets with thin wrapper scripts (#48)" }]
+      }
+    ]
+  },
+  {
+    "version": "0.1.0",
+    "date": "2026-03-12",
+    "sections": [
+      {
+        "title": "Features",
+        "audience": "all",
+        "items": [{ "description": "Implement nmr CLI and core package (#2)" }]
+      }
+    ]
+  }
+]

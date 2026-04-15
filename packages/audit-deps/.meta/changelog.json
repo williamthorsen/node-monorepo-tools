@@ -1,0 +1,24 @@
+[
+  {
+    "version": "0.2.1",
+    "date": "2026-04-15",
+    "sections": [
+      {
+        "title": "Tooling",
+        "audience": "dev",
+        "items": [{ "description": "Enable automated publication to npm (#187)" }]
+      }
+    ]
+  },
+  {
+    "version": "0.2.0",
+    "date": "2026-04-10",
+    "sections": [
+      {
+        "title": "Features",
+        "audience": "all",
+        "items": [{ "description": "Create audit-deps wrapper to manage dependency audits (#183)" }]
+      }
+    ]
+  }
+]

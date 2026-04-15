@@ -1,6 +1,6 @@
 {
   "name": "@williamthorsen/audit-deps",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": false,
   "description": "Wrap audit-ci with a richer config model, typed JSON source of truth, and sync workflow",
   "keywords": [

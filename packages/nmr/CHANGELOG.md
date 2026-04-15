@@ -2,122 +2,103 @@
 
 All notable changes to this project will be documented in this file.
 
-## [nmr-v0.9.1] - 2026-04-10
+## [nmr-v0.9.2] - 2026-04-15
 
 ### Tooling
 
-- Nmr|tooling: Improve migration checklist
+- Enable automated publication to npm (#187)
+
+  Prepares the repository for reliable tag-triggered npm publishing by adding missing package metadata, standardizing licensing, and introducing a readyup kit that validates publish readiness across all packages.
 
 ## [nmr-v0.9.0] - 2026-04-04
 
 ### Documentation
 
-- #134 nmr|docs: Refine README to match preflight documentation standard (#137)
+- Refine README to match preflight documentation standard (#137)
 
-Rewrites the nmr README to match the documentation standard established by the preflight README (#114). Restructures content to follow the cross-package convention (header → installation → quick start → concepts → CLI reference), adds comprehensive reference tables for CLI flags, `defineConfig` fields, and all built-in script registries (workspace and root), and introduces visual aids for context-aware resolution and three-tier override precedence.
+  Rewrites the nmr README to match the documentation standard established by the preflight README (#114). Restructures content to follow the cross-package convention (header → installation → quick start → concepts → CLI reference), adds comprehensive reference tables for CLI flags, `defineConfig` fields, and all built-in script registries (workspace and root), and introduces visual aids for context-aware resolution and three-tier override precedence.
 
 ### Features
 
-- #142 feat: Add --version flag to nmr and release-kit (#143)
+- Add --version flag to nmr and release-kit (#143)
 
-Adds `--version` / `-V` support to the `nmr` and `release-kit` CLIs, matching the existing `preflight` behavior. Moves the build-time version generation script to the shared `config/` directory so all three packages use a single `generateVersion.ts`.
+  Adds `--version` / `-V` support to the `nmr` and `release-kit` CLIs, matching the existing `preflight` behavior. Moves the build-time version generation script to the shared `config/` directory so all three packages use a single `generateVersion.ts`.
 
-- #78 nmr|feat: Add devBin config for source-repo binary substitution (#146)
+- Add devBin config for source-repo binary substitution (#146)
 
-Adds a `devBin` config field to nmr that maps binary names to replacement commands, with relative paths resolved from the monorepo root. Documents `":"` as the recommended way to disable a script when `eslint-plugin-package-json/valid-scripts` forbids empty strings.
+  Adds a `devBin` config field to nmr that maps binary names to replacement commands, with relative paths resolved from the monorepo root. Documents `":"` as the recommended way to disable a script when `eslint-plugin-package-json/valid-scripts` forbids empty strings.
 
-- #150 feat: Detect and report missing build output in bin wrappers (#152)
+- Detect and report missing build output in bin wrappers (#152)
 
-Adds try/catch with `ERR_MODULE_NOT_FOUND` detection to all six bin wrappers across `nmr`, `preflight`, and `release-kit`. Previously, five of the six wrappers used bare `import()` calls that produced cryptic unhandled rejections when `dist/` was missing, and `preflight`'s existing try/catch gave no actionable guidance.
+  Adds try/catch with `ERR_MODULE_NOT_FOUND` detection to all six bin wrappers across `nmr`, `preflight`, and `release-kit`. Previously, five of the six wrappers used bare `import()` calls that produced cryptic unhandled rejections when `dist/` was missing, and `preflight`'s existing try/catch gave no actionable guidance.
 
 ## [nmr-v0.5.0] - 2026-03-31
 
 ### Features
 
-- #105 nmr|feat: Add `fix` script to workspace and root registries (#106)
+- Add `fix` script to workspace and root registries (#106)
 
-Adds a `fix` composite script to both the workspace and root script registries in nmr. The script runs `lint` then `fmt` in sequence, providing a single command to auto-fix linting and formatting issues.
-
-- Preflight|feat: Update preflight checks for v5 workflow and nmr test conventions
-
-Bump the expected code-quality-pnpm-workflow version from v4 to v5 and add a dependent check that pnpm-version is absent when v5 is in use (v5 infers the version from the packageManager field). Add nmr checks enforcing that repos have **tests**/version-alignment.app.test.ts using checkNodeVersionConsistency and that superseded test files (consistency.app.test.ts, nodejs-version-app.test.ts, pnpm-version-app.test.ts) no longer exist.
-
-Re-export findMonorepoRoot from the @williamthorsen/nmr/tests subpath so consumers of the individual check functions can resolve the monorepo root without reaching into internal modules.
-
-Replace the hand-rolled version-consistency tests and their local helpers with a thin version-alignment test that delegates to the nmr library's exported check functions.
-
-### Tests
-
-- Nmr|tests: Add unit tests for consistency check helpers
-
-Export the five previously-private functions from `consistency.ts` so consumers can import individual checks and extraction helpers. Add fixture-based tests covering `getPnpmVersionFromPackageJson` (valid input, wrong manager, missing version, non-string field, missing field), `getPnpmVersionFromAction`, and `getNodeVersionFromAction`.
+  Adds a `fix` composite script to both the workspace and root script registries in nmr. The script runs `lint` then `fmt` in sequence, providing a single command to auto-fix linting and formatting issues.
 
 ## [nmr-v0.4.0] - 2026-03-30
 
-### Bug fixes
-
-- Nmr|fix: Skip self-referential package.json script overrides
-
-When v0.3.0 began resolving root-level package.json scripts as tier-3 overrides, leftover wrapper scripts like `"build": "nmr build"` caused infinite recursion. `resolveScript` now detects overrides that simply re-invoke `nmr <same-command>` and falls through to the registry instead.
-
 ### Features
 
-- #83 nmr|feat: Add default root scripts and split registry module (#96)
+- Add default root scripts and split registry module (#96)
 
-Adds four new default root scripts to nmr (`fmt:sh`, `fmt:all`, `clean`, `root:check`) and split the monolithic `registries.ts` into a data-only `default-scripts.ts` and a composition-logic `resolve-scripts.ts`.
+  Adds four new default root scripts to nmr (`fmt:sh`, `fmt:all`, `clean`, `root:check`) and split the monolithic `registries.ts` into a data-only `default-scripts.ts` and a composition-logic `resolve-scripts.ts`.
 
-Also fixes the `ci` and `check:strict` script ordering to run build before strict checks, and corrects stale test assertions.
+  Also fixes the `ci` and `check:strict` script ordering to run build before strict checks, and corrects stale test assertions.
 
 ## [nmr-v0.3.0] - 2026-03-29
 
 ### Features
 
-- #86 nmr|feat: Resolve package.json scripts at root level and skip in recursive mode (#95)
+- Resolve package.json scripts at root level and skip in recursive mode (#95)
 
-Pass `monorepoRoot` as `packageDir` when `isRoot` is true so root `package.json` scripts participate in the same override tier that workspace packages already use.
+  Pass `monorepoRoot` as `packageDir` when `isRoot` is true so root `package.json` scripts participate in the same override tier that workspace packages already use.
 
-Set `NMR_RUN_IF_PRESENT=1` in the `-R` codepath so child processes that can't resolve a command exit 0 (skip) instead of exit 1.
+  Set `NMR_RUN_IF_PRESENT=1` in the `-R` codepath so child processes that can't resolve a command exit 0 (skip) instead of exit 1.
 
-Only log "Using override script" when the `package.json` script actually overrides a registry command.
+  Only log "Using override script" when the `package.json` script actually overrides a registry command.
 
-Remove the self-referencing `ci: "nmr ci"` script from root `package.json` and update the CI workflow to use `code-quality-pnpm-workflow.yaml@v4` with an explicit `check-command`.
+  Remove the self-referencing `ci: "nmr ci"` script from root `package.json` and update the CI workflow to use `code-quality-pnpm-workflow.yaml@v4` with an explicit `check-command`.
 
 ## [nmr-v0.2.0] - 2026-03-28
 
 ### Documentation
 
-- #74 nmr|docs: Document utility binaries
+- Document utility binaries
 
-Add README sections for the package's additional commands. Subcommands (report-overrides, sync-pnpm-version) are documented under "Additional subcommands" with nmr invocation syntax. The standalone ensure-prepublish-hooks utility is documented separately under "Standalone utilities".
+  Add README sections for the package's additional commands. Subcommands (report-overrides, sync-pnpm-version) are documented under "Additional subcommands" with nmr invocation syntax. The standalone ensure-prepublish-hooks utility is documented separately under "Standalone utilities".
 
-Also fix the executable bit on bin/ensure-prepublish-hooks.js to match the other bin entries.
+  Also fix the executable bit on bin/ensure-prepublish-hooks.js to match the other bin entries.
 
 ### Features
 
-- #74 nmr|feat: Add ensure-prepublish-hooks binary (#75)
+- Add ensure-prepublish-hooks binary (#75)
 
-New binary that checks whether all publishable (non-private) workspace packages have a `prepublishOnly` script, and optionally adds one.
+  New binary that checks whether all publishable (non-private) workspace packages have a `prepublishOnly` script, and optionally adds one.
+  - Check mode (default): reports each non-private package's `prepublishOnly` status, exits non-zero if any are missing.
+  - Fix mode (`--fix`): inserts `prepublishOnly` into packages that lack it. Supports `--dry-run`.
+  - Custom command (`--command`): overrides the default hook value (`npm run build`).
 
-- Check mode (default): reports each non-private package's `prepublishOnly` status, exits non-zero if any are missing.
-- Fix mode (`--fix`): inserts `prepublishOnly` into packages that lack it. Supports `--dry-run`.
-- Custom command (`--command`): overrides the default hook value (`npm run build`).
-
-Also adds `private` field extraction to the shared `PackageJson` interface.
+  Also adds `private` field extraction to the shared `PackageJson` interface.
 
 ## [nmr-v0.1.1] - 2026-03-28
 
 ### Features
 
-- #59 feat: Extract nmr CLI from core package (#61)
+- Extract nmr CLI from core package (#61)
 
-Extracts all nmr CLI code from `packages/core` into a new `packages/nmr` package (`@williamthorsen/nmr`). Core is reduced to an empty shared-library shell ready for cross-cutting utilities. All internal references are rewired and the full build/test pipeline passes.
+  Extracts all nmr CLI code from `packages/core` into a new `packages/nmr` package (`@williamthorsen/nmr`). Core is reduced to an empty shared-library shell ready for cross-cutting utilities. All internal references are rewired and the full build/test pipeline passes.
 
-Scopes: core, nmr
+  Scopes: core, nmr
 
 ### Refactoring
 
-- #60 nmr|refactor: Extract helpers to reduce duplication in config and consistency modules (#62)
+- Extract helpers to reduce duplication in config and consistency modules (#62)
 
-Extracts two small helpers to consolidate structurally duplicated code in the nmr package. A new `getStringFromYamlFile` helper in `tests/helpers/` replaces the repeated YAML-read-parse-extract pattern in `consistency.ts`, and a private `validateScriptField` helper in `config.ts` replaces the duplicated script-record validation blocks.
+  Extracts two small helpers to consolidate structurally duplicated code in the nmr package. A new `getStringFromYamlFile` helper in `tests/helpers/` replaces the repeated YAML-read-parse-extract pattern in `consistency.ts`, and a private `validateScriptField` helper in `config.ts` replaces the duplicated script-record validation blocks.
 
 <!-- generated by git-cliff -->
