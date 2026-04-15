@@ -9,8 +9,8 @@ import { join as join2 } from "node:path";
 // packages/nmr/dist/esm/default-scripts.js
 var rootScripts = {
   audit: ["audit:prod", "audit:dev"],
-  "audit:dev": "pnpm dlx audit-ci@^6 --config .audit-ci/config.dev.json5",
-  "audit:prod": "pnpm dlx audit-ci@^6 --config .audit-ci/config.prod.json5",
+  "audit:dev": "pnpm dlx audit-ci@^7 --config .config/audit-ci/config.dev.json5",
+  "audit:prod": "pnpm dlx audit-ci@^7 --config .config/audit-ci/config.prod.json5",
   build: "pnpm --recursive exec nmr build",
   check: ["typecheck", "fmt:check", "lint:check", "test"],
   "check:strict": ["typecheck", "fmt:check", "audit", "lint:strict", "test:coverage"],
