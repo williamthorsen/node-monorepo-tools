@@ -64,14 +64,21 @@ function readJsonFile(relativePath) {
 }
 
 // .readyup/kits/npm-auto-publish.ts
+var PUBLISH_WORKFLOW_FILE = "publish.yaml";
+var cachedOwnerRepo;
 var cachedPackages;
+function getCachedOwnerRepo() {
+  if (cachedOwnerRepo === void 0) {
+    cachedOwnerRepo = getOwnerRepo();
+  }
+  return cachedOwnerRepo;
+}
 function getPackages() {
   if (cachedPackages === void 0) {
     cachedPackages = discoverPackages();
   }
   return cachedPackages;
 }
-var provenanceFix;
 var repoChecklist = defineRdyStagedChecklist({
   name: "repo",
   preconditions: [
@@ -95,10 +102,7 @@ var repoChecklist = defineRdyStagedChecklist({
       },
       {
         name: "Provenance setting matches repo visibility",
-        check: checkProvenanceMatchesVisibility,
-        get fix() {
-          return provenanceFix ?? "Provenance setting does not match repo visibility";
-        }
+        check: checkProvenanceMatchesVisibility
       }
     ]
   ]
@@ -159,7 +163,16 @@ function buildPackageCheck(pkg) {
     {
       name: "published to npm",
       check: () => isPublishedToNpm(pkg.name),
-      fix: `Run "npm publish --access public" from ${pkg.relativePath} to bootstrap the package on npm`
+      fix: `Run "npm publish --access public" from ${pkg.relativePath} to bootstrap the package on npm`,
+      checks: [
+        {
+          name: "trusted publisher configured",
+          check: () => hasTrustedPublisher(pkg.name, getCachedOwnerRepo(), PUBLISH_WORKFLOW_FILE),
+          get fix() {
+            return `Run: npm trust github ${pkg.name} --repo ${getCachedOwnerRepo()} --file ${PUBLISH_WORKFLOW_FILE}`;
+          }
+        }
+      ]
     },
     {
       name: "files field exists",
@@ -175,30 +188,31 @@ function buildPackageCheck(pkg) {
   };
 }
 function checkProvenanceMatchesVisibility() {
-  provenanceFix = void 0;
   const workflowPath = ".github/workflows/publish.yaml";
   const content = readFile(workflowPath);
   if (content === void 0) {
-    provenanceFix = `Cannot read ${workflowPath} \u2014 check file permissions`;
-    return false;
+    return { ok: false, detail: `Cannot read ${workflowPath} \u2014 check file permissions` };
   }
   const hasProvenance = parseProvenanceSetting(content);
   let isPrivate;
   try {
     isPrivate = isRepoPrivate();
   } catch {
-    provenanceFix = "Install and authenticate the GitHub CLI: gh auth login";
-    return false;
+    return { ok: false, detail: "Install and authenticate the GitHub CLI: gh auth login" };
   }
   if (!isPrivate && !hasProvenance) {
-    provenanceFix = "Set provenance: true in .github/workflows/publish.yaml \u2014 public repos should generate provenance attestations";
-    return false;
+    return {
+      ok: false,
+      detail: "Set provenance: true in .github/workflows/publish.yaml \u2014 public repos should generate provenance attestations"
+    };
   }
   if (isPrivate && hasProvenance) {
-    provenanceFix = "Set provenance: false in .github/workflows/publish.yaml \u2014 provenance requires a public repo";
-    return false;
+    return {
+      ok: false,
+      detail: "Make the GitHub repo public \u2014 OIDC publishing with provenance requires a public repo"
+    };
   }
-  return true;
+  return { ok: true };
 }
 function discoverPackages() {
   if (fileExists("pnpm-workspace.yaml")) {
@@ -208,7 +222,14 @@ function discoverPackages() {
   if (rootPkg === void 0) {
     return [];
   }
-  return [{ name: getPackageName(rootPkg), dir: process.cwd(), relativePath: ".", packageJson: rootPkg }];
+  return [
+    {
+      name: getPackageName(rootPkg),
+      dir: process.cwd(),
+      relativePath: ".",
+      packageJson: rootPkg
+    }
+  ];
 }
 function discoverWorkspacePackages(workspaceConfigPath) {
   const content = readFileSync2(workspaceConfigPath, "utf8");
@@ -246,7 +267,9 @@ function getNestedString(obj, ...keys) {
   return typeof current === "string" ? current : void 0;
 }
 function getOwnerRepo() {
-  const url = execSync2("git remote get-url origin", { encoding: "utf8" }).trim();
+  const url = execSync2("git remote get-url origin", {
+    encoding: "utf8"
+  }).trim();
   const sshMatch = url.match(/git@github\.com:(.+?)(?:\.git)?$/);
   if (sshMatch?.[1]) {
     return sshMatch[1];
@@ -274,9 +297,33 @@ function hasTokenReferences() {
   }
   return false;
 }
+function hasTrustedPublisher(packageName, expectedRepo, expectedFile) {
+  let output;
+  try {
+    output = execSync2(`npm trust list ${packageName} --json`, {
+      encoding: "utf8",
+      stdio: "pipe"
+    });
+  } catch {
+    return false;
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(output);
+  } catch {
+    return false;
+  }
+  if (!isRecord2(parsed)) {
+    return false;
+  }
+  return parsed.type === "github" && parsed.repository === expectedRepo && parsed.file === expectedFile;
+}
 function isPublishedToNpm(packageName) {
   try {
-    execSync2(`npm view ${packageName} version`, { encoding: "utf8", stdio: "pipe" });
+    execSync2(`npm view ${packageName} version`, {
+      encoding: "utf8",
+      stdio: "pipe"
+    });
     return true;
   } catch {
     return false;
@@ -284,7 +331,9 @@ function isPublishedToNpm(packageName) {
 }
 function isRepoPrivate() {
   const ownerRepo = getOwnerRepo();
-  const result = execSync2(`gh api repos/${ownerRepo} --jq .private`, { encoding: "utf8" }).trim();
+  const result = execSync2(`gh api repos/${ownerRepo} --jq .private`, {
+    encoding: "utf8"
+  }).trim();
   return result === "true";
 }
 function parseProvenanceSetting(workflowContent) {

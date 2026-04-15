@@ -13,12 +13,23 @@ import {
   readJsonFile,
 } from 'readyup';
 
+const PUBLISH_WORKFLOW_FILE = 'publish.yaml';
+
 // -- Primary logic --
 
 // Deferred so that `globSync` (Node 22+) is not called at module load time.
 // The packages checklist has a Node >= 22 precondition that surfaces a helpful
 // fix hint; eager discovery would crash before that precondition runs.
+let cachedOwnerRepo: string | undefined;
 let cachedPackages: PackageInfo[] | undefined;
+
+/** Return the GitHub owner/repo, computing on first access. */
+function getCachedOwnerRepo(): string {
+  if (cachedOwnerRepo === undefined) {
+    cachedOwnerRepo = getOwnerRepo();
+  }
+  return cachedOwnerRepo;
+}
 
 /** Return discovered packages, computing on first access. */
 function getPackages(): PackageInfo[] {
@@ -27,11 +38,6 @@ function getPackages(): PackageInfo[] {
   }
   return cachedPackages;
 }
-
-// Shared mutable state for the provenance check's dynamic fix message.
-// `checkProvenanceMatchesVisibility` sets this before returning false,
-// and the check definition reads it via a getter.
-let provenanceFix: string | undefined;
 
 const repoChecklist = defineRdyStagedChecklist({
   name: 'repo',
@@ -57,9 +63,6 @@ const repoChecklist = defineRdyStagedChecklist({
       {
         name: 'Provenance setting matches repo visibility',
         check: checkProvenanceMatchesVisibility,
-        get fix() {
-          return provenanceFix ?? 'Provenance setting does not match repo visibility';
-        },
       },
     ],
   ],
@@ -139,6 +142,15 @@ function buildPackageCheck(pkg: PackageInfo): RdyCheck {
       name: 'published to npm',
       check: () => isPublishedToNpm(pkg.name),
       fix: `Run "npm publish --access public" from ${pkg.relativePath} to bootstrap the package on npm`,
+      checks: [
+        {
+          name: 'trusted publisher configured',
+          check: () => hasTrustedPublisher(pkg.name, getCachedOwnerRepo(), PUBLISH_WORKFLOW_FILE),
+          get fix() {
+            return `Run: npm trust github ${pkg.name} --repo ${getCachedOwnerRepo()} --file ${PUBLISH_WORKFLOW_FILE}`;
+          },
+        },
+      ],
     },
     {
       name: 'files field exists',
@@ -156,14 +168,12 @@ function buildPackageCheck(pkg: PackageInfo): RdyCheck {
 }
 
 /** Check whether the provenance setting in publish.yaml matches the repo's visibility. */
-function checkProvenanceMatchesVisibility(): boolean {
-  provenanceFix = undefined;
+function checkProvenanceMatchesVisibility(): { ok: boolean; detail?: string } {
   const workflowPath = '.github/workflows/publish.yaml';
 
   const content = readFile(workflowPath);
   if (content === undefined) {
-    provenanceFix = `Cannot read ${workflowPath} — check file permissions`;
-    return false;
+    return { ok: false, detail: `Cannot read ${workflowPath} — check file permissions` };
   }
 
   const hasProvenance = parseProvenanceSetting(content);
@@ -172,22 +182,25 @@ function checkProvenanceMatchesVisibility(): boolean {
   try {
     isPrivate = isRepoPrivate();
   } catch {
-    provenanceFix = 'Install and authenticate the GitHub CLI: gh auth login';
-    return false;
+    return { ok: false, detail: 'Install and authenticate the GitHub CLI: gh auth login' };
   }
 
   if (!isPrivate && !hasProvenance) {
-    provenanceFix =
-      'Set provenance: true in .github/workflows/publish.yaml — public repos should generate provenance attestations';
-    return false;
+    return {
+      ok: false,
+      detail:
+        'Set provenance: true in .github/workflows/publish.yaml — public repos should generate provenance attestations',
+    };
   }
 
   if (isPrivate && hasProvenance) {
-    provenanceFix = 'Set provenance: false in .github/workflows/publish.yaml — provenance requires a public repo';
-    return false;
+    return {
+      ok: false,
+      detail: 'Make the GitHub repo public — OIDC publishing with provenance requires a public repo',
+    };
   }
 
-  return true;
+  return { ok: true };
 }
 
 /** Discover all publishable packages in the workspace. */
@@ -202,7 +215,14 @@ function discoverPackages(): PackageInfo[] {
     return [];
   }
 
-  return [{ name: getPackageName(rootPkg), dir: process.cwd(), relativePath: '.', packageJson: rootPkg }];
+  return [
+    {
+      name: getPackageName(rootPkg),
+      dir: process.cwd(),
+      relativePath: '.',
+      packageJson: rootPkg,
+    },
+  ];
 }
 
 /** Parse pnpm-workspace.yaml and expand globs to find workspace packages. */
@@ -250,7 +270,9 @@ function getNestedString(obj: Record<string, unknown>, ...keys: string[]): strin
 
 /** Derive {owner}/{repo} from the git remote origin URL. */
 function getOwnerRepo(): string {
-  const url = execSync('git remote get-url origin', { encoding: 'utf8' }).trim();
+  const url = execSync('git remote get-url origin', {
+    encoding: 'utf8',
+  }).trim();
 
   // Handle SSH: git@github.com:owner/repo.git
   const sshMatch = url.match(/git@github\.com:(.+?)(?:\.git)?$/);
@@ -291,10 +313,39 @@ function hasTokenReferences(): boolean {
   return false;
 }
 
+/** Verify that a package has a matching GitHub trusted publisher on npm. */
+function hasTrustedPublisher(packageName: string, expectedRepo: string, expectedFile: string): boolean {
+  let output: string;
+  try {
+    output = execSync(`npm trust list ${packageName} --json`, {
+      encoding: 'utf8',
+      stdio: 'pipe',
+    });
+  } catch {
+    return false;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(output);
+  } catch {
+    return false;
+  }
+
+  if (!isRecord(parsed)) {
+    return false;
+  }
+
+  return parsed.type === 'github' && parsed.repository === expectedRepo && parsed.file === expectedFile;
+}
+
 /** Check whether a package exists on the npm registry. */
 function isPublishedToNpm(packageName: string): boolean {
   try {
-    execSync(`npm view ${packageName} version`, { encoding: 'utf8', stdio: 'pipe' });
+    execSync(`npm view ${packageName} version`, {
+      encoding: 'utf8',
+      stdio: 'pipe',
+    });
     return true;
   } catch {
     return false;
@@ -304,7 +355,9 @@ function isPublishedToNpm(packageName: string): boolean {
 /** Query the GitHub API to determine whether the current repo is private. */
 function isRepoPrivate(): boolean {
   const ownerRepo = getOwnerRepo();
-  const result = execSync(`gh api repos/${ownerRepo} --jq .private`, { encoding: 'utf8' }).trim();
+  const result = execSync(`gh api repos/${ownerRepo} --jq .private`, {
+    encoding: 'utf8',
+  }).trim();
   return result === 'true';
 }
 
