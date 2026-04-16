@@ -28,7 +28,7 @@ Scope options:
 Other options:
   --config <path>      Path to config file (default: .config/audit-deps.config.json)
   --json               Output results as JSON
-  --raw                Run raw audit-ci passthrough (CI mode)
+  --raw                Run raw audit-ci passthrough
   --help, -h           Show this help message
   --version, -V        Show version number
 `);

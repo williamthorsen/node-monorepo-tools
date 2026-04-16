@@ -14,11 +14,11 @@ pnpm add -D @williamthorsen/audit-deps
 # Scaffold a starter config
 npx audit-deps init
 
-# Run audit against all scopes
+# Grouped vulnerability check across all scopes (default)
 npx audit-deps
 
-# Report vulnerabilities without failing
-npx audit-deps report
+# Raw audit-ci passthrough
+npx audit-deps --raw
 
 # Sync allowlists with current findings
 npx audit-deps sync
@@ -63,8 +63,7 @@ Usage: audit-deps [options]
        audit-deps <command> [options]
 
 Commands:
-  (default)            Run audit-ci against configured scopes
-  report               Report vulnerabilities without failing
+  (default)            Grouped vulnerability check with severity indicators
   sync                 Synchronize allowlists with current audit findings
   generate             Regenerate flat audit-ci config files
   init                 Scaffold a starter config file
@@ -76,6 +75,7 @@ Scope options:
 Other options:
   --config <path>      Path to config file (default: .config/audit-deps.config.json)
   --json               Output results as JSON
+  --raw                Run raw audit-ci passthrough
   --help, -h           Show this help message
   --version, -V        Show version number
 ```
