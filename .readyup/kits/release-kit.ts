@@ -11,7 +11,6 @@
  */
 import {
   defineRdyKit,
-  fileContains,
   fileDoesNotContain,
   fileExists,
   fileMatchesHash,
@@ -21,6 +20,7 @@ import {
 } from 'readyup';
 
 import releaseKitPackageJson from '../../packages/release-kit/package.json' with { type: 'json' };
+import { detectRepoType } from '../../packages/release-kit/src/init/detectRepoType.ts';
 
 const MIN_VERSION = releaseKitPackageJson.version;
 
@@ -28,7 +28,11 @@ const MIN_VERSION = releaseKitPackageJson.version;
 // verified by __tests__/rdy-kit-hashes.app.test.ts.
 export const CLIFF_TEMPLATE_HASH = 'fb5e7d3c5e4856272aa788ed0e69cc491c8f765ba4241643999436410584278e';
 export const COMMON_PRESET_HASH = 'd12ffccbd5e4d9af8ecf47744b143f6c9f80bcf5e496cf1983b66834f0ae7825';
-export const SYNC_LABELS_WORKFLOW_HASH = 'c0206871afadf1bf12a8dbe51afbd8e6d49724ca48875c168fbf1da891abcfad';
+export const SYNC_LABELS_WORKFLOW_HASH = '4dfde2454bac03280381f0da70c9c735916a7812100dec5437853b843c4bd797';
+export const RELEASE_WORKFLOW_HASH_MONOREPO = 'd2c297a3974a70485c73ec115c092ecba0d571b5238d5f440096d6a35b64810b';
+export const RELEASE_WORKFLOW_HASH_SINGLE = 'd80f814468897d920c89ab55959f6c1f97efbd02b99522c92b9d1162ed694c1c';
+export const PUBLISH_WORKFLOW_HASH_MONOREPO = 'ba9f8e353e0f60498df8b55a9340bd1b88c3b9f55e9862850da26dd9c98d8b23';
+export const PUBLISH_WORKFLOW_HASH_SINGLE = '4abbafa80eab871ce5277751e86d0c057490b0b36ec6e4e06a41f39494c990b1';
 
 export default defineRdyKit({
   checklists: [
@@ -59,16 +63,22 @@ export default defineRdyKit({
           fix: 'Add .github/workflows/release.yaml using the release workflow template',
           checks: [
             {
-              name: 'release workflow references release.reusable.yaml',
+              name: 'release.yaml matches template',
               severity: 'warn',
-              check: () =>
-                fileContains(
-                  '.github/workflows/release.yaml',
-                  /uses:\s*(?:\.\/\.github\/workflows\/|williamthorsen\/node-monorepo-tools\/.github\/workflows\/)release\.reusable\.yaml/,
-                ),
-              fix: 'Update release.yaml to use williamthorsen/node-monorepo-tools/.github/workflows/release.reusable.yaml@workflow/release-v1',
+              check: () => {
+                const hash =
+                  detectRepoType() === 'monorepo' ? RELEASE_WORKFLOW_HASH_MONOREPO : RELEASE_WORKFLOW_HASH_SINGLE;
+                return fileMatchesHash('.github/workflows/release.yaml', hash);
+              },
+              fix: 'Run `release-kit init --force` to regenerate release.yaml from the current template',
             },
           ],
+        },
+        {
+          name: 'release.yaml does not reference deprecated tag ref',
+          severity: 'error',
+          check: () => fileDoesNotContain('.github/workflows/release.yaml', /@(release|publish)-workflow-v[0-9]/),
+          fix: 'Update release.yaml to use @workflow/release-v1 (run `release-kit init --force` to regenerate, or replace the ref manually)',
         },
         {
           name: 'publish.yaml workflow exists',
@@ -77,16 +87,22 @@ export default defineRdyKit({
           fix: 'Add .github/workflows/publish.yaml using the publish workflow template',
           checks: [
             {
-              name: 'publish workflow references publish.reusable.yaml',
+              name: 'publish.yaml matches template',
               severity: 'warn',
-              check: () =>
-                fileContains(
-                  '.github/workflows/publish.yaml',
-                  /uses:\s*(?:\.\/\.github\/workflows\/|williamthorsen\/node-monorepo-tools\/.github\/workflows\/)publish\.reusable\.yaml/,
-                ),
-              fix: 'Update publish.yaml to use williamthorsen/node-monorepo-tools/.github/workflows/publish.reusable.yaml@workflow/publish-v1',
+              check: () => {
+                const hash =
+                  detectRepoType() === 'monorepo' ? PUBLISH_WORKFLOW_HASH_MONOREPO : PUBLISH_WORKFLOW_HASH_SINGLE;
+                return fileMatchesHash('.github/workflows/publish.yaml', hash);
+              },
+              fix: 'Run `release-kit init --force` to regenerate publish.yaml from the current template',
             },
           ],
+        },
+        {
+          name: 'publish.yaml does not reference deprecated tag ref',
+          severity: 'error',
+          check: () => fileDoesNotContain('.github/workflows/publish.yaml', /@(release|publish)-workflow-v[0-9]/),
+          fix: 'Update publish.yaml to use @workflow/publish-v1 (run `release-kit init --force` to regenerate, or replace the ref manually)',
         },
         {
           name: 'config does not use removed tagPrefix',
@@ -128,6 +144,12 @@ export default defineRdyKit({
               fix: 'Run `release-kit sync-labels init --force` to regenerate the workflow from the current template',
             },
           ],
+        },
+        {
+          name: 'sync-labels.yaml does not reference deprecated tag ref',
+          severity: 'error',
+          check: () => fileDoesNotContain('.github/workflows/sync-labels.yaml', /@sync-labels-workflow-v[0-9]/),
+          fix: 'Update sync-labels.yaml to use @workflow/sync-labels-v1 (run `release-kit sync-labels init --force` to regenerate, or replace the ref manually)',
         },
         {
           name: '.config/sync-labels.config.ts exists',

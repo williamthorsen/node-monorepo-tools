@@ -36,44 +36,41 @@ describe(releaseConfigScript, () => {
 });
 
 describe(publishWorkflow, () => {
-  it('generates a monorepo workflow with wildcard tag pattern', () => {
+  it('generates a monorepo workflow with tightened tag pattern', () => {
     const workflow = publishWorkflow('monorepo');
 
-    expect(workflow).toContain("'*-v[0-9]*'");
-    expect(workflow).not.toContain("- 'v[0-9]*'");
-    expect(workflow).toContain('publish.reusable.yaml@publish-workflow-v1');
+    expect(workflow).toContain("'*-v[0-9]*.[0-9]*.[0-9]*'");
+    expect(workflow).not.toContain("- 'v[0-9]*.[0-9]*.[0-9]*'");
+    expect(workflow).toContain('publish.reusable.yaml@workflow/publish-v1');
     expect(workflow).toContain('id-token: write');
     expect(workflow).toContain('contents: read');
     expect(workflow).not.toContain('secrets:');
   });
 
-  it('generates a single-package workflow with v-prefixed tag pattern', () => {
+  it('generates a single-package workflow with v-prefixed tightened tag pattern', () => {
     const workflow = publishWorkflow('single-package');
 
-    expect(workflow).toContain("'v[0-9]*'");
-    expect(workflow).not.toContain("'*-v[0-9]*'");
-    expect(workflow).toContain('publish.reusable.yaml@publish-workflow-v1');
+    expect(workflow).toContain("'v[0-9]*.[0-9]*.[0-9]*'");
+    expect(workflow).not.toContain("'*-v[0-9]*.[0-9]*.[0-9]*'");
+    expect(workflow).toContain('publish.reusable.yaml@workflow/publish-v1');
     expect(workflow).toContain('id-token: write');
     expect(workflow).toContain('contents: read');
     expect(workflow).not.toContain('secrets:');
   });
 
-  it.each(['monorepo', 'single-package'] as const)(
-    'includes provenance: false with an explanatory comment (%s)',
-    (repoType) => {
-      const workflow = publishWorkflow(repoType);
+  it.each(['monorepo', 'single-package'] as const)('defaults to provenance: true (%s)', (repoType) => {
+    const workflow = publishWorkflow(repoType);
 
-      expect(workflow).toContain('provenance: false');
-      expect(workflow).toContain('# Set to true for public repos to generate npm provenance attestations');
-    },
-  );
+    expect(workflow).toContain('provenance: true');
+    expect(workflow).not.toContain('provenance: false');
+  });
 });
 
 describe(releaseWorkflow, () => {
   it('generates a monorepo workflow with only input but no monorepo flag', () => {
     const workflow = releaseWorkflow('monorepo');
 
-    expect(workflow).toContain('release.reusable.yaml@release-workflow-v1');
+    expect(workflow).toContain('release.reusable.yaml@workflow/release-v1');
     expect(workflow).not.toContain('monorepo:');
     expect(workflow).toContain('only:');
     expect(workflow).toContain('inputs.only');
@@ -82,7 +79,7 @@ describe(releaseWorkflow, () => {
   it('generates a single-package workflow without only input', () => {
     const workflow = releaseWorkflow('single-package');
 
-    expect(workflow).toContain('release.reusable.yaml@release-workflow-v1');
+    expect(workflow).toContain('release.reusable.yaml@workflow/release-v1');
     expect(workflow).not.toContain('monorepo:');
     expect(workflow).not.toContain('inputs.only');
   });

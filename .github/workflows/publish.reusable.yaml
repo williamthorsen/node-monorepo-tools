@@ -6,8 +6,8 @@ name: Publish
 # Triggered by tag pushes. Installs `@williamthorsen/release-kit` globally and
 # runs `release-kit publish` with OIDC-based npm authentication.
 # Pass `provenance: true` to enable npm provenance attestations (requires a public repo).
-# Pass `build-local: true` to build release-kit from source instead of installing from npm
-# (required when publishing release-kit itself to avoid bootstrap problems).
+# When running in the `williamthorsen/node-monorepo-tools` repo, release-kit is
+# built from source instead of installed from npm (auto-detected).
 # The calling workflow must grant `id-token: write` and `contents: read` permissions.
 #
 # Usage:
@@ -28,11 +28,6 @@ on:
         required: false
         type: boolean
         default: false
-      build-local:
-        description: 'Build release-kit from source instead of installing from npm'
-        required: false
-        type: boolean
-        default: false
 
 permissions:
   id-token: write
@@ -45,6 +40,7 @@ jobs:
     timeout-minutes: 15
 
     env:
+      BUILD_LOCAL: ${{ github.repository == 'williamthorsen/node-monorepo-tools' }}
       # Allow npx to run even when package.json declares a different package
       # manager (e.g., pnpm). Without this, Corepack blocks npm/npx.
       COREPACK_ENABLE_STRICT: '0'
@@ -56,41 +52,47 @@ jobs:
       # Strip the packageManager field so that actions/setup-node does not
       # try to install it. The field is irrelevant for publishing.
       - name: Neutralize packageManager field
-        if: ${{ !inputs.build-local }}
+        if: ${{ env.BUILD_LOCAL != 'true' }}
         run: node -e "const fs=require('fs'),f='package.json',p=JSON.parse(fs.readFileSync(f));delete p.packageManager;fs.writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
 
       # Preserve the packageManager field so pnpm/action-setup can read the version.
       - name: Set up pnpm
-        if: ${{ inputs.build-local }}
+        if: ${{ env.BUILD_LOCAL == 'true' }}
         uses: pnpm/action-setup@v6
+
+      # Materialize the cache flag via step output because the `env` context
+      # is not evaluated in `with:` blocks.
+      - name: Resolve pnpm cache flag
+        id: cache-flag
+        run: echo "value=${{ env.BUILD_LOCAL == 'true' && 'pnpm' || '' }}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
           node-version: ${{ inputs.node-version }}
           registry-url: https://registry.npmjs.org
-          cache: ${{ inputs.build-local && 'pnpm' || '' }}
+          cache: ${{ steps.cache-flag.outputs.value }}
 
       - name: Disable Corepack
-        if: ${{ !inputs.build-local }}
+        if: ${{ env.BUILD_LOCAL != 'true' }}
         run: corepack disable
 
       - name: Install release-kit from npm
-        if: ${{ !inputs.build-local }}
+        if: ${{ env.BUILD_LOCAL != 'true' }}
         run: npm install --global @williamthorsen/release-kit
 
       # Build release-kit from source to avoid bootstrap problems when
       # publishing a version that introduces new CLI flags.
       - name: Install dependencies
-        if: ${{ inputs.build-local }}
+        if: ${{ env.BUILD_LOCAL == 'true' }}
         run: pnpm install --frozen-lockfile
 
       - name: Build release-kit from source
-        if: ${{ inputs.build-local }}
+        if: ${{ env.BUILD_LOCAL == 'true' }}
         run: pnpm --filter @williamthorsen/release-kit... run prepare
 
       - name: Link release-kit onto PATH
-        if: ${{ inputs.build-local }}
+        if: ${{ env.BUILD_LOCAL == 'true' }}
         run: npm link --workspace packages/release-kit
 
       - name: Publish

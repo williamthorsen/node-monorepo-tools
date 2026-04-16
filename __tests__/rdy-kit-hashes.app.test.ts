@@ -5,7 +5,16 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { AUDIT_WORKFLOW_HASH } from '../.readyup/kits/audit-deps.ts';
-import { CLIFF_TEMPLATE_HASH, COMMON_PRESET_HASH, SYNC_LABELS_WORKFLOW_HASH } from '../.readyup/kits/release-kit.ts';
+import {
+  CLIFF_TEMPLATE_HASH,
+  COMMON_PRESET_HASH,
+  PUBLISH_WORKFLOW_HASH_MONOREPO,
+  PUBLISH_WORKFLOW_HASH_SINGLE,
+  RELEASE_WORKFLOW_HASH_MONOREPO,
+  RELEASE_WORKFLOW_HASH_SINGLE,
+  SYNC_LABELS_WORKFLOW_HASH,
+} from '../.readyup/kits/release-kit.ts';
+import { publishWorkflow, releaseWorkflow } from '../packages/release-kit/src/init/templates.ts';
 import { syncLabelsWorkflow } from '../packages/release-kit/src/sync-labels/templates.ts';
 
 /** Compute SHA-256 hex digest, matching readyup's computeHash implementation. */
@@ -59,5 +68,41 @@ describe('rdy kit hashes match source files', () => {
       actualHash,
       `AUDIT_WORKFLOW_HASH in .readyup/kits/audit-deps.ts is stale — update it to: ${actualHash}`,
     ).toBe(AUDIT_WORKFLOW_HASH);
+  });
+
+  it('RELEASE_WORKFLOW_HASH_MONOREPO matches releaseWorkflow("monorepo")', () => {
+    const actualHash = sha256(releaseWorkflow('monorepo'));
+
+    expect(
+      actualHash,
+      `RELEASE_WORKFLOW_HASH_MONOREPO in .readyup/kits/release-kit.ts is stale — update it to: ${actualHash}`,
+    ).toBe(RELEASE_WORKFLOW_HASH_MONOREPO);
+  });
+
+  it('RELEASE_WORKFLOW_HASH_SINGLE matches releaseWorkflow("single-package")', () => {
+    const actualHash = sha256(releaseWorkflow('single-package'));
+
+    expect(
+      actualHash,
+      `RELEASE_WORKFLOW_HASH_SINGLE in .readyup/kits/release-kit.ts is stale — update it to: ${actualHash}`,
+    ).toBe(RELEASE_WORKFLOW_HASH_SINGLE);
+  });
+
+  it('PUBLISH_WORKFLOW_HASH_MONOREPO matches publishWorkflow("monorepo")', () => {
+    const actualHash = sha256(publishWorkflow('monorepo'));
+
+    expect(
+      actualHash,
+      `PUBLISH_WORKFLOW_HASH_MONOREPO in .readyup/kits/release-kit.ts is stale — update it to: ${actualHash}`,
+    ).toBe(PUBLISH_WORKFLOW_HASH_MONOREPO);
+  });
+
+  it('PUBLISH_WORKFLOW_HASH_SINGLE matches publishWorkflow("single-package")', () => {
+    const actualHash = sha256(publishWorkflow('single-package'));
+
+    expect(
+      actualHash,
+      `PUBLISH_WORKFLOW_HASH_SINGLE in .readyup/kits/release-kit.ts is stale — update it to: ${actualHash}`,
+    ).toBe(PUBLISH_WORKFLOW_HASH_SINGLE);
   });
 });
