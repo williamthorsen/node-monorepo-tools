@@ -18,8 +18,8 @@ const presetsDir = join(releaseKitDir, 'presets', 'labels');
 
 /**
  * Verify that embedded hashes in the rdy kit stay in sync with the source
- * files. If a hash check fails, update the constant in .readyup/kits/release-kit.ts
- * to match the new hash shown in the error message.
+ * files. If a hash check fails, update the constant in the relevant
+ * `.readyup/kits/*.ts` file to match the new hash shown in the error message.
  */
 describe('rdy kit hashes match source files', () => {
   it('CLIFF_TEMPLATE_HASH matches cliff.toml.template', () => {

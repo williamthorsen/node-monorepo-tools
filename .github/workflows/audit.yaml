@@ -13,11 +13,8 @@ on:
 
   workflow_dispatch: {}
 
-permissions:
-  contents: read
-  issues: write
-  pull-requests: write
-
+# Permissions are declared by the reusable workflow itself; GitHub Actions does
+# not propagate caller permissions to jobs defined in a reusable workflow.
 jobs:
   audit:
     uses: williamthorsen/node-monorepo-tools/.github/workflows/audit.reusable.yaml@audit-workflow-v1
