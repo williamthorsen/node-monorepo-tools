@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { AUDIT_WORKFLOW_HASH } from '../.readyup/kits/audit-deps.ts';
 import { CLIFF_TEMPLATE_HASH, COMMON_PRESET_HASH, SYNC_LABELS_WORKFLOW_HASH } from '../.readyup/kits/release-kit.ts';
 import { syncLabelsWorkflow } from '../packages/release-kit/src/sync-labels/templates.ts';
 
@@ -17,8 +18,8 @@ const presetsDir = join(releaseKitDir, 'presets', 'labels');
 
 /**
  * Verify that embedded hashes in the rdy kit stay in sync with the source
- * files. If a hash check fails, update the constant in .readyup/kits/release-kit.ts
- * to match the new hash shown in the error message.
+ * files. If a hash check fails, update the constant in the relevant
+ * `.readyup/kits/*.ts` file to match the new hash shown in the error message.
  */
 describe('rdy kit hashes match source files', () => {
   it('CLIFF_TEMPLATE_HASH matches cliff.toml.template', () => {
@@ -48,5 +49,15 @@ describe('rdy kit hashes match source files', () => {
       actualHash,
       `COMMON_PRESET_HASH in .readyup/kits/release-kit.ts is stale — update it to: ${actualHash}`,
     ).toBe(COMMON_PRESET_HASH);
+  });
+
+  it('AUDIT_WORKFLOW_HASH matches .github/workflows/audit.yaml', () => {
+    const content = readFileSync(join(import.meta.dirname, '..', '.github', 'workflows', 'audit.yaml'), 'utf8');
+    const actualHash = sha256(content);
+
+    expect(
+      actualHash,
+      `AUDIT_WORKFLOW_HASH in .readyup/kits/audit-deps.ts is stale — update it to: ${actualHash}`,
+    ).toBe(AUDIT_WORKFLOW_HASH);
   });
 });
