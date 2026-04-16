@@ -1,0 +1,24 @@
+{
+  "types": {
+    "ai": "ai",
+    "ci": "ci",
+    "deps": "dependencies",
+    "docs": "documentation",
+    "feat": "feature",
+    "fix": "fix",
+    "internal": "utility",
+    "perf": "performance",
+    "refactor": "refactoring",
+    "sec": "security",
+    "tests": "tests",
+    "tooling": "tooling"
+  },
+  "scopes": {
+    "audit": "scope:audit",
+    "core": "scope:core",
+    "nmr": "scope:nmr",
+    "preflight": "scope:preflight",
+    "release-kit": "scope:release-kit",
+    "root": "scope:root"
+  }
+}
