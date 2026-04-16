@@ -31,6 +31,14 @@ function readFile(relativePath) {
 
 // node_modules/.pnpm/readyup@0.16.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/hashing.js
 import { createHash } from "node:crypto";
+function computeHash(content) {
+  return createHash("sha256").update(content).digest("hex");
+}
+function fileMatchesHash(relativePath, expectedHash) {
+  const content = readFile(relativePath);
+  if (content === void 0) return false;
+  return computeHash(content) === expectedHash;
+}
 
 // node_modules/.pnpm/readyup@0.16.0_esbuild@0.28.0/node_modules/readyup/dist/esm/safeJsonParse.js
 function safeJsonParse(content) {
@@ -138,6 +146,7 @@ var package_default = {
 
 // .readyup/kits/audit-deps.ts
 var MIN_VERSION = package_default.version;
+var AUDIT_WORKFLOW_HASH = "515aad5a05b6ef05e9f1c73e7b1a44c663413d4cee3f21327f3eced748fa76dc";
 var audit_deps_default = defineRdyKit({
   checklists: [
     {
@@ -174,6 +183,21 @@ var audit_deps_default = defineRdyKit({
           skip: skipLegacyAuditCiCheck,
           check: noLegacyAuditCiDirectory,
           fix: "Move audit-ci configs from .audit-ci/ to .config/audit-ci/ and update references"
+        },
+        // -- Audit workflow ------------------------------------------------------
+        {
+          name: "audit.yaml workflow exists",
+          severity: "warn",
+          check: () => fileExists(".github/workflows/audit.yaml"),
+          fix: "Add .github/workflows/audit.yaml using the audit workflow template",
+          checks: [
+            {
+              name: "audit.yaml matches template",
+              severity: "warn",
+              check: () => fileMatchesHash(".github/workflows/audit.yaml", AUDIT_WORKFLOW_HASH),
+              fix: "Replace .github/workflows/audit.yaml with the current template at williamthorsen/node-monorepo-tools:.github/workflows/audit.yaml"
+            }
+          ]
         }
       ]
     }
@@ -189,6 +213,7 @@ function noLegacyAuditCiDirectory() {
   return !existsSync2(join2(process.cwd(), ".audit-ci"));
 }
 export {
+  AUDIT_WORKFLOW_HASH,
   auditDepsConfigExists,
   audit_deps_default as default,
   noLegacyAuditCiDirectory,

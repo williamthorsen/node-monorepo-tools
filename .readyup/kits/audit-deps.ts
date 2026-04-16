@@ -11,11 +11,15 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { defineRdyKit, fileExists, hasDevDependency, hasMinDevDependencyVersion } from 'readyup';
+import { defineRdyKit, fileExists, fileMatchesHash, hasDevDependency, hasMinDevDependencyVersion } from 'readyup';
 
 import auditDepsPackageJson from '../../packages/audit-deps/package.json' with { type: 'json' };
 
 const MIN_VERSION = auditDepsPackageJson.version;
+
+// SHA-256 hash of the canonical .github/workflows/audit.yaml wrapper.
+// Keep in sync — verified by __tests__/rdy-kit-hashes.app.test.ts.
+export const AUDIT_WORKFLOW_HASH = '515aad5a05b6ef05e9f1c73e7b1a44c663413d4cee3f21327f3eced748fa76dc';
 
 export default defineRdyKit({
   checklists: [
@@ -56,6 +60,22 @@ export default defineRdyKit({
           skip: skipLegacyAuditCiCheck,
           check: noLegacyAuditCiDirectory,
           fix: 'Move audit-ci configs from .audit-ci/ to .config/audit-ci/ and update references',
+        },
+
+        // -- Audit workflow ------------------------------------------------------
+        {
+          name: 'audit.yaml workflow exists',
+          severity: 'warn',
+          check: () => fileExists('.github/workflows/audit.yaml'),
+          fix: 'Add .github/workflows/audit.yaml using the audit workflow template',
+          checks: [
+            {
+              name: 'audit.yaml matches template',
+              severity: 'warn',
+              check: () => fileMatchesHash('.github/workflows/audit.yaml', AUDIT_WORKFLOW_HASH),
+              fix: 'Replace .github/workflows/audit.yaml with the current template at williamthorsen/node-monorepo-tools:.github/workflows/audit.yaml',
+            },
+          ],
         },
       ],
     },

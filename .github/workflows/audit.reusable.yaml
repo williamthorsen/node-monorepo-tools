@@ -1,0 +1,177 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Dependency audit
+
+# Reusable dependency-audit workflow for repos consuming @williamthorsen/audit-deps.
+#
+# Runs two jobs, each guarded by the caller's trigger:
+#   - pr-audit (on `pull_request`): production-only audit, posts/updates a PR
+#     comment, and requires an acknowledgment checkbox in the PR body if
+#     unallowed vulnerabilities are detected.
+#   - scheduled-audit (on `schedule` / `workflow_dispatch`): full audit
+#     (prod + dev) with grouped output, maintained on a single standing issue
+#     labeled `audit-status`.
+#
+# The audit-deps CLI is fetched via `pnpm dlx @williamthorsen/audit-deps@latest`,
+# so no local install step is needed. `@latest` is deliberate: vulnerability
+# detection improves over time and the CLI exposes no parsed API to break.
+#
+# Consumer prerequisite: `.config/audit-deps.config.json` (allowlist and scope
+# configuration). The audit-ci configs are generated transiently at runtime and
+# need not exist as permanent files.
+#
+# Usage:
+#   jobs:
+#     audit:
+#       uses: williamthorsen/node-monorepo-tools/.github/workflows/audit.reusable.yaml@audit-workflow-v1
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  # -- PR audit: prod dependencies only, non-blocking with acknowledgment -----
+  pr-audit:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Run prod audit
+        id: audit
+        run: pnpm dlx @williamthorsen/audit-deps@latest --prod 2>&1 | tee audit-output.txt
+        continue-on-error: true
+
+      - name: Build PR comment
+        id: comment
+        run: |
+          if [ "${{ steps.audit.outcome }}" = "success" ]; then
+            {
+              echo 'body<<AUDIT_EOF'
+              echo '## Dependency audit'
+              echo ''
+              echo 'Production dependency audit passed.'
+              echo 'AUDIT_EOF'
+            } >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo 'body<<AUDIT_EOF'
+              echo '## Dependency audit'
+              echo ''
+              echo 'Production dependency audit found issues:'
+              echo ''
+              echo '```'
+              cat audit-output.txt
+              echo '```'
+              echo ''
+              echo 'If these failures have been reviewed, add the following to the PR description:'
+              echo ''
+              echo '```markdown'
+              echo '- [x] Audit failures have been reviewed'
+              echo '```'
+              echo 'AUDIT_EOF'
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Find existing comment
+        uses: peter-evans/find-comment@v4
+        id: find-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: github-actions[bot]
+          body-includes: '## Dependency audit'
+
+      - name: Create or update PR comment
+        uses: peter-evans/create-or-update-comment@v5
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          edit-mode: replace
+          body: ${{ steps.comment.outputs.body }}
+
+      - name: Check acknowledgment
+        if: steps.audit.outcome == 'failure'
+        run: |
+          PR_BODY=$(gh pr view "${{ github.event.pull_request.number }}" --json body --jq .body)
+          if echo "$PR_BODY" | grep -qF '- [x] Audit failures have been reviewed'; then
+            echo "Audit failures acknowledged via PR checkbox."
+          else
+            echo "::error::Audit failed and has not been acknowledged. Add '- [x] Audit failures have been reviewed' to the PR description."
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  # -- Scheduled audit: prod + dev, updates standing issue --------------------
+  scheduled-audit:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Run audit
+        id: audit
+        run: pnpm dlx @williamthorsen/audit-deps@latest 2>&1 | tee audit-output.txt
+        continue-on-error: true
+
+      - name: Build issue body
+        id: issue
+        run: |
+          TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M UTC')
+          {
+            echo 'body<<AUDIT_EOF'
+            echo "## Dependency audit results"
+            echo ""
+            echo "Last updated: ${TIMESTAMP}"
+            echo ""
+            echo '```'
+            cat audit-output.txt
+            echo '```'
+            echo 'AUDIT_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Ensure audit-status label exists
+        run: |
+          gh label create audit-status --color "0075ca" --description "Tracks dependency audit status" || true
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Find or create standing issue
+        id: find-issue
+        run: |
+          ISSUE_NUMBER=$(gh issue list --label audit-status --state open --json number --jq '.[0].number // empty')
+          if [ -z "$ISSUE_NUMBER" ]; then
+            ISSUE_NUMBER=$(gh issue create \
+              --title "Dependency audit status" \
+              --label "audit-status" \
+              --body "Awaiting first audit run." | grep -oE '[0-9]+$')
+          fi
+          if [ -z "$ISSUE_NUMBER" ]; then
+            echo "::error::Failed to create or find audit-status issue."
+            exit 1
+          fi
+          echo "number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Update issue body
+        run: |
+          gh issue edit "${{ steps.find-issue.outputs.number }}" --body "$ISSUE_BODY"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_BODY: ${{ steps.issue.outputs.body }}
