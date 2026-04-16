@@ -1,5 +1,25 @@
 [
   {
+    "version": "0.3.0",
+    "date": "2026-04-16",
+    "sections": [
+      {
+        "title": "Features",
+        "audience": "all",
+        "items": [
+          { "description": "Decouple audit from CI quality gate and add audit workflow (#210)" },
+          { "description": "Replace bare-command help with grouped check (#211)" },
+          { "description": "Verbose check output for audit-deps (#213)" }
+        ]
+      },
+      {
+        "title": "Documentation",
+        "audience": "all",
+        "items": [{ "description": "Align README and help text with current CLI API" }]
+      }
+    ]
+  },
+  {
     "version": "0.2.1",
     "date": "2026-04-15",
     "sections": [

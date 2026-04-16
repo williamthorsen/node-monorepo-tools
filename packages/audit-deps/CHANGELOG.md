@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [audit-deps-v0.3.0] - 2026-04-16
+
+### Documentation
+
+- Align README and help text with current CLI API
+
+  Update the Quick start and CLI reference in the `audit-deps` README to match the grouped-check default, the removal of the `report` command, and the new `--raw` flag. Remove "(CI mode)" from the `--raw` help-text description; the flag is not tied to CI environments.
+
+### Features
+
+- Decouple audit from CI quality gate and add audit workflow (#210)
+
+  Dependency audit is now decoupled from the CI quality gate so that transient upstream CVEs no longer block the merging of unrelated code changes. Audit now runs in a dedicated workflow with non-blocking PR integration (acknowledgment checkbox) and a daily scheduled run that tracks results in a standing GitHub issue. A readyup kit is available to validate the new setup in consuming repos.
+
+- Replace bare-command help with grouped check (#211)
+
+  The bare `audit-deps` command now runs a grouped vulnerability check instead of showing help text. Each scope (prod first, then dev) shows unallowed vulnerabilities with severity indicators, allowed vulnerabilities with annotations, and stale allowlist entries flagged for cleanup. Exit code is 1 when unallowed vulnerabilities exist.
+
+  The previous raw audit-ci passthrough moves behind `--raw`. The `report` subcommand is removed; its functionality is superseded by the new default output. `--dev`/`--prod`, `--config`, and `--json` compose with both the bare command and `--raw`.
+  - Add optional `severity` field to `AuditResult` and extract it from audit-ci advisory JSON.
+  - Add `checkCommand` that cross-references audit results with the config allowlist to classify vulnerabilities and detect stale entries. Forward `runReport` stderr to `process.stderr` when non-empty, matching the existing `auditCommand` pattern.
+  - Add `formatCheckText` and `formatCheckJson` formatters in `format-check.ts`, with severity-to-emoji mapping (🔴 critical/high, 🟠 moderate, 🟡 low/info).
+  - Extract `generateScopeConfig` to deduplicate the `generateAuditCiConfig` try/catch error-wrapping shared by `checkCommand`, `syncCommand`, and `loadAndGenerate`.
+  - Route bare invocation to `checkCommand`, `--raw` to `auditCommand`.
+  - Remove `reportCommand`, `showReportHelp`, and `report` from `SUBCOMMANDS`.
+  - Update help text to document `--raw` and the new default behavior.
+  - Cover new and modified behavior with unit tests, including severity parsing, formatter output, `checkCommand` classification and exit codes, stale-entry detection, stderr forwarding, scope ordering, and `--raw` routing.
+
+- Verbose check output for audit-deps (#213)
+
+  Adds a `--verbose` / `-v` flag to the default `audit-deps` check that produces a detailed per-vulnerability report — advisory title, severity, every affected dependency path, link, and description — replacing the need to chase the URL for each finding. Both bare and verbose outputs gain an `Actions:` footer that tells the user exactly which `audit-deps sync` invocation will resolve the current state, and `sync` now stamps an `addedAt` date on allowlist entries so allowed vulnerabilities carry an `allowed X ago (YYYY-MM-DD)` line when displayed in verbose mode.
+
 ## [audit-deps-v0.2.1] - 2026-04-15
 
 ### Tooling

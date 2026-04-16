@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [nmr-v0.10.0] - 2026-04-16
+
+### Features
+
+- Decouple audit from CI quality gate and add audit workflow (#210)
+
+  Dependency audit is now decoupled from the CI quality gate so that transient upstream CVEs no longer block the merging of unrelated code changes. Audit now runs in a dedicated workflow with non-blocking PR integration (acknowledgment checkbox) and a daily scheduled run that tracks results in a standing GitHub issue. A readyup kit is available to validate the new setup in consuming repos.
+
 ## [nmr-v0.9.2] - 2026-04-15
 
 ### Tooling

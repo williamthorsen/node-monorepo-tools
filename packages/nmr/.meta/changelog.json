@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.10.0",
+    "date": "2026-04-16",
+    "sections": [
+      {
+        "title": "Features",
+        "audience": "all",
+        "items": [{ "description": "Decouple audit from CI quality gate and add audit workflow (#210)" }]
+      }
+    ]
+  },
+  {
     "version": "0.9.2",
     "date": "2026-04-15",
     "sections": [

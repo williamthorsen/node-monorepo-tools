@@ -151,7 +151,7 @@ function hasMinDevDependencyVersion(name, minVersion, options) {
 // packages/nmr/package.json
 var package_default = {
   name: "@williamthorsen/nmr",
-  version: "0.9.3",
+  version: "0.10.0",
   private: false,
   description: "Context-aware script runner for PNPM monorepos",
   keywords: [
@@ -207,7 +207,7 @@ import { join as join2 } from "node:path";
 // packages/audit-deps/package.json
 var package_default2 = {
   name: "@williamthorsen/audit-deps",
-  version: "0.2.1",
+  version: "0.3.0",
   private: false,
   description: "Wrap audit-ci with a richer config model, typed JSON source of truth, and sync workflow",
   keywords: [

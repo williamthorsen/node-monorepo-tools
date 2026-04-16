@@ -1,5 +1,16 @@
 [
   {
+    "version": "4.7.0",
+    "date": "2026-04-16",
+    "sections": [
+      {
+        "title": "Features",
+        "audience": "all",
+        "items": [{ "description": "Support ## as synthetic ticket prefix in changelogs" }]
+      }
+    ]
+  },
+  {
     "version": "4.6.0",
     "date": "2026-04-15",
     "sections": [

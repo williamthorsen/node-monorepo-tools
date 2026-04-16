@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [release-kit-v4.7.0] - 2026-04-16
+
+### Features
+
+- Support ## as synthetic ticket prefix in changelogs
+
+  Commits prefixed with `##` are now included in changelogs without requiring a ticket ID. This supports ad-hoc changes made during interactive sessions where creating a ticket and PR adds undesired overhead.
+
 ## [release-kit-v4.6.0] - 2026-04-15
 
 ### Features
