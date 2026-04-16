@@ -3,8 +3,8 @@
 
 
 // .readyup/kits/nmr.ts
-import { existsSync as existsSync2, readdirSync } from "node:fs";
-import { join as join2 } from "node:path";
+import { existsSync as existsSync3, readdirSync } from "node:fs";
+import { join as join3 } from "node:path";
 
 // packages/nmr/dist/esm/default-scripts.js
 var rootScripts = {
@@ -13,8 +13,8 @@ var rootScripts = {
   "audit:prod": "pnpm dlx audit-ci@^7 --config .config/audit-ci/config.prod.json5",
   build: "pnpm --recursive exec nmr build",
   check: ["typecheck", "fmt:check", "lint:check", "test"],
-  "check:strict": ["typecheck", "fmt:check", "audit", "lint:strict", "test:coverage"],
-  ci: ["build", "check:strict"],
+  "check:strict": ["typecheck", "fmt:check", "lint:strict", "test:coverage"],
+  ci: ["build", "check:strict", "audit"],
   clean: "pnpm --recursive exec nmr clean",
   fix: ["lint", "fmt"],
   fmt: `sh -c 'prettier --list-different --write "\${@:-.}"' --`,
@@ -192,8 +192,119 @@ var package_default = {
   }
 };
 
+// .readyup/kits/audit-deps.ts
+import { existsSync as existsSync2 } from "node:fs";
+import { join as join2 } from "node:path";
+
+// packages/audit-deps/package.json
+var package_default2 = {
+  name: "@williamthorsen/audit-deps",
+  version: "0.2.1",
+  private: false,
+  description: "Wrap audit-ci with a richer config model, typed JSON source of truth, and sync workflow",
+  keywords: [
+    "audit",
+    "audit-ci",
+    "dependencies",
+    "security",
+    "vulnerabilities"
+  ],
+  homepage: "https://github.com/williamthorsen/node-monorepo-tools/tree/main/packages/audit-deps#readme",
+  bugs: {
+    url: "https://github.com/williamthorsen/node-monorepo-tools/issues"
+  },
+  repository: {
+    type: "git",
+    url: "https://github.com/williamthorsen/node-monorepo-tools.git",
+    directory: "packages/audit-deps"
+  },
+  license: "ISC",
+  author: "William Thorsen <william@thorsen.dev> (https://github.com/williamthorsen)",
+  type: "module",
+  exports: {
+    ".": {
+      import: "./dist/esm/index.js",
+      types: "./dist/esm/index.d.ts"
+    }
+  },
+  bin: {
+    "audit-deps": "bin/audit-deps.js"
+  },
+  files: [
+    "bin",
+    "dist"
+  ],
+  scripts: {
+    prepare: "tsx ../../config/generateVersion.ts && tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json"
+  },
+  dependencies: {
+    "@williamthorsen/node-monorepo-core": "workspace:*",
+    "audit-ci": "7.1.0",
+    zod: "4.3.6"
+  },
+  engines: {
+    node: ">=18.17.0"
+  },
+  publishConfig: {
+    access: "public"
+  }
+};
+
+// .readyup/kits/audit-deps.ts
+var MIN_VERSION = package_default2.version;
+var audit_deps_default = defineRdyKit({
+  checklists: [
+    {
+      name: "audit-deps",
+      checks: [
+        // -- Setup ---------------------------------------------------------------
+        {
+          name: "@williamthorsen/audit-deps in devDependencies",
+          severity: "error",
+          check: () => hasDevDependency("@williamthorsen/audit-deps"),
+          fix: "pnpm add --save-dev @williamthorsen/audit-deps",
+          checks: [
+            {
+              name: `@williamthorsen/audit-deps >= ${MIN_VERSION}`,
+              severity: "error",
+              check: () => hasMinDevDependencyVersion("@williamthorsen/audit-deps", MIN_VERSION, {
+                exempt: (range) => range.startsWith("workspace:")
+              }),
+              fix: `pnpm add --save-dev @williamthorsen/audit-deps@^${MIN_VERSION}`
+            }
+          ]
+        },
+        // -- Config existence ----------------------------------------------------
+        {
+          name: ".config/audit-deps.config.json exists",
+          severity: "warn",
+          check: auditDepsConfigExists,
+          fix: "Create .config/audit-deps.config.json with audit-deps configuration"
+        },
+        // -- Audit-ci config migration -------------------------------------------
+        {
+          name: "audit-ci configs are under .config/audit-ci/",
+          severity: "warn",
+          skip: skipLegacyAuditCiCheck,
+          check: noLegacyAuditCiDirectory,
+          fix: "Move audit-ci configs from .audit-ci/ to .config/audit-ci/ and update references"
+        }
+      ]
+    }
+  ]
+});
+function auditDepsConfigExists() {
+  return fileExists(".config/audit-deps.config.json");
+}
+function skipLegacyAuditCiCheck() {
+  return !existsSync2(join2(process.cwd(), ".audit-ci")) ? "no legacy .audit-ci/ directory" : false;
+}
+function noLegacyAuditCiDirectory() {
+  return !existsSync2(join2(process.cwd(), ".audit-ci"));
+}
+
 // .readyup/kits/nmr.ts
-var MIN_VERSION = package_default.version;
+var MIN_VERSION2 = package_default.version;
 var nmr_default = defineRdyKit({
   checklists: [
     {
@@ -207,12 +318,12 @@ var nmr_default = defineRdyKit({
           fix: "pnpm add --save-dev @williamthorsen/nmr",
           checks: [
             {
-              name: `@williamthorsen/nmr >= ${MIN_VERSION}`,
+              name: `@williamthorsen/nmr >= ${MIN_VERSION2}`,
               severity: "error",
-              check: () => hasMinDevDependencyVersion("@williamthorsen/nmr", MIN_VERSION, {
+              check: () => hasMinDevDependencyVersion("@williamthorsen/nmr", MIN_VERSION2, {
                 exempt: (range) => range.startsWith("workspace:")
               }),
-              fix: `pnpm add --save-dev @williamthorsen/nmr@^${MIN_VERSION}`
+              fix: `pnpm add --save-dev @williamthorsen/nmr@^${MIN_VERSION2}`
             }
           ]
         },
@@ -231,7 +342,7 @@ var nmr_default = defineRdyKit({
         {
           name: ".tool-versions does not list pnpm",
           severity: "warn",
-          check: () => toolVersionsHasNoPnpm(),
+          check: toolVersionsHasNoPnpm,
           fix: "Remove pnpm from .tool-versions \u2014 manage via packageManager field and corepack"
         },
         {
@@ -245,7 +356,7 @@ var nmr_default = defineRdyKit({
         {
           name: "root package.json has no nmr-provided scripts",
           severity: "warn",
-          check: () => noRedundantRootScripts(),
+          check: noRedundantRootScripts,
           fix: "Remove scripts from root package.json that nmr provides as built-in root scripts \u2014 invoke via nmr directly"
         },
         {
@@ -259,8 +370,23 @@ var nmr_default = defineRdyKit({
         {
           name: "all workspace packages can build",
           severity: "warn",
-          check: () => allWorkspacePackagesCanBuild(),
+          check: allWorkspacePackagesCanBuild,
           fix: `Add "build": ":" to packages that don't need a build, or add tsconfig.generate-typings.json for packages that use the default nmr build`
+        },
+        // -- Audit config migration -----------------------------------------------
+        {
+          name: "audit-ci configs are under .config/audit-ci/",
+          severity: "warn",
+          skip: skipLegacyAuditCiCheck,
+          check: noLegacyAuditCiDirectory,
+          fix: "Move audit-ci configs from .audit-ci/ to .config/audit-ci/ and update references"
+        },
+        {
+          name: "code-quality workflow does not use nmr ci",
+          severity: "warn",
+          skip: () => !fileExists(".github/workflows/code-quality.yaml") ? "no code-quality workflow" : false,
+          check: codeQualityWorkflowDoesNotUseNmrCi,
+          fix: 'Change the check-command in .github/workflows/code-quality.yaml from "pnpm exec nmr ci" to "pnpm exec nmr build && pnpm exec nmr check:strict"'
         },
         // -- Legacy script runner ------------------------------------------------
         {
@@ -272,7 +398,7 @@ var nmr_default = defineRdyKit({
         {
           name: 'no workspace packages reference run-workspace-script or "pnpm run ws"',
           severity: "error",
-          check: () => noWorkspaceRunScriptReferences(),
+          check: noWorkspaceRunScriptReferences,
           fix: 'Remove "ws" script entries and replace any "pnpm run ws" invocations with nmr in each packages/*/package.json'
         }
       ]
@@ -298,8 +424,8 @@ function noRedundantRootScripts() {
   };
 }
 function noWorkspaceRunScriptReferences() {
-  const packagesDir = join2(process.cwd(), "packages");
-  if (!existsSync2(packagesDir)) return true;
+  const packagesDir = join3(process.cwd(), "packages");
+  if (!existsSync3(packagesDir)) return true;
   const legacyPattern = /run-workspace-script|"pnpm\s+run\s+ws\b/;
   const entries = readdirSync(packagesDir, { withFileTypes: true });
   const matches = [];
@@ -317,8 +443,8 @@ function noWorkspaceRunScriptReferences() {
   };
 }
 function allWorkspacePackagesCanBuild() {
-  const packagesDir = join2(process.cwd(), "packages");
-  if (!existsSync2(packagesDir)) return true;
+  const packagesDir = join3(process.cwd(), "packages");
+  if (!existsSync3(packagesDir)) return true;
   const entries = readdirSync(packagesDir, { withFileTypes: true });
   const failing = [];
   for (const entry of entries) {
@@ -352,9 +478,15 @@ function scriptMatches(name, pattern) {
   const value = scripts[name];
   return typeof value === "string" && pattern.test(value);
 }
+function codeQualityWorkflowDoesNotUseNmrCi() {
+  const content = readFile(".github/workflows/code-quality.yaml");
+  if (content === void 0) return true;
+  return !/check-command:\s*pnpm exec nmr ci(\s|$)/.test(content);
+}
 function isRecord2(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 export {
+  codeQualityWorkflowDoesNotUseNmrCi,
   nmr_default as default
 };

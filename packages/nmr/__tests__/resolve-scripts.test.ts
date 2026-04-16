@@ -37,13 +37,28 @@ describe('getDefaultRootScripts', () => {
 
     expect(scripts.audit).toEqual(['audit:prod', 'audit:dev']);
     expect(scripts.check).toEqual(['typecheck', 'fmt:check', 'lint:check', 'test']);
-    expect(scripts.ci).toEqual(['build', 'check:strict']);
+    expect(scripts.ci).toEqual(['build', 'check:strict', 'audit']);
     expect(scripts.clean).toBe('pnpm --recursive exec nmr clean');
     expect(scripts['fmt:all']).toEqual(['fmt', 'fmt:sh']);
     expect(scripts['fmt:sh']).toBe('shfmt --write **/*.sh');
     expect(scripts['root:check']).toEqual(['root:typecheck', 'fmt:check', 'root:lint:check', 'root:test']);
     expect(scripts['report-overrides']).toBe('nmr-report-overrides');
     expect(scripts['sync-pnpm-version']).toBe('nmr-sync-pnpm-version');
+  });
+
+  it('excludes audit from check:strict', () => {
+    const scripts = getDefaultRootScripts();
+    const checkStrict = scripts['check:strict'];
+
+    expect(checkStrict).toEqual(['typecheck', 'fmt:check', 'lint:strict', 'test:coverage']);
+    expect(checkStrict).not.toContain('audit');
+  });
+
+  it('includes audit in ci after check:strict', () => {
+    const scripts = getDefaultRootScripts();
+    const ci = scripts.ci;
+
+    expect(ci).toEqual(['build', 'check:strict', 'audit']);
   });
 
   it('composes root scripts that delegate to workspaces', () => {

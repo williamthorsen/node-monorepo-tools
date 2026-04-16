@@ -25,6 +25,7 @@ import {
 } from 'readyup';
 
 import nmrPackageJson from '../../packages/nmr/package.json' with { type: 'json' };
+import { noLegacyAuditCiDirectory, skipLegacyAuditCiCheck } from './audit-deps.ts';
 
 const MIN_VERSION = nmrPackageJson.version;
 
@@ -66,7 +67,7 @@ export default defineRdyKit({
         {
           name: '.tool-versions does not list pnpm',
           severity: 'warn',
-          check: () => toolVersionsHasNoPnpm(),
+          check: toolVersionsHasNoPnpm,
           fix: 'Remove pnpm from .tool-versions — manage via packageManager field and corepack',
         },
         {
@@ -81,7 +82,7 @@ export default defineRdyKit({
         {
           name: 'root package.json has no nmr-provided scripts',
           severity: 'warn',
-          check: () => noRedundantRootScripts(),
+          check: noRedundantRootScripts,
           fix: 'Remove scripts from root package.json that nmr provides as built-in root scripts — invoke via nmr directly',
         },
 
@@ -97,8 +98,24 @@ export default defineRdyKit({
         {
           name: 'all workspace packages can build',
           severity: 'warn',
-          check: () => allWorkspacePackagesCanBuild(),
+          check: allWorkspacePackagesCanBuild,
           fix: 'Add "build": ":" to packages that don\'t need a build, or add tsconfig.generate-typings.json for packages that use the default nmr build',
+        },
+
+        // -- Audit config migration -----------------------------------------------
+        {
+          name: 'audit-ci configs are under .config/audit-ci/',
+          severity: 'warn',
+          skip: skipLegacyAuditCiCheck,
+          check: noLegacyAuditCiDirectory,
+          fix: 'Move audit-ci configs from .audit-ci/ to .config/audit-ci/ and update references',
+        },
+        {
+          name: 'code-quality workflow does not use nmr ci',
+          severity: 'warn',
+          skip: () => (!fileExists('.github/workflows/code-quality.yaml') ? 'no code-quality workflow' : false),
+          check: codeQualityWorkflowDoesNotUseNmrCi,
+          fix: 'Change the check-command in .github/workflows/code-quality.yaml from "pnpm exec nmr ci" to "pnpm exec nmr build && pnpm exec nmr check:strict"',
         },
 
         // -- Legacy script runner ------------------------------------------------
@@ -111,7 +128,7 @@ export default defineRdyKit({
         {
           name: 'no workspace packages reference run-workspace-script or "pnpm run ws"',
           severity: 'error',
-          check: () => noWorkspaceRunScriptReferences(),
+          check: noWorkspaceRunScriptReferences,
           fix: 'Remove "ws" script entries and replace any "pnpm run ws" invocations with nmr in each packages/*/package.json',
         },
       ],
@@ -216,6 +233,13 @@ function scriptMatches(name: string, pattern: RegExp): boolean {
   if (!isRecord(scripts)) return false;
   const value = scripts[name];
   return typeof value === 'string' && pattern.test(value);
+}
+
+/** Check that the code-quality workflow does not use `nmr ci` as the check command. */
+export function codeQualityWorkflowDoesNotUseNmrCi(): boolean {
+  const content = readFile('.github/workflows/code-quality.yaml');
+  if (content === undefined) return true;
+  return !/check-command:\s*pnpm exec nmr ci(\s|$)/.test(content);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

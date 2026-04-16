@@ -1,0 +1,11 @@
+{
+  "outDir": "../tmp",
+  "dev": {
+    "moderate": true,
+    "allowlist": []
+  },
+  "prod": {
+    "high": true,
+    "allowlist": []
+  }
+}

@@ -113,7 +113,7 @@ describe('buildRootRegistry', () => {
     });
 
     expect(registry['demo:catwalk']).toBe('pnpx http-server --port=5189');
-    expect(registry.ci).toEqual(['build', 'check:strict']);
+    expect(registry.ci).toEqual(['build', 'check:strict', 'audit']);
   });
 });
 
