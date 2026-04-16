@@ -260,7 +260,7 @@ var package_default2 = {
 
 // .readyup/kits/audit-deps.ts
 var MIN_VERSION = package_default2.version;
-var AUDIT_WORKFLOW_HASH = "1b656bf31d7d4d5275a6db16ad1efcc71ff1cb08bf7025dc26fbeccf4485c884";
+var AUDIT_WORKFLOW_HASH = "cdcab39d794ed7ec5ea45e8f3c887eb5d15edb63eab65e515714556933d9b03f";
 var audit_deps_default = defineRdyKit({
   checklists: [
     {

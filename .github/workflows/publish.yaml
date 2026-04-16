@@ -4,7 +4,7 @@ name: Publish
 on:
   push:
     tags:
-      - '*-v[0-9]*'
+      - '*-v[0-9]*.[0-9]*.[0-9]*'
 
 permissions:
   id-token: write
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   publish:
-    uses: ./.github/workflows/publish.reusable.yaml
+    uses: williamthorsen/node-monorepo-tools/.github/workflows/publish.reusable.yaml@workflow/publish-v1
     with:
       provenance: true
       build-local: true
