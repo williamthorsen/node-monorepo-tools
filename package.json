@@ -30,6 +30,7 @@
     "@typescript/native-preview": "7.0.0-dev.20260415.1",
     "@vitest/coverage-v8": "4.1.4",
     "@vitest/eslint-plugin": "1.6.16",
+    "@williamthorsen/audit-deps": "workspace:*",
     "@williamthorsen/eslint-config-typescript": "5.17.3",
     "@williamthorsen/nmr": "workspace:*",
     "@williamthorsen/release-kit": "workspace:*",

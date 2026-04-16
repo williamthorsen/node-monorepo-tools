@@ -26,6 +26,9 @@ importers:
       '@vitest/eslint-plugin':
         specifier: 1.6.16
         version: 1.6.16(@typescript-eslint/eslint-plugin@8.58.2(@typescript-eslint/parser@8.58.2(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)(vitest@4.1.4)
+      '@williamthorsen/audit-deps':
+        specifier: workspace:*
+        version: link:packages/audit-deps
       '@williamthorsen/eslint-config-typescript':
         specifier: 5.17.3
         version: 5.17.3(@types/estree@1.0.8)(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
