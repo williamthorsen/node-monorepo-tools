@@ -384,6 +384,12 @@ describe(formatRelativeTime, () => {
     expect(formatRelativeTime('2026-03-20', nowDate)).toBe('3 weeks ago');
   });
 
+  it('crosses the 5-week boundary into months at exactly 35 days', () => {
+    // From Mar 11 to Apr 15 is 35 days → 5 weeks, which the formatter reports as 1 month ago
+    // (>= 5 weeks switches to UTC calendar-month math, which yields 1 for this pair).
+    expect(formatRelativeTime('2026-03-11', nowDate)).toBe('1 month ago');
+  });
+
   it('returns empty string for an unparseable date', () => {
     expect(formatRelativeTime('not-a-date', nowDate)).toBe('');
   });

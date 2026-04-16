@@ -146,6 +146,18 @@ describe(routeCommand, () => {
     expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: ['dev'], verbose: true }));
   });
 
+  it('composes --verbose with --prod', async () => {
+    await routeCommand(['--verbose', '--prod']);
+    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: ['prod'], verbose: true }));
+  });
+
+  it('composes --verbose with --config', async () => {
+    await routeCommand(['--verbose', '--config', '/custom/audit.json']);
+    expect(checkCommand).toHaveBeenCalledWith(
+      expect.objectContaining({ configPath: '/custom/audit.json', verbose: true }),
+    );
+  });
+
   it('forwards --dry-run flag to initCommand', async () => {
     await routeCommand(['init', '--dry-run']);
     expect(initCommand).toHaveBeenCalledWith({ dryRun: true, force: false });

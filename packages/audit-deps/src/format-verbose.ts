@@ -148,6 +148,8 @@ function formatAllowedSuffix(addedAt: string, now: Date): string {
  *
  * Uses millisecond math for units up through weeks to avoid DST/timezone drift on
  * short intervals, and UTC calendar math for months and years.
+ *
+ * @internal — exported for test access; consumers should use `formatAllowedSuffix`.
  */
 export function formatRelativeTime(fromIso: string, now: Date): string {
   const from = parseDateUtc(fromIso);
@@ -215,7 +217,7 @@ function formatDescriptionLines(description: string): string[] {
 
 /** Word-wrap a single paragraph to the given column width. */
 function wrapParagraph(paragraph: string, columns: number): string[] {
-  if (paragraph.length === 0) return [''];
+  if (paragraph.length === 0) return [];
   const words = paragraph.split(/\s+/);
   const lines: string[] = [];
   let current = '';
