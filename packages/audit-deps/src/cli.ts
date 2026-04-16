@@ -1,10 +1,12 @@
 import process from 'node:process';
 
 import { loadConfig } from './config.ts';
+import type { CheckResult, ScopeCheckResult } from './format-check.ts';
+import { formatCheckJson, formatCheckText } from './format-check.ts';
 import { generateAuditCiConfig } from './generate.ts';
 import { parseAuditCiOutput, runAudit, runReport } from './run-audit.ts';
 import { syncAllowlist } from './sync.ts';
-import type { AuditDepsConfig, AuditScope, CommandOptions } from './types.ts';
+import type { AuditDepsConfig, AuditScope, CommandOptions, ScopeConfig } from './types.ts';
 import { AUDIT_SCOPES } from './types.ts';
 
 /** Extract a displayable message from an unknown thrown value. */
@@ -72,46 +74,86 @@ export async function auditCommand(options: CommandOptions): Promise<number> {
   return exitCode;
 }
 
-/**
- * Run the `report` subcommand.
- *
- * Invokes audit-ci without allowlist filtering and prints vulnerability details.
- */
-export async function reportCommand(options: CommandOptions): Promise<number> {
-  const loaded = await loadAndGenerate(options);
-  if (loaded === undefined) return 1;
+/** Scopes in display order: prod first, then dev. */
+const CHECK_SCOPE_ORDER: readonly AuditScope[] = ['prod', 'dev'];
 
-  const { scopes, generatedPaths } = loaded;
-  const allResults: Array<{ id: string; path: string; url: string }> = [];
+/**
+ * Run the default grouped-check command.
+ *
+ * Audits each scope without allowlist filtering, cross-references results with
+ * the config allowlist, detects stale entries, and produces grouped output.
+ * Returns 1 when unallowed vulnerabilities exist.
+ */
+export async function checkCommand(options: CommandOptions): Promise<number> {
+  let config: AuditDepsConfig;
+  let configDir: string;
+
+  try {
+    ({ config, configDir } = await loadConfig(options.configPath));
+  } catch (error: unknown) {
+    process.stderr.write(`Error: ${extractMessage(error)}\n`);
+    return 1;
+  }
+
+  const requestedScopes = options.scopes.length > 0 ? options.scopes : [...CHECK_SCOPE_ORDER];
+  // Ensure display order: prod first, then dev.
+  const scopes = CHECK_SCOPE_ORDER.filter((s) => requestedScopes.includes(s));
+
+  const checkResult: CheckResult = {
+    dev: { allowed: [], stale: [], unallowed: [] },
+    prod: { allowed: [], stale: [], unallowed: [] },
+  };
 
   for (const scope of scopes) {
-    const configPath = generatedPaths.get(scope);
-    if (configPath === undefined) continue;
+    const scopeConfig = config[scope];
 
-    const report = runReport({ configPath });
+    // Generate a stripped config (empty allowlist) so audit-ci reports all vulnerabilities.
+    const strippedScope = { ...scopeConfig, allowlist: [] };
+    const strippedConfigPath = await generateScopeConfig(strippedScope, scope, configDir, config.outDir);
+
+    const report = runReport({ configPath: strippedConfigPath });
     for (const warning of report.warnings) {
       process.stderr.write(`warning: ${warning}\n`);
     }
+    if (report.stderr.length > 0) {
+      process.stderr.write(report.stderr);
+    }
+
+    const allowedIds = new Set(scopeConfig.allowlist.map((entry) => entry.id));
+    const foundIds = new Set(report.results.map((r) => r.id));
+    const scopeResult: ScopeCheckResult = { allowed: [], stale: [], unallowed: [] };
+
     for (const result of report.results) {
-      if (!allResults.some((r) => r.id === result.id)) {
-        allResults.push(result);
+      if (allowedIds.has(result.id)) {
+        scopeResult.allowed.push({
+          id: result.id,
+          path: result.path,
+          severity: result.severity,
+          url: result.url,
+        });
+      } else {
+        scopeResult.unallowed.push(result);
       }
     }
+
+    // Detect stale allowlist entries: IDs in the allowlist but not in audit results.
+    for (const entry of scopeConfig.allowlist) {
+      if (!foundIds.has(entry.id)) {
+        scopeResult.stale.push({ id: entry.id });
+      }
+    }
+
+    checkResult[scope] = scopeResult;
   }
 
   if (options.json) {
-    process.stdout.write(JSON.stringify(allResults, null, 2) + '\n');
+    process.stdout.write(formatCheckJson(checkResult, scopes));
   } else {
-    if (allResults.length === 0) {
-      process.stdout.write('No vulnerabilities found.\n');
-    } else {
-      for (const result of allResults) {
-        process.stdout.write(`${result.id}: ${result.path} (${result.url})\n`);
-      }
-    }
+    process.stdout.write(formatCheckText(checkResult, scopes));
   }
 
-  return 0;
+  const hasUnallowed = scopes.some((s) => checkResult[s].unallowed.length > 0);
+  return hasUnallowed ? 1 : 0;
 }
 
 /**
@@ -138,12 +180,7 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
   for (const scope of scopes) {
     // Generate a config without the allowlist so sync sees all vulnerabilities
     const strippedScope = { ...config[scope], allowlist: [] };
-    let strippedConfigPath: string;
-    try {
-      strippedConfigPath = await generateAuditCiConfig(strippedScope, scope, configDir, config.outDir);
-    } catch (error: unknown) {
-      throw new Error(`Failed to generate config for scope '${scope}': ${extractMessage(error)}`);
-    }
+    const strippedConfigPath = await generateScopeConfig(strippedScope, scope, configDir, config.outDir);
 
     const report = runReport({ configPath: strippedConfigPath });
     for (const warning of report.warnings) {
@@ -164,11 +201,7 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
 
   // Regenerate flat configs after sync
   for (const scope of scopes) {
-    try {
-      await generateAuditCiConfig(config[scope], scope, configDir, config.outDir);
-    } catch (error: unknown) {
-      throw new Error(`Failed to generate config for scope '${scope}': ${extractMessage(error)}`);
-    }
+    await generateScopeConfig(config[scope], scope, configDir, config.outDir);
   }
 
   return 0;
@@ -193,6 +226,20 @@ export async function generateCommand(options: CommandOptions): Promise<number> 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/** Wrap `generateAuditCiConfig` with a scope-contextual error message. */
+async function generateScopeConfig(
+  scopeConfig: ScopeConfig,
+  scope: AuditScope,
+  configDir: string,
+  outDir: string | undefined,
+): Promise<string> {
+  try {
+    return await generateAuditCiConfig(scopeConfig, scope, configDir, outDir);
+  } catch (error: unknown) {
+    throw new Error(`Failed to generate config for scope '${scope}': ${extractMessage(error)}`);
+  }
+}
 
 interface LoadedState {
   config: AuditDepsConfig;
@@ -219,12 +266,7 @@ async function loadAndGenerate(options: CommandOptions): Promise<LoadedState | u
   const generatedPaths = new Map<AuditScope, string>();
 
   for (const scope of scopes) {
-    let outputPath: string;
-    try {
-      outputPath = await generateAuditCiConfig(config[scope], scope, configDir, config.outDir);
-    } catch (error: unknown) {
-      throw new Error(`Failed to generate config for scope '${scope}': ${extractMessage(error)}`);
-    }
+    const outputPath = await generateScopeConfig(config[scope], scope, configDir, config.outDir);
     generatedPaths.set(scope, outputPath);
   }
 

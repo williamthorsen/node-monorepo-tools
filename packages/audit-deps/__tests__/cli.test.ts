@@ -39,7 +39,7 @@ vi.mock('../src/sync.ts', async (importOriginal) => {
   };
 });
 
-import { auditCommand, generateCommand, reportCommand, syncCommand } from '../src/cli.ts';
+import { auditCommand, checkCommand, generateCommand, syncCommand } from '../src/cli.ts';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -271,81 +271,153 @@ describe(auditCommand, () => {
 });
 
 // ---------------------------------------------------------------------------
-// reportCommand
+// checkCommand
 // ---------------------------------------------------------------------------
 
-describe(reportCommand, () => {
+describe(checkCommand, () => {
   it('returns 1 when config loading fails', async () => {
     mocks.loadConfig.mockRejectedValue(new Error('Config not found'));
 
-    const exitCode = await reportCommand(makeOptions());
+    const exitCode = await checkCommand(makeOptions());
 
     expect(exitCode).toBe(1);
+    expect(stderrOutput).toContain('Config not found');
   });
 
-  it('deduplicates results across scopes', async () => {
+  it('returns 0 when no vulnerabilities are found', async () => {
     setupLoadConfig();
-    mocks.generateAuditCiConfig
-      .mockResolvedValueOnce('/fake/out/audit-ci.dev.json')
-      .mockResolvedValueOnce('/fake/out/audit-ci.prod.json');
+    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.prod.json');
+    mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
 
-    const sharedResult = { id: 'GHSA-dup', path: 'lodash', url: 'https://example.com/GHSA-dup' };
-    mocks.runReport
-      .mockReturnValueOnce({ results: [sharedResult], stdout: '', stderr: '', warnings: [] })
-      .mockReturnValueOnce({ results: [sharedResult], stdout: '', stderr: '', warnings: [] });
+    const exitCode = await checkCommand(makeOptions({ scopes: ['prod'] }));
 
-    await reportCommand(makeOptions());
-
-    // Only one line for the deduplicated result
-    const lines = stdoutOutput.trim().split('\n');
-    expect(lines).toHaveLength(1);
-    expect(lines[0]).toContain('GHSA-dup');
+    expect(exitCode).toBe(0);
+    expect(stdoutOutput).toContain('(none)');
   });
 
-  it('returns 0 even when vulnerabilities exist', async () => {
+  it('returns 1 when unallowed vulnerabilities exist', async () => {
     setupLoadConfig();
-    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.dev.json');
+    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.prod.json');
     mocks.runReport.mockReturnValue({
-      results: [{ id: 'GHSA-1', path: 'pkg', url: 'https://example.com' }],
+      results: [{ id: 'GHSA-bad', path: 'bad-pkg', severity: 'high', url: 'https://example.com/bad' }],
       stdout: '',
       stderr: '',
       warnings: [],
     });
 
-    const exitCode = await reportCommand(makeOptions({ scopes: ['dev'] }));
+    const exitCode = await checkCommand(makeOptions({ scopes: ['prod'] }));
 
-    expect(exitCode).toBe(0);
+    expect(exitCode).toBe(1);
+    expect(stdoutOutput).toContain('GHSA-bad');
   });
 
-  it('prints "No vulnerabilities found." when results are empty', async () => {
-    setupLoadConfig();
+  it('classifies allowed vulnerabilities correctly', async () => {
+    const config = makeConfig({
+      dev: {
+        allowlist: [{ id: 'GHSA-ok', path: 'safe-pkg', url: 'https://example.com/ok' }],
+      },
+    });
+    setupLoadConfig(config);
     mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.dev.json');
+    mocks.runReport.mockReturnValue({
+      results: [{ id: 'GHSA-ok', path: 'safe-pkg', severity: 'moderate', url: 'https://example.com/ok' }],
+      stdout: '',
+      stderr: '',
+      warnings: [],
+    });
+
+    const exitCode = await checkCommand(makeOptions({ scopes: ['dev'] }));
+
+    expect(exitCode).toBe(0);
+    expect(stdoutOutput).toContain('allowed');
+  });
+
+  it('detects stale allowlist entries and returns 0', async () => {
+    const config = makeConfig({
+      prod: {
+        allowlist: [{ id: 'GHSA-stale', path: 'gone-pkg', url: 'https://example.com/stale' }],
+      },
+    });
+    setupLoadConfig(config);
+    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.prod.json');
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
 
-    await reportCommand(makeOptions({ scopes: ['dev'] }));
+    const exitCode = await checkCommand(makeOptions({ scopes: ['prod'] }));
 
-    expect(stdoutOutput).toContain('No vulnerabilities found.');
+    expect(exitCode).toBe(0);
+    expect(stdoutOutput).toContain('GHSA-stale');
+    expect(stdoutOutput).toContain('not needed');
   });
 
   it('outputs JSON when json option is true', async () => {
     setupLoadConfig();
-    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.dev.json');
+    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.prod.json');
     mocks.runReport.mockReturnValue({
-      results: [{ id: 'GHSA-1', path: 'pkg', url: 'https://example.com' }],
+      results: [{ id: 'GHSA-1', path: 'pkg', severity: 'high', url: 'https://example.com/1' }],
       stdout: '',
       stderr: '',
       warnings: [],
     });
 
-    await reportCommand(makeOptions({ json: true, scopes: ['dev'] }));
+    await checkCommand(makeOptions({ json: true, scopes: ['prod'] }));
 
     const parsed: unknown = JSON.parse(stdoutOutput);
-    expect(parsed).toEqual([{ id: 'GHSA-1', path: 'pkg', url: 'https://example.com' }]);
+    expect(parsed).toHaveProperty('prod');
+  });
+
+  it('checks both scopes when none are specified', async () => {
+    setupLoadConfig();
+    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.json');
+    mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
+
+    await checkCommand(makeOptions());
+
+    expect(mocks.runReport).toHaveBeenCalledTimes(2);
+    expect(stdoutOutput).toContain('prod');
+    expect(stdoutOutput).toContain('dev');
+  });
+
+  it('displays prod before dev even when scopes are passed in reverse order', async () => {
+    setupLoadConfig();
+    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.json');
+    mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
+
+    await checkCommand(makeOptions({ scopes: ['dev', 'prod'] }));
+
+    const prodIndex = stdoutOutput.indexOf('prod');
+    const devIndex = stdoutOutput.indexOf('dev');
+    expect(prodIndex).toBeGreaterThanOrEqual(0);
+    expect(devIndex).toBeGreaterThanOrEqual(0);
+    expect(prodIndex).toBeLessThan(devIndex);
+  });
+
+  it('wraps generateAuditCiConfig errors with scope context', async () => {
+    setupLoadConfig();
+    mocks.generateAuditCiConfig.mockRejectedValue(new Error('EACCES: permission denied'));
+
+    await expect(checkCommand(makeOptions({ scopes: ['prod'] }))).rejects.toThrow(
+      "Failed to generate config for scope 'prod': EACCES: permission denied",
+    );
+  });
+
+  it('forwards report stderr to process stderr', async () => {
+    setupLoadConfig();
+    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.prod.json');
+    mocks.runReport.mockReturnValue({
+      results: [],
+      stdout: '',
+      stderr: 'audit-ci diagnostic output',
+      warnings: [],
+    });
+
+    await checkCommand(makeOptions({ scopes: ['prod'] }));
+
+    expect(stderrOutput).toContain('audit-ci diagnostic output');
   });
 
   it('forwards report warnings to stderr', async () => {
     setupLoadConfig();
-    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.dev.json');
+    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.prod.json');
     mocks.runReport.mockReturnValue({
       results: [],
       stdout: '',
@@ -353,7 +425,7 @@ describe(reportCommand, () => {
       warnings: ['Parse warning'],
     });
 
-    await reportCommand(makeOptions({ scopes: ['dev'] }));
+    await checkCommand(makeOptions({ scopes: ['prod'] }));
 
     expect(stderrOutput).toContain('warning: Parse warning');
   });
