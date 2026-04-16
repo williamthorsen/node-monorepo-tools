@@ -51,7 +51,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       # Strip the packageManager field so that actions/setup-node does not
       # try to install it. The field is irrelevant for publishing.
@@ -62,10 +62,10 @@ jobs:
       # Preserve the packageManager field so pnpm/action-setup can read the version.
       - name: Set up pnpm
         if: ${{ inputs.build-local }}
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ inputs.node-version }}
           registry-url: https://registry.npmjs.org
