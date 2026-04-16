@@ -20,6 +20,7 @@ export function resolveAuditCiBin(): string {
 interface AuditCiAdvisory {
   id: number | string;
   module_name: string;
+  severity?: string;
   url: string;
   findings: Array<{ paths: string[] }>;
 }
@@ -59,11 +60,15 @@ export function parseAuditCiOutput(jsonString: string): ParseResult {
   const advisories = extractAdvisories(parsed);
   const results: AuditResult[] = [];
   for (const advisory of advisories) {
-    results.push({
+    const result: AuditResult = {
       id: String(advisory.id),
       path: extractPath(advisory),
       url: advisory.url,
-    });
+    };
+    if (typeof advisory.severity === 'string') {
+      result.severity = advisory.severity;
+    }
+    results.push(result);
   }
 
   return { results, warnings };

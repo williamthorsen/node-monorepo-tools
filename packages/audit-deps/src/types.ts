@@ -79,6 +79,7 @@ export const auditDepsConfigSchema = z.object({
 export interface AuditResult {
   id: string;
   path: string;
+  severity?: string | undefined;
   url: string;
 }
 

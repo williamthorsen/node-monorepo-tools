@@ -2,12 +2,12 @@ import process from 'node:process';
 
 import { parseArgs, translateParseError } from '@williamthorsen/node-monorepo-core';
 
-import { auditCommand, extractMessage, generateCommand, reportCommand, syncCommand } from '../cli.ts';
+import { auditCommand, checkCommand, extractMessage, generateCommand, syncCommand } from '../cli.ts';
 import { initCommand } from '../init/initCommand.ts';
 import type { AuditScope, CommandOptions } from '../types.ts';
 import { VERSION } from '../version.ts';
 
-const SUBCOMMANDS = ['generate', 'init', 'report', 'sync'];
+const SUBCOMMANDS = ['generate', 'init', 'sync'];
 const MIN_PREFIX_LENGTH = 3;
 
 function showHelp(): void {
@@ -16,8 +16,7 @@ Usage: audit-deps [options]
        audit-deps <command> [options]
 
 Commands:
-  (default)            Run audit-ci against configured scopes
-  report               Report vulnerabilities without failing
+  (default)            Grouped vulnerability check with severity indicators
   sync                 Synchronize allowlists with current audit findings
   generate             Regenerate flat audit-ci config files
   init                 Scaffold a starter config file
@@ -29,6 +28,7 @@ Scope options:
 Other options:
   --config <path>      Path to config file (default: .config/audit-deps.config.json)
   --json               Output results as JSON
+  --raw                Run raw audit-ci passthrough (CI mode)
   --help, -h           Show this help message
   --version, -V        Show version number
 `);
@@ -44,23 +44,6 @@ Options:
   --dry-run, -n   Preview changes without writing files
   --force, -f     Overwrite existing files
   --help, -h      Show this help message
-`);
-}
-
-function showReportHelp(): void {
-  console.info(`
-Usage: audit-deps report [options]
-
-Report vulnerabilities without failing.
-
-Scope options:
-  --dev              Target dev dependencies only
-  --prod             Target production dependencies only
-
-Other options:
-  --config <path>    Path to config file (default: .config/audit-deps.config.json)
-  --json             Output results as JSON
-  --help, -h         Show this help message
 `);
 }
 
@@ -144,7 +127,7 @@ function findTypoMatch(input: string): string | undefined {
 export async function routeCommand(args: string[]): Promise<number> {
   const command = args[0];
 
-  if (command === undefined || command === '--help' || command === '-h') {
+  if (command === '--help' || command === '-h') {
     showHelp();
     return 0;
   }
@@ -158,10 +141,6 @@ export async function routeCommand(args: string[]): Promise<number> {
     return handleInit(args.slice(1));
   }
 
-  if (command === 'report') {
-    return handleSubcommand(args.slice(1), reportCommand, showReportHelp);
-  }
-
   if (command === 'sync') {
     return handleSubcommand(args.slice(1), syncCommand, showSyncHelp);
   }
@@ -171,20 +150,24 @@ export async function routeCommand(args: string[]): Promise<number> {
   }
 
   // Check for typos before falling through to the default command
-  const typoMatch = findTypoMatch(command);
-  if (typoMatch !== undefined) {
-    process.stderr.write(`Error: Unknown command '${command}'. Did you mean 'audit-deps ${typoMatch}'?\n`);
-    return 1;
-  }
-
-  // Reject non-flag positional arguments that don't match a known subcommand
-  if (!command.startsWith('-')) {
+  if (command !== undefined && !command.startsWith('-')) {
+    const typoMatch = findTypoMatch(command);
+    if (typoMatch !== undefined) {
+      process.stderr.write(`Error: Unknown command '${command}'. Did you mean 'audit-deps ${typoMatch}'?\n`);
+      return 1;
+    }
     process.stderr.write(`Error: Unknown command '${command}'.\n`);
     return 1;
   }
 
-  // Default: treat all args as audit command options
-  return handleSubcommand(args, auditCommand);
+  // Handle --raw: strip it from args and route to auditCommand (raw passthrough).
+  if (args.includes('--raw')) {
+    const filteredArgs = args.filter((a) => a !== '--raw');
+    return handleSubcommand(filteredArgs, auditCommand);
+  }
+
+  // Default (no args or flag-only args): grouped check command.
+  return handleSubcommand(args, checkCommand);
 }
 
 /** Parse shared flags and dispatch to a subcommand handler. */

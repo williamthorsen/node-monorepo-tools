@@ -92,6 +92,45 @@ describe(parseAuditCiOutput, () => {
     expect(results).toEqual([]);
   });
 
+  it('extracts severity from advisory when present', () => {
+    const json = JSON.stringify({
+      advisories: {
+        '1234': {
+          id: 1234,
+          module_name: 'lodash',
+          severity: 'high',
+          url: 'https://github.com/advisories/GHSA-1234',
+          findings: [{ paths: ['lodash>underscore'] }],
+        },
+      },
+    });
+
+    const { results } = parseAuditCiOutput(json);
+    expect(results).toHaveLength(1);
+    expect(results[0]).toEqual({
+      id: '1234',
+      path: 'lodash>underscore',
+      severity: 'high',
+      url: 'https://github.com/advisories/GHSA-1234',
+    });
+  });
+
+  it('omits severity when not present in advisory', () => {
+    const json = JSON.stringify({
+      advisories: {
+        '1234': {
+          id: 1234,
+          module_name: 'lodash',
+          url: 'https://github.com/advisories/GHSA-1234',
+          findings: [{ paths: ['lodash>underscore'] }],
+        },
+      },
+    });
+
+    const { results } = parseAuditCiOutput(json);
+    expect(results[0]).not.toHaveProperty('severity');
+  });
+
   it('uses module_name as fallback path when findings are empty', () => {
     const json = JSON.stringify({
       advisories: {
