@@ -3,7 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import type { AllowlistEntry, AuditDepsConfig, AuditResult, AuditScope } from './types.ts';
 
 /** Produce a UTC date string in YYYY-MM-DD format. */
-function formatUtcDate(date: Date): string {
+export function formatUtcDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
@@ -14,6 +14,7 @@ function formatUtcDate(date: Date): string {
  */
 function serializeEntry(entry: AllowlistEntry): Record<string, string> {
   return {
+    ...(entry.addedAt !== undefined && { addedAt: entry.addedAt }),
     id: entry.id,
     path: entry.path,
     ...(entry.reason !== undefined && { reason: entry.reason }),
@@ -49,15 +50,17 @@ export function computeSyncDiff(
   const removed: AllowlistEntry[] = [];
 
   // Identify new and kept entries
+  const nowIso = formatUtcDate(now);
   for (const [id, result] of auditById) {
     const existing = currentById.get(id);
     if (existing !== undefined) {
       kept.push(existing);
     } else {
       added.push({
+        addedAt: nowIso,
         id: result.id,
         path: result.path,
-        reason: `Added by audit-deps sync on ${formatUtcDate(now)}`,
+        reason: `Added by audit-deps sync on ${nowIso}`,
         url: result.url,
       });
     }

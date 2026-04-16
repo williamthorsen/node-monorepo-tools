@@ -18,11 +18,14 @@ export function resolveAuditCiBin(): string {
 }
 
 interface AuditCiAdvisory {
+  cvss?: { score?: number; vectorString?: string };
+  findings: Array<{ paths: string[] }>;
   id: number | string;
   module_name: string;
+  overview?: string;
   severity?: string;
+  title?: string;
   url: string;
-  findings: Array<{ paths: string[] }>;
 }
 
 /** Result of parsing audit-ci output, including any warnings. */
@@ -60,13 +63,25 @@ export function parseAuditCiOutput(jsonString: string): ParseResult {
   const advisories = extractAdvisories(parsed);
   const results: AuditResult[] = [];
   for (const advisory of advisories) {
+    const paths = extractPaths(advisory);
+    const firstPath = paths[0] ?? advisory.module_name;
     const result: AuditResult = {
       id: String(advisory.id),
-      path: extractPath(advisory),
+      path: firstPath,
+      paths,
       url: advisory.url,
     };
     if (typeof advisory.severity === 'string') {
       result.severity = advisory.severity;
+    }
+    if (typeof advisory.title === 'string') {
+      result.title = advisory.title;
+    }
+    if (typeof advisory.overview === 'string') {
+      result.description = advisory.overview;
+    }
+    if (advisory.cvss !== undefined) {
+      result.cvss = advisory.cvss;
     }
     results.push(result);
   }
@@ -116,11 +131,19 @@ function extractAdvisories(parsed: unknown): AuditCiAdvisory[] {
   return [];
 }
 
-/** Extract the first dependency path from an advisory's findings. */
-function extractPath(advisory: AuditCiAdvisory): string {
-  const firstFinding = advisory.findings[0];
-  const firstPath = firstFinding?.paths[0];
-  return firstPath ?? advisory.module_name;
+/** Extract all dependency paths across an advisory's findings, deduplicated in insertion order. */
+function extractPaths(advisory: AuditCiAdvisory): string[] {
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  for (const finding of advisory.findings) {
+    for (const pathValue of finding.paths) {
+      if (!seen.has(pathValue)) {
+        seen.add(pathValue);
+        ordered.push(pathValue);
+      }
+    }
+  }
+  return ordered;
 }
 
 /** Result of extracting stale entries, including any warnings. */
@@ -159,6 +182,7 @@ interface RunAuditOptions {
   configPath: string;
   cwd?: string;
   json?: boolean;
+  reportType?: 'important' | 'full';
 }
 
 /** Result from a normal audit run. */
@@ -218,9 +242,12 @@ export interface ReportResult {
  *
  * Always returns exit code 0. Parses JSON output into typed `AuditResult` objects.
  */
-export function runReport({ configPath, cwd }: Omit<RunAuditOptions, 'json'>): ReportResult {
+export function runReport({ configPath, cwd, reportType }: Omit<RunAuditOptions, 'json'>): ReportResult {
   const bin = resolveAuditCiBin();
   const args = ['--config', configPath, '--output-format', 'json'];
+  if (reportType === 'full') {
+    args.push('--report-type', 'full');
+  }
 
   const result = spawnSync(process.execPath, [bin, ...args], {
     cwd: cwd ?? process.cwd(),

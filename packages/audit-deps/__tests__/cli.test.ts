@@ -54,7 +54,7 @@ function makeConfig(overrides?: Partial<AuditDepsConfig>): AuditDepsConfig {
 }
 
 function makeOptions(overrides?: Partial<CommandOptions>): CommandOptions {
-  return { json: false, scopes: [], ...overrides };
+  return { json: false, scopes: [], verbose: false, ...overrides };
 }
 
 function setupLoadConfig(config?: AuditDepsConfig): void {
@@ -180,7 +180,7 @@ describe(auditCommand, () => {
     await auditCommand(makeOptions({ json: true, scopes: ['dev'] }));
 
     const parsed: unknown = JSON.parse(stdoutOutput);
-    expect(parsed).toEqual([{ id: 'GHSA-1', path: 'pkg', url: 'https://example.com/1' }]);
+    expect(parsed).toEqual([{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], url: 'https://example.com/1' }]);
   });
 
   it('writes stderr when stdout is empty and stderr has content', async () => {
@@ -299,7 +299,9 @@ describe(checkCommand, () => {
     setupLoadConfig();
     mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.prod.json');
     mocks.runReport.mockReturnValue({
-      results: [{ id: 'GHSA-bad', path: 'bad-pkg', severity: 'high', url: 'https://example.com/bad' }],
+      results: [
+        { id: 'GHSA-bad', path: 'bad-pkg', paths: ['bad-pkg'], severity: 'high', url: 'https://example.com/bad' },
+      ],
       stdout: '',
       stderr: '',
       warnings: [],
@@ -320,7 +322,9 @@ describe(checkCommand, () => {
     setupLoadConfig(config);
     mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.dev.json');
     mocks.runReport.mockReturnValue({
-      results: [{ id: 'GHSA-ok', path: 'safe-pkg', severity: 'moderate', url: 'https://example.com/ok' }],
+      results: [
+        { id: 'GHSA-ok', path: 'safe-pkg', paths: ['safe-pkg'], severity: 'moderate', url: 'https://example.com/ok' },
+      ],
       stdout: '',
       stderr: '',
       warnings: [],
@@ -330,6 +334,63 @@ describe(checkCommand, () => {
 
     expect(exitCode).toBe(0);
     expect(stdoutOutput).toContain('allowed');
+  });
+
+  it('populates allowed entries with advisory fields from the audit result and metadata from the allowlist entry', async () => {
+    const config = makeConfig({
+      prod: {
+        allowlist: [
+          {
+            addedAt: '2026-04-01',
+            id: 'GHSA-enriched',
+            path: 'pkg',
+            reason: 'Accepted risk',
+            url: 'https://example.com/enriched',
+          },
+        ],
+      },
+    });
+    setupLoadConfig(config);
+    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.prod.json');
+    mocks.runReport.mockReturnValue({
+      results: [
+        {
+          cvss: { score: 7.5 },
+          description: 'Detailed description',
+          id: 'GHSA-enriched',
+          path: 'pkg',
+          paths: ['pkg', 'root>pkg'],
+          severity: 'high',
+          title: 'Prototype pollution',
+          url: 'https://example.com/enriched',
+        },
+      ],
+      stdout: '',
+      stderr: '',
+      warnings: [],
+    });
+
+    await checkCommand(makeOptions({ json: true, scopes: ['prod'] }));
+
+    const parsed: unknown = JSON.parse(stdoutOutput);
+    expect(parsed).toEqual(
+      expect.objectContaining({
+        prod: expect.objectContaining({
+          allowed: [
+            expect.objectContaining({
+              addedAt: '2026-04-01',
+              cvss: { score: 7.5 },
+              description: 'Detailed description',
+              id: 'GHSA-enriched',
+              paths: ['pkg', 'root>pkg'],
+              reason: 'Accepted risk',
+              severity: 'high',
+              title: 'Prototype pollution',
+            }),
+          ],
+        }),
+      }),
+    );
   });
 
   it('detects stale allowlist entries and returns 0', async () => {
@@ -353,7 +414,7 @@ describe(checkCommand, () => {
     setupLoadConfig();
     mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.prod.json');
     mocks.runReport.mockReturnValue({
-      results: [{ id: 'GHSA-1', path: 'pkg', severity: 'high', url: 'https://example.com/1' }],
+      results: [{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], severity: 'high', url: 'https://example.com/1' }],
       stdout: '',
       stderr: '',
       warnings: [],
@@ -428,6 +489,113 @@ describe(checkCommand, () => {
     await checkCommand(makeOptions({ scopes: ['prod'] }));
 
     expect(stderrOutput).toContain('warning: Parse warning');
+  });
+
+  it('invokes runReport with reportType "full" when verbose is true', async () => {
+    setupLoadConfig();
+    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.prod.json');
+    mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
+
+    await checkCommand(makeOptions({ scopes: ['prod'], verbose: true }));
+
+    expect(mocks.runReport).toHaveBeenCalledWith(expect.objectContaining({ reportType: 'full' }));
+  });
+
+  it('omits reportType when verbose is false', async () => {
+    setupLoadConfig();
+    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.prod.json');
+    mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
+
+    await checkCommand(makeOptions({ scopes: ['prod'] }));
+
+    const call = mocks.runReport.mock.calls[0]?.[0];
+    expect(call).not.toHaveProperty('reportType');
+  });
+
+  it('renders verbose text output when verbose is true and json is false', async () => {
+    const config = makeConfig({
+      prod: {
+        allowlist: [
+          {
+            addedAt: '2026-04-01',
+            id: 'GHSA-allowed',
+            path: 'pkg',
+            reason: 'Accepted',
+            url: 'https://example.com/allowed',
+          },
+        ],
+      },
+    });
+    setupLoadConfig(config);
+    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.prod.json');
+    mocks.runReport.mockReturnValue({
+      results: [
+        {
+          description: 'Detailed description',
+          id: 'GHSA-allowed',
+          path: 'pkg',
+          paths: ['pkg'],
+          severity: 'moderate',
+          title: 'Example title',
+          url: 'https://example.com/allowed',
+        },
+      ],
+      stdout: '',
+      stderr: '',
+      warnings: [],
+    });
+
+    await checkCommand(makeOptions({ scopes: ['prod'], verbose: true }));
+
+    expect(stdoutOutput).toContain('\u{26A0}\u{FE0F} GHSA-allowed');
+    expect(stdoutOutput).toContain('Example title');
+    expect(stdoutOutput).toContain('reason: Accepted');
+  });
+
+  it('renders verbose JSON output when both verbose and json are true', async () => {
+    const config = makeConfig({
+      prod: {
+        allowlist: [{ addedAt: '2026-04-01', id: 'GHSA-1', path: 'pkg', reason: 'r', url: 'https://example.com/1' }],
+      },
+    });
+    setupLoadConfig(config);
+    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.prod.json');
+    mocks.runReport.mockReturnValue({
+      results: [
+        {
+          cvss: { score: 7.5 },
+          description: 'desc',
+          id: 'GHSA-1',
+          path: 'pkg',
+          paths: ['pkg'],
+          severity: 'high',
+          title: 'title',
+          url: 'https://example.com/1',
+        },
+      ],
+      stdout: '',
+      stderr: '',
+      warnings: [],
+    });
+
+    await checkCommand(makeOptions({ json: true, scopes: ['prod'], verbose: true }));
+
+    const parsed: unknown = JSON.parse(stdoutOutput);
+    expect(parsed).toEqual(
+      expect.objectContaining({
+        prod: expect.objectContaining({
+          allowed: [
+            expect.objectContaining({
+              addedAt: '2026-04-01',
+              cvss: { score: 7.5 },
+              description: 'desc',
+              reason: 'r',
+              title: 'title',
+            }),
+          ],
+        }),
+      }),
+    );
   });
 });
 

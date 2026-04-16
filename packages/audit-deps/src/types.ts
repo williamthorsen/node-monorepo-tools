@@ -16,6 +16,7 @@ export const AUDIT_SCOPES: readonly AuditScope[] = ['dev', 'prod'];
 
 /** A single allowlisted advisory with metadata for traceability. */
 export interface AllowlistEntry {
+  addedAt?: string | undefined;
   id: string;
   path: string;
   reason?: string | undefined;
@@ -24,6 +25,7 @@ export interface AllowlistEntry {
 
 /** Zod schema for an allowlist entry. */
 export const allowlistEntrySchema = z.object({
+  addedAt: z.string().optional(),
   id: z.string(),
   path: z.string(),
   reason: z.string().optional(),
@@ -77,9 +79,13 @@ export const auditDepsConfigSchema = z.object({
 
 /** A single vulnerability found by audit-ci. */
 export interface AuditResult {
+  cvss?: { score?: number; vectorString?: string } | undefined;
+  description?: string | undefined;
   id: string;
   path: string;
+  paths: string[];
   severity?: string | undefined;
+  title?: string | undefined;
   url: string;
 }
 
@@ -92,4 +98,5 @@ export interface CommandOptions {
   configPath?: string | undefined;
   json: boolean;
   scopes: AuditScope[];
+  verbose: boolean;
 }
