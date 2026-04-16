@@ -389,6 +389,9 @@ describe(parseArgs, () => {
     expect(() => parseArgs(['--help'])).toThrow(ExitError);
     expect(process.exit).toHaveBeenCalledWith(0);
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining('npx @williamthorsen/release-kit prepare'));
+    expect(console.info).toHaveBeenCalledWith(
+      expect.stringContaining('Force a release even when there are no commits since the last tag (requires --bump)'),
+    );
   });
 
   it('throws when --force is used without --bump', () => {

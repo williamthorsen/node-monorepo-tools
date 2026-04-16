@@ -24,11 +24,6 @@ function readFile(relativePath) {
   if (!existsSync(fullPath)) return void 0;
   return readFileSync(fullPath, "utf8");
 }
-function fileContains(relativePath, pattern) {
-  const content = readFile(relativePath);
-  if (content === void 0) return false;
-  return pattern.test(content);
-}
 function fileDoesNotContain(relativePath, pattern) {
   const content = readFile(relativePath);
   if (content === void 0) return true;
@@ -157,11 +152,50 @@ var package_default = {
   }
 };
 
+// packages/release-kit/src/init/detectRepoType.ts
+import { existsSync as existsSync2, readFileSync as readFileSync2 } from "node:fs";
+
+// packages/release-kit/src/typeGuards.ts
+function isRecord2(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// packages/release-kit/src/init/parseJsonRecord.ts
+function parseJsonRecord(raw) {
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return void 0;
+  }
+  return isRecord2(parsed) ? parsed : void 0;
+}
+
+// packages/release-kit/src/init/detectRepoType.ts
+function detectRepoType() {
+  if (existsSync2("pnpm-workspace.yaml")) {
+    return "monorepo";
+  }
+  try {
+    const raw = readFileSync2("package.json", "utf8");
+    const pkg = parseJsonRecord(raw);
+    if (pkg !== void 0 && Array.isArray(pkg.workspaces)) {
+      return "monorepo";
+    }
+  } catch {
+  }
+  return "single-package";
+}
+
 // .readyup/kits/release-kit.ts
 var MIN_VERSION = package_default.version;
 var CLIFF_TEMPLATE_HASH = "fb5e7d3c5e4856272aa788ed0e69cc491c8f765ba4241643999436410584278e";
 var COMMON_PRESET_HASH = "d12ffccbd5e4d9af8ecf47744b143f6c9f80bcf5e496cf1983b66834f0ae7825";
-var SYNC_LABELS_WORKFLOW_HASH = "c0206871afadf1bf12a8dbe51afbd8e6d49724ca48875c168fbf1da891abcfad";
+var SYNC_LABELS_WORKFLOW_HASH = "4dfde2454bac03280381f0da70c9c735916a7812100dec5437853b843c4bd797";
+var RELEASE_WORKFLOW_HASH_MONOREPO = "d2c297a3974a70485c73ec115c092ecba0d571b5238d5f440096d6a35b64810b";
+var RELEASE_WORKFLOW_HASH_SINGLE = "d80f814468897d920c89ab55959f6c1f97efbd02b99522c92b9d1162ed694c1c";
+var PUBLISH_WORKFLOW_HASH_MONOREPO = "ba9f8e353e0f60498df8b55a9340bd1b88c3b9f55e9862850da26dd9c98d8b23";
+var PUBLISH_WORKFLOW_HASH_SINGLE = "4abbafa80eab871ce5277751e86d0c057490b0b36ec6e4e06a41f39494c990b1";
 var release_kit_default = defineRdyKit({
   checklists: [
     {
@@ -190,15 +224,21 @@ var release_kit_default = defineRdyKit({
           fix: "Add .github/workflows/release.yaml using the release workflow template",
           checks: [
             {
-              name: "release workflow references release.reusable.yaml",
+              name: "release.yaml matches template",
               severity: "warn",
-              check: () => fileContains(
-                ".github/workflows/release.yaml",
-                /uses:\s*(?:\.\/\.github\/workflows\/|williamthorsen\/node-monorepo-tools\/.github\/workflows\/)release\.reusable\.yaml/
-              ),
-              fix: "Update release.yaml to use williamthorsen/node-monorepo-tools/.github/workflows/release.reusable.yaml@workflow/release-v1"
+              check: () => {
+                const hash = detectRepoType() === "monorepo" ? RELEASE_WORKFLOW_HASH_MONOREPO : RELEASE_WORKFLOW_HASH_SINGLE;
+                return fileMatchesHash(".github/workflows/release.yaml", hash);
+              },
+              fix: "Run `release-kit init --force` to regenerate release.yaml from the current template"
             }
           ]
+        },
+        {
+          name: "release.yaml does not reference deprecated tag ref",
+          severity: "error",
+          check: () => fileDoesNotContain(".github/workflows/release.yaml", /@(release|publish)-workflow-v[0-9]/),
+          fix: "Update release.yaml to use @workflow/release-v1 (run `release-kit init --force` to regenerate, or replace the ref manually)"
         },
         {
           name: "publish.yaml workflow exists",
@@ -207,15 +247,21 @@ var release_kit_default = defineRdyKit({
           fix: "Add .github/workflows/publish.yaml using the publish workflow template",
           checks: [
             {
-              name: "publish workflow references publish.reusable.yaml",
+              name: "publish.yaml matches template",
               severity: "warn",
-              check: () => fileContains(
-                ".github/workflows/publish.yaml",
-                /uses:\s*(?:\.\/\.github\/workflows\/|williamthorsen\/node-monorepo-tools\/.github\/workflows\/)publish\.reusable\.yaml/
-              ),
-              fix: "Update publish.yaml to use williamthorsen/node-monorepo-tools/.github/workflows/publish.reusable.yaml@workflow/publish-v1"
+              check: () => {
+                const hash = detectRepoType() === "monorepo" ? PUBLISH_WORKFLOW_HASH_MONOREPO : PUBLISH_WORKFLOW_HASH_SINGLE;
+                return fileMatchesHash(".github/workflows/publish.yaml", hash);
+              },
+              fix: "Run `release-kit init --force` to regenerate publish.yaml from the current template"
             }
           ]
+        },
+        {
+          name: "publish.yaml does not reference deprecated tag ref",
+          severity: "error",
+          check: () => fileDoesNotContain(".github/workflows/publish.yaml", /@(release|publish)-workflow-v[0-9]/),
+          fix: "Update publish.yaml to use @workflow/publish-v1 (run `release-kit init --force` to regenerate, or replace the ref manually)"
         },
         {
           name: "config does not use removed tagPrefix",
@@ -257,6 +303,12 @@ var release_kit_default = defineRdyKit({
               fix: "Run `release-kit sync-labels init --force` to regenerate the workflow from the current template"
             }
           ]
+        },
+        {
+          name: "sync-labels.yaml does not reference deprecated tag ref",
+          severity: "error",
+          check: () => fileDoesNotContain(".github/workflows/sync-labels.yaml", /@sync-labels-workflow-v[0-9]/),
+          fix: "Update sync-labels.yaml to use @workflow/sync-labels-v1 (run `release-kit sync-labels init --force` to regenerate, or replace the ref manually)"
         },
         {
           name: ".config/sync-labels.config.ts exists",
@@ -302,6 +354,10 @@ function labelsHaveCurrentPresetHash(presetName, expectedHash) {
 export {
   CLIFF_TEMPLATE_HASH,
   COMMON_PRESET_HASH,
+  PUBLISH_WORKFLOW_HASH_MONOREPO,
+  PUBLISH_WORKFLOW_HASH_SINGLE,
+  RELEASE_WORKFLOW_HASH_MONOREPO,
+  RELEASE_WORKFLOW_HASH_SINGLE,
   SYNC_LABELS_WORKFLOW_HASH,
   release_kit_default as default
 };

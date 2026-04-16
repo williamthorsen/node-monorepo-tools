@@ -51,7 +51,7 @@ export default config;
  * permissions, so GitHub uses those rather than the caller's block.
  */
 export function publishWorkflow(repoType: RepoType): string {
-  const tagPattern = repoType === 'monorepo' ? "'*-v[0-9]*'" : "'v[0-9]*'";
+  const tagPattern = repoType === 'monorepo' ? "'*-v[0-9]*.[0-9]*.[0-9]*'" : "'v[0-9]*.[0-9]*.[0-9]*'";
 
   return `# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: Publish
@@ -67,9 +67,9 @@ permissions:
 
 jobs:
   publish:
-    uses: williamthorsen/node-monorepo-tools/.github/workflows/publish.reusable.yaml@publish-workflow-v1
+    uses: williamthorsen/node-monorepo-tools/.github/workflows/publish.reusable.yaml@workflow/publish-v1
     with:
-      provenance: false # Set to true for public repos to generate npm provenance attestations
+      provenance: true
 `;
 }
 
@@ -96,7 +96,7 @@ on:
           - minor
           - major
       force:
-        description: 'Force a version bump even when there are no release-worthy changes'
+        description: 'Force a release even when there are no commits since the last tag (requires --bump)'
         required: false
         type: boolean
         default: false
@@ -107,7 +107,7 @@ permissions:
 
 jobs:
   release:
-    uses: williamthorsen/node-monorepo-tools/.github/workflows/release.reusable.yaml@release-workflow-v1
+    uses: williamthorsen/node-monorepo-tools/.github/workflows/release.reusable.yaml@workflow/release-v1
     with:
       only: \${{ inputs.only }}
       bump: \${{ inputs.bump }}
@@ -131,7 +131,7 @@ on:
           - minor
           - major
       force:
-        description: 'Force a version bump even when there are no release-worthy changes'
+        description: 'Force a release even when there are no commits since the last tag (requires --bump)'
         required: false
         type: boolean
         default: false
@@ -142,7 +142,7 @@ permissions:
 
 jobs:
   release:
-    uses: williamthorsen/node-monorepo-tools/.github/workflows/release.reusable.yaml@release-workflow-v1
+    uses: williamthorsen/node-monorepo-tools/.github/workflows/release.reusable.yaml@workflow/release-v1
     with:
       bump: \${{ inputs.bump }}
       force: \${{ inputs.force }}

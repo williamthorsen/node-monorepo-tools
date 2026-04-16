@@ -45,7 +45,7 @@ Usage: npx @williamthorsen/release-kit prepare [options]
 Options:
   --dry-run             Run without modifying any files
   --bump=major|minor|patch  Override the bump type for all components
-  --force               Bypass the "no commits since last tag" check (monorepo only, requires --bump)
+  --force               Force a release even when there are no commits since the last tag (requires --bump)
   --no-git-checks, -n   Skip the clean-working-tree check
   --only=name1,name2    Only process the named components (comma-separated, monorepo only)
   --help                Show this help message

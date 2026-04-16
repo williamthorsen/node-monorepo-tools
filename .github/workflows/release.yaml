@@ -18,7 +18,7 @@ on:
           - minor
           - major
       force:
-        description: 'Bypass "no commits since last tag" check (requires bump)'
+        description: 'Force a release even when there are no commits since the last tag (requires --bump)'
         required: false
         type: boolean
         default: false
@@ -29,11 +29,8 @@ permissions:
 
 jobs:
   release:
-    uses: ./.github/workflows/release.reusable.yaml
+    uses: williamthorsen/node-monorepo-tools/.github/workflows/release.reusable.yaml@workflow/release-v1
     with:
-      build-local: true
       only: ${{ inputs.only }}
       bump: ${{ inputs.bump }}
-      # TODO: The reusable workflow (release-pnpm.yaml@v3) does not yet accept `force`.
-      # After updating williamthorsen/.github to declare and forward this input,
-      # add `force: ${{ inputs.force }}` here.
+      force: ${{ inputs.force }}
