@@ -19,7 +19,7 @@ const MIN_VERSION = auditDepsPackageJson.version;
 
 // SHA-256 hash of the canonical .github/workflows/audit.yaml wrapper.
 // Keep in sync — verified by __tests__/rdy-kit-hashes.app.test.ts.
-export const AUDIT_WORKFLOW_HASH = '6f47df89a55ef299300c890ceb9cf777b14dcc4ce7e4559cb6ad787b9e74199e';
+export const AUDIT_WORKFLOW_HASH = '1b656bf31d7d4d5275a6db16ad1efcc71ff1cb08bf7025dc26fbeccf4485c884';
 
 export default defineRdyKit({
   checklists: [
