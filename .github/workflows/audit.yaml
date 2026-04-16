@@ -24,4 +24,4 @@ permissions:
 
 jobs:
   audit:
-    uses: williamthorsen/node-monorepo-tools/.github/workflows/audit.reusable.yaml@audit-workflow-v1
+    uses: williamthorsen/node-monorepo-tools/.github/workflows/audit.reusable.yaml@workflow/audit-v1

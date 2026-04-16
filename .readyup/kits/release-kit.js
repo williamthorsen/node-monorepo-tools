@@ -196,7 +196,7 @@ var release_kit_default = defineRdyKit({
                 ".github/workflows/release.yaml",
                 /uses:\s*(?:\.\/\.github\/workflows\/|williamthorsen\/node-monorepo-tools\/.github\/workflows\/)release\.reusable\.yaml/
               ),
-              fix: "Update release.yaml to use williamthorsen/node-monorepo-tools/.github/workflows/release.reusable.yaml@release-workflow-v1"
+              fix: "Update release.yaml to use williamthorsen/node-monorepo-tools/.github/workflows/release.reusable.yaml@workflow/release-v1"
             }
           ]
         },
@@ -213,7 +213,7 @@ var release_kit_default = defineRdyKit({
                 ".github/workflows/publish.yaml",
                 /uses:\s*(?:\.\/\.github\/workflows\/|williamthorsen\/node-monorepo-tools\/.github\/workflows\/)publish\.reusable\.yaml/
               ),
-              fix: "Update publish.yaml to use williamthorsen/node-monorepo-tools/.github/workflows/publish.reusable.yaml@publish-workflow-v1"
+              fix: "Update publish.yaml to use williamthorsen/node-monorepo-tools/.github/workflows/publish.reusable.yaml@workflow/publish-v1"
             }
           ]
         },
