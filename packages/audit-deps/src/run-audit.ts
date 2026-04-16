@@ -182,7 +182,7 @@ interface RunAuditOptions {
   configPath: string;
   cwd?: string;
   json?: boolean;
-  reportType?: 'important' | 'full';
+  reportType?: 'full';
 }
 
 /** Result from a normal audit run. */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { CheckResult, ScopeCheckResult } from '../src/format-check.ts';
-import { formatCheckVerboseJson, formatCheckVerboseText, formatRelativeTime } from '../src/format-verbose.ts';
+import { formatCheckVerboseText, formatRelativeTime } from '../src/format-verbose.ts';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -234,6 +234,28 @@ describe(formatCheckVerboseText, () => {
     expect(output).not.toContain('allowed ');
   });
 
+  it('omits the relative-time portion when addedAt is unparseable', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [
+          {
+            addedAt: 'not-a-date',
+            id: 'GHSA-badDate',
+            path: 'pkg',
+            paths: ['pkg'],
+            url: 'https://example.com/badDate',
+          },
+        ],
+        stale: [],
+        unallowed: [],
+      },
+    });
+
+    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
+    expect(output).toContain('allowed (not-a-date)');
+    expect(output).not.toContain('allowed  (not-a-date)');
+  });
+
   it('omits "reason:" line when reason is absent', () => {
     const result = makeCheckResult({
       prod: {
@@ -326,6 +348,11 @@ describe(formatRelativeTime, () => {
     expect(formatRelativeTime(fiveHoursAgo.toISOString(), nowDate)).toBe('5 hours ago');
   });
 
+  it('uses "1 hour ago" singular', () => {
+    const oneHourAgo = new Date('2026-04-15T11:00:00Z');
+    expect(formatRelativeTime(oneHourAgo.toISOString(), nowDate)).toBe('1 hour ago');
+  });
+
   it('returns "yesterday" for exactly one day ago', () => {
     const yesterday = new Date('2026-04-14T12:00:00Z');
     expect(formatRelativeTime(yesterday.toISOString(), nowDate)).toBe('yesterday');
@@ -348,6 +375,10 @@ describe(formatRelativeTime, () => {
     expect(formatRelativeTime('2024-04-15', nowDate)).toBe('2 years ago');
   });
 
+  it('uses "1 year ago" singular at exactly 12 months on the same calendar day', () => {
+    expect(formatRelativeTime('2025-04-15', nowDate)).toBe('1 year ago');
+  });
+
   it('handles month-boundary edge cases (earlier day-of-month in the source)', () => {
     // From Mar 20 to Apr 15 is 26 days → under a month (under 5 weeks renders as 3 weeks ago).
     expect(formatRelativeTime('2026-03-20', nowDate)).toBe('3 weeks ago');
@@ -355,101 +386,5 @@ describe(formatRelativeTime, () => {
 
   it('returns empty string for an unparseable date', () => {
     expect(formatRelativeTime('not-a-date', nowDate)).toBe('');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// formatCheckVerboseJson
-// ---------------------------------------------------------------------------
-
-describe(formatCheckVerboseJson, () => {
-  it('emits all richer fields (title, description, cvss, paths) for unallowed entries', () => {
-    const result = makeCheckResult({
-      prod: {
-        allowed: [],
-        stale: [],
-        unallowed: [
-          {
-            cvss: { score: 7.5, vectorString: 'CVSS:3.1' },
-            description: 'Detailed description',
-            id: 'GHSA-1',
-            path: 'pkg',
-            paths: ['pkg', 'app>pkg'],
-            severity: 'high',
-            title: 'Prototype pollution',
-            url: 'https://example.com/1',
-          },
-        ],
-      },
-    });
-
-    const parsed: unknown = JSON.parse(formatCheckVerboseJson(result, ['prod']));
-    expect(parsed).toEqual(
-      expect.objectContaining({
-        prod: expect.objectContaining({
-          unallowed: [
-            expect.objectContaining({
-              cvss: { score: 7.5, vectorString: 'CVSS:3.1' },
-              description: 'Detailed description',
-              id: 'GHSA-1',
-              paths: ['pkg', 'app>pkg'],
-              title: 'Prototype pollution',
-            }),
-          ],
-        }),
-      }),
-    );
-  });
-
-  it('emits reason and addedAt for allowed entries when present', () => {
-    const result = makeCheckResult({
-      prod: {
-        allowed: [
-          {
-            addedAt: '2026-04-01',
-            id: 'GHSA-allowed',
-            path: 'pkg',
-            paths: ['pkg'],
-            reason: 'Accepted',
-            url: 'https://example.com/allowed',
-          },
-        ],
-        stale: [],
-        unallowed: [],
-      },
-    });
-
-    const parsed: unknown = JSON.parse(formatCheckVerboseJson(result, ['prod']));
-    expect(parsed).toEqual(
-      expect.objectContaining({
-        prod: expect.objectContaining({
-          allowed: [
-            expect.objectContaining({
-              addedAt: '2026-04-01',
-              reason: 'Accepted',
-            }),
-          ],
-        }),
-      }),
-    );
-  });
-
-  it('includes only id for stale entries', () => {
-    const result = makeCheckResult({
-      prod: {
-        allowed: [],
-        stale: [{ id: 'GHSA-stale' }],
-        unallowed: [],
-      },
-    });
-
-    const parsed: unknown = JSON.parse(formatCheckVerboseJson(result, ['prod']));
-    expect(parsed).toEqual(
-      expect.objectContaining({
-        prod: expect.objectContaining({
-          stale: [{ id: 'GHSA-stale' }],
-        }),
-      }),
-    );
   });
 });

@@ -75,9 +75,10 @@ function formatUnallowedBlock(vuln: AuditResult): string {
 function formatAllowedBlock(vuln: AllowedVuln, now: Date): string {
   const allowedSuffix = vuln.addedAt !== undefined ? formatAllowedSuffix(vuln.addedAt, now) : '';
   const headerLine = `  ${STATUS_ALLOWED} ${vuln.id}${formatSeveritySuffix(vuln.severity)}${allowedSuffix}`;
+  const hasTitle = vuln.title !== undefined;
   const detail = formatAdvisoryDetail(vuln);
   if (vuln.reason !== undefined) {
-    const reasonLineIndex = findReasonInsertionIndex(detail);
+    const reasonLineIndex = findReasonInsertionIndex(hasTitle);
     detail.splice(reasonLineIndex, 0, `${DETAIL_INDENT}reason: ${vuln.reason}`);
   }
   return [headerLine, ...detail].join('\n');
@@ -107,28 +108,17 @@ function formatAdvisoryDetail(vuln: {
 }
 
 /** Find the index at which to insert the `reason:` line: just after the title (or at top if no title). */
-function findReasonInsertionIndex(detail: string[]): number {
-  // Title, if present, is always the first line. Reason goes right after it so the advisory block
+function findReasonInsertionIndex(hasTitle: boolean): number {
+  // Title, when present, is the first detail line. Reason goes right after it so the advisory block
   // reads: id header, title, reason, paths, link, description.
-  if (detail.length === 0) return 0;
-  const first = detail[0];
-  if (
-    first !== undefined &&
-    (first.startsWith(`${DETAIL_INDENT}path:`) ||
-      first.startsWith(`${DETAIL_INDENT}paths:`) ||
-      first.startsWith(`${DETAIL_INDENT}link:`))
-  ) {
-    return 0;
-  }
-  return 1;
+  return hasTitle ? 1 : 0;
 }
 
 /** Build `path:` or `paths:` lines for a single or multiple paths. */
 function formatPathsLines(paths: string[]): string[] {
   if (paths.length === 0) return [];
   if (paths.length === 1) {
-    const firstPath = paths[0] ?? '';
-    return [`${DETAIL_INDENT}path: ${firstPath}`];
+    return [`${DETAIL_INDENT}path: ${paths[0]}`];
   }
   const lines = [`${DETAIL_INDENT}paths:`];
   for (const pathValue of paths) {
@@ -148,6 +138,7 @@ function formatSeveritySuffix(severity: string | undefined): string {
 /** Build the "allowed X ago (YYYY-MM-DD)" suffix for entries with `addedAt`. */
 function formatAllowedSuffix(addedAt: string, now: Date): string {
   const relative = formatRelativeTime(addedAt, now);
+  if (relative.length === 0) return `  allowed (${addedAt})`;
   return `  allowed ${relative} (${addedAt})`;
 }
 
@@ -187,16 +178,7 @@ export function formatRelativeTime(fromIso: string, now: Date): string {
 
 /** Parse a YYYY-MM-DD (or full ISO) string into a UTC Date; return undefined if invalid. */
 function parseDateUtc(iso: string): Date | undefined {
-  // Allow both YYYY-MM-DD and full ISO strings.
-  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-  if (dateOnlyMatch !== null) {
-    const [, yearText, monthText, dayText] = dateOnlyMatch;
-    if (yearText === undefined || monthText === undefined || dayText === undefined) return undefined;
-    const year = Number(yearText);
-    const month = Number(monthText);
-    const day = Number(dayText);
-    return new Date(Date.UTC(year, month - 1, day));
-  }
+  // ECMAScript parses date-only ISO strings (YYYY-MM-DD) and full ISO strings as UTC.
   const parsed = new Date(iso);
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
@@ -219,13 +201,15 @@ function pluralize(count: number, unit: string): string {
 function formatDescriptionLines(description: string): string[] {
   const paragraphs = description.split(/\n\s*\n/);
   const lines: string[] = [];
-  paragraphs.forEach((paragraph, idx) => {
-    if (idx > 0) lines.push('');
+  let needsSeparator = false;
+  for (const paragraph of paragraphs) {
+    if (needsSeparator) lines.push('');
     const wrapped = wrapParagraph(paragraph.trim(), WRAP_COLUMNS);
     for (const wrappedLine of wrapped) {
       lines.push(`${DETAIL_INDENT}${wrappedLine}`);
     }
-  });
+    needsSeparator = true;
+  }
   return lines;
 }
 
@@ -249,17 +233,4 @@ function wrapParagraph(paragraph: string, columns: number): string[] {
   }
   if (current !== '') lines.push(current);
   return lines;
-}
-
-// ---------------------------------------------------------------------------
-// JSON formatter
-// ---------------------------------------------------------------------------
-
-/** Format the verbose check result as a JSON string with full advisory detail. */
-export function formatCheckVerboseJson(result: CheckResult, scopes: AuditScope[]): string {
-  const output: Record<string, ScopeCheckResult> = {};
-  for (const scope of scopes) {
-    output[scope] = result[scope];
-  }
-  return JSON.stringify(output, null, 2) + '\n';
 }

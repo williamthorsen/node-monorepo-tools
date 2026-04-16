@@ -3,7 +3,7 @@ import process from 'node:process';
 import { loadConfig } from './config.ts';
 import type { AllowedVuln, CheckResult, ScopeCheckResult } from './format-check.ts';
 import { formatCheckJson, formatCheckText } from './format-check.ts';
-import { formatCheckVerboseJson, formatCheckVerboseText } from './format-verbose.ts';
+import { formatCheckVerboseText } from './format-verbose.ts';
 import { generateAuditCiConfig } from './generate.ts';
 import { parseAuditCiOutput, runAudit, runReport } from './run-audit.ts';
 import { syncAllowlist } from './sync.ts';
@@ -26,7 +26,7 @@ export async function auditCommand(options: CommandOptions): Promise<number> {
 
   const { scopes, generatedPaths } = loaded;
   let exitCode = 0;
-  const allResults: Array<{ id: string; path: string; url: string }> = [];
+  const allResults: AuditResult[] = [];
 
   for (const scope of scopes) {
     const configPath = generatedPaths.get(scope);
@@ -148,9 +148,7 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
     checkResult[scope] = scopeResult;
   }
 
-  if (options.verbose && options.json) {
-    process.stdout.write(formatCheckVerboseJson(checkResult, scopes));
-  } else if (options.verbose) {
+  if (options.verbose && !options.json) {
     process.stdout.write(formatCheckVerboseText(checkResult, scopes));
   } else if (options.json) {
     process.stdout.write(formatCheckJson(checkResult, scopes));
