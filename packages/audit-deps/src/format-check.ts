@@ -1,4 +1,5 @@
-import type { AuditResult } from './types.ts';
+import { formatActionHints } from './format-actions.ts';
+import type { AuditResult, AuditScope } from './types.ts';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -6,9 +7,15 @@ import type { AuditResult } from './types.ts';
 
 /** Classification of an allowlist entry relative to current audit findings. */
 export interface AllowedVuln {
+  addedAt?: string | undefined;
+  cvss?: { score?: number; vectorString?: string } | undefined;
+  description?: string | undefined;
   id: string;
   path: string;
+  paths: string[];
+  reason?: string | undefined;
   severity?: string | undefined;
+  title?: string | undefined;
   url: string;
 }
 
@@ -53,7 +60,7 @@ export function severityIndicator(severity: string | undefined): string {
 // ---------------------------------------------------------------------------
 
 /** Scope display metadata. */
-const SCOPE_HEADERS: Record<'dev' | 'prod', string> = {
+const SCOPE_HEADERS: Record<AuditScope, string> = {
   prod: '-- \u{1F4E6} prod --',
   dev: '-- \u{1F527} dev --',
 };
@@ -70,7 +77,7 @@ function formatVulnLine(
 }
 
 /** Format a single scope's check results as text lines. */
-function formatScopeText(scope: 'dev' | 'prod', result: ScopeCheckResult): string {
+function formatScopeText(scope: AuditScope, result: ScopeCheckResult): string {
   const lines: string[] = [SCOPE_HEADERS[scope]];
 
   const hasFindings = result.unallowed.length > 0 || result.allowed.length > 0 || result.stale.length > 0;
@@ -89,21 +96,21 @@ function formatScopeText(scope: 'dev' | 'prod', result: ScopeCheckResult): strin
   }
 
   for (const entry of result.stale) {
-    lines.push(`  ${entry.id} \u{1F5D1}\u{FE0F} not needed`);
+    lines.push(`  \u{1F5D1}\u{FE0F} ${entry.id}  not needed`);
   }
 
   return lines.join('\n');
 }
 
 /** Format check results as human-readable text output. */
-export function formatCheckText(result: CheckResult, scopes: Array<'dev' | 'prod'>): string {
+export function formatCheckText(result: CheckResult, scopes: AuditScope[]): string {
   const sections: string[] = [];
 
   for (const scope of scopes) {
     sections.push(formatScopeText(scope, result[scope]));
   }
 
-  return sections.join('\n\n') + '\n';
+  return sections.join('\n\n') + '\n' + formatActionHints(result, scopes);
 }
 
 // ---------------------------------------------------------------------------
@@ -111,7 +118,7 @@ export function formatCheckText(result: CheckResult, scopes: Array<'dev' | 'prod
 // ---------------------------------------------------------------------------
 
 /** Format check results as a JSON string. */
-export function formatCheckJson(result: CheckResult, scopes: Array<'dev' | 'prod'>): string {
+export function formatCheckJson(result: CheckResult, scopes: AuditScope[]): string {
   const output: Record<string, ScopeCheckResult> = {};
   for (const scope of scopes) {
     output[scope] = result[scope];

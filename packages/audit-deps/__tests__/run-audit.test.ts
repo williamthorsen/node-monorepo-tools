@@ -30,6 +30,7 @@ describe(parseAuditCiOutput, () => {
     expect(results[0]).toEqual({
       id: '1234',
       path: 'lodash>underscore',
+      paths: ['lodash>underscore'],
       url: 'https://github.com/advisories/GHSA-1234',
     });
   });
@@ -70,6 +71,7 @@ describe(parseAuditCiOutput, () => {
     expect(results[0]).toEqual({
       id: 'GHSA-23c5-xmqv-rm74',
       path: 'some-pkg>dep',
+      paths: ['some-pkg>dep'],
       url: 'https://github.com/advisories/GHSA-23c5-xmqv-rm74',
     });
   });
@@ -110,6 +112,7 @@ describe(parseAuditCiOutput, () => {
     expect(results[0]).toEqual({
       id: '1234',
       path: 'lodash>underscore',
+      paths: ['lodash>underscore'],
       severity: 'high',
       url: 'https://github.com/advisories/GHSA-1234',
     });
@@ -145,6 +148,63 @@ describe(parseAuditCiOutput, () => {
 
     const { results } = parseAuditCiOutput(json);
     expect(results[0]?.path).toBe('some-pkg');
+    expect(results[0]?.paths).toEqual([]);
+  });
+
+  it('collects all paths from multiple findings, deduplicated in insertion order', () => {
+    const json = JSON.stringify({
+      advisories: {
+        '1234': {
+          id: 1234,
+          module_name: 'lodash',
+          url: 'https://github.com/advisories/GHSA-1234',
+          findings: [{ paths: ['a>b>lodash', 'c>lodash'] }, { paths: ['c>lodash', 'd>lodash'] }],
+        },
+      },
+    });
+
+    const { results } = parseAuditCiOutput(json);
+    expect(results[0]?.paths).toEqual(['a>b>lodash', 'c>lodash', 'd>lodash']);
+    expect(results[0]?.path).toBe('a>b>lodash');
+  });
+
+  it('surfaces title, overview as description, and cvss when present in advisory', () => {
+    const json = JSON.stringify({
+      advisories: {
+        '1234': {
+          id: 1234,
+          module_name: 'lodash',
+          title: 'Prototype pollution in lodash',
+          overview: 'Detailed description of the vulnerability.',
+          cvss: { score: 7.5, vectorString: 'CVSS:3.1/AV:N' },
+          url: 'https://github.com/advisories/GHSA-1234',
+          findings: [{ paths: ['lodash'] }],
+        },
+      },
+    });
+
+    const { results } = parseAuditCiOutput(json);
+    expect(results[0]?.title).toBe('Prototype pollution in lodash');
+    expect(results[0]?.description).toBe('Detailed description of the vulnerability.');
+    expect(results[0]?.cvss).toEqual({ score: 7.5, vectorString: 'CVSS:3.1/AV:N' });
+  });
+
+  it('omits title, description, and cvss when advisory does not include them', () => {
+    const json = JSON.stringify({
+      advisories: {
+        '1234': {
+          id: 1234,
+          module_name: 'lodash',
+          url: 'https://github.com/advisories/GHSA-1234',
+          findings: [{ paths: ['lodash'] }],
+        },
+      },
+    });
+
+    const { results } = parseAuditCiOutput(json);
+    expect(results[0]).not.toHaveProperty('title');
+    expect(results[0]).not.toHaveProperty('description');
+    expect(results[0]).not.toHaveProperty('cvss');
   });
 });
 
@@ -250,6 +310,26 @@ describe(runReport, () => {
     mockSpawnSync.mockReturnValue({ status: null, stdout: '', stderr: '', error: new Error('ENOENT') });
 
     expect(() => runReport({ configPath: '/cfg.json' })).toThrow('Failed to launch audit-ci');
+  });
+
+  it('appends --report-type full when reportType is "full"', () => {
+    mockSpawnSync.mockReturnValue({ status: 0, stdout: '{}', stderr: '', error: null });
+
+    runReport({ configPath: '/cfg.json', reportType: 'full' });
+
+    const args: string[] = mockSpawnSync.mock.calls[0][1];
+    expect(args).toEqual(
+      expect.arrayContaining(['--config', '/cfg.json', '--output-format', 'json', '--report-type', 'full']),
+    );
+  });
+
+  it('omits --report-type when reportType is not specified', () => {
+    mockSpawnSync.mockReturnValue({ status: 0, stdout: '{}', stderr: '', error: null });
+
+    runReport({ configPath: '/cfg.json' });
+
+    const args: string[] = mockSpawnSync.mock.calls[0][1];
+    expect(args).not.toContain('--report-type');
   });
 });
 

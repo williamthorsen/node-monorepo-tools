@@ -73,7 +73,9 @@ describe(formatCheckText, () => {
       prod: {
         allowed: [],
         stale: [],
-        unallowed: [{ id: 'GHSA-1', path: 'lodash', severity: 'high', url: 'https://example.com/1' }],
+        unallowed: [
+          { id: 'GHSA-1', path: 'lodash', paths: ['lodash'], severity: 'high', url: 'https://example.com/1' },
+        ],
       },
     });
 
@@ -85,7 +87,9 @@ describe(formatCheckText, () => {
   it('annotates allowed vulnerabilities', () => {
     const result = makeCheckResult({
       dev: {
-        allowed: [{ id: 'GHSA-2', path: 'express', severity: 'moderate', url: 'https://example.com/2' }],
+        allowed: [
+          { id: 'GHSA-2', path: 'express', paths: ['express'], severity: 'moderate', url: 'https://example.com/2' },
+        ],
         stale: [],
         unallowed: [],
       },
@@ -95,7 +99,7 @@ describe(formatCheckText, () => {
     expect(output).toContain('\u{1F7E0} GHSA-2: express (https://example.com/2) \u{1F6AB} allowed');
   });
 
-  it('flags stale entries', () => {
+  it('flags stale entries with emoji-first ordering', () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
@@ -105,15 +109,19 @@ describe(formatCheckText, () => {
     });
 
     const output = formatCheckText(result, ['prod']);
-    expect(output).toContain('GHSA-old \u{1F5D1}\u{FE0F} not needed');
+    expect(output).toContain('  \u{1F5D1}\u{FE0F} GHSA-old  not needed');
   });
 
   it('renders mixed findings in a single scope', () => {
     const result = makeCheckResult({
       prod: {
-        allowed: [{ id: 'GHSA-ok', path: 'safe-pkg', severity: 'low', url: 'https://example.com/ok' }],
+        allowed: [
+          { id: 'GHSA-ok', path: 'safe-pkg', paths: ['safe-pkg'], severity: 'low', url: 'https://example.com/ok' },
+        ],
         stale: [{ id: 'GHSA-stale' }],
-        unallowed: [{ id: 'GHSA-bad', path: 'bad-pkg', severity: 'critical', url: 'https://example.com/bad' }],
+        unallowed: [
+          { id: 'GHSA-bad', path: 'bad-pkg', paths: ['bad-pkg'], severity: 'critical', url: 'https://example.com/bad' },
+        ],
       },
     });
 
@@ -128,12 +136,12 @@ describe(formatCheckText, () => {
       dev: {
         allowed: [],
         stale: [],
-        unallowed: [{ id: 'GHSA-dev', path: 'pkg', url: 'https://example.com/dev' }],
+        unallowed: [{ id: 'GHSA-dev', path: 'pkg', paths: ['pkg'], url: 'https://example.com/dev' }],
       },
       prod: {
         allowed: [],
         stale: [],
-        unallowed: [{ id: 'GHSA-prod', path: 'pkg', url: 'https://example.com/prod' }],
+        unallowed: [{ id: 'GHSA-prod', path: 'pkg', paths: ['pkg'], url: 'https://example.com/prod' }],
       },
     });
 
@@ -147,12 +155,61 @@ describe(formatCheckText, () => {
       prod: {
         allowed: [],
         stale: [],
-        unallowed: [{ id: 'GHSA-1', path: 'pkg', url: 'https://example.com/1' }],
+        unallowed: [{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], url: 'https://example.com/1' }],
       },
     });
 
     const output = formatCheckText(result, ['prod']);
     expect(output).toContain('  GHSA-1: pkg (https://example.com/1)');
+  });
+
+  it('appends an Actions footer with the add-only hint when only unallowed vulnerabilities exist', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [],
+        stale: [],
+        unallowed: [{ id: 'GHSA-bad', path: 'pkg', paths: ['pkg'], url: 'https://example.com/bad' }],
+      },
+    });
+
+    const output = formatCheckText(result, ['prod']);
+    expect(output).toContain('Actions:');
+    expect(output).toContain('Run `audit-deps sync` to add vulnerabilities to the allowlist.');
+    expect(output).not.toContain('and remove stale entries');
+  });
+
+  it('appends an Actions footer with the remove-only hint when only stale entries exist', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [],
+        stale: [{ id: 'GHSA-stale' }],
+        unallowed: [],
+      },
+    });
+
+    const output = formatCheckText(result, ['prod']);
+    expect(output).toContain('Actions:');
+    expect(output).toContain('Run `audit-deps sync` to remove stale allowlist entries.');
+  });
+
+  it('appends an Actions footer combining both hints when unallowed and stale both exist', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [],
+        stale: [{ id: 'GHSA-stale' }],
+        unallowed: [{ id: 'GHSA-bad', path: 'pkg', paths: ['pkg'], url: 'https://example.com/bad' }],
+      },
+    });
+
+    const output = formatCheckText(result, ['prod']);
+    expect(output).toContain('Actions:');
+    expect(output).toContain('add vulnerabilities to the allowlist and remove stale entries');
+  });
+
+  it('omits the Actions footer when the allowlist is fully current', () => {
+    const result = makeCheckResult();
+    const output = formatCheckText(result, ['prod', 'dev']);
+    expect(output).not.toContain('Actions:');
   });
 });
 
@@ -164,7 +221,7 @@ describe(formatCheckJson, () => {
   it('produces parseable JSON with requested scopes', () => {
     const result = makeCheckResult({
       prod: {
-        allowed: [{ id: 'GHSA-1', path: 'pkg', severity: 'high', url: 'https://example.com/1' }],
+        allowed: [{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], severity: 'high', url: 'https://example.com/1' }],
         stale: [{ id: 'GHSA-old' }],
         unallowed: [],
       },
@@ -173,11 +230,52 @@ describe(formatCheckJson, () => {
     const parsed: unknown = JSON.parse(formatCheckJson(result, ['prod']));
     expect(parsed).toEqual({
       prod: {
-        allowed: [{ id: 'GHSA-1', path: 'pkg', severity: 'high', url: 'https://example.com/1' }],
+        allowed: [{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], severity: 'high', url: 'https://example.com/1' }],
         stale: [{ id: 'GHSA-old' }],
         unallowed: [],
       },
     });
+  });
+
+  it('includes new advisory fields and allowlist fields on allowed entries in JSON', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [
+          {
+            addedAt: '2026-04-01',
+            cvss: { score: 7.5 },
+            description: 'Detailed description',
+            id: 'GHSA-allowed',
+            path: 'pkg',
+            paths: ['pkg', 'other-pkg>pkg'],
+            reason: 'Accepted risk',
+            severity: 'high',
+            title: 'Prototype pollution',
+            url: 'https://example.com/allowed',
+          },
+        ],
+        stale: [],
+        unallowed: [],
+      },
+    });
+
+    const parsed: unknown = JSON.parse(formatCheckJson(result, ['prod']));
+    expect(parsed).toEqual(
+      expect.objectContaining({
+        prod: expect.objectContaining({
+          allowed: [
+            expect.objectContaining({
+              addedAt: '2026-04-01',
+              cvss: { score: 7.5 },
+              description: 'Detailed description',
+              paths: ['pkg', 'other-pkg>pkg'],
+              reason: 'Accepted risk',
+              title: 'Prototype pollution',
+            }),
+          ],
+        }),
+      }),
+    );
   });
 
   it('includes only requested scopes', () => {

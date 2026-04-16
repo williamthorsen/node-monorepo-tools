@@ -121,6 +121,43 @@ describe(routeCommand, () => {
     expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ configPath: '/custom/audit.json' }));
   });
 
+  it('forwards --verbose flag to checkCommand', async () => {
+    await routeCommand(['--verbose']);
+    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ verbose: true }));
+  });
+
+  it('forwards -v short flag to checkCommand', async () => {
+    await routeCommand(['-v']);
+    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ verbose: true }));
+  });
+
+  it('defaults verbose to false when the flag is not provided', async () => {
+    await routeCommand([]);
+    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ verbose: false }));
+  });
+
+  it('composes --verbose with --json', async () => {
+    await routeCommand(['--verbose', '--json']);
+    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ json: true, verbose: true }));
+  });
+
+  it('composes --verbose with --dev', async () => {
+    await routeCommand(['--verbose', '--dev']);
+    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: ['dev'], verbose: true }));
+  });
+
+  it('composes --verbose with --prod', async () => {
+    await routeCommand(['--verbose', '--prod']);
+    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: ['prod'], verbose: true }));
+  });
+
+  it('composes --verbose with --config', async () => {
+    await routeCommand(['--verbose', '--config', '/custom/audit.json']);
+    expect(checkCommand).toHaveBeenCalledWith(
+      expect.objectContaining({ configPath: '/custom/audit.json', verbose: true }),
+    );
+  });
+
   it('forwards --dry-run flag to initCommand', async () => {
     await routeCommand(['init', '--dry-run']);
     expect(initCommand).toHaveBeenCalledWith({ dryRun: true, force: false });

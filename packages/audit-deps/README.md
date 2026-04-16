@@ -35,6 +35,7 @@ The source-of-truth config lives at `.config/audit-deps.config.json`:
     "moderate": true,
     "allowlist": [
       {
+        "addedAt": "2026-04-15",
         "id": "GHSA-1234-5678-abcd",
         "path": "lodash",
         "reason": "Accepted risk: no user input reaches this path",
@@ -54,7 +55,7 @@ The source-of-truth config lives at `.config/audit-deps.config.json`:
 - **`outDir`** (optional) — Directory for generated flat audit-ci config files, resolved relative to the config file's directory. Defaults to the config file's directory.
 - **`dev`** / **`prod`** — Scope-specific settings:
   - **`critical`**, **`high`**, **`moderate`**, **`low`** — Severity thresholds (pass to audit-ci).
-  - **`allowlist`** — Typed advisory entries with `id`, `path`, `url`, and optional `reason`.
+  - **`allowlist`** — Typed advisory entries with `id`, `path`, `url`, and optional `reason` and `addedAt`. `addedAt` is an ISO date (UTC, `YYYY-MM-DD`) populated automatically by `audit-deps sync` on new entries; existing entries retain whatever value they had.
 
 ## CLI reference
 
@@ -76,6 +77,7 @@ Other options:
   --config <path>      Path to config file (default: .config/audit-deps.config.json)
   --json               Output results as JSON
   --raw                Run raw audit-ci passthrough
+  --verbose, -v        Show detailed per-vulnerability output
   --help, -h           Show this help message
   --version, -V        Show version number
 ```

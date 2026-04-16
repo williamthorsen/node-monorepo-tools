@@ -1,12 +1,13 @@
 import process from 'node:process';
 
 import { loadConfig } from './config.ts';
-import type { CheckResult, ScopeCheckResult } from './format-check.ts';
+import type { AllowedVuln, CheckResult, ScopeCheckResult } from './format-check.ts';
 import { formatCheckJson, formatCheckText } from './format-check.ts';
+import { formatCheckVerboseText } from './format-verbose.ts';
 import { generateAuditCiConfig } from './generate.ts';
 import { parseAuditCiOutput, runAudit, runReport } from './run-audit.ts';
 import { syncAllowlist } from './sync.ts';
-import type { AuditDepsConfig, AuditScope, CommandOptions, ScopeConfig } from './types.ts';
+import type { AllowlistEntry, AuditDepsConfig, AuditResult, AuditScope, CommandOptions, ScopeConfig } from './types.ts';
 import { AUDIT_SCOPES } from './types.ts';
 
 /** Extract a displayable message from an unknown thrown value. */
@@ -25,7 +26,7 @@ export async function auditCommand(options: CommandOptions): Promise<number> {
 
   const { scopes, generatedPaths } = loaded;
   let exitCode = 0;
-  const allResults: Array<{ id: string; path: string; url: string }> = [];
+  const allResults: AuditResult[] = [];
 
   for (const scope of scopes) {
     const configPath = generatedPaths.get(scope);
@@ -111,7 +112,11 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
     const strippedScope = { ...scopeConfig, allowlist: [] };
     const strippedConfigPath = await generateScopeConfig(strippedScope, scope, configDir, config.outDir);
 
-    const report = runReport({ configPath: strippedConfigPath });
+    const reportOptions: { configPath: string; reportType?: 'full' } = { configPath: strippedConfigPath };
+    if (options.verbose) {
+      reportOptions.reportType = 'full';
+    }
+    const report = runReport(reportOptions);
     for (const warning of report.warnings) {
       process.stderr.write(`warning: ${warning}\n`);
     }
@@ -121,16 +126,13 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
 
     const allowedIds = new Set(scopeConfig.allowlist.map((entry) => entry.id));
     const foundIds = new Set(report.results.map((r) => r.id));
+    const allowlistById = new Map<string, AllowlistEntry>(scopeConfig.allowlist.map((entry) => [entry.id, entry]));
     const scopeResult: ScopeCheckResult = { allowed: [], stale: [], unallowed: [] };
 
     for (const result of report.results) {
       if (allowedIds.has(result.id)) {
-        scopeResult.allowed.push({
-          id: result.id,
-          path: result.path,
-          severity: result.severity,
-          url: result.url,
-        });
+        const entry = allowlistById.get(result.id);
+        scopeResult.allowed.push(buildAllowedVuln(result, entry));
       } else {
         scopeResult.unallowed.push(result);
       }
@@ -146,7 +148,9 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
     checkResult[scope] = scopeResult;
   }
 
-  if (options.json) {
+  if (options.verbose && !options.json) {
+    process.stdout.write(formatCheckVerboseText(checkResult, scopes));
+  } else if (options.json) {
     process.stdout.write(formatCheckJson(checkResult, scopes));
   } else {
     process.stdout.write(formatCheckText(checkResult, scopes));
@@ -226,6 +230,23 @@ export async function generateCommand(options: CommandOptions): Promise<number> 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/** Merge an `AuditResult` with an `AllowlistEntry` into an `AllowedVuln`, omitting absent optional fields. */
+function buildAllowedVuln(result: AuditResult, entry: AllowlistEntry | undefined): AllowedVuln {
+  const allowed: AllowedVuln = {
+    id: result.id,
+    path: result.path,
+    paths: result.paths,
+    url: result.url,
+  };
+  if (result.severity !== undefined) allowed.severity = result.severity;
+  if (result.title !== undefined) allowed.title = result.title;
+  if (result.description !== undefined) allowed.description = result.description;
+  if (result.cvss !== undefined) allowed.cvss = result.cvss;
+  if (entry?.reason !== undefined) allowed.reason = entry.reason;
+  if (entry?.addedAt !== undefined) allowed.addedAt = entry.addedAt;
+  return allowed;
+}
 
 /** Wrap `generateAuditCiConfig` with a scope-contextual error message. */
 async function generateScopeConfig(

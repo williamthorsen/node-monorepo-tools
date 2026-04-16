@@ -29,6 +29,7 @@ Other options:
   --config <path>      Path to config file (default: .config/audit-deps.config.json)
   --json               Output results as JSON
   --raw                Run raw audit-ci passthrough
+  --verbose, -v        Show detailed per-vulnerability output
   --help, -h           Show this help message
   --version, -V        Show version number
 `);
@@ -80,13 +81,14 @@ Other options:
 `);
 }
 
-/** Parse the shared flags (--dev, --prod, --config, --json) from argv. */
+/** Parse the shared flags (--dev, --prod, --config, --json, --verbose) from argv. */
 function parseSharedFlags(flags: string[]): CommandOptions {
   const flagSchema = {
     config: { long: '--config', type: 'string' as const },
     dev: { long: '--dev', type: 'boolean' as const },
     json: { long: '--json', type: 'boolean' as const, short: '-j' },
     prod: { long: '--prod', type: 'boolean' as const },
+    verbose: { long: '--verbose', type: 'boolean' as const, short: '-v' },
   };
 
   const { flags: parsed } = parseArgs(flags, flagSchema);
@@ -103,6 +105,7 @@ function parseSharedFlags(flags: string[]): CommandOptions {
     configPath: parsed.config,
     json: parsed.json,
     scopes,
+    verbose: parsed.verbose,
   };
 }
 
