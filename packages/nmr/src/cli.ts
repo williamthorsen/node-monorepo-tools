@@ -1,6 +1,7 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
+import path from 'node:path';
 import process from 'node:process';
 
 import { resolveContext } from './context.js';
@@ -146,15 +147,24 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  const packageName = path.basename(packageDir);
+
   if (resolved.command === '') {
     if (!parsed.quiet) {
-      console.info('Override script is defined but empty. Skipping.');
+      console.info(`⛔ ${packageName}: Override script is defined but empty. Skipping.`);
+    }
+    process.exit(0);
+  }
+
+  if (resolved.command === ':') {
+    if (!parsed.quiet) {
+      console.info(`⛔ ${packageName}: Override script is a no-op. Skipping.`);
     }
     process.exit(0);
   }
 
   if (resolved.source === 'package' && !parsed.quiet && registry[command] !== undefined) {
-    console.info(`Using override script: ${resolved.command}`);
+    console.info(`📦 ${packageName}: Using override script: ${resolved.command}`);
   }
 
   const substitutedCommand = applyDevBin(resolved.command, context.config.devBin, context.monorepoRoot);

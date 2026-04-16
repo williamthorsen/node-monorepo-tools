@@ -1,7 +1,9 @@
 import { execSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const MONOREPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
 const NMR_PACKAGE_DIR = path.resolve(MONOREPO_ROOT, 'packages', 'nmr');
@@ -71,6 +73,51 @@ describe('nmr CLI', () => {
     const { stdout, exitCode } = runNmr('postinstall');
     expect(exitCode).toBe(0);
     expect(stdout).not.toContain('Using override script');
+  });
+
+  describe('override script messages', () => {
+    let tempRoot: string;
+    let overridePkgDir: string;
+    let noopPkgDir: string;
+
+    beforeAll(() => {
+      tempRoot = mkdtempSync(path.join(tmpdir(), 'nmr-test-'));
+      writeFileSync(path.join(tempRoot, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n");
+
+      overridePkgDir = path.join(tempRoot, 'packages', 'test-override');
+      mkdirSync(overridePkgDir, { recursive: true });
+      writeFileSync(
+        path.join(overridePkgDir, 'package.json'),
+        JSON.stringify({ name: 'test-override', scripts: { build: 'echo ok' } }),
+      );
+
+      noopPkgDir = path.join(tempRoot, 'packages', 'test-noop');
+      mkdirSync(noopPkgDir, { recursive: true });
+      writeFileSync(
+        path.join(noopPkgDir, 'package.json'),
+        JSON.stringify({ name: 'test-noop', scripts: { build: ':' } }),
+      );
+    });
+
+    afterAll(() => {
+      rmSync(tempRoot, { recursive: true, force: true });
+    });
+
+    it('includes package name in override-script message', () => {
+      const { stdout } = runNmr('build', { cwd: overridePkgDir });
+      expect(stdout).toContain('📦 test-override: Using override script: echo ok');
+    });
+
+    it('logs no-op message for colon override', () => {
+      const { stdout, exitCode } = runNmr('build', { cwd: noopPkgDir });
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('⛔ test-noop: Override script is a no-op. Skipping.');
+    });
+
+    it('suppresses override-script message in quiet mode', () => {
+      const { stdout } = runNmr('--quiet build', { cwd: overridePkgDir });
+      expect(stdout).not.toContain('Using override script');
+    });
   });
 
   describe('NMR_RUN_IF_PRESENT', () => {
