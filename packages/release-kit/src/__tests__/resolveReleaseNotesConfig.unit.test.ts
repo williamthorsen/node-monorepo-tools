@@ -42,7 +42,7 @@ describe(resolveReleaseNotesConfig, () => {
 
     const result = await resolveReleaseNotesConfig();
 
-    expect(result).toEqual({
+    expect(result).toStrictEqual({
       releaseNotes: { ...DEFAULT_RELEASE_NOTES_CONFIG },
       changelogJsonOutputPath: DEFAULT_CHANGELOG_JSON_CONFIG.outputPath,
     });
@@ -55,7 +55,7 @@ describe(resolveReleaseNotesConfig, () => {
 
     const result = await resolveReleaseNotesConfig();
 
-    expect(result).toEqual({
+    expect(result).toStrictEqual({
       releaseNotes: { ...DEFAULT_RELEASE_NOTES_CONFIG },
       changelogJsonOutputPath: DEFAULT_CHANGELOG_JSON_CONFIG.outputPath,
     });
@@ -118,7 +118,7 @@ describe(resolveReleaseNotesConfig, () => {
 
     const result = await resolveReleaseNotesConfig();
 
-    expect(result).toEqual({
+    expect(result).toStrictEqual({
       releaseNotes: {
         ...DEFAULT_RELEASE_NOTES_CONFIG,
         shouldCreateGithubRelease: true,

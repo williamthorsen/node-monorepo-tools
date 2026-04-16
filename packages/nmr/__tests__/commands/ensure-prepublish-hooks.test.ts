@@ -108,7 +108,7 @@ describe('ensurePrepublishHooks', () => {
       ensurePrepublishHooks(tmpDir, { fix: true, dryRun: false });
 
       const written = readPackageJson(path.join(tmpDir, 'packages', 'lib-a'));
-      expect(written.scripts).toEqual({ prepublishOnly: 'npm run build' });
+      expect(written.scripts).toStrictEqual({ prepublishOnly: 'npm run build' });
     });
 
     it('uses custom command when provided', () => {

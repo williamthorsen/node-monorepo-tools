@@ -65,7 +65,7 @@ describe(loadConfig, () => {
     await writeFile(customPath, JSON.stringify(config), 'utf8');
 
     const result = await loadConfig(customPath, tempDir);
-    expect(result.config.dev.allowlist).toEqual([]);
+    expect(result.config.dev.allowlist).toStrictEqual([]);
     expect(result.configFilePath).toBe(customPath);
   });
 
@@ -80,7 +80,7 @@ describe(loadConfig, () => {
     await writeFile(path.join(configDir, 'audit-deps.config.json'), JSON.stringify(config), 'utf8');
 
     const result = await loadConfig(undefined, tempDir);
-    expect(result.config.dev.allowlist).toEqual([]);
-    expect(result.config.prod.allowlist).toEqual([]);
+    expect(result.config.dev.allowlist).toStrictEqual([]);
+    expect(result.config.prod.allowlist).toStrictEqual([]);
   });
 });

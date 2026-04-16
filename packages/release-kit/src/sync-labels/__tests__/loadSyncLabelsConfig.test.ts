@@ -96,7 +96,7 @@ describe(loadSyncLabelsConfig, () => {
 
     const result = await loadSyncLabelsConfig();
 
-    expect(result).toEqual({
+    expect(result).toStrictEqual({
       presets: ['common'],
       labels: [{ name: 'custom', color: 'ff0000', description: 'Custom label' }],
     });
@@ -112,7 +112,7 @@ describe(loadSyncLabelsConfig, () => {
 
     const result = await loadSyncLabelsConfig();
 
-    expect(result).toEqual({ presets: ['common'] });
+    expect(result).toStrictEqual({ presets: ['common'] });
   });
 
   it('returns valid config with no presets or labels', async () => {
@@ -121,6 +121,6 @@ describe(loadSyncLabelsConfig, () => {
 
     const result = await loadSyncLabelsConfig();
 
-    expect(result).toEqual({});
+    expect(result).toStrictEqual({});
   });
 });

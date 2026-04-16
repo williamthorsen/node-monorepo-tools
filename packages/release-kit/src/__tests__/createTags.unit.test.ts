@@ -43,7 +43,7 @@ describe(createTags, () => {
 
     const result = createTags({ dryRun: false, noGitChecks: false });
 
-    expect(result).toEqual([]);
+    expect(result).toStrictEqual([]);
     expect(mockExecFileSync).not.toHaveBeenCalled();
   });
 
@@ -52,7 +52,7 @@ describe(createTags, () => {
 
     const result = createTags({ dryRun: false, noGitChecks: false });
 
-    expect(result).toEqual([]);
+    expect(result).toStrictEqual([]);
   });
 
   it('creates annotated tags for each entry in the tags file', () => {
@@ -68,7 +68,7 @@ describe(createTags, () => {
       'release-kit-v2.1.0',
     ]);
     expect(mockExecFileSync).toHaveBeenCalledWith('git', ['tag', '-a', 'core-v1.3.0', '-m', 'core-v1.3.0']);
-    expect(result).toEqual(['release-kit-v2.1.0', 'core-v1.3.0']);
+    expect(result).toStrictEqual(['release-kit-v2.1.0', 'core-v1.3.0']);
   });
 
   it('prints the created tags heading in normal mode', () => {
@@ -89,7 +89,7 @@ describe(createTags, () => {
     expect(console.info).toHaveBeenCalledWith('🏷️ v1.0.0');
     expect(console.info).toHaveBeenCalledWith('🏷️ v2.0.0');
     expect(mockExecFileSync).not.toHaveBeenCalled();
-    expect(result).toEqual(['v1.0.0', 'v2.0.0']);
+    expect(result).toStrictEqual(['v1.0.0', 'v2.0.0']);
   });
 
   it('checks for a clean working tree when not in dry-run or noGitChecks mode', () => {
@@ -137,7 +137,7 @@ describe(createTags, () => {
 
     const result = createTags({ dryRun: false, noGitChecks: true });
 
-    expect(result).toEqual(['alpha-v1.0.0', 'beta-v2.0.0']);
+    expect(result).toStrictEqual(['alpha-v1.0.0', 'beta-v2.0.0']);
   });
 
   it('skips the dirty-tree check when the tags file is empty', () => {
@@ -148,7 +148,7 @@ describe(createTags, () => {
 
     const result = createTags({ dryRun: false, noGitChecks: false });
 
-    expect(result).toEqual([]);
+    expect(result).toStrictEqual([]);
     expect(mockExecFileSync).not.toHaveBeenCalled();
   });
 

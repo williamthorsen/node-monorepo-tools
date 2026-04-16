@@ -157,7 +157,7 @@ describe(buildScopeLabels, () => {
   it('generates scope labels from workspace paths', () => {
     const result = buildScopeLabels(['packages/core', 'packages/utils']);
 
-    expect(result).toEqual([
+    expect(result).toStrictEqual([
       { name: 'scope:root', color: '00ff96', description: 'Monorepo root configuration' },
       { name: 'scope:core', color: '00ff96', description: 'core package' },
       { name: 'scope:utils', color: '00ff96', description: 'utils package' },
@@ -167,13 +167,13 @@ describe(buildScopeLabels, () => {
   it('always includes scope:root', () => {
     const result = buildScopeLabels([]);
 
-    expect(result).toEqual([{ name: 'scope:root', color: '00ff96', description: 'Monorepo root configuration' }]);
+    expect(result).toStrictEqual([{ name: 'scope:root', color: '00ff96', description: 'Monorepo root configuration' }]);
   });
 
   it('extracts basename from nested paths', () => {
     const result = buildScopeLabels(['libs/shared/core']);
 
     expect(result).toHaveLength(2);
-    expect(result[1]).toEqual({ name: 'scope:core', color: '00ff96', description: 'core package' });
+    expect(result[1]).toStrictEqual({ name: 'scope:core', color: '00ff96', description: 'core package' });
   });
 });

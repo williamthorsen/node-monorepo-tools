@@ -18,7 +18,7 @@ describe(buildFlatConfig, () => {
     };
 
     const flat = buildFlatConfig(scopeConfig);
-    expect(flat.allowlist).toEqual(['GHSA-1234', 'GHSA-5678']);
+    expect(flat.allowlist).toStrictEqual(['GHSA-1234', 'GHSA-5678']);
     expect(flat.moderate).toBe(true);
     expect(flat['show-not-found']).toBe(true);
   });
@@ -26,7 +26,7 @@ describe(buildFlatConfig, () => {
   it('produces an empty allowlist when the source has no entries', () => {
     const scopeConfig: ScopeConfig = { allowlist: [], high: true };
     const flat = buildFlatConfig(scopeConfig);
-    expect(flat.allowlist).toEqual([]);
+    expect(flat.allowlist).toStrictEqual([]);
     expect(flat.high).toBe(true);
   });
 

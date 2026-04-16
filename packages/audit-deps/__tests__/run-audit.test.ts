@@ -27,7 +27,7 @@ describe(parseAuditCiOutput, () => {
 
     const { results } = parseAuditCiOutput(json);
     expect(results).toHaveLength(1);
-    expect(results[0]).toEqual({
+    expect(results[0]).toStrictEqual({
       id: '1234',
       path: 'lodash>underscore',
       paths: ['lodash>underscore'],
@@ -68,7 +68,7 @@ describe(parseAuditCiOutput, () => {
 
     const { results } = parseAuditCiOutput(json);
     expect(results).toHaveLength(1);
-    expect(results[0]).toEqual({
+    expect(results[0]).toStrictEqual({
       id: 'GHSA-23c5-xmqv-rm74',
       path: 'some-pkg>dep',
       paths: ['some-pkg>dep'],
@@ -78,20 +78,20 @@ describe(parseAuditCiOutput, () => {
 
   it('returns empty results and no warnings for invalid JSON when input is empty', () => {
     const { results, warnings } = parseAuditCiOutput('');
-    expect(results).toEqual([]);
-    expect(warnings).toEqual([]);
+    expect(results).toStrictEqual([]);
+    expect(warnings).toStrictEqual([]);
   });
 
   it('returns empty results with a warning for non-empty invalid JSON', () => {
     const { results, warnings } = parseAuditCiOutput('not json');
-    expect(results).toEqual([]);
+    expect(results).toStrictEqual([]);
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toMatch(/Failed to parse/);
   });
 
   it('returns empty results for JSON with no advisories', () => {
     const { results } = parseAuditCiOutput(JSON.stringify({}));
-    expect(results).toEqual([]);
+    expect(results).toStrictEqual([]);
   });
 
   it('extracts severity from advisory when present', () => {
@@ -109,7 +109,7 @@ describe(parseAuditCiOutput, () => {
 
     const { results } = parseAuditCiOutput(json);
     expect(results).toHaveLength(1);
-    expect(results[0]).toEqual({
+    expect(results[0]).toStrictEqual({
       id: '1234',
       path: 'lodash>underscore',
       paths: ['lodash>underscore'],
@@ -148,7 +148,7 @@ describe(parseAuditCiOutput, () => {
 
     const { results } = parseAuditCiOutput(json);
     expect(results[0]?.path).toBe('some-pkg');
-    expect(results[0]?.paths).toEqual([]);
+    expect(results[0]?.paths).toStrictEqual([]);
   });
 
   it('collects all paths from multiple findings, deduplicated in insertion order', () => {
@@ -164,7 +164,7 @@ describe(parseAuditCiOutput, () => {
     });
 
     const { results } = parseAuditCiOutput(json);
-    expect(results[0]?.paths).toEqual(['a>b>lodash', 'c>lodash', 'd>lodash']);
+    expect(results[0]?.paths).toStrictEqual(['a>b>lodash', 'c>lodash', 'd>lodash']);
     expect(results[0]?.path).toBe('a>b>lodash');
   });
 
@@ -186,7 +186,7 @@ describe(parseAuditCiOutput, () => {
     const { results } = parseAuditCiOutput(json);
     expect(results[0]?.title).toBe('Prototype pollution in lodash');
     expect(results[0]?.description).toBe('Detailed description of the vulnerability.');
-    expect(results[0]?.cvss).toEqual({ score: 7.5, vectorString: 'CVSS:3.1/AV:N' });
+    expect(results[0]?.cvss).toStrictEqual({ score: 7.5, vectorString: 'CVSS:3.1/AV:N' });
   });
 
   it('omits title, description, and cvss when advisory does not include them', () => {
@@ -214,22 +214,22 @@ describe(extractStaleEntries, () => {
       allowlistedAdvisoriesNotFound: ['GHSA-old1', 'GHSA-old2'],
     });
 
-    expect(extractStaleEntries(json).entries).toEqual(['GHSA-old1', 'GHSA-old2']);
+    expect(extractStaleEntries(json).entries).toStrictEqual(['GHSA-old1', 'GHSA-old2']);
   });
 
   it('returns empty entries when no stale entries exist', () => {
-    expect(extractStaleEntries(JSON.stringify({})).entries).toEqual([]);
+    expect(extractStaleEntries(JSON.stringify({})).entries).toStrictEqual([]);
   });
 
   it('returns empty entries and no warnings for empty input', () => {
     const { entries, warnings } = extractStaleEntries('');
-    expect(entries).toEqual([]);
-    expect(warnings).toEqual([]);
+    expect(entries).toStrictEqual([]);
+    expect(warnings).toStrictEqual([]);
   });
 
   it('returns empty entries with a warning for non-empty invalid JSON', () => {
     const { entries, warnings } = extractStaleEntries('not json');
-    expect(entries).toEqual([]);
+    expect(entries).toStrictEqual([]);
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toMatch(/Failed to parse/);
   });
@@ -318,7 +318,7 @@ describe(runReport, () => {
     runReport({ configPath: '/cfg.json', reportType: 'full' });
 
     const args: string[] = mockSpawnSync.mock.calls[0][1];
-    expect(args).toEqual(
+    expect(args).toStrictEqual(
       expect.arrayContaining(['--config', '/cfg.json', '--output-format', 'json', '--report-type', 'full']),
     );
   });

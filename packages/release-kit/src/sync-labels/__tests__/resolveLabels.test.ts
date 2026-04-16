@@ -22,7 +22,7 @@ describe(resolveLabels, () => {
   it('returns an empty array when config has no presets and no custom labels', () => {
     const config: SyncLabelsConfig = {};
     const result = resolveLabels(config);
-    expect(result).toEqual([]);
+    expect(result).toStrictEqual([]);
   });
 
   it('loads preset labels and returns them sorted alphabetically', () => {
@@ -32,7 +32,7 @@ describe(resolveLabels, () => {
     const result = resolveLabels(config);
 
     expect(mockLoadPreset).toHaveBeenCalledWith('common');
-    expect(result).toEqual([bugLabel, featureLabel]);
+    expect(result).toStrictEqual([bugLabel, featureLabel]);
   });
 
   it('merges preset and custom labels sorted alphabetically', () => {
@@ -44,7 +44,7 @@ describe(resolveLabels, () => {
     };
     const result = resolveLabels(config);
 
-    expect(result).toEqual([docsLabel, featureLabel]);
+    expect(result).toStrictEqual([docsLabel, featureLabel]);
   });
 
   it('returns only custom labels when no presets are specified', () => {
@@ -53,7 +53,7 @@ describe(resolveLabels, () => {
     };
     const result = resolveLabels(config);
 
-    expect(result).toEqual([bugLabel, featureLabel]);
+    expect(result).toStrictEqual([bugLabel, featureLabel]);
   });
 
   it('loads multiple presets in order', () => {
@@ -68,7 +68,7 @@ describe(resolveLabels, () => {
 
     expect(mockLoadPreset).toHaveBeenCalledWith('common');
     expect(mockLoadPreset).toHaveBeenCalledWith('extra');
-    expect(result).toEqual([bugLabel, docsLabel]);
+    expect(result).toStrictEqual([bugLabel, docsLabel]);
   });
 
   it('throws when a custom label name collides with a preset label name', () => {
@@ -107,6 +107,6 @@ describe(resolveLabels, () => {
     const result1 = resolveLabels(config);
     const result2 = resolveLabels(config);
 
-    expect(result1).toEqual(result2);
+    expect(result1).toStrictEqual(result2);
   });
 });

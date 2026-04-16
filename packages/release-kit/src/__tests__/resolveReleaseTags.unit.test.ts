@@ -21,19 +21,19 @@ describe(resolveReleaseTags, () => {
   it('returns an empty array when no tags point at HEAD', () => {
     mockExecFileSync.mockReturnValue('');
 
-    expect(resolveReleaseTags()).toEqual([]);
+    expect(resolveReleaseTags()).toStrictEqual([]);
   });
 
   it('resolves a single-package tag', () => {
     mockExecFileSync.mockReturnValue('v1.2.3\n');
 
-    expect(resolveReleaseTags()).toEqual([{ tag: 'v1.2.3', dir: '.', workspacePath: '.' }]);
+    expect(resolveReleaseTags()).toStrictEqual([{ tag: 'v1.2.3', dir: '.', workspacePath: '.' }]);
   });
 
   it('ignores unrecognized tags in single-package mode', () => {
     mockExecFileSync.mockReturnValue('v1.2.3\nsome-other-tag\nrelease-candidate\n');
 
-    expect(resolveReleaseTags()).toEqual([{ tag: 'v1.2.3', dir: '.', workspacePath: '.' }]);
+    expect(resolveReleaseTags()).toStrictEqual([{ tag: 'v1.2.3', dir: '.', workspacePath: '.' }]);
   });
 
   it('resolves monorepo tags against the workspace map', () => {
@@ -43,7 +43,7 @@ describe(resolveReleaseTags, () => {
       ['release-kit', 'packages/release-kit'],
     ]);
 
-    expect(resolveReleaseTags(workspaceMap)).toEqual([
+    expect(resolveReleaseTags(workspaceMap)).toStrictEqual([
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
       { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit' },
     ]);
@@ -53,7 +53,7 @@ describe(resolveReleaseTags, () => {
     mockExecFileSync.mockReturnValue('unknown-v1.0.0\ncore-v1.3.0\n');
     const workspaceMap = new Map([['core', 'packages/core']]);
 
-    expect(resolveReleaseTags(workspaceMap)).toEqual([
+    expect(resolveReleaseTags(workspaceMap)).toStrictEqual([
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
     ]);
   });
@@ -62,7 +62,7 @@ describe(resolveReleaseTags, () => {
     mockExecFileSync.mockReturnValue('core-v1.3.0\nsome-random-tag\n');
     const workspaceMap = new Map([['core', 'packages/core']]);
 
-    expect(resolveReleaseTags(workspaceMap)).toEqual([
+    expect(resolveReleaseTags(workspaceMap)).toStrictEqual([
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
     ]);
   });
@@ -71,7 +71,7 @@ describe(resolveReleaseTags, () => {
     mockExecFileSync.mockReturnValue('my-cool-lib-v3.0.0\n');
     const workspaceMap = new Map([['my-cool-lib', 'packages/my-cool-lib']]);
 
-    expect(resolveReleaseTags(workspaceMap)).toEqual([
+    expect(resolveReleaseTags(workspaceMap)).toStrictEqual([
       { tag: 'my-cool-lib-v3.0.0', dir: 'my-cool-lib', workspacePath: 'packages/my-cool-lib' },
     ]);
   });
@@ -80,7 +80,7 @@ describe(resolveReleaseTags, () => {
     mockExecFileSync.mockReturnValue('unrelated-tag\n');
     const workspaceMap = new Map([['core', 'packages/core']]);
 
-    expect(resolveReleaseTags(workspaceMap)).toEqual([]);
+    expect(resolveReleaseTags(workspaceMap)).toStrictEqual([]);
   });
 
   it('warns and returns only the first tag when multiple single-package version tags exist', () => {
@@ -88,7 +88,7 @@ describe(resolveReleaseTags, () => {
 
     const result = resolveReleaseTags();
 
-    expect(result).toEqual([{ tag: 'v1.0.0', dir: '.', workspacePath: '.' }]);
+    expect(result).toStrictEqual([{ tag: 'v1.0.0', dir: '.', workspacePath: '.' }]);
     expect(console.warn).toHaveBeenCalledWith(
       expect.stringContaining('Multiple version tags found on HEAD: v1.0.0, v1.1.0'),
     );

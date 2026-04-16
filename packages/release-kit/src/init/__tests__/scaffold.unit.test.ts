@@ -42,8 +42,8 @@ describe('scaffold', () => {
       });
 
       expect(results).toHaveLength(2);
-      expect(results[0]).toEqual({ filePath: '.github/workflows/release.yaml', outcome: 'created' });
-      expect(results[1]).toEqual({ filePath: '.github/workflows/publish.yaml', outcome: 'created' });
+      expect(results[0]).toStrictEqual({ filePath: '.github/workflows/release.yaml', outcome: 'created' });
+      expect(results[1]).toStrictEqual({ filePath: '.github/workflows/publish.yaml', outcome: 'created' });
       expect(mockWriteFileWithCheck).toHaveBeenCalledTimes(2);
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.github/workflows/release.yaml', expect.any(String), {
         dryRun: false,
@@ -88,8 +88,8 @@ describe('scaffold', () => {
       });
 
       expect(results).toHaveLength(2);
-      expect(results[0]).toEqual({ filePath: '.github/workflows/release.yaml', outcome: 'skipped' });
-      expect(results[1]).toEqual({ filePath: '.github/workflows/publish.yaml', outcome: 'skipped' });
+      expect(results[0]).toStrictEqual({ filePath: '.github/workflows/release.yaml', outcome: 'skipped' });
+      expect(results[1]).toStrictEqual({ filePath: '.github/workflows/publish.yaml', outcome: 'skipped' });
     });
 
     it('passes overwrite option to writeFileWithCheck', () => {
@@ -139,7 +139,7 @@ describe('scaffold', () => {
 
       const result = copyCliffTemplate(false, false);
 
-      expect(result).toEqual({
+      expect(result).toStrictEqual({
         filePath: '.config/git-cliff.toml',
         outcome: 'failed',
         error: expect.stringContaining('Could not find bundled template at'),
@@ -159,7 +159,7 @@ describe('scaffold', () => {
         '[changelog]\nbody = "template content"',
         { dryRun: false, overwrite: false },
       );
-      expect(result).toEqual({ filePath: '.config/git-cliff.toml', outcome: 'created' });
+      expect(result).toStrictEqual({ filePath: '.config/git-cliff.toml', outcome: 'created' });
     });
 
     it('returns failed with error when readFileSync throws for the template', () => {
@@ -170,7 +170,7 @@ describe('scaffold', () => {
 
       const result = copyCliffTemplate(false, false);
 
-      expect(result).toEqual({
+      expect(result).toStrictEqual({
         filePath: '.config/git-cliff.toml',
         outcome: 'failed',
         error: expect.stringContaining('EACCES: permission denied'),

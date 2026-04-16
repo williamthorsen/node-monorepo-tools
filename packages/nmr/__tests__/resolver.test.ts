@@ -96,7 +96,7 @@ describe('buildWorkspaceRegistry', () => {
     );
 
     expect(registry['copy-content']).toBe('tsx scripts/copy-content.ts');
-    expect(registry.build).toEqual(['compile', 'generate-typings']);
+    expect(registry.build).toStrictEqual(['compile', 'generate-typings']);
   });
 
   it('allows config to override default scripts', () => {
@@ -113,7 +113,7 @@ describe('buildRootRegistry', () => {
     });
 
     expect(registry['demo:catwalk']).toBe('pnpx http-server --port=5189');
-    expect(registry.ci).toEqual(['build', 'check:strict', 'audit']);
+    expect(registry.ci).toStrictEqual(['build', 'check:strict', 'audit']);
   });
 });
 
@@ -132,14 +132,14 @@ describe('resolveScript', () => {
     const registry = { test: 'vitest' };
     const result = resolveScript('test', registry);
 
-    expect(result).toEqual({ command: 'vitest', source: 'default' });
+    expect(result).toStrictEqual({ command: 'vitest', source: 'default' });
   });
 
   it('expands array scripts from the registry', () => {
     const registry = { build: ['compile', 'generate-typings'] };
     const result = resolveScript('build', registry);
 
-    expect(result).toEqual({
+    expect(result).toStrictEqual({
       command: 'nmr compile && nmr generate-typings',
       source: 'default',
     });
@@ -159,7 +159,7 @@ describe('resolveScript', () => {
     const registry = { test: 'vitest' };
     const result = resolveScript('test', registry, tmpDir);
 
-    expect(result).toEqual({ command: 'jest', source: 'package' });
+    expect(result).toStrictEqual({ command: 'jest', source: 'package' });
   });
 
   it('skips execution when package.json override is empty string', () => {
@@ -168,7 +168,7 @@ describe('resolveScript', () => {
     const registry = { lint: 'eslint .' };
     const result = resolveScript('lint', registry, tmpDir);
 
-    expect(result).toEqual({ command: '', source: 'package' });
+    expect(result).toStrictEqual({ command: '', source: 'package' });
   });
 
   it('skips self-referential package.json override (exact match)', () => {
@@ -180,7 +180,7 @@ describe('resolveScript', () => {
     const registry = { build: ['compile', 'generate-typings'] };
     const result = resolveScript('build', registry, tmpDir);
 
-    expect(result).toEqual({
+    expect(result).toStrictEqual({
       command: 'nmr compile && nmr generate-typings',
       source: 'default',
     });
@@ -195,7 +195,7 @@ describe('resolveScript', () => {
     const registry = { build: ['compile', 'generate-typings'] };
     const result = resolveScript('build', registry, tmpDir);
 
-    expect(result).toEqual({
+    expect(result).toStrictEqual({
       command: 'nmr compile && nmr generate-typings',
       source: 'default',
     });
@@ -210,7 +210,7 @@ describe('resolveScript', () => {
     const registry = { build: ['compile', 'generate-typings'] };
     const result = resolveScript('build', registry, tmpDir);
 
-    expect(result).toEqual({ command: 'nmr compile', source: 'package' });
+    expect(result).toStrictEqual({ command: 'nmr compile', source: 'package' });
   });
 
   it('falls through to registry when package.json has no matching script', () => {
@@ -222,6 +222,6 @@ describe('resolveScript', () => {
     const registry = { test: 'vitest' };
     const result = resolveScript('test', registry, tmpDir);
 
-    expect(result).toEqual({ command: 'vitest', source: 'default' });
+    expect(result).toStrictEqual({ command: 'vitest', source: 'default' });
   });
 });

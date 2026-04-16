@@ -180,7 +180,7 @@ describe(auditCommand, () => {
     await auditCommand(makeOptions({ json: true, scopes: ['dev'] }));
 
     const parsed: unknown = JSON.parse(stdoutOutput);
-    expect(parsed).toEqual([{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], url: 'https://example.com/1' }]);
+    expect(parsed).toStrictEqual([{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], url: 'https://example.com/1' }]);
   });
 
   it('writes stderr when stdout is empty and stderr has content', async () => {
@@ -247,7 +247,7 @@ describe(auditCommand, () => {
     await auditCommand(makeOptions({ json: true }));
 
     const parsed: unknown = JSON.parse(stdoutOutput);
-    expect(parsed).toEqual(
+    expect(parsed).toStrictEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: 'GHSA-shared' }),
         expect.objectContaining({ id: 'GHSA-dev-only' }),
@@ -373,7 +373,7 @@ describe(checkCommand, () => {
     await checkCommand(makeOptions({ json: true, scopes: ['prod'] }));
 
     const parsed: unknown = JSON.parse(stdoutOutput);
-    expect(parsed).toEqual(
+    expect(parsed).toStrictEqual(
       expect.objectContaining({
         prod: expect.objectContaining({
           allowed: [
@@ -581,7 +581,7 @@ describe(checkCommand, () => {
     await checkCommand(makeOptions({ json: true, scopes: ['prod'], verbose: true }));
 
     const parsed: unknown = JSON.parse(stdoutOutput);
-    expect(parsed).toEqual(
+    expect(parsed).toStrictEqual(
       expect.objectContaining({
         prod: expect.objectContaining({
           allowed: [
@@ -663,7 +663,7 @@ describe(syncCommand, () => {
     await syncCommand(makeOptions({ json: true, scopes: ['dev'] }));
 
     const parsed: unknown = JSON.parse(stdoutOutput);
-    expect(parsed).toEqual(expect.objectContaining({ added: [], kept: [], removed: [] }));
+    expect(parsed).toStrictEqual(expect.objectContaining({ added: [], kept: [], removed: [] }));
   });
 
   it('wraps generateAuditCiConfig errors with scope context', async () => {

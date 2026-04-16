@@ -108,9 +108,9 @@ describe(computeSyncDiff, () => {
 
   it('returns empty arrays when both lists are empty', () => {
     const { added, kept, removed } = computeSyncDiff([], [], fixedDate);
-    expect(added).toEqual([]);
-    expect(kept).toEqual([]);
-    expect(removed).toEqual([]);
+    expect(added).toStrictEqual([]);
+    expect(kept).toStrictEqual([]);
+    expect(removed).toStrictEqual([]);
   });
 });
 
@@ -129,7 +129,7 @@ describe(buildUpdatedConfig, () => {
     const updated = buildUpdatedConfig(config, 'dev', entries);
     expect(updated.dev.allowlist[0]?.id).toBe('a-entry');
     expect(updated.dev.allowlist[1]?.id).toBe('z-entry');
-    expect(updated.prod.allowlist).toEqual([]);
+    expect(updated.prod.allowlist).toStrictEqual([]);
   });
 });
 
@@ -146,7 +146,7 @@ describe(serializeConfig, () => {
     // Re-parse through the typed loader to verify key order in raw JSON
     const devMatch = json.match(/"allowlist":\s*\[\s*\{([^}]+)\}/);
     const keyOrder = devMatch?.[1]?.match(/"(\w+)":/g)?.map((k) => k.replace(/"/g, '').replace(':', ''));
-    expect(keyOrder).toEqual(['addedAt', 'id', 'path', 'reason', 'url']);
+    expect(keyOrder).toStrictEqual(['addedAt', 'id', 'path', 'reason', 'url']);
   });
 
   it('omits addedAt when entry has no addedAt', () => {
@@ -160,7 +160,7 @@ describe(serializeConfig, () => {
     const json = serializeConfig(config);
     const devMatch = json.match(/"allowlist":\s*\[\s*\{([^}]+)\}/);
     const keyOrder = devMatch?.[1]?.match(/"(\w+)":/g)?.map((k) => k.replace(/"/g, '').replace(':', ''));
-    expect(keyOrder).toEqual(['id', 'path', 'reason', 'url']);
+    expect(keyOrder).toStrictEqual(['id', 'path', 'reason', 'url']);
     expect(json).not.toContain('"addedAt"');
   });
 
@@ -175,7 +175,7 @@ describe(serializeConfig, () => {
     const json = serializeConfig(config);
     const devMatch = json.match(/"allowlist":\s*\[\s*\{([^}]+)\}/);
     const keyOrder = devMatch?.[1]?.match(/"(\w+)":/g)?.map((k) => k.replace(/"/g, '').replace(':', ''));
-    expect(keyOrder).toEqual(['id', 'path', 'url']);
+    expect(keyOrder).toStrictEqual(['id', 'path', 'url']);
     expect(json).not.toContain('"reason"');
   });
 });

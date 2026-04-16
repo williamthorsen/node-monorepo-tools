@@ -228,7 +228,7 @@ describe(formatCheckJson, () => {
     });
 
     const parsed: unknown = JSON.parse(formatCheckJson(result, ['prod']));
-    expect(parsed).toEqual({
+    expect(parsed).toStrictEqual({
       prod: {
         allowed: [{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], severity: 'high', url: 'https://example.com/1' }],
         stale: [{ id: 'GHSA-old' }],
@@ -260,7 +260,7 @@ describe(formatCheckJson, () => {
     });
 
     const parsed: unknown = JSON.parse(formatCheckJson(result, ['prod']));
-    expect(parsed).toEqual(
+    expect(parsed).toStrictEqual(
       expect.objectContaining({
         prod: expect.objectContaining({
           allowed: [

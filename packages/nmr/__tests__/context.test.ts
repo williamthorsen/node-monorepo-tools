@@ -60,14 +60,14 @@ describe('getWorkspacePackageDirs', () => {
     it('resolves exact-path workspace patterns', () => {
       writeFileSync(path.join(tempRoot, 'pnpm-workspace.yaml'), 'packages:\n  - tools/cli\n');
       const dirs = getWorkspacePackageDirs(tempRoot);
-      expect(dirs).toEqual([path.join(tempRoot, 'tools', 'cli')]);
+      expect(dirs).toStrictEqual([path.join(tempRoot, 'tools', 'cli')]);
     });
 
     it('ignores exact-path patterns where the directory has no package.json', () => {
       mkdirSync(path.join(tempRoot, 'tools', 'empty'), { recursive: true });
       writeFileSync(path.join(tempRoot, 'pnpm-workspace.yaml'), 'packages:\n  - tools/empty\n');
       const dirs = getWorkspacePackageDirs(tempRoot);
-      expect(dirs).toEqual([]);
+      expect(dirs).toStrictEqual([]);
     });
   });
 });

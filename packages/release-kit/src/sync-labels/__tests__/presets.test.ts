@@ -63,7 +63,7 @@ describe(loadPreset, () => {
 
     const result = loadPreset('common');
 
-    expect(result).toEqual([
+    expect(result).toStrictEqual([
       { name: 'bug', color: 'd73a4a', description: "Something isn't working" },
       { name: 'feature', color: '0075ca', description: 'New feature' },
     ]);

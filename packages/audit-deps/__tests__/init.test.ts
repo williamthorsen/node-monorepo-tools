@@ -45,7 +45,7 @@ describe(scaffoldConfig, () => {
 
     // Existing file should be unchanged
     const content = readFileSync(configPath, 'utf8');
-    expect(JSON.parse(content)).toEqual({ existing: true });
+    expect(JSON.parse(content)).toStrictEqual({ existing: true });
   });
 
   it('overwrites existing file when force is true', () => {

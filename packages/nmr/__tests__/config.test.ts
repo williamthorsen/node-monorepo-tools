@@ -27,11 +27,11 @@ describe('defineConfig', () => {
       },
     });
 
-    expect(config.workspaceScripts?.build).toEqual(['compile', 'generate-typings']);
+    expect(config.workspaceScripts?.build).toStrictEqual(['compile', 'generate-typings']);
   });
 
   it('accepts an empty config', () => {
-    expect(defineConfig({})).toEqual({});
+    expect(defineConfig({})).toStrictEqual({});
   });
 
   it('accepts a config with devBin', () => {
@@ -41,7 +41,7 @@ describe('defineConfig', () => {
       },
     });
 
-    expect(config.devBin).toEqual({ 'my-cli': 'tsx packages/my-cli/src/cli.ts' });
+    expect(config.devBin).toStrictEqual({ 'my-cli': 'tsx packages/my-cli/src/cli.ts' });
   });
 });
 
@@ -58,12 +58,12 @@ describe('loadConfig', () => {
 
   it('returns empty config when config file does not exist', async () => {
     const config = await loadConfig(tmpDir);
-    expect(config).toEqual({});
+    expect(config).toStrictEqual({});
   });
 
   it('returns empty config for a non-existent directory', async () => {
     const config = await loadConfig('/tmp/nonexistent-monorepo-root');
-    expect(config).toEqual({});
+    expect(config).toStrictEqual({});
   });
 
   it('loads a config with a valid devBin mapping', async () => {
@@ -75,7 +75,7 @@ describe('loadConfig', () => {
     );
 
     const config = await loadConfig(tmpDir);
-    expect(config.devBin).toEqual({ 'my-cli': 'tsx packages/my-cli/src/cli.ts' });
+    expect(config.devBin).toStrictEqual({ 'my-cli': 'tsx packages/my-cli/src/cli.ts' });
   });
 
   it('throws when devBin contains a non-string value', async () => {
@@ -96,6 +96,6 @@ describe('loadConfig', () => {
 
     const config = await loadConfig(tmpDir);
     expect(config.devBin).toBeUndefined();
-    expect(config.workspaceScripts).toEqual({ hello: 'echo hello' });
+    expect(config.workspaceScripts).toStrictEqual({ hello: 'echo hello' });
   });
 });

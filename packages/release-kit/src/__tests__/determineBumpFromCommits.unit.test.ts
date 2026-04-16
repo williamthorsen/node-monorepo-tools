@@ -53,7 +53,7 @@ describe(determineBumpFromCommits, () => {
       expect(result.releaseType).toBe('patch');
       expect(result.parsedCommitCount).toBe(0);
       expect(result.unparseableCommits).toHaveLength(2);
-      expect(result.unparseableCommits).toEqual([
+      expect(result.unparseableCommits).toStrictEqual([
         { message: 'random noise', hash: 'aaa1111' },
         { message: 'also unparseable', hash: 'bbb2222' },
       ]);
@@ -75,7 +75,7 @@ describe(determineBumpFromCommits, () => {
 
       expect(result.releaseType).toBe('minor');
       expect(result.parsedCommitCount).toBe(1);
-      expect(result.unparseableCommits).toEqual([{ message: 'not a conventional commit', hash: 'bbb2222' }]);
+      expect(result.unparseableCommits).toStrictEqual([{ message: 'not a conventional commit', hash: 'bbb2222' }]);
     });
 
     it('returns patch when only fix commits parse alongside unparseable ones', () => {

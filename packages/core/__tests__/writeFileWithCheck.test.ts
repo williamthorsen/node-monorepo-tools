@@ -28,7 +28,7 @@ describe(writeFileWithCheck, () => {
 
       const result = writeFileWithCheck('some/dir/file.ts', 'content', { dryRun: false, overwrite: false });
 
-      expect(result).toEqual({ filePath: 'some/dir/file.ts', outcome: 'created' });
+      expect(result).toStrictEqual({ filePath: 'some/dir/file.ts', outcome: 'created' });
       expect(mockMkdirSync).toHaveBeenCalledWith('some/dir', { recursive: true });
       expect(mockWriteFileSync).toHaveBeenCalledWith('some/dir/file.ts', 'content', 'utf8');
     });
@@ -40,7 +40,7 @@ describe(writeFileWithCheck, () => {
 
       const result = writeFileWithCheck('some/file.ts', 'new content', { dryRun: false, overwrite: true });
 
-      expect(result).toEqual({ filePath: 'some/file.ts', outcome: 'overwritten' });
+      expect(result).toStrictEqual({ filePath: 'some/file.ts', outcome: 'overwritten' });
       expect(mockWriteFileSync).toHaveBeenCalledWith('some/file.ts', 'new content', 'utf8');
     });
   });
@@ -52,7 +52,7 @@ describe(writeFileWithCheck, () => {
 
       const result = writeFileWithCheck('some/file.ts', 'same content', { dryRun: false, overwrite: false });
 
-      expect(result).toEqual({ filePath: 'some/file.ts', outcome: 'up-to-date' });
+      expect(result).toStrictEqual({ filePath: 'some/file.ts', outcome: 'up-to-date' });
       expect(mockWriteFileSync).not.toHaveBeenCalled();
     });
 
@@ -62,7 +62,7 @@ describe(writeFileWithCheck, () => {
 
       const result = writeFileWithCheck('some/file.ts', 'line one\nline two\n', { dryRun: false, overwrite: false });
 
-      expect(result).toEqual({ filePath: 'some/file.ts', outcome: 'up-to-date' });
+      expect(result).toStrictEqual({ filePath: 'some/file.ts', outcome: 'up-to-date' });
       expect(mockWriteFileSync).not.toHaveBeenCalled();
     });
   });
@@ -74,7 +74,7 @@ describe(writeFileWithCheck, () => {
 
       const result = writeFileWithCheck('some/file.ts', 'new content', { dryRun: false, overwrite: false });
 
-      expect(result).toEqual({ filePath: 'some/file.ts', outcome: 'skipped' });
+      expect(result).toStrictEqual({ filePath: 'some/file.ts', outcome: 'skipped' });
       expect(mockWriteFileSync).not.toHaveBeenCalled();
     });
 
@@ -86,7 +86,7 @@ describe(writeFileWithCheck, () => {
 
       const result = writeFileWithCheck('some/file.ts', 'content', { dryRun: false, overwrite: false });
 
-      expect(result).toEqual({
+      expect(result).toStrictEqual({
         filePath: 'some/file.ts',
         outcome: 'skipped',
         error: 'EACCES: permission denied',
@@ -103,7 +103,7 @@ describe(writeFileWithCheck, () => {
 
       const result = writeFileWithCheck('some/file.ts', 'content', { dryRun: false, overwrite: false });
 
-      expect(result).toEqual({
+      expect(result).toStrictEqual({
         filePath: 'some/file.ts',
         outcome: 'failed',
         error: 'EACCES: permission denied',
@@ -118,7 +118,7 @@ describe(writeFileWithCheck, () => {
 
       const result = writeFileWithCheck('some/file.ts', 'content', { dryRun: false, overwrite: false });
 
-      expect(result).toEqual({
+      expect(result).toStrictEqual({
         filePath: 'some/file.ts',
         outcome: 'failed',
         error: 'ENOSPC: no space left on device',
@@ -132,7 +132,7 @@ describe(writeFileWithCheck, () => {
 
       const result = writeFileWithCheck('some/file.ts', 'content', { dryRun: true, overwrite: false });
 
-      expect(result).toEqual({ filePath: 'some/file.ts', outcome: 'created' });
+      expect(result).toStrictEqual({ filePath: 'some/file.ts', outcome: 'created' });
       expect(mockMkdirSync).not.toHaveBeenCalled();
       expect(mockWriteFileSync).not.toHaveBeenCalled();
     });
@@ -142,7 +142,7 @@ describe(writeFileWithCheck, () => {
 
       const result = writeFileWithCheck('some/file.ts', 'content', { dryRun: true, overwrite: true });
 
-      expect(result).toEqual({ filePath: 'some/file.ts', outcome: 'overwritten' });
+      expect(result).toStrictEqual({ filePath: 'some/file.ts', outcome: 'overwritten' });
       expect(mockWriteFileSync).not.toHaveBeenCalled();
     });
 
@@ -152,7 +152,7 @@ describe(writeFileWithCheck, () => {
 
       const result = writeFileWithCheck('some/file.ts', 'same content', { dryRun: true, overwrite: false });
 
-      expect(result).toEqual({ filePath: 'some/file.ts', outcome: 'up-to-date' });
+      expect(result).toStrictEqual({ filePath: 'some/file.ts', outcome: 'up-to-date' });
     });
 
     it('returns "skipped" when file exists with different content and overwrite is false', () => {
@@ -161,7 +161,7 @@ describe(writeFileWithCheck, () => {
 
       const result = writeFileWithCheck('some/file.ts', 'new content', { dryRun: true, overwrite: false });
 
-      expect(result).toEqual({ filePath: 'some/file.ts', outcome: 'skipped' });
+      expect(result).toStrictEqual({ filePath: 'some/file.ts', outcome: 'skipped' });
     });
   });
 });
