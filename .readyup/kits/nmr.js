@@ -13,6 +13,7 @@ var rootScripts = {
   "audit:prod": "pnpm dlx audit-ci@^7 --config .config/audit-ci/config.prod.json5",
   build: "pnpm --recursive exec nmr build",
   check: ["typecheck", "fmt:check", "lint:check", "test"],
+  "check:fixable": ["fmt:check", "lint:check"],
   "check:strict": ["typecheck", "fmt:check", "lint:strict", "test:coverage"],
   ci: ["build", "check:strict", "audit"],
   clean: "pnpm --recursive exec nmr clean",

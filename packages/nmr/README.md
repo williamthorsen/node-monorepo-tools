@@ -133,6 +133,7 @@ These scripts are available out of the box. Repo-wide config (tier 2) and per-pa
 | ------------------ | -------------------------------------------------------- |
 | `build`            | `compile`, `generate-typings`                            |
 | `check`            | `typecheck`, `fmt:check`, `lint:check`, `test`           |
+| `check:fixable`    | `fmt:check`, `lint:check`                                |
 | `check:strict`     | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage` |
 | `clean`            | `pnpm exec rimraf dist/*`                                |
 | `compile`          | `tsx ../../config/build.ts`                              |
@@ -172,10 +173,11 @@ Packages with a `vitest.integration.config.ts` file get different test commands.
 
 #### Check and quality
 
-| Command        | Runs                                                              |
-| -------------- | ----------------------------------------------------------------- |
-| `check`        | `typecheck`, `fmt:check`, `lint:check`, `test`                    |
-| `check:strict` | `typecheck`, `fmt:check`, `audit`, `lint:strict`, `test:coverage` |
+| Command         | Runs                                                              |
+| --------------- | ----------------------------------------------------------------- |
+| `check`         | `typecheck`, `fmt:check`, `lint:check`, `test`                    |
+| `check:fixable` | `fmt:check`, `lint:check`                                         |
+| `check:strict`  | `typecheck`, `fmt:check`, `audit`, `lint:strict`, `test:coverage` |
 
 #### Test
 
