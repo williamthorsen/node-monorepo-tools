@@ -99,6 +99,7 @@ export const DEFAULT_CONFIG: AuditDepsConfig = {
 export interface AuditResult {
   cvss?: { score?: number; vectorString?: string } | undefined;
   description?: string | undefined;
+  ghsaId?: string | undefined;
   id: string;
   path: string;
   paths: string[];

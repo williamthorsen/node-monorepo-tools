@@ -299,7 +299,7 @@ describe(checkCommand, () => {
     const exitCode = await checkCommand(makeOptions({ scopes: ['prod'] }));
 
     expect(exitCode).toBe(0);
-    expect(stdoutOutput).toContain('(none)');
+    expect(stdoutOutput).toContain('No known vulnerabilities found.');
   });
 
   it('returns 1 when unallowed vulnerabilities exist', async () => {
@@ -338,7 +338,7 @@ describe(checkCommand, () => {
     const exitCode = await checkCommand(makeOptions({ scopes: ['dev'] }));
 
     expect(exitCode).toBe(0);
-    expect(stdoutOutput).toContain('allowed');
+    expect(stdoutOutput).toContain('\u{26A0}\u{FE0F}');
   });
 
   it('populates allowed entries with advisory fields from the audit result and metadata from the allowlist entry', async () => {
@@ -397,6 +397,52 @@ describe(checkCommand, () => {
     );
   });
 
+  it('propagates ghsaId from audit result to allowed entry in JSON output', async () => {
+    const config = makeConfig({
+      prod: {
+        allowlist: [
+          {
+            id: 'GHSA-ghsa-test',
+            path: 'pkg',
+            url: 'https://example.com/ghsa-test',
+          },
+        ],
+      },
+    });
+    setupLoadConfig(config);
+    mocks.runReport.mockReturnValue({
+      results: [
+        {
+          ghsaId: 'GHSA-ghsa-test',
+          id: 'GHSA-ghsa-test',
+          path: 'pkg',
+          paths: ['pkg'],
+          severity: 'high',
+          url: 'https://example.com/ghsa-test',
+        },
+      ],
+      stdout: '',
+      stderr: '',
+      warnings: [],
+    });
+
+    await checkCommand(makeOptions({ json: true, scopes: ['prod'] }));
+
+    const parsed: unknown = JSON.parse(stdoutOutput);
+    expect(parsed).toStrictEqual(
+      expect.objectContaining({
+        prod: expect.objectContaining({
+          allowed: [
+            expect.objectContaining({
+              ghsaId: 'GHSA-ghsa-test',
+              id: 'GHSA-ghsa-test',
+            }),
+          ],
+        }),
+      }),
+    );
+  });
+
   it('detects stale allowlist entries and returns 0', async () => {
     const config = makeConfig({
       prod: {
@@ -435,18 +481,28 @@ describe(checkCommand, () => {
     await checkCommand(makeOptions());
 
     expect(mocks.runReport).toHaveBeenCalledTimes(2);
-    expect(stdoutOutput).toContain('prod');
-    expect(stdoutOutput).toContain('dev');
+    expect(stdoutOutput).toContain('Auditing dependencies');
+    expect(stdoutOutput).toContain('No known vulnerabilities found.');
   });
 
   it('displays prod before dev even when scopes are passed in reverse order', async () => {
-    setupLoadConfig();
-    mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
+    const config = makeConfig({
+      prod: {
+        allowlist: [{ id: 'GHSA-prod-entry', path: 'pkg', url: 'https://example.com/prod' }],
+      },
+    });
+    setupLoadConfig(config);
+    mocks.runReport.mockReturnValue({
+      results: [{ id: 'GHSA-prod-entry', path: 'pkg', paths: ['pkg'], url: 'https://example.com/prod' }],
+      stdout: '',
+      stderr: '',
+      warnings: [],
+    });
 
     await checkCommand(makeOptions({ scopes: ['dev', 'prod'] }));
 
-    const prodIndex = stdoutOutput.indexOf('prod');
-    const devIndex = stdoutOutput.indexOf('dev');
+    const prodIndex = stdoutOutput.indexOf('\u{1F4E6} prod:');
+    const devIndex = stdoutOutput.indexOf('\u{1F527} dev:');
     expect(prodIndex).toBeGreaterThanOrEqual(0);
     expect(devIndex).toBeGreaterThanOrEqual(0);
     expect(prodIndex).toBeLessThan(devIndex);

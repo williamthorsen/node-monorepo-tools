@@ -260,6 +260,7 @@ function buildAllowedVuln(result: AuditResult, entry: AllowlistEntry | undefined
     paths: result.paths,
     url: result.url,
   };
+  if (result.ghsaId !== undefined) allowed.ghsaId = result.ghsaId;
   if (result.severity !== undefined) allowed.severity = result.severity;
   if (result.title !== undefined) allowed.title = result.title;
   if (result.description !== undefined) allowed.description = result.description;

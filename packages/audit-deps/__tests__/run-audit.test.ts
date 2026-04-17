@@ -94,6 +94,40 @@ describe(parseAuditCiOutput, () => {
     expect(results).toStrictEqual([]);
   });
 
+  it('extracts ghsaId from github_advisory_id when present', () => {
+    const json = JSON.stringify({
+      advisories: {
+        '1234': {
+          id: 1234,
+          github_advisory_id: 'GHSA-f886-m6hf-6m8u',
+          module_name: 'lodash',
+          url: 'https://github.com/advisories/GHSA-f886-m6hf-6m8u',
+          findings: [{ paths: ['lodash'] }],
+        },
+      },
+    });
+
+    const { results } = parseAuditCiOutput(json);
+    expect(results).toHaveLength(1);
+    expect(results[0]?.ghsaId).toBe('GHSA-f886-m6hf-6m8u');
+  });
+
+  it('omits ghsaId when github_advisory_id is absent', () => {
+    const json = JSON.stringify({
+      advisories: {
+        '1234': {
+          id: 1234,
+          module_name: 'lodash',
+          url: 'https://github.com/advisories/GHSA-1234',
+          findings: [{ paths: ['lodash'] }],
+        },
+      },
+    });
+
+    const { results } = parseAuditCiOutput(json);
+    expect(results[0]).not.toHaveProperty('ghsaId');
+  });
+
   it('extracts severity from advisory when present', () => {
     const json = JSON.stringify({
       advisories: {

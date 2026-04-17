@@ -1,4 +1,5 @@
 import { formatActionHints } from './format-actions.ts';
+import { formatRelativeTime } from './format-time.ts';
 import type { AuditResult, AuditScope } from './types.ts';
 
 // ---------------------------------------------------------------------------
@@ -10,6 +11,7 @@ export interface AllowedVuln {
   addedAt?: string | undefined;
   cvss?: { score?: number; vectorString?: string } | undefined;
   description?: string | undefined;
+  ghsaId?: string | undefined;
   id: string;
   path: string;
   paths: string[];
@@ -56,61 +58,141 @@ export function severityIndicator(severity: string | undefined): string {
 }
 
 // ---------------------------------------------------------------------------
+// Display ID helper
+// ---------------------------------------------------------------------------
+
+/** Resolve the best display ID for a vulnerability: GHSA ID if available, otherwise the numeric ID. */
+export function displayId(vuln: { ghsaId?: string | undefined; id: string }): string {
+  return vuln.ghsaId ?? vuln.id;
+}
+
+// ---------------------------------------------------------------------------
+// Scope labels
+// ---------------------------------------------------------------------------
+
+const SCOPE_LABELS: Record<AuditScope, string> = {
+  dev: '  \u{1F527} dev:',
+  prod: '  \u{1F4E6} prod:',
+};
+
+const SCOPE_NAMES: Record<AuditScope, string> = {
+  dev: 'dev',
+  prod: 'prod',
+};
+
+// ---------------------------------------------------------------------------
 // Text formatter
 // ---------------------------------------------------------------------------
 
-/** Scope display metadata. */
-const SCOPE_HEADERS: Record<AuditScope, string> = {
-  prod: '-- \u{1F4E6} prod --',
-  dev: '-- \u{1F527} dev --',
-};
-
-/** Format a vulnerability line with optional severity indicator and suffix. */
-function formatVulnLine(
-  vuln: { id: string; path: string; severity?: string | undefined; url: string },
-  suffix?: string,
-): string {
-  const indicator = severityIndicator(vuln.severity);
-  const prefix = indicator.length > 0 ? `${indicator} ` : '';
-  const tail = suffix !== undefined ? ` ${suffix}` : '';
-  return `  ${prefix}${vuln.id}: ${vuln.path} (${vuln.url})${tail}`;
+/** Build the intro banner reflecting the scopes being audited. */
+function formatIntroBanner(scopes: AuditScope[]): string {
+  const first = scopes[0];
+  // `first` is always defined here; the guard narrows for TypeScript.
+  if (scopes.length === 1 && first !== undefined) {
+    return `\u{1F52C} Auditing ${SCOPE_NAMES[first]} dependencies ...`;
+  }
+  return '\u{1F52C} Auditing dependencies ...';
 }
 
-/** Format a single scope's check results as text lines. */
-function formatScopeText(scope: AuditScope, result: ScopeCheckResult): string {
-  const lines: string[] = [SCOPE_HEADERS[scope]];
+/** Build the severity suffix for a finding line, e.g. `  🔴 critical`. */
+export function formatSeveritySuffix(severity: string | undefined): string {
+  if (severity === undefined || severity === '') return '';
+  const emoji = severityIndicator(severity);
+  const emojiPart = emoji.length > 0 ? `${emoji} ` : '';
+  return `  ${emojiPart}${severity}`;
+}
 
-  const hasFindings = result.unallowed.length > 0 || result.allowed.length > 0 || result.stale.length > 0;
+/** Build the "allowed since X ago (datetime)" suffix for entries with `addedAt`. */
+function formatAllowedSuffix(addedAt: string, now: Date): string {
+  const relative = formatRelativeTime(addedAt, now);
+  if (relative.length === 0) return ` \u{2022} \u{2705} allowed (${addedAt})`;
+  return ` \u{2022} \u{2705} allowed since ${relative} (${addedAt})`;
+}
 
-  if (!hasFindings) {
-    lines.push('  (none)');
-    return lines.join('\n');
-  }
+/** Format a single unallowed vulnerability as a bullet line. */
+function formatUnallowedLine(vuln: AuditResult): string {
+  return `  \u{2022} \u{1F6A8} ${displayId(vuln)}: ${vuln.path}${formatSeveritySuffix(vuln.severity)}`;
+}
 
+/** Format a single allowed vulnerability as a bullet line. */
+function formatAllowedLine(vuln: AllowedVuln, now: Date): string {
+  const suffix = vuln.addedAt !== undefined ? formatAllowedSuffix(vuln.addedAt, now) : '';
+  return `  \u{2022} \u{26A0}\u{FE0F} ${displayId(vuln)}: ${vuln.path}${formatSeveritySuffix(vuln.severity)}${suffix}`;
+}
+
+/** Format a single stale entry as a bullet line. */
+function formatStaleLine(entry: StaleEntry): string {
+  return `  \u{2022} \u{1F5D1}\u{FE0F} ${entry.id} \u{2022} not needed`;
+}
+
+/** Check whether a scope has any findings. */
+function hasFindings(result: ScopeCheckResult): boolean {
+  return result.unallowed.length > 0 || result.allowed.length > 0 || result.stale.length > 0;
+}
+
+/** Format a scope's finding lines (without scope header). */
+function formatScopeFindings(result: ScopeCheckResult, now: Date): string[] {
+  const lines: string[] = [];
   for (const vuln of result.unallowed) {
-    lines.push(formatVulnLine(vuln));
+    lines.push(formatUnallowedLine(vuln));
   }
-
   for (const vuln of result.allowed) {
-    lines.push(formatVulnLine(vuln, '\u{1F6AB} allowed'));
+    lines.push(formatAllowedLine(vuln, now));
   }
-
   for (const entry of result.stale) {
-    lines.push(`  \u{1F5D1}\u{FE0F} ${entry.id}  not needed`);
+    lines.push(formatStaleLine(entry));
   }
-
-  return lines.join('\n');
+  return lines;
 }
 
-/** Format check results as human-readable text output. */
-export function formatCheckText(result: CheckResult, scopes: AuditScope[]): string {
-  const sections: string[] = [];
+/**
+ * Format check results as human-readable text output.
+ *
+ * Produces an intro banner, scoped findings with severity labels and GHSA IDs,
+ * and an action hints footer.
+ */
+export function formatCheckText(result: CheckResult, scopes: AuditScope[], now?: Date): string {
+  const effectiveNow = now ?? new Date();
+  const lines: string[] = [formatIntroBanner(scopes)];
 
-  for (const scope of scopes) {
-    sections.push(formatScopeText(scope, result[scope]));
+  const anyFindings = scopes.some((scope) => hasFindings(result[scope]));
+
+  if (!anyFindings) {
+    lines.push('No known vulnerabilities found.');
+    return lines.join('\n') + '\n';
   }
 
-  return sections.join('\n\n') + '\n' + formatActionHints(result, scopes);
+  // Single scope: no scope header, findings directly below banner.
+  const singleScope = scopes.length === 1 ? scopes[0] : undefined;
+  if (singleScope !== undefined) {
+    const scope = singleScope;
+    const scopeResult = result[scope];
+    lines.push(...formatScopeFindings(scopeResult, effectiveNow));
+    const actions = formatActionHints(result, scopes);
+    if (actions.length > 0) {
+      lines.push('', ...actions.split('\n').filter((l) => l.length > 0));
+    }
+    return lines.join('\n') + '\n';
+  }
+
+  // Multiple scopes: show scope headers.
+  for (const scope of scopes) {
+    const scopeResult = result[scope];
+    lines.push(SCOPE_LABELS[scope]);
+    if (hasFindings(scopeResult)) {
+      lines.push(...formatScopeFindings(scopeResult, effectiveNow));
+    } else {
+      lines.push('  No known vulnerabilities found.');
+    }
+    lines.push('');
+  }
+
+  const actions = formatActionHints(result, scopes);
+  if (actions.length > 0) {
+    lines.push(...actions.split('\n').filter((l) => l.length > 0));
+  }
+
+  return lines.join('\n') + '\n';
 }
 
 // ---------------------------------------------------------------------------

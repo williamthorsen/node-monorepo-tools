@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import type { CheckResult, ScopeCheckResult } from '../src/format-check.ts';
-import { formatCheckVerboseText, formatRelativeTime } from '../src/format-verbose.ts';
+import { formatRelativeTime } from '../src/format-time.ts';
+import { formatCheckVerboseText } from '../src/format-verbose.ts';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -40,7 +41,8 @@ describe(formatCheckVerboseText, () => {
         stale: [],
         unallowed: [
           {
-            id: 'GHSA-unallowed',
+            ghsaId: 'GHSA-unallowed',
+            id: '1234',
             path: 'lodash',
             paths: ['my-app>lodash'],
             severity: 'high',
@@ -57,6 +59,26 @@ describe(formatCheckVerboseText, () => {
     expect(output).toContain('Prototype pollution in lodash');
     expect(output).toContain('path: my-app>lodash');
     expect(output).toContain('link: https://github.com/advisories/GHSA-unallowed');
+  });
+
+  it('falls back to numeric ID when ghsaId is absent', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [],
+        stale: [],
+        unallowed: [
+          {
+            id: '1234',
+            path: 'pkg',
+            paths: ['pkg'],
+            url: 'https://example.com/1234',
+          },
+        ],
+      },
+    });
+
+    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
+    expect(output).toContain('\u{1F6A8} 1234');
   });
 
   it('renders multi-path vulnerabilities with a plural "paths:" list', () => {
@@ -190,7 +212,8 @@ describe(formatCheckVerboseText, () => {
         allowed: [
           {
             addedAt: '2026-04-01',
-            id: 'GHSA-allowed',
+            ghsaId: 'GHSA-allowed',
+            id: '1234',
             path: 'pkg',
             paths: ['pkg'],
             reason: 'Accepted risk: no user input reaches this path',
@@ -313,6 +336,33 @@ describe(formatCheckVerboseText, () => {
 
     const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
     expect(output).toContain('  \u{1F5D1}\u{FE0F} GHSA-stale-entry-0000  not needed');
+  });
+
+  it('ends output with a newline when actions are present', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [],
+        stale: [{ id: 'GHSA-stale' }],
+        unallowed: [],
+      },
+    });
+
+    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
+    expect(output).toMatch(/\n$/);
+  });
+
+  it('separates the Actions footer from scope content with a blank line', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [],
+        stale: [{ id: 'GHSA-stale' }],
+        unallowed: [],
+      },
+    });
+
+    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
+    expect(output).toContain('not needed\n\n');
+    expect(output).toContain('Actions:');
   });
 
   it('appends an Actions footer when unallowed or stale entries exist', () => {
