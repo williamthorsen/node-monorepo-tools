@@ -32,8 +32,8 @@ describe(scaffoldConfig, () => {
 
     const content: unknown = JSON.parse(readFileSync(configPath, 'utf8'));
     expect(content).toHaveProperty('$schema');
-    expect(content).toHaveProperty('dev.severityThreshold', 'high');
-    expect(content).toHaveProperty('prod.severityThreshold', 'moderate');
+    expect(content).toHaveProperty('dev.severityThreshold', 'moderate');
+    expect(content).toHaveProperty('prod.severityThreshold', 'low');
     expect(content).toHaveProperty('dev.allowlist');
     expect(content).toHaveProperty('prod.allowlist');
   });

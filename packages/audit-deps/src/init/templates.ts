@@ -11,11 +11,11 @@ export const auditDepsConfigTemplate =
     {
       $schema: buildSchemaUrl(),
       dev: {
-        severityThreshold: 'high',
+        severityThreshold: 'moderate',
         allowlist: [],
       },
       prod: {
-        severityThreshold: 'moderate',
+        severityThreshold: 'low',
         allowlist: [],
       },
     },

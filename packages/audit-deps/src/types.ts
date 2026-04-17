@@ -87,8 +87,8 @@ export const auditDepsConfigSchema = z
 
 /** Built-in defaults used when no config file is present. */
 export const DEFAULT_CONFIG: AuditDepsConfig = {
-  dev: { allowlist: [], severityThreshold: 'high' },
-  prod: { allowlist: [], severityThreshold: 'moderate' },
+  dev: { allowlist: [], severityThreshold: 'moderate' },
+  prod: { allowlist: [], severityThreshold: 'low' },
 };
 
 // ---------------------------------------------------------------------------

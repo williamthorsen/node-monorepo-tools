@@ -24,7 +24,7 @@ npx audit-deps sync
 npx audit-deps --raw
 ```
 
-No config file is required. When `.config/audit-deps.config.json` is absent, the tool uses built-in defaults: `severityThreshold: 'high'` for dev, `severityThreshold: 'moderate'` for prod, and empty allowlists.
+No config file is required. When `.config/audit-deps.config.json` is absent, the tool uses built-in defaults: `severityThreshold: 'moderate'` for dev, `severityThreshold: 'low'` for prod, and empty allowlists.
 
 ## Configuration
 
@@ -34,7 +34,7 @@ The source-of-truth config lives at `.config/audit-deps.config.json`:
 {
   "$schema": "https://github.com/williamthorsen/node-monorepo-tools/raw/audit-deps-v<version>/packages/audit-deps/schemas/config.json",
   "dev": {
-    "severityThreshold": "high",
+    "severityThreshold": "moderate",
     "allowlist": [
       {
         "addedAt": "2026-04-15",
@@ -46,7 +46,7 @@ The source-of-truth config lives at `.config/audit-deps.config.json`:
     ]
   },
   "prod": {
-    "severityThreshold": "moderate",
+    "severityThreshold": "low",
     "allowlist": []
   }
 }

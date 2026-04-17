@@ -114,7 +114,7 @@ describe('integration: generate -> sync cycle', () => {
 
     const result = await loadConfig(undefined, emptyDir);
     expect(result.configSource).toBe('defaults');
-    expect(result.config.dev.severityThreshold).toBe('high');
-    expect(result.config.prod.severityThreshold).toBe('moderate');
+    expect(result.config.dev.severityThreshold).toBe('moderate');
+    expect(result.config.prod.severityThreshold).toBe('low');
   });
 });
