@@ -57,6 +57,8 @@ export { injectSection } from './injectSection.ts';
 export { COMMIT_PREPROCESSOR_PATTERNS, parseCommitMessage } from './parseCommitMessage.ts';
 export { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE, writeReleaseTags } from './prepareCommand.ts';
 export { publishPackage } from './publish.ts';
+export type { PushReleaseOptions } from './pushRelease.ts';
+export { pushRelease } from './pushRelease.ts';
 export { releasePrepare } from './releasePrepare.ts';
 export { releasePrepareMono } from './releasePrepareMono.ts';
 export type { RenderOptions } from './renderReleaseNotes.ts';
