@@ -10,23 +10,19 @@ import type { AuditDepsConfig, CommandOptions } from '../src/types.ts';
 const mocks = vi.hoisted(() => ({
   generateAuditCiConfig: vi.fn<() => Promise<string>>(),
   loadConfig: vi.fn<() => Promise<LoadConfigResult>>(),
-  mkdirAsync: vi.fn<() => Promise<string | undefined>>(),
   runAudit: vi.fn(),
   runReport: vi.fn(),
+  scaffoldConfig: vi.fn(),
   syncAllowlist: vi.fn(),
   withTempDir: vi.fn(),
 }));
 
-vi.mock('node:fs/promises', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:fs/promises')>();
-  return {
-    ...actual,
-    mkdir: mocks.mkdirAsync,
-  };
-});
-
 vi.mock('../src/config.ts', () => ({
   loadConfig: mocks.loadConfig,
+}));
+
+vi.mock('../src/init/scaffold.ts', () => ({
+  scaffoldConfig: mocks.scaffoldConfig,
 }));
 
 vi.mock('../src/generate.ts', () => ({
@@ -110,7 +106,7 @@ beforeEach(() => {
   });
   setupTempDir();
   mocks.generateAuditCiConfig.mockResolvedValue('/fake/tmp/audit-ci.json');
-  mocks.mkdirAsync.mockResolvedValue(undefined);
+  mocks.scaffoldConfig.mockReturnValue({ configResult: { outcome: 'created' } });
 });
 
 afterEach(() => {
@@ -652,7 +648,20 @@ describe(syncCommand, () => {
   });
 
   it('reports config creation when source is defaults', async () => {
-    setupLoadConfig(undefined, 'defaults');
+    // First call returns defaults; second call (after scaffold) returns file.
+    mocks.loadConfig
+      .mockResolvedValueOnce({
+        config: makeConfig(),
+        configDir: '/fake/dir',
+        configFilePath: '/fake/dir/audit-deps.config.json',
+        configSource: 'defaults',
+      })
+      .mockResolvedValueOnce({
+        config: makeConfig(),
+        configDir: '/fake/dir',
+        configFilePath: '/fake/dir/audit-deps.config.json',
+        configSource: 'file',
+      });
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
     mocks.syncAllowlist.mockResolvedValue({
       syncResult: { added: [], kept: [], removed: [], scope: 'dev' },
@@ -664,8 +673,21 @@ describe(syncCommand, () => {
     expect(stdoutOutput).toContain('Created config at');
   });
 
-  it('creates config directory when source is defaults', async () => {
-    setupLoadConfig(undefined, 'defaults');
+  it('scaffolds a config file when source is defaults', async () => {
+    // First call returns defaults; second call (after scaffold) returns file.
+    mocks.loadConfig
+      .mockResolvedValueOnce({
+        config: makeConfig(),
+        configDir: '/fake/dir',
+        configFilePath: '/fake/dir/audit-deps.config.json',
+        configSource: 'defaults',
+      })
+      .mockResolvedValueOnce({
+        config: makeConfig(),
+        configDir: '/fake/dir',
+        configFilePath: '/fake/dir/audit-deps.config.json',
+        configSource: 'file',
+      });
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
     mocks.syncAllowlist.mockResolvedValue({
       syncResult: { added: [], kept: [], removed: [], scope: 'dev' },
@@ -674,10 +696,10 @@ describe(syncCommand, () => {
 
     await syncCommand(makeOptions({ scopes: ['dev'] }));
 
-    expect(mocks.mkdirAsync).toHaveBeenCalledWith(expect.any(String), { recursive: true });
+    expect(mocks.scaffoldConfig).toHaveBeenCalledWith({ dryRun: false, force: false });
   });
 
-  it('does not create config directory when source is file', async () => {
+  it('does not scaffold when source is file', async () => {
     setupLoadConfig(undefined, 'file');
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
     mocks.syncAllowlist.mockResolvedValue({
@@ -687,6 +709,21 @@ describe(syncCommand, () => {
 
     await syncCommand(makeOptions({ scopes: ['dev'] }));
 
-    expect(mocks.mkdirAsync).not.toHaveBeenCalled();
+    expect(mocks.scaffoldConfig).not.toHaveBeenCalled();
+  });
+
+  it('returns 1 when scaffold fails', async () => {
+    mocks.loadConfig.mockResolvedValueOnce({
+      config: makeConfig(),
+      configDir: '/fake/dir',
+      configFilePath: '/fake/dir/audit-deps.config.json',
+      configSource: 'defaults',
+    });
+    mocks.scaffoldConfig.mockReturnValue({ configResult: { outcome: 'failed' } });
+
+    const exitCode = await syncCommand(makeOptions({ scopes: ['dev'] }));
+
+    expect(exitCode).toBe(1);
+    expect(stderrOutput).toContain('Failed to create config file');
   });
 });

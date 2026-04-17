@@ -1,5 +1,3 @@
-import { mkdir } from 'node:fs/promises';
-import path from 'node:path';
 import process from 'node:process';
 
 import type { LoadConfigResult } from './config.ts';
@@ -8,6 +6,7 @@ import type { AllowedVuln, CheckResult, ScopeCheckResult } from './format-check.
 import { formatCheckJson, formatCheckText } from './format-check.ts';
 import { formatCheckVerboseText } from './format-verbose.ts';
 import { generateAuditCiConfig } from './generate.ts';
+import { scaffoldConfig } from './init/scaffold.ts';
 import { parseAuditCiOutput, runAudit, runReport } from './run-audit.ts';
 import { syncAllowlist } from './sync.ts';
 import { withTempDir } from './tmp.ts';
@@ -196,17 +195,24 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
     return 1;
   }
 
+  const { configSource } = loaded;
+
+  // When no config exists, scaffold one first so sync operates on a real file.
+  if (configSource === 'defaults') {
+    const { configResult } = scaffoldConfig({ dryRun: false, force: false });
+    if (configResult.outcome === 'failed') {
+      process.stderr.write(`Error: Failed to create config file\n`);
+      return 1;
+    }
+    loaded = await loadConfig(options.configPath);
+  }
+
   let { config } = loaded;
-  const { configFilePath, configSource } = loaded;
+  const { configFilePath } = loaded;
   const scopes = options.scopes.length > 0 ? options.scopes : [...AUDIT_SCOPES];
 
   try {
     return await withTempDir(async (tempDir) => {
-      // Ensure the config directory exists when creating a new config from defaults.
-      if (configSource === 'defaults') {
-        await mkdir(path.dirname(configFilePath), { recursive: true });
-      }
-
       for (const scope of scopes) {
         // Generate a config without the allowlist so sync sees all vulnerabilities.
         const strippedScope = { ...config[scope], allowlist: [] };
