@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 
-import type { AllowlistEntry, AuditDepsConfig, AuditResult, AuditScope } from './types.ts';
+import type { AllowlistEntry, AuditDepsConfig, AuditResult, AuditScope, ScopeConfig } from './types.ts';
 
 /** Produce a UTC date string in YYYY-MM-DD format. */
 export function formatUtcDate(date: Date): string {
@@ -20,6 +20,16 @@ function serializeEntry(entry: AllowlistEntry): Record<string, string> {
     ...(entry.reason !== undefined && { reason: entry.reason }),
     url: entry.url,
   };
+}
+
+/** Build a serializable representation of a scope config with ordered keys. */
+function serializeScopeConfig(scopeConfig: ScopeConfig): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  if (scopeConfig.severityThreshold !== undefined) {
+    result.severityThreshold = scopeConfig.severityThreshold;
+  }
+  result.allowlist = scopeConfig.allowlist.map(serializeEntry);
+  return result;
 }
 
 /** Result of a sync operation for a single scope. */
@@ -100,20 +110,18 @@ export function buildUpdatedConfig(
 /**
  * Serialize the config to JSON with alphabetically ordered allowlist entry keys.
  *
- * Uses a custom replacer to guarantee key order within allowlist entries.
+ * Includes `$schema` when present. Uses `severityThreshold` instead of boolean fields.
  */
 export function serializeConfig(config: AuditDepsConfig): string {
-  const serializable = {
-    ...config,
-    dev: {
-      ...config.dev,
-      allowlist: config.dev.allowlist.map(serializeEntry),
-    },
-    prod: {
-      ...config.prod,
-      allowlist: config.prod.allowlist.map(serializeEntry),
-    },
-  };
+  const serializable: Record<string, unknown> = {};
+
+  if (config.$schema !== undefined) {
+    serializable.$schema = config.$schema;
+  }
+
+  serializable.dev = serializeScopeConfig(config.dev);
+  serializable.prod = serializeScopeConfig(config.prod);
+
   return JSON.stringify(serializable, null, 2) + '\n';
 }
 

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { LoadConfigResult } from '../src/config.ts';
 import type { AuditDepsConfig, CommandOptions } from '../src/types.ts';
 
 // ---------------------------------------------------------------------------
@@ -8,14 +9,20 @@ import type { AuditDepsConfig, CommandOptions } from '../src/types.ts';
 
 const mocks = vi.hoisted(() => ({
   generateAuditCiConfig: vi.fn<() => Promise<string>>(),
-  loadConfig: vi.fn<() => Promise<{ config: AuditDepsConfig; configDir: string; configFilePath: string }>>(),
+  loadConfig: vi.fn<() => Promise<LoadConfigResult>>(),
   runAudit: vi.fn(),
   runReport: vi.fn(),
+  scaffoldConfig: vi.fn(),
   syncAllowlist: vi.fn(),
+  withTempDir: vi.fn(),
 }));
 
 vi.mock('../src/config.ts', () => ({
   loadConfig: mocks.loadConfig,
+}));
+
+vi.mock('../src/init/scaffold.ts', () => ({
+  scaffoldConfig: mocks.scaffoldConfig,
 }));
 
 vi.mock('../src/generate.ts', () => ({
@@ -39,7 +46,11 @@ vi.mock('../src/sync.ts', async (importOriginal) => {
   };
 });
 
-import { auditCommand, checkCommand, generateCommand, syncCommand } from '../src/cli.ts';
+vi.mock('../src/tmp.ts', () => ({
+  withTempDir: mocks.withTempDir,
+}));
+
+import { auditCommand, checkCommand, syncCommand } from '../src/cli.ts';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -57,12 +68,22 @@ function makeOptions(overrides?: Partial<CommandOptions>): CommandOptions {
   return { json: false, scopes: [], verbose: false, ...overrides };
 }
 
-function setupLoadConfig(config?: AuditDepsConfig): void {
+function setupLoadConfig(config?: AuditDepsConfig, source: 'defaults' | 'file' = 'file'): void {
   mocks.loadConfig.mockResolvedValue({
     config: config ?? makeConfig(),
     configDir: '/fake/dir',
     configFilePath: '/fake/dir/audit-deps.config.json',
+    configSource: source,
   });
+}
+
+/**
+ * Configure withTempDir mock to execute the callback with a fake temp path.
+ *
+ * Must be called before each test that exercises commands using temp dirs.
+ */
+function setupTempDir(): void {
+  mocks.withTempDir.mockImplementation(async (fn: (dir: string) => Promise<unknown>) => fn('/fake/tmp'));
 }
 
 // ---------------------------------------------------------------------------
@@ -83,6 +104,9 @@ beforeEach(() => {
     stdoutOutput += String(chunk);
     return true;
   });
+  setupTempDir();
+  mocks.generateAuditCiConfig.mockResolvedValue('/fake/tmp/audit-ci.json');
+  mocks.scaffoldConfig.mockReturnValue({ configResult: { outcome: 'created' } });
 });
 
 afterEach(() => {
@@ -106,7 +130,6 @@ describe(auditCommand, () => {
 
   it('forwards stale entry warnings to stderr', async () => {
     setupLoadConfig();
-    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.dev.json');
     mocks.runAudit.mockReturnValue({
       exitCode: 0,
       staleEntries: ['GHSA-1234', 'GHSA-5678'],
@@ -122,7 +145,6 @@ describe(auditCommand, () => {
 
   it('forwards audit-ci warnings to stderr', async () => {
     setupLoadConfig();
-    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.dev.json');
     mocks.runAudit.mockReturnValue({
       exitCode: 0,
       staleEntries: [],
@@ -138,9 +160,6 @@ describe(auditCommand, () => {
 
   it('returns non-zero exit code when any scope fails', async () => {
     setupLoadConfig();
-    mocks.generateAuditCiConfig
-      .mockResolvedValueOnce('/fake/out/audit-ci.dev.json')
-      .mockResolvedValueOnce('/fake/out/audit-ci.prod.json');
     mocks.runAudit
       .mockReturnValueOnce({ exitCode: 0, staleEntries: [], stderr: '', stdout: '', warnings: [] })
       .mockReturnValueOnce({ exitCode: 1, staleEntries: [], stderr: '', stdout: '', warnings: [] });
@@ -152,9 +171,6 @@ describe(auditCommand, () => {
 
   it('returns 0 when all scopes pass', async () => {
     setupLoadConfig();
-    mocks.generateAuditCiConfig
-      .mockResolvedValueOnce('/fake/out/audit-ci.dev.json')
-      .mockResolvedValueOnce('/fake/out/audit-ci.prod.json');
     mocks.runAudit.mockReturnValue({ exitCode: 0, staleEntries: [], stderr: '', stdout: '', warnings: [] });
 
     const exitCode = await auditCommand(makeOptions());
@@ -164,7 +180,6 @@ describe(auditCommand, () => {
 
   it('writes deduplicated JSON in JSON mode', async () => {
     setupLoadConfig();
-    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.dev.json');
     mocks.runAudit.mockReturnValue({
       exitCode: 0,
       staleEntries: [],
@@ -185,7 +200,6 @@ describe(auditCommand, () => {
 
   it('writes stderr when stdout is empty and stderr has content', async () => {
     setupLoadConfig();
-    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.dev.json');
     mocks.runAudit.mockReturnValue({
       exitCode: 1,
       staleEntries: [],
@@ -201,9 +215,6 @@ describe(auditCommand, () => {
 
   it('deduplicates advisory IDs across scopes in JSON mode', async () => {
     setupLoadConfig();
-    mocks.generateAuditCiConfig
-      .mockResolvedValueOnce('/fake/out/audit-ci.dev.json')
-      .mockResolvedValueOnce('/fake/out/audit-ci.prod.json');
 
     const sharedAdvisory = {
       id: 'GHSA-shared',
@@ -259,9 +270,6 @@ describe(auditCommand, () => {
 
   it('audits both scopes when no scopes are specified', async () => {
     setupLoadConfig();
-    mocks.generateAuditCiConfig
-      .mockResolvedValueOnce('/fake/out/audit-ci.dev.json')
-      .mockResolvedValueOnce('/fake/out/audit-ci.prod.json');
     mocks.runAudit.mockReturnValue({ exitCode: 0, staleEntries: [], stderr: '', stdout: '', warnings: [] });
 
     await auditCommand(makeOptions());
@@ -286,7 +294,6 @@ describe(checkCommand, () => {
 
   it('returns 0 when no vulnerabilities are found', async () => {
     setupLoadConfig();
-    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.prod.json');
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
 
     const exitCode = await checkCommand(makeOptions({ scopes: ['prod'] }));
@@ -297,7 +304,6 @@ describe(checkCommand, () => {
 
   it('returns 1 when unallowed vulnerabilities exist', async () => {
     setupLoadConfig();
-    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.prod.json');
     mocks.runReport.mockReturnValue({
       results: [
         { id: 'GHSA-bad', path: 'bad-pkg', paths: ['bad-pkg'], severity: 'high', url: 'https://example.com/bad' },
@@ -320,7 +326,6 @@ describe(checkCommand, () => {
       },
     });
     setupLoadConfig(config);
-    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.dev.json');
     mocks.runReport.mockReturnValue({
       results: [
         { id: 'GHSA-ok', path: 'safe-pkg', paths: ['safe-pkg'], severity: 'moderate', url: 'https://example.com/ok' },
@@ -351,7 +356,6 @@ describe(checkCommand, () => {
       },
     });
     setupLoadConfig(config);
-    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.prod.json');
     mocks.runReport.mockReturnValue({
       results: [
         {
@@ -400,7 +404,6 @@ describe(checkCommand, () => {
       },
     });
     setupLoadConfig(config);
-    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.prod.json');
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
 
     const exitCode = await checkCommand(makeOptions({ scopes: ['prod'] }));
@@ -412,7 +415,6 @@ describe(checkCommand, () => {
 
   it('outputs JSON when json option is true', async () => {
     setupLoadConfig();
-    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.prod.json');
     mocks.runReport.mockReturnValue({
       results: [{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], severity: 'high', url: 'https://example.com/1' }],
       stdout: '',
@@ -428,7 +430,6 @@ describe(checkCommand, () => {
 
   it('checks both scopes when none are specified', async () => {
     setupLoadConfig();
-    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.json');
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
 
     await checkCommand(makeOptions());
@@ -440,7 +441,6 @@ describe(checkCommand, () => {
 
   it('displays prod before dev even when scopes are passed in reverse order', async () => {
     setupLoadConfig();
-    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.json');
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
 
     await checkCommand(makeOptions({ scopes: ['dev', 'prod'] }));
@@ -452,18 +452,8 @@ describe(checkCommand, () => {
     expect(prodIndex).toBeLessThan(devIndex);
   });
 
-  it('wraps generateAuditCiConfig errors with scope context', async () => {
-    setupLoadConfig();
-    mocks.generateAuditCiConfig.mockRejectedValue(new Error('EACCES: permission denied'));
-
-    await expect(checkCommand(makeOptions({ scopes: ['prod'] }))).rejects.toThrow(
-      "Failed to generate config for scope 'prod': EACCES: permission denied",
-    );
-  });
-
   it('forwards report stderr to process stderr', async () => {
     setupLoadConfig();
-    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.prod.json');
     mocks.runReport.mockReturnValue({
       results: [],
       stdout: '',
@@ -478,7 +468,6 @@ describe(checkCommand, () => {
 
   it('forwards report warnings to stderr', async () => {
     setupLoadConfig();
-    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.prod.json');
     mocks.runReport.mockReturnValue({
       results: [],
       stdout: '',
@@ -493,7 +482,6 @@ describe(checkCommand, () => {
 
   it('invokes runReport with reportType "full" when verbose is true', async () => {
     setupLoadConfig();
-    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.prod.json');
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
 
     await checkCommand(makeOptions({ scopes: ['prod'], verbose: true }));
@@ -503,7 +491,6 @@ describe(checkCommand, () => {
 
   it('omits reportType when verbose is false', async () => {
     setupLoadConfig();
-    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.prod.json');
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
 
     await checkCommand(makeOptions({ scopes: ['prod'] }));
@@ -527,7 +514,6 @@ describe(checkCommand, () => {
       },
     });
     setupLoadConfig(config);
-    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.prod.json');
     mocks.runReport.mockReturnValue({
       results: [
         {
@@ -559,7 +545,6 @@ describe(checkCommand, () => {
       },
     });
     setupLoadConfig(config);
-    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.prod.json');
     mocks.runReport.mockReturnValue({
       results: [
         {
@@ -617,7 +602,6 @@ describe(syncCommand, () => {
       dev: { allowlist: [{ id: 'GHSA-existing', path: 'pkg', url: 'https://example.com' }] },
     });
     setupLoadConfig(config);
-    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.dev.json');
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
     mocks.syncAllowlist.mockResolvedValue({
       syncResult: { added: [], kept: [], removed: [], scope: 'dev' },
@@ -626,18 +610,16 @@ describe(syncCommand, () => {
 
     await syncCommand(makeOptions({ scopes: ['dev'] }));
 
-    // The first generateAuditCiConfig call should receive a stripped scope with empty allowlist
+    // Verify the allowlist was stripped (emptied) before generating the audit-ci config.
     expect(mocks.generateAuditCiConfig).toHaveBeenCalledWith(
       expect.objectContaining({ allowlist: [] }),
       'dev',
-      '/fake/dir',
-      undefined,
+      expect.any(String),
     );
   });
 
   it('prints text summary in non-JSON mode', async () => {
     setupLoadConfig();
-    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.dev.json');
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
     mocks.syncAllowlist.mockResolvedValue({
       syncResult: { added: ['a'], kept: [], removed: ['b', 'c'], scope: 'dev' },
@@ -653,7 +635,6 @@ describe(syncCommand, () => {
 
   it('prints JSON in json mode', async () => {
     setupLoadConfig();
-    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.dev.json');
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
     mocks.syncAllowlist.mockResolvedValue({
       syncResult: { added: [], kept: [], removed: [], scope: 'dev' },
@@ -666,69 +647,83 @@ describe(syncCommand, () => {
     expect(parsed).toStrictEqual(expect.objectContaining({ added: [], kept: [], removed: [] }));
   });
 
-  it('wraps generateAuditCiConfig errors with scope context', async () => {
-    setupLoadConfig();
-    mocks.generateAuditCiConfig.mockRejectedValue(new Error('EACCES: permission denied'));
-
-    await expect(syncCommand(makeOptions({ scopes: ['dev'] }))).rejects.toThrow(
-      "Failed to generate config for scope 'dev': EACCES: permission denied",
-    );
-  });
-
-  it('throws when post-sync generateAuditCiConfig fails', async () => {
-    const config = makeConfig();
-    setupLoadConfig(config);
-
-    // First call (stripped config) succeeds
-    mocks.generateAuditCiConfig.mockResolvedValueOnce('/fake/out/audit-ci.dev.json');
+  it('reports config creation when source is defaults', async () => {
+    // First call returns defaults; second call (after scaffold) returns file.
+    mocks.loadConfig
+      .mockResolvedValueOnce({
+        config: makeConfig(),
+        configDir: '/fake/dir',
+        configFilePath: '/fake/dir/audit-deps.config.json',
+        configSource: 'defaults',
+      })
+      .mockResolvedValueOnce({
+        config: makeConfig(),
+        configDir: '/fake/dir',
+        configFilePath: '/fake/dir/audit-deps.config.json',
+        configSource: 'file',
+      });
     mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
     mocks.syncAllowlist.mockResolvedValue({
       syncResult: { added: [], kept: [], removed: [], scope: 'dev' },
-      updatedConfig: config,
+      updatedConfig: makeConfig(),
     });
 
-    // Second call (post-sync regeneration) fails
-    mocks.generateAuditCiConfig.mockRejectedValueOnce(new Error('Disk full'));
+    await syncCommand(makeOptions({ scopes: ['dev'] }));
 
-    await expect(syncCommand(makeOptions({ scopes: ['dev'] }))).rejects.toThrow(
-      "Failed to generate config for scope 'dev'",
-    );
+    expect(stdoutOutput).toContain('Created config at');
   });
-});
 
-// ---------------------------------------------------------------------------
-// generateCommand
-// ---------------------------------------------------------------------------
+  it('scaffolds a config file when source is defaults', async () => {
+    // First call returns defaults; second call (after scaffold) returns file.
+    mocks.loadConfig
+      .mockResolvedValueOnce({
+        config: makeConfig(),
+        configDir: '/fake/dir',
+        configFilePath: '/fake/dir/audit-deps.config.json',
+        configSource: 'defaults',
+      })
+      .mockResolvedValueOnce({
+        config: makeConfig(),
+        configDir: '/fake/dir',
+        configFilePath: '/fake/dir/audit-deps.config.json',
+        configSource: 'file',
+      });
+    mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
+    mocks.syncAllowlist.mockResolvedValue({
+      syncResult: { added: [], kept: [], removed: [], scope: 'dev' },
+      updatedConfig: makeConfig(),
+    });
 
-describe(generateCommand, () => {
-  it('returns 1 when config loading fails', async () => {
-    mocks.loadConfig.mockRejectedValue(new Error('Config not found'));
+    await syncCommand(makeOptions({ scopes: ['dev'] }));
 
-    const exitCode = await generateCommand(makeOptions());
+    expect(mocks.scaffoldConfig).toHaveBeenCalledWith({ dryRun: false, force: false });
+  });
+
+  it('does not scaffold when source is file', async () => {
+    setupLoadConfig(undefined, 'file');
+    mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
+    mocks.syncAllowlist.mockResolvedValue({
+      syncResult: { added: [], kept: [], removed: [], scope: 'dev' },
+      updatedConfig: makeConfig(),
+    });
+
+    await syncCommand(makeOptions({ scopes: ['dev'] }));
+
+    expect(mocks.scaffoldConfig).not.toHaveBeenCalled();
+  });
+
+  it('returns 1 when scaffold fails', async () => {
+    mocks.loadConfig.mockResolvedValueOnce({
+      config: makeConfig(),
+      configDir: '/fake/dir',
+      configFilePath: '/fake/dir/audit-deps.config.json',
+      configSource: 'defaults',
+    });
+    mocks.scaffoldConfig.mockReturnValue({ configResult: { outcome: 'failed' } });
+
+    const exitCode = await syncCommand(makeOptions({ scopes: ['dev'] }));
 
     expect(exitCode).toBe(1);
-  });
-
-  it('prints generated paths', async () => {
-    setupLoadConfig();
-    mocks.generateAuditCiConfig
-      .mockResolvedValueOnce('/fake/out/audit-ci.dev.json')
-      .mockResolvedValueOnce('/fake/out/audit-ci.prod.json');
-
-    await generateCommand(makeOptions());
-
-    expect(stdoutOutput).toContain('Generated: /fake/out/audit-ci.dev.json');
-    expect(stdoutOutput).toContain('Generated: /fake/out/audit-ci.prod.json');
-  });
-
-  it('generates only the requested scope', async () => {
-    setupLoadConfig();
-    mocks.generateAuditCiConfig.mockResolvedValue('/fake/out/audit-ci.prod.json');
-
-    await generateCommand(makeOptions({ scopes: ['prod'] }));
-
-    expect(mocks.generateAuditCiConfig).toHaveBeenCalledTimes(1);
-    expect(stdoutOutput).toContain('Generated: /fake/out/audit-ci.prod.json');
-    expect(stdoutOutput).not.toContain('audit-ci.dev.json');
+    expect(stderrOutput).toContain('Failed to create config file');
   });
 });

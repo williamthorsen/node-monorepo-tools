@@ -23,7 +23,7 @@ describe(scaffoldConfig, () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('creates config file with expected template content', () => {
+  it('creates config file with severityThreshold and $schema', () => {
     const result = scaffoldConfig({ dryRun: false, force: false });
 
     expect(result.configResult.outcome).toBe('created');
@@ -31,6 +31,9 @@ describe(scaffoldConfig, () => {
     expect(existsSync(configPath)).toBe(true);
 
     const content: unknown = JSON.parse(readFileSync(configPath, 'utf8'));
+    expect(content).toHaveProperty('$schema');
+    expect(content).toHaveProperty('dev.severityThreshold', 'moderate');
+    expect(content).toHaveProperty('prod.severityThreshold', 'low');
     expect(content).toHaveProperty('dev.allowlist');
     expect(content).toHaveProperty('prod.allowlist');
   });
@@ -57,8 +60,8 @@ describe(scaffoldConfig, () => {
     expect(result.configResult.outcome).toBe('overwritten');
 
     const content = JSON.parse(readFileSync(configPath, 'utf8'));
-    expect(content).toHaveProperty('dev');
-    expect(content).toHaveProperty('prod');
+    expect(content).toHaveProperty('dev.severityThreshold');
+    expect(content).toHaveProperty('prod.severityThreshold');
   });
 
   it('returns created outcome without writing in dry-run mode', () => {
@@ -109,5 +112,17 @@ describe(initCommand, () => {
 
     const exitCode = initCommand({ dryRun: false, force: false });
     expect(exitCode).toBe(0);
+  });
+
+  it('does not mention generate in next-steps output', () => {
+    const consoleOutput: string[] = [];
+    vi.spyOn(console, 'info').mockImplementation((...args: unknown[]) => {
+      consoleOutput.push(args.map(String).join(' '));
+    });
+
+    initCommand({ dryRun: false, force: false });
+
+    const fullOutput = consoleOutput.join('\n');
+    expect(fullOutput).not.toContain('generate');
   });
 });

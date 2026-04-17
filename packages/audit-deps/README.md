@@ -11,18 +11,20 @@ pnpm add -D @williamthorsen/audit-deps
 ## Quick start
 
 ```shell
-# Scaffold a starter config
+# Run a vulnerability check with sensible defaults (no config needed)
+npx @williamthorsen/audit-deps
+
+# Scaffold a starter config for customization
 npx audit-deps init
-
-# Grouped vulnerability check across all scopes (default)
-npx audit-deps
-
-# Raw audit-ci passthrough
-npx audit-deps --raw
 
 # Sync allowlists with current findings
 npx audit-deps sync
+
+# Raw audit-ci passthrough
+npx audit-deps --raw
 ```
+
+No config file is required. When `.config/audit-deps.config.json` is absent, the tool uses built-in defaults: `severityThreshold: 'moderate'` for dev, `severityThreshold: 'low'` for prod, and empty allowlists.
 
 ## Configuration
 
@@ -30,9 +32,9 @@ The source-of-truth config lives at `.config/audit-deps.config.json`:
 
 ```json
 {
-  "outDir": "../tmp",
+  "$schema": "https://github.com/williamthorsen/node-monorepo-tools/raw/audit-deps-v<version>/packages/audit-deps/schemas/config.json",
   "dev": {
-    "moderate": true,
+    "severityThreshold": "moderate",
     "allowlist": [
       {
         "addedAt": "2026-04-15",
@@ -44,7 +46,7 @@ The source-of-truth config lives at `.config/audit-deps.config.json`:
     ]
   },
   "prod": {
-    "high": true,
+    "severityThreshold": "low",
     "allowlist": []
   }
 }
@@ -52,9 +54,9 @@ The source-of-truth config lives at `.config/audit-deps.config.json`:
 
 ### Fields
 
-- **`outDir`** (optional) — Directory for generated flat audit-ci config files, resolved relative to the config file's directory. Defaults to the config file's directory.
+- **`$schema`** (optional) — JSON Schema URL for editor autocomplete and validation. Automatically included by `init` and `sync`.
 - **`dev`** / **`prod`** — Scope-specific settings:
-  - **`critical`**, **`high`**, **`moderate`**, **`low`** — Severity thresholds (pass to audit-ci).
+  - **`severityThreshold`** (optional) — Fail on advisories at or above this severity. Valid values: `'low'`, `'moderate'`, `'high'`, `'critical'`. When omitted, audit-ci uses its own defaults.
   - **`allowlist`** — Typed advisory entries with `id`, `path`, `url`, and optional `reason` and `addedAt`. `addedAt` is an ISO date (UTC, `YYYY-MM-DD`) populated automatically by `audit-deps sync` on new entries; existing entries retain whatever value they had.
 
 ## CLI reference
@@ -66,7 +68,6 @@ Usage: audit-deps [options]
 Commands:
   (default)            Grouped vulnerability check with severity indicators
   sync                 Synchronize allowlists with current audit findings
-  generate             Regenerate flat audit-ci config files
   init                 Scaffold a starter config file
 
 Scope options:
@@ -88,3 +89,19 @@ Other options:
   --dry-run, -n   Preview changes without writing files
   --force, -f     Overwrite existing files
 ```
+
+## Migration from v0.3
+
+v0.4 introduces breaking changes to the config schema:
+
+- **`outDir` removed.** Intermediate audit-ci files are now written to a temp directory and cleaned up automatically. Remove `outDir` from your config.
+- **Severity booleans replaced by `severityThreshold`.** Replace `"moderate": true` with `"severityThreshold": "moderate"`, `"high": true` with `"severityThreshold": "high"`, etc. Only one threshold per scope is supported.
+- **`generate` subcommand removed.** The `audit-deps generate` command no longer exists. Flat audit-ci configs are now managed internally.
+- **Config is optional.** All commands now work without a config file, using built-in defaults.
+
+To migrate an existing config:
+
+1. Remove the `outDir` field.
+2. Replace severity booleans with `severityThreshold` in each scope.
+3. Optionally add a `$schema` field (run `audit-deps init --force` to regenerate, or add it manually).
+4. Delete any generated `audit-ci.*.json` files that were in your config directory.

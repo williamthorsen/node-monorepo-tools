@@ -1,17 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const { mockedFileExists, mockedExistsSync } = vi.hoisted(() => ({
-  mockedFileExists: vi.fn<(path: string) => boolean>(),
+const { mockedExistsSync } = vi.hoisted(() => ({
   mockedExistsSync: vi.fn<(path: string) => boolean>(),
 }));
-
-vi.mock('readyup', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('readyup')>();
-  return {
-    ...actual,
-    fileExists: mockedFileExists,
-  };
-});
 
 vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs')>();
@@ -22,25 +13,10 @@ vi.mock('node:fs', async (importOriginal) => {
   };
 });
 
-import { auditDepsConfigExists, noLegacyAuditCiDirectory, skipLegacyAuditCiCheck } from '../audit-deps.ts';
+import { noLegacyAuditCiDirectory, skipLegacyAuditCiCheck } from '../audit-deps.ts';
 
 afterEach(() => {
   vi.restoreAllMocks();
-});
-
-describe(auditDepsConfigExists, () => {
-  it('returns true when config file exists', () => {
-    mockedFileExists.mockReturnValue(true);
-
-    expect(auditDepsConfigExists()).toBe(true);
-    expect(mockedFileExists).toHaveBeenCalledWith('.config/audit-deps.config.json');
-  });
-
-  it('returns false when config file is absent', () => {
-    mockedFileExists.mockReturnValue(false);
-
-    expect(auditDepsConfigExists()).toBe(false);
-  });
 });
 
 describe(noLegacyAuditCiDirectory, () => {

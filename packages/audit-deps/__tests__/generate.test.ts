@@ -14,29 +14,52 @@ describe(buildFlatConfig, () => {
         { id: 'GHSA-1234', path: 'lodash', url: 'https://example.com/1' },
         { id: 'GHSA-5678', path: 'express', url: 'https://example.com/2' },
       ],
-      moderate: true,
+      severityThreshold: 'moderate',
     };
 
-    const flat = buildFlatConfig(scopeConfig);
+    const flat = buildFlatConfig(scopeConfig, 'prod');
     expect(flat.allowlist).toStrictEqual(['GHSA-1234', 'GHSA-5678']);
     expect(flat.moderate).toBe(true);
     expect(flat['show-not-found']).toBe(true);
   });
 
   it('produces an empty allowlist when the source has no entries', () => {
-    const scopeConfig: ScopeConfig = { allowlist: [], high: true };
-    const flat = buildFlatConfig(scopeConfig);
+    const scopeConfig: ScopeConfig = { allowlist: [], severityThreshold: 'high' };
+    const flat = buildFlatConfig(scopeConfig, 'dev');
     expect(flat.allowlist).toStrictEqual([]);
     expect(flat.high).toBe(true);
   });
 
-  it('omits severity fields that are not set', () => {
+  it('omits severity keys when severityThreshold is undefined', () => {
     const scopeConfig: ScopeConfig = { allowlist: [] };
-    const flat = buildFlatConfig(scopeConfig);
+    const flat = buildFlatConfig(scopeConfig, 'dev');
     expect(flat).not.toHaveProperty('moderate');
     expect(flat).not.toHaveProperty('high');
     expect(flat).not.toHaveProperty('critical');
     expect(flat).not.toHaveProperty('low');
+  });
+
+  it.each([
+    { threshold: 'low' as const, expectedKey: 'low' },
+    { threshold: 'moderate' as const, expectedKey: 'moderate' },
+    { threshold: 'high' as const, expectedKey: 'high' },
+    { threshold: 'critical' as const, expectedKey: 'critical' },
+  ])('translates severityThreshold "$threshold" to { $expectedKey: true }', ({ threshold, expectedKey }) => {
+    const scopeConfig: ScopeConfig = { allowlist: [], severityThreshold: threshold };
+    const flat = buildFlatConfig(scopeConfig, 'dev');
+    expect(flat[expectedKey]).toBe(true);
+  });
+
+  it('adds skip-dev for prod scope', () => {
+    const flat = buildFlatConfig({ allowlist: [] }, 'prod');
+    expect(flat['skip-dev']).toBe(true);
+    expect(flat).not.toHaveProperty('extra-args');
+  });
+
+  it('adds extra-args ["--dev"] for dev scope', () => {
+    const flat = buildFlatConfig({ allowlist: [] }, 'dev');
+    expect(flat['extra-args']).toStrictEqual(['--dev']);
+    expect(flat).not.toHaveProperty('skip-dev');
   });
 });
 
@@ -52,8 +75,8 @@ describe(generateAuditCiConfig, () => {
     await rm(tempDir, { recursive: true, force: true });
   });
 
-  it('writes the flat config file to the config directory by default', async () => {
-    const scopeConfig: ScopeConfig = { allowlist: [], moderate: true };
+  it('writes the flat config file to the output directory', async () => {
+    const scopeConfig: ScopeConfig = { allowlist: [], severityThreshold: 'moderate' };
     const outputPath = await generateAuditCiConfig(scopeConfig, 'dev', tempDir);
 
     expect(outputPath).toBe(path.join(tempDir, 'audit-ci.dev.json'));
@@ -62,21 +85,10 @@ describe(generateAuditCiConfig, () => {
     expect(content).toHaveProperty('moderate', true);
   });
 
-  it('resolves outDir relative to config directory', async () => {
-    const scopeConfig: ScopeConfig = { allowlist: [], high: true };
-    const outputPath = await generateAuditCiConfig(scopeConfig, 'prod', tempDir, '../tmp');
-
-    const expected = path.resolve(tempDir, '../tmp', 'audit-ci.prod.json');
-    expect(outputPath).toBe(expected);
-
-    const content: unknown = JSON.parse(await readFile(outputPath, 'utf8'));
-    expect(content).toHaveProperty('high', true);
-  });
-
-  it('round-trips: load config values appear in generated JSON', async () => {
+  it('round-trips: config values appear in generated JSON', async () => {
     const scopeConfig: ScopeConfig = {
       allowlist: [{ id: 'GHSA-abcd', path: 'pkg', url: 'https://example.com' }],
-      critical: true,
+      severityThreshold: 'critical',
     };
     const outputPath = await generateAuditCiConfig(scopeConfig, 'dev', tempDir);
     const content: unknown = JSON.parse(await readFile(outputPath, 'utf8'));

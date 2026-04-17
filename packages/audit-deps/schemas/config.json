@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "audit-deps configuration",
+  "description": "Configuration file for @williamthorsen/audit-deps. Controls severity thresholds and allowlists for dependency vulnerability auditing.",
+  "type": "object",
+  "required": ["dev", "prod"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference for editor support."
+    },
+    "dev": {
+      "$ref": "#/$defs/scopeConfig",
+      "description": "Configuration for development dependency auditing."
+    },
+    "prod": {
+      "$ref": "#/$defs/scopeConfig",
+      "description": "Configuration for production dependency auditing."
+    }
+  },
+  "not": {
+    "anyOf": [
+      { "required": ["outDir"] },
+      {
+        "properties": {
+          "dev": {
+            "anyOf": [
+              { "required": ["critical"] },
+              { "required": ["high"] },
+              { "required": ["low"] },
+              { "required": ["moderate"] }
+            ]
+          }
+        }
+      },
+      {
+        "properties": {
+          "prod": {
+            "anyOf": [
+              { "required": ["critical"] },
+              { "required": ["high"] },
+              { "required": ["low"] },
+              { "required": ["moderate"] }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "$defs": {
+    "allowlistEntry": {
+      "type": "object",
+      "description": "A single allowlisted advisory with metadata for traceability.",
+      "required": ["id", "path", "url"],
+      "additionalProperties": false,
+      "properties": {
+        "addedAt": {
+          "type": "string",
+          "description": "ISO date (YYYY-MM-DD) when the entry was added. Populated automatically by `audit-deps sync`."
+        },
+        "id": {
+          "type": "string",
+          "description": "Advisory identifier (e.g., GHSA-xxxx-xxxx-xxxx)."
+        },
+        "path": {
+          "type": "string",
+          "description": "Dependency path where the vulnerability was found."
+        },
+        "reason": {
+          "type": "string",
+          "description": "Explanation for why this advisory is allowlisted."
+        },
+        "url": {
+          "type": "string",
+          "description": "URL to the advisory detail page."
+        }
+      }
+    },
+    "scopeConfig": {
+      "type": "object",
+      "description": "Configuration for a single audit scope (dev or prod).",
+      "required": ["allowlist"],
+      "additionalProperties": false,
+      "properties": {
+        "allowlist": {
+          "type": "array",
+          "description": "Advisories that are accepted and should not cause audit failure.",
+          "items": { "$ref": "#/$defs/allowlistEntry" }
+        },
+        "severityThreshold": {
+          "type": "string",
+          "description": "Fail on advisories at or above this severity level.",
+          "enum": ["critical", "high", "low", "moderate"]
+        }
+      }
+    }
+  }
+}
