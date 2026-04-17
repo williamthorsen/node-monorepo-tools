@@ -70,12 +70,9 @@ jobs:
         if: ${{ env.BUILD_LOCAL != 'true' }}
         run: node -e "const fs=require('fs'),f='package.json',p=JSON.parse(fs.readFileSync(f));delete p.packageManager;fs.writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
 
-      # Pin pnpm 10.x explicitly — pnpm/action-setup@v6 bundles a v11 beta by default.
       - name: Set up pnpm
         if: ${{ env.BUILD_LOCAL == 'true' }}
-        uses: pnpm/action-setup@v6
-        with:
-          version: 10
+        uses: pnpm/action-setup@v4
 
       # Materialize the cache flag via step output because the `env` context
       # is not evaluated in `with:` blocks.
