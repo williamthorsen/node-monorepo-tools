@@ -41,40 +41,20 @@ jobs:
 
     env:
       BUILD_LOCAL: ${{ github.repository == 'williamthorsen/node-monorepo-tools' }}
-      # Allow npx to run even when package.json declares a different package
-      # manager (e.g., pnpm). Without this, Corepack blocks npm/npx.
-      COREPACK_ENABLE_STRICT: '0'
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
 
-      # Strip the packageManager field so that actions/setup-node does not
-      # try to install it. The field is irrelevant for publishing.
-      - name: Neutralize packageManager field
-        if: ${{ env.BUILD_LOCAL != 'true' }}
-        run: node -e "const fs=require('fs'),f='package.json',p=JSON.parse(fs.readFileSync(f));delete p.packageManager;fs.writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
-
       - name: Set up pnpm
-        if: ${{ env.BUILD_LOCAL == 'true' }}
-        uses: pnpm/action-setup@v4
-
-      # Materialize the cache flag via step output because the `env` context
-      # is not evaluated in `with:` blocks.
-      - name: Resolve pnpm cache flag
-        id: cache-flag
-        run: echo "value=${{ env.BUILD_LOCAL == 'true' && 'pnpm' || '' }}" >> "$GITHUB_OUTPUT"
+        uses: pnpm/action-setup@v5
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
           node-version: ${{ inputs.node-version }}
           registry-url: https://registry.npmjs.org
-          cache: ${{ steps.cache-flag.outputs.value }}
-
-      - name: Disable Corepack
-        if: ${{ env.BUILD_LOCAL != 'true' }}
-        run: corepack disable
+          cache: pnpm
 
       - name: Install release-kit from npm
         if: ${{ env.BUILD_LOCAL != 'true' }}
