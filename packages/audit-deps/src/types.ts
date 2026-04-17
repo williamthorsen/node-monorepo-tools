@@ -119,3 +119,25 @@ export interface CommandOptions {
   scopes: AuditScope[];
   verbose: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// Severity comparison
+// ---------------------------------------------------------------------------
+
+/**
+ * Determine whether a severity string is at or above the given threshold.
+ *
+ * Unrecognized or undefined severities are treated as above threshold
+ * (conservative — surfaces unknown vulns rather than hiding them).
+ *
+ * @internal Exported for testing.
+ */
+export function isSeverityAtOrAbove(severity: string | undefined, threshold: SeverityThreshold): boolean {
+  if (severity === undefined) return true;
+  const levels: readonly string[] = SEVERITY_THRESHOLDS;
+  const severityIndex = levels.indexOf(severity);
+  const thresholdIndex = SEVERITY_THRESHOLDS.indexOf(threshold);
+  // Unrecognized severity: treat as above threshold.
+  if (severityIndex === -1) return true;
+  return severityIndex >= thresholdIndex;
+}

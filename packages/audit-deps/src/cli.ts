@@ -10,8 +10,8 @@ import { scaffoldConfig } from './init/scaffold.ts';
 import { parseAuditCiOutput, runAudit, runReport } from './run-audit.ts';
 import { syncAllowlist } from './sync.ts';
 import { withTempDir } from './tmp.ts';
-import type { AllowlistEntry, AuditResult, AuditScope, CommandOptions } from './types.ts';
-import { AUDIT_SCOPES } from './types.ts';
+import type { AllowlistEntry, AuditResult, AuditScope, CommandOptions, SeverityThreshold } from './types.ts';
+import { AUDIT_SCOPES, isSeverityAtOrAbove } from './types.ts';
 
 /** Extract a displayable message from an unknown thrown value. */
 export function extractMessage(error: unknown): string {
@@ -115,15 +115,18 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
   try {
     return await withTempDir(async (tempDir) => {
       const checkResult: CheckResult = {
-        dev: { allowed: [], stale: [], unallowed: [] },
-        prod: { allowed: [], stale: [], unallowed: [] },
+        dev: { allowed: [], belowThreshold: [], stale: [], unallowed: [] },
+        prod: { allowed: [], belowThreshold: [], stale: [], unallowed: [] },
       };
+      const thresholds: Partial<Record<AuditScope, SeverityThreshold>> = {};
 
       for (const scope of scopes) {
         const scopeConfig = config[scope];
+        const effectiveThreshold = scopeConfig.severityThreshold ?? 'low';
+        thresholds[scope] = effectiveThreshold;
 
-        // Generate a stripped config (empty allowlist) so audit-ci reports all vulnerabilities.
-        const strippedScope = { ...scopeConfig, allowlist: [] };
+        // Generate a stripped config (empty allowlist, low threshold) so audit-ci reports all vulnerabilities.
+        const strippedScope = { ...scopeConfig, allowlist: [], severityThreshold: 'low' as const };
         const strippedConfigPath = await generateAuditCiConfig(strippedScope, scope, tempDir);
 
         const reportOptions: { configPath: string; reportType?: 'full' } = { configPath: strippedConfigPath };
@@ -141,10 +144,17 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
         const allowedIds = new Set(scopeConfig.allowlist.map((entry) => entry.id));
         const foundIds = new Set(report.results.map((r) => r.id));
         const allowlistById = new Map<string, AllowlistEntry>(scopeConfig.allowlist.map((entry) => [entry.id, entry]));
-        const scopeResult: ScopeCheckResult = { allowed: [], stale: [], unallowed: [] };
+        const scopeResult: ScopeCheckResult = { allowed: [], belowThreshold: [], stale: [], unallowed: [] };
 
+        // Classify results: below threshold first, then allowlist, then unallowed.
+        // Threshold check intentionally precedes the allowlist check. Below-threshold vulns are
+        // never checked against the allowlist because the threshold already excludes them from
+        // the fail/pass decision. Even if someone has explicitly allowlisted a low-severity vuln
+        // and the threshold is "moderate", it shows as "ignored" (not "allowed").
         for (const result of report.results) {
-          if (allowedIds.has(result.id)) {
+          if (!isSeverityAtOrAbove(result.severity, effectiveThreshold)) {
+            scopeResult.belowThreshold.push(result);
+          } else if (allowedIds.has(result.id)) {
             const entry = allowlistById.get(result.id);
             scopeResult.allowed.push(buildAllowedVuln(result, entry));
           } else {
@@ -163,11 +173,11 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
       }
 
       if (options.verbose && !options.json) {
-        process.stdout.write(formatCheckVerboseText(checkResult, scopes));
+        process.stdout.write(formatCheckVerboseText(checkResult, scopes, undefined, thresholds));
       } else if (options.json) {
         process.stdout.write(formatCheckJson(checkResult, scopes));
       } else {
-        process.stdout.write(formatCheckText(checkResult, scopes));
+        process.stdout.write(formatCheckText(checkResult, scopes, undefined, thresholds));
       }
 
       const hasUnallowed = scopes.some((s) => checkResult[s].unallowed.length > 0);

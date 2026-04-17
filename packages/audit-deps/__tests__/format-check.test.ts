@@ -10,7 +10,7 @@ import { formatCheckJson, formatCheckText, severityIndicator } from '../src/form
 const FIXED_NOW = new Date('2026-04-15T00:00:00Z');
 
 function emptyScopeResult(): ScopeCheckResult {
-  return { allowed: [], stale: [], unallowed: [] };
+  return { allowed: [], belowThreshold: [], stale: [], unallowed: [] };
 }
 
 function makeCheckResult(overrides?: Partial<CheckResult>): CheckResult {
@@ -90,6 +90,7 @@ describe(formatCheckText, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [],
         unallowed: [
           {
@@ -113,6 +114,7 @@ describe(formatCheckText, () => {
     const result = makeCheckResult({
       dev: {
         allowed: [],
+        belowThreshold: [],
         stale: [],
         unallowed: [
           {
@@ -140,6 +142,7 @@ describe(formatCheckText, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [],
         unallowed: [
           {
@@ -162,6 +165,7 @@ describe(formatCheckText, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [],
         unallowed: [{ id: '1234', path: 'pkg', paths: ['pkg'], severity: 'high', url: 'https://example.com/1' }],
       },
@@ -175,6 +179,7 @@ describe(formatCheckText, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [],
         unallowed: [{ id: 'GHSA-1', ghsaId: 'GHSA-1', path: 'pkg', paths: ['pkg'], url: 'https://example.com/1' }],
       },
@@ -202,6 +207,7 @@ describe(formatCheckText, () => {
             url: 'https://example.com/2',
           },
         ],
+        belowThreshold: [],
         stale: [],
         unallowed: [],
       },
@@ -224,6 +230,7 @@ describe(formatCheckText, () => {
             url: 'https://example.com/baddate',
           },
         ],
+        belowThreshold: [],
         stale: [],
         unallowed: [],
       },
@@ -238,6 +245,7 @@ describe(formatCheckText, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [{ id: '1234', ghsaId: 'GHSA-nodate', path: 'pkg', paths: ['pkg'], url: 'https://example.com' }],
+        belowThreshold: [],
         stale: [],
         unallowed: [],
       },
@@ -254,6 +262,7 @@ describe(formatCheckText, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [{ id: 'GHSA-old' }],
         unallowed: [],
       },
@@ -279,6 +288,7 @@ describe(formatCheckText, () => {
             url: 'https://example.com/ok',
           },
         ],
+        belowThreshold: [],
         stale: [{ id: 'GHSA-stale' }],
         unallowed: [
           {
@@ -303,11 +313,13 @@ describe(formatCheckText, () => {
     const result = makeCheckResult({
       dev: {
         allowed: [],
+        belowThreshold: [],
         stale: [],
         unallowed: [{ id: 'dev1', ghsaId: 'GHSA-dev', path: 'pkg', paths: ['pkg'], url: 'https://example.com/dev' }],
       },
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [],
         unallowed: [{ id: 'prod1', ghsaId: 'GHSA-prod', path: 'pkg', paths: ['pkg'], url: 'https://example.com/prod' }],
       },
@@ -324,6 +336,7 @@ describe(formatCheckText, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [],
         unallowed: [{ id: 'GHSA-bad', path: 'pkg', paths: ['pkg'], url: 'https://example.com/bad' }],
       },
@@ -339,6 +352,7 @@ describe(formatCheckText, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [{ id: 'GHSA-stale' }],
         unallowed: [],
       },
@@ -355,6 +369,7 @@ describe(formatCheckText, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [{ id: 'GHSA-stale' }],
         unallowed: [{ id: 'GHSA-bad', path: 'pkg', paths: ['pkg'], url: 'https://example.com/bad' }],
       },
@@ -377,6 +392,7 @@ describe(formatCheckText, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [],
         unallowed: [
           {
@@ -401,6 +417,7 @@ describe(formatCheckText, () => {
     const result = makeCheckResult({
       dev: {
         allowed: [],
+        belowThreshold: [],
         stale: [{ id: 'GHSA-stale-dev' }],
         unallowed: [],
       },
@@ -416,6 +433,7 @@ describe(formatCheckText, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [{ id: 'GHSA-stale-prod' }],
         unallowed: [
           {
@@ -430,6 +448,7 @@ describe(formatCheckText, () => {
       },
       dev: {
         allowed: [],
+        belowThreshold: [],
         stale: [],
         unallowed: [],
       },
@@ -443,12 +462,114 @@ describe(formatCheckText, () => {
 
   // --- Actions footer (single-scope) ---
 
+  // --- Below-threshold vulnerabilities ---
+
+  it('renders below-threshold vulnerabilities with "ignored" annotation', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [],
+        belowThreshold: [
+          {
+            id: 'GHSA-low',
+            ghsaId: 'GHSA-low',
+            path: 'brace-expansion',
+            paths: ['brace-expansion'],
+            severity: 'low',
+            url: 'https://example.com/low',
+          },
+        ],
+        stale: [],
+        unallowed: [],
+      },
+    });
+
+    const output = formatCheckText(result, ['prod'], FIXED_NOW);
+    expect(output).toContain('\u{2139}\u{FE0F} GHSA-low: brace-expansion');
+    expect(output).toContain('\u{1F6AB} ignored');
+  });
+
+  it('does not print "No known vulnerabilities found." when only below-threshold vulns exist', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [],
+        belowThreshold: [
+          { id: 'GHSA-bt', path: 'pkg', paths: ['pkg'], severity: 'low', url: 'https://example.com/bt' },
+        ],
+        stale: [],
+        unallowed: [],
+      },
+    });
+
+    const output = formatCheckText(result, ['prod'], FIXED_NOW);
+    expect(output).not.toContain('No known vulnerabilities found.');
+  });
+
+  // --- Threshold annotation ---
+
+  it('shows threshold in intro banner for single-scope when above low', () => {
+    const result = makeCheckResult();
+    const output = formatCheckText(result, ['prod'], FIXED_NOW, { prod: 'moderate' });
+    expect(output).toContain('\u{1F52C} Auditing prod dependencies (threshold: \u{1F7E0} moderate) ...');
+  });
+
+  it('omits threshold from intro banner when threshold is low', () => {
+    const result = makeCheckResult();
+    const output = formatCheckText(result, ['prod'], FIXED_NOW, { prod: 'low' });
+    expect(output).toContain('\u{1F52C} Auditing prod dependencies ...');
+    expect(output).not.toContain('threshold:');
+  });
+
+  it('shows threshold in scope headers for multi-scope when above low', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [],
+        belowThreshold: [
+          { id: 'GHSA-bt', path: 'pkg', paths: ['pkg'], severity: 'low', url: 'https://example.com/bt' },
+        ],
+        stale: [],
+        unallowed: [],
+      },
+    });
+
+    const output = formatCheckText(result, ['prod', 'dev'], FIXED_NOW, { prod: 'moderate', dev: 'high' });
+    expect(output).toContain('\u{1F4E6} prod: (threshold: \u{1F7E0} moderate)');
+    expect(output).toContain('\u{1F527} dev: (threshold: \u{1F534} high)');
+  });
+
+  it('renders below-threshold vulnerability line in multi-scope output', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [],
+        belowThreshold: [
+          {
+            id: 'GHSA-bt',
+            ghsaId: 'GHSA-bt',
+            path: 'brace-expansion',
+            paths: ['brace-expansion'],
+            severity: 'low',
+            url: 'https://example.com/bt',
+          },
+        ],
+        stale: [],
+        unallowed: [],
+      },
+    });
+
+    const output = formatCheckText(result, ['prod', 'dev'], FIXED_NOW, { prod: 'moderate' });
+    expect(output).toContain('\u{2139}\u{FE0F} GHSA-bt: brace-expansion');
+    expect(output).toContain('\u{1F6AB} ignored');
+    expect(output).toContain('\u{1F4E6} prod: (threshold: \u{1F7E0} moderate)');
+  });
+
+  // --- Existing tests ---
+
   it('shows verbose hint when only allowed vulns exist (no unallowed, no stale)', () => {
     const result = makeCheckResult({
       prod: {
         allowed: [
           { id: '1', ghsaId: 'GHSA-1', path: 'pkg', paths: ['pkg'], severity: 'low', url: 'https://example.com/1' },
         ],
+        belowThreshold: [],
         stale: [],
         unallowed: [],
       },
@@ -470,6 +591,7 @@ describe(formatCheckJson, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], severity: 'high', url: 'https://example.com/1' }],
+        belowThreshold: [],
         stale: [{ id: 'GHSA-old' }],
         unallowed: [],
       },
@@ -479,6 +601,7 @@ describe(formatCheckJson, () => {
     expect(parsed).toStrictEqual({
       prod: {
         allowed: [{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], severity: 'high', url: 'https://example.com/1' }],
+        belowThreshold: [],
         stale: [{ id: 'GHSA-old' }],
         unallowed: [],
       },
@@ -502,6 +625,7 @@ describe(formatCheckJson, () => {
             url: 'https://example.com/allowed',
           },
         ],
+        belowThreshold: [],
         stale: [],
         unallowed: [],
       },
@@ -521,6 +645,28 @@ describe(formatCheckJson, () => {
               title: 'Prototype pollution',
             }),
           ],
+        }),
+      }),
+    );
+  });
+
+  it('includes below-threshold array in JSON output', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [],
+        belowThreshold: [
+          { id: 'GHSA-bt', path: 'pkg', paths: ['pkg'], severity: 'low', url: 'https://example.com/bt' },
+        ],
+        stale: [],
+        unallowed: [],
+      },
+    });
+
+    const parsed: unknown = JSON.parse(formatCheckJson(result, ['prod']));
+    expect(parsed).toStrictEqual(
+      expect.objectContaining({
+        prod: expect.objectContaining({
+          belowThreshold: [expect.objectContaining({ id: 'GHSA-bt', severity: 'low' })],
         }),
       }),
     );

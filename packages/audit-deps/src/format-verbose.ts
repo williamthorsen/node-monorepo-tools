@@ -1,8 +1,8 @@
 import { formatActionHints } from './format-actions.ts';
 import type { AllowedVuln, CheckResult, ScopeCheckResult, StaleEntry } from './format-check.ts';
-import { displayId, formatSeveritySuffix } from './format-check.ts';
+import { displayId, formatSeveritySuffix, severityIndicator } from './format-check.ts';
 import { formatRelativeTime } from './format-time.ts';
-import type { AuditResult, AuditScope } from './types.ts';
+import type { AuditResult, AuditScope, SeverityThreshold } from './types.ts';
 
 // ---------------------------------------------------------------------------
 // Display constants
@@ -10,6 +10,7 @@ import type { AuditResult, AuditScope } from './types.ts';
 
 const STATUS_UNALLOWED = '\u{1F6A8}';
 const STATUS_ALLOWED = '\u{26A0}\u{FE0F}';
+const STATUS_BELOW_THRESHOLD = '\u{2139}\u{FE0F}';
 const STATUS_STALE = '\u{1F5D1}\u{FE0F}';
 
 /** Scope display metadata. */
@@ -29,12 +30,17 @@ const WRAP_COLUMNS = 72;
 // ---------------------------------------------------------------------------
 
 /** Format the verbose per-vulnerability check output as text. */
-export function formatCheckVerboseText(result: CheckResult, scopes: AuditScope[], now?: Date): string {
+export function formatCheckVerboseText(
+  result: CheckResult,
+  scopes: AuditScope[],
+  now?: Date,
+  thresholds?: Partial<Record<AuditScope, SeverityThreshold>>,
+): string {
   const effectiveNow = now ?? new Date();
   const sections: string[] = [];
 
   for (const scope of scopes) {
-    sections.push(formatScopeVerbose(scope, result[scope], effectiveNow));
+    sections.push(formatScopeVerbose(scope, result[scope], effectiveNow, thresholds?.[scope]));
   }
 
   const actions = formatActionHints(result, scopes);
@@ -43,10 +49,28 @@ export function formatCheckVerboseText(result: CheckResult, scopes: AuditScope[]
   return body + '\n' + actions + '\n';
 }
 
+/** Format a threshold annotation for scope headers. Returns empty string for `low` or undefined threshold. */
+function formatThresholdSuffix(threshold: SeverityThreshold | undefined): string {
+  if (threshold === undefined || threshold === 'low') return '';
+  const indicator = severityIndicator(threshold);
+  const indicatorPart = indicator.length > 0 ? `${indicator} ` : '';
+  return ` (threshold: ${indicatorPart}${threshold})`;
+}
+
 /** Format a single scope's verbose check results. */
-function formatScopeVerbose(scope: AuditScope, result: ScopeCheckResult, now: Date): string {
-  const lines: string[] = [SCOPE_HEADERS[scope]];
-  const hasFindings = result.unallowed.length > 0 || result.allowed.length > 0 || result.stale.length > 0;
+function formatScopeVerbose(
+  scope: AuditScope,
+  result: ScopeCheckResult,
+  now: Date,
+  threshold?: SeverityThreshold,
+): string {
+  const thresholdSuffix = formatThresholdSuffix(threshold);
+  const lines: string[] = [`${SCOPE_HEADERS[scope]}${thresholdSuffix}`];
+  const hasFindings =
+    result.unallowed.length > 0 ||
+    result.allowed.length > 0 ||
+    result.stale.length > 0 ||
+    result.belowThreshold.length > 0;
 
   if (!hasFindings) {
     lines.push('  (none)');
@@ -62,6 +86,9 @@ function formatScopeVerbose(scope: AuditScope, result: ScopeCheckResult, now: Da
   }
   for (const entry of result.stale) {
     blocks.push(formatStaleLine(entry));
+  }
+  for (const vuln of result.belowThreshold) {
+    blocks.push(formatBelowThresholdBlock(vuln));
   }
 
   // Join blocks with a blank line between them.
@@ -91,6 +118,13 @@ function formatAllowedBlock(vuln: AllowedVuln, now: Date): string {
 /** Format a stale entry as a single line with 🗑️ marker. */
 function formatStaleLine(entry: StaleEntry): string {
   return `  ${STATUS_STALE} ${entry.id}  not needed`;
+}
+
+/** Format a below-threshold vulnerability block with ℹ️ marker and "ignored (below threshold)" annotation. */
+function formatBelowThresholdBlock(vuln: AuditResult): string {
+  const headerLine = `  ${STATUS_BELOW_THRESHOLD} ${displayId(vuln)}${formatSeveritySuffix(vuln.severity)}  ignored (below threshold)`;
+  const detail = formatAdvisoryDetail(vuln);
+  return [headerLine, ...detail].join('\n');
 }
 
 /** Shared advisory detail lines (title, paths, link, description) for unallowed or allowed entries. */
