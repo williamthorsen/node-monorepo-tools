@@ -371,6 +371,78 @@ describe(formatCheckText, () => {
     expect(output).not.toContain('Actions:');
   });
 
+  // --- Actions footer (multi-scope) ---
+
+  it('appends Actions footer with verbose and sync hints when multi-scope has unallowed vulnerabilities', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [],
+        stale: [],
+        unallowed: [
+          {
+            id: 'GHSA-p1',
+            ghsaId: 'GHSA-p1',
+            path: 'pkg-a',
+            paths: ['pkg-a'],
+            severity: 'high',
+            url: 'https://example.com/p1',
+          },
+        ],
+      },
+    });
+
+    const output = formatCheckText(result, ['prod', 'dev'], FIXED_NOW);
+    expect(output).toContain('Actions:');
+    expect(output).toContain('Run `audit-deps --verbose` for full report');
+    expect(output).toContain('Run `audit-deps sync` to add vulnerabilities to the allowlist.');
+  });
+
+  it('appends Actions footer with remove-only sync hint when multi-scope has only stale entries', () => {
+    const result = makeCheckResult({
+      dev: {
+        allowed: [],
+        stale: [{ id: 'GHSA-stale-dev' }],
+        unallowed: [],
+      },
+    });
+
+    const output = formatCheckText(result, ['prod', 'dev'], FIXED_NOW);
+    expect(output).toContain('Actions:');
+    expect(output).toContain('Run `audit-deps sync` to remove stale allowlist entries.');
+    expect(output).not.toContain('--verbose');
+  });
+
+  it('appends Actions footer with combined sync hint when multi-scope has both unallowed and stale', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [],
+        stale: [{ id: 'GHSA-stale-prod' }],
+        unallowed: [
+          {
+            id: 'GHSA-bad',
+            ghsaId: 'GHSA-bad',
+            path: 'pkg',
+            paths: ['pkg'],
+            severity: 'critical',
+            url: 'https://example.com/bad',
+          },
+        ],
+      },
+      dev: {
+        allowed: [],
+        stale: [],
+        unallowed: [],
+      },
+    });
+
+    const output = formatCheckText(result, ['prod', 'dev'], FIXED_NOW);
+    expect(output).toContain('Actions:');
+    expect(output).toContain('add vulnerabilities to the allowlist and remove stale entries');
+    expect(output).toContain('Run `audit-deps --verbose` for full report');
+  });
+
+  // --- Actions footer (single-scope) ---
+
   it('shows verbose hint when only allowed vulns exist (no unallowed, no stale)', () => {
     const result = makeCheckResult({
       prod: {
