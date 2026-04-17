@@ -117,8 +117,8 @@ describe(computeSyncDiff, () => {
 describe(buildUpdatedConfig, () => {
   it('replaces the allowlist for the given scope, sorted by ID', () => {
     const config: AuditDepsConfig = {
-      dev: { allowlist: [], moderate: true },
-      prod: { allowlist: [], high: true },
+      dev: { allowlist: [], severityThreshold: 'high' },
+      prod: { allowlist: [], severityThreshold: 'moderate' },
     };
 
     const entries: AllowlistEntry[] = [
@@ -138,12 +138,12 @@ describe(serializeConfig, () => {
     const config: AuditDepsConfig = {
       dev: {
         allowlist: [{ addedAt: '2026-04-01', id: '1001', path: 'lodash', reason: 'test', url: 'https://example.com' }],
+        severityThreshold: 'high',
       },
       prod: { allowlist: [] },
     };
 
     const json = serializeConfig(config);
-    // Re-parse through the typed loader to verify key order in raw JSON
     const devMatch = json.match(/"allowlist":\s*\[\s*\{([^}]+)\}/);
     const keyOrder = devMatch?.[1]?.match(/"(\w+)":/g)?.map((k) => k.replace(/"/g, '').replace(':', ''));
     expect(keyOrder).toStrictEqual(['addedAt', 'id', 'path', 'reason', 'url']);
@@ -178,6 +178,39 @@ describe(serializeConfig, () => {
     expect(keyOrder).toStrictEqual(['id', 'path', 'url']);
     expect(json).not.toContain('"reason"');
   });
+
+  it('includes $schema in serialized output when present', () => {
+    const config: AuditDepsConfig = {
+      $schema: 'https://example.com/schema.json',
+      dev: { allowlist: [] },
+      prod: { allowlist: [] },
+    };
+
+    const json = serializeConfig(config);
+    expect(json).toContain('"$schema": "https://example.com/schema.json"');
+  });
+
+  it('omits $schema when not present', () => {
+    const config: AuditDepsConfig = {
+      dev: { allowlist: [] },
+      prod: { allowlist: [] },
+    };
+
+    const json = serializeConfig(config);
+    expect(json).not.toContain('$schema');
+  });
+
+  it('includes severityThreshold in serialized output', () => {
+    const config: AuditDepsConfig = {
+      dev: { allowlist: [], severityThreshold: 'high' },
+      prod: { allowlist: [], severityThreshold: 'moderate' },
+    };
+
+    const json = serializeConfig(config);
+    const parsed: unknown = JSON.parse(json);
+    expect(parsed).toHaveProperty('dev.severityThreshold', 'high');
+    expect(parsed).toHaveProperty('prod.severityThreshold', 'moderate');
+  });
 });
 
 describe(formatUtcDate, () => {
@@ -186,7 +219,6 @@ describe(formatUtcDate, () => {
   });
 
   it('returns the UTC date regardless of the local timezone portion of the ISO string', () => {
-    // This date in PST is 2026-04-14, but UTC is 2026-04-15.
     expect(formatUtcDate(new Date('2026-04-15T03:00:00Z'))).toBe('2026-04-15');
   });
 });
@@ -205,7 +237,7 @@ describe(syncAllowlist, () => {
 
   it('writes updated config to disk after sync', async () => {
     const config: AuditDepsConfig = {
-      dev: { allowlist: [], moderate: true },
+      dev: { allowlist: [], severityThreshold: 'high' },
       prod: { allowlist: [] },
     };
     const configPath = path.join(tempDir, 'config.json');
@@ -221,5 +253,6 @@ describe(syncAllowlist, () => {
     const written: unknown = JSON.parse(await readFile(configPath, 'utf8'));
     expect(written).toHaveProperty('dev.allowlist.length', 1);
     expect(written).toHaveProperty('dev.allowlist[0].id', '1001');
+    expect(written).toHaveProperty('dev.severityThreshold', 'high');
   });
 });

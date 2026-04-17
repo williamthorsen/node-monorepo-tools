@@ -169,13 +169,6 @@ var audit_deps_default = defineRdyKit({
             }
           ]
         },
-        // -- Config existence ----------------------------------------------------
-        {
-          name: ".config/audit-deps.config.json exists",
-          severity: "warn",
-          check: auditDepsConfigExists,
-          fix: "Create .config/audit-deps.config.json with audit-deps configuration"
-        },
         // -- Audit-ci config migration -------------------------------------------
         {
           name: "audit-ci configs are under .config/audit-ci/",
@@ -203,9 +196,6 @@ var audit_deps_default = defineRdyKit({
     }
   ]
 });
-function auditDepsConfigExists() {
-  return fileExists(".config/audit-deps.config.json");
-}
 function skipLegacyAuditCiCheck() {
   return !existsSync2(join2(process.cwd(), ".audit-ci")) ? "no legacy .audit-ci/ directory" : false;
 }
@@ -214,7 +204,6 @@ function noLegacyAuditCiDirectory() {
 }
 export {
   AUDIT_WORKFLOW_HASH,
-  auditDepsConfigExists,
   audit_deps_default as default,
   noLegacyAuditCiDirectory,
   skipLegacyAuditCiCheck

@@ -45,14 +45,6 @@ export default defineRdyKit({
           ],
         },
 
-        // -- Config existence ----------------------------------------------------
-        {
-          name: '.config/audit-deps.config.json exists',
-          severity: 'warn',
-          check: auditDepsConfigExists,
-          fix: 'Create .config/audit-deps.config.json with audit-deps configuration',
-        },
-
         // -- Audit-ci config migration -------------------------------------------
         {
           name: 'audit-ci configs are under .config/audit-ci/',
@@ -83,11 +75,6 @@ export default defineRdyKit({
 });
 
 // -- Helpers -----------------------------------------------------------------
-
-/** Check that `.config/audit-deps.config.json` exists. */
-export function auditDepsConfigExists(): boolean {
-  return fileExists('.config/audit-deps.config.json');
-}
 
 /** Skip the legacy audit-ci check when there is no `.audit-ci/` directory. */
 export function skipLegacyAuditCiCheck(): string | false {

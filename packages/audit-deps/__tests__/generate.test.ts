@@ -14,7 +14,7 @@ describe(buildFlatConfig, () => {
         { id: 'GHSA-1234', path: 'lodash', url: 'https://example.com/1' },
         { id: 'GHSA-5678', path: 'express', url: 'https://example.com/2' },
       ],
-      moderate: true,
+      severityThreshold: 'moderate',
     };
 
     const flat = buildFlatConfig(scopeConfig);
@@ -24,19 +24,30 @@ describe(buildFlatConfig, () => {
   });
 
   it('produces an empty allowlist when the source has no entries', () => {
-    const scopeConfig: ScopeConfig = { allowlist: [], high: true };
+    const scopeConfig: ScopeConfig = { allowlist: [], severityThreshold: 'high' };
     const flat = buildFlatConfig(scopeConfig);
     expect(flat.allowlist).toStrictEqual([]);
     expect(flat.high).toBe(true);
   });
 
-  it('omits severity fields that are not set', () => {
+  it('omits severity keys when severityThreshold is undefined', () => {
     const scopeConfig: ScopeConfig = { allowlist: [] };
     const flat = buildFlatConfig(scopeConfig);
     expect(flat).not.toHaveProperty('moderate');
     expect(flat).not.toHaveProperty('high');
     expect(flat).not.toHaveProperty('critical');
     expect(flat).not.toHaveProperty('low');
+  });
+
+  it.each([
+    { threshold: 'low' as const, expectedKey: 'low' },
+    { threshold: 'moderate' as const, expectedKey: 'moderate' },
+    { threshold: 'high' as const, expectedKey: 'high' },
+    { threshold: 'critical' as const, expectedKey: 'critical' },
+  ])('translates severityThreshold "$threshold" to { $expectedKey: true }', ({ threshold, expectedKey }) => {
+    const scopeConfig: ScopeConfig = { allowlist: [], severityThreshold: threshold };
+    const flat = buildFlatConfig(scopeConfig);
+    expect(flat[expectedKey]).toBe(true);
   });
 });
 
@@ -52,8 +63,8 @@ describe(generateAuditCiConfig, () => {
     await rm(tempDir, { recursive: true, force: true });
   });
 
-  it('writes the flat config file to the config directory by default', async () => {
-    const scopeConfig: ScopeConfig = { allowlist: [], moderate: true };
+  it('writes the flat config file to the output directory', async () => {
+    const scopeConfig: ScopeConfig = { allowlist: [], severityThreshold: 'moderate' };
     const outputPath = await generateAuditCiConfig(scopeConfig, 'dev', tempDir);
 
     expect(outputPath).toBe(path.join(tempDir, 'audit-ci.dev.json'));
@@ -62,21 +73,10 @@ describe(generateAuditCiConfig, () => {
     expect(content).toHaveProperty('moderate', true);
   });
 
-  it('resolves outDir relative to config directory', async () => {
-    const scopeConfig: ScopeConfig = { allowlist: [], high: true };
-    const outputPath = await generateAuditCiConfig(scopeConfig, 'prod', tempDir, '../tmp');
-
-    const expected = path.resolve(tempDir, '../tmp', 'audit-ci.prod.json');
-    expect(outputPath).toBe(expected);
-
-    const content: unknown = JSON.parse(await readFile(outputPath, 'utf8'));
-    expect(content).toHaveProperty('high', true);
-  });
-
-  it('round-trips: load config values appear in generated JSON', async () => {
+  it('round-trips: config values appear in generated JSON', async () => {
     const scopeConfig: ScopeConfig = {
       allowlist: [{ id: 'GHSA-abcd', path: 'pkg', url: 'https://example.com' }],
-      critical: true,
+      severityThreshold: 'critical',
     };
     const outputPath = await generateAuditCiConfig(scopeConfig, 'dev', tempDir);
     const content: unknown = JSON.parse(await readFile(outputPath, 'utf8'));

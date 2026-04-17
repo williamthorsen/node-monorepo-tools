@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../src/cli.ts', () => ({
   auditCommand: vi.fn().mockResolvedValue(0),
   checkCommand: vi.fn().mockResolvedValue(0),
-  generateCommand: vi.fn().mockResolvedValue(0),
+  extractMessage: vi.fn((e: unknown) => (e instanceof Error ? e.message : String(e))),
   syncCommand: vi.fn().mockResolvedValue(0),
 }));
 
@@ -12,7 +12,7 @@ vi.mock('../src/init/initCommand.ts', () => ({
 }));
 
 import { routeCommand } from '../src/bin/route.ts';
-import { auditCommand, checkCommand, generateCommand, syncCommand } from '../src/cli.ts';
+import { auditCommand, checkCommand, syncCommand } from '../src/cli.ts';
 import { initCommand } from '../src/init/initCommand.ts';
 
 describe(routeCommand, () => {
@@ -64,6 +64,11 @@ describe(routeCommand, () => {
     expect(exitCode).toBe(1);
   });
 
+  it('returns 1 for "generate" (removed subcommand)', async () => {
+    const exitCode = await routeCommand(['generate']);
+    expect(exitCode).toBe(1);
+  });
+
   it('dispatches "sync" to syncCommand', async () => {
     await routeCommand(['sync']);
     expect(syncCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: [] }));
@@ -72,11 +77,6 @@ describe(routeCommand, () => {
   it('dispatches "sync --dev" with scopes ["dev"]', async () => {
     await routeCommand(['sync', '--dev']);
     expect(syncCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: ['dev'] }));
-  });
-
-  it('dispatches "generate" to generateCommand', async () => {
-    await routeCommand(['generate']);
-    expect(generateCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: [] }));
   });
 
   it('dispatches "init" to initCommand', async () => {

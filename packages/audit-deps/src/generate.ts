@@ -10,13 +10,11 @@ interface AuditCiFlatConfig {
   [key: string]: boolean | string | string[] | undefined;
 }
 
-/** Map severity booleans from our config to audit-ci field names. */
-const SEVERITY_FIELDS = ['critical', 'high', 'low', 'moderate'] as const;
-
 /**
  * Transform a scope config into the flat JSON structure audit-ci expects.
  *
- * Extracts severity thresholds and flattens the typed allowlist to an array of ID strings.
+ * Translates `severityThreshold` to the corresponding audit-ci boolean and
+ * flattens the typed allowlist to an array of ID strings.
  */
 export function buildFlatConfig(scopeConfig: ScopeConfig): AuditCiFlatConfig {
   const flat: AuditCiFlatConfig = {
@@ -24,11 +22,8 @@ export function buildFlatConfig(scopeConfig: ScopeConfig): AuditCiFlatConfig {
     'show-not-found': true,
   };
 
-  for (const field of SEVERITY_FIELDS) {
-    const value = scopeConfig[field];
-    if (value !== undefined) {
-      flat[field] = value;
-    }
+  if (scopeConfig.severityThreshold !== undefined) {
+    flat[scopeConfig.severityThreshold] = true;
   }
 
   return flat;
@@ -37,17 +32,14 @@ export function buildFlatConfig(scopeConfig: ScopeConfig): AuditCiFlatConfig {
 /**
  * Generate the audit-ci config file for a scope and write it to disk.
  *
- * The output path is `{outDir}/audit-ci.{scope}.json`, where `outDir` is resolved
- * relative to `configDir`.
+ * The output path is `{outputDir}/audit-ci.{scope}.json`.
  */
 export async function generateAuditCiConfig(
   scopeConfig: ScopeConfig,
   scope: AuditScope,
-  configDir: string,
-  outDir?: string,
+  outputDir: string,
 ): Promise<string> {
-  const resolvedOutDir = outDir !== undefined ? path.resolve(configDir, outDir) : configDir;
-  const outputPath = path.join(resolvedOutDir, `audit-ci.${scope}.json`);
+  const outputPath = path.join(outputDir, `audit-ci.${scope}.json`);
   const flat = buildFlatConfig(scopeConfig);
   const content = JSON.stringify(flat, null, 2) + '\n';
 

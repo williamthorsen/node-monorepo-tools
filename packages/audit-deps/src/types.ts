@@ -11,6 +11,16 @@ export type AuditScope = 'dev' | 'prod';
 export const AUDIT_SCOPES: readonly AuditScope[] = ['dev', 'prod'];
 
 // ---------------------------------------------------------------------------
+// Severity threshold
+// ---------------------------------------------------------------------------
+
+/** Valid severity threshold values in ascending order. */
+export const SEVERITY_THRESHOLDS = ['low', 'moderate', 'high', 'critical'] as const;
+
+/** Severity level at or above which audit-ci should fail. */
+export type SeverityThreshold = (typeof SEVERITY_THRESHOLDS)[number];
+
+// ---------------------------------------------------------------------------
 // Allowlist entry
 // ---------------------------------------------------------------------------
 
@@ -40,20 +50,16 @@ export const allowlistEntrySchema = z.object({
 export interface ScopeConfig {
   allowlist: AllowlistEntry[];
   /** Fail on advisories at or above this severity. */
-  critical?: boolean | undefined;
-  high?: boolean | undefined;
-  low?: boolean | undefined;
-  moderate?: boolean | undefined;
+  severityThreshold?: SeverityThreshold | undefined;
 }
 
 /** Zod schema for a scope configuration block. */
-export const scopeConfigSchema = z.object({
-  allowlist: z.array(allowlistEntrySchema),
-  critical: z.boolean().optional(),
-  high: z.boolean().optional(),
-  low: z.boolean().optional(),
-  moderate: z.boolean().optional(),
-});
+export const scopeConfigSchema = z
+  .object({
+    allowlist: z.array(allowlistEntrySchema),
+    severityThreshold: z.enum(SEVERITY_THRESHOLDS).optional(),
+  })
+  .strict();
 
 // ---------------------------------------------------------------------------
 // Top-level config
@@ -61,17 +67,29 @@ export const scopeConfigSchema = z.object({
 
 /** Source-of-truth configuration for audit-deps. */
 export interface AuditDepsConfig {
+  $schema?: string | undefined;
   dev: ScopeConfig;
-  outDir?: string | undefined;
   prod: ScopeConfig;
 }
 
 /** Zod schema for the full audit-deps configuration file. */
-export const auditDepsConfigSchema = z.object({
-  dev: scopeConfigSchema,
-  outDir: z.string().optional(),
-  prod: scopeConfigSchema,
-});
+export const auditDepsConfigSchema = z
+  .object({
+    $schema: z.string().optional(),
+    dev: scopeConfigSchema,
+    prod: scopeConfigSchema,
+  })
+  .strict();
+
+// ---------------------------------------------------------------------------
+// Default config
+// ---------------------------------------------------------------------------
+
+/** Built-in defaults used when no config file is present. */
+export const DEFAULT_CONFIG: AuditDepsConfig = {
+  dev: { allowlist: [], severityThreshold: 'high' },
+  prod: { allowlist: [], severityThreshold: 'moderate' },
+};
 
 // ---------------------------------------------------------------------------
 // Audit result

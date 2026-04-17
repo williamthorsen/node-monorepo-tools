@@ -2,12 +2,12 @@ import process from 'node:process';
 
 import { parseArgs, translateParseError } from '@williamthorsen/node-monorepo-core';
 
-import { auditCommand, checkCommand, extractMessage, generateCommand, syncCommand } from '../cli.ts';
+import { auditCommand, checkCommand, extractMessage, syncCommand } from '../cli.ts';
 import { initCommand } from '../init/initCommand.ts';
 import type { AuditScope, CommandOptions } from '../types.ts';
 import { VERSION } from '../version.ts';
 
-const SUBCOMMANDS = ['generate', 'init', 'sync'];
+const SUBCOMMANDS = ['init', 'sync'];
 const MIN_PREFIX_LENGTH = 3;
 
 function showHelp(): void {
@@ -18,7 +18,6 @@ Usage: audit-deps [options]
 Commands:
   (default)            Grouped vulnerability check with severity indicators
   sync                 Synchronize allowlists with current audit findings
-  generate             Regenerate flat audit-ci config files
   init                 Scaffold a starter config file
 
 Scope options:
@@ -61,22 +60,6 @@ Scope options:
 Other options:
   --config <path>    Path to config file (default: .config/audit-deps.config.json)
   --json             Output results as JSON
-  --help, -h         Show this help message
-`);
-}
-
-function showGenerateHelp(): void {
-  console.info(`
-Usage: audit-deps generate [options]
-
-Regenerate flat audit-ci config files.
-
-Scope options:
-  --dev              Target dev dependencies only
-  --prod             Target production dependencies only
-
-Other options:
-  --config <path>    Path to config file (default: .config/audit-deps.config.json)
   --help, -h         Show this help message
 `);
 }
@@ -146,10 +129,6 @@ export async function routeCommand(args: string[]): Promise<number> {
 
   if (command === 'sync') {
     return handleSubcommand(args.slice(1), syncCommand, showSyncHelp);
-  }
-
-  if (command === 'generate') {
-    return handleSubcommand(args.slice(1), generateCommand, showGenerateHelp);
   }
 
   // Check for typos before falling through to the default command
