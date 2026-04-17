@@ -76,8 +76,8 @@ const SCOPE_LABELS: Record<AuditScope, string> = {
 };
 
 const SCOPE_NAMES: Record<AuditScope, string> = {
-  dev: 'dev ',
-  prod: 'prod ',
+  dev: 'dev',
+  prod: 'prod',
 };
 
 // ---------------------------------------------------------------------------
@@ -87,14 +87,15 @@ const SCOPE_NAMES: Record<AuditScope, string> = {
 /** Build the intro banner reflecting the scopes being audited. */
 function formatIntroBanner(scopes: AuditScope[]): string {
   const first = scopes[0];
+  // `first` is always defined here; the guard narrows for TypeScript.
   if (scopes.length === 1 && first !== undefined) {
-    return `\u{1F52C} Auditing ${SCOPE_NAMES[first]}dependencies ...`;
+    return `\u{1F52C} Auditing ${SCOPE_NAMES[first]} dependencies ...`;
   }
   return '\u{1F52C} Auditing dependencies ...';
 }
 
 /** Build the severity suffix for a finding line, e.g. `  🔴 critical`. */
-function formatSeveritySuffix(severity: string | undefined): string {
+export function formatSeveritySuffix(severity: string | undefined): string {
   if (severity === undefined || severity === '') return '';
   const emoji = severityIndicator(severity);
   const emojiPart = emoji.length > 0 ? `${emoji} ` : '';
@@ -166,11 +167,7 @@ export function formatCheckText(result: CheckResult, scopes: AuditScope[], now?:
   if (singleScope !== undefined) {
     const scope = singleScope;
     const scopeResult = result[scope];
-    if (hasFindings(scopeResult)) {
-      lines.push(...formatScopeFindings(scopeResult, effectiveNow));
-    } else {
-      lines.push('No known vulnerabilities found.');
-    }
+    lines.push(...formatScopeFindings(scopeResult, effectiveNow));
     const actions = formatActionHints(result, scopes);
     if (actions.length > 0) {
       lines.push('', ...actions.split('\n').filter((l) => l.length > 0));

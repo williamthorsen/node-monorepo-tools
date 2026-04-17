@@ -1,6 +1,6 @@
 import { formatActionHints } from './format-actions.ts';
 import type { AllowedVuln, CheckResult, ScopeCheckResult, StaleEntry } from './format-check.ts';
-import { displayId, severityIndicator } from './format-check.ts';
+import { displayId, formatSeveritySuffix } from './format-check.ts';
 import { formatRelativeTime } from './format-time.ts';
 import type { AuditResult, AuditScope } from './types.ts';
 
@@ -129,14 +129,6 @@ function formatPathsLines(paths: string[]): string[] {
     lines.push(`${DETAIL_INDENT}  - ${pathValue}`);
   }
   return lines;
-}
-
-/** Build the severity suffix like `  🔴 high` (leading two spaces separator). */
-function formatSeveritySuffix(severity: string | undefined): string {
-  if (severity === undefined || severity === '') return '';
-  const emoji = severityIndicator(severity);
-  const emojiPart = emoji.length > 0 ? `${emoji} ` : '';
-  return `  ${emojiPart}${severity}`;
 }
 
 /** Build the "allowed X ago (datetime)" suffix for entries with `addedAt`. */
