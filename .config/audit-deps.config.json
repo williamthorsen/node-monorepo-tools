@@ -1,11 +1,19 @@
 {
   "$schema": "https://github.com/williamthorsen/node-monorepo-tools/raw/audit-deps-v0.3.0/packages/audit-deps/schemas/config.json",
   "dev": {
-    "severityThreshold": "high",
-    "allowlist": []
+    "severityThreshold": "moderate",
+    "allowlist": [
+      {
+        "addedAt": "2026-04-17T09:45:04.940Z",
+        "id": "1115540",
+        "path": ".>@vitest/eslint-plugin>eslint>minimatch>brace-expansion",
+        "reason": "Added by audit-deps sync at 2026-04-17 09:45:04 UTC",
+        "url": "https://github.com/advisories/GHSA-f886-m6hf-6m8v"
+      }
+    ]
   },
   "prod": {
-    "severityThreshold": "moderate",
+    "severityThreshold": "low",
     "allowlist": []
   }
 }
