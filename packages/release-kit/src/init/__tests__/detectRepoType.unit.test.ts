@@ -23,25 +23,32 @@ describe(detectRepoType, () => {
   });
 
   it('returns monorepo when package.json has a workspaces field', () => {
-    mockExistsSync.mockReturnValue(false);
+    mockExistsSync.mockImplementation((path: string) => path === 'package.json');
     mockReadFileSync.mockReturnValue(JSON.stringify({ workspaces: ['packages/*'] }));
 
     expect(detectRepoType()).toBe('monorepo');
   });
 
   it('returns single-package when neither indicator is present', () => {
-    mockExistsSync.mockReturnValue(false);
+    mockExistsSync.mockImplementation((path: string) => path === 'package.json');
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'my-app' }));
 
     expect(detectRepoType()).toBe('single-package');
   });
 
-  it('returns single-package when package.json cannot be read', () => {
+  it('returns single-package when package.json does not exist', () => {
     mockExistsSync.mockReturnValue(false);
-    mockReadFileSync.mockImplementation(() => {
-      throw new Error('ENOENT');
-    });
 
     expect(detectRepoType()).toBe('single-package');
+    expect(mockReadFileSync).not.toHaveBeenCalled();
+  });
+
+  it('throws when package.json exists but cannot be read', () => {
+    mockExistsSync.mockImplementation((path: string) => path === 'package.json');
+    mockReadFileSync.mockImplementation(() => {
+      throw new Error('EACCES: permission denied');
+    });
+
+    expect(() => detectRepoType()).toThrow('EACCES: permission denied');
   });
 });
