@@ -242,7 +242,7 @@ describe(formatCheckJson, () => {
       prod: {
         allowed: [
           {
-            addedAt: '2026-04-01',
+            addedAt: '2026-04-01T00:00:00.000Z',
             cvss: { score: 7.5 },
             description: 'Detailed description',
             id: 'GHSA-allowed',
@@ -265,7 +265,7 @@ describe(formatCheckJson, () => {
         prod: expect.objectContaining({
           allowed: [
             expect.objectContaining({
-              addedAt: '2026-04-01',
+              addedAt: '2026-04-01T00:00:00.000Z',
               cvss: { score: 7.5 },
               description: 'Detailed description',
               paths: ['pkg', 'other-pkg>pkg'],

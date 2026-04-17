@@ -212,6 +212,27 @@ describe(formatCheckVerboseText, () => {
     expect(output).toContain('\u{1F7E0} moderate');
   });
 
+  it('renders an allowed entry with a full ISO datetime in the suffix', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [
+          {
+            addedAt: '2026-04-01T14:30:00.000Z',
+            id: 'GHSA-iso',
+            path: 'pkg',
+            paths: ['pkg'],
+            url: 'https://example.com/iso',
+          },
+        ],
+        stale: [],
+        unallowed: [],
+      },
+    });
+
+    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
+    expect(output).toContain('allowed 1 week ago (2026-04-01T14:30:00.000Z)');
+  });
+
   it('omits "allowed X ago" line when addedAt is absent', () => {
     const result = makeCheckResult({
       prod: {

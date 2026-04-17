@@ -346,7 +346,7 @@ describe(checkCommand, () => {
       prod: {
         allowlist: [
           {
-            addedAt: '2026-04-01',
+            addedAt: '2026-04-01T00:00:00.000Z',
             id: 'GHSA-enriched',
             path: 'pkg',
             reason: 'Accepted risk',
@@ -382,7 +382,7 @@ describe(checkCommand, () => {
         prod: expect.objectContaining({
           allowed: [
             expect.objectContaining({
-              addedAt: '2026-04-01',
+              addedAt: '2026-04-01T00:00:00.000Z',
               cvss: { score: 7.5 },
               description: 'Detailed description',
               id: 'GHSA-enriched',
@@ -504,7 +504,7 @@ describe(checkCommand, () => {
       prod: {
         allowlist: [
           {
-            addedAt: '2026-04-01',
+            addedAt: '2026-04-01T00:00:00.000Z',
             id: 'GHSA-allowed',
             path: 'pkg',
             reason: 'Accepted',
@@ -541,7 +541,9 @@ describe(checkCommand, () => {
   it('renders verbose JSON output when both verbose and json are true', async () => {
     const config = makeConfig({
       prod: {
-        allowlist: [{ addedAt: '2026-04-01', id: 'GHSA-1', path: 'pkg', reason: 'r', url: 'https://example.com/1' }],
+        allowlist: [
+          { addedAt: '2026-04-01T00:00:00.000Z', id: 'GHSA-1', path: 'pkg', reason: 'r', url: 'https://example.com/1' },
+        ],
       },
     });
     setupLoadConfig(config);
@@ -571,7 +573,7 @@ describe(checkCommand, () => {
         prod: expect.objectContaining({
           allowed: [
             expect.objectContaining({
-              addedAt: '2026-04-01',
+              addedAt: '2026-04-01T00:00:00.000Z',
               cvss: { score: 7.5 },
               description: 'desc',
               reason: 'r',

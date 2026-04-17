@@ -78,7 +78,7 @@ describe('integration: generate -> sync cycle', () => {
     const reloaded = await loadConfig(configFilePath, tempDir);
     expect(reloaded.config.prod.allowlist).toHaveLength(1);
     expect(reloaded.config.prod.allowlist[0]?.id).toBe('GHSA-new1');
-    expect(reloaded.config.prod.allowlist[0]?.reason).toBe('Added by audit-deps sync on 2025-06-15');
+    expect(reloaded.config.prod.allowlist[0]?.reason).toBe('Added by audit-deps sync at 2025-06-15 00:00:00 UTC');
 
     // Regenerate and verify updated flat config
     const updatedProdPath = await generateAuditCiConfig(reloaded.config.prod, 'prod', outputDir);

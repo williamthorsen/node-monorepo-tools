@@ -2,9 +2,15 @@ import { writeFile } from 'node:fs/promises';
 
 import type { AllowlistEntry, AuditDepsConfig, AuditResult, AuditScope, ScopeConfig } from './types.ts';
 
-/** Produce a UTC date string in YYYY-MM-DD format. */
-export function formatUtcDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
+/** Produce a full ISO 8601 UTC datetime string. */
+export function formatUtcDatetime(date: Date): string {
+  return date.toISOString();
+}
+
+/** Format a Date as a human-friendly UTC string for use in reason messages. */
+export function formatFriendlyUtc(date: Date): string {
+  const iso = date.toISOString();
+  return iso.slice(0, 10) + ' ' + iso.slice(11, 19) + ' UTC';
 }
 
 /**
@@ -60,7 +66,7 @@ export function computeSyncDiff(
   const removed: AllowlistEntry[] = [];
 
   // Identify new and kept entries
-  const nowIso = formatUtcDate(now);
+  const nowIso = formatUtcDatetime(now);
   for (const [id, result] of auditById) {
     const existing = currentById.get(id);
     if (existing !== undefined) {
@@ -70,7 +76,7 @@ export function computeSyncDiff(
         addedAt: nowIso,
         id: result.id,
         path: result.path,
-        reason: `Added by audit-deps sync on ${nowIso}`,
+        reason: `Added by audit-deps sync at ${formatFriendlyUtc(now)}`,
         url: result.url,
       });
     }
