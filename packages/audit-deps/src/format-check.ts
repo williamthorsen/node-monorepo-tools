@@ -99,8 +99,7 @@ function formatIntroBanner(scopes: AuditScope[], thresholds?: Partial<Record<Aud
   // `first` is always defined here; the guard narrows for TypeScript.
   if (scopes.length === 1 && first !== undefined) {
     const annotation = formatThresholdAnnotation(thresholds?.[first]);
-    const suffix = annotation.length > 0 ? ` ${annotation}` : '';
-    return `\u{1F52C} Auditing ${SCOPE_NAMES[first]} dependencies${suffix} ...`;
+    return `\u{1F52C} Auditing ${SCOPE_NAMES[first]} dependencies${annotation && ` ${annotation}`} ...`;
   }
   return '\u{1F52C} Auditing dependencies ...';
 }
@@ -208,7 +207,7 @@ export function formatCheckText(
   for (const scope of scopes) {
     const scopeResult = result[scope];
     const annotation = formatThresholdAnnotation(thresholds?.[scope]);
-    const header = annotation.length > 0 ? `${SCOPE_LABELS[scope]} ${annotation}` : SCOPE_LABELS[scope];
+    const header = `${SCOPE_LABELS[scope]}${annotation && ` ${annotation}`}`;
     lines.push(header);
     if (hasFindings(scopeResult)) {
       lines.push(...formatScopeFindings(scopeResult, effectiveNow));
