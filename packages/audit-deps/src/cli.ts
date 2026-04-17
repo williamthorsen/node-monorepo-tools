@@ -147,6 +147,10 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
         const scopeResult: ScopeCheckResult = { allowed: [], belowThreshold: [], stale: [], unallowed: [] };
 
         // Classify results: below threshold first, then allowlist, then unallowed.
+        // Threshold check intentionally precedes the allowlist check. Below-threshold vulns are
+        // never checked against the allowlist because the threshold already excludes them from
+        // the fail/pass decision. Even if someone has explicitly allowlisted a low-severity vuln
+        // and the threshold is "moderate", it shows as "ignored" (not "allowed").
         for (const result of report.results) {
           if (!isSeverityAtOrAbove(result.severity, effectiveThreshold)) {
             scopeResult.belowThreshold.push(result);

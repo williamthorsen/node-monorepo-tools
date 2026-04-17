@@ -536,6 +536,31 @@ describe(formatCheckText, () => {
     expect(output).toContain('\u{1F527} dev: (threshold: \u{1F534} high)');
   });
 
+  it('renders below-threshold vulnerability line in multi-scope output', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [],
+        belowThreshold: [
+          {
+            id: 'GHSA-bt',
+            ghsaId: 'GHSA-bt',
+            path: 'brace-expansion',
+            paths: ['brace-expansion'],
+            severity: 'low',
+            url: 'https://example.com/bt',
+          },
+        ],
+        stale: [],
+        unallowed: [],
+      },
+    });
+
+    const output = formatCheckText(result, ['prod', 'dev'], FIXED_NOW, { prod: 'moderate' });
+    expect(output).toContain('\u{2139}\u{FE0F} GHSA-bt: brace-expansion');
+    expect(output).toContain('\u{1F6AB} ignored');
+    expect(output).toContain('\u{1F4E6} prod: (threshold: \u{1F7E0} moderate)');
+  });
+
   // --- Existing tests ---
 
   it('shows verbose hint when only allowed vulns exist (no unallowed, no stale)', () => {

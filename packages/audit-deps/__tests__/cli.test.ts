@@ -629,7 +629,37 @@ describe(checkCommand, () => {
     );
   });
 
-  it('passes severityThreshold "low" to generateAuditCiConfig', async () => {
+  it('classifies an allowlisted vulnerability as belowThreshold when its severity is below the threshold', async () => {
+    const config = makeConfig({
+      prod: {
+        allowlist: [{ id: 'GHSA-low', path: 'pkg', url: 'https://example.com/low' }],
+        severityThreshold: 'high',
+      },
+    });
+    setupLoadConfig(config);
+    mocks.runReport.mockReturnValue({
+      results: [{ id: 'GHSA-low', path: 'pkg', paths: ['pkg'], severity: 'low', url: 'https://example.com/low' }],
+      stdout: '',
+      stderr: '',
+      warnings: [],
+    });
+
+    const exitCode = await checkCommand(makeOptions({ json: true, scopes: ['prod'] }));
+
+    expect(exitCode).toBe(0);
+    const parsed: unknown = JSON.parse(stdoutOutput);
+    expect(parsed).toStrictEqual(
+      expect.objectContaining({
+        prod: expect.objectContaining({
+          allowed: [],
+          belowThreshold: [expect.objectContaining({ id: 'GHSA-low' })],
+          stale: [],
+        }),
+      }),
+    );
+  });
+
+  it('always passes severityThreshold "low" to generateAuditCiConfig regardless of config threshold', async () => {
     const config = makeConfig({
       prod: {
         allowlist: [],
