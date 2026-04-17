@@ -134,7 +134,8 @@ export interface CommandOptions {
  */
 export function isSeverityAtOrAbove(severity: string | undefined, threshold: SeverityThreshold): boolean {
   if (severity === undefined) return true;
-  const severityIndex = SEVERITY_THRESHOLDS.indexOf(severity);
+  const levels: readonly string[] = SEVERITY_THRESHOLDS;
+  const severityIndex = levels.indexOf(severity);
   const thresholdIndex = SEVERITY_THRESHOLDS.indexOf(threshold);
   // Unrecognized severity: treat as above threshold.
   if (severityIndex === -1) return true;
