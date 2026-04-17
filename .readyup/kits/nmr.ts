@@ -25,7 +25,6 @@ import {
 } from 'readyup';
 
 import nmrPackageJson from '../../packages/nmr/package.json' with { type: 'json' };
-import { noLegacyAuditCiDirectory, skipLegacyAuditCiCheck } from './audit-deps.ts';
 
 const MIN_VERSION = nmrPackageJson.version;
 
@@ -102,13 +101,12 @@ export default defineRdyKit({
           fix: 'Add "build": ":" to packages that don\'t need a build, or add tsconfig.generate-typings.json for packages that use the default nmr build',
         },
 
-        // -- Audit config migration -----------------------------------------------
+        // -- Audit dependency --------------------------------------------------------
         {
-          name: 'audit-ci configs are under .config/audit-ci/',
+          name: '@williamthorsen/audit-deps in devDependencies',
           severity: 'warn',
-          skip: skipLegacyAuditCiCheck,
-          check: noLegacyAuditCiDirectory,
-          fix: 'Move audit-ci configs from .audit-ci/ to .config/audit-ci/ and update references',
+          check: () => hasDevDependency('@williamthorsen/audit-deps'),
+          fix: 'pnpm add --save-dev @williamthorsen/audit-deps',
         },
         {
           name: 'code-quality workflow does not use nmr ci',

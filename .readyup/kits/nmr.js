@@ -3,14 +3,14 @@
 
 
 // .readyup/kits/nmr.ts
-import { existsSync as existsSync3, readdirSync } from "node:fs";
-import { join as join3 } from "node:path";
+import { existsSync as existsSync2, readdirSync } from "node:fs";
+import { join as join2 } from "node:path";
 
 // packages/nmr/dist/esm/default-scripts.js
 var rootScripts = {
   audit: ["audit:prod", "audit:dev"],
-  "audit:dev": "pnpm dlx audit-ci@^7 --config .config/audit-ci/config.dev.json5",
-  "audit:prod": "pnpm dlx audit-ci@^7 --config .config/audit-ci/config.prod.json5",
+  "audit:dev": "pnpm exec audit-deps --dev",
+  "audit:prod": "pnpm exec audit-deps --prod",
   build: "pnpm --recursive exec nmr build",
   check: ["typecheck", "fmt:check", "lint:check", "test"],
   "check:fixable": ["fmt:check", "lint:check"],
@@ -78,14 +78,6 @@ function fileContains(relativePath, pattern) {
 
 // node_modules/.pnpm/readyup@0.16.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/hashing.js
 import { createHash } from "node:crypto";
-function computeHash(content) {
-  return createHash("sha256").update(content).digest("hex");
-}
-function fileMatchesHash(relativePath, expectedHash) {
-  const content = readFile(relativePath);
-  if (content === void 0) return false;
-  return computeHash(content) === expectedHash;
-}
 
 // node_modules/.pnpm/readyup@0.16.0_esbuild@0.28.0/node_modules/readyup/dist/esm/safeJsonParse.js
 function safeJsonParse(content) {
@@ -201,135 +193,8 @@ var package_default = {
   }
 };
 
-// .readyup/kits/audit-deps.ts
-import { existsSync as existsSync2 } from "node:fs";
-import { join as join2 } from "node:path";
-
-// packages/audit-deps/package.json
-var package_default2 = {
-  name: "@williamthorsen/audit-deps",
-  version: "0.3.0",
-  private: false,
-  description: "Wrap audit-ci with a richer config model, typed JSON source of truth, and sync workflow",
-  keywords: [
-    "audit",
-    "audit-ci",
-    "dependencies",
-    "security",
-    "vulnerabilities"
-  ],
-  homepage: "https://github.com/williamthorsen/node-monorepo-tools/tree/main/packages/audit-deps#readme",
-  bugs: {
-    url: "https://github.com/williamthorsen/node-monorepo-tools/issues"
-  },
-  repository: {
-    type: "git",
-    url: "https://github.com/williamthorsen/node-monorepo-tools.git",
-    directory: "packages/audit-deps"
-  },
-  license: "ISC",
-  author: "William Thorsen <william@thorsen.dev> (https://github.com/williamthorsen)",
-  type: "module",
-  exports: {
-    ".": {
-      import: "./dist/esm/index.js",
-      types: "./dist/esm/index.d.ts"
-    }
-  },
-  bin: {
-    "audit-deps": "bin/audit-deps.js"
-  },
-  files: [
-    "bin",
-    "dist"
-  ],
-  scripts: {
-    prepare: "tsx ../../config/generateVersion.ts && tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json"
-  },
-  dependencies: {
-    "@williamthorsen/node-monorepo-core": "workspace:*",
-    "audit-ci": "7.1.0",
-    zod: "4.3.6"
-  },
-  engines: {
-    node: ">=18.17.0"
-  },
-  publishConfig: {
-    access: "public"
-  }
-};
-
-// .readyup/kits/audit-deps.ts
-var MIN_VERSION = package_default2.version;
-var AUDIT_WORKFLOW_HASH = "cdcab39d794ed7ec5ea45e8f3c887eb5d15edb63eab65e515714556933d9b03f";
-var audit_deps_default = defineRdyKit({
-  checklists: [
-    {
-      name: "audit-deps",
-      checks: [
-        // -- Setup ---------------------------------------------------------------
-        {
-          name: "@williamthorsen/audit-deps in devDependencies",
-          severity: "error",
-          check: () => hasDevDependency("@williamthorsen/audit-deps"),
-          fix: "pnpm add --save-dev @williamthorsen/audit-deps",
-          checks: [
-            {
-              name: `@williamthorsen/audit-deps >= ${MIN_VERSION}`,
-              severity: "error",
-              check: () => hasMinDevDependencyVersion("@williamthorsen/audit-deps", MIN_VERSION, {
-                exempt: (range) => range.startsWith("workspace:")
-              }),
-              fix: `pnpm add --save-dev @williamthorsen/audit-deps@^${MIN_VERSION}`
-            }
-          ]
-        },
-        // -- Config existence ----------------------------------------------------
-        {
-          name: ".config/audit-deps.config.json exists",
-          severity: "warn",
-          check: auditDepsConfigExists,
-          fix: "Create .config/audit-deps.config.json with audit-deps configuration"
-        },
-        // -- Audit-ci config migration -------------------------------------------
-        {
-          name: "audit-ci configs are under .config/audit-ci/",
-          severity: "warn",
-          skip: skipLegacyAuditCiCheck,
-          check: noLegacyAuditCiDirectory,
-          fix: "Move audit-ci configs from .audit-ci/ to .config/audit-ci/ and update references"
-        },
-        // -- Audit workflow ------------------------------------------------------
-        {
-          name: "audit.yaml workflow exists",
-          severity: "warn",
-          check: () => fileExists(".github/workflows/audit.yaml"),
-          fix: "Add .github/workflows/audit.yaml using the audit workflow template",
-          checks: [
-            {
-              name: "audit.yaml matches template",
-              severity: "warn",
-              check: () => fileMatchesHash(".github/workflows/audit.yaml", AUDIT_WORKFLOW_HASH),
-              fix: "Replace .github/workflows/audit.yaml with the current template at williamthorsen/node-monorepo-tools:.github/workflows/audit.yaml"
-            }
-          ]
-        }
-      ]
-    }
-  ]
-});
-function auditDepsConfigExists() {
-  return fileExists(".config/audit-deps.config.json");
-}
-function skipLegacyAuditCiCheck() {
-  return !existsSync2(join2(process.cwd(), ".audit-ci")) ? "no legacy .audit-ci/ directory" : false;
-}
-function noLegacyAuditCiDirectory() {
-  return !existsSync2(join2(process.cwd(), ".audit-ci"));
-}
-
 // .readyup/kits/nmr.ts
-var MIN_VERSION2 = package_default.version;
+var MIN_VERSION = package_default.version;
 var nmr_default = defineRdyKit({
   checklists: [
     {
@@ -343,12 +208,12 @@ var nmr_default = defineRdyKit({
           fix: "pnpm add --save-dev @williamthorsen/nmr",
           checks: [
             {
-              name: `@williamthorsen/nmr >= ${MIN_VERSION2}`,
+              name: `@williamthorsen/nmr >= ${MIN_VERSION}`,
               severity: "error",
-              check: () => hasMinDevDependencyVersion("@williamthorsen/nmr", MIN_VERSION2, {
+              check: () => hasMinDevDependencyVersion("@williamthorsen/nmr", MIN_VERSION, {
                 exempt: (range) => range.startsWith("workspace:")
               }),
-              fix: `pnpm add --save-dev @williamthorsen/nmr@^${MIN_VERSION2}`
+              fix: `pnpm add --save-dev @williamthorsen/nmr@^${MIN_VERSION}`
             }
           ]
         },
@@ -398,13 +263,12 @@ var nmr_default = defineRdyKit({
           check: allWorkspacePackagesCanBuild,
           fix: `Add "build": ":" to packages that don't need a build, or add tsconfig.generate-typings.json for packages that use the default nmr build`
         },
-        // -- Audit config migration -----------------------------------------------
+        // -- Audit dependency --------------------------------------------------------
         {
-          name: "audit-ci configs are under .config/audit-ci/",
+          name: "@williamthorsen/audit-deps in devDependencies",
           severity: "warn",
-          skip: skipLegacyAuditCiCheck,
-          check: noLegacyAuditCiDirectory,
-          fix: "Move audit-ci configs from .audit-ci/ to .config/audit-ci/ and update references"
+          check: () => hasDevDependency("@williamthorsen/audit-deps"),
+          fix: "pnpm add --save-dev @williamthorsen/audit-deps"
         },
         {
           name: "code-quality workflow does not use nmr ci",
@@ -449,8 +313,8 @@ function noRedundantRootScripts() {
   };
 }
 function noWorkspaceRunScriptReferences() {
-  const packagesDir = join3(process.cwd(), "packages");
-  if (!existsSync3(packagesDir)) return true;
+  const packagesDir = join2(process.cwd(), "packages");
+  if (!existsSync2(packagesDir)) return true;
   const legacyPattern = /run-workspace-script|"pnpm\s+run\s+ws\b/;
   const entries = readdirSync(packagesDir, { withFileTypes: true });
   const matches = [];
@@ -468,8 +332,8 @@ function noWorkspaceRunScriptReferences() {
   };
 }
 function allWorkspacePackagesCanBuild() {
-  const packagesDir = join3(process.cwd(), "packages");
-  if (!existsSync3(packagesDir)) return true;
+  const packagesDir = join2(process.cwd(), "packages");
+  if (!existsSync2(packagesDir)) return true;
   const entries = readdirSync(packagesDir, { withFileTypes: true });
   const failing = [];
   for (const entry of entries) {
