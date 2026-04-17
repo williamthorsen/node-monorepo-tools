@@ -594,6 +594,60 @@ describe(checkCommand, () => {
     expect(stdoutOutput).toContain('reason: Accepted');
   });
 
+  it('classifies below-threshold vulnerabilities separately and returns 0', async () => {
+    const config = makeConfig({
+      prod: {
+        allowlist: [],
+        severityThreshold: 'high',
+      },
+    });
+    setupLoadConfig(config);
+    mocks.runReport.mockReturnValue({
+      results: [
+        { id: 'GHSA-low', path: 'pkg', paths: ['pkg'], severity: 'low', url: 'https://example.com/low' },
+        { id: 'GHSA-moderate', path: 'pkg2', paths: ['pkg2'], severity: 'moderate', url: 'https://example.com/mod' },
+      ],
+      stdout: '',
+      stderr: '',
+      warnings: [],
+    });
+
+    const exitCode = await checkCommand(makeOptions({ json: true, scopes: ['prod'] }));
+
+    expect(exitCode).toBe(0);
+    const parsed: unknown = JSON.parse(stdoutOutput);
+    expect(parsed).toStrictEqual(
+      expect.objectContaining({
+        prod: expect.objectContaining({
+          belowThreshold: expect.arrayContaining([
+            expect.objectContaining({ id: 'GHSA-low' }),
+            expect.objectContaining({ id: 'GHSA-moderate' }),
+          ]),
+          unallowed: [],
+        }),
+      }),
+    );
+  });
+
+  it('passes severityThreshold "low" to generateAuditCiConfig', async () => {
+    const config = makeConfig({
+      prod: {
+        allowlist: [],
+        severityThreshold: 'high',
+      },
+    });
+    setupLoadConfig(config);
+    mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
+
+    await checkCommand(makeOptions({ scopes: ['prod'] }));
+
+    expect(mocks.generateAuditCiConfig).toHaveBeenCalledWith(
+      expect.objectContaining({ severityThreshold: 'low' }),
+      'prod',
+      expect.any(String),
+    );
+  });
+
   it('renders verbose JSON output when both verbose and json are true', async () => {
     const config = makeConfig({
       prod: {

@@ -9,7 +9,7 @@ import { formatCheckVerboseText } from '../src/format-verbose.ts';
 // ---------------------------------------------------------------------------
 
 function emptyScopeResult(): ScopeCheckResult {
-  return { allowed: [], stale: [], unallowed: [] };
+  return { allowed: [], belowThreshold: [], stale: [], unallowed: [] };
 }
 
 function makeCheckResult(overrides?: Partial<CheckResult>): CheckResult {
@@ -38,6 +38,7 @@ describe(formatCheckVerboseText, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [],
         unallowed: [
           {
@@ -65,6 +66,7 @@ describe(formatCheckVerboseText, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [],
         unallowed: [
           {
@@ -85,6 +87,7 @@ describe(formatCheckVerboseText, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [],
         unallowed: [
           {
@@ -109,6 +112,7 @@ describe(formatCheckVerboseText, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [],
         unallowed: [
           {
@@ -132,6 +136,7 @@ describe(formatCheckVerboseText, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [],
         unallowed: [
           {
@@ -158,6 +163,7 @@ describe(formatCheckVerboseText, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [],
         unallowed: [
           {
@@ -185,6 +191,7 @@ describe(formatCheckVerboseText, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [],
         unallowed: [
           {
@@ -222,6 +229,7 @@ describe(formatCheckVerboseText, () => {
             url: 'https://example.com/allowed',
           },
         ],
+        belowThreshold: [],
         stale: [],
         unallowed: [],
       },
@@ -247,6 +255,7 @@ describe(formatCheckVerboseText, () => {
             url: 'https://example.com/iso',
           },
         ],
+        belowThreshold: [],
         stale: [],
         unallowed: [],
       },
@@ -268,6 +277,7 @@ describe(formatCheckVerboseText, () => {
             url: 'https://example.com/noAddedAt',
           },
         ],
+        belowThreshold: [],
         stale: [],
         unallowed: [],
       },
@@ -290,6 +300,7 @@ describe(formatCheckVerboseText, () => {
             url: 'https://example.com/badDate',
           },
         ],
+        belowThreshold: [],
         stale: [],
         unallowed: [],
       },
@@ -312,6 +323,7 @@ describe(formatCheckVerboseText, () => {
             url: 'https://example.com/noReason',
           },
         ],
+        belowThreshold: [],
         stale: [],
         unallowed: [],
       },
@@ -329,6 +341,7 @@ describe(formatCheckVerboseText, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [{ id: 'GHSA-stale-entry-0000' }],
         unallowed: [],
       },
@@ -342,6 +355,7 @@ describe(formatCheckVerboseText, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [{ id: 'GHSA-stale' }],
         unallowed: [],
       },
@@ -355,6 +369,7 @@ describe(formatCheckVerboseText, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [{ id: 'GHSA-stale' }],
         unallowed: [],
       },
@@ -369,6 +384,7 @@ describe(formatCheckVerboseText, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [{ id: 'GHSA-stale' }],
         unallowed: [
           {
@@ -389,6 +405,52 @@ describe(formatCheckVerboseText, () => {
   it('omits the Actions footer when the allowlist is fully current', () => {
     const output = formatCheckVerboseText(makeCheckResult(), ['prod', 'dev'], FIXED_NOW);
     expect(output).not.toContain('Actions:');
+  });
+
+  // --------------------
+  // Below-threshold entries
+  // --------------------
+
+  it('renders a below-threshold vulnerability with info marker and "ignored (below threshold)" annotation', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [],
+        belowThreshold: [
+          {
+            ghsaId: 'GHSA-low',
+            id: '1234',
+            path: 'brace-expansion',
+            paths: ['my-app>brace-expansion'],
+            severity: 'low',
+            title: 'ReDoS in brace-expansion',
+            url: 'https://github.com/advisories/GHSA-low',
+          },
+        ],
+        stale: [],
+        unallowed: [],
+      },
+    });
+
+    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
+    expect(output).toContain('\u{2139}\u{FE0F} GHSA-low');
+    expect(output).toContain('\u{1F7E1} low');
+    expect(output).toContain('ignored (below threshold)');
+    expect(output).toContain('ReDoS in brace-expansion');
+    expect(output).toContain('path: my-app>brace-expansion');
+    expect(output).toContain('link: https://github.com/advisories/GHSA-low');
+  });
+
+  it('shows threshold in scope header when above low', () => {
+    const result = makeCheckResult();
+    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW, { prod: 'moderate' });
+    expect(output).toContain('-- \u{1F4E6} prod -- (threshold: \u{1F7E0} moderate)');
+  });
+
+  it('omits threshold from scope header when threshold is low', () => {
+    const result = makeCheckResult();
+    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW, { prod: 'low' });
+    expect(output).toContain('-- \u{1F4E6} prod --');
+    expect(output).not.toContain('threshold:');
   });
 });
 

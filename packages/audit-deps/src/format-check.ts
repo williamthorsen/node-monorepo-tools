@@ -1,6 +1,6 @@
 import { formatActionHints } from './format-actions.ts';
 import { formatRelativeTime } from './format-time.ts';
-import type { AuditResult, AuditScope } from './types.ts';
+import type { AuditResult, AuditScope, SeverityThreshold } from './types.ts';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -29,6 +29,7 @@ export interface StaleEntry {
 /** Check results for a single scope. */
 export interface ScopeCheckResult {
   allowed: AllowedVuln[];
+  belowThreshold: AuditResult[];
   stale: StaleEntry[];
   unallowed: AuditResult[];
 }
@@ -84,12 +85,22 @@ const SCOPE_NAMES: Record<AuditScope, string> = {
 // Text formatter
 // ---------------------------------------------------------------------------
 
+/** Format a threshold annotation, e.g. `(threshold: 🟠 moderate)`. Returns empty string for `low` threshold. */
+function formatThresholdAnnotation(threshold: SeverityThreshold | undefined): string {
+  if (threshold === undefined || threshold === 'low') return '';
+  const indicator = severityIndicator(threshold);
+  const indicatorPart = indicator.length > 0 ? `${indicator} ` : '';
+  return `(threshold: ${indicatorPart}${threshold})`;
+}
+
 /** Build the intro banner reflecting the scopes being audited. */
-function formatIntroBanner(scopes: AuditScope[]): string {
+function formatIntroBanner(scopes: AuditScope[], thresholds?: Partial<Record<AuditScope, SeverityThreshold>>): string {
   const first = scopes[0];
   // `first` is always defined here; the guard narrows for TypeScript.
   if (scopes.length === 1 && first !== undefined) {
-    return `\u{1F52C} Auditing ${SCOPE_NAMES[first]} dependencies ...`;
+    const annotation = formatThresholdAnnotation(thresholds?.[first]);
+    const suffix = annotation.length > 0 ? ` ${annotation}` : '';
+    return `\u{1F52C} Auditing ${SCOPE_NAMES[first]} dependencies${suffix} ...`;
   }
   return '\u{1F52C} Auditing dependencies ...';
 }
@@ -125,9 +136,19 @@ function formatStaleLine(entry: StaleEntry): string {
   return `  \u{2022} \u{1F5D1}\u{FE0F} ${entry.id} \u{2022} not needed`;
 }
 
+/** Format a single below-threshold vulnerability as a bullet line. */
+function formatBelowThresholdLine(vuln: AuditResult): string {
+  return `  \u{2022} \u{2139}\u{FE0F} ${displayId(vuln)}: ${vuln.path}${formatSeveritySuffix(vuln.severity)} \u{2022} \u{1F6AB} ignored`;
+}
+
 /** Check whether a scope has any findings. */
 function hasFindings(result: ScopeCheckResult): boolean {
-  return result.unallowed.length > 0 || result.allowed.length > 0 || result.stale.length > 0;
+  return (
+    result.unallowed.length > 0 ||
+    result.allowed.length > 0 ||
+    result.stale.length > 0 ||
+    result.belowThreshold.length > 0
+  );
 }
 
 /** Format a scope's finding lines (without scope header). */
@@ -142,6 +163,9 @@ function formatScopeFindings(result: ScopeCheckResult, now: Date): string[] {
   for (const entry of result.stale) {
     lines.push(formatStaleLine(entry));
   }
+  for (const vuln of result.belowThreshold) {
+    lines.push(formatBelowThresholdLine(vuln));
+  }
   return lines;
 }
 
@@ -151,9 +175,14 @@ function formatScopeFindings(result: ScopeCheckResult, now: Date): string[] {
  * Produces an intro banner, scoped findings with severity labels and GHSA IDs,
  * and an action hints footer.
  */
-export function formatCheckText(result: CheckResult, scopes: AuditScope[], now?: Date): string {
+export function formatCheckText(
+  result: CheckResult,
+  scopes: AuditScope[],
+  now?: Date,
+  thresholds?: Partial<Record<AuditScope, SeverityThreshold>>,
+): string {
   const effectiveNow = now ?? new Date();
-  const lines: string[] = [formatIntroBanner(scopes)];
+  const lines: string[] = [formatIntroBanner(scopes, thresholds)];
 
   const anyFindings = scopes.some((scope) => hasFindings(result[scope]));
 
@@ -178,7 +207,9 @@ export function formatCheckText(result: CheckResult, scopes: AuditScope[], now?:
   // Multiple scopes: show scope headers.
   for (const scope of scopes) {
     const scopeResult = result[scope];
-    lines.push(SCOPE_LABELS[scope]);
+    const annotation = formatThresholdAnnotation(thresholds?.[scope]);
+    const header = annotation.length > 0 ? `${SCOPE_LABELS[scope]} ${annotation}` : SCOPE_LABELS[scope];
+    lines.push(header);
     if (hasFindings(scopeResult)) {
       lines.push(...formatScopeFindings(scopeResult, effectiveNow));
     } else {

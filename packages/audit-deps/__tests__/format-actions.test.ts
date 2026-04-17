@@ -4,7 +4,7 @@ import { formatActionHints } from '../src/format-actions.ts';
 import type { CheckResult, ScopeCheckResult } from '../src/format-check.ts';
 
 function emptyScopeResult(): ScopeCheckResult {
-  return { allowed: [], stale: [], unallowed: [] };
+  return { allowed: [], belowThreshold: [], stale: [], unallowed: [] };
 }
 
 function makeCheckResult(overrides?: Partial<CheckResult>): CheckResult {
@@ -25,6 +25,7 @@ describe(formatActionHints, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [],
         unallowed: [{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], url: 'https://example.com/1' }],
       },
@@ -40,6 +41,7 @@ describe(formatActionHints, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [{ id: 'GHSA-stale' }],
         unallowed: [],
       },
@@ -54,11 +56,13 @@ describe(formatActionHints, () => {
     const result = makeCheckResult({
       dev: {
         allowed: [],
+        belowThreshold: [],
         stale: [{ id: 'GHSA-stale' }],
         unallowed: [],
       },
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [],
         unallowed: [{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], url: 'https://example.com/1' }],
       },
@@ -72,6 +76,7 @@ describe(formatActionHints, () => {
     const result = makeCheckResult({
       dev: {
         allowed: [],
+        belowThreshold: [],
         stale: [],
         unallowed: [{ id: 'GHSA-dev', path: 'pkg', paths: ['pkg'], url: 'https://example.com/dev' }],
       },
@@ -85,6 +90,7 @@ describe(formatActionHints, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
+        belowThreshold: [],
         stale: [],
         unallowed: [{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], url: 'https://example.com/1' }],
       },
@@ -98,6 +104,7 @@ describe(formatActionHints, () => {
     const result = makeCheckResult({
       dev: {
         allowed: [],
+        belowThreshold: [],
         stale: [],
         unallowed: [{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], url: 'https://example.com/1' }],
       },
@@ -111,6 +118,7 @@ describe(formatActionHints, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], severity: 'low', url: 'https://example.com/1' }],
+        belowThreshold: [],
         stale: [{ id: 'GHSA-stale' }],
         unallowed: [],
       },
@@ -125,6 +133,7 @@ describe(formatActionHints, () => {
     const result = makeCheckResult({
       prod: {
         allowed: [{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], severity: 'low', url: 'https://example.com/1' }],
+        belowThreshold: [],
         stale: [],
         unallowed: [],
       },
@@ -134,5 +143,20 @@ describe(formatActionHints, () => {
     expect(output).toContain('Run `audit-deps --prod --verbose` for full report');
     // No sync hint since nothing to sync
     expect(output).not.toContain('audit-deps sync');
+  });
+
+  it('returns empty string when only below-threshold findings exist', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [],
+        belowThreshold: [
+          { id: 'GHSA-bt', path: 'pkg', paths: ['pkg'], severity: 'low', url: 'https://example.com/bt' },
+        ],
+        stale: [],
+        unallowed: [],
+      },
+    });
+
+    expect(formatActionHints(result, ['prod'])).toBe('');
   });
 });
