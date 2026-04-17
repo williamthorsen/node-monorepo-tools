@@ -16,14 +16,12 @@ export function detectRepoType(): RepoType {
     return 'monorepo';
   }
 
-  try {
+  if (existsSync('package.json')) {
     const raw = readFileSync('package.json', 'utf8');
     const pkg = parseJsonRecord(raw);
     if (pkg !== undefined && Array.isArray(pkg.workspaces)) {
       return 'monorepo';
     }
-  } catch {
-    // Fall through to single-package
   }
 
   return 'single-package';
