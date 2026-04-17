@@ -32,7 +32,7 @@ The source-of-truth config lives at `.config/audit-deps.config.json`:
 
 ```json
 {
-  "$schema": "https://github.com/williamthorsen/node-monorepo-tools/raw/audit-deps-v0.3.0/packages/audit-deps/schemas/config.json",
+  "$schema": "https://github.com/williamthorsen/node-monorepo-tools/raw/audit-deps-v<version>/packages/audit-deps/schemas/config.json",
   "dev": {
     "severityThreshold": "high",
     "allowlist": [

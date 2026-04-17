@@ -8,6 +8,7 @@ import type { AuditDepsConfig, CommandOptions } from '../src/types.ts';
 // ---------------------------------------------------------------------------
 
 const mocks = vi.hoisted(() => ({
+  generateAuditCiConfig: vi.fn<() => Promise<string>>(),
   loadConfig: vi.fn<() => Promise<LoadConfigResult>>(),
   mkdirAsync: vi.fn<() => Promise<string | undefined>>(),
   runAudit: vi.fn(),
@@ -29,7 +30,7 @@ vi.mock('../src/config.ts', () => ({
 }));
 
 vi.mock('../src/generate.ts', () => ({
-  generateAuditCiConfig: vi.fn().mockResolvedValue('/fake/tmp/audit-ci.json'),
+  generateAuditCiConfig: mocks.generateAuditCiConfig,
 }));
 
 vi.mock('../src/run-audit.ts', async (importOriginal) => {
@@ -108,6 +109,7 @@ beforeEach(() => {
     return true;
   });
   setupTempDir();
+  mocks.generateAuditCiConfig.mockResolvedValue('/fake/tmp/audit-ci.json');
   mocks.mkdirAsync.mockResolvedValue(undefined);
 });
 
@@ -612,8 +614,12 @@ describe(syncCommand, () => {
 
     await syncCommand(makeOptions({ scopes: ['dev'] }));
 
-    // Verify generateAuditCiConfig was called (via the temp dir mock)
-    expect(mocks.runReport).toHaveBeenCalled();
+    // Verify the allowlist was stripped (emptied) before generating the audit-ci config.
+    expect(mocks.generateAuditCiConfig).toHaveBeenCalledWith(
+      expect.objectContaining({ allowlist: [] }),
+      'dev',
+      expect.any(String),
+    );
   });
 
   it('prints text summary in non-JSON mode', async () => {
@@ -655,6 +661,32 @@ describe(syncCommand, () => {
 
     await syncCommand(makeOptions({ scopes: ['dev'] }));
 
-    expect(stderrOutput).toContain('Created config at');
+    expect(stdoutOutput).toContain('Created config at');
+  });
+
+  it('creates config directory when source is defaults', async () => {
+    setupLoadConfig(undefined, 'defaults');
+    mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
+    mocks.syncAllowlist.mockResolvedValue({
+      syncResult: { added: [], kept: [], removed: [], scope: 'dev' },
+      updatedConfig: makeConfig(),
+    });
+
+    await syncCommand(makeOptions({ scopes: ['dev'] }));
+
+    expect(mocks.mkdirAsync).toHaveBeenCalledWith(expect.any(String), { recursive: true });
+  });
+
+  it('does not create config directory when source is file', async () => {
+    setupLoadConfig(undefined, 'file');
+    mocks.runReport.mockReturnValue({ results: [], stdout: '', stderr: '', warnings: [] });
+    mocks.syncAllowlist.mockResolvedValue({
+      syncResult: { added: [], kept: [], removed: [], scope: 'dev' },
+      updatedConfig: makeConfig(),
+    });
+
+    await syncCommand(makeOptions({ scopes: ['dev'] }));
+
+    expect(mocks.mkdirAsync).not.toHaveBeenCalled();
   });
 });

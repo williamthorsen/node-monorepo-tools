@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { AuditScope, ScopeConfig } from './types.ts';
@@ -32,7 +32,8 @@ export function buildFlatConfig(scopeConfig: ScopeConfig): AuditCiFlatConfig {
 /**
  * Generate the audit-ci config file for a scope and write it to disk.
  *
- * The output path is `{outputDir}/audit-ci.{scope}.json`.
+ * The output path is `{outputDir}/audit-ci.{scope}.json`. The caller must
+ * ensure `outputDir` already exists (e.g., via `withTempDir`).
  */
 export async function generateAuditCiConfig(
   scopeConfig: ScopeConfig,
@@ -43,7 +44,6 @@ export async function generateAuditCiConfig(
   const flat = buildFlatConfig(scopeConfig);
   const content = JSON.stringify(flat, null, 2) + '\n';
 
-  await mkdir(path.dirname(outputPath), { recursive: true });
   await writeFile(outputPath, content, 'utf8');
 
   return outputPath;

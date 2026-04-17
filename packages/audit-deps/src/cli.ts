@@ -36,53 +36,58 @@ export async function auditCommand(options: CommandOptions): Promise<number> {
   const { config } = loaded;
   const scopes = options.scopes.length > 0 ? options.scopes : [...AUDIT_SCOPES];
 
-  return withTempDir(async (tempDir) => {
-    let exitCode = 0;
-    const allResults: AuditResult[] = [];
+  try {
+    return await withTempDir(async (tempDir) => {
+      let exitCode = 0;
+      const allResults: AuditResult[] = [];
 
-    for (const scope of scopes) {
-      const configPath = await generateAuditCiConfig(config[scope], scope, tempDir);
+      for (const scope of scopes) {
+        const configPath = await generateAuditCiConfig(config[scope], scope, tempDir);
 
-      const result = runAudit({ configPath, json: options.json });
+        const result = runAudit({ configPath, json: options.json });
 
-      for (const warning of result.warnings) {
-        process.stderr.write(`warning: ${warning}\n`);
-      }
+        for (const warning of result.warnings) {
+          process.stderr.write(`warning: ${warning}\n`);
+        }
 
-      if (result.staleEntries.length > 0) {
-        process.stderr.write(`warning: stale allowlist entries in ${scope}: ${result.staleEntries.join(', ')}\n`);
+        if (result.staleEntries.length > 0) {
+          process.stderr.write(`warning: stale allowlist entries in ${scope}: ${result.staleEntries.join(', ')}\n`);
+        }
+
+        if (options.json) {
+          const parsed = parseAuditCiOutput(result.stdout);
+          for (const warning of parsed.warnings) {
+            process.stderr.write(`warning: ${warning}\n`);
+          }
+          for (const r of parsed.results) {
+            if (!allResults.some((existing) => existing.id === r.id)) {
+              allResults.push(r);
+            }
+          }
+        } else {
+          if (result.stdout.length > 0) {
+            process.stdout.write(result.stdout);
+          }
+          if (result.stderr.length > 0) {
+            process.stderr.write(result.stderr);
+          }
+        }
+
+        if (result.exitCode !== 0) {
+          exitCode = result.exitCode;
+        }
       }
 
       if (options.json) {
-        const parsed = parseAuditCiOutput(result.stdout);
-        for (const warning of parsed.warnings) {
-          process.stderr.write(`warning: ${warning}\n`);
-        }
-        for (const r of parsed.results) {
-          if (!allResults.some((existing) => existing.id === r.id)) {
-            allResults.push(r);
-          }
-        }
-      } else {
-        if (result.stdout.length > 0) {
-          process.stdout.write(result.stdout);
-        }
-        if (result.stderr.length > 0) {
-          process.stderr.write(result.stderr);
-        }
+        process.stdout.write(JSON.stringify(allResults, null, 2) + '\n');
       }
 
-      if (result.exitCode !== 0) {
-        exitCode = result.exitCode;
-      }
-    }
-
-    if (options.json) {
-      process.stdout.write(JSON.stringify(allResults, null, 2) + '\n');
-    }
-
-    return exitCode;
-  });
+      return exitCode;
+    });
+  } catch (error: unknown) {
+    process.stderr.write(`Error: ${extractMessage(error)}\n`);
+    return 1;
+  }
 }
 
 /** Scopes in display order: prod first, then dev. */
@@ -108,66 +113,71 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
   const requestedScopes = options.scopes.length > 0 ? options.scopes : [...CHECK_SCOPE_ORDER];
   const scopes = CHECK_SCOPE_ORDER.filter((s) => requestedScopes.includes(s));
 
-  return withTempDir(async (tempDir) => {
-    const checkResult: CheckResult = {
-      dev: { allowed: [], stale: [], unallowed: [] },
-      prod: { allowed: [], stale: [], unallowed: [] },
-    };
+  try {
+    return await withTempDir(async (tempDir) => {
+      const checkResult: CheckResult = {
+        dev: { allowed: [], stale: [], unallowed: [] },
+        prod: { allowed: [], stale: [], unallowed: [] },
+      };
 
-    for (const scope of scopes) {
-      const scopeConfig = config[scope];
+      for (const scope of scopes) {
+        const scopeConfig = config[scope];
 
-      // Generate a stripped config (empty allowlist) so audit-ci reports all vulnerabilities.
-      const strippedScope = { ...scopeConfig, allowlist: [] };
-      const strippedConfigPath = await generateAuditCiConfig(strippedScope, scope, tempDir);
+        // Generate a stripped config (empty allowlist) so audit-ci reports all vulnerabilities.
+        const strippedScope = { ...scopeConfig, allowlist: [] };
+        const strippedConfigPath = await generateAuditCiConfig(strippedScope, scope, tempDir);
 
-      const reportOptions: { configPath: string; reportType?: 'full' } = { configPath: strippedConfigPath };
-      if (options.verbose) {
-        reportOptions.reportType = 'full';
-      }
-      const report = runReport(reportOptions);
-      for (const warning of report.warnings) {
-        process.stderr.write(`warning: ${warning}\n`);
-      }
-      if (report.stderr.length > 0) {
-        process.stderr.write(report.stderr);
-      }
-
-      const allowedIds = new Set(scopeConfig.allowlist.map((entry) => entry.id));
-      const foundIds = new Set(report.results.map((r) => r.id));
-      const allowlistById = new Map<string, AllowlistEntry>(scopeConfig.allowlist.map((entry) => [entry.id, entry]));
-      const scopeResult: ScopeCheckResult = { allowed: [], stale: [], unallowed: [] };
-
-      for (const result of report.results) {
-        if (allowedIds.has(result.id)) {
-          const entry = allowlistById.get(result.id);
-          scopeResult.allowed.push(buildAllowedVuln(result, entry));
-        } else {
-          scopeResult.unallowed.push(result);
+        const reportOptions: { configPath: string; reportType?: 'full' } = { configPath: strippedConfigPath };
+        if (options.verbose) {
+          reportOptions.reportType = 'full';
         }
-      }
-
-      // Detect stale allowlist entries: IDs in the allowlist but not in audit results.
-      for (const entry of scopeConfig.allowlist) {
-        if (!foundIds.has(entry.id)) {
-          scopeResult.stale.push({ id: entry.id });
+        const report = runReport(reportOptions);
+        for (const warning of report.warnings) {
+          process.stderr.write(`warning: ${warning}\n`);
         }
+        if (report.stderr.length > 0) {
+          process.stderr.write(report.stderr);
+        }
+
+        const allowedIds = new Set(scopeConfig.allowlist.map((entry) => entry.id));
+        const foundIds = new Set(report.results.map((r) => r.id));
+        const allowlistById = new Map<string, AllowlistEntry>(scopeConfig.allowlist.map((entry) => [entry.id, entry]));
+        const scopeResult: ScopeCheckResult = { allowed: [], stale: [], unallowed: [] };
+
+        for (const result of report.results) {
+          if (allowedIds.has(result.id)) {
+            const entry = allowlistById.get(result.id);
+            scopeResult.allowed.push(buildAllowedVuln(result, entry));
+          } else {
+            scopeResult.unallowed.push(result);
+          }
+        }
+
+        // Detect stale allowlist entries: IDs in the allowlist but not in audit results.
+        for (const entry of scopeConfig.allowlist) {
+          if (!foundIds.has(entry.id)) {
+            scopeResult.stale.push({ id: entry.id });
+          }
+        }
+
+        checkResult[scope] = scopeResult;
       }
 
-      checkResult[scope] = scopeResult;
-    }
+      if (options.verbose && !options.json) {
+        process.stdout.write(formatCheckVerboseText(checkResult, scopes));
+      } else if (options.json) {
+        process.stdout.write(formatCheckJson(checkResult, scopes));
+      } else {
+        process.stdout.write(formatCheckText(checkResult, scopes));
+      }
 
-    if (options.verbose && !options.json) {
-      process.stdout.write(formatCheckVerboseText(checkResult, scopes));
-    } else if (options.json) {
-      process.stdout.write(formatCheckJson(checkResult, scopes));
-    } else {
-      process.stdout.write(formatCheckText(checkResult, scopes));
-    }
-
-    const hasUnallowed = scopes.some((s) => checkResult[s].unallowed.length > 0);
-    return hasUnallowed ? 1 : 0;
-  });
+      const hasUnallowed = scopes.some((s) => checkResult[s].unallowed.length > 0);
+      return hasUnallowed ? 1 : 0;
+    });
+  } catch (error: unknown) {
+    process.stderr.write(`Error: ${extractMessage(error)}\n`);
+    return 1;
+  }
 }
 
 /**
@@ -190,41 +200,46 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
   const { configFilePath, configSource } = loaded;
   const scopes = options.scopes.length > 0 ? options.scopes : [...AUDIT_SCOPES];
 
-  // Ensure the config directory exists when creating a new config from defaults.
-  if (configSource === 'defaults') {
-    await mkdir(path.dirname(configFilePath), { recursive: true });
+  try {
+    return await withTempDir(async (tempDir) => {
+      // Ensure the config directory exists when creating a new config from defaults.
+      if (configSource === 'defaults') {
+        await mkdir(path.dirname(configFilePath), { recursive: true });
+      }
+
+      for (const scope of scopes) {
+        // Generate a config without the allowlist so sync sees all vulnerabilities.
+        const strippedScope = { ...config[scope], allowlist: [] };
+        const strippedConfigPath = await generateAuditCiConfig(strippedScope, scope, tempDir);
+
+        const report = runReport({ configPath: strippedConfigPath });
+        for (const warning of report.warnings) {
+          process.stderr.write(`warning: ${warning}\n`);
+        }
+        const { syncResult, updatedConfig } = await syncAllowlist(config, scope, report.results, configFilePath);
+        config = updatedConfig;
+
+        if (options.json) {
+          process.stdout.write(JSON.stringify(syncResult, null, 2) + '\n');
+        } else {
+          process.stdout.write(`\n--- ${scope} ---\n`);
+          process.stdout.write(`  added: ${syncResult.added.length}\n`);
+          process.stdout.write(`  kept: ${syncResult.kept.length}\n`);
+          process.stdout.write(`  removed: ${syncResult.removed.length}\n`);
+        }
+      }
+
+      if (configSource === 'defaults') {
+        const totalEntries = config.dev.allowlist.length + config.prod.allowlist.length;
+        process.stdout.write(`Created config at ${configFilePath} with ${totalEntries} allowed entries.\n`);
+      }
+
+      return 0;
+    });
+  } catch (error: unknown) {
+    process.stderr.write(`Error: ${extractMessage(error)}\n`);
+    return 1;
   }
-
-  return withTempDir(async (tempDir) => {
-    for (const scope of scopes) {
-      // Generate a config without the allowlist so sync sees all vulnerabilities.
-      const strippedScope = { ...config[scope], allowlist: [] };
-      const strippedConfigPath = await generateAuditCiConfig(strippedScope, scope, tempDir);
-
-      const report = runReport({ configPath: strippedConfigPath });
-      for (const warning of report.warnings) {
-        process.stderr.write(`warning: ${warning}\n`);
-      }
-      const { syncResult, updatedConfig } = await syncAllowlist(config, scope, report.results, configFilePath);
-      config = updatedConfig;
-
-      if (options.json) {
-        process.stdout.write(JSON.stringify(syncResult, null, 2) + '\n');
-      } else {
-        process.stdout.write(`\n--- ${scope} ---\n`);
-        process.stdout.write(`  added: ${syncResult.added.length}\n`);
-        process.stdout.write(`  kept: ${syncResult.kept.length}\n`);
-        process.stdout.write(`  removed: ${syncResult.removed.length}\n`);
-      }
-    }
-
-    if (configSource === 'defaults') {
-      const totalEntries = config.dev.allowlist.length + config.prod.allowlist.length;
-      process.stderr.write(`Created config at ${configFilePath} with ${totalEntries} allowed entries.\n`);
-    }
-
-    return 0;
-  });
 }
 
 // ---------------------------------------------------------------------------
