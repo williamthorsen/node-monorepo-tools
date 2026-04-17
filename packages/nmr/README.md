@@ -173,11 +173,11 @@ Packages with a `vitest.integration.config.ts` file get different test commands.
 
 #### Check and quality
 
-| Command         | Runs                                                              |
-| --------------- | ----------------------------------------------------------------- |
-| `check`         | `typecheck`, `fmt:check`, `lint:check`, `test`                    |
-| `check:fixable` | `fmt:check`, `lint:check`                                         |
-| `check:strict`  | `typecheck`, `fmt:check`, `audit`, `lint:strict`, `test:coverage` |
+| Command         | Runs                                                     |
+| --------------- | -------------------------------------------------------- |
+| `check`         | `typecheck`, `fmt:check`, `lint:check`, `test`           |
+| `check:fixable` | `fmt:check`, `lint:check`                                |
+| `check:strict`  | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage` |
 
 #### Test
 
@@ -212,11 +212,11 @@ Packages with a `vitest.integration.config.ts` file get different test commands.
 
 #### Audit
 
-| Command      | Runs                                                               |
-| ------------ | ------------------------------------------------------------------ |
-| `audit`      | `audit:prod`, `audit:dev`                                          |
-| `audit:dev`  | `pnpm dlx audit-ci@^6 --config .config/audit-ci/config.dev.json5`  |
-| `audit:prod` | `pnpm dlx audit-ci@^6 --config .config/audit-ci/config.prod.json5` |
+| Command      | Runs                          |
+| ------------ | ----------------------------- |
+| `audit`      | `audit:prod`, `audit:dev`     |
+| `audit:dev`  | `pnpm exec audit-deps --dev`  |
+| `audit:prod` | `pnpm exec audit-deps --prod` |
 
 #### Dependencies
 

@@ -34,9 +34,4 @@ describe('audit-deps kit checks against this repo', () => {
   it('passes: audit-deps config exists', () => {
     expect(existsSync(join(repoRoot, '.config/audit-deps.config.json'))).toBe(true);
   });
-
-  it('passes: audit-ci configs exist under .config/audit-ci/', () => {
-    expect(existsSync(join(repoRoot, '.config/audit-ci/config.prod.json5'))).toBe(true);
-    expect(existsSync(join(repoRoot, '.config/audit-ci/config.dev.json5'))).toBe(true);
-  });
 });

@@ -1,11 +1,19 @@
 {
-  "outDir": "../tmp",
   "dev": {
-    "moderate": true,
-    "allowlist": []
+    "allowlist": [
+      {
+        "addedAt": "2026-04-17",
+        "id": "1115540",
+        "path": ".>eslint>minimatch>brace-expansion",
+        "reason": "Added by audit-deps sync on 2026-04-17",
+        "url": "https://github.com/advisories/GHSA-f886-m6hf-6m8v"
+      }
+    ],
+    "moderate": true
   },
+  "outDir": "../tmp",
   "prod": {
-    "high": true,
-    "allowlist": []
+    "allowlist": [],
+    "high": true
   }
 }

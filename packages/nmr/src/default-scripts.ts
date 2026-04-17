@@ -46,8 +46,8 @@ export const standardTestScripts: ScriptRegistry = {
  */
 export const rootScripts: ScriptRegistry = {
   audit: ['audit:prod', 'audit:dev'],
-  'audit:dev': 'pnpm dlx audit-ci@^7 --config .config/audit-ci/config.dev.json5',
-  'audit:prod': 'pnpm dlx audit-ci@^7 --config .config/audit-ci/config.prod.json5',
+  'audit:dev': 'pnpm exec audit-deps --dev',
+  'audit:prod': 'pnpm exec audit-deps --prod',
   build: 'pnpm --recursive exec nmr build',
   check: ['typecheck', 'fmt:check', 'lint:check', 'test'],
   'check:fixable': ['fmt:check', 'lint:check'],

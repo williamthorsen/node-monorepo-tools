@@ -176,13 +176,12 @@ function detectRepoType() {
   if (existsSync2("pnpm-workspace.yaml")) {
     return "monorepo";
   }
-  try {
+  if (existsSync2("package.json")) {
     const raw = readFileSync2("package.json", "utf8");
     const pkg = parseJsonRecord(raw);
     if (pkg !== void 0 && Array.isArray(pkg.workspaces)) {
       return "monorepo";
     }
-  } catch {
   }
   return "single-package";
 }
