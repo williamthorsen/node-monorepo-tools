@@ -20,6 +20,7 @@ export function resolveAuditCiBin(): string {
 interface AuditCiAdvisory {
   cvss?: { score?: number; vectorString?: string };
   findings: Array<{ paths: string[] }>;
+  github_advisory_id?: string;
   id: number | string;
   module_name: string;
   overview?: string;
@@ -71,6 +72,9 @@ export function parseAuditCiOutput(jsonString: string): ParseResult {
       paths,
       url: advisory.url,
     };
+    if (typeof advisory.github_advisory_id === 'string') {
+      result.ghsaId = advisory.github_advisory_id;
+    }
     if (typeof advisory.severity === 'string') {
       result.severity = advisory.severity;
     }

@@ -16,12 +16,12 @@ function makeCheckResult(overrides?: Partial<CheckResult>): CheckResult {
 }
 
 describe(formatActionHints, () => {
-  it('returns empty string when no unallowed or stale entries exist', () => {
+  it('returns empty string when no unallowed, allowed, or stale entries exist', () => {
     const result = makeCheckResult();
     expect(formatActionHints(result, ['prod', 'dev'])).toBe('');
   });
 
-  it('returns the add-only hint when only unallowed vulnerabilities exist', () => {
+  it('returns verbose and sync hints when unallowed vulnerabilities exist', () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
@@ -31,10 +31,12 @@ describe(formatActionHints, () => {
     });
 
     const output = formatActionHints(result, ['prod']);
-    expect(output).toBe('\nActions:\n  Run `audit-deps sync` to add vulnerabilities to the allowlist.\n');
+    expect(output).toContain('Actions:');
+    expect(output).toContain('  \u{2022} Run `audit-deps --prod --verbose` for full report');
+    expect(output).toContain('  \u{2022} Run `audit-deps sync` to add vulnerabilities to the allowlist.');
   });
 
-  it('returns the remove-only hint when only stale entries exist', () => {
+  it('returns remove-only hint without verbose hint when only stale entries exist', () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
@@ -44,10 +46,11 @@ describe(formatActionHints, () => {
     });
 
     const output = formatActionHints(result, ['prod']);
-    expect(output).toBe('\nActions:\n  Run `audit-deps sync` to remove stale allowlist entries.\n');
+    expect(output).toContain('  \u{2022} Run `audit-deps sync` to remove stale allowlist entries.');
+    expect(output).not.toContain('--verbose');
   });
 
-  it('returns the combined hint when both unallowed and stale entries exist', () => {
+  it('returns combined sync hint when both unallowed and stale entries exist', () => {
     const result = makeCheckResult({
       dev: {
         allowed: [],
@@ -62,9 +65,7 @@ describe(formatActionHints, () => {
     });
 
     const output = formatActionHints(result, ['prod', 'dev']);
-    expect(output).toBe(
-      '\nActions:\n  Run `audit-deps sync` to add vulnerabilities to the allowlist and remove stale entries.\n',
-    );
+    expect(output).toContain('add vulnerabilities to the allowlist and remove stale entries');
   });
 
   it('only considers scopes included in the scopes array', () => {
@@ -78,5 +79,46 @@ describe(formatActionHints, () => {
 
     // Only 'prod' is passed; dev's unallowed should be ignored.
     expect(formatActionHints(result, ['prod'])).toBe('');
+  });
+
+  it('uses --verbose without scope flag when both scopes are audited', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [],
+        stale: [],
+        unallowed: [{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], url: 'https://example.com/1' }],
+      },
+    });
+
+    const output = formatActionHints(result, ['prod', 'dev']);
+    expect(output).toContain('Run `audit-deps --verbose` for full report');
+  });
+
+  it('uses --dev --verbose when only dev scope is audited', () => {
+    const result = makeCheckResult({
+      dev: {
+        allowed: [],
+        stale: [],
+        unallowed: [{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], url: 'https://example.com/1' }],
+      },
+    });
+
+    const output = formatActionHints(result, ['dev']);
+    expect(output).toContain('Run `audit-deps --dev --verbose` for full report');
+  });
+
+  it('shows verbose hint when only allowed vulns exist', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], severity: 'low', url: 'https://example.com/1' }],
+        stale: [],
+        unallowed: [],
+      },
+    });
+
+    const output = formatActionHints(result, ['prod']);
+    expect(output).toContain('Run `audit-deps --prod --verbose` for full report');
+    // No sync hint since nothing to sync
+    expect(output).not.toContain('audit-deps sync');
   });
 });

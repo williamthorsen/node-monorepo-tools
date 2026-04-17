@@ -40,7 +40,8 @@ describe(formatCheckVerboseText, () => {
         stale: [],
         unallowed: [
           {
-            id: 'GHSA-unallowed',
+            ghsaId: 'GHSA-unallowed',
+            id: '1234',
             path: 'lodash',
             paths: ['my-app>lodash'],
             severity: 'high',
@@ -57,6 +58,26 @@ describe(formatCheckVerboseText, () => {
     expect(output).toContain('Prototype pollution in lodash');
     expect(output).toContain('path: my-app>lodash');
     expect(output).toContain('link: https://github.com/advisories/GHSA-unallowed');
+  });
+
+  it('falls back to numeric ID when ghsaId is absent', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [],
+        stale: [],
+        unallowed: [
+          {
+            id: '1234',
+            path: 'pkg',
+            paths: ['pkg'],
+            url: 'https://example.com/1234',
+          },
+        ],
+      },
+    });
+
+    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
+    expect(output).toContain('\u{1F6A8} 1234');
   });
 
   it('renders multi-path vulnerabilities with a plural "paths:" list', () => {
@@ -190,7 +211,8 @@ describe(formatCheckVerboseText, () => {
         allowed: [
           {
             addedAt: '2026-04-01',
-            id: 'GHSA-allowed',
+            ghsaId: 'GHSA-allowed',
+            id: '1234',
             path: 'pkg',
             paths: ['pkg'],
             reason: 'Accepted risk: no user input reaches this path',

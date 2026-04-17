@@ -7,6 +7,8 @@ import { formatCheckJson, formatCheckText, severityIndicator } from '../src/form
 // Helpers
 // ---------------------------------------------------------------------------
 
+const FIXED_NOW = new Date('2026-04-15T00:00:00Z');
+
 function emptyScopeResult(): ScopeCheckResult {
   return { allowed: [], stale: [], unallowed: [] };
 }
@@ -48,58 +50,185 @@ describe(severityIndicator, () => {
 // ---------------------------------------------------------------------------
 
 describe(formatCheckText, () => {
-  it('shows "(none)" when a scope has no findings', () => {
-    const result = makeCheckResult();
-    const output = formatCheckText(result, ['prod', 'dev']);
+  // --- All clean ---
 
-    expect(output).toContain('-- \u{1F4E6} prod --');
-    expect(output).toContain('  (none)');
-    expect(output).toContain('-- \u{1F527} dev --');
+  it('prints "No known vulnerabilities found." when both scopes are clean', () => {
+    const result = makeCheckResult();
+    const output = formatCheckText(result, ['prod', 'dev'], FIXED_NOW);
+
+    expect(output).toContain('\u{1F52C} Auditing dependencies ...');
+    expect(output).toContain('No known vulnerabilities found.');
+    expect(output).not.toContain('\u{1F4E6}');
+    expect(output).not.toContain('\u{1F527}');
   });
 
-  it('separates scope sections with a blank line', () => {
+  it('prints "No known vulnerabilities found." when a single clean scope is audited', () => {
     const result = makeCheckResult();
-    const output = formatCheckText(result, ['prod', 'dev']);
+    const output = formatCheckText(result, ['prod'], FIXED_NOW);
 
-    // Verify a blank line separates the prod and dev sections.
-    const prodIndex = output.indexOf('prod');
-    const devIndex = output.indexOf('dev');
-    const between = output.slice(prodIndex, devIndex);
-    expect(between).toContain('\n\n');
+    expect(output).toContain('\u{1F52C} Auditing prod dependencies ...');
+    expect(output).toContain('No known vulnerabilities found.');
   });
 
-  it('lists unallowed vulnerabilities with severity indicators', () => {
+  // --- Intro banner ---
+
+  it('includes "dev" in the intro banner when only dev is audited', () => {
+    const result = makeCheckResult();
+    const output = formatCheckText(result, ['dev'], FIXED_NOW);
+    expect(output).toContain('\u{1F52C} Auditing dev dependencies ...');
+  });
+
+  it('omits scope name from intro banner when both scopes are audited', () => {
+    const result = makeCheckResult();
+    const output = formatCheckText(result, ['prod', 'dev'], FIXED_NOW);
+    expect(output).toContain('\u{1F52C} Auditing dependencies ...');
+  });
+
+  // --- Multi-scope with findings ---
+
+  it('shows scope headers when multiple scopes are audited and at least one has findings', () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
         stale: [],
         unallowed: [
-          { id: 'GHSA-1', path: 'lodash', paths: ['lodash'], severity: 'high', url: 'https://example.com/1' },
+          {
+            id: 'GHSA-1',
+            ghsaId: 'GHSA-1',
+            path: 'lodash',
+            paths: ['lodash'],
+            severity: 'high',
+            url: 'https://example.com/1',
+          },
         ],
       },
     });
 
-    const output = formatCheckText(result, ['prod']);
-    expect(output).toContain('\u{1F534} GHSA-1: lodash (https://example.com/1)');
-    expect(output).not.toContain('allowed');
+    const output = formatCheckText(result, ['prod', 'dev'], FIXED_NOW);
+    expect(output).toContain('  \u{1F4E6} prod:');
+    expect(output).toContain('  \u{1F527} dev:');
   });
 
-  it('annotates allowed vulnerabilities', () => {
+  it('shows "No known vulnerabilities found." for a clean scope when another has findings', () => {
+    const result = makeCheckResult({
+      dev: {
+        allowed: [],
+        stale: [],
+        unallowed: [
+          {
+            id: '1234',
+            ghsaId: 'GHSA-dev1',
+            path: 'pkg',
+            paths: ['pkg'],
+            severity: 'moderate',
+            url: 'https://example.com/dev',
+          },
+        ],
+      },
+    });
+
+    const output = formatCheckText(result, ['prod', 'dev'], FIXED_NOW);
+    expect(output).toContain('  \u{1F4E6} prod:');
+    expect(output).toContain('  No known vulnerabilities found.');
+    expect(output).toContain('  \u{1F527} dev:');
+    expect(output).toContain('GHSA-dev1');
+  });
+
+  // --- Unallowed vulnerabilities ---
+
+  it('lists unallowed vulnerabilities with GHSA ID and severity suffix', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [],
+        stale: [],
+        unallowed: [
+          {
+            id: '1234',
+            ghsaId: 'GHSA-abcd-efgh-1234',
+            path: '.>path>to>dep',
+            paths: ['.>path>to>dep'],
+            severity: 'critical',
+            url: 'https://example.com/1',
+          },
+        ],
+      },
+    });
+
+    const output = formatCheckText(result, ['prod'], FIXED_NOW);
+    expect(output).toContain('  \u{2022} \u{1F6A8} GHSA-abcd-efgh-1234: .>path>to>dep  \u{1F534} critical');
+  });
+
+  it('falls back to numeric ID when ghsaId is absent', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [],
+        stale: [],
+        unallowed: [{ id: '1234', path: 'pkg', paths: ['pkg'], severity: 'high', url: 'https://example.com/1' }],
+      },
+    });
+
+    const output = formatCheckText(result, ['prod'], FIXED_NOW);
+    expect(output).toContain('\u{1F6A8} 1234: pkg');
+  });
+
+  it('omits severity suffix when severity is undefined', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [],
+        stale: [],
+        unallowed: [{ id: 'GHSA-1', ghsaId: 'GHSA-1', path: 'pkg', paths: ['pkg'], url: 'https://example.com/1' }],
+      },
+    });
+
+    const output = formatCheckText(result, ['prod'], FIXED_NOW);
+    expect(output).toContain('  \u{2022} \u{1F6A8} GHSA-1: pkg');
+    expect(output).not.toContain('\u{1F534}');
+    expect(output).not.toContain('\u{1F7E0}');
+  });
+
+  // --- Allowed vulnerabilities ---
+
+  it('annotates allowed vulnerabilities with relative time and addedAt', () => {
     const result = makeCheckResult({
       dev: {
         allowed: [
-          { id: 'GHSA-2', path: 'express', paths: ['express'], severity: 'moderate', url: 'https://example.com/2' },
+          {
+            addedAt: '2026-04-01T00:00:00.000Z',
+            ghsaId: 'GHSA-allowed',
+            id: '1234',
+            path: 'express',
+            paths: ['express'],
+            severity: 'moderate',
+            url: 'https://example.com/2',
+          },
         ],
         stale: [],
         unallowed: [],
       },
     });
 
-    const output = formatCheckText(result, ['dev']);
-    expect(output).toContain('\u{1F7E0} GHSA-2: express (https://example.com/2) \u{1F6AB} allowed');
+    const output = formatCheckText(result, ['dev'], FIXED_NOW);
+    expect(output).toContain('\u{26A0}\u{FE0F} GHSA-allowed: express  \u{1F7E0} moderate');
+    expect(output).toContain('\u{2705} allowed since 2 weeks ago (2026-04-01T00:00:00.000Z)');
   });
 
-  it('flags stale entries with emoji-first ordering', () => {
+  it('omits "allowed since" suffix when addedAt is absent', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [{ id: '1234', ghsaId: 'GHSA-nodate', path: 'pkg', paths: ['pkg'], url: 'https://example.com' }],
+        stale: [],
+        unallowed: [],
+      },
+    });
+
+    const output = formatCheckText(result, ['prod'], FIXED_NOW);
+    expect(output).toContain('GHSA-nodate');
+    expect(output).not.toContain('allowed');
+  });
+
+  // --- Stale entries ---
+
+  it('renders stale entries with bullet format', () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
@@ -108,24 +237,41 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['prod']);
-    expect(output).toContain('  \u{1F5D1}\u{FE0F} GHSA-old  not needed');
+    const output = formatCheckText(result, ['prod'], FIXED_NOW);
+    expect(output).toContain('  \u{2022} \u{1F5D1}\u{FE0F} GHSA-old \u{2022} not needed');
   });
+
+  // --- Mixed findings ---
 
   it('renders mixed findings in a single scope', () => {
     const result = makeCheckResult({
       prod: {
         allowed: [
-          { id: 'GHSA-ok', path: 'safe-pkg', paths: ['safe-pkg'], severity: 'low', url: 'https://example.com/ok' },
+          {
+            addedAt: '2026-04-01',
+            id: 'ok',
+            ghsaId: 'GHSA-ok',
+            path: 'safe-pkg',
+            paths: ['safe-pkg'],
+            severity: 'low',
+            url: 'https://example.com/ok',
+          },
         ],
         stale: [{ id: 'GHSA-stale' }],
         unallowed: [
-          { id: 'GHSA-bad', path: 'bad-pkg', paths: ['bad-pkg'], severity: 'critical', url: 'https://example.com/bad' },
+          {
+            id: 'bad',
+            ghsaId: 'GHSA-bad',
+            path: 'bad-pkg',
+            paths: ['bad-pkg'],
+            severity: 'critical',
+            url: 'https://example.com/bad',
+          },
         ],
       },
     });
 
-    const output = formatCheckText(result, ['prod']);
+    const output = formatCheckText(result, ['prod'], FIXED_NOW);
     expect(output).toContain('GHSA-bad');
     expect(output).toContain('GHSA-ok');
     expect(output).toContain('GHSA-stale');
@@ -136,34 +282,23 @@ describe(formatCheckText, () => {
       dev: {
         allowed: [],
         stale: [],
-        unallowed: [{ id: 'GHSA-dev', path: 'pkg', paths: ['pkg'], url: 'https://example.com/dev' }],
+        unallowed: [{ id: 'dev1', ghsaId: 'GHSA-dev', path: 'pkg', paths: ['pkg'], url: 'https://example.com/dev' }],
       },
       prod: {
         allowed: [],
         stale: [],
-        unallowed: [{ id: 'GHSA-prod', path: 'pkg', paths: ['pkg'], url: 'https://example.com/prod' }],
+        unallowed: [{ id: 'prod1', ghsaId: 'GHSA-prod', path: 'pkg', paths: ['pkg'], url: 'https://example.com/prod' }],
       },
     });
 
-    const output = formatCheckText(result, ['prod']);
+    const output = formatCheckText(result, ['prod'], FIXED_NOW);
     expect(output).toContain('GHSA-prod');
     expect(output).not.toContain('GHSA-dev');
   });
 
-  it('omits severity prefix when severity is undefined', () => {
-    const result = makeCheckResult({
-      prod: {
-        allowed: [],
-        stale: [],
-        unallowed: [{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], url: 'https://example.com/1' }],
-      },
-    });
+  // --- Actions footer ---
 
-    const output = formatCheckText(result, ['prod']);
-    expect(output).toContain('  GHSA-1: pkg (https://example.com/1)');
-  });
-
-  it('appends an Actions footer with the add-only hint when only unallowed vulnerabilities exist', () => {
+  it('appends an Actions footer with verbose and sync hints when unallowed vulnerabilities exist', () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
@@ -172,10 +307,10 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['prod']);
+    const output = formatCheckText(result, ['prod'], FIXED_NOW);
     expect(output).toContain('Actions:');
+    expect(output).toContain('Run `audit-deps --prod --verbose` for full report');
     expect(output).toContain('Run `audit-deps sync` to add vulnerabilities to the allowlist.');
-    expect(output).not.toContain('and remove stale entries');
   });
 
   it('appends an Actions footer with the remove-only hint when only stale entries exist', () => {
@@ -187,9 +322,11 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['prod']);
+    const output = formatCheckText(result, ['prod'], FIXED_NOW);
     expect(output).toContain('Actions:');
     expect(output).toContain('Run `audit-deps sync` to remove stale allowlist entries.');
+    // No verbose hint for stale-only
+    expect(output).not.toContain('--verbose');
   });
 
   it('appends an Actions footer combining both hints when unallowed and stale both exist', () => {
@@ -201,15 +338,32 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['prod']);
+    const output = formatCheckText(result, ['prod'], FIXED_NOW);
     expect(output).toContain('Actions:');
     expect(output).toContain('add vulnerabilities to the allowlist and remove stale entries');
   });
 
   it('omits the Actions footer when the allowlist is fully current', () => {
     const result = makeCheckResult();
-    const output = formatCheckText(result, ['prod', 'dev']);
+    const output = formatCheckText(result, ['prod', 'dev'], FIXED_NOW);
     expect(output).not.toContain('Actions:');
+  });
+
+  it('shows verbose hint when only allowed vulns exist (no unallowed, no stale)', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [
+          { id: '1', ghsaId: 'GHSA-1', path: 'pkg', paths: ['pkg'], severity: 'low', url: 'https://example.com/1' },
+        ],
+        stale: [],
+        unallowed: [],
+      },
+    });
+
+    const output = formatCheckText(result, ['prod'], FIXED_NOW);
+    expect(output).toContain('Run `audit-deps --prod --verbose` for full report');
+    // No sync hint since nothing to sync
+    expect(output).not.toContain('audit-deps sync');
   });
 });
 

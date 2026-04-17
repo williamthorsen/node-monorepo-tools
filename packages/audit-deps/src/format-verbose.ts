@@ -1,7 +1,10 @@
 import { formatActionHints } from './format-actions.ts';
 import type { AllowedVuln, CheckResult, ScopeCheckResult, StaleEntry } from './format-check.ts';
 import { severityIndicator } from './format-check.ts';
+import { formatRelativeTime } from './format-time.ts';
 import type { AuditResult, AuditScope } from './types.ts';
+
+export { formatRelativeTime } from './format-time.ts';
 
 // ---------------------------------------------------------------------------
 // Display constants
@@ -64,9 +67,14 @@ function formatScopeVerbose(scope: AuditScope, result: ScopeCheckResult, now: Da
   return lines.concat(blocks.join('\n\n')).join('\n');
 }
 
+/** Resolve the best display ID for a vulnerability: GHSA ID if available, otherwise the numeric ID. */
+function displayId(vuln: { ghsaId?: string | undefined; id: string }): string {
+  return vuln.ghsaId ?? vuln.id;
+}
+
 /** Format an unallowed vulnerability block with 🚨 marker. */
 function formatUnallowedBlock(vuln: AuditResult): string {
-  const headerLine = `  ${STATUS_UNALLOWED} ${vuln.id}${formatSeveritySuffix(vuln.severity)}`;
+  const headerLine = `  ${STATUS_UNALLOWED} ${displayId(vuln)}${formatSeveritySuffix(vuln.severity)}`;
   const detail = formatAdvisoryDetail(vuln);
   return [headerLine, ...detail].join('\n');
 }
@@ -74,7 +82,7 @@ function formatUnallowedBlock(vuln: AuditResult): string {
 /** Format an allowed vulnerability block with ⚠️ marker plus reason/addedAt context. */
 function formatAllowedBlock(vuln: AllowedVuln, now: Date): string {
   const allowedSuffix = vuln.addedAt !== undefined ? formatAllowedSuffix(vuln.addedAt, now) : '';
-  const headerLine = `  ${STATUS_ALLOWED} ${vuln.id}${formatSeveritySuffix(vuln.severity)}${allowedSuffix}`;
+  const headerLine = `  ${STATUS_ALLOWED} ${displayId(vuln)}${formatSeveritySuffix(vuln.severity)}${allowedSuffix}`;
   const hasTitle = vuln.title !== undefined;
   const detail = formatAdvisoryDetail(vuln);
   if (vuln.reason !== undefined) {
@@ -140,63 +148,6 @@ function formatAllowedSuffix(addedAt: string, now: Date): string {
   const relative = formatRelativeTime(addedAt, now);
   if (relative.length === 0) return `  allowed (${addedAt})`;
   return `  allowed ${relative} (${addedAt})`;
-}
-
-/**
- * Produce a human-readable relative-time string such as "just now", "N minutes ago",
- * "yesterday", "N months ago", "N years ago".
- *
- * Uses millisecond math for units up through weeks to avoid DST/timezone drift on
- * short intervals, and UTC calendar math for months and years.
- *
- * @internal — exported for test access; consumers should use `formatAllowedSuffix`.
- */
-export function formatRelativeTime(fromIso: string, now: Date): string {
-  const from = parseDateUtc(fromIso);
-  if (from === undefined) return '';
-
-  const deltaMs = now.getTime() - from.getTime();
-  if (deltaMs < 60_000) return 'just now';
-
-  const minutes = Math.floor(deltaMs / 60_000);
-  if (minutes < 60) return pluralize(minutes, 'minute');
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return pluralize(hours, 'hour');
-
-  const days = Math.floor(hours / 24);
-  if (days === 1) return 'yesterday';
-  if (days < 7) return pluralize(days, 'day');
-
-  const weeks = Math.floor(days / 7);
-  if (weeks < 5) return pluralize(weeks, 'week');
-
-  const months = diffMonthsUtc(from, now);
-  if (months < 12) return pluralize(months, 'month');
-
-  const years = Math.floor(months / 12);
-  return pluralize(years, 'year');
-}
-
-/** Parse a YYYY-MM-DD (or full ISO) string into a UTC Date; return undefined if invalid. */
-function parseDateUtc(iso: string): Date | undefined {
-  // ECMAScript parses date-only ISO strings (YYYY-MM-DD) and full ISO strings as UTC.
-  const parsed = new Date(iso);
-  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
-}
-
-/** Compute the number of whole months between two dates in UTC. */
-function diffMonthsUtc(from: Date, now: Date): number {
-  let months = (now.getUTCFullYear() - from.getUTCFullYear()) * 12 + (now.getUTCMonth() - from.getUTCMonth());
-  if (now.getUTCDate() < from.getUTCDate()) {
-    months -= 1;
-  }
-  return Math.max(0, months);
-}
-
-/** Format an integer count + unit, pluralizing with a simple `s`. */
-function pluralize(count: number, unit: string): string {
-  return `${count} ${unit}${count === 1 ? '' : 's'} ago`;
 }
 
 /** Wrap a description (possibly multi-paragraph) to the detail indent. */
