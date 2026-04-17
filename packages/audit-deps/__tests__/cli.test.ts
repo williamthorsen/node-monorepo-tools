@@ -397,6 +397,52 @@ describe(checkCommand, () => {
     );
   });
 
+  it('propagates ghsaId from audit result to allowed entry in JSON output', async () => {
+    const config = makeConfig({
+      prod: {
+        allowlist: [
+          {
+            id: 'GHSA-ghsa-test',
+            path: 'pkg',
+            url: 'https://example.com/ghsa-test',
+          },
+        ],
+      },
+    });
+    setupLoadConfig(config);
+    mocks.runReport.mockReturnValue({
+      results: [
+        {
+          ghsaId: 'GHSA-ghsa-test',
+          id: 'GHSA-ghsa-test',
+          path: 'pkg',
+          paths: ['pkg'],
+          severity: 'high',
+          url: 'https://example.com/ghsa-test',
+        },
+      ],
+      stdout: '',
+      stderr: '',
+      warnings: [],
+    });
+
+    await checkCommand(makeOptions({ json: true, scopes: ['prod'] }));
+
+    const parsed: unknown = JSON.parse(stdoutOutput);
+    expect(parsed).toStrictEqual(
+      expect.objectContaining({
+        prod: expect.objectContaining({
+          allowed: [
+            expect.objectContaining({
+              ghsaId: 'GHSA-ghsa-test',
+              id: 'GHSA-ghsa-test',
+            }),
+          ],
+        }),
+      }),
+    );
+  });
+
   it('detects stale allowlist entries and returns 0', async () => {
     const config = makeConfig({
       prod: {

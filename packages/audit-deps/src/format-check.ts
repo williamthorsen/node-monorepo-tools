@@ -62,7 +62,7 @@ export function severityIndicator(severity: string | undefined): string {
 // ---------------------------------------------------------------------------
 
 /** Resolve the best display ID for a vulnerability: GHSA ID if available, otherwise the numeric ID. */
-function displayId(vuln: { ghsaId?: string | undefined; id: string }): string {
+export function displayId(vuln: { ghsaId?: string | undefined; id: string }): string {
   return vuln.ghsaId ?? vuln.id;
 }
 

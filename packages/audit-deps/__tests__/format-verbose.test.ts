@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import type { CheckResult, ScopeCheckResult } from '../src/format-check.ts';
-import { formatCheckVerboseText, formatRelativeTime } from '../src/format-verbose.ts';
+import { formatRelativeTime } from '../src/format-time.ts';
+import { formatCheckVerboseText } from '../src/format-verbose.ts';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -335,6 +336,33 @@ describe(formatCheckVerboseText, () => {
 
     const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
     expect(output).toContain('  \u{1F5D1}\u{FE0F} GHSA-stale-entry-0000  not needed');
+  });
+
+  it('ends output with a newline when actions are present', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [],
+        stale: [{ id: 'GHSA-stale' }],
+        unallowed: [],
+      },
+    });
+
+    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
+    expect(output).toMatch(/\n$/);
+  });
+
+  it('separates the Actions footer from scope content with a blank line', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [],
+        stale: [{ id: 'GHSA-stale' }],
+        unallowed: [],
+      },
+    });
+
+    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
+    expect(output).toContain('not needed\n\n');
+    expect(output).toContain('Actions:');
   });
 
   it('appends an Actions footer when unallowed or stale entries exist', () => {

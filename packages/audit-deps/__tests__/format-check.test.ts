@@ -212,6 +212,28 @@ describe(formatCheckText, () => {
     expect(output).toContain('\u{2705} allowed since 2 weeks ago (2026-04-01T00:00:00.000Z)');
   });
 
+  it('renders "allowed (addedAt)" without "since" when addedAt is unparseable', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [
+          {
+            addedAt: 'not-a-date',
+            id: 'GHSA-baddate',
+            path: 'pkg',
+            paths: ['pkg'],
+            url: 'https://example.com/baddate',
+          },
+        ],
+        stale: [],
+        unallowed: [],
+      },
+    });
+
+    const output = formatCheckText(result, ['prod'], FIXED_NOW);
+    expect(output).toContain('\u{2705} allowed (not-a-date)');
+    expect(output).not.toContain('since');
+  });
+
   it('omits "allowed since" suffix when addedAt is absent', () => {
     const result = makeCheckResult({
       prod: {

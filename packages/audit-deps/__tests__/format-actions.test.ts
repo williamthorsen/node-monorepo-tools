@@ -107,6 +107,20 @@ describe(formatActionHints, () => {
     expect(output).toContain('Run `audit-deps --dev --verbose` for full report');
   });
 
+  it('shows verbose hint and remove-only sync hint when allowed and stale entries exist without unallowed', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], severity: 'low', url: 'https://example.com/1' }],
+        stale: [{ id: 'GHSA-stale' }],
+        unallowed: [],
+      },
+    });
+
+    const output = formatActionHints(result, ['prod']);
+    expect(output).toContain('Run `audit-deps --prod --verbose` for full report');
+    expect(output).toContain('Run `audit-deps sync` to remove stale allowlist entries.');
+  });
+
   it('shows verbose hint when only allowed vulns exist', () => {
     const result = makeCheckResult({
       prod: {

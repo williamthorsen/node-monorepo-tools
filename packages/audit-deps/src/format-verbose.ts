@@ -1,10 +1,8 @@
 import { formatActionHints } from './format-actions.ts';
 import type { AllowedVuln, CheckResult, ScopeCheckResult, StaleEntry } from './format-check.ts';
-import { severityIndicator } from './format-check.ts';
+import { displayId, severityIndicator } from './format-check.ts';
 import { formatRelativeTime } from './format-time.ts';
 import type { AuditResult, AuditScope } from './types.ts';
-
-export { formatRelativeTime } from './format-time.ts';
 
 // ---------------------------------------------------------------------------
 // Display constants
@@ -39,7 +37,10 @@ export function formatCheckVerboseText(result: CheckResult, scopes: AuditScope[]
     sections.push(formatScopeVerbose(scope, result[scope], effectiveNow));
   }
 
-  return sections.join('\n\n') + '\n' + formatActionHints(result, scopes);
+  const actions = formatActionHints(result, scopes);
+  const body = sections.join('\n\n') + '\n';
+  if (actions.length === 0) return body;
+  return body + '\n' + actions + '\n';
 }
 
 /** Format a single scope's verbose check results. */
@@ -65,11 +66,6 @@ function formatScopeVerbose(scope: AuditScope, result: ScopeCheckResult, now: Da
 
   // Join blocks with a blank line between them.
   return lines.concat(blocks.join('\n\n')).join('\n');
-}
-
-/** Resolve the best display ID for a vulnerability: GHSA ID if available, otherwise the numeric ID. */
-function displayId(vuln: { ghsaId?: string | undefined; id: string }): string {
-  return vuln.ghsaId ?? vuln.id;
 }
 
 /** Format an unallowed vulnerability block with 🚨 marker. */
