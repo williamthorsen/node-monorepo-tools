@@ -1,5 +1,20 @@
 [
   {
+    "version": "0.11.0",
+    "date": "2026-04-17",
+    "sections": [
+      {
+        "title": "Features",
+        "audience": "all",
+        "items": [
+          { "description": "Add `check:fixable` convenience script (#223)" },
+          { "description": "Show package name in override-script messages (#226)" },
+          { "description": "Migrate nmr audit scripts to use audit-deps (#234)" }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.10.0",
     "date": "2026-04-16",
     "sections": [

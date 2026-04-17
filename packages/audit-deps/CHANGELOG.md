@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [audit-deps-v0.4.0] - 2026-04-17
+
+### Features
+
+- Allow audit-deps to work without a config (#235)
+
+  Adds a no-config mode to `audit-deps` so `npx @williamthorsen/audit-deps` produces a useful vulnerability report in any repo without requiring a config file. Replaces the four confusing severity booleans with a single `severityThreshold` field: `critical`, `high`, `moderate`, or `low`. Adds a JSON Schema to the generated configs.
+
+- Store full ISO 8601 datetime in `addedAt` (#236)
+
+  Replaces the ambiguous `YYYY-MM-DD` date-only string in allowlist `addedAt` fields with a full ISO 8601 UTC datetime (e.g., `2026-04-15T14:30:00.000Z`). This removes timezone ambiguity and adds time-of-day precision for more accurate relative-time display.
+
+- Improve DX of audit-deps bare output (#241)
+
+  Redesigns the `audit-deps` bare output format to show GHSA IDs instead of npm-specific numeric advisory IDs, add severity text labels, and guide developers toward next steps. The new format includes an intro banner reflecting the audit scope, scope-labeled sections with emoji markers, bulleted findings with severity indicators, relative-time annotations on allowed vulnerabilities, and a unified `Actions:` footer with context-aware verbose and sync hints. Extracts shared time-formatting helpers into a dedicated module to support relative timestamps in both bare and verbose formatters.
+
 ## [audit-deps-v0.3.0] - 2026-04-16
 
 ### Documentation

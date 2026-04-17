@@ -94,7 +94,7 @@ function hasMinDevDependencyVersion(name, minVersion, options) {
 // packages/release-kit/package.json
 var package_default = {
   name: "@williamthorsen/release-kit",
-  version: "4.7.0",
+  version: "4.8.0",
   description: "Version-bumping and changelog-generation toolkit for release workflows",
   keywords: [],
   homepage: "https://github.com/williamthorsen/node-monorepo-tools/tree/main/packages/release-kit#readme",

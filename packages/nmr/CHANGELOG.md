@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [nmr-v0.11.0] - 2026-04-17
+
+### Features
+
+- Add `check:fixable` convenience script (#223)
+
+  Adds a new `check:fixable` convenience script to the `nmr` default script registries, providing a read-only partner to the existing `fix` script. Running `nmr check:fixable` expands to `nmr fmt:check && nmr lint:check`, verifying that a tree is clean of auto-fixable violations without modifying any files.
+
+- Show package name in override-script messages (#226)
+
+  Adds the package directory name as a prefix to override-script log messages, making it easy to identify which package each message belongs to when running commands across multiple workspaces. Also introduces a distinct no-op (`:`) condition that logs a skip message and exits cleanly, separate from the existing empty-string case.
+
+- Migrate nmr audit scripts to use audit-deps (#234)
+
+  Migrates nmr's built-in `audit:dev` and `audit:prod` root scripts from calling `audit-ci` directly via `pnpm dlx` to delegating to the `audit-deps` CLI wrapper via `pnpm exec audit-deps`. Removes the now-obsolete `.config/audit-ci/` directory and its JSON5 config files, since `audit-deps` uses its own config at `.config/audit-deps.config.json`. Updates the nmr readyup kit to check for `@williamthorsen/audit-deps` installation instead of checking for legacy audit-ci directory placement.
+
 ## [nmr-v0.10.0] - 2026-04-16
 
 ### Features

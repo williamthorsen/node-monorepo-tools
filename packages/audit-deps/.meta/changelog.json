@@ -1,5 +1,20 @@
 [
   {
+    "version": "0.4.0",
+    "date": "2026-04-17",
+    "sections": [
+      {
+        "title": "Features",
+        "audience": "all",
+        "items": [
+          { "description": "Allow audit-deps to work without a config (#235)" },
+          { "description": "Store full ISO 8601 datetime in `addedAt` (#236)" },
+          { "description": "Improve DX of audit-deps bare output (#241)" }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.3.0",
     "date": "2026-04-16",
     "sections": [

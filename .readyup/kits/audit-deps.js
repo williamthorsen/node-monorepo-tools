@@ -93,7 +93,7 @@ function hasMinDevDependencyVersion(name, minVersion, options) {
 // packages/audit-deps/package.json
 var package_default = {
   name: "@williamthorsen/audit-deps",
-  version: "0.3.0",
+  version: "0.4.0",
   private: false,
   description: "Wrap audit-ci with a richer config model, typed JSON source of truth, and sync workflow",
   keywords: [

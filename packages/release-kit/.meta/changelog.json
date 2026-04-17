@@ -1,5 +1,21 @@
 [
   {
+    "version": "4.8.0",
+    "date": "2026-04-17",
+    "sections": [
+      {
+        "title": "Bug fixes",
+        "audience": "all",
+        "items": [{ "description": "Replace broad catch with `existsSync` guard in `detectRepoType` (#229)" }]
+      },
+      {
+        "title": "Features",
+        "audience": "all",
+        "items": [{ "description": "Add `push` command for safe tag pushing (#243)" }]
+      }
+    ]
+  },
+  {
     "version": "4.7.0",
     "date": "2026-04-16",
     "sections": [
@@ -192,19 +208,20 @@
     "date": "2026-03-17",
     "sections": [
       {
-        "title": "Refactoring",
-        "audience": "all",
-        "items": [{ "description": "Clean up release-kit post-migration issues (#19)" }]
-      },
-      {
         "title": "Features",
         "audience": "all",
         "items": [
+          { "description": "Migrate release-kit from toolbelt (#18)" },
           { "description": "Slim down release workflow by removing unnecessary pnpm install (#21)" },
           { "description": "Add --force flag to release-kit prepare (#25)" },
           { "description": "Move reusable release workflow into repo (#26)" },
           { "description": "Allow git-cliff to be used without config (#31)" }
         ]
+      },
+      {
+        "title": "Refactoring",
+        "audience": "all",
+        "items": [{ "description": "Clean up release-kit post-migration issues (#19)" }]
       }
     ]
   },
