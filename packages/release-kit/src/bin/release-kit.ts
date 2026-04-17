@@ -9,6 +9,7 @@ import { githubReleaseCommand } from '../githubReleaseCommand.ts';
 import { initCommand } from '../init/initCommand.ts';
 import { prepareCommand } from '../prepareCommand.ts';
 import { publishCommand } from '../publishCommand.ts';
+import { pushCommand } from '../pushCommand.ts';
 import { generateCommand } from '../sync-labels/generateCommand.ts';
 import { syncLabelsInitCommand } from '../sync-labels/initCommand.ts';
 import { syncLabelsCommand } from '../sync-labels/syncCommand.ts';
@@ -23,6 +24,7 @@ Commands:
   prepare          Run release preparation (auto-discovers workspaces)
   commit           Stage changes and create the release commit
   tag              Create annotated git tags from the tags file
+  push             Push release commit and tags (one push per tag)
   publish          Publish packages with release tags on HEAD
   github-release   Create GitHub Releases from changelog.json for tags on HEAD
   init             Initialize release-kit in the current repository
@@ -142,6 +144,21 @@ Options:
 `);
 }
 
+function showPushHelp(): void {
+  console.info(`
+Usage: release-kit push [options]
+
+Push the release commit and each tag individually, ensuring GitHub Actions
+fires a separate workflow run per tag.
+
+Options:
+  --dry-run              Preview without pushing
+  --only=name1,name2     Only push tags for the named packages (comma-separated, monorepo only)
+  --tags-only            Skip the branch push (push tags only)
+  --help, -h             Show this help message
+`);
+}
+
 function showGithubReleaseHelp(): void {
   console.info(`
 Usage: release-kit github-release [options]
@@ -216,6 +233,16 @@ if (command === 'tag') {
   }
 
   tagCommand(flags);
+  process.exit(0);
+}
+
+if (command === 'push') {
+  if (flags.some((f) => f === '--help' || f === '-h')) {
+    showPushHelp();
+    process.exit(0);
+  }
+
+  await pushCommand(flags);
   process.exit(0);
 }
 
