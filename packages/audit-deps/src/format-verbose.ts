@@ -135,7 +135,7 @@ function formatSeveritySuffix(severity: string | undefined): string {
   return `  ${emojiPart}${severity}`;
 }
 
-/** Build the "allowed X ago (YYYY-MM-DD)" suffix for entries with `addedAt`. */
+/** Build the "allowed X ago (datetime)" suffix for entries with `addedAt`. */
 function formatAllowedSuffix(addedAt: string, now: Date): string {
   const relative = formatRelativeTime(addedAt, now);
   if (relative.length === 0) return `  allowed (${addedAt})`;

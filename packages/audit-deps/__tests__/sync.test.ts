@@ -4,7 +4,14 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { buildUpdatedConfig, computeSyncDiff, formatUtcDate, serializeConfig, syncAllowlist } from '../src/sync.ts';
+import {
+  buildUpdatedConfig,
+  computeSyncDiff,
+  formatFriendlyUtc,
+  formatUtcDatetime,
+  serializeConfig,
+  syncAllowlist,
+} from '../src/sync.ts';
 import type { AllowlistEntry, AuditDepsConfig, AuditResult } from '../src/types.ts';
 
 function makeAuditResult(overrides: Partial<AuditResult> & Pick<AuditResult, 'id' | 'path' | 'url'>): AuditResult {
@@ -21,8 +28,8 @@ describe(computeSyncDiff, () => {
     const { added, kept, removed } = computeSyncDiff(current, audit, fixedDate);
 
     expect(added).toHaveLength(1);
-    expect(added[0]?.reason).toBe('Added by audit-deps sync on 2025-06-15');
-    expect(added[0]?.addedAt).toBe('2025-06-15');
+    expect(added[0]?.reason).toBe('Added by audit-deps sync at 2025-06-15 00:00:00 UTC');
+    expect(added[0]?.addedAt).toBe('2025-06-15T00:00:00.000Z');
     expect(kept).toHaveLength(0);
     expect(removed).toHaveLength(0);
   });
@@ -213,13 +220,19 @@ describe(serializeConfig, () => {
   });
 });
 
-describe(formatUtcDate, () => {
-  it('returns a YYYY-MM-DD date string in UTC', () => {
-    expect(formatUtcDate(new Date('2026-04-15T12:34:56Z'))).toBe('2026-04-15');
+describe(formatFriendlyUtc, () => {
+  it('returns a human-friendly "YYYY-MM-DD HH:MM:SS UTC" string', () => {
+    expect(formatFriendlyUtc(new Date('2026-04-15T14:30:05.123Z'))).toBe('2026-04-15 14:30:05 UTC');
+  });
+});
+
+describe(formatUtcDatetime, () => {
+  it('returns a full ISO 8601 UTC datetime string', () => {
+    expect(formatUtcDatetime(new Date('2026-04-15T12:34:56Z'))).toBe('2026-04-15T12:34:56.000Z');
   });
 
-  it('returns the UTC date regardless of the local timezone portion of the ISO string', () => {
-    expect(formatUtcDate(new Date('2026-04-15T03:00:00Z'))).toBe('2026-04-15');
+  it('preserves the full UTC time including milliseconds', () => {
+    expect(formatUtcDatetime(new Date('2026-04-15T03:00:00.123Z'))).toBe('2026-04-15T03:00:00.123Z');
   });
 });
 

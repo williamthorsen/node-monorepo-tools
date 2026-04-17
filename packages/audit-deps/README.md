@@ -37,7 +37,7 @@ The source-of-truth config lives at `.config/audit-deps.config.json`:
     "severityThreshold": "moderate",
     "allowlist": [
       {
-        "addedAt": "2026-04-15",
+        "addedAt": "2026-04-15T09:30:00.000Z",
         "id": "GHSA-1234-5678-abcd",
         "path": "lodash",
         "reason": "Accepted risk: no user input reaches this path",
@@ -57,7 +57,7 @@ The source-of-truth config lives at `.config/audit-deps.config.json`:
 - **`$schema`** (optional) — JSON Schema URL for editor autocomplete and validation. Automatically included by `init` and `sync`.
 - **`dev`** / **`prod`** — Scope-specific settings:
   - **`severityThreshold`** (optional) — Fail on advisories at or above this severity. Valid values: `'low'`, `'moderate'`, `'high'`, `'critical'`. When omitted, audit-ci uses its own defaults.
-  - **`allowlist`** — Typed advisory entries with `id`, `path`, `url`, and optional `reason` and `addedAt`. `addedAt` is an ISO date (UTC, `YYYY-MM-DD`) populated automatically by `audit-deps sync` on new entries; existing entries retain whatever value they had.
+  - **`allowlist`** — Typed advisory entries with `id`, `path`, `url`, and optional `reason` and `addedAt`. `addedAt` is an ISO 8601 UTC datetime (e.g., `2026-04-15T09:30:00.000Z`) populated automatically by `audit-deps sync` on new entries; existing entries retain whatever value they had. Older `YYYY-MM-DD` values are still accepted.
 
 ## CLI reference
 
