@@ -13,10 +13,11 @@ interface AuditCiFlatConfig {
 /**
  * Transform a scope config into the flat JSON structure audit-ci expects.
  *
- * Translates `severityThreshold` to the corresponding audit-ci boolean and
- * flattens the typed allowlist to an array of ID strings.
+ * Translates `severityThreshold` to the corresponding audit-ci boolean,
+ * adds scope-specific flags (`skip-dev` for prod, `extra-args: ["--dev"]` for dev),
+ * and flattens the typed allowlist to an array of ID strings.
  */
-export function buildFlatConfig(scopeConfig: ScopeConfig): AuditCiFlatConfig {
+export function buildFlatConfig(scopeConfig: ScopeConfig, scope: AuditScope): AuditCiFlatConfig {
   const flat: AuditCiFlatConfig = {
     allowlist: scopeConfig.allowlist.map((entry) => entry.id),
     'show-not-found': true,
@@ -24,6 +25,13 @@ export function buildFlatConfig(scopeConfig: ScopeConfig): AuditCiFlatConfig {
 
   if (scopeConfig.severityThreshold !== undefined) {
     flat[scopeConfig.severityThreshold] = true;
+  }
+
+  // Restrict audit-ci to the target dependency scope.
+  if (scope === 'prod') {
+    flat['skip-dev'] = true;
+  } else {
+    flat['extra-args'] = ['--dev'];
   }
 
   return flat;
@@ -41,7 +49,7 @@ export async function generateAuditCiConfig(
   outputDir: string,
 ): Promise<string> {
   const outputPath = path.join(outputDir, `audit-ci.${scope}.json`);
-  const flat = buildFlatConfig(scopeConfig);
+  const flat = buildFlatConfig(scopeConfig, scope);
   const content = JSON.stringify(flat, null, 2) + '\n';
 
   await writeFile(outputPath, content, 'utf8');

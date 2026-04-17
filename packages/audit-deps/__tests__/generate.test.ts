@@ -17,7 +17,7 @@ describe(buildFlatConfig, () => {
       severityThreshold: 'moderate',
     };
 
-    const flat = buildFlatConfig(scopeConfig);
+    const flat = buildFlatConfig(scopeConfig, 'prod');
     expect(flat.allowlist).toStrictEqual(['GHSA-1234', 'GHSA-5678']);
     expect(flat.moderate).toBe(true);
     expect(flat['show-not-found']).toBe(true);
@@ -25,14 +25,14 @@ describe(buildFlatConfig, () => {
 
   it('produces an empty allowlist when the source has no entries', () => {
     const scopeConfig: ScopeConfig = { allowlist: [], severityThreshold: 'high' };
-    const flat = buildFlatConfig(scopeConfig);
+    const flat = buildFlatConfig(scopeConfig, 'dev');
     expect(flat.allowlist).toStrictEqual([]);
     expect(flat.high).toBe(true);
   });
 
   it('omits severity keys when severityThreshold is undefined', () => {
     const scopeConfig: ScopeConfig = { allowlist: [] };
-    const flat = buildFlatConfig(scopeConfig);
+    const flat = buildFlatConfig(scopeConfig, 'dev');
     expect(flat).not.toHaveProperty('moderate');
     expect(flat).not.toHaveProperty('high');
     expect(flat).not.toHaveProperty('critical');
@@ -46,8 +46,20 @@ describe(buildFlatConfig, () => {
     { threshold: 'critical' as const, expectedKey: 'critical' },
   ])('translates severityThreshold "$threshold" to { $expectedKey: true }', ({ threshold, expectedKey }) => {
     const scopeConfig: ScopeConfig = { allowlist: [], severityThreshold: threshold };
-    const flat = buildFlatConfig(scopeConfig);
+    const flat = buildFlatConfig(scopeConfig, 'dev');
     expect(flat[expectedKey]).toBe(true);
+  });
+
+  it('adds skip-dev for prod scope', () => {
+    const flat = buildFlatConfig({ allowlist: [] }, 'prod');
+    expect(flat['skip-dev']).toBe(true);
+    expect(flat).not.toHaveProperty('extra-args');
+  });
+
+  it('adds extra-args ["--dev"] for dev scope', () => {
+    const flat = buildFlatConfig({ allowlist: [] }, 'dev');
+    expect(flat['extra-args']).toStrictEqual(['--dev']);
+    expect(flat).not.toHaveProperty('skip-dev');
   });
 });
 
