@@ -26,7 +26,7 @@ const MIN_VERSION = releaseKitPackageJson.version;
 
 // SHA-256 hashes of release-kit artifacts. Keep in sync —
 // verified by __tests__/rdy-kit-hashes.app.test.ts.
-export const CLIFF_TEMPLATE_HASH = 'fb5e7d3c5e4856272aa788ed0e69cc491c8f765ba4241643999436410584278e';
+export const CLIFF_TEMPLATE_HASH = '520ffdde4cbbef671f229d1e1f63c09a3c4ef0b2d76208386e372419d18065c7';
 export const COMMON_PRESET_HASH = 'd12ffccbd5e4d9af8ecf47744b143f6c9f80bcf5e496cf1983b66834f0ae7825';
 export const SYNC_LABELS_WORKFLOW_HASH = '4dfde2454bac03280381f0da70c9c735916a7812100dec5437853b843c4bd797';
 export const RELEASE_WORKFLOW_HASH_MONOREPO = 'd2c297a3974a70485c73ec115c092ecba0d571b5238d5f440096d6a35b64810b';

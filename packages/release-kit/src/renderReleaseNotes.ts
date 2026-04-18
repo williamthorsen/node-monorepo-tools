@@ -6,6 +6,12 @@ export interface RenderOptions {
   filter?: (section: ChangelogSection) => boolean;
   /** Whether to include the version/date heading. Defaults to `true`. */
   includeHeading?: boolean;
+  /**
+   * Section titles in desired priority order. Known titles are emitted first in this order;
+   * titles not listed preserve their relative position after known ones. When absent, section
+   * order is preserved from the entry.
+   */
+  sectionOrder?: string[];
 }
 
 function allSections() {
@@ -35,8 +41,10 @@ export function matchesAudience(audience: ChangelogAudience): (section: Changelo
 export function renderReleaseNotesSingle(entry: ChangelogEntry, options?: RenderOptions): string {
   const filter = options?.filter;
   const includeHeading = options?.includeHeading ?? true;
+  const sectionOrder = options?.sectionOrder;
 
-  const sections = filter !== undefined ? entry.sections.filter(filter) : entry.sections;
+  const filtered = filter !== undefined ? entry.sections.filter(filter) : entry.sections;
+  const sections = sectionOrder !== undefined ? sortSectionsByOrder(filtered, sectionOrder) : filtered;
 
   if (sections.length === 0) {
     return '';
@@ -53,12 +61,44 @@ export function renderReleaseNotesSingle(entry: ChangelogEntry, options?: Render
       lines.push('');
     }
     lines.push(`### ${section.title}`, '');
-    for (const item of section.items) {
+    for (const [index, item] of section.items.entries()) {
       lines.push(`- ${item.description}`);
+      if (item.body !== undefined && item.body.length > 0) {
+        lines.push('', ...indentBodyLines(item.body));
+        if (index < section.items.length - 1) {
+          lines.push('');
+        }
+      }
     }
   }
 
   return lines.join('\n') + '\n';
+}
+
+/**
+ * Stable-sort sections so that titles appearing in `order` come first in that order.
+ * Unknown titles preserve their relative position after known ones.
+ */
+function sortSectionsByOrder(sections: ChangelogSection[], order: string[]): ChangelogSection[] {
+  const priority = new Map<string, number>();
+  for (const [index, title] of order.entries()) {
+    priority.set(title, index);
+  }
+  const indexed = sections.map((section, index) => ({ section, index }));
+  indexed.sort((a, b) => {
+    const priorityA = priority.get(a.section.title) ?? Number.POSITIVE_INFINITY;
+    const priorityB = priority.get(b.section.title) ?? Number.POSITIVE_INFINITY;
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB;
+    }
+    return a.index - b.index;
+  });
+  return indexed.map(({ section }) => section);
+}
+
+/** Indent each line of a body with two spaces so it renders as nested content under a bullet. */
+function indentBodyLines(body: string): string[] {
+  return body.split('\n').map((line) => (line.length === 0 ? '' : `  ${line}`));
 }
 
 /**

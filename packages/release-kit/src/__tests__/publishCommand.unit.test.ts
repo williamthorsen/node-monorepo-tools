@@ -31,9 +31,13 @@ vi.mock('../publish.ts', () => ({
   publishPackage: mockPublishPackage,
 }));
 
-vi.mock('../loadConfig.ts', () => ({
-  loadConfig: mockLoadConfig,
-}));
+vi.mock('../loadConfig.ts', async () => {
+  const actual = await vi.importActual<typeof import('../loadConfig.ts')>('../loadConfig.ts');
+  return {
+    ...actual,
+    loadConfig: mockLoadConfig,
+  };
+});
 
 vi.mock('../validateConfig.ts', () => ({
   validateConfig: mockValidateConfig,
@@ -326,6 +330,7 @@ describe(publishCommand, () => {
         expect.objectContaining({ shouldCreateGithubRelease: true }),
         'custom/changelog.json',
         false,
+        expect.any(Array),
       );
     });
 

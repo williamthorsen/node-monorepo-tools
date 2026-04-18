@@ -2,13 +2,15 @@
 /* eslint unicorn/no-process-exit: off */
 
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from './defaults.ts';
-import { loadConfig } from './loadConfig.ts';
+import { loadConfig, resolveWorkTypes } from './loadConfig.ts';
 import type { ReleaseNotesConfig } from './types.ts';
 import { validateConfig } from './validateConfig.ts';
 
 export interface ResolvedReleaseNotesConfig {
   releaseNotes: ReleaseNotesConfig;
   changelogJsonOutputPath: string;
+  /** Section titles in priority order, derived from the merged workTypes record. */
+  sectionOrder: string[];
 }
 
 /** Load and validate the release-kit config, falling back to defaults on load failure. */
@@ -26,6 +28,7 @@ export async function resolveReleaseNotesConfig(): Promise<ResolvedReleaseNotesC
     return {
       releaseNotes: { ...DEFAULT_RELEASE_NOTES_CONFIG },
       changelogJsonOutputPath: DEFAULT_CHANGELOG_JSON_CONFIG.outputPath,
+      sectionOrder: deriveSectionOrder(resolveWorkTypes()),
     };
   }
 
@@ -44,5 +47,11 @@ export async function resolveReleaseNotesConfig(): Promise<ResolvedReleaseNotesC
   return {
     releaseNotes: { ...DEFAULT_RELEASE_NOTES_CONFIG, ...config.releaseNotes },
     changelogJsonOutputPath: config.changelogJson?.outputPath ?? DEFAULT_CHANGELOG_JSON_CONFIG.outputPath,
+    sectionOrder: deriveSectionOrder(resolveWorkTypes(config.workTypes)),
   };
+}
+
+/** Extract section headers in declaration order from a merged workTypes record. */
+function deriveSectionOrder(workTypes: Record<string, { header: string }>): string[] {
+  return Object.values(workTypes).map((entry) => entry.header);
 }

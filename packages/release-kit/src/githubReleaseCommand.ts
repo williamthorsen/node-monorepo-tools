@@ -30,7 +30,7 @@ export async function githubReleaseCommand(argv: string[]): Promise<void> {
 
   const resolvedTags = await resolveCommandTags(only);
 
-  const { releaseNotes, changelogJsonOutputPath } = await resolveReleaseNotesConfig();
+  const { releaseNotes, changelogJsonOutputPath, sectionOrder } = await resolveReleaseNotesConfig();
 
   // Force GitHub Release creation regardless of config setting — this command's sole purpose.
   try {
@@ -39,6 +39,7 @@ export async function githubReleaseCommand(argv: string[]): Promise<void> {
       { ...releaseNotes, shouldCreateGithubRelease: true },
       changelogJsonOutputPath,
       dryRun,
+      sectionOrder,
     );
   } catch (error: unknown) {
     console.error(`Error creating GitHub Releases: ${error instanceof Error ? error.message : String(error)}`);

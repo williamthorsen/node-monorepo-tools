@@ -11,6 +11,8 @@ export interface CreateGithubReleaseOptions {
   tag: string;
   changelogJsonPath: string;
   dryRun: boolean;
+  /** Section titles in priority order. When omitted, entry order is preserved. */
+  sectionOrder?: string[];
 }
 
 /**
@@ -20,7 +22,7 @@ export interface CreateGithubReleaseOptions {
  * release notes, and creates the release. Failures produce warnings rather than errors.
  */
 export function createGithubRelease(options: CreateGithubReleaseOptions): boolean {
-  const { tag, changelogJsonPath, dryRun } = options;
+  const { tag, changelogJsonPath, dryRun, sectionOrder } = options;
 
   if (!existsSync(changelogJsonPath)) {
     console.warn(`Warning: ${changelogJsonPath} not found; skipping GitHub Release creation`);
@@ -48,6 +50,7 @@ export function createGithubRelease(options: CreateGithubReleaseOptions): boolea
   const body = renderReleaseNotesSingle(entry, {
     filter: matchesAudience('all'),
     includeHeading: false,
+    ...(sectionOrder === undefined ? {} : { sectionOrder }),
   });
 
   if (body.trim() === '') {
@@ -82,6 +85,7 @@ export function createGithubReleases(
   releaseNotes: ReleaseNotesConfig,
   changelogJsonOutputPath: string,
   dryRun: boolean,
+  sectionOrder?: string[],
 ): void {
   if (!releaseNotes.shouldCreateGithubRelease) {
     return;
@@ -89,6 +93,11 @@ export function createGithubReleases(
 
   for (const { tag, workspacePath } of tags) {
     const changelogJsonPath = join(workspacePath, changelogJsonOutputPath);
-    createGithubRelease({ tag, changelogJsonPath, dryRun });
+    createGithubRelease({
+      tag,
+      changelogJsonPath,
+      dryRun,
+      ...(sectionOrder === undefined ? {} : { sectionOrder }),
+    });
   }
 }

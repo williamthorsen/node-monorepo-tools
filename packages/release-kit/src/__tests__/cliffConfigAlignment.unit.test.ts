@@ -58,10 +58,19 @@ function getCommitParsers(): CommitParser[] {
     });
 }
 
+/**
+ * Work-type keys retained in `DEFAULT_WORK_TYPES` solely for version-bump determination.
+ * `cliff.toml.template` skips these at the parser level, so they do not appear in any group.
+ */
+const BUMP_ONLY_TYPE_KEYS = new Set(['fmt']);
+
 /** Collect all type names and aliases from DEFAULT_WORK_TYPES, each paired with its expected header. */
 function getExpectedTypes(): Array<{ typeName: string; header: string }> {
   const entries: Array<{ typeName: string; header: string }> = [];
   for (const [key, config] of Object.entries(DEFAULT_WORK_TYPES)) {
+    if (BUMP_ONLY_TYPE_KEYS.has(key)) {
+      continue;
+    }
     entries.push({ typeName: key, header: config.header });
     for (const alias of config.aliases ?? []) {
       entries.push({ typeName: alias, header: config.header });
@@ -70,9 +79,13 @@ function getExpectedTypes(): Array<{ typeName: string; header: string }> {
   return entries;
 }
 
-/** Collect all unique header values from DEFAULT_WORK_TYPES. */
+/** Collect all unique header values from DEFAULT_WORK_TYPES, excluding bump-only types. */
 function getKnownHeaders(): Set<string> {
-  return new Set(Object.values(DEFAULT_WORK_TYPES).map((config) => config.header));
+  return new Set(
+    Object.entries(DEFAULT_WORK_TYPES)
+      .filter(([key]) => !BUMP_ONLY_TYPE_KEYS.has(key))
+      .map(([, config]) => config.header),
+  );
 }
 
 describe('cliff.toml.template alignment with DEFAULT_WORK_TYPES', () => {
@@ -175,6 +188,30 @@ describe('cliff.toml.template skip rules', () => {
       (entry) => typeof entry.message === 'string' && new RegExp(entry.message).test('Merge pull request #1'),
     );
     expect(mergeSkip).toBeDefined();
+  });
+
+  it('matches ticketed `fmt:` commits against the dedicated skip parser before the catch-all', () => {
+    const fmtMessages = [
+      '#1 fmt: Run prettier',
+      '#1 scope|fmt: Run prettier',
+      '#1 fmt!: Breaking format change',
+      '#1 scope|fmt!: Breaking scoped format',
+      '## fmt: Ad-hoc formatting',
+      'PROJ-1 fmt: Jira-style formatting',
+    ];
+
+    for (const message of fmtMessages) {
+      const firstMatchingRaw = rawParsers.find(
+        (entry) => typeof entry.message === 'string' && new RegExp(entry.message).test(message),
+      );
+      expect(firstMatchingRaw?.skip, `"${message}" first-matching parser did not have skip: true`).toBe(true);
+      expect(
+        firstMatchingRaw?.message,
+        `"${message}" was caught by the catch-all, not the dedicated fmt parser`,
+      ).not.toBe('.*');
+      const groupedBy = groupParsers.find((parser) => new RegExp(parser.message).test(message));
+      expect(groupedBy, `"${message}" unexpectedly matched group "${groupedBy?.group}"`).toBeUndefined();
+    }
   });
 
   it('does not match unticketed commits against any group-mapping parser', () => {

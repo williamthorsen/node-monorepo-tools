@@ -189,13 +189,18 @@ function transformReleases(releases: CliffContextRelease[], devOnlySections: Set
     for (const commit of release.commits ?? []) {
       const group = commit.group ?? 'Other';
       const description = extractDescription(commit.message);
+      const body = extractBody(commit.message);
 
       let items = sectionMap.get(group);
       if (items === undefined) {
         items = [];
         sectionMap.set(group, items);
       }
-      items.push({ description });
+      const item: ChangelogItem = { description };
+      if (body !== undefined) {
+        item.body = body;
+      }
+      items.push(item);
     }
 
     const sections: ChangelogSection[] = [];
@@ -226,6 +231,53 @@ function extractDescription(message: string): string {
     return afterColon.charAt(0).toUpperCase() + afterColon.slice(1);
   }
   return firstLine;
+}
+
+/** Regex patterns for trailer lines to strip from the tail of a commit body. */
+const TRAILER_PATTERNS: RegExp[] = [
+  /^Signed-off-by:/i,
+  /^Co-authored-by:/i,
+  /^(Closes|Fixes|Resolves)\s+#\d+\s*$/i,
+  /^https?:\/\/\S+\/pull\/\d+\/?\s*$/,
+];
+
+/**
+ * Extract the body from a commit message, stripping trailing trailer metadata.
+ *
+ * Takes lines 2+ of the commit message, trims leading/trailing blank lines, then walks backward
+ * from the end dropping consecutive lines that match trailer patterns or are blank lines adjacent
+ * to the trailer block. Returns `undefined` when the resulting body is empty.
+ */
+function extractBody(message: string): string | undefined {
+  const lines = message.split('\n').slice(1);
+
+  // Walk forward from the first non-blank line.
+  let start = 0;
+  while (start < lines.length && (lines[start] ?? '').trim() === '') {
+    start += 1;
+  }
+
+  // Walk backward, dropping blank lines and trailer-matching lines from the tail.
+  let end = lines.length;
+  while (end > start) {
+    const line = lines[end - 1] ?? '';
+    const trimmed = line.trim();
+    if (trimmed === '') {
+      end -= 1;
+      continue;
+    }
+    if (TRAILER_PATTERNS.some((pattern) => pattern.test(trimmed))) {
+      end -= 1;
+      continue;
+    }
+    break;
+  }
+
+  if (end <= start) {
+    return undefined;
+  }
+
+  return lines.slice(start, end).join('\n').trim();
 }
 
 /** Read existing changelog entries from a JSON file, if it exists. */

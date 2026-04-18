@@ -14,6 +14,7 @@ export function injectReleaseNotesIntoReadme(
   readmePath: string,
   changelogJsonPath: string,
   tag: string,
+  sectionOrder?: string[],
 ): string | undefined {
   if (!existsSync(changelogJsonPath)) {
     console.warn(`Warning: ${changelogJsonPath} not found; skipping README injection`);
@@ -38,6 +39,7 @@ export function injectReleaseNotesIntoReadme(
   const releaseNotesMarkdown = renderReleaseNotesSingle(entry, {
     filter: matchesAudience('all'),
     includeHeading: false,
+    ...(sectionOrder === undefined ? {} : { sectionOrder }),
   });
 
   if (releaseNotesMarkdown.trimEnd().length === 0) {
