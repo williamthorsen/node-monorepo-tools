@@ -96,62 +96,14 @@ function hasMinDevDependencyVersion(name, minVersion, options) {
   return compareVersions(versionMatch, minVersion) >= 0;
 }
 
-// packages/audit-deps/package.json
-var package_default = {
-  name: "@williamthorsen/audit-deps",
-  version: "0.4.0",
-  private: false,
-  description: "Wrap audit-ci with a richer config model, typed JSON source of truth, and sync workflow",
-  keywords: [
-    "audit",
-    "audit-ci",
-    "dependencies",
-    "security",
-    "vulnerabilities"
-  ],
-  homepage: "https://github.com/williamthorsen/node-monorepo-tools/tree/main/packages/audit-deps#readme",
-  bugs: {
-    url: "https://github.com/williamthorsen/node-monorepo-tools/issues"
-  },
-  repository: {
-    type: "git",
-    url: "https://github.com/williamthorsen/node-monorepo-tools.git",
-    directory: "packages/audit-deps"
-  },
-  license: "ISC",
-  author: "William Thorsen <william@thorsen.dev> (https://github.com/williamthorsen)",
-  type: "module",
-  exports: {
-    ".": {
-      import: "./dist/esm/index.js",
-      types: "./dist/esm/index.d.ts"
-    }
-  },
-  bin: {
-    "audit-deps": "bin/audit-deps.js"
-  },
-  files: [
-    "bin",
-    "dist"
-  ],
-  scripts: {
-    prepare: "tsx ../../config/generateVersion.ts && tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json"
-  },
-  dependencies: {
-    "@williamthorsen/node-monorepo-core": "workspace:*",
-    "audit-ci": "7.1.0",
-    zod: "4.3.6"
-  },
-  engines: {
-    node: ">=18.17.0"
-  },
-  publishConfig: {
-    access: "public"
-  }
-};
-
 // .readyup/kits/audit-deps.ts
-var MIN_VERSION = package_default.version;
+function getMinVersion() {
+  const picked = { "version": "0.4.0" };
+  if (typeof picked.version !== "string") {
+    throw new TypeError("audit-deps/package.json: 'version' must be a string");
+  }
+  return picked.version;
+}
 var AUDIT_WORKFLOW_HASH = "cdcab39d794ed7ec5ea45e8f3c887eb5d15edb63eab65e515714556933d9b03f";
 var audit_deps_default = defineRdyKit({
   checklists: [
@@ -166,12 +118,16 @@ var audit_deps_default = defineRdyKit({
           fix: "pnpm add --save-dev @williamthorsen/audit-deps",
           checks: [
             {
-              name: `@williamthorsen/audit-deps >= ${MIN_VERSION}`,
+              get name() {
+                return `@williamthorsen/audit-deps >= ${getMinVersion()}`;
+              },
               severity: "error",
-              check: () => hasMinDevDependencyVersion("@williamthorsen/audit-deps", MIN_VERSION, {
+              check: () => hasMinDevDependencyVersion("@williamthorsen/audit-deps", getMinVersion(), {
                 exempt: (range) => range.startsWith("workspace:")
               }),
-              fix: `pnpm add --save-dev @williamthorsen/audit-deps@^${MIN_VERSION}`
+              get fix() {
+                return `pnpm add --save-dev @williamthorsen/audit-deps@^${getMinVersion()}`;
+              }
             }
           ]
         },

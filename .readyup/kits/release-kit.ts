@@ -16,13 +16,23 @@ import {
   fileMatchesHash,
   hasDevDependency,
   hasMinDevDependencyVersion,
+  pickJson,
   readFile,
 } from 'readyup';
 
-import releaseKitPackageJson from '../../packages/release-kit/package.json' with { type: 'json' };
 import { detectRepoType } from '../../packages/release-kit/src/init/detectRepoType.ts';
 
-const MIN_VERSION = releaseKitPackageJson.version;
+// `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline
+// only the listed fields. Defer the call into a function so module load does
+// not invoke the runtime stub (which throws) — keeps the module importable in
+// tests that bypass the compile step.
+function getMinVersion(): string {
+  const picked = pickJson('../../packages/release-kit/package.json', ['version']);
+  if (typeof picked.version !== 'string') {
+    throw new TypeError("release-kit/package.json: 'version' must be a string");
+  }
+  return picked.version;
+}
 
 // SHA-256 hashes of release-kit artifacts. Keep in sync —
 // verified by __tests__/rdy-kit-hashes.app.test.ts.
@@ -46,13 +56,17 @@ export default defineRdyKit({
           fix: 'pnpm add --save-dev @williamthorsen/release-kit',
           checks: [
             {
-              name: `@williamthorsen/release-kit >= ${MIN_VERSION}`,
+              get name() {
+                return `@williamthorsen/release-kit >= ${getMinVersion()}`;
+              },
               severity: 'error',
               check: () =>
-                hasMinDevDependencyVersion('@williamthorsen/release-kit', MIN_VERSION, {
+                hasMinDevDependencyVersion('@williamthorsen/release-kit', getMinVersion(), {
                   exempt: (range) => range.startsWith('workspace:'),
                 }),
-              fix: `pnpm add --save-dev @williamthorsen/release-kit@^${MIN_VERSION}`,
+              get fix() {
+                return `pnpm add --save-dev @williamthorsen/release-kit@^${getMinVersion()}`;
+              },
             },
           ],
         },
