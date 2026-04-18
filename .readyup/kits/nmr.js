@@ -13,8 +13,9 @@ var rootScripts = {
   "audit:prod": "pnpm exec audit-deps --prod",
   build: "pnpm --recursive exec nmr build",
   check: ["typecheck", "fmt:check", "lint:check", "test"],
+  "check:agent-files": "nmr-sync-agent-files --check",
   "check:fixable": ["fmt:check", "lint:check"],
-  "check:strict": ["typecheck", "fmt:check", "lint:strict", "test:coverage"],
+  "check:strict": ["typecheck", "fmt:check", "lint:strict", "test:coverage", "check:agent-files"],
   ci: ["build", "check:strict", "audit"],
   clean: "pnpm --recursive exec nmr clean",
   fix: ["lint", "fmt"],
@@ -34,6 +35,7 @@ var rootScripts = {
   "root:lint:strict": "strict-lint --ignore-pattern 'packages/**' .",
   "root:test": "vitest --config ./vitest.root.config.ts",
   "root:typecheck": "tsgo --noEmit",
+  "sync-agent-files": "nmr-sync-agent-files",
   "sync-pnpm-version": "nmr-sync-pnpm-version",
   test: "nmr root:test && pnpm --recursive exec nmr test",
   "test:coverage": "nmr root:test && pnpm --recursive exec nmr test:coverage",
@@ -180,9 +182,11 @@ var package_default = {
     "ensure-prepublish-hooks": "bin/ensure-prepublish-hooks.js",
     nmr: "bin/nmr.js",
     "nmr-report-overrides": "bin/nmr-report-overrides.js",
+    "nmr-sync-agent-files": "bin/nmr-sync-agent-files.js",
     "nmr-sync-pnpm-version": "bin/nmr-sync-pnpm-version.js"
   },
   files: [
+    "AGENTS.md",
     "bin",
     "dist"
   ],

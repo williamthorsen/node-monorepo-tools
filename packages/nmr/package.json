@@ -30,9 +30,11 @@
     "ensure-prepublish-hooks": "bin/ensure-prepublish-hooks.js",
     "nmr": "bin/nmr.js",
     "nmr-report-overrides": "bin/nmr-report-overrides.js",
+    "nmr-sync-agent-files": "bin/nmr-sync-agent-files.js",
     "nmr-sync-pnpm-version": "bin/nmr-sync-pnpm-version.js"
   },
   "files": [
+    "AGENTS.md",
     "bin",
     "dist"
   ],

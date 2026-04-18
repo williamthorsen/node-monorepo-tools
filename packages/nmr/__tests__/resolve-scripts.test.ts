@@ -52,7 +52,7 @@ describe('getDefaultRootScripts', () => {
     const scripts = getDefaultRootScripts();
     const checkStrict = scripts['check:strict'];
 
-    expect(checkStrict).toStrictEqual(['typecheck', 'fmt:check', 'lint:strict', 'test:coverage']);
+    expect(checkStrict).toStrictEqual(['typecheck', 'fmt:check', 'lint:strict', 'test:coverage', 'check:agent-files']);
     expect(checkStrict).not.toContain('audit');
   });
 

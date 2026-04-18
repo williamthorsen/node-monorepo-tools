@@ -173,11 +173,12 @@ Packages with a `vitest.integration.config.ts` file get different test commands.
 
 #### Check and quality
 
-| Command         | Runs                                                     |
-| --------------- | -------------------------------------------------------- |
-| `check`         | `typecheck`, `fmt:check`, `lint:check`, `test`           |
-| `check:fixable` | `fmt:check`, `lint:check`                                |
-| `check:strict`  | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage` |
+| Command             | Runs                                                                          |
+| ------------------- | ----------------------------------------------------------------------------- |
+| `check`             | `typecheck`, `fmt:check`, `lint:check`, `test`                                |
+| `check:agent-files` | `nmr-sync-agent-files --check`                                                |
+| `check:fixable`     | `fmt:check`, `lint:check`                                                     |
+| `check:strict`      | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage`, `check:agent-files` |
 
 #### Test
 
@@ -245,6 +246,7 @@ These scripts operate on root-level code only (not workspace packages):
 | Command             | Runs                    |
 | ------------------- | ----------------------- |
 | `report-overrides`  | `nmr-report-overrides`  |
+| `sync-agent-files`  | `nmr-sync-agent-files`  |
 | `sync-pnpm-version` | `nmr-sync-pnpm-version` |
 
 ## CLI reference
@@ -294,6 +296,25 @@ Report any active `pnpm.overrides` in the root `package.json`. Useful as a `post
 
 ```bash
 nmr report-overrides
+```
+
+### `sync-agent-files`
+
+Sync the agent-facing guidance shipped with nmr into the consuming repo.
+
+```bash
+nmr sync-agent-files          # write .agents/nmr/AGENTS.md, stamped with the installed nmr version
+nmr sync-agent-files --check  # verify the stamp matches; exit 1 with a fix message if not
+```
+
+Run `nmr sync-agent-files` once after upgrading nmr. The generated file is committed to the consuming repo; do not edit it by hand.
+
+The default root `check:strict` composite includes `check:agent-files`, which runs `--check` automatically — so any CI pipeline already running `check:strict` catches drift without per-consumer wiring.
+
+To expose the synced guidance to Claude Code sessions, add this include to the consuming repo's `.agents/PROJECT.md`:
+
+```markdown
+@.agents/nmr/AGENTS.md
 ```
 
 ### `sync-pnpm-version`
