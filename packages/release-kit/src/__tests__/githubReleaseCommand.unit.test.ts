@@ -37,6 +37,7 @@ describe(githubReleaseCommand, () => {
     mockResolveReleaseNotesConfig.mockResolvedValue({
       releaseNotes: { shouldInjectIntoReadme: false, shouldCreateGithubRelease: false },
       changelogJsonOutputPath: '.meta/changelog.json',
+      sectionOrder: ['Bug fixes', 'Features'],
     });
     vi.spyOn(process, 'exit').mockImplementation((code) => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
@@ -61,6 +62,7 @@ describe(githubReleaseCommand, () => {
       expect.objectContaining({ shouldCreateGithubRelease: true }),
       '.meta/changelog.json',
       false,
+      ['Bug fixes', 'Features'],
     );
   });
 
@@ -68,6 +70,7 @@ describe(githubReleaseCommand, () => {
     mockResolveReleaseNotesConfig.mockResolvedValue({
       releaseNotes: { shouldInjectIntoReadme: false, shouldCreateGithubRelease: false },
       changelogJsonOutputPath: '.meta/changelog.json',
+      sectionOrder: ['Bug fixes', 'Features'],
     });
 
     await githubReleaseCommand([]);
@@ -75,6 +78,7 @@ describe(githubReleaseCommand, () => {
     expect(mockCreateGithubReleases).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ shouldCreateGithubRelease: true }),
+      expect.anything(),
       expect.anything(),
       expect.anything(),
     );
@@ -88,6 +92,7 @@ describe(githubReleaseCommand, () => {
       expect.anything(),
       expect.anything(),
       true,
+      expect.anything(),
     );
   });
 
@@ -102,6 +107,7 @@ describe(githubReleaseCommand, () => {
 
     expect(mockCreateGithubReleases).toHaveBeenCalledWith(
       [{ tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' }],
+      expect.anything(),
       expect.anything(),
       expect.anything(),
       expect.anything(),

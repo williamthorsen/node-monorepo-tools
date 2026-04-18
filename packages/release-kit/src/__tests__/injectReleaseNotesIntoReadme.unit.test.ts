@@ -119,6 +119,26 @@ describe(injectReleaseNotesIntoReadme, () => {
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('no user-facing release notes'));
     expect(mockWriteFileSync).not.toHaveBeenCalled();
   });
+
+  it('forwards sectionOrder to renderReleaseNotesSingle when provided', () => {
+    setupInjectionMocks();
+
+    injectReleaseNotesIntoReadme('/pkg/README.md', '/pkg/.meta/changelog.json', 'v1.0.0', ['Bug fixes', 'Features']);
+
+    expect(mockRenderReleaseNotesSingle).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ sectionOrder: ['Bug fixes', 'Features'] }),
+    );
+  });
+
+  it('omits sectionOrder from render options when not provided', () => {
+    setupInjectionMocks();
+
+    injectReleaseNotesIntoReadme('/pkg/README.md', '/pkg/.meta/changelog.json', 'v1.0.0');
+
+    const renderOptions = mockRenderReleaseNotesSingle.mock.calls[0]?.[1];
+    expect(renderOptions).not.toHaveProperty('sectionOrder');
+  });
 });
 
 describe(resolveReadmePath, () => {

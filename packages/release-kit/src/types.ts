@@ -7,6 +7,8 @@ export type ChangelogAudience = 'all' | 'dev';
 /** A single item in a changelog section (typically one commit). */
 export interface ChangelogItem {
   description: string;
+  /** Optional commit body text, with trailing trailer metadata stripped. */
+  body?: string;
 }
 
 /** A grouped section within a changelog entry (e.g., "Features", "Bug fixes"). */

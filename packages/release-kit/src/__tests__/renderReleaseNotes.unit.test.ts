@@ -79,6 +79,124 @@ describe(renderReleaseNotesSingle, () => {
     const result = renderReleaseNotesSingle(entry);
     expect(result).toContain('- First feature\n- Second feature');
   });
+
+  describe('sectionOrder', () => {
+    it('orders sections by the provided priority when all titles are known', () => {
+      const result = renderReleaseNotesSingle(sampleEntry, {
+        sectionOrder: ['Bug fixes', 'Features', 'CI'],
+      });
+      const bugFixesIndex = result.indexOf('### Bug fixes');
+      const featuresIndex = result.indexOf('### Features');
+      const ciIndex = result.indexOf('### CI');
+      expect(bugFixesIndex).toBeGreaterThanOrEqual(0);
+      expect(featuresIndex).toBeGreaterThan(bugFixesIndex);
+      expect(ciIndex).toBeGreaterThan(featuresIndex);
+    });
+
+    it('places unknown titles after known titles preserving their relative order', () => {
+      const entry: ChangelogEntry = {
+        version: '1.0.0',
+        date: '2024-01-01',
+        sections: [
+          { title: 'Unknown2', audience: 'all', items: [{ description: 'u2' }] },
+          { title: 'Features', audience: 'all', items: [{ description: 'f' }] },
+          { title: 'Unknown1', audience: 'all', items: [{ description: 'u1' }] },
+          { title: 'Bug fixes', audience: 'all', items: [{ description: 'b' }] },
+        ],
+      };
+      const result = renderReleaseNotesSingle(entry, {
+        sectionOrder: ['Bug fixes', 'Features'],
+      });
+      const order = ['### Bug fixes', '### Features', '### Unknown2', '### Unknown1'].map((heading) =>
+        result.indexOf(heading),
+      );
+      expect(order.every((index) => index >= 0)).toBe(true);
+      for (let i = 1; i < order.length; i++) {
+        expect(order[i]).toBeGreaterThan(order[i - 1] ?? -1);
+      }
+    });
+
+    it('preserves entry order when sectionOrder is absent', () => {
+      const result = renderReleaseNotesSingle(sampleEntry);
+      const featuresIndex = result.indexOf('### Features');
+      const bugFixesIndex = result.indexOf('### Bug fixes');
+      const ciIndex = result.indexOf('### CI');
+      expect(featuresIndex).toBeLessThan(bugFixesIndex);
+      expect(bugFixesIndex).toBeLessThan(ciIndex);
+    });
+  });
+
+  describe('body rendering', () => {
+    it('renders a single-paragraph body as a two-space-indented block under the bullet', () => {
+      const entry: ChangelogEntry = {
+        version: '1.0.0',
+        date: '2024-01-01',
+        sections: [
+          {
+            title: 'Features',
+            audience: 'all',
+            items: [{ description: 'Add widget', body: 'Body paragraph explaining the feature.' }],
+          },
+        ],
+      };
+      const result = renderReleaseNotesSingle(entry, { includeHeading: false });
+      expect(result).toContain('- Add widget\n\n  Body paragraph explaining the feature.');
+    });
+
+    it('renders a multi-paragraph body preserving internal blank lines with indentation', () => {
+      const entry: ChangelogEntry = {
+        version: '1.0.0',
+        date: '2024-01-01',
+        sections: [
+          {
+            title: 'Features',
+            audience: 'all',
+            items: [{ description: 'Add widget', body: 'First paragraph.\n\nSecond paragraph.' }],
+          },
+        ],
+      };
+      const result = renderReleaseNotesSingle(entry, { includeHeading: false });
+      expect(result).toContain('- Add widget\n\n  First paragraph.\n\n  Second paragraph.');
+    });
+
+    it('does not render a body block for items without a body', () => {
+      const entry: ChangelogEntry = {
+        version: '1.0.0',
+        date: '2024-01-01',
+        sections: [
+          {
+            title: 'Features',
+            audience: 'all',
+            items: [{ description: 'Plain item' }],
+          },
+        ],
+      };
+      const result = renderReleaseNotesSingle(entry, { includeHeading: false });
+      expect(result).toBe('### Features\n\n- Plain item\n');
+    });
+
+    it('mixes body-bearing and body-less items and omits trailing blank line after final body', () => {
+      const entry: ChangelogEntry = {
+        version: '1.0.0',
+        date: '2024-01-01',
+        sections: [
+          {
+            title: 'Features',
+            audience: 'all',
+            items: [
+              { description: 'With body', body: 'A detailed explanation.' },
+              { description: 'No body' },
+              { description: 'Another with body', body: 'Another detail.' },
+            ],
+          },
+        ],
+      };
+      const result = renderReleaseNotesSingle(entry, { includeHeading: false });
+      expect(result).toBe(
+        '### Features\n\n- With body\n\n  A detailed explanation.\n\n- No body\n- Another with body\n\n  Another detail.\n',
+      );
+    });
+  });
 });
 
 describe(matchesAudience, () => {

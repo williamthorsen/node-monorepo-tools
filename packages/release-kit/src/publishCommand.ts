@@ -43,7 +43,7 @@ export async function publishCommand(argv: string[]): Promise<void> {
   }
 
   const packageManager = detectPackageManager();
-  const { releaseNotes, changelogJsonOutputPath } = await resolveReleaseNotesConfig();
+  const { releaseNotes, changelogJsonOutputPath, sectionOrder } = await resolveReleaseNotesConfig();
 
   const shouldInject = releaseNotes.shouldInjectIntoReadme;
 
@@ -67,6 +67,7 @@ export async function publishCommand(argv: string[]): Promise<void> {
             readmePath,
             join(resolvedTag.workspacePath, changelogJsonOutputPath),
             resolvedTag.tag,
+            sectionOrder,
           );
         }
       }
@@ -93,7 +94,7 @@ export async function publishCommand(argv: string[]): Promise<void> {
 
   // Create GitHub Releases after successful publish.
   try {
-    createGithubReleases(resolvedTags, releaseNotes, changelogJsonOutputPath, dryRun);
+    createGithubReleases(resolvedTags, releaseNotes, changelogJsonOutputPath, dryRun, sectionOrder);
   } catch (error: unknown) {
     console.error(`Error creating GitHub Releases: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);

@@ -61,6 +61,7 @@ commit_preprocessors = []
 commit_parsers = [
   { message = "^release:", skip = true },
   { message = "^Merge", skip = true },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?ai(!)?:", group = "Agentic support" },
   { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?bugfix(!)?:", group = "Bug fixes" },
   { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?ci(!)?:", group = "CI" },
   { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?deprecate(!)?:", group = "Deprecated" },
@@ -69,7 +70,7 @@ commit_parsers = [
   { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?feat(!)?:", group = "Features" },
   { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?feature(!)?:", group = "Features" },
   { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?fix(!)?:", group = "Bug fixes" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?fmt(!)?:", group = "Formatting" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?fmt(!)?:", skip = true },
   { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?internal(!)?:", group = "Internal" },
   { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?perf(!)?:", group = "Performance" },
   { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?performance(!)?:", group = "Performance" },

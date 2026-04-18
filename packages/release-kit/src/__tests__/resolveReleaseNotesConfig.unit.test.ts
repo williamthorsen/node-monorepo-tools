@@ -1,13 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';
+import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.ts';
 
 const mockLoadConfig = vi.hoisted(() => vi.fn());
 const mockValidateConfig = vi.hoisted(() => vi.fn());
 
-vi.mock('../loadConfig.ts', () => ({
-  loadConfig: mockLoadConfig,
-}));
+vi.mock('../loadConfig.ts', async () => {
+  const actual = await vi.importActual<typeof import('../loadConfig.ts')>('../loadConfig.ts');
+  return {
+    ...actual,
+    loadConfig: mockLoadConfig,
+  };
+});
 
 vi.mock('../validateConfig.ts', () => ({
   validateConfig: mockValidateConfig,
@@ -37,6 +41,8 @@ describe(resolveReleaseNotesConfig, () => {
     vi.restoreAllMocks();
   });
 
+  const defaultSectionOrder = Object.values(DEFAULT_WORK_TYPES).map((entry) => entry.header);
+
   it('returns defaults when loadConfig throws', async () => {
     mockLoadConfig.mockRejectedValue(new Error('config read failure'));
 
@@ -45,6 +51,7 @@ describe(resolveReleaseNotesConfig, () => {
     expect(result).toStrictEqual({
       releaseNotes: { ...DEFAULT_RELEASE_NOTES_CONFIG },
       changelogJsonOutputPath: DEFAULT_CHANGELOG_JSON_CONFIG.outputPath,
+      sectionOrder: defaultSectionOrder,
     });
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('failed to load config'));
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('config read failure'));
@@ -58,6 +65,7 @@ describe(resolveReleaseNotesConfig, () => {
     expect(result).toStrictEqual({
       releaseNotes: { ...DEFAULT_RELEASE_NOTES_CONFIG },
       changelogJsonOutputPath: DEFAULT_CHANGELOG_JSON_CONFIG.outputPath,
+      sectionOrder: defaultSectionOrder,
     });
     expect(mockValidateConfig).not.toHaveBeenCalled();
   });
@@ -124,7 +132,45 @@ describe(resolveReleaseNotesConfig, () => {
         shouldCreateGithubRelease: true,
       },
       changelogJsonOutputPath: 'custom/changelog.json',
+      sectionOrder: defaultSectionOrder,
     });
+  });
+
+  it('uses default workTypes header order for sectionOrder when config omits workTypes', async () => {
+    mockLoadConfig.mockResolvedValue({ releaseNotes: {} });
+    mockValidateConfig.mockReturnValue({
+      config: { releaseNotes: {} },
+      errors: [],
+      warnings: [],
+    });
+
+    const result = await resolveReleaseNotesConfig();
+
+    expect(result.sectionOrder).toStrictEqual(defaultSectionOrder);
+  });
+
+  it('overrides default header and appends net-new consumer keys to sectionOrder', async () => {
+    mockLoadConfig.mockResolvedValue({});
+    mockValidateConfig.mockReturnValue({
+      config: {
+        workTypes: {
+          fix: { header: 'Fixes' },
+          chore: { header: 'Chores' },
+        },
+      },
+      errors: [],
+      warnings: [],
+    });
+
+    const result = await resolveReleaseNotesConfig();
+
+    // `fix` appears at its default index (0), but its header is overridden to 'Fixes'.
+    expect(result.sectionOrder[0]).toBe('Fixes');
+    // `chore` is a new key, appended at the end.
+    expect(result.sectionOrder.at(-1)).toBe('Chores');
+    // Other defaults are preserved between.
+    expect(result.sectionOrder).toContain('Features');
+    expect(result.sectionOrder).not.toContain('Bug fixes');
   });
 
   it('uses default changelogJsonOutputPath when config omits changelogJson', async () => {

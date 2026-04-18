@@ -18,7 +18,6 @@ const ALL_AUDIENCE_GROUPS = new Set([
   'Documentation',
   'Features',
   'Performance',
-  'Refactoring',
   'Security',
 ]);
 

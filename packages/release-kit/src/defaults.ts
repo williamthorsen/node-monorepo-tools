@@ -14,6 +14,9 @@ export const DEFAULT_WORK_TYPES: Record<string, WorkTypeConfig> = {
   ci: { header: 'CI' },
   deps: { header: 'Dependencies', aliases: ['dep'] },
   docs: { header: 'Documentation', aliases: ['doc'] },
+  ai: { header: 'Agentic support' },
+  // `fmt` is retained for bump-determination (`parseCommitMessage`), even though
+  // `cliff.toml.template` skips `fmt:` commits so they never enter the changelog.
   fmt: { header: 'Formatting' },
 };
 
@@ -27,7 +30,7 @@ export const DEFAULT_VERSION_PATTERNS: VersionPatterns = {
 export const DEFAULT_CHANGELOG_JSON_CONFIG: ChangelogJsonConfig = {
   enabled: true,
   outputPath: '.meta/changelog.json',
-  devOnlySections: ['CI', 'Dependencies', 'Formatting', 'Internal', 'Tests', 'Tooling'],
+  devOnlySections: ['Agentic support', 'CI', 'Dependencies', 'Internal', 'Refactoring', 'Tests', 'Tooling'],
 };
 
 /** Default configuration for release notes consumption. */

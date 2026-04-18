@@ -16,6 +16,7 @@ import type {
   ReleaseConfig,
   ReleaseKitConfig,
   ReleaseNotesConfig,
+  WorkTypeConfig,
 } from './types.ts';
 
 /** The path where the consumer-facing config file is expected. */
@@ -81,10 +82,7 @@ export function mergeMonorepoConfig(
   }
 
   // Merge workTypes
-  const workTypes =
-    userConfig?.workTypes === undefined
-      ? { ...DEFAULT_WORK_TYPES }
-      : { ...DEFAULT_WORK_TYPES, ...userConfig.workTypes };
+  const workTypes = resolveWorkTypes(userConfig?.workTypes);
 
   // versionPatterns: consumer replaces entirely
   const versionPatterns =
@@ -123,10 +121,7 @@ export function mergeMonorepoConfig(
  * Resolves a final single-package config from an optional user config overlay.
  */
 export function mergeSinglePackageConfig(userConfig: ReleaseKitConfig | undefined): ReleaseConfig {
-  const workTypes =
-    userConfig?.workTypes === undefined
-      ? { ...DEFAULT_WORK_TYPES }
-      : { ...DEFAULT_WORK_TYPES, ...userConfig.workTypes };
+  const workTypes = resolveWorkTypes(userConfig?.workTypes);
 
   const versionPatterns =
     userConfig?.versionPatterns === undefined ? { ...DEFAULT_VERSION_PATTERNS } : { ...userConfig.versionPatterns };
@@ -160,6 +155,15 @@ export function mergeSinglePackageConfig(userConfig: ReleaseKitConfig | undefine
   }
 
   return result;
+}
+
+/**
+ * Merge consumer work-type overrides onto `DEFAULT_WORK_TYPES`.
+ *
+ * Preserves the declaration order of defaults; net-new consumer keys append at the end.
+ */
+export function resolveWorkTypes(userWorkTypes?: Record<string, WorkTypeConfig>): Record<string, WorkTypeConfig> {
+  return userWorkTypes === undefined ? { ...DEFAULT_WORK_TYPES } : { ...DEFAULT_WORK_TYPES, ...userWorkTypes };
 }
 
 /** Merge user-provided changelog JSON config with defaults. */
