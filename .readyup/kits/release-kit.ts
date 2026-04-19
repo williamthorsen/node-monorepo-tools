@@ -9,6 +9,10 @@
  * Run from a target repo's working directory:
  *   rdy run --file <path-to>/release-kit.js
  */
+import { existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+
+import type { CheckOutcome } from 'readyup';
 import {
   defineRdyKit,
   fileDoesNotContain,
@@ -21,6 +25,7 @@ import {
 } from 'readyup';
 
 import { detectRepoType } from '../../packages/release-kit/src/init/detectRepoType.ts';
+import { parseJsonRecord } from '../../packages/release-kit/src/init/parseJsonRecord.ts';
 
 // `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline
 // only the listed fields. Defer the call into a function so module load does
@@ -138,6 +143,14 @@ export default defineRdyKit({
           skip: () => (!fileExists('.config/release-kit.config.ts') ? 'no release-kit config file' : false),
           check: () => releaseNotesInjectsIntoReadme(),
           fix: 'Set releaseNotes.shouldInjectIntoReadme to true in .config/release-kit.config.ts',
+          checks: [
+            {
+              name: 'README contains release-notes section markers',
+              severity: 'warn',
+              check: readmesHaveReleaseNotesMarkers,
+              fix: 'Add `<!-- section:release-notes -->` and `<!-- /section:release-notes -->` markers to each affected README',
+            },
+          ],
         },
         {
           name: 'git-cliff not in devDependencies',
@@ -224,6 +237,46 @@ function releaseNotesInjectsIntoReadme(): boolean {
   return /shouldInjectIntoReadme\s*:\s*true/.test(content);
 }
 
+/**
+ * Test whether a README's content contains the release-notes section marker pair.
+ *
+ * Both `<!-- section:release-notes -->` and `<!-- /section:release-notes -->`
+ * must be present. Order and proximity are not enforced; release-kit's injector
+ * locates each marker independently.
+ */
+export function readmeHasReleaseNotesMarkers(content: string): boolean {
+  return content.includes('<!-- section:release-notes -->') && content.includes('<!-- /section:release-notes -->');
+}
+
+/**
+ * Check README markers across the consumer repo, adapting to repo type.
+ *
+ * Single-package: validates the root `README.md`. A missing README fails the check.
+ * Monorepo: validates `${dir}/README.md` for each publishable package and aggregates
+ * failures into the `CheckOutcome.detail` field. A missing README within a package
+ * counts as a failure for that package (no README → no markers).
+ */
+export function readmesHaveReleaseNotesMarkers(): boolean | CheckOutcome {
+  if (detectRepoType() === 'single-package') {
+    const content = readFile('README.md');
+    return content !== undefined && readmeHasReleaseNotesMarkers(content);
+  }
+
+  const failing: string[] = [];
+  for (const { dir } of getPublishablePackages()) {
+    const content = readFile(`${dir}/README.md`);
+    if (content === undefined || !readmeHasReleaseNotesMarkers(content)) {
+      failing.push(`${dir}/README.md`);
+    }
+  }
+
+  if (failing.length === 0) return true;
+  return {
+    ok: false,
+    detail: `missing markers or README: ${failing.join(', ')}`,
+  };
+}
+
 /** Check that `.github/labels.yaml` contains the expected hash for a named preset. */
 function labelsHaveCurrentPresetHash(presetName: string, expectedHash: string): boolean {
   const content = readFile('.github/labels.yaml');
@@ -231,4 +284,31 @@ function labelsHaveCurrentPresetHash(presetName: string, expectedHash: string): 
   const pattern = new RegExp(`^# ${presetName} preset hash: (.+)$`, 'm');
   const match = pattern.exec(content);
   return match !== null && match[1] === expectedHash;
+}
+
+/**
+ * Enumerate publishable workspace packages by walking `packages/{dir}` and
+ * filtering out any whose `package.json` has `"private": true`.
+ *
+ * Returns `[]` when `packages/` does not exist. Assumes the conventional
+ * `packages/{dir}` layout (matches the existing pattern used in
+ * `.readyup/kits/nmr.ts`); does not parse `pnpm-workspace.yaml` or root
+ * `package.json` `workspaces`.
+ */
+export function getPublishablePackages(): Array<{ dir: string }> {
+  const packagesDir = join(process.cwd(), 'packages');
+  if (!existsSync(packagesDir)) return [];
+
+  const entries = readdirSync(packagesDir, { withFileTypes: true });
+  const publishable: Array<{ dir: string }> = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const dir = `packages/${entry.name}`;
+    const content = readFile(`${dir}/package.json`);
+    if (content === undefined) continue;
+    const pkg = parseJsonRecord(content);
+    if (pkg?.private === true) continue;
+    publishable.push({ dir });
+  }
+  return publishable;
 }

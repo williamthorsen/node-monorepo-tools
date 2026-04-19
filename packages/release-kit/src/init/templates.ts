@@ -10,6 +10,10 @@ export function releaseConfigScript(repoType: RepoType): string {
     return `import type { ReleaseKitConfig } from '@williamthorsen/release-kit';
 
 const config: ReleaseKitConfig = {
+  releaseNotes: {
+    shouldInjectIntoReadme: true,
+  },
+
   // Uncomment to exclude components from release processing:
   // components: [
   //   { dir: 'my-package', shouldExclude: true },
@@ -31,6 +35,10 @@ export default config;
   return `import type { ReleaseKitConfig } from '@williamthorsen/release-kit';
 
 const config: ReleaseKitConfig = {
+  releaseNotes: {
+    shouldInjectIntoReadme: true,
+  },
+
   // Formatting: prettier is auto-detected. Set formatCommand to override.
 
   // Uncomment to override the default version patterns:

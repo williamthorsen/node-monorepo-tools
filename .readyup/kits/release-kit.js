@@ -2,6 +2,10 @@
 /* eslint-disable */
 
 
+// .readyup/kits/release-kit.ts
+import { existsSync as existsSync3, readdirSync } from "node:fs";
+import { join as join2 } from "node:path";
+
 // node_modules/.pnpm/readyup@0.17.0_esbuild@0.28.0/node_modules/readyup/dist/esm/authoring.js
 function defineRdyKit(kit) {
   return kit;
@@ -236,7 +240,15 @@ var release_kit_default = defineRdyKit({
           severity: "warn",
           skip: () => !fileExists(".config/release-kit.config.ts") ? "no release-kit config file" : false,
           check: () => releaseNotesInjectsIntoReadme(),
-          fix: "Set releaseNotes.shouldInjectIntoReadme to true in .config/release-kit.config.ts"
+          fix: "Set releaseNotes.shouldInjectIntoReadme to true in .config/release-kit.config.ts",
+          checks: [
+            {
+              name: "README contains release-notes section markers",
+              severity: "warn",
+              check: readmesHaveReleaseNotesMarkers,
+              fix: "Add `<!-- section:release-notes -->` and `<!-- /section:release-notes -->` markers to each affected README"
+            }
+          ]
         },
         {
           name: "git-cliff not in devDependencies",
@@ -310,12 +322,49 @@ function releaseNotesInjectsIntoReadme() {
   if (content === void 0) return false;
   return /shouldInjectIntoReadme\s*:\s*true/.test(content);
 }
+function readmeHasReleaseNotesMarkers(content) {
+  return content.includes("<!-- section:release-notes -->") && content.includes("<!-- /section:release-notes -->");
+}
+function readmesHaveReleaseNotesMarkers() {
+  if (detectRepoType() === "single-package") {
+    const content = readFile("README.md");
+    return content !== void 0 && readmeHasReleaseNotesMarkers(content);
+  }
+  const failing = [];
+  for (const { dir } of getPublishablePackages()) {
+    const content = readFile(`${dir}/README.md`);
+    if (content === void 0 || !readmeHasReleaseNotesMarkers(content)) {
+      failing.push(`${dir}/README.md`);
+    }
+  }
+  if (failing.length === 0) return true;
+  return {
+    ok: false,
+    detail: `missing markers or README: ${failing.join(", ")}`
+  };
+}
 function labelsHaveCurrentPresetHash(presetName, expectedHash) {
   const content = readFile(".github/labels.yaml");
   if (content === void 0) return false;
   const pattern = new RegExp(`^# ${presetName} preset hash: (.+)$`, "m");
   const match = pattern.exec(content);
   return match !== null && match[1] === expectedHash;
+}
+function getPublishablePackages() {
+  const packagesDir = join2(process.cwd(), "packages");
+  if (!existsSync3(packagesDir)) return [];
+  const entries = readdirSync(packagesDir, { withFileTypes: true });
+  const publishable = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const dir = `packages/${entry.name}`;
+    const content = readFile(`${dir}/package.json`);
+    if (content === void 0) continue;
+    const pkg = parseJsonRecord(content);
+    if (pkg?.private === true) continue;
+    publishable.push({ dir });
+  }
+  return publishable;
 }
 export {
   CLIFF_TEMPLATE_HASH,
@@ -325,5 +374,8 @@ export {
   RELEASE_WORKFLOW_HASH_MONOREPO,
   RELEASE_WORKFLOW_HASH_SINGLE,
   SYNC_LABELS_WORKFLOW_HASH,
-  release_kit_default as default
+  release_kit_default as default,
+  getPublishablePackages,
+  readmeHasReleaseNotesMarkers,
+  readmesHaveReleaseNotesMarkers
 };
