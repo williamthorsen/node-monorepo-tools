@@ -133,11 +133,11 @@ These scripts are available out of the box. Repo-wide config (tier 2) and per-pa
 | ------------------ | -------------------------------------------------------- |
 | `build`            | `compile`, `generate-typings`                            |
 | `check`            | `typecheck`, `fmt:check`, `lint:check`, `test`           |
-| `check:fixable`    | `fmt:check`, `lint:check`                                |
 | `check:strict`     | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage` |
 | `clean`            | `pnpm exec rimraf dist/*`                                |
 | `compile`          | `tsx ../../config/build.ts`                              |
 | `fix`              | `lint`, `fmt`                                            |
+| `fix:check`        | `fmt:check`, `lint:check`                                |
 | `fmt`              | `prettier --list-different --write .`                    |
 | `fmt:check`        | `prettier --check .`                                     |
 | `generate-typings` | `tsc --project tsconfig.generate-typings.json`           |
@@ -177,8 +177,13 @@ Packages with a `vitest.integration.config.ts` file get different test commands.
 | ------------------- | ----------------------------------------------------------------------------- |
 | `check`             | `typecheck`, `fmt:check`, `lint:check`, `test`                                |
 | `check:agent-files` | `nmr-sync-agent-files --check`                                                |
-| `check:fixable`     | `fmt:check`, `lint:check`                                                     |
 | `check:strict`      | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage`, `check:agent-files` |
+
+#### Fix
+
+| Command     | Runs                      |
+| ----------- | ------------------------- |
+| `fix:check` | `fmt:check`, `lint:check` |
 
 #### Test
 
