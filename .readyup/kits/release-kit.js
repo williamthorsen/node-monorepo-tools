@@ -233,7 +233,14 @@ var release_kit_default = defineRdyKit({
           severity: "warn",
           skip: () => !fileExists(".config/release-kit.config.ts") ? "no release-kit config file" : false,
           check: () => releaseNotesConfigIsConsistent(),
-          fix: "Either enable changelogJson.enabled or disable releaseNotes features (shouldCreateGithubRelease, shouldInjectIntoReadme)"
+          fix: "Either enable changelogJson.enabled or disable releaseNotes.shouldInjectIntoReadme"
+        },
+        {
+          name: "config does not use removed releaseNotes.shouldCreateGithubRelease",
+          severity: "error",
+          skip: () => !fileExists(".config/release-kit.config.ts") ? "no release-kit config file" : false,
+          check: () => fileDoesNotContain(".config/release-kit.config.ts", /shouldCreateGithubRelease/),
+          fix: "Remove 'shouldCreateGithubRelease' from .config/release-kit.config.ts. Adoption of GitHub Releases is now signaled by installing the create-github-release workflow (see release-kit README for setup)."
         },
         {
           name: "releaseNotes.shouldInjectIntoReadme is true",
@@ -313,9 +320,8 @@ function releaseNotesConfigIsConsistent() {
   if (content === void 0) return true;
   const changelogJsonDisabled = /changelogJson\s*:\s*\{[^}]*enabled\s*:\s*false/.test(content);
   if (!changelogJsonDisabled) return true;
-  const hasGithubRelease = /shouldCreateGithubRelease\s*:\s*true/.test(content);
   const hasReadmeInjection = /shouldInjectIntoReadme\s*:\s*true/.test(content);
-  return !hasGithubRelease && !hasReadmeInjection;
+  return !hasReadmeInjection;
 }
 function releaseNotesInjectsIntoReadme() {
   const content = readFile(".config/release-kit.config.ts");

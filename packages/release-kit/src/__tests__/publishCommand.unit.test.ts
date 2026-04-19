@@ -235,26 +235,18 @@ describe(publishCommand, () => {
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
     expect(console.error).toHaveBeenCalledWith('publish failed');
-    expect(mockCreateGithubReleases).not.toHaveBeenCalled();
   });
 
-  it('exits with code 1 when createGithubReleases throws', async () => {
-    mockCreateGithubReleases.mockImplementation(() => {
-      throw new Error('gh release failed');
-    });
+  it('does not invoke any GitHub Release path during publish', async () => {
+    mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/release-kit']);
+    mockResolveReleaseTags.mockReturnValue([
+      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
+      { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit' },
+    ]);
 
-    let thrown: ExitError | undefined;
-    try {
-      await publishCommand([]);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    await publishCommand([]);
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith('Error creating GitHub Releases: gh release failed');
+    expect(mockCreateGithubReleases).not.toHaveBeenCalled();
   });
 
   it('uses the detected package manager', async () => {
@@ -312,28 +304,6 @@ describe(publishCommand, () => {
   });
 
   describe('config loading', () => {
-    it('passes config-derived options to createGithubReleases', async () => {
-      mockLoadConfig.mockResolvedValue({ releaseNotes: {}, changelogJson: {} });
-      mockValidateConfig.mockReturnValue({
-        config: {
-          releaseNotes: { shouldCreateGithubRelease: true, shouldInjectIntoReadme: true },
-          changelogJson: { outputPath: 'custom/changelog.json' },
-        },
-        errors: [],
-        warnings: [],
-      });
-
-      await publishCommand([]);
-
-      expect(mockCreateGithubReleases).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({ shouldCreateGithubRelease: true }),
-        'custom/changelog.json',
-        false,
-        expect.any(Array),
-      );
-    });
-
     it('uses defaults when loadConfig throws', async () => {
       mockLoadConfig.mockRejectedValue(new Error('config read failure'));
 
@@ -346,14 +316,14 @@ describe(publishCommand, () => {
     it('prints validation warnings from config', async () => {
       mockLoadConfig.mockResolvedValue({ releaseNotes: {} });
       mockValidateConfig.mockReturnValue({
-        config: { releaseNotes: { shouldCreateGithubRelease: true } },
+        config: { releaseNotes: { shouldInjectIntoReadme: true } },
         errors: [],
-        warnings: ['releaseNotes.shouldCreateGithubRelease is enabled but changelogJson.enabled is false'],
+        warnings: ['releaseNotes.shouldInjectIntoReadme is enabled but changelogJson.enabled is false'],
       });
 
       await publishCommand([]);
 
-      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('shouldCreateGithubRelease'));
+      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('shouldInjectIntoReadme'));
     });
 
     it('exits with code 1 when config has validation errors', async () => {
@@ -386,7 +356,7 @@ describe(publishCommand, () => {
       mockLoadConfig.mockResolvedValue({ releaseNotes: {} });
       mockValidateConfig.mockReturnValue({
         config: {
-          releaseNotes: { shouldInjectIntoReadme: true, shouldCreateGithubRelease: false },
+          releaseNotes: { shouldInjectIntoReadme: true },
         },
         errors: [],
         warnings: [],
@@ -447,7 +417,7 @@ describe(publishCommand, () => {
     it('skips injection when shouldInjectIntoReadme is false', async () => {
       mockValidateConfig.mockReturnValue({
         config: {
-          releaseNotes: { shouldInjectIntoReadme: false, shouldCreateGithubRelease: false },
+          releaseNotes: { shouldInjectIntoReadme: false },
         },
         errors: [],
         warnings: [],

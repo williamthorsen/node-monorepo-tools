@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Create GitHub Release
+
+# Reusable GitHub Release creation workflow for projects using @williamthorsen/release-kit.
+#
+# Triggered by tag pushes (or any caller-defined event). Runs
+# `release-kit create-github-release --tags <tag>` via `npx`, which prefers the
+# consumer's workspace-linked release-kit over a registry fetch. Independent of
+# `npm publish`: consumers that do not publish to npm can still use this workflow.
+# When running in the `williamthorsen/node-monorepo-tools` repo, release-kit is
+# additionally built from source so the workspace-linked binary is ready
+# (auto-detected).
+# The calling workflow must grant `contents: write` permission so `gh release create` can run.
+#
+# Usage:
+#   jobs:
+#     create-github-release:
+#       uses: williamthorsen/node-monorepo-tools/.github/workflows/create-github-release.reusable.yaml@workflow/create-github-release-v1
+#       with:
+#         tag: ${{ github.ref_name }}
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Full tag name to create the GitHub Release for (e.g., my-pkg-v1.2.3)'
+        required: true
+        type: string
+      node-version:
+        description: 'Node.js version to use'
+        required: false
+        type: string
+        default: '24'
+
+permissions:
+  contents: write
+
+jobs:
+  create-github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.tag }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Build release-kit from source to avoid bootstrap problems when
+      # consumers tag a version that introduces new CLI flags.
+      - name: Build release-kit from source
+        if: ${{ github.repository == 'williamthorsen/node-monorepo-tools' }}
+        run: pnpm --filter @williamthorsen/release-kit... run prepare
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx --yes @williamthorsen/release-kit create-github-release --tags "${{ inputs.tag }}"

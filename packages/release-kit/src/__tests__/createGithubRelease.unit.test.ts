@@ -125,20 +125,19 @@ describe(createGithubRelease, () => {
     }
   });
 
-  it('returns false and warns on gh CLI failure', () => {
+  it('propagates the error when gh CLI invocation fails', () => {
     writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
     mockedExecFileSync.mockImplementationOnce(() => {
       throw new Error('gh failed');
     });
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    const result = createGithubRelease({
-      tag: 'v1.0.0',
-      changelogJsonPath,
-      dryRun: false,
-    });
-    expect(result).toBe(false);
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('failed to create'));
+    expect(() =>
+      createGithubRelease({
+        tag: 'v1.0.0',
+        changelogJsonPath,
+        dryRun: false,
+      }),
+    ).toThrow('gh failed');
   });
 
   it('skips release when entry has only dev-audience sections', () => {

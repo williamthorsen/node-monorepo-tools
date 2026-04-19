@@ -36,5 +36,4 @@ export const DEFAULT_CHANGELOG_JSON_CONFIG: ChangelogJsonConfig = {
 /** Default configuration for release notes consumption. */
 export const DEFAULT_RELEASE_NOTES_CONFIG: ReleaseNotesConfig = {
   shouldInjectIntoReadme: false,
-  shouldCreateGithubRelease: false,
 };

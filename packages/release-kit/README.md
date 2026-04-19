@@ -186,6 +186,18 @@ Run release preparation with automatic workspace discovery.
 
 Component names for `--only` match the package directory name (e.g., `arrays`, `release-kit`).
 
+### `release-kit create-github-release`
+
+Create GitHub Releases from `changelog.json` for tags on HEAD. Independent of `npm publish`: invoking this command creates Releases regardless of whether the matching package was published.
+
+| Flag                   | Description                                                               |
+| ---------------------- | ------------------------------------------------------------------------- |
+| `--dry-run`            | Preview without creating releases                                         |
+| `--tags=tag1,tag2,...` | Only create releases for the named tags (comma-separated, full tag names) |
+| `--help`, `-h`         | Show help                                                                 |
+
+When `--tags` is omitted, every release tag pointing at HEAD is processed. The CLI requires the `gh` CLI on `PATH` and `contents: write` permission. The bundled `create-github-release.reusable.yaml` GitHub Actions workflow runs this command in CI.
+
 ### `release-kit init`
 
 Initialize release-kit in the current repository. By default, scaffolds only the GitHub Actions workflow file. Use `--with-config` to also scaffold configuration files.
@@ -199,6 +211,8 @@ Initialize release-kit in the current repository. By default, scaffolds only the
 
 Scaffolded files:
 
+- `.github/workflows/create-github-release.yaml` — workflow that creates a GitHub Release on tag push, independent of npm publish
+- `.github/workflows/publish.yaml` — workflow that delegates to a reusable publish workflow
 - `.github/workflows/release.yaml` — workflow that delegates to a reusable release workflow
 - `.config/release-kit.config.ts` — starter config with commented-out customization examples (with `--with-config`)
 - `.config/git-cliff.toml` — copied from the bundled template (with `--with-config`)
@@ -311,6 +325,29 @@ runReleasePrepare(config);
 The key difference: the script-based approach requires manually listing every component, while the CLI auto-discovers them from `pnpm-workspace.yaml`.
 
 ## Breaking changes
+
+### GitHub Release creation moved to its own command and workflow
+
+`release-kit publish` no longer creates GitHub Releases as a side effect, and the `releaseNotes.shouldCreateGithubRelease` config field has been removed. Adoption is now signaled by installing the dedicated `create-github-release.reusable.yaml` workflow.
+
+If you previously set the field, remove it from `.config/release-kit.config.ts`. The new caller template (scaffolded by `release-kit init`) looks like this:
+
+```yaml
+name: Create GitHub Release
+on:
+  push:
+    tags:
+      - '*-v[0-9]*.[0-9]*.[0-9]*'
+permissions:
+  contents: write
+jobs:
+  create-github-release:
+    uses: williamthorsen/node-monorepo-tools/.github/workflows/create-github-release.reusable.yaml@workflow/create-github-release-v1
+    with:
+      tag: ${{ github.ref_name }}
+```
+
+The CLI command was renamed from `release-kit github-release` to `release-kit create-github-release`, and its filter flag changed from `--only=<package-name>` to `--tags=<full-tag-name>[,...]`.
 
 ### v1.1.0: `formatCommand` receives file paths as trailing arguments
 

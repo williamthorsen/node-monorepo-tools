@@ -6,7 +6,7 @@ import { writeFileWithCheck } from '@williamthorsen/node-monorepo-core';
 
 import { findPackageRoot } from '../findPackageRoot.ts';
 import type { RepoType } from './detectRepoType.ts';
-import { publishWorkflow, releaseConfigScript, releaseWorkflow } from './templates.ts';
+import { createGithubReleaseWorkflow, publishWorkflow, releaseConfigScript, releaseWorkflow } from './templates.ts';
 
 interface ScaffoldOptions {
   repoType: RepoType;
@@ -39,8 +39,12 @@ export function copyCliffTemplate(dryRun: boolean, overwrite: boolean): WriteRes
 /** Scaffold release-kit files for the target repo. Returns a result for each file attempted. */
 export function scaffoldFiles({ repoType, dryRun, overwrite, withConfig }: ScaffoldOptions): WriteResult[] {
   const results: WriteResult[] = [
-    writeFileWithCheck('.github/workflows/release.yaml', releaseWorkflow(repoType), { dryRun, overwrite }),
+    writeFileWithCheck('.github/workflows/create-github-release.yaml', createGithubReleaseWorkflow(repoType), {
+      dryRun,
+      overwrite,
+    }),
     writeFileWithCheck('.github/workflows/publish.yaml', publishWorkflow(repoType), { dryRun, overwrite }),
+    writeFileWithCheck('.github/workflows/release.yaml', releaseWorkflow(repoType), { dryRun, overwrite }),
   ];
 
   if (withConfig) {

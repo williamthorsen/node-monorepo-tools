@@ -57,6 +57,23 @@ describe(resolveReleaseNotesConfig, () => {
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('config read failure'));
   });
 
+  it('exits with code 1 when loadConfig throws and strictLoad is true', async () => {
+    mockLoadConfig.mockRejectedValue(new Error('config read failure'));
+
+    let thrown: ExitError | undefined;
+    try {
+      await resolveReleaseNotesConfig({ strictLoad: true });
+    } catch (error: unknown) {
+      if (error instanceof ExitError) {
+        thrown = error;
+      }
+    }
+
+    expect(thrown).toBeInstanceOf(ExitError);
+    expect(thrown?.code).toBe(1);
+    expect(console.error).toHaveBeenCalledWith('Error: failed to load config: config read failure');
+  });
+
   it('returns defaults when raw config is undefined', async () => {
     mockLoadConfig.mockResolvedValue(undefined);
 
@@ -96,28 +113,28 @@ describe(resolveReleaseNotesConfig, () => {
   it('logs each warning from validateConfig', async () => {
     mockLoadConfig.mockResolvedValue({ releaseNotes: {} });
     mockValidateConfig.mockReturnValue({
-      config: { releaseNotes: { shouldCreateGithubRelease: true } },
+      config: { releaseNotes: { shouldInjectIntoReadme: true } },
       errors: [],
       warnings: [
-        'releaseNotes.shouldCreateGithubRelease is enabled but changelogJson.enabled is false',
+        'releaseNotes.shouldInjectIntoReadme is enabled but changelogJson.enabled is false',
         'another warning',
       ],
     });
 
     await resolveReleaseNotesConfig();
 
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('shouldCreateGithubRelease is enabled'));
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('shouldInjectIntoReadme is enabled'));
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('another warning'));
   });
 
   it('merges releaseNotes with defaults and resolves changelogJsonOutputPath', async () => {
     mockLoadConfig.mockResolvedValue({
-      releaseNotes: { shouldCreateGithubRelease: true },
+      releaseNotes: { shouldInjectIntoReadme: true },
       changelogJson: { outputPath: 'custom/changelog.json' },
     });
     mockValidateConfig.mockReturnValue({
       config: {
-        releaseNotes: { shouldCreateGithubRelease: true },
+        releaseNotes: { shouldInjectIntoReadme: true },
         changelogJson: { outputPath: 'custom/changelog.json' },
       },
       errors: [],
@@ -129,7 +146,7 @@ describe(resolveReleaseNotesConfig, () => {
     expect(result).toStrictEqual({
       releaseNotes: {
         ...DEFAULT_RELEASE_NOTES_CONFIG,
-        shouldCreateGithubRelease: true,
+        shouldInjectIntoReadme: true,
       },
       changelogJsonOutputPath: 'custom/changelog.json',
       sectionOrder: defaultSectionOrder,

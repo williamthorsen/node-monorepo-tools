@@ -32,10 +32,9 @@ export interface ChangelogJsonConfig {
   devOnlySections: string[];
 }
 
-/** Configuration for release notes consumption (GitHub Releases, README injection). */
+/** Configuration for release notes consumption (README injection). */
 export interface ReleaseNotesConfig {
   shouldInjectIntoReadme: boolean;
-  shouldCreateGithubRelease: boolean;
 }
 
 /** Identifies a dependency whose version bump triggered a propagated release. */
@@ -140,7 +139,7 @@ export interface ReleaseKitConfig {
   scopeAliases?: Record<string, string>;
   /** Controls structured changelog JSON generation. */
   changelogJson?: Partial<ChangelogJsonConfig>;
-  /** Controls release notes consumption (GitHub Releases, README injection). */
+  /** Controls release notes consumption (README injection). */
   releaseNotes?: Partial<ReleaseNotesConfig>;
 }
 
@@ -214,7 +213,7 @@ export interface MonorepoReleaseConfig {
   scopeAliases?: Record<string, string>;
   /** Controls structured changelog JSON generation. */
   changelogJson: ChangelogJsonConfig;
-  /** Controls release notes consumption (GitHub Releases, README injection). */
+  /** Controls release notes consumption (README injection). */
   releaseNotes: ReleaseNotesConfig;
 }
 
@@ -246,6 +245,6 @@ export interface ReleaseConfig {
   scopeAliases?: Record<string, string>;
   /** Controls structured changelog JSON generation. */
   changelogJson: ChangelogJsonConfig;
-  /** Controls release notes consumption (GitHub Releases, README injection). */
+  /** Controls release notes consumption (README injection). */
   releaseNotes: ReleaseNotesConfig;
 }

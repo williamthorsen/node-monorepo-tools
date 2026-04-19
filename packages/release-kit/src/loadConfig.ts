@@ -185,7 +185,5 @@ function mergeReleaseNotesConfig(partial: Partial<ReleaseNotesConfig> | undefine
   }
   return {
     shouldInjectIntoReadme: partial.shouldInjectIntoReadme ?? DEFAULT_RELEASE_NOTES_CONFIG.shouldInjectIntoReadme,
-    shouldCreateGithubRelease:
-      partial.shouldCreateGithubRelease ?? DEFAULT_RELEASE_NOTES_CONFIG.shouldCreateGithubRelease,
   };
 }

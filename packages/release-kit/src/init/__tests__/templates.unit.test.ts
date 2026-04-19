@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { publishWorkflow, releaseConfigScript, releaseWorkflow } from '../templates.ts';
+import { createGithubReleaseWorkflow, publishWorkflow, releaseConfigScript, releaseWorkflow } from '../templates.ts';
 
 describe(releaseConfigScript, () => {
   it('generates a ReleaseKitConfig for monorepo type', () => {
@@ -74,6 +74,38 @@ describe(publishWorkflow, () => {
     expect(workflow).toContain('provenance: true');
     expect(workflow).not.toContain('provenance: false');
   });
+});
+
+describe(createGithubReleaseWorkflow, () => {
+  it('generates a monorepo workflow with the monorepo tag pattern', () => {
+    const workflow = createGithubReleaseWorkflow('monorepo');
+
+    expect(workflow).toContain("'*-v[0-9]*.[0-9]*.[0-9]*'");
+    expect(workflow).not.toContain("- 'v[0-9]*.[0-9]*.[0-9]*'");
+    expect(workflow).toContain('create-github-release.reusable.yaml@workflow/create-github-release-v1');
+    expect(workflow).toContain('contents: write');
+    expect(workflow).toContain('tag: ${{ github.ref_name }}');
+  });
+
+  it('generates a single-package workflow with the v-prefixed tag pattern', () => {
+    const workflow = createGithubReleaseWorkflow('single-package');
+
+    expect(workflow).toContain("'v[0-9]*.[0-9]*.[0-9]*'");
+    expect(workflow).not.toContain("'*-v[0-9]*.[0-9]*.[0-9]*'");
+    expect(workflow).toContain('create-github-release.reusable.yaml@workflow/create-github-release-v1');
+    expect(workflow).toContain('contents: write');
+    expect(workflow).toContain('tag: ${{ github.ref_name }}');
+  });
+
+  it.each(['monorepo', 'single-package'] as const)(
+    'does not request id-token or packages permissions (%s)',
+    (repoType) => {
+      const workflow = createGithubReleaseWorkflow(repoType);
+
+      expect(workflow).not.toContain('id-token:');
+      expect(workflow).not.toContain('packages:');
+    },
+  );
 });
 
 describe(releaseWorkflow, () => {
