@@ -8,7 +8,7 @@ describe('getDefaultWorkspaceScripts', () => {
 
     expect(scripts.build).toStrictEqual(['compile', 'generate-typings']);
     expect(scripts.check).toStrictEqual(['typecheck', 'fmt:check', 'lint:check', 'test']);
-    expect(scripts['check:fixable']).toStrictEqual(['fmt:check', 'lint:check']);
+    expect(scripts['fix:check']).toStrictEqual(['fmt:check', 'lint:check']);
     expect(scripts.clean).toBe('pnpm exec rimraf dist/*');
     expect(scripts.compile).toBe('tsx ../../config/build.ts');
     expect(scripts.typecheck).toBe('tsgo --noEmit');
@@ -38,7 +38,7 @@ describe('getDefaultRootScripts', () => {
 
     expect(scripts.audit).toStrictEqual(['audit:prod', 'audit:dev']);
     expect(scripts.check).toStrictEqual(['typecheck', 'fmt:check', 'lint:check', 'test']);
-    expect(scripts['check:fixable']).toStrictEqual(['fmt:check', 'lint:check']);
+    expect(scripts['fix:check']).toStrictEqual(['fmt:check', 'lint:check']);
     expect(scripts.ci).toStrictEqual(['build', 'check:strict', 'audit']);
     expect(scripts.clean).toBe('pnpm --recursive exec nmr clean');
     expect(scripts['fmt:all']).toStrictEqual(['fmt', 'fmt:sh']);
