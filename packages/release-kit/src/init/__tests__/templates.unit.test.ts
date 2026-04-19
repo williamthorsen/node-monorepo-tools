@@ -33,6 +33,16 @@ describe(releaseConfigScript, () => {
     expect(mono).not.toContain('heading:');
     expect(single).not.toContain('heading:');
   });
+
+  it.each(['monorepo', 'single-package'] as const)(
+    'scaffolds releaseNotes.shouldInjectIntoReadme as true (%s)',
+    (repoType) => {
+      const script = releaseConfigScript(repoType);
+
+      expect(script).toContain('releaseNotes: {');
+      expect(script).toContain('shouldInjectIntoReadme: true');
+    },
+  );
 });
 
 describe(publishWorkflow, () => {
