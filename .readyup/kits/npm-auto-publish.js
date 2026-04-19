@@ -60,6 +60,16 @@ function safeJsonParse(content) {
   }
 }
 
+// node_modules/.pnpm/readyup@0.17.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/json-value.js
+function getJsonValue(obj, ...keys) {
+  let current = obj;
+  for (const key of keys) {
+    if (!isRecord(current)) return void 0;
+    current = current[key];
+  }
+  return current;
+}
+
 // node_modules/.pnpm/readyup@0.17.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/json.js
 function readJsonFile(relativePath) {
   const content = readFile(relativePath);
@@ -161,7 +171,10 @@ function buildPackageCheck(pkg) {
   if (pkg.name.startsWith("@")) {
     children.push({
       name: 'publishConfig.access is "public"',
-      check: () => getNestedString(pkg.packageJson, "publishConfig", "access") === "public",
+      check: () => {
+        const access = getJsonValue(pkg.packageJson, "publishConfig", "access");
+        return typeof access === "string" && access === "public";
+      },
       fix: `Add "publishConfig": { "access": "public" } to ${pkgJsonPath}`
     });
   }
@@ -262,16 +275,6 @@ function discoverWorkspacePackages(workspaceConfigPath) {
 function getNodeMajorVersion() {
   return Number.parseInt(process.versions.node.split(".")[0] ?? "0", 10);
 }
-function getNestedString(obj, ...keys) {
-  let current = obj;
-  for (const key of keys) {
-    if (!isRecord2(current)) {
-      return void 0;
-    }
-    current = current[key];
-  }
-  return typeof current === "string" ? current : void 0;
-}
 function getOwnerRepo() {
   const url = execSync2("git remote get-url origin", {
     encoding: "utf8"
@@ -319,7 +322,7 @@ function hasTrustedPublisher(packageName, expectedRepo, expectedFile) {
   } catch {
     return false;
   }
-  if (!isRecord2(parsed)) {
+  if (!isRecord(parsed)) {
     return false;
   }
   return parsed.type === "github" && parsed.repository === expectedRepo && parsed.file === expectedFile;
@@ -344,9 +347,6 @@ function isRepoPrivate() {
 }
 function parseProvenanceSetting(workflowContent) {
   return /^[^#]*provenance:\s*['"]?true['"]?/im.test(workflowContent);
-}
-function isRecord2(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function parseWorkspaceGlobs(content) {
   const globs = [];

@@ -149,62 +149,14 @@ function hasMinDevDependencyVersion(name, minVersion, options) {
   return compareVersions(versionMatch, minVersion) >= 0;
 }
 
-// packages/nmr/package.json
-var package_default = {
-  name: "@williamthorsen/nmr",
-  version: "0.11.0",
-  private: false,
-  description: "Context-aware script runner for PNPM monorepos",
-  keywords: [
-    "monorepo",
-    "pnpm",
-    "script-runner",
-    "workspace"
-  ],
-  homepage: "https://github.com/williamthorsen/node-monorepo-tools/tree/main/packages/nmr#readme",
-  bugs: {
-    url: "https://github.com/williamthorsen/node-monorepo-tools/issues"
-  },
-  repository: {
-    type: "git",
-    url: "https://github.com/williamthorsen/node-monorepo-tools.git",
-    directory: "packages/nmr"
-  },
-  license: "ISC",
-  author: "William Thorsen <william@thorsen.dev> (https://github.com/williamthorsen)",
-  type: "module",
-  exports: {
-    ".": "./dist/esm/index.js",
-    "./scripts": "./dist/esm/scripts.js",
-    "./tests": "./dist/esm/tests/consistency.js"
-  },
-  bin: {
-    "ensure-prepublish-hooks": "bin/ensure-prepublish-hooks.js",
-    nmr: "bin/nmr.js",
-    "nmr-report-overrides": "bin/nmr-report-overrides.js",
-    "nmr-sync-agent-files": "bin/nmr-sync-agent-files.js",
-    "nmr-sync-pnpm-version": "bin/nmr-sync-pnpm-version.js"
-  },
-  files: [
-    "AGENTS.md",
-    "bin",
-    "dist"
-  ],
-  scripts: {
-    prepare: "tsx ../../config/generateVersion.ts && tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json"
-  },
-  dependencies: {
-    jiti: "2.6.1",
-    "js-yaml": "4.1.1",
-    zod: "4.3.6"
-  },
-  publishConfig: {
-    access: "public"
-  }
-};
-
 // .readyup/kits/nmr.ts
-var MIN_VERSION = package_default.version;
+function getMinVersion() {
+  const picked = { "version": "0.11.0" };
+  if (typeof picked.version !== "string") {
+    throw new TypeError("nmr/package.json: 'version' must be a string");
+  }
+  return picked.version;
+}
 var nmr_default = defineRdyKit({
   checklists: [
     {
@@ -218,12 +170,16 @@ var nmr_default = defineRdyKit({
           fix: "pnpm add --save-dev @williamthorsen/nmr",
           checks: [
             {
-              name: `@williamthorsen/nmr >= ${MIN_VERSION}`,
+              get name() {
+                return `@williamthorsen/nmr >= ${getMinVersion()}`;
+              },
               severity: "error",
-              check: () => hasMinDevDependencyVersion("@williamthorsen/nmr", MIN_VERSION, {
+              check: () => hasMinDevDependencyVersion("@williamthorsen/nmr", getMinVersion(), {
                 exempt: (range) => range.startsWith("workspace:")
               }),
-              fix: `pnpm add --save-dev @williamthorsen/nmr@^${MIN_VERSION}`
+              get fix() {
+                return `pnpm add --save-dev @williamthorsen/nmr@^${getMinVersion()}`;
+              }
             }
           ]
         },
@@ -313,7 +269,7 @@ function noRedundantRootScripts() {
   const pkg = readPackageJson();
   if (!pkg) return true;
   const scripts = pkg.scripts;
-  if (!isRecord2(scripts)) return true;
+  if (!isRecord(scripts)) return true;
   const builtInNames = Object.keys(getDefaultRootScripts());
   const redundant = Object.keys(scripts).filter((name) => builtInNames.includes(name));
   if (redundant.length === 0) return true;
@@ -367,13 +323,13 @@ function scriptExists(name) {
   const pkg = readPackageJson();
   if (!pkg) return false;
   const scripts = pkg.scripts;
-  return isRecord2(scripts) && name in scripts;
+  return isRecord(scripts) && name in scripts;
 }
 function scriptMatches(name, pattern) {
   const pkg = readPackageJson();
   if (!pkg) return false;
   const scripts = pkg.scripts;
-  if (!isRecord2(scripts)) return false;
+  if (!isRecord(scripts)) return false;
   const value = scripts[name];
   return typeof value === "string" && pattern.test(value);
 }
@@ -381,9 +337,6 @@ function codeQualityWorkflowDoesNotUseNmrCi() {
   const content = readFile(".github/workflows/code-quality.yaml");
   if (content === void 0) return true;
   return !/check-command:\s*pnpm exec nmr ci(\s|$)/.test(content);
-}
-function isRecord2(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 export {
   codeQualityWorkflowDoesNotUseNmrCi,

@@ -97,67 +97,6 @@ function hasMinDevDependencyVersion(name, minVersion, options) {
   return compareVersions(versionMatch, minVersion) >= 0;
 }
 
-// packages/release-kit/package.json
-var package_default = {
-  name: "@williamthorsen/release-kit",
-  version: "4.8.0",
-  description: "Version-bumping and changelog-generation toolkit for release workflows",
-  keywords: [],
-  homepage: "https://github.com/williamthorsen/node-monorepo-tools/tree/main/packages/release-kit#readme",
-  bugs: {
-    url: "https://github.com/williamthorsen/node-monorepo-tools/issues"
-  },
-  repository: {
-    type: "git",
-    url: "https://github.com/williamthorsen/node-monorepo-tools.git",
-    directory: "packages/release-kit"
-  },
-  license: "ISC",
-  author: "William Thorsen <william@thorsen.dev> (https://github.com/williamthorsen)",
-  type: "module",
-  exports: {
-    ".": {
-      import: "./dist/esm/index.js"
-    }
-  },
-  bin: {
-    "release-kit": "./bin/release-kit.js"
-  },
-  files: [
-    "bin",
-    "dist/*",
-    "cliff.toml.template",
-    "presets/**",
-    "CHANGELOG.md"
-  ],
-  scripts: {
-    prepare: "tsx ../../config/generateVersion.ts && tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json",
-    prepublishOnly: "nmr build",
-    test: "pnpm exec vitest --config=vitest.standalone.config.ts",
-    "test:coverage": "pnpm exec vitest --config=vitest.standalone.config.ts --coverage",
-    "test:integration": "pnpm exec vitest --config=vitest.integration.config.ts",
-    "test:watch": "pnpm exec vitest --config=vitest.standalone.config.ts --watch"
-  },
-  dependencies: {
-    "@williamthorsen/node-monorepo-core": "workspace:*",
-    glob: "13.0.6",
-    jiti: "2.6.1",
-    "js-yaml": "4.1.1",
-    "json-stringify-pretty-compact": "4.0.0"
-  },
-  devDependencies: {
-    "@types/js-yaml": "4.0.9",
-    "smol-toml": "1.6.1"
-  },
-  engines: {
-    node: ">=18.17.0"
-  },
-  publishConfig: {
-    access: "public",
-    registry: "https://registry.npmjs.org"
-  }
-};
-
 // packages/release-kit/src/init/detectRepoType.ts
 import { existsSync as existsSync2, readFileSync as readFileSync2 } from "node:fs";
 
@@ -193,7 +132,13 @@ function detectRepoType() {
 }
 
 // .readyup/kits/release-kit.ts
-var MIN_VERSION = package_default.version;
+function getMinVersion() {
+  const picked = { "version": "4.8.0" };
+  if (typeof picked.version !== "string") {
+    throw new TypeError("release-kit/package.json: 'version' must be a string");
+  }
+  return picked.version;
+}
 var CLIFF_TEMPLATE_HASH = "520ffdde4cbbef671f229d1e1f63c09a3c4ef0b2d76208386e372419d18065c7";
 var COMMON_PRESET_HASH = "d12ffccbd5e4d9af8ecf47744b143f6c9f80bcf5e496cf1983b66834f0ae7825";
 var SYNC_LABELS_WORKFLOW_HASH = "4dfde2454bac03280381f0da70c9c735916a7812100dec5437853b843c4bd797";
@@ -213,12 +158,16 @@ var release_kit_default = defineRdyKit({
           fix: "pnpm add --save-dev @williamthorsen/release-kit",
           checks: [
             {
-              name: `@williamthorsen/release-kit >= ${MIN_VERSION}`,
+              get name() {
+                return `@williamthorsen/release-kit >= ${getMinVersion()}`;
+              },
               severity: "error",
-              check: () => hasMinDevDependencyVersion("@williamthorsen/release-kit", MIN_VERSION, {
+              check: () => hasMinDevDependencyVersion("@williamthorsen/release-kit", getMinVersion(), {
                 exempt: (range) => range.startsWith("workspace:")
               }),
-              fix: `pnpm add --save-dev @williamthorsen/release-kit@^${MIN_VERSION}`
+              get fix() {
+                return `pnpm add --save-dev @williamthorsen/release-kit@^${getMinVersion()}`;
+              }
             }
           ]
         },

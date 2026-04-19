@@ -20,13 +20,23 @@ import {
   hasDevDependency,
   hasMinDevDependencyVersion,
   hasPackageJsonField,
+  isRecord,
+  pickJson,
   readFile,
   readPackageJson,
 } from 'readyup';
 
-import nmrPackageJson from '../../packages/nmr/package.json' with { type: 'json' };
-
-const MIN_VERSION = nmrPackageJson.version;
+// `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline
+// only the listed fields. Defer the call into a function so module load does
+// not invoke the runtime stub (which throws) — keeps the module importable in
+// tests that bypass the compile step.
+function getMinVersion(): string {
+  const picked = pickJson('../../packages/nmr/package.json', ['version']);
+  if (typeof picked.version !== 'string') {
+    throw new TypeError("nmr/package.json: 'version' must be a string");
+  }
+  return picked.version;
+}
 
 export default defineRdyKit({
   checklists: [
@@ -41,13 +51,17 @@ export default defineRdyKit({
           fix: 'pnpm add --save-dev @williamthorsen/nmr',
           checks: [
             {
-              name: `@williamthorsen/nmr >= ${MIN_VERSION}`,
+              get name() {
+                return `@williamthorsen/nmr >= ${getMinVersion()}`;
+              },
               severity: 'error',
               check: () =>
-                hasMinDevDependencyVersion('@williamthorsen/nmr', MIN_VERSION, {
+                hasMinDevDependencyVersion('@williamthorsen/nmr', getMinVersion(), {
                   exempt: (range) => range.startsWith('workspace:'),
                 }),
-              fix: `pnpm add --save-dev @williamthorsen/nmr@^${MIN_VERSION}`,
+              get fix() {
+                return `pnpm add --save-dev @williamthorsen/nmr@^${getMinVersion()}`;
+              },
             },
           ],
         },
@@ -238,8 +252,4 @@ export function codeQualityWorkflowDoesNotUseNmrCi(): boolean {
   const content = readFile('.github/workflows/code-quality.yaml');
   if (content === undefined) return true;
   return !/check-command:\s*pnpm exec nmr ci(\s|$)/.test(content);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

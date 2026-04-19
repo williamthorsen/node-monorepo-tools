@@ -11,11 +11,26 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { defineRdyKit, fileExists, fileMatchesHash, hasDevDependency, hasMinDevDependencyVersion } from 'readyup';
+import {
+  defineRdyKit,
+  fileExists,
+  fileMatchesHash,
+  hasDevDependency,
+  hasMinDevDependencyVersion,
+  pickJson,
+} from 'readyup';
 
-import auditDepsPackageJson from '../../packages/audit-deps/package.json' with { type: 'json' };
-
-const MIN_VERSION = auditDepsPackageJson.version;
+// `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline
+// only the listed fields. The runtime stub throws, so defer the call into a
+// function — this keeps the module importable in tests that don't go through
+// the readyup compile step.
+function getMinVersion(): string {
+  const picked = pickJson('../../packages/audit-deps/package.json', ['version']);
+  if (typeof picked.version !== 'string') {
+    throw new TypeError("audit-deps/package.json: 'version' must be a string");
+  }
+  return picked.version;
+}
 
 // SHA-256 hash of the canonical .github/workflows/audit.yaml wrapper.
 // Keep in sync — verified by __tests__/rdy-kit-hashes.app.test.ts.
@@ -34,13 +49,17 @@ export default defineRdyKit({
           fix: 'pnpm add --save-dev @williamthorsen/audit-deps',
           checks: [
             {
-              name: `@williamthorsen/audit-deps >= ${MIN_VERSION}`,
+              get name() {
+                return `@williamthorsen/audit-deps >= ${getMinVersion()}`;
+              },
               severity: 'error',
               check: () =>
-                hasMinDevDependencyVersion('@williamthorsen/audit-deps', MIN_VERSION, {
+                hasMinDevDependencyVersion('@williamthorsen/audit-deps', getMinVersion(), {
                   exempt: (range) => range.startsWith('workspace:'),
                 }),
-              fix: `pnpm add --save-dev @williamthorsen/audit-deps@^${MIN_VERSION}`,
+              get fix() {
+                return `pnpm add --save-dev @williamthorsen/audit-deps@^${getMinVersion()}`;
+              },
             },
           ],
         },

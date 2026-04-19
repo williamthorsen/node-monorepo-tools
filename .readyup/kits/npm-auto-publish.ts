@@ -9,6 +9,8 @@ import {
   defineRdyStagedChecklist,
   fileContains,
   fileExists,
+  getJsonValue,
+  isRecord,
   readFile,
   readJsonFile,
 } from 'readyup';
@@ -132,7 +134,10 @@ function buildPackageCheck(pkg: PackageInfo): RdyCheck {
   if (pkg.name.startsWith('@')) {
     children.push({
       name: 'publishConfig.access is "public"',
-      check: () => getNestedString(pkg.packageJson, 'publishConfig', 'access') === 'public',
+      check: () => {
+        const access = getJsonValue(pkg.packageJson, 'publishConfig', 'access');
+        return typeof access === 'string' && access === 'public';
+      },
       fix: `Add "publishConfig": { "access": "public" } to ${pkgJsonPath}`,
     });
   }
@@ -256,18 +261,6 @@ function getNodeMajorVersion(): number {
   return Number.parseInt(process.versions.node.split('.')[0] ?? '0', 10);
 }
 
-/** Safely access a nested string value in a record. */
-function getNestedString(obj: Record<string, unknown>, ...keys: string[]): string | undefined {
-  let current: unknown = obj;
-  for (const key of keys) {
-    if (!isRecord(current)) {
-      return undefined;
-    }
-    current = current[key];
-  }
-  return typeof current === 'string' ? current : undefined;
-}
-
 /** Derive {owner}/{repo} from the git remote origin URL. */
 function getOwnerRepo(): string {
   const url = execSync('git remote get-url origin', {
@@ -364,10 +357,6 @@ function isRepoPrivate(): boolean {
 /** Check whether the publish.yaml workflow has provenance enabled. */
 function parseProvenanceSetting(workflowContent: string): boolean {
   return /^[^#]*provenance:\s*['"]?true['"]?/im.test(workflowContent);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /** Extract workspace glob patterns from pnpm-workspace.yaml content. */
