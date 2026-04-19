@@ -232,6 +232,13 @@ var release_kit_default = defineRdyKit({
           fix: "Either enable changelogJson.enabled or disable releaseNotes features (shouldCreateGithubRelease, shouldInjectIntoReadme)"
         },
         {
+          name: "releaseNotes.shouldInjectIntoReadme is true",
+          severity: "warn",
+          skip: () => !fileExists(".config/release-kit.config.ts") ? "no release-kit config file" : false,
+          check: () => releaseNotesInjectsIntoReadme(),
+          fix: "Set releaseNotes.shouldInjectIntoReadme to true in .config/release-kit.config.ts"
+        },
+        {
           name: "git-cliff not in devDependencies",
           severity: "recommend",
           check: () => !hasDevDependency("git-cliff"),
@@ -297,6 +304,11 @@ function releaseNotesConfigIsConsistent() {
   const hasGithubRelease = /shouldCreateGithubRelease\s*:\s*true/.test(content);
   const hasReadmeInjection = /shouldInjectIntoReadme\s*:\s*true/.test(content);
   return !hasGithubRelease && !hasReadmeInjection;
+}
+function releaseNotesInjectsIntoReadme() {
+  const content = readFile(".config/release-kit.config.ts");
+  if (content === void 0) return false;
+  return /shouldInjectIntoReadme\s*:\s*true/.test(content);
 }
 function labelsHaveCurrentPresetHash(presetName, expectedHash) {
   const content = readFile(".github/labels.yaml");
