@@ -3,11 +3,20 @@ name: Publish
 
 # Reusable publish workflow for projects using @williamthorsen/release-kit.
 #
-# Triggered by tag pushes. Installs `@williamthorsen/release-kit` globally and
-# runs `release-kit publish` with OIDC-based npm authentication.
+# Triggered by tag pushes. Runs `pnpm install` before publishing so consumer
+# packages with build-time `prepare` hooks have their devDependencies on disk,
+# then invokes release-kit with OIDC-based npm authentication:
+#   - If the consumer lists `@williamthorsen/release-kit` in root
+#     devDependencies (workspace link or pinned version), release-kit is
+#     invoked via `pnpm exec release-kit` — the consumer's version, not
+#     `latest`.
+#   - Otherwise, the workflow falls back to
+#     `npm install --global @williamthorsen/release-kit` and invokes the
+#     global shim.
 # Pass `provenance: true` to enable npm provenance attestations (requires a public repo).
-# When running in the `williamthorsen/node-monorepo-tools` repo, release-kit is
-# built from source instead of installed from npm (auto-detected).
+# When running in the `williamthorsen/node-monorepo-tools` repo (auto-detected),
+# release-kit is additionally built from source so the workspace-linked binary
+# is ready before `pnpm exec` invokes it.
 # The calling workflow must grant `id-token: write` and `contents: read` permissions.
 #
 # Usage:
@@ -56,23 +65,32 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: pnpm
 
-      - name: Install release-kit from npm
-        if: ${{ env.BUILD_LOCAL != 'true' }}
-        run: npm install --global @williamthorsen/release-kit
+      - name: Install dependencies
+        run: pnpm install
 
       # Build release-kit from source to avoid bootstrap problems when
       # publishing a version that introduces new CLI flags.
-      - name: Install dependencies
-        if: ${{ env.BUILD_LOCAL == 'true' }}
-        run: pnpm install --frozen-lockfile
-
       - name: Build release-kit from source
         if: ${{ env.BUILD_LOCAL == 'true' }}
         run: pnpm --filter @williamthorsen/release-kit... run prepare
 
-      - name: Link release-kit onto PATH
-        if: ${{ env.BUILD_LOCAL == 'true' }}
-        run: npm link --workspace packages/release-kit
+      - name: Detect local release-kit
+        id: detect
+        run: |
+          is_local=$(node -p "require('./package.json').devDependencies?.['@williamthorsen/release-kit'] ? 'true' : 'false'")
+          echo "local=$is_local" >> "$GITHUB_OUTPUT"
+
+      - name: Install release-kit from npm
+        if: ${{ steps.detect.outputs.local != 'true' }}
+        run: npm install --global @williamthorsen/release-kit
 
       - name: Publish
-        run: release-kit publish ${{ inputs.provenance && '--provenance' || '' }} --no-git-checks
+        env:
+          LOCAL: ${{ steps.detect.outputs.local }}
+        run: |
+          args="${{ inputs.provenance && '--provenance' || '' }} --no-git-checks"
+          if [ "$LOCAL" = "true" ]; then
+            pnpm exec release-kit publish $args
+          else
+            release-kit publish $args
+          fi
