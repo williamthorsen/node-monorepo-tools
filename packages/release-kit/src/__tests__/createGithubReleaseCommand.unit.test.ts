@@ -34,6 +34,7 @@ describe(createGithubReleaseCommand, () => {
   beforeEach(() => {
     mockDiscoverWorkspaces.mockResolvedValue(undefined);
     mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.' }]);
+    mockCreateGithubReleases.mockReturnValue({ created: ['v1.0.0'], skipped: [] });
     mockResolveReleaseNotesConfig.mockResolvedValue({
       releaseNotes: { shouldInjectIntoReadme: false },
       changelogJsonOutputPath: '.meta/changelog.json',
@@ -181,6 +182,53 @@ describe(createGithubReleaseCommand, () => {
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
     expect(console.error).toHaveBeenCalledWith('Error discovering workspaces: discovery failed');
+  });
+
+  it('exits with code 1 when --tags is explicit and all requested tags produce no Release', async () => {
+    mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/extra']);
+    mockResolveReleaseTags.mockReturnValue([
+      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
+      { tag: 'extra-v0.1.0', dir: 'extra', workspacePath: 'packages/extra' },
+    ]);
+    mockCreateGithubReleases.mockReturnValue({ created: [], skipped: ['core-v1.3.0', 'extra-v0.1.0'] });
+
+    let thrown: ExitError | undefined;
+    try {
+      await createGithubReleaseCommand(['--tags=core-v1.3.0,extra-v0.1.0']);
+    } catch (error: unknown) {
+      if (error instanceof ExitError) {
+        thrown = error;
+      }
+    }
+
+    expect(thrown).toBeInstanceOf(ExitError);
+    expect(thrown?.code).toBe(1);
+    expect(console.error).toHaveBeenCalledWith(
+      'Error: no GitHub Releases were created for requested tags: core-v1.3.0, extra-v0.1.0. ' +
+        'Each was skipped (missing changelog entry, no all-audience content, or empty rendered body).',
+    );
+  });
+
+  it('does not exit when --tags is omitted and every tag is skipped', async () => {
+    // When the user did not single out tags, an all-skipped outcome is informational, not a failure.
+    mockCreateGithubReleases.mockReturnValue({ created: [], skipped: ['v1.0.0'] });
+
+    await createGithubReleaseCommand([]);
+
+    expect(console.info).toHaveBeenCalledWith('Skipped 1 tag(s) with no releasable content: v1.0.0.');
+  });
+
+  it('logs an info summary when some tags are skipped but others succeed', async () => {
+    mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/extra']);
+    mockResolveReleaseTags.mockReturnValue([
+      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
+      { tag: 'extra-v0.1.0', dir: 'extra', workspacePath: 'packages/extra' },
+    ]);
+    mockCreateGithubReleases.mockReturnValue({ created: ['core-v1.3.0'], skipped: ['extra-v0.1.0'] });
+
+    await createGithubReleaseCommand(['--tags=core-v1.3.0,extra-v0.1.0']);
+
+    expect(console.info).toHaveBeenCalledWith('Skipped 1 tag(s) with no releasable content: extra-v0.1.0.');
   });
 
   it('exits with code 1 when createGithubReleases throws', async () => {

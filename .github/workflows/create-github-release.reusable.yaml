@@ -7,9 +7,9 @@ name: Create GitHub Release
 # `release-kit create-github-release --tags <tag>` via `npx`, which prefers the
 # consumer's workspace-linked release-kit over a registry fetch. Independent of
 # `npm publish`: consumers that do not publish to npm can still use this workflow.
-# When running in the `williamthorsen/node-monorepo-tools` repo, release-kit is
-# additionally built from source so the workspace-linked binary is ready
-# (auto-detected).
+# When running in the `williamthorsen/node-monorepo-tools` repo itself (checked
+# via `github.repository`), release-kit is additionally built from source so
+# the workspace-linked binary is ready.
 # The calling workflow must grant `contents: write` permission so `gh release create` can run.
 #
 # Usage:

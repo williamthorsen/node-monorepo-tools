@@ -36,11 +36,28 @@ export async function createGithubReleaseCommand(argv: string[]): Promise<void> 
 
   const { changelogJsonOutputPath, sectionOrder } = await resolveReleaseNotesConfig({ strictLoad: true });
 
+  let outcome;
   try {
-    createGithubReleases(resolvedTags, changelogJsonOutputPath, dryRun, sectionOrder);
+    outcome = createGithubReleases(resolvedTags, changelogJsonOutputPath, dryRun, sectionOrder);
   } catch (error: unknown) {
     console.error(`Error creating GitHub Releases: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
+  }
+
+  // Fail visibly when the user explicitly requested tags via --tags and no Release was created.
+  // A soft-skip across every requested tag is a silent-success gap for this command, whose whole
+  // purpose is failure visibility. Omitted --tags (operate on all HEAD tags) keeps the legacy
+  // soft-skip behavior since the user did not single out specific tags.
+  if (requestedTags !== undefined && outcome.created.length === 0) {
+    console.error(
+      `Error: no GitHub Releases were created for requested tags: ${outcome.skipped.join(', ')}. ` +
+        `Each was skipped (missing changelog entry, no all-audience content, or empty rendered body).`,
+    );
+    process.exit(1);
+  }
+
+  if (outcome.skipped.length > 0) {
+    console.info(`Skipped ${outcome.skipped.length} tag(s) with no releasable content: ${outcome.skipped.join(', ')}.`);
   }
 }
 
