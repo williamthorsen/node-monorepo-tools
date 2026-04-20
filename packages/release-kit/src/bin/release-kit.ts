@@ -112,6 +112,7 @@ Run release preparation with automatic workspace discovery.
 Options:
   --dry-run             Run without modifying any files
   --bump=major|minor|patch  Override the bump type for all components
+  --set-version=X.Y.Z   Set an explicit version; bypasses commit-derived bumps. Requires --only in monorepo mode.
   --no-git-checks, -n   Skip the clean-working-tree check
   --only=name1,name2    Only process the named components (comma-separated, monorepo only)
   --help, -h            Show this help message

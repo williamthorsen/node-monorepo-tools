@@ -176,15 +176,36 @@ Release-notes sections are rendered in the declaration order of the merged work-
 
 Run release preparation with automatic workspace discovery.
 
-| Flag                         | Description                                                      |
-| ---------------------------- | ---------------------------------------------------------------- |
-| `--dry-run`                  | Preview changes without writing files                            |
-| `--bump=major\|minor\|patch` | Override the bump type for all components                        |
-| `--force`                    | Bypass the "no commits since last tag" check (requires `--bump`) |
-| `--only=name1,name2`         | Only process the named components (monorepo only)                |
-| `--help`, `-h`               | Show help                                                        |
+| Flag                         | Description                                                                                                  |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `--dry-run`                  | Preview changes without writing files                                                                        |
+| `--bump=major\|minor\|patch` | Override the bump type for all components                                                                    |
+| `--set-version=X.Y.Z`        | Set an explicit canonical semver version; bypasses commit-derived bumps. Requires `--only` in monorepo mode. |
+| `--force`                    | Bypass the "no commits since last tag" check (requires `--bump`)                                             |
+| `--only=name1,name2`         | Only process the named components (monorepo only)                                                            |
+| `--help`, `-h`               | Show help                                                                                                    |
 
 Component names for `--only` match the package directory name (e.g., `arrays`, `release-kit`).
+
+#### Setting an explicit version with `--set-version`
+
+The `--set-version` flag is a first-class escape hatch for the cases where commit-derived bump logic produces the wrong version — most notably, promoting a pre-1.0 package to 1.0.0. Pre-1.0 packages collapse a `feat!` breaking change to a minor bump (matching semantic-release's `initialMajor: false` and release-please's `bump-minor-pre-major`), so a deliberate promotion to 1.0.0 must be requested explicitly.
+
+The flag validates that:
+
+- The value is canonical `N.N.N` semver (pre-release suffixes are rejected).
+- The target is strictly greater than the current version (numeric comparison on each component).
+- In monorepo mode, `--only` is set and resolves to exactly one component.
+
+`--set-version` is mutually exclusive with `--bump` and `--force`. The rest of the pipeline (changelog generation, tag creation, commit summary, propagation to dependents) runs unchanged, so dependents receive a propagated patch bump triggered by the overridden version.
+
+Promoting a pre-1.0 package to 1.0.0 in a monorepo:
+
+```sh
+release-kit prepare --only arrays --set-version 1.0.0
+```
+
+An empty changelog section is expected for a bare promotion, because the changelog is generated from commits since the last tag. To include a narrative entry, land a descriptive release commit (e.g., a `feat!` describing the stable API) before running `prepare`.
 
 ### `release-kit create-github-release`
 

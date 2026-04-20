@@ -7,6 +7,12 @@ export interface ReleaseEntry {
   releaseType: ReleaseType;
   /** Present when this component was bumped (wholly or partly) due to a dependency update. */
   propagatedFrom?: PropagationSource[];
+  /**
+   * Explicit new version override used for propagation metadata. When set, dependents see this
+   * value in their `propagatedFrom.newVersion` entry instead of a version computed from `releaseType`.
+   * Used by the `--set-version` CLI path so propagation reflects the overridden version.
+   */
+  newVersionOverride?: string;
 }
 
 /** Map from component `dir` to its current version string (read from package.json). */
@@ -58,7 +64,8 @@ export function propagateBumps(
     if (currentVersion === undefined || entry === undefined) {
       continue;
     }
-    const newVersion = bumpVersion(currentVersion, entry.releaseType);
+    // Prefer the explicit override (--set-version) when present; otherwise compute from releaseType.
+    const newVersion = entry.newVersionOverride ?? bumpVersion(currentVersion, entry.releaseType);
 
     // Find dependents and propagate.
     const dependents = graph.dependentsOf.get(packageName);

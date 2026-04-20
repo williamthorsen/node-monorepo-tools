@@ -1,13 +1,15 @@
 import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 
-import { bumpAllVersions } from './bumpAllVersions.ts';
+import { bumpAllVersions, setAllVersions } from './bumpAllVersions.ts';
+import { isForwardVersion } from './compareVersions.ts';
 import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { determineBumpFromCommits } from './determineBumpFromCommits.ts';
 import { generateChangelogJson } from './generateChangelogJson.ts';
 import { generateChangelogs } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
-import type { Commit, PrepareResult, ReleaseConfig, ReleaseType } from './types.ts';
+import type { BumpResult, Commit, PrepareResult, ReleaseConfig, ReleaseType } from './types.ts';
 
 /** Options for the release preparation workflow. */
 export interface ReleasePrepareOptions {
@@ -17,6 +19,12 @@ export interface ReleasePrepareOptions {
   force?: boolean;
   /** Override the bump type instead of determining it from commits. */
   bumpOverride?: ReleaseType;
+  /**
+   * Explicit target version (canonical `N.N.N`) that bypasses commit-derived bump logic.
+   * Mutually exclusive with `bumpOverride`. In monorepo mode the caller must narrow
+   * `config.components` to a single component before invoking.
+   */
+  setVersion?: string;
 }
 
 /**
@@ -31,48 +39,67 @@ export interface ReleasePrepareOptions {
  * Returns a structured `PrepareResult` with all data needed for presentation.
  */
 export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOptions): PrepareResult {
-  const { dryRun, bumpOverride } = options;
+  const { dryRun, bumpOverride, setVersion } = options;
   const workTypes = config.workTypes ?? { ...DEFAULT_WORK_TYPES };
   const versionPatterns = config.versionPatterns ?? { ...DEFAULT_VERSION_PATTERNS };
 
   // 1. Get commits since last tag
   const { tag, commits } = getCommitsSinceTarget(config.tagPrefix);
 
-  // 2. Determine bump type
+  // 2. Determine bump type (or use the explicit setVersion bypass)
   let releaseType: ReleaseType | undefined;
   let parsedCommitCount: number | undefined;
   let unparseableCommits: Commit[] | undefined;
+  let bump: BumpResult;
 
-  if (bumpOverride === undefined) {
-    const determination = determineBumpFromCommits(commits, workTypes, versionPatterns, config.scopeAliases);
-    parsedCommitCount = determination.parsedCommitCount;
-    unparseableCommits = determination.unparseableCommits;
-    releaseType = determination.releaseType;
+  if (setVersion !== undefined) {
+    // Bypass commit-derived bump logic. Read the current version directly from the primary
+    // package file so validation runs once, then perform a single write honouring `dryRun`.
+    const primaryPackageFile = config.packageFiles[0];
+    if (primaryPackageFile === undefined) {
+      throw new Error('No package files specified');
+    }
+    const currentVersion = readCurrentVersion(primaryPackageFile);
+    if (currentVersion === undefined) {
+      throw new Error(`Cannot validate --set-version: failed to read current version from ${primaryPackageFile}`);
+    }
+    if (!isForwardVersion(currentVersion, setVersion)) {
+      throw new Error(`--set-version ${setVersion} is not greater than current version ${currentVersion}`);
+    }
+    bump = setAllVersions(config.packageFiles, setVersion, dryRun);
   } else {
-    releaseType = bumpOverride;
+    if (bumpOverride === undefined) {
+      const determination = determineBumpFromCommits(commits, workTypes, versionPatterns, config.scopeAliases);
+      parsedCommitCount = determination.parsedCommitCount;
+      unparseableCommits = determination.unparseableCommits;
+      releaseType = determination.releaseType;
+    } else {
+      releaseType = bumpOverride;
+    }
+
+    if (releaseType === undefined) {
+      return {
+        components: [
+          {
+            status: 'skipped',
+            previousTag: tag,
+            commitCount: commits.length,
+            parsedCommitCount,
+            unparseableCommits,
+            bumpedFiles: [],
+            changelogFiles: [],
+            skipReason: 'No release-worthy changes found. Skipping.',
+          },
+        ],
+        tags: [],
+        dryRun,
+      };
+    }
+
+    // 3. Bump all versions
+    bump = bumpAllVersions(config.packageFiles, releaseType, dryRun);
   }
 
-  if (releaseType === undefined) {
-    return {
-      components: [
-        {
-          status: 'skipped',
-          previousTag: tag,
-          commitCount: commits.length,
-          parsedCommitCount,
-          unparseableCommits,
-          bumpedFiles: [],
-          changelogFiles: [],
-          skipReason: 'No release-worthy changes found. Skipping.',
-        },
-      ],
-      tags: [],
-      dryRun,
-    };
-  }
-
-  // 3. Bump all versions
-  const bump = bumpAllVersions(config.packageFiles, releaseType, dryRun);
   const newTag = `${config.tagPrefix}${bump.newVersion}`;
 
   // 4. Generate changelogs
@@ -127,10 +154,29 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
         changelogFiles,
         commits,
         unparseableCommits,
+        ...(setVersion === undefined ? {} : { setVersion }),
       },
     ],
     tags: [newTag],
     formatCommand,
     dryRun,
   };
+}
+
+function hasVersionField(value: unknown): value is { version: string } {
+  return typeof value === 'object' && value !== null && 'version' in value && typeof value.version === 'string';
+}
+
+/** Read the `version` field from a package.json file. Returns undefined if the file can't be read or parsed. */
+function readCurrentVersion(filePath: string): string | undefined {
+  try {
+    const content = readFileSync(filePath, 'utf8');
+    const parsed: unknown = JSON.parse(content);
+    if (hasVersionField(parsed)) {
+      return parsed.version;
+    }
+  } catch {
+    // Return undefined if the file can't be read or parsed.
+  }
+  return undefined;
 }

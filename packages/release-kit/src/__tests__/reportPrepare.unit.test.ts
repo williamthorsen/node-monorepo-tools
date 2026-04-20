@@ -146,6 +146,32 @@ describe(reportPrepare, () => {
       expect(output).toContain('Using bump override: major');
     });
 
+    it('renders "version override" labels when setVersion is present on a component', () => {
+      const result: PrepareResult = {
+        components: [
+          {
+            status: 'released',
+            previousTag: 'v0.5.0',
+            commitCount: 0,
+            currentVersion: '0.5.0',
+            newVersion: '1.0.0',
+            tag: 'v1.0.0',
+            bumpedFiles: ['package.json'],
+            changelogFiles: ['./CHANGELOG.md'],
+            setVersion: '1.0.0',
+          },
+        ],
+        tags: ['v1.0.0'],
+        dryRun: false,
+      };
+
+      const output = reportPrepare(result);
+
+      expect(output).toContain('Using version override: 1.0.0');
+      expect(output).toContain(`📦 0.5.0 → ${bold('1.0.0')} (version override)`);
+      expect(output).not.toContain('Using bump override:');
+    });
+
     it('shows unparseable commit warning when all commits are unparseable (patch floor)', () => {
       const result: PrepareResult = {
         components: [
@@ -381,6 +407,74 @@ describe(reportPrepare, () => {
       expect(output).toContain(sectionHeader('strings'));
       expect(output).toContain('  ⏭️  No changes for strings since strings-v2.0.0. Skipping.');
       expect(output).toContain('✅ Release preparation complete.');
+    });
+
+    it('renders "version override" labels for a setVersion component in monorepo mode', () => {
+      const result: PrepareResult = {
+        components: [
+          {
+            name: 'arrays',
+            status: 'released',
+            previousTag: 'arrays-v0.5.0',
+            commitCount: 0,
+            currentVersion: '0.5.0',
+            newVersion: '1.0.0',
+            tag: 'arrays-v1.0.0',
+            bumpedFiles: ['packages/arrays/package.json'],
+            changelogFiles: ['packages/arrays/CHANGELOG.md'],
+            setVersion: '1.0.0',
+          },
+        ],
+        tags: ['arrays-v1.0.0'],
+        dryRun: false,
+      };
+
+      const output = reportPrepare(result);
+
+      expect(output).toContain('Using version override: 1.0.0');
+      expect(output).toContain(`  📦 0.5.0 → ${bold('1.0.0')} (version override)`);
+    });
+
+    it('leaves propagated dependents of a setVersion component with a normal release-type label', () => {
+      const result: PrepareResult = {
+        components: [
+          {
+            name: 'core',
+            status: 'released',
+            previousTag: 'core-v0.5.0',
+            commitCount: 0,
+            currentVersion: '0.5.0',
+            newVersion: '1.0.0',
+            tag: 'core-v1.0.0',
+            bumpedFiles: ['packages/core/package.json'],
+            changelogFiles: ['packages/core/CHANGELOG.md'],
+            setVersion: '1.0.0',
+          },
+          {
+            name: 'app',
+            status: 'released',
+            previousTag: 'app-v2.0.0',
+            commitCount: 0,
+            releaseType: 'patch',
+            currentVersion: '2.0.0',
+            newVersion: '2.0.1',
+            tag: 'app-v2.0.1',
+            bumpedFiles: ['packages/app/package.json'],
+            changelogFiles: ['packages/app/CHANGELOG.md'],
+            propagatedFrom: [{ packageName: '@test/core', newVersion: '1.0.0' }],
+          },
+        ],
+        tags: ['core-v1.0.0', 'app-v2.0.1'],
+        dryRun: false,
+      };
+
+      const output = reportPrepare(result);
+
+      // core shows the version-override label.
+      expect(output).toContain('Using version override: 1.0.0');
+      expect(output).toContain(`  📦 0.5.0 → ${bold('1.0.0')} (version override)`);
+      // app shows the normal dependency-propagation label.
+      expect(output).toContain(`  📦 2.0.0 → ${bold('2.0.1')} (patch, dependency: @test/core)`);
     });
 
     it('formats a full skip in monorepo mode', () => {

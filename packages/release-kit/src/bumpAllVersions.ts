@@ -33,6 +33,40 @@ export function bumpAllVersions(
   const currentVersion = firstPkg.version;
   const newVersion = bumpVersion(currentVersion, releaseType);
 
+  writeVersionToAllFiles(packageFiles, firstFile, firstPkg, newVersion, dryRun);
+
+  return { currentVersion, newVersion, files: [...packageFiles] };
+}
+
+/**
+ * Write an explicit version string to all specified package.json files, bypassing
+ * commit-derived bump logic.
+ *
+ * Reads the first file to capture the pre-write `currentVersion`, then writes `newVersion`
+ * to every file in `packageFiles`. Used by the `--set-version` CLI flag.
+ */
+export function setAllVersions(packageFiles: readonly string[], newVersion: string, dryRun: boolean): BumpResult {
+  const firstFile = packageFiles[0];
+  if (firstFile === undefined) {
+    throw new Error('No package files specified');
+  }
+
+  const firstPkg = readPackageJson(firstFile);
+  const currentVersion = firstPkg.version;
+
+  writeVersionToAllFiles(packageFiles, firstFile, firstPkg, newVersion, dryRun);
+
+  return { currentVersion, newVersion, files: [...packageFiles] };
+}
+
+/** Write `newVersion` to every file in `packageFiles`, reusing `firstPkg` for the first file. */
+function writeVersionToAllFiles(
+  packageFiles: readonly string[],
+  firstFile: string,
+  firstPkg: PackageJson,
+  newVersion: string,
+  dryRun: boolean,
+): void {
   for (const filePath of packageFiles) {
     if (dryRun) {
       continue;
@@ -47,8 +81,6 @@ export function bumpAllVersions(
       throw new Error(`Failed to write ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-
-  return { currentVersion, newVersion, files: [...packageFiles] };
 }
 
 /**

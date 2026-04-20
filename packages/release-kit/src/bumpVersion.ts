@@ -28,6 +28,11 @@ export function bumpVersion(version: string, releaseType: ReleaseType): string {
 
   switch (releaseType) {
     case 'major':
+      // Pre-1.0 packages are in "initial development" per semver; a breaking change
+      // should not implicitly promote to 1.0.0. Collapse to a minor bump instead.
+      if (majorNum === 0) {
+        return `0.${minorNum + 1}.0`;
+      }
       return `${majorNum + 1}.0.0`;
     case 'minor':
       return `${majorNum}.${minorNum + 1}.0`;

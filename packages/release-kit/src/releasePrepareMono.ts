@@ -155,7 +155,12 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
     // Validation that only one component is targeted runs in `prepareCommand` before this function.
     if (setVersion !== undefined) {
       const currentVersion = currentVersions.get(component.dir);
-      if (currentVersion !== undefined && !isForwardVersion(currentVersion, setVersion)) {
+      if (currentVersion === undefined) {
+        throw new Error(
+          `Cannot validate --set-version: failed to read current version from ${primaryPackageFile ?? '(no package file)'}`,
+        );
+      }
+      if (!isForwardVersion(currentVersion, setVersion)) {
         throw new Error(`--set-version ${setVersion} is not greater than current version ${currentVersion}`);
       }
 
