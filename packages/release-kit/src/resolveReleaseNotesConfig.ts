@@ -13,15 +13,36 @@ export interface ResolvedReleaseNotesConfig {
   sectionOrder: string[];
 }
 
-/** Load and validate the release-kit config, falling back to defaults on load failure. */
-export async function resolveReleaseNotesConfig(): Promise<ResolvedReleaseNotesConfig> {
+export interface ResolveReleaseNotesConfigOptions {
+  /**
+   * When `true`, a `loadConfig()` rejection causes `process.exit(1)` rather than a fallback to
+   * defaults. Use from CLI commands whose entire behavior depends on the resolved config (e.g.
+   * `create-github-release`), so a corrupt or unreadable config cannot silently send the command
+   * to the wrong changelog path.
+   */
+  strictLoad?: boolean;
+}
+
+/**
+ * Load and validate the release-kit config.
+ *
+ * By default, falls back to defaults when `loadConfig()` rejects (legacy publish behavior).
+ * When `strictLoad` is `true`, a load failure prints an error and calls `process.exit(1)`.
+ */
+export async function resolveReleaseNotesConfig(
+  options: ResolveReleaseNotesConfigOptions = {},
+): Promise<ResolvedReleaseNotesConfig> {
+  const { strictLoad = false } = options;
   let rawConfig: unknown;
   try {
     rawConfig = await loadConfig();
   } catch (error: unknown) {
-    console.warn(
-      `Warning: failed to load config; using defaults: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    const message = error instanceof Error ? error.message : String(error);
+    if (strictLoad) {
+      console.error(`Error: failed to load config: ${message}`);
+      process.exit(1);
+    }
+    console.warn(`Warning: failed to load config; using defaults: ${message}`);
   }
 
   if (rawConfig === undefined) {

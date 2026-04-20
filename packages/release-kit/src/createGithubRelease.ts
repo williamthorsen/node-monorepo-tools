@@ -4,7 +4,6 @@ import { join } from 'node:path';
 
 import { extractVersion, readChangelogEntries } from './changelogJsonUtils.ts';
 import { matchesAudience, renderReleaseNotesSingle } from './renderReleaseNotes.ts';
-import type { ReleaseNotesConfig } from './types.ts';
 
 /** Options for creating a GitHub Release. */
 export interface CreateGithubReleaseOptions {
@@ -19,7 +18,9 @@ export interface CreateGithubReleaseOptions {
  * Create a GitHub Release from changelog.json using the `gh` CLI.
  *
  * Reads the changelog JSON, finds the entry matching the tag's version, renders all-audience
- * release notes, and creates the release. Failures produce warnings rather than errors.
+ * release notes, and creates the release. Returns `false` (with a warning) when the changelog
+ * entry is missing, unparseable, or contains no all-audience content. Throws when the `gh` CLI
+ * invocation itself fails so callers can surface the failure rather than exit 0 silently.
  */
 export function createGithubRelease(options: CreateGithubReleaseOptions): boolean {
   const { tag, changelogJsonPath, dryRun, sectionOrder } = options;
@@ -64,40 +65,42 @@ export function createGithubRelease(options: CreateGithubReleaseOptions): boolea
     return true;
   }
 
-  try {
-    execFileSync('gh', args, { stdio: 'inherit' });
-    return true;
-  } catch (error: unknown) {
-    console.warn(
-      `Warning: failed to create GitHub Release for ${tag}: ${error instanceof Error ? error.message : String(error)}`,
-    );
-    return false;
-  }
+  execFileSync('gh', args, { stdio: 'inherit' });
+  return true;
+}
+
+/** Outcome of a `createGithubReleases` invocation. */
+export interface CreateGithubReleasesOutcome {
+  /** Tags for which a Release was created (or would be, under `--dry-run`). */
+  created: string[];
+  /** Tags that were skipped with a soft-fail (missing changelog entry, no all-audience content, etc.). */
+  skipped: string[];
 }
 
 /**
- * Create GitHub Releases for all resolved tags.
+ * Create GitHub Releases for each provided tag.
  *
- * Called from the publish command when `shouldCreateGithubRelease` is enabled.
+ * Per-tag soft-fails (missing changelog entry, no all-audience content, empty rendered body) are
+ * recorded in `skipped` and do not throw. Hard failures from the `gh` CLI itself throw and
+ * short-circuit the loop so callers can surface them.
  */
 export function createGithubReleases(
   tags: Array<{ tag: string; workspacePath: string }>,
-  releaseNotes: ReleaseNotesConfig,
   changelogJsonOutputPath: string,
   dryRun: boolean,
   sectionOrder?: string[],
-): void {
-  if (!releaseNotes.shouldCreateGithubRelease) {
-    return;
-  }
-
+): CreateGithubReleasesOutcome {
+  const created: string[] = [];
+  const skipped: string[] = [];
   for (const { tag, workspacePath } of tags) {
     const changelogJsonPath = join(workspacePath, changelogJsonOutputPath);
-    createGithubRelease({
+    const result = createGithubRelease({
       tag,
       changelogJsonPath,
       dryRun,
       ...(sectionOrder === undefined ? {} : { sectionOrder }),
     });
+    (result ? created : skipped).push(tag);
   }
+  return { created, skipped };
 }

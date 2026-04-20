@@ -81,6 +81,33 @@ jobs:
 `;
 }
 
+/**
+ * Generate the create-github-release.yaml GitHub Actions caller workflow.
+ *
+ * Fires on tag push and delegates to the reusable workflow under `contents: write`.
+ */
+export function createGithubReleaseWorkflow(repoType: RepoType): string {
+  const tagPattern = repoType === 'monorepo' ? "'*-v[0-9]*.[0-9]*.[0-9]*'" : "'v[0-9]*.[0-9]*.[0-9]*'";
+
+  return `# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Create GitHub Release
+
+on:
+  push:
+    tags:
+      - ${tagPattern}
+
+permissions:
+  contents: write
+
+jobs:
+  create-github-release:
+    uses: williamthorsen/node-monorepo-tools/.github/workflows/create-github-release.reusable.yaml@workflow/create-github-release-v1
+    with:
+      tag: \${{ github.ref_name }}
+`;
+}
+
 /** Generate the release.yaml GitHub Actions workflow. */
 export function releaseWorkflow(repoType: RepoType): string {
   if (repoType === 'monorepo') {

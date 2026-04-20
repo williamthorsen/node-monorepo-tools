@@ -209,12 +209,11 @@ describe(validateConfig, () => {
   describe('releaseNotes', () => {
     it('validates a complete releaseNotes object', () => {
       const { config, errors } = validateConfig({
-        releaseNotes: { shouldInjectIntoReadme: true, shouldCreateGithubRelease: false },
+        releaseNotes: { shouldInjectIntoReadme: true },
       });
       expect(errors).toStrictEqual([]);
       expect(config.releaseNotes).toStrictEqual({
         shouldInjectIntoReadme: true,
-        shouldCreateGithubRelease: false,
       });
     });
 
@@ -228,9 +227,11 @@ describe(validateConfig, () => {
       expect(errors).toContain('releaseNotes.shouldInjectIntoReadme: must be a boolean');
     });
 
-    it('returns an error when shouldCreateGithubRelease is not a boolean', () => {
-      const { errors } = validateConfig({ releaseNotes: { shouldCreateGithubRelease: 42 } });
-      expect(errors).toContain('releaseNotes.shouldCreateGithubRelease: must be a boolean');
+    it('returns a targeted migration error when shouldCreateGithubRelease is set', () => {
+      const { errors } = validateConfig({ releaseNotes: { shouldCreateGithubRelease: true } });
+      expect(errors).toContain(
+        'releaseNotes.shouldCreateGithubRelease is no longer supported. Adoption is now signaled by installing the create-github-release workflow. Remove this field from your config; see README for the updated workflow.',
+      );
     });
 
     it('returns an error for unknown releaseNotes fields', () => {
@@ -240,16 +241,6 @@ describe(validateConfig, () => {
   });
 
   describe('cross-field warnings', () => {
-    it('warns when shouldCreateGithubRelease is true but changelogJson is disabled', () => {
-      const { warnings } = validateConfig({
-        changelogJson: { enabled: false },
-        releaseNotes: { shouldCreateGithubRelease: true },
-      });
-      expect(warnings).toContain(
-        'releaseNotes.shouldCreateGithubRelease is enabled but changelogJson.enabled is false; GitHub Releases will be skipped at runtime',
-      );
-    });
-
     it('warns when shouldInjectIntoReadme is true but changelogJson is disabled', () => {
       const { warnings } = validateConfig({
         changelogJson: { enabled: false },
@@ -263,7 +254,7 @@ describe(validateConfig, () => {
     it('returns no warnings when config is consistent', () => {
       const { warnings } = validateConfig({
         changelogJson: { enabled: true },
-        releaseNotes: { shouldCreateGithubRelease: true },
+        releaseNotes: { shouldInjectIntoReadme: true },
       });
       expect(warnings).toStrictEqual([]);
     });

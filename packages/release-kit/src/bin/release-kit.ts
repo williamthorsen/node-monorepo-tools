@@ -5,7 +5,7 @@
 import { parseArgs, translateParseError } from '@williamthorsen/node-monorepo-core';
 
 import { commitCommand } from '../commitCommand.ts';
-import { githubReleaseCommand } from '../githubReleaseCommand.ts';
+import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';
 import { initCommand } from '../init/initCommand.ts';
 import { prepareCommand } from '../prepareCommand.ts';
 import { publishCommand } from '../publishCommand.ts';
@@ -26,7 +26,7 @@ Commands:
   tag              Create annotated git tags from the tags file
   push             Push release commit and tags (one push per tag)
   publish          Publish packages with release tags on HEAD
-  github-release   Create GitHub Releases from changelog.json for tags on HEAD
+  create-github-release  Create GitHub Releases from changelog.json for tags on HEAD
   init             Initialize release-kit in the current repository
   sync-labels      Manage GitHub label synchronization
 
@@ -159,15 +159,15 @@ Options:
 `);
 }
 
-function showGithubReleaseHelp(): void {
+function showCreateGithubReleaseHelp(): void {
   console.info(`
-Usage: release-kit github-release [options]
+Usage: release-kit create-github-release [options]
 
 Create GitHub Releases from changelog.json for tags on HEAD.
 
 Options:
   --dry-run              Preview without creating releases
-  --only=name1,name2     Only create releases for the named packages (comma-separated, monorepo only)
+  --tags=tag1,tag2       Only create releases for the named tags (comma-separated, full tag names)
   --help, -h             Show this help message
 `);
 }
@@ -246,13 +246,13 @@ if (command === 'push') {
   process.exit(0);
 }
 
-if (command === 'github-release') {
+if (command === 'create-github-release') {
   if (flags.some((f) => f === '--help' || f === '-h')) {
-    showGithubReleaseHelp();
+    showCreateGithubReleaseHelp();
     process.exit(0);
   }
 
-  await githubReleaseCommand(flags);
+  await createGithubReleaseCommand(flags);
   process.exit(0);
 }
 

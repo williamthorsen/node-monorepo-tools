@@ -6,7 +6,6 @@ import { join } from 'node:path';
 
 import { parseArgs, translateParseError } from '@williamthorsen/node-monorepo-core';
 
-import { createGithubReleases } from './createGithubRelease.ts';
 import { detectPackageManager } from './detectPackageManager.ts';
 import { injectReleaseNotesIntoReadme, resolveReadmePath } from './injectReleaseNotesIntoReadme.ts';
 import { publishPackage } from './publish.ts';
@@ -89,14 +88,6 @@ export async function publishCommand(argv: string[]): Promise<void> {
       }
     }
     console.error(error instanceof Error ? error.message : String(error));
-    process.exit(1);
-  }
-
-  // Create GitHub Releases after successful publish.
-  try {
-    createGithubReleases(resolvedTags, releaseNotes, changelogJsonOutputPath, dryRun, sectionOrder);
-  } catch (error: unknown) {
-    console.error(`Error creating GitHub Releases: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
   }
 }

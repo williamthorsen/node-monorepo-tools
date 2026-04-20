@@ -46,17 +46,10 @@ export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors
   // Cross-field warnings: releaseNotes features require changelogJson to be enabled.
   const warnings: string[] = [];
   const changelogJsonEnabled = config.changelogJson?.enabled ?? true;
-  if (!changelogJsonEnabled) {
-    if (config.releaseNotes?.shouldCreateGithubRelease) {
-      warnings.push(
-        'releaseNotes.shouldCreateGithubRelease is enabled but changelogJson.enabled is false; GitHub Releases will be skipped at runtime',
-      );
-    }
-    if (config.releaseNotes?.shouldInjectIntoReadme) {
-      warnings.push(
-        'releaseNotes.shouldInjectIntoReadme is enabled but changelogJson.enabled is false; README injection will be skipped at runtime',
-      );
-    }
+  if (!changelogJsonEnabled && config.releaseNotes?.shouldInjectIntoReadme) {
+    warnings.push(
+      'releaseNotes.shouldInjectIntoReadme is enabled but changelogJson.enabled is false; README injection will be skipped at runtime',
+    );
   }
 
   return { config, errors, warnings };
@@ -114,10 +107,16 @@ function validateReleaseNotes(value: unknown, config: ReleaseKitConfig, errors: 
     return;
   }
 
-  const knownReleaseNotesFields = new Set(['shouldInjectIntoReadme', 'shouldCreateGithubRelease']);
+  const knownReleaseNotesFields = new Set(['shouldInjectIntoReadme']);
   for (const key of Object.keys(value)) {
     if (!knownReleaseNotesFields.has(key)) {
-      errors.push(`releaseNotes: unknown field '${key}'`);
+      if (key === 'shouldCreateGithubRelease') {
+        errors.push(
+          'releaseNotes.shouldCreateGithubRelease is no longer supported. Adoption is now signaled by installing the create-github-release workflow. Remove this field from your config; see README for the updated workflow.',
+        );
+      } else {
+        errors.push(`releaseNotes: unknown field '${key}'`);
+      }
     }
   }
 
@@ -128,14 +127,6 @@ function validateReleaseNotes(value: unknown, config: ReleaseKitConfig, errors: 
       result.shouldInjectIntoReadme = value.shouldInjectIntoReadme;
     } else {
       errors.push('releaseNotes.shouldInjectIntoReadme: must be a boolean');
-    }
-  }
-
-  if (value.shouldCreateGithubRelease !== undefined) {
-    if (typeof value.shouldCreateGithubRelease === 'boolean') {
-      result.shouldCreateGithubRelease = value.shouldCreateGithubRelease;
-    } else {
-      errors.push('releaseNotes.shouldCreateGithubRelease: must be a boolean');
     }
   }
 

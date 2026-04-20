@@ -219,7 +219,7 @@ describe(generateChangelogs, () => {
       workTypes: {},
       cliffConfigPath: 'cliff.toml',
       changelogJson: { enabled: false, outputPath: '.meta/changelog.json', devOnlySections: [] },
-      releaseNotes: { shouldInjectIntoReadme: false, shouldCreateGithubRelease: false },
+      releaseNotes: { shouldInjectIntoReadme: false },
     } satisfies ReleaseConfig;
 
     const result = generateChangelogs(config, 'v1.0.0', false);
@@ -237,7 +237,7 @@ describe(generateChangelogs, () => {
       workTypes: {},
       cliffConfigPath: 'cliff.toml',
       changelogJson: { enabled: false, outputPath: '.meta/changelog.json', devOnlySections: [] },
-      releaseNotes: { shouldInjectIntoReadme: false, shouldCreateGithubRelease: false },
+      releaseNotes: { shouldInjectIntoReadme: false },
     } satisfies ReleaseConfig;
 
     generateChangelogs(config, 'release-kit-v2.3.0', false);
