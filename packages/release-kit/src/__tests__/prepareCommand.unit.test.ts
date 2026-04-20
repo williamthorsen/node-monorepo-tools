@@ -363,6 +363,49 @@ describe(prepareCommand, () => {
 
     expect(mockAssertCleanWorkingTree).not.toHaveBeenCalled();
   });
+
+  it('passes setVersion to releasePrepareMono when --only matches exactly one component', async () => {
+    await prepareCommand(['--only=arrays', '--set-version=1.0.0']);
+
+    expect(mockReleasePrepareMono).toHaveBeenCalledWith(
+      expect.objectContaining({
+        components: [expect.objectContaining({ tagPrefix: 'arrays-v' })],
+      }),
+      expect.objectContaining({ setVersion: '1.0.0' }),
+    );
+  });
+
+  it('exits with an error when --set-version is used without --only in monorepo mode', async () => {
+    await expect(prepareCommand(['--set-version=1.0.0'])).rejects.toThrow(ExitError);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('--set-version requires --only'));
+    expect(mockReleasePrepareMono).not.toHaveBeenCalled();
+  });
+
+  it('exits with an error when --only matches multiple components under --set-version', async () => {
+    await expect(prepareCommand(['--only=arrays,strings', '--set-version=1.0.0'])).rejects.toThrow(ExitError);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('exactly one component'));
+    expect(mockReleasePrepareMono).not.toHaveBeenCalled();
+  });
+
+  it('exits with the unknown-component error when --only matches zero components under --set-version', async () => {
+    // A non-matching --only name is caught by the unknown-component guard in prepareCommand
+    // (which runs before the --set-version narrowing check), so the error mentions the
+    // unknown name rather than the "exactly one component" message.
+    await expect(prepareCommand(['--only=nonexistent', '--set-version=1.0.0'])).rejects.toThrow(ExitError);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('nonexistent'));
+    expect(mockReleasePrepareMono).not.toHaveBeenCalled();
+  });
+
+  it('passes setVersion to releasePrepare in single-package mode', async () => {
+    mockDiscoverWorkspaces.mockResolvedValue(undefined);
+
+    await prepareCommand(['--set-version=1.2.3']);
+
+    expect(mockReleasePrepare).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ setVersion: '1.2.3' }),
+    );
+  });
 });
 
 describe(parseArgs, () => {
@@ -400,6 +443,35 @@ describe(parseArgs, () => {
 
   it('throws when --only value is empty', () => {
     expect(() => parseArgs(['--only='])).toThrow('--only requires');
+  });
+
+  it('accepts a canonical semver value for --set-version', () => {
+    const result = parseArgs(['--set-version=1.0.0']);
+    expect(result.setVersion).toBe('1.0.0');
+  });
+
+  it('throws when --set-version has a pre-release suffix', () => {
+    expect(() => parseArgs(['--set-version=1.0.0-alpha'])).toThrow('Invalid --set-version');
+  });
+
+  it('throws when --set-version is not canonical N.N.N', () => {
+    expect(() => parseArgs(['--set-version=1.0'])).toThrow('Invalid --set-version');
+  });
+
+  it('throws when --set-version is empty', () => {
+    expect(() => parseArgs(['--set-version='])).toThrow('--set-version requires');
+  });
+
+  it('throws when --set-version is combined with --bump', () => {
+    expect(() => parseArgs(['--set-version=1.0.0', '--bump=minor'])).toThrow(
+      '--set-version cannot be combined with --bump',
+    );
+  });
+
+  it('throws when --set-version is combined with --force', () => {
+    expect(() => parseArgs(['--set-version=1.0.0', '--force'])).toThrow(
+      '--set-version cannot be combined with --force',
+    );
   });
 
   it('parses --no-git-checks flag', () => {

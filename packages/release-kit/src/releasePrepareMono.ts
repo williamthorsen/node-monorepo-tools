@@ -1,9 +1,9 @@
 import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 
 import type { DependencyGraph } from './buildDependencyGraph.ts';
 import { buildDependencyGraph } from './buildDependencyGraph.ts';
-import { bumpAllVersions } from './bumpAllVersions.ts';
+import { bumpAllVersions, setAllVersions } from './bumpAllVersions.ts';
+import { isForwardVersion } from './compareVersions.ts';
 import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { determineBumpFromCommits } from './determineBumpFromCommits.ts';
 import { generateChangelogJson, generateSyntheticChangelogJson } from './generateChangelogJson.ts';
@@ -12,6 +12,7 @@ import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import type { CurrentVersions, ReleaseEntry } from './propagateBumps.ts';
 import { propagateBumps } from './propagateBumps.ts';
+import { readCurrentVersion } from './readCurrentVersion.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
 import type {
   Commit,
@@ -28,9 +29,12 @@ interface DirectBumpResult {
   component: ComponentConfig;
   tag: string | undefined;
   commits: Commit[];
-  releaseType: ReleaseType;
+  /** Release type determined from commits (or the override). Undefined when `setVersion` is used. */
+  releaseType: ReleaseType | undefined;
   parsedCommitCount: number | undefined;
   unparseableCommits: Commit[] | undefined;
+  /** Explicit version from `--set-version`, present only for the overridden component. */
+  setVersion?: string;
 }
 
 /** Intermediate result for a skipped component. */
@@ -122,7 +126,15 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
 
 /** Determine direct bumps from commits for each component. */
 function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePrepareOptions): Phase1Result {
-  const { force, bumpOverride } = options;
+  const { force, bumpOverride, setVersion } = options;
+
+  // Enforce the `--set-version` contract at the orchestration layer. The CLI layer
+  // (`prepareCommand`) normally narrows to a single component before calling, but this
+  // guard protects against programmatic misuse.
+  if (setVersion !== undefined && config.components.length !== 1) {
+    throw new Error(`--set-version requires exactly one component; received ${config.components.length}`);
+  }
+
   const workTypes = config.workTypes ?? { ...DEFAULT_WORK_TYPES };
   const versionPatterns = config.versionPatterns ?? { ...DEFAULT_VERSION_PATTERNS };
 
@@ -137,12 +149,42 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
     const since = tag === undefined ? '(no previous release found)' : `since ${tag}`;
 
     // Read current version from the first package file.
+    // Important: this read must occur BEFORE any bypass branch so propagation sees the
+    // pre-write current version.
     const primaryPackageFile = component.packageFiles[0];
     if (primaryPackageFile !== undefined) {
       const currentVersion = readCurrentVersion(primaryPackageFile);
       if (currentVersion !== undefined) {
         currentVersions.set(component.dir, currentVersion);
       }
+    }
+
+    // --set-version bypass: skip commit-derived bump logic for the overridden component.
+    // Validation that only one component is targeted runs in `prepareCommand` before this function.
+    if (setVersion !== undefined) {
+      const currentVersion = currentVersions.get(component.dir);
+      if (currentVersion === undefined) {
+        throw new Error(
+          `Cannot validate --set-version: failed to read current version from ${primaryPackageFile ?? '(no package file)'}`,
+        );
+      }
+      if (!isForwardVersion(currentVersion, setVersion)) {
+        throw new Error(`--set-version ${setVersion} is not greater than current version ${currentVersion}`);
+      }
+
+      // The releaseType in the ReleaseEntry is a sentinel value; `newVersionOverride` takes
+      // precedence when propagation computes dependent versions.
+      directBumps.set(component.dir, { releaseType: 'patch', newVersionOverride: setVersion });
+      directResults.set(component.dir, {
+        component,
+        tag,
+        commits,
+        releaseType: undefined,
+        parsedCommitCount: undefined,
+        unparseableCommits: undefined,
+        setVersion,
+      });
+      continue;
     }
 
     // Skip components with no changes unless --force is set.
@@ -248,85 +290,171 @@ function executeReleaseSet(
       continue;
     }
 
-    // Bump all versions for this component.
-    const bump = bumpAllVersions(component.packageFiles, releaseEntry.releaseType, dryRun);
-    const newTag = `${component.tagPrefix}${bump.newVersion}`;
-    tags.push(newTag);
-    modifiedFiles.push(...component.packageFiles, ...component.changelogPaths.map((p) => `${p}/CHANGELOG.md`));
-
-    // Generate changelogs: git-cliff for direct bumps, synthetic for propagation-only.
-    const changelogFiles: string[] = [];
-    const directResult = directResults.get(dir);
-    const isPropagationOnly = directResult === undefined;
-
-    if (isPropagationOnly && releaseEntry.propagatedFrom !== undefined) {
-      for (const changelogPath of component.changelogPaths) {
-        changelogFiles.push(
-          writeSyntheticChangelog({
-            changelogPath,
-            newVersion: bump.newVersion,
-            date: today,
-            propagatedFrom: releaseEntry.propagatedFrom,
-            dryRun,
-          }),
-        );
-      }
-
-      // Generate synthetic changelog JSON for propagation-only bumps.
-      if (config.changelogJson.enabled) {
-        for (const changelogPath of component.changelogPaths) {
-          const jsonFiles = generateSyntheticChangelogJson(
-            config,
-            changelogPath,
-            bump.newVersion,
-            today,
-            releaseEntry.propagatedFrom,
-            dryRun,
-          );
-          modifiedFiles.push(...jsonFiles);
-        }
-      }
-    } else {
-      for (const changelogPath of component.changelogPaths) {
-        changelogFiles.push(
-          ...generateChangelog(config, changelogPath, newTag, dryRun, {
-            tagPattern: buildTagPattern(component.tagPrefix),
-            includePaths: component.paths,
-          }),
-        );
-      }
-
-      // Generate changelog JSON for direct bumps.
-      if (config.changelogJson.enabled) {
-        for (const changelogPath of component.changelogPaths) {
-          const jsonFiles = generateChangelogJson(config, changelogPath, newTag, dryRun, {
-            tagPattern: buildTagPattern(component.tagPrefix),
-            includePaths: component.paths,
-          });
-          modifiedFiles.push(...jsonFiles);
-        }
-      }
-    }
-
-    components.push({
-      name: dir,
-      status: 'released',
-      previousTag: directResult?.tag ?? previousTags.get(dir),
-      commitCount: directResult?.commits.length ?? 0,
-      parsedCommitCount: directResult?.parsedCommitCount,
-      releaseType: releaseEntry.releaseType,
-      currentVersion: bump.currentVersion,
-      newVersion: bump.newVersion,
-      tag: newTag,
-      bumpedFiles: bump.files,
-      changelogFiles,
-      commits: directResult?.commits,
-      unparseableCommits: directResult?.unparseableCommits,
-      propagatedFrom: releaseEntry.propagatedFrom,
+    executeComponentRelease({
+      dir,
+      component,
+      releaseEntry,
+      directResult: directResults.get(dir),
+      previousTags,
+      config,
+      dryRun,
+      today,
+      tags,
+      modifiedFiles,
+      components,
     });
   }
 
   return { tags, modifiedFiles };
+}
+
+/** Arguments for executing a single component's bump + changelog generation. */
+interface ExecuteComponentReleaseArgs {
+  dir: string;
+  component: ComponentConfig;
+  releaseEntry: ReleaseEntry;
+  directResult: DirectBumpResult | undefined;
+  previousTags: Map<string, string | undefined>;
+  config: MonorepoReleaseConfig;
+  dryRun: boolean;
+  today: string;
+  tags: string[];
+  modifiedFiles: string[];
+  components: ComponentPrepareResult[];
+}
+
+/** Bump, generate changelogs, and append the component result for one entry in the release set. */
+function executeComponentRelease(args: ExecuteComponentReleaseArgs): void {
+  const {
+    dir,
+    component,
+    releaseEntry,
+    directResult,
+    previousTags,
+    config,
+    dryRun,
+    today,
+    tags,
+    modifiedFiles,
+    components,
+  } = args;
+
+  // Bump all versions for this component. For --set-version components, write the explicit
+  // version directly; otherwise compute the bump from the release type.
+  const setVersionTarget = directResult?.setVersion;
+  const bump =
+    setVersionTarget === undefined
+      ? bumpAllVersions(component.packageFiles, releaseEntry.releaseType, dryRun)
+      : setAllVersions(component.packageFiles, setVersionTarget, dryRun);
+  const newTag = `${component.tagPrefix}${bump.newVersion}`;
+  tags.push(newTag);
+  modifiedFiles.push(...component.packageFiles, ...component.changelogPaths.map((p) => `${p}/CHANGELOG.md`));
+
+  const isPropagationOnly = directResult === undefined;
+  const changelogFiles = generateComponentChangelogs({
+    component,
+    releaseEntry,
+    newTag,
+    newVersion: bump.newVersion,
+    isPropagationOnly,
+    config,
+    dryRun,
+    today,
+    modifiedFiles,
+  });
+
+  components.push({
+    name: dir,
+    status: 'released',
+    previousTag: directResult?.tag ?? previousTags.get(dir),
+    commitCount: directResult?.commits.length ?? 0,
+    parsedCommitCount: directResult?.parsedCommitCount,
+    // For --set-version components releaseType is left undefined so reporting can branch
+    // on the override case without conflating it with a bump type.
+    releaseType: setVersionTarget === undefined ? releaseEntry.releaseType : undefined,
+    currentVersion: bump.currentVersion,
+    newVersion: bump.newVersion,
+    tag: newTag,
+    bumpedFiles: bump.files,
+    changelogFiles,
+    commits: directResult?.commits,
+    unparseableCommits: directResult?.unparseableCommits,
+    propagatedFrom: releaseEntry.propagatedFrom,
+    ...(setVersionTarget === undefined ? {} : { setVersion: setVersionTarget }),
+  });
+}
+
+/** Arguments for generating changelog files for a single component. */
+interface GenerateComponentChangelogsArgs {
+  component: ComponentConfig;
+  releaseEntry: ReleaseEntry;
+  newTag: string;
+  newVersion: string;
+  isPropagationOnly: boolean;
+  config: MonorepoReleaseConfig;
+  dryRun: boolean;
+  today: string;
+  modifiedFiles: string[];
+}
+
+/**
+ * Generate changelogs for a component: synthetic entries for propagation-only bumps, git-cliff
+ * output for direct bumps (including `--set-version`). Returns the list of changelog files written.
+ * Additional changelog JSON files are appended to `modifiedFiles` when the feature is enabled.
+ */
+function generateComponentChangelogs(args: GenerateComponentChangelogsArgs): string[] {
+  const { component, releaseEntry, newTag, newVersion, isPropagationOnly, config, dryRun, today, modifiedFiles } = args;
+  const changelogFiles: string[] = [];
+
+  if (isPropagationOnly && releaseEntry.propagatedFrom !== undefined) {
+    for (const changelogPath of component.changelogPaths) {
+      changelogFiles.push(
+        writeSyntheticChangelog({
+          changelogPath,
+          newVersion,
+          date: today,
+          propagatedFrom: releaseEntry.propagatedFrom,
+          dryRun,
+        }),
+      );
+    }
+
+    if (config.changelogJson.enabled) {
+      for (const changelogPath of component.changelogPaths) {
+        const jsonFiles = generateSyntheticChangelogJson(
+          config,
+          changelogPath,
+          newVersion,
+          today,
+          releaseEntry.propagatedFrom,
+          dryRun,
+        );
+        modifiedFiles.push(...jsonFiles);
+      }
+    }
+    return changelogFiles;
+  }
+
+  for (const changelogPath of component.changelogPaths) {
+    changelogFiles.push(
+      ...generateChangelog(config, changelogPath, newTag, dryRun, {
+        tagPattern: buildTagPattern(component.tagPrefix),
+        includePaths: component.paths,
+      }),
+    );
+  }
+
+  if (config.changelogJson.enabled) {
+    for (const changelogPath of component.changelogPaths) {
+      const jsonFiles = generateChangelogJson(config, changelogPath, newTag, dryRun, {
+        tagPattern: buildTagPattern(component.tagPrefix),
+        includePaths: component.paths,
+      });
+      modifiedFiles.push(...jsonFiles);
+    }
+  }
+
+  return changelogFiles;
 }
 
 /** Run the format command on modified files, if configured. */
@@ -362,24 +490,6 @@ function runFormatCommand(
 /** Find a component by its `dir` in the components array. */
 function findComponent(components: readonly ComponentConfig[], dir: string): ComponentConfig | undefined {
   return components.find((c) => c.dir === dir);
-}
-
-function hasVersionField(value: unknown): value is { version: string } {
-  return typeof value === 'object' && value !== null && 'version' in value && typeof value.version === 'string';
-}
-
-/** Read the `version` field from a package.json file. */
-function readCurrentVersion(filePath: string): string | undefined {
-  try {
-    const content = readFileSync(filePath, 'utf8');
-    const parsed: unknown = JSON.parse(content);
-    if (hasVersionField(parsed)) {
-      return parsed.version;
-    }
-  } catch {
-    // Return undefined if the file can't be read or parsed.
-  }
-  return undefined;
 }
 
 /**

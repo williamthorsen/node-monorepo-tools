@@ -200,4 +200,28 @@ describe(propagateBumps, () => {
     expect(result.size).toBe(1);
     expect(result.get('core')).toMatchObject({ releaseType: 'minor' });
   });
+
+  it('uses newVersionOverride for propagation metadata instead of a bump-computed version', () => {
+    const dependent = makeComponent('app');
+
+    const graph = makeGraph({ '@scope/core': 'core', '@scope/app': 'app' }, { '@scope/core': [dependent] });
+
+    // The sentinel releaseType ('patch') would compute 0.5.1 from 0.5.0, but the explicit
+    // override must win so dependents see the set-version value.
+    const directBumps = new Map<string, ReleaseEntry>([
+      ['core', { releaseType: 'patch', newVersionOverride: '1.0.0' }],
+    ]);
+
+    const currentVersions = new Map([
+      ['core', '0.5.0'],
+      ['app', '2.0.0'],
+    ]);
+
+    const result = propagateBumps(directBumps, graph, currentVersions);
+
+    expect(result.get('app')).toMatchObject({
+      releaseType: 'patch',
+      propagatedFrom: [{ packageName: '@scope/core', newVersion: '1.0.0' }],
+    });
+  });
 });

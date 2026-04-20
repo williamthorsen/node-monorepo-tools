@@ -71,6 +71,8 @@ export interface ComponentPrepareResult {
   /** Dependencies that triggered a propagated bump (present for propagated or mixed components). */
   propagatedFrom?: PropagationSource[] | undefined;
   skipReason?: string | undefined;
+  /** Present when this component was written via `--set-version`; the explicit version that was applied. */
+  setVersion?: string | undefined;
 }
 
 /** Aggregate result of the prepare workflow for both single-package and monorepo modes. */

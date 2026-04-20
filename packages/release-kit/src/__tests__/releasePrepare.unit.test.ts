@@ -241,4 +241,109 @@ describe(releasePrepare, () => {
     expect(result.tags).toStrictEqual(['v1.1.0']);
     expect(result.dryRun).toBe(true);
   });
+
+  it('writes the explicit --set-version value, bypassing commit-derived bumps', () => {
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') {
+        return 'v0.5.0\n';
+      }
+      if (cmd === 'git' && args[0] === 'log') {
+        return 'chore: unrelated change\u001Fabc123';
+      }
+      return '';
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
+
+    const result = releasePrepare(makeConfig(), { dryRun: false, setVersion: '1.0.0' });
+
+    expect(result.tags).toStrictEqual(['v1.0.0']);
+    expect(result.components).toHaveLength(1);
+    expect(result.components[0]).toMatchObject({
+      status: 'released',
+      newVersion: '1.0.0',
+      currentVersion: '0.5.0',
+      tag: 'v1.0.0',
+      setVersion: '1.0.0',
+    });
+    expect(result.components[0]?.releaseType).toBeUndefined();
+    expect(mockWriteFileSync).toHaveBeenCalledWith(
+      'package.json',
+      expect.stringContaining('"version": "1.0.0"'),
+      'utf8',
+    );
+  });
+
+  it('still generates a changelog when using --set-version', () => {
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') {
+        return 'v0.5.0\n';
+      }
+      if (cmd === 'git' && args[0] === 'log') {
+        return '';
+      }
+      return '';
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
+
+    const result = releasePrepare(makeConfig(), { dryRun: false, setVersion: '1.0.0' });
+
+    expect(result.components[0]?.changelogFiles).toStrictEqual(['./CHANGELOG.md']);
+    const cliffCalls = mockExecFileSync.mock.calls.filter(
+      (call: unknown[]) => call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff'),
+    );
+    expect(cliffCalls).toHaveLength(1);
+  });
+
+  it('throws when --set-version is not greater than the current version', () => {
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') {
+        return 'v0.5.0\n';
+      }
+      if (cmd === 'git' && args[0] === 'log') {
+        return '';
+      }
+      return '';
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
+
+    expect(() => releasePrepare(makeConfig(), { dryRun: false, setVersion: '0.3.0' })).toThrow(
+      '--set-version 0.3.0 is not greater than current version 0.5.0',
+    );
+  });
+
+  it('throws when --set-version equals the current version', () => {
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') {
+        return 'v0.5.0\n';
+      }
+      if (cmd === 'git' && args[0] === 'log') {
+        return '';
+      }
+      return '';
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
+
+    expect(() => releasePrepare(makeConfig(), { dryRun: false, setVersion: '0.5.0' })).toThrow(
+      '--set-version 0.5.0 is not greater than current version 0.5.0',
+    );
+  });
+
+  it('does not write files in dry-run mode with --set-version', () => {
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') {
+        return 'v0.5.0\n';
+      }
+      if (cmd === 'git' && args[0] === 'log') {
+        return '';
+      }
+      return '';
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
+
+    const result = releasePrepare(makeConfig(), { dryRun: true, setVersion: '1.0.0' });
+
+    expect(result.tags).toStrictEqual(['v1.0.0']);
+    expect(result.dryRun).toBe(true);
+    expect(mockWriteFileSync).not.toHaveBeenCalled();
+  });
 });

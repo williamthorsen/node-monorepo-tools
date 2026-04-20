@@ -33,6 +33,9 @@ export const RELEASE_SUMMARY_FILE = 'tmp/.release-summary';
 
 const VALID_BUMP_TYPES: readonly string[] = ['major', 'minor', 'patch'];
 
+/** Canonical `N.N.N` semver pattern for validating `--set-version` input. */
+const CANONICAL_SEMVER_PATTERN = /^\d+\.\d+\.\d+$/;
+
 function isReleaseType(value: string): value is ReleaseType {
   return VALID_BUMP_TYPES.includes(value);
 }
@@ -45,6 +48,7 @@ Usage: npx @williamthorsen/release-kit prepare [options]
 Options:
   --dry-run             Run without modifying any files
   --bump=major|minor|patch  Override the bump type for all components
+  --set-version=X.Y.Z   Set an explicit version; bypasses commit-derived bumps. Requires --only in monorepo mode.
   --force               Force a release even when there are no commits since the last tag (requires --bump)
   --no-git-checks, -n   Skip the clean-working-tree check
   --only=name1,name2    Only process the named components (comma-separated, monorepo only)
@@ -61,6 +65,7 @@ const prepareFlagSchema = {
     short: '-n',
   },
   bump: { long: '--bump', type: 'string' as const },
+  setVersion: { long: '--set-version', type: 'string' as const },
   only: { long: '--only', type: 'string' as const },
   help: { long: '--help', type: 'boolean' as const, short: '-h' },
 };
@@ -72,6 +77,7 @@ export function parseArgs(argv: string[]): {
   noGitChecks: boolean;
   bumpOverride: ReleaseType | undefined;
   only: string[] | undefined;
+  setVersion: string | undefined;
 } {
   let parsed;
   try {
@@ -95,9 +101,27 @@ export function parseArgs(argv: string[]): {
     bumpOverride = flags.bump;
   }
 
+  let setVersion: string | undefined;
+  if (flags.setVersion !== undefined) {
+    if (!CANONICAL_SEMVER_PATTERN.test(flags.setVersion)) {
+      throw new Error(
+        `Invalid --set-version value "${flags.setVersion}". Must be canonical semver (N.N.N, no pre-release suffix).`,
+      );
+    }
+    setVersion = flags.setVersion;
+  }
+
   let only: string[] | undefined;
   if (flags.only !== undefined) {
     only = flags.only.split(',');
+  }
+
+  if (setVersion !== undefined && bumpOverride !== undefined) {
+    throw new Error('--set-version cannot be combined with --bump');
+  }
+
+  if (setVersion !== undefined && flags.force) {
+    throw new Error('--set-version cannot be combined with --force');
   }
 
   if (flags.force && bumpOverride === undefined) {
@@ -110,6 +134,7 @@ export function parseArgs(argv: string[]): {
     noGitChecks: flags.noGitChecks,
     bumpOverride,
     only,
+    setVersion,
   };
 }
 
@@ -144,8 +169,9 @@ export async function prepareCommand(argv: string[]): Promise<void> {
   let noGitChecks: boolean;
   let bumpOverride: ReleaseType | undefined;
   let only: string[] | undefined;
+  let setVersion: string | undefined;
   try {
-    ({ dryRun, force, noGitChecks, bumpOverride, only } = parseArgs(argv));
+    ({ dryRun, force, noGitChecks, bumpOverride, only, setVersion } = parseArgs(argv));
   } catch (error: unknown) {
     console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
@@ -154,6 +180,7 @@ export async function prepareCommand(argv: string[]): Promise<void> {
     dryRun,
     force,
     ...(bumpOverride === undefined ? {} : { bumpOverride }),
+    ...(setVersion === undefined ? {} : { setVersion }),
   };
 
   if (dryRun) {
@@ -207,6 +234,20 @@ export async function prepareCommand(argv: string[]): Promise<void> {
       }
 
       config.components = config.components.filter((c) => only.includes(c.dir));
+    }
+
+    // --set-version requires exactly one target component in monorepo mode.
+    if (setVersion !== undefined) {
+      if (only === undefined) {
+        console.error('Error: --set-version requires --only in monorepo mode');
+        process.exit(1);
+      }
+      if (config.components.length !== 1) {
+        console.error(
+          `Error: --set-version requires --only to match exactly one component; matched ${config.components.length}`,
+        );
+        process.exit(1);
+      }
     }
 
     runAndReport(() => releasePrepareMono(config, options), dryRun);

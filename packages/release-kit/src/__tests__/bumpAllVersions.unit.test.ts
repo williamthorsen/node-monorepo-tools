@@ -8,7 +8,7 @@ vi.mock(import('node:fs'), () => ({
   writeFileSync: mockWriteFileSync,
 }));
 
-import { bumpAllVersions } from '../bumpAllVersions.ts';
+import { bumpAllVersions, setAllVersions } from '../bumpAllVersions.ts';
 
 describe(bumpAllVersions, () => {
   afterEach(() => {
@@ -86,11 +86,59 @@ describe(bumpAllVersions, () => {
 
     const result = bumpAllVersions(['packages/a/package.json'], 'major', true);
 
-    expect(result.newVersion).toBe('1.0.0');
+    // Pre-1.0 'major' collapses to a minor bump, so 0.5.0 → 0.6.0 (not 1.0.0).
+    expect(result.newVersion).toBe('0.6.0');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
   });
 
   it('throws when no package files are specified', () => {
     expect(() => bumpAllVersions([], 'patch', false)).toThrow('No package files specified');
+  });
+});
+
+describe(setAllVersions, () => {
+  afterEach(() => {
+    mockReadFileSync.mockReset();
+    mockWriteFileSync.mockReset();
+    vi.restoreAllMocks();
+  });
+
+  it('writes the provided version to every file and returns the pre-write current version', () => {
+    mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
+
+    const result = setAllVersions(['packages/a/package.json', 'packages/b/package.json'], '1.0.0', false);
+
+    expect(result).toStrictEqual({
+      currentVersion: '0.5.0',
+      newVersion: '1.0.0',
+      files: ['packages/a/package.json', 'packages/b/package.json'],
+    });
+    expect(mockWriteFileSync).toHaveBeenCalledTimes(2);
+    expect(mockWriteFileSync).toHaveBeenNthCalledWith(
+      1,
+      'packages/a/package.json',
+      expect.stringContaining('"version": "1.0.0"'),
+      'utf8',
+    );
+    expect(mockWriteFileSync).toHaveBeenNthCalledWith(
+      2,
+      'packages/b/package.json',
+      expect.stringContaining('"version": "1.0.0"'),
+      'utf8',
+    );
+  });
+
+  it('does not write files in dry-run mode', () => {
+    mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
+
+    const result = setAllVersions(['packages/a/package.json'], '1.0.0', true);
+
+    expect(result.currentVersion).toBe('0.5.0');
+    expect(result.newVersion).toBe('1.0.0');
+    expect(mockWriteFileSync).not.toHaveBeenCalled();
+  });
+
+  it('throws when no package files are specified', () => {
+    expect(() => setAllVersions([], '1.0.0', false)).toThrow('No package files specified');
   });
 });

@@ -846,6 +846,150 @@ describe(releasePrepareMono, () => {
       expect(result.components).toHaveLength(1);
     });
 
+    it('writes the explicit --set-version value in monorepo mode', () => {
+      const config = makeConfig({
+        components: [
+          {
+            dir: 'core',
+            tagPrefix: 'core-v',
+            packageFiles: ['packages/core/package.json'],
+            changelogPaths: ['packages/core'],
+            paths: ['packages/core/**'],
+          },
+        ],
+      });
+
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') return 'core-v0.5.0\n';
+        if (cmd === 'git' && args[0] === 'log') return '';
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
+      mockExistsSync.mockReturnValue(false);
+
+      const result = releasePrepareMono(config, { dryRun: false, setVersion: '1.0.0' });
+
+      const coreResult = result.components.find((c) => c.name === 'core');
+      expect(coreResult).toMatchObject({
+        status: 'released',
+        newVersion: '1.0.0',
+        currentVersion: '0.5.0',
+        setVersion: '1.0.0',
+      });
+      expect(coreResult?.releaseType).toBeUndefined();
+      expect(result.tags).toStrictEqual(['core-v1.0.0']);
+      expect(mockWriteFileSync).toHaveBeenCalledWith(
+        'packages/core/package.json',
+        expect.stringContaining('"version": "1.0.0"'),
+        'utf8',
+      );
+    });
+
+    it('throws when --set-version is not greater than the current version', () => {
+      const config = makeConfig({
+        components: [
+          {
+            dir: 'core',
+            tagPrefix: 'core-v',
+            packageFiles: ['packages/core/package.json'],
+            changelogPaths: ['packages/core'],
+            paths: ['packages/core/**'],
+          },
+        ],
+      });
+
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') return 'core-v0.5.0\n';
+        if (cmd === 'git' && args[0] === 'log') return '';
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
+
+      expect(() => releasePrepareMono(config, { dryRun: false, setVersion: '0.3.0' })).toThrow(
+        '--set-version 0.3.0 is not greater than current version 0.5.0',
+      );
+    });
+
+    it('throws when --set-version equals the current version', () => {
+      const config = makeConfig({
+        components: [
+          {
+            dir: 'core',
+            tagPrefix: 'core-v',
+            packageFiles: ['packages/core/package.json'],
+            changelogPaths: ['packages/core'],
+            paths: ['packages/core/**'],
+          },
+        ],
+      });
+
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') return 'core-v0.5.0\n';
+        if (cmd === 'git' && args[0] === 'log') return '';
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
+
+      expect(() => releasePrepareMono(config, { dryRun: false, setVersion: '0.5.0' })).toThrow(
+        '--set-version 0.5.0 is not greater than current version 0.5.0',
+      );
+    });
+
+    it('does not write files in dry-run mode with --set-version', () => {
+      const config = makeConfig({
+        components: [
+          {
+            dir: 'core',
+            tagPrefix: 'core-v',
+            packageFiles: ['packages/core/package.json'],
+            changelogPaths: ['packages/core'],
+            paths: ['packages/core/**'],
+          },
+        ],
+      });
+
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') return 'core-v0.5.0\n';
+        if (cmd === 'git' && args[0] === 'log') return '';
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
+      mockExistsSync.mockReturnValue(false);
+
+      const result = releasePrepareMono(config, { dryRun: true, setVersion: '1.0.0' });
+
+      expect(result.tags).toStrictEqual(['core-v1.0.0']);
+      expect(result.dryRun).toBe(true);
+      expect(mockWriteFileSync).not.toHaveBeenCalled();
+    });
+
+    it('throws when --set-version is used with more than one component', () => {
+      // Explicit guard in `determineDirectBumps` enforces the single-component contract for
+      // --set-version even if a caller bypasses the CLI layer that normally narrows via --only.
+      const config = makeConfig({
+        components: [
+          {
+            dir: 'core',
+            tagPrefix: 'core-v',
+            packageFiles: ['packages/core/package.json'],
+            changelogPaths: ['packages/core'],
+            paths: ['packages/core/**'],
+          },
+          {
+            dir: 'app',
+            tagPrefix: 'app-v',
+            packageFiles: ['packages/app/package.json'],
+            changelogPaths: ['packages/app'],
+            paths: ['packages/app/**'],
+          },
+        ],
+      });
+
+      expect(() => releasePrepareMono(config, { dryRun: false, setVersion: '1.0.0' })).toThrow(
+        '--set-version requires exactly one component',
+      );
+    });
+
     it('preserves a direct higher bump when propagation would add a patch', () => {
       const config = makeConfig({
         components: [
