@@ -4,6 +4,7 @@ const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
 const mockResolveReleaseTags = vi.hoisted(() => vi.fn());
 const mockCreateGithubReleases = vi.hoisted(() => vi.fn());
 const mockResolveReleaseNotesConfig = vi.hoisted(() => vi.fn());
+const mockComponent = vi.hoisted(() => vi.fn());
 
 vi.mock('../discoverWorkspaces.ts', () => ({
   discoverWorkspaces: mockDiscoverWorkspaces,
@@ -21,6 +22,10 @@ vi.mock('../resolveReleaseNotesConfig.ts', () => ({
   resolveReleaseNotesConfig: mockResolveReleaseNotesConfig,
 }));
 
+vi.mock('../component.ts', () => ({
+  component: mockComponent,
+}));
+
 import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';
 
 /** Sentinel error thrown by the mocked process.exit. */
@@ -35,6 +40,14 @@ describe(createGithubReleaseCommand, () => {
     mockDiscoverWorkspaces.mockResolvedValue(undefined);
     mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.' }]);
     mockCreateGithubReleases.mockReturnValue({ created: ['v1.0.0'], skipped: [] });
+    mockComponent.mockImplementation((workspacePath: string) => ({
+      dir: workspacePath.split('/').pop(),
+      tagPrefix: `${workspacePath.split('/').pop()}-v`,
+      workspacePath,
+      packageFiles: [`${workspacePath}/package.json`],
+      changelogPaths: [workspacePath],
+      paths: [`${workspacePath}/**`],
+    }));
     mockResolveReleaseNotesConfig.mockResolvedValue({
       releaseNotes: { shouldInjectIntoReadme: false },
       changelogJsonOutputPath: '.meta/changelog.json',

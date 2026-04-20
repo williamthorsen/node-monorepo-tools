@@ -1,21 +1,59 @@
+import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 
+import { isRecord } from './typeGuards.ts';
 import type { ComponentConfig } from './types.ts';
 
 /**
  * Creates a component configuration from a workspace-relative path.
  *
- * Derives all fields from the workspace path so that the same rule governs both
- * tag creation and tag lookup. The `dir` field is the basename of the path; the
- * `tagPrefix` is always `${dir}-v`.
+ * Reads `package.json` at the workspace path to derive the tag identifier from the
+ * package's `name` field (with any leading `@scope/` stripped). The `dir` field remains
+ * the basename of the path — it is the stable internal identifier used for `--only`,
+ * config overrides, and dependency-graph lookups. The `tagPrefix` is `${unscopedName}-v`,
+ * so tags reflect the package identity rather than the directory layout.
  */
 export function component(workspacePath: string): ComponentConfig {
   const dir = basename(workspacePath);
+  const packageJsonPath = `${workspacePath}/package.json`;
+  const packageJsonContent = readFileSync(packageJsonPath, 'utf8');
+  const parsed: unknown = JSON.parse(packageJsonContent);
+  const name = extractName(parsed);
+
+  if (typeof name !== 'string' || name.length === 0) {
+    throw new Error(`${packageJsonPath} is missing a 'name' field (required for tag derivation).`);
+  }
+
+  const unscopedName = stripNpmScope(name);
+
   return {
     dir,
-    tagPrefix: `${dir}-v`,
-    packageFiles: [`${workspacePath}/package.json`],
+    tagPrefix: `${unscopedName}-v`,
+    workspacePath,
+    packageFiles: [packageJsonPath],
     changelogPaths: [workspacePath],
     paths: [`${workspacePath}/**`],
   };
+}
+
+/**
+ * Strip a leading `@scope/` from an npm package name.
+ *
+ * Npm package names cannot contain `/` outside the scope separator, so splitting on
+ * the first `/` is safe. Intentionally scoped to this module because the concept is
+ * distinct from the commit-scope stripping performed by `stripScope.ts`.
+ */
+function stripNpmScope(name: string): string {
+  if (name.startsWith('@') && name.includes('/')) {
+    return name.slice(name.indexOf('/') + 1);
+  }
+  return name;
+}
+
+/** Read the `name` field from a parsed `package.json` value without assuming its shape. */
+function extractName(parsed: unknown): unknown {
+  if (!isRecord(parsed)) {
+    return undefined;
+  }
+  return parsed.name;
 }

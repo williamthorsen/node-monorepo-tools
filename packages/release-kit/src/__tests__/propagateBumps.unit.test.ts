@@ -9,6 +9,7 @@ function makeComponent(dir: string): ComponentConfig {
   return {
     dir,
     tagPrefix: `${dir}-v`,
+    workspacePath: `packages/${dir}`,
     packageFiles: [`packages/${dir}/package.json`],
     changelogPaths: [`packages/${dir}`],
     paths: [`packages/${dir}/**`],

@@ -4,9 +4,18 @@ const mockAssertCleanWorkingTree = vi.hoisted(() => vi.fn());
 const mockBuildReleaseSummary = vi.hoisted(() => vi.fn());
 const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
 const mockLoadConfig = vi.hoisted(() => vi.fn());
+const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockReleasePrepareMono = vi.hoisted(() => vi.fn());
 const mockReleasePrepare = vi.hoisted(() => vi.fn());
 const mockWriteFileWithCheck = vi.hoisted(() => vi.fn());
+
+vi.mock(import('node:fs'), async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    readFileSync: mockReadFileSync,
+  };
+});
 
 vi.mock('../assertCleanWorkingTree.ts', () => ({
   assertCleanWorkingTree: mockAssertCleanWorkingTree,
@@ -69,6 +78,15 @@ describe(prepareCommand, () => {
     mockBuildReleaseSummary.mockReturnValue('');
     mockDiscoverWorkspaces.mockResolvedValue(['packages/arrays', 'packages/strings']);
     mockLoadConfig.mockResolvedValue(undefined);
+    mockReadFileSync.mockImplementation((filePath: string) => {
+      if (filePath === 'packages/arrays/package.json') {
+        return JSON.stringify({ name: '@scope/arrays' });
+      }
+      if (filePath === 'packages/strings/package.json') {
+        return JSON.stringify({ name: '@scope/strings' });
+      }
+      throw new Error(`Unexpected readFileSync call for path: ${filePath}`);
+    });
     mockReleasePrepareMono.mockReturnValue(makePrepareResult());
     mockReleasePrepare.mockReturnValue(makePrepareResult());
     mockWriteFileWithCheck.mockReturnValue({ filePath: RELEASE_TAGS_FILE, outcome: 'created' });
@@ -85,6 +103,7 @@ describe(prepareCommand, () => {
     mockBuildReleaseSummary.mockReset();
     mockDiscoverWorkspaces.mockReset();
     mockLoadConfig.mockReset();
+    mockReadFileSync.mockReset();
     mockReleasePrepareMono.mockReset();
     mockReleasePrepare.mockReset();
     mockWriteFileWithCheck.mockReset();

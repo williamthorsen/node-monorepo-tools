@@ -181,8 +181,10 @@ export interface ParsedCommit {
 export interface ComponentConfig {
   /** The package directory name (e.g., 'arrays'). Used for display and `--only` matching. */
   dir: string;
-  /** The git tag prefix for this component (e.g., 'arrays-v'). */
+  /** The git tag prefix for this component (e.g., 'node-monorepo-core-v'), derived from the unscoped `package.json` name. */
   tagPrefix: string;
+  /** Workspace-relative path to the package root (e.g., `packages/core`). */
+  workspacePath: string;
   /** Paths to package.json files to bump. */
   packageFiles: string[];
   /** Directories in which to generate changelogs. */
