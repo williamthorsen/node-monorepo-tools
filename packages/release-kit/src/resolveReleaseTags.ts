@@ -8,8 +8,11 @@ export interface ResolvedTag {
   workspacePath: string;
 }
 
-/** Pattern matching a version suffix like `v1.2.3` or `v0.10.0-beta.1`. */
+/** Pattern matching a single-package tag like `v1.2.3` or `v0.10.0-beta.1`. */
 const VERSION_PATTERN = /^v\d+\.\d+\.\d+/;
+
+/** Pattern matching a bare semver suffix like `1.2.3` or `0.10.0-beta.1` (no leading `v`). */
+const SEMVER_SUFFIX_PATTERN = /^\d+\.\d+\.\d+/;
 
 /**
  * Resolve release tags pointing at HEAD into publishable package descriptors.
@@ -74,10 +77,10 @@ function resolveMonorepoTags(tags: string[], components: readonly ComponentConfi
 
 /**
  * Return the component whose `tagPrefix` the tag starts with and whose version suffix matches
- * `VERSION_PATTERN`. Expects `sortedComponents` to be ordered longest-prefix first.
+ * `SEMVER_SUFFIX_PATTERN`. Expects `sortedComponents` to be ordered longest-prefix first.
  *
  * `tagPrefix` ends with `v` (e.g., `core-v`), so `tag.slice(c.tagPrefix.length)` yields a bare
- * semver without a leading `v`. Prepending `'v'` re-forms the pattern's expected shape.
+ * semver without a leading `v` — matched directly by `SEMVER_SUFFIX_PATTERN`.
  */
 function findMatchingComponent(tag: string, sortedComponents: readonly ComponentConfig[]): ComponentConfig | undefined {
   for (const component of sortedComponents) {
@@ -85,7 +88,7 @@ function findMatchingComponent(tag: string, sortedComponents: readonly Component
       continue;
     }
     const versionSuffix = tag.slice(component.tagPrefix.length);
-    if (VERSION_PATTERN.test(`v${versionSuffix}`)) {
+    if (SEMVER_SUFFIX_PATTERN.test(versionSuffix)) {
       return component;
     }
   }

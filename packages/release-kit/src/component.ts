@@ -16,9 +16,14 @@ import type { ComponentConfig } from './types.ts';
 export function component(workspacePath: string): ComponentConfig {
   const dir = basename(workspacePath);
   const packageJsonPath = `${workspacePath}/package.json`;
-  const packageJsonContent = readFileSync(packageJsonPath, 'utf8');
-  const parsed: unknown = JSON.parse(packageJsonContent);
-  const name = extractName(parsed);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to read ${packageJsonPath}: ${message}`);
+  }
+  const name = isRecord(parsed) ? parsed.name : undefined;
 
   if (typeof name !== 'string' || name.length === 0) {
     throw new Error(`${packageJsonPath} is missing a 'name' field (required for tag derivation).`);
@@ -48,12 +53,4 @@ function stripNpmScope(name: string): string {
     return name.slice(name.indexOf('/') + 1);
   }
   return name;
-}
-
-/** Read the `name` field from a parsed `package.json` value without assuming its shape. */
-function extractName(parsed: unknown): unknown {
-  if (!isRecord(parsed)) {
-    return undefined;
-  }
-  return parsed.name;
 }

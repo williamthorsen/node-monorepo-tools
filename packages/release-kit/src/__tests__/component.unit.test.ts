@@ -73,17 +73,19 @@ describe(component, () => {
     );
   });
 
-  it('propagates the underlying error when readFileSync fails (e.g., missing file)', () => {
+  it('wraps readFileSync errors with the workspace path for context', () => {
     mockReadFileSync.mockImplementation(() => {
       throw new Error('ENOENT: no such file or directory, open packages/missing/package.json');
     });
 
-    expect(() => component('packages/missing')).toThrow('ENOENT');
+    expect(() => component('packages/missing')).toThrow(
+      'Failed to read packages/missing/package.json: ENOENT: no such file or directory, open packages/missing/package.json',
+    );
   });
 
-  it('throws a SyntaxError when package.json contents are not valid JSON', () => {
+  it('wraps JSON.parse errors with the workspace path for context', () => {
     mockReadFileSync.mockReturnValue('not json');
 
-    expect(() => component('packages/malformed')).toThrow(SyntaxError);
+    expect(() => component('packages/malformed')).toThrow(/^Failed to read packages\/malformed\/package\.json: /);
   });
 });

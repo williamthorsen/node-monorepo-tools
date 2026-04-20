@@ -9,13 +9,9 @@ const mockReleasePrepareMono = vi.hoisted(() => vi.fn());
 const mockReleasePrepare = vi.hoisted(() => vi.fn());
 const mockWriteFileWithCheck = vi.hoisted(() => vi.fn());
 
-vi.mock(import('node:fs'), async (importOriginal) => {
-  const actual = await importOriginal();
-  return {
-    ...actual,
-    readFileSync: mockReadFileSync,
-  };
-});
+vi.mock('node:fs', () => ({
+  readFileSync: mockReadFileSync,
+}));
 
 vi.mock('../assertCleanWorkingTree.ts', () => ({
   assertCleanWorkingTree: mockAssertCleanWorkingTree,
