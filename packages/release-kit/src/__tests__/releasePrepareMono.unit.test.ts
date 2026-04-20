@@ -94,6 +94,7 @@ describe(releasePrepareMono, () => {
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
+          workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
           changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
@@ -146,6 +147,7 @@ describe(releasePrepareMono, () => {
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
+          workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
           changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
@@ -183,6 +185,7 @@ describe(releasePrepareMono, () => {
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
+          workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
           changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
@@ -190,6 +193,7 @@ describe(releasePrepareMono, () => {
         {
           dir: 'strings',
           tagPrefix: 'strings-v',
+          workspacePath: 'packages/strings',
           packageFiles: ['packages/strings/package.json'],
           changelogPaths: ['packages/strings'],
           paths: ['packages/strings/**'],
@@ -243,6 +247,7 @@ describe(releasePrepareMono, () => {
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
+          workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
           changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
@@ -283,6 +288,7 @@ describe(releasePrepareMono, () => {
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
+          workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
           changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
@@ -290,6 +296,7 @@ describe(releasePrepareMono, () => {
         {
           dir: 'strings',
           tagPrefix: 'strings-v',
+          workspacePath: 'packages/strings',
           packageFiles: ['packages/strings/package.json'],
           changelogPaths: ['packages/strings'],
           paths: ['packages/strings/**'],
@@ -325,6 +332,7 @@ describe(releasePrepareMono, () => {
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
+          workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
           changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
@@ -365,6 +373,7 @@ describe(releasePrepareMono, () => {
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
+          workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
           changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
@@ -402,6 +411,7 @@ describe(releasePrepareMono, () => {
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
+          workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
           changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
@@ -436,6 +446,7 @@ describe(releasePrepareMono, () => {
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
+          workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
           changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
@@ -471,6 +482,7 @@ describe(releasePrepareMono, () => {
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
+          workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
           changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
@@ -478,6 +490,7 @@ describe(releasePrepareMono, () => {
         {
           dir: 'strings',
           tagPrefix: 'strings-v',
+          workspacePath: 'packages/strings',
           packageFiles: ['packages/strings/package.json'],
           changelogPaths: ['packages/strings'],
           paths: ['packages/strings/**'],
@@ -517,6 +530,7 @@ describe(releasePrepareMono, () => {
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
+          workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
           changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
@@ -549,6 +563,7 @@ describe(releasePrepareMono, () => {
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
+          workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
           changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
@@ -579,6 +594,7 @@ describe(releasePrepareMono, () => {
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
+          workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
           changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
@@ -613,6 +629,7 @@ describe(releasePrepareMono, () => {
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
+          workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
           changelogPaths: ['packages/arrays'],
           paths: ['packages/arrays/**'],
@@ -643,6 +660,7 @@ describe(releasePrepareMono, () => {
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
+          workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
           changelogPaths: ['packages/arrays', 'packages/arrays/docs'],
           paths: ['packages/arrays/**'],
@@ -682,6 +700,7 @@ describe(releasePrepareMono, () => {
           {
             dir: 'core',
             tagPrefix: 'core-v',
+            workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
             changelogPaths: ['packages/core'],
             paths: ['packages/core/**'],
@@ -689,6 +708,7 @@ describe(releasePrepareMono, () => {
           {
             dir: 'app',
             tagPrefix: 'app-v',
+            workspacePath: 'packages/app',
             packageFiles: ['packages/app/package.json'],
             changelogPaths: ['packages/app'],
             paths: ['packages/app/**'],
@@ -758,6 +778,7 @@ describe(releasePrepareMono, () => {
           {
             dir: 'core',
             tagPrefix: 'core-v',
+            workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
             changelogPaths: ['packages/core'],
             paths: ['packages/core/**'],
@@ -765,6 +786,7 @@ describe(releasePrepareMono, () => {
           {
             dir: 'app',
             tagPrefix: 'app-v',
+            workspacePath: 'packages/app',
             packageFiles: ['packages/app/package.json'],
             changelogPaths: ['packages/app'],
             paths: ['packages/app/**'],
@@ -825,6 +847,7 @@ describe(releasePrepareMono, () => {
           {
             dir: 'core',
             tagPrefix: 'core-v',
+            workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
             changelogPaths: ['packages/core'],
             paths: ['packages/core/**'],
@@ -852,6 +875,7 @@ describe(releasePrepareMono, () => {
           {
             dir: 'core',
             tagPrefix: 'core-v',
+            workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
             changelogPaths: ['packages/core'],
             paths: ['packages/core/**'],
@@ -891,6 +915,7 @@ describe(releasePrepareMono, () => {
           {
             dir: 'core',
             tagPrefix: 'core-v',
+            workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
             changelogPaths: ['packages/core'],
             paths: ['packages/core/**'],
@@ -916,6 +941,7 @@ describe(releasePrepareMono, () => {
           {
             dir: 'core',
             tagPrefix: 'core-v',
+            workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
             changelogPaths: ['packages/core'],
             paths: ['packages/core/**'],
@@ -941,6 +967,7 @@ describe(releasePrepareMono, () => {
           {
             dir: 'core',
             tagPrefix: 'core-v',
+            workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
             changelogPaths: ['packages/core'],
             paths: ['packages/core/**'],
@@ -971,6 +998,7 @@ describe(releasePrepareMono, () => {
           {
             dir: 'core',
             tagPrefix: 'core-v',
+            workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
             changelogPaths: ['packages/core'],
             paths: ['packages/core/**'],
@@ -978,6 +1006,7 @@ describe(releasePrepareMono, () => {
           {
             dir: 'app',
             tagPrefix: 'app-v',
+            workspacePath: 'packages/app',
             packageFiles: ['packages/app/package.json'],
             changelogPaths: ['packages/app'],
             paths: ['packages/app/**'],
@@ -996,6 +1025,7 @@ describe(releasePrepareMono, () => {
           {
             dir: 'core',
             tagPrefix: 'core-v',
+            workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
             changelogPaths: ['packages/core'],
             paths: ['packages/core/**'],
@@ -1003,6 +1033,7 @@ describe(releasePrepareMono, () => {
           {
             dir: 'app',
             tagPrefix: 'app-v',
+            workspacePath: 'packages/app',
             packageFiles: ['packages/app/package.json'],
             changelogPaths: ['packages/app'],
             paths: ['packages/app/**'],

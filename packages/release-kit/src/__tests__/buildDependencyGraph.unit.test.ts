@@ -13,6 +13,7 @@ function makeComponent(dir: string, packageFile?: string): ComponentConfig {
   return {
     dir,
     tagPrefix: `${dir}-v`,
+    workspacePath: `packages/${dir}`,
     packageFiles: [packageFile ?? `packages/${dir}/package.json`],
     changelogPaths: [`packages/${dir}`],
     paths: [`packages/${dir}/**`],
@@ -175,6 +176,7 @@ describe(buildDependencyGraph, () => {
     const comp: ComponentConfig = {
       dir: 'empty',
       tagPrefix: 'empty-v',
+      workspacePath: 'packages/empty',
       packageFiles: [],
       changelogPaths: [],
       paths: [],

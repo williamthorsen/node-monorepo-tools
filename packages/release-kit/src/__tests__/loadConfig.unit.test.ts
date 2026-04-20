@@ -1,12 +1,14 @@
 import path from 'node:path';
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockExistsSync = vi.hoisted(() => vi.fn());
+const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockJitiImport = vi.hoisted(() => vi.fn());
 
 vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
+  readFileSync: mockReadFileSync,
 }));
 
 vi.mock('jiti', () => ({
@@ -16,9 +18,25 @@ vi.mock('jiti', () => ({
 import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from '../defaults.ts';
 import { CONFIG_FILE_PATH, loadConfig, mergeMonorepoConfig, mergeSinglePackageConfig } from '../loadConfig.ts';
 
+/**
+ * Configure `mockReadFileSync` to return a `package.json` with the given `name` per workspace
+ * path. Any path not in the map triggers a test failure rather than a silent default.
+ */
+function mockPackageNames(namesByPath: Record<string, string>): void {
+  mockReadFileSync.mockImplementation((filePath: string) => {
+    for (const [workspacePath, name] of Object.entries(namesByPath)) {
+      if (filePath === `${workspacePath}/package.json`) {
+        return JSON.stringify({ name });
+      }
+    }
+    throw new Error(`Unexpected readFileSync call for path: ${filePath}`);
+  });
+}
+
 describe(loadConfig, () => {
   afterEach(() => {
     mockExistsSync.mockReset();
+    mockReadFileSync.mockReset();
     mockJitiImport.mockReset();
   });
 
@@ -97,30 +115,49 @@ describe(loadConfig, () => {
 describe(mergeMonorepoConfig, () => {
   const discoveredPaths = ['packages/arrays', 'packages/strings'];
 
-  it('builds default components from discovered paths', () => {
+  beforeEach(() => {
+    mockPackageNames({
+      'packages/arrays': '@scope/arrays',
+      'packages/strings': '@scope/strings',
+    });
+  });
+
+  afterEach(() => {
+    mockReadFileSync.mockReset();
+  });
+
+  it('builds default components from discovered paths using pkg.name for tagPrefix', () => {
     const result = mergeMonorepoConfig(discoveredPaths, undefined);
 
     expect(result.components).toHaveLength(2);
     expect(result.components[0]).toStrictEqual({
       dir: 'arrays',
       tagPrefix: 'arrays-v',
+      workspacePath: 'packages/arrays',
       packageFiles: ['packages/arrays/package.json'],
       changelogPaths: ['packages/arrays'],
       paths: ['packages/arrays/**'],
     });
   });
 
-  it('builds components from non-standard workspace paths', () => {
+  it('derives tagPrefix from unscoped pkg.name when directory basename differs', () => {
+    mockPackageNames({
+      'libs/core': '@williamthorsen/node-monorepo-core',
+      'apps/web': 'web-app',
+    });
+
     const result = mergeMonorepoConfig(['libs/core', 'apps/web'], undefined);
 
     expect(result.components).toHaveLength(2);
     expect(result.components[0]).toStrictEqual({
       dir: 'core',
-      tagPrefix: 'core-v',
+      tagPrefix: 'node-monorepo-core-v',
+      workspacePath: 'libs/core',
       packageFiles: ['libs/core/package.json'],
       changelogPaths: ['libs/core'],
       paths: ['libs/core/**'],
     });
+    expect(result.components[1]?.tagPrefix).toBe('web-app-v');
   });
 
   it('uses default workTypes when no config is provided', () => {
@@ -182,6 +219,42 @@ describe(mergeMonorepoConfig, () => {
     });
 
     expect(result.scopeAliases).toStrictEqual({ api: 'backend-api' });
+  });
+
+  it('throws when two workspaces produce the same tagPrefix', () => {
+    mockPackageNames({
+      'packages/a-foo': '@a/foo',
+      'packages/b-foo': '@b/foo',
+    });
+
+    expect(() => mergeMonorepoConfig(['packages/a-foo', 'packages/b-foo'], undefined)).toThrow(
+      "Duplicate tag prefix 'foo-v' for workspaces: packages/a-foo, packages/b-foo",
+    );
+  });
+
+  it('throws on duplicate tagPrefix even when one colliding workspace is excluded', () => {
+    mockPackageNames({
+      'packages/a-foo': '@a/foo',
+      'packages/b-foo': '@b/foo',
+    });
+
+    expect(() =>
+      mergeMonorepoConfig(['packages/a-foo', 'packages/b-foo'], {
+        components: [{ dir: 'b-foo', shouldExclude: true }],
+      }),
+    ).toThrow("Duplicate tag prefix 'foo-v' for workspaces: packages/a-foo, packages/b-foo");
+  });
+
+  it('includes every colliding workspace path when more than two collide', () => {
+    mockPackageNames({
+      'packages/a-foo': '@a/foo',
+      'packages/b-foo': '@b/foo',
+      'packages/c-foo': '@c/foo',
+    });
+
+    expect(() => mergeMonorepoConfig(['packages/a-foo', 'packages/b-foo', 'packages/c-foo'], undefined)).toThrow(
+      "Duplicate tag prefix 'foo-v' for workspaces: packages/a-foo, packages/b-foo, packages/c-foo",
+    );
   });
 });
 

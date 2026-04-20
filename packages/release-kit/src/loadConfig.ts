@@ -71,6 +71,9 @@ export function mergeMonorepoConfig(
   // Build default components from discovered paths
   let components: ComponentConfig[] = discoveredPaths.map((workspacePath) => component(workspacePath));
 
+  // Detect duplicate tagPrefix values before filtering so exclusions cannot hide collisions.
+  assertUniqueTagPrefixes(components);
+
   // Apply component overrides from user config
   if (userConfig?.components !== undefined) {
     const overrides = new Map(userConfig.components.map((c) => [c.dir, c]));
@@ -176,6 +179,31 @@ function mergeChangelogJsonConfig(partial: Partial<ChangelogJsonConfig> | undefi
     outputPath: partial.outputPath ?? DEFAULT_CHANGELOG_JSON_CONFIG.outputPath,
     devOnlySections: partial.devOnlySections ?? [...DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections],
   };
+}
+
+/**
+ * Throw when two or more components share the same `tagPrefix`.
+ *
+ * A collision means two workspaces would produce indistinguishable tags, breaking both tag
+ * creation and tag resolution. The error lists every colliding workspace path so the author
+ * can rename one of the conflicting `package.json` `name` fields.
+ */
+function assertUniqueTagPrefixes(components: readonly ComponentConfig[]): void {
+  const pathsByPrefix = new Map<string, string[]>();
+  for (const component of components) {
+    const existing = pathsByPrefix.get(component.tagPrefix);
+    if (existing === undefined) {
+      pathsByPrefix.set(component.tagPrefix, [component.workspacePath]);
+    } else {
+      existing.push(component.workspacePath);
+    }
+  }
+
+  for (const [prefix, paths] of pathsByPrefix) {
+    if (paths.length > 1) {
+      throw new Error(`Duplicate tag prefix '${prefix}' for workspaces: ${paths.join(', ')}`);
+    }
+  }
 }
 
 /** Merge user-provided release notes config with defaults. */

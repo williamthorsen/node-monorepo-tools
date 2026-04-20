@@ -302,23 +302,26 @@ This package shells out to two external tools:
 
 ## Using `component()` for manual configuration
 
-If you need to build a `MonorepoReleaseConfig` manually (e.g., for the legacy script-based approach), the exported `component()` helper creates a `ComponentConfig` from a workspace-relative path:
+If you need to build a `MonorepoReleaseConfig` manually (e.g., for the legacy script-based approach), the exported `component()` helper creates a `ComponentConfig` from a workspace-relative path. It reads the workspace's `package.json` to derive the tag prefix from the package name:
 
 ```typescript
 import { component } from '@williamthorsen/release-kit';
 
-// Accepts the full workspace-relative path
+// packages/arrays/package.json contains `"name": "@scope/arrays"`
 component('packages/arrays');
 // => {
 //   dir: 'arrays',
 //   tagPrefix: 'arrays-v',
+//   workspacePath: 'packages/arrays',
 //   packageFiles: ['packages/arrays/package.json'],
 //   changelogPaths: ['packages/arrays'],
 //   paths: ['packages/arrays/**'],
 // }
 ```
 
-The `dir` field is derived from `path.basename()`, so `packages/arrays` and `libs/arrays` both produce `dir: 'arrays'`. The `tagPrefix` is always `${dir}-v` — it cannot be customized.
+`dir` is the basename of the workspace path and is the stable internal identifier used by `--only`, `ComponentOverride.dir`, and the dependency graph. `tagPrefix` is derived from the unscoped `package.json` `name` — any leading `@scope/` is stripped — so tags reflect the package identity rather than the directory layout. For example, a workspace at `packages/core` with `"name": "@williamthorsen/node-monorepo-core"` produces `tagPrefix: 'node-monorepo-core-v'`, yielding tags like `node-monorepo-core-v1.3.0`.
+
+The workspace's `package.json` must declare a non-empty `name` field; `component()` throws otherwise. If two workspaces produce the same `tagPrefix` (because their unscoped names collide), `mergeMonorepoConfig()` throws and names the colliding workspaces so you can rename one.
 
 ## Legacy script-based approach
 
@@ -346,6 +349,27 @@ runReleasePrepare(config);
 The key difference: the script-based approach requires manually listing every component, while the CLI auto-discovers them from `pnpm-workspace.yaml`.
 
 ## Breaking changes
+
+### `resolveReleaseTags` takes components; `ComponentConfig` requires `workspacePath`
+
+Tag resolution is now driven by component records rather than a caller-supplied directory map, so `resolveReleaseTags` can report both the component `dir` and its `workspacePath` for every resolved tag.
+
+- `resolveReleaseTags` signature changed from `(workspaceMap?: Map<string, string>)` to `(components?: readonly ComponentConfig[])`.
+- `ComponentConfig` gained a required `workspacePath: string` field.
+
+Replace direct `Map`-based calls with `component()`, which now populates `workspacePath` for you:
+
+```diff
+-import { resolveReleaseTags } from '@williamthorsen/release-kit';
+-
+-const workspaceMap = new Map([['core', 'packages/core']]);
+-resolveReleaseTags(workspaceMap);
++import { component, resolveReleaseTags } from '@williamthorsen/release-kit';
++
++resolveReleaseTags([component('packages/core')]);
+```
+
+If you construct `ComponentConfig` objects directly, add `workspacePath` alongside the other required fields.
 
 ### `release-kit publish` and `release-kit push` replace `--only` with `--tags`
 

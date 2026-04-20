@@ -16,7 +16,7 @@ import { loadConfig, mergeMonorepoConfig, mergeSinglePackageConfig } from './loa
 import { releasePrepare } from './releasePrepare.ts';
 import { releasePrepareMono } from './releasePrepareMono.ts';
 import { reportPrepare } from './reportPrepare.ts';
-import type { PrepareResult, ReleaseKitConfig, ReleaseType } from './types.ts';
+import type { MonorepoReleaseConfig, PrepareResult, ReleaseKitConfig, ReleaseType } from './types.ts';
 import { validateConfig } from './validateConfig.ts';
 
 /**
@@ -210,48 +210,79 @@ export async function prepareCommand(argv: string[]): Promise<void> {
 
   // 4. Determine mode, merge config, and run
   if (discoveredPaths === undefined) {
-    // Single-package mode
-    if (only !== undefined) {
-      console.error('Error: --only is only supported for monorepo configurations');
+    runSinglePackageMode(userConfig, options, only, dryRun);
+  } else {
+    runMonorepoMode(discoveredPaths, userConfig, options, only, setVersion, dryRun);
+  }
+}
+
+function runSinglePackageMode(
+  userConfig: ReleaseKitConfig | undefined,
+  options: PrepareOptions,
+  only: string[] | undefined,
+  dryRun: boolean,
+): void {
+  if (only !== undefined) {
+    console.error('Error: --only is only supported for monorepo configurations');
+    process.exit(1);
+  }
+
+  const config = mergeSinglePackageConfig(userConfig);
+  runAndReport(() => releasePrepare(config, options), dryRun);
+}
+
+function runMonorepoMode(
+  discoveredPaths: string[],
+  userConfig: ReleaseKitConfig | undefined,
+  options: PrepareOptions,
+  only: string[] | undefined,
+  setVersion: string | undefined,
+  dryRun: boolean,
+): void {
+  let config: MonorepoReleaseConfig;
+  try {
+    config = mergeMonorepoConfig(discoveredPaths, userConfig);
+  } catch (error: unknown) {
+    console.error(`Error resolving workspace components: ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  }
+
+  if (only !== undefined) {
+    const knownNames = config.components.map((c) => c.dir);
+
+    // Validate all names before mutating config
+    for (const name of only) {
+      if (!knownNames.includes(name)) {
+        console.error(`Error: Unknown component "${name}". Known components: ${knownNames.join(', ')}`);
+        process.exit(1);
+      }
+    }
+
+    config.components = config.components.filter((c) => only.includes(c.dir));
+  }
+
+  // --set-version requires exactly one target component in monorepo mode.
+  if (setVersion !== undefined) {
+    if (only === undefined) {
+      console.error('Error: --set-version requires --only in monorepo mode');
       process.exit(1);
     }
-
-    const config = mergeSinglePackageConfig(userConfig);
-    runAndReport(() => releasePrepare(config, options), dryRun);
-  } else {
-    // Monorepo mode
-    const config = mergeMonorepoConfig(discoveredPaths, userConfig);
-
-    if (only !== undefined) {
-      const knownNames = config.components.map((c) => c.dir);
-
-      // Validate all names before mutating config
-      for (const name of only) {
-        if (!knownNames.includes(name)) {
-          console.error(`Error: Unknown component "${name}". Known components: ${knownNames.join(', ')}`);
-          process.exit(1);
-        }
-      }
-
-      config.components = config.components.filter((c) => only.includes(c.dir));
+    if (config.components.length !== 1) {
+      console.error(
+        `Error: --set-version requires --only to match exactly one component; matched ${config.components.length}`,
+      );
+      process.exit(1);
     }
-
-    // --set-version requires exactly one target component in monorepo mode.
-    if (setVersion !== undefined) {
-      if (only === undefined) {
-        console.error('Error: --set-version requires --only in monorepo mode');
-        process.exit(1);
-      }
-      if (config.components.length !== 1) {
-        console.error(
-          `Error: --set-version requires --only to match exactly one component; matched ${config.components.length}`,
-        );
-        process.exit(1);
-      }
-    }
-
-    runAndReport(() => releasePrepareMono(config, options), dryRun);
   }
+
+  runAndReport(() => releasePrepareMono(config, options), dryRun);
+}
+
+interface PrepareOptions {
+  dryRun: boolean;
+  force: boolean;
+  bumpOverride?: ReleaseType;
+  setVersion?: string;
 }
 
 /** Loads and validate the release-kit config file, exiting on errors. */
