@@ -14,7 +14,7 @@ pnpm add -D @williamthorsen/audit-deps
 # Run a vulnerability check with sensible defaults (no config needed)
 npx @williamthorsen/audit-deps
 
-# Scaffold a starter config for customization
+# Scaffold a starter config and GitHub Actions workflow
 npx audit-deps init
 
 # Sync allowlists with current findings
@@ -68,7 +68,7 @@ Usage: audit-deps [options]
 Commands:
   (default)            Grouped vulnerability check with severity indicators
   sync                 Synchronize allowlists with current audit findings
-  init                 Scaffold a starter config file
+  init                 Scaffold a starter config file and GitHub Actions workflow
 
 Scope options:
   --dev                Target dev dependencies only
@@ -89,6 +89,12 @@ Other options:
   --dry-run, -n   Preview changes without writing files
   --force, -f     Overwrite existing files
 ```
+
+## Scaffolded GitHub Actions workflow
+
+`audit-deps init` scaffolds `.github/workflows/audit.yaml` alongside the config file. The workflow is a thin caller that delegates to the versioned reusable workflow published at `williamthorsen/node-monorepo-tools/.github/workflows/audit.reusable.yaml@workflow/audit-v1`, so your repository tracks the reusable workflow at a stable version tag.
+
+The scaffolded workflow triggers on pull requests to `main`/`next`, on a daily schedule, and on manual `workflow_dispatch`. Commit the file into your repository so the caller runs in CI. If the reusable workflow's caller-side requirements change (for example, the tag bumps), re-run `audit-deps init --force` to refresh the file.
 
 ## Migration from v0.3
 

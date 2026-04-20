@@ -18,7 +18,7 @@ Usage: audit-deps [options]
 Commands:
   (default)            Grouped vulnerability check with severity indicators
   sync                 Synchronize allowlists with current audit findings
-  init                 Scaffold a starter config file
+  init                 Scaffold a starter config file and GitHub Actions workflow
 
 Scope options:
   --dev                Target dev dependencies only
@@ -38,7 +38,7 @@ function showInitHelp(): void {
   console.info(`
 Usage: audit-deps init [options]
 
-Scaffold a starter config file.
+Scaffold a starter config file and GitHub Actions workflow.
 
 Options:
   --dry-run, -n   Preview changes without writing files

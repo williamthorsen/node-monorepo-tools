@@ -7,7 +7,7 @@ vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
 }));
 
-vi.mock(import('../findPackageRoot.ts'), () => ({
+vi.mock(import('@williamthorsen/node-monorepo-core'), () => ({
   findPackageRoot: mockFindPackageRoot,
 }));
 
