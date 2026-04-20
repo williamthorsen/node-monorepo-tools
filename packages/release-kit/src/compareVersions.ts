@@ -19,13 +19,11 @@ function parseCanonicalSemver(version: string): ParsedVersion {
     throw new Error(`Invalid semver version: '${version}'`);
   }
 
-  const major = match[1];
-  const minor = match[2];
-  const patch = match[3];
-
-  if (major === undefined || minor === undefined || patch === undefined) {
-    throw new Error(`Invalid semver version: '${version}'`);
-  }
+  // The pattern has exactly three capture groups, so a successful match always yields
+  // defined strings in positions 1..3. Fallback empty strings make the destructuring
+  // type-safe without adding a redundant runtime guard; `Number.parseInt('', 10)` is `NaN`,
+  // which is unreachable given the `!match` early exit above.
+  const [, major = '', minor = '', patch = ''] = match;
 
   return {
     major: Number.parseInt(major, 10),

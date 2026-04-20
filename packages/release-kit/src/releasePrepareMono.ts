@@ -1,5 +1,4 @@
 import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 
 import type { DependencyGraph } from './buildDependencyGraph.ts';
 import { buildDependencyGraph } from './buildDependencyGraph.ts';
@@ -13,6 +12,7 @@ import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import type { CurrentVersions, ReleaseEntry } from './propagateBumps.ts';
 import { propagateBumps } from './propagateBumps.ts';
+import { readCurrentVersion } from './readCurrentVersion.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
 import type {
   Commit,
@@ -482,24 +482,6 @@ function runFormatCommand(
 /** Find a component by its `dir` in the components array. */
 function findComponent(components: readonly ComponentConfig[], dir: string): ComponentConfig | undefined {
   return components.find((c) => c.dir === dir);
-}
-
-function hasVersionField(value: unknown): value is { version: string } {
-  return typeof value === 'object' && value !== null && 'version' in value && typeof value.version === 'string';
-}
-
-/** Read the `version` field from a package.json file. */
-function readCurrentVersion(filePath: string): string | undefined {
-  try {
-    const content = readFileSync(filePath, 'utf8');
-    const parsed: unknown = JSON.parse(content);
-    if (hasVersionField(parsed)) {
-      return parsed.version;
-    }
-  } catch {
-    // Return undefined if the file can't be read or parsed.
-  }
-  return undefined;
 }
 
 /**
