@@ -42,22 +42,27 @@ function formatSingleComponent(result: PrepareResult): string {
     return lines.join('\n');
   }
 
-  // Bump override message (no parsedCommitCount means bump override was used)
-  if (component.parsedCommitCount === undefined && component.releaseType !== undefined) {
+  // --set-version: render an explicit version-override message instead of a bump label.
+  if (component.setVersion !== undefined) {
+    lines.push(`  Using version override: ${component.setVersion}`);
+  } else if (component.parsedCommitCount === undefined && component.releaseType !== undefined) {
+    // Bump override message (no parsedCommitCount means bump override was used)
     lines.push(`  Using bump override: ${component.releaseType}`);
   }
 
   // Bump info
   if (component.releaseType !== undefined) {
     lines.push(dim(`Bumping versions (${component.releaseType})...`));
+  } else if (component.setVersion !== undefined) {
+    lines.push(dim(`Bumping versions (version override)...`));
   }
 
-  if (
-    component.currentVersion !== undefined &&
-    component.newVersion !== undefined &&
-    component.releaseType !== undefined
-  ) {
-    lines.push(`📦 ${component.currentVersion} → ${bold(component.newVersion)} (${component.releaseType})`);
+  if (component.currentVersion !== undefined && component.newVersion !== undefined) {
+    if (component.setVersion !== undefined) {
+      lines.push(`📦 ${component.currentVersion} → ${bold(component.newVersion)} (version override)`);
+    } else if (component.releaseType !== undefined) {
+      lines.push(`📦 ${component.currentVersion} → ${bold(component.newVersion)} (${component.releaseType})`);
+    }
   }
 
   // Bump file details
@@ -84,58 +89,7 @@ function formatMultiComponent(result: PrepareResult): string {
   const lines: string[] = [];
 
   for (const component of result.components) {
-    if (component.name !== undefined) {
-      lines.push(`\n${sectionHeader(component.name)}`);
-    }
-
-    const since =
-      component.previousTag === undefined ? '(no previous release found)' : `since ${component.previousTag}`;
-
-    lines.push(dim(`  Found ${component.commitCount} commits ${since}`));
-
-    if (component.status === 'skipped') {
-      lines.push(`  ⏭️  ${component.skipReason ?? 'Skipped'}`);
-      continue;
-    }
-
-    const { propagatedFrom } = component;
-    const isPropagatedOnly = propagatedFrom !== undefined && component.commitCount === 0;
-
-    if (isPropagatedOnly) {
-      const depNames = propagatedFrom.map((p) => p.packageName).join(', ');
-      lines.push(dim(`  0 commits (bumped via dependency: ${depNames})`));
-    } else if (component.parsedCommitCount !== undefined) {
-      lines.push(dim(`  Parsed ${component.parsedCommitCount} typed commits`));
-    }
-
-    formatUnparseableWarning(lines, component, '  ');
-
-    if (component.parsedCommitCount === undefined && component.releaseType !== undefined && !isPropagatedOnly) {
-      lines.push(`  Using bump override: ${component.releaseType}`);
-    }
-
-    if (component.releaseType !== undefined) {
-      lines.push(dim(`  Bumping versions (${component.releaseType})...`));
-    }
-
-    if (
-      component.currentVersion !== undefined &&
-      component.newVersion !== undefined &&
-      component.releaseType !== undefined
-    ) {
-      const suffix = isPropagatedOnly ? formatPropagationSuffix(propagatedFrom) : '';
-      lines.push(
-        `  📦 ${component.currentVersion} → ${bold(component.newVersion)} (${component.releaseType}${suffix})`,
-      );
-    }
-
-    formatBumpFiles(lines, component, result.dryRun, '  ');
-    lines.push(dim('  Generating changelogs...'));
-    formatChangelogFiles(lines, component, result.dryRun, '  ');
-
-    if (component.tag !== undefined) {
-      lines.push(`  🏷️  ${bold(component.tag)}`);
-    }
+    formatComponentSection(lines, component, result.dryRun);
   }
 
   // Format command
@@ -155,6 +109,86 @@ function formatMultiComponent(result: PrepareResult): string {
   }
 
   return lines.join('\n');
+}
+
+/** Render a single component's section within multi-component output. */
+function formatComponentSection(lines: string[], component: ComponentPrepareResult, dryRun: boolean): void {
+  if (component.name !== undefined) {
+    lines.push(`\n${sectionHeader(component.name)}`);
+  }
+
+  const since = component.previousTag === undefined ? '(no previous release found)' : `since ${component.previousTag}`;
+  lines.push(dim(`  Found ${component.commitCount} commits ${since}`));
+
+  if (component.status === 'skipped') {
+    lines.push(`  ⏭️  ${component.skipReason ?? 'Skipped'}`);
+    return;
+  }
+
+  const { propagatedFrom } = component;
+  const isPropagatedOnly = propagatedFrom !== undefined && component.commitCount === 0;
+
+  formatCommitSummary(lines, component, propagatedFrom, isPropagatedOnly);
+  formatUnparseableWarning(lines, component, '  ');
+  formatBumpLabels(lines, component, isPropagatedOnly);
+  formatVersionLine(lines, component, propagatedFrom, isPropagatedOnly);
+
+  formatBumpFiles(lines, component, dryRun, '  ');
+  lines.push(dim('  Generating changelogs...'));
+  formatChangelogFiles(lines, component, dryRun, '  ');
+
+  if (component.tag !== undefined) {
+    lines.push(`  🏷️  ${bold(component.tag)}`);
+  }
+}
+
+/** Append the commit-count summary line for a component (propagation-only or parsed counts). */
+function formatCommitSummary(
+  lines: string[],
+  component: ComponentPrepareResult,
+  propagatedFrom: PropagationSource[] | undefined,
+  isPropagatedOnly: boolean,
+): void {
+  if (isPropagatedOnly && propagatedFrom !== undefined) {
+    const depNames = propagatedFrom.map((p) => p.packageName).join(', ');
+    lines.push(dim(`  0 commits (bumped via dependency: ${depNames})`));
+  } else if (component.parsedCommitCount !== undefined) {
+    lines.push(dim(`  Parsed ${component.parsedCommitCount} typed commits`));
+  }
+}
+
+/** Append the bump-override / set-version label and the "Bumping versions..." line. */
+function formatBumpLabels(lines: string[], component: ComponentPrepareResult, isPropagatedOnly: boolean): void {
+  if (component.setVersion !== undefined) {
+    lines.push(`  Using version override: ${component.setVersion}`);
+  } else if (component.parsedCommitCount === undefined && component.releaseType !== undefined && !isPropagatedOnly) {
+    lines.push(`  Using bump override: ${component.releaseType}`);
+  }
+
+  if (component.releaseType !== undefined) {
+    lines.push(dim(`  Bumping versions (${component.releaseType})...`));
+  } else if (component.setVersion !== undefined) {
+    lines.push(dim(`  Bumping versions (version override)...`));
+  }
+}
+
+/** Append the `currentVersion → newVersion` line with the appropriate suffix. */
+function formatVersionLine(
+  lines: string[],
+  component: ComponentPrepareResult,
+  propagatedFrom: PropagationSource[] | undefined,
+  isPropagatedOnly: boolean,
+): void {
+  if (component.currentVersion === undefined || component.newVersion === undefined) {
+    return;
+  }
+
+  if (component.setVersion !== undefined) {
+    lines.push(`  📦 ${component.currentVersion} → ${bold(component.newVersion)} (version override)`);
+  } else if (component.releaseType !== undefined) {
+    const suffix = isPropagatedOnly ? formatPropagationSuffix(propagatedFrom) : '';
+    lines.push(`  📦 ${component.currentVersion} → ${bold(component.newVersion)} (${component.releaseType}${suffix})`);
+  }
 }
 
 /** Append bump file detail lines. */
