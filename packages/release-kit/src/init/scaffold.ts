@@ -2,9 +2,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import type { WriteResult } from '@williamthorsen/node-monorepo-core';
-import { writeFileWithCheck } from '@williamthorsen/node-monorepo-core';
+import { findPackageRoot, writeFileWithCheck } from '@williamthorsen/node-monorepo-core';
 
-import { findPackageRoot } from '../findPackageRoot.ts';
 import type { RepoType } from './detectRepoType.ts';
 import { createGithubReleaseWorkflow, publishWorkflow, releaseConfigScript, releaseWorkflow } from './templates.ts';
 

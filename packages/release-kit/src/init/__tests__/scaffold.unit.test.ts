@@ -10,11 +10,8 @@ vi.mock(import('node:fs'), () => ({
   readFileSync: mockReadFileSync,
 }));
 
-vi.mock(import('../../findPackageRoot.ts'), () => ({
-  findPackageRoot: mockFindPackageRoot,
-}));
-
 vi.mock(import('@williamthorsen/node-monorepo-core'), () => ({
+  findPackageRoot: mockFindPackageRoot,
   writeFileWithCheck: mockWriteFileWithCheck,
 }));
 

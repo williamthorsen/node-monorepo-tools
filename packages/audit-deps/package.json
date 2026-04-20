@@ -33,10 +33,15 @@
   },
   "files": [
     "bin",
-    "dist"
+    "dist",
+    "templates"
   ],
   "scripts": {
-    "prepare": "tsx ../../config/generateVersion.ts && tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json"
+    "prepare": "tsx ../../config/generateVersion.ts && tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json",
+    "test": "pnpm exec vitest --config=vitest.standalone.config.ts",
+    "test:coverage": "pnpm exec vitest --config=vitest.standalone.config.ts --coverage",
+    "test:integration": "pnpm exec vitest --config=vitest.integration.config.ts",
+    "test:watch": "pnpm exec vitest --config=vitest.standalone.config.ts --watch"
   },
   "dependencies": {
     "@williamthorsen/node-monorepo-core": "workspace:*",

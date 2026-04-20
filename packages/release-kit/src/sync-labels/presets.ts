@@ -2,9 +2,9 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import { findPackageRoot } from '@williamthorsen/node-monorepo-core';
 import { load } from 'js-yaml';
 
-import { findPackageRoot } from '../findPackageRoot.ts';
 import { isRecord } from '../typeGuards.ts';
 import type { LabelDefinition } from './types.ts';
 
