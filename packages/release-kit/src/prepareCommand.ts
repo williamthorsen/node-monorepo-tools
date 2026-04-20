@@ -16,7 +16,7 @@ import { loadConfig, mergeMonorepoConfig, mergeSinglePackageConfig } from './loa
 import { releasePrepare } from './releasePrepare.ts';
 import { releasePrepareMono } from './releasePrepareMono.ts';
 import { reportPrepare } from './reportPrepare.ts';
-import type { PrepareResult, ReleaseKitConfig, ReleaseType } from './types.ts';
+import type { MonorepoReleaseConfig, PrepareResult, ReleaseKitConfig, ReleaseType } from './types.ts';
 import { validateConfig } from './validateConfig.ts';
 
 /**
@@ -220,7 +220,13 @@ export async function prepareCommand(argv: string[]): Promise<void> {
     runAndReport(() => releasePrepare(config, options), dryRun);
   } else {
     // Monorepo mode
-    const config = mergeMonorepoConfig(discoveredPaths, userConfig);
+    let config: MonorepoReleaseConfig;
+    try {
+      config = mergeMonorepoConfig(discoveredPaths, userConfig);
+    } catch (error: unknown) {
+      console.error(`Error resolving workspace components: ${error instanceof Error ? error.message : String(error)}`);
+      process.exit(1);
+    }
 
     if (only !== undefined) {
       const knownNames = config.components.map((c) => c.dir);

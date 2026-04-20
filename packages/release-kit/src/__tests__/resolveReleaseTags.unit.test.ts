@@ -94,6 +94,15 @@ describe(resolveReleaseTags, () => {
     ]);
   });
 
+  it('resolves pre-release monorepo tags like core-v1.0.0-beta.1', () => {
+    mockExecFileSync.mockReturnValue('core-v1.0.0-beta.1\n');
+    const components = [makeComponent({ dir: 'core', tagPrefix: 'core-v' })];
+
+    expect(resolveReleaseTags(components)).toStrictEqual([
+      { tag: 'core-v1.0.0-beta.1', dir: 'core', workspacePath: 'packages/core' },
+    ]);
+  });
+
   it('handles tags with multiple hyphens in the package name', () => {
     mockExecFileSync.mockReturnValue('my-cool-lib-v3.0.0\n');
     const components = [

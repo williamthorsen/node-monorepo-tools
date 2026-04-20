@@ -72,4 +72,18 @@ describe(component, () => {
       "packages/invalid/package.json is missing a 'name' field (required for tag derivation).",
     );
   });
+
+  it('propagates the underlying error when readFileSync fails (e.g., missing file)', () => {
+    mockReadFileSync.mockImplementation(() => {
+      throw new Error('ENOENT: no such file or directory, open packages/missing/package.json');
+    });
+
+    expect(() => component('packages/missing')).toThrow('ENOENT');
+  });
+
+  it('throws a SyntaxError when package.json contents are not valid JSON', () => {
+    mockReadFileSync.mockReturnValue('not json');
+
+    expect(() => component('packages/malformed')).toThrow(SyntaxError);
+  });
 });

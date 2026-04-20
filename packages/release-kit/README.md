@@ -350,6 +350,27 @@ The key difference: the script-based approach requires manually listing every co
 
 ## Breaking changes
 
+### `resolveReleaseTags` takes components; `ComponentConfig` requires `workspacePath`
+
+Tag resolution is now driven by component records rather than a caller-supplied directory map, so `resolveReleaseTags` can report both the component `dir` and its `workspacePath` for every resolved tag.
+
+- `resolveReleaseTags` signature changed from `(workspaceMap?: Map<string, string>)` to `(components?: readonly ComponentConfig[])`.
+- `ComponentConfig` gained a required `workspacePath: string` field.
+
+Replace direct `Map`-based calls with `component()`, which now populates `workspacePath` for you:
+
+```diff
+-import { resolveReleaseTags } from '@williamthorsen/release-kit';
+-
+-const workspaceMap = new Map([['core', 'packages/core']]);
+-resolveReleaseTags(workspaceMap);
++import { component, resolveReleaseTags } from '@williamthorsen/release-kit';
++
++resolveReleaseTags([component('packages/core')]);
+```
+
+If you construct `ComponentConfig` objects directly, add `workspacePath` alongside the other required fields.
+
 ### `release-kit publish` and `release-kit push` replace `--only` with `--tags`
 
 The `--only=<dir>` flag on `release-kit publish` and `release-kit push` has been removed. Both commands now filter by full tag name via `--tags=<tag1>[,<tag2>...]`, matching `release-kit create-github-release`. Passing `--only=...` after upgrading produces an `Unknown option: --only` error.
