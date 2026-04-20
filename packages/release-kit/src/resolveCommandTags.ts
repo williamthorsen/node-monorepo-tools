@@ -8,21 +8,17 @@ import type { ResolvedTag } from './resolveReleaseTags.ts';
 import { resolveReleaseTags } from './resolveReleaseTags.ts';
 
 /**
- * Discover workspaces, resolve release tags from HEAD, validate `--only` names, and return
- * the filtered tag list. Exits with an error message on any validation failure.
+ * Discover workspaces, resolve release tags from HEAD, validate `--tags` names against the
+ * full resolved tag names (e.g., `core-v1.3.0`), and return the filtered tag list. Works in
+ * both single-package and monorepo modes. Exits with an error message on any validation failure.
  */
-export async function resolveCommandTags(only: string[] | undefined): Promise<ResolvedTag[]> {
+export async function resolveCommandTags(tags: string[] | undefined): Promise<ResolvedTag[]> {
   // Discover workspaces to determine single-package vs monorepo mode.
   let discoveredPaths: string[] | undefined;
   try {
     discoveredPaths = await discoverWorkspaces();
   } catch (error: unknown) {
     console.error(`Error discovering workspaces: ${error instanceof Error ? error.message : String(error)}`);
-    process.exit(1);
-  }
-
-  if (only !== undefined && discoveredPaths === undefined) {
-    console.error('Error: --only is only supported for monorepo configurations');
     process.exit(1);
   }
 
@@ -38,16 +34,16 @@ export async function resolveCommandTags(only: string[] | undefined): Promise<Re
     process.exit(1);
   }
 
-  // Validate --only against resolved tags.
-  if (only !== undefined) {
-    const availableNames = resolvedTags.map((t) => t.dir);
-    for (const name of only) {
-      if (!availableNames.includes(name)) {
-        console.error(`Error: Unknown package "${name}" in --only. Available: ${availableNames.join(', ')}`);
+  // Validate --tags against resolved tag names (full tag name, not dir).
+  if (tags !== undefined) {
+    const availableTagNames = resolvedTags.map((t) => t.tag);
+    for (const name of tags) {
+      if (!availableTagNames.includes(name)) {
+        console.error(`Error: Unknown tag "${name}" in --tags. Available: ${availableTagNames.join(', ')}`);
         process.exit(1);
       }
     }
-    resolvedTags = resolvedTags.filter((t) => only.includes(t.dir));
+    resolvedTags = resolvedTags.filter((t) => tags.includes(t.tag));
   }
 
   return resolvedTags;

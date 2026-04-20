@@ -74,6 +74,15 @@ describe(publishWorkflow, () => {
     expect(workflow).toContain('provenance: true');
     expect(workflow).not.toContain('provenance: false');
   });
+
+  it.each(['monorepo', 'single-package'] as const)(
+    'passes tags: ${{ github.ref_name }} to the reusable workflow (%s)',
+    (repoType) => {
+      const workflow = publishWorkflow(repoType);
+
+      expect(workflow).toContain('tags: ${{ github.ref_name }}');
+    },
+  );
 });
 
 describe(createGithubReleaseWorkflow, () => {

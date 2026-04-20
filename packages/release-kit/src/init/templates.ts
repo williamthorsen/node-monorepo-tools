@@ -78,6 +78,7 @@ jobs:
     uses: williamthorsen/node-monorepo-tools/.github/workflows/publish.reusable.yaml@workflow/publish-v1
     with:
       provenance: true
+      tags: \${{ github.ref_name }}
 `;
 }
 

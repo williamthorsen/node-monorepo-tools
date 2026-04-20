@@ -62,10 +62,51 @@ describe(pushCommand, () => {
     expect(mockPushRelease).toHaveBeenCalledWith(TAGS, { dryRun: false, tagsOnly: true });
   });
 
-  it('passes only filter to resolveCommandTags', async () => {
-    await pushCommand(['--only=core,cli']);
+  it('passes tags filter to resolveCommandTags', async () => {
+    await pushCommand(['--tags=core-v1.2.0,cli-v0.5.0']);
 
-    expect(mockResolveCommandTags).toHaveBeenCalledWith(['core', 'cli']);
+    expect(mockResolveCommandTags).toHaveBeenCalledWith(['core-v1.2.0', 'cli-v0.5.0']);
+  });
+
+  it('combines --tags with --tags-only to push only the tag subset', async () => {
+    await pushCommand(['--tags=core-v1.2.0', '--tags-only']);
+
+    expect(mockResolveCommandTags).toHaveBeenCalledWith(['core-v1.2.0']);
+    expect(mockPushRelease).toHaveBeenCalledWith(TAGS, { dryRun: false, tagsOnly: true });
+  });
+
+  it('propagates unknown-tag error from resolveCommandTags', async () => {
+    mockResolveCommandTags.mockImplementation(() => {
+      throw new ExitError(1);
+    });
+
+    let thrown: ExitError | undefined;
+    try {
+      await pushCommand(['--tags=missing-v9.9.9']);
+    } catch (error: unknown) {
+      if (error instanceof ExitError) {
+        thrown = error;
+      }
+    }
+
+    expect(thrown).toBeInstanceOf(ExitError);
+    expect(thrown?.code).toBe(1);
+    expect(mockPushRelease).not.toHaveBeenCalled();
+  });
+
+  it('exits with code 1 when --only is passed (flag removed)', async () => {
+    let thrown: ExitError | undefined;
+    try {
+      await pushCommand(['--only=core']);
+    } catch (error: unknown) {
+      if (error instanceof ExitError) {
+        thrown = error;
+      }
+    }
+
+    expect(thrown).toBeInstanceOf(ExitError);
+    expect(thrown?.code).toBe(1);
+    expect(console.error).toHaveBeenCalledWith('Error: Unknown option: --only');
   });
 
   it('exits with code 1 on unknown flags', async () => {

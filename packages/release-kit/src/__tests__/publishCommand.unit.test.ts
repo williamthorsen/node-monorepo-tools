@@ -166,9 +166,56 @@ describe(publishCommand, () => {
     );
   });
 
-  it('exits with code 1 when --only is used in single-package mode', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(undefined);
+  it('filters resolved tags by --tags in monorepo mode', async () => {
+    mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/release-kit']);
+    mockResolveReleaseTags.mockReturnValue([
+      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
+      { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit' },
+    ]);
 
+    await publishCommand(['--tags=core-v1.3.0']);
+
+    expect(mockPublishPackage).toHaveBeenCalledTimes(1);
+    expect(mockPublishPackage).toHaveBeenCalledWith(
+      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
+      'npm',
+      expect.objectContaining({ dryRun: false, noGitChecks: false, provenance: false }),
+    );
+  });
+
+  it('filters resolved tags by --tags in single-package mode', async () => {
+    mockDiscoverWorkspaces.mockResolvedValue(undefined);
+    mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.' }]);
+
+    await publishCommand(['--tags=v1.0.0']);
+
+    expect(mockPublishPackage).toHaveBeenCalledTimes(1);
+    expect(mockPublishPackage).toHaveBeenCalledWith(
+      { tag: 'v1.0.0', dir: '.', workspacePath: '.' },
+      'npm',
+      expect.objectContaining({ dryRun: false, noGitChecks: false, provenance: false }),
+    );
+  });
+
+  it('exits with code 1 when --tags references an unknown tag', async () => {
+    mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
+    mockResolveReleaseTags.mockReturnValue([{ tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' }]);
+
+    let thrown: ExitError | undefined;
+    try {
+      await publishCommand(['--tags=missing-v9.9.9']);
+    } catch (error: unknown) {
+      if (error instanceof ExitError) {
+        thrown = error;
+      }
+    }
+
+    expect(thrown).toBeInstanceOf(ExitError);
+    expect(thrown?.code).toBe(1);
+    expect(console.error).toHaveBeenCalledWith('Error: Unknown tag "missing-v9.9.9" in --tags. Available: core-v1.3.0');
+  });
+
+  it('exits with code 1 when --only is passed (flag removed)', async () => {
     let thrown: ExitError | undefined;
     try {
       await publishCommand(['--only=core']);
@@ -180,42 +227,7 @@ describe(publishCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith('Error: --only is only supported for monorepo configurations');
-  });
-
-  it('filters resolved tags by --only in monorepo mode', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/release-kit']);
-    mockResolveReleaseTags.mockReturnValue([
-      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
-      { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit' },
-    ]);
-
-    await publishCommand(['--only=core']);
-
-    expect(mockPublishPackage).toHaveBeenCalledTimes(1);
-    expect(mockPublishPackage).toHaveBeenCalledWith(
-      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
-      'npm',
-      expect.objectContaining({ dryRun: false, noGitChecks: false, provenance: false }),
-    );
-  });
-
-  it('exits with code 1 when --only references an unmatched name', async () => {
-    mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
-    mockResolveReleaseTags.mockReturnValue([{ tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' }]);
-
-    let thrown: ExitError | undefined;
-    try {
-      await publishCommand(['--only=nonexistent']);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
-
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith('Error: Unknown package "nonexistent" in --only. Available: core');
+    expect(console.error).toHaveBeenCalledWith('Error: Unknown option: --only');
   });
 
   it('exits with code 1 when publishPackage throws', async () => {
