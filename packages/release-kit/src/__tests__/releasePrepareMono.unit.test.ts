@@ -935,6 +935,61 @@ describe(releasePrepareMono, () => {
       );
     });
 
+    it('does not write files in dry-run mode with --set-version', () => {
+      const config = makeConfig({
+        components: [
+          {
+            dir: 'core',
+            tagPrefix: 'core-v',
+            packageFiles: ['packages/core/package.json'],
+            changelogPaths: ['packages/core'],
+            paths: ['packages/core/**'],
+          },
+        ],
+      });
+
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') return 'core-v0.5.0\n';
+        if (cmd === 'git' && args[0] === 'log') return '';
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
+      mockExistsSync.mockReturnValue(false);
+
+      const result = releasePrepareMono(config, { dryRun: true, setVersion: '1.0.0' });
+
+      expect(result.tags).toStrictEqual(['core-v1.0.0']);
+      expect(result.dryRun).toBe(true);
+      expect(mockWriteFileSync).not.toHaveBeenCalled();
+    });
+
+    it('throws when --set-version is used with more than one component', () => {
+      // Explicit guard in `determineDirectBumps` enforces the single-component contract for
+      // --set-version even if a caller bypasses the CLI layer that normally narrows via --only.
+      const config = makeConfig({
+        components: [
+          {
+            dir: 'core',
+            tagPrefix: 'core-v',
+            packageFiles: ['packages/core/package.json'],
+            changelogPaths: ['packages/core'],
+            paths: ['packages/core/**'],
+          },
+          {
+            dir: 'app',
+            tagPrefix: 'app-v',
+            packageFiles: ['packages/app/package.json'],
+            changelogPaths: ['packages/app'],
+            paths: ['packages/app/**'],
+          },
+        ],
+      });
+
+      expect(() => releasePrepareMono(config, { dryRun: false, setVersion: '1.0.0' })).toThrow(
+        '--set-version requires exactly one component',
+      );
+    });
+
     it('preserves a direct higher bump when propagation would add a patch', () => {
       const config = makeConfig({
         components: [

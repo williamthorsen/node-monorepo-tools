@@ -387,6 +387,15 @@ describe(prepareCommand, () => {
     expect(mockReleasePrepareMono).not.toHaveBeenCalled();
   });
 
+  it('exits with the unknown-component error when --only matches zero components under --set-version', async () => {
+    // A non-matching --only name is caught by the unknown-component guard in prepareCommand
+    // (which runs before the --set-version narrowing check), so the error mentions the
+    // unknown name rather than the "exactly one component" message.
+    await expect(prepareCommand(['--only=nonexistent', '--set-version=1.0.0'])).rejects.toThrow(ExitError);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('nonexistent'));
+    expect(mockReleasePrepareMono).not.toHaveBeenCalled();
+  });
+
   it('passes setVersion to releasePrepare in single-package mode', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(undefined);
 

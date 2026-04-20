@@ -13,8 +13,12 @@ export function readCurrentVersion(filePath: string): string | undefined {
     if (hasVersionField(parsed)) {
       return parsed.version;
     }
-  } catch {
-    // Return undefined if the file can't be read or parsed.
+  } catch (error: unknown) {
+    // Return undefined so benign callers degrade gracefully, but surface the failure so
+    // operators get a signal when --set-version or similar paths depend on this value.
+    console.warn(
+      `Failed to read current version from ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
   return undefined;
 }

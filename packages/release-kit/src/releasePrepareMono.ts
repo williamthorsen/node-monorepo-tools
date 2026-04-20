@@ -127,6 +127,14 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
 /** Determine direct bumps from commits for each component. */
 function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePrepareOptions): Phase1Result {
   const { force, bumpOverride, setVersion } = options;
+
+  // Enforce the `--set-version` contract at the orchestration layer. The CLI layer
+  // (`prepareCommand`) normally narrows to a single component before calling, but this
+  // guard protects against programmatic misuse.
+  if (setVersion !== undefined && config.components.length !== 1) {
+    throw new Error(`--set-version requires exactly one component; received ${config.components.length}`);
+  }
+
   const workTypes = config.workTypes ?? { ...DEFAULT_WORK_TYPES };
   const versionPatterns = config.versionPatterns ?? { ...DEFAULT_VERSION_PATTERNS };
 
