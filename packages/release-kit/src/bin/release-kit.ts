@@ -153,7 +153,7 @@ fires a separate workflow run per tag.
 
 Options:
   --dry-run              Preview without pushing
-  --only=name1,name2     Only push tags for the named packages (comma-separated, monorepo only)
+  --tags=tag1,tag2       Only push the named tags (comma-separated, full tag names)
   --tags-only            Skip the branch push (push tags only)
   --help, -h             Show this help message
 `);
@@ -181,7 +181,7 @@ Publish packages that have release tags on HEAD.
 Options:
   --dry-run              Preview without publishing
   --no-git-checks        Skip git checks (pnpm only)
-  --only=name1,name2     Only publish the named packages (comma-separated, monorepo only)
+  --tags=tag1,tag2       Only publish the named tags (comma-separated, full tag names)
   --provenance           Generate provenance statement (requires OIDC, not supported by classic yarn)
   --help, -h             Show this help message
 `);

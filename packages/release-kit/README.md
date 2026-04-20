@@ -326,6 +326,22 @@ The key difference: the script-based approach requires manually listing every co
 
 ## Breaking changes
 
+### `release-kit publish` and `release-kit push` replace `--only` with `--tags`
+
+The `--only=<dir>` flag on `release-kit publish` and `release-kit push` has been removed. Both commands now filter by full tag name via `--tags=<tag1>[,<tag2>...]`, matching `release-kit create-github-release`. Passing `--only=...` after upgrading produces an `Unknown option: --only` error.
+
+Local usage mapping:
+
+```diff
+-release-kit publish --only=core
++release-kit publish --tags=core-v1.3.0
+
+-release-kit push --only=core,cli
++release-kit push --tags=core-v1.3.0,cli-v0.5.0
+```
+
+Omitting `--tags` preserves the previous behavior of operating on every release tag at HEAD. The reusable workflow `publish.reusable.yaml` also accepts an optional `tags:` input, and the scaffolded `publish.yaml` now passes `tags: ${{ github.ref_name }}` so the publish scope is explicit rather than relying on `actions/checkout@v6`'s fetch default. Existing callers that do not set `tags:` continue to work unchanged.
+
 ### GitHub Release creation moved to its own command and workflow
 
 `release-kit publish` no longer creates GitHub Releases as a side effect, and the `releaseNotes.shouldCreateGithubRelease` config field has been removed. Adoption is now signaled by installing the dedicated `create-github-release.reusable.yaml` workflow.

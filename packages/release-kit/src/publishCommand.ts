@@ -8,6 +8,7 @@ import { parseArgs, translateParseError } from '@williamthorsen/node-monorepo-co
 
 import { detectPackageManager } from './detectPackageManager.ts';
 import { injectReleaseNotesIntoReadme, resolveReadmePath } from './injectReleaseNotesIntoReadme.ts';
+import { parseRequestedTags } from './parseRequestedTags.ts';
 import { publishPackage } from './publish.ts';
 import { resolveCommandTags } from './resolveCommandTags.ts';
 import { resolveReleaseNotesConfig } from './resolveReleaseNotesConfig.ts';
@@ -16,12 +17,12 @@ const publishFlagSchema = {
   dryRun: { long: '--dry-run', type: 'boolean' as const },
   noGitChecks: { long: '--no-git-checks', type: 'boolean' as const },
   provenance: { long: '--provenance', type: 'boolean' as const },
-  only: { long: '--only', type: 'string' as const },
+  tags: { long: '--tags', type: 'string' as const },
 };
 
 /**
  * Orchestrate the CLI `publish` command: parse flags, discover workspaces, resolve tags from HEAD,
- * detect the package manager, validate `--only`, and publish each tag with inject/restore lifecycle.
+ * detect the package manager, validate `--tags`, and publish each tag with inject/restore lifecycle.
  */
 export async function publishCommand(argv: string[]): Promise<void> {
   let parsed;
@@ -33,9 +34,9 @@ export async function publishCommand(argv: string[]): Promise<void> {
   }
 
   const { dryRun, noGitChecks, provenance } = parsed.flags;
-  const only = parsed.flags.only?.split(',');
+  const requestedTags = parseRequestedTags(parsed.flags.tags);
 
-  const resolvedTags = await resolveCommandTags(only);
+  const resolvedTags = await resolveCommandTags(requestedTags);
 
   if (resolvedTags.length === 0) {
     return;

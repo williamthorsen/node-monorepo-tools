@@ -31,6 +31,11 @@ on:
         required: false
         type: boolean
         default: false
+      tags:
+        description: 'Comma-separated list of full tag names to publish (leave empty to publish every release tag on HEAD)'
+        required: false
+        type: string
+        default: ''
 
 permissions:
   id-token: write
@@ -68,4 +73,4 @@ jobs:
         run: pnpm --filter @williamthorsen/release-kit... run prepare
 
       - name: Publish
-        run: npx --yes @williamthorsen/release-kit publish ${{ inputs.provenance && '--provenance' || '' }} --no-git-checks
+        run: npx --yes @williamthorsen/release-kit publish ${{ inputs.provenance && '--provenance' || '' }} ${{ inputs.tags != '' && format('--tags="{0}"', inputs.tags) || '' }} --no-git-checks

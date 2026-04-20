@@ -3,12 +3,13 @@
 
 import { parseArgs, translateParseError } from '@williamthorsen/node-monorepo-core';
 
+import { parseRequestedTags } from './parseRequestedTags.ts';
 import { pushRelease } from './pushRelease.ts';
 import { resolveCommandTags } from './resolveCommandTags.ts';
 
 const pushFlagSchema = {
   dryRun: { long: '--dry-run', type: 'boolean' as const },
-  only: { long: '--only', type: 'string' as const },
+  tags: { long: '--tags', type: 'string' as const },
   tagsOnly: { long: '--tags-only', type: 'boolean' as const },
 };
 
@@ -26,9 +27,9 @@ export async function pushCommand(argv: string[]): Promise<void> {
   }
 
   const { dryRun, tagsOnly } = parsed.flags;
-  const only = parsed.flags.only?.split(',');
+  const requestedTags = parseRequestedTags(parsed.flags.tags);
 
-  const resolvedTags = await resolveCommandTags(only);
+  const resolvedTags = await resolveCommandTags(requestedTags);
 
   if (resolvedTags.length === 0) {
     return;

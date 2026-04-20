@@ -13,6 +13,13 @@ function buildVerboseFlag(scopes: AuditScope[]): string {
   return '--verbose';
 }
 
+/** Pick the sync hint matching the current mix of unallowed vulns and stale entries. */
+function selectSyncHint(hasUnallowed: boolean, hasStale: boolean): string {
+  if (hasUnallowed && hasStale) return HINT_BOTH;
+  if (hasUnallowed) return HINT_ADD;
+  return HINT_REMOVE;
+}
+
 /**
  * Compute the "Actions:" footer for check output.
  *
@@ -36,8 +43,7 @@ export function formatActionHints(result: CheckResult, scopes: AuditScope[]): st
   }
 
   if (needsSync) {
-    const hint = hasUnallowed && hasStale ? HINT_BOTH : hasUnallowed ? HINT_ADD : HINT_REMOVE;
-    bullets.push(`  \u{2022} ${hint}`);
+    bullets.push(`  \u{2022} ${selectSyncHint(hasUnallowed, hasStale)}`);
   }
 
   return `  Actions:\n${bullets.join('\n')}`;
