@@ -10,6 +10,7 @@ import { initCommand } from '../init/initCommand.ts';
 import { prepareCommand } from '../prepareCommand.ts';
 import { publishCommand } from '../publishCommand.ts';
 import { pushCommand } from '../pushCommand.ts';
+import { showTagPrefixesCommand } from '../showTagPrefixesCommand.ts';
 import { generateCommand } from '../sync-labels/generateCommand.ts';
 import { syncLabelsInitCommand } from '../sync-labels/initCommand.ts';
 import { syncLabelsCommand } from '../sync-labels/syncCommand.ts';
@@ -27,6 +28,7 @@ Commands:
   push             Push release commit and tags (one push per tag)
   publish          Publish packages with release tags on HEAD
   create-github-release  Create GitHub Releases from changelog.json for tags on HEAD
+  show-tag-prefixes  Show derived and declared legacy tag prefixes per workspace
   init             Initialize release-kit in the current repository
   sync-labels      Manage GitHub label synchronization
 
@@ -173,6 +175,20 @@ Options:
 `);
 }
 
+function showShowTagPrefixesHelp(): void {
+  console.info(`
+Usage: release-kit show-tag-prefixes [options]
+
+Print a per-workspace table of derived tag prefixes, tag counts, and declared
+legacy tag prefixes. Surfaces any release-shaped tags whose prefix is neither a
+derived prefix nor declared in \`legacyTagPrefixes\`, with a copy-pasteable
+config snippet.
+
+Options:
+  --help, -h    Show this help message
+`);
+}
+
 function showPublishHelp(): void {
   console.info(`
 Usage: release-kit publish [options]
@@ -265,6 +281,20 @@ if (command === 'publish') {
 
   await publishCommand(flags);
   process.exit(0);
+}
+
+if (command === 'show-tag-prefixes') {
+  if (flags.some((f) => f === '--help' || f === '-h')) {
+    showShowTagPrefixesHelp();
+    process.exit(0);
+  }
+  if (flags.length > 0) {
+    console.error(`Error: Unknown option: ${flags[0]}`);
+    process.exit(1);
+  }
+
+  const exitCode = await showTagPrefixesCommand();
+  process.exit(exitCode);
 }
 
 if (command === 'init') {

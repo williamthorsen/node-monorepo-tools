@@ -6,9 +6,36 @@ import { join } from 'node:path';
 import { resolveCliffConfigPath } from './resolveCliffConfigPath.ts';
 import type { ReleaseConfig } from './types.ts';
 
-/** Build a git-cliff tag pattern from a tag prefix (e.g., `"release-kit-v"` → `"release-kit-v[0-9].*"`). */
-export function buildTagPattern(tagPrefix: string): string {
-  return `${tagPrefix}[0-9].*`;
+/**
+ * Build a git-cliff tag pattern from one or more tag prefixes.
+ *
+ * Single-prefix input preserves the historical `<prefix>[0-9].*` shape. Multi-prefix input
+ * returns `(prefix1|prefix2|...)[0-9].*` so git-cliff's regex-based `--tag-pattern` accepts
+ * tags under any listed prefix. Each prefix is regex-escaped so metacharacters in operator-
+ * supplied legacy prefixes cannot alter the pattern's meaning.
+ *
+ * @param tagPrefixes - Tag prefixes to match as a union (must contain at least one entry).
+ */
+export function buildTagPattern(tagPrefixes: readonly string[]): string {
+  if (tagPrefixes.length === 0) {
+    throw new Error('buildTagPattern: tagPrefixes must contain at least one entry');
+  }
+  if (tagPrefixes.length === 1) {
+    const single = tagPrefixes[0] ?? '';
+    return `${single}[0-9].*`;
+  }
+  const escaped = tagPrefixes.map(escapeRegex);
+  return `(${escaped.join('|')})[0-9].*`;
+}
+
+/**
+ * Escape regex metacharacters so a literal prefix is matched as-is.
+ *
+ * Derived prefixes from npm package names are restricted to `[a-z0-9-]`, but legacy entries
+ * from user config may contain anything; defensive escaping prevents silent pattern drift.
+ */
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 }
 
 /** Options for single-changelog generation. */
@@ -82,7 +109,7 @@ export function generateChangelog(
  * Returns the collected output file paths from all `generateChangelog` calls.
  */
 export function generateChangelogs(config: ReleaseConfig, tag: string, dryRun: boolean): string[] {
-  const tagPattern = buildTagPattern(config.tagPrefix);
+  const tagPattern = buildTagPattern([config.tagPrefix]);
   const results: string[] = [];
   for (const changelogPath of config.changelogPaths) {
     results.push(...generateChangelog(config, changelogPath, tag, dryRun, { tagPattern }));

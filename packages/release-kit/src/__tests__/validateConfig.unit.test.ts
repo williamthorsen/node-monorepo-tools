@@ -59,6 +59,53 @@ describe(validateConfig, () => {
       });
       expect(errors).toContain("components[0]: unknown field 'bogusField'");
     });
+
+    describe('legacyTagPrefixes', () => {
+      it('accepts a string array', () => {
+        const { config, errors } = validateConfig({
+          components: [{ dir: 'core', legacyTagPrefixes: ['core-v', 'old-core-v'] }],
+        });
+        expect(errors).toStrictEqual([]);
+        expect(config.components?.[0]?.legacyTagPrefixes).toStrictEqual(['core-v', 'old-core-v']);
+      });
+
+      it('accepts an empty array', () => {
+        const { config, errors } = validateConfig({
+          components: [{ dir: 'core', legacyTagPrefixes: [] }],
+        });
+        expect(errors).toStrictEqual([]);
+        expect(config.components?.[0]?.legacyTagPrefixes).toStrictEqual([]);
+      });
+
+      it('omits legacyTagPrefixes from the result when the field is not provided', () => {
+        const { config, errors } = validateConfig({
+          components: [{ dir: 'core' }],
+        });
+        expect(errors).toStrictEqual([]);
+        expect(config.components?.[0]?.legacyTagPrefixes).toBeUndefined();
+      });
+
+      it('returns an error when legacyTagPrefixes is not an array', () => {
+        const { errors } = validateConfig({
+          components: [{ dir: 'core', legacyTagPrefixes: 'core-v' }],
+        });
+        expect(errors).toContain("components[0]: 'legacyTagPrefixes' must be a string array");
+      });
+
+      it('returns a per-index error when an entry is not a string', () => {
+        const { errors } = validateConfig({
+          components: [{ dir: 'core', legacyTagPrefixes: ['core-v', 123, 'old-v'] }],
+        });
+        expect(errors).toContain('components[0].legacyTagPrefixes[1]: must be a string');
+      });
+
+      it('returns a per-index error when an entry is an empty string', () => {
+        const { errors } = validateConfig({
+          components: [{ dir: 'core', legacyTagPrefixes: ['core-v', ''] }],
+        });
+        expect(errors).toContain('components[0].legacyTagPrefixes[1]: must be a non-empty string');
+      });
+    });
   });
 
   describe('versionPatterns', () => {

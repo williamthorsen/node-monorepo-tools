@@ -44,7 +44,7 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   const versionPatterns = config.versionPatterns ?? { ...DEFAULT_VERSION_PATTERNS };
 
   // 1. Get commits since last tag
-  const { tag, commits } = getCommitsSinceTarget(config.tagPrefix);
+  const { tag, commits } = getCommitsSinceTarget([config.tagPrefix]);
 
   // 2. Determine bump type (or use the explicit setVersion bypass)
   let releaseType: ReleaseType | undefined;

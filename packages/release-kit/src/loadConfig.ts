@@ -78,10 +78,19 @@ export function mergeMonorepoConfig(
   if (userConfig?.components !== undefined) {
     const overrides = new Map(userConfig.components.map((c) => [c.dir, c]));
 
-    components = components.filter((c) => {
-      const override = overrides.get(c.dir);
-      return override?.shouldExclude !== true;
-    });
+    components = components
+      .filter((c) => {
+        const override = overrides.get(c.dir);
+        return override?.shouldExclude !== true;
+      })
+      .map((c) => {
+        const override = overrides.get(c.dir);
+        if (override?.legacyTagPrefixes === undefined) {
+          return c;
+        }
+        assertLegacyTagPrefixesDoNotIncludeDerived(c.dir, c.tagPrefix, override.legacyTagPrefixes);
+        return { ...c, legacyTagPrefixes: [...override.legacyTagPrefixes] };
+      });
   }
 
   // Merge workTypes
@@ -179,6 +188,25 @@ function mergeChangelogJsonConfig(partial: Partial<ChangelogJsonConfig> | undefi
     outputPath: partial.outputPath ?? DEFAULT_CHANGELOG_JSON_CONFIG.outputPath,
     devOnlySections: partial.devOnlySections ?? [...DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections],
   };
+}
+
+/**
+ * Throw when a component's `legacyTagPrefixes` contains the workspace's derived tag prefix.
+ *
+ * A legacy entry equal to the derived prefix is a guaranteed no-op duplicate, almost always
+ * a copy-paste mistake. Rejecting it early prevents silent config drift.
+ */
+function assertLegacyTagPrefixesDoNotIncludeDerived(
+  dir: string,
+  derivedPrefix: string,
+  legacyTagPrefixes: readonly string[],
+): void {
+  if (legacyTagPrefixes.includes(derivedPrefix)) {
+    throw new Error(
+      `Component '${dir}': legacyTagPrefixes must not include the derived prefix '${derivedPrefix}'. ` +
+        'The derived prefix is always searched; listing it again is a no-op.',
+    );
+  }
 }
 
 /**

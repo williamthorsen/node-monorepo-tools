@@ -146,7 +146,7 @@ function validateComponents(value: unknown, config: ReleaseKitConfig, errors: st
   }
 
   const components: NonNullable<ReleaseKitConfig['components']> = [];
-  const knownComponentFields = new Set(['dir', 'shouldExclude']);
+  const knownComponentFields = new Set(['dir', 'shouldExclude', 'legacyTagPrefixes']);
   for (const [i, entry] of value.entries()) {
     if (!isRecord(entry)) {
       errors.push(`components[${i}]: must be an object`);
@@ -179,9 +179,47 @@ function validateComponents(value: unknown, config: ReleaseKitConfig, errors: st
         errors.push(`components[${i}]: 'shouldExclude' must be a boolean`);
       }
     }
+
+    if (entry.legacyTagPrefixes !== undefined) {
+      const legacy = validateLegacyTagPrefixes(entry.legacyTagPrefixes, i, errors);
+      if (legacy !== undefined) {
+        component.legacyTagPrefixes = legacy;
+      }
+    }
     components.push(component);
   }
   config.components = components;
+}
+
+/**
+ * Validate a `legacyTagPrefixes` field on a component override.
+ *
+ * Accepts a string array with non-empty entries. Returns the validated array, or `undefined`
+ * when validation fails (with errors appended to the caller's list).
+ */
+function validateLegacyTagPrefixes(value: unknown, componentIndex: number, errors: string[]): string[] | undefined {
+  if (!Array.isArray(value)) {
+    errors.push(`components[${componentIndex}]: 'legacyTagPrefixes' must be a string array`);
+    return undefined;
+  }
+
+  const prefixes: string[] = [];
+  let valid = true;
+  for (const [entryIndex, entry] of value.entries()) {
+    if (typeof entry !== 'string') {
+      errors.push(`components[${componentIndex}].legacyTagPrefixes[${entryIndex}]: must be a string`);
+      valid = false;
+      continue;
+    }
+    if (entry === '') {
+      errors.push(`components[${componentIndex}].legacyTagPrefixes[${entryIndex}]: must be a non-empty string`);
+      valid = false;
+      continue;
+    }
+    prefixes.push(entry);
+  }
+
+  return valid ? prefixes : undefined;
 }
 
 function validateVersionPatterns(value: unknown, config: ReleaseKitConfig, errors: string[]): void {

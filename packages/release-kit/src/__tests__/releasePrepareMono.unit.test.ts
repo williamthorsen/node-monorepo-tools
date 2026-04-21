@@ -1081,4 +1081,211 @@ describe(releasePrepareMono, () => {
       });
     });
   });
+
+  describe('opportunistic hint when baseline is missing', () => {
+    /** Configure mocks for a single workspace with no baseline tag and a bump-worthy commit. */
+    function setupNoBaseline(tagListOutput: string[], bumpCommit: string): void {
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') {
+          throw Object.assign(new Error('no tag'), { status: 128 });
+        }
+        if (cmd === 'git' && args[0] === 'log') {
+          return bumpCommit;
+        }
+        if (cmd === 'git' && args[0] === 'tag' && args[1] === '--list') {
+          return tagListOutput.join('\n') + (tagListOutput.length > 0 ? '\n' : '');
+        }
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+    }
+
+    it('emits a hint when no baseline + candidate tags exist + no legacyTagPrefixes', () => {
+      const config = makeConfig({
+        components: [
+          {
+            dir: 'core',
+            tagPrefix: 'node-monorepo-core-v',
+            workspacePath: 'packages/core',
+            packageFiles: ['packages/core/package.json'],
+            changelogPaths: ['packages/core'],
+            paths: ['packages/core/**'],
+          },
+        ],
+      });
+      setupNoBaseline(['core-v0.2.7', 'core-v0.2.8'], 'feat: addabc');
+      const messages: string[] = [];
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation((msg: string) => {
+        messages.push(msg);
+      });
+
+      releasePrepareMono(config, { dryRun: true });
+
+      expect(messages).toHaveLength(1);
+      const message = messages[0] ?? '';
+      expect(message).toContain("no baseline tag found for core under 'node-monorepo-core-v'");
+      expect(message).toContain('candidate-shaped tags');
+      expect(message).toContain('core-v0.2.7');
+      expect(message).toContain('show-tag-prefixes');
+      errorSpy.mockRestore();
+    });
+
+    it('suppresses the hint when legacyTagPrefixes is non-empty', () => {
+      const config = makeConfig({
+        components: [
+          {
+            dir: 'core',
+            tagPrefix: 'node-monorepo-core-v',
+            workspacePath: 'packages/core',
+            packageFiles: ['packages/core/package.json'],
+            changelogPaths: ['packages/core'],
+            paths: ['packages/core/**'],
+            legacyTagPrefixes: ['core-v'],
+          },
+        ],
+      });
+      setupNoBaseline(['core-v0.2.7'], 'feat: addabc');
+      const messages: string[] = [];
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation((msg: string) => {
+        messages.push(msg);
+      });
+
+      releasePrepareMono(config, { dryRun: true });
+
+      expect(messages).toHaveLength(0);
+      errorSpy.mockRestore();
+    });
+
+    it('suppresses the hint when no candidate-shaped tags exist', () => {
+      const config = makeConfig({
+        components: [
+          {
+            dir: 'core',
+            tagPrefix: 'node-monorepo-core-v',
+            workspacePath: 'packages/core',
+            packageFiles: ['packages/core/package.json'],
+            changelogPaths: ['packages/core'],
+            paths: ['packages/core/**'],
+          },
+        ],
+      });
+      setupNoBaseline([], 'feat: addabc');
+      const messages: string[] = [];
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation((msg: string) => {
+        messages.push(msg);
+      });
+
+      releasePrepareMono(config, { dryRun: true });
+
+      expect(messages).toHaveLength(0);
+      errorSpy.mockRestore();
+    });
+
+    it("treats sibling workspaces' derived prefixes as known (not undeclared candidates)", () => {
+      // Regression: previously `maybeEmitBaselineHint` passed only `[component.tagPrefix]` as the
+      // known-prefix set, so sibling workspaces' tags surfaced as "undeclared candidates" and
+      // fired spurious hints in multi-workspace repos. The hint must NOT fire when the only
+      // candidate-shaped tags in the repo belong to other configured workspaces.
+      const config = makeConfig({
+        components: [
+          {
+            dir: 'core',
+            tagPrefix: 'node-monorepo-core-v',
+            workspacePath: 'packages/core',
+            packageFiles: ['packages/core/package.json'],
+            changelogPaths: ['packages/core'],
+            paths: ['packages/core/**'],
+          },
+          {
+            dir: 'arrays',
+            tagPrefix: 'node-monorepo-arrays-v',
+            workspacePath: 'packages/arrays',
+            packageFiles: ['packages/arrays/package.json'],
+            changelogPaths: ['packages/arrays'],
+            paths: ['packages/arrays/**'],
+          },
+        ],
+      });
+      // Only tags in the repo belong to the sibling `arrays` workspace. `core` has no baseline.
+      setupNoBaseline(['node-monorepo-arrays-v1.0.0', 'node-monorepo-arrays-v1.1.0'], 'feat: addabc');
+      const messages: string[] = [];
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation((msg: string) => {
+        messages.push(msg);
+      });
+
+      releasePrepareMono(config, { dryRun: true });
+
+      expect(messages).toHaveLength(0);
+      errorSpy.mockRestore();
+    });
+
+    it("treats sibling workspaces' declared legacyTagPrefixes as known", () => {
+      // Also a regression case: when a sibling workspace declares its own legacy prefixes, those
+      // must not show up as undeclared candidates when another workspace has no baseline.
+      const config = makeConfig({
+        components: [
+          {
+            dir: 'core',
+            tagPrefix: 'node-monorepo-core-v',
+            workspacePath: 'packages/core',
+            packageFiles: ['packages/core/package.json'],
+            changelogPaths: ['packages/core'],
+            paths: ['packages/core/**'],
+          },
+          {
+            dir: 'arrays',
+            tagPrefix: 'node-monorepo-arrays-v',
+            workspacePath: 'packages/arrays',
+            packageFiles: ['packages/arrays/package.json'],
+            changelogPaths: ['packages/arrays'],
+            paths: ['packages/arrays/**'],
+            legacyTagPrefixes: ['arrays-v'],
+          },
+        ],
+      });
+      setupNoBaseline(['arrays-v0.5.0', 'arrays-v0.6.0'], 'feat: addabc');
+      const messages: string[] = [];
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation((msg: string) => {
+        messages.push(msg);
+      });
+
+      releasePrepareMono(config, { dryRun: true });
+
+      expect(messages).toHaveLength(0);
+      errorSpy.mockRestore();
+    });
+
+    it('prints at most one hint per prepare run even with multiple triggering workspaces', () => {
+      const config = makeConfig({
+        components: [
+          {
+            dir: 'core',
+            tagPrefix: 'node-monorepo-core-v',
+            workspacePath: 'packages/core',
+            packageFiles: ['packages/core/package.json'],
+            changelogPaths: ['packages/core'],
+            paths: ['packages/core/**'],
+          },
+          {
+            dir: 'arrays',
+            tagPrefix: 'node-monorepo-arrays-v',
+            workspacePath: 'packages/arrays',
+            packageFiles: ['packages/arrays/package.json'],
+            changelogPaths: ['packages/arrays'],
+            paths: ['packages/arrays/**'],
+          },
+        ],
+      });
+      setupNoBaseline(['core-v0.2.7', 'arrays-v0.1.0'], 'feat: addabc');
+      const messages: string[] = [];
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation((msg: string) => {
+        messages.push(msg);
+      });
+
+      releasePrepareMono(config, { dryRun: true });
+
+      expect(messages).toHaveLength(1);
+      errorSpy.mockRestore();
+    });
+  });
 });
