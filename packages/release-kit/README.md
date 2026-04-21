@@ -300,6 +300,58 @@ This package shells out to two external tools:
 - **`git`** — must be available on `PATH`. Used to find tags and retrieve commit history.
 - **`git-cliff`** — automatically downloaded and cached via `npx` on first invocation. No need to install it as a dev dependency.
 
+## Migrating legacy tag prefixes (one-shot)
+
+Release-kit derives each workspace's tag prefix from its unscoped `package.json` `name`, so a package at `packages/core` with `"name": "@scope/node-monorepo-core"` uses tags like `node-monorepo-core-v1.3.0`. Repos that previously tagged under the directory basename (e.g., `core-v1.3.0`) need a one-time migration: without it, release-kit cannot see the prior tags and the first post-migration run treats the whole git history as new.
+
+The bundled `migrate-tag-prefixes.sh` script creates additive annotated-tag aliases under the new prefix that point at the same commits as the old tags. Original tags are left in place — the migration is reversible.
+
+The script ships in the package and is invoked directly from `node_modules`:
+
+```bash
+bash node_modules/@williamthorsen/release-kit/scripts/migrate-tag-prefixes.sh --help
+```
+
+### Subcommands
+
+| Subcommand | Purpose                                                             |
+| ---------- | ------------------------------------------------------------------- |
+| `apply`    | Create annotated-tag aliases in the local repo. Idempotent.         |
+| `push`     | Push already-applied aliases to `origin`. Requires a prior `apply`. |
+
+### Flags
+
+| Flag           | Scope           | Description                                                                                             |
+| -------------- | --------------- | ------------------------------------------------------------------------------------------------------- |
+| `--dry-run`    | `apply`, `push` | Render the preview table and tag-level detail without running `git tag` or `git push`.                  |
+| `--only <dir>` | `apply`, `push` | Scope to one workspace (by directory basename). Unknown values error with the list of known workspaces. |
+| `--force`      | `apply` only    | Replace a local alias that exists at a different commit than the original tag.                          |
+| `-h`, `--help` | —               | Show usage.                                                                                             |
+
+### Conflict handling
+
+If a local alias under the new prefix already exists and points at a different commit than the original tag, `apply` aborts before creating any new aliases and names the conflicting tag. Re-run with `--force` to delete and recreate the alias at the correct commit; the preserved annotation is re-derived from the original tag.
+
+The `push` subcommand never force-pushes. If a remote tag already exists at a different commit, `git push` fails naturally — recover with `git push --force-with-lease origin <new_tag>` run manually.
+
+### Recommended workflow
+
+```bash
+# 1. Preview the work without creating tags.
+bash node_modules/@williamthorsen/release-kit/scripts/migrate-tag-prefixes.sh apply --dry-run
+
+# 2. Create the aliases locally.
+bash node_modules/@williamthorsen/release-kit/scripts/migrate-tag-prefixes.sh apply
+
+# 3. Preview the push.
+bash node_modules/@williamthorsen/release-kit/scripts/migrate-tag-prefixes.sh push --dry-run
+
+# 4. Publish the aliases.
+bash node_modules/@williamthorsen/release-kit/scripts/migrate-tag-prefixes.sh push
+```
+
+The migration is a one-shot tool and is not wired into any release-kit CLI command. Re-running `apply` on a clean state is a no-op.
+
 ## Using `component()` for manual configuration
 
 If you need to build a `MonorepoReleaseConfig` manually (e.g., for the legacy script-based approach), the exported `component()` helper creates a `ComponentConfig` from a workspace-relative path. It reads the workspace's `package.json` to derive the tag prefix from the package name:
