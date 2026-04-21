@@ -226,7 +226,7 @@ var release_kit_default = defineRdyKit({
           severity: "error",
           skip: () => !fileExists(".config/release-kit.config.ts") ? "no release-kit config file" : false,
           check: () => fileDoesNotContain(".config/release-kit.config.ts", /tagPrefix/),
-          fix: "Remove 'tagPrefix' from .config/release-kit.config.ts \u2014 it is no longer supported; the default '{dir}-v' is used automatically"
+          fix: "Remove 'tagPrefix' from .config/release-kit.config.ts \u2014 it is no longer supported; the default is derived from the unscoped package.json name (e.g., '{unscoped-name}-v')"
         },
         {
           name: "releaseNotes config is consistent with changelogJson",

@@ -5,6 +5,7 @@ import { buildDependencyGraph } from './buildDependencyGraph.ts';
 import { bumpAllVersions, setAllVersions } from './bumpAllVersions.ts';
 import { isForwardVersion } from './compareVersions.ts';
 import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
+import { detectUndeclaredTagPrefixes } from './detectUndeclaredTagPrefixes.ts';
 import { determineBumpFromCommits } from './determineBumpFromCommits.ts';
 import { generateChangelogJson, generateSyntheticChangelogJson } from './generateChangelogJson.ts';
 import { buildTagPattern, generateChangelog } from './generateChangelogs.ts';
@@ -142,11 +143,20 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
   const directResults = new Map<string, DirectBumpResult>();
   const skippedResults: SkippedResult[] = [];
   const currentVersions: CurrentVersions = new Map();
+  const hintState: BaselineHintState = { emitted: false };
+  // Build once: the union of every workspace's derived and declared tag prefixes. Passed into
+  // the baseline hint so sibling workspaces' tags aren't misclassified as undeclared candidates.
+  const knownPrefixes = config.components.flatMap((c) => [c.tagPrefix, ...(c.legacyTagPrefixes ?? [])]);
 
   for (const component of config.components) {
     const name = component.dir;
-    const { tag, commits } = getCommitsSinceTarget(component.tagPrefix, component.paths);
+    const tagPrefixes = [component.tagPrefix, ...(component.legacyTagPrefixes ?? [])];
+    const { tag, commits } = getCommitsSinceTarget(tagPrefixes, component.paths);
     const since = tag === undefined ? '(no previous release found)' : `since ${tag}`;
+
+    if (tag === undefined) {
+      maybeEmitBaselineHint(component, knownPrefixes, hintState);
+    }
 
     // Read current version from the first package file.
     // Important: this read must occur BEFORE any bypass branch so propagation sees the
@@ -435,10 +445,11 @@ function generateComponentChangelogs(args: GenerateComponentChangelogsArgs): str
     return changelogFiles;
   }
 
+  const tagPattern = buildTagPattern([component.tagPrefix, ...(component.legacyTagPrefixes ?? [])]);
   for (const changelogPath of component.changelogPaths) {
     changelogFiles.push(
       ...generateChangelog(config, changelogPath, newTag, dryRun, {
-        tagPattern: buildTagPattern(component.tagPrefix),
+        tagPattern,
         includePaths: component.paths,
       }),
     );
@@ -447,7 +458,7 @@ function generateComponentChangelogs(args: GenerateComponentChangelogsArgs): str
   if (config.changelogJson.enabled) {
     for (const changelogPath of component.changelogPaths) {
       const jsonFiles = generateChangelogJson(config, changelogPath, newTag, dryRun, {
-        tagPattern: buildTagPattern(component.tagPrefix),
+        tagPattern,
         includePaths: component.paths,
       });
       modifiedFiles.push(...jsonFiles);
@@ -490,6 +501,42 @@ function runFormatCommand(
 /** Find a component by its `dir` in the components array. */
 function findComponent(components: readonly ComponentConfig[], dir: string): ComponentConfig | undefined {
   return components.find((c) => c.dir === dir);
+}
+
+/** Shared single-fire flag so multiple no-baseline workspaces trigger at most one hint per run. */
+interface BaselineHintState {
+  emitted: boolean;
+}
+
+/**
+ * Emit a one-line hint to stderr pointing at `release-kit show-tag-prefixes` when a workspace
+ * has no baseline tag AND the repo contains candidate-shaped tags AND the workspace has no
+ * declared `legacyTagPrefixes`.
+ *
+ * `knownPrefixes` must be the full union across all workspaces so sibling workspaces' tags
+ * are not mistaken for undeclared candidates.
+ *
+ * Prints at most once per prepare run. Does not affect exit code or bump behavior.
+ */
+function maybeEmitBaselineHint(
+  component: ComponentConfig,
+  knownPrefixes: readonly string[],
+  state: BaselineHintState,
+): void {
+  if (state.emitted) return;
+  if ((component.legacyTagPrefixes?.length ?? 0) > 0) return;
+
+  const candidates = detectUndeclaredTagPrefixes(knownPrefixes);
+  if (candidates.length === 0) return;
+
+  const totalTags = candidates.reduce((sum, candidate) => sum + candidate.tagCount, 0);
+  const example = candidates[0]?.exampleTags[0] ?? `${candidates[0]?.prefix ?? ''}?`;
+  console.error(
+    `Hint: no baseline tag found for ${component.dir} under '${component.tagPrefix}', but ` +
+      `${totalTags} candidate-shaped tags exist (e.g., ${example}). ` +
+      "Run 'release-kit show-tag-prefixes' to check for undeclared legacy prefixes.",
+  );
+  state.emitted = true;
 }
 
 /**

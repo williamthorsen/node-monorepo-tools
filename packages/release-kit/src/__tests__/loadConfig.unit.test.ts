@@ -245,6 +245,32 @@ describe(mergeMonorepoConfig, () => {
     ).toThrow("Duplicate tag prefix 'foo-v' for workspaces: packages/a-foo, packages/b-foo");
   });
 
+  it('propagates legacyTagPrefixes from a matching component override', () => {
+    const result = mergeMonorepoConfig(discoveredPaths, {
+      components: [{ dir: 'arrays', legacyTagPrefixes: ['old-arrays-v', 'legacy-v'] }],
+    });
+
+    expect(result.components[0]?.dir).toBe('arrays');
+    expect(result.components[0]?.legacyTagPrefixes).toStrictEqual(['old-arrays-v', 'legacy-v']);
+    expect(result.components[1]?.legacyTagPrefixes).toBeUndefined();
+  });
+
+  it('leaves legacyTagPrefixes undefined when the override omits the field', () => {
+    const result = mergeMonorepoConfig(discoveredPaths, {
+      components: [{ dir: 'arrays', shouldExclude: false }],
+    });
+
+    expect(result.components[0]?.legacyTagPrefixes).toBeUndefined();
+  });
+
+  it('throws when legacyTagPrefixes includes the derived prefix', () => {
+    expect(() =>
+      mergeMonorepoConfig(discoveredPaths, {
+        components: [{ dir: 'arrays', legacyTagPrefixes: ['arrays-v', 'old-arrays-v'] }],
+      }),
+    ).toThrow("Component 'arrays': legacyTagPrefixes must not include the derived prefix 'arrays-v'");
+  });
+
   it('includes every colliding workspace path when more than two collide', () => {
     mockPackageNames({
       'packages/a-foo': '@a/foo',

@@ -18,6 +18,16 @@ function findLogCallArgs(): readonly unknown[] {
   throw new Error('No git log call found in mock history');
 }
 
+/** Find the `git describe` call args from the mock call history. */
+function findDescribeCallArgs(): readonly unknown[] {
+  for (const call of mockExecFileSync.mock.calls) {
+    if (call[0] === 'git' && Array.isArray(call[1]) && call[1][0] === 'describe') {
+      return call[1];
+    }
+  }
+  throw new Error('No git describe call found in mock history');
+}
+
 /** Configure the mock so that `git describe` returns the given tag and `git log` returns empty output. */
 function setupDescribeMock(tag: string): void {
   mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
@@ -34,7 +44,7 @@ describe(getCommitsSinceTarget, () => {
   it('does not append -- when called without paths', () => {
     setupDescribeMock('v1.0.0');
 
-    getCommitsSinceTarget('v');
+    getCommitsSinceTarget(['v']);
 
     expect(findLogCallArgs()).not.toContain('--');
   });
@@ -42,7 +52,7 @@ describe(getCommitsSinceTarget, () => {
   it('does not append -- when called with an empty paths array', () => {
     setupDescribeMock('v1.0.0');
 
-    getCommitsSinceTarget('v', []);
+    getCommitsSinceTarget(['v'], []);
 
     expect(findLogCallArgs()).not.toContain('--');
   });
@@ -50,7 +60,7 @@ describe(getCommitsSinceTarget, () => {
   it('appends -- and the path when called with a single path', () => {
     setupDescribeMock('arrays-v1.0.0');
 
-    getCommitsSinceTarget('arrays-v', ['packages/arrays/**']);
+    getCommitsSinceTarget(['arrays-v'], ['packages/arrays/**']);
 
     const logArgs = findLogCallArgs();
     const separatorIndex = logArgs.indexOf('--');
@@ -61,7 +71,7 @@ describe(getCommitsSinceTarget, () => {
   it('appends all paths after -- when called with multiple paths', () => {
     setupDescribeMock('lib-v2.0.0');
 
-    getCommitsSinceTarget('lib-v', ['packages/arrays/**', 'packages/strings/**']);
+    getCommitsSinceTarget(['lib-v'], ['packages/arrays/**', 'packages/strings/**']);
 
     const logArgs = findLogCallArgs();
     const separatorIndex = logArgs.indexOf('--');
@@ -74,10 +84,10 @@ describe(getCommitsSinceTarget, () => {
       if (cmd === 'git' && args[0] === 'describe') {
         return 'v1.0.0\n';
       }
-      return 'feat: add feature\u001Fabc123';
+      return 'feat: add featureabc123';
     });
 
-    const result = getCommitsSinceTarget('v');
+    const result = getCommitsSinceTarget(['v']);
 
     expect(result.tag).toBe('v1.0.0');
     expect(result.commits).toStrictEqual([{ message: 'feat: add feature', hash: 'abc123' }]);
@@ -88,14 +98,12 @@ describe(getCommitsSinceTarget, () => {
       if (cmd === 'git' && args[0] === 'describe') {
         return 'v1.0.0\n';
       }
-      return [
-        'feat: add feature\u001Fabc123',
-        'release: arrays-v1.1.0 strings-v2.0.1\u001Fdef456',
-        'fix: patch bug\u001Fghi789',
-      ].join('\n');
+      return ['feat: add featureabc123', 'release: arrays-v1.1.0 strings-v2.0.1def456', 'fix: patch bugghi789'].join(
+        '\n',
+      );
     });
 
-    const result = getCommitsSinceTarget('v');
+    const result = getCommitsSinceTarget(['v']);
 
     expect(result.commits).toStrictEqual([
       { message: 'feat: add feature', hash: 'abc123' },
@@ -108,10 +116,10 @@ describe(getCommitsSinceTarget, () => {
       if (cmd === 'git' && args[0] === 'describe') {
         return 'v1.0.0\n';
       }
-      return 'release: v1.0.1\u001Fabc123';
+      return 'release: v1.0.1abc123';
     });
 
-    const result = getCommitsSinceTarget('v');
+    const result = getCommitsSinceTarget(['v']);
 
     expect(result.commits).toStrictEqual([]);
   });
@@ -122,10 +130,10 @@ describe(getCommitsSinceTarget, () => {
         const error = Object.assign(new Error('No tag found'), { status: 128 });
         throw error;
       }
-      return 'fix: patch\u001Fdef456';
+      return 'fix: patchdef456';
     });
 
-    const result = getCommitsSinceTarget('v');
+    const result = getCommitsSinceTarget(['v']);
 
     expect(result.tag).toBeUndefined();
     expect(result.commits).toStrictEqual([{ message: 'fix: patch', hash: 'def456' }]);
@@ -143,7 +151,7 @@ describe(getCommitsSinceTarget, () => {
       return '';
     });
 
-    expect(() => getCommitsSinceTarget('v')).toThrow("Failed to run 'git describe': permission denied");
+    expect(() => getCommitsSinceTarget(['v'])).toThrow("Failed to run 'git describe': permission denied");
   });
 
   it('wraps and re-throws git log failures', () => {
@@ -157,8 +165,55 @@ describe(getCommitsSinceTarget, () => {
       return '';
     });
 
-    expect(() => getCommitsSinceTarget('v')).toThrow(
+    expect(() => getCommitsSinceTarget(['v'])).toThrow(
       "Failed to run 'git log' for range 'v1.0.0..HEAD': spawn git ENOENT",
     );
+  });
+
+  describe('multiple tag prefixes', () => {
+    it('passes one --match flag per prefix to git describe', () => {
+      setupDescribeMock('core-v0.2.7');
+
+      getCommitsSinceTarget(['node-monorepo-core-v', 'core-v']);
+
+      expect(findDescribeCallArgs()).toStrictEqual([
+        'describe',
+        '--tags',
+        '--abbrev=0',
+        '--match=node-monorepo-core-v*',
+        '--match=core-v*',
+      ]);
+    });
+
+    it('returns the tag produced by git describe when a legacy-only prefix matches', () => {
+      // Only the legacy prefix has tags; git describe picks the ancestor under that prefix.
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') return 'core-v0.2.7\n';
+        return 'feat: addabc123';
+      });
+
+      const result = getCommitsSinceTarget(['node-monorepo-core-v', 'core-v']);
+
+      expect(result.tag).toBe('core-v0.2.7');
+      expect(result.commits).toStrictEqual([{ message: 'feat: add', hash: 'abc123' }]);
+    });
+
+    it('returns undefined tag when no prefix in the union matches any reachable tag', () => {
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') {
+          throw Object.assign(new Error('No tag found'), { status: 128 });
+        }
+        return '';
+      });
+
+      const result = getCommitsSinceTarget(['new-v', 'old-v']);
+
+      expect(result.tag).toBeUndefined();
+      expect(result.commits).toStrictEqual([]);
+    });
+
+    it('throws when the prefix array is empty', () => {
+      expect(() => getCommitsSinceTarget([])).toThrow('findLatestTag: tagPrefixes must contain at least one entry');
+    });
   });
 });

@@ -25,14 +25,22 @@ function errorMessage(err: unknown): string {
 }
 
 /**
- * Finds the latest git tag matching the given prefix.
+ * Finds the closest reachable git tag whose name matches any of the given prefixes.
+ *
+ * Invokes `git describe --tags --abbrev=0` with one `--match=<prefix>*` per prefix. Git
+ * treats multiple `--match` flags as a logical union, so the single invocation returns the
+ * closest reachable ancestor matching any listed prefix.
  *
  * @returns The tag string, or undefined if no matching tag exists.
- * @throws If `git describe` fails for a reason other than "no matching tag".
+ * @throws If `tagPrefixes` is empty, or if `git describe` fails for a reason other than "no matching tag".
  */
-function findLatestTag(tagPrefix: string): string | undefined {
+function findLatestTag(tagPrefixes: readonly string[]): string | undefined {
+  if (tagPrefixes.length === 0) {
+    throw new Error('findLatestTag: tagPrefixes must contain at least one entry');
+  }
+  const matchArgs = tagPrefixes.map((prefix) => `--match=${prefix}*`);
   try {
-    const tagResult = execFileSync('git', ['describe', '--tags', '--abbrev=0', `--match=${tagPrefix}*`], {
+    const tagResult = execFileSync('git', ['describe', '--tags', '--abbrev=0', ...matchArgs], {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
     }).trim();
@@ -72,21 +80,26 @@ function parseLogOutput(logOutput: string): Commit[] {
 }
 
 /**
- * Gets commits since the specified git ref (tag or commit hash).
+ * Gets commits since the latest baseline tag matching any of the given prefixes.
  *
- * Uses `git log` to retrieve commit messages and hashes between the target ref and HEAD.
- * If no target is found, returns all commits.
+ * Uses `git log` to retrieve commit messages and hashes between the closest reachable
+ * baseline tag and HEAD. When no tag matches any prefix, all commits reachable from HEAD
+ * are returned.
  *
- * @param tagPrefix - The tag prefix to search for (e.g., 'v').
+ * Callers must pass at least one prefix; the single-prefix case is the common one (the
+ * workspace's derived prefix). Multiple prefixes are used to include legacy tag prefixes
+ * declared via `legacyTagPrefixes`.
+ *
+ * @param tagPrefixes - Tag prefixes to search as a union (e.g., `['core-v', 'old-core-v']`).
  * @param paths - Optional glob patterns to filter commits by path (appended after `--` in `git log`).
  *   Path patterns use POSIX-style forward slashes; Windows compatibility is not guaranteed.
  * @returns An object with the found tag (if any) and the list of commits.
  */
 export function getCommitsSinceTarget(
-  tagPrefix: string,
+  tagPrefixes: readonly string[],
   paths?: string[],
 ): { tag: string | undefined; commits: Commit[] } {
-  const tag = findLatestTag(tagPrefix);
+  const tag = findLatestTag(tagPrefixes);
   const range = tag === undefined ? 'HEAD' : `${tag}..HEAD`;
   const format = `%s${FIELD_SEPARATOR}%H`;
 

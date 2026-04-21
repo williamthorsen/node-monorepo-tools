@@ -151,6 +151,13 @@ export interface ComponentOverride {
   dir: string;
   /** If true, exclude this component from release processing. */
   shouldExclude?: boolean;
+  /**
+   * Additional tag prefixes under which historical release tags for this component exist.
+   * Consulted (in addition to the derived prefix) when release-kit searches for the most recent
+   * baseline tag and when generating changelogs. Declaring these allows release-kit to recognize
+   * legacy tags without any tag mutation.
+   */
+  legacyTagPrefixes?: string[];
 }
 
 /** A raw commit from the git log. */
@@ -191,6 +198,12 @@ export interface ComponentConfig {
   changelogPaths: string[];
   /** Glob patterns passed to `git log -- <paths>` for commit filtering. */
   paths: string[];
+  /**
+   * Additional tag prefixes under which historical release tags for this component exist.
+   * Treated as the union `[tagPrefix, ...legacyTagPrefixes]` when searching for baseline tags
+   * and generating changelogs. `undefined` is equivalent to the empty array.
+   */
+  legacyTagPrefixes?: string[];
 }
 
 /** Configuration for a monorepo release workflow with multiple components. */

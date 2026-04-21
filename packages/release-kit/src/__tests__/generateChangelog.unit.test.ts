@@ -25,11 +25,24 @@ import type { ReleaseConfig } from '../types.ts';
 
 describe(buildTagPattern, () => {
   it('constructs a tag pattern from a single-package prefix', () => {
-    expect(buildTagPattern('v')).toBe('v[0-9].*');
+    expect(buildTagPattern(['v'])).toBe('v[0-9].*');
   });
 
   it('constructs a tag pattern from a monorepo component prefix', () => {
-    expect(buildTagPattern('release-kit-v')).toBe('release-kit-v[0-9].*');
+    expect(buildTagPattern(['release-kit-v'])).toBe('release-kit-v[0-9].*');
+  });
+
+  it('builds an alternation group when given multiple prefixes', () => {
+    expect(buildTagPattern(['node-monorepo-core-v', 'core-v'])).toBe('(node-monorepo-core-v|core-v)[0-9].*');
+  });
+
+  it('escapes regex metacharacters in prefix entries', () => {
+    // Contrived legacy prefix with a regex dot — must be escaped so it does not match any char.
+    expect(buildTagPattern(['foo.v', 'bar-v'])).toBe(String.raw`(foo\.v|bar-v)[0-9].*`);
+  });
+
+  it('throws when given an empty array', () => {
+    expect(() => buildTagPattern([])).toThrow('buildTagPattern: tagPrefixes must contain at least one entry');
   });
 });
 

@@ -28,7 +28,6 @@
     "dist/*",
     "cliff.toml.template",
     "presets/**",
-    "scripts",
     "CHANGELOG.md"
   ],
   "scripts": {

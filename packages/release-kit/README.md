@@ -122,8 +122,11 @@ All fields are optional.
 interface ComponentOverride {
   dir: string; // Package directory name (e.g., 'arrays')
   shouldExclude?: boolean; // If true, exclude from release processing
+  legacyTagPrefixes?: string[]; // Additional tag prefixes under which historical tags exist
 }
 ```
+
+`legacyTagPrefixes` lists extra tag prefixes to consult in addition to the derived prefix when release-kit searches for the most recent baseline tag and when generating changelogs. Use it when a workspace's historical tags were published under a different prefix — typically because the package was renamed or because a prior release setup derived the prefix differently. Run `release-kit show-tag-prefixes` to detect undeclared candidates and produce a paste-ready config snippet. Listing the workspace's current derived prefix is rejected as a no-op duplicate.
 
 ### `VersionPatterns`
 
@@ -219,6 +222,18 @@ Create GitHub Releases from `changelog.json` for tags on HEAD. Independent of `n
 
 When `--tags` is omitted, every release tag pointing at HEAD is processed. The CLI requires the `gh` CLI on `PATH` and `contents: write` permission. The bundled `create-github-release.reusable.yaml` GitHub Actions workflow runs this command in CI.
 
+### `release-kit show-tag-prefixes`
+
+Print a per-workspace table of derived tag prefixes, tag counts, and declared legacy prefixes. Also surfaces any release-shaped tag prefix in the repo that is neither a derived prefix nor declared via `legacyTagPrefixes`, along with a copy-pasteable `components: [...]` config snippet.
+
+| Flag           | Description |
+| -------------- | ----------- |
+| `--help`, `-h` | Show help   |
+
+Exits `0` when every workspace derives a prefix and there are no cross-workspace collisions; exits `1` on any derivation failure or collision. Undeclared candidates do not affect the exit code — they surface as a warning via the `legacy tag prefixes are declared` readyup check.
+
+In single-package mode, prints a single row with `workspacePath = .` and `derivedPrefix = v`; legacy entries and undeclared-candidate scanning are not applicable.
+
 ### `release-kit init`
 
 Initialize release-kit in the current repository. By default, scaffolds only the GitHub Actions workflow file. Use `--with-config` to also scaffold configuration files.
@@ -300,57 +315,26 @@ This package shells out to two external tools:
 - **`git`** — must be available on `PATH`. Used to find tags and retrieve commit history.
 - **`git-cliff`** — automatically downloaded and cached via `npx` on first invocation. No need to install it as a dev dependency.
 
-## Migrating legacy tag prefixes (one-shot)
+## Upgrading from v4 to v5
 
-Release-kit derives each workspace's tag prefix from its unscoped `package.json` `name`, so a package at `packages/core` with `"name": "@scope/node-monorepo-core"` uses tags like `node-monorepo-core-v1.3.0`. Repos that previously tagged under the directory basename (e.g., `core-v1.3.0`) need a one-time migration: without it, release-kit cannot see the prior tags and the first post-migration run treats the whole git history as new.
+Release-kit v5 derives each workspace's tag prefix from its unscoped `package.json` `name`, so a package at `packages/core` with `"name": "@scope/node-monorepo-core"` uses tags like `node-monorepo-core-v1.3.0`. Repos that previously tagged under the directory basename (e.g., `core-v1.3.0`) do not need to rewrite history — declare the old prefix in `legacyTagPrefixes` so release-kit recognizes historical tags under both the new and old prefixes.
 
-The bundled `migrate-tag-prefixes.sh` script creates additive annotated-tag aliases under the new prefix that point at the same commits as the old tags. Original tags are left in place — the migration is reversible.
+Minimal worked example for a repo whose pre-v5 tags were `core-v0.2.7`:
 
-The script ships in the package and is invoked directly from `node_modules`:
+```typescript
+// .config/release-kit.config.ts
+import type { ReleaseKitConfig } from '@williamthorsen/release-kit';
 
-```bash
-bash node_modules/@williamthorsen/release-kit/scripts/migrate-tag-prefixes.sh --help
+const config: ReleaseKitConfig = {
+  components: [{ dir: 'core', legacyTagPrefixes: ['core-v'] }],
+};
+
+export default config;
 ```
 
-### Subcommands
+Verify with `release-kit show-tag-prefixes` — it prints the derived prefix per workspace, tag counts under each declared legacy prefix, and any undeclared release-shaped prefixes it finds in the repo (with a copy-pasteable config snippet). After declaring, `release-kit prepare` consults the union of the derived and legacy prefixes when searching for the most recent baseline tag, and changelog generation matches tags under either prefix.
 
-| Subcommand | Purpose                                                             |
-| ---------- | ------------------------------------------------------------------- |
-| `apply`    | Create annotated-tag aliases in the local repo. Idempotent.         |
-| `push`     | Push already-applied aliases to `origin`. Requires a prior `apply`. |
-
-### Flags
-
-| Flag           | Scope           | Description                                                                                             |
-| -------------- | --------------- | ------------------------------------------------------------------------------------------------------- |
-| `--dry-run`    | `apply`, `push` | Render the preview table and tag-level detail without running `git tag` or `git push`.                  |
-| `--only <dir>` | `apply`, `push` | Scope to one workspace (by directory basename). Unknown values error with the list of known workspaces. |
-| `--force`      | `apply` only    | Replace a local alias that exists at a different commit than the original tag.                          |
-| `-h`, `--help` | —               | Show usage.                                                                                             |
-
-### Conflict handling
-
-If a local alias under the new prefix already exists and points at a different commit than the original tag, `apply` aborts before creating any new aliases and names the conflicting tag. Re-run with `--force` to delete and recreate the alias at the correct commit; the preserved annotation is re-derived from the original tag.
-
-The `push` subcommand never force-pushes. If a remote tag already exists at a different commit, `git push` fails naturally — recover with `git push --force-with-lease origin <new_tag>` run manually.
-
-### Recommended workflow
-
-```bash
-# 1. Preview the work without creating tags.
-bash node_modules/@williamthorsen/release-kit/scripts/migrate-tag-prefixes.sh apply --dry-run
-
-# 2. Create the aliases locally.
-bash node_modules/@williamthorsen/release-kit/scripts/migrate-tag-prefixes.sh apply
-
-# 3. Preview the push.
-bash node_modules/@williamthorsen/release-kit/scripts/migrate-tag-prefixes.sh push --dry-run
-
-# 4. Publish the aliases.
-bash node_modules/@williamthorsen/release-kit/scripts/migrate-tag-prefixes.sh push
-```
-
-The migration is a one-shot tool and is not wired into any release-kit CLI command. Re-running `apply` on a clean state is a no-op.
+See the `legacyTagPrefixes` entry in the [`ComponentOverride`](#componentoverride) section for the config shape.
 
 ## Using `component()` for manual configuration
 
