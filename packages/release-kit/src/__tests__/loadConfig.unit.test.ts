@@ -334,6 +334,35 @@ describe(mergeMonorepoConfig, () => {
     ]);
   });
 
+  it('throws when a retiredPackages entry tagPrefix matches an active workspace derived prefix', () => {
+    expect(() =>
+      mergeMonorepoConfig(discoveredPaths, {
+        retiredPackages: [{ name: '@old-scope/arrays', tagPrefix: 'arrays-v' }],
+      }),
+    ).toThrow(
+      "retiredPackages: tagPrefix 'arrays-v' collides with active workspace 'arrays' (derived prefix 'arrays-v'). A retired package's tagPrefix cannot belong to an active workspace.",
+    );
+  });
+
+  it('accepts retiredPackages whose tagPrefix does not match any active workspace', () => {
+    expect(() =>
+      mergeMonorepoConfig(discoveredPaths, {
+        retiredPackages: [{ name: '@scope/preflight', tagPrefix: 'preflight-v', successor: 'readyup' }],
+      }),
+    ).not.toThrow();
+  });
+
+  it('accepts an empty retiredPackages array', () => {
+    // The guard in `mergeMonorepoConfig` calls `assertRetiredPackagesDoNotCollideWithActive`
+    // for any non-undefined value; exercising the empty-iterable path ensures the call does
+    // not throw when the user declares `retiredPackages: []` explicitly.
+    expect(() =>
+      mergeMonorepoConfig(discoveredPaths, {
+        retiredPackages: [],
+      }),
+    ).not.toThrow();
+  });
+
   it('includes every colliding workspace path when more than two collide', () => {
     mockPackageNames({
       'packages/a-foo': '@a/foo',
