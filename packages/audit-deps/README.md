@@ -2,6 +2,8 @@
 
 Wraps [audit-ci](https://github.com/IBM/audit-ci) with a richer config model, typed JSON source of truth, and a sync workflow that automates allowlist management.
 
+<!-- section:release-notes --><!-- /section:release-notes -->
+
 ## Installation
 
 ```shell

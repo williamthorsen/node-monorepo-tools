@@ -4,6 +4,8 @@ Version-bumping and changelog-generation toolkit for release workflows.
 
 Provides a self-contained CLI that auto-discovers workspaces from `pnpm-workspace.yaml`, parses conventional commits, determines version bumps, updates `package.json` files, and generates changelogs with `git-cliff`.
 
+<!-- section:release-notes --><!-- /section:release-notes -->
+
 ## Installation
 
 ```bash
