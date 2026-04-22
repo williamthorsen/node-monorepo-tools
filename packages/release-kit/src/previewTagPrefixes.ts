@@ -190,15 +190,10 @@ function collectKnownPrefixes(
 
 /** Build preview entries for each declared retired package, attaching current tag counts. */
 function buildRetiredPreviewEntries(retiredPackages: readonly RetiredPackage[]): RetiredPackagePreviewEntry[] {
-  return retiredPackages.map((retired) => {
-    const entry: RetiredPackagePreviewEntry = {
-      name: retired.name,
-      tagPrefix: retired.tagPrefix,
-      tagCount: countTagsMatching(retired.tagPrefix),
-    };
-    if (retired.successor !== undefined) {
-      entry.successor = retired.successor;
-    }
-    return entry;
-  });
+  return retiredPackages.map((retired) => ({
+    name: retired.name,
+    tagPrefix: retired.tagPrefix,
+    tagCount: countTagsMatching(retired.tagPrefix),
+    ...(retired.successor !== undefined ? { successor: retired.successor } : {}),
+  }));
 }

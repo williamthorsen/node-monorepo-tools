@@ -293,8 +293,7 @@ function validateRetiredPackages(value: unknown, config: ReleaseKitConfig, error
     return;
   }
 
-  const retiredPackages: RetiredPackage[] = [];
-  const retiredPackagesWithRawIndex: Array<{ entry: RetiredPackage; rawIndex: number }> = [];
+  const validEntries: Array<{ entry: RetiredPackage; rawIndex: number }> = [];
   const seenTuples = new Set<string>();
 
   for (const [i, entry] of value.entries()) {
@@ -310,13 +309,12 @@ function validateRetiredPackages(value: unknown, config: ReleaseKitConfig, error
       continue;
     }
     seenTuples.add(key);
-    retiredPackages.push(retired);
-    retiredPackagesWithRawIndex.push({ entry: retired, rawIndex: i });
+    validEntries.push({ entry: retired, rawIndex: i });
   }
 
-  detectRetiredVsLegacyCollisions(retiredPackagesWithRawIndex, config, errors);
+  detectRetiredVsLegacyCollisions(validEntries, config, errors);
 
-  config.retiredPackages = retiredPackages;
+  config.retiredPackages = validEntries.map(({ entry }) => entry);
 }
 
 /**
