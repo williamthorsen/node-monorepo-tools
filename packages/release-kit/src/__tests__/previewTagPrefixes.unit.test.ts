@@ -107,7 +107,15 @@ describe(previewTagPrefixes, () => {
   it('surfaces declared legacy prefixes with their tag counts', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
     mockLoadConfig.mockResolvedValue({
-      workspaces: [{ dir: 'core', legacyTagPrefixes: ['core-v', 'old-core-v'] }],
+      workspaces: [
+        {
+          dir: 'core',
+          legacyIdentities: [
+            { name: '@old-scope/core', tagPrefix: 'core-v' },
+            { name: '@older-scope/core', tagPrefix: 'old-core-v' },
+          ],
+        },
+      ],
     });
     mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'node-monorepo-core-v' });
     mockDetectUndeclared.mockReturnValue([]);
@@ -142,7 +150,7 @@ describe(previewTagPrefixes, () => {
   it('passes the union of derived and declared prefixes to detectUndeclaredTagPrefixes', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
     mockLoadConfig.mockResolvedValue({
-      workspaces: [{ dir: 'core', legacyTagPrefixes: ['core-v'] }],
+      workspaces: [{ dir: 'core', legacyIdentities: [{ name: '@old-scope/core', tagPrefix: 'core-v' }] }],
     });
     mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'node-monorepo-core-v' });
     mockDetectUndeclared.mockReturnValue([]);

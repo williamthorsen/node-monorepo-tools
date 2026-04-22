@@ -12,6 +12,7 @@ import type { WorkspaceConfig } from '../types.ts';
 function makeWorkspace(dir: string, packageFile?: string): WorkspaceConfig {
   return {
     dir,
+    name: `@test/${dir}`,
     tagPrefix: `${dir}-v`,
     workspacePath: `packages/${dir}`,
     packageFiles: [packageFile ?? `packages/${dir}/package.json`],
@@ -175,6 +176,7 @@ describe(buildDependencyGraph, () => {
   it('handles workspaces with no packageFiles gracefully', () => {
     const comp: WorkspaceConfig = {
       dir: 'empty',
+      name: '@test/empty',
       tagPrefix: 'empty-v',
       workspacePath: 'packages/empty',
       packageFiles: [],

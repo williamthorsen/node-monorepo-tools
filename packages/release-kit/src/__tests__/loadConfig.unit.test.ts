@@ -132,6 +132,7 @@ describe(mergeMonorepoConfig, () => {
     expect(result.workspaces).toHaveLength(2);
     expect(result.workspaces[0]).toStrictEqual({
       dir: 'arrays',
+      name: '@scope/arrays',
       tagPrefix: 'arrays-v',
       workspacePath: 'packages/arrays',
       packageFiles: ['packages/arrays/package.json'],
@@ -151,6 +152,7 @@ describe(mergeMonorepoConfig, () => {
     expect(result.workspaces).toHaveLength(2);
     expect(result.workspaces[0]).toStrictEqual({
       dir: 'core',
+      name: '@williamthorsen/node-monorepo-core',
       tagPrefix: 'node-monorepo-core-v',
       workspacePath: 'libs/core',
       packageFiles: ['libs/core/package.json'],
@@ -245,30 +247,76 @@ describe(mergeMonorepoConfig, () => {
     ).toThrow("Duplicate tag prefix 'foo-v' for workspaces: packages/a-foo, packages/b-foo");
   });
 
-  it('propagates legacyTagPrefixes from a matching workspace override', () => {
+  it('propagates legacyIdentities from a matching workspace override', () => {
     const result = mergeMonorepoConfig(discoveredPaths, {
-      workspaces: [{ dir: 'arrays', legacyTagPrefixes: ['old-arrays-v', 'legacy-v'] }],
+      workspaces: [
+        {
+          dir: 'arrays',
+          legacyIdentities: [
+            { name: '@old-scope/arrays', tagPrefix: 'old-arrays-v' },
+            { name: '@legacy-scope/arrays', tagPrefix: 'legacy-v' },
+          ],
+        },
+      ],
     });
 
     expect(result.workspaces[0]?.dir).toBe('arrays');
-    expect(result.workspaces[0]?.legacyTagPrefixes).toStrictEqual(['old-arrays-v', 'legacy-v']);
-    expect(result.workspaces[1]?.legacyTagPrefixes).toBeUndefined();
+    expect(result.workspaces[0]?.legacyIdentities).toStrictEqual([
+      { name: '@old-scope/arrays', tagPrefix: 'old-arrays-v' },
+      { name: '@legacy-scope/arrays', tagPrefix: 'legacy-v' },
+    ]);
+    expect(result.workspaces[1]?.legacyIdentities).toBeUndefined();
   });
 
-  it('leaves legacyTagPrefixes undefined when the override omits the field', () => {
+  it('shallow-clones each identity entry so mutating the override does not leak into merged workspaces', () => {
+    const identity = { name: '@old-scope/arrays', tagPrefix: 'old-arrays-v' };
+    const result = mergeMonorepoConfig(discoveredPaths, {
+      workspaces: [{ dir: 'arrays', legacyIdentities: [identity] }],
+    });
+
+    identity.tagPrefix = 'mutated-v';
+
+    expect(result.workspaces[0]?.legacyIdentities).toStrictEqual([
+      { name: '@old-scope/arrays', tagPrefix: 'old-arrays-v' },
+    ]);
+  });
+
+  it('leaves legacyIdentities undefined when the override omits the field', () => {
     const result = mergeMonorepoConfig(discoveredPaths, {
       workspaces: [{ dir: 'arrays', shouldExclude: false }],
     });
 
-    expect(result.workspaces[0]?.legacyTagPrefixes).toBeUndefined();
+    expect(result.workspaces[0]?.legacyIdentities).toBeUndefined();
   });
 
-  it('throws when legacyTagPrefixes includes the derived prefix', () => {
+  it('throws when a legacyIdentities entry matches both the current name and tagPrefix', () => {
     expect(() =>
       mergeMonorepoConfig(discoveredPaths, {
-        workspaces: [{ dir: 'arrays', legacyTagPrefixes: ['arrays-v', 'old-arrays-v'] }],
+        workspaces: [
+          {
+            dir: 'arrays',
+            legacyIdentities: [{ name: '@scope/arrays', tagPrefix: 'arrays-v' }],
+          },
+        ],
       }),
-    ).toThrow("Workspace 'arrays': legacyTagPrefixes must not include the derived prefix 'arrays-v'");
+    ).toThrow(
+      "Workspace 'arrays': legacyIdentities must not match the current identity (name='@scope/arrays', tagPrefix='arrays-v')",
+    );
+  });
+
+  it('accepts an identity whose tagPrefix matches the current but whose name differs', () => {
+    const result = mergeMonorepoConfig(discoveredPaths, {
+      workspaces: [
+        {
+          dir: 'arrays',
+          legacyIdentities: [{ name: '@old-scope/arrays', tagPrefix: 'arrays-v' }],
+        },
+      ],
+    });
+
+    expect(result.workspaces[0]?.legacyIdentities).toStrictEqual([
+      { name: '@old-scope/arrays', tagPrefix: 'arrays-v' },
+    ]);
   });
 
   it('includes every colliding workspace path when more than two collide', () => {

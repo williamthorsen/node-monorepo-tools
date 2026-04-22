@@ -36,6 +36,7 @@ const TAGS: ResolvedTag[] = [
 function makeWorkspace(dir: string, tagPrefix: string, workspacePath: string): WorkspaceConfig {
   return {
     dir,
+    name: `@test/${dir}`,
     tagPrefix,
     workspacePath,
     packageFiles: [`${workspacePath}/package.json`],

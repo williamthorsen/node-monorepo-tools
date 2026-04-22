@@ -11,6 +11,7 @@ import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
 import { isRecord } from './typeGuards.ts';
 import type {
   ChangelogJsonConfig,
+  LegacyIdentity,
   MonorepoReleaseConfig,
   ReleaseConfig,
   ReleaseKitConfig,
@@ -85,11 +86,11 @@ export function mergeMonorepoConfig(
       })
       .map((w) => {
         const override = overrides.get(w.dir);
-        if (override?.legacyTagPrefixes === undefined) {
+        if (override?.legacyIdentities === undefined) {
           return w;
         }
-        assertLegacyTagPrefixesDoNotIncludeDerived(w.dir, w.tagPrefix, override.legacyTagPrefixes);
-        return { ...w, legacyTagPrefixes: [...override.legacyTagPrefixes] };
+        assertLegacyIdentityDoesNotMatchCurrent(w.dir, w.name, w.tagPrefix, override.legacyIdentities);
+        return { ...w, legacyIdentities: override.legacyIdentities.map((identity) => ({ ...identity })) };
       });
   }
 
@@ -191,21 +192,27 @@ function mergeChangelogJsonConfig(partial: Partial<ChangelogJsonConfig> | undefi
 }
 
 /**
- * Throw when a workspace's `legacyTagPrefixes` contains its derived tag prefix.
+ * Throw when a workspace's `legacyIdentities` contains its current identity.
  *
- * A legacy entry equal to the derived prefix is a guaranteed no-op duplicate, almost always
- * a copy-paste mistake. Rejecting it early prevents silent config drift.
+ * An identity whose full `(name, tagPrefix)` tuple equals the current workspace's
+ * `(name, tagPrefix)` is a guaranteed no-op duplicate, almost always a copy-paste mistake.
+ * An entry whose `tagPrefix` matches but whose `name` differs is valid — it documents a prior
+ * rename that reused the same tag shape.
  */
-function assertLegacyTagPrefixesDoNotIncludeDerived(
+function assertLegacyIdentityDoesNotMatchCurrent(
   dir: string,
-  derivedPrefix: string,
-  legacyTagPrefixes: readonly string[],
+  currentName: string,
+  currentTagPrefix: string,
+  legacyIdentities: readonly LegacyIdentity[],
 ): void {
-  if (legacyTagPrefixes.includes(derivedPrefix)) {
-    throw new Error(
-      `Workspace '${dir}': legacyTagPrefixes must not include the derived prefix '${derivedPrefix}'. ` +
-        'The derived prefix is always searched; listing it again is a no-op.',
-    );
+  for (const identity of legacyIdentities) {
+    if (identity.name === currentName && identity.tagPrefix === currentTagPrefix) {
+      throw new Error(
+        `Workspace '${dir}': legacyIdentities must not match the current identity ` +
+          `(name='${currentName}', tagPrefix='${currentTagPrefix}'). ` +
+          'The current identity is always searched; listing it again is a no-op.',
+      );
+    }
   }
 }
 

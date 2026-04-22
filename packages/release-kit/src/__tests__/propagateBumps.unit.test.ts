@@ -8,6 +8,7 @@ import type { WorkspaceConfig } from '../types.ts';
 function makeWorkspace(dir: string): WorkspaceConfig {
   return {
     dir,
+    name: `@test/${dir}`,
     tagPrefix: `${dir}-v`,
     workspacePath: `packages/${dir}`,
     packageFiles: [`packages/${dir}/package.json`],

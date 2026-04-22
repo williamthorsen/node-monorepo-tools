@@ -87,8 +87,8 @@ function parseLogOutput(logOutput: string): Commit[] {
  * are returned.
  *
  * Callers must pass at least one prefix; the single-prefix case is the common one (the
- * workspace's derived prefix). Multiple prefixes are used to include legacy tag prefixes
- * declared via `legacyTagPrefixes`.
+ * workspace's derived prefix). Multiple prefixes are used to include historical tag prefixes
+ * from `legacyIdentities`.
  *
  * @param tagPrefixes - Tag prefixes to search as a union (e.g., `['core-v', 'old-core-v']`).
  * @param paths - Optional glob patterns to filter commits by path (appended after `--` in `git log`).

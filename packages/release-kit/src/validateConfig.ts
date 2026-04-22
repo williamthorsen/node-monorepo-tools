@@ -1,5 +1,5 @@
 import { isRecord } from './typeGuards.ts';
-import type { ReleaseKitConfig } from './types.ts';
+import type { LegacyIdentity, ReleaseKitConfig } from './types.ts';
 
 /**
  * Validates a raw config object loaded from `.config/release-kit.config.ts`.
@@ -146,7 +146,7 @@ function validateWorkspaces(value: unknown, config: ReleaseKitConfig, errors: st
   }
 
   const workspaces: NonNullable<ReleaseKitConfig['workspaces']> = [];
-  const knownWorkspaceFields = new Set(['dir', 'shouldExclude', 'legacyTagPrefixes']);
+  const knownWorkspaceFields = new Set(['dir', 'shouldExclude', 'legacyIdentities']);
   for (const [i, entry] of value.entries()) {
     if (!isRecord(entry)) {
       errors.push(`workspaces[${i}]: must be an object`);
@@ -164,6 +164,10 @@ function validateWorkspaces(value: unknown, config: ReleaseKitConfig, errors: st
           errors.push(
             `workspaces[${i}]: 'tagPrefix' is no longer supported; remove it to use the default '${entry.dir}-v'`,
           );
+        } else if (key === 'legacyTagPrefixes') {
+          errors.push(
+            `workspaces[${i}]: 'legacyTagPrefixes' is no longer supported; use 'legacyIdentities: [{ name, tagPrefix }, ...]' instead`,
+          );
         } else {
           errors.push(`workspaces[${i}]: unknown field '${key}'`);
         }
@@ -180,10 +184,10 @@ function validateWorkspaces(value: unknown, config: ReleaseKitConfig, errors: st
       }
     }
 
-    if (entry.legacyTagPrefixes !== undefined) {
-      const legacy = validateLegacyTagPrefixes(entry.legacyTagPrefixes, i, errors);
-      if (legacy !== undefined) {
-        workspace.legacyTagPrefixes = legacy;
+    if (entry.legacyIdentities !== undefined) {
+      const identities = validateLegacyIdentities(entry.legacyIdentities, i, errors);
+      if (identities !== undefined) {
+        workspace.legacyIdentities = identities;
       }
     }
     workspaces.push(workspace);
@@ -192,34 +196,83 @@ function validateWorkspaces(value: unknown, config: ReleaseKitConfig, errors: st
 }
 
 /**
- * Validate a `legacyTagPrefixes` field on a workspace override.
+ * Validate a `legacyIdentities` field on a workspace override.
  *
- * Accepts a string array with non-empty entries. Returns the validated array, or `undefined`
- * when validation fails (with errors appended to the caller's list).
+ * Accepts an array of records, each with non-empty string `name` and `tagPrefix` fields and
+ * no unknown fields. Rejects full-tuple duplicates (two entries whose `name` and `tagPrefix`
+ * both match). Returns the validated array, or `undefined` when any entry fails validation.
  */
-function validateLegacyTagPrefixes(value: unknown, workspaceIndex: number, errors: string[]): string[] | undefined {
+function validateLegacyIdentities(
+  value: unknown,
+  workspaceIndex: number,
+  errors: string[],
+): LegacyIdentity[] | undefined {
   if (!Array.isArray(value)) {
-    errors.push(`workspaces[${workspaceIndex}]: 'legacyTagPrefixes' must be a string array`);
+    errors.push(`workspaces[${workspaceIndex}]: 'legacyIdentities' must be an array`);
     return undefined;
   }
 
-  const prefixes: string[] = [];
+  const knownIdentityFields = new Set(['name', 'tagPrefix']);
+  const identities: LegacyIdentity[] = [];
+  const seenTuples = new Set<string>();
   let valid = true;
+
   for (const [entryIndex, entry] of value.entries()) {
-    if (typeof entry !== 'string') {
-      errors.push(`workspaces[${workspaceIndex}].legacyTagPrefixes[${entryIndex}]: must be a string`);
+    if (!isRecord(entry)) {
+      errors.push(`workspaces[${workspaceIndex}].legacyIdentities[${entryIndex}]: must be an object`);
       valid = false;
       continue;
     }
-    if (entry === '') {
-      errors.push(`workspaces[${workspaceIndex}].legacyTagPrefixes[${entryIndex}]: must be a non-empty string`);
+
+    let entryValid = true;
+    for (const key of Object.keys(entry)) {
+      if (!knownIdentityFields.has(key)) {
+        errors.push(`workspaces[${workspaceIndex}].legacyIdentities[${entryIndex}]: unknown field '${key}'`);
+        entryValid = false;
+      }
+    }
+
+    const name = entry.name;
+    if (typeof name !== 'string') {
+      errors.push(`workspaces[${workspaceIndex}].legacyIdentities[${entryIndex}].name: must be a string`);
+      entryValid = false;
+    } else if (name === '') {
+      errors.push(`workspaces[${workspaceIndex}].legacyIdentities[${entryIndex}].name: must be a non-empty string`);
+      entryValid = false;
+    }
+
+    const tagPrefix = entry.tagPrefix;
+    if (typeof tagPrefix !== 'string') {
+      errors.push(`workspaces[${workspaceIndex}].legacyIdentities[${entryIndex}].tagPrefix: must be a string`);
+      entryValid = false;
+    } else if (tagPrefix === '') {
+      errors.push(
+        `workspaces[${workspaceIndex}].legacyIdentities[${entryIndex}].tagPrefix: must be a non-empty string`,
+      );
+      entryValid = false;
+    }
+
+    if (!entryValid) {
       valid = false;
       continue;
     }
-    prefixes.push(entry);
+
+    // Safe narrowing: both fields passed the string/non-empty checks above.
+    if (typeof name === 'string' && typeof tagPrefix === 'string') {
+      const key = `${name} ${tagPrefix}`;
+      if (seenTuples.has(key)) {
+        errors.push(
+          `workspaces[${workspaceIndex}].legacyIdentities[${entryIndex}]: duplicate identity (name='${name}', tagPrefix='${tagPrefix}')`,
+        );
+        valid = false;
+        continue;
+      }
+      seenTuples.add(key);
+      identities.push({ name, tagPrefix });
+    }
   }
 
-  return valid ? prefixes : undefined;
+  return valid ? identities : undefined;
 }
 
 function validateVersionPatterns(value: unknown, config: ReleaseKitConfig, errors: string[]): void {

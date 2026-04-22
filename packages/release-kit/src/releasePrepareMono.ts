@@ -146,11 +146,17 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
   const hintState: BaselineHintState = { emitted: false };
   // Build once: the union of every workspace's derived and declared tag prefixes. Passed into
   // the baseline hint so sibling workspaces' tags aren't misclassified as undeclared candidates.
-  const knownPrefixes = config.workspaces.flatMap((w) => [w.tagPrefix, ...(w.legacyTagPrefixes ?? [])]);
+  const knownPrefixes = config.workspaces.flatMap((w) => [
+    w.tagPrefix,
+    ...(w.legacyIdentities?.map((identity) => identity.tagPrefix) ?? []),
+  ]);
 
   for (const workspace of config.workspaces) {
     const name = workspace.dir;
-    const tagPrefixes = [workspace.tagPrefix, ...(workspace.legacyTagPrefixes ?? [])];
+    const tagPrefixes = [
+      workspace.tagPrefix,
+      ...(workspace.legacyIdentities?.map((identity) => identity.tagPrefix) ?? []),
+    ];
     const { tag, commits } = getCommitsSinceTarget(tagPrefixes, workspace.paths);
     const since = tag === undefined ? '(no previous release found)' : `since ${tag}`;
 
@@ -445,7 +451,10 @@ function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): str
     return changelogFiles;
   }
 
-  const tagPattern = buildTagPattern([workspace.tagPrefix, ...(workspace.legacyTagPrefixes ?? [])]);
+  const tagPattern = buildTagPattern([
+    workspace.tagPrefix,
+    ...(workspace.legacyIdentities?.map((identity) => identity.tagPrefix) ?? []),
+  ]);
   for (const changelogPath of workspace.changelogPaths) {
     changelogFiles.push(
       ...generateChangelog(config, changelogPath, newTag, dryRun, {
@@ -511,7 +520,7 @@ interface BaselineHintState {
 /**
  * Emit a one-line hint to stderr pointing at `release-kit show-tag-prefixes` when a workspace
  * has no baseline tag AND the repo contains candidate-shaped tags AND the workspace has no
- * declared `legacyTagPrefixes`.
+ * declared `legacyIdentities`.
  *
  * `knownPrefixes` must be the full union across all workspaces so sibling workspaces' tags
  * are not mistaken for undeclared candidates.
@@ -524,7 +533,7 @@ function maybeEmitBaselineHint(
   state: BaselineHintState,
 ): void {
   if (state.emitted) return;
-  if ((workspace.legacyTagPrefixes?.length ?? 0) > 0) return;
+  if ((workspace.legacyIdentities?.length ?? 0) > 0) return;
 
   const candidates = detectUndeclaredTagPrefixes(knownPrefixes);
   if (candidates.length === 0) return;

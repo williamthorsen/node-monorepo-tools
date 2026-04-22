@@ -60,50 +60,131 @@ describe(validateConfig, () => {
       expect(errors).toContain("workspaces[0]: unknown field 'bogusField'");
     });
 
-    describe('legacyTagPrefixes', () => {
-      it('accepts a string array', () => {
+    describe('legacyIdentities', () => {
+      it('accepts an array of complete identity objects', () => {
         const { config, errors } = validateConfig({
-          workspaces: [{ dir: 'core', legacyTagPrefixes: ['core-v', 'old-core-v'] }],
+          workspaces: [
+            {
+              dir: 'core',
+              legacyIdentities: [
+                { name: '@scope/core', tagPrefix: 'core-v' },
+                { name: '@old-scope/core', tagPrefix: 'old-core-v' },
+              ],
+            },
+          ],
         });
         expect(errors).toStrictEqual([]);
-        expect(config.workspaces?.[0]?.legacyTagPrefixes).toStrictEqual(['core-v', 'old-core-v']);
+        expect(config.workspaces?.[0]?.legacyIdentities).toStrictEqual([
+          { name: '@scope/core', tagPrefix: 'core-v' },
+          { name: '@old-scope/core', tagPrefix: 'old-core-v' },
+        ]);
       });
 
       it('accepts an empty array', () => {
         const { config, errors } = validateConfig({
-          workspaces: [{ dir: 'core', legacyTagPrefixes: [] }],
+          workspaces: [{ dir: 'core', legacyIdentities: [] }],
         });
         expect(errors).toStrictEqual([]);
-        expect(config.workspaces?.[0]?.legacyTagPrefixes).toStrictEqual([]);
+        expect(config.workspaces?.[0]?.legacyIdentities).toStrictEqual([]);
       });
 
-      it('omits legacyTagPrefixes from the result when the field is not provided', () => {
+      it('omits legacyIdentities from the result when the field is not provided', () => {
         const { config, errors } = validateConfig({
           workspaces: [{ dir: 'core' }],
         });
         expect(errors).toStrictEqual([]);
-        expect(config.workspaces?.[0]?.legacyTagPrefixes).toBeUndefined();
+        expect(config.workspaces?.[0]?.legacyIdentities).toBeUndefined();
       });
 
-      it('returns an error when legacyTagPrefixes is not an array', () => {
+      it('returns an error when legacyIdentities is not an array', () => {
         const { errors } = validateConfig({
-          workspaces: [{ dir: 'core', legacyTagPrefixes: 'core-v' }],
+          workspaces: [{ dir: 'core', legacyIdentities: 'core-v' }],
         });
-        expect(errors).toContain("workspaces[0]: 'legacyTagPrefixes' must be a string array");
+        expect(errors).toContain("workspaces[0]: 'legacyIdentities' must be an array");
       });
 
-      it('returns a per-index error when an entry is not a string', () => {
+      it('returns a per-index error when an entry is not an object', () => {
         const { errors } = validateConfig({
-          workspaces: [{ dir: 'core', legacyTagPrefixes: ['core-v', 123, 'old-v'] }],
+          workspaces: [{ dir: 'core', legacyIdentities: ['core-v'] }],
         });
-        expect(errors).toContain('workspaces[0].legacyTagPrefixes[1]: must be a string');
+        expect(errors).toContain('workspaces[0].legacyIdentities[0]: must be an object');
       });
 
-      it('returns a per-index error when an entry is an empty string', () => {
+      it('returns a per-index error when name is missing', () => {
         const { errors } = validateConfig({
-          workspaces: [{ dir: 'core', legacyTagPrefixes: ['core-v', ''] }],
+          workspaces: [{ dir: 'core', legacyIdentities: [{ tagPrefix: 'core-v' }] }],
         });
-        expect(errors).toContain('workspaces[0].legacyTagPrefixes[1]: must be a non-empty string');
+        expect(errors).toContain('workspaces[0].legacyIdentities[0].name: must be a string');
+      });
+
+      it('returns a per-index error when name is an empty string', () => {
+        const { errors } = validateConfig({
+          workspaces: [{ dir: 'core', legacyIdentities: [{ name: '', tagPrefix: 'core-v' }] }],
+        });
+        expect(errors).toContain('workspaces[0].legacyIdentities[0].name: must be a non-empty string');
+      });
+
+      it('returns a per-index error when tagPrefix is missing', () => {
+        const { errors } = validateConfig({
+          workspaces: [{ dir: 'core', legacyIdentities: [{ name: '@scope/core' }] }],
+        });
+        expect(errors).toContain('workspaces[0].legacyIdentities[0].tagPrefix: must be a string');
+      });
+
+      it('returns a per-index error when tagPrefix is an empty string', () => {
+        const { errors } = validateConfig({
+          workspaces: [{ dir: 'core', legacyIdentities: [{ name: '@scope/core', tagPrefix: '' }] }],
+        });
+        expect(errors).toContain('workspaces[0].legacyIdentities[0].tagPrefix: must be a non-empty string');
+      });
+
+      it('returns an error on unknown identity fields', () => {
+        const { errors } = validateConfig({
+          workspaces: [{ dir: 'core', legacyIdentities: [{ name: '@scope/core', tagPrefix: 'core-v', bogus: true }] }],
+        });
+        expect(errors).toContain("workspaces[0].legacyIdentities[0]: unknown field 'bogus'");
+      });
+
+      it('rejects full-tuple duplicates', () => {
+        const { errors } = validateConfig({
+          workspaces: [
+            {
+              dir: 'core',
+              legacyIdentities: [
+                { name: '@scope/core', tagPrefix: 'core-v' },
+                { name: '@scope/core', tagPrefix: 'core-v' },
+              ],
+            },
+          ],
+        });
+        expect(errors).toContain(
+          "workspaces[0].legacyIdentities[1]: duplicate identity (name='@scope/core', tagPrefix='core-v')",
+        );
+      });
+
+      it('accepts two entries with the same tagPrefix but different names', () => {
+        const { config, errors } = validateConfig({
+          workspaces: [
+            {
+              dir: 'core',
+              legacyIdentities: [
+                { name: '@old-scope/core', tagPrefix: 'core-v' },
+                { name: '@other-scope/core', tagPrefix: 'core-v' },
+              ],
+            },
+          ],
+        });
+        expect(errors).toStrictEqual([]);
+        expect(config.workspaces?.[0]?.legacyIdentities).toHaveLength(2);
+      });
+
+      it('emits a migration error when the removed legacyTagPrefixes field is present', () => {
+        const { errors } = validateConfig({
+          workspaces: [{ dir: 'core', legacyTagPrefixes: ['core-v'] }],
+        });
+        expect(errors).toContain(
+          "workspaces[0]: 'legacyTagPrefixes' is no longer supported; use 'legacyIdentities: [{ name, tagPrefix }, ...]' instead",
+        );
       });
     });
   });

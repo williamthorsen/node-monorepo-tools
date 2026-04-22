@@ -93,6 +93,7 @@ describe(releasePrepareMono, () => {
       workspaces: [
         {
           dir: 'arrays',
+          name: '@test/arrays',
           tagPrefix: 'arrays-v',
           workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
@@ -146,6 +147,7 @@ describe(releasePrepareMono, () => {
       workspaces: [
         {
           dir: 'arrays',
+          name: '@test/arrays',
           tagPrefix: 'arrays-v',
           workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
@@ -184,6 +186,7 @@ describe(releasePrepareMono, () => {
       workspaces: [
         {
           dir: 'arrays',
+          name: '@test/arrays',
           tagPrefix: 'arrays-v',
           workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
@@ -192,6 +195,7 @@ describe(releasePrepareMono, () => {
         },
         {
           dir: 'strings',
+          name: '@test/strings',
           tagPrefix: 'strings-v',
           workspacePath: 'packages/strings',
           packageFiles: ['packages/strings/package.json'],
@@ -246,6 +250,7 @@ describe(releasePrepareMono, () => {
       workspaces: [
         {
           dir: 'arrays',
+          name: '@test/arrays',
           tagPrefix: 'arrays-v',
           workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
@@ -287,6 +292,7 @@ describe(releasePrepareMono, () => {
       workspaces: [
         {
           dir: 'arrays',
+          name: '@test/arrays',
           tagPrefix: 'arrays-v',
           workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
@@ -295,6 +301,7 @@ describe(releasePrepareMono, () => {
         },
         {
           dir: 'strings',
+          name: '@test/strings',
           tagPrefix: 'strings-v',
           workspacePath: 'packages/strings',
           packageFiles: ['packages/strings/package.json'],
@@ -331,6 +338,7 @@ describe(releasePrepareMono, () => {
       workspaces: [
         {
           dir: 'arrays',
+          name: '@test/arrays',
           tagPrefix: 'arrays-v',
           workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
@@ -372,6 +380,7 @@ describe(releasePrepareMono, () => {
       workspaces: [
         {
           dir: 'arrays',
+          name: '@test/arrays',
           tagPrefix: 'arrays-v',
           workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
@@ -410,6 +419,7 @@ describe(releasePrepareMono, () => {
       workspaces: [
         {
           dir: 'arrays',
+          name: '@test/arrays',
           tagPrefix: 'arrays-v',
           workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
@@ -445,6 +455,7 @@ describe(releasePrepareMono, () => {
       workspaces: [
         {
           dir: 'arrays',
+          name: '@test/arrays',
           tagPrefix: 'arrays-v',
           workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
@@ -481,6 +492,7 @@ describe(releasePrepareMono, () => {
       workspaces: [
         {
           dir: 'arrays',
+          name: '@test/arrays',
           tagPrefix: 'arrays-v',
           workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
@@ -489,6 +501,7 @@ describe(releasePrepareMono, () => {
         },
         {
           dir: 'strings',
+          name: '@test/strings',
           tagPrefix: 'strings-v',
           workspacePath: 'packages/strings',
           packageFiles: ['packages/strings/package.json'],
@@ -529,6 +542,7 @@ describe(releasePrepareMono, () => {
       workspaces: [
         {
           dir: 'arrays',
+          name: '@test/arrays',
           tagPrefix: 'arrays-v',
           workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
@@ -562,6 +576,7 @@ describe(releasePrepareMono, () => {
       workspaces: [
         {
           dir: 'arrays',
+          name: '@test/arrays',
           tagPrefix: 'arrays-v',
           workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
@@ -593,6 +608,7 @@ describe(releasePrepareMono, () => {
       workspaces: [
         {
           dir: 'arrays',
+          name: '@test/arrays',
           tagPrefix: 'arrays-v',
           workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
@@ -628,6 +644,7 @@ describe(releasePrepareMono, () => {
       workspaces: [
         {
           dir: 'arrays',
+          name: '@test/arrays',
           tagPrefix: 'arrays-v',
           workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
@@ -659,6 +676,7 @@ describe(releasePrepareMono, () => {
       workspaces: [
         {
           dir: 'arrays',
+          name: '@test/arrays',
           tagPrefix: 'arrays-v',
           workspacePath: 'packages/arrays',
           packageFiles: ['packages/arrays/package.json'],
@@ -699,6 +717,7 @@ describe(releasePrepareMono, () => {
         workspaces: [
           {
             dir: 'core',
+            name: '@test/core',
             tagPrefix: 'core-v',
             workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
@@ -707,6 +726,7 @@ describe(releasePrepareMono, () => {
           },
           {
             dir: 'app',
+            name: '@test/app',
             tagPrefix: 'app-v',
             workspacePath: 'packages/app',
             packageFiles: ['packages/app/package.json'],
@@ -777,6 +797,7 @@ describe(releasePrepareMono, () => {
         workspaces: [
           {
             dir: 'core',
+            name: '@test/core',
             tagPrefix: 'core-v',
             workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
@@ -785,6 +806,7 @@ describe(releasePrepareMono, () => {
           },
           {
             dir: 'app',
+            name: '@test/app',
             tagPrefix: 'app-v',
             workspacePath: 'packages/app',
             packageFiles: ['packages/app/package.json'],
@@ -846,6 +868,7 @@ describe(releasePrepareMono, () => {
         workspaces: [
           {
             dir: 'core',
+            name: '@test/core',
             tagPrefix: 'core-v',
             workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
@@ -874,6 +897,7 @@ describe(releasePrepareMono, () => {
         workspaces: [
           {
             dir: 'core',
+            name: '@test/core',
             tagPrefix: 'core-v',
             workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
@@ -914,6 +938,7 @@ describe(releasePrepareMono, () => {
         workspaces: [
           {
             dir: 'core',
+            name: '@test/core',
             tagPrefix: 'core-v',
             workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
@@ -940,6 +965,7 @@ describe(releasePrepareMono, () => {
         workspaces: [
           {
             dir: 'core',
+            name: '@test/core',
             tagPrefix: 'core-v',
             workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
@@ -966,6 +992,7 @@ describe(releasePrepareMono, () => {
         workspaces: [
           {
             dir: 'core',
+            name: '@test/core',
             tagPrefix: 'core-v',
             workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
@@ -997,6 +1024,7 @@ describe(releasePrepareMono, () => {
         workspaces: [
           {
             dir: 'core',
+            name: '@test/core',
             tagPrefix: 'core-v',
             workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
@@ -1005,6 +1033,7 @@ describe(releasePrepareMono, () => {
           },
           {
             dir: 'app',
+            name: '@test/app',
             tagPrefix: 'app-v',
             workspacePath: 'packages/app',
             packageFiles: ['packages/app/package.json'],
@@ -1024,6 +1053,7 @@ describe(releasePrepareMono, () => {
         workspaces: [
           {
             dir: 'core',
+            name: '@test/core',
             tagPrefix: 'core-v',
             workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
@@ -1032,6 +1062,7 @@ describe(releasePrepareMono, () => {
           },
           {
             dir: 'app',
+            name: '@test/app',
             tagPrefix: 'app-v',
             workspacePath: 'packages/app',
             packageFiles: ['packages/app/package.json'],
@@ -1100,11 +1131,12 @@ describe(releasePrepareMono, () => {
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
     }
 
-    it('emits a hint when no baseline + candidate tags exist + no legacyTagPrefixes', () => {
+    it('emits a hint when no baseline + candidate tags exist + no legacyIdentities', () => {
       const config = makeConfig({
         workspaces: [
           {
             dir: 'core',
+            name: '@test/core',
             tagPrefix: 'node-monorepo-core-v',
             workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
@@ -1130,17 +1162,18 @@ describe(releasePrepareMono, () => {
       errorSpy.mockRestore();
     });
 
-    it('suppresses the hint when legacyTagPrefixes is non-empty', () => {
+    it('suppresses the hint when legacyIdentities is non-empty', () => {
       const config = makeConfig({
         workspaces: [
           {
             dir: 'core',
+            name: '@test/core',
             tagPrefix: 'node-monorepo-core-v',
             workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
             changelogPaths: ['packages/core'],
             paths: ['packages/core/**'],
-            legacyTagPrefixes: ['core-v'],
+            legacyIdentities: [{ name: '@old-scope/core', tagPrefix: 'core-v' }],
           },
         ],
       });
@@ -1161,6 +1194,7 @@ describe(releasePrepareMono, () => {
         workspaces: [
           {
             dir: 'core',
+            name: '@test/core',
             tagPrefix: 'node-monorepo-core-v',
             workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
@@ -1190,6 +1224,7 @@ describe(releasePrepareMono, () => {
         workspaces: [
           {
             dir: 'core',
+            name: '@test/core',
             tagPrefix: 'node-monorepo-core-v',
             workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
@@ -1198,6 +1233,7 @@ describe(releasePrepareMono, () => {
           },
           {
             dir: 'arrays',
+            name: '@test/arrays',
             tagPrefix: 'node-monorepo-arrays-v',
             workspacePath: 'packages/arrays',
             packageFiles: ['packages/arrays/package.json'],
@@ -1219,13 +1255,14 @@ describe(releasePrepareMono, () => {
       errorSpy.mockRestore();
     });
 
-    it("treats sibling workspaces' declared legacyTagPrefixes as known", () => {
+    it("treats sibling workspaces' declared legacyIdentities as known", () => {
       // Also a regression case: when a sibling workspace declares its own legacy prefixes, those
       // must not show up as undeclared candidates when another workspace has no baseline.
       const config = makeConfig({
         workspaces: [
           {
             dir: 'core',
+            name: '@test/core',
             tagPrefix: 'node-monorepo-core-v',
             workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
@@ -1234,12 +1271,13 @@ describe(releasePrepareMono, () => {
           },
           {
             dir: 'arrays',
+            name: '@test/arrays',
             tagPrefix: 'node-monorepo-arrays-v',
             workspacePath: 'packages/arrays',
             packageFiles: ['packages/arrays/package.json'],
             changelogPaths: ['packages/arrays'],
             paths: ['packages/arrays/**'],
-            legacyTagPrefixes: ['arrays-v'],
+            legacyIdentities: [{ name: '@old-scope/arrays', tagPrefix: 'arrays-v' }],
           },
         ],
       });
@@ -1260,6 +1298,7 @@ describe(releasePrepareMono, () => {
         workspaces: [
           {
             dir: 'core',
+            name: '@test/core',
             tagPrefix: 'node-monorepo-core-v',
             workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
@@ -1268,6 +1307,7 @@ describe(releasePrepareMono, () => {
           },
           {
             dir: 'arrays',
+            name: '@test/arrays',
             tagPrefix: 'node-monorepo-arrays-v',
             workspacePath: 'packages/arrays',
             packageFiles: ['packages/arrays/package.json'],
