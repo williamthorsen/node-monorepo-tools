@@ -186,6 +186,63 @@ describe(validateConfig, () => {
           "workspaces[0]: 'legacyTagPrefixes' is no longer supported; use 'legacyIdentities: [{ name, tagPrefix }, ...]' instead",
         );
       });
+
+      it('emits a migration error and still validates legacyIdentities when both fields coexist', () => {
+        const { config, errors } = validateConfig({
+          workspaces: [
+            {
+              dir: 'core',
+              legacyTagPrefixes: ['core-v'],
+              legacyIdentities: [{ name: '@scope/core', tagPrefix: 'old-core-v' }],
+            },
+          ],
+        });
+        expect(errors).toContain(
+          "workspaces[0]: 'legacyTagPrefixes' is no longer supported; use 'legacyIdentities: [{ name, tagPrefix }, ...]' instead",
+        );
+        expect(config.workspaces?.[0]?.legacyIdentities).toStrictEqual([
+          { name: '@scope/core', tagPrefix: 'old-core-v' },
+        ]);
+      });
+
+      it('preserves valid entries when only some entries in a multi-entry array are invalid', () => {
+        const { config, errors } = validateConfig({
+          workspaces: [
+            {
+              dir: 'core',
+              legacyIdentities: [
+                { name: '@scope/core', tagPrefix: 'core-v' },
+                'core-v',
+                { name: '@other-scope/core', tagPrefix: 'other-core-v' },
+              ],
+            },
+          ],
+        });
+        expect(errors).toContain('workspaces[0].legacyIdentities[1]: must be an object');
+        expect(config.workspaces?.[0]?.legacyIdentities).toStrictEqual([
+          { name: '@scope/core', tagPrefix: 'core-v' },
+          { name: '@other-scope/core', tagPrefix: 'other-core-v' },
+        ]);
+      });
+
+      it('accepts tuples that would have collided under a space-separator dedup key', () => {
+        const { config, errors } = validateConfig({
+          workspaces: [
+            {
+              dir: 'core',
+              legacyIdentities: [
+                { name: 'foo bar', tagPrefix: 'baz-v' },
+                { name: 'foo', tagPrefix: 'bar baz-v' },
+              ],
+            },
+          ],
+        });
+        expect(errors).toStrictEqual([]);
+        expect(config.workspaces?.[0]?.legacyIdentities).toStrictEqual([
+          { name: 'foo bar', tagPrefix: 'baz-v' },
+          { name: 'foo', tagPrefix: 'bar baz-v' },
+        ]);
+      });
     });
   });
 

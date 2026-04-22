@@ -319,6 +319,21 @@ describe(mergeMonorepoConfig, () => {
     ]);
   });
 
+  it('accepts an identity whose name matches the current but whose tagPrefix differs', () => {
+    const result = mergeMonorepoConfig(discoveredPaths, {
+      workspaces: [
+        {
+          dir: 'arrays',
+          legacyIdentities: [{ name: '@scope/arrays', tagPrefix: 'old-arrays-v' }],
+        },
+      ],
+    });
+
+    expect(result.workspaces[0]?.legacyIdentities).toStrictEqual([
+      { name: '@scope/arrays', tagPrefix: 'old-arrays-v' },
+    ]);
+  });
+
   it('includes every colliding workspace path when more than two collide', () => {
     mockPackageNames({
       'packages/a-foo': '@a/foo',

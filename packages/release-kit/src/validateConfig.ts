@@ -200,7 +200,9 @@ function validateWorkspaces(value: unknown, config: ReleaseKitConfig, errors: st
  *
  * Accepts an array of records, each with non-empty string `name` and `tagPrefix` fields and
  * no unknown fields. Rejects full-tuple duplicates (two entries whose `name` and `tagPrefix`
- * both match). Returns the validated array, or `undefined` when any entry fails validation.
+ * both match). Appends a per-entry error for each invalid entry and returns the array of
+ * valid entries (including partial results when some entries fail). Returns `undefined`
+ * only when the top-level value is not an array.
  */
 function validateLegacyIdentities(
   value: unknown,
@@ -215,12 +217,10 @@ function validateLegacyIdentities(
   const knownIdentityFields = new Set(['name', 'tagPrefix']);
   const identities: LegacyIdentity[] = [];
   const seenTuples = new Set<string>();
-  let valid = true;
 
   for (const [entryIndex, entry] of value.entries()) {
     if (!isRecord(entry)) {
       errors.push(`workspaces[${workspaceIndex}].legacyIdentities[${entryIndex}]: must be an object`);
-      valid = false;
       continue;
     }
 
@@ -253,18 +253,18 @@ function validateLegacyIdentities(
     }
 
     if (!entryValid) {
-      valid = false;
       continue;
     }
 
     // Safe narrowing: both fields passed the string/non-empty checks above.
     if (typeof name === 'string' && typeof tagPrefix === 'string') {
-      const key = `${name} ${tagPrefix}`;
+      // Use a null-byte separator: neither npm names nor tag prefixes can contain `\0`,
+      // so distinct `(name, tagPrefix)` tuples always produce distinct keys.
+      const key = `${name}\0${tagPrefix}`;
       if (seenTuples.has(key)) {
         errors.push(
           `workspaces[${workspaceIndex}].legacyIdentities[${entryIndex}]: duplicate identity (name='${name}', tagPrefix='${tagPrefix}')`,
         );
-        valid = false;
         continue;
       }
       seenTuples.add(key);
@@ -272,7 +272,7 @@ function validateLegacyIdentities(
     }
   }
 
-  return valid ? identities : undefined;
+  return identities;
 }
 
 function validateVersionPatterns(value: unknown, config: ReleaseKitConfig, errors: string[]): void {
