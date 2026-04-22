@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
 const mockResolveReleaseTags = vi.hoisted(() => vi.fn());
-const mockComponent = vi.hoisted(() => vi.fn());
+const mockDeriveWorkspaceConfig = vi.hoisted(() => vi.fn());
 
 vi.mock('../discoverWorkspaces.ts', () => ({
   discoverWorkspaces: mockDiscoverWorkspaces,
@@ -12,13 +12,13 @@ vi.mock('../resolveReleaseTags.ts', () => ({
   resolveReleaseTags: mockResolveReleaseTags,
 }));
 
-vi.mock('../component.ts', () => ({
-  component: mockComponent,
+vi.mock('../deriveWorkspaceConfig.ts', () => ({
+  deriveWorkspaceConfig: mockDeriveWorkspaceConfig,
 }));
 
 import { resolveCommandTags } from '../resolveCommandTags.ts';
 import type { ResolvedTag } from '../resolveReleaseTags.ts';
-import type { ComponentConfig } from '../types.ts';
+import type { WorkspaceConfig } from '../types.ts';
 
 /** Sentinel error thrown by the mocked process.exit. */
 class ExitError extends Error {
@@ -33,7 +33,7 @@ const TAGS: ResolvedTag[] = [
   { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit' },
 ];
 
-function makeComponent(dir: string, tagPrefix: string, workspacePath: string): ComponentConfig {
+function makeWorkspace(dir: string, tagPrefix: string, workspacePath: string): WorkspaceConfig {
   return {
     dir,
     tagPrefix,
@@ -48,15 +48,15 @@ describe(resolveCommandTags, () => {
   beforeEach(() => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/cli', 'packages/release-kit']);
     mockResolveReleaseTags.mockReturnValue(TAGS);
-    mockComponent.mockImplementation((workspacePath: string) => {
+    mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => {
       if (workspacePath === 'packages/core') {
-        return makeComponent('core', 'node-monorepo-core-v', 'packages/core');
+        return makeWorkspace('core', 'node-monorepo-core-v', 'packages/core');
       }
       if (workspacePath === 'packages/cli') {
-        return makeComponent('cli', 'cli-v', 'packages/cli');
+        return makeWorkspace('cli', 'cli-v', 'packages/cli');
       }
       if (workspacePath === 'packages/release-kit') {
-        return makeComponent('release-kit', 'release-kit-v', 'packages/release-kit');
+        return makeWorkspace('release-kit', 'release-kit-v', 'packages/release-kit');
       }
       throw new Error(`Unexpected workspace path: ${workspacePath}`);
     });
@@ -69,7 +69,7 @@ describe(resolveCommandTags, () => {
   afterEach(() => {
     mockDiscoverWorkspaces.mockReset();
     mockResolveReleaseTags.mockReset();
-    mockComponent.mockReset();
+    mockDeriveWorkspaceConfig.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -79,13 +79,13 @@ describe(resolveCommandTags, () => {
     expect(result).toStrictEqual(TAGS);
   });
 
-  it('passes resolved components to resolveReleaseTags in monorepo mode', async () => {
+  it('passes resolved workspaces to resolveReleaseTags in monorepo mode', async () => {
     await resolveCommandTags(undefined);
 
     expect(mockResolveReleaseTags).toHaveBeenCalledWith([
-      makeComponent('core', 'node-monorepo-core-v', 'packages/core'),
-      makeComponent('cli', 'cli-v', 'packages/cli'),
-      makeComponent('release-kit', 'release-kit-v', 'packages/release-kit'),
+      makeWorkspace('core', 'node-monorepo-core-v', 'packages/core'),
+      makeWorkspace('cli', 'cli-v', 'packages/cli'),
+      makeWorkspace('release-kit', 'release-kit-v', 'packages/release-kit'),
     ]);
   });
 
@@ -95,7 +95,7 @@ describe(resolveCommandTags, () => {
     await resolveCommandTags(undefined);
 
     expect(mockResolveReleaseTags).toHaveBeenCalledWith(undefined);
-    expect(mockComponent).not.toHaveBeenCalled();
+    expect(mockDeriveWorkspaceConfig).not.toHaveBeenCalled();
   });
 
   it('returns only the filtered tag when a single-tag filter is provided', async () => {
@@ -184,8 +184,8 @@ describe(resolveCommandTags, () => {
     expect(mockResolveReleaseTags).not.toHaveBeenCalled();
   });
 
-  it('exits with code 1 when component() throws for a missing package name', async () => {
-    mockComponent.mockImplementation((workspacePath: string) => {
+  it('exits with code 1 when deriveWorkspaceConfig() throws for a missing package name', async () => {
+    mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => {
       throw new Error(`${workspacePath}/package.json is missing a 'name' field (required for tag derivation).`);
     });
 
@@ -201,7 +201,7 @@ describe(resolveCommandTags, () => {
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
     expect(console.error).toHaveBeenCalledWith(
-      "Error resolving workspace components: packages/core/package.json is missing a 'name' field (required for tag derivation).",
+      "Error resolving workspaces: packages/core/package.json is missing a 'name' field (required for tag derivation).",
     );
     expect(mockResolveReleaseTags).not.toHaveBeenCalled();
   });

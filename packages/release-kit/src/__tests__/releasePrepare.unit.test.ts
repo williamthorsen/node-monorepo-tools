@@ -69,17 +69,17 @@ describe(releasePrepare, () => {
     vi.restoreAllMocks();
   });
 
-  it('returns a PrepareResult with a released component on success', () => {
+  it('returns a PrepareResult with a released workspace on success', () => {
     setupFeatCommit();
 
     const result = releasePrepare(makeConfig(), { dryRun: false });
 
     expect(result.tags).toStrictEqual(['v1.1.0']);
     expect(result.dryRun).toBe(false);
-    expect(result.components).toHaveLength(1);
+    expect(result.workspaces).toHaveLength(1);
 
-    const component = result.components[0];
-    expect(component).toMatchObject({
+    const workspace = result.workspaces[0];
+    expect(workspace).toMatchObject({
       status: 'released',
       releaseType: 'minor',
       currentVersion: '1.0.0',
@@ -88,9 +88,9 @@ describe(releasePrepare, () => {
       commitCount: 1,
       parsedCommitCount: 1,
     });
-    expect(component?.name).toBeUndefined();
-    expect(component?.bumpedFiles).toStrictEqual(['package.json']);
-    expect(component?.changelogFiles).toStrictEqual(['./CHANGELOG.md']);
+    expect(workspace?.name).toBeUndefined();
+    expect(workspace?.bumpedFiles).toStrictEqual(['package.json']);
+    expect(workspace?.changelogFiles).toStrictEqual(['./CHANGELOG.md']);
   });
 
   it('applies patch floor when commits exist but none are release-worthy', () => {
@@ -108,14 +108,14 @@ describe(releasePrepare, () => {
     const result = releasePrepare(makeConfig(), { dryRun: false });
 
     expect(result.tags).toStrictEqual(['v1.0.1']);
-    expect(result.components).toHaveLength(1);
-    expect(result.components[0]).toMatchObject({
+    expect(result.workspaces).toHaveLength(1);
+    expect(result.workspaces[0]).toMatchObject({
       status: 'released',
       commitCount: 1,
       parsedCommitCount: 0,
       releaseType: 'patch',
     });
-    expect(result.components[0]?.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'abc123' }]);
+    expect(result.workspaces[0]?.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'abc123' }]);
   });
 
   it('uses parsed bump type when mix of parseable and unparseable commits exist', () => {
@@ -132,12 +132,12 @@ describe(releasePrepare, () => {
 
     const result = releasePrepare(makeConfig(), { dryRun: false });
 
-    expect(result.components[0]).toMatchObject({
+    expect(result.workspaces[0]).toMatchObject({
       status: 'released',
       releaseType: 'minor',
       parsedCommitCount: 1,
     });
-    expect(result.components[0]?.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'def456' }]);
+    expect(result.workspaces[0]?.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'def456' }]);
   });
 
   it('runs format command with package files and changelog paths appended', () => {
@@ -204,13 +204,13 @@ describe(releasePrepare, () => {
     const result = releasePrepare(makeConfig(), { dryRun: false, bumpOverride: 'patch' });
 
     expect(result.tags).toStrictEqual(['v1.0.1']);
-    expect(result.components[0]).toMatchObject({
+    expect(result.workspaces[0]).toMatchObject({
       status: 'released',
       releaseType: 'patch',
       newVersion: '1.0.1',
       tag: 'v1.0.1',
     });
-    expect(result.components[0]?.parsedCommitCount).toBeUndefined();
+    expect(result.workspaces[0]?.parsedCommitCount).toBeUndefined();
   });
 
   it('constructs tags using the configured tagPrefix', () => {
@@ -228,7 +228,7 @@ describe(releasePrepare, () => {
     const result = releasePrepare(makeConfig({ tagPrefix: 'my-lib-v' }), { dryRun: false });
 
     expect(result.tags).toStrictEqual(['my-lib-v1.1.0']);
-    expect(result.components[0]).toMatchObject({
+    expect(result.workspaces[0]).toMatchObject({
       tag: 'my-lib-v1.1.0',
     });
   });
@@ -257,15 +257,15 @@ describe(releasePrepare, () => {
     const result = releasePrepare(makeConfig(), { dryRun: false, setVersion: '1.0.0' });
 
     expect(result.tags).toStrictEqual(['v1.0.0']);
-    expect(result.components).toHaveLength(1);
-    expect(result.components[0]).toMatchObject({
+    expect(result.workspaces).toHaveLength(1);
+    expect(result.workspaces[0]).toMatchObject({
       status: 'released',
       newVersion: '1.0.0',
       currentVersion: '0.5.0',
       tag: 'v1.0.0',
       setVersion: '1.0.0',
     });
-    expect(result.components[0]?.releaseType).toBeUndefined();
+    expect(result.workspaces[0]?.releaseType).toBeUndefined();
     expect(mockWriteFileSync).toHaveBeenCalledWith(
       'package.json',
       expect.stringContaining('"version": "1.0.0"'),
@@ -287,7 +287,7 @@ describe(releasePrepare, () => {
 
     const result = releasePrepare(makeConfig(), { dryRun: false, setVersion: '1.0.0' });
 
-    expect(result.components[0]?.changelogFiles).toStrictEqual(['./CHANGELOG.md']);
+    expect(result.workspaces[0]?.changelogFiles).toStrictEqual(['./CHANGELOG.md']);
     const cliffCalls = mockExecFileSync.mock.calls.filter(
       (call: unknown[]) => call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff'),
     );

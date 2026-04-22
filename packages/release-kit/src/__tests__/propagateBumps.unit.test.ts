@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest';
 import type { DependencyGraph } from '../buildDependencyGraph.ts';
 import type { ReleaseEntry } from '../propagateBumps.ts';
 import { propagateBumps } from '../propagateBumps.ts';
-import type { ComponentConfig } from '../types.ts';
+import type { WorkspaceConfig } from '../types.ts';
 
-function makeComponent(dir: string): ComponentConfig {
+function makeWorkspace(dir: string): WorkspaceConfig {
   return {
     dir,
     tagPrefix: `${dir}-v`,
@@ -18,7 +18,7 @@ function makeComponent(dir: string): ComponentConfig {
 
 function makeGraph(
   nameToDir: Record<string, string>,
-  dependentsOf: Record<string, ComponentConfig[]>,
+  dependentsOf: Record<string, WorkspaceConfig[]>,
 ): DependencyGraph {
   const packageNameToDir = new Map(Object.entries(nameToDir));
   const dirToPackageName = new Map(Object.entries(nameToDir).map(([name, dir]) => [dir, name]));
@@ -31,7 +31,7 @@ function makeGraph(
 
 describe(propagateBumps, () => {
   it('propagates a patch bump to a single dependent', () => {
-    const dependent = makeComponent('release-kit');
+    const dependent = makeWorkspace('release-kit');
 
     const graph = makeGraph(
       { '@scope/core': 'core', '@scope/release-kit': 'release-kit' },
@@ -55,8 +55,8 @@ describe(propagateBumps, () => {
   });
 
   it('propagates transitively (A -> B -> C)', () => {
-    const compB = makeComponent('middle');
-    const compC = makeComponent('app');
+    const compB = makeWorkspace('middle');
+    const compC = makeWorkspace('app');
 
     const graph = makeGraph(
       { '@scope/core': 'core', '@scope/middle': 'middle', '@scope/app': 'app' },
@@ -85,7 +85,7 @@ describe(propagateBumps, () => {
   });
 
   it('does not downgrade a higher direct bump', () => {
-    const dependent = makeComponent('release-kit');
+    const dependent = makeWorkspace('release-kit');
 
     const graph = makeGraph(
       { '@scope/core': 'core', '@scope/release-kit': 'release-kit' },
@@ -112,8 +112,8 @@ describe(propagateBumps, () => {
   });
 
   it('handles circular dependencies without infinite loops', () => {
-    const compA = makeComponent('alpha');
-    const compB = makeComponent('beta');
+    const compA = makeWorkspace('alpha');
+    const compB = makeWorkspace('beta');
 
     const graph = makeGraph(
       { '@scope/alpha': 'alpha', '@scope/beta': 'beta' },
@@ -137,8 +137,8 @@ describe(propagateBumps, () => {
     });
   });
 
-  it('adds propagatedFrom metadata to a directly bumped component with a propagated dependency', () => {
-    const dependent = makeComponent('kit');
+  it('adds propagatedFrom metadata to a directly bumped workspace with a propagated dependency', () => {
+    const dependent = makeWorkspace('kit');
 
     const graph = makeGraph({ '@scope/core': 'core', '@scope/kit': 'kit' }, { '@scope/core': [dependent] });
 
@@ -161,8 +161,8 @@ describe(propagateBumps, () => {
     });
   });
 
-  it('handles multiple dependencies triggering propagation to the same component', () => {
-    const compC = makeComponent('app');
+  it('handles multiple dependencies triggering propagation to the same workspace', () => {
+    const compC = makeWorkspace('app');
 
     const graph = makeGraph(
       { '@scope/core': 'core', '@scope/utils': 'utils', '@scope/app': 'app' },
@@ -203,7 +203,7 @@ describe(propagateBumps, () => {
   });
 
   it('uses newVersionOverride for propagation metadata instead of a bump-computed version', () => {
-    const dependent = makeComponent('app');
+    const dependent = makeWorkspace('app');
 
     const graph = makeGraph({ '@scope/core': 'core', '@scope/app': 'app' }, { '@scope/core': [dependent] });
 

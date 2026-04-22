@@ -7,11 +7,11 @@ vi.mock('node:child_process', () => ({
 }));
 
 import { resolveReleaseTags } from '../resolveReleaseTags.ts';
-import type { ComponentConfig } from '../types.ts';
+import type { WorkspaceConfig } from '../types.ts';
 
-function makeComponent(
-  overrides: Partial<ComponentConfig> & Pick<ComponentConfig, 'dir' | 'tagPrefix'>,
-): ComponentConfig {
+function makeWorkspace(
+  overrides: Partial<WorkspaceConfig> & Pick<WorkspaceConfig, 'dir' | 'tagPrefix'>,
+): WorkspaceConfig {
   const dir = overrides.dir;
   const workspacePath = overrides.workspacePath ?? `packages/${dir}`;
   return {
@@ -52,76 +52,76 @@ describe(resolveReleaseTags, () => {
     expect(resolveReleaseTags()).toStrictEqual([{ tag: 'v1.2.3', dir: '.', workspacePath: '.' }]);
   });
 
-  it('resolves monorepo tags whose tagPrefix matches a component', () => {
+  it('resolves monorepo tags whose tagPrefix matches a workspace', () => {
     mockExecFileSync.mockReturnValue('node-monorepo-core-v1.3.0\nrelease-kit-v2.1.0\n');
-    const components = [
-      makeComponent({ dir: 'core', tagPrefix: 'node-monorepo-core-v', workspacePath: 'packages/core' }),
-      makeComponent({ dir: 'release-kit', tagPrefix: 'release-kit-v', workspacePath: 'packages/release-kit' }),
+    const workspaces = [
+      makeWorkspace({ dir: 'core', tagPrefix: 'node-monorepo-core-v', workspacePath: 'packages/core' }),
+      makeWorkspace({ dir: 'release-kit', tagPrefix: 'release-kit-v', workspacePath: 'packages/release-kit' }),
     ];
 
-    expect(resolveReleaseTags(components)).toStrictEqual([
+    expect(resolveReleaseTags(workspaces)).toStrictEqual([
       { tag: 'node-monorepo-core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
       { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit' },
     ]);
   });
 
-  it('reports dir from component.dir, not the tagPrefix, when directory differs from package name', () => {
+  it('reports dir from workspace.dir, not the tagPrefix, when directory differs from package name', () => {
     mockExecFileSync.mockReturnValue('node-monorepo-core-v0.2.8\n');
-    const components = [
-      makeComponent({ dir: 'core', tagPrefix: 'node-monorepo-core-v', workspacePath: 'packages/core' }),
+    const workspaces = [
+      makeWorkspace({ dir: 'core', tagPrefix: 'node-monorepo-core-v', workspacePath: 'packages/core' }),
     ];
 
-    expect(resolveReleaseTags(components)).toStrictEqual([
+    expect(resolveReleaseTags(workspaces)).toStrictEqual([
       { tag: 'node-monorepo-core-v0.2.8', dir: 'core', workspacePath: 'packages/core' },
     ]);
   });
 
   it('ignores monorepo tags with unrecognized prefixes', () => {
     mockExecFileSync.mockReturnValue('unknown-v1.0.0\ncore-v1.3.0\n');
-    const components = [makeComponent({ dir: 'core', tagPrefix: 'core-v' })];
+    const workspaces = [makeWorkspace({ dir: 'core', tagPrefix: 'core-v' })];
 
-    expect(resolveReleaseTags(components)).toStrictEqual([
+    expect(resolveReleaseTags(workspaces)).toStrictEqual([
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
     ]);
   });
 
   it('ignores non-release tags in monorepo mode', () => {
     mockExecFileSync.mockReturnValue('core-v1.3.0\nsome-random-tag\n');
-    const components = [makeComponent({ dir: 'core', tagPrefix: 'core-v' })];
+    const workspaces = [makeWorkspace({ dir: 'core', tagPrefix: 'core-v' })];
 
-    expect(resolveReleaseTags(components)).toStrictEqual([
+    expect(resolveReleaseTags(workspaces)).toStrictEqual([
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
     ]);
   });
 
   it('resolves pre-release monorepo tags like core-v1.0.0-beta.1', () => {
     mockExecFileSync.mockReturnValue('core-v1.0.0-beta.1\n');
-    const components = [makeComponent({ dir: 'core', tagPrefix: 'core-v' })];
+    const workspaces = [makeWorkspace({ dir: 'core', tagPrefix: 'core-v' })];
 
-    expect(resolveReleaseTags(components)).toStrictEqual([
+    expect(resolveReleaseTags(workspaces)).toStrictEqual([
       { tag: 'core-v1.0.0-beta.1', dir: 'core', workspacePath: 'packages/core' },
     ]);
   });
 
   it('handles tags with multiple hyphens in the package name', () => {
     mockExecFileSync.mockReturnValue('my-cool-lib-v3.0.0\n');
-    const components = [
-      makeComponent({ dir: 'my-cool-lib', tagPrefix: 'my-cool-lib-v', workspacePath: 'packages/my-cool-lib' }),
+    const workspaces = [
+      makeWorkspace({ dir: 'my-cool-lib', tagPrefix: 'my-cool-lib-v', workspacePath: 'packages/my-cool-lib' }),
     ];
 
-    expect(resolveReleaseTags(components)).toStrictEqual([
+    expect(resolveReleaseTags(workspaces)).toStrictEqual([
       { tag: 'my-cool-lib-v3.0.0', dir: 'my-cool-lib', workspacePath: 'packages/my-cool-lib' },
     ]);
   });
 
   it('prefers the longest matching prefix when two prefixes nest', () => {
     mockExecFileSync.mockReturnValue('foo-bar-v1.0.0\nfoo-v2.0.0\n');
-    const components = [
-      makeComponent({ dir: 'foo', tagPrefix: 'foo-v' }),
-      makeComponent({ dir: 'foo-bar', tagPrefix: 'foo-bar-v' }),
+    const workspaces = [
+      makeWorkspace({ dir: 'foo', tagPrefix: 'foo-v' }),
+      makeWorkspace({ dir: 'foo-bar', tagPrefix: 'foo-bar-v' }),
     ];
 
-    expect(resolveReleaseTags(components)).toStrictEqual([
+    expect(resolveReleaseTags(workspaces)).toStrictEqual([
       { tag: 'foo-bar-v1.0.0', dir: 'foo-bar', workspacePath: 'packages/foo-bar' },
       { tag: 'foo-v2.0.0', dir: 'foo', workspacePath: 'packages/foo' },
     ]);
@@ -129,9 +129,9 @@ describe(resolveReleaseTags, () => {
 
   it('returns an empty array when no tags match in monorepo mode', () => {
     mockExecFileSync.mockReturnValue('unrelated-tag\n');
-    const components = [makeComponent({ dir: 'core', tagPrefix: 'core-v' })];
+    const workspaces = [makeWorkspace({ dir: 'core', tagPrefix: 'core-v' })];
 
-    expect(resolveReleaseTags(components)).toStrictEqual([]);
+    expect(resolveReleaseTags(workspaces)).toStrictEqual([]);
   });
 
   it('warns and returns only the first tag when multiple single-package version tags exist', () => {

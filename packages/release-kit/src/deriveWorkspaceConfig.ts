@@ -2,10 +2,10 @@ import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 
 import { isRecord } from './typeGuards.ts';
-import type { ComponentConfig } from './types.ts';
+import type { WorkspaceConfig } from './types.ts';
 
 /**
- * Creates a component configuration from a workspace-relative path.
+ * Derives a workspace configuration from a workspace-relative path.
  *
  * Reads `package.json` at the workspace path to derive the tag identifier from the
  * package's `name` field (with any leading `@scope/` stripped). The `dir` field remains
@@ -13,7 +13,7 @@ import type { ComponentConfig } from './types.ts';
  * config overrides, and dependency-graph lookups. The `tagPrefix` is `${unscopedName}-v`,
  * so tags reflect the package identity rather than the directory layout.
  */
-export function component(workspacePath: string): ComponentConfig {
+export function deriveWorkspaceConfig(workspacePath: string): WorkspaceConfig {
   const dir = basename(workspacePath);
   const packageJsonPath = `${workspacePath}/package.json`;
   let parsed: unknown;

@@ -126,11 +126,11 @@ describe(mergeMonorepoConfig, () => {
     mockReadFileSync.mockReset();
   });
 
-  it('builds default components from discovered paths using pkg.name for tagPrefix', () => {
+  it('builds default workspaces from discovered paths using pkg.name for tagPrefix', () => {
     const result = mergeMonorepoConfig(discoveredPaths, undefined);
 
-    expect(result.components).toHaveLength(2);
-    expect(result.components[0]).toStrictEqual({
+    expect(result.workspaces).toHaveLength(2);
+    expect(result.workspaces[0]).toStrictEqual({
       dir: 'arrays',
       tagPrefix: 'arrays-v',
       workspacePath: 'packages/arrays',
@@ -148,8 +148,8 @@ describe(mergeMonorepoConfig, () => {
 
     const result = mergeMonorepoConfig(['libs/core', 'apps/web'], undefined);
 
-    expect(result.components).toHaveLength(2);
-    expect(result.components[0]).toStrictEqual({
+    expect(result.workspaces).toHaveLength(2);
+    expect(result.workspaces[0]).toStrictEqual({
       dir: 'core',
       tagPrefix: 'node-monorepo-core-v',
       workspacePath: 'libs/core',
@@ -157,7 +157,7 @@ describe(mergeMonorepoConfig, () => {
       changelogPaths: ['libs/core'],
       paths: ['libs/core/**'],
     });
-    expect(result.components[1]?.tagPrefix).toBe('web-app-v');
+    expect(result.workspaces[1]?.tagPrefix).toBe('web-app-v');
   });
 
   it('uses default workTypes when no config is provided', () => {
@@ -170,13 +170,13 @@ describe(mergeMonorepoConfig, () => {
     expect(result.versionPatterns).toStrictEqual(DEFAULT_VERSION_PATTERNS);
   });
 
-  it('excludes components with shouldExclude', () => {
+  it('excludes workspaces with shouldExclude', () => {
     const result = mergeMonorepoConfig(discoveredPaths, {
-      components: [{ dir: 'strings', shouldExclude: true }],
+      workspaces: [{ dir: 'strings', shouldExclude: true }],
     });
 
-    expect(result.components).toHaveLength(1);
-    expect(result.components[0]?.tagPrefix).toBe('arrays-v');
+    expect(result.workspaces).toHaveLength(1);
+    expect(result.workspaces[0]?.tagPrefix).toBe('arrays-v');
   });
 
   it('merges custom workTypes with defaults', () => {
@@ -240,35 +240,35 @@ describe(mergeMonorepoConfig, () => {
 
     expect(() =>
       mergeMonorepoConfig(['packages/a-foo', 'packages/b-foo'], {
-        components: [{ dir: 'b-foo', shouldExclude: true }],
+        workspaces: [{ dir: 'b-foo', shouldExclude: true }],
       }),
     ).toThrow("Duplicate tag prefix 'foo-v' for workspaces: packages/a-foo, packages/b-foo");
   });
 
-  it('propagates legacyTagPrefixes from a matching component override', () => {
+  it('propagates legacyTagPrefixes from a matching workspace override', () => {
     const result = mergeMonorepoConfig(discoveredPaths, {
-      components: [{ dir: 'arrays', legacyTagPrefixes: ['old-arrays-v', 'legacy-v'] }],
+      workspaces: [{ dir: 'arrays', legacyTagPrefixes: ['old-arrays-v', 'legacy-v'] }],
     });
 
-    expect(result.components[0]?.dir).toBe('arrays');
-    expect(result.components[0]?.legacyTagPrefixes).toStrictEqual(['old-arrays-v', 'legacy-v']);
-    expect(result.components[1]?.legacyTagPrefixes).toBeUndefined();
+    expect(result.workspaces[0]?.dir).toBe('arrays');
+    expect(result.workspaces[0]?.legacyTagPrefixes).toStrictEqual(['old-arrays-v', 'legacy-v']);
+    expect(result.workspaces[1]?.legacyTagPrefixes).toBeUndefined();
   });
 
   it('leaves legacyTagPrefixes undefined when the override omits the field', () => {
     const result = mergeMonorepoConfig(discoveredPaths, {
-      components: [{ dir: 'arrays', shouldExclude: false }],
+      workspaces: [{ dir: 'arrays', shouldExclude: false }],
     });
 
-    expect(result.components[0]?.legacyTagPrefixes).toBeUndefined();
+    expect(result.workspaces[0]?.legacyTagPrefixes).toBeUndefined();
   });
 
   it('throws when legacyTagPrefixes includes the derived prefix', () => {
     expect(() =>
       mergeMonorepoConfig(discoveredPaths, {
-        components: [{ dir: 'arrays', legacyTagPrefixes: ['arrays-v', 'old-arrays-v'] }],
+        workspaces: [{ dir: 'arrays', legacyTagPrefixes: ['arrays-v', 'old-arrays-v'] }],
       }),
-    ).toThrow("Component 'arrays': legacyTagPrefixes must not include the derived prefix 'arrays-v'");
+    ).toThrow("Workspace 'arrays': legacyTagPrefixes must not include the derived prefix 'arrays-v'");
   });
 
   it('includes every colliding workspace path when more than two collide', () => {

@@ -47,11 +47,11 @@ Usage: npx @williamthorsen/release-kit prepare [options]
 
 Options:
   --dry-run             Run without modifying any files
-  --bump=major|minor|patch  Override the bump type for all components
+  --bump=major|minor|patch  Override the bump type for all workspaces
   --set-version=X.Y.Z   Set an explicit version; bypasses commit-derived bumps. Requires --only in monorepo mode.
   --force               Force a release even when there are no commits since the last tag (requires --bump)
   --no-git-checks, -n   Skip the clean-working-tree check
-  --only=name1,name2    Only process the named components (comma-separated, monorepo only)
+  --only=name1,name2    Only process the named workspaces (comma-separated, monorepo only)
   --help                Show this help message
 `);
 }
@@ -243,33 +243,33 @@ function runMonorepoMode(
   try {
     config = mergeMonorepoConfig(discoveredPaths, userConfig);
   } catch (error: unknown) {
-    console.error(`Error resolving workspace components: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`Error resolving workspaces: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
   }
 
   if (only !== undefined) {
-    const knownNames = config.components.map((c) => c.dir);
+    const knownNames = config.workspaces.map((w) => w.dir);
 
     // Validate all names before mutating config
     for (const name of only) {
       if (!knownNames.includes(name)) {
-        console.error(`Error: Unknown component "${name}". Known components: ${knownNames.join(', ')}`);
+        console.error(`Error: Unknown workspace "${name}". Known workspaces: ${knownNames.join(', ')}`);
         process.exit(1);
       }
     }
 
-    config.components = config.components.filter((c) => only.includes(c.dir));
+    config.workspaces = config.workspaces.filter((w) => only.includes(w.dir));
   }
 
-  // --set-version requires exactly one target component in monorepo mode.
+  // --set-version requires exactly one target workspace in monorepo mode.
   if (setVersion !== undefined) {
     if (only === undefined) {
       console.error('Error: --set-version requires --only in monorepo mode');
       process.exit(1);
     }
-    if (config.components.length !== 1) {
+    if (config.workspaces.length !== 1) {
       console.error(
-        `Error: --set-version requires --only to match exactly one component; matched ${config.components.length}`,
+        `Error: --set-version requires --only to match exactly one workspace; matched ${config.workspaces.length}`,
       );
       process.exit(1);
     }

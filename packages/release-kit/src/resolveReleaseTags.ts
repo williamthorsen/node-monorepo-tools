@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 
-import type { ComponentConfig } from './types.ts';
+import type { WorkspaceConfig } from './types.ts';
 
 export interface ResolvedTag {
   tag: string;
@@ -17,12 +17,12 @@ const SEMVER_SUFFIX_PATTERN = /^\d+\.\d+\.\d+/;
 /**
  * Resolve release tags pointing at HEAD into publishable package descriptors.
  *
- * In single-package mode (no `components`), match tags like `v1.2.3`.
- * In monorepo mode, match each tag against the component whose `tagPrefix` the tag
- * starts with. Because `tagPrefix` is derived from `component()` (the same source that
+ * In single-package mode (no `workspaces`), match tags like `v1.2.3`.
+ * In monorepo mode, match each tag against the workspace whose `tagPrefix` the tag
+ * starts with. Because `tagPrefix` is derived from `deriveWorkspaceConfig()` (the same source that
  * produced the tag), encoding and decoding stay colocated.
  */
-export function resolveReleaseTags(components?: readonly ComponentConfig[]): ResolvedTag[] {
+export function resolveReleaseTags(workspaces?: readonly WorkspaceConfig[]): ResolvedTag[] {
   const output = execFileSync('git', ['tag', '--points-at', 'HEAD'], { encoding: 'utf8' });
 
   const tags = output
@@ -30,11 +30,11 @@ export function resolveReleaseTags(components?: readonly ComponentConfig[]): Res
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
 
-  if (components === undefined) {
+  if (workspaces === undefined) {
     return resolveSinglePackageTags(tags);
   }
 
-  return resolveMonorepoTags(tags, components);
+  return resolveMonorepoTags(tags, workspaces);
 }
 
 /** Match single-package tags of the form `v{semver}`, warning if multiple are found. */
@@ -53,20 +53,20 @@ function resolveSinglePackageTags(tags: string[]): ResolvedTag[] {
 }
 
 /**
- * Match monorepo tags by scanning components for a matching `tagPrefix`.
+ * Match monorepo tags by scanning workspaces for a matching `tagPrefix`.
  *
  * When two prefixes nest (e.g., `foo-v` and `foo-bar-v`), prefer the longest match so
  * `foo-bar-v1.0.0` does not bind to `foo-v`.
  */
-function resolveMonorepoTags(tags: string[], components: readonly ComponentConfig[]): ResolvedTag[] {
-  // Sort components by tagPrefix length descending so the longest match wins on nested prefixes.
+function resolveMonorepoTags(tags: string[], workspaces: readonly WorkspaceConfig[]): ResolvedTag[] {
+  // Sort workspaces by tagPrefix length descending so the longest match wins on nested prefixes.
   // eslint-disable-next-line unicorn/no-array-sort -- toSorted requires Node 20+; engine target is >=18.17.0
-  const sortedComponents = [...components].sort((a, b) => b.tagPrefix.length - a.tagPrefix.length);
+  const sortedWorkspaces = [...workspaces].sort((a, b) => b.tagPrefix.length - a.tagPrefix.length);
 
   const resolved: ResolvedTag[] = [];
 
   for (const tag of tags) {
-    const match = findMatchingComponent(tag, sortedComponents);
+    const match = findMatchingWorkspace(tag, sortedWorkspaces);
     if (match !== undefined) {
       resolved.push({ tag, dir: match.dir, workspacePath: match.workspacePath });
     }
@@ -76,20 +76,20 @@ function resolveMonorepoTags(tags: string[], components: readonly ComponentConfi
 }
 
 /**
- * Return the component whose `tagPrefix` the tag starts with and whose version suffix matches
- * `SEMVER_SUFFIX_PATTERN`. Expects `sortedComponents` to be ordered longest-prefix first.
+ * Return the workspace whose `tagPrefix` the tag starts with and whose version suffix matches
+ * `SEMVER_SUFFIX_PATTERN`. Expects `sortedWorkspaces` to be ordered longest-prefix first.
  *
- * `tagPrefix` ends with `v` (e.g., `core-v`), so `tag.slice(c.tagPrefix.length)` yields a bare
+ * `tagPrefix` ends with `v` (e.g., `core-v`), so `tag.slice(w.tagPrefix.length)` yields a bare
  * semver without a leading `v` — matched directly by `SEMVER_SUFFIX_PATTERN`.
  */
-function findMatchingComponent(tag: string, sortedComponents: readonly ComponentConfig[]): ComponentConfig | undefined {
-  for (const component of sortedComponents) {
-    if (!tag.startsWith(component.tagPrefix)) {
+function findMatchingWorkspace(tag: string, sortedWorkspaces: readonly WorkspaceConfig[]): WorkspaceConfig | undefined {
+  for (const workspace of sortedWorkspaces) {
+    if (!tag.startsWith(workspace.tagPrefix)) {
       continue;
     }
-    const versionSuffix = tag.slice(component.tagPrefix.length);
+    const versionSuffix = tag.slice(workspace.tagPrefix.length);
     if (SEMVER_SUFFIX_PATTERN.test(versionSuffix)) {
-      return component;
+      return workspace;
     }
   }
   return undefined;

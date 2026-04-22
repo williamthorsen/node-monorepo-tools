@@ -1,17 +1,17 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
-import { component } from './component.ts';
+import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
 import type { ResolvedTag } from './resolveReleaseTags.ts';
 import { resolveReleaseTags } from './resolveReleaseTags.ts';
-import type { ComponentConfig } from './types.ts';
+import type { WorkspaceConfig } from './types.ts';
 
 /**
  * Discover workspaces, resolve release tags from HEAD, validate `--tags` names against the
  * full resolved tag names (e.g., `node-monorepo-core-v1.3.0`), and return the filtered tag list.
  * Works in both single-package and monorepo modes. Exits with an error message on any validation
- * failure — including `component()` throws for workspaces missing a `package.json` `name` field.
+ * failure — including `deriveWorkspaceConfig()` throws for workspaces missing a `package.json` `name` field.
  */
 export async function resolveCommandTags(tags: string[] | undefined): Promise<ResolvedTag[]> {
   // Discover workspaces to determine single-package vs monorepo mode.
@@ -23,19 +23,19 @@ export async function resolveCommandTags(tags: string[] | undefined): Promise<Re
     process.exit(1);
   }
 
-  // Build component list so resolveReleaseTags can match tags by tagPrefix (derived from pkg.name).
-  let components: ComponentConfig[] | undefined;
+  // Build workspace list so resolveReleaseTags can match tags by tagPrefix (derived from pkg.name).
+  let workspaces: WorkspaceConfig[] | undefined;
   if (discoveredPaths !== undefined) {
     try {
-      components = discoveredPaths.map((workspacePath) => component(workspacePath));
+      workspaces = discoveredPaths.map((workspacePath) => deriveWorkspaceConfig(workspacePath));
     } catch (error: unknown) {
-      console.error(`Error resolving workspace components: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(`Error resolving workspaces: ${error instanceof Error ? error.message : String(error)}`);
       process.exit(1);
     }
   }
 
   // Resolve tags from HEAD.
-  let resolvedTags = resolveReleaseTags(components);
+  let resolvedTags = resolveReleaseTags(workspaces);
 
   if (resolvedTags.length === 0) {
     console.error('Error: No release tags found on HEAD. Create tags with `release-kit tag` first.');

@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { basename } from 'node:path';
 
-import { component } from './component.ts';
+import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
 import type { UndeclaredTagPrefix } from './detectUndeclaredTagPrefixes.ts';
 import { detectUndeclaredTagPrefixes } from './detectUndeclaredTagPrefixes.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
@@ -48,7 +48,7 @@ export interface TagPrefixPreview {
  * Build a structured preview of tag-prefix state for every discovered workspace.
  *
  * Discovers workspaces via `discoverWorkspaces()`, derives each workspace's tag prefix
- * via `component()`, and records the derivation error on failure rather than aborting.
+ * via `deriveWorkspaceConfig()`, and records the derivation error on failure rather than aborting.
  * Loads `.config/release-kit.config.ts` to surface declared legacy prefixes per workspace,
  * scans local git tags for undeclared candidate prefixes via `detectUndeclaredTagPrefixes`,
  * and reports collisions across successfully-derived prefixes.
@@ -86,8 +86,8 @@ async function loadUserConfig(): Promise<ReleaseKitConfig | undefined> {
 /** Build a `dir -> override` lookup map from a validated config, skipping entries without a `dir`. */
 function buildOverrideMap(userConfig: ReleaseKitConfig | undefined): Map<string, { legacyTagPrefixes?: string[] }> {
   const map = new Map<string, { legacyTagPrefixes?: string[] }>();
-  if (userConfig?.components === undefined) return map;
-  for (const entry of userConfig.components) {
+  if (userConfig?.workspaces === undefined) return map;
+  for (const entry of userConfig.workspaces) {
     const override: { legacyTagPrefixes?: string[] } = {};
     if (entry.legacyTagPrefixes !== undefined) {
       override.legacyTagPrefixes = entry.legacyTagPrefixes;
@@ -106,7 +106,7 @@ function buildPreviewRow(
   let derivedPrefix: string | null = null;
   let derivationError: string | null = null;
   try {
-    derivedPrefix = component(workspacePath).tagPrefix;
+    derivedPrefix = deriveWorkspaceConfig(workspacePath).tagPrefix;
   } catch (error: unknown) {
     derivationError = error instanceof Error ? error.message : String(error);
   }

@@ -20,11 +20,11 @@ export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors
   const knownFields = new Set([
     'changelogJson',
     'cliffConfigPath',
-    'components',
     'formatCommand',
     'releaseNotes',
     'scopeAliases',
     'versionPatterns',
+    'workspaces',
     'workTypes',
   ]);
 
@@ -35,7 +35,7 @@ export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors
   }
 
   validateChangelogJson(raw.changelogJson, config, errors);
-  validateComponents(raw.components, config, errors);
+  validateWorkspaces(raw.workspaces, config, errors);
   validateReleaseNotes(raw.releaseNotes, config, errors);
   validateVersionPatterns(raw.versionPatterns, config, errors);
   validateWorkTypes(raw.workTypes, config, errors);
@@ -137,69 +137,69 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string');
 }
 
-function validateComponents(value: unknown, config: ReleaseKitConfig, errors: string[]): void {
+function validateWorkspaces(value: unknown, config: ReleaseKitConfig, errors: string[]): void {
   if (value === undefined) return;
 
   if (!Array.isArray(value)) {
-    errors.push("'components' must be an array");
+    errors.push("'workspaces' must be an array");
     return;
   }
 
-  const components: NonNullable<ReleaseKitConfig['components']> = [];
-  const knownComponentFields = new Set(['dir', 'shouldExclude', 'legacyTagPrefixes']);
+  const workspaces: NonNullable<ReleaseKitConfig['workspaces']> = [];
+  const knownWorkspaceFields = new Set(['dir', 'shouldExclude', 'legacyTagPrefixes']);
   for (const [i, entry] of value.entries()) {
     if (!isRecord(entry)) {
-      errors.push(`components[${i}]: must be an object`);
+      errors.push(`workspaces[${i}]: must be an object`);
       continue;
     }
     if (typeof entry.dir !== 'string' || entry.dir === '') {
-      errors.push(`components[${i}]: 'dir' is required`);
+      errors.push(`workspaces[${i}]: 'dir' is required`);
       continue;
     }
 
     // Detect unknown or removed fields
     for (const key of Object.keys(entry)) {
-      if (!knownComponentFields.has(key)) {
+      if (!knownWorkspaceFields.has(key)) {
         if (key === 'tagPrefix') {
           errors.push(
-            `components[${i}]: 'tagPrefix' is no longer supported; remove it to use the default '${entry.dir}-v'`,
+            `workspaces[${i}]: 'tagPrefix' is no longer supported; remove it to use the default '${entry.dir}-v'`,
           );
         } else {
-          errors.push(`components[${i}]: unknown field '${key}'`);
+          errors.push(`workspaces[${i}]: unknown field '${key}'`);
         }
       }
     }
 
-    const component: NonNullable<ReleaseKitConfig['components']>[number] = { dir: entry.dir };
+    const workspace: NonNullable<ReleaseKitConfig['workspaces']>[number] = { dir: entry.dir };
 
     if (entry.shouldExclude !== undefined) {
       if (typeof entry.shouldExclude === 'boolean') {
-        component.shouldExclude = entry.shouldExclude;
+        workspace.shouldExclude = entry.shouldExclude;
       } else {
-        errors.push(`components[${i}]: 'shouldExclude' must be a boolean`);
+        errors.push(`workspaces[${i}]: 'shouldExclude' must be a boolean`);
       }
     }
 
     if (entry.legacyTagPrefixes !== undefined) {
       const legacy = validateLegacyTagPrefixes(entry.legacyTagPrefixes, i, errors);
       if (legacy !== undefined) {
-        component.legacyTagPrefixes = legacy;
+        workspace.legacyTagPrefixes = legacy;
       }
     }
-    components.push(component);
+    workspaces.push(workspace);
   }
-  config.components = components;
+  config.workspaces = workspaces;
 }
 
 /**
- * Validate a `legacyTagPrefixes` field on a component override.
+ * Validate a `legacyTagPrefixes` field on a workspace override.
  *
  * Accepts a string array with non-empty entries. Returns the validated array, or `undefined`
  * when validation fails (with errors appended to the caller's list).
  */
-function validateLegacyTagPrefixes(value: unknown, componentIndex: number, errors: string[]): string[] | undefined {
+function validateLegacyTagPrefixes(value: unknown, workspaceIndex: number, errors: string[]): string[] | undefined {
   if (!Array.isArray(value)) {
-    errors.push(`components[${componentIndex}]: 'legacyTagPrefixes' must be a string array`);
+    errors.push(`workspaces[${workspaceIndex}]: 'legacyTagPrefixes' must be a string array`);
     return undefined;
   }
 
@@ -207,12 +207,12 @@ function validateLegacyTagPrefixes(value: unknown, componentIndex: number, error
   let valid = true;
   for (const [entryIndex, entry] of value.entries()) {
     if (typeof entry !== 'string') {
-      errors.push(`components[${componentIndex}].legacyTagPrefixes[${entryIndex}]: must be a string`);
+      errors.push(`workspaces[${workspaceIndex}].legacyTagPrefixes[${entryIndex}]: must be a string`);
       valid = false;
       continue;
     }
     if (entry === '') {
-      errors.push(`components[${componentIndex}].legacyTagPrefixes[${entryIndex}]: must be a non-empty string`);
+      errors.push(`workspaces[${workspaceIndex}].legacyTagPrefixes[${entryIndex}]: must be a non-empty string`);
       valid = false;
       continue;
     }
@@ -306,7 +306,7 @@ function validateScopeAliases(value: unknown, config: ReleaseKitConfig, errors: 
     }
   }
   // All-or-nothing: only assign aliases when every entry is valid.
-  // Unlike `validateComponents`, partial results are not useful for aliases
+  // Unlike `validateWorkspaces`, partial results are not useful for aliases
   // because the mapping is consumed as a complete lookup table.
   if (valid) {
     config.scopeAliases = aliases;

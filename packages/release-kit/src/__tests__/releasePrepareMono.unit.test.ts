@@ -37,7 +37,7 @@ const workTypes: Record<string, WorkTypeConfig> = {
 
 function makeConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoReleaseConfig {
   return {
-    components: [],
+    workspaces: [],
     workTypes,
     changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: false },
     releaseNotes: { ...DEFAULT_RELEASE_NOTES_CONFIG },
@@ -88,9 +88,9 @@ describe(releasePrepareMono, () => {
     mockHasPrettierConfig.mockReset();
   });
 
-  it('processes a component that has commits', () => {
+  it('processes a workspace that has commits', () => {
     const config = makeConfig({
-      components: [
+      workspaces: [
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
@@ -116,8 +116,8 @@ describe(releasePrepareMono, () => {
     const result = releasePrepareMono(config, { dryRun: false });
 
     expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
-    expect(result.components).toHaveLength(1);
-    expect(result.components[0]).toMatchObject({
+    expect(result.workspaces).toHaveLength(1);
+    expect(result.workspaces[0]).toMatchObject({
       name: 'arrays',
       status: 'released',
       tag: 'arrays-v1.1.0',
@@ -133,7 +133,7 @@ describe(releasePrepareMono, () => {
       'utf8',
     );
 
-    // Verify git-cliff was called for the component's changelog path
+    // Verify git-cliff was called for the workspace's changelog path
     const cliffArgs = findCliffCallArgs();
     expect(cliffArgs).toContain('--output');
     expect(cliffArgs).toContain('packages/arrays/CHANGELOG.md');
@@ -141,9 +141,9 @@ describe(releasePrepareMono, () => {
     expect(cliffArgs).toContain('packages/arrays/**');
   });
 
-  it('skips a component with no commits', () => {
+  it('skips a workspace with no commits', () => {
     const config = makeConfig({
-      components: [
+      workspaces: [
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
@@ -169,8 +169,8 @@ describe(releasePrepareMono, () => {
     const result = releasePrepareMono(config, { dryRun: false });
 
     expect(result.tags).toStrictEqual([]);
-    expect(result.components).toHaveLength(1);
-    expect(result.components[0]).toMatchObject({
+    expect(result.workspaces).toHaveLength(1);
+    expect(result.workspaces[0]).toMatchObject({
       name: 'arrays',
       status: 'skipped',
       commitCount: 0,
@@ -179,9 +179,9 @@ describe(releasePrepareMono, () => {
     expect(countCliffCalls()).toBe(0);
   });
 
-  it('processes only components with commits when multiple are configured', () => {
+  it('processes only workspaces with commits when multiple are configured', () => {
     const config = makeConfig({
-      components: [
+      workspaces: [
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
@@ -226,9 +226,9 @@ describe(releasePrepareMono, () => {
     const result = releasePrepareMono(config, { dryRun: false });
 
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
-    expect(result.components).toHaveLength(2);
-    expect(result.components[0]).toMatchObject({ name: 'arrays', status: 'released' });
-    expect(result.components[1]).toMatchObject({ name: 'strings', status: 'skipped' });
+    expect(result.workspaces).toHaveLength(2);
+    expect(result.workspaces[0]).toMatchObject({ name: 'arrays', status: 'released' });
+    expect(result.workspaces[1]).toMatchObject({ name: 'strings', status: 'skipped' });
 
     // Only arrays package.json should be written
     expect(mockWriteFileSync).toHaveBeenCalledTimes(1);
@@ -243,7 +243,7 @@ describe(releasePrepareMono, () => {
   it('does not write files or run formatCommand when dryRun is true', () => {
     const config = makeConfig({
       formatCommand: 'npx prettier --write',
-      components: [
+      workspaces: [
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
@@ -281,10 +281,10 @@ describe(releasePrepareMono, () => {
     });
   });
 
-  it('runs formatCommand once after all components are processed', () => {
+  it('runs formatCommand once after all workspaces are processed', () => {
     const config = makeConfig({
       formatCommand: 'npx prettier --write',
-      components: [
+      workspaces: [
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
@@ -328,7 +328,7 @@ describe(releasePrepareMono, () => {
 
   it('uses bumpOverride instead of commit-derived bump type', () => {
     const config = makeConfig({
-      components: [
+      workspaces: [
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
@@ -369,7 +369,7 @@ describe(releasePrepareMono, () => {
 
   it('applies patch floor when commits exist but none are release-worthy', () => {
     const config = makeConfig({
-      components: [
+      workspaces: [
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
@@ -396,18 +396,18 @@ describe(releasePrepareMono, () => {
     const result = releasePrepareMono(config, { dryRun: false });
 
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
-    expect(result.components[0]).toMatchObject({
+    expect(result.workspaces[0]).toMatchObject({
       status: 'released',
       commitCount: 1,
       parsedCommitCount: 0,
       releaseType: 'patch',
     });
-    expect(result.components[0]?.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'abc123' }]);
+    expect(result.workspaces[0]?.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'abc123' }]);
   });
 
   it('uses parsed bump type when mix of parseable and unparseable commits exist', () => {
     const config = makeConfig({
-      components: [
+      workspaces: [
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
@@ -432,17 +432,17 @@ describe(releasePrepareMono, () => {
 
     const result = releasePrepareMono(config, { dryRun: false });
 
-    expect(result.components[0]).toMatchObject({
+    expect(result.workspaces[0]).toMatchObject({
       status: 'released',
       releaseType: 'minor',
       parsedCommitCount: 1,
     });
-    expect(result.components[0]?.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'def456' }]);
+    expect(result.workspaces[0]?.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'def456' }]);
   });
 
   it('bypasses the no-commits check when force is true', () => {
     const config = makeConfig({
-      components: [
+      workspaces: [
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
@@ -476,9 +476,9 @@ describe(releasePrepareMono, () => {
     expect(countCliffCalls()).toBe(1);
   });
 
-  it('force-bumps a component with no commits while also bumping one with commits', () => {
+  it('force-bumps a workspace with no commits while also bumping one with commits', () => {
     const config = makeConfig({
-      components: [
+      workspaces: [
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
@@ -526,7 +526,7 @@ describe(releasePrepareMono, () => {
 
   it('does not write files when force and dryRun are both true', () => {
     const config = makeConfig({
-      components: [
+      workspaces: [
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
@@ -556,10 +556,10 @@ describe(releasePrepareMono, () => {
     expect(countCliffCalls()).toBe(0);
   });
 
-  it('does not run formatCommand when no components have commits', () => {
+  it('does not run formatCommand when no workspaces have commits', () => {
     const config = makeConfig({
       formatCommand: 'npx prettier --write',
-      components: [
+      workspaces: [
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
@@ -590,7 +590,7 @@ describe(releasePrepareMono, () => {
 
   it('defaults to prettier when no formatCommand is set and prettier config exists', () => {
     const config = makeConfig({
-      components: [
+      workspaces: [
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
@@ -625,7 +625,7 @@ describe(releasePrepareMono, () => {
 
   it('skips formatting when no formatCommand is set and no prettier config exists', () => {
     const config = makeConfig({
-      components: [
+      workspaces: [
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
@@ -656,7 +656,7 @@ describe(releasePrepareMono, () => {
 
   it('generates a changelog for each entry in changelogPaths', () => {
     const config = makeConfig({
-      components: [
+      workspaces: [
         {
           dir: 'arrays',
           tagPrefix: 'arrays-v',
@@ -682,7 +682,7 @@ describe(releasePrepareMono, () => {
     const result = releasePrepareMono(config, { dryRun: false });
 
     expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
-    expect(result.components[0]?.changelogFiles).toStrictEqual([
+    expect(result.workspaces[0]?.changelogFiles).toStrictEqual([
       'packages/arrays/CHANGELOG.md',
       'packages/arrays/docs/CHANGELOG.md',
     ]);
@@ -696,7 +696,7 @@ describe(releasePrepareMono, () => {
   describe('dependency propagation', () => {
     it('propagates a patch bump to a dependent when a dependency is bumped', () => {
       const config = makeConfig({
-        components: [
+        workspaces: [
           {
             dir: 'core',
             tagPrefix: 'core-v',
@@ -753,16 +753,16 @@ describe(releasePrepareMono, () => {
       // core is bumped directly (minor), app is propagated (patch).
       expect(result.tags).toContain('core-v1.1.0');
       expect(result.tags).toContain('app-v2.0.1');
-      expect(result.components).toHaveLength(2);
+      expect(result.workspaces).toHaveLength(2);
 
-      const coreResult = result.components.find((c) => c.name === 'core');
+      const coreResult = result.workspaces.find((c) => c.name === 'core');
       expect(coreResult).toMatchObject({
         status: 'released',
         releaseType: 'minor',
         newVersion: '1.1.0',
       });
 
-      const appResult = result.components.find((c) => c.name === 'app');
+      const appResult = result.workspaces.find((c) => c.name === 'app');
       expect(appResult).toMatchObject({
         status: 'released',
         releaseType: 'patch',
@@ -772,9 +772,9 @@ describe(releasePrepareMono, () => {
       });
     });
 
-    it('writes a synthetic changelog for propagated-only components', () => {
+    it('writes a synthetic changelog for propagated-only workspaces', () => {
       const config = makeConfig({
-        components: [
+        workspaces: [
           {
             dir: 'core',
             tagPrefix: 'core-v',
@@ -840,10 +840,10 @@ describe(releasePrepareMono, () => {
       expect(syntheticWrite?.[1]).toContain('@test/core');
     });
 
-    it('does not propagate to components excluded from config.components', () => {
+    it('does not propagate to workspaces excluded from config.workspaces', () => {
       // Only include "core" in config — "app" that depends on core is not listed.
       const config = makeConfig({
-        components: [
+        workspaces: [
           {
             dir: 'core',
             tagPrefix: 'core-v',
@@ -864,14 +864,14 @@ describe(releasePrepareMono, () => {
 
       const result = releasePrepareMono(config, { dryRun: false });
 
-      // Only core should be released since app is not in config.components.
+      // Only core should be released since app is not in config.workspaces.
       expect(result.tags).toStrictEqual(['core-v1.1.0']);
-      expect(result.components).toHaveLength(1);
+      expect(result.workspaces).toHaveLength(1);
     });
 
     it('writes the explicit --set-version value in monorepo mode', () => {
       const config = makeConfig({
-        components: [
+        workspaces: [
           {
             dir: 'core',
             tagPrefix: 'core-v',
@@ -893,7 +893,7 @@ describe(releasePrepareMono, () => {
 
       const result = releasePrepareMono(config, { dryRun: false, setVersion: '1.0.0' });
 
-      const coreResult = result.components.find((c) => c.name === 'core');
+      const coreResult = result.workspaces.find((c) => c.name === 'core');
       expect(coreResult).toMatchObject({
         status: 'released',
         newVersion: '1.0.0',
@@ -911,7 +911,7 @@ describe(releasePrepareMono, () => {
 
     it('throws when --set-version is not greater than the current version', () => {
       const config = makeConfig({
-        components: [
+        workspaces: [
           {
             dir: 'core',
             tagPrefix: 'core-v',
@@ -937,7 +937,7 @@ describe(releasePrepareMono, () => {
 
     it('throws when --set-version equals the current version', () => {
       const config = makeConfig({
-        components: [
+        workspaces: [
           {
             dir: 'core',
             tagPrefix: 'core-v',
@@ -963,7 +963,7 @@ describe(releasePrepareMono, () => {
 
     it('does not write files in dry-run mode with --set-version', () => {
       const config = makeConfig({
-        components: [
+        workspaces: [
           {
             dir: 'core',
             tagPrefix: 'core-v',
@@ -990,11 +990,11 @@ describe(releasePrepareMono, () => {
       expect(mockWriteFileSync).not.toHaveBeenCalled();
     });
 
-    it('throws when --set-version is used with more than one component', () => {
-      // Explicit guard in `determineDirectBumps` enforces the single-component contract for
+    it('throws when --set-version is used with more than one workspace', () => {
+      // Explicit guard in `determineDirectBumps` enforces the single-workspace contract for
       // --set-version even if a caller bypasses the CLI layer that normally narrows via --only.
       const config = makeConfig({
-        components: [
+        workspaces: [
           {
             dir: 'core',
             tagPrefix: 'core-v',
@@ -1015,13 +1015,13 @@ describe(releasePrepareMono, () => {
       });
 
       expect(() => releasePrepareMono(config, { dryRun: false, setVersion: '1.0.0' })).toThrow(
-        '--set-version requires exactly one component',
+        '--set-version requires exactly one workspace',
       );
     });
 
     it('preserves a direct higher bump when propagation would add a patch', () => {
       const config = makeConfig({
-        components: [
+        workspaces: [
           {
             dir: 'core',
             tagPrefix: 'core-v',
@@ -1073,7 +1073,7 @@ describe(releasePrepareMono, () => {
       const result = releasePrepareMono(config, { dryRun: false });
 
       // app has its own minor bump from commits; propagation adds metadata but keeps minor.
-      const appResult = result.components.find((c) => c.name === 'app');
+      const appResult = result.workspaces.find((c) => c.name === 'app');
       expect(appResult).toMatchObject({
         status: 'released',
         releaseType: 'minor',
@@ -1102,7 +1102,7 @@ describe(releasePrepareMono, () => {
 
     it('emits a hint when no baseline + candidate tags exist + no legacyTagPrefixes', () => {
       const config = makeConfig({
-        components: [
+        workspaces: [
           {
             dir: 'core',
             tagPrefix: 'node-monorepo-core-v',
@@ -1132,7 +1132,7 @@ describe(releasePrepareMono, () => {
 
     it('suppresses the hint when legacyTagPrefixes is non-empty', () => {
       const config = makeConfig({
-        components: [
+        workspaces: [
           {
             dir: 'core',
             tagPrefix: 'node-monorepo-core-v',
@@ -1158,7 +1158,7 @@ describe(releasePrepareMono, () => {
 
     it('suppresses the hint when no candidate-shaped tags exist', () => {
       const config = makeConfig({
-        components: [
+        workspaces: [
           {
             dir: 'core',
             tagPrefix: 'node-monorepo-core-v',
@@ -1182,12 +1182,12 @@ describe(releasePrepareMono, () => {
     });
 
     it("treats sibling workspaces' derived prefixes as known (not undeclared candidates)", () => {
-      // Regression: previously `maybeEmitBaselineHint` passed only `[component.tagPrefix]` as the
+      // Regression: previously `maybeEmitBaselineHint` passed only `[workspace.tagPrefix]` as the
       // known-prefix set, so sibling workspaces' tags surfaced as "undeclared candidates" and
       // fired spurious hints in multi-workspace repos. The hint must NOT fire when the only
       // candidate-shaped tags in the repo belong to other configured workspaces.
       const config = makeConfig({
-        components: [
+        workspaces: [
           {
             dir: 'core',
             tagPrefix: 'node-monorepo-core-v',
@@ -1223,7 +1223,7 @@ describe(releasePrepareMono, () => {
       // Also a regression case: when a sibling workspace declares its own legacy prefixes, those
       // must not show up as undeclared candidates when another workspace has no baseline.
       const config = makeConfig({
-        components: [
+        workspaces: [
           {
             dir: 'core',
             tagPrefix: 'node-monorepo-core-v',
@@ -1257,7 +1257,7 @@ describe(releasePrepareMono, () => {
 
     it('prints at most one hint per prepare run even with multiple triggering workspaces', () => {
       const config = makeConfig({
-        components: [
+        workspaces: [
           {
             dir: 'core',
             tagPrefix: 'node-monorepo-core-v',

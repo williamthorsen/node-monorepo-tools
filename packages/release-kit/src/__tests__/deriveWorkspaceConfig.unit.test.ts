@@ -6,9 +6,9 @@ vi.mock('node:fs', () => ({
   readFileSync: mockReadFileSync,
 }));
 
-import { component } from '../component.ts';
+import { deriveWorkspaceConfig } from '../deriveWorkspaceConfig.ts';
 
-describe(component, () => {
+describe(deriveWorkspaceConfig, () => {
   afterEach(() => {
     mockReadFileSync.mockReset();
   });
@@ -16,7 +16,7 @@ describe(component, () => {
   it('strips the @scope/ prefix from package name to derive tagPrefix', () => {
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@williamthorsen/node-monorepo-core' }));
 
-    expect(component('packages/core')).toStrictEqual({
+    expect(deriveWorkspaceConfig('packages/core')).toStrictEqual({
       dir: 'core',
       tagPrefix: 'node-monorepo-core-v',
       workspacePath: 'packages/core',
@@ -29,7 +29,7 @@ describe(component, () => {
   it('uses unscoped package name verbatim when no scope is present', () => {
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'readyup' }));
 
-    expect(component('packages/readyup')).toStrictEqual({
+    expect(deriveWorkspaceConfig('packages/readyup')).toStrictEqual({
       dir: 'readyup',
       tagPrefix: 'readyup-v',
       workspacePath: 'packages/readyup',
@@ -42,7 +42,7 @@ describe(component, () => {
   it('preserves dir as the basename when the directory name differs from the package name', () => {
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@williamthorsen/node-monorepo-core' }));
 
-    const result = component('libs/core');
+    const result = deriveWorkspaceConfig('libs/core');
 
     expect(result.dir).toBe('core');
     expect(result.tagPrefix).toBe('node-monorepo-core-v');
@@ -52,7 +52,7 @@ describe(component, () => {
   it('throws a descriptive error when package.json has no name field', () => {
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    expect(() => component('packages/bad')).toThrow(
+    expect(() => deriveWorkspaceConfig('packages/bad')).toThrow(
       "packages/bad/package.json is missing a 'name' field (required for tag derivation).",
     );
   });
@@ -60,7 +60,7 @@ describe(component, () => {
   it('throws when package.json name field is an empty string', () => {
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: '' }));
 
-    expect(() => component('packages/empty')).toThrow(
+    expect(() => deriveWorkspaceConfig('packages/empty')).toThrow(
       "packages/empty/package.json is missing a 'name' field (required for tag derivation).",
     );
   });
@@ -68,7 +68,7 @@ describe(component, () => {
   it('throws when package.json name field is not a string', () => {
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 123 }));
 
-    expect(() => component('packages/invalid')).toThrow(
+    expect(() => deriveWorkspaceConfig('packages/invalid')).toThrow(
       "packages/invalid/package.json is missing a 'name' field (required for tag derivation).",
     );
   });
@@ -78,7 +78,7 @@ describe(component, () => {
       throw new Error('ENOENT: no such file or directory, open packages/missing/package.json');
     });
 
-    expect(() => component('packages/missing')).toThrow(
+    expect(() => deriveWorkspaceConfig('packages/missing')).toThrow(
       'Failed to read packages/missing/package.json: ENOENT: no such file or directory, open packages/missing/package.json',
     );
   });
@@ -86,6 +86,8 @@ describe(component, () => {
   it('wraps JSON.parse errors with the workspace path for context', () => {
     mockReadFileSync.mockReturnValue('not json');
 
-    expect(() => component('packages/malformed')).toThrow(/^Failed to read packages\/malformed\/package\.json: /);
+    expect(() => deriveWorkspaceConfig('packages/malformed')).toThrow(
+      /^Failed to read packages\/malformed\/package\.json: /,
+    );
   });
 });

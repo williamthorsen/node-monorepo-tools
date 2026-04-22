@@ -62,7 +62,7 @@ class ExitError extends Error {
 /** Build a minimal PrepareResult for mocking. */
 function makePrepareResult(overrides?: Partial<PrepareResult>): PrepareResult {
   return {
-    components: [],
+    workspaces: [],
     tags: [],
     dryRun: false,
     ...overrides,
@@ -111,7 +111,7 @@ describe(prepareCommand, () => {
 
     expect(mockReleasePrepareMono).toHaveBeenCalledWith(
       expect.objectContaining({
-        components: expect.arrayContaining([expect.objectContaining({ tagPrefix: 'arrays-v' })]),
+        workspaces: expect.arrayContaining([expect.objectContaining({ tagPrefix: 'arrays-v' })]),
       }),
       { dryRun: false, force: false },
     );
@@ -157,12 +157,12 @@ describe(prepareCommand, () => {
     });
   });
 
-  it('filters components when --only is provided', async () => {
+  it('filters workspaces when --only is provided', async () => {
     await prepareCommand(['--only=arrays']);
 
     expect(mockReleasePrepareMono).toHaveBeenCalledWith(
       expect.objectContaining({
-        components: [expect.objectContaining({ tagPrefix: 'arrays-v' })],
+        workspaces: [expect.objectContaining({ tagPrefix: 'arrays-v' })],
       }),
       expect.any(Object),
     );
@@ -175,7 +175,7 @@ describe(prepareCommand, () => {
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining('--only is only supported'));
   });
 
-  it('exits with error for --only with an unknown component name in monorepo mode', async () => {
+  it('exits with error for --only with an unknown workspace name in monorepo mode', async () => {
     await expect(prepareCommand(['--only=arrays,nonexistent'])).rejects.toThrow(ExitError);
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining('nonexistent'));
     expect(mockReleasePrepareMono).not.toHaveBeenCalled();
@@ -329,16 +329,16 @@ describe(prepareCommand, () => {
     expect(console.error).not.toHaveBeenCalledWith(expect.stringContaining("Run 'release-kit commit'"));
   });
 
-  it('applies component exclusion from config', async () => {
+  it('applies workspace exclusion from config', async () => {
     mockLoadConfig.mockResolvedValue({
-      components: [{ dir: 'strings', shouldExclude: true }],
+      workspaces: [{ dir: 'strings', shouldExclude: true }],
     });
 
     await prepareCommand([]);
 
     expect(mockReleasePrepareMono).toHaveBeenCalledWith(
       expect.objectContaining({
-        components: [expect.objectContaining({ tagPrefix: 'arrays-v' })],
+        workspaces: [expect.objectContaining({ tagPrefix: 'arrays-v' })],
       }),
       expect.any(Object),
     );
@@ -379,12 +379,12 @@ describe(prepareCommand, () => {
     expect(mockAssertCleanWorkingTree).not.toHaveBeenCalled();
   });
 
-  it('passes setVersion to releasePrepareMono when --only matches exactly one component', async () => {
+  it('passes setVersion to releasePrepareMono when --only matches exactly one workspace', async () => {
     await prepareCommand(['--only=arrays', '--set-version=1.0.0']);
 
     expect(mockReleasePrepareMono).toHaveBeenCalledWith(
       expect.objectContaining({
-        components: [expect.objectContaining({ tagPrefix: 'arrays-v' })],
+        workspaces: [expect.objectContaining({ tagPrefix: 'arrays-v' })],
       }),
       expect.objectContaining({ setVersion: '1.0.0' }),
     );
@@ -396,16 +396,16 @@ describe(prepareCommand, () => {
     expect(mockReleasePrepareMono).not.toHaveBeenCalled();
   });
 
-  it('exits with an error when --only matches multiple components under --set-version', async () => {
+  it('exits with an error when --only matches multiple workspaces under --set-version', async () => {
     await expect(prepareCommand(['--only=arrays,strings', '--set-version=1.0.0'])).rejects.toThrow(ExitError);
-    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('exactly one component'));
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('exactly one workspace'));
     expect(mockReleasePrepareMono).not.toHaveBeenCalled();
   });
 
-  it('exits with the unknown-component error when --only matches zero components under --set-version', async () => {
-    // A non-matching --only name is caught by the unknown-component guard in prepareCommand
+  it('exits with the unknown-workspace error when --only matches zero workspaces under --set-version', async () => {
+    // A non-matching --only name is caught by the unknown-workspace guard in prepareCommand
     // (which runs before the --set-version narrowing check), so the error mentions the
-    // unknown name rather than the "exactly one component" message.
+    // unknown name rather than the "exactly one workspace" message.
     await expect(prepareCommand(['--only=nonexistent', '--set-version=1.0.0'])).rejects.toThrow(ExitError);
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining('nonexistent'));
     expect(mockReleasePrepareMono).not.toHaveBeenCalled();
