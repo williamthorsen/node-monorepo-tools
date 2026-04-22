@@ -1,15 +1,15 @@
 import { readFileSync } from 'node:fs';
 
-import type { ComponentConfig } from './types.ts';
+import type { WorkspaceConfig } from './types.ts';
 
 /** Reverse adjacency map from package names to their workspace dependents. */
 export interface DependencyGraph {
-  /** Resolve a package name to its component `dir`. */
+  /** Resolve a package name to its workspace `dir`. */
   packageNameToDir: Map<string, string>;
-  /** Resolve a component `dir` to its package name (inverse of `packageNameToDir`). */
+  /** Resolve a workspace `dir` to its package name (inverse of `packageNameToDir`). */
   dirToPackageName: Map<string, string>;
-  /** Map a package name to the components that depend on it. */
-  dependentsOf: Map<string, ComponentConfig[]>;
+  /** Map a package name to the workspaces that depend on it. */
+  dependentsOf: Map<string, WorkspaceConfig[]>;
 }
 
 interface PackageJsonSubset {
@@ -23,39 +23,39 @@ function isPackageJsonSubset(value: unknown): value is PackageJsonSubset {
 }
 
 /**
- * Build a reverse dependency graph from the workspace components' `package.json` files.
+ * Build a reverse dependency graph from the workspaces' `package.json` files.
  *
- * Reads each component's primary `package.json` (first entry in `packageFiles`) to discover
+ * Reads each workspace's primary `package.json` (first entry in `packageFiles`) to discover
  * `workspace:` references in `dependencies` and `peerDependencies`. Returns a map from each
- * package name to the components that depend on it, enabling upward traversal from a bumped
+ * package name to the workspaces that depend on it, enabling upward traversal from a bumped
  * package to all its dependents.
  */
-export function buildDependencyGraph(components: readonly ComponentConfig[]): DependencyGraph {
+export function buildDependencyGraph(workspaces: readonly WorkspaceConfig[]): DependencyGraph {
   const packageNameToDir = new Map<string, string>();
   const dirToPackageName = new Map<string, string>();
-  const dependentsOf = new Map<string, ComponentConfig[]>();
+  const dependentsOf = new Map<string, WorkspaceConfig[]>();
 
-  // First pass: read each component's package.json, cache the result, and register its name.
-  const componentPackages = new Map<ComponentConfig, PackageJsonSubset>();
-  for (const component of components) {
-    const primaryPackageFile = component.packageFiles[0];
+  // First pass: read each workspace's package.json, cache the result, and register its name.
+  const workspacePackages = new Map<WorkspaceConfig, PackageJsonSubset>();
+  for (const workspace of workspaces) {
+    const primaryPackageFile = workspace.packageFiles[0];
     if (primaryPackageFile === undefined) {
       continue;
     }
 
     const pkg = readPackageJsonSubset(primaryPackageFile);
-    componentPackages.set(component, pkg);
+    workspacePackages.set(workspace, pkg);
 
     if (pkg.name === undefined) {
       continue;
     }
 
-    packageNameToDir.set(pkg.name, component.dir);
-    dirToPackageName.set(component.dir, pkg.name);
+    packageNameToDir.set(pkg.name, workspace.dir);
+    dirToPackageName.set(workspace.dir, pkg.name);
   }
 
   // Second pass: build the reverse adjacency map using cached package data.
-  for (const [component, pkg] of componentPackages) {
+  for (const [workspace, pkg] of workspacePackages) {
     const allDeps = { ...pkg.dependencies, ...pkg.peerDependencies };
 
     for (const [depName, depVersion] of Object.entries(allDeps)) {
@@ -65,9 +65,9 @@ export function buildDependencyGraph(components: readonly ComponentConfig[]): De
 
       const existing = dependentsOf.get(depName);
       if (existing === undefined) {
-        dependentsOf.set(depName, [component]);
+        dependentsOf.set(depName, [workspace]);
       } else {
-        existing.push(component);
+        existing.push(workspace);
       }
     }
   }

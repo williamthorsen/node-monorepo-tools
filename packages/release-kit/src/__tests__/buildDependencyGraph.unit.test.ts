@@ -7,9 +7,9 @@ vi.mock('node:fs', () => ({
 }));
 
 import { buildDependencyGraph } from '../buildDependencyGraph.ts';
-import type { ComponentConfig } from '../types.ts';
+import type { WorkspaceConfig } from '../types.ts';
 
-function makeComponent(dir: string, packageFile?: string): ComponentConfig {
+function makeWorkspace(dir: string, packageFile?: string): WorkspaceConfig {
   return {
     dir,
     tagPrefix: `${dir}-v`,
@@ -26,9 +26,9 @@ describe(buildDependencyGraph, () => {
   });
 
   it('builds a reverse dependency map for workspace dependencies', () => {
-    const compA = makeComponent('core');
-    const compB = makeComponent('release-kit');
-    const compC = makeComponent('preflight');
+    const compA = makeWorkspace('core');
+    const compB = makeWorkspace('release-kit');
+    const compC = makeWorkspace('preflight');
 
     mockReadFileSync.mockImplementation((filePath: string) => {
       if (filePath.includes('core')) {
@@ -61,8 +61,8 @@ describe(buildDependencyGraph, () => {
   });
 
   it('includes peerDependencies with workspace: protocol', () => {
-    const compA = makeComponent('core');
-    const compB = makeComponent('plugin');
+    const compA = makeWorkspace('core');
+    const compB = makeWorkspace('plugin');
 
     mockReadFileSync.mockImplementation((filePath: string) => {
       if (filePath.includes('core')) {
@@ -84,8 +84,8 @@ describe(buildDependencyGraph, () => {
   });
 
   it('ignores non-workspace dependencies', () => {
-    const compA = makeComponent('core');
-    const compB = makeComponent('app');
+    const compA = makeWorkspace('core');
+    const compB = makeWorkspace('app');
 
     mockReadFileSync.mockImplementation((filePath: string) => {
       if (filePath.includes('core')) {
@@ -107,8 +107,8 @@ describe(buildDependencyGraph, () => {
   });
 
   it('ignores devDependencies', () => {
-    const compA = makeComponent('core');
-    const compB = makeComponent('app');
+    const compA = makeWorkspace('core');
+    const compB = makeWorkspace('app');
 
     mockReadFileSync.mockImplementation((filePath: string) => {
       if (filePath.includes('core')) {
@@ -130,9 +130,9 @@ describe(buildDependencyGraph, () => {
   });
 
   it('handles transitive dependencies (A -> B -> C)', () => {
-    const compA = makeComponent('core');
-    const compB = makeComponent('middle');
-    const compC = makeComponent('app');
+    const compA = makeWorkspace('core');
+    const compB = makeWorkspace('middle');
+    const compC = makeWorkspace('app');
 
     mockReadFileSync.mockImplementation((filePath: string) => {
       if (filePath.includes('core')) {
@@ -161,8 +161,8 @@ describe(buildDependencyGraph, () => {
     expect(graph.dependentsOf.get('@scope/middle')).toStrictEqual([compC]);
   });
 
-  it('returns empty maps when no components have workspace dependencies', () => {
-    const comp = makeComponent('standalone');
+  it('returns empty maps when no workspaces have workspace dependencies', () => {
+    const comp = makeWorkspace('standalone');
 
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@scope/standalone', version: '1.0.0' }));
 
@@ -172,8 +172,8 @@ describe(buildDependencyGraph, () => {
     expect(graph.dependentsOf.size).toBe(0);
   });
 
-  it('handles components with no packageFiles gracefully', () => {
-    const comp: ComponentConfig = {
+  it('handles workspaces with no packageFiles gracefully', () => {
+    const comp: WorkspaceConfig = {
       dir: 'empty',
       tagPrefix: 'empty-v',
       workspacePath: 'packages/empty',

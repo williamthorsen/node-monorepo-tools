@@ -7,7 +7,7 @@ describe(releaseConfigScript, () => {
     const script = releaseConfigScript('monorepo');
 
     expect(script).toContain('ReleaseKitConfig');
-    expect(script).toContain('components:');
+    expect(script).toContain('workspaces:');
     expect(script).toContain('shouldExclude');
     expect(script).toContain('workTypes:');
     expect(script).toContain("header: 'Performance'");
@@ -21,7 +21,7 @@ describe(releaseConfigScript, () => {
     expect(script).toContain('workTypes:');
     expect(script).toContain("header: 'Performance'");
     expect(script).toContain('export default config');
-    expect(script).not.toContain('components');
+    expect(script).not.toContain('workspaces');
   });
 
   it('uses header field for work type labels', () => {

@@ -50,9 +50,9 @@ export interface BumpResult {
   files: string[];
 }
 
-/** Result of preparing a single component (package) for release. */
-export interface ComponentPrepareResult {
-  /** Component name; absent in single-package mode, present in monorepo mode. */
+/** Result of preparing a single workspace (package) for release. */
+export interface WorkspacePrepareResult {
+  /** Workspace name; absent in single-package mode, present in monorepo mode. */
   name?: string | undefined;
   status: 'released' | 'skipped';
   previousTag?: string | undefined;
@@ -64,20 +64,20 @@ export interface ComponentPrepareResult {
   tag?: string | undefined;
   bumpedFiles: string[];
   changelogFiles: string[];
-  /** Raw commits associated with this component (present for direct releases, absent for propagation-only). */
+  /** Raw commits associated with this workspace (present for direct releases, absent for propagation-only). */
   commits?: Commit[] | undefined;
   /** Commits that could not be parsed into a recognized work type. */
   unparseableCommits?: Commit[] | undefined;
-  /** Dependencies that triggered a propagated bump (present for propagated or mixed components). */
+  /** Dependencies that triggered a propagated bump (present for propagated or mixed workspaces). */
   propagatedFrom?: PropagationSource[] | undefined;
   skipReason?: string | undefined;
-  /** Present when this component was written via `--set-version`; the explicit version that was applied. */
+  /** Present when this workspace was written via `--set-version`; the explicit version that was applied. */
   setVersion?: string | undefined;
 }
 
 /** Aggregate result of the prepare workflow for both single-package and monorepo modes. */
 export interface PrepareResult {
-  components: ComponentPrepareResult[];
+  workspaces: WorkspacePrepareResult[];
   tags: string[];
   formatCommand?:
     | {
@@ -117,10 +117,10 @@ export interface VersionPatterns {
  */
 export interface ReleaseKitConfig {
   /**
-   * Component overrides. Each entry matches a discovered workspace by `dir`.
-   * Use `shouldExclude: true` to remove a component from release processing.
+   * Workspace overrides. Each entry matches a discovered workspace by `dir`.
+   * Use `shouldExclude: true` to remove a workspace from release processing.
    */
-  components?: ComponentOverride[];
+  workspaces?: WorkspaceOverride[];
   /** Version bump patterns. Replaces defaults entirely when provided. */
   versionPatterns?: VersionPatterns;
   /** Work type overrides. Merged with defaults by key. */
@@ -145,14 +145,14 @@ export interface ReleaseKitConfig {
   releaseNotes?: Partial<ReleaseNotesConfig>;
 }
 
-/** Override for a single component in the config file. */
-export interface ComponentOverride {
+/** Override for a single workspace in the config file. */
+export interface WorkspaceOverride {
   /** The package directory name (e.g., 'arrays'). */
   dir: string;
-  /** If true, exclude this component from release processing. */
+  /** If true, exclude this workspace from release processing. */
   shouldExclude?: boolean;
   /**
-   * Additional tag prefixes under which historical release tags for this component exist.
+   * Additional tag prefixes under which historical release tags for this workspace exist.
    * Consulted (in addition to the derived prefix) when release-kit searches for the most recent
    * baseline tag and when generating changelogs. Declaring these allows release-kit to recognize
    * legacy tags without any tag mutation.
@@ -184,11 +184,11 @@ export interface ParsedCommit {
   breaking: boolean;
 }
 
-/** Per-component configuration for monorepo releases. */
-export interface ComponentConfig {
+/** Per-workspace configuration for monorepo releases. */
+export interface WorkspaceConfig {
   /** The package directory name (e.g., 'arrays'). Used for display and `--only` matching. */
   dir: string;
-  /** The git tag prefix for this component (e.g., 'node-monorepo-core-v'), derived from the unscoped `package.json` name. */
+  /** The git tag prefix for this workspace (e.g., 'node-monorepo-core-v'), derived from the unscoped `package.json` name. */
   tagPrefix: string;
   /** Workspace-relative path to the package root (e.g., `packages/core`). */
   workspacePath: string;
@@ -199,18 +199,18 @@ export interface ComponentConfig {
   /** Glob patterns passed to `git log -- <paths>` for commit filtering. */
   paths: string[];
   /**
-   * Additional tag prefixes under which historical release tags for this component exist.
+   * Additional tag prefixes under which historical release tags for this workspace exist.
    * Treated as the union `[tagPrefix, ...legacyTagPrefixes]` when searching for baseline tags
    * and generating changelogs. `undefined` is equivalent to the empty array.
    */
   legacyTagPrefixes?: string[];
 }
 
-/** Configuration for a monorepo release workflow with multiple components. */
+/** Configuration for a monorepo release workflow with multiple workspaces. */
 export interface MonorepoReleaseConfig {
-  /** Ordered list of component configurations. */
-  components: ComponentConfig[];
-  /** Work type configurations shared across all components. Defaults to `DEFAULT_WORK_TYPES`. */
+  /** Ordered list of workspace configurations. */
+  workspaces: WorkspaceConfig[];
+  /** Work type configurations shared across all workspaces. Defaults to `DEFAULT_WORK_TYPES`. */
   workTypes?: Record<string, WorkTypeConfig>;
   /** Version bump patterns. Defaults to `DEFAULT_VERSION_PATTERNS`. */
   versionPatterns?: VersionPatterns;

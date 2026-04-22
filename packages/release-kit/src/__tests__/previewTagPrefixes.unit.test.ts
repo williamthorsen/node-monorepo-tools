@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const mockExecFileSync = vi.hoisted(() => vi.fn());
 const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
 const mockLoadConfig = vi.hoisted(() => vi.fn());
-const mockComponent = vi.hoisted(() => vi.fn());
+const mockDeriveWorkspaceConfig = vi.hoisted(() => vi.fn());
 const mockDetectUndeclared = vi.hoisted(() => vi.fn());
 
 vi.mock('node:child_process', () => ({
@@ -18,8 +18,8 @@ vi.mock('../loadConfig.ts', () => ({
   loadConfig: mockLoadConfig,
 }));
 
-vi.mock('../component.ts', () => ({
-  component: mockComponent,
+vi.mock('../deriveWorkspaceConfig.ts', () => ({
+  deriveWorkspaceConfig: mockDeriveWorkspaceConfig,
 }));
 
 vi.mock('../detectUndeclaredTagPrefixes.ts', () => ({
@@ -44,14 +44,14 @@ describe(previewTagPrefixes, () => {
     mockExecFileSync.mockReset();
     mockDiscoverWorkspaces.mockReset();
     mockLoadConfig.mockReset();
-    mockComponent.mockReset();
+    mockDeriveWorkspaceConfig.mockReset();
     mockDetectUndeclared.mockReset();
   });
 
   it('returns one row per discovered workspace with derived prefix and tag counts', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/arrays']);
     mockLoadConfig.mockResolvedValue(undefined);
-    mockComponent.mockImplementation((path: string) => {
+    mockDeriveWorkspaceConfig.mockImplementation((path: string) => {
       if (path === 'packages/core') return { tagPrefix: 'node-monorepo-core-v' };
       if (path === 'packages/arrays') return { tagPrefix: 'arrays-v' };
       throw new Error(`unexpected path: ${path}`);
@@ -85,10 +85,10 @@ describe(previewTagPrefixes, () => {
     expect(result.collisions).toStrictEqual([]);
   });
 
-  it('records derivationError and continues when component() throws for a workspace', async () => {
+  it('records derivationError and continues when deriveWorkspaceConfig() throws for a workspace', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/good', 'packages/broken']);
     mockLoadConfig.mockResolvedValue(undefined);
-    mockComponent.mockImplementation((path: string) => {
+    mockDeriveWorkspaceConfig.mockImplementation((path: string) => {
       if (path === 'packages/good') return { tagPrefix: 'good-v' };
       throw new Error(`packages/broken/package.json is missing a 'name' field`);
     });
@@ -107,9 +107,9 @@ describe(previewTagPrefixes, () => {
   it('surfaces declared legacy prefixes with their tag counts', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
     mockLoadConfig.mockResolvedValue({
-      components: [{ dir: 'core', legacyTagPrefixes: ['core-v', 'old-core-v'] }],
+      workspaces: [{ dir: 'core', legacyTagPrefixes: ['core-v', 'old-core-v'] }],
     });
-    mockComponent.mockReturnValue({ tagPrefix: 'node-monorepo-core-v' });
+    mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'node-monorepo-core-v' });
     mockDetectUndeclared.mockReturnValue([]);
     setupTagCounts({
       'node-monorepo-core-v': [],
@@ -128,7 +128,7 @@ describe(previewTagPrefixes, () => {
   it('detects cross-workspace tag-prefix collisions', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/a-foo', 'packages/b-foo']);
     mockLoadConfig.mockResolvedValue(undefined);
-    mockComponent.mockReturnValue({ tagPrefix: 'foo-v' });
+    mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'foo-v' });
     mockDetectUndeclared.mockReturnValue([]);
     setupTagCounts({});
 
@@ -142,9 +142,9 @@ describe(previewTagPrefixes, () => {
   it('passes the union of derived and declared prefixes to detectUndeclaredTagPrefixes', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
     mockLoadConfig.mockResolvedValue({
-      components: [{ dir: 'core', legacyTagPrefixes: ['core-v'] }],
+      workspaces: [{ dir: 'core', legacyTagPrefixes: ['core-v'] }],
     });
-    mockComponent.mockReturnValue({ tagPrefix: 'node-monorepo-core-v' });
+    mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'node-monorepo-core-v' });
     mockDetectUndeclared.mockReturnValue([]);
     setupTagCounts({});
 

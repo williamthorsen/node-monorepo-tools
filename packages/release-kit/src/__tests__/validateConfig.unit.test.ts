@@ -18,92 +18,92 @@ describe(validateConfig, () => {
     expect(errors).toContain("Unknown field: 'unknownField'");
   });
 
-  describe('components', () => {
-    it('validates a valid components array', () => {
+  describe('workspaces', () => {
+    it('validates a valid workspaces array', () => {
       const { config, errors } = validateConfig({
-        components: [{ dir: 'arrays' }, { dir: 'strings', shouldExclude: false }],
+        workspaces: [{ dir: 'arrays' }, { dir: 'strings', shouldExclude: false }],
       });
       expect(errors).toStrictEqual([]);
-      expect(config.components).toHaveLength(2);
+      expect(config.workspaces).toHaveLength(2);
     });
 
-    it('returns an error when components is not an array', () => {
-      const { errors } = validateConfig({ components: 'invalid' });
-      expect(errors).toContain("'components' must be an array");
+    it('returns an error when workspaces is not an array', () => {
+      const { errors } = validateConfig({ workspaces: 'invalid' });
+      expect(errors).toContain("'workspaces' must be an array");
     });
 
     it('returns an error when dir is missing', () => {
-      const { errors } = validateConfig({ components: [{ shouldExclude: true }] });
-      expect(errors).toContain("components[0]: 'dir' is required");
+      const { errors } = validateConfig({ workspaces: [{ shouldExclude: true }] });
+      expect(errors).toContain("workspaces[0]: 'dir' is required");
     });
 
     it('returns an error when shouldExclude is not a boolean', () => {
       const { errors } = validateConfig({
-        components: [{ dir: 'arrays', shouldExclude: 'yes' }],
+        workspaces: [{ dir: 'arrays', shouldExclude: 'yes' }],
       });
-      expect(errors).toContain("components[0]: 'shouldExclude' must be a boolean");
+      expect(errors).toContain("workspaces[0]: 'shouldExclude' must be a boolean");
     });
 
     it('returns a deprecation error when tagPrefix is present', () => {
       const { errors } = validateConfig({
-        components: [{ dir: 'arrays', tagPrefix: 'my-v' }],
+        workspaces: [{ dir: 'arrays', tagPrefix: 'my-v' }],
       });
       expect(errors).toContain(
-        "components[0]: 'tagPrefix' is no longer supported; remove it to use the default 'arrays-v'",
+        "workspaces[0]: 'tagPrefix' is no longer supported; remove it to use the default 'arrays-v'",
       );
     });
 
-    it('returns an error for unknown component fields', () => {
+    it('returns an error for unknown workspace fields', () => {
       const { errors } = validateConfig({
-        components: [{ dir: 'arrays', bogusField: true }],
+        workspaces: [{ dir: 'arrays', bogusField: true }],
       });
-      expect(errors).toContain("components[0]: unknown field 'bogusField'");
+      expect(errors).toContain("workspaces[0]: unknown field 'bogusField'");
     });
 
     describe('legacyTagPrefixes', () => {
       it('accepts a string array', () => {
         const { config, errors } = validateConfig({
-          components: [{ dir: 'core', legacyTagPrefixes: ['core-v', 'old-core-v'] }],
+          workspaces: [{ dir: 'core', legacyTagPrefixes: ['core-v', 'old-core-v'] }],
         });
         expect(errors).toStrictEqual([]);
-        expect(config.components?.[0]?.legacyTagPrefixes).toStrictEqual(['core-v', 'old-core-v']);
+        expect(config.workspaces?.[0]?.legacyTagPrefixes).toStrictEqual(['core-v', 'old-core-v']);
       });
 
       it('accepts an empty array', () => {
         const { config, errors } = validateConfig({
-          components: [{ dir: 'core', legacyTagPrefixes: [] }],
+          workspaces: [{ dir: 'core', legacyTagPrefixes: [] }],
         });
         expect(errors).toStrictEqual([]);
-        expect(config.components?.[0]?.legacyTagPrefixes).toStrictEqual([]);
+        expect(config.workspaces?.[0]?.legacyTagPrefixes).toStrictEqual([]);
       });
 
       it('omits legacyTagPrefixes from the result when the field is not provided', () => {
         const { config, errors } = validateConfig({
-          components: [{ dir: 'core' }],
+          workspaces: [{ dir: 'core' }],
         });
         expect(errors).toStrictEqual([]);
-        expect(config.components?.[0]?.legacyTagPrefixes).toBeUndefined();
+        expect(config.workspaces?.[0]?.legacyTagPrefixes).toBeUndefined();
       });
 
       it('returns an error when legacyTagPrefixes is not an array', () => {
         const { errors } = validateConfig({
-          components: [{ dir: 'core', legacyTagPrefixes: 'core-v' }],
+          workspaces: [{ dir: 'core', legacyTagPrefixes: 'core-v' }],
         });
-        expect(errors).toContain("components[0]: 'legacyTagPrefixes' must be a string array");
+        expect(errors).toContain("workspaces[0]: 'legacyTagPrefixes' must be a string array");
       });
 
       it('returns a per-index error when an entry is not a string', () => {
         const { errors } = validateConfig({
-          components: [{ dir: 'core', legacyTagPrefixes: ['core-v', 123, 'old-v'] }],
+          workspaces: [{ dir: 'core', legacyTagPrefixes: ['core-v', 123, 'old-v'] }],
         });
-        expect(errors).toContain('components[0].legacyTagPrefixes[1]: must be a string');
+        expect(errors).toContain('workspaces[0].legacyTagPrefixes[1]: must be a string');
       });
 
       it('returns a per-index error when an entry is an empty string', () => {
         const { errors } = validateConfig({
-          components: [{ dir: 'core', legacyTagPrefixes: ['core-v', ''] }],
+          workspaces: [{ dir: 'core', legacyTagPrefixes: ['core-v', ''] }],
         });
-        expect(errors).toContain('components[0].legacyTagPrefixes[1]: must be a non-empty string');
+        expect(errors).toContain('workspaces[0].legacyTagPrefixes[1]: must be a non-empty string');
       });
     });
   });

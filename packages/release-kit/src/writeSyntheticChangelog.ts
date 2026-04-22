@@ -12,7 +12,7 @@ export interface WriteSyntheticChangelogParams {
 }
 
 /**
- * Prepend a synthetic changelog section for components bumped via dependency propagation.
+ * Prepend a synthetic changelog section for workspaces bumped via dependency propagation.
  *
  * Creates the changelog file if it doesn't exist. Each propagated dependency is listed as
  * a bullet under a "Dependency updates" heading. Returns the changelog file path.

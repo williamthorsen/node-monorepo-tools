@@ -14,8 +14,8 @@ const config: ReleaseKitConfig = {
     shouldInjectIntoReadme: true,
   },
 
-  // Uncomment to exclude components from release processing:
-  // components: [
+  // Uncomment to exclude workspaces from release processing:
+  // workspaces: [
   //   { dir: 'my-package', shouldExclude: true },
   // ],
 
@@ -119,7 +119,7 @@ on:
   workflow_dispatch:
     inputs:
       only:
-        description: 'Components to release (comma-separated, leave empty for all)'
+        description: 'Workspaces to release (comma-separated, leave empty for all)'
         required: false
         type: string
       bump:

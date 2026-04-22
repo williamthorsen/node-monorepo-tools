@@ -17,30 +17,30 @@ import { readCurrentVersion } from './readCurrentVersion.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
 import type {
   Commit,
-  ComponentConfig,
-  ComponentPrepareResult,
   MonorepoReleaseConfig,
   PrepareResult,
   ReleaseType,
+  WorkspaceConfig,
+  WorkspacePrepareResult,
 } from './types.ts';
 import { writeSyntheticChangelog } from './writeSyntheticChangelog.ts';
 
 /** Intermediate result from Phase 1 (determine direct bumps). */
 interface DirectBumpResult {
-  component: ComponentConfig;
+  workspace: WorkspaceConfig;
   tag: string | undefined;
   commits: Commit[];
   /** Release type determined from commits (or the override). Undefined when `setVersion` is used. */
   releaseType: ReleaseType | undefined;
   parsedCommitCount: number | undefined;
   unparseableCommits: Commit[] | undefined;
-  /** Explicit version from `--set-version`, present only for the overridden component. */
+  /** Explicit version from `--set-version`, present only for the overridden workspace. */
   setVersion?: string;
 }
 
-/** Intermediate result for a skipped component. */
+/** Intermediate result for a skipped workspace. */
 interface SkippedResult {
-  component: ComponentConfig;
+  workspace: WorkspaceConfig;
   tag: string | undefined;
   commitCount: number;
   parsedCommitCount: number | undefined;
@@ -57,9 +57,9 @@ interface Phase1Result {
 }
 
 /**
- * Orchestrate release preparation for a monorepo with multiple components.
+ * Orchestrate release preparation for a monorepo with multiple workspaces.
  *
- * Phase 1: Determine direct bumps from commits for each component.
+ * Phase 1: Determine direct bumps from commits for each workspace.
  * Phase 2: Build the dependency graph and propagate bumps to dependents.
  * Phase 2b: Topologically sort the full release set.
  * Phase 3: Execute bumps and generate changelogs in dependency order.
@@ -70,17 +70,17 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
   // === Phase 1: Determine direct bumps ===
   const { directBumps, directResults, skippedResults, currentVersions } = determineDirectBumps(config, options);
 
-  // Build a lookup of previous tags for all components (needed for propagated ones).
+  // Build a lookup of previous tags for all workspaces (needed for propagated ones).
   const previousTags = new Map<string, string | undefined>();
   for (const result of directResults.values()) {
-    previousTags.set(result.component.dir, result.tag);
+    previousTags.set(result.workspace.dir, result.tag);
   }
   for (const skipped of skippedResults) {
-    previousTags.set(skipped.component.dir, skipped.tag);
+    previousTags.set(skipped.workspace.dir, skipped.tag);
   }
 
   // === Phase 2: Build graph and propagate bumps ===
-  const graph = buildDependencyGraph(config.components);
+  const graph = buildDependencyGraph(config.workspaces);
   const fullReleaseSet = propagateBumps(directBumps, graph, currentVersions);
 
   // === Phase 2b: Topologically sort the release set ===
@@ -89,12 +89,12 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
   if (cyclicDirs.length > 0) {
     warnings.push(
       `Circular workspace dependencies detected among: ${cyclicDirs.join(', ')}. ` +
-        'Propagation metadata may be incomplete for these components.',
+        'Propagation metadata may be incomplete for these workspaces.',
     );
   }
 
   // === Phase 3: Execute bumps and generate changelogs ===
-  const components = collectSkippedComponents(skippedResults, fullReleaseSet);
+  const workspaces = collectSkippedWorkspaces(skippedResults, fullReleaseSet);
   const { tags, modifiedFiles } = executeReleaseSet(
     sortedDirs,
     fullReleaseSet,
@@ -102,12 +102,12 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
     directResults,
     previousTags,
     dryRun,
-    components,
+    workspaces,
   );
 
-  // Reorder components to match original config order.
-  const configOrder = new Map(config.components.map((c, i) => [c.dir, i]));
-  components.sort((a, b) => {
+  // Reorder workspaces to match original config order.
+  const configOrder = new Map(config.workspaces.map((w, i) => [w.dir, i]));
+  workspaces.sort((a, b) => {
     const orderA = configOrder.get(a.name ?? '') ?? 0;
     const orderB = configOrder.get(b.name ?? '') ?? 0;
     return orderA - orderB;
@@ -117,7 +117,7 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
   const formatCommand = runFormatCommand(config, tags, modifiedFiles, dryRun);
 
   return {
-    components,
+    workspaces,
     tags,
     formatCommand,
     dryRun,
@@ -125,15 +125,15 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
   };
 }
 
-/** Determine direct bumps from commits for each component. */
+/** Determine direct bumps from commits for each workspace. */
 function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePrepareOptions): Phase1Result {
   const { force, bumpOverride, setVersion } = options;
 
   // Enforce the `--set-version` contract at the orchestration layer. The CLI layer
-  // (`prepareCommand`) normally narrows to a single component before calling, but this
+  // (`prepareCommand`) normally narrows to a single workspace before calling, but this
   // guard protects against programmatic misuse.
-  if (setVersion !== undefined && config.components.length !== 1) {
-    throw new Error(`--set-version requires exactly one component; received ${config.components.length}`);
+  if (setVersion !== undefined && config.workspaces.length !== 1) {
+    throw new Error(`--set-version requires exactly one workspace; received ${config.workspaces.length}`);
   }
 
   const workTypes = config.workTypes ?? { ...DEFAULT_WORK_TYPES };
@@ -146,33 +146,33 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
   const hintState: BaselineHintState = { emitted: false };
   // Build once: the union of every workspace's derived and declared tag prefixes. Passed into
   // the baseline hint so sibling workspaces' tags aren't misclassified as undeclared candidates.
-  const knownPrefixes = config.components.flatMap((c) => [c.tagPrefix, ...(c.legacyTagPrefixes ?? [])]);
+  const knownPrefixes = config.workspaces.flatMap((w) => [w.tagPrefix, ...(w.legacyTagPrefixes ?? [])]);
 
-  for (const component of config.components) {
-    const name = component.dir;
-    const tagPrefixes = [component.tagPrefix, ...(component.legacyTagPrefixes ?? [])];
-    const { tag, commits } = getCommitsSinceTarget(tagPrefixes, component.paths);
+  for (const workspace of config.workspaces) {
+    const name = workspace.dir;
+    const tagPrefixes = [workspace.tagPrefix, ...(workspace.legacyTagPrefixes ?? [])];
+    const { tag, commits } = getCommitsSinceTarget(tagPrefixes, workspace.paths);
     const since = tag === undefined ? '(no previous release found)' : `since ${tag}`;
 
     if (tag === undefined) {
-      maybeEmitBaselineHint(component, knownPrefixes, hintState);
+      maybeEmitBaselineHint(workspace, knownPrefixes, hintState);
     }
 
     // Read current version from the first package file.
     // Important: this read must occur BEFORE any bypass branch so propagation sees the
     // pre-write current version.
-    const primaryPackageFile = component.packageFiles[0];
+    const primaryPackageFile = workspace.packageFiles[0];
     if (primaryPackageFile !== undefined) {
       const currentVersion = readCurrentVersion(primaryPackageFile);
       if (currentVersion !== undefined) {
-        currentVersions.set(component.dir, currentVersion);
+        currentVersions.set(workspace.dir, currentVersion);
       }
     }
 
-    // --set-version bypass: skip commit-derived bump logic for the overridden component.
-    // Validation that only one component is targeted runs in `prepareCommand` before this function.
+    // --set-version bypass: skip commit-derived bump logic for the overridden workspace.
+    // Validation that only one workspace is targeted runs in `prepareCommand` before this function.
     if (setVersion !== undefined) {
-      const currentVersion = currentVersions.get(component.dir);
+      const currentVersion = currentVersions.get(workspace.dir);
       if (currentVersion === undefined) {
         throw new Error(
           `Cannot validate --set-version: failed to read current version from ${primaryPackageFile ?? '(no package file)'}`,
@@ -184,9 +184,9 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
 
       // The releaseType in the ReleaseEntry is a sentinel value; `newVersionOverride` takes
       // precedence when propagation computes dependent versions.
-      directBumps.set(component.dir, { releaseType: 'patch', newVersionOverride: setVersion });
-      directResults.set(component.dir, {
-        component,
+      directBumps.set(workspace.dir, { releaseType: 'patch', newVersionOverride: setVersion });
+      directResults.set(workspace.dir, {
+        workspace,
         tag,
         commits,
         releaseType: undefined,
@@ -197,10 +197,10 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
       continue;
     }
 
-    // Skip components with no changes unless --force is set.
+    // Skip workspaces with no changes unless --force is set.
     if (commits.length === 0 && !force) {
       skippedResults.push({
-        component,
+        workspace,
         tag,
         commitCount: 0,
         parsedCommitCount: undefined,
@@ -226,7 +226,7 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
 
     if (releaseType === undefined) {
       skippedResults.push({
-        component,
+        workspace,
         tag,
         commitCount: commits.length,
         parsedCommitCount,
@@ -236,9 +236,9 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
       continue;
     }
 
-    directBumps.set(component.dir, { releaseType });
-    directResults.set(component.dir, {
-      component,
+    directBumps.set(workspace.dir, { releaseType });
+    directResults.set(workspace.dir, {
+      workspace,
       tag,
       commits,
       releaseType,
@@ -250,18 +250,18 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
   return { directBumps, directResults, skippedResults, currentVersions };
 }
 
-/** Collect skipped components, excluding those promoted via propagation. */
-function collectSkippedComponents(
+/** Collect skipped workspaces, excluding those promoted via propagation. */
+function collectSkippedWorkspaces(
   skippedResults: SkippedResult[],
   fullReleaseSet: Map<string, ReleaseEntry>,
-): ComponentPrepareResult[] {
-  const components: ComponentPrepareResult[] = [];
+): WorkspacePrepareResult[] {
+  const workspaces: WorkspacePrepareResult[] = [];
   for (const skipped of skippedResults) {
-    if (fullReleaseSet.has(skipped.component.dir)) {
+    if (fullReleaseSet.has(skipped.workspace.dir)) {
       continue;
     }
-    components.push({
-      name: skipped.component.dir,
+    workspaces.push({
+      name: skipped.workspace.dir,
       status: 'skipped',
       previousTag: skipped.tag,
       commitCount: skipped.commitCount,
@@ -272,10 +272,10 @@ function collectSkippedComponents(
       skipReason: skipped.skipReason,
     });
   }
-  return components;
+  return workspaces;
 }
 
-/** Execute bumps and generate changelogs for each component in dependency order. */
+/** Execute bumps and generate changelogs for each workspace in dependency order. */
 function executeReleaseSet(
   sortedDirs: string[],
   fullReleaseSet: Map<string, ReleaseEntry>,
@@ -283,7 +283,7 @@ function executeReleaseSet(
   directResults: Map<string, DirectBumpResult>,
   previousTags: Map<string, string | undefined>,
   dryRun: boolean,
-  components: ComponentPrepareResult[],
+  workspaces: WorkspacePrepareResult[],
 ): { tags: string[]; modifiedFiles: string[] } {
   const tags: string[] = [];
   const modifiedFiles: string[] = [];
@@ -295,14 +295,14 @@ function executeReleaseSet(
       continue;
     }
 
-    const component = findComponent(config.components, dir);
-    if (component === undefined) {
+    const workspace = findWorkspace(config.workspaces, dir);
+    if (workspace === undefined) {
       continue;
     }
 
-    executeComponentRelease({
+    executeWorkspaceRelease({
       dir,
-      component,
+      workspace,
       releaseEntry,
       directResult: directResults.get(dir),
       previousTags,
@@ -311,17 +311,17 @@ function executeReleaseSet(
       today,
       tags,
       modifiedFiles,
-      components,
+      workspaces,
     });
   }
 
   return { tags, modifiedFiles };
 }
 
-/** Arguments for executing a single component's bump + changelog generation. */
-interface ExecuteComponentReleaseArgs {
+/** Arguments for executing a single workspace's bump + changelog generation. */
+interface ExecuteWorkspaceReleaseArgs {
   dir: string;
-  component: ComponentConfig;
+  workspace: WorkspaceConfig;
   releaseEntry: ReleaseEntry;
   directResult: DirectBumpResult | undefined;
   previousTags: Map<string, string | undefined>;
@@ -330,14 +330,14 @@ interface ExecuteComponentReleaseArgs {
   today: string;
   tags: string[];
   modifiedFiles: string[];
-  components: ComponentPrepareResult[];
+  workspaces: WorkspacePrepareResult[];
 }
 
-/** Bump, generate changelogs, and append the component result for one entry in the release set. */
-function executeComponentRelease(args: ExecuteComponentReleaseArgs): void {
+/** Bump, generate changelogs, and append the workspace result for one entry in the release set. */
+function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
   const {
     dir,
-    component,
+    workspace,
     releaseEntry,
     directResult,
     previousTags,
@@ -346,23 +346,23 @@ function executeComponentRelease(args: ExecuteComponentReleaseArgs): void {
     today,
     tags,
     modifiedFiles,
-    components,
+    workspaces,
   } = args;
 
-  // Bump all versions for this component. For --set-version components, write the explicit
+  // Bump all versions for this workspace. For --set-version workspaces, write the explicit
   // version directly; otherwise compute the bump from the release type.
   const setVersionTarget = directResult?.setVersion;
   const bump =
     setVersionTarget === undefined
-      ? bumpAllVersions(component.packageFiles, releaseEntry.releaseType, dryRun)
-      : setAllVersions(component.packageFiles, setVersionTarget, dryRun);
-  const newTag = `${component.tagPrefix}${bump.newVersion}`;
+      ? bumpAllVersions(workspace.packageFiles, releaseEntry.releaseType, dryRun)
+      : setAllVersions(workspace.packageFiles, setVersionTarget, dryRun);
+  const newTag = `${workspace.tagPrefix}${bump.newVersion}`;
   tags.push(newTag);
-  modifiedFiles.push(...component.packageFiles, ...component.changelogPaths.map((p) => `${p}/CHANGELOG.md`));
+  modifiedFiles.push(...workspace.packageFiles, ...workspace.changelogPaths.map((p) => `${p}/CHANGELOG.md`));
 
   const isPropagationOnly = directResult === undefined;
-  const changelogFiles = generateComponentChangelogs({
-    component,
+  const changelogFiles = generateWorkspaceChangelogs({
+    workspace,
     releaseEntry,
     newTag,
     newVersion: bump.newVersion,
@@ -373,13 +373,13 @@ function executeComponentRelease(args: ExecuteComponentReleaseArgs): void {
     modifiedFiles,
   });
 
-  components.push({
+  workspaces.push({
     name: dir,
     status: 'released',
     previousTag: directResult?.tag ?? previousTags.get(dir),
     commitCount: directResult?.commits.length ?? 0,
     parsedCommitCount: directResult?.parsedCommitCount,
-    // For --set-version components releaseType is left undefined so reporting can branch
+    // For --set-version workspaces releaseType is left undefined so reporting can branch
     // on the override case without conflating it with a bump type.
     releaseType: setVersionTarget === undefined ? releaseEntry.releaseType : undefined,
     currentVersion: bump.currentVersion,
@@ -394,9 +394,9 @@ function executeComponentRelease(args: ExecuteComponentReleaseArgs): void {
   });
 }
 
-/** Arguments for generating changelog files for a single component. */
-interface GenerateComponentChangelogsArgs {
-  component: ComponentConfig;
+/** Arguments for generating changelog files for a single workspace. */
+interface GenerateWorkspaceChangelogsArgs {
+  workspace: WorkspaceConfig;
   releaseEntry: ReleaseEntry;
   newTag: string;
   newVersion: string;
@@ -408,16 +408,16 @@ interface GenerateComponentChangelogsArgs {
 }
 
 /**
- * Generate changelogs for a component: synthetic entries for propagation-only bumps, git-cliff
+ * Generate changelogs for a workspace: synthetic entries for propagation-only bumps, git-cliff
  * output for direct bumps (including `--set-version`). Returns the list of changelog files written.
  * Additional changelog JSON files are appended to `modifiedFiles` when the feature is enabled.
  */
-function generateComponentChangelogs(args: GenerateComponentChangelogsArgs): string[] {
-  const { component, releaseEntry, newTag, newVersion, isPropagationOnly, config, dryRun, today, modifiedFiles } = args;
+function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): string[] {
+  const { workspace, releaseEntry, newTag, newVersion, isPropagationOnly, config, dryRun, today, modifiedFiles } = args;
   const changelogFiles: string[] = [];
 
   if (isPropagationOnly && releaseEntry.propagatedFrom !== undefined) {
-    for (const changelogPath of component.changelogPaths) {
+    for (const changelogPath of workspace.changelogPaths) {
       changelogFiles.push(
         writeSyntheticChangelog({
           changelogPath,
@@ -430,7 +430,7 @@ function generateComponentChangelogs(args: GenerateComponentChangelogsArgs): str
     }
 
     if (config.changelogJson.enabled) {
-      for (const changelogPath of component.changelogPaths) {
+      for (const changelogPath of workspace.changelogPaths) {
         const jsonFiles = generateSyntheticChangelogJson(
           config,
           changelogPath,
@@ -445,21 +445,21 @@ function generateComponentChangelogs(args: GenerateComponentChangelogsArgs): str
     return changelogFiles;
   }
 
-  const tagPattern = buildTagPattern([component.tagPrefix, ...(component.legacyTagPrefixes ?? [])]);
-  for (const changelogPath of component.changelogPaths) {
+  const tagPattern = buildTagPattern([workspace.tagPrefix, ...(workspace.legacyTagPrefixes ?? [])]);
+  for (const changelogPath of workspace.changelogPaths) {
     changelogFiles.push(
       ...generateChangelog(config, changelogPath, newTag, dryRun, {
         tagPattern,
-        includePaths: component.paths,
+        includePaths: workspace.paths,
       }),
     );
   }
 
   if (config.changelogJson.enabled) {
-    for (const changelogPath of component.changelogPaths) {
+    for (const changelogPath of workspace.changelogPaths) {
       const jsonFiles = generateChangelogJson(config, changelogPath, newTag, dryRun, {
         tagPattern,
-        includePaths: component.paths,
+        includePaths: workspace.paths,
       });
       modifiedFiles.push(...jsonFiles);
     }
@@ -498,9 +498,9 @@ function runFormatCommand(
   return { command: fullCommand, executed: true, files: modifiedFiles };
 }
 
-/** Find a component by its `dir` in the components array. */
-function findComponent(components: readonly ComponentConfig[], dir: string): ComponentConfig | undefined {
-  return components.find((c) => c.dir === dir);
+/** Find a workspace by its `dir` in the workspaces array. */
+function findWorkspace(workspaces: readonly WorkspaceConfig[], dir: string): WorkspaceConfig | undefined {
+  return workspaces.find((w) => w.dir === dir);
 }
 
 /** Shared single-fire flag so multiple no-baseline workspaces trigger at most one hint per run. */
@@ -519,12 +519,12 @@ interface BaselineHintState {
  * Prints at most once per prepare run. Does not affect exit code or bump behavior.
  */
 function maybeEmitBaselineHint(
-  component: ComponentConfig,
+  workspace: WorkspaceConfig,
   knownPrefixes: readonly string[],
   state: BaselineHintState,
 ): void {
   if (state.emitted) return;
-  if ((component.legacyTagPrefixes?.length ?? 0) > 0) return;
+  if ((workspace.legacyTagPrefixes?.length ?? 0) > 0) return;
 
   const candidates = detectUndeclaredTagPrefixes(knownPrefixes);
   if (candidates.length === 0) return;
@@ -532,7 +532,7 @@ function maybeEmitBaselineHint(
   const totalTags = candidates.reduce((sum, candidate) => sum + candidate.tagCount, 0);
   const example = candidates[0]?.exampleTags[0] ?? `${candidates[0]?.prefix ?? ''}?`;
   console.error(
-    `Hint: no baseline tag found for ${component.dir} under '${component.tagPrefix}', but ` +
+    `Hint: no baseline tag found for ${workspace.dir} under '${workspace.tagPrefix}', but ` +
       `${totalTags} candidate-shaped tags exist (e.g., ${example}). ` +
       "Run 'release-kit show-tag-prefixes' to check for undeclared legacy prefixes.",
   );
@@ -540,9 +540,9 @@ function maybeEmitBaselineHint(
 }
 
 /**
- * Topologically sort component dirs so dependencies are processed before their dependents.
+ * Topologically sort workspace dirs so dependencies are processed before their dependents.
  *
- * Uses Kahn's algorithm. Components not in the release set are excluded. If the graph has
+ * Uses Kahn's algorithm. Workspaces not in the release set are excluded. If the graph has
  * cycles, the remaining nodes are appended in arbitrary order and reported via `cyclicDirs`.
  */
 function topologicalSort(
@@ -563,7 +563,7 @@ function topologicalSort(
     forwardEdges.set(dir, []);
   }
 
-  // For each released component, find its dependencies that are also in the release set.
+  // For each released workspace, find its dependencies that are also in the release set.
   for (const [packageName, dependents] of graph.dependentsOf) {
     const depDir = graph.packageNameToDir.get(packageName);
     if (depDir === undefined || !releaseDirs.has(depDir)) {

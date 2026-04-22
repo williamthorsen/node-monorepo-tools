@@ -14,9 +14,6 @@ export type {
   ChangelogJsonConfig,
   ChangelogSection,
   Commit,
-  ComponentConfig,
-  ComponentOverride,
-  ComponentPrepareResult,
   MonorepoReleaseConfig,
   ParsedCommit,
   PrepareResult,
@@ -25,6 +22,9 @@ export type {
   ReleaseNotesConfig,
   ReleaseType,
   VersionPatterns,
+  WorkspaceConfig,
+  WorkspaceOverride,
+  WorkspacePrepareResult,
   WorkTypeConfig,
 } from './types.ts';
 
@@ -41,11 +41,11 @@ export { buildReleaseSummary } from './buildReleaseSummary.ts';
 export { bumpAllVersions } from './bumpAllVersions.ts';
 export { bumpVersion } from './bumpVersion.ts';
 export { commitCommand } from './commitCommand.ts';
-export { component } from './component.ts';
 export type { CreateGithubReleaseOptions } from './createGithubRelease.ts';
 export { createGithubRelease, createGithubReleases } from './createGithubRelease.ts';
 export { createTags } from './createTags.ts';
 export { deleteFileIfExists } from './deleteFileIfExists.ts';
+export { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
 export { detectPackageManager } from './detectPackageManager.ts';
 export { determineBumpType } from './determineBumpType.ts';
 export { discoverWorkspaces } from './discoverWorkspaces.ts';

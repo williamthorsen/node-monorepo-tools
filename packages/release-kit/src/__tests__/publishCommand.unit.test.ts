@@ -10,7 +10,7 @@ const mockCreateGithubReleases = vi.hoisted(() => vi.fn());
 const mockInjectReleaseNotesIntoReadme = vi.hoisted(() => vi.fn());
 const mockResolveReadmePath = vi.hoisted(() => vi.fn());
 const mockWriteFileSync = vi.hoisted(() => vi.fn());
-const mockComponent = vi.hoisted(() => vi.fn());
+const mockDeriveWorkspaceConfig = vi.hoisted(() => vi.fn());
 
 vi.mock('node:fs', () => ({
   writeFileSync: mockWriteFileSync,
@@ -24,8 +24,8 @@ vi.mock('../resolveReleaseTags.ts', () => ({
   resolveReleaseTags: mockResolveReleaseTags,
 }));
 
-vi.mock('../component.ts', () => ({
-  component: mockComponent,
+vi.mock('../deriveWorkspaceConfig.ts', () => ({
+  deriveWorkspaceConfig: mockDeriveWorkspaceConfig,
 }));
 
 vi.mock('../detectPackageManager.ts', () => ({
@@ -74,7 +74,7 @@ describe(publishCommand, () => {
     mockLoadConfig.mockResolvedValue(undefined);
     mockValidateConfig.mockReturnValue({ config: {}, errors: [], warnings: [] });
     mockResolveReadmePath.mockReturnValue(undefined);
-    mockComponent.mockImplementation((workspacePath: string) => {
+    mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => {
       const dir = workspacePath.split('/').pop() ?? workspacePath;
       return {
         dir,
@@ -104,7 +104,7 @@ describe(publishCommand, () => {
     mockInjectReleaseNotesIntoReadme.mockReset();
     mockResolveReadmePath.mockReset();
     mockWriteFileSync.mockReset();
-    mockComponent.mockReset();
+    mockDeriveWorkspaceConfig.mockReset();
     vi.restoreAllMocks();
   });
 

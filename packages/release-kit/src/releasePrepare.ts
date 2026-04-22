@@ -22,7 +22,7 @@ export interface ReleasePrepareOptions {
   /**
    * Explicit target version (canonical `N.N.N`) that bypasses commit-derived bump logic.
    * Mutually exclusive with `bumpOverride`. In monorepo mode the caller must narrow
-   * `config.components` to a single component before invoking.
+   * `config.workspaces` to a single workspace before invoking.
    */
   setVersion?: string;
 }
@@ -79,7 +79,7 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
 
     if (releaseType === undefined) {
       return {
-        components: [
+        workspaces: [
           {
             status: 'skipped',
             previousTag: tag,
@@ -140,7 +140,7 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   }
 
   return {
-    components: [
+    workspaces: [
       {
         status: 'released',
         previousTag: tag,

@@ -54,9 +54,9 @@ That's it for most repos. The CLI auto-discovers workspaces and applies sensible
 
 ## How it works
 
-1. **Workspace discovery**: reads `pnpm-workspace.yaml` and resolves its `packages` globs to find workspace directories. Each directory containing a `package.json` becomes a component. If no workspace file is found, the repo is treated as a single-package project.
+1. **Workspace discovery**: reads `pnpm-workspace.yaml` and resolves its `packages` globs to find workspace directories. Each directory containing a `package.json` becomes a workspace. If no workspace file is found, the repo is treated as a single-package project.
 2. **Config loading**: loads `.config/release-kit.config.ts` (if present) via [jiti](https://github.com/unjs/jiti) and merges it with discovered defaults.
-3. **Commit analysis**: for each component, finds commits since the last version tag, parses them for type and scope, and determines the appropriate version bump.
+3. **Commit analysis**: for each workspace, finds commits since the last version tag, parses them for type and scope, and determines the appropriate version bump.
 4. **Version bump + changelog**: bumps `package.json` versions and generates changelogs via `git-cliff`.
 5. **Release tags file**: writes computed tags to `tmp/.release-tags` for the release workflow to read when tagging and pushing.
 
@@ -73,7 +73,7 @@ scope|type!: description       # scoped breaking change
 type(scope)!: description      # conventional scoped breaking change
 ```
 
-The `scope|type:` format scopes a commit to a specific component in a monorepo. Use `scopeAliases` in your config to map shorthand names to canonical scope names.
+The `scope|type:` format scopes a commit to a specific workspace in a monorepo. Use `scopeAliases` in your config to map shorthand names to canonical scope names.
 
 ## Configuration
 
@@ -85,8 +85,8 @@ Configuration is optional. The CLI works out of the box by auto-discovering work
 import type { ReleaseKitConfig } from '@williamthorsen/release-kit';
 
 const config: ReleaseKitConfig = {
-  // Exclude a component from release processing
-  components: [{ dir: 'internal-tools', shouldExclude: true }],
+  // Exclude a workspace from release processing
+  workspaces: [{ dir: 'internal-tools', shouldExclude: true }],
 
   // Run a formatter after changelog generation (modified file paths are appended as arguments)
   formatCommand: 'npx prettier --write',
@@ -108,7 +108,7 @@ The config file supports both `export default config` and `export const config =
 | Field             | Type                             | Description                                                                                                                   |
 | ----------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `cliffConfigPath` | `string`                         | Explicit path to cliff config. If omitted, resolved automatically: `.config/git-cliff.toml` → `cliff.toml` → bundled template |
-| `components`      | `ComponentOverride[]`            | Override or exclude discovered components (matched by `dir`)                                                                  |
+| `workspaces`      | `WorkspaceOverride[]`            | Override or exclude discovered workspaces (matched by `dir`)                                                                  |
 | `formatCommand`   | `string`                         | Shell command to run after changelog generation; modified file paths are appended as arguments                                |
 | `versionPatterns` | `VersionPatterns`                | Rules for which commit types trigger major/minor bumps                                                                        |
 | `scopeAliases`    | `Record<string, string>`         | Maps shorthand scope names to canonical names in commits                                                                      |
@@ -116,10 +116,10 @@ The config file supports both `export default config` and `export const config =
 
 All fields are optional.
 
-### `ComponentOverride`
+### `WorkspaceOverride`
 
 ```typescript
-interface ComponentOverride {
+interface WorkspaceOverride {
   dir: string; // Package directory name (e.g., 'arrays')
   shouldExclude?: boolean; // If true, exclude from release processing
   legacyTagPrefixes?: string[]; // Additional tag prefixes under which historical tags exist
@@ -182,13 +182,13 @@ Run release preparation with automatic workspace discovery.
 | Flag                         | Description                                                                                                  |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `--dry-run`                  | Preview changes without writing files                                                                        |
-| `--bump=major\|minor\|patch` | Override the bump type for all components                                                                    |
+| `--bump=major\|minor\|patch` | Override the bump type for all workspaces                                                                    |
 | `--set-version=X.Y.Z`        | Set an explicit canonical semver version; bypasses commit-derived bumps. Requires `--only` in monorepo mode. |
 | `--force`                    | Bypass the "no commits since last tag" check (requires `--bump`)                                             |
-| `--only=name1,name2`         | Only process the named components (monorepo only)                                                            |
+| `--only=name1,name2`         | Only process the named workspaces (monorepo only)                                                            |
 | `--help`, `-h`               | Show help                                                                                                    |
 
-Component names for `--only` match the package directory name (e.g., `arrays`, `release-kit`).
+Workspace names for `--only` match the package directory name (e.g., `arrays`, `release-kit`).
 
 #### Setting an explicit version with `--set-version`
 
@@ -198,7 +198,7 @@ The flag validates that:
 
 - The value is canonical `N.N.N` semver (pre-release suffixes are rejected).
 - The target is strictly greater than the current version (numeric comparison on each component).
-- In monorepo mode, `--only` is set and resolves to exactly one component.
+- In monorepo mode, `--only` is set and resolves to exactly one workspace.
 
 `--set-version` is mutually exclusive with `--bump` and `--force`. The rest of the pipeline (changelog generation, tag creation, commit summary, propagation to dependents) runs unchanged, so dependents receive a propagated patch bump triggered by the overridden version.
 
@@ -224,7 +224,7 @@ When `--tags` is omitted, every release tag pointing at HEAD is processed. The C
 
 ### `release-kit show-tag-prefixes`
 
-Print a per-workspace table of derived tag prefixes, tag counts, and declared legacy prefixes. Also surfaces any release-shaped tag prefix in the repo that is neither a derived prefix nor declared via `legacyTagPrefixes`, along with a copy-pasteable `components: [...]` config snippet.
+Print a per-workspace table of derived tag prefixes, tag counts, and declared legacy prefixes. Also surfaces any release-shaped tag prefix in the repo that is neither a derived prefix nor declared via `legacyTagPrefixes`, along with a copy-pasteable `workspaces: [...]` config snippet.
 
 | Flag           | Description |
 | -------------- | ----------- |
@@ -271,7 +271,7 @@ The `init` command scaffolds a release workflow at `.github/workflows/release.ya
 
 | Input  | Type   | Description                                                         |
 | ------ | ------ | ------------------------------------------------------------------- |
-| `only` | string | Components to release (comma-separated, leave empty for all)        |
+| `only` | string | Workspaces to release (comma-separated, leave empty for all)        |
 | `bump` | choice | Override bump type: `patch`, `minor`, `major` (empty = auto-detect) |
 
 For repos that need a self-contained workflow instead of the reusable one, the scaffolded file can be expanded. The key steps are: checkout with full history (`fetch-depth: 0`), run `release-kit prepare` with optional `--only` and `--bump` flags, check for changes, read tags from `tmp/.release-tags`, then commit, tag, and push.
@@ -279,10 +279,10 @@ For repos that need a self-contained workflow instead of the reusable one, the s
 ### Triggering a release
 
 ```sh
-# All components
+# All workspaces
 gh workflow run release.yaml
 
-# Specific component(s)
+# Specific workspace(s)
 gh workflow run release.yaml -f only=arrays
 gh workflow run release.yaml -f only=arrays,strings -f bump=minor
 ```
@@ -326,7 +326,7 @@ Minimal worked example for a repo whose pre-v5 tags were `core-v0.2.7`:
 import type { ReleaseKitConfig } from '@williamthorsen/release-kit';
 
 const config: ReleaseKitConfig = {
-  components: [{ dir: 'core', legacyTagPrefixes: ['core-v'] }],
+  workspaces: [{ dir: 'core', legacyTagPrefixes: ['core-v'] }],
 };
 
 export default config;
@@ -334,17 +334,17 @@ export default config;
 
 Verify with `release-kit show-tag-prefixes` — it prints the derived prefix per workspace, tag counts under each declared legacy prefix, and any undeclared release-shaped prefixes it finds in the repo (with a copy-pasteable config snippet). After declaring, `release-kit prepare` consults the union of the derived and legacy prefixes when searching for the most recent baseline tag, and changelog generation matches tags under either prefix.
 
-See the `legacyTagPrefixes` entry in the [`ComponentOverride`](#componentoverride) section for the config shape.
+See the `legacyTagPrefixes` entry in the [`WorkspaceOverride`](#workspaceoverride) section for the config shape.
 
-## Using `component()` for manual configuration
+## Using `deriveWorkspaceConfig()` for manual configuration
 
-If you need to build a `MonorepoReleaseConfig` manually (e.g., for the legacy script-based approach), the exported `component()` helper creates a `ComponentConfig` from a workspace-relative path. It reads the workspace's `package.json` to derive the tag prefix from the package name:
+If you need to build a `MonorepoReleaseConfig` manually (e.g., for the legacy script-based approach), the exported `deriveWorkspaceConfig()` helper creates a `WorkspaceConfig` from a workspace-relative path. It reads the workspace's `package.json` to derive the tag prefix from the package name:
 
 ```typescript
-import { component } from '@williamthorsen/release-kit';
+import { deriveWorkspaceConfig } from '@williamthorsen/release-kit';
 
 // packages/arrays/package.json contains `"name": "@scope/arrays"`
-component('packages/arrays');
+deriveWorkspaceConfig('packages/arrays');
 // => {
 //   dir: 'arrays',
 //   tagPrefix: 'arrays-v',
@@ -355,9 +355,9 @@ component('packages/arrays');
 // }
 ```
 
-`dir` is the basename of the workspace path and is the stable internal identifier used by `--only`, `ComponentOverride.dir`, and the dependency graph. `tagPrefix` is derived from the unscoped `package.json` `name` — any leading `@scope/` is stripped — so tags reflect the package identity rather than the directory layout. For example, a workspace at `packages/core` with `"name": "@williamthorsen/node-monorepo-core"` produces `tagPrefix: 'node-monorepo-core-v'`, yielding tags like `node-monorepo-core-v1.3.0`.
+`dir` is the basename of the workspace path and is the stable internal identifier used by `--only`, `WorkspaceOverride.dir`, and the dependency graph. `tagPrefix` is derived from the unscoped `package.json` `name` — any leading `@scope/` is stripped — so tags reflect the package identity rather than the directory layout. For example, a workspace at `packages/core` with `"name": "@williamthorsen/node-monorepo-core"` produces `tagPrefix: 'node-monorepo-core-v'`, yielding tags like `node-monorepo-core-v1.3.0`.
 
-The workspace's `package.json` must declare a non-empty `name` field; `component()` throws otherwise. If two workspaces produce the same `tagPrefix` (because their unscoped names collide), `mergeMonorepoConfig()` throws and names the colliding workspaces so you can rename one.
+The workspace's `package.json` must declare a non-empty `name` field; `deriveWorkspaceConfig()` throws otherwise. If two workspaces produce the same `tagPrefix` (because their unscoped names collide), `mergeMonorepoConfig()` throws and names the colliding workspaces so you can rename one.
 
 ## Legacy script-based approach
 
@@ -366,10 +366,10 @@ The CLI-driven approach is recommended for new setups. The script-based approach
 ```typescript
 // .github/scripts/release.config.ts
 import type { MonorepoReleaseConfig } from '@williamthorsen/release-kit';
-import { component } from '@williamthorsen/release-kit';
+import { deriveWorkspaceConfig } from '@williamthorsen/release-kit';
 
 export const config: MonorepoReleaseConfig = {
-  components: [component('packages/arrays'), component('packages/strings')],
+  workspaces: [deriveWorkspaceConfig('packages/arrays'), deriveWorkspaceConfig('packages/strings')],
   formatCommand: 'npx prettier --write',
 };
 ```
@@ -382,30 +382,30 @@ import { config } from './release.config.ts';
 runReleasePrepare(config);
 ```
 
-The key difference: the script-based approach requires manually listing every component, while the CLI auto-discovers them from `pnpm-workspace.yaml`.
+The key difference: the script-based approach requires manually listing every workspace, while the CLI auto-discovers them from `pnpm-workspace.yaml`.
 
 ## Breaking changes
 
-### `resolveReleaseTags` takes components; `ComponentConfig` requires `workspacePath`
+### `resolveReleaseTags` takes workspaces; `WorkspaceConfig` requires `workspacePath`
 
-Tag resolution is now driven by component records rather than a caller-supplied directory map, so `resolveReleaseTags` can report both the component `dir` and its `workspacePath` for every resolved tag.
+Tag resolution is now driven by workspace records rather than a caller-supplied directory map, so `resolveReleaseTags` can report both the workspace `dir` and its `workspacePath` for every resolved tag.
 
-- `resolveReleaseTags` signature changed from `(workspaceMap?: Map<string, string>)` to `(components?: readonly ComponentConfig[])`.
-- `ComponentConfig` gained a required `workspacePath: string` field.
+- `resolveReleaseTags` signature changed from `(workspaceMap?: Map<string, string>)` to `(workspaces?: readonly WorkspaceConfig[])`.
+- `WorkspaceConfig` gained a required `workspacePath: string` field.
 
-Replace direct `Map`-based calls with `component()`, which now populates `workspacePath` for you:
+Replace direct `Map`-based calls with `deriveWorkspaceConfig()`, which now populates `workspacePath` for you:
 
 ```diff
 -import { resolveReleaseTags } from '@williamthorsen/release-kit';
 -
 -const workspaceMap = new Map([['core', 'packages/core']]);
 -resolveReleaseTags(workspaceMap);
-+import { component, resolveReleaseTags } from '@williamthorsen/release-kit';
++import { deriveWorkspaceConfig, resolveReleaseTags } from '@williamthorsen/release-kit';
 +
-+resolveReleaseTags([component('packages/core')]);
++resolveReleaseTags([deriveWorkspaceConfig('packages/core')]);
 ```
 
-If you construct `ComponentConfig` objects directly, add `workspacePath` alongside the other required fields.
+If you construct `WorkspaceConfig` objects directly, add `workspacePath` alongside the other required fields.
 
 ### `release-kit publish` and `release-kit push` replace `--only` with `--tags`
 

@@ -1,21 +1,21 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
-import { component } from './component.ts';
 import {
   DEFAULT_CHANGELOG_JSON_CONFIG,
   DEFAULT_RELEASE_NOTES_CONFIG,
   DEFAULT_VERSION_PATTERNS,
   DEFAULT_WORK_TYPES,
 } from './defaults.ts';
+import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
 import { isRecord } from './typeGuards.ts';
 import type {
   ChangelogJsonConfig,
-  ComponentConfig,
   MonorepoReleaseConfig,
   ReleaseConfig,
   ReleaseKitConfig,
   ReleaseNotesConfig,
+  WorkspaceConfig,
   WorkTypeConfig,
 } from './types.ts';
 
@@ -58,8 +58,8 @@ export async function loadConfig(): Promise<unknown> {
  * Resolves a final monorepo config from discovered workspaces and an optional user config overlay.
  *
  * Merging rules:
- * - `components`: match overlay entries by `dir` against discovered list; `shouldExclude: true`
- *   removes the component; unlisted packages keep defaults.
+ * - `workspaces`: match overlay entries by `dir` against discovered list; `shouldExclude: true`
+ *   removes the workspace; unlisted packages keep defaults.
  * - `workTypes`: shallow merge — consumer entries override or add to defaults by key.
  * - `versionPatterns`: consumer value replaces defaults entirely.
  * - `formatCommand`, `cliffConfigPath`, `scopeAliases`: consumer value wins.
@@ -68,28 +68,28 @@ export function mergeMonorepoConfig(
   discoveredPaths: string[],
   userConfig: ReleaseKitConfig | undefined,
 ): MonorepoReleaseConfig {
-  // Build default components from discovered paths
-  let components: ComponentConfig[] = discoveredPaths.map((workspacePath) => component(workspacePath));
+  // Build default workspaces from discovered paths
+  let workspaces: WorkspaceConfig[] = discoveredPaths.map((workspacePath) => deriveWorkspaceConfig(workspacePath));
 
   // Detect duplicate tagPrefix values before filtering so exclusions cannot hide collisions.
-  assertUniqueTagPrefixes(components);
+  assertUniqueTagPrefixes(workspaces);
 
-  // Apply component overrides from user config
-  if (userConfig?.components !== undefined) {
-    const overrides = new Map(userConfig.components.map((c) => [c.dir, c]));
+  // Apply workspace overrides from user config
+  if (userConfig?.workspaces !== undefined) {
+    const overrides = new Map(userConfig.workspaces.map((w) => [w.dir, w]));
 
-    components = components
-      .filter((c) => {
-        const override = overrides.get(c.dir);
+    workspaces = workspaces
+      .filter((w) => {
+        const override = overrides.get(w.dir);
         return override?.shouldExclude !== true;
       })
-      .map((c) => {
-        const override = overrides.get(c.dir);
+      .map((w) => {
+        const override = overrides.get(w.dir);
         if (override?.legacyTagPrefixes === undefined) {
-          return c;
+          return w;
         }
-        assertLegacyTagPrefixesDoNotIncludeDerived(c.dir, c.tagPrefix, override.legacyTagPrefixes);
-        return { ...c, legacyTagPrefixes: [...override.legacyTagPrefixes] };
+        assertLegacyTagPrefixesDoNotIncludeDerived(w.dir, w.tagPrefix, override.legacyTagPrefixes);
+        return { ...w, legacyTagPrefixes: [...override.legacyTagPrefixes] };
       });
   }
 
@@ -104,7 +104,7 @@ export function mergeMonorepoConfig(
   const releaseNotes = mergeReleaseNotesConfig(userConfig?.releaseNotes);
 
   const result: MonorepoReleaseConfig = {
-    components,
+    workspaces,
     workTypes,
     versionPatterns,
     changelogJson,
@@ -191,7 +191,7 @@ function mergeChangelogJsonConfig(partial: Partial<ChangelogJsonConfig> | undefi
 }
 
 /**
- * Throw when a component's `legacyTagPrefixes` contains the workspace's derived tag prefix.
+ * Throw when a workspace's `legacyTagPrefixes` contains its derived tag prefix.
  *
  * A legacy entry equal to the derived prefix is a guaranteed no-op duplicate, almost always
  * a copy-paste mistake. Rejecting it early prevents silent config drift.
@@ -203,27 +203,27 @@ function assertLegacyTagPrefixesDoNotIncludeDerived(
 ): void {
   if (legacyTagPrefixes.includes(derivedPrefix)) {
     throw new Error(
-      `Component '${dir}': legacyTagPrefixes must not include the derived prefix '${derivedPrefix}'. ` +
+      `Workspace '${dir}': legacyTagPrefixes must not include the derived prefix '${derivedPrefix}'. ` +
         'The derived prefix is always searched; listing it again is a no-op.',
     );
   }
 }
 
 /**
- * Throw when two or more components share the same `tagPrefix`.
+ * Throw when two or more workspaces share the same `tagPrefix`.
  *
  * A collision means two workspaces would produce indistinguishable tags, breaking both tag
  * creation and tag resolution. The error lists every colliding workspace path so the author
  * can rename one of the conflicting `package.json` `name` fields.
  */
-function assertUniqueTagPrefixes(components: readonly ComponentConfig[]): void {
+function assertUniqueTagPrefixes(workspaces: readonly WorkspaceConfig[]): void {
   const pathsByPrefix = new Map<string, string[]>();
-  for (const component of components) {
-    const existing = pathsByPrefix.get(component.tagPrefix);
+  for (const workspace of workspaces) {
+    const existing = pathsByPrefix.get(workspace.tagPrefix);
     if (existing === undefined) {
-      pathsByPrefix.set(component.tagPrefix, [component.workspacePath]);
+      pathsByPrefix.set(workspace.tagPrefix, [workspace.workspacePath]);
     } else {
-      existing.push(component.workspacePath);
+      existing.push(workspace.workspacePath);
     }
   }
 

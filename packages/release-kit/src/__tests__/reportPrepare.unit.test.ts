@@ -8,7 +8,7 @@ describe(reportPrepare, () => {
   describe('single-package mode', () => {
     it('formats a successful single-package release', () => {
       const result: PrepareResult = {
-        components: [
+        workspaces: [
           {
             status: 'released',
             previousTag: 'v1.0.0',
@@ -41,7 +41,7 @@ describe(reportPrepare, () => {
 
     it('renders "the beginning" when previousTag is undefined', () => {
       const result: PrepareResult = {
-        components: [
+        workspaces: [
           {
             status: 'released',
             previousTag: undefined,
@@ -66,7 +66,7 @@ describe(reportPrepare, () => {
 
     it('formats a skipped single-package release', () => {
       const result: PrepareResult = {
-        components: [
+        workspaces: [
           {
             status: 'skipped',
             previousTag: 'v1.0.0',
@@ -90,7 +90,7 @@ describe(reportPrepare, () => {
 
     it('formats a dry-run single-package release', () => {
       const result: PrepareResult = {
-        components: [
+        workspaces: [
           {
             status: 'released',
             previousTag: 'v1.0.0',
@@ -124,7 +124,7 @@ describe(reportPrepare, () => {
 
     it('formats a release with bump override', () => {
       const result: PrepareResult = {
-        components: [
+        workspaces: [
           {
             status: 'released',
             previousTag: 'v1.0.0',
@@ -146,9 +146,9 @@ describe(reportPrepare, () => {
       expect(output).toContain('Using bump override: major');
     });
 
-    it('renders "version override" labels when setVersion is present on a component', () => {
+    it('renders "version override" labels when setVersion is present on a workspace', () => {
       const result: PrepareResult = {
-        components: [
+        workspaces: [
           {
             status: 'released',
             previousTag: 'v0.5.0',
@@ -174,7 +174,7 @@ describe(reportPrepare, () => {
 
     it('shows unparseable commit warning when all commits are unparseable (patch floor)', () => {
       const result: PrepareResult = {
-        components: [
+        workspaces: [
           {
             status: 'released',
             previousTag: 'v1.0.0',
@@ -205,7 +205,7 @@ describe(reportPrepare, () => {
 
     it('shows unparseable commit warning without patch-floor note when some commits parsed', () => {
       const result: PrepareResult = {
-        components: [
+        workspaces: [
           {
             status: 'released',
             previousTag: 'v1.0.0',
@@ -233,7 +233,7 @@ describe(reportPrepare, () => {
 
     it('does not show unparseable warning when there are no unparseable commits', () => {
       const result: PrepareResult = {
-        components: [
+        workspaces: [
           {
             status: 'released',
             previousTag: 'v1.0.0',
@@ -258,10 +258,10 @@ describe(reportPrepare, () => {
     });
   });
 
-  describe('empty components', () => {
-    it('returns an empty string when components array is empty', () => {
+  describe('empty workspaces', () => {
+    it('returns an empty string when workspaces array is empty', () => {
       const result: PrepareResult = {
-        components: [],
+        workspaces: [],
         tags: [],
         dryRun: false,
       };
@@ -273,9 +273,9 @@ describe(reportPrepare, () => {
   });
 
   describe('monorepo mode', () => {
-    it('formats a multi-component release', () => {
+    it('formats a multi-workspace release', () => {
       const result: PrepareResult = {
-        components: [
+        workspaces: [
           {
             name: 'arrays',
             status: 'released',
@@ -320,7 +320,7 @@ describe(reportPrepare, () => {
 
     it('renders "(no previous release found)" when previousTag is undefined', () => {
       const result: PrepareResult = {
-        components: [
+        workspaces: [
           {
             name: 'arrays',
             status: 'released',
@@ -346,7 +346,7 @@ describe(reportPrepare, () => {
 
     it('renders the changelog header with no file entries when changelogFiles is empty', () => {
       const result: PrepareResult = {
-        components: [
+        workspaces: [
           {
             name: 'arrays',
             status: 'released',
@@ -373,7 +373,7 @@ describe(reportPrepare, () => {
 
     it('formats a partial skip in monorepo mode', () => {
       const result: PrepareResult = {
-        components: [
+        workspaces: [
           {
             name: 'arrays',
             status: 'released',
@@ -409,9 +409,9 @@ describe(reportPrepare, () => {
       expect(output).toContain('✅ Release preparation complete.');
     });
 
-    it('renders "version override" labels for a setVersion component in monorepo mode', () => {
+    it('renders "version override" labels for a setVersion workspace in monorepo mode', () => {
       const result: PrepareResult = {
-        components: [
+        workspaces: [
           {
             name: 'arrays',
             status: 'released',
@@ -435,9 +435,9 @@ describe(reportPrepare, () => {
       expect(output).toContain(`  📦 0.5.0 → ${bold('1.0.0')} (version override)`);
     });
 
-    it('leaves propagated dependents of a setVersion component with a normal release-type label', () => {
+    it('leaves propagated dependents of a setVersion workspace with a normal release-type label', () => {
       const result: PrepareResult = {
-        components: [
+        workspaces: [
           {
             name: 'core',
             status: 'released',
@@ -479,7 +479,7 @@ describe(reportPrepare, () => {
 
     it('formats a full skip in monorepo mode', () => {
       const result: PrepareResult = {
-        components: [
+        workspaces: [
           {
             name: 'arrays',
             status: 'skipped',
@@ -496,12 +496,12 @@ describe(reportPrepare, () => {
 
       const output = reportPrepare(result);
 
-      expect(output).toContain('⏭️  No components had release-worthy changes.');
+      expect(output).toContain('⏭️  No workspaces had release-worthy changes.');
     });
 
     it('shows unparseable commit warning in monorepo mode', () => {
       const result: PrepareResult = {
-        components: [
+        workspaces: [
           {
             name: 'arrays',
             status: 'released',
@@ -529,7 +529,7 @@ describe(reportPrepare, () => {
 
     it('formats format command in monorepo mode', () => {
       const result: PrepareResult = {
-        components: [
+        workspaces: [
           {
             name: 'arrays',
             status: 'released',
@@ -564,7 +564,7 @@ describe(reportPrepare, () => {
 
     it('shows warnings when present in the result', () => {
       const result: PrepareResult = {
-        components: [
+        workspaces: [
           {
             name: 'core',
             status: 'released',
@@ -582,7 +582,7 @@ describe(reportPrepare, () => {
         tags: ['core-v1.0.1'],
         dryRun: false,
         warnings: [
-          'Circular workspace dependencies detected among: a, b. Propagation metadata may be incomplete for these components.',
+          'Circular workspace dependencies detected among: a, b. Propagation metadata may be incomplete for these workspaces.',
         ],
       };
 
@@ -591,9 +591,9 @@ describe(reportPrepare, () => {
       expect(output).toContain('⚠️  Circular workspace dependencies detected among: a, b');
     });
 
-    it('shows propagation info for a propagated-only component', () => {
+    it('shows propagation info for a propagated-only workspace', () => {
       const result: PrepareResult = {
-        components: [
+        workspaces: [
           {
             name: 'core',
             status: 'released',

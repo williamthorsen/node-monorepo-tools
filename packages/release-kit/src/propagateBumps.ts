@@ -5,7 +5,7 @@ import type { PropagationSource, ReleaseType } from './types.ts';
 /** Entry in the full release set produced by propagation. */
 export interface ReleaseEntry {
   releaseType: ReleaseType;
-  /** Present when this component was bumped (wholly or partly) due to a dependency update. */
+  /** Present when this workspace was bumped (wholly or partly) due to a dependency update. */
   propagatedFrom?: PropagationSource[];
   /**
    * Explicit new version override used for propagation metadata. When set, dependents see this
@@ -15,7 +15,7 @@ export interface ReleaseEntry {
   newVersionOverride?: string;
 }
 
-/** Map from component `dir` to its current version string (read from package.json). */
+/** Map from workspace `dir` to its current version string (read from package.json). */
 export type CurrentVersions = Map<string, string>;
 
 /**
@@ -37,7 +37,7 @@ export function propagateBumps(
     result.set(dir, { ...entry });
   }
 
-  // BFS queue: component dirs whose dependents need to be checked.
+  // BFS queue: workspace dirs whose dependents need to be checked.
   const queue: string[] = [...directBumps.keys()];
   const visited = new Set<string>();
 
@@ -52,13 +52,13 @@ export function propagateBumps(
     }
     visited.add(dir);
 
-    // Resolve the package name for this component dir.
+    // Resolve the package name for this workspace dir.
     const packageName = graph.dirToPackageName.get(dir);
     if (packageName === undefined) {
       continue;
     }
 
-    // Compute the new version for this component after its bump.
+    // Compute the new version for this workspace after its bump.
     const currentVersion = currentVersions.get(dir);
     const entry = result.get(dir);
     if (currentVersion === undefined || entry === undefined) {

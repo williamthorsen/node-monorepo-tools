@@ -94,12 +94,12 @@ function renderWorkspaceRow(row: TagPrefixPreviewRow): string[] {
   return lines;
 }
 
-/** Render a paste-ready `components: [ ... ]` config snippet for the undeclared candidates. */
+/** Render a paste-ready `workspaces: [ ... ]` config snippet for the undeclared candidates. */
 function renderSuggestedSnippet(candidates: readonly { prefix: string; suggestedDir: string }[]): string {
   const entries = candidates
     .map((candidate) => `    { dir: '${candidate.suggestedDir}', legacyTagPrefixes: ['${candidate.prefix}'] },`)
     .join('\n');
-  return `  components: [\n${entries}\n  ],`;
+  return `  workspaces: [\n${entries}\n  ],`;
 }
 
 /** Exit `1` on any derivation failure or collision; `0` otherwise. Undeclared candidates are non-blocking. */

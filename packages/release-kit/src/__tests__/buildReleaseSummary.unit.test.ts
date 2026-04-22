@@ -6,7 +6,7 @@ import type { PrepareResult } from '../types.ts';
 /** Build a minimal PrepareResult for testing. */
 function makeResult(overrides?: Partial<PrepareResult>): PrepareResult {
   return {
-    components: [],
+    workspaces: [],
     tags: [],
     dryRun: false,
     ...overrides,
@@ -16,7 +16,7 @@ function makeResult(overrides?: Partial<PrepareResult>): PrepareResult {
 describe(buildReleaseSummary, () => {
   it('produces a summary with tag heading and scope-stripped commits', () => {
     const result = makeResult({
-      components: [
+      workspaces: [
         {
           name: 'release-kit',
           status: 'released',
@@ -37,9 +37,9 @@ describe(buildReleaseSummary, () => {
     );
   });
 
-  it('separates multiple components with blank lines', () => {
+  it('separates multiple workspaces with blank lines', () => {
     const result = makeResult({
-      components: [
+      workspaces: [
         {
           name: 'core',
           status: 'released',
@@ -64,9 +64,9 @@ describe(buildReleaseSummary, () => {
     expect(buildReleaseSummary(result)).toBe('core-v1.0.0\n- feat: Init\n\nutils-v2.0.0\n- fix: Bug');
   });
 
-  it('omits propagation-only components (no commits)', () => {
+  it('omits propagation-only workspaces (no commits)', () => {
     const result = makeResult({
-      components: [
+      workspaces: [
         {
           name: 'core',
           status: 'released',
@@ -82,9 +82,9 @@ describe(buildReleaseSummary, () => {
     expect(buildReleaseSummary(result)).toBe('');
   });
 
-  it('omits skipped components', () => {
+  it('omits skipped workspaces', () => {
     const result = makeResult({
-      components: [
+      workspaces: [
         {
           name: 'skipped-pkg',
           status: 'skipped',
@@ -99,7 +99,7 @@ describe(buildReleaseSummary, () => {
     expect(buildReleaseSummary(result)).toBe('');
   });
 
-  it('returns empty string when there are no components', () => {
+  it('returns empty string when there are no workspaces', () => {
     expect(buildReleaseSummary(makeResult())).toBe('');
   });
 });

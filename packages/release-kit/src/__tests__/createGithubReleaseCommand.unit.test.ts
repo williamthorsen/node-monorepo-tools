@@ -4,7 +4,7 @@ const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
 const mockResolveReleaseTags = vi.hoisted(() => vi.fn());
 const mockCreateGithubReleases = vi.hoisted(() => vi.fn());
 const mockResolveReleaseNotesConfig = vi.hoisted(() => vi.fn());
-const mockComponent = vi.hoisted(() => vi.fn());
+const mockDeriveWorkspaceConfig = vi.hoisted(() => vi.fn());
 
 vi.mock('../discoverWorkspaces.ts', () => ({
   discoverWorkspaces: mockDiscoverWorkspaces,
@@ -22,8 +22,8 @@ vi.mock('../resolveReleaseNotesConfig.ts', () => ({
   resolveReleaseNotesConfig: mockResolveReleaseNotesConfig,
 }));
 
-vi.mock('../component.ts', () => ({
-  component: mockComponent,
+vi.mock('../deriveWorkspaceConfig.ts', () => ({
+  deriveWorkspaceConfig: mockDeriveWorkspaceConfig,
 }));
 
 import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';
@@ -40,7 +40,7 @@ describe(createGithubReleaseCommand, () => {
     mockDiscoverWorkspaces.mockResolvedValue(undefined);
     mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.' }]);
     mockCreateGithubReleases.mockReturnValue({ created: ['v1.0.0'], skipped: [] });
-    mockComponent.mockImplementation((workspacePath: string) => ({
+    mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => ({
       dir: workspacePath.split('/').pop(),
       tagPrefix: `${workspacePath.split('/').pop()}-v`,
       workspacePath,

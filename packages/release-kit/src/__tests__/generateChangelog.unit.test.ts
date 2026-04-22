@@ -28,7 +28,7 @@ describe(buildTagPattern, () => {
     expect(buildTagPattern(['v'])).toBe('v[0-9].*');
   });
 
-  it('constructs a tag pattern from a monorepo component prefix', () => {
+  it('constructs a tag pattern from a monorepo workspace prefix', () => {
     expect(buildTagPattern(['release-kit-v'])).toBe('release-kit-v[0-9].*');
   });
 

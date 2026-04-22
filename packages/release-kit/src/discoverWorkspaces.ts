@@ -13,7 +13,7 @@ import { isRecord } from './typeGuards.ts';
  * Only directories containing a `package.json` are included.
  *
  * Note: The returned paths are full relative paths from the repo root (e.g., `packages/arrays`,
- * `libs/core`). These paths are passed directly to `component()`, which uses them for all
+ * `libs/core`). These paths are passed directly to `deriveWorkspaceConfig()`, which uses them for all
  * file path construction and derives the display name via `path.basename()`.
  *
  * @returns The discovered workspace paths, or `undefined` if no workspace config is found.
