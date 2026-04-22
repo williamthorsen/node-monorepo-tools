@@ -352,6 +352,17 @@ describe(mergeMonorepoConfig, () => {
     ).not.toThrow();
   });
 
+  it('accepts an empty retiredPackages array', () => {
+    // The guard in `mergeMonorepoConfig` calls `assertRetiredPackagesDoNotCollideWithActive`
+    // for any non-undefined value; exercising the empty-iterable path ensures the call does
+    // not throw when the user declares `retiredPackages: []` explicitly.
+    expect(() =>
+      mergeMonorepoConfig(discoveredPaths, {
+        retiredPackages: [],
+      }),
+    ).not.toThrow();
+  });
+
   it('includes every colliding workspace path when more than two collide', () => {
     mockPackageNames({
       'packages/a-foo': '@a/foo',

@@ -2,6 +2,7 @@
 export type { CreateTagsOptions } from './createTags.ts';
 export type { PackageManager } from './detectPackageManager.ts';
 export type { GenerateChangelogOptions } from './generateChangelogs.ts';
+export type { RetiredPackagePreviewEntry } from './previewTagPrefixes.ts';
 export type { PublishOptions } from './publish.ts';
 export type { ReleasePrepareOptions } from './releasePrepare.ts';
 export type { ResolvedTag } from './resolveReleaseTags.ts';

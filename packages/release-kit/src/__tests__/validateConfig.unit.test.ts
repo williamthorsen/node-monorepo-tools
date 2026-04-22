@@ -348,7 +348,7 @@ describe(validateConfig, () => {
     });
 
     it('rejects a tagPrefix colliding with a declared legacyIdentities[].tagPrefix', () => {
-      const { errors } = validateConfig({
+      const { config, errors } = validateConfig({
         workspaces: [
           {
             dir: 'core',
@@ -360,10 +360,14 @@ describe(validateConfig, () => {
       expect(errors).toContain(
         "retiredPackages[0]: tagPrefix 'old-core-v' collides with a declared legacyIdentities[].tagPrefix on workspace 'core'",
       );
+      // The colliding entry is still written to `config.retiredPackages` — the returned config
+      // is not guaranteed to be internally consistent when `errors` is non-empty. Callers must
+      // check `errors` before trusting `config`.
+      expect(config.retiredPackages).toStrictEqual([{ name: '@scope/retired', tagPrefix: 'old-core-v' }]);
     });
 
     it('records the collision when retired and legacy tagPrefixes match across workspaces', () => {
-      const { errors } = validateConfig({
+      const { config, errors } = validateConfig({
         workspaces: [
           {
             dir: 'arrays',
@@ -379,6 +383,44 @@ describe(validateConfig, () => {
       // Preserves the first declaring workspace in the error.
       expect(errors).toContain(
         "retiredPackages[0]: tagPrefix 'shared-v' collides with a declared legacyIdentities[].tagPrefix on workspace 'arrays'",
+      );
+      // The colliding entry is still present in `config.retiredPackages` under the current
+      // contract (mirrors `validateWorkspaces` behavior).
+      expect(config.retiredPackages).toStrictEqual([{ name: '@scope/retired', tagPrefix: 'shared-v' }]);
+    });
+
+    it('preserves valid entries when only some entries in a multi-entry array are invalid', () => {
+      const { config, errors } = validateConfig({
+        retiredPackages: [
+          { name: '@scope/preflight', tagPrefix: 'preflight-v' },
+          'not-an-object',
+          { name: '@scope/dead', tagPrefix: 'dead-v', successor: 'alive' },
+        ],
+      });
+      expect(errors).toContain('retiredPackages[1]: must be an object');
+      expect(config.retiredPackages).toStrictEqual([
+        { name: '@scope/preflight', tagPrefix: 'preflight-v' },
+        { name: '@scope/dead', tagPrefix: 'dead-v', successor: 'alive' },
+      ]);
+    });
+
+    it('reports the user-supplied index in the collision error when an earlier entry was rejected', () => {
+      const { errors } = validateConfig({
+        workspaces: [
+          {
+            dir: 'core',
+            legacyIdentities: [{ name: '@old-scope/core', tagPrefix: 'old-core-v' }],
+          },
+        ],
+        retiredPackages: [
+          // Structurally invalid: bare string, rejected during per-entry validation.
+          'not-an-object',
+          // Valid entry whose tagPrefix collides with the legacy identity above.
+          { name: '@scope/retired', tagPrefix: 'old-core-v' },
+        ],
+      });
+      expect(errors).toContain(
+        "retiredPackages[1]: tagPrefix 'old-core-v' collides with a declared legacyIdentities[].tagPrefix on workspace 'core'",
       );
     });
   });

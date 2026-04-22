@@ -294,6 +294,7 @@ function validateRetiredPackages(value: unknown, config: ReleaseKitConfig, error
   }
 
   const retiredPackages: RetiredPackage[] = [];
+  const retiredPackagesWithRawIndex: Array<{ entry: RetiredPackage; rawIndex: number }> = [];
   const seenTuples = new Set<string>();
 
   for (const [i, entry] of value.entries()) {
@@ -310,9 +311,10 @@ function validateRetiredPackages(value: unknown, config: ReleaseKitConfig, error
     }
     seenTuples.add(key);
     retiredPackages.push(retired);
+    retiredPackagesWithRawIndex.push({ entry: retired, rawIndex: i });
   }
 
-  detectRetiredVsLegacyCollisions(retiredPackages, config, errors);
+  detectRetiredVsLegacyCollisions(retiredPackagesWithRawIndex, config, errors);
 
   config.retiredPackages = retiredPackages;
 }
@@ -361,10 +363,13 @@ function validateRetiredPackageEntry(entry: unknown, i: number, errors: string[]
 
 /**
  * Append errors when a `retiredPackages` entry's `tagPrefix` matches any workspace's declared
- * `legacyIdentities[].tagPrefix`. The first declaring workspace is named in the error.
+ * `legacyIdentities[].tagPrefix`. The first declaring workspace is named in the error. Each
+ * entry carries its `rawIndex` (the position in the user-supplied `retiredPackages` array) so
+ * error messages point at the entry the user actually wrote, not the position in the filtered
+ * valid-entries array.
  */
 function detectRetiredVsLegacyCollisions(
-  retiredPackages: readonly RetiredPackage[],
+  retiredPackages: readonly { entry: RetiredPackage; rawIndex: number }[],
   config: ReleaseKitConfig,
   errors: string[],
 ): void {
@@ -380,11 +385,11 @@ function detectRetiredVsLegacyCollisions(
     }
   }
 
-  for (const [i, retired] of retiredPackages.entries()) {
+  for (const { entry: retired, rawIndex } of retiredPackages) {
     const collidingDir = legacyPrefixToWorkspace.get(retired.tagPrefix);
     if (collidingDir !== undefined) {
       errors.push(
-        `retiredPackages[${i}]: tagPrefix '${retired.tagPrefix}' collides with a declared legacyIdentities[].tagPrefix on workspace '${collidingDir}'`,
+        `retiredPackages[${rawIndex}]: tagPrefix '${retired.tagPrefix}' collides with a declared legacyIdentities[].tagPrefix on workspace '${collidingDir}'`,
       );
     }
   }
