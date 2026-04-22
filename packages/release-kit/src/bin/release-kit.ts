@@ -181,7 +181,7 @@ Usage: release-kit show-tag-prefixes [options]
 
 Print a per-workspace table of derived tag prefixes, tag counts, and declared
 legacy tag prefixes. Surfaces any release-shaped tags whose prefix is neither a
-derived prefix nor declared in \`legacyTagPrefixes\`, with a copy-pasteable
+derived prefix nor declared in \`legacyIdentities\`, with a copy-pasteable
 config snippet.
 
 Options:

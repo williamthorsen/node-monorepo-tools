@@ -18,6 +18,7 @@ describe(deriveWorkspaceConfig, () => {
 
     expect(deriveWorkspaceConfig('packages/core')).toStrictEqual({
       dir: 'core',
+      name: '@williamthorsen/node-monorepo-core',
       tagPrefix: 'node-monorepo-core-v',
       workspacePath: 'packages/core',
       packageFiles: ['packages/core/package.json'],
@@ -31,12 +32,19 @@ describe(deriveWorkspaceConfig, () => {
 
     expect(deriveWorkspaceConfig('packages/readyup')).toStrictEqual({
       dir: 'readyup',
+      name: 'readyup',
       tagPrefix: 'readyup-v',
       workspacePath: 'packages/readyup',
       packageFiles: ['packages/readyup/package.json'],
       changelogPaths: ['packages/readyup'],
       paths: ['packages/readyup/**'],
     });
+  });
+
+  it('populates name with the full scoped name for later identity comparisons', () => {
+    mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@scope/pkg' }));
+
+    expect(deriveWorkspaceConfig('packages/pkg').name).toBe('@scope/pkg');
   });
 
   it('preserves dir as the basename when the directory name differs from the package name', () => {

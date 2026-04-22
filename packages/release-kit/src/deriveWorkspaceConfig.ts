@@ -33,6 +33,7 @@ export function deriveWorkspaceConfig(workspacePath: string): WorkspaceConfig {
 
   return {
     dir,
+    name,
     tagPrefix: `${unscopedName}-v`,
     workspacePath,
     packageFiles: [packageJsonPath],

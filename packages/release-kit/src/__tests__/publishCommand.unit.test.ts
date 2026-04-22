@@ -78,6 +78,7 @@ describe(publishCommand, () => {
       const dir = workspacePath.split('/').pop() ?? workspacePath;
       return {
         dir,
+        name: `@test/${dir}`,
         tagPrefix: `${dir}-v`,
         workspacePath,
         packageFiles: [`${workspacePath}/package.json`],

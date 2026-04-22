@@ -16,6 +16,7 @@ function makeWorkspace(
   const workspacePath = overrides.workspacePath ?? `packages/${dir}`;
   return {
     dir,
+    name: overrides.name ?? `@test/${dir}`,
     tagPrefix: overrides.tagPrefix,
     workspacePath,
     packageFiles: overrides.packageFiles ?? [`${workspacePath}/package.json`],

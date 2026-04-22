@@ -14,6 +14,7 @@ export type {
   ChangelogJsonConfig,
   ChangelogSection,
   Commit,
+  LegacyIdentity,
   MonorepoReleaseConfig,
   ParsedCommit,
   PrepareResult,

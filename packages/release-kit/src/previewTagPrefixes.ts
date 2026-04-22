@@ -6,7 +6,7 @@ import type { UndeclaredTagPrefix } from './detectUndeclaredTagPrefixes.ts';
 import { detectUndeclaredTagPrefixes } from './detectUndeclaredTagPrefixes.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
 import { loadConfig } from './loadConfig.ts';
-import type { ReleaseKitConfig } from './types.ts';
+import type { LegacyIdentity, ReleaseKitConfig } from './types.ts';
 import { validateConfig } from './validateConfig.ts';
 
 /** One workspace's preview row in the tag-prefix preview. */
@@ -83,25 +83,20 @@ async function loadUserConfig(): Promise<ReleaseKitConfig | undefined> {
   return errors.length === 0 ? config : undefined;
 }
 
-/** Build a `dir -> override` lookup map from a validated config, skipping entries without a `dir`. */
-function buildOverrideMap(userConfig: ReleaseKitConfig | undefined): Map<string, { legacyTagPrefixes?: string[] }> {
-  const map = new Map<string, { legacyTagPrefixes?: string[] }>();
+/** Build a `dir -> legacyIdentities` lookup map from a validated config. */
+function buildOverrideMap(userConfig: ReleaseKitConfig | undefined): Map<string, LegacyIdentity[]> {
+  const map = new Map<string, LegacyIdentity[]>();
   if (userConfig?.workspaces === undefined) return map;
   for (const entry of userConfig.workspaces) {
-    const override: { legacyTagPrefixes?: string[] } = {};
-    if (entry.legacyTagPrefixes !== undefined) {
-      override.legacyTagPrefixes = entry.legacyTagPrefixes;
+    if (entry.legacyIdentities !== undefined) {
+      map.set(entry.dir, entry.legacyIdentities);
     }
-    map.set(entry.dir, override);
   }
   return map;
 }
 
 /** Construct a single workspace's preview row, catching derivation failures per-workspace. */
-function buildPreviewRow(
-  workspacePath: string,
-  overridesByDir: Map<string, { legacyTagPrefixes?: string[] }>,
-): TagPrefixPreviewRow {
+function buildPreviewRow(workspacePath: string, overridesByDir: Map<string, LegacyIdentity[]>): TagPrefixPreviewRow {
   const dir = basename(workspacePath);
   let derivedPrefix: string | null = null;
   let derivationError: string | null = null;
@@ -113,10 +108,10 @@ function buildPreviewRow(
 
   const derivedTagCount = derivedPrefix === null ? 0 : countTagsMatching(derivedPrefix);
 
-  const declaredLegacyPrefixes = overridesByDir.get(dir)?.legacyTagPrefixes ?? [];
-  const legacyEntries: LegacyTagPrefixEntry[] = declaredLegacyPrefixes.map((prefix) => ({
-    prefix,
-    tagCount: countTagsMatching(prefix),
+  const declaredIdentities = overridesByDir.get(dir) ?? [];
+  const legacyEntries: LegacyTagPrefixEntry[] = declaredIdentities.map((identity) => ({
+    prefix: identity.tagPrefix,
+    tagCount: countTagsMatching(identity.tagPrefix),
   }));
 
   return {

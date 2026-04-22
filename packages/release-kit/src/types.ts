@@ -145,6 +145,21 @@ export interface ReleaseKitConfig {
   releaseNotes?: Partial<ReleaseNotesConfig>;
 }
 
+/**
+ * A single historical identity snapshot for a workspace.
+ *
+ * Captures what the package looked like at some earlier point: the full npm `name`
+ * (e.g., `'@williamthorsen/node-monorepo-core'`) and the `tagPrefix` under which tags
+ * were published (e.g., `'core-v'`). Both fields are required — a full tuple stays
+ * unambiguous across any number of future renames.
+ */
+export interface LegacyIdentity {
+  /** Full scoped npm name as it appeared at the time (e.g., `'@scope/pkg'`). */
+  name: string;
+  /** Tag prefix under which the workspace's historical tags were published (e.g., `'core-v'`). */
+  tagPrefix: string;
+}
+
 /** Override for a single workspace in the config file. */
 export interface WorkspaceOverride {
   /** The package directory name (e.g., 'arrays'). */
@@ -152,12 +167,13 @@ export interface WorkspaceOverride {
   /** If true, exclude this workspace from release processing. */
   shouldExclude?: boolean;
   /**
-   * Additional tag prefixes under which historical release tags for this workspace exist.
-   * Consulted (in addition to the derived prefix) when release-kit searches for the most recent
-   * baseline tag and when generating changelogs. Declaring these allows release-kit to recognize
-   * legacy tags without any tag mutation.
+   * Prior identities of this workspace, used to recognize historical tags across renames.
+   * Each entry is a complete `(name, tagPrefix)` snapshot. The union of the current `tagPrefix`
+   * and each identity's `tagPrefix` is consulted when release-kit searches for the most recent
+   * baseline tag and when generating changelogs. Declaring identities allows release-kit to
+   * recognize legacy tags without any tag mutation.
    */
-  legacyTagPrefixes?: string[];
+  legacyIdentities?: LegacyIdentity[];
 }
 
 /** A raw commit from the git log. */
@@ -188,6 +204,8 @@ export interface ParsedCommit {
 export interface WorkspaceConfig {
   /** The package directory name (e.g., 'arrays'). Used for display and `--only` matching. */
   dir: string;
+  /** The full scoped npm name from `package.json` (e.g., `'@williamthorsen/node-monorepo-core'`). */
+  name: string;
   /** The git tag prefix for this workspace (e.g., 'node-monorepo-core-v'), derived from the unscoped `package.json` name. */
   tagPrefix: string;
   /** Workspace-relative path to the package root (e.g., `packages/core`). */
@@ -199,11 +217,11 @@ export interface WorkspaceConfig {
   /** Glob patterns passed to `git log -- <paths>` for commit filtering. */
   paths: string[];
   /**
-   * Additional tag prefixes under which historical release tags for this workspace exist.
-   * Treated as the union `[tagPrefix, ...legacyTagPrefixes]` when searching for baseline tags
-   * and generating changelogs. `undefined` is equivalent to the empty array.
+   * Prior identities of this workspace. Each identity's `tagPrefix` is consulted in addition
+   * to the current `tagPrefix` when searching for baseline tags and generating changelogs.
+   * `undefined` is equivalent to the empty array.
    */
-  legacyTagPrefixes?: string[];
+  legacyIdentities?: LegacyIdentity[];
 }
 
 /** Configuration for a monorepo release workflow with multiple workspaces. */

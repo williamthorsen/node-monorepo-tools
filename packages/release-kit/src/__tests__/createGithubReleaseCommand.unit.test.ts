@@ -42,6 +42,7 @@ describe(createGithubReleaseCommand, () => {
     mockCreateGithubReleases.mockReturnValue({ created: ['v1.0.0'], skipped: [] });
     mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => ({
       dir: workspacePath.split('/').pop(),
+      name: `@test/${workspacePath.split('/').pop()}`,
       tagPrefix: `${workspacePath.split('/').pop()}-v`,
       workspacePath,
       packageFiles: [`${workspacePath}/package.json`],

@@ -197,6 +197,7 @@ describe(showTagPrefixesCommand, () => {
     expect(output).toContain("'core-v'");
     expect(output).toContain('core-v0.2.7');
     expect(output).toContain("dir: 'core'");
-    expect(output).toContain("legacyTagPrefixes: ['core-v']");
+    expect(output).toContain("legacyIdentities: [{ name: 'TODO-fill-in-legacy-npm-name', tagPrefix: 'core-v' }]");
+    expect(output).toContain('TODO-fill-in-legacy-npm-name');
   });
 });

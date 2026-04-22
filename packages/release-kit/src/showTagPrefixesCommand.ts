@@ -61,11 +61,11 @@ function renderMonorepo(preview: TagPrefixPreview): string {
           `  '${candidate.prefix}' — ${candidate.tagCount} tags (e.g., ${candidate.exampleTags.join(', ')})`,
       ),
       '',
-      'Suggested config snippet (adjust `dir` to match your workspace if the guess is wrong):',
+      'Suggested config snippet (adjust `dir` to match your workspace if the guess is wrong, and replace the `name` placeholder with the legacy npm name):',
       '',
       renderSuggestedSnippet(preview.undeclaredCandidates),
       '',
-      'If the suggested `dir` does not match your workspace, adjust before pasting.',
+      "If the suggested `dir` does not match your workspace, adjust before pasting. Each legacy identity requires a `name` — replace the `TODO-fill-in-legacy-npm-name` placeholder with the package's prior npm name.",
     );
   }
 
@@ -97,7 +97,10 @@ function renderWorkspaceRow(row: TagPrefixPreviewRow): string[] {
 /** Render a paste-ready `workspaces: [ ... ]` config snippet for the undeclared candidates. */
 function renderSuggestedSnippet(candidates: readonly { prefix: string; suggestedDir: string }[]): string {
   const entries = candidates
-    .map((candidate) => `    { dir: '${candidate.suggestedDir}', legacyTagPrefixes: ['${candidate.prefix}'] },`)
+    .map(
+      (candidate) =>
+        `    { dir: '${candidate.suggestedDir}', legacyIdentities: [{ name: 'TODO-fill-in-legacy-npm-name', tagPrefix: '${candidate.prefix}' }] },`,
+    )
     .join('\n');
   return `  workspaces: [\n${entries}\n  ],`;
 }

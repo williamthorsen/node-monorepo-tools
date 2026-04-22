@@ -122,11 +122,16 @@ All fields are optional.
 interface WorkspaceOverride {
   dir: string; // Package directory name (e.g., 'arrays')
   shouldExclude?: boolean; // If true, exclude from release processing
-  legacyTagPrefixes?: string[]; // Additional tag prefixes under which historical tags exist
+  legacyIdentities?: LegacyIdentity[]; // Prior `(name, tagPrefix)` identities for this workspace
+}
+
+interface LegacyIdentity {
+  name: string; // Full scoped npm name at the time (e.g., '@scope/pkg')
+  tagPrefix: string; // Tag prefix under which historical tags were published (e.g., 'core-v')
 }
 ```
 
-`legacyTagPrefixes` lists extra tag prefixes to consult in addition to the derived prefix when release-kit searches for the most recent baseline tag and when generating changelogs. Use it when a workspace's historical tags were published under a different prefix — typically because the package was renamed or because a prior release setup derived the prefix differently. Run `release-kit show-tag-prefixes` to detect undeclared candidates and produce a paste-ready config snippet. Listing the workspace's current derived prefix is rejected as a no-op duplicate.
+`legacyIdentities` captures prior identities of a workspace as complete `(name, tagPrefix)` snapshots. The union of the current `tagPrefix` and each identity's `tagPrefix` is consulted when release-kit searches for the most recent baseline tag and when generating changelogs. Use it when a workspace's historical tags were published under a different npm name, a different tag prefix, or both — typically across a package rename. Both fields are required per identity: each entry must be a complete historical snapshot that stays valid regardless of subsequent renames. Run `release-kit show-tag-prefixes` to detect undeclared candidates and produce a paste-ready config snippet. Listing the current identity (full `(name, tagPrefix)` match) is rejected as a no-op duplicate; an identity whose `tagPrefix` matches the current but whose `name` differs is valid and documents a prior rename that reused the same tag shape.
 
 ### `VersionPatterns`
 
@@ -224,7 +229,7 @@ When `--tags` is omitted, every release tag pointing at HEAD is processed. The C
 
 ### `release-kit show-tag-prefixes`
 
-Print a per-workspace table of derived tag prefixes, tag counts, and declared legacy prefixes. Also surfaces any release-shaped tag prefix in the repo that is neither a derived prefix nor declared via `legacyTagPrefixes`, along with a copy-pasteable `workspaces: [...]` config snippet.
+Print a per-workspace table of derived tag prefixes, tag counts, and declared legacy prefixes. Also surfaces any release-shaped tag prefix in the repo that is neither a derived prefix nor declared via `legacyIdentities`, along with a copy-pasteable `workspaces: [...]` config snippet. The snippet uses a `TODO-fill-in-legacy-npm-name` placeholder for each identity's `name`; replace it with the package's prior npm name before pasting.
 
 | Flag           | Description |
 | -------------- | ----------- |
@@ -317,24 +322,31 @@ This package shells out to two external tools:
 
 ## Upgrading from v4 to v5
 
-Release-kit v5 derives each workspace's tag prefix from its unscoped `package.json` `name`, so a package at `packages/core` with `"name": "@scope/node-monorepo-core"` uses tags like `node-monorepo-core-v1.3.0`. Repos that previously tagged under the directory basename (e.g., `core-v1.3.0`) do not need to rewrite history — declare the old prefix in `legacyTagPrefixes` so release-kit recognizes historical tags under both the new and old prefixes.
+Release-kit v5 derives each workspace's tag prefix from its unscoped `package.json` `name`, so a package at `packages/core` with `"name": "@scope/node-monorepo-core"` uses tags like `node-monorepo-core-v1.3.0`. Repos that previously tagged under the directory basename (e.g., `core-v1.3.0`) do not need to rewrite history — declare the prior identity in `legacyIdentities` so release-kit recognizes historical tags under both the new and old prefixes.
 
-Minimal worked example for a repo whose pre-v5 tags were `core-v0.2.7`:
+Minimal worked example for a repo whose pre-v5 tags were `core-v0.2.7` and whose npm name has not changed:
 
 ```typescript
 // .config/release-kit.config.ts
 import type { ReleaseKitConfig } from '@williamthorsen/release-kit';
 
 const config: ReleaseKitConfig = {
-  workspaces: [{ dir: 'core', legacyTagPrefixes: ['core-v'] }],
+  workspaces: [
+    {
+      dir: 'core',
+      legacyIdentities: [{ name: '@scope/node-monorepo-core', tagPrefix: 'core-v' }],
+    },
+  ],
 };
 
 export default config;
 ```
 
-Verify with `release-kit show-tag-prefixes` — it prints the derived prefix per workspace, tag counts under each declared legacy prefix, and any undeclared release-shaped prefixes it finds in the repo (with a copy-pasteable config snippet). After declaring, `release-kit prepare` consults the union of the derived and legacy prefixes when searching for the most recent baseline tag, and changelog generation matches tags under either prefix.
+Each `legacyIdentity` is a complete `(name, tagPrefix)` snapshot of the workspace at an earlier point. In the common case — the tag-derivation rule changed but the npm name did not — the identity's `name` equals the current `name`. If an earlier publish used a different npm name, use that prior name here.
 
-See the `legacyTagPrefixes` entry in the [`WorkspaceOverride`](#workspaceoverride) section for the config shape.
+Verify with `release-kit show-tag-prefixes` — it prints the derived prefix per workspace, tag counts under each declared legacy prefix, and any undeclared release-shaped prefixes it finds in the repo (with a copy-pasteable config snippet that includes a `TODO-fill-in-legacy-npm-name` placeholder to replace with the prior npm name). After declaring, `release-kit prepare` consults the union of the current and legacy tag prefixes when searching for the most recent baseline tag, and changelog generation matches tags under either prefix.
+
+See the `legacyIdentities` entry in the [`WorkspaceOverride`](#workspaceoverride) section for the config shape.
 
 ## Using `deriveWorkspaceConfig()` for manual configuration
 
@@ -347,6 +359,7 @@ import { deriveWorkspaceConfig } from '@williamthorsen/release-kit';
 deriveWorkspaceConfig('packages/arrays');
 // => {
 //   dir: 'arrays',
+//   name: '@scope/arrays',
 //   tagPrefix: 'arrays-v',
 //   workspacePath: 'packages/arrays',
 //   packageFiles: ['packages/arrays/package.json'],
