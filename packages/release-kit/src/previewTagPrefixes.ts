@@ -83,27 +83,20 @@ async function loadUserConfig(): Promise<ReleaseKitConfig | undefined> {
   return errors.length === 0 ? config : undefined;
 }
 
-/** Build a `dir -> override` lookup map from a validated config, skipping entries without a `dir`. */
-function buildOverrideMap(
-  userConfig: ReleaseKitConfig | undefined,
-): Map<string, { legacyIdentities?: LegacyIdentity[] }> {
-  const map = new Map<string, { legacyIdentities?: LegacyIdentity[] }>();
+/** Build a `dir -> legacyIdentities` lookup map from a validated config. */
+function buildOverrideMap(userConfig: ReleaseKitConfig | undefined): Map<string, LegacyIdentity[]> {
+  const map = new Map<string, LegacyIdentity[]>();
   if (userConfig?.workspaces === undefined) return map;
   for (const entry of userConfig.workspaces) {
-    const override: { legacyIdentities?: LegacyIdentity[] } = {};
     if (entry.legacyIdentities !== undefined) {
-      override.legacyIdentities = entry.legacyIdentities;
+      map.set(entry.dir, entry.legacyIdentities);
     }
-    map.set(entry.dir, override);
   }
   return map;
 }
 
 /** Construct a single workspace's preview row, catching derivation failures per-workspace. */
-function buildPreviewRow(
-  workspacePath: string,
-  overridesByDir: Map<string, { legacyIdentities?: LegacyIdentity[] }>,
-): TagPrefixPreviewRow {
+function buildPreviewRow(workspacePath: string, overridesByDir: Map<string, LegacyIdentity[]>): TagPrefixPreviewRow {
   const dir = basename(workspacePath);
   let derivedPrefix: string | null = null;
   let derivationError: string | null = null;
@@ -115,7 +108,7 @@ function buildPreviewRow(
 
   const derivedTagCount = derivedPrefix === null ? 0 : countTagsMatching(derivedPrefix);
 
-  const declaredIdentities = overridesByDir.get(dir)?.legacyIdentities ?? [];
+  const declaredIdentities = overridesByDir.get(dir) ?? [];
   const legacyEntries: LegacyTagPrefixEntry[] = declaredIdentities.map((identity) => ({
     prefix: identity.tagPrefix,
     tagCount: countTagsMatching(identity.tagPrefix),

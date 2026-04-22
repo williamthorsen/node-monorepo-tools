@@ -232,7 +232,7 @@ function validateLegacyIdentities(
       }
     }
 
-    const name = entry.name;
+    const { name, tagPrefix } = entry;
     if (typeof name !== 'string') {
       errors.push(`workspaces[${workspaceIndex}].legacyIdentities[${entryIndex}].name: must be a string`);
       entryValid = false;
@@ -241,7 +241,6 @@ function validateLegacyIdentities(
       entryValid = false;
     }
 
-    const tagPrefix = entry.tagPrefix;
     if (typeof tagPrefix !== 'string') {
       errors.push(`workspaces[${workspaceIndex}].legacyIdentities[${entryIndex}].tagPrefix: must be a string`);
       entryValid = false;
@@ -252,24 +251,21 @@ function validateLegacyIdentities(
       entryValid = false;
     }
 
-    if (!entryValid) {
+    if (!entryValid || typeof name !== 'string' || typeof tagPrefix !== 'string') {
       continue;
     }
 
-    // Safe narrowing: both fields passed the string/non-empty checks above.
-    if (typeof name === 'string' && typeof tagPrefix === 'string') {
-      // Use a null-byte separator: neither npm names nor tag prefixes can contain `\0`,
-      // so distinct `(name, tagPrefix)` tuples always produce distinct keys.
-      const key = `${name}\0${tagPrefix}`;
-      if (seenTuples.has(key)) {
-        errors.push(
-          `workspaces[${workspaceIndex}].legacyIdentities[${entryIndex}]: duplicate identity (name='${name}', tagPrefix='${tagPrefix}')`,
-        );
-        continue;
-      }
-      seenTuples.add(key);
-      identities.push({ name, tagPrefix });
+    // Use a null-byte separator: neither npm names nor tag prefixes can contain `\0`,
+    // so distinct `(name, tagPrefix)` tuples always produce distinct keys.
+    const key = `${name}\0${tagPrefix}`;
+    if (seenTuples.has(key)) {
+      errors.push(
+        `workspaces[${workspaceIndex}].legacyIdentities[${entryIndex}]: duplicate identity (name='${name}', tagPrefix='${tagPrefix}')`,
+      );
+      continue;
     }
+    seenTuples.add(key);
+    identities.push({ name, tagPrefix });
   }
 
   return identities;

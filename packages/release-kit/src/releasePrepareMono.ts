@@ -146,18 +146,11 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
   const hintState: BaselineHintState = { emitted: false };
   // Build once: the union of every workspace's derived and declared tag prefixes. Passed into
   // the baseline hint so sibling workspaces' tags aren't misclassified as undeclared candidates.
-  const knownPrefixes = config.workspaces.flatMap((w) => [
-    w.tagPrefix,
-    ...(w.legacyIdentities?.map((identity) => identity.tagPrefix) ?? []),
-  ]);
+  const knownPrefixes = config.workspaces.flatMap(getAllTagPrefixes);
 
   for (const workspace of config.workspaces) {
     const name = workspace.dir;
-    const tagPrefixes = [
-      workspace.tagPrefix,
-      ...(workspace.legacyIdentities?.map((identity) => identity.tagPrefix) ?? []),
-    ];
-    const { tag, commits } = getCommitsSinceTarget(tagPrefixes, workspace.paths);
+    const { tag, commits } = getCommitsSinceTarget(getAllTagPrefixes(workspace), workspace.paths);
     const since = tag === undefined ? '(no previous release found)' : `since ${tag}`;
 
     if (tag === undefined) {
@@ -451,10 +444,7 @@ function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): str
     return changelogFiles;
   }
 
-  const tagPattern = buildTagPattern([
-    workspace.tagPrefix,
-    ...(workspace.legacyIdentities?.map((identity) => identity.tagPrefix) ?? []),
-  ]);
+  const tagPattern = buildTagPattern(getAllTagPrefixes(workspace));
   for (const changelogPath of workspace.changelogPaths) {
     changelogFiles.push(
       ...generateChangelog(config, changelogPath, newTag, dryRun, {
@@ -629,4 +619,9 @@ function topologicalSort(
   }
 
   return { sorted, cyclicDirs };
+}
+
+/** Return the workspace's derived tag prefix followed by each declared legacy-identity tag prefix. */
+function getAllTagPrefixes(workspace: WorkspaceConfig): string[] {
+  return [workspace.tagPrefix, ...(workspace.legacyIdentities?.map((identity) => identity.tagPrefix) ?? [])];
 }
