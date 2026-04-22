@@ -246,6 +246,143 @@ describe(validateConfig, () => {
     });
   });
 
+  describe('retiredPackages', () => {
+    it('accepts an array of complete retired-package objects', () => {
+      const { config, errors } = validateConfig({
+        retiredPackages: [
+          { name: '@scope/preflight', tagPrefix: 'preflight-v', successor: 'readyup' },
+          { name: '@scope/dead', tagPrefix: 'dead-v' },
+        ],
+      });
+      expect(errors).toStrictEqual([]);
+      expect(config.retiredPackages).toStrictEqual([
+        { name: '@scope/preflight', tagPrefix: 'preflight-v', successor: 'readyup' },
+        { name: '@scope/dead', tagPrefix: 'dead-v' },
+      ]);
+    });
+
+    it('accepts an empty array', () => {
+      const { config, errors } = validateConfig({ retiredPackages: [] });
+      expect(errors).toStrictEqual([]);
+      expect(config.retiredPackages).toStrictEqual([]);
+    });
+
+    it('omits retiredPackages from the result when the field is not provided', () => {
+      const { config, errors } = validateConfig({});
+      expect(errors).toStrictEqual([]);
+      expect(config.retiredPackages).toBeUndefined();
+    });
+
+    it('returns an error when retiredPackages is not an array', () => {
+      const { errors } = validateConfig({ retiredPackages: 'preflight-v' });
+      expect(errors).toContain("'retiredPackages' must be an array");
+    });
+
+    it('returns a per-index error when an entry is not an object', () => {
+      const { errors } = validateConfig({ retiredPackages: ['preflight-v'] });
+      expect(errors).toContain('retiredPackages[0]: must be an object');
+    });
+
+    it('returns a per-index error when name is missing', () => {
+      const { errors } = validateConfig({ retiredPackages: [{ tagPrefix: 'preflight-v' }] });
+      expect(errors).toContain('retiredPackages[0].name: must be a string');
+    });
+
+    it('returns a per-index error when name is an empty string', () => {
+      const { errors } = validateConfig({ retiredPackages: [{ name: '', tagPrefix: 'preflight-v' }] });
+      expect(errors).toContain('retiredPackages[0].name: must be a non-empty string');
+    });
+
+    it('returns a per-index error when tagPrefix is missing', () => {
+      const { errors } = validateConfig({ retiredPackages: [{ name: '@scope/preflight' }] });
+      expect(errors).toContain('retiredPackages[0].tagPrefix: must be a string');
+    });
+
+    it('returns a per-index error when tagPrefix is an empty string', () => {
+      const { errors } = validateConfig({ retiredPackages: [{ name: '@scope/preflight', tagPrefix: '' }] });
+      expect(errors).toContain('retiredPackages[0].tagPrefix: must be a non-empty string');
+    });
+
+    it('returns a per-index error when successor is not a string', () => {
+      const { errors } = validateConfig({
+        retiredPackages: [{ name: '@scope/preflight', tagPrefix: 'preflight-v', successor: 42 }],
+      });
+      expect(errors).toContain('retiredPackages[0].successor: must be a string');
+    });
+
+    it('returns a per-index error when successor is an empty string', () => {
+      const { errors } = validateConfig({
+        retiredPackages: [{ name: '@scope/preflight', tagPrefix: 'preflight-v', successor: '' }],
+      });
+      expect(errors).toContain('retiredPackages[0].successor: must be a non-empty string');
+    });
+
+    it('returns an error on unknown retired-package fields', () => {
+      const { errors } = validateConfig({
+        retiredPackages: [{ name: '@scope/preflight', tagPrefix: 'preflight-v', bogus: true }],
+      });
+      expect(errors).toContain("retiredPackages[0]: unknown field 'bogus'");
+    });
+
+    it('rejects full-tuple duplicates', () => {
+      const { errors } = validateConfig({
+        retiredPackages: [
+          { name: '@scope/preflight', tagPrefix: 'preflight-v' },
+          { name: '@scope/preflight', tagPrefix: 'preflight-v' },
+        ],
+      });
+      expect(errors).toContain(
+        "retiredPackages[1]: duplicate package (name='@scope/preflight', tagPrefix='preflight-v')",
+      );
+    });
+
+    it('accepts two entries with the same tagPrefix but different names', () => {
+      const { config, errors } = validateConfig({
+        retiredPackages: [
+          { name: '@old-scope/preflight', tagPrefix: 'preflight-v' },
+          { name: '@new-scope/preflight', tagPrefix: 'preflight-v' },
+        ],
+      });
+      expect(errors).toStrictEqual([]);
+      expect(config.retiredPackages).toHaveLength(2);
+    });
+
+    it('rejects a tagPrefix colliding with a declared legacyIdentities[].tagPrefix', () => {
+      const { errors } = validateConfig({
+        workspaces: [
+          {
+            dir: 'core',
+            legacyIdentities: [{ name: '@old-scope/core', tagPrefix: 'old-core-v' }],
+          },
+        ],
+        retiredPackages: [{ name: '@scope/retired', tagPrefix: 'old-core-v' }],
+      });
+      expect(errors).toContain(
+        "retiredPackages[0]: tagPrefix 'old-core-v' collides with a declared legacyIdentities[].tagPrefix on workspace 'core'",
+      );
+    });
+
+    it('records the collision when retired and legacy tagPrefixes match across workspaces', () => {
+      const { errors } = validateConfig({
+        workspaces: [
+          {
+            dir: 'arrays',
+            legacyIdentities: [{ name: '@old-scope/arrays', tagPrefix: 'shared-v' }],
+          },
+          {
+            dir: 'strings',
+            legacyIdentities: [{ name: '@old-scope/strings', tagPrefix: 'shared-v' }],
+          },
+        ],
+        retiredPackages: [{ name: '@scope/retired', tagPrefix: 'shared-v' }],
+      });
+      // Preserves the first declaring workspace in the error.
+      expect(errors).toContain(
+        "retiredPackages[0]: tagPrefix 'shared-v' collides with a declared legacyIdentities[].tagPrefix on workspace 'arrays'",
+      );
+    });
+  });
+
   describe('versionPatterns', () => {
     it('validates a valid versionPatterns object', () => {
       const { config, errors } = validateConfig({

@@ -16,6 +16,7 @@ import type {
   ReleaseConfig,
   ReleaseKitConfig,
   ReleaseNotesConfig,
+  RetiredPackage,
   WorkspaceConfig,
   WorkTypeConfig,
 } from './types.ts';
@@ -92,6 +93,10 @@ export function mergeMonorepoConfig(
         assertLegacyIdentityDoesNotMatchCurrent(w.dir, w.name, w.tagPrefix, override.legacyIdentities);
         return { ...w, legacyIdentities: override.legacyIdentities.map((identity) => ({ ...identity })) };
       });
+  }
+
+  if (userConfig?.retiredPackages !== undefined) {
+    assertRetiredPackagesDoNotCollideWithActive(workspaces, userConfig.retiredPackages);
   }
 
   // Merge workTypes
@@ -211,6 +216,34 @@ function assertLegacyIdentityDoesNotMatchCurrent(
         `Workspace '${dir}': legacyIdentities must not match the current identity ` +
           `(name='${currentName}', tagPrefix='${currentTagPrefix}'). ` +
           'The current identity is always searched; listing it again is a no-op.',
+      );
+    }
+  }
+}
+
+/**
+ * Throw when a retired package's `tagPrefix` matches an active workspace's derived prefix.
+ *
+ * A retired package is, by definition, no longer hosted by any active workspace in this repo.
+ * If its declared `tagPrefix` equals an active workspace's derived prefix, new tags from that
+ * workspace would collide with the retired package's historical tags — and the retired entry
+ * would be a misstatement of reality. Reject at load time with a workspace-naming error.
+ */
+function assertRetiredPackagesDoNotCollideWithActive(
+  workspaces: readonly WorkspaceConfig[],
+  retiredPackages: readonly RetiredPackage[],
+): void {
+  const workspaceByDerivedPrefix = new Map<string, WorkspaceConfig>();
+  for (const workspace of workspaces) {
+    workspaceByDerivedPrefix.set(workspace.tagPrefix, workspace);
+  }
+
+  for (const retired of retiredPackages) {
+    const active = workspaceByDerivedPrefix.get(retired.tagPrefix);
+    if (active !== undefined) {
+      throw new Error(
+        `retiredPackages: tagPrefix '${retired.tagPrefix}' collides with active workspace '${active.dir}' ` +
+          `(derived prefix '${active.tagPrefix}'). A retired package's tagPrefix cannot belong to an active workspace.`,
       );
     }
   }

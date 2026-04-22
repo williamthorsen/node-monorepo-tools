@@ -143,6 +143,17 @@ export interface ReleaseKitConfig {
   changelogJson?: Partial<ChangelogJsonConfig>;
   /** Controls release notes consumption (README injection). */
   releaseNotes?: Partial<ReleaseNotesConfig>;
+  /**
+   * Packages that once lived in this repo but have since been extracted or removed.
+   *
+   * Complements the per-workspace `workspaces[].legacyIdentities` field. Use
+   * `legacyIdentities` when the workspace still exists under a new identity; use
+   * `retiredPackages` when no workspace for this package exists in this repo anymore.
+   * Retired packages are never consulted for baseline lookup or changelog attribution —
+   * their declared `tagPrefix` values are treated as known so `show-tag-prefixes` does
+   * not flag them as undeclared candidates.
+   */
+  retiredPackages?: RetiredPackage[];
 }
 
 /**
@@ -158,6 +169,24 @@ export interface LegacyIdentity {
   name: string;
   /** Tag prefix under which the workspace's historical tags were published (e.g., `'core-v'`). */
   tagPrefix: string;
+}
+
+/**
+ * A package that once lived in this repo but has since been extracted or removed.
+ *
+ * Unlike `LegacyIdentity`, retired packages are never consulted for baseline lookup or
+ * changelog attribution — they exist purely to acknowledge historical tag prefixes and
+ * suppress undeclared-candidate warnings. Use `legacyIdentities` when the workspace
+ * still exists under a new identity; use `retiredPackages` when no workspace for this
+ * package exists anymore.
+ */
+export interface RetiredPackage {
+  /** The package's final npm name while it lived in this repo. */
+  name: string;
+  /** The tag prefix under which the package's tags were published (e.g., `'preflight-v'`). */
+  tagPrefix: string;
+  /** Optional successor package name, for packages that were renamed/extracted rather than deleted. */
+  successor?: string;
 }
 
 /** Override for a single workspace in the config file. */

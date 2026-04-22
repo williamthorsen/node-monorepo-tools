@@ -6,7 +6,7 @@ import type { UndeclaredTagPrefix } from './detectUndeclaredTagPrefixes.ts';
 import { detectUndeclaredTagPrefixes } from './detectUndeclaredTagPrefixes.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
 import { loadConfig } from './loadConfig.ts';
-import type { LegacyIdentity, ReleaseKitConfig } from './types.ts';
+import type { LegacyIdentity, ReleaseKitConfig, RetiredPackage } from './types.ts';
 import { validateConfig } from './validateConfig.ts';
 
 /** One workspace's preview row in the tag-prefix preview. */
@@ -31,6 +31,14 @@ export interface LegacyTagPrefixEntry {
   tagCount: number;
 }
 
+/** A declared retired package plus its current tag count. */
+export interface RetiredPackagePreviewEntry {
+  name: string;
+  tagPrefix: string;
+  successor?: string;
+  tagCount: number;
+}
+
 /** A tag-prefix collision between two or more workspaces. */
 export interface TagPrefixCollision {
   tagPrefix: string;
@@ -42,6 +50,7 @@ export interface TagPrefixPreview {
   workspaces: TagPrefixPreviewRow[];
   collisions: TagPrefixCollision[];
   undeclaredCandidates: UndeclaredTagPrefix[];
+  retiredPackages: RetiredPackagePreviewEntry[];
 }
 
 /**
@@ -63,11 +72,13 @@ export async function previewTagPrefixes(): Promise<TagPrefixPreview> {
     workspaces.push(buildPreviewRow(workspacePath, overridesByDir));
   }
 
+  const retiredPackages = buildRetiredPreviewEntries(userConfig?.retiredPackages ?? []);
+
   const collisions = detectCollisions(workspaces);
-  const knownPrefixes = collectKnownPrefixes(workspaces);
+  const knownPrefixes = collectKnownPrefixes(workspaces, retiredPackages);
   const undeclaredCandidates = detectUndeclaredTagPrefixes(knownPrefixes);
 
-  return { workspaces, collisions, undeclaredCandidates };
+  return { workspaces, collisions, undeclaredCandidates, retiredPackages };
 }
 
 /** Load and validate `.config/release-kit.config.ts`, returning undefined on absent/invalid. */
@@ -159,8 +170,11 @@ function detectCollisions(rows: readonly TagPrefixPreviewRow[]): TagPrefixCollis
   return collisions;
 }
 
-/** Collect the union of successfully-derived prefixes and declared legacy prefixes. */
-function collectKnownPrefixes(rows: readonly TagPrefixPreviewRow[]): string[] {
+/** Collect the union of successfully-derived prefixes, declared legacy prefixes, and retired prefixes. */
+function collectKnownPrefixes(
+  rows: readonly TagPrefixPreviewRow[],
+  retiredPackages: readonly RetiredPackagePreviewEntry[],
+): string[] {
   const known = new Set<string>();
   for (const row of rows) {
     if (row.derivedPrefix !== null) known.add(row.derivedPrefix);
@@ -168,5 +182,23 @@ function collectKnownPrefixes(rows: readonly TagPrefixPreviewRow[]): string[] {
       known.add(entry.prefix);
     }
   }
+  for (const retired of retiredPackages) {
+    known.add(retired.tagPrefix);
+  }
   return [...known];
+}
+
+/** Build preview entries for each declared retired package, attaching current tag counts. */
+function buildRetiredPreviewEntries(retiredPackages: readonly RetiredPackage[]): RetiredPackagePreviewEntry[] {
+  return retiredPackages.map((retired) => {
+    const entry: RetiredPackagePreviewEntry = {
+      name: retired.name,
+      tagPrefix: retired.tagPrefix,
+      tagCount: countTagsMatching(retired.tagPrefix),
+    };
+    if (retired.successor !== undefined) {
+      entry.successor = retired.successor;
+    }
+    return entry;
+  });
 }

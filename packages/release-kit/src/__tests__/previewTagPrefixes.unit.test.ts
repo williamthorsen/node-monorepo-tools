@@ -175,4 +175,51 @@ describe(previewTagPrefixes, () => {
       { prefix: 'orphan-v', tagCount: 1, exampleTags: ['orphan-v1.0.0'], suggestedDir: 'orphan' },
     ]);
   });
+
+  it('returns declared retired packages with their tag counts and preserves successor when present', async () => {
+    mockDiscoverWorkspaces.mockResolvedValue([]);
+    mockLoadConfig.mockResolvedValue({
+      retiredPackages: [
+        { name: '@scope/preflight', tagPrefix: 'preflight-v', successor: 'readyup' },
+        { name: '@scope/dead', tagPrefix: 'dead-v' },
+      ],
+    });
+    mockDetectUndeclared.mockReturnValue([]);
+    setupTagCounts({
+      'preflight-v': ['preflight-v1.0.0', 'preflight-v1.1.0', 'preflight-v2.0.0'],
+      'dead-v': [],
+    });
+
+    const result = await previewTagPrefixes();
+
+    expect(result.retiredPackages).toStrictEqual([
+      { name: '@scope/preflight', tagPrefix: 'preflight-v', successor: 'readyup', tagCount: 3 },
+      { name: '@scope/dead', tagPrefix: 'dead-v', tagCount: 0 },
+    ]);
+  });
+
+  it('passes retired tagPrefixes to detectUndeclaredTagPrefixes as known', async () => {
+    mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
+    mockLoadConfig.mockResolvedValue({
+      retiredPackages: [{ name: '@scope/preflight', tagPrefix: 'preflight-v' }],
+    });
+    mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'node-monorepo-core-v' });
+    mockDetectUndeclared.mockReturnValue([]);
+    setupTagCounts({});
+
+    await previewTagPrefixes();
+
+    expect(mockDetectUndeclared).toHaveBeenCalledWith(expect.arrayContaining(['node-monorepo-core-v', 'preflight-v']));
+  });
+
+  it('returns an empty retiredPackages array when the config omits the field', async () => {
+    mockDiscoverWorkspaces.mockResolvedValue([]);
+    mockLoadConfig.mockResolvedValue({});
+    mockDetectUndeclared.mockReturnValue([]);
+    setupTagCounts({});
+
+    const result = await previewTagPrefixes();
+
+    expect(result.retiredPackages).toStrictEqual([]);
+  });
 });

@@ -22,6 +22,7 @@ export type {
   ReleaseKitConfig,
   ReleaseNotesConfig,
   ReleaseType,
+  RetiredPackage,
   VersionPatterns,
   WorkspaceConfig,
   WorkspaceOverride,

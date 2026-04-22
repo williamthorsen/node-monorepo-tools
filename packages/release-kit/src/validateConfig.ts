@@ -1,5 +1,5 @@
 import { isRecord } from './typeGuards.ts';
-import type { LegacyIdentity, ReleaseKitConfig } from './types.ts';
+import type { LegacyIdentity, ReleaseKitConfig, RetiredPackage } from './types.ts';
 
 /**
  * Validates a raw config object loaded from `.config/release-kit.config.ts`.
@@ -22,6 +22,7 @@ export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors
     'cliffConfigPath',
     'formatCommand',
     'releaseNotes',
+    'retiredPackages',
     'scopeAliases',
     'versionPatterns',
     'workspaces',
@@ -42,6 +43,7 @@ export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors
   validateStringField('formatCommand', raw.formatCommand, config, errors);
   validateStringField('cliffConfigPath', raw.cliffConfigPath, config, errors);
   validateScopeAliases(raw.scopeAliases, config, errors);
+  validateRetiredPackages(raw.retiredPackages, config, errors);
 
   // Cross-field warnings: releaseNotes features require changelogJson to be enabled.
   const warnings: string[] = [];
@@ -269,6 +271,139 @@ function validateLegacyIdentities(
   }
 
   return identities;
+}
+
+/**
+ * Validate a top-level `retiredPackages` field.
+ *
+ * Accepts an array of records, each with non-empty string `name` and `tagPrefix` and an
+ * optional non-empty string `successor`. Rejects full-tuple `(name, tagPrefix)` duplicates
+ * within the array (two entries sharing the same `tagPrefix` but different `name`s are
+ * allowed — this documents a package renamed before retirement). After per-entry validation,
+ * rejects any `tagPrefix` that collides with a declared `workspaces[].legacyIdentities[].tagPrefix`.
+ *
+ * Collisions with an active workspace's *derived* `tagPrefix` are not checked here — that
+ * check requires reading each workspace's `package.json` and belongs in `loadConfig`.
+ */
+function validateRetiredPackages(value: unknown, config: ReleaseKitConfig, errors: string[]): void {
+  if (value === undefined) return;
+
+  if (!Array.isArray(value)) {
+    errors.push("'retiredPackages' must be an array");
+    return;
+  }
+
+  const retiredPackages: RetiredPackage[] = [];
+  const seenTuples = new Set<string>();
+
+  for (const [i, entry] of value.entries()) {
+    const retired = validateRetiredPackageEntry(entry, i, errors);
+    if (retired === undefined) continue;
+
+    // Null-byte separator: neither npm names nor tag prefixes can contain `\0`.
+    const key = `${retired.name}\0${retired.tagPrefix}`;
+    if (seenTuples.has(key)) {
+      errors.push(
+        `retiredPackages[${i}]: duplicate package (name='${retired.name}', tagPrefix='${retired.tagPrefix}')`,
+      );
+      continue;
+    }
+    seenTuples.add(key);
+    retiredPackages.push(retired);
+  }
+
+  detectRetiredVsLegacyCollisions(retiredPackages, config, errors);
+
+  config.retiredPackages = retiredPackages;
+}
+
+/**
+ * Validate a single `retiredPackages[i]` entry. Returns the parsed entry when every required
+ * field is a valid non-empty string (and `successor`, if present, is too). Appends any errors
+ * encountered and returns `undefined` for otherwise-invalid entries.
+ */
+function validateRetiredPackageEntry(entry: unknown, i: number, errors: string[]): RetiredPackage | undefined {
+  if (!isRecord(entry)) {
+    errors.push(`retiredPackages[${i}]: must be an object`);
+    return undefined;
+  }
+
+  const knownRetiredFields = new Set(['name', 'tagPrefix', 'successor']);
+  let entryValid = true;
+  for (const key of Object.keys(entry)) {
+    if (!knownRetiredFields.has(key)) {
+      errors.push(`retiredPackages[${i}]: unknown field '${key}'`);
+      entryValid = false;
+    }
+  }
+
+  const { name, tagPrefix, successor } = entry;
+  if (!validateNonEmptyString(name, `retiredPackages[${i}].name`, errors)) {
+    entryValid = false;
+  }
+  if (!validateNonEmptyString(tagPrefix, `retiredPackages[${i}].tagPrefix`, errors)) {
+    entryValid = false;
+  }
+  if (successor !== undefined && !validateNonEmptyString(successor, `retiredPackages[${i}].successor`, errors)) {
+    entryValid = false;
+  }
+
+  if (!entryValid || typeof name !== 'string' || typeof tagPrefix !== 'string') {
+    return undefined;
+  }
+
+  const retired: RetiredPackage = { name, tagPrefix };
+  if (typeof successor === 'string' && successor !== '') {
+    retired.successor = successor;
+  }
+  return retired;
+}
+
+/**
+ * Append errors when a `retiredPackages` entry's `tagPrefix` matches any workspace's declared
+ * `legacyIdentities[].tagPrefix`. The first declaring workspace is named in the error.
+ */
+function detectRetiredVsLegacyCollisions(
+  retiredPackages: readonly RetiredPackage[],
+  config: ReleaseKitConfig,
+  errors: string[],
+): void {
+  if (config.workspaces === undefined) return;
+
+  const legacyPrefixToWorkspace = new Map<string, string>();
+  for (const workspace of config.workspaces) {
+    if (workspace.legacyIdentities === undefined) continue;
+    for (const identity of workspace.legacyIdentities) {
+      if (!legacyPrefixToWorkspace.has(identity.tagPrefix)) {
+        legacyPrefixToWorkspace.set(identity.tagPrefix, workspace.dir);
+      }
+    }
+  }
+
+  for (const [i, retired] of retiredPackages.entries()) {
+    const collidingDir = legacyPrefixToWorkspace.get(retired.tagPrefix);
+    if (collidingDir !== undefined) {
+      errors.push(
+        `retiredPackages[${i}]: tagPrefix '${retired.tagPrefix}' collides with a declared legacyIdentities[].tagPrefix on workspace '${collidingDir}'`,
+      );
+    }
+  }
+}
+
+/**
+ * Append a typed error when `value` is not a non-empty string under `fieldPath`. Returns `true`
+ * when the value passes, `false` when any error was appended.
+ */
+function validateNonEmptyString(value: unknown, fieldPath: string, errors: string[]): boolean {
+  if (typeof value !== 'string') {
+    errors.push(`${fieldPath}: must be a string`);
+    return false;
+  }
+  if (value === '') {
+    errors.push(`${fieldPath}: must be a non-empty string`);
+    return false;
+  }
+  return true;
 }
 
 function validateVersionPatterns(value: unknown, config: ReleaseKitConfig, errors: string[]): void {

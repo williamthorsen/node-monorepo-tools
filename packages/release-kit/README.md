@@ -113,6 +113,7 @@ The config file supports both `export default config` and `export const config =
 | `versionPatterns` | `VersionPatterns`                | Rules for which commit types trigger major/minor bumps                                                                        |
 | `scopeAliases`    | `Record<string, string>`         | Maps shorthand scope names to canonical names in commits                                                                      |
 | `workTypes`       | `Record<string, WorkTypeConfig>` | Work type definitions, merged with defaults by key                                                                            |
+| `retiredPackages` | `RetiredPackage[]`               | Packages that once lived in this repo but have been extracted or removed; suppresses undeclared-tag-prefix warnings           |
 
 All fields are optional.
 
@@ -131,7 +132,41 @@ interface LegacyIdentity {
 }
 ```
 
-`legacyIdentities` captures prior identities of a workspace as complete `(name, tagPrefix)` snapshots. The union of the current `tagPrefix` and each identity's `tagPrefix` is consulted when release-kit searches for the most recent baseline tag and when generating changelogs. Use it when a workspace's historical tags were published under a different npm name, a different tag prefix, or both — typically across a package rename. Both fields are required per identity: each entry must be a complete historical snapshot that stays valid regardless of subsequent renames. Run `release-kit show-tag-prefixes` to detect undeclared candidates and produce a paste-ready config snippet. Listing the current identity (full `(name, tagPrefix)` match) is rejected as a no-op duplicate; an identity whose `tagPrefix` matches the current but whose `name` differs is valid and documents a prior rename that reused the same tag shape.
+`legacyIdentities` captures prior identities of a workspace as complete `(name, tagPrefix)` snapshots. The union of the current `tagPrefix` and each identity's `tagPrefix` is consulted when release-kit searches for the most recent baseline tag and when generating changelogs. Use it when a workspace's historical tags were published under a different npm name, a different tag prefix, or both — typically across a package rename. Both fields are required per identity: each entry must be a complete historical snapshot that stays valid regardless of subsequent renames. Run `release-kit show-tag-prefixes` to detect undeclared candidates and produce a paste-ready config snippet. Listing the current identity (full `(name, tagPrefix)` match) is rejected as a no-op duplicate; an identity whose `tagPrefix` matches the current but whose `name` differs is valid and documents a prior rename that reused the same tag shape. If the workspace no longer exists in this repo at all (the package was extracted or removed), use [`retiredPackages`](#retiredpackage) instead.
+
+### `RetiredPackage`
+
+```typescript
+interface RetiredPackage {
+  name: string; // Final scoped npm name while the package lived in this repo
+  tagPrefix: string; // Tag prefix under which the package's historical tags were published
+  successor?: string; // Optional successor package name (e.g., 'readyup')
+}
+```
+
+`retiredPackages` is the repo-level complement to `legacyIdentities`. Use `legacyIdentities` when the workspace still exists in this repo under a new identity; use `retiredPackages` when no workspace for this package exists in this repo anymore — the package was extracted to another repo or removed outright. Retired entries are inert: release-kit never consults them for baseline lookup or changelog attribution. Their declared `tagPrefix` values are recognized as historical, so `show-tag-prefixes` stops flagging them under "Undeclared tag prefixes."
+
+Worked example — `preflight` was extracted from this monorepo and continues as the standalone `readyup` project. Its tags stay in this repo as historical anchors:
+
+```typescript
+import type { ReleaseKitConfig } from '@williamthorsen/release-kit';
+
+const config: ReleaseKitConfig = {
+  retiredPackages: [{ name: '@scope/preflight', tagPrefix: 'preflight-v', successor: 'readyup' }],
+};
+
+export default config;
+```
+
+Validation rules:
+
+- `name` and `tagPrefix` are required per entry and must be non-empty strings.
+- `successor` is optional; if present, it must be a non-empty string.
+- Full-tuple `(name, tagPrefix)` duplicates within `retiredPackages` are rejected.
+- Two entries sharing the same `tagPrefix` but different `name`s are accepted — this documents a package renamed within the repo before being retired.
+- A `tagPrefix` that collides with an active workspace's derived prefix or any declared `workspaces[].legacyIdentities[].tagPrefix` is rejected. A retired prefix cannot also be current or legacy.
+
+`show-tag-prefixes` currently does not render a dedicated "Retired packages" section (deferred). Declaring a retired entry is verifiable by confirming that its `tagPrefix` stops appearing under "Undeclared tag prefixes" in the `show-tag-prefixes` output.
 
 ### `VersionPatterns`
 
