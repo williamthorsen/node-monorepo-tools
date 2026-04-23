@@ -1485,5 +1485,71 @@ describe(releasePrepareMono, () => {
 
       expect(mockWriteReleaseNotesPreviews).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }));
     });
+
+    it('invokes writeReleaseNotesPreviews for both direct-bumped and propagation-only workspaces', () => {
+      // Mirrors the `dependency propagation` setup: core is bumped directly (feat commit), and
+      // app is bumped only through propagation. Both branches of `generateWorkspaceChangelogs`
+      // must reach `maybeWritePreviews` so previews are written for each workspace.
+      const config = makeConfig({
+        workspaces: [
+          {
+            dir: 'core',
+            name: '@test/core',
+            tagPrefix: 'core-v',
+            workspacePath: 'packages/core',
+            packageFiles: ['packages/core/package.json'],
+            changelogPaths: ['packages/core'],
+            paths: ['packages/core/**'],
+          },
+          {
+            dir: 'app',
+            name: '@test/app',
+            tagPrefix: 'app-v',
+            workspacePath: 'packages/app',
+            packageFiles: ['packages/app/package.json'],
+            changelogPaths: ['packages/app'],
+            paths: ['packages/app/**'],
+          },
+        ],
+        changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
+      });
+
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') {
+          const matchArg = args.find((a: string) => a.startsWith('--match='));
+          if (matchArg?.includes('core-v')) return 'core-v1.0.0\n';
+          if (matchArg?.includes('app-v')) return 'app-v2.0.0\n';
+        }
+        if (cmd === 'git' && args[0] === 'log') {
+          const hasCorePath = args.includes('packages/core/**');
+          if (hasCorePath) return 'feat: add utilityabc123';
+          return '';
+        }
+        // git-cliff context output (used when changelogJson.enabled is true)
+        return '[]';
+      });
+      mockReadFileSync.mockImplementation((filePath: string) => {
+        if (typeof filePath === 'string' && filePath.includes('core')) {
+          return JSON.stringify({ name: '@test/core', version: '1.0.0' });
+        }
+        return JSON.stringify({
+          name: '@test/app',
+          version: '2.0.0',
+          dependencies: { '@test/core': 'workspace:*' },
+        });
+      });
+      mockExistsSync.mockReturnValue(false);
+
+      releasePrepareMono(config, { dryRun: false, withReleaseNotes: true });
+
+      expect(mockWriteReleaseNotesPreviews).toHaveBeenCalledTimes(2);
+      // Confirm each workspace received a preview call with the correct workspacePath and tag.
+      expect(mockWriteReleaseNotesPreviews).toHaveBeenCalledWith(
+        expect.objectContaining({ workspacePath: 'packages/core', tag: 'core-v1.1.0' }),
+      );
+      expect(mockWriteReleaseNotesPreviews).toHaveBeenCalledWith(
+        expect.objectContaining({ workspacePath: 'packages/app', tag: 'app-v2.0.1' }),
+      );
+    });
   });
 });
