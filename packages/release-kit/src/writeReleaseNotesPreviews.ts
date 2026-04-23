@@ -56,10 +56,23 @@ export function writeReleaseNotesPreviews(options: WriteReleaseNotesPreviewsOpti
 
   const version = extractVersion(tag);
   const readmePath = path.join(workspacePath, 'README.md');
-  const readmeExists = existsSync(readmePath);
-  // Use an empty string when no README exists so the pure renderer can still produce the
-  // standalone release notes. The injected-README output is discarded in that case.
-  const readmeContent = readmeExists ? readFileSync(readmePath, 'utf8') : '';
+  // `readmeExists` tracks whether the injected-README preview should be written. The read may
+  // succeed or fail independently of `existsSync` (race, permission error), so we treat an
+  // unreadable file the same as a missing one but log a specific warning. An empty string lets
+  // the pure renderer still produce the standalone release notes.
+  let readmeExists = existsSync(readmePath);
+  let readmeUnreadable = false;
+  let readmeContent = '';
+  if (readmeExists) {
+    try {
+      readmeContent = readFileSync(readmePath, 'utf8');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`Warning: failed to read ${readmePath}: ${message}; skipping injected-README preview`);
+      readmeExists = false;
+      readmeUnreadable = true;
+    }
+  }
 
   // `renderInjectedReadme` logs its own specific skip reason (missing file, parse failure, no
   // matching version, or no public-audience sections) when it returns `undefined`. No additional
@@ -77,9 +90,12 @@ export function writeReleaseNotesPreviews(options: WriteReleaseNotesPreviewsOpti
   if (readmeExists) {
     injectedReadme = writePreviewFile(readmePreviewPath, rendered.injectedReadme, dryRun);
   } else {
-    console.warn(
-      `Warning: ${readmePath} not found; skipping injected-README preview but still writing standalone release notes`,
-    );
+    if (!readmeUnreadable) {
+      console.warn(
+        `Warning: ${readmePath} not found; skipping injected-README preview but still writing standalone release notes`,
+      );
+    }
+    // When unreadable, the specific read-failure warning was already logged above.
     injectedReadme = { filePath: readmePreviewPath, outcome: 'skipped-no-readme' };
   }
 

@@ -365,6 +365,7 @@ describe(releasePrepare, () => {
         tag: 'v1.1.0',
         dryRun: false,
         sectionOrder: expect.any(Array),
+        changelogJsonPath: './.meta/changelog.json',
       }),
     );
   });

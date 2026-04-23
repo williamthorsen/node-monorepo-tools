@@ -223,6 +223,64 @@ describe(writeReleaseNotesPreviews, () => {
     expect(standaloneCall?.[1]).toBe('### Features\n\n- X\n');
   });
 
+  it('treats the README as unreadable when readFileSync throws and skips only the injected preview', () => {
+    mockExtractVersion.mockReturnValue('1.2.3');
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockImplementation(() => {
+      throw new Error('EACCES: permission denied');
+    });
+    mockRenderInjectedReadme.mockReturnValue({
+      injectedReadme: '<!-- section:release-notes -->\n### Features\n\n- X\n<!-- /section:release-notes -->\n',
+      releaseNotesMarkdown: '### Features\n\n- X',
+    });
+    mockWriteFileWithCheck.mockReturnValue({ filePath: '', outcome: 'created' });
+
+    const result = writeReleaseNotesPreviews({
+      workspacePath: '/ws',
+      tag: 'pkg-v1.2.3',
+      changelogJsonPath: '/ws/.meta/changelog.json',
+      sectionOrder: [],
+      dryRun: false,
+    });
+
+    expect(result.renderSkipped).toBe(false);
+    expect(result.injectedReadme?.outcome).toBe('skipped-no-readme');
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('failed to read'));
+    // Suppresses the generic "not found" warning when the file existed but was unreadable.
+    expect(console.warn).not.toHaveBeenCalledWith(expect.stringContaining('not found'));
+    // Only the standalone file is written.
+    expect(mockWriteFileWithCheck).toHaveBeenCalledTimes(1);
+    expect(mockWriteFileWithCheck.mock.calls[0]?.[0]).toBe('/ws/docs/RELEASE_NOTES.v1.2.3.md');
+  });
+
+  it('handles dry-run + missing README: writes nothing, logs dry-run for standalone, warns about missing README', () => {
+    mockExtractVersion.mockReturnValue('1.2.3');
+    mockExistsSync.mockReturnValue(false);
+    mockRenderInjectedReadme.mockReturnValue({
+      injectedReadme: '<!-- section:release-notes -->\n### Features\n\n- X\n<!-- /section:release-notes -->\n',
+      releaseNotesMarkdown: '### Features\n\n- X',
+    });
+
+    const result = writeReleaseNotesPreviews({
+      workspacePath: '/ws',
+      tag: 'pkg-v1.2.3',
+      changelogJsonPath: '/ws/.meta/changelog.json',
+      sectionOrder: [],
+      dryRun: true,
+    });
+
+    expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
+    expect(result.injectedReadme?.outcome).toBe('skipped-no-readme');
+    expect(result.releaseNotes?.outcome).toBe('dry-run');
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('not found; skipping injected-README preview'));
+    expect(console.info).toHaveBeenCalledWith(
+      expect.stringContaining('[dry-run] Would write /ws/docs/RELEASE_NOTES.v1.2.3.md'),
+    );
+    expect(console.info).not.toHaveBeenCalledWith(
+      expect.stringContaining('[dry-run] Would write /ws/docs/README.v1.2.3.md'),
+    );
+  });
+
   it('records a failure outcome and logs an error when writeFileWithCheck fails', () => {
     setupRenderOk();
     mockWriteFileWithCheck.mockReturnValue({ filePath: '', outcome: 'failed', error: 'EACCES' });
