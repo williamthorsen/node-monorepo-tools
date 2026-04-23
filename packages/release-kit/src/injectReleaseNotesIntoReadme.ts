@@ -76,12 +76,6 @@ export function injectReleaseNotesIntoReadme(
   tag: string,
   sectionOrder?: string[],
 ): string | undefined {
-  // Short-circuit when the changelog JSON is missing so the README file isn't read needlessly.
-  if (!existsSync(changelogJsonPath)) {
-    console.warn(`Warning: ${changelogJsonPath} not found; skipping README injection`);
-    return undefined;
-  }
-
   const originalReadme = readFileSync(readmePath, 'utf8');
 
   const rendered = renderInjectedReadme(originalReadme, changelogJsonPath, tag, sectionOrder);

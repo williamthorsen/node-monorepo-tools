@@ -71,14 +71,14 @@ export function writeReleaseNotesPreviews(options: WriteReleaseNotesPreviewsOpti
   const readmePreviewPath = path.join(docsDir, `README.v${version}.md`);
   const releaseNotesPreviewPath = path.join(docsDir, `RELEASE_NOTES.v${version}.md`);
 
-  const injectedReadme = readmeExists
-    ? writePreviewFile(readmePreviewPath, rendered.injectedReadme, dryRun)
-    : { filePath: readmePreviewPath, outcome: 'skipped-no-readme' as const };
-
-  if (!readmeExists) {
+  let injectedReadme: PreviewFileResult;
+  if (readmeExists) {
+    injectedReadme = writePreviewFile(readmePreviewPath, rendered.injectedReadme, dryRun);
+  } else {
     console.warn(
       `Warning: ${readmePath} not found; skipping injected-README preview but still writing standalone release notes`,
     );
+    injectedReadme = { filePath: readmePreviewPath, outcome: 'skipped-no-readme' };
   }
 
   // The standalone preview should end with a trailing newline for consistency with markdown files.
