@@ -381,7 +381,7 @@ This package shells out to two external tools:
 
 ## Upgrading from v4 to v5
 
-Release-kit v5 derives each workspace's tag prefix from its unscoped `package.json` `name`, so a package at `packages/core` with `"name": "@scope/node-monorepo-core"` uses tags like `node-monorepo-core-v1.3.0`. Repos that previously tagged under the directory basename (e.g., `core-v1.3.0`) do not need to rewrite history — declare the prior identity in `legacyIdentities` so release-kit recognizes historical tags under both the new and old prefixes.
+Release-kit v5 derives each workspace's tag prefix from its unscoped `package.json` `name`, so a package at `packages/core` with `"name": "@scope/nmr-core"` uses tags like `nmr-core-v1.3.0`. Repos that previously tagged under the directory basename (e.g., `core-v1.3.0`) do not need to rewrite history — declare the prior identity in `legacyIdentities` so release-kit recognizes historical tags under both the new and old prefixes.
 
 Minimal worked example for a repo whose pre-v5 tags were `core-v0.2.7` and whose npm name has not changed:
 
@@ -393,7 +393,7 @@ const config: ReleaseKitConfig = {
   workspaces: [
     {
       dir: 'core',
-      legacyIdentities: [{ name: '@scope/node-monorepo-core', tagPrefix: 'core-v' }],
+      legacyIdentities: [{ name: '@scope/nmr-core', tagPrefix: 'core-v' }],
     },
   ],
 };
@@ -427,7 +427,7 @@ deriveWorkspaceConfig('packages/arrays');
 // }
 ```
 
-`dir` is the basename of the workspace path and is the stable internal identifier used by `--only`, `WorkspaceOverride.dir`, and the dependency graph. `tagPrefix` is derived from the unscoped `package.json` `name` — any leading `@scope/` is stripped — so tags reflect the package identity rather than the directory layout. For example, a workspace at `packages/core` with `"name": "@williamthorsen/node-monorepo-core"` produces `tagPrefix: 'node-monorepo-core-v'`, yielding tags like `node-monorepo-core-v1.3.0`.
+`dir` is the basename of the workspace path and is the stable internal identifier used by `--only`, `WorkspaceOverride.dir`, and the dependency graph. `tagPrefix` is derived from the unscoped `package.json` `name` — any leading `@scope/` is stripped — so tags reflect the package identity rather than the directory layout. For example, a workspace at `packages/core` with `"name": "@williamthorsen/nmr-core"` produces `tagPrefix: 'nmr-core-v'`, yielding tags like `nmr-core-v1.3.0`.
 
 The workspace's `package.json` must declare a non-empty `name` field; `deriveWorkspaceConfig()` throws otherwise. If two workspaces produce the same `tagPrefix` (because their unscoped names collide), `mergeMonorepoConfig()` throws and names the colliding workspaces so you can rename one.
 

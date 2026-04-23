@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { findPackageRoot } from '@williamthorsen/node-monorepo-core';
+import { findPackageRoot } from '@williamthorsen/nmr-core';
 import { load } from 'js-yaml';
 
 import { isRecord } from '../typeGuards.ts';

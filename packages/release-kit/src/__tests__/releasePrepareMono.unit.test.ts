@@ -1167,7 +1167,7 @@ describe(releasePrepareMono, () => {
           {
             dir: 'core',
             name: '@test/core',
-            tagPrefix: 'node-monorepo-core-v',
+            tagPrefix: 'nmr-core-v',
             workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
             changelogPaths: ['packages/core'],
@@ -1185,7 +1185,7 @@ describe(releasePrepareMono, () => {
 
       expect(messages).toHaveLength(1);
       const message = messages[0] ?? '';
-      expect(message).toContain("no baseline tag found for core under 'node-monorepo-core-v'");
+      expect(message).toContain("no baseline tag found for core under 'nmr-core-v'");
       expect(message).toContain('candidate-shaped tags');
       expect(message).toContain('core-v0.2.7');
       expect(message).toContain('show-tag-prefixes');
@@ -1198,7 +1198,7 @@ describe(releasePrepareMono, () => {
           {
             dir: 'core',
             name: '@test/core',
-            tagPrefix: 'node-monorepo-core-v',
+            tagPrefix: 'nmr-core-v',
             workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
             changelogPaths: ['packages/core'],
@@ -1225,7 +1225,7 @@ describe(releasePrepareMono, () => {
           {
             dir: 'core',
             name: '@test/core',
-            tagPrefix: 'node-monorepo-core-v',
+            tagPrefix: 'nmr-core-v',
             workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
             changelogPaths: ['packages/core'],
@@ -1255,7 +1255,7 @@ describe(releasePrepareMono, () => {
           {
             dir: 'core',
             name: '@test/core',
-            tagPrefix: 'node-monorepo-core-v',
+            tagPrefix: 'nmr-core-v',
             workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
             changelogPaths: ['packages/core'],
@@ -1293,7 +1293,7 @@ describe(releasePrepareMono, () => {
           {
             dir: 'core',
             name: '@test/core',
-            tagPrefix: 'node-monorepo-core-v',
+            tagPrefix: 'nmr-core-v',
             workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
             changelogPaths: ['packages/core'],
@@ -1329,7 +1329,7 @@ describe(releasePrepareMono, () => {
           {
             dir: 'core',
             name: '@test/core',
-            tagPrefix: 'node-monorepo-core-v',
+            tagPrefix: 'nmr-core-v',
             workspacePath: 'packages/core',
             packageFiles: ['packages/core/package.json'],
             changelogPaths: ['packages/core'],

@@ -9,7 +9,7 @@ vi.mock(import('node:fs'), () => ({
   readFileSync: mockReadFileSync,
 }));
 
-vi.mock(import('@williamthorsen/node-monorepo-core'), () => ({
+vi.mock(import('@williamthorsen/nmr-core'), () => ({
   findPackageRoot: mockFindPackageRoot,
 }));
 

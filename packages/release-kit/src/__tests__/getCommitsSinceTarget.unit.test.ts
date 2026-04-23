@@ -174,13 +174,13 @@ describe(getCommitsSinceTarget, () => {
     it('passes one --match flag per prefix to git describe', () => {
       setupDescribeMock('core-v0.2.7');
 
-      getCommitsSinceTarget(['node-monorepo-core-v', 'core-v']);
+      getCommitsSinceTarget(['nmr-core-v', 'core-v']);
 
       expect(findDescribeCallArgs()).toStrictEqual([
         'describe',
         '--tags',
         '--abbrev=0',
-        '--match=node-monorepo-core-v*',
+        '--match=nmr-core-v*',
         '--match=core-v*',
       ]);
     });
@@ -192,7 +192,7 @@ describe(getCommitsSinceTarget, () => {
         return 'feat: addabc123';
       });
 
-      const result = getCommitsSinceTarget(['node-monorepo-core-v', 'core-v']);
+      const result = getCommitsSinceTarget(['nmr-core-v', 'core-v']);
 
       expect(result.tag).toBe('core-v0.2.7');
       expect(result.commits).toStrictEqual([{ message: 'feat: add', hash: 'abc123' }]);

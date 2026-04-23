@@ -1,7 +1,7 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
-import { parseArgs, translateParseError } from '@williamthorsen/node-monorepo-core';
+import { parseArgs, translateParseError } from '@williamthorsen/nmr-core';
 
 import { createTags } from './createTags.ts';
 

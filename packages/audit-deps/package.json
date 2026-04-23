@@ -44,7 +44,7 @@
     "test:watch": "pnpm exec vitest --config=vitest.standalone.config.ts --watch"
   },
   "dependencies": {
-    "@williamthorsen/node-monorepo-core": "workspace:*",
+    "@williamthorsen/nmr-core": "workspace:*",
     "audit-ci": "7.1.0",
     "zod": "4.3.6"
   },

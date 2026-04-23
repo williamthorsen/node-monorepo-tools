@@ -1,12 +1,8 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
-import type { WriteResult } from '@williamthorsen/node-monorepo-core';
-import {
-  parseArgs as coreParseArgs,
-  translateParseError,
-  writeFileWithCheck,
-} from '@williamthorsen/node-monorepo-core';
+import type { WriteResult } from '@williamthorsen/nmr-core';
+import { parseArgs as coreParseArgs, translateParseError, writeFileWithCheck } from '@williamthorsen/nmr-core';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { buildReleaseSummary } from './buildReleaseSummary.ts';

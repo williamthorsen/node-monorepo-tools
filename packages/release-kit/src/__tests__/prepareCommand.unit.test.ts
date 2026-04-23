@@ -41,7 +41,7 @@ vi.mock('../releasePrepare.ts', () => ({
   releasePrepare: mockReleasePrepare,
 }));
 
-vi.mock(import('@williamthorsen/node-monorepo-core'), async (importOriginal) => {
+vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,

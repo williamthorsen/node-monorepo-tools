@@ -15,7 +15,7 @@ vi.mock(import('../generateCommand.ts'), async (importOriginal) => {
 
 const mockReportWriteResult = vi.hoisted(() => vi.fn());
 
-vi.mock(import('@williamthorsen/node-monorepo-core'), () => ({
+vi.mock(import('@williamthorsen/nmr-core'), () => ({
   reportWriteResult: mockReportWriteResult,
   writeFileWithCheck: mockWriteFileWithCheck,
 }));

@@ -1,6 +1,6 @@
 import process from 'node:process';
 
-import { parseArgs, translateParseError } from '@williamthorsen/node-monorepo-core';
+import { parseArgs, translateParseError } from '@williamthorsen/nmr-core';
 
 import { auditCommand, checkCommand, extractMessage, syncCommand } from '../cli.ts';
 import { initCommand } from '../init/initCommand.ts';

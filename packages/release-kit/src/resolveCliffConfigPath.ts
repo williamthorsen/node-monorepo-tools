@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { findPackageRoot } from '@williamthorsen/node-monorepo-core';
+import { findPackageRoot } from '@williamthorsen/nmr-core';
 
 /**
  * Resolve the git-cliff configuration file path.

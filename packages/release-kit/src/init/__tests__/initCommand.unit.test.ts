@@ -25,7 +25,7 @@ vi.mock(import('../scaffold.ts'), () => ({
   scaffoldFiles: mockScaffoldFiles,
 }));
 
-vi.mock(import('@williamthorsen/node-monorepo-core'), () => ({
+vi.mock(import('@williamthorsen/nmr-core'), () => ({
   printError: mockPrintError,
   printSkip: mockPrintSkip,
   printStep: mockPrintStep,
