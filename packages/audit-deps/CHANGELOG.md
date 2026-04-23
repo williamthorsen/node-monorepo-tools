@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [audit-deps-v0.5.0] - 2026-04-23
+
+### Features
+
+- Show below-threshold vulnerabilities and threshold in check output (#244)
+
+  Surfaces below-threshold vulnerabilities in the check command's output instead of silently hiding them. When the severity threshold is above `low`, vulnerabilities that fall below it now appear with an `ℹ️` marker and "ignored" annotation in bare output, full advisory detail in verbose output, and a distinct `belowThreshold` array in JSON output. Scope headers display the active threshold (e.g., `📦 prod (threshold: 🟠 moderate):`) so users can see what filtering is in effect. The "No known vulnerabilities found" message now only appears when there are truly zero vulnerabilities across all categories. Exit code behavior is unchanged — only above-threshold, non-allowlisted vulnerabilities cause failure.
+
+- Replace --only with --tags on release-kit publish and push (#273)
+
+  `release-kit publish` and `release-kit push` now filter by full tag name via `--tags=<tag1,tag2>` instead of workspace directory name via `--only=<dir>`, matching the shape already used by `create-github-release`. Callers pass the tag they care about (e.g., `core-v1.3.0`) directly, with no translation step back to the publishing workspace's directory name. The reusable workflow gains an optional `tags:` input, and the internal `publish.yaml` caller now passes `tags: ${{ github.ref_name }}`, making the publish scope explicit rather than relying on the single-tag fetch default of `actions/checkout@v6`.
+
+- Scaffold audit.yaml workflow from audit-deps init (#277)
+
+  Adds GitHub Actions workflow scaffolding to `audit-deps init`. Running the command now writes both `.config/audit-deps.config.json` and `.github/workflows/audit.yaml` in the target repo, so that consumers no longer have to copy the canonical caller workflow by hand from this repo. The workflow content is shipped as a bundled template that ships to npm, and the repo's own workflow is kept byte-identical to that template via a consistency test — the canonical workflow cannot silently drift from what is published.
+
+### Refactoring
+
+- Rename `node-monorepo-core` to `nmr-core` (#304)
+
+  Renames the shared-utilities package from `@williamthorsen/node-monorepo-core` to `@williamthorsen/nmr-core`, aligning it with the repository's `nmr-*` naming convention. The package's functionality and version are unchanged; only the published name differs.
+
 ## [audit-deps-v0.4.0] - 2026-04-17
 
 ### Features

@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [nmr-core-v0.3.0] - 2026-04-23
+
+### Features
+
+- Scaffold audit.yaml workflow from audit-deps init (#277)
+
+  Adds GitHub Actions workflow scaffolding to `audit-deps init`. Running the command now writes both `.config/audit-deps.config.json` and `.github/workflows/audit.yaml` in the target repo, so that consumers no longer have to copy the canonical caller workflow by hand from this repo. The workflow content is shipped as a bundled template that ships to npm, and the repo's own workflow is kept byte-identical to that template via a consistency test — the canonical workflow cannot silently drift from what is published.
+
+### Refactoring
+
+- Rename `node-monorepo-core` to `nmr-core` (#304)
+
+  Renames the shared-utilities package from `@williamthorsen/node-monorepo-core` to `@williamthorsen/nmr-core`, aligning it with the repository's `nmr-*` naming convention. The package's functionality and version are unchanged; only the published name differs.
+
 ## [core-v0.2.6] - 2026-04-15
 
 ### Tooling

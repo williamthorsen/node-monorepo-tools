@@ -151,7 +151,7 @@ function hasMinDevDependencyVersion(name, minVersion, options) {
 
 // .readyup/kits/nmr.ts
 function getMinVersion() {
-  const picked = { "version": "0.11.0" };
+  const picked = { "version": "0.12.0" };
   if (typeof picked.version !== "string") {
     throw new TypeError("nmr/package.json: 'version' must be a string");
   }

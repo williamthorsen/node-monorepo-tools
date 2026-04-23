@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [nmr-v0.12.0] - 2026-04-23
+
+### Features
+
+- Add agent-facing AGENTS.md and sync-agent-files command (#263)
+
+  Ships nmr-owned agent guidance alongside the `@williamthorsen/nmr` package so consuming repos stop hand-maintaining their own copies of the runner's invocation rules. A new `nmr sync-agent-files` command pulls that guidance into `.agents/nmr/AGENTS.md` in the consuming repo, stamped with the installed nmr version; a companion `--check` variant verifies the stamp against the installed version on every root `check:strict` run. Drift between installed nmr and the committed guidance now fails the quality gate automatically with a single actionable fix message, without per-consumer wiring.
+
+- Rename check:fixable script to fix:check (#266)
+
+  Renames the `check:fixable` convenience script to `fix:check` in both the workspace and root default script registries. The new name mirrors the existing `fmt` / `fmt:check` pattern, aligning the read-only variant with its mutating counterpart (`fix`) so the command's read-only semantics are recognizable from the name alone.
+
+  The script's expansion (`fmt:check`, `lint:check`) is unchanged.
+
 ## [nmr-v0.11.0] - 2026-04-17
 
 ### Features

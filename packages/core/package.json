@@ -1,6 +1,6 @@
 {
   "name": "@williamthorsen/nmr-core",
-  "version": "0.2.7",
+  "version": "0.3.0",
   "private": false,
   "description": "Shared utilities for node-monorepo-tools packages",
   "keywords": [

@@ -1,12 +1,43 @@
 [
   {
+    "version": "0.3.0",
+    "date": "2026-04-23",
+    "sections": [
+      {
+        "title": "Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Scaffold audit.yaml workflow from audit-deps init (#277)",
+            "body": "Adds GitHub Actions workflow scaffolding to `audit-deps init`. Running the command now writes both `.config/audit-deps.config.json` and `.github/workflows/audit.yaml` in the target repo, so that consumers no longer have to copy the canonical caller workflow by hand from this repo. The workflow content is shipped as a bundled template that ships to npm, and the repo's own workflow is kept byte-identical to that template via a consistency test — the canonical workflow cannot silently drift from what is published."
+          }
+        ]
+      },
+      {
+        "title": "Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Rename `node-monorepo-core` to `nmr-core` (#304)",
+            "body": "Renames the shared-utilities package from `@williamthorsen/node-monorepo-core` to `@williamthorsen/nmr-core`, aligning it with the repository's `nmr-*` naming convention. The package's functionality and version are unchanged; only the published name differs."
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.2.6",
     "date": "2026-04-15",
     "sections": [
       {
         "title": "Tooling",
         "audience": "dev",
-        "items": [{ "description": "Enable automated publication to npm (#187)" }]
+        "items": [
+          {
+            "description": "Enable automated publication to npm (#187)",
+            "body": "Prepares the repository for reliable tag-triggered npm publishing by adding missing package metadata, standardizing licensing, and introducing a readyup kit that validates publish readiness across all packages."
+          }
+        ]
       }
     ]
   },
@@ -16,8 +47,13 @@
     "sections": [
       {
         "title": "Refactoring",
-        "audience": "all",
-        "items": [{ "description": "Extract shared CLI argument-parsing utility into core (#151)" }]
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Extract shared CLI argument-parsing utility into core (#151)",
+            "body": "Add a schema-driven `parseArgs` function to `@williamthorsen/node-monorepo-core` that handles boolean flags, string flags (both `--flag=value` and `--flag value`), short aliases, positional collection, the `--` delimiter, and unknown-flag errors. Migrate all CLI argument-parsing sites in preflight (3 sites) and release-kit (5 sites) to use it. A companion `translateParseError` helper normalizes internal error messages for consistent user-facing output."
+          }
+        ]
       }
     ]
   },
@@ -28,7 +64,12 @@
       {
         "title": "Features",
         "audience": "all",
-        "items": [{ "description": "Add shared writeFileWithCheck utility and overwrite reporting (#66)" }]
+        "items": [
+          {
+            "description": "Add shared writeFileWithCheck utility and overwrite reporting (#66)",
+            "body": "Extracts three duplicated `writeIfAbsent` implementations and two duplicated terminal helper sets into shared utilities in `@williamthorsen/node-monorepo-core`, then migrates all consumers (`release-kit init`, `preflight init`, `sync-labels`) to use them. All init commands now report which files were created, overwritten, skipped, or failed — including when `--force` replaces existing files."
+          }
+        ]
       }
     ]
   },
@@ -40,25 +81,49 @@
         "title": "Features",
         "audience": "all",
         "items": [
-          { "description": "Add --quiet flag to nmr CLI (#4)" },
-          { "description": "Enable strict linting of monorepo root (#50)" },
-          { "description": "Extract nmr CLI from core package (#61)" }
+          {
+            "description": "Add --quiet flag to nmr CLI (#4)",
+            "body": "Adds a `-q`/`--quiet` flag to the `nmr` CLI that suppresses command output on success while preserving full output on failure. When quiet mode is active, `runCommand()` uses `stdio: 'pipe'` to capture child process output, discards it on success, and writes captured stdout and stderr to `process.stderr` on failure. All informational messages on success paths (`console.info` calls for override script notifications) are also suppressed."
+          },
+          {
+            "description": "Enable strict linting of monorepo root (#50)",
+            "body": "Replaces the `root:lint:strict` echo fallback with a direct `strict-lint --ignore-pattern 'packages/**' .` invocation, now that the `strict-lint` package supports the full `eslint` CLI API."
+          },
+          {
+            "description": "Extract nmr CLI from core package (#61)",
+            "body": "Extracts all nmr CLI code from `packages/core` into a new `packages/nmr` package (`@williamthorsen/nmr`). Core is reduced to an empty shared-library shell ready for cross-cutting utilities. All internal references are rewired and the full build/test pipeline passes.\n\nScopes: core, nmr"
+          }
         ]
       },
       {
         "title": "Tooling",
         "audience": "dev",
-        "items": [{ "description": "Adopt nmr to run monorepo and workspace scripts (#38)" }]
+        "items": [
+          {
+            "description": "Adopt nmr to run monorepo and workspace scripts (#38)",
+            "body": "Replaces the legacy workspace script runner and ~25 root `package.json` scripts with `nmr`, the monorepo's own context-aware script runner. Root scripts are reduced to 4 (`prepare`, `postinstall`, `ci`, `bootstrap`), packages use direct build commands for bootstrap, and release-kit declares tier-3 test overrides for its integration test configs."
+          }
+        ]
       },
       {
         "title": "Dependencies",
         "audience": "dev",
-        "items": [{ "description": "Remove vitest optional peer dependency (#46)" }]
+        "items": [
+          {
+            "description": "Remove vitest optional peer dependency (#46)",
+            "body": "Removes the `peerDependencies` and `peerDependenciesMeta` entries for vitest from `packages/core/package.json` and regenerates the lockfile to eliminate the stale `vitest@4.1.0` resolution.\n\nThe peer dependency caused pnpm to resolve a stale `vitest@4.1.0` in the lockfile, conflicting with the root-pinned `vitest@4.1.1` and breaking coverage runs with a mixed-versions error. Consumers of the `./tests` export already provide vitest as a root devDependency, so the declaration was unnecessary."
+          }
+        ]
       },
       {
         "title": "Refactoring",
-        "audience": "all",
-        "items": [{ "description": "Replace dist bin targets with thin wrapper scripts (#48)" }]
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Replace dist bin targets with thin wrapper scripts (#48)",
+            "body": "The `bin` entries in `packages/core` and `packages/release-kit` pointed directly into `dist/esm/`, causing `pnpm install` to emit \"Failed to create bin\" warnings in fresh worktrees where `dist/` does not yet exist. Each bin entry now points to a committed wrapper script in `bin/` that dynamically imports the real entry point. The `files` field in both packages includes `bin` so the wrappers are published."
+          }
+        ]
       }
     ]
   },
@@ -69,7 +134,12 @@
       {
         "title": "Features",
         "audience": "all",
-        "items": [{ "description": "Implement nmr CLI and core package (#2)" }]
+        "items": [
+          {
+            "description": "Implement nmr CLI and core package (#2)",
+            "body": "Adds the `@williamthorsen/node-monorepo-core` package, implementing the `nmr` CLI tool for unified script execution across a PNPM monorepo. Removes all example/template packages that were scaffolding from the original template repository."
+          }
+        ]
       }
     ]
   }
