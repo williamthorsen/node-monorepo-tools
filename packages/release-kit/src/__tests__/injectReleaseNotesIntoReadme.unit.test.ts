@@ -182,9 +182,10 @@ describe(renderInjectedReadme, () => {
     const result = renderInjectedReadme(readme, '/pkg/.meta/changelog.json', 'v1.2.3');
 
     expect(result).toBeDefined();
+    expect(result?.injectedReadme).toContain('## Release notes — v1.2.3 (2024-01-01)');
     expect(result?.injectedReadme).toContain('### Features');
     expect(result?.injectedReadme).toContain('## Installation');
-    expect(result?.releaseNotesMarkdown).toBe('### Features\n\n- Add widget');
+    expect(result?.releaseNotesMarkdown).toBe('## Release notes — v1.2.3 (2024-01-01)\n\n### Features\n\n- Add widget');
     // The wrapper does not write; neither does the pure renderer.
     expect(mockWriteFileSync).not.toHaveBeenCalled();
   });

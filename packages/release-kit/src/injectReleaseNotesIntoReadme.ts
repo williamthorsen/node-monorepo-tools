@@ -9,7 +9,11 @@ import { matchesAudience, renderReleaseNotesSingle } from './renderReleaseNotes.
 export interface RenderedInjectedReadme {
   /** The README with the release-notes section injected at the marker position. */
   injectedReadme: string;
-  /** The standalone release-notes markdown for the target version (trimmed). */
+  /**
+   * The standalone release-notes markdown for the target version (trimmed), prefixed with a
+   * labeled `## Release notes — v{version} ({date})` heading so the file is self-identifying.
+   * The GitHub-release body is rendered separately (without this heading) by `createGithubRelease`.
+   */
   releaseNotesMarkdown: string;
 }
 
@@ -48,21 +52,26 @@ export function renderInjectedReadme(
     return undefined;
   }
 
-  const releaseNotesMarkdown = renderReleaseNotesSingle(entry, {
+  const renderedSections = renderReleaseNotesSingle(entry, {
     filter: matchesAudience('all'),
     includeHeading: false,
     ...(sectionOrder === undefined ? {} : { sectionOrder }),
   });
 
-  if (releaseNotesMarkdown.trimEnd().length === 0) {
+  if (renderedSections.trimEnd().length === 0) {
     console.warn(`Warning: no user-facing release notes for version ${version}; skipping README injection`);
     return undefined;
   }
 
-  const trimmedReleaseNotes = releaseNotesMarkdown.trimEnd();
-  const injectedReadme = injectSection(readme, 'release-notes', trimmedReleaseNotes);
+  // Prepend a labeled heading so readers can see both that the content is release notes
+  // and which version they describe. The README-injected form and the standalone preview
+  // share this heading; the GitHub-release body (rendered elsewhere) omits it because the
+  // release page already shows the tag and date.
+  const labeledHeading = `## Release notes — v${version} (${entry.date})`;
+  const releaseNotesMarkdown = `${labeledHeading}\n\n${renderedSections.trimEnd()}`;
+  const injectedReadme = injectSection(readme, 'release-notes', releaseNotesMarkdown);
 
-  return { injectedReadme, releaseNotesMarkdown: trimmedReleaseNotes };
+  return { injectedReadme, releaseNotesMarkdown };
 }
 
 /**

@@ -75,12 +75,15 @@ describe('writeReleaseNotesPreviews (integration)', () => {
     const readmePreview = readFileSync(readmePreviewPath, 'utf8');
     expect(readmePreview).toContain('# @scope/pkg');
     expect(readmePreview).toContain('## Installation');
+    // Labeled heading anchors the injected content to a version.
+    expect(readmePreview).toContain('## Release notes — v2.4.0 (2026-04-23)');
     expect(readmePreview).toContain('### Features');
     expect(readmePreview).toContain('Add release-notes preview generator');
     // Dev-only sections must not leak into the public README preview.
     expect(readmePreview).not.toContain('Internal');
 
     const releaseNotesPreview = readFileSync(releaseNotesPreviewPath, 'utf8');
+    expect(releaseNotesPreview).toContain('## Release notes — v2.4.0 (2026-04-23)');
     expect(releaseNotesPreview).toContain('### Features');
     expect(releaseNotesPreview).toContain('Add release-notes preview generator');
     expect(releaseNotesPreview).not.toContain('Internal');
