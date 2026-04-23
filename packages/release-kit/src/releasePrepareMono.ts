@@ -11,10 +11,12 @@ import { generateChangelogJson, generateSyntheticChangelogJson } from './generat
 import { buildTagPattern, generateChangelog } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
+import { resolveWorkTypes } from './loadConfig.ts';
 import type { CurrentVersions, ReleaseEntry } from './propagateBumps.ts';
 import { propagateBumps } from './propagateBumps.ts';
 import { readCurrentVersion } from './readCurrentVersion.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
+import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
 import type {
   Commit,
   MonorepoReleaseConfig,
@@ -23,6 +25,7 @@ import type {
   WorkspaceConfig,
   WorkspacePrepareResult,
 } from './types.ts';
+import { writeReleaseNotesPreviews } from './writeReleaseNotesPreviews.ts';
 import { writeSyntheticChangelog } from './writeSyntheticChangelog.ts';
 
 /** Intermediate result from Phase 1 (determine direct bumps). */
@@ -65,7 +68,14 @@ interface Phase1Result {
  * Phase 3: Execute bumps and generate changelogs in dependency order.
  */
 export function releasePrepareMono(config: MonorepoReleaseConfig, options: ReleasePrepareOptions): PrepareResult {
-  const { dryRun } = options;
+  const { dryRun, withReleaseNotes } = options;
+
+  if (withReleaseNotes === true && !config.changelogJson.enabled) {
+    console.warn('Warning: --with-release-notes requires changelogJson.enabled; skipping preview generation');
+  }
+
+  // Derive section order once for all preview writes; the same value feeds every workspace.
+  const sectionOrder = deriveSectionOrder(resolveWorkTypes(config.workTypes));
 
   // === Phase 1: Determine direct bumps ===
   const { directBumps, directResults, skippedResults, currentVersions } = determineDirectBumps(config, options);
@@ -95,6 +105,10 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
 
   // === Phase 3: Execute bumps and generate changelogs ===
   const workspaces = collectSkippedWorkspaces(skippedResults, fullReleaseSet);
+  const previewOptions: PreviewOptions = {
+    enabled: withReleaseNotes === true && config.changelogJson.enabled,
+    sectionOrder,
+  };
   const { tags, modifiedFiles } = executeReleaseSet(
     sortedDirs,
     fullReleaseSet,
@@ -103,6 +117,7 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
     previousTags,
     dryRun,
     workspaces,
+    previewOptions,
   );
 
   // Reorder workspaces to match original config order.
@@ -274,6 +289,14 @@ function collectSkippedWorkspaces(
   return workspaces;
 }
 
+/** Shared parameters for generating release-notes previews per workspace. */
+interface PreviewOptions {
+  /** True when `--with-release-notes` is set and `changelogJson.enabled` is true. */
+  enabled: boolean;
+  /** Section titles in priority order, derived once per run from `resolveWorkTypes(config.workTypes)`. */
+  sectionOrder: string[];
+}
+
 /** Execute bumps and generate changelogs for each workspace in dependency order. */
 function executeReleaseSet(
   sortedDirs: string[],
@@ -283,6 +306,7 @@ function executeReleaseSet(
   previousTags: Map<string, string | undefined>,
   dryRun: boolean,
   workspaces: WorkspacePrepareResult[],
+  previewOptions: PreviewOptions,
 ): { tags: string[]; modifiedFiles: string[] } {
   const tags: string[] = [];
   const modifiedFiles: string[] = [];
@@ -311,6 +335,7 @@ function executeReleaseSet(
       tags,
       modifiedFiles,
       workspaces,
+      previewOptions,
     });
   }
 
@@ -330,6 +355,7 @@ interface ExecuteWorkspaceReleaseArgs {
   tags: string[];
   modifiedFiles: string[];
   workspaces: WorkspacePrepareResult[];
+  previewOptions: PreviewOptions;
 }
 
 /** Bump, generate changelogs, and append the workspace result for one entry in the release set. */
@@ -346,6 +372,7 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     tags,
     modifiedFiles,
     workspaces,
+    previewOptions,
   } = args;
 
   // Bump all versions for this workspace. For --set-version workspaces, write the explicit
@@ -370,6 +397,7 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     dryRun,
     today,
     modifiedFiles,
+    previewOptions,
   });
 
   workspaces.push({
@@ -404,6 +432,7 @@ interface GenerateWorkspaceChangelogsArgs {
   dryRun: boolean;
   today: string;
   modifiedFiles: string[];
+  previewOptions: PreviewOptions;
 }
 
 /**
@@ -412,8 +441,22 @@ interface GenerateWorkspaceChangelogsArgs {
  * Additional changelog JSON files are appended to `modifiedFiles` when the feature is enabled.
  */
 function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): string[] {
-  const { workspace, releaseEntry, newTag, newVersion, isPropagationOnly, config, dryRun, today, modifiedFiles } = args;
+  const {
+    workspace,
+    releaseEntry,
+    newTag,
+    newVersion,
+    isPropagationOnly,
+    config,
+    dryRun,
+    today,
+    modifiedFiles,
+    previewOptions,
+  } = args;
   const changelogFiles: string[] = [];
+  // Track the first changelog.json path written for this workspace so the preview writer can
+  // read the same data that `publish` and `create-github-release` will consume later.
+  let firstChangelogJsonPath: string | undefined;
 
   if (isPropagationOnly && releaseEntry.propagatedFrom !== undefined) {
     for (const changelogPath of workspace.changelogPaths) {
@@ -439,8 +482,10 @@ function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): str
           dryRun,
         );
         modifiedFiles.push(...jsonFiles);
+        firstChangelogJsonPath ??= jsonFiles[0];
       }
     }
+    maybeWritePreviews(workspace, newTag, firstChangelogJsonPath, previewOptions, dryRun);
     return changelogFiles;
   }
 
@@ -461,10 +506,32 @@ function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): str
         includePaths: workspace.paths,
       });
       modifiedFiles.push(...jsonFiles);
+      firstChangelogJsonPath ??= jsonFiles[0];
     }
   }
 
+  maybeWritePreviews(workspace, newTag, firstChangelogJsonPath, previewOptions, dryRun);
   return changelogFiles;
+}
+
+/** Invoke `writeReleaseNotesPreviews` for a workspace when previews are enabled and a changelog JSON path is known. */
+function maybeWritePreviews(
+  workspace: WorkspaceConfig,
+  newTag: string,
+  changelogJsonPath: string | undefined,
+  previewOptions: PreviewOptions,
+  dryRun: boolean,
+): void {
+  if (!previewOptions.enabled || changelogJsonPath === undefined) {
+    return;
+  }
+  writeReleaseNotesPreviews({
+    workspacePath: workspace.workspacePath,
+    tag: newTag,
+    changelogJsonPath,
+    sectionOrder: previewOptions.sectionOrder,
+    dryRun,
+  });
 }
 
 /** Run the format command on modified files, if configured. */

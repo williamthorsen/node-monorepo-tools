@@ -1,10 +1,11 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockExecFileSync = vi.hoisted(() => vi.fn());
 const mockExecSync = vi.hoisted(() => vi.fn());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockWriteFileSync = vi.hoisted(() => vi.fn());
 const mockHasPrettierConfig = vi.hoisted(() => vi.fn());
+const mockWriteReleaseNotesPreviews = vi.hoisted(() => vi.fn());
 
 vi.mock('node:child_process', () => ({
   execFileSync: mockExecFileSync,
@@ -22,6 +23,18 @@ vi.mock('../resolveCliffConfigPath.ts', () => ({
 
 vi.mock('../hasPrettierConfig.ts', () => ({
   hasPrettierConfig: mockHasPrettierConfig,
+}));
+
+vi.mock('../writeReleaseNotesPreviews.ts', () => ({
+  writeReleaseNotesPreviews: mockWriteReleaseNotesPreviews,
+}));
+
+// Stub generateChangelogJson when tests exercise the enabled path, so no git-cliff invocation
+// or filesystem access is required.
+const mockGenerateChangelogJson = vi.hoisted(() => vi.fn());
+
+vi.mock('../generateChangelogJson.ts', () => ({
+  generateChangelogJson: mockGenerateChangelogJson,
 }));
 
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';
@@ -60,12 +73,20 @@ function setupFeatCommit(): void {
 }
 
 describe(releasePrepare, () => {
+  beforeEach(() => {
+    mockGenerateChangelogJson.mockImplementation((_config, changelogPath: string) => [
+      `${changelogPath}/.meta/changelog.json`,
+    ]);
+  });
+
   afterEach(() => {
     mockExecFileSync.mockReset();
     mockExecSync.mockReset();
     mockReadFileSync.mockReset();
     mockWriteFileSync.mockReset();
     mockHasPrettierConfig.mockReset();
+    mockWriteReleaseNotesPreviews.mockReset();
+    mockGenerateChangelogJson.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -326,6 +347,59 @@ describe(releasePrepare, () => {
     expect(() => releasePrepare(makeConfig(), { dryRun: false, setVersion: '0.5.0' })).toThrow(
       '--set-version 0.5.0 is not greater than current version 0.5.0',
     );
+  });
+
+  it('calls writeReleaseNotesPreviews when --with-release-notes is set and changelogJson is enabled', () => {
+    setupFeatCommit();
+    vi.spyOn(process, 'cwd').mockReturnValue('/single-pkg');
+
+    releasePrepare(makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }), {
+      dryRun: false,
+      withReleaseNotes: true,
+    });
+
+    expect(mockWriteReleaseNotesPreviews).toHaveBeenCalledTimes(1);
+    expect(mockWriteReleaseNotesPreviews).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspacePath: '/single-pkg',
+        tag: 'v1.1.0',
+        dryRun: false,
+        sectionOrder: expect.any(Array),
+      }),
+    );
+  });
+
+  it('warns and skips preview generation when --with-release-notes is set but changelogJson is disabled', () => {
+    setupFeatCommit();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    releasePrepare(makeConfig(), { dryRun: false, withReleaseNotes: true });
+
+    expect(mockWriteReleaseNotesPreviews).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('--with-release-notes requires changelogJson.enabled'),
+    );
+  });
+
+  it('does not call writeReleaseNotesPreviews when --with-release-notes is not set', () => {
+    setupFeatCommit();
+
+    releasePrepare(makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }), {
+      dryRun: false,
+    });
+
+    expect(mockWriteReleaseNotesPreviews).not.toHaveBeenCalled();
+  });
+
+  it('propagates dryRun to writeReleaseNotesPreviews', () => {
+    setupFeatCommit();
+
+    releasePrepare(makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }), {
+      dryRun: true,
+      withReleaseNotes: true,
+    });
+
+    expect(mockWriteReleaseNotesPreviews).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }));
   });
 
   it('does not write files in dry-run mode with --set-version', () => {

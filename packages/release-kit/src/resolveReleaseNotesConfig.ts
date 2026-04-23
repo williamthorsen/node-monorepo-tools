@@ -73,6 +73,6 @@ export async function resolveReleaseNotesConfig(
 }
 
 /** Extract section headers in declaration order from a merged workTypes record. */
-function deriveSectionOrder(workTypes: Record<string, { header: string }>): string[] {
+export function deriveSectionOrder(workTypes: Record<string, { header: string }>): string[] {
   return Object.values(workTypes).map((entry) => entry.header);
 }

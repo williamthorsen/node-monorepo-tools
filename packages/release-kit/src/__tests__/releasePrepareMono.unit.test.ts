@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockExecFileSync = vi.hoisted(() => vi.fn());
 const mockExecSync = vi.hoisted(() => vi.fn());
@@ -6,6 +6,7 @@ const mockExistsSync = vi.hoisted(() => vi.fn());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockWriteFileSync = vi.hoisted(() => vi.fn());
 const mockHasPrettierConfig = vi.hoisted(() => vi.fn());
+const mockWriteReleaseNotesPreviews = vi.hoisted(() => vi.fn());
 
 vi.mock('node:child_process', () => ({
   execFileSync: mockExecFileSync,
@@ -24,6 +25,21 @@ vi.mock('../resolveCliffConfigPath.ts', () => ({
 
 vi.mock('../hasPrettierConfig.ts', () => ({
   hasPrettierConfig: mockHasPrettierConfig,
+}));
+
+vi.mock('../writeReleaseNotesPreviews.ts', () => ({
+  writeReleaseNotesPreviews: mockWriteReleaseNotesPreviews,
+}));
+
+// Stub out the real `generateChangelogJson*` helpers for tests in this file that exercise
+// the `changelogJson.enabled: true` path. The default stub returns a deterministic file path
+// without invoking git-cliff or touching the filesystem.
+const mockGenerateChangelogJson = vi.hoisted(() => vi.fn());
+const mockGenerateSyntheticChangelogJson = vi.hoisted(() => vi.fn());
+
+vi.mock('../generateChangelogJson.ts', () => ({
+  generateChangelogJson: mockGenerateChangelogJson,
+  generateSyntheticChangelogJson: mockGenerateSyntheticChangelogJson,
 }));
 
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';
@@ -79,6 +95,17 @@ function findAllCliffOutputPaths(): string[] {
 }
 
 describe(releasePrepareMono, () => {
+  beforeEach(() => {
+    // Default: pretend each call produced a single changelog.json path derived from the
+    // changelog directory. Individual tests can override if needed.
+    mockGenerateChangelogJson.mockImplementation((_config, changelogPath: string) => [
+      `${changelogPath}/.meta/changelog.json`,
+    ]);
+    mockGenerateSyntheticChangelogJson.mockImplementation((_config, changelogPath: string) => [
+      `${changelogPath}/.meta/changelog.json`,
+    ]);
+  });
+
   afterEach(() => {
     mockExecFileSync.mockReset();
     mockExecSync.mockReset();
@@ -86,6 +113,9 @@ describe(releasePrepareMono, () => {
     mockReadFileSync.mockReset();
     mockWriteFileSync.mockReset();
     mockHasPrettierConfig.mockReset();
+    mockWriteReleaseNotesPreviews.mockReset();
+    mockGenerateChangelogJson.mockReset();
+    mockGenerateSyntheticChangelogJson.mockReset();
   });
 
   it('processes a workspace that has commits', () => {
@@ -1326,6 +1356,134 @@ describe(releasePrepareMono, () => {
 
       expect(messages).toHaveLength(1);
       errorSpy.mockRestore();
+    });
+  });
+
+  describe('--with-release-notes flag', () => {
+    function setupArraysWithFeat(): MonorepoReleaseConfig {
+      const config = makeConfig({
+        workspaces: [
+          {
+            dir: 'arrays',
+            name: '@test/arrays',
+            tagPrefix: 'arrays-v',
+            workspacePath: 'packages/arrays',
+            packageFiles: ['packages/arrays/package.json'],
+            changelogPaths: ['packages/arrays'],
+            paths: ['packages/arrays/**'],
+          },
+        ],
+        changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
+      });
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') {
+          return 'arrays-v1.0.0\n';
+        }
+        if (cmd === 'git' && args[0] === 'log') {
+          return 'feat: add utilityabc123';
+        }
+        // git-cliff context output (used when changelogJson.enabled is true)
+        return '[]';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+      return config;
+    }
+
+    it('invokes writeReleaseNotesPreviews for each released workspace when enabled', () => {
+      const config = setupArraysWithFeat();
+
+      releasePrepareMono(config, { dryRun: false, withReleaseNotes: true });
+
+      expect(mockWriteReleaseNotesPreviews).toHaveBeenCalledTimes(1);
+      expect(mockWriteReleaseNotesPreviews).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workspacePath: 'packages/arrays',
+          tag: 'arrays-v1.1.0',
+          dryRun: false,
+          sectionOrder: expect.any(Array),
+        }),
+      );
+    });
+
+    it('does not invoke writeReleaseNotesPreviews when the flag is not set', () => {
+      const config = setupArraysWithFeat();
+
+      releasePrepareMono(config, { dryRun: false });
+
+      expect(mockWriteReleaseNotesPreviews).not.toHaveBeenCalled();
+    });
+
+    it('warns and skips when --with-release-notes is set but changelogJson.enabled is false', () => {
+      const config = makeConfig({
+        workspaces: [
+          {
+            dir: 'arrays',
+            name: '@test/arrays',
+            tagPrefix: 'arrays-v',
+            workspacePath: 'packages/arrays',
+            packageFiles: ['packages/arrays/package.json'],
+            changelogPaths: ['packages/arrays'],
+            paths: ['packages/arrays/**'],
+          },
+        ],
+      });
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') {
+          return 'arrays-v1.0.0\n';
+        }
+        if (cmd === 'git' && args[0] === 'log') {
+          return 'feat: add utilityabc123';
+        }
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      releasePrepareMono(config, { dryRun: false, withReleaseNotes: true });
+
+      expect(mockWriteReleaseNotesPreviews).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('--with-release-notes requires changelogJson.enabled'),
+      );
+    });
+
+    it('does not invoke previews for skipped workspaces', () => {
+      const config = makeConfig({
+        workspaces: [
+          {
+            dir: 'arrays',
+            name: '@test/arrays',
+            tagPrefix: 'arrays-v',
+            workspacePath: 'packages/arrays',
+            packageFiles: ['packages/arrays/package.json'],
+            changelogPaths: ['packages/arrays'],
+            paths: ['packages/arrays/**'],
+          },
+        ],
+        changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
+      });
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') {
+          return 'arrays-v1.0.0\n';
+        }
+        if (cmd === 'git' && args[0] === 'log') {
+          return '';
+        }
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
+
+      releasePrepareMono(config, { dryRun: false, withReleaseNotes: true });
+
+      expect(mockWriteReleaseNotesPreviews).not.toHaveBeenCalled();
+    });
+
+    it('propagates dryRun through to writeReleaseNotesPreviews', () => {
+      const config = setupArraysWithFeat();
+
+      releasePrepareMono(config, { dryRun: true, withReleaseNotes: true });
+
+      expect(mockWriteReleaseNotesPreviews).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }));
     });
   });
 });

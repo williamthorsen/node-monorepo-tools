@@ -117,6 +117,9 @@ Options:
   --set-version=X.Y.Z   Set an explicit version; bypasses commit-derived bumps. Requires --only in monorepo mode.
   --no-git-checks, -n   Skip the clean-working-tree check
   --only=name1,name2    Only process the named workspaces (comma-separated, monorepo only)
+  --with-release-notes  Also write per-workspace release-notes previews under {workspacePath}/docs/
+                         (docs/README.v{version}.md and docs/RELEASE_NOTES.v{version}.md).
+                         Recommended .gitignore entry: packages/*/docs/*.v*.md (or docs/*.v*.md).
   --help, -h            Show this help message
 `);
 }

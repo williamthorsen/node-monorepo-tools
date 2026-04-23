@@ -24,7 +24,11 @@ vi.mock('../renderReleaseNotes.ts', () => ({
   renderReleaseNotesSingle: mockRenderReleaseNotesSingle,
 }));
 
-import { injectReleaseNotesIntoReadme, resolveReadmePath } from '../injectReleaseNotesIntoReadme.ts';
+import {
+  injectReleaseNotesIntoReadme,
+  renderInjectedReadme,
+  resolveReadmePath,
+} from '../injectReleaseNotesIntoReadme.ts';
 
 describe(injectReleaseNotesIntoReadme, () => {
   beforeEach(() => {
@@ -135,6 +139,123 @@ describe(injectReleaseNotesIntoReadme, () => {
     setupInjectionMocks();
 
     injectReleaseNotesIntoReadme('/pkg/README.md', '/pkg/.meta/changelog.json', 'v1.0.0');
+
+    const renderOptions = mockRenderReleaseNotesSingle.mock.calls[0]?.[1];
+    expect(renderOptions).not.toHaveProperty('sectionOrder');
+  });
+});
+
+describe(renderInjectedReadme, () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    mockExistsSync.mockReset();
+    mockReadFileSync.mockReset();
+    mockWriteFileSync.mockReset();
+    mockExtractVersion.mockReset();
+    mockReadChangelogEntries.mockReset();
+    mockMatchesAudience.mockReset();
+    mockRenderReleaseNotesSingle.mockReset();
+    vi.restoreAllMocks();
+  });
+
+  function setupRenderMocks(): void {
+    mockExistsSync.mockReturnValue(true);
+    mockExtractVersion.mockReturnValue('1.2.3');
+    mockReadChangelogEntries.mockReturnValue([
+      {
+        version: '1.2.3',
+        date: '2024-01-01',
+        sections: [{ title: 'Features', audience: 'all', items: [{ description: 'Add widget' }] }],
+      },
+    ]);
+    mockMatchesAudience.mockReturnValue(() => true);
+    mockRenderReleaseNotesSingle.mockReturnValue('### Features\n\n- Add widget\n');
+  }
+
+  it('returns both injected README and standalone release notes when markers are present', () => {
+    setupRenderMocks();
+
+    const readme = '# Package\n\n<!-- section:release-notes --><!-- /section:release-notes -->\n\n## Installation\n';
+    const result = renderInjectedReadme(readme, '/pkg/.meta/changelog.json', 'v1.2.3');
+
+    expect(result).toBeDefined();
+    expect(result?.injectedReadme).toContain('### Features');
+    expect(result?.injectedReadme).toContain('## Installation');
+    expect(result?.releaseNotesMarkdown).toBe('### Features\n\n- Add widget');
+    // The wrapper does not write; neither does the pure renderer.
+    expect(mockWriteFileSync).not.toHaveBeenCalled();
+  });
+
+  it('prepends a release-notes section when markers are absent', () => {
+    setupRenderMocks();
+
+    const readme = '# Package\n\n## Installation\n';
+    const result = renderInjectedReadme(readme, '/pkg/.meta/changelog.json', 'v1.2.3');
+
+    expect(result).toBeDefined();
+    expect(result?.injectedReadme.startsWith('<!-- section:release-notes -->')).toBe(true);
+    expect(result?.injectedReadme).toContain('# Package');
+  });
+
+  it('returns undefined when changelog.json does not exist', () => {
+    mockExistsSync.mockReturnValue(false);
+
+    const result = renderInjectedReadme('# README\n', '/pkg/.meta/changelog.json', 'v1.2.3');
+
+    expect(result).toBeUndefined();
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('not found; skipping README injection'));
+  });
+
+  it('returns undefined when changelog.json is unparseable', () => {
+    mockExistsSync.mockReturnValue(true);
+    mockExtractVersion.mockReturnValue('1.2.3');
+    mockReadChangelogEntries.mockReturnValue(undefined);
+
+    const result = renderInjectedReadme('# README\n', '/pkg/.meta/changelog.json', 'v1.2.3');
+
+    expect(result).toBeUndefined();
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('could not parse'));
+  });
+
+  it('returns undefined when no changelog entry matches the version', () => {
+    mockExistsSync.mockReturnValue(true);
+    mockExtractVersion.mockReturnValue('9.9.9');
+    mockReadChangelogEntries.mockReturnValue([{ version: '1.0.0', date: '2024-01-01', sections: [] }]);
+
+    const result = renderInjectedReadme('# README\n', '/pkg/.meta/changelog.json', 'v9.9.9');
+
+    expect(result).toBeUndefined();
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('no changelog entry for version 9.9.9'));
+  });
+
+  it('returns undefined when all sections are dev-only', () => {
+    setupRenderMocks();
+    mockRenderReleaseNotesSingle.mockReturnValue('');
+
+    const result = renderInjectedReadme('# README\n', '/pkg/.meta/changelog.json', 'v1.2.3');
+
+    expect(result).toBeUndefined();
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('no user-facing release notes'));
+  });
+
+  it('forwards sectionOrder to the renderer when provided', () => {
+    setupRenderMocks();
+
+    renderInjectedReadme('# README\n', '/pkg/.meta/changelog.json', 'v1.2.3', ['Bug fixes', 'Features']);
+
+    expect(mockRenderReleaseNotesSingle).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ sectionOrder: ['Bug fixes', 'Features'] }),
+    );
+  });
+
+  it('omits sectionOrder from render options when not provided', () => {
+    setupRenderMocks();
+
+    renderInjectedReadme('# README\n', '/pkg/.meta/changelog.json', 'v1.2.3');
 
     const renderOptions = mockRenderReleaseNotesSingle.mock.calls[0]?.[1];
     expect(renderOptions).not.toHaveProperty('sectionOrder');

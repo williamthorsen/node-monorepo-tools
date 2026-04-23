@@ -52,6 +52,9 @@ Options:
   --force               Force a release even when there are no commits since the last tag (requires --bump)
   --no-git-checks, -n   Skip the clean-working-tree check
   --only=name1,name2    Only process the named workspaces (comma-separated, monorepo only)
+  --with-release-notes  Also write per-workspace release-notes previews under {workspacePath}/docs/
+                         (docs/README.v{version}.md and docs/RELEASE_NOTES.v{version}.md).
+                         Recommended .gitignore entry: packages/*/docs/*.v*.md (or docs/*.v*.md).
   --help                Show this help message
 `);
 }
@@ -67,6 +70,7 @@ const prepareFlagSchema = {
   bump: { long: '--bump', type: 'string' as const },
   setVersion: { long: '--set-version', type: 'string' as const },
   only: { long: '--only', type: 'string' as const },
+  withReleaseNotes: { long: '--with-release-notes', type: 'boolean' as const },
   help: { long: '--help', type: 'boolean' as const, short: '-h' },
 };
 
@@ -78,6 +82,7 @@ export function parseArgs(argv: string[]): {
   bumpOverride: ReleaseType | undefined;
   only: string[] | undefined;
   setVersion: string | undefined;
+  withReleaseNotes: boolean;
 } {
   let parsed;
   try {
@@ -135,6 +140,7 @@ export function parseArgs(argv: string[]): {
     bumpOverride,
     only,
     setVersion,
+    withReleaseNotes: flags.withReleaseNotes,
   };
 }
 
@@ -170,8 +176,9 @@ export async function prepareCommand(argv: string[]): Promise<void> {
   let bumpOverride: ReleaseType | undefined;
   let only: string[] | undefined;
   let setVersion: string | undefined;
+  let withReleaseNotes: boolean;
   try {
-    ({ dryRun, force, noGitChecks, bumpOverride, only, setVersion } = parseArgs(argv));
+    ({ dryRun, force, noGitChecks, bumpOverride, only, setVersion, withReleaseNotes } = parseArgs(argv));
   } catch (error: unknown) {
     console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
@@ -181,6 +188,7 @@ export async function prepareCommand(argv: string[]): Promise<void> {
     force,
     ...(bumpOverride === undefined ? {} : { bumpOverride }),
     ...(setVersion === undefined ? {} : { setVersion }),
+    ...(withReleaseNotes ? { withReleaseNotes: true } : {}),
   };
 
   if (dryRun) {
@@ -283,6 +291,7 @@ interface PrepareOptions {
   force: boolean;
   bumpOverride?: ReleaseType;
   setVersion?: string;
+  withReleaseNotes?: boolean;
 }
 
 /** Loads and validate the release-kit config file, exiting on errors. */

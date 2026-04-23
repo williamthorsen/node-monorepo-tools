@@ -55,7 +55,12 @@ export { discoverWorkspaces } from './discoverWorkspaces.ts';
 export { generateChangelogJson, generateSyntheticChangelogJson } from './generateChangelogJson.ts';
 export { generateChangelog, generateChangelogs } from './generateChangelogs.ts';
 export { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
-export { injectReleaseNotesIntoReadme, resolveReadmePath } from './injectReleaseNotesIntoReadme.ts';
+export type { RenderedInjectedReadme } from './injectReleaseNotesIntoReadme.ts';
+export {
+  injectReleaseNotesIntoReadme,
+  renderInjectedReadme,
+  resolveReadmePath,
+} from './injectReleaseNotesIntoReadme.ts';
 export { injectSection } from './injectSection.ts';
 export { COMMIT_PREPROCESSOR_PATTERNS, parseCommitMessage } from './parseCommitMessage.ts';
 export { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE, writeReleaseTags } from './prepareCommand.ts';
@@ -70,3 +75,9 @@ export { reportPrepare } from './reportPrepare.ts';
 export { resolveCommandTags } from './resolveCommandTags.ts';
 export { resolveReleaseTags } from './resolveReleaseTags.ts';
 export { stripScope } from './stripScope.ts';
+export type {
+  PreviewFileResult,
+  WriteReleaseNotesPreviewsOptions,
+  WriteReleaseNotesPreviewsResult,
+} from './writeReleaseNotesPreviews.ts';
+export { writeReleaseNotesPreviews } from './writeReleaseNotesPreviews.ts';
