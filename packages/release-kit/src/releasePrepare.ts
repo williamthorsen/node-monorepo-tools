@@ -8,8 +8,11 @@ import { generateChangelogJson } from './generateChangelogJson.ts';
 import { generateChangelogs } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
+import { resolveWorkTypes } from './loadConfig.ts';
 import { readCurrentVersion } from './readCurrentVersion.ts';
+import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
 import type { BumpResult, Commit, PrepareResult, ReleaseConfig, ReleaseType } from './types.ts';
+import { writeReleaseNotesPreviews } from './writeReleaseNotesPreviews.ts';
 
 /** Options for the release preparation workflow. */
 export interface ReleasePrepareOptions {
@@ -25,6 +28,13 @@ export interface ReleasePrepareOptions {
    * `config.workspaces` to a single workspace before invoking.
    */
   setVersion?: string;
+  /**
+   * If true, write per-workspace release-notes previews under `{workspacePath}/docs/`
+   * (`README.v{version}.md` and `RELEASE_NOTES.v{version}.md`) after each workspace's
+   * `changelog.json` is produced. Requires `config.changelogJson.enabled`; when disabled,
+   * a warning is logged and no previews are generated.
+   */
+  withReleaseNotes?: boolean;
 }
 
 /**
@@ -39,7 +49,7 @@ export interface ReleasePrepareOptions {
  * Returns a structured `PrepareResult` with all data needed for presentation.
  */
 export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOptions): PrepareResult {
-  const { dryRun, bumpOverride, setVersion } = options;
+  const { dryRun, bumpOverride, setVersion, withReleaseNotes } = options;
   const workTypes = config.workTypes ?? { ...DEFAULT_WORK_TYPES };
   const versionPatterns = config.versionPatterns ?? { ...DEFAULT_VERSION_PATTERNS };
 
@@ -113,6 +123,9 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
     }
   }
 
+  // 4c. Write release-notes previews (optional, opt-in via --with-release-notes)
+  maybeWriteSinglePackagePreviews(withReleaseNotes === true, config, newTag, changelogJsonFiles[0], dryRun);
+
   // 5. Run format command, appending modified file paths
   const formatCommandStr = config.formatCommand ?? (hasPrettierConfig() ? 'npx prettier --write' : undefined);
   let formatCommand: PrepareResult['formatCommand'];
@@ -161,4 +174,35 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
     formatCommand,
     dryRun,
   };
+}
+
+/**
+ * Invoke `writeReleaseNotesPreviews` for a single-package workspace when the user requested
+ * previews. Warns and returns when `changelogJson.enabled` is false; silently returns when no
+ * changelog JSON file was produced (e.g., no changelog paths configured).
+ */
+function maybeWriteSinglePackagePreviews(
+  withReleaseNotes: boolean,
+  config: ReleaseConfig,
+  newTag: string,
+  changelogJsonPath: string | undefined,
+  dryRun: boolean,
+): void {
+  if (!withReleaseNotes) {
+    return;
+  }
+  if (!config.changelogJson.enabled) {
+    console.warn('Warning: --with-release-notes requires changelogJson.enabled; skipping preview generation');
+    return;
+  }
+  if (changelogJsonPath === undefined) {
+    return;
+  }
+  writeReleaseNotesPreviews({
+    workspacePath: process.cwd(),
+    tag: newTag,
+    changelogJsonPath,
+    sectionOrder: deriveSectionOrder(resolveWorkTypes(config.workTypes)),
+    dryRun,
+  });
 }

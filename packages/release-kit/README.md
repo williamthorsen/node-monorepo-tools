@@ -228,9 +228,31 @@ Run release preparation with automatic workspace discovery.
 | `--set-version=X.Y.Z`        | Set an explicit canonical semver version; bypasses commit-derived bumps. Requires `--only` in monorepo mode. |
 | `--force`                    | Bypass the "no commits since last tag" check (requires `--bump`)                                             |
 | `--only=name1,name2`         | Only process the named workspaces (monorepo only)                                                            |
+| `--with-release-notes`       | Write per-workspace release-notes previews under `{workspacePath}/docs/`                                     |
 | `--help`, `-h`               | Show help                                                                                                    |
 
 Workspace names for `--only` match the package directory name (e.g., `arrays`, `release-kit`).
+
+#### Previewing release notes with `--with-release-notes`
+
+`--with-release-notes` writes two versioned files per workspace after each workspace's `changelog.json` is produced:
+
+- `{workspacePath}/docs/README.v{version}.md` — the workspace `README.md` with release notes injected at the `<!-- section:release-notes -->` marker.
+- `{workspacePath}/docs/RELEASE_NOTES.v{version}.md` — the standalone release notes for this version.
+
+The publish-time inject-and-revert lifecycle is unchanged; previews are additive, deterministic, and safe to regenerate. When `changelogJson.enabled` is `false`, the flag logs a warning and skips preview generation. In dry-run mode, planned writes are logged and no files are created.
+
+Because preview filenames are versioned, committing them will accumulate files over time. The recommended `.gitignore` entry for monorepos is:
+
+```gitignore
+packages/*/docs/*.v*.md
+```
+
+For single-package repos:
+
+```gitignore
+docs/*.v*.md
+```
 
 #### Setting an explicit version with `--set-version`
 

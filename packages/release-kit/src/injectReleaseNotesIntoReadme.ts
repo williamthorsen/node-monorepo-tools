@@ -5,23 +5,39 @@ import { extractVersion, readChangelogEntries } from './changelogJsonUtils.ts';
 import { injectSection } from './injectSection.ts';
 import { matchesAudience, renderReleaseNotesSingle } from './renderReleaseNotes.ts';
 
+/** Rendered artifacts produced by `renderInjectedReadme`. */
+export interface RenderedInjectedReadme {
+  /** The README with the release-notes section injected at the marker position. */
+  injectedReadme: string;
+  /**
+   * The standalone release-notes markdown for the target version (trimmed), prefixed with a
+   * labeled `## Release notes — v{version} ({date})` heading so the file is self-identifying.
+   * The GitHub-release body is rendered separately (without this heading) by `createGithubRelease`.
+   */
+  releaseNotesMarkdown: string;
+}
+
 /**
- * Inject release notes into a README and return the original content for restoration.
+ * Render a README with release notes injected at the marker position, and the standalone
+ * release-notes markdown, from an already-loaded README string and a changelog JSON path.
  *
- * Returns the original README content, or `undefined` if injection was skipped.
+ * This is the pure rendering core shared by both the publish-time injection flow and the
+ * `--with-release-notes` preview flow. It performs no file writes; callers decide whether to
+ * persist the artifacts.
+ *
+ * Returns `undefined` when any skip condition applies (missing or unparseable changelog, no
+ * entry for the version, or no public-audience sections).
  */
-export function injectReleaseNotesIntoReadme(
-  readmePath: string,
+export function renderInjectedReadme(
+  readme: string,
   changelogJsonPath: string,
   tag: string,
   sectionOrder?: string[],
-): string | undefined {
+): RenderedInjectedReadme | undefined {
   if (!existsSync(changelogJsonPath)) {
     console.warn(`Warning: ${changelogJsonPath} not found; skipping README injection`);
     return undefined;
   }
-
-  const originalReadme = readFileSync(readmePath, 'utf8');
 
   const version = extractVersion(tag);
   const entries = readChangelogEntries(changelogJsonPath);
@@ -36,20 +52,47 @@ export function injectReleaseNotesIntoReadme(
     return undefined;
   }
 
-  const releaseNotesMarkdown = renderReleaseNotesSingle(entry, {
+  const renderedSections = renderReleaseNotesSingle(entry, {
     filter: matchesAudience('all'),
     includeHeading: false,
     ...(sectionOrder === undefined ? {} : { sectionOrder }),
   });
 
-  if (releaseNotesMarkdown.trimEnd().length === 0) {
+  if (renderedSections.trimEnd().length === 0) {
     console.warn(`Warning: no user-facing release notes for version ${version}; skipping README injection`);
     return undefined;
   }
 
-  const injected = injectSection(originalReadme, 'release-notes', releaseNotesMarkdown.trimEnd());
-  writeFileSync(readmePath, injected, 'utf8');
+  // Prepend a labeled heading so readers can see both that the content is release notes
+  // and which version they describe. The README-injected form and the standalone preview
+  // share this heading; the GitHub-release body (rendered elsewhere) omits it because the
+  // release page already shows the tag and date.
+  const labeledHeading = `## Release notes — v${version} (${entry.date})`;
+  const releaseNotesMarkdown = `${labeledHeading}\n\n${renderedSections.trimEnd()}`;
+  const injectedReadme = injectSection(readme, 'release-notes', releaseNotesMarkdown);
 
+  return { injectedReadme, releaseNotesMarkdown };
+}
+
+/**
+ * Inject release notes into a README and return the original content for restoration.
+ *
+ * Returns the original README content, or `undefined` if injection was skipped.
+ */
+export function injectReleaseNotesIntoReadme(
+  readmePath: string,
+  changelogJsonPath: string,
+  tag: string,
+  sectionOrder?: string[],
+): string | undefined {
+  const originalReadme = readFileSync(readmePath, 'utf8');
+
+  const rendered = renderInjectedReadme(originalReadme, changelogJsonPath, tag, sectionOrder);
+  if (rendered === undefined) {
+    return undefined;
+  }
+
+  writeFileSync(readmePath, rendered.injectedReadme, 'utf8');
   return originalReadme;
 }
 

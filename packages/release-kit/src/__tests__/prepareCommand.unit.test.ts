@@ -421,6 +421,33 @@ describe(prepareCommand, () => {
       expect.objectContaining({ setVersion: '1.2.3' }),
     );
   });
+
+  it('forwards withReleaseNotes to releasePrepareMono when --with-release-notes is set', async () => {
+    await prepareCommand(['--with-release-notes']);
+
+    expect(mockReleasePrepareMono).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ withReleaseNotes: true }),
+    );
+  });
+
+  it('forwards withReleaseNotes to releasePrepare in single-package mode', async () => {
+    mockDiscoverWorkspaces.mockResolvedValue(undefined);
+
+    await prepareCommand(['--with-release-notes']);
+
+    expect(mockReleasePrepare).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ withReleaseNotes: true }),
+    );
+  });
+
+  it('omits withReleaseNotes from options when the flag is not set', async () => {
+    await prepareCommand([]);
+
+    const callArgs = mockReleasePrepareMono.mock.calls[0]?.[1];
+    expect(callArgs).not.toHaveProperty('withReleaseNotes');
+  });
 });
 
 describe(parseArgs, () => {
@@ -502,6 +529,21 @@ describe(parseArgs, () => {
   it('defaults noGitChecks to false', () => {
     const result = parseArgs([]);
     expect(result.noGitChecks).toBe(false);
+  });
+
+  it('parses --with-release-notes flag', () => {
+    const result = parseArgs(['--with-release-notes']);
+    expect(result.withReleaseNotes).toBe(true);
+  });
+
+  it('defaults withReleaseNotes to false', () => {
+    const result = parseArgs([]);
+    expect(result.withReleaseNotes).toBe(false);
+  });
+
+  it('documents --with-release-notes in --help output', () => {
+    expect(() => parseArgs(['--help'])).toThrow(ExitError);
+    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('--with-release-notes'));
   });
 });
 
