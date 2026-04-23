@@ -158,7 +158,9 @@ describe(writeReleaseNotesPreviews, () => {
     expect(result.injectedReadme).toBeUndefined();
     expect(result.releaseNotes).toBeUndefined();
     expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('skipping release-notes previews'));
+    // `renderInjectedReadme` emits its own specific skip reason; `writeReleaseNotesPreviews`
+    // no longer emits a redundant outer warning.
+    expect(console.warn).not.toHaveBeenCalledWith(expect.stringContaining('skipping release-notes previews'));
   });
 
   it('logs planned writes in dry-run mode and creates no files', () => {

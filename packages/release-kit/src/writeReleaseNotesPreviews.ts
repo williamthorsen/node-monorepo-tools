@@ -61,9 +61,11 @@ export function writeReleaseNotesPreviews(options: WriteReleaseNotesPreviewsOpti
   // standalone release notes. The injected-README output is discarded in that case.
   const readmeContent = readmeExists ? readFileSync(readmePath, 'utf8') : '';
 
+  // `renderInjectedReadme` logs its own specific skip reason (missing file, parse failure, no
+  // matching version, or no public-audience sections) when it returns `undefined`. No additional
+  // outer warning is emitted here to avoid two messages per skip event.
   const rendered = renderInjectedReadme(readmeContent, changelogJsonPath, tag, sectionOrder);
   if (rendered === undefined) {
-    console.warn(`Warning: skipping release-notes previews for ${tag}; no renderable content`);
     return { renderSkipped: true };
   }
 
