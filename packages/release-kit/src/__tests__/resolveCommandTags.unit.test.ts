@@ -28,7 +28,7 @@ class ExitError extends Error {
 }
 
 const TAGS: ResolvedTag[] = [
-  { tag: 'node-monorepo-core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
+  { tag: 'nmr-core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
   { tag: 'cli-v0.5.0', dir: 'cli', workspacePath: 'packages/cli' },
   { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit' },
 ];
@@ -51,7 +51,7 @@ describe(resolveCommandTags, () => {
     mockResolveReleaseTags.mockReturnValue(TAGS);
     mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => {
       if (workspacePath === 'packages/core') {
-        return makeWorkspace('core', 'node-monorepo-core-v', 'packages/core');
+        return makeWorkspace('core', 'nmr-core-v', 'packages/core');
       }
       if (workspacePath === 'packages/cli') {
         return makeWorkspace('cli', 'cli-v', 'packages/cli');
@@ -84,7 +84,7 @@ describe(resolveCommandTags, () => {
     await resolveCommandTags(undefined);
 
     expect(mockResolveReleaseTags).toHaveBeenCalledWith([
-      makeWorkspace('core', 'node-monorepo-core-v', 'packages/core'),
+      makeWorkspace('core', 'nmr-core-v', 'packages/core'),
       makeWorkspace('cli', 'cli-v', 'packages/cli'),
       makeWorkspace('release-kit', 'release-kit-v', 'packages/release-kit'),
     ]);
@@ -100,16 +100,16 @@ describe(resolveCommandTags, () => {
   });
 
   it('returns only the filtered tag when a single-tag filter is provided', async () => {
-    const result = await resolveCommandTags(['node-monorepo-core-v1.3.0']);
+    const result = await resolveCommandTags(['nmr-core-v1.3.0']);
 
-    expect(result).toStrictEqual([{ tag: 'node-monorepo-core-v1.3.0', dir: 'core', workspacePath: 'packages/core' }]);
+    expect(result).toStrictEqual([{ tag: 'nmr-core-v1.3.0', dir: 'core', workspacePath: 'packages/core' }]);
   });
 
   it('returns only the filtered subset when a multi-tag filter is provided', async () => {
-    const result = await resolveCommandTags(['node-monorepo-core-v1.3.0', 'release-kit-v2.1.0']);
+    const result = await resolveCommandTags(['nmr-core-v1.3.0', 'release-kit-v2.1.0']);
 
     expect(result).toStrictEqual([
-      { tag: 'node-monorepo-core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
+      { tag: 'nmr-core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
       { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit' },
     ]);
   });
@@ -117,7 +117,7 @@ describe(resolveCommandTags, () => {
   it('exits with code 1 when the first tag in the filter is unknown', async () => {
     let thrown: ExitError | undefined;
     try {
-      await resolveCommandTags(['missing-v9.9.9', 'node-monorepo-core-v1.3.0']);
+      await resolveCommandTags(['missing-v9.9.9', 'nmr-core-v1.3.0']);
     } catch (error: unknown) {
       if (error instanceof ExitError) {
         thrown = error;
@@ -127,14 +127,14 @@ describe(resolveCommandTags, () => {
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
     expect(console.error).toHaveBeenCalledWith(
-      'Error: Unknown tag "missing-v9.9.9" in --tags. Available: node-monorepo-core-v1.3.0, cli-v0.5.0, release-kit-v2.1.0',
+      'Error: Unknown tag "missing-v9.9.9" in --tags. Available: nmr-core-v1.3.0, cli-v0.5.0, release-kit-v2.1.0',
     );
   });
 
   it('exits with code 1 when the second tag in the filter is unknown', async () => {
     let thrown: ExitError | undefined;
     try {
-      await resolveCommandTags(['node-monorepo-core-v1.3.0', 'missing-v9.9.9']);
+      await resolveCommandTags(['nmr-core-v1.3.0', 'missing-v9.9.9']);
     } catch (error: unknown) {
       if (error instanceof ExitError) {
         thrown = error;
@@ -144,7 +144,7 @@ describe(resolveCommandTags, () => {
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
     expect(console.error).toHaveBeenCalledWith(
-      'Error: Unknown tag "missing-v9.9.9" in --tags. Available: node-monorepo-core-v1.3.0, cli-v0.5.0, release-kit-v2.1.0',
+      'Error: Unknown tag "missing-v9.9.9" in --tags. Available: nmr-core-v1.3.0, cli-v0.5.0, release-kit-v2.1.0',
     );
   });
 

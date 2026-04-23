@@ -5,6 +5,9 @@ const config: ReleaseKitConfig = {
   releaseNotes: {
     shouldInjectIntoReadme: true,
   },
+  workspaces: [
+    { dir: 'core', legacyIdentities: [{ name: '@williamthorsen/node-monorepo-core', tagPrefix: 'core-v' }] },
+  ],
 };
 
 export default config;

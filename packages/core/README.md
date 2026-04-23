@@ -1,4 +1,4 @@
-# @williamthorsen/node-monorepo-core
+# @williamthorsen/nmr-core
 
 Shared utilities for node-monorepo-tools packages.
 
@@ -9,5 +9,5 @@ This package serves as the shared library foundation for the monorepo. For the n
 ## Installation
 
 ```bash
-pnpm add -D @williamthorsen/node-monorepo-core
+pnpm add -D @williamthorsen/nmr-core
 ```

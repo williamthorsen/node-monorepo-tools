@@ -1,4 +1,4 @@
-import { printError, printStep, reportWriteResult } from '@williamthorsen/node-monorepo-core';
+import { printError, printStep, reportWriteResult } from '@williamthorsen/nmr-core';
 
 import { extractMessage } from '../cli.ts';
 import { scaffoldFiles } from './scaffold.ts';

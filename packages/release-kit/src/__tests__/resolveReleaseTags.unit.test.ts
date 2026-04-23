@@ -54,26 +54,24 @@ describe(resolveReleaseTags, () => {
   });
 
   it('resolves monorepo tags whose tagPrefix matches a workspace', () => {
-    mockExecFileSync.mockReturnValue('node-monorepo-core-v1.3.0\nrelease-kit-v2.1.0\n');
+    mockExecFileSync.mockReturnValue('nmr-core-v1.3.0\nrelease-kit-v2.1.0\n');
     const workspaces = [
-      makeWorkspace({ dir: 'core', tagPrefix: 'node-monorepo-core-v', workspacePath: 'packages/core' }),
+      makeWorkspace({ dir: 'core', tagPrefix: 'nmr-core-v', workspacePath: 'packages/core' }),
       makeWorkspace({ dir: 'release-kit', tagPrefix: 'release-kit-v', workspacePath: 'packages/release-kit' }),
     ];
 
     expect(resolveReleaseTags(workspaces)).toStrictEqual([
-      { tag: 'node-monorepo-core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
+      { tag: 'nmr-core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
       { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit' },
     ]);
   });
 
   it('reports dir from workspace.dir, not the tagPrefix, when directory differs from package name', () => {
-    mockExecFileSync.mockReturnValue('node-monorepo-core-v0.2.8\n');
-    const workspaces = [
-      makeWorkspace({ dir: 'core', tagPrefix: 'node-monorepo-core-v', workspacePath: 'packages/core' }),
-    ];
+    mockExecFileSync.mockReturnValue('nmr-core-v0.2.8\n');
+    const workspaces = [makeWorkspace({ dir: 'core', tagPrefix: 'nmr-core-v', workspacePath: 'packages/core' })];
 
     expect(resolveReleaseTags(workspaces)).toStrictEqual([
-      { tag: 'node-monorepo-core-v0.2.8', dir: 'core', workspacePath: 'packages/core' },
+      { tag: 'nmr-core-v0.2.8', dir: 'core', workspacePath: 'packages/core' },
     ]);
   });
 

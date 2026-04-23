@@ -89,7 +89,7 @@ importers:
 
   packages/audit-deps:
     dependencies:
-      '@williamthorsen/node-monorepo-core':
+      '@williamthorsen/nmr-core':
         specifier: workspace:*
         version: link:../core
       audit-ci:
@@ -115,7 +115,7 @@ importers:
 
   packages/release-kit:
     dependencies:
-      '@williamthorsen/node-monorepo-core':
+      '@williamthorsen/nmr-core':
         specifier: workspace:*
         version: link:../core
       glob:

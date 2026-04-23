@@ -2,7 +2,7 @@
 /* eslint n/hashbang: off, n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
-import { parseArgs, translateParseError } from '@williamthorsen/node-monorepo-core';
+import { parseArgs, translateParseError } from '@williamthorsen/nmr-core';
 
 import { commitCommand } from '../commitCommand.ts';
 import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';

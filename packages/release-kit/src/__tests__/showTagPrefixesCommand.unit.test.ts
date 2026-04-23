@@ -58,7 +58,7 @@ describe(showTagPrefixesCommand, () => {
         {
           workspacePath: 'packages/core',
           dir: 'core',
-          derivedPrefix: 'node-monorepo-core-v',
+          derivedPrefix: 'nmr-core-v',
           derivationError: null,
           derivedTagCount: 2,
           legacyEntries: [],
@@ -72,7 +72,7 @@ describe(showTagPrefixesCommand, () => {
 
     expect(exitCode).toBe(0);
     expect(output).toContain('packages/core');
-    expect(output).toContain("derived prefix 'node-monorepo-core-v'");
+    expect(output).toContain("derived prefix 'nmr-core-v'");
     expect(output).toContain('2 tags');
   });
 
@@ -82,7 +82,7 @@ describe(showTagPrefixesCommand, () => {
         {
           workspacePath: 'packages/core',
           dir: 'core',
-          derivedPrefix: 'node-monorepo-core-v',
+          derivedPrefix: 'nmr-core-v',
           derivationError: null,
           derivedTagCount: 0,
           legacyEntries: [{ prefix: 'core-v', tagCount: 3 }],
@@ -178,7 +178,7 @@ describe(showTagPrefixesCommand, () => {
         {
           workspacePath: 'packages/core',
           dir: 'core',
-          derivedPrefix: 'node-monorepo-core-v',
+          derivedPrefix: 'nmr-core-v',
           derivationError: null,
           derivedTagCount: 1,
           legacyEntries: [],

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { writeFileWithCheck } from '@williamthorsen/node-monorepo-core';
+import { writeFileWithCheck } from '@williamthorsen/nmr-core';
 
 import { extractVersion } from './changelogJsonUtils.ts';
 import { dim } from './format.ts';

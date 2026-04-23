@@ -33,7 +33,7 @@ describe(buildTagPattern, () => {
   });
 
   it('builds an alternation group when given multiple prefixes', () => {
-    expect(buildTagPattern(['node-monorepo-core-v', 'core-v'])).toBe('(node-monorepo-core-v|core-v)[0-9].*');
+    expect(buildTagPattern(['nmr-core-v', 'core-v'])).toBe('(nmr-core-v|core-v)[0-9].*');
   });
 
   it('escapes regex metacharacters in prefix entries', () => {

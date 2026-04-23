@@ -143,7 +143,7 @@ describe(mergeMonorepoConfig, () => {
 
   it('derives tagPrefix from unscoped pkg.name when directory basename differs', () => {
     mockPackageNames({
-      'libs/core': '@williamthorsen/node-monorepo-core',
+      'libs/core': '@williamthorsen/nmr-core',
       'apps/web': 'web-app',
     });
 
@@ -152,8 +152,8 @@ describe(mergeMonorepoConfig, () => {
     expect(result.workspaces).toHaveLength(2);
     expect(result.workspaces[0]).toStrictEqual({
       dir: 'core',
-      name: '@williamthorsen/node-monorepo-core',
-      tagPrefix: 'node-monorepo-core-v',
+      name: '@williamthorsen/nmr-core',
+      tagPrefix: 'nmr-core-v',
       workspacePath: 'libs/core',
       packageFiles: ['libs/core/package.json'],
       changelogPaths: ['libs/core'],

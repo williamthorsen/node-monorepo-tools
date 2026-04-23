@@ -1,4 +1,4 @@
-import { reportWriteResult, writeFileWithCheck } from '@williamthorsen/node-monorepo-core';
+import { reportWriteResult, writeFileWithCheck } from '@williamthorsen/nmr-core';
 
 import { discoverWorkspaces } from '../discoverWorkspaces.ts';
 import { generateCommand, LABELS_OUTPUT_PATH } from './generateCommand.ts';

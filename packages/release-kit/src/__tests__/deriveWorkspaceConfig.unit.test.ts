@@ -14,12 +14,12 @@ describe(deriveWorkspaceConfig, () => {
   });
 
   it('strips the @scope/ prefix from package name to derive tagPrefix', () => {
-    mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@williamthorsen/node-monorepo-core' }));
+    mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@williamthorsen/nmr-core' }));
 
     expect(deriveWorkspaceConfig('packages/core')).toStrictEqual({
       dir: 'core',
-      name: '@williamthorsen/node-monorepo-core',
-      tagPrefix: 'node-monorepo-core-v',
+      name: '@williamthorsen/nmr-core',
+      tagPrefix: 'nmr-core-v',
       workspacePath: 'packages/core',
       packageFiles: ['packages/core/package.json'],
       changelogPaths: ['packages/core'],
@@ -48,12 +48,12 @@ describe(deriveWorkspaceConfig, () => {
   });
 
   it('preserves dir as the basename when the directory name differs from the package name', () => {
-    mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@williamthorsen/node-monorepo-core' }));
+    mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@williamthorsen/nmr-core' }));
 
     const result = deriveWorkspaceConfig('libs/core');
 
     expect(result.dir).toBe('core');
-    expect(result.tagPrefix).toBe('node-monorepo-core-v');
+    expect(result.tagPrefix).toBe('nmr-core-v');
     expect(result.workspacePath).toBe('libs/core');
   });
 

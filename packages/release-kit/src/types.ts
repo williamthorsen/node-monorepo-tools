@@ -160,7 +160,7 @@ export interface ReleaseKitConfig {
  * A single historical identity snapshot for a workspace.
  *
  * Captures what the package looked like at some earlier point: the full npm `name`
- * (e.g., `'@williamthorsen/node-monorepo-core'`) and the `tagPrefix` under which tags
+ * (e.g., `'@williamthorsen/nmr-core'`) and the `tagPrefix` under which tags
  * were published (e.g., `'core-v'`). Both fields are required — a full tuple stays
  * unambiguous across any number of future renames.
  */
@@ -233,9 +233,9 @@ export interface ParsedCommit {
 export interface WorkspaceConfig {
   /** The package directory name (e.g., 'arrays'). Used for display and `--only` matching. */
   dir: string;
-  /** The full scoped npm name from `package.json` (e.g., `'@williamthorsen/node-monorepo-core'`). */
+  /** The full scoped npm name from `package.json` (e.g., `'@williamthorsen/nmr-core'`). */
   name: string;
-  /** The git tag prefix for this workspace (e.g., 'node-monorepo-core-v'), derived from the unscoped `package.json` name. */
+  /** The git tag prefix for this workspace (e.g., 'nmr-core-v'), derived from the unscoped `package.json` name. */
   tagPrefix: string;
   /** Workspace-relative path to the package root (e.g., `packages/core`). */
   workspacePath: string;

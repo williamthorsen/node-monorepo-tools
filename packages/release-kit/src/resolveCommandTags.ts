@@ -9,7 +9,7 @@ import type { WorkspaceConfig } from './types.ts';
 
 /**
  * Discover workspaces, resolve release tags from HEAD, validate `--tags` names against the
- * full resolved tag names (e.g., `node-monorepo-core-v1.3.0`), and return the filtered tag list.
+ * full resolved tag names (e.g., `nmr-core-v1.3.0`), and return the filtered tag list.
  * Works in both single-package and monorepo modes. Exits with an error message on any validation
  * failure — including `deriveWorkspaceConfig()` throws for workspaces missing a `package.json` `name` field.
  */

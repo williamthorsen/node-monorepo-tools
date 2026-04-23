@@ -52,13 +52,13 @@ describe(previewTagPrefixes, () => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/arrays']);
     mockLoadConfig.mockResolvedValue(undefined);
     mockDeriveWorkspaceConfig.mockImplementation((path: string) => {
-      if (path === 'packages/core') return { tagPrefix: 'node-monorepo-core-v' };
+      if (path === 'packages/core') return { tagPrefix: 'nmr-core-v' };
       if (path === 'packages/arrays') return { tagPrefix: 'arrays-v' };
       throw new Error(`unexpected path: ${path}`);
     });
     mockDetectUndeclared.mockReturnValue([]);
     setupTagCounts({
-      'node-monorepo-core-v': ['node-monorepo-core-v1.0.0', 'node-monorepo-core-v1.1.0'],
+      'nmr-core-v': ['nmr-core-v1.0.0', 'nmr-core-v1.1.0'],
       'arrays-v': ['arrays-v0.1.0'],
     });
 
@@ -68,7 +68,7 @@ describe(previewTagPrefixes, () => {
       {
         workspacePath: 'packages/core',
         dir: 'core',
-        derivedPrefix: 'node-monorepo-core-v',
+        derivedPrefix: 'nmr-core-v',
         derivationError: null,
         derivedTagCount: 2,
         legacyEntries: [],
@@ -117,10 +117,10 @@ describe(previewTagPrefixes, () => {
         },
       ],
     });
-    mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'node-monorepo-core-v' });
+    mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'nmr-core-v' });
     mockDetectUndeclared.mockReturnValue([]);
     setupTagCounts({
-      'node-monorepo-core-v': [],
+      'nmr-core-v': [],
       'core-v': ['core-v0.2.7', 'core-v0.2.8'],
       'old-core-v': [],
     });
@@ -152,13 +152,13 @@ describe(previewTagPrefixes, () => {
     mockLoadConfig.mockResolvedValue({
       workspaces: [{ dir: 'core', legacyIdentities: [{ name: '@old-scope/core', tagPrefix: 'core-v' }] }],
     });
-    mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'node-monorepo-core-v' });
+    mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'nmr-core-v' });
     mockDetectUndeclared.mockReturnValue([]);
     setupTagCounts({});
 
     await previewTagPrefixes();
 
-    expect(mockDetectUndeclared).toHaveBeenCalledWith(expect.arrayContaining(['node-monorepo-core-v', 'core-v']));
+    expect(mockDetectUndeclared).toHaveBeenCalledWith(expect.arrayContaining(['nmr-core-v', 'core-v']));
   });
 
   it('returns detection results as undeclaredCandidates in the preview', async () => {
@@ -203,13 +203,13 @@ describe(previewTagPrefixes, () => {
     mockLoadConfig.mockResolvedValue({
       retiredPackages: [{ name: '@scope/preflight', tagPrefix: 'preflight-v' }],
     });
-    mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'node-monorepo-core-v' });
+    mockDeriveWorkspaceConfig.mockReturnValue({ tagPrefix: 'nmr-core-v' });
     mockDetectUndeclared.mockReturnValue([]);
     setupTagCounts({});
 
     await previewTagPrefixes();
 
-    expect(mockDetectUndeclared).toHaveBeenCalledWith(expect.arrayContaining(['node-monorepo-core-v', 'preflight-v']));
+    expect(mockDetectUndeclared).toHaveBeenCalledWith(expect.arrayContaining(['nmr-core-v', 'preflight-v']));
   });
 
   it('returns an empty retiredPackages array when the config omits the field', async () => {

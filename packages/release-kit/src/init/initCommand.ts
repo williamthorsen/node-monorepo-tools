@@ -1,5 +1,5 @@
-import type { WriteResult } from '@williamthorsen/node-monorepo-core';
-import { printError, printStep, printSuccess, reportWriteResult } from '@williamthorsen/node-monorepo-core';
+import type { WriteResult } from '@williamthorsen/nmr-core';
+import { printError, printStep, printSuccess, reportWriteResult } from '@williamthorsen/nmr-core';
 
 import type { CheckResult } from './checks.ts';
 import { hasPackageJson, isGitRepo, usesPnpm } from './checks.ts';

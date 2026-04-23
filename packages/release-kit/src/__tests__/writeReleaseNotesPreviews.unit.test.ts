@@ -11,7 +11,7 @@ vi.mock('node:fs', () => ({
   readFileSync: mockReadFileSync,
 }));
 
-vi.mock('@williamthorsen/node-monorepo-core', () => ({
+vi.mock('@williamthorsen/nmr-core', () => ({
   writeFileWithCheck: mockWriteFileWithCheck,
 }));
 
