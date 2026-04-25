@@ -5,31 +5,31 @@
       "name": "audit-deps",
       "path": "kits/audit-deps.js",
       "source": "kits/audit-deps.ts",
-      "sourceHash": "fc6261a2"
+      "targetHash": "c1489fc8"
     },
     {
       "name": "default",
       "path": "kits/default.js",
       "source": "kits/default.ts",
-      "sourceHash": "15081cc4"
+      "targetHash": "e38810f1"
     },
     {
       "name": "nmr",
       "path": "kits/nmr.js",
       "source": "kits/nmr.ts",
-      "sourceHash": "4bfd8d74"
+      "targetHash": "e2c939db"
     },
     {
       "name": "npm-auto-publish",
       "path": "kits/npm-auto-publish.js",
       "source": "kits/npm-auto-publish.ts",
-      "sourceHash": "1370ed6a"
+      "targetHash": "8a3fb0d8"
     },
     {
       "name": "release-kit",
       "path": "kits/release-kit.js",
       "source": "kits/release-kit.ts",
-      "sourceHash": "53d54460"
+      "targetHash": "e98418c4"
     }
   ]
 }
