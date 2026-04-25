@@ -9,12 +9,10 @@
  * Run from a target repo's working directory:
  *   rdy run --file <path-to>/release-kit.js
  */
-import { existsSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
-
 import type { CheckOutcome } from 'readyup';
 import {
   defineRdyKit,
+  discoverWorkspaces,
   fileDoesNotContain,
   fileExists,
   fileMatchesHash,
@@ -25,7 +23,6 @@ import {
 } from 'readyup';
 
 import { detectRepoType } from '../../packages/release-kit/src/init/detectRepoType.ts';
-import { parseJsonRecord } from '../../packages/release-kit/src/init/parseJsonRecord.ts';
 
 // `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline
 // only the listed fields. Defer the call into a function so module load does
@@ -37,6 +34,10 @@ function getMinVersion(): string {
     throw new TypeError("release-kit/package.json: 'version' must be a string");
   }
   return picked.version;
+}
+
+function hasPublishablePackages(): boolean {
+  return discoverWorkspaces({ filter: (w) => w.isPackage }).length > 0;
 }
 
 // SHA-256 hashes of release-kit artifacts. Keep in sync —
@@ -91,17 +92,18 @@ export default defineRdyKit({
               },
               fix: 'Run `release-kit init --force` to regenerate release.yaml from the current template',
             },
+            {
+              name: 'release.yaml does not reference deprecated tag ref',
+              severity: 'error',
+              check: () => fileDoesNotContain('.github/workflows/release.yaml', /@(release|publish)-workflow-v[0-9]/),
+              fix: 'Update release.yaml to use @workflow/release-v1 (run `release-kit init --force` to regenerate, or replace the ref manually)',
+            },
           ],
-        },
-        {
-          name: 'release.yaml does not reference deprecated tag ref',
-          severity: 'error',
-          check: () => fileDoesNotContain('.github/workflows/release.yaml', /@(release|publish)-workflow-v[0-9]/),
-          fix: 'Update release.yaml to use @workflow/release-v1 (run `release-kit init --force` to regenerate, or replace the ref manually)',
         },
         {
           name: 'publish.yaml workflow exists',
           severity: 'warn',
+          skip: () => (!hasPublishablePackages() ? 'no publishable packages' : false),
           check: () => fileExists('.github/workflows/publish.yaml'),
           fix: 'Add .github/workflows/publish.yaml using the publish workflow template',
           checks: [
@@ -115,13 +117,13 @@ export default defineRdyKit({
               },
               fix: 'Run `release-kit init --force` to regenerate publish.yaml from the current template',
             },
+            {
+              name: 'publish.yaml does not reference deprecated tag ref',
+              severity: 'error',
+              check: () => fileDoesNotContain('.github/workflows/publish.yaml', /@(release|publish)-workflow-v[0-9]/),
+              fix: 'Update publish.yaml to use @workflow/publish-v1 (run `release-kit init --force` to regenerate, or replace the ref manually)',
+            },
           ],
-        },
-        {
-          name: 'publish.yaml does not reference deprecated tag ref',
-          severity: 'error',
-          check: () => fileDoesNotContain('.github/workflows/publish.yaml', /@(release|publish)-workflow-v[0-9]/),
-          fix: 'Update publish.yaml to use @workflow/publish-v1 (run `release-kit init --force` to regenerate, or replace the ref manually)',
         },
         {
           name: 'config does not use removed tagPrefix',
@@ -255,24 +257,20 @@ export function readmeHasReleaseNotesMarkers(content: string): boolean {
 }
 
 /**
- * Check README markers across the consumer repo, adapting to repo type.
+ * Check README markers across the consumer repo, iterating publishable workspaces.
  *
- * Single-package: validates the root `README.md`. A missing README fails the check.
- * Monorepo: validates `${dir}/README.md` for each publishable package and aggregates
- * failures into the `CheckOutcome.detail` field. A missing README within a package
- * counts as a failure for that package (no README → no markers).
+ * Validates `${dir}/README.md` for each publishable package and aggregates failures
+ * into the `CheckOutcome.detail` field. A missing README counts as a failure for
+ * that package (no README → no markers). In single-package mode, `discoverWorkspaces`
+ * yields a single root entry (`dir: '.'`), so the same loop handles both repo types.
  */
 export function readmesHaveReleaseNotesMarkers(): boolean | CheckOutcome {
-  if (detectRepoType() === 'single-package') {
-    const content = readFile('README.md');
-    return content !== undefined && readmeHasReleaseNotesMarkers(content);
-  }
-
   const failing: string[] = [];
-  for (const { dir } of getPublishablePackages()) {
-    const content = readFile(`${dir}/README.md`);
+  for (const { dir } of discoverWorkspaces({ filter: (w) => w.isPackage })) {
+    const readmePath = dir === '.' ? 'README.md' : `${dir}/README.md`;
+    const content = readFile(readmePath);
     if (content === undefined || !readmeHasReleaseNotesMarkers(content)) {
-      failing.push(`${dir}/README.md`);
+      failing.push(readmePath);
     }
   }
 
@@ -290,31 +288,4 @@ function labelsHaveCurrentPresetHash(presetName: string, expectedHash: string): 
   const pattern = new RegExp(`^# ${presetName} preset hash: (.+)$`, 'm');
   const match = pattern.exec(content);
   return match !== null && match[1] === expectedHash;
-}
-
-/**
- * Enumerate publishable workspace packages by walking `packages/{dir}` and
- * filtering out any whose `package.json` has `"private": true`.
- *
- * Returns `[]` when `packages/` does not exist. Assumes the conventional
- * `packages/{dir}` layout (matches the existing pattern used in
- * `.readyup/kits/nmr.ts`); does not parse `pnpm-workspace.yaml` or root
- * `package.json` `workspaces`.
- */
-export function getPublishablePackages(): Array<{ dir: string }> {
-  const packagesDir = join(process.cwd(), 'packages');
-  if (!existsSync(packagesDir)) return [];
-
-  const entries = readdirSync(packagesDir, { withFileTypes: true });
-  const publishable: Array<{ dir: string }> = [];
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const dir = `packages/${entry.name}`;
-    const content = readFile(`${dir}/package.json`);
-    if (content === undefined) continue;
-    const pkg = parseJsonRecord(content);
-    if (pkg?.private === true) continue;
-    publishable.push({ dir });
-  }
-  return publishable;
 }
