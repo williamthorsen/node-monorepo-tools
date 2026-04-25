@@ -13,7 +13,7 @@ export function assertCleanWorkingTree(): void {
 
   if (status.length > 0) {
     throw new Error(
-      'Working tree has uncommitted changes. Commit or stash them before running prepare, or use --no-git-checks to bypass this check.',
+      'Working tree has uncommitted changes. Commit or stash them, or use --no-git-checks to bypass this check.',
     );
   }
 }
