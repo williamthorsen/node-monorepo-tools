@@ -200,7 +200,7 @@ Publish packages that have release tags on HEAD.
 
 Options:
   --dry-run              Preview without publishing
-  --no-git-checks        Skip git checks (pnpm only)
+  --no-git-checks        Skip the clean-working-tree check
   --tags=tag1,tag2       Only publish the named tags (comma-separated, full tag names)
   --provenance           Generate provenance statement (requires OIDC, not supported by classic yarn)
   --help, -h             Show this help message

@@ -5,7 +5,6 @@ import type { ResolvedTag } from './resolveReleaseTags.ts';
 
 export interface PublishOptions {
   dryRun: boolean;
-  noGitChecks: boolean;
   provenance: boolean;
 }
 
@@ -15,9 +14,9 @@ export function publishPackage(
   packageManager: PackageManager,
   options: PublishOptions,
 ): void {
-  const { dryRun, noGitChecks, provenance } = options;
+  const { dryRun, provenance } = options;
   const executable = resolveExecutable(packageManager);
-  const args = buildPublishArgs(packageManager, { dryRun, noGitChecks, provenance });
+  const args = buildPublishArgs(packageManager, { dryRun, provenance });
 
   console.info(
     `\n${dryRun ? '[dry-run] ' : ''}Running: ${executable} ${args.join(' ')} (cwd: ${resolvedTag.workspacePath})`,
@@ -33,7 +32,12 @@ function resolveExecutable(packageManager: PackageManager): string {
   return packageManager;
 }
 
-/** Build the argument list for the publish command. */
+/**
+ * Build the argument list for the publish command.
+ *
+ * `--no-git-checks` is always emitted for pnpm: release-kit performs its own clean-tree check
+ * upstream, and the README injection that follows would otherwise trigger pnpm's check.
+ */
 function buildPublishArgs(packageManager: PackageManager, options: PublishOptions): string[] {
   const args = packageManager === 'yarn-berry' ? ['npm', 'publish'] : ['publish'];
 
@@ -41,7 +45,7 @@ function buildPublishArgs(packageManager: PackageManager, options: PublishOption
     args.push('--dry-run');
   }
 
-  if (options.noGitChecks && packageManager === 'pnpm') {
+  if (packageManager === 'pnpm') {
     args.push('--no-git-checks');
   }
 

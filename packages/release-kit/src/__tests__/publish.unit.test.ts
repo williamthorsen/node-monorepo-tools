@@ -22,7 +22,7 @@ describe(publishPackage, () => {
   const singleTag: ResolvedTag = { tag: 'v1.0.0', dir: '.', workspacePath: '.' };
 
   it('runs npm publish from the correct directory', () => {
-    publishPackage(singleTag, 'npm', { dryRun: false, noGitChecks: false, provenance: false });
+    publishPackage(singleTag, 'npm', { dryRun: false, provenance: false });
 
     expect(mockExecFileSync).toHaveBeenCalledWith('npm', ['publish'], {
       cwd: '.',
@@ -30,19 +30,19 @@ describe(publishPackage, () => {
     });
   });
 
-  it('runs pnpm publish from the correct directory', () => {
+  it('runs pnpm publish from the correct directory with --no-git-checks always emitted', () => {
     const tag: ResolvedTag = { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' };
 
-    publishPackage(tag, 'pnpm', { dryRun: false, noGitChecks: false, provenance: false });
+    publishPackage(tag, 'pnpm', { dryRun: false, provenance: false });
 
-    expect(mockExecFileSync).toHaveBeenCalledWith('pnpm', ['publish'], {
+    expect(mockExecFileSync).toHaveBeenCalledWith('pnpm', ['publish', '--no-git-checks'], {
       cwd: 'packages/core',
       stdio: 'inherit',
     });
   });
 
-  it('forwards --dry-run flag', () => {
-    publishPackage(singleTag, 'npm', { dryRun: true, noGitChecks: false, provenance: false });
+  it('forwards --dry-run flag for npm', () => {
+    publishPackage(singleTag, 'npm', { dryRun: true, provenance: false });
 
     expect(mockExecFileSync).toHaveBeenCalledWith('npm', ['publish', '--dry-run'], {
       cwd: '.',
@@ -50,17 +50,8 @@ describe(publishPackage, () => {
     });
   });
 
-  it('forwards --no-git-checks only for pnpm', () => {
-    publishPackage(singleTag, 'pnpm', { dryRun: false, noGitChecks: true, provenance: false });
-
-    expect(mockExecFileSync).toHaveBeenCalledWith('pnpm', ['publish', '--no-git-checks'], {
-      cwd: '.',
-      stdio: 'inherit',
-    });
-  });
-
-  it('does not forward --no-git-checks for npm', () => {
-    publishPackage(singleTag, 'npm', { dryRun: false, noGitChecks: true, provenance: false });
+  it('does not emit --no-git-checks for npm', () => {
+    publishPackage(singleTag, 'npm', { dryRun: false, provenance: false });
 
     expect(mockExecFileSync).toHaveBeenCalledWith('npm', ['publish'], {
       cwd: '.',
@@ -68,8 +59,8 @@ describe(publishPackage, () => {
     });
   });
 
-  it('does not forward --no-git-checks for yarn', () => {
-    publishPackage(singleTag, 'yarn', { dryRun: false, noGitChecks: true, provenance: false });
+  it('does not emit --no-git-checks for yarn', () => {
+    publishPackage(singleTag, 'yarn', { dryRun: false, provenance: false });
 
     expect(mockExecFileSync).toHaveBeenCalledWith('yarn', ['publish'], {
       cwd: '.',
@@ -78,7 +69,7 @@ describe(publishPackage, () => {
   });
 
   it('runs yarn npm publish for yarn-berry', () => {
-    publishPackage(singleTag, 'yarn-berry', { dryRun: false, noGitChecks: false, provenance: false });
+    publishPackage(singleTag, 'yarn-berry', { dryRun: false, provenance: false });
 
     expect(mockExecFileSync).toHaveBeenCalledWith('yarn', ['npm', 'publish'], {
       cwd: '.',
@@ -87,7 +78,7 @@ describe(publishPackage, () => {
   });
 
   it('forwards --dry-run for yarn-berry', () => {
-    publishPackage(singleTag, 'yarn-berry', { dryRun: true, noGitChecks: false, provenance: false });
+    publishPackage(singleTag, 'yarn-berry', { dryRun: true, provenance: false });
 
     expect(mockExecFileSync).toHaveBeenCalledWith('yarn', ['npm', 'publish', '--dry-run'], {
       cwd: '.',
@@ -95,8 +86,8 @@ describe(publishPackage, () => {
     });
   });
 
-  it('does not forward --no-git-checks for yarn-berry', () => {
-    publishPackage(singleTag, 'yarn-berry', { dryRun: false, noGitChecks: true, provenance: false });
+  it('does not emit --no-git-checks for yarn-berry', () => {
+    publishPackage(singleTag, 'yarn-berry', { dryRun: false, provenance: false });
 
     expect(mockExecFileSync).toHaveBeenCalledWith('yarn', ['npm', 'publish'], {
       cwd: '.',
@@ -104,8 +95,8 @@ describe(publishPackage, () => {
     });
   });
 
-  it('forwards both --dry-run and --no-git-checks for pnpm', () => {
-    publishPackage(singleTag, 'pnpm', { dryRun: true, noGitChecks: true, provenance: false });
+  it('forwards --dry-run alongside --no-git-checks for pnpm', () => {
+    publishPackage(singleTag, 'pnpm', { dryRun: true, provenance: false });
 
     expect(mockExecFileSync).toHaveBeenCalledWith('pnpm', ['publish', '--dry-run', '--no-git-checks'], {
       cwd: '.',
@@ -114,7 +105,7 @@ describe(publishPackage, () => {
   });
 
   it('forwards --provenance for npm', () => {
-    publishPackage(singleTag, 'npm', { dryRun: false, noGitChecks: false, provenance: true });
+    publishPackage(singleTag, 'npm', { dryRun: false, provenance: true });
 
     expect(mockExecFileSync).toHaveBeenCalledWith('npm', ['publish', '--provenance'], {
       cwd: '.',
@@ -122,17 +113,17 @@ describe(publishPackage, () => {
     });
   });
 
-  it('forwards --provenance for pnpm', () => {
-    publishPackage(singleTag, 'pnpm', { dryRun: false, noGitChecks: false, provenance: true });
+  it('forwards --provenance for pnpm alongside --no-git-checks', () => {
+    publishPackage(singleTag, 'pnpm', { dryRun: false, provenance: true });
 
-    expect(mockExecFileSync).toHaveBeenCalledWith('pnpm', ['publish', '--provenance'], {
+    expect(mockExecFileSync).toHaveBeenCalledWith('pnpm', ['publish', '--no-git-checks', '--provenance'], {
       cwd: '.',
       stdio: 'inherit',
     });
   });
 
   it('forwards --provenance for yarn-berry', () => {
-    publishPackage(singleTag, 'yarn-berry', { dryRun: false, noGitChecks: false, provenance: true });
+    publishPackage(singleTag, 'yarn-berry', { dryRun: false, provenance: true });
 
     expect(mockExecFileSync).toHaveBeenCalledWith('yarn', ['npm', 'publish', '--provenance'], {
       cwd: '.',
@@ -141,7 +132,7 @@ describe(publishPackage, () => {
   });
 
   it('does not forward --provenance for classic yarn', () => {
-    publishPackage(singleTag, 'yarn', { dryRun: false, noGitChecks: false, provenance: true });
+    publishPackage(singleTag, 'yarn', { dryRun: false, provenance: true });
 
     expect(mockExecFileSync).toHaveBeenCalledWith('yarn', ['publish'], {
       cwd: '.',
@@ -149,17 +140,8 @@ describe(publishPackage, () => {
     });
   });
 
-  it('forwards --dry-run and --provenance together for pnpm', () => {
-    publishPackage(singleTag, 'pnpm', { dryRun: true, noGitChecks: false, provenance: true });
-
-    expect(mockExecFileSync).toHaveBeenCalledWith('pnpm', ['publish', '--dry-run', '--provenance'], {
-      cwd: '.',
-      stdio: 'inherit',
-    });
-  });
-
-  it('forwards all three flags in deterministic order for pnpm', () => {
-    publishPackage(singleTag, 'pnpm', { dryRun: true, noGitChecks: true, provenance: true });
+  it('forwards --dry-run, --no-git-checks, and --provenance in deterministic order for pnpm', () => {
+    publishPackage(singleTag, 'pnpm', { dryRun: true, provenance: true });
 
     expect(mockExecFileSync).toHaveBeenCalledWith('pnpm', ['publish', '--dry-run', '--no-git-checks', '--provenance'], {
       cwd: '.',
@@ -168,7 +150,7 @@ describe(publishPackage, () => {
   });
 
   it('forwards --dry-run but suppresses --provenance for classic yarn', () => {
-    publishPackage(singleTag, 'yarn', { dryRun: true, noGitChecks: false, provenance: true });
+    publishPackage(singleTag, 'yarn', { dryRun: true, provenance: true });
 
     expect(mockExecFileSync).toHaveBeenCalledWith('yarn', ['publish', '--dry-run'], {
       cwd: '.',

@@ -11,6 +11,7 @@ const mockInjectReleaseNotesIntoReadme = vi.hoisted(() => vi.fn());
 const mockResolveReadmePath = vi.hoisted(() => vi.fn());
 const mockWriteFileSync = vi.hoisted(() => vi.fn());
 const mockDeriveWorkspaceConfig = vi.hoisted(() => vi.fn());
+const mockAssertCleanWorkingTree = vi.hoisted(() => vi.fn());
 
 vi.mock('node:fs', () => ({
   writeFileSync: mockWriteFileSync,
@@ -55,6 +56,10 @@ vi.mock('../createGithubRelease.ts', () => ({
 vi.mock('../injectReleaseNotesIntoReadme.ts', () => ({
   injectReleaseNotesIntoReadme: mockInjectReleaseNotesIntoReadme,
   resolveReadmePath: mockResolveReadmePath,
+}));
+
+vi.mock('../assertCleanWorkingTree.ts', () => ({
+  assertCleanWorkingTree: mockAssertCleanWorkingTree,
 }));
 
 import { publishCommand } from '../publishCommand.ts';
@@ -106,6 +111,7 @@ describe(publishCommand, () => {
     mockResolveReadmePath.mockReset();
     mockWriteFileSync.mockReset();
     mockDeriveWorkspaceConfig.mockReset();
+    mockAssertCleanWorkingTree.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -115,7 +121,7 @@ describe(publishCommand, () => {
     expect(mockPublishPackage).toHaveBeenCalledWith(
       { tag: 'v1.0.0', dir: '.', workspacePath: '.' },
       'npm',
-      expect.objectContaining({ dryRun: false, noGitChecks: false, provenance: false }),
+      expect.objectContaining({ dryRun: false, provenance: false }),
     );
   });
 
@@ -125,18 +131,19 @@ describe(publishCommand, () => {
     expect(mockPublishPackage).toHaveBeenCalledWith(
       expect.anything(),
       'npm',
-      expect.objectContaining({ dryRun: true, noGitChecks: false, provenance: false }),
+      expect.objectContaining({ dryRun: true, provenance: false }),
     );
   });
 
-  it('passes noGitChecks when --no-git-checks is provided', async () => {
+  it('does not thread --no-git-checks into publishPackage options', async () => {
     await publishCommand(['--no-git-checks']);
 
     expect(mockPublishPackage).toHaveBeenCalledWith(
       expect.anything(),
       'npm',
-      expect.objectContaining({ dryRun: false, noGitChecks: true, provenance: false }),
+      expect.objectContaining({ dryRun: false, provenance: false }),
     );
+    expect(mockPublishPackage.mock.calls[0]?.[2]).not.toHaveProperty('noGitChecks');
   });
 
   it('passes provenance when --provenance is provided', async () => {
@@ -145,7 +152,7 @@ describe(publishCommand, () => {
     expect(mockPublishPackage).toHaveBeenCalledWith(
       expect.anything(),
       'npm',
-      expect.objectContaining({ dryRun: false, noGitChecks: false, provenance: true }),
+      expect.objectContaining({ dryRun: false, provenance: true }),
     );
   });
 
@@ -197,7 +204,7 @@ describe(publishCommand, () => {
     expect(mockPublishPackage).toHaveBeenCalledWith(
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
       'npm',
-      expect.objectContaining({ dryRun: false, noGitChecks: false, provenance: false }),
+      expect.objectContaining({ dryRun: false, provenance: false }),
     );
   });
 
@@ -211,7 +218,7 @@ describe(publishCommand, () => {
     expect(mockPublishPackage).toHaveBeenCalledWith(
       { tag: 'v1.0.0', dir: '.', workspacePath: '.' },
       'npm',
-      expect.objectContaining({ dryRun: false, noGitChecks: false, provenance: false }),
+      expect.objectContaining({ dryRun: false, provenance: false }),
     );
   });
 
@@ -457,6 +464,50 @@ describe(publishCommand, () => {
 
       expect(mockResolveReadmePath).not.toHaveBeenCalled();
       expect(mockInjectReleaseNotesIntoReadme).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('clean-tree gate', () => {
+    it('exits with error when the working tree is dirty', async () => {
+      mockAssertCleanWorkingTree.mockImplementation(() => {
+        throw new Error('Working tree has uncommitted changes.');
+      });
+
+      let thrown: ExitError | undefined;
+      try {
+        await publishCommand([]);
+      } catch (error: unknown) {
+        if (error instanceof ExitError) {
+          thrown = error;
+        }
+      }
+
+      expect(thrown).toBeInstanceOf(ExitError);
+      expect(thrown?.code).toBe(1);
+      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('uncommitted changes'));
+      expect(mockResolveReleaseTags).not.toHaveBeenCalled();
+      expect(mockPublishPackage).not.toHaveBeenCalled();
+    });
+
+    it('proceeds when the working tree is clean', async () => {
+      await publishCommand([]);
+
+      expect(mockAssertCleanWorkingTree).toHaveBeenCalledTimes(1);
+      expect(mockPublishPackage).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips the check when --no-git-checks is provided', async () => {
+      await publishCommand(['--no-git-checks']);
+
+      expect(mockAssertCleanWorkingTree).not.toHaveBeenCalled();
+      expect(mockPublishPackage).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips the check when --dry-run is provided', async () => {
+      await publishCommand(['--dry-run']);
+
+      expect(mockAssertCleanWorkingTree).not.toHaveBeenCalled();
+      expect(mockPublishPackage).toHaveBeenCalledTimes(1);
     });
   });
 });

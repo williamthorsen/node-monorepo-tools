@@ -6,6 +6,7 @@ import { join } from 'node:path';
 
 import { parseArgs, translateParseError } from '@williamthorsen/nmr-core';
 
+import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { detectPackageManager } from './detectPackageManager.ts';
 import { injectReleaseNotesIntoReadme, resolveReadmePath } from './injectReleaseNotesIntoReadme.ts';
 import { parseRequestedTags } from './parseRequestedTags.ts';
@@ -34,6 +35,19 @@ export async function publishCommand(argv: string[]): Promise<void> {
   }
 
   const { dryRun, noGitChecks, provenance } = parsed.flags;
+
+  // Guard against running on a dirty working tree (skip for dry runs and --no-git-checks).
+  // Mirrors prepareCommand and tagCommand: release-kit owns the check; pnpm's own check is
+  // bypassed downstream because release-kit deliberately mutates the README during publish.
+  if (!dryRun && !noGitChecks) {
+    try {
+      assertCleanWorkingTree();
+    } catch (error: unknown) {
+      console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      process.exit(1);
+    }
+  }
+
   const requestedTags = parseRequestedTags(parsed.flags.tags);
 
   const resolvedTags = await resolveCommandTags(requestedTags);
@@ -73,7 +87,7 @@ export async function publishCommand(argv: string[]): Promise<void> {
       }
 
       try {
-        publishPackage(resolvedTag, packageManager, { dryRun, noGitChecks, provenance });
+        publishPackage(resolvedTag, packageManager, { dryRun, provenance });
         published.push(resolvedTag.tag);
       } finally {
         if (readmePath !== undefined && originalReadme !== undefined) {
