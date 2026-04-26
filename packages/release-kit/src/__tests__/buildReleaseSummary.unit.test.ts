@@ -102,4 +102,71 @@ describe(buildReleaseSummary, () => {
   it('returns empty string when there are no workspaces', () => {
     expect(buildReleaseSummary(makeResult())).toBe('');
   });
+
+  describe('project release section', () => {
+    it('appends the project section after workspace sections when project commits exist', () => {
+      const result = makeResult({
+        workspaces: [
+          {
+            name: 'arrays',
+            status: 'released',
+            tag: 'arrays-v1.1.0',
+            commitCount: 1,
+            bumpedFiles: [],
+            changelogFiles: [],
+            commits: [{ message: 'arrays|feat: Add compact', hash: 'a1' }],
+          },
+        ],
+        project: {
+          status: 'released',
+          commitCount: 1,
+          releaseType: 'minor',
+          currentVersion: '0.9.0',
+          newVersion: '0.10.0',
+          tag: 'v0.10.0',
+          bumpedFiles: ['./package.json'],
+          changelogFiles: ['./CHANGELOG.md'],
+          commits: [{ message: 'arrays|feat: Add compact', hash: 'a1' }],
+        },
+      });
+
+      expect(buildReleaseSummary(result)).toBe('arrays-v1.1.0\n- feat: Add compact\n\nv0.10.0\n- feat: Add compact');
+    });
+
+    it('emits only the project section when no workspace contributed commits', () => {
+      const result = makeResult({
+        project: {
+          status: 'released',
+          commitCount: 1,
+          releaseType: 'patch',
+          currentVersion: '0.9.0',
+          newVersion: '0.9.1',
+          tag: 'v0.9.1',
+          bumpedFiles: ['./package.json'],
+          changelogFiles: ['./CHANGELOG.md'],
+          commits: [{ message: 'arrays|fix: Patch bug', hash: 'b1' }],
+        },
+      });
+
+      expect(buildReleaseSummary(result)).toBe('v0.9.1\n- fix: Patch bug');
+    });
+
+    it('omits the project section when no project commits exist', () => {
+      const result = makeResult({
+        project: {
+          status: 'released',
+          commitCount: 0,
+          releaseType: 'patch',
+          currentVersion: '0.9.0',
+          newVersion: '0.9.1',
+          tag: 'v0.9.1',
+          bumpedFiles: ['./package.json'],
+          changelogFiles: ['./CHANGELOG.md'],
+          commits: [],
+        },
+      });
+
+      expect(buildReleaseSummary(result)).toBe('');
+    });
+  });
 });

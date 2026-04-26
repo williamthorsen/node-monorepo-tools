@@ -8,7 +8,7 @@ import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { buildReleaseSummary } from './buildReleaseSummary.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
 import { dim } from './format.ts';
-import { loadConfig, mergeMonorepoConfig, mergeSinglePackageConfig } from './loadConfig.ts';
+import { loadConfig, mergeMonorepoConfig, mergeSinglePackageConfig, readRootPackageVersion } from './loadConfig.ts';
 import { releasePrepare } from './releasePrepare.ts';
 import { releasePrepareMono } from './releasePrepareMono.ts';
 import { reportPrepare } from './reportPrepare.ts';
@@ -47,7 +47,8 @@ Options:
   --set-version=X.Y.Z   Set an explicit version; bypasses commit-derived bumps. Requires --only in monorepo mode.
   --force               Force a release even when there are no commits since the last tag (requires --bump)
   --no-git-checks, -n   Skip the clean-working-tree check
-  --only=name1,name2    Only process the named workspaces (comma-separated, monorepo only)
+  --only=name1,name2    Only process the named workspaces (comma-separated, monorepo only;
+                         rejected when a 'project' block is configured)
   --with-release-notes  Also write per-workspace release-notes previews under {workspacePath}/docs/
                          (docs/README.v{version}.md and docs/RELEASE_NOTES.v{version}.md).
                          Recommended .gitignore entry: packages/*/docs/*.v*.md (or docs/*.v*.md).
@@ -245,9 +246,25 @@ function runMonorepoMode(
 ): void {
   let config: MonorepoReleaseConfig;
   try {
-    config = mergeMonorepoConfig(discoveredPaths, userConfig);
+    // Read the root package.json once so `mergeMonorepoConfig` (a pure transform) can
+    // validate the project block's prerequisites without doing I/O of its own.
+    const rootPackage = readRootPackageVersion();
+    config = mergeMonorepoConfig(discoveredPaths, userConfig, rootPackage);
   } catch (error: unknown) {
     console.error(`Error resolving workspaces: ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  }
+
+  // Reject `--only` when a project block is configured. Project releases roll up every
+  // contributing workspace; narrowing to a single workspace would produce ambiguous semantics
+  // around which workspaces participate in the project bump. A consumer that needs to release
+  // a single workspace must do so on a config without a `project` block.
+  if (only !== undefined && config.project !== undefined) {
+    console.error(
+      'Error: --only cannot be combined with a project release. ' +
+        'To release a single workspace, use a config without a `project` block, ' +
+        'or run a full `prepare` (no --only) to include the project release.',
+    );
     process.exit(1);
   }
 

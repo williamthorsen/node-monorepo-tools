@@ -631,4 +631,100 @@ describe(reportPrepare, () => {
       expect(output).toContain('(patch, dependency: @scope/core)');
     });
   });
+
+  describe('project release section', () => {
+    it('renders the project section after workspace sections and before the tag summary', () => {
+      const result: PrepareResult = {
+        workspaces: [
+          {
+            name: 'arrays',
+            status: 'released',
+            previousTag: 'arrays-v1.0.0',
+            commitCount: 1,
+            parsedCommitCount: 1,
+            releaseType: 'minor',
+            currentVersion: '1.0.0',
+            newVersion: '1.1.0',
+            tag: 'arrays-v1.1.0',
+            bumpedFiles: ['packages/arrays/package.json'],
+            changelogFiles: ['packages/arrays/CHANGELOG.md'],
+          },
+        ],
+        tags: ['arrays-v1.1.0', 'v0.10.0'],
+        dryRun: false,
+        project: {
+          status: 'released',
+          previousTag: 'v0.9.0',
+          commitCount: 1,
+          parsedCommitCount: 1,
+          releaseType: 'minor',
+          currentVersion: '0.9.0',
+          newVersion: '0.10.0',
+          tag: 'v0.10.0',
+          bumpedFiles: ['./package.json'],
+          changelogFiles: ['./CHANGELOG.md'],
+        },
+      };
+
+      const output = reportPrepare(result);
+
+      expect(output).toContain(sectionHeader('project'));
+      expect(output).toContain(`📦 0.9.0 → ${bold('0.10.0')} (minor)`);
+      expect(output).toContain(`🏷️  ${bold('v0.10.0')}`);
+      // Tag summary still includes both per-workspace and project tags.
+      expect(output).toContain(`✅ Release preparation complete.`);
+      expect(output).toContain(`🏷️  ${bold('arrays-v1.1.0')}`);
+    });
+
+    it('renders dry-run prefixes for project bumped and changelog files', () => {
+      const result: PrepareResult = {
+        workspaces: [],
+        tags: ['v0.10.0'],
+        dryRun: true,
+        project: {
+          status: 'released',
+          previousTag: 'v0.9.0',
+          commitCount: 1,
+          parsedCommitCount: 1,
+          releaseType: 'minor',
+          currentVersion: '0.9.0',
+          newVersion: '0.10.0',
+          tag: 'v0.10.0',
+          bumpedFiles: ['./package.json'],
+          changelogFiles: ['./CHANGELOG.md'],
+        },
+      };
+
+      const output = reportPrepare(result);
+
+      expect(output).toContain(dim('    [dry-run] Would bump ./package.json'));
+      expect(output).toContain(dim('    [dry-run] Would run: npx --yes git-cliff ... --output ./CHANGELOG.md'));
+    });
+
+    it('omits the project section entirely when result.project is undefined', () => {
+      const result: PrepareResult = {
+        workspaces: [
+          {
+            name: 'arrays',
+            status: 'released',
+            previousTag: 'arrays-v1.0.0',
+            commitCount: 1,
+            parsedCommitCount: 1,
+            releaseType: 'minor',
+            currentVersion: '1.0.0',
+            newVersion: '1.1.0',
+            tag: 'arrays-v1.1.0',
+            bumpedFiles: ['packages/arrays/package.json'],
+            changelogFiles: ['packages/arrays/CHANGELOG.md'],
+          },
+        ],
+        tags: ['arrays-v1.1.0'],
+        dryRun: false,
+      };
+
+      const output = reportPrepare(result);
+
+      expect(output).not.toContain(sectionHeader('project'));
+    });
+  });
 });

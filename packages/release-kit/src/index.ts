@@ -19,10 +19,13 @@ export type {
   MonorepoReleaseConfig,
   ParsedCommit,
   PrepareResult,
+  ProjectConfig,
+  ProjectPrepareResult,
   ReleaseConfig,
   ReleaseKitConfig,
   ReleaseNotesConfig,
   ReleaseType,
+  ResolvedProjectConfig,
   RetiredPackage,
   VersionPatterns,
   WorkspaceConfig,
@@ -34,6 +37,7 @@ export type {
 // Defaults
 export {
   DEFAULT_CHANGELOG_JSON_CONFIG,
+  DEFAULT_PROJECT_TAG_PREFIX,
   DEFAULT_RELEASE_NOTES_CONFIG,
   DEFAULT_VERSION_PATTERNS,
   DEFAULT_WORK_TYPES,
@@ -69,6 +73,8 @@ export type { PushReleaseOptions } from './pushRelease.ts';
 export { pushRelease } from './pushRelease.ts';
 export { releasePrepare } from './releasePrepare.ts';
 export { releasePrepareMono } from './releasePrepareMono.ts';
+export type { ReleasePrepareProjectArgs } from './releasePrepareProject.ts';
+export { releasePrepareProject } from './releasePrepareProject.ts';
 export type { RenderOptions } from './renderReleaseNotes.ts';
 export { matchesAudience, renderReleaseNotesMulti, renderReleaseNotesSingle } from './renderReleaseNotes.ts';
 export { reportPrepare } from './reportPrepare.ts';

@@ -1,15 +1,16 @@
 import { bold, dim, sectionHeader } from './format.ts';
-import type { PrepareResult, PropagationSource, WorkspacePrepareResult } from './types.ts';
+import type { PrepareResult, ProjectPrepareResult, PropagationSource, WorkspacePrepareResult } from './types.ts';
 
 /**
  * Format a `PrepareResult` into styled terminal output.
  *
  * Pure function: accepts structured data, returns a string. Never writes to stdout.
  * Single-workspace mode (no `name` field) renders flat output; multi-workspace mode
- * renders section headers per workspace and a tag summary at the end.
+ * renders section headers per workspace, an optional project section, and a tag summary
+ * at the end.
  */
 export function reportPrepare(result: PrepareResult): string {
-  const isMultiWorkspace = result.workspaces.some((w) => w.name !== undefined);
+  const isMultiWorkspace = result.workspaces.some((w) => w.name !== undefined) || result.project !== undefined;
 
   if (isMultiWorkspace) {
     return formatMultiWorkspace(result);
@@ -92,6 +93,10 @@ function formatMultiWorkspace(result: PrepareResult): string {
     formatWorkspaceSection(lines, workspace, result.dryRun);
   }
 
+  if (result.project !== undefined) {
+    formatProjectSection(lines, result.project, result.dryRun);
+  }
+
   // Format command
   formatFormatCommand(lines, result);
 
@@ -109,6 +114,67 @@ function formatMultiWorkspace(result: PrepareResult): string {
   }
 
   return lines.join('\n');
+}
+
+/**
+ * Render the project release section using the same shape as a workspace section. The
+ * project release always corresponds to a single bump (no propagation, no `--set-version`),
+ * so the rendering branches are simpler than `formatWorkspaceSection`.
+ */
+function formatProjectSection(lines: string[], project: ProjectPrepareResult, dryRun: boolean): void {
+  lines.push(`\n${sectionHeader('project')}`);
+
+  const since = project.previousTag === undefined ? '(no previous release found)' : `since ${project.previousTag}`;
+  lines.push(dim(`  Found ${project.commitCount} commits ${since}`));
+
+  if (project.parsedCommitCount !== undefined) {
+    lines.push(dim(`  Parsed ${project.parsedCommitCount} typed commits`));
+  } else {
+    lines.push(`  Using bump override: ${project.releaseType}`);
+  }
+
+  formatProjectUnparseable(lines, project);
+
+  lines.push(
+    dim(`  Bumping versions (${project.releaseType})...`),
+    `  📦 ${project.currentVersion} → ${bold(project.newVersion)} (${project.releaseType})`,
+  );
+
+  for (const file of project.bumpedFiles) {
+    if (dryRun) {
+      lines.push(dim(`    [dry-run] Would bump ${file}`));
+    } else {
+      lines.push(dim(`    Bumped ${file}`));
+    }
+  }
+
+  lines.push(dim('  Generating changelogs...'));
+  for (const file of project.changelogFiles) {
+    if (dryRun) {
+      lines.push(dim(`    [dry-run] Would run: npx --yes git-cliff ... --output ${file}`));
+    } else {
+      lines.push(dim(`    Generating changelog: ${file}`));
+    }
+  }
+
+  lines.push(`  🏷️  ${bold(project.tag)}`);
+}
+
+/** Append the unparseable-commit warning lines for a project release, if any. */
+function formatProjectUnparseable(lines: string[], project: ProjectPrepareResult): void {
+  const unparseable = project.unparseableCommits;
+  if (unparseable === undefined || unparseable.length === 0) {
+    return;
+  }
+  const count = unparseable.length;
+  const isPatchFloor = project.parsedCommitCount === 0;
+  const suffix = isPatchFloor ? ' (defaulting to patch bump)' : '';
+  lines.push(`    ⚠️  ${count} commit${count === 1 ? '' : 's'} could not be parsed${suffix}`);
+  for (const commit of unparseable) {
+    const shortHash = commit.hash.slice(0, 7);
+    const truncatedMessage = commit.message.length > 72 ? `${commit.message.slice(0, 69)}...` : commit.message;
+    lines.push(`      · ${shortHash} ${truncatedMessage}`);
+  }
 }
 
 /** Render a single workspace's section within multi-workspace output. */

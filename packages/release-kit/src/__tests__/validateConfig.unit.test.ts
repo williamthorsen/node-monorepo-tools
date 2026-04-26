@@ -604,6 +604,46 @@ describe(validateConfig, () => {
     });
   });
 
+  describe('project', () => {
+    it('accepts an empty project block', () => {
+      const { config, errors } = validateConfig({ project: {} });
+      expect(errors).toStrictEqual([]);
+      expect(config.project).toStrictEqual({});
+    });
+
+    it('accepts a project block with a tagPrefix', () => {
+      const { config, errors } = validateConfig({ project: { tagPrefix: 'release-v' } });
+      expect(errors).toStrictEqual([]);
+      expect(config.project).toStrictEqual({ tagPrefix: 'release-v' });
+    });
+
+    it('returns an error when project is not an object', () => {
+      const { errors } = validateConfig({ project: 'v' });
+      expect(errors).toContain("'project' must be an object");
+    });
+
+    it('returns an error when tagPrefix is not a string', () => {
+      const { errors } = validateConfig({ project: { tagPrefix: 42 } });
+      expect(errors).toContain('project.tagPrefix: must be a string');
+    });
+
+    it('returns an error when tagPrefix is an empty string', () => {
+      const { errors } = validateConfig({ project: { tagPrefix: '' } });
+      expect(errors).toContain('project.tagPrefix: must be a non-empty string');
+    });
+
+    it('returns an error for unknown subfields', () => {
+      const { errors } = validateConfig({ project: { tagPrefix: 'v', bogus: true } });
+      expect(errors).toContain("project: unknown field 'bogus'");
+    });
+
+    it('omits project from the result when the field is not provided', () => {
+      const { config, errors } = validateConfig({});
+      expect(errors).toStrictEqual([]);
+      expect(config.project).toBeUndefined();
+    });
+  });
+
   describe('cross-field warnings', () => {
     it('warns when shouldInjectIntoReadme is true but changelogJson is disabled', () => {
       const { warnings } = validateConfig({

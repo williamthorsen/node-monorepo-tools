@@ -1,0 +1,146 @@
+import { bumpAllVersions } from './bumpAllVersions.ts';
+import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
+import { determineBumpFromCommits } from './determineBumpFromCommits.ts';
+import { generateChangelogJson } from './generateChangelogJson.ts';
+import { buildTagPattern, generateChangelog } from './generateChangelogs.ts';
+import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
+import type { ReleasePrepareOptions } from './releasePrepare.ts';
+import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
+import type { Commit, MonorepoReleaseConfig, ProjectPrepareResult, ReleaseType } from './types.ts';
+import { writeReleaseNotesPreviews } from './writeReleaseNotesPreviews.ts';
+
+/** File path for the root `package.json` bumped during the project release stage. */
+const ROOT_PACKAGE_FILE = './package.json';
+
+/** Path argument passed to `generateChangelog`/`generateChangelogJson`; resolves to root paths at runtime. */
+const ROOT_CHANGELOG_PATH = '.';
+
+/** Inputs to the project-release stage. */
+export interface ReleasePrepareProjectArgs {
+  /** Resolved monorepo config; `config.project` must be defined when this function is called. */
+  config: MonorepoReleaseConfig;
+  options: ReleasePrepareOptions;
+  /** Mutated in-place to append project-level files (root package.json, root CHANGELOG.md, root changelog.json). */
+  modifiedFiles: string[];
+  /** Mutated in-place to append the project tag. */
+  tags: string[];
+}
+
+/**
+ * Run the project-level release stage.
+ *
+ * Mirrors the per-workspace pipeline shape — find baseline tag → derive bump → bump version →
+ * regenerate CHANGELOG → optionally emit changelog.json and release-notes previews — but
+ * targets the root `package.json` and the root `CHANGELOG.md`. Contributing paths are the
+ * union of every (already-filtered) workspace's `paths`.
+ *
+ * Returns `undefined` when there are no commits in the contributing window since the last
+ * project tag and `options.force` is not set, mirroring per-workspace skip behavior. The
+ * caller should attach the returned result (when defined) to `PrepareResult.project`.
+ *
+ * Caller contract: `prepareCommand` rejects `--only` upstream when a project block is
+ * configured, so this orchestrator never has to reason about workspace-narrowing flags.
+ */
+export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectPrepareResult | undefined {
+  const { config, options, modifiedFiles, tags } = args;
+  const { dryRun, bumpOverride, withReleaseNotes, force } = options;
+  const project = config.project;
+  if (project === undefined) {
+    throw new Error('releasePrepareProject called without a configured project block');
+  }
+
+  const workTypes = config.workTypes ?? { ...DEFAULT_WORK_TYPES };
+  const versionPatterns = config.versionPatterns ?? { ...DEFAULT_VERSION_PATTERNS };
+
+  // 1. Compute contributing paths (union of every non-excluded workspace's paths).
+  const contributingPaths = config.workspaces.flatMap((workspace) => workspace.paths);
+
+  // 2. Find the most recent project tag and the commits since it under contributing paths.
+  const { tag, commits } = getCommitsSinceTarget([project.tagPrefix], contributingPaths);
+
+  // 3. Determine bump type. Override > commit-derived > skip.
+  let releaseType: ReleaseType | undefined;
+  let parsedCommitCount: number | undefined;
+  let unparseableCommits: Commit[] | undefined;
+
+  if (bumpOverride !== undefined) {
+    releaseType = bumpOverride;
+  } else {
+    const determination = determineBumpFromCommits(commits, workTypes, versionPatterns, config.scopeAliases);
+    releaseType = determination.releaseType;
+    parsedCommitCount = determination.parsedCommitCount;
+    unparseableCommits = determination.unparseableCommits;
+  }
+
+  // 4. Skip silently when no commits and no force; mirrors per-workspace skip semantics.
+  if (releaseType === undefined && force !== true && commits.length === 0) {
+    return undefined;
+  }
+  if (releaseType === undefined) {
+    // Commits exist but produced no parsed type AND force not set → skip too.
+    return undefined;
+  }
+
+  // 5/6. Bump root package.json (handles dry-run internally).
+  const bump = bumpAllVersions([ROOT_PACKAGE_FILE], releaseType, dryRun);
+
+  // 7. Compose the project tag.
+  const newTag = `${project.tagPrefix}${bump.newVersion}`;
+
+  // 8. Generate the root CHANGELOG via git-cliff, filtered to project tags only.
+  const tagPattern = buildTagPattern([project.tagPrefix]);
+  const changelogFiles = generateChangelog(config, ROOT_CHANGELOG_PATH, newTag, dryRun, {
+    tagPattern,
+    includePaths: contributingPaths,
+  });
+
+  // 9. Emit the root changelog.json when enabled.
+  let changelogJsonFiles: string[] = [];
+  if (config.changelogJson.enabled) {
+    changelogJsonFiles = generateChangelogJson(config, ROOT_CHANGELOG_PATH, newTag, dryRun, {
+      tagPattern,
+      includePaths: contributingPaths,
+    });
+  }
+
+  // 10. Optional release-notes previews under root docs/.
+  const firstChangelogJsonPath = changelogJsonFiles[0];
+  if (withReleaseNotes === true && config.changelogJson.enabled && firstChangelogJsonPath !== undefined) {
+    const sectionOrder = deriveSectionOrder(workTypes);
+    writeReleaseNotesPreviews({
+      workspacePath: ROOT_CHANGELOG_PATH,
+      tag: newTag,
+      changelogJsonPath: firstChangelogJsonPath,
+      sectionOrder,
+      dryRun,
+    });
+  }
+
+  // 11. Append the project tag and modified files to the shared aggregators so downstream
+  // commands (`commit`, `tag`, format command) see them alongside per-workspace artifacts.
+  tags.push(newTag);
+  modifiedFiles.push(ROOT_PACKAGE_FILE, ...changelogFiles, ...changelogJsonFiles);
+
+  // 12. Build and return the result.
+  const result: ProjectPrepareResult = {
+    status: 'released',
+    commitCount: commits.length,
+    releaseType,
+    currentVersion: bump.currentVersion,
+    newVersion: bump.newVersion,
+    tag: newTag,
+    bumpedFiles: bump.files,
+    changelogFiles,
+    commits,
+  };
+  if (tag !== undefined) {
+    result.previousTag = tag;
+  }
+  if (parsedCommitCount !== undefined) {
+    result.parsedCommitCount = parsedCommitCount;
+  }
+  if (unparseableCommits !== undefined) {
+    result.unparseableCommits = unparseableCommits;
+  }
+  return result;
+}

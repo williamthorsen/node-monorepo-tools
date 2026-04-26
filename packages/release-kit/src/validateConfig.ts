@@ -1,5 +1,5 @@
 import { isRecord } from './typeGuards.ts';
-import type { LegacyIdentity, ReleaseKitConfig, RetiredPackage } from './types.ts';
+import type { LegacyIdentity, ProjectConfig, ReleaseKitConfig, RetiredPackage } from './types.ts';
 
 /**
  * Validates a raw config object loaded from `.config/release-kit.config.ts`.
@@ -21,6 +21,7 @@ export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors
     'changelogJson',
     'cliffConfigPath',
     'formatCommand',
+    'project',
     'releaseNotes',
     'retiredPackages',
     'scopeAliases',
@@ -44,6 +45,7 @@ export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors
   validateStringField('cliffConfigPath', raw.cliffConfigPath, config, errors);
   validateScopeAliases(raw.scopeAliases, config, errors);
   validateRetiredPackages(raw.retiredPackages, config, errors);
+  validateProjectConfig(raw.project, config, errors);
 
   // Cross-field warnings: releaseNotes features require changelogJson to be enabled.
   const warnings: string[] = [];
@@ -99,6 +101,43 @@ function validateChangelogJson(value: unknown, config: ReleaseKitConfig, errors:
   }
 
   config.changelogJson = result;
+}
+
+/**
+ * Validate the optional `project` config block.
+ *
+ * Accepts an empty object (`{}`) as a valid opt-in marker. Rejects unknown subfields and
+ * non-string `tagPrefix`. Tag-prefix collision validation lives in `loadConfig` since it
+ * requires the discovered workspace list.
+ */
+function validateProjectConfig(value: unknown, config: ReleaseKitConfig, errors: string[]): void {
+  if (value === undefined) return;
+
+  if (!isRecord(value)) {
+    errors.push("'project' must be an object");
+    return;
+  }
+
+  const knownProjectFields = new Set(['tagPrefix']);
+  for (const key of Object.keys(value)) {
+    if (!knownProjectFields.has(key)) {
+      errors.push(`project: unknown field '${key}'`);
+    }
+  }
+
+  const result: ProjectConfig = {};
+
+  if (value.tagPrefix !== undefined) {
+    if (typeof value.tagPrefix !== 'string') {
+      errors.push('project.tagPrefix: must be a string');
+    } else if (value.tagPrefix === '') {
+      errors.push('project.tagPrefix: must be a non-empty string');
+    } else {
+      result.tagPrefix = value.tagPrefix;
+    }
+  }
+
+  config.project = result;
 }
 
 function validateReleaseNotes(value: unknown, config: ReleaseKitConfig, errors: string[]): void {
