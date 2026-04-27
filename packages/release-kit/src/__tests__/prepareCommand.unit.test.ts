@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mockAssertCleanWorkingTree = vi.hoisted(() => vi.fn());
 const mockBuildReleaseSummary = vi.hoisted(() => vi.fn());
 const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
+const mockGetCommitsSinceTarget = vi.hoisted(() => vi.fn());
 const mockLoadConfig = vi.hoisted(() => vi.fn());
 const mockExistsSync = vi.hoisted(() => vi.fn());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
@@ -25,6 +26,10 @@ vi.mock('../buildReleaseSummary.ts', () => ({
 
 vi.mock('../discoverWorkspaces.ts', () => ({
   discoverWorkspaces: mockDiscoverWorkspaces,
+}));
+
+vi.mock('../getCommitsSinceTarget.ts', () => ({
+  getCommitsSinceTarget: mockGetCommitsSinceTarget,
 }));
 
 vi.mock('../loadConfig.ts', async (importOriginal) => {
@@ -54,23 +59,6 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
 import { parseArgs, prepareCommand, RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from '../prepareCommand.ts';
 import type { PrepareResult } from '../types.ts';
 
-/** Sentinel error thrown by the mocked process.exit. */
-class ExitError extends Error {
-  constructor(public readonly code: number | undefined) {
-    super(`process.exit(${code})`);
-  }
-}
-
-/** Build a minimal PrepareResult for mocking. */
-function makePrepareResult(overrides?: Partial<PrepareResult>): PrepareResult {
-  return {
-    workspaces: [],
-    tags: [],
-    dryRun: false,
-    ...overrides,
-  };
-}
-
 describe(prepareCommand, () => {
   beforeEach(() => {
     mockBuildReleaseSummary.mockReturnValue('');
@@ -90,6 +78,8 @@ describe(prepareCommand, () => {
     });
     mockReleasePrepareMono.mockReturnValue(makePrepareResult());
     mockReleasePrepare.mockReturnValue(makePrepareResult());
+    // Default: no commits anywhere, so the stranded-dependents validator stays silent.
+    mockGetCommitsSinceTarget.mockReturnValue({ tag: undefined, commits: [] });
     mockWriteFileWithCheck.mockReturnValue({ filePath: RELEASE_TAGS_FILE, outcome: 'created' });
     vi.spyOn(process, 'exit').mockImplementation((code) => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
@@ -108,6 +98,7 @@ describe(prepareCommand, () => {
     mockReadFileSync.mockReset();
     mockReleasePrepareMono.mockReset();
     mockReleasePrepare.mockReset();
+    mockGetCommitsSinceTarget.mockReset();
     mockWriteFileWithCheck.mockReset();
     vi.restoreAllMocks();
   });
@@ -184,6 +175,32 @@ describe(prepareCommand, () => {
   it('exits with error for --only with an unknown workspace name in monorepo mode', async () => {
     await expect(prepareCommand(['--only=arrays,nonexistent'])).rejects.toThrow(ExitError);
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining('nonexistent'));
+    expect(mockReleasePrepareMono).not.toHaveBeenCalled();
+  });
+
+  it('rejects --only when an excluded internal dependent has its own changes', async () => {
+    // Arrange a graph where strings depends on arrays, and both have commits since their last tag.
+    mockReadFileSync.mockImplementation((filePath: string) => {
+      if (filePath === 'packages/arrays/package.json') {
+        return JSON.stringify({ name: '@scope/arrays' });
+      }
+      if (filePath === 'packages/strings/package.json') {
+        return JSON.stringify({ name: '@scope/strings', dependencies: { '@scope/arrays': 'workspace:*' } });
+      }
+      throw new Error(`Unexpected readFileSync call for path: ${filePath}`);
+    });
+    mockGetCommitsSinceTarget.mockImplementation((tagPrefixes: readonly string[]) => {
+      if (tagPrefixes.includes('arrays-v'))
+        return { tag: 'arrays-v1.0.0', commits: [{ message: 'feat: x', hash: 'h1' }] };
+      if (tagPrefixes.includes('strings-v'))
+        return { tag: 'strings-v1.0.0', commits: [{ message: 'feat: y', hash: 'h2' }] };
+      return { tag: undefined, commits: [] };
+    });
+
+    await expect(prepareCommand(['--only=arrays'])).rejects.toThrow(ExitError);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('stranded by the release'));
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('strings'));
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('downstream of arrays'));
     expect(mockReleasePrepareMono).not.toHaveBeenCalled();
   });
 
@@ -612,3 +629,22 @@ describe('RELEASE_SUMMARY_FILE', () => {
     expect(RELEASE_SUMMARY_FILE).toBe('tmp/.release-summary');
   });
 });
+
+// region | Helpers
+/** Sentinel error thrown by the mocked process.exit. */
+class ExitError extends Error {
+  constructor(public readonly code: number | undefined) {
+    super(`process.exit(${code})`);
+  }
+}
+
+/** Build a minimal PrepareResult for mocking. */
+function makePrepareResult(overrides?: Partial<PrepareResult>): PrepareResult {
+  return {
+    workspaces: [],
+    tags: [],
+    dryRun: false,
+    ...overrides,
+  };
+}
+// endregion | Helpers

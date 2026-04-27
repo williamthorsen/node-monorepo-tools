@@ -5,15 +5,18 @@ import type { WriteResult } from '@williamthorsen/nmr-core';
 import { parseArgs as coreParseArgs, translateParseError, writeFileWithCheck } from '@williamthorsen/nmr-core';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
+import { buildDependencyGraph } from './buildDependencyGraph.ts';
 import { buildReleaseSummary } from './buildReleaseSummary.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
 import { dim } from './format.ts';
+import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { loadConfig, mergeMonorepoConfig, mergeSinglePackageConfig, readRootPackageVersion } from './loadConfig.ts';
 import { releasePrepare } from './releasePrepare.ts';
 import { releasePrepareMono } from './releasePrepareMono.ts';
 import { reportPrepare } from './reportPrepare.ts';
 import type { MonorepoReleaseConfig, PrepareResult, ReleaseKitConfig, ReleaseType } from './types.ts';
 import { validateConfig } from './validateConfig.ts';
+import { validateOnlyExcludesStrandedDependents } from './validateOnlyExcludesStrandedDependents.ts';
 
 /**
  * File written by the release preparation step, containing one tag per line.
@@ -293,6 +296,30 @@ function runMonorepoMode(
         console.error(`Error: Unknown workspace "${name}". Known workspaces: ${knownNames.join(', ')}`);
         process.exit(1);
       }
+    }
+
+    // Reject `--only` invocations that would silently strand changes in excluded internal
+    // dependents. Runs before the filter mutates `config.workspaces` so the validator sees
+    // the full pre-filter graph.
+    const graph = buildDependencyGraph(config.workspaces);
+    const violations = validateOnlyExcludesStrandedDependents(config.workspaces, only, graph, (workspace) => {
+      const tagPrefixes = [
+        workspace.tagPrefix,
+        ...(workspace.legacyIdentities?.map((identity) => identity.tagPrefix) ?? []),
+      ];
+      const result = getCommitsSinceTarget(tagPrefixes, workspace.paths);
+      return { has: result.commits.length > 0, tag: result.tag };
+    });
+
+    if (violations !== undefined) {
+      console.error('Error: --only excludes packages with changes that would be stranded by the release.');
+      console.error('The following packages must be added to --only or have their dependencies removed:');
+      for (const violation of violations) {
+        const since = violation.tag ?? 'the beginning';
+        console.error(`  - ${violation.dir} (downstream of ${violation.downstreamOf}; has commits since ${since})`);
+      }
+      console.error('Alternatively, run `release-kit prepare` without --only to release everything.');
+      process.exit(1);
     }
 
     config.workspaces = config.workspaces.filter((w) => only.includes(w.dir));
