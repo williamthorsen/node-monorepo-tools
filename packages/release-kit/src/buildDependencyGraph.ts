@@ -10,6 +10,11 @@ export interface DependencyGraph {
   dirToPackageName: Map<string, string>;
   /** Map a package name to the workspaces that depend on it. */
   dependentsOf: Map<string, WorkspaceConfig[]>;
+  /**
+   * Forward adjacency: map a workspace `dir` to the set of `workspace:`-protocol package
+   * names it declares in `dependencies` or `peerDependencies`. Complement of `dependentsOf`.
+   */
+  dependenciesOf: Map<string, Set<string>>;
 }
 
 interface PackageJsonSubset {
@@ -34,6 +39,7 @@ export function buildDependencyGraph(workspaces: readonly WorkspaceConfig[]): De
   const packageNameToDir = new Map<string, string>();
   const dirToPackageName = new Map<string, string>();
   const dependentsOf = new Map<string, WorkspaceConfig[]>();
+  const dependenciesOf = new Map<string, Set<string>>();
 
   // First pass: read each workspace's package.json, cache the result, and register its name.
   const workspacePackages = new Map<WorkspaceConfig, PackageJsonSubset>();
@@ -54,7 +60,7 @@ export function buildDependencyGraph(workspaces: readonly WorkspaceConfig[]): De
     dirToPackageName.set(workspace.dir, pkg.name);
   }
 
-  // Second pass: build the reverse adjacency map using cached package data.
+  // Second pass: build the reverse and forward adjacency maps using cached package data.
   for (const [workspace, pkg] of workspacePackages) {
     const allDeps = { ...pkg.dependencies, ...pkg.peerDependencies };
 
@@ -69,10 +75,17 @@ export function buildDependencyGraph(workspaces: readonly WorkspaceConfig[]): De
       } else {
         existing.push(workspace);
       }
+
+      const forward = dependenciesOf.get(workspace.dir);
+      if (forward === undefined) {
+        dependenciesOf.set(workspace.dir, new Set([depName]));
+      } else {
+        forward.add(depName);
+      }
     }
   }
 
-  return { packageNameToDir, dirToPackageName, dependentsOf };
+  return { packageNameToDir, dirToPackageName, dependentsOf, dependenciesOf };
 }
 
 /** Read and parse a package.json file, returning only the fields needed for graph building. */

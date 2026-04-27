@@ -5,31 +5,6 @@ import type { ReleaseEntry } from '../propagateBumps.ts';
 import { propagateBumps } from '../propagateBumps.ts';
 import type { WorkspaceConfig } from '../types.ts';
 
-function makeWorkspace(dir: string): WorkspaceConfig {
-  return {
-    dir,
-    name: `@test/${dir}`,
-    tagPrefix: `${dir}-v`,
-    workspacePath: `packages/${dir}`,
-    packageFiles: [`packages/${dir}/package.json`],
-    changelogPaths: [`packages/${dir}`],
-    paths: [`packages/${dir}/**`],
-  };
-}
-
-function makeGraph(
-  nameToDir: Record<string, string>,
-  dependentsOf: Record<string, WorkspaceConfig[]>,
-): DependencyGraph {
-  const packageNameToDir = new Map(Object.entries(nameToDir));
-  const dirToPackageName = new Map(Object.entries(nameToDir).map(([name, dir]) => [dir, name]));
-  return {
-    packageNameToDir,
-    dirToPackageName,
-    dependentsOf: new Map(Object.entries(dependentsOf)),
-  };
-}
-
 describe(propagateBumps, () => {
   it('propagates a patch bump to a single dependent', () => {
     const dependent = makeWorkspace('release-kit');
@@ -227,3 +202,31 @@ describe(propagateBumps, () => {
     });
   });
 });
+
+// region | Helpers
+function makeGraph(
+  nameToDir: Record<string, string>,
+  dependentsOf: Record<string, WorkspaceConfig[]>,
+): DependencyGraph {
+  const packageNameToDir = new Map(Object.entries(nameToDir));
+  const dirToPackageName = new Map(Object.entries(nameToDir).map(([name, dir]) => [dir, name]));
+  return {
+    packageNameToDir,
+    dirToPackageName,
+    dependentsOf: new Map(Object.entries(dependentsOf)),
+    dependenciesOf: new Map(),
+  };
+}
+
+function makeWorkspace(dir: string): WorkspaceConfig {
+  return {
+    dir,
+    name: `@test/${dir}`,
+    tagPrefix: `${dir}-v`,
+    workspacePath: `packages/${dir}`,
+    packageFiles: [`packages/${dir}/package.json`],
+    changelogPaths: [`packages/${dir}`],
+    paths: [`packages/${dir}/**`],
+  };
+}
+// endregion | Helpers
