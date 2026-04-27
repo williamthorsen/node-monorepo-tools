@@ -405,7 +405,7 @@ describe(readRootPackageVersion, () => {
     expect(readRootPackageVersion()).toStrictEqual({ exists: true, version: undefined });
   });
 
-  it('throws a clear error when the root package.json contains invalid JSON', () => {
+  it('throws an error when the root package.json contains invalid JSON', () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue('{ not valid json');
     expect(() => readRootPackageVersion()).toThrow(/Failed to parse root package\.json/);

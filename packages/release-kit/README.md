@@ -213,7 +213,7 @@ Contributing workspaces are implicit: every non-excluded discovered workspace co
 
 Validation rules:
 
-- The root `package.json` must exist and declare a `version` field. release-kit reports a clear error at config-load time if either is missing.
+- The root `package.json` must exist and declare a `version` field. release-kit reports an error at config-load time if either is missing.
 - `project.tagPrefix` must not collide with any active workspace's derived `tagPrefix`, any `workspaces[].legacyIdentities[].tagPrefix`, or any `retiredPackages[].tagPrefix`. The collision check is strict-prefix: a project prefix `'v'` collides with a workspace prefix `'vue-helpers-v'` because `git describe --match=v*` would return tags from both.
 - The `project` block is rejected in single-package mode (the implicit "all non-excluded workspaces contribute" rule is meaningless in a single-package repo).
 - Unknown fields inside `project` are rejected.
@@ -223,8 +223,8 @@ CLI flag interactions:
 - `--dry-run` previews project artifacts alongside workspace artifacts; no files are written.
 - `--bump=major|minor|patch` propagates to the project release.
 - `--force` combined with `--bump` runs the project release even with no commits since the last project tag.
-- `--only` is **rejected with a clear error** when `project` is configured. `--only` is a surgical, single-workspace operation; combining it with a project release that rolls up every contributing workspace would create ambiguous semantics. To release a single workspace, use a config without a `project` block, or run a full `prepare` (no `--only`) to include the project release.
-- `--set-version` cannot co-exist with a configured project block, since `--set-version` requires `--only` in monorepo mode (and `--only` is rejected when `project` is configured).
+- `--only` is rejected with an error when `project` is configured. `--only` is a surgical, single-workspace operation; combining it with a project release that rolls up every contributing workspace would create ambiguous semantics. To release a single workspace, use a config without a `project` block, or run a full `prepare` (no `--only`) to include the project release.
+- `--set-version` is rejected with an error when `project` is configured. `--set-version` operates on a single workspace, but a project release rolls up every contributing workspace; the two semantics don't compose. To use `--set-version`, run on a config without a `project` block.
 
 ### `VersionPatterns`
 
