@@ -44,7 +44,8 @@ Usage: npx @williamthorsen/release-kit prepare [options]
 Options:
   --dry-run             Run without modifying any files
   --bump=major|minor|patch  Override the bump type for all workspaces
-  --set-version=X.Y.Z   Set an explicit version; bypasses commit-derived bumps. Requires --only in monorepo mode.
+  --set-version=X.Y.Z   Set an explicit version; bypasses commit-derived bumps.
+                         Requires --only in monorepo mode (rejected when a 'project' block is configured).
   --force               Force a release even when there are no commits since the last tag (requires --bump)
   --no-git-checks, -n   Skip the clean-working-tree check
   --only=name1,name2    Only process the named workspaces (comma-separated, monorepo only;
@@ -252,6 +253,21 @@ function runMonorepoMode(
     config = mergeMonorepoConfig(discoveredPaths, userConfig, rootPackage);
   } catch (error: unknown) {
     console.error(`Error resolving workspaces: ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  }
+
+  // Reject `--set-version` when a project block is configured. `--set-version` is a workspace
+  // operation; a project release rolls up every contributing workspace and derives its bump
+  // from commits in the contributing-paths window — there is no flag designed to override the
+  // project version directly, and the two semantics do not compose. Runs before the `--only`
+  // rejection so a user passing `--set-version` (the primary intent) sees the project-aware
+  // error rather than the secondary `--only` error when both flags are supplied.
+  if (setVersion !== undefined && config.project !== undefined) {
+    console.error(
+      'Error: --set-version cannot be combined with a project release. ' +
+        '--set-version operates on a single workspace; a project release rolls up every ' +
+        'contributing workspace. To use --set-version, run on a config without a `project` block.',
+    );
     process.exit(1);
   }
 

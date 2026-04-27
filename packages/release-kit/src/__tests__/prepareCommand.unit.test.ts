@@ -455,7 +455,7 @@ describe(prepareCommand, () => {
     expect(callArgs).not.toHaveProperty('withReleaseNotes');
   });
 
-  describe('--only with project block', () => {
+  describe('--only and --set-version interactions with project block', () => {
     beforeEach(() => {
       // Configure the mocks so the project block is loaded and the root package.json is valid.
       mockLoadConfig.mockResolvedValue({ project: {} });
@@ -472,7 +472,7 @@ describe(prepareCommand, () => {
       });
     });
 
-    it('rejects --only with a clear error before any release work runs', async () => {
+    it('rejects --only with an error before any release work runs', async () => {
       await expect(prepareCommand(['--only=arrays'])).rejects.toThrow(ExitError);
       expect(console.error).toHaveBeenCalledWith(
         expect.stringContaining('--only cannot be combined with a project release'),
@@ -483,6 +483,23 @@ describe(prepareCommand, () => {
     it('runs normally without --only when project is configured', async () => {
       await prepareCommand([]);
       expect(mockReleasePrepareMono).toHaveBeenCalled();
+    });
+
+    it('rejects --set-version with the project-aware error (not the transitive --only error)', async () => {
+      await expect(prepareCommand(['--set-version=1.2.3'])).rejects.toThrow(ExitError);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('--set-version cannot be combined with a project release'),
+      );
+      expect(console.error).not.toHaveBeenCalledWith(expect.stringContaining('requires --only'));
+      expect(mockReleasePrepareMono).not.toHaveBeenCalled();
+    });
+
+    it('rejects --set-version + --only with the project-aware error (project rule wins over --only rule)', async () => {
+      await expect(prepareCommand(['--set-version=1.2.3', '--only=arrays'])).rejects.toThrow(ExitError);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('--set-version cannot be combined with a project release'),
+      );
+      expect(mockReleasePrepareMono).not.toHaveBeenCalled();
     });
   });
 });
