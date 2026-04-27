@@ -125,12 +125,12 @@ function collectStrandedViolations(
   const violations: StrandedDependentViolation[] = [];
   const violationDirs = new Set<string>();
   const visited = new Set<string>();
-  const queue: { packageName: string; releasedAncestor: string }[] = [];
+  const queue: BfsFrontierItem[] = [];
 
   for (const dir of released) {
     const packageName = graph.dirToPackageName.get(dir);
     if (packageName !== undefined) {
-      queue.push({ packageName, releasedAncestor: dir });
+      queue.push({ packageName, attributionRoot: dir });
     }
   }
 
@@ -144,7 +144,7 @@ function collectStrandedViolations(
     if (dependents === undefined) continue;
 
     for (const dependent of dependents) {
-      visitDependent(dependent, item.releasedAncestor, {
+      visitDependent(dependent, item.attributionRoot, {
         released,
         onlySet,
         graph,
@@ -159,24 +159,37 @@ function collectStrandedViolations(
   return violations;
 }
 
+/**
+ * One node in the BFS frontier. `attributionRoot` is the workspace whose release (or anticipated
+ * release) propagation reached this node — the value that downstream violations cite as their
+ * `downstreamOf`. When the BFS walks past a node N (either an `--only` ∩ R member or an excluded
+ * would-release violation that the user is expected to add to `--only`), the next frontier item's
+ * `attributionRoot` becomes N — that node is now the most proximate release point to anything
+ * deeper in the chain.
+ */
+interface BfsFrontierItem {
+  packageName: string;
+  attributionRoot: string;
+}
+
 interface VisitDependentContext {
   released: ReadonlySet<string>;
   onlySet: ReadonlySet<string>;
   graph: DependencyGraph;
   probeCommits: CommitsProbe;
-  queue: { packageName: string; releasedAncestor: string }[];
+  queue: BfsFrontierItem[];
   violations: StrandedDependentViolation[];
   violationDirs: Set<string>;
 }
 
 /** Classify a single dependent: skip, walk-through, or record as a violation (and walk through). */
-function visitDependent(dependent: WorkspaceConfig, releasedAncestor: string, ctx: VisitDependentContext): void {
+function visitDependent(dependent: WorkspaceConfig, attributionRoot: string, ctx: VisitDependentContext): void {
   if (ctx.onlySet.has(dependent.dir)) {
     // Walk through `--only` dependents only when they will actually release (i.e., are in R).
     // A `--only` workspace not in R has no commits and no propagation source — it doesn't
     // release, so we should not propagate the walk through it.
     if (ctx.released.has(dependent.dir)) {
-      enqueueDependent(dependent, dependent.dir, ctx);
+      enqueueDependent(dependent, ctx);
     }
     return;
   }
@@ -188,20 +201,23 @@ function visitDependent(dependent: WorkspaceConfig, releasedAncestor: string, ct
     ctx.violationDirs.add(dependent.dir);
     ctx.violations.push({
       dir: dependent.dir,
-      downstreamOf: releasedAncestor,
+      downstreamOf: attributionRoot,
       tag: probe.tag,
     });
   }
 
   // Walk through the violating dependent: anticipate the user adding it to `--only`,
   // which would put it in R and surface any deeper footguns in this same pass.
-  enqueueDependent(dependent, dependent.dir, ctx);
+  enqueueDependent(dependent, ctx);
 }
 
-/** Push the dependent onto the BFS queue using its package name as the new frontier key. */
-function enqueueDependent(dependent: WorkspaceConfig, releasedAncestor: string, ctx: VisitDependentContext): void {
+/**
+ * Push the dependent onto the BFS queue, using its `dir` as the new `attributionRoot` for any
+ * deeper violations the BFS uncovers through it.
+ */
+function enqueueDependent(dependent: WorkspaceConfig, ctx: VisitDependentContext): void {
   const packageName = ctx.graph.dirToPackageName.get(dependent.dir);
   if (packageName !== undefined) {
-    ctx.queue.push({ packageName, releasedAncestor });
+    ctx.queue.push({ packageName, attributionRoot: dependent.dir });
   }
 }
