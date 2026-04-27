@@ -4,12 +4,14 @@ const mockAssertCleanWorkingTree = vi.hoisted(() => vi.fn());
 const mockBuildReleaseSummary = vi.hoisted(() => vi.fn());
 const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
 const mockLoadConfig = vi.hoisted(() => vi.fn());
+const mockExistsSync = vi.hoisted(() => vi.fn());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockReleasePrepareMono = vi.hoisted(() => vi.fn());
 const mockReleasePrepare = vi.hoisted(() => vi.fn());
 const mockWriteFileWithCheck = vi.hoisted(() => vi.fn());
 
 vi.mock('node:fs', () => ({
+  existsSync: mockExistsSync,
   readFileSync: mockReadFileSync,
 }));
 
@@ -74,6 +76,9 @@ describe(prepareCommand, () => {
     mockBuildReleaseSummary.mockReturnValue('');
     mockDiscoverWorkspaces.mockResolvedValue(['packages/arrays', 'packages/strings']);
     mockLoadConfig.mockResolvedValue(undefined);
+    // Default: pretend the root package.json does not exist. Tests that exercise the project
+    // block override this in-test to return a valid version.
+    mockExistsSync.mockReturnValue(false);
     mockReadFileSync.mockImplementation((filePath: string) => {
       if (filePath === 'packages/arrays/package.json') {
         return JSON.stringify({ name: '@scope/arrays' });
@@ -99,6 +104,7 @@ describe(prepareCommand, () => {
     mockBuildReleaseSummary.mockReset();
     mockDiscoverWorkspaces.mockReset();
     mockLoadConfig.mockReset();
+    mockExistsSync.mockReset();
     mockReadFileSync.mockReset();
     mockReleasePrepareMono.mockReset();
     mockReleasePrepare.mockReset();
@@ -447,6 +453,37 @@ describe(prepareCommand, () => {
 
     const callArgs = mockReleasePrepareMono.mock.calls[0]?.[1];
     expect(callArgs).not.toHaveProperty('withReleaseNotes');
+  });
+
+  describe('--only with project block', () => {
+    beforeEach(() => {
+      // Configure the mocks so the project block is loaded and the root package.json is valid.
+      mockLoadConfig.mockResolvedValue({ project: {} });
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockImplementation((filePath: string) => {
+        if (filePath === 'packages/arrays/package.json') {
+          return JSON.stringify({ name: '@scope/arrays' });
+        }
+        if (filePath === 'packages/strings/package.json') {
+          return JSON.stringify({ name: '@scope/strings' });
+        }
+        // Root package.json for the project block prerequisite check.
+        return JSON.stringify({ name: 'root', version: '0.9.0' });
+      });
+    });
+
+    it('rejects --only with a clear error before any release work runs', async () => {
+      await expect(prepareCommand(['--only=arrays'])).rejects.toThrow(ExitError);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('--only cannot be combined with a project release'),
+      );
+      expect(mockReleasePrepareMono).not.toHaveBeenCalled();
+    });
+
+    it('runs normally without --only when project is configured', async () => {
+      await prepareCommand([]);
+      expect(mockReleasePrepareMono).toHaveBeenCalled();
+    });
   });
 });
 

@@ -37,6 +37,28 @@ export interface ReleaseNotesConfig {
   shouldInjectIntoReadme: boolean;
 }
 
+/**
+ * Consumer-facing project-release config (`project` block in `release-kit.config.ts`).
+ *
+ * Declaring an empty `project: {}` opts the repo into project-level releases. All fields
+ * are optional; defaults are applied during config merging. The set of contributing
+ * workspaces is implicit — every non-excluded discovered workspace contributes.
+ */
+export interface ProjectConfig {
+  /** Tag prefix for project-level tags (e.g., `'v'` produces `'v1.2.0'`). Defaults to `'v'`. */
+  tagPrefix?: string;
+}
+
+/**
+ * Project-release config after merging defaults. Mirrors the `ReleaseNotesConfig`/
+ * `ResolvedReleaseNotesConfig`-style split: optional fields in `ProjectConfig` become
+ * required in `ResolvedProjectConfig`.
+ */
+export interface ResolvedProjectConfig {
+  /** Resolved tag prefix for project-level tags. */
+  tagPrefix: string;
+}
+
 /** Identifies a dependency whose version bump triggered a propagated release. */
 export interface PropagationSource {
   packageName: string;
@@ -75,6 +97,32 @@ export interface WorkspacePrepareResult {
   setVersion?: string | undefined;
 }
 
+/**
+ * Result of preparing a project-level release.
+ *
+ * Mirrors `WorkspacePrepareResult`'s shape minus the workspace-only fields (`name`,
+ * `propagatedFrom`, `setVersion`). A separate type is used rather than reusing
+ * `WorkspacePrepareResult` so the project entry can be disambiguated structurally —
+ * consumers and tests can branch on `result.project !== undefined` without inspecting
+ * an array entry's shape.
+ */
+export interface ProjectPrepareResult {
+  status: 'released';
+  previousTag?: string | undefined;
+  commitCount: number;
+  parsedCommitCount?: number | undefined;
+  releaseType: ReleaseType;
+  currentVersion: string;
+  newVersion: string;
+  tag: string;
+  bumpedFiles: string[];
+  changelogFiles: string[];
+  /** Raw commits in the project's contributing-paths window since the last project tag. */
+  commits?: Commit[] | undefined;
+  /** Commits that could not be parsed into a recognized work type. */
+  unparseableCommits?: Commit[] | undefined;
+}
+
 /** Aggregate result of the prepare workflow for both single-package and monorepo modes. */
 export interface PrepareResult {
   workspaces: WorkspacePrepareResult[];
@@ -89,6 +137,8 @@ export interface PrepareResult {
   dryRun: boolean;
   /** Warnings surfaced during preparation (e.g., circular dependency detection). */
   warnings?: string[] | undefined;
+  /** Result of the project-level release stage (present only when `config.project` is configured and the stage ran). */
+  project?: ProjectPrepareResult | undefined;
 }
 
 /** Configuration for a single work type used in commit categorization. */
@@ -154,6 +204,14 @@ export interface ReleaseKitConfig {
    * not flag them as undeclared candidates.
    */
   retiredPackages?: RetiredPackage[];
+  /**
+   * Project-level release block. Declaring `project: {}` (even empty) opts the repo into
+   * project-level releases: each `prepare` run additionally bumps the root `package.json`,
+   * regenerates the root `CHANGELOG.md`, and emits a project tag. Contributing workspaces
+   * are implicitly all non-excluded discovered workspaces. Single-package mode does not
+   * support this block.
+   */
+  project?: ProjectConfig;
 }
 
 /**
@@ -279,6 +337,12 @@ export interface MonorepoReleaseConfig {
   changelogJson: ChangelogJsonConfig;
   /** Controls release notes consumption (README injection). */
   releaseNotes: ReleaseNotesConfig;
+  /**
+   * Project-level release config. Present iff the consumer declared `project: {}`. When
+   * present, `releasePrepareMono` runs an additional project-release stage after the
+   * per-workspace loop.
+   */
+  project?: ResolvedProjectConfig;
 }
 
 /** Configuration for the release workflow. */

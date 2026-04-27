@@ -16,7 +16,13 @@ vi.mock('jiti', () => ({
 }));
 
 import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from '../defaults.ts';
-import { CONFIG_FILE_PATH, loadConfig, mergeMonorepoConfig, mergeSinglePackageConfig } from '../loadConfig.ts';
+import {
+  CONFIG_FILE_PATH,
+  loadConfig,
+  mergeMonorepoConfig,
+  mergeSinglePackageConfig,
+  readRootPackageVersion,
+} from '../loadConfig.ts';
 
 /**
  * Configure `mockReadFileSync` to return a `package.json` with the given `name` per workspace
@@ -376,6 +382,152 @@ describe(mergeMonorepoConfig, () => {
   });
 });
 
+describe(readRootPackageVersion, () => {
+  afterEach(() => {
+    mockExistsSync.mockReset();
+    mockReadFileSync.mockReset();
+  });
+
+  it('returns exists=false when the root package.json is missing', () => {
+    mockExistsSync.mockReturnValue(false);
+    expect(readRootPackageVersion()).toStrictEqual({ exists: false, version: undefined });
+  });
+
+  it('returns the version when the root package.json declares one', () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'root', version: '1.2.3' }));
+    expect(readRootPackageVersion()).toStrictEqual({ exists: true, version: '1.2.3' });
+  });
+
+  it('returns version=undefined when the root package.json has no version field', () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'root' }));
+    expect(readRootPackageVersion()).toStrictEqual({ exists: true, version: undefined });
+  });
+
+  it('throws a clear error when the root package.json contains invalid JSON', () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue('{ not valid json');
+    expect(() => readRootPackageVersion()).toThrow(/Failed to parse root package\.json/);
+  });
+});
+
+describe('mergeMonorepoConfig project block', () => {
+  const discoveredPaths = ['packages/arrays', 'packages/strings'];
+
+  beforeEach(() => {
+    mockPackageNames({
+      'packages/arrays': '@scope/arrays',
+      'packages/strings': '@scope/strings',
+    });
+  });
+
+  afterEach(() => {
+    mockReadFileSync.mockReset();
+  });
+
+  it('omits project from the merged config when the consumer did not declare one', () => {
+    const result = mergeMonorepoConfig(discoveredPaths, undefined);
+    expect(result.project).toBeUndefined();
+  });
+
+  it('resolves an empty project block to the default tagPrefix', () => {
+    const result = mergeMonorepoConfig(discoveredPaths, { project: {} }, { exists: true, version: '0.9.0' });
+    expect(result.project).toStrictEqual({ tagPrefix: 'v' });
+  });
+
+  it('preserves a custom project tagPrefix', () => {
+    const result = mergeMonorepoConfig(
+      discoveredPaths,
+      { project: { tagPrefix: 'release-v' } },
+      { exists: true, version: '0.9.0' },
+    );
+    expect(result.project).toStrictEqual({ tagPrefix: 'release-v' });
+  });
+
+  it('throws when project is configured but the root package.json is missing', () => {
+    expect(() => mergeMonorepoConfig(discoveredPaths, { project: {} }, { exists: false, version: undefined })).toThrow(
+      /project block requires a root package\.json/,
+    );
+  });
+
+  it('throws when project is configured but the root package.json has no version field', () => {
+    expect(() => mergeMonorepoConfig(discoveredPaths, { project: {} }, { exists: true, version: undefined })).toThrow(
+      /add a 'version' field to your root package\.json/,
+    );
+  });
+
+  it('throws when no rootPackage info is supplied alongside a project block', () => {
+    expect(() => mergeMonorepoConfig(discoveredPaths, { project: {} })).toThrow(
+      /project block requires a root package\.json/,
+    );
+  });
+
+  it('rejects a project tagPrefix colliding with a workspace derived prefix', () => {
+    mockPackageNames({
+      'packages/v-helpers': '@scope/v-helpers',
+    });
+    expect(() =>
+      mergeMonorepoConfig(['packages/v-helpers'], { project: { tagPrefix: 'v' } }, { exists: true, version: '0.9.0' }),
+    ).toThrow(/Tag prefix collision/);
+  });
+
+  it('rejects a project tagPrefix that strict-prefix-collides with a workspace prefix', () => {
+    // `git describe --match=v*` would also match `vue-helpers-v1.0.0` tags.
+    mockPackageNames({
+      'packages/vue-helpers': '@scope/vue-helpers',
+    });
+    expect(() =>
+      mergeMonorepoConfig(
+        ['packages/vue-helpers'],
+        { project: { tagPrefix: 'v' } },
+        { exists: true, version: '0.9.0' },
+      ),
+    ).toThrow(/Tag prefix collision: 'vue-helpers-v' .* and 'v' \(project\)/);
+  });
+
+  it('rejects a project tagPrefix colliding with a declared legacy identity', () => {
+    expect(() =>
+      mergeMonorepoConfig(
+        discoveredPaths,
+        {
+          workspaces: [{ dir: 'arrays', legacyIdentities: [{ name: '@old-scope/arrays', tagPrefix: 'release-v' }] }],
+          project: { tagPrefix: 'release-v' },
+        },
+        { exists: true, version: '0.9.0' },
+      ),
+    ).toThrow(/Tag prefix collision: 'release-v'/);
+  });
+
+  it('rejects a project tagPrefix colliding with a retired-package prefix', () => {
+    expect(() =>
+      mergeMonorepoConfig(
+        discoveredPaths,
+        {
+          retiredPackages: [{ name: '@scope/preflight', tagPrefix: 'preflight-v' }],
+          project: { tagPrefix: 'preflight-v' },
+        },
+        { exists: true, version: '0.9.0' },
+      ),
+    ).toThrow(/Tag prefix collision: 'preflight-v'/);
+  });
+
+  it('accepts a workspace whose legacyIdentities reuses its own current tagPrefix (different name)', () => {
+    // Existing intra-workspace rename pattern must keep working — a workspace's own current
+    // prefix and its declared legacy identity prefix can match without colliding.
+    expect(() =>
+      mergeMonorepoConfig(discoveredPaths, {
+        workspaces: [
+          {
+            dir: 'arrays',
+            legacyIdentities: [{ name: '@old-scope/arrays', tagPrefix: 'arrays-v' }],
+          },
+        ],
+      }),
+    ).not.toThrow();
+  });
+});
+
 describe(mergeSinglePackageConfig, () => {
   it('returns defaults when no config is provided', () => {
     const result = mergeSinglePackageConfig(undefined);
@@ -385,6 +537,12 @@ describe(mergeSinglePackageConfig, () => {
     expect(result.changelogPaths).toStrictEqual(['.']);
     expect(result.workTypes).toStrictEqual(DEFAULT_WORK_TYPES);
     expect(result.versionPatterns).toStrictEqual(DEFAULT_VERSION_PATTERNS);
+  });
+
+  it('rejects a configured project block in single-package mode', () => {
+    expect(() => mergeSinglePackageConfig({ project: {} })).toThrow(
+      'project block is not supported in single-package mode',
+    );
   });
 
   it('merges custom workTypes with defaults', () => {

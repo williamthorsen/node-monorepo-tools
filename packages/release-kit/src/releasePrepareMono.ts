@@ -16,11 +16,13 @@ import type { CurrentVersions, ReleaseEntry } from './propagateBumps.ts';
 import { propagateBumps } from './propagateBumps.ts';
 import { readCurrentVersion } from './readCurrentVersion.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
+import { releasePrepareProject } from './releasePrepareProject.ts';
 import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
 import type {
   Commit,
   MonorepoReleaseConfig,
   PrepareResult,
+  ProjectPrepareResult,
   ReleaseType,
   WorkspaceConfig,
   WorkspacePrepareResult,
@@ -128,6 +130,16 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
     return orderA - orderB;
   });
 
+  // === Phase 3b: Project release ===
+  // Runs after the per-workspace loop (so contributing workspaces are settled) but before
+  // `runFormatCommand` (so root files participate in formatting). `prepareCommand` rejects
+  // `--only` upstream when a project block is configured, so the orchestrator does not need
+  // a per-workspace narrowing guard here.
+  let project: ProjectPrepareResult | undefined;
+  if (config.project !== undefined) {
+    project = releasePrepareProject({ config, options, modifiedFiles, tags });
+  }
+
   // === Phase 4: Format ===
   const formatCommand = runFormatCommand(config, tags, modifiedFiles, dryRun);
 
@@ -137,6 +149,7 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
     formatCommand,
     dryRun,
     ...(warnings.length > 0 ? { warnings } : {}),
+    ...(project === undefined ? {} : { project }),
   };
 }
 

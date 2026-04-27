@@ -116,6 +116,7 @@ The config file supports both `export default config` and `export const config =
 | `scopeAliases`    | `Record<string, string>`         | Maps shorthand scope names to canonical names in commits                                                                      |
 | `workTypes`       | `Record<string, WorkTypeConfig>` | Work type definitions, merged with defaults by key                                                                            |
 | `retiredPackages` | `RetiredPackage[]`               | Packages that once lived in this repo but have been extracted or removed; suppresses undeclared-tag-prefix warnings           |
+| `project`         | `ProjectConfig`                  | Opt-in project-level release block. Declaring `project: {}` (even empty) enables a project-release stage in `prepare`         |
 
 All fields are optional.
 
@@ -169,6 +170,61 @@ Validation rules:
 - A `tagPrefix` that collides with an active workspace's derived prefix or any declared `workspaces[].legacyIdentities[].tagPrefix` is rejected. A retired prefix cannot also be current or legacy.
 
 `show-tag-prefixes` currently does not render a dedicated "Retired packages" section (deferred). Declaring a retired entry is verifiable by confirming that its `tagPrefix` stops appearing under "Undeclared tag prefixes" in the `show-tag-prefixes` output.
+
+### Project releases
+
+Some monorepos ship a single combined deliverable — a Chrome extension, a CLI binary, a packaged desktop app — for which the per-workspace tags and changelogs alone do not describe what the user actually receives. Declare the optional `project` block to add a project-level release stage that runs alongside the per-workspace pipeline.
+
+```typescript
+import type { ReleaseKitConfig } from '@williamthorsen/release-kit';
+
+const config: ReleaseKitConfig = {
+  // Empty object is enough to opt in. Every non-excluded workspace contributes.
+  project: {},
+};
+
+export default config;
+```
+
+When configured, each `release-kit prepare` run additionally:
+
+- Computes commits since the last project tag (`<tagPrefix><version>`), filtered to the union of every contributing workspace's paths.
+- Bumps the root `package.json`'s `version` field using the same bump-derivation rules as workspaces (or the `--bump=...` override).
+- Regenerates the root `./CHANGELOG.md` via `git-cliff`, scoped to the project's `tagPrefix` and contributing paths.
+- Emits `./.meta/changelog.json` (when `changelogJson.enabled`).
+- With `--with-release-notes`, additionally emits `./docs/RELEASE_NOTES.v<version>.md`.
+- Appends the project tag to `tmp/.release-tags` so `release-kit commit` and `release-kit tag` pick it up alongside per-workspace tags.
+
+If no contributing workspace has commits since the last project tag, the project release is silently skipped — same behavior as a per-workspace skip.
+
+#### `ProjectConfig`
+
+```typescript
+interface ProjectConfig {
+  tagPrefix?: string; // Defaults to 'v'
+}
+```
+
+| Field       | Default | Description                                                          |
+| ----------- | ------- | -------------------------------------------------------------------- |
+| `tagPrefix` | `'v'`   | Prefix for project tags. The full tag is `${tagPrefix}${newVersion}` |
+
+Contributing workspaces are implicit: every non-excluded discovered workspace contributes. There is no field to override the contributing set in this initial release; if a future consumer needs to release a workspace as a component but exclude it from the project release, that override can be added then.
+
+Validation rules:
+
+- The root `package.json` must exist and declare a `version` field. release-kit reports a clear error at config-load time if either is missing.
+- `project.tagPrefix` must not collide with any active workspace's derived `tagPrefix`, any `workspaces[].legacyIdentities[].tagPrefix`, or any `retiredPackages[].tagPrefix`. The collision check is strict-prefix: a project prefix `'v'` collides with a workspace prefix `'vue-helpers-v'` because `git describe --match=v*` would return tags from both.
+- The `project` block is rejected in single-package mode (the implicit "all non-excluded workspaces contribute" rule is meaningless in a single-package repo).
+- Unknown fields inside `project` are rejected.
+
+CLI flag interactions:
+
+- `--dry-run` previews project artifacts alongside workspace artifacts; no files are written.
+- `--bump=major|minor|patch` propagates to the project release.
+- `--force` combined with `--bump` runs the project release even with no commits since the last project tag.
+- `--only` is **rejected with a clear error** when `project` is configured. `--only` is a surgical, single-workspace operation; combining it with a project release that rolls up every contributing workspace would create ambiguous semantics. To release a single workspace, use a config without a `project` block, or run a full `prepare` (no `--only`) to include the project release.
+- `--set-version` cannot co-exist with a configured project block, since `--set-version` requires `--only` in monorepo mode (and `--only` is rejected when `project` is configured).
 
 ### `VersionPatterns`
 
@@ -227,7 +283,7 @@ Run release preparation with automatic workspace discovery.
 | `--bump=major\|minor\|patch` | Override the bump type for all workspaces                                                                    |
 | `--set-version=X.Y.Z`        | Set an explicit canonical semver version; bypasses commit-derived bumps. Requires `--only` in monorepo mode. |
 | `--force`                    | Bypass the "no commits since last tag" check (requires `--bump`)                                             |
-| `--only=name1,name2`         | Only process the named workspaces (monorepo only)                                                            |
+| `--only=name1,name2`         | Only process the named workspaces (monorepo only; rejected when a `project` block is configured)             |
 | `--with-release-notes`       | Write per-workspace release-notes previews under `{workspacePath}/docs/`                                     |
 | `--help`, `-h`               | Show help                                                                                                    |
 

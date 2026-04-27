@@ -37,3 +37,6 @@ export const DEFAULT_CHANGELOG_JSON_CONFIG: ChangelogJsonConfig = {
 export const DEFAULT_RELEASE_NOTES_CONFIG: ReleaseNotesConfig = {
   shouldInjectIntoReadme: false,
 };
+
+/** Default tag prefix for project-level releases. */
+export const DEFAULT_PROJECT_TAG_PREFIX = 'v';

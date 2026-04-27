@@ -6,8 +6,10 @@ import type { PrepareResult } from './types.ts';
  *
  * Each released workspace with commits gets a section headed by its tag,
  * followed by scope-stripped commit messages as bullet points. Sections
- * are separated by blank lines. Returns an empty string when no released
- * workspaces have commits.
+ * are separated by blank lines. The project release (when present) is
+ * appended as a final section using the same format. Returns an empty
+ * string when no released workspaces have commits and there is no project
+ * release.
  */
 export function buildReleaseSummary(result: PrepareResult): string {
   const sections: string[] = [];
@@ -27,6 +29,15 @@ export function buildReleaseSummary(result: PrepareResult): string {
       lines.push(`- ${stripScope(commit.message)}`);
     }
 
+    sections.push(lines.join('\n'));
+  }
+
+  const project = result.project;
+  if (project !== undefined && project.commits !== undefined && project.commits.length > 0) {
+    const lines = [project.tag];
+    for (const commit of project.commits) {
+      lines.push(`- ${stripScope(commit.message)}`);
+    }
     sections.push(lines.join('\n'));
   }
 
