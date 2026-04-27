@@ -167,9 +167,20 @@ Validation rules:
 - `successor` is optional; if present, it must be a non-empty string.
 - Full-tuple `(name, tagPrefix)` duplicates within `retiredPackages` are rejected.
 - Two entries sharing the same `tagPrefix` but different `name`s are accepted — this documents a package renamed within the repo before being retired.
-- A `tagPrefix` that collides with an active workspace's derived prefix or any declared `workspaces[].legacyIdentities[].tagPrefix` is rejected. A retired prefix cannot also be current or legacy.
 
 `show-tag-prefixes` currently does not render a dedicated "Retired packages" section (deferred). Declaring a retired entry is verifiable by confirming that its `tagPrefix` stops appearing under "Undeclared tag prefixes" in the `show-tag-prefixes` output.
+
+### Tag prefix collisions
+
+Tag prefixes from distinct owners must not be identical or be a strict prefix of one another. An owner is one of:
+
+- An active workspace, comprising its derived `tagPrefix` plus any declared `legacyIdentities[].tagPrefix`. Identities of the same workspace are one owner, so their prefixes are allowed to overlap (this represents the same package across renames).
+- A `retiredPackages[]` entry (one owner per entry).
+- The `project` block, when configured.
+
+release-kit resolves baseline tags via `git describe --match=<prefix>*`, so a strict-prefix overlap between distinct owners would cause that glob to return cross-matches against the wrong owner's history. For example, a project prefix of `v` collides with a workspace prefix of `vue-helpers-v`, since `git describe --match=v*` would return both project tags and `vue-helpers` tags.
+
+The rule is enforced at config load; the resulting error identifies both colliding declarations.
 
 ### Project releases
 
@@ -214,7 +225,6 @@ Contributing workspaces are implicit: every non-excluded discovered workspace co
 Validation rules:
 
 - The root `package.json` must exist and declare a `version` field. release-kit reports an error at config-load time if either is missing.
-- `project.tagPrefix` must not collide with any active workspace's derived `tagPrefix`, any `workspaces[].legacyIdentities[].tagPrefix`, or any `retiredPackages[].tagPrefix`. The collision check is strict-prefix: a project prefix `'v'` collides with a workspace prefix `'vue-helpers-v'` because `git describe --match=v*` would return tags from both.
 - The `project` block is rejected in single-package mode (the implicit "all non-excluded workspaces contribute" rule is meaningless in a single-package repo).
 - Unknown fields inside `project` are rejected.
 
