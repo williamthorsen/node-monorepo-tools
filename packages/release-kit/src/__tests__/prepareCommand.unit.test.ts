@@ -257,6 +257,26 @@ describe(prepareCommand, () => {
     );
   });
 
+  it('prints stage-attributed errors verbatim without an outer "Error preparing release:" prefix', async () => {
+    mockReleasePrepareMono.mockImplementation(() => {
+      throw new Error("workspace 'arrays' release stage: bumpAllVersions failed: ENOENT");
+    });
+
+    await expect(prepareCommand([])).rejects.toThrow(ExitError);
+    expect(console.error).toHaveBeenCalledWith("workspace 'arrays' release stage: bumpAllVersions failed: ENOENT");
+    expect(console.error).not.toHaveBeenCalledWith(expect.stringContaining('Error preparing release'));
+  });
+
+  it('prints validation errors verbatim without an outer "Error preparing release:" prefix', async () => {
+    mockReleasePrepareMono.mockImplementation(() => {
+      throw new Error('--set-version 0.3.0 is not greater than current version 0.5.0');
+    });
+
+    await expect(prepareCommand([])).rejects.toThrow(ExitError);
+    expect(console.error).toHaveBeenCalledWith('--set-version 0.3.0 is not greater than current version 0.5.0');
+    expect(console.error).not.toHaveBeenCalledWith(expect.stringContaining('Error preparing release'));
+  });
+
   it('exits with a distinct error when writing release tags fails', async () => {
     mockWriteFileWithCheck.mockReturnValue({
       filePath: RELEASE_TAGS_FILE,

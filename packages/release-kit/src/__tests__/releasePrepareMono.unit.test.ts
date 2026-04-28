@@ -1667,4 +1667,135 @@ describe(releasePrepareMono, () => {
       );
     });
   });
+
+  describe('stage attribution', () => {
+    function makeArraysConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoReleaseConfig {
+      return makeConfig({
+        workspaces: [
+          {
+            dir: 'arrays',
+            name: '@test/arrays',
+            tagPrefix: 'arrays-v',
+            workspacePath: 'packages/arrays',
+            packageFiles: ['packages/arrays/package.json'],
+            changelogPaths: ['packages/arrays'],
+            paths: ['packages/arrays/**'],
+          },
+        ],
+        ...overrides,
+      });
+    }
+
+    /** Run `fn` and return the thrown Error. Fails the test if no Error is thrown. */
+    function captureError(fn: () => unknown): Error {
+      try {
+        fn();
+      } catch (error) {
+        if (error instanceof Error) return error;
+        throw new Error(`Expected an Error to be thrown, got ${typeof error}: ${String(error)}`);
+      }
+      throw new Error('Expected fn to throw, but it returned normally');
+    }
+
+    it("wraps a Phase 1 (bump-determination) throw with the workspace's release-stage label", () => {
+      const config = makeArraysConfig();
+      // Make the very first git invocation (`getCommitsSinceTarget`) throw — this exercises
+      // the Phase 1 wrap inside `determineDirectBumps`.
+      const underlying = new Error('git describe failed: not a git repo');
+      mockExecFileSync.mockImplementation(() => {
+        throw underlying;
+      });
+
+      const wrapped = captureError(() => releasePrepareMono(config, { dryRun: false }));
+
+      expect(wrapped.message).toMatch(/^workspace 'arrays' release stage: .*git describe failed: not a git repo$/);
+      // `cause` is preserved through the chain — at minimum, an Error instance.
+      expect(wrapped.cause).toBeInstanceOf(Error);
+    });
+
+    it("wraps a Phase 3 (executeWorkspaceRelease) throw with the workspace's release-stage label", () => {
+      const config = makeArraysConfig();
+      // Phase 1 succeeds (git describe + git log succeed). The cliff invocation in
+      // `generateChangelog` (which `executeWorkspaceRelease` calls) throws — this exercises
+      // the Phase 3 wrap inside `executeReleaseSet`.
+      const underlying = new Error('git-cliff exited with status 1');
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') return 'arrays-v1.0.0\n';
+        if (cmd === 'git' && args[0] === 'log') return 'feat: addabc123';
+        if (cmd === 'npx') throw underlying;
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+
+      const wrapped = captureError(() => releasePrepareMono(config, { dryRun: false }));
+
+      expect(wrapped.message).toMatch(/^workspace 'arrays' release stage: .*git-cliff exited with status 1$/);
+      // `cause` is preserved through the chain — at minimum, an Error instance.
+      expect(wrapped.cause).toBeInstanceOf(Error);
+    });
+
+    it('wraps a project-stage throw with the project release-stage label', () => {
+      const config = makeArraysConfig({ project: { tagPrefix: 'v' } });
+      // Workspace stage succeeds; the project stage's git-cliff call throws.
+      const underlying = new Error('cliff exploded on root');
+      let cliffCallCount = 0;
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') {
+          const matchArg = args.find((a: string) => a.startsWith('--match='));
+          if (matchArg === '--match=arrays-v*') return 'arrays-v1.0.0\n';
+          if (matchArg === '--match=v*') return 'v0.9.0\n';
+        }
+        if (cmd === 'git' && args[0] === 'log') return `feat: shipabc123`;
+        if (cmd === 'npx') {
+          cliffCallCount += 1;
+          // First cliff call is the workspace's; second is the project's.
+          if (cliffCallCount >= 2) throw underlying;
+        }
+        return '';
+      });
+      mockReadFileSync.mockImplementation((filePath: string) => {
+        if (filePath === './package.json') return JSON.stringify({ name: 'root', version: '0.9.0' });
+        return JSON.stringify({ version: '1.0.0' });
+      });
+
+      const wrapped = captureError(() => releasePrepareMono(config, { dryRun: false }));
+
+      expect(wrapped.message).toMatch(/^project release stage: .*cliff exploded on root$/);
+      expect(wrapped.cause).toBeInstanceOf(Error);
+    });
+
+    it('wraps a format-stage throw with the format-stage label and the failing command', () => {
+      const config = makeArraysConfig({ formatCommand: 'npx prettier --write' });
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') return 'arrays-v1.0.0\n';
+        if (cmd === 'git' && args[0] === 'log') return 'feat: addbarabc123';
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+      const underlying = new Error('prettier exited 2');
+      mockExecSync.mockImplementation(() => {
+        throw underlying;
+      });
+
+      const wrapped = captureError(() => releasePrepareMono(config, { dryRun: false }));
+
+      expect(wrapped.message).toMatch(/^format stage: prettier exited 2 \(command: 'npx prettier --write .+'\)$/);
+      expect(wrapped.cause).toBe(underlying);
+    });
+
+    it('does not wrap --set-version validation throws with a stage label', () => {
+      const config = makeArraysConfig();
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') return 'arrays-v0.5.0\n';
+        if (cmd === 'git' && args[0] === 'log') return '';
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '0.5.0' }));
+
+      const wrapped = captureError(() => releasePrepareMono(config, { dryRun: false, setVersion: '0.3.0' }));
+
+      expect(wrapped.message).toBe('--set-version 0.3.0 is not greater than current version 0.5.0');
+      expect(wrapped.message).not.toContain('stage:');
+    });
+  });
 });

@@ -386,7 +386,7 @@ function runAndReport(execute: () => PrepareResult, dryRun: boolean): void {
   try {
     result = execute();
   } catch (error: unknown) {
-    console.error('Error preparing release:', error instanceof Error ? error.message : String(error));
+    console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 

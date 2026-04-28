@@ -144,9 +144,8 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
       try {
         execSync(fullCommand, { stdio: 'inherit' });
       } catch (error: unknown) {
-        throw new Error(
-          `Format command failed ('${fullCommand}'): ${error instanceof Error ? error.message : String(error)}`,
-        );
+        const baseMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`format stage: ${baseMessage} (command: '${fullCommand}')`, { cause: error });
       }
       formatCommand = { command: fullCommand, executed: true, files: modifiedFiles };
     }
