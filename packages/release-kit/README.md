@@ -395,6 +395,26 @@ Manage GitHub label definitions via config-driven YAML files.
 
 `init` scaffolds `.config/sync-labels.config.ts` with auto-detected workspace scope labels and a `.github/workflows/sync-labels.yaml` caller workflow, then generates `.github/labels.yaml`. `generate` reads the config and writes `.github/labels.yaml`. `sync` triggers the workflow remotely — it requires the `gh` CLI and an existing workflow file.
 
+#### Published JSON Schema for `.meta/label-map.json`
+
+release-kit publishes a JSON Schema for `.meta/label-map.json` — a separate, generic data file that maps commit-prefix scopes and types to GitHub label names. The schema lives at `packages/release-kit/schemas/label-map.json` in this repo and is reachable via the stable raw URL:
+
+```
+https://github.com/williamthorsen/node-monorepo-tools/raw/release-kit-v<version>/packages/release-kit/schemas/label-map.json
+```
+
+Consumers reference it from the top of their `.meta/label-map.json`:
+
+```json
+{
+  "$schema": "https://github.com/williamthorsen/node-monorepo-tools/raw/release-kit-v<version>/packages/release-kit/schemas/label-map.json",
+  "types": { "feat": "feature", "fix": "fix" },
+  "scopes": { "audit": "scope:audit" }
+}
+```
+
+release-kit publishes the schema only; it does not generate `.meta/label-map.json`. Generation requires commit-prefix knowledge that lives outside release-kit (in agent-conventions tooling), and is owned by those consumers.
+
 ## GitHub Actions workflow
 
 The `init` command scaffolds a release workflow at `.github/workflows/release.yaml` that delegates to a reusable release workflow. The scaffolded workflow accepts these inputs:

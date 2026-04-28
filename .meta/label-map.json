@@ -1,4 +1,5 @@
 {
+  "$schema": "https://github.com/williamthorsen/node-monorepo-tools/raw/release-kit-v5.1.0/packages/release-kit/schemas/label-map.json",
   "types": {
     "ai": "ai",
     "ci": "ci",
@@ -6,7 +7,7 @@
     "docs": "documentation",
     "feat": "feature",
     "fix": "fix",
-    "internal": "utility",
+    "internal": "internal",
     "perf": "performance",
     "refactor": "refactoring",
     "sec": "security",

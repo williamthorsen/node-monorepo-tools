@@ -8,12 +8,12 @@
 - name: bug
   color: d73a4a
   description: "Something isn't working"
-- name: documentation
-  color: a2eeef
-  description: Improvements or additions to documentation
 - name: deprecation
   color: fbca04
   description: Marks functionality for future removal
+- name: documentation
+  color: a2eeef
+  description: Improvements or additions to documentation
 - name: feature
   color: '0075ca'
   description: Added or improved external functionality
@@ -48,6 +48,9 @@
 - name: dependencies
   color: edc287
   description: Change to dependencies
+- name: internal
+  color: 1d76db
+  description: Internal change without external impact
 - name: refactoring
   color: edc287
   description: Improvement to code without change in functionality
@@ -57,9 +60,6 @@
 - name: tooling
   color: edc287
   description: Development tools
-- name: utility
-  color: 1d76db
-  description: Changed internal functionality
 
 # Priority
 - name: 'priority:critical'
