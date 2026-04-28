@@ -137,7 +137,7 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
   // a per-workspace narrowing guard here.
   let project: ProjectPrepareResult | undefined;
   if (config.project !== undefined) {
-    project = releasePrepareProject({ config, options, modifiedFiles, tags });
+    project = tryStage('project release stage', () => releasePrepareProject({ config, options, modifiedFiles, tags }));
   }
 
   // === Phase 4: Format ===
@@ -178,7 +178,11 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
 
   for (const workspace of config.workspaces) {
     const name = workspace.dir;
-    const { tag, commits } = getCommitsSinceTarget(getAllTagPrefixes(workspace), workspace.paths);
+    const stageLabel = workspaceStageLabel(workspace.dir);
+
+    const { tag, commits } = tryStage(stageLabel, () =>
+      getCommitsSinceTarget(getAllTagPrefixes(workspace), workspace.paths),
+    );
     const since = tag === undefined ? '(no previous release found)' : `since ${tag}`;
 
     if (tag === undefined) {
@@ -190,7 +194,7 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
     // pre-write current version.
     const primaryPackageFile = workspace.packageFiles[0];
     if (primaryPackageFile !== undefined) {
-      const currentVersion = readCurrentVersion(primaryPackageFile);
+      const currentVersion = tryStage(stageLabel, () => readCurrentVersion(primaryPackageFile));
       if (currentVersion !== undefined) {
         currentVersions.set(workspace.dir, currentVersion);
       }
@@ -243,7 +247,9 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
     let unparseableCommits: Commit[] | undefined;
 
     if (bumpOverride === undefined) {
-      const determination = determineBumpFromCommits(commits, workTypes, versionPatterns, config.scopeAliases);
+      const determination = tryStage(stageLabel, () =>
+        determineBumpFromCommits(commits, workTypes, versionPatterns, config.scopeAliases),
+      );
       parsedCommitCount = determination.parsedCommitCount;
       unparseableCommits = determination.unparseableCommits;
       releaseType = determination.releaseType;
@@ -336,20 +342,22 @@ function executeReleaseSet(
       continue;
     }
 
-    executeWorkspaceRelease({
-      dir,
-      workspace,
-      releaseEntry,
-      directResult: directResults.get(dir),
-      previousTags,
-      config,
-      dryRun,
-      today,
-      tags,
-      modifiedFiles,
-      workspaces,
-      previewOptions,
-    });
+    tryStage(workspaceStageLabel(dir), () =>
+      executeWorkspaceRelease({
+        dir,
+        workspace,
+        releaseEntry,
+        directResult: directResults.get(dir),
+        previousTags,
+        config,
+        dryRun,
+        today,
+        tags,
+        modifiedFiles,
+        workspaces,
+        previewOptions,
+      }),
+    );
   }
 
   return { tags, modifiedFiles };
@@ -569,9 +577,8 @@ function runFormatCommand(
   try {
     execSync(fullCommand, { stdio: 'inherit' });
   } catch (error: unknown) {
-    throw new Error(
-      `Format command failed ('${fullCommand}'): ${error instanceof Error ? error.message : String(error)}`,
-    );
+    const baseMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(`format stage: ${baseMessage} (command: '${fullCommand}')`, { cause: error });
   }
 
   return { command: fullCommand, executed: true, files: modifiedFiles };
@@ -580,6 +587,30 @@ function runFormatCommand(
 /** Find a workspace by its `dir` in the workspaces array. */
 function findWorkspace(workspaces: readonly WorkspaceConfig[], dir: string): WorkspaceConfig | undefined {
   return workspaces.find((w) => w.dir === dir);
+}
+
+/**
+ * Wrap an unknown thrown value with a stage label, preserving the original via `Error.cause`.
+ * The resulting message starts with `<stageLabel>:` so the outer CLI boundary can recognize
+ * stage-attributed errors.
+ */
+function wrapStageError(stageLabel: string, error: unknown): Error {
+  const message = error instanceof Error ? error.message : String(error);
+  return new Error(`${stageLabel}: ${message}`, { cause: error });
+}
+
+/** Run `fn` and rethrow any thrown value wrapped with a stage label via `wrapStageError`. */
+function tryStage<T>(stageLabel: string, fn: () => T): T {
+  try {
+    return fn();
+  } catch (error) {
+    throw wrapStageError(stageLabel, error);
+  }
+}
+
+/** Build the per-workspace stage label used for both Phase 1 and Phase 3 attribution. */
+function workspaceStageLabel(dir: string): string {
+  return `workspace '${dir}' release stage`;
 }
 
 /** Shared single-fire flag so multiple no-baseline workspaces trigger at most one hint per run. */
