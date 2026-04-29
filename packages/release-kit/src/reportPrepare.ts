@@ -46,9 +46,8 @@ function formatSingleWorkspace(result: PrepareResult): string {
   // --set-version: render an explicit version-override message instead of a bump label.
   if (workspace.setVersion !== undefined) {
     lines.push(`  Using version override: ${workspace.setVersion}`);
-  } else if (workspace.parsedCommitCount === undefined && workspace.releaseType !== undefined) {
-    // Bump override message (no parsedCommitCount means bump override was used)
-    lines.push(`  Using bump override: ${workspace.releaseType}`);
+  } else if (workspace.bumpOverride !== undefined) {
+    lines.push(`  Using bump override: ${workspace.bumpOverride}`);
   }
 
   // Bump info
@@ -120,6 +119,13 @@ function formatMultiWorkspace(result: PrepareResult): string {
  * Render the project release section using the same shape as a workspace section. The
  * project release always corresponds to a single bump (no propagation, no `--set-version`),
  * so the rendering branches are simpler than `formatWorkspaceSection`.
+ *
+ * For skipped projects, mirrors `formatWorkspaceSection`'s skipped rendering: section
+ * header, "Found N commits …" line, and the skip reason — then returns early. The
+ * `parsedCommitCount` and `unparseableCommits` diagnostic data remains on the
+ * structured `ProjectPrepareResult` and is available via JSON output and tests; it is
+ * intentionally suppressed in the terminal rendering for symmetry with the existing
+ * skipped workspace rendering.
  */
 function formatProjectSection(lines: string[], project: ProjectPrepareResult, dryRun: boolean): void {
   lines.push(`\n${sectionHeader('project')}`);
@@ -127,18 +133,31 @@ function formatProjectSection(lines: string[], project: ProjectPrepareResult, dr
   const since = project.previousTag === undefined ? '(no previous release found)' : `since ${project.previousTag}`;
   lines.push(dim(`  Found ${project.commitCount} commits ${since}`));
 
-  if (project.parsedCommitCount !== undefined) {
+  if (project.status === 'skipped') {
+    lines.push(`  ⏭️  ${project.skipReason ?? 'Skipped'}`);
+    return;
+  }
+
+  // Released variant: release-only fields are populated.
+  const { releaseType, currentVersion, newVersion, tag } = project;
+
+  // Suppress "Parsed 0 typed commits" — uninformative under the unified algorithm where
+  // `parsedCommitCount` is always populated (e.g., 0 for `--force` alone with no commits).
+  if (project.parsedCommitCount !== undefined && project.parsedCommitCount > 0) {
     lines.push(dim(`  Parsed ${project.parsedCommitCount} typed commits`));
-  } else {
-    lines.push(`  Using bump override: ${project.releaseType}`);
+  }
+  if (project.bumpOverride !== undefined) {
+    lines.push(`  Using bump override: ${project.bumpOverride}`);
   }
 
   formatProjectUnparseable(lines, project);
 
-  lines.push(
-    dim(`  Bumping versions (${project.releaseType})...`),
-    `  📦 ${project.currentVersion} → ${bold(project.newVersion)} (${project.releaseType})`,
-  );
+  if (releaseType !== undefined) {
+    lines.push(dim(`  Bumping versions (${releaseType})...`));
+  }
+  if (currentVersion !== undefined && newVersion !== undefined && releaseType !== undefined) {
+    lines.push(`  📦 ${currentVersion} → ${bold(newVersion)} (${releaseType})`);
+  }
 
   for (const file of project.bumpedFiles) {
     if (dryRun) {
@@ -157,7 +176,9 @@ function formatProjectSection(lines: string[], project: ProjectPrepareResult, dr
     }
   }
 
-  lines.push(`  🏷️  ${bold(project.tag)}`);
+  if (tag !== undefined) {
+    lines.push(`  🏷️  ${bold(tag)}`);
+  }
 }
 
 /** Append the unparseable-commit warning lines for a project release, if any. */
@@ -218,7 +239,9 @@ function formatCommitSummary(
   if (isPropagatedOnly && propagatedFrom !== undefined) {
     const depNames = propagatedFrom.map((p) => p.packageName).join(', ');
     lines.push(dim(`  0 commits (bumped via dependency: ${depNames})`));
-  } else if (workspace.parsedCommitCount !== undefined) {
+  } else if (workspace.parsedCommitCount !== undefined && workspace.parsedCommitCount > 0) {
+    // Suppress "Parsed 0 typed commits" for `--force`-alone-with-no-commits cases where
+    // the unified algorithm now populates parsedCommitCount as 0 deterministically.
     lines.push(dim(`  Parsed ${workspace.parsedCommitCount} typed commits`));
   }
 }
@@ -227,8 +250,8 @@ function formatCommitSummary(
 function formatBumpLabels(lines: string[], workspace: WorkspacePrepareResult, isPropagatedOnly: boolean): void {
   if (workspace.setVersion !== undefined) {
     lines.push(`  Using version override: ${workspace.setVersion}`);
-  } else if (workspace.parsedCommitCount === undefined && workspace.releaseType !== undefined && !isPropagatedOnly) {
-    lines.push(`  Using bump override: ${workspace.releaseType}`);
+  } else if (workspace.bumpOverride !== undefined && !isPropagatedOnly) {
+    lines.push(`  Using bump override: ${workspace.bumpOverride}`);
   }
 
   if (workspace.releaseType !== undefined) {

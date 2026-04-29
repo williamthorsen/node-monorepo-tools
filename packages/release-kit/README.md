@@ -231,10 +231,30 @@ Validation rules:
 CLI flag interactions:
 
 - `--dry-run` previews project artifacts alongside workspace artifacts; no files are written.
-- `--bump=major|minor|patch` propagates to the project release.
-- `--force` combined with `--bump` runs the project release even with no commits since the last project tag.
+- `--bump=major|minor|patch` propagates to the project release as a level chooser. It does not trigger a release on its own when there are no commits or no bump-worthy commits.
+- `--force` runs the project release even when no commits or no bump-worthy commits exist since the last project tag. Defaults to patch when `--bump` is not given; combine with `--bump=X` to release at a different level.
 - `--only` is rejected with an error when `project` is configured. `--only` is a surgical, single-workspace operation; combining it with a project release that rolls up every contributing workspace would create ambiguous semantics. To release a single workspace, use a config without a `project` block, or run a full `prepare` (no `--only`) to include the project release.
 - `--set-version` is rejected with an error when `project` is configured. `--set-version` operates on a single workspace, but a project release rolls up every contributing workspace; the two semantics don't compose. To use `--set-version`, run on a config without a `project` block.
+
+`--bump` and `--force` are orthogonal: `--bump` is purely a level chooser; `--force` is purely a release trigger. Examples:
+
+```sh
+# Release every target at its natural bump level (no flags).
+release-kit prepare
+
+# Force a release even when no bump-worthy commits exist; defaults to patch
+# per target, with each target keeping its natural bump if one is derivable.
+release-kit prepare --force
+
+# Force a release at a uniform level across every releasing target.
+release-kit prepare --force --bump=minor
+
+# --bump=X alone is a level chooser, NOT a trigger. If a target has no
+# bump-worthy commits, it skips with a "Pass --force..." reason. If it has
+# bump-worthy commits, the override applies. (Behavioral change from earlier
+# release-kit versions, where --bump=X alone would force a release.)
+release-kit prepare --bump=minor
+```
 
 ### `VersionPatterns`
 
@@ -287,15 +307,15 @@ Release-notes sections are rendered in the declaration order of the merged work-
 
 Run release preparation with automatic workspace discovery.
 
-| Flag                         | Description                                                                                                  |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `--dry-run`                  | Preview changes without writing files                                                                        |
-| `--bump=major\|minor\|patch` | Override the bump type for all workspaces                                                                    |
-| `--set-version=X.Y.Z`        | Set an explicit canonical semver version; bypasses commit-derived bumps. Requires `--only` in monorepo mode. |
-| `--force`                    | Bypass the "no commits since last tag" check (requires `--bump`)                                             |
-| `--only=name1,name2`         | Only process the named workspaces (monorepo only; rejected when a `project` block is configured)             |
-| `--with-release-notes`       | Write per-workspace release-notes previews under `{workspacePath}/docs/`                                     |
-| `--help`, `-h`               | Show help                                                                                                    |
+| Flag                         | Description                                                                                                                                        |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--dry-run`                  | Preview changes without writing files                                                                                                              |
+| `--bump=major\|minor\|patch` | Override the bump type for all workspaces                                                                                                          |
+| `--set-version=X.Y.Z`        | Set an explicit canonical semver version; bypasses commit-derived bumps. Requires `--only` in monorepo mode.                                       |
+| `--force`                    | Release even when no commits or no bump-worthy commits exist since the last tag (defaults to patch; combine with `--bump=X` for a different level) |
+| `--only=name1,name2`         | Only process the named workspaces (monorepo only; rejected when a `project` block is configured)                                                   |
+| `--with-release-notes`       | Write per-workspace release-notes previews under `{workspacePath}/docs/`                                                                           |
+| `--help`, `-h`               | Show help                                                                                                                                          |
 
 Workspace names for `--only` match the package directory name (e.g., `arrays`, `release-kit`).
 

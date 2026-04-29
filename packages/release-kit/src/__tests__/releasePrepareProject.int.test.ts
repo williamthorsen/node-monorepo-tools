@@ -170,7 +170,11 @@ describe('releasePrepareProject (integration)', () => {
 
   it('overrides the project bump when --bump=major is supplied (1.x baseline)', () => {
     // Reset the fixture's root version to 1.x so the major bump is not collapsed by the
-    // pre-1.0 rule in `bumpVersion`.
+    // pre-1.0 rule in `bumpVersion`. The fixture's three feat/fix commits (created in
+    // `setupFixture`) sit between this freshly-created `v1.0.0` baseline and HEAD when
+    // we tag BEFORE the chore commit, so a natural minor bump is in scope and `--bump=major`
+    // is exercised as a level chooser that overrides the natural bump.
+    execFileSync('git', ['tag', 'v1.0.0', 'HEAD~3'], { cwd: fixture.repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
     writeFileSync(
       join(fixture.repoDir, 'package.json'),
       JSON.stringify({ name: 'fixture-monorepo', version: '1.0.0', private: true }, null, 2) + '\n',
@@ -181,7 +185,6 @@ describe('releasePrepareProject (integration)', () => {
       cwd: fixture.repoDir,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
-    execFileSync('git', ['tag', 'v1.0.0'], { cwd: fixture.repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
 
     withinFixture(fixture.repoDir, () => {
       const config = mergeMonorepoConfig(

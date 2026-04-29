@@ -172,6 +172,31 @@ describe(prepareCommand, () => {
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining('--only is only supported'));
   });
 
+  it('exits with error for --force without --bump on a single-package repo', async () => {
+    // The orthogonal --force model is only wired into the monorepo executor; the
+    // single-package path still uses determineBumpFromCommits, so a bare --force would
+    // be silently ignored. Reject it explicitly with a guidance error instead.
+    mockDiscoverWorkspaces.mockResolvedValue(undefined);
+
+    await expect(prepareCommand(['--force'])).rejects.toThrow(ExitError);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('--force without --bump'));
+    expect(mockReleasePrepare).not.toHaveBeenCalled();
+  });
+
+  it('accepts --force --bump=X on a single-package repo', async () => {
+    // --bump=X carries the release through unconditionally in the single-package path,
+    // so --force is a no-op rather than a silent failure when paired with --bump.
+    mockDiscoverWorkspaces.mockResolvedValue(undefined);
+
+    await prepareCommand(['--force', '--bump=patch']);
+
+    expect(mockReleasePrepare).toHaveBeenCalledWith(expect.any(Object), {
+      dryRun: false,
+      force: true,
+      bumpOverride: 'patch',
+    });
+  });
+
   it('exits with error for --only with an unknown workspace name in monorepo mode', async () => {
     await expect(prepareCommand(['--only=arrays,nonexistent'])).rejects.toThrow(ExitError);
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining('nonexistent'));
@@ -566,12 +591,16 @@ describe(parseArgs, () => {
     expect(process.exit).toHaveBeenCalledWith(0);
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining('npx @williamthorsen/release-kit prepare'));
     expect(console.info).toHaveBeenCalledWith(
-      expect.stringContaining('Force a release even when there are no commits since the last tag (requires --bump)'),
+      expect.stringContaining('Release even when no commits or no bump-worthy commits exist'),
     );
   });
 
-  it('throws when --force is used without --bump', () => {
-    expect(() => parseArgs(['--force'])).toThrow('--force requires --bump');
+  it('accepts --force without --bump and defaults force to true', () => {
+    // `--force` is a pure release trigger; runtime defaults the level to patch when no
+    // `--bump` is supplied. Parsing must accept the flag without requiring `--bump`.
+    const result = parseArgs(['--force']);
+    expect(result.force).toBe(true);
+    expect(result.bumpOverride).toBeUndefined();
   });
 
   it('throws when --only value is empty', () => {

@@ -18,7 +18,11 @@ import { writeReleaseNotesPreviews } from './writeReleaseNotesPreviews.ts';
 export interface ReleasePrepareOptions {
   /** If true, logs actions without modifying files. */
   dryRun: boolean;
-  /** Bypass the "no commits since last tag" check (monorepo only). Requires `bumpOverride`. */
+  /**
+   * Release even when no commits or no bump-worthy commits exist since the last tag
+   * (monorepo only). Orthogonal to `bumpOverride`: when `bumpOverride` is not given,
+   * the release falls back to `patch`.
+   */
   force?: boolean;
   /** Override the bump type instead of determining it from commits. */
   bumpOverride?: ReleaseType;

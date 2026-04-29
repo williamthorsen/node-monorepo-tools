@@ -4,9 +4,9 @@ import type { DependencyGraph } from './buildDependencyGraph.ts';
 import { buildDependencyGraph } from './buildDependencyGraph.ts';
 import { bumpAllVersions, setAllVersions } from './bumpAllVersions.ts';
 import { isForwardVersion } from './compareVersions.ts';
+import { decideRelease } from './decideRelease.ts';
 import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { detectUndeclaredTagPrefixes } from './detectUndeclaredTagPrefixes.ts';
-import { determineBumpFromCommits } from './determineBumpFromCommits.ts';
 import { generateChangelogJson, generateSyntheticChangelogJson } from './generateChangelogJson.ts';
 import { buildTagPattern, generateChangelog } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
@@ -39,6 +39,8 @@ interface DirectBumpResult {
   releaseType: ReleaseType | undefined;
   parsedCommitCount: number | undefined;
   unparseableCommits: Commit[] | undefined;
+  /** Set when `--bump=X` was supplied for this workspace's direct release; surfaced to renderer. */
+  bumpOverride: ReleaseType | undefined;
   /** Explicit version from `--set-version`, present only for the overridden workspace. */
   setVersion?: string;
 }
@@ -135,6 +137,9 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
   // `runFormatCommand` (so root files participate in formatting). `prepareCommand` rejects
   // `--only` upstream when a project block is configured, so the orchestrator does not need
   // a per-workspace narrowing guard here.
+  //
+  // `releasePrepareProject` returns a structured `ProjectPrepareResult` for both released
+  // and skipped variants — `undefined` here continues to mean "no project block configured."
   let project: ProjectPrepareResult | undefined;
   if (config.project !== undefined) {
     project = tryStage('project release stage', () => releasePrepareProject({ config, options, modifiedFiles, tags }));
@@ -223,60 +228,52 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
         releaseType: undefined,
         parsedCommitCount: undefined,
         unparseableCommits: undefined,
+        bumpOverride: undefined,
         setVersion,
       });
       continue;
     }
 
-    // Skip workspaces with no changes unless --force is set.
-    if (commits.length === 0 && !force) {
-      skippedResults.push({
-        workspace,
-        tag,
-        commitCount: 0,
-        parsedCommitCount: undefined,
-        unparseableCommits: undefined,
-        skipReason: `No changes for ${name} ${since}. Skipping.`,
-      });
-      continue;
-    }
+    // Apply the unified release-decision algorithm: `--bump=X` is purely a level chooser;
+    // `--force` is purely a release trigger that defaults to patch when no level is given.
+    // Always parses commits so `parsedCommitCount` and `unparseableCommits` are populated for
+    // diagnostic surfacing regardless of whether `bumpOverride` was supplied.
+    const decision = tryStage(stageLabel, () =>
+      decideRelease({
+        commits,
+        force,
+        bumpOverride,
+        workTypes,
+        versionPatterns,
+        scopeAliases: config.scopeAliases,
+        skipReasons: {
+          noCommits: `No commits for ${name} ${since}. Pass --force to release at patch. Skipping.`,
+          noBumpWorthy: `No bump-worthy commits for ${name} ${since}. Pass --force to release at patch (or --force --bump=X for a different level). Skipping.`,
+        },
+      }),
+    );
 
-    // Determine bump type.
-    let releaseType: ReleaseType | undefined;
-    let parsedCommitCount: number | undefined;
-    let unparseableCommits: Commit[] | undefined;
-
-    if (bumpOverride === undefined) {
-      const determination = tryStage(stageLabel, () =>
-        determineBumpFromCommits(commits, workTypes, versionPatterns, config.scopeAliases),
-      );
-      parsedCommitCount = determination.parsedCommitCount;
-      unparseableCommits = determination.unparseableCommits;
-      releaseType = determination.releaseType;
-    } else {
-      releaseType = bumpOverride;
-    }
-
-    if (releaseType === undefined) {
+    if (decision.outcome === 'skip') {
       skippedResults.push({
         workspace,
         tag,
         commitCount: commits.length,
-        parsedCommitCount,
-        unparseableCommits,
-        skipReason: `No release-worthy changes for ${name} ${since}. Skipping.`,
+        parsedCommitCount: decision.parsedCommitCount,
+        unparseableCommits: decision.unparseableCommits,
+        skipReason: decision.skipReason,
       });
       continue;
     }
 
-    directBumps.set(workspace.dir, { releaseType });
+    directBumps.set(workspace.dir, { releaseType: decision.releaseType });
     directResults.set(workspace.dir, {
       workspace,
       tag,
       commits,
-      releaseType,
-      parsedCommitCount,
-      unparseableCommits,
+      releaseType: decision.releaseType,
+      parsedCommitCount: decision.parsedCommitCount,
+      unparseableCommits: decision.unparseableCommits,
+      bumpOverride,
     });
   }
 
@@ -438,6 +435,7 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     commits: directResult?.commits,
     unparseableCommits: directResult?.unparseableCommits,
     propagatedFrom: releaseEntry.propagatedFrom,
+    bumpOverride: directResult?.bumpOverride,
     ...(setVersionTarget === undefined ? {} : { setVersion: setVersionTarget }),
   });
 }
