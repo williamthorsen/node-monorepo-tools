@@ -103,7 +103,7 @@ describe(releasePrepareProject, () => {
     mockWriteReleaseNotesPreviews.mockReset();
   });
 
-  it('returns undefined when no commits since the last project tag and no force', () => {
+  it('returns a structured skipped result when no commits since the last project tag and no force', () => {
     mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
       if (cmd === 'git' && args[0] === 'describe') return 'v0.9.0\n';
       if (cmd === 'git' && args[0] === 'log') return '';
@@ -119,7 +119,118 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
-    expect(result).toBeUndefined();
+    expect(result.status).toBe('skipped');
+    expect(result.commitCount).toBe(0);
+    expect(result.previousTag).toBe('v0.9.0');
+    expect(result.skipReason).toBe('No commits since v0.9.0. Pass --force to release at patch. Skipping.');
+    expect(result.bumpedFiles).toStrictEqual([]);
+    expect(result.changelogFiles).toStrictEqual([]);
+    expect(tags).toStrictEqual([]);
+    expect(modifiedFiles).toStrictEqual([]);
+  });
+
+  it('returns a structured skipped result when commits exist but none are bump-worthy and no force', () => {
+    // Project pipeline matches the per-workspace pipeline: with commits but no bump-worthy
+    // parsed type and no --force, the project skips with the "No bump-worthy commits" reason.
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') return 'v0.9.0\n';
+      // 'chore' is not in the test workTypes (only feat, fix), so this commit is unparseable.
+      if (cmd === 'git' && args[0] === 'log') return 'chore: update deps\u001Fabc123';
+      return '';
+    });
+    const tags: string[] = [];
+    const modifiedFiles: string[] = [];
+
+    const result = releasePrepareProject({
+      config: makeConfig(),
+      options: { dryRun: false },
+      modifiedFiles,
+      tags,
+    });
+
+    expect(result.status).toBe('skipped');
+    expect(result.commitCount).toBe(1);
+    expect(result.previousTag).toBe('v0.9.0');
+    expect(result.parsedCommitCount).toBe(0);
+    expect(result.skipReason).toContain('No bump-worthy commits since v0.9.0');
+    expect(result.skipReason).toContain('Pass --force to release at patch');
+    expect(result.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'abc123' }]);
+    expect(tags).toStrictEqual([]);
+    expect(modifiedFiles).toStrictEqual([]);
+  });
+
+  it('falls back to patch when --force is set with no commits (no --bump)', () => {
+    // Row 3 of the behavioral matrix: `--force` alone with no commits is now valid;
+    // the project releases at patch. Today this combination was rejected at the CLI.
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') return 'v0.9.0\n';
+      if (cmd === 'git' && args[0] === 'log') return '';
+      return '';
+    });
+    const tags: string[] = [];
+    const modifiedFiles: string[] = [];
+
+    const result = releasePrepareProject({
+      config: makeConfig(),
+      options: { dryRun: false, force: true },
+      modifiedFiles,
+      tags,
+    });
+
+    expect(result.status).toBe('released');
+    expect(result.releaseType).toBe('patch');
+    expect(result.newVersion).toBe('0.9.1');
+    expect(tags).toStrictEqual(['v0.9.1']);
+  });
+
+  it('falls back to patch when --force is set with commits-but-no-bump-worthy', () => {
+    // Row 11 of the behavioral matrix: `--force` alone with non-bump-worthy commits releases
+    // at patch (rather than skipping).
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') return 'v0.9.0\n';
+      if (cmd === 'git' && args[0] === 'log') return 'chore: update deps\u001Fabc123';
+      return '';
+    });
+    const tags: string[] = [];
+    const modifiedFiles: string[] = [];
+
+    const result = releasePrepareProject({
+      config: makeConfig(),
+      options: { dryRun: false, force: true },
+      modifiedFiles,
+      tags,
+    });
+
+    expect(result.status).toBe('released');
+    expect(result.releaseType).toBe('patch');
+    expect(result.newVersion).toBe('0.9.1');
+    expect(result.commitCount).toBe(1);
+    expect(result.parsedCommitCount).toBe(0);
+    expect(result.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'abc123' }]);
+    expect(tags).toStrictEqual(['v0.9.1']);
+  });
+
+  it('skips when --bump=X alone is set with commits-but-no-bump-worthy (level chooser, not trigger)', () => {
+    // Row 10 of the behavioral matrix: `--bump=X` is now a pure level chooser. With
+    // commits that don't parse to a bump-worthy type, the project skips even when
+    // `--bump=X` is set without `--force`.
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') return 'v0.9.0\n';
+      if (cmd === 'git' && args[0] === 'log') return 'chore: update deps\u001Fabc123';
+      return '';
+    });
+    const tags: string[] = [];
+    const modifiedFiles: string[] = [];
+
+    const result = releasePrepareProject({
+      config: makeConfig(),
+      options: { dryRun: false, bumpOverride: 'minor' },
+      modifiedFiles,
+      tags,
+    });
+
+    expect(result.status).toBe('skipped');
+    expect(result.skipReason).toContain('No bump-worthy commits since v0.9.0');
     expect(tags).toStrictEqual([]);
     expect(modifiedFiles).toStrictEqual([]);
   });
@@ -136,12 +247,11 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
-    expect(result).toBeDefined();
-    expect(result?.tag).toBe('v0.10.0');
-    expect(result?.releaseType).toBe('minor');
-    expect(result?.currentVersion).toBe('0.9.0');
-    expect(result?.newVersion).toBe('0.10.0');
-    expect(result?.changelogFiles).toContain('./CHANGELOG.md');
+    expect(result.tag).toBe('v0.10.0');
+    expect(result.releaseType).toBe('minor');
+    expect(result.currentVersion).toBe('0.9.0');
+    expect(result.newVersion).toBe('0.10.0');
+    expect(result.changelogFiles).toContain('./CHANGELOG.md');
 
     expect(tags).toStrictEqual(['v0.10.0']);
     expect(modifiedFiles).toContain('./package.json');
@@ -185,8 +295,8 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
-    expect(result?.releaseType).toBe('major');
-    expect(result?.newVersion).toBe('2.0.0');
+    expect(result.releaseType).toBe('major');
+    expect(result.newVersion).toBe('2.0.0');
     expect(tags).toStrictEqual(['v2.0.0']);
   });
 
@@ -206,8 +316,8 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
-    expect(result?.releaseType).toBe('patch');
-    expect(result?.newVersion).toBe('0.9.1');
+    expect(result.releaseType).toBe('patch');
+    expect(result.newVersion).toBe('0.9.1');
     expect(tags).toStrictEqual(['v0.9.1']);
   });
 
@@ -223,7 +333,7 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
-    expect(result?.tag).toBe('v0.10.0');
+    expect(result.tag).toBe('v0.10.0');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
     // git-cliff is not invoked under dry-run.
     expect(
@@ -294,10 +404,10 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
-    expect(result?.previousTag).toBe('v0.9.0');
-    expect(result?.commitCount).toBe(2);
-    expect(result?.releaseType).toBe('minor'); // feat triggers minor over fix's patch
-    expect(result?.newVersion).toBe('0.10.0');
+    expect(result.previousTag).toBe('v0.9.0');
+    expect(result.commitCount).toBe(2);
+    expect(result.releaseType).toBe('minor'); // feat triggers minor over fix's patch
+    expect(result.newVersion).toBe('0.10.0');
     expect(tags).toStrictEqual(['v0.10.0']);
   });
 

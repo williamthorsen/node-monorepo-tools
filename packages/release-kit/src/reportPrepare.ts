@@ -120,6 +120,13 @@ function formatMultiWorkspace(result: PrepareResult): string {
  * Render the project release section using the same shape as a workspace section. The
  * project release always corresponds to a single bump (no propagation, no `--set-version`),
  * so the rendering branches are simpler than `formatWorkspaceSection`.
+ *
+ * For skipped projects, mirrors `formatWorkspaceSection`'s skipped rendering: section
+ * header, "Found N commits …" line, and the skip reason — then returns early. The
+ * `parsedCommitCount` and `unparseableCommits` diagnostic data remains on the
+ * structured `ProjectPrepareResult` and is available via JSON output and tests; it is
+ * intentionally suppressed in the terminal rendering for symmetry with the existing
+ * skipped workspace rendering.
  */
 function formatProjectSection(lines: string[], project: ProjectPrepareResult, dryRun: boolean): void {
   lines.push(`\n${sectionHeader('project')}`);
@@ -127,18 +134,28 @@ function formatProjectSection(lines: string[], project: ProjectPrepareResult, dr
   const since = project.previousTag === undefined ? '(no previous release found)' : `since ${project.previousTag}`;
   lines.push(dim(`  Found ${project.commitCount} commits ${since}`));
 
+  if (project.status === 'skipped') {
+    lines.push(`  ⏭️  ${project.skipReason ?? 'Skipped'}`);
+    return;
+  }
+
+  // Released variant: release-only fields are populated.
+  const { releaseType, currentVersion, newVersion, tag } = project;
+
   if (project.parsedCommitCount !== undefined) {
     lines.push(dim(`  Parsed ${project.parsedCommitCount} typed commits`));
-  } else {
-    lines.push(`  Using bump override: ${project.releaseType}`);
+  } else if (releaseType !== undefined) {
+    lines.push(`  Using bump override: ${releaseType}`);
   }
 
   formatProjectUnparseable(lines, project);
 
-  lines.push(
-    dim(`  Bumping versions (${project.releaseType})...`),
-    `  📦 ${project.currentVersion} → ${bold(project.newVersion)} (${project.releaseType})`,
-  );
+  if (releaseType !== undefined) {
+    lines.push(dim(`  Bumping versions (${releaseType})...`));
+  }
+  if (currentVersion !== undefined && newVersion !== undefined && releaseType !== undefined) {
+    lines.push(`  📦 ${currentVersion} → ${bold(newVersion)} (${releaseType})`);
+  }
 
   for (const file of project.bumpedFiles) {
     if (dryRun) {
@@ -157,7 +174,9 @@ function formatProjectSection(lines: string[], project: ProjectPrepareResult, dr
     }
   }
 
-  lines.push(`  🏷️  ${bold(project.tag)}`);
+  if (tag !== undefined) {
+    lines.push(`  🏷️  ${bold(tag)}`);
+  }
 }
 
 /** Append the unparseable-commit warning lines for a project release, if any. */

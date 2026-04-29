@@ -231,8 +231,8 @@ Validation rules:
 CLI flag interactions:
 
 - `--dry-run` previews project artifacts alongside workspace artifacts; no files are written.
-- `--bump=major|minor|patch` propagates to the project release.
-- `--force` combined with `--bump` runs the project release even with no commits since the last project tag.
+- `--bump=major|minor|patch` propagates to the project release as a level chooser. It does not trigger a release on its own when there are no commits or no bump-worthy commits.
+- `--force` runs the project release even when no commits or no bump-worthy commits exist since the last project tag. Defaults to patch when `--bump` is not given; combine with `--bump=X` to release at a different level.
 - `--only` is rejected with an error when `project` is configured. `--only` is a surgical, single-workspace operation; combining it with a project release that rolls up every contributing workspace would create ambiguous semantics. To release a single workspace, use a config without a `project` block, or run a full `prepare` (no `--only`) to include the project release.
 - `--set-version` is rejected with an error when `project` is configured. `--set-version` operates on a single workspace, but a project release rolls up every contributing workspace; the two semantics don't compose. To use `--set-version`, run on a config without a `project` block.
 
@@ -287,15 +287,15 @@ Release-notes sections are rendered in the declaration order of the merged work-
 
 Run release preparation with automatic workspace discovery.
 
-| Flag                         | Description                                                                                                  |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `--dry-run`                  | Preview changes without writing files                                                                        |
-| `--bump=major\|minor\|patch` | Override the bump type for all workspaces                                                                    |
-| `--set-version=X.Y.Z`        | Set an explicit canonical semver version; bypasses commit-derived bumps. Requires `--only` in monorepo mode. |
-| `--force`                    | Bypass the "no commits since last tag" check (requires `--bump`)                                             |
-| `--only=name1,name2`         | Only process the named workspaces (monorepo only; rejected when a `project` block is configured)             |
-| `--with-release-notes`       | Write per-workspace release-notes previews under `{workspacePath}/docs/`                                     |
-| `--help`, `-h`               | Show help                                                                                                    |
+| Flag                         | Description                                                                                                                                        |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--dry-run`                  | Preview changes without writing files                                                                                                              |
+| `--bump=major\|minor\|patch` | Override the bump type for all workspaces                                                                                                          |
+| `--set-version=X.Y.Z`        | Set an explicit canonical semver version; bypasses commit-derived bumps. Requires `--only` in monorepo mode.                                       |
+| `--force`                    | Release even when no commits or no bump-worthy commits exist since the last tag (defaults to patch; combine with `--bump=X` for a different level) |
+| `--only=name1,name2`         | Only process the named workspaces (monorepo only; rejected when a `project` block is configured)                                                   |
+| `--with-release-notes`       | Write per-workspace release-notes previews under `{workspacePath}/docs/`                                                                           |
+| `--help`, `-h`               | Show help                                                                                                                                          |
 
 Workspace names for `--only` match the package directory name (e.g., `arrays`, `release-kit`).
 

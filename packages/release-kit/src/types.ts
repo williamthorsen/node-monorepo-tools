@@ -101,26 +101,29 @@ export interface WorkspacePrepareResult {
  * Result of preparing a project-level release.
  *
  * Mirrors `WorkspacePrepareResult`'s shape minus the workspace-only fields (`name`,
- * `propagatedFrom`, `setVersion`). A separate type is used rather than reusing
- * `WorkspacePrepareResult` so the project entry can be disambiguated structurally —
- * consumers and tests can branch on `result.project !== undefined` without inspecting
- * an array entry's shape.
+ * `propagatedFrom`, `setVersion`). The release-only fields (`currentVersion`,
+ * `newVersion`, `tag`, `releaseType`) are populated only when `status === 'released'`;
+ * `skipReason` is populated only when `status === 'skipped'`. `PrepareResult.project ===
+ * undefined` continues to mean "no project block configured" — only the result shape
+ * varies when the block IS configured.
  */
 export interface ProjectPrepareResult {
-  status: 'released';
+  status: 'released' | 'skipped';
   previousTag?: string | undefined;
   commitCount: number;
   parsedCommitCount?: number | undefined;
-  releaseType: ReleaseType;
-  currentVersion: string;
-  newVersion: string;
-  tag: string;
+  releaseType?: ReleaseType | undefined;
+  currentVersion?: string | undefined;
+  newVersion?: string | undefined;
+  tag?: string | undefined;
   bumpedFiles: string[];
   changelogFiles: string[];
   /** Raw commits in the project's contributing-paths window since the last project tag. */
   commits?: Commit[] | undefined;
   /** Commits that could not be parsed into a recognized work type. */
   unparseableCommits?: Commit[] | undefined;
+  /** Reason for skipping the project release. Populated only when `status === 'skipped'`. */
+  skipReason?: string | undefined;
 }
 
 /** Aggregate result of the prepare workflow for both single-package and monorepo modes. */

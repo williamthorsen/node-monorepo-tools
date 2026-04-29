@@ -168,5 +168,33 @@ describe(buildReleaseSummary, () => {
 
       expect(buildReleaseSummary(result)).toBe('');
     });
+
+    it('omits a skipped project from the summary', () => {
+      // The summary surface only describes the actual release outcome; a skipped project
+      // produces no tag and no commits to attribute, so it must not appear in the summary.
+      const result = makeResult({
+        workspaces: [
+          {
+            name: 'arrays',
+            status: 'released',
+            tag: 'arrays-v1.1.0',
+            commitCount: 1,
+            bumpedFiles: [],
+            changelogFiles: [],
+            commits: [{ message: 'arrays|feat: Add compact', hash: 'a1' }],
+          },
+        ],
+        project: {
+          status: 'skipped',
+          previousTag: 'v0.9.0',
+          commitCount: 0,
+          bumpedFiles: [],
+          changelogFiles: [],
+          skipReason: 'No commits since v0.9.0. Pass --force to release at patch. Skipping.',
+        },
+      });
+
+      expect(buildReleaseSummary(result)).toBe('arrays-v1.1.0\n- feat: Add compact');
+    });
   });
 });

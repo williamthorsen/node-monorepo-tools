@@ -49,7 +49,9 @@ Options:
   --bump=major|minor|patch  Override the bump type for all workspaces
   --set-version=X.Y.Z   Set an explicit version; bypasses commit-derived bumps.
                          Requires --only in monorepo mode (rejected when a 'project' block is configured).
-  --force               Force a release even when there are no commits since the last tag (requires --bump)
+  --force               Release even when no commits or no bump-worthy commits exist
+                         since the last tag. Defaults to patch when --bump is not given;
+                         use --bump=X to release at a different level.
   --no-git-checks, -n   Skip the clean-working-tree check
   --only=name1,name2    Only process the named workspaces (comma-separated, monorepo only;
                          rejected when a 'project' block is configured)
@@ -128,10 +130,6 @@ export function parseArgs(argv: string[]): {
 
   if (setVersion !== undefined && flags.force) {
     throw new Error('--set-version cannot be combined with --force');
-  }
-
-  if (flags.force && bumpOverride === undefined) {
-    throw new Error('--force requires --bump to specify the version bump type');
   }
 
   return {

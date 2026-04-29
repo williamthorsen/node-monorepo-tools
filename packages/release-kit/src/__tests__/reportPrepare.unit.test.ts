@@ -726,5 +726,64 @@ describe(reportPrepare, () => {
 
       expect(output).not.toContain(sectionHeader('project'));
     });
+
+    it('renders a skipped project section as a header + commit count + skipReason', () => {
+      // Mirrors the per-workspace skipped rendering: section header, "Found N commits"
+      // line, and the skipReason — no bump-override line, no version line, no tag.
+      const result: PrepareResult = {
+        workspaces: [],
+        tags: [],
+        dryRun: false,
+        project: {
+          status: 'skipped',
+          previousTag: 'v0.9.0',
+          commitCount: 0,
+          bumpedFiles: [],
+          changelogFiles: [],
+          skipReason: 'No commits since v0.9.0. Pass --force to release at patch. Skipping.',
+        },
+      };
+
+      const output = reportPrepare(result);
+
+      expect(output).toContain(sectionHeader('project'));
+      expect(output).toContain(dim('  Found 0 commits since v0.9.0'));
+      expect(output).toContain('⏭️  No commits since v0.9.0. Pass --force to release at patch. Skipping.');
+      // No version line, no bumped files, no changelog generation, no tag for a skipped project.
+      expect(output).not.toContain('📦');
+      expect(output).not.toContain('Bumping versions');
+      expect(output).not.toContain('Generating changelogs...');
+    });
+
+    it('renders a skipped project section with parsedCommitCount but suppresses unparseable warnings', () => {
+      // Diagnostic data (parsedCommitCount, unparseableCommits) remains on the structured
+      // result for JSON output and tests, but the terminal rendering for skipped projects
+      // intentionally suppresses these for symmetry with skipped workspace rendering.
+      const result: PrepareResult = {
+        workspaces: [],
+        tags: [],
+        dryRun: false,
+        project: {
+          status: 'skipped',
+          previousTag: 'v0.9.0',
+          commitCount: 1,
+          parsedCommitCount: 0,
+          unparseableCommits: [{ message: 'chore: deps', hash: 'abc1234' }],
+          bumpedFiles: [],
+          changelogFiles: [],
+          skipReason:
+            'No bump-worthy commits since v0.9.0. Pass --force to release at patch (or --force --bump=X for a different level). Skipping.',
+        },
+      };
+
+      const output = reportPrepare(result);
+
+      expect(output).toContain(sectionHeader('project'));
+      expect(output).toContain(dim('  Found 1 commits since v0.9.0'));
+      expect(output).toContain('⏭️  No bump-worthy commits since v0.9.0');
+      // Unparseable warning is intentionally suppressed in the skipped rendering.
+      expect(output).not.toContain('could not be parsed');
+      expect(output).not.toContain('Parsed 0 typed commits');
+    });
   });
 });

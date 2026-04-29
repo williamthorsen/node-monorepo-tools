@@ -1,12 +1,12 @@
 import { bumpAllVersions } from './bumpAllVersions.ts';
+import { decideRelease } from './decideRelease.ts';
 import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
-import { determineBumpFromCommits } from './determineBumpFromCommits.ts';
 import { generateChangelogJson } from './generateChangelogJson.ts';
 import { buildTagPattern, generateChangelog } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
 import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
-import type { Commit, MonorepoReleaseConfig, ProjectPrepareResult, ReleaseType } from './types.ts';
+import type { MonorepoReleaseConfig, ProjectPrepareResult } from './types.ts';
 import { writeReleaseNotesPreviews } from './writeReleaseNotesPreviews.ts';
 
 /** File path for the root `package.json` bumped during the project release stage. */
@@ -34,14 +34,15 @@ export interface ReleasePrepareProjectArgs {
  * targets the root `package.json` and the root `CHANGELOG.md`. Contributing paths are the
  * union of every (already-filtered) workspace's `paths`.
  *
- * Returns `undefined` when there are no commits in the contributing window since the last
- * project tag and `options.force` is not set, mirroring per-workspace skip behavior. The
- * caller should attach the returned result (when defined) to `PrepareResult.project`.
+ * Returns a structured `{ status: 'skipped', skipReason, ... }` result when neither
+ * commits nor `--force` provide a release signal. The caller should attach the returned
+ * result to `PrepareResult.project`. `undefined` is returned only when there is no
+ * configured `project` block — handled at the call site, not here.
  *
  * Caller contract: `prepareCommand` rejects `--only` upstream when a project block is
  * configured, so this orchestrator never has to reason about workspace-narrowing flags.
  */
-export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectPrepareResult | undefined {
+export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectPrepareResult {
   const { config, options, modifiedFiles, tags } = args;
   const { dryRun, bumpOverride, withReleaseNotes, force } = options;
   const project = config.project;
@@ -57,29 +58,44 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
 
   // 2. Find the most recent project tag and the commits since it under contributing paths.
   const { tag, commits } = getCommitsSinceTarget([project.tagPrefix], contributingPaths);
+  const since = tag === undefined ? '(no previous release found)' : `since ${tag}`;
 
-  // 3. Determine bump type. Override > commit-derived > skip.
-  let releaseType: ReleaseType | undefined;
-  let parsedCommitCount: number | undefined;
-  let unparseableCommits: Commit[] | undefined;
+  // 3. Apply the unified release-decision algorithm. `--bump=X` is purely a level chooser;
+  //    `--force` is purely a release trigger that defaults to patch when no level is given.
+  const decision = decideRelease({
+    commits,
+    force: force === true,
+    bumpOverride,
+    workTypes,
+    versionPatterns,
+    scopeAliases: config.scopeAliases,
+    skipReasons: {
+      noCommits: `No commits ${since}. Pass --force to release at patch. Skipping.`,
+      noBumpWorthy: `No bump-worthy commits ${since}. Pass --force to release at patch (or --force --bump=X for a different level). Skipping.`,
+    },
+  });
 
-  if (bumpOverride !== undefined) {
-    releaseType = bumpOverride;
-  } else {
-    const determination = determineBumpFromCommits(commits, workTypes, versionPatterns, config.scopeAliases);
-    releaseType = determination.releaseType;
-    parsedCommitCount = determination.parsedCommitCount;
-    unparseableCommits = determination.unparseableCommits;
+  if (decision.outcome === 'skip') {
+    const skippedResult: ProjectPrepareResult = {
+      status: 'skipped',
+      commitCount: commits.length,
+      bumpedFiles: [],
+      changelogFiles: [],
+      skipReason: decision.skipReason,
+    };
+    if (tag !== undefined) {
+      skippedResult.previousTag = tag;
+    }
+    if (decision.parsedCommitCount > 0 || commits.length > 0) {
+      skippedResult.parsedCommitCount = decision.parsedCommitCount;
+    }
+    if (decision.unparseableCommits !== undefined) {
+      skippedResult.unparseableCommits = decision.unparseableCommits;
+    }
+    return skippedResult;
   }
 
-  // 4. Skip silently when no commits and no force; mirrors per-workspace skip semantics.
-  if (releaseType === undefined && force !== true && commits.length === 0) {
-    return undefined;
-  }
-  if (releaseType === undefined) {
-    // Commits exist but produced no parsed type AND force not set → skip too.
-    return undefined;
-  }
+  const { releaseType, parsedCommitCount, unparseableCommits } = decision;
 
   // 5/6. Bump root package.json (handles dry-run internally).
   const bump = bumpAllVersions([ROOT_PACKAGE_FILE], releaseType, dryRun);
@@ -136,7 +152,10 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
   if (tag !== undefined) {
     result.previousTag = tag;
   }
-  if (parsedCommitCount !== undefined) {
+  // Populate diagnostic data unconditionally — `decideRelease` always parses the commits
+  // window, so `parsedCommitCount` reflects the number of recognized commits regardless of
+  // whether `bumpOverride` was supplied.
+  if (commits.length > 0) {
     result.parsedCommitCount = parsedCommitCount;
   }
   if (unparseableCommits !== undefined) {

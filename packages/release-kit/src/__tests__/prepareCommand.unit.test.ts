@@ -566,12 +566,16 @@ describe(parseArgs, () => {
     expect(process.exit).toHaveBeenCalledWith(0);
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining('npx @williamthorsen/release-kit prepare'));
     expect(console.info).toHaveBeenCalledWith(
-      expect.stringContaining('Force a release even when there are no commits since the last tag (requires --bump)'),
+      expect.stringContaining('Release even when no commits or no bump-worthy commits exist'),
     );
   });
 
-  it('throws when --force is used without --bump', () => {
-    expect(() => parseArgs(['--force'])).toThrow('--force requires --bump');
+  it('accepts --force without --bump and defaults force to true', () => {
+    // `--force` is a pure release trigger; runtime defaults the level to patch when no
+    // `--bump` is supplied. Parsing must accept the flag without requiring `--bump`.
+    const result = parseArgs(['--force']);
+    expect(result.force).toBe(true);
+    expect(result.bumpOverride).toBeUndefined();
   });
 
   it('throws when --only value is empty', () => {

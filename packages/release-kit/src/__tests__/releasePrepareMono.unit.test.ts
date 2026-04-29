@@ -405,7 +405,12 @@ describe(releasePrepareMono, () => {
     expect(cliffArgs).toContain('arrays-v1.1.0');
   });
 
-  it('applies patch floor when commits exist but none are release-worthy', () => {
+  it('skips when commits exist but none are bump-worthy and no --force is given', () => {
+    // Under the orthogonal-flag model, the per-workspace path no longer applies a patch
+    // floor when there are commits but none map to a bump-worthy work type. The pipeline
+    // now requires a release signal: a natural bump (parseable bump-worthy commits) OR
+    // `--force`. With neither, the workspace skips with the new "No bump-worthy commits"
+    // skipReason.
     const config = makeConfig({
       workspaces: [
         {
@@ -420,7 +425,7 @@ describe(releasePrepareMono, () => {
       ],
     });
 
-    // Return a commit whose type (chore) is not in workTypes (only feat, fix)
+    // Return a commit whose type (chore) is not in workTypes (only feat, fix).
     mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
       if (cmd === 'git' && args[0] === 'describe') {
         return 'arrays-v1.0.0\n';
@@ -434,6 +439,48 @@ describe(releasePrepareMono, () => {
 
     const result = releasePrepareMono(config, { dryRun: false });
 
+    expect(result.tags).toStrictEqual([]);
+    expect(result.workspaces[0]).toMatchObject({
+      status: 'skipped',
+      commitCount: 1,
+      parsedCommitCount: 0,
+    });
+    expect(result.workspaces[0]?.skipReason).toContain('No bump-worthy commits for arrays since arrays-v1.0.0');
+    expect(result.workspaces[0]?.skipReason).toContain('Pass --force to release at patch');
+    expect(result.workspaces[0]?.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'abc123' }]);
+  });
+
+  it('falls back to patch when commits exist but none are bump-worthy and --force is set', () => {
+    // Row 11 of the behavioral matrix: `--force` alone with commits-but-no-bump-worthy
+    // releases at patch. Today the CLI rejected `--force` without `--bump`; with the
+    // validation removed, this combination is now a valid invocation.
+    const config = makeConfig({
+      workspaces: [
+        {
+          dir: 'arrays',
+          name: '@test/arrays',
+          tagPrefix: 'arrays-v',
+          workspacePath: 'packages/arrays',
+          packageFiles: ['packages/arrays/package.json'],
+          changelogPaths: ['packages/arrays'],
+          paths: ['packages/arrays/**'],
+        },
+      ],
+    });
+
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') {
+        return 'arrays-v1.0.0\n';
+      }
+      if (cmd === 'git' && args[0] === 'log') {
+        return 'chore: update deps\u001Fabc123';
+      }
+      return '';
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+
+    const result = releasePrepareMono(config, { dryRun: false, force: true });
+
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
     expect(result.workspaces[0]).toMatchObject({
       status: 'released',
@@ -442,6 +489,138 @@ describe(releasePrepareMono, () => {
       releaseType: 'patch',
     });
     expect(result.workspaces[0]?.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'abc123' }]);
+  });
+
+  it('skips when --bump=X alone is set with commits-but-no-bump-worthy (level chooser, not trigger)', () => {
+    // Row 10 of the behavioral matrix: `--bump=X` is now a pure level chooser; it does
+    // not trigger a release on its own. With commits that don't parse to a bump-worthy
+    // type, the workspace skips even when `--bump=X` is set without `--force`.
+    const config = makeConfig({
+      workspaces: [
+        {
+          dir: 'arrays',
+          name: '@test/arrays',
+          tagPrefix: 'arrays-v',
+          workspacePath: 'packages/arrays',
+          packageFiles: ['packages/arrays/package.json'],
+          changelogPaths: ['packages/arrays'],
+          paths: ['packages/arrays/**'],
+        },
+      ],
+    });
+
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') {
+        return 'arrays-v1.0.0\n';
+      }
+      if (cmd === 'git' && args[0] === 'log') {
+        return 'chore: update deps\u001Fabc123';
+      }
+      return '';
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+
+    const result = releasePrepareMono(config, { dryRun: false, bumpOverride: 'minor' });
+
+    expect(result.tags).toStrictEqual([]);
+    expect(result.workspaces[0]).toMatchObject({
+      status: 'skipped',
+      commitCount: 1,
+    });
+    expect(result.workspaces[0]?.skipReason).toContain('No bump-worthy commits for arrays since arrays-v1.0.0');
+  });
+
+  it('falls back to patch when --force is set with no commits (no --bump)', () => {
+    // Row 3 of the behavioral matrix: `--force` alone with no commits is now a valid
+    // invocation that releases at patch. Today this combination was rejected at the CLI.
+    const config = makeConfig({
+      workspaces: [
+        {
+          dir: 'arrays',
+          name: '@test/arrays',
+          tagPrefix: 'arrays-v',
+          workspacePath: 'packages/arrays',
+          packageFiles: ['packages/arrays/package.json'],
+          changelogPaths: ['packages/arrays'],
+          paths: ['packages/arrays/**'],
+        },
+      ],
+    });
+
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') {
+        return 'arrays-v1.0.0\n';
+      }
+      if (cmd === 'git' && args[0] === 'log') {
+        return '';
+      }
+      return '';
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+
+    const result = releasePrepareMono(config, { dryRun: false, force: true });
+
+    expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
+    expect(result.workspaces[0]).toMatchObject({
+      status: 'released',
+      commitCount: 0,
+      releaseType: 'patch',
+    });
+  });
+
+  it('mixed-sibling case: --force alone uses natural bump for one workspace and patch fallback for another', () => {
+    // With `--force` alone (no `--bump`), workspaces with bump-worthy commits use their
+    // natural bump (e.g., feat → minor); workspaces without bump-worthy commits fall back
+    // to patch. This is the mixed-hygiene operator use case the orthogonal model unlocks.
+    const config = makeConfig({
+      workspaces: [
+        {
+          dir: 'arrays',
+          name: '@test/arrays',
+          tagPrefix: 'arrays-v',
+          workspacePath: 'packages/arrays',
+          packageFiles: ['packages/arrays/package.json'],
+          changelogPaths: ['packages/arrays'],
+          paths: ['packages/arrays/**'],
+        },
+        {
+          dir: 'strings',
+          name: '@test/strings',
+          tagPrefix: 'strings-v',
+          workspacePath: 'packages/strings',
+          packageFiles: ['packages/strings/package.json'],
+          changelogPaths: ['packages/strings'],
+          paths: ['packages/strings/**'],
+        },
+      ],
+    });
+
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') {
+        const matchArg = args.find((a: string) => a.startsWith('--match='));
+        if (matchArg?.includes('arrays-v')) return 'arrays-v1.0.0\n';
+        if (matchArg?.includes('strings-v')) return 'strings-v2.0.0\n';
+      }
+      if (cmd === 'git' && args[0] === 'log') {
+        const hasArraysPath = args.includes('packages/arrays/**');
+        if (hasArraysPath) {
+          return 'chore: update deps\u001Fabc123';
+        }
+        return 'feat: add helper\u001Fdef456';
+      }
+      return '';
+    });
+    mockReadFileSync.mockImplementation((filePath: string) => {
+      if (filePath.includes('arrays')) return JSON.stringify({ version: '1.0.0' });
+      return JSON.stringify({ version: '2.0.0' });
+    });
+
+    const result = releasePrepareMono(config, { dryRun: false, force: true });
+
+    // arrays falls back to patch (chore is not bump-worthy); strings uses natural minor (feat).
+    expect(result.tags).toStrictEqual(['arrays-v1.0.1', 'strings-v2.1.0']);
+    expect(result.workspaces[0]).toMatchObject({ name: 'arrays', status: 'released', releaseType: 'patch' });
+    expect(result.workspaces[1]).toMatchObject({ name: 'strings', status: 'released', releaseType: 'minor' });
   });
 
   it('uses parsed bump type when mix of parseable and unparseable commits exist', () => {
