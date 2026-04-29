@@ -76,39 +76,34 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
   });
 
   if (decision.outcome === 'skip') {
-    const skippedResult: ProjectPrepareResult = {
+    return {
       status: 'skipped',
+      previousTag: tag,
       commitCount: commits.length,
       parsedCommitCount: decision.parsedCommitCount,
       bumpedFiles: [],
       changelogFiles: [],
+      unparseableCommits: decision.unparseableCommits,
       skipReason: decision.skipReason,
     };
-    if (tag !== undefined) {
-      skippedResult.previousTag = tag;
-    }
-    if (decision.unparseableCommits !== undefined) {
-      skippedResult.unparseableCommits = decision.unparseableCommits;
-    }
-    return skippedResult;
   }
 
   const { releaseType, parsedCommitCount, unparseableCommits } = decision;
 
-  // 5/6. Bump root package.json (handles dry-run internally).
+  // 4/5. Bump root package.json (handles dry-run internally).
   const bump = bumpAllVersions([ROOT_PACKAGE_FILE], releaseType, dryRun);
 
-  // 7. Compose the project tag.
+  // 6. Compose the project tag.
   const newTag = `${project.tagPrefix}${bump.newVersion}`;
 
-  // 8. Generate the root CHANGELOG via git-cliff, filtered to project tags only.
+  // 7. Generate the root CHANGELOG via git-cliff, filtered to project tags only.
   const tagPattern = buildTagPattern([project.tagPrefix]);
   const changelogFiles = generateChangelog(config, ROOT_CHANGELOG_PATH, newTag, dryRun, {
     tagPattern,
     includePaths: contributingPaths,
   });
 
-  // 9. Emit the root changelog.json when enabled.
+  // 8. Emit the root changelog.json when enabled.
   let changelogJsonFiles: string[] = [];
   if (config.changelogJson.enabled) {
     changelogJsonFiles = generateChangelogJson(config, ROOT_CHANGELOG_PATH, newTag, dryRun, {
@@ -117,7 +112,7 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
     });
   }
 
-  // 10. Optional release-notes previews under root docs/.
+  // 9. Optional release-notes previews under root docs/.
   const firstChangelogJsonPath = changelogJsonFiles[0];
   if (withReleaseNotes === true && config.changelogJson.enabled && firstChangelogJsonPath !== undefined) {
     const sectionOrder = deriveSectionOrder(workTypes);
@@ -130,12 +125,12 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
     });
   }
 
-  // 11. Append the project tag and modified files to the shared aggregators so downstream
+  // 10. Append the project tag and modified files to the shared aggregators so downstream
   // commands (`commit`, `tag`, format command) see them alongside per-workspace artifacts.
   tags.push(newTag);
   modifiedFiles.push(ROOT_PACKAGE_FILE, ...changelogFiles, ...changelogJsonFiles);
 
-  // 12. Build and return the result.
+  // 11. Build and return the result.
   const result: ProjectPrepareResult = {
     status: 'released',
     commitCount: commits.length,

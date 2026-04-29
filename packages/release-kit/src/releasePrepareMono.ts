@@ -435,7 +435,7 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     commits: directResult?.commits,
     unparseableCommits: directResult?.unparseableCommits,
     propagatedFrom: releaseEntry.propagatedFrom,
-    ...(directResult?.bumpOverride === undefined ? {} : { bumpOverride: directResult.bumpOverride }),
+    bumpOverride: directResult?.bumpOverride,
     ...(setVersionTarget === undefined ? {} : { setVersion: setVersionTarget }),
   });
 }
