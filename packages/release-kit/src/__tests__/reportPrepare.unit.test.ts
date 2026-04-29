@@ -729,6 +729,56 @@ describe(reportPrepare, () => {
       expect(output).not.toContain(sectionHeader('project'));
     });
 
+    it('renders "(no previous release found)" when project.previousTag is undefined on a released project', () => {
+      const result: PrepareResult = {
+        workspaces: [],
+        tags: ['v0.1.0'],
+        dryRun: false,
+        project: {
+          status: 'released',
+          previousTag: undefined,
+          commitCount: 1,
+          parsedCommitCount: 1,
+          releaseType: 'minor',
+          currentVersion: '0.0.0',
+          newVersion: '0.1.0',
+          tag: 'v0.1.0',
+          bumpedFiles: ['./package.json'],
+          changelogFiles: ['./CHANGELOG.md'],
+        },
+      };
+
+      const output = reportPrepare(result);
+
+      expect(output).toContain(dim('  Found 1 commits (no previous release found)'));
+    });
+
+    it('renders the unparseable-commit warning block in a released project section', () => {
+      const result: PrepareResult = {
+        workspaces: [],
+        tags: ['v0.9.1'],
+        dryRun: false,
+        project: {
+          status: 'released',
+          previousTag: 'v0.9.0',
+          commitCount: 1,
+          parsedCommitCount: 0,
+          releaseType: 'patch',
+          currentVersion: '0.9.0',
+          newVersion: '0.9.1',
+          tag: 'v0.9.1',
+          bumpedFiles: ['./package.json'],
+          changelogFiles: ['./CHANGELOG.md'],
+          unparseableCommits: [{ message: 'wip: undocumented', hash: 'abc1234def' }],
+        },
+      };
+
+      const output = reportPrepare(result);
+
+      expect(output).toContain('⚠️  1 commit could not be parsed (defaulting to patch bump)');
+      expect(output).toContain('· abc1234 wip: undocumented');
+    });
+
     it('renders a skipped project section as a header + commit count + skipReason', () => {
       // Mirrors the per-workspace skipped rendering: section header, "Found N commits"
       // line, and the skipReason — no bump-override line, no version line, no tag.

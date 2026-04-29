@@ -285,6 +285,27 @@ describe(releasePrepareProject, () => {
     expect(cliffArgs).toContain('v0.10.0');
   });
 
+  it('omits paths of workspaces absent from config.workspaces (e.g., excluded by discovery or --only)', () => {
+    setupDefaultGit();
+    const config = makeConfig({
+      workspaces: [makeWorkspace({ dir: 'arrays' })],
+    });
+
+    releasePrepareProject({
+      config,
+      options: { dryRun: false },
+      modifiedFiles: [],
+      tags: [],
+    });
+
+    const cliffCall = mockExecFileSync.mock.calls.find(
+      (call) => call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff'),
+    );
+    const cliffArgs = cliffCall?.[1] ?? [];
+    expect(cliffArgs).toContain('packages/arrays/**');
+    expect(cliffArgs).not.toContain('packages/legacy/**');
+  });
+
   it('uses bumpOverride instead of commit-derived bump type', () => {
     setupDefaultGit();
     // Use a 1.x baseline so the major bump is not collapsed by the pre-1.0 rule in `bumpVersion`.
