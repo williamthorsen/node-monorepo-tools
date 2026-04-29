@@ -236,6 +236,26 @@ CLI flag interactions:
 - `--only` is rejected with an error when `project` is configured. `--only` is a surgical, single-workspace operation; combining it with a project release that rolls up every contributing workspace would create ambiguous semantics. To release a single workspace, use a config without a `project` block, or run a full `prepare` (no `--only`) to include the project release.
 - `--set-version` is rejected with an error when `project` is configured. `--set-version` operates on a single workspace, but a project release rolls up every contributing workspace; the two semantics don't compose. To use `--set-version`, run on a config without a `project` block.
 
+`--bump` and `--force` are orthogonal: `--bump` is purely a level chooser; `--force` is purely a release trigger. Examples:
+
+```sh
+# Release every target at its natural bump level (no flags).
+release-kit prepare
+
+# Force a release even when no bump-worthy commits exist; defaults to patch
+# per target, with each target keeping its natural bump if one is derivable.
+release-kit prepare --force
+
+# Force a release at a uniform level across every releasing target.
+release-kit prepare --force --bump=minor
+
+# --bump=X alone is a level chooser, NOT a trigger. If a target has no
+# bump-worthy commits, it skips with a "Pass --force..." reason. If it has
+# bump-worthy commits, the override applies. (Behavioral change from earlier
+# release-kit versions, where --bump=X alone would force a release.)
+release-kit prepare --bump=minor
+```
+
 ### `VersionPatterns`
 
 Defines which commit types trigger major or minor bumps. Any recognized type not listed defaults to a patch bump.

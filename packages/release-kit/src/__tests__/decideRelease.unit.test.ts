@@ -156,6 +156,25 @@ describe(decideRelease, () => {
     });
   });
 
+  describe('row 8: natural bump exists, --force --bump=X', () => {
+    it('releases at the chosen level (override beats natural even with force)', () => {
+      const result = decideRelease({
+        commits: [makeCommit('feat: add thing')], // natural would be minor
+        force: true,
+        bumpOverride: 'patch',
+        workTypes,
+        versionPatterns,
+        scopeAliases: undefined,
+        skipReasons,
+      });
+
+      expect(result.outcome).toBe('release');
+      if (result.outcome === 'release') {
+        expect(result.releaseType).toBe('patch');
+      }
+    });
+  });
+
   describe('row 9: commits exist but none bump-worthy, no flags', () => {
     it('skips with the no-bump-worthy reason', () => {
       // 'chore' is not in workTypes (only feat, fix), so the commit is unparseable
