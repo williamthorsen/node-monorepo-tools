@@ -1,5 +1,12 @@
 import { bold, dim, sectionHeader } from './format.ts';
-import type { PrepareResult, ProjectPrepareResult, PropagationSource, WorkspacePrepareResult } from './types.ts';
+import type {
+  PrepareResult,
+  ProjectPrepareResult,
+  PropagationSource,
+  ReleasedProjectResult,
+  ReleasedWorkspaceResult,
+  WorkspacePrepareResult,
+} from './types.ts';
 
 /**
  * Format a `PrepareResult` into styled terminal output.
@@ -39,7 +46,7 @@ function formatSingleWorkspace(result: PrepareResult): string {
   formatUnparseableWarning(lines, workspace);
 
   if (workspace.status === 'skipped') {
-    lines.push(`⏭️  ${workspace.skipReason ?? 'Skipped'}`);
+    lines.push(`⏭️  ${workspace.skipReason}`);
     return lines.join('\n');
   }
 
@@ -57,12 +64,10 @@ function formatSingleWorkspace(result: PrepareResult): string {
     lines.push(dim(`Bumping versions (version override)...`));
   }
 
-  if (workspace.currentVersion !== undefined && workspace.newVersion !== undefined) {
-    if (workspace.setVersion !== undefined) {
-      lines.push(`📦 ${workspace.currentVersion} → ${bold(workspace.newVersion)} (version override)`);
-    } else if (workspace.releaseType !== undefined) {
-      lines.push(`📦 ${workspace.currentVersion} → ${bold(workspace.newVersion)} (${workspace.releaseType})`);
-    }
+  if (workspace.setVersion !== undefined) {
+    lines.push(`📦 ${workspace.currentVersion} → ${bold(workspace.newVersion)} (version override)`);
+  } else if (workspace.releaseType !== undefined) {
+    lines.push(`📦 ${workspace.currentVersion} → ${bold(workspace.newVersion)} (${workspace.releaseType})`);
   }
 
   // Bump file details
@@ -76,10 +81,7 @@ function formatSingleWorkspace(result: PrepareResult): string {
   formatFormatCommand(lines, result);
 
   // Completion
-  lines.push(`✅ Release preparation complete.`);
-  if (workspace.tag !== undefined) {
-    lines.push(`   🏷️  ${bold(workspace.tag)}`);
-  }
+  lines.push(`✅ Release preparation complete.`, `   🏷️  ${bold(workspace.tag)}`);
 
   return lines.join('\n');
 }
@@ -123,7 +125,7 @@ function formatMultiWorkspace(result: PrepareResult): string {
  * For skipped projects, mirrors `formatWorkspaceSection`'s skipped rendering: section
  * header, "Found N commits …" line, and the skip reason — then returns early. The
  * `parsedCommitCount` and `unparseableCommits` diagnostic data remains on the
- * structured `ProjectPrepareResult` and is available via JSON output and tests; it is
+ * structured `ProjectPrepareResult` returned to programmatic callers; it is
  * intentionally suppressed in the terminal rendering for symmetry with the existing
  * skipped workspace rendering.
  */
@@ -134,7 +136,7 @@ function formatProjectSection(lines: string[], project: ProjectPrepareResult, dr
   lines.push(dim(`  Found ${project.commitCount} commits ${since}`));
 
   if (project.status === 'skipped') {
-    lines.push(`  ⏭️  ${project.skipReason ?? 'Skipped'}`);
+    lines.push(`  ⏭️  ${project.skipReason}`);
     return;
   }
 
@@ -143,7 +145,7 @@ function formatProjectSection(lines: string[], project: ProjectPrepareResult, dr
 
   // Suppress "Parsed 0 typed commits" — uninformative under the unified algorithm where
   // `parsedCommitCount` is always populated (e.g., 0 for `--force` alone with no commits).
-  if (project.parsedCommitCount !== undefined && project.parsedCommitCount > 0) {
+  if (project.parsedCommitCount > 0) {
     lines.push(dim(`  Parsed ${project.parsedCommitCount} typed commits`));
   }
   if (project.bumpOverride !== undefined) {
@@ -152,12 +154,10 @@ function formatProjectSection(lines: string[], project: ProjectPrepareResult, dr
 
   formatProjectUnparseable(lines, project);
 
-  if (releaseType !== undefined) {
-    lines.push(dim(`  Bumping versions (${releaseType})...`));
-  }
-  if (currentVersion !== undefined && newVersion !== undefined && releaseType !== undefined) {
-    lines.push(`  📦 ${currentVersion} → ${bold(newVersion)} (${releaseType})`);
-  }
+  lines.push(
+    dim(`  Bumping versions (${releaseType})...`),
+    `  📦 ${currentVersion} → ${bold(newVersion)} (${releaseType})`,
+  );
 
   for (const file of project.bumpedFiles) {
     if (dryRun) {
@@ -176,13 +176,11 @@ function formatProjectSection(lines: string[], project: ProjectPrepareResult, dr
     }
   }
 
-  if (tag !== undefined) {
-    lines.push(`  🏷️  ${bold(tag)}`);
-  }
+  lines.push(`  🏷️  ${bold(tag)}`);
 }
 
 /** Append the unparseable-commit warning lines for a project release, if any. */
-function formatProjectUnparseable(lines: string[], project: ProjectPrepareResult): void {
+function formatProjectUnparseable(lines: string[], project: ReleasedProjectResult): void {
   const unparseable = project.unparseableCommits;
   if (unparseable === undefined || unparseable.length === 0) {
     return;
@@ -208,7 +206,7 @@ function formatWorkspaceSection(lines: string[], workspace: WorkspacePrepareResu
   lines.push(dim(`  Found ${workspace.commitCount} commits ${since}`));
 
   if (workspace.status === 'skipped') {
-    lines.push(`  ⏭️  ${workspace.skipReason ?? 'Skipped'}`);
+    lines.push(`  ⏭️  ${workspace.skipReason}`);
     return;
   }
 
@@ -224,15 +222,13 @@ function formatWorkspaceSection(lines: string[], workspace: WorkspacePrepareResu
   lines.push(dim('  Generating changelogs...'));
   formatChangelogFiles(lines, workspace, dryRun, '  ');
 
-  if (workspace.tag !== undefined) {
-    lines.push(`  🏷️  ${bold(workspace.tag)}`);
-  }
+  lines.push(`  🏷️  ${bold(workspace.tag)}`);
 }
 
 /** Append the commit-count summary line for a workspace (propagation-only or parsed counts). */
 function formatCommitSummary(
   lines: string[],
-  workspace: WorkspacePrepareResult,
+  workspace: ReleasedWorkspaceResult,
   propagatedFrom: PropagationSource[] | undefined,
   isPropagatedOnly: boolean,
 ): void {
@@ -247,7 +243,7 @@ function formatCommitSummary(
 }
 
 /** Append the bump-override / set-version label and the "Bumping versions..." line. */
-function formatBumpLabels(lines: string[], workspace: WorkspacePrepareResult, isPropagatedOnly: boolean): void {
+function formatBumpLabels(lines: string[], workspace: ReleasedWorkspaceResult, isPropagatedOnly: boolean): void {
   if (workspace.setVersion !== undefined) {
     lines.push(`  Using version override: ${workspace.setVersion}`);
   } else if (workspace.bumpOverride !== undefined && !isPropagatedOnly) {
@@ -264,14 +260,10 @@ function formatBumpLabels(lines: string[], workspace: WorkspacePrepareResult, is
 /** Append the `currentVersion → newVersion` line with the appropriate suffix. */
 function formatVersionLine(
   lines: string[],
-  workspace: WorkspacePrepareResult,
+  workspace: ReleasedWorkspaceResult,
   propagatedFrom: PropagationSource[] | undefined,
   isPropagatedOnly: boolean,
 ): void {
-  if (workspace.currentVersion === undefined || workspace.newVersion === undefined) {
-    return;
-  }
-
   if (workspace.setVersion !== undefined) {
     lines.push(`  📦 ${workspace.currentVersion} → ${bold(workspace.newVersion)} (version override)`);
   } else if (workspace.releaseType !== undefined) {
@@ -281,7 +273,7 @@ function formatVersionLine(
 }
 
 /** Append bump file detail lines. */
-function formatBumpFiles(lines: string[], workspace: WorkspacePrepareResult, dryRun: boolean, indent = ''): void {
+function formatBumpFiles(lines: string[], workspace: ReleasedWorkspaceResult, dryRun: boolean, indent = ''): void {
   for (const file of workspace.bumpedFiles) {
     if (dryRun) {
       lines.push(dim(`${indent}  [dry-run] Would bump ${file}`));
@@ -292,7 +284,7 @@ function formatBumpFiles(lines: string[], workspace: WorkspacePrepareResult, dry
 }
 
 /** Append changelog file detail lines. */
-function formatChangelogFiles(lines: string[], workspace: WorkspacePrepareResult, dryRun: boolean, indent = ''): void {
+function formatChangelogFiles(lines: string[], workspace: ReleasedWorkspaceResult, dryRun: boolean, indent = ''): void {
   for (const file of workspace.changelogFiles) {
     if (dryRun) {
       lines.push(dim(`${indent}  [dry-run] Would run: npx --yes git-cliff ... --output ${file}`));

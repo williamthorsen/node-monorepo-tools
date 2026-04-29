@@ -23,7 +23,9 @@ import type {
   MonorepoReleaseConfig,
   PrepareResult,
   ProjectPrepareResult,
+  ReleasedWorkspaceResult,
   ReleaseType,
+  SkippedWorkspaceResult,
   WorkspaceConfig,
   WorkspacePrepareResult,
 } from './types.ts';
@@ -290,17 +292,22 @@ function collectSkippedWorkspaces(
     if (fullReleaseSet.has(skipped.workspace.dir)) {
       continue;
     }
-    workspaces.push({
+    const result: SkippedWorkspaceResult = {
       name: skipped.workspace.dir,
       status: 'skipped',
-      previousTag: skipped.tag,
       commitCount: skipped.commitCount,
-      parsedCommitCount: skipped.parsedCommitCount,
-      unparseableCommits: skipped.unparseableCommits,
-      bumpedFiles: [],
-      changelogFiles: [],
       skipReason: skipped.skipReason,
-    });
+    };
+    if (skipped.tag !== undefined) {
+      result.previousTag = skipped.tag;
+    }
+    if (skipped.parsedCommitCount !== undefined) {
+      result.parsedCommitCount = skipped.parsedCommitCount;
+    }
+    if (skipped.unparseableCommits !== undefined) {
+      result.unparseableCommits = skipped.unparseableCommits;
+    }
+    workspaces.push(result);
   }
   return workspaces;
 }
@@ -418,26 +425,44 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     previewOptions,
   });
 
-  workspaces.push({
+  const released: ReleasedWorkspaceResult = {
     name: dir,
     status: 'released',
-    previousTag: directResult?.tag ?? previousTags.get(dir),
     commitCount: directResult?.commits.length ?? 0,
-    parsedCommitCount: directResult?.parsedCommitCount,
-    // For --set-version workspaces releaseType is left undefined so reporting can branch
-    // on the override case without conflating it with a bump type.
-    releaseType: setVersionTarget === undefined ? releaseEntry.releaseType : undefined,
     currentVersion: bump.currentVersion,
     newVersion: bump.newVersion,
     tag: newTag,
     bumpedFiles: bump.files,
     changelogFiles,
-    commits: directResult?.commits,
-    unparseableCommits: directResult?.unparseableCommits,
-    propagatedFrom: releaseEntry.propagatedFrom,
-    bumpOverride: directResult?.bumpOverride,
-    ...(setVersionTarget === undefined ? {} : { setVersion: setVersionTarget }),
-  });
+  };
+  const previousTag = directResult?.tag ?? previousTags.get(dir);
+  if (previousTag !== undefined) {
+    released.previousTag = previousTag;
+  }
+  if (directResult?.parsedCommitCount !== undefined) {
+    released.parsedCommitCount = directResult.parsedCommitCount;
+  }
+  // For --set-version workspaces releaseType is left undefined so reporting can branch
+  // on the override case without conflating it with a bump type.
+  if (setVersionTarget === undefined) {
+    released.releaseType = releaseEntry.releaseType;
+  }
+  if (directResult?.commits !== undefined) {
+    released.commits = directResult.commits;
+  }
+  if (directResult?.unparseableCommits !== undefined) {
+    released.unparseableCommits = directResult.unparseableCommits;
+  }
+  if (releaseEntry.propagatedFrom !== undefined) {
+    released.propagatedFrom = releaseEntry.propagatedFrom;
+  }
+  if (directResult?.bumpOverride !== undefined) {
+    released.bumpOverride = directResult.bumpOverride;
+  }
+  if (setVersionTarget !== undefined) {
+    released.setVersion = setVersionTarget;
+  }
+  workspaces.push(released);
 }
 
 /** Arguments for generating changelog files for a single workspace. */

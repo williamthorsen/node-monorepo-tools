@@ -6,7 +6,7 @@ import { buildTagPattern, generateChangelog } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
 import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
-import type { MonorepoReleaseConfig, ProjectPrepareResult } from './types.ts';
+import type { MonorepoReleaseConfig, ProjectPrepareResult, SkippedProjectResult } from './types.ts';
 import { writeReleaseNotesPreviews } from './writeReleaseNotesPreviews.ts';
 
 /** File path for the root `package.json` bumped during the project release stage. */
@@ -76,16 +76,19 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
   });
 
   if (decision.outcome === 'skip') {
-    return {
+    const skipped: SkippedProjectResult = {
       status: 'skipped',
-      previousTag: tag,
       commitCount: commits.length,
       parsedCommitCount: decision.parsedCommitCount,
-      bumpedFiles: [],
-      changelogFiles: [],
-      unparseableCommits: decision.unparseableCommits,
       skipReason: decision.skipReason,
     };
+    if (tag !== undefined) {
+      skipped.previousTag = tag;
+    }
+    if (decision.unparseableCommits !== undefined) {
+      skipped.unparseableCommits = decision.unparseableCommits;
+    }
+    return skipped;
   }
 
   const { releaseType, parsedCommitCount, unparseableCommits } = decision;

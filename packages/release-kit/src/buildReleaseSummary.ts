@@ -15,7 +15,7 @@ export function buildReleaseSummary(result: PrepareResult): string {
   const sections: string[] = [];
 
   for (const workspace of result.workspaces) {
-    if (workspace.status !== 'released' || workspace.tag === undefined) {
+    if (workspace.status !== 'released') {
       continue;
     }
 
@@ -33,13 +33,7 @@ export function buildReleaseSummary(result: PrepareResult): string {
   }
 
   const project = result.project;
-  if (
-    project !== undefined &&
-    project.status === 'released' &&
-    project.tag !== undefined &&
-    project.commits !== undefined &&
-    project.commits.length > 0
-  ) {
+  if (project !== undefined && project.status === 'released' && project.commits.length > 0) {
     const lines = [project.tag];
     for (const commit of project.commits) {
       lines.push(`- ${stripScope(commit.message)}`);

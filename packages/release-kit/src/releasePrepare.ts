@@ -11,7 +11,15 @@ import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import { resolveWorkTypes } from './loadConfig.ts';
 import { readCurrentVersion } from './readCurrentVersion.ts';
 import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
-import type { BumpResult, Commit, PrepareResult, ReleaseConfig, ReleaseType } from './types.ts';
+import type {
+  BumpResult,
+  Commit,
+  PrepareResult,
+  ReleaseConfig,
+  ReleasedWorkspaceResult,
+  ReleaseType,
+  SkippedWorkspaceResult,
+} from './types.ts';
 import { writeReleaseNotesPreviews } from './writeReleaseNotesPreviews.ts';
 
 /** Options for the release preparation workflow. */
@@ -92,19 +100,22 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
     }
 
     if (releaseType === undefined) {
+      const skipped: SkippedWorkspaceResult = {
+        status: 'skipped',
+        commitCount: commits.length,
+        skipReason: 'No release-worthy changes found. Skipping.',
+      };
+      if (tag !== undefined) {
+        skipped.previousTag = tag;
+      }
+      if (parsedCommitCount !== undefined) {
+        skipped.parsedCommitCount = parsedCommitCount;
+      }
+      if (unparseableCommits !== undefined) {
+        skipped.unparseableCommits = unparseableCommits;
+      }
       return {
-        workspaces: [
-          {
-            status: 'skipped',
-            previousTag: tag,
-            commitCount: commits.length,
-            parsedCommitCount,
-            unparseableCommits,
-            bumpedFiles: [],
-            changelogFiles: [],
-            skipReason: 'No release-worthy changes found. Skipping.',
-          },
-        ],
+        workspaces: [skipped],
         tags: [],
         dryRun,
       };
@@ -155,28 +166,83 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
     }
   }
 
+  const released = buildReleasedSinglePackage({
+    commits,
+    bump,
+    newTag,
+    changelogFiles,
+    previousTag: tag,
+    parsedCommitCount,
+    releaseType,
+    unparseableCommits,
+    setVersion,
+  });
+
   return {
-    workspaces: [
-      {
-        status: 'released',
-        previousTag: tag,
-        commitCount: commits.length,
-        parsedCommitCount,
-        releaseType,
-        currentVersion: bump.currentVersion,
-        newVersion: bump.newVersion,
-        tag: newTag,
-        bumpedFiles: bump.files,
-        changelogFiles,
-        commits,
-        unparseableCommits,
-        ...(setVersion === undefined ? {} : { setVersion }),
-      },
-    ],
+    workspaces: [released],
     tags: [newTag],
     formatCommand,
     dryRun,
   };
+}
+
+/** Inputs to {@link buildReleasedSinglePackage}. */
+interface BuildReleasedSinglePackageArgs {
+  commits: Commit[];
+  bump: BumpResult;
+  newTag: string;
+  changelogFiles: string[];
+  previousTag: string | undefined;
+  parsedCommitCount: number | undefined;
+  releaseType: ReleaseType | undefined;
+  unparseableCommits: Commit[] | undefined;
+  setVersion: string | undefined;
+}
+
+/**
+ * Construct a `ReleasedWorkspaceResult` for the single-package path, attaching only
+ * defined optional fields. Extracted from `releasePrepare` to keep that function under
+ * the project's cyclomatic-complexity ceiling — the conditional optional-field assignments
+ * each contribute to complexity, and inlining them tips the host over the threshold.
+ */
+function buildReleasedSinglePackage(args: BuildReleasedSinglePackageArgs): ReleasedWorkspaceResult {
+  const {
+    commits,
+    bump,
+    newTag,
+    changelogFiles,
+    previousTag,
+    parsedCommitCount,
+    releaseType,
+    unparseableCommits,
+    setVersion,
+  } = args;
+  const released: ReleasedWorkspaceResult = {
+    status: 'released',
+    commitCount: commits.length,
+    currentVersion: bump.currentVersion,
+    newVersion: bump.newVersion,
+    tag: newTag,
+    bumpedFiles: bump.files,
+    changelogFiles,
+    commits,
+  };
+  if (previousTag !== undefined) {
+    released.previousTag = previousTag;
+  }
+  if (parsedCommitCount !== undefined) {
+    released.parsedCommitCount = parsedCommitCount;
+  }
+  if (releaseType !== undefined) {
+    released.releaseType = releaseType;
+  }
+  if (unparseableCommits !== undefined) {
+    released.unparseableCommits = unparseableCommits;
+  }
+  if (setVersion !== undefined) {
+    released.setVersion = setVersion;
+  }
+  return released;
 }
 
 /**
