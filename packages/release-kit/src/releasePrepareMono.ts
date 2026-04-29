@@ -39,6 +39,8 @@ interface DirectBumpResult {
   releaseType: ReleaseType | undefined;
   parsedCommitCount: number | undefined;
   unparseableCommits: Commit[] | undefined;
+  /** Set when `--bump=X` was supplied for this workspace's direct release; surfaced to renderer. */
+  bumpOverride: ReleaseType | undefined;
   /** Explicit version from `--set-version`, present only for the overridden workspace. */
   setVersion?: string;
 }
@@ -226,6 +228,7 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
         releaseType: undefined,
         parsedCommitCount: undefined,
         unparseableCommits: undefined,
+        bumpOverride: undefined,
         setVersion,
       });
       continue;
@@ -255,7 +258,7 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
         workspace,
         tag,
         commitCount: commits.length,
-        parsedCommitCount: commits.length === 0 ? undefined : decision.parsedCommitCount,
+        parsedCommitCount: decision.parsedCommitCount,
         unparseableCommits: decision.unparseableCommits,
         skipReason: decision.skipReason,
       });
@@ -268,8 +271,9 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
       tag,
       commits,
       releaseType: decision.releaseType,
-      parsedCommitCount: commits.length === 0 ? undefined : decision.parsedCommitCount,
+      parsedCommitCount: decision.parsedCommitCount,
       unparseableCommits: decision.unparseableCommits,
+      bumpOverride,
     });
   }
 
@@ -431,6 +435,7 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     commits: directResult?.commits,
     unparseableCommits: directResult?.unparseableCommits,
     propagatedFrom: releaseEntry.propagatedFrom,
+    ...(directResult?.bumpOverride === undefined ? {} : { bumpOverride: directResult.bumpOverride }),
     ...(setVersionTarget === undefined ? {} : { setVersion: setVersionTarget }),
   });
 }

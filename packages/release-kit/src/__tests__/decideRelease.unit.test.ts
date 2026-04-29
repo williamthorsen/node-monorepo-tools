@@ -238,9 +238,8 @@ describe(decideRelease, () => {
   });
 
   describe('diagnostic data parity', () => {
-    it('returns parsedCommitCount and unparseableCommits in both release and skip outcomes', () => {
-      // Skip outcome: chore-only commits, no force.
-      const skipResult = decideRelease({
+    it('returns parsedCommitCount and unparseableCommits on a release outcome with mixed parseable/unparseable commits', () => {
+      const result = decideRelease({
         commits: [makeCommit('feat: add thing'), makeCommit('chore: deps', 'def4567')],
         force: false,
         bumpOverride: undefined,
@@ -249,11 +248,29 @@ describe(decideRelease, () => {
         scopeAliases: undefined,
         skipReasons,
       });
-      expect(skipResult.outcome).toBe('release'); // feat is bump-worthy
-      if (skipResult.outcome === 'release') {
-        expect(skipResult.parsedCommitCount).toBe(1);
-        expect(skipResult.unparseableCommits).toStrictEqual([{ message: 'chore: deps', hash: 'def4567' }]);
-      }
+
+      expect(result.outcome).toBe('release');
+      expect(result.parsedCommitCount).toBe(1);
+      expect(result.unparseableCommits).toStrictEqual([{ message: 'chore: deps', hash: 'def4567' }]);
+    });
+
+    it('returns parsedCommitCount and unparseableCommits on a skip outcome with chore-only commits and no force', () => {
+      const result = decideRelease({
+        commits: [makeCommit('chore: deps', 'def4567'), makeCommit('chore: bump', 'ghi8901')],
+        force: false,
+        bumpOverride: undefined,
+        workTypes,
+        versionPatterns,
+        scopeAliases: undefined,
+        skipReasons,
+      });
+
+      expect(result.outcome).toBe('skip');
+      expect(result.parsedCommitCount).toBe(0);
+      expect(result.unparseableCommits).toStrictEqual([
+        { message: 'chore: deps', hash: 'def4567' },
+        { message: 'chore: bump', hash: 'ghi8901' },
+      ]);
     });
   });
 });

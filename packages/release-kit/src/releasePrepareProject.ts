@@ -79,15 +79,13 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
     const skippedResult: ProjectPrepareResult = {
       status: 'skipped',
       commitCount: commits.length,
+      parsedCommitCount: decision.parsedCommitCount,
       bumpedFiles: [],
       changelogFiles: [],
       skipReason: decision.skipReason,
     };
     if (tag !== undefined) {
       skippedResult.previousTag = tag;
-    }
-    if (decision.parsedCommitCount > 0 || commits.length > 0) {
-      skippedResult.parsedCommitCount = decision.parsedCommitCount;
     }
     if (decision.unparseableCommits !== undefined) {
       skippedResult.unparseableCommits = decision.unparseableCommits;
@@ -141,6 +139,7 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
   const result: ProjectPrepareResult = {
     status: 'released',
     commitCount: commits.length,
+    parsedCommitCount,
     releaseType,
     currentVersion: bump.currentVersion,
     newVersion: bump.newVersion,
@@ -152,14 +151,11 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
   if (tag !== undefined) {
     result.previousTag = tag;
   }
-  // Populate diagnostic data unconditionally — `decideRelease` always parses the commits
-  // window, so `parsedCommitCount` reflects the number of recognized commits regardless of
-  // whether `bumpOverride` was supplied.
-  if (commits.length > 0) {
-    result.parsedCommitCount = parsedCommitCount;
-  }
   if (unparseableCommits !== undefined) {
     result.unparseableCommits = unparseableCommits;
+  }
+  if (bumpOverride !== undefined) {
+    result.bumpOverride = bumpOverride;
   }
   return result;
 }

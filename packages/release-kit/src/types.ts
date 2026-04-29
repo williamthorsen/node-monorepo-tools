@@ -93,6 +93,12 @@ export interface WorkspacePrepareResult {
   /** Dependencies that triggered a propagated bump (present for propagated or mixed workspaces). */
   propagatedFrom?: PropagationSource[] | undefined;
   skipReason?: string | undefined;
+  /**
+   * Present when `--bump=X` was supplied and selected the release level for this workspace.
+   * Distinguishes a bump-override release from a `--force` fallback or a natural-bump release;
+   * consumed by the renderer to label the release accurately.
+   */
+  bumpOverride?: ReleaseType | undefined;
   /** Present when this workspace was written via `--set-version`; the explicit version that was applied. */
   setVersion?: string | undefined;
 }
@@ -122,6 +128,12 @@ export interface ProjectPrepareResult {
   commits?: Commit[] | undefined;
   /** Commits that could not be parsed into a recognized work type. */
   unparseableCommits?: Commit[] | undefined;
+  /**
+   * Present when `--bump=X` was supplied and selected the release level for the project.
+   * Distinguishes a bump-override release from a `--force` fallback or a natural-bump release;
+   * consumed by the renderer to label the release accurately.
+   */
+  bumpOverride?: ReleaseType | undefined;
   /** Reason for skipping the project release. Populated only when `status === 'skipped'`. */
   skipReason?: string | undefined;
 }

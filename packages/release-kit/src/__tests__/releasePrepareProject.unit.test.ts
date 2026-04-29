@@ -121,6 +121,7 @@ describe(releasePrepareProject, () => {
 
     expect(result.status).toBe('skipped');
     expect(result.commitCount).toBe(0);
+    expect(result.parsedCommitCount).toBe(0);
     expect(result.previousTag).toBe('v0.9.0');
     expect(result.skipReason).toBe('No commits since v0.9.0. Pass --force to release at patch. Skipping.');
     expect(result.bumpedFiles).toStrictEqual([]);
@@ -180,6 +181,9 @@ describe(releasePrepareProject, () => {
     expect(result.status).toBe('released');
     expect(result.releaseType).toBe('patch');
     expect(result.newVersion).toBe('0.9.1');
+    expect(result.commitCount).toBe(0);
+    expect(result.parsedCommitCount).toBe(0);
+    expect(result.bumpOverride).toBeUndefined();
     expect(tags).toStrictEqual(['v0.9.1']);
   });
 
@@ -296,6 +300,7 @@ describe(releasePrepareProject, () => {
     });
 
     expect(result.releaseType).toBe('major');
+    expect(result.bumpOverride).toBe('major');
     expect(result.newVersion).toBe('2.0.0');
     expect(tags).toStrictEqual(['v2.0.0']);
   });

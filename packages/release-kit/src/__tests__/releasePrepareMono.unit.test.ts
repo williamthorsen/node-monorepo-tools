@@ -206,6 +206,7 @@ describe(releasePrepareMono, () => {
       name: 'arrays',
       status: 'skipped',
       commitCount: 0,
+      parsedCommitCount: 0,
     });
     expect(mockWriteFileSync).not.toHaveBeenCalled();
     expect(countCliffCalls()).toBe(0);
@@ -564,8 +565,10 @@ describe(releasePrepareMono, () => {
     expect(result.workspaces[0]).toMatchObject({
       status: 'released',
       commitCount: 0,
+      parsedCommitCount: 0,
       releaseType: 'patch',
     });
+    expect(result.workspaces[0]?.bumpOverride).toBeUndefined();
   });
 
   it('mixed-sibling case: --force alone uses natural bump for one workspace and patch fallback for another', () => {

@@ -46,9 +46,8 @@ function formatSingleWorkspace(result: PrepareResult): string {
   // --set-version: render an explicit version-override message instead of a bump label.
   if (workspace.setVersion !== undefined) {
     lines.push(`  Using version override: ${workspace.setVersion}`);
-  } else if (workspace.parsedCommitCount === undefined && workspace.releaseType !== undefined) {
-    // Bump override message (no parsedCommitCount means bump override was used)
-    lines.push(`  Using bump override: ${workspace.releaseType}`);
+  } else if (workspace.bumpOverride !== undefined) {
+    lines.push(`  Using bump override: ${workspace.bumpOverride}`);
   }
 
   // Bump info
@@ -144,8 +143,9 @@ function formatProjectSection(lines: string[], project: ProjectPrepareResult, dr
 
   if (project.parsedCommitCount !== undefined) {
     lines.push(dim(`  Parsed ${project.parsedCommitCount} typed commits`));
-  } else if (releaseType !== undefined) {
-    lines.push(`  Using bump override: ${releaseType}`);
+  }
+  if (project.bumpOverride !== undefined) {
+    lines.push(`  Using bump override: ${project.bumpOverride}`);
   }
 
   formatProjectUnparseable(lines, project);
@@ -246,8 +246,8 @@ function formatCommitSummary(
 function formatBumpLabels(lines: string[], workspace: WorkspacePrepareResult, isPropagatedOnly: boolean): void {
   if (workspace.setVersion !== undefined) {
     lines.push(`  Using version override: ${workspace.setVersion}`);
-  } else if (workspace.parsedCommitCount === undefined && workspace.releaseType !== undefined && !isPropagatedOnly) {
-    lines.push(`  Using bump override: ${workspace.releaseType}`);
+  } else if (workspace.bumpOverride !== undefined && !isPropagatedOnly) {
+    lines.push(`  Using bump override: ${workspace.bumpOverride}`);
   }
 
   if (workspace.releaseType !== undefined) {
