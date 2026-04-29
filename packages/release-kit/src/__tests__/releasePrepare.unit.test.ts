@@ -110,8 +110,9 @@ describe(releasePrepare, () => {
       parsedCommitCount: 1,
     });
     expect(workspace?.name).toBeUndefined();
-    expect(workspace?.bumpedFiles).toStrictEqual(['package.json']);
-    expect(workspace?.changelogFiles).toStrictEqual(['./CHANGELOG.md']);
+    if (workspace?.status !== 'released') throw new Error('expected released');
+    expect(workspace.bumpedFiles).toStrictEqual(['package.json']);
+    expect(workspace.changelogFiles).toStrictEqual(['./CHANGELOG.md']);
   });
 
   it('applies patch floor when commits exist but none are release-worthy', () => {
@@ -279,14 +280,16 @@ describe(releasePrepare, () => {
 
     expect(result.tags).toStrictEqual(['v1.0.0']);
     expect(result.workspaces).toHaveLength(1);
-    expect(result.workspaces[0]).toMatchObject({
+    const workspace = result.workspaces[0];
+    expect(workspace).toMatchObject({
       status: 'released',
       newVersion: '1.0.0',
       currentVersion: '0.5.0',
       tag: 'v1.0.0',
       setVersion: '1.0.0',
     });
-    expect(result.workspaces[0]?.releaseType).toBeUndefined();
+    if (workspace?.status !== 'released') throw new Error('expected released');
+    expect(workspace.releaseType).toBeUndefined();
     expect(mockWriteFileSync).toHaveBeenCalledWith(
       'package.json',
       expect.stringContaining('"version": "1.0.0"'),
@@ -308,7 +311,9 @@ describe(releasePrepare, () => {
 
     const result = releasePrepare(makeConfig(), { dryRun: false, setVersion: '1.0.0' });
 
-    expect(result.workspaces[0]?.changelogFiles).toStrictEqual(['./CHANGELOG.md']);
+    const workspace = result.workspaces[0];
+    if (workspace?.status !== 'released') throw new Error('expected released');
+    expect(workspace.changelogFiles).toStrictEqual(['./CHANGELOG.md']);
     const cliffCalls = mockExecFileSync.mock.calls.filter(
       (call: unknown[]) => call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff'),
     );

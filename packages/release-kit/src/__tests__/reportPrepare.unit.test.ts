@@ -44,7 +44,6 @@ describe(reportPrepare, () => {
         workspaces: [
           {
             status: 'released',
-            previousTag: undefined,
             commitCount: 5,
             parsedCommitCount: 3,
             releaseType: 'minor',
@@ -72,8 +71,6 @@ describe(reportPrepare, () => {
             previousTag: 'v1.0.0',
             commitCount: 1,
             parsedCommitCount: 0,
-            bumpedFiles: [],
-            changelogFiles: [],
             skipReason: 'No release-worthy changes found. Skipping.',
           },
         ],
@@ -326,7 +323,6 @@ describe(reportPrepare, () => {
           {
             name: 'arrays',
             status: 'released',
-            previousTag: undefined,
             commitCount: 4,
             parsedCommitCount: 2,
             releaseType: 'minor',
@@ -394,8 +390,6 @@ describe(reportPrepare, () => {
             status: 'skipped',
             previousTag: 'strings-v2.0.0',
             commitCount: 0,
-            bumpedFiles: [],
-            changelogFiles: [],
             skipReason: 'No changes for strings since strings-v2.0.0. Skipping.',
           },
         ],
@@ -487,8 +481,6 @@ describe(reportPrepare, () => {
             status: 'skipped',
             previousTag: 'arrays-v1.0.0',
             commitCount: 0,
-            bumpedFiles: [],
-            changelogFiles: [],
             skipReason: 'No changes for arrays since arrays-v1.0.0. Skipping.',
           },
         ],
@@ -665,6 +657,7 @@ describe(reportPrepare, () => {
           tag: 'v0.10.0',
           bumpedFiles: ['./package.json'],
           changelogFiles: ['./CHANGELOG.md'],
+          commits: [{ message: 'feat: add capability', hash: 'abc1234' }],
         },
       };
 
@@ -694,6 +687,7 @@ describe(reportPrepare, () => {
           tag: 'v0.10.0',
           bumpedFiles: ['./package.json'],
           changelogFiles: ['./CHANGELOG.md'],
+          commits: [{ message: 'feat: add capability', hash: 'abc1234' }],
         },
       };
 
@@ -736,7 +730,6 @@ describe(reportPrepare, () => {
         dryRun: false,
         project: {
           status: 'released',
-          previousTag: undefined,
           commitCount: 1,
           parsedCommitCount: 1,
           releaseType: 'minor',
@@ -745,6 +738,7 @@ describe(reportPrepare, () => {
           tag: 'v0.1.0',
           bumpedFiles: ['./package.json'],
           changelogFiles: ['./CHANGELOG.md'],
+          commits: [{ message: 'feat: add capability', hash: 'abc1234' }],
         },
       };
 
@@ -769,6 +763,7 @@ describe(reportPrepare, () => {
           tag: 'v0.9.1',
           bumpedFiles: ['./package.json'],
           changelogFiles: ['./CHANGELOG.md'],
+          commits: [],
           unparseableCommits: [{ message: 'wip: undocumented', hash: 'abc1234def' }],
         },
       };
@@ -790,8 +785,7 @@ describe(reportPrepare, () => {
           status: 'skipped',
           previousTag: 'v0.9.0',
           commitCount: 0,
-          bumpedFiles: [],
-          changelogFiles: [],
+          parsedCommitCount: 0,
           skipReason: 'No commits since v0.9.0. Pass --force to release at patch. Skipping.',
         },
       };
@@ -821,8 +815,6 @@ describe(reportPrepare, () => {
           commitCount: 1,
           parsedCommitCount: 0,
           unparseableCommits: [{ message: 'chore: deps', hash: 'abc1234' }],
-          bumpedFiles: [],
-          changelogFiles: [],
           skipReason:
             'No bump-worthy commits since v0.9.0. Pass --force to release at patch (or --force --bump=X for a different level). Skipping.',
         },

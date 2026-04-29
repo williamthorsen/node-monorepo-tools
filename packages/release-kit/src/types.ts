@@ -72,85 +72,149 @@ export interface BumpResult {
   files: string[];
 }
 
-/** Result of preparing a single workspace (package) for release. */
-export interface WorkspacePrepareResult {
+/**
+ * Result of preparing a single workspace (package) for release when a release was produced.
+ *
+ * `currentVersion`, `newVersion`, `tag`, `bumpedFiles`, and `changelogFiles` are always
+ * populated. `releaseType` stays optional because it is left undefined for
+ * `--set-version` workspaces. `parsedCommitCount` stays optional because the legacy
+ * single-package bump-override path does not populate it. `commits` stays optional
+ * because propagation-only releases have no direct commits.
+ */
+export interface ReleasedWorkspaceResult {
+  status: 'released';
   /** Workspace name; absent in single-package mode, present in monorepo mode. */
-  name?: string | undefined;
-  status: 'released' | 'skipped';
-  previousTag?: string | undefined;
+  name?: string;
+  previousTag?: string;
   commitCount: number;
   /**
    * Count of commits that parsed into a recognized work type. Always populated for
    * results produced by the unified `decideRelease` algorithm (the monorepo path),
-   * including the no-commits case where it is `0`. May be `undefined` for results
+   * including the no-commits case where it is `0`. May be absent for results
    * produced by the legacy single-package executor's bump-override path. Use
    * `bumpOverride` (not `parsedCommitCount === undefined`) as the signal for "the
    * user supplied --bump=X".
    */
-  parsedCommitCount?: number | undefined;
-  releaseType?: ReleaseType | undefined;
-  currentVersion?: string | undefined;
-  newVersion?: string | undefined;
-  tag?: string | undefined;
+  parsedCommitCount?: number;
+  /** Commits that could not be parsed into a recognized work type. */
+  unparseableCommits?: Commit[];
+  releaseType?: ReleaseType;
+  currentVersion: string;
+  newVersion: string;
+  tag: string;
   bumpedFiles: string[];
   changelogFiles: string[];
   /** Raw commits associated with this workspace (present for direct releases, absent for propagation-only). */
-  commits?: Commit[] | undefined;
-  /** Commits that could not be parsed into a recognized work type. */
-  unparseableCommits?: Commit[] | undefined;
-  /** Dependencies that triggered a propagated bump (present for propagated or mixed workspaces). */
-  propagatedFrom?: PropagationSource[] | undefined;
-  skipReason?: string | undefined;
+  commits?: Commit[];
   /**
    * Present when `--bump=X` was supplied and selected the release level for this workspace.
    * Distinguishes a bump-override release from a `--force` fallback or a natural-bump release;
    * consumed by the renderer to label the release accurately.
    */
-  bumpOverride?: ReleaseType | undefined;
+  bumpOverride?: ReleaseType;
+  /** Dependencies that triggered a propagated bump (present for propagated or mixed workspaces). */
+  propagatedFrom?: PropagationSource[];
   /** Present when this workspace was written via `--set-version`; the explicit version that was applied. */
-  setVersion?: string | undefined;
+  setVersion?: string;
 }
 
 /**
- * Result of preparing a project-level release.
+ * Result of preparing a single workspace (package) for release when the release was skipped.
  *
- * Mirrors `WorkspacePrepareResult`'s shape minus the workspace-only fields (`name`,
- * `propagatedFrom`, `setVersion`). The release-only fields (`currentVersion`,
- * `newVersion`, `tag`, `releaseType`) are populated only when `status === 'released'`;
- * `skipReason` is populated only when `status === 'skipped'`. `PrepareResult.project ===
- * undefined` continues to mean "no project block configured" — only the result shape
- * varies when the block IS configured.
+ * Carries diagnostic data (`commitCount`, `parsedCommitCount`, `unparseableCommits`,
+ * `previousTag`) plus the human-readable `skipReason`. Release-only fields are absent.
  */
-export interface ProjectPrepareResult {
-  status: 'released' | 'skipped';
-  previousTag?: string | undefined;
+export interface SkippedWorkspaceResult {
+  status: 'skipped';
+  /** Workspace name; absent in single-package mode, present in monorepo mode. */
+  name?: string;
+  previousTag?: string;
+  commitCount: number;
+  /**
+   * Count of commits that parsed into a recognized work type. May be absent for results
+   * produced by the legacy single-package executor's bump-override path.
+   */
+  parsedCommitCount?: number;
+  /** Commits that could not be parsed into a recognized work type. */
+  unparseableCommits?: Commit[];
+  skipReason: string;
+}
+
+/**
+ * Result of preparing a single workspace (package) for release.
+ *
+ * Discriminated by `status`: `ReleasedWorkspaceResult` for produced releases,
+ * `SkippedWorkspaceResult` for skips.
+ */
+export type WorkspacePrepareResult = ReleasedWorkspaceResult | SkippedWorkspaceResult;
+
+/**
+ * Result of preparing a project-level release when a release was produced.
+ *
+ * Mirrors `ReleasedWorkspaceResult` minus the workspace-only fields (`name`,
+ * `propagatedFrom`, `setVersion`). Project releases never propagate and never use
+ * `--set-version`, so `releaseType`, `currentVersion`, `newVersion`, `tag`, and
+ * `commits` are all required.
+ */
+export interface ReleasedProjectResult {
+  status: 'released';
+  previousTag?: string;
   commitCount: number;
   /**
    * Count of commits that parsed into a recognized work type. Always populated by the
    * unified `decideRelease` algorithm — `0` when there are no commits or when none
-   * parse. Use `bumpOverride` (not `parsedCommitCount === undefined`) as the signal
-   * for "the user supplied --bump=X".
+   * parse. Use `bumpOverride` (not `parsedCommitCount === 0`) as the signal for "the
+   * user supplied --bump=X".
    */
-  parsedCommitCount?: number | undefined;
-  releaseType?: ReleaseType | undefined;
-  currentVersion?: string | undefined;
-  newVersion?: string | undefined;
-  tag?: string | undefined;
+  parsedCommitCount: number;
+  /** Commits that could not be parsed into a recognized work type. */
+  unparseableCommits?: Commit[];
+  releaseType: ReleaseType;
+  currentVersion: string;
+  newVersion: string;
+  tag: string;
   bumpedFiles: string[];
   changelogFiles: string[];
   /** Raw commits in the project's contributing-paths window since the last project tag. */
-  commits?: Commit[] | undefined;
-  /** Commits that could not be parsed into a recognized work type. */
-  unparseableCommits?: Commit[] | undefined;
+  commits: Commit[];
   /**
    * Present when `--bump=X` was supplied and selected the release level for the project.
    * Distinguishes a bump-override release from a `--force` fallback or a natural-bump release;
    * consumed by the renderer to label the release accurately.
    */
-  bumpOverride?: ReleaseType | undefined;
-  /** Reason for skipping the project release. Populated only when `status === 'skipped'`. */
-  skipReason?: string | undefined;
+  bumpOverride?: ReleaseType;
 }
+
+/**
+ * Result of preparing a project-level release when the release was skipped.
+ *
+ * Carries diagnostic data (`commitCount`, `parsedCommitCount`, `unparseableCommits`,
+ * `previousTag`) plus the human-readable `skipReason`. Release-only fields are absent.
+ */
+export interface SkippedProjectResult {
+  status: 'skipped';
+  previousTag?: string;
+  commitCount: number;
+  /**
+   * Count of commits that parsed into a recognized work type. Always populated by the
+   * unified `decideRelease` algorithm — `0` when there are no commits or when none
+   * parse.
+   */
+  parsedCommitCount: number;
+  /** Commits that could not be parsed into a recognized work type. */
+  unparseableCommits?: Commit[];
+  skipReason: string;
+}
+
+/**
+ * Result of preparing a project-level release.
+ *
+ * Discriminated by `status`: `ReleasedProjectResult` for produced releases,
+ * `SkippedProjectResult` for skips. `PrepareResult.project === undefined` continues to
+ * mean "no project block configured" — only the result shape varies when the block IS
+ * configured.
+ */
+export type ProjectPrepareResult = ReleasedProjectResult | SkippedProjectResult;
 
 /** Aggregate result of the prepare workflow for both single-package and monorepo modes. */
 export interface PrepareResult {

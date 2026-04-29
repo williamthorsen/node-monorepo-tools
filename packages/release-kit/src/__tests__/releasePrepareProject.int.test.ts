@@ -134,12 +134,13 @@ describe('releasePrepareProject (integration)', () => {
       const result = releasePrepareMono(config, { dryRun: false });
 
       // Project release happened.
-      expect(result.project).toBeDefined();
-      expect(result.project?.previousTag).toBe('v0.9.0');
+      const project = result.project;
+      if (project?.status !== 'released') throw new Error('expected released project');
+      expect(project.previousTag).toBe('v0.9.0');
       // 2 feat + 1 fix → minor bump → 0.10.0 (pre-1.0 collapse not relevant since feat is minor).
-      expect(result.project?.releaseType).toBe('minor');
-      expect(result.project?.newVersion).toBe('0.10.0');
-      expect(result.project?.tag).toBe('v0.10.0');
+      expect(project.releaseType).toBe('minor');
+      expect(project.newVersion).toBe('0.10.0');
+      expect(project.tag).toBe('v0.10.0');
 
       // Tags includes both the project tag and per-workspace tags.
       expect(result.tags).toContain('v0.10.0');
@@ -195,8 +196,10 @@ describe('releasePrepareProject (integration)', () => {
 
       const result = releasePrepareMono(config, { dryRun: false, bumpOverride: 'major' });
 
-      expect(result.project?.releaseType).toBe('major');
-      expect(result.project?.newVersion).toBe('2.0.0');
+      const project = result.project;
+      if (project?.status !== 'released') throw new Error('expected released project');
+      expect(project.releaseType).toBe('major');
+      expect(project.newVersion).toBe('2.0.0');
       expect(result.tags).toContain('v2.0.0');
     });
   }, 60_000);
@@ -211,7 +214,9 @@ describe('releasePrepareProject (integration)', () => {
 
       const result = releasePrepareMono(config, { dryRun: true });
 
-      expect(result.project?.tag).toBe('v0.10.0');
+      const project = result.project;
+      if (project?.status !== 'released') throw new Error('expected released project');
+      expect(project.tag).toBe('v0.10.0');
       expect(result.tags).toContain('v0.10.0');
 
       // Nothing was written to disk.

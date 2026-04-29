@@ -119,13 +119,11 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
-    expect(result.status).toBe('skipped');
+    if (result.status !== 'skipped') throw new Error('expected skipped');
     expect(result.commitCount).toBe(0);
     expect(result.parsedCommitCount).toBe(0);
     expect(result.previousTag).toBe('v0.9.0');
     expect(result.skipReason).toBe('No commits since v0.9.0. Pass --force to release at patch. Skipping.');
-    expect(result.bumpedFiles).toStrictEqual([]);
-    expect(result.changelogFiles).toStrictEqual([]);
     expect(tags).toStrictEqual([]);
     expect(modifiedFiles).toStrictEqual([]);
   });
@@ -149,7 +147,7 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
-    expect(result.status).toBe('skipped');
+    if (result.status !== 'skipped') throw new Error('expected skipped');
     expect(result.commitCount).toBe(1);
     expect(result.previousTag).toBe('v0.9.0');
     expect(result.parsedCommitCount).toBe(0);
@@ -178,7 +176,7 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
-    expect(result.status).toBe('released');
+    if (result.status !== 'released') throw new Error('expected released');
     expect(result.releaseType).toBe('patch');
     expect(result.newVersion).toBe('0.9.1');
     expect(result.commitCount).toBe(0);
@@ -205,7 +203,7 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
-    expect(result.status).toBe('released');
+    if (result.status !== 'released') throw new Error('expected released');
     expect(result.releaseType).toBe('patch');
     expect(result.newVersion).toBe('0.9.1');
     expect(result.commitCount).toBe(1);
@@ -233,7 +231,7 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
-    expect(result.status).toBe('skipped');
+    if (result.status !== 'skipped') throw new Error('expected skipped');
     expect(result.skipReason).toContain('No bump-worthy commits since v0.9.0');
     expect(tags).toStrictEqual([]);
     expect(modifiedFiles).toStrictEqual([]);
@@ -251,6 +249,7 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
+    if (result.status !== 'released') throw new Error('expected released');
     expect(result.tag).toBe('v0.10.0');
     expect(result.releaseType).toBe('minor');
     expect(result.currentVersion).toBe('0.9.0');
@@ -320,6 +319,7 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
+    if (result.status !== 'released') throw new Error('expected released');
     expect(result.releaseType).toBe('major');
     expect(result.bumpOverride).toBe('major');
     expect(result.newVersion).toBe('2.0.0');
@@ -342,6 +342,7 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
+    if (result.status !== 'released') throw new Error('expected released');
     expect(result.releaseType).toBe('patch');
     expect(result.newVersion).toBe('0.9.1');
     expect(tags).toStrictEqual(['v0.9.1']);
@@ -359,6 +360,7 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
+    if (result.status !== 'released') throw new Error('expected released');
     expect(result.tag).toBe('v0.10.0');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
     // git-cliff is not invoked under dry-run.
@@ -430,6 +432,7 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
+    if (result.status !== 'released') throw new Error('expected released');
     expect(result.previousTag).toBe('v0.9.0');
     expect(result.commitCount).toBe(2);
     expect(result.releaseType).toBe('minor'); // feat triggers minor over fix's patch

@@ -20,6 +20,8 @@ describe(buildReleaseSummary, () => {
         {
           name: 'release-kit',
           status: 'released',
+          currentVersion: '2.3.0',
+          newVersion: '2.4.0',
           tag: 'release-kit-v2.4.0',
           commitCount: 2,
           bumpedFiles: [],
@@ -43,6 +45,8 @@ describe(buildReleaseSummary, () => {
         {
           name: 'core',
           status: 'released',
+          currentVersion: '0.9.0',
+          newVersion: '1.0.0',
           tag: 'core-v1.0.0',
           commitCount: 1,
           bumpedFiles: [],
@@ -52,6 +56,8 @@ describe(buildReleaseSummary, () => {
         {
           name: 'utils',
           status: 'released',
+          currentVersion: '1.9.0',
+          newVersion: '2.0.0',
           tag: 'utils-v2.0.0',
           commitCount: 1,
           bumpedFiles: [],
@@ -70,6 +76,8 @@ describe(buildReleaseSummary, () => {
         {
           name: 'core',
           status: 'released',
+          currentVersion: '1.0.0',
+          newVersion: '1.0.1',
           tag: 'core-v1.0.1',
           commitCount: 0,
           bumpedFiles: [],
@@ -89,8 +97,6 @@ describe(buildReleaseSummary, () => {
           name: 'skipped-pkg',
           status: 'skipped',
           commitCount: 0,
-          bumpedFiles: [],
-          changelogFiles: [],
           skipReason: 'No changes',
         },
       ],
@@ -110,6 +116,8 @@ describe(buildReleaseSummary, () => {
           {
             name: 'arrays',
             status: 'released',
+            currentVersion: '1.0.0',
+            newVersion: '1.1.0',
             tag: 'arrays-v1.1.0',
             commitCount: 1,
             bumpedFiles: [],
@@ -120,6 +128,7 @@ describe(buildReleaseSummary, () => {
         project: {
           status: 'released',
           commitCount: 1,
+          parsedCommitCount: 1,
           releaseType: 'minor',
           currentVersion: '0.9.0',
           newVersion: '0.10.0',
@@ -138,6 +147,7 @@ describe(buildReleaseSummary, () => {
         project: {
           status: 'released',
           commitCount: 1,
+          parsedCommitCount: 1,
           releaseType: 'patch',
           currentVersion: '0.9.0',
           newVersion: '0.9.1',
@@ -156,6 +166,7 @@ describe(buildReleaseSummary, () => {
         project: {
           status: 'released',
           commitCount: 0,
+          parsedCommitCount: 0,
           releaseType: 'patch',
           currentVersion: '0.9.0',
           newVersion: '0.9.1',
@@ -177,6 +188,8 @@ describe(buildReleaseSummary, () => {
           {
             name: 'arrays',
             status: 'released',
+            currentVersion: '1.0.0',
+            newVersion: '1.1.0',
             tag: 'arrays-v1.1.0',
             commitCount: 1,
             bumpedFiles: [],
@@ -188,8 +201,7 @@ describe(buildReleaseSummary, () => {
           status: 'skipped',
           previousTag: 'v0.9.0',
           commitCount: 0,
-          bumpedFiles: [],
-          changelogFiles: [],
+          parsedCommitCount: 0,
           skipReason: 'No commits since v0.9.0. Pass --force to release at patch. Skipping.',
         },
       });

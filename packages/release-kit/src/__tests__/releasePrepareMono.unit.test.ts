@@ -441,14 +441,16 @@ describe(releasePrepareMono, () => {
     const result = releasePrepareMono(config, { dryRun: false });
 
     expect(result.tags).toStrictEqual([]);
-    expect(result.workspaces[0]).toMatchObject({
+    const workspace = result.workspaces[0];
+    expect(workspace).toMatchObject({
       status: 'skipped',
       commitCount: 1,
       parsedCommitCount: 0,
     });
-    expect(result.workspaces[0]?.skipReason).toContain('No bump-worthy commits for arrays since arrays-v1.0.0');
-    expect(result.workspaces[0]?.skipReason).toContain('Pass --force to release at patch');
-    expect(result.workspaces[0]?.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'abc123' }]);
+    if (workspace?.status !== 'skipped') throw new Error('expected skipped');
+    expect(workspace.skipReason).toContain('No bump-worthy commits for arrays since arrays-v1.0.0');
+    expect(workspace.skipReason).toContain('Pass --force to release at patch');
+    expect(workspace.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'abc123' }]);
   });
 
   it('falls back to patch when commits exist but none are bump-worthy and --force is set', () => {
@@ -524,11 +526,13 @@ describe(releasePrepareMono, () => {
     const result = releasePrepareMono(config, { dryRun: false, bumpOverride: 'minor' });
 
     expect(result.tags).toStrictEqual([]);
-    expect(result.workspaces[0]).toMatchObject({
+    const workspace = result.workspaces[0];
+    expect(workspace).toMatchObject({
       status: 'skipped',
       commitCount: 1,
     });
-    expect(result.workspaces[0]?.skipReason).toContain('No bump-worthy commits for arrays since arrays-v1.0.0');
+    if (workspace?.status !== 'skipped') throw new Error('expected skipped');
+    expect(workspace.skipReason).toContain('No bump-worthy commits for arrays since arrays-v1.0.0');
   });
 
   it('falls back to patch when --force is set with no commits (no --bump)', () => {
@@ -562,13 +566,15 @@ describe(releasePrepareMono, () => {
     const result = releasePrepareMono(config, { dryRun: false, force: true });
 
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
-    expect(result.workspaces[0]).toMatchObject({
+    const workspace = result.workspaces[0];
+    expect(workspace).toMatchObject({
       status: 'released',
       commitCount: 0,
       parsedCommitCount: 0,
       releaseType: 'patch',
     });
-    expect(result.workspaces[0]?.bumpOverride).toBeUndefined();
+    if (workspace?.status !== 'released') throw new Error('expected released');
+    expect(workspace.bumpOverride).toBeUndefined();
   });
 
   it('mixed-sibling case: --force alone uses natural bump for one workspace and patch fallback for another', () => {
@@ -912,7 +918,9 @@ describe(releasePrepareMono, () => {
     const result = releasePrepareMono(config, { dryRun: false });
 
     expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
-    expect(result.workspaces[0]?.changelogFiles).toStrictEqual([
+    const workspace = result.workspaces[0];
+    if (workspace?.status !== 'released') throw new Error('expected released');
+    expect(workspace.changelogFiles).toStrictEqual([
       'packages/arrays/CHANGELOG.md',
       'packages/arrays/docs/CHANGELOG.md',
     ]);
@@ -1136,7 +1144,8 @@ describe(releasePrepareMono, () => {
         currentVersion: '0.5.0',
         setVersion: '1.0.0',
       });
-      expect(coreResult?.releaseType).toBeUndefined();
+      if (coreResult?.status !== 'released') throw new Error('expected released');
+      expect(coreResult.releaseType).toBeUndefined();
       expect(result.tags).toStrictEqual(['core-v1.0.0']);
       expect(mockWriteFileSync).toHaveBeenCalledWith(
         'packages/core/package.json',
@@ -1608,8 +1617,10 @@ describe(releasePrepareMono, () => {
       const result = releasePrepareMono(config, { dryRun: false });
 
       expect(result.project).toBeDefined();
-      expect(result.project?.tag).toBe('v0.10.0');
-      expect(result.project?.releaseType).toBe('minor');
+      const project = result.project;
+      if (project?.status !== 'released') throw new Error('expected released project');
+      expect(project.tag).toBe('v0.10.0');
+      expect(project.releaseType).toBe('minor');
       expect(result.tags).toContain('arrays-v1.1.0');
       expect(result.tags).toContain('v0.10.0');
     });
