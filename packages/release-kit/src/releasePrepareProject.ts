@@ -64,7 +64,7 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
   //    `--force` is purely a release trigger that defaults to patch when no level is given.
   const decision = decideRelease({
     commits,
-    force: force === true,
+    force,
     bumpOverride,
     workTypes,
     versionPatterns,

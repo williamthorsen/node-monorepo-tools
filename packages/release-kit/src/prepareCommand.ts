@@ -234,6 +234,20 @@ function runSinglePackageMode(
     process.exit(1);
   }
 
+  // The orthogonal `--force` model — release at patch when no commits or no bump-worthy
+  // commits exist — is implemented only in `releasePrepareMono`. The single-package
+  // executor (`releasePrepare`) deliberately retains the legacy `determineBumpFromCommits`
+  // semantics, so a bare `--force` is silently ignored there. Reject it explicitly rather
+  // than letting the user discover the gap from a missing release. `--force --bump=X` is
+  // accepted because the `--bump` override carries the release through unconditionally.
+  if (options.force && options.bumpOverride === undefined) {
+    console.error(
+      'Error: --force without --bump is only supported for monorepo configurations. ' +
+        'Use --bump=major|minor|patch to set the level for a single-package release.',
+    );
+    process.exit(1);
+  }
+
   const config = mergeSinglePackageConfig(userConfig);
   runAndReport(() => releasePrepare(config, options), dryRun);
 }

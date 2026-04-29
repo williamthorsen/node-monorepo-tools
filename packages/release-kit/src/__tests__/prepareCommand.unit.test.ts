@@ -172,6 +172,31 @@ describe(prepareCommand, () => {
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining('--only is only supported'));
   });
 
+  it('exits with error for --force without --bump on a single-package repo', async () => {
+    // The orthogonal --force model is only wired into the monorepo executor; the
+    // single-package path still uses determineBumpFromCommits, so a bare --force would
+    // be silently ignored. Reject it explicitly with a guidance error instead.
+    mockDiscoverWorkspaces.mockResolvedValue(undefined);
+
+    await expect(prepareCommand(['--force'])).rejects.toThrow(ExitError);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('--force without --bump'));
+    expect(mockReleasePrepare).not.toHaveBeenCalled();
+  });
+
+  it('accepts --force --bump=X on a single-package repo', async () => {
+    // --bump=X carries the release through unconditionally in the single-package path,
+    // so --force is a no-op rather than a silent failure when paired with --bump.
+    mockDiscoverWorkspaces.mockResolvedValue(undefined);
+
+    await prepareCommand(['--force', '--bump=patch']);
+
+    expect(mockReleasePrepare).toHaveBeenCalledWith(expect.any(Object), {
+      dryRun: false,
+      force: true,
+      bumpOverride: 'patch',
+    });
+  });
+
   it('exits with error for --only with an unknown workspace name in monorepo mode', async () => {
     await expect(prepareCommand(['--only=arrays,nonexistent'])).rejects.toThrow(ExitError);
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining('nonexistent'));

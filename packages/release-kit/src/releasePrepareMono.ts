@@ -241,7 +241,7 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
     const decision = tryStage(stageLabel, () =>
       decideRelease({
         commits,
-        force: force === true,
+        force,
         bumpOverride,
         workTypes,
         versionPatterns,

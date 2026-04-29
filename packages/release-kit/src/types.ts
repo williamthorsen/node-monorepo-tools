@@ -79,6 +79,14 @@ export interface WorkspacePrepareResult {
   status: 'released' | 'skipped';
   previousTag?: string | undefined;
   commitCount: number;
+  /**
+   * Count of commits that parsed into a recognized work type. Always populated for
+   * results produced by the unified `decideRelease` algorithm (the monorepo path),
+   * including the no-commits case where it is `0`. May be `undefined` for results
+   * produced by the legacy single-package executor's bump-override path. Use
+   * `bumpOverride` (not `parsedCommitCount === undefined`) as the signal for "the
+   * user supplied --bump=X".
+   */
   parsedCommitCount?: number | undefined;
   releaseType?: ReleaseType | undefined;
   currentVersion?: string | undefined;
@@ -117,6 +125,12 @@ export interface ProjectPrepareResult {
   status: 'released' | 'skipped';
   previousTag?: string | undefined;
   commitCount: number;
+  /**
+   * Count of commits that parsed into a recognized work type. Always populated by the
+   * unified `decideRelease` algorithm — `0` when there are no commits or when none
+   * parse. Use `bumpOverride` (not `parsedCommitCount === undefined`) as the signal
+   * for "the user supplied --bump=X".
+   */
   parsedCommitCount?: number | undefined;
   releaseType?: ReleaseType | undefined;
   currentVersion?: string | undefined;

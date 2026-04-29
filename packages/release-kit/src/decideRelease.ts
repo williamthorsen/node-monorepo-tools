@@ -5,8 +5,8 @@ import type { Commit, ParsedCommit, ReleaseType, VersionPatterns, WorkTypeConfig
 /** Inputs to the unified release decision used by both pipelines. */
 export interface DecideReleaseArgs {
   commits: readonly Commit[];
-  /** True when `--force` was passed; treats absence of a natural bump as patch. */
-  force: boolean;
+  /** True when `--force` was passed; treats absence of a natural bump as patch. Defaults to false. */
+  force?: boolean | undefined;
   /** Explicit `--bump=X` override. When set, the level is X regardless of the natural bump. */
   bumpOverride: ReleaseType | undefined;
   workTypes: Record<string, WorkTypeConfig>;
@@ -56,9 +56,16 @@ export type DecideReleaseResult =
  *
  * `parsedCommitCount` and `unparseableCommits` are returned in both branches so callers
  * can surface diagnostic data uniformly regardless of skip/release outcome.
+ *
+ * Scope: this is the canonical algorithm for the orthogonal-flag model in the
+ * monorepo path (`releasePrepareProject` + per-workspace `determineDirectBumps`). The
+ * single-package executor (`releasePrepare`) deliberately retains
+ * `determineBumpFromCommits` and the legacy patch-floor semantics; `prepareCommand`
+ * rejects `--force` without `--bump` in single-package mode to surface that gap. A
+ * future ticket can unify the single-package path; see #313's external plan.
  */
 export function decideRelease(args: DecideReleaseArgs): DecideReleaseResult {
-  const { commits, force, bumpOverride, workTypes, versionPatterns, scopeAliases, skipReasons } = args;
+  const { commits, force = false, bumpOverride, workTypes, versionPatterns, scopeAliases, skipReasons } = args;
 
   const parsedCommits: ParsedCommit[] = [];
   const unparseable: Commit[] = [];

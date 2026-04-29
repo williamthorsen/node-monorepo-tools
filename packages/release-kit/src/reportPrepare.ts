@@ -141,7 +141,9 @@ function formatProjectSection(lines: string[], project: ProjectPrepareResult, dr
   // Released variant: release-only fields are populated.
   const { releaseType, currentVersion, newVersion, tag } = project;
 
-  if (project.parsedCommitCount !== undefined) {
+  // Suppress "Parsed 0 typed commits" — uninformative under the unified algorithm where
+  // `parsedCommitCount` is always populated (e.g., 0 for `--force` alone with no commits).
+  if (project.parsedCommitCount !== undefined && project.parsedCommitCount > 0) {
     lines.push(dim(`  Parsed ${project.parsedCommitCount} typed commits`));
   }
   if (project.bumpOverride !== undefined) {
@@ -237,7 +239,9 @@ function formatCommitSummary(
   if (isPropagatedOnly && propagatedFrom !== undefined) {
     const depNames = propagatedFrom.map((p) => p.packageName).join(', ');
     lines.push(dim(`  0 commits (bumped via dependency: ${depNames})`));
-  } else if (workspace.parsedCommitCount !== undefined) {
+  } else if (workspace.parsedCommitCount !== undefined && workspace.parsedCommitCount > 0) {
+    // Suppress "Parsed 0 typed commits" for `--force`-alone-with-no-commits cases where
+    // the unified algorithm now populates parsedCommitCount as 0 deterministically.
     lines.push(dim(`  Parsed ${workspace.parsedCommitCount} typed commits`));
   }
 }
