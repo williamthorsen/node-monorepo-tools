@@ -410,6 +410,14 @@ describe(readRootPackageVersion, () => {
     mockReadFileSync.mockReturnValue('{ not valid json');
     expect(() => readRootPackageVersion()).toThrow(/Failed to parse root package\.json/);
   });
+
+  it('throws an error when reading the root package.json fails (I/O error)', () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockImplementation(() => {
+      throw new Error('permission denied');
+    });
+    expect(() => readRootPackageVersion()).toThrow(/Failed to read root package\.json/);
+  });
 });
 
 describe('mergeMonorepoConfig project block', () => {
