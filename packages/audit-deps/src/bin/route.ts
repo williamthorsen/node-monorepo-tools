@@ -1,11 +1,12 @@
 import process from 'node:process';
 
-import { parseArgs, translateParseError } from '@williamthorsen/nmr-core';
+import { parseArgs, readPackageVersion, translateParseError } from '@williamthorsen/nmr-core';
 
 import { auditCommand, checkCommand, extractMessage, syncCommand } from '../cli.ts';
 import { initCommand } from '../init/initCommand.ts';
 import type { AuditScope, CommandOptions } from '../types.ts';
-import { VERSION } from '../version.ts';
+
+const VERSION = readPackageVersion(import.meta.url);
 
 const SUBCOMMANDS = ['check', 'init', 'sync'];
 const MIN_PREFIX_LENGTH = 3;

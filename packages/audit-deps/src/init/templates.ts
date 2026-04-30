@@ -1,4 +1,6 @@
-import { VERSION } from '../version.ts';
+import { readPackageVersion } from '@williamthorsen/nmr-core';
+
+const VERSION = readPackageVersion(import.meta.url);
 
 /** Construct the JSON Schema URL for the current version. */
 function buildSchemaUrl(): string {

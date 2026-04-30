@@ -2,13 +2,13 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import { readPackageVersion } from '@williamthorsen/nmr-core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { check, parseSourceStamp, sync } from '../../src/commands/sync-agent-files.js';
-import { VERSION } from '../../src/version.js';
 
 const DESTINATION_RELATIVE_PATH = '.agents/nmr/AGENTS.md';
-const currentStamp = `@williamthorsen/nmr@${VERSION}`;
+const currentStamp = `@williamthorsen/nmr@${readPackageVersion(import.meta.url)}`;
 
 describe('parseSourceStamp', () => {
   it('extracts source value from well-formed frontmatter', () => {

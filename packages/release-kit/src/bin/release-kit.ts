@@ -2,7 +2,7 @@
 /* eslint n/hashbang: off, n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
-import { parseArgs, translateParseError } from '@williamthorsen/nmr-core';
+import { parseArgs, readPackageVersion, translateParseError } from '@williamthorsen/nmr-core';
 
 import { commitCommand } from '../commitCommand.ts';
 import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';
@@ -15,7 +15,8 @@ import { generateCommand } from '../sync-labels/generateCommand.ts';
 import { syncLabelsInitCommand } from '../sync-labels/initCommand.ts';
 import { syncLabelsCommand } from '../sync-labels/syncCommand.ts';
 import { tagCommand } from '../tagCommand.ts';
-import { VERSION } from '../version.ts';
+
+const VERSION = readPackageVersion(import.meta.url);
 
 function showUsage(): void {
   console.info(`

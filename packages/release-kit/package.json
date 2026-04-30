@@ -32,7 +32,7 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "prepare": "tsx ../../config/generateVersion.ts && tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json",
+    "prepare": "tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json",
     "prepublishOnly": "nmr build",
     "test": "pnpm exec vitest --config=vitest.standalone.config.ts",
     "test:coverage": "pnpm exec vitest --config=vitest.standalone.config.ts --coverage",
