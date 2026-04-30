@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [audit-deps-v0.6.0] - 2026-04-30
+
+### Features
+
+- Add status indicator to standing-issue title (#335)
+
+  Adds a status indicator and bot-origin emoji to the standing issue maintained by the dependency-audit workflow. The title now reflects the most severe finding category and is refreshed on every run — `🤖 Dependency audit status: 3 vulnerabilities found 🚨`, `🤖 Dependency audit status: no vulnerabilities ✅`, and so on. Status priority is severity-driven: unallowed vulnerabilities outrank suppressed entries, which outrank stale allowlist entries.
+
 ## [audit-deps-v0.5.0] - 2026-04-23
 
 ### Features

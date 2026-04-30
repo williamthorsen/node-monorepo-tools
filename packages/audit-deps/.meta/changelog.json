@@ -1,5 +1,21 @@
 [
   {
+    "version": "0.6.0",
+    "date": "2026-04-30",
+    "sections": [
+      {
+        "title": "Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Add status indicator to standing-issue title (#335)",
+            "body": "Adds a status indicator and bot-origin emoji to the standing issue maintained by the dependency-audit workflow. The title now reflects the most severe finding category and is refreshed on every run — `🤖 Dependency audit status: 3 vulnerabilities found 🚨`, `🤖 Dependency audit status: no vulnerabilities ✅`, and so on. Status priority is severity-driven: unallowed vulnerabilities outrank suppressed entries, which outrank stale allowlist entries."
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.5.0",
     "date": "2026-04-23",
     "sections": [

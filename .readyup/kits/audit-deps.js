@@ -92,7 +92,7 @@ function hasMinDevDependencyVersion(name, minVersion, options) {
 
 // .readyup/kits/audit-deps.ts
 function getMinVersion() {
-  const picked = { "version": "0.5.0" };
+  const picked = { "version": "0.6.0" };
   if (typeof picked.version !== "string") {
     throw new TypeError("audit-deps/package.json: 'version' must be a string");
   }

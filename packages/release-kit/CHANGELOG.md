@@ -2,6 +2,66 @@
 
 All notable changes to this project will be documented in this file.
 
+## [release-kit-v5.1.0] - 2026-04-30
+
+### Bug fixes
+
+- Make publish's clean-tree safety gate reachable (#311)
+
+  Fixes an issue where `release-kit publish` failed with pnpm's "working tree is dirty" error on a clean tree whenever `releaseNotes.shouldInjectIntoReadme: true` was configured. release-kit injects the release notes into the package README before invoking `pnpm publish`, so pnpm's own working-tree check fired on a tree release-kit had just dirtied — even though the user's tree was clean at command start.
+
+- Make `--set-version` + `project` rejection explicit (#319)
+
+  Improves the error users see when invoking `release-kit prepare --set-version` with a `project` block configured. The combination is still rejected — as before — but now produces a single, project-aware message ("--set-version cannot be combined with a project release…") rather than the previous two-step chain (`--set-version requires --only`, then `--only cannot be combined with a project release` after the user added `--only`).
+
+- Reject `--only` that would strand excluded dependents (#321)
+
+  Fixes a silent footgun in `release-kit prepare --only=...`: an excluded internal dependent with its own changes would be left unreleased with no runtime signal, even though the targeted workspace it depends on was being released. The command now rejects such invocations up front, naming every excluded dependent whose changes would be stranded.
+
+- Order prerelease versions correctly in changelog sort (#334)
+
+  Fixes a latent issue in `@williamthorsen/release-kit` where prerelease version tags (e.g., `1.2.3-alpha`, `1.2.3-rc.1`) were sorted as if their prerelease component were absent, causing them to appear in the wrong position relative to releases sharing the same base version. Changelog entries are now ordered per SemVer §11: prerelease versions precede the corresponding release (`1.2.3-alpha < 1.2.3`), build metadata is ignored for ordering, and entries that fail SemVer validation sort deterministically to the bottom of the list rather than collapsing into mid-list positions.
+
+### Documentation
+
+- Document tag prefix collisions as general rule (#320)
+
+  Documents the strict-prefix tag-prefix collision rule as a general validation rule that applies to every release-kit consumer declaring more than one tag prefix: across active workspaces, declared legacy identities, retired packages, and the optional `project` block. Previously, the rule appeared only inside the `Project releases` validation list.
+
+### Features
+
+- Add `project` block for project-level release stage (#317)
+
+  Adds support for monorepos that ship a single combined deliverable to version, changelog, and release-note the project itself rather than only its constituent workspaces.
+
+- Publish JSON Schema for `.meta/label-map.json` (#325)
+
+  Adds a JSON Schema for `.meta/label-map.json` to release-kit, packaged at `packages/release-kit/schemas/label-map.json` and shipped to npm. Consumers reference it via the stable raw URL pattern `https://github.com/williamthorsen/node-monorepo-tools/raw/release-kit-v<version>/packages/release-kit/schemas/label-map.json` — the same shape audit-deps already uses.
+
+- Label prepare errors with the failing stage (#326)
+
+  Adds stage attribution to errors thrown during `release-kit prepare`. Errors from per-workspace bumps and changelog generation, the project release stage, and the post-release format command now begin with a stage label that identifies the failing stage and (where relevant) the affected workspace.
+
+- Make `--force` and `--bump` orthogonal (#328)
+
+  Decouples `--force` and `--bump` so each flag has a single responsibility, and unifies skip semantics across the per-workspace and project pipelines.
+
+### Refactoring
+
+- Convert prepare results to discriminated unions (#330)
+
+  Tightens `ProjectPrepareResult` and `WorkspacePrepareResult` from flat-with-optionals types into status-discriminated unions, so consumers that have already narrowed on `status === 'released'` no longer need to re-guard each release-only field with `!== undefined`. The four new sub-types (`ReleasedProjectResult`, `ReleasedWorkspaceResult`, `SkippedProjectResult`, `SkippedWorkspaceResult`) are exported from the package so callers can name the variants directly. Renderer output is byte-identical to before.
+
+- Split changelog.json generation into layered helpers (#333)
+
+  Reorganises `changelog.json` generation in `@williamthorsen/release-kit` so that producing entries (running git-cliff and shaping the output) is fully separated from persisting them (reading, merging, and writing the file). Removes the silent-discard parse-failure path at the project release stage by no longer reading the root `changelog.json` before overwriting it. Sharpens dry-run mode: `git-cliff` now runs even on dry-run so configuration mistakes surface in preview rather than only on a real release. Trims the public `index.ts` barrel from ~50 re-exports to the two type names actually consumed by external configs.
+
+### Tests
+
+- Cover untested project-release and config branches (#329)
+
+  Closes four mechanical test-coverage gaps in the project-level release surfaces flagged in the test review of #308. New cases exercise the `(no previous release found)` rendering for released projects, the unparseable-commit warning block on the released-project rendering path, the `readFileSync` I/O failure path in `readRootPackageVersion`, and the contributing-paths invariant in `releasePrepareProject`. No production code changes — these are pure-render and pure-derivation branches that previously had no test exercising them.
+
 ## [release-kit-v5.0.0] - 2026-04-23
 
 ### Bug fixes
