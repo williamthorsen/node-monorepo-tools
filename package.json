@@ -27,7 +27,7 @@
     "@types/eslint": "9.6.1",
     "@types/js-yaml": "4.0.9",
     "@types/node": "22.19.17",
-    "@typescript/native-preview": "7.0.0-dev.20260424.2",
+    "@typescript/native-preview": "7.0.0-dev.20260429.1",
     "@vitest/coverage-v8": "4.1.5",
     "@vitest/eslint-plugin": "1.6.16",
     "@williamthorsen/audit-deps": "workspace:*",
@@ -46,10 +46,10 @@
     "readyup": "0.19.0",
     "tsx": "4.21.0",
     "typescript": "5.9.3",
-    "typescript-eslint": "8.59.0",
+    "typescript-eslint": "8.59.1",
     "vite": "8.0.10",
     "vitest": "4.1.5",
-    "zod": "4.3.6"
+    "zod": "4.4.1"
   },
   "packageManager": "pnpm@10.33.2"
 }
