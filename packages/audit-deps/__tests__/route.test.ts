@@ -69,6 +69,21 @@ describe(routeCommand, () => {
     expect(exitCode).toBe(1);
   });
 
+  it('dispatches "check" to checkCommand', async () => {
+    await routeCommand(['check']);
+    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: [] }));
+  });
+
+  it('dispatches "check --json" to checkCommand with json: true', async () => {
+    await routeCommand(['check', '--json']);
+    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ json: true, scopes: [] }));
+  });
+
+  it('dispatches "check --dev" to checkCommand with scopes ["dev"]', async () => {
+    await routeCommand(['check', '--dev']);
+    expect(checkCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: ['dev'] }));
+  });
+
   it('dispatches "sync" to syncCommand', async () => {
     await routeCommand(['sync']);
     expect(syncCommand).toHaveBeenCalledWith(expect.objectContaining({ scopes: [] }));

@@ -68,7 +68,7 @@ Usage: audit-deps [options]
        audit-deps <command> [options]
 
 Commands:
-  (default)            Grouped vulnerability check with severity indicators
+  check (default)      Grouped vulnerability check with severity indicators
   sync                 Synchronize allowlists with current audit findings
   init                 Scaffold a starter config file and GitHub Actions workflow
 
@@ -91,6 +91,29 @@ Other options:
   --dry-run, -n   Preview changes without writing files
   --force, -f     Overwrite existing files
 ```
+
+### JSON output shape
+
+`--json` emits one object per requested scope plus a top-level `summary` block:
+
+```jsonc
+{
+  "prod": { "allowed": [...], "belowThreshold": [...], "stale": [...], "unallowed": [...] },
+  "dev":  { "allowed": [...], "belowThreshold": [...], "stale": [...], "unallowed": [...] },
+  "summary": { "status": "vulnerabilities-found", "count": 3 }
+}
+```
+
+`summary.status` is the highest-severity finding category present across the requested scopes. Below-threshold findings never affect it.
+
+| `status`                     | When                                              |
+| ---------------------------- | ------------------------------------------------- |
+| `vulnerabilities-found`      | At least one unallowed advisory                   |
+| `suppressed-vulnerabilities` | No unallowed; at least one allowlisted advisory   |
+| `stale-overrides`            | No advisories; at least one stale allowlist entry |
+| `none`                       | No findings                                       |
+
+`summary.count` is the total across the requested scopes for the active category. It is `0` when `status` is `none`.
 
 ## Scaffolded GitHub Actions workflow
 
