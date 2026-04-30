@@ -1,13 +1,15 @@
 import { execSync } from 'node:child_process';
 
+import { buildChangelogEntries } from './buildChangelogEntries.ts';
 import type { DependencyGraph } from './buildDependencyGraph.ts';
 import { buildDependencyGraph } from './buildDependencyGraph.ts';
+import { buildSyntheticChangelogEntry } from './buildSyntheticChangelogEntry.ts';
 import { bumpAllVersions, setAllVersions } from './bumpAllVersions.ts';
+import { resolveChangelogJsonPath, upsertChangelogJson } from './changelogJsonFile.ts';
 import { isForwardVersion } from './compareVersions.ts';
 import { decideRelease } from './decideRelease.ts';
 import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { detectUndeclaredTagPrefixes } from './detectUndeclaredTagPrefixes.ts';
-import { generateChangelogJson, generateSyntheticChangelogJson } from './generateChangelogJson.ts';
 import { buildTagPattern, generateChangelog } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
@@ -516,17 +518,16 @@ function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): str
     }
 
     if (config.changelogJson.enabled) {
+      // Synthetic entries are pure constructs (no subprocess), so the dry-run guard applies
+      // only to the upsert write. The path is still resolved and surfaced in `modifiedFiles`.
+      const syntheticEntry = buildSyntheticChangelogEntry(releaseEntry.propagatedFrom, newVersion, today);
       for (const changelogPath of workspace.changelogPaths) {
-        const jsonFiles = generateSyntheticChangelogJson(
-          config,
-          changelogPath,
-          newVersion,
-          today,
-          releaseEntry.propagatedFrom,
-          dryRun,
-        );
-        modifiedFiles.push(...jsonFiles);
-        firstChangelogJsonPath ??= jsonFiles[0];
+        const jsonPath = resolveChangelogJsonPath(config, changelogPath);
+        if (!dryRun) {
+          upsertChangelogJson(jsonPath, [syntheticEntry]);
+        }
+        modifiedFiles.push(jsonPath);
+        firstChangelogJsonPath ??= jsonPath;
       }
     }
     maybeWritePreviews(workspace, newTag, firstChangelogJsonPath, previewOptions, dryRun);
@@ -544,13 +545,20 @@ function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): str
   }
 
   if (config.changelogJson.enabled) {
+    // Workspace cliff path: build entries via git-cliff (always — caller's `dryRun` controls
+    // only the file write), then upsert to preserve any synthetic entries written by prior
+    // propagation runs.
+    const entries = buildChangelogEntries(config, newTag, {
+      tagPattern,
+      includePaths: workspace.paths,
+    });
     for (const changelogPath of workspace.changelogPaths) {
-      const jsonFiles = generateChangelogJson(config, changelogPath, newTag, dryRun, {
-        tagPattern,
-        includePaths: workspace.paths,
-      });
-      modifiedFiles.push(...jsonFiles);
-      firstChangelogJsonPath ??= jsonFiles[0];
+      const jsonPath = resolveChangelogJsonPath(config, changelogPath);
+      if (!dryRun) {
+        upsertChangelogJson(jsonPath, entries);
+      }
+      modifiedFiles.push(jsonPath);
+      firstChangelogJsonPath ??= jsonPath;
     }
   }
 

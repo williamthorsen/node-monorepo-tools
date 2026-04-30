@@ -8,7 +8,8 @@ const mockMkdirSync = vi.hoisted(() => vi.fn());
 const mockMkdtempSync = vi.hoisted(() => vi.fn());
 const mockRmSync = vi.hoisted(() => vi.fn());
 const mockCopyFileSync = vi.hoisted(() => vi.fn());
-const mockGenerateChangelogJson = vi.hoisted(() => vi.fn());
+const mockBuildChangelogEntries = vi.hoisted(() => vi.fn());
+const mockWriteChangelogJson = vi.hoisted(() => vi.fn());
 const mockWriteReleaseNotesPreviews = vi.hoisted(() => vi.fn());
 
 vi.mock('node:child_process', () => ({
@@ -29,9 +30,15 @@ vi.mock('../resolveCliffConfigPath.ts', () => ({
   resolveCliffConfigPath: () => 'cliff.toml',
 }));
 
-vi.mock('../generateChangelogJson.ts', () => ({
-  generateChangelogJson: mockGenerateChangelogJson,
-  generateSyntheticChangelogJson: vi.fn(),
+vi.mock('../buildChangelogEntries.ts', () => ({
+  buildChangelogEntries: mockBuildChangelogEntries,
+}));
+
+vi.mock('../changelogJsonFile.ts', () => ({
+  resolveChangelogJsonPath: (config: { changelogJson: { outputPath: string } }, changelogPath: string): string =>
+    `${changelogPath}/${config.changelogJson.outputPath}`,
+  writeChangelogJson: mockWriteChangelogJson,
+  upsertChangelogJson: vi.fn(),
 }));
 
 vi.mock('../writeReleaseNotesPreviews.ts', () => ({
@@ -83,9 +90,8 @@ function setupDefaultGit(): void {
 
 describe(releasePrepareProject, () => {
   beforeEach(() => {
-    mockGenerateChangelogJson.mockImplementation((_config, changelogPath: string) => [
-      `${changelogPath}/.meta/changelog.json`,
-    ]);
+    mockBuildChangelogEntries.mockReturnValue([]);
+    mockWriteChangelogJson.mockImplementation((filePath: string) => filePath);
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'root', version: '0.9.0' }));
     mockExistsSync.mockReturnValue(false);
   });
@@ -99,7 +105,8 @@ describe(releasePrepareProject, () => {
     mockMkdtempSync.mockReset();
     mockRmSync.mockReset();
     mockCopyFileSync.mockReset();
-    mockGenerateChangelogJson.mockReset();
+    mockBuildChangelogEntries.mockReset();
+    mockWriteChangelogJson.mockReset();
     mockWriteReleaseNotesPreviews.mockReset();
   });
 
@@ -363,12 +370,88 @@ describe(releasePrepareProject, () => {
     if (result.status !== 'released') throw new Error('expected released');
     expect(result.tag).toBe('v0.10.0');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
-    // git-cliff is not invoked under dry-run.
+    // The Markdown CHANGELOG path: git-cliff itself is invoked through `generateChangelog`,
+    // which short-circuits in dry-run, so no `npx git-cliff` call appears here. The structured
+    // JSON path is exercised in the dedicated tests below.
     expect(
       mockExecFileSync.mock.calls.find(
         (call) => call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff'),
       ),
     ).toBeUndefined();
+  });
+
+  it('writes the root changelog.json without invoking the upsert path (project-stage no-merge)', () => {
+    // Pin: the project stage uses writeChangelogJson (overwrite, no read-merge), not
+    // upsertChangelogJson. This is the structural fix for #316 W4: by removing the read,
+    // there is no parse-failure path to silently discard entries.
+    setupDefaultGit();
+    const config = makeConfig({
+      changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
+    });
+    const modifiedFiles: string[] = [];
+
+    releasePrepareProject({
+      config,
+      options: { dryRun: false },
+      modifiedFiles: modifiedFiles,
+      tags: [],
+    });
+
+    expect(mockBuildChangelogEntries).toHaveBeenCalledTimes(1);
+    expect(mockWriteChangelogJson).toHaveBeenCalledTimes(1);
+    expect(mockWriteChangelogJson).toHaveBeenCalledWith('./.meta/changelog.json', expect.any(Array));
+    expect(modifiedFiles).toContain('./.meta/changelog.json');
+  });
+
+  it('does not warn or short-circuit when the existing root changelog.json is unparseable', () => {
+    // The project stage no longer reads the existing root changelog.json: an unparseable
+    // existing file produces no warning and does not affect output. Acceptance criterion
+    // from ticket #324: "an unparseable existing root `changelog.json` does NOT cause a
+    // warning or affect output (because it's not read)".
+    setupDefaultGit();
+    const config = makeConfig({
+      changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
+    });
+    // Existing file present and unparseable; with the project stage's no-read design, this
+    // never reaches the parse path.
+    mockExistsSync.mockImplementation((path: string) => path.endsWith('/.meta/changelog.json'));
+    mockReadFileSync.mockImplementation((path: string) => {
+      if (typeof path === 'string' && path.endsWith('/.meta/changelog.json')) return '{invalid json';
+      return JSON.stringify({ name: 'root', version: '0.9.0' });
+    });
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    releasePrepareProject({
+      config,
+      options: { dryRun: false },
+      modifiedFiles: [],
+      tags: [],
+    });
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(mockWriteChangelogJson).toHaveBeenCalledTimes(1);
+  });
+
+  it('invokes buildChangelogEntries even in dry-run mode (intentional behavioral change)', () => {
+    // Pin: under the layered redesign, buildChangelogEntries always runs and dryRun governs
+    // only the file write. This is the deliberate change called out in Task 1 of the plan —
+    // dry-run now exercises the full git-cliff toolchain.
+    setupDefaultGit();
+    const config = makeConfig({
+      changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
+    });
+    const modifiedFiles: string[] = [];
+
+    releasePrepareProject({
+      config,
+      options: { dryRun: true },
+      modifiedFiles,
+      tags: [],
+    });
+
+    expect(mockBuildChangelogEntries).toHaveBeenCalledTimes(1);
+    expect(mockWriteChangelogJson).not.toHaveBeenCalled();
+    expect(modifiedFiles).toContain('./.meta/changelog.json');
   });
 
   it('emits release-notes previews when --with-release-notes is set and changelogJson.enabled', () => {

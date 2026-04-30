@@ -1,7 +1,3 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_WORK_TYPES } from '../defaults.ts';
@@ -13,13 +9,26 @@ vi.mock('node:child_process', () => ({
   execFileSync: vi.fn(),
 }));
 
+// Mock filesystem so the `.template` path's tempdir handling is exercised without touching disk.
+const mockMkdtempSync = vi.hoisted(() => vi.fn());
+const mockCopyFileSync = vi.hoisted(() => vi.fn());
+const mockRmSync = vi.hoisted(() => vi.fn());
+const mockWriteFileSync = vi.hoisted(() => vi.fn());
+
+vi.mock('node:fs', () => ({
+  copyFileSync: mockCopyFileSync,
+  mkdtempSync: mockMkdtempSync,
+  rmSync: mockRmSync,
+  writeFileSync: mockWriteFileSync,
+}));
+
 // Mock resolveCliffConfigPath to return a dummy path.
 vi.mock('../resolveCliffConfigPath.ts', () => ({
   resolveCliffConfigPath: () => '/fake/cliff.toml',
 }));
 
 const { execFileSync } = await import('node:child_process');
-const { generateChangelogJson, generateSyntheticChangelogJson } = await import('../generateChangelogJson.ts');
+const { buildChangelogEntries } = await import('../buildChangelogEntries.ts');
 
 const mockedExecFileSync = vi.mocked(execFileSync);
 
@@ -37,22 +46,17 @@ function makeConfig(
   };
 }
 
-describe(generateChangelogJson, () => {
-  let tempDir: string;
-
+describe(buildChangelogEntries, () => {
   beforeEach(() => {
-    tempDir = join(tmpdir(), `test-changelog-json-${Date.now()}`);
-    mkdirSync(tempDir, { recursive: true });
+    mockedExecFileSync.mockReset();
+    mockMkdtempSync.mockReset();
+    mockCopyFileSync.mockReset();
+    mockRmSync.mockReset();
+    mockWriteFileSync.mockReset();
   });
 
   afterEach(() => {
-    rmSync(tempDir, { recursive: true, force: true });
     vi.restoreAllMocks();
-  });
-
-  it('returns output path without writing in dry-run mode', () => {
-    const result = generateChangelogJson(makeConfig(), tempDir, 'v1.0.0', true);
-    expect(result).toStrictEqual([`${tempDir}/.meta/changelog.json`]);
   });
 
   it('transforms git-cliff context into ChangelogEntry array', () => {
@@ -70,11 +74,7 @@ describe(generateChangelogJson, () => {
 
     mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
 
-    generateChangelogJson(makeConfig(), tempDir, 'v1.0.0', false);
-
-    const outputPath = join(tempDir, '.meta', 'changelog.json');
-    const content = readFileSync(outputPath, 'utf8');
-    const entries: ChangelogEntry[] = JSON.parse(content);
+    const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
 
     expect(entries).toHaveLength(1);
     expect(entries[0]?.version).toBe('1.0.0');
@@ -100,10 +100,7 @@ describe(generateChangelogJson, () => {
 
     mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
 
-    generateChangelogJson(makeConfig(), tempDir, 'v1.0.0', false);
-
-    const outputPath = join(tempDir, '.meta', 'changelog.json');
-    const entries: ChangelogEntry[] = JSON.parse(readFileSync(outputPath, 'utf8'));
+    const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
 
     expect(entries).toHaveLength(1);
     expect(entries[0]?.version).toBe('1.0.0');
@@ -125,9 +122,7 @@ describe(generateChangelogJson, () => {
 
     mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
 
-    generateChangelogJson(makeConfig(), tempDir, 'v2.0.0', false);
-
-    const entries: ChangelogEntry[] = JSON.parse(readFileSync(join(tempDir, '.meta', 'changelog.json'), 'utf8'));
+    const entries = buildChangelogEntries(makeConfig(), 'v2.0.0');
 
     const audiences = Object.fromEntries(entries[0]?.sections.map((s) => [s.title, s.audience]) ?? []);
     expect(audiences).toStrictEqual({
@@ -149,37 +144,31 @@ describe(generateChangelogJson, () => {
 
     mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
 
-    generateChangelogJson(makeConfig(), tempDir, 'v1.0.0', false);
-
-    const outputPath = join(tempDir, '.meta', 'changelog.json');
-    const entries: ChangelogEntry[] = JSON.parse(readFileSync(outputPath, 'utf8'));
+    const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
 
     expect(entries[0]?.sections[0]?.items[0]?.description).toBe('Initial commit');
   });
 
-  it('recovers gracefully when existing changelog JSON is malformed', () => {
-    const outputPath = join(tempDir, '.meta', 'changelog.json');
-    mkdirSync(join(tempDir, '.meta'), { recursive: true });
-    writeFileSync(outputPath, '{invalid json', 'utf8');
-
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
+  it('always invokes git-cliff and never writes the changelog file', () => {
+    // Pins the intentional dry-run behavioral change: `buildChangelogEntries` does not short-
+    // circuit. The caller's `dryRun` controls only the persistence step (writeChangelogJson /
+    // upsertChangelogJson), not the cliff invocation. This test asserts:
+    //   1. execFileSync IS called (git-cliff runs).
+    //   2. writeFileSync is NOT called (no file is written by this helper).
     const cliffContext = [
       {
         version: 'v1.0.0',
         timestamp: 1_700_000_000,
-        commits: [{ message: '#1 feat: New feature', group: 'Features' }],
+        commits: [{ message: '#1 feat: Add widget', group: 'Features' }],
       },
     ];
-
     mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
 
-    generateChangelogJson(makeConfig(), tempDir, 'v1.0.0', false);
+    const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
 
-    const entries: ChangelogEntry[] = JSON.parse(readFileSync(outputPath, 'utf8'));
+    expect(mockedExecFileSync).toHaveBeenCalledTimes(1);
+    expect(mockWriteFileSync).not.toHaveBeenCalled();
     expect(entries).toHaveLength(1);
-    expect(entries[0]?.version).toBe('1.0.0');
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('could not parse existing'));
   });
 
   describe('body extraction', () => {
@@ -192,9 +181,7 @@ describe(generateChangelogJson, () => {
         },
       ];
       mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
-      generateChangelogJson(makeConfig(), tempDir, 'v1.0.0', false);
-      const outputPath = join(tempDir, '.meta', 'changelog.json');
-      const entries: ChangelogEntry[] = JSON.parse(readFileSync(outputPath, 'utf8'));
+      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
       return entries[0]?.sections[0]?.items ?? [];
     }
 
@@ -277,91 +264,18 @@ describe(generateChangelogJson, () => {
       expect(items[0]).not.toHaveProperty('body');
     });
   });
-
-  it('merges new entries with existing entries and sorts newest-first', () => {
-    const outputPath = join(tempDir, '.meta', 'changelog.json');
-    mkdirSync(join(tempDir, '.meta'), { recursive: true });
-
-    const existing: ChangelogEntry[] = [
-      {
-        version: '0.9.0',
-        date: '2024-01-01',
-        sections: [{ title: 'Features', audience: 'all', items: [{ description: 'Old feature' }] }],
-      },
-    ];
-    writeFileSync(outputPath, JSON.stringify(existing), 'utf8');
-
-    const cliffContext = [
-      {
-        version: 'v1.0.0',
-        timestamp: 1_700_000_000,
-        commits: [{ message: '#1 feat: New feature', group: 'Features' }],
-      },
-    ];
-
-    mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
-
-    generateChangelogJson(makeConfig(), tempDir, 'v1.0.0', false);
-
-    const entries: ChangelogEntry[] = JSON.parse(readFileSync(outputPath, 'utf8'));
-    expect(entries).toHaveLength(2);
-    expect(entries[0]?.version).toBe('1.0.0');
-    expect(entries[1]?.version).toBe('0.9.0');
-  });
 });
 
-describe(generateSyntheticChangelogJson, () => {
-  let tempDir: string;
-
+describe('buildChangelogEntries + renderReleaseNotesSingle integration', () => {
   beforeEach(() => {
-    tempDir = join(tmpdir(), `test-synthetic-${Date.now()}`);
-    mkdirSync(tempDir, { recursive: true });
+    mockedExecFileSync.mockReset();
+    mockMkdtempSync.mockReset();
+    mockCopyFileSync.mockReset();
+    mockRmSync.mockReset();
+    mockWriteFileSync.mockReset();
   });
 
   afterEach(() => {
-    rmSync(tempDir, { recursive: true, force: true });
-  });
-
-  it('returns output path without writing in dry-run mode', () => {
-    const config = makeConfig();
-    const result = generateSyntheticChangelogJson(config, tempDir, '1.0.1', '2024-01-15', [], true);
-    expect(result).toStrictEqual([`${tempDir}/.meta/changelog.json`]);
-  });
-
-  it('produces a ChangelogEntry with Dependency updates section', () => {
-    const config = makeConfig();
-    generateSyntheticChangelogJson(
-      config,
-      tempDir,
-      '1.0.1',
-      '2024-01-15',
-      [{ packageName: '@scope/dep', newVersion: '2.0.0' }],
-      false,
-    );
-
-    const outputPath = join(tempDir, '.meta', 'changelog.json');
-    const entries: ChangelogEntry[] = JSON.parse(readFileSync(outputPath, 'utf8'));
-
-    expect(entries).toHaveLength(1);
-    expect(entries[0]?.version).toBe('1.0.1');
-    expect(entries[0]?.date).toBe('2024-01-15');
-    expect(entries[0]?.sections).toHaveLength(1);
-    expect(entries[0]?.sections[0]?.title).toBe('Dependency updates');
-    expect(entries[0]?.sections[0]?.audience).toBe('dev');
-    expect(entries[0]?.sections[0]?.items[0]?.description).toBe('Bumped `@scope/dep` to 2.0.0');
-  });
-});
-
-describe('generateChangelogJson + renderReleaseNotesSingle integration', () => {
-  let tempDir: string;
-
-  beforeEach(() => {
-    tempDir = join(tmpdir(), `test-integration-${Date.now()}`);
-    mkdirSync(tempDir, { recursive: true });
-  });
-
-  afterEach(() => {
-    rmSync(tempDir, { recursive: true, force: true });
     vi.restoreAllMocks();
   });
 
@@ -387,10 +301,7 @@ describe('generateChangelogJson + renderReleaseNotesSingle integration', () => {
     ];
     mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
 
-    generateChangelogJson(makeConfig(), tempDir, 'v0.17.0', false);
-
-    const outputPath = join(tempDir, '.meta', 'changelog.json');
-    const entries: ChangelogEntry[] = JSON.parse(readFileSync(outputPath, 'utf8'));
+    const entries = buildChangelogEntries(makeConfig(), 'v0.17.0');
     const entry = entries[0];
     expect(entry).toBeDefined();
     if (entry === undefined) return;

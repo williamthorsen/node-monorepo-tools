@@ -29,12 +29,20 @@ vi.mock('../writeReleaseNotesPreviews.ts', () => ({
   writeReleaseNotesPreviews: mockWriteReleaseNotesPreviews,
 }));
 
-// Stub generateChangelogJson when tests exercise the enabled path, so no git-cliff invocation
-// or filesystem access is required.
-const mockGenerateChangelogJson = vi.hoisted(() => vi.fn());
+// Stub the new helpers when tests exercise the changelogJson-enabled path, so no git-cliff
+// invocation or filesystem access is required.
+const mockBuildChangelogEntries = vi.hoisted(() => vi.fn());
+const mockUpsertChangelogJson = vi.hoisted(() => vi.fn());
 
-vi.mock('../generateChangelogJson.ts', () => ({
-  generateChangelogJson: mockGenerateChangelogJson,
+vi.mock('../buildChangelogEntries.ts', () => ({
+  buildChangelogEntries: mockBuildChangelogEntries,
+}));
+
+vi.mock('../changelogJsonFile.ts', () => ({
+  resolveChangelogJsonPath: (config: { changelogJson: { outputPath: string } }, changelogPath: string): string =>
+    `${changelogPath}/${config.changelogJson.outputPath}`,
+  writeChangelogJson: vi.fn(),
+  upsertChangelogJson: mockUpsertChangelogJson,
 }));
 
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';
@@ -74,9 +82,8 @@ function setupFeatCommit(): void {
 
 describe(releasePrepare, () => {
   beforeEach(() => {
-    mockGenerateChangelogJson.mockImplementation((_config, changelogPath: string) => [
-      `${changelogPath}/.meta/changelog.json`,
-    ]);
+    mockBuildChangelogEntries.mockReturnValue([]);
+    mockUpsertChangelogJson.mockImplementation((filePath: string) => filePath);
   });
 
   afterEach(() => {
@@ -86,7 +93,8 @@ describe(releasePrepare, () => {
     mockWriteFileSync.mockReset();
     mockHasPrettierConfig.mockReset();
     mockWriteReleaseNotesPreviews.mockReset();
-    mockGenerateChangelogJson.mockReset();
+    mockBuildChangelogEntries.mockReset();
+    mockUpsertChangelogJson.mockReset();
     vi.restoreAllMocks();
   });
 

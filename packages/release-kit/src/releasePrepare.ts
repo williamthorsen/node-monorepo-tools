@@ -1,10 +1,11 @@
 import { execSync } from 'node:child_process';
 
+import { buildChangelogEntries } from './buildChangelogEntries.ts';
 import { bumpAllVersions, setAllVersions } from './bumpAllVersions.ts';
+import { resolveChangelogJsonPath, upsertChangelogJson } from './changelogJsonFile.ts';
 import { isForwardVersion } from './compareVersions.ts';
 import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { determineBumpFromCommits } from './determineBumpFromCommits.ts';
-import { generateChangelogJson } from './generateChangelogJson.ts';
 import { generateChangelogs } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
@@ -130,13 +131,8 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   // 4. Generate changelogs
   const changelogFiles = generateChangelogs(config, newTag, dryRun);
 
-  // 4b. Generate changelog JSON if enabled
-  const changelogJsonFiles: string[] = [];
-  if (config.changelogJson.enabled) {
-    for (const changelogPath of config.changelogPaths) {
-      changelogJsonFiles.push(...generateChangelogJson(config, changelogPath, newTag, dryRun));
-    }
-  }
+  // 4b. Generate changelog JSON if enabled.
+  const changelogJsonFiles = config.changelogJson.enabled ? buildAndPersistChangelogJson(config, newTag, dryRun) : [];
 
   // 4c. Write release-notes previews (optional, opt-in via --with-release-notes)
   maybeWriteSinglePackagePreviews(withReleaseNotes === true, config, newTag, changelogJsonFiles[0], dryRun);
@@ -243,6 +239,24 @@ function buildReleasedSinglePackage(args: BuildReleasedSinglePackageArgs): Relea
     released.setVersion = setVersion;
   }
   return released;
+}
+
+/**
+ * Build entries via git-cliff and write them through `upsertChangelogJson` for each configured
+ * changelog path. git-cliff is invoked unconditionally; only the file write is skipped under
+ * `dryRun`. Returns the list of changelog.json file paths (always populated, even on dry-run).
+ */
+function buildAndPersistChangelogJson(config: ReleaseConfig, newTag: string, dryRun: boolean): string[] {
+  const changelogJsonFiles: string[] = [];
+  const entries = buildChangelogEntries(config, newTag);
+  for (const changelogPath of config.changelogPaths) {
+    const jsonPath = resolveChangelogJsonPath(config, changelogPath);
+    if (!dryRun) {
+      upsertChangelogJson(jsonPath, entries);
+    }
+    changelogJsonFiles.push(jsonPath);
+  }
+  return changelogJsonFiles;
 }
 
 /**

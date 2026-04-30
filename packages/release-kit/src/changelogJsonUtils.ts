@@ -23,6 +23,8 @@ export function extractVersion(tag: string): string {
  * Read and parse a changelog JSON file, returning validated entries.
  *
  * Returns `undefined` if the file cannot be read or does not contain a valid array.
+ * Silent on parse error — for the warn-and-treat-as-empty variant used by upsert callers,
+ * see `readExistingEntries` in `./changelogJsonFile.ts`.
  */
 export function readChangelogEntries(filePath: string): ChangelogEntry[] | undefined {
   if (!existsSync(filePath)) {

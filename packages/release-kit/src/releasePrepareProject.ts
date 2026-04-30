@@ -1,7 +1,8 @@
+import { buildChangelogEntries } from './buildChangelogEntries.ts';
 import { bumpAllVersions } from './bumpAllVersions.ts';
+import { resolveChangelogJsonPath, writeChangelogJson } from './changelogJsonFile.ts';
 import { decideRelease } from './decideRelease.ts';
 import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
-import { generateChangelogJson } from './generateChangelogJson.ts';
 import { buildTagPattern, generateChangelog } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
@@ -12,7 +13,7 @@ import { writeReleaseNotesPreviews } from './writeReleaseNotesPreviews.ts';
 /** File path for the root `package.json` bumped during the project release stage. */
 const ROOT_PACKAGE_FILE = './package.json';
 
-/** Path argument passed to `generateChangelog`/`generateChangelogJson`; resolves to root paths at runtime. */
+/** Path argument passed to `generateChangelog` and `resolveChangelogJsonPath`; resolves to root paths at runtime. */
 const ROOT_CHANGELOG_PATH = '.';
 
 /** Inputs to the project-release stage. */
@@ -106,13 +107,21 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
     includePaths: contributingPaths,
   });
 
-  // 8. Emit the root changelog.json when enabled.
-  let changelogJsonFiles: string[] = [];
+  // 8. Emit the root changelog.json when enabled. Project stage uses a fresh write (no merge):
+  //    every entry is derivable from git history + cliff config, and there are no synthetic
+  //    propagation entries to preserve. git-cliff is invoked even in dry-run; only the file
+  //    write is guarded by `dryRun`.
+  const changelogJsonFiles: string[] = [];
   if (config.changelogJson.enabled) {
-    changelogJsonFiles = generateChangelogJson(config, ROOT_CHANGELOG_PATH, newTag, dryRun, {
+    const changelogJsonPath = resolveChangelogJsonPath(config, ROOT_CHANGELOG_PATH);
+    const entries = buildChangelogEntries(config, newTag, {
       tagPattern,
       includePaths: contributingPaths,
     });
+    if (!dryRun) {
+      writeChangelogJson(changelogJsonPath, entries);
+    }
+    changelogJsonFiles.push(changelogJsonPath);
   }
 
   // 9. Optional release-notes previews under root docs/.
