@@ -108,6 +108,64 @@ describe(writeChangelogJson, () => {
   });
 });
 
+describe('writeChangelogJson — version sort semantics', () => {
+  let tempDir: string;
+  let outputPath: string;
+
+  beforeEach(() => {
+    tempDir = join(tmpdir(), `test-sort-changelog-json-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    mkdirSync(tempDir, { recursive: true });
+    outputPath = join(tempDir, '.meta', 'changelog.json');
+  });
+
+  afterEach(() => {
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  function writeAndReadVersions(versions: string[]): string[] {
+    const entries: ChangelogEntry[] = versions.map((version) => ({ version, date: '2024-01-01', sections: [] }));
+    writeChangelogJson(outputPath, entries);
+    const written: ChangelogEntry[] = JSON.parse(readFileSync(outputPath, 'utf8'));
+    return written.map((e) => e.version);
+  }
+
+  it('orders releases by SemVer numeric precedence, not lexical (1.10.0 > 1.2.0)', () => {
+    expect(writeAndReadVersions(['1.2.0', '0.9.0', '1.10.0'])).toStrictEqual(['1.10.0', '1.2.0', '0.9.0']);
+  });
+
+  it('places a prerelease before its corresponding release per SemVer §11', () => {
+    expect(writeAndReadVersions(['1.2.3-alpha', '1.2.3-rc.1', '1.2.3'])).toStrictEqual([
+      '1.2.3',
+      '1.2.3-rc.1',
+      '1.2.3-alpha',
+    ]);
+  });
+
+  it('orders same-base prereleases lexically (alpha < beta)', () => {
+    expect(writeAndReadVersions(['1.2.3-beta', '1.2.3-alpha'])).toStrictEqual(['1.2.3-beta', '1.2.3-alpha']);
+  });
+
+  it('compares numeric prerelease identifiers numerically (rc.10 > rc.2)', () => {
+    expect(writeAndReadVersions(['1.2.3-rc.2', '1.2.3-rc.10'])).toStrictEqual(['1.2.3-rc.10', '1.2.3-rc.2']);
+  });
+
+  it('ignores build metadata for ordering — build-metadata variants of the same version rank equally', () => {
+    const result = writeAndReadVersions(['1.0.0', '1.2.3+build.2', '1.2.3+build.1', '0.9.0']);
+    // Both 1.2.3+build.* versions outrank 1.0.0 and 0.9.0 and stay together (their order
+    // relative to each other is implementation-defined; stable sort preserves input order).
+    expect(result.slice(2)).toStrictEqual(['1.0.0', '0.9.0']);
+    expect(new Set(result.slice(0, 2))).toStrictEqual(new Set(['1.2.3+build.1', '1.2.3+build.2']));
+  });
+
+  it('sorts a single malformed version to the bottom', () => {
+    expect(writeAndReadVersions(['1.0.0', 'garbage', '1.2.3'])).toStrictEqual(['1.2.3', '1.0.0', 'garbage']);
+  });
+
+  it('orders multiple malformed versions lexically descending at the bottom', () => {
+    expect(writeAndReadVersions(['aaa', '1.0.0', 'zzz'])).toStrictEqual(['1.0.0', 'zzz', 'aaa']);
+  });
+});
+
 describe(upsertChangelogJson, () => {
   let tempDir: string;
   let outputPath: string;
