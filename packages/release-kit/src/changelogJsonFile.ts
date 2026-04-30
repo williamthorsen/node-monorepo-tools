@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import stringify from 'json-stringify-pretty-compact';
+import semver from 'semver';
 
 import { isChangelogEntry } from './changelogJsonUtils.ts';
 import { isUnknownArray } from './typeGuards.ts';
@@ -39,7 +40,7 @@ export function upsertChangelogJson(filePath: string, entries: ChangelogEntry[])
   return filePath;
 }
 
-/** Sort changelog entries newest-first by parsed version parts. */
+/** Sort changelog entries newest-first by SemVer-aware version comparison. */
 function sortNewestFirst(entries: Iterable<ChangelogEntry>): ChangelogEntry[] {
   // eslint-disable-next-line unicorn/no-array-sort -- spread already creates a fresh copy; toSorted requires Node >=20
   return [...entries].sort((a, b) => compareVersionsDescending(a.version, b.version));
@@ -85,21 +86,21 @@ function mergeEntries(newEntries: ChangelogEntry[], existingEntries: ChangelogEn
   return sortNewestFirst(versionMap.values());
 }
 
-/** Parse a version string into numeric parts for comparison. */
-function parseVersionParts(version: string): number[] {
-  return version.split('.').map((s) => {
-    const n = Number(s);
-    return Number.isNaN(n) ? 0 : n;
-  });
-}
-
-/** Compare two version strings in descending order (newest first). */
+/**
+ * Compare two version strings in descending order (newest first).
+ *
+ * Valid SemVer inputs are ordered per SemVer §11 (delegated to `semver.rcompare`): prerelease
+ * versions precede the corresponding release (`1.2.3-alpha < 1.2.3`), and build metadata is
+ * ignored for ordering. Inputs that fail `semver.valid` sort to the bottom of the descending
+ * list, ordered lexically among themselves. The comparator never throws.
+ */
 function compareVersionsDescending(a: string, b: string): number {
-  const partsA = parseVersionParts(a);
-  const partsB = parseVersionParts(b);
-  for (let i = 0; i < 3; i++) {
-    const diff = (partsB[i] ?? 0) - (partsA[i] ?? 0);
-    if (diff !== 0) return diff;
-  }
+  const aValid = semver.valid(a);
+  const bValid = semver.valid(b);
+  if (aValid && bValid) return semver.rcompare(aValid, bValid);
+  if (aValid) return -1;
+  if (bValid) return 1;
+  if (a > b) return -1;
+  if (a < b) return 1;
   return 0;
 }
