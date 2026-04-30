@@ -1,11 +1,9 @@
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 
-import stringify from 'json-stringify-pretty-compact';
-
-import { extractVersion, isChangelogEntry } from './changelogJsonUtils.ts';
+import { extractVersion } from './changelogJsonUtils.ts';
 import type { GenerateChangelogOptions } from './generateChangelogs.ts';
 import { resolveCliffConfigPath } from './resolveCliffConfigPath.ts';
 import { isRecord, isUnknownArray } from './typeGuards.ts';
@@ -25,25 +23,22 @@ interface CliffContextRelease {
 }
 
 /**
- * Generate structured changelog JSON from git history using git-cliff `--context`.
+ * Build structured changelog entries from git history using git-cliff `--context`.
  *
- * Transforms git-cliff's context output into `ChangelogEntry[]`, tags each section with an
- * audience based on `devOnlySections`, and writes the result to the configured output path.
- * Returns the output file path as a single-element array for consistency with `generateChangelog`.
+ * Pure data: invokes git-cliff, parses its `--context` output, and returns the transformed
+ * `ChangelogEntry[]`. Performs no `changelog.json` I/O — callers persist the entries via
+ * `writeChangelogJson` or `upsertChangelogJson`.
+ *
+ * Always invokes git-cliff: dry-run is the caller's concern (it governs whether the file
+ * write happens, not whether git-cliff runs). This means dry-run exercises the full
+ * git-cliff toolchain and surfaces missing-binary, malformed-config, and template-resolution
+ * failures earlier than before.
  */
-export function generateChangelogJson(
+export function buildChangelogEntries(
   config: Pick<ReleaseConfig, 'cliffConfigPath' | 'changelogJson'>,
-  changelogPath: string,
   tag: string,
-  dryRun: boolean,
   options?: GenerateChangelogOptions,
-): string[] {
-  const outputFile = join(changelogPath, config.changelogJson.outputPath);
-
-  if (dryRun) {
-    return [outputFile];
-  }
-
+): ChangelogEntry[] {
   const resolvedConfigPath = resolveCliffConfigPath(config.cliffConfigPath, import.meta.url);
 
   let cliffConfigPath = resolvedConfigPath;
@@ -72,62 +67,16 @@ export function generateChangelogJson(
 
     const releases = parseCliffContext(contextJson);
     const devOnlySections = new Set(config.changelogJson.devOnlySections);
-    const entries = transformReleases(releases, devOnlySections);
-
-    const existingEntries = readExistingEntries(outputFile);
-    const merged = mergeEntries(entries, existingEntries);
-
-    mkdirSync(dirname(outputFile), { recursive: true });
-    writeFileSync(outputFile, stringify(merged, { maxLength: 100 }) + '\n', 'utf8');
-
-    return [outputFile];
+    return transformReleases(releases, devOnlySections);
   } catch (error: unknown) {
     throw new Error(
-      `Failed to generate changelog JSON for ${outputFile}: ${error instanceof Error ? error.message : String(error)}`,
+      `Failed to build changelog entries for tag ${tag}: ${error instanceof Error ? error.message : String(error)}`,
     );
   } finally {
     if (tempDir !== undefined) {
       rmSync(tempDir, { recursive: true, force: true });
     }
   }
-}
-
-/**
- * Generate a synthetic changelog JSON entry for propagation-only bumps.
- *
- * Mirrors `writeSyntheticChangelog` but produces structured JSON instead of markdown.
- */
-export function generateSyntheticChangelogJson(
-  config: Pick<ReleaseConfig, 'changelogJson'>,
-  changelogPath: string,
-  newVersion: string,
-  date: string,
-  propagatedFrom: Array<{ packageName: string; newVersion: string }>,
-  dryRun: boolean,
-): string[] {
-  const outputFile = join(changelogPath, config.changelogJson.outputPath);
-
-  if (dryRun) {
-    return [outputFile];
-  }
-
-  const items: ChangelogItem[] = propagatedFrom.map((dep) => ({
-    description: `Bumped \`${dep.packageName}\` to ${dep.newVersion}`,
-  }));
-
-  const entry: ChangelogEntry = {
-    version: newVersion,
-    date,
-    sections: [{ title: 'Dependency updates', audience: 'dev', items }],
-  };
-
-  const existingEntries = readExistingEntries(outputFile);
-  const merged = mergeEntries([entry], existingEntries);
-
-  mkdirSync(dirname(outputFile), { recursive: true });
-  writeFileSync(outputFile, stringify(merged, { maxLength: 100 }) + '\n', 'utf8');
-
-  return [outputFile];
 }
 
 /** Parse the JSON output from `git-cliff --context`. */
@@ -278,58 +227,4 @@ function extractBody(message: string): string | undefined {
   }
 
   return lines.slice(start, end).join('\n').trim();
-}
-
-/** Read existing changelog entries from a JSON file, if it exists. */
-function readExistingEntries(filePath: string): ChangelogEntry[] {
-  if (!existsSync(filePath)) {
-    return [];
-  }
-  try {
-    const content = readFileSync(filePath, 'utf8');
-    const parsed: unknown = JSON.parse(content);
-    if (!isUnknownArray(parsed)) {
-      return [];
-    }
-    return parsed.filter(isChangelogEntry);
-  } catch (error: unknown) {
-    console.warn(
-      `Warning: could not parse existing ${filePath}: ${error instanceof Error ? error.message : String(error)}; treating as empty`,
-    );
-    return [];
-  }
-}
-
-/** Merge new entries with existing ones, replacing entries with matching versions. */
-function mergeEntries(newEntries: ChangelogEntry[], existingEntries: ChangelogEntry[]): ChangelogEntry[] {
-  const versionMap = new Map<string, ChangelogEntry>();
-
-  for (const entry of existingEntries) {
-    versionMap.set(entry.version, entry);
-  }
-  for (const entry of newEntries) {
-    versionMap.set(entry.version, entry);
-  }
-
-  // eslint-disable-next-line unicorn/no-array-sort -- spread already creates a fresh copy; toSorted requires Node >=20
-  return [...versionMap.values()].sort((a, b) => compareVersionsDescending(a.version, b.version));
-}
-
-/** Parse a version string into numeric parts for comparison. */
-function parseVersionParts(version: string): number[] {
-  return version.split('.').map((s) => {
-    const n = Number(s);
-    return Number.isNaN(n) ? 0 : n;
-  });
-}
-
-/** Compare two version strings in descending order (newest first). */
-function compareVersionsDescending(a: string, b: string): number {
-  const partsA = parseVersionParts(a);
-  const partsB = parseVersionParts(b);
-  for (let i = 0; i < 3; i++) {
-    const diff = (partsB[i] ?? 0) - (partsA[i] ?? 0);
-    if (diff !== 0) return diff;
-  }
-  return 0;
 }

@@ -31,15 +31,26 @@ vi.mock('../writeReleaseNotesPreviews.ts', () => ({
   writeReleaseNotesPreviews: mockWriteReleaseNotesPreviews,
 }));
 
-// Stub out the real `generateChangelogJson*` helpers for tests in this file that exercise
-// the `changelogJson.enabled: true` path. The default stub returns a deterministic file path
-// without invoking git-cliff or touching the filesystem.
-const mockGenerateChangelogJson = vi.hoisted(() => vi.fn());
-const mockGenerateSyntheticChangelogJson = vi.hoisted(() => vi.fn());
+// Stub out the new helpers for tests in this file that exercise the
+// `changelogJson.enabled: true` path. The default stubs return deterministic values without
+// invoking git-cliff or touching the filesystem.
+const mockBuildChangelogEntries = vi.hoisted(() => vi.fn());
+const mockBuildSyntheticChangelogEntry = vi.hoisted(() => vi.fn());
+const mockUpsertChangelogJson = vi.hoisted(() => vi.fn());
 
-vi.mock('../generateChangelogJson.ts', () => ({
-  generateChangelogJson: mockGenerateChangelogJson,
-  generateSyntheticChangelogJson: mockGenerateSyntheticChangelogJson,
+vi.mock('../buildChangelogEntries.ts', () => ({
+  buildChangelogEntries: mockBuildChangelogEntries,
+}));
+
+vi.mock('../buildSyntheticChangelogEntry.ts', () => ({
+  buildSyntheticChangelogEntry: mockBuildSyntheticChangelogEntry,
+}));
+
+vi.mock('../changelogJsonFile.ts', () => ({
+  resolveChangelogJsonPath: (config: { changelogJson: { outputPath: string } }, changelogPath: string): string =>
+    `${changelogPath}/${config.changelogJson.outputPath}`,
+  writeChangelogJson: vi.fn(),
+  upsertChangelogJson: mockUpsertChangelogJson,
 }));
 
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';
@@ -96,14 +107,12 @@ function findAllCliffOutputPaths(): string[] {
 
 describe(releasePrepareMono, () => {
   beforeEach(() => {
-    // Default: pretend each call produced a single changelog.json path derived from the
-    // changelog directory. Individual tests can override if needed.
-    mockGenerateChangelogJson.mockImplementation((_config, changelogPath: string) => [
-      `${changelogPath}/.meta/changelog.json`,
-    ]);
-    mockGenerateSyntheticChangelogJson.mockImplementation((_config, changelogPath: string) => [
-      `${changelogPath}/.meta/changelog.json`,
-    ]);
+    // Default: pretend buildChangelogEntries returned no entries, the synthetic constructor
+    // returned an empty stub entry, and upsertChangelogJson echoed the file path. Individual
+    // tests can override if needed.
+    mockBuildChangelogEntries.mockReturnValue([]);
+    mockBuildSyntheticChangelogEntry.mockReturnValue({ version: '0.0.0', date: '2024-01-01', sections: [] });
+    mockUpsertChangelogJson.mockImplementation((filePath: string) => filePath);
   });
 
   afterEach(() => {
@@ -114,8 +123,9 @@ describe(releasePrepareMono, () => {
     mockWriteFileSync.mockReset();
     mockHasPrettierConfig.mockReset();
     mockWriteReleaseNotesPreviews.mockReset();
-    mockGenerateChangelogJson.mockReset();
-    mockGenerateSyntheticChangelogJson.mockReset();
+    mockBuildChangelogEntries.mockReset();
+    mockBuildSyntheticChangelogEntry.mockReset();
+    mockUpsertChangelogJson.mockReset();
   });
 
   it('processes a workspace that has commits', () => {

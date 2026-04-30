@@ -228,6 +228,43 @@ describe('releasePrepareProject (integration)', () => {
     });
   }, 60_000);
 
+  it('overwrites an unparseable existing root changelog.json without warning (no-read at project stage)', () => {
+    // Pin: the project stage no longer reads the existing root changelog.json. An unparseable
+    // file is structurally bypassed — the soft `console.warn → return []` path inside
+    // upsertChangelogJson cannot fire here because the project stage uses writeChangelogJson.
+    withinFixture(fixture.repoDir, () => {
+      const changelogJsonPath = join(fixture.repoDir, '.meta', 'changelog.json');
+      mkdirSync(join(fixture.repoDir, '.meta'), { recursive: true });
+      writeFileSync(changelogJsonPath, '{this is not valid JSON', 'utf8');
+
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      try {
+        const config = mergeMonorepoConfig(
+          ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
+          { project: {} },
+          { exists: true, version: '0.9.0' },
+        );
+
+        releasePrepareMono(config, { dryRun: false });
+
+        // No warning was emitted (the existing file was never parsed).
+        const warnedAboutChangelogJson = warnSpy.mock.calls.some((call) =>
+          call.some((arg) => typeof arg === 'string' && arg.includes('could not parse existing')),
+        );
+        expect(warnedAboutChangelogJson).toBe(false);
+
+        // The file was overwritten with cliff-derived content (valid JSON).
+        const written = readFileSync(changelogJsonPath, 'utf8');
+        const parsed: Array<{ version: string }> = JSON.parse(written);
+        expect(Array.isArray(parsed)).toBe(true);
+        expect(parsed.some((entry) => entry.version === '0.10.0')).toBe(true);
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+  }, 60_000);
+
   it('emits the project release-notes preview when --with-release-notes is set and changelogJson is enabled', () => {
     withinFixture(fixture.repoDir, () => {
       const config = mergeMonorepoConfig(
