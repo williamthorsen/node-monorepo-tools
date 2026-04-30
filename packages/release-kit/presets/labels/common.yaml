@@ -20,6 +20,9 @@
 - name: fix
   color: d73a4a
   description: Fixes a bug
+- name: operational
+  color: '000000'
+  description: Actions outside the codebase
 - name: performance
   color: '0075ca'
   description: Improves performance without changing behavior
