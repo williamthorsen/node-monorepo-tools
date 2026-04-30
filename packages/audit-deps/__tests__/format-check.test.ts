@@ -605,6 +605,7 @@ describe(formatCheckJson, () => {
         stale: [{ id: 'GHSA-old' }],
         unallowed: [],
       },
+      summary: { status: 'suppressed-vulnerabilities', count: 1 },
     });
   });
 
@@ -677,5 +678,52 @@ describe(formatCheckJson, () => {
     const parsed: unknown = JSON.parse(formatCheckJson(result, ['dev']));
     expect(parsed).toHaveProperty('dev');
     expect(parsed).not.toHaveProperty('prod');
+  });
+
+  it('includes a top-level summary block derived from the result', () => {
+    const result = makeCheckResult({
+      prod: {
+        allowed: [],
+        belowThreshold: [],
+        stale: [],
+        unallowed: [
+          { id: 'GHSA-1', path: 'pkg', paths: ['pkg'], severity: 'high', url: 'https://example.com/1' },
+          { id: 'GHSA-2', path: 'pkg', paths: ['pkg'], severity: 'high', url: 'https://example.com/2' },
+        ],
+      },
+    });
+
+    const parsed: unknown = JSON.parse(formatCheckJson(result, ['prod', 'dev']));
+    expect(parsed).toEqual(
+      expect.objectContaining({
+        summary: { status: 'vulnerabilities-found', count: 2 },
+      }),
+    );
+  });
+
+  it('emits summary { status: "none", count: 0 } for a clean result', () => {
+    const parsed: unknown = JSON.parse(formatCheckJson(makeCheckResult(), ['prod', 'dev']));
+    expect(parsed).toEqual(
+      expect.objectContaining({
+        summary: { status: 'none', count: 0 },
+      }),
+    );
+  });
+
+  it('derives the summary across only the requested scopes', () => {
+    const result = makeCheckResult({
+      dev: {
+        allowed: [],
+        belowThreshold: [],
+        stale: [],
+        unallowed: [{ id: 'GHSA-dev', path: 'pkg', paths: ['pkg'], severity: 'high', url: 'https://example.com/d' }],
+      },
+    });
+
+    const prodOnly: unknown = JSON.parse(formatCheckJson(result, ['prod']));
+    expect(prodOnly).toEqual(expect.objectContaining({ summary: { status: 'none', count: 0 } }));
+
+    const devOnly: unknown = JSON.parse(formatCheckJson(result, ['dev']));
+    expect(devOnly).toEqual(expect.objectContaining({ summary: { status: 'vulnerabilities-found', count: 1 } }));
   });
 });

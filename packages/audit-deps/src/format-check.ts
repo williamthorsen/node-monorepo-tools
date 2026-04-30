@@ -1,4 +1,5 @@
 import { formatActionHints } from './format-actions.ts';
+import { deriveSummary } from './format-summary.ts';
 import { formatRelativeTime } from './format-time.ts';
 import type { AuditResult, AuditScope, SeverityThreshold } from './types.ts';
 
@@ -229,11 +230,12 @@ export function formatCheckText(
 // JSON formatter
 // ---------------------------------------------------------------------------
 
-/** Format check results as a JSON string. */
+/** Format check results as a JSON string with a top-level `summary` block derived from the result. */
 export function formatCheckJson(result: CheckResult, scopes: AuditScope[]): string {
-  const output: Record<string, ScopeCheckResult> = {};
+  const output: Record<string, unknown> = {};
   for (const scope of scopes) {
     output[scope] = result[scope];
   }
+  output.summary = deriveSummary(result, scopes);
   return JSON.stringify(output, null, 2) + '\n';
 }

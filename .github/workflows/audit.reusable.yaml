@@ -124,15 +124,49 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Run audit
+      # The bare audit-deps invocation drives the human-readable body and emits its own
+      # `-- 📦 prod --` and `-- 🔧 dev --` group headers, so the issue body intentionally
+      # omits the H3 "### Production dependencies" / "### Development dependencies"
+      # subsections that earlier two-command versions used.
+      - name: Run audit (text body)
         id: audit
         run: pnpm dlx @williamthorsen/audit-deps@latest 2>&1 | tee audit-output.txt
         continue-on-error: true
 
-      # The bare audit-deps invocation above emits its own `-- 📦 prod --` and
-      # `-- 🔧 dev --` group headers, so the issue body intentionally omits the
-      # H3 "### Production dependencies" / "### Development dependencies"
-      # subsections that earlier two-command versions used.
+      # Separate JSON invocation drives the title's status discriminant and count.
+      # Two invocations are simpler than reconstructing the human-readable text from JSON.
+      - name: Run audit (JSON summary)
+        run: pnpm dlx @williamthorsen/audit-deps@latest check --json > audit.json
+        continue-on-error: true
+
+      - name: Render issue title
+        id: title
+        run: |
+          STATUS=$(jq -r '.summary.status' audit.json)
+          COUNT=$(jq -r '.summary.count' audit.json)
+          case "$STATUS" in
+            none)
+              TITLE="🤖 Dependency audit status: no vulnerabilities ✅"
+              ;;
+            vulnerabilities-found)
+              NOUN=$([ "$COUNT" = "1" ] && echo "vulnerability" || echo "vulnerabilities")
+              TITLE="🤖 Dependency audit status: ${COUNT} ${NOUN} found 🚨"
+              ;;
+            suppressed-vulnerabilities)
+              NOUN=$([ "$COUNT" = "1" ] && echo "vulnerability" || echo "vulnerabilities")
+              TITLE="🤖 Dependency audit status: ${COUNT} suppressed ${NOUN} ⚠️"
+              ;;
+            stale-overrides)
+              NOUN=$([ "$COUNT" = "1" ] && echo "override" || echo "overrides")
+              TITLE="🤖 Dependency audit status: ${COUNT} stale ${NOUN} 🗑️"
+              ;;
+            *)
+              echo "::error::Unrecognized audit-deps summary status: '$STATUS'"
+              exit 1
+              ;;
+          esac
+          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
+
       - name: Build issue body
         id: issue
         run: |
@@ -155,13 +189,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      # Lookup is by label, not title, so the title format change is safe for existing standing
+      # issues — they are matched by label and have their titles rewritten on the next update step.
       - name: Find or create standing issue
         id: find-issue
         run: |
           ISSUE_NUMBER=$(gh issue list --label audit-status --state open --json number --jq '.[0].number // empty')
           if [ -z "$ISSUE_NUMBER" ]; then
             ISSUE_NUMBER=$(gh issue create \
-              --title "Dependency audit status" \
+              --title "$TITLE" \
               --label "audit-status" \
               --body "Awaiting first audit run." | grep -oE '[0-9]+$')
           fi
@@ -172,10 +208,12 @@ jobs:
           echo "number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
         env:
           GH_TOKEN: ${{ github.token }}
+          TITLE: ${{ steps.title.outputs.title }}
 
-      - name: Update issue body
+      - name: Update issue title and body
         run: |
-          gh issue edit "${{ steps.find-issue.outputs.number }}" --body "$ISSUE_BODY"
+          gh issue edit "${{ steps.find-issue.outputs.number }}" --title "$TITLE" --body "$ISSUE_BODY"
         env:
           GH_TOKEN: ${{ github.token }}
+          TITLE: ${{ steps.title.outputs.title }}
           ISSUE_BODY: ${{ steps.issue.outputs.body }}

@@ -7,7 +7,7 @@ import { initCommand } from '../init/initCommand.ts';
 import type { AuditScope, CommandOptions } from '../types.ts';
 import { VERSION } from '../version.ts';
 
-const SUBCOMMANDS = ['init', 'sync'];
+const SUBCOMMANDS = ['check', 'init', 'sync'];
 const MIN_PREFIX_LENGTH = 3;
 
 function showHelp(): void {
@@ -16,7 +16,7 @@ Usage: audit-deps [options]
        audit-deps <command> [options]
 
 Commands:
-  (default)            Grouped vulnerability check with severity indicators
+  check (default)      Grouped vulnerability check with severity indicators
   sync                 Synchronize allowlists with current audit findings
   init                 Scaffold a starter config file and GitHub Actions workflow
 
@@ -121,6 +121,10 @@ export async function routeCommand(args: string[]): Promise<number> {
   if (command === '--version' || command === '-V') {
     console.info(VERSION);
     return 0;
+  }
+
+  if (command === 'check') {
+    return handleSubcommand(args.slice(1), checkCommand);
   }
 
   if (command === 'init') {
