@@ -482,6 +482,27 @@ describe('nmr CLI', () => {
       expect(stdout).not.toContain('no-op');
     });
 
+    it('suppresses hook chain output under --quiet', () => {
+      const pkgDir = path.join(tempRoot, 'packages', 'quiet-hooks');
+      writePackage(
+        pkgDir,
+        {
+          clean: `echo main-noise && echo main >> ${logFile}`,
+          'clean:pre': `echo pre-noise && echo pre >> ${logFile}`,
+          'clean:post': `echo post-noise && echo post >> ${logFile}`,
+        },
+        'quiet-hooks',
+      );
+      clearLog();
+
+      const { stdout, exitCode } = runNmr('-q clean', { cwd: pkgDir });
+      expect(exitCode).toBe(0);
+      // Log proves the full chain ran
+      expect(readLog()).toStrictEqual(['pre', 'main', 'post']);
+      // -q suppresses all stdout from the chain
+      expect(stdout).toBe('');
+    });
+
     describe('config-defined hooks', () => {
       let configRoot: string;
       let configPkgDir: string;
