@@ -57,8 +57,5 @@ logs
 coverage/
 .vitest-result.json
 
-# Generated files
-packages/*/src/version.ts
-
 # TypeScript
 *.tsbuildinfo

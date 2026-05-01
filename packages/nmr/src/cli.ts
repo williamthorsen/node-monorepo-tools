@@ -4,11 +4,14 @@
 import path from 'node:path';
 import process from 'node:process';
 
+import { readPackageVersion } from '@williamthorsen/nmr-core';
+
 import { resolveContext } from './context.js';
 import { generateHelp } from './help.js';
 import { applyDevBin, buildRootRegistry, buildWorkspaceRegistry, resolveScript } from './resolver.js';
 import { runCommand } from './runner.js';
-import { VERSION } from './version.js';
+
+const VERSION = readPackageVersion(import.meta.url);
 
 /**
  * Shell-escapes a single argument by wrapping in single quotes

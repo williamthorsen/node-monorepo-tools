@@ -39,9 +39,10 @@
     "dist"
   ],
   "scripts": {
-    "prepare": "tsx ../../config/generateVersion.ts && tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json"
+    "prepare": "tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json"
   },
   "dependencies": {
+    "@williamthorsen/nmr-core": "workspace:*",
     "jiti": "2.6.1",
     "js-yaml": "4.1.1",
     "zod": "4.4.1"

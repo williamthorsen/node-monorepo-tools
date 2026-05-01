@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const mockExistsSync = vi.hoisted(() => vi.fn());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockFindPackageRoot = vi.hoisted(() => vi.fn().mockReturnValue('/fake/package'));
+const mockReadPackageVersion = vi.hoisted(() => vi.fn().mockReturnValue('0.0.0-test'));
 const mockWriteFileWithCheck = vi.hoisted(() => vi.fn());
 
 vi.mock(import('node:fs'), () => ({
@@ -12,6 +13,7 @@ vi.mock(import('node:fs'), () => ({
 
 vi.mock(import('@williamthorsen/nmr-core'), () => ({
   findPackageRoot: mockFindPackageRoot,
+  readPackageVersion: mockReadPackageVersion,
   writeFileWithCheck: mockWriteFileWithCheck,
 }));
 
@@ -22,6 +24,7 @@ describe('scaffold', () => {
     mockExistsSync.mockReset();
     mockReadFileSync.mockReset();
     mockFindPackageRoot.mockReset().mockReturnValue('/fake/package');
+    mockReadPackageVersion.mockReset().mockReturnValue('0.0.0-test');
     mockWriteFileWithCheck.mockReset();
   });
 

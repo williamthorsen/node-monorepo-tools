@@ -103,6 +103,9 @@ importers:
 
   packages/nmr:
     dependencies:
+      '@williamthorsen/nmr-core':
+        specifier: workspace:*
+        version: link:../core
       jiti:
         specifier: 2.6.1
         version: 2.6.1

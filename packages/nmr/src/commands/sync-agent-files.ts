@@ -2,7 +2,9 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { VERSION } from '../version.js';
+import { readPackageVersion } from '@williamthorsen/nmr-core';
+
+const VERSION = readPackageVersion(import.meta.url);
 
 const PACKAGE_NAME = '@williamthorsen/nmr';
 const DESTINATION_RELATIVE_PATH = '.agents/nmr/AGENTS.md';
