@@ -1,9 +1,24 @@
 import { execSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+function makeLogHelpers(getPath: () => string): { read: () => string[]; clear: () => void } {
+  return {
+    read: () => {
+      try {
+        return readFileSync(getPath(), 'utf8')
+          .split('\n')
+          .filter((line) => line.length > 0);
+      } catch {
+        return [];
+      }
+    },
+    clear: () => writeFileSync(getPath(), ''),
+  };
+}
 
 const MONOREPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
 const NMR_PACKAGE_DIR = path.resolve(MONOREPO_ROOT, 'packages', 'nmr');
@@ -182,19 +197,7 @@ describe('nmr CLI', () => {
       writeFileSync(path.join(packageDir, 'package.json'), JSON.stringify({ name: packageName, scripts }));
     }
 
-    function readLog(): string[] {
-      try {
-        return execSync(`cat ${logFile}`, { encoding: 'utf8' })
-          .split('\n')
-          .filter((line) => line.length > 0);
-      } catch {
-        return [];
-      }
-    }
-
-    function clearLog(): void {
-      writeFileSync(logFile, '');
-    }
+    const { read: readLog, clear: clearLog } = makeLogHelpers(() => logFile);
 
     beforeAll(() => {
       tempRoot = mkdtempSync(path.join(tmpdir(), 'nmr-hooks-test-'));
@@ -520,15 +523,7 @@ export default defineConfig({
         rmSync(configRoot, { recursive: true, force: true });
       });
 
-      function readConfigLog(): string[] {
-        return execSync(`cat ${configLogFile}`, { encoding: 'utf8' })
-          .split('\n')
-          .filter((line) => line.length > 0);
-      }
-
-      function clearConfigLog(): void {
-        writeFileSync(configLogFile, '');
-      }
+      const { read: readConfigLog, clear: clearConfigLog } = makeLogHelpers(() => configLogFile);
 
       it('runs hooks when main command is overridden in package.json (composite pre)', () => {
         clearConfigLog();

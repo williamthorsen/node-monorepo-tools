@@ -35,7 +35,7 @@ export function generateHelp(config: NmrConfig, packageDir?: string): string {
 
   if (packageDir !== undefined) {
     const packageScripts = collectPackageScripts(packageDir);
-    if (packageScripts && Object.keys(packageScripts).length > 0) {
+    if (Object.keys(packageScripts).length > 0) {
       lines.push('', 'Package scripts:');
       formatRegistry(packageScripts, lines);
     }
@@ -47,11 +47,11 @@ export function generateHelp(config: NmrConfig, packageDir?: string): string {
 /**
  * Loads a package's `package.json` scripts and removes self-referential entries
  * (e.g., `"build": "nmr build"`) which would appear as redundant duplicates of
- * the workspace command.
+ * the workspace command. Returns an empty object when no scripts are present.
  */
-function collectPackageScripts(packageDir: string): Record<string, string> | undefined {
+function collectPackageScripts(packageDir: string): Record<string, string> {
   const scripts = readPackageJsonScripts(packageDir);
-  if (!scripts) return undefined;
+  if (!scripts) return {};
 
   const filtered: Record<string, string> = {};
   for (const [name, value] of Object.entries(scripts)) {
