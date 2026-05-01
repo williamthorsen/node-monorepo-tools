@@ -39,6 +39,7 @@
     "dist"
   ],
   "scripts": {
+    "build:post": "nmr-sync-agent-files",
     "prepare": "tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json"
   },
   "dependencies": {

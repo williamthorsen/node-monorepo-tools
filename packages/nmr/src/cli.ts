@@ -8,6 +8,7 @@ import { readPackageVersion } from '@williamthorsen/nmr-core';
 
 import { resolveContext } from './context.js';
 import { generateHelp } from './help.js';
+import type { ScriptRegistry } from './resolve-scripts.js';
 import { applyDevBin, buildRootRegistry, buildWorkspaceRegistry, resolveScript } from './resolver.js';
 import { runCommand } from './runner.js';
 
@@ -112,7 +113,7 @@ async function main(): Promise<void> {
   const context = await resolveContext();
 
   if (parsed.help || !parsed.command) {
-    console.info(generateHelp(context.config));
+    console.info(generateHelp(context.config, context.packageDir));
     process.exit(0);
   }
 
@@ -150,30 +151,80 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const packageName = path.basename(packageDir);
-
-  if (resolved.command === '') {
-    if (!parsed.quiet) {
-      console.info(`⛔ ${packageName}: Override script is defined but empty. Skipping.`);
-    }
-    process.exit(0);
-  }
-
-  if (resolved.command === ':') {
-    if (!parsed.quiet) {
-      console.info(`⛔ ${packageName}: Override script is a no-op. Skipping.`);
-    }
-    process.exit(0);
+  const skipExitCode = handleSkipMessage(resolved.command, packageDir, parsed.quiet);
+  if (skipExitCode !== undefined) {
+    process.exit(skipExitCode);
   }
 
   if (resolved.source === 'package' && !parsed.quiet && registry[command] !== undefined) {
-    console.info(`📦 ${packageName}: Using override script: ${resolved.command}`);
+    console.info(`📦 ${path.basename(packageDir)}: Using override script: ${resolved.command}`);
   }
 
   const substitutedCommand = applyDevBin(resolved.command, context.config.devBin, context.monorepoRoot);
-  const fullCommand = substitutedCommand + passthrough;
+  const mainCommand = substitutedCommand + passthrough;
+
+  // Hook recursion guard: commands ending in :pre or :post are leaf operations
+  // and are not themselves wrapped in additional hook lookups.
+  const isHookInvocation = command.endsWith(':pre') || command.endsWith(':post');
+  const fullCommand = isHookInvocation ? mainCommand : wrapWithHooks(command, mainCommand, registry, packageDir);
+
   const code = runCommand(fullCommand, undefined, runOptions);
   process.exit(code);
+}
+
+/**
+ * Returns the exit code to use when a resolved command is an explicit skip
+ * (`""` or `":"`), printing the skip message unless quiet. Returns undefined
+ * when the command is not a skip, indicating execution should proceed.
+ */
+function handleSkipMessage(resolvedCommand: string, packageDir: string, quiet: boolean): number | undefined {
+  if (resolvedCommand === '') {
+    if (!quiet) {
+      console.info(`⛔ ${path.basename(packageDir)}: Override script is defined but empty. Skipping.`);
+    }
+    return 0;
+  }
+  if (resolvedCommand === ':') {
+    if (!quiet) {
+      console.info(`⛔ ${path.basename(packageDir)}: Override script is a no-op. Skipping.`);
+    }
+    return 0;
+  }
+  return undefined;
+}
+
+/**
+ * Wraps a resolved main command with `nmr <command>:pre` and `nmr <command>:post`
+ * invocations when the corresponding hooks resolve to non-skip values.
+ *
+ * Hooks are looked up via the same 3-tier registry as the main command. Missing
+ * hooks (and explicit `""`/`":"` skips) are silent — they do not appear in the
+ * chain and produce no output. Hook failure short-circuits the chain via shell
+ * `&&` semantics; the failing exit code propagates.
+ */
+function wrapWithHooks(command: string, mainCommand: string, registry: ScriptRegistry, packageDir: string): string {
+  const segments: string[] = [];
+
+  if (hasRunnableHook(`${command}:pre`, registry, packageDir)) {
+    segments.push(`nmr ${command}:pre`);
+  }
+  segments.push(mainCommand);
+  if (hasRunnableHook(`${command}:post`, registry, packageDir)) {
+    segments.push(`nmr ${command}:post`);
+  }
+
+  return segments.join(' && ');
+}
+
+/**
+ * Returns true when a hook script resolves to a runnable command.
+ * A hook is runnable when it resolves and the resolved value is neither
+ * `""` nor `":"` (both of which mean "skip").
+ */
+function hasRunnableHook(hookName: string, registry: ScriptRegistry, packageDir: string): boolean {
+  const resolved = resolveScript(hookName, registry, packageDir);
+  if (!resolved) return false;
+  return resolved.command !== '' && resolved.command !== ':';
 }
 
 try {

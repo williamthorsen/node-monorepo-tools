@@ -166,4 +166,377 @@ describe('nmr CLI', () => {
       expect(stderr).toContain('Unknown command');
     });
   });
+
+  describe('pre/post hooks', () => {
+    let tempRoot: string;
+    let logFile: string;
+
+    /**
+     * Writes a workspace package whose scripts append a marker line to a log file
+     * when invoked. The `clean` script is overridden because clean is in the default
+     * registry (so resolving it triggers the override path), and we layer hook
+     * scripts on top in tier-3 (package.json) where appropriate.
+     */
+    function writePackage(packageDir: string, scripts: Record<string, string>, packageName = 'hook-pkg'): void {
+      mkdirSync(packageDir, { recursive: true });
+      writeFileSync(path.join(packageDir, 'package.json'), JSON.stringify({ name: packageName, scripts }));
+    }
+
+    function readLog(): string[] {
+      try {
+        return execSync(`cat ${logFile}`, { encoding: 'utf8' })
+          .split('\n')
+          .filter((line) => line.length > 0);
+      } catch {
+        return [];
+      }
+    }
+
+    function clearLog(): void {
+      writeFileSync(logFile, '');
+    }
+
+    beforeAll(() => {
+      tempRoot = mkdtempSync(path.join(tmpdir(), 'nmr-hooks-test-'));
+      writeFileSync(path.join(tempRoot, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n");
+      writeFileSync(path.join(tempRoot, 'package.json'), JSON.stringify({ name: 'temp-root', private: true }));
+      mkdirSync(path.join(tempRoot, 'packages'), { recursive: true });
+      logFile = path.join(tempRoot, 'log.txt');
+      writeFileSync(logFile, '');
+    });
+
+    afterAll(() => {
+      rmSync(tempRoot, { recursive: true, force: true });
+    });
+
+    it('runs pre and post hooks around the main command', () => {
+      const pkgDir = path.join(tempRoot, 'packages', 'both-hooks');
+      writePackage(
+        pkgDir,
+        {
+          clean: `echo main >> ${logFile}`,
+          'clean:pre': `echo pre >> ${logFile}`,
+          'clean:post': `echo post >> ${logFile}`,
+        },
+        'both-hooks',
+      );
+      clearLog();
+
+      const { exitCode } = runNmr('clean', { cwd: pkgDir });
+      expect(exitCode).toBe(0);
+      expect(readLog()).toStrictEqual(['pre', 'main', 'post']);
+    });
+
+    it('runs pre-only hook when post is undefined', () => {
+      const pkgDir = path.join(tempRoot, 'packages', 'pre-only');
+      writePackage(
+        pkgDir,
+        {
+          clean: `echo main >> ${logFile}`,
+          'clean:pre': `echo pre >> ${logFile}`,
+        },
+        'pre-only',
+      );
+      clearLog();
+
+      const { exitCode } = runNmr('clean', { cwd: pkgDir });
+      expect(exitCode).toBe(0);
+      expect(readLog()).toStrictEqual(['pre', 'main']);
+    });
+
+    it('runs post-only hook when pre is undefined', () => {
+      const pkgDir = path.join(tempRoot, 'packages', 'post-only');
+      writePackage(
+        pkgDir,
+        {
+          clean: `echo main >> ${logFile}`,
+          'clean:post': `echo post >> ${logFile}`,
+        },
+        'post-only',
+      );
+      clearLog();
+
+      const { exitCode } = runNmr('clean', { cwd: pkgDir });
+      expect(exitCode).toBe(0);
+      expect(readLog()).toStrictEqual(['main', 'post']);
+    });
+
+    it('is a silent no-op when no hooks are defined', () => {
+      const pkgDir = path.join(tempRoot, 'packages', 'no-hooks');
+      writePackage(pkgDir, { clean: `echo main >> ${logFile}` }, 'no-hooks');
+      clearLog();
+
+      const { exitCode, stderr } = runNmr('clean', { cwd: pkgDir });
+      expect(exitCode).toBe(0);
+      expect(readLog()).toStrictEqual(['main']);
+      expect(stderr).toBe('');
+    });
+
+    it('short-circuits when pre-hook fails — main and post do not run', () => {
+      const pkgDir = path.join(tempRoot, 'packages', 'pre-fails');
+      writePackage(
+        pkgDir,
+        {
+          clean: `echo main >> ${logFile}`,
+          'clean:pre': `echo pre >> ${logFile} && exit 7`,
+          'clean:post': `echo post >> ${logFile}`,
+        },
+        'pre-fails',
+      );
+      clearLog();
+
+      const { exitCode } = runNmr('clean', { cwd: pkgDir });
+      expect(exitCode).toBe(7);
+      expect(readLog()).toStrictEqual(['pre']);
+    });
+
+    it('short-circuits when main fails — post does not run', () => {
+      const pkgDir = path.join(tempRoot, 'packages', 'main-fails');
+      writePackage(
+        pkgDir,
+        {
+          clean: `echo main >> ${logFile} && exit 5`,
+          'clean:pre': `echo pre >> ${logFile}`,
+          'clean:post': `echo post >> ${logFile}`,
+        },
+        'main-fails',
+      );
+      clearLog();
+
+      const { exitCode } = runNmr('clean', { cwd: pkgDir });
+      expect(exitCode).toBe(5);
+      expect(readLog()).toStrictEqual(['pre', 'main']);
+    });
+
+    it('propagates the exit code when post-hook fails', () => {
+      const pkgDir = path.join(tempRoot, 'packages', 'post-fails');
+      writePackage(
+        pkgDir,
+        {
+          clean: `echo main >> ${logFile}`,
+          'clean:pre': `echo pre >> ${logFile}`,
+          'clean:post': `echo post >> ${logFile} && exit 9`,
+        },
+        'post-fails',
+      );
+      clearLog();
+
+      const { exitCode } = runNmr('clean', { cwd: pkgDir });
+      expect(exitCode).toBe(9);
+      expect(readLog()).toStrictEqual(['pre', 'main', 'post']);
+    });
+
+    it('runs hooks when the main command is overridden in package.json', () => {
+      const pkgDir = path.join(tempRoot, 'packages', 'override-main');
+      writePackage(
+        pkgDir,
+        {
+          clean: `echo override-main >> ${logFile}`,
+          'clean:pre': `echo pre >> ${logFile}`,
+          'clean:post': `echo post >> ${logFile}`,
+        },
+        'override-main',
+      );
+      clearLog();
+
+      const { exitCode } = runNmr('clean', { cwd: pkgDir });
+      expect(exitCode).toBe(0);
+      expect(readLog()).toStrictEqual(['pre', 'override-main', 'post']);
+    });
+
+    it('directly invokes the pre hook without cascading', () => {
+      const pkgDir = path.join(tempRoot, 'packages', 'direct-pre');
+      writePackage(
+        pkgDir,
+        {
+          clean: `echo main >> ${logFile}`,
+          'clean:pre': `echo pre >> ${logFile}`,
+          'clean:post': `echo post >> ${logFile}`,
+        },
+        'direct-pre',
+      );
+      clearLog();
+
+      const { exitCode, stderr } = runNmr('clean:pre', { cwd: pkgDir });
+      expect(exitCode).toBe(0);
+      // Only the pre hook itself should run — no cascading attempt to find pre:pre/pre:post
+      expect(readLog()).toStrictEqual(['pre']);
+      expect(stderr).not.toContain('Unknown command');
+    });
+
+    it('directly invokes the post hook without cascading', () => {
+      const pkgDir = path.join(tempRoot, 'packages', 'direct-post');
+      writePackage(
+        pkgDir,
+        {
+          clean: `echo main >> ${logFile}`,
+          'clean:post': `echo post >> ${logFile}`,
+        },
+        'direct-post',
+      );
+      clearLog();
+
+      const { exitCode, stderr } = runNmr('clean:post', { cwd: pkgDir });
+      expect(exitCode).toBe(0);
+      expect(readLog()).toStrictEqual(['post']);
+      expect(stderr).not.toContain('Unknown command');
+    });
+
+    it('attaches passthrough args to the main command only', () => {
+      const pkgDir = path.join(tempRoot, 'packages', 'passthrough');
+      // Use a wrapper script so we can capture argv without shell-redirection
+      // ambiguities (where `>> file --flag` would parse as redirect + extra args).
+      const captureScript = path.join(pkgDir, 'capture.sh');
+      writePackage(
+        pkgDir,
+        {
+          clean: `bash ${captureScript} main`,
+          'clean:pre': `bash ${captureScript} pre`,
+          'clean:post': `bash ${captureScript} post`,
+        },
+        'passthrough',
+      );
+      writeFileSync(captureScript, `#!/bin/bash\nlabel="$1"\nshift\necho "$label args=$*" >> ${logFile}\n`);
+      clearLog();
+
+      const { exitCode } = runNmr('clean --flag value', { cwd: pkgDir });
+      expect(exitCode).toBe(0);
+      expect(readLog()).toStrictEqual(['pre args=', 'main args=--flag value', 'post args=']);
+    });
+
+    it('skips hooks when main command is overridden to empty string', () => {
+      const pkgDir = path.join(tempRoot, 'packages', 'main-skip-empty');
+      writePackage(
+        pkgDir,
+        {
+          clean: '',
+          'clean:pre': `echo pre >> ${logFile}`,
+          'clean:post': `echo post >> ${logFile}`,
+        },
+        'main-skip-empty',
+      );
+      clearLog();
+
+      const { exitCode } = runNmr('clean', { cwd: pkgDir });
+      expect(exitCode).toBe(0);
+      expect(readLog()).toStrictEqual([]);
+    });
+
+    it('skips hooks when main command is overridden to colon', () => {
+      const pkgDir = path.join(tempRoot, 'packages', 'main-skip-colon');
+      writePackage(
+        pkgDir,
+        {
+          clean: ':',
+          'clean:pre': `echo pre >> ${logFile}`,
+          'clean:post': `echo post >> ${logFile}`,
+        },
+        'main-skip-colon',
+      );
+      clearLog();
+
+      const { exitCode } = runNmr('clean', { cwd: pkgDir });
+      expect(exitCode).toBe(0);
+      expect(readLog()).toStrictEqual([]);
+    });
+
+    it('treats empty-string hook as silent no-op', () => {
+      const pkgDir = path.join(tempRoot, 'packages', 'hook-skip-empty');
+      writePackage(
+        pkgDir,
+        {
+          clean: `echo main >> ${logFile}`,
+          'clean:pre': '',
+          'clean:post': `echo post >> ${logFile}`,
+        },
+        'hook-skip-empty',
+      );
+      clearLog();
+
+      const { stdout, exitCode } = runNmr('clean', { cwd: pkgDir });
+      expect(exitCode).toBe(0);
+      expect(readLog()).toStrictEqual(['main', 'post']);
+      // No "Skipping" message should appear for the hook
+      expect(stdout).not.toContain('Skipping');
+    });
+
+    it('treats colon-valued hook as silent no-op', () => {
+      const pkgDir = path.join(tempRoot, 'packages', 'hook-skip-colon');
+      writePackage(
+        pkgDir,
+        {
+          clean: `echo main >> ${logFile}`,
+          'clean:pre': ':',
+          'clean:post': `echo post >> ${logFile}`,
+        },
+        'hook-skip-colon',
+      );
+      clearLog();
+
+      const { stdout, exitCode } = runNmr('clean', { cwd: pkgDir });
+      expect(exitCode).toBe(0);
+      expect(readLog()).toStrictEqual(['main', 'post']);
+      expect(stdout).not.toContain('no-op');
+    });
+
+    describe('config-defined hooks', () => {
+      let configRoot: string;
+      let configPkgDir: string;
+      let configLogFile: string;
+
+      beforeAll(() => {
+        configRoot = mkdtempSync(path.join(tmpdir(), 'nmr-hooks-cfg-'));
+        writeFileSync(path.join(configRoot, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n");
+        writeFileSync(path.join(configRoot, 'package.json'), JSON.stringify({ name: 'cfg-root', private: true }));
+        mkdirSync(path.join(configRoot, '.config'), { recursive: true });
+        configLogFile = path.join(configRoot, 'log.txt');
+        writeFileSync(configLogFile, '');
+
+        // Composite hook (array) — only allowed in tier 1+2, so requires .config/nmr.config.ts
+        const configContent = `import { defineConfig } from '${NMR_PACKAGE_DIR}/dist/esm/index.js';
+export default defineConfig({
+  workspaceScripts: {
+    'clean:pre': ['cfg-pre-step1', 'cfg-pre-step2'],
+    'cfg-pre-step1': 'echo step1 >> ${configLogFile}',
+    'cfg-pre-step2': 'echo step2 >> ${configLogFile}',
+    'clean:post': 'echo cfg-post >> ${configLogFile}',
+  },
+});
+`;
+        writeFileSync(path.join(configRoot, '.config', 'nmr.config.ts'), configContent);
+
+        configPkgDir = path.join(configRoot, 'packages', 'cfg-pkg');
+        mkdirSync(configPkgDir, { recursive: true });
+        writeFileSync(
+          path.join(configPkgDir, 'package.json'),
+          JSON.stringify({
+            name: 'cfg-pkg',
+            scripts: { clean: `echo main >> ${configLogFile}` },
+          }),
+        );
+      });
+
+      afterAll(() => {
+        rmSync(configRoot, { recursive: true, force: true });
+      });
+
+      function readConfigLog(): string[] {
+        return execSync(`cat ${configLogFile}`, { encoding: 'utf8' })
+          .split('\n')
+          .filter((line) => line.length > 0);
+      }
+
+      function clearConfigLog(): void {
+        writeFileSync(configLogFile, '');
+      }
+
+      it('runs hooks when main command is overridden in package.json (composite pre)', () => {
+        clearConfigLog();
+        const { exitCode } = runNmr('clean', { cwd: configPkgDir });
+        expect(exitCode).toBe(0);
+        // composite pre-hook expands to nmr cfg-pre-step1 && nmr cfg-pre-step2
+        expect(readConfigLog()).toStrictEqual(['step1', 'step2', 'main', 'cfg-post']);
+      });
+    });
+  });
 });

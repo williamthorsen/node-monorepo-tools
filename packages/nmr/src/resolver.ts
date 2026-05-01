@@ -76,7 +76,7 @@ export function describeScript(script: ScriptValue): string {
 /**
  * Reads a package.json file and returns the scripts object.
  */
-function readPackageJsonScripts(packageDir: string): Record<string, string> | undefined {
+export function readPackageJsonScripts(packageDir: string): Record<string, string> | undefined {
   try {
     const raw = readFileSync(path.join(packageDir, 'package.json'), 'utf8');
     const parsed: unknown = JSON.parse(raw);
@@ -124,7 +124,7 @@ export function buildRootRegistry(config: NmrConfig): ScriptRegistry {
  * Check whether a package.json script simply re-invokes the same nmr command,
  * e.g. `"build": "nmr build"` or `"build": "nmr build --verbose"`.
  */
-function isSelfReferential(script: string, commandName: string): boolean {
+export function isSelfReferential(script: string, commandName: string): boolean {
   const prefix = `nmr ${commandName}`;
   return script === prefix || script.startsWith(`${prefix} `);
 }
