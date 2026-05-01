@@ -166,7 +166,9 @@ async function main(): Promise<void> {
   // Hook recursion guard: commands ending in :pre or :post are leaf operations
   // and are not themselves wrapped in additional hook lookups.
   const isHookInvocation = command.endsWith(':pre') || command.endsWith(':post');
-  const fullCommand = isHookInvocation ? mainCommand : wrapWithHooks(command, mainCommand, registry, packageDir);
+  const fullCommand = isHookInvocation
+    ? mainCommand
+    : wrapWithHooks(command, mainCommand, registry, packageDir, parsed.workspaceRoot);
 
   const code = runCommand(fullCommand, undefined, runOptions);
   process.exit(code);
@@ -201,16 +203,29 @@ function handleSkipMessage(resolvedCommand: string, packageDir: string, quiet: b
  * hooks (and explicit `""`/`":"` skips) are silent — they do not appear in the
  * chain and produce no output. Hook failure short-circuits the chain via shell
  * `&&` semantics; the failing exit code propagates.
+ *
+ * When the parent invocation used `-w`/`--workspace-root` to force root-registry
+ * resolution, the flag is propagated to hook subprocess invocations so the child
+ * resolves hooks against the same registry the parent used. Without this, a hook
+ * defined only in `rootScripts` would fail to resolve when the child re-derives
+ * its registry from the package cwd.
  */
-function wrapWithHooks(command: string, mainCommand: string, registry: ScriptRegistry, packageDir: string): string {
+function wrapWithHooks(
+  command: string,
+  mainCommand: string,
+  registry: ScriptRegistry,
+  packageDir: string,
+  workspaceRoot: boolean,
+): string {
   const segments: string[] = [];
+  const flag = workspaceRoot ? '-w ' : '';
 
   if (hasRunnableHook(`${command}:pre`, registry, packageDir)) {
-    segments.push(`nmr ${command}:pre`);
+    segments.push(`nmr ${flag}${command}:pre`);
   }
   segments.push(mainCommand);
   if (hasRunnableHook(`${command}:post`, registry, packageDir)) {
-    segments.push(`nmr ${command}:post`);
+    segments.push(`nmr ${flag}${command}:post`);
   }
 
   return segments.join(' && ');

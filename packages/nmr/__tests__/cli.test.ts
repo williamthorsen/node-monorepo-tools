@@ -496,6 +496,7 @@ describe('nmr CLI', () => {
         writeFileSync(configLogFile, '');
 
         // Composite hook (array) — only allowed in tier 1+2, so requires .config/nmr.config.ts
+        // rootScripts entries also live here; they are reachable only via -w from a package cwd.
         const configContent = `import { defineConfig } from '${NMR_PACKAGE_DIR}/dist/esm/index.js';
 export default defineConfig({
   workspaceScripts: {
@@ -503,6 +504,11 @@ export default defineConfig({
     'cfg-pre-step1': 'echo step1 >> ${configLogFile}',
     'cfg-pre-step2': 'echo step2 >> ${configLogFile}',
     'clean:post': 'echo cfg-post >> ${configLogFile}',
+  },
+  rootScripts: {
+    'wroot-cmd': 'echo wroot-main >> ${configLogFile}',
+    'wroot-cmd:pre': 'echo wroot-pre >> ${configLogFile}',
+    'wroot-cmd:post': 'echo wroot-post >> ${configLogFile}',
   },
 });
 `;
@@ -531,6 +537,17 @@ export default defineConfig({
         expect(exitCode).toBe(0);
         // composite pre-hook expands to nmr cfg-pre-step1 && nmr cfg-pre-step2
         expect(readConfigLog()).toStrictEqual(['step1', 'step2', 'main', 'cfg-post']);
+      });
+
+      it('propagates -w to hook subprocesses so they resolve via root registry', () => {
+        clearConfigLog();
+        // wroot-cmd and its hooks live only in rootScripts. Without -w propagation,
+        // the parent's `useRoot=true` decision is lost in the subprocess `nmr X:pre` call,
+        // and the child re-derives a workspace registry from the package cwd, failing to
+        // resolve the hook.
+        const { exitCode } = runNmr('-w wroot-cmd', { cwd: configPkgDir });
+        expect(exitCode).toBe(0);
+        expect(readConfigLog()).toStrictEqual(['wroot-pre', 'wroot-main', 'wroot-post']);
       });
     });
   });
