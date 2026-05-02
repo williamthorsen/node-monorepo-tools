@@ -1,13 +1,20 @@
 import type { NmrConfig } from './config.js';
 import type { ScriptRegistry } from './resolve-scripts.js';
-import { buildRootRegistry, buildWorkspaceRegistry } from './resolver.js';
-import { describeScript } from './resolver.js';
+import {
+  buildRootRegistry,
+  buildWorkspaceRegistry,
+  describeScript,
+  isSelfReferential,
+  readPackageJsonScripts,
+} from './resolver.js';
 
 /**
  * Generates the help text for the `nmr` CLI, showing commands
- * from both workspace and root script registries.
+ * from both workspace and root script registries. When `packageDir`
+ * is provided, also lists non-self-referential scripts from that
+ * package's `package.json` under a "Package scripts:" section.
  */
-export function generateHelp(config: NmrConfig): string {
+export function generateHelp(config: NmrConfig, packageDir?: string): string {
   const lines: string[] = [
     'Usage: nmr [flags] <command> [args...]',
     '',
@@ -26,7 +33,33 @@ export function generateHelp(config: NmrConfig): string {
   lines.push('', 'Root commands:');
   formatRegistry(buildRootRegistry(config), lines);
 
+  if (packageDir !== undefined) {
+    const packageScripts = collectPackageScripts(packageDir);
+    if (Object.keys(packageScripts).length > 0) {
+      lines.push('', 'Package scripts:');
+      formatRegistry(packageScripts, lines);
+    }
+  }
+
   return lines.join('\n');
+}
+
+/**
+ * Loads a package's `package.json` scripts and removes self-referential entries
+ * (e.g., `"build": "nmr build"`) which would appear as redundant duplicates of
+ * the workspace command. Returns an empty object when no scripts are present.
+ */
+function collectPackageScripts(packageDir: string): Record<string, string> {
+  const scripts = readPackageJsonScripts(packageDir);
+  if (!scripts) return {};
+
+  const filtered: Record<string, string> = {};
+  for (const [name, value] of Object.entries(scripts)) {
+    if (!isSelfReferential(value, name)) {
+      filtered[name] = value;
+    }
+  }
+  return filtered;
 }
 
 function formatRegistry(registry: ScriptRegistry, lines: string[]): void {
