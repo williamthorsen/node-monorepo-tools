@@ -511,10 +511,25 @@ describe('nmr CLI', () => {
       beforeAll(() => {
         configRoot = mkdtempSync(path.join(tmpdir(), 'nmr-hooks-cfg-'));
         writeFileSync(path.join(configRoot, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n");
-        writeFileSync(path.join(configRoot, 'package.json'), JSON.stringify({ name: 'cfg-root', private: true }));
         mkdirSync(path.join(configRoot, '.config'), { recursive: true });
         configLogFile = path.join(configRoot, 'log.txt');
         writeFileSync(configLogFile, '');
+
+        // Root package.json scripts are tier 3 from root cwd; under -w from a
+        // subpackage they should resolve via root's package.json, not the
+        // subpackage's. Defining wpkg-cmd here exercises that path.
+        writeFileSync(
+          path.join(configRoot, 'package.json'),
+          JSON.stringify({
+            name: 'cfg-root',
+            private: true,
+            scripts: {
+              'wpkg-cmd': `echo wpkg-main >> ${configLogFile}`,
+              'wpkg-cmd:pre': `echo wpkg-pre >> ${configLogFile}`,
+              'wpkg-cmd:post': `echo wpkg-post >> ${configLogFile}`,
+            },
+          }),
+        );
 
         // Composite hook (array) — only allowed in tier 1+2, so requires .config/nmr.config.ts
         // rootScripts entries also live here; they are reachable only via -w from a package cwd.
@@ -569,6 +584,17 @@ export default defineConfig({
         const { exitCode } = runNmr('-w wroot-cmd', { cwd: configPkgDir });
         expect(exitCode).toBe(0);
         expect(readConfigLog()).toStrictEqual(['wroot-pre', 'wroot-main', 'wroot-post']);
+      });
+
+      it('resolves tier-3 (root package.json) scripts under -w from a subpackage', () => {
+        clearConfigLog();
+        // wpkg-cmd and its hooks live only in the root package.json scripts (tier 3
+        // from root cwd). Under -w from a subpackage, packageDir must follow useRoot
+        // so the resolver consults root's package.json instead of the subpackage's,
+        // otherwise the command and its hooks fail with "Unknown command".
+        const { exitCode } = runNmr('-w wpkg-cmd', { cwd: configPkgDir });
+        expect(exitCode).toBe(0);
+        expect(readConfigLog()).toStrictEqual(['wpkg-pre', 'wpkg-main', 'wpkg-post']);
       });
     });
   });

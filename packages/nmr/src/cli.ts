@@ -140,7 +140,11 @@ async function main(): Promise<void> {
   const useRoot = parsed.workspaceRoot || context.isRoot;
   const registry = useRoot ? buildRootRegistry(context.config) : buildWorkspaceRegistry(context.config, parsed.intTest);
 
-  const packageDir = context.packageDir ?? context.monorepoRoot;
+  // packageDir for tier-3 (package.json) lookups follows useRoot so that `-w`
+  // is fully root-contextual: an override or hook defined in the monorepo
+  // root's package.json resolves under `nmr -w X` from any cwd, mirroring
+  // how it resolves under `nmr X` from root cwd.
+  const packageDir = useRoot ? context.monorepoRoot : (context.packageDir ?? context.monorepoRoot);
   const resolved = resolveScript(command, registry, packageDir);
 
   if (!resolved) {
