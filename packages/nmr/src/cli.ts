@@ -8,6 +8,7 @@ import { readPackageVersion } from '@williamthorsen/nmr-core';
 
 import { resolveContext } from './context.js';
 import { generateHelp } from './help.js';
+import { isHookName } from './helpers/hook-name.js';
 import type { ScriptRegistry } from './resolve-scripts.js';
 import { applyDevBin, buildRootRegistry, buildWorkspaceRegistry, resolveScript } from './resolver.js';
 import { runCommand } from './runner.js';
@@ -112,8 +113,17 @@ async function main(): Promise<void> {
 
   const context = await resolveContext();
 
+  // Determine which registry to use
+  const useRoot = parsed.workspaceRoot || context.isRoot;
+
+  // packageDir for tier-3 (package.json) lookups follows useRoot so that `-w`
+  // is fully root-contextual: an override or hook defined in the monorepo
+  // root's package.json resolves under `nmr -w X` from any cwd, mirroring
+  // how it resolves under `nmr X` from root cwd.
+  const packageDir = useRoot ? context.monorepoRoot : (context.packageDir ?? context.monorepoRoot);
+
   if (parsed.help || !parsed.command) {
-    console.info(generateHelp(context.config, context.packageDir));
+    console.info(generateHelp(context.config, packageDir, useRoot));
     process.exit(0);
   }
 
@@ -136,15 +146,7 @@ async function main(): Promise<void> {
     process.exit(code);
   }
 
-  // Determine which registry to use
-  const useRoot = parsed.workspaceRoot || context.isRoot;
   const registry = useRoot ? buildRootRegistry(context.config) : buildWorkspaceRegistry(context.config, parsed.intTest);
-
-  // packageDir for tier-3 (package.json) lookups follows useRoot so that `-w`
-  // is fully root-contextual: an override or hook defined in the monorepo
-  // root's package.json resolves under `nmr -w X` from any cwd, mirroring
-  // how it resolves under `nmr X` from root cwd.
-  const packageDir = useRoot ? context.monorepoRoot : (context.packageDir ?? context.monorepoRoot);
   const resolved = resolveScript(command, registry, packageDir, parsed.workspaceRoot);
 
   if (!resolved) {
@@ -169,7 +171,7 @@ async function main(): Promise<void> {
 
   // Hook recursion guard: commands ending in :pre or :post are leaf operations
   // and are not themselves wrapped in additional hook lookups.
-  const isHookInvocation = command.endsWith(':pre') || command.endsWith(':post');
+  const isHookInvocation = isHookName(command);
   const fullCommand = isHookInvocation
     ? mainCommand
     : wrapWithHooks(command, mainCommand, registry, packageDir, parsed.workspaceRoot);
