@@ -1,13 +1,15 @@
 {
-  "$schema": "https://github.com/williamthorsen/node-monorepo-tools/raw/release-kit-v5.1.0/packages/release-kit/schemas/label-map.json",
+  "$schema": "https://github.com/williamthorsen/codeassembly/raw/agents-v0.1.0/packages/agents/schemas/label-map.json",
   "types": {
     "ai": "ai",
     "ci": "ci",
+    "deprecate": "deprecate",
     "deps": "dependencies",
     "docs": "documentation",
     "feat": "feature",
     "fix": "fix",
-    "internal": "internal",
+    "fmt": "formatting",
+    "internal": "utility",
     "perf": "performance",
     "refactor": "refactoring",
     "sec": "security",
@@ -15,10 +17,9 @@
     "tooling": "tooling"
   },
   "scopes": {
-    "audit": "scope:audit",
+    "audit-deps": "scope:audit-deps",
     "core": "scope:core",
     "nmr": "scope:nmr",
-    "preflight": "scope:preflight",
     "release-kit": "scope:release-kit",
     "root": "scope:root"
   }
