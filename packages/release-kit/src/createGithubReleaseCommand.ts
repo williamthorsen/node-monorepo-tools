@@ -41,19 +41,25 @@ export async function createGithubReleaseCommand(argv: string[]): Promise<void> 
     process.exit(1);
   }
 
-  // Fail visibly when the user explicitly requested tags via --tags and no Release was created.
-  // A soft-skip across every requested tag is a silent-success gap for this command, whose whole
-  // purpose is failure visibility. Omitted --tags (operate on all HEAD tags) keeps the legacy
-  // soft-skip behavior since the user did not single out specific tags.
-  if (requestedTags !== undefined && outcome.created.length === 0) {
-    console.error(
-      `Error: no GitHub Releases were created for requested tags: ${outcome.skipped.join(', ')}. ` +
-        `Each was skipped (missing changelog entry, no all-audience content, or empty rendered body).`,
-    );
-    process.exit(1);
+  // Fail visibly when the user explicitly requested tags via --tags and any requested tag has no
+  // changelog entry: that's a typo or misconfiguration worth surfacing, even if other requested
+  // tags succeeded. Other skip reasons (`no-audience-content`, `empty-body`) are intentional
+  // outcomes of release-kit's rendering rules — a tooling-only release has nothing user-facing
+  // to announce, and that's a normal state, not a failure. Omitted --tags (operate on all HEAD
+  // tags) keeps the legacy soft-skip behavior since the user did not single out specific tags.
+  if (requestedTags !== undefined) {
+    const noEntryTags = outcome.skipped.filter((s) => s.reason === 'no-entry').map((s) => s.tag);
+    if (noEntryTags.length > 0) {
+      console.error(
+        `Error: requested tags have no changelog entry: ${noEntryTags.join(', ')}. ` +
+          `Verify the tag names match a published changelog version.`,
+      );
+      process.exit(1);
+    }
   }
 
   if (outcome.skipped.length > 0) {
-    console.info(`Skipped ${outcome.skipped.length} tag(s) with no releasable content: ${outcome.skipped.join(', ')}.`);
+    const formatted = outcome.skipped.map((s) => `${s.tag} (${s.reason})`).join(', ');
+    console.info(`Skipped ${outcome.skipped.length} tag(s) with no releasable content: ${formatted}.`);
   }
 }
