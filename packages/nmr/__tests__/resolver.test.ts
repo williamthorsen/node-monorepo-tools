@@ -66,15 +66,27 @@ describe(applyDevBin, () => {
 
 describe('expandScript', () => {
   it('returns a string script unchanged', () => {
-    expect(expandScript('vitest')).toBe('vitest');
+    expect(expandScript('vitest', false)).toBe('vitest');
+  });
+
+  it('returns a string script unchanged regardless of workspaceRoot', () => {
+    expect(expandScript('vitest', true)).toBe('vitest');
   });
 
   it('expands an array to chained nmr invocations', () => {
-    expect(expandScript(['compile', 'generate-typings'])).toBe('nmr compile && nmr generate-typings');
+    expect(expandScript(['compile', 'generate-typings'], false)).toBe('nmr compile && nmr generate-typings');
   });
 
   it('expands a single-element array', () => {
-    expect(expandScript(['test'])).toBe('nmr test');
+    expect(expandScript(['test'], false)).toBe('nmr test');
+  });
+
+  it('propagates -w to each step when workspaceRoot is true', () => {
+    expect(expandScript(['compile', 'generate-typings'], true)).toBe('nmr -w compile && nmr -w generate-typings');
+  });
+
+  it('propagates -w to a single-element array when workspaceRoot is true', () => {
+    expect(expandScript(['test'], true)).toBe('nmr -w test');
   });
 });
 
@@ -130,14 +142,14 @@ describe('resolveScript', () => {
 
   it('resolves from the registry when no package override exists', () => {
     const registry = { test: 'vitest' };
-    const result = resolveScript('test', registry);
+    const result = resolveScript('test', registry, undefined, false);
 
     expect(result).toStrictEqual({ command: 'vitest', source: 'default' });
   });
 
   it('expands array scripts from the registry', () => {
     const registry = { build: ['compile', 'generate-typings'] };
-    const result = resolveScript('build', registry);
+    const result = resolveScript('build', registry, undefined, false);
 
     expect(result).toStrictEqual({
       command: 'nmr compile && nmr generate-typings',
@@ -145,9 +157,19 @@ describe('resolveScript', () => {
     });
   });
 
+  it('propagates -w through composite expansion when workspaceRoot is true', () => {
+    const registry = { build: ['compile', 'generate-typings'] };
+    const result = resolveScript('build', registry, undefined, true);
+
+    expect(result).toStrictEqual({
+      command: 'nmr -w compile && nmr -w generate-typings',
+      source: 'default',
+    });
+  });
+
   it('returns undefined for unknown commands', () => {
     const registry = { test: 'vitest' };
-    expect(resolveScript('unknown', registry)).toBeUndefined();
+    expect(resolveScript('unknown', registry, undefined, false)).toBeUndefined();
   });
 
   it('uses package.json override when present (tier 3)', () => {
@@ -157,16 +179,30 @@ describe('resolveScript', () => {
     );
 
     const registry = { test: 'vitest' };
-    const result = resolveScript('test', registry, tmpDir);
+    const result = resolveScript('test', registry, tmpDir, false);
 
     expect(result).toStrictEqual({ command: 'jest', source: 'package' });
+  });
+
+  it('does not rewrite tier-3 override strings when workspaceRoot is true', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'package.json'),
+      JSON.stringify({ name: 'test-pkg', scripts: { build: 'nmr compile' } }),
+    );
+
+    const registry = { build: ['compile', 'generate-typings'] };
+    const result = resolveScript('build', registry, tmpDir, true);
+
+    // User-authored override strings pass through untouched; only generated
+    // chains receive the -w flag.
+    expect(result).toStrictEqual({ command: 'nmr compile', source: 'package' });
   });
 
   it('skips execution when package.json override is empty string', () => {
     fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify({ name: 'test-pkg', scripts: { lint: '' } }));
 
     const registry = { lint: 'eslint .' };
-    const result = resolveScript('lint', registry, tmpDir);
+    const result = resolveScript('lint', registry, tmpDir, false);
 
     expect(result).toStrictEqual({ command: '', source: 'package' });
   });
@@ -178,7 +214,7 @@ describe('resolveScript', () => {
     );
 
     const registry = { build: ['compile', 'generate-typings'] };
-    const result = resolveScript('build', registry, tmpDir);
+    const result = resolveScript('build', registry, tmpDir, false);
 
     expect(result).toStrictEqual({
       command: 'nmr compile && nmr generate-typings',
@@ -193,7 +229,7 @@ describe('resolveScript', () => {
     );
 
     const registry = { build: ['compile', 'generate-typings'] };
-    const result = resolveScript('build', registry, tmpDir);
+    const result = resolveScript('build', registry, tmpDir, false);
 
     expect(result).toStrictEqual({
       command: 'nmr compile && nmr generate-typings',
@@ -208,7 +244,7 @@ describe('resolveScript', () => {
     );
 
     const registry = { build: ['compile', 'generate-typings'] };
-    const result = resolveScript('build', registry, tmpDir);
+    const result = resolveScript('build', registry, tmpDir, false);
 
     expect(result).toStrictEqual({ command: 'nmr compile', source: 'package' });
   });
@@ -220,7 +256,7 @@ describe('resolveScript', () => {
     );
 
     const registry = { test: 'vitest' };
-    const result = resolveScript('test', registry, tmpDir);
+    const result = resolveScript('test', registry, tmpDir, false);
 
     expect(result).toStrictEqual({ command: 'vitest', source: 'default' });
   });

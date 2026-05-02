@@ -58,12 +58,20 @@ export interface ResolvedScript {
 /**
  * Expands a script value into an executable command string.
  * Arrays are expanded to `nmr {step1} && nmr {step2}`.
+ *
+ * When `workspaceRoot` is true, the parent's `-w` flag is propagated to each
+ * step's subprocess invocation (`nmr -w {step1} && nmr -w {step2}`) so children
+ * resolve against the same root registry the parent used. Without this, a step
+ * defined only in `rootScripts` would fail to resolve when the child re-derives
+ * its registry from the package cwd. Mirrors the convention `wrapWithHooks`
+ * uses for hook subprocess invocations.
  */
-export function expandScript(script: ScriptValue): string {
+export function expandScript(script: ScriptValue, workspaceRoot: boolean): string {
   if (typeof script === 'string') {
     return script;
   }
-  return script.map((s) => `nmr ${s}`).join(' && ');
+  const flag = workspaceRoot ? '-w ' : '';
+  return script.map((s) => `nmr ${flag}${s}`).join(' && ');
 }
 
 /**
@@ -142,7 +150,8 @@ export function isSelfReferential(script: string, commandName: string): boolean 
 export function resolveScript(
   commandName: string,
   registry: ScriptRegistry,
-  packageDir?: string,
+  packageDir: string | undefined,
+  workspaceRoot: boolean,
 ): ResolvedScript | undefined {
   // Check tier 3: per-package package.json overrides
   if (packageDir) {
@@ -161,5 +170,5 @@ export function resolveScript(
     return undefined;
   }
 
-  return { command: expandScript(registryEntry), source: 'default' };
+  return { command: expandScript(registryEntry, workspaceRoot), source: 'default' };
 }

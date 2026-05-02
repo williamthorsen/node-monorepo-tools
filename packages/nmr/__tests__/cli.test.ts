@@ -545,6 +545,9 @@ export default defineConfig({
     'wroot-cmd': 'echo wroot-main >> ${configLogFile}',
     'wroot-cmd:pre': 'echo wroot-pre >> ${configLogFile}',
     'wroot-cmd:post': 'echo wroot-post >> ${configLogFile}',
+    'wroot-composite': ['wroot-step1', 'wroot-step2'],
+    'wroot-step1': 'echo wroot-step1 >> ${configLogFile}',
+    'wroot-step2': 'echo wroot-step2 >> ${configLogFile}',
   },
 });
 `;
@@ -584,6 +587,17 @@ export default defineConfig({
         const { exitCode } = runNmr('-w wroot-cmd', { cwd: configPkgDir });
         expect(exitCode).toBe(0);
         expect(readConfigLog()).toStrictEqual(['wroot-pre', 'wroot-main', 'wroot-post']);
+      });
+
+      it('propagates -w through composite-script step subprocesses', () => {
+        clearConfigLog();
+        // wroot-composite and its steps live only in rootScripts. The composite expands
+        // to `nmr -w wroot-step1 && nmr -w wroot-step2` so each child resolves via the
+        // root registry. Without -w propagation in expandScript, the children re-derive
+        // a workspace registry from the package cwd and fail with "Unknown command".
+        const { exitCode } = runNmr('-w wroot-composite', { cwd: configPkgDir });
+        expect(exitCode).toBe(0);
+        expect(readConfigLog()).toStrictEqual(['wroot-step1', 'wroot-step2']);
       });
 
       it('resolves tier-3 (root package.json) scripts under -w from a subpackage', () => {

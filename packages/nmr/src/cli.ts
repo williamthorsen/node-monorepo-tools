@@ -145,7 +145,7 @@ async function main(): Promise<void> {
   // root's package.json resolves under `nmr -w X` from any cwd, mirroring
   // how it resolves under `nmr X` from root cwd.
   const packageDir = useRoot ? context.monorepoRoot : (context.packageDir ?? context.monorepoRoot);
-  const resolved = resolveScript(command, registry, packageDir);
+  const resolved = resolveScript(command, registry, packageDir, parsed.workspaceRoot);
 
   if (!resolved) {
     if (process.env.NMR_RUN_IF_PRESENT === '1') {
@@ -224,11 +224,11 @@ function wrapWithHooks(
   const segments: string[] = [];
   const flag = workspaceRoot ? '-w ' : '';
 
-  if (hasRunnableHook(`${command}:pre`, registry, packageDir)) {
+  if (hasRunnableHook(`${command}:pre`, registry, packageDir, workspaceRoot)) {
     segments.push(`nmr ${flag}${command}:pre`);
   }
   segments.push(mainCommand);
-  if (hasRunnableHook(`${command}:post`, registry, packageDir)) {
+  if (hasRunnableHook(`${command}:post`, registry, packageDir, workspaceRoot)) {
     segments.push(`nmr ${flag}${command}:post`);
   }
 
@@ -240,8 +240,13 @@ function wrapWithHooks(
  * A hook is runnable when it resolves and the resolved value is neither
  * `""` nor `":"` (both of which mean "skip").
  */
-function hasRunnableHook(hookName: string, registry: ScriptRegistry, packageDir: string): boolean {
-  const resolved = resolveScript(hookName, registry, packageDir);
+function hasRunnableHook(
+  hookName: string,
+  registry: ScriptRegistry,
+  packageDir: string,
+  workspaceRoot: boolean,
+): boolean {
+  const resolved = resolveScript(hookName, registry, packageDir, workspaceRoot);
   if (!resolved) return false;
   return resolved.command !== '' && resolved.command !== ':';
 }
