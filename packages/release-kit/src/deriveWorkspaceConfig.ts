@@ -30,12 +30,17 @@ export function deriveWorkspaceConfig(workspacePath: string): WorkspaceConfig {
   }
 
   const unscopedName = stripNpmScope(name);
+  const privateField = isRecord(parsed) ? parsed.private : undefined;
+  // Publishable when `private` is absent or `false`. Any other value (including non-boolean
+  // truthy values) is treated as `private: true` — match how npm/pnpm refuse to publish.
+  const isPublishable = privateField === undefined || privateField === false;
 
   return {
     dir,
     name,
     tagPrefix: `${unscopedName}-v`,
     workspacePath,
+    isPublishable,
     packageFiles: [packageJsonPath],
     changelogPaths: [workspacePath],
     paths: [`${workspacePath}/**`],

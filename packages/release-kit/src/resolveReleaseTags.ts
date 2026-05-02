@@ -6,6 +6,13 @@ export interface ResolvedTag {
   tag: string;
   dir: string;
   workspacePath: string;
+  /**
+   * Whether the workspace this tag belongs to can be published to a registry. Propagated
+   * from the matched `WorkspaceConfig.isPublishable` (monorepo) or from the single-package
+   * workspace config (single-package mode). Consumed by `release-kit publish` to filter the
+   * tag set; other commands ignore it.
+   */
+  isPublishable: boolean;
 }
 
 /** Pattern matching a single-package tag like `v1.2.3` or `v0.10.0-beta.1`. */
@@ -17,12 +24,19 @@ const SEMVER_SUFFIX_PATTERN = /^\d+\.\d+\.\d+/;
 /**
  * Resolve release tags pointing at HEAD into publishable package descriptors.
  *
- * In single-package mode (no `workspaces`), match tags like `v1.2.3`.
- * In monorepo mode, match each tag against the workspace whose `tagPrefix` the tag
- * starts with. Because `tagPrefix` is derived from `deriveWorkspaceConfig()` (the same source that
- * produced the tag), encoding and decoding stay colocated.
+ * In single-package mode (`workspaces` is `undefined`), match tags like `v1.2.3`. In
+ * single-package mode the caller passes `singleWorkspace` so each `ResolvedTag` carries
+ * the workspace's `isPublishable` bit derived from `./package.json#private`.
+ *
+ * In monorepo mode, match each tag against the workspace whose `tagPrefix` the tag starts
+ * with. Because `tagPrefix` is derived from `deriveWorkspaceConfig()` (the same source that
+ * produced the tag), encoding and decoding stay colocated. The matched workspace's
+ * `isPublishable` propagates onto the `ResolvedTag`.
  */
-export function resolveReleaseTags(workspaces?: readonly WorkspaceConfig[]): ResolvedTag[] {
+export function resolveReleaseTags(
+  workspaces?: readonly WorkspaceConfig[],
+  singleWorkspace?: WorkspaceConfig,
+): ResolvedTag[] {
   const output = execFileSync('git', ['tag', '--points-at', 'HEAD'], { encoding: 'utf8' });
 
   const tags = output
@@ -31,25 +45,33 @@ export function resolveReleaseTags(workspaces?: readonly WorkspaceConfig[]): Res
     .filter((line) => line.length > 0);
 
   if (workspaces === undefined) {
-    return resolveSinglePackageTags(tags);
+    return resolveSinglePackageTags(tags, singleWorkspace);
   }
 
   return resolveMonorepoTags(tags, workspaces);
 }
 
-/** Match single-package tags of the form `v{semver}`, warning if multiple are found. */
-function resolveSinglePackageTags(tags: string[]): ResolvedTag[] {
+/**
+ * Match single-package tags of the form `v{semver}`, warning if multiple are found.
+ *
+ * `singleWorkspace` (when provided) supplies `isPublishable` for the resolved tags. When
+ * absent (legacy callers that have not yet derived the single-package workspace config),
+ * tags default to `isPublishable: true` — preserving prior behavior for any caller path
+ * that did not yet thread the workspace config through.
+ */
+function resolveSinglePackageTags(tags: string[], singleWorkspace: WorkspaceConfig | undefined): ResolvedTag[] {
   const matched = tags.filter((tag) => VERSION_PATTERN.test(tag));
+  const isPublishable = singleWorkspace?.isPublishable ?? true;
 
   if (matched.length > 1) {
     console.warn(
       `Warning: Multiple version tags found on HEAD: ${matched.join(', ')}. ` +
         `Publishing the same package multiple times is almost certainly unintended. Using only the first tag.`,
     );
-    return matched.slice(0, 1).map((tag) => ({ tag, dir: '.', workspacePath: '.' }));
+    return matched.slice(0, 1).map((tag) => ({ tag, dir: '.', workspacePath: '.', isPublishable }));
   }
 
-  return matched.map((tag) => ({ tag, dir: '.', workspacePath: '.' }));
+  return matched.map((tag) => ({ tag, dir: '.', workspacePath: '.', isPublishable }));
 }
 
 /**
@@ -68,7 +90,7 @@ function resolveMonorepoTags(tags: string[], workspaces: readonly WorkspaceConfi
   for (const tag of tags) {
     const match = findMatchingWorkspace(tag, sortedWorkspaces);
     if (match !== undefined) {
-      resolved.push({ tag, dir: match.dir, workspacePath: match.workspacePath });
+      resolved.push({ tag, dir: match.dir, workspacePath: match.workspacePath, isPublishable: match.isPublishable });
     }
   }
 

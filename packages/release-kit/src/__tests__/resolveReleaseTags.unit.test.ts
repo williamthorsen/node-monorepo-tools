@@ -19,6 +19,7 @@ function makeWorkspace(
     name: overrides.name ?? `@test/${dir}`,
     tagPrefix: overrides.tagPrefix,
     workspacePath,
+    isPublishable: overrides.isPublishable ?? true,
     packageFiles: overrides.packageFiles ?? [`${workspacePath}/package.json`],
     changelogPaths: overrides.changelogPaths ?? [workspacePath],
     paths: overrides.paths ?? [`${workspacePath}/**`],
@@ -44,13 +45,13 @@ describe(resolveReleaseTags, () => {
   it('resolves a single-package tag', () => {
     mockExecFileSync.mockReturnValue('v1.2.3\n');
 
-    expect(resolveReleaseTags()).toStrictEqual([{ tag: 'v1.2.3', dir: '.', workspacePath: '.' }]);
+    expect(resolveReleaseTags()).toStrictEqual([{ tag: 'v1.2.3', dir: '.', workspacePath: '.', isPublishable: true }]);
   });
 
   it('ignores unrecognized tags in single-package mode', () => {
     mockExecFileSync.mockReturnValue('v1.2.3\nsome-other-tag\nrelease-candidate\n');
 
-    expect(resolveReleaseTags()).toStrictEqual([{ tag: 'v1.2.3', dir: '.', workspacePath: '.' }]);
+    expect(resolveReleaseTags()).toStrictEqual([{ tag: 'v1.2.3', dir: '.', workspacePath: '.', isPublishable: true }]);
   });
 
   it('resolves monorepo tags whose tagPrefix matches a workspace', () => {
@@ -61,8 +62,8 @@ describe(resolveReleaseTags, () => {
     ];
 
     expect(resolveReleaseTags(workspaces)).toStrictEqual([
-      { tag: 'nmr-core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
-      { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit' },
+      { tag: 'nmr-core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
+      { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit', isPublishable: true },
     ]);
   });
 
@@ -71,7 +72,7 @@ describe(resolveReleaseTags, () => {
     const workspaces = [makeWorkspace({ dir: 'core', tagPrefix: 'nmr-core-v', workspacePath: 'packages/core' })];
 
     expect(resolveReleaseTags(workspaces)).toStrictEqual([
-      { tag: 'nmr-core-v0.2.8', dir: 'core', workspacePath: 'packages/core' },
+      { tag: 'nmr-core-v0.2.8', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
     ]);
   });
 
@@ -80,7 +81,7 @@ describe(resolveReleaseTags, () => {
     const workspaces = [makeWorkspace({ dir: 'core', tagPrefix: 'core-v' })];
 
     expect(resolveReleaseTags(workspaces)).toStrictEqual([
-      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
+      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
     ]);
   });
 
@@ -89,7 +90,7 @@ describe(resolveReleaseTags, () => {
     const workspaces = [makeWorkspace({ dir: 'core', tagPrefix: 'core-v' })];
 
     expect(resolveReleaseTags(workspaces)).toStrictEqual([
-      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
+      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
     ]);
   });
 
@@ -98,7 +99,7 @@ describe(resolveReleaseTags, () => {
     const workspaces = [makeWorkspace({ dir: 'core', tagPrefix: 'core-v' })];
 
     expect(resolveReleaseTags(workspaces)).toStrictEqual([
-      { tag: 'core-v1.0.0-beta.1', dir: 'core', workspacePath: 'packages/core' },
+      { tag: 'core-v1.0.0-beta.1', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
     ]);
   });
 
@@ -109,7 +110,7 @@ describe(resolveReleaseTags, () => {
     ];
 
     expect(resolveReleaseTags(workspaces)).toStrictEqual([
-      { tag: 'my-cool-lib-v3.0.0', dir: 'my-cool-lib', workspacePath: 'packages/my-cool-lib' },
+      { tag: 'my-cool-lib-v3.0.0', dir: 'my-cool-lib', workspacePath: 'packages/my-cool-lib', isPublishable: true },
     ]);
   });
 
@@ -121,8 +122,8 @@ describe(resolveReleaseTags, () => {
     ];
 
     expect(resolveReleaseTags(workspaces)).toStrictEqual([
-      { tag: 'foo-bar-v1.0.0', dir: 'foo-bar', workspacePath: 'packages/foo-bar' },
-      { tag: 'foo-v2.0.0', dir: 'foo', workspacePath: 'packages/foo' },
+      { tag: 'foo-bar-v1.0.0', dir: 'foo-bar', workspacePath: 'packages/foo-bar', isPublishable: true },
+      { tag: 'foo-v2.0.0', dir: 'foo', workspacePath: 'packages/foo', isPublishable: true },
     ]);
   });
 
@@ -138,7 +139,7 @@ describe(resolveReleaseTags, () => {
 
     const result = resolveReleaseTags();
 
-    expect(result).toStrictEqual([{ tag: 'v1.0.0', dir: '.', workspacePath: '.' }]);
+    expect(result).toStrictEqual([{ tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: true }]);
     expect(console.warn).toHaveBeenCalledWith(
       expect.stringContaining('Multiple version tags found on HEAD: v1.0.0, v1.1.0'),
     );
@@ -150,5 +151,53 @@ describe(resolveReleaseTags, () => {
     resolveReleaseTags();
 
     expect(console.warn).not.toHaveBeenCalled();
+  });
+
+  describe('isPublishable propagation', () => {
+    it('copies isPublishable=false from the matched workspace onto the resolved tag', () => {
+      mockExecFileSync.mockReturnValue('basic-v1.0.0\n');
+      const workspaces = [
+        makeWorkspace({ dir: 'basic', tagPrefix: 'basic-v', workspacePath: 'packages/basic', isPublishable: false }),
+      ];
+
+      expect(resolveReleaseTags(workspaces)).toStrictEqual([
+        { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
+      ]);
+    });
+
+    it('mixes isPublishable values across matched workspaces in a single resolution', () => {
+      mockExecFileSync.mockReturnValue('public-v1.0.0\nbasic-v2.0.0\n');
+      const workspaces = [
+        makeWorkspace({ dir: 'public', tagPrefix: 'public-v', workspacePath: 'packages/public', isPublishable: true }),
+        makeWorkspace({ dir: 'basic', tagPrefix: 'basic-v', workspacePath: 'packages/basic', isPublishable: false }),
+      ];
+
+      expect(resolveReleaseTags(workspaces)).toStrictEqual([
+        { tag: 'public-v1.0.0', dir: 'public', workspacePath: 'packages/public', isPublishable: true },
+        { tag: 'basic-v2.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
+      ]);
+    });
+
+    it('uses singleWorkspace.isPublishable for single-package tags', () => {
+      mockExecFileSync.mockReturnValue('v1.2.3\n');
+      const single = makeWorkspace({
+        dir: 'root',
+        tagPrefix: 'v',
+        workspacePath: '.',
+        isPublishable: false,
+      });
+
+      expect(resolveReleaseTags(undefined, single)).toStrictEqual([
+        { tag: 'v1.2.3', dir: '.', workspacePath: '.', isPublishable: false },
+      ]);
+    });
+
+    it('defaults single-package isPublishable to true when no singleWorkspace is provided', () => {
+      mockExecFileSync.mockReturnValue('v1.2.3\n');
+
+      expect(resolveReleaseTags()).toStrictEqual([
+        { tag: 'v1.2.3', dir: '.', workspacePath: '.', isPublishable: true },
+      ]);
+    });
   });
 });
