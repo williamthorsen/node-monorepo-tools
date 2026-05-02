@@ -384,7 +384,7 @@ The filter behaves differently depending on whether `--tags` is provided:
 Example output when an explicit tag is unpublishable:
 
 ```
-Error: basic-v1.0.0 cannot be published: package.json#private is true.
+Error: basic-v1.0.0 (packages/basic) cannot be published: package.json#private is true.
 ```
 
 ### `release-kit create-github-release`

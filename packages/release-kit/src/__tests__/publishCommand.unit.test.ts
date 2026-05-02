@@ -531,7 +531,7 @@ describe(publishCommand, () => {
       expect(thrown).toBeInstanceOf(ExitError);
       expect(thrown?.code).toBe(1);
       expect(console.error).toHaveBeenCalledWith(
-        'Error: basic-v1.0.0 cannot be published: package.json#private is true.',
+        'Error: basic-v1.0.0 (packages/basic) cannot be published: package.json#private is true.',
       );
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
@@ -555,10 +555,10 @@ describe(publishCommand, () => {
       expect(thrown).toBeInstanceOf(ExitError);
       expect(thrown?.code).toBe(1);
       expect(console.error).toHaveBeenCalledWith(
-        'Error: basic-v1.0.0 cannot be published: package.json#private is true.',
+        'Error: basic-v1.0.0 (packages/basic) cannot be published: package.json#private is true.',
       );
       expect(console.error).toHaveBeenCalledWith(
-        'Error: internal-v2.0.0 cannot be published: package.json#private is true.',
+        'Error: internal-v2.0.0 (packages/internal) cannot be published: package.json#private is true.',
       );
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
@@ -588,7 +588,7 @@ describe(publishCommand, () => {
       expect(thrown).toBeInstanceOf(ExitError);
       expect(thrown?.code).toBe(1);
       expect(console.error).toHaveBeenCalledWith(
-        'Error: basic-v1.0.0 cannot be published: package.json#private is true.',
+        'Error: basic-v1.0.0 (packages/basic) cannot be published: package.json#private is true.',
       );
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });

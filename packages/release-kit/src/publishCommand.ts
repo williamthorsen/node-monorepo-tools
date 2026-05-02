@@ -131,8 +131,8 @@ function filterPublishableTags(resolvedTags: ResolvedTag[], isExplicit: boolean)
   }
 
   if (isExplicit && unpublishable.length > 0) {
-    for (const { tag } of unpublishable) {
-      console.error(`Error: ${tag} cannot be published: package.json#private is true.`);
+    for (const { tag, workspacePath } of unpublishable) {
+      console.error(`Error: ${tag} (${workspacePath}) cannot be published: package.json#private is true.`);
     }
     process.exit(1);
   }
