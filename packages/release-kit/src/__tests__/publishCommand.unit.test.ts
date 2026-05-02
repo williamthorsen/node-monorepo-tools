@@ -74,7 +74,7 @@ class ExitError extends Error {
 describe(publishCommand, () => {
   beforeEach(() => {
     mockDiscoverWorkspaces.mockResolvedValue(undefined);
-    mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.' }]);
+    mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: true }]);
     mockDetectPackageManager.mockReturnValue('npm');
     mockLoadConfig.mockResolvedValue(undefined);
     mockValidateConfig.mockReturnValue({ config: {}, errors: [], warnings: [] });
@@ -86,6 +86,7 @@ describe(publishCommand, () => {
         name: `@test/${dir}`,
         tagPrefix: `${dir}-v`,
         workspacePath,
+        isPublishable: true,
         packageFiles: [`${workspacePath}/package.json`],
         changelogPaths: [workspacePath],
         paths: [`${workspacePath}/**`],
@@ -119,7 +120,7 @@ describe(publishCommand, () => {
     await publishCommand([]);
 
     expect(mockPublishPackage).toHaveBeenCalledWith(
-      { tag: 'v1.0.0', dir: '.', workspacePath: '.' },
+      { tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: true },
       'npm',
       expect.objectContaining({ dryRun: false, provenance: false }),
     );
@@ -194,15 +195,15 @@ describe(publishCommand, () => {
   it('filters resolved tags by --tags in monorepo mode', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/release-kit']);
     mockResolveReleaseTags.mockReturnValue([
-      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
-      { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit' },
+      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
+      { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit', isPublishable: true },
     ]);
 
     await publishCommand(['--tags=core-v1.3.0']);
 
     expect(mockPublishPackage).toHaveBeenCalledTimes(1);
     expect(mockPublishPackage).toHaveBeenCalledWith(
-      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
+      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
       'npm',
       expect.objectContaining({ dryRun: false, provenance: false }),
     );
@@ -210,13 +211,13 @@ describe(publishCommand, () => {
 
   it('filters resolved tags by --tags in single-package mode', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(undefined);
-    mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.' }]);
+    mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: true }]);
 
     await publishCommand(['--tags=v1.0.0']);
 
     expect(mockPublishPackage).toHaveBeenCalledTimes(1);
     expect(mockPublishPackage).toHaveBeenCalledWith(
-      { tag: 'v1.0.0', dir: '.', workspacePath: '.' },
+      { tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: true },
       'npm',
       expect.objectContaining({ dryRun: false, provenance: false }),
     );
@@ -224,7 +225,9 @@ describe(publishCommand, () => {
 
   it('exits with code 1 when --tags references an unknown tag', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
-    mockResolveReleaseTags.mockReturnValue([{ tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' }]);
+    mockResolveReleaseTags.mockReturnValue([
+      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
+    ]);
 
     let thrown: ExitError | undefined;
     try {
@@ -277,8 +280,8 @@ describe(publishCommand, () => {
   it('does not invoke any GitHub Release path during publish', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/release-kit']);
     mockResolveReleaseTags.mockReturnValue([
-      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
-      { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit' },
+      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
+      { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit', isPublishable: true },
     ]);
 
     await publishCommand([]);
@@ -297,8 +300,8 @@ describe(publishCommand, () => {
   it('prints confirmation listing before publishing', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/release-kit']);
     mockResolveReleaseTags.mockReturnValue([
-      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
-      { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit' },
+      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
+      { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit', isPublishable: true },
     ]);
 
     await publishCommand([]);
@@ -317,8 +320,8 @@ describe(publishCommand, () => {
   it('reports successfully published packages when a subsequent publish fails', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/release-kit']);
     mockResolveReleaseTags.mockReturnValue([
-      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
-      { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit' },
+      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
+      { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit', isPublishable: true },
     ]);
     mockPublishPackage.mockImplementation((resolvedTag: { tag: string }) => {
       if (resolvedTag.tag === 'release-kit-v2.1.0') {
@@ -464,6 +467,130 @@ describe(publishCommand, () => {
 
       expect(mockResolveReadmePath).not.toHaveBeenCalled();
       expect(mockInjectReleaseNotesIntoReadme).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('publishability filter', () => {
+    it('publishes only the publishable subset when implicit resolution mixes publishable and unpublishable tags', async () => {
+      mockDiscoverWorkspaces.mockResolvedValue(['packages/common-utils', 'packages/basic']);
+      mockResolveReleaseTags.mockReturnValue([
+        {
+          tag: 'common-utils-v2.4.0',
+          dir: 'common-utils',
+          workspacePath: 'packages/common-utils',
+          isPublishable: true,
+        },
+        { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
+      ]);
+
+      await publishCommand([]);
+
+      expect(mockPublishPackage).toHaveBeenCalledTimes(1);
+      expect(mockPublishPackage).toHaveBeenCalledWith(
+        {
+          tag: 'common-utils-v2.4.0',
+          dir: 'common-utils',
+          workspacePath: 'packages/common-utils',
+          isPublishable: true,
+        },
+        'npm',
+        expect.objectContaining({ dryRun: false, provenance: false }),
+      );
+      // Listing only includes the publishable tag.
+      expect(console.info).toHaveBeenCalledWith('  common-utils-v2.4.0 (packages/common-utils)');
+      expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('basic-v1.0.0'));
+    });
+
+    it('exits 0 with "Nothing to publish." when implicit resolution yields zero publishable tags', async () => {
+      mockDiscoverWorkspaces.mockResolvedValue(['packages/basic']);
+      mockResolveReleaseTags.mockReturnValue([
+        { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
+      ]);
+
+      await publishCommand([]);
+
+      expect(console.info).toHaveBeenCalledWith('Nothing to publish.');
+      expect(mockPublishPackage).not.toHaveBeenCalled();
+    });
+
+    it('exits 1 with a per-tag error when explicit --tags names an unpublishable tag', async () => {
+      mockDiscoverWorkspaces.mockResolvedValue(['packages/basic']);
+      mockResolveReleaseTags.mockReturnValue([
+        { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
+      ]);
+
+      let thrown: ExitError | undefined;
+      try {
+        await publishCommand(['--tags=basic-v1.0.0']);
+      } catch (error: unknown) {
+        if (error instanceof ExitError) {
+          thrown = error;
+        }
+      }
+
+      expect(thrown).toBeInstanceOf(ExitError);
+      expect(thrown?.code).toBe(1);
+      expect(console.error).toHaveBeenCalledWith(
+        'Error: basic-v1.0.0 (packages/basic) cannot be published: package.json#private is true.',
+      );
+      expect(mockPublishPackage).not.toHaveBeenCalled();
+    });
+
+    it('reports every unpublishable tag before exit when explicit --tags names multiple unpublishable tags', async () => {
+      mockDiscoverWorkspaces.mockResolvedValue(['packages/basic', 'packages/internal']);
+      mockResolveReleaseTags.mockReturnValue([
+        { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
+        { tag: 'internal-v2.0.0', dir: 'internal', workspacePath: 'packages/internal', isPublishable: false },
+      ]);
+
+      let thrown: ExitError | undefined;
+      try {
+        await publishCommand(['--tags=basic-v1.0.0,internal-v2.0.0']);
+      } catch (error: unknown) {
+        if (error instanceof ExitError) {
+          thrown = error;
+        }
+      }
+
+      expect(thrown).toBeInstanceOf(ExitError);
+      expect(thrown?.code).toBe(1);
+      expect(console.error).toHaveBeenCalledWith(
+        'Error: basic-v1.0.0 (packages/basic) cannot be published: package.json#private is true.',
+      );
+      expect(console.error).toHaveBeenCalledWith(
+        'Error: internal-v2.0.0 (packages/internal) cannot be published: package.json#private is true.',
+      );
+      expect(mockPublishPackage).not.toHaveBeenCalled();
+    });
+
+    it('exits 1 without publishing when explicit --tags mixes publishable and unpublishable', async () => {
+      mockDiscoverWorkspaces.mockResolvedValue(['packages/common-utils', 'packages/basic']);
+      mockResolveReleaseTags.mockReturnValue([
+        {
+          tag: 'common-utils-v2.4.0',
+          dir: 'common-utils',
+          workspacePath: 'packages/common-utils',
+          isPublishable: true,
+        },
+        { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
+      ]);
+
+      let thrown: ExitError | undefined;
+      try {
+        await publishCommand(['--tags=common-utils-v2.4.0,basic-v1.0.0']);
+      } catch (error: unknown) {
+        if (error instanceof ExitError) {
+          thrown = error;
+        }
+      }
+
+      // The presence of an unpublishable tag in --tags is an error: exit 1, no publishes.
+      expect(thrown).toBeInstanceOf(ExitError);
+      expect(thrown?.code).toBe(1);
+      expect(console.error).toHaveBeenCalledWith(
+        'Error: basic-v1.0.0 (packages/basic) cannot be published: package.json#private is true.',
+      );
+      expect(mockPublishPackage).not.toHaveBeenCalled();
     });
   });
 

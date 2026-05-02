@@ -6,6 +6,13 @@ export interface ResolvedTag {
   tag: string;
   dir: string;
   workspacePath: string;
+  /**
+   * Whether the workspace this tag belongs to can be published to a registry. Propagated
+   * from the matched `WorkspaceConfig.isPublishable` (monorepo) or from the single-package
+   * workspace config (single-package mode). Consumed by `release-kit publish` to filter the
+   * tag set; other commands ignore it.
+   */
+  isPublishable: boolean;
 }
 
 /** Pattern matching a single-package tag like `v1.2.3` or `v0.10.0-beta.1`. */
@@ -14,15 +21,25 @@ const VERSION_PATTERN = /^v\d+\.\d+\.\d+/;
 /** Pattern matching a bare semver suffix like `1.2.3` or `0.10.0-beta.1` (no leading `v`). */
 const SEMVER_SUFFIX_PATTERN = /^\d+\.\d+\.\d+/;
 
+/** Discriminated argument to `resolveReleaseTags`: exactly one of the two keys is meaningful. */
+type ResolveReleaseTagsArgs = { workspaces: readonly WorkspaceConfig[] } | { singleWorkspace: WorkspaceConfig };
+
 /**
  * Resolve release tags pointing at HEAD into publishable package descriptors.
  *
- * In single-package mode (no `workspaces`), match tags like `v1.2.3`.
- * In monorepo mode, match each tag against the workspace whose `tagPrefix` the tag
- * starts with. Because `tagPrefix` is derived from `deriveWorkspaceConfig()` (the same source that
- * produced the tag), encoding and decoding stay colocated.
+ * Pass `{ workspaces }` for monorepo mode: each tag is matched against the workspace
+ * whose `tagPrefix` it starts with, and that workspace's `isPublishable` propagates onto
+ * the `ResolvedTag`. Because `tagPrefix` is derived from `deriveWorkspaceConfig()` (the
+ * same source that produced the tag), encoding and decoding stay colocated.
+ *
+ * Pass `{ singleWorkspace }` for single-package mode: tags like `v1.2.3` are matched and
+ * each carries the workspace's `isPublishable` bit derived from `./package.json#private`.
+ *
+ * The no-arg form is a test-isolation convenience for unit tests that exercise tag
+ * matching without needing `isPublishable` propagation; resolved tags default to
+ * `isPublishable: true`. Production callers should pass one of the named forms.
  */
-export function resolveReleaseTags(workspaces?: readonly WorkspaceConfig[]): ResolvedTag[] {
+export function resolveReleaseTags(args?: ResolveReleaseTagsArgs): ResolvedTag[] {
   const output = execFileSync('git', ['tag', '--points-at', 'HEAD'], { encoding: 'utf8' });
 
   const tags = output
@@ -30,26 +47,34 @@ export function resolveReleaseTags(workspaces?: readonly WorkspaceConfig[]): Res
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
 
-  if (workspaces === undefined) {
+  if (args === undefined) {
     return resolveSinglePackageTags(tags);
   }
-
-  return resolveMonorepoTags(tags, workspaces);
+  if ('workspaces' in args) {
+    return resolveMonorepoTags(tags, args.workspaces);
+  }
+  return resolveSinglePackageTags(tags, args.singleWorkspace);
 }
 
-/** Match single-package tags of the form `v{semver}`, warning if multiple are found. */
-function resolveSinglePackageTags(tags: string[]): ResolvedTag[] {
+/**
+ * Match single-package tags of the form `v{semver}`, warning if multiple are found.
+ *
+ * `singleWorkspace` is undefined when invoked via the `resolveReleaseTags()` no-arg
+ * test form; resolved tags default to `isPublishable: true` in that case.
+ */
+function resolveSinglePackageTags(tags: string[], singleWorkspace?: WorkspaceConfig): ResolvedTag[] {
   const matched = tags.filter((tag) => VERSION_PATTERN.test(tag));
+  const isPublishable = singleWorkspace?.isPublishable ?? true;
 
   if (matched.length > 1) {
     console.warn(
       `Warning: Multiple version tags found on HEAD: ${matched.join(', ')}. ` +
         `Publishing the same package multiple times is almost certainly unintended. Using only the first tag.`,
     );
-    return matched.slice(0, 1).map((tag) => ({ tag, dir: '.', workspacePath: '.' }));
+    return matched.slice(0, 1).map((tag) => ({ tag, dir: '.', workspacePath: '.', isPublishable }));
   }
 
-  return matched.map((tag) => ({ tag, dir: '.', workspacePath: '.' }));
+  return matched.map((tag) => ({ tag, dir: '.', workspacePath: '.', isPublishable }));
 }
 
 /**
@@ -68,7 +93,7 @@ function resolveMonorepoTags(tags: string[], workspaces: readonly WorkspaceConfi
   for (const tag of tags) {
     const match = findMatchingWorkspace(tag, sortedWorkspaces);
     if (match !== undefined) {
-      resolved.push({ tag, dir: match.dir, workspacePath: match.workspacePath });
+      resolved.push({ tag, dir: match.dir, workspacePath: match.workspacePath, isPublishable: match.isPublishable });
     }
   }
 

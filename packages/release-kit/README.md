@@ -360,6 +360,33 @@ release-kit prepare --only arrays --set-version 1.0.0
 
 An empty changelog section is expected for a bare promotion, because the changelog is generated from commits since the last tag. To include a narrative entry, land a descriptive release commit (e.g., a `feat!` describing the stable API) before running `prepare`.
 
+### `release-kit publish`
+
+Publish packages that have release tags on HEAD. The publish workflow's reusable workflow `publish.reusable.yaml` invokes this command in CI.
+
+| Flag                   | Description                                                                  |
+| ---------------------- | ---------------------------------------------------------------------------- |
+| `--dry-run`            | Preview without publishing                                                   |
+| `--no-git-checks`      | Skip the clean-working-tree check                                            |
+| `--tags=tag1,tag2,...` | Only publish the named tags (comma-separated, full tag names)                |
+| `--provenance`         | Generate provenance statement (requires OIDC, not supported by classic yarn) |
+| `--help`, `-h`         | Show help                                                                    |
+
+#### Publishability filter
+
+`publish` operates only on workspaces where `package.json#private` is absent or `false`. A workspace marked `private: true` is "versioned but not published": it can still be tagged by `release-kit tag`, get a `CHANGELOG.md` entry, and get a GitHub Release via `release-kit create-github-release` — only the registry publish step is skipped. Other commands ignore this filter and operate on private workspaces unchanged.
+
+The filter behaves differently depending on whether `--tags` is provided:
+
+- **Without `--tags`** (implicit resolution): unpublishable tags on HEAD are silently filtered. The pre-publish listing shows only the publishable subset. If the filter empties the set, `release-kit publish` prints `Nothing to publish.` and exits 0.
+- **With `--tags`** (explicit naming): if any named tag points at an unpublishable workspace, `release-kit publish` exits 1 with one error line per unpublishable tag, citing `package.json#private`. Explicit naming surfaces the contradiction rather than silently dropping the tag.
+
+Example output when an explicit tag is unpublishable:
+
+```
+Error: basic-v1.0.0 (packages/basic) cannot be published: package.json#private is true.
+```
+
 ### `release-kit create-github-release`
 
 Create GitHub Releases from `changelog.json` for tags on HEAD. Independent of `npm publish`: invoking this command creates Releases regardless of whether the matching package was published.

@@ -236,6 +236,7 @@ function makeWorkspace(dir: string): WorkspaceConfig {
     name: `@scope/${dir}`,
     tagPrefix: `${dir}-v`,
     workspacePath: `packages/${dir}`,
+    isPublishable: true,
     packageFiles: [`packages/${dir}/package.json`],
     changelogPaths: [`packages/${dir}`],
     paths: [`packages/${dir}`],

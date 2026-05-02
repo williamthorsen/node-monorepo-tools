@@ -45,6 +45,7 @@ describe(createGithubReleaseCommand, () => {
       name: `@test/${workspacePath.split('/').pop()}`,
       tagPrefix: `${workspacePath.split('/').pop()}-v`,
       workspacePath,
+      isPublishable: true,
       packageFiles: [`${workspacePath}/package.json`],
       changelogPaths: [workspacePath],
       paths: [`${workspacePath}/**`],

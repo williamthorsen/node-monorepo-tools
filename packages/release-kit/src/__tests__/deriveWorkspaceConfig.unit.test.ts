@@ -21,6 +21,7 @@ describe(deriveWorkspaceConfig, () => {
       name: '@williamthorsen/nmr-core',
       tagPrefix: 'nmr-core-v',
       workspacePath: 'packages/core',
+      isPublishable: true,
       packageFiles: ['packages/core/package.json'],
       changelogPaths: ['packages/core'],
       paths: ['packages/core/**'],
@@ -35,6 +36,7 @@ describe(deriveWorkspaceConfig, () => {
       name: 'readyup',
       tagPrefix: 'readyup-v',
       workspacePath: 'packages/readyup',
+      isPublishable: true,
       packageFiles: ['packages/readyup/package.json'],
       changelogPaths: ['packages/readyup'],
       paths: ['packages/readyup/**'],
@@ -97,5 +99,31 @@ describe(deriveWorkspaceConfig, () => {
     expect(() => deriveWorkspaceConfig('packages/malformed')).toThrow(
       /^Failed to read packages\/malformed\/package\.json: /,
     );
+  });
+
+  describe('isPublishable', () => {
+    it('returns isPublishable=true when package.json#private is absent', () => {
+      mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@scope/pkg' }));
+
+      expect(deriveWorkspaceConfig('packages/pkg').isPublishable).toBe(true);
+    });
+
+    it('returns isPublishable=true when package.json#private is false', () => {
+      mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@scope/pkg', private: false }));
+
+      expect(deriveWorkspaceConfig('packages/pkg').isPublishable).toBe(true);
+    });
+
+    it('returns isPublishable=false when package.json#private is true', () => {
+      mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@scope/pkg', private: true }));
+
+      expect(deriveWorkspaceConfig('packages/pkg').isPublishable).toBe(false);
+    });
+
+    it('treats non-boolean truthy private values as unpublishable', () => {
+      mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@scope/pkg', private: 'true' }));
+
+      expect(deriveWorkspaceConfig('packages/pkg').isPublishable).toBe(false);
+    });
   });
 });

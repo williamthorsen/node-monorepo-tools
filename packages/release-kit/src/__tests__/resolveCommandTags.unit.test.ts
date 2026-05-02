@@ -28,17 +28,18 @@ class ExitError extends Error {
 }
 
 const TAGS: ResolvedTag[] = [
-  { tag: 'nmr-core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
-  { tag: 'cli-v0.5.0', dir: 'cli', workspacePath: 'packages/cli' },
-  { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit' },
+  { tag: 'nmr-core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
+  { tag: 'cli-v0.5.0', dir: 'cli', workspacePath: 'packages/cli', isPublishable: true },
+  { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit', isPublishable: true },
 ];
 
-function makeWorkspace(dir: string, tagPrefix: string, workspacePath: string): WorkspaceConfig {
+function makeWorkspace(dir: string, tagPrefix: string, workspacePath: string, isPublishable = true): WorkspaceConfig {
   return {
     dir,
     name: `@test/${dir}`,
     tagPrefix,
     workspacePath,
+    isPublishable,
     packageFiles: [`${workspacePath}/package.json`],
     changelogPaths: [workspacePath],
     paths: [`${workspacePath}/**`],
@@ -83,34 +84,44 @@ describe(resolveCommandTags, () => {
   it('passes resolved workspaces to resolveReleaseTags in monorepo mode', async () => {
     await resolveCommandTags(undefined);
 
-    expect(mockResolveReleaseTags).toHaveBeenCalledWith([
-      makeWorkspace('core', 'nmr-core-v', 'packages/core'),
-      makeWorkspace('cli', 'cli-v', 'packages/cli'),
-      makeWorkspace('release-kit', 'release-kit-v', 'packages/release-kit'),
-    ]);
+    expect(mockResolveReleaseTags).toHaveBeenCalledWith({
+      workspaces: [
+        makeWorkspace('core', 'nmr-core-v', 'packages/core'),
+        makeWorkspace('cli', 'cli-v', 'packages/cli'),
+        makeWorkspace('release-kit', 'release-kit-v', 'packages/release-kit'),
+      ],
+    });
   });
 
-  it('passes undefined to resolveReleaseTags in single-package mode', async () => {
+  it('derives the single workspace config and passes it to resolveReleaseTags in single-package mode', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(undefined);
+    const single = makeWorkspace('root', 'v', '.');
+    mockDeriveWorkspaceConfig.mockReset();
+    mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => {
+      if (workspacePath === '.') return single;
+      throw new Error(`Unexpected workspace path: ${workspacePath}`);
+    });
 
     await resolveCommandTags(undefined);
 
-    expect(mockResolveReleaseTags).toHaveBeenCalledWith(undefined);
-    expect(mockDeriveWorkspaceConfig).not.toHaveBeenCalled();
+    expect(mockDeriveWorkspaceConfig).toHaveBeenCalledWith('.');
+    expect(mockResolveReleaseTags).toHaveBeenCalledWith({ singleWorkspace: single });
   });
 
   it('returns only the filtered tag when a single-tag filter is provided', async () => {
     const result = await resolveCommandTags(['nmr-core-v1.3.0']);
 
-    expect(result).toStrictEqual([{ tag: 'nmr-core-v1.3.0', dir: 'core', workspacePath: 'packages/core' }]);
+    expect(result).toStrictEqual([
+      { tag: 'nmr-core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
+    ]);
   });
 
   it('returns only the filtered subset when a multi-tag filter is provided', async () => {
     const result = await resolveCommandTags(['nmr-core-v1.3.0', 'release-kit-v2.1.0']);
 
     expect(result).toStrictEqual([
-      { tag: 'nmr-core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
-      { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit' },
+      { tag: 'nmr-core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
+      { tag: 'release-kit-v2.1.0', dir: 'release-kit', workspacePath: 'packages/release-kit', isPublishable: true },
     ]);
   });
 
@@ -205,5 +216,17 @@ describe(resolveCommandTags, () => {
       "Error resolving workspaces: packages/core/package.json is missing a 'name' field (required for tag derivation).",
     );
     expect(mockResolveReleaseTags).not.toHaveBeenCalled();
+  });
+
+  it('returns unpublishable tags alongside publishable ones (no filtering at this layer)', async () => {
+    const mixedTags: ResolvedTag[] = [
+      { tag: 'nmr-core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
+      { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
+    ];
+    mockResolveReleaseTags.mockReturnValue(mixedTags);
+
+    const result = await resolveCommandTags(undefined);
+
+    expect(result).toStrictEqual(mixedTags);
   });
 });

@@ -390,6 +390,12 @@ export interface WorkspaceConfig {
   tagPrefix: string;
   /** Workspace-relative path to the package root (e.g., `packages/core`). */
   workspacePath: string;
+  /**
+   * Whether this workspace can be published to a registry. `true` when `package.json#private`
+   * is absent or `false`; `false` only when `private === true`. Consumed by `release-kit publish`
+   * to filter unpublishable workspaces; other commands ignore this field.
+   */
+  isPublishable: boolean;
   /** Paths to package.json files to bump. */
   packageFiles: string[];
   /** Directories in which to generate changelogs. */

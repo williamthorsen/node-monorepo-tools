@@ -55,6 +55,7 @@ function makeWorkspace(overrides: Partial<WorkspaceConfig> & Pick<WorkspaceConfi
     name: `@test/${dir}`,
     tagPrefix: `${dir}-v`,
     workspacePath: `packages/${dir}`,
+    isPublishable: true,
     packageFiles: [`packages/${dir}/package.json`],
     changelogPaths: [`packages/${dir}`],
     paths: [`packages/${dir}/**`],

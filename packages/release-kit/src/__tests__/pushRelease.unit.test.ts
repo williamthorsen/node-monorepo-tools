@@ -10,8 +10,8 @@ import { pushRelease } from '../pushRelease.ts';
 import type { ResolvedTag } from '../resolveReleaseTags.ts';
 
 const TAGS: ResolvedTag[] = [
-  { tag: 'core-v1.2.0', dir: 'core', workspacePath: 'packages/core' },
-  { tag: 'cli-v0.5.0', dir: 'cli', workspacePath: 'packages/cli' },
+  { tag: 'core-v1.2.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
+  { tag: 'cli-v0.5.0', dir: 'cli', workspacePath: 'packages/cli', isPublishable: true },
 ];
 
 describe(pushRelease, () => {

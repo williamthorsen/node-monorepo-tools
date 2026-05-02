@@ -13,6 +13,7 @@ import { parseRequestedTags } from './parseRequestedTags.ts';
 import { publishPackage } from './publish.ts';
 import { resolveCommandTags } from './resolveCommandTags.ts';
 import { resolveReleaseNotesConfig } from './resolveReleaseNotesConfig.ts';
+import type { ResolvedTag } from './resolveReleaseTags.ts';
 
 const publishFlagSchema = {
   dryRun: { long: '--dry-run', type: 'boolean' as const },
@@ -56,6 +57,13 @@ export async function publishCommand(argv: string[]): Promise<void> {
     return;
   }
 
+  const publishableTags = filterPublishableTags(resolvedTags, requestedTags !== undefined);
+
+  if (publishableTags.length === 0) {
+    console.info('Nothing to publish.');
+    return;
+  }
+
   const packageManager = detectPackageManager();
   const { releaseNotes, changelogJsonOutputPath, sectionOrder } = await resolveReleaseNotesConfig();
 
@@ -63,14 +71,14 @@ export async function publishCommand(argv: string[]): Promise<void> {
 
   // Print confirmation listing before publishing.
   console.info(dryRun ? '[dry-run] Would publish:' : 'Publishing:');
-  for (const { tag, workspacePath } of resolvedTags) {
+  for (const { tag, workspacePath } of publishableTags) {
     console.info(`  ${tag} (${workspacePath})`);
   }
 
   const published: string[] = [];
 
   try {
-    for (const resolvedTag of resolvedTags) {
+    for (const resolvedTag of publishableTags) {
       let readmePath: string | undefined;
       let originalReadme: string | undefined;
 
@@ -105,4 +113,29 @@ export async function publishCommand(argv: string[]): Promise<void> {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
+}
+
+/**
+ * Restrict the resolved tag set to publishable workspaces.
+ *
+ * When the user named tags explicitly via `--tags` (`isExplicit === true`), an unpublishable
+ * tag is an error: each unpublishable tag is reported and the process exits 1. When
+ * resolution was implicit, unpublishable tags are silently dropped. The caller handles the
+ * empty-result case (printing `Nothing to publish.` and returning).
+ */
+function filterPublishableTags(resolvedTags: ResolvedTag[], isExplicit: boolean): ResolvedTag[] {
+  const publishable: ResolvedTag[] = [];
+  const unpublishable: ResolvedTag[] = [];
+  for (const tag of resolvedTags) {
+    (tag.isPublishable ? publishable : unpublishable).push(tag);
+  }
+
+  if (isExplicit && unpublishable.length > 0) {
+    for (const { tag, workspacePath } of unpublishable) {
+      console.error(`Error: ${tag} (${workspacePath}) cannot be published: package.json#private is true.`);
+    }
+    process.exit(1);
+  }
+
+  return publishable;
 }

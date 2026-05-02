@@ -197,7 +197,9 @@ function showPublishHelp(): void {
   console.info(`
 Usage: release-kit publish [options]
 
-Publish packages that have release tags on HEAD.
+Publish packages that have release tags on HEAD. Operates only on workspaces where
+package.json#private is absent or false. Without --tags, unpublishable workspaces are
+silently filtered out. With --tags, naming an unpublishable tag is an error.
 
 Options:
   --dry-run              Preview without publishing
