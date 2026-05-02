@@ -54,10 +54,9 @@ export function resolveReleaseTags(
 /**
  * Match single-package tags of the form `v{semver}`, warning if multiple are found.
  *
- * `singleWorkspace` (when provided) supplies `isPublishable` for the resolved tags. When
- * absent (legacy callers that have not yet derived the single-package workspace config),
- * tags default to `isPublishable: true` — preserving prior behavior for any caller path
- * that did not yet thread the workspace config through.
+ * `singleWorkspace` is optional so callers that don't need `isPublishable` propagation
+ * (e.g., tests that exercise tag matching in isolation) can omit it; in that case
+ * resolved tags default to `isPublishable: true`.
  */
 function resolveSinglePackageTags(tags: string[], singleWorkspace: WorkspaceConfig | undefined): ResolvedTag[] {
   const matched = tags.filter((tag) => VERSION_PATTERN.test(tag));

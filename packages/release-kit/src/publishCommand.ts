@@ -124,14 +124,18 @@ export async function publishCommand(argv: string[]): Promise<void> {
  * empty-result case (printing `Nothing to publish.` and returning).
  */
 function filterPublishableTags(resolvedTags: ResolvedTag[], isExplicit: boolean): ResolvedTag[] {
-  if (isExplicit) {
-    const unpublishable = resolvedTags.filter((t) => !t.isPublishable);
-    if (unpublishable.length > 0) {
-      for (const { tag } of unpublishable) {
-        console.error(`Error: ${tag} cannot be published: package.json#private is true.`);
-      }
-      process.exit(1);
-    }
+  const publishable: ResolvedTag[] = [];
+  const unpublishable: ResolvedTag[] = [];
+  for (const tag of resolvedTags) {
+    (tag.isPublishable ? publishable : unpublishable).push(tag);
   }
-  return resolvedTags.filter((t) => t.isPublishable);
+
+  if (isExplicit && unpublishable.length > 0) {
+    for (const { tag } of unpublishable) {
+      console.error(`Error: ${tag} cannot be published: package.json#private is true.`);
+    }
+    process.exit(1);
+  }
+
+  return publishable;
 }

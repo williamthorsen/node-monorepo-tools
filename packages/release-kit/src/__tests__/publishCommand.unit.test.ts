@@ -563,7 +563,7 @@ describe(publishCommand, () => {
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
 
-    it('publishes the subset and does not error when explicit --tags mixes publishable and unpublishable', async () => {
+    it('exits 1 without publishing when explicit --tags mixes publishable and unpublishable', async () => {
       mockDiscoverWorkspaces.mockResolvedValue(['packages/common-utils', 'packages/basic']);
       mockResolveReleaseTags.mockReturnValue([
         {
