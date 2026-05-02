@@ -84,14 +84,13 @@ describe(resolveCommandTags, () => {
   it('passes resolved workspaces to resolveReleaseTags in monorepo mode', async () => {
     await resolveCommandTags(undefined);
 
-    expect(mockResolveReleaseTags).toHaveBeenCalledWith(
-      [
+    expect(mockResolveReleaseTags).toHaveBeenCalledWith({
+      workspaces: [
         makeWorkspace('core', 'nmr-core-v', 'packages/core'),
         makeWorkspace('cli', 'cli-v', 'packages/cli'),
         makeWorkspace('release-kit', 'release-kit-v', 'packages/release-kit'),
       ],
-      undefined,
-    );
+    });
   });
 
   it('derives the single workspace config and passes it to resolveReleaseTags in single-package mode', async () => {
@@ -106,7 +105,7 @@ describe(resolveCommandTags, () => {
     await resolveCommandTags(undefined);
 
     expect(mockDeriveWorkspaceConfig).toHaveBeenCalledWith('.');
-    expect(mockResolveReleaseTags).toHaveBeenCalledWith(undefined, single);
+    expect(mockResolveReleaseTags).toHaveBeenCalledWith({ singleWorkspace: single });
   });
 
   it('returns only the filtered tag when a single-tag filter is provided', async () => {

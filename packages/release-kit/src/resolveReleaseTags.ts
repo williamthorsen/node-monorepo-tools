@@ -21,22 +21,25 @@ const VERSION_PATTERN = /^v\d+\.\d+\.\d+/;
 /** Pattern matching a bare semver suffix like `1.2.3` or `0.10.0-beta.1` (no leading `v`). */
 const SEMVER_SUFFIX_PATTERN = /^\d+\.\d+\.\d+/;
 
+/** Discriminated argument to `resolveReleaseTags`: exactly one of the two keys is meaningful. */
+type ResolveReleaseTagsArgs = { workspaces: readonly WorkspaceConfig[] } | { singleWorkspace: WorkspaceConfig };
+
 /**
  * Resolve release tags pointing at HEAD into publishable package descriptors.
  *
- * In single-package mode (`workspaces` is `undefined`), match tags like `v1.2.3`. In
- * single-package mode the caller passes `singleWorkspace` so each `ResolvedTag` carries
- * the workspace's `isPublishable` bit derived from `./package.json#private`.
+ * Pass `{ workspaces }` for monorepo mode: each tag is matched against the workspace
+ * whose `tagPrefix` it starts with, and that workspace's `isPublishable` propagates onto
+ * the `ResolvedTag`. Because `tagPrefix` is derived from `deriveWorkspaceConfig()` (the
+ * same source that produced the tag), encoding and decoding stay colocated.
  *
- * In monorepo mode, match each tag against the workspace whose `tagPrefix` the tag starts
- * with. Because `tagPrefix` is derived from `deriveWorkspaceConfig()` (the same source that
- * produced the tag), encoding and decoding stay colocated. The matched workspace's
- * `isPublishable` propagates onto the `ResolvedTag`.
+ * Pass `{ singleWorkspace }` for single-package mode: tags like `v1.2.3` are matched and
+ * each carries the workspace's `isPublishable` bit derived from `./package.json#private`.
+ *
+ * The no-arg form is a test-isolation convenience for unit tests that exercise tag
+ * matching without needing `isPublishable` propagation; resolved tags default to
+ * `isPublishable: true`. Production callers should pass one of the named forms.
  */
-export function resolveReleaseTags(
-  workspaces?: readonly WorkspaceConfig[],
-  singleWorkspace?: WorkspaceConfig,
-): ResolvedTag[] {
+export function resolveReleaseTags(args?: ResolveReleaseTagsArgs): ResolvedTag[] {
   const output = execFileSync('git', ['tag', '--points-at', 'HEAD'], { encoding: 'utf8' });
 
   const tags = output
@@ -44,21 +47,22 @@ export function resolveReleaseTags(
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
 
-  if (workspaces === undefined) {
-    return resolveSinglePackageTags(tags, singleWorkspace);
+  if (args === undefined) {
+    return resolveSinglePackageTags(tags);
   }
-
-  return resolveMonorepoTags(tags, workspaces);
+  if ('workspaces' in args) {
+    return resolveMonorepoTags(tags, args.workspaces);
+  }
+  return resolveSinglePackageTags(tags, args.singleWorkspace);
 }
 
 /**
  * Match single-package tags of the form `v{semver}`, warning if multiple are found.
  *
- * `singleWorkspace` is optional so callers that don't need `isPublishable` propagation
- * (e.g., tests that exercise tag matching in isolation) can omit it; in that case
- * resolved tags default to `isPublishable: true`.
+ * `singleWorkspace` is undefined when invoked via the `resolveReleaseTags()` no-arg
+ * test form; resolved tags default to `isPublishable: true` in that case.
  */
-function resolveSinglePackageTags(tags: string[], singleWorkspace: WorkspaceConfig | undefined): ResolvedTag[] {
+function resolveSinglePackageTags(tags: string[], singleWorkspace?: WorkspaceConfig): ResolvedTag[] {
   const matched = tags.filter((tag) => VERSION_PATTERN.test(tag));
   const isPublishable = singleWorkspace?.isPublishable ?? true;
 

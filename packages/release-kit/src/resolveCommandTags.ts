@@ -45,8 +45,15 @@ export async function resolveCommandTags(tags: string[] | undefined): Promise<Re
     process.exit(1);
   }
 
-  // Resolve tags from HEAD.
-  let resolvedTags = resolveReleaseTags(workspaces, singleWorkspace);
+  // Resolve tags from HEAD. The try block above sets exactly one of workspaces/singleWorkspace.
+  let resolvedTags: ResolvedTag[];
+  if (workspaces !== undefined) {
+    resolvedTags = resolveReleaseTags({ workspaces });
+  } else if (singleWorkspace !== undefined) {
+    resolvedTags = resolveReleaseTags({ singleWorkspace });
+  } else {
+    throw new Error('resolveCommandTags: invariant violated — neither workspaces nor singleWorkspace was derived');
+  }
 
   if (resolvedTags.length === 0) {
     console.error('Error: No release tags found on HEAD. Create tags with `release-kit tag` first.');
