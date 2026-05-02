@@ -52,18 +52,31 @@ describe(createGithubRelease, () => {
     vi.restoreAllMocks();
   });
 
-  it('returns false and warns when changelog.json does not exist', () => {
+  it('returns no-entry skip and warns when changelog.json does not exist', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const result = createGithubRelease({
       tag: 'v1.0.0',
       changelogJsonPath: join(tempDir, 'nonexistent.json'),
       dryRun: false,
     });
-    expect(result).toBe(false);
+    expect(result).toEqual({ status: 'skipped', reason: 'no-entry' });
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('not found'));
   });
 
-  it('returns false and warns when version is not in changelog.json', () => {
+  it('returns no-entry skip and warns when changelog.json cannot be parsed', () => {
+    writeFileSync(changelogJsonPath, 'not valid json{{{', 'utf8');
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = createGithubRelease({
+      tag: 'v1.0.0',
+      changelogJsonPath,
+      dryRun: false,
+    });
+    expect(result).toEqual({ status: 'skipped', reason: 'no-entry' });
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('could not parse'));
+  });
+
+  it('returns no-entry skip and warns when version is not in changelog.json', () => {
     writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
@@ -72,7 +85,7 @@ describe(createGithubRelease, () => {
       changelogJsonPath,
       dryRun: false,
     });
-    expect(result).toBe(false);
+    expect(result).toEqual({ status: 'skipped', reason: 'no-entry' });
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('no changelog entry'));
   });
 
@@ -85,7 +98,7 @@ describe(createGithubRelease, () => {
       changelogJsonPath,
       dryRun: true,
     });
-    expect(result).toBe(true);
+    expect(result).toEqual({ status: 'created' });
     expect(mockedExecFileSync).not.toHaveBeenCalled();
     expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('[dry-run]'));
   });
@@ -140,7 +153,7 @@ describe(createGithubRelease, () => {
     ).toThrow('gh failed');
   });
 
-  it('skips release when entry has only dev-audience sections', () => {
+  it('skips release with reason no-audience-content when entry has only dev-audience sections', () => {
     mockedExecFileSync.mockClear();
     const devOnlyEntries: ChangelogEntry[] = [
       {
@@ -160,7 +173,22 @@ describe(createGithubRelease, () => {
       dryRun: false,
     });
 
-    expect(result).toBe(false);
+    expect(result).toEqual({ status: 'skipped', reason: 'no-audience-content' });
+    expect(mockedExecFileSync).not.toHaveBeenCalled();
+  });
+
+  it('skips release with reason empty-body when rendered all-audience body is empty', () => {
+    mockedExecFileSync.mockClear();
+    writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
+    mockedRenderReleaseNotesSingle.mockReturnValueOnce('   \n   ');
+
+    const result = createGithubRelease({
+      tag: 'v1.0.0',
+      changelogJsonPath,
+      dryRun: false,
+    });
+
+    expect(result).toEqual({ status: 'skipped', reason: 'empty-body' });
     expect(mockedExecFileSync).not.toHaveBeenCalled();
   });
 

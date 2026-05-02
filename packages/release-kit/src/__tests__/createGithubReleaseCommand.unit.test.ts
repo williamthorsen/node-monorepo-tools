@@ -199,13 +199,19 @@ describe(createGithubReleaseCommand, () => {
     expect(console.error).toHaveBeenCalledWith('Error discovering workspaces: discovery failed');
   });
 
-  it('exits with code 1 when --tags is explicit and all requested tags produce no Release', async () => {
+  it('exits with code 1 when --tags is explicit and any requested tag has no changelog entry', async () => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/extra']);
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
       { tag: 'extra-v0.1.0', dir: 'extra', workspacePath: 'packages/extra' },
     ]);
-    mockCreateGithubReleases.mockReturnValue({ created: [], skipped: ['core-v1.3.0', 'extra-v0.1.0'] });
+    mockCreateGithubReleases.mockReturnValue({
+      created: [],
+      skipped: [
+        { tag: 'core-v1.3.0', reason: 'no-entry' },
+        { tag: 'extra-v0.1.0', reason: 'no-entry' },
+      ],
+    });
 
     let thrown: ExitError | undefined;
     try {
@@ -219,31 +225,102 @@ describe(createGithubReleaseCommand, () => {
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
     expect(console.error).toHaveBeenCalledWith(
-      'Error: no GitHub Releases were created for requested tags: core-v1.3.0, extra-v0.1.0. ' +
-        'Each was skipped (missing changelog entry, no all-audience content, or empty rendered body).',
+      'Error: requested tags have no changelog entry: core-v1.3.0, extra-v0.1.0. ' +
+        'Verify the tag names match a published changelog version.',
     );
   });
 
-  it('does not exit when --tags is omitted and every tag is skipped', async () => {
-    // When the user did not single out tags, an all-skipped outcome is informational, not a failure.
-    mockCreateGithubReleases.mockReturnValue({ created: [], skipped: ['v1.0.0'] });
+  it('exits 0 when --tags is explicit and every skip is no-audience-content', async () => {
+    mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
+    mockResolveReleaseTags.mockReturnValue([{ tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' }]);
+    mockCreateGithubReleases.mockReturnValue({
+      created: [],
+      skipped: [{ tag: 'core-v1.3.0', reason: 'no-audience-content' }],
+    });
 
-    await createGithubReleaseCommand([]);
+    await createGithubReleaseCommand(['--tags=core-v1.3.0']);
 
-    expect(console.info).toHaveBeenCalledWith('Skipped 1 tag(s) with no releasable content: v1.0.0.');
+    expect(console.error).not.toHaveBeenCalled();
+    expect(console.info).toHaveBeenCalledWith(
+      'Skipped 1 tag(s) with no releasable content: core-v1.3.0 (no-audience-content).',
+    );
   });
 
-  it('logs an info summary when some tags are skipped but others succeed', async () => {
+  it('exits 0 when --tags is explicit and the only skip reason is empty-body', async () => {
+    mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
+    mockResolveReleaseTags.mockReturnValue([{ tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' }]);
+    mockCreateGithubReleases.mockReturnValue({
+      created: [],
+      skipped: [{ tag: 'core-v1.3.0', reason: 'empty-body' }],
+    });
+
+    await createGithubReleaseCommand(['--tags=core-v1.3.0']);
+
+    expect(console.error).not.toHaveBeenCalled();
+    expect(console.info).toHaveBeenCalledWith('Skipped 1 tag(s) with no releasable content: core-v1.3.0 (empty-body).');
+  });
+
+  it('exits 1 when --tags has mixed outcomes including a no-entry skip, naming only the no-entry tags', async () => {
+    // A typoed tag is still a typo even when other requested tags succeed. The error message
+    // names only the no-entry tags so the user knows which to investigate.
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/extra']);
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
       { tag: 'extra-v0.1.0', dir: 'extra', workspacePath: 'packages/extra' },
     ]);
-    mockCreateGithubReleases.mockReturnValue({ created: ['core-v1.3.0'], skipped: ['extra-v0.1.0'] });
+    mockCreateGithubReleases.mockReturnValue({
+      created: ['core-v1.3.0'],
+      skipped: [{ tag: 'extra-v0.1.0', reason: 'no-entry' }],
+    });
+
+    let thrown: ExitError | undefined;
+    try {
+      await createGithubReleaseCommand(['--tags=core-v1.3.0,extra-v0.1.0']);
+    } catch (error: unknown) {
+      if (error instanceof ExitError) {
+        thrown = error;
+      }
+    }
+
+    expect(thrown).toBeInstanceOf(ExitError);
+    expect(thrown?.code).toBe(1);
+    expect(console.error).toHaveBeenCalledWith(
+      'Error: requested tags have no changelog entry: extra-v0.1.0. ' +
+        'Verify the tag names match a published changelog version.',
+    );
+  });
+
+  it('does not exit when --tags is omitted and every tag is skipped', async () => {
+    // When the user did not single out tags, an all-skipped outcome is informational, not a failure.
+    mockCreateGithubReleases.mockReturnValue({
+      created: [],
+      skipped: [{ tag: 'v1.0.0', reason: 'no-audience-content' }],
+    });
+
+    await createGithubReleaseCommand([]);
+
+    expect(console.info).toHaveBeenCalledWith(
+      'Skipped 1 tag(s) with no releasable content: v1.0.0 (no-audience-content).',
+    );
+  });
+
+  it('logs an info summary when some tags are skipped (intentional reasons) but others succeed', async () => {
+    mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/extra']);
+    mockResolveReleaseTags.mockReturnValue([
+      { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
+      { tag: 'extra-v0.1.0', dir: 'extra', workspacePath: 'packages/extra' },
+    ]);
+    mockCreateGithubReleases.mockReturnValue({
+      created: ['core-v1.3.0'],
+      skipped: [{ tag: 'extra-v0.1.0', reason: 'no-audience-content' }],
+    });
 
     await createGithubReleaseCommand(['--tags=core-v1.3.0,extra-v0.1.0']);
 
-    expect(console.info).toHaveBeenCalledWith('Skipped 1 tag(s) with no releasable content: extra-v0.1.0.');
+    expect(console.error).not.toHaveBeenCalled();
+    expect(console.info).toHaveBeenCalledWith(
+      'Skipped 1 tag(s) with no releasable content: extra-v0.1.0 (no-audience-content).',
+    );
   });
 
   it('exits with code 1 when createGithubReleases throws', async () => {
