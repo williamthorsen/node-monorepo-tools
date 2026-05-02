@@ -155,6 +155,7 @@ describe(createGithubRelease, () => {
 
   it('skips release with reason no-audience-content when entry has only dev-audience sections', () => {
     mockedExecFileSync.mockClear();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const devOnlyEntries: ChangelogEntry[] = [
       {
         version: '2.0.0',
@@ -175,10 +176,14 @@ describe(createGithubRelease, () => {
 
     expect(result).toEqual({ status: 'skipped', reason: 'no-audience-content' });
     expect(mockedExecFileSync).not.toHaveBeenCalled();
+    // Intentional skips must stay silent at the lib layer; the per-tag info summary is the
+    // command's responsibility and does not run through console.warn.
+    expect(warnSpy).not.toHaveBeenCalled();
   });
 
   it('skips release with reason empty-body when rendered all-audience body is empty', () => {
     mockedExecFileSync.mockClear();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
     mockedRenderReleaseNotesSingle.mockReturnValueOnce('   \n   ');
 
@@ -190,6 +195,7 @@ describe(createGithubRelease, () => {
 
     expect(result).toEqual({ status: 'skipped', reason: 'empty-body' });
     expect(mockedExecFileSync).not.toHaveBeenCalled();
+    expect(warnSpy).not.toHaveBeenCalled();
   });
 
   it('extracts version from prefixed tags and matches correct entry', () => {
