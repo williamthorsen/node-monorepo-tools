@@ -1,5 +1,5 @@
 import { determineBumpType } from './determineBumpType.ts';
-import { parseCommitMessage } from './parseCommitMessage.ts';
+import { parseCommitMessage, type PolicyViolationHandler } from './parseCommitMessage.ts';
 import type { Commit, ParsedCommit, ReleaseType, VersionPatterns, WorkTypeConfig } from './types.ts';
 
 /** Inputs to the unified release decision used by both pipelines. */
@@ -12,6 +12,10 @@ export interface DecideReleaseArgs {
   workTypes: Record<string, WorkTypeConfig>;
   versionPatterns: VersionPatterns;
   scopeAliases: Record<string, string> | undefined;
+  /** Per-canonical-type breaking-policy lookup. When provided, drives `!` policy enforcement in `parseCommitMessage`. */
+  breakingPolicies?: Record<string, 'forbidden' | 'optional' | 'required'>;
+  /** Receives policy-violation notifications from `parseCommitMessage`. */
+  onPolicyViolation?: PolicyViolationHandler;
   /**
    * Skip wordings to use when no commits exist (`noCommits`) or when commits exist but
    * none parse to a bump-worthy work type (`noBumpWorthy`). Both pipelines pass their
@@ -65,12 +69,30 @@ export type DecideReleaseResult =
  * future ticket can unify the single-package path; see #313's external plan.
  */
 export function decideRelease(args: DecideReleaseArgs): DecideReleaseResult {
-  const { commits, force = false, bumpOverride, workTypes, versionPatterns, scopeAliases, skipReasons } = args;
+  const {
+    commits,
+    force = false,
+    bumpOverride,
+    workTypes,
+    versionPatterns,
+    scopeAliases,
+    breakingPolicies,
+    onPolicyViolation,
+    skipReasons,
+  } = args;
+
+  const parseOptions =
+    breakingPolicies !== undefined || onPolicyViolation !== undefined
+      ? {
+          ...(breakingPolicies !== undefined && { breakingPolicies }),
+          ...(onPolicyViolation !== undefined && { onPolicyViolation }),
+        }
+      : undefined;
 
   const parsedCommits: ParsedCommit[] = [];
   const unparseable: Commit[] = [];
   for (const commit of commits) {
-    const parsed = parseCommitMessage(commit.message, commit.hash, workTypes, scopeAliases);
+    const parsed = parseCommitMessage(commit.message, commit.hash, workTypes, scopeAliases, parseOptions);
     if (parsed === undefined) {
       unparseable.push(commit);
     } else {

@@ -126,6 +126,79 @@ describe(renderReleaseNotesSingle, () => {
     });
   });
 
+  describe('breaking-marker rendering', () => {
+    it('prefixes a breaking item bullet with "🚨 **Breaking:** "', () => {
+      const entry: ChangelogEntry = {
+        version: '1.0.0',
+        date: '2024-01-01',
+        sections: [
+          {
+            title: 'Features',
+            audience: 'all',
+            items: [{ description: 'Redesign API', breaking: true }],
+          },
+        ],
+      };
+      const result = renderReleaseNotesSingle(entry, { includeHeading: false });
+      expect(result).toContain('- 🚨 **Breaking:** Redesign API');
+    });
+
+    it('does not prefix non-breaking items even when other items in the same section are breaking', () => {
+      const entry: ChangelogEntry = {
+        version: '1.0.0',
+        date: '2024-01-01',
+        sections: [
+          {
+            title: 'Features',
+            audience: 'all',
+            items: [{ description: 'Add widget' }, { description: 'Redesign API', breaking: true }],
+          },
+        ],
+      };
+      const result = renderReleaseNotesSingle(entry, { includeHeading: false });
+      expect(result).toBe('### Features\n\n- Add widget\n- 🚨 **Breaking:** Redesign API\n');
+    });
+
+    it('treats `breaking: false` and absent `breaking` identically (no prefix)', () => {
+      const entry: ChangelogEntry = {
+        version: '1.0.0',
+        date: '2024-01-01',
+        sections: [
+          {
+            title: 'Features',
+            audience: 'all',
+            items: [{ description: 'False flag', breaking: false }, { description: 'No flag' }],
+          },
+        ],
+      };
+      const result = renderReleaseNotesSingle(entry, { includeHeading: false });
+      expect(result).not.toContain('🚨');
+    });
+
+    it('renders breaking marker before the description when the item also has body text', () => {
+      const entry: ChangelogEntry = {
+        version: '1.0.0',
+        date: '2024-01-01',
+        sections: [
+          {
+            title: 'Removed',
+            audience: 'all',
+            items: [
+              {
+                description: 'Drop legacy endpoint',
+                body: 'The /v1 endpoint has been removed; clients must migrate to /v2.',
+                breaking: true,
+              },
+            ],
+          },
+        ],
+      };
+      const result = renderReleaseNotesSingle(entry, { includeHeading: false });
+      expect(result).toContain('- 🚨 **Breaking:** Drop legacy endpoint');
+      expect(result).toContain('  The /v1 endpoint has been removed');
+    });
+  });
+
   describe('body rendering', () => {
     it('renders a single-paragraph body as a two-space-indented block under the bullet', () => {
       const entry: ChangelogEntry = {

@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { parseCommitMessage } from '../parseCommitMessage.ts';
+import { DEFAULT_BREAKING_POLICIES, DEFAULT_WORK_TYPES } from '../defaults.ts';
+import { parseCommitMessage, type PolicyViolationHandler } from '../parseCommitMessage.ts';
 import type { WorkTypeConfig } from '../types.ts';
 
 const workTypes: Record<string, WorkTypeConfig> = {
@@ -301,7 +302,6 @@ describe(parseCommitMessage, () => {
     });
 
     it('gives pipe scope precedence over parenthesized scope', () => {
-      // Edge case: both formats present — pipe scope wins
       const result = parseCommitMessage('web|feat(other): add thing', 'cc6', workTypes);
       expect(result).toStrictEqual({
         message: 'web|feat(other): add thing',
@@ -367,5 +367,183 @@ describe(parseCommitMessage, () => {
         breaking: true,
       });
     });
+  });
+});
+
+describe('parseCommitMessage `!` policy enforcement', () => {
+  it('accepts both bare and `!` forms for `optional` policy types (feat, sec)', () => {
+    const featBare = parseCommitMessage('feat: add thing', 'p1', DEFAULT_WORK_TYPES, undefined, {
+      breakingPolicies: DEFAULT_BREAKING_POLICIES,
+    });
+    expect(featBare?.breaking).toBe(false);
+
+    const featBang = parseCommitMessage('feat!: add thing', 'p2', DEFAULT_WORK_TYPES, undefined, {
+      breakingPolicies: DEFAULT_BREAKING_POLICIES,
+    });
+    expect(featBang?.breaking).toBe(true);
+
+    const featureBang = parseCommitMessage('feature!: add thing', 'p3', DEFAULT_WORK_TYPES, undefined, {
+      breakingPolicies: DEFAULT_BREAKING_POLICIES,
+    });
+    expect(featureBang?.type).toBe('feat');
+    expect(featureBang?.breaking).toBe(true);
+
+    const secBare = parseCommitMessage('sec: patch CVE', 'p4', DEFAULT_WORK_TYPES, undefined, {
+      breakingPolicies: DEFAULT_BREAKING_POLICIES,
+    });
+    expect(secBare?.breaking).toBe(false);
+
+    const secBang = parseCommitMessage('sec!: patch CVE', 'p5', DEFAULT_WORK_TYPES, undefined, {
+      breakingPolicies: DEFAULT_BREAKING_POLICIES,
+    });
+    expect(secBang?.breaking).toBe(true);
+
+    const securityBang = parseCommitMessage('security!: patch CVE', 'p6', DEFAULT_WORK_TYPES, undefined, {
+      breakingPolicies: DEFAULT_BREAKING_POLICIES,
+    });
+    expect(securityBang?.type).toBe('sec');
+    expect(securityBang?.breaking).toBe(true);
+  });
+
+  it('treats bare `drop:` as a policy violation; accepts `drop!` and `drop(scope)!`', () => {
+    const onPolicyViolation = vi.fn<PolicyViolationHandler>();
+
+    const dropBare = parseCommitMessage('drop: remove API', 'p7', DEFAULT_WORK_TYPES, undefined, {
+      breakingPolicies: DEFAULT_BREAKING_POLICIES,
+      onPolicyViolation,
+    });
+    expect(dropBare?.type).toBe('drop');
+    expect(dropBare?.breaking).toBe(false);
+    expect(onPolicyViolation).toHaveBeenCalledTimes(1);
+    expect(onPolicyViolation).toHaveBeenCalledWith({ message: 'drop: remove API', hash: 'p7' }, 'drop', 'prefix');
+
+    onPolicyViolation.mockClear();
+    const dropBang = parseCommitMessage('drop!: remove API', 'p8', DEFAULT_WORK_TYPES, undefined, {
+      breakingPolicies: DEFAULT_BREAKING_POLICIES,
+      onPolicyViolation,
+    });
+    expect(dropBang?.breaking).toBe(true);
+    expect(onPolicyViolation).not.toHaveBeenCalled();
+
+    const dropScopedBang = parseCommitMessage('drop(api)!: remove endpoint', 'p9', DEFAULT_WORK_TYPES, undefined, {
+      breakingPolicies: DEFAULT_BREAKING_POLICIES,
+      onPolicyViolation,
+    });
+    expect(dropScopedBang?.type).toBe('drop');
+    expect(dropScopedBang?.scope).toBe('api');
+    expect(dropScopedBang?.breaking).toBe(true);
+  });
+
+  it('accepts `internal:` and `utility:` (alias) and resolves both to `internal`', () => {
+    const internalBare = parseCommitMessage('internal: refactor helper', 'p10', DEFAULT_WORK_TYPES, undefined, {
+      breakingPolicies: DEFAULT_BREAKING_POLICIES,
+    });
+    expect(internalBare?.type).toBe('internal');
+    expect(internalBare?.breaking).toBe(false);
+
+    const utilityBare = parseCommitMessage('utility: refactor helper', 'p11', DEFAULT_WORK_TYPES, undefined, {
+      breakingPolicies: DEFAULT_BREAKING_POLICIES,
+    });
+    expect(utilityBare?.type).toBe('internal');
+    expect(utilityBare?.breaking).toBe(false);
+  });
+
+  it('treats `internal!` and `utility!` as policy violations; parses with breaking: false', () => {
+    const onPolicyViolation = vi.fn<PolicyViolationHandler>();
+
+    const internalBang = parseCommitMessage('internal!: refactor helper', 'p12', DEFAULT_WORK_TYPES, undefined, {
+      breakingPolicies: DEFAULT_BREAKING_POLICIES,
+      onPolicyViolation,
+    });
+    expect(internalBang?.type).toBe('internal');
+    expect(internalBang?.breaking).toBe(false);
+    expect(onPolicyViolation).toHaveBeenCalledWith(
+      { message: 'internal!: refactor helper', hash: 'p12' },
+      'internal',
+      'prefix',
+    );
+
+    onPolicyViolation.mockClear();
+    const utilityBang = parseCommitMessage('utility!: refactor helper', 'p13', DEFAULT_WORK_TYPES, undefined, {
+      breakingPolicies: DEFAULT_BREAKING_POLICIES,
+      onPolicyViolation,
+    });
+    expect(utilityBang?.type).toBe('internal');
+    expect(utilityBang?.breaking).toBe(false);
+    expect(onPolicyViolation).toHaveBeenCalledWith(
+      { message: 'utility!: refactor helper', hash: 'p13' },
+      'internal',
+      'prefix',
+    );
+  });
+
+  it.each([
+    ['fix!', 'fix'],
+    ['bugfix!', 'fix'],
+    ['perf!', 'perf'],
+    ['performance!', 'perf'],
+    ['deps!', 'deps'],
+    ['tests!', 'tests'],
+    ['tooling!', 'tooling'],
+    ['ci!', 'ci'],
+    ['ai!', 'ai'],
+    ['docs!', 'docs'],
+    ['fmt!', 'fmt'],
+    ['refactor!', 'refactor'],
+    ['deprecate!', 'deprecate'],
+  ])('treats `%s` as a forbidden-policy violation and parses with breaking: false', (prefix, canonicalType) => {
+    const onPolicyViolation = vi.fn<PolicyViolationHandler>();
+    const message = `${prefix}: do something`;
+    const result = parseCommitMessage(message, 'h', DEFAULT_WORK_TYPES, undefined, {
+      breakingPolicies: DEFAULT_BREAKING_POLICIES,
+      onPolicyViolation,
+    });
+    expect(result?.type).toBe(canonicalType);
+    expect(result?.breaking).toBe(false);
+    expect(onPolicyViolation).toHaveBeenCalledWith({ message, hash: 'h' }, canonicalType, 'prefix');
+  });
+
+  it('treats `BREAKING CHANGE:` body footer on a forbidden-policy type as a policy violation with breaking: false', () => {
+    const onPolicyViolation = vi.fn<PolicyViolationHandler>();
+    const message = 'fix: patch null check\n\nBREAKING CHANGE: removes deprecated path';
+    const result = parseCommitMessage(message, 'p14', DEFAULT_WORK_TYPES, undefined, {
+      breakingPolicies: DEFAULT_BREAKING_POLICIES,
+      onPolicyViolation,
+    });
+    expect(result?.type).toBe('fix');
+    expect(result?.breaking).toBe(false);
+    expect(onPolicyViolation).toHaveBeenCalledWith({ message, hash: 'p14' }, 'fix', 'body');
+  });
+
+  it('reports both prefix and body surfaces independently when both are present on a forbidden type', () => {
+    const onPolicyViolation = vi.fn<PolicyViolationHandler>();
+    const message = 'fix!: patch null check\n\nBREAKING CHANGE: removes deprecated path';
+    const result = parseCommitMessage(message, 'p15', DEFAULT_WORK_TYPES, undefined, {
+      breakingPolicies: DEFAULT_BREAKING_POLICIES,
+      onPolicyViolation,
+    });
+    expect(result?.breaking).toBe(false);
+    expect(onPolicyViolation).toHaveBeenCalledTimes(2);
+    expect(onPolicyViolation).toHaveBeenCalledWith({ message, hash: 'p15' }, 'fix', 'prefix');
+    expect(onPolicyViolation).toHaveBeenCalledWith({ message, hash: 'p15' }, 'fix', 'body');
+  });
+
+  it('does not invoke the policy callback for compliant commits', () => {
+    const onPolicyViolation = vi.fn<PolicyViolationHandler>();
+
+    parseCommitMessage('feat!: add thing', 'p16', DEFAULT_WORK_TYPES, undefined, {
+      breakingPolicies: DEFAULT_BREAKING_POLICIES,
+      onPolicyViolation,
+    });
+    parseCommitMessage('drop!: remove old API', 'p17', DEFAULT_WORK_TYPES, undefined, {
+      breakingPolicies: DEFAULT_BREAKING_POLICIES,
+      onPolicyViolation,
+    });
+    parseCommitMessage('fix: patch bug', 'p18', DEFAULT_WORK_TYPES, undefined, {
+      breakingPolicies: DEFAULT_BREAKING_POLICIES,
+      onPolicyViolation,
+    });
+
+    expect(onPolicyViolation).not.toHaveBeenCalled();
   });
 });

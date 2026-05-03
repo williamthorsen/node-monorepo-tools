@@ -199,6 +199,86 @@ describe(buildChangelogEntries, () => {
     expect(entries).toHaveLength(1);
   });
 
+  describe('breaking marker', () => {
+    it('sets breaking: true for a `feat!:` commit', () => {
+      const cliffContext = [
+        {
+          version: 'v1.0.0',
+          timestamp: 1_700_000_000,
+          commits: [{ message: '#1 feat!: Redesign API', group: 'Features' }],
+        },
+      ];
+      mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
+      expect(entries[0]?.sections[0]?.items[0]?.breaking).toBe(true);
+    });
+
+    it('omits breaking for a `feat:` commit (no `!`)', () => {
+      const cliffContext = [
+        {
+          version: 'v1.0.0',
+          timestamp: 1_700_000_000,
+          commits: [{ message: '#1 feat: Add widget', group: 'Features' }],
+        },
+      ];
+      mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
+      expect(entries[0]?.sections[0]?.items[0]).not.toHaveProperty('breaking');
+    });
+
+    it('sets breaking: true for a `drop!:` commit', () => {
+      const cliffContext = [
+        {
+          version: 'v1.0.0',
+          timestamp: 1_700_000_000,
+          commits: [{ message: '#1 drop!: Remove legacy endpoint', group: 'Removed' }],
+        },
+      ];
+      mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
+      expect(entries[0]?.sections[0]?.items[0]?.breaking).toBe(true);
+    });
+
+    it('sets breaking: true for a scoped `type(scope)!:` commit', () => {
+      const cliffContext = [
+        {
+          version: 'v1.0.0',
+          timestamp: 1_700_000_000,
+          commits: [{ message: '#1 feat(api)!: Redesign endpoint', group: 'Features' }],
+        },
+      ];
+      mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
+      expect(entries[0]?.sections[0]?.items[0]?.breaking).toBe(true);
+    });
+
+    it('sets breaking: true for a pipe-scoped `scope|type!:` commit', () => {
+      const cliffContext = [
+        {
+          version: 'v1.0.0',
+          timestamp: 1_700_000_000,
+          commits: [{ message: '#1 web|feat!: Reshape API', group: 'Features' }],
+        },
+      ];
+      mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
+      expect(entries[0]?.sections[0]?.items[0]?.breaking).toBe(true);
+    });
+
+    it('does NOT set breaking when only the body footer carries `BREAKING CHANGE:` (prefix `!` is required)', () => {
+      const cliffContext = [
+        {
+          version: 'v1.0.0',
+          timestamp: 1_700_000_000,
+          commits: [{ message: '#1 feat: Add widget\n\nBREAKING CHANGE: removes /v1 path', group: 'Features' }],
+        },
+      ];
+      mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
+      expect(entries[0]?.sections[0]?.items[0]).not.toHaveProperty('breaking');
+    });
+  });
+
   describe('body extraction', () => {
     function runAndReadItems(message: string): ChangelogEntry['sections'][number]['items'] {
       const cliffContext = [
@@ -353,13 +433,13 @@ describe('buildChangelogEntries + renderReleaseNotesSingle integration', () => {
       sectionOrder,
     });
 
-    // Public release notes: Bug fixes before Features, no Refactoring, no Formatting.
-    // Emoji-tolerant matching: the contract is "a Bug fixes section appears before a Features section",
+    // Public release notes: Features before Bug fixes (canonical Public-tier order), no Refactoring, no Formatting.
+    // Emoji-tolerant matching: the contract is "a Features section appears before a Bug fixes section",
     // independent of the specific decorative emoji prefix in the header.
     const bugFixesIndex = rendered.search(/### (?:\S+ )?Bug fixes\b/);
     const featuresIndex = rendered.search(/### (?:\S+ )?Features\b/);
-    expect(bugFixesIndex).toBeGreaterThanOrEqual(0);
-    expect(featuresIndex).toBeGreaterThan(bugFixesIndex);
+    expect(featuresIndex).toBeGreaterThanOrEqual(0);
+    expect(bugFixesIndex).toBeGreaterThan(featuresIndex);
     expect(rendered).not.toMatch(/### (?:\S+ )?Refactoring\b/);
     expect(rendered).not.toMatch(/### (?:\S+ )?Formatting\b/);
 

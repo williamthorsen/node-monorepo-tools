@@ -10,6 +10,13 @@
 # Only ticketed commits (leading #NN, PROJ-NN, or ##) are included.
 # Unticketed maintenance commits (deps upgrades, tooling tweaks) are skipped.
 # Use ## as a synthetic ticket prefix for ad-hoc commits that belong in the changelog.
+#
+# Section order: each `group` value carries a hidden `<!-- NN -->` HTML-comment
+# prefix encoding the canonical row position. tera's `group_by` filter sorts
+# groups lexicographically by string, and the body template's `striptags`
+# filter erases the comment from the rendered heading. Numbering is per
+# unique group (not per parser entry) — all parsers routing to the same group
+# share the same prefix.
 
 [changelog]
 header = """
@@ -61,24 +68,26 @@ commit_preprocessors = []
 commit_parsers = [
   { message = "^release:", skip = true },
   { message = "^Merge", skip = true },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?ai(!)?:", group = "🤖 Agentic support" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?bugfix(!)?:", group = "🐛 Bug fixes" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?ci(!)?:", group = "👷 CI" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?deprecate(!)?:", group = "🗑️ Deprecated" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?deps?(!)?:", group = "📦 Dependencies" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?docs?(!)?:", group = "📚 Documentation" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?feat(!)?:", group = "🎉 Features" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?feature(!)?:", group = "🎉 Features" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?fix(!)?:", group = "🐛 Bug fixes" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?feat(!)?:", group = "<!-- 01 -->🎉 Features" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?feature(!)?:", group = "<!-- 01 -->🎉 Features" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?drop(!)?:", group = "<!-- 02 -->🪦 Removed" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?deprecate(!)?:", group = "<!-- 03 -->🗑️ Deprecated" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?fix(!)?:", group = "<!-- 04 -->🐛 Bug fixes" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?bugfix(!)?:", group = "<!-- 04 -->🐛 Bug fixes" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?sec(!)?:", group = "<!-- 05 -->🔒 Security" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?security(!)?:", group = "<!-- 05 -->🔒 Security" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?perf(!)?:", group = "<!-- 06 -->⚡ Performance" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?performance(!)?:", group = "<!-- 06 -->⚡ Performance" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?internal(!)?:", group = "<!-- 07 -->🏗️ Internal features" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?utility(!)?:", group = "<!-- 07 -->🏗️ Internal features" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?refactor(!)?:", group = "<!-- 08 -->♻️ Refactoring" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?tests?(!)?:", group = "<!-- 09 -->🧪 Tests" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?tooling(!)?:", group = "<!-- 10 -->⚙️ Tooling" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?ci(!)?:", group = "<!-- 11 -->👷 CI" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?deps?(!)?:", group = "<!-- 12 -->📦 Dependencies" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?ai(!)?:", group = "<!-- 13 -->🤖 Agentic support" },
+  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?docs?(!)?:", group = "<!-- 14 -->📚 Documentation" },
   { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?fmt(!)?:", skip = true },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?internal(!)?:", group = "🏗️ Internal" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?perf(!)?:", group = "⚡ Performance" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?performance(!)?:", group = "⚡ Performance" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?refactor(!)?:", group = "♻️ Refactoring" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?sec(!)?:", group = "🔒 Security" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?security(!)?:", group = "🔒 Security" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?tests?(!)?:", group = "🧪 Tests" },
-  { message = "^(\\#\\d+([.\\-]\\d+)?|\\#\\#|[A-Z]+-\\d+)\\s+([\\w-]+\\|)?tooling(!)?:", group = "⚙️ Tooling" },
   # Skip unticketed commits (maintenance, deps, initial scaffolding, etc.)
   { message = ".*", skip = true },
 ]

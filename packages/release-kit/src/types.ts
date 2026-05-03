@@ -9,6 +9,15 @@ export interface ChangelogItem {
   description: string;
   /** Optional commit body text, with trailing trailer metadata stripped. */
   body?: string;
+  /**
+   * Whether this item represents a breaking change.
+   *
+   * `true` when the commit subject carries the `!` prefix (e.g. `feat!:` or `drop(scope)!:`).
+   * The `BREAKING CHANGE:` body footer is intentionally NOT considered here — only the prefix
+   * `!` marks a changelog item as breaking. Renderers prefix breaking-item bullets with
+   * `🚨 **Breaking:** ` to surface them prominently in release notes.
+   */
+  breaking?: boolean;
 }
 
 /** A grouped section within a changelog entry (e.g., "Features", "Bug fixes"). */

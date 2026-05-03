@@ -182,8 +182,9 @@ describe(resolveReleaseNotesConfig, () => {
 
     const result = await resolveReleaseNotesConfig();
 
-    // `fix` appears at its default index (0), but its header is overridden to 'Fixes'.
-    expect(result.sectionOrder[0]).toBe('Fixes');
+    // `fix` appears at its canonical index, but its header is overridden to 'Fixes'.
+    const fixIndex = Object.keys(DEFAULT_WORK_TYPES).indexOf('fix');
+    expect(result.sectionOrder[fixIndex]).toBe('Fixes');
     // `chore` is a new key, appended at the end.
     expect(result.sectionOrder.at(-1)).toBe('Chores');
     // Other defaults are preserved between (compared on their bare form so the assertion is

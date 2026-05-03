@@ -5,7 +5,9 @@ import { fileURLToPath } from 'node:url';
 import { parse } from 'smol-toml';
 import { describe, expect, it } from 'vitest';
 
+import { stripGroupDecorations } from '../buildChangelogEntries.ts';
 import { DEFAULT_WORK_TYPES } from '../defaults.ts';
+import { stripEmojiPrefix } from '../stripEmojiPrefix.ts';
 
 const thisDir = dirname(fileURLToPath(import.meta.url));
 const templatePath = resolve(thisDir, '..', '..', 'cliff.toml.template');
@@ -93,13 +95,17 @@ describe('cliff.toml.template alignment with DEFAULT_WORK_TYPES', () => {
   const expectedTypes = getExpectedTypes();
   const knownHeaders = getKnownHeaders();
 
-  /** Assert that a synthetic commit message is matched by a parser and grouped under the expected header. */
-  function assertParsedAs(message: string, expectedGroup: string): void {
+  /**
+   * Assert that a synthetic commit message is matched by a parser and grouped under the
+   * expected header. Comparison is performed after `stripGroupDecorations` so the assertion
+   * is independent of any `<!-- NN -->` order-encoding prefix.
+   */
+  function assertParsedAs(message: string, expectedHeader: string): void {
     const matchingParser = parsers.find((parser) => new RegExp(parser.message).test(message));
     if (matchingParser === undefined) {
       expect.fail(`No commit parser matches "${message}"`);
     }
-    expect(matchingParser.group).toBe(expectedGroup);
+    expect(stripGroupDecorations(matchingParser.group)).toBe(stripEmojiPrefix(expectedHeader));
   }
 
   describe('every work type is matched with GitHub-style ticket prefix', () => {
@@ -160,9 +166,10 @@ describe('cliff.toml.template alignment with DEFAULT_WORK_TYPES', () => {
 
   describe('every commit parser group maps to a known work type header', () => {
     const uniqueGroups = [...new Set(parsers.map((p) => p.group))];
+    const knownHeadersBare = new Set([...knownHeaders].map(stripEmojiPrefix));
     for (const group of uniqueGroups) {
       it(`group "${group}" corresponds to a DEFAULT_WORK_TYPES header`, () => {
-        expect(knownHeaders).toContain(group);
+        expect(knownHeadersBare).toContain(stripGroupDecorations(group));
       });
     }
   });
