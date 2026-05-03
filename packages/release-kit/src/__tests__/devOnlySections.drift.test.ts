@@ -6,12 +6,19 @@ import { parse } from 'smol-toml';
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
+import { stripEmojiPrefix } from '../stripEmojiPrefix.ts';
 
 const thisDir = dirname(fileURLToPath(import.meta.url));
 const templatePath = resolve(thisDir, '..', '..', 'cliff.toml.template');
 const templateContent = readFileSync(templatePath, 'utf8');
 
-/** Groups in cliff.toml.template that are intended for all audiences (not dev-only). */
+/**
+ * Bare-name groups in cliff.toml.template that are intended for all audiences (not dev-only).
+ *
+ * Comparison against template groups and `devOnlySections` defaults is performed after
+ * `stripEmojiPrefix` normalisation, so the contract this set expresses is "every group, regardless
+ * of any decorative emoji prefix, is classified as either dev-only or all-audience by its bare name."
+ */
 const ALL_AUDIENCE_GROUPS = new Set([
   'Bug fixes',
   'Deprecated',
@@ -48,20 +55,21 @@ function getTemplateGroups(): Set<string> {
 }
 
 describe('devOnlySections drift detection', () => {
-  const templateGroups = getTemplateGroups();
-  const devOnlySections = new Set(DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections);
+  const templateGroupsBare = new Set([...getTemplateGroups()].map(stripEmojiPrefix));
+  const devOnlySectionsBare = new Set(DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections.map(stripEmojiPrefix));
 
   it('every devOnlySections default exists as a group in cliff.toml.template', () => {
-    for (const section of devOnlySections) {
-      expect(templateGroups, `devOnlySections entry "${section}" not found in cliff.toml.template groups`).toContain(
-        section,
-      );
+    for (const section of devOnlySectionsBare) {
+      expect(
+        templateGroupsBare,
+        `devOnlySections entry "${section}" not found in cliff.toml.template groups`,
+      ).toContain(section);
     }
   });
 
   it('every cliff.toml.template group is classified as either dev-only or all-audience', () => {
-    for (const group of templateGroups) {
-      const isClassified = devOnlySections.has(group) || ALL_AUDIENCE_GROUPS.has(group);
+    for (const group of templateGroupsBare) {
+      const isClassified = devOnlySectionsBare.has(group) || ALL_AUDIENCE_GROUPS.has(group);
       expect(
         isClassified,
         `Group "${group}" in cliff.toml.template is not classified — add it to devOnlySections defaults or ALL_AUDIENCE_GROUPS`,
@@ -70,7 +78,7 @@ describe('devOnlySections drift detection', () => {
   });
 
   it('no group appears in both devOnlySections and ALL_AUDIENCE_GROUPS', () => {
-    for (const group of devOnlySections) {
+    for (const group of devOnlySectionsBare) {
       expect(
         ALL_AUDIENCE_GROUPS.has(group),
         `Group "${group}" appears in both devOnlySections and ALL_AUDIENCE_GROUPS`,
