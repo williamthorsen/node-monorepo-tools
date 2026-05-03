@@ -1,5 +1,9 @@
 import { determineBumpType } from './determineBumpType.ts';
-import { parseCommitMessage, type PolicyViolationHandler } from './parseCommitMessage.ts';
+import {
+  parseCommitMessage,
+  type ParseCommitMessageOptions,
+  type PolicyViolationHandler,
+} from './parseCommitMessage.ts';
 import type { Commit, ParsedCommit, ReleaseType, VersionPatterns, WorkTypeConfig } from './types.ts';
 
 /** Aggregate result of parsing commits and determining the bump type. */
@@ -25,13 +29,13 @@ export function determineBumpFromCommits(
   scopeAliases: Record<string, string> | undefined,
   options?: DetermineBumpOptions,
 ): BumpDetermination {
-  const parseOptions =
-    options?.breakingPolicies !== undefined || options?.onPolicyViolation !== undefined
-      ? {
-          ...(options.breakingPolicies !== undefined && { breakingPolicies: options.breakingPolicies }),
-          ...(options.onPolicyViolation !== undefined && { onPolicyViolation: options.onPolicyViolation }),
-        }
-      : undefined;
+  // Build with conditional spreads so absent fields stay absent (required by
+  // `exactOptionalPropertyTypes: true`); passing an empty `{}` to `parseCommitMessage` is
+  // functionally identical to passing `undefined`, so no outer guard is needed.
+  const parseOptions: ParseCommitMessageOptions = {
+    ...(options?.breakingPolicies !== undefined && { breakingPolicies: options.breakingPolicies }),
+    ...(options?.onPolicyViolation !== undefined && { onPolicyViolation: options.onPolicyViolation }),
+  };
 
   const parsedCommits: ParsedCommit[] = [];
   const unparseable: Commit[] = [];

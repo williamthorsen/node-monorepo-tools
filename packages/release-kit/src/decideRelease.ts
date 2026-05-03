@@ -1,5 +1,9 @@
 import { determineBumpType } from './determineBumpType.ts';
-import { parseCommitMessage, type PolicyViolationHandler } from './parseCommitMessage.ts';
+import {
+  parseCommitMessage,
+  type ParseCommitMessageOptions,
+  type PolicyViolationHandler,
+} from './parseCommitMessage.ts';
 import type { Commit, ParsedCommit, ReleaseType, VersionPatterns, WorkTypeConfig } from './types.ts';
 
 /** Inputs to the unified release decision used by both pipelines. */
@@ -81,13 +85,13 @@ export function decideRelease(args: DecideReleaseArgs): DecideReleaseResult {
     skipReasons,
   } = args;
 
-  const parseOptions =
-    breakingPolicies !== undefined || onPolicyViolation !== undefined
-      ? {
-          ...(breakingPolicies !== undefined && { breakingPolicies }),
-          ...(onPolicyViolation !== undefined && { onPolicyViolation }),
-        }
-      : undefined;
+  // Build with conditional spreads so absent fields stay absent (required by
+  // `exactOptionalPropertyTypes: true`); passing an empty `{}` to `parseCommitMessage` is
+  // functionally identical to passing `undefined`, so no outer guard is needed.
+  const parseOptions: ParseCommitMessageOptions = {
+    ...(breakingPolicies !== undefined && { breakingPolicies }),
+    ...(onPolicyViolation !== undefined && { onPolicyViolation }),
+  };
 
   const parsedCommits: ParsedCommit[] = [];
   const unparseable: Commit[] = [];

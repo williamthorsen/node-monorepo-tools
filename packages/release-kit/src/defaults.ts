@@ -48,15 +48,6 @@ function deriveDevOnlySections(): string[] {
   return sections;
 }
 
-/** Derive the per-type breaking-policy lookup from the loaded data. */
-function deriveBreakingPolicies(): Record<string, 'forbidden' | 'optional' | 'required'> {
-  const result: Record<string, 'forbidden' | 'optional' | 'required'> = {};
-  for (const entry of WORK_TYPES_DATA.types) {
-    result[entry.key] = entry.breakingPolicy;
-  }
-  return result;
-}
-
 /**
  * Default work types ordered by canonical priority.
  *
@@ -73,8 +64,9 @@ export const DEFAULT_WORK_TYPES: Record<string, WorkTypeConfig> = deriveDefaultW
  * types tolerate `!` and which trigger a policy-violation warning. Missing entries default
  * to `'optional'` to preserve back-compat for consumers that supply custom work-types.
  */
-export const DEFAULT_BREAKING_POLICIES: Record<string, 'forbidden' | 'optional' | 'required'> =
-  deriveBreakingPolicies();
+export const DEFAULT_BREAKING_POLICIES: Record<string, 'forbidden' | 'optional' | 'required'> = Object.fromEntries(
+  WORK_TYPES_DATA.types.map((entry) => [entry.key, entry.breakingPolicy]),
+);
 
 /** Default version bump patterns. */
 export const DEFAULT_VERSION_PATTERNS: VersionPatterns = {
