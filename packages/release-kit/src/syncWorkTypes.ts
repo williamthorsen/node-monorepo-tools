@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { UPSTREAM_WORK_TYPES_URL } from './checkWorkTypesDrift.ts';
+import { isRecord } from './typeGuards.ts';
 import { errorMessage, hasExpectedTopLevelShape } from './workTypesUtils.ts';
 
 /** Outcome of a sync operation. */
@@ -31,6 +32,21 @@ export interface SyncWorkTypesDependencies {
 function resolveDefaultLocalPath(): string {
   const moduleDir = dirname(fileURLToPath(import.meta.url));
   return resolve(moduleDir, 'work-types.json');
+}
+
+/** Extract the prior `$schema` IDE-hint URL from local file content, or `undefined` if absent or unparseable. */
+function extractLocalSchemaUrl(content: string): string | undefined {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return undefined;
+  }
+  if (!isRecord(parsed)) {
+    return undefined;
+  }
+  const schema = parsed.$schema;
+  return typeof schema === 'string' ? schema : undefined;
 }
 
 /**
@@ -80,15 +96,22 @@ export async function syncWorkTypes(dependencies: SyncWorkTypesDependencies = {}
     };
   }
 
-  // Re-serialise with 2-space indent + trailing newline to match the local format.
-  const formatted = `${JSON.stringify(upstreamJson, null, 2)}\n`;
-
   let priorContent: string | undefined;
   try {
     priorContent = readFileSync(localPath, 'utf8');
   } catch {
     priorContent = undefined;
   }
+
+  // Preserve the local-only `$schema` IDE hint if the prior file carried one. Upstream never carries
+  // `$schema` (the relative path is local-decoration), and `checkWorkTypesDrift` strips it before
+  // comparison; sync must symmetrically re-inject it so the synced file remains self-validating in
+  // editors. Spread it first so it serialises at the top of the JSON object.
+  const localSchemaUrl = priorContent !== undefined ? extractLocalSchemaUrl(priorContent) : undefined;
+  const outputJson = localSchemaUrl !== undefined ? { $schema: localSchemaUrl, ...upstreamJson } : upstreamJson;
+
+  // Re-serialise with 2-space indent + trailing newline to match the local format.
+  const formatted = `${JSON.stringify(outputJson, null, 2)}\n`;
 
   if (priorContent === formatted) {
     return {

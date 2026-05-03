@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { extractVersion } from './changelogJsonUtils.ts';
+import { DEFAULT_WORK_TYPES } from './defaults.ts';
 import type { GenerateChangelogOptions } from './generateChangelogs.ts';
 import { COMMIT_PREPROCESSOR_PATTERNS } from './parseCommitMessage.ts';
 import { resolveCliffConfigPath } from './resolveCliffConfigPath.ts';
@@ -13,6 +14,30 @@ import type { ChangelogEntry, ChangelogItem, ChangelogSection, ReleaseConfig } f
 
 /** Match a leading `<!-- ... -->` HTML comment, used to strip the canonical-order prefix from cliff group strings. */
 const HTML_COMMENT_PREFIX_PATTERN = /^<!--[^>]*-->/;
+
+/**
+ * Canonical bare-section-name → priority index, derived from `DEFAULT_WORK_TYPES`.
+ *
+ * Used to sort `ChangelogEntry.sections` into canonical order so the structured
+ * `changelog.json` artifact emits sections in tier-then-row order regardless of which
+ * commit was encountered first. Render-time consumers (`renderReleaseNotesSingle`) accept
+ * an explicit `sectionOrder`, but downstream tools that read `changelog.json` directly
+ * depend on this in-order serialisation.
+ *
+ * Headers in `DEFAULT_WORK_TYPES` carry the canonical emoji-prefixed form
+ * (e.g. `🐛 Bug fixes`); the bare key is used so the index matches both decorated and
+ * bare titles produced by `transformReleases` (which strips `<!-- NN -->` and may strip
+ * the emoji depending on the consumer's config).
+ */
+const CANONICAL_SECTION_ORDER: ReadonlyMap<string, number> = new Map(
+  Object.values(DEFAULT_WORK_TYPES).map((config, index) => [stripGroupDecorations(config.header), index]),
+);
+
+/** Lookup the canonical priority of a section title. Unknown sections sort to the end. */
+function canonicalSectionPriority(title: string): number {
+  const index = CANONICAL_SECTION_ORDER.get(stripGroupDecorations(title));
+  return index ?? Number.POSITIVE_INFINITY;
+}
 
 /**
  * Strip cliff-template decorations from a group string, returning the bare section name.
@@ -193,6 +218,10 @@ function transformReleases(releases: CliffContextRelease[], devOnlySections: Set
       });
     }
 
+    // Sort by canonical priority so `changelog.json` emits sections in tier-then-row order.
+    // Stable sort preserves encounter order for unknown sections (priority = Infinity).
+    sections.sort((a, b) => canonicalSectionPriority(a.title) - canonicalSectionPriority(b.title));
+
     if (sections.length > 0) {
       entries.push({ version, date, sections });
     }
@@ -223,7 +252,10 @@ function subjectHasBreakingMarker(message: string): boolean {
     subject = subject.replace(pattern, '');
   }
   // Match a type-token followed by an optional scope (parenthesized or pipe-prefixed) and a literal `!:`.
-  return /^(?:[\w-]+\|)?\w+(?:\([^)]+\))?!:/.test(subject);
+  // Pipe-scope character class is `[^|]+` to mirror `parseCommitMessage`'s acceptance — keeping the
+  // two regexes aligned prevents a class of bug where a future scope outside `[\w-]` would parse
+  // as breaking via the prefix `!` but lose the changelog marker silently here.
+  return /^(?:[^|]+\|)?\w+(?:\([^)]+\))?!:/.test(subject);
 }
 
 /** Extract the description from a commit message, stripping ticket ID and type prefix. */

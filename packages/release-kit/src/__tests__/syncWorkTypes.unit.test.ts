@@ -1,4 +1,4 @@
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -122,6 +122,53 @@ describe(syncWorkTypes, () => {
     });
     expect(result.exitCode).toBe(3);
     expect(result.message).toMatch(/not valid JSON/);
+  });
+
+  it('preserves the local `$schema` IDE hint when upstream does not carry one', async () => {
+    // Upstream is canonical (no `$schema`); local carries the IDE-hint `$schema` so editors validate
+    // edits against the colocated schema. Sync must re-inject `$schema` so the file remains
+    // self-validating after the upstream content overwrites the local copy. This is symmetric with
+    // `checkWorkTypesDrift`, which strips local `$schema` before comparing.
+    const localContent = `${JSON.stringify({ $schema: './work-types.schema.json', ...SAMPLE_DATA }, null, 2)}\n`;
+    writeFileSync(localPath, localContent, 'utf8');
+    const upstreamData = {
+      ...SAMPLE_DATA,
+      types: [
+        ...SAMPLE_DATA.types,
+        { tier: 'Public', key: 'sec', aliases: [], emoji: '🔒', label: 'Security', breakingPolicy: 'optional' },
+      ],
+    };
+    const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(upstreamData) }));
+
+    const result = await syncWorkTypes({
+      localPath,
+      upstreamUrl: FIXTURE_URL,
+      fetch: fakeFetch,
+    });
+
+    expect(result.exitCode).toBe(0);
+    const synced = readFileSync(localPath, 'utf8');
+    expect(synced).toContain('"$schema": "./work-types.schema.json"');
+    // Inject must serialise at the top so editors find it on the first scan.
+    expect(synced.indexOf('"$schema"')).toBeLessThan(synced.indexOf('"tiers"'));
+  });
+
+  it('does not inject `$schema` when local file does not carry one', async () => {
+    // If the prior local content lacks `$schema` (e.g., upstream-canonical write), the sync must not
+    // hallucinate one — the absence is itself the local truth.
+    writeFileSync(localPath, `${JSON.stringify(SAMPLE_DATA, null, 2)}\n`, 'utf8');
+    const upstreamData = { ...SAMPLE_DATA, tiers: ['Public', 'Internal', 'Process', 'Future'] };
+    const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(upstreamData) }));
+
+    const result = await syncWorkTypes({
+      localPath,
+      upstreamUrl: FIXTURE_URL,
+      fetch: fakeFetch,
+    });
+
+    expect(result.exitCode).toBe(0);
+    const synced = readFileSync(localPath, 'utf8');
+    expect(synced).not.toContain('$schema');
   });
 
   it('exits 3 when upstream JSON is missing required top-level keys', async () => {

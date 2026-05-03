@@ -161,6 +161,33 @@ describe(buildChangelogEntries, () => {
     });
   });
 
+  it('emits sections in canonical tier-then-row order regardless of commit encounter order', () => {
+    // Cliff's `sort_commits = "oldest"` produces commits in chronological order, which means
+    // `transformReleases` would otherwise insert sections in first-seen order. Acceptance criterion
+    // #5 of issue #355 says `changelog.json` sections inherit canonical order — verify directly
+    // that an out-of-order cliff context still produces canonical-order output.
+    const cliffContext = [
+      {
+        version: 'v3.0.0',
+        timestamp: 1_700_000_000,
+        commits: [
+          // Encounter order is the inverse of canonical order to make a regression visible.
+          { message: '#1 docs: Update guide', group: '<!-- 14 -->📚 Documentation' },
+          { message: '#2 ci: Pin runner', group: '<!-- 11 -->👷 CI' },
+          { message: '#3 internal: Refactor helper', group: '<!-- 07 -->🏗️ Internal features' },
+          { message: '#4 fix: Patch leak', group: '<!-- 04 -->🐛 Bug fixes' },
+          { message: '#5 feat: Add widget', group: '<!-- 01 -->🎉 Features' },
+        ],
+      },
+    ];
+    mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+
+    const entries = buildChangelogEntries(makeConfig(), 'v3.0.0');
+
+    const titles = entries[0]?.sections.map((s) => s.title);
+    expect(titles).toStrictEqual(['🎉 Features', '🐛 Bug fixes', '🏗️ Internal features', '👷 CI', '📚 Documentation']);
+  });
+
   it('preserves full first line when commit message has no colon separator', () => {
     const cliffContext = [
       {

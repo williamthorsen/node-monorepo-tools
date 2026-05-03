@@ -32,7 +32,7 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "build:post": "node -e \"require('node:fs').copyFileSync('src/work-types.json', 'dist/esm/work-types.json'); require('node:fs').copyFileSync('src/work-types.schema.json', 'dist/esm/work-types.schema.json');\"",
+    "build:post": "node scripts/copy-work-types.mjs",
     "prepare": "tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json",
     "prepublishOnly": "nmr build",
     "test": "pnpm exec vitest --config=vitest.standalone.config.ts",
