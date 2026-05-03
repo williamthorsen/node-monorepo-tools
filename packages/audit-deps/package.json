@@ -46,7 +46,7 @@
   "dependencies": {
     "@williamthorsen/nmr-core": "workspace:*",
     "audit-ci": "7.1.0",
-    "zod": "4.4.1"
+    "zod": "4.4.2"
   },
   "engines": {
     "node": ">=18.17.0"
