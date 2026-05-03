@@ -9,10 +9,25 @@ export interface ChangelogItem {
   description: string;
   /** Optional commit body text, with trailing trailer metadata stripped. */
   body?: string;
+  /**
+   * Whether this item represents a breaking change.
+   *
+   * `true` when the commit subject carries the `!` prefix (e.g. `feat!:` or `drop(scope)!:`).
+   * The `BREAKING CHANGE:` body footer is intentionally NOT considered here — only the prefix
+   * `!` marks a changelog item as breaking. Renderers prefix breaking-item bullets with
+   * `🚨 **Breaking:** ` to surface them prominently in release notes.
+   */
+  breaking?: boolean;
 }
 
 /** A grouped section within a changelog entry (e.g., "Features", "Bug fixes"). */
 export interface ChangelogSection {
+  /**
+   * Section title carrying the leading emoji prefix used by `cliff.toml.template` group
+   * definitions (e.g. `"🐛 Bug fixes"`). The `<!-- NN -->` canonical-order HTML comment
+   * is stripped during transform; the emoji remains. Callers that match against `title`
+   * (e.g. `sectionOrder` configs) must include the emoji prefix.
+   */
   title: string;
   audience: ChangelogAudience;
   items: ChangelogItem[];

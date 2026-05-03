@@ -4,11 +4,55 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { extractVersion } from './changelogJsonUtils.ts';
+import { DEFAULT_WORK_TYPES } from './defaults.ts';
 import type { GenerateChangelogOptions } from './generateChangelogs.ts';
+import { COMMIT_PREPROCESSOR_PATTERNS } from './parseCommitMessage.ts';
 import { resolveCliffConfigPath } from './resolveCliffConfigPath.ts';
 import { stripEmojiPrefix } from './stripEmojiPrefix.ts';
 import { isRecord, isUnknownArray } from './typeGuards.ts';
 import type { ChangelogEntry, ChangelogItem, ChangelogSection, ReleaseConfig } from './types.ts';
+
+/** Match a leading `<!-- ... -->` HTML comment, used to strip the canonical-order prefix from cliff group strings. */
+const HTML_COMMENT_PREFIX_PATTERN = /^<!--[^>]*-->/;
+
+/**
+ * Canonical bare-section-name → priority index, derived from `DEFAULT_WORK_TYPES`.
+ *
+ * Used to sort `ChangelogEntry.sections` into canonical order so the structured
+ * `changelog.json` artifact emits sections in tier-then-row order regardless of which
+ * commit was encountered first. Render-time consumers (`renderReleaseNotesSingle`) accept
+ * an explicit `sectionOrder`, but downstream tools that read `changelog.json` directly
+ * depend on this in-order serialisation.
+ *
+ * Headers in `DEFAULT_WORK_TYPES` carry the canonical emoji-prefixed form
+ * (e.g. `🐛 Bug fixes`); the bare key is used so the index matches both decorated and
+ * bare titles produced by `transformReleases` (which strips `<!-- NN -->` and may strip
+ * the emoji depending on the consumer's config).
+ */
+const CANONICAL_SECTION_ORDER: ReadonlyMap<string, number> = new Map(
+  Object.values(DEFAULT_WORK_TYPES).map((config, index) => [stripGroupDecorations(config.header), index]),
+);
+
+/** Lookup the canonical priority of a section title. Unknown sections sort to the end. */
+function canonicalSectionPriority(title: string): number {
+  const index = CANONICAL_SECTION_ORDER.get(stripGroupDecorations(title));
+  return index ?? Number.POSITIVE_INFINITY;
+}
+
+/**
+ * Strip cliff-template decorations from a group string, returning the bare section name.
+ *
+ * The bundled `cliff.toml.template` encodes canonical row order as a hidden HTML comment
+ * (e.g. `"<!-- 04 -->🐛 Bug fixes"`) so tera's `group_by` filter sorts groups predictably.
+ * The body template's `striptags` filter erases the comment from the rendered heading,
+ * but downstream consumers that read the raw `group` value (changelog.json titles, the
+ * dev-vs-public classifier, the drift test) see the prefix and must strip it. The trailing
+ * `stripEmojiPrefix` keeps the helper backward-compatible with consumer overrides written
+ * as bare names.
+ */
+export function stripGroupDecorations(group: string): string {
+  return stripEmojiPrefix(group.replace(HTML_COMMENT_PREFIX_PATTERN, ''));
+}
 
 /** Shape of a single commit in git-cliff's `--context` JSON output. */
 interface CliffContextCommit {
@@ -125,8 +169,8 @@ function toCliffContextCommit(value: unknown): CliffContextCommit {
 function transformReleases(releases: CliffContextRelease[], devOnlySections: Set<string>): ChangelogEntry[] {
   const entries: ChangelogEntry[] = [];
   // Normalise dev-only entries once so consumer overrides written as bare names (e.g. `'Internal'`)
-  // match emoji-prefixed default titles (e.g. `'🏗️ Internal'`) without requiring config updates.
-  const devOnlyNormalised = new Set([...devOnlySections].map(stripEmojiPrefix));
+  // match decorated default titles (`<!-- NN -->🏗️ Internal features`) without requiring config updates.
+  const devOnlyNormalised = new Set([...devOnlySections].map(stripGroupDecorations));
 
   for (const release of releases) {
     if (release.version === undefined) {
@@ -140,9 +184,12 @@ function transformReleases(releases: CliffContextRelease[], devOnlySections: Set
     const sectionMap = new Map<string, ChangelogItem[]>();
 
     for (const commit of release.commits ?? []) {
-      const group = commit.group ?? 'Other';
+      // Strip the canonical-order HTML comment prefix from the group key so changelog.json
+      // titles surface bare (the prefix exists only to drive cliff's group_by sort order).
+      const group = stripCommentPrefix(commit.group ?? 'Other');
       const description = extractDescription(commit.message);
       const body = extractBody(commit.message);
+      const breaking = subjectHasBreakingMarker(commit.message);
 
       let items = sectionMap.get(group);
       if (items === undefined) {
@@ -152,6 +199,9 @@ function transformReleases(releases: CliffContextRelease[], devOnlySections: Set
       const item: ChangelogItem = { description };
       if (body !== undefined) {
         item.body = body;
+      }
+      if (breaking) {
+        item.breaking = true;
       }
       items.push(item);
     }
@@ -163,10 +213,14 @@ function transformReleases(releases: CliffContextRelease[], devOnlySections: Set
       }
       sections.push({
         title,
-        audience: devOnlyNormalised.has(stripEmojiPrefix(title)) ? 'dev' : 'all',
+        audience: devOnlyNormalised.has(stripGroupDecorations(title)) ? 'dev' : 'all',
         items,
       });
     }
+
+    // Sort by canonical priority so `changelog.json` emits sections in tier-then-row order.
+    // Stable sort preserves encounter order for unknown sections (priority = Infinity).
+    sections.sort((a, b) => canonicalSectionPriority(a.title) - canonicalSectionPriority(b.title));
 
     if (sections.length > 0) {
       entries.push({ version, date, sections });
@@ -174,6 +228,34 @@ function transformReleases(releases: CliffContextRelease[], devOnlySections: Set
   }
 
   return entries;
+}
+
+/** Remove only the leading `<!-- ... -->` HTML comment, preserving any emoji. */
+function stripCommentPrefix(group: string): string {
+  return group.replace(HTML_COMMENT_PREFIX_PATTERN, '');
+}
+
+/**
+ * Detect a `!` breaking marker on the commit-subject prefix.
+ *
+ * Matches `type!:`, `type(scope)!:`, and `scope|type!:` formats at the start of the first
+ * line, after any leading ticket prefix (e.g. `#42 `, `TOOL-123 `, `## `) is stripped via
+ * `COMMIT_PREPROCESSOR_PATTERNS`. The `BREAKING CHANGE:` body footer is intentionally NOT
+ * considered — only the prefix `!` marks a changelog item as breaking, keeping the changelog
+ * signal aligned with the commit-prefix policy. The regex is anchored so descriptions
+ * containing `!:` later in the line (e.g. `"Fix edge case using field!: value notation"`)
+ * are not misclassified as breaking.
+ */
+function subjectHasBreakingMarker(message: string): boolean {
+  let subject = message.split('\n', 1)[0] ?? '';
+  for (const pattern of COMMIT_PREPROCESSOR_PATTERNS) {
+    subject = subject.replace(pattern, '');
+  }
+  // Match a type-token followed by an optional scope (parenthesized or pipe-prefixed) and a literal `!:`.
+  // Pipe-scope character class is `[^|]+` to mirror `parseCommitMessage`'s acceptance — keeping the
+  // two regexes aligned prevents a class of bug where a future scope outside `[\w-]` would parse
+  // as breaking via the prefix `!` but lose the changelog marker silently here.
+  return /^(?:[^|]+\|)?\w+(?:\([^)]+\))?!:/.test(subject);
 }
 
 /** Extract the description from a commit message, stripping ticket ID and type prefix. */

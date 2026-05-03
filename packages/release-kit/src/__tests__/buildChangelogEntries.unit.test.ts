@@ -161,6 +161,33 @@ describe(buildChangelogEntries, () => {
     });
   });
 
+  it('emits sections in canonical tier-then-row order regardless of commit encounter order', () => {
+    // Cliff's `sort_commits = "oldest"` produces commits in chronological order, which means
+    // `transformReleases` would otherwise insert sections in first-seen order. Acceptance criterion
+    // #5 of issue #355 says `changelog.json` sections inherit canonical order — verify directly
+    // that an out-of-order cliff context still produces canonical-order output.
+    const cliffContext = [
+      {
+        version: 'v3.0.0',
+        timestamp: 1_700_000_000,
+        commits: [
+          // Encounter order is the inverse of canonical order to make a regression visible.
+          { message: '#1 docs: Update guide', group: '<!-- 14 -->📚 Documentation' },
+          { message: '#2 ci: Pin runner', group: '<!-- 11 -->👷 CI' },
+          { message: '#3 internal: Refactor helper', group: '<!-- 07 -->🏗️ Internal features' },
+          { message: '#4 fix: Patch leak', group: '<!-- 04 -->🐛 Bug fixes' },
+          { message: '#5 feat: Add widget', group: '<!-- 01 -->🎉 Features' },
+        ],
+      },
+    ];
+    mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+
+    const entries = buildChangelogEntries(makeConfig(), 'v3.0.0');
+
+    const titles = entries[0]?.sections.map((s) => s.title);
+    expect(titles).toStrictEqual(['🎉 Features', '🐛 Bug fixes', '🏗️ Internal features', '👷 CI', '📚 Documentation']);
+  });
+
   it('preserves full first line when commit message has no colon separator', () => {
     const cliffContext = [
       {
@@ -197,6 +224,86 @@ describe(buildChangelogEntries, () => {
     expect(mockedExecFileSync).toHaveBeenCalledTimes(1);
     expect(mockWriteFileSync).not.toHaveBeenCalled();
     expect(entries).toHaveLength(1);
+  });
+
+  describe('breaking marker', () => {
+    it('sets breaking: true for a `feat!:` commit', () => {
+      const cliffContext = [
+        {
+          version: 'v1.0.0',
+          timestamp: 1_700_000_000,
+          commits: [{ message: '#1 feat!: Redesign API', group: 'Features' }],
+        },
+      ];
+      mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
+      expect(entries[0]?.sections[0]?.items[0]?.breaking).toBe(true);
+    });
+
+    it('omits breaking for a `feat:` commit (no `!`)', () => {
+      const cliffContext = [
+        {
+          version: 'v1.0.0',
+          timestamp: 1_700_000_000,
+          commits: [{ message: '#1 feat: Add widget', group: 'Features' }],
+        },
+      ];
+      mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
+      expect(entries[0]?.sections[0]?.items[0]).not.toHaveProperty('breaking');
+    });
+
+    it('sets breaking: true for a `drop!:` commit', () => {
+      const cliffContext = [
+        {
+          version: 'v1.0.0',
+          timestamp: 1_700_000_000,
+          commits: [{ message: '#1 drop!: Remove legacy endpoint', group: 'Removed' }],
+        },
+      ];
+      mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
+      expect(entries[0]?.sections[0]?.items[0]?.breaking).toBe(true);
+    });
+
+    it('sets breaking: true for a scoped `type(scope)!:` commit', () => {
+      const cliffContext = [
+        {
+          version: 'v1.0.0',
+          timestamp: 1_700_000_000,
+          commits: [{ message: '#1 feat(api)!: Redesign endpoint', group: 'Features' }],
+        },
+      ];
+      mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
+      expect(entries[0]?.sections[0]?.items[0]?.breaking).toBe(true);
+    });
+
+    it('sets breaking: true for a pipe-scoped `scope|type!:` commit', () => {
+      const cliffContext = [
+        {
+          version: 'v1.0.0',
+          timestamp: 1_700_000_000,
+          commits: [{ message: '#1 web|feat!: Reshape API', group: 'Features' }],
+        },
+      ];
+      mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
+      expect(entries[0]?.sections[0]?.items[0]?.breaking).toBe(true);
+    });
+
+    it('does NOT set breaking when only the body footer carries `BREAKING CHANGE:` (prefix `!` is required)', () => {
+      const cliffContext = [
+        {
+          version: 'v1.0.0',
+          timestamp: 1_700_000_000,
+          commits: [{ message: '#1 feat: Add widget\n\nBREAKING CHANGE: removes /v1 path', group: 'Features' }],
+        },
+      ];
+      mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
+      expect(entries[0]?.sections[0]?.items[0]).not.toHaveProperty('breaking');
+    });
   });
 
   describe('body extraction', () => {
@@ -353,13 +460,13 @@ describe('buildChangelogEntries + renderReleaseNotesSingle integration', () => {
       sectionOrder,
     });
 
-    // Public release notes: Bug fixes before Features, no Refactoring, no Formatting.
-    // Emoji-tolerant matching: the contract is "a Bug fixes section appears before a Features section",
+    // Public release notes: Features before Bug fixes (canonical Public-tier order), no Refactoring, no Formatting.
+    // Emoji-tolerant matching: the contract is "a Features section appears before a Bug fixes section",
     // independent of the specific decorative emoji prefix in the header.
     const bugFixesIndex = rendered.search(/### (?:\S+ )?Bug fixes\b/);
     const featuresIndex = rendered.search(/### (?:\S+ )?Features\b/);
-    expect(bugFixesIndex).toBeGreaterThanOrEqual(0);
-    expect(featuresIndex).toBeGreaterThan(bugFixesIndex);
+    expect(featuresIndex).toBeGreaterThanOrEqual(0);
+    expect(bugFixesIndex).toBeGreaterThan(featuresIndex);
     expect(rendered).not.toMatch(/### (?:\S+ )?Refactoring\b/);
     expect(rendered).not.toMatch(/### (?:\S+ )?Formatting\b/);
 

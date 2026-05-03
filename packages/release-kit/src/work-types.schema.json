@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/williamthorsen/node-monorepo-tools/raw/main/packages/release-kit/src/work-types.schema.json",
+  "title": "Work types",
+  "description": "Canonical taxonomy of commit work types used by release-kit. Drives section ordering, audience classification, and the `!` (breaking) policy. The structured single-source-of-truth for everything that previously lived in `DEFAULT_WORK_TYPES` and `cliff.toml.template` group definitions.",
+  "type": "object",
+  "required": ["tiers", "types"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional reference to this schema for IDE validation."
+    },
+    "tiers": {
+      "type": "array",
+      "description": "Render tiers in canonical order. Each entry's `tier` field must reference one of these names.",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "types": {
+      "type": "array",
+      "description": "Work-type entries in canonical render order (tier order, then row order within tier).",
+      "items": { "$ref": "#/definitions/workType" },
+      "minItems": 1
+    }
+  },
+  "definitions": {
+    "workType": {
+      "type": "object",
+      "required": ["tier", "key", "aliases", "emoji", "label", "breakingPolicy"],
+      "additionalProperties": false,
+      "properties": {
+        "tier": {
+          "type": "string",
+          "description": "Render tier this entry belongs to. Must match one of the names in the top-level `tiers` array."
+        },
+        "key": {
+          "type": "string",
+          "description": "Canonical work-type identifier (e.g. `feat`, `fix`). Must be globally unique across all entries.",
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9]*$"
+        },
+        "aliases": {
+          "type": "array",
+          "description": "Alternate identifiers that resolve to this work type. Must be globally unique and not collide with any `key`.",
+          "items": { "type": "string", "minLength": 1, "pattern": "^[a-z][a-z0-9]*$" },
+          "uniqueItems": true
+        },
+        "emoji": {
+          "type": "string",
+          "description": "Decorative emoji rendered as the prefix of the section heading.",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "description": "Human-readable section label (rendered as `${emoji} ${label}` in changelogs and release notes).",
+          "minLength": 1
+        },
+        "breakingPolicy": {
+          "type": "string",
+          "description": "Policy governing the `!` (breaking) marker for this type. `forbidden`: `!` is a policy violation. `optional`: `!` is allowed. `required`: bare type is a policy violation; only the `!` form is accepted.",
+          "enum": ["forbidden", "optional", "required"]
+        },
+        "excludedFromChangelog": {
+          "type": "boolean",
+          "description": "When `true`, this type's commits never appear in any changelog or release note. Currently only `fmt` sets this. Default: `false`.",
+          "default": false
+        }
+      }
+    }
+  }
+}

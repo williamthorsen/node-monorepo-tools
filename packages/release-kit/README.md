@@ -269,30 +269,80 @@ interface VersionPatterns {
 
 Default: `{ major: ['!'], minor: ['feat'] }`
 
-### Default work types
+### Work types and tiers
 
-| Key         | Header             | Aliases       |
-| ----------- | ------------------ | ------------- |
-| `fix`       | 🐛 Bug fixes       | `bugfix`      |
-| `deprecate` | 🗑️ Deprecated      |               |
-| `feat`      | 🎉 Features        | `feature`     |
-| `internal`  | 🏗️ Internal        |               |
-| `perf`      | ⚡ Performance     | `performance` |
-| `refactor`  | ♻️ Refactoring     |               |
-| `sec`       | 🔒 Security        | `security`    |
-| `tests`     | 🧪 Tests           | `test`        |
-| `tooling`   | ⚙️ Tooling         |               |
-| `ci`        | 👷 CI              |               |
-| `deps`      | 📦 Dependencies    | `dep`         |
-| `docs`      | 📚 Documentation   | `doc`         |
-| `ai`        | 🤖 Agentic support |               |
-| `fmt`       | (skipped)          |               |
+The canonical taxonomy lives in `packages/release-kit/src/work-types.json` and is split into three tiers that drive section rendering and audience classification.
 
-Work types from your config are merged with these defaults by key — your entries override or extend, they don't replace the full set.
+| Tier     | Key         | Header                    | Aliases       | `!` policy   |
+| -------- | ----------- | ------------------------- | ------------- | ------------ |
+| Public   | `feat`      | 🎉 Features               | `feature`     | optional     |
+| Public   | `drop`      | 🪦 Removed                |               | **required** |
+| Public   | `deprecate` | 🗑️ Deprecated             |               | forbidden    |
+| Public   | `fix`       | 🐛 Bug fixes              | `bugfix`      | forbidden    |
+| Public   | `sec`       | 🔒 Security               | `security`    | optional     |
+| Public   | `perf`      | ⚡ Performance            | `performance` | forbidden    |
+| Internal | `internal`  | 🏗️ Internal features      | `utility`     | forbidden    |
+| Internal | `refactor`  | ♻️ Refactoring            |               | forbidden    |
+| Internal | `tests`     | 🧪 Tests                  | `test`        | forbidden    |
+| Process  | `tooling`   | ⚙️ Tooling                |               | forbidden    |
+| Process  | `ci`        | 👷 CI                     |               | forbidden    |
+| Process  | `deps`      | 📦 Dependencies           | `dep`         | forbidden    |
+| Process  | `ai`        | 🤖 Agentic support        |               | forbidden    |
+| Process  | `docs`      | 📚 Documentation          | `doc`         | forbidden    |
+| Process  | `fmt`       | (excluded from changelog) |               | forbidden    |
 
-`fmt:` commits are recognized for version-bump determination (they contribute to a patch bump) but are skipped by the bundled `cliff.toml.template`, so they do not appear in `CHANGELOG.md` or release notes.
+#### Tier semantics
 
-Release-notes sections are rendered in the declaration order of the merged work-types record, with any unknown titles trailing the known ones. The default `devOnlySections` (excluded from public release notes but still written to `CHANGELOG.md`) are: `🤖 Agentic support`, `👷 CI`, `📦 Dependencies`, `🏗️ Internal`, `♻️ Refactoring`, `🧪 Tests`, `⚙️ Tooling`. Override via `changelogJson.devOnlySections` in your config; matching is emoji-tolerant, so a bare-name override like `['Internal']` keeps working against the emoji-prefixed default titles.
+- **Public** — visible to all audiences. Public-tier sections appear in both public release notes and dev changelogs.
+- **Internal** — dev-only. Internal-tier sections appear in dev changelogs but not in public-facing release notes.
+- **Process** — dev-only. Same audience treatment as Internal.
+
+Section render order is **tier order (Public → Internal → Process), then row order within tier**. The bundled `cliff.toml.template` encodes this order via hidden `<!-- NN -->` HTML-comment prefixes on each parser's `group` value; tera's `group_by` filter sorts groups lexicographically (now monotonic by row number), and the body template's `striptags` filter erases the prefix from rendered headings.
+
+#### `docs` reclassification
+
+`docs`/Documentation has moved from the all-audience tier (where it lived before this taxonomy was formalised) to the dev-only Process tier. **Documentation commits no longer appear in public-facing release notes.** They still appear in `CHANGELOG.md` and `changelog.json` under the `audience: 'dev'` classification.
+
+#### `utility` alias
+
+`utility:` is a backward-compat alias for `internal:`. Both forms parse to the same canonical type, route to the same `🏗️ Internal features` section, and are subject to the same `!` policy.
+
+#### `!` (breaking change) policy
+
+Each work-type carries a `breakingPolicy` value:
+
+- `optional` (`feat`, `sec`) — `!` is allowed; both `type:` and `type!:` parse cleanly.
+- `forbidden` (most types) — `!` is a policy violation. The premise: types like `internal!`, `perf!`, `fix!` are contradictory; an internal change cannot break a consumer contract, a pure perf change preserves the contract, and a bug-fix is by definition not a contract change.
+- `required` (`drop`) — bare `drop:` is a policy violation; only `drop!:` is accepted. The premise: removing a feature always breaks consumers; the `!` form makes that explicit.
+
+##### Two-tier policy enforcement
+
+The `!` policy operates at two distinct levels with different semantics:
+
+- **Write-time** (commit-msg hook) — strict rejection. Policy violations are blocked at the gate where the author can act on them immediately. _Hook-based enforcement is tracked separately and is not yet shipped._
+- **Release-time** (`parseCommitMessage`) — tolerant warn-and-continue. Commits already in the log cannot be rewritten, so a policy-violating commit is parsed using its canonical type with `breaking: false` (the `!` is dropped from the parse) and a `onPolicyViolation` callback fires. Callers (`decideRelease` etc.) can collect these warnings and surface them in the release report. A single legacy `internal!` in a year-old log does not block releases.
+
+A `BREAKING CHANGE:` body footer on a `forbidden`-policy type triggers the same warning path as the prefix `!` does — the spirit of the policy is "internal/perf/etc. cannot be breaking", which must apply to both surfaces.
+
+#### `🚨 **Breaking:**` bullet marker
+
+Items whose commit subject carries the `!` prefix (e.g. `feat!`, `drop!`, `feat(api)!`) are rendered with a `🚨 **Breaking:** ` prefix on the bullet:
+
+```markdown
+- 🚨 **Breaking:** Drop legacy /v1 endpoint
+```
+
+Only the prefix `!` triggers this marker. A `BREAKING CHANGE:` body footer on its own does **not** retroactively mark a changelog item as breaking — the changelog signal is tied to the commit-prefix policy. This avoids surprise breaking-marker appearances for older commits written under earlier conventions.
+
+#### `fmt`
+
+`fmt:` commits are recognized by `parseCommitMessage` (they contribute to a patch bump) but `fmt` carries `excludedFromChangelog: true`. The bundled `cliff.toml.template` skips `fmt:` commits at the parser level, so they never appear in `CHANGELOG.md`, `changelog.json`, or release notes. The label and emoji are present in `work-types.json` for schema parity with the codeassembly upstream but never render.
+
+#### Custom work types
+
+Work types from your config are merged with these defaults by key — your entries override or extend, they don't replace the full set. Release-notes sections are rendered in the declaration order of the merged work-types record, with any unknown titles trailing the known ones.
+
+The default `devOnlySections` (excluded from public release notes but still written to `CHANGELOG.md`) are derived from the Internal and Process tiers (excluding `fmt`). Override via `changelogJson.devOnlySections` in your config; matching is decorator-tolerant, so a bare-name override like `['Internal features']` keeps working against the emoji-prefixed and prefix-decorated default titles.
 
 ## CLI reference
 
@@ -429,6 +479,28 @@ Scaffolded files:
 - `.github/workflows/release.yaml` — workflow that delegates to a reusable release workflow
 - `.config/release-kit.config.ts` — starter config with commented-out customization examples (with `--with-config`)
 - `.config/git-cliff.toml` — copied from the bundled template (with `--with-config`)
+
+### `release-kit work-types`
+
+Manage the canonical work-types taxonomy used by changelog and release-notes generation.
+
+| Subcommand | Description                                                                         |
+| ---------- | ----------------------------------------------------------------------------------- |
+| `check`    | Compare the local `work-types.json` against the upstream codeassembly canonical     |
+| `sync`     | Overwrite the local `work-types.json` with the upstream contents (after validation) |
+
+`check` exit codes:
+
+| Code | Meaning                                                                           |
+| ---- | --------------------------------------------------------------------------------- |
+| `0`  | Match (or upstream missing — transitional warning printed)                        |
+| `1`  | Drift detected                                                                    |
+| `2`  | Network error or non-OK HTTP response                                             |
+| `3`  | Schema mismatch (upstream JSON does not parse or fails the top-level shape check) |
+
+The check is non-blocking initially: until codeassembly publishes its `work-types.json`, the upstream URL returns 404 and `check` exits 0 with a warning. CI flip to a blocking check is tracked as a follow-up once the upstream ships.
+
+These commands are also exposed as `nmr work-types:check` / `nmr work-types:sync` from any package directory.
 
 ### `release-kit sync-labels`
 

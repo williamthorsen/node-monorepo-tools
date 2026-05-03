@@ -1,0 +1,127 @@
+{
+  "$schema": "./work-types.schema.json",
+  "tiers": ["Public", "Internal", "Process"],
+  "types": [
+    {
+      "tier": "Public",
+      "key": "feat",
+      "aliases": ["feature"],
+      "emoji": "🎉",
+      "label": "Features",
+      "breakingPolicy": "optional"
+    },
+    {
+      "tier": "Public",
+      "key": "drop",
+      "aliases": [],
+      "emoji": "🪦",
+      "label": "Removed",
+      "breakingPolicy": "required"
+    },
+    {
+      "tier": "Public",
+      "key": "deprecate",
+      "aliases": [],
+      "emoji": "🗑️",
+      "label": "Deprecated",
+      "breakingPolicy": "forbidden"
+    },
+    {
+      "tier": "Public",
+      "key": "fix",
+      "aliases": ["bugfix"],
+      "emoji": "🐛",
+      "label": "Bug fixes",
+      "breakingPolicy": "forbidden"
+    },
+    {
+      "tier": "Public",
+      "key": "sec",
+      "aliases": ["security"],
+      "emoji": "🔒",
+      "label": "Security",
+      "breakingPolicy": "optional"
+    },
+    {
+      "tier": "Public",
+      "key": "perf",
+      "aliases": ["performance"],
+      "emoji": "⚡",
+      "label": "Performance",
+      "breakingPolicy": "forbidden"
+    },
+    {
+      "tier": "Internal",
+      "key": "internal",
+      "aliases": ["utility"],
+      "emoji": "🏗️",
+      "label": "Internal features",
+      "breakingPolicy": "forbidden"
+    },
+    {
+      "tier": "Internal",
+      "key": "refactor",
+      "aliases": [],
+      "emoji": "♻️",
+      "label": "Refactoring",
+      "breakingPolicy": "forbidden"
+    },
+    {
+      "tier": "Internal",
+      "key": "tests",
+      "aliases": ["test"],
+      "emoji": "🧪",
+      "label": "Tests",
+      "breakingPolicy": "forbidden"
+    },
+    {
+      "tier": "Process",
+      "key": "tooling",
+      "aliases": [],
+      "emoji": "⚙️",
+      "label": "Tooling",
+      "breakingPolicy": "forbidden"
+    },
+    {
+      "tier": "Process",
+      "key": "ci",
+      "aliases": [],
+      "emoji": "👷",
+      "label": "CI",
+      "breakingPolicy": "forbidden"
+    },
+    {
+      "tier": "Process",
+      "key": "deps",
+      "aliases": ["dep"],
+      "emoji": "📦",
+      "label": "Dependencies",
+      "breakingPolicy": "forbidden"
+    },
+    {
+      "tier": "Process",
+      "key": "ai",
+      "aliases": [],
+      "emoji": "🤖",
+      "label": "Agentic support",
+      "breakingPolicy": "forbidden"
+    },
+    {
+      "tier": "Process",
+      "key": "docs",
+      "aliases": ["doc"],
+      "emoji": "📚",
+      "label": "Documentation",
+      "breakingPolicy": "forbidden"
+    },
+    {
+      "tier": "Process",
+      "key": "fmt",
+      "aliases": [],
+      "emoji": "🎨",
+      "label": "Formatting",
+      "breakingPolicy": "forbidden",
+      "excludedFromChangelog": true
+    }
+  ]
+}

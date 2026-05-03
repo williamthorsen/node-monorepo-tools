@@ -5,8 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { parse } from 'smol-toml';
 import { describe, expect, it } from 'vitest';
 
+import { stripGroupDecorations } from '../buildChangelogEntries.ts';
 import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
-import { stripEmojiPrefix } from '../stripEmojiPrefix.ts';
 
 const thisDir = dirname(fileURLToPath(import.meta.url));
 const templatePath = resolve(thisDir, '..', '..', 'cliff.toml.template');
@@ -19,14 +19,7 @@ const templateContent = readFileSync(templatePath, 'utf8');
  * `stripEmojiPrefix` normalisation, so the contract this set expresses is "every group, regardless
  * of any decorative emoji prefix, is classified as either dev-only or all-audience by its bare name."
  */
-const ALL_AUDIENCE_GROUPS = new Set([
-  'Bug fixes',
-  'Deprecated',
-  'Documentation',
-  'Features',
-  'Performance',
-  'Security',
-]);
+const ALL_AUDIENCE_GROUPS = new Set(['Bug fixes', 'Deprecated', 'Features', 'Performance', 'Removed', 'Security']);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -55,8 +48,8 @@ function getTemplateGroups(): Set<string> {
 }
 
 describe('devOnlySections drift detection', () => {
-  const templateGroupsBare = new Set([...getTemplateGroups()].map(stripEmojiPrefix));
-  const devOnlySectionsBare = new Set(DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections.map(stripEmojiPrefix));
+  const templateGroupsBare = new Set([...getTemplateGroups()].map(stripGroupDecorations));
+  const devOnlySectionsBare = new Set(DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections.map(stripGroupDecorations));
 
   it('every devOnlySections default exists as a group in cliff.toml.template', () => {
     for (const section of devOnlySectionsBare) {

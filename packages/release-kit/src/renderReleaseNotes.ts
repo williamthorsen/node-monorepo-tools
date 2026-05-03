@@ -62,7 +62,8 @@ export function renderReleaseNotesSingle(entry: ChangelogEntry, options?: Render
     }
     lines.push(`### ${section.title}`, '');
     for (const [index, item] of section.items.entries()) {
-      lines.push(`- ${item.description}`);
+      const prefix = item.breaking === true ? '🚨 **Breaking:** ' : '';
+      lines.push(`- ${prefix}${item.description}`);
       if (item.body !== undefined && item.body.length > 0) {
         lines.push('', ...indentBodyLines(item.body));
         if (index < section.items.length - 1) {
