@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DEFAULT_WORK_TYPES } from '../defaults.ts';
+import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.ts';
 import { matchesAudience, renderReleaseNotesSingle } from '../renderReleaseNotes.ts';
 import type { ChangelogEntry, ChangelogJsonConfig, ReleaseConfig } from '../types.ts';
 
@@ -130,6 +130,34 @@ describe(buildChangelogEntries, () => {
       Dependencies: 'dev',
       Tests: 'dev',
       'Bug fixes': 'all',
+    });
+  });
+
+  it('classifies emoji-prefixed section titles against bare-name devOnlySections overrides', () => {
+    // A consumer override written as `devOnlySections: ['Internal']` (bare) must keep matching the
+    // emoji-prefixed default title `'🏗️ Internal'` produced by the bundled cliff template, so
+    // upgrading does not silently reclassify their sections.
+    const cliffContext = [
+      {
+        version: 'v1.0.0',
+        timestamp: 1_700_000_000,
+        commits: [
+          { message: '#1 feat: User-facing thing', group: '🎉 Features' },
+          { message: '#2 internal: Plumbing change', group: '🏗️ Internal' },
+          { message: '#3 deps: Bump deps', group: '📦 Dependencies' },
+        ],
+      },
+    ];
+
+    mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+
+    const entries = buildChangelogEntries(makeConfig({ devOnlySections: ['Internal', 'Dependencies'] }), 'v1.0.0');
+
+    const audiences = Object.fromEntries(entries[0]?.sections.map((s) => [s.title, s.audience]) ?? []);
+    expect(audiences).toStrictEqual({
+      '🎉 Features': 'all',
+      '🏗️ Internal': 'dev',
+      '📦 Dependencies': 'dev',
     });
   });
 
@@ -280,28 +308,35 @@ describe('buildChangelogEntries + renderReleaseNotesSingle integration', () => {
   });
 
   it('renders public release notes with priority-ordered sections, bodies under bullets, and no dev-only or skipped sections', () => {
+    // Group names mirror the production cliff template: emoji-prefixed, matching DEFAULT_WORK_TYPES headers.
+    const featHeader = DEFAULT_WORK_TYPES.feat?.header ?? 'Features';
+    const fixHeader = DEFAULT_WORK_TYPES.fix?.header ?? 'Bug fixes';
+    const refactorHeader = DEFAULT_WORK_TYPES.refactor?.header ?? 'Refactoring';
     const cliffContext = [
       {
         version: 'v0.17.0',
         timestamp: 1_700_000_000,
         commits: [
           // Intentionally emitted out of priority order to prove sort behavior.
-          { message: '#2 feat: Add widget API\n\nIntroduces a widget API for consumers.', group: 'Features' },
+          { message: '#2 feat: Add widget API\n\nIntroduces a widget API for consumers.', group: featHeader },
           {
             message: '#3 refactor: Reshape internals\n\nConsolidates helper modules.',
-            group: 'Refactoring',
+            group: refactorHeader,
           },
           {
             message:
               '#1 fix: Fix crash on startup\n\nFixes a regression that crashed the app when the config file was missing.\n\nSigned-off-by: Author <a@example.com>',
-            group: 'Bug fixes',
+            group: fixHeader,
           },
         ],
       },
     ];
     mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
 
-    const entries = buildChangelogEntries(makeConfig(), 'v0.17.0');
+    const entries = buildChangelogEntries(
+      makeConfig({ devOnlySections: DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections }),
+      'v0.17.0',
+    );
     const entry = entries[0];
     expect(entry).toBeDefined();
     if (entry === undefined) return;
@@ -319,12 +354,14 @@ describe('buildChangelogEntries + renderReleaseNotesSingle integration', () => {
     });
 
     // Public release notes: Bug fixes before Features, no Refactoring, no Formatting.
-    const bugFixesIndex = rendered.indexOf('### Bug fixes');
-    const featuresIndex = rendered.indexOf('### Features');
+    // Emoji-tolerant matching: the contract is "a Bug fixes section appears before a Features section",
+    // independent of the specific decorative emoji prefix in the header.
+    const bugFixesIndex = rendered.search(/### (?:\S+ )?Bug fixes\b/);
+    const featuresIndex = rendered.search(/### (?:\S+ )?Features\b/);
     expect(bugFixesIndex).toBeGreaterThanOrEqual(0);
     expect(featuresIndex).toBeGreaterThan(bugFixesIndex);
-    expect(rendered).not.toContain('### Refactoring');
-    expect(rendered).not.toContain('### Formatting');
+    expect(rendered).not.toMatch(/### (?:\S+ )?Refactoring\b/);
+    expect(rendered).not.toMatch(/### (?:\S+ )?Formatting\b/);
 
     // Body text renders as two-space-indented paragraphs under the bullet, and signed-off-by is stripped.
     expect(rendered).toContain(

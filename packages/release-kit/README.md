@@ -271,28 +271,28 @@ Default: `{ major: ['!'], minor: ['feat'] }`
 
 ### Default work types
 
-| Key         | Header          | Aliases       |
-| ----------- | --------------- | ------------- |
-| `fix`       | Bug fixes       | `bugfix`      |
-| `deprecate` | Deprecated      |               |
-| `feat`      | Features        | `feature`     |
-| `internal`  | Internal        |               |
-| `perf`      | Performance     | `performance` |
-| `refactor`  | Refactoring     |               |
-| `sec`       | Security        | `security`    |
-| `tests`     | Tests           | `test`        |
-| `tooling`   | Tooling         |               |
-| `ci`        | CI              |               |
-| `deps`      | Dependencies    | `dep`         |
-| `docs`      | Documentation   | `doc`         |
-| `ai`        | Agentic support |               |
-| `fmt`       | (skipped)       |               |
+| Key         | Header             | Aliases       |
+| ----------- | ------------------ | ------------- |
+| `fix`       | 🐛 Bug fixes       | `bugfix`      |
+| `deprecate` | 🗑️ Deprecated      |               |
+| `feat`      | 🎉 Features        | `feature`     |
+| `internal`  | 🏗️ Internal        |               |
+| `perf`      | ⚡ Performance     | `performance` |
+| `refactor`  | ♻️ Refactoring     |               |
+| `sec`       | 🔒 Security        | `security`    |
+| `tests`     | 🧪 Tests           | `test`        |
+| `tooling`   | ⚙️ Tooling         |               |
+| `ci`        | 👷 CI              |               |
+| `deps`      | 📦 Dependencies    | `dep`         |
+| `docs`      | 📚 Documentation   | `doc`         |
+| `ai`        | 🤖 Agentic support |               |
+| `fmt`       | (skipped)          |               |
 
 Work types from your config are merged with these defaults by key — your entries override or extend, they don't replace the full set.
 
 `fmt:` commits are recognized for version-bump determination (they contribute to a patch bump) but are skipped by the bundled `cliff.toml.template`, so they do not appear in `CHANGELOG.md` or release notes.
 
-Release-notes sections are rendered in the declaration order of the merged work-types record, with any unknown titles trailing the known ones. The default `devOnlySections` (excluded from public release notes but still written to `CHANGELOG.md`) are: `Agentic support`, `CI`, `Dependencies`, `Internal`, `Refactoring`, `Tests`, `Tooling`. Override via `changelogJson.devOnlySections` in your config.
+Release-notes sections are rendered in the declaration order of the merged work-types record, with any unknown titles trailing the known ones. The default `devOnlySections` (excluded from public release notes but still written to `CHANGELOG.md`) are: `🤖 Agentic support`, `👷 CI`, `📦 Dependencies`, `🏗️ Internal`, `♻️ Refactoring`, `🧪 Tests`, `⚙️ Tooling`. Override via `changelogJson.devOnlySections` in your config; matching is emoji-tolerant, so a bare-name override like `['Internal']` keeps working against the emoji-prefixed default titles.
 
 ## CLI reference
 

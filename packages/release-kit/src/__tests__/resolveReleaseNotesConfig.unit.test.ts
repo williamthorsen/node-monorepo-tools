@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.ts';
+import { stripEmojiPrefix } from '../stripEmojiPrefix.ts';
 
 const mockLoadConfig = vi.hoisted(() => vi.fn());
 const mockValidateConfig = vi.hoisted(() => vi.fn());
@@ -185,9 +186,11 @@ describe(resolveReleaseNotesConfig, () => {
     expect(result.sectionOrder[0]).toBe('Fixes');
     // `chore` is a new key, appended at the end.
     expect(result.sectionOrder.at(-1)).toBe('Chores');
-    // Other defaults are preserved between.
-    expect(result.sectionOrder).toContain('Features');
-    expect(result.sectionOrder).not.toContain('Bug fixes');
+    // Other defaults are preserved between (compared on their bare form so the assertion is
+    // independent of any decorative emoji prefix in the default header).
+    const bareSectionOrder = result.sectionOrder.map(stripEmojiPrefix);
+    expect(bareSectionOrder).toContain('Features');
+    expect(bareSectionOrder).not.toContain('Bug fixes');
   });
 
   it('uses default changelogJsonOutputPath when config omits changelogJson', async () => {

@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { extractVersion } from './changelogJsonUtils.ts';
 import type { GenerateChangelogOptions } from './generateChangelogs.ts';
 import { resolveCliffConfigPath } from './resolveCliffConfigPath.ts';
+import { stripEmojiPrefix } from './stripEmojiPrefix.ts';
 import { isRecord, isUnknownArray } from './typeGuards.ts';
 import type { ChangelogEntry, ChangelogItem, ChangelogSection, ReleaseConfig } from './types.ts';
 
@@ -123,6 +124,9 @@ function toCliffContextCommit(value: unknown): CliffContextCommit {
 /** Transform git-cliff context releases into `ChangelogEntry[]`. */
 function transformReleases(releases: CliffContextRelease[], devOnlySections: Set<string>): ChangelogEntry[] {
   const entries: ChangelogEntry[] = [];
+  // Normalise dev-only entries once so consumer overrides written as bare names (e.g. `'Internal'`)
+  // match emoji-prefixed default titles (e.g. `'🏗️ Internal'`) without requiring config updates.
+  const devOnlyNormalised = new Set([...devOnlySections].map(stripEmojiPrefix));
 
   for (const release of releases) {
     if (release.version === undefined) {
@@ -159,7 +163,7 @@ function transformReleases(releases: CliffContextRelease[], devOnlySections: Set
       }
       sections.push({
         title,
-        audience: devOnlySections.has(title) ? 'dev' : 'all',
+        audience: devOnlyNormalised.has(stripEmojiPrefix(title)) ? 'dev' : 'all',
         items,
       });
     }
