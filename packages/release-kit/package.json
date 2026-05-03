@@ -32,7 +32,7 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "build:post": "node scripts/copy-work-types.mjs",
+    "build:post": "node scripts/copy-work-types.js",
     "prepare": "tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json",
     "prepublishOnly": "nmr build",
     "test": "pnpm exec vitest --config=vitest.standalone.config.ts",
