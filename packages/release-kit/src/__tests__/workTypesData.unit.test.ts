@@ -114,6 +114,8 @@ describe('work-types.json structural invariants', () => {
     }
     expect(tierCounts.get('Public')).toBe(6);
     expect(tierCounts.get('Internal')).toBe(3);
+    // `fmt` is in the Process tier (canonical count is 6); the implementation plan listed it
+    // separately as "5 Process plus fmt" to emphasize its `excludedFromChangelog` flag.
     expect(tierCounts.get('Process')).toBe(6);
   });
 

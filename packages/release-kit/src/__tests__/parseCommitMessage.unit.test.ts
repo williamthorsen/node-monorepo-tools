@@ -503,6 +503,18 @@ describe('parseCommitMessage `!` policy enforcement', () => {
     expect(onPolicyViolation).toHaveBeenCalledWith({ message, hash: 'h' }, canonicalType, 'prefix');
   });
 
+  it('accepts `BREAKING CHANGE:` body footer on an optional-policy type as a valid breaking signal', () => {
+    const onPolicyViolation = vi.fn<PolicyViolationHandler>();
+    const message = 'feat: new API\n\nBREAKING CHANGE: removes old path';
+    const result = parseCommitMessage(message, 'p19', DEFAULT_WORK_TYPES, undefined, {
+      breakingPolicies: DEFAULT_BREAKING_POLICIES,
+      onPolicyViolation,
+    });
+    expect(result?.type).toBe('feat');
+    expect(result?.breaking).toBe(true);
+    expect(onPolicyViolation).not.toHaveBeenCalled();
+  });
+
   it('treats `BREAKING CHANGE:` body footer on a forbidden-policy type as a policy violation with breaking: false', () => {
     const onPolicyViolation = vi.fn<PolicyViolationHandler>();
     const message = 'fix: patch null check\n\nBREAKING CHANGE: removes deprecated path';

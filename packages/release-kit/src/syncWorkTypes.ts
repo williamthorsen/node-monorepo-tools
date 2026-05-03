@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { UPSTREAM_WORK_TYPES_URL } from './checkWorkTypesDrift.ts';
+import { errorMessage, hasExpectedTopLevelShape } from './workTypesUtils.ts';
 
 /** Outcome of a sync operation. */
 export interface SyncResult {
@@ -108,20 +109,4 @@ export async function syncWorkTypes(dependencies: SyncWorkTypesDependencies = {}
     exitCode: 0,
     message: `Synced work-types.json from ${url} → ${localPath}.`,
   };
-}
-
-/** Sanity-check that the parsed upstream JSON carries the expected top-level shape. */
-function hasExpectedTopLevelShape(value: unknown): value is { tiers: unknown[]; types: unknown[] } {
-  if (typeof value !== 'object' || value === null) {
-    return false;
-  }
-  if (!('tiers' in value) || !('types' in value)) {
-    return false;
-  }
-  return Array.isArray(value.tiers) && Array.isArray(value.types);
-}
-
-/** Render an unknown error value as a string for diagnostics. */
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import { extractVersion } from './changelogJsonUtils.ts';
 import type { GenerateChangelogOptions } from './generateChangelogs.ts';
+import { COMMIT_PREPROCESSOR_PATTERNS } from './parseCommitMessage.ts';
 import { resolveCliffConfigPath } from './resolveCliffConfigPath.ts';
 import { stripEmojiPrefix } from './stripEmojiPrefix.ts';
 import { isRecord, isUnknownArray } from './typeGuards.ts';
@@ -208,15 +209,21 @@ function stripCommentPrefix(group: string): string {
 /**
  * Detect a `!` breaking marker on the commit-subject prefix.
  *
- * Matches `type!:`, `type(scope)!:`, and `scope|type!:` formats anywhere on the first line
- * (a leading ticket prefix may precede the type). The `BREAKING CHANGE:` body footer is
- * intentionally NOT considered — only the prefix `!` marks a changelog item as breaking,
- * keeping the changelog signal aligned with the commit-prefix policy.
+ * Matches `type!:`, `type(scope)!:`, and `scope|type!:` formats at the start of the first
+ * line, after any leading ticket prefix (e.g. `#42 `, `TOOL-123 `, `## `) is stripped via
+ * `COMMIT_PREPROCESSOR_PATTERNS`. The `BREAKING CHANGE:` body footer is intentionally NOT
+ * considered — only the prefix `!` marks a changelog item as breaking, keeping the changelog
+ * signal aligned with the commit-prefix policy. The regex is anchored so descriptions
+ * containing `!:` later in the line (e.g. `"Fix edge case using field!: value notation"`)
+ * are not misclassified as breaking.
  */
 function subjectHasBreakingMarker(message: string): boolean {
-  const subject = message.split('\n', 1)[0] ?? '';
+  let subject = message.split('\n', 1)[0] ?? '';
+  for (const pattern of COMMIT_PREPROCESSOR_PATTERNS) {
+    subject = subject.replace(pattern, '');
+  }
   // Match a type-token followed by an optional scope (parenthesized or pipe-prefixed) and a literal `!:`.
-  return /(?:[\w-]+\|)?\w+(?:\([^)]+\))?!:/.test(subject);
+  return /^(?:[\w-]+\|)?\w+(?:\([^)]+\))?!:/.test(subject);
 }
 
 /** Extract the description from a commit message, stripping ticket ID and type prefix. */

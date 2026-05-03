@@ -75,6 +75,19 @@ describe(syncWorkTypes, () => {
     expect(result.message).toMatch(/already matches/);
   });
 
+  it('exits 2 on a non-OK non-success HTTP status', async () => {
+    const fakeFetch = vi
+      .fn()
+      .mockResolvedValue(makeResponse({ status: 500, statusText: 'Internal Server Error', body: '' }));
+    const result = await syncWorkTypes({
+      localPath,
+      upstreamUrl: FIXTURE_URL,
+      fetch: fakeFetch,
+    });
+    expect(result.exitCode).toBe(2);
+    expect(result.message).toMatch(/HTTP 500/);
+  });
+
   it('exits 2 with a network-error diagnostic when fetch rejects', async () => {
     const fakeFetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
     const result = await syncWorkTypes({

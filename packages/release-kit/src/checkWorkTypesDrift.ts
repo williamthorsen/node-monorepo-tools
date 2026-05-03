@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { errorMessage, hasExpectedTopLevelShape } from './workTypesUtils.ts';
+
 /** URL of the upstream canonical `work-types.json` published by codeassembly. */
 export const UPSTREAM_WORK_TYPES_URL =
   'https://raw.githubusercontent.com/williamthorsen/codeassembly/main/packages/agents/content/skills/_data/work-types.json';
@@ -139,17 +141,6 @@ function stripLocalOnlyFields(value: unknown): unknown {
   return record;
 }
 
-/** Sanity-check that the parsed upstream JSON carries the expected top-level shape. */
-function hasExpectedTopLevelShape(value: unknown): value is { tiers: unknown[]; types: unknown[] } {
-  if (typeof value !== 'object' || value === null) {
-    return false;
-  }
-  if (!('tiers' in value) || !('types' in value)) {
-    return false;
-  }
-  return Array.isArray(value.tiers) && Array.isArray(value.types);
-}
-
 /** Deep structural equality for JSON-compatible values. */
 function deepEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
@@ -174,9 +165,4 @@ function deepEqual(a: unknown, b: unknown): boolean {
     return true;
   }
   return false;
-}
-
-/** Render an unknown error value as a string for diagnostics. */
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
