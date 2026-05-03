@@ -124,6 +124,22 @@ describe(checkWorkTypesDrift, () => {
     expect(result.message).toMatch(/expected schema shape/);
   });
 
+  it('exits 0 when local carries `$schema` IDE hint and upstream does not', async () => {
+    const localWithSchemaHint = {
+      $schema: './work-types.schema.json',
+      ...SAMPLE_DATA,
+    };
+    writeFileSync(localPath, `${JSON.stringify(localWithSchemaHint, null, 2)}\n`, 'utf8');
+    const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(SAMPLE_DATA) }));
+    const result = await checkWorkTypesDrift({
+      localPath,
+      upstreamUrl: FIXTURE_URL,
+      fetch: fakeFetch,
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.message).toMatch(/matches upstream/);
+  });
+
   it('exits 3 when upstream returns invalid JSON', async () => {
     const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: 'not json' }));
     const result = await checkWorkTypesDrift({

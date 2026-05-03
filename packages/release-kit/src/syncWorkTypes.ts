@@ -9,7 +9,7 @@ export interface SyncResult {
   /**
    * Process exit code semantics:
    * - `0` — sync succeeded (file may be unchanged).
-   * - `2` — network error.
+   * - `2` — network error or local write failure.
    * - `3` — schema mismatch (upstream JSON does not parse or fails the shape check).
    */
   exitCode: 0 | 2 | 3;
@@ -96,7 +96,14 @@ export async function syncWorkTypes(dependencies: SyncWorkTypesDependencies = {}
     };
   }
 
-  writeFileSync(localPath, formatted, 'utf8');
+  try {
+    writeFileSync(localPath, formatted, 'utf8');
+  } catch (error) {
+    return {
+      exitCode: 2,
+      message: `Failed to write ${localPath}: ${errorMessage(error)}`,
+    };
+  }
   return {
     exitCode: 0,
     message: `Synced work-types.json from ${url} → ${localPath}.`,

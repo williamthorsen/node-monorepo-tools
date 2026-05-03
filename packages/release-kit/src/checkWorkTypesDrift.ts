@@ -107,7 +107,12 @@ export async function checkWorkTypesDrift(
     };
   }
 
-  if (deepEqual(localJson, upstreamJson)) {
+  // Strip the local-only `$schema` IDE hint before comparing. Upstream never carries it; if
+  // it ever does, that signals a real upstream addition and should surface as drift, so we
+  // intentionally do not strip it from the upstream side.
+  const normalisedLocal = stripLocalOnlyFields(localJson);
+
+  if (deepEqual(normalisedLocal, upstreamJson)) {
     return {
       exitCode: 0,
       message: 'Local work-types.json matches upstream.',
@@ -118,6 +123,20 @@ export async function checkWorkTypesDrift(
     exitCode: 1,
     message: `Drift detected. Local and upstream work-types.json differ. Run \`nmr work-types:sync\` to update from upstream.\nLocal:    ${localPath}\nUpstream: ${url}`,
   };
+}
+
+/**
+ * Return a shallow copy of the parsed local JSON with the local-only `$schema` IDE hint
+ * removed. The upstream canonical never carries this field, so leaving it in would cause
+ * `deepEqual`'s key-count check to always report drift.
+ */
+function stripLocalOnlyFields(value: unknown): unknown {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return value;
+  }
+  const record: Record<string, unknown> = { ...value };
+  delete record.$schema;
+  return record;
 }
 
 /** Sanity-check that the parsed upstream JSON carries the expected top-level shape. */

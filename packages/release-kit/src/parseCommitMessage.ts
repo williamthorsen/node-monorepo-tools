@@ -141,6 +141,9 @@ function evaluateBreakingPolicy(inputs: BreakingPolicyInputs): boolean {
     return false;
   }
   if (policy === 'required') {
+    // Only the prefix `!` carries the breaking signal here; a `BREAKING CHANGE:` body footer
+    // is changelog-decoration only and is intentionally not consulted, so a `required`-policy
+    // commit without `!` is a single prefix violation regardless of footer content.
     if (!hasPrefixBreaking) {
       onPolicyViolation?.(commit, resolvedType, 'prefix');
       return false;
