@@ -399,7 +399,7 @@ describe(formatCheckVerboseText, () => {
 
     const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
     expect(output).toContain('Actions:');
-    expect(output).toContain('add vulnerabilities to the allowlist and remove stale entries');
+    expect(output).toContain('add the listed vulnerabilities to the allowlist and remove stale entries');
   });
 
   it('omits the Actions footer when the allowlist is fully current', () => {

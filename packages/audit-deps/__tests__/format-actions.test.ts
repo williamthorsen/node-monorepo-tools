@@ -34,7 +34,7 @@ describe(formatActionHints, () => {
     const output = formatActionHints(result, ['prod']);
     expect(output).toContain('Actions:');
     expect(output).toContain('  \u{2022} Run `audit-deps --prod --verbose` for full report');
-    expect(output).toContain('  \u{2022} Run `audit-deps sync` to add vulnerabilities to the allowlist.');
+    expect(output).toContain('  \u{2022} Run `audit-deps sync` to add the listed vulnerabilities to the allowlist.');
   });
 
   it('returns remove-only hint without verbose hint when only stale entries exist', () => {
@@ -69,7 +69,7 @@ describe(formatActionHints, () => {
     });
 
     const output = formatActionHints(result, ['prod', 'dev']);
-    expect(output).toContain('add vulnerabilities to the allowlist and remove stale entries');
+    expect(output).toContain('add the listed vulnerabilities to the allowlist and remove stale entries');
   });
 
   it('only considers scopes included in the scopes array', () => {
