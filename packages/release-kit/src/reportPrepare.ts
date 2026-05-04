@@ -299,7 +299,14 @@ function formatChangelogFiles(lines: string[], workspace: ReleasedWorkspaceResul
   }
 }
 
-/** Append unparseable commit warning lines when applicable. */
+/**
+ * Append unparseable commit warning lines when applicable.
+ *
+ * `indent` is an additional outer indent prepended to both the header and bullet lines; base
+ * spacing (2 spaces for the header, 4 for bullets) is encoded in the format strings, so the
+ * caller passes only the section-level indent (e.g., `''` for single-package, `'  '` for
+ * multi-workspace).
+ */
 function formatUnparseableWarning(lines: string[], workspace: WorkspacePrepareResult, indent = ''): void {
   const unparseable = workspace.unparseableCommits;
   if (unparseable === undefined || unparseable.length === 0) {
@@ -324,6 +331,11 @@ function formatUnparseableWarning(lines: string[], workspace: WorkspacePrepareRe
  * Renders one header line plus one bullet per violation. Subject truncation matches
  * `formatUnparseableWarning`'s 72-char convention. Returns early when no violations
  * were collected, leaving the lines array unchanged.
+ *
+ * `indent` is an additional outer indent prepended to both the header and bullet lines; base
+ * spacing (2 spaces for the header, 4 for bullets) is encoded in the format strings, so the
+ * caller passes only the section-level indent (e.g., `''` for single-package, `'  '` for
+ * multi-workspace).
  */
 function formatPolicyViolations(lines: string[], violations: PolicyViolation[] | undefined, indent = ''): void {
   if (violations === undefined || violations.length === 0) {
