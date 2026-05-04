@@ -1,9 +1,9 @@
 import type { CheckResult } from './format-check.ts';
 import type { AuditScope } from './types.ts';
 
-const HINT_ADD = 'Run `audit-deps sync` to add vulnerabilities to the allowlist.';
+const HINT_ADD = 'Run `audit-deps sync` to add the listed vulnerabilities to the allowlist.';
 const HINT_REMOVE = 'Run `audit-deps sync` to remove stale allowlist entries.';
-const HINT_BOTH = 'Run `audit-deps sync` to add vulnerabilities to the allowlist and remove stale entries.';
+const HINT_BOTH = 'Run `audit-deps sync` to add the listed vulnerabilities to the allowlist and remove stale entries.';
 
 /** Build the `--verbose` flag string reflecting the original scope flags. */
 function buildVerboseFlag(scopes: AuditScope[]): string {

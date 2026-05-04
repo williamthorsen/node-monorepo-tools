@@ -345,7 +345,7 @@ describe(formatCheckText, () => {
     const output = formatCheckText(result, ['prod'], FIXED_NOW);
     expect(output).toContain('Actions:');
     expect(output).toContain('Run `audit-deps --prod --verbose` for full report');
-    expect(output).toContain('Run `audit-deps sync` to add vulnerabilities to the allowlist.');
+    expect(output).toContain('Run `audit-deps sync` to add the listed vulnerabilities to the allowlist.');
   });
 
   it('appends an Actions footer with the remove-only hint when only stale entries exist', () => {
@@ -377,7 +377,7 @@ describe(formatCheckText, () => {
 
     const output = formatCheckText(result, ['prod'], FIXED_NOW);
     expect(output).toContain('Actions:');
-    expect(output).toContain('add vulnerabilities to the allowlist and remove stale entries');
+    expect(output).toContain('add the listed vulnerabilities to the allowlist and remove stale entries');
   });
 
   it('omits the Actions footer when the allowlist is fully current', () => {
@@ -410,7 +410,7 @@ describe(formatCheckText, () => {
     const output = formatCheckText(result, ['prod', 'dev'], FIXED_NOW);
     expect(output).toContain('Actions:');
     expect(output).toContain('Run `audit-deps --verbose` for full report');
-    expect(output).toContain('Run `audit-deps sync` to add vulnerabilities to the allowlist.');
+    expect(output).toContain('Run `audit-deps sync` to add the listed vulnerabilities to the allowlist.');
   });
 
   it('appends Actions footer with remove-only sync hint when multi-scope has only stale entries', () => {
@@ -456,7 +456,7 @@ describe(formatCheckText, () => {
 
     const output = formatCheckText(result, ['prod', 'dev'], FIXED_NOW);
     expect(output).toContain('Actions:');
-    expect(output).toContain('add vulnerabilities to the allowlist and remove stale entries');
+    expect(output).toContain('add the listed vulnerabilities to the allowlist and remove stale entries');
     expect(output).toContain('Run `audit-deps --verbose` for full report');
   });
 
