@@ -1,6 +1,6 @@
 {
   "name": "@williamthorsen/nmr",
-  "version": "0.12.1",
+  "version": "0.13.0",
   "private": false,
   "description": "Context-aware script runner for PNPM monorepos",
   "keywords": [

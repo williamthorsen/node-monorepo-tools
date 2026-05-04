@@ -2,9 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [nmr-v0.13.0] - 2026-05-04
+
+### 🎉 Features
+
+- Add :pre and :post hook conventions to nmr commands (#339)
+
+  Adds `:pre` and `:post` hook conventions to nmr's command runner. Consumers can declare `X:pre` or `X:post` scripts that nmr runs automatically before and after script `X`. The hook commands are optional and ignored if missing. Hooks fire even when the main command is overridden, and direct invocations like `nmr build:pre` are treated as leaf operations rather than recursively cascading into `build:pre:pre` lookups.
+
+- Filter `nmr --help` to nmr commands (#348)
+
+  Restricts `nmr --help` to nmr commands only. Hook scripts (names ending in `:pre` or `:post`) are now hidden from help, and generic `package.json` lifecycle scripts (`prepare`, `postinstall`, `bootstrap`) no longer appear. When a `package.json` script overrides a built-in nmr command, the override is shown inline alongside the command name with a `*` marker, and a single `* Overridden by package.json` footnote is appended whenever any marker is rendered. Help also now reflects the active resolution context: invoked from a subpackage you see workspace-level overrides; invoked from the repo root (or with `-w`) you see root-level overrides.
+
+### 🐛 Bug fixes
+
+- Honor -w flag in composite-script step subprocesses (#346)
+
+  Fixes an issue where invoking `nmr -w <command>` from inside a workspace package, with `<command>` resolving to a composite (multi-step) script defined at the root level, failed with `Unknown command` for any step that was reachable only via the root script registry. The `-w` flag is now propagated to every step's subprocess invocation, so composite scripts run end-to-end regardless of which directory they are invoked from.
+
+### ♻️ Refactoring
+
+- Read package version at runtime via shared helper (#338)
+
+  Fixes an issue where running `audit-deps`, `nmr`, or `release-kit` from the locally built `dist/esm/` after a `git pull` could report a stale version. Each CLI now reads its version directly from its `package.json` at startup, so version reads stay in sync with the installed source without requiring a fresh `pnpm install` or rebuild.
+
 ## [nmr-v0.12.0] - 2026-04-23
 
-### Features
+### 🎉 Features
 
 - Add agent-facing AGENTS.md and sync-agent-files command (#263)
 
@@ -18,7 +42,7 @@ All notable changes to this project will be documented in this file.
 
 ## [nmr-v0.11.0] - 2026-04-17
 
-### Features
+### 🎉 Features
 
 - Add `check:fixable` convenience script (#223)
 
@@ -34,7 +58,7 @@ All notable changes to this project will be documented in this file.
 
 ## [nmr-v0.10.0] - 2026-04-16
 
-### Features
+### 🎉 Features
 
 - Decouple audit from CI quality gate and add audit workflow (#210)
 
@@ -42,7 +66,7 @@ All notable changes to this project will be documented in this file.
 
 ## [nmr-v0.9.2] - 2026-04-15
 
-### Tooling
+### ⚙️ Tooling
 
 - Enable automated publication to npm (#187)
 
@@ -50,13 +74,7 @@ All notable changes to this project will be documented in this file.
 
 ## [nmr-v0.9.0] - 2026-04-04
 
-### Documentation
-
-- Refine README to match preflight documentation standard (#137)
-
-  Rewrites the nmr README to match the documentation standard established by the preflight README (#114). Restructures content to follow the cross-package convention (header → installation → quick start → concepts → CLI reference), adds comprehensive reference tables for CLI flags, `defineConfig` fields, and all built-in script registries (workspace and root), and introduces visual aids for context-aware resolution and three-tier override precedence.
-
-### Features
+### 🎉 Features
 
 - Add --version flag to nmr and release-kit (#143)
 
@@ -70,9 +88,15 @@ All notable changes to this project will be documented in this file.
 
   Adds try/catch with `ERR_MODULE_NOT_FOUND` detection to all six bin wrappers across `nmr`, `preflight`, and `release-kit`. Previously, five of the six wrappers used bare `import()` calls that produced cryptic unhandled rejections when `dist/` was missing, and `preflight`'s existing try/catch gave no actionable guidance.
 
+### 📚 Documentation
+
+- Refine README to match preflight documentation standard (#137)
+
+  Rewrites the nmr README to match the documentation standard established by the preflight README (#114). Restructures content to follow the cross-package convention (header → installation → quick start → concepts → CLI reference), adds comprehensive reference tables for CLI flags, `defineConfig` fields, and all built-in script registries (workspace and root), and introduces visual aids for context-aware resolution and three-tier override precedence.
+
 ## [nmr-v0.5.0] - 2026-03-31
 
-### Features
+### 🎉 Features
 
 - Add `fix` script to workspace and root registries (#106)
 
@@ -80,7 +104,7 @@ All notable changes to this project will be documented in this file.
 
 ## [nmr-v0.4.0] - 2026-03-30
 
-### Features
+### 🎉 Features
 
 - Add default root scripts and split registry module (#96)
 
@@ -90,7 +114,7 @@ All notable changes to this project will be documented in this file.
 
 ## [nmr-v0.3.0] - 2026-03-29
 
-### Features
+### 🎉 Features
 
 - Resolve package.json scripts at root level and skip in recursive mode (#95)
 
@@ -104,15 +128,7 @@ All notable changes to this project will be documented in this file.
 
 ## [nmr-v0.2.0] - 2026-03-28
 
-### Documentation
-
-- Document utility binaries
-
-  Add README sections for the package's additional commands. Subcommands (report-overrides, sync-pnpm-version) are documented under "Additional subcommands" with nmr invocation syntax. The standalone ensure-prepublish-hooks utility is documented separately under "Standalone utilities".
-
-  Also fix the executable bit on bin/ensure-prepublish-hooks.js to match the other bin entries.
-
-### Features
+### 🎉 Features
 
 - Add ensure-prepublish-hooks binary (#75)
 
@@ -123,9 +139,17 @@ All notable changes to this project will be documented in this file.
 
   Also adds `private` field extraction to the shared `PackageJson` interface.
 
+### 📚 Documentation
+
+- Document utility binaries
+
+  Add README sections for the package's additional commands. Subcommands (report-overrides, sync-pnpm-version) are documented under "Additional subcommands" with nmr invocation syntax. The standalone ensure-prepublish-hooks utility is documented separately under "Standalone utilities".
+
+  Also fix the executable bit on bin/ensure-prepublish-hooks.js to match the other bin entries.
+
 ## [nmr-v0.1.1] - 2026-03-28
 
-### Features
+### 🎉 Features
 
 - Extract nmr CLI from core package (#61)
 
@@ -133,7 +157,7 @@ All notable changes to this project will be documented in this file.
 
   Scopes: core, nmr
 
-### Refactoring
+### ♻️ Refactoring
 
 - Extract helpers to reduce duplication in config and consistency modules (#62)
 

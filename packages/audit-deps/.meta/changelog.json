@@ -1,10 +1,36 @@
 [
   {
+    "version": "0.6.1",
+    "date": "2026-05-04",
+    "sections": [
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Read package version at runtime via shared helper (#338)",
+            "body": "Fixes an issue where running `audit-deps`, `nmr`, or `release-kit` from the locally built `dist/esm/` after a `git pull` could report a stale version. Each CLI now reads its version directly from its `package.json` at startup, so version reads stay in sync with the installed source without requiring a fresh `pnpm install` or rebuild."
+          }
+        ]
+      },
+      {
+        "title": "📚 Documentation",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Clarify which vulnerabilities `audit-deps sync` adds (#363)",
+            "body": "Clarifies the action hints printed by `audit-deps check` so users understand exactly which vulnerabilities `audit-deps sync` will allowlist. The hints now read \"add **the listed** vulnerabilities to the allowlist\", tying the action to the report shown immediately above. The previous wording — \"add vulnerabilities to the allowlist\" — could imply that `sync` is selective or interactive, when in fact it non-interactively allowlists every unallowed vulnerability in the report."
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.6.0",
     "date": "2026-04-30",
     "sections": [
       {
-        "title": "Features",
+        "title": "🎉 Features",
         "audience": "all",
         "items": [
           {
@@ -20,7 +46,7 @@
     "date": "2026-04-23",
     "sections": [
       {
-        "title": "Features",
+        "title": "🎉 Features",
         "audience": "all",
         "items": [
           {
@@ -29,7 +55,8 @@
           },
           {
             "description": "Replace --only with --tags on release-kit publish and push (#273)",
-            "body": "`release-kit publish` and `release-kit push` now filter by full tag name via `--tags=<tag1,tag2>` instead of workspace directory name via `--only=<dir>`, matching the shape already used by `create-github-release`. Callers pass the tag they care about (e.g., `core-v1.3.0`) directly, with no translation step back to the publishing workspace's directory name. The reusable workflow gains an optional `tags:` input, and the internal `publish.yaml` caller now passes `tags: ${{ github.ref_name }}`, making the publish scope explicit rather than relying on the single-tag fetch default of `actions/checkout@v6`."
+            "body": "`release-kit publish` and `release-kit push` now filter by full tag name via `--tags=<tag1,tag2>` instead of workspace directory name via `--only=<dir>`, matching the shape already used by `create-github-release`. Callers pass the tag they care about (e.g., `core-v1.3.0`) directly, with no translation step back to the publishing workspace's directory name. The reusable workflow gains an optional `tags:` input, and the internal `publish.yaml` caller now passes `tags: ${{ github.ref_name }}`, making the publish scope explicit rather than relying on the single-tag fetch default of `actions/checkout@v6`.",
+            "breaking": true
           },
           {
             "description": "Scaffold audit.yaml workflow from audit-deps init (#277)",
@@ -38,12 +65,13 @@
         ]
       },
       {
-        "title": "Refactoring",
+        "title": "♻️ Refactoring",
         "audience": "dev",
         "items": [
           {
             "description": "Rename `node-monorepo-core` to `nmr-core` (#304)",
-            "body": "Renames the shared-utilities package from `@williamthorsen/node-monorepo-core` to `@williamthorsen/nmr-core`, aligning it with the repository's `nmr-*` naming convention. The package's functionality and version are unchanged; only the published name differs."
+            "body": "Renames the shared-utilities package from `@williamthorsen/node-monorepo-core` to `@williamthorsen/nmr-core`, aligning it with the repository's `nmr-*` naming convention. The package's functionality and version are unchanged; only the published name differs.",
+            "breaking": true
           }
         ]
       }
@@ -54,7 +82,7 @@
     "date": "2026-04-17",
     "sections": [
       {
-        "title": "Features",
+        "title": "🎉 Features",
         "audience": "all",
         "items": [
           {
@@ -78,7 +106,7 @@
     "date": "2026-04-16",
     "sections": [
       {
-        "title": "Features",
+        "title": "🎉 Features",
         "audience": "all",
         "items": [
           {
@@ -96,8 +124,8 @@
         ]
       },
       {
-        "title": "Documentation",
-        "audience": "all",
+        "title": "📚 Documentation",
+        "audience": "dev",
         "items": [
           {
             "description": "Align README and help text with current CLI API",
@@ -112,7 +140,7 @@
     "date": "2026-04-15",
     "sections": [
       {
-        "title": "Tooling",
+        "title": "⚙️ Tooling",
         "audience": "dev",
         "items": [
           {
@@ -128,7 +156,7 @@
     "date": "2026-04-10",
     "sections": [
       {
-        "title": "Features",
+        "title": "🎉 Features",
         "audience": "all",
         "items": [
           {

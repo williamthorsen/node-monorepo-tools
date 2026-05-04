@@ -1,10 +1,26 @@
 [
   {
+    "version": "0.3.1",
+    "date": "2026-05-04",
+    "sections": [
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Read package version at runtime via shared helper (#338)",
+            "body": "Fixes an issue where running `audit-deps`, `nmr`, or `release-kit` from the locally built `dist/esm/` after a `git pull` could report a stale version. Each CLI now reads its version directly from its `package.json` at startup, so version reads stay in sync with the installed source without requiring a fresh `pnpm install` or rebuild."
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.3.0",
     "date": "2026-04-23",
     "sections": [
       {
-        "title": "Features",
+        "title": "🎉 Features",
         "audience": "all",
         "items": [
           {
@@ -14,12 +30,13 @@
         ]
       },
       {
-        "title": "Refactoring",
+        "title": "♻️ Refactoring",
         "audience": "dev",
         "items": [
           {
             "description": "Rename `node-monorepo-core` to `nmr-core` (#304)",
-            "body": "Renames the shared-utilities package from `@williamthorsen/node-monorepo-core` to `@williamthorsen/nmr-core`, aligning it with the repository's `nmr-*` naming convention. The package's functionality and version are unchanged; only the published name differs."
+            "body": "Renames the shared-utilities package from `@williamthorsen/node-monorepo-core` to `@williamthorsen/nmr-core`, aligning it with the repository's `nmr-*` naming convention. The package's functionality and version are unchanged; only the published name differs.",
+            "breaking": true
           }
         ]
       }
@@ -30,7 +47,7 @@
     "date": "2026-04-15",
     "sections": [
       {
-        "title": "Tooling",
+        "title": "⚙️ Tooling",
         "audience": "dev",
         "items": [
           {
@@ -46,7 +63,7 @@
     "date": "2026-04-04",
     "sections": [
       {
-        "title": "Refactoring",
+        "title": "♻️ Refactoring",
         "audience": "dev",
         "items": [
           {
@@ -62,7 +79,7 @@
     "date": "2026-03-28",
     "sections": [
       {
-        "title": "Features",
+        "title": "🎉 Features",
         "audience": "all",
         "items": [
           {
@@ -78,7 +95,7 @@
     "date": "2026-03-27",
     "sections": [
       {
-        "title": "Features",
+        "title": "🎉 Features",
         "audience": "all",
         "items": [
           {
@@ -96,7 +113,17 @@
         ]
       },
       {
-        "title": "Tooling",
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Replace dist bin targets with thin wrapper scripts (#48)",
+            "body": "The `bin` entries in `packages/core` and `packages/release-kit` pointed directly into `dist/esm/`, causing `pnpm install` to emit \"Failed to create bin\" warnings in fresh worktrees where `dist/` does not yet exist. Each bin entry now points to a committed wrapper script in `bin/` that dynamically imports the real entry point. The `files` field in both packages includes `bin` so the wrappers are published."
+          }
+        ]
+      },
+      {
+        "title": "⚙️ Tooling",
         "audience": "dev",
         "items": [
           {
@@ -106,22 +133,12 @@
         ]
       },
       {
-        "title": "Dependencies",
+        "title": "📦 Dependencies",
         "audience": "dev",
         "items": [
           {
             "description": "Remove vitest optional peer dependency (#46)",
             "body": "Removes the `peerDependencies` and `peerDependenciesMeta` entries for vitest from `packages/core/package.json` and regenerates the lockfile to eliminate the stale `vitest@4.1.0` resolution.\n\nThe peer dependency caused pnpm to resolve a stale `vitest@4.1.0` in the lockfile, conflicting with the root-pinned `vitest@4.1.1` and breaking coverage runs with a mixed-versions error. Consumers of the `./tests` export already provide vitest as a root devDependency, so the declaration was unnecessary."
-          }
-        ]
-      },
-      {
-        "title": "Refactoring",
-        "audience": "dev",
-        "items": [
-          {
-            "description": "Replace dist bin targets with thin wrapper scripts (#48)",
-            "body": "The `bin` entries in `packages/core` and `packages/release-kit` pointed directly into `dist/esm/`, causing `pnpm install` to emit \"Failed to create bin\" warnings in fresh worktrees where `dist/` does not yet exist. Each bin entry now points to a committed wrapper script in `bin/` that dynamically imports the real entry point. The `files` field in both packages includes `bin` so the wrappers are published."
           }
         ]
       }
@@ -132,7 +149,7 @@
     "date": "2026-03-12",
     "sections": [
       {
-        "title": "Features",
+        "title": "🎉 Features",
         "audience": "all",
         "items": [
           {

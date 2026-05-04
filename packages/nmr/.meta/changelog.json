@@ -1,10 +1,50 @@
 [
   {
+    "version": "0.13.0",
+    "date": "2026-05-04",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Add :pre and :post hook conventions to nmr commands (#339)",
+            "body": "Adds `:pre` and `:post` hook conventions to nmr's command runner. Consumers can declare `X:pre` or `X:post` scripts that nmr runs automatically before and after script `X`. The hook commands are optional and ignored if missing. Hooks fire even when the main command is overridden, and direct invocations like `nmr build:pre` are treated as leaf operations rather than recursively cascading into `build:pre:pre` lookups."
+          },
+          {
+            "description": "Filter `nmr --help` to nmr commands (#348)",
+            "body": "Restricts `nmr --help` to nmr commands only. Hook scripts (names ending in `:pre` or `:post`) are now hidden from help, and generic `package.json` lifecycle scripts (`prepare`, `postinstall`, `bootstrap`) no longer appear. When a `package.json` script overrides a built-in nmr command, the override is shown inline alongside the command name with a `*` marker, and a single `* Overridden by package.json` footnote is appended whenever any marker is rendered. Help also now reflects the active resolution context: invoked from a subpackage you see workspace-level overrides; invoked from the repo root (or with `-w`) you see root-level overrides."
+          }
+        ]
+      },
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Honor -w flag in composite-script step subprocesses (#346)",
+            "body": "Fixes an issue where invoking `nmr -w <command>` from inside a workspace package, with `<command>` resolving to a composite (multi-step) script defined at the root level, failed with `Unknown command` for any step that was reachable only via the root script registry. The `-w` flag is now propagated to every step's subprocess invocation, so composite scripts run end-to-end regardless of which directory they are invoked from."
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Read package version at runtime via shared helper (#338)",
+            "body": "Fixes an issue where running `audit-deps`, `nmr`, or `release-kit` from the locally built `dist/esm/` after a `git pull` could report a stale version. Each CLI now reads its version directly from its `package.json` at startup, so version reads stay in sync with the installed source without requiring a fresh `pnpm install` or rebuild."
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.12.0",
     "date": "2026-04-23",
     "sections": [
       {
-        "title": "Features",
+        "title": "🎉 Features",
         "audience": "all",
         "items": [
           {
@@ -24,7 +64,7 @@
     "date": "2026-04-17",
     "sections": [
       {
-        "title": "Features",
+        "title": "🎉 Features",
         "audience": "all",
         "items": [
           {
@@ -48,7 +88,7 @@
     "date": "2026-04-16",
     "sections": [
       {
-        "title": "Features",
+        "title": "🎉 Features",
         "audience": "all",
         "items": [
           {
@@ -64,7 +104,7 @@
     "date": "2026-04-15",
     "sections": [
       {
-        "title": "Tooling",
+        "title": "⚙️ Tooling",
         "audience": "dev",
         "items": [
           {
@@ -80,17 +120,7 @@
     "date": "2026-04-04",
     "sections": [
       {
-        "title": "Documentation",
-        "audience": "all",
-        "items": [
-          {
-            "description": "Refine README to match preflight documentation standard (#137)",
-            "body": "Rewrites the nmr README to match the documentation standard established by the preflight README (#114). Restructures content to follow the cross-package convention (header → installation → quick start → concepts → CLI reference), adds comprehensive reference tables for CLI flags, `defineConfig` fields, and all built-in script registries (workspace and root), and introduces visual aids for context-aware resolution and three-tier override precedence."
-          }
-        ]
-      },
-      {
-        "title": "Features",
+        "title": "🎉 Features",
         "audience": "all",
         "items": [
           {
@@ -106,6 +136,16 @@
             "body": "Adds try/catch with `ERR_MODULE_NOT_FOUND` detection to all six bin wrappers across `nmr`, `preflight`, and `release-kit`. Previously, five of the six wrappers used bare `import()` calls that produced cryptic unhandled rejections when `dist/` was missing, and `preflight`'s existing try/catch gave no actionable guidance."
           }
         ]
+      },
+      {
+        "title": "📚 Documentation",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Refine README to match preflight documentation standard (#137)",
+            "body": "Rewrites the nmr README to match the documentation standard established by the preflight README (#114). Restructures content to follow the cross-package convention (header → installation → quick start → concepts → CLI reference), adds comprehensive reference tables for CLI flags, `defineConfig` fields, and all built-in script registries (workspace and root), and introduces visual aids for context-aware resolution and three-tier override precedence."
+          }
+        ]
       }
     ]
   },
@@ -114,7 +154,7 @@
     "date": "2026-03-31",
     "sections": [
       {
-        "title": "Features",
+        "title": "🎉 Features",
         "audience": "all",
         "items": [
           {
@@ -130,7 +170,7 @@
     "date": "2026-03-30",
     "sections": [
       {
-        "title": "Features",
+        "title": "🎉 Features",
         "audience": "all",
         "items": [
           {
@@ -146,7 +186,7 @@
     "date": "2026-03-29",
     "sections": [
       {
-        "title": "Features",
+        "title": "🎉 Features",
         "audience": "all",
         "items": [
           {
@@ -162,7 +202,7 @@
     "date": "2026-03-28",
     "sections": [
       {
-        "title": "Features",
+        "title": "🎉 Features",
         "audience": "all",
         "items": [
           {
@@ -172,8 +212,8 @@
         ]
       },
       {
-        "title": "Documentation",
-        "audience": "all",
+        "title": "📚 Documentation",
+        "audience": "dev",
         "items": [
           {
             "description": "Document utility binaries",
@@ -188,7 +228,7 @@
     "date": "2026-03-28",
     "sections": [
       {
-        "title": "Features",
+        "title": "🎉 Features",
         "audience": "all",
         "items": [
           {
@@ -198,7 +238,7 @@
         ]
       },
       {
-        "title": "Refactoring",
+        "title": "♻️ Refactoring",
         "audience": "dev",
         "items": [
           {

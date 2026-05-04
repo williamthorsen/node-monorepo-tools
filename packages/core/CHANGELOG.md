@@ -2,15 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [nmr-core-v0.3.1] - 2026-05-04
+
+### ♻️ Refactoring
+
+- Read package version at runtime via shared helper (#338)
+
+  Fixes an issue where running `audit-deps`, `nmr`, or `release-kit` from the locally built `dist/esm/` after a `git pull` could report a stale version. Each CLI now reads its version directly from its `package.json` at startup, so version reads stay in sync with the installed source without requiring a fresh `pnpm install` or rebuild.
+
 ## [nmr-core-v0.3.0] - 2026-04-23
 
-### Features
+### 🎉 Features
 
 - Scaffold audit.yaml workflow from audit-deps init (#277)
 
   Adds GitHub Actions workflow scaffolding to `audit-deps init`. Running the command now writes both `.config/audit-deps.config.json` and `.github/workflows/audit.yaml` in the target repo, so that consumers no longer have to copy the canonical caller workflow by hand from this repo. The workflow content is shipped as a bundled template that ships to npm, and the repo's own workflow is kept byte-identical to that template via a consistency test — the canonical workflow cannot silently drift from what is published.
 
-### Refactoring
+### ♻️ Refactoring
 
 - Rename `node-monorepo-core` to `nmr-core` (#304)
 
@@ -18,7 +26,7 @@ All notable changes to this project will be documented in this file.
 
 ## [core-v0.2.6] - 2026-04-15
 
-### Tooling
+### ⚙️ Tooling
 
 - Enable automated publication to npm (#187)
 
@@ -26,7 +34,7 @@ All notable changes to this project will be documented in this file.
 
 ## [core-v0.2.5] - 2026-04-04
 
-### Refactoring
+### ♻️ Refactoring
 
 - Extract shared CLI argument-parsing utility into core (#151)
 
@@ -34,7 +42,7 @@ All notable changes to this project will be documented in this file.
 
 ## [core-v0.2.1] - 2026-03-28
 
-### Features
+### 🎉 Features
 
 - Add shared writeFileWithCheck utility and overwrite reporting (#66)
 
@@ -42,15 +50,7 @@ All notable changes to this project will be documented in this file.
 
 ## [core-v0.2.0] - 2026-03-27
 
-### Dependencies
-
-- Remove vitest optional peer dependency (#46)
-
-  Removes the `peerDependencies` and `peerDependenciesMeta` entries for vitest from `packages/core/package.json` and regenerates the lockfile to eliminate the stale `vitest@4.1.0` resolution.
-
-  The peer dependency caused pnpm to resolve a stale `vitest@4.1.0` in the lockfile, conflicting with the root-pinned `vitest@4.1.1` and breaking coverage runs with a mixed-versions error. Consumers of the `./tests` export already provide vitest as a root devDependency, so the declaration was unnecessary.
-
-### Features
+### 🎉 Features
 
 - Add --quiet flag to nmr CLI (#4)
 
@@ -66,21 +66,29 @@ All notable changes to this project will be documented in this file.
 
   Scopes: core, nmr
 
-### Refactoring
+### ♻️ Refactoring
 
 - Replace dist bin targets with thin wrapper scripts (#48)
 
   The `bin` entries in `packages/core` and `packages/release-kit` pointed directly into `dist/esm/`, causing `pnpm install` to emit "Failed to create bin" warnings in fresh worktrees where `dist/` does not yet exist. Each bin entry now points to a committed wrapper script in `bin/` that dynamically imports the real entry point. The `files` field in both packages includes `bin` so the wrappers are published.
 
-### Tooling
+### ⚙️ Tooling
 
 - Adopt nmr to run monorepo and workspace scripts (#38)
 
   Replaces the legacy workspace script runner and ~25 root `package.json` scripts with `nmr`, the monorepo's own context-aware script runner. Root scripts are reduced to 4 (`prepare`, `postinstall`, `ci`, `bootstrap`), packages use direct build commands for bootstrap, and release-kit declares tier-3 test overrides for its integration test configs.
 
+### 📦 Dependencies
+
+- Remove vitest optional peer dependency (#46)
+
+  Removes the `peerDependencies` and `peerDependenciesMeta` entries for vitest from `packages/core/package.json` and regenerates the lockfile to eliminate the stale `vitest@4.1.0` resolution.
+
+  The peer dependency caused pnpm to resolve a stale `vitest@4.1.0` in the lockfile, conflicting with the root-pinned `vitest@4.1.1` and breaking coverage runs with a mixed-versions error. Consumers of the `./tests` export already provide vitest as a root devDependency, so the declaration was unnecessary.
+
 ## [core-v0.1.0] - 2026-03-12
 
-### Features
+### 🎉 Features
 
 - Implement nmr CLI and core package (#2)
 

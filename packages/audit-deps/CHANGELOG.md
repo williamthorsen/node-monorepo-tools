@@ -2,9 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [audit-deps-v0.6.1] - 2026-05-04
+
+### ♻️ Refactoring
+
+- Read package version at runtime via shared helper (#338)
+
+  Fixes an issue where running `audit-deps`, `nmr`, or `release-kit` from the locally built `dist/esm/` after a `git pull` could report a stale version. Each CLI now reads its version directly from its `package.json` at startup, so version reads stay in sync with the installed source without requiring a fresh `pnpm install` or rebuild.
+
+### 📚 Documentation
+
+- Clarify which vulnerabilities `audit-deps sync` adds (#363)
+
+  Clarifies the action hints printed by `audit-deps check` so users understand exactly which vulnerabilities `audit-deps sync` will allowlist. The hints now read "add **the listed** vulnerabilities to the allowlist", tying the action to the report shown immediately above. The previous wording — "add vulnerabilities to the allowlist" — could imply that `sync` is selective or interactive, when in fact it non-interactively allowlists every unallowed vulnerability in the report.
+
 ## [audit-deps-v0.6.0] - 2026-04-30
 
-### Features
+### 🎉 Features
 
 - Add status indicator to standing-issue title (#335)
 
@@ -12,7 +26,7 @@ All notable changes to this project will be documented in this file.
 
 ## [audit-deps-v0.5.0] - 2026-04-23
 
-### Features
+### 🎉 Features
 
 - Show below-threshold vulnerabilities and threshold in check output (#244)
 
@@ -26,7 +40,7 @@ All notable changes to this project will be documented in this file.
 
   Adds GitHub Actions workflow scaffolding to `audit-deps init`. Running the command now writes both `.config/audit-deps.config.json` and `.github/workflows/audit.yaml` in the target repo, so that consumers no longer have to copy the canonical caller workflow by hand from this repo. The workflow content is shipped as a bundled template that ships to npm, and the repo's own workflow is kept byte-identical to that template via a consistency test — the canonical workflow cannot silently drift from what is published.
 
-### Refactoring
+### ♻️ Refactoring
 
 - Rename `node-monorepo-core` to `nmr-core` (#304)
 
@@ -34,7 +48,7 @@ All notable changes to this project will be documented in this file.
 
 ## [audit-deps-v0.4.0] - 2026-04-17
 
-### Features
+### 🎉 Features
 
 - Allow audit-deps to work without a config (#235)
 
@@ -50,13 +64,7 @@ All notable changes to this project will be documented in this file.
 
 ## [audit-deps-v0.3.0] - 2026-04-16
 
-### Documentation
-
-- Align README and help text with current CLI API
-
-  Update the Quick start and CLI reference in the `audit-deps` README to match the grouped-check default, the removal of the `report` command, and the new `--raw` flag. Remove "(CI mode)" from the `--raw` help-text description; the flag is not tied to CI environments.
-
-### Features
+### 🎉 Features
 
 - Decouple audit from CI quality gate and add audit workflow (#210)
 
@@ -80,9 +88,15 @@ All notable changes to this project will be documented in this file.
 
   Adds a `--verbose` / `-v` flag to the default `audit-deps` check that produces a detailed per-vulnerability report — advisory title, severity, every affected dependency path, link, and description — replacing the need to chase the URL for each finding. Both bare and verbose outputs gain an `Actions:` footer that tells the user exactly which `audit-deps sync` invocation will resolve the current state, and `sync` now stamps an `addedAt` date on allowlist entries so allowed vulnerabilities carry an `allowed X ago (YYYY-MM-DD)` line when displayed in verbose mode.
 
+### 📚 Documentation
+
+- Align README and help text with current CLI API
+
+  Update the Quick start and CLI reference in the `audit-deps` README to match the grouped-check default, the removal of the `report` command, and the new `--raw` flag. Remove "(CI mode)" from the `--raw` help-text description; the flag is not tied to CI environments.
+
 ## [audit-deps-v0.2.1] - 2026-04-15
 
-### Tooling
+### ⚙️ Tooling
 
 - Enable automated publication to npm (#187)
 
@@ -90,7 +104,7 @@ All notable changes to this project will be documented in this file.
 
 ## [audit-deps-v0.2.0] - 2026-04-10
 
-### Features
+### 🎉 Features
 
 - Create audit-deps wrapper to manage dependency audits (#183)
 
