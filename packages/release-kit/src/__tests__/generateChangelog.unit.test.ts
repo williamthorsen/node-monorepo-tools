@@ -1,19 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const mockExecFileSync = vi.hoisted(() => vi.fn());
+const mockRunGitCliff = vi.hoisted(() => vi.fn());
 const mockResolveCliffConfigPath = vi.hoisted(() => vi.fn());
-const mockCopyFileSync = vi.hoisted(() => vi.fn());
-const mockMkdtempSync = vi.hoisted(() => vi.fn(() => '/tmp/cliff-abc123'));
-const mockRmSync = vi.hoisted(() => vi.fn());
 
-vi.mock('node:child_process', () => ({
-  execFileSync: mockExecFileSync,
-}));
-
-vi.mock('node:fs', () => ({
-  copyFileSync: mockCopyFileSync,
-  mkdtempSync: mockMkdtempSync,
-  rmSync: mockRmSync,
+vi.mock('../runGitCliff.ts', () => ({
+  runGitCliff: mockRunGitCliff,
 }));
 
 vi.mock('../resolveCliffConfigPath.ts', () => ({
@@ -48,24 +39,21 @@ describe(buildTagPattern, () => {
 
 describe(generateChangelog, () => {
   afterEach(() => {
-    mockExecFileSync.mockReset();
+    mockRunGitCliff.mockReset();
     mockResolveCliffConfigPath.mockReset();
-    mockCopyFileSync.mockReset();
-    mockMkdtempSync.mockReset().mockReturnValue('/tmp/cliff-abc123');
-    mockRmSync.mockReset();
   });
 
-  it('calls git-cliff with base args when no includePaths are provided', () => {
+  it('calls runGitCliff with base args when no includePaths are provided', () => {
     mockResolveCliffConfigPath.mockReturnValue('cliff.toml');
     const config = { cliffConfigPath: 'cliff.toml' };
 
     const result = generateChangelog(config, 'packages/arrays', 'v1.0.0', false);
 
     expect(result).toStrictEqual(['packages/arrays/CHANGELOG.md']);
-    expect(mockExecFileSync).toHaveBeenCalledWith(
-      'npx',
-      ['--yes', 'git-cliff', '--config', 'cliff.toml', '--output', 'packages/arrays/CHANGELOG.md', '--tag', 'v1.0.0'],
-      { stdio: 'inherit' },
+    expect(mockRunGitCliff).toHaveBeenCalledWith(
+      'cliff.toml',
+      ['--output', 'packages/arrays/CHANGELOG.md', '--tag', 'v1.0.0'],
+      'inherit',
     );
   });
 
@@ -78,21 +66,10 @@ describe(generateChangelog, () => {
     });
 
     expect(result).toStrictEqual(['packages/arrays/CHANGELOG.md']);
-    expect(mockExecFileSync).toHaveBeenCalledWith(
-      'npx',
-      [
-        '--yes',
-        'git-cliff',
-        '--config',
-        'cliff.toml',
-        '--output',
-        'packages/arrays/CHANGELOG.md',
-        '--tag',
-        'arrays-v1.0.0',
-        '--include-path',
-        'packages/arrays',
-      ],
-      { stdio: 'inherit' },
+    expect(mockRunGitCliff).toHaveBeenCalledWith(
+      'cliff.toml',
+      ['--output', 'packages/arrays/CHANGELOG.md', '--tag', 'arrays-v1.0.0', '--include-path', 'packages/arrays'],
+      'inherit',
     );
   });
 
@@ -105,13 +82,9 @@ describe(generateChangelog, () => {
     });
 
     expect(result).toStrictEqual(['./CHANGELOG.md']);
-    expect(mockExecFileSync).toHaveBeenCalledWith(
-      'npx',
+    expect(mockRunGitCliff).toHaveBeenCalledWith(
+      'cliff.toml',
       [
-        '--yes',
-        'git-cliff',
-        '--config',
-        'cliff.toml',
         '--output',
         './CHANGELOG.md',
         '--tag',
@@ -121,7 +94,7 @@ describe(generateChangelog, () => {
         '--include-path',
         'packages/strings',
       ],
-      { stdio: 'inherit' },
+      'inherit',
     );
   });
 
@@ -134,13 +107,9 @@ describe(generateChangelog, () => {
       includePaths: ['packages/arrays'],
     });
 
-    expect(mockExecFileSync).toHaveBeenCalledWith(
-      'npx',
+    expect(mockRunGitCliff).toHaveBeenCalledWith(
+      'cliff.toml',
       [
-        '--yes',
-        'git-cliff',
-        '--config',
-        'cliff.toml',
         '--output',
         'packages/arrays/CHANGELOG.md',
         '--tag',
@@ -150,7 +119,7 @@ describe(generateChangelog, () => {
         '--include-path',
         'packages/arrays',
       ],
-      { stdio: 'inherit' },
+      'inherit',
     );
   });
 
@@ -160,10 +129,10 @@ describe(generateChangelog, () => {
 
     generateChangelog(config, 'packages/arrays', 'v1.0.0', false);
 
-    expect(mockExecFileSync).toHaveBeenCalledWith(
-      'npx',
-      ['--yes', 'git-cliff', '--config', 'cliff.toml', '--output', 'packages/arrays/CHANGELOG.md', '--tag', 'v1.0.0'],
-      { stdio: 'inherit' },
+    expect(mockRunGitCliff).toHaveBeenCalledWith(
+      'cliff.toml',
+      ['--output', 'packages/arrays/CHANGELOG.md', '--tag', 'v1.0.0'],
+      'inherit',
     );
   });
 
@@ -173,24 +142,34 @@ describe(generateChangelog, () => {
 
     generateChangelog(config, 'packages/arrays', 'v1.0.0', false, { includePaths: [] });
 
-    expect(mockExecFileSync).toHaveBeenCalledWith(
-      'npx',
-      ['--yes', 'git-cliff', '--config', 'cliff.toml', '--output', 'packages/arrays/CHANGELOG.md', '--tag', 'v1.0.0'],
-      { stdio: 'inherit' },
+    expect(mockRunGitCliff).toHaveBeenCalledWith(
+      'cliff.toml',
+      ['--output', 'packages/arrays/CHANGELOG.md', '--tag', 'v1.0.0'],
+      'inherit',
     );
   });
 
-  it('returns the output file path without calling execFileSync when dryRun is true', () => {
+  it('returns the output file path without invoking runGitCliff when dryRun is true', () => {
     mockResolveCliffConfigPath.mockReturnValue('cliff.toml');
     const config = { cliffConfigPath: 'cliff.toml' };
 
     const result = generateChangelog(config, 'packages/arrays', 'v1.0.0', true);
 
     expect(result).toStrictEqual(['packages/arrays/CHANGELOG.md']);
-    expect(mockExecFileSync).not.toHaveBeenCalled();
+    expect(mockRunGitCliff).not.toHaveBeenCalled();
   });
 
-  it('copies .template files to a temp .toml before passing to git-cliff', () => {
+  it('does not resolve the cliff config path when dryRun is true', () => {
+    // Dry-run skips both helper invocation and the resolveCliffConfigPath call, so a missing
+    // bundled template (or a transient resolution failure) does not block dry-run output.
+    const config = { cliffConfigPath: 'cliff.toml' };
+
+    generateChangelog(config, 'packages/arrays', 'v1.0.0', true);
+
+    expect(mockResolveCliffConfigPath).not.toHaveBeenCalled();
+  });
+
+  it('forwards the resolved config path to runGitCliff (e.g. a .template path)', () => {
     mockResolveCliffConfigPath.mockReturnValue('/bundled/cliff.toml.template');
     const config = {};
 
@@ -198,28 +177,29 @@ describe(generateChangelog, () => {
 
     expect(result).toStrictEqual(['packages/arrays/CHANGELOG.md']);
     expect(mockResolveCliffConfigPath).toHaveBeenCalledWith(undefined, expect.any(String));
-    expect(mockCopyFileSync).toHaveBeenCalledWith('/bundled/cliff.toml.template', '/tmp/cliff-abc123/cliff.toml');
-    expect(mockExecFileSync).toHaveBeenCalledWith(
-      'npx',
-      [
-        '--yes',
-        'git-cliff',
-        '--config',
-        '/tmp/cliff-abc123/cliff.toml',
-        '--output',
-        'packages/arrays/CHANGELOG.md',
-        '--tag',
-        'v1.0.0',
-      ],
-      { stdio: 'inherit' },
+    expect(mockRunGitCliff).toHaveBeenCalledWith(
+      '/bundled/cliff.toml.template',
+      ['--output', 'packages/arrays/CHANGELOG.md', '--tag', 'v1.0.0'],
+      'inherit',
     );
-    expect(mockRmSync).toHaveBeenCalledWith('/tmp/cliff-abc123', { recursive: true, force: true });
+  });
+
+  it('wraps thrown errors from the helper with site-specific context', () => {
+    mockResolveCliffConfigPath.mockReturnValue('cliff.toml');
+    mockRunGitCliff.mockImplementationOnce(() => {
+      throw new Error('npx exited with code 1');
+    });
+    const config = { cliffConfigPath: 'cliff.toml' };
+
+    expect(() => generateChangelog(config, 'packages/arrays', 'v1.0.0', false)).toThrow(
+      'Failed to generate changelog for packages/arrays/CHANGELOG.md: npx exited with code 1',
+    );
   });
 });
 
 describe(generateChangelogs, () => {
   afterEach(() => {
-    mockExecFileSync.mockReset();
+    mockRunGitCliff.mockReset();
     mockResolveCliffConfigPath.mockReset();
   });
 
@@ -238,7 +218,7 @@ describe(generateChangelogs, () => {
     const result = generateChangelogs(config, 'v1.0.0', false);
 
     expect(result).toStrictEqual(['packages/arrays/CHANGELOG.md', 'packages/strings/CHANGELOG.md']);
-    expect(mockExecFileSync).toHaveBeenCalledTimes(2);
+    expect(mockRunGitCliff).toHaveBeenCalledTimes(2);
   });
 
   it('passes --tag-pattern derived from tagPrefix', () => {
@@ -255,13 +235,9 @@ describe(generateChangelogs, () => {
 
     generateChangelogs(config, 'release-kit-v2.3.0', false);
 
-    expect(mockExecFileSync).toHaveBeenCalledWith(
-      'npx',
+    expect(mockRunGitCliff).toHaveBeenCalledWith(
+      'cliff.toml',
       [
-        '--yes',
-        'git-cliff',
-        '--config',
-        'cliff.toml',
         '--output',
         'packages/release-kit/CHANGELOG.md',
         '--tag',
@@ -269,7 +245,7 @@ describe(generateChangelogs, () => {
         '--tag-pattern',
         'release-kit-v[0-9].*',
       ],
-      { stdio: 'inherit' },
+      'inherit',
     );
   });
 });
