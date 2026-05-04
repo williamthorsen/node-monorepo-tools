@@ -65,12 +65,10 @@ export function generateChangelog(
   const resolvedConfigPath = resolveCliffConfigPath(config.cliffConfigPath, import.meta.url);
   const cliffArgs = ['--output', outputFile, '--tag', tag];
 
-  // Append --tag-pattern flag when a tag pattern is provided.
   if (options?.tagPattern !== undefined) {
     cliffArgs.push('--tag-pattern', options.tagPattern);
   }
 
-  // Append --include-path flags when path filtering is requested.
   for (const includePath of options?.includePaths ?? []) {
     cliffArgs.push('--include-path', includePath);
   }
