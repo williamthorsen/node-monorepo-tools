@@ -187,22 +187,42 @@ export function mergeMonorepoConfig(
     result.project = project;
   }
 
-  const formatCommand = userConfig?.formatCommand;
-  if (formatCommand !== undefined) {
-    result.formatCommand = formatCommand;
-  }
-
-  const cliffConfigPath = userConfig?.cliffConfigPath;
-  if (cliffConfigPath !== undefined) {
-    result.cliffConfigPath = cliffConfigPath;
-  }
-
-  const scopeAliases = userConfig?.scopeAliases;
-  if (scopeAliases !== undefined) {
-    result.scopeAliases = scopeAliases;
-  }
+  applyOptionalPassthroughFields(result, userConfig);
 
   return result;
+}
+
+/**
+ * Copy optional pass-through fields (`formatCommand`, `cliffConfigPath`, `scopeAliases`,
+ * `breakingPolicies`) from `userConfig` onto `result`, omitting any that are absent.
+ *
+ * Extracted from both `mergeMonorepoConfig` and `mergeSinglePackageConfig` to keep their
+ * cyclomatic complexity below the project ceiling — each conditional spread contributes a
+ * branch to the host's complexity, and inlining all four tipped both functions over.
+ * `breakingPolicies` is deep-cloned (`{ ...value }`) for parity with how monorepo config
+ * defends against later mutation of nested config objects.
+ */
+function applyOptionalPassthroughFields(
+  result: {
+    formatCommand?: string;
+    cliffConfigPath?: string;
+    scopeAliases?: Record<string, string>;
+    breakingPolicies?: Record<string, 'forbidden' | 'optional' | 'required'>;
+  },
+  userConfig: ReleaseKitConfig | undefined,
+): void {
+  if (userConfig?.formatCommand !== undefined) {
+    result.formatCommand = userConfig.formatCommand;
+  }
+  if (userConfig?.cliffConfigPath !== undefined) {
+    result.cliffConfigPath = userConfig.cliffConfigPath;
+  }
+  if (userConfig?.scopeAliases !== undefined) {
+    result.scopeAliases = userConfig.scopeAliases;
+  }
+  if (userConfig?.breakingPolicies !== undefined) {
+    result.breakingPolicies = { ...userConfig.breakingPolicies };
+  }
 }
 
 /**
@@ -235,20 +255,7 @@ export function mergeSinglePackageConfig(userConfig: ReleaseKitConfig | undefine
     releaseNotes,
   };
 
-  const formatCommand = userConfig?.formatCommand;
-  if (formatCommand !== undefined) {
-    result.formatCommand = formatCommand;
-  }
-
-  const cliffConfigPath = userConfig?.cliffConfigPath;
-  if (cliffConfigPath !== undefined) {
-    result.cliffConfigPath = cliffConfigPath;
-  }
-
-  const scopeAliases = userConfig?.scopeAliases;
-  if (scopeAliases !== undefined) {
-    result.scopeAliases = scopeAliases;
-  }
+  applyOptionalPassthroughFields(result, userConfig);
 
   return result;
 }

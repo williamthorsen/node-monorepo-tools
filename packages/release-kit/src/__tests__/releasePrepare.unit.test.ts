@@ -45,7 +45,7 @@ vi.mock('../changelogJsonFile.ts', () => ({
   upsertChangelogJson: mockUpsertChangelogJson,
 }));
 
-import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';
+import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.ts';
 import { releasePrepare } from '../releasePrepare.ts';
 import type { ReleaseConfig, WorkTypeConfig } from '../types.ts';
 
@@ -433,5 +433,87 @@ describe(releasePrepare, () => {
     expect(result.tags).toStrictEqual(['v1.0.0']);
     expect(result.dryRun).toBe(true);
     expect(mockWriteFileSync).not.toHaveBeenCalled();
+  });
+
+  describe('policy violations', () => {
+    /** Stub git log to return a single commit message paired with a hash. */
+    function stubLog(message: string, hash: string): void {
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') return 'v1.0.0\n';
+        if (cmd === 'git' && args[0] === 'log') return `${message}${hash}`;
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+    }
+
+    function configWithDefaultWorkTypes(overrides?: Partial<ReleaseConfig>): ReleaseConfig {
+      return makeConfig({ workTypes: DEFAULT_WORK_TYPES, ...overrides });
+    }
+
+    it('omits policyViolations when a clean feat! commit obeys the optional policy', () => {
+      stubLog('feat!: drop legacy export', 'abc1234');
+
+      const result = releasePrepare(configWithDefaultWorkTypes(), { dryRun: false });
+
+      expect(result.workspaces[0]?.policyViolations).toBeUndefined();
+    });
+
+    it('records a prefix-surface violation for an internal! commit (forbidden policy)', () => {
+      stubLog('internal!: refactor cache', 'def5678');
+
+      const result = releasePrepare(configWithDefaultWorkTypes(), { dryRun: false });
+
+      expect(result.workspaces[0]?.policyViolations).toStrictEqual([
+        {
+          commitHash: 'def5678',
+          commitSubject: 'internal!: refactor cache',
+          type: 'internal',
+          surface: 'prefix',
+        },
+      ]);
+    });
+
+    it('records a prefix-surface violation for a bare drop commit (required policy)', () => {
+      stubLog('drop: remove deprecated API', '9abc012');
+
+      const result = releasePrepare(configWithDefaultWorkTypes(), { dryRun: false });
+
+      expect(result.workspaces[0]?.policyViolations).toStrictEqual([
+        {
+          commitHash: '9abc012',
+          commitSubject: 'drop: remove deprecated API',
+          type: 'drop',
+          surface: 'prefix',
+        },
+      ]);
+    });
+
+    it('produces no violations when breakingPolicies is set to {} (opt-out)', () => {
+      stubLog('internal!: refactor cache', 'def5678');
+
+      const result = releasePrepare(configWithDefaultWorkTypes({ breakingPolicies: {} }), { dryRun: false });
+
+      expect(result.workspaces[0]?.policyViolations).toBeUndefined();
+    });
+
+    it('propagates policyViolations through the patch-floor release path', () => {
+      // A bare `drop:` is a policy violation AND parses with breaking=false; the
+      // single-package legacy path then applies a patch floor since at least one commit
+      // exists. The result is `released` (not `skipped`) — verify that policyViolations
+      // still propagates onto the released workspace result.
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') return 'v1.0.0\n';
+        if (cmd === 'git' && args[0] === 'log') return 'drop: remove APIxyz9999';
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+
+      // The single-package legacy path applies a patch floor when commits exist, so this
+      // releases (status: 'released') with policyViolations attached. Verify that path.
+      const result = releasePrepare(configWithDefaultWorkTypes(), { dryRun: false });
+
+      expect(result.workspaces[0]?.status).toBe('released');
+      expect(result.workspaces[0]?.policyViolations).toHaveLength(1);
+    });
   });
 });

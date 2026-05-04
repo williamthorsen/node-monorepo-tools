@@ -107,16 +107,17 @@ The config file supports both `export default config` and `export const config =
 
 ### `ReleaseKitConfig` reference
 
-| Field             | Type                             | Description                                                                                                                   |
-| ----------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `cliffConfigPath` | `string`                         | Explicit path to cliff config. If omitted, resolved automatically: `.config/git-cliff.toml` → `cliff.toml` → bundled template |
-| `workspaces`      | `WorkspaceOverride[]`            | Override or exclude discovered workspaces (matched by `dir`)                                                                  |
-| `formatCommand`   | `string`                         | Shell command to run after changelog generation; modified file paths are appended as arguments                                |
-| `versionPatterns` | `VersionPatterns`                | Rules for which commit types trigger major/minor bumps                                                                        |
-| `scopeAliases`    | `Record<string, string>`         | Maps shorthand scope names to canonical names in commits                                                                      |
-| `workTypes`       | `Record<string, WorkTypeConfig>` | Work type definitions, merged with defaults by key                                                                            |
-| `retiredPackages` | `RetiredPackage[]`               | Packages that once lived in this repo but have been extracted or removed; suppresses undeclared-tag-prefix warnings           |
-| `project`         | `ProjectConfig`                  | Opt-in project-level release block. Declaring `project: {}` (even empty) enables a project-release stage in `prepare`         |
+| Field              | Type                                                      | Description                                                                                                                                          |
+| ------------------ | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cliffConfigPath`  | `string`                                                  | Explicit path to cliff config. If omitted, resolved automatically: `.config/git-cliff.toml` → `cliff.toml` → bundled template                        |
+| `workspaces`       | `WorkspaceOverride[]`                                     | Override or exclude discovered workspaces (matched by `dir`)                                                                                         |
+| `formatCommand`    | `string`                                                  | Shell command to run after changelog generation; modified file paths are appended as arguments                                                       |
+| `versionPatterns`  | `VersionPatterns`                                         | Rules for which commit types trigger major/minor bumps                                                                                               |
+| `scopeAliases`     | `Record<string, string>`                                  | Maps shorthand scope names to canonical names in commits                                                                                             |
+| `workTypes`        | `Record<string, WorkTypeConfig>`                          | Work type definitions, merged with defaults by key                                                                                                   |
+| `breakingPolicies` | `Record<string, 'forbidden' \| 'optional' \| 'required'>` | Per-type `!`-policy lookup. Defaults to `DEFAULT_BREAKING_POLICIES`. Replaces the default entirely when provided. Set to `{}` to disable enforcement |
+| `retiredPackages`  | `RetiredPackage[]`                                        | Packages that once lived in this repo but have been extracted or removed; suppresses undeclared-tag-prefix warnings                                  |
+| `project`          | `ProjectConfig`                                           | Opt-in project-level release block. Declaring `project: {}` (even empty) enables a project-release stage in `prepare`                                |
 
 All fields are optional.
 
@@ -323,6 +324,19 @@ The `!` policy operates at two distinct levels with different semantics:
 - **Release-time** (`parseCommitMessage`) — tolerant warn-and-continue. Commits already in the log cannot be rewritten, so a policy-violating commit is parsed using its canonical type with `breaking: false` (the `!` is dropped from the parse) and a `onPolicyViolation` callback fires. Callers (`decideRelease` etc.) can collect these warnings and surface them in the release report. A single legacy `internal!` in a year-old log does not block releases.
 
 A `BREAKING CHANGE:` body footer on a `forbidden`-policy type triggers the same warning path as the prefix `!` does — the spirit of the policy is "internal/perf/etc. cannot be breaking", which must apply to both surfaces.
+
+The release-prepare orchestrators (`releasePrepare`, `releasePrepareMono`, `releasePrepareProject`) apply `DEFAULT_BREAKING_POLICIES` automatically. Violations encountered while parsing each workspace's or project's commit window are collected onto the corresponding result's `policyViolations` field and rendered under the section in the prepare report:
+
+```
+arrays
+  Found 1 commits since arrays-v1.0.0
+  ⚠️  1 policy violation:
+      · def5678 'internal!: refactor cache' — type 'internal' at prefix surface
+  Bumping versions (patch)...
+  📦 1.0.0 → 1.0.1 (patch)
+```
+
+To customize, set `breakingPolicies` in `release-kit.config.ts` — provide a partial map to override individual types, or `{}` to disable enforcement entirely (the parser falls back to `'optional'` for any missing type). Violations remain warnings, never failures.
 
 #### `🚨 **Breaking:**` bullet marker
 

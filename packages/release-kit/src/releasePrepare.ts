@@ -3,8 +3,9 @@ import { execSync } from 'node:child_process';
 import { buildChangelogEntries } from './buildChangelogEntries.ts';
 import { bumpAllVersions, setAllVersions } from './bumpAllVersions.ts';
 import { resolveChangelogJsonPath, upsertChangelogJson } from './changelogJsonFile.ts';
+import { createPolicyViolationCollector } from './collectPolicyViolations.ts';
 import { isForwardVersion } from './compareVersions.ts';
-import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
+import { DEFAULT_BREAKING_POLICIES, DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { determineBumpFromCommits } from './determineBumpFromCommits.ts';
 import { generateChangelogs } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
@@ -15,6 +16,7 @@ import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
 import type {
   BumpResult,
   Commit,
+  PolicyViolation,
   PrepareResult,
   ReleaseConfig,
   ReleasedWorkspaceResult,
@@ -65,6 +67,7 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   const { dryRun, bumpOverride, setVersion, withReleaseNotes } = options;
   const workTypes = config.workTypes ?? { ...DEFAULT_WORK_TYPES };
   const versionPatterns = config.versionPatterns ?? { ...DEFAULT_VERSION_PATTERNS };
+  const breakingPolicies = config.breakingPolicies ?? DEFAULT_BREAKING_POLICIES;
 
   // 1. Get commits since last tag
   const { tag, commits } = getCommitsSinceTarget([config.tagPrefix]);
@@ -73,6 +76,7 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   let releaseType: ReleaseType | undefined;
   let parsedCommitCount: number | undefined;
   let unparseableCommits: Commit[] | undefined;
+  const collector = createPolicyViolationCollector();
   let bump: BumpResult;
 
   if (setVersion !== undefined) {
@@ -92,7 +96,10 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
     bump = setAllVersions(config.packageFiles, setVersion, dryRun);
   } else {
     if (bumpOverride === undefined) {
-      const determination = determineBumpFromCommits(commits, workTypes, versionPatterns, config.scopeAliases);
+      const determination = determineBumpFromCommits(commits, workTypes, versionPatterns, config.scopeAliases, {
+        breakingPolicies,
+        onPolicyViolation: collector.onPolicyViolation,
+      });
       parsedCommitCount = determination.parsedCommitCount;
       unparseableCommits = determination.unparseableCommits;
       releaseType = determination.releaseType;
@@ -101,20 +108,13 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
     }
 
     if (releaseType === undefined) {
-      const skipped: SkippedWorkspaceResult = {
-        status: 'skipped',
+      const skipped = buildSkippedSinglePackage({
         commitCount: commits.length,
-        skipReason: 'No release-worthy changes found. Skipping.',
-      };
-      if (tag !== undefined) {
-        skipped.previousTag = tag;
-      }
-      if (parsedCommitCount !== undefined) {
-        skipped.parsedCommitCount = parsedCommitCount;
-      }
-      if (unparseableCommits !== undefined) {
-        skipped.unparseableCommits = unparseableCommits;
-      }
+        previousTag: tag,
+        parsedCommitCount,
+        unparseableCommits,
+        policyViolations: collector.violations.length > 0 ? collector.violations : undefined,
+      });
       return {
         workspaces: [skipped],
         tags: [],
@@ -171,6 +171,7 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
     parsedCommitCount,
     releaseType,
     unparseableCommits,
+    policyViolations: collector.violations.length > 0 ? collector.violations : undefined,
     setVersion,
   });
 
@@ -180,6 +181,42 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
     formatCommand,
     dryRun,
   };
+}
+
+/** Inputs to {@link buildSkippedSinglePackage}. */
+interface BuildSkippedSinglePackageArgs {
+  commitCount: number;
+  previousTag: string | undefined;
+  parsedCommitCount: number | undefined;
+  unparseableCommits: Commit[] | undefined;
+  policyViolations: PolicyViolation[] | undefined;
+}
+
+/**
+ * Build a `SkippedWorkspaceResult` for the single-package "no release-worthy changes" path,
+ * attaching only defined optional fields. Extracted from `releasePrepare` so the host stays
+ * within the project's cyclomatic-complexity ceiling — each conditional optional-field
+ * assignment is one branch.
+ */
+function buildSkippedSinglePackage(args: BuildSkippedSinglePackageArgs): SkippedWorkspaceResult {
+  const skipped: SkippedWorkspaceResult = {
+    status: 'skipped',
+    commitCount: args.commitCount,
+    skipReason: 'No release-worthy changes found. Skipping.',
+  };
+  if (args.previousTag !== undefined) {
+    skipped.previousTag = args.previousTag;
+  }
+  if (args.parsedCommitCount !== undefined) {
+    skipped.parsedCommitCount = args.parsedCommitCount;
+  }
+  if (args.unparseableCommits !== undefined) {
+    skipped.unparseableCommits = args.unparseableCommits;
+  }
+  if (args.policyViolations !== undefined) {
+    skipped.policyViolations = args.policyViolations;
+  }
+  return skipped;
 }
 
 /** Inputs to {@link buildReleasedSinglePackage}. */
@@ -192,6 +229,7 @@ interface BuildReleasedSinglePackageArgs {
   parsedCommitCount: number | undefined;
   releaseType: ReleaseType | undefined;
   unparseableCommits: Commit[] | undefined;
+  policyViolations: PolicyViolation[] | undefined;
   setVersion: string | undefined;
 }
 
@@ -211,6 +249,7 @@ function buildReleasedSinglePackage(args: BuildReleasedSinglePackageArgs): Relea
     parsedCommitCount,
     releaseType,
     unparseableCommits,
+    policyViolations,
     setVersion,
   } = args;
   const released: ReleasedWorkspaceResult = {
@@ -234,6 +273,9 @@ function buildReleasedSinglePackage(args: BuildReleasedSinglePackageArgs): Relea
   }
   if (unparseableCommits !== undefined) {
     released.unparseableCommits = unparseableCommits;
+  }
+  if (policyViolations !== undefined) {
+    released.policyViolations = policyViolations;
   }
   if (setVersion !== undefined) {
     released.setVersion = setVersion;

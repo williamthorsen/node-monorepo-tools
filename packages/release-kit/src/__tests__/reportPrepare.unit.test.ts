@@ -830,4 +830,205 @@ describe(reportPrepare, () => {
       expect(output).not.toContain('Parsed 0 typed commits');
     });
   });
+
+  describe('policy violations rendering', () => {
+    it('renders a single-package result with one policy violation', () => {
+      const result: PrepareResult = {
+        workspaces: [
+          {
+            status: 'released',
+            previousTag: 'v1.0.0',
+            commitCount: 1,
+            parsedCommitCount: 1,
+            releaseType: 'patch',
+            currentVersion: '1.0.0',
+            newVersion: '1.0.1',
+            tag: 'v1.0.1',
+            bumpedFiles: ['package.json'],
+            changelogFiles: ['./CHANGELOG.md'],
+            policyViolations: [
+              {
+                commitHash: 'def5678',
+                commitSubject: 'internal!: refactor cache',
+                type: 'internal',
+                surface: 'prefix',
+              },
+            ],
+          },
+        ],
+        tags: ['v1.0.1'],
+        dryRun: false,
+      };
+
+      const output = reportPrepare(result);
+
+      expect(output).toContain('1 policy violation:');
+      expect(output).toContain("· def5678 'internal!: refactor cache' — type 'internal' at prefix surface");
+    });
+
+    it('renders multiple policy violations with plural header', () => {
+      const result: PrepareResult = {
+        workspaces: [
+          {
+            status: 'released',
+            commitCount: 2,
+            parsedCommitCount: 2,
+            releaseType: 'patch',
+            currentVersion: '1.0.0',
+            newVersion: '1.0.1',
+            tag: 'v1.0.1',
+            bumpedFiles: ['package.json'],
+            changelogFiles: ['./CHANGELOG.md'],
+            policyViolations: [
+              {
+                commitHash: 'aaa1111',
+                commitSubject: 'internal!: refactor X',
+                type: 'internal',
+                surface: 'prefix',
+              },
+              {
+                commitHash: 'bbb2222',
+                commitSubject: 'drop: remove Y',
+                type: 'drop',
+                surface: 'prefix',
+              },
+            ],
+          },
+        ],
+        tags: ['v1.0.1'],
+        dryRun: false,
+      };
+
+      const output = reportPrepare(result);
+
+      expect(output).toContain('2 policy violations:');
+      expect(output).toContain("· aaa1111 'internal!: refactor X' — type 'internal' at prefix surface");
+      expect(output).toContain("· bbb2222 'drop: remove Y' — type 'drop' at prefix surface");
+    });
+
+    it('renders a workspace section in multi-workspace mode with policy violations', () => {
+      const result: PrepareResult = {
+        workspaces: [
+          {
+            name: 'arrays',
+            status: 'released',
+            commitCount: 1,
+            parsedCommitCount: 1,
+            releaseType: 'patch',
+            currentVersion: '1.0.0',
+            newVersion: '1.0.1',
+            tag: 'arrays-v1.0.1',
+            bumpedFiles: ['packages/arrays/package.json'],
+            changelogFiles: ['packages/arrays/CHANGELOG.md'],
+            policyViolations: [
+              {
+                commitHash: 'def5678',
+                commitSubject: 'internal!: refactor cache',
+                type: 'internal',
+                surface: 'prefix',
+              },
+            ],
+          },
+        ],
+        tags: ['arrays-v1.0.1'],
+        dryRun: false,
+      };
+
+      const output = reportPrepare(result);
+
+      expect(output).toContain('1 policy violation:');
+      expect(output).toContain("· def5678 'internal!: refactor cache' — type 'internal' at prefix surface");
+    });
+
+    it('renders a project section with policy violations', () => {
+      const result: PrepareResult = {
+        workspaces: [],
+        tags: ['v1.0.1'],
+        dryRun: false,
+        project: {
+          status: 'released',
+          previousTag: 'v1.0.0',
+          commitCount: 1,
+          parsedCommitCount: 1,
+          releaseType: 'patch',
+          currentVersion: '1.0.0',
+          newVersion: '1.0.1',
+          tag: 'v1.0.1',
+          bumpedFiles: ['./package.json'],
+          changelogFiles: ['./CHANGELOG.md'],
+          commits: [{ message: 'internal!: refactor cache', hash: 'def5678' }],
+          policyViolations: [
+            {
+              commitHash: 'def5678',
+              commitSubject: 'internal!: refactor cache',
+              type: 'internal',
+              surface: 'prefix',
+            },
+          ],
+        },
+      };
+
+      const output = reportPrepare(result);
+
+      expect(output).toContain('1 policy violation:');
+      expect(output).toContain("· def5678 'internal!: refactor cache' — type 'internal' at prefix surface");
+    });
+
+    it('omits the policy-violation block when policyViolations is undefined', () => {
+      const result: PrepareResult = {
+        workspaces: [
+          {
+            status: 'released',
+            commitCount: 1,
+            parsedCommitCount: 1,
+            releaseType: 'minor',
+            currentVersion: '1.0.0',
+            newVersion: '1.1.0',
+            tag: 'v1.1.0',
+            bumpedFiles: ['package.json'],
+            changelogFiles: ['./CHANGELOG.md'],
+          },
+        ],
+        tags: ['v1.1.0'],
+        dryRun: false,
+      };
+
+      const output = reportPrepare(result);
+
+      expect(output).not.toContain('policy violation');
+    });
+
+    it('truncates long commit subjects to 72 characters with ellipsis at 69', () => {
+      const longSubject = `internal!: ${'x'.repeat(80)}`;
+      const result: PrepareResult = {
+        workspaces: [
+          {
+            status: 'released',
+            commitCount: 1,
+            parsedCommitCount: 1,
+            releaseType: 'patch',
+            currentVersion: '1.0.0',
+            newVersion: '1.0.1',
+            tag: 'v1.0.1',
+            bumpedFiles: ['package.json'],
+            changelogFiles: ['./CHANGELOG.md'],
+            policyViolations: [
+              {
+                commitHash: 'def5678',
+                commitSubject: longSubject,
+                type: 'internal',
+                surface: 'prefix',
+              },
+            ],
+          },
+        ],
+        tags: ['v1.0.1'],
+        dryRun: false,
+      };
+
+      const output = reportPrepare(result);
+
+      expect(output).toContain(`'${longSubject.slice(0, 69)}...'`);
+    });
+  });
 });

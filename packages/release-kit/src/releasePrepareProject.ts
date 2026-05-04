@@ -1,8 +1,9 @@
 import { buildChangelogEntries } from './buildChangelogEntries.ts';
 import { bumpAllVersions } from './bumpAllVersions.ts';
 import { resolveChangelogJsonPath, writeChangelogJson } from './changelogJsonFile.ts';
+import { createPolicyViolationCollector } from './collectPolicyViolations.ts';
 import { decideRelease } from './decideRelease.ts';
-import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
+import { DEFAULT_BREAKING_POLICIES, DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { buildTagPattern, generateChangelog } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
@@ -53,6 +54,7 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
 
   const workTypes = config.workTypes ?? { ...DEFAULT_WORK_TYPES };
   const versionPatterns = config.versionPatterns ?? { ...DEFAULT_VERSION_PATTERNS };
+  const breakingPolicies = config.breakingPolicies ?? DEFAULT_BREAKING_POLICIES;
 
   // 1. Compute contributing paths (union of every non-excluded workspace's paths).
   const contributingPaths = config.workspaces.flatMap((workspace) => workspace.paths);
@@ -63,6 +65,7 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
 
   // 3. Apply the unified release-decision algorithm. `--bump=X` is purely a level chooser;
   //    `--force` is purely a release trigger that defaults to patch when no level is given.
+  const collector = createPolicyViolationCollector();
   const decision = decideRelease({
     commits,
     force,
@@ -70,11 +73,15 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
     workTypes,
     versionPatterns,
     scopeAliases: config.scopeAliases,
+    breakingPolicies,
+    onPolicyViolation: collector.onPolicyViolation,
     skipReasons: {
       noCommits: `No commits ${since}. Pass --force to release at patch. Skipping.`,
       noBumpWorthy: `No bump-worthy commits ${since}. Pass --force to release at patch (or --force --bump=X for a different level). Skipping.`,
     },
   });
+
+  const policyViolations = collector.violations.length > 0 ? collector.violations : undefined;
 
   if (decision.outcome === 'skip') {
     const skipped: SkippedProjectResult = {
@@ -88,6 +95,9 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
     }
     if (decision.unparseableCommits !== undefined) {
       skipped.unparseableCommits = decision.unparseableCommits;
+    }
+    if (policyViolations !== undefined) {
+      skipped.policyViolations = policyViolations;
     }
     return skipped;
   }
@@ -160,6 +170,9 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
   }
   if (unparseableCommits !== undefined) {
     result.unparseableCommits = unparseableCommits;
+  }
+  if (policyViolations !== undefined) {
+    result.policyViolations = policyViolations;
   }
   if (bumpOverride !== undefined) {
     result.bumpOverride = bumpOverride;

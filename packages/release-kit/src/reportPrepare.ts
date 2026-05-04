@@ -1,5 +1,6 @@
 import { bold, dim, sectionHeader } from './format.ts';
 import type {
+  PolicyViolation,
   PrepareResult,
   ProjectPrepareResult,
   PropagationSource,
@@ -44,6 +45,7 @@ function formatSingleWorkspace(result: PrepareResult): string {
   }
 
   formatUnparseableWarning(lines, workspace);
+  formatPolicyViolations(lines, workspace.policyViolations);
 
   if (workspace.status === 'skipped') {
     lines.push(`⏭️  ${workspace.skipReason}`);
@@ -135,6 +137,8 @@ function formatProjectSection(lines: string[], project: ProjectPrepareResult, dr
   const since = project.previousTag === undefined ? '(no previous release found)' : `since ${project.previousTag}`;
   lines.push(dim(`  Found ${project.commitCount} commits ${since}`));
 
+  formatPolicyViolations(lines, project.policyViolations, '  ');
+
   if (project.status === 'skipped') {
     lines.push(`  ⏭️  ${project.skipReason}`);
     return;
@@ -215,6 +219,7 @@ function formatWorkspaceSection(lines: string[], workspace: WorkspacePrepareResu
 
   formatCommitSummary(lines, workspace, propagatedFrom, isPropagatedOnly);
   formatUnparseableWarning(lines, workspace, '  ');
+  formatPolicyViolations(lines, workspace.policyViolations, '  ');
   formatBumpLabels(lines, workspace, isPropagatedOnly);
   formatVersionLine(lines, workspace, propagatedFrom, isPropagatedOnly);
 
@@ -310,6 +315,30 @@ function formatUnparseableWarning(lines: string[], workspace: WorkspacePrepareRe
     const shortHash = commit.hash.slice(0, 7);
     const truncatedMessage = commit.message.length > 72 ? `${commit.message.slice(0, 69)}...` : commit.message;
     lines.push(`${indent}    · ${shortHash} ${truncatedMessage}`);
+  }
+}
+
+/**
+ * Append policy-violation lines when applicable.
+ *
+ * Renders one header line plus one bullet per violation. Subject truncation matches
+ * `formatUnparseableWarning`'s 72-char convention. Returns early when no violations
+ * were collected, leaving the lines array unchanged.
+ */
+function formatPolicyViolations(lines: string[], violations: PolicyViolation[] | undefined, indent = ''): void {
+  if (violations === undefined || violations.length === 0) {
+    return;
+  }
+
+  const count = violations.length;
+  lines.push(`${indent}  ⚠️  ${count} policy violation${count === 1 ? '' : 's'}:`);
+  for (const violation of violations) {
+    const shortHash = violation.commitHash.slice(0, 7);
+    const subject = violation.commitSubject;
+    const truncatedSubject = subject.length > 72 ? `${subject.slice(0, 69)}...` : subject;
+    lines.push(
+      `${indent}    · ${shortHash} '${truncatedSubject}' — type '${violation.type}' at ${violation.surface} surface`,
+    );
   }
 }
 

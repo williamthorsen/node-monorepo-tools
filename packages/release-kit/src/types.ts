@@ -88,6 +88,24 @@ export interface BumpResult {
 }
 
 /**
+ * A `!`-policy violation detected while parsing commits during release preparation.
+ *
+ * Surfaces from `releasePrepare`, `releasePrepareMono`, and `releasePrepareProject` via the
+ * `policyViolations` field on each per-workspace/project result. The policy itself is enforced
+ * tolerantly at release time — violations are collected and reported, never fail the release.
+ */
+export interface PolicyViolation {
+  /** Full hash of the offending commit. */
+  commitHash: string;
+  /** First line of the commit message (raw, including any ticket prefix). */
+  commitSubject: string;
+  /** Resolved canonical work type whose policy was violated. */
+  type: string;
+  /** Where the violation was detected: `'prefix'` for `!`, `'body'` for `BREAKING CHANGE:` footer. */
+  surface: 'prefix' | 'body';
+}
+
+/**
  * Result of preparing a single workspace (package) for release when a release was produced.
  *
  * `currentVersion`, `newVersion`, `tag`, `bumpedFiles`, and `changelogFiles` are always
@@ -113,6 +131,8 @@ export interface ReleasedWorkspaceResult {
   parsedCommitCount?: number;
   /** Commits that could not be parsed into a recognized work type. */
   unparseableCommits?: Commit[];
+  /** Policy violations detected while parsing this workspace's commits; omitted when none. */
+  policyViolations?: PolicyViolation[];
   releaseType?: ReleaseType;
   currentVersion: string;
   newVersion: string;
@@ -152,6 +172,8 @@ export interface SkippedWorkspaceResult {
   parsedCommitCount?: number;
   /** Commits that could not be parsed into a recognized work type. */
   unparseableCommits?: Commit[];
+  /** Policy violations detected while parsing this workspace's commits; omitted when none. */
+  policyViolations?: PolicyViolation[];
   skipReason: string;
 }
 
@@ -184,6 +206,8 @@ export interface ReleasedProjectResult {
   parsedCommitCount: number;
   /** Commits that could not be parsed into a recognized work type. */
   unparseableCommits?: Commit[];
+  /** Policy violations detected while parsing the project's commits; omitted when none. */
+  policyViolations?: PolicyViolation[];
   releaseType: ReleaseType;
   currentVersion: string;
   newVersion: string;
@@ -218,6 +242,8 @@ export interface SkippedProjectResult {
   parsedCommitCount: number;
   /** Commits that could not be parsed into a recognized work type. */
   unparseableCommits?: Commit[];
+  /** Policy violations detected while parsing the project's commits; omitted when none. */
+  policyViolations?: PolicyViolation[];
   skipReason: string;
 }
 
@@ -283,6 +309,15 @@ export interface ReleaseKitConfig {
   versionPatterns?: VersionPatterns;
   /** Work type overrides. Merged with defaults by key. */
   workTypes?: Record<string, WorkTypeConfig>;
+  /**
+   * Per-canonical-type breaking-policy lookup driving release-time `!`-policy enforcement.
+   *
+   * When omitted, release-prepare flows apply `DEFAULT_BREAKING_POLICIES`. When provided, the
+   * map replaces the default entirely (no merge). To disable enforcement, pass `{}` — the
+   * parser falls back to `'optional'` for any type missing from the map. Individual entries
+   * can be overridden (e.g., make `feat` `'forbidden'` for a stricter dialect).
+   */
+  breakingPolicies?: Record<string, 'forbidden' | 'optional' | 'required'>;
   /**
    * Shell command to run after all changelogs are generated (e.g., 'pnpm run fmt').
    * Modified file paths (package.json files and CHANGELOGs) are appended as space-separated
@@ -434,6 +469,12 @@ export interface MonorepoReleaseConfig {
   /** Version bump patterns. Defaults to `DEFAULT_VERSION_PATTERNS`. */
   versionPatterns?: VersionPatterns;
   /**
+   * Per-canonical-type breaking-policy lookup. Defaults to `DEFAULT_BREAKING_POLICIES`. When
+   * provided, replaces the default entirely. Pass `{}` to disable enforcement (parser falls
+   * back to `'optional'` for missing types).
+   */
+  breakingPolicies?: Record<string, 'forbidden' | 'optional' | 'required'>;
+  /**
    * Shell command to run after all changelogs are generated (e.g., 'pnpm run fmt').
    * Modified file paths (package.json files and CHANGELOGs) are appended as space-separated
    * arguments. Paths are repo-relative; file paths containing spaces are not supported.
@@ -471,6 +512,12 @@ export interface ReleaseConfig {
   workTypes?: Record<string, WorkTypeConfig>;
   /** Version bump patterns. Defaults to `DEFAULT_VERSION_PATTERNS`. */
   versionPatterns?: VersionPatterns;
+  /**
+   * Per-canonical-type breaking-policy lookup. Defaults to `DEFAULT_BREAKING_POLICIES`. When
+   * provided, replaces the default entirely. Pass `{}` to disable enforcement (parser falls
+   * back to `'optional'` for missing types).
+   */
+  breakingPolicies?: Record<string, 'forbidden' | 'optional' | 'required'>;
   /**
    * Shell command to run after changelog generation (e.g., 'pnpm run fmt').
    * Modified file paths (package.json files and CHANGELOGs) are appended as space-separated
