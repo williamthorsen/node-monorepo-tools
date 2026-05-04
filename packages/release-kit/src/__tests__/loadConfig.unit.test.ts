@@ -231,6 +231,20 @@ describe(mergeMonorepoConfig, () => {
     expect(result.scopeAliases).toStrictEqual({ api: 'backend-api' });
   });
 
+  it('passes through breakingPolicies from config', () => {
+    const result = mergeMonorepoConfig(discoveredPaths, {
+      breakingPolicies: { feat: 'forbidden', drop: 'required' },
+    });
+
+    expect(result.breakingPolicies).toStrictEqual({ feat: 'forbidden', drop: 'required' });
+  });
+
+  it('omits breakingPolicies when not configured', () => {
+    const result = mergeMonorepoConfig(discoveredPaths, {});
+
+    expect(result.breakingPolicies).toBeUndefined();
+  });
+
   it('throws when two workspaces produce the same tagPrefix', () => {
     mockPackageNames({
       'packages/a-foo': '@a/foo',
@@ -581,5 +595,19 @@ describe(mergeSinglePackageConfig, () => {
     expect(result.formatCommand).toBe('pnpm run fmt');
     expect(result.cliffConfigPath).toBe('custom/cliff.toml');
     expect(result.scopeAliases).toStrictEqual({ api: 'backend-api' });
+  });
+
+  it('passes through breakingPolicies from config', () => {
+    const result = mergeSinglePackageConfig({
+      breakingPolicies: { feat: 'forbidden', drop: 'required' },
+    });
+
+    expect(result.breakingPolicies).toStrictEqual({ feat: 'forbidden', drop: 'required' });
+  });
+
+  it('omits breakingPolicies when not configured', () => {
+    const result = mergeSinglePackageConfig({});
+
+    expect(result.breakingPolicies).toBeUndefined();
   });
 });

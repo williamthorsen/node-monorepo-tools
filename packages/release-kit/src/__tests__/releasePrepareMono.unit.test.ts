@@ -53,9 +53,14 @@ vi.mock('../changelogJsonFile.ts', () => ({
   upsertChangelogJson: mockUpsertChangelogJson,
 }));
 
-import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';
+import {
+  DEFAULT_BREAKING_POLICIES,
+  DEFAULT_CHANGELOG_JSON_CONFIG,
+  DEFAULT_RELEASE_NOTES_CONFIG,
+  DEFAULT_WORK_TYPES,
+} from '../defaults.ts';
 import { releasePrepareMono } from '../releasePrepareMono.ts';
-import type { MonorepoReleaseConfig, WorkTypeConfig } from '../types.ts';
+import type { MonorepoReleaseConfig, WorkspaceConfig, WorkTypeConfig } from '../types.ts';
 
 const workTypes: Record<string, WorkTypeConfig> = {
   feat: { header: 'Features' },
@@ -2054,5 +2059,163 @@ describe(releasePrepareMono, () => {
       expect(wrapped.message).toBe('--set-version 0.3.0 is not greater than current version 0.5.0');
       expect(wrapped.message).not.toContain('stage:');
     });
+  });
+
+  describe('policy violations', () => {
+    /** ASCII unit separator (U+001F) used by `git log --pretty=format` to delimit subject from hash. */
+    const SEP = String.fromCodePoint(0x1f);
+
+    function makeWorkspace(overrides?: Partial<WorkspaceConfig>): WorkspaceConfig {
+      return {
+        dir: 'arrays',
+        name: '@test/arrays',
+        tagPrefix: 'arrays-v',
+        workspacePath: 'packages/arrays',
+        isPublishable: true,
+        packageFiles: ['packages/arrays/package.json'],
+        changelogPaths: ['packages/arrays'],
+        paths: ['packages/arrays/**'],
+        ...overrides,
+      };
+    }
+
+    /** Format a single commit log line as the `getCommitsSinceTarget` parser expects. */
+    function logLine(subject: string, hash: string): string {
+      return `${subject}${SEP}${hash}`;
+    }
+
+    /** Stub git output for a single workspace with one log line per commit. */
+    function stubLog(tag: string, logBody: string): void {
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') return `${tag}\n`;
+        if (cmd === 'git' && args[0] === 'log') return logBody;
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+    }
+
+    it('omits policyViolations on a workspace whose only commit is a clean feat!', () => {
+      const config = makeConfig({ workspaces: [makeWorkspace()], workTypes: DEFAULT_WORK_TYPES });
+      stubLog('arrays-v1.0.0', logLine('feat!: drop legacy export', 'abc1234'));
+
+      const result = releasePrepareMono(config, { dryRun: false });
+
+      expect(result.workspaces[0]?.policyViolations).toBeUndefined();
+    });
+
+    it('records a prefix-surface violation for an internal! commit (forbidden policy)', () => {
+      const config = makeConfig({ workspaces: [makeWorkspace()], workTypes: DEFAULT_WORK_TYPES });
+      stubLog('arrays-v1.0.0', logLine('internal!: refactor cache', 'def5678'));
+
+      const result = releasePrepareMono(config, { dryRun: false });
+
+      expect(result.workspaces[0]?.policyViolations).toStrictEqual([
+        {
+          commitHash: 'def5678',
+          commitSubject: 'internal!: refactor cache',
+          type: 'internal',
+          surface: 'prefix',
+        },
+      ]);
+    });
+
+    it('records a prefix-surface violation for a bare drop commit (required policy)', () => {
+      const config = makeConfig({ workspaces: [makeWorkspace()], workTypes: DEFAULT_WORK_TYPES });
+      stubLog('arrays-v1.0.0', logLine('drop: remove deprecated API', '9abc012'));
+
+      const result = releasePrepareMono(config, { dryRun: false });
+
+      expect(result.workspaces[0]?.policyViolations).toStrictEqual([
+        {
+          commitHash: '9abc012',
+          commitSubject: 'drop: remove deprecated API',
+          type: 'drop',
+          surface: 'prefix',
+        },
+      ]);
+    });
+
+    it('produces no violations when breakingPolicies is set to {} (opt-out)', () => {
+      const config = makeConfig({
+        workspaces: [makeWorkspace()],
+        workTypes: DEFAULT_WORK_TYPES,
+        breakingPolicies: {},
+      });
+      stubLog('arrays-v1.0.0', logLine('internal!: refactor cache', 'def5678'));
+
+      const result = releasePrepareMono(config, { dryRun: false });
+
+      expect(result.workspaces[0]?.policyViolations).toBeUndefined();
+    });
+
+    it('attaches violations only to the workspace whose commits triggered them', () => {
+      // Two workspaces; one has an internal! commit (violation), the other has a clean feat.
+      const cleanWorkspace = makeWorkspace({
+        dir: 'core',
+        name: '@test/core',
+        tagPrefix: 'core-v',
+        workspacePath: 'packages/core',
+        packageFiles: ['packages/core/package.json'],
+        changelogPaths: ['packages/core'],
+        paths: ['packages/core/**'],
+      });
+      const config = makeConfig({
+        workspaces: [makeWorkspace(), cleanWorkspace],
+        workTypes: DEFAULT_WORK_TYPES,
+      });
+
+      // Per-workspace describe + log responses keyed by --match flags.
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd !== 'git') return '';
+        if (args[0] === 'describe') {
+          if (args.some((a) => a.includes('arrays-v'))) return 'arrays-v1.0.0\n';
+          if (args.some((a) => a.includes('core-v'))) return 'core-v1.0.0\n';
+        }
+        if (args[0] === 'log') {
+          if (args.includes('packages/arrays/**')) return logLine('internal!: refactor cache', 'def5678');
+          if (args.includes('packages/core/**')) return logLine('feat: add helper', 'aaa1111');
+        }
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+
+      const result = releasePrepareMono(config, { dryRun: false });
+
+      const arraysResult = result.workspaces.find((w) => w.name === 'arrays');
+      const coreResult = result.workspaces.find((w) => w.name === 'core');
+      expect(arraysResult?.policyViolations).toHaveLength(1);
+      expect(coreResult?.policyViolations).toBeUndefined();
+    });
+
+    it('records a body-surface violation when BREAKING CHANGE: appears under a custom forbidden feat policy', () => {
+      // The parser invokes `message.includes('BREAKING CHANGE:')` on the raw commit message;
+      // any commit whose `.message` contains that literal triggers the body-surface code path.
+      // Real git-log subjects (--pretty=format:%s) don't carry body footers, but the wiring still
+      // needs to surface body-surface violations correctly when they appear (here: a subject
+      // that itself contains the literal string).
+      const config = makeConfig({
+        workspaces: [makeWorkspace()],
+        workTypes: DEFAULT_WORK_TYPES,
+        breakingPolicies: { ...DEFAULT_BREAKING_POLICIES, feat: 'forbidden' },
+      });
+      stubLog('arrays-v1.0.0', logLine('feat: rework auth (BREAKING CHANGE: removes /v1)', 'body0001'));
+
+      const result = releasePrepareMono(config, { dryRun: false });
+
+      expect(result.workspaces[0]?.policyViolations).toStrictEqual([
+        {
+          commitHash: 'body0001',
+          commitSubject: 'feat: rework auth (BREAKING CHANGE: removes /v1)',
+          type: 'feat',
+          surface: 'body',
+        },
+      ]);
+    });
+
+    // Note: there is no orchestrator-reachable path where a SkippedWorkspaceResult also
+    // carries policyViolations — the unified `decideRelease` algorithm only enters the skip
+    // branch when zero commits parsed, which means no violation could have fired. The
+    // `SkippedResult.policyViolations` field is wired defensively for parity with the
+    // released path but not exercised here.
   });
 });

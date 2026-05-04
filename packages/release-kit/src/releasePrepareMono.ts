@@ -6,9 +6,10 @@ import { buildDependencyGraph } from './buildDependencyGraph.ts';
 import { buildSyntheticChangelogEntry } from './buildSyntheticChangelogEntry.ts';
 import { bumpAllVersions, setAllVersions } from './bumpAllVersions.ts';
 import { resolveChangelogJsonPath, upsertChangelogJson } from './changelogJsonFile.ts';
+import { createPolicyViolationCollector } from './collectPolicyViolations.ts';
 import { isForwardVersion } from './compareVersions.ts';
 import { decideRelease } from './decideRelease.ts';
-import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
+import { DEFAULT_BREAKING_POLICIES, DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { detectUndeclaredTagPrefixes } from './detectUndeclaredTagPrefixes.ts';
 import { buildTagPattern, generateChangelog } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
@@ -23,6 +24,7 @@ import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
 import type {
   Commit,
   MonorepoReleaseConfig,
+  PolicyViolation,
   PrepareResult,
   ProjectPrepareResult,
   ReleasedWorkspaceResult,
@@ -43,6 +45,8 @@ interface DirectBumpResult {
   releaseType: ReleaseType | undefined;
   parsedCommitCount: number | undefined;
   unparseableCommits: Commit[] | undefined;
+  /** Policy violations collected while parsing this workspace's commits; undefined when none. */
+  policyViolations: PolicyViolation[] | undefined;
   /** Set when `--bump=X` was supplied for this workspace's direct release; surfaced to renderer. */
   bumpOverride: ReleaseType | undefined;
   /** Explicit version from `--set-version`, present only for the overridden workspace. */
@@ -56,6 +60,8 @@ interface SkippedResult {
   commitCount: number;
   parsedCommitCount: number | undefined;
   unparseableCommits: Commit[] | undefined;
+  /** Policy violations collected while parsing this workspace's commits; undefined when none. */
+  policyViolations: PolicyViolation[] | undefined;
   skipReason: string;
 }
 
@@ -175,6 +181,7 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
 
   const workTypes = config.workTypes ?? { ...DEFAULT_WORK_TYPES };
   const versionPatterns = config.versionPatterns ?? { ...DEFAULT_VERSION_PATTERNS };
+  const breakingPolicies = config.breakingPolicies ?? DEFAULT_BREAKING_POLICIES;
 
   const directBumps = new Map<string, ReleaseEntry>();
   const directResults = new Map<string, DirectBumpResult>();
@@ -232,6 +239,7 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
         releaseType: undefined,
         parsedCommitCount: undefined,
         unparseableCommits: undefined,
+        policyViolations: undefined,
         bumpOverride: undefined,
         setVersion,
       });
@@ -242,6 +250,7 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
     // `--force` is purely a release trigger that defaults to patch when no level is given.
     // Always parses commits so `parsedCommitCount` and `unparseableCommits` are populated for
     // diagnostic surfacing regardless of whether `bumpOverride` was supplied.
+    const collector = createPolicyViolationCollector();
     const decision = tryStage(stageLabel, () =>
       decideRelease({
         commits,
@@ -250,12 +259,16 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
         workTypes,
         versionPatterns,
         scopeAliases: config.scopeAliases,
+        breakingPolicies,
+        onPolicyViolation: collector.onPolicyViolation,
         skipReasons: {
           noCommits: `No commits for ${name} ${since}. Pass --force to release at patch. Skipping.`,
           noBumpWorthy: `No bump-worthy commits for ${name} ${since}. Pass --force to release at patch (or --force --bump=X for a different level). Skipping.`,
         },
       }),
     );
+
+    const policyViolations = collector.violations.length > 0 ? collector.violations : undefined;
 
     if (decision.outcome === 'skip') {
       skippedResults.push({
@@ -264,6 +277,7 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
         commitCount: commits.length,
         parsedCommitCount: decision.parsedCommitCount,
         unparseableCommits: decision.unparseableCommits,
+        policyViolations,
         skipReason: decision.skipReason,
       });
       continue;
@@ -277,6 +291,7 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
       releaseType: decision.releaseType,
       parsedCommitCount: decision.parsedCommitCount,
       unparseableCommits: decision.unparseableCommits,
+      policyViolations,
       bumpOverride,
     });
   }
@@ -308,6 +323,9 @@ function collectSkippedWorkspaces(
     }
     if (skipped.unparseableCommits !== undefined) {
       result.unparseableCommits = skipped.unparseableCommits;
+    }
+    if (skipped.policyViolations !== undefined) {
+      result.policyViolations = skipped.policyViolations;
     }
     workspaces.push(result);
   }
@@ -437,7 +455,35 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     bumpedFiles: bump.files,
     changelogFiles,
   };
-  const previousTag = directResult?.tag ?? previousTags.get(dir);
+  attachReleasedWorkspaceOptionals(released, {
+    previousTag: directResult?.tag ?? previousTags.get(dir),
+    directResult,
+    releaseEntry,
+    setVersionTarget,
+  });
+  workspaces.push(released);
+}
+
+/** Inputs to {@link attachReleasedWorkspaceOptionals}. */
+interface AttachReleasedOptionalsArgs {
+  previousTag: string | undefined;
+  directResult: DirectBumpResult | undefined;
+  releaseEntry: ReleaseEntry;
+  setVersionTarget: string | undefined;
+}
+
+/**
+ * Attach the optional fields of a `ReleasedWorkspaceResult` (previousTag, parsedCommitCount,
+ * releaseType, commits, unparseableCommits, policyViolations, propagatedFrom, bumpOverride,
+ * setVersion) using the conditional-assignment rules from the surrounding executor.
+ *
+ * Extracted from `executeWorkspaceRelease` so each conditional branch lives outside the host
+ * function's cyclomatic-complexity budget; with the addition of `policyViolations` the inline
+ * version pushes the host past the project's complexity ceiling.
+ */
+function attachReleasedWorkspaceOptionals(released: ReleasedWorkspaceResult, args: AttachReleasedOptionalsArgs): void {
+  const { previousTag, directResult, releaseEntry, setVersionTarget } = args;
+
   if (previousTag !== undefined) {
     released.previousTag = previousTag;
   }
@@ -455,6 +501,9 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
   if (directResult?.unparseableCommits !== undefined) {
     released.unparseableCommits = directResult.unparseableCommits;
   }
+  if (directResult?.policyViolations !== undefined) {
+    released.policyViolations = directResult.policyViolations;
+  }
   if (releaseEntry.propagatedFrom !== undefined) {
     released.propagatedFrom = releaseEntry.propagatedFrom;
   }
@@ -464,7 +513,6 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
   if (setVersionTarget !== undefined) {
     released.setVersion = setVersionTarget;
   }
-  workspaces.push(released);
 }
 
 /** Arguments for generating changelog files for a single workspace. */

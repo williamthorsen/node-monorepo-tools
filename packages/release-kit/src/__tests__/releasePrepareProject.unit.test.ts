@@ -45,7 +45,12 @@ vi.mock('../writeReleaseNotesPreviews.ts', () => ({
   writeReleaseNotesPreviews: mockWriteReleaseNotesPreviews,
 }));
 
-import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';
+import {
+  DEFAULT_BREAKING_POLICIES,
+  DEFAULT_CHANGELOG_JSON_CONFIG,
+  DEFAULT_RELEASE_NOTES_CONFIG,
+  DEFAULT_WORK_TYPES,
+} from '../defaults.ts';
 import { releasePrepareProject } from '../releasePrepareProject.ts';
 import type { MonorepoReleaseConfig, WorkspaceConfig } from '../types.ts';
 
@@ -535,5 +540,101 @@ describe(releasePrepareProject, () => {
         tags: [],
       }),
     ).toThrow(/without a configured project block/);
+  });
+
+  describe('policy violations', () => {
+    /** ASCII unit separator (U+001F) used by `git log --pretty=format` to delimit subject from hash. */
+    const SEP = String.fromCodePoint(0x1f);
+
+    /** Format a single commit log line as the `getCommitsSinceTarget` parser expects. */
+    function logLine(subject: string, hash: string): string {
+      return `${subject}${SEP}${hash}`;
+    }
+
+    /** Stub git output for the project window with one log line per commit. */
+    function stubLog(tag: string, logBody: string): void {
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') return `${tag}\n`;
+        if (cmd === 'git' && args[0] === 'log') return logBody;
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'root', version: '1.0.0' }));
+    }
+
+    it('omits policyViolations on a project release whose only commit is a clean feat!', () => {
+      const config = makeConfig({ workTypes: DEFAULT_WORK_TYPES });
+      stubLog('v1.0.0', logLine('feat!: drop legacy export', 'abc1234'));
+
+      const result = releasePrepareProject({ config, options: { dryRun: false }, modifiedFiles: [], tags: [] });
+
+      expect(result.status).toBe('released');
+      if (result.status !== 'released') throw new Error('expected released');
+      expect(result.policyViolations).toBeUndefined();
+    });
+
+    it('records a prefix-surface violation for an internal! commit (forbidden policy)', () => {
+      const config = makeConfig({ workTypes: DEFAULT_WORK_TYPES });
+      stubLog('v1.0.0', logLine('internal!: refactor cache', 'def5678'));
+
+      const result = releasePrepareProject({ config, options: { dryRun: false }, modifiedFiles: [], tags: [] });
+
+      expect(result.policyViolations).toStrictEqual([
+        {
+          commitHash: 'def5678',
+          commitSubject: 'internal!: refactor cache',
+          type: 'internal',
+          surface: 'prefix',
+        },
+      ]);
+    });
+
+    it('records a prefix-surface violation for a bare drop commit (required policy)', () => {
+      const config = makeConfig({ workTypes: DEFAULT_WORK_TYPES });
+      stubLog('v1.0.0', logLine('drop: remove deprecated API', '9abc012'));
+
+      const result = releasePrepareProject({ config, options: { dryRun: false }, modifiedFiles: [], tags: [] });
+
+      expect(result.policyViolations).toStrictEqual([
+        {
+          commitHash: '9abc012',
+          commitSubject: 'drop: remove deprecated API',
+          type: 'drop',
+          surface: 'prefix',
+        },
+      ]);
+    });
+
+    it('produces no violations when breakingPolicies is set to {} (opt-out)', () => {
+      const config = makeConfig({ workTypes: DEFAULT_WORK_TYPES, breakingPolicies: {} });
+      stubLog('v1.0.0', logLine('internal!: refactor cache', 'def5678'));
+
+      const result = releasePrepareProject({ config, options: { dryRun: false }, modifiedFiles: [], tags: [] });
+
+      expect(result.policyViolations).toBeUndefined();
+    });
+
+    it('records a body-surface violation when BREAKING CHANGE: appears under a custom forbidden feat policy', () => {
+      // The parser invokes `message.includes('BREAKING CHANGE:')` on the raw commit message;
+      // any commit whose `.message` contains that literal triggers the body-surface code path.
+      // Real git-log subjects (--pretty=format:%s) don't carry body footers, but the wiring still
+      // needs to surface body-surface violations correctly when they appear (here: a subject
+      // that itself contains the literal string).
+      const config = makeConfig({
+        workTypes: DEFAULT_WORK_TYPES,
+        breakingPolicies: { ...DEFAULT_BREAKING_POLICIES, feat: 'forbidden' },
+      });
+      stubLog('v1.0.0', logLine('feat: rework auth (BREAKING CHANGE: removes /v1)', 'body0001'));
+
+      const result = releasePrepareProject({ config, options: { dryRun: false }, modifiedFiles: [], tags: [] });
+
+      expect(result.policyViolations).toStrictEqual([
+        {
+          commitHash: 'body0001',
+          commitSubject: 'feat: rework auth (BREAKING CHANGE: removes /v1)',
+          type: 'feat',
+          surface: 'body',
+        },
+      ]);
+    });
   });
 });
