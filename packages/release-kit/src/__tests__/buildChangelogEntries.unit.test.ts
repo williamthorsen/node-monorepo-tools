@@ -4,21 +4,16 @@ import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.t
 import { matchesAudience, renderReleaseNotesSingle } from '../renderReleaseNotes.ts';
 import type { ChangelogEntry, ChangelogJsonConfig, ReleaseConfig } from '../types.ts';
 
-// Mock execFileSync to avoid actually running git-cliff.
-vi.mock('node:child_process', () => ({
-  execFileSync: vi.fn(),
-}));
-
-// Mock filesystem so the `.template` path's tempdir handling is exercised without touching disk.
-const mockMkdtempSync = vi.hoisted(() => vi.fn());
-const mockCopyFileSync = vi.hoisted(() => vi.fn());
-const mockRmSync = vi.hoisted(() => vi.fn());
+// Mock the runGitCliff helper so the test exercises buildChangelogEntries' transformation logic
+// without spawning any subprocess. Assertions on the helper's input shape live in runGitCliff.unit.test.ts.
+const mockRunGitCliff = vi.hoisted(() => vi.fn());
 const mockWriteFileSync = vi.hoisted(() => vi.fn());
 
+vi.mock('../runGitCliff.ts', () => ({
+  runGitCliff: mockRunGitCliff,
+}));
+
 vi.mock('node:fs', () => ({
-  copyFileSync: mockCopyFileSync,
-  mkdtempSync: mockMkdtempSync,
-  rmSync: mockRmSync,
   writeFileSync: mockWriteFileSync,
 }));
 
@@ -27,10 +22,7 @@ vi.mock('../resolveCliffConfigPath.ts', () => ({
   resolveCliffConfigPath: () => '/fake/cliff.toml',
 }));
 
-const { execFileSync } = await import('node:child_process');
-const { buildChangelogEntries } = await import('../buildChangelogEntries.ts');
-
-const mockedExecFileSync = vi.mocked(execFileSync);
+import { buildChangelogEntries } from '../buildChangelogEntries.ts';
 
 const defaultChangelogJsonConfig: ChangelogJsonConfig = {
   enabled: true,
@@ -48,10 +40,7 @@ function makeConfig(
 
 describe(buildChangelogEntries, () => {
   beforeEach(() => {
-    mockedExecFileSync.mockReset();
-    mockMkdtempSync.mockReset();
-    mockCopyFileSync.mockReset();
-    mockRmSync.mockReset();
+    mockRunGitCliff.mockReset();
     mockWriteFileSync.mockReset();
   });
 
@@ -72,7 +61,7 @@ describe(buildChangelogEntries, () => {
       },
     ];
 
-    mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+    mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
 
     const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
 
@@ -98,7 +87,7 @@ describe(buildChangelogEntries, () => {
       },
     ];
 
-    mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+    mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
 
     const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
 
@@ -120,7 +109,7 @@ describe(buildChangelogEntries, () => {
       },
     ];
 
-    mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+    mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
 
     const entries = buildChangelogEntries(makeConfig(), 'v2.0.0');
 
@@ -149,7 +138,7 @@ describe(buildChangelogEntries, () => {
       },
     ];
 
-    mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+    mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
 
     const entries = buildChangelogEntries(makeConfig({ devOnlySections: ['Internal', 'Dependencies'] }), 'v1.0.0');
 
@@ -180,7 +169,7 @@ describe(buildChangelogEntries, () => {
         ],
       },
     ];
-    mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+    mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
 
     const entries = buildChangelogEntries(makeConfig(), 'v3.0.0');
 
@@ -197,7 +186,7 @@ describe(buildChangelogEntries, () => {
       },
     ];
 
-    mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+    mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
 
     const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
 
@@ -208,7 +197,7 @@ describe(buildChangelogEntries, () => {
     // Pins the intentional dry-run behavioral change: `buildChangelogEntries` does not short-
     // circuit. The caller's `dryRun` controls only the persistence step (writeChangelogJson /
     // upsertChangelogJson), not the cliff invocation. This test asserts:
-    //   1. execFileSync IS called (git-cliff runs).
+    //   1. runGitCliff IS called (git-cliff runs).
     //   2. writeFileSync is NOT called (no file is written by this helper).
     const cliffContext = [
       {
@@ -217,13 +206,42 @@ describe(buildChangelogEntries, () => {
         commits: [{ message: '#1 feat: Add widget', group: 'Features' }],
       },
     ];
-    mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+    mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
 
     const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
 
-    expect(mockedExecFileSync).toHaveBeenCalledTimes(1);
+    expect(mockRunGitCliff).toHaveBeenCalledTimes(1);
     expect(mockWriteFileSync).not.toHaveBeenCalled();
     expect(entries).toHaveLength(1);
+  });
+
+  it('passes the resolved config path, --context/--tag args, and capture stdio to runGitCliff', () => {
+    const cliffContext = [
+      {
+        version: 'v1.0.0',
+        timestamp: 1_700_000_000,
+        commits: [{ message: '#1 feat: Add widget', group: 'Features' }],
+      },
+    ];
+    mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
+
+    buildChangelogEntries(makeConfig(), 'v1.0.0', { tagPattern: 'v[0-9].*', includePaths: ['packages/foo'] });
+
+    expect(mockRunGitCliff).toHaveBeenCalledWith(
+      '/fake/cliff.toml',
+      ['--context', '--tag', 'v1.0.0', '--tag-pattern', 'v[0-9].*', '--include-path', 'packages/foo'],
+      ['pipe', 'pipe', 'inherit'],
+    );
+  });
+
+  it('wraps thrown errors from the helper with site-specific context', () => {
+    mockRunGitCliff.mockImplementationOnce(() => {
+      throw new Error('npx exited with code 1');
+    });
+
+    expect(() => buildChangelogEntries(makeConfig(), 'v9.9.9')).toThrow(
+      'Failed to build changelog entries for tag v9.9.9: npx exited with code 1',
+    );
   });
 
   describe('breaking marker', () => {
@@ -235,7 +253,7 @@ describe(buildChangelogEntries, () => {
           commits: [{ message: '#1 feat!: Redesign API', group: 'Features' }],
         },
       ];
-      mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+      mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
       const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
       expect(entries[0]?.sections[0]?.items[0]?.breaking).toBe(true);
     });
@@ -248,7 +266,7 @@ describe(buildChangelogEntries, () => {
           commits: [{ message: '#1 feat: Add widget', group: 'Features' }],
         },
       ];
-      mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+      mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
       const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
       expect(entries[0]?.sections[0]?.items[0]).not.toHaveProperty('breaking');
     });
@@ -261,7 +279,7 @@ describe(buildChangelogEntries, () => {
           commits: [{ message: '#1 drop!: Remove legacy endpoint', group: 'Removed' }],
         },
       ];
-      mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+      mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
       const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
       expect(entries[0]?.sections[0]?.items[0]?.breaking).toBe(true);
     });
@@ -274,7 +292,7 @@ describe(buildChangelogEntries, () => {
           commits: [{ message: '#1 feat(api)!: Redesign endpoint', group: 'Features' }],
         },
       ];
-      mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+      mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
       const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
       expect(entries[0]?.sections[0]?.items[0]?.breaking).toBe(true);
     });
@@ -287,7 +305,7 @@ describe(buildChangelogEntries, () => {
           commits: [{ message: '#1 web|feat!: Reshape API', group: 'Features' }],
         },
       ];
-      mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+      mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
       const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
       expect(entries[0]?.sections[0]?.items[0]?.breaking).toBe(true);
     });
@@ -300,7 +318,7 @@ describe(buildChangelogEntries, () => {
           commits: [{ message: '#1 feat: Add widget\n\nBREAKING CHANGE: removes /v1 path', group: 'Features' }],
         },
       ];
-      mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+      mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
       const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
       expect(entries[0]?.sections[0]?.items[0]).not.toHaveProperty('breaking');
     });
@@ -315,7 +333,7 @@ describe(buildChangelogEntries, () => {
           commits: [{ message, group: 'Features' }],
         },
       ];
-      mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+      mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
       const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
       return entries[0]?.sections[0]?.items ?? [];
     }
@@ -403,10 +421,7 @@ describe(buildChangelogEntries, () => {
 
 describe('buildChangelogEntries + renderReleaseNotesSingle integration', () => {
   beforeEach(() => {
-    mockedExecFileSync.mockReset();
-    mockMkdtempSync.mockReset();
-    mockCopyFileSync.mockReset();
-    mockRmSync.mockReset();
+    mockRunGitCliff.mockReset();
     mockWriteFileSync.mockReset();
   });
 
@@ -438,7 +453,7 @@ describe('buildChangelogEntries + renderReleaseNotesSingle integration', () => {
         ],
       },
     ];
-    mockedExecFileSync.mockReturnValueOnce(JSON.stringify(cliffContext));
+    mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
 
     const entries = buildChangelogEntries(
       makeConfig({ devOnlySections: DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections }),

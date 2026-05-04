@@ -1,13 +1,9 @@
-import { execFileSync } from 'node:child_process';
-import { copyFileSync, mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import { extractVersion } from './changelogJsonUtils.ts';
 import { DEFAULT_WORK_TYPES } from './defaults.ts';
 import type { GenerateChangelogOptions } from './generateChangelogs.ts';
 import { COMMIT_PREPROCESSOR_PATTERNS } from './parseCommitMessage.ts';
 import { resolveCliffConfigPath } from './resolveCliffConfigPath.ts';
+import { runGitCliff } from './runGitCliff.ts';
 import { stripEmojiPrefix } from './stripEmojiPrefix.ts';
 import { isRecord, isUnknownArray } from './typeGuards.ts';
 import type { ChangelogEntry, ChangelogItem, ChangelogSection, ReleaseConfig } from './types.ts';
@@ -86,29 +82,18 @@ export function buildChangelogEntries(
 ): ChangelogEntry[] {
   const resolvedConfigPath = resolveCliffConfigPath(config.cliffConfigPath, import.meta.url);
 
-  let cliffConfigPath = resolvedConfigPath;
-  let tempDir: string | undefined;
-  if (resolvedConfigPath.endsWith('.template')) {
-    tempDir = mkdtempSync(join(tmpdir(), 'cliff-'));
-    cliffConfigPath = join(tempDir, 'cliff.toml');
-    copyFileSync(resolvedConfigPath, cliffConfigPath);
-  }
-
-  const args = ['--config', cliffConfigPath, '--context', '--tag', tag];
+  const cliffArgs = ['--context', '--tag', tag];
 
   if (options?.tagPattern !== undefined) {
-    args.push('--tag-pattern', options.tagPattern);
+    cliffArgs.push('--tag-pattern', options.tagPattern);
   }
 
   for (const includePath of options?.includePaths ?? []) {
-    args.push('--include-path', includePath);
+    cliffArgs.push('--include-path', includePath);
   }
 
   try {
-    const contextJson = execFileSync('npx', ['--yes', 'git-cliff', ...args], {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'inherit'],
-    });
+    const contextJson = runGitCliff(resolvedConfigPath, cliffArgs, ['pipe', 'pipe', 'inherit']);
 
     const releases = parseCliffContext(contextJson);
     const devOnlySections = new Set(config.changelogJson.devOnlySections);
@@ -117,10 +102,6 @@ export function buildChangelogEntries(
     throw new Error(
       `Failed to build changelog entries for tag ${tag}: ${error instanceof Error ? error.message : String(error)}`,
     );
-  } finally {
-    if (tempDir !== undefined) {
-      rmSync(tempDir, { recursive: true, force: true });
-    }
   }
 }
 
