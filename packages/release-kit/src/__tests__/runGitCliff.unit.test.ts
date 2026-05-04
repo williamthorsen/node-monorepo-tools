@@ -128,6 +128,17 @@ describe(runGitCliff, () => {
     expect(mockRmSync).toHaveBeenCalledWith('/tmp/cliff-abc123', { recursive: true, force: true });
   });
 
+  it('removes the temp dir when copyFileSync throws after mkdtempSync succeeds', () => {
+    mockCopyFileSync.mockImplementationOnce(() => {
+      throw new Error('template unreadable');
+    });
+
+    expect(() => runGitCliff('/bundled/cliff.toml.template', [], 'inherit')).toThrow('template unreadable');
+    expect(mockMkdtempSync).toHaveBeenCalledWith('/tmp/cliff-');
+    expect(mockRmSync).toHaveBeenCalledWith('/tmp/cliff-abc123', { recursive: true, force: true });
+    expect(mockExecFileSync).not.toHaveBeenCalled();
+  });
+
   it('rethrows the underlying execFileSync error without wrapping it', () => {
     const underlying = new Error('npx exited with code 1');
     mockExecFileSync.mockImplementationOnce(() => {

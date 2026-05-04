@@ -26,14 +26,14 @@ import { join } from 'node:path';
 export function runGitCliff(cliffConfigPath: string, cliffArgs: readonly string[], stdio: StdioOptions): string {
   let configPath = cliffConfigPath;
   let tempDir: string | undefined;
-  // git-cliff rejects non-.toml extensions. Copy bundled .template files to a temp .toml file.
-  if (cliffConfigPath.endsWith('.template')) {
-    tempDir = mkdtempSync(join(tmpdir(), 'cliff-'));
-    configPath = join(tempDir, 'cliff.toml');
-    copyFileSync(cliffConfigPath, configPath);
-  }
-
   try {
+    // git-cliff rejects non-.toml extensions. Copy bundled .template files to a temp .toml file.
+    if (cliffConfigPath.endsWith('.template')) {
+      tempDir = mkdtempSync(join(tmpdir(), 'cliff-'));
+      configPath = join(tempDir, 'cliff.toml');
+      copyFileSync(cliffConfigPath, configPath);
+    }
+
     return execFileSync('npx', ['--prefer-offline', '--yes', 'git-cliff', '--config', configPath, ...cliffArgs], {
       encoding: 'utf8',
       stdio,
