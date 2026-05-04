@@ -28,7 +28,7 @@
     "@types/js-yaml": "4.0.9",
     "@types/node": "22.19.17",
     "@typescript-eslint/utils": "8.59.1",
-    "@typescript/native-preview": "7.0.0-dev.20260503.1",
+    "@typescript/native-preview": "7.0.0-dev.20260504.1",
     "@vitest/coverage-v8": "4.1.5",
     "@vitest/eslint-plugin": "1.6.16",
     "@williamthorsen/audit-deps": "workspace:*",
@@ -50,7 +50,7 @@
     "typescript-eslint": "8.59.1",
     "vite": "8.0.10",
     "vitest": "4.1.5",
-    "zod": "4.4.2"
+    "zod": "4.4.3"
   },
   "packageManager": "pnpm@10.33.2"
 }
