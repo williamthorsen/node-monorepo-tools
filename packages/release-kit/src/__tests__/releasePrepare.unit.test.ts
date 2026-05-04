@@ -45,7 +45,12 @@ vi.mock('../changelogJsonFile.ts', () => ({
   upsertChangelogJson: mockUpsertChangelogJson,
 }));
 
-import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.ts';
+import {
+  DEFAULT_BREAKING_POLICIES,
+  DEFAULT_CHANGELOG_JSON_CONFIG,
+  DEFAULT_RELEASE_NOTES_CONFIG,
+  DEFAULT_WORK_TYPES,
+} from '../defaults.ts';
 import { releasePrepare } from '../releasePrepare.ts';
 import type { ReleaseConfig, WorkTypeConfig } from '../types.ts';
 
@@ -494,6 +499,55 @@ describe(releasePrepare, () => {
       const result = releasePrepare(configWithDefaultWorkTypes({ breakingPolicies: {} }), { dryRun: false });
 
       expect(result.workspaces[0]?.policyViolations).toBeUndefined();
+    });
+
+    it('records a body-surface violation when BREAKING CHANGE: appears under a custom forbidden feat policy', () => {
+      // The parser invokes `message.includes('BREAKING CHANGE:')` on the raw commit message;
+      // any commit whose `.message` contains that literal triggers the body-surface code path.
+      // Real git-log subjects (--pretty=format:%s) don't carry body footers, but the wiring still
+      // needs to surface body-surface violations correctly when they appear (here: a subject
+      // that itself contains the literal string).
+      const config = configWithDefaultWorkTypes({
+        breakingPolicies: { ...DEFAULT_BREAKING_POLICIES, feat: 'forbidden' },
+      });
+      stubLog('feat: rework auth (BREAKING CHANGE: removes /v1)', 'body0001');
+
+      const result = releasePrepare(config, { dryRun: false });
+
+      expect(result.workspaces[0]?.policyViolations).toStrictEqual([
+        {
+          commitHash: 'body0001',
+          commitSubject: 'feat: rework auth (BREAKING CHANGE: removes /v1)',
+          type: 'feat',
+          surface: 'body',
+        },
+      ]);
+    });
+
+    it('records both prefix and body violations when a forbidden feat carries ! and BREAKING CHANGE:', () => {
+      // A `forbidden`-policy commit with both `!` AND `BREAKING CHANGE:` fires
+      // `onPolicyViolation` twice — once for the prefix, once for the body.
+      const config = configWithDefaultWorkTypes({
+        breakingPolicies: { ...DEFAULT_BREAKING_POLICIES, feat: 'forbidden' },
+      });
+      stubLog('feat!: rework auth (BREAKING CHANGE: removes /v1)', 'dual0001');
+
+      const result = releasePrepare(config, { dryRun: false });
+
+      expect(result.workspaces[0]?.policyViolations).toStrictEqual([
+        {
+          commitHash: 'dual0001',
+          commitSubject: 'feat!: rework auth (BREAKING CHANGE: removes /v1)',
+          type: 'feat',
+          surface: 'prefix',
+        },
+        {
+          commitHash: 'dual0001',
+          commitSubject: 'feat!: rework auth (BREAKING CHANGE: removes /v1)',
+          type: 'feat',
+          surface: 'body',
+        },
+      ]);
     });
 
     it('propagates policyViolations through the patch-floor release path', () => {

@@ -456,9 +456,8 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     changelogFiles,
   };
   attachReleasedWorkspaceOptionals(released, {
-    dir,
+    previousTag: directResult?.tag ?? previousTags.get(dir),
     directResult,
-    previousTags,
     releaseEntry,
     setVersionTarget,
   });
@@ -467,9 +466,8 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
 
 /** Inputs to {@link attachReleasedWorkspaceOptionals}. */
 interface AttachReleasedOptionalsArgs {
-  dir: string;
+  previousTag: string | undefined;
   directResult: DirectBumpResult | undefined;
-  previousTags: Map<string, string | undefined>;
   releaseEntry: ReleaseEntry;
   setVersionTarget: string | undefined;
 }
@@ -484,9 +482,8 @@ interface AttachReleasedOptionalsArgs {
  * version pushes the host past the project's complexity ceiling.
  */
 function attachReleasedWorkspaceOptionals(released: ReleasedWorkspaceResult, args: AttachReleasedOptionalsArgs): void {
-  const { dir, directResult, previousTags, releaseEntry, setVersionTarget } = args;
+  const { previousTag, directResult, releaseEntry, setVersionTarget } = args;
 
-  const previousTag = directResult?.tag ?? previousTags.get(dir);
   if (previousTag !== undefined) {
     released.previousTag = previousTag;
   }

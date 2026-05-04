@@ -199,8 +199,8 @@ export function mergeMonorepoConfig(
  * Extracted from both `mergeMonorepoConfig` and `mergeSinglePackageConfig` to keep their
  * cyclomatic complexity below the project ceiling — each conditional spread contributes a
  * branch to the host's complexity, and inlining all four tipped both functions over.
- * `breakingPolicies` is deep-cloned (`{ ...value }`) for parity with how monorepo config
- * defends against later mutation of nested config objects.
+ * Object-typed fields (`scopeAliases`, `breakingPolicies`) are stored by reference, matching
+ * how `scopeAliases` is handled elsewhere in this module.
  */
 function applyOptionalPassthroughFields(
   result: {
@@ -221,7 +221,7 @@ function applyOptionalPassthroughFields(
     result.scopeAliases = userConfig.scopeAliases;
   }
   if (userConfig?.breakingPolicies !== undefined) {
-    result.breakingPolicies = { ...userConfig.breakingPolicies };
+    result.breakingPolicies = userConfig.breakingPolicies;
   }
 }
 

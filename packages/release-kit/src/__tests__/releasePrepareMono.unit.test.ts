@@ -53,7 +53,12 @@ vi.mock('../changelogJsonFile.ts', () => ({
   upsertChangelogJson: mockUpsertChangelogJson,
 }));
 
-import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.ts';
+import {
+  DEFAULT_BREAKING_POLICIES,
+  DEFAULT_CHANGELOG_JSON_CONFIG,
+  DEFAULT_RELEASE_NOTES_CONFIG,
+  DEFAULT_WORK_TYPES,
+} from '../defaults.ts';
 import { releasePrepareMono } from '../releasePrepareMono.ts';
 import type { MonorepoReleaseConfig, WorkspaceConfig, WorkTypeConfig } from '../types.ts';
 
@@ -2180,6 +2185,31 @@ describe(releasePrepareMono, () => {
       const coreResult = result.workspaces.find((w) => w.name === 'core');
       expect(arraysResult?.policyViolations).toHaveLength(1);
       expect(coreResult?.policyViolations).toBeUndefined();
+    });
+
+    it('records a body-surface violation when BREAKING CHANGE: appears under a custom forbidden feat policy', () => {
+      // The parser invokes `message.includes('BREAKING CHANGE:')` on the raw commit message;
+      // any commit whose `.message` contains that literal triggers the body-surface code path.
+      // Real git-log subjects (--pretty=format:%s) don't carry body footers, but the wiring still
+      // needs to surface body-surface violations correctly when they appear (here: a subject
+      // that itself contains the literal string).
+      const config = makeConfig({
+        workspaces: [makeWorkspace()],
+        workTypes: DEFAULT_WORK_TYPES,
+        breakingPolicies: { ...DEFAULT_BREAKING_POLICIES, feat: 'forbidden' },
+      });
+      stubLog('arrays-v1.0.0', logLine('feat: rework auth (BREAKING CHANGE: removes /v1)', 'body0001'));
+
+      const result = releasePrepareMono(config, { dryRun: false });
+
+      expect(result.workspaces[0]?.policyViolations).toStrictEqual([
+        {
+          commitHash: 'body0001',
+          commitSubject: 'feat: rework auth (BREAKING CHANGE: removes /v1)',
+          type: 'feat',
+          surface: 'body',
+        },
+      ]);
     });
 
     // Note: there is no orchestrator-reachable path where a SkippedWorkspaceResult also
