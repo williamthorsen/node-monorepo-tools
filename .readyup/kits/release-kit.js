@@ -1777,17 +1777,17 @@ var require_picomatch2 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/readyup@0.19.0_esbuild@0.28.0/node_modules/readyup/dist/esm/authoring.js
+// node_modules/.pnpm/readyup@0.20.0_esbuild@0.28.0/node_modules/readyup/dist/esm/authoring.js
 function defineRdyKit(kit) {
   return kit;
 }
 
-// node_modules/.pnpm/readyup@0.19.0_esbuild@0.28.0/node_modules/readyup/dist/esm/isRecord.js
+// node_modules/.pnpm/readyup@0.20.0_esbuild@0.28.0/node_modules/readyup/dist/esm/isRecord.js
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-// node_modules/.pnpm/readyup@0.19.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/filesystem.js
+// node_modules/.pnpm/readyup@0.20.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/filesystem.js
 import { execSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -1805,7 +1805,7 @@ function fileDoesNotContain(relativePath, pattern) {
   return !pattern.test(content);
 }
 
-// node_modules/.pnpm/readyup@0.19.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/hashing.js
+// node_modules/.pnpm/readyup@0.20.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/hashing.js
 import { createHash } from "node:crypto";
 function computeHash(content) {
   return createHash("sha256").update(content).digest("hex");
@@ -1816,7 +1816,7 @@ function fileMatchesHash(relativePath, expectedHash) {
   return computeHash(content) === expectedHash;
 }
 
-// node_modules/.pnpm/readyup@0.19.0_esbuild@0.28.0/node_modules/readyup/dist/esm/safeJsonParse.js
+// node_modules/.pnpm/readyup@0.20.0_esbuild@0.28.0/node_modules/readyup/dist/esm/safeJsonParse.js
 function safeJsonParse(content) {
   try {
     const parsed = JSON.parse(content);
@@ -1826,7 +1826,7 @@ function safeJsonParse(content) {
   }
 }
 
-// node_modules/.pnpm/readyup@0.19.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/json.js
+// node_modules/.pnpm/readyup@0.20.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/json.js
 function readJsonFile(relativePath) {
   const content = readFile(relativePath);
   if (content === void 0) return void 0;
@@ -1835,7 +1835,7 @@ function readJsonFile(relativePath) {
   return parsed;
 }
 
-// node_modules/.pnpm/readyup@0.19.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/semver.js
+// node_modules/.pnpm/readyup@0.20.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/semver.js
 function compareVersions(a, b) {
   const partsA = a.split(".").map(Number);
   const partsB = b.split(".").map(Number);
@@ -1846,7 +1846,7 @@ function compareVersions(a, b) {
   return 0;
 }
 
-// node_modules/.pnpm/readyup@0.19.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/package-json.js
+// node_modules/.pnpm/readyup@0.20.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/package-json.js
 function hasDevDependency(name) {
   const pkg = readJsonFile("package.json");
   if (pkg === void 0) return false;
@@ -1866,12 +1866,12 @@ function hasMinDevDependencyVersion(name, minVersion, options) {
   return compareVersions(versionMatch, minVersion) >= 0;
 }
 
-// node_modules/.pnpm/readyup@0.19.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/workspaces.js
+// node_modules/.pnpm/readyup@0.20.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/workspaces.js
 var import_picomatch = __toESM(require_picomatch2(), 1);
 import { existsSync as existsSync2, readdirSync } from "node:fs";
 import { join as join2, resolve } from "node:path";
 
-// node_modules/.pnpm/readyup@0.19.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/pnpmWorkspaceYaml.js
+// node_modules/.pnpm/readyup@0.20.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/pnpmWorkspaceYaml.js
 import { readFileSync as readFileSync2 } from "node:fs";
 function readPnpmWorkspacePackages(absolutePath) {
   const content = readFileSync2(absolutePath, "utf8");
@@ -2027,7 +2027,7 @@ If you need negation support, please open an issue.`;
   throw new Error(message);
 }
 
-// node_modules/.pnpm/readyup@0.19.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/workspaces.js
+// node_modules/.pnpm/readyup@0.20.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/workspaces.js
 var MAX_WALK_DEPTH = 10;
 var PRUNED_NAMES = /* @__PURE__ */ new Set(["node_modules"]);
 function discoverWorkspaces(options) {
