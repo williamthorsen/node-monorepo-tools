@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
-name: Create GitHub Release
+name: 'Reusable: Create GitHub Release'
 
 # Reusable GitHub Release creation workflow for projects using @williamthorsen/release-kit.
 #
