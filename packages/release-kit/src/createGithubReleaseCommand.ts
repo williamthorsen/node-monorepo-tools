@@ -41,23 +41,11 @@ export async function createGithubReleaseCommand(argv: string[]): Promise<void> 
     process.exit(1);
   }
 
-  // Fail visibly when the user explicitly requested tags via --tags and any requested tag has no
-  // changelog entry: that's a typo or misconfiguration worth surfacing, even if other requested
-  // tags succeeded. Other skip reasons (`no-audience-content`, `empty-body`) are intentional
-  // outcomes of release-kit's rendering rules — a tooling-only release has nothing user-facing
-  // to announce, and that's a normal state, not a failure. Omitted --tags (operate on all HEAD
-  // tags) keeps the legacy soft-skip behavior since the user did not single out specific tags.
-  if (requestedTags !== undefined) {
-    const noEntryTags = outcome.skipped.filter((s) => s.reason === 'no-entry').map((s) => s.tag);
-    if (noEntryTags.length > 0) {
-      console.error(
-        `Error: requested tags have no changelog entry: ${noEntryTags.join(', ')}. ` +
-          `Verify the tag names match a published changelog version.`,
-      );
-      process.exit(1);
-    }
-  }
-
+  // Treat every per-tag skip reason (`no-entry`, `no-audience-content`, `empty-body`) as
+  // informational. Typo protection for `--tags` lives upstream in `resolveCommandTags`, which
+  // exits 1 with `Error: Unknown tag "..."` before any tag reaches `createGithubReleases`.
+  // By the time a tag's outcome is `no-entry` here, its existence in git is guaranteed and the
+  // missing entry is a legitimate "no releasable content" outcome — same as the other reasons.
   if (outcome.skipped.length > 0) {
     const formatted = outcome.skipped.map((s) => `${s.tag} (${s.reason})`).join(', ');
     console.info(`Skipped ${outcome.skipped.length} tag(s) with no releasable content: ${formatted}.`);
