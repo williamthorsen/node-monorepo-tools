@@ -199,7 +199,10 @@ describe(createGithubReleaseCommand, () => {
     expect(console.error).toHaveBeenCalledWith('Error discovering workspaces: discovery failed');
   });
 
-  it('exits with code 1 when --tags is explicit and any requested tag has no changelog entry', async () => {
+  it('does not exit when --tags is explicit and every skip is no-entry', async () => {
+    // Typo protection lives upstream in resolveCommandTags (which exits 1 on unknown --tags
+    // values), so a no-entry skip reaching here is a legitimate "no releasable content"
+    // outcome — same as no-audience-content and empty-body.
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/extra']);
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
@@ -213,20 +216,11 @@ describe(createGithubReleaseCommand, () => {
       ],
     });
 
-    let thrown: ExitError | undefined;
-    try {
-      await createGithubReleaseCommand(['--tags=core-v1.3.0,extra-v0.1.0']);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    await createGithubReleaseCommand(['--tags=core-v1.3.0,extra-v0.1.0']);
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith(
-      'Error: requested tags have no changelog entry: core-v1.3.0, extra-v0.1.0. ' +
-        'Verify the tag names match a published changelog version.',
+    expect(console.error).not.toHaveBeenCalled();
+    expect(console.info).toHaveBeenCalledWith(
+      'Skipped 2 tag(s) with no releasable content: core-v1.3.0 (no-entry), extra-v0.1.0 (no-entry).',
     );
   });
 
@@ -260,9 +254,9 @@ describe(createGithubReleaseCommand, () => {
     expect(console.info).toHaveBeenCalledWith('Skipped 1 tag(s) with no releasable content: core-v1.3.0 (empty-body).');
   });
 
-  it('exits 1 when --tags has mixed outcomes including a no-entry skip, naming only the no-entry tags', async () => {
-    // A typoed tag is still a typo even when other requested tags succeed. The error message
-    // names only the no-entry tags so the user knows which to investigate.
+  it('logs an info summary when --tags has mixed outcomes including a no-entry skip', async () => {
+    // Mirrors the no-audience-content mixed-outcome test below: no-entry is no longer
+    // discriminated at this layer because resolveCommandTags already rejects unknown tags.
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/extra']);
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core' },
@@ -273,21 +267,10 @@ describe(createGithubReleaseCommand, () => {
       skipped: [{ tag: 'extra-v0.1.0', reason: 'no-entry' }],
     });
 
-    let thrown: ExitError | undefined;
-    try {
-      await createGithubReleaseCommand(['--tags=core-v1.3.0,extra-v0.1.0']);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    await createGithubReleaseCommand(['--tags=core-v1.3.0,extra-v0.1.0']);
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith(
-      'Error: requested tags have no changelog entry: extra-v0.1.0. ' +
-        'Verify the tag names match a published changelog version.',
-    );
+    expect(console.error).not.toHaveBeenCalled();
+    expect(console.info).toHaveBeenCalledWith('Skipped 1 tag(s) with no releasable content: extra-v0.1.0 (no-entry).');
   });
 
   it('does not exit when --tags is omitted and every tag is skipped', async () => {
