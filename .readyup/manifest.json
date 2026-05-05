@@ -29,7 +29,7 @@
       "name": "release-kit",
       "path": "kits/release-kit.js",
       "source": "kits/release-kit.ts",
-      "targetHash": "b2f58c54"
+      "targetHash": "995b342d"
     }
   ]
 }

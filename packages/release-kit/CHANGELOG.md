@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [release-kit-v5.2.1] - 2026-05-05
+
+### 🐛 Bug fixes
+
+- Soft-skip tags with no changelog entry under --tags (#366)
+
+  Fixes an issue where `release-kit create-github-release --tags <tag>` exited 1 — failing the calling CI workflow — when the requested tag had no changelog entry. Tooling-only releases (those whose changelog generator legitimately omits an entry) are now soft-skipped with an info-level summary, the same as releases skipped because their entry has no audience-relevant content. Typo protection is preserved: passing an unknown tag to `--tags` still exits 1.
+
 ## [release-kit-v5.2.0] - 2026-05-04
 
 ### 🎉 Features

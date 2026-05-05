@@ -2189,7 +2189,7 @@ function detectRepoType() {
 
 // .readyup/kits/release-kit.ts
 function getMinVersion() {
-  const picked = { "version": "5.2.0" };
+  const picked = { "version": "5.2.1" };
   if (typeof picked.version !== "string") {
     throw new TypeError("release-kit/package.json: 'version' must be a string");
   }
