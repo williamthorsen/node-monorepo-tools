@@ -1,5 +1,5 @@
 {
-  "$schema": "https://github.com/williamthorsen/codeassembly/raw/agents-v0.1.0/packages/agents/schemas/label-map.json",
+  "$schema": "https://github.com/williamthorsen/node-monorepo-tools/raw/release-kit-v5.2.0/packages/release-kit/schemas/label-map.json",
   "types": {
     "ai": "ai",
     "ci": "ci",
@@ -9,7 +9,7 @@
     "feat": "feature",
     "fix": "fix",
     "fmt": "formatting",
-    "internal": "utility",
+    "internal": "internal",
     "perf": "performance",
     "refactor": "refactoring",
     "sec": "security",
