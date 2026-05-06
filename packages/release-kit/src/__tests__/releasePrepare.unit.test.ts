@@ -327,8 +327,11 @@ describe(releasePrepare, () => {
     const workspace = result.workspaces[0];
     if (workspace?.status !== 'released') throw new Error('expected released');
     expect(workspace.changelogFiles).toStrictEqual(['./CHANGELOG.md']);
+    // Filter on `--config` to count only real cliff *work* invocations and exclude the
+    // once-per-run cache-refresh call (`npx --yes git-cliff --version`, no `--config`).
     const cliffCalls = mockExecFileSync.mock.calls.filter(
-      (call: unknown[]) => call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff'),
+      (call: unknown[]) =>
+        call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff') && call[1].includes('--config'),
     );
     expect(cliffCalls).toHaveLength(1);
   });
@@ -568,6 +571,85 @@ describe(releasePrepare, () => {
 
       expect(result.workspaces[0]?.status).toBe('released');
       expect(result.workspaces[0]?.policyViolations).toHaveLength(1);
+    });
+  });
+
+  describe('git-cliff cache refresh', () => {
+    /** Identify the warmup call: `npx --yes git-cliff --version`, no `--config`, no `--prefer-offline`. */
+    function findWarmupCallIndices(): number[] {
+      const indices: number[] = [];
+      mockExecFileSync.mock.calls.forEach((call: unknown[], index: number) => {
+        if (
+          call[0] === 'npx' &&
+          Array.isArray(call[1]) &&
+          call[1].includes('git-cliff') &&
+          call[1].includes('--version') &&
+          !call[1].includes('--config') &&
+          !call[1].includes('--prefer-offline')
+        ) {
+          indices.push(index);
+        }
+      });
+      return indices;
+    }
+
+    /** Identify cliff *work* calls (those that pass `--config`) and return their call indices. */
+    function findCliffWorkCallIndices(): number[] {
+      const indices: number[] = [];
+      mockExecFileSync.mock.calls.forEach((call: unknown[], index: number) => {
+        if (
+          call[0] === 'npx' &&
+          Array.isArray(call[1]) &&
+          call[1].includes('git-cliff') &&
+          call[1].includes('--config')
+        ) {
+          indices.push(index);
+        }
+      });
+      return indices;
+    }
+
+    it('refreshes the git-cliff cache exactly once on a non-skip release run, before any cliff work call', () => {
+      setupFeatCommit();
+
+      releasePrepare(makeConfig(), { dryRun: false });
+
+      const warmupIndices = findWarmupCallIndices();
+      const workIndices = findCliffWorkCallIndices();
+      expect(warmupIndices).toHaveLength(1);
+      expect(workIndices.length).toBeGreaterThan(0);
+      const firstWarmup = warmupIndices[0] ?? Number.POSITIVE_INFINITY;
+      const firstWork = workIndices[0] ?? Number.NEGATIVE_INFINITY;
+      expect(firstWarmup).toBeLessThan(firstWork);
+    });
+
+    it('refreshes the git-cliff cache even in dry-run mode (cliff is invoked under dry-run for changelog.json)', () => {
+      setupFeatCommit();
+
+      releasePrepare(makeConfig(), { dryRun: true });
+
+      expect(findWarmupCallIndices()).toHaveLength(1);
+    });
+
+    it('does not refresh the cache when no commits exist and no override is given (skip path)', () => {
+      // Tag exists but no commits since → releaseType stays undefined → skip path → no cliff
+      // work needed → no warmup.
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') {
+          return 'v1.0.0\n';
+        }
+        if (cmd === 'git' && args[0] === 'log') {
+          return '';
+        }
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+
+      const result = releasePrepare(makeConfig(), { dryRun: false });
+
+      // Sanity: confirm the test actually exercised the skip path.
+      expect(result.workspaces[0]?.status).toBe('skipped');
+      expect(findWarmupCallIndices()).toHaveLength(0);
     });
   });
 });

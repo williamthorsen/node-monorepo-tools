@@ -77,21 +77,68 @@ function makeConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoRelease
   };
 }
 
-/** Count how many npx git-cliff calls occurred. */
+/** Count how many npx git-cliff *work* calls occurred (excludes the once-per-run cache refresh). */
 function countCliffCalls(): number {
   return mockExecFileSync.mock.calls.filter(
-    (call: unknown[]) => call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff'),
+    (call: unknown[]) =>
+      call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff') && call[1].includes('--config'),
   ).length;
 }
 
-/** Find the first npx git-cliff call's args from the mock call history. */
+/** Find the first npx git-cliff *work* call's args (skips the cache-refresh `--version` call). */
 function findCliffCallArgs(): readonly unknown[] {
   for (const call of mockExecFileSync.mock.calls) {
-    if (call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff')) {
+    if (call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff') && call[1].includes('--config')) {
       return call[1];
     }
   }
-  throw new Error('No npx git-cliff call found in mock history');
+  throw new Error('No npx git-cliff work call found in mock history');
+}
+
+/** Count how many cache-refresh warmup calls occurred (`npx --yes git-cliff --version`). */
+function countCacheRefreshCalls(): number {
+  return mockExecFileSync.mock.calls.filter(
+    (call: unknown[]) =>
+      call[0] === 'npx' &&
+      Array.isArray(call[1]) &&
+      call[1].includes('git-cliff') &&
+      call[1].includes('--version') &&
+      !call[1].includes('--config'),
+  ).length;
+}
+
+/**
+ * Return the index of the first cache-refresh call, or `+Infinity` if none.
+ * Sentinel chosen so `firstCacheRefreshCallIndex() < firstCliffWorkCallIndex()` only
+ * passes when both are present.
+ */
+function firstCacheRefreshCallIndex(): number {
+  let index = 0;
+  for (const call of mockExecFileSync.mock.calls) {
+    if (
+      call[0] === 'npx' &&
+      Array.isArray(call[1]) &&
+      call[1].includes('git-cliff') &&
+      call[1].includes('--version') &&
+      !call[1].includes('--config')
+    ) {
+      return index;
+    }
+    index += 1;
+  }
+  return Number.POSITIVE_INFINITY;
+}
+
+/** Return the index of the first cliff work call, or `-Infinity` if none. */
+function firstCliffWorkCallIndex(): number {
+  let index = 0;
+  for (const call of mockExecFileSync.mock.calls) {
+    if (call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff') && call[1].includes('--config')) {
+      return index;
+    }
+    index += 1;
+  }
+  return Number.NEGATIVE_INFINITY;
 }
 
 /** Collect the --output path from every npx git-cliff call. */
@@ -1984,7 +2031,9 @@ describe(releasePrepareMono, () => {
       mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
         if (cmd === 'git' && args[0] === 'describe') return 'arrays-v1.0.0\n';
         if (cmd === 'git' && args[0] === 'log') return 'feat: addabc123';
-        if (cmd === 'npx') throw underlying;
+        // Only throw on cliff *work* calls (those carrying `--config`); the once-per-run
+        // cache-refresh warmup call (`--version`, no `--config`) succeeds.
+        if (cmd === 'npx' && Array.isArray(args) && args.includes('--config')) throw underlying;
         return '';
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
@@ -2008,9 +2057,10 @@ describe(releasePrepareMono, () => {
           if (matchArg === '--match=v*') return 'v0.9.0\n';
         }
         if (cmd === 'git' && args[0] === 'log') return `feat: shipabc123`;
-        if (cmd === 'npx') {
+        // Count only cliff *work* calls (those carrying `--config`); ignore the once-per-run
+        // cache-refresh warmup. First work call is the workspace's; second is the project's.
+        if (cmd === 'npx' && Array.isArray(args) && args.includes('--config')) {
           cliffCallCount += 1;
-          // First cliff call is the workspace's; second is the project's.
           if (cliffCallCount >= 2) throw underlying;
         }
         return '';
@@ -2217,5 +2267,90 @@ describe(releasePrepareMono, () => {
     // branch when zero commits parsed, which means no violation could have fired. The
     // `SkippedResult.policyViolations` field is wired defensively for parity with the
     // released path but not exercised here.
+  });
+
+  describe('git-cliff cache refresh', () => {
+    it('refreshes the git-cliff cache exactly once before any per-workspace cliff work call', () => {
+      const config = makeConfig({
+        workspaces: [
+          {
+            dir: 'arrays',
+            name: '@test/arrays',
+            tagPrefix: 'arrays-v',
+            workspacePath: 'packages/arrays',
+            isPublishable: true,
+            packageFiles: ['packages/arrays/package.json'],
+            changelogPaths: ['packages/arrays'],
+            paths: ['packages/arrays/**'],
+          },
+          {
+            dir: 'strings',
+            name: '@test/strings',
+            tagPrefix: 'strings-v',
+            workspacePath: 'packages/strings',
+            isPublishable: true,
+            packageFiles: ['packages/strings/package.json'],
+            changelogPaths: ['packages/strings'],
+            paths: ['packages/strings/**'],
+          },
+        ],
+      });
+
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') {
+          const matchArg = args.find((a: string) => a.startsWith('--match='));
+          if (matchArg?.includes('arrays-v')) {
+            return 'arrays-v1.0.0\n';
+          }
+          if (matchArg?.includes('strings-v')) {
+            return 'strings-v2.0.0\n';
+          }
+        }
+        if (cmd === 'git' && args[0] === 'log') {
+          return 'feat: changeabc123';
+        }
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+
+      releasePrepareMono(config, { dryRun: false });
+
+      expect(countCacheRefreshCalls()).toBe(1);
+      // The single warmup must precede every per-workspace cliff work invocation.
+      expect(firstCacheRefreshCallIndex()).toBeLessThan(firstCliffWorkCallIndex());
+    });
+
+    it('does not refresh the cache when every workspace skips (no cliff work to warm)', () => {
+      const config = makeConfig({
+        workspaces: [
+          {
+            dir: 'arrays',
+            name: '@test/arrays',
+            tagPrefix: 'arrays-v',
+            workspacePath: 'packages/arrays',
+            isPublishable: true,
+            packageFiles: ['packages/arrays/package.json'],
+            changelogPaths: ['packages/arrays'],
+            paths: ['packages/arrays/**'],
+          },
+        ],
+      });
+
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') {
+          return 'arrays-v1.0.0\n';
+        }
+        if (cmd === 'git' && args[0] === 'log') {
+          return '';
+        }
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
+
+      releasePrepareMono(config, { dryRun: false });
+
+      expect(countCacheRefreshCalls()).toBe(0);
+      expect(countCliffCalls()).toBe(0);
+    });
   });
 });

@@ -15,6 +15,13 @@ import { join } from 'node:path';
  * (~2.5 s per invocation on a warm cache), and `npm_config_progress=false` suppresses
  * npx's animated stderr spinner, which otherwise renders as a transient flicker.
  *
+ * Because `--prefer-offline` also suppresses npx's cache-staleness check, the cached
+ * `git-cliff` binary would otherwise drift further and further behind upstream, with each
+ * cliff invocation re-emitting the "A new version of git-cliff is available" notice and
+ * the local cache never updating. `refreshGitCliffCache` (below) revalidates the cache
+ * once at the top of each `prepare` run so subsequent `--prefer-offline` calls run against
+ * a current binary.
+ *
  * The helper injects `--config <path>` itself — callers must NOT include `--config` in
  * `cliffArgs`. The caller is responsible for resolving the cliff config path (via
  * `resolveCliffConfigPath`) before calling, since the resolution depends on the caller's
@@ -44,4 +51,26 @@ export function runGitCliff(cliffConfigPath: string, cliffArgs: readonly string[
       rmSync(tempDir, { recursive: true, force: true });
     }
   }
+}
+
+/**
+ * Revalidate npx's cache for `git-cliff` once per `prepare` run.
+ *
+ * Spawns `npx --yes git-cliff --version` *without* `--prefer-offline`, so npm performs its
+ * normal registry-staleness check and refreshes the cached binary if a newer version is
+ * available. Subsequent `runGitCliff` calls within the same run keep `--prefer-offline`
+ * (preserving the per-call perf win) but now run against an up-to-date cache, so
+ * git-cliff's own self-update notice no longer fires repeatedly.
+ *
+ * Stdio: stdin ignored, stdout piped (the version line is suppressed as noise), stderr
+ * inherited (npm errors and any rare upgrade notice surface, but only once per run).
+ *
+ * Errors propagate unchanged — a failed cache refresh fails the prepare run loudly rather
+ * than silently degrading.
+ */
+export function refreshGitCliffCache(): void {
+  execFileSync('npx', ['--yes', 'git-cliff', '--version'], {
+    stdio: ['ignore', 'pipe', 'inherit'],
+    env: { ...process.env, npm_config_progress: 'false' },
+  });
 }

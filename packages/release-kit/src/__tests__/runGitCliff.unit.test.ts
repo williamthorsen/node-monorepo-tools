@@ -10,7 +10,7 @@ vi.mock('node:child_process', () => ({ execFileSync: mockExecFileSync }));
 vi.mock('node:fs', () => ({ copyFileSync: mockCopyFileSync, mkdtempSync: mockMkdtempSync, rmSync: mockRmSync }));
 vi.mock('node:os', () => ({ tmpdir: mockTmpdir }));
 
-import { runGitCliff } from '../runGitCliff.ts';
+import { refreshGitCliffCache, runGitCliff } from '../runGitCliff.ts';
 
 describe(runGitCliff, () => {
   afterEach(() => {
@@ -155,5 +155,64 @@ describe(runGitCliff, () => {
 
     expect(() => runGitCliff('/explicit/cliff.toml', [], 'inherit')).toThrow('git-cliff failed');
     expect(mockRmSync).not.toHaveBeenCalled();
+  });
+});
+
+describe(refreshGitCliffCache, () => {
+  afterEach(() => {
+    mockExecFileSync.mockReset();
+  });
+
+  it('invokes npx --yes git-cliff --version without --prefer-offline', () => {
+    mockExecFileSync.mockReturnValueOnce('');
+
+    refreshGitCliffCache();
+
+    expect(mockExecFileSync).toHaveBeenCalledTimes(1);
+    expect(mockExecFileSync).toHaveBeenCalledWith('npx', ['--yes', 'git-cliff', '--version'], expect.any(Object));
+    // The omission of --prefer-offline is the whole point of this helper.
+    const [, args] = mockExecFileSync.mock.calls[0] ?? [];
+    expect(args).not.toContain('--prefer-offline');
+    // No --config: the warmup does not need a cliff config to revalidate the cache.
+    expect(args).not.toContain('--config');
+  });
+
+  it('uses stdio ["ignore", "pipe", "inherit"] so the version line is suppressed but errors surface', () => {
+    mockExecFileSync.mockReturnValueOnce('');
+
+    refreshGitCliffCache();
+
+    expect(mockExecFileSync).toHaveBeenCalledWith(
+      'npx',
+      expect.any(Array),
+      expect.objectContaining({ stdio: ['ignore', 'pipe', 'inherit'] }),
+    );
+  });
+
+  it('sets npm_config_progress=false in the spawned env while preserving inherited variables', () => {
+    mockExecFileSync.mockReturnValueOnce('');
+    const previousPath = process.env.PATH;
+
+    refreshGitCliffCache();
+
+    expect(mockExecFileSync).toHaveBeenCalledWith(
+      'npx',
+      expect.any(Array),
+      expect.objectContaining({
+        env: expect.objectContaining({
+          npm_config_progress: 'false',
+          PATH: previousPath,
+        }),
+      }),
+    );
+  });
+
+  it('rethrows the underlying execFileSync error without wrapping it', () => {
+    const underlying = new Error('npx exited with code 1');
+    mockExecFileSync.mockImplementationOnce(() => {
+      throw underlying;
+    });
+
+    expect(() => refreshGitCliffCache()).toThrow(underlying);
   });
 });
