@@ -283,6 +283,105 @@ describe('releasePrepareProject (integration)', () => {
     });
   }, 60_000);
 
+  it('writes a synthetic Notes / Forced version bump entry for empty-range project releases', () => {
+    // Move the project baseline tag to HEAD so the project stage finds zero commits since.
+    // Per-workspace baselines stay at the initial commit, so workspaces still release naturally
+    // (we are testing the project stage's empty-range branch, not the workspace path).
+    execFileSync('git', ['tag', '--delete', 'v0.9.0'], { cwd: fixture.repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
+    execFileSync('git', ['tag', 'v0.9.0', 'HEAD'], { cwd: fixture.repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
+
+    withinFixture(fixture.repoDir, () => {
+      const config = mergeMonorepoConfig(
+        ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
+        { project: {} },
+        { exists: true, version: '0.9.0' },
+      );
+
+      const result = releasePrepareMono(config, { dryRun: false, force: true });
+
+      // Project release proceeded under --force, choosing patch level (issue #369 fix).
+      const project = result.project;
+      if (project?.status !== 'released') throw new Error('expected released project');
+      expect(project.previousTag).toBe('v0.9.0');
+      expect(project.commits).toHaveLength(0);
+      expect(project.releaseType).toBe('patch');
+      expect(project.newVersion).toBe('0.9.1');
+
+      // Root CHANGELOG.md contains the synthetic header at the top.
+      const rootChangelogPath = join(fixture.repoDir, 'CHANGELOG.md');
+      expect(existsSync(rootChangelogPath)).toBe(true);
+      const rootChangelog = readFileSync(rootChangelogPath, 'utf8');
+      expect(rootChangelog).toMatch(/^## 0\.9\.1 — \d{4}-\d{2}-\d{2}/);
+      expect(rootChangelog).toContain('### Notes');
+      expect(rootChangelog).toContain('- Forced version bump.');
+
+      // Root .meta/changelog.json contains a corresponding canonical entry.
+      const changelogJsonPath = join(fixture.repoDir, '.meta', 'changelog.json');
+      expect(existsSync(changelogJsonPath)).toBe(true);
+      const parsed: Array<{
+        version: string;
+        sections: Array<{ title: string; audience: string; items: Array<{ description: string }> }>;
+      }> = JSON.parse(readFileSync(changelogJsonPath, 'utf8'));
+      const entry = parsed.find((e) => e.version === '0.9.1');
+      expect(entry).toBeDefined();
+      expect(entry?.sections[0]).toMatchObject({
+        title: 'Notes',
+        audience: 'dev',
+        items: [{ description: 'Forced version bump.' }],
+      });
+    });
+  }, 60_000);
+
+  it('preserves prior changelog.json entries when an empty-range project release runs', () => {
+    // Regression: the empty-range project branch must use upsert semantics. A plain
+    // overwrite would erase prior structured history because the synthetic branch
+    // produces only the new entry — git-cliff is not consulted to replay the full log.
+    // Move the project baseline tag to HEAD so the project stage finds zero commits since,
+    // forcing the empty-range branch.
+    execFileSync('git', ['tag', '--delete', 'v0.9.0'], { cwd: fixture.repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
+    execFileSync('git', ['tag', 'v0.9.0', 'HEAD'], { cwd: fixture.repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
+
+    // Pre-seed the structured changelog with a prior entry that no current run could
+    // reproduce. This entry must survive the empty-range release.
+    const changelogJsonPath = join(fixture.repoDir, '.meta', 'changelog.json');
+    mkdirSync(join(fixture.repoDir, '.meta'), { recursive: true });
+    const priorEntry = {
+      version: '0.8.0',
+      date: '2026-01-15',
+      sections: [
+        {
+          title: 'Features',
+          audience: 'consumer',
+          items: [{ description: 'Historical entry that must not be lost.' }],
+        },
+      ],
+    };
+    writeFileSync(changelogJsonPath, JSON.stringify([priorEntry], null, 2) + '\n', 'utf8');
+
+    withinFixture(fixture.repoDir, () => {
+      const config = mergeMonorepoConfig(
+        ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
+        { project: {} },
+        { exists: true, version: '0.9.0' },
+      );
+
+      releasePrepareMono(config, { dryRun: false, force: true });
+
+      const written: Array<{ version: string; sections: Array<{ items: Array<{ description: string }> }> }> =
+        JSON.parse(readFileSync(changelogJsonPath, 'utf8'));
+
+      // The prior entry survives.
+      const survivedPrior = written.find((e) => e.version === '0.8.0');
+      expect(survivedPrior).toBeDefined();
+      expect(survivedPrior?.sections[0]?.items[0]?.description).toBe('Historical entry that must not be lost.');
+
+      // The new synthetic entry is also present.
+      const newEntry = written.find((e) => e.version === '0.9.1');
+      expect(newEntry).toBeDefined();
+      expect(newEntry?.sections[0]?.items[0]?.description).toBe('Forced version bump.');
+    });
+  }, 60_000);
+
   it('rejects --only via prepareCommand before any project work runs', async () => {
     // The CLI guard lives in prepareCommand. We exercise it directly so the integration test
     // reflects the user-observable behavior end-to-end. Failure must occur before any file is

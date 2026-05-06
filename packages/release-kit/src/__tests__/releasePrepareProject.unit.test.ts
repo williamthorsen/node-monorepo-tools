@@ -10,6 +10,7 @@ const mockRmSync = vi.hoisted(() => vi.fn());
 const mockCopyFileSync = vi.hoisted(() => vi.fn());
 const mockBuildChangelogEntries = vi.hoisted(() => vi.fn());
 const mockWriteChangelogJson = vi.hoisted(() => vi.fn());
+const mockUpsertChangelogJson = vi.hoisted(() => vi.fn());
 const mockWriteReleaseNotesPreviews = vi.hoisted(() => vi.fn());
 
 vi.mock('node:child_process', () => ({
@@ -38,7 +39,7 @@ vi.mock('../changelogJsonFile.ts', () => ({
   resolveChangelogJsonPath: (config: { changelogJson: { outputPath: string } }, changelogPath: string): string =>
     `${changelogPath}/${config.changelogJson.outputPath}`,
   writeChangelogJson: mockWriteChangelogJson,
-  upsertChangelogJson: vi.fn(),
+  upsertChangelogJson: mockUpsertChangelogJson,
 }));
 
 vi.mock('../writeReleaseNotesPreviews.ts', () => ({
@@ -98,6 +99,7 @@ describe(releasePrepareProject, () => {
   beforeEach(() => {
     mockBuildChangelogEntries.mockReturnValue([]);
     mockWriteChangelogJson.mockImplementation((filePath: string) => filePath);
+    mockUpsertChangelogJson.mockImplementation((filePath: string) => filePath);
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'root', version: '0.9.0' }));
     mockExistsSync.mockReturnValue(false);
   });
@@ -113,6 +115,7 @@ describe(releasePrepareProject, () => {
     mockCopyFileSync.mockReset();
     mockBuildChangelogEntries.mockReset();
     mockWriteChangelogJson.mockReset();
+    mockUpsertChangelogJson.mockReset();
     mockWriteReleaseNotesPreviews.mockReset();
   });
 
@@ -406,6 +409,7 @@ describe(releasePrepareProject, () => {
     expect(mockBuildChangelogEntries).toHaveBeenCalledTimes(1);
     expect(mockWriteChangelogJson).toHaveBeenCalledTimes(1);
     expect(mockWriteChangelogJson).toHaveBeenCalledWith('./.meta/changelog.json', expect.any(Array));
+    expect(mockUpsertChangelogJson).not.toHaveBeenCalled();
     expect(modifiedFiles).toContain('./.meta/changelog.json');
   });
 
@@ -540,6 +544,160 @@ describe(releasePrepareProject, () => {
         tags: [],
       }),
     ).toThrow(/without a configured project block/);
+  });
+
+  describe('empty-range project release', () => {
+    // Project-stage counterpart to the per-workspace empty-range branch: when `--force` /
+    // `--bump=X` triggers a project release with zero qualifying commits since the last
+    // project tag, git-cliff is bypassed in favor of a synthetic "Notes / Forced version
+    // bump." entry. Without this, git-cliff emits the same `WARN  git_cliff > There is
+    // already a tag` lines that surface for empty-range workspaces (issue #369).
+
+    /** Stub git so the project has a tag but no qualifying commits since it. */
+    function stubEmptyRange(): void {
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') return 'v0.9.0\n';
+        if (cmd === 'git' && args[0] === 'log') return '';
+        return '';
+      });
+    }
+
+    /** Count git-cliff *work* invocations (those that pass `--config`). */
+    function countCliffWorkCalls(): number {
+      return mockExecFileSync.mock.calls.filter(
+        (call: unknown[]) =>
+          call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff') && call[1].includes('--config'),
+      ).length;
+    }
+
+    it('writes a synthetic Notes / Forced version bump entry for the root CHANGELOG when --force is used with no commits', () => {
+      stubEmptyRange();
+      const tags: string[] = [];
+      const modifiedFiles: string[] = [];
+
+      const result = releasePrepareProject({
+        config: makeConfig(),
+        options: { dryRun: false, force: true },
+        modifiedFiles,
+        tags,
+      });
+
+      if (result.status !== 'released') throw new Error('expected released');
+      expect(result.tag).toBe('v0.9.1');
+      expect(result.changelogFiles).toContain('./CHANGELOG.md');
+      expect(tags).toStrictEqual(['v0.9.1']);
+
+      // Root CHANGELOG.md was written with the synthetic header.
+      const changelogWrite = mockWriteFileSync.mock.calls.find((call: unknown[]) => call[0] === './CHANGELOG.md');
+      expect(changelogWrite).toBeDefined();
+      expect(changelogWrite?.[1]).toContain('## 0.9.1');
+      expect(changelogWrite?.[1]).toContain('### Notes');
+      expect(changelogWrite?.[1]).toContain('- Forced version bump.');
+    });
+
+    it('does not invoke git-cliff for the project stage on the empty-range path', () => {
+      stubEmptyRange();
+
+      releasePrepareProject({
+        config: makeConfig(),
+        options: { dryRun: false, force: true },
+        modifiedFiles: [],
+        tags: [],
+      });
+
+      expect(countCliffWorkCalls()).toBe(0);
+    });
+
+    it('writes a synthetic empty-range entry into the root changelog.json when enabled', () => {
+      stubEmptyRange();
+      const config = makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } });
+
+      releasePrepareProject({
+        config,
+        options: { dryRun: false, force: true },
+        modifiedFiles: [],
+        tags: [],
+      });
+
+      // Empty-range branch uses `upsertChangelogJson` so prior entries are preserved
+      // when only the new synthetic entry is being written. Overwriting via
+      // `writeChangelogJson` here would obliterate every previously-recorded entry.
+      expect(mockUpsertChangelogJson).toHaveBeenCalledTimes(1);
+      expect(mockWriteChangelogJson).not.toHaveBeenCalled();
+      const upsertEntries = mockUpsertChangelogJson.mock.calls[0]?.[1];
+      expect(upsertEntries).toMatchObject([
+        {
+          version: '0.9.1',
+          sections: [
+            {
+              title: 'Notes',
+              audience: 'dev',
+              items: [{ description: 'Forced version bump.' }],
+            },
+          ],
+        },
+      ]);
+      // Build-via-cliff path must not be exercised on the empty-range branch.
+      expect(mockBuildChangelogEntries).not.toHaveBeenCalled();
+    });
+
+    it('skips synthetic file writes in dry-run mode but still appends tag and modified files', () => {
+      stubEmptyRange();
+      const tags: string[] = [];
+      const modifiedFiles: string[] = [];
+
+      const result = releasePrepareProject({
+        config: makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
+        options: { dryRun: true, force: true },
+        modifiedFiles,
+        tags,
+      });
+
+      if (result.status !== 'released') throw new Error('expected released');
+      expect(tags).toStrictEqual(['v0.9.1']);
+      expect(modifiedFiles).toContain('./CHANGELOG.md');
+      expect(modifiedFiles).toContain('./.meta/changelog.json');
+
+      // No synthetic CHANGELOG.md write under dry-run.
+      const changelogWrites = mockWriteFileSync.mock.calls.filter((call: unknown[]) => call[0] === './CHANGELOG.md');
+      expect(changelogWrites).toHaveLength(0);
+      expect(mockWriteChangelogJson).not.toHaveBeenCalled();
+      expect(mockUpsertChangelogJson).not.toHaveBeenCalled();
+    });
+
+    it('keeps non-empty-range project releases on the cliff path (no regression)', () => {
+      setupDefaultGit();
+
+      releasePrepareProject({
+        config: makeConfig(),
+        options: { dryRun: false },
+        modifiedFiles: [],
+        tags: [],
+      });
+
+      // Real commits → cliff path runs.
+      expect(countCliffWorkCalls()).toBe(1);
+    });
+
+    it('leaves a skipped-project result unchanged (no synthetic entries for skipped projects)', () => {
+      stubEmptyRange();
+      const tags: string[] = [];
+      const modifiedFiles: string[] = [];
+
+      const result = releasePrepareProject({
+        config: makeConfig(),
+        options: { dryRun: false }, // No --force, no --bump → skip path.
+        modifiedFiles,
+        tags,
+      });
+
+      expect(result.status).toBe('skipped');
+      expect(tags).toStrictEqual([]);
+      expect(modifiedFiles).toStrictEqual([]);
+      // No CHANGELOG.md write for the skipped project.
+      const changelogWrites = mockWriteFileSync.mock.calls.filter((call: unknown[]) => call[0] === './CHANGELOG.md');
+      expect(changelogWrites).toHaveLength(0);
+    });
   });
 
   describe('policy violations', () => {
