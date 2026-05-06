@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "audit-deps configuration",
-  "description": "Configuration file for @williamthorsen/audit-deps. Controls severity thresholds and allowlists for dependency vulnerability auditing.",
+  "description": "Configuration file for audit-deps. Controls severity thresholds and allowlists for dependency vulnerability auditing.",
   "type": "object",
   "required": ["dev", "prod"],
   "additionalProperties": false,

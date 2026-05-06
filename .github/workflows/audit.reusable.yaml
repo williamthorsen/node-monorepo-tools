@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: 'Reusable: Dependency audit'
 
-# Reusable dependency-audit workflow for repos consuming @williamthorsen/audit-deps.
+# Reusable dependency-audit workflow for repos consuming audit-deps.
 #
 # Runs two jobs, each guarded by the caller's trigger:
 #   - pr-audit (on `pull_request`): production-only audit, posts/updates a PR
@@ -11,7 +11,7 @@ name: 'Reusable: Dependency audit'
 #     (prod + dev) with grouped output, maintained on a single standing issue
 #     labeled `audit-status`.
 #
-# The audit-deps CLI is fetched via `pnpm dlx @williamthorsen/audit-deps@latest`,
+# The audit-deps CLI is fetched via `pnpm dlx audit-deps@latest`,
 # so no local install step is needed. `@latest` is deliberate: vulnerability
 # detection improves over time and the CLI exposes no parsed API to break.
 #
@@ -48,7 +48,7 @@ jobs:
 
       - name: Run prod audit
         id: audit
-        run: pnpm dlx @williamthorsen/audit-deps@latest --prod 2>&1 | tee audit-output.txt
+        run: pnpm dlx audit-deps@latest --prod 2>&1 | tee audit-output.txt
         continue-on-error: true
 
       - name: Build PR comment
@@ -130,13 +130,13 @@ jobs:
       # subsections that earlier two-command versions used.
       - name: Run audit (text body)
         id: audit
-        run: pnpm dlx @williamthorsen/audit-deps@latest 2>&1 | tee audit-output.txt
+        run: pnpm dlx audit-deps@latest 2>&1 | tee audit-output.txt
         continue-on-error: true
 
       # Separate JSON invocation drives the title's status discriminant and count.
       # Two invocations are simpler than reconstructing the human-readable text from JSON.
       - name: Run audit (JSON summary)
-        run: pnpm dlx @williamthorsen/audit-deps@latest check --json > audit.json
+        run: pnpm dlx audit-deps@latest check --json > audit.json
         continue-on-error: true
 
       - name: Render issue title

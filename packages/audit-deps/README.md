@@ -1,4 +1,4 @@
-# @williamthorsen/audit-deps
+# audit-deps
 
 Wraps [audit-ci](https://github.com/IBM/audit-ci) with a richer config model, typed JSON source of truth, and a sync workflow that automates allowlist management.
 
@@ -7,14 +7,14 @@ Wraps [audit-ci](https://github.com/IBM/audit-ci) with a richer config model, ty
 ## Installation
 
 ```shell
-pnpm add -D @williamthorsen/audit-deps
+pnpm add -D audit-deps
 ```
 
 ## Quick start
 
 ```shell
 # Run a vulnerability check with sensible defaults (no config needed)
-npx @williamthorsen/audit-deps
+npx audit-deps
 
 # Scaffold a starter config and GitHub Actions workflow
 npx audit-deps init

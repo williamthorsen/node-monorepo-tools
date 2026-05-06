@@ -21,5 +21,5 @@ jobs:
   code-quality:
     uses: williamthorsen/.github/.github/workflows/code-quality-pnpm-workflow.yaml@v5
     with:
-      check-command: pnpm exec nmr build && pnpm exec nmr check:strict
+      check-command: pnpm exec nmr build && pnpm exec nmr check:strict && git diff --exit-code -- .readyup/
       node-version: '24.14.1'
