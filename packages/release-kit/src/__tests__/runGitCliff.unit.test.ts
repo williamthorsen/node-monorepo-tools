@@ -213,6 +213,15 @@ describe(refreshGitCliffCache, () => {
       throw underlying;
     });
 
-    expect(() => refreshGitCliffCache()).toThrow(underlying);
+    // Capture and assert reference identity; `toThrow(underlying)` matches by message/class
+    // and would pass even if the helper wrapped the error in a fresh Error with the same
+    // message string.
+    let caught: unknown;
+    try {
+      refreshGitCliffCache();
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBe(underlying);
   });
 });

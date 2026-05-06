@@ -94,6 +94,9 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
     if (!isForwardVersion(currentVersion, setVersion)) {
       throw new Error(`--set-version ${setVersion} is not greater than current version ${currentVersion}`);
     }
+    // Warm the git-cliff cache *before* writing any package.json bumps so a refresh failure
+    // leaves the working tree unchanged.
+    refreshGitCliffCache();
     bump = setAllVersions(config.packageFiles, setVersion, dryRun);
   } else {
     if (bumpOverride === undefined) {
@@ -123,15 +126,15 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
       };
     }
 
-    // 3. Bump all versions
+    // 3. Bump all versions. Warm the git-cliff cache *before* writing any bumps so a
+    // refresh failure leaves the working tree unchanged. The `--prefer-offline` flag in
+    // `runGitCliff` would otherwise pin the cached binary forever; one warmup per run
+    // revalidates it without losing the per-call perf win.
+    refreshGitCliffCache();
     bump = bumpAllVersions(config.packageFiles, releaseType, dryRun);
   }
 
   const newTag = `${config.tagPrefix}${bump.newVersion}`;
-
-  // Revalidate npx's git-cliff cache once before any cliff invocation in this run, so the
-  // per-call --prefer-offline flag in `runGitCliff` does not pin the cached binary forever.
-  refreshGitCliffCache();
 
   // 4. Generate changelogs
   const changelogFiles = generateChangelogs(config, newTag, dryRun);

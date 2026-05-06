@@ -2320,6 +2320,34 @@ describe(releasePrepareMono, () => {
       expect(firstCacheRefreshCallIndex()).toBeLessThan(firstCliffWorkCallIndex());
     });
 
+    it('refreshes the git-cliff cache even in dry-run mode (cliff is invoked under dry-run for changelog.json)', () => {
+      const config = makeConfig({
+        workspaces: [
+          {
+            dir: 'arrays',
+            name: '@test/arrays',
+            tagPrefix: 'arrays-v',
+            workspacePath: 'packages/arrays',
+            isPublishable: true,
+            packageFiles: ['packages/arrays/package.json'],
+            changelogPaths: ['packages/arrays'],
+            paths: ['packages/arrays/**'],
+          },
+        ],
+      });
+
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') return 'arrays-v1.0.0\n';
+        if (cmd === 'git' && args[0] === 'log') return 'feat: changeabc123';
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+
+      releasePrepareMono(config, { dryRun: true });
+
+      expect(countCacheRefreshCalls()).toBe(1);
+    });
+
     it('does not refresh the cache when every workspace skips (no cliff work to warm)', () => {
       const config = makeConfig({
         workspaces: [
