@@ -21,6 +21,7 @@ import { readCurrentVersion } from './readCurrentVersion.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
 import { releasePrepareProject } from './releasePrepareProject.ts';
 import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
+import { refreshGitCliffCache } from './runGitCliff.ts';
 import type {
   Commit,
   MonorepoReleaseConfig,
@@ -123,6 +124,12 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
     enabled: withReleaseNotes === true && config.changelogJson.enabled,
     sectionOrder,
   };
+  // Revalidate npx's git-cliff cache once before per-workspace cliff invocations begin, so
+  // the `--prefer-offline` flag in `runGitCliff` does not pin the cached binary forever
+  // across releases. Skipped only when no workspace will release (no cliff work to warm).
+  if (fullReleaseSet.size > 0) {
+    refreshGitCliffCache();
+  }
   const { tags, modifiedFiles } = executeReleaseSet(
     sortedDirs,
     fullReleaseSet,

@@ -13,6 +13,7 @@ import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import { resolveWorkTypes } from './loadConfig.ts';
 import { readCurrentVersion } from './readCurrentVersion.ts';
 import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
+import { refreshGitCliffCache } from './runGitCliff.ts';
 import type {
   BumpResult,
   Commit,
@@ -93,6 +94,9 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
     if (!isForwardVersion(currentVersion, setVersion)) {
       throw new Error(`--set-version ${setVersion} is not greater than current version ${currentVersion}`);
     }
+    // Warm the git-cliff cache *before* writing any package.json bumps so a refresh failure
+    // leaves the working tree unchanged.
+    refreshGitCliffCache();
     bump = setAllVersions(config.packageFiles, setVersion, dryRun);
   } else {
     if (bumpOverride === undefined) {
@@ -122,7 +126,11 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
       };
     }
 
-    // 3. Bump all versions
+    // 3. Bump all versions. Warm the git-cliff cache *before* writing any bumps so a
+    // refresh failure leaves the working tree unchanged. The `--prefer-offline` flag in
+    // `runGitCliff` would otherwise pin the cached binary forever; one warmup per run
+    // revalidates it without losing the per-call perf win.
+    refreshGitCliffCache();
     bump = bumpAllVersions(config.packageFiles, releaseType, dryRun);
   }
 
