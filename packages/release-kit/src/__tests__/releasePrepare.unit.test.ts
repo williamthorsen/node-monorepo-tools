@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockExecFileSync = vi.hoisted(() => vi.fn());
 const mockExecSync = vi.hoisted(() => vi.fn());
+const mockExistsSync = vi.hoisted(() => vi.fn());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockWriteFileSync = vi.hoisted(() => vi.fn());
 const mockHasPrettierConfig = vi.hoisted(() => vi.fn());
@@ -13,6 +14,7 @@ vi.mock('node:child_process', () => ({
 }));
 
 vi.mock('node:fs', () => ({
+  existsSync: mockExistsSync,
   readFileSync: mockReadFileSync,
   writeFileSync: mockWriteFileSync,
 }));
@@ -89,11 +91,15 @@ describe(releasePrepare, () => {
   beforeEach(() => {
     mockBuildChangelogEntries.mockReturnValue([]);
     mockUpsertChangelogJson.mockImplementation((filePath: string) => filePath);
+    // Default `existsSync` to false so synthetic-write paths skip the read-existing-file
+    // branch by default. Individual tests override per-call when they exercise prepend behavior.
+    mockExistsSync.mockReturnValue(false);
   });
 
   afterEach(() => {
     mockExecFileSync.mockReset();
     mockExecSync.mockReset();
+    mockExistsSync.mockReset();
     mockReadFileSync.mockReset();
     mockWriteFileSync.mockReset();
     mockHasPrettierConfig.mockReset();
@@ -310,7 +316,9 @@ describe(releasePrepare, () => {
     );
   });
 
-  it('still generates a changelog when using --set-version', () => {
+  it('writes a synthetic empty-range changelog when --set-version is used with zero commits', () => {
+    // `commits.length === 0` routes to `writeEmptyReleaseChangelog` instead of git-cliff,
+    // avoiding the `WARN  git_cliff > There is already a tag` noise (issue #369).
     mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
       if (cmd === 'git' && args[0] === 'describe') {
         return 'v0.5.0\n';
@@ -327,13 +335,20 @@ describe(releasePrepare, () => {
     const workspace = result.workspaces[0];
     if (workspace?.status !== 'released') throw new Error('expected released');
     expect(workspace.changelogFiles).toStrictEqual(['./CHANGELOG.md']);
-    // Filter on `--config` to count only real cliff *work* invocations and exclude the
-    // once-per-run cache-refresh call (`npx --yes git-cliff --version`, no `--config`).
+
+    // Synthetic write to CHANGELOG.md: header + Notes section + bullet.
+    const changelogWrite = mockWriteFileSync.mock.calls.find((call: unknown[]) => call[0] === './CHANGELOG.md');
+    expect(changelogWrite).toBeDefined();
+    expect(changelogWrite?.[1]).toContain('## 1.0.0');
+    expect(changelogWrite?.[1]).toContain('### Notes');
+    expect(changelogWrite?.[1]).toContain('- Forced version bump.');
+
+    // No git-cliff *work* invocation (filter on `--config` to exclude the cache-refresh call).
     const cliffCalls = mockExecFileSync.mock.calls.filter(
       (call: unknown[]) =>
         call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff') && call[1].includes('--config'),
     );
-    expect(cliffCalls).toHaveLength(1);
+    expect(cliffCalls).toHaveLength(0);
   });
 
   it('throws when --set-version is not greater than the current version', () => {
@@ -422,6 +437,113 @@ describe(releasePrepare, () => {
     });
 
     expect(mockWriteReleaseNotesPreviews).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }));
+  });
+
+  describe('empty-range (--force / --bump / --set-version with zero commits)', () => {
+    /** Stub git to simulate a tag exists but there are no commits since it. */
+    function stubEmptyRange(): void {
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') return 'v1.0.0\n';
+        if (cmd === 'git' && args[0] === 'log') return '';
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+    }
+
+    /** Count git-cliff *work* invocations (those that pass `--config`). */
+    function countCliffWorkCalls(): number {
+      return mockExecFileSync.mock.calls.filter(
+        (call: unknown[]) =>
+          call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff') && call[1].includes('--config'),
+      ).length;
+    }
+
+    it('writes a synthetic Notes / Forced version bump entry when --force is used with no commits', () => {
+      stubEmptyRange();
+
+      const result = releasePrepare(makeConfig(), { dryRun: false, bumpOverride: 'patch' });
+
+      expect(result.tags).toStrictEqual(['v1.0.1']);
+      const workspace = result.workspaces[0];
+      if (workspace?.status !== 'released') throw new Error('expected released');
+      expect(workspace.changelogFiles).toStrictEqual(['./CHANGELOG.md']);
+
+      const changelogWrite = mockWriteFileSync.mock.calls.find((call: unknown[]) => call[0] === './CHANGELOG.md');
+      expect(changelogWrite?.[1]).toContain('## 1.0.1');
+      expect(changelogWrite?.[1]).toContain('### Notes');
+      expect(changelogWrite?.[1]).toContain('- Forced version bump.');
+    });
+
+    it('does not invoke git-cliff for empty-range releases', () => {
+      stubEmptyRange();
+
+      releasePrepare(makeConfig(), { dryRun: false, bumpOverride: 'minor' });
+
+      // Empty-range releases must bypass git-cliff entirely so consumers do not see
+      // `WARN  git_cliff > There is already a tag` lines (issue #369).
+      expect(countCliffWorkCalls()).toBe(0);
+    });
+
+    it('upserts a synthetic empty-range entry into changelog.json when enabled', () => {
+      stubEmptyRange();
+
+      releasePrepare(makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }), {
+        dryRun: false,
+        bumpOverride: 'patch',
+      });
+
+      expect(mockUpsertChangelogJson).toHaveBeenCalledTimes(1);
+      const upsertEntries = mockUpsertChangelogJson.mock.calls[0]?.[1];
+      expect(upsertEntries).toMatchObject([
+        {
+          version: '1.0.1',
+          sections: [
+            {
+              title: 'Notes',
+              audience: 'dev',
+              items: [{ description: 'Forced version bump.' }],
+            },
+          ],
+        },
+      ]);
+      // Build-via-cliff path must not be exercised on the empty-range branch.
+      expect(mockBuildChangelogEntries).not.toHaveBeenCalled();
+    });
+
+    it('skips synthetic file writes in dry-run mode but still returns paths', () => {
+      stubEmptyRange();
+
+      const result = releasePrepare(
+        makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
+        {
+          dryRun: true,
+          bumpOverride: 'patch',
+        },
+      );
+
+      expect(result.tags).toStrictEqual(['v1.0.1']);
+      // No CHANGELOG.md write under dry-run.
+      const changelogWrites = mockWriteFileSync.mock.calls.filter((call: unknown[]) => call[0] === './CHANGELOG.md');
+      expect(changelogWrites).toHaveLength(0);
+      // Upsert is also skipped under dry-run, but the path still flows into formatCommand.
+      expect(mockUpsertChangelogJson).not.toHaveBeenCalled();
+      const workspace = result.workspaces[0];
+      if (workspace?.status !== 'released') throw new Error('expected released');
+      expect(workspace.changelogFiles).toStrictEqual(['./CHANGELOG.md']);
+    });
+
+    it('appends synthetic CHANGELOG.md and changelog.json paths to formatCommand.files', () => {
+      stubEmptyRange();
+      const config = makeConfig({
+        formatCommand: 'npx prettier --write',
+        changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
+      });
+
+      const result = releasePrepare(config, { dryRun: true, bumpOverride: 'patch' });
+
+      expect(result.formatCommand?.files).toContain('./CHANGELOG.md');
+      expect(result.formatCommand?.files).toContain('./.meta/changelog.json');
+    });
   });
 
   it('does not write files in dry-run mode with --set-version', () => {

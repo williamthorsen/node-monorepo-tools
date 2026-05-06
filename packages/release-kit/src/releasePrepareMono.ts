@@ -3,6 +3,7 @@ import { execSync } from 'node:child_process';
 import { buildChangelogEntries } from './buildChangelogEntries.ts';
 import type { DependencyGraph } from './buildDependencyGraph.ts';
 import { buildDependencyGraph } from './buildDependencyGraph.ts';
+import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
 import { buildSyntheticChangelogEntry } from './buildSyntheticChangelogEntry.ts';
 import { bumpAllVersions, setAllVersions } from './bumpAllVersions.ts';
 import { resolveChangelogJsonPath, upsertChangelogJson } from './changelogJsonFile.ts';
@@ -34,6 +35,7 @@ import type {
   WorkspaceConfig,
   WorkspacePrepareResult,
 } from './types.ts';
+import { writeEmptyReleaseChangelog } from './writeEmptyReleaseChangelog.ts';
 import { writeReleaseNotesPreviews } from './writeReleaseNotesPreviews.ts';
 import { writeSyntheticChangelog } from './writeSyntheticChangelog.ts';
 
@@ -439,12 +441,16 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
   modifiedFiles.push(...workspace.packageFiles, ...workspace.changelogPaths.map((p) => `${p}/CHANGELOG.md`));
 
   const isPropagationOnly = directResult === undefined;
+  // A workspace is empty-range when it has a direct release (i.e., not propagation-only) but
+  // its commit window is empty — the `--force` / `--bump=X` / `--set-version` paths land here.
+  const isEmptyRange = directResult !== undefined && directResult.commits.length === 0;
   const changelogFiles = generateWorkspaceChangelogs({
     workspace,
     releaseEntry,
     newTag,
     newVersion: bump.newVersion,
     isPropagationOnly,
+    isEmptyRange,
     config,
     dryRun,
     today,
@@ -529,6 +535,13 @@ interface GenerateWorkspaceChangelogsArgs {
   newTag: string;
   newVersion: string;
   isPropagationOnly: boolean;
+  /**
+   * True when this workspace has a direct release with zero qualifying commits since the
+   * last tag (e.g., `--force`-bumped, `--bump=X`, or `--set-version` with no new commits).
+   * Routes to the synthetic empty-range path instead of git-cliff so consumers do not see
+   * `WARN  git_cliff > There is already a tag` lines (issue #369).
+   */
+  isEmptyRange: boolean;
   config: MonorepoReleaseConfig;
   dryRun: boolean;
   today: string;
@@ -537,9 +550,17 @@ interface GenerateWorkspaceChangelogsArgs {
 }
 
 /**
- * Generate changelogs for a workspace: synthetic entries for propagation-only bumps, git-cliff
- * output for direct bumps (including `--set-version`). Returns the list of changelog files written.
- * Additional changelog JSON files are appended to `modifiedFiles` when the feature is enabled.
+ * Generate changelogs for a workspace by routing to one of three branches:
+ *
+ * 1. Propagation-only bump (no direct commits, but a transitive bump): synthetic
+ *    "Dependency updates" entry via `writeSyntheticChangelog` / `buildSyntheticChangelogEntry`.
+ * 2. Empty-range direct bump (`--force` / `--bump=X` / `--set-version` against zero commits):
+ *    synthetic "Notes / Forced version bump." entry via the new sibling pair. Bypasses
+ *    git-cliff to avoid the `WARN  git_cliff > There is already a tag` noise (issue #369).
+ * 3. Direct bump with commits: git-cliff output.
+ *
+ * Returns the list of changelog files written. Additional `changelog.json` files are
+ * appended to `modifiedFiles` when the feature is enabled.
  */
 function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): string[] {
   const {
@@ -548,48 +569,173 @@ function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): str
     newTag,
     newVersion,
     isPropagationOnly,
+    isEmptyRange,
     config,
     dryRun,
     today,
     modifiedFiles,
     previewOptions,
   } = args;
-  const changelogFiles: string[] = [];
-  // Track the first changelog.json path written for this workspace so the preview writer can
-  // read the same data that `publish` and `create-github-release` will consume later.
-  let firstChangelogJsonPath: string | undefined;
 
   if (isPropagationOnly && releaseEntry.propagatedFrom !== undefined) {
-    for (const changelogPath of workspace.changelogPaths) {
-      changelogFiles.push(
-        writeSyntheticChangelog({
-          changelogPath,
-          newVersion,
-          date: today,
-          propagatedFrom: releaseEntry.propagatedFrom,
-          dryRun,
-        }),
-      );
-    }
-
-    if (config.changelogJson.enabled) {
-      // Synthetic entries are pure constructs (no subprocess), so the dry-run guard applies
-      // only to the upsert write. The path is still resolved and surfaced in `modifiedFiles`.
-      const syntheticEntry = buildSyntheticChangelogEntry(releaseEntry.propagatedFrom, newVersion, today);
-      for (const changelogPath of workspace.changelogPaths) {
-        const jsonPath = resolveChangelogJsonPath(config, changelogPath);
-        if (!dryRun) {
-          upsertChangelogJson(jsonPath, [syntheticEntry]);
-        }
-        modifiedFiles.push(jsonPath);
-        firstChangelogJsonPath ??= jsonPath;
-      }
-    }
-    maybeWritePreviews(workspace, newTag, firstChangelogJsonPath, previewOptions, dryRun);
-    return changelogFiles;
+    return writePropagationOnlyWorkspaceChangelogs({
+      workspace,
+      newTag,
+      newVersion,
+      propagatedFrom: releaseEntry.propagatedFrom,
+      config,
+      dryRun,
+      today,
+      modifiedFiles,
+      previewOptions,
+    });
   }
 
+  if (isEmptyRange) {
+    return writeEmptyRangeWorkspaceChangelogs({
+      workspace,
+      newTag,
+      newVersion,
+      config,
+      dryRun,
+      today,
+      modifiedFiles,
+      previewOptions,
+    });
+  }
+
+  return writeCliffWorkspaceChangelogs({
+    workspace,
+    newTag,
+    config,
+    dryRun,
+    modifiedFiles,
+    previewOptions,
+  });
+}
+
+/** Arguments for `writePropagationOnlyWorkspaceChangelogs`. */
+interface WritePropagationOnlyArgs {
+  workspace: WorkspaceConfig;
+  newTag: string;
+  newVersion: string;
+  propagatedFrom: NonNullable<ReleaseEntry['propagatedFrom']>;
+  config: MonorepoReleaseConfig;
+  dryRun: boolean;
+  today: string;
+  modifiedFiles: string[];
+  previewOptions: PreviewOptions;
+}
+
+/**
+ * Write synthetic propagation-only changelog entries (CHANGELOG.md and optional
+ * `changelog.json`) for a workspace bumped solely via dependency propagation.
+ */
+function writePropagationOnlyWorkspaceChangelogs(args: WritePropagationOnlyArgs): string[] {
+  const { workspace, newTag, newVersion, propagatedFrom, config, dryRun, today, modifiedFiles, previewOptions } = args;
+  const changelogFiles: string[] = [];
+  let firstChangelogJsonPath: string | undefined;
+
+  for (const changelogPath of workspace.changelogPaths) {
+    changelogFiles.push(
+      writeSyntheticChangelog({
+        changelogPath,
+        newVersion,
+        date: today,
+        propagatedFrom,
+        dryRun,
+      }),
+    );
+  }
+
+  if (config.changelogJson.enabled) {
+    // Synthetic entries are pure constructs (no subprocess), so the dry-run guard applies
+    // only to the upsert write. The path is still resolved and surfaced in `modifiedFiles`.
+    const syntheticEntry = buildSyntheticChangelogEntry(propagatedFrom, newVersion, today);
+    for (const changelogPath of workspace.changelogPaths) {
+      const jsonPath = resolveChangelogJsonPath(config, changelogPath);
+      if (!dryRun) {
+        upsertChangelogJson(jsonPath, [syntheticEntry]);
+      }
+      modifiedFiles.push(jsonPath);
+      firstChangelogJsonPath ??= jsonPath;
+    }
+  }
+  maybeWritePreviews(workspace, newTag, firstChangelogJsonPath, previewOptions, dryRun);
+  return changelogFiles;
+}
+
+/** Arguments for `writeEmptyRangeWorkspaceChangelogs`. */
+interface WriteEmptyRangeArgs {
+  workspace: WorkspaceConfig;
+  newTag: string;
+  newVersion: string;
+  config: MonorepoReleaseConfig;
+  dryRun: boolean;
+  today: string;
+  modifiedFiles: string[];
+  previewOptions: PreviewOptions;
+}
+
+/**
+ * Write synthetic empty-range changelog entries (CHANGELOG.md and optional
+ * `changelog.json`) for a workspace forced to release with zero qualifying commits.
+ *
+ * Mirrors `writePropagationOnlyWorkspaceChangelogs` but emits a "Notes / Forced version bump."
+ * section. Bypasses git-cliff entirely so consumers do not see `WARN  git_cliff > There is
+ * already a tag` lines (issue #369).
+ */
+function writeEmptyRangeWorkspaceChangelogs(args: WriteEmptyRangeArgs): string[] {
+  const { workspace, newTag, newVersion, config, dryRun, today, modifiedFiles, previewOptions } = args;
+  const changelogFiles: string[] = [];
+  let firstChangelogJsonPath: string | undefined;
+
+  for (const changelogPath of workspace.changelogPaths) {
+    changelogFiles.push(
+      writeEmptyReleaseChangelog({
+        changelogPath,
+        newVersion,
+        date: today,
+        dryRun,
+      }),
+    );
+  }
+
+  if (config.changelogJson.enabled) {
+    const syntheticEntry = buildEmptyReleaseEntry(newVersion, today);
+    for (const changelogPath of workspace.changelogPaths) {
+      const jsonPath = resolveChangelogJsonPath(config, changelogPath);
+      if (!dryRun) {
+        upsertChangelogJson(jsonPath, [syntheticEntry]);
+      }
+      modifiedFiles.push(jsonPath);
+      firstChangelogJsonPath ??= jsonPath;
+    }
+  }
+  maybeWritePreviews(workspace, newTag, firstChangelogJsonPath, previewOptions, dryRun);
+  return changelogFiles;
+}
+
+/** Arguments for `writeCliffWorkspaceChangelogs`. */
+interface WriteCliffArgs {
+  workspace: WorkspaceConfig;
+  newTag: string;
+  config: MonorepoReleaseConfig;
+  dryRun: boolean;
+  modifiedFiles: string[];
+  previewOptions: PreviewOptions;
+}
+
+/**
+ * Write changelogs for a workspace that has real qualifying commits, using git-cliff. The
+ * `changelog.json` upsert preserves any synthetic entries written by prior propagation runs.
+ */
+function writeCliffWorkspaceChangelogs(args: WriteCliffArgs): string[] {
+  const { workspace, newTag, config, dryRun, modifiedFiles, previewOptions } = args;
+  const changelogFiles: string[] = [];
+  let firstChangelogJsonPath: string | undefined;
   const tagPattern = buildTagPattern(getAllTagPrefixes(workspace));
+
   for (const changelogPath of workspace.changelogPaths) {
     changelogFiles.push(
       ...generateChangelog(config, changelogPath, newTag, dryRun, {

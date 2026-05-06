@@ -1,6 +1,7 @@
 import { execSync } from 'node:child_process';
 
 import { buildChangelogEntries } from './buildChangelogEntries.ts';
+import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
 import { bumpAllVersions, setAllVersions } from './bumpAllVersions.ts';
 import { resolveChangelogJsonPath, upsertChangelogJson } from './changelogJsonFile.ts';
 import { createPolicyViolationCollector } from './collectPolicyViolations.ts';
@@ -24,6 +25,7 @@ import type {
   ReleaseType,
   SkippedWorkspaceResult,
 } from './types.ts';
+import { writeEmptyReleaseChangelog } from './writeEmptyReleaseChangelog.ts';
 import { writeReleaseNotesPreviews } from './writeReleaseNotesPreviews.ts';
 
 /** Options for the release preparation workflow. */
@@ -136,11 +138,17 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
 
   const newTag = `${config.tagPrefix}${bump.newVersion}`;
 
-  // 4. Generate changelogs
-  const changelogFiles = generateChangelogs(config, newTag, dryRun);
-
-  // 4b. Generate changelog JSON if enabled.
-  const changelogJsonFiles = config.changelogJson.enabled ? buildAndPersistChangelogJson(config, newTag, dryRun) : [];
+  // 4/4b. Generate the CHANGELOG.md files and (optionally) changelog.json. When the release
+  // proceeds with zero qualifying commits since the last tag (`--force`, `--bump=X`, or
+  // `--set-version` with no new commits), the routing helper bypasses git-cliff in favor
+  // of the synthetic "Forced version bump." entry — issue #369.
+  const { changelogFiles, changelogJsonFiles } = writeSinglePackageChangelogs({
+    config,
+    commits,
+    newTag,
+    newVersion: bump.newVersion,
+    dryRun,
+  });
 
   // 4c. Write release-notes previews (optional, opt-in via --with-release-notes)
   maybeWriteSinglePackagePreviews(withReleaseNotes === true, config, newTag, changelogJsonFiles[0], dryRun);
@@ -291,6 +299,42 @@ function buildReleasedSinglePackage(args: BuildReleasedSinglePackageArgs): Relea
   return released;
 }
 
+/** Inputs to {@link writeSinglePackageChangelogs}. */
+interface WriteSinglePackageChangelogsArgs {
+  config: ReleaseConfig;
+  commits: Commit[];
+  newTag: string;
+  newVersion: string;
+  dryRun: boolean;
+}
+
+/**
+ * Route between the empty-range synthetic path and the cliff path for both `CHANGELOG.md`
+ * and the optional `changelog.json`. Pulls the routing logic out of the `releasePrepare`
+ * host so the host stays under the project's cyclomatic-complexity ceiling.
+ */
+function writeSinglePackageChangelogs(args: WriteSinglePackageChangelogsArgs): {
+  changelogFiles: string[];
+  changelogJsonFiles: string[];
+} {
+  const { config, commits, newTag, newVersion, dryRun } = args;
+  const isEmptyRange = commits.length === 0;
+  const today = new Date().toISOString().slice(0, 10);
+
+  const changelogFiles = isEmptyRange
+    ? writeEmptyRangeChangelogs(config, newVersion, today, dryRun)
+    : generateChangelogs(config, newTag, dryRun);
+
+  let changelogJsonFiles: string[] = [];
+  if (config.changelogJson.enabled) {
+    changelogJsonFiles = isEmptyRange
+      ? upsertEmptyRangeChangelogJson(config, newVersion, today, dryRun)
+      : buildAndPersistChangelogJson(config, newTag, dryRun);
+  }
+
+  return { changelogFiles, changelogJsonFiles };
+}
+
 /**
  * Build entries via git-cliff and write them through `upsertChangelogJson` for each configured
  * changelog path. git-cliff is invoked unconditionally; only the file write is skipped under
@@ -303,6 +347,49 @@ function buildAndPersistChangelogJson(config: ReleaseConfig, newTag: string, dry
     const jsonPath = resolveChangelogJsonPath(config, changelogPath);
     if (!dryRun) {
       upsertChangelogJson(jsonPath, entries);
+    }
+    changelogJsonFiles.push(jsonPath);
+  }
+  return changelogJsonFiles;
+}
+
+/**
+ * Empty-range counterpart to `generateChangelogs`. Writes a synthetic "Forced version bump."
+ * section for each configured changelog path via `writeEmptyReleaseChangelog`. Returns the
+ * list of changelog file paths (always populated, even on dry-run).
+ */
+function writeEmptyRangeChangelogs(config: ReleaseConfig, newVersion: string, date: string, dryRun: boolean): string[] {
+  const changelogFiles: string[] = [];
+  for (const changelogPath of config.changelogPaths) {
+    changelogFiles.push(
+      writeEmptyReleaseChangelog({
+        changelogPath,
+        newVersion,
+        date,
+        dryRun,
+      }),
+    );
+  }
+  return changelogFiles;
+}
+
+/**
+ * Empty-range counterpart to `buildAndPersistChangelogJson`. Builds a synthetic
+ * "Forced version bump." entry and upserts it for each configured changelog path. Returns
+ * the list of `changelog.json` file paths (always populated, even on dry-run).
+ */
+function upsertEmptyRangeChangelogJson(
+  config: ReleaseConfig,
+  newVersion: string,
+  date: string,
+  dryRun: boolean,
+): string[] {
+  const changelogJsonFiles: string[] = [];
+  const syntheticEntry = buildEmptyReleaseEntry(newVersion, date);
+  for (const changelogPath of config.changelogPaths) {
+    const jsonPath = resolveChangelogJsonPath(config, changelogPath);
+    if (!dryRun) {
+      upsertChangelogJson(jsonPath, [syntheticEntry]);
     }
     changelogJsonFiles.push(jsonPath);
   }

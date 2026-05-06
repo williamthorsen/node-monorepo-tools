@@ -36,6 +36,7 @@ vi.mock('../writeReleaseNotesPreviews.ts', () => ({
 // invoking git-cliff or touching the filesystem.
 const mockBuildChangelogEntries = vi.hoisted(() => vi.fn());
 const mockBuildSyntheticChangelogEntry = vi.hoisted(() => vi.fn());
+const mockBuildEmptyReleaseEntry = vi.hoisted(() => vi.fn());
 const mockUpsertChangelogJson = vi.hoisted(() => vi.fn());
 
 vi.mock('../buildChangelogEntries.ts', () => ({
@@ -44,6 +45,10 @@ vi.mock('../buildChangelogEntries.ts', () => ({
 
 vi.mock('../buildSyntheticChangelogEntry.ts', () => ({
   buildSyntheticChangelogEntry: mockBuildSyntheticChangelogEntry,
+}));
+
+vi.mock('../buildEmptyReleaseEntry.ts', () => ({
+  buildEmptyReleaseEntry: mockBuildEmptyReleaseEntry,
 }));
 
 vi.mock('../changelogJsonFile.ts', () => ({
@@ -164,6 +169,11 @@ describe(releasePrepareMono, () => {
     // tests can override if needed.
     mockBuildChangelogEntries.mockReturnValue([]);
     mockBuildSyntheticChangelogEntry.mockReturnValue({ version: '0.0.0', date: '2024-01-01', sections: [] });
+    mockBuildEmptyReleaseEntry.mockReturnValue({
+      version: '0.0.0',
+      date: '2024-01-01',
+      sections: [{ title: 'Notes', audience: 'dev', items: [{ description: 'Forced version bump.' }] }],
+    });
     mockUpsertChangelogJson.mockImplementation((filePath: string) => filePath);
   });
 
@@ -177,6 +187,7 @@ describe(releasePrepareMono, () => {
     mockWriteReleaseNotesPreviews.mockReset();
     mockBuildChangelogEntries.mockReset();
     mockBuildSyntheticChangelogEntry.mockReset();
+    mockBuildEmptyReleaseEntry.mockReset();
     mockUpsertChangelogJson.mockReset();
   });
 
@@ -780,7 +791,9 @@ describe(releasePrepareMono, () => {
       expect.stringContaining('"version": "1.0.1"'),
       'utf8',
     );
-    expect(countCliffCalls()).toBe(1);
+    // Empty-range release: git-cliff is bypassed in favor of the synthetic
+    // "Notes / Forced version bump." entry (issue #369).
+    expect(countCliffCalls()).toBe(0);
   });
 
   it('force-bumps a workspace with no commits while also bumping one with commits', () => {
@@ -1429,6 +1442,252 @@ describe(releasePrepareMono, () => {
         releaseType: 'minor',
         propagatedFrom: [{ packageName: '@test/core', newVersion: '1.0.1' }],
       });
+    });
+  });
+
+  describe('empty-range releases', () => {
+    // When a workspace is forced to release (`--force`, `--bump=X`, or `--set-version`) with
+    // zero qualifying commits since its last tag, git-cliff is bypassed in favor of a
+    // synthetic "Notes / Forced version bump." entry. Without this branch, git-cliff emits
+    // 2 × N `WARN  git_cliff > There is already a tag` lines per prepare run (issue #369).
+
+    /** Helper config with one empty-range workspace. */
+    function singleWorkspaceConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoReleaseConfig {
+      const workspace: WorkspaceConfig = {
+        dir: 'arrays',
+        name: '@test/arrays',
+        tagPrefix: 'arrays-v',
+        workspacePath: 'packages/arrays',
+        isPublishable: true,
+        packageFiles: ['packages/arrays/package.json'],
+        changelogPaths: ['packages/arrays'],
+        paths: ['packages/arrays/**'],
+      };
+      return makeConfig({ workspaces: [workspace], ...overrides });
+    }
+
+    /** Stub git so the workspace has a tag but no qualifying commits since it. */
+    function stubEmptyRange(): void {
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') return 'arrays-v1.0.0\n';
+        if (cmd === 'git' && args[0] === 'log') return '';
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
+      mockExistsSync.mockReturnValue(false);
+    }
+
+    it('writes a synthetic Notes / Forced version bump entry when --force is used with no commits', () => {
+      stubEmptyRange();
+
+      const result = releasePrepareMono(singleWorkspaceConfig(), { dryRun: false, force: true });
+
+      expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
+
+      const changelogWrite = mockWriteFileSync.mock.calls.find(
+        (call: unknown[]) => call[0] === 'packages/arrays/CHANGELOG.md',
+      );
+      expect(changelogWrite).toBeDefined();
+      expect(changelogWrite?.[1]).toContain('## 1.0.1');
+      expect(changelogWrite?.[1]).toContain('### Notes');
+      expect(changelogWrite?.[1]).toContain('- Forced version bump.');
+    });
+
+    it('does not invoke git-cliff for an empty-range workspace', () => {
+      stubEmptyRange();
+
+      releasePrepareMono(singleWorkspaceConfig(), { dryRun: false, bumpOverride: 'minor' });
+
+      expect(countCliffCalls()).toBe(0);
+    });
+
+    it('upserts a synthetic empty-range entry into changelog.json when enabled', () => {
+      stubEmptyRange();
+
+      releasePrepareMono(
+        singleWorkspaceConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
+        { dryRun: false, force: true },
+      );
+
+      expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledTimes(1);
+      expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledWith('1.0.1', expect.any(String));
+      expect(mockBuildChangelogEntries).not.toHaveBeenCalled();
+      expect(mockUpsertChangelogJson).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps propagation-only workspaces on the propagation path (no regression)', () => {
+      const config = makeConfig({
+        workspaces: [
+          {
+            dir: 'core',
+            name: '@test/core',
+            tagPrefix: 'core-v',
+            workspacePath: 'packages/core',
+            isPublishable: true,
+            packageFiles: ['packages/core/package.json'],
+            changelogPaths: ['packages/core'],
+            paths: ['packages/core/**'],
+          },
+          {
+            dir: 'app',
+            name: '@test/app',
+            tagPrefix: 'app-v',
+            workspacePath: 'packages/app',
+            isPublishable: true,
+            packageFiles: ['packages/app/package.json'],
+            changelogPaths: ['packages/app'],
+            paths: ['packages/app/**'],
+          },
+        ],
+      });
+
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') {
+          const matchArg = args.find((a: string) => a.startsWith('--match='));
+          if (matchArg?.includes('core-v')) return 'core-v1.0.0\n';
+          if (matchArg?.includes('app-v')) return 'app-v1.0.0\n';
+        }
+        if (cmd === 'git' && args[0] === 'log') {
+          const hasCorePath = args.includes('packages/core/**');
+          if (hasCorePath) return 'fix: bug fixabc123';
+          return '';
+        }
+        return '';
+      });
+      mockReadFileSync.mockImplementation((filePath: string) => {
+        if (filePath.includes('core')) {
+          return JSON.stringify({ name: '@test/core', version: '1.0.0' });
+        }
+        if (filePath.includes('app')) {
+          return JSON.stringify({
+            name: '@test/app',
+            version: '1.0.0',
+            dependencies: { '@test/core': 'workspace:*' },
+          });
+        }
+        return '{}';
+      });
+      mockExistsSync.mockReturnValue(false);
+
+      releasePrepareMono(config, { dryRun: false });
+
+      // The propagation-only path writes a "Dependency updates" section, not the empty-range
+      // "Notes / Forced version bump." section.
+      const appWrite = mockWriteFileSync.mock.calls.find((call: unknown[]) => call[0] === 'packages/app/CHANGELOG.md');
+      expect(appWrite?.[1]).toContain('Dependency updates');
+      expect(appWrite?.[1]).not.toContain('Forced version bump.');
+    });
+
+    it('keeps workspaces with real commits on the cliff path (no regression)', () => {
+      const config = singleWorkspaceConfig();
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') return 'arrays-v1.0.0\n';
+        if (cmd === 'git' && args[0] === 'log') return 'feat: new utilityabc123';
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
+
+      releasePrepareMono(config, { dryRun: false });
+
+      // Real commits → cliff path runs.
+      expect(countCliffCalls()).toBe(1);
+    });
+
+    it('does not write synthetic entries for workspaces correctly skipped (no commits, no --force)', () => {
+      stubEmptyRange();
+
+      const result = releasePrepareMono(singleWorkspaceConfig(), { dryRun: false });
+
+      expect(result.tags).toStrictEqual([]);
+      expect(result.workspaces[0]).toMatchObject({ status: 'skipped' });
+      // No CHANGELOG.md write for the skipped workspace.
+      const changelogWrites = mockWriteFileSync.mock.calls.filter(
+        (call: unknown[]) => call[0] === 'packages/arrays/CHANGELOG.md',
+      );
+      expect(changelogWrites).toHaveLength(0);
+    });
+
+    it('skips synthetic file writes in dry-run mode but still returns tag and changelog path', () => {
+      stubEmptyRange();
+
+      const result = releasePrepareMono(
+        singleWorkspaceConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
+        { dryRun: true, force: true },
+      );
+
+      expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
+      const workspace = result.workspaces[0];
+      if (workspace?.status !== 'released') throw new Error('expected released');
+      expect(workspace.changelogFiles).toStrictEqual(['packages/arrays/CHANGELOG.md']);
+
+      // No CHANGELOG.md write under dry-run; the path is still surfaced.
+      const changelogWrites = mockWriteFileSync.mock.calls.filter(
+        (call: unknown[]) => call[0] === 'packages/arrays/CHANGELOG.md',
+      );
+      expect(changelogWrites).toHaveLength(0);
+      expect(mockUpsertChangelogJson).not.toHaveBeenCalled();
+    });
+
+    it('does not invoke git-cliff for any empty-range unit in a multi-workspace --force run', () => {
+      // Pins the SHOULD-have acceptance criterion: a `prepare --force` run against multiple
+      // zero-commit workspaces does not invoke `runGitCliff` for those workspaces — the
+      // root cause of the `2 × N` `WARN  git_cliff > There is already a tag` amplification
+      // (issue #369). For each empty-range workspace, today's behavior would emit two
+      // git-cliff invocations (one for `generateChangelog`, one for `buildChangelogEntries
+      // --context`); the synthetic path bypasses both.
+      const config = makeConfig({
+        changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
+        workspaces: [
+          {
+            dir: 'arrays',
+            name: '@test/arrays',
+            tagPrefix: 'arrays-v',
+            workspacePath: 'packages/arrays',
+            isPublishable: true,
+            packageFiles: ['packages/arrays/package.json'],
+            changelogPaths: ['packages/arrays'],
+            paths: ['packages/arrays/**'],
+          },
+          {
+            dir: 'strings',
+            name: '@test/strings',
+            tagPrefix: 'strings-v',
+            workspacePath: 'packages/strings',
+            isPublishable: true,
+            packageFiles: ['packages/strings/package.json'],
+            changelogPaths: ['packages/strings'],
+            paths: ['packages/strings/**'],
+          },
+          {
+            dir: 'numbers',
+            name: '@test/numbers',
+            tagPrefix: 'numbers-v',
+            workspacePath: 'packages/numbers',
+            isPublishable: true,
+            packageFiles: ['packages/numbers/package.json'],
+            changelogPaths: ['packages/numbers'],
+            paths: ['packages/numbers/**'],
+          },
+        ],
+      });
+
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') {
+          const matchArg = args.find((a: string) => a.startsWith('--match='));
+          if (matchArg?.includes('arrays-v')) return 'arrays-v1.0.0\n';
+          if (matchArg?.includes('strings-v')) return 'strings-v1.0.0\n';
+          if (matchArg?.includes('numbers-v')) return 'numbers-v1.0.0\n';
+        }
+        // No commits for any workspace.
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+      mockExistsSync.mockReturnValue(false);
+
+      releasePrepareMono(config, { dryRun: false, force: true });
+
+      // Three workspaces, all empty-range, all forced — git-cliff must be invoked zero times.
+      expect(countCliffCalls()).toBe(0);
     });
   });
 

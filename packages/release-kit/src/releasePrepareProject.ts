@@ -1,4 +1,5 @@
 import { buildChangelogEntries } from './buildChangelogEntries.ts';
+import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
 import { bumpAllVersions } from './bumpAllVersions.ts';
 import { resolveChangelogJsonPath, writeChangelogJson } from './changelogJsonFile.ts';
 import { createPolicyViolationCollector } from './collectPolicyViolations.ts';
@@ -9,6 +10,7 @@ import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
 import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
 import type { MonorepoReleaseConfig, ProjectPrepareResult, SkippedProjectResult } from './types.ts';
+import { writeEmptyReleaseChangelog } from './writeEmptyReleaseChangelog.ts';
 import { writeReleaseNotesPreviews } from './writeReleaseNotesPreviews.ts';
 
 /** File path for the root `package.json` bumped during the project release stage. */
@@ -110,29 +112,18 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
   // 6. Compose the project tag.
   const newTag = `${project.tagPrefix}${bump.newVersion}`;
 
-  // 7. Generate the root CHANGELOG via git-cliff, filtered to project tags only.
-  const tagPattern = buildTagPattern([project.tagPrefix]);
-  const changelogFiles = generateChangelog(config, ROOT_CHANGELOG_PATH, newTag, dryRun, {
-    tagPattern,
-    includePaths: contributingPaths,
+  // 7/8. Generate the root CHANGELOG and (optionally) changelog.json via the routing helper.
+  //      When `commits.length === 0` (forced empty-range project release) the helper bypasses
+  //      git-cliff in favor of the synthetic "Forced version bump." entry — issue #369.
+  const { changelogFiles, changelogJsonFiles } = writeProjectChangelogs({
+    config,
+    project,
+    commits,
+    contributingPaths,
+    newTag,
+    newVersion: bump.newVersion,
+    dryRun,
   });
-
-  // 8. Emit the root changelog.json when enabled. Project stage uses a fresh write (no merge):
-  //    every entry is derivable from git history + cliff config, and there are no synthetic
-  //    propagation entries to preserve. git-cliff is invoked even in dry-run; only the file
-  //    write is guarded by `dryRun`.
-  const changelogJsonFiles: string[] = [];
-  if (config.changelogJson.enabled) {
-    const changelogJsonPath = resolveChangelogJsonPath(config, ROOT_CHANGELOG_PATH);
-    const entries = buildChangelogEntries(config, newTag, {
-      tagPattern,
-      includePaths: contributingPaths,
-    });
-    if (!dryRun) {
-      writeChangelogJson(changelogJsonPath, entries);
-    }
-    changelogJsonFiles.push(changelogJsonPath);
-  }
 
   // 9. Optional release-notes previews under root docs/.
   const firstChangelogJsonPath = changelogJsonFiles[0];
@@ -178,4 +169,56 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
     result.bumpOverride = bumpOverride;
   }
   return result;
+}
+
+/** Inputs to {@link writeProjectChangelogs}. */
+interface WriteProjectChangelogsArgs {
+  config: MonorepoReleaseConfig;
+  project: NonNullable<MonorepoReleaseConfig['project']>;
+  commits: ReadonlyArray<unknown>;
+  contributingPaths: string[];
+  newTag: string;
+  newVersion: string;
+  dryRun: boolean;
+}
+
+/**
+ * Route between the empty-range synthetic path and the cliff path for the project stage's
+ * root `CHANGELOG.md` and (optional) root `changelog.json`. Project stage uses
+ * `writeChangelogJson` (fresh write, no merge) on both branches — symmetric with the
+ * existing non-empty-range behavior. Pulls the routing logic out of `releasePrepareProject`
+ * so the host stays under the project's cyclomatic-complexity ceiling.
+ */
+function writeProjectChangelogs(args: WriteProjectChangelogsArgs): {
+  changelogFiles: string[];
+  changelogJsonFiles: string[];
+} {
+  const { config, project, commits, contributingPaths, newTag, newVersion, dryRun } = args;
+  const isEmptyRange = commits.length === 0;
+  const today = new Date().toISOString().slice(0, 10);
+  const tagPattern = buildTagPattern([project.tagPrefix]);
+
+  const changelogFiles = isEmptyRange
+    ? [writeEmptyReleaseChangelog({ changelogPath: ROOT_CHANGELOG_PATH, newVersion, date: today, dryRun })]
+    : generateChangelog(config, ROOT_CHANGELOG_PATH, newTag, dryRun, {
+        tagPattern,
+        includePaths: contributingPaths,
+      });
+
+  const changelogJsonFiles: string[] = [];
+  if (config.changelogJson.enabled) {
+    const changelogJsonPath = resolveChangelogJsonPath(config, ROOT_CHANGELOG_PATH);
+    const entries = isEmptyRange
+      ? [buildEmptyReleaseEntry(newVersion, today)]
+      : buildChangelogEntries(config, newTag, {
+          tagPattern,
+          includePaths: contributingPaths,
+        });
+    if (!dryRun) {
+      writeChangelogJson(changelogJsonPath, entries);
+    }
+    changelogJsonFiles.push(changelogJsonPath);
+  }
+
+  return { changelogFiles, changelogJsonFiles };
 }
