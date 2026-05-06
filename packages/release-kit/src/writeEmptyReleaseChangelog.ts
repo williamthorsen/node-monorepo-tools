@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { prependChangelogSection } from './prependChangelogSection.ts';
 
 /** Parameters for writing a synthetic changelog entry for a forced empty-range release. */
 export interface WriteEmptyReleaseChangelogParams {
@@ -17,23 +17,12 @@ export interface WriteEmptyReleaseChangelogParams {
  * propagation-only paths behave identically at the file level.
  */
 export function writeEmptyReleaseChangelog(params: WriteEmptyReleaseChangelogParams): string {
-  const { changelogPath, newVersion, date, dryRun } = params;
+  const { changelogPath, newVersion, date, dryRun = false } = params;
   const filePath = `${changelogPath}/CHANGELOG.md`;
 
   const section = `## ${newVersion} — ${date}\n\n### Notes\n\n- Forced version bump.\n`;
 
-  if (dryRun) {
-    return filePath;
-  }
-
-  let existingContent = '';
-  if (existsSync(filePath)) {
-    existingContent = readFileSync(filePath, 'utf8');
-  }
-
-  const newContent = existingContent.length > 0 ? `${section}\n${existingContent}` : `${section}\n`;
-
-  writeFileSync(filePath, newContent, 'utf8');
+  prependChangelogSection(filePath, section, dryRun);
 
   return filePath;
 }
