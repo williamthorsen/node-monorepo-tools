@@ -332,6 +332,56 @@ describe('releasePrepareProject (integration)', () => {
     });
   }, 60_000);
 
+  it('preserves prior changelog.json entries when an empty-range project release runs', () => {
+    // Regression: the empty-range project branch must use upsert semantics. A plain
+    // overwrite would erase prior structured history because the synthetic branch
+    // produces only the new entry — git-cliff is not consulted to replay the full log.
+    // Move the project baseline tag to HEAD so the project stage finds zero commits since,
+    // forcing the empty-range branch.
+    execFileSync('git', ['tag', '--delete', 'v0.9.0'], { cwd: fixture.repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
+    execFileSync('git', ['tag', 'v0.9.0', 'HEAD'], { cwd: fixture.repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
+
+    // Pre-seed the structured changelog with a prior entry that no current run could
+    // reproduce. This entry must survive the empty-range release.
+    const changelogJsonPath = join(fixture.repoDir, '.meta', 'changelog.json');
+    mkdirSync(join(fixture.repoDir, '.meta'), { recursive: true });
+    const priorEntry = {
+      version: '0.8.0',
+      date: '2026-01-15',
+      sections: [
+        {
+          title: 'Features',
+          audience: 'consumer',
+          items: [{ description: 'Historical entry that must not be lost.' }],
+        },
+      ],
+    };
+    writeFileSync(changelogJsonPath, JSON.stringify([priorEntry], null, 2) + '\n', 'utf8');
+
+    withinFixture(fixture.repoDir, () => {
+      const config = mergeMonorepoConfig(
+        ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
+        { project: {} },
+        { exists: true, version: '0.9.0' },
+      );
+
+      releasePrepareMono(config, { dryRun: false, force: true });
+
+      const written: Array<{ version: string; sections: Array<{ items: Array<{ description: string }> }> }> =
+        JSON.parse(readFileSync(changelogJsonPath, 'utf8'));
+
+      // The prior entry survives.
+      const survivedPrior = written.find((e) => e.version === '0.8.0');
+      expect(survivedPrior).toBeDefined();
+      expect(survivedPrior?.sections[0]?.items[0]?.description).toBe('Historical entry that must not be lost.');
+
+      // The new synthetic entry is also present.
+      const newEntry = written.find((e) => e.version === '0.9.1');
+      expect(newEntry).toBeDefined();
+      expect(newEntry?.sections[0]?.items[0]?.description).toBe('Forced version bump.');
+    });
+  }, 60_000);
+
   it('rejects --only via prepareCommand before any project work runs', async () => {
     // The CLI guard lives in prepareCommand. We exercise it directly so the integration test
     // reflects the user-observable behavior end-to-end. Failure must occur before any file is

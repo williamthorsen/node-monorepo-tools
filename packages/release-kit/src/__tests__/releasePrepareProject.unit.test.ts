@@ -10,6 +10,7 @@ const mockRmSync = vi.hoisted(() => vi.fn());
 const mockCopyFileSync = vi.hoisted(() => vi.fn());
 const mockBuildChangelogEntries = vi.hoisted(() => vi.fn());
 const mockWriteChangelogJson = vi.hoisted(() => vi.fn());
+const mockUpsertChangelogJson = vi.hoisted(() => vi.fn());
 const mockWriteReleaseNotesPreviews = vi.hoisted(() => vi.fn());
 
 vi.mock('node:child_process', () => ({
@@ -38,7 +39,7 @@ vi.mock('../changelogJsonFile.ts', () => ({
   resolveChangelogJsonPath: (config: { changelogJson: { outputPath: string } }, changelogPath: string): string =>
     `${changelogPath}/${config.changelogJson.outputPath}`,
   writeChangelogJson: mockWriteChangelogJson,
-  upsertChangelogJson: vi.fn(),
+  upsertChangelogJson: mockUpsertChangelogJson,
 }));
 
 vi.mock('../writeReleaseNotesPreviews.ts', () => ({
@@ -98,6 +99,7 @@ describe(releasePrepareProject, () => {
   beforeEach(() => {
     mockBuildChangelogEntries.mockReturnValue([]);
     mockWriteChangelogJson.mockImplementation((filePath: string) => filePath);
+    mockUpsertChangelogJson.mockImplementation((filePath: string) => filePath);
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'root', version: '0.9.0' }));
     mockExistsSync.mockReturnValue(false);
   });
@@ -113,6 +115,7 @@ describe(releasePrepareProject, () => {
     mockCopyFileSync.mockReset();
     mockBuildChangelogEntries.mockReset();
     mockWriteChangelogJson.mockReset();
+    mockUpsertChangelogJson.mockReset();
     mockWriteReleaseNotesPreviews.mockReset();
   });
 
@@ -406,6 +409,7 @@ describe(releasePrepareProject, () => {
     expect(mockBuildChangelogEntries).toHaveBeenCalledTimes(1);
     expect(mockWriteChangelogJson).toHaveBeenCalledTimes(1);
     expect(mockWriteChangelogJson).toHaveBeenCalledWith('./.meta/changelog.json', expect.any(Array));
+    expect(mockUpsertChangelogJson).not.toHaveBeenCalled();
     expect(modifiedFiles).toContain('./.meta/changelog.json');
   });
 
@@ -615,10 +619,13 @@ describe(releasePrepareProject, () => {
         tags: [],
       });
 
-      // Project stage uses `writeChangelogJson` (fresh write) rather than upsert.
-      expect(mockWriteChangelogJson).toHaveBeenCalledTimes(1);
-      const writeEntries = mockWriteChangelogJson.mock.calls[0]?.[1];
-      expect(writeEntries).toMatchObject([
+      // Empty-range branch uses `upsertChangelogJson` so prior entries are preserved
+      // when only the new synthetic entry is being written. Overwriting via
+      // `writeChangelogJson` here would obliterate every previously-recorded entry.
+      expect(mockUpsertChangelogJson).toHaveBeenCalledTimes(1);
+      expect(mockWriteChangelogJson).not.toHaveBeenCalled();
+      const upsertEntries = mockUpsertChangelogJson.mock.calls[0]?.[1];
+      expect(upsertEntries).toMatchObject([
         {
           version: '0.9.1',
           sections: [
@@ -655,6 +662,7 @@ describe(releasePrepareProject, () => {
       const changelogWrites = mockWriteFileSync.mock.calls.filter((call: unknown[]) => call[0] === './CHANGELOG.md');
       expect(changelogWrites).toHaveLength(0);
       expect(mockWriteChangelogJson).not.toHaveBeenCalled();
+      expect(mockUpsertChangelogJson).not.toHaveBeenCalled();
     });
 
     it('keeps non-empty-range project releases on the cliff path (no regression)', () => {

@@ -1,7 +1,7 @@
 import { buildChangelogEntries } from './buildChangelogEntries.ts';
 import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
 import { bumpAllVersions } from './bumpAllVersions.ts';
-import { resolveChangelogJsonPath, writeChangelogJson } from './changelogJsonFile.ts';
+import { resolveChangelogJsonPath, upsertChangelogJson, writeChangelogJson } from './changelogJsonFile.ts';
 import { createPolicyViolationCollector } from './collectPolicyViolations.ts';
 import { decideRelease } from './decideRelease.ts';
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
@@ -184,10 +184,12 @@ interface WriteProjectChangelogsArgs {
 
 /**
  * Route between the empty-range synthetic path and the cliff path for the project stage's
- * root `CHANGELOG.md` and (optional) root `changelog.json`. Project stage uses
- * `writeChangelogJson` (fresh write, no merge) on both branches — symmetric with the
- * existing non-empty-range behavior. Pulls the routing logic out of `releasePrepareProject`
- * so the host stays under the project's cyclomatic-complexity ceiling.
+ * root `CHANGELOG.md` and (optional) root `changelog.json`. The cliff path uses
+ * `writeChangelogJson` (fresh overwrite) because git-cliff returns the FULL release history
+ * in `--context` mode. The empty-range path uses `upsertChangelogJson` because it produces
+ * only the new synthetic entry — overwriting would obliterate prior entries. Pulls the
+ * routing logic out of `releasePrepareProject` so the host stays under the project's
+ * cyclomatic-complexity ceiling.
  */
 function writeProjectChangelogs(args: WriteProjectChangelogsArgs): {
   changelogFiles: string[];
@@ -208,14 +210,18 @@ function writeProjectChangelogs(args: WriteProjectChangelogsArgs): {
   const changelogJsonFiles: string[] = [];
   if (config.changelogJson.enabled) {
     const changelogJsonPath = resolveChangelogJsonPath(config, ROOT_CHANGELOG_PATH);
-    const entries = isEmptyRange
-      ? [buildEmptyReleaseEntry(newVersion, today)]
-      : buildChangelogEntries(config, newTag, {
-          tagPattern,
-          includePaths: contributingPaths,
-        });
-    if (!dryRun) {
-      writeChangelogJson(changelogJsonPath, entries);
+    if (isEmptyRange) {
+      if (!dryRun) {
+        upsertChangelogJson(changelogJsonPath, [buildEmptyReleaseEntry(newVersion, today)]);
+      }
+    } else {
+      const entries = buildChangelogEntries(config, newTag, {
+        tagPattern,
+        includePaths: contributingPaths,
+      });
+      if (!dryRun) {
+        writeChangelogJson(changelogJsonPath, entries);
+      }
     }
     changelogJsonFiles.push(changelogJsonPath);
   }
