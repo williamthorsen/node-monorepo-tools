@@ -41,7 +41,7 @@ export function initCommand({ dryRun, force }: InitOptions): number {
     console.info(`
   1. Customize .config/audit-deps.config.json with your severity thresholds.
   2. Commit the scaffolded .github/workflows/audit.yaml alongside your config.
-  3. Run: npx @williamthorsen/audit-deps
+  3. Run: npx audit-deps
 `);
   }
 

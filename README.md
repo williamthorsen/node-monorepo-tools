@@ -4,7 +4,7 @@
 
 | Package                                               | Description                                                 |
 | ----------------------------------------------------- | ----------------------------------------------------------- |
-| [`@williamthorsen/audit-deps`](packages/audit-deps)   | Wraps audit-ci with a richer config model and sync workflow |
+| [`audit-deps`](packages/audit-deps)                   | Wraps audit-ci with a richer config model and sync workflow |
 | [`@williamthorsen/nmr`](packages/nmr)                 | Context-aware script runner for PNPM monorepos              |
 | [`@williamthorsen/nmr-core`](packages/core)           | Shared utilities for monorepo tools                         |
 | [`@williamthorsen/release-kit`](packages/release-kit) | Version-bumping and changelog generation                    |

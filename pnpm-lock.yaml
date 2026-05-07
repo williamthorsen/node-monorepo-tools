@@ -29,9 +29,6 @@ importers:
       '@vitest/eslint-plugin':
         specifier: 1.6.16
         version: 1.6.16(@typescript-eslint/eslint-plugin@8.59.2(@typescript-eslint/parser@8.59.2(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)(vitest@4.1.5)
-      '@williamthorsen/audit-deps':
-        specifier: workspace:*
-        version: link:packages/audit-deps
       '@williamthorsen/eslint-config-typescript':
         specifier: 5.17.4
         version: 5.17.4(@types/estree@1.0.8)(@typescript-eslint/utils@8.59.2(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
@@ -47,6 +44,9 @@ importers:
       '@williamthorsen/toolbelt.objects':
         specifier: 3.2.6
         version: 3.2.6
+      audit-deps:
+        specifier: workspace:*
+        version: link:packages/audit-deps
       esbuild:
         specifier: 0.28.0
         version: 0.28.0

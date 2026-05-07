@@ -222,10 +222,10 @@ var nmr_default = defineRdyKit({
         },
         // -- Audit dependency --------------------------------------------------------
         {
-          name: "@williamthorsen/audit-deps in devDependencies",
+          name: "audit-deps in devDependencies",
           severity: "warn",
-          check: () => hasDevDependency("@williamthorsen/audit-deps"),
-          fix: "pnpm add --save-dev @williamthorsen/audit-deps"
+          check: () => hasDevDependency("audit-deps"),
+          fix: "pnpm add --save-dev audit-deps"
         },
         {
           name: "code-quality workflow does not use nmr ci",

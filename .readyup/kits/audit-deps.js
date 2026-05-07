@@ -106,21 +106,21 @@ var audit_deps_default = defineRdyKit({
       checks: [
         // -- Setup ---------------------------------------------------------------
         {
-          name: "@williamthorsen/audit-deps in devDependencies",
+          name: "audit-deps in devDependencies",
           severity: "error",
-          check: () => hasDevDependency("@williamthorsen/audit-deps"),
-          fix: "pnpm add --save-dev @williamthorsen/audit-deps",
+          check: () => hasDevDependency("audit-deps"),
+          fix: "pnpm add --save-dev audit-deps",
           checks: [
             {
               get name() {
-                return `@williamthorsen/audit-deps >= ${getMinVersion()}`;
+                return `audit-deps >= ${getMinVersion()}`;
               },
               severity: "error",
-              check: () => hasMinDevDependencyVersion("@williamthorsen/audit-deps", getMinVersion(), {
+              check: () => hasMinDevDependencyVersion("audit-deps", getMinVersion(), {
                 exempt: (range) => range.startsWith("workspace:")
               }),
               get fix() {
-                return `pnpm add --save-dev @williamthorsen/audit-deps@^${getMinVersion()}`;
+                return `pnpm add --save-dev audit-deps@^${getMinVersion()}`;
               }
             }
           ]
