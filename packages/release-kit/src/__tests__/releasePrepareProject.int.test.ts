@@ -154,18 +154,20 @@ describe('releasePrepareProject (integration)', () => {
       );
       expect(rootPackageJson.version).toBe('0.10.0');
 
-      // Root CHANGELOG.md regenerated and contains the new version header. The bundled
-      // cliff template strips the leading `v` from the version (`trim_start_matches`), so
-      // the rendered heading is `## [0.10.0] - <date>` rather than `## [v0.10.0]`.
+      // Root CHANGELOG.md regenerated and contains the new version header. After the SSOT
+      // pivot, `renderChangelogMarkdown` emits `## <version> — <date>` (no brackets, no
+      // leading `v`).
       const rootChangelogPath = join(fixture.repoDir, 'CHANGELOG.md');
       expect(existsSync(rootChangelogPath)).toBe(true);
       const rootChangelog = readFileSync(rootChangelogPath, 'utf8');
-      expect(rootChangelog).toContain('## [0.10.0]');
+      expect(rootChangelog).toMatch(/## 0\.10\.0 — \d{4}-\d{2}-\d{2}/);
       // Project-level changelog includes commits from every contributing workspace.
       expect(rootChangelog).toContain('Add feature flag');
       expect(rootChangelog).toContain('Patch latent bug');
-      // The previous release is preserved in the regenerated file.
-      expect(rootChangelog).toContain('## [0.9.0]');
+      // The v0.9.0 baseline was set against a single unticketed `chore` commit that the
+      // cliff parsers skip, so no entry is emitted for that release. After the SSOT pivot,
+      // empty version entries are dropped (the old cliff template rendered them as empty
+      // headings). Only the new release's heading appears.
     });
   }, 60_000);
 
@@ -307,11 +309,13 @@ describe('releasePrepareProject (integration)', () => {
       expect(project.releaseType).toBe('patch');
       expect(project.newVersion).toBe('0.9.1');
 
-      // Root CHANGELOG.md contains the synthetic header at the top.
+      // Root CHANGELOG.md is rendered by `renderChangelogMarkdown` after the SSOT pivot,
+      // so it leads with the `# Changelog` header and the version heading appears below.
       const rootChangelogPath = join(fixture.repoDir, 'CHANGELOG.md');
       expect(existsSync(rootChangelogPath)).toBe(true);
       const rootChangelog = readFileSync(rootChangelogPath, 'utf8');
-      expect(rootChangelog).toMatch(/^## 0\.9\.1 — \d{4}-\d{2}-\d{2}/);
+      expect(rootChangelog).toMatch(/^# Changelog\n/);
+      expect(rootChangelog).toMatch(/## 0\.9\.1 — \d{4}-\d{2}-\d{2}/);
       expect(rootChangelog).toContain('### Notes');
       expect(rootChangelog).toContain('- Forced version bump.');
 

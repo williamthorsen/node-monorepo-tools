@@ -244,6 +244,53 @@ describe(buildChangelogEntries, () => {
     );
   });
 
+  describe('commit hash capture', () => {
+    it('captures the full commit SHA from cliff-context `id` into `ChangelogItem.hash`', () => {
+      const cliffContext = [
+        {
+          version: 'v1.0.0',
+          timestamp: 1_700_000_000,
+          commits: [
+            {
+              id: '8296231173de8be01977dabbe9c1c8e8e1234abc',
+              message: '#1 feat: Add widget',
+              group: 'Features',
+            },
+          ],
+        },
+      ];
+      mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
+      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
+      expect(entries[0]?.sections[0]?.items[0]?.hash).toBe('8296231173de8be01977dabbe9c1c8e8e1234abc');
+    });
+
+    it('omits hash when the commit has no `id` field', () => {
+      const cliffContext = [
+        {
+          version: 'v1.0.0',
+          timestamp: 1_700_000_000,
+          commits: [{ message: '#1 feat: Add widget', group: 'Features' }],
+        },
+      ];
+      mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
+      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
+      expect(entries[0]?.sections[0]?.items[0]).not.toHaveProperty('hash');
+    });
+
+    it('omits hash when the commit `id` is an empty string', () => {
+      const cliffContext = [
+        {
+          version: 'v1.0.0',
+          timestamp: 1_700_000_000,
+          commits: [{ id: '', message: '#1 feat: Add widget', group: 'Features' }],
+        },
+      ];
+      mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
+      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
+      expect(entries[0]?.sections[0]?.items[0]).not.toHaveProperty('hash');
+    });
+  });
+
   describe('breaking marker', () => {
     it('sets breaking: true for a `feat!:` commit', () => {
       const cliffContext = [

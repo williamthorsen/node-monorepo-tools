@@ -33,11 +33,34 @@ export function writeChangelogJson(filePath: string, entries: ChangelogEntry[]):
  * treats the existing file as empty, so a malformed file does not abort the release.
  */
 export function upsertChangelogJson(filePath: string, entries: ChangelogEntry[]): string {
+  upsertChangelogJsonAndReturn(filePath, entries);
+  return filePath;
+}
+
+/**
+ * Upsert variant that returns the merged entries in newest-first order so the caller can
+ * feed them to the markdown renderer without re-reading the file. Same on-disk semantics as
+ * {@link upsertChangelogJson}.
+ */
+export function upsertChangelogJsonAndReturn(filePath: string, entries: ChangelogEntry[]): ChangelogEntry[] {
   const existing = readExistingEntries(filePath);
   const merged = mergeEntries(entries, existing);
   mkdirSync(dirname(filePath), { recursive: true });
   writeFileSync(filePath, stringify(merged, { maxLength: 100 }) + '\n', 'utf8');
-  return filePath;
+  return merged;
+}
+
+/**
+ * In-memory variant of upsert: merges `entries` with the on-disk entries at `filePath` and
+ * returns the merged set in newest-first order without writing. Used by dry-run renderers
+ * and by the markdown pivot when the JSON write itself is gated by `dryRun`.
+ *
+ * Reads the file when present; treats a missing or malformed file as an empty existing set
+ * (matches `upsertChangelogJson`'s soft-fail semantics).
+ */
+export function mergeChangelogEntriesWithDisk(filePath: string, entries: ChangelogEntry[]): ChangelogEntry[] {
+  const existing = readExistingEntries(filePath);
+  return mergeEntries(entries, existing);
 }
 
 /** Sort changelog entries newest-first by SemVer-aware version comparison. */

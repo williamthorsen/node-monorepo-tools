@@ -1,4 +1,5 @@
 import { execSync } from 'node:child_process';
+import path from 'node:path';
 
 import { buildChangelogEntries } from './buildChangelogEntries.ts';
 import type { DependencyGraph } from './buildDependencyGraph.ts';
@@ -6,13 +7,23 @@ import { buildDependencyGraph } from './buildDependencyGraph.ts';
 import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
 import { buildSyntheticChangelogEntry } from './buildSyntheticChangelogEntry.ts';
 import { bumpAllVersions, setAllVersions } from './bumpAllVersions.ts';
-import { resolveChangelogJsonPath, upsertChangelogJson } from './changelogJsonFile.ts';
+import {
+  mergeChangelogEntriesWithDisk,
+  resolveChangelogJsonPath,
+  upsertChangelogJsonAndReturn,
+} from './changelogJsonFile.ts';
+import { applyChangelogOverrides, loadChangelogOverrides } from './changelogOverrides.ts';
 import { createPolicyViolationCollector } from './collectPolicyViolations.ts';
 import { isForwardVersion } from './compareVersions.ts';
 import { decideRelease } from './decideRelease.ts';
-import { DEFAULT_BREAKING_POLICIES, DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
+import {
+  DEFAULT_BREAKING_POLICIES,
+  DEFAULT_OVERRIDES_PATH,
+  DEFAULT_VERSION_PATTERNS,
+  DEFAULT_WORK_TYPES,
+} from './defaults.ts';
 import { detectUndeclaredTagPrefixes } from './detectUndeclaredTagPrefixes.ts';
-import { buildTagPattern, generateChangelog } from './generateChangelogs.ts';
+import { buildTagPattern } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import { resolveWorkTypes } from './loadConfig.ts';
@@ -21,9 +32,12 @@ import { propagateBumps } from './propagateBumps.ts';
 import { readCurrentVersion } from './readCurrentVersion.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
 import { releasePrepareProject } from './releasePrepareProject.ts';
+import { writeChangelogMarkdown } from './renderChangelogMarkdown.ts';
 import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
 import { refreshGitCliffCache } from './runGitCliff.ts';
 import type {
+  ChangelogEntry,
+  ChangelogOverride,
   Commit,
   MonorepoReleaseConfig,
   PolicyViolation,
@@ -35,9 +49,7 @@ import type {
   WorkspaceConfig,
   WorkspacePrepareResult,
 } from './types.ts';
-import { writeEmptyReleaseChangelog } from './writeEmptyReleaseChangelog.ts';
 import { writeReleaseNotesPreviews } from './writeReleaseNotesPreviews.ts';
-import { writeSyntheticChangelog } from './writeSyntheticChangelog.ts';
 
 /** Intermediate result from Phase 1 (determine direct bumps). */
 interface DirectBumpResult {
@@ -91,8 +103,13 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
     console.warn('Warning: --with-release-notes requires changelogJson.enabled; skipping preview generation');
   }
 
-  // Derive section order once for all preview writes; the same value feeds every workspace.
+  // Derive section order once for all preview and markdown render writes.
   const sectionOrder = deriveSectionOrder(resolveWorkTypes(config.workTypes));
+
+  // Load editorial overrides once per prepare run (single repo-root file). Failure aborts the
+  // release with a clear error; warnings (zero-match keys) accumulate on `overrideWarnings`.
+  const overrides = loadOverridesOrThrow(config.overridesPath);
+  const overrideWarnings: string[] = [];
 
   // === Phase 1: Determine direct bumps ===
   const { directBumps, directResults, skippedResults, currentVersions } = determineDirectBumps(config, options);
@@ -132,7 +149,7 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
   if (fullReleaseSet.size > 0) {
     refreshGitCliffCache();
   }
-  const { tags, modifiedFiles } = executeReleaseSet(
+  const { tags, modifiedFiles } = executeReleaseSet({
     sortedDirs,
     fullReleaseSet,
     config,
@@ -141,7 +158,10 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
     dryRun,
     workspaces,
     previewOptions,
-  );
+    overrides,
+    overrideWarnings,
+    sectionOrder,
+  });
 
   // Reorder workspaces to match original config order.
   const configOrder = new Map(config.workspaces.map((w, i) => [w.dir, i]));
@@ -161,20 +181,40 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
   // and skipped variants — `undefined` here continues to mean "no project block configured."
   let project: ProjectPrepareResult | undefined;
   if (config.project !== undefined) {
-    project = tryStage('project release stage', () => releasePrepareProject({ config, options, modifiedFiles, tags }));
+    project = tryStage('project release stage', () =>
+      releasePrepareProject({ config, options, modifiedFiles, tags, overrides, overrideWarnings }),
+    );
   }
 
   // === Phase 4: Format ===
   const formatCommand = runFormatCommand(config, tags, modifiedFiles, dryRun);
+
+  const allWarnings = [...warnings, ...overrideWarnings];
 
   return {
     workspaces,
     tags,
     formatCommand,
     dryRun,
-    ...(warnings.length > 0 ? { warnings } : {}),
+    ...(allWarnings.length > 0 ? { warnings: allWarnings } : {}),
     ...(project === undefined ? {} : { project }),
   };
+}
+
+/**
+ * Resolve the override path (defaulting to `.changelog-overrides.json` relative to
+ * `process.cwd()`) and load the overrides. Aborts the release with a clear error when the
+ * file is malformed or any per-entry validation fails — checked-in editorial config that
+ * does not parse is a bug, not a warning.
+ */
+function loadOverridesOrThrow(overridesPath: string | undefined): Map<string, ChangelogOverride> {
+  const resolved = overridesPath ?? DEFAULT_OVERRIDES_PATH;
+  const absolutePath = path.isAbsolute(resolved) ? resolved : path.resolve(process.cwd(), resolved);
+  const result = loadChangelogOverrides(absolutePath);
+  if ('errors' in result) {
+    throw new Error(`Failed to load changelog overrides from ${resolved}:\n  - ${result.errors.join('\n  - ')}`);
+  }
+  return result.overrides;
 }
 
 /** Determine direct bumps from commits for each workspace. */
@@ -349,17 +389,36 @@ interface PreviewOptions {
   sectionOrder: string[];
 }
 
+/** Inputs to {@link executeReleaseSet}. */
+interface ExecuteReleaseSetArgs {
+  sortedDirs: string[];
+  fullReleaseSet: Map<string, ReleaseEntry>;
+  config: MonorepoReleaseConfig;
+  directResults: Map<string, DirectBumpResult>;
+  previousTags: Map<string, string | undefined>;
+  dryRun: boolean;
+  workspaces: WorkspacePrepareResult[];
+  previewOptions: PreviewOptions;
+  overrides: Map<string, ChangelogOverride>;
+  overrideWarnings: string[];
+  sectionOrder: string[];
+}
+
 /** Execute bumps and generate changelogs for each workspace in dependency order. */
-function executeReleaseSet(
-  sortedDirs: string[],
-  fullReleaseSet: Map<string, ReleaseEntry>,
-  config: MonorepoReleaseConfig,
-  directResults: Map<string, DirectBumpResult>,
-  previousTags: Map<string, string | undefined>,
-  dryRun: boolean,
-  workspaces: WorkspacePrepareResult[],
-  previewOptions: PreviewOptions,
-): { tags: string[]; modifiedFiles: string[] } {
+function executeReleaseSet(args: ExecuteReleaseSetArgs): { tags: string[]; modifiedFiles: string[] } {
+  const {
+    sortedDirs,
+    fullReleaseSet,
+    config,
+    directResults,
+    previousTags,
+    dryRun,
+    workspaces,
+    previewOptions,
+    overrides,
+    overrideWarnings,
+    sectionOrder,
+  } = args;
   const tags: string[] = [];
   const modifiedFiles: string[] = [];
   const today = new Date().toISOString().slice(0, 10);
@@ -389,6 +448,9 @@ function executeReleaseSet(
         modifiedFiles,
         workspaces,
         previewOptions,
+        overrides,
+        overrideWarnings,
+        sectionOrder,
       }),
     );
   }
@@ -410,6 +472,9 @@ interface ExecuteWorkspaceReleaseArgs {
   modifiedFiles: string[];
   workspaces: WorkspacePrepareResult[];
   previewOptions: PreviewOptions;
+  overrides: Map<string, ChangelogOverride>;
+  overrideWarnings: string[];
+  sectionOrder: string[];
 }
 
 /** Bump, generate changelogs, and append the workspace result for one entry in the release set. */
@@ -427,6 +492,9 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     modifiedFiles,
     workspaces,
     previewOptions,
+    overrides,
+    overrideWarnings,
+    sectionOrder,
   } = args;
 
   // Bump all versions for this workspace. For --set-version workspaces, write the explicit
@@ -456,6 +524,9 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     today,
     modifiedFiles,
     previewOptions,
+    overrides,
+    overrideWarnings,
+    sectionOrder,
   });
 
   const released: ReleasedWorkspaceResult = {
@@ -547,20 +618,16 @@ interface GenerateWorkspaceChangelogsArgs {
   today: string;
   modifiedFiles: string[];
   previewOptions: PreviewOptions;
+  overrides: Map<string, ChangelogOverride>;
+  overrideWarnings: string[];
+  sectionOrder: string[];
 }
 
 /**
- * Generate changelogs for a workspace by routing to one of three branches:
- *
- * 1. Propagation-only bump (no direct commits, but a transitive bump): synthetic
- *    "Dependency updates" entry via `writeSyntheticChangelog` / `buildSyntheticChangelogEntry`.
- * 2. Empty-range direct bump (`--force` / `--bump=X` / `--set-version` against zero commits):
- *    synthetic "Notes / Forced version bump." entry via the new sibling pair. Bypasses
- *    git-cliff to avoid the `WARN  git_cliff > There is already a tag` noise (issue #369).
- * 3. Direct bump with commits: git-cliff output.
- *
- * Returns the list of changelog files written. Additional `changelog.json` files are
- * appended to `modifiedFiles` when the feature is enabled.
+ * Generate changelog artifacts for a workspace by routing to one of three branches to build
+ * the new entries (propagation-only synthetic, empty-range synthetic, or git-cliff), applying
+ * editorial overrides, persisting the merged JSON, and rendering `CHANGELOG.md` from the
+ * merged set so both artifacts reflect the same post-override view.
  */
 function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): string[] {
   const {
@@ -575,196 +642,93 @@ function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): str
     today,
     modifiedFiles,
     previewOptions,
+    overrides,
+    overrideWarnings,
+    sectionOrder,
   } = args;
 
+  const newEntries = buildWorkspaceEntries({
+    workspace,
+    releaseEntry,
+    newTag,
+    newVersion,
+    isPropagationOnly,
+    isEmptyRange,
+    config,
+    today,
+  });
+
+  const applied = applyChangelogOverrides(newEntries, overrides);
+  if (applied.errors.length > 0) {
+    throw new Error(`Changelog override application failed:\n  - ${applied.errors.join('\n  - ')}`);
+  }
+  overrideWarnings.push(...applied.warnings);
+
+  const changelogFiles: string[] = [];
+  let firstChangelogJsonPath: string | undefined;
+
+  for (const changelogPath of workspace.changelogPaths) {
+    const jsonPath = resolveChangelogJsonPath(config, changelogPath);
+    // Only write `changelog.json` when `changelogJson.enabled`. When disabled (or dry-run), use
+    // the pure read-and-merge path so the markdown renderer still sees prior on-disk entries
+    // without creating or modifying the JSON file.
+    const shouldWriteJson = config.changelogJson.enabled && !dryRun;
+    const mergedEntries = shouldWriteJson
+      ? upsertChangelogJsonAndReturn(jsonPath, applied.entries)
+      : mergeChangelogEntriesWithDisk(jsonPath, applied.entries);
+
+    if (config.changelogJson.enabled) {
+      modifiedFiles.push(jsonPath);
+      firstChangelogJsonPath ??= jsonPath;
+    }
+
+    changelogFiles.push(
+      writeChangelogMarkdown({
+        changelogPath,
+        entries: mergedEntries,
+        sectionOrder,
+        dryRun,
+      }),
+    );
+  }
+
+  maybeWritePreviews(workspace, newTag, firstChangelogJsonPath, previewOptions, dryRun);
+  return changelogFiles;
+}
+
+/** Arguments for {@link buildWorkspaceEntries}. */
+interface BuildWorkspaceEntriesArgs {
+  workspace: WorkspaceConfig;
+  releaseEntry: ReleaseEntry;
+  newTag: string;
+  newVersion: string;
+  isPropagationOnly: boolean;
+  isEmptyRange: boolean;
+  config: MonorepoReleaseConfig;
+  today: string;
+}
+
+/**
+ * Build the new `ChangelogEntry[]` for a workspace from one of three sources:
+ * 1. Propagation-only: a single synthetic "Dependency updates" entry.
+ * 2. Empty-range: a single synthetic "Forced version bump." entry.
+ * 3. Direct bump with commits: git-cliff `--context` output.
+ *
+ * Returns the entries that will be merged into the on-disk JSON and rendered.
+ */
+function buildWorkspaceEntries(args: BuildWorkspaceEntriesArgs): ChangelogEntry[] {
+  const { workspace, releaseEntry, newTag, newVersion, isPropagationOnly, isEmptyRange, config, today } = args;
+
   if (isPropagationOnly && releaseEntry.propagatedFrom !== undefined) {
-    return writePropagationOnlyWorkspaceChangelogs({
-      workspace,
-      newTag,
-      newVersion,
-      propagatedFrom: releaseEntry.propagatedFrom,
-      config,
-      dryRun,
-      today,
-      modifiedFiles,
-      previewOptions,
-    });
+    return [buildSyntheticChangelogEntry(releaseEntry.propagatedFrom, newVersion, today)];
   }
 
   if (isEmptyRange) {
-    return writeEmptyRangeWorkspaceChangelogs({
-      workspace,
-      newTag,
-      newVersion,
-      config,
-      dryRun,
-      today,
-      modifiedFiles,
-      previewOptions,
-    });
+    return [buildEmptyReleaseEntry(newVersion, today)];
   }
 
-  return writeCliffWorkspaceChangelogs({
-    workspace,
-    newTag,
-    config,
-    dryRun,
-    modifiedFiles,
-    previewOptions,
-  });
-}
-
-/** Arguments for `writePropagationOnlyWorkspaceChangelogs`. */
-interface WritePropagationOnlyArgs {
-  workspace: WorkspaceConfig;
-  newTag: string;
-  newVersion: string;
-  propagatedFrom: NonNullable<ReleaseEntry['propagatedFrom']>;
-  config: MonorepoReleaseConfig;
-  dryRun: boolean;
-  today: string;
-  modifiedFiles: string[];
-  previewOptions: PreviewOptions;
-}
-
-/**
- * Write synthetic propagation-only changelog entries (CHANGELOG.md and optional
- * `changelog.json`) for a workspace bumped solely via dependency propagation.
- */
-function writePropagationOnlyWorkspaceChangelogs(args: WritePropagationOnlyArgs): string[] {
-  const { workspace, newTag, newVersion, propagatedFrom, config, dryRun, today, modifiedFiles, previewOptions } = args;
-  const changelogFiles: string[] = [];
-  let firstChangelogJsonPath: string | undefined;
-
-  for (const changelogPath of workspace.changelogPaths) {
-    changelogFiles.push(
-      writeSyntheticChangelog({
-        changelogPath,
-        newVersion,
-        date: today,
-        propagatedFrom,
-        dryRun,
-      }),
-    );
-  }
-
-  if (config.changelogJson.enabled) {
-    // Synthetic entries are pure constructs (no subprocess), so the dry-run guard applies
-    // only to the upsert write. The path is still resolved and surfaced in `modifiedFiles`.
-    const syntheticEntry = buildSyntheticChangelogEntry(propagatedFrom, newVersion, today);
-    for (const changelogPath of workspace.changelogPaths) {
-      const jsonPath = resolveChangelogJsonPath(config, changelogPath);
-      if (!dryRun) {
-        upsertChangelogJson(jsonPath, [syntheticEntry]);
-      }
-      modifiedFiles.push(jsonPath);
-      firstChangelogJsonPath ??= jsonPath;
-    }
-  }
-  maybeWritePreviews(workspace, newTag, firstChangelogJsonPath, previewOptions, dryRun);
-  return changelogFiles;
-}
-
-/** Arguments for `writeEmptyRangeWorkspaceChangelogs`. */
-interface WriteEmptyRangeArgs {
-  workspace: WorkspaceConfig;
-  newTag: string;
-  newVersion: string;
-  config: MonorepoReleaseConfig;
-  dryRun: boolean;
-  today: string;
-  modifiedFiles: string[];
-  previewOptions: PreviewOptions;
-}
-
-/**
- * Write synthetic empty-range changelog entries (CHANGELOG.md and optional
- * `changelog.json`) for a workspace forced to release with zero qualifying commits.
- *
- * Mirrors `writePropagationOnlyWorkspaceChangelogs` but emits a "Notes / Forced version bump."
- * section. Bypasses git-cliff entirely so consumers do not see `WARN  git_cliff > There is
- * already a tag` lines (issue #369).
- */
-function writeEmptyRangeWorkspaceChangelogs(args: WriteEmptyRangeArgs): string[] {
-  const { workspace, newTag, newVersion, config, dryRun, today, modifiedFiles, previewOptions } = args;
-  const changelogFiles: string[] = [];
-  let firstChangelogJsonPath: string | undefined;
-
-  for (const changelogPath of workspace.changelogPaths) {
-    changelogFiles.push(
-      writeEmptyReleaseChangelog({
-        changelogPath,
-        newVersion,
-        date: today,
-        dryRun,
-      }),
-    );
-  }
-
-  if (config.changelogJson.enabled) {
-    const syntheticEntry = buildEmptyReleaseEntry(newVersion, today);
-    for (const changelogPath of workspace.changelogPaths) {
-      const jsonPath = resolveChangelogJsonPath(config, changelogPath);
-      if (!dryRun) {
-        upsertChangelogJson(jsonPath, [syntheticEntry]);
-      }
-      modifiedFiles.push(jsonPath);
-      firstChangelogJsonPath ??= jsonPath;
-    }
-  }
-  maybeWritePreviews(workspace, newTag, firstChangelogJsonPath, previewOptions, dryRun);
-  return changelogFiles;
-}
-
-/** Arguments for `writeCliffWorkspaceChangelogs`. */
-interface WriteCliffArgs {
-  workspace: WorkspaceConfig;
-  newTag: string;
-  config: MonorepoReleaseConfig;
-  dryRun: boolean;
-  modifiedFiles: string[];
-  previewOptions: PreviewOptions;
-}
-
-/**
- * Write changelogs for a workspace that has real qualifying commits, using git-cliff. The
- * `changelog.json` upsert preserves any synthetic entries written by prior propagation runs.
- */
-function writeCliffWorkspaceChangelogs(args: WriteCliffArgs): string[] {
-  const { workspace, newTag, config, dryRun, modifiedFiles, previewOptions } = args;
-  const changelogFiles: string[] = [];
-  let firstChangelogJsonPath: string | undefined;
   const tagPattern = buildTagPattern(getAllTagPrefixes(workspace));
-
-  for (const changelogPath of workspace.changelogPaths) {
-    changelogFiles.push(
-      ...generateChangelog(config, changelogPath, newTag, dryRun, {
-        tagPattern,
-        includePaths: workspace.paths,
-      }),
-    );
-  }
-
-  if (config.changelogJson.enabled) {
-    // Workspace cliff path: build entries via git-cliff (always — caller's `dryRun` controls
-    // only the file write), then upsert to preserve any synthetic entries written by prior
-    // propagation runs.
-    const entries = buildChangelogEntries(config, newTag, {
-      tagPattern,
-      includePaths: workspace.paths,
-    });
-    for (const changelogPath of workspace.changelogPaths) {
-      const jsonPath = resolveChangelogJsonPath(config, changelogPath);
-      if (!dryRun) {
-        upsertChangelogJson(jsonPath, entries);
-      }
-      modifiedFiles.push(jsonPath);
-      firstChangelogJsonPath ??= jsonPath;
-    }
-  }
-
-  maybeWritePreviews(workspace, newTag, firstChangelogJsonPath, previewOptions, dryRun);
-  return changelogFiles;
+  return buildChangelogEntries(config, newTag, { tagPattern, includePaths: workspace.paths });
 }
 
 /** Invoke `writeReleaseNotesPreviews` for a workspace when previews are enabled and a changelog JSON path is known. */

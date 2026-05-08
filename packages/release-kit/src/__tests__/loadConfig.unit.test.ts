@@ -223,6 +223,20 @@ describe(mergeMonorepoConfig, () => {
     expect(result.cliffConfigPath).toBe('custom/cliff.toml');
   });
 
+  it('passes through overridesPath from config', () => {
+    const result = mergeMonorepoConfig(discoveredPaths, {
+      overridesPath: 'custom/overrides.json',
+    });
+
+    expect(result.overridesPath).toBe('custom/overrides.json');
+  });
+
+  it('omits overridesPath when not configured', () => {
+    const result = mergeMonorepoConfig(discoveredPaths, {});
+
+    expect(result.overridesPath).toBeUndefined();
+  });
+
   it('passes through scopeAliases from config', () => {
     const result = mergeMonorepoConfig(discoveredPaths, {
       scopeAliases: { api: 'backend-api' },
@@ -589,11 +603,13 @@ describe(mergeSinglePackageConfig, () => {
     const result = mergeSinglePackageConfig({
       formatCommand: 'pnpm run fmt',
       cliffConfigPath: 'custom/cliff.toml',
+      overridesPath: 'custom/overrides.json',
       scopeAliases: { api: 'backend-api' },
     });
 
     expect(result.formatCommand).toBe('pnpm run fmt');
     expect(result.cliffConfigPath).toBe('custom/cliff.toml');
+    expect(result.overridesPath).toBe('custom/overrides.json');
     expect(result.scopeAliases).toStrictEqual({ api: 'backend-api' });
   });
 

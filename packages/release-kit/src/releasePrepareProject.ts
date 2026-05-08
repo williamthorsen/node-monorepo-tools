@@ -1,16 +1,23 @@
 import { buildChangelogEntries } from './buildChangelogEntries.ts';
 import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
 import { bumpAllVersions } from './bumpAllVersions.ts';
-import { resolveChangelogJsonPath, upsertChangelogJson, writeChangelogJson } from './changelogJsonFile.ts';
+import { mergeChangelogEntriesWithDisk, resolveChangelogJsonPath, writeChangelogJson } from './changelogJsonFile.ts';
+import { applyChangelogOverrides } from './changelogOverrides.ts';
 import { createPolicyViolationCollector } from './collectPolicyViolations.ts';
 import { decideRelease } from './decideRelease.ts';
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
-import { buildTagPattern, generateChangelog } from './generateChangelogs.ts';
+import { buildTagPattern } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
+import { writeChangelogMarkdown } from './renderChangelogMarkdown.ts';
 import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
-import type { MonorepoReleaseConfig, ProjectPrepareResult, SkippedProjectResult } from './types.ts';
-import { writeEmptyReleaseChangelog } from './writeEmptyReleaseChangelog.ts';
+import type {
+  ChangelogEntry,
+  ChangelogOverride,
+  MonorepoReleaseConfig,
+  ProjectPrepareResult,
+  SkippedProjectResult,
+} from './types.ts';
 import { writeReleaseNotesPreviews } from './writeReleaseNotesPreviews.ts';
 
 /** File path for the root `package.json` bumped during the project release stage. */
@@ -28,6 +35,18 @@ export interface ReleasePrepareProjectArgs {
   modifiedFiles: string[];
   /** Mutated in-place to append the project tag. */
   tags: string[];
+  /**
+   * Editorial overrides loaded once at the top of the prepare run. Defaults to an empty
+   * map when omitted (no overrides applied). The monorepo orchestrator passes in the
+   * shared map so all stages of one prepare run see the same override view.
+   */
+  overrides?: Map<string, ChangelogOverride>;
+  /**
+   * Mutated in-place to surface zero-match override warnings. Defaults to a discardable
+   * sink when omitted; callers that want to surface warnings on `PrepareResult.warnings`
+   * must pass their own array.
+   */
+  overrideWarnings?: string[];
 }
 
 /**
@@ -48,6 +67,8 @@ export interface ReleasePrepareProjectArgs {
  */
 export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectPrepareResult {
   const { config, options, modifiedFiles, tags } = args;
+  const overrides = args.overrides ?? new Map<string, ChangelogOverride>();
+  const overrideWarnings = args.overrideWarnings ?? [];
   const { dryRun, bumpOverride, withReleaseNotes, force } = options;
   const project = config.project;
   if (project === undefined) {
@@ -123,6 +144,8 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
     newTag,
     newVersion: bump.newVersion,
     dryRun,
+    overrides,
+    overrideWarnings,
   });
 
   // 9. Optional release-notes previews under root docs/.
@@ -180,49 +203,67 @@ interface WriteProjectChangelogsArgs {
   newTag: string;
   newVersion: string;
   dryRun: boolean;
+  overrides: Map<string, ChangelogOverride>;
+  overrideWarnings: string[];
 }
 
 /**
- * Route between the empty-range synthetic path and the cliff path for the project stage's
- * root `CHANGELOG.md` and (optional) root `changelog.json`. The cliff path uses
- * `writeChangelogJson` (fresh overwrite) because git-cliff returns the FULL release history
- * in `--context` mode. The empty-range path uses `upsertChangelogJson` because it produces
- * only the new synthetic entry — overwriting would obliterate prior entries. Pulls the
- * routing logic out of `releasePrepareProject` so the host stays under the project's
- * cyclomatic-complexity ceiling.
+ * Build the project's new entries (cliff or synthetic empty-range), apply editorial
+ * overrides, persist `changelog.json`, and render `CHANGELOG.md` from the merged set.
+ *
+ * The cliff path uses `writeChangelogJson` (fresh overwrite) because git-cliff returns the
+ * FULL release history in `--context` mode and the project changelog is regenerated in
+ * full each run. The empty-range path passes through the disk-merging path so prior
+ * synthetic entries are preserved.
  */
 function writeProjectChangelogs(args: WriteProjectChangelogsArgs): {
   changelogFiles: string[];
   changelogJsonFiles: string[];
 } {
-  const { config, project, commits, contributingPaths, newTag, newVersion, dryRun } = args;
+  const { config, project, commits, contributingPaths, newTag, newVersion, dryRun, overrides, overrideWarnings } = args;
   const isEmptyRange = commits.length === 0;
   const today = new Date().toISOString().slice(0, 10);
   const tagPattern = buildTagPattern([project.tagPrefix]);
 
-  const changelogFiles = isEmptyRange
-    ? [writeEmptyReleaseChangelog({ changelogPath: ROOT_CHANGELOG_PATH, newVersion, date: today, dryRun })]
-    : generateChangelog(config, ROOT_CHANGELOG_PATH, newTag, dryRun, {
-        tagPattern,
-        includePaths: contributingPaths,
-      });
+  const newEntries: ChangelogEntry[] = isEmptyRange
+    ? [buildEmptyReleaseEntry(newVersion, today)]
+    : buildChangelogEntries(config, newTag, { tagPattern, includePaths: contributingPaths });
+
+  const applied = applyChangelogOverrides(newEntries, overrides);
+  if (applied.errors.length > 0) {
+    throw new Error(`Changelog override application failed:\n  - ${applied.errors.join('\n  - ')}`);
+  }
+  overrideWarnings.push(...applied.warnings);
+
+  const changelogJsonPath = resolveChangelogJsonPath(config, ROOT_CHANGELOG_PATH);
+  const sectionOrder = deriveSectionOrder(config.workTypes ?? { ...DEFAULT_WORK_TYPES });
+
+  // For the cliff path, write fresh (cliff returns full history). For empty-range, merge
+  // with disk to preserve prior synthetic entries.
+  const renderEntries: ChangelogEntry[] = isEmptyRange
+    ? mergeChangelogEntriesWithDisk(changelogJsonPath, applied.entries)
+    : applied.entries;
+
+  if (config.changelogJson.enabled && !dryRun) {
+    if (isEmptyRange) {
+      // The merged entries are the post-merge truth; persist them as a fresh overwrite.
+      writeChangelogJson(changelogJsonPath, renderEntries);
+    } else {
+      writeChangelogJson(changelogJsonPath, applied.entries);
+    }
+  }
+
+  const changelogFiles = [
+    writeChangelogMarkdown({
+      changelogPath: ROOT_CHANGELOG_PATH,
+      entries: renderEntries,
+      sectionOrder,
+      dryRun,
+    }),
+  ];
 
   const changelogJsonFiles: string[] = [];
   if (config.changelogJson.enabled) {
-    const changelogJsonPath = resolveChangelogJsonPath(config, ROOT_CHANGELOG_PATH);
-    if (isEmptyRange) {
-      if (!dryRun) {
-        upsertChangelogJson(changelogJsonPath, [buildEmptyReleaseEntry(newVersion, today)]);
-      }
-    } else {
-      const entries = buildChangelogEntries(config, newTag, {
-        tagPattern,
-        includePaths: contributingPaths,
-      });
-      if (!dryRun) {
-        writeChangelogJson(changelogJsonPath, entries);
-      }
-    }
     changelogJsonFiles.push(changelogJsonPath);
   }
 

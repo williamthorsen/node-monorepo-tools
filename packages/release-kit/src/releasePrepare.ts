@@ -1,22 +1,34 @@
 import { execSync } from 'node:child_process';
+import path from 'node:path';
 
 import { buildChangelogEntries } from './buildChangelogEntries.ts';
 import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
 import { bumpAllVersions, setAllVersions } from './bumpAllVersions.ts';
-import { resolveChangelogJsonPath, upsertChangelogJson } from './changelogJsonFile.ts';
+import {
+  mergeChangelogEntriesWithDisk,
+  resolveChangelogJsonPath,
+  upsertChangelogJsonAndReturn,
+} from './changelogJsonFile.ts';
+import { applyChangelogOverrides, loadChangelogOverrides } from './changelogOverrides.ts';
 import { createPolicyViolationCollector } from './collectPolicyViolations.ts';
 import { isForwardVersion } from './compareVersions.ts';
-import { DEFAULT_BREAKING_POLICIES, DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
+import {
+  DEFAULT_BREAKING_POLICIES,
+  DEFAULT_OVERRIDES_PATH,
+  DEFAULT_VERSION_PATTERNS,
+  DEFAULT_WORK_TYPES,
+} from './defaults.ts';
 import { determineBumpFromCommits } from './determineBumpFromCommits.ts';
-import { generateChangelogs } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import { resolveWorkTypes } from './loadConfig.ts';
 import { readCurrentVersion } from './readCurrentVersion.ts';
+import { writeChangelogMarkdown } from './renderChangelogMarkdown.ts';
 import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
 import { refreshGitCliffCache } from './runGitCliff.ts';
 import type {
   BumpResult,
+  ChangelogOverride,
   Commit,
   PolicyViolation,
   PrepareResult,
@@ -25,7 +37,6 @@ import type {
   ReleaseType,
   SkippedWorkspaceResult,
 } from './types.ts';
-import { writeEmptyReleaseChangelog } from './writeEmptyReleaseChangelog.ts';
 import { writeReleaseNotesPreviews } from './writeReleaseNotesPreviews.ts';
 
 /** Options for the release preparation workflow. */
@@ -71,6 +82,7 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   const workTypes = config.workTypes ?? { ...DEFAULT_WORK_TYPES };
   const versionPatterns = config.versionPatterns ?? { ...DEFAULT_VERSION_PATTERNS };
   const breakingPolicies = config.breakingPolicies ?? DEFAULT_BREAKING_POLICIES;
+  const overrides = loadOverridesOrThrow(config.overridesPath);
 
   // 1. Get commits since last tag
   const { tag, commits } = getCommitsSinceTarget([config.tagPrefix]);
@@ -142,12 +154,15 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   // proceeds with zero qualifying commits since the last tag (`--force`, `--bump=X`, or
   // `--set-version` with no new commits), the routing helper bypasses git-cliff in favor
   // of the synthetic "Forced version bump." entry — issue #369.
+  const overrideWarnings: string[] = [];
   const { changelogFiles, changelogJsonFiles } = writeSinglePackageChangelogs({
     config,
     commits,
     newTag,
     newVersion: bump.newVersion,
     dryRun,
+    overrides,
+    overrideWarnings,
   });
 
   // 4c. Write release-notes previews (optional, opt-in via --with-release-notes)
@@ -191,12 +206,32 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
     setVersion,
   });
 
-  return {
+  const result: PrepareResult = {
     workspaces: [released],
     tags: [newTag],
     formatCommand,
     dryRun,
   };
+  if (overrideWarnings.length > 0) {
+    result.warnings = overrideWarnings;
+  }
+  return result;
+}
+
+/**
+ * Resolve the override path (defaulting to `.changelog-overrides.json` relative to
+ * `process.cwd()`) and load the overrides. Aborts the release with a clear error when the
+ * file is malformed or any per-entry validation fails — checked-in editorial config that
+ * does not parse is a bug, not a warning.
+ */
+function loadOverridesOrThrow(overridesPath: string | undefined): Map<string, ChangelogOverride> {
+  const resolved = overridesPath ?? DEFAULT_OVERRIDES_PATH;
+  const absolutePath = path.isAbsolute(resolved) ? resolved : path.resolve(process.cwd(), resolved);
+  const result = loadChangelogOverrides(absolutePath);
+  if ('errors' in result) {
+    throw new Error(`Failed to load changelog overrides from ${resolved}:\n  - ${result.errors.join('\n  - ')}`);
+  }
+  return result.overrides;
 }
 
 /** Inputs to {@link buildSkippedSinglePackage}. */
@@ -306,94 +341,65 @@ interface WriteSinglePackageChangelogsArgs {
   newTag: string;
   newVersion: string;
   dryRun: boolean;
+  overrides: Map<string, ChangelogOverride>;
+  /** Mutated in-place to surface override warnings (zero-match keys) on the `PrepareResult`. */
+  overrideWarnings: string[];
 }
 
 /**
- * Route between the empty-range synthetic path and the cliff path for both `CHANGELOG.md`
- * and the optional `changelog.json`. Pulls the routing logic out of the `releasePrepare`
- * host so the host stays under the project's cyclomatic-complexity ceiling.
+ * Single-package changelog writer. Builds entries (via cliff or synthetic empty-range),
+ * applies editorial overrides, persists the merged JSON, and renders `CHANGELOG.md` from
+ * the merged set so both artifacts reflect the same post-override view.
+ *
+ * Override application errors abort the release; warnings (zero-match keys) are accumulated
+ * on `overrideWarnings` so the caller can surface them on `PrepareResult.warnings`.
  */
 function writeSinglePackageChangelogs(args: WriteSinglePackageChangelogsArgs): {
   changelogFiles: string[];
   changelogJsonFiles: string[];
 } {
-  const { config, commits, newTag, newVersion, dryRun } = args;
+  const { config, commits, newTag, newVersion, dryRun, overrides, overrideWarnings } = args;
   const isEmptyRange = commits.length === 0;
   const today = new Date().toISOString().slice(0, 10);
 
-  const changelogFiles = isEmptyRange
-    ? writeEmptyRangeChangelogs(config, newVersion, today, dryRun)
-    : generateChangelogs(config, newTag, dryRun);
-
-  let changelogJsonFiles: string[] = [];
-  if (config.changelogJson.enabled) {
-    changelogJsonFiles = isEmptyRange
-      ? upsertEmptyRangeChangelogJson(config, newVersion, today, dryRun)
-      : buildAndPersistChangelogJson(config, newTag, dryRun);
+  const baseEntries = isEmptyRange
+    ? [buildEmptyReleaseEntry(newVersion, today)]
+    : buildChangelogEntries(config, newTag);
+  const applied = applyChangelogOverrides(baseEntries, overrides);
+  if (applied.errors.length > 0) {
+    throw new Error(`Changelog override application failed:\n  - ${applied.errors.join('\n  - ')}`);
   }
+  overrideWarnings.push(...applied.warnings);
 
-  return { changelogFiles, changelogJsonFiles };
-}
-
-/**
- * Build entries via git-cliff and write them through `upsertChangelogJson` for each configured
- * changelog path. git-cliff is invoked unconditionally; only the file write is skipped under
- * `dryRun`. Returns the list of changelog.json file paths (always populated, even on dry-run).
- */
-function buildAndPersistChangelogJson(config: ReleaseConfig, newTag: string, dryRun: boolean): string[] {
+  const sectionOrder = deriveSectionOrder(resolveWorkTypes(config.workTypes));
+  const changelogFiles: string[] = [];
   const changelogJsonFiles: string[] = [];
-  const entries = buildChangelogEntries(config, newTag);
+
   for (const changelogPath of config.changelogPaths) {
     const jsonPath = resolveChangelogJsonPath(config, changelogPath);
-    if (!dryRun) {
-      upsertChangelogJson(jsonPath, entries);
-    }
-    changelogJsonFiles.push(jsonPath);
-  }
-  return changelogJsonFiles;
-}
+    // Only write `changelog.json` when `changelogJson.enabled`. When disabled (or dry-run), use
+    // the pure read-and-merge path so the markdown renderer still sees prior on-disk entries
+    // without creating or modifying the JSON file.
+    const shouldWriteJson = config.changelogJson.enabled && !dryRun;
+    const mergedEntries = shouldWriteJson
+      ? upsertChangelogJsonAndReturn(jsonPath, applied.entries)
+      : mergeChangelogEntriesWithDisk(jsonPath, applied.entries);
 
-/**
- * Empty-range counterpart to `generateChangelogs`. Writes a synthetic "Forced version bump."
- * section for each configured changelog path via `writeEmptyReleaseChangelog`. Returns the
- * list of changelog file paths (always populated, even on dry-run).
- */
-function writeEmptyRangeChangelogs(config: ReleaseConfig, newVersion: string, date: string, dryRun: boolean): string[] {
-  const changelogFiles: string[] = [];
-  for (const changelogPath of config.changelogPaths) {
+    if (config.changelogJson.enabled) {
+      changelogJsonFiles.push(jsonPath);
+    }
+
     changelogFiles.push(
-      writeEmptyReleaseChangelog({
+      writeChangelogMarkdown({
         changelogPath,
-        newVersion,
-        date,
+        entries: mergedEntries,
+        sectionOrder,
         dryRun,
       }),
     );
   }
-  return changelogFiles;
-}
 
-/**
- * Empty-range counterpart to `buildAndPersistChangelogJson`. Builds a synthetic
- * "Forced version bump." entry and upserts it for each configured changelog path. Returns
- * the list of `changelog.json` file paths (always populated, even on dry-run).
- */
-function upsertEmptyRangeChangelogJson(
-  config: ReleaseConfig,
-  newVersion: string,
-  date: string,
-  dryRun: boolean,
-): string[] {
-  const changelogJsonFiles: string[] = [];
-  const syntheticEntry = buildEmptyReleaseEntry(newVersion, date);
-  for (const changelogPath of config.changelogPaths) {
-    const jsonPath = resolveChangelogJsonPath(config, changelogPath);
-    if (!dryRun) {
-      upsertChangelogJson(jsonPath, [syntheticEntry]);
-    }
-    changelogJsonFiles.push(jsonPath);
-  }
-  return changelogJsonFiles;
+  return { changelogFiles, changelogJsonFiles };
 }
 
 /**
