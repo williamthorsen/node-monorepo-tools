@@ -5,6 +5,7 @@ const config: ReleaseKitConfig = {
   releaseNotes: {
     shouldInjectIntoReadme: true,
   },
+  retiredPackages: [{ name: '@williamthorsen/preflight', tagPrefix: 'preflight-v', successor: 'readyup' }],
   workspaces: [
     { dir: 'core', legacyIdentities: [{ name: '@williamthorsen/node-monorepo-core', tagPrefix: 'core-v' }] },
   ],
