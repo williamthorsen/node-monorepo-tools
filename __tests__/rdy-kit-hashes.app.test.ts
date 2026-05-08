@@ -4,7 +4,6 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { AUDIT_WORKFLOW_HASH } from '../.readyup/kits/audit-deps.ts';
 import {
   CLIFF_TEMPLATE_HASH,
   COMMON_PRESET_HASH,
@@ -14,6 +13,7 @@ import {
   RELEASE_WORKFLOW_HASH_SINGLE,
   SYNC_LABELS_WORKFLOW_HASH,
 } from '../.readyup/kits/release-kit.ts';
+import { AUDIT_WORKFLOW_HASH } from '../.readyup/kits/v11y-check.ts';
 import { publishWorkflow, releaseWorkflow } from '../packages/release-kit/src/init/templates.ts';
 import { syncLabelsWorkflow } from '../packages/release-kit/src/sync-labels/templates.ts';
 
@@ -66,7 +66,7 @@ describe('rdy kit hashes match source files', () => {
 
     expect(
       actualHash,
-      `AUDIT_WORKFLOW_HASH in .readyup/kits/audit-deps.ts is stale — update it to: ${actualHash}`,
+      `AUDIT_WORKFLOW_HASH in .readyup/kits/v11y-check.ts is stale — update it to: ${actualHash}`,
     ).toBe(AUDIT_WORKFLOW_HASH);
   });
 

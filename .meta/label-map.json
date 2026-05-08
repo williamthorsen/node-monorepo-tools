@@ -17,10 +17,10 @@
     "tooling": "tooling"
   },
   "scopes": {
-    "audit-deps": "scope:audit-deps",
     "core": "scope:core",
     "nmr": "scope:nmr",
     "release-kit": "scope:release-kit",
-    "root": "scope:root"
+    "root": "scope:root",
+    "v11y-check": "scope:v11y-check"
   }
 }

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://github.com/williamthorsen/node-monorepo-tools/raw/main/packages/v11y-check/schemas/config.json",
+  "dev": {
+    "severityThreshold": "moderate",
+    "allowlist": []
+  },
+  "prod": {
+    "severityThreshold": "low",
+    "allowlist": []
+  }
+}

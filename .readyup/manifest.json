@@ -2,12 +2,6 @@
   "version": 1,
   "kits": [
     {
-      "name": "audit-deps",
-      "path": "kits/audit-deps.js",
-      "source": "kits/audit-deps.ts",
-      "targetHash": "534487a2"
-    },
-    {
       "name": "default",
       "path": "kits/default.js",
       "source": "kits/default.ts",
@@ -17,7 +11,7 @@
       "name": "nmr",
       "path": "kits/nmr.js",
       "source": "kits/nmr.ts",
-      "targetHash": "8478e9ff"
+      "targetHash": "c1f5ab64"
     },
     {
       "name": "npm-auto-publish",
@@ -30,6 +24,12 @@
       "path": "kits/release-kit.js",
       "source": "kits/release-kit.ts",
       "targetHash": "f378932b"
+    },
+    {
+      "name": "v11y-check",
+      "path": "kits/v11y-check.js",
+      "source": "kits/v11y-check.ts",
+      "targetHash": "03eb8b74"
     }
   ]
 }

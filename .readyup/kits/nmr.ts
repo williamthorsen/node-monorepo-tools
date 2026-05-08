@@ -117,10 +117,10 @@ export default defineRdyKit({
 
         // -- Audit dependency --------------------------------------------------------
         {
-          name: 'audit-deps in devDependencies',
+          name: 'v11y-check in devDependencies',
           severity: 'warn',
-          check: () => hasDevDependency('audit-deps'),
-          fix: 'pnpm add --save-dev audit-deps',
+          check: () => hasDevDependency('v11y-check'),
+          fix: 'pnpm add --save-dev v11y-check',
         },
         {
           name: 'code-quality workflow does not use nmr ci',

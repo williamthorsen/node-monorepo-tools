@@ -4,10 +4,10 @@
 
 | Package                                               | Description                                                 |
 | ----------------------------------------------------- | ----------------------------------------------------------- |
-| [`audit-deps`](packages/audit-deps)                   | Wraps audit-ci with a richer config model and sync workflow |
 | [`@williamthorsen/nmr`](packages/nmr)                 | Context-aware script runner for PNPM monorepos              |
 | [`@williamthorsen/nmr-core`](packages/core)           | Shared utilities for monorepo tools                         |
 | [`@williamthorsen/release-kit`](packages/release-kit) | Version-bumping and changelog generation                    |
+| [`v11y-check`](packages/v11y-check)                   | Wraps audit-ci with a richer config model and sync workflow |
 
 ## Getting started
 
@@ -35,7 +35,7 @@ asdf install nodejs 18.12.1
 
 ## Recommended setup
 
-Install [direnv](https://direnv.net/) and run `direnv allow` from the repo root. The repo's `.envrc` adds `node_modules/.bin` to your `PATH`, so workspace bins like `nmr`, `release-kit`, and `audit-deps` resolve directly from any subdirectory.
+Install [direnv](https://direnv.net/) and run `direnv allow` from the repo root. The repo's `.envrc` adds `node_modules/.bin` to your `PATH`, so workspace bins like `nmr`, `release-kit`, and `v11y` resolve directly from any subdirectory.
 
 Without direnv, prefix workspace bins with `pnpm exec` (e.g., `pnpm exec nmr <command>`).
 

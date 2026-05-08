@@ -36,7 +36,6 @@
     "@williamthorsen/release-kit": "workspace:*",
     "@williamthorsen/strict-lint": "6.3.0",
     "@williamthorsen/toolbelt.objects": "3.2.6",
-    "audit-deps": "workspace:*",
     "esbuild": "0.28.0",
     "eslint": "9.39.4",
     "eslint-plugin-import": "2.32.0",
@@ -48,6 +47,7 @@
     "tsx": "4.21.0",
     "typescript": "5.9.3",
     "typescript-eslint": "8.59.2",
+    "v11y-check": "workspace:*",
     "vite": "8.0.11",
     "vitest": "4.1.5",
     "zod": "4.4.3"
