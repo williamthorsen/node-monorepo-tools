@@ -42,11 +42,16 @@ export interface ReleasePrepareProjectArgs {
    */
   overrides?: Map<string, ChangelogOverride>;
   /**
-   * Mutated in-place to surface zero-match override warnings. Defaults to a discardable
-   * sink when omitted; callers that want to surface warnings on `PrepareResult.warnings`
-   * must pass their own array.
+   * Mutated in-place to surface override warnings (currently empty by design — stale-key
+   * warnings are emitted by the orchestrator after aggregating across batches). Defaults to
+   * a discardable sink when omitted.
    */
   overrideWarnings?: string[];
+  /**
+   * Mutated in-place: every override key matched in this stage is added so the orchestrator
+   * can dedupe stale-key warnings across the run. Defaults to a discardable sink when omitted.
+   */
+  globalMatchedOverrideKeys?: Set<string>;
 }
 
 /**
@@ -67,8 +72,7 @@ export interface ReleasePrepareProjectArgs {
  */
 export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectPrepareResult {
   const { config, options, modifiedFiles, tags } = args;
-  const overrides = args.overrides ?? new Map<string, ChangelogOverride>();
-  const overrideWarnings = args.overrideWarnings ?? [];
+  const { overrides, overrideWarnings, globalMatchedOverrideKeys } = resolveOptionalOverrideArgs(args);
   const { dryRun, bumpOverride, withReleaseNotes, force } = options;
   const project = config.project;
   if (project === undefined) {
@@ -146,6 +150,7 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
     dryRun,
     overrides,
     overrideWarnings,
+    globalMatchedOverrideKeys,
   });
 
   // 9. Optional release-notes previews under root docs/.
@@ -194,6 +199,23 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
   return result;
 }
 
+/**
+ * Resolve the optional override-related fields on `ReleasePrepareProjectArgs` to concrete
+ * defaults. Hoisted from the main function body so its branch count does not push
+ * `releasePrepareProject` past the project's complexity ceiling.
+ */
+function resolveOptionalOverrideArgs(args: ReleasePrepareProjectArgs): {
+  overrides: Map<string, ChangelogOverride>;
+  overrideWarnings: string[];
+  globalMatchedOverrideKeys: Set<string>;
+} {
+  return {
+    overrides: args.overrides ?? new Map<string, ChangelogOverride>(),
+    overrideWarnings: args.overrideWarnings ?? [],
+    globalMatchedOverrideKeys: args.globalMatchedOverrideKeys ?? new Set<string>(),
+  };
+}
+
 /** Inputs to {@link writeProjectChangelogs}. */
 interface WriteProjectChangelogsArgs {
   config: MonorepoReleaseConfig;
@@ -205,6 +227,7 @@ interface WriteProjectChangelogsArgs {
   dryRun: boolean;
   overrides: Map<string, ChangelogOverride>;
   overrideWarnings: string[];
+  globalMatchedOverrideKeys: Set<string>;
 }
 
 /**
@@ -220,7 +243,18 @@ function writeProjectChangelogs(args: WriteProjectChangelogsArgs): {
   changelogFiles: string[];
   changelogJsonFiles: string[];
 } {
-  const { config, project, commits, contributingPaths, newTag, newVersion, dryRun, overrides, overrideWarnings } = args;
+  const {
+    config,
+    project,
+    commits,
+    contributingPaths,
+    newTag,
+    newVersion,
+    dryRun,
+    overrides,
+    overrideWarnings,
+    globalMatchedOverrideKeys,
+  } = args;
   const isEmptyRange = commits.length === 0;
   const today = new Date().toISOString().slice(0, 10);
   const tagPattern = buildTagPattern([project.tagPrefix]);
@@ -234,6 +268,9 @@ function writeProjectChangelogs(args: WriteProjectChangelogsArgs): {
     throw new Error(`Changelog override application failed:\n  - ${applied.errors.join('\n  - ')}`);
   }
   overrideWarnings.push(...applied.warnings);
+  for (const matched of applied.matchedKeys) {
+    globalMatchedOverrideKeys.add(matched);
+  }
 
   const changelogJsonPath = resolveChangelogJsonPath(config, ROOT_CHANGELOG_PATH);
   const sectionOrder = deriveSectionOrder(config.workTypes ?? { ...DEFAULT_WORK_TYPES });

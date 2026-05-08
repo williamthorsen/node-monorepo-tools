@@ -4,7 +4,12 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { applyChangelogOverrides, loadChangelogOverrides, validateChangelogOverrides } from '../changelogOverrides.ts';
+import {
+  applyChangelogOverrides,
+  formatStaleOverrideKeyWarning,
+  loadChangelogOverrides,
+  validateChangelogOverrides,
+} from '../changelogOverrides.ts';
 import type { ChangelogEntry } from '../types.ts';
 
 describe(loadChangelogOverrides, () => {
@@ -156,6 +161,7 @@ describe(applyChangelogOverrides, () => {
     expect(result.entries[0]?.sections[0]?.items[0]?.description).toBe('Item abc1234');
     expect(result.warnings).toStrictEqual([]);
     expect(result.errors).toStrictEqual([]);
+    expect(result.matchedKeys).toStrictEqual([]);
   });
 
   it('matches a full hash and applies the override', () => {
@@ -164,6 +170,7 @@ describe(applyChangelogOverrides, () => {
     const result = applyChangelogOverrides(entries, overrides);
     expect(result.entries[0]?.sections[0]?.items[0]?.description).toBe('Replacement description');
     expect(result.errors).toStrictEqual([]);
+    expect(result.matchedKeys).toStrictEqual(['abc1234567890']);
   });
 
   it('matches a short prefix when only one hash starts with it', () => {
@@ -185,11 +192,14 @@ describe(applyChangelogOverrides, () => {
     expect(result.entries[0]?.sections[0]?.items[0]?.description).toBe('Item abc111');
   });
 
-  it('reports a warning when a key matches no hash', () => {
+  it('omits a zero-match key from matchedKeys (caller decides whether to warn)', () => {
     const entries = [makeEntry(['abc111'])];
     const overrides = new Map([['xyz999', { description: 'Stale' }]]);
     const result = applyChangelogOverrides(entries, overrides);
-    expect(result.warnings[0]).toMatch(/did not match any commit hash/);
+    // The applier no longer emits per-batch zero-match warnings; the orchestrator
+    // aggregates `matchedKeys` across batches and warns on globally-stale keys exactly once.
+    expect(result.warnings).toStrictEqual([]);
+    expect(result.matchedKeys).toStrictEqual([]);
     expect(result.entries[0]?.sections[0]?.items[0]?.description).toBe('Item abc111');
   });
 
@@ -271,7 +281,28 @@ describe(applyChangelogOverrides, () => {
     const overrides = new Map([['anything', { description: 'Should not match' }]]);
     const result = applyChangelogOverrides(entries, overrides);
     expect(result.entries[0]?.sections[0]?.items[0]?.description).toBe('Bumped foo to 1.0.0');
-    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings).toStrictEqual([]);
+    expect(result.matchedKeys).toStrictEqual([]);
+  });
+
+  it('reports each matched key in matchedKeys with no warnings or errors', () => {
+    const entries = [makeEntry(['abc1234', 'def5678'])];
+    const overrides = new Map([
+      ['abc1234', { description: 'First' }],
+      ['def5678', { description: 'Second' }],
+    ]);
+    const result = applyChangelogOverrides(entries, overrides);
+    expect(new Set(result.matchedKeys)).toStrictEqual(new Set(['abc1234', 'def5678']));
+    expect(result.warnings).toStrictEqual([]);
+    expect(result.errors).toStrictEqual([]);
+  });
+
+  it('omits ambiguous-prefix keys from matchedKeys and surfaces an error instead', () => {
+    const entries = [makeEntry(['abc111', 'abc222'])];
+    const overrides = new Map([['abc', { description: 'Ambiguous' }]]);
+    const result = applyChangelogOverrides(entries, overrides);
+    expect(result.matchedKeys).toStrictEqual([]);
+    expect(result.errors[0]).toMatch(/ambiguous/);
   });
 
   it('does not mutate the input entries (purity check)', () => {
@@ -280,5 +311,13 @@ describe(applyChangelogOverrides, () => {
     const overrides = new Map([['abc1234', { description: 'Replacement' }]]);
     applyChangelogOverrides(entries, overrides);
     expect(entries).toStrictEqual(snapshot);
+  });
+});
+
+describe(formatStaleOverrideKeyWarning, () => {
+  it('includes the offending key and a stale-reference hint', () => {
+    const message = formatStaleOverrideKeyWarning('abc1234');
+    expect(message).toContain("'abc1234'");
+    expect(message).toMatch(/stale reference/);
   });
 });

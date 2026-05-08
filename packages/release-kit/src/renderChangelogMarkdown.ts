@@ -1,5 +1,5 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { dirname, join as joinPath } from 'node:path';
 
 import { renderReleaseNotesMulti } from './renderReleaseNotes.ts';
 import type { ChangelogEntry } from './types.ts';
@@ -68,7 +68,7 @@ export interface WriteChangelogMarkdownParams {
  */
 export function writeChangelogMarkdown(params: WriteChangelogMarkdownParams): string {
   const { changelogPath, entries, sectionOrder, dryRun = false } = params;
-  const filePath = `${changelogPath}/CHANGELOG.md`;
+  const filePath = joinPath(changelogPath, 'CHANGELOG.md');
 
   if (dryRun) {
     return filePath;

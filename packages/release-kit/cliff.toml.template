@@ -18,15 +18,10 @@
 # unique group (not per parser entry) — all parsers routing to the same group
 # share the same prefix.
 
-[changelog]
 # Markdown rendering is handled in-process by `renderChangelogMarkdown.ts`. cliff is invoked
-# only for `--context` JSON output (see `buildChangelogEntries.ts`), so the body template is
-# unused by release-kit. The `[git].commit_parsers` section below remains load-bearing for
-# group assignment in the `--context` payload.
-header = ""
-body = ""
-footer = ""
-trim = false
+# only for `--context` JSON output (see `buildChangelogEntries.ts`), so no `[changelog]` block
+# is needed. The `[git].commit_parsers` section below remains load-bearing for group
+# assignment in the `--context` payload.
 
 [git]
 conventional_commits = false

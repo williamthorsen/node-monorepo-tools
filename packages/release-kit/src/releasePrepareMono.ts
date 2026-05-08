@@ -12,7 +12,11 @@ import {
   resolveChangelogJsonPath,
   upsertChangelogJsonAndReturn,
 } from './changelogJsonFile.ts';
-import { applyChangelogOverrides, loadChangelogOverrides } from './changelogOverrides.ts';
+import {
+  applyChangelogOverrides,
+  formatStaleOverrideKeyWarning,
+  loadChangelogOverrides,
+} from './changelogOverrides.ts';
 import { createPolicyViolationCollector } from './collectPolicyViolations.ts';
 import { isForwardVersion } from './compareVersions.ts';
 import { decideRelease } from './decideRelease.ts';
@@ -107,9 +111,14 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
   const sectionOrder = deriveSectionOrder(resolveWorkTypes(config.workTypes));
 
   // Load editorial overrides once per prepare run (single repo-root file). Failure aborts the
-  // release with a clear error; warnings (zero-match keys) accumulate on `overrideWarnings`.
+  // release with a clear error; per-batch warnings accumulate on `overrideWarnings`.
+  // `globalMatchedOverrideKeys` tracks every key that matched in any workspace or project
+  // apply call; after all calls complete, keys NOT in this set are genuinely stale and warned
+  // exactly once. This prevents N×M cross-workspace warning noise when an override targets a
+  // commit that lives in only one workspace's history.
   const overrides = loadOverridesOrThrow(config.overridesPath);
   const overrideWarnings: string[] = [];
+  const globalMatchedOverrideKeys = new Set<string>();
 
   // === Phase 1: Determine direct bumps ===
   const { directBumps, directResults, skippedResults, currentVersions } = determineDirectBumps(config, options);
@@ -160,6 +169,7 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
     previewOptions,
     overrides,
     overrideWarnings,
+    globalMatchedOverrideKeys,
     sectionOrder,
   });
 
@@ -182,12 +192,29 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
   let project: ProjectPrepareResult | undefined;
   if (config.project !== undefined) {
     project = tryStage('project release stage', () =>
-      releasePrepareProject({ config, options, modifiedFiles, tags, overrides, overrideWarnings }),
+      releasePrepareProject({
+        config,
+        options,
+        modifiedFiles,
+        tags,
+        overrides,
+        overrideWarnings,
+        globalMatchedOverrideKeys,
+      }),
     );
   }
 
   // === Phase 4: Format ===
   const formatCommand = runFormatCommand(config, tags, modifiedFiles, dryRun);
+
+  // Emit one stale-key warning per override key that didn't match in any workspace OR project
+  // apply call. Keys matched in at least one batch are correctly applied; warning about them
+  // would be misleading (the override isn't stale, it just didn't apply to every workspace).
+  for (const overrideKey of overrides.keys()) {
+    if (!globalMatchedOverrideKeys.has(overrideKey)) {
+      overrideWarnings.push(formatStaleOverrideKeyWarning(overrideKey));
+    }
+  }
 
   const allWarnings = [...warnings, ...overrideWarnings];
 
@@ -401,6 +428,8 @@ interface ExecuteReleaseSetArgs {
   previewOptions: PreviewOptions;
   overrides: Map<string, ChangelogOverride>;
   overrideWarnings: string[];
+  /** Mutated in-place: each workspace's matched override keys are added so the orchestrator can dedupe stale-key warnings across the run. */
+  globalMatchedOverrideKeys: Set<string>;
   sectionOrder: string[];
 }
 
@@ -417,6 +446,7 @@ function executeReleaseSet(args: ExecuteReleaseSetArgs): { tags: string[]; modif
     previewOptions,
     overrides,
     overrideWarnings,
+    globalMatchedOverrideKeys,
     sectionOrder,
   } = args;
   const tags: string[] = [];
@@ -450,6 +480,7 @@ function executeReleaseSet(args: ExecuteReleaseSetArgs): { tags: string[]; modif
         previewOptions,
         overrides,
         overrideWarnings,
+        globalMatchedOverrideKeys,
         sectionOrder,
       }),
     );
@@ -474,6 +505,7 @@ interface ExecuteWorkspaceReleaseArgs {
   previewOptions: PreviewOptions;
   overrides: Map<string, ChangelogOverride>;
   overrideWarnings: string[];
+  globalMatchedOverrideKeys: Set<string>;
   sectionOrder: string[];
 }
 
@@ -494,6 +526,7 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     previewOptions,
     overrides,
     overrideWarnings,
+    globalMatchedOverrideKeys,
     sectionOrder,
   } = args;
 
@@ -526,6 +559,7 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     previewOptions,
     overrides,
     overrideWarnings,
+    globalMatchedOverrideKeys,
     sectionOrder,
   });
 
@@ -620,6 +654,7 @@ interface GenerateWorkspaceChangelogsArgs {
   previewOptions: PreviewOptions;
   overrides: Map<string, ChangelogOverride>;
   overrideWarnings: string[];
+  globalMatchedOverrideKeys: Set<string>;
   sectionOrder: string[];
 }
 
@@ -644,6 +679,7 @@ function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): str
     previewOptions,
     overrides,
     overrideWarnings,
+    globalMatchedOverrideKeys,
     sectionOrder,
   } = args;
 
@@ -663,6 +699,9 @@ function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): str
     throw new Error(`Changelog override application failed:\n  - ${applied.errors.join('\n  - ')}`);
   }
   overrideWarnings.push(...applied.warnings);
+  for (const matched of applied.matchedKeys) {
+    globalMatchedOverrideKeys.add(matched);
+  }
 
   const changelogFiles: string[] = [];
   let firstChangelogJsonPath: string | undefined;

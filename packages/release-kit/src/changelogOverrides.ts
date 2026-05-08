@@ -157,8 +157,11 @@ function validateSingleOverride(key: string, rawEntry: unknown, errors: string[]
  * Validate the `audience` field. v1 accepts only `'skip'`; the on-disk format declares the
  * full `'all' | 'dev' | 'skip'` vocabulary so future v2 reclassification needs no schema
  * change. `'all'` and `'dev'` are rejected with an explicit "not yet supported" error.
+ *
+ * Returns `'skip' | undefined` because v1 narrows to `'skip'` after both guards. v2 will
+ * widen this return type to `'all' | 'dev' | 'skip'` once those audiences become supported.
  */
-function validateAudience(key: string, value: unknown, errors: string[]): 'all' | 'dev' | 'skip' | undefined {
+function validateAudience(key: string, value: unknown, errors: string[]): 'skip' | undefined {
   if (typeof value !== 'string' || !VALID_AUDIENCE_VALUES.has(value)) {
     errors.push(`overrides['${key}']: 'audience' must be one of 'all' | 'dev' | 'skip'`);
     return undefined;
@@ -167,20 +170,31 @@ function validateAudience(key: string, value: unknown, errors: string[]): 'all' 
     errors.push(`overrides['${key}']: audience '${value}' is not yet supported; only 'skip' is currently accepted`);
     return undefined;
   }
-  // value is one of 'all' | 'dev' | 'skip' (verified above), and v1-supported.
-  if (value === 'all' || value === 'dev' || value === 'skip') {
-    return value;
-  }
-  return undefined;
+  return 'skip';
+}
+
+/**
+ * Format the standard "stale override key" warning. Callers compute the set of stale keys
+ * (keys that didn't match anywhere) and use this helper to surface them uniformly. Centralized
+ * so single-package and monorepo flows produce identical warning text.
+ */
+export function formatStaleOverrideKeyWarning(key: string): string {
+  return `Override key '${key}' did not match any commit hash in the changelog (likely a stale reference)`;
 }
 
 /**
  * Apply overrides to a `ChangelogEntry[]`, returning a new array. Pure: no mutation, no I/O.
  *
  * Match algorithm: each override key is treated as a string-prefix against `ChangelogItem.hash`.
- * - 0 matches → warning (likely stale reference after a rebase).
- * - 1 match → apply each present override field to the matched item.
+ * - 0 matches → key is recorded as unmatched in this batch (no warning emitted here).
+ * - 1 match → apply each present override field to the matched item, record key as matched.
  * - 2+ matches → error (ambiguous prefix).
+ *
+ * `matchedKeys` lists the override keys that resolved to exactly one item in this batch.
+ * Callers are responsible for computing stale-key warnings: in a monorepo run, an override
+ * may target a commit that lives in another workspace, so the per-batch zero-match signal is
+ * insufficient on its own. Single-package and monorepo orchestrators format warnings using
+ * `formatStaleOverrideKeyWarning` after aggregating `matchedKeys` across all apply calls.
  *
  * v1 audience semantics:
  * - `'skip'` removes the matched item from its containing section. Empty sections are pruned.
@@ -195,12 +209,13 @@ function validateAudience(key: string, value: unknown, errors: string[]): 'all' 
 export function applyChangelogOverrides(
   entries: ChangelogEntry[],
   overrides: Map<string, ChangelogOverride>,
-): { entries: ChangelogEntry[]; warnings: string[]; errors: string[] } {
+): { entries: ChangelogEntry[]; warnings: string[]; errors: string[]; matchedKeys: string[] } {
   const warnings: string[] = [];
   const errors: string[] = [];
+  const matchedKeys: string[] = [];
 
   if (overrides.size === 0) {
-    return { entries: entries.map(cloneEntry), warnings, errors };
+    return { entries: entries.map(cloneEntry), warnings, errors, matchedKeys };
   }
 
   // Pre-compute every hash present in the entry tree so each override key can resolve its
@@ -216,15 +231,12 @@ export function applyChangelogOverrides(
     }
   }
 
-  // Resolve each override key to its set of matching hashes, accumulating warnings/errors for
-  // 0-match and ambiguous-prefix cases.
+  // Resolve each override key to its set of matching hashes. Zero-match keys are not warned
+  // at this layer (caller aggregates across batches); ambiguous prefixes are an error.
   const keyToMatchedHashes = new Map<string, string[]>();
   for (const overrideKey of overrides.keys()) {
     const matches = allHashes.filter((hash) => hash.startsWith(overrideKey));
     if (matches.length === 0) {
-      warnings.push(
-        `Override key '${overrideKey}' did not match any commit hash in the changelog (likely a stale reference)`,
-      );
       continue;
     }
     if (matches.length > 1) {
@@ -235,6 +247,7 @@ export function applyChangelogOverrides(
       continue;
     }
     keyToMatchedHashes.set(overrideKey, matches);
+    matchedKeys.push(overrideKey);
   }
 
   // Build a hash → override lookup so the iteration loop can dispatch overrides per item.
@@ -263,7 +276,7 @@ export function applyChangelogOverrides(
     transformedEntries.push({ ...entry, sections: transformedSections });
   }
 
-  return { entries: transformedEntries, warnings, errors };
+  return { entries: transformedEntries, warnings, errors, matchedKeys };
 }
 
 /** Apply per-item overrides, dropping items whose `audience` resolves to `'skip'`. */

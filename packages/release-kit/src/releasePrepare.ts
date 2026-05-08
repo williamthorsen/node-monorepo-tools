@@ -9,7 +9,11 @@ import {
   resolveChangelogJsonPath,
   upsertChangelogJsonAndReturn,
 } from './changelogJsonFile.ts';
-import { applyChangelogOverrides, loadChangelogOverrides } from './changelogOverrides.ts';
+import {
+  applyChangelogOverrides,
+  formatStaleOverrideKeyWarning,
+  loadChangelogOverrides,
+} from './changelogOverrides.ts';
 import { createPolicyViolationCollector } from './collectPolicyViolations.ts';
 import { isForwardVersion } from './compareVersions.ts';
 import {
@@ -370,6 +374,13 @@ function writeSinglePackageChangelogs(args: WriteSinglePackageChangelogsArgs): {
     throw new Error(`Changelog override application failed:\n  - ${applied.errors.join('\n  - ')}`);
   }
   overrideWarnings.push(...applied.warnings);
+  // Single-package: a key that didn't match this batch is genuinely stale (no other batches).
+  const matchedSet = new Set(applied.matchedKeys);
+  for (const overrideKey of overrides.keys()) {
+    if (!matchedSet.has(overrideKey)) {
+      overrideWarnings.push(formatStaleOverrideKeyWarning(overrideKey));
+    }
+  }
 
   const sectionOrder = deriveSectionOrder(resolveWorkTypes(config.workTypes));
   const changelogFiles: string[] = [];
