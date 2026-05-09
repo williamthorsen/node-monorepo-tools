@@ -206,7 +206,6 @@ function applyOptionalPassthroughFields(
   result: {
     formatCommand?: string;
     cliffConfigPath?: string;
-    overridesPath?: string;
     scopeAliases?: Record<string, string>;
     breakingPolicies?: Record<string, 'forbidden' | 'optional' | 'required'>;
   },
@@ -217,9 +216,6 @@ function applyOptionalPassthroughFields(
   }
   if (userConfig?.cliffConfigPath !== undefined) {
     result.cliffConfigPath = userConfig.cliffConfigPath;
-  }
-  if (userConfig?.overridesPath !== undefined) {
-    result.overridesPath = userConfig.overridesPath;
   }
   if (userConfig?.scopeAliases !== undefined) {
     result.scopeAliases = userConfig.scopeAliases;

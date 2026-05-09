@@ -1,5 +1,4 @@
 import { execSync } from 'node:child_process';
-import path from 'node:path';
 
 import { buildChangelogEntries } from './buildChangelogEntries.ts';
 import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
@@ -12,16 +11,11 @@ import {
 import {
   applyChangelogOverrides,
   formatStaleOverrideKeyWarning,
-  loadChangelogOverrides,
+  loadOverridesForScopes,
 } from './changelogOverrides.ts';
 import { createPolicyViolationCollector } from './collectPolicyViolations.ts';
 import { isForwardVersion } from './compareVersions.ts';
-import {
-  DEFAULT_BREAKING_POLICIES,
-  DEFAULT_OVERRIDES_PATH,
-  DEFAULT_VERSION_PATTERNS,
-  DEFAULT_WORK_TYPES,
-} from './defaults.ts';
+import { DEFAULT_BREAKING_POLICIES, DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { determineBumpFromCommits } from './determineBumpFromCommits.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
@@ -86,7 +80,16 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   const workTypes = config.workTypes ?? { ...DEFAULT_WORK_TYPES };
   const versionPatterns = config.versionPatterns ?? { ...DEFAULT_VERSION_PATTERNS };
   const breakingPolicies = config.breakingPolicies ?? DEFAULT_BREAKING_POLICIES;
-  const overrides = loadOverridesOrThrow(config.overridesPath);
+
+  // Load editorial overrides for the project tier. Single-package mode collapses to one tier
+  // (no workspaces to compose), so there's nothing to bundle into an `OverrideContext`.
+  // Aborts the release on any malformed file before any writes — same upfront-failure
+  // contract as the monorepo path, just over a single file.
+  const overridesResult = loadOverridesForScopes({ project: '.' });
+  if (overridesResult.errors.length > 0) {
+    throw new Error(`Failed to load changelog overrides:\n  - ${overridesResult.errors.join('\n  - ')}`);
+  }
+  const overrides = overridesResult.project;
 
   // 1. Get commits since last tag
   const { tag, commits } = getCommitsSinceTarget([config.tagPrefix]);
@@ -220,22 +223,6 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
     result.warnings = overrideWarnings;
   }
   return result;
-}
-
-/**
- * Resolve the override path (defaulting to `.changelog-overrides.json` relative to
- * `process.cwd()`) and load the overrides. Aborts the release with a clear error when the
- * file is malformed or any per-entry validation fails — checked-in editorial config that
- * does not parse is a bug, not a warning.
- */
-function loadOverridesOrThrow(overridesPath: string | undefined): Map<string, ChangelogOverride> {
-  const resolved = overridesPath ?? DEFAULT_OVERRIDES_PATH;
-  const absolutePath = path.isAbsolute(resolved) ? resolved : path.resolve(process.cwd(), resolved);
-  const result = loadChangelogOverrides(absolutePath);
-  if ('errors' in result) {
-    throw new Error(`Failed to load changelog overrides from ${resolved}:\n  - ${result.errors.join('\n  - ')}`);
-  }
-  return result.overrides;
 }
 
 /** Inputs to {@link buildSkippedSinglePackage}. */

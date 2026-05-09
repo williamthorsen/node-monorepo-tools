@@ -1,7 +1,11 @@
 import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 
 import { isRecord } from './typeGuards.ts';
-import type { ChangelogEntry, ChangelogItem, ChangelogOverride, ChangelogSection } from './types.ts';
+import type { ChangelogEntry, ChangelogItem, ChangelogOverride, ChangelogSection, WorkspaceConfig } from './types.ts';
+
+/** Conventional override-file location relative to a scope root (project, workspace, or single-package). */
+const OVERRIDES_FILENAME = '.meta/changelog-overrides.json';
 
 /** Allowed audience values declared in the on-disk override format (full forward-compatible vocabulary). */
 const VALID_AUDIENCE_VALUES = new Set(['all', 'dev', 'skip']);
@@ -335,4 +339,178 @@ function cloneEntry(entry: ChangelogEntry): ChangelogEntry {
     ...entry,
     sections: entry.sections.map((section) => ({ ...section, items: section.items.map(cloneItem) })),
   };
+}
+
+/**
+ * Resolve the conventional override-file path for a given scope root.
+ *
+ * `scopeRoot` is the directory at which a scope's other artifacts live (e.g., `'.'` for the
+ * project, `'packages/foo'` for a workspace). The returned path is repo-relative.
+ */
+export function resolveOverridePath(scopeRoot: string): string {
+  return path.posix.join(scopeRoot, OVERRIDES_FILENAME);
+}
+
+/** Result of {@link loadOverridesForScopes}: per-scope maps plus accumulated load/validation errors. */
+export interface LoadOverridesForScopesResult {
+  /** Project-tier (root) overrides. Empty map when the project file is absent. */
+  project: Map<string, ChangelogOverride>;
+  /** Workspace-tier overrides keyed by `workspacePath` (e.g., `'packages/foo'`). Empty map when absent. */
+  perWorkspace: Map<string, Map<string, ChangelogOverride>>;
+  /** All load and validation errors across every requested scope, prefixed with the offending file path. */
+  errors: string[];
+}
+
+/**
+ * Load and validate every requested override file in one pass.
+ *
+ * Iterates the configured scope roots, calls {@link loadChangelogOverrides} for each, and
+ * aggregates errors across all files (rather than throwing on the first failure) so a
+ * consumer who edits multiple files at once sees every problem in one report. Missing files
+ * resolve to empty maps — matches the existing single-file behavior.
+ *
+ * The caller is expected to surface a combined error when `errors.length > 0` and abort the
+ * release before any workspace begins writing.
+ */
+export function loadOverridesForScopes(scopes: {
+  project?: string;
+  workspaces?: string[];
+}): LoadOverridesForScopesResult {
+  const errors: string[] = [];
+  let project = new Map<string, ChangelogOverride>();
+  const perWorkspace = new Map<string, Map<string, ChangelogOverride>>();
+
+  if (scopes.project !== undefined) {
+    const result = loadChangelogOverrides(resolveOverridePath(scopes.project));
+    if ('errors' in result) {
+      errors.push(...result.errors);
+    } else {
+      project = result.overrides;
+    }
+  }
+
+  for (const workspacePath of scopes.workspaces ?? []) {
+    const result = loadChangelogOverrides(resolveOverridePath(workspacePath));
+    if ('errors' in result) {
+      errors.push(...result.errors);
+    } else if (result.overrides.size > 0) {
+      perWorkspace.set(workspacePath, result.overrides);
+    }
+  }
+
+  return { project, perWorkspace, errors };
+}
+
+/**
+ * Compose root and workspace override maps into a single effective map for one workspace.
+ *
+ * Byte-equal-key shadowing: when a workspace key string-equals a root key, the workspace
+ * entry wins entirely (no field-level merge) and supplants the root entry in the result.
+ * Different-prefix keys that happen to resolve to the same commit do NOT shadow here — they
+ * fall through to the existing ambiguous-prefix error in {@link applyChangelogOverrides}.
+ *
+ * Pure: never mutates inputs.
+ */
+export function composeOverrides(
+  rootEntries: Map<string, ChangelogOverride>,
+  workspaceEntries: Map<string, ChangelogOverride> | undefined,
+): Map<string, ChangelogOverride> {
+  const composed = new Map<string, ChangelogOverride>(rootEntries);
+  if (workspaceEntries !== undefined) {
+    for (const [key, value] of workspaceEntries) {
+      composed.set(key, value);
+    }
+  }
+  return composed;
+}
+
+/**
+ * Shared override-application context threaded through the per-workspace and project apply
+ * sites. Bundles the loaded per-scope maps with the run-scoped warning aggregators so each
+ * call site can both consume the maps it needs and report into the same warning channel.
+ *
+ * `globalMatchedRootKeys` tracks ROOT keys matched in any apply call. Workspace-sourced
+ * matched keys are not added here — they're tracked locally per workspace because their
+ * stale-key semantics are local (a workspace key that doesn't match in its own workspace is
+ * unambiguously stale and is warned immediately, not aggregated to end-of-run).
+ */
+export interface OverrideContext {
+  project: Map<string, ChangelogOverride>;
+  perWorkspace: Map<string, Map<string, ChangelogOverride>>;
+  overrideWarnings: string[];
+  globalMatchedRootKeys: Set<string>;
+}
+
+/**
+ * Load all per-scope override files (root + every workspace) in one upfront pass, validate
+ * them, and bundle the results with run-scoped warning aggregators. Aborts the release with
+ * a clear error when any file is malformed — checked-in editorial config that does not parse
+ * is a bug, and we want the prepare run to fail before any workspace begins writing.
+ */
+export function createOverrideContext(workspaces: WorkspaceConfig[]): OverrideContext {
+  const result = loadOverridesForScopes({
+    project: '.',
+    workspaces: workspaces.map((workspace) => workspace.workspacePath),
+  });
+  if (result.errors.length > 0) {
+    throw new Error(`Failed to load changelog overrides:\n  - ${result.errors.join('\n  - ')}`);
+  }
+  return {
+    project: result.project,
+    perWorkspace: result.perWorkspace,
+    overrideWarnings: [],
+    globalMatchedRootKeys: new Set<string>(),
+  };
+}
+
+/**
+ * Apply the composed (root + workspace) override map to a workspace's changelog entries and
+ * report stale-key warnings tier-by-tier.
+ *
+ * The composed map is applied in a single {@link applyChangelogOverrides} call. Matched keys
+ * are demultiplexed by source via `Map.has` lookups on the original (uncomposed) maps so the
+ * stale-key semantics stay tier-aware:
+ *
+ * - Workspace-sourced keys (those present in the per-workspace map, regardless of whether
+ *   the root map also has the same byte-equal key) that did NOT match are unambiguously
+ *   stale in their own apply context — push an immediate stale warning naming the key.
+ * - Root-sourced matched keys (present in root, absent from this workspace's map) are added
+ *   to `globalMatchedRootKeys` so the orchestrator's end-of-run loop can dedupe across
+ *   batches and warn only on root keys that matched nowhere.
+ *
+ * Throws when any apply call surfaces an error (e.g. ambiguous prefix). Returns the applied
+ * result so the caller can consume `applied.entries` for downstream rendering.
+ */
+export function applyWorkspaceOverrides(
+  newEntries: ChangelogEntry[],
+  workspacePath: string,
+  overrideContext: OverrideContext,
+): ReturnType<typeof applyChangelogOverrides> {
+  const { project, perWorkspace, overrideWarnings, globalMatchedRootKeys } = overrideContext;
+  const workspaceOverrides = perWorkspace.get(workspacePath);
+  const composed = composeOverrides(project, workspaceOverrides);
+  const applied = applyChangelogOverrides(newEntries, composed);
+  if (applied.errors.length > 0) {
+    throw new Error(`Changelog override application failed:\n  - ${applied.errors.join('\n  - ')}`);
+  }
+  overrideWarnings.push(...applied.warnings);
+
+  const matchedSet = new Set(applied.matchedKeys);
+  // Workspace tier: every workspace key not in the matched set is stale here and now.
+  if (workspaceOverrides !== undefined) {
+    for (const key of workspaceOverrides.keys()) {
+      if (!matchedSet.has(key)) {
+        overrideWarnings.push(formatStaleOverrideKeyWarning(key));
+      }
+    }
+  }
+  // Root tier: only matched keys that came from root (i.e., not shadowed by a byte-equal
+  // workspace key) contribute to the global aggregator. Membership in `project` is an
+  // invariant — `applied.matchedKeys` is a subset of `composed.keys() = project ∪ workspace`,
+  // so once the workspace-shadow check skips out, every remaining key is in `project`.
+  for (const key of applied.matchedKeys) {
+    if (workspaceOverrides?.has(key)) continue;
+    globalMatchedRootKeys.add(key);
+  }
+  return applied;
 }

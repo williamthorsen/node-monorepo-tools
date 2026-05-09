@@ -70,7 +70,7 @@ export interface ChangelogOverride {
   breaking?: boolean;
 }
 
-/** On-disk shape of `.changelog-overrides.json`: a flat record keyed by commit hash or prefix. */
+/** On-disk shape of `.meta/changelog-overrides.json`: a flat record keyed by commit hash or prefix. */
 export type ChangelogOverridesFile = Record<string, ChangelogOverride>;
 
 /** Configuration for release notes consumption (README injection). */
@@ -353,13 +353,6 @@ export interface ReleaseKitConfig {
   /** Path to the cliff.toml file; defaults to 'cliff.toml' when absent. */
   cliffConfigPath?: string;
   /**
-   * Path to the editorial overrides file; defaults to `.changelog-overrides.json` (relative
-   * to `process.cwd()`) when absent. The file is optional — when missing, no overrides are
-   * applied and behavior matches pre-override release-kit. See README "Editorial overrides"
-   * for the file format and matching semantics.
-   */
-  overridesPath?: string;
-  /**
    * Maps scope shorthand names to their canonical names.
    * When a commit uses `shorthand|type: description` or `type(shorthand): description`,
    * the shorthand is resolved to the canonical scope name before the parsed commit is returned.
@@ -515,8 +508,6 @@ export interface MonorepoReleaseConfig {
   formatCommand?: string;
   /** Path to the cliff.toml file; defaults to 'cliff.toml' when absent. */
   cliffConfigPath?: string;
-  /** Path to the editorial overrides file; defaults to `.changelog-overrides.json` when absent. */
-  overridesPath?: string;
   /**
    * Maps scope shorthand names to their canonical names.
    * When a commit uses `shorthand|type: description` or `type(shorthand): description`,
@@ -561,8 +552,6 @@ export interface ReleaseConfig {
   formatCommand?: string;
   /** Path to the cliff.toml file; defaults to 'cliff.toml' when absent. */
   cliffConfigPath?: string;
-  /** Path to the editorial overrides file; defaults to `.changelog-overrides.json` when absent. */
-  overridesPath?: string;
   /**
    * Maps scope shorthand names to their canonical names.
    * When a commit uses `shorthand|type: description` or `type(shorthand): description`,

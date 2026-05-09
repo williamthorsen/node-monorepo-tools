@@ -2740,4 +2740,76 @@ describe(releasePrepareMono, () => {
       expect(countCliffCalls()).toBe(0);
     });
   });
+
+  describe('editorial overrides wiring', () => {
+    // Integration coverage for the per-scope override flow. Helper-level tests in
+    // `changelogOverrides.unit.test.ts` cover the per-helper behavior; this group asserts the
+    // orchestrator's threading — that warnings produced by `applyWorkspaceOverrides` reach the
+    // final `PrepareResult.warnings` array.
+    it('surfaces a per-workspace stale-key warning on PrepareResult.warnings', () => {
+      const config = makeConfig({
+        workspaces: [
+          {
+            dir: 'arrays',
+            name: '@test/arrays',
+            tagPrefix: 'arrays-v',
+            workspacePath: 'packages/arrays',
+            isPublishable: true,
+            packageFiles: ['packages/arrays/package.json'],
+            changelogPaths: ['packages/arrays'],
+            paths: ['packages/arrays/**'],
+          },
+        ],
+      });
+
+      // Stub git: one commit since the previous tag, with a known hash that does NOT match
+      // the override key the workspace file declares.
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') {
+          return 'arrays-v1.0.0\n';
+        }
+        if (cmd === 'git' && args[0] === 'log') {
+          return 'feat: add utilityrealcommithash';
+        }
+        return '';
+      });
+
+      // Surface the workspace's `.meta/changelog-overrides.json` to the loader. Every other
+      // existsSync probe (e.g., for prettier config) returns false.
+      const workspaceOverridePath = 'packages/arrays/.meta/changelog-overrides.json';
+      mockExistsSync.mockImplementation((path: string) => path.endsWith(workspaceOverridePath));
+      mockReadFileSync.mockImplementation((path: string) => {
+        if (typeof path === 'string' && path.endsWith(workspaceOverridePath)) {
+          return JSON.stringify({ staleKeyAaa: { audience: 'skip' } });
+        }
+        return JSON.stringify({ name: '@test/arrays', version: '1.0.0' });
+      });
+
+      // Provide a stub changelog entry whose hash does NOT match the override key; the
+      // override is therefore stale and the workspace-tier rule warns immediately.
+      mockBuildChangelogEntries.mockReturnValue([
+        {
+          version: '1.1.0',
+          date: '2024-01-01',
+          sections: [
+            {
+              title: 'Features',
+              audience: 'all',
+              items: [{ description: 'Add utility', hash: 'realcommithash' }],
+            },
+          ],
+        },
+      ]);
+
+      const result = releasePrepareMono(config, { dryRun: false });
+
+      // The per-workspace stale-key warning must surface on PrepareResult.warnings — proves
+      // `applyWorkspaceOverrides`'s `overrideWarnings.push(...)` is correctly threaded through
+      // the orchestrator's final aggregation.
+      expect(result.warnings).toBeDefined();
+      const warnings = result.warnings ?? [];
+      expect(warnings.some((message) => message.includes("'staleKeyAaa'"))).toBe(true);
+      expect(warnings.some((message) => /stale reference/.test(message))).toBe(true);
+    });
+  });
 });
