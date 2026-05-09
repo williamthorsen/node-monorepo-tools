@@ -2,7 +2,7 @@
 
 Version-bumping and changelog-generation toolkit for release workflows.
 
-Provides a self-contained CLI that auto-discovers workspaces from `pnpm-workspace.yaml`, parses conventional commits, determines version bumps, updates `package.json` files, and generates changelogs with `git-cliff`.
+Provides a self-contained CLI that auto-discovers workspaces from `pnpm-workspace.yaml`, parses conventional commits, determines version bumps, updates `package.json` files, and generates changelogs from `git-cliff --context` output rendered in-process (with optional [editorial overrides](#editorial-overrides)).
 
 <!-- section:release-notes --><!-- /section:release-notes -->
 
@@ -34,7 +34,7 @@ Example output from `prepare --dry-run` in a monorepo:
   📦 1.2.0 → 1.3.0 (minor)
   [dry-run] Would bump packages/arrays/package.json
   Generating changelogs...
-  [dry-run] Would run: npx --yes git-cliff ... --output packages/arrays/CHANGELOG.md
+  [dry-run] Would write packages/arrays/CHANGELOG.md
   🏷️  arrays-v1.3.0
 
 ── strings ─────────────────────────────────────
@@ -44,7 +44,7 @@ Example output from `prepare --dry-run` in a monorepo:
   📦 0.5.1 → 0.5.2 (patch)
   [dry-run] Would bump packages/strings/package.json
   Generating changelogs...
-  [dry-run] Would run: npx --yes git-cliff ... --output packages/strings/CHANGELOG.md
+  [dry-run] Would write packages/strings/CHANGELOG.md
   🏷️  strings-v0.5.2
 
 ✅ Release preparation complete.
@@ -59,7 +59,7 @@ That's it for most repos. The CLI auto-discovers workspaces and applies sensible
 1. **Workspace discovery**: reads `pnpm-workspace.yaml` and resolves its `packages` globs to find workspace directories. Each directory containing a `package.json` becomes a workspace. If no workspace file is found, the repo is treated as a single-package project.
 2. **Config loading**: loads `.config/release-kit.config.ts` (if present) via [jiti](https://github.com/unjs/jiti) and merges it with discovered defaults.
 3. **Commit analysis**: for each workspace, finds commits since the last version tag, parses them for type and scope, and determines the appropriate version bump.
-4. **Version bump + changelog**: bumps `package.json` versions and generates changelogs via `git-cliff`.
+4. **Version bump + changelog**: bumps `package.json` versions, builds structured `ChangelogEntry[]` from `git-cliff --context`, applies any editorial overrides from [`.changelog-overrides.json`](#editorial-overrides), and renders both `CHANGELOG.md` and `.meta/changelog.json` from that single source. `git-cliff` is invoked only for its `--context` JSON; markdown rendering happens in-process so `.meta/changelog.json` and `CHANGELOG.md` always agree.
 5. **Release tags file**: writes computed tags to `tmp/.release-tags` for the release workflow to read when tagging and pushing.
 
 ## Commit format
@@ -107,17 +107,18 @@ The config file supports both `export default config` and `export const config =
 
 ### `ReleaseKitConfig` reference
 
-| Field              | Type                                                      | Description                                                                                                                                          |
-| ------------------ | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `cliffConfigPath`  | `string`                                                  | Explicit path to cliff config. If omitted, resolved automatically: `.config/git-cliff.toml` → `cliff.toml` → bundled template                        |
-| `workspaces`       | `WorkspaceOverride[]`                                     | Override or exclude discovered workspaces (matched by `dir`)                                                                                         |
-| `formatCommand`    | `string`                                                  | Shell command to run after changelog generation; modified file paths are appended as arguments                                                       |
-| `versionPatterns`  | `VersionPatterns`                                         | Rules for which commit types trigger major/minor bumps                                                                                               |
-| `scopeAliases`     | `Record<string, string>`                                  | Maps shorthand scope names to canonical names in commits                                                                                             |
-| `workTypes`        | `Record<string, WorkTypeConfig>`                          | Work type definitions, merged with defaults by key                                                                                                   |
-| `breakingPolicies` | `Record<string, 'forbidden' \| 'optional' \| 'required'>` | Per-type `!`-policy lookup. Defaults to `DEFAULT_BREAKING_POLICIES`. Replaces the default entirely when provided. Set to `{}` to disable enforcement |
-| `retiredPackages`  | `RetiredPackage[]`                                        | Packages that once lived in this repo but have been extracted or removed; suppresses undeclared-tag-prefix warnings                                  |
-| `project`          | `ProjectConfig`                                           | Opt-in project-level release block. Declaring `project: {}` (even empty) enables a project-release stage in `prepare`                                |
+| Field              | Type                                                      | Description                                                                                                                                           |
+| ------------------ | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cliffConfigPath`  | `string`                                                  | Explicit path to cliff config. If omitted, resolved automatically: `.config/git-cliff.toml` → `cliff.toml` → bundled template                         |
+| `overridesPath`    | `string`                                                  | Path to the editorial overrides file (see [Editorial overrides](#editorial-overrides)). Defaults to `.changelog-overrides.json` relative to repo root |
+| `workspaces`       | `WorkspaceOverride[]`                                     | Override or exclude discovered workspaces (matched by `dir`)                                                                                          |
+| `formatCommand`    | `string`                                                  | Shell command to run after changelog generation; modified file paths are appended as arguments                                                        |
+| `versionPatterns`  | `VersionPatterns`                                         | Rules for which commit types trigger major/minor bumps                                                                                                |
+| `scopeAliases`     | `Record<string, string>`                                  | Maps shorthand scope names to canonical names in commits                                                                                              |
+| `workTypes`        | `Record<string, WorkTypeConfig>`                          | Work type definitions, merged with defaults by key                                                                                                    |
+| `breakingPolicies` | `Record<string, 'forbidden' \| 'optional' \| 'required'>` | Per-type `!`-policy lookup. Defaults to `DEFAULT_BREAKING_POLICIES`. Replaces the default entirely when provided. Set to `{}` to disable enforcement  |
+| `retiredPackages`  | `RetiredPackage[]`                                        | Packages that once lived in this repo but have been extracted or removed; suppresses undeclared-tag-prefix warnings                                   |
+| `project`          | `ProjectConfig`                                           | Opt-in project-level release block. Declaring `project: {}` (even empty) enables a project-release stage in `prepare`                                 |
 
 All fields are optional.
 
@@ -202,7 +203,7 @@ When configured, each `release-kit prepare` run additionally:
 
 - Computes commits since the last project tag (`<tagPrefix><version>`), filtered to the union of every contributing workspace's paths.
 - Bumps the root `package.json`'s `version` field using the same bump-derivation rules as workspaces (or the `--bump=...` override).
-- Regenerates the root `./CHANGELOG.md` via `git-cliff`, scoped to the project's `tagPrefix` and contributing paths.
+- Regenerates the root `./CHANGELOG.md` from the structured `ChangelogEntry[]` produced by `git-cliff --context` (scoped to the project's `tagPrefix` and contributing paths) and any matching editorial overrides.
 - Emits `./.meta/changelog.json` (when `changelogJson.enabled`).
 - With `--with-release-notes`, additionally emits `./docs/RELEASE_NOTES.v<version>.md`.
 - Appends the project tag to `tmp/.release-tags` so `release-kit commit` and `release-kit tag` pick it up alongside per-workspace tags.
@@ -357,6 +358,96 @@ Only the prefix `!` triggers this marker. A `BREAKING CHANGE:` body footer on it
 Work types from your config are merged with these defaults by key — your entries override or extend, they don't replace the full set. Release-notes sections are rendered in the declaration order of the merged work-types record, with any unknown titles trailing the known ones.
 
 The default `devOnlySections` (excluded from public release notes but still written to `CHANGELOG.md`) are derived from the Internal and Process tiers (excluding `fmt`). Override via `changelogJson.devOnlySections` in your config; matching is decorator-tolerant, so a bare-name override like `['Internal features']` keeps working against the emoji-prefixed and prefix-decorated default titles.
+
+## Editorial overrides
+
+Generated changelogs occasionally need editorial correction — typos, redacted scope, reworded entries, or historical commits whose bodies carry verbatim PR-template scaffolding (`## What`, `## Why`, etc.) that renders as literal text in user-facing release notes. Rewriting git history is not viable, and any in-place edit to `CHANGELOG.md` or `.meta/changelog.json` is overwritten on the next release because release-kit regenerates both artifacts from scratch.
+
+The overrides file is the supported escape hatch. Drop a checked-in JSON file at the repo root (`.changelog-overrides.json` by default) keyed by commit hash, and `release-kit prepare` applies the overrides between `buildChangelogEntries` and serialization. Both `CHANGELOG.md` and `.meta/changelog.json` reflect the post-override view, so downstream consumers (the GitHub Release body, the in-app release-notes page, etc.) see the same content.
+
+### File shape
+
+```json
+{
+  "82962311": {
+    "audience": "skip"
+  },
+  "abc1234d": {
+    "body": "Cleaned-up prose without the original PR-template scaffolding."
+  },
+  "ef567890": {
+    "description": "Rewritten headline that fixes the typo",
+    "body": "Optional replacement body."
+  }
+}
+```
+
+Per-entry fields are all optional, but at least one must be present per entry:
+
+| Field         | Type                       | Effect                                                                                                                            |
+| ------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `audience`    | `'all' \| 'dev' \| 'skip'` | `'skip'` removes the entry entirely. `'all'` and `'dev'` are reserved for a future audience-reclassification feature (see below). |
+| `description` | `string`                   | Replaces the entry's bullet headline. Other fields are preserved.                                                                 |
+| `body`        | `string`                   | Replaces the entry's body (the prose that renders below the bullet). Other fields are preserved.                                  |
+| `breaking`    | `boolean`                  | Toggles the `🚨 **Breaking:** ` marker on the bullet.                                                                             |
+
+### Hash-prefix matching
+
+Keys can be either the full 40-character commit SHA or a non-ambiguous prefix. The matcher walks every `ChangelogItem.hash` value present in the entry tree and resolves each override key to its set of matching hashes:
+
+- **Exact prefix match (1 hit)** — the override applies. A 7-character prefix is usually unambiguous within a single repo's history; longer prefixes are always safe.
+- **No matches (0 hits)** — the override is treated as a stale reference (probably from a rebase or branch deletion) and a warning is logged. The release continues.
+- **Ambiguous prefix (2+ hits)** — the release aborts with an error naming the key and the matching hashes. Lengthen the prefix or use the full SHA.
+
+Override application errors abort the run with a non-zero exit; warnings (zero-match keys) are non-fatal and surface on `PrepareResult.warnings`.
+
+### Validation
+
+The override file is validated when `release-kit prepare` loads it. Each error names the offending key so you can locate it in your file:
+
+- Missing file → empty map, no error (the no-op default — projects that do not need overrides skip the file entirely).
+- Malformed JSON → error.
+- Wrong top-level shape (e.g., array, primitive) → error.
+- Unknown fields on an entry → error.
+- Wrong field types (e.g., `description` as a number) → error.
+- An entry with no fields set → error (a copy-paste mistake more often than not).
+- `audience: 'all'` or `audience: 'dev'` → error in the current release: only `'skip'` is supported (see below).
+
+### Audience semantics: v1 supports `'skip'` only
+
+The on-disk format declares the full `'all' | 'dev' | 'skip'` audience vocabulary so the file format will not need to change when the v2 reclassification feature ships. In the current release, only `'skip'` is supported at runtime; `'all'` and `'dev'` are rejected with an explicit "not yet supported" error.
+
+The eventual v2 behavior will let an override move a single item to a different audience section (e.g., reclassifying a `Documentation` entry as `Internal features` to keep it out of public-facing release notes). v1 deliberately leaves that as a separate change so the override mechanism can ship now and the section-split logic can land additively later.
+
+### Worked example: cleaning up scaffolded historical commits
+
+Suppose a year-old commit `82962311` was authored from a PR template that left `## What` / `## Why` headings in the body, and that commit now appears in your in-app release notes as literal Markdown headings. Add an override at the repo root:
+
+```json
+// .changelog-overrides.json
+{
+  "82962311": {
+    "body": "Add the in-app release-notes page with version-aware navigation."
+  }
+}
+```
+
+On the next `release-kit prepare` run, the matched item's body is replaced before the JSON and Markdown artifacts are written. The original git history is untouched.
+
+### Rendering pipeline change
+
+Prior versions of release-kit shelled out to `git-cliff` for both structured `--context` JSON and rendered Markdown (cliff's body template). After this change, `git-cliff` is invoked only for `--context` JSON; release-kit's in-process `renderChangelogMarkdown` produces `CHANGELOG.md` from the same `ChangelogEntry[]` that drives `.meta/changelog.json`. The two artifacts can no longer disagree.
+
+The bundled `cliff.toml.template`'s body template has been emptied (the `[git].commit_parsers` section is still load-bearing for `--context` group assignment); custom `.config/git-cliff.toml` files no longer need a body template.
+
+Observable output differences from the prior cliff-rendered format:
+
+- Trailers (`Signed-off-by:`, `Co-authored-by:`, `Closes #N`, GitHub PR URLs) are stripped from rendered bodies.
+- Items whose commit subject carries the `!` breaking marker render with a `🚨 **Breaking:** ` prefix.
+- Empty version entries (releases with no commits routed to a section) are omitted; the prior cliff template rendered them as bare headings.
+- The footer comment is now `<!-- Generated by release-kit. Do not edit this file. Use .changelog-overrides.json to override entries. -->`.
+
+The first release that ships under the new renderer will produce a one-time noisy diff in `CHANGELOG.md` (whitespace, trailers, breaking markers). Subsequent releases stabilize.
 
 ## CLI reference
 
@@ -587,9 +678,11 @@ The bundled template provides a generic git-cliff configuration that:
 
 - Strips issue-ticket prefixes matching `^[A-Z]+-\d+\s+` (e.g., `TOOL-123 `, `AFG-456 `)
 - Handles both `type: description` and `workspace|type: description` commit formats
-- Groups commits by work type into changelog sections
+- Groups commits by work type via `[git].commit_parsers`
 
-To customize, scaffold a local copy with `release-kit init --with-config` and edit `.config/git-cliff.toml`.
+The body template is intentionally empty: release-kit reads cliff's `--context` JSON output and renders `CHANGELOG.md` in-process via `renderChangelogMarkdown` (see [Editorial overrides](#editorial-overrides) for the rationale). The `[git].commit_parsers` section remains load-bearing for `--context` group assignment.
+
+To customize, scaffold a local copy with `release-kit init --with-config` and edit `.config/git-cliff.toml`. Edit only the `[git]` section — body-template changes have no effect.
 
 ## External dependencies
 

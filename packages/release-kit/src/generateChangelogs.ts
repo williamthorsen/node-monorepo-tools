@@ -1,7 +1,3 @@
-import { resolveCliffConfigPath } from './resolveCliffConfigPath.ts';
-import { runGitCliff } from './runGitCliff.ts';
-import type { ReleaseConfig } from './types.ts';
-
 /**
  * Build a git-cliff tag pattern from one or more tag prefixes.
  *
@@ -34,66 +30,17 @@ function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 }
 
-/** Options for single-changelog generation. */
+/**
+ * Options for `buildChangelogEntries`-driven flows that consume git-cliff output.
+ *
+ * The fields here mirror the subset of git-cliff CLI options that the in-package pipeline
+ * still passes through (tag-pattern union, include-path filtering for monorepo workspaces).
+ * `generateChangelog` and `generateChangelogs` (the prior cliff `--output` invokers) are
+ * removed; markdown rendering is now handled by `renderChangelogMarkdown.ts`.
+ */
 export interface GenerateChangelogOptions {
   /** Tag pattern to match release tags (passed as --tag-pattern to git-cliff). */
   tagPattern?: string;
   /** Paths to include in the changelog (passed as --include-path to git-cliff). */
   includePaths?: string[];
-}
-
-/**
- * Generate a single changelog using git-cliff.
- *
- * Invokes `git-cliff` via the shared `runGitCliff` helper (which spawns `npx`). Returns
- * the output file path as a single-element array for consistency with `generateChangelogs`.
- * In dry-run mode the helper is not invoked at all — no subprocess, no temp dir.
- */
-export function generateChangelog(
-  config: Pick<ReleaseConfig, 'cliffConfigPath'>,
-  changelogPath: string,
-  tag: string,
-  dryRun: boolean,
-  options?: GenerateChangelogOptions,
-): string[] {
-  const outputFile = `${changelogPath}/CHANGELOG.md`;
-
-  if (dryRun) {
-    return [outputFile];
-  }
-
-  const resolvedConfigPath = resolveCliffConfigPath(config.cliffConfigPath, import.meta.url);
-  const cliffArgs = ['--output', outputFile, '--tag', tag];
-
-  if (options?.tagPattern !== undefined) {
-    cliffArgs.push('--tag-pattern', options.tagPattern);
-  }
-
-  for (const includePath of options?.includePaths ?? []) {
-    cliffArgs.push('--include-path', includePath);
-  }
-
-  try {
-    runGitCliff(resolvedConfigPath, cliffArgs, 'inherit');
-  } catch (error: unknown) {
-    throw new Error(
-      `Failed to generate changelog for ${outputFile}: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
-
-  return [outputFile];
-}
-
-/**
- * Generate changelogs for each configured changelog path by delegating to `generateChangelog`.
- *
- * Returns the collected output file paths from all `generateChangelog` calls.
- */
-export function generateChangelogs(config: ReleaseConfig, tag: string, dryRun: boolean): string[] {
-  const tagPattern = buildTagPattern([config.tagPrefix]);
-  const results: string[] = [];
-  for (const changelogPath of config.changelogPaths) {
-    results.push(...generateChangelog(config, changelogPath, tag, dryRun, { tagPattern }));
-  }
-  return results;
 }

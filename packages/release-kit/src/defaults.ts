@@ -88,3 +88,12 @@ export const DEFAULT_RELEASE_NOTES_CONFIG: ReleaseNotesConfig = {
 
 /** Default tag prefix for project-level releases. */
 export const DEFAULT_PROJECT_TAG_PREFIX = 'v';
+
+/**
+ * Default path to the editorial overrides file, relative to `process.cwd()`.
+ *
+ * The same default applies in both single-package and monorepo modes — a single repo-root
+ * file serves all workspaces. Consumers can override via `overridesPath` in
+ * `release-kit.config.ts`.
+ */
+export const DEFAULT_OVERRIDES_PATH = '.changelog-overrides.json';

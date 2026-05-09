@@ -38,6 +38,9 @@ const mockBuildChangelogEntries = vi.hoisted(() => vi.fn());
 const mockBuildSyntheticChangelogEntry = vi.hoisted(() => vi.fn());
 const mockBuildEmptyReleaseEntry = vi.hoisted(() => vi.fn());
 const mockUpsertChangelogJson = vi.hoisted(() => vi.fn());
+const mockUpsertChangelogJsonAndReturn = vi.hoisted(() => vi.fn());
+const mockMergeChangelogEntriesWithDisk = vi.hoisted(() => vi.fn());
+const mockWriteChangelogMarkdown = vi.hoisted(() => vi.fn());
 
 vi.mock('../buildChangelogEntries.ts', () => ({
   buildChangelogEntries: mockBuildChangelogEntries,
@@ -56,6 +59,12 @@ vi.mock('../changelogJsonFile.ts', () => ({
     `${changelogPath}/${config.changelogJson.outputPath}`,
   writeChangelogJson: vi.fn(),
   upsertChangelogJson: mockUpsertChangelogJson,
+  upsertChangelogJsonAndReturn: mockUpsertChangelogJsonAndReturn,
+  mergeChangelogEntriesWithDisk: mockMergeChangelogEntriesWithDisk,
+}));
+
+vi.mock('../renderChangelogMarkdown.ts', () => ({
+  writeChangelogMarkdown: mockWriteChangelogMarkdown,
 }));
 
 import {
@@ -82,22 +91,56 @@ function makeConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoRelease
   };
 }
 
-/** Count how many npx git-cliff *work* calls occurred (excludes the once-per-run cache refresh). */
+/**
+ * Count how many invocations of `buildChangelogEntries` (the cliff `--context` source) were
+ * recorded. Replaces the previous `npx git-cliff --output` shape — markdown rendering is now
+ * in-process, and `buildChangelogEntries` is the single observable cliff entry point.
+ */
 function countCliffCalls(): number {
-  return mockExecFileSync.mock.calls.filter(
-    (call: unknown[]) =>
-      call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff') && call[1].includes('--config'),
-  ).length;
+  return mockBuildChangelogEntries.mock.calls.length;
 }
 
-/** Find the first npx git-cliff *work* call's args (skips the cache-refresh `--version` call). */
+/**
+ * Return the args of the first `buildChangelogEntries` invocation as an array of cliff-style
+ * flag-value pairs so existing assertions (`expect(cliffArgs).toContain('--include-path')`,
+ * etc.) continue to work without per-test rewrites. Includes synthetic `--output` and
+ * `<changelog>/CHANGELOG.md` entries derived from the renderer's first call to keep
+ * pre-pivot tests passing — the markdown writer is the new owner of those concepts.
+ */
 function findCliffCallArgs(): readonly unknown[] {
-  for (const call of mockExecFileSync.mock.calls) {
-    if (call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff') && call[1].includes('--config')) {
-      return call[1];
+  const buildCall = mockBuildChangelogEntries.mock.calls[0];
+  if (buildCall === undefined) {
+    throw new Error('buildChangelogEntries was not called');
+  }
+  const tag = buildCall[1];
+  const options = buildCall[2] ?? {};
+  const renderCall = mockWriteChangelogMarkdown.mock.calls[0]?.[0];
+  const args: unknown[] = ['git-cliff', '--config', '<resolved>'];
+  if (typeof tag === 'string') {
+    args.push('--tag', tag);
+  }
+  if (isCliffOptions(options)) {
+    if (typeof options.tagPattern === 'string') {
+      args.push('--tag-pattern', options.tagPattern);
+    }
+    for (const includePath of options.includePaths ?? []) {
+      args.push('--include-path', includePath);
     }
   }
-  throw new Error('No npx git-cliff work call found in mock history');
+  if (isRenderCallArg(renderCall) && typeof renderCall.changelogPath === 'string') {
+    args.push('--output', `${renderCall.changelogPath}/CHANGELOG.md`);
+  }
+  return args;
+}
+
+/** Type guard for the third positional argument passed to `buildChangelogEntries`. */
+function isCliffOptions(value: unknown): value is { tagPattern?: string; includePaths?: string[] } {
+  return typeof value === 'object' && value !== null;
+}
+
+/** Type guard for the first positional argument passed to `writeChangelogMarkdown`. */
+function isRenderCallArg(value: unknown): value is { changelogPath?: string; dryRun?: boolean } {
+  return typeof value === 'object' && value !== null;
 }
 
 /** Count how many cache-refresh warmup calls occurred (`npx --yes git-cliff --version`). */
@@ -113,13 +156,14 @@ function countCacheRefreshCalls(): number {
 }
 
 /**
- * Return the index of the first cache-refresh call, or `+Infinity` if none.
- * Sentinel chosen so `firstCacheRefreshCallIndex() < firstCliffWorkCallIndex()` only
+ * Return the cross-mock invocation order of the first cache-refresh call, or `+Infinity` if
+ * none. Sentinel chosen so `firstCacheRefreshCallIndex() < firstCliffWorkCallIndex()` only
  * passes when both are present.
  */
 function firstCacheRefreshCallIndex(): number {
-  let index = 0;
-  for (const call of mockExecFileSync.mock.calls) {
+  for (let index = 0; index < mockExecFileSync.mock.calls.length; index += 1) {
+    const call = mockExecFileSync.mock.calls[index];
+    if (call === undefined) continue;
     if (
       call[0] === 'npx' &&
       Array.isArray(call[1]) &&
@@ -127,39 +171,20 @@ function firstCacheRefreshCallIndex(): number {
       call[1].includes('--version') &&
       !call[1].includes('--config')
     ) {
-      return index;
+      return mockExecFileSync.mock.invocationCallOrder[index] ?? Number.POSITIVE_INFINITY;
     }
-    index += 1;
   }
   return Number.POSITIVE_INFINITY;
 }
 
-/** Return the index of the first cliff work call, or `-Infinity` if none. */
+/**
+ * Return the cross-mock invocation order of the first cliff *work* call, or `-Infinity`
+ * if none. After the SSOT pivot, `buildChangelogEntries` is the in-package entry point
+ * that issues cliff `--context` work, so its first invocation marks the start of cliff
+ * work for ordering assertions.
+ */
 function firstCliffWorkCallIndex(): number {
-  let index = 0;
-  for (const call of mockExecFileSync.mock.calls) {
-    if (call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff') && call[1].includes('--config')) {
-      return index;
-    }
-    index += 1;
-  }
-  return Number.NEGATIVE_INFINITY;
-}
-
-/** Collect the --output path from every npx git-cliff call. */
-function findAllCliffOutputPaths(): string[] {
-  const paths: string[] = [];
-  for (const call of mockExecFileSync.mock.calls) {
-    if (call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff')) {
-      const args = call[1];
-      const outputIndex = args.indexOf('--output');
-      const outputPath = outputIndex === -1 ? undefined : args[outputIndex + 1];
-      if (typeof outputPath === 'string') {
-        paths.push(outputPath);
-      }
-    }
-  }
-  return paths;
+  return mockBuildChangelogEntries.mock.invocationCallOrder[0] ?? Number.NEGATIVE_INFINITY;
 }
 
 describe(releasePrepareMono, () => {
@@ -175,6 +200,11 @@ describe(releasePrepareMono, () => {
       sections: [{ title: 'Notes', audience: 'dev', items: [{ description: 'Forced version bump.' }] }],
     });
     mockUpsertChangelogJson.mockImplementation((filePath: string) => filePath);
+    mockUpsertChangelogJsonAndReturn.mockImplementation((_filePath: string, entries: unknown[]) => entries);
+    mockMergeChangelogEntriesWithDisk.mockImplementation((_filePath: string, entries: unknown[]) => entries);
+    mockWriteChangelogMarkdown.mockImplementation(
+      (args: { changelogPath: string }) => `${args.changelogPath}/CHANGELOG.md`,
+    );
   });
 
   afterEach(() => {
@@ -189,6 +219,9 @@ describe(releasePrepareMono, () => {
     mockBuildSyntheticChangelogEntry.mockReset();
     mockBuildEmptyReleaseEntry.mockReset();
     mockUpsertChangelogJson.mockReset();
+    mockUpsertChangelogJsonAndReturn.mockReset();
+    mockMergeChangelogEntriesWithDisk.mockReset();
+    mockWriteChangelogMarkdown.mockReset();
   });
 
   it('processes a workspace that has commits', () => {
@@ -385,7 +418,11 @@ describe(releasePrepareMono, () => {
     expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
     expect(result.dryRun).toBe(true);
     expect(mockWriteFileSync).not.toHaveBeenCalled();
-    expect(countCliffCalls()).toBe(0);
+    // After the SSOT pivot, `buildChangelogEntries` is invoked even under dry-run (it has no
+    // file-write side effects); only the per-changelog-path markdown writer respects the flag.
+    expect(countCliffCalls()).toBe(1);
+    const writeArgs = mockWriteChangelogMarkdown.mock.calls[0]?.[0];
+    expect(isRenderCallArg(writeArgs) ? writeArgs.dryRun : undefined).toBe(true);
     expect(mockExecSync).not.toHaveBeenCalled();
 
     // Verify the format command is captured but not executed
@@ -1022,11 +1059,14 @@ describe(releasePrepareMono, () => {
       'packages/arrays/CHANGELOG.md',
       'packages/arrays/docs/CHANGELOG.md',
     ]);
-    expect(countCliffCalls()).toBe(2);
-    expect(findAllCliffOutputPaths()).toStrictEqual([
-      'packages/arrays/CHANGELOG.md',
-      'packages/arrays/docs/CHANGELOG.md',
-    ]);
+    // After the SSOT pivot, cliff `--context` is invoked once per workspace (it returns the
+    // full release history) and the markdown renderer is called once per `changelogPaths` entry.
+    expect(countCliffCalls()).toBe(1);
+    expect(
+      mockWriteChangelogMarkdown.mock.calls.map((call) =>
+        isRenderCallArg(call[0]) ? call[0].changelogPath : undefined,
+      ),
+    ).toStrictEqual(['packages/arrays', 'packages/arrays/docs']);
   });
 
   describe('dependency propagation', () => {
@@ -1169,19 +1209,20 @@ describe(releasePrepareMono, () => {
 
       releasePrepareMono(config, { dryRun: false });
 
-      // git-cliff should be called only for core (direct), not for app (propagated).
+      // git-cliff (via buildChangelogEntries) is called only for core (direct), not for app (propagated).
       expect(countCliffCalls()).toBe(1);
       const cliffArgs = findCliffCallArgs();
       expect(cliffArgs).toContain('packages/core/CHANGELOG.md');
 
-      // Synthetic changelog written for app.
-      const writeCallArgs = mockWriteFileSync.mock.calls;
-      const syntheticWrite = writeCallArgs.find(
-        (call: unknown[]) => typeof call[0] === 'string' && call[0] === 'packages/app/CHANGELOG.md',
+      // Synthetic propagation entry constructor was called for the app workspace.
+      expect(mockBuildSyntheticChangelogEntry).toHaveBeenCalledTimes(1);
+      const propagatedFromArg = mockBuildSyntheticChangelogEntry.mock.calls[0]?.[0];
+      expect(JSON.stringify(propagatedFromArg)).toContain('@test/core');
+      // The renderer was invoked for the app's changelog path.
+      const appRenderCall = mockWriteChangelogMarkdown.mock.calls.find(
+        (call) => isRenderCallArg(call[0]) && call[0].changelogPath === 'packages/app',
       );
-      expect(syntheticWrite).toBeDefined();
-      expect(syntheticWrite?.[1]).toContain('Dependency updates');
-      expect(syntheticWrite?.[1]).toContain('@test/core');
+      expect(appRenderCall).toBeDefined();
     });
 
     it('does not propagate to workspaces excluded from config.workspaces', () => {
@@ -1484,13 +1525,13 @@ describe(releasePrepareMono, () => {
 
       expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
 
-      const changelogWrite = mockWriteFileSync.mock.calls.find(
-        (call: unknown[]) => call[0] === 'packages/arrays/CHANGELOG.md',
+      // The empty-range branch builds a synthetic Notes entry (mocked) and routes it through
+      // the markdown renderer; assert on the renderer's args.
+      expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledWith('1.0.1', expect.any(String));
+      const renderCall = mockWriteChangelogMarkdown.mock.calls.find(
+        (call) => isRenderCallArg(call[0]) && call[0].changelogPath === 'packages/arrays',
       );
-      expect(changelogWrite).toBeDefined();
-      expect(changelogWrite?.[1]).toContain('## 1.0.1');
-      expect(changelogWrite?.[1]).toContain('### Notes');
-      expect(changelogWrite?.[1]).toContain('- Forced version bump.');
+      expect(renderCall).toBeDefined();
     });
 
     it('does not invoke git-cliff for an empty-range workspace', () => {
@@ -1512,7 +1553,7 @@ describe(releasePrepareMono, () => {
       expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledTimes(1);
       expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledWith('1.0.1', expect.any(String));
       expect(mockBuildChangelogEntries).not.toHaveBeenCalled();
-      expect(mockUpsertChangelogJson).toHaveBeenCalledTimes(1);
+      expect(mockUpsertChangelogJsonAndReturn).toHaveBeenCalledTimes(1);
     });
 
     it('keeps propagation-only workspaces on the propagation path (no regression)', () => {
@@ -1571,11 +1612,13 @@ describe(releasePrepareMono, () => {
 
       releasePrepareMono(config, { dryRun: false });
 
-      // The propagation-only path writes a "Dependency updates" section, not the empty-range
-      // "Notes / Forced version bump." section.
-      const appWrite = mockWriteFileSync.mock.calls.find((call: unknown[]) => call[0] === 'packages/app/CHANGELOG.md');
-      expect(appWrite?.[1]).toContain('Dependency updates');
-      expect(appWrite?.[1]).not.toContain('Forced version bump.');
+      // The propagation-only path constructs a synthetic propagation entry, not an empty-range
+      // entry. Both constructors are mocked, so observe the call counts.
+      expect(mockBuildSyntheticChangelogEntry).toHaveBeenCalledTimes(1);
+      // For the app workspace specifically, the empty-range entry is NOT used.
+      // (The test only has core + app, and core is on the cliff path → no empty-range
+      // build for any workspace.)
+      expect(mockBuildEmptyReleaseEntry).not.toHaveBeenCalled();
     });
 
     it('keeps workspaces with real commits on the cliff path (no regression)', () => {
@@ -1688,6 +1731,61 @@ describe(releasePrepareMono, () => {
 
       // Three workspaces, all empty-range, all forced — git-cliff must be invoked zero times.
       expect(countCliffCalls()).toBe(0);
+    });
+  });
+
+  describe('changelogJson.enabled gating', () => {
+    /** Helper config with one workspace and a feat commit since v1.0.0. */
+    function singleWorkspaceConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoReleaseConfig {
+      const workspace: WorkspaceConfig = {
+        dir: 'arrays',
+        name: '@test/arrays',
+        tagPrefix: 'arrays-v',
+        workspacePath: 'packages/arrays',
+        isPublishable: true,
+        packageFiles: ['packages/arrays/package.json'],
+        changelogPaths: ['packages/arrays'],
+        paths: ['packages/arrays/**'],
+      };
+      return makeConfig({ workspaces: [workspace], ...overrides });
+    }
+
+    /** Stub git so the workspace has a feat commit since the prior tag. */
+    function stubFeatCommit(): void {
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') return 'arrays-v1.0.0\n';
+        if (cmd === 'git' && args[0] === 'log') return 'feat: add utilityabc123';
+        return '';
+      });
+      mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
+      mockExistsSync.mockReturnValue(false);
+    }
+
+    it('does not write changelog.json when changelogJson.enabled is false', () => {
+      // Regression: the SSOT pivot previously called `upsertChangelogJsonAndReturn` (a write)
+      // unconditionally, silently creating `.meta/changelog.json` for users who had opted out.
+      // The fix routes through the pure read-and-merge path when `enabled` is false.
+      stubFeatCommit();
+
+      releasePrepareMono(
+        singleWorkspaceConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: false } }),
+        { dryRun: false },
+      );
+
+      expect(mockUpsertChangelogJsonAndReturn).not.toHaveBeenCalled();
+      expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledTimes(1);
+    });
+
+    it('writes changelog.json when changelogJson.enabled is true', () => {
+      stubFeatCommit();
+
+      releasePrepareMono(
+        singleWorkspaceConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
+        { dryRun: false },
+      );
+
+      expect(mockUpsertChangelogJsonAndReturn).toHaveBeenCalledTimes(1);
+      expect(mockMergeChangelogEntriesWithDisk).not.toHaveBeenCalled();
     });
   });
 
@@ -2283,19 +2381,19 @@ describe(releasePrepareMono, () => {
 
     it("wraps a Phase 3 (executeWorkspaceRelease) throw with the workspace's release-stage label", () => {
       const config = makeArraysConfig();
-      // Phase 1 succeeds (git describe + git log succeed). The cliff invocation in
-      // `generateChangelog` (which `executeWorkspaceRelease` calls) throws — this exercises
-      // the Phase 3 wrap inside `executeReleaseSet`.
+      // Phase 1 succeeds (git describe + git log succeed). `buildChangelogEntries` (which
+      // `executeWorkspaceRelease` invokes) throws — this exercises the Phase 3 wrap inside
+      // `executeReleaseSet`.
       const underlying = new Error('git-cliff exited with status 1');
       mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
         if (cmd === 'git' && args[0] === 'describe') return 'arrays-v1.0.0\n';
         if (cmd === 'git' && args[0] === 'log') return 'feat: addabc123';
-        // Only throw on cliff *work* calls (those carrying `--config`); the once-per-run
-        // cache-refresh warmup call (`--version`, no `--config`) succeeds.
-        if (cmd === 'npx' && Array.isArray(args) && args.includes('--config')) throw underlying;
         return '';
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+      mockBuildChangelogEntries.mockImplementationOnce(() => {
+        throw underlying;
+      });
 
       const wrapped = captureError(() => releasePrepareMono(config, { dryRun: false }));
 
@@ -2306,9 +2404,8 @@ describe(releasePrepareMono, () => {
 
     it('wraps a project-stage throw with the project release-stage label', () => {
       const config = makeArraysConfig({ project: { tagPrefix: 'v' } });
-      // Workspace stage succeeds; the project stage's git-cliff call throws.
+      // Workspace stage succeeds; `buildChangelogEntries` for the project stage throws.
       const underlying = new Error('cliff exploded on root');
-      let cliffCallCount = 0;
       mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
         if (cmd === 'git' && args[0] === 'describe') {
           const matchArg = args.find((a: string) => a.startsWith('--match='));
@@ -2316,17 +2413,20 @@ describe(releasePrepareMono, () => {
           if (matchArg === '--match=v*') return 'v0.9.0\n';
         }
         if (cmd === 'git' && args[0] === 'log') return `feat: shipabc123`;
-        // Count only cliff *work* calls (those carrying `--config`); ignore the once-per-run
-        // cache-refresh warmup. First work call is the workspace's; second is the project's.
-        if (cmd === 'npx' && Array.isArray(args) && args.includes('--config')) {
-          cliffCallCount += 1;
-          if (cliffCallCount >= 2) throw underlying;
-        }
         return '';
       });
       mockReadFileSync.mockImplementation((filePath: string) => {
         if (filePath === './package.json') return JSON.stringify({ name: 'root', version: '0.9.0' });
         return JSON.stringify({ version: '1.0.0' });
+      });
+      // First call (workspace stage) returns the default stub; second call (project stage)
+      // throws. `buildChangelogEntries` is the cliff entry point in both stages after the
+      // SSOT pivot.
+      let buildCallCount = 0;
+      mockBuildChangelogEntries.mockImplementation(() => {
+        buildCallCount += 1;
+        if (buildCallCount >= 2) throw underlying;
+        return [];
       });
 
       const wrapped = captureError(() => releasePrepareMono(config, { dryRun: false }));

@@ -21,6 +21,7 @@ export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors
     'changelogJson',
     'cliffConfigPath',
     'formatCommand',
+    'overridesPath',
     'project',
     'releaseNotes',
     'retiredPackages',
@@ -43,6 +44,7 @@ export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors
   validateWorkTypes(raw.workTypes, config, errors);
   validateStringField('formatCommand', raw.formatCommand, config, errors);
   validateStringField('cliffConfigPath', raw.cliffConfigPath, config, errors);
+  validateStringField('overridesPath', raw.overridesPath, config, errors);
   validateScopeAliases(raw.scopeAliases, config, errors);
   validateRetiredPackages(raw.retiredPackages, config, errors);
   validateProjectConfig(raw.project, config, errors);
@@ -499,7 +501,7 @@ function validateWorkTypes(value: unknown, config: ReleaseKitConfig, errors: str
 }
 
 function validateStringField(
-  fieldName: 'formatCommand' | 'cliffConfigPath',
+  fieldName: 'formatCommand' | 'cliffConfigPath' | 'overridesPath',
   value: unknown,
   config: ReleaseKitConfig,
   errors: string[],
@@ -508,6 +510,10 @@ function validateStringField(
 
   if (typeof value !== 'string') {
     errors.push(`'${fieldName}' must be a string`);
+    return;
+  }
+  if (value === '') {
+    errors.push(`'${fieldName}' must be a non-empty string`);
     return;
   }
   config[fieldName] = value;

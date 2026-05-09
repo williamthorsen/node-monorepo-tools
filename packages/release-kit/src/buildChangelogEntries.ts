@@ -54,6 +54,8 @@ export function stripGroupDecorations(group: string): string {
 interface CliffContextCommit {
   message: string;
   group?: string;
+  /** Full commit SHA when present; git-cliff emits it as `id`. */
+  id?: string;
 }
 
 /** Shape of a single release in git-cliff's `--context` JSON output. */
@@ -143,6 +145,9 @@ function toCliffContextCommit(value: unknown): CliffContextCommit {
   if (typeof value.group === 'string') {
     commit.group = value.group;
   }
+  if (typeof value.id === 'string') {
+    commit.id = value.id;
+  }
   return commit;
 }
 
@@ -183,6 +188,9 @@ function transformReleases(releases: CliffContextRelease[], devOnlySections: Set
       }
       if (breaking) {
         item.breaking = true;
+      }
+      if (commit.id !== undefined && commit.id !== '') {
+        item.hash = commit.id;
       }
       items.push(item);
     }

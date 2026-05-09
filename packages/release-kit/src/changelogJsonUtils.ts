@@ -1,7 +1,23 @@
 import { existsSync, readFileSync } from 'node:fs';
 
 import { isRecord, isUnknownArray } from './typeGuards.ts';
-import type { ChangelogEntry } from './types.ts';
+import type { ChangelogEntry, ChangelogItem } from './types.ts';
+
+/**
+ * Type guard for `ChangelogItem` values parsed from JSON.
+ *
+ * Accepts the required `description` plus optional `body`, `breaking`, and `hash` fields. The
+ * `hash` field is shape-checked but not required — synthetic propagation entries omit it, and
+ * pre-hash `changelog.json` files are still considered valid.
+ */
+export function isChangelogItem(value: unknown): value is ChangelogItem {
+  if (!isRecord(value)) return false;
+  if (typeof value.description !== 'string') return false;
+  if (value.body !== undefined && typeof value.body !== 'string') return false;
+  if (value.breaking !== undefined && typeof value.breaking !== 'boolean') return false;
+  if (value.hash !== undefined && typeof value.hash !== 'string') return false;
+  return true;
+}
 
 /** Type guard for `ChangelogEntry` values parsed from JSON. */
 export function isChangelogEntry(value: unknown): value is ChangelogEntry {

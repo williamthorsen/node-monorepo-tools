@@ -18,6 +18,13 @@ export interface ChangelogItem {
    * `🚨 **Breaking:** ` to surface them prominently in release notes.
    */
   breaking?: boolean;
+  /**
+   * Full git commit SHA when known. Captured from git-cliff's `--context` output and
+   * persisted in `changelog.json` so that override files can target items by hash. Synthetic
+   * propagation entries (`buildSyntheticChangelogEntry`, `buildEmptyReleaseEntry`) leave
+   * this field absent — they have no underlying commit.
+   */
+  hash?: string;
 }
 
 /** A grouped section within a changelog entry (e.g., "Features", "Bug fixes"). */
@@ -46,6 +53,25 @@ export interface ChangelogJsonConfig {
   outputPath: string;
   devOnlySections: string[];
 }
+
+/**
+ * Editorial override for a single changelog item, keyed by commit hash (or hash prefix) in
+ * the override file. All fields are optional; an entry with no fields is a validation error.
+ *
+ * `audience` declares the full forward-compatible vocabulary, but only `'skip'` is currently
+ * supported at runtime. `'all'` and `'dev'` reclassification is reserved for a v2 follow-up
+ * and rejected by the validator with an explicit "not yet supported" error so the on-disk
+ * format remains stable through the v1→v2 transition.
+ */
+export interface ChangelogOverride {
+  audience?: 'all' | 'dev' | 'skip';
+  description?: string;
+  body?: string;
+  breaking?: boolean;
+}
+
+/** On-disk shape of `.changelog-overrides.json`: a flat record keyed by commit hash or prefix. */
+export type ChangelogOverridesFile = Record<string, ChangelogOverride>;
 
 /** Configuration for release notes consumption (README injection). */
 export interface ReleaseNotesConfig {
@@ -327,6 +353,13 @@ export interface ReleaseKitConfig {
   /** Path to the cliff.toml file; defaults to 'cliff.toml' when absent. */
   cliffConfigPath?: string;
   /**
+   * Path to the editorial overrides file; defaults to `.changelog-overrides.json` (relative
+   * to `process.cwd()`) when absent. The file is optional — when missing, no overrides are
+   * applied and behavior matches pre-override release-kit. See README "Editorial overrides"
+   * for the file format and matching semantics.
+   */
+  overridesPath?: string;
+  /**
    * Maps scope shorthand names to their canonical names.
    * When a commit uses `shorthand|type: description` or `type(shorthand): description`,
    * the shorthand is resolved to the canonical scope name before the parsed commit is returned.
@@ -482,6 +515,8 @@ export interface MonorepoReleaseConfig {
   formatCommand?: string;
   /** Path to the cliff.toml file; defaults to 'cliff.toml' when absent. */
   cliffConfigPath?: string;
+  /** Path to the editorial overrides file; defaults to `.changelog-overrides.json` when absent. */
+  overridesPath?: string;
   /**
    * Maps scope shorthand names to their canonical names.
    * When a commit uses `shorthand|type: description` or `type(shorthand): description`,
@@ -526,6 +561,8 @@ export interface ReleaseConfig {
   formatCommand?: string;
   /** Path to the cliff.toml file; defaults to 'cliff.toml' when absent. */
   cliffConfigPath?: string;
+  /** Path to the editorial overrides file; defaults to `.changelog-overrides.json` when absent. */
+  overridesPath?: string;
   /**
    * Maps scope shorthand names to their canonical names.
    * When a commit uses `shorthand|type: description` or `type(shorthand): description`,

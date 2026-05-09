@@ -11,6 +11,9 @@ const mockCopyFileSync = vi.hoisted(() => vi.fn());
 const mockBuildChangelogEntries = vi.hoisted(() => vi.fn());
 const mockWriteChangelogJson = vi.hoisted(() => vi.fn());
 const mockUpsertChangelogJson = vi.hoisted(() => vi.fn());
+const mockUpsertChangelogJsonAndReturn = vi.hoisted(() => vi.fn());
+const mockMergeChangelogEntriesWithDisk = vi.hoisted(() => vi.fn());
+const mockWriteChangelogMarkdown = vi.hoisted(() => vi.fn());
 const mockWriteReleaseNotesPreviews = vi.hoisted(() => vi.fn());
 
 vi.mock('node:child_process', () => ({
@@ -40,6 +43,12 @@ vi.mock('../changelogJsonFile.ts', () => ({
     `${changelogPath}/${config.changelogJson.outputPath}`,
   writeChangelogJson: mockWriteChangelogJson,
   upsertChangelogJson: mockUpsertChangelogJson,
+  upsertChangelogJsonAndReturn: mockUpsertChangelogJsonAndReturn,
+  mergeChangelogEntriesWithDisk: mockMergeChangelogEntriesWithDisk,
+}));
+
+vi.mock('../renderChangelogMarkdown.ts', () => ({
+  writeChangelogMarkdown: mockWriteChangelogMarkdown,
 }));
 
 vi.mock('../writeReleaseNotesPreviews.ts', () => ({
@@ -100,6 +109,11 @@ describe(releasePrepareProject, () => {
     mockBuildChangelogEntries.mockReturnValue([]);
     mockWriteChangelogJson.mockImplementation((filePath: string) => filePath);
     mockUpsertChangelogJson.mockImplementation((filePath: string) => filePath);
+    mockUpsertChangelogJsonAndReturn.mockImplementation((_filePath: string, entries: unknown[]) => entries);
+    mockMergeChangelogEntriesWithDisk.mockImplementation((_filePath: string, entries: unknown[]) => entries);
+    mockWriteChangelogMarkdown.mockImplementation(
+      (args: { changelogPath: string }) => `${args.changelogPath}/CHANGELOG.md`,
+    );
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'root', version: '0.9.0' }));
     mockExistsSync.mockReturnValue(false);
   });
@@ -116,6 +130,9 @@ describe(releasePrepareProject, () => {
     mockBuildChangelogEntries.mockReset();
     mockWriteChangelogJson.mockReset();
     mockUpsertChangelogJson.mockReset();
+    mockUpsertChangelogJsonAndReturn.mockReset();
+    mockMergeChangelogEntriesWithDisk.mockReset();
+    mockWriteChangelogMarkdown.mockReset();
     mockWriteReleaseNotesPreviews.mockReset();
   });
 
@@ -283,21 +300,16 @@ describe(releasePrepareProject, () => {
       'utf8',
     );
 
-    // git-cliff invoked with tag-pattern derived from project tagPrefix and contributing paths.
-    const cliffCall = mockExecFileSync.mock.calls.find(
-      (call) => call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff'),
-    );
-    expect(cliffCall).toBeDefined();
-    const cliffArgs = cliffCall?.[1];
-    expect(cliffArgs).toContain('--tag-pattern');
-    expect(cliffArgs).toContain('v[0-9].*');
-    expect(cliffArgs).toContain('--include-path');
-    expect(cliffArgs).toContain('packages/arrays/**');
-    expect(cliffArgs).toContain('packages/strings/**');
-    expect(cliffArgs).toContain('--output');
-    expect(cliffArgs).toContain('./CHANGELOG.md');
-    expect(cliffArgs).toContain('--tag');
-    expect(cliffArgs).toContain('v0.10.0');
+    // buildChangelogEntries (cliff `--context` source) was invoked with tag-pattern derived
+    // from the project tagPrefix and the union of contributing paths. Markdown rendering is
+    // in-process now (no `--output` cliff invocation).
+    expect(mockBuildChangelogEntries).toHaveBeenCalledTimes(1);
+    const buildArgs = mockBuildChangelogEntries.mock.calls[0];
+    expect(buildArgs?.[1]).toBe('v0.10.0');
+    expect(buildArgs?.[2]).toMatchObject({
+      tagPattern: 'v[0-9].*',
+      includePaths: ['packages/arrays/**', 'packages/strings/**'],
+    });
   });
 
   it('omits paths of workspaces absent from config.workspaces (e.g., excluded by discovery or --only)', () => {
@@ -313,12 +325,17 @@ describe(releasePrepareProject, () => {
       tags: [],
     });
 
-    const cliffCall = mockExecFileSync.mock.calls.find(
-      (call) => call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff'),
+    expect(mockBuildChangelogEntries).toHaveBeenCalledTimes(1);
+    expect(mockBuildChangelogEntries).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ includePaths: expect.arrayContaining(['packages/arrays/**']) }),
     );
-    const cliffArgs = cliffCall?.[1] ?? [];
-    expect(cliffArgs).toContain('packages/arrays/**');
-    expect(cliffArgs).not.toContain('packages/legacy/**');
+    expect(mockBuildChangelogEntries).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ includePaths: expect.arrayContaining(['packages/legacy/**']) }),
+    );
   });
 
   it('uses bumpOverride instead of commit-derived bump type', () => {
@@ -587,12 +604,23 @@ describe(releasePrepareProject, () => {
       expect(result.changelogFiles).toContain('./CHANGELOG.md');
       expect(tags).toStrictEqual(['v0.9.1']);
 
-      // Root CHANGELOG.md was written with the synthetic header.
-      const changelogWrite = mockWriteFileSync.mock.calls.find((call: unknown[]) => call[0] === './CHANGELOG.md');
-      expect(changelogWrite).toBeDefined();
-      expect(changelogWrite?.[1]).toContain('## 0.9.1');
-      expect(changelogWrite?.[1]).toContain('### Notes');
-      expect(changelogWrite?.[1]).toContain('- Forced version bump.');
+      // The empty-range branch builds the synthetic entry and routes it through the markdown
+      // renderer. Assert on the rendered entries the renderer received.
+      expect(mockWriteChangelogMarkdown).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entries: expect.arrayContaining([
+            expect.objectContaining({
+              version: '0.9.1',
+              sections: expect.arrayContaining([
+                expect.objectContaining({
+                  title: 'Notes',
+                  items: expect.arrayContaining([expect.objectContaining({ description: 'Forced version bump.' })]),
+                }),
+              ]),
+            }),
+          ]),
+        }),
+      );
     });
 
     it('does not invoke git-cliff for the project stage on the empty-range path', () => {
@@ -606,6 +634,7 @@ describe(releasePrepareProject, () => {
       });
 
       expect(countCliffWorkCalls()).toBe(0);
+      expect(mockBuildChangelogEntries).not.toHaveBeenCalled();
     });
 
     it('writes a synthetic empty-range entry into the root changelog.json when enabled', () => {
@@ -619,24 +648,24 @@ describe(releasePrepareProject, () => {
         tags: [],
       });
 
-      // Empty-range branch uses `upsertChangelogJson` so prior entries are preserved
-      // when only the new synthetic entry is being written. Overwriting via
-      // `writeChangelogJson` here would obliterate every previously-recorded entry.
-      expect(mockUpsertChangelogJson).toHaveBeenCalledTimes(1);
-      expect(mockWriteChangelogJson).not.toHaveBeenCalled();
-      const upsertEntries = mockUpsertChangelogJson.mock.calls[0]?.[1];
-      expect(upsertEntries).toMatchObject([
-        {
-          version: '0.9.1',
-          sections: [
-            {
-              title: 'Notes',
-              audience: 'dev',
-              items: [{ description: 'Forced version bump.' }],
-            },
-          ],
-        },
-      ]);
+      // Empty-range branch merges the new synthetic entry with on-disk entries (preserving
+      // any prior synthetic entries), then writes the merged set fresh.
+      expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledTimes(1);
+      expect(mockWriteChangelogJson).toHaveBeenCalledTimes(1);
+      const writeEntries = mockWriteChangelogJson.mock.calls[0]?.[1];
+      expect(writeEntries).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            version: '0.9.1',
+            sections: expect.arrayContaining([
+              expect.objectContaining({
+                title: 'Notes',
+                items: expect.arrayContaining([expect.objectContaining({ description: 'Forced version bump.' })]),
+              }),
+            ]),
+          }),
+        ]),
+      );
       // Build-via-cliff path must not be exercised on the empty-range branch.
       expect(mockBuildChangelogEntries).not.toHaveBeenCalled();
     });
@@ -658,9 +687,9 @@ describe(releasePrepareProject, () => {
       expect(modifiedFiles).toContain('./CHANGELOG.md');
       expect(modifiedFiles).toContain('./.meta/changelog.json');
 
-      // No synthetic CHANGELOG.md write under dry-run.
-      const changelogWrites = mockWriteFileSync.mock.calls.filter((call: unknown[]) => call[0] === './CHANGELOG.md');
-      expect(changelogWrites).toHaveLength(0);
+      // Under dry-run, the renderer is invoked with dryRun=true (no I/O), and the JSON
+      // write is also skipped. The in-memory merge runs to produce the rendered entries.
+      expect(mockWriteChangelogMarkdown).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }));
       expect(mockWriteChangelogJson).not.toHaveBeenCalled();
       expect(mockUpsertChangelogJson).not.toHaveBeenCalled();
     });
@@ -675,8 +704,9 @@ describe(releasePrepareProject, () => {
         tags: [],
       });
 
-      // Real commits → cliff path runs.
-      expect(countCliffWorkCalls()).toBe(1);
+      // Real commits → cliff `--context` is invoked via `buildChangelogEntries` to source
+      // the entries; markdown is rendered in-process.
+      expect(mockBuildChangelogEntries).toHaveBeenCalledTimes(1);
     });
 
     it('leaves a skipped-project result unchanged (no synthetic entries for skipped projects)', () => {
