@@ -13,7 +13,7 @@ const platform: Platform = 'node';
 const target = 'es2022';
 
 const PACKAGE_ICON = '📦';
-const SKIPPED_ICON = '🔍';
+const SKIPPED_ICON = '⏭️';
 
 const aliases = {
   '~/src/': 'src/',
