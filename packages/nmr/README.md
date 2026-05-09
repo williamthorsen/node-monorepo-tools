@@ -220,11 +220,11 @@ Packages with a `vitest.integration.config.ts` file get different test commands.
 
 #### Audit
 
-| Command      | Runs                          |
-| ------------ | ----------------------------- |
-| `audit`      | `audit:prod`, `audit:dev`     |
-| `audit:dev`  | `pnpm exec audit-deps --dev`  |
-| `audit:prod` | `pnpm exec audit-deps --prod` |
+| Command      | Runs                      |
+| ------------ | ------------------------- |
+| `audit`      | `audit:prod`, `audit:dev` |
+| `audit:dev`  | `pnpm exec v11y --dev`    |
+| `audit:prod` | `pnpm exec v11y --prod`   |
 
 #### Dependencies
 

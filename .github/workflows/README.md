@@ -9,7 +9,7 @@
 
 Two kinds of tags live in this repo, and they are deliberately shaped differently:
 
-- **Package release tags** — unprefixed, full semver (e.g., `audit-deps-v0.3.0`). Immutable; each tag marks the exact commit of a published package version.
+- **Package release tags** — unprefixed, full semver (e.g., `release-kit-v5.2.0`). Immutable; each tag marks the exact commit of a published package version.
 - **Reusable-workflow pointer tags** — namespaced under `workflow/` with a major-only version (e.g., `workflow/audit-v1`). Mutable; they move to the latest compatible commit so external consumers can pin with `@workflow/audit-v1`.
 
 External consumers reference reusable workflows by pointer tag:

@@ -30,8 +30,8 @@ describe('nmr kit audit config migration checks against this repo', () => {
   });
 });
 
-describe('audit-deps kit checks against this repo', () => {
-  it('passes: audit-deps config exists', () => {
-    expect(existsSync(join(repoRoot, '.config/audit-deps.config.json'))).toBe(true);
+describe('v11y-check kit checks against this repo', () => {
+  it('passes: v11y-check config exists', () => {
+    expect(existsSync(join(repoRoot, '.config/v11y-check.config.json'))).toBe(true);
   });
 });

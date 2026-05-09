@@ -46,8 +46,8 @@ export const standardTestScripts: ScriptRegistry = {
  */
 export const rootScripts: ScriptRegistry = {
   audit: ['audit:prod', 'audit:dev'],
-  'audit:dev': 'pnpm exec audit-deps --dev',
-  'audit:prod': 'pnpm exec audit-deps --prod',
+  'audit:dev': 'pnpm exec v11y --dev',
+  'audit:prod': 'pnpm exec v11y --prod',
   build: 'pnpm --recursive exec nmr build',
   check: ['typecheck', 'fmt:check', 'lint:check', 'test'],
   'check:agent-files': 'nmr-sync-agent-files --check',

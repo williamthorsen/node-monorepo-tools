@@ -9,8 +9,8 @@ import { join as join2 } from "node:path";
 // packages/nmr/dist/esm/default-scripts.js
 var rootScripts = {
   audit: ["audit:prod", "audit:dev"],
-  "audit:dev": "pnpm exec audit-deps --dev",
-  "audit:prod": "pnpm exec audit-deps --prod",
+  "audit:dev": "pnpm exec v11y --dev",
+  "audit:prod": "pnpm exec v11y --prod",
   build: "pnpm --recursive exec nmr build",
   check: ["typecheck", "fmt:check", "lint:check", "test"],
   "check:agent-files": "nmr-sync-agent-files --check",
@@ -222,10 +222,10 @@ var nmr_default = defineRdyKit({
         },
         // -- Audit dependency --------------------------------------------------------
         {
-          name: "audit-deps in devDependencies",
+          name: "v11y-check in devDependencies",
           severity: "warn",
-          check: () => hasDevDependency("audit-deps"),
-          fix: "pnpm add --save-dev audit-deps"
+          check: () => hasDevDependency("v11y-check"),
+          fix: "pnpm add --save-dev v11y-check"
         },
         {
           name: "code-quality workflow does not use nmr ci",
