@@ -513,27 +513,6 @@ describe(validateConfig, () => {
       expect(config.cliffConfigPath).toBe('custom/cliff.toml');
     });
 
-    it('validates overridesPath as a string', () => {
-      const { config, errors } = validateConfig({ overridesPath: 'custom/overrides.json' });
-      expect(errors).toStrictEqual([]);
-      expect(config.overridesPath).toBe('custom/overrides.json');
-    });
-
-    it('returns an error when overridesPath is not a string', () => {
-      const { errors } = validateConfig({ overridesPath: 123 });
-      expect(errors).toContain("'overridesPath' must be a string");
-    });
-
-    it('returns an error when overridesPath is an empty string', () => {
-      const { errors } = validateConfig({ overridesPath: '' });
-      expect(errors).toContain("'overridesPath' must be a non-empty string");
-    });
-
-    it('does not flag overridesPath as an unknown field', () => {
-      const { errors } = validateConfig({ overridesPath: 'custom/overrides.json' });
-      expect(errors.find((message) => message.includes("Unknown field: 'overridesPath'"))).toBeUndefined();
-    });
-
     it('validates scopeAliases as a string record', () => {
       const { config, errors } = validateConfig({ scopeAliases: { api: 'backend-api' } });
       expect(errors).toStrictEqual([]);

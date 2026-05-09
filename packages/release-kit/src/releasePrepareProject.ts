@@ -36,11 +36,12 @@ export interface ReleasePrepareProjectArgs {
   /** Mutated in-place to append the project tag. */
   tags: string[];
   /**
-   * Editorial overrides loaded once at the top of the prepare run. Defaults to an empty
-   * map when omitted (no overrides applied). The monorepo orchestrator passes in the
-   * shared map so all stages of one prepare run see the same override view.
+   * Root-tier editorial overrides loaded once at the top of the prepare run. Defaults to an
+   * empty map when omitted (no overrides applied). The project changelog applies only the
+   * root-tier file — per-workspace files describe per-workspace editorial intent and have no
+   * meaning at the aggregated project tier.
    */
-  overrides?: Map<string, ChangelogOverride>;
+  rootOverrides?: Map<string, ChangelogOverride>;
   /**
    * Mutated in-place to surface override warnings (currently empty by design — stale-key
    * warnings are emitted by the orchestrator after aggregating across batches). Defaults to
@@ -48,10 +49,11 @@ export interface ReleasePrepareProjectArgs {
    */
   overrideWarnings?: string[];
   /**
-   * Mutated in-place: every override key matched in this stage is added so the orchestrator
-   * can dedupe stale-key warnings across the run. Defaults to a discardable sink when omitted.
+   * Mutated in-place: every root-tier override key matched in this stage is added so the
+   * orchestrator can dedupe stale-key warnings across the run. Defaults to a discardable
+   * sink when omitted.
    */
-  globalMatchedOverrideKeys?: Set<string>;
+  globalMatchedRootKeys?: Set<string>;
 }
 
 /**
@@ -72,7 +74,7 @@ export interface ReleasePrepareProjectArgs {
  */
 export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectPrepareResult {
   const { config, options, modifiedFiles, tags } = args;
-  const { overrides, overrideWarnings, globalMatchedOverrideKeys } = resolveOptionalOverrideArgs(args);
+  const { rootOverrides, overrideWarnings, globalMatchedRootKeys } = resolveOptionalOverrideArgs(args);
   const { dryRun, bumpOverride, withReleaseNotes, force } = options;
   const project = config.project;
   if (project === undefined) {
@@ -148,9 +150,9 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
     newTag,
     newVersion: bump.newVersion,
     dryRun,
-    overrides,
+    rootOverrides,
     overrideWarnings,
-    globalMatchedOverrideKeys,
+    globalMatchedRootKeys,
   });
 
   // 9. Optional release-notes previews under root docs/.
@@ -205,14 +207,14 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
  * `releasePrepareProject` past the project's complexity ceiling.
  */
 function resolveOptionalOverrideArgs(args: ReleasePrepareProjectArgs): {
-  overrides: Map<string, ChangelogOverride>;
+  rootOverrides: Map<string, ChangelogOverride>;
   overrideWarnings: string[];
-  globalMatchedOverrideKeys: Set<string>;
+  globalMatchedRootKeys: Set<string>;
 } {
   return {
-    overrides: args.overrides ?? new Map<string, ChangelogOverride>(),
+    rootOverrides: args.rootOverrides ?? new Map<string, ChangelogOverride>(),
     overrideWarnings: args.overrideWarnings ?? [],
-    globalMatchedOverrideKeys: args.globalMatchedOverrideKeys ?? new Set<string>(),
+    globalMatchedRootKeys: args.globalMatchedRootKeys ?? new Set<string>(),
   };
 }
 
@@ -225,9 +227,9 @@ interface WriteProjectChangelogsArgs {
   newTag: string;
   newVersion: string;
   dryRun: boolean;
-  overrides: Map<string, ChangelogOverride>;
+  rootOverrides: Map<string, ChangelogOverride>;
   overrideWarnings: string[];
-  globalMatchedOverrideKeys: Set<string>;
+  globalMatchedRootKeys: Set<string>;
 }
 
 /**
@@ -251,9 +253,9 @@ function writeProjectChangelogs(args: WriteProjectChangelogsArgs): {
     newTag,
     newVersion,
     dryRun,
-    overrides,
+    rootOverrides,
     overrideWarnings,
-    globalMatchedOverrideKeys,
+    globalMatchedRootKeys,
   } = args;
   const isEmptyRange = commits.length === 0;
   const today = new Date().toISOString().slice(0, 10);
@@ -263,13 +265,15 @@ function writeProjectChangelogs(args: WriteProjectChangelogsArgs): {
     ? [buildEmptyReleaseEntry(newVersion, today)]
     : buildChangelogEntries(config, newTag, { tagPattern, includePaths: contributingPaths });
 
-  const applied = applyChangelogOverrides(newEntries, overrides);
+  const applied = applyChangelogOverrides(newEntries, rootOverrides);
   if (applied.errors.length > 0) {
     throw new Error(`Changelog override application failed:\n  - ${applied.errors.join('\n  - ')}`);
   }
   overrideWarnings.push(...applied.warnings);
+  // Project changelog applies only the root tier, so every matched key here is by
+  // definition root-sourced.
   for (const matched of applied.matchedKeys) {
-    globalMatchedOverrideKeys.add(matched);
+    globalMatchedRootKeys.add(matched);
   }
 
   const changelogJsonPath = resolveChangelogJsonPath(config, ROOT_CHANGELOG_PATH);
