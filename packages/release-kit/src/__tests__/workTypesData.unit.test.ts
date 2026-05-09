@@ -23,6 +23,10 @@ interface WorkTypesJsonData {
     breakingPolicy: string;
     excludedFromChangelog?: boolean;
   }>;
+  markers: {
+    breaking: { emoji: string; label: string };
+    [key: string]: { emoji: string; label: string };
+  };
 }
 
 function readJsonFile(): WorkTypesJsonData {
@@ -46,7 +50,19 @@ function isWorkTypesJsonData(value: unknown): value is WorkTypesJsonData {
   if (!isRecord(value)) return false;
   if (!isStringArray(value.tiers)) return false;
   if (!Array.isArray(value.types) || !value.types.every(isWorkTypesEntry)) return false;
+  if (!isMarkersRecord(value.markers)) return false;
   return true;
+}
+
+function isMarkerEntry(value: unknown): value is { emoji: string; label: string } {
+  if (!isRecord(value)) return false;
+  return typeof value.emoji === 'string' && typeof value.label === 'string';
+}
+
+function isMarkersRecord(value: unknown): value is WorkTypesJsonData['markers'] {
+  if (!isRecord(value)) return false;
+  if (!isMarkerEntry(value.breaking)) return false;
+  return Object.values(value).every(isMarkerEntry);
 }
 
 function isWorkTypesEntry(value: unknown): value is WorkTypesJsonData['types'][number] {
@@ -93,6 +109,21 @@ describe('work-types.json mirrors workTypesData.ts (drift detection)', () => {
       expect(tsEntry?.excludedFromChangelog).toBe(jsonEntry.excludedFromChangelog);
     }
   });
+
+  it('the TS mirror exposes the same `markers` keys as the JSON canonical', () => {
+    const json = readJsonFile();
+    expect(new Set(Object.keys(WORK_TYPES_DATA.markers))).toStrictEqual(new Set(Object.keys(json.markers)));
+  });
+
+  it('every JSON marker deep-equals its TS counterpart', () => {
+    const json = readJsonFile();
+    for (const [key, jsonMarker] of Object.entries(json.markers)) {
+      const tsMarker = WORK_TYPES_DATA.markers[key];
+      expect(tsMarker, `marker "${key}" missing in TS mirror`).toBeDefined();
+      expect(tsMarker?.emoji).toBe(jsonMarker.emoji);
+      expect(tsMarker?.label).toBe(jsonMarker.label);
+    }
+  });
 });
 
 describe('work-types.json structural invariants', () => {
@@ -106,17 +137,17 @@ describe('work-types.json structural invariants', () => {
     expect(WORK_TYPES_DATA.types.length).toBeGreaterThan(0);
   });
 
-  it('contains exactly the canonical 15 entries (6 Public, 3 Internal, 6 Process including fmt)', () => {
+  it('contains exactly the canonical 15 entries (6 public, 3 internal, 6 process including fmt)', () => {
     expect(WORK_TYPES_DATA.types).toHaveLength(15);
     const tierCounts = new Map<string, number>();
     for (const entry of WORK_TYPES_DATA.types) {
       tierCounts.set(entry.tier, (tierCounts.get(entry.tier) ?? 0) + 1);
     }
-    expect(tierCounts.get('Public')).toBe(6);
-    expect(tierCounts.get('Internal')).toBe(3);
-    // `fmt` is in the Process tier (canonical count is 6); the implementation plan listed it
-    // separately as "5 Process plus fmt" to emphasize its `excludedFromChangelog` flag.
-    expect(tierCounts.get('Process')).toBe(6);
+    expect(tierCounts.get('public')).toBe(6);
+    expect(tierCounts.get('internal')).toBe(3);
+    // `fmt` is in the `process` tier (canonical count is 6); the implementation plan listed it
+    // separately as "5 process plus fmt" to emphasize its `excludedFromChangelog` flag.
+    expect(tierCounts.get('process')).toBe(6);
   });
 
   it('every entry has a non-empty `label` and `emoji`', () => {
@@ -166,7 +197,7 @@ describe('work-types.json structural invariants', () => {
     }
   });
 
-  it('orders entries by tier (Public → Internal → Process), then by row within tier', () => {
+  it('orders entries by tier (public → internal → process), then by row within tier', () => {
     const tierOrder = new Map(WORK_TYPES_DATA.tiers.map((tier, index) => [tier, index]));
     let previousTierIndex = -1;
     for (const entry of WORK_TYPES_DATA.types) {

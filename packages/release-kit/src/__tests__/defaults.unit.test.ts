@@ -50,25 +50,25 @@ describe('DEFAULT_WORK_TYPES derivation from work-types.json', () => {
 });
 
 describe('DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections derivation', () => {
-  it('contains exactly Internal and Process entries (excluding excludedFromChangelog), in canonical order', () => {
+  it('contains exactly internal and process entries (excluding excludedFromChangelog), in canonical order', () => {
     const expected = workTypesData.types
       .filter(
-        (entry) => (entry.tier === 'Internal' || entry.tier === 'Process') && entry.excludedFromChangelog !== true,
+        (entry) => (entry.tier === 'internal' || entry.tier === 'process') && entry.excludedFromChangelog !== true,
       )
       .map((entry) => composeHeader(entry));
     expect(DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections).toStrictEqual(expected);
   });
 
-  it('excludes `fmt` (Process, excludedFromChangelog) from devOnlySections', () => {
+  it('excludes `fmt` (process, excludedFromChangelog) from devOnlySections', () => {
     const fmtHeader = composeHeader({ emoji: '🎨', label: 'Formatting' });
     expect(DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections).not.toContain(fmtHeader);
   });
 
-  it('includes `📚 Documentation` (docs reclassified to dev-only Process tier)', () => {
+  it('includes `📚 Documentation` (docs reclassified to dev-only `process` tier)', () => {
     expect(DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections).toContain('📚 Documentation');
   });
 
-  it('does NOT contain Public-tier entries (Features, Bug fixes, Removed, etc.)', () => {
+  it('does NOT contain `public` tier entries (Features, Bug fixes, Removed, etc.)', () => {
     expect(DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections).not.toContain('🎉 Features');
     expect(DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections).not.toContain('🐛 Bug fixes');
     expect(DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections).not.toContain('🪦 Removed');

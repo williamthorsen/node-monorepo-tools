@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { errorMessage, hasExpectedTopLevelShape } from './workTypesUtils.ts';
+import { buildFetchInit, errorMessage, hasExpectedTopLevelShape } from './workTypesUtils.ts';
 
 /** URL of the upstream canonical `work-types.json` published by codeassembly. */
 export const UPSTREAM_WORK_TYPES_URL =
@@ -67,9 +67,10 @@ export async function checkWorkTypesDrift(
     };
   }
 
+  const fetchInit = buildFetchInit();
   let response: Response;
   try {
-    response = await fetcher(url);
+    response = fetchInit === undefined ? await fetcher(url) : await fetcher(url, fetchInit);
   } catch (error) {
     return {
       exitCode: 2,

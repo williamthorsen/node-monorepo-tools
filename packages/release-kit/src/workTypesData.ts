@@ -23,23 +23,43 @@ export interface WorkTypeEntry {
   excludedFromChangelog?: boolean;
 }
 
+/**
+ * Schema for an orthogonal section marker (e.g., breaking-changes indicator).
+ *
+ * Stored as plain text — consumers add formatting (bold, prefix punctuation) when
+ * constructing the rendered form. Keeps the SSOT format-agnostic across Markdown,
+ * HTML, terminal, and plain-text consumers.
+ */
+export interface MarkerEntry {
+  emoji: string;
+  label: string;
+}
+
 /** Schema for the full data. */
 export interface WorkTypesData {
   tiers: string[];
   types: WorkTypeEntry[];
+  /**
+   * Cross-cutting section markers keyed by marker name. The `breaking` marker is
+   * canonical and required; additional keys are permitted for forward-compatibility.
+   */
+  markers: {
+    breaking: MarkerEntry;
+    [key: string]: MarkerEntry;
+  };
 }
 
 /** Canonical work-types data, kept in lockstep with `work-types.json`. */
 export const WORK_TYPES_DATA: WorkTypesData = {
-  tiers: ['Public', 'Internal', 'Process'],
+  tiers: ['public', 'internal', 'process'],
   types: [
-    { tier: 'Public', key: 'feat', aliases: ['feature'], emoji: '🎉', label: 'Features', breakingPolicy: 'optional' },
-    { tier: 'Public', key: 'drop', aliases: [], emoji: '🪦', label: 'Removed', breakingPolicy: 'required' },
-    { tier: 'Public', key: 'deprecate', aliases: [], emoji: '🗑️', label: 'Deprecated', breakingPolicy: 'forbidden' },
-    { tier: 'Public', key: 'fix', aliases: ['bugfix'], emoji: '🐛', label: 'Bug fixes', breakingPolicy: 'forbidden' },
-    { tier: 'Public', key: 'sec', aliases: ['security'], emoji: '🔒', label: 'Security', breakingPolicy: 'optional' },
+    { tier: 'public', key: 'feat', aliases: ['feature'], emoji: '🎉', label: 'Features', breakingPolicy: 'optional' },
+    { tier: 'public', key: 'drop', aliases: [], emoji: '🪦', label: 'Removed', breakingPolicy: 'required' },
+    { tier: 'public', key: 'deprecate', aliases: [], emoji: '🗑️', label: 'Deprecated', breakingPolicy: 'forbidden' },
+    { tier: 'public', key: 'fix', aliases: ['bugfix'], emoji: '🐛', label: 'Bug fixes', breakingPolicy: 'forbidden' },
+    { tier: 'public', key: 'sec', aliases: ['security'], emoji: '🔒', label: 'Security', breakingPolicy: 'optional' },
     {
-      tier: 'Public',
+      tier: 'public',
       key: 'perf',
       aliases: ['performance'],
       emoji: '⚡',
@@ -47,7 +67,7 @@ export const WORK_TYPES_DATA: WorkTypesData = {
       breakingPolicy: 'forbidden',
     },
     {
-      tier: 'Internal',
+      tier: 'internal',
       key: 'internal',
       aliases: ['utility'],
       emoji: '🏗️',
@@ -55,20 +75,20 @@ export const WORK_TYPES_DATA: WorkTypesData = {
       breakingPolicy: 'forbidden',
     },
     {
-      tier: 'Internal',
+      tier: 'internal',
       key: 'refactor',
       aliases: [],
       emoji: '♻️',
       label: 'Refactoring',
       breakingPolicy: 'forbidden',
     },
-    { tier: 'Internal', key: 'tests', aliases: ['test'], emoji: '🧪', label: 'Tests', breakingPolicy: 'forbidden' },
-    { tier: 'Process', key: 'tooling', aliases: [], emoji: '⚙️', label: 'Tooling', breakingPolicy: 'forbidden' },
-    { tier: 'Process', key: 'ci', aliases: [], emoji: '👷', label: 'CI', breakingPolicy: 'forbidden' },
-    { tier: 'Process', key: 'deps', aliases: ['dep'], emoji: '📦', label: 'Dependencies', breakingPolicy: 'forbidden' },
-    { tier: 'Process', key: 'ai', aliases: [], emoji: '🤖', label: 'Agentic support', breakingPolicy: 'forbidden' },
+    { tier: 'internal', key: 'tests', aliases: ['test'], emoji: '🧪', label: 'Tests', breakingPolicy: 'forbidden' },
+    { tier: 'process', key: 'tooling', aliases: [], emoji: '⚙️', label: 'Tooling', breakingPolicy: 'forbidden' },
+    { tier: 'process', key: 'ci', aliases: [], emoji: '👷', label: 'CI', breakingPolicy: 'forbidden' },
+    { tier: 'process', key: 'deps', aliases: ['dep'], emoji: '📦', label: 'Dependencies', breakingPolicy: 'forbidden' },
+    { tier: 'process', key: 'ai', aliases: [], emoji: '🤖', label: 'Agentic support', breakingPolicy: 'forbidden' },
     {
-      tier: 'Process',
+      tier: 'process',
       key: 'docs',
       aliases: ['doc'],
       emoji: '📚',
@@ -76,7 +96,7 @@ export const WORK_TYPES_DATA: WorkTypesData = {
       breakingPolicy: 'forbidden',
     },
     {
-      tier: 'Process',
+      tier: 'process',
       key: 'fmt',
       aliases: [],
       emoji: '🎨',
@@ -85,4 +105,7 @@ export const WORK_TYPES_DATA: WorkTypesData = {
       excludedFromChangelog: true,
     },
   ],
+  markers: {
+    breaking: { emoji: '🚨', label: 'Breaking' },
+  },
 };

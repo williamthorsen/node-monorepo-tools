@@ -1,9 +1,9 @@
 {
   "$schema": "./work-types.schema.json",
-  "tiers": ["Public", "Internal", "Process"],
+  "tiers": ["public", "internal", "process"],
   "types": [
     {
-      "tier": "Public",
+      "tier": "public",
       "key": "feat",
       "aliases": ["feature"],
       "emoji": "🎉",
@@ -11,7 +11,7 @@
       "breakingPolicy": "optional"
     },
     {
-      "tier": "Public",
+      "tier": "public",
       "key": "drop",
       "aliases": [],
       "emoji": "🪦",
@@ -19,7 +19,7 @@
       "breakingPolicy": "required"
     },
     {
-      "tier": "Public",
+      "tier": "public",
       "key": "deprecate",
       "aliases": [],
       "emoji": "🗑️",
@@ -27,7 +27,7 @@
       "breakingPolicy": "forbidden"
     },
     {
-      "tier": "Public",
+      "tier": "public",
       "key": "fix",
       "aliases": ["bugfix"],
       "emoji": "🐛",
@@ -35,7 +35,7 @@
       "breakingPolicy": "forbidden"
     },
     {
-      "tier": "Public",
+      "tier": "public",
       "key": "sec",
       "aliases": ["security"],
       "emoji": "🔒",
@@ -43,7 +43,7 @@
       "breakingPolicy": "optional"
     },
     {
-      "tier": "Public",
+      "tier": "public",
       "key": "perf",
       "aliases": ["performance"],
       "emoji": "⚡",
@@ -51,7 +51,7 @@
       "breakingPolicy": "forbidden"
     },
     {
-      "tier": "Internal",
+      "tier": "internal",
       "key": "internal",
       "aliases": ["utility"],
       "emoji": "🏗️",
@@ -59,7 +59,7 @@
       "breakingPolicy": "forbidden"
     },
     {
-      "tier": "Internal",
+      "tier": "internal",
       "key": "refactor",
       "aliases": [],
       "emoji": "♻️",
@@ -67,7 +67,7 @@
       "breakingPolicy": "forbidden"
     },
     {
-      "tier": "Internal",
+      "tier": "internal",
       "key": "tests",
       "aliases": ["test"],
       "emoji": "🧪",
@@ -75,7 +75,7 @@
       "breakingPolicy": "forbidden"
     },
     {
-      "tier": "Process",
+      "tier": "process",
       "key": "tooling",
       "aliases": [],
       "emoji": "⚙️",
@@ -83,7 +83,7 @@
       "breakingPolicy": "forbidden"
     },
     {
-      "tier": "Process",
+      "tier": "process",
       "key": "ci",
       "aliases": [],
       "emoji": "👷",
@@ -91,7 +91,7 @@
       "breakingPolicy": "forbidden"
     },
     {
-      "tier": "Process",
+      "tier": "process",
       "key": "deps",
       "aliases": ["dep"],
       "emoji": "📦",
@@ -99,7 +99,7 @@
       "breakingPolicy": "forbidden"
     },
     {
-      "tier": "Process",
+      "tier": "process",
       "key": "ai",
       "aliases": [],
       "emoji": "🤖",
@@ -107,7 +107,7 @@
       "breakingPolicy": "forbidden"
     },
     {
-      "tier": "Process",
+      "tier": "process",
       "key": "docs",
       "aliases": ["doc"],
       "emoji": "📚",
@@ -115,7 +115,7 @@
       "breakingPolicy": "forbidden"
     },
     {
-      "tier": "Process",
+      "tier": "process",
       "key": "fmt",
       "aliases": [],
       "emoji": "🎨",
@@ -123,5 +123,11 @@
       "breakingPolicy": "forbidden",
       "excludedFromChangelog": true
     }
-  ]
+  ],
+  "markers": {
+    "breaking": {
+      "emoji": "🚨",
+      "label": "Breaking"
+    }
+  }
 }

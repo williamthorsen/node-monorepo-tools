@@ -1,4 +1,18 @@
 import type { ChangelogAudience, ChangelogEntry, ChangelogSection } from './types.ts';
+import { WORK_TYPES_DATA } from './workTypesData.ts';
+
+/**
+ * Build the per-bullet breaking-marker prefix from the canonical `markers.breaking` SSOT.
+ *
+ * Construction template: `${emoji} **${label}:** ` — the colon stays inside the bold to
+ * preserve byte-identical rendered output across the `markers`-block adoption. If a future
+ * change to the SSOT (emoji or label) is intentional, regenerate snapshots and update the
+ * literal expectations in `renderReleaseNotes.unit.test.ts` / `renderChangelogMarkdown.unit.test.ts`.
+ */
+function getBreakingPrefix(): string {
+  const { emoji, label } = WORK_TYPES_DATA.markers.breaking;
+  return `${emoji} **${label}:** `;
+}
 
 /** Options for rendering a single changelog entry to markdown. */
 export interface RenderOptions {
@@ -62,7 +76,7 @@ export function renderReleaseNotesSingle(entry: ChangelogEntry, options?: Render
     }
     lines.push(`### ${section.title}`, '');
     for (const [index, item] of section.items.entries()) {
-      const prefix = item.breaking === true ? '🚨 **Breaking:** ' : '';
+      const prefix = item.breaking === true ? getBreakingPrefix() : '';
       lines.push(`- ${prefix}${item.description}`);
       if (item.body !== undefined && item.body.length > 0) {
         lines.push('', ...indentBodyLines(item.body));

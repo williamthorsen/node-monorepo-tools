@@ -16,7 +16,7 @@ export function composeHeader(entry: { emoji: string; label: string }): string {
 }
 
 /** Tier names treated as dev-only (not surfaced in public release notes). */
-const DEV_ONLY_TIERS = new Set(['Internal', 'Process']);
+const DEV_ONLY_TIERS = new Set(['internal', 'process']);
 
 /** Derive `DEFAULT_WORK_TYPES` from the loaded work-types data in canonical order. */
 function deriveDefaultWorkTypes(): Record<string, WorkTypeConfig> {
