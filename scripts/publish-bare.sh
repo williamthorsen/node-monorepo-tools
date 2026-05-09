@@ -22,6 +22,9 @@ readonly PROG
 readonly NAME_REGEX='^(@[a-z0-9][a-z0-9_.-]*/)?[a-z0-9][a-z0-9_.-]*$'
 readonly MAX_NAME_LEN=214
 
+# Cleanup state — accessed by EXIT trap after main() returns.
+tmp=""
+
 # Main flow
 main() {
   local name=""
@@ -59,9 +62,8 @@ main() {
   require_name_available "$name"
 
   # Build placeholder in a temp directory; trap before any further work
-  local tmp
   tmp="$(mktemp -d)"
-  trap 'rm -rf "$tmp"' EXIT
+  trap cleanup EXIT
 
   build_placeholder "$tmp" "$name"
   print_summary "$tmp" "$name" "$dry_run"
@@ -205,6 +207,14 @@ confirm_publish() {
     echo "$PROG: publish cancelled" >&2
     exit 0
   fi
+}
+
+# Remove the placeholder files we created, then the temp dir if empty.
+# Targets files by name to avoid `rm -rf` on a path the script constructs.
+cleanup() {
+  [[ -n "${tmp:-}" && -d "$tmp" ]] || return 0
+  rm -f -- "$tmp/package.json" "$tmp/README.md"
+  rmdir -- "$tmp" 2>/dev/null || true
 }
 
 # endregion | Helper functions
