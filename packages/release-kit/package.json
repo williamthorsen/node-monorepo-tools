@@ -45,10 +45,10 @@
   "dependencies": {
     "@williamthorsen/nmr-core": "workspace:*",
     "glob": "13.0.6",
-    "jiti": "2.6.1",
+    "jiti": "2.7.0",
     "js-yaml": "4.1.1",
     "json-stringify-pretty-compact": "4.0.0",
-    "semver": "7.7.4"
+    "semver": "7.8.0"
   },
   "devDependencies": {
     "@types/js-yaml": "4.0.9",
