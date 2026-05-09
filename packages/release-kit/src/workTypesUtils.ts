@@ -21,3 +21,20 @@ export function hasExpectedTopLevelShape(value: unknown): value is { tiers: unkn
 export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
+
+/**
+ * Build the `init` argument for `fetch` to reach codeassembly's canonical work-types files.
+ *
+ * Returns `{ headers: { Authorization: 'Bearer <token>' } }` when `GITHUB_TOKEN` is set in the
+ * environment; returns `undefined` otherwise so the call site stays byte-identical to an
+ * unauthenticated request. Centralised here so `checkWorkTypesDrift` and `syncWorkTypes`
+ * cannot diverge on auth handling. Tests stub the env via `vi.stubEnv` rather than parameter
+ * injection, so this reads `process.env` directly.
+ */
+export function buildFetchInit(): RequestInit | undefined {
+  const token = process.env.GITHUB_TOKEN;
+  if (token === undefined || token === '') {
+    return undefined;
+  }
+  return { headers: { Authorization: `Bearer ${token}` } };
+}

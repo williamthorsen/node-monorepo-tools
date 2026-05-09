@@ -4,7 +4,7 @@
   "title": "Work types",
   "description": "Canonical taxonomy of commit work types used by release-kit. Drives section ordering, audience classification, and the `!` (breaking) policy. The structured single-source-of-truth for everything that previously lived in `DEFAULT_WORK_TYPES` and `cliff.toml.template` group definitions.",
   "type": "object",
-  "required": ["tiers", "types"],
+  "required": ["tiers", "types", "markers"],
   "additionalProperties": false,
   "properties": {
     "$schema": {
@@ -23,9 +23,36 @@
       "description": "Work-type entries in canonical render order (tier order, then row order within tier).",
       "items": { "$ref": "#/definitions/workType" },
       "minItems": 1
+    },
+    "markers": {
+      "type": "object",
+      "description": "Orthogonal section markers used by downstream renderers (PR descriptions, changelogs, release notes). Keyed by marker name; values describe the rendering inputs (emoji + label). Markers are cross-cutting — they are not tied to a specific work type.",
+      "required": ["breaking"],
+      "properties": {
+        "breaking": { "$ref": "#/definitions/marker" }
+      },
+      "additionalProperties": { "$ref": "#/definitions/marker" }
     }
   },
   "definitions": {
+    "marker": {
+      "type": "object",
+      "description": "Rendering inputs for a single marker. Stored as plain text; consumers apply their own formatting (e.g., bolding, prefix punctuation) at construction time.",
+      "required": ["emoji", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "emoji": {
+          "type": "string",
+          "description": "Decorative emoji rendered as the prefix of the marker.",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "description": "Human-readable marker label. Plain text; consumers add their own emphasis (e.g., bold) when constructing the rendered form.",
+          "minLength": 1
+        }
+      }
+    },
     "workType": {
       "type": "object",
       "required": ["tier", "key", "aliases", "emoji", "label", "breakingPolicy"],

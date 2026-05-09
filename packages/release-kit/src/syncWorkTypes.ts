@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { UPSTREAM_WORK_TYPES_URL } from './checkWorkTypesDrift.ts';
 import { isRecord } from './typeGuards.ts';
-import { errorMessage, hasExpectedTopLevelShape } from './workTypesUtils.ts';
+import { buildFetchInit, errorMessage, hasExpectedTopLevelShape } from './workTypesUtils.ts';
 
 /** Outcome of a sync operation. */
 export interface SyncResult {
@@ -61,9 +61,10 @@ export async function syncWorkTypes(dependencies: SyncWorkTypesDependencies = {}
   const fetcher = dependencies.fetch ?? globalThis.fetch;
   const url = dependencies.upstreamUrl ?? UPSTREAM_WORK_TYPES_URL;
 
+  const fetchInit = buildFetchInit();
   let response: Response;
   try {
-    response = await fetcher(url);
+    response = fetchInit === undefined ? await fetcher(url) : await fetcher(url, fetchInit);
   } catch (error) {
     return {
       exitCode: 2,

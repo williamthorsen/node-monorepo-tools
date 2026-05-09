@@ -9,10 +9,10 @@ import { syncWorkTypes } from '../syncWorkTypes.ts';
 const FIXTURE_URL = 'https://test.example/work-types.json';
 
 const SAMPLE_DATA = {
-  tiers: ['Public', 'Internal', 'Process'],
+  tiers: ['public', 'internal', 'process'],
   types: [
     {
-      tier: 'Public',
+      tier: 'public',
       key: 'feat',
       aliases: ['feature'],
       emoji: '🎉',
@@ -38,6 +38,9 @@ describe(syncWorkTypes, () => {
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), 'work-types-sync-'));
     localPath = join(tempDir, 'work-types.json');
+    // Default to no token so tests are deterministic regardless of the host shell's environment.
+    // Individual tests opt into a stubbed token by calling `vi.stubEnv('GITHUB_TOKEN', '<value>')`.
+    vi.stubEnv('GITHUB_TOKEN', '');
   });
 
   afterEach(() => {
@@ -50,6 +53,7 @@ describe(syncWorkTypes, () => {
     }
     rmSync(tempDir, { recursive: true, force: true });
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
   });
 
   it('exits 0 when sync writes new content to local', async () => {
@@ -135,7 +139,7 @@ describe(syncWorkTypes, () => {
       ...SAMPLE_DATA,
       types: [
         ...SAMPLE_DATA.types,
-        { tier: 'Public', key: 'sec', aliases: [], emoji: '🔒', label: 'Security', breakingPolicy: 'optional' },
+        { tier: 'public', key: 'sec', aliases: [], emoji: '🔒', label: 'Security', breakingPolicy: 'optional' },
       ],
     };
     const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(upstreamData) }));
@@ -157,7 +161,7 @@ describe(syncWorkTypes, () => {
     // If the prior local content lacks `$schema` (e.g., upstream-canonical write), the sync must not
     // hallucinate one — the absence is itself the local truth.
     writeFileSync(localPath, `${JSON.stringify(SAMPLE_DATA, null, 2)}\n`, 'utf8');
-    const upstreamData = { ...SAMPLE_DATA, tiers: ['Public', 'Internal', 'Process', 'Future'] };
+    const upstreamData = { ...SAMPLE_DATA, tiers: ['public', 'internal', 'process', 'future'] };
     const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(upstreamData) }));
 
     const result = await syncWorkTypes({
@@ -182,5 +186,24 @@ describe(syncWorkTypes, () => {
     });
     expect(result.exitCode).toBe(3);
     expect(result.message).toMatch(/expected schema shape/);
+  });
+
+  describe('GITHUB_TOKEN auth header', () => {
+    it('sends `Authorization: Bearer <token>` when GITHUB_TOKEN is set', async () => {
+      vi.stubEnv('GITHUB_TOKEN', 'ghp_test_token_value');
+      const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(SAMPLE_DATA) }));
+      await syncWorkTypes({ localPath, upstreamUrl: FIXTURE_URL, fetch: fakeFetch });
+      expect(fakeFetch).toHaveBeenCalledWith(FIXTURE_URL, {
+        headers: { Authorization: 'Bearer ghp_test_token_value' },
+      });
+    });
+
+    it('sends no `init` argument when GITHUB_TOKEN is unset', async () => {
+      vi.stubEnv('GITHUB_TOKEN', '');
+      const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(SAMPLE_DATA) }));
+      await syncWorkTypes({ localPath, upstreamUrl: FIXTURE_URL, fetch: fakeFetch });
+      expect(fakeFetch).toHaveBeenCalledWith(FIXTURE_URL);
+      expect(fakeFetch.mock.calls[0]).toHaveLength(1);
+    });
   });
 });

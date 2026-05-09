@@ -9,10 +9,10 @@ import { checkWorkTypesDrift } from '../checkWorkTypesDrift.ts';
 const FIXTURE_URL = 'https://test.example/work-types.json';
 
 const SAMPLE_DATA = {
-  tiers: ['Public', 'Internal', 'Process'],
+  tiers: ['public', 'internal', 'process'],
   types: [
     {
-      tier: 'Public',
+      tier: 'public',
       key: 'feat',
       aliases: ['feature'],
       emoji: '🎉',
@@ -39,11 +39,15 @@ describe(checkWorkTypesDrift, () => {
     tempDir = mkdtempSync(join(tmpdir(), 'work-types-drift-'));
     localPath = join(tempDir, 'work-types.json');
     writeFileSync(localPath, `${JSON.stringify(SAMPLE_DATA, null, 2)}\n`, 'utf8');
+    // Default to no token so tests are deterministic regardless of the host shell's environment.
+    // Individual tests opt into a stubbed token by calling `vi.stubEnv('GITHUB_TOKEN', '<value>')`.
+    vi.stubEnv('GITHUB_TOKEN', '');
   });
 
   afterEach(() => {
     rmSync(tempDir, { recursive: true, force: true });
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
   });
 
   it('exits 0 with a match message when local equals upstream', async () => {
@@ -149,5 +153,24 @@ describe(checkWorkTypesDrift, () => {
     });
     expect(result.exitCode).toBe(3);
     expect(result.message).toMatch(/not valid JSON/);
+  });
+
+  describe('GITHUB_TOKEN auth header', () => {
+    it('sends `Authorization: Bearer <token>` when GITHUB_TOKEN is set', async () => {
+      vi.stubEnv('GITHUB_TOKEN', 'ghp_test_token_value');
+      const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(SAMPLE_DATA) }));
+      await checkWorkTypesDrift({ localPath, upstreamUrl: FIXTURE_URL, fetch: fakeFetch });
+      expect(fakeFetch).toHaveBeenCalledWith(FIXTURE_URL, {
+        headers: { Authorization: 'Bearer ghp_test_token_value' },
+      });
+    });
+
+    it('sends no `init` argument when GITHUB_TOKEN is unset', async () => {
+      vi.stubEnv('GITHUB_TOKEN', '');
+      const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(SAMPLE_DATA) }));
+      await checkWorkTypesDrift({ localPath, upstreamUrl: FIXTURE_URL, fetch: fakeFetch });
+      expect(fakeFetch).toHaveBeenCalledWith(FIXTURE_URL);
+      expect(fakeFetch.mock.calls[0]).toHaveLength(1);
+    });
   });
 });
