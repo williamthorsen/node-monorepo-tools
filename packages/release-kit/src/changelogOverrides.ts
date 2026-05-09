@@ -505,12 +505,12 @@ export function applyWorkspaceOverrides(
     }
   }
   // Root tier: only matched keys that came from root (i.e., not shadowed by a byte-equal
-  // workspace key) contribute to the global aggregator.
+  // workspace key) contribute to the global aggregator. Membership in `project` is an
+  // invariant — `applied.matchedKeys` is a subset of `composed.keys() = project ∪ workspace`,
+  // so once the workspace-shadow check skips out, every remaining key is in `project`.
   for (const key of applied.matchedKeys) {
-    if (workspaceOverrides?.has(key) === true) continue;
-    if (project.has(key)) {
-      globalMatchedRootKeys.add(key);
-    }
+    if (workspaceOverrides?.has(key)) continue;
+    globalMatchedRootKeys.add(key);
   }
   return applied;
 }

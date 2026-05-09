@@ -80,7 +80,16 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   const workTypes = config.workTypes ?? { ...DEFAULT_WORK_TYPES };
   const versionPatterns = config.versionPatterns ?? { ...DEFAULT_VERSION_PATTERNS };
   const breakingPolicies = config.breakingPolicies ?? DEFAULT_BREAKING_POLICIES;
-  const overrides = loadProjectOverridesOrThrow();
+
+  // Load editorial overrides for the project tier. Single-package mode collapses to one tier
+  // (no workspaces to compose), so there's nothing to bundle into an `OverrideContext`.
+  // Aborts the release on any malformed file before any writes — same upfront-failure
+  // contract as the monorepo path, just over a single file.
+  const overridesResult = loadOverridesForScopes({ project: '.' });
+  if (overridesResult.errors.length > 0) {
+    throw new Error(`Failed to load changelog overrides:\n  - ${overridesResult.errors.join('\n  - ')}`);
+  }
+  const overrides = overridesResult.project;
 
   // 1. Get commits since last tag
   const { tag, commits } = getCommitsSinceTarget([config.tagPrefix]);
@@ -214,22 +223,6 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
     result.warnings = overrideWarnings;
   }
   return result;
-}
-
-/**
- * Load the project-tier `.meta/changelog-overrides.json` (relative to `process.cwd()`).
- *
- * Single-package mode collapses to one tier — there's no monorepo workspace structure, so
- * there's nothing to compose. Aborts the release with a clear error when the file is
- * malformed or any per-entry validation fails; checked-in editorial config that does not
- * parse is a bug, not a warning.
- */
-function loadProjectOverridesOrThrow(): Map<string, ChangelogOverride> {
-  const result = loadOverridesForScopes({ project: '.' });
-  if (result.errors.length > 0) {
-    throw new Error(`Failed to load changelog overrides:\n  - ${result.errors.join('\n  - ')}`);
-  }
-  return result.project;
 }
 
 /** Inputs to {@link buildSkippedSinglePackage}. */
