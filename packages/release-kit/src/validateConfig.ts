@@ -1,51 +1,43 @@
+import type { z } from 'zod';
+
 import { isRecord } from './typeGuards.ts';
-import type { LegacyIdentity, ProjectConfig, ReleaseKitConfig, RetiredPackage } from './types.ts';
+import type { ReleaseKitConfig } from './types.ts';
+import { releaseKitConfigSchema } from './types.ts';
 
 /**
- * Validates a raw config object loaded from `.config/release-kit.config.ts`.
+ * Validate a raw config object loaded from `.config/release-kit.config.ts`.
  *
- * Returns an array of validation error messages. An empty array means the config is valid.
- * Uses hand-coded type guards rather than a schema library.
+ * Single source of truth: `releaseKitConfigSchema` in `types.ts`, with
+ * `ReleaseKitConfig = z.infer<typeof releaseKitConfigSchema>`. Adding a field to the type
+ * without updating the schema is impossible because the type *is* derived from the
+ * schema.
+ *
+ * Pipeline: (1) preprocess strips deprecated keys and emits migration-guidance errors;
+ * (2) `releaseKitConfigSchema.safeParse` does shape validation; (3) post-parse cross-field
+ * checks (full-tuple duplicates, retired-vs-legacy collisions) operate on the typed
+ * result.
  */
 export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors: string[]; warnings: string[] } {
-  const errors: string[] = [];
-
   if (!isRecord(raw)) {
     return { config: {}, errors: ['Config must be an object'], warnings: [] };
   }
 
-  const config: ReleaseKitConfig = {};
+  const { cleaned, deprecationErrors } = preprocessDeprecatedKeys(raw);
 
-  // Detect unknown fields
-  const knownFields = new Set([
-    'changelogJson',
-    'cliffConfigPath',
-    'formatCommand',
-    'project',
-    'releaseNotes',
-    'retiredPackages',
-    'scopeAliases',
-    'versionPatterns',
-    'workspaces',
-    'workTypes',
-  ]);
-
-  for (const key of Object.keys(raw)) {
-    if (!knownFields.has(key)) {
-      errors.push(`Unknown field: '${key}'`);
-    }
+  const parseResult = releaseKitConfigSchema.safeParse(cleaned);
+  if (!parseResult.success) {
+    return {
+      config: {},
+      errors: [...deprecationErrors, ...parseResult.error.issues.map(formatZodIssue)],
+      warnings: [],
+    };
   }
 
-  validateChangelogJson(raw.changelogJson, config, errors);
-  validateWorkspaces(raw.workspaces, config, errors);
-  validateReleaseNotes(raw.releaseNotes, config, errors);
-  validateVersionPatterns(raw.versionPatterns, config, errors);
-  validateWorkTypes(raw.workTypes, config, errors);
-  validateStringField('formatCommand', raw.formatCommand, config, errors);
-  validateStringField('cliffConfigPath', raw.cliffConfigPath, config, errors);
-  validateScopeAliases(raw.scopeAliases, config, errors);
-  validateRetiredPackages(raw.retiredPackages, config, errors);
-  validateProjectConfig(raw.project, config, errors);
+  const config = parseResult.data;
+  const errors = [...deprecationErrors];
+  detectLegacyIdentityDuplicates(config, errors);
+  detectRetiredPackageDuplicates(config, errors);
+  detectRetiredVsLegacyCollisions(config, errors);
 
   // Cross-field warnings: releaseNotes features require changelogJson to be enabled.
   const warnings: string[] = [];
@@ -59,358 +51,143 @@ export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors
   return { config, errors, warnings };
 }
 
-function validateChangelogJson(value: unknown, config: ReleaseKitConfig, errors: string[]): void {
-  if (value === undefined) return;
-
-  if (!isRecord(value)) {
-    errors.push("'changelogJson' must be an object");
-    return;
-  }
-
-  const knownChangelogJsonFields = new Set(['enabled', 'outputPath', 'devOnlySections']);
-  for (const key of Object.keys(value)) {
-    if (!knownChangelogJsonFields.has(key)) {
-      errors.push(`changelogJson: unknown field '${key}'`);
-    }
-  }
-
-  const result: NonNullable<ReleaseKitConfig['changelogJson']> = {};
-
-  if (value.enabled !== undefined) {
-    if (typeof value.enabled === 'boolean') {
-      result.enabled = value.enabled;
-    } else {
-      errors.push('changelogJson.enabled: must be a boolean');
-    }
-  }
-
-  if (value.outputPath !== undefined) {
-    if (typeof value.outputPath === 'string') {
-      result.outputPath = value.outputPath;
-    } else {
-      errors.push('changelogJson.outputPath: must be a string');
-    }
-  }
-
-  if (value.devOnlySections !== undefined) {
-    if (isStringArray(value.devOnlySections)) {
-      result.devOnlySections = value.devOnlySections;
-    } else {
-      errors.push('changelogJson.devOnlySections: must be a string array');
-    }
-  }
-
-  config.changelogJson = result;
-}
-
 /**
- * Validate the optional `project` config block.
+ * Strip removed/deprecated config keys and emit migration-guidance errors. The schema
+ * uses `.strict()` everywhere, so unknown keys would otherwise be reported with Zod's
+ * generic "Unrecognized key" message — losing the per-key migration instructions that
+ * existing consumers rely on. This pass owns those messages and removes the keys from
+ * the input so the schema parse only sees fields it recognizes.
  *
- * Accepts an empty object (`{}`) as a valid opt-in marker. Rejects unknown subfields and
- * non-string `tagPrefix`. Tag-prefix collision validation lives in `loadConfig` since it
- * requires the discovered workspace list.
+ * Contract: every removed/renamed config key must be handled here, not via Zod's
+ * generic Unrecognized-key path. Future deprecations should add a branch below.
  */
-function validateProjectConfig(value: unknown, config: ReleaseKitConfig, errors: string[]): void {
-  if (value === undefined) return;
+function preprocessDeprecatedKeys(raw: unknown): { cleaned: unknown; deprecationErrors: string[] } {
+  if (!isRecord(raw)) return { cleaned: raw, deprecationErrors: [] };
 
-  if (!isRecord(value)) {
-    errors.push("'project' must be an object");
-    return;
+  const errors: string[] = [];
+  const cleaned: Record<string, unknown> = { ...raw };
+
+  if (isRecord(cleaned.releaseNotes) && 'shouldCreateGithubRelease' in cleaned.releaseNotes) {
+    errors.push(
+      'releaseNotes.shouldCreateGithubRelease is no longer supported. Adoption is now signaled by installing the create-github-release workflow. Remove this field from your config; see README for the updated workflow.',
+    );
+    const releaseNotesCopy = { ...cleaned.releaseNotes };
+    delete releaseNotesCopy.shouldCreateGithubRelease;
+    cleaned.releaseNotes = releaseNotesCopy;
   }
 
-  const knownProjectFields = new Set(['tagPrefix']);
-  for (const key of Object.keys(value)) {
-    if (!knownProjectFields.has(key)) {
-      errors.push(`project: unknown field '${key}'`);
-    }
-  }
-
-  const result: ProjectConfig = {};
-
-  if (value.tagPrefix !== undefined) {
-    if (typeof value.tagPrefix !== 'string') {
-      errors.push('project.tagPrefix: must be a string');
-    } else if (value.tagPrefix === '') {
-      errors.push('project.tagPrefix: must be a non-empty string');
-    } else {
-      result.tagPrefix = value.tagPrefix;
-    }
-  }
-
-  config.project = result;
-}
-
-function validateReleaseNotes(value: unknown, config: ReleaseKitConfig, errors: string[]): void {
-  if (value === undefined) return;
-
-  if (!isRecord(value)) {
-    errors.push("'releaseNotes' must be an object");
-    return;
-  }
-
-  const knownReleaseNotesFields = new Set(['shouldInjectIntoReadme']);
-  for (const key of Object.keys(value)) {
-    if (!knownReleaseNotesFields.has(key)) {
-      if (key === 'shouldCreateGithubRelease') {
+  if (Array.isArray(cleaned.workspaces)) {
+    cleaned.workspaces = cleaned.workspaces.map((ws: unknown, i: number): unknown => {
+      if (!isRecord(ws)) return ws;
+      const wsCopy = { ...ws };
+      if ('tagPrefix' in wsCopy) {
+        const dir = typeof wsCopy.dir === 'string' && wsCopy.dir !== '' ? wsCopy.dir : '<dir>';
+        errors.push(`workspaces[${i}]: 'tagPrefix' is no longer supported; remove it to use the default '${dir}-v'`);
+        delete wsCopy.tagPrefix;
+      }
+      if ('legacyTagPrefixes' in wsCopy) {
         errors.push(
-          'releaseNotes.shouldCreateGithubRelease is no longer supported. Adoption is now signaled by installing the create-github-release workflow. Remove this field from your config; see README for the updated workflow.',
+          `workspaces[${i}]: 'legacyTagPrefixes' is no longer supported; use 'legacyIdentities: [{ name, tagPrefix }, ...]' instead`,
         );
-      } else {
-        errors.push(`releaseNotes: unknown field '${key}'`);
+        delete wsCopy.legacyTagPrefixes;
       }
-    }
+      return wsCopy;
+    });
   }
 
-  const result: NonNullable<ReleaseKitConfig['releaseNotes']> = {};
-
-  if (value.shouldInjectIntoReadme !== undefined) {
-    if (typeof value.shouldInjectIntoReadme === 'boolean') {
-      result.shouldInjectIntoReadme = value.shouldInjectIntoReadme;
-    } else {
-      errors.push('releaseNotes.shouldInjectIntoReadme: must be a boolean');
-    }
-  }
-
-  config.releaseNotes = result;
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === 'string');
-}
-
-function validateWorkspaces(value: unknown, config: ReleaseKitConfig, errors: string[]): void {
-  if (value === undefined) return;
-
-  if (!Array.isArray(value)) {
-    errors.push("'workspaces' must be an array");
-    return;
-  }
-
-  const workspaces: NonNullable<ReleaseKitConfig['workspaces']> = [];
-  const knownWorkspaceFields = new Set(['dir', 'shouldExclude', 'legacyIdentities']);
-  for (const [i, entry] of value.entries()) {
-    if (!isRecord(entry)) {
-      errors.push(`workspaces[${i}]: must be an object`);
-      continue;
-    }
-    if (typeof entry.dir !== 'string' || entry.dir === '') {
-      errors.push(`workspaces[${i}]: 'dir' is required`);
-      continue;
-    }
-
-    // Detect unknown or removed fields
-    for (const key of Object.keys(entry)) {
-      if (!knownWorkspaceFields.has(key)) {
-        if (key === 'tagPrefix') {
-          errors.push(
-            `workspaces[${i}]: 'tagPrefix' is no longer supported; remove it to use the default '${entry.dir}-v'`,
-          );
-        } else if (key === 'legacyTagPrefixes') {
-          errors.push(
-            `workspaces[${i}]: 'legacyTagPrefixes' is no longer supported; use 'legacyIdentities: [{ name, tagPrefix }, ...]' instead`,
-          );
-        } else {
-          errors.push(`workspaces[${i}]: unknown field '${key}'`);
-        }
-      }
-    }
-
-    const workspace: NonNullable<ReleaseKitConfig['workspaces']>[number] = { dir: entry.dir };
-
-    if (entry.shouldExclude !== undefined) {
-      if (typeof entry.shouldExclude === 'boolean') {
-        workspace.shouldExclude = entry.shouldExclude;
-      } else {
-        errors.push(`workspaces[${i}]: 'shouldExclude' must be a boolean`);
-      }
-    }
-
-    if (entry.legacyIdentities !== undefined) {
-      const identities = validateLegacyIdentities(entry.legacyIdentities, i, errors);
-      if (identities !== undefined) {
-        workspace.legacyIdentities = identities;
-      }
-    }
-    workspaces.push(workspace);
-  }
-  config.workspaces = workspaces;
+  return { cleaned, deprecationErrors: errors };
 }
 
 /**
- * Validate a `legacyIdentities` field on a workspace override.
+ * Format a Zod issue as a single-line error string using the project's existing path
+ * convention (`object.key`, `array[index]`). Top-level issues without a path render bare.
  *
- * Accepts an array of records, each with non-empty string `name` and `tagPrefix` fields and
- * no unknown fields. Rejects full-tuple duplicates (two entries whose `name` and `tagPrefix`
- * both match). Appends a per-entry error for each invalid entry and returns the array of
- * valid entries (including partial results when some entries fail). Returns `undefined`
- * only when the top-level value is not an array.
+ * The message body is Zod's default with one targeted exception: `too_small` on strings
+ * is rephrased as "must be a non-empty string" because Zod's "Too small: expected string
+ * to have >=N characters" reads as a numeric-bound error in CLI output.
  */
-function validateLegacyIdentities(
-  value: unknown,
-  workspaceIndex: number,
-  errors: string[],
-): LegacyIdentity[] | undefined {
-  if (!Array.isArray(value)) {
-    errors.push(`workspaces[${workspaceIndex}]: 'legacyIdentities' must be an array`);
-    return undefined;
+function formatZodIssue(issue: z.core.$ZodIssue): string {
+  const path = renderPath(issue.path);
+  const message = customizeMessage(issue);
+  return path === '' ? message : `${path}: ${message}`;
+}
+
+/** Apply targeted message customizations to Zod's defaults. */
+function customizeMessage(issue: z.core.$ZodIssue): string {
+  if (issue.code === 'too_small' && issue.origin === 'string') {
+    return 'must be a non-empty string';
   }
+  return issue.message;
+}
 
-  const knownIdentityFields = new Set(['name', 'tagPrefix']);
-  const identities: LegacyIdentity[] = [];
-  const seenTuples = new Set<string>();
-
-  for (const [entryIndex, entry] of value.entries()) {
-    if (!isRecord(entry)) {
-      errors.push(`workspaces[${workspaceIndex}].legacyIdentities[${entryIndex}]: must be an object`);
-      continue;
+/** Render a Zod path as `top.nested[2].leaf`. */
+function renderPath(path: ReadonlyArray<PropertyKey>): string {
+  let rendered = '';
+  for (const segment of path) {
+    if (typeof segment === 'number') {
+      rendered += `[${segment}]`;
+    } else if (rendered === '') {
+      rendered += String(segment);
+    } else {
+      rendered += `.${String(segment)}`;
     }
-
-    let entryValid = true;
-    for (const key of Object.keys(entry)) {
-      if (!knownIdentityFields.has(key)) {
-        errors.push(`workspaces[${workspaceIndex}].legacyIdentities[${entryIndex}]: unknown field '${key}'`);
-        entryValid = false;
-      }
-    }
-
-    const { name, tagPrefix } = entry;
-    if (typeof name !== 'string') {
-      errors.push(`workspaces[${workspaceIndex}].legacyIdentities[${entryIndex}].name: must be a string`);
-      entryValid = false;
-    } else if (name === '') {
-      errors.push(`workspaces[${workspaceIndex}].legacyIdentities[${entryIndex}].name: must be a non-empty string`);
-      entryValid = false;
-    }
-
-    if (typeof tagPrefix !== 'string') {
-      errors.push(`workspaces[${workspaceIndex}].legacyIdentities[${entryIndex}].tagPrefix: must be a string`);
-      entryValid = false;
-    } else if (tagPrefix === '') {
-      errors.push(
-        `workspaces[${workspaceIndex}].legacyIdentities[${entryIndex}].tagPrefix: must be a non-empty string`,
-      );
-      entryValid = false;
-    }
-
-    if (!entryValid || typeof name !== 'string' || typeof tagPrefix !== 'string') {
-      continue;
-    }
-
-    // Use a null-byte separator: neither npm names nor tag prefixes can contain `\0`,
-    // so distinct `(name, tagPrefix)` tuples always produce distinct keys.
-    const key = `${name}\0${tagPrefix}`;
-    if (seenTuples.has(key)) {
-      errors.push(
-        `workspaces[${workspaceIndex}].legacyIdentities[${entryIndex}]: duplicate identity (name='${name}', tagPrefix='${tagPrefix}')`,
-      );
-      continue;
-    }
-    seenTuples.add(key);
-    identities.push({ name, tagPrefix });
   }
-
-  return identities;
+  return rendered;
 }
 
 /**
- * Validate a top-level `retiredPackages` field.
- *
- * Accepts an array of records, each with non-empty string `name` and `tagPrefix` and an
- * optional non-empty string `successor`. Rejects full-tuple `(name, tagPrefix)` duplicates
- * within the array (two entries sharing the same `tagPrefix` but different `name`s are
- * allowed — this documents a package renamed before retirement). After per-entry validation,
- * rejects any `tagPrefix` that collides with a declared `workspaces[].legacyIdentities[].tagPrefix`.
+ * Append per-entry errors when two entries in the same workspace's `legacyIdentities`
+ * share a full `(name, tagPrefix)` tuple. Two entries with the same `tagPrefix` but
+ * different `name` are valid — they document a prior rename that reused the tag shape.
+ */
+function detectLegacyIdentityDuplicates(config: ReleaseKitConfig, errors: string[]): void {
+  if (config.workspaces === undefined) return;
+  for (const [wsIndex, workspace] of config.workspaces.entries()) {
+    if (workspace.legacyIdentities === undefined) continue;
+    const seen = new Set<string>();
+    for (const [entryIndex, identity] of workspace.legacyIdentities.entries()) {
+      // Null-byte separator: neither npm names nor tag prefixes can contain `\0`,
+      // so distinct `(name, tagPrefix)` tuples always produce distinct keys.
+      const key = `${identity.name}\0${identity.tagPrefix}`;
+      if (seen.has(key)) {
+        errors.push(
+          `workspaces[${wsIndex}].legacyIdentities[${entryIndex}]: duplicate identity (name='${identity.name}', tagPrefix='${identity.tagPrefix}')`,
+        );
+      }
+      seen.add(key);
+    }
+  }
+}
+
+/**
+ * Append per-entry errors for full `(name, tagPrefix)` duplicates within `retiredPackages`.
+ * Two entries with the same `tagPrefix` but different `name` are valid — they document a
+ * package renamed before retirement.
+ */
+function detectRetiredPackageDuplicates(config: ReleaseKitConfig, errors: string[]): void {
+  if (config.retiredPackages === undefined) return;
+  const seen = new Set<string>();
+  for (const [index, retired] of config.retiredPackages.entries()) {
+    const key = `${retired.name}\0${retired.tagPrefix}`;
+    if (seen.has(key)) {
+      errors.push(
+        `retiredPackages[${index}]: duplicate package (name='${retired.name}', tagPrefix='${retired.tagPrefix}')`,
+      );
+    }
+    seen.add(key);
+  }
+}
+
+/**
+ * Append errors when a `retiredPackages[]` entry's `tagPrefix` matches any workspace's
+ * declared `legacyIdentities[].tagPrefix`. The first declaring workspace is named in the
+ * error.
  *
  * Collisions with an active workspace's *derived* `tagPrefix` are not checked here — that
- * check requires reading each workspace's `package.json` and belongs in `loadConfig`.
+ * check requires reading each workspace's `package.json` and lives in `loadConfig`.
  */
-function validateRetiredPackages(value: unknown, config: ReleaseKitConfig, errors: string[]): void {
-  if (value === undefined) return;
-
-  if (!Array.isArray(value)) {
-    errors.push("'retiredPackages' must be an array");
-    return;
-  }
-
-  const validEntries: Array<{ entry: RetiredPackage; rawIndex: number }> = [];
-  const seenTuples = new Set<string>();
-
-  for (const [i, entry] of value.entries()) {
-    const retired = validateRetiredPackageEntry(entry, i, errors);
-    if (retired === undefined) continue;
-
-    // Null-byte separator: neither npm names nor tag prefixes can contain `\0`.
-    const key = `${retired.name}\0${retired.tagPrefix}`;
-    if (seenTuples.has(key)) {
-      errors.push(
-        `retiredPackages[${i}]: duplicate package (name='${retired.name}', tagPrefix='${retired.tagPrefix}')`,
-      );
-      continue;
-    }
-    seenTuples.add(key);
-    validEntries.push({ entry: retired, rawIndex: i });
-  }
-
-  detectRetiredVsLegacyCollisions(validEntries, config, errors);
-
-  config.retiredPackages = validEntries.map(({ entry }) => entry);
-}
-
-/**
- * Validate a single `retiredPackages[i]` entry. Returns the parsed entry when every required
- * field is a valid non-empty string (and `successor`, if present, is too). Appends any errors
- * encountered and returns `undefined` for otherwise-invalid entries.
- */
-function validateRetiredPackageEntry(entry: unknown, i: number, errors: string[]): RetiredPackage | undefined {
-  if (!isRecord(entry)) {
-    errors.push(`retiredPackages[${i}]: must be an object`);
-    return undefined;
-  }
-
-  const knownRetiredFields = new Set(['name', 'tagPrefix', 'successor']);
-  let entryValid = true;
-  for (const key of Object.keys(entry)) {
-    if (!knownRetiredFields.has(key)) {
-      errors.push(`retiredPackages[${i}]: unknown field '${key}'`);
-      entryValid = false;
-    }
-  }
-
-  const { name, tagPrefix, successor } = entry;
-  if (!validateNonEmptyString(name, `retiredPackages[${i}].name`, errors)) {
-    entryValid = false;
-  }
-  if (!validateNonEmptyString(tagPrefix, `retiredPackages[${i}].tagPrefix`, errors)) {
-    entryValid = false;
-  }
-  if (successor !== undefined && !validateNonEmptyString(successor, `retiredPackages[${i}].successor`, errors)) {
-    entryValid = false;
-  }
-
-  if (!entryValid || typeof name !== 'string' || typeof tagPrefix !== 'string') {
-    return undefined;
-  }
-
-  const retired: RetiredPackage = { name, tagPrefix };
-  if (typeof successor === 'string' && successor !== '') {
-    retired.successor = successor;
-  }
-  return retired;
-}
-
-/**
- * Append errors when a `retiredPackages` entry's `tagPrefix` matches any workspace's declared
- * `legacyIdentities[].tagPrefix`. The first declaring workspace is named in the error. Each
- * entry carries its `rawIndex` (the position in the user-supplied `retiredPackages` array) so
- * error messages point at the entry the user actually wrote, not the position in the filtered
- * valid-entries array.
- */
-function detectRetiredVsLegacyCollisions(
-  retiredPackages: readonly { entry: RetiredPackage; rawIndex: number }[],
-  config: ReleaseKitConfig,
-  errors: string[],
-): void {
-  if (config.workspaces === undefined) return;
+function detectRetiredVsLegacyCollisions(config: ReleaseKitConfig, errors: string[]): void {
+  if (config.retiredPackages === undefined || config.workspaces === undefined) return;
 
   const legacyPrefixToWorkspace = new Map<string, string>();
   for (const workspace of config.workspaces) {
@@ -422,123 +199,12 @@ function detectRetiredVsLegacyCollisions(
     }
   }
 
-  for (const { entry: retired, rawIndex } of retiredPackages) {
+  for (const [index, retired] of config.retiredPackages.entries()) {
     const collidingDir = legacyPrefixToWorkspace.get(retired.tagPrefix);
     if (collidingDir !== undefined) {
       errors.push(
-        `retiredPackages[${rawIndex}]: tagPrefix '${retired.tagPrefix}' collides with a declared legacyIdentities[].tagPrefix on workspace '${collidingDir}'`,
+        `retiredPackages[${index}]: tagPrefix '${retired.tagPrefix}' collides with a declared legacyIdentities[].tagPrefix on workspace '${collidingDir}'`,
       );
     }
-  }
-}
-
-/**
- * Append a typed error when `value` is not a non-empty string under `fieldPath`. Returns `true`
- * when the value passes, `false` when any error was appended.
- */
-function validateNonEmptyString(value: unknown, fieldPath: string, errors: string[]): boolean {
-  if (typeof value !== 'string') {
-    errors.push(`${fieldPath}: must be a string`);
-    return false;
-  }
-  if (value === '') {
-    errors.push(`${fieldPath}: must be a non-empty string`);
-    return false;
-  }
-  return true;
-}
-
-function validateVersionPatterns(value: unknown, config: ReleaseKitConfig, errors: string[]): void {
-  if (value === undefined) return;
-
-  if (!isRecord(value)) {
-    errors.push("'versionPatterns' must be an object");
-    return;
-  }
-
-  if (!isStringArray(value.major)) {
-    errors.push('versionPatterns.major: expected string array');
-  }
-  if (!isStringArray(value.minor)) {
-    errors.push('versionPatterns.minor: expected string array');
-  }
-  if (isStringArray(value.major) && isStringArray(value.minor)) {
-    config.versionPatterns = { major: value.major, minor: value.minor };
-  }
-}
-
-function validateWorkTypes(value: unknown, config: ReleaseKitConfig, errors: string[]): void {
-  if (value === undefined) return;
-
-  if (!isRecord(value) || Array.isArray(value)) {
-    errors.push("'workTypes' must be a record (object)");
-    return;
-  }
-
-  const workTypes: Record<string, { header: string; aliases?: string[] }> = {};
-  for (const [key, entry] of Object.entries(value)) {
-    if (!isRecord(entry)) {
-      errors.push(`workTypes.${key}: must be an object`);
-      continue;
-    }
-    if (typeof entry.header !== 'string') {
-      errors.push(`workTypes.${key}: 'header' is required and must be a string`);
-      continue;
-    }
-    const wtEntry: { header: string; aliases?: string[] } = { header: entry.header };
-    if (entry.aliases !== undefined) {
-      if (isStringArray(entry.aliases)) {
-        wtEntry.aliases = entry.aliases;
-      } else {
-        errors.push(`workTypes.${key}: 'aliases' must be a string array`);
-      }
-    }
-    workTypes[key] = wtEntry;
-  }
-  config.workTypes = workTypes;
-}
-
-function validateStringField(
-  fieldName: 'formatCommand' | 'cliffConfigPath',
-  value: unknown,
-  config: ReleaseKitConfig,
-  errors: string[],
-): void {
-  if (value === undefined) return;
-
-  if (typeof value !== 'string') {
-    errors.push(`'${fieldName}' must be a string`);
-    return;
-  }
-  if (value === '') {
-    errors.push(`'${fieldName}' must be a non-empty string`);
-    return;
-  }
-  config[fieldName] = value;
-}
-
-function validateScopeAliases(value: unknown, config: ReleaseKitConfig, errors: string[]): void {
-  if (value === undefined) return;
-
-  if (!isRecord(value)) {
-    errors.push("'scopeAliases' must be a record (object)");
-    return;
-  }
-
-  const aliases: Record<string, string> = {};
-  let valid = true;
-  for (const [key, v] of Object.entries(value)) {
-    if (typeof v === 'string') {
-      aliases[key] = v;
-    } else {
-      errors.push(`scopeAliases.${key}: value must be a string`);
-      valid = false;
-    }
-  }
-  // All-or-nothing: only assign aliases when every entry is valid.
-  // Unlike `validateWorkspaces`, partial results are not useful for aliases
-  // because the mapping is consumed as a complete lookup table.
-  if (valid) {
-    config.scopeAliases = aliases;
   }
 }
