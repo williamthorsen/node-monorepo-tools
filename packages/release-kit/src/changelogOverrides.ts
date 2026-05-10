@@ -527,63 +527,119 @@ export function validateAllChangelogOverrides(
   // a root key that's overridden everywhere is functionally dead and reported as stale.
   const globalMatchedRootKeys = new Set<string>();
 
-  // Workspace tier — apply each map separately against the workspace's hashes so ambiguous-
-  // prefix errors attribute to the file that contains the offending key, not to the composed
-  // view. The shadowing semantic still applies to the root-tier accounting below: byte-equal
-  // keys in the workspace map exclude their root counterparts from the project apply for this
-  // workspace (workspace's value would win at runtime, so the root entry is dead at this scope).
-  // Stale-key detection runs independently from prefix-match counts so ambiguous keys
-  // (2+ hits) aren't doubly flagged as stale.
-  for (const { filePath, hashes, map } of workspaceMaps) {
-    const workspaceApplied = applyChangelogOverrides(makeValidationEntries(hashes), map);
-    for (const message of workspaceApplied.errors) {
-      errors.push(prefixWithFilePath(filePath, message));
-    }
-    if (projectFilePath !== undefined && projectMap.size > 0) {
-      const projectMinusShadowed = filterShadowedKeys(projectMap, map);
-      const projectApplied = applyChangelogOverrides(makeValidationEntries(hashes), projectMinusShadowed);
-      for (const message of projectApplied.errors) {
-        errors.push(prefixWithFilePath(projectFilePath, message));
-      }
-    }
-    for (const key of map.keys()) {
-      if (!hasAnyMatch(key, hashes)) {
-        warnings.push(formatWorkspaceStaleWarning(filePath, key));
-      }
-    }
-    for (const key of projectMap.keys()) {
-      // Workspace-shadowed root keys do not count as root matches.
-      if (map.has(key)) continue;
-      if (hasAnyMatch(key, hashes)) {
-        globalMatchedRootKeys.add(key);
-      }
-    }
+  for (const workspace of workspaceMaps) {
+    processWorkspaceScope({
+      workspace,
+      projectFilePath,
+      projectMap,
+      errors,
+      warnings,
+      globalMatchedRootKeys,
+    });
   }
 
-  // Project tier — apply project map against project hashes (when a release window is provided)
-  // to surface ambiguous-prefix errors and account for root-tier matches.
-  if (projectFilePath !== undefined && inputs.project?.hashes !== undefined) {
-    const applied = applyChangelogOverrides(makeValidationEntries(inputs.project.hashes), projectMap);
-    for (const message of applied.errors) {
-      errors.push(prefixWithFilePath(projectFilePath, message));
-    }
-    for (const key of projectMap.keys()) {
-      if (hasAnyMatch(key, inputs.project.hashes)) {
-        globalMatchedRootKeys.add(key);
-      }
-    }
+  const projectHashes = inputs.project?.hashes;
+  if (projectFilePath !== undefined && projectHashes !== undefined) {
+    processProjectScope({ projectFilePath, projectMap, projectHashes, errors, globalMatchedRootKeys });
   }
 
   // Root-tier stale keys: project keys matched nowhere (after honoring shadowing).
   if (projectFilePath !== undefined) {
-    for (const key of projectMap.keys()) {
-      if (!globalMatchedRootKeys.has(key)) {
-        warnings.push(formatRootStaleWarning(projectFilePath, key));
-      }
-    }
+    collectRootStaleWarnings(projectFilePath, projectMap, globalMatchedRootKeys, warnings);
   }
 
   return { errors, warnings };
+}
+
+interface WorkspaceScopeArgs {
+  workspace: { filePath: string; hashes: readonly string[]; map: Map<string, ChangelogOverride> };
+  projectFilePath: string | undefined;
+  projectMap: Map<string, ChangelogOverride>;
+  errors: string[];
+  warnings: string[];
+  globalMatchedRootKeys: Set<string>;
+}
+
+/**
+ * Process one workspace scope: surface ambiguous-prefix errors (attributing each to its source
+ * file), record workspace-tier stale warnings, and contribute non-shadowed root-key matches
+ * to `globalMatchedRootKeys`.
+ *
+ * Apply is split into two calls (workspace map alone; project map minus shadowed keys) so
+ * errors attribute to the file that contains the offending key, not to the composed view.
+ * Stale detection runs independently from prefix-match counts so ambiguous keys (2+ hits)
+ * aren't doubly flagged as stale.
+ */
+function processWorkspaceScope(args: WorkspaceScopeArgs): void {
+  const { workspace, projectFilePath, projectMap, errors, warnings, globalMatchedRootKeys } = args;
+  const { filePath, hashes, map } = workspace;
+
+  const workspaceApplied = applyChangelogOverrides(makeValidationEntries(hashes), map);
+  for (const message of workspaceApplied.errors) {
+    errors.push(prefixWithFilePath(filePath, message));
+  }
+
+  if (projectFilePath !== undefined && projectMap.size > 0) {
+    const projectMinusShadowed = filterShadowedKeys(projectMap, map);
+    const projectApplied = applyChangelogOverrides(makeValidationEntries(hashes), projectMinusShadowed);
+    for (const message of projectApplied.errors) {
+      errors.push(prefixWithFilePath(projectFilePath, message));
+    }
+  }
+
+  for (const key of map.keys()) {
+    if (!hasAnyMatch(key, hashes)) {
+      warnings.push(formatWorkspaceStaleWarning(filePath, key));
+    }
+  }
+
+  for (const key of projectMap.keys()) {
+    // Workspace-shadowed root keys do not count as root matches.
+    if (map.has(key)) continue;
+    if (hasAnyMatch(key, hashes)) {
+      globalMatchedRootKeys.add(key);
+    }
+  }
+}
+
+interface ProjectScopeArgs {
+  projectFilePath: string;
+  projectMap: Map<string, ChangelogOverride>;
+  projectHashes: readonly string[];
+  errors: string[];
+  globalMatchedRootKeys: Set<string>;
+}
+
+/**
+ * Process the project release scope: surface ambiguous-prefix errors and contribute every
+ * matched root key to `globalMatchedRootKeys`. Only invoked when the caller supplied a
+ * project release window (monorepo with a `project` block, or single-package mode).
+ */
+function processProjectScope(args: ProjectScopeArgs): void {
+  const { projectFilePath, projectMap, projectHashes, errors, globalMatchedRootKeys } = args;
+  const applied = applyChangelogOverrides(makeValidationEntries(projectHashes), projectMap);
+  for (const message of applied.errors) {
+    errors.push(prefixWithFilePath(projectFilePath, message));
+  }
+  for (const key of projectMap.keys()) {
+    if (hasAnyMatch(key, projectHashes)) {
+      globalMatchedRootKeys.add(key);
+    }
+  }
+}
+
+/** Push a root-stale warning for every project key not already marked as matched. */
+function collectRootStaleWarnings(
+  projectFilePath: string,
+  projectMap: Map<string, ChangelogOverride>,
+  globalMatchedRootKeys: Set<string>,
+  warnings: string[],
+): void {
+  for (const key of projectMap.keys()) {
+    if (!globalMatchedRootKeys.has(key)) {
+      warnings.push(formatRootStaleWarning(projectFilePath, key));
+    }
+  }
 }
 
 function hasAnyMatch(key: string, hashes: readonly string[]): boolean {
