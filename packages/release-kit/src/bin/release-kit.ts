@@ -17,6 +17,7 @@ import { syncLabelsInitCommand } from '../sync-labels/initCommand.ts';
 import { syncLabelsCommand } from '../sync-labels/syncCommand.ts';
 import { syncWorkTypes } from '../syncWorkTypes.ts';
 import { tagCommand } from '../tagCommand.ts';
+import { validateOverridesCommand } from '../validateOverridesCommand.ts';
 
 const VERSION = readPackageVersion(import.meta.url);
 
@@ -33,6 +34,7 @@ Commands:
   create-github-release  Create GitHub Releases from changelog.json for tags on HEAD
   show-tag-prefixes  Show derived and declared legacy tag prefixes per workspace
   init             Initialize release-kit in the current repository
+  overrides        Manage editorial changelog overrides
   sync-labels      Manage GitHub label synchronization
   work-types       Check for or sync work-type taxonomy drift against the upstream canonical
 
@@ -190,6 +192,37 @@ Print a per-workspace table of derived tag prefixes, tag counts, and declared
 legacy tag prefixes. Surfaces any release-shaped tags whose prefix is neither a
 derived prefix nor declared in \`legacyIdentities\`, with a copy-pasteable
 config snippet.
+
+Options:
+  --help, -h    Show this help message
+`);
+}
+
+function showOverridesHelp(): void {
+  console.info(`
+Usage: release-kit overrides <subcommand> [options]
+
+Manage editorial changelog overrides.
+
+Subcommands:
+  validate      Validate every \`.meta/changelog-overrides.json\` file across all scopes
+
+Options:
+  --help, -h    Show this help message
+`);
+}
+
+function showOverridesValidateHelp(): void {
+  console.info(`
+Usage: release-kit overrides validate
+
+Validate every \`.meta/changelog-overrides.json\` file across the project and per-workspace
+scopes. Reports schema/parse errors, ambiguous-prefix errors, and stale-key warnings.
+
+Exit codes:
+  0    Clean — no errors, no stale keys
+  1    Stale-key warnings only (no errors)
+  2    Schema/parse or ambiguous-prefix errors (errors dominate)
 
 Options:
   --help, -h    Show this help message
@@ -442,6 +475,38 @@ if (command === 'sync-labels') {
 
   console.error(`Error: Unknown subcommand: ${subcommand}`);
   showSyncLabelsHelp();
+  process.exit(1);
+}
+
+if (command === 'overrides') {
+  const subcommand = flags[0];
+  const subflags = flags.slice(1);
+
+  if (subcommand === '--help' || subcommand === '-h' || subcommand === undefined) {
+    showOverridesHelp();
+    process.exit(0);
+  }
+
+  if (subcommand === 'validate') {
+    if (subflags.some((f) => f === '--help' || f === '-h')) {
+      showOverridesValidateHelp();
+      process.exit(0);
+    }
+    if (subflags.length > 0) {
+      console.error(`Error: Unknown option: ${subflags[0]}`);
+      process.exit(1);
+    }
+    const result = await validateOverridesCommand();
+    if (result.exitCode === 0) {
+      console.info(result.message);
+    } else {
+      console.error(result.message);
+    }
+    process.exit(result.exitCode);
+  }
+
+  console.error(`Error: Unknown subcommand: ${subcommand}`);
+  showOverridesHelp();
   process.exit(1);
 }
 

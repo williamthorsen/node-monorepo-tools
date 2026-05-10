@@ -463,6 +463,246 @@ export function createOverrideContext(workspaces: WorkspaceConfig[]): OverrideCo
   };
 }
 
+/** Per-scope input to {@link validateAllChangelogOverrides}. */
+export interface ChangelogOverrideScope {
+  /** Path to the override file (relative to the repo root). Used to load the file and to attribute findings. */
+  filePath: string;
+  /** Commit hashes in this scope's history window. Each override key is matched against these. */
+  hashes: readonly string[];
+}
+
+/** Inputs to {@link validateAllChangelogOverrides}. */
+export interface ValidateAllChangelogOverridesInputs {
+  /**
+   * Project-tier scope (the override file at the repo root).
+   *
+   * The file at `filePath` is loaded once and used in two ways:
+   * - Its overrides are composed into every workspace's apply (root-tier overrides apply globally).
+   * - When `hashes` is provided, the project map is also applied directly to that hash universe
+   *   (project release in monorepo mode, or the package's history in single-package mode).
+   *
+   * Omit when no project file exists (rare — most repos have a root file even if empty).
+   */
+  project?: { filePath: string; hashes?: readonly string[] };
+  /** Per-workspace scopes. Each workspace's file applies only to its own hash universe. */
+  workspaces?: readonly ChangelogOverrideScope[];
+}
+
+/** Result of {@link validateAllChangelogOverrides}: aggregated errors and warnings, each prefixed with the file path it pertains to. */
+export interface ValidateAllChangelogOverridesResult {
+  errors: string[];
+  warnings: string[];
+}
+
+/**
+ * End-to-end health check across every override file and scope. Pure: takes already-collected
+ * hash universes and returns aggregated findings. The CLI command and any other consumer
+ * (programmatic library callers, future composite checks) wrap this with discovery and I/O.
+ *
+ * The match-set is byte-equal to what `release-kit prepare` would compute, including the
+ * tier asymmetry: workspace-tier keys are stale if they don't match in their own workspace;
+ * root-tier keys are stale only if they don't match in any scope (no workspace AND not the
+ * project release window).
+ *
+ * Every returned string is prefixed with the relative override-file path it pertains to so
+ * consumers can locate the offending file without further structuring.
+ */
+export function validateAllChangelogOverrides(
+  inputs: ValidateAllChangelogOverridesInputs,
+): ValidateAllChangelogOverridesResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  const projectFilePath = inputs.project?.filePath;
+  const projectMap = loadScopeMap(projectFilePath, errors);
+
+  const workspaceMaps = (inputs.workspaces ?? []).map((scope) => ({
+    filePath: scope.filePath,
+    hashes: scope.hashes,
+    map: loadScopeMap(scope.filePath, errors),
+  }));
+
+  // Track root keys matched anywhere — in any non-shadowing workspace OR in the project
+  // release. Shadowed matches do NOT count, mirroring `applyWorkspaceOverrides`'s semantics:
+  // a root key that's overridden everywhere is functionally dead and reported as stale.
+  const globalMatchedRootKeys = new Set<string>();
+
+  for (const workspace of workspaceMaps) {
+    processWorkspaceScope({
+      workspace,
+      projectFilePath,
+      projectMap,
+      errors,
+      warnings,
+      globalMatchedRootKeys,
+    });
+  }
+
+  const projectHashes = inputs.project?.hashes;
+  if (projectFilePath !== undefined && projectHashes !== undefined) {
+    processProjectScope({ projectFilePath, projectMap, projectHashes, errors, globalMatchedRootKeys });
+  }
+
+  // Root-tier stale keys: project keys matched nowhere (after honoring shadowing).
+  if (projectFilePath !== undefined) {
+    collectRootStaleWarnings(projectFilePath, projectMap, globalMatchedRootKeys, warnings);
+  }
+
+  return { errors, warnings };
+}
+
+interface WorkspaceScopeArgs {
+  workspace: { filePath: string; hashes: readonly string[]; map: Map<string, ChangelogOverride> };
+  projectFilePath: string | undefined;
+  projectMap: Map<string, ChangelogOverride>;
+  errors: string[];
+  warnings: string[];
+  globalMatchedRootKeys: Set<string>;
+}
+
+/**
+ * Process one workspace scope: surface ambiguous-prefix errors (attributing each to its source
+ * file), record workspace-tier stale warnings, and contribute non-shadowed root-key matches
+ * to `globalMatchedRootKeys`.
+ *
+ * Apply is split into two calls (workspace map alone; project map minus shadowed keys) so
+ * errors attribute to the file that contains the offending key, not to the composed view.
+ * Stale detection runs independently from prefix-match counts so ambiguous keys (2+ hits)
+ * aren't doubly flagged as stale.
+ */
+function processWorkspaceScope(args: WorkspaceScopeArgs): void {
+  const { workspace, projectFilePath, projectMap, errors, warnings, globalMatchedRootKeys } = args;
+  const { filePath, hashes, map } = workspace;
+
+  const workspaceApplied = applyChangelogOverrides(makeValidationEntries(hashes), map);
+  for (const message of workspaceApplied.errors) {
+    errors.push(prefixWithFilePath(filePath, message));
+  }
+
+  if (projectFilePath !== undefined && projectMap.size > 0) {
+    const projectMinusShadowed = filterShadowedKeys(projectMap, map);
+    const projectApplied = applyChangelogOverrides(makeValidationEntries(hashes), projectMinusShadowed);
+    for (const message of projectApplied.errors) {
+      errors.push(prefixWithFilePath(projectFilePath, message));
+    }
+  }
+
+  for (const key of map.keys()) {
+    if (!hasAnyMatch(key, hashes)) {
+      warnings.push(formatWorkspaceStaleWarning(filePath, key));
+    }
+  }
+
+  for (const key of projectMap.keys()) {
+    // Workspace-shadowed root keys do not count as root matches.
+    if (map.has(key)) continue;
+    if (hasAnyMatch(key, hashes)) {
+      globalMatchedRootKeys.add(key);
+    }
+  }
+}
+
+interface ProjectScopeArgs {
+  projectFilePath: string;
+  projectMap: Map<string, ChangelogOverride>;
+  projectHashes: readonly string[];
+  errors: string[];
+  globalMatchedRootKeys: Set<string>;
+}
+
+/**
+ * Process the project release scope: surface ambiguous-prefix errors and contribute every
+ * matched root key to `globalMatchedRootKeys`. Only invoked when the caller supplied a
+ * project release window (monorepo with a `project` block, or single-package mode).
+ */
+function processProjectScope(args: ProjectScopeArgs): void {
+  const { projectFilePath, projectMap, projectHashes, errors, globalMatchedRootKeys } = args;
+  const applied = applyChangelogOverrides(makeValidationEntries(projectHashes), projectMap);
+  for (const message of applied.errors) {
+    errors.push(prefixWithFilePath(projectFilePath, message));
+  }
+  for (const key of projectMap.keys()) {
+    if (hasAnyMatch(key, projectHashes)) {
+      globalMatchedRootKeys.add(key);
+    }
+  }
+}
+
+/** Push a root-stale warning for every project key not already marked as matched. */
+function collectRootStaleWarnings(
+  projectFilePath: string,
+  projectMap: Map<string, ChangelogOverride>,
+  globalMatchedRootKeys: Set<string>,
+  warnings: string[],
+): void {
+  for (const key of projectMap.keys()) {
+    if (!globalMatchedRootKeys.has(key)) {
+      warnings.push(formatRootStaleWarning(projectFilePath, key));
+    }
+  }
+}
+
+function hasAnyMatch(key: string, hashes: readonly string[]): boolean {
+  return hashes.some((hash) => hash.startsWith(key));
+}
+
+/** Return a fresh map containing every entry of `projectMap` whose key does not appear in `workspaceMap`. */
+function filterShadowedKeys(
+  projectMap: Map<string, ChangelogOverride>,
+  workspaceMap: Map<string, ChangelogOverride>,
+): Map<string, ChangelogOverride> {
+  const result = new Map<string, ChangelogOverride>();
+  for (const [key, value] of projectMap) {
+    if (workspaceMap.has(key)) continue;
+    result.set(key, value);
+  }
+  return result;
+}
+
+/** Load a scope's override map, pushing any load/schema errors (each prefixed with the file path) onto `errors`. */
+function loadScopeMap(filePath: string | undefined, errors: string[]): Map<string, ChangelogOverride> {
+  if (filePath === undefined) {
+    return new Map();
+  }
+  const result = loadChangelogOverrides(filePath);
+  if ('errors' in result) {
+    for (const message of result.errors) {
+      errors.push(prefixWithFilePath(filePath, message));
+    }
+    return new Map();
+  }
+  return result.overrides;
+}
+
+/** Build a single synthetic `ChangelogEntry[]` whose items carry the given hashes — sufficient for `applyChangelogOverrides`'s matching logic. */
+function makeValidationEntries(hashes: readonly string[]): ChangelogEntry[] {
+  return [
+    {
+      version: '0.0.0',
+      date: '0000-00-00',
+      sections: [
+        {
+          title: 'Validation',
+          audience: 'all',
+          items: hashes.map((hash) => ({ description: '', hash })),
+        },
+      ],
+    },
+  ];
+}
+
+function prefixWithFilePath(filePath: string, message: string): string {
+  return `${filePath}: ${message}`;
+}
+
+function formatWorkspaceStaleWarning(filePath: string, key: string): string {
+  return `${filePath}: Override key '${key}' did not match any commit in this workspace's history (likely a stale reference)`;
+}
+
+function formatRootStaleWarning(filePath: string, key: string): string {
+  return `${filePath}: Override key '${key}' did not match any commit in any scope (likely a stale reference)`;
+}
+
 /**
  * Apply the composed (root + workspace) override map to a workspace's changelog entries and
  * report stale-key warnings tier-by-tier.

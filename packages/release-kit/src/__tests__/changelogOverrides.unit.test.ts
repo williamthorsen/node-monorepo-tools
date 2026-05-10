@@ -14,6 +14,7 @@ import {
   loadOverridesForScopes,
   type OverrideContext,
   resolveOverridePath,
+  validateAllChangelogOverrides,
   validateChangelogOverrides,
 } from '../changelogOverrides.ts';
 import type { ChangelogEntry, ChangelogOverride, WorkspaceConfig } from '../types.ts';
@@ -582,6 +583,252 @@ describe(applyWorkspaceOverrides, () => {
     // aaa1111 is dropped via the root override; bbb2222 remains because the workspace file
     // does not apply at the project tier.
     expect(remainingHashes).toStrictEqual(['bbb2222']);
+  });
+});
+
+describe(validateAllChangelogOverrides, () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = join(tmpdir(), `test-validate-overrides-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    mkdirSync(tempDir, { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  function writeOverrides(scopeDir: string, contents: string): string {
+    const filePath = join(scopeDir, 'overrides.json');
+    writeFileSync(filePath, contents, 'utf8');
+    return filePath;
+  }
+
+  it('returns no findings when no scopes are provided', () => {
+    const result = validateAllChangelogOverrides({});
+    expect(result.errors).toStrictEqual([]);
+    expect(result.warnings).toStrictEqual([]);
+  });
+
+  it('returns no findings when override files are absent (missing files are no-ops)', () => {
+    const result = validateAllChangelogOverrides({
+      project: { filePath: join(tempDir, 'missing-project.json'), hashes: ['aaa1111'] },
+      workspaces: [{ filePath: join(tempDir, 'missing-workspace.json'), hashes: ['bbb2222'] }],
+    });
+    expect(result.errors).toStrictEqual([]);
+    expect(result.warnings).toStrictEqual([]);
+  });
+
+  it('returns no findings on a clean run with all matched keys', () => {
+    const projectFile = writeOverrides(tempDir, JSON.stringify({ aaa1111: { audience: 'skip' } }));
+    const workspaceDir = join(tempDir, 'workspace-a');
+    mkdirSync(workspaceDir);
+    const workspaceFile = writeOverrides(workspaceDir, JSON.stringify({ bbb2222: { description: 'Cleaned' } }));
+
+    const result = validateAllChangelogOverrides({
+      project: { filePath: projectFile },
+      workspaces: [{ filePath: workspaceFile, hashes: ['aaa1111aaa', 'bbb2222bbb'] }],
+    });
+
+    expect(result.errors).toStrictEqual([]);
+    expect(result.warnings).toStrictEqual([]);
+  });
+
+  it('reports schema/parse errors with the file path prefix', () => {
+    const projectFile = writeOverrides(tempDir, '{not-valid');
+    const workspaceDir = join(tempDir, 'workspace-a');
+    mkdirSync(workspaceDir);
+    const workspaceFile = writeOverrides(workspaceDir, '[]');
+
+    const result = validateAllChangelogOverrides({
+      project: { filePath: projectFile, hashes: [] },
+      workspaces: [{ filePath: workspaceFile, hashes: [] }],
+    });
+
+    expect(result.errors).toHaveLength(2);
+    expect(result.errors[0]).toContain(projectFile);
+    expect(result.errors[0]).toMatch(/Failed to parse override file/);
+    expect(result.errors[1]).toContain(workspaceFile);
+    expect(result.errors[1]).toMatch(/top-level value must be an object/);
+  });
+
+  it('reports per-key validation errors with the file path prefix', () => {
+    const projectFile = writeOverrides(tempDir, JSON.stringify({ abc: { unknown: true } }));
+
+    const result = validateAllChangelogOverrides({
+      project: { filePath: projectFile, hashes: [] },
+    });
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain(projectFile);
+    expect(result.errors[0]).toMatch(/unknown field 'unknown'/);
+  });
+
+  it('reports ambiguous-prefix errors at workspace tier with the workspace file path', () => {
+    const workspaceDir = join(tempDir, 'workspace-a');
+    mkdirSync(workspaceDir);
+    const workspaceFile = writeOverrides(workspaceDir, JSON.stringify({ abc: { audience: 'skip' } }));
+
+    const result = validateAllChangelogOverrides({
+      workspaces: [{ filePath: workspaceFile, hashes: ['abc111', 'abc222'] }],
+    });
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain(workspaceFile);
+    expect(result.errors[0]).toMatch(/ambiguous/);
+  });
+
+  it('reports ambiguous-prefix errors at project tier with the project file path', () => {
+    const projectFile = writeOverrides(tempDir, JSON.stringify({ abc: { audience: 'skip' } }));
+
+    const result = validateAllChangelogOverrides({
+      project: { filePath: projectFile, hashes: ['abc111', 'abc222'] },
+    });
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain(projectFile);
+    expect(result.errors[0]).toMatch(/ambiguous/);
+  });
+
+  it('attributes a project-tier ambiguous-prefix error to the project file when detected via a workspace hash window', () => {
+    // The project key 'abc' resolves ambiguously against workspace A's hashes. The error must
+    // attribute to the project file (where 'abc' lives), not the workspace file (which is empty).
+    const projectFile = writeOverrides(tempDir, JSON.stringify({ abc: { audience: 'skip' } }));
+    const workspaceDir = join(tempDir, 'workspace-a');
+    mkdirSync(workspaceDir);
+    const workspaceFile = writeOverrides(workspaceDir, '{}');
+
+    const result = validateAllChangelogOverrides({
+      project: { filePath: projectFile },
+      workspaces: [{ filePath: workspaceFile, hashes: ['abc111aaa', 'abc222bbb'] }],
+    });
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain(projectFile);
+    expect(result.errors[0]).not.toContain(workspaceFile);
+    expect(result.errors[0]).toMatch(/ambiguous/);
+  });
+
+  it('warns on a workspace-tier stale key with the workspace file path', () => {
+    const workspaceDir = join(tempDir, 'workspace-a');
+    mkdirSync(workspaceDir);
+    const workspaceFile = writeOverrides(workspaceDir, JSON.stringify({ stale12: { audience: 'skip' } }));
+
+    const result = validateAllChangelogOverrides({
+      workspaces: [{ filePath: workspaceFile, hashes: ['real0001', 'real0002'] }],
+    });
+
+    expect(result.errors).toStrictEqual([]);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toContain(workspaceFile);
+    expect(result.warnings[0]).toContain("'stale12'");
+    expect(result.warnings[0]).toMatch(/this workspace's history/);
+  });
+
+  it('warns on a root-tier key matched in no scope', () => {
+    const projectFile = writeOverrides(tempDir, JSON.stringify({ stale99: { audience: 'skip' } }));
+    const workspaceDir = join(tempDir, 'workspace-a');
+    mkdirSync(workspaceDir);
+    const workspaceFile = writeOverrides(workspaceDir, '{}');
+
+    const result = validateAllChangelogOverrides({
+      project: { filePath: projectFile },
+      workspaces: [{ filePath: workspaceFile, hashes: ['real1234'] }],
+    });
+
+    expect(result.errors).toStrictEqual([]);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toContain(projectFile);
+    expect(result.warnings[0]).toContain("'stale99'");
+    expect(result.warnings[0]).toMatch(/any scope/);
+  });
+
+  it('does NOT warn on a root key matched in some workspace', () => {
+    const projectFile = writeOverrides(tempDir, JSON.stringify({ aaa1111: { audience: 'skip' } }));
+    const workspaceA = join(tempDir, 'a');
+    const workspaceB = join(tempDir, 'b');
+    mkdirSync(workspaceA);
+    mkdirSync(workspaceB);
+    const fileA = writeOverrides(workspaceA, '{}');
+    const fileB = writeOverrides(workspaceB, '{}');
+
+    const result = validateAllChangelogOverrides({
+      project: { filePath: projectFile },
+      workspaces: [
+        { filePath: fileA, hashes: ['aaa1111ext'] },
+        { filePath: fileB, hashes: ['unrelated'] },
+      ],
+    });
+
+    expect(result.errors).toStrictEqual([]);
+    expect(result.warnings).toStrictEqual([]);
+  });
+
+  it('does NOT warn on a root key matched only in the project release window', () => {
+    const projectFile = writeOverrides(tempDir, JSON.stringify({ aaa1111: { audience: 'skip' } }));
+    const workspaceDir = join(tempDir, 'workspace-a');
+    mkdirSync(workspaceDir);
+    const workspaceFile = writeOverrides(workspaceDir, '{}');
+
+    const result = validateAllChangelogOverrides({
+      project: { filePath: projectFile, hashes: ['aaa1111ext'] },
+      workspaces: [{ filePath: workspaceFile, hashes: ['unrelated'] }],
+    });
+
+    expect(result.errors).toStrictEqual([]);
+    expect(result.warnings).toStrictEqual([]);
+  });
+
+  it('treats a root key as stale when it is shadowed everywhere and never matches at the root tier', () => {
+    // Root key 'aaa1111' is shadowed by an identical workspace key in the only workspace.
+    // The workspace match counts toward the workspace tier, not the root, and there is no
+    // project release window — so the root key matches nowhere and should be flagged stale.
+    const projectFile = writeOverrides(tempDir, JSON.stringify({ aaa1111: { audience: 'skip' } }));
+    const workspaceDir = join(tempDir, 'workspace-a');
+    mkdirSync(workspaceDir);
+    const workspaceFile = writeOverrides(workspaceDir, JSON.stringify({ aaa1111: { description: 'Workspace wins' } }));
+
+    const result = validateAllChangelogOverrides({
+      project: { filePath: projectFile },
+      workspaces: [{ filePath: workspaceFile, hashes: ['aaa1111ext'] }],
+    });
+
+    expect(result.errors).toStrictEqual([]);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toContain(projectFile);
+    expect(result.warnings[0]).toContain("'aaa1111'");
+  });
+
+  it('reports both errors and warnings simultaneously when both classes occur', () => {
+    const projectFile = writeOverrides(tempDir, JSON.stringify({ stale99: { audience: 'skip' } }));
+    const workspaceDir = join(tempDir, 'workspace-a');
+    mkdirSync(workspaceDir);
+    const workspaceFile = writeOverrides(workspaceDir, JSON.stringify({ abc: { audience: 'skip' } }));
+
+    const result = validateAllChangelogOverrides({
+      project: { filePath: projectFile },
+      workspaces: [{ filePath: workspaceFile, hashes: ['abc111', 'abc222'] }],
+    });
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatch(/ambiguous/);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toContain("'stale99'");
+  });
+
+  it('handles single-package mode (project scope only, no workspaces)', () => {
+    const projectFile = writeOverrides(
+      tempDir,
+      JSON.stringify({ aaa1111: { audience: 'skip' }, stale99: { audience: 'skip' } }),
+    );
+
+    const result = validateAllChangelogOverrides({
+      project: { filePath: projectFile, hashes: ['aaa1111ext'] },
+    });
+
+    expect(result.errors).toStrictEqual([]);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toContain("'stale99'");
   });
 });
 
