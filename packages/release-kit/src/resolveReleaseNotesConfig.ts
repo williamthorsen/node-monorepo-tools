@@ -66,7 +66,10 @@ export async function resolveReleaseNotesConfig(
   }
 
   return {
-    releaseNotes: { ...DEFAULT_RELEASE_NOTES_CONFIG, ...config.releaseNotes },
+    releaseNotes: {
+      shouldInjectIntoReadme:
+        config.releaseNotes?.shouldInjectIntoReadme ?? DEFAULT_RELEASE_NOTES_CONFIG.shouldInjectIntoReadme,
+    },
     changelogJsonOutputPath: config.changelogJson?.outputPath ?? DEFAULT_CHANGELOG_JSON_CONFIG.outputPath,
     sectionOrder: deriveSectionOrder(resolveWorkTypes(config.workTypes)),
   };

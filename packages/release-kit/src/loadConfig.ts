@@ -265,12 +265,12 @@ export function mergeSinglePackageConfig(userConfig: ReleaseKitConfig | undefine
  *
  * Preserves the declaration order of defaults; net-new consumer keys append at the end.
  */
-export function resolveWorkTypes(userWorkTypes?: Record<string, WorkTypeConfig>): Record<string, WorkTypeConfig> {
+export function resolveWorkTypes(userWorkTypes?: ReleaseKitConfig['workTypes']): Record<string, WorkTypeConfig> {
   return userWorkTypes === undefined ? { ...DEFAULT_WORK_TYPES } : { ...DEFAULT_WORK_TYPES, ...userWorkTypes };
 }
 
 /** Merge user-provided changelog JSON config with defaults. */
-function mergeChangelogJsonConfig(partial: Partial<ChangelogJsonConfig> | undefined): ChangelogJsonConfig {
+function mergeChangelogJsonConfig(partial: ReleaseKitConfig['changelogJson']): ChangelogJsonConfig {
   if (partial === undefined) {
     return { ...DEFAULT_CHANGELOG_JSON_CONFIG };
   }
@@ -346,7 +346,7 @@ function assertRetiredPackagesDoNotCollideWithActive(
  * function is a pure transformation and never touches the filesystem.
  */
 function resolveProjectConfig(
-  userProject: { tagPrefix?: string } | undefined,
+  userProject: ReleaseKitConfig['project'],
   rootPackage: RootPackageInfo | undefined,
 ): ResolvedProjectConfig | undefined {
   if (userProject === undefined) {
@@ -471,7 +471,7 @@ function assertUniqueTagPrefixes(workspaces: readonly WorkspaceConfig[]): void {
 }
 
 /** Merge user-provided release notes config with defaults. */
-function mergeReleaseNotesConfig(partial: Partial<ReleaseNotesConfig> | undefined): ReleaseNotesConfig {
+function mergeReleaseNotesConfig(partial: ReleaseKitConfig['releaseNotes']): ReleaseNotesConfig {
   if (partial === undefined) {
     return { ...DEFAULT_RELEASE_NOTES_CONFIG };
   }

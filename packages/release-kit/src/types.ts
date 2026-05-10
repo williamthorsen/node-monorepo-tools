@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 /** Semver release type for version bumping. */
 export type ReleaseType = 'major' | 'minor' | 'patch';
 
@@ -77,18 +79,6 @@ export type ChangelogOverridesFile = Record<string, ChangelogOverride>;
 /** Configuration for release notes consumption (README injection). */
 export interface ReleaseNotesConfig {
   shouldInjectIntoReadme: boolean;
-}
-
-/**
- * Consumer-facing project-release config (`project` block in `release-kit.config.ts`).
- *
- * Declaring an empty `project: {}` opts the repo into project-level releases. All fields
- * are optional; defaults are applied during config merging. The set of contributing
- * workspaces is implicit — every non-excluded discovered workspace contributes.
- */
-export interface ProjectConfig {
-  /** Tag prefix for project-level tags (e.g., `'v'` produces `'v1.2.0'`). Defaults to `'v'`. */
-  tagPrefix?: string;
 }
 
 /**
@@ -307,7 +297,7 @@ export interface WorkTypeConfig {
   /** Human-readable label for the section heading in changelogs. */
   header: string;
   /** Optional aliases that map to this work type (e.g., 'feature' -> 'feat'). */
-  aliases?: string[];
+  aliases?: string[] | undefined;
 }
 
 /**
@@ -322,116 +312,134 @@ export interface VersionPatterns {
   minor: string[];
 }
 
+// region | Schemas for consumer-facing config file
+//
+// Defined in zod so the runtime validator and the static type stay in lockstep — adding a
+// field to the schema flows through `z.infer` automatically; nothing can drift. Schemas
+// describe the *input* shape (fields optional, no defaults). Resolved/post-merge shapes
+// (`ChangelogJsonConfig`, `ReleaseNotesConfig`, `WorkspaceConfig`, etc.) stay as
+// hand-written interfaces because they are produced by `mergeMonorepoConfig` after defaults
+// are applied — they have nothing to validate.
+
+/**
+ * Schema for a single historical identity snapshot for a workspace.
+ *
+ * Captures what the package looked like at some earlier point: the full npm `name`
+ * (e.g., `'@williamthorsen/nmr-core'`) and the `tagPrefix` under which tags were
+ * published (e.g., `'core-v'`).
+ */
+export const legacyIdentitySchema = z
+  .object({
+    name: z.string().min(1),
+    tagPrefix: z.string().min(1),
+  })
+  .strict();
+
+/**
+ * A single historical identity snapshot for a workspace. Both fields are required — a full
+ * tuple stays unambiguous across any number of future renames.
+ */
+export type LegacyIdentity = z.infer<typeof legacyIdentitySchema>;
+
+/**
+ * Schema for a package that once lived in this repo but has since been extracted or removed.
+ *
+ * Unlike `legacyIdentitySchema`, retired packages are never consulted for baseline lookup
+ * or changelog attribution — they acknowledge historical tag prefixes and suppress
+ * undeclared-candidate warnings.
+ */
+export const retiredPackageSchema = z
+  .object({
+    name: z.string().min(1),
+    tagPrefix: z.string().min(1),
+    successor: z.string().min(1).optional(),
+  })
+  .strict();
+
+/** A package that once lived in this repo but has since been extracted or removed. */
+export type RetiredPackage = z.infer<typeof retiredPackageSchema>;
+
+/** Schema for a single workspace override entry in the config file. */
+export const workspaceOverrideSchema = z
+  .object({
+    dir: z.string().min(1),
+    shouldExclude: z.boolean().optional(),
+    legacyIdentities: z.array(legacyIdentitySchema).optional(),
+  })
+  .strict();
+
+/** Override for a single workspace in the config file. Matches a discovered workspace by `dir`. */
+export type WorkspaceOverride = z.infer<typeof workspaceOverrideSchema>;
+
+/** Schema for the optional `project` block. */
+export const projectConfigSchema = z
+  .object({
+    tagPrefix: z.string().min(1).optional(),
+  })
+  .strict();
+
+/** Consumer-facing project-release config (`project` block). Empty object opts in to project releases. */
+export type ProjectConfig = z.infer<typeof projectConfigSchema>;
+
+/** Schema for the optional `changelogJson` block (input shape, all fields optional). */
+export const changelogJsonInputSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    outputPath: z.string().optional(),
+    devOnlySections: z.array(z.string()).optional(),
+  })
+  .strict();
+
+/** Schema for the optional `releaseNotes` block (input shape, all fields optional). */
+export const releaseNotesInputSchema = z
+  .object({
+    shouldInjectIntoReadme: z.boolean().optional(),
+  })
+  .strict();
+
+/** Schema for a single `workTypes` entry. */
+export const workTypeConfigSchema = z
+  .object({
+    header: z.string(),
+    aliases: z.array(z.string()).optional(),
+  })
+  .strict();
+
+/** Schema for the `versionPatterns` block. Both arrays are required when the field is provided. */
+export const versionPatternsSchema = z
+  .object({
+    major: z.array(z.string()),
+    minor: z.array(z.string()),
+  })
+  .strict();
+
+/** Schema for a single `breakingPolicies` value. */
+export const breakingPolicyValueSchema = z.enum(['forbidden', 'optional', 'required']);
+
+/** Schema for the consumer-facing config file shape (`.config/release-kit.config.ts`). */
+export const releaseKitConfigSchema = z
+  .object({
+    breakingPolicies: z.record(z.string(), breakingPolicyValueSchema).optional(),
+    changelogJson: changelogJsonInputSchema.optional(),
+    cliffConfigPath: z.string().min(1).optional(),
+    formatCommand: z.string().min(1).optional(),
+    project: projectConfigSchema.optional(),
+    releaseNotes: releaseNotesInputSchema.optional(),
+    retiredPackages: z.array(retiredPackageSchema).optional(),
+    scopeAliases: z.record(z.string(), z.string()).optional(),
+    versionPatterns: versionPatternsSchema.optional(),
+    workspaces: z.array(workspaceOverrideSchema).optional(),
+    workTypes: z.record(z.string(), workTypeConfigSchema).optional(),
+  })
+  .strict();
+
 /**
  * Consumer-facing config file shape (`.config/release-kit.config.ts`).
  * All fields are optional; defaults are applied during config merging.
  */
-export interface ReleaseKitConfig {
-  /**
-   * Workspace overrides. Each entry matches a discovered workspace by `dir`.
-   * Use `shouldExclude: true` to remove a workspace from release processing.
-   */
-  workspaces?: WorkspaceOverride[];
-  /** Version bump patterns. Replaces defaults entirely when provided. */
-  versionPatterns?: VersionPatterns;
-  /** Work type overrides. Merged with defaults by key. */
-  workTypes?: Record<string, WorkTypeConfig>;
-  /**
-   * Per-canonical-type breaking-policy lookup driving release-time `!`-policy enforcement.
-   *
-   * When omitted, release-prepare flows apply `DEFAULT_BREAKING_POLICIES`. When provided, the
-   * map replaces the default entirely (no merge). To disable enforcement, pass `{}` — the
-   * parser falls back to `'optional'` for any type missing from the map. Individual entries
-   * can be overridden (e.g., make `feat` `'forbidden'` for a stricter dialect).
-   */
-  breakingPolicies?: Record<string, 'forbidden' | 'optional' | 'required'>;
-  /**
-   * Shell command to run after all changelogs are generated (e.g., 'pnpm run fmt').
-   * Modified file paths (package.json files and CHANGELOGs) are appended as space-separated
-   * arguments. Paths are repo-relative; file paths containing spaces are not supported.
-   */
-  formatCommand?: string;
-  /** Path to the cliff.toml file; defaults to 'cliff.toml' when absent. */
-  cliffConfigPath?: string;
-  /**
-   * Maps scope shorthand names to their canonical names.
-   * When a commit uses `shorthand|type: description` or `type(shorthand): description`,
-   * the shorthand is resolved to the canonical scope name before the parsed commit is returned.
-   */
-  scopeAliases?: Record<string, string>;
-  /** Controls structured changelog JSON generation. */
-  changelogJson?: Partial<ChangelogJsonConfig>;
-  /** Controls release notes consumption (README injection). */
-  releaseNotes?: Partial<ReleaseNotesConfig>;
-  /**
-   * Packages that once lived in this repo but have since been extracted or removed.
-   *
-   * Complements the per-workspace `workspaces[].legacyIdentities` field. Use
-   * `legacyIdentities` when the workspace still exists under a new identity; use
-   * `retiredPackages` when no workspace for this package exists in this repo anymore.
-   * Retired packages are never consulted for baseline lookup or changelog attribution —
-   * their declared `tagPrefix` values are treated as known so `show-tag-prefixes` does
-   * not flag them as undeclared candidates.
-   */
-  retiredPackages?: RetiredPackage[];
-  /**
-   * Project-level release block. Declaring `project: {}` (even empty) opts the repo into
-   * project-level releases: each `prepare` run additionally bumps the root `package.json`,
-   * regenerates the root `CHANGELOG.md`, and emits a project tag. Contributing workspaces
-   * are implicitly all non-excluded discovered workspaces. Single-package mode does not
-   * support this block.
-   */
-  project?: ProjectConfig;
-}
+export type ReleaseKitConfig = z.infer<typeof releaseKitConfigSchema>;
 
-/**
- * A single historical identity snapshot for a workspace.
- *
- * Captures what the package looked like at some earlier point: the full npm `name`
- * (e.g., `'@williamthorsen/nmr-core'`) and the `tagPrefix` under which tags
- * were published (e.g., `'core-v'`). Both fields are required — a full tuple stays
- * unambiguous across any number of future renames.
- */
-export interface LegacyIdentity {
-  /** Full scoped npm name as it appeared at the time (e.g., `'@scope/pkg'`). */
-  name: string;
-  /** Tag prefix under which the workspace's historical tags were published (e.g., `'core-v'`). */
-  tagPrefix: string;
-}
-
-/**
- * A package that once lived in this repo but has since been extracted or removed.
- *
- * Unlike `LegacyIdentity`, retired packages are never consulted for baseline lookup or
- * changelog attribution — they exist purely to acknowledge historical tag prefixes and
- * suppress undeclared-candidate warnings. Use `legacyIdentities` when the workspace
- * still exists under a new identity; use `retiredPackages` when no workspace for this
- * package exists anymore.
- */
-export interface RetiredPackage {
-  /** The package's final npm name while it lived in this repo. */
-  name: string;
-  /** The tag prefix under which the package's tags were published (e.g., `'preflight-v'`). */
-  tagPrefix: string;
-  /** Optional successor package name, for packages that were renamed/extracted rather than deleted. */
-  successor?: string;
-}
-
-/** Override for a single workspace in the config file. */
-export interface WorkspaceOverride {
-  /** The package directory name (e.g., 'arrays'). */
-  dir: string;
-  /** If true, exclude this workspace from release processing. */
-  shouldExclude?: boolean;
-  /**
-   * Prior identities of this workspace, used to recognize historical tags across renames.
-   * Each entry is a complete `(name, tagPrefix)` snapshot. The union of the current `tagPrefix`
-   * and each identity's `tagPrefix` is consulted when release-kit searches for the most recent
-   * baseline tag and when generating changelogs. Declaring identities allows release-kit to
-   * recognize legacy tags without any tag mutation.
-   */
-  legacyIdentities?: LegacyIdentity[];
-}
+// endregion | Schemas for consumer-facing config file
 
 /** A raw commit from the git log. */
 export interface Commit {
