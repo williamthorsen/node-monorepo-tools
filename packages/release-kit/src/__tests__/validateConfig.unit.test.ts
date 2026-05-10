@@ -2,6 +2,32 @@ import { describe, expect, it } from 'vitest';
 
 import { validateConfig } from '../validateConfig.ts';
 
+/**
+ * Assert that at least one error in `errors` is attributed to the given field path. Used
+ * for cases where the validator's responsibility is to catch the input at the right path
+ * — the message text itself is Zod's default and should not be pinned to a specific
+ * wording (Zod minor versions can shift wording without our code changing).
+ *
+ * For errors with messages we own (deprecation messages, duplicate-detection messages,
+ * collision messages, cross-field warnings, our targeted "must be a non-empty string"
+ * customization), use `expect(errors).toContain('exact message')` instead.
+ */
+function expectErrorAtPath(errors: readonly string[], path: string): void {
+  const matched = errors.some((e) => e.startsWith(`${path}:`));
+  expect(matched, `expected an error at path '${path}'\nactual errors:\n  ${errors.join('\n  ')}`).toBe(true);
+}
+
+/**
+ * Assert that at least one error in `errors` mentions the given substring. Used for
+ * top-level errors that have no path prefix (e.g., a top-level `Unrecognized key: "X"`
+ * from Zod's `.strict()` check) where we want to confirm the validator surfaced the
+ * offending key without pinning the wording.
+ */
+function expectErrorMentioning(errors: readonly string[], substring: string): void {
+  const matched = errors.some((e) => e.includes(substring));
+  expect(matched, `expected an error mentioning '${substring}'\nactual errors:\n  ${errors.join('\n  ')}`).toBe(true);
+}
+
 describe(validateConfig, () => {
   it('returns no errors for an empty config object', () => {
     const { errors } = validateConfig({});
@@ -13,9 +39,9 @@ describe(validateConfig, () => {
     expect(errors).toContain('Config must be an object');
   });
 
-  it('returns an error for unknown fields', () => {
+  it('returns an error for unknown top-level fields', () => {
     const { errors } = validateConfig({ unknownField: true });
-    expect(errors).toContain('Unrecognized key: "unknownField"');
+    expectErrorMentioning(errors, 'unknownField');
   });
 
   describe('workspaces', () => {
@@ -29,19 +55,19 @@ describe(validateConfig, () => {
 
     it('returns an error when workspaces is not an array', () => {
       const { errors } = validateConfig({ workspaces: 'invalid' });
-      expect(errors).toContain('workspaces: Invalid input: expected array, received string');
+      expectErrorAtPath(errors, 'workspaces');
     });
 
     it('returns an error when dir is missing', () => {
       const { errors } = validateConfig({ workspaces: [{ shouldExclude: true }] });
-      expect(errors).toContain('workspaces[0].dir: Invalid input: expected string, received undefined');
+      expectErrorAtPath(errors, 'workspaces[0].dir');
     });
 
     it('returns an error when shouldExclude is not a boolean', () => {
       const { errors } = validateConfig({
         workspaces: [{ dir: 'arrays', shouldExclude: 'yes' }],
       });
-      expect(errors).toContain('workspaces[0].shouldExclude: Invalid input: expected boolean, received string');
+      expectErrorAtPath(errors, 'workspaces[0].shouldExclude');
     });
 
     it('returns a deprecation error when tagPrefix is present', () => {
@@ -57,7 +83,7 @@ describe(validateConfig, () => {
       const { errors } = validateConfig({
         workspaces: [{ dir: 'arrays', bogusField: true }],
       });
-      expect(errors).toContain('workspaces[0]: Unrecognized key: "bogusField"');
+      expectErrorMentioning(errors, 'bogusField');
     });
 
     describe('legacyIdentities', () => {
@@ -100,57 +126,49 @@ describe(validateConfig, () => {
         const { errors } = validateConfig({
           workspaces: [{ dir: 'core', legacyIdentities: 'core-v' }],
         });
-        expect(errors).toContain('workspaces[0].legacyIdentities: Invalid input: expected array, received string');
+        expectErrorAtPath(errors, 'workspaces[0].legacyIdentities');
       });
 
       it('returns a per-index error when an entry is not an object', () => {
         const { errors } = validateConfig({
           workspaces: [{ dir: 'core', legacyIdentities: ['core-v'] }],
         });
-        expect(errors).toContain('workspaces[0].legacyIdentities[0]: Invalid input: expected object, received string');
+        expectErrorAtPath(errors, 'workspaces[0].legacyIdentities[0]');
       });
 
       it('returns a per-index error when name is missing', () => {
         const { errors } = validateConfig({
           workspaces: [{ dir: 'core', legacyIdentities: [{ tagPrefix: 'core-v' }] }],
         });
-        expect(errors).toContain(
-          'workspaces[0].legacyIdentities[0].name: Invalid input: expected string, received undefined',
-        );
+        expectErrorAtPath(errors, 'workspaces[0].legacyIdentities[0].name');
       });
 
       it('returns a per-index error when name is an empty string', () => {
         const { errors } = validateConfig({
           workspaces: [{ dir: 'core', legacyIdentities: [{ name: '', tagPrefix: 'core-v' }] }],
         });
-        expect(errors).toContain(
-          'workspaces[0].legacyIdentities[0].name: Too small: expected string to have >=1 characters',
-        );
+        expect(errors).toContain('workspaces[0].legacyIdentities[0].name: must be a non-empty string');
       });
 
       it('returns a per-index error when tagPrefix is missing', () => {
         const { errors } = validateConfig({
           workspaces: [{ dir: 'core', legacyIdentities: [{ name: '@scope/core' }] }],
         });
-        expect(errors).toContain(
-          'workspaces[0].legacyIdentities[0].tagPrefix: Invalid input: expected string, received undefined',
-        );
+        expectErrorAtPath(errors, 'workspaces[0].legacyIdentities[0].tagPrefix');
       });
 
       it('returns a per-index error when tagPrefix is an empty string', () => {
         const { errors } = validateConfig({
           workspaces: [{ dir: 'core', legacyIdentities: [{ name: '@scope/core', tagPrefix: '' }] }],
         });
-        expect(errors).toContain(
-          'workspaces[0].legacyIdentities[0].tagPrefix: Too small: expected string to have >=1 characters',
-        );
+        expect(errors).toContain('workspaces[0].legacyIdentities[0].tagPrefix: must be a non-empty string');
       });
 
       it('returns an error on unknown identity fields', () => {
         const { errors } = validateConfig({
           workspaces: [{ dir: 'core', legacyIdentities: [{ name: '@scope/core', tagPrefix: 'core-v', bogus: true }] }],
         });
-        expect(errors).toContain('workspaces[0].legacyIdentities[0]: Unrecognized key: "bogus"');
+        expectErrorMentioning(errors, 'bogus');
       });
 
       it('rejects full-tuple duplicates', () => {
@@ -226,7 +244,7 @@ describe(validateConfig, () => {
             },
           ],
         });
-        expect(errors).toContain('workspaces[0].legacyIdentities[1]: Invalid input: expected object, received string');
+        expectErrorAtPath(errors, 'workspaces[0].legacyIdentities[1]');
         // Schema validation is all-or-nothing per field: when any entry is invalid, the
         // whole `workspaces` field fails parse and downstream consumers see no config at all.
         expect(config.workspaces).toBeUndefined();
@@ -282,53 +300,53 @@ describe(validateConfig, () => {
 
     it('returns an error when retiredPackages is not an array', () => {
       const { errors } = validateConfig({ retiredPackages: 'preflight-v' });
-      expect(errors).toContain('retiredPackages: Invalid input: expected array, received string');
+      expectErrorAtPath(errors, 'retiredPackages');
     });
 
     it('returns a per-index error when an entry is not an object', () => {
       const { errors } = validateConfig({ retiredPackages: ['preflight-v'] });
-      expect(errors).toContain('retiredPackages[0]: Invalid input: expected object, received string');
+      expectErrorAtPath(errors, 'retiredPackages[0]');
     });
 
     it('returns a per-index error when name is missing', () => {
       const { errors } = validateConfig({ retiredPackages: [{ tagPrefix: 'preflight-v' }] });
-      expect(errors).toContain('retiredPackages[0].name: Invalid input: expected string, received undefined');
+      expectErrorAtPath(errors, 'retiredPackages[0].name');
     });
 
     it('returns a per-index error when name is an empty string', () => {
       const { errors } = validateConfig({ retiredPackages: [{ name: '', tagPrefix: 'preflight-v' }] });
-      expect(errors).toContain('retiredPackages[0].name: Too small: expected string to have >=1 characters');
+      expect(errors).toContain('retiredPackages[0].name: must be a non-empty string');
     });
 
     it('returns a per-index error when tagPrefix is missing', () => {
       const { errors } = validateConfig({ retiredPackages: [{ name: '@scope/preflight' }] });
-      expect(errors).toContain('retiredPackages[0].tagPrefix: Invalid input: expected string, received undefined');
+      expectErrorAtPath(errors, 'retiredPackages[0].tagPrefix');
     });
 
     it('returns a per-index error when tagPrefix is an empty string', () => {
       const { errors } = validateConfig({ retiredPackages: [{ name: '@scope/preflight', tagPrefix: '' }] });
-      expect(errors).toContain('retiredPackages[0].tagPrefix: Too small: expected string to have >=1 characters');
+      expect(errors).toContain('retiredPackages[0].tagPrefix: must be a non-empty string');
     });
 
     it('returns a per-index error when successor is not a string', () => {
       const { errors } = validateConfig({
         retiredPackages: [{ name: '@scope/preflight', tagPrefix: 'preflight-v', successor: 42 }],
       });
-      expect(errors).toContain('retiredPackages[0].successor: Invalid input: expected string, received number');
+      expectErrorAtPath(errors, 'retiredPackages[0].successor');
     });
 
     it('returns a per-index error when successor is an empty string', () => {
       const { errors } = validateConfig({
         retiredPackages: [{ name: '@scope/preflight', tagPrefix: 'preflight-v', successor: '' }],
       });
-      expect(errors).toContain('retiredPackages[0].successor: Too small: expected string to have >=1 characters');
+      expect(errors).toContain('retiredPackages[0].successor: must be a non-empty string');
     });
 
     it('returns an error on unknown retired-package fields', () => {
       const { errors } = validateConfig({
         retiredPackages: [{ name: '@scope/preflight', tagPrefix: 'preflight-v', bogus: true }],
       });
-      expect(errors).toContain('retiredPackages[0]: Unrecognized key: "bogus"');
+      expectErrorMentioning(errors, 'bogus');
     });
 
     it('rejects full-tuple duplicates', () => {
@@ -402,7 +420,7 @@ describe(validateConfig, () => {
           { name: '@scope/dead', tagPrefix: 'dead-v', successor: 'alive' },
         ],
       });
-      expect(errors).toContain('retiredPackages[1]: Invalid input: expected object, received string');
+      expectErrorAtPath(errors, 'retiredPackages[1]');
       // Schema validation is all-or-nothing per field: when any entry is invalid, the
       // whole `retiredPackages` field fails parse and downstream consumers see no config at all.
       expect(config.retiredPackages).toBeUndefined();
@@ -422,21 +440,21 @@ describe(validateConfig, () => {
       const { errors } = validateConfig({
         versionPatterns: { major: 'invalid', minor: ['feat'] },
       });
-      expect(errors).toContain('versionPatterns.major: Invalid input: expected array, received string');
+      expectErrorAtPath(errors, 'versionPatterns.major');
     });
 
     it('returns an error when minor is not a string array', () => {
       const { errors } = validateConfig({
         versionPatterns: { major: ['!'], minor: 123 },
       });
-      expect(errors).toContain('versionPatterns.minor: Invalid input: expected array, received number');
+      expectErrorAtPath(errors, 'versionPatterns.minor');
     });
 
     it('returns an error and does not set config.versionPatterns when only major is valid', () => {
       const { config, errors } = validateConfig({
         versionPatterns: { major: ['!'], minor: 'invalid' },
       });
-      expect(errors).toContain('versionPatterns.minor: Invalid input: expected array, received string');
+      expectErrorAtPath(errors, 'versionPatterns.minor');
       expect(config.versionPatterns).toBeUndefined();
     });
 
@@ -444,7 +462,7 @@ describe(validateConfig, () => {
       const { config, errors } = validateConfig({
         versionPatterns: { major: 123, minor: ['feat'] },
       });
-      expect(errors).toContain('versionPatterns.major: Invalid input: expected array, received number');
+      expectErrorAtPath(errors, 'versionPatterns.major');
       expect(config.versionPatterns).toBeUndefined();
     });
   });
@@ -468,14 +486,14 @@ describe(validateConfig, () => {
 
     it('returns an error when workTypes is an array', () => {
       const { errors } = validateConfig({ workTypes: [] });
-      expect(errors).toContain('workTypes: Invalid input: expected record, received array');
+      expectErrorAtPath(errors, 'workTypes');
     });
 
     it('returns an error when header is missing', () => {
       const { errors } = validateConfig({
         workTypes: { perf: { aliases: ['performance'] } },
       });
-      expect(errors).toContain('workTypes.perf.header: Invalid input: expected string, received undefined');
+      expectErrorAtPath(errors, 'workTypes.perf.header');
     });
   });
 
@@ -488,7 +506,7 @@ describe(validateConfig, () => {
 
     it('returns an error when formatCommand is not a string', () => {
       const { errors } = validateConfig({ formatCommand: 123 });
-      expect(errors).toContain('formatCommand: Invalid input: expected string, received number');
+      expectErrorAtPath(errors, 'formatCommand');
     });
 
     it('validates cliffConfigPath as a string', () => {
@@ -505,7 +523,7 @@ describe(validateConfig, () => {
 
     it('returns an error when scopeAliases values are not strings', () => {
       const { errors } = validateConfig({ scopeAliases: { api: 123 } });
-      expect(errors).toContain('scopeAliases.api: Invalid input: expected string, received number');
+      expectErrorAtPath(errors, 'scopeAliases.api');
     });
   });
 
@@ -526,29 +544,25 @@ describe(validateConfig, () => {
 
     it('returns an error when breakingPolicies is not an object', () => {
       const { config, errors } = validateConfig({ breakingPolicies: 'invalid' });
-      expect(errors).toContain('breakingPolicies: Invalid input: expected record, received string');
+      expectErrorAtPath(errors, 'breakingPolicies');
       expect(config.breakingPolicies).toBeUndefined();
     });
 
     it('returns an error when breakingPolicies is an array', () => {
       const { config, errors } = validateConfig({ breakingPolicies: [] });
-      expect(errors).toContain('breakingPolicies: Invalid input: expected record, received array');
+      expectErrorAtPath(errors, 'breakingPolicies');
       expect(config.breakingPolicies).toBeUndefined();
     });
 
-    it('returns an error naming the valid values when a value is not a known policy literal', () => {
+    it('returns an error naming the offending field when a value is not a known policy literal', () => {
       const { config, errors } = validateConfig({ breakingPolicies: { feat: 'sometimes' } });
-      expect(errors).toContain(
-        'breakingPolicies.feat: Invalid option: expected one of "forbidden"|"optional"|"required"',
-      );
+      expectErrorAtPath(errors, 'breakingPolicies.feat');
       expect(config.breakingPolicies).toBeUndefined();
     });
 
     it('returns an error when a value is not a string', () => {
       const { config, errors } = validateConfig({ breakingPolicies: { feat: 123 } });
-      expect(errors).toContain(
-        'breakingPolicies.feat: Invalid option: expected one of "forbidden"|"optional"|"required"',
-      );
+      expectErrorAtPath(errors, 'breakingPolicies.feat');
       expect(config.breakingPolicies).toBeUndefined();
     });
 
@@ -556,9 +570,7 @@ describe(validateConfig, () => {
       const { config, errors } = validateConfig({
         breakingPolicies: { feat: 'forbidden', drop: 'maybe' },
       });
-      expect(errors).toContain(
-        'breakingPolicies.drop: Invalid option: expected one of "forbidden"|"optional"|"required"',
-      );
+      expectErrorAtPath(errors, 'breakingPolicies.drop');
       expect(config.breakingPolicies).toBeUndefined();
     });
   });
@@ -584,27 +596,27 @@ describe(validateConfig, () => {
 
     it('returns an error when changelogJson is not an object', () => {
       const { errors } = validateConfig({ changelogJson: 'invalid' });
-      expect(errors).toContain('changelogJson: Invalid input: expected object, received string');
+      expectErrorAtPath(errors, 'changelogJson');
     });
 
     it('returns an error when enabled is not a boolean', () => {
       const { errors } = validateConfig({ changelogJson: { enabled: 'yes' } });
-      expect(errors).toContain('changelogJson.enabled: Invalid input: expected boolean, received string');
+      expectErrorAtPath(errors, 'changelogJson.enabled');
     });
 
     it('returns an error when outputPath is not a string', () => {
       const { errors } = validateConfig({ changelogJson: { outputPath: 123 } });
-      expect(errors).toContain('changelogJson.outputPath: Invalid input: expected string, received number');
+      expectErrorAtPath(errors, 'changelogJson.outputPath');
     });
 
     it('returns an error when devOnlySections is not a string array', () => {
       const { errors } = validateConfig({ changelogJson: { devOnlySections: [1, 2] } });
-      expect(errors).toContain('changelogJson.devOnlySections[0]: Invalid input: expected string, received number');
+      expectErrorAtPath(errors, 'changelogJson.devOnlySections[0]');
     });
 
     it('returns an error for unknown changelogJson fields', () => {
       const { errors } = validateConfig({ changelogJson: { bogus: true } });
-      expect(errors).toContain('changelogJson: Unrecognized key: "bogus"');
+      expectErrorMentioning(errors, 'bogus');
     });
   });
 
@@ -621,12 +633,12 @@ describe(validateConfig, () => {
 
     it('returns an error when releaseNotes is not an object', () => {
       const { errors } = validateConfig({ releaseNotes: 'invalid' });
-      expect(errors).toContain('releaseNotes: Invalid input: expected object, received string');
+      expectErrorAtPath(errors, 'releaseNotes');
     });
 
     it('returns an error when shouldInjectIntoReadme is not a boolean', () => {
       const { errors } = validateConfig({ releaseNotes: { shouldInjectIntoReadme: 'yes' } });
-      expect(errors).toContain('releaseNotes.shouldInjectIntoReadme: Invalid input: expected boolean, received string');
+      expectErrorAtPath(errors, 'releaseNotes.shouldInjectIntoReadme');
     });
 
     it('returns a targeted migration error when shouldCreateGithubRelease is set', () => {
@@ -638,7 +650,7 @@ describe(validateConfig, () => {
 
     it('returns an error for unknown releaseNotes fields', () => {
       const { errors } = validateConfig({ releaseNotes: { unknownField: true } });
-      expect(errors).toContain('releaseNotes: Unrecognized key: "unknownField"');
+      expectErrorMentioning(errors, 'unknownField');
     });
   });
 
@@ -657,22 +669,22 @@ describe(validateConfig, () => {
 
     it('returns an error when project is not an object', () => {
       const { errors } = validateConfig({ project: 'v' });
-      expect(errors).toContain('project: Invalid input: expected object, received string');
+      expectErrorAtPath(errors, 'project');
     });
 
     it('returns an error when tagPrefix is not a string', () => {
       const { errors } = validateConfig({ project: { tagPrefix: 42 } });
-      expect(errors).toContain('project.tagPrefix: Invalid input: expected string, received number');
+      expectErrorAtPath(errors, 'project.tagPrefix');
     });
 
     it('returns an error when tagPrefix is an empty string', () => {
       const { errors } = validateConfig({ project: { tagPrefix: '' } });
-      expect(errors).toContain('project.tagPrefix: Too small: expected string to have >=1 characters');
+      expect(errors).toContain('project.tagPrefix: must be a non-empty string');
     });
 
     it('returns an error for unknown subfields', () => {
       const { errors } = validateConfig({ project: { tagPrefix: 'v', bogus: true } });
-      expect(errors).toContain('project: Unrecognized key: "bogus"');
+      expectErrorMentioning(errors, 'bogus');
     });
 
     it('omits project from the result when the field is not provided', () => {

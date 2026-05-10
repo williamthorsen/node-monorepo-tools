@@ -7,12 +7,15 @@ import { releaseKitConfigSchema } from './types.ts';
 /**
  * Validate a raw config object loaded from `.config/release-kit.config.ts`.
  *
- * The schema (`releaseKitConfigSchema` in `types.ts`) is the single source of truth for
- * both the `ReleaseKitConfig` type (via `z.infer`) and the runtime shape check, so the
- * type and the validator cannot drift. Schema-driven shape validation runs after a
- * preprocessing pass that surfaces actionable migration messages for known-removed keys
- * and after schema parse runs cross-field checks (full-tuple duplicates, retired-vs-legacy
- * collisions) that benefit from the schema's already-typed result.
+ * Single source of truth: `releaseKitConfigSchema` in `types.ts`, with
+ * `ReleaseKitConfig = z.infer<typeof releaseKitConfigSchema>`. Adding a field to the type
+ * without updating the schema is impossible because the type *is* derived from the
+ * schema.
+ *
+ * Pipeline: (1) preprocess strips deprecated keys and emits migration-guidance errors;
+ * (2) `releaseKitConfigSchema.safeParse` does shape validation; (3) post-parse cross-field
+ * checks (full-tuple duplicates, retired-vs-legacy collisions) operate on the typed
+ * result.
  */
 export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors: string[]; warnings: string[] } {
   if (!isRecord(raw)) {
@@ -54,6 +57,9 @@ export function validateConfig(raw: unknown): { config: ReleaseKitConfig; errors
  * generic "Unrecognized key" message — losing the per-key migration instructions that
  * existing consumers rely on. This pass owns those messages and removes the keys from
  * the input so the schema parse only sees fields it recognizes.
+ *
+ * Contract: every removed/renamed config key must be handled here, not via Zod's
+ * generic Unrecognized-key path. Future deprecations should add a branch below.
  */
 function preprocessDeprecatedKeys(raw: unknown): { cleaned: unknown; deprecationErrors: string[] } {
   if (!isRecord(raw)) return { cleaned: raw, deprecationErrors: [] };
@@ -94,14 +100,24 @@ function preprocessDeprecatedKeys(raw: unknown): { cleaned: unknown; deprecation
 
 /**
  * Format a Zod issue as a single-line error string using the project's existing path
- * convention (`object.key`, `array[index]`). Top-level issues without a path render with
- * the leading bare key (e.g. `'foo' must be an object`) for issues whose `path` resolves
- * to a single top-level key, matching the prior hand-rolled message shape.
+ * convention (`object.key`, `array[index]`). Top-level issues without a path render bare.
+ *
+ * The message body is Zod's default with one targeted exception: `too_small` on strings
+ * is rephrased as "must be a non-empty string" because Zod's "Too small: expected string
+ * to have >=N characters" reads as a numeric-bound error in CLI output.
  */
 function formatZodIssue(issue: z.core.$ZodIssue): string {
   const path = renderPath(issue.path);
-  if (path === '') return issue.message;
-  return `${path}: ${issue.message}`;
+  const message = customizeMessage(issue);
+  return path === '' ? message : `${path}: ${message}`;
+}
+
+/** Apply targeted message customizations to Zod's defaults. */
+function customizeMessage(issue: z.core.$ZodIssue): string {
+  if (issue.code === 'too_small' && issue.origin === 'string') {
+    return 'must be a non-empty string';
+  }
+  return issue.message;
 }
 
 /** Render a Zod path as `top.nested[2].leaf`. */
