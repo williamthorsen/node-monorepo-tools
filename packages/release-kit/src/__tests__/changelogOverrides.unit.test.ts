@@ -690,6 +690,25 @@ describe(validateAllChangelogOverrides, () => {
     expect(result.errors[0]).toMatch(/ambiguous/);
   });
 
+  it('attributes a project-tier ambiguous-prefix error to the project file when detected via a workspace hash window', () => {
+    // The project key 'abc' resolves ambiguously against workspace A's hashes. The error must
+    // attribute to the project file (where 'abc' lives), not the workspace file (which is empty).
+    const projectFile = writeOverrides(tempDir, JSON.stringify({ abc: { audience: 'skip' } }));
+    const workspaceDir = join(tempDir, 'workspace-a');
+    mkdirSync(workspaceDir);
+    const workspaceFile = writeOverrides(workspaceDir, '{}');
+
+    const result = validateAllChangelogOverrides({
+      project: { filePath: projectFile },
+      workspaces: [{ filePath: workspaceFile, hashes: ['abc111aaa', 'abc222bbb'] }],
+    });
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain(projectFile);
+    expect(result.errors[0]).not.toContain(workspaceFile);
+    expect(result.errors[0]).toMatch(/ambiguous/);
+  });
+
   it('warns on a workspace-tier stale key with the workspace file path', () => {
     const workspaceDir = join(tempDir, 'workspace-a');
     mkdirSync(workspaceDir);

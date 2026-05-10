@@ -9,17 +9,26 @@ describe(formatValidateOverridesResult, () => {
     expect(result.message).toMatch(/valid/);
   });
 
-  it('returns exit 1 with only warnings rendered', () => {
+  it('returns exit 1 with only warnings rendered (zero-count error category is omitted)', () => {
     const result = formatValidateOverridesResult({
       errors: [],
       warnings: ["packages/foo/.meta/changelog-overrides.json: Override key 'stale99' did not match"],
     });
     expect(result.exitCode).toBe(1);
-    expect(result.message).toContain('0 errors');
-    expect(result.message).toContain('1 warning');
+    expect(result.message).toContain('Found 1 warning:');
+    expect(result.message).not.toContain('error');
     expect(result.message).toContain('stale99');
     expect(result.message).not.toContain('❌');
     expect(result.message).toContain('⚠️');
+  });
+
+  it('omits the warning category from the summary when only errors are present', () => {
+    const result = formatValidateOverridesResult({
+      errors: ["file.json: Override key 'abc' is ambiguous: matches multiple commits"],
+      warnings: [],
+    });
+    expect(result.message).toContain('Found 1 error:');
+    expect(result.message).not.toContain('warning');
   });
 
   it('returns exit 2 when any error is present, regardless of warnings', () => {
@@ -81,6 +90,17 @@ describe(validateOverridesCommand, () => {
     expect(result.exitCode).toBe(2);
     expect(result.message).toContain('Error loading config');
     expect(result.message).toContain('boom');
+  });
+
+  it('returns exit 2 with an Invalid config message when the loaded config fails validation', async () => {
+    // `validateConfig` rejects non-record top-level values with "Config must be an object".
+    const result = await validateOverridesCommand({
+      discoverWorkspaces: () => Promise.resolve(undefined),
+      loadConfig: () => Promise.resolve(42),
+      validate: () => ({ errors: [], warnings: [] }),
+    });
+    expect(result.exitCode).toBe(2);
+    expect(result.message).toContain('Invalid config');
   });
 
   it('passes a project-only scope to validate in single-package mode', async () => {

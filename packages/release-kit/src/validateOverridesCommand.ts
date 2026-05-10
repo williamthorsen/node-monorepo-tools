@@ -93,11 +93,23 @@ export function formatValidateOverridesResult(
   }
 
   const exitCode = errors.length > 0 ? 2 : 1;
-  const summary = `Found ${pluralize(errors.length, 'error')} and ${pluralize(warnings.length, 'warning')}:`;
+  const summary = formatSummaryLine(errors.length, warnings.length);
   const errorLines = errors.map((message) => `  ❌ ${message}`);
   const warningLines = warnings.map((message) => `  ⚠️  ${message}`);
   const message = [summary, '', ...errorLines, ...warningLines].join('\n');
   return { exitCode, message };
+}
+
+/** Render the leading summary, omitting zero-count categories (e.g., `Found 1 warning:` rather than `Found 0 errors and 1 warning:`). */
+function formatSummaryLine(errorCount: number, warningCount: number): string {
+  const parts: string[] = [];
+  if (errorCount > 0) {
+    parts.push(pluralize(errorCount, 'error'));
+  }
+  if (warningCount > 0) {
+    parts.push(pluralize(warningCount, 'warning'));
+  }
+  return `Found ${parts.join(' and ')}:`;
 }
 
 function pluralize(count: number, noun: string): string {

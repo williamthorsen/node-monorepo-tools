@@ -527,14 +527,24 @@ export function validateAllChangelogOverrides(
   // a root key that's overridden everywhere is functionally dead and reported as stale.
   const globalMatchedRootKeys = new Set<string>();
 
-  // Workspace tier — apply composed (root + workspace) map against the workspace's hashes to
-  // surface ambiguous-prefix errors. Stale-key detection runs independently from prefix-match
-  // counts so ambiguous keys (2+ hits) aren't doubly flagged as stale.
+  // Workspace tier — apply each map separately against the workspace's hashes so ambiguous-
+  // prefix errors attribute to the file that contains the offending key, not to the composed
+  // view. The shadowing semantic still applies to the root-tier accounting below: byte-equal
+  // keys in the workspace map exclude their root counterparts from the project apply for this
+  // workspace (workspace's value would win at runtime, so the root entry is dead at this scope).
+  // Stale-key detection runs independently from prefix-match counts so ambiguous keys
+  // (2+ hits) aren't doubly flagged as stale.
   for (const { filePath, hashes, map } of workspaceMaps) {
-    const composed = composeOverrides(projectMap, map);
-    const applied = applyChangelogOverrides(makeValidationEntries(hashes), composed);
-    for (const message of applied.errors) {
+    const workspaceApplied = applyChangelogOverrides(makeValidationEntries(hashes), map);
+    for (const message of workspaceApplied.errors) {
       errors.push(prefixWithFilePath(filePath, message));
+    }
+    if (projectFilePath !== undefined && projectMap.size > 0) {
+      const projectMinusShadowed = filterShadowedKeys(projectMap, map);
+      const projectApplied = applyChangelogOverrides(makeValidationEntries(hashes), projectMinusShadowed);
+      for (const message of projectApplied.errors) {
+        errors.push(prefixWithFilePath(projectFilePath, message));
+      }
     }
     for (const key of map.keys()) {
       if (!hasAnyMatch(key, hashes)) {
@@ -578,6 +588,19 @@ export function validateAllChangelogOverrides(
 
 function hasAnyMatch(key: string, hashes: readonly string[]): boolean {
   return hashes.some((hash) => hash.startsWith(key));
+}
+
+/** Return a fresh map containing every entry of `projectMap` whose key does not appear in `workspaceMap`. */
+function filterShadowedKeys(
+  projectMap: Map<string, ChangelogOverride>,
+  workspaceMap: Map<string, ChangelogOverride>,
+): Map<string, ChangelogOverride> {
+  const result = new Map<string, ChangelogOverride>();
+  for (const [key, value] of projectMap) {
+    if (workspaceMap.has(key)) continue;
+    result.set(key, value);
+  }
+  return result;
 }
 
 /** Load a scope's override map, pushing any load/schema errors (each prefixed with the file path) onto `errors`. */

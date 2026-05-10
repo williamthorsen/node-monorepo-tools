@@ -6,3 +6,4 @@ export {
 } from './changelogOverrides.ts';
 export type { SyncLabelsConfig } from './sync-labels/types.ts';
 export type { ReleaseKitConfig } from './types.ts';
+export { formatValidateOverridesResult, type ValidateOverridesCommandResult } from './validateOverridesCommand.ts';
