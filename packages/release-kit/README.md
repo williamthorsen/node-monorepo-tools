@@ -457,6 +457,32 @@ The override file is validated when `release-kit prepare` loads it. Each error n
 - An entry with no fields set → error (a copy-paste mistake more often than not).
 - `audience: 'all'` or `audience: 'dev'` → error in the current release: only `'skip'` is supported (see below).
 
+#### Standalone validation: `release-kit overrides validate`
+
+For a fast overrides-only health check (locally or as a CI gate), run:
+
+```sh
+pnpm exec release-kit overrides validate
+```
+
+This walks every `.meta/changelog-overrides.json` file across the project tier and per-workspace tier, reporting three classes of finding:
+
+| Class               | Examples                                                                                    | Exit code |
+| ------------------- | ------------------------------------------------------------------------------------------- | --------- |
+| Schema/parse errors | malformed JSON, unknown fields, wrong field types, no-field entries, unsupported `audience` | `2`       |
+| Ambiguous-prefix    | an override key resolves to 2+ commit hashes                                                | `2`       |
+| Stale-key warnings  | an override key resolves to no commit in its applicable scope                               | `1`       |
+
+Exit code semantics:
+
+- `0` — clean (no errors, no stale keys).
+- `1` — only stale-key warnings.
+- `2` — schema/parse or ambiguous-prefix errors (errors dominate when both classes are present).
+
+Tier-aware stale-key semantics match `release-kit prepare`'s match-set exactly: a workspace-tier key is stale if it does not match in its own workspace's history; a root-tier key is stale only if it matches in **no** scope (no workspace AND not the project release window).
+
+The same logic is also exposed programmatically via the `validateAllChangelogOverrides` function exported from `@williamthorsen/release-kit`, for callers that want to integrate the check into their own tooling.
+
 ### Audience semantics: v1 supports `'skip'` only
 
 The on-disk format declares the full `'all' | 'dev' | 'skip'` audience vocabulary so the file format will not need to change when the v2 reclassification feature ships. In the current release, only `'skip'` is supported at runtime; `'all'` and `'dev'` are rejected with an explicit "not yet supported" error.
