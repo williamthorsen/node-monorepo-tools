@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.7.0",
+    "date": "2026-05-10",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Rename audit-deps to v11y-check (#383)",
+            "body": "The package previously published as `@williamthorsen/audit-deps` has been renamed to `v11y-check`. The CLI command is now `v11y-check`, and the default config file is `.config/v11y-check.config.json`. Existing users should install `v11y-check` in place of `@williamthorsen/audit-deps`, rename their config file, and update any scripts that invoke `audit-deps`. Behavior is unchanged.",
+            "hash": "1ce3d2f915d39eba52f1792b44ad02d21deafba5"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.6.1",
     "date": "2026-05-04",
     "sections": [

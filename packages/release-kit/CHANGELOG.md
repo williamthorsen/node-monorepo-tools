@@ -2,7 +2,43 @@
 
 All notable changes to this project will be documented in this file.
 
-## [release-kit-v5.2.1] - 2026-05-05
+## 5.3.0 — 2026-05-10
+
+### 🎉 Features
+
+- Enable editorial overrides for changelog entries (#387)
+
+  Allows `release-kit` consumers to skip or correct historical changelog entries by means of an overrides file.
+
+- Decentralize changelog overrides to per-scope .meta/ files (#391)
+
+  Adds support for workspace-scoped editorial-override files for `release-kit`-generated changelogs. A repo-root file applies overrides to every workspace's changelog; a workspace-tier file applies only to that workspace.
+
+- Add section markers and authenticated upstream fetch (#393)
+
+  A new `markers` block in `work-types.json` describes the breaking-changes emoji and label, making them available for use by consumers.
+
+  `work-types check` and `work-types sync` now authenticate when `GITHUB_TOKEN` is set, so they can reach private upstream repositories.
+
+- Validate changelog overrides from the command line (#395)
+
+  Adds a `release-kit overrides validate` subcommand that audits every `.meta/changelog-overrides.json` file across the project root and per-workspace scopes in one pass. The command reports schema errors, ambiguous-prefix collisions, and stale-key warnings with tiered exit codes so CI can choose its own failure threshold. The same validation is also available via a library function exported by the package.
+
+### 🐛 Bug fixes
+
+- Suppress git-cliff stale-version warnings on prepare (#373)
+
+  Fixes an issue where `release-kit prepare` repeatedly printed git-cliff's "A new version of git-cliff is available" notice — twice per release unit, so 2 × N times for an N-package monorepo run — while never updating the locally cached git-cliff binary. Each `prepare` run now revalidates the npm cache once before any cliff work, so the binary stays current with upstream releases and the notice no longer surfaces on every per-workspace invocation.
+
+- Use synthetic changelogs for forced empty-range releases (#376)
+
+  Fixes an issue where `release-kit prepare` with `--force`, `--bump=X`, or `--set-version` would invoke git-cliff against units that had no commits since their last tag, surfacing confusing `WARN  git_cliff > There is already a tag (...)` lines (twice per affected unit) and silently leaving `CHANGELOG.md` and `.meta/changelog.json` stale. Empty-range bumps now write a synthetic `Notes / Forced version bump.` entry to both files instead of invoking git-cliff. Applies to all three release stages: single-package, per-workspace, and project. Prior changelog history is preserved on every path.
+
+- Accept `breakingPolicies` field in config files (#394)
+
+  Fixes an issue where setting `breakingPolicies` in `release-kit.config.ts` was rejected as an unknown field, leaving per-work-type breaking-policy configuration unreachable from the config file. Each entry accepts `'forbidden'`, `'optional'`, or `'required'`; an empty object opts out of enforcement.
+
+## 5.2.1 — 2026-05-05
 
 ### 🐛 Bug fixes
 
@@ -10,7 +46,7 @@ All notable changes to this project will be documented in this file.
 
   Fixes an issue where `release-kit create-github-release --tags <tag>` exited 1 — failing the calling CI workflow — when the requested tag had no changelog entry. Tooling-only releases (those whose changelog generator legitimately omits an entry) are now soft-skipped with an info-level summary, the same as releases skipped because their entry has no audience-relevant content. Typo protection is preserved: passing an unknown tag to `--tags` still exits 1.
 
-## [release-kit-v5.2.0] - 2026-05-04
+## 5.2.0 — 2026-05-04
 
 ### 🎉 Features
 
@@ -50,7 +86,7 @@ All notable changes to this project will be documented in this file.
 
   Fixes an issue where running `audit-deps`, `nmr`, or `release-kit` from the locally built `dist/esm/` after a `git pull` could report a stale version. Each CLI now reads its version directly from its `package.json` at startup, so version reads stay in sync with the installed source without requiring a fresh `pnpm install` or rebuild.
 
-## [release-kit-v5.1.0] - 2026-04-30
+## 5.1.0 — 2026-04-30
 
 ### 🎉 Features
 
@@ -110,7 +146,7 @@ All notable changes to this project will be documented in this file.
 
   Documents the strict-prefix tag-prefix collision rule as a general validation rule that applies to every release-kit consumer declaring more than one tag prefix: across active workspaces, declared legacy identities, retired packages, and the optional `project` block. Previously, the rule appeared only inside the `Project releases` validation list.
 
-## [release-kit-v5.0.0] - 2026-04-23
+## 5.0.0 — 2026-04-23
 
 ### 🎉 Features
 
@@ -122,11 +158,11 @@ All notable changes to this project will be documented in this file.
 
   Adds release-notes injection to the configs scaffolded by `release-kit init`, so newly-onboarded consumers get the feature without having to discover or toggle the flag. The release-kit readyup kit gains a check that warns when a consumer's README is missing the marker pair where injected notes should land — without those markers, injection silently prepends to the top of the file, pushing the README's title below the notes.
 
-- Split GitHub Release creation into its own workflow (#272)
+- 🚨 **Breaking:** Split GitHub Release creation into its own workflow (#272)
 
   Splits GitHub Release creation out of release-kit publish into a dedicated release-kit create-github-release CLI command and a matching reusable GitHub Actions workflow. Consumers that do not publish to npm can now create Releases independently, and the contents: write permission required to create a Release no longer leaks into the publish path.
 
-- Replace --only with --tags on release-kit publish and push (#273)
+- 🚨 **Breaking:** Replace --only with --tags on release-kit publish and push (#273)
 
   `release-kit publish` and `release-kit push` now filter by full tag name via `--tags=<tag1,tag2>` instead of workspace directory name via `--only=<dir>`, matching the shape already used by `create-github-release`. Callers pass the tag they care about (e.g., `core-v1.3.0`) directly, with no translation step back to the publishing workspace's directory name. The reusable workflow gains an optional `tags:` input, and the internal `publish.yaml` caller now passes `tags: ${{ github.ref_name }}`, making the publish scope explicit rather than relying on the single-tag fetch default of `actions/checkout@v6`.
 
@@ -142,13 +178,13 @@ All notable changes to this project will be documented in this file.
 
   Adds a one-shot migration tool, `migrate-tag-prefixes.sh`, shipped inside the release-kit package. The tool creates additive annotated-tag aliases under release-kit's new unscoped-package-name prefix that point at the same commits as the previous directory-basename tags, bridging the gap so post-migration `getCommitsSinceTarget` calls can resolve prior releases.
 
-- Add legacyTagPrefixes config field (#289)
+- 🚨 **Breaking:** Add legacyTagPrefixes config field (#289)
 
   Replaces the v4 → v5 tag-prefix migration mechanism (tag aliasing via `migrate-tag-prefixes.sh`) with a declarative `legacyTagPrefixes` config field. release-kit now searches for both legacy and modern prefixes when generating changelogs.
 
   Adds a companion `release-kit show-tag-prefixes` CLI command that renders a per-workspace table of derived and declared legacy prefixes, flags cross-workspace collisions, and surfaces undeclared candidate prefixes with a copy-pasteable config snippet. `release-kit prepare` gains a one-line hint pointing operators to `show-tag-prefixes` when a workspace has no baseline tag but the repo contains candidate-shaped tags.
 
-- Replace `legacyTagPrefixes` with `legacyIdentities` (#297)
+- 🚨 **Breaking:** Replace `legacyTagPrefixes` with `legacyIdentities` (#297)
 
   Replaces the per-workspace `legacyTagPrefixes: string[]` field with `legacyIdentities: LegacyIdentity[]`, a structured array of complete `(name, tagPrefix)` historical snapshots. Each legacy identity is now a self-consistent record of what a workspace used to be called and how its tags used to be prefixed, so a workspace that has been renamed (npm name change, tag-prefix change, or both) carries one entry per prior identity.
 
@@ -168,15 +204,15 @@ All notable changes to this project will be documented in this file.
 
 ### ♻️ Refactoring
 
-- Rename `component` to `workspace` in config API and internals (#296)
+- 🚨 **Breaking:** Rename `component` to `workspace` in config API and internals (#296)
 
   Renames release-kit's per-workspace vocabulary from "component" to "workspace" throughout the public API, internal types, validation messages, CLI help, init templates, and documentation. Behavior is unchanged; only identifiers, error-message strings, scaffolded template text, and prose have been changed.
 
-- Rename `node-monorepo-core` to `nmr-core` (#304)
+- 🚨 **Breaking:** Rename `node-monorepo-core` to `nmr-core` (#304)
 
   Renames the shared-utilities package from `@williamthorsen/node-monorepo-core` to `@williamthorsen/nmr-core`, aligning it with the repository's `nmr-*` naming convention. The package's functionality and version are unchanged; only the published name differs.
 
-## [release-kit-v4.8.0] - 2026-04-17
+## 4.8.0 — 2026-04-17
 
 ### 🎉 Features
 
@@ -190,7 +226,7 @@ All notable changes to this project will be documented in this file.
 
   Fixes silent swallowing of unexpected filesystem errors in `detectRepoType`. Previously, errors like `EACCES` (permission denied) or `EMFILE` (too many open files) when reading `package.json` were caught and discarded, causing the function to silently return `'single-package'` instead of surfacing the problem.
 
-## [release-kit-v4.7.0] - 2026-04-16
+## 4.7.0 — 2026-04-16
 
 ### 🎉 Features
 
@@ -198,7 +234,7 @@ All notable changes to this project will be documented in this file.
 
   Commits prefixed with `##` are now included in changelogs without requiring a ticket ID. This supports ad-hoc changes made during interactive sessions where creating a ticket and PR adds undesired overhead.
 
-## [release-kit-v4.6.0] - 2026-04-15
+## 4.6.0 — 2026-04-15
 
 ### 🎉 Features
 
@@ -232,7 +268,7 @@ All notable changes to this project will be documented in this file.
 
   Prepares the repository for reliable tag-triggered npm publishing by adding missing package metadata, standardizing licensing, and introducing a readyup kit that validates publish readiness across all packages.
 
-## [release-kit-v4.5.1] - 2026-04-10
+## 4.5.1 — 2026-04-10
 
 ### 🐛 Bug fixes
 
@@ -240,7 +276,7 @@ All notable changes to this project will be documented in this file.
 
   Fixes three issues in `release-kit sync-labels init` scaffolding output that cause immediate errors for consumers: adds missing workflow permissions, corrects config template indentation from 2 to 4 spaces, and switches YAML quoting from double to single quotes.
 
-## [release-kit-v4.4.0] - 2026-04-04
+## 4.4.0 — 2026-04-04
 
 ### 🎉 Features
 
@@ -268,7 +304,7 @@ All notable changes to this project will be documented in this file.
 
   Restructures the release-kit README to match the documentation standard established by the preflight README (#114). Reorders sections to follow the cross-package convention, converts CLI flag listings from code blocks to tables, adds representative `prepare --dry-run` output to the quick start, and condenses ~90 lines of inline workflow YAML into a summary with an inputs table and trigger examples. Fixes several accuracy gaps found by verifying documentation against source.
 
-## [release-kit-v4.0.0] - 2026-04-02
+## 4.0.0 — 2026-04-02
 
 ### 🎉 Features
 
@@ -276,11 +312,11 @@ All notable changes to this project will be documented in this file.
 
   Renames all three reusable GitHub Actions workflow files from the inconsistent `-workflow.yaml`/bare `.yaml` convention to a uniform `.reusable.yaml` suffix. Updates all references across caller workflows, release-kit templates, tests, preflight collection, and documentation. Scaffolds the sync-labels caller workflow and labels file for this repo. Deletes superseded legacy files.
 
-## [release-kit-v3.0.0] - 2026-03-29
+## 3.0.0 — 2026-03-29
 
 ### 🎉 Features
 
-- Support conventional-commit format in commit parsing (#85)
+- 🚨 **Breaking:** Support conventional-commit format in commit parsing (#85)
 
   Adds support for the conventional commits format (`type(scope): description`) alongside the existing pipe-prefixed format (`scope|type: description`) in release-kit's commit parser. Renames `workspace` to `scope` throughout release-kit types, config, validation, and consumers.
 
@@ -310,7 +346,7 @@ All notable changes to this project will be documented in this file.
 
   Restructures `releasePrepareMono` from a single-pass loop into a phased pipeline that automatically patch-bumps workspace dependents when a component is released. A reverse dependency graph is built from `workspace:` references in `dependencies` and `peerDependencies`, then BFS propagation walks upward from bumped components to their dependents. Propagated-only components receive synthetic changelog entries instead of git-cliff invocations.
 
-## [release-kit-v2.3.2] - 2026-03-28
+## 2.3.2 — 2026-03-28
 
 ### 🐛 Bug fixes
 
@@ -318,7 +354,7 @@ All notable changes to this project will be documented in this file.
 
   Prevents `releasePrepareMono` and `releasePrepare` from silently skipping components whose commits have unparseable messages. Adds ticket-prefix stripping to `parseCommitMessage` (mirroring cliff.toml's `commit_preprocessors`), a patch-floor safety net when commits exist but none parse, and unparseable-commit reporting in `reportPrepare`.
 
-## [release-kit-v2.3.0] - 2026-03-28
+## 2.3.0 — 2026-03-28
 
 ### 🎉 Features
 
@@ -346,7 +382,7 @@ All notable changes to this project will be documented in this file.
 
   Adds three unit tests to `releasePrepare.unit.test.ts` covering previously untested code paths: the `bumpOverride` bypass of commit-based bump detection, custom `tagPrefix` propagation into tags, and tag computation in dry-run mode.
 
-## [release-kit-v2.2.0] - 2026-03-27
+## 2.2.0 — 2026-03-27
 
 ### 🎉 Features
 
@@ -411,11 +447,11 @@ All notable changes to this project will be documented in this file.
 
   Replaces the legacy workspace script runner and ~25 root `package.json` scripts with `nmr`, the monorepo's own context-aware script runner. Root scripts are reduced to 4 (`prepare`, `postinstall`, `ci`, `bootstrap`), packages use direct build commands for bootstrap, and release-kit declares tier-3 test overrides for its integration test configs.
 
-## [release-kit-v2.1.0] - 2026-03-17
+## 2.1.0 — 2026-03-17
 
 ### 🎉 Features
 
-- Slim down release workflow by removing unnecessary pnpm install (#21)
+- 🚨 **Breaking:** Slim down release workflow by removing unnecessary pnpm install (#21)
 
   Make release-kit self-contained by invoking git-cliff via `npx --yes` instead of requiring it on PATH, and by appending modified file paths to the format command so lightweight formatters like `npx prettier --write` work without a full `pnpm install`. Update init templates, README, and consuming repo config/workflow to reference workflow v3.
 
@@ -423,7 +459,7 @@ All notable changes to this project will be documented in this file.
 
   Add a `--force` flag to `release-kit prepare` that bypasses the "no commits since last tag" check in monorepo mode, allowing version bumping and changelog generation to proceed even when no new commits are found since the last release tag. The flag requires `--bump` since there are no commits to infer bump type from. The local release workflow gains a `force` boolean input for future use.
 
-- Move reusable release workflow into repo (#26)
+- 🚨 **Breaking:** Move reusable release workflow into repo (#26)
 
   Moves the reusable release workflow from `williamthorsen/.github` into this repo as `release-workflow.yaml`, stripping all pnpm-related steps since release-kit now runs git-cliff and prettier via `npx` internally. Updates this repo's caller workflow to use a relative path and update init templates to reference the new location. Establishes a naming convention (`{name}-workflow.yaml` for reusable, `{name}.yaml` for callers) and independent versioning strategy (`{name}-workflow-v{major}` tags), documented in `.github/workflows/README.md`.
 
@@ -437,7 +473,7 @@ All notable changes to this project will be documented in this file.
 
   Addresses five code quality issues and a test coverage gap identified during the release-kit migration (#5). Extracts a duplicated `isRecord` type guard into a shared module, eliminates a double-read in `bumpAllVersions`, improves error handling in `usesPnpm` by replacing a silent catch with a structured error boundary, removes an unreachable `'feature'` pattern from version defaults, and adds an integration test for scaffold template path resolution.
 
-## [release-kit-v1.0.1] - 2026-03-14
+## 1.0.1 — 2026-03-14
 
 ### 🎉 Features
 
@@ -445,4 +481,4 @@ All notable changes to this project will be documented in this file.
 
   Migrates the complete `@williamthorsen/release-kit` package (v1.0.1) from `williamthorsen/toolbelt` into `packages/release-kit/`, adds shebang preservation to the shared esbuild plugin for CLI binaries, and sets up dogfooding infrastructure so this monorepo uses release-kit for its own releases.
 
-<!-- generated by git-cliff -->
+<!-- Generated by release-kit. Do not edit this file. Use .meta/changelog-overrides.json to override entries. -->

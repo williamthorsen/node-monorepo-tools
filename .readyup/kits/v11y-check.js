@@ -92,7 +92,7 @@ function hasMinDevDependencyVersion(name, minVersion, options) {
 
 // .readyup/kits/v11y-check.ts
 function getMinVersion() {
-  const picked = { "version": "0.6.1" };
+  const picked = { "version": "0.7.0" };
   if (typeof picked.version !== "string") {
     throw new TypeError("v11y-check/package.json: 'version' must be a string");
   }

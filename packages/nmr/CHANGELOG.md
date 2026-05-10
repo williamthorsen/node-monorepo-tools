@@ -2,7 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
-## [nmr-v0.13.0] - 2026-05-04
+## 0.14.0 — 2026-05-10
+
+### ⚙️ Tooling
+
+- Expose workspace bins from any subdir and simplify nmr docs (#374)
+
+  Workspace bins like `nmr`, `release-kit`, and `audit-deps` are now invocable from any subdirectory under the monorepo when direnv is active, replacing the previous root-only `.envrc` recipe. The nmr usage docs are restructured to present two unambiguous resolution modes — direnv (recommended) and `pnpm exec nmr` — and the repo's README now documents direnv as the recommended setup.
+
+## 0.13.0 — 2026-05-04
 
 ### 🎉 Features
 
@@ -26,7 +34,7 @@ All notable changes to this project will be documented in this file.
 
   Fixes an issue where running `audit-deps`, `nmr`, or `release-kit` from the locally built `dist/esm/` after a `git pull` could report a stale version. Each CLI now reads its version directly from its `package.json` at startup, so version reads stay in sync with the installed source without requiring a fresh `pnpm install` or rebuild.
 
-## [nmr-v0.12.0] - 2026-04-23
+## 0.12.0 — 2026-04-23
 
 ### 🎉 Features
 
@@ -40,7 +48,7 @@ All notable changes to this project will be documented in this file.
 
   The script's expansion (`fmt:check`, `lint:check`) is unchanged.
 
-## [nmr-v0.11.0] - 2026-04-17
+## 0.11.0 — 2026-04-17
 
 ### 🎉 Features
 
@@ -56,7 +64,7 @@ All notable changes to this project will be documented in this file.
 
   Migrates nmr's built-in `audit:dev` and `audit:prod` root scripts from calling `audit-ci` directly via `pnpm dlx` to delegating to the `audit-deps` CLI wrapper via `pnpm exec audit-deps`. Removes the now-obsolete `.config/audit-ci/` directory and its JSON5 config files, since `audit-deps` uses its own config at `.config/audit-deps.config.json`. Updates the nmr readyup kit to check for `@williamthorsen/audit-deps` installation instead of checking for legacy audit-ci directory placement.
 
-## [nmr-v0.10.0] - 2026-04-16
+## 0.10.0 — 2026-04-16
 
 ### 🎉 Features
 
@@ -64,7 +72,7 @@ All notable changes to this project will be documented in this file.
 
   Dependency audit is now decoupled from the CI quality gate so that transient upstream CVEs no longer block the merging of unrelated code changes. Audit now runs in a dedicated workflow with non-blocking PR integration (acknowledgment checkbox) and a daily scheduled run that tracks results in a standing GitHub issue. A readyup kit is available to validate the new setup in consuming repos.
 
-## [nmr-v0.9.2] - 2026-04-15
+## 0.9.2 — 2026-04-15
 
 ### ⚙️ Tooling
 
@@ -72,7 +80,7 @@ All notable changes to this project will be documented in this file.
 
   Prepares the repository for reliable tag-triggered npm publishing by adding missing package metadata, standardizing licensing, and introducing a readyup kit that validates publish readiness across all packages.
 
-## [nmr-v0.9.0] - 2026-04-04
+## 0.9.0 — 2026-04-04
 
 ### 🎉 Features
 
@@ -94,7 +102,7 @@ All notable changes to this project will be documented in this file.
 
   Rewrites the nmr README to match the documentation standard established by the preflight README (#114). Restructures content to follow the cross-package convention (header → installation → quick start → concepts → CLI reference), adds comprehensive reference tables for CLI flags, `defineConfig` fields, and all built-in script registries (workspace and root), and introduces visual aids for context-aware resolution and three-tier override precedence.
 
-## [nmr-v0.5.0] - 2026-03-31
+## 0.5.0 — 2026-03-31
 
 ### 🎉 Features
 
@@ -102,7 +110,7 @@ All notable changes to this project will be documented in this file.
 
   Adds a `fix` composite script to both the workspace and root script registries in nmr. The script runs `lint` then `fmt` in sequence, providing a single command to auto-fix linting and formatting issues.
 
-## [nmr-v0.4.0] - 2026-03-30
+## 0.4.0 — 2026-03-30
 
 ### 🎉 Features
 
@@ -112,7 +120,7 @@ All notable changes to this project will be documented in this file.
 
   Also fixes the `ci` and `check:strict` script ordering to run build before strict checks, and corrects stale test assertions.
 
-## [nmr-v0.3.0] - 2026-03-29
+## 0.3.0 — 2026-03-29
 
 ### 🎉 Features
 
@@ -126,7 +134,7 @@ All notable changes to this project will be documented in this file.
 
   Remove the self-referencing `ci: "nmr ci"` script from root `package.json` and update the CI workflow to use `code-quality-pnpm-workflow.yaml@v4` with an explicit `check-command`.
 
-## [nmr-v0.2.0] - 2026-03-28
+## 0.2.0 — 2026-03-28
 
 ### 🎉 Features
 
@@ -147,7 +155,7 @@ All notable changes to this project will be documented in this file.
 
   Also fix the executable bit on bin/ensure-prepublish-hooks.js to match the other bin entries.
 
-## [nmr-v0.1.1] - 2026-03-28
+## 0.1.1 — 2026-03-28
 
 ### 🎉 Features
 
@@ -163,4 +171,4 @@ All notable changes to this project will be documented in this file.
 
   Extracts two small helpers to consolidate structurally duplicated code in the nmr package. A new `getStringFromYamlFile` helper in `tests/helpers/` replaces the repeated YAML-read-parse-extract pattern in `consistency.ts`, and a private `validateScriptField` helper in `config.ts` replaces the duplicated script-record validation blocks.
 
-<!-- generated by git-cliff -->
+<!-- Generated by release-kit. Do not edit this file. Use .meta/changelog-overrides.json to override entries. -->

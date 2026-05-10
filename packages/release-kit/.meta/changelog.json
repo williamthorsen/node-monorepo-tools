@@ -1,5 +1,58 @@
 [
   {
+    "version": "5.3.0",
+    "date": "2026-05-10",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Enable editorial overrides for changelog entries (#387)",
+            "body": "Allows `release-kit` consumers to skip or correct historical changelog entries by means of an overrides file.",
+            "hash": "e9eb4392e69550985e1ec2beb0529a5a2b837165"
+          },
+          {
+            "description": "Decentralize changelog overrides to per-scope .meta/ files (#391)",
+            "body": "Adds support for workspace-scoped editorial-override files for `release-kit`-generated changelogs. A repo-root file applies overrides to every workspace's changelog; a workspace-tier file applies only to that workspace.",
+            "hash": "016df352eb8fee40665a958db136f5e5deeb6a42"
+          },
+          {
+            "description": "Add section markers and authenticated upstream fetch (#393)",
+            "body": "A new `markers` block in `work-types.json` describes the breaking-changes emoji and label, making them available for use by consumers.\n\n`work-types check` and `work-types sync` now authenticate when `GITHUB_TOKEN` is set, so they can reach private upstream repositories.",
+            "hash": "402e559e81902ac41b4206f866717524951b1cd1"
+          },
+          {
+            "description": "Validate changelog overrides from the command line (#395)",
+            "body": "Adds a `release-kit overrides validate` subcommand that audits every `.meta/changelog-overrides.json` file across the project root and per-workspace scopes in one pass. The command reports schema errors, ambiguous-prefix collisions, and stale-key warnings with tiered exit codes so CI can choose its own failure threshold. The same validation is also available via a library function exported by the package.",
+            "hash": "d9bdd62a3ef47fe06a07723269e9dabdd058d574"
+          }
+        ]
+      },
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Suppress git-cliff stale-version warnings on prepare (#373)",
+            "body": "Fixes an issue where `release-kit prepare` repeatedly printed git-cliff's \"A new version of git-cliff is available\" notice — twice per release unit, so 2 × N times for an N-package monorepo run — while never updating the locally cached git-cliff binary. Each `prepare` run now revalidates the npm cache once before any cliff work, so the binary stays current with upstream releases and the notice no longer surfaces on every per-workspace invocation.",
+            "hash": "8660d3917a11c40f4d57bf64dca740b947b7fc69"
+          },
+          {
+            "description": "Use synthetic changelogs for forced empty-range releases (#376)",
+            "body": "Fixes an issue where `release-kit prepare` with `--force`, `--bump=X`, or `--set-version` would invoke git-cliff against units that had no commits since their last tag, surfacing confusing `WARN  git_cliff > There is already a tag (...)` lines (twice per affected unit) and silently leaving `CHANGELOG.md` and `.meta/changelog.json` stale. Empty-range bumps now write a synthetic `Notes / Forced version bump.` entry to both files instead of invoking git-cliff. Applies to all three release stages: single-package, per-workspace, and project. Prior changelog history is preserved on every path.",
+            "hash": "cb118b2f06d52ceb375192352fa158d976dcbe4f"
+          },
+          {
+            "description": "Accept `breakingPolicies` field in config files (#394)",
+            "body": "Fixes an issue where setting `breakingPolicies` in `release-kit.config.ts` was rejected as an unknown field, leaving per-work-type breaking-policy configuration unreachable from the config file. Each entry accepts `'forbidden'`, `'optional'`, or `'required'`; an empty object opts out of enforcement.",
+            "hash": "4c663f8dec7800810f4c0350ef4b661978505acb"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "5.2.1",
     "date": "2026-05-05",
     "sections": [
@@ -9,7 +62,8 @@
         "items": [
           {
             "description": "Soft-skip tags with no changelog entry under --tags (#366)",
-            "body": "Fixes an issue where `release-kit create-github-release --tags <tag>` exited 1 — failing the calling CI workflow — when the requested tag had no changelog entry. Tooling-only releases (those whose changelog generator legitimately omits an entry) are now soft-skipped with an info-level summary, the same as releases skipped because their entry has no audience-relevant content. Typo protection is preserved: passing an unknown tag to `--tags` still exits 1."
+            "body": "Fixes an issue where `release-kit create-github-release --tags <tag>` exited 1 — failing the calling CI workflow — when the requested tag had no changelog entry. Tooling-only releases (those whose changelog generator legitimately omits an entry) are now soft-skipped with an info-level summary, the same as releases skipped because their entry has no audience-relevant content. Typo protection is preserved: passing an unknown tag to `--tags` still exits 1.",
+            "hash": "a79c5b402215376e36aa006c12d8585452db3aa8"
           }
         ]
       }
@@ -25,11 +79,13 @@
         "items": [
           {
             "description": "Add emojis to changelog and release-note headings (#352)",
-            "body": "Adds emoji prefixes to the section headings rendered in `CHANGELOG.md` and release notes generated by `@williamthorsen/release-kit`. Each of the 13 default work types gets a single decorative emoji so its section is easier to spot when skimming a release: 🐛 Bug fixes, 🎉 Features, 📚 Documentation, ♻️ Refactoring, ⚡ Performance, 🔒 Security, 🧪 Tests, ⚙️ Tooling, 👷 CI, 📦 Dependencies, 🏗️ Internal, 🗑️ Deprecated, and 🤖 Agentic support. Matching of `changelogJson.devOnlySections` is emoji-tolerant: existing consumer overrides written as bare names continue to work without modification."
+            "body": "Adds emoji prefixes to the section headings rendered in `CHANGELOG.md` and release notes generated by `@williamthorsen/release-kit`. Each of the 13 default work types gets a single decorative emoji so its section is easier to spot when skimming a release: 🐛 Bug fixes, 🎉 Features, 📚 Documentation, ♻️ Refactoring, ⚡ Performance, 🔒 Security, 🧪 Tests, ⚙️ Tooling, 👷 CI, 📦 Dependencies, 🏗️ Internal, 🗑️ Deprecated, and 🤖 Agentic support. Matching of `changelogJson.devOnlySections` is emoji-tolerant: existing consumer overrides written as bare names continue to work without modification.",
+            "hash": "07115bb4324bb605d5b527baf9dcf0b8a1dd9f4d"
           },
           {
             "description": "Surface bang violations in release prepare reports (#359)",
-            "body": "Release-prepare flows now surface `!`-policy violations as warnings in the prepare report. Each workspace's and project's commit window is parsed against the default policy table — `internal!` is rejected as contradictory, bare `drop:` is rejected for missing the required `!`, and so on — and any violations appear under the workspace's section in the report alongside short hash, truncated subject, type, and surface (prefix or body). A new `breakingPolicies` config field lets consumers override individual entries or pass `{}` to disable enforcement entirely. Release-time enforcement remains tolerant: violations are warnings, never failures, so a single legacy commit cannot block a release."
+            "body": "Release-prepare flows now surface `!`-policy violations as warnings in the prepare report. Each workspace's and project's commit window is parsed against the default policy table — `internal!` is rejected as contradictory, bare `drop:` is rejected for missing the required `!`, and so on — and any violations appear under the workspace's section in the report alongside short hash, truncated subject, type, and surface (prefix or body). A new `breakingPolicies` config field lets consumers override individual entries or pass `{}` to disable enforcement entirely. Release-time enforcement remains tolerant: violations are warnings, never failures, so a single legacy commit cannot block a release.",
+            "hash": "6a6ed5558ac91c1e1e0bee5a9b5bb3d01111a8b0"
           }
         ]
       },
@@ -39,15 +95,18 @@
         "items": [
           {
             "description": "Restrict publish to publishable workspaces (#345)",
-            "body": "Fixes an issue where `release-kit publish` failed for workspaces marked `package.json#private: true`. The command now operates only on publishable workspaces — those where `private` is absent or `false` — and the rest of the release pipeline (`tag`, `create-github-release`, `prepare`, changelog) continues to handle private workspaces unchanged. This preserves the \"versioned but not published\" workflow: a private workspace can still be versioned, tagged, and published as a GitHub Release; only the registry-publish step is skipped. Without `--tags`, unpublishable tags are silently filtered (an empty result prints `Nothing to publish.` and exits 0). With `--tags` naming an unpublishable workspace, `release-kit publish` exits 1 with one error per offending tag, citing `package.json#private` and the workspace path."
+            "body": "Fixes an issue where `release-kit publish` failed for workspaces marked `package.json#private: true`. The command now operates only on publishable workspaces — those where `private` is absent or `false` — and the rest of the release pipeline (`tag`, `create-github-release`, `prepare`, changelog) continues to handle private workspaces unchanged. This preserves the \"versioned but not published\" workflow: a private workspace can still be versioned, tagged, and published as a GitHub Release; only the registry-publish step is skipped. Without `--tags`, unpublishable tags are silently filtered (an empty result prints `Nothing to publish.` and exits 0). With `--tags` naming an unpublishable workspace, `release-kit publish` exits 1 with one error per offending tag, citing `package.json#private` and the workspace path.",
+            "hash": "aee2c1aa1822dedc7349b03506f3a63bb95d4175"
           },
           {
             "description": "Skip tooling-only releases instead of failing (#347)",
-            "body": "Fixes an issue where `release-kit create-github-release --tags <tag>` exited 1 whenever the tag's changelog had no all-audience content. The reusable `create-github-release.reusable.yaml` workflow forwards `github.ref_name` into `--tags`, so tooling-only releases consistently produced failed workflow runs even though no failure occurred. The command now exits 1 only when a requested tag has no changelog entry; intentional skip reasons (`no-audience-content`, `empty-body`) are informational. A typoed tag still surfaces an error even when batched alongside successful tags, and the info summary reports the per-tag skip reason for diagnostic visibility."
+            "body": "Fixes an issue where `release-kit create-github-release --tags <tag>` exited 1 whenever the tag's changelog had no all-audience content. The reusable `create-github-release.reusable.yaml` workflow forwards `github.ref_name` into `--tags`, so tooling-only releases consistently produced failed workflow runs even though no failure occurred. The command now exits 1 only when a requested tag has no changelog entry; intentional skip reasons (`no-audience-content`, `empty-body`) are informational. A typoed tag still surfaces an error even when batched alongside successful tags, and the info summary reports the per-tag skip reason for diagnostic visibility.",
+            "hash": "5e674139fe8f884b7b03dff3f798c56ae089b03d"
           },
           {
             "description": "Establish canonical work-types SSOT and restore changelog section ordering (#358)",
-            "body": "Restores canonical section ordering in changelogs and release notes — sections were appearing in unpredictable order after the previous release added emoji prefixes to section headers. Sections now follow a stable priority: public-facing types (Features, Fixes, Security, …) first, then internal types, then process types. Release-note bullets for breaking changes carry a `🚨 **Breaking:**` prefix so they stand out at a glance. Documentation entries move out of public release notes — they continue to appear in dev changelogs.\n\nCloses #355."
+            "body": "Restores canonical section ordering in changelogs and release notes — sections were appearing in unpredictable order after the previous release added emoji prefixes to section headers. Sections now follow a stable priority: public-facing types (Features, Fixes, Security, …) first, then internal types, then process types. Release-note bullets for breaking changes carry a `🚨 **Breaking:**` prefix so they stand out at a glance. Documentation entries move out of public release notes — they continue to appear in dev changelogs.\n\nCloses #355.",
+            "hash": "7f2c569a4840300e2cce8fe5aa7ab65fa2f9b5a1"
           }
         ]
       },
@@ -57,7 +116,8 @@
         "items": [
           {
             "description": "Skip npx registry revalidation when running git-cliff (#361)",
-            "body": "Speeds up `release-kit prepare` by skipping the npm registry cache-revalidation HTTP request that ran on every `git-cliff` invocation. Per-invocation overhead drops from ~4.6 s to ~2.0 s; in a four-workspace monorepo this saves about 10 seconds per run. Also suppresses a transient stderr spinner that briefly appeared during package resolution and looked like a half-complete log message. Network fallback is preserved — runs on machines with an empty npx cache still resolve `git-cliff` over the network."
+            "body": "Speeds up `release-kit prepare` by skipping the npm registry cache-revalidation HTTP request that ran on every `git-cliff` invocation. Per-invocation overhead drops from ~4.6 s to ~2.0 s; in a four-workspace monorepo this saves about 10 seconds per run. Also suppresses a transient stderr spinner that briefly appeared during package resolution and looked like a half-complete log message. Network fallback is preserved — runs on machines with an empty npx cache still resolve `git-cliff` over the network.",
+            "hash": "74d2a70b2ef70311f356d104966997a4890d5d11"
           }
         ]
       },
@@ -67,7 +127,8 @@
         "items": [
           {
             "description": "Read package version at runtime via shared helper (#338)",
-            "body": "Fixes an issue where running `audit-deps`, `nmr`, or `release-kit` from the locally built `dist/esm/` after a `git pull` could report a stale version. Each CLI now reads its version directly from its `package.json` at startup, so version reads stay in sync with the installed source without requiring a fresh `pnpm install` or rebuild."
+            "body": "Fixes an issue where running `audit-deps`, `nmr`, or `release-kit` from the locally built `dist/esm/` after a `git pull` could report a stale version. Each CLI now reads its version directly from its `package.json` at startup, so version reads stay in sync with the installed source without requiring a fresh `pnpm install` or rebuild.",
+            "hash": "0fc98bb70d458d8eb5727d9567e3e20a8f2ded00"
           }
         ]
       }
@@ -83,19 +144,23 @@
         "items": [
           {
             "description": "Add `project` block for project-level release stage (#317)",
-            "body": "Adds support for monorepos that ship a single combined deliverable to version, changelog, and release-note the project itself rather than only its constituent workspaces."
+            "body": "Adds support for monorepos that ship a single combined deliverable to version, changelog, and release-note the project itself rather than only its constituent workspaces.",
+            "hash": "f647df54e78b9c78673874c7a5e197b87c562361"
           },
           {
             "description": "Publish JSON Schema for `.meta/label-map.json` (#325)",
-            "body": "Adds a JSON Schema for `.meta/label-map.json` to release-kit, packaged at `packages/release-kit/schemas/label-map.json` and shipped to npm. Consumers reference it via the stable raw URL pattern `https://github.com/williamthorsen/node-monorepo-tools/raw/release-kit-v<version>/packages/release-kit/schemas/label-map.json` — the same shape audit-deps already uses."
+            "body": "Adds a JSON Schema for `.meta/label-map.json` to release-kit, packaged at `packages/release-kit/schemas/label-map.json` and shipped to npm. Consumers reference it via the stable raw URL pattern `https://github.com/williamthorsen/node-monorepo-tools/raw/release-kit-v<version>/packages/release-kit/schemas/label-map.json` — the same shape audit-deps already uses.",
+            "hash": "1c0fb5036cc222d15aaa547fb5a8b2bd74d8d34f"
           },
           {
             "description": "Label prepare errors with the failing stage (#326)",
-            "body": "Adds stage attribution to errors thrown during `release-kit prepare`. Errors from per-workspace bumps and changelog generation, the project release stage, and the post-release format command now begin with a stage label that identifies the failing stage and (where relevant) the affected workspace."
+            "body": "Adds stage attribution to errors thrown during `release-kit prepare`. Errors from per-workspace bumps and changelog generation, the project release stage, and the post-release format command now begin with a stage label that identifies the failing stage and (where relevant) the affected workspace.",
+            "hash": "feb1c81c912d40b4f1fd4b8037277636eee09e39"
           },
           {
             "description": "Make `--force` and `--bump` orthogonal (#328)",
-            "body": "Decouples `--force` and `--bump` so each flag has a single responsibility, and unifies skip semantics across the per-workspace and project pipelines."
+            "body": "Decouples `--force` and `--bump` so each flag has a single responsibility, and unifies skip semantics across the per-workspace and project pipelines.",
+            "hash": "6927677759e464dcfcab778fdade4bf875a98fb4"
           }
         ]
       },
@@ -105,19 +170,23 @@
         "items": [
           {
             "description": "Make publish's clean-tree safety gate reachable (#311)",
-            "body": "Fixes an issue where `release-kit publish` failed with pnpm's \"working tree is dirty\" error on a clean tree whenever `releaseNotes.shouldInjectIntoReadme: true` was configured. release-kit injects the release notes into the package README before invoking `pnpm publish`, so pnpm's own working-tree check fired on a tree release-kit had just dirtied — even though the user's tree was clean at command start."
+            "body": "Fixes an issue where `release-kit publish` failed with pnpm's \"working tree is dirty\" error on a clean tree whenever `releaseNotes.shouldInjectIntoReadme: true` was configured. release-kit injects the release notes into the package README before invoking `pnpm publish`, so pnpm's own working-tree check fired on a tree release-kit had just dirtied — even though the user's tree was clean at command start.",
+            "hash": "cbad5104a6f6af5fd664ae5bca526f1d00b9eaa9"
           },
           {
             "description": "Make `--set-version` + `project` rejection explicit (#319)",
-            "body": "Improves the error users see when invoking `release-kit prepare --set-version` with a `project` block configured. The combination is still rejected — as before — but now produces a single, project-aware message (\"--set-version cannot be combined with a project release…\") rather than the previous two-step chain (`--set-version requires --only`, then `--only cannot be combined with a project release` after the user added `--only`)."
+            "body": "Improves the error users see when invoking `release-kit prepare --set-version` with a `project` block configured. The combination is still rejected — as before — but now produces a single, project-aware message (\"--set-version cannot be combined with a project release…\") rather than the previous two-step chain (`--set-version requires --only`, then `--only cannot be combined with a project release` after the user added `--only`).",
+            "hash": "d6500855a6a7fce87b881bbeabc5493a41af8cc9"
           },
           {
             "description": "Reject `--only` that would strand excluded dependents (#321)",
-            "body": "Fixes a silent footgun in `release-kit prepare --only=...`: an excluded internal dependent with its own changes would be left unreleased with no runtime signal, even though the targeted workspace it depends on was being released. The command now rejects such invocations up front, naming every excluded dependent whose changes would be stranded."
+            "body": "Fixes a silent footgun in `release-kit prepare --only=...`: an excluded internal dependent with its own changes would be left unreleased with no runtime signal, even though the targeted workspace it depends on was being released. The command now rejects such invocations up front, naming every excluded dependent whose changes would be stranded.",
+            "hash": "64118ef22097aa2fd4aa05980d15c432698498a3"
           },
           {
             "description": "Order prerelease versions correctly in changelog sort (#334)",
-            "body": "Fixes a latent issue in `@williamthorsen/release-kit` where prerelease version tags (e.g., `1.2.3-alpha`, `1.2.3-rc.1`) were sorted as if their prerelease component were absent, causing them to appear in the wrong position relative to releases sharing the same base version. Changelog entries are now ordered per SemVer §11: prerelease versions precede the corresponding release (`1.2.3-alpha < 1.2.3`), build metadata is ignored for ordering, and entries that fail SemVer validation sort deterministically to the bottom of the list rather than collapsing into mid-list positions."
+            "body": "Fixes a latent issue in `@williamthorsen/release-kit` where prerelease version tags (e.g., `1.2.3-alpha`, `1.2.3-rc.1`) were sorted as if their prerelease component were absent, causing them to appear in the wrong position relative to releases sharing the same base version. Changelog entries are now ordered per SemVer §11: prerelease versions precede the corresponding release (`1.2.3-alpha < 1.2.3`), build metadata is ignored for ordering, and entries that fail SemVer validation sort deterministically to the bottom of the list rather than collapsing into mid-list positions.",
+            "hash": "5c0df1d9ecdfcf6cf7154758310239c3f856f0e5"
           }
         ]
       },
@@ -127,11 +196,13 @@
         "items": [
           {
             "description": "Convert prepare results to discriminated unions (#330)",
-            "body": "Tightens `ProjectPrepareResult` and `WorkspacePrepareResult` from flat-with-optionals types into status-discriminated unions, so consumers that have already narrowed on `status === 'released'` no longer need to re-guard each release-only field with `!== undefined`. The four new sub-types (`ReleasedProjectResult`, `ReleasedWorkspaceResult`, `SkippedProjectResult`, `SkippedWorkspaceResult`) are exported from the package so callers can name the variants directly. Renderer output is byte-identical to before."
+            "body": "Tightens `ProjectPrepareResult` and `WorkspacePrepareResult` from flat-with-optionals types into status-discriminated unions, so consumers that have already narrowed on `status === 'released'` no longer need to re-guard each release-only field with `!== undefined`. The four new sub-types (`ReleasedProjectResult`, `ReleasedWorkspaceResult`, `SkippedProjectResult`, `SkippedWorkspaceResult`) are exported from the package so callers can name the variants directly. Renderer output is byte-identical to before.",
+            "hash": "0b41e3ad9809ce8659f766cb7578287a5918336c"
           },
           {
             "description": "Split changelog.json generation into layered helpers (#333)",
-            "body": "Reorganises `changelog.json` generation in `@williamthorsen/release-kit` so that producing entries (running git-cliff and shaping the output) is fully separated from persisting them (reading, merging, and writing the file). Removes the silent-discard parse-failure path at the project release stage by no longer reading the root `changelog.json` before overwriting it. Sharpens dry-run mode: `git-cliff` now runs even on dry-run so configuration mistakes surface in preview rather than only on a real release. Trims the public `index.ts` barrel from ~50 re-exports to the two type names actually consumed by external configs."
+            "body": "Reorganises `changelog.json` generation in `@williamthorsen/release-kit` so that producing entries (running git-cliff and shaping the output) is fully separated from persisting them (reading, merging, and writing the file). Removes the silent-discard parse-failure path at the project release stage by no longer reading the root `changelog.json` before overwriting it. Sharpens dry-run mode: `git-cliff` now runs even on dry-run so configuration mistakes surface in preview rather than only on a real release. Trims the public `index.ts` barrel from ~50 re-exports to the two type names actually consumed by external configs.",
+            "hash": "ce99578aeafbcb333d6e750ed7028e190f8f06bf"
           }
         ]
       },
@@ -141,7 +212,8 @@
         "items": [
           {
             "description": "Cover untested project-release and config branches (#329)",
-            "body": "Closes four mechanical test-coverage gaps in the project-level release surfaces flagged in the test review of #308. New cases exercise the `(no previous release found)` rendering for released projects, the unparseable-commit warning block on the released-project rendering path, the `readFileSync` I/O failure path in `readRootPackageVersion`, and the contributing-paths invariant in `releasePrepareProject`. No production code changes — these are pure-render and pure-derivation branches that previously had no test exercising them."
+            "body": "Closes four mechanical test-coverage gaps in the project-level release surfaces flagged in the test review of #308. New cases exercise the `(no previous release found)` rendering for released projects, the unparseable-commit warning block on the released-project rendering path, the `readFileSync` I/O failure path in `readRootPackageVersion`, and the contributing-paths invariant in `releasePrepareProject`. No production code changes — these are pure-render and pure-derivation branches that previously had no test exercising them.",
+            "hash": "d4473292bee1e0f33bc6d9c4698c84df21209f6d"
           }
         ]
       },
@@ -151,7 +223,8 @@
         "items": [
           {
             "description": "Document tag prefix collisions as general rule (#320)",
-            "body": "Documents the strict-prefix tag-prefix collision rule as a general validation rule that applies to every release-kit consumer declaring more than one tag prefix: across active workspaces, declared legacy identities, retired packages, and the optional `project` block. Previously, the rule appeared only inside the `Project releases` validation list."
+            "body": "Documents the strict-prefix tag-prefix collision rule as a general validation rule that applies to every release-kit consumer declaring more than one tag prefix: across active workspaces, declared legacy identities, retired packages, and the optional `project` block. Previously, the rule appeared only inside the `Project releases` validation list.",
+            "hash": "01b7c6524a55e237b96463312d04a5193c05a494"
           }
         ]
       }
@@ -167,51 +240,62 @@
         "items": [
           {
             "description": "Improve release-notes rendering quality (#261)",
-            "body": "Improves the quality of release notes and CHANGELOG entries generated by release-kit. Release notes sections are now ordered by work-type priority (bug fixes first, then features, then internal), and each bullet now includes the commit body text for context that a one-line title cannot provide. Refactoring commits are now excluded from the release notes."
+            "body": "Improves the quality of release notes and CHANGELOG entries generated by release-kit. Release notes sections are now ordered by work-type priority (bug fixes first, then features, then internal), and each bullet now includes the commit body text for context that a one-line title cannot provide. Refactoring commits are now excluded from the release notes.",
+            "hash": "f42b1bc44e48f600131c56d9e86a7a721807788f"
           },
           {
             "description": "Scaffold release-notes injection and check markers (#267)",
-            "body": "Adds release-notes injection to the configs scaffolded by `release-kit init`, so newly-onboarded consumers get the feature without having to discover or toggle the flag. The release-kit readyup kit gains a check that warns when a consumer's README is missing the marker pair where injected notes should land — without those markers, injection silently prepends to the top of the file, pushing the README's title below the notes."
+            "body": "Adds release-notes injection to the configs scaffolded by `release-kit init`, so newly-onboarded consumers get the feature without having to discover or toggle the flag. The release-kit readyup kit gains a check that warns when a consumer's README is missing the marker pair where injected notes should land — without those markers, injection silently prepends to the top of the file, pushing the README's title below the notes.",
+            "hash": "7e87590c9cb73d3feb48701af8df0e368b55a7d3"
           },
           {
             "description": "Split GitHub Release creation into its own workflow (#272)",
             "body": "Splits GitHub Release creation out of release-kit publish into a dedicated release-kit create-github-release CLI command and a matching reusable GitHub Actions workflow. Consumers that do not publish to npm can now create Releases independently, and the contents: write permission required to create a Release no longer leaks into the publish path.",
-            "breaking": true
+            "breaking": true,
+            "hash": "20ff00c2308098a9dcd5dfefc99d56b7c7a7f752"
           },
           {
             "description": "Replace --only with --tags on release-kit publish and push (#273)",
             "body": "`release-kit publish` and `release-kit push` now filter by full tag name via `--tags=<tag1,tag2>` instead of workspace directory name via `--only=<dir>`, matching the shape already used by `create-github-release`. Callers pass the tag they care about (e.g., `core-v1.3.0`) directly, with no translation step back to the publishing workspace's directory name. The reusable workflow gains an optional `tags:` input, and the internal `publish.yaml` caller now passes `tags: ${{ github.ref_name }}`, making the publish scope explicit rather than relying on the single-tag fetch default of `actions/checkout@v6`.",
-            "breaking": true
+            "breaking": true,
+            "hash": "eb66c865fcaacb343e236fb1bee67fe25550e0ae"
           },
           {
             "description": "Apply pre-1.0 bump rule and add --set-version CLI escape hatch (#274)",
-            "body": "Fixes an issue where a `feat!` commit on a pre-1.0 package would accidentally promote it to `1.0.0`. At pre-1.0 (`0.y.z`), a `'major'` release type now collapses to a minor bump. Adds a validated `--set-version <semver>` CLI flag on `release-kit prepare` that bypasses commit-derived bump logic and writes a specific version."
+            "body": "Fixes an issue where a `feat!` commit on a pre-1.0 package would accidentally promote it to `1.0.0`. At pre-1.0 (`0.y.z`), a `'major'` release type now collapses to a minor bump. Adds a validated `--set-version <semver>` CLI flag on `release-kit prepare` that bypasses commit-derived bump logic and writes a specific version.",
+            "hash": "121dabc7ca690372fea8a6c33a298d760cfe40f4"
           },
           {
             "description": "Scaffold audit.yaml workflow from audit-deps init (#277)",
-            "body": "Adds GitHub Actions workflow scaffolding to `audit-deps init`. Running the command now writes both `.config/audit-deps.config.json` and `.github/workflows/audit.yaml` in the target repo, so that consumers no longer have to copy the canonical caller workflow by hand from this repo. The workflow content is shipped as a bundled template that ships to npm, and the repo's own workflow is kept byte-identical to that template via a consistency test — the canonical workflow cannot silently drift from what is published."
+            "body": "Adds GitHub Actions workflow scaffolding to `audit-deps init`. Running the command now writes both `.config/audit-deps.config.json` and `.github/workflows/audit.yaml` in the target repo, so that consumers no longer have to copy the canonical caller workflow by hand from this repo. The workflow content is shipped as a bundled template that ships to npm, and the repo's own workflow is kept byte-identical to that template via a consistency test — the canonical workflow cannot silently drift from what is published.",
+            "hash": "2b45c1047284e251fc48730104f971dcb88919d7"
           },
           {
             "description": "Add migrate-tag-prefixes.sh migration tool (#282)",
-            "body": "Adds a one-shot migration tool, `migrate-tag-prefixes.sh`, shipped inside the release-kit package. The tool creates additive annotated-tag aliases under release-kit's new unscoped-package-name prefix that point at the same commits as the previous directory-basename tags, bridging the gap so post-migration `getCommitsSinceTarget` calls can resolve prior releases."
+            "body": "Adds a one-shot migration tool, `migrate-tag-prefixes.sh`, shipped inside the release-kit package. The tool creates additive annotated-tag aliases under release-kit's new unscoped-package-name prefix that point at the same commits as the previous directory-basename tags, bridging the gap so post-migration `getCommitsSinceTarget` calls can resolve prior releases.",
+            "hash": "bd8f81f488db4e92aad16f59cb0ecc734bc22e8c"
           },
           {
             "description": "Add legacyTagPrefixes config field (#289)",
             "body": "Replaces the v4 → v5 tag-prefix migration mechanism (tag aliasing via `migrate-tag-prefixes.sh`) with a declarative `legacyTagPrefixes` config field. release-kit now searches for both legacy and modern prefixes when generating changelogs.\n\nAdds a companion `release-kit show-tag-prefixes` CLI command that renders a per-workspace table of derived and declared legacy prefixes, flags cross-workspace collisions, and surfaces undeclared candidate prefixes with a copy-pasteable config snippet. `release-kit prepare` gains a one-line hint pointing operators to `show-tag-prefixes` when a workspace has no baseline tag but the repo contains candidate-shaped tags.",
-            "breaking": true
+            "breaking": true,
+            "hash": "c2425c53cfbe382ea91a653463ae41664d9e1c41"
           },
           {
             "description": "Replace `legacyTagPrefixes` with `legacyIdentities` (#297)",
             "body": "Replaces the per-workspace `legacyTagPrefixes: string[]` field with `legacyIdentities: LegacyIdentity[]`, a structured array of complete `(name, tagPrefix)` historical snapshots. Each legacy identity is now a self-consistent record of what a workspace used to be called and how its tags used to be prefixed, so a workspace that has been renamed (npm name change, tag-prefix change, or both) carries one entry per prior identity.",
-            "breaking": true
+            "breaking": true,
+            "hash": "9b2a5ef01e6340f30f465c3c7bfc9e9c9db9f39e"
           },
           {
             "description": "Add `retiredPackages` repo-level config field (#299)",
-            "body": "Adds support for declaring packages that once lived in this repo but have been extracted or removed, so their historical tag prefixes (e.g., `preflight-v*` from the extracted `readyup` project) no longer surface as \"Undeclared tag prefixes\" in `release-kit show-tag-prefixes`. Declared retired packages are acknowledged as real history but never consulted for baseline lookup or changelog attribution — they complement `workspaces[].legacyIdentities`, which is used when a workspace still exists under a new identity."
+            "body": "Adds support for declaring packages that once lived in this repo but have been extracted or removed, so their historical tag prefixes (e.g., `preflight-v*` from the extracted `readyup` project) no longer surface as \"Undeclared tag prefixes\" in `release-kit show-tag-prefixes`. Declared retired packages are acknowledged as real history but never consulted for baseline lookup or changelog attribution — they complement `workspaces[].legacyIdentities`, which is used when a workspace still exists under a new identity.",
+            "hash": "649974b1f72aff5a5ccba8204bc2a4cd6d39fcc3"
           },
           {
             "description": "Add release-notes preview generator to `release-kit prepare` (#302)",
-            "body": "Adds the ability to generate release notes when running `release-kit prepare`. The `--with-release-notes` option enables the generation of per-workspace preview files so authors can verify release-note injection before publishing.  Injected release notes are also now prefixed with a `## Release notes — v{version} ({date})` heading to add missing context to the README."
+            "body": "Adds the ability to generate release notes when running `release-kit prepare`. The `--with-release-notes` option enables the generation of per-workspace preview files so authors can verify release-note injection before publishing.  Injected release notes are also now prefixed with a `## Release notes — v{version} ({date})` heading to add missing context to the README.",
+            "hash": "988ab7ccaaad9eca598967342119ad5e4ba25e8e"
           }
         ]
       },
@@ -221,7 +305,8 @@
         "items": [
           {
             "description": "Derive monorepo tag prefix from unscoped `package.json` name (#278)",
-            "body": "Fixes a long-standing mismatch between a monorepo workspace's directory basename and its publishable package identity."
+            "body": "Fixes a long-standing mismatch between a monorepo workspace's directory basename and its publishable package identity.",
+            "hash": "1f73fbeb7b928f9211d2b34ef6db30e4e696266d"
           }
         ]
       },
@@ -232,12 +317,14 @@
           {
             "description": "Rename `component` to `workspace` in config API and internals (#296)",
             "body": "Renames release-kit's per-workspace vocabulary from \"component\" to \"workspace\" throughout the public API, internal types, validation messages, CLI help, init templates, and documentation. Behavior is unchanged; only identifiers, error-message strings, scaffolded template text, and prose have been changed.",
-            "breaking": true
+            "breaking": true,
+            "hash": "dfe0a70903997b85a2ebf57a612345be5232a2c6"
           },
           {
             "description": "Rename `node-monorepo-core` to `nmr-core` (#304)",
             "body": "Renames the shared-utilities package from `@williamthorsen/node-monorepo-core` to `@williamthorsen/nmr-core`, aligning it with the repository's `nmr-*` naming convention. The package's functionality and version are unchanged; only the published name differs.",
-            "breaking": true
+            "breaking": true,
+            "hash": "085d4a57d1828bcd33933652aa47423989c090a9"
           }
         ]
       }
@@ -253,7 +340,8 @@
         "items": [
           {
             "description": "Add `push` command for safe tag pushing (#243)",
-            "body": "Adds a `release-kit push` command that safely pushes the release commit and each tag individually, ensuring GitHub Actions fires a separate workflow run per tag. The command performs a `1 + N` push sequence: one branch push followed by one `git push --no-follow-tags origin <tag>` per resolved tag. Supports `--dry-run` (preview without pushing), `--only` (filter tags by package name), and `--tags-only` (skip the branch push)."
+            "body": "Adds a `release-kit push` command that safely pushes the release commit and each tag individually, ensuring GitHub Actions fires a separate workflow run per tag. The command performs a `1 + N` push sequence: one branch push followed by one `git push --no-follow-tags origin <tag>` per resolved tag. Supports `--dry-run` (preview without pushing), `--only` (filter tags by package name), and `--tags-only` (skip the branch push).",
+            "hash": "5d92193d3a7bb37943cb232c25c6de8318b0be04"
           }
         ]
       },
@@ -263,7 +351,8 @@
         "items": [
           {
             "description": "Replace broad catch with `existsSync` guard in `detectRepoType` (#229)",
-            "body": "Fixes silent swallowing of unexpected filesystem errors in `detectRepoType`. Previously, errors like `EACCES` (permission denied) or `EMFILE` (too many open files) when reading `package.json` were caught and discarded, causing the function to silently return `'single-package'` instead of surfacing the problem."
+            "body": "Fixes silent swallowing of unexpected filesystem errors in `detectRepoType`. Previously, errors like `EACCES` (permission denied) or `EMFILE` (too many open files) when reading `package.json` were caught and discarded, causing the function to silently return `'single-package'` instead of surfacing the problem.",
+            "hash": "36bc346a5a54726c1ebf9abb0bf0b4f3041d0bbb"
           }
         ]
       }
@@ -279,7 +368,8 @@
         "items": [
           {
             "description": "Support ## as synthetic ticket prefix in changelogs",
-            "body": "Commits prefixed with `##` are now included in changelogs without requiring a ticket ID. This supports ad-hoc changes made during interactive sessions where creating a ticket and PR adds undesired overhead."
+            "body": "Commits prefixed with `##` are now included in changelogs without requiring a ticket ID. This supports ad-hoc changes made during interactive sessions where creating a ticket and PR adds undesired overhead.",
+            "hash": "88f4649a1d2a2d661b7be1273ca19b28893d0090"
           }
         ]
       }
@@ -295,19 +385,23 @@
         "items": [
           {
             "description": "Guard `prepare` against dirty working tree (#188)",
-            "body": "Add a clean-working-tree check at the start of `prepareCommand` that exits with an error when `git status --porcelain` reports uncommitted changes. This prevents the double-bump problem where running `prepare` multiple times bumps the version each time from the already-bumped `package.json`.\n\nThe check can be bypassed with `--no-git-checks` (`-n`) and is automatically skipped during `--dry-run`."
+            "body": "Add a clean-working-tree check at the start of `prepareCommand` that exits with an error when `git status --porcelain` reports uncommitted changes. This prevents the double-bump problem where running `prepare` multiple times bumps the version each time from the already-bumped `package.json`.\n\nThe check can be bypassed with `--no-git-checks` (`-n`) and is automatically skipped during `--dry-run`.",
+            "hash": "7a098258869a05c3e4ee8e63b5bdefe6b2e278ff"
           },
           {
             "description": "Add sync-labels drift detection to release-kit readyup kit (#190)",
-            "body": "Adds readyup kit checks that detect when a consumer's sync-labels workflow or generated labels file has drifted from the current templates and presets. The `generate` command now embeds per-preset content hashes in the `labels.yaml` header, enabling hash-based staleness detection."
+            "body": "Adds readyup kit checks that detect when a consumer's sync-labels workflow or generated labels file has drifted from the current templates and presets. The `generate` command now embeds per-preset content hashes in the `labels.yaml` header, enabling hash-based staleness detection.",
+            "hash": "b7a14d39a6a9a53e29fd14a3b230e8285f1e3d85"
           },
           {
             "description": "Improve changelog formatting & add cliff config drift detection (#193)",
-            "body": "Improves changelog generation: cleanly indented commit bodies, stripped type prefixes, and no unticketed noise. Adds hash-based drift detection so the rdy kit warns when a consumer's local cliff config falls behind the current template. Fixes a latent bug where git-cliff rejected the bundled `.template` file extension."
+            "body": "Improves changelog generation: cleanly indented commit bodies, stripped type prefixes, and no unticketed noise. Adds hash-based drift detection so the rdy kit warns when a consumer's local cliff config falls behind the current template. Fixes a latent bug where git-cliff rejected the bundled `.template` file extension.",
+            "hash": "af78852cb1db6112b6a1be7adb029f7f60f52b15"
           },
           {
             "description": "Generate release notes distinct from changelogs (#199)",
-            "body": "Adds structured changelog generation with audience tagging to the `release-kit` package, enabling GitHub Release creation and npm README injection with user-facing release notes filtered from developer-only sections. The existing CHANGELOG.md pipeline is unchanged; a new `.meta/changelog.json` artifact is generated in parallel during `release-kit prepare`, and consumed during `release-kit publish` to create GitHub Releases and inject release notes into the published package's README."
+            "body": "Adds structured changelog generation with audience tagging to the `release-kit` package, enabling GitHub Release creation and npm README injection with user-facing release notes filtered from developer-only sections. The existing CHANGELOG.md pipeline is unchanged; a new `.meta/changelog.json` artifact is generated in parallel during `release-kit prepare`, and consumed during `release-kit publish` to create GitHub Releases and inject release notes into the published package's README.",
+            "hash": "9bbcf4f434123404c2e6b014b858a953c1d62ed1"
           }
         ]
       },
@@ -317,7 +411,8 @@
         "items": [
           {
             "description": "Decouple GitHub Release creation and README injection from npm publish (#203)",
-            "body": "Makes GitHub Release creation available as a standalone CLI command (`release-kit github-release`) and removes README injection logic from the publish function. Non-published projects (applications, websites, internal tools) can now create GitHub Releases independently after `release-kit prepare`, and the inject/restore lifecycle is managed by the command layer rather than buried inside business logic."
+            "body": "Makes GitHub Release creation available as a standalone CLI command (`release-kit github-release`) and removes README injection logic from the publish function. Non-published projects (applications, websites, internal tools) can now create GitHub Releases independently after `release-kit prepare`, and the inject/restore lifecycle is managed by the command layer rather than buried inside business logic.",
+            "hash": "5f09250c52a804023e12599f54a54c73628e482f"
           }
         ]
       },
@@ -327,7 +422,8 @@
         "items": [
           {
             "description": "Enable automated publication to npm (#187)",
-            "body": "Prepares the repository for reliable tag-triggered npm publishing by adding missing package metadata, standardizing licensing, and introducing a readyup kit that validates publish readiness across all packages."
+            "body": "Prepares the repository for reliable tag-triggered npm publishing by adding missing package metadata, standardizing licensing, and introducing a readyup kit that validates publish readiness across all packages.",
+            "hash": "89536cbcb5bb9aa30620bd262dce2c99f84ee0bc"
           }
         ]
       }
@@ -343,7 +439,8 @@
         "items": [
           {
             "description": "Fix sync-labels init scaffolding output (#179)",
-            "body": "Fixes three issues in `release-kit sync-labels init` scaffolding output that cause immediate errors for consumers: adds missing workflow permissions, corrects config template indentation from 2 to 4 spaces, and switches YAML quoting from double to single quotes."
+            "body": "Fixes three issues in `release-kit sync-labels init` scaffolding output that cause immediate errors for consumers: adds missing workflow permissions, corrects config template indentation from 2 to 4 spaces, and switches YAML quoting from double to single quotes.",
+            "hash": "34526929b61a5dfce4630afaac0c69ede89dffc1"
           }
         ]
       }
@@ -359,11 +456,13 @@
         "items": [
           {
             "description": "Add --version flag to nmr and release-kit (#143)",
-            "body": "Adds `--version` / `-V` support to the `nmr` and `release-kit` CLIs, matching the existing `preflight` behavior. Moves the build-time version generation script to the shared `config/` directory so all three packages use a single `generateVersion.ts`."
+            "body": "Adds `--version` / `-V` support to the `nmr` and `release-kit` CLIs, matching the existing `preflight` behavior. Moves the build-time version generation script to the shared `config/` directory so all three packages use a single `generateVersion.ts`.",
+            "hash": "7257a8eb37a622e0065f105d09f41541b76c7d8e"
           },
           {
             "description": "Detect and report missing build output in bin wrappers (#152)",
-            "body": "Adds try/catch with `ERR_MODULE_NOT_FOUND` detection to all six bin wrappers across `nmr`, `preflight`, and `release-kit`. Previously, five of the six wrappers used bare `import()` calls that produced cryptic unhandled rejections when `dist/` was missing, and `preflight`'s existing try/catch gave no actionable guidance."
+            "body": "Adds try/catch with `ERR_MODULE_NOT_FOUND` detection to all six bin wrappers across `nmr`, `preflight`, and `release-kit`. Previously, five of the six wrappers used bare `import()` calls that produced cryptic unhandled rejections when `dist/` was missing, and `preflight`'s existing try/catch gave no actionable guidance.",
+            "hash": "1e7bdbe21e66c61762286da695aeab7afa9ec115"
           }
         ]
       },
@@ -373,11 +472,13 @@
         "items": [
           {
             "description": "Extract deleteFileIfExists helper (#136)",
-            "body": "Replaces the duplicate `deleteTagsFile` and `deleteSummaryFile` functions in `createTags.ts` with a single parameterized `deleteFileIfExists(path)` utility. The new helper lives in its own module and is exported from the package barrel for reuse."
+            "body": "Replaces the duplicate `deleteTagsFile` and `deleteSummaryFile` functions in `createTags.ts` with a single parameterized `deleteFileIfExists(path)` utility. The new helper lives in its own module and is exported from the package barrel for reuse.",
+            "hash": "4f9e73f9b4ac1e54b898009ee3ea197a57911f18"
           },
           {
             "description": "Extract shared CLI argument-parsing utility into core (#151)",
-            "body": "Add a schema-driven `parseArgs` function to `@williamthorsen/node-monorepo-core` that handles boolean flags, string flags (both `--flag=value` and `--flag value`), short aliases, positional collection, the `--` delimiter, and unknown-flag errors. Migrate all CLI argument-parsing sites in preflight (3 sites) and release-kit (5 sites) to use it. A companion `translateParseError` helper normalizes internal error messages for consistent user-facing output."
+            "body": "Add a schema-driven `parseArgs` function to `@williamthorsen/node-monorepo-core` that handles boolean flags, string flags (both `--flag=value` and `--flag value`), short aliases, positional collection, the `--` delimiter, and unknown-flag errors. Migrate all CLI argument-parsing sites in preflight (3 sites) and release-kit (5 sites) to use it. A companion `translateParseError` helper normalizes internal error messages for consistent user-facing output.",
+            "hash": "70d3523db108c7c5ea9d29be57dc14371f52581f"
           }
         ]
       },
@@ -387,7 +488,8 @@
         "items": [
           {
             "description": "Refine README to match preflight documentation standard (#138)",
-            "body": "Restructures the release-kit README to match the documentation standard established by the preflight README (#114). Reorders sections to follow the cross-package convention, converts CLI flag listings from code blocks to tables, adds representative `prepare --dry-run` output to the quick start, and condenses ~90 lines of inline workflow YAML into a summary with an inputs table and trigger examples. Fixes several accuracy gaps found by verifying documentation against source."
+            "body": "Restructures the release-kit README to match the documentation standard established by the preflight README (#114). Reorders sections to follow the cross-package convention, converts CLI flag listings from code blocks to tables, adds representative `prepare --dry-run` output to the quick start, and condenses ~90 lines of inline workflow YAML into a summary with an inputs table and trigger examples. Fixes several accuracy gaps found by verifying documentation against source.",
+            "hash": "41b1765642e322158ed03ae1b44d4378f1979f02"
           }
         ]
       }
@@ -403,7 +505,8 @@
         "items": [
           {
             "description": "Rename reusable workflows to .reusable.yaml convention (#129)",
-            "body": "Renames all three reusable GitHub Actions workflow files from the inconsistent `-workflow.yaml`/bare `.yaml` convention to a uniform `.reusable.yaml` suffix. Updates all references across caller workflows, release-kit templates, tests, preflight collection, and documentation. Scaffolds the sync-labels caller workflow and labels file for this repo. Deletes superseded legacy files."
+            "body": "Renames all three reusable GitHub Actions workflow files from the inconsistent `-workflow.yaml`/bare `.yaml` convention to a uniform `.reusable.yaml` suffix. Updates all references across caller workflows, release-kit templates, tests, preflight collection, and documentation. Scaffolds the sync-labels caller workflow and labels file for this repo. Deletes superseded legacy files.",
+            "hash": "0085c902e052e1d82973d7a25e10375eee51c9d2"
           }
         ]
       }
@@ -420,19 +523,23 @@
           {
             "description": "Support conventional-commit format in commit parsing (#85)",
             "body": "Adds support for the conventional commits format (`type(scope): description`) alongside the existing pipe-prefixed format (`scope|type: description`) in release-kit's commit parser. Renames `workspace` to `scope` throughout release-kit types, config, validation, and consumers.",
-            "breaking": true
+            "breaking": true,
+            "hash": "a54dfa6a21b7d7ebe69ac83027c39a30916df1c7"
           },
           {
             "description": "Add commit command for local release flow (#89)",
-            "body": "Adds a `release-kit commit` command that centralizes the release commit step between `prepare` and `tag`. The command reads tag names and a per-component commit summary from temporary files written by `prepare`, stages all changes, and creates a formatted commit. Two new utilities — `stripScope` and `buildReleaseSummary` — support building the commit body by stripping redundant scope indicators and formatting commits under their component headings. The CI workflow is simplified to use `release-kit commit` and `release-kit tag` instead of inline shell logic."
+            "body": "Adds a `release-kit commit` command that centralizes the release commit step between `prepare` and `tag`. The command reads tag names and a per-component commit summary from temporary files written by `prepare`, stages all changes, and creates a formatted commit. Two new utilities — `stripScope` and `buildReleaseSummary` — support building the commit body by stripping redundant scope indicators and formatting commits under their component headings. The CI workflow is simplified to use `release-kit commit` and `release-kit tag` instead of inline shell logic.",
+            "hash": "75fe4b968b41dc30c8b5eaa99fee3f34d9f3616a"
           },
           {
             "description": "Add CI publish workflow with OIDC trusted publishing (#90)",
-            "body": "Adds automated npm publication via a tag-push-triggered GitHub Actions workflow using OIDC trusted publishing. Extends `release-kit publish` with a `--provenance` flag and `release-kit init` with publish workflow scaffolding."
+            "body": "Adds automated npm publication via a tag-push-triggered GitHub Actions workflow using OIDC trusted publishing. Extends `release-kit publish` with a `--provenance` flag and `release-kit init` with publish workflow scaffolding.",
+            "hash": "bfa2b970d53124c49df6ae15648168680defb482"
           },
           {
             "description": "Make --provenance opt-in to support private repos (#94)",
-            "body": "Adds a `provenance` boolean input (default `false`) to the reusable `publish-workflow.yaml` so private repos using OIDC trusted publishing no longer fail at publish time. The `--provenance` flag is only passed to `release-kit publish` when the caller sets `provenance: true`.\n\nUpdates the scaffolded `publish.yaml` template to include `provenance: false` with an inline comment guiding public repos to opt in. Expand the `release-kit init` next-steps output with hints about the provenance setting and trusted publisher registration. Set `provenance: true` in this repo's own `publish.yaml` since it is public."
+            "body": "Adds a `provenance` boolean input (default `false`) to the reusable `publish-workflow.yaml` so private repos using OIDC trusted publishing no longer fail at publish time. The `--provenance` flag is only passed to `release-kit publish` when the caller sets `provenance: true`.\n\nUpdates the scaffolded `publish.yaml` template to include `provenance: false` with an inline comment guiding public repos to opt in. Expand the `release-kit init` next-steps output with hints about the provenance setting and trusted publisher registration. Set `provenance: true` in this repo's own `publish.yaml` since it is public.",
+            "hash": "833b08003e45b16ec16a2f07b28ac9fc5a7aeb7b"
           }
         ]
       },
@@ -442,11 +549,13 @@
         "items": [
           {
             "description": "Pass tag pattern to git-cliff based on tagPrefix (#77)",
-            "body": "Fixes the issue that git-cliff was processing the entire commit history on every run instead of only commits since the last release.\n\nConstructs the pattern from `tagPrefix` at invocation time (e.g., `release-kit-v` → `release-kit-v[0-9].*`) and pass it via `--tag-pattern`, which overrides the config file default."
+            "body": "Fixes the issue that git-cliff was processing the entire commit history on every run instead of only commits since the last release.\n\nConstructs the pattern from `tagPrefix` at invocation time (e.g., `release-kit-v` → `release-kit-v[0-9].*`) and pass it via `--tag-pattern`, which overrides the config file default.",
+            "hash": "724d1da533aad3cede69bb4eb0fc11682772e775"
           },
           {
             "description": "Propagate version bumps to workspace dependents (#80)",
-            "body": "Restructures `releasePrepareMono` from a single-pass loop into a phased pipeline that automatically patch-bumps workspace dependents when a component is released. A reverse dependency graph is built from `workspace:` references in `dependencies` and `peerDependencies`, then BFS propagation walks upward from bumped components to their dependents. Propagated-only components receive synthetic changelog entries instead of git-cliff invocations."
+            "body": "Restructures `releasePrepareMono` from a single-pass loop into a phased pipeline that automatically patch-bumps workspace dependents when a component is released. A reverse dependency graph is built from `workspace:` references in `dependencies` and `peerDependencies`, then BFS propagation walks upward from bumped components to their dependents. Propagated-only components receive synthetic changelog entries instead of git-cliff invocations.",
+            "hash": "859ff90abfe50dfbd32d8548c38876c3ecf1884e"
           }
         ]
       }
@@ -462,7 +571,8 @@
         "items": [
           {
             "description": "Prevent unparseable commits from being silently dropped (#76)",
-            "body": "Prevents `releasePrepareMono` and `releasePrepare` from silently skipping components whose commits have unparseable messages. Adds ticket-prefix stripping to `parseCommitMessage` (mirroring cliff.toml's `commit_preprocessors`), a patch-floor safety net when commits exist but none parse, and unparseable-commit reporting in `reportPrepare`."
+            "body": "Prevents `releasePrepareMono` and `releasePrepare` from silently skipping components whose commits have unparseable messages. Adds ticket-prefix stripping to `parseCommitMessage` (mirroring cliff.toml's `commit_preprocessors`), a patch-floor safety net when commits exist but none parse, and unparseable-commit reporting in `reportPrepare`.",
+            "hash": "d737d37a2549a6e0e8cf25272ebfdce27521173d"
           }
         ]
       }
@@ -478,11 +588,13 @@
         "items": [
           {
             "description": "Add shared writeFileWithCheck utility and overwrite reporting (#66)",
-            "body": "Extracts three duplicated `writeIfAbsent` implementations and two duplicated terminal helper sets into shared utilities in `@williamthorsen/node-monorepo-core`, then migrates all consumers (`release-kit init`, `preflight init`, `sync-labels`) to use them. All init commands now report which files were created, overwritten, skipped, or failed — including when `--force` replaces existing files."
+            "body": "Extracts three duplicated `writeIfAbsent` implementations and two duplicated terminal helper sets into shared utilities in `@williamthorsen/node-monorepo-core`, then migrates all consumers (`release-kit init`, `preflight init`, `sync-labels`) to use them. All init commands now report which files were created, overwritten, skipped, or failed — including when `--force` replaces existing files.",
+            "hash": "209f5e581cad267cf8365d8284c4fcf161faf177"
           },
           {
             "description": "Separate tag-write errors from release preparation errors (#67)",
-            "body": "When tag-file writing fails, the error message now reads \"Error writing release tags:\" instead of the misleading \"Error preparing release:\", which only appeared because both operations shared a single try/catch.\n\nRefactors `writeReleaseTags` to use the shared `writeFileWithCheck` utility from `@node-monorepo-tools/core` instead of raw `mkdirSync`/`writeFileSync`. The function now returns a structured `WriteResult` instead of throwing, and contains no `console` calls — all presentation moves to `runAndReport`."
+            "body": "When tag-file writing fails, the error message now reads \"Error writing release tags:\" instead of the misleading \"Error preparing release:\", which only appeared because both operations shared a single try/catch.\n\nRefactors `writeReleaseTags` to use the shared `writeFileWithCheck` utility from `@node-monorepo-tools/core` instead of raw `mkdirSync`/`writeFileSync`. The function now returns a structured `WriteResult` instead of throwing, and contains no `console` calls — all presentation moves to `runAndReport`.",
+            "hash": "04c835d7d67d7f1fe8643738dbeb76813ec08766"
           }
         ]
       },
@@ -492,15 +604,18 @@
         "items": [
           {
             "description": "Add eligibility check failure and short-circuit tests (#63)",
-            "body": "Adds 4 unit tests to `initCommand.unit.test.ts` covering the remaining `checkEligibility` orchestration gaps: individual failure exit codes for `hasPackageJson` and `usesPnpm`, and short-circuit verification ensuring downstream checks are skipped when an earlier check fails."
+            "body": "Adds 4 unit tests to `initCommand.unit.test.ts` covering the remaining `checkEligibility` orchestration gaps: individual failure exit codes for `hasPackageJson` and `usesPnpm`, and short-circuit verification ensuring downstream checks are skipped when an earlier check fails.",
+            "hash": "9e0257f6965815cd2b3baa9c15b0044ae73a2498"
           },
           {
             "description": "Add cliff.toml.template alignment test (#64)",
-            "body": "Adds a unit test that enforces bidirectional alignment between `DEFAULT_WORK_TYPES` and the bundled `cliff.toml.template` commit parsers. The test parses the TOML template using `smol-toml`, then verifies that every canonical type name and alias is matched by a parser with the correct group heading, and that every parser group maps to a known work type header."
+            "body": "Adds a unit test that enforces bidirectional alignment between `DEFAULT_WORK_TYPES` and the bundled `cliff.toml.template` commit parsers. The test parses the TOML template using `smol-toml`, then verifies that every canonical type name and alias is matched by a parser with the correct group heading, and that every parser group maps to a known work type header.",
+            "hash": "e98ac307aa5dbb3a79fb98d84c259295907a0a1f"
           },
           {
             "description": "Add releasePrepare coverage for bumpOverride, tagPrefix, and dry-run tags (#65)",
-            "body": "Adds three unit tests to `releasePrepare.unit.test.ts` covering previously untested code paths: the `bumpOverride` bypass of commit-based bump detection, custom `tagPrefix` propagation into tags, and tag computation in dry-run mode."
+            "body": "Adds three unit tests to `releasePrepare.unit.test.ts` covering previously untested code paths: the `bumpOverride` bypass of commit-based bump detection, custom `tagPrefix` propagation into tags, and tag computation in dry-run mode.",
+            "hash": "dd647e60f06581373408577a600d3b8b7aa609d6"
           }
         ]
       }
@@ -516,35 +631,43 @@
         "items": [
           {
             "description": "Add sync-labels command (#33)",
-            "body": "Add a `release-kit sync-labels` command group with three subcommands (`init`, `generate`, `sync`) for declarative GitHub label management in monorepos. Bundle a reusable GitHub Actions workflow and composable label presets with the release-kit package. Introduce a `findPackageRoot` utility to replace fragile hardcoded path resolutions across the codebase."
+            "body": "Add a `release-kit sync-labels` command group with three subcommands (`init`, `generate`, `sync`) for declarative GitHub label management in monorepos. Bundle a reusable GitHub Actions workflow and composable label presets with the release-kit package. Introduce a `findPackageRoot` utility to replace fragile hardcoded path resolutions across the codebase.",
+            "hash": "4345a41b1f85570be483d31f5406f689be673241"
           },
           {
             "description": "Report up-to-date status for unchanged init files (#35)",
-            "body": "`release-kit init` now compares existing file content against the default before reporting status. When an existing file is identical to the default (after normalizing trailing whitespace), it reports `✅ (up to date)` instead of the misleading `⚠️ (already exists)`."
+            "body": "`release-kit init` now compares existing file content against the default before reporting status. When an existing file is identical to the default (after normalizing trailing whitespace), it reports `✅ (up to date)` instead of the misleading `⚠️ (already exists)`.",
+            "hash": "0402702f055c021dd57819219403c8fbea693a8a"
           },
           {
             "description": "Auto-detect Prettier for CHANGELOG formatting (#36)",
-            "body": "When `formatCommand` is not configured, release-kit now auto-detects whether the repo uses Prettier by checking for config files (`.prettierrc*`, `prettier.config.*`) or a `\"prettier\"` key in root `package.json`. If found, it defaults to `npx prettier --write` on generated files. If not found, formatting is skipped."
+            "body": "When `formatCommand` is not configured, release-kit now auto-detects whether the repo uses Prettier by checking for config files (`.prettierrc*`, `prettier.config.*`) or a `\"prettier\"` key in root `package.json`. If found, it defaults to `npx prettier --write` on generated files. If not found, formatting is skipped.",
+            "hash": "97432b9d68068cfa2b40c9e9246afc92026c33ec"
           },
           {
             "description": "Add tag-creation command (#40)",
-            "body": "Adds a `release-kit tag` CLI command that reads computed tag names from the `tmp/.release-tags` file produced by `prepare` and creates annotated git tags. The command supports `--dry-run` (preview without creating tags) and `--no-git-checks` (skip dirty working tree validation). The `createTags` function and its options type are exported for programmatic use."
+            "body": "Adds a `release-kit tag` CLI command that reads computed tag names from the `tmp/.release-tags` file produced by `prepare` and creates annotated git tags. The command supports `--dry-run` (preview without creating tags) and `--no-git-checks` (skip dirty working tree validation). The `createTags` function and its options type are exported for programmatic use.",
+            "hash": "a8a7d4f5c9e80d8c7e3eb2b237881882470e2361"
           },
           {
             "description": "Add publish command (#42)",
-            "body": "Adds a `release-kit publish` subcommand that derives packages to publish from git tags on HEAD and delegates to the repo's detected package manager. Also cleans up the `.release-tags` file after tag creation."
+            "body": "Adds a `release-kit publish` subcommand that derives packages to publish from git tags on HEAD and delegates to the repo's detected package manager. Also cleans up the `.release-tags` file after tag creation.",
+            "hash": "c452a464d8ebf5eaf90d89a332a62f514e792378"
           },
           {
             "description": "Remove tagPrefix customization from component config (#49)",
-            "body": "Removes the ability to customize `tagPrefix` per component, enforcing the deterministic `{dir}-v` convention universally. The internal `tagPrefix` property on `ComponentConfig` and `ReleaseConfig` is preserved — only the override/customization entry points are removed. Existing configs that still include `tagPrefix` now receive a clear deprecation error."
+            "body": "Removes the ability to customize `tagPrefix` per component, enforcing the deterministic `{dir}-v` convention universally. The internal `tagPrefix` property on `ComponentConfig` and `ReleaseConfig` is preserved — only the override/customization entry points are removed. Existing configs that still include `tagPrefix` now receive a clear deprecation error.",
+            "hash": "c19976ab40d412bef2315a9322dbf7606aebc90f"
           },
           {
             "description": "Add styled terminal output to prepare command (#55)",
-            "body": "Adds ANSI formatting and emoji markers to the `release-kit prepare` command output. Progress chatter is dimmed, key results (version bumps, release tags, completion status) are highlighted with bold text and emoji, and monorepo components are separated by box-drawing section headers."
+            "body": "Adds ANSI formatting and emoji markers to the `release-kit prepare` command output. Progress chatter is dimmed, key results (version bumps, release tags, completion status) are highlighted with bold text and emoji, and monorepo components are separated by box-drawing section headers.",
+            "hash": "fb18fe6f0acd94fe3a9b929c90139c75e5d9205b"
           },
           {
             "description": "Extract nmr CLI from core package (#61)",
-            "body": "Extracts all nmr CLI code from `packages/core` into a new `packages/nmr` package (`@williamthorsen/nmr`). Core is reduced to an empty shared-library shell ready for cross-cutting utilities. All internal references are rewired and the full build/test pipeline passes.\n\nScopes: core, nmr"
+            "body": "Extracts all nmr CLI code from `packages/core` into a new `packages/nmr` package (`@williamthorsen/nmr`). Core is reduced to an empty shared-library shell ready for cross-cutting utilities. All internal references are rewired and the full build/test pipeline passes.\n\nScopes: core, nmr",
+            "hash": "d1abff0286f593a24444c0113d0286b4e70d6973"
           }
         ]
       },
@@ -554,11 +677,13 @@
         "items": [
           {
             "description": "Replace dist bin targets with thin wrapper scripts (#48)",
-            "body": "The `bin` entries in `packages/core` and `packages/release-kit` pointed directly into `dist/esm/`, causing `pnpm install` to emit \"Failed to create bin\" warnings in fresh worktrees where `dist/` does not yet exist. Each bin entry now points to a committed wrapper script in `bin/` that dynamically imports the real entry point. The `files` field in both packages includes `bin` so the wrappers are published."
+            "body": "The `bin` entries in `packages/core` and `packages/release-kit` pointed directly into `dist/esm/`, causing `pnpm install` to emit \"Failed to create bin\" warnings in fresh worktrees where `dist/` does not yet exist. Each bin entry now points to a committed wrapper script in `bin/` that dynamically imports the real entry point. The `files` field in both packages includes `bin` so the wrappers are published.",
+            "hash": "7cbc147a270d860fea7f3166032fb71a36b6522d"
           },
           {
             "description": "Separate presentation from logic in prepare workflow (#57)",
-            "body": "Extracts all `console.info` calls from the prepare workflow's logic functions (`bumpAllVersions`, `generateChangelogs`, `releasePrepare`, `releasePrepareMono`) into a dedicated `reportPrepare` formatter. Logic functions now return structured result types (`BumpResult`, `ComponentPrepareResult`, `PrepareResult`). The legacy `runReleasePrepare` entry point is retired, with its utilities absorbed into `prepareCommand`."
+            "body": "Extracts all `console.info` calls from the prepare workflow's logic functions (`bumpAllVersions`, `generateChangelogs`, `releasePrepare`, `releasePrepareMono`) into a dedicated `reportPrepare` formatter. Logic functions now return structured result types (`BumpResult`, `ComponentPrepareResult`, `PrepareResult`). The legacy `runReleasePrepare` entry point is retired, with its utilities absorbed into `prepareCommand`.",
+            "hash": "c929a7f618f0cae57af2028c27643b49cf931e14"
           }
         ]
       },
@@ -568,7 +693,8 @@
         "items": [
           {
             "description": "Cover multi-changelogPaths and error paths (#44)",
-            "body": "Add three tests for previously untested code paths:\n\n- `releasePrepareMono`: component with two `changelogPaths` entries, asserting `git-cliff` is invoked once per path with the correct `--output` target.\n- `getCommitsSinceTarget`: `git describe` failure with a non-128 exit status propagates as a wrapped error instead of being swallowed.\n- `getCommitsSinceTarget`: `git log` failure is wrapped and re-thrown with the commit range in the message.\n\nAlso adds a `findAllCliffOutputPaths()` test helper that collects the `--output` arg from every `git-cliff` mock call."
+            "body": "Add three tests for previously untested code paths:\n\n- `releasePrepareMono`: component with two `changelogPaths` entries, asserting `git-cliff` is invoked once per path with the correct `--output` target.\n- `getCommitsSinceTarget`: `git describe` failure with a non-128 exit status propagates as a wrapped error instead of being swallowed.\n- `getCommitsSinceTarget`: `git log` failure is wrapped and re-thrown with the commit range in the message.\n\nAlso adds a `findAllCliffOutputPaths()` test helper that collects the `--output` arg from every `git-cliff` mock call.",
+            "hash": "f5513c3b17acd8b53a81011ac63a937ef34abb07"
           }
         ]
       },
@@ -578,7 +704,8 @@
         "items": [
           {
             "description": "Adopt nmr to run monorepo and workspace scripts (#38)",
-            "body": "Replaces the legacy workspace script runner and ~25 root `package.json` scripts with `nmr`, the monorepo's own context-aware script runner. Root scripts are reduced to 4 (`prepare`, `postinstall`, `ci`, `bootstrap`), packages use direct build commands for bootstrap, and release-kit declares tier-3 test overrides for its integration test configs."
+            "body": "Replaces the legacy workspace script runner and ~25 root `package.json` scripts with `nmr`, the monorepo's own context-aware script runner. Root scripts are reduced to 4 (`prepare`, `postinstall`, `ci`, `bootstrap`), packages use direct build commands for bootstrap, and release-kit declares tier-3 test overrides for its integration test configs.",
+            "hash": "4a0b6fbc877c31daaf9472af3b9df948f6d19a12"
           }
         ]
       }
@@ -595,20 +722,24 @@
           {
             "description": "Slim down release workflow by removing unnecessary pnpm install (#21)",
             "body": "Make release-kit self-contained by invoking git-cliff via `npx --yes` instead of requiring it on PATH, and by appending modified file paths to the format command so lightweight formatters like `npx prettier --write` work without a full `pnpm install`. Update init templates, README, and consuming repo config/workflow to reference workflow v3.",
-            "breaking": true
+            "breaking": true,
+            "hash": "996258dc895dd98704da253e51a5f0975ac5cf42"
           },
           {
             "description": "Add --force flag to release-kit prepare (#25)",
-            "body": "Add a `--force` flag to `release-kit prepare` that bypasses the \"no commits since last tag\" check in monorepo mode, allowing version bumping and changelog generation to proceed even when no new commits are found since the last release tag. The flag requires `--bump` since there are no commits to infer bump type from. The local release workflow gains a `force` boolean input for future use."
+            "body": "Add a `--force` flag to `release-kit prepare` that bypasses the \"no commits since last tag\" check in monorepo mode, allowing version bumping and changelog generation to proceed even when no new commits are found since the last release tag. The flag requires `--bump` since there are no commits to infer bump type from. The local release workflow gains a `force` boolean input for future use.",
+            "hash": "79940296abf5476e077585d7681265ecf01cf8e4"
           },
           {
             "description": "Move reusable release workflow into repo (#26)",
             "body": "Moves the reusable release workflow from `williamthorsen/.github` into this repo as `release-workflow.yaml`, stripping all pnpm-related steps since release-kit now runs git-cliff and prettier via `npx` internally. Updates this repo's caller workflow to use a relative path and update init templates to reference the new location. Establishes a naming convention (`{name}-workflow.yaml` for reusable, `{name}.yaml` for callers) and independent versioning strategy (`{name}-workflow-v{major}` tags), documented in `.github/workflows/README.md`.",
-            "breaking": true
+            "breaking": true,
+            "hash": "f3416120cfe5bf0e7dbf51389e0c2647ccf41d30"
           },
           {
             "description": "Allow git-cliff to be used without config (#31)",
-            "body": "Adds a `resolveCliffConfigPath()` function that searches for a git-cliff config in a 4-step cascade (explicit path → `.config/git-cliff.toml` → `cliff.toml` → bundled `cliff.toml.template`), eliminating the requirement for consuming repos to maintain a cliff config copy. Restructures the `init` command to scaffold only the workflow file by default, with new `--with-config` and `--force` flags. Moves `.release-tags` from `/tmp/release-kit/` to project-local `tmp/` for predictable behavior in local runs."
+            "body": "Adds a `resolveCliffConfigPath()` function that searches for a git-cliff config in a 4-step cascade (explicit path → `.config/git-cliff.toml` → `cliff.toml` → bundled `cliff.toml.template`), eliminating the requirement for consuming repos to maintain a cliff config copy. Restructures the `init` command to scaffold only the workflow file by default, with new `--with-config` and `--force` flags. Moves `.release-tags` from `/tmp/release-kit/` to project-local `tmp/` for predictable behavior in local runs.",
+            "hash": "0cbd2605d6f5f53d1efe3dda8dd0f6e4376b499f"
           }
         ]
       },
@@ -618,7 +749,8 @@
         "items": [
           {
             "description": "Clean up release-kit post-migration issues (#19)",
-            "body": "Addresses five code quality issues and a test coverage gap identified during the release-kit migration (#5). Extracts a duplicated `isRecord` type guard into a shared module, eliminates a double-read in `bumpAllVersions`, improves error handling in `usesPnpm` by replacing a silent catch with a structured error boundary, removes an unreachable `'feature'` pattern from version defaults, and adds an integration test for scaffold template path resolution."
+            "body": "Addresses five code quality issues and a test coverage gap identified during the release-kit migration (#5). Extracts a duplicated `isRecord` type guard into a shared module, eliminates a double-read in `bumpAllVersions`, improves error handling in `usesPnpm` by replacing a silent catch with a structured error boundary, removes an unreachable `'feature'` pattern from version defaults, and adds an integration test for scaffold template path resolution.",
+            "hash": "aa50ca62ffb8fa0e7f727cf15794d4ba5ed2cf0e"
           }
         ]
       }
@@ -634,7 +766,8 @@
         "items": [
           {
             "description": "Migrate release-kit from toolbelt (#18)",
-            "body": "Migrates the complete `@williamthorsen/release-kit` package (v1.0.1) from `williamthorsen/toolbelt` into `packages/release-kit/`, adds shebang preservation to the shared esbuild plugin for CLI binaries, and sets up dogfooding infrastructure so this monorepo uses release-kit for its own releases."
+            "body": "Migrates the complete `@williamthorsen/release-kit` package (v1.0.1) from `williamthorsen/toolbelt` into `packages/release-kit/`, adds shebang preservation to the shared esbuild plugin for CLI binaries, and sets up dogfooding infrastructure so this monorepo uses release-kit for its own releases.",
+            "hash": "da3a61fd335fb3e05ce20a0bffcdc1647d7aeb45"
           }
         ]
       }

@@ -2,7 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
-## [audit-deps-v0.6.1] - 2026-05-04
+## 0.7.0 — 2026-05-10
+
+### 🎉 Features
+
+- Rename audit-deps to v11y-check (#383)
+
+  The package previously published as `@williamthorsen/audit-deps` has been renamed to `v11y-check`. The CLI command is now `v11y-check`, and the default config file is `.config/v11y-check.config.json`. Existing users should install `v11y-check` in place of `@williamthorsen/audit-deps`, rename their config file, and update any scripts that invoke `audit-deps`. Behavior is unchanged.
+
+## 0.6.1 — 2026-05-04
 
 ### ♻️ Refactoring
 
@@ -16,7 +24,7 @@ All notable changes to this project will be documented in this file.
 
   Clarifies the action hints printed by `audit-deps check` so users understand exactly which vulnerabilities `audit-deps sync` will allowlist. The hints now read "add **the listed** vulnerabilities to the allowlist", tying the action to the report shown immediately above. The previous wording — "add vulnerabilities to the allowlist" — could imply that `sync` is selective or interactive, when in fact it non-interactively allowlists every unallowed vulnerability in the report.
 
-## [audit-deps-v0.6.0] - 2026-04-30
+## 0.6.0 — 2026-04-30
 
 ### 🎉 Features
 
@@ -24,7 +32,7 @@ All notable changes to this project will be documented in this file.
 
   Adds a status indicator and bot-origin emoji to the standing issue maintained by the dependency-audit workflow. The title now reflects the most severe finding category and is refreshed on every run — `🤖 Dependency audit status: 3 vulnerabilities found 🚨`, `🤖 Dependency audit status: no vulnerabilities ✅`, and so on. Status priority is severity-driven: unallowed vulnerabilities outrank suppressed entries, which outrank stale allowlist entries.
 
-## [audit-deps-v0.5.0] - 2026-04-23
+## 0.5.0 — 2026-04-23
 
 ### 🎉 Features
 
@@ -32,7 +40,7 @@ All notable changes to this project will be documented in this file.
 
   Surfaces below-threshold vulnerabilities in the check command's output instead of silently hiding them. When the severity threshold is above `low`, vulnerabilities that fall below it now appear with an `ℹ️` marker and "ignored" annotation in bare output, full advisory detail in verbose output, and a distinct `belowThreshold` array in JSON output. Scope headers display the active threshold (e.g., `📦 prod (threshold: 🟠 moderate):`) so users can see what filtering is in effect. The "No known vulnerabilities found" message now only appears when there are truly zero vulnerabilities across all categories. Exit code behavior is unchanged — only above-threshold, non-allowlisted vulnerabilities cause failure.
 
-- Replace --only with --tags on release-kit publish and push (#273)
+- 🚨 **Breaking:** Replace --only with --tags on release-kit publish and push (#273)
 
   `release-kit publish` and `release-kit push` now filter by full tag name via `--tags=<tag1,tag2>` instead of workspace directory name via `--only=<dir>`, matching the shape already used by `create-github-release`. Callers pass the tag they care about (e.g., `core-v1.3.0`) directly, with no translation step back to the publishing workspace's directory name. The reusable workflow gains an optional `tags:` input, and the internal `publish.yaml` caller now passes `tags: ${{ github.ref_name }}`, making the publish scope explicit rather than relying on the single-tag fetch default of `actions/checkout@v6`.
 
@@ -42,11 +50,11 @@ All notable changes to this project will be documented in this file.
 
 ### ♻️ Refactoring
 
-- Rename `node-monorepo-core` to `nmr-core` (#304)
+- 🚨 **Breaking:** Rename `node-monorepo-core` to `nmr-core` (#304)
 
   Renames the shared-utilities package from `@williamthorsen/node-monorepo-core` to `@williamthorsen/nmr-core`, aligning it with the repository's `nmr-*` naming convention. The package's functionality and version are unchanged; only the published name differs.
 
-## [audit-deps-v0.4.0] - 2026-04-17
+## 0.4.0 — 2026-04-17
 
 ### 🎉 Features
 
@@ -62,7 +70,7 @@ All notable changes to this project will be documented in this file.
 
   Redesigns the `audit-deps` bare output format to show GHSA IDs instead of npm-specific numeric advisory IDs, add severity text labels, and guide developers toward next steps. The new format includes an intro banner reflecting the audit scope, scope-labeled sections with emoji markers, bulleted findings with severity indicators, relative-time annotations on allowed vulnerabilities, and a unified `Actions:` footer with context-aware verbose and sync hints. Extracts shared time-formatting helpers into a dedicated module to support relative timestamps in both bare and verbose formatters.
 
-## [audit-deps-v0.3.0] - 2026-04-16
+## 0.3.0 — 2026-04-16
 
 ### 🎉 Features
 
@@ -94,7 +102,7 @@ All notable changes to this project will be documented in this file.
 
   Update the Quick start and CLI reference in the `audit-deps` README to match the grouped-check default, the removal of the `report` command, and the new `--raw` flag. Remove "(CI mode)" from the `--raw` help-text description; the flag is not tied to CI environments.
 
-## [audit-deps-v0.2.1] - 2026-04-15
+## 0.2.1 — 2026-04-15
 
 ### ⚙️ Tooling
 
@@ -102,7 +110,7 @@ All notable changes to this project will be documented in this file.
 
   Prepares the repository for reliable tag-triggered npm publishing by adding missing package metadata, standardizing licensing, and introducing a readyup kit that validates publish readiness across all packages.
 
-## [audit-deps-v0.2.0] - 2026-04-10
+## 0.2.0 — 2026-04-10
 
 ### 🎉 Features
 
@@ -110,4 +118,4 @@ All notable changes to this project will be documented in this file.
 
   Adds a new `@williamthorsen/audit-deps` package that wraps `audit-ci` with a typed JSON config model, per-scope (dev/prod) severity thresholds, and a sync workflow that automates allowlist management. The package provides a CLI with five commands: default audit (CI pass/fail), `report` (all vulnerabilities), `sync` (diff-based allowlist updates), `generate` (flat config regeneration), and `init` (config scaffolding).
 
-<!-- generated by git-cliff -->
+<!-- Generated by release-kit. Do not edit this file. Use .meta/changelog-overrides.json to override entries. -->
