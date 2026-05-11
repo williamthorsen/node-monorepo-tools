@@ -459,7 +459,7 @@ The override file is validated when `release-kit prepare` loads it. Each error n
 
 #### Standalone validation: `release-kit overrides validate`
 
-For a fast overrides-only health check (locally or as a CI gate), run:
+For a focused overrides-only health check (locally or as a CI gate), run:
 
 ```sh
 pnpm exec release-kit overrides validate

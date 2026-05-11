@@ -337,4 +337,71 @@ describe(validateOverridesCommand, () => {
       expect(mockedRunGitCliff).toHaveBeenCalled();
     });
   });
+
+  // Monorepo wiring: pin the per-workspace and project-tier `buildEntries` arguments so a
+  // future refactor that drops legacy identities, narrows the project path-union, or otherwise
+  // diverges from `releasePrepareMono.ts:722-723` / `releasePrepareProject.ts:262-266` fails
+  // here rather than silently producing wrong stale-key reports.
+  describe('buildMonorepoInputs (monorepo wiring)', () => {
+    let tempDir: string;
+    let originalCwd: string;
+
+    beforeEach(() => {
+      originalCwd = process.cwd();
+      tempDir = mkdtempSync(path.join(tmpdir(), 'validate-overrides-mono-'));
+      // Root package.json — required when the user config declares a `project` block.
+      writeFileSync(path.join(tempDir, 'package.json'), JSON.stringify({ name: 'mono-root', version: '1.0.0' }));
+      // Workspace `foo` with a legacy npm name `old-foo`.
+      mkdirSync(path.join(tempDir, 'packages/foo'), { recursive: true });
+      writeFileSync(path.join(tempDir, 'packages/foo/package.json'), JSON.stringify({ name: 'foo' }));
+      // Workspace `bar` with a scoped npm name (strips to `bar` for tag-prefix derivation).
+      mkdirSync(path.join(tempDir, 'packages/bar'), { recursive: true });
+      writeFileSync(path.join(tempDir, 'packages/bar/package.json'), JSON.stringify({ name: '@scope/bar' }));
+      process.chdir(tempDir);
+    });
+
+    afterEach(() => {
+      process.chdir(originalCwd);
+      rmSync(tempDir, { recursive: true, force: true });
+    });
+
+    it('passes per-workspace tagPattern (with legacy identities) and project-tier tagPattern with the union of workspace paths', async () => {
+      const calls: { tagPattern: string | undefined; includePaths: readonly string[] | undefined }[] = [];
+
+      await validateOverridesCommand({
+        discoverWorkspaces: () => Promise.resolve(['packages/foo', 'packages/bar']),
+        loadConfig: () =>
+          Promise.resolve({
+            workspaces: [{ dir: 'foo', legacyIdentities: [{ name: 'old-foo', tagPrefix: 'old-foo-v' }] }],
+            project: { tagPrefix: 'mono-v' },
+          }),
+        buildEntries: (_config, tagPattern, includePaths) => {
+          calls.push({ tagPattern, includePaths });
+          return [];
+        },
+        validate: () => ({ errors: [], warnings: [] }),
+      });
+
+      // Three invocations: foo workspace, bar workspace, project-tier.
+      expect(calls).toHaveLength(3);
+
+      // foo: workspace tagPattern is the union of derived + legacy prefixes; includePaths is the workspace glob.
+      expect(calls[0]).toEqual({
+        tagPattern: '(foo-v|old-foo-v)[0-9].*',
+        includePaths: ['packages/foo/**'],
+      });
+
+      // bar: single derived prefix (no legacy identities); includePaths is its workspace glob.
+      expect(calls[1]).toEqual({
+        tagPattern: 'bar-v[0-9].*',
+        includePaths: ['packages/bar/**'],
+      });
+
+      // Project tier: project tagPattern; includePaths is the union of workspace globs.
+      expect(calls[2]).toEqual({
+        tagPattern: 'mono-v[0-9].*',
+        includePaths: ['packages/foo/**', 'packages/bar/**'],
+      });
+    });
+  });
 });

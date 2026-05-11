@@ -6,7 +6,7 @@ import {
   type ValidateAllChangelogOverridesResult,
 } from './changelogOverrides.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
-import { buildTagPattern, type GenerateChangelogOptions } from './generateChangelogs.ts';
+import { buildTagPattern, type GenerateChangelogOptions, getAllTagPrefixes } from './generateChangelogs.ts';
 import { loadConfig, mergeMonorepoConfig, mergeSinglePackageConfig, readRootPackageVersion } from './loadConfig.ts';
 import type { ChangelogEntry, MonorepoReleaseConfig, ReleaseConfig, ReleaseKitConfig } from './types.ts';
 import { validateConfig } from './validateConfig.ts';
@@ -232,11 +232,7 @@ function buildMonorepoInputs(
   const config: MonorepoReleaseConfig = mergeMonorepoConfig(discoveredPaths, userConfig, rootPackage);
 
   const workspaces = config.workspaces.map((workspace) => {
-    const tagPrefixes = [
-      workspace.tagPrefix,
-      ...(workspace.legacyIdentities?.map((identity) => identity.tagPrefix) ?? []),
-    ];
-    const tagPattern = buildTagPattern(tagPrefixes);
+    const tagPattern = buildTagPattern(getAllTagPrefixes(workspace));
     return {
       filePath: resolveOverridePath(workspace.workspacePath),
       hashes: flattenEntriesToHashes(buildEntries(config, tagPattern, workspace.paths)),
