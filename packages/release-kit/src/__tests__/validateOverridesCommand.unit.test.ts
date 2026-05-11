@@ -1,6 +1,46 @@
-import { describe, expect, it } from 'vitest';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { runGitCliff } from '../runGitCliff.ts';
+import type { ChangelogEntry } from '../types.ts';
 import { formatValidateOverridesResult, validateOverridesCommand } from '../validateOverridesCommand.ts';
+
+// Stub `runGitCliff` so the near-integration block can exercise the real
+// `validateOverridesCommand → buildChangelogEntries → validateAllChangelogOverrides` pipeline
+// without requiring git-cliff on PATH. Other tests in this file inject `buildEntries` directly,
+// so they never reach the stubbed call site.
+vi.mock('../runGitCliff.ts', () => ({
+  runGitCliff: vi.fn(() => '[]'),
+}));
+
+const mockedRunGitCliff = vi.mocked(runGitCliff);
+
+/**
+ * Wrap a flat list of hashes into the minimal `ChangelogEntry[]` shape that the production
+ * code's `flattenEntriesToHashes` walks. Use {@link entriesFromReleases} when a test needs to
+ * differentiate per-release groupings (e.g., past vs. unreleased).
+ */
+function entriesFromHashes(hashes: string[]): ChangelogEntry[] {
+  return entriesFromReleases([{ version: '0.0.0-test', hashes }]);
+}
+
+/** Build a multi-release entry tree. Each spec becomes one `ChangelogEntry`. */
+function entriesFromReleases(specs: { version: string; hashes: string[] }[]): ChangelogEntry[] {
+  return specs.map((spec) => ({
+    version: spec.version,
+    date: '0000-00-00',
+    sections: [
+      {
+        title: 'Test',
+        audience: 'all',
+        items: spec.hashes.map((hash) => ({ description: '', hash })),
+      },
+    ],
+  }));
+}
 
 describe(formatValidateOverridesResult, () => {
   it('returns exit 0 with a success message when there are no findings', () => {
@@ -55,7 +95,7 @@ describe(validateOverridesCommand, () => {
     const result = await validateOverridesCommand({
       discoverWorkspaces: () => Promise.resolve(undefined),
       loadConfig: () => Promise.resolve(undefined),
-      collectHashes: () => [],
+      buildEntries: () => entriesFromHashes([]),
       validate: () => ({ errors: [], warnings: [] }),
     });
     expect(result.exitCode).toBe(0);
@@ -65,7 +105,7 @@ describe(validateOverridesCommand, () => {
     const result = await validateOverridesCommand({
       discoverWorkspaces: () => Promise.resolve(undefined),
       loadConfig: () => Promise.resolve(undefined),
-      collectHashes: () => [],
+      buildEntries: () => entriesFromHashes([]),
       validate: () => ({ errors: [], warnings: ['file.json: stale key'] }),
     });
     expect(result.exitCode).toBe(1);
@@ -75,7 +115,7 @@ describe(validateOverridesCommand, () => {
     const result = await validateOverridesCommand({
       discoverWorkspaces: () => Promise.resolve(undefined),
       loadConfig: () => Promise.resolve(undefined),
-      collectHashes: () => [],
+      buildEntries: () => entriesFromHashes([]),
       validate: () => ({ errors: ['file.json: ambiguous'], warnings: [] }),
     });
     expect(result.exitCode).toBe(2);
@@ -108,7 +148,7 @@ describe(validateOverridesCommand, () => {
     await validateOverridesCommand({
       discoverWorkspaces: () => Promise.resolve(undefined),
       loadConfig: () => Promise.resolve(undefined),
-      collectHashes: () => ['hash1', 'hash2'],
+      buildEntries: () => entriesFromHashes(['hash1', 'hash2']),
       validate: (inputs) => {
         received = {
           workspaces: inputs.workspaces?.length ?? 0,
@@ -118,5 +158,183 @@ describe(validateOverridesCommand, () => {
       },
     });
     expect(received).toStrictEqual({ workspaces: 0, projectHashes: 2 });
+  });
+
+  // Bug-fix coverage: the validator's hash universe must be byte-equal to what `prepare`
+  // walks. Tests below verify that the full multi-release tree (not just the latestTag..HEAD
+  // window the prior implementation used) is delivered to the validator, and that the
+  // downstream classification still surfaces unreachable keys and ambiguous prefixes correctly.
+
+  it('delivers the full multi-release hash universe to the validator (past releases included)', async () => {
+    // Regression for issue #398: prior to the fix, only the current unreleased window was
+    // available to the validator. An override targeting a hash in a past release (here:
+    // 'aabbcc1234') was reported stale because the validator never saw that hash.
+    let capturedHashes: readonly string[] = [];
+    await validateOverridesCommand({
+      discoverWorkspaces: () => Promise.resolve(undefined),
+      loadConfig: () => Promise.resolve(undefined),
+      buildEntries: () =>
+        entriesFromReleases([
+          { version: '1.0.0', hashes: ['aabbcc1234567890aabbcc1234567890aabbcc12'] },
+          { version: '2.0.0', hashes: ['ddeeff5678901234ddeeff5678901234ddeeff56'] },
+          { version: 'validate-only', hashes: ['9988aabbccddeeff9988aabbccddeeff9988aabb'] },
+        ]),
+      validate: (inputs) => {
+        capturedHashes = inputs.project?.hashes ?? [];
+        return { errors: [], warnings: [] };
+      },
+    });
+    expect(capturedHashes).toEqual([
+      'aabbcc1234567890aabbcc1234567890aabbcc12',
+      'ddeeff5678901234ddeeff5678901234ddeeff56',
+      '9988aabbccddeeff9988aabbccddeeff9988aabb',
+    ]);
+  });
+
+  describe('against the real validator (writes a temp override file)', () => {
+    let tempDir: string;
+    let originalCwd: string;
+
+    beforeEach(() => {
+      originalCwd = process.cwd();
+      tempDir = mkdtempSync(path.join(tmpdir(), 'validate-overrides-'));
+      mkdirSync(path.join(tempDir, '.meta'), { recursive: true });
+      process.chdir(tempDir);
+    });
+
+    afterEach(() => {
+      process.chdir(originalCwd);
+      rmSync(tempDir, { recursive: true, force: true });
+    });
+
+    function writeOverrides(overrides: Record<string, unknown>): void {
+      writeFileSync(path.join(tempDir, '.meta', 'changelog-overrides.json'), JSON.stringify(overrides, null, 2));
+    }
+
+    it('does NOT flag an override targeting a past-release commit as stale', async () => {
+      const pastHash = 'aabbcc1234567890aabbcc1234567890aabbcc12';
+      const unreleasedHash = '9988aabbccddeeff9988aabbccddeeff9988aabb';
+      writeOverrides({ aabbcc12: { audience: 'skip' } });
+
+      const result = await validateOverridesCommand({
+        discoverWorkspaces: () => Promise.resolve(undefined),
+        loadConfig: () => Promise.resolve(undefined),
+        buildEntries: () =>
+          entriesFromReleases([
+            { version: '1.0.0', hashes: [pastHash] },
+            { version: 'validate-only', hashes: [unreleasedHash] },
+          ]),
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.message).not.toContain('aabbcc12');
+      expect(result.message).not.toContain('did not match');
+    });
+
+    it('flags an override targeting an unreachable hash as stale', async () => {
+      writeOverrides({ deadbeef: { audience: 'skip' } });
+
+      const result = await validateOverridesCommand({
+        discoverWorkspaces: () => Promise.resolve(undefined),
+        loadConfig: () => Promise.resolve(undefined),
+        buildEntries: () =>
+          entriesFromReleases([
+            { version: '1.0.0', hashes: ['aabbcc1234567890aabbcc1234567890aabbcc12'] },
+            { version: 'validate-only', hashes: ['9988aabbccddeeff9988aabbccddeeff9988aabb'] },
+          ]),
+      });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.message).toContain('deadbeef');
+      expect(result.message).toContain('stale');
+    });
+
+    it('surfaces an ambiguous-prefix error with file-path attribution', async () => {
+      writeOverrides({ aa: { audience: 'skip' } });
+
+      const result = await validateOverridesCommand({
+        discoverWorkspaces: () => Promise.resolve(undefined),
+        loadConfig: () => Promise.resolve(undefined),
+        buildEntries: () =>
+          entriesFromReleases([
+            {
+              version: '1.0.0',
+              hashes: ['aabbcc1234567890aabbcc1234567890aabbcc12', 'aabbdd5678901234aabbdd5678901234aabbdd56'],
+            },
+          ]),
+      });
+
+      expect(result.exitCode).toBe(2);
+      expect(result.message).toContain('.meta/changelog-overrides.json:');
+      expect(result.message).toContain('ambiguous');
+      expect(result.message).toContain('aa');
+    });
+  });
+
+  describe('near-integration: full pipeline with mocked runGitCliff', () => {
+    let tempDir: string;
+    let originalCwd: string;
+
+    beforeEach(() => {
+      originalCwd = process.cwd();
+      tempDir = mkdtempSync(path.join(tmpdir(), 'validate-overrides-int-'));
+      mkdirSync(path.join(tempDir, '.meta'), { recursive: true });
+      process.chdir(tempDir);
+      mockedRunGitCliff.mockReset();
+      mockedRunGitCliff.mockReturnValue('[]');
+    });
+
+    afterEach(() => {
+      process.chdir(originalCwd);
+      rmSync(tempDir, { recursive: true, force: true });
+    });
+
+    it('exercises real validateOverridesCommand → buildChangelogEntries → validator with a multi-release cliff context (#398)', async () => {
+      // Canned `git-cliff --context` output simulating two releases plus the unreleased range.
+      // The past-release commit `aabbcc12…` is what regressed prior to the fix: the narrow
+      // `git log <latestTag>..HEAD` universe excluded it, causing a false-positive stale warning.
+      const pastHash = 'aabbcc1234567890aabbcc1234567890aabbcc12';
+      const currentHash = 'ddeeff5678901234ddeeff5678901234ddeeff56';
+      const unreleasedHash = '9988aabbccddeeff9988aabbccddeeff9988aabb';
+      mockedRunGitCliff.mockReturnValue(
+        JSON.stringify([
+          {
+            version: 'v1.0.0',
+            timestamp: 1_700_000_000,
+            commits: [{ id: pastHash, message: 'feat: past feature', group: 'Features' }],
+          },
+          {
+            version: 'v2.0.0',
+            timestamp: 1_710_000_000,
+            commits: [{ id: currentHash, message: 'feat: current feature', group: 'Features' }],
+          },
+          {
+            version: 'validate-only',
+            commits: [{ id: unreleasedHash, message: 'feat: unreleased feature', group: 'Features' }],
+          },
+        ]),
+      );
+
+      writeFileSync(
+        path.join(tempDir, '.meta', 'changelog-overrides.json'),
+        JSON.stringify({
+          aabbcc12: { audience: 'skip' }, // past-release commit — must NOT be stale
+          deadbeef: { audience: 'skip' }, // unreachable — must be flagged stale
+        }),
+      );
+
+      const result = await validateOverridesCommand({
+        discoverWorkspaces: () => Promise.resolve(undefined),
+        loadConfig: () => Promise.resolve(undefined),
+      });
+
+      // Bug regression gate: aabbcc12 must not appear in any warning.
+      expect(result.message).not.toContain('aabbcc12');
+      // The genuinely-orphaned key must still be flagged.
+      expect(result.message).toContain('deadbeef');
+      expect(result.exitCode).toBe(1);
+      // Confirm the production code path actually invoked cliff (proves the pipeline ran).
+      expect(mockedRunGitCliff).toHaveBeenCalled();
+    });
   });
 });
