@@ -1,3 +1,5 @@
+import type { WorkspaceConfig } from './types.ts';
+
 /**
  * Build a git-cliff tag pattern from one or more tag prefixes.
  *
@@ -21,13 +23,12 @@ export function buildTagPattern(tagPrefixes: readonly string[]): string {
 }
 
 /**
- * Escape regex metacharacters so a literal prefix is matched as-is.
- *
- * Derived prefixes from npm package names are restricted to `[a-z0-9-]`, but legacy entries
- * from user config may contain anything; defensive escaping prevents silent pattern drift.
+ * Return the workspace's derived tag prefix followed by each declared legacy-identity tag
+ * prefix. Shared by `releasePrepareMono` (the production prepare path) and
+ * `validateOverridesCommand` so the two compute byte-equal per-workspace tag-prefix unions.
  */
-function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+export function getAllTagPrefixes(workspace: WorkspaceConfig): string[] {
+  return [workspace.tagPrefix, ...(workspace.legacyIdentities?.map((identity) => identity.tagPrefix) ?? [])];
 }
 
 /**
@@ -43,4 +44,14 @@ export interface GenerateChangelogOptions {
   tagPattern?: string;
   /** Paths to include in the changelog (passed as --include-path to git-cliff). */
   includePaths?: string[];
+}
+
+/**
+ * Escape regex metacharacters so a literal prefix is matched as-is.
+ *
+ * Derived prefixes from npm package names are restricted to `[a-z0-9-]`, but legacy entries
+ * from user config may contain anything; defensive escaping prevents silent pattern drift.
+ */
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 }

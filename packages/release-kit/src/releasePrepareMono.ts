@@ -22,7 +22,7 @@ import { isForwardVersion } from './compareVersions.ts';
 import { decideRelease } from './decideRelease.ts';
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { detectUndeclaredTagPrefixes } from './detectUndeclaredTagPrefixes.ts';
-import { buildTagPattern } from './generateChangelogs.ts';
+import { buildTagPattern, getAllTagPrefixes } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import { resolveWorkTypes } from './loadConfig.ts';
@@ -918,9 +918,4 @@ function topologicalSort(
   }
 
   return { sorted, cyclicDirs };
-}
-
-/** Return the workspace's derived tag prefix followed by each declared legacy-identity tag prefix. */
-function getAllTagPrefixes(workspace: WorkspaceConfig): string[] {
-  return [workspace.tagPrefix, ...(workspace.legacyIdentities?.map((identity) => identity.tagPrefix) ?? [])];
 }

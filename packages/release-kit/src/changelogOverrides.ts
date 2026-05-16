@@ -499,10 +499,13 @@ export interface ValidateAllChangelogOverridesResult {
  * hash universes and returns aggregated findings. The CLI command and any other consumer
  * (programmatic library callers, future composite checks) wrap this with discovery and I/O.
  *
- * The match-set is byte-equal to what `release-kit prepare` would compute, including the
- * tier asymmetry: workspace-tier keys are stale if they don't match in their own workspace;
+ * When invoked via the standard `validateOverridesCommand` entry point, each scope's
+ * `hashes` is built by `buildChangelogEntries` — the same path `release-kit prepare` walks —
+ * so the match-set is byte-equal to what `prepare` would compute. The tier asymmetry is part
+ * of that contract: workspace-tier keys are stale if they don't match in their own workspace;
  * root-tier keys are stale only if they don't match in any scope (no workspace AND not the
- * project release window).
+ * project release window). Library callers that construct `inputs` directly are responsible
+ * for supplying the same hash universes if they want this guarantee.
  *
  * Every returned string is prefixed with the relative override-file path it pertains to so
  * consumers can locate the offending file without further structuring.
