@@ -63,10 +63,9 @@ async function runNmr(
 }
 
 describe('nmr CLI', () => {
-  // Warm the OS page cache for `node` + the nmr dist so the inner hook subprocesses
-  // (`nmr X:pre`, `nmr X:post`) that production hook-wrap continues to spawn pay
-  // cold-start cost once per file rather than once per `it`. Failure here is
-  // non-fatal: tests still pass against a cold cache, just more slowly.
+  // Warm the OS page cache for `node` + the nmr dist so the inner hook subprocesses (`nmr X:pre`, `nmr X:post`) that
+  // production hook-wrap continues to spawn pay cold-start cost once per file rather than once per `it`. Failure here
+  // is non-fatal: tests still pass against a cold cache, just more slowly.
   beforeAll(() => {
     try {
       execSync(`node ${CLI_PATH} --help`, { stdio: 'ignore', timeout: 10_000 });
@@ -208,10 +207,9 @@ describe('nmr CLI', () => {
     let logFile: string;
 
     /**
-     * Writes a workspace package whose scripts append a marker line to a log file
-     * when invoked. The `clean` script is overridden because clean is in the default
-     * registry (so resolving it triggers the override path), and we layer hook
-     * scripts on top in tier-3 (package.json) where appropriate.
+     * Writes a workspace package whose scripts append a marker line to a log file when invoked.
+     * The `clean` script is overridden because clean is in the default registry (so resolving it triggers the
+     * override path), and we layer hook scripts on top in tier-3 (package.json) where appropriate.
      */
     function writePackage(packageDir: string, scripts: Record<string, string>, packageName = 'hook-pkg'): void {
       mkdirSync(packageDir, { recursive: true });
@@ -536,9 +534,8 @@ describe('nmr CLI', () => {
         configLogFile = path.join(configRoot, 'log.txt');
         writeFileSync(configLogFile, '');
 
-        // Root package.json scripts are tier 3 from root cwd; under -w from a
-        // subpackage they should resolve via root's package.json, not the
-        // subpackage's. Defining wpkg-cmd here exercises that path.
+        // Root package.json scripts are tier 3 from root cwd; under -w from a subpackage they should resolve via
+        // root's package.json, not the subpackage's. Defining wpkg-cmd here exercises that path.
         writeFileSync(
           path.join(configRoot, 'package.json'),
           JSON.stringify({
@@ -603,8 +600,7 @@ export default defineConfig({
         clearConfigLog();
         // wroot-cmd and its hooks live only in rootScripts. Without -w propagation,
         // the parent's `useRoot=true` decision is lost in the subprocess `nmr X:pre` call,
-        // and the child re-derives a workspace registry from the package cwd, failing to
-        // resolve the hook.
+        // and the child re-derives a workspace registry from the package cwd, failing to resolve the hook.
         const { exitCode } = await runNmr('-w wroot-cmd', { cwd: configPkgDir });
         expect(exitCode).toBe(0);
         expect(readConfigLog()).toStrictEqual(['wroot-pre', 'wroot-main', 'wroot-post']);
@@ -612,10 +608,9 @@ export default defineConfig({
 
       it('propagates -w through composite-script step subprocesses', async () => {
         clearConfigLog();
-        // wroot-composite and its steps live only in rootScripts. The composite expands
-        // to `nmr -w wroot-step1 && nmr -w wroot-step2` so each child resolves via the
-        // root registry. Without -w propagation in expandScript, the children re-derive
-        // a workspace registry from the package cwd and fail with "Unknown command".
+        // wroot-composite and its steps live only in rootScripts. The composite expands to `nmr -w wroot-step1 && nmr
+        // -w wroot-step2` so each child resolves via the root registry. Without -w propagation in expandScript, the
+        // children re-derive a workspace registry from the package cwd and fail with "Unknown command".
         const { exitCode } = await runNmr('-w wroot-composite', { cwd: configPkgDir });
         expect(exitCode).toBe(0);
         expect(readConfigLog()).toStrictEqual(['wroot-step1', 'wroot-step2']);
@@ -623,10 +618,9 @@ export default defineConfig({
 
       it('resolves tier-3 (root package.json) scripts under -w from a subpackage', async () => {
         clearConfigLog();
-        // wpkg-cmd and its hooks live only in the root package.json scripts (tier 3
-        // from root cwd). Under -w from a subpackage, packageDir must follow useRoot
-        // so the resolver consults root's package.json instead of the subpackage's,
-        // otherwise the command and its hooks fail with "Unknown command".
+        // wpkg-cmd and its hooks live only in the root package.json scripts (tier 3 from root cwd).
+        // Under -w from a subpackage, packageDir must follow useRoot so the resolver consults root's package.json
+        // instead of the subpackage's, otherwise the command and its hooks fail with "Unknown command".
         const { exitCode } = await runNmr('-w wpkg-cmd', { cwd: configPkgDir });
         expect(exitCode).toBe(0);
         expect(readConfigLog()).toStrictEqual(['wpkg-pre', 'wpkg-main', 'wpkg-post']);
