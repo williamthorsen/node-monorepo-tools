@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { findPackageRoot } from './findPackageRoot.js';
+import { findPackageRoot } from './findPackageRoot.ts';
 
 /**
  * Read the `version` field from the nearest ancestor `package.json`, starting
