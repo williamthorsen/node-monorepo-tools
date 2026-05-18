@@ -1,9 +1,16 @@
-import { execSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import process from 'node:process';
+import type { Writable } from 'node:stream';
 
 export interface RunCommandOptions {
   /** When true, suppress output on success and write captured output to stderr on failure. */
   quiet?: boolean;
+  /** Stream that subprocess stdout flows to in non-quiet mode. Defaults to `process.stdout`. */
+  stdout?: Writable;
+  /** Stream that subprocess stderr flows to (and that quiet-mode failure output is written to). Defaults to `process.stderr`. */
+  stderr?: Writable;
+  /** Environment for the subprocess. Defaults to `process.env`. */
+  env?: NodeJS.ProcessEnv;
 }
 
 /**
@@ -11,43 +18,56 @@ export interface RunCommandOptions {
  * Returns the exit code of the command.
  *
  * In quiet mode, output is captured (piped) instead of inherited.
- * On success, captured output is discarded. On failure, it is written to stderr.
+ * On success, captured output is discarded. On failure, it is written to `options.stderr`.
+ *
+ * In non-quiet mode, each of stdout/stderr is routed by fd inheritance when the
+ * caller's stream exposes one (the production path via `process.stdout`/`stderr`)
+ * for real-time streaming, otherwise piped and forwarded into the caller's stream
+ * after the child exits (the test path via `PassThrough`).
  */
 export function runCommand(command: string, cwd?: string, options?: RunCommandOptions): number {
   const quiet = options?.quiet === true;
-  const stdio = quiet ? 'pipe' : 'inherit';
+  const stdout = options?.stdout ?? process.stdout;
+  const stderr = options?.stderr ?? process.stderr;
+  const env = options?.env ?? process.env;
 
-  try {
-    execSync(command, { stdio, cwd });
-    return 0;
-  } catch (error) {
-    // execSync throws on non-zero exit code.
-    // The error object has a `status` property with the exit code.
-    if (error !== null && typeof error === 'object') {
-      if (quiet) {
-        writeErrorOutput(error);
-      }
-      if ('status' in error) {
-        const { status } = error;
-        return typeof status === 'number' ? status : 1;
-      }
-    }
+  const stdoutChannel = quiet ? 'pipe' : streamFdOrPipe(stdout);
+  const stderrChannel = quiet ? 'pipe' : streamFdOrPipe(stderr);
+
+  const result = spawnSync(command, [], {
+    shell: true,
+    stdio: ['inherit', stdoutChannel, stderrChannel],
+    cwd,
+    env,
+  });
+
+  // Spawn failures (missing binary, shell-not-found) are surfaced even in quiet mode:
+  // there are no captured buffers to forward, and a silent exit 1 would be the classic silent-failure trap.
+  // Quiet means "no chatter on success", not "swallow catastrophic configuration errors".
+  if (result.error) {
+    stderr.write(`${result.error.message}\n`);
     return 1;
   }
+
+  if (quiet) {
+    if (result.status !== 0) {
+      writeBuffer(result.stdout, stderr);
+      writeBuffer(result.stderr, stderr);
+    }
+  } else {
+    if (stdoutChannel === 'pipe') writeBuffer(result.stdout, stdout);
+    if (stderrChannel === 'pipe') writeBuffer(result.stderr, stderr);
+  }
+
+  return result.status ?? 1;
 }
 
-/** Writes captured stdout and stderr buffers from an execSync error to `process.stderr`. */
-function writeErrorOutput(error: object): void {
-  if ('stdout' in error) {
-    const { stdout } = error;
-    if (Buffer.isBuffer(stdout) && stdout.length > 0) {
-      process.stderr.write(stdout);
-    }
-  }
-  if ('stderr' in error) {
-    const { stderr } = error;
-    if (Buffer.isBuffer(stderr) && stderr.length > 0) {
-      process.stderr.write(stderr);
-    }
-  }
+/** Returns the stream's numeric file descriptor for fd inheritance, or `'pipe'` if unavailable. */
+function streamFdOrPipe(stream: Writable): number | 'pipe' {
+  return 'fd' in stream && typeof stream.fd === 'number' ? stream.fd : 'pipe';
+}
+
+/** Writes a captured buffer to the destination stream, skipping empty payloads. */
+function writeBuffer(buffer: Buffer | string, dest: Writable): void {
+  if (buffer.length > 0) dest.write(buffer);
 }
