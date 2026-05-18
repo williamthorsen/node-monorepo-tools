@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { FlagSchema } from '../src/parseArgs.ts';
-import { parseArgs } from '../src/parseArgs.ts';
+import type { FlagSchema } from '../parseArgs.ts';
+import { parseArgs } from '../parseArgs.ts';
 
 const emptySchema = {} satisfies FlagSchema;
 

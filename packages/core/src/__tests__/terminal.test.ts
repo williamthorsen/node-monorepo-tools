@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { reportWriteResult } from '../src/terminal.ts';
-import type { WriteResult } from '../src/writeFileWithCheck.ts';
+import { reportWriteResult } from '../terminal.ts';
+import type { WriteResult } from '../writeFileWithCheck.ts';
 
 describe(reportWriteResult, () => {
   afterEach(() => {

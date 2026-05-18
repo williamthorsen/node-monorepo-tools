@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { readPackageVersion } from '../src/readPackageVersion.ts';
+import { readPackageVersion } from '../readPackageVersion.ts';
 
 describe(readPackageVersion, () => {
   let tmpDir: string;

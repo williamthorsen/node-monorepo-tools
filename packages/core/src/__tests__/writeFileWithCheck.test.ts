@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { writeFileWithCheck } from '../src/writeFileWithCheck.ts';
+import { writeFileWithCheck } from '../writeFileWithCheck.ts';
 
 const mockExistsSync = vi.hoisted(() => vi.fn());
 const mockMkdirSync = vi.hoisted(() => vi.fn());
