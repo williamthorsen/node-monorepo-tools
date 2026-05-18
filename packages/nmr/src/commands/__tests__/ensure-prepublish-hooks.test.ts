@@ -4,8 +4,8 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { ensurePrepublishHooks } from '../ensure-prepublish-hooks.ts';
 import { readPackageJson } from '../../helpers/package-json.ts';
+import { ensurePrepublishHooks } from '../ensure-prepublish-hooks.ts';
 
 /**
  * Create a minimal monorepo fixture with a pnpm-workspace.yaml and the given packages under a `packages/` directory.

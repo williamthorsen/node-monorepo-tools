@@ -8,14 +8,14 @@
     "pnpm",
     "utilities"
   ],
-  "homepage": "https://github.com/williamthorsen/node-monorepo-tools/tree/main/packages/core#readme",
+  "homepage": "https://github.com/williamthorsen/node-monorepo-tools/tree/main/packages/nmr-core#readme",
   "bugs": {
     "url": "https://github.com/williamthorsen/node-monorepo-tools/issues"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/williamthorsen/node-monorepo-tools.git",
-    "directory": "packages/core"
+    "directory": "packages/nmr-core"
   },
   "license": "ISC",
   "author": "William Thorsen <william@thorsen.dev> (https://github.com/williamthorsen)",

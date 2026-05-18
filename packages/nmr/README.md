@@ -45,7 +45,7 @@ nmr's key feature is that the same command runs different scripts depending on w
 Use `-w` to escape package context:
 
 ```bash
-# From inside packages/core, run the root check suite
+# From inside packages/nmr-core, run the root check suite
 nmr -w check
 ```
 
