@@ -1,34 +1,30 @@
 import { execSync } from 'node:child_process';
-import { existsSync, globSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { defineRdyChecklist, defineRdyKit, defineRdyStagedChecklist, type RdyCheck } from 'readyup';
-import { fileContains, fileExists, getJsonValue, isRecord, readFile, readJsonFile } from 'readyup/check-utils';
+import { defineRdyChecklist, defineRdyKit, defineRdyStagedChecklist, type RdyCheck, type SkipResult } from 'readyup';
+import {
+  discoverWorkspaces,
+  fileContains,
+  fileExists,
+  getJsonValue,
+  isRecord,
+  readFile,
+  readJsonFile,
+  type Workspace,
+} from 'readyup/check-utils';
 
 const PUBLISH_WORKFLOW_FILE = 'publish.yaml';
 
-// -- Primary logic --
-
-// Deferred so that `globSync` (Node 22+) is not called at module load time.
-// The packages checklist has a Node >= 22 precondition that surfaces a helpful
-// fix hint; eager discovery would crash before that precondition runs.
+// Cached so that `getOwnerRepo` (which shells out to git) runs at most once per kit invocation;
+// this also keeps module load tolerant of environments without a git remote configured.
 let cachedOwnerRepo: string | undefined;
-let cachedPackages: PackageInfo[] | undefined;
 
-/** Return the GitHub owner/repo, computing on first access. */
 function getCachedOwnerRepo(): string {
   if (cachedOwnerRepo === undefined) {
     cachedOwnerRepo = getOwnerRepo();
   }
   return cachedOwnerRepo;
-}
-
-/** Return discovered packages, computing on first access. */
-function getPackages(): PackageInfo[] {
-  if (cachedPackages === undefined) {
-    cachedPackages = discoverPackages();
-  }
-  return cachedPackages;
 }
 
 const repoChecklist = defineRdyStagedChecklist({
@@ -64,11 +60,6 @@ const packagesChecklist = defineRdyChecklist({
   name: 'packages',
   preconditions: [
     {
-      name: 'Node.js >= 22',
-      check: () => getNodeMajorVersion() >= 22,
-      fix: 'Upgrade to Node.js 22 or later',
-    },
-    {
       name: 'packageManager field starts with "pnpm"',
       check: () => {
         const rootPkg = readJsonFile('package.json');
@@ -78,13 +69,13 @@ const packagesChecklist = defineRdyChecklist({
       fix: 'Set "packageManager": "pnpm@..." in root package.json',
     },
     {
-      name: 'At least one package discovered',
-      check: () => getPackages().length > 0,
+      name: 'At least one workspace discovered',
+      check: () => discoverWorkspaces().length > 0,
       fix: 'Ensure pnpm-workspace.yaml lists package globs, or that a root package.json exists',
     },
   ],
   get checks(): RdyCheck[] {
-    return getPackages().map((pkg) => buildPackageCheck(pkg));
+    return discoverWorkspaces().map((workspace) => buildWorkspaceCheck(workspace));
   },
 });
 
@@ -93,39 +84,38 @@ export default defineRdyKit({
   checklists: [repoChecklist, packagesChecklist],
 });
 
-// -- Helper types --
+// region | Helpers
 
-interface PackageInfo {
-  name: string;
-  dir: string;
-  relativePath: string;
-  packageJson: Record<string, unknown>;
+/**
+ * Skip predicate: Returns the skip reason when a workspace is not for publication
+ * (i.e. `package.json#private` is `true`), else `false` (the check should run).
+ *
+ * Wired into the parent (per-workspace) check via `skip`.
+ * Readyup's reporter suppresses descendants of a check whose `skip` returns a string, so a non-publishable workspace
+ * appears as a single skipped entry rather than as a tree of false-positive errors.
+ */
+export function skipIfNotPublishable(workspace: Workspace): SkipResult {
+  return workspace.isPackage ? false : 'package.json#private is true';
 }
 
-// -- Helper functions --
-
-/** Build a parent check for a package with nested child checks. */
-function buildPackageCheck(pkg: PackageInfo): RdyCheck {
-  const pkgJsonPath = path.join(pkg.relativePath, 'package.json');
+/** Builds a parent check for a workspace with nested publish-readiness children. */
+export function buildWorkspaceCheck(workspace: Workspace): RdyCheck {
+  const displayName = workspace.name ?? '(unnamed)';
+  const pkgJsonPath = path.join(workspace.dir, 'package.json');
 
   const children: RdyCheck[] = [
     {
       name: 'repository field exists',
-      check: () => pkg.packageJson.repository !== undefined && pkg.packageJson.repository !== null,
+      check: () => workspace.packageJson.repository !== undefined && workspace.packageJson.repository !== null,
       fix: `Add a "repository" field to ${pkgJsonPath} pointing to the GitHub repo`,
-    },
-    {
-      name: 'not marked private',
-      check: () => pkg.packageJson.private !== true,
-      fix: `Remove "private": true from ${pkgJsonPath}, or exclude this package from the publish workflow`,
     },
   ];
 
-  if (pkg.name.startsWith('@')) {
+  if (workspace.name?.startsWith('@')) {
     children.push({
       name: 'publishConfig.access is "public"',
       check: () => {
-        const access = getJsonValue(pkg.packageJson, 'publishConfig', 'access');
+        const access = getJsonValue(workspace.packageJson, 'publishConfig', 'access');
         return typeof access === 'string' && access === 'public';
       },
       fix: `Add "publishConfig": { "access": "public" } to ${pkgJsonPath}`,
@@ -135,14 +125,14 @@ function buildPackageCheck(pkg: PackageInfo): RdyCheck {
   children.push(
     {
       name: 'published to npm',
-      check: () => isPublishedToNpm(pkg.name),
-      fix: `Run "npm publish --access public" from ${pkg.relativePath} to bootstrap the package on npm`,
+      check: () => isPublishedToNpm(displayName),
+      fix: `Run "npm publish --access public" from ${workspace.dir} to bootstrap the package on npm`,
       checks: [
         {
           name: 'trusted publisher configured',
-          check: () => hasTrustedPublisher(pkg.name, getCachedOwnerRepo(), PUBLISH_WORKFLOW_FILE),
+          check: () => hasTrustedPublisher(displayName, getCachedOwnerRepo(), PUBLISH_WORKFLOW_FILE),
           get fix() {
-            return `Run: npm trust github ${pkg.name} --repo ${getCachedOwnerRepo()} --file ${PUBLISH_WORKFLOW_FILE}`;
+            return `Run: npm trust github ${displayName} --repo ${getCachedOwnerRepo()} --file ${PUBLISH_WORKFLOW_FILE}`;
           },
         },
       ],
@@ -150,19 +140,20 @@ function buildPackageCheck(pkg: PackageInfo): RdyCheck {
     {
       name: 'files field exists',
       severity: 'warn',
-      check: () => pkg.packageJson.files !== undefined,
+      check: () => workspace.packageJson.files !== undefined,
       fix: `Add a "files" field to ${pkgJsonPath} to control which files are included in the published tarball`,
     },
   );
 
   return {
-    name: pkg.name,
+    name: displayName,
+    skip: () => skipIfNotPublishable(workspace),
     check: () => true,
     checks: children,
   };
 }
 
-/** Check whether the provenance setting in publish.yaml matches the repo's visibility. */
+/** Checks whether the provenance setting in publish.yaml matches the repo's visibility. */
 function checkProvenanceMatchesVisibility(): { ok: boolean; detail?: string } {
   const workflowPath = '.github/workflows/publish.yaml';
 
@@ -198,59 +189,6 @@ function checkProvenanceMatchesVisibility(): { ok: boolean; detail?: string } {
   return { ok: true };
 }
 
-/** Discover all publishable packages in the workspace. */
-function discoverPackages(): PackageInfo[] {
-  if (fileExists('pnpm-workspace.yaml')) {
-    return discoverWorkspacePackages(path.resolve(process.cwd(), 'pnpm-workspace.yaml'));
-  }
-
-  // Single-package repo: use root package.json
-  const rootPkg = readJsonFile('package.json');
-  if (rootPkg === undefined) {
-    return [];
-  }
-
-  return [
-    {
-      name: getPackageName(rootPkg),
-      dir: process.cwd(),
-      relativePath: '.',
-      packageJson: rootPkg,
-    },
-  ];
-}
-
-/** Parse pnpm-workspace.yaml and expand globs to find workspace packages. */
-function discoverWorkspacePackages(workspaceConfigPath: string): PackageInfo[] {
-  const content = readFileSync(workspaceConfigPath, 'utf8');
-  const globs = parseWorkspaceGlobs(content);
-  const results: PackageInfo[] = [];
-
-  for (const pattern of globs) {
-    const dirs = globSync(pattern, { cwd: process.cwd() });
-    for (const dir of dirs) {
-      const pkgJsonPath = path.join(dir, 'package.json');
-      const pkgJson = readJsonFile(pkgJsonPath);
-      if (pkgJson === undefined) {
-        continue;
-      }
-      results.push({
-        name: getPackageName(pkgJson),
-        dir: path.resolve(process.cwd(), dir),
-        relativePath: dir,
-        packageJson: pkgJson,
-      });
-    }
-  }
-
-  return results;
-}
-
-/** Extract the node major version from process.versions. */
-function getNodeMajorVersion(): number {
-  return Number.parseInt(process.versions.node.split('.')[0] ?? '0', 10);
-}
-
 /** Derive {owner}/{repo} from the git remote origin URL. */
 function getOwnerRepo(): string {
   const url = execSync('git remote get-url origin', {
@@ -272,12 +210,7 @@ function getOwnerRepo(): string {
   throw new Error(`Cannot parse GitHub owner/repo from remote URL: ${url}`);
 }
 
-/** Extract the package name from a parsed package.json, falling back to "(unnamed)". */
-function getPackageName(packageJson: Record<string, unknown>): string {
-  return typeof packageJson.name === 'string' ? packageJson.name : '(unnamed)';
-}
-
-/** Scan all workflow files for legacy NPM token references. */
+/** Scans all workflow files for legacy NPM token references. */
 function hasTokenReferences(): boolean {
   const workflowDir = path.resolve(process.cwd(), '.github/workflows');
   if (!existsSync(workflowDir)) {
@@ -296,7 +229,7 @@ function hasTokenReferences(): boolean {
   return false;
 }
 
-/** Verify that a package has a matching GitHub trusted publisher on npm. */
+/** Verifies that a package has a matching GitHub trusted publisher on npm. */
 function hasTrustedPublisher(packageName: string, expectedRepo: string, expectedFile: string): boolean {
   let output: string;
   try {
@@ -322,7 +255,7 @@ function hasTrustedPublisher(packageName: string, expectedRepo: string, expected
   return parsed.type === 'github' && parsed.repository === expectedRepo && parsed.file === expectedFile;
 }
 
-/** Check whether a package exists on the npm registry. */
+/** Checks whether a package exists on the npm registry. */
 function isPublishedToNpm(packageName: string): boolean {
   try {
     execSync(`npm view ${packageName} version`, {
@@ -335,7 +268,7 @@ function isPublishedToNpm(packageName: string): boolean {
   }
 }
 
-/** Query the GitHub API to determine whether the current repo is private. */
+/** Queries the GitHub API to determine whether the current repo is private. */
 function isRepoPrivate(): boolean {
   const ownerRepo = getOwnerRepo();
   const result = execSync(`gh api repos/${ownerRepo} --jq .private`, {
@@ -344,36 +277,9 @@ function isRepoPrivate(): boolean {
   return result === 'true';
 }
 
-/** Check whether the publish.yaml workflow has provenance enabled. */
+/** Checks whether the publish.yaml workflow has provenance enabled. */
 function parseProvenanceSetting(workflowContent: string): boolean {
   return /^[^#]*provenance:\s*['"]?true['"]?/im.test(workflowContent);
 }
 
-/** Extract workspace glob patterns from pnpm-workspace.yaml content. */
-function parseWorkspaceGlobs(content: string): string[] {
-  const globs: string[] = [];
-  let inPackages = false;
-
-  for (const line of content.split('\n')) {
-    const trimmed = line.trim();
-
-    if (trimmed === 'packages:') {
-      inPackages = true;
-      continue;
-    }
-
-    // A new top-level key ends the packages section.
-    if (inPackages && trimmed !== '' && !trimmed.startsWith('-') && !trimmed.startsWith('#')) {
-      break;
-    }
-
-    if (inPackages && trimmed.startsWith('-')) {
-      const glob = trimmed.replace(/^-\s*/, '').replace(/^['"]|['"]$/g, '');
-      if (glob) {
-        globs.push(glob);
-      }
-    }
-  }
-
-  return globs;
-}
+// endregion | Helpers
