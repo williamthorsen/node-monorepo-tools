@@ -63,13 +63,6 @@ import {
   readFile,
   readPackageJson
 } from "readyup/check-utils";
-function getMinVersion() {
-  const picked = { "version": "0.14.0" };
-  if (typeof picked.version !== "string") {
-    throw new TypeError("nmr/package.json: 'version' must be a string");
-  }
-  return picked.version;
-}
 var nmr_default = defineRdyKit({
   checklists: [
     {
@@ -173,10 +166,39 @@ var nmr_default = defineRdyKit({
     }
   ]
 });
-function toolVersionsHasNoPnpm() {
-  const content = readFile(".tool-versions");
+function allWorkspacePackagesCanBuild() {
+  const packagesDir = join(process.cwd(), "packages");
+  if (!existsSync(packagesDir)) return true;
+  const entries = readdirSync(packagesDir, { withFileTypes: true });
+  const failing = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const pkgPath = `packages/${entry.name}/package.json`;
+    const content = readFile(pkgPath);
+    if (!content) continue;
+    const hasBuildOverride = /"build"\s*:/.test(content);
+    const hasTypingsConfig = fileExists(`packages/${entry.name}/tsconfig.generate-typings.json`);
+    if (!hasBuildOverride && !hasTypingsConfig) {
+      failing.push(entry.name);
+    }
+  }
+  if (failing.length === 0) return true;
+  return {
+    ok: false,
+    detail: `missing build override or tsconfig.generate-typings.json: ${failing.join(", ")}`
+  };
+}
+function codeQualityWorkflowDoesNotUseNmrCi() {
+  const content = readFile(".github/workflows/code-quality.yaml");
   if (content === void 0) return true;
-  return !/^pnpm\s/m.test(content);
+  return !/check-command:\s*pnpm exec nmr ci(\s|$)/.test(content);
+}
+function getMinVersion() {
+  const picked = { "version": "0.14.0" };
+  if (typeof picked.version !== "string") {
+    throw new TypeError("nmr/package.json: 'version' must be a string");
+  }
+  return picked.version;
 }
 function noRedundantRootScripts() {
   const pkg = readPackageJson();
@@ -210,28 +232,6 @@ function noWorkspaceRunScriptReferences() {
     detail: `found in: ${matches.join(", ")}`
   };
 }
-function allWorkspacePackagesCanBuild() {
-  const packagesDir = join(process.cwd(), "packages");
-  if (!existsSync(packagesDir)) return true;
-  const entries = readdirSync(packagesDir, { withFileTypes: true });
-  const failing = [];
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const pkgPath = `packages/${entry.name}/package.json`;
-    const content = readFile(pkgPath);
-    if (!content) continue;
-    const hasBuildOverride = /"build"\s*:/.test(content);
-    const hasTypingsConfig = fileExists(`packages/${entry.name}/tsconfig.generate-typings.json`);
-    if (!hasBuildOverride && !hasTypingsConfig) {
-      failing.push(entry.name);
-    }
-  }
-  if (failing.length === 0) return true;
-  return {
-    ok: false,
-    detail: `missing build override or tsconfig.generate-typings.json: ${failing.join(", ")}`
-  };
-}
 function scriptExists(name) {
   const pkg = readPackageJson();
   if (!pkg) return false;
@@ -246,10 +246,10 @@ function scriptMatches(name, pattern) {
   const value = scripts[name];
   return typeof value === "string" && pattern.test(value);
 }
-function codeQualityWorkflowDoesNotUseNmrCi() {
-  const content = readFile(".github/workflows/code-quality.yaml");
+function toolVersionsHasNoPnpm() {
+  const content = readFile(".tool-versions");
   if (content === void 0) return true;
-  return !/check-command:\s*pnpm exec nmr ci(\s|$)/.test(content);
+  return !/^pnpm\s/m.test(content);
 }
 export {
   codeQualityWorkflowDoesNotUseNmrCi,

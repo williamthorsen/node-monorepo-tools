@@ -1,9 +1,8 @@
 /**
  * Readyup kit for consumers of v11y-check.
  *
- * Verifies that the consuming repo's v11y-check setup is current and correctly
- * configured. The minimum version is read from the v11y-check package's
- * package.json and inlined by esbuild at compile time.
+ * Verifies that the consuming repo's v11y-check setup is current and correctly configured.
+ * The minimum version is read from the v11y-check package's package.json and inlined by esbuild at compile time.
  *
  * Run from a target repo's working directory:
  *   rdy run --file <path-to>/v11y-check.js
@@ -13,18 +12,6 @@ import { join } from 'node:path';
 
 import { defineRdyKit, pickJson } from 'readyup';
 import { fileExists, fileMatchesHash, hasDevDependency, hasMinDevDependencyVersion } from 'readyup/check-utils';
-
-// `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline
-// only the listed fields. The runtime stub throws, so defer the call into a
-// function — this keeps the module importable in tests that don't go through
-// the readyup compile step.
-function getMinVersion(): string {
-  const picked = pickJson('../../packages/v11y-check/package.json', ['version']);
-  if (typeof picked.version !== 'string') {
-    throw new TypeError("v11y-check/package.json: 'version' must be a string");
-  }
-  return picked.version;
-}
 
 // SHA-256 hash of the canonical .github/workflows/audit.yaml wrapper.
 // Keep in sync — verified by __tests__/rdy-kit-hashes.app.test.ts.
@@ -87,14 +74,27 @@ export default defineRdyKit({
   ],
 });
 
-// -- Helpers -----------------------------------------------------------------
+// region | Helpers
 
-/** Skip the legacy audit-ci check when there is no `.audit-ci/` directory. */
+function getMinVersion(): string {
+  // `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline only the listed fields.
+  // Defer the call into a function so module load does not invoke the runtime stub (which throws):
+  // This keeps the module importable in tests that bypass the compile step.
+  const picked = pickJson('../../packages/v11y-check/package.json', ['version']);
+  if (typeof picked.version !== 'string') {
+    throw new TypeError("v11y-check/package.json: 'version' must be a string");
+  }
+  return picked.version;
+}
+
+/** Check whether a legacy `.audit-ci/` directory exists. */
+export function noLegacyAuditCiDirectory(): boolean {
+  return !existsSync(join(process.cwd(), '.audit-ci'));
+}
+
+/** Returns true if the legacy audit-ci check should be skipped because there is no `.audit-ci/` directory. */
 export function skipLegacyAuditCiCheck(): string | false {
   return !existsSync(join(process.cwd(), '.audit-ci')) ? 'no legacy .audit-ci/ directory' : false;
 }
 
-/** Check that no legacy `.audit-ci/` directory exists. */
-export function noLegacyAuditCiDirectory(): boolean {
-  return !existsSync(join(process.cwd(), '.audit-ci'));
-}
+// endregion | Helpers

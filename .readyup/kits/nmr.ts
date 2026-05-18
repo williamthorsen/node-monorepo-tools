@@ -24,18 +24,6 @@ import {
   readPackageJson,
 } from 'readyup/check-utils';
 
-// `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline
-// only the listed fields. Defer the call into a function so module load does
-// not invoke the runtime stub (which throws) — keeps the module importable in
-// tests that bypass the compile step.
-function getMinVersion(): string {
-  const picked = pickJson('../../packages/nmr/package.json', ['version']);
-  if (typeof picked.version !== 'string') {
-    throw new TypeError("nmr/package.json: 'version' must be a string");
-  }
-  return picked.version;
-}
-
 export default defineRdyKit({
   checklists: [
     {
@@ -146,54 +134,7 @@ export default defineRdyKit({
   ],
 });
 
-// -- Collection-specific helpers ----------------------------------------------
-
-/** Check that .tool-versions does not list pnpm. Pass if the file is absent. */
-function toolVersionsHasNoPnpm(): boolean {
-  const content = readFile('.tool-versions');
-  if (content === undefined) return true;
-  return !/^pnpm\s/m.test(content);
-}
-
-/** Check that root package.json has no scripts that duplicate nmr built-in root scripts. */
-function noRedundantRootScripts(): boolean | CheckOutcome {
-  const pkg = readPackageJson();
-  if (!pkg) return true;
-  const scripts = pkg.scripts;
-  if (!isRecord(scripts)) return true;
-
-  const builtInNames = Object.keys(getDefaultRootScripts());
-  const redundant = Object.keys(scripts).filter((name) => builtInNames.includes(name));
-
-  if (redundant.length === 0) return true;
-  return {
-    ok: false,
-    detail: `redundant: ${redundant.join(', ')}`,
-  };
-}
-
-/** Check that no workspace package.json references run-workspace-script or "pnpm run ws". */
-function noWorkspaceRunScriptReferences(): boolean | CheckOutcome {
-  const packagesDir = join(process.cwd(), 'packages');
-  if (!existsSync(packagesDir)) return true;
-
-  const legacyPattern = /run-workspace-script|"pnpm\s+run\s+ws\b/;
-  const entries = readdirSync(packagesDir, { withFileTypes: true });
-  const matches: string[] = [];
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const content = readFile(`packages/${entry.name}/package.json`);
-    if (content && legacyPattern.test(content)) {
-      matches.push(entry.name);
-    }
-  }
-
-  if (matches.length === 0) return true;
-  return {
-    ok: false,
-    detail: `found in: ${matches.join(', ')}`,
-  };
-}
+// region | Helpers
 
 /**
  * Check that every workspace package can run `nmr build` successfully.
@@ -227,6 +168,68 @@ function allWorkspacePackagesCanBuild(): boolean | CheckOutcome {
   };
 }
 
+/**
+ * Checks that the code-quality workflow does not use `nmr ci` as the check command.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function codeQualityWorkflowDoesNotUseNmrCi(): boolean {
+  const content = readFile('.github/workflows/code-quality.yaml');
+  if (content === undefined) return true;
+  return !/check-command:\s*pnpm exec nmr ci(\s|$)/.test(content);
+}
+
+function getMinVersion(): string {
+  // `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline only the listed fields.
+  // Defer the call into a function so module load does not invoke the runtime stub (which throws):
+  // This keeps the module importable in tests that bypass the compile step.
+  const picked = pickJson('../../packages/nmr/package.json', ['version']);
+  if (typeof picked.version !== 'string') {
+    throw new TypeError("nmr/package.json: 'version' must be a string");
+  }
+  return picked.version;
+}
+
+/** Check that root package.json has no scripts that duplicate nmr built-in root scripts. */
+function noRedundantRootScripts(): boolean | CheckOutcome {
+  const pkg = readPackageJson();
+  if (!pkg) return true;
+  const scripts = pkg.scripts;
+  if (!isRecord(scripts)) return true;
+
+  const builtInNames = Object.keys(getDefaultRootScripts());
+  const redundant = Object.keys(scripts).filter((name) => builtInNames.includes(name));
+
+  if (redundant.length === 0) return true;
+  return {
+    ok: false,
+    detail: `redundant: ${redundant.join(', ')}`,
+  };
+}
+
+/** Checks that no workspace package.json references run-workspace-script or "pnpm run ws". */
+function noWorkspaceRunScriptReferences(): boolean | CheckOutcome {
+  const packagesDir = join(process.cwd(), 'packages');
+  if (!existsSync(packagesDir)) return true;
+
+  const legacyPattern = /run-workspace-script|"pnpm\s+run\s+ws\b/;
+  const entries = readdirSync(packagesDir, { withFileTypes: true });
+  const matches: string[] = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const content = readFile(`packages/${entry.name}/package.json`);
+    if (content && legacyPattern.test(content)) {
+      matches.push(entry.name);
+    }
+  }
+
+  if (matches.length === 0) return true;
+  return {
+    ok: false,
+    detail: `found in: ${matches.join(', ')}`,
+  };
+}
+
 /** Check whether a named script exists in root package.json. */
 function scriptExists(name: string): boolean {
   const pkg = readPackageJson();
@@ -245,9 +248,11 @@ function scriptMatches(name: string, pattern: RegExp): boolean {
   return typeof value === 'string' && pattern.test(value);
 }
 
-/** Check that the code-quality workflow does not use `nmr ci` as the check command. */
-export function codeQualityWorkflowDoesNotUseNmrCi(): boolean {
-  const content = readFile('.github/workflows/code-quality.yaml');
+/** Checks that .tool-versions does not list pnpm. Pass if the file is absent. */
+function toolVersionsHasNoPnpm(): boolean {
+  const content = readFile('.tool-versions');
   if (content === undefined) return true;
-  return !/check-command:\s*pnpm exec nmr ci(\s|$)/.test(content);
+  return !/^pnpm\s/m.test(content);
 }
+
+// endregion | Helpers

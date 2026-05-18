@@ -18,13 +18,6 @@ import {
   readJsonFile
 } from "readyup/check-utils";
 var PUBLISH_WORKFLOW_FILE = "publish.yaml";
-var cachedOwnerRepo;
-function getCachedOwnerRepo() {
-  if (cachedOwnerRepo === void 0) {
-    cachedOwnerRepo = getOwnerRepo();
-  }
-  return cachedOwnerRepo;
-}
 var repoChecklist = defineRdyStagedChecklist({
   name: "repo",
   preconditions: [
@@ -79,9 +72,6 @@ var npm_auto_publish_default = defineRdyKit({
   fixLocation: "inline",
   checklists: [repoChecklist, packagesChecklist]
 });
-function skipIfNotPublishable(workspace) {
-  return workspace.isPackage ? false : "package.json#private is true";
-}
 function buildWorkspaceCheck(workspace) {
   const displayName = workspace.name ?? "(unnamed)";
   const pkgJsonPath = path.join(workspace.dir, "package.json");
@@ -158,6 +148,13 @@ function checkProvenanceMatchesVisibility() {
   }
   return { ok: true };
 }
+var cachedOwnerRepo;
+function getCachedOwnerRepo() {
+  if (cachedOwnerRepo === void 0) {
+    cachedOwnerRepo = getOwnerRepo();
+  }
+  return cachedOwnerRepo;
+}
 function getOwnerRepo() {
   const url = execSync("git remote get-url origin", {
     encoding: "utf8"
@@ -227,6 +224,9 @@ function isRepoPrivate() {
 }
 function parseProvenanceSetting(workflowContent) {
   return /^[^#]*provenance:\s*['"]?true['"]?/im.test(workflowContent);
+}
+function skipIfNotPublishable(workspace) {
+  return workspace.isPackage ? false : "package.json#private is true";
 }
 export {
   buildWorkspaceCheck,

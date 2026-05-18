@@ -8,13 +8,6 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { defineRdyKit } from "readyup";
 import { fileExists, fileMatchesHash, hasDevDependency, hasMinDevDependencyVersion } from "readyup/check-utils";
-function getMinVersion() {
-  const picked = { "version": "0.7.0" };
-  if (typeof picked.version !== "string") {
-    throw new TypeError("v11y-check/package.json: 'version' must be a string");
-  }
-  return picked.version;
-}
 var AUDIT_WORKFLOW_HASH = "cdcab39d794ed7ec5ea45e8f3c887eb5d15edb63eab65e515714556933d9b03f";
 var v11y_check_default = defineRdyKit({
   checklists: [
@@ -69,11 +62,18 @@ var v11y_check_default = defineRdyKit({
     }
   ]
 });
-function skipLegacyAuditCiCheck() {
-  return !existsSync(join(process.cwd(), ".audit-ci")) ? "no legacy .audit-ci/ directory" : false;
+function getMinVersion() {
+  const picked = { "version": "0.7.0" };
+  if (typeof picked.version !== "string") {
+    throw new TypeError("v11y-check/package.json: 'version' must be a string");
+  }
+  return picked.version;
 }
 function noLegacyAuditCiDirectory() {
   return !existsSync(join(process.cwd(), ".audit-ci"));
+}
+function skipLegacyAuditCiCheck() {
+  return !existsSync(join(process.cwd(), ".audit-ci")) ? "no legacy .audit-ci/ directory" : false;
 }
 export {
   AUDIT_WORKFLOW_HASH,

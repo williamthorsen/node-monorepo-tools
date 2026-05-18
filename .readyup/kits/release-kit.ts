@@ -1,9 +1,8 @@
 /**
  * Readyup kit for consumers of @williamthorsen/release-kit.
  *
- * Verifies that the consuming repo's release-kit setup is current, workflows
- * reference the correct reusable workflows, and config doesn't use removed fields.
- * The minimum version is read from the release-kit package's package.json and
+ * Verifies that the consuming repo's release-kit setup is current, workflows reference the correct reusable workflows,
+ * and config doesn't use removed fields. The minimum version is read from the release-kit package's package.json and
  * inlined by esbuild at compile time.
  *
  * Run from a target repo's working directory:
@@ -22,11 +21,10 @@ import {
 
 import { detectRepoType } from '../../packages/release-kit/src/init/detectRepoType.ts';
 
-// `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline
-// only the listed fields. Defer the call into a function so module load does
-// not invoke the runtime stub (which throws) — keeps the module importable in
-// tests that bypass the compile step.
 function getMinVersion(): string {
+  // `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline only the listed fields.
+  // Defer the call into a function so module load does not invoke the runtime stub (which throws):
+  // This keeps the module importable in tests that bypass the compile step.
   const picked = pickJson('../../packages/release-kit/package.json', ['version']);
   if (typeof picked.version !== 'string') {
     throw new TypeError("release-kit/package.json: 'version' must be a string");
@@ -38,8 +36,7 @@ function hasPublishablePackages(): boolean {
   return discoverWorkspaces({ filter: (w) => w.isPackage }).length > 0;
 }
 
-// SHA-256 hashes of release-kit artifacts. Keep in sync —
-// verified by __tests__/rdy-kit-hashes.app.test.ts.
+// SHA-256 hashes of release-kit artifacts. Keep in sync. Verified by __tests__/rdy-kit-hashes.app.test.ts.
 export const CLIFF_TEMPLATE_HASH = 'bde3f6dba592e5ecdde2ec87503ccbbff8f5e48126319234c7e101d13db4bfd4';
 export const COMMON_PRESET_HASH = '25b1938b40006a00a39d291583d7cd2dabda699e1f4bfb0634ba49e7dffb3c45';
 export const SYNC_LABELS_WORKFLOW_HASH = '4dfde2454bac03280381f0da70c9c735916a7812100dec5437853b843c4bd797';
@@ -211,10 +208,54 @@ export default defineRdyKit({
   ],
 });
 
-// -- Helpers ------------------------------------------------------------------
+// region | Helpers
+
+/** Checks whether `.github/labels.yaml` contains the expected hash for a named preset. */
+function labelsHaveCurrentPresetHash(presetName: string, expectedHash: string): boolean {
+  const content = readFile('.github/labels.yaml');
+  if (content === undefined) return false;
+  const pattern = new RegExp(`^# ${presetName} preset hash: (.+)$`, 'm');
+  const match = pattern.exec(content);
+  return match !== null && match[1] === expectedHash;
+}
 
 /**
- * Check that releaseNotes features are not enabled while changelogJson is disabled.
+ * Tests whether a README's content contains the release-notes section marker pair.
+ *
+ * Both `<!-- section:release-notes -->` and `<!-- /section:release-notes -->` must be present.
+ * Order and proximity are not enforced; release-kit's injector locates each marker independently.
+ */
+export function readmeHasReleaseNotesMarkers(content: string): boolean {
+  return content.includes('<!-- section:release-notes -->') && content.includes('<!-- /section:release-notes -->');
+}
+
+/**
+ * Checks README markers across the consumer repo, iterating publishable workspaces.
+ *
+ * Validates `${dir}/README.md` for each publishable package; aggregates failures into the `CheckOutcome.detail` field.
+ * A missing README counts as a failure for that package (no README → no markers).
+ * In single-package mode, `discoverWorkspaces` yields a single root entry (`dir: '.'`),
+ * so the same loop handles both repo types.
+ */
+export function readmesHaveReleaseNotesMarkers(): boolean | CheckOutcome {
+  const failing: string[] = [];
+  for (const { dir } of discoverWorkspaces({ filter: (w) => w.isPackage })) {
+    const readmePath = dir === '.' ? 'README.md' : `${dir}/README.md`;
+    const content = readFile(readmePath);
+    if (content === undefined || !readmeHasReleaseNotesMarkers(content)) {
+      failing.push(readmePath);
+    }
+  }
+
+  if (failing.length === 0) return true;
+  return {
+    ok: false,
+    detail: `missing markers or README: ${failing.join(', ')}`,
+  };
+}
+
+/**
+ * Checks that releaseNotes features are not enabled while changelogJson is disabled.
  *
  * Uses regex matching against the raw config file to avoid importing it.
  */
@@ -236,47 +277,4 @@ function releaseNotesInjectsIntoReadme(): boolean {
   return /shouldInjectIntoReadme\s*:\s*true/.test(content);
 }
 
-/**
- * Test whether a README's content contains the release-notes section marker pair.
- *
- * Both `<!-- section:release-notes -->` and `<!-- /section:release-notes -->`
- * must be present. Order and proximity are not enforced; release-kit's injector
- * locates each marker independently.
- */
-export function readmeHasReleaseNotesMarkers(content: string): boolean {
-  return content.includes('<!-- section:release-notes -->') && content.includes('<!-- /section:release-notes -->');
-}
-
-/**
- * Check README markers across the consumer repo, iterating publishable workspaces.
- *
- * Validates `${dir}/README.md` for each publishable package and aggregates failures
- * into the `CheckOutcome.detail` field. A missing README counts as a failure for
- * that package (no README → no markers). In single-package mode, `discoverWorkspaces`
- * yields a single root entry (`dir: '.'`), so the same loop handles both repo types.
- */
-export function readmesHaveReleaseNotesMarkers(): boolean | CheckOutcome {
-  const failing: string[] = [];
-  for (const { dir } of discoverWorkspaces({ filter: (w) => w.isPackage })) {
-    const readmePath = dir === '.' ? 'README.md' : `${dir}/README.md`;
-    const content = readFile(readmePath);
-    if (content === undefined || !readmeHasReleaseNotesMarkers(content)) {
-      failing.push(readmePath);
-    }
-  }
-
-  if (failing.length === 0) return true;
-  return {
-    ok: false,
-    detail: `missing markers or README: ${failing.join(', ')}`,
-  };
-}
-
-/** Check that `.github/labels.yaml` contains the expected hash for a named preset. */
-function labelsHaveCurrentPresetHash(presetName: string, expectedHash: string): boolean {
-  const content = readFile('.github/labels.yaml');
-  if (content === undefined) return false;
-  const pattern = new RegExp(`^# ${presetName} preset hash: (.+)$`, 'm');
-  const match = pattern.exec(content);
-  return match !== null && match[1] === expectedHash;
-}
+// endregion | Helpers

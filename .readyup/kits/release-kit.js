@@ -226,18 +226,12 @@ var release_kit_default = defineRdyKit({
     }
   ]
 });
-function releaseNotesConfigIsConsistent() {
-  const content = readFile(".config/release-kit.config.ts");
-  if (content === void 0) return true;
-  const changelogJsonDisabled = /changelogJson\s*:\s*\{[^}]*enabled\s*:\s*false/.test(content);
-  if (!changelogJsonDisabled) return true;
-  const hasReadmeInjection = /shouldInjectIntoReadme\s*:\s*true/.test(content);
-  return !hasReadmeInjection;
-}
-function releaseNotesInjectsIntoReadme() {
-  const content = readFile(".config/release-kit.config.ts");
+function labelsHaveCurrentPresetHash(presetName, expectedHash) {
+  const content = readFile(".github/labels.yaml");
   if (content === void 0) return false;
-  return /shouldInjectIntoReadme\s*:\s*true/.test(content);
+  const pattern = new RegExp(`^# ${presetName} preset hash: (.+)$`, "m");
+  const match = pattern.exec(content);
+  return match !== null && match[1] === expectedHash;
 }
 function readmeHasReleaseNotesMarkers(content) {
   return content.includes("<!-- section:release-notes -->") && content.includes("<!-- /section:release-notes -->");
@@ -257,12 +251,18 @@ function readmesHaveReleaseNotesMarkers() {
     detail: `missing markers or README: ${failing.join(", ")}`
   };
 }
-function labelsHaveCurrentPresetHash(presetName, expectedHash) {
-  const content = readFile(".github/labels.yaml");
+function releaseNotesConfigIsConsistent() {
+  const content = readFile(".config/release-kit.config.ts");
+  if (content === void 0) return true;
+  const changelogJsonDisabled = /changelogJson\s*:\s*\{[^}]*enabled\s*:\s*false/.test(content);
+  if (!changelogJsonDisabled) return true;
+  const hasReadmeInjection = /shouldInjectIntoReadme\s*:\s*true/.test(content);
+  return !hasReadmeInjection;
+}
+function releaseNotesInjectsIntoReadme() {
+  const content = readFile(".config/release-kit.config.ts");
   if (content === void 0) return false;
-  const pattern = new RegExp(`^# ${presetName} preset hash: (.+)$`, "m");
-  const match = pattern.exec(content);
-  return match !== null && match[1] === expectedHash;
+  return /shouldInjectIntoReadme\s*:\s*true/.test(content);
 }
 export {
   CLIFF_TEMPLATE_HASH,

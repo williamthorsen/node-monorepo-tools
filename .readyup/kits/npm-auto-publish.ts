@@ -16,17 +16,6 @@ import {
 
 const PUBLISH_WORKFLOW_FILE = 'publish.yaml';
 
-// Cached so that `getOwnerRepo` (which shells out to git) runs at most once per kit invocation;
-// this also keeps module load tolerant of environments without a git remote configured.
-let cachedOwnerRepo: string | undefined;
-
-function getCachedOwnerRepo(): string {
-  if (cachedOwnerRepo === undefined) {
-    cachedOwnerRepo = getOwnerRepo();
-  }
-  return cachedOwnerRepo;
-}
-
 const repoChecklist = defineRdyStagedChecklist({
   name: 'repo',
   preconditions: [
@@ -85,18 +74,6 @@ export default defineRdyKit({
 });
 
 // region | Helpers
-
-/**
- * Skip predicate: Returns the skip reason when a workspace is not for publication
- * (i.e. `package.json#private` is `true`), else `false` (the check should run).
- *
- * Wired into the parent (per-workspace) check via `skip`.
- * Readyup's reporter suppresses descendants of a check whose `skip` returns a string, so a non-publishable workspace
- * appears as a single skipped entry rather than as a tree of false-positive errors.
- */
-export function skipIfNotPublishable(workspace: Workspace): SkipResult {
-  return workspace.isPackage ? false : 'package.json#private is true';
-}
 
 /** Builds a parent check for a workspace with nested publish-readiness children. */
 export function buildWorkspaceCheck(workspace: Workspace): RdyCheck {
@@ -187,6 +164,17 @@ function checkProvenanceMatchesVisibility(): { ok: boolean; detail?: string } {
   }
 
   return { ok: true };
+}
+
+// Cached so that `getOwnerRepo` (which shells out to git) runs at most once per kit invocation;
+// this also keeps module load tolerant of environments without a git remote configured.
+let cachedOwnerRepo: string | undefined;
+
+function getCachedOwnerRepo(): string {
+  if (cachedOwnerRepo === undefined) {
+    cachedOwnerRepo = getOwnerRepo();
+  }
+  return cachedOwnerRepo;
 }
 
 /** Derive {owner}/{repo} from the git remote origin URL. */
@@ -280,6 +268,20 @@ function isRepoPrivate(): boolean {
 /** Checks whether the publish.yaml workflow has provenance enabled. */
 function parseProvenanceSetting(workflowContent: string): boolean {
   return /^[^#]*provenance:\s*['"]?true['"]?/im.test(workflowContent);
+}
+
+/**
+ * Skip predicate: Returns the skip reason when a workspace is not for publication
+ * (i.e. `package.json#private` is `true`), else `false` (the check should run).
+ *
+ * Wired into the parent (per-workspace) check via `skip`.
+ * Readyup's reporter suppresses descendants of a check whose `skip` returns a string, so a non-publishable workspace
+ * appears as a single skipped entry rather than as a tree of false-positive errors.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function skipIfNotPublishable(workspace: Workspace): SkipResult {
+  return workspace.isPackage ? false : 'package.json#private is true';
 }
 
 // endregion | Helpers
