@@ -84,6 +84,10 @@ export default defineConfig({
 
 The second example calls the bin directly to sidestep the workspace-vs-root registry distinction.
 
+## Testing the CLI
+
+Tests for CLI behavior call `runCli` directly with `PassThrough` streams rather than spawning a `node` subprocess. This avoids the cold-start variance that made early subprocess-based tests timeout-prone. Reach for a subprocess test only when verifying real-process behavior the in-process path cannot exercise (signals, env-var inheritance through the bin shim, kernel exit codes).
+
 ## Agent-file sync
 
 The presence and version stamp of `.agents/nmr/AGENTS.md` is verified by `check:agent-files`, which is part of the default root `check:strict` composite. If it fails, run `nmr sync-agent-files`.
