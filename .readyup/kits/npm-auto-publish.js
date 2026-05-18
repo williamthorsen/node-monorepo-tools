@@ -1,76 +1,14 @@
 /** @noformat — @generated. Do not edit. Compiled by rdy. */
 /* eslint-disable */
+export const __readyupVersion = "0.21.0";
 
 
 // .readyup/kits/npm-auto-publish.ts
-import { execSync as execSync2 } from "node:child_process";
-import { existsSync as existsSync2, globSync, readdirSync, readFileSync as readFileSync2 } from "node:fs";
-import path from "node:path";
-
-// node_modules/.pnpm/readyup@0.20.0_esbuild@0.28.0/node_modules/readyup/dist/esm/authoring.js
-function defineRdyKit(kit) {
-  return kit;
-}
-function defineRdyChecklist(checklist) {
-  return checklist;
-}
-function defineRdyStagedChecklist(checklist) {
-  return checklist;
-}
-
-// node_modules/.pnpm/readyup@0.20.0_esbuild@0.28.0/node_modules/readyup/dist/esm/isRecord.js
-function isRecord(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-// node_modules/.pnpm/readyup@0.20.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/filesystem.js
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-function fileExists(relativePath) {
-  return existsSync(join(process.cwd(), relativePath));
-}
-function readFile(relativePath) {
-  const fullPath = join(process.cwd(), relativePath);
-  if (!existsSync(fullPath)) return void 0;
-  return readFileSync(fullPath, "utf8");
-}
-function fileContains(relativePath, pattern) {
-  const content = readFile(relativePath);
-  if (content === void 0) return false;
-  return pattern.test(content);
-}
-
-// node_modules/.pnpm/readyup@0.20.0_esbuild@0.28.0/node_modules/readyup/dist/esm/safeJsonParse.js
-function safeJsonParse(content) {
-  try {
-    const parsed = JSON.parse(content);
-    return parsed;
-  } catch {
-    return void 0;
-  }
-}
-
-// node_modules/.pnpm/readyup@0.20.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/json-value.js
-function getJsonValue(obj, ...keys) {
-  let current = obj;
-  for (const key of keys) {
-    if (!isRecord(current)) return void 0;
-    current = current[key];
-  }
-  return current;
-}
-
-// node_modules/.pnpm/readyup@0.20.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/json.js
-function readJsonFile(relativePath) {
-  const content = readFile(relativePath);
-  if (content === void 0) return void 0;
-  const parsed = safeJsonParse(content);
-  if (!isRecord(parsed)) return void 0;
-  return parsed;
-}
-
-// .readyup/kits/npm-auto-publish.ts
+import { existsSync, globSync, readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
+import { defineRdyChecklist, defineRdyKit, defineRdyStagedChecklist } from "readyup";
+import { fileContains, fileExists, getJsonValue, isRecord, readFile, readJsonFile } from "readyup/check-utils";
 var PUBLISH_WORKFLOW_FILE = "publish.yaml";
 var cachedOwnerRepo;
 var cachedPackages;
@@ -242,7 +180,7 @@ function discoverPackages() {
   ];
 }
 function discoverWorkspacePackages(workspaceConfigPath) {
-  const content = readFileSync2(workspaceConfigPath, "utf8");
+  const content = readFileSync(workspaceConfigPath, "utf8");
   const globs = parseWorkspaceGlobs(content);
   const results = [];
   for (const pattern of globs) {
@@ -267,7 +205,7 @@ function getNodeMajorVersion() {
   return Number.parseInt(process.versions.node.split(".")[0] ?? "0", 10);
 }
 function getOwnerRepo() {
-  const url = execSync2("git remote get-url origin", {
+  const url = execSync("git remote get-url origin", {
     encoding: "utf8"
   }).trim();
   const sshMatch = url.match(/git@github\.com:(.+?)(?:\.git)?$/);
@@ -285,12 +223,12 @@ function getPackageName(packageJson) {
 }
 function hasTokenReferences() {
   const workflowDir = path.resolve(process.cwd(), ".github/workflows");
-  if (!existsSync2(workflowDir)) {
+  if (!existsSync(workflowDir)) {
     return false;
   }
   const files = readdirSync(workflowDir).filter((f) => f.endsWith(".yaml") || f.endsWith(".yml"));
   for (const file of files) {
-    const content = readFileSync2(path.join(workflowDir, file), "utf8");
+    const content = readFileSync(path.join(workflowDir, file), "utf8");
     if (content.includes("NPM_TOKEN") || content.includes("NODE_AUTH_TOKEN")) {
       return true;
     }
@@ -300,7 +238,7 @@ function hasTokenReferences() {
 function hasTrustedPublisher(packageName, expectedRepo, expectedFile) {
   let output;
   try {
-    output = execSync2(`npm trust list ${packageName} --json`, {
+    output = execSync(`npm trust list ${packageName} --json`, {
       encoding: "utf8",
       stdio: "pipe"
     });
@@ -320,7 +258,7 @@ function hasTrustedPublisher(packageName, expectedRepo, expectedFile) {
 }
 function isPublishedToNpm(packageName) {
   try {
-    execSync2(`npm view ${packageName} version`, {
+    execSync(`npm view ${packageName} version`, {
       encoding: "utf8",
       stdio: "pipe"
     });
@@ -331,7 +269,7 @@ function isPublishedToNpm(packageName) {
 }
 function isRepoPrivate() {
   const ownerRepo = getOwnerRepo();
-  const result = execSync2(`gh api repos/${ownerRepo} --jq .private`, {
+  const result = execSync(`gh api repos/${ownerRepo} --jq .private`, {
     encoding: "utf8"
   }).trim();
   return result === "true";

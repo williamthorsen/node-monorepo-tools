@@ -12,19 +12,17 @@ import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { getDefaultRootScripts } from '@williamthorsen/nmr/scripts';
-import type { CheckOutcome } from 'readyup';
+import { type CheckOutcome, defineRdyKit, pickJson } from 'readyup';
 import {
-  defineRdyKit,
   fileContains,
   fileExists,
   hasDevDependency,
   hasMinDevDependencyVersion,
   hasPackageJsonField,
   isRecord,
-  pickJson,
   readFile,
   readPackageJson,
-} from 'readyup';
+} from 'readyup/check-utils';
 
 // `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline
 // only the listed fields. Defer the call into a function so module load does

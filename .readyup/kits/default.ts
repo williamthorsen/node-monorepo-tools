@@ -4,8 +4,8 @@
  * Run from a target repo's working directory:
  *   rdy run --file <path-to>/default.js
  */
-import type { RdyChecklist } from 'readyup';
-import { defineRdyKit, fileContains, fileExists } from 'readyup';
+import { defineRdyKit, type RdyChecklist } from 'readyup';
+import { fileContains, fileExists } from 'readyup/check-utils';
 
 const syncLabels: RdyChecklist = {
   name: 'sync-labels',

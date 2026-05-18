@@ -4,8 +4,8 @@ const { mockedReadFile } = vi.hoisted(() => ({
   mockedReadFile: vi.fn<(path: string) => string | undefined>(),
 }));
 
-vi.mock('readyup', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('readyup')>();
+vi.mock('readyup/check-utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('readyup/check-utils')>();
   return {
     ...actual,
     readFile: mockedReadFile,

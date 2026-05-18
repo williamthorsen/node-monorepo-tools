@@ -2,18 +2,8 @@ import { execSync } from 'node:child_process';
 import { existsSync, globSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import type { RdyCheck } from 'readyup';
-import {
-  defineRdyChecklist,
-  defineRdyKit,
-  defineRdyStagedChecklist,
-  fileContains,
-  fileExists,
-  getJsonValue,
-  isRecord,
-  readFile,
-  readJsonFile,
-} from 'readyup';
+import { defineRdyChecklist, defineRdyKit, defineRdyStagedChecklist, type RdyCheck } from 'readyup';
+import { fileContains, fileExists, getJsonValue, isRecord, readFile, readJsonFile } from 'readyup/check-utils';
 
 const PUBLISH_WORKFLOW_FILE = 'publish.yaml';
 

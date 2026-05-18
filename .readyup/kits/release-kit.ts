@@ -9,18 +9,16 @@
  * Run from a target repo's working directory:
  *   rdy run --file <path-to>/release-kit.js
  */
-import type { CheckOutcome } from 'readyup';
+import { type CheckOutcome, defineRdyKit, pickJson } from 'readyup';
 import {
-  defineRdyKit,
   discoverWorkspaces,
   fileDoesNotContain,
   fileExists,
   fileMatchesHash,
   hasDevDependency,
   hasMinDevDependencyVersion,
-  pickJson,
   readFile,
-} from 'readyup';
+} from 'readyup/check-utils';
 
 import { detectRepoType } from '../../packages/release-kit/src/init/detectRepoType.ts';
 

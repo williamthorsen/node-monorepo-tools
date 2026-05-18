@@ -4,32 +4,37 @@
     {
       "name": "default",
       "path": "kits/default.js",
+      "readyupVersion": "0.21.0",
       "source": "kits/default.ts",
-      "targetHash": "e95dcefe"
+      "targetHash": "2fbf1c01"
     },
     {
       "name": "nmr",
       "path": "kits/nmr.js",
+      "readyupVersion": "0.21.0",
       "source": "kits/nmr.ts",
-      "targetHash": "b817390f"
+      "targetHash": "03996bb2"
     },
     {
       "name": "npm-auto-publish",
       "path": "kits/npm-auto-publish.js",
+      "readyupVersion": "0.21.0",
       "source": "kits/npm-auto-publish.ts",
-      "targetHash": "cbe9d4b1"
+      "targetHash": "8aad25e4"
     },
     {
       "name": "release-kit",
       "path": "kits/release-kit.js",
+      "readyupVersion": "0.21.0",
       "source": "kits/release-kit.ts",
-      "targetHash": "4d63ef2e"
+      "targetHash": "50422ec6"
     },
     {
       "name": "v11y-check",
       "path": "kits/v11y-check.js",
+      "readyupVersion": "0.21.0",
       "source": "kits/v11y-check.ts",
-      "targetHash": "7831a7f1"
+      "targetHash": "eeef333e"
     }
   ]
 }

@@ -1,10 +1,11 @@
 /** @noformat — @generated. Do not edit. Compiled by rdy. */
 /* eslint-disable */
+export const __readyupVersion = "0.21.0";
 
 
 // .readyup/kits/nmr.ts
-import { existsSync as existsSync2, readdirSync } from "node:fs";
-import { join as join2 } from "node:path";
+import { existsSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 
 // packages/nmr/dist/esm/default-scripts.js
 var rootScripts = {
@@ -50,97 +51,18 @@ function getDefaultRootScripts() {
   return { ...rootScripts };
 }
 
-// node_modules/.pnpm/readyup@0.20.0_esbuild@0.28.0/node_modules/readyup/dist/esm/authoring.js
-function defineRdyKit(kit) {
-  return kit;
-}
-
-// node_modules/.pnpm/readyup@0.20.0_esbuild@0.28.0/node_modules/readyup/dist/esm/isRecord.js
-function isRecord(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-// node_modules/.pnpm/readyup@0.20.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/filesystem.js
-import { execSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-function fileExists(relativePath) {
-  return existsSync(join(process.cwd(), relativePath));
-}
-function readFile(relativePath) {
-  const fullPath = join(process.cwd(), relativePath);
-  if (!existsSync(fullPath)) return void 0;
-  return readFileSync(fullPath, "utf8");
-}
-function fileContains(relativePath, pattern) {
-  const content = readFile(relativePath);
-  if (content === void 0) return false;
-  return pattern.test(content);
-}
-
-// node_modules/.pnpm/readyup@0.20.0_esbuild@0.28.0/node_modules/readyup/dist/esm/safeJsonParse.js
-function safeJsonParse(content) {
-  try {
-    const parsed = JSON.parse(content);
-    return parsed;
-  } catch {
-    return void 0;
-  }
-}
-
-// node_modules/.pnpm/readyup@0.20.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/json.js
-function readJsonFile(relativePath) {
-  const content = readFile(relativePath);
-  if (content === void 0) return void 0;
-  const parsed = safeJsonParse(content);
-  if (!isRecord(parsed)) return void 0;
-  return parsed;
-}
-function hasJsonField(relativePath, field, expectedValue) {
-  const data = readJsonFile(relativePath);
-  if (data === void 0) return false;
-  if (expectedValue !== void 0) return data[field] === expectedValue;
-  return field in data;
-}
-
-// node_modules/.pnpm/readyup@0.20.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/semver.js
-function compareVersions(a, b) {
-  const partsA = a.split(".").map(Number);
-  const partsB = b.split(".").map(Number);
-  for (let i = 0; i < 3; i++) {
-    const diff = (partsA[i] ?? 0) - (partsB[i] ?? 0);
-    if (diff !== 0) return diff;
-  }
-  return 0;
-}
-
-// node_modules/.pnpm/readyup@0.20.0_esbuild@0.28.0/node_modules/readyup/dist/esm/check-utils/package-json.js
-function readPackageJson() {
-  return readJsonFile("package.json");
-}
-function hasPackageJsonField(field, expectedValue) {
-  return hasJsonField("package.json", field, expectedValue);
-}
-function hasDevDependency(name) {
-  const pkg = readJsonFile("package.json");
-  if (pkg === void 0) return false;
-  const devDeps = pkg.devDependencies;
-  return isRecord(devDeps) && name in devDeps;
-}
-function hasMinDevDependencyVersion(name, minVersion, options) {
-  const pkg = readJsonFile("package.json");
-  if (pkg === void 0) return false;
-  const devDeps = pkg.devDependencies;
-  if (!isRecord(devDeps) || !(name in devDeps)) return false;
-  const range = devDeps[name];
-  if (typeof range !== "string") return false;
-  if (options?.exempt?.(range)) return true;
-  const versionMatch = /(\d+\.\d+\.\d+)/.exec(range)?.[1];
-  if (versionMatch === void 0) return false;
-  return compareVersions(versionMatch, minVersion) >= 0;
-}
-
 // .readyup/kits/nmr.ts
+import { defineRdyKit } from "readyup";
+import {
+  fileContains,
+  fileExists,
+  hasDevDependency,
+  hasMinDevDependencyVersion,
+  hasPackageJsonField,
+  isRecord,
+  readFile,
+  readPackageJson
+} from "readyup/check-utils";
 function getMinVersion() {
   const picked = { "version": "0.14.0" };
   if (typeof picked.version !== "string") {
@@ -270,8 +192,8 @@ function noRedundantRootScripts() {
   };
 }
 function noWorkspaceRunScriptReferences() {
-  const packagesDir = join2(process.cwd(), "packages");
-  if (!existsSync2(packagesDir)) return true;
+  const packagesDir = join(process.cwd(), "packages");
+  if (!existsSync(packagesDir)) return true;
   const legacyPattern = /run-workspace-script|"pnpm\s+run\s+ws\b/;
   const entries = readdirSync(packagesDir, { withFileTypes: true });
   const matches = [];
@@ -289,8 +211,8 @@ function noWorkspaceRunScriptReferences() {
   };
 }
 function allWorkspacePackagesCanBuild() {
-  const packagesDir = join2(process.cwd(), "packages");
-  if (!existsSync2(packagesDir)) return true;
+  const packagesDir = join(process.cwd(), "packages");
+  if (!existsSync(packagesDir)) return true;
   const entries = readdirSync(packagesDir, { withFileTypes: true });
   const failing = [];
   for (const entry of entries) {

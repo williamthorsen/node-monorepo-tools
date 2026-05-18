@@ -11,14 +11,8 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-import {
-  defineRdyKit,
-  fileExists,
-  fileMatchesHash,
-  hasDevDependency,
-  hasMinDevDependencyVersion,
-  pickJson,
-} from 'readyup';
+import { defineRdyKit, pickJson } from 'readyup';
+import { fileExists, fileMatchesHash, hasDevDependency, hasMinDevDependencyVersion } from 'readyup/check-utils';
 
 // `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline
 // only the listed fields. The runtime stub throws, so defer the call into a

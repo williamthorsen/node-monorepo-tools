@@ -1,4 +1,4 @@
-import type { Workspace } from 'readyup';
+import type { Workspace } from 'readyup/check-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const { mockedDiscoverWorkspaces, mockedReadFile } = vi.hoisted(() => ({
@@ -6,8 +6,8 @@ const { mockedDiscoverWorkspaces, mockedReadFile } = vi.hoisted(() => ({
   mockedReadFile: vi.fn<(path: string) => string | undefined>(),
 }));
 
-vi.mock('readyup', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('readyup')>();
+vi.mock('readyup/check-utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('readyup/check-utils')>();
   return {
     ...actual,
     discoverWorkspaces: mockedDiscoverWorkspaces,
