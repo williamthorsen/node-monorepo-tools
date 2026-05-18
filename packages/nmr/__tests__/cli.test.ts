@@ -27,11 +27,14 @@ const MONOREPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
 const NMR_PACKAGE_DIR = path.resolve(MONOREPO_ROOT, 'packages', 'nmr');
 const CLI_PATH = path.join(NMR_PACKAGE_DIR, 'dist', 'esm', 'cli.js');
 
-// Calls runCli in-process with PassThrough streams. The bin subprocess that
-// hook-wrap spawns for `nmr X:pre` / `nmr X:post` is production behavior and
-// is not touched here — it gets warmed by the file-level beforeAll. To debug
-// a failing test, temporarily swap `stdoutStream`/`stderrStream` for
-// `process.stdout`/`process.stderr` to see inner subprocess output live.
+// Default pattern for nmr CLI tests: call `runCli` in-process with PassThrough streams rather than spawning a
+// `node` subprocess. This avoids the cold-start variance that made early subprocess-based tests timeout-prone.
+// Reach for a subprocess test only when verifying real-process behavior the in-process path cannot exercise
+// (signals, env-var inheritance through the bin shim, kernel exit codes).
+//
+// The bin subprocess that hook-wrap spawns for `nmr X:pre` / `nmr X:post` is production behavior and is not touched
+// here — it gets warmed by the file-level `beforeAll`. To debug a failing test, temporarily swap
+// `stdoutStream`/`stderrStream` for `process.stdout`/`process.stderr` to see inner subprocess output live.
 async function runNmr(
   argString: string,
   options: { cwd?: string; env?: Record<string, string> } = {},
