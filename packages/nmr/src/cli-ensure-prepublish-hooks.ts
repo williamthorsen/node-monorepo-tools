@@ -1,8 +1,8 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
-import { DEFAULT_HOOK, ensurePrepublishHooks } from './commands/ensure-prepublish-hooks.js';
-import { findMonorepoRoot } from './context.js';
+import { DEFAULT_HOOK, ensurePrepublishHooks } from './commands/ensure-prepublish-hooks.ts';
+import { findMonorepoRoot } from './context.ts';
 
 let fix = false;
 let dryRun = false;

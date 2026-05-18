@@ -3,7 +3,7 @@ import fs from 'node:fs';
 
 import yaml from 'js-yaml';
 
-import { getValueAtPathOrThrow } from './get-value-at-path.js';
+import { getValueAtPathOrThrow } from './get-value-at-path.ts';
 
 /** Read a YAML file and extract a non-empty string value at the given dot-separated key path. */
 export async function getStringFromYamlFile(filePath: string, keyPath: string, label: string): Promise<string> {

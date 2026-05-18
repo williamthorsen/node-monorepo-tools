@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { createJiti } from 'jiti';
 
-import { isObject } from './helpers/type-guards.js';
+import { isObject } from './helpers/type-guards.ts';
 
 export interface NmrConfig {
   devBin?: Record<string, string>;

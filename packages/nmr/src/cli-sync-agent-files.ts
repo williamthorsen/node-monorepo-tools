@@ -1,8 +1,8 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
-import { check, sync } from './commands/sync-agent-files.js';
-import { findMonorepoRoot } from './context.js';
+import { check, sync } from './commands/sync-agent-files.ts';
+import { findMonorepoRoot } from './context.ts';
 
 function parseArgs(argv: string[]): { mode: 'sync' | 'check' } | { error: string } {
   const args = argv.slice(2);

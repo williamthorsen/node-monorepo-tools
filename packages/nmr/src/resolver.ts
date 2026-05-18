@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import type { NmrConfig } from './config.js';
-import { isObject } from './helpers/type-guards.js';
-import type { ScriptRegistry, ScriptValue } from './resolve-scripts.js';
-import { getDefaultRootScripts, getDefaultWorkspaceScripts } from './resolve-scripts.js';
+import type { NmrConfig } from './config.ts';
+import { isObject } from './helpers/type-guards.ts';
+import type { ScriptRegistry, ScriptValue } from './resolve-scripts.ts';
+import { getDefaultRootScripts, getDefaultWorkspaceScripts } from './resolve-scripts.ts';
 
 /**
  * Replace the first token of a command with a `devBin` substitute.

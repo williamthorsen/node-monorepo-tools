@@ -1,4 +1,4 @@
-import { getPnpmOverrides, readPackageJson } from '../helpers/package-json.js';
+import { getPnpmOverrides, readPackageJson } from '../helpers/package-json.ts';
 
 /**
  * Reports any active pnpm dependency overrides in the monorepo root package.json.

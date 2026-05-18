@@ -1,7 +1,7 @@
-import type { ScriptRegistry } from './default-scripts.js';
-import { commonWorkspaceScripts, integrationTestScripts, rootScripts, standardTestScripts } from './default-scripts.js';
+import type { ScriptRegistry } from './default-scripts.ts';
+import { commonWorkspaceScripts, integrationTestScripts, rootScripts, standardTestScripts } from './default-scripts.ts';
 
-export type { ScriptRegistry, ScriptValue } from './default-scripts.js';
+export type { ScriptRegistry, ScriptValue } from './default-scripts.ts';
 
 /**
  * Return the default workspace scripts, selecting the appropriate test variant.

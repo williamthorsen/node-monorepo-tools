@@ -3,12 +3,12 @@ import type { Writable } from 'node:stream';
 
 import { readPackageVersion } from '@williamthorsen/nmr-core';
 
-import { resolveContext } from './context.js';
-import { generateHelp } from './help.js';
-import { isHookName } from './helpers/hook-name.js';
-import type { ScriptRegistry } from './resolve-scripts.js';
-import { applyDevBin, buildRootRegistry, buildWorkspaceRegistry, resolveScript } from './resolver.js';
-import { runCommand } from './runner.js';
+import { resolveContext } from './context.ts';
+import { generateHelp } from './help.ts';
+import { isHookName } from './helpers/hook-name.ts';
+import type { ScriptRegistry } from './resolve-scripts.ts';
+import { applyDevBin, buildRootRegistry, buildWorkspaceRegistry, resolveScript } from './resolver.ts';
+import { runCommand } from './runner.ts';
 
 const VERSION = readPackageVersion(import.meta.url);
 
