@@ -16,11 +16,8 @@ import {
 
 const PUBLISH_WORKFLOW_FILE = 'publish.yaml';
 
-// -- Primary logic --
-
-// Deferred so that `getOwnerRepo` (which shells out to git) is not called at
-// module load time — preserves the ability to load the kit in environments
-// without a git remote configured.
+// Cached so that `getOwnerRepo` (which shells out to git) runs at most once per kit invocation;
+// this also keeps module load tolerant of environments without a git remote configured.
 let cachedOwnerRepo: string | undefined;
 
 function getCachedOwnerRepo(): string {
@@ -87,22 +84,21 @@ export default defineRdyKit({
   checklists: [repoChecklist, packagesChecklist],
 });
 
-// -- Helper functions --
+// region | Helpers
 
 /**
- * Skip predicate: returns the skip reason when a workspace is not for publication
+ * Skip predicate: Returns the skip reason when a workspace is not for publication
  * (i.e. `package.json#private` is `true`), else `false` (the check should run).
  *
- * Wired into the parent (per-workspace) check via `skip`. Readyup's reporter
- * suppresses descendants of a check whose `skip` returns a string, so a
- * non-publishable workspace appears as a single skipped entry rather than as
- * a tree of false-positive errors.
+ * Wired into the parent (per-workspace) check via `skip`.
+ * Readyup's reporter suppresses descendants of a check whose `skip` returns a string, so a non-publishable workspace
+ * appears as a single skipped entry rather than as a tree of false-positive errors.
  */
 export function skipIfNotPublishable(workspace: Workspace): SkipResult {
   return workspace.isPackage ? false : 'package.json#private is true';
 }
 
-/** Build a parent check for a workspace with nested publish-readiness children. */
+/** Builds a parent check for a workspace with nested publish-readiness children. */
 export function buildWorkspaceCheck(workspace: Workspace): RdyCheck {
   const displayName = workspace.name ?? '(unnamed)';
   const pkgJsonPath = path.join(workspace.dir, 'package.json');
@@ -157,7 +153,7 @@ export function buildWorkspaceCheck(workspace: Workspace): RdyCheck {
   };
 }
 
-/** Check whether the provenance setting in publish.yaml matches the repo's visibility. */
+/** Checks whether the provenance setting in publish.yaml matches the repo's visibility. */
 function checkProvenanceMatchesVisibility(): { ok: boolean; detail?: string } {
   const workflowPath = '.github/workflows/publish.yaml';
 
@@ -214,7 +210,7 @@ function getOwnerRepo(): string {
   throw new Error(`Cannot parse GitHub owner/repo from remote URL: ${url}`);
 }
 
-/** Scan all workflow files for legacy NPM token references. */
+/** Scans all workflow files for legacy NPM token references. */
 function hasTokenReferences(): boolean {
   const workflowDir = path.resolve(process.cwd(), '.github/workflows');
   if (!existsSync(workflowDir)) {
@@ -233,7 +229,7 @@ function hasTokenReferences(): boolean {
   return false;
 }
 
-/** Verify that a package has a matching GitHub trusted publisher on npm. */
+/** Verifies that a package has a matching GitHub trusted publisher on npm. */
 function hasTrustedPublisher(packageName: string, expectedRepo: string, expectedFile: string): boolean {
   let output: string;
   try {
@@ -259,7 +255,7 @@ function hasTrustedPublisher(packageName: string, expectedRepo: string, expected
   return parsed.type === 'github' && parsed.repository === expectedRepo && parsed.file === expectedFile;
 }
 
-/** Check whether a package exists on the npm registry. */
+/** Checks whether a package exists on the npm registry. */
 function isPublishedToNpm(packageName: string): boolean {
   try {
     execSync(`npm view ${packageName} version`, {
@@ -272,7 +268,7 @@ function isPublishedToNpm(packageName: string): boolean {
   }
 }
 
-/** Query the GitHub API to determine whether the current repo is private. */
+/** Queries the GitHub API to determine whether the current repo is private. */
 function isRepoPrivate(): boolean {
   const ownerRepo = getOwnerRepo();
   const result = execSync(`gh api repos/${ownerRepo} --jq .private`, {
@@ -281,7 +277,9 @@ function isRepoPrivate(): boolean {
   return result === 'true';
 }
 
-/** Check whether the publish.yaml workflow has provenance enabled. */
+/** Checks whether the publish.yaml workflow has provenance enabled. */
 function parseProvenanceSetting(workflowContent: string): boolean {
   return /^[^#]*provenance:\s*['"]?true['"]?/im.test(workflowContent);
 }
+
+// endregion | Helpers

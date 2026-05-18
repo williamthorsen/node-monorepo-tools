@@ -20,7 +20,7 @@
       "path": "kits/npm-auto-publish.js",
       "readyupVersion": "0.21.0",
       "source": "kits/npm-auto-publish.ts",
-      "targetHash": "46a0c4c2"
+      "targetHash": "833f37da"
     },
     {
       "name": "release-kit",

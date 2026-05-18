@@ -7,11 +7,7 @@ export const __readyupVersion = "0.21.0";
 import { execSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import {
-  defineRdyChecklist,
-  defineRdyKit,
-  defineRdyStagedChecklist
-} from "readyup";
+import { defineRdyChecklist, defineRdyKit, defineRdyStagedChecklist } from "readyup";
 import {
   discoverWorkspaces,
   fileContains,
