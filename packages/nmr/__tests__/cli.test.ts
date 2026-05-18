@@ -35,6 +35,9 @@ const CLI_PATH = path.join(NMR_PACKAGE_DIR, 'dist', 'esm', 'cli.js');
 // The bin subprocess that hook-wrap spawns for `nmr X:pre` / `nmr X:post` is production behavior and is not touched
 // here — it gets warmed by the file-level `beforeAll`. To debug a failing test, temporarily swap
 // `stdoutStream`/`stderrStream` for `process.stdout`/`process.stderr` to see inner subprocess output live.
+//
+// Arguments are split on whitespace; no shell-style quoting.
+// If a test needs quoted arguments, call `runCli` directly with a pre-built `args` array.
 async function runNmr(
   argString: string,
   options: { cwd?: string; env?: Record<string, string> } = {},

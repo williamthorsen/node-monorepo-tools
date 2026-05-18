@@ -41,6 +41,9 @@ export function runCommand(command: string, cwd?: string, options?: RunCommandOp
     env,
   });
 
+  // Spawn failures (missing binary, shell-not-found) are surfaced even in quiet mode:
+  // there are no captured buffers to forward, and a silent exit 1 would be the classic silent-failure trap.
+  // Quiet means "no chatter on success", not "swallow catastrophic configuration errors".
   if (result.error) {
     stderr.write(`${result.error.message}\n`);
     return 1;
