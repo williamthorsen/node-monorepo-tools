@@ -11,7 +11,7 @@ import {
   describeScript,
   expandScript,
   resolveScript,
-} from '../src/resolver.js';
+} from '../resolver.ts';
 
 describe(applyDevBin, () => {
   const monorepoRoot = '/repo';

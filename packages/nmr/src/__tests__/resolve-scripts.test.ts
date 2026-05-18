@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getDefaultRootScripts, getDefaultWorkspaceScripts } from '../src/resolve-scripts.js';
+import { getDefaultRootScripts, getDefaultWorkspaceScripts } from '../resolve-scripts.ts';
 
 describe('getDefaultWorkspaceScripts', () => {
   it('includes all expected default workspace scripts', () => {

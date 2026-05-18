@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getValueAtPathOrThrow } from '../../src/tests/helpers/get-value-at-path.js';
+import { getValueAtPathOrThrow } from '../get-value-at-path.ts';
 
 describe('getValueAtPathOrThrow', () => {
   it('retrieves a top-level value', () => {

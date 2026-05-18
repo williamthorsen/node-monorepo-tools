@@ -5,7 +5,7 @@ import path from 'node:path';
 import { readPackageVersion } from '@williamthorsen/nmr-core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { check, parseSourceStamp, sync } from '../../src/commands/sync-agent-files.js';
+import { check, parseSourceStamp, sync } from '../sync-agent-files.ts';
 
 const DESTINATION_RELATIVE_PATH = '.agents/nmr/AGENTS.md';
 const currentStamp = `@williamthorsen/nmr@${readPackageVersion(import.meta.url)}`;

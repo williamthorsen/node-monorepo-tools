@@ -4,11 +4,11 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { findContainingPackageDir, findMonorepoRoot, getWorkspacePackageDirs } from '../src/context.js';
+import { findContainingPackageDir, findMonorepoRoot, getWorkspacePackageDirs } from '../context.ts';
 
 // The monorepo root is two levels up from packages/nmr
-const MONOREPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
-const NMR_PACKAGE_DIR = path.resolve(import.meta.dirname, '..');
+const MONOREPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..', '..');
+const NMR_PACKAGE_DIR = path.resolve(MONOREPO_ROOT, 'packages', 'nmr');
 
 describe('findMonorepoRoot', () => {
   it('finds root from the monorepo root', () => {

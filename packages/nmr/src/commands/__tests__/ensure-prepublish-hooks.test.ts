@@ -4,12 +4,11 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { ensurePrepublishHooks } from '../../src/commands/ensure-prepublish-hooks.js';
-import { readPackageJson } from '../../src/helpers/package-json.js';
+import { ensurePrepublishHooks } from '../ensure-prepublish-hooks.ts';
+import { readPackageJson } from '../../helpers/package-json.ts';
 
 /**
- * Create a minimal monorepo fixture with a pnpm-workspace.yaml
- * and the given packages under a `packages/` directory.
+ * Create a minimal monorepo fixture with a pnpm-workspace.yaml and the given packages under a `packages/` directory.
  */
 function createFixture(
   tmpDir: string,
@@ -69,7 +68,7 @@ describe('ensurePrepublishHooks', () => {
       expect(result.hasFailures).toBe(true);
       const missing = result.packages.filter((p) => p.action === 'missing');
       expect(missing).toHaveLength(1);
-      expect(missing[0].packageName).toBe('@scope/lib-b');
+      expect(missing[0]?.packageName).toBe('@scope/lib-b');
     });
 
     it('skips private packages', () => {
@@ -125,7 +124,7 @@ describe('ensurePrepublishHooks', () => {
 
       const result = ensurePrepublishHooks(tmpDir, { fix: true, dryRun: false });
 
-      expect(result.packages[0].action).toBe('ok');
+      expect(result.packages[0]?.action).toBe('ok');
     });
   });
 
@@ -136,7 +135,7 @@ describe('ensurePrepublishHooks', () => {
       const result = ensurePrepublishHooks(tmpDir, { fix: true, dryRun: true });
 
       expect(result.hasFailures).toBe(false);
-      expect(result.packages[0].action).toBe('would-fix');
+      expect(result.packages[0]?.action).toBe('would-fix');
 
       // Verify file was NOT written
       const raw = readPackageJson(path.join(tmpDir, 'packages', 'lib-a'));

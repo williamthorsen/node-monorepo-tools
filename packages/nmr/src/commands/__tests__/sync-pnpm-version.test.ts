@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { extractPnpmVersion, syncPnpmVersion } from '../../src/commands/sync-pnpm-version.js';
+import { extractPnpmVersion, syncPnpmVersion } from '../sync-pnpm-version.ts';
 
 describe('extractPnpmVersion', () => {
   it('extracts version from pnpm@X.Y.Z format', () => {

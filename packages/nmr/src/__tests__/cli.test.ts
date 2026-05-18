@@ -6,7 +6,7 @@ import { PassThrough } from 'node:stream';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { runCli } from '../src/runCli.js';
+import { runCli } from '../runCli.ts';
 
 function makeLogHelpers(getPath: () => string): { read: () => string[]; clear: () => void } {
   return {
@@ -23,7 +23,7 @@ function makeLogHelpers(getPath: () => string): { read: () => string[]; clear: (
   };
 }
 
-const MONOREPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
+const MONOREPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..', '..');
 const NMR_PACKAGE_DIR = path.resolve(MONOREPO_ROOT, 'packages', 'nmr');
 const CLI_PATH = path.join(NMR_PACKAGE_DIR, 'dist', 'esm', 'cli.js');
 

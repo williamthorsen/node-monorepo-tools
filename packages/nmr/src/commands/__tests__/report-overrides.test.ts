@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { reportOverrides } from '../../src/commands/report-overrides.js';
+import { reportOverrides } from '../report-overrides.ts';
 
 describe('reportOverrides', () => {
   let tmpDir: string;

@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { defineConfig, loadConfig } from '../src/config.js';
+import { defineConfig, loadConfig } from '../config.ts';
 
 describe('defineConfig', () => {
   it('returns the config unchanged (identity function)', () => {

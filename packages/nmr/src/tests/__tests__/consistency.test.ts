@@ -4,11 +4,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import {
-  getNodeVersionFromAction,
-  getPnpmVersionFromAction,
-  getPnpmVersionFromPackageJson,
-} from '../../src/tests/consistency.ts';
+import { getNodeVersionFromAction, getPnpmVersionFromAction, getPnpmVersionFromPackageJson } from '../consistency.ts';
 
 let tmpDir: string;
 

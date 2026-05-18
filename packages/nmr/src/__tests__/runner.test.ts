@@ -4,7 +4,7 @@ import { PassThrough } from 'node:stream';
 
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest';
 
-import { runCommand } from '../src/runner.js';
+import { runCommand } from '../runner.ts';
 
 vi.mock('node:child_process', () => ({
   spawnSync: vi.fn(),
@@ -12,7 +12,9 @@ vi.mock('node:child_process', () => ({
 
 const mockedSpawnSync = vi.mocked(spawnSync);
 
-function spawnResult(overrides: Partial<SpawnSyncReturns<Buffer>> = {}): SpawnSyncReturns<Buffer> {
+function spawnResult(
+  overrides: Partial<SpawnSyncReturns<Buffer<ArrayBuffer>>> = {},
+): SpawnSyncReturns<Buffer<ArrayBuffer>> {
   return {
     pid: 1234,
     output: [null, null, null],
