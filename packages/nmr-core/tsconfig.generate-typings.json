@@ -10,6 +10,10 @@
     "sourceMap": false,
     "tsBuildInfoFile": "./dist/tsconfig.generate-typings.tsbuildinfo",
   },
-  "exclude": ["**/__tests__"],
-  "include": ["src"],
+  "exclude": [
+    "**/__tests__/", //
+  ],
+  "include": [
+    "src", //
+  ],
 }

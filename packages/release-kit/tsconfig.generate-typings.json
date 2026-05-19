@@ -14,7 +14,7 @@
     "tsBuildInfoFile": "./dist/tsconfig.generate-typings.tsbuildinfo",
   },
   "exclude": [
-    "**/__tests__", //
+    "**/__tests__/", //
   ],
   "include": [
     "src", //

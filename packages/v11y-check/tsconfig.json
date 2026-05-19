@@ -4,5 +4,9 @@
   "compilerOptions": {
     "lib": ["es2022"],
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "*.ts"],
+  "include": [
+    "__tests__/", //
+    "src/",
+    "*.ts",
+  ],
 }

@@ -14,7 +14,7 @@
   "include": [
     ".config/**/*.ts", //
     ".readyup/**/*.ts",
-    "__tests__",
+    "__tests__/",
     "config/",
     "scripts/",
     "eslint.config.js",
