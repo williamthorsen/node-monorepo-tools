@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## 5.3.1 — 2026-05-19
+
+### 🐛 Bug fixes
+
+- Validate overrides against the full release history (#401)
+
+  Fixes an issue where `release-kit overrides validate` reported overrides as stale when they targeted commits in past releases, even though `release-kit prepare` correctly matched them. The two commands now agree on which overrides are stale.
+
+### ♻️ Refactoring
+
+- Restructure tests and align core package directory with package name (#405)
+
+  Tests in every package are now typechecked alongside the code they cover, so type breakage in tests fails the build instead of slipping through. The `core` package's workspace directory is renamed to match its package name, so `nmr -F nmr-core ...` and `pnpm --filter nmr-core ...` now resolve where they previously failed.
+
 ## 5.3.0 — 2026-05-10
 
 ### 🎉 Features

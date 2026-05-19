@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.14.1 — 2026-05-19
+
+### ♻️ Refactoring
+
+- Restructure tests and align core package directory with package name (#405)
+
+  Tests in every package are now typechecked alongside the code they cover, so type breakage in tests fails the build instead of slipping through. The `core` package's workspace directory is renamed to match its package name, so `nmr -F nmr-core ...` and `pnpm --filter nmr-core ...` now resolve where they previously failed.
+
+### 🧪 Tests
+
+- Eliminate subprocess-startup flakiness in CLI tests (#403)
+
+  The `nmr` CLI test suite now passes deterministically and no longer leaks subprocess output to the vitest terminal. Production CLI behavior — output streaming, exit codes, error messages — is unchanged.
+
 ## 0.14.0 — 2026-05-10
 
 ### ⚙️ Tooling

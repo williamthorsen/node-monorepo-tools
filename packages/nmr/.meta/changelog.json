@@ -1,5 +1,33 @@
 [
   {
+    "version": "0.14.1",
+    "date": "2026-05-19",
+    "sections": [
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Restructure tests and align core package directory with package name (#405)",
+            "body": "Tests in every package are now typechecked alongside the code they cover, so type breakage in tests fails the build instead of slipping through. The `core` package's workspace directory is renamed to match its package name, so `nmr -F nmr-core ...` and `pnpm --filter nmr-core ...` now resolve where they previously failed.",
+            "hash": "91006ec4281be902d66dfdef3917f603ee56b5c3"
+          }
+        ]
+      },
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Eliminate subprocess-startup flakiness in CLI tests (#403)",
+            "body": "The `nmr` CLI test suite now passes deterministically and no longer leaks subprocess output to the vitest terminal. Production CLI behavior — output streaming, exit codes, error messages — is unchanged.",
+            "hash": "35f68339c60b30319d8593ee5fd09a21f287f93b"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.14.0",
     "date": "2026-05-10",
     "sections": [

@@ -1,5 +1,33 @@
 [
   {
+    "version": "5.3.1",
+    "date": "2026-05-19",
+    "sections": [
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Validate overrides against the full release history (#401)",
+            "body": "Fixes an issue where `release-kit overrides validate` reported overrides as stale when they targeted commits in past releases, even though `release-kit prepare` correctly matched them. The two commands now agree on which overrides are stale.",
+            "hash": "eee4dd1a7fd2d8268ec10183372398dd46fb58d1"
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Restructure tests and align core package directory with package name (#405)",
+            "body": "Tests in every package are now typechecked alongside the code they cover, so type breakage in tests fails the build instead of slipping through. The `core` package's workspace directory is renamed to match its package name, so `nmr -F nmr-core ...` and `pnpm --filter nmr-core ...` now resolve where they previously failed.",
+            "hash": "91006ec4281be902d66dfdef3917f603ee56b5c3"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "5.3.0",
     "date": "2026-05-10",
     "sections": [

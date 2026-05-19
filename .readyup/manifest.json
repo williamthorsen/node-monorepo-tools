@@ -13,7 +13,7 @@
       "path": "kits/nmr.js",
       "readyupVersion": "0.21.0",
       "source": "kits/nmr.ts",
-      "targetHash": "041c7268"
+      "targetHash": "b2805795"
     },
     {
       "name": "npm-auto-publish",
@@ -27,14 +27,14 @@
       "path": "kits/release-kit.js",
       "readyupVersion": "0.21.0",
       "source": "kits/release-kit.ts",
-      "targetHash": "a5d74d28"
+      "targetHash": "b5f3fe60"
     },
     {
       "name": "v11y-check",
       "path": "kits/v11y-check.js",
       "readyupVersion": "0.21.0",
       "source": "kits/v11y-check.ts",
-      "targetHash": "00230b88"
+      "targetHash": "3360f3bc"
     }
   ]
 }

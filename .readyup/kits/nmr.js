@@ -194,7 +194,7 @@ function codeQualityWorkflowDoesNotUseNmrCi() {
   return !/check-command:\s*pnpm exec nmr ci(\s|$)/.test(content);
 }
 function getMinVersion() {
-  const picked = { "version": "0.14.0" };
+  const picked = { "version": "0.14.1" };
   if (typeof picked.version !== "string") {
     throw new TypeError("nmr/package.json: 'version' must be a string");
   }
