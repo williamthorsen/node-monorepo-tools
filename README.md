@@ -5,7 +5,7 @@
 | Package                                               | Description                                                 |
 | ----------------------------------------------------- | ----------------------------------------------------------- |
 | [`@williamthorsen/nmr`](packages/nmr)                 | Context-aware script runner for PNPM monorepos              |
-| [`@williamthorsen/nmr-core`](packages/core)           | Shared utilities for monorepo tools                         |
+| [`@williamthorsen/nmr-core`](packages/nmr-core)       | Shared utilities for monorepo tools                         |
 | [`@williamthorsen/release-kit`](packages/release-kit) | Version-bumping and changelog generation                    |
 | [`v11y-check`](packages/v11y-check)                   | Wraps audit-ci with a richer config model and sync workflow |
 

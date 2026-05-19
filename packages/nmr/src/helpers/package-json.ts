@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { isObject } from './type-guards.js';
+import { isObject } from './type-guards.ts';
 
 export interface PackageJson {
   name?: string;

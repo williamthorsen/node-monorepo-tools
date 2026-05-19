@@ -7,7 +7,7 @@ const config: ReleaseKitConfig = {
   },
   retiredPackages: [{ name: '@williamthorsen/preflight', tagPrefix: 'preflight-v', successor: 'readyup' }],
   workspaces: [
-    { dir: 'core', legacyIdentities: [{ name: '@williamthorsen/node-monorepo-core', tagPrefix: 'core-v' }] },
+    { dir: 'nmr-core', legacyIdentities: [{ name: '@williamthorsen/node-monorepo-core', tagPrefix: 'core-v' }] },
     { dir: 'v11y-check', legacyIdentities: [{ name: '@williamthorsen/audit-deps', tagPrefix: 'audit-deps-v' }] },
   ],
 };

@@ -1,8 +1,8 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
-import { syncPnpmVersion } from './commands/sync-pnpm-version.js';
-import { findMonorepoRoot } from './context.js';
+import { syncPnpmVersion } from './commands/sync-pnpm-version.ts';
+import { findMonorepoRoot } from './context.ts';
 
 try {
   const monorepoRoot = findMonorepoRoot();

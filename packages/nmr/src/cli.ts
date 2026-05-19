@@ -3,7 +3,7 @@
 
 import process from 'node:process';
 
-import { runCli } from './runCli.js';
+import { runCli } from './runCli.ts';
 
 try {
   const { exitCode } = await runCli({

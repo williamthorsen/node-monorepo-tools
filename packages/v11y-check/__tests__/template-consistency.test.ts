@@ -4,6 +4,21 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+describe('audit.yaml template consistency', () => {
+  it('bundled template is byte-identical to the repo workflow', () => {
+    const monorepoRoot = findMonorepoRoot(dirname(fileURLToPath(import.meta.url)));
+    const templatePath = resolve(monorepoRoot, 'packages/v11y-check/templates/audit.yaml.template');
+    const workflowPath = resolve(monorepoRoot, '.github/workflows/audit.yaml');
+
+    const templateContent = readFileSync(templatePath, 'utf8');
+    const workflowContent = readFileSync(workflowPath, 'utf8');
+
+    expect(templateContent, 'To reconcile, run `v11y init --force` or manually sync the template file.').toBe(
+      workflowContent,
+    );
+  });
+});
+
 /**
  * Walk up from `startDir` until a directory containing `pnpm-workspace.yaml` is found.
  *
@@ -23,18 +38,3 @@ function findMonorepoRoot(startDir: string): string {
     dir = parent;
   }
 }
-
-describe('audit.yaml template consistency', () => {
-  it('bundled template is byte-identical to the repo workflow', () => {
-    const monorepoRoot = findMonorepoRoot(dirname(fileURLToPath(import.meta.url)));
-    const templatePath = resolve(monorepoRoot, 'packages/v11y-check/templates/audit.yaml.template');
-    const workflowPath = resolve(monorepoRoot, '.github/workflows/audit.yaml');
-
-    const templateContent = readFileSync(templatePath, 'utf8');
-    const workflowContent = readFileSync(workflowPath, 'utf8');
-
-    expect(templateContent, 'To reconcile, run `v11y init --force` or manually sync the template file.').toBe(
-      workflowContent,
-    );
-  });
-});

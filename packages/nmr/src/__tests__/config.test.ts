@@ -1,0 +1,101 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { defineConfig, loadConfig } from '../config.ts';
+
+describe('defineConfig', () => {
+  it('returns the config unchanged (identity function)', () => {
+    const config = {
+      workspaceScripts: {
+        'copy-content': 'tsx scripts/copy-content.ts',
+      },
+      rootScripts: {
+        demo: 'pnpx http-server --port=5189',
+      },
+    };
+
+    expect(defineConfig(config)).toBe(config);
+  });
+
+  it('accepts string[] values for script definitions', () => {
+    const config = defineConfig({
+      workspaceScripts: {
+        build: ['compile', 'generate-typings'],
+      },
+    });
+
+    expect(config.workspaceScripts?.build).toStrictEqual(['compile', 'generate-typings']);
+  });
+
+  it('accepts an empty config', () => {
+    expect(defineConfig({})).toStrictEqual({});
+  });
+
+  it('accepts a config with devBin', () => {
+    const config = defineConfig({
+      devBin: {
+        'my-cli': 'tsx packages/my-cli/src/cli.ts',
+      },
+    });
+
+    expect(config.devBin).toStrictEqual({ 'my-cli': 'tsx packages/my-cli/src/cli.ts' });
+  });
+});
+
+describe('loadConfig', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(os.tmpdir() + '/nmr-config-test-');
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('returns empty config when config file does not exist', async () => {
+    const config = await loadConfig(tmpDir);
+    expect(config).toStrictEqual({});
+  });
+
+  it('returns empty config for a non-existent directory', async () => {
+    const config = await loadConfig('/tmp/nonexistent-monorepo-root');
+    expect(config).toStrictEqual({});
+  });
+
+  it('loads a config with a valid devBin mapping', async () => {
+    const configDir = path.join(tmpDir, '.config');
+    fs.mkdirSync(configDir);
+    fs.writeFileSync(
+      path.join(configDir, 'nmr.config.ts'),
+      `export default { devBin: { 'my-cli': 'tsx packages/my-cli/src/cli.ts' } };`,
+    );
+
+    const config = await loadConfig(tmpDir);
+    expect(config.devBin).toStrictEqual({ 'my-cli': 'tsx packages/my-cli/src/cli.ts' });
+  });
+
+  it('throws when devBin contains a non-string value', async () => {
+    const configDir = path.join(tmpDir, '.config');
+    fs.mkdirSync(configDir);
+    fs.writeFileSync(path.join(configDir, 'nmr.config.ts'), `export default { devBin: { 'my-cli': 123 } };`);
+
+    await expect(loadConfig(tmpDir)).rejects.toThrow('`devBin` must be a Record<string, string>');
+  });
+
+  it('loads a config without devBin (backward compatibility)', async () => {
+    const configDir = path.join(tmpDir, '.config');
+    fs.mkdirSync(configDir);
+    fs.writeFileSync(
+      path.join(configDir, 'nmr.config.ts'),
+      `export default { workspaceScripts: { hello: 'echo hello' } };`,
+    );
+
+    const config = await loadConfig(tmpDir);
+    expect(config.devBin).toBeUndefined();
+    expect(config.workspaceScripts).toStrictEqual({ hello: 'echo hello' });
+  });
+});

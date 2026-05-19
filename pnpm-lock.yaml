@@ -90,13 +90,11 @@ importers:
         specifier: 4.4.3
         version: 4.4.3
 
-  packages/core: {}
-
   packages/nmr:
     dependencies:
       '@williamthorsen/nmr-core':
         specifier: workspace:*
-        version: link:../core
+        version: link:../nmr-core
       jiti:
         specifier: 2.7.0
         version: 2.7.0
@@ -107,11 +105,13 @@ importers:
         specifier: 4.4.3
         version: 4.4.3
 
+  packages/nmr-core: {}
+
   packages/release-kit:
     dependencies:
       '@williamthorsen/nmr-core':
         specifier: workspace:*
-        version: link:../core
+        version: link:../nmr-core
       glob:
         specifier: 13.0.6
         version: 13.0.6
@@ -145,7 +145,7 @@ importers:
     dependencies:
       '@williamthorsen/nmr-core':
         specifier: workspace:*
-        version: link:../core
+        version: link:../nmr-core
       audit-ci:
         specifier: 7.1.0
         version: 7.1.0

@@ -3,9 +3,9 @@ import path from 'node:path';
 
 import yaml from 'js-yaml';
 
-import type { NmrConfig } from './config.js';
-import { loadConfig } from './config.js';
-import { isObject } from './helpers/type-guards.js';
+import type { NmrConfig } from './config.ts';
+import { loadConfig } from './config.ts';
+import { isObject } from './helpers/type-guards.ts';
 
 export interface ResolvedContext {
   monorepoRoot: string;

@@ -1,9 +1,9 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { CodeQualityPnpmWorkflowSchema, getPnpmVersion } from '../helpers/code-quality-pnpm-action.js';
-import { readPackageJson } from '../helpers/package-json.js';
-import { readYamlFile } from '../helpers/yaml-utils.js';
+import { CodeQualityPnpmWorkflowSchema, getPnpmVersion } from '../helpers/code-quality-pnpm-action.ts';
+import { readPackageJson } from '../helpers/package-json.ts';
+import { readYamlFile } from '../helpers/yaml-utils.ts';
 
 const WORKFLOW_RELATIVE_PATH = '.github/workflows/code-quality.yaml';
 
