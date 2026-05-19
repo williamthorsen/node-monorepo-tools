@@ -4,8 +4,8 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { buildFlatConfig, generateAuditCiConfig } from '../src/generate.ts';
-import type { ScopeConfig } from '../src/types.ts';
+import { buildFlatConfig, generateAuditCiConfig } from '../generate.ts';
+import type { ScopeConfig } from '../types.ts';
 
 describe(buildFlatConfig, () => {
   it('flattens allowlist entries to an array of IDs', () => {

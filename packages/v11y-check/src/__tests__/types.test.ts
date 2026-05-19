@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isSeverityAtOrAbove } from '../src/types.ts';
+import { isSeverityAtOrAbove } from '../types.ts';
 
 describe(isSeverityAtOrAbove, () => {
   it.each([

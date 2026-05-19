@@ -1,16 +1,30 @@
+import type { SpawnSyncReturns } from 'node:child_process';
+
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { extractStaleEntries, parseAuditCiOutput } from '../src/run-audit.ts';
+import { extractStaleEntries, parseAuditCiOutput } from '../run-audit.ts';
 
 // ---------------------------------------------------------------------------
 // Hoisted mocks for runAudit / runReport tests
 // ---------------------------------------------------------------------------
 
-const mockSpawnSync = vi.hoisted(() => vi.fn());
+const mockSpawnSync = vi.hoisted(() => vi.fn<typeof import('node:child_process').spawnSync>());
 
 vi.mock('node:child_process', () => ({
   spawnSync: mockSpawnSync,
 }));
+
+function spawnResult(overrides: Partial<SpawnSyncReturns<string>> = {}): SpawnSyncReturns<string> {
+  return {
+    pid: 1234,
+    output: [null, '', ''],
+    stdout: '',
+    stderr: '',
+    status: 0,
+    signal: null,
+    ...overrides,
+  };
+}
 
 describe(parseAuditCiOutput, () => {
   it('parses advisories from a flat advisories object', () => {
@@ -274,7 +288,7 @@ describe(extractStaleEntries, () => {
 // ---------------------------------------------------------------------------
 
 // Import after vi.mock so the mock is active
-const { resolveAuditCiBin, runAudit, runReport } = await import('../src/run-audit.ts');
+const { resolveAuditCiBin, runAudit, runReport } = await import('../run-audit.ts');
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -283,11 +297,11 @@ afterEach(() => {
 
 describe(runAudit, () => {
   it('passes --config and --output-format json when json is true', () => {
-    mockSpawnSync.mockReturnValue({ status: 0, stdout: '{}', stderr: '', error: null });
+    mockSpawnSync.mockReturnValue(spawnResult({ stdout: '{}' }));
 
     runAudit({ configPath: '/path/to/config.json', json: true });
 
-    const args: string[] = mockSpawnSync.mock.calls[0][1];
+    const args = mockSpawnSync.mock.calls[0]?.[1];
     expect(args).toContain('--config');
     expect(args).toContain('/path/to/config.json');
     expect(args).toContain('--output-format');
@@ -295,17 +309,17 @@ describe(runAudit, () => {
   });
 
   it('passes --output-format text when json is false', () => {
-    mockSpawnSync.mockReturnValue({ status: 0, stdout: '', stderr: '', error: null });
+    mockSpawnSync.mockReturnValue(spawnResult());
 
     runAudit({ configPath: '/path/to/config.json', json: false });
 
-    const args: string[] = mockSpawnSync.mock.calls[0][1];
+    const args = mockSpawnSync.mock.calls[0]?.[1];
     expect(args).toContain('--output-format');
     expect(args).toContain('text');
   });
 
   it('returns the exit code from spawnSync', () => {
-    mockSpawnSync.mockReturnValue({ status: 7, stdout: '', stderr: '', error: null });
+    mockSpawnSync.mockReturnValue(spawnResult({ status: 7 }));
 
     const result = runAudit({ configPath: '/cfg.json' });
 
@@ -313,7 +327,7 @@ describe(runAudit, () => {
   });
 
   it('throws on spawn failure', () => {
-    mockSpawnSync.mockReturnValue({ status: null, stdout: '', stderr: '', error: new Error('ENOENT') });
+    mockSpawnSync.mockReturnValue(spawnResult({ status: null, error: new Error('ENOENT') }));
 
     expect(() => runAudit({ configPath: '/cfg.json' })).toThrow('Failed to launch audit-ci');
   });
@@ -332,7 +346,7 @@ describe(runReport, () => {
       },
     });
 
-    mockSpawnSync.mockReturnValue({ status: 1, stdout: advisoryOutput, stderr: '', error: null });
+    mockSpawnSync.mockReturnValue(spawnResult({ status: 1, stdout: advisoryOutput }));
 
     const report = runReport({ configPath: '/cfg.json' });
 
@@ -341,28 +355,28 @@ describe(runReport, () => {
   });
 
   it('throws on spawn failure', () => {
-    mockSpawnSync.mockReturnValue({ status: null, stdout: '', stderr: '', error: new Error('ENOENT') });
+    mockSpawnSync.mockReturnValue(spawnResult({ status: null, error: new Error('ENOENT') }));
 
     expect(() => runReport({ configPath: '/cfg.json' })).toThrow('Failed to launch audit-ci');
   });
 
   it('appends --report-type full when reportType is "full"', () => {
-    mockSpawnSync.mockReturnValue({ status: 0, stdout: '{}', stderr: '', error: null });
+    mockSpawnSync.mockReturnValue(spawnResult({ stdout: '{}' }));
 
     runReport({ configPath: '/cfg.json', reportType: 'full' });
 
-    const args: string[] = mockSpawnSync.mock.calls[0][1];
+    const args = mockSpawnSync.mock.calls[0]?.[1];
     expect(args).toStrictEqual(
       expect.arrayContaining(['--config', '/cfg.json', '--output-format', 'json', '--report-type', 'full']),
     );
   });
 
   it('omits --report-type when reportType is not specified', () => {
-    mockSpawnSync.mockReturnValue({ status: 0, stdout: '{}', stderr: '', error: null });
+    mockSpawnSync.mockReturnValue(spawnResult({ stdout: '{}' }));
 
     runReport({ configPath: '/cfg.json' });
 
-    const args: string[] = mockSpawnSync.mock.calls[0][1];
+    const args = mockSpawnSync.mock.calls[0]?.[1];
     expect(args).not.toContain('--report-type');
   });
 });

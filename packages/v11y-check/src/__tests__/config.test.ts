@@ -4,8 +4,8 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { loadConfig } from '../src/config.ts';
-import { DEFAULT_CONFIG } from '../src/types.ts';
+import { loadConfig } from '../config.ts';
+import { DEFAULT_CONFIG } from '../types.ts';
 
 describe(loadConfig, () => {
   let tempDir: string;

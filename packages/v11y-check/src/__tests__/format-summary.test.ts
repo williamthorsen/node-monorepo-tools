@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import type { CheckResult, ScopeCheckResult } from '../src/format-check.ts';
-import { deriveSummary } from '../src/format-summary.ts';
-import type { AuditResult } from '../src/types.ts';
+import type { CheckResult, ScopeCheckResult } from '../format-check.ts';
+import { deriveSummary } from '../format-summary.ts';
+import type { AuditResult } from '../types.ts';
 
 // ---------------------------------------------------------------------------
 // Helpers

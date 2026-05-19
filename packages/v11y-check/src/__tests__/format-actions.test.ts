@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatActionHints } from '../src/format-actions.ts';
-import type { CheckResult, ScopeCheckResult } from '../src/format-check.ts';
+import { formatActionHints } from '../format-actions.ts';
+import type { CheckResult, ScopeCheckResult } from '../format-check.ts';
 
 function emptyScopeResult(): ScopeCheckResult {
   return { allowed: [], belowThreshold: [], stale: [], unallowed: [] };

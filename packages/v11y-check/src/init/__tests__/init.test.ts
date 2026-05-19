@@ -4,8 +4,8 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { initCommand } from '../src/init/initCommand.ts';
-import { scaffoldConfig, scaffoldFiles, scaffoldWorkflow } from '../src/init/scaffold.ts';
+import { initCommand } from '../initCommand.ts';
+import { scaffoldConfig, scaffoldFiles, scaffoldWorkflow } from '../scaffold.ts';
 
 describe(scaffoldConfig, () => {
   let originalCwd: string;

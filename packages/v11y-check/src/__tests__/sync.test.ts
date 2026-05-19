@@ -11,8 +11,8 @@ import {
   formatUtcDatetime,
   serializeConfig,
   syncAllowlist,
-} from '../src/sync.ts';
-import type { AllowlistEntry, AuditResult, V11yCheckConfig } from '../src/types.ts';
+} from '../sync.ts';
+import type { AllowlistEntry, AuditResult, V11yCheckConfig } from '../types.ts';
 
 function makeAuditResult(overrides: Partial<AuditResult> & Pick<AuditResult, 'id' | 'path' | 'url'>): AuditResult {
   return { paths: [overrides.path], ...overrides };
@@ -255,7 +255,9 @@ describe(syncAllowlist, () => {
     };
     const configPath = path.join(tempDir, 'config.json');
 
-    const auditResults: AuditResult[] = [{ id: '1001', path: 'lodash', url: 'https://example.com/1001' }];
+    const auditResults: AuditResult[] = [
+      makeAuditResult({ id: '1001', path: 'lodash', url: 'https://example.com/1001' }),
+    ];
 
     const { syncResult, updatedConfig } = await syncAllowlist(config, 'dev', auditResults, configPath, fixedDate);
 

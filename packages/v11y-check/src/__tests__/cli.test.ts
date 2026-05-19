@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { LoadConfigResult } from '../src/config.ts';
-import type { CommandOptions, V11yCheckConfig } from '../src/types.ts';
+import type { LoadConfigResult } from '../config.ts';
+import type { CommandOptions, V11yCheckConfig } from '../types.ts';
 
 // ---------------------------------------------------------------------------
 // Hoisted mocks
@@ -17,20 +17,20 @@ const mocks = vi.hoisted(() => ({
   withTempDir: vi.fn(),
 }));
 
-vi.mock('../src/config.ts', () => ({
+vi.mock('../config.ts', () => ({
   loadConfig: mocks.loadConfig,
 }));
 
-vi.mock('../src/init/scaffold.ts', () => ({
+vi.mock('../init/scaffold.ts', () => ({
   scaffoldConfig: mocks.scaffoldConfig,
 }));
 
-vi.mock('../src/generate.ts', () => ({
+vi.mock('../generate.ts', () => ({
   generateAuditCiConfig: mocks.generateAuditCiConfig,
 }));
 
-vi.mock('../src/run-audit.ts', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../src/run-audit.ts')>();
+vi.mock('../run-audit.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../run-audit.ts')>();
   return {
     ...actual,
     runAudit: mocks.runAudit,
@@ -38,19 +38,19 @@ vi.mock('../src/run-audit.ts', async (importOriginal) => {
   };
 });
 
-vi.mock('../src/sync.ts', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../src/sync.ts')>();
+vi.mock('../sync.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../sync.ts')>();
   return {
     ...actual,
     syncAllowlist: mocks.syncAllowlist,
   };
 });
 
-vi.mock('../src/tmp.ts', () => ({
+vi.mock('../tmp.ts', () => ({
   withTempDir: mocks.withTempDir,
 }));
 
-import { auditCommand, checkCommand, syncCommand } from '../src/cli.ts';
+import { auditCommand, checkCommand, syncCommand } from '../cli.ts';
 
 // ---------------------------------------------------------------------------
 // Fixtures

@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { withTempDir } from '../src/tmp.ts';
+import { withTempDir } from '../tmp.ts';
 
 describe(withTempDir, () => {
   it('provides a directory that exists during the callback', async () => {

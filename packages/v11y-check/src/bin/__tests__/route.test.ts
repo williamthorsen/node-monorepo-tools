@@ -1,19 +1,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../src/cli.ts', () => ({
+vi.mock('../../cli.ts', () => ({
   auditCommand: vi.fn().mockResolvedValue(0),
   checkCommand: vi.fn().mockResolvedValue(0),
   extractMessage: vi.fn((e: unknown) => (e instanceof Error ? e.message : String(e))),
   syncCommand: vi.fn().mockResolvedValue(0),
 }));
 
-vi.mock('../src/init/initCommand.ts', () => ({
+vi.mock('../../init/initCommand.ts', () => ({
   initCommand: vi.fn().mockReturnValue(0),
 }));
 
-import { routeCommand } from '../src/bin/route.ts';
-import { auditCommand, checkCommand, syncCommand } from '../src/cli.ts';
-import { initCommand } from '../src/init/initCommand.ts';
+import { auditCommand, checkCommand, syncCommand } from '../../cli.ts';
+import { initCommand } from '../../init/initCommand.ts';
+import { routeCommand } from '../route.ts';
 
 describe(routeCommand, () => {
   afterEach(() => {

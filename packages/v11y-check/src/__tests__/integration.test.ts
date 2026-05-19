@@ -4,10 +4,10 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { loadConfig } from '../src/config.ts';
-import { generateAuditCiConfig } from '../src/generate.ts';
-import { buildUpdatedConfig, computeSyncDiff, serializeConfig } from '../src/sync.ts';
-import type { AuditResult, V11yCheckConfig } from '../src/types.ts';
+import { loadConfig } from '../config.ts';
+import { generateAuditCiConfig } from '../generate.ts';
+import { buildUpdatedConfig, computeSyncDiff, serializeConfig } from '../sync.ts';
+import type { AuditResult, V11yCheckConfig } from '../types.ts';
 
 describe('integration: generate -> sync cycle', () => {
   let tempDir: string;
@@ -58,7 +58,9 @@ describe('integration: generate -> sync cycle', () => {
     expect(prodContent).toHaveProperty('allowlist', ['GHSA-stale']);
 
     // Simulate audit results
-    const prodAuditResults: AuditResult[] = [{ id: 'GHSA-new1', path: 'new-pkg', url: 'https://example.com/new1' }];
+    const prodAuditResults: AuditResult[] = [
+      { id: 'GHSA-new1', path: 'new-pkg', paths: ['new-pkg'], url: 'https://example.com/new1' },
+    ];
 
     // Sync the prod allowlist
     const fixedDate = new Date('2025-06-15T00:00:00Z');

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import type { CheckResult, ScopeCheckResult } from '../src/format-check.ts';
-import { formatRelativeTime } from '../src/format-time.ts';
-import { formatCheckVerboseText } from '../src/format-verbose.ts';
+import type { CheckResult, ScopeCheckResult } from '../format-check.ts';
+import { formatRelativeTime } from '../format-time.ts';
+import { formatCheckVerboseText } from '../format-verbose.ts';
 
 // ---------------------------------------------------------------------------
 // Helpers
