@@ -321,7 +321,7 @@ The default root `check:strict` composite includes `check:agent-files`, which ru
 To expose the synced guidance to Claude Code sessions, add this include to the consuming repo's `.agents/PROJECT.md`:
 
 ```markdown
-@.agents/nmr/AGENTS.md
+@nmr/AGENTS.md
 ```
 
 ### `sync-pnpm-version`
