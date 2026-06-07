@@ -48,7 +48,7 @@
     "jiti": "2.7.0",
     "json-stringify-pretty-compact": "4.0.0",
     "semver": "7.8.2",
-    "yaml": "2.8.4",
+    "yaml": "2.9.0",
     "zod": "4.4.3"
   },
   "devDependencies": {
