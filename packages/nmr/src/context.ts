@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
-import yaml from 'js-yaml';
+import { parse } from 'yaml';
 
 import type { NmrConfig } from './config.ts';
 import { loadConfig } from './config.ts';
@@ -43,7 +43,7 @@ export function findMonorepoRoot(startDir?: string): string {
 export function getWorkspacePackageDirs(monorepoRoot: string): string[] {
   const workspaceFile = path.join(monorepoRoot, 'pnpm-workspace.yaml');
   const content = readFileSync(workspaceFile, 'utf8');
-  const parsed: unknown = yaml.load(content);
+  const parsed: unknown = parse(content);
 
   const packages = getPackagesFromParsedYaml(parsed);
 
