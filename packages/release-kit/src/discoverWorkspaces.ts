@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { glob } from 'glob';
-import { load } from 'js-yaml';
+import { parse } from 'yaml';
 
 import { isRecord } from './typeGuards.ts';
 
@@ -33,7 +33,7 @@ export async function discoverWorkspaces(): Promise<string[] | undefined> {
     return undefined;
   }
 
-  const parsed = load(content);
+  const parsed: unknown = parse(content);
   if (!isRecord(parsed)) {
     return undefined;
   }

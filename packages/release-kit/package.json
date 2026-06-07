@@ -46,13 +46,12 @@
     "@williamthorsen/nmr-core": "workspace:*",
     "glob": "13.0.6",
     "jiti": "2.7.0",
-    "js-yaml": "4.2.0",
     "json-stringify-pretty-compact": "4.0.0",
     "semver": "7.8.2",
+    "yaml": "2.8.4",
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "@types/js-yaml": "4.0.9",
     "@types/semver": "7.7.1",
     "smol-toml": "1.6.1"
   },

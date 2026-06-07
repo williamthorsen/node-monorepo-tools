@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-import { dump } from 'js-yaml';
+import { stringify } from 'yaml';
 
 import { loadSyncLabelsConfig, SYNC_LABELS_CONFIG_PATH } from './loadSyncLabelsConfig.ts';
 import { hashPresetFile } from './presets.ts';
@@ -19,8 +19,8 @@ export function formatLabelsYaml(labels: LabelDefinition[], presetHashes: Map<st
     headerLines.push(`# ${name} preset hash: ${hash}`);
   }
 
-  // Use single quotes when quoting is needed; let js-yaml decide when to quote; disable line wrapping
-  const yamlBody = dump(labels, { quotingType: "'", forceQuotes: false, lineWidth: -1 });
+  // Use single quotes when quoting is needed; let yaml decide when to quote; disable line wrapping
+  const yamlBody = stringify(labels, { singleQuote: true, lineWidth: 0 });
   return headerLines.join('\n') + '\n' + yamlBody;
 }
 

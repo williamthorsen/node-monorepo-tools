@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { findPackageRoot } from '@williamthorsen/nmr-core';
-import { load } from 'js-yaml';
+import { parse } from 'yaml';
 
 import { isRecord } from '../typeGuards.ts';
 import type { LabelDefinition } from './types.ts';
@@ -44,7 +44,7 @@ export function loadPreset(presetName: string): LabelDefinition[] {
     throw new Error(`Failed to read preset "${presetName}": ${message}`);
   }
 
-  const parsed: unknown = load(content);
+  const parsed: unknown = parse(content);
   if (!Array.isArray(parsed)) {
     throw new TypeError(`Preset "${presetName}" must be a YAML array of label definitions`);
   }
