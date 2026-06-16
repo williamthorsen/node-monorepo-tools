@@ -13,7 +13,7 @@
       "path": "kits/nmr.js",
       "readyupVersion": "0.21.2",
       "source": "kits/nmr.ts",
-      "targetHash": "165f527a"
+      "targetHash": "6580a0a7"
     },
     {
       "name": "npm-auto-publish",
@@ -27,7 +27,7 @@
       "path": "kits/release-kit.js",
       "readyupVersion": "0.21.2",
       "source": "kits/release-kit.ts",
-      "targetHash": "bdfc82eb"
+      "targetHash": "4930b756"
     },
     {
       "name": "v11y-check",

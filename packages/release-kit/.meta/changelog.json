@@ -1,5 +1,22 @@
 [
   {
+    "version": "5.3.2",
+    "date": "2026-06-16",
+    "sections": [
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Migrate from js-yaml to yaml (#410)",
+            "body": "Replaces the `js-yaml` dependency with the `yaml` package for all YAML reading and writing, with no change to behavior or generated output. The swap trims the dependency footprint by dropping a direct dependency and its companion type-definitions package, since `yaml` ships its own types.",
+            "hash": "fec315ab67e6d5c4b7eac3cb908c7c83a323f17c"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "5.3.1",
     "date": "2026-05-19",
     "sections": [
@@ -747,6 +764,11 @@
         "title": "🎉 Features",
         "audience": "all",
         "items": [
+          {
+            "description": "Migrate release-kit from toolbelt (#18)",
+            "body": "Migrates the complete `@williamthorsen/release-kit` package (v1.0.1) from `williamthorsen/toolbelt` into `packages/release-kit/`, adds shebang preservation to the shared esbuild plugin for CLI binaries, and sets up dogfooding infrastructure so this monorepo uses release-kit for its own releases.",
+            "hash": "da3a61fd335fb3e05ce20a0bffcdc1647d7aeb45"
+          },
           {
             "description": "Slim down release workflow by removing unnecessary pnpm install (#21)",
             "body": "Make release-kit self-contained by invoking git-cliff via `npx --yes` instead of requiring it on PATH, and by appending modified file paths to the format command so lightweight formatters like `npx prettier --write` work without a full `pnpm install`. Update init templates, README, and consuming repo config/workflow to reference workflow v3.",

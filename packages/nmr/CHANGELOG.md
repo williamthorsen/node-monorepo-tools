@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.14.2 — 2026-06-16
+
+### ♻️ Refactoring
+
+- Migrate from js-yaml to yaml (#410)
+
+  Replaces the `js-yaml` dependency with the `yaml` package for all YAML reading and writing, with no change to behavior or generated output. The swap trims the dependency footprint by dropping a direct dependency and its companion type-definitions package, since `yaml` ships its own types.
+
 ## 0.14.1 — 2026-05-19
 
 ### ♻️ Refactoring
@@ -155,6 +163,7 @@ All notable changes to this project will be documented in this file.
 - Add ensure-prepublish-hooks binary (#75)
 
   New binary that checks whether all publishable (non-private) workspace packages have a `prepublishOnly` script, and optionally adds one.
+
   - Check mode (default): reports each non-private package's `prepublishOnly` status, exits non-zero if any are missing.
   - Fix mode (`--fix`): inserts `prepublishOnly` into packages that lack it. Supports `--dry-run`.
   - Custom command (`--command`): overrides the default hook value (`npm run build`).

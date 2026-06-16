@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 5.3.2 — 2026-06-16
+
+### ♻️ Refactoring
+
+- Migrate from js-yaml to yaml (#410)
+
+  Replaces the `js-yaml` dependency with the `yaml` package for all YAML reading and writing, with no change to behavior or generated output. The swap trims the dependency footprint by dropping a direct dependency and its companion type-definitions package, since `yaml` ships its own types.
+
 ## 5.3.1 — 2026-05-19
 
 ### 🐛 Bug fixes
@@ -449,6 +457,7 @@ All notable changes to this project will be documented in this file.
 - Cover multi-changelogPaths and error paths (#44)
 
   Add three tests for previously untested code paths:
+
   - `releasePrepareMono`: component with two `changelogPaths` entries, asserting `git-cliff` is invoked once per path with the correct `--output` target.
   - `getCommitsSinceTarget`: `git describe` failure with a non-128 exit status propagates as a wrapped error instead of being swallowed.
   - `getCommitsSinceTarget`: `git log` failure is wrapped and re-thrown with the commit range in the message.
@@ -464,6 +473,10 @@ All notable changes to this project will be documented in this file.
 ## 2.1.0 — 2026-03-17
 
 ### 🎉 Features
+
+- Migrate release-kit from toolbelt (#18)
+
+  Migrates the complete `@williamthorsen/release-kit` package (v1.0.1) from `williamthorsen/toolbelt` into `packages/release-kit/`, adds shebang preservation to the shared esbuild plugin for CLI binaries, and sets up dogfooding infrastructure so this monorepo uses release-kit for its own releases.
 
 - 🚨 **Breaking:** Slim down release workflow by removing unnecessary pnpm install (#21)
 
