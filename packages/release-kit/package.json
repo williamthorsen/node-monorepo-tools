@@ -47,7 +47,7 @@
     "glob": "13.0.6",
     "jiti": "2.7.0",
     "json-stringify-pretty-compact": "4.0.0",
-    "semver": "7.8.2",
+    "semver": "7.8.4",
     "yaml": "2.9.0",
     "zod": "4.4.3"
   },
