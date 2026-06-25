@@ -1,9 +1,10 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { CodeQualityPnpmWorkflowSchema, getPnpmVersion } from '../helpers/code-quality-pnpm-action.ts';
+import { parseDocument } from 'yaml';
+
+import { CodeQualityPnpmWorkflowSchema, getPnpmVersionNodes } from '../helpers/code-quality-pnpm-action.ts';
 import { readPackageJson } from '../helpers/package-json.ts';
-import { readYamlFile } from '../helpers/yaml-utils.ts';
 
 const WORKFLOW_RELATIVE_PATH = '.github/workflows/code-quality.yaml';
 
@@ -34,25 +35,31 @@ export function syncPnpmVersion(monorepoRoot: string): void {
 
   console.info(`Package.json pnpm version: ${pnpmVersion}`);
 
-  // Read and validate workflow file
+  // Parse as a document so comments, blank lines, and quote style survive the round-trip
   const workflowPath = path.join(monorepoRoot, WORKFLOW_RELATIVE_PATH);
-  const workflowData = readYamlFile(workflowPath);
-  const workflow = CodeQualityPnpmWorkflowSchema.parse(workflowData);
+  const doc = parseDocument(readFileSync(workflowPath, 'utf8'));
 
-  const currentWorkflowVersion = getPnpmVersion(workflow);
-  console.info(`Current workflow pnpm version: ${currentWorkflowVersion}`);
+  const [parseError] = doc.errors;
+  if (parseError) {
+    throw new Error(`Failed to parse workflow file: ${workflowPath}\n${parseError.message}`);
+  }
 
-  if (currentWorkflowVersion === pnpmVersion) {
+  // Guard: refuse to mutate a file that is not a recognizable code-quality workflow
+  CodeQualityPnpmWorkflowSchema.parse(doc.toJS());
+
+  const outdatedNodes = getPnpmVersionNodes(doc).filter((node) => String(node.value) !== pnpmVersion);
+
+  if (outdatedNodes.length === 0) {
     console.info('Workflow pnpm version is already up to date');
     return;
   }
 
-  // Read original file content for targeted replacement (preserves formatting)
-  const originalContent = readFileSync(workflowPath, 'utf8');
-  const updatedContent = originalContent.replace(/(\s+pnpm-version:\s+)(['"]?)[\d.]+\2/, `$1$2${pnpmVersion}$2`);
+  for (const node of outdatedNodes) {
+    node.value = pnpmVersion;
+  }
 
-  writeFileSync(workflowPath, updatedContent, 'utf8');
-  console.info(`✓ Updated workflow pnpm version: ${currentWorkflowVersion} → ${pnpmVersion}`);
+  writeFileSync(workflowPath, doc.toString(), 'utf8');
+  console.info(`✓ Updated ${outdatedNodes.length} pnpm-version occurrence(s) → ${pnpmVersion}`);
 }
 
 export { extractPnpmVersion };

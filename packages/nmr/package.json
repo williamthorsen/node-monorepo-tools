@@ -48,6 +48,9 @@
     "yaml": "2.9.0",
     "zod": "4.4.3"
   },
+  "devDependencies": {
+    "@williamthorsen/toolbelt.strings": "3.1.4"
+  },
   "publishConfig": {
     "access": "public"
   }
