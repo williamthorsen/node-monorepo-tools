@@ -1,3 +1,4 @@
+import { type Document, isScalar, type Scalar, visit } from 'yaml';
 import { z } from 'zod';
 
 /**
@@ -16,6 +17,18 @@ export const CodeQualityPnpmWorkflowSchema = z.looseObject({
 
 export type CodeQualityPnpmWorkflow = z.infer<typeof CodeQualityPnpmWorkflowSchema>;
 
-export function getPnpmVersion(workflow: CodeQualityPnpmWorkflow): string {
-  return workflow.jobs['code-quality'].with['pnpm-version'];
+/**
+ * Collects every `pnpm-version` scalar value node in the workflow document, across all jobs.
+ * Returns the live nodes so callers can update them in place, preserving comments and quote style.
+ */
+export function getPnpmVersionNodes(doc: Document): Scalar[] {
+  const nodes: Scalar[] = [];
+  visit(doc, {
+    Pair(_, pair) {
+      if (isScalar(pair.key) && pair.key.value === 'pnpm-version' && isScalar(pair.value)) {
+        nodes.push(pair.value);
+      }
+    },
+  });
+  return nodes;
 }
