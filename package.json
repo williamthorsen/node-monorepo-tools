@@ -26,8 +26,8 @@
   "devDependencies": {
     "@types/eslint": "9.6.1",
     "@types/node": "24.13.2",
-    "@typescript-eslint/utils": "8.61.1",
-    "@typescript/native-preview": "7.0.0-dev.20260615.1",
+    "@typescript-eslint/utils": "8.62.0",
+    "@typescript/native-preview": "7.0.0-dev.20260624.1",
     "@vitest/coverage-v8": "4.1.9",
     "@vitest/eslint-plugin": "1.6.20",
     "@williamthorsen/eslint-config-typescript": "5.17.6",
@@ -44,11 +44,11 @@
     "readyup": "0.21.2",
     "tsx": "4.22.4",
     "typescript": "5.9.3",
-    "typescript-eslint": "8.61.1",
+    "typescript-eslint": "8.62.0",
     "v11y-check": "workspace:*",
-    "vite": "8.0.16",
+    "vite": "8.1.0",
     "vitest": "4.1.9",
     "zod": "4.4.3"
   },
-  "packageManager": "pnpm@10.34.3"
+  "packageManager": "pnpm@10.34.4"
 }
