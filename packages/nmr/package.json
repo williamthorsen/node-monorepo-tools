@@ -29,6 +29,7 @@
   "bin": {
     "ensure-prepublish-hooks": "bin/ensure-prepublish-hooks.js",
     "nmr": "bin/nmr.js",
+    "nmr-compile": "bin/nmr-compile.js",
     "nmr-report-overrides": "bin/nmr-report-overrides.js",
     "nmr-sync-agent-files": "bin/nmr-sync-agent-files.js",
     "nmr-sync-pnpm-version": "bin/nmr-sync-pnpm-version.js"
@@ -40,10 +41,12 @@
   ],
   "scripts": {
     "build:post": "nmr-sync-agent-files",
-    "prepare": "tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json"
+    "prepare": "tsx src/cli-build.ts && tsc --project tsconfig.generate-typings.json"
   },
   "dependencies": {
     "@williamthorsen/nmr-core": "workspace:*",
+    "esbuild": "0.28.1",
+    "glob": "13.0.6",
     "jiti": "2.7.0",
     "yaml": "2.9.0",
     "zod": "4.4.3"

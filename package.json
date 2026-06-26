@@ -19,7 +19,7 @@
     "packages/*"
   ],
   "scripts": {
-    "bootstrap": "cd packages/nmr && tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json",
+    "bootstrap": "cd packages/nmr && tsx src/cli-build.ts && tsc --project tsconfig.generate-typings.json",
     "postinstall": "node scripts/postinstall.js",
     "prepare": "lefthook install"
   },
@@ -35,10 +35,8 @@
     "@williamthorsen/release-kit": "workspace:*",
     "@williamthorsen/strict-lint": "6.3.2",
     "@williamthorsen/toolbelt.objects": "3.2.6",
-    "esbuild": "0.28.1",
     "eslint": "9.39.4",
     "eslint-plugin-import": "2.32.0",
-    "glob": "13.0.6",
     "lefthook": "2.1.9",
     "prettier": "3.8.4",
     "readyup": "0.21.2",
