@@ -33,7 +33,7 @@
   ],
   "scripts": {
     "build:post": "node scripts/copy-work-types.js",
-    "prepare": "tsx ../../config/build.ts && tsc --project tsconfig.generate-typings.json",
+    "prepare": "tsx ../nmr/src/cli-build.ts && tsc --project tsconfig.generate-typings.json",
     "prepublishOnly": "nmr build",
     "test": "pnpm exec vitest --config=vitest.standalone.config.ts",
     "test:coverage": "pnpm exec vitest --config=vitest.standalone.config.ts --coverage",

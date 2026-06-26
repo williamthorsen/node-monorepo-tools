@@ -18,7 +18,7 @@ Packages live under `packages/`:
 Key files:
 
 - `.config/nmr.config.ts` — Per-repo nmr overrides (currently empty; dogfoods the config-loading feature)
-- `config/build.ts` — Shared esbuild build script with content-hash caching, `.ts`→`.js` extension rewriting, and `~src/` alias resolution
+- `packages/nmr/src/commands/build.ts` — The nmr-managed esbuild build (`nmr-compile` bin) with order-invariant content-hash caching, `.ts`→`.js` extension rewriting, and `~/` package-root alias resolution
 - `config/vitest.config.ts` — Shared Vitest base configuration
 
 ## Commands
@@ -55,7 +55,7 @@ Use `nmr {command}` for all monorepo scripts. Use `pnpm run {script}` only for s
 
 ### Build system
 
-- esbuild via `config/build.ts`, run as `tsx ../../config/build.ts` from each package
+- esbuild via the nmr-managed `nmr-compile` bin (`packages/nmr/src/commands/build.ts`), the default `compile` script
 - Content-hash caching in `dist/esm/.cache` — skips rebuild when sources haven't changed
 - Each package also generates `.d.ts` typings via `tsc --project tsconfig.generate-typings.json`
 - ESM-only output (`type: "module"` in all packages)

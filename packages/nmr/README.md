@@ -137,7 +137,7 @@ These scripts are available out of the box. Repo-wide config (tier 2) and per-pa
 | `check`            | `typecheck`, `fmt:check`, `lint:check`, `test`           |
 | `check:strict`     | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage` |
 | `clean`            | `pnpm exec rimraf dist/*`                                |
-| `compile`          | `tsx ../../config/build.ts`                              |
+| `compile`          | `nmr-compile`                                            |
 | `fix`              | `lint`, `fmt`                                            |
 | `fix:check`        | `fmt:check`, `lint:check`                                |
 | `fmt`              | `prettier --list-different --write .`                    |
@@ -333,6 +333,14 @@ nmr sync-pnpm-version
 ```
 
 ## Standalone utilities
+
+### `nmr-compile`
+
+Compile a single package's `src` tree to `dist/esm` with esbuild. Rewrites `~/` (package-root) import aliases and `.ts`→`.js` specifiers to match the emitted output, and skips the build when no input has changed (a content-and-path hash is cached in `dist/esm/.cache`). This is the default `compile` script — run it from a package directory.
+
+```bash
+nmr-compile
+```
 
 ### `ensure-prepublish-hooks`
 
