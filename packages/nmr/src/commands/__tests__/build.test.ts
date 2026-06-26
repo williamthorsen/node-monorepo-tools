@@ -2,9 +2,17 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import { build } from 'esbuild';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildPackage, computeBuildHash, resolveAliasImports, rewriteTsImportExtensions } from '../build.ts';
+
+// Default esbuild's build to the real implementation so the success-path tests compile for real;
+// the cache-integrity tests override it per-call to simulate a failing or transient compile.
+vi.mock('esbuild', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('esbuild')>();
+  return { ...actual, build: vi.fn(actual.build) };
+});
 
 describe(computeBuildHash, () => {
   let dir: string;
@@ -108,7 +116,9 @@ describe(buildPackage, () => {
 
   afterEach(() => {
     fs.rmSync(dir, { recursive: true, force: true });
-    vi.restoreAllMocks();
+    vi.mocked(console.info).mockRestore();
+    // Clear call history but keep the real default implementation for the next test.
+    vi.mocked(build).mockClear();
   });
 
   function scaffoldPackage(): void {
@@ -149,5 +159,48 @@ describe(buildPackage, () => {
 
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining('📦'));
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining(path.basename(dir)));
+  });
+
+  it('does not write the build cache when the compile fails', async () => {
+    scaffoldPackage();
+    vi.mocked(build).mockRejectedValueOnce(new Error('compile failed'));
+
+    await expect(buildPackage(dir)).rejects.toThrow('compile failed');
+
+    expect(fs.existsSync(path.join(dir, 'dist', 'esm', '.cache'))).toBe(false);
+  });
+
+  it('re-attempts and rebuilds after a transient compile failure instead of skipping', async () => {
+    scaffoldPackage();
+    vi.mocked(build).mockRejectedValueOnce(new Error('transient failure'));
+    await expect(buildPackage(dir)).rejects.toThrow();
+
+    // Sources are unchanged: a cache poisoned by the failed run would make this skip the compile.
+    // Instead it must re-attempt, and with the transient failure gone, produce output and cache it.
+    await buildPackage(dir);
+
+    expect(build).toHaveBeenCalledTimes(2);
+    expect(fs.existsSync(path.join(dir, 'dist', 'esm', 'index.js'))).toBe(true);
+    expect(fs.existsSync(path.join(dir, 'dist', 'esm', '.cache'))).toBe(true);
+  });
+
+  it('preserves an existing cache when a changed-source rebuild fails', async () => {
+    scaffoldPackage();
+    await buildPackage(dir);
+    const cachePath = path.join(dir, 'dist', 'esm', '.cache');
+    const lastGoodDigest = fs.readFileSync(cachePath, 'utf8');
+
+    // A changed source forces the rebuild to be attempted rather than skipped; make that rebuild fail.
+    fs.writeFileSync(path.join(dir, 'src', 'util.ts'), 'export const util = 2;\n');
+    vi.mocked(build).mockRejectedValueOnce(new Error('rebuild failed'));
+    await expect(buildPackage(dir)).rejects.toThrow();
+
+    // The failed rebuild must leave the last successful build's digest intact, not overwrite it.
+    expect(fs.readFileSync(cachePath, 'utf8')).toBe(lastGoodDigest);
+
+    // With the failure gone, the next run rebuilds the changed source and refreshes the cache.
+    await buildPackage(dir);
+    expect(fs.readFileSync(path.join(dir, 'dist', 'esm', 'util.js'), 'utf8')).toContain('util = 2');
+    expect(fs.readFileSync(cachePath, 'utf8')).not.toBe(lastGoodDigest);
   });
 });

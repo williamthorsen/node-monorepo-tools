@@ -54,7 +54,12 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
   });
   const dependencies = ['package.json'];
 
-  const changed = await hashChanged(packageDir, [...entryPoints, ...dependencies], outputConfig, cacheFile);
+  const { changed, currentHash } = await detectBuildChanges(
+    packageDir,
+    [...entryPoints, ...dependencies],
+    outputConfig,
+    cacheFile,
+  );
   if (!changed) {
     return;
   }
@@ -68,6 +73,10 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
     plugins: [rewriteTsExtensions(packageDir, aliases)],
     ...outputConfig,
   });
+
+  // Persist the digest only after a successful build, so a failed compile cannot poison the cache
+  // and cause the next run to skip a never-completed build.
+  await writeBuildCache(packageDir, cacheFile, currentHash);
 }
 
 /**
@@ -118,13 +127,17 @@ export function rewriteTsImportExtensions(code: string): string {
   return code.replaceAll(/(?<=from\s+['"])(\.{1,2}\/[^'"]+)\.ts(?=['"])/g, '$1.js');
 }
 
-/** Compares the current input digest against the cached one, writing the new digest on a miss. */
-async function hashChanged(
+/**
+ * Compares the current input digest against the cached one, reporting whether the inputs changed
+ * and returning the freshly computed digest. Emits the 📦/⏭️ status but performs no write, so the
+ * caller can persist the digest only after a successful build.
+ */
+async function detectBuildChanges(
   packageDir: string,
   files: string[],
   outputConfig: OutputConfig,
   cacheFile: string,
-): Promise<boolean> {
+): Promise<{ changed: boolean; currentHash: string }> {
   const packageName = path.basename(packageDir);
   const cachePath = path.join(packageDir, cacheFile);
   const previousHash = existsSync(cachePath) ? readFileSync(cachePath, 'utf8') : undefined;
@@ -132,13 +145,18 @@ async function hashChanged(
 
   if (previousHash === currentHash) {
     console.info(`${SKIPPED_ICON} ${packageName}: No changes detected. Skipping build.`);
-    return false;
+    return { changed: false, currentHash };
   }
 
   console.info(`${PACKAGE_ICON} ${packageName}: Changes detected.`);
+  return { changed: true, currentHash };
+}
+
+/** Writes the build digest to the cache file, creating the cache directory if it does not exist. */
+async function writeBuildCache(packageDir: string, cacheFile: string, hash: string): Promise<void> {
+  const cachePath = path.join(packageDir, cacheFile);
   await mkdir(path.dirname(cachePath), { recursive: true });
-  await writeFile(cachePath, currentHash);
-  return true;
+  await writeFile(cachePath, hash);
 }
 
 /** esbuild plugin that strips/reattaches a shebang and rewrites alias + `.ts` import specifiers. */
