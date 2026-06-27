@@ -5,33 +5,60 @@ import path from 'node:path';
 import { readPackageVersion } from '@williamthorsen/nmr-core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { check, parseSourceStamp, sync } from '../sync-agent-files.ts';
+import { check, sync } from '../sync-agent-files.ts';
 
 const DESTINATION_RELATIVE_PATH = '.agents/nmr/AGENTS.md';
-const currentStamp = `@williamthorsen/nmr@${readPackageVersion(import.meta.url)}`;
+const currentPackageSpecifier = `@williamthorsen/nmr@${readPackageVersion(import.meta.url)}`;
+const STALE_PACKAGE_SPECIFIER = '@williamthorsen/nmr@0.0.1-stale';
 
-describe('parseSourceStamp', () => {
-  it('extracts source value from well-formed frontmatter', () => {
-    const content = `---\nsource: '@williamthorsen/nmr@1.2.3'\n---\nbody\n`;
-    expect(parseSourceStamp(content)).toBe('@williamthorsen/nmr@1.2.3');
+describe(check, () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-agent-files-check-'));
   });
 
-  it('returns null when frontmatter is missing', () => {
-    expect(parseSourceStamp('# just a heading\n')).toBeNull();
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('returns null when frontmatter has no source field', () => {
-    const content = `---\nother: value\n---\nbody\n`;
-    expect(parseSourceStamp(content)).toBeNull();
+  it('returns ok when the body matches the installed version', () => {
+    sync(tmpDir);
+    expect(check(tmpDir).ok).toBe(true);
   });
 
-  it('accepts a double-quoted source value', () => {
-    const content = `---\nsource: "@williamthorsen/nmr@1.2.3"\n---\nbody\n`;
-    expect(parseSourceStamp(content)).toBe('@williamthorsen/nmr@1.2.3');
+  it('returns ok when the body matches but the package specifier is older than installed', () => {
+    const destination = path.join(tmpDir, DESTINATION_RELATIVE_PATH);
+    sync(tmpDir);
+    rewritePackageSpecifier(destination, STALE_PACKAGE_SPECIFIER);
+
+    expect(check(tmpDir).ok).toBe(true);
+  });
+
+  it('fails when the body differs even though the package specifier matches installed', () => {
+    const destination = path.join(tmpDir, DESTINATION_RELATIVE_PATH);
+    sync(tmpDir);
+    fs.appendFileSync(destination, '\nlocal edit\n');
+
+    const result = check(tmpDir);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toContain('content is out of date');
+      expect(result.reason).toContain('nmr sync-agent-files');
+    }
+  });
+
+  it('returns a missing-file reason when the destination does not exist', () => {
+    const result = check(tmpDir);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toContain('.agents/nmr/AGENTS.md is missing');
+      expect(result.reason).toContain('nmr sync-agent-files');
+    }
   });
 });
 
-describe('sync', () => {
+describe(sync, () => {
   let tmpDir: string;
 
   beforeEach(() => {
@@ -46,11 +73,12 @@ describe('sync', () => {
     const result = sync(tmpDir);
 
     const destination = path.join(tmpDir, DESTINATION_RELATIVE_PATH);
-    expect(result.written).toBe(destination);
-    expect(result.stamp).toBe(currentStamp);
+    expect(result.path).toBe(destination);
+    expect(result.packageSpecifier).toBe(currentPackageSpecifier);
+    expect(result.changed).toBe(true);
 
     const written = fs.readFileSync(destination, 'utf8');
-    expect(written.startsWith(`---\nsource: '${currentStamp}'\n---\n`)).toBe(true);
+    expect(written.startsWith(`---\nsource: '${currentPackageSpecifier}'\n---\n`)).toBe(true);
     expect(written).toContain('# nmr: agent guidance');
     expect(written).not.toContain('0.0.0-source');
   });
@@ -61,70 +89,35 @@ describe('sync', () => {
     expect(fs.existsSync(path.join(tmpDir, '.agents', 'nmr'))).toBe(true);
   });
 
-  it('overwrites an existing destination with a stale stamp', () => {
+  it('rewrites a destination whose body differs', () => {
     const destination = path.join(tmpDir, DESTINATION_RELATIVE_PATH);
     fs.mkdirSync(path.dirname(destination), { recursive: true });
-    fs.writeFileSync(destination, `---\nsource: '@williamthorsen/nmr@0.0.1-stale'\n---\nold body\n`);
+    fs.writeFileSync(destination, `---\nsource: '${STALE_PACKAGE_SPECIFIER}'\n---\nold body\n`);
 
-    sync(tmpDir);
+    const result = sync(tmpDir);
 
+    expect(result.changed).toBe(true);
     const written = fs.readFileSync(destination, 'utf8');
-    expect(written).toContain(currentStamp);
+    expect(written).toContain(currentPackageSpecifier);
     expect(written).not.toContain('0.0.1-stale');
     expect(written).not.toContain('old body');
   });
-});
 
-describe('check', () => {
-  let tmpDir: string;
-
-  beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-agent-files-check-'));
-  });
-
-  afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  });
-
-  it('returns ok when the destination matches the installed version', () => {
+  it('does not rewrite when the body already matches, preserving the existing specifier', () => {
+    const destination = path.join(tmpDir, DESTINATION_RELATIVE_PATH);
     sync(tmpDir);
-    const result = check(tmpDir);
-    expect(result.ok).toBe(true);
-  });
+    rewritePackageSpecifier(destination, STALE_PACKAGE_SPECIFIER);
 
-  it('returns a missing-file reason when the destination does not exist', () => {
-    const result = check(tmpDir);
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.reason).toContain('.agents/nmr/AGENTS.md is missing');
-      expect(result.reason).toContain('nmr sync-agent-files');
-    }
-  });
+    const result = sync(tmpDir);
 
-  it('returns a malformed-frontmatter reason when the stamp cannot be parsed', () => {
-    const destination = path.join(tmpDir, DESTINATION_RELATIVE_PATH);
-    fs.mkdirSync(path.dirname(destination), { recursive: true });
-    fs.writeFileSync(destination, 'no frontmatter here\n');
-
-    const result = check(tmpDir);
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.reason).toContain('Cannot parse version stamp');
-      expect(result.reason).toContain('nmr sync-agent-files');
-    }
-  });
-
-  it('returns an out-of-sync reason when the stamp does not match', () => {
-    const destination = path.join(tmpDir, DESTINATION_RELATIVE_PATH);
-    fs.mkdirSync(path.dirname(destination), { recursive: true });
-    fs.writeFileSync(destination, `---\nsource: '@williamthorsen/nmr@99.99.99'\n---\nbody\n`);
-
-    const result = check(tmpDir);
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.reason).toContain('out of sync');
-      expect(result.reason).toContain('99.99.99');
-      expect(result.reason).toContain(currentStamp);
-    }
+    expect(result.changed).toBe(false);
+    expect(result.path).toBe(destination);
+    expect(fs.readFileSync(destination, 'utf8')).toContain(STALE_PACKAGE_SPECIFIER);
   });
 });
+
+/** Rewrites the destination's frontmatter package specifier to `specifier`, leaving the body untouched. */
+function rewritePackageSpecifier(destination: string, specifier: string): void {
+  const content = fs.readFileSync(destination, 'utf8');
+  fs.writeFileSync(destination, content.replace(currentPackageSpecifier, specifier));
+}

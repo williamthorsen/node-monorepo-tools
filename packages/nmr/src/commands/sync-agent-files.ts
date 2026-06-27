@@ -10,11 +10,83 @@ const PACKAGE_NAME = '@williamthorsen/nmr';
 const DESTINATION_RELATIVE_PATH = '.agents/nmr/AGENTS.md';
 const SOURCE_FILENAME = 'AGENTS.md';
 
+/** Matches a leading frontmatter block; capture group 1 is the body between the `---` fences. */
+const FRONTMATTER_REGEX = /^---\n((?:.*\n)*?)---\n/;
+
 /**
- * Absolute path to the source AGENTS.md bundled with the installed nmr package.
- * Walks up from this file's directory until it finds a sibling AGENTS.md, so
- * the same code works whether invoked from compiled dist (3 levels up) or from
- * source during tests (2 levels up).
+ * Verifies that `{destinationDir}/.agents/nmr/AGENTS.md` exists and its body (frontmatter stripped) matches the body
+ * the installed nmr version renders. Gates on content only; the `source:` package specifier is informational and not
+ * compared.
+ */
+export function check(destinationDir: string): CheckResult {
+  const destinationPath = getDestinationPath(destinationDir);
+
+  if (!existsSync(destinationPath)) {
+    return {
+      ok: false,
+      reason: `${DESTINATION_RELATIVE_PATH} is missing. Run \`nmr sync-agent-files\`.`,
+    };
+  }
+
+  const expectedBody = stripFrontmatter(readFileSync(getSourcePath(), 'utf8'));
+  const foundBody = stripFrontmatter(readFileSync(destinationPath, 'utf8'));
+
+  if (foundBody !== expectedBody) {
+    return {
+      ok: false,
+      reason: `${DESTINATION_RELATIVE_PATH} content is out of date. Run \`nmr sync-agent-files\`.`,
+    };
+  }
+
+  return { ok: true };
+}
+
+export interface SyncResult {
+  path: string;
+  /** The installed package specifier (`name@version`); matches the file's own only when `changed` is true. */
+  packageSpecifier: string;
+  changed: boolean;
+}
+
+/**
+ * Renders the bundled AGENTS.md into `{destinationDir}/.agents/nmr/AGENTS.md`, replacing the source frontmatter with
+ * the installed package specifier. Idempotent on content: Rewrites only when the destination is missing or its body
+ * differs, otherwise leaves the file (and its existing specifier) untouched. Creates parent directories as needed.
+ */
+export function sync(destinationDir: string): SyncResult {
+  const body = stripFrontmatter(readFileSync(getSourcePath(), 'utf8'));
+  const packageSpecifier = buildPackageSpecifier();
+  const destinationPath = getDestinationPath(destinationDir);
+
+  if (existsSync(destinationPath) && stripFrontmatter(readFileSync(destinationPath, 'utf8')) === body) {
+    return { path: destinationPath, packageSpecifier, changed: false };
+  }
+
+  const output = `---\nsource: '${packageSpecifier}'\n---\n${body}`;
+  mkdirSync(path.dirname(destinationPath), { recursive: true });
+  writeFileSync(destinationPath, output, 'utf8');
+
+  return { path: destinationPath, packageSpecifier, changed: true };
+}
+
+export type CheckResult = { ok: true } | { ok: false; reason: string };
+
+// region | Helpers
+
+/** Returns the installed package specifier in `name@version` form, e.g. `@williamthorsen/nmr@0.14.2`. */
+function buildPackageSpecifier(): string {
+  return `${PACKAGE_NAME}@${VERSION}`;
+}
+
+/** Returns the managed AGENTS.md path within `destinationDir`. */
+function getDestinationPath(destinationDir: string): string {
+  return path.join(destinationDir, DESTINATION_RELATIVE_PATH);
+}
+
+/**
+ * Returns the absolute path to the source AGENTS.md bundled with the installed nmr package. Walks up from this file's
+ * directory until it finds a sibling AGENTS.md, so the same code works whether invoked from compiled dist (3 levels
+ * up) or from source during tests (2 levels up).
  */
 function getSourcePath(): string {
   let dir = path.dirname(fileURLToPath(import.meta.url));
@@ -26,88 +98,9 @@ function getSourcePath(): string {
   throw new Error(`Could not locate ${SOURCE_FILENAME} in any parent of ${fileURLToPath(import.meta.url)}`);
 }
 
-function getDestinationPath(destinationDir: string): string {
-  return path.join(destinationDir, DESTINATION_RELATIVE_PATH);
-}
-
-function currentSourceStamp(): string {
-  return `${PACKAGE_NAME}@${VERSION}`;
-}
-
-/** Matches a leading frontmatter block; capture group 1 is the body between the `---` fences. */
-const FRONTMATTER_REGEX = /^---\n((?:.*\n)*?)---\n/;
-
-/** Strip leading frontmatter block from a file body, if present. */
+/** Returns the content with its leading frontmatter block removed, if present. */
 function stripFrontmatter(content: string): string {
   return content.replace(FRONTMATTER_REGEX, '');
 }
 
-/** Extract the `source:` value from a file's frontmatter, or null if absent/malformed. */
-export function parseSourceStamp(content: string): string | null {
-  const frontmatterMatch = FRONTMATTER_REGEX.exec(content);
-  if (!frontmatterMatch) return null;
-  const frontmatterBody = frontmatterMatch[1] ?? '';
-  const sourceMatch = /^source:\s*['"]([^'"]+)['"]\s*$/m.exec(frontmatterBody);
-  return sourceMatch?.[1] ?? null;
-}
-
-export interface SyncResult {
-  written: string;
-  stamp: string;
-}
-
-/**
- * Copies the bundled AGENTS.md into `{destinationDir}/.agents/nmr/AGENTS.md`,
- * replacing the source frontmatter with a fresh version stamp. Overwrites
- * unconditionally and creates parent directories as needed.
- */
-export function sync(destinationDir: string): SyncResult {
-  const sourcePath = getSourcePath();
-  const sourceContent = readFileSync(sourcePath, 'utf8');
-  const body = stripFrontmatter(sourceContent);
-  const stamp = currentSourceStamp();
-  const output = `---\nsource: '${stamp}'\n---\n${body}`;
-
-  const destinationPath = getDestinationPath(destinationDir);
-  mkdirSync(path.dirname(destinationPath), { recursive: true });
-  writeFileSync(destinationPath, output, 'utf8');
-
-  return { written: destinationPath, stamp };
-}
-
-export type CheckResult = { ok: true; stamp: string } | { ok: false; reason: string };
-
-/**
- * Verifies that `{destinationDir}/.agents/nmr/AGENTS.md` exists, has a well-formed
- * frontmatter stamp, and matches the installed nmr version.
- */
-export function check(destinationDir: string): CheckResult {
-  const destinationPath = getDestinationPath(destinationDir);
-  const expected = currentSourceStamp();
-
-  if (!existsSync(destinationPath)) {
-    return {
-      ok: false,
-      reason: `${DESTINATION_RELATIVE_PATH} is missing. Run \`nmr sync-agent-files\`.`,
-    };
-  }
-
-  const content = readFileSync(destinationPath, 'utf8');
-  const found = parseSourceStamp(content);
-
-  if (found === null) {
-    return {
-      ok: false,
-      reason: `Cannot parse version stamp in ${DESTINATION_RELATIVE_PATH}. Run \`nmr sync-agent-files\`.`,
-    };
-  }
-
-  if (found !== expected) {
-    return {
-      ok: false,
-      reason: `${DESTINATION_RELATIVE_PATH} is out of sync (file: ${found}, installed: ${expected}). Run \`nmr sync-agent-files\`.`,
-    };
-  }
-
-  return { ok: true, stamp: expected };
-}
+// endregion | Helpers
