@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.8.0 — 2026-06-27
+
+### 🎉 Features
+
+- Centralize the per-package build as an nmr-compile bin (#419)
+
+  Introduces `nmr-compile`, a single command shipped with `@williamthorsen/nmr` that compiles each workspace package and now backs the default build. Consuming repos can delete their own per-package build script and pick up future build fixes just by upgrading nmr. Repeated builds with unchanged source now reliably skip recompiling instead of occasionally rebuilding for no reason, and import aliases now resolve correctly in symlinked checkouts.
+
 ## 0.7.1 — 2026-05-19
 
 ### ♻️ Refactoring
@@ -91,6 +99,7 @@ All notable changes to this project will be documented in this file.
   The bare `audit-deps` command now runs a grouped vulnerability check instead of showing help text. Each scope (prod first, then dev) shows unallowed vulnerabilities with severity indicators, allowed vulnerabilities with annotations, and stale allowlist entries flagged for cleanup. Exit code is 1 when unallowed vulnerabilities exist.
 
   The previous raw audit-ci passthrough moves behind `--raw`. The `report` subcommand is removed; its functionality is superseded by the new default output. `--dev`/`--prod`, `--config`, and `--json` compose with both the bare command and `--raw`.
+
   - Add optional `severity` field to `AuditResult` and extract it from audit-ci advisory JSON.
   - Add `checkCommand` that cross-references audit results with the config allowlist to classify vulnerabilities and detect stale entries. Forward `runReport` stderr to `process.stderr` when non-empty, matching the existing `auditCommand` pattern.
   - Add `formatCheckText` and `formatCheckJson` formatters in `format-check.ts`, with severity-to-emoji mapping (🔴 critical/high, 🟠 moderate, 🟡 low/info).

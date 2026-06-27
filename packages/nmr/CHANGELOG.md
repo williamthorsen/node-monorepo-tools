@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.15.0 — 2026-06-27
+
+### 🎉 Features
+
+- Centralize the per-package build as an nmr-compile bin (#419)
+
+  Introduces `nmr-compile`, a single command shipped with `@williamthorsen/nmr` that compiles each workspace package and now backs the default build. Consuming repos can delete their own per-package build script and pick up future build fixes just by upgrading nmr. Repeated builds with unchanged source now reliably skip recompiling instead of occasionally rebuilding for no reason, and import aliases now resolve correctly in symlinked checkouts.
+
+### 🐛 Bug fixes
+
+- Write the build cache only after a successful compile (#421)
+
+  Fixes an issue where a package compile that failed partway — from a crash, disk error, or transient build failure — could leave stale or incomplete output that the next build skipped over as unchanged. The next build now retries the failed compile, so recovering no longer requires a manual `nmr clean` or a source-file edit.
+
+- Stop sync-agent-files --check failing on version-only bumps (#424)
+
+  Fixes an issue where `nmr sync-agent-files --check` failed after an nmr upgrade even when the managed agent guidance was identical. The check now passes whenever the guidance content is current, even if the version has changed.
+
+- Remove inapplicable bootstrap fallback from agent guidance (#425)
+
+  Fixes an issue where the agent guidance bundled with nmr told coding agents to run a recovery step that exists only in the nmr repo itself.
+
+### ♻️ Refactoring
+
+- Sync workflow pnpm version via yaml document API (#412)
+
+  `nmr sync-pnpm-version` now updates every pinned pnpm version in a workflow, not just the first, so a workflow that pins the version across multiple jobs no longer leaves later jobs on a stale version.
+
 ## 0.14.2 — 2026-06-16
 
 ### ♻️ Refactoring

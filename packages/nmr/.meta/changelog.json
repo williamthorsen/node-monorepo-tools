@@ -1,5 +1,54 @@
 [
   {
+    "version": "0.15.0",
+    "date": "2026-06-27",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Centralize the per-package build as an nmr-compile bin (#419)",
+            "body": "Introduces `nmr-compile`, a single command shipped with `@williamthorsen/nmr` that compiles each workspace package and now backs the default build. Consuming repos can delete their own per-package build script and pick up future build fixes just by upgrading nmr. Repeated builds with unchanged source now reliably skip recompiling instead of occasionally rebuilding for no reason, and import aliases now resolve correctly in symlinked checkouts.",
+            "hash": "cc20e3130087689c2fe8bf0e6de4b1349646296e"
+          }
+        ]
+      },
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Write the build cache only after a successful compile (#421)",
+            "body": "Fixes an issue where a package compile that failed partway — from a crash, disk error, or transient build failure — could leave stale or incomplete output that the next build skipped over as unchanged. The next build now retries the failed compile, so recovering no longer requires a manual `nmr clean` or a source-file edit.",
+            "hash": "424a3e684f0fa6db97ee58f4f032afc123df8327"
+          },
+          {
+            "description": "Stop sync-agent-files --check failing on version-only bumps (#424)",
+            "body": "Fixes an issue where `nmr sync-agent-files --check` failed after an nmr upgrade even when the managed agent guidance was identical. The check now passes whenever the guidance content is current, even if the version has changed.",
+            "hash": "f6ab59827d3fd1fd9e031d996c1dbb84ce5b3113"
+          },
+          {
+            "description": "Remove inapplicable bootstrap fallback from agent guidance (#425)",
+            "body": "Fixes an issue where the agent guidance bundled with nmr told coding agents to run a recovery step that exists only in the nmr repo itself.",
+            "hash": "3a730b802a1cbd17c029a651ade07fa6ec841c22"
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Sync workflow pnpm version via yaml document API (#412)",
+            "body": "`nmr sync-pnpm-version` now updates every pinned pnpm version in a workflow, not just the first, so a workflow that pins the version across multiple jobs no longer leaves later jobs on a stale version.",
+            "hash": "f3dc04d429fc6b68c5d589d6fa566e4e3c2be964"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.14.2",
     "date": "2026-06-16",
     "sections": [

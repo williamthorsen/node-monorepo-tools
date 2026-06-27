@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.8.0",
+    "date": "2026-06-27",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Centralize the per-package build as an nmr-compile bin (#419)",
+            "body": "Introduces `nmr-compile`, a single command shipped with `@williamthorsen/nmr` that compiles each workspace package and now backs the default build. Consuming repos can delete their own per-package build script and pick up future build fixes just by upgrading nmr. Repeated builds with unchanged source now reliably skip recompiling instead of occasionally rebuilding for no reason, and import aliases now resolve correctly in symlinked checkouts.",
+            "hash": "cc20e3130087689c2fe8bf0e6de4b1349646296e"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.7.1",
     "date": "2026-05-19",
     "sections": [

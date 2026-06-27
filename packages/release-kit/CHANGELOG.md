@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 5.4.0 — 2026-06-27
+
+### 🎉 Features
+
+- Centralize the per-package build as an nmr-compile bin (#419)
+
+  Introduces `nmr-compile`, a single command shipped with `@williamthorsen/nmr` that compiles each workspace package and now backs the default build. Consuming repos can delete their own per-package build script and pick up future build fixes just by upgrading nmr. Repeated builds with unchanged source now reliably skip recompiling instead of occasionally rebuilding for no reason, and import aliases now resolve correctly in symlinked checkouts.
+
 ## 5.3.2 — 2026-06-16
 
 ### ♻️ Refactoring
