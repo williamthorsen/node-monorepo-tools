@@ -4,7 +4,7 @@ source: '@williamthorsen/nmr@0.14.2'
 
 # nmr: agent guidance
 
-This file is managed by `@williamthorsen/nmr`. Do not edit; re-run `nmr sync-agent-files` after an nmr upgrade to refresh it.
+This file is managed by `@williamthorsen/nmr`. Do not edit; run `nmr sync-agent-files` to refresh it after an nmr upgrade that changes this guidance.
 
 ## Discover scripts by running nmr
 
