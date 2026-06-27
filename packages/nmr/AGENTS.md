@@ -24,10 +24,6 @@ Run `nmr` with no command (from the monorepo root or any workspace package) to l
 
 Avoid `npx nmr`. Inside git worktrees, `npx` can resolve a different nmr binary from outside the working tree.
 
-### Bootstrap fallback
-
-If `nmr` itself fails to run (fresh clone, missing build output), run `pnpm run bootstrap` from the repo root first.
-
 ## Root vs. workspace context
 
 nmr walks up to find `pnpm-workspace.yaml`, then decides which registry to use based on whether your cwd is inside a workspace package. The same command name (e.g. `build`, `test`, `check:strict`) often exists in both registries with different behavior; the root version typically delegates across all workspaces. Use `-w` to force the root registry from inside a package dir, and `-F <pkg>` to run a single package's script from anywhere.
