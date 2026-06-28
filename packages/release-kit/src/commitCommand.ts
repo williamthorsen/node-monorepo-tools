@@ -1,10 +1,7 @@
-/* eslint n/no-process-exit: off */
-/* eslint unicorn/no-process-exit: off */
-
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
-import { parseArgs, translateParseError } from '@williamthorsen/nmr-core';
+import { parseArgsOrExit } from '@williamthorsen/nmr-core';
 
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './prepareCommand.ts';
 
@@ -19,15 +16,7 @@ const commitFlagSchema = {
  * changes, and creates a release commit with a formatted message.
  */
 export function commitCommand(argv: string[]): void {
-  let parsed;
-  try {
-    parsed = parseArgs(argv, commitFlagSchema);
-  } catch (error: unknown) {
-    console.error(`Error: ${translateParseError(error)}`);
-    process.exit(1);
-  }
-
-  const dryRun = parsed.flags.dryRun;
+  const dryRun = parseArgsOrExit(argv, commitFlagSchema).flags.dryRun;
 
   // Read tags file.
   let tagsContent: string;

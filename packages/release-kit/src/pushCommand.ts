@@ -1,7 +1,7 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
-import { parseArgs, translateParseError } from '@williamthorsen/nmr-core';
+import { parseArgsOrExit } from '@williamthorsen/nmr-core';
 
 import { parseRequestedTags } from './parseRequestedTags.ts';
 import { pushRelease } from './pushRelease.ts';
@@ -18,13 +18,7 @@ const pushFlagSchema = {
  * the release commit and each tag individually.
  */
 export async function pushCommand(argv: string[]): Promise<void> {
-  let parsed;
-  try {
-    parsed = parseArgs(argv, pushFlagSchema);
-  } catch (error: unknown) {
-    console.error(`Error: ${translateParseError(error)}`);
-    process.exit(1);
-  }
+  const parsed = parseArgsOrExit(argv, pushFlagSchema);
 
   const { dryRun, tagsOnly } = parsed.flags;
   const requestedTags = parseRequestedTags(parsed.flags.tags);

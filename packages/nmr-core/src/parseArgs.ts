@@ -1,3 +1,6 @@
+import process from 'node:process';
+import { parseArgs as nodeParseArgs } from 'node:util';
+
 /** Schema entry describing a single CLI flag. */
 export interface FlagDefinition {
   long: string;
@@ -19,157 +22,116 @@ export interface ParsedArgs<S extends FlagSchema> {
   positionals: string[];
 }
 
-/** Handle a `--flag=value` argument, returning the key and value to assign. */
-function handleEqualsForm(
-  arg: string,
-  eqIndex: number,
-  longToKey: Map<string, string>,
-  definitions: Map<string, FlagDefinition>,
-): { key: string; value: string } {
-  const longFlag = arg.slice(0, eqIndex);
-  const key = longToKey.get(longFlag);
-  if (key === undefined) {
-    throw new Error(`unknown flag '${longFlag}'`);
-  }
-  const def = definitions.get(key);
-  if (def?.type === 'boolean') {
-    throw new Error(`flag '${longFlag}' does not accept a value`);
-  }
-  const value = arg.slice(eqIndex + 1);
-  if (value === '') {
-    throw new Error(`${longFlag} requires a value`);
-  }
-  return { key, value };
-}
-
-/** Handle a bare `--flag` or `-f` argument, returning the key, value, and index advancement. */
-function handleBareFlag(
-  arg: string,
-  index: number,
-  argv: string[],
-  longToKey: Map<string, string>,
-  shortToKey: Map<string, string>,
-  definitions: Map<string, FlagDefinition>,
-): { key: string; value: boolean | string; advance: number } {
-  const key = longToKey.get(arg) ?? shortToKey.get(arg);
-  if (key === undefined) {
-    throw new Error(`unknown flag '${arg}'`);
-  }
-  const def = definitions.get(key);
-  if (def?.type === 'boolean') {
-    return { key, value: true, advance: 0 };
-  }
-  // String flag: consume next argument as value.
-  const next = argv[index + 1];
-  if (next === undefined || (next.startsWith('-') && next !== '-')) {
-    throw new Error(`${def?.long} requires a value`);
-  }
-  return { key, value: next, advance: 1 };
-}
+/** Discriminates the failure modes `parseArgs` reports. */
+export type ParseErrorKind = 'unknown-flag' | 'missing-value' | 'unexpected-value';
 
 /**
- * Build the lookup tables needed for flag resolution from a schema.
+ * Error thrown by `parseArgs` on invalid input.
  *
- * Returns maps from long/short forms to schema keys, and from schema keys to definitions.
+ * Carries the failure `kind` and the offending `flag` (as the user typed it); its `message` is
+ * composed from those fields, so error wording is uniform across every kind.
  */
-function buildLookupTables(schema: FlagSchema): {
-  longToKey: Map<string, string>;
-  shortToKey: Map<string, string>;
-  definitions: Map<string, FlagDefinition>;
-} {
-  const longToKey = new Map<string, string>();
-  const shortToKey = new Map<string, string>();
-  const definitions = new Map<string, FlagDefinition>();
+export class ParseError extends Error {
+  readonly kind: ParseErrorKind;
+  readonly flag: string;
 
-  for (const [key, def] of Object.entries(schema)) {
-    longToKey.set(def.long, key);
-    definitions.set(key, def);
-    if (def.short !== undefined) {
-      shortToKey.set(def.short, key);
-    }
+  constructor(kind: ParseErrorKind, flag: string) {
+    super(formatParseErrorMessage(kind, flag));
+    this.name = 'ParseError';
+    this.kind = kind;
+    this.flag = flag;
   }
-
-  return { longToKey, shortToKey, definitions };
-}
-
-/**
- * Internal implementation that works with untyped records.
- *
- * Separated from the public API to isolate the dynamic key manipulation
- * from the generic type boundary.
- */
-function parseArgsInternal(
-  argv: string[],
-  schema: FlagSchema,
-): { flags: Record<string, boolean | string | undefined>; positionals: string[] } {
-  const { longToKey, shortToKey, definitions } = buildLookupTables(schema);
-
-  const flags: Record<string, boolean | string | undefined> = {};
-  for (const [key, def] of Object.entries(schema)) {
-    flags[key] = def.type === 'boolean' ? false : undefined;
-  }
-
-  const positionals: string[] = [];
-  let pastDelimiter = false;
-
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i] ?? '';
-
-    if (pastDelimiter) {
-      positionals.push(arg);
-      continue;
-    }
-
-    if (arg === '--') {
-      pastDelimiter = true;
-      continue;
-    }
-
-    // Check for --long=value form.
-    const eqIndex = arg.indexOf('=');
-    if (eqIndex !== -1 && arg.startsWith('--')) {
-      const { key, value } = handleEqualsForm(arg, eqIndex, longToKey, definitions);
-      flags[key] = value;
-      continue;
-    }
-
-    // Check for --long or -short form.
-    if (arg.startsWith('-') && arg !== '-') {
-      const { key, value, advance } = handleBareFlag(arg, i, argv, longToKey, shortToKey, definitions);
-      flags[key] = value;
-      i += advance;
-      continue;
-    }
-
-    // Positional (includes bare `-`).
-    positionals.push(arg);
-  }
-
-  return { flags, positionals };
 }
 
 /**
  * Parse a pre-sliced argv array against a flag schema.
  *
- * Throws `Error` with a human-readable message on unknown flags or missing string-flag values.
- * Does not call `console` or `process.exit`.
+ * Delegates tokenizing to `node:util.parseArgs` (non-strict, with tokens) and validates the token
+ * stream against the schema. Throws `ParseError` on an unknown flag, a missing string-flag value, or
+ * a value supplied to a boolean flag. Does not write output or exit.
  */
 export function parseArgs<S extends FlagSchema>(argv: string[], schema: S): ParsedArgs<S> {
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- The internal parser works with dynamic keys; the generic return type is guaranteed by schema-driven initialization.
-  return parseArgsInternal(argv, schema) as ParsedArgs<S>;
+  const nodeOptions: Record<string, { type: 'boolean' | 'string'; short?: string }> = {};
+  const byName = new Map<string, { key: string; def: FlagDefinition }>();
+  const flags: Record<string, boolean | string | undefined> = {};
+
+  for (const [key, def] of Object.entries(schema)) {
+    const name = def.long.replace(/^--/, '');
+    nodeOptions[name] =
+      def.short === undefined ? { type: def.type } : { type: def.type, short: def.short.replace(/^-/, '') };
+    byName.set(name, { key, def });
+    flags[key] = def.type === 'boolean' ? false : undefined;
+  }
+
+  const { tokens } = nodeParseArgs({
+    args: argv,
+    options: nodeOptions,
+    strict: false,
+    allowPositionals: true,
+    tokens: true,
+  });
+
+  const positionals: string[] = [];
+  for (const token of tokens) {
+    if (token.kind === 'positional') {
+      positionals.push(token.value);
+      continue;
+    }
+    // Skip the `--` terminator: node emits the trailing arguments as their own positional tokens.
+    if (token.kind !== 'option') {
+      continue;
+    }
+
+    const entry = byName.get(token.name);
+    if (entry === undefined) {
+      throw new ParseError('unknown-flag', token.rawName);
+    }
+
+    if (entry.def.type === 'boolean') {
+      if (token.value !== undefined) {
+        throw new ParseError('unexpected-value', token.rawName);
+      }
+      flags[entry.key] = true;
+      continue;
+    }
+
+    const value = token.value;
+    // Reject an absent value, an empty `--flag=`, and a value that is actually the next flag (`-` alone is a valid value).
+    if (value === undefined || value === '' || (!token.inlineValue && value.startsWith('-') && value !== '-')) {
+      throw new ParseError('missing-value', token.rawName);
+    }
+    flags[entry.key] = value;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- Schema-driven initialization guarantees the generic return shape; TypeScript cannot infer it through the dynamic key writes.
+  return { flags, positionals } as ParsedArgs<S>;
 }
 
 /**
- * Translate a `parseArgs` error into a user-facing message.
+ * Parse argv, or print a usage error to stderr and exit non-zero.
  *
- * Rewrites the internal `"unknown flag '--x'"` format to `"Unknown option: --x"`;
- * passes other messages through unchanged.
+ * The canonical "parse or die" entry point for CLI commands that terminate on invalid input.
  */
-export function translateParseError(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
-  const flagMatch = message.match(/^unknown flag '(.+)'$/);
-  if (flagMatch?.[1] !== undefined) {
-    return `Unknown option: ${flagMatch[1]}`;
+export function parseArgsOrExit<S extends FlagSchema>(argv: string[], schema: S): ParsedArgs<S> {
+  try {
+    return parseArgs(argv, schema);
+  } catch (error: unknown) {
+    if (error instanceof ParseError) {
+      console.error(`Error: ${error.message}`);
+      process.exit(1);
+    }
+    throw error;
   }
-  return message;
+}
+
+/** Compose the user-facing message for a parse failure, uniformly cased across all kinds. */
+function formatParseErrorMessage(kind: ParseErrorKind, flag: string): string {
+  switch (kind) {
+    case 'unknown-flag':
+      return `Unknown option: ${flag}`;
+    case 'missing-value':
+      return `Missing value for option: ${flag}`;
+    case 'unexpected-value':
+      return `Option does not accept a value: ${flag}`;
+  }
 }

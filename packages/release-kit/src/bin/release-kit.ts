@@ -2,7 +2,7 @@
 /* eslint n/hashbang: off, n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
-import { parseArgs, readPackageVersion, translateParseError } from '@williamthorsen/nmr-core';
+import { parseArgsOrExit, readPackageVersion } from '@williamthorsen/nmr-core';
 
 import { checkWorkTypesDrift } from '../checkWorkTypesDrift.ts';
 import { commitCommand } from '../commitCommand.ts';
@@ -397,15 +397,7 @@ if (command === 'init') {
     withConfig: { long: '--with-config', type: 'boolean' as const },
   };
 
-  let parsed;
-  try {
-    parsed = parseArgs(flags, initFlagSchema);
-  } catch (error: unknown) {
-    console.error(`Error: ${translateParseError(error)}`);
-    process.exit(1);
-  }
-
-  const { dryRun, force, withConfig } = parsed.flags;
+  const { dryRun, force, withConfig } = parseArgsOrExit(flags, initFlagSchema).flags;
   const exitCode = initCommand({ dryRun, force, withConfig });
   process.exit(exitCode);
 }
@@ -430,15 +422,7 @@ if (command === 'sync-labels') {
       force: { long: '--force', type: 'boolean' as const },
     };
 
-    let syncParsed;
-    try {
-      syncParsed = parseArgs(subflags, syncLabelsInitFlagSchema);
-    } catch (error: unknown) {
-      console.error(`Error: ${translateParseError(error)}`);
-      process.exit(1);
-    }
-
-    const { dryRun, force } = syncParsed.flags;
+    const { dryRun, force } = parseArgsOrExit(subflags, syncLabelsInitFlagSchema).flags;
     const exitCode = await syncLabelsInitCommand({ dryRun, force });
     process.exit(exitCode);
   }
