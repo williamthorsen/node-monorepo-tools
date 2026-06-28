@@ -350,7 +350,7 @@ describe(createGithubReleaseCommand, () => {
   });
 
   describe('--tags parsing', () => {
-    it('rejects --tags= (empty value) with a clear "requires a value" error', async () => {
+    it('rejects --tags= (empty value) with a missing-value error', async () => {
       // The shared parseArgs helper rejects empty `--flag=` values before the command sees them,
       // so the user gets a precise error rather than a confusing "Unknown tag" downstream.
       let thrown: ExitError | undefined;
@@ -364,7 +364,7 @@ describe(createGithubReleaseCommand, () => {
 
       expect(thrown).toBeInstanceOf(ExitError);
       expect(thrown?.code).toBe(1);
-      expect(console.error).toHaveBeenCalledWith('Error: --tags requires a value');
+      expect(console.error).toHaveBeenCalledWith('Error: Missing value for option: --tags');
       expect(mockCreateGithubReleases).not.toHaveBeenCalled();
     });
 

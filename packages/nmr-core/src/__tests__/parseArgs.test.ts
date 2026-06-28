@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { FlagSchema } from '../parseArgs.ts';
-import { parseArgs } from '../parseArgs.ts';
+import type { FlagSchema, ParseErrorKind } from '../parseArgs.ts';
+import { parseArgs, parseArgsOrExit, ParseError } from '../parseArgs.ts';
 
 const emptySchema = {} satisfies FlagSchema;
 
@@ -10,6 +10,23 @@ const mixedSchema = {
   output: { long: '--output', type: 'string' as const, short: '-o' },
   verbose: { long: '--verbose', type: 'boolean' as const, short: '-v' },
 };
+
+/** Asserts that parsing throws a `ParseError` with the given kind and flag, and returns it. */
+function expectParseError(argv: string[], schema: FlagSchema, kind: ParseErrorKind, flag: string): ParseError {
+  let thrown: unknown;
+  try {
+    parseArgs(argv, schema);
+  } catch (error: unknown) {
+    thrown = error;
+  }
+  expect(thrown).toBeInstanceOf(ParseError);
+  if (!(thrown instanceof ParseError)) {
+    throw new Error('expected parseArgs to throw a ParseError');
+  }
+  expect(thrown.kind).toBe(kind);
+  expect(thrown.flag).toBe(flag);
+  return thrown;
+}
 
 describe(parseArgs, () => {
   describe('empty argv', () => {
@@ -23,15 +40,11 @@ describe(parseArgs, () => {
 
   describe('boolean flags', () => {
     it('sets boolean flag to true when present via long form', () => {
-      const result = parseArgs(['--dry-run'], mixedSchema);
-
-      expect(result.flags.dryRun).toBe(true);
+      expect(parseArgs(['--dry-run'], mixedSchema).flags.dryRun).toBe(true);
     });
 
     it('sets boolean flag to true when present via short alias', () => {
-      const result = parseArgs(['-v'], mixedSchema);
-
-      expect(result.flags.verbose).toBe(true);
+      expect(parseArgs(['-v'], mixedSchema).flags.verbose).toBe(true);
     });
 
     it('defaults boolean flags to false when absent', () => {
@@ -41,74 +54,69 @@ describe(parseArgs, () => {
       expect(result.flags.verbose).toBe(false);
     });
 
-    it('throws when boolean flag is given a value via = form', () => {
-      expect(() => parseArgs(['--dry-run=true'], mixedSchema)).toThrow("flag '--dry-run' does not accept a value");
+    it('throws unexpected-value when a boolean flag is given a value via = form', () => {
+      const error = expectParseError(['--dry-run=true'], mixedSchema, 'unexpected-value', '--dry-run');
+      expect(error.message).toBe('Option does not accept a value: --dry-run');
     });
   });
 
   describe('string flags', () => {
     it('parses --flag=value form', () => {
-      const result = parseArgs(['--output=dist/out.js'], mixedSchema);
-
-      expect(result.flags.output).toBe('dist/out.js');
+      expect(parseArgs(['--output=dist/out.js'], mixedSchema).flags.output).toBe('dist/out.js');
     });
 
     it('parses --flag value (space-separated) form', () => {
-      const result = parseArgs(['--output', 'dist/out.js'], mixedSchema);
-
-      expect(result.flags.output).toBe('dist/out.js');
+      expect(parseArgs(['--output', 'dist/out.js'], mixedSchema).flags.output).toBe('dist/out.js');
     });
 
     it('parses short alias with space-separated value', () => {
-      const result = parseArgs(['-o', 'dist/out.js'], mixedSchema);
-
-      expect(result.flags.output).toBe('dist/out.js');
+      expect(parseArgs(['-o', 'dist/out.js'], mixedSchema).flags.output).toBe('dist/out.js');
     });
 
-    it('throws when --flag= has an empty value', () => {
-      expect(() => parseArgs(['--output='], mixedSchema)).toThrow('--output requires a value');
+    it('throws missing-value when --flag= has an empty value', () => {
+      const error = expectParseError(['--output='], mixedSchema, 'missing-value', '--output');
+      expect(error.message).toBe('Missing value for option: --output');
     });
 
-    it('throws when string flag is at end of argv with no value', () => {
-      expect(() => parseArgs(['--output'], mixedSchema)).toThrow('--output requires a value');
+    it('throws missing-value when a string flag is at end of argv with no value', () => {
+      expectParseError(['--output'], mixedSchema, 'missing-value', '--output');
     });
 
-    it('throws when string flag is followed by another flag', () => {
-      expect(() => parseArgs(['--output', '--dry-run'], mixedSchema)).toThrow('--output requires a value');
+    it('throws missing-value when a string flag is followed by another flag', () => {
+      expectParseError(['--output', '--dry-run'], mixedSchema, 'missing-value', '--output');
     });
 
     it('defaults string flags to undefined when absent', () => {
-      const result = parseArgs([], mixedSchema);
+      expect(parseArgs([], mixedSchema).flags.output).toBeUndefined();
+    });
 
-      expect(result.flags.output).toBeUndefined();
+    it('treats bare - as a valid string value (stdin convention)', () => {
+      expect(parseArgs(['--output', '-'], mixedSchema).flags.output).toBe('-');
     });
   });
 
   describe('unknown flags', () => {
-    it('throws for unknown long flag', () => {
-      expect(() => parseArgs(['--unknown'], mixedSchema)).toThrow("unknown flag '--unknown'");
+    it('throws unknown-flag for an unknown long flag', () => {
+      const error = expectParseError(['--unknown'], mixedSchema, 'unknown-flag', '--unknown');
+      expect(error.message).toBe('Unknown option: --unknown');
     });
 
-    it('throws for unknown short flag', () => {
-      expect(() => parseArgs(['-x'], mixedSchema)).toThrow("unknown flag '-x'");
+    it('throws unknown-flag for an unknown short flag, echoing the typed form', () => {
+      expectParseError(['-x'], mixedSchema, 'unknown-flag', '-x');
     });
 
-    it('throws for unknown long flag with = form', () => {
-      expect(() => parseArgs(['--unknown=val'], mixedSchema)).toThrow("unknown flag '--unknown'");
+    it('throws unknown-flag for an unknown long flag in = form', () => {
+      expectParseError(['--unknown=val'], mixedSchema, 'unknown-flag', '--unknown');
     });
   });
 
   describe('positionals', () => {
     it('collects positional arguments in order', () => {
-      const result = parseArgs(['foo', 'bar', 'baz'], emptySchema);
-
-      expect(result.positionals).toStrictEqual(['foo', 'bar', 'baz']);
+      expect(parseArgs(['foo', 'bar', 'baz'], emptySchema).positionals).toStrictEqual(['foo', 'bar', 'baz']);
     });
 
     it('treats bare - as a positional, not a flag', () => {
-      const result = parseArgs(['-'], emptySchema);
-
-      expect(result.positionals).toStrictEqual(['-']);
+      expect(parseArgs(['-'], emptySchema).positionals).toStrictEqual(['-']);
     });
 
     it('collects positionals interleaved with flags', () => {
@@ -129,29 +137,69 @@ describe(parseArgs, () => {
     });
 
     it('treats everything after -- as positionals', () => {
-      const result = parseArgs(['--', '--unknown'], emptySchema);
-
-      expect(result.positionals).toStrictEqual(['--unknown']);
-    });
-  });
-
-  describe('string flag accepts bare - as a value', () => {
-    it('treats - as a valid string value (stdin convention)', () => {
-      const result = parseArgs(['--output', '-'], mixedSchema);
-
-      expect(result.flags.output).toBe('-');
+      expect(parseArgs(['--', '--unknown'], emptySchema).positionals).toStrictEqual(['--unknown']);
     });
   });
 
   describe('empty schema', () => {
     it('treats all non-flag args as positionals', () => {
-      const result = parseArgs(['a', 'b'], emptySchema);
-
-      expect(result.positionals).toStrictEqual(['a', 'b']);
+      expect(parseArgs(['a', 'b'], emptySchema).positionals).toStrictEqual(['a', 'b']);
     });
 
-    it('throws on any flag', () => {
-      expect(() => parseArgs(['--anything'], emptySchema)).toThrow("unknown flag '--anything'");
+    it('throws unknown-flag on any flag', () => {
+      expectParseError(['--anything'], emptySchema, 'unknown-flag', '--anything');
     });
+  });
+
+  describe('short-flag clustering', () => {
+    const clusterSchema = {
+      all: { long: '--all', type: 'boolean' as const, short: '-a' },
+      build: { long: '--build', type: 'boolean' as const, short: '-b' },
+    };
+
+    it('expands clustered short boolean flags', () => {
+      const result = parseArgs(['-ab'], clusterSchema);
+
+      expect(result.flags.all).toBe(true);
+      expect(result.flags.build).toBe(true);
+    });
+
+    it('throws unknown-flag for an unknown flag inside a cluster', () => {
+      expectParseError(['-ax'], clusterSchema, 'unknown-flag', '-x');
+    });
+  });
+});
+
+describe(parseArgsOrExit, () => {
+  /** Sentinel error thrown by the mocked process.exit. */
+  class ExitError extends Error {
+    constructor(public readonly code: number | undefined) {
+      super(`process.exit(${code})`);
+    }
+  }
+
+  beforeEach(() => {
+    vi.spyOn(process, 'exit').mockImplementation((code) => {
+      throw new ExitError(typeof code === 'number' ? code : undefined);
+    });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed result when parsing succeeds', () => {
+    const result = parseArgsOrExit(['--dry-run'], mixedSchema);
+
+    expect(result.flags.dryRun).toBe(true);
+    expect(process.exit).not.toHaveBeenCalled();
+  });
+
+  it('prints a usage error and exits with code 1 on a parse failure', () => {
+    expect(() => parseArgsOrExit(['--unknown'], mixedSchema)).toThrow(ExitError);
+
+    expect(console.error).toHaveBeenCalledWith('Error: Unknown option: --unknown');
+    expect(process.exit).toHaveBeenCalledWith(1);
   });
 });

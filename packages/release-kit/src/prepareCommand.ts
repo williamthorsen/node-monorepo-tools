@@ -2,7 +2,7 @@
 /* eslint unicorn/no-process-exit: off */
 
 import type { WriteResult } from '@williamthorsen/nmr-core';
-import { parseArgs as coreParseArgs, translateParseError, writeFileWithCheck } from '@williamthorsen/nmr-core';
+import { parseArgs as coreParseArgs, writeFileWithCheck } from '@williamthorsen/nmr-core';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { buildDependencyGraph } from './buildDependencyGraph.ts';
@@ -87,14 +87,7 @@ export function parseArgs(argv: string[]): {
   setVersion: string | undefined;
   withReleaseNotes: boolean;
 } {
-  let parsed;
-  try {
-    parsed = coreParseArgs(argv, prepareFlagSchema);
-  } catch (error: unknown) {
-    throw new Error(translateParseError(error));
-  }
-
-  const { flags } = parsed;
+  const { flags } = coreParseArgs(argv, prepareFlagSchema);
 
   if (flags.help) {
     showHelp();

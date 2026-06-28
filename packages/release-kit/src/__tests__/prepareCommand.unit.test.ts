@@ -604,7 +604,7 @@ describe(parseArgs, () => {
   });
 
   it('throws when --only value is empty', () => {
-    expect(() => parseArgs(['--only='])).toThrow('--only requires');
+    expect(() => parseArgs(['--only='])).toThrow('Missing value for option: --only');
   });
 
   it('accepts a canonical semver value for --set-version', () => {
@@ -621,7 +621,7 @@ describe(parseArgs, () => {
   });
 
   it('throws when --set-version is empty', () => {
-    expect(() => parseArgs(['--set-version='])).toThrow('--set-version requires');
+    expect(() => parseArgs(['--set-version='])).toThrow('Missing value for option: --set-version');
   });
 
   it('throws when --set-version is combined with --bump', () => {

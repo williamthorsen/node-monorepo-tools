@@ -1,6 +1,6 @@
 import process from 'node:process';
 
-import { parseArgs, readPackageVersion, translateParseError } from '@williamthorsen/nmr-core';
+import { parseArgs, readPackageVersion } from '@williamthorsen/nmr-core';
 
 import { auditCommand, checkCommand, extractMessage, syncCommand } from '../cli.ts';
 import { initCommand } from '../init/initCommand.ts';
@@ -172,7 +172,7 @@ async function handleSubcommand(
   try {
     options = parseSharedFlags(flags);
   } catch (error: unknown) {
-    process.stderr.write(`Error: ${translateParseError(error)}\n`);
+    process.stderr.write(`Error: ${extractMessage(error)}\n`);
     return 1;
   }
 
@@ -200,7 +200,7 @@ function handleInit(flags: string[]): number {
   try {
     parsed = parseArgs(flags, initFlagSchema);
   } catch (error: unknown) {
-    process.stderr.write(`Error: ${translateParseError(error)}\n`);
+    process.stderr.write(`Error: ${extractMessage(error)}\n`);
     return 1;
   }
 

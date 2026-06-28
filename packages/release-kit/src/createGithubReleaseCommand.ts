@@ -1,7 +1,7 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
-import { parseArgs, translateParseError } from '@williamthorsen/nmr-core';
+import { parseArgsOrExit } from '@williamthorsen/nmr-core';
 
 import { createGithubReleases } from './createGithubRelease.ts';
 import { parseRequestedTags } from './parseRequestedTags.ts';
@@ -18,13 +18,7 @@ const createGithubReleaseFlagSchema = {
  * for tags on HEAD (or a comma-separated `--tags` subset), without requiring npm publish.
  */
 export async function createGithubReleaseCommand(argv: string[]): Promise<void> {
-  let parsed;
-  try {
-    parsed = parseArgs(argv, createGithubReleaseFlagSchema);
-  } catch (error: unknown) {
-    console.error(`Error: ${translateParseError(error)}`);
-    process.exit(1);
-  }
+  const parsed = parseArgsOrExit(argv, createGithubReleaseFlagSchema);
 
   const { dryRun } = parsed.flags;
   const requestedTags = parseRequestedTags(parsed.flags.tags);

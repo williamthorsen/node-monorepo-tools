@@ -4,7 +4,7 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { parseArgs, translateParseError } from '@williamthorsen/nmr-core';
+import { parseArgsOrExit } from '@williamthorsen/nmr-core';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { detectPackageManager } from './detectPackageManager.ts';
@@ -27,13 +27,7 @@ const publishFlagSchema = {
  * detect the package manager, validate `--tags`, and publish each tag with inject/restore lifecycle.
  */
 export async function publishCommand(argv: string[]): Promise<void> {
-  let parsed;
-  try {
-    parsed = parseArgs(argv, publishFlagSchema);
-  } catch (error: unknown) {
-    console.error(`Error: ${translateParseError(error)}`);
-    process.exit(1);
-  }
+  const parsed = parseArgsOrExit(argv, publishFlagSchema);
 
   const { dryRun, noGitChecks, provenance } = parsed.flags;
 
