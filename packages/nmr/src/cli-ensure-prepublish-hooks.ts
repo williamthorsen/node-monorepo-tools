@@ -1,42 +1,18 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
+import { parseArgsOrExit } from '@williamthorsen/nmr-core';
+
 import { DEFAULT_HOOK, ensurePrepublishHooks } from './commands/ensure-prepublish-hooks.ts';
 import { findMonorepoRoot } from './context.ts';
 
-let fix = false;
-let dryRun = false;
-let command: string | undefined;
+const flagSchema = {
+  fix: { long: '--fix', type: 'boolean' as const },
+  dryRun: { long: '--dry-run', type: 'boolean' as const },
+  command: { long: '--command', type: 'string' as const },
+};
 
-const args = process.argv.slice(2);
-for (let i = 0; i < args.length; i++) {
-  const arg = args[i];
-  switch (arg) {
-    case '--fix':
-      fix = true;
-
-      break;
-
-    case '--dry-run':
-      dryRun = true;
-
-      break;
-
-    case '--command':
-      i++;
-      command = args[i];
-      if (!command) {
-        console.error('--command requires a value');
-        process.exit(1);
-      }
-
-      break;
-
-    default:
-      console.error(`Unknown argument: ${arg}`);
-      process.exit(1);
-  }
-}
+const { fix, dryRun, command } = parseArgsOrExit(process.argv.slice(2), flagSchema).flags;
 
 try {
   const monorepoRoot = findMonorepoRoot();
