@@ -22,14 +22,21 @@ export interface ParsedArgs<S extends FlagSchema> {
   positionals: string[];
 }
 
+/** Options controlling how `parseArgs` handles input beyond the flag schema. */
+export interface ParseArgsOptions {
+  /** When true, positionals are collected; otherwise an unexpected positional throws. Defaults to false. */
+  allowPositionals?: boolean;
+}
+
 /** Discriminates the failure modes `parseArgs` reports. */
-export type ParseErrorKind = 'unknown-flag' | 'missing-value' | 'unexpected-value';
+export type ParseErrorKind = 'unknown-flag' | 'missing-value' | 'unexpected-value' | 'unexpected-positional';
 
 /**
  * Error thrown by `parseArgs` on invalid input.
  *
- * Carries the failure `kind` and the offending `flag` (as the user typed it); its `message` is
- * composed from those fields, so error wording is uniform across every kind.
+ * Carries the failure `kind` and the offending token in `flag` — a flag as the user typed it, or the
+ * positional value for `'unexpected-positional'`. Its `message` is composed from those fields, so error
+ * wording is uniform across every kind.
  */
 export class ParseError extends Error {
   readonly kind: ParseErrorKind;
@@ -47,10 +54,15 @@ export class ParseError extends Error {
  * Parse a pre-sliced argv array against a flag schema.
  *
  * Delegates tokenizing to `node:util.parseArgs` (non-strict, with tokens) and validates the token
- * stream against the schema. Throws `ParseError` on an unknown flag, a missing string-flag value, or
- * a value supplied to a boolean flag. Does not write output or exit.
+ * stream against the schema. Throws `ParseError` on an unknown flag, a missing string-flag value, a
+ * value supplied to a boolean flag, or — unless `options.allowPositionals` is set — an unexpected
+ * positional argument. Does not write output or exit.
  */
-export function parseArgs<S extends FlagSchema>(argv: string[], schema: S): ParsedArgs<S> {
+export function parseArgs<S extends FlagSchema>(
+  argv: string[],
+  schema: S,
+  options: ParseArgsOptions = {},
+): ParsedArgs<S> {
   const nodeOptions: Record<string, { type: 'boolean' | 'string'; short?: string }> = {};
   const byName = new Map<string, { key: string; def: FlagDefinition }>();
   const flags: Record<string, boolean | string | undefined> = {};
@@ -74,6 +86,9 @@ export function parseArgs<S extends FlagSchema>(argv: string[], schema: S): Pars
   const positionals: string[] = [];
   for (const token of tokens) {
     if (token.kind === 'positional') {
+      if (options.allowPositionals !== true) {
+        throw new ParseError('unexpected-positional', token.value);
+      }
       positionals.push(token.value);
       continue;
     }
@@ -112,9 +127,13 @@ export function parseArgs<S extends FlagSchema>(argv: string[], schema: S): Pars
  *
  * The canonical "parse or die" entry point for CLI commands that terminate on invalid input.
  */
-export function parseArgsOrExit<S extends FlagSchema>(argv: string[], schema: S): ParsedArgs<S> {
+export function parseArgsOrExit<S extends FlagSchema>(
+  argv: string[],
+  schema: S,
+  options: ParseArgsOptions = {},
+): ParsedArgs<S> {
   try {
-    return parseArgs(argv, schema);
+    return parseArgs(argv, schema, options);
   } catch (error: unknown) {
     if (error instanceof ParseError) {
       console.error(`Error: ${error.message}`);
@@ -133,5 +152,7 @@ function formatParseErrorMessage(kind: ParseErrorKind, flag: string): string {
       return `Missing value for option: ${flag}`;
     case 'unexpected-value':
       return `Option does not accept a value: ${flag}`;
+    case 'unexpected-positional':
+      return `Unexpected positional argument: ${flag}`;
   }
 }
