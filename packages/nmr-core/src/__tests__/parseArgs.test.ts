@@ -48,7 +48,7 @@ describe(parseArgs, () => {
     });
 
     it('defaults boolean flags to false when absent', () => {
-      const result = parseArgs(['positional'], mixedSchema);
+      const result = parseArgs(['--output', 'dist/out.js'], mixedSchema);
 
       expect(result.flags.dryRun).toBe(false);
       expect(result.flags.verbose).toBe(false);
@@ -111,39 +111,70 @@ describe(parseArgs, () => {
   });
 
   describe('positionals', () => {
-    it('collects positional arguments in order', () => {
-      expect(parseArgs(['foo', 'bar', 'baz'], emptySchema).positionals).toStrictEqual(['foo', 'bar', 'baz']);
+    it('rejects an unexpected positional by default', () => {
+      const error = expectParseError(['foo'], emptySchema, 'unexpected-positional', 'foo');
+      expect(error.message).toBe('Unexpected positional argument: foo');
     });
 
-    it('treats bare - as a positional, not a flag', () => {
-      expect(parseArgs(['-'], emptySchema).positionals).toStrictEqual(['-']);
+    it('reports the first positional when several are present', () => {
+      expectParseError(['foo', 'bar', 'baz'], emptySchema, 'unexpected-positional', 'foo');
     });
 
-    it('collects positionals interleaved with flags', () => {
-      const result = parseArgs(['foo', '--dry-run', 'bar'], mixedSchema);
+    it('rejects a positional interleaved with valid flags, reporting the positional', () => {
+      expectParseError(['foo', '--dry-run', 'bar'], mixedSchema, 'unexpected-positional', 'foo');
+    });
+
+    it('rejects bare - as an unexpected positional by default', () => {
+      expectParseError(['-'], emptySchema, 'unexpected-positional', '-');
+    });
+
+    it('collects positionals in order when allowPositionals is set', () => {
+      expect(parseArgs(['foo', 'bar', 'baz'], emptySchema, { allowPositionals: true }).positionals).toStrictEqual([
+        'foo',
+        'bar',
+        'baz',
+      ]);
+    });
+
+    it('collects positionals interleaved with flags when allowPositionals is set', () => {
+      const result = parseArgs(['foo', '--dry-run', 'bar'], mixedSchema, { allowPositionals: true });
 
       expect(result.positionals).toStrictEqual(['foo', 'bar']);
       expect(result.flags.dryRun).toBe(true);
     });
+
+    it('treats bare - as a positional, not a flag, when allowPositionals is set', () => {
+      expect(parseArgs(['-'], emptySchema, { allowPositionals: true }).positionals).toStrictEqual(['-']);
+    });
   });
 
   describe('-- delimiter', () => {
-    it('stops flag parsing after --', () => {
-      const result = parseArgs(['--dry-run', '--', '--output', 'val'], mixedSchema);
+    it('rejects positionals after -- by default', () => {
+      expectParseError(['--dry-run', '--', '--output', 'val'], mixedSchema, 'unexpected-positional', '--output');
+    });
+
+    it('collects everything after -- as positionals when allowPositionals is set', () => {
+      const result = parseArgs(['--dry-run', '--', '--output', 'val'], mixedSchema, { allowPositionals: true });
 
       expect(result.flags.dryRun).toBe(true);
       expect(result.flags.output).toBeUndefined();
       expect(result.positionals).toStrictEqual(['--output', 'val']);
     });
 
-    it('treats everything after -- as positionals', () => {
-      expect(parseArgs(['--', '--unknown'], emptySchema).positionals).toStrictEqual(['--unknown']);
+    it('treats everything after -- as positionals when allowPositionals is set', () => {
+      expect(parseArgs(['--', '--unknown'], emptySchema, { allowPositionals: true }).positionals).toStrictEqual([
+        '--unknown',
+      ]);
     });
   });
 
   describe('empty schema', () => {
-    it('treats all non-flag args as positionals', () => {
-      expect(parseArgs(['a', 'b'], emptySchema).positionals).toStrictEqual(['a', 'b']);
+    it('rejects non-flag args as unexpected positionals by default', () => {
+      expectParseError(['a', 'b'], emptySchema, 'unexpected-positional', 'a');
+    });
+
+    it('treats all non-flag args as positionals when allowPositionals is set', () => {
+      expect(parseArgs(['a', 'b'], emptySchema, { allowPositionals: true }).positionals).toStrictEqual(['a', 'b']);
     });
 
     it('throws unknown-flag on any flag', () => {
@@ -201,5 +232,19 @@ describe(parseArgsOrExit, () => {
 
     expect(console.error).toHaveBeenCalledWith('Error: Unknown option: --unknown');
     expect(process.exit).toHaveBeenCalledWith(1);
+  });
+
+  it('prints a usage error and exits with code 1 on an unexpected positional', () => {
+    expect(() => parseArgsOrExit(['extra'], mixedSchema)).toThrow(ExitError);
+
+    expect(console.error).toHaveBeenCalledWith('Error: Unexpected positional argument: extra');
+    expect(process.exit).toHaveBeenCalledWith(1);
+  });
+
+  it('returns the parsed result when positionals are allowed', () => {
+    const result = parseArgsOrExit(['extra'], emptySchema, { allowPositionals: true });
+
+    expect(result.positionals).toStrictEqual(['extra']);
+    expect(process.exit).not.toHaveBeenCalled();
   });
 });
