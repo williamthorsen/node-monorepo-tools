@@ -1,7 +1,7 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
-import { parseArgsOrExit } from '@williamthorsen/nmr-core';
+import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
 
 import { check, sync } from './commands/sync-agent-files.ts';
 import { findMonorepoRoot } from './context.ts';
@@ -15,7 +15,7 @@ const { flags } = parseArgsOrExit(process.argv.slice(2), flagSchema);
 try {
   runCommand(flags.check);
 } catch (error: unknown) {
-  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+  reportError(error instanceof Error ? error.message : String(error));
   process.exit(1);
 }
 

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { writeFileWithCheck } from '@williamthorsen/nmr-core';
+import { reportError, writeFileWithCheck } from '@williamthorsen/nmr-core';
 
 import { extractVersion } from './changelogJsonUtils.ts';
 import { dim } from './format.ts';
@@ -118,7 +118,7 @@ function writePreviewFile(filePath: string, content: string, dryRun: boolean): P
   const result = writeFileWithCheck(filePath, content, { dryRun: false, overwrite: true });
 
   if (result.outcome === 'failed') {
-    process.stderr.write(`Error writing ${filePath}: ${result.error ?? 'unknown error'}\n`);
+    reportError(`Failed to write ${filePath}: ${result.error ?? 'unknown error'}`);
     return { filePath, outcome: 'failed', ...(result.error === undefined ? {} : { error: result.error }) };
   }
 

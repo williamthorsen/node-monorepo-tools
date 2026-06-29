@@ -1,7 +1,7 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
-import { parseArgsOrExit } from '@williamthorsen/nmr-core';
+import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
 
 import { createGithubReleases } from './createGithubRelease.ts';
 import { parseRequestedTags } from './parseRequestedTags.ts';
@@ -31,7 +31,7 @@ export async function createGithubReleaseCommand(argv: string[]): Promise<void> 
   try {
     outcome = createGithubReleases(resolvedTags, changelogJsonOutputPath, dryRun, sectionOrder);
   } catch (error: unknown) {
-    process.stderr.write(`Error creating GitHub Releases: ${error instanceof Error ? error.message : String(error)}\n`);
+    reportError(`Failed to create GitHub Releases: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
   }
 

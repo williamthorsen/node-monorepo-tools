@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { formatErrorLine } from '@williamthorsen/nmr-core';
+
 import { buildFetchInit, errorMessage, hasExpectedTopLevelShape } from './workTypesUtils.ts';
 
 /** URL of the upstream canonical `work-types.json` published by codeassembly. */
@@ -74,7 +76,7 @@ export async function checkWorkTypesDrift(
   } catch (error) {
     return {
       exitCode: 2,
-      message: `Network error fetching upstream work-types.json: ${errorMessage(error)}`,
+      message: formatErrorLine(`Failed to fetch upstream work-types.json: ${errorMessage(error)}`),
     };
   }
 
@@ -88,7 +90,9 @@ export async function checkWorkTypesDrift(
   if (!response.ok) {
     return {
       exitCode: 2,
-      message: `Failed to fetch upstream work-types.json: HTTP ${response.status} ${response.statusText}`,
+      message: formatErrorLine(
+        `Failed to fetch upstream work-types.json: HTTP ${response.status} ${response.statusText}`,
+      ),
     };
   }
 

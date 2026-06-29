@@ -104,7 +104,7 @@ export async function publishCommand(argv: string[]): Promise<void> {
         console.warn(`  ${t}`);
       }
     }
-    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    reportError(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }

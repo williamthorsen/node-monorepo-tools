@@ -198,7 +198,7 @@ describe(createGithubReleaseCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith('Error discovering workspaces: discovery failed\n');
+    expect(process.stderr.write).toHaveBeenCalledWith('Error: Failed to discover workspaces: discovery failed\n');
   });
 
   it('does not exit when --tags is explicit and every skip is no-entry', async () => {
@@ -324,14 +324,14 @@ describe(createGithubReleaseCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith('Error creating GitHub Releases: gh release failed\n');
+    expect(process.stderr.write).toHaveBeenCalledWith('Error: Failed to create GitHub Releases: gh release failed\n');
   });
 
   it('exits with code 1 when resolveReleaseNotesConfig fails to load config', async () => {
     mockResolveReleaseNotesConfig.mockImplementation(() => {
       // Mirror the strictLoad path: the production code calls process.exit(1) inside the resolver,
       // which the spy converts into ExitError. Throwing it here matches that observable behavior.
-      process.stderr.write('Error: failed to load config: read failure\n');
+      process.stderr.write('Error: Failed to load config: read failure\n');
       throw new ExitError(1);
     });
 
@@ -348,7 +348,7 @@ describe(createGithubReleaseCommand, () => {
     expect(thrown?.code).toBe(1);
     expect(mockResolveReleaseNotesConfig).toHaveBeenCalledWith({ strictLoad: true });
     expect(mockCreateGithubReleases).not.toHaveBeenCalled();
-    expect(process.stderr.write).toHaveBeenCalledWith('Error: failed to load config: read failure\n');
+    expect(process.stderr.write).toHaveBeenCalledWith('Error: Failed to load config: read failure\n');
   });
 
   describe('--tags parsing', () => {

@@ -92,7 +92,7 @@ describe(runCommand, () => {
       expect(code).toBe(1);
     });
 
-    it('returns 1 and writes the spawn error message when spawn fails', () => {
+    it('returns 1 and writes the canonical Error line for the spawn error when spawn fails', () => {
       mockedSpawnSync.mockReturnValue(
         spawnResult({ status: null, error: Object.assign(new Error('ENOENT'), { code: 'ENOENT' }) }),
       );
@@ -100,7 +100,7 @@ describe(runCommand, () => {
       const code = runCommand('nonexistent-bin');
 
       expect(code).toBe(1);
-      expect(stderrWriteSpy).toHaveBeenCalledWith(expect.stringContaining('ENOENT'));
+      expect(stderrWriteSpy).toHaveBeenCalledWith('Error: ENOENT\n');
     });
 
     it('forwards captured stdout into a caller-supplied PassThrough stream', () => {

@@ -2,6 +2,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { formatErrorLine } from '@williamthorsen/nmr-core';
+
 import { UPSTREAM_WORK_TYPES_URL } from './checkWorkTypesDrift.ts';
 import { isRecord } from './typeGuards.ts';
 import { buildFetchInit, errorMessage, hasExpectedTopLevelShape } from './workTypesUtils.ts';
@@ -68,14 +70,16 @@ export async function syncWorkTypes(dependencies: SyncWorkTypesDependencies = {}
   } catch (error) {
     return {
       exitCode: 2,
-      message: `Network error fetching upstream work-types.json: ${errorMessage(error)}`,
+      message: formatErrorLine(`Failed to fetch upstream work-types.json: ${errorMessage(error)}`),
     };
   }
 
   if (!response.ok) {
     return {
       exitCode: 2,
-      message: `Failed to fetch upstream work-types.json: HTTP ${response.status} ${response.statusText}`,
+      message: formatErrorLine(
+        `Failed to fetch upstream work-types.json: HTTP ${response.status} ${response.statusText}`,
+      ),
     };
   }
 
@@ -126,7 +130,7 @@ export async function syncWorkTypes(dependencies: SyncWorkTypesDependencies = {}
   } catch (error) {
     return {
       exitCode: 2,
-      message: `Failed to write ${localPath}: ${errorMessage(error)}`,
+      message: formatErrorLine(`Failed to write ${localPath}: ${errorMessage(error)}`),
     };
   }
   return {

@@ -1,3 +1,5 @@
+import { formatErrorLine } from '@williamthorsen/nmr-core';
+
 import { buildChangelogEntries } from './buildChangelogEntries.ts';
 import {
   resolveOverridePath,
@@ -70,9 +72,17 @@ export async function validateOverridesCommand(
   const buildEntries = dependencies.buildEntries ?? defaultBuildEntries;
   const validate = dependencies.validate ?? validateAllChangelogOverrides;
 
+  let rawConfig: unknown;
+  try {
+    rawConfig = await load();
+  } catch (error: unknown) {
+    return { exitCode: 2, message: formatErrorLine(`Failed to load config: ${errorMessage(error)}`) };
+  }
+
   let userConfig: ReleaseKitConfig | undefined;
   try {
-    userConfig = await loadAndValidateConfig(load);
+    // An invalid config is a verdict, not a failed operation — surfaced bare, unlike the load failure above.
+    userConfig = validateLoadedConfig(rawConfig);
   } catch (error: unknown) {
     return { exitCode: 2, message: errorMessage(error) };
   }
@@ -81,7 +91,7 @@ export async function validateOverridesCommand(
   try {
     discoveredPaths = await discover();
   } catch (error: unknown) {
-    return { exitCode: 2, message: `Error discovering workspaces: ${errorMessage(error)}` };
+    return { exitCode: 2, message: formatErrorLine(`Failed to discover workspaces: ${errorMessage(error)}`) };
   }
 
   let inputs: ValidateAllChangelogOverridesInputs;
@@ -91,7 +101,7 @@ export async function validateOverridesCommand(
         ? buildSinglePackageInputs(userConfig, buildEntries)
         : buildMonorepoInputs(discoveredPaths, userConfig, buildEntries);
   } catch (error: unknown) {
-    return { exitCode: 2, message: `Error resolving overrides scope: ${errorMessage(error)}` };
+    return { exitCode: 2, message: formatErrorLine(`Failed to resolve overrides scope: ${errorMessage(error)}`) };
   }
 
   const result = validate(inputs);
@@ -178,15 +188,8 @@ function flattenEntriesToHashes(entries: readonly ChangelogEntry[]): string[] {
   return hashes;
 }
 
-/** Load and validate the user's config file, throwing a descriptive error on any problem. */
-async function loadAndValidateConfig(load: () => Promise<unknown>): Promise<ReleaseKitConfig | undefined> {
-  let rawConfig: unknown;
-  try {
-    rawConfig = await load();
-  } catch (error: unknown) {
-    throw new Error(`Error loading config: ${errorMessage(error)}`);
-  }
-
+/** Validate already-loaded config content, throwing an `Invalid config:` report on validation errors. */
+function validateLoadedConfig(rawConfig: unknown): ReleaseKitConfig | undefined {
   if (rawConfig === undefined) {
     return undefined;
   }

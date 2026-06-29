@@ -192,7 +192,7 @@ describe(resolveCommandTags, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith('Error discovering workspaces: workspace read failure\n');
+    expect(process.stderr.write).toHaveBeenCalledWith('Error: Failed to discover workspaces: workspace read failure\n');
     expect(mockResolveReleaseTags).not.toHaveBeenCalled();
   });
 
@@ -213,7 +213,7 @@ describe(resolveCommandTags, () => {
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
     expect(process.stderr.write).toHaveBeenCalledWith(
-      "Error resolving workspaces: packages/core/package.json is missing a 'name' field (required for tag derivation).\n",
+      "Error: Failed to resolve workspaces: packages/core/package.json is missing a 'name' field (required for tag derivation).\n",
     );
     expect(mockResolveReleaseTags).not.toHaveBeenCalled();
   });

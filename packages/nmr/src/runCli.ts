@@ -1,7 +1,7 @@
 import path from 'node:path';
 import type { Writable } from 'node:stream';
 
-import { readPackageVersion } from '@williamthorsen/nmr-core';
+import { readPackageVersion, reportError } from '@williamthorsen/nmr-core';
 
 import { resolveContext } from './context.ts';
 import { generateHelp } from './help.ts';
@@ -42,7 +42,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   const parseResult = parseArgs(args);
   if (!parseResult.ok) {
-    stderr.write(`${parseResult.error}\n`);
+    reportError(parseResult.error, stderr);
     return { exitCode: 1 };
   }
   const { parsed } = parseResult;
@@ -94,7 +94,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     if (env.NMR_RUN_IF_PRESENT === '1') {
       return { exitCode: 0 };
     }
-    stderr.write(`Unknown command: ${command}\n`);
+    reportError(`Unknown command: ${command}`, stderr);
     return { exitCode: 1 };
   }
 
@@ -156,7 +156,7 @@ function parseArgs(args: string[]): ParseResult {
       i++;
       const filterValue = args[i];
       if (filterValue === undefined) {
-        return { ok: false, error: 'Error: -F/--filter requires a pattern argument' };
+        return { ok: false, error: '-F/--filter requires a pattern argument' };
       }
       parsed.filter = filterValue;
       i++;

@@ -2,6 +2,8 @@ import { spawnSync } from 'node:child_process';
 import process from 'node:process';
 import type { Writable } from 'node:stream';
 
+import { reportError } from '@williamthorsen/nmr-core';
+
 export interface RunCommandOptions {
   /** When true, suppress output on success and write captured output to stderr on failure. */
   quiet?: boolean;
@@ -45,7 +47,7 @@ export function runCommand(command: string, cwd?: string, options?: RunCommandOp
   // there are no captured buffers to forward, and a silent exit 1 would be the classic silent-failure trap.
   // Quiet means "no chatter on success", not "swallow catastrophic configuration errors".
   if (result.error) {
-    stderr.write(`${result.error.message}\n`);
+    reportError(result.error.message, stderr);
     return 1;
   }
 

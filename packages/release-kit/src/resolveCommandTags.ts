@@ -27,7 +27,7 @@ export async function resolveCommandTags(tags: string[] | undefined): Promise<Re
   try {
     discoveredPaths = await discoverWorkspaces();
   } catch (error: unknown) {
-    process.stderr.write(`Error discovering workspaces: ${error instanceof Error ? error.message : String(error)}\n`);
+    reportError(`Failed to discover workspaces: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
   }
 
@@ -43,7 +43,7 @@ export async function resolveCommandTags(tags: string[] | undefined): Promise<Re
       workspaces = discoveredPaths.map((workspacePath) => deriveWorkspaceConfig(workspacePath));
     }
   } catch (error: unknown) {
-    process.stderr.write(`Error resolving workspaces: ${error instanceof Error ? error.message : String(error)}\n`);
+    reportError(`Failed to resolve workspaces: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
   }
 

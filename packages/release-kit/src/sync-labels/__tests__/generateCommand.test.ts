@@ -46,7 +46,7 @@ describe(generateCommand, () => {
     const exitCode = await generateCommand();
 
     expect(exitCode).toBe(1);
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('No config file found'));
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('Error: No config file found'));
   });
 
   it('returns 1 when config loading throws', async () => {
