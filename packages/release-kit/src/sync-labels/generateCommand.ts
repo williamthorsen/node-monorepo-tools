@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
+import { reportError } from '@williamthorsen/nmr-core';
 import { stringify } from 'yaml';
 
 import { loadSyncLabelsConfig, SYNC_LABELS_CONFIG_PATH } from './loadSyncLabelsConfig.ts';
@@ -36,14 +37,12 @@ export async function generateCommand(): Promise<number> {
     config = await loadSyncLabelsConfig();
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`Error loading config: ${message}\n`);
+    reportError(`Failed to load config: ${message}`);
     return 1;
   }
 
   if (config === undefined) {
-    process.stderr.write(
-      `No config file found at ${SYNC_LABELS_CONFIG_PATH}. Run \`release-kit sync-labels init\` first.\n`,
-    );
+    reportError(`No config file found at ${SYNC_LABELS_CONFIG_PATH}. Run \`release-kit sync-labels init\` first.`);
     return 1;
   }
 
@@ -52,7 +51,7 @@ export async function generateCommand(): Promise<number> {
     labels = resolveLabels(config);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`Error resolving labels: ${message}\n`);
+    reportError(`Failed to resolve labels: ${message}`);
     return 1;
   }
 
@@ -68,7 +67,7 @@ export async function generateCommand(): Promise<number> {
     writeFileSync(LABELS_OUTPUT_PATH, content, 'utf8');
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`Error writing ${LABELS_OUTPUT_PATH}: ${message}\n`);
+    reportError(`Failed to write ${LABELS_OUTPUT_PATH}: ${message}`);
     return 1;
   }
 

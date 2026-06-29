@@ -89,7 +89,7 @@ describe(syncWorkTypes, () => {
       fetch: fakeFetch,
     });
     expect(result.exitCode).toBe(2);
-    expect(result.message).toMatch(/HTTP 500/);
+    expect(result.message).toMatch(/Error: Failed to fetch upstream work-types\.json: HTTP 500/);
   });
 
   it('exits 2 with a network-error diagnostic when fetch rejects', async () => {
@@ -100,7 +100,7 @@ describe(syncWorkTypes, () => {
       fetch: fakeFetch,
     });
     expect(result.exitCode).toBe(2);
-    expect(result.message).toMatch(/Network error/);
+    expect(result.message).toMatch(/Error: Failed to fetch upstream work-types\.json: ECONNREFUSED/);
   });
 
   it('exits 2 with a write-failure diagnostic when the local path is not writable', async () => {
@@ -113,7 +113,7 @@ describe(syncWorkTypes, () => {
       fetch: fakeFetch,
     });
     expect(result.exitCode).toBe(2);
-    expect(result.message).toMatch(/Failed to write/);
+    expect(result.message).toMatch(/Error: Failed to write/);
     expect(result.message).toContain(localPath);
   });
 

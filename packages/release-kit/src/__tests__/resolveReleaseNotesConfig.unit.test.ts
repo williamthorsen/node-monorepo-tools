@@ -72,7 +72,7 @@ describe(resolveReleaseNotesConfig, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith('Error: failed to load config: config read failure\n');
+    expect(process.stderr.write).toHaveBeenCalledWith('Error: Failed to load config: config read failure\n');
   });
 
   it('returns defaults when raw config is undefined', async () => {

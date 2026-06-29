@@ -233,7 +233,7 @@ describe(prepareCommand, () => {
     mockLoadConfig.mockRejectedValue(new Error('parse error'));
 
     await expect(prepareCommand([])).rejects.toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('Error loading config'));
+    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('Failed to load config'));
     expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('parse error'));
   });
 
@@ -282,26 +282,26 @@ describe(prepareCommand, () => {
     );
   });
 
-  it('prints stage-attributed errors verbatim without an outer "Error preparing release:" prefix', async () => {
+  it('prints stage-attributed errors with the canonical Error prefix and no "Error preparing release:" wrapper', async () => {
     mockReleasePrepareMono.mockImplementation(() => {
       throw new Error("workspace 'arrays' release stage: bumpAllVersions failed: ENOENT");
     });
 
     await expect(prepareCommand([])).rejects.toThrow(ExitError);
     expect(process.stderr.write).toHaveBeenCalledWith(
-      "workspace 'arrays' release stage: bumpAllVersions failed: ENOENT\n",
+      "Error: workspace 'arrays' release stage: bumpAllVersions failed: ENOENT\n",
     );
     expect(process.stderr.write).not.toHaveBeenCalledWith(expect.stringContaining('Error preparing release'));
   });
 
-  it('prints validation errors verbatim without an outer "Error preparing release:" prefix', async () => {
+  it('prints validation errors with the canonical Error prefix and no "Error preparing release:" wrapper', async () => {
     mockReleasePrepareMono.mockImplementation(() => {
       throw new Error('--set-version 0.3.0 is not greater than current version 0.5.0');
     });
 
     await expect(prepareCommand([])).rejects.toThrow(ExitError);
     expect(process.stderr.write).toHaveBeenCalledWith(
-      '--set-version 0.3.0 is not greater than current version 0.5.0\n',
+      'Error: --set-version 0.3.0 is not greater than current version 0.5.0\n',
     );
     expect(process.stderr.write).not.toHaveBeenCalledWith(expect.stringContaining('Error preparing release'));
   });

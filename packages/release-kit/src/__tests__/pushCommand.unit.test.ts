@@ -141,7 +141,7 @@ describe(pushCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith('push failed\n');
+    expect(process.stderr.write).toHaveBeenCalledWith('Error: push failed\n');
   });
 
   it('skips pushRelease when no tags are resolved', async () => {

@@ -101,7 +101,7 @@ describe(checkWorkTypesDrift, () => {
       fetch: fakeFetch,
     });
     expect(result.exitCode).toBe(2);
-    expect(result.message).toMatch(/HTTP 500/);
+    expect(result.message).toMatch(/Error: Failed to fetch upstream work-types\.json: HTTP 500/);
   });
 
   it('exits 2 on a network error (rejected fetch)', async () => {
@@ -112,7 +112,7 @@ describe(checkWorkTypesDrift, () => {
       fetch: fakeFetch,
     });
     expect(result.exitCode).toBe(2);
-    expect(result.message).toMatch(/Network error/);
+    expect(result.message).toMatch(/Error: Failed to fetch upstream work-types\.json: ECONNREFUSED/);
   });
 
   it('exits 3 on a schema mismatch (upstream JSON missing tiers/types)', async () => {

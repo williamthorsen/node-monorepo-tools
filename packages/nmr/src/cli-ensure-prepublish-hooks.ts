@@ -1,7 +1,7 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
-import { parseArgsOrExit } from '@williamthorsen/nmr-core';
+import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
 
 import { DEFAULT_HOOK, ensurePrepublishHooks } from './commands/ensure-prepublish-hooks.ts';
 import { findMonorepoRoot } from './context.ts';
@@ -47,6 +47,6 @@ try {
     process.exit(1);
   }
 } catch (error) {
-  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+  reportError(error instanceof Error ? error.message : String(error));
   process.exit(1);
 }

@@ -11,7 +11,8 @@ vi.mock('node:fs', () => ({
   readFileSync: mockReadFileSync,
 }));
 
-vi.mock('@williamthorsen/nmr-core', () => ({
+vi.mock('@williamthorsen/nmr-core', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@williamthorsen/nmr-core')>()),
   writeFileWithCheck: mockWriteFileWithCheck,
 }));
 
@@ -295,6 +296,6 @@ describe(writeReleaseNotesPreviews, () => {
 
     expect(result.injectedReadme?.outcome).toBe('failed');
     expect(result.injectedReadme?.error).toBe('EACCES');
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('Error writing'));
+    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('Failed to write'));
   });
 });

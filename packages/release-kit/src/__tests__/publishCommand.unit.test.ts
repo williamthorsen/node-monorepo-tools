@@ -276,7 +276,7 @@ describe(publishCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith('publish failed\n');
+    expect(process.stderr.write).toHaveBeenCalledWith('Error: publish failed\n');
   });
 
   it('does not invoke any GitHub Release path during publish', async () => {

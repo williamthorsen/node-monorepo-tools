@@ -128,7 +128,7 @@ describe(validateOverridesCommand, () => {
       validate: () => ({ errors: [], warnings: [] }),
     });
     expect(result.exitCode).toBe(2);
-    expect(result.message).toContain('Error loading config');
+    expect(result.message).toContain('Error: Failed to load config');
     expect(result.message).toContain('boom');
   });
 
@@ -141,6 +141,8 @@ describe(validateOverridesCommand, () => {
     });
     expect(result.exitCode).toBe(2);
     expect(result.message).toContain('Invalid config');
+    // The structured validation report is a verdict, not a command failure — it stays unprefixed.
+    expect(result.message).not.toContain('Error:');
   });
 
   it('passes a project-only scope to validate in single-package mode', async () => {

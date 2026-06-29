@@ -41,7 +41,7 @@ export async function resolveReleaseNotesConfig(
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     if (strictLoad) {
-      reportError(`failed to load config: ${message}`);
+      reportError(`Failed to load config: ${message}`);
       process.exit(1);
     }
     console.warn(`Warning: failed to load config; using defaults: ${message}`);

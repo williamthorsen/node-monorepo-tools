@@ -1,19 +1,38 @@
+import { PassThrough } from 'node:stream';
+
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { reportError, reportWriteResult } from '../terminal.ts';
+import { formatErrorLine, reportError, reportWriteResult } from '../terminal.ts';
 import type { WriteResult } from '../writeFileWithCheck.ts';
+
+describe(formatErrorLine, () => {
+  it('renders the canonical Error line without a trailing newline', () => {
+    expect(formatErrorLine('something went wrong')).toBe('Error: something went wrong');
+  });
+});
 
 describe(reportError, () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('writes a canonical Error line with a trailing newline to stderr', () => {
+  it('writes a canonical Error line with a trailing newline to stderr by default', () => {
     const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
     reportError('something went wrong');
 
     expect(spy).toHaveBeenCalledWith('Error: something went wrong\n');
+  });
+
+  it('writes to a provided stream instead of stderr', () => {
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const stream = new PassThrough();
+    const writeSpy = vi.spyOn(stream, 'write');
+
+    reportError('something went wrong', stream);
+
+    expect(writeSpy).toHaveBeenCalledWith('Error: something went wrong\n');
+    expect(stderrSpy).not.toHaveBeenCalled();
   });
 });
 

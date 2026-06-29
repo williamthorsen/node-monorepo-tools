@@ -1,7 +1,7 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
-import { parseArgsOrExit } from '@williamthorsen/nmr-core';
+import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
 
 import { parseRequestedTags } from './parseRequestedTags.ts';
 import { pushRelease } from './pushRelease.ts';
@@ -48,7 +48,7 @@ export async function pushCommand(argv: string[]): Promise<void> {
       }
     }
   } catch (error: unknown) {
-    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    reportError(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }

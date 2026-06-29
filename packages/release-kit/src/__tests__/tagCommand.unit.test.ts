@@ -86,6 +86,6 @@ describe(tagCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith('No tags file found. Run `release-kit prepare` first.\n');
+    expect(process.stderr.write).toHaveBeenCalledWith('Error: No tags file found. Run `release-kit prepare` first.\n');
   });
 });

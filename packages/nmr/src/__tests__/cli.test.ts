@@ -102,6 +102,12 @@ describe('nmr CLI', () => {
     expect(exitCode).toBe(1);
   });
 
+  it('exits 1 with a canonical Error line when -F has no argument', async () => {
+    const { stderr, exitCode } = await runNmr('-F');
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('Error: -F/--filter requires a pattern argument');
+  });
+
   it('resolves root package.json scripts at monorepo root', async () => {
     const { exitCode } = await runNmr('postinstall');
     expect(exitCode).toBe(0);
@@ -201,7 +207,7 @@ describe('nmr CLI', () => {
     it('still exits with error for unknown command when quiet', async () => {
       const { stderr, exitCode } = await runNmr('--quiet nonexistent-command');
       expect(exitCode).toBe(1);
-      expect(stderr).toContain('Unknown command');
+      expect(stderr).toContain('Error: Unknown command');
     });
   });
 

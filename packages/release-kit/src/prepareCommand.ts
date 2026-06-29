@@ -204,7 +204,7 @@ export async function prepareCommand(argv: string[]): Promise<void> {
   try {
     discoveredPaths = await discoverWorkspaces();
   } catch (error: unknown) {
-    process.stderr.write(`Error discovering workspaces: ${error instanceof Error ? error.message : String(error)}\n`);
+    reportError(`Failed to discover workspaces: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
   }
 
@@ -260,7 +260,7 @@ function runMonorepoMode(
     const rootPackage = readRootPackageVersion();
     config = mergeMonorepoConfig(discoveredPaths, userConfig, rootPackage);
   } catch (error: unknown) {
-    process.stderr.write(`Error resolving workspaces: ${error instanceof Error ? error.message : String(error)}\n`);
+    reportError(`Failed to resolve workspaces: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
   }
 
@@ -317,7 +317,7 @@ function runMonorepoMode(
     });
 
     if (violations !== undefined) {
-      process.stderr.write('Error: --only excludes packages with changes that would be stranded by the release.\n');
+      reportError('--only excludes packages with changes that would be stranded by the release.');
       process.stderr.write('The following packages must be added to --only or have their dependencies removed:\n');
       for (const violation of violations) {
         const since = violation.tag ?? 'the beginning';
@@ -361,7 +361,7 @@ async function loadAndValidateConfig(): Promise<ReleaseKitConfig | undefined> {
   try {
     rawConfig = await loadConfig();
   } catch (error: unknown) {
-    process.stderr.write(`Error loading config: ${error instanceof Error ? error.message : String(error)}\n`);
+    reportError(`Failed to load config: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
   }
 
@@ -391,7 +391,7 @@ function runAndReport(execute: () => PrepareResult, dryRun: boolean): void {
   try {
     result = execute();
   } catch (error: unknown) {
-    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    reportError(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 
@@ -400,7 +400,7 @@ function runAndReport(execute: () => PrepareResult, dryRun: boolean): void {
   const writeResult = writeReleaseTags(result.tags, dryRun);
 
   if (writeResult?.outcome === 'failed') {
-    process.stderr.write(`Error writing release tags: ${writeResult.error ?? 'unknown error'}\n`);
+    reportError(`Failed to write release tags: ${writeResult.error ?? 'unknown error'}`);
     process.exit(1);
   }
 
@@ -422,7 +422,7 @@ function runAndReport(execute: () => PrepareResult, dryRun: boolean): void {
     });
 
     if (summaryResult.outcome === 'failed') {
-      process.stderr.write(`Error writing release summary: ${summaryResult.error ?? 'unknown error'}\n`);
+      reportError(`Failed to write release summary: ${summaryResult.error ?? 'unknown error'}`);
       process.exit(1);
     }
 

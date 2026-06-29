@@ -37,7 +37,7 @@ export function syncLabelsCommand(): number {
     execSync('gh workflow run sync-labels.yaml', { stdio: 'inherit' });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`Error triggering workflow: ${message}\n`);
+    reportError(`Failed to trigger workflow: ${message}`);
     return 1;
   }
 

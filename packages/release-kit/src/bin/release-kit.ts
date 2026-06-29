@@ -325,7 +325,7 @@ if (command === 'commit') {
   try {
     commitCommand(flags);
   } catch (error: unknown) {
-    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    reportError(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
   process.exit(0);
