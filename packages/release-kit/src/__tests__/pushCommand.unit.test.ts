@@ -34,7 +34,7 @@ describe(pushCommand, () => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
     vi.spyOn(console, 'info').mockImplementation(() => {});
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {
@@ -106,7 +106,7 @@ describe(pushCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith('Error: Unknown option: --only');
+    expect(process.stderr.write).toHaveBeenCalledWith('Error: Unknown option: --only\n');
   });
 
   it('exits with code 1 on unknown flags', async () => {
@@ -121,7 +121,7 @@ describe(pushCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith('Error: Unknown option: --unknown');
+    expect(process.stderr.write).toHaveBeenCalledWith('Error: Unknown option: --unknown\n');
     expect(mockPushRelease).not.toHaveBeenCalled();
   });
 
@@ -141,7 +141,7 @@ describe(pushCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith('push failed');
+    expect(process.stderr.write).toHaveBeenCalledWith('push failed\n');
   });
 
   it('skips pushRelease when no tags are resolved', async () => {

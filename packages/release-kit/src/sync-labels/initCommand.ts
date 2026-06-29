@@ -32,7 +32,7 @@ export async function syncLabelsInitCommand({ dryRun, force }: InitOptions): Pro
     workspacePaths = await discoverWorkspaces();
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error(`  Failed to discover workspaces: ${message}`);
+    process.stderr.write(`  Failed to discover workspaces: ${message}\n`);
     return 1;
   }
 
@@ -55,7 +55,7 @@ export async function syncLabelsInitCommand({ dryRun, force }: InitOptions): Pro
   reportWriteResult(configResult, dryRun);
 
   if (workflowResult.outcome === 'failed' || configResult.outcome === 'failed') {
-    console.error('Failed to scaffold one or more files.');
+    process.stderr.write('Failed to scaffold one or more files.\n');
     return 1;
   }
 

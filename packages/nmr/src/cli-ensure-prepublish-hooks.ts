@@ -43,10 +43,10 @@ try {
 
   if (result.hasFailures) {
     const missing = result.packages.filter((p) => p.action === 'missing').length;
-    console.error(`\n${missing} package(s) missing prepublishOnly. Use --fix to add it.`);
+    process.stderr.write(`\n${missing} package(s) missing prepublishOnly. Use --fix to add it.\n`);
     process.exit(1);
   }
 } catch (error) {
-  console.error(error instanceof Error ? error.message : String(error));
+  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
   process.exit(1);
 }

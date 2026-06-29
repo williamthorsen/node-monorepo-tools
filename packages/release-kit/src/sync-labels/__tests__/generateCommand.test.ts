@@ -41,7 +41,7 @@ describe(generateCommand, () => {
 
   it('returns 1 when no config file is found', async () => {
     mockLoadSyncLabelsConfig.mockResolvedValue(undefined);
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
     const exitCode = await generateCommand();
 
@@ -51,7 +51,7 @@ describe(generateCommand, () => {
 
   it('returns 1 when config loading throws', async () => {
     mockLoadSyncLabelsConfig.mockRejectedValue(new Error('parse failure'));
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
     const exitCode = await generateCommand();
 
@@ -64,7 +64,7 @@ describe(generateCommand, () => {
     mockResolveLabels.mockImplementation(() => {
       throw new Error('Label name collision');
     });
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
     const exitCode = await generateCommand();
 
@@ -96,7 +96,7 @@ describe(generateCommand, () => {
     mockMkdirSync.mockImplementation(() => {
       throw new Error('EACCES');
     });
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
     const exitCode = await generateCommand();
 

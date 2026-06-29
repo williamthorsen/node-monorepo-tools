@@ -4,7 +4,7 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { parseArgsOrExit } from '@williamthorsen/nmr-core';
+import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { detectPackageManager } from './detectPackageManager.ts';
@@ -38,7 +38,7 @@ export async function publishCommand(argv: string[]): Promise<void> {
     try {
       assertCleanWorkingTree();
     } catch (error: unknown) {
-      console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      reportError(error instanceof Error ? error.message : String(error));
       process.exit(1);
     }
   }
@@ -104,7 +104,7 @@ export async function publishCommand(argv: string[]): Promise<void> {
         console.warn(`  ${t}`);
       }
     }
-    console.error(error instanceof Error ? error.message : String(error));
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
 }
@@ -126,7 +126,7 @@ function filterPublishableTags(resolvedTags: ResolvedTag[], isExplicit: boolean)
 
   if (isExplicit && unpublishable.length > 0) {
     for (const { tag, workspacePath } of unpublishable) {
-      console.error(`Error: ${tag} (${workspacePath}) cannot be published: package.json#private is true.`);
+      reportError(`${tag} (${workspacePath}) cannot be published: package.json#private is true.`);
     }
     process.exit(1);
   }

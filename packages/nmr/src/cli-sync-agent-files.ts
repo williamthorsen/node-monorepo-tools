@@ -15,7 +15,7 @@ const { flags } = parseArgsOrExit(process.argv.slice(2), flagSchema);
 try {
   runCommand(flags.check);
 } catch (error: unknown) {
-  console.error(error instanceof Error ? error.message : String(error));
+  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
   process.exit(1);
 }
 
@@ -38,7 +38,7 @@ function runCommand(checkOnly: boolean): void {
     console.info('✓ .agents/nmr/AGENTS.md is in sync');
     process.exit(0);
   }
-  console.error(result.reason);
+  process.stderr.write(`${result.reason}\n`);
   process.exit(1);
 }
 

@@ -29,7 +29,7 @@ describe(writeReleaseNotesPreviews, () => {
   beforeEach(() => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.spyOn(console, 'info').mockImplementation(() => {});
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {
@@ -295,6 +295,6 @@ describe(writeReleaseNotesPreviews, () => {
 
     expect(result.injectedReadme?.outcome).toBe('failed');
     expect(result.injectedReadme?.error).toBe('EACCES');
-    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Error writing'));
+    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('Error writing'));
   });
 });

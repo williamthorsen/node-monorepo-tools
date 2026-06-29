@@ -21,6 +21,7 @@ export default [
       'n/no-extraneous-import': 'off',
       'n/no-missing-import': 'off',
       'n/no-unpublished-import': 'off',
+      'no-console': ['error', { allow: ['debug', 'info', 'warn'] }],
     },
   },
   {

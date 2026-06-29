@@ -1,7 +1,21 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { reportWriteResult } from '../terminal.ts';
+import { reportError, reportWriteResult } from '../terminal.ts';
 import type { WriteResult } from '../writeFileWithCheck.ts';
+
+describe(reportError, () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('writes a canonical Error line with a trailing newline to stderr', () => {
+    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    reportError('something went wrong');
+
+    expect(spy).toHaveBeenCalledWith('Error: something went wrong\n');
+  });
+});
 
 describe(reportWriteResult, () => {
   afterEach(() => {
@@ -74,7 +88,7 @@ describe(reportWriteResult, () => {
   });
 
   it('prints error for failed outcome', () => {
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const result: WriteResult = { filePath: 'some/file.ts', outcome: 'failed' };
 
     reportWriteResult(result, false);
@@ -83,7 +97,7 @@ describe(reportWriteResult, () => {
   });
 
   it('prints error with detail when failed outcome has an error', () => {
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const result: WriteResult = {
       filePath: 'some/file.ts',
       outcome: 'failed',

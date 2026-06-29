@@ -22,7 +22,7 @@ describe(tagCommand, () => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
     vi.spyOn(console, 'info').mockImplementation(() => {});
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {
@@ -66,7 +66,7 @@ describe(tagCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith('Error: Unknown option: --unknown');
+    expect(process.stderr.write).toHaveBeenCalledWith('Error: Unknown option: --unknown\n');
     expect(mockCreateTags).not.toHaveBeenCalled();
   });
 
@@ -86,6 +86,6 @@ describe(tagCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith('No tags file found. Run `release-kit prepare` first.');
+    expect(process.stderr.write).toHaveBeenCalledWith('No tags file found. Run `release-kit prepare` first.\n');
   });
 });

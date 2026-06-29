@@ -213,7 +213,7 @@ describe(parseArgsOrExit, () => {
     vi.spyOn(process, 'exit').mockImplementation((code) => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {
@@ -230,14 +230,14 @@ describe(parseArgsOrExit, () => {
   it('prints a usage error and exits with code 1 on a parse failure', () => {
     expect(() => parseArgsOrExit(['--unknown'], mixedSchema)).toThrow(ExitError);
 
-    expect(console.error).toHaveBeenCalledWith('Error: Unknown option: --unknown');
+    expect(process.stderr.write).toHaveBeenCalledWith('Error: Unknown option: --unknown\n');
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 
   it('prints a usage error and exits with code 1 on an unexpected positional', () => {
     expect(() => parseArgsOrExit(['extra'], mixedSchema)).toThrow(ExitError);
 
-    expect(console.error).toHaveBeenCalledWith('Error: Unexpected positional argument: extra');
+    expect(process.stderr.write).toHaveBeenCalledWith('Error: Unexpected positional argument: extra\n');
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 

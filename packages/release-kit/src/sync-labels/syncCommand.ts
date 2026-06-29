@@ -1,6 +1,8 @@
 import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 
+import { reportError } from '@williamthorsen/nmr-core';
+
 /** Workflow file that must exist before triggering. */
 const WORKFLOW_FILE = '.github/workflows/sync-labels.yaml';
 
@@ -22,12 +24,12 @@ function checkGhAvailable(): boolean {
  */
 export function syncLabelsCommand(): number {
   if (!checkGhAvailable()) {
-    console.error('Error: The `gh` CLI is not installed or not in PATH. Install it from https://cli.github.com/');
+    reportError('The `gh` CLI is not installed or not in PATH. Install it from https://cli.github.com/');
     return 1;
   }
 
   if (!existsSync(WORKFLOW_FILE)) {
-    console.error(`Error: ${WORKFLOW_FILE} not found. Run \`release-kit sync-labels init\` first.`);
+    reportError(`${WORKFLOW_FILE} not found. Run \`release-kit sync-labels init\` first.`);
     return 1;
   }
 
@@ -35,7 +37,7 @@ export function syncLabelsCommand(): number {
     execSync('gh workflow run sync-labels.yaml', { stdio: 'inherit' });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error(`Error triggering workflow: ${message}`);
+    process.stderr.write(`Error triggering workflow: ${message}\n`);
     return 1;
   }
 

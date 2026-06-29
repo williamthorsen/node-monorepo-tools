@@ -36,12 +36,14 @@ export async function generateCommand(): Promise<number> {
     config = await loadSyncLabelsConfig();
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error(`Error loading config: ${message}`);
+    process.stderr.write(`Error loading config: ${message}\n`);
     return 1;
   }
 
   if (config === undefined) {
-    console.error(`No config file found at ${SYNC_LABELS_CONFIG_PATH}. Run \`release-kit sync-labels init\` first.`);
+    process.stderr.write(
+      `No config file found at ${SYNC_LABELS_CONFIG_PATH}. Run \`release-kit sync-labels init\` first.\n`,
+    );
     return 1;
   }
 
@@ -50,7 +52,7 @@ export async function generateCommand(): Promise<number> {
     labels = resolveLabels(config);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error(`Error resolving labels: ${message}`);
+    process.stderr.write(`Error resolving labels: ${message}\n`);
     return 1;
   }
 
@@ -66,7 +68,7 @@ export async function generateCommand(): Promise<number> {
     writeFileSync(LABELS_OUTPUT_PATH, content, 'utf8');
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error(`Error writing ${LABELS_OUTPUT_PATH}: ${message}`);
+    process.stderr.write(`Error writing ${LABELS_OUTPUT_PATH}: ${message}\n`);
     return 1;
   }
 

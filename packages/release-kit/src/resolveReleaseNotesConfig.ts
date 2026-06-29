@@ -1,6 +1,8 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
+import { reportError } from '@williamthorsen/nmr-core';
+
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from './defaults.ts';
 import { loadConfig, resolveWorkTypes } from './loadConfig.ts';
 import type { ReleaseNotesConfig } from './types.ts';
@@ -39,7 +41,7 @@ export async function resolveReleaseNotesConfig(
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     if (strictLoad) {
-      console.error(`Error: failed to load config: ${message}`);
+      reportError(`failed to load config: ${message}`);
       process.exit(1);
     }
     console.warn(`Warning: failed to load config; using defaults: ${message}`);
@@ -55,9 +57,9 @@ export async function resolveReleaseNotesConfig(
 
   const { config, errors, warnings } = validateConfig(rawConfig);
   if (errors.length > 0) {
-    console.error('Invalid config:');
+    process.stderr.write('Invalid config:\n');
     for (const err of errors) {
-      console.error(`  ❌ ${err}`);
+      process.stderr.write(`  ❌ ${err}\n`);
     }
     process.exit(1);
   }

@@ -31,7 +31,7 @@ export async function createGithubReleaseCommand(argv: string[]): Promise<void> 
   try {
     outcome = createGithubReleases(resolvedTags, changelogJsonOutputPath, dryRun, sectionOrder);
   } catch (error: unknown) {
-    console.error(`Error creating GitHub Releases: ${error instanceof Error ? error.message : String(error)}`);
+    process.stderr.write(`Error creating GitHub Releases: ${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
 

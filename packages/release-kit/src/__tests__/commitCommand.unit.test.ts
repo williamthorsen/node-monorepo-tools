@@ -31,7 +31,7 @@ describe(commitCommand, () => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
     vi.spyOn(console, 'info').mockImplementation(() => {});
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {
@@ -146,6 +146,6 @@ describe(commitCommand, () => {
 
   it('exits with error for unknown flags', () => {
     expect(() => commitCommand(['--unknown'])).toThrow(ExitError);
-    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Unknown option'));
+    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('Unknown option'));
   });
 });

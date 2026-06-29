@@ -2,7 +2,7 @@
 /* eslint unicorn/no-process-exit: off */
 
 import type { WriteResult } from '@williamthorsen/nmr-core';
-import { parseArgs as coreParseArgs, writeFileWithCheck } from '@williamthorsen/nmr-core';
+import { parseArgs as coreParseArgs, reportError, writeFileWithCheck } from '@williamthorsen/nmr-core';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { buildDependencyGraph } from './buildDependencyGraph.ts';
@@ -172,7 +172,7 @@ export async function prepareCommand(argv: string[]): Promise<void> {
   try {
     ({ dryRun, force, noGitChecks, bumpOverride, only, setVersion, withReleaseNotes } = parseArgs(argv));
   } catch (error: unknown) {
-    console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    reportError(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
   const options = {
@@ -192,7 +192,7 @@ export async function prepareCommand(argv: string[]): Promise<void> {
     try {
       assertCleanWorkingTree();
     } catch (error: unknown) {
-      console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      reportError(error instanceof Error ? error.message : String(error));
       process.exit(1);
     }
   }
@@ -204,7 +204,7 @@ export async function prepareCommand(argv: string[]): Promise<void> {
   try {
     discoveredPaths = await discoverWorkspaces();
   } catch (error: unknown) {
-    console.error(`Error discovering workspaces: ${error instanceof Error ? error.message : String(error)}`);
+    process.stderr.write(`Error discovering workspaces: ${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
 
@@ -223,7 +223,7 @@ function runSinglePackageMode(
   dryRun: boolean,
 ): void {
   if (only !== undefined) {
-    console.error('Error: --only is only supported for monorepo configurations');
+    reportError('--only is only supported for monorepo configurations');
     process.exit(1);
   }
 
@@ -234,8 +234,8 @@ function runSinglePackageMode(
   // than letting the user discover the gap from a missing release. `--force --bump=X` is
   // accepted because the `--bump` override carries the release through unconditionally.
   if (options.force && options.bumpOverride === undefined) {
-    console.error(
-      'Error: --force without --bump is only supported for monorepo configurations. ' +
+    reportError(
+      '--force without --bump is only supported for monorepo configurations. ' +
         'Use --bump=major|minor|patch to set the level for a single-package release.',
     );
     process.exit(1);
@@ -260,7 +260,7 @@ function runMonorepoMode(
     const rootPackage = readRootPackageVersion();
     config = mergeMonorepoConfig(discoveredPaths, userConfig, rootPackage);
   } catch (error: unknown) {
-    console.error(`Error resolving workspaces: ${error instanceof Error ? error.message : String(error)}`);
+    process.stderr.write(`Error resolving workspaces: ${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
 
@@ -271,8 +271,8 @@ function runMonorepoMode(
   // rejection so a user passing `--set-version` (the primary intent) sees the project-aware
   // error rather than the secondary `--only` error when both flags are supplied.
   if (setVersion !== undefined && config.project !== undefined) {
-    console.error(
-      'Error: --set-version cannot be combined with a project release. ' +
+    reportError(
+      '--set-version cannot be combined with a project release. ' +
         '--set-version operates on a single workspace; a project release rolls up every ' +
         'contributing workspace. To use --set-version, run on a config without a `project` block.',
     );
@@ -284,8 +284,8 @@ function runMonorepoMode(
   // around which workspaces participate in the project bump. A consumer that needs to release
   // a single workspace must do so on a config without a `project` block.
   if (only !== undefined && config.project !== undefined) {
-    console.error(
-      'Error: --only cannot be combined with a project release. ' +
+    reportError(
+      '--only cannot be combined with a project release. ' +
         'To release a single workspace, use a config without a `project` block, ' +
         'or run a full `prepare` (no --only) to include the project release.',
     );
@@ -298,7 +298,7 @@ function runMonorepoMode(
     // Validate all names before mutating config
     for (const name of only) {
       if (!knownNames.includes(name)) {
-        console.error(`Error: Unknown workspace "${name}". Known workspaces: ${knownNames.join(', ')}`);
+        reportError(`Unknown workspace "${name}". Known workspaces: ${knownNames.join(', ')}`);
         process.exit(1);
       }
     }
@@ -317,13 +317,15 @@ function runMonorepoMode(
     });
 
     if (violations !== undefined) {
-      console.error('Error: --only excludes packages with changes that would be stranded by the release.');
-      console.error('The following packages must be added to --only or have their dependencies removed:');
+      process.stderr.write('Error: --only excludes packages with changes that would be stranded by the release.\n');
+      process.stderr.write('The following packages must be added to --only or have their dependencies removed:\n');
       for (const violation of violations) {
         const since = violation.tag ?? 'the beginning';
-        console.error(`  - ${violation.dir} (downstream of ${violation.downstreamOf}; has commits since ${since})`);
+        process.stderr.write(
+          `  - ${violation.dir} (downstream of ${violation.downstreamOf}; has commits since ${since})\n`,
+        );
       }
-      console.error('Alternatively, run `release-kit prepare` without --only to release everything.');
+      process.stderr.write('Alternatively, run `release-kit prepare` without --only to release everything.\n');
       process.exit(1);
     }
 
@@ -333,13 +335,11 @@ function runMonorepoMode(
   // --set-version requires exactly one target workspace in monorepo mode.
   if (setVersion !== undefined) {
     if (only === undefined) {
-      console.error('Error: --set-version requires --only in monorepo mode');
+      reportError('--set-version requires --only in monorepo mode');
       process.exit(1);
     }
     if (config.workspaces.length !== 1) {
-      console.error(
-        `Error: --set-version requires --only to match exactly one workspace; matched ${config.workspaces.length}`,
-      );
+      reportError(`--set-version requires --only to match exactly one workspace; matched ${config.workspaces.length}`);
       process.exit(1);
     }
   }
@@ -361,7 +361,7 @@ async function loadAndValidateConfig(): Promise<ReleaseKitConfig | undefined> {
   try {
     rawConfig = await loadConfig();
   } catch (error: unknown) {
-    console.error(`Error loading config: ${error instanceof Error ? error.message : String(error)}`);
+    process.stderr.write(`Error loading config: ${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
 
@@ -371,9 +371,9 @@ async function loadAndValidateConfig(): Promise<ReleaseKitConfig | undefined> {
 
   const { config, errors, warnings } = validateConfig(rawConfig);
   if (errors.length > 0) {
-    console.error('Invalid config:');
+    process.stderr.write('Invalid config:\n');
     for (const err of errors) {
-      console.error(`  ❌ ${err}`);
+      process.stderr.write(`  ❌ ${err}\n`);
     }
     process.exit(1);
   }
@@ -391,7 +391,7 @@ function runAndReport(execute: () => PrepareResult, dryRun: boolean): void {
   try {
     result = execute();
   } catch (error: unknown) {
-    console.error(error instanceof Error ? error.message : String(error));
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
 
@@ -400,7 +400,7 @@ function runAndReport(execute: () => PrepareResult, dryRun: boolean): void {
   const writeResult = writeReleaseTags(result.tags, dryRun);
 
   if (writeResult?.outcome === 'failed') {
-    console.error(`Error writing release tags: ${writeResult.error ?? 'unknown error'}`);
+    process.stderr.write(`Error writing release tags: ${writeResult.error ?? 'unknown error'}\n`);
     process.exit(1);
   }
 
@@ -422,7 +422,7 @@ function runAndReport(execute: () => PrepareResult, dryRun: boolean): void {
     });
 
     if (summaryResult.outcome === 'failed') {
-      console.error(`Error writing release summary: ${summaryResult.error ?? 'unknown error'}`);
+      process.stderr.write(`Error writing release summary: ${summaryResult.error ?? 'unknown error'}\n`);
       process.exit(1);
     }
 
@@ -434,6 +434,6 @@ function runAndReport(execute: () => PrepareResult, dryRun: boolean): void {
   }
 
   if (writeResult && !dryRun) {
-    console.error(`\nRun 'release-kit commit' to create the release commit.`);
+    process.stderr.write(`\nRun 'release-kit commit' to create the release commit.\n`);
   }
 }

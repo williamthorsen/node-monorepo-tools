@@ -2,7 +2,7 @@
 /* eslint n/hashbang: off, n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
-import { parseArgsOrExit, readPackageVersion } from '@williamthorsen/nmr-core';
+import { parseArgsOrExit, readPackageVersion, reportError } from '@williamthorsen/nmr-core';
 
 import { checkWorkTypesDrift } from '../checkWorkTypesDrift.ts';
 import { commitCommand } from '../commitCommand.ts';
@@ -325,7 +325,7 @@ if (command === 'commit') {
   try {
     commitCommand(flags);
   } catch (error: unknown) {
-    console.error(error instanceof Error ? error.message : String(error));
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
   process.exit(0);
@@ -377,7 +377,7 @@ if (command === 'show-tag-prefixes') {
     process.exit(0);
   }
   if (flags.length > 0) {
-    console.error(`Error: Unknown option: ${flags[0]}`);
+    reportError(`Unknown option: ${flags[0]}`);
     process.exit(1);
   }
 
@@ -434,7 +434,7 @@ if (command === 'sync-labels') {
     }
 
     if (subflags.length > 0) {
-      console.error(`Error: Unknown option: ${subflags[0]}`);
+      reportError(`Unknown option: ${subflags[0]}`);
       process.exit(1);
     }
 
@@ -449,7 +449,7 @@ if (command === 'sync-labels') {
     }
 
     if (subflags.length > 0) {
-      console.error(`Error: Unknown option: ${subflags[0]}`);
+      reportError(`Unknown option: ${subflags[0]}`);
       process.exit(1);
     }
 
@@ -457,7 +457,7 @@ if (command === 'sync-labels') {
     process.exit(exitCode);
   }
 
-  console.error(`Error: Unknown subcommand: ${subcommand}`);
+  reportError(`Unknown subcommand: ${subcommand}`);
   showSyncLabelsHelp();
   process.exit(1);
 }
@@ -477,19 +477,19 @@ if (command === 'overrides') {
       process.exit(0);
     }
     if (subflags.length > 0) {
-      console.error(`Error: Unknown option: ${subflags[0]}`);
+      reportError(`Unknown option: ${subflags[0]}`);
       process.exit(1);
     }
     const result = await validateOverridesCommand();
     if (result.exitCode === 0) {
       console.info(result.message);
     } else {
-      console.error(result.message);
+      process.stderr.write(`${result.message}\n`);
     }
     process.exit(result.exitCode);
   }
 
-  console.error(`Error: Unknown subcommand: ${subcommand}`);
+  reportError(`Unknown subcommand: ${subcommand}`);
   showOverridesHelp();
   process.exit(1);
 }
@@ -509,14 +509,14 @@ if (command === 'work-types') {
       process.exit(0);
     }
     if (subflags.length > 0) {
-      console.error(`Error: Unknown option: ${subflags[0]}`);
+      reportError(`Unknown option: ${subflags[0]}`);
       process.exit(1);
     }
     const result = await checkWorkTypesDrift();
     if (result.exitCode === 0) {
       console.info(result.message);
     } else {
-      console.error(result.message);
+      process.stderr.write(`${result.message}\n`);
     }
     process.exit(result.exitCode);
   }
@@ -527,23 +527,23 @@ if (command === 'work-types') {
       process.exit(0);
     }
     if (subflags.length > 0) {
-      console.error(`Error: Unknown option: ${subflags[0]}`);
+      reportError(`Unknown option: ${subflags[0]}`);
       process.exit(1);
     }
     const result = await syncWorkTypes();
     if (result.exitCode === 0) {
       console.info(result.message);
     } else {
-      console.error(result.message);
+      process.stderr.write(`${result.message}\n`);
     }
     process.exit(result.exitCode);
   }
 
-  console.error(`Error: Unknown subcommand: ${subcommand}`);
+  reportError(`Unknown subcommand: ${subcommand}`);
   showWorkTypesHelp();
   process.exit(1);
 }
 
-console.error(`Error: Unknown command: ${command}`);
+reportError(`Unknown command: ${command}`);
 showUsage();
 process.exit(1);

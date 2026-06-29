@@ -8,6 +8,6 @@ try {
   const monorepoRoot = findMonorepoRoot();
   syncPnpmVersion(monorepoRoot);
 } catch (error) {
-  console.error(error instanceof Error ? error.message : String(error));
+  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
   process.exit(1);
 }

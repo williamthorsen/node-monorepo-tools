@@ -1,5 +1,7 @@
 import process from 'node:process';
 
+import { reportError } from '@williamthorsen/nmr-core';
+
 import type { LoadConfigResult } from './config.ts';
 import { loadConfig } from './config.ts';
 import type { AllowedVuln, CheckResult, ScopeCheckResult } from './format-check.ts';
@@ -28,7 +30,7 @@ export async function auditCommand(options: CommandOptions): Promise<number> {
   try {
     loaded = await loadConfig(options.configPath);
   } catch (error: unknown) {
-    process.stderr.write(`Error: ${extractMessage(error)}\n`);
+    reportError(extractMessage(error));
     return 1;
   }
 
@@ -84,7 +86,7 @@ export async function auditCommand(options: CommandOptions): Promise<number> {
       return exitCode;
     });
   } catch (error: unknown) {
-    process.stderr.write(`Error: ${extractMessage(error)}\n`);
+    reportError(extractMessage(error));
     return 1;
   }
 }
@@ -104,7 +106,7 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
   try {
     loaded = await loadConfig(options.configPath);
   } catch (error: unknown) {
-    process.stderr.write(`Error: ${extractMessage(error)}\n`);
+    reportError(extractMessage(error));
     return 1;
   }
 
@@ -184,7 +186,7 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
       return hasUnallowed ? 1 : 0;
     });
   } catch (error: unknown) {
-    process.stderr.write(`Error: ${extractMessage(error)}\n`);
+    reportError(extractMessage(error));
     return 1;
   }
 }
@@ -201,7 +203,7 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
   try {
     loaded = await loadConfig(options.configPath);
   } catch (error: unknown) {
-    process.stderr.write(`Error: ${extractMessage(error)}\n`);
+    reportError(extractMessage(error));
     return 1;
   }
 
@@ -211,7 +213,7 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
   if (configSource === 'defaults') {
     const { configResult } = scaffoldConfig({ dryRun: false, force: false });
     if (configResult.outcome === 'failed') {
-      process.stderr.write(`Error: Failed to create config file\n`);
+      reportError('Failed to create config file');
       return 1;
     }
     loaded = await loadConfig(options.configPath);
@@ -253,7 +255,7 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
       return 0;
     });
   } catch (error: unknown) {
-    process.stderr.write(`Error: ${extractMessage(error)}\n`);
+    reportError(extractMessage(error));
     return 1;
   }
 }
