@@ -549,15 +549,15 @@ The first release that ships under the new renderer will produce a one-time nois
 
 Run release preparation with automatic workspace discovery.
 
-| Flag                         | Description                                                                                                                                        |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--dry-run`                  | Preview changes without writing files                                                                                                              |
-| `--bump=major\|minor\|patch` | Override the bump type for all workspaces                                                                                                          |
-| `--set-version=X.Y.Z`        | Set an explicit canonical semver version; bypasses commit-derived bumps. Requires `--only` in monorepo mode.                                       |
-| `--force`                    | Release even when no commits or no bump-worthy commits exist since the last tag (defaults to patch; combine with `--bump=X` for a different level) |
-| `--only=name1,name2`         | Only process the named workspaces (monorepo only; rejected when a `project` block is configured)                                                   |
-| `--with-release-notes`       | Write per-workspace release-notes previews under `{workspacePath}/docs/`                                                                           |
-| `--help`, `-h`               | Show help                                                                                                                                          |
+| Flag                         | Description                                                                                                                                                  |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--dry-run`                  | Preview changes without writing files                                                                                                                        |
+| `--bump=major\|minor\|patch` | Override the bump type for all workspaces                                                                                                                    |
+| `--set-version=X.Y.Z`        | Set an explicit canonical semver version; bypasses commit-derived bumps. Requires `--only` in monorepo mode (rejected when a `project` block is configured). |
+| `--force`                    | Release even when no commits or no bump-worthy commits exist since the last tag (defaults to patch; combine with `--bump=X` for a different level)           |
+| `--only=name1,name2`         | Only process the named workspaces (monorepo only; rejected when a `project` block is configured)                                                             |
+| `--with-release-notes`       | Write per-workspace release-notes previews under `{workspacePath}/docs/`                                                                                     |
+| `--help`, `-h`               | Show help                                                                                                                                                    |
 
 Workspace names for `--only` match the package directory name (e.g., `arrays`, `release-kit`).
 

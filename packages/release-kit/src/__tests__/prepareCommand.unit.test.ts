@@ -595,13 +595,12 @@ describe(parseArgs, () => {
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 
-  it('exits with code 0 when --help is provided', () => {
-    expect(() => parseArgs(['--help'])).toThrow(ExitError);
-    expect(process.exit).toHaveBeenCalledWith(0);
-    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('npx @williamthorsen/release-kit prepare'));
-    expect(console.info).toHaveBeenCalledWith(
-      expect.stringContaining('Release even when no commits or no bump-worthy commits exist'),
-    );
+  it('rejects --help=value as an unknown option', () => {
+    // The bin dispatcher only intercepts bare `--help`/`-h`; the `=value` form slips past it
+    // and reaches parseArgs, where `--help` is no longer a known flag.
+    expect(() => parseArgs(['--help=value'])).toThrow(ExitError);
+    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('Unknown option: --help'));
+    expect(process.exit).toHaveBeenCalledWith(1);
   });
 
   it('accepts --force without --bump and defaults force to true', () => {
@@ -682,11 +681,6 @@ describe(parseArgs, () => {
   it('defaults withReleaseNotes to false', () => {
     const result = parseArgs([]);
     expect(result.withReleaseNotes).toBe(false);
-  });
-
-  it('documents --with-release-notes in --help output', () => {
-    expect(() => parseArgs(['--help'])).toThrow(ExitError);
-    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('--with-release-notes'));
   });
 });
 
