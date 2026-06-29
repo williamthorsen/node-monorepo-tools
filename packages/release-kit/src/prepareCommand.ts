@@ -39,30 +39,7 @@ function isReleaseType(value: string): value is ReleaseType {
   return VALID_BUMP_TYPES.includes(value);
 }
 
-/** Displays CLI usage information. */
-function showHelp(): void {
-  console.info(`
-Usage: npx @williamthorsen/release-kit prepare [options]
-
-Options:
-  --dry-run             Run without modifying any files
-  --bump=major|minor|patch  Override the bump type for all workspaces
-  --set-version=X.Y.Z   Set an explicit version; bypasses commit-derived bumps.
-                         Requires --only in monorepo mode (rejected when a 'project' block is configured).
-  --force               Release even when no commits or no bump-worthy commits exist
-                         since the last tag. Defaults to patch when --bump is not given;
-                         use --bump=X to release at a different level.
-  --no-git-checks, -n   Skip the clean-working-tree check
-  --only=name1,name2    Only process the named workspaces (comma-separated, monorepo only;
-                         rejected when a 'project' block is configured)
-  --with-release-notes  Also write per-workspace release-notes previews under {workspacePath}/docs/
-                         (docs/README.v{version}.md and docs/RELEASE_NOTES.v{version}.md).
-                         Recommended .gitignore entry: packages/*/docs/*.v*.md (or docs/*.v*.md).
-  --help                Show this help message
-`);
-}
-
-const prepareFlagSchema = {
+export const prepareFlagSchema = {
   dryRun: { long: '--dry-run', type: 'boolean' as const },
   force: { long: '--force', type: 'boolean' as const },
   noGitChecks: {
@@ -74,7 +51,6 @@ const prepareFlagSchema = {
   setVersion: { long: '--set-version', type: 'string' as const },
   only: { long: '--only', type: 'string' as const },
   withReleaseNotes: { long: '--with-release-notes', type: 'boolean' as const },
-  help: { long: '--help', type: 'boolean' as const, short: '-h' },
 };
 
 /** Parses CLI arguments into structured options. Prints a usage error and exits on invalid input. */
@@ -88,11 +64,6 @@ export function parseArgs(argv: string[]): {
   withReleaseNotes: boolean;
 } {
   const { flags } = parseArgsOrExit(argv, prepareFlagSchema);
-
-  if (flags.help) {
-    showHelp();
-    process.exit(0);
-  }
 
   let bumpOverride: ReleaseType | undefined;
   if (flags.bump !== undefined) {
