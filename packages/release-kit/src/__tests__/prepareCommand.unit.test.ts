@@ -576,18 +576,23 @@ describe(parseArgs, () => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
     vi.spyOn(console, 'info').mockImplementation(() => {});
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('throws for an invalid bump type', () => {
-    expect(() => parseArgs(['--bump=invalid'])).toThrow('Invalid bump type');
+  it('exits with an error for an invalid bump type', () => {
+    expect(() => parseArgs(['--bump=invalid'])).toThrow(ExitError);
+    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('Invalid bump type'));
+    expect(process.exit).toHaveBeenCalledWith(1);
   });
 
-  it('throws for an unknown flag with the flag name in the message', () => {
-    expect(() => parseArgs(['--foo'])).toThrow('Unknown option: --foo');
+  it('exits with an error for an unknown flag with the flag name in the message', () => {
+    expect(() => parseArgs(['--foo'])).toThrow(ExitError);
+    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('Unknown option: --foo'));
+    expect(process.exit).toHaveBeenCalledWith(1);
   });
 
   it('exits with code 0 when --help is provided', () => {
@@ -607,8 +612,10 @@ describe(parseArgs, () => {
     expect(result.bumpOverride).toBeUndefined();
   });
 
-  it('throws when --only value is empty', () => {
-    expect(() => parseArgs(['--only='])).toThrow('Missing value for option: --only');
+  it('exits with an error when --only value is empty', () => {
+    expect(() => parseArgs(['--only='])).toThrow(ExitError);
+    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('Missing value for option: --only'));
+    expect(process.exit).toHaveBeenCalledWith(1);
   });
 
   it('accepts a canonical semver value for --set-version', () => {
@@ -616,28 +623,40 @@ describe(parseArgs, () => {
     expect(result.setVersion).toBe('1.0.0');
   });
 
-  it('throws when --set-version has a pre-release suffix', () => {
-    expect(() => parseArgs(['--set-version=1.0.0-alpha'])).toThrow('Invalid --set-version');
+  it('exits with an error when --set-version has a pre-release suffix', () => {
+    expect(() => parseArgs(['--set-version=1.0.0-alpha'])).toThrow(ExitError);
+    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('Invalid --set-version'));
+    expect(process.exit).toHaveBeenCalledWith(1);
   });
 
-  it('throws when --set-version is not canonical N.N.N', () => {
-    expect(() => parseArgs(['--set-version=1.0'])).toThrow('Invalid --set-version');
+  it('exits with an error when --set-version is not canonical N.N.N', () => {
+    expect(() => parseArgs(['--set-version=1.0'])).toThrow(ExitError);
+    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('Invalid --set-version'));
+    expect(process.exit).toHaveBeenCalledWith(1);
   });
 
-  it('throws when --set-version is empty', () => {
-    expect(() => parseArgs(['--set-version='])).toThrow('Missing value for option: --set-version');
-  });
-
-  it('throws when --set-version is combined with --bump', () => {
-    expect(() => parseArgs(['--set-version=1.0.0', '--bump=minor'])).toThrow(
-      '--set-version cannot be combined with --bump',
+  it('exits with an error when --set-version is empty', () => {
+    expect(() => parseArgs(['--set-version='])).toThrow(ExitError);
+    expect(process.stderr.write).toHaveBeenCalledWith(
+      expect.stringContaining('Missing value for option: --set-version'),
     );
+    expect(process.exit).toHaveBeenCalledWith(1);
   });
 
-  it('throws when --set-version is combined with --force', () => {
-    expect(() => parseArgs(['--set-version=1.0.0', '--force'])).toThrow(
-      '--set-version cannot be combined with --force',
+  it('exits with an error when --set-version is combined with --bump', () => {
+    expect(() => parseArgs(['--set-version=1.0.0', '--bump=minor'])).toThrow(ExitError);
+    expect(process.stderr.write).toHaveBeenCalledWith(
+      expect.stringContaining('--set-version cannot be combined with --bump'),
     );
+    expect(process.exit).toHaveBeenCalledWith(1);
+  });
+
+  it('exits with an error when --set-version is combined with --force', () => {
+    expect(() => parseArgs(['--set-version=1.0.0', '--force'])).toThrow(ExitError);
+    expect(process.stderr.write).toHaveBeenCalledWith(
+      expect.stringContaining('--set-version cannot be combined with --force'),
+    );
+    expect(process.exit).toHaveBeenCalledWith(1);
   });
 
   it('parses --no-git-checks flag', () => {
