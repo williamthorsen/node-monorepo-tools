@@ -2,7 +2,7 @@
 /* eslint unicorn/no-process-exit: off */
 
 import type { WriteResult } from '@williamthorsen/nmr-core';
-import { parseArgs as coreParseArgs, reportError, writeFileWithCheck } from '@williamthorsen/nmr-core';
+import { parseArgsOrExit, reportError, writeFileWithCheck } from '@williamthorsen/nmr-core';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { buildDependencyGraph } from './buildDependencyGraph.ts';
@@ -77,7 +77,7 @@ const prepareFlagSchema = {
   help: { long: '--help', type: 'boolean' as const, short: '-h' },
 };
 
-/** Parses CLI arguments into structured options. Throws on invalid input. */
+/** Parses CLI arguments into structured options. Prints a usage error and exits on invalid input. */
 export function parseArgs(argv: string[]): {
   dryRun: boolean;
   force: boolean;
@@ -87,7 +87,7 @@ export function parseArgs(argv: string[]): {
   setVersion: string | undefined;
   withReleaseNotes: boolean;
 } {
-  const { flags } = coreParseArgs(argv, prepareFlagSchema);
+  const { flags } = parseArgsOrExit(argv, prepareFlagSchema);
 
   if (flags.help) {
     showHelp();
@@ -97,7 +97,8 @@ export function parseArgs(argv: string[]): {
   let bumpOverride: ReleaseType | undefined;
   if (flags.bump !== undefined) {
     if (!isReleaseType(flags.bump)) {
-      throw new Error(`Invalid bump type "${flags.bump}". Must be one of: ${VALID_BUMP_TYPES.join(', ')}`);
+      reportError(`Invalid bump type "${flags.bump}". Must be one of: ${VALID_BUMP_TYPES.join(', ')}`);
+      process.exit(1);
     }
     bumpOverride = flags.bump;
   }
@@ -105,9 +106,10 @@ export function parseArgs(argv: string[]): {
   let setVersion: string | undefined;
   if (flags.setVersion !== undefined) {
     if (!CANONICAL_SEMVER_PATTERN.test(flags.setVersion)) {
-      throw new Error(
+      reportError(
         `Invalid --set-version value "${flags.setVersion}". Must be canonical semver (N.N.N, no pre-release suffix).`,
       );
+      process.exit(1);
     }
     setVersion = flags.setVersion;
   }
@@ -118,11 +120,13 @@ export function parseArgs(argv: string[]): {
   }
 
   if (setVersion !== undefined && bumpOverride !== undefined) {
-    throw new Error('--set-version cannot be combined with --bump');
+    reportError('--set-version cannot be combined with --bump');
+    process.exit(1);
   }
 
   if (setVersion !== undefined && flags.force) {
-    throw new Error('--set-version cannot be combined with --force');
+    reportError('--set-version cannot be combined with --force');
+    process.exit(1);
   }
 
   return {
@@ -162,19 +166,7 @@ export function writeReleaseTags(tags: string[], dryRun: boolean): WriteResult |
  * 6. Writes `.release-tags` for CI consumption.
  */
 export async function prepareCommand(argv: string[]): Promise<void> {
-  let dryRun: boolean;
-  let force: boolean;
-  let noGitChecks: boolean;
-  let bumpOverride: ReleaseType | undefined;
-  let only: string[] | undefined;
-  let setVersion: string | undefined;
-  let withReleaseNotes: boolean;
-  try {
-    ({ dryRun, force, noGitChecks, bumpOverride, only, setVersion, withReleaseNotes } = parseArgs(argv));
-  } catch (error: unknown) {
-    reportError(error instanceof Error ? error.message : String(error));
-    process.exit(1);
-  }
+  const { dryRun, force, noGitChecks, bumpOverride, only, setVersion, withReleaseNotes } = parseArgs(argv);
   const options = {
     dryRun,
     force,
