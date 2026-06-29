@@ -1,6 +1,4 @@
-import process from 'node:process';
-
-import { parseArgs, readPackageVersion } from '@williamthorsen/nmr-core';
+import { parseArgs, readPackageVersion, reportError } from '@williamthorsen/nmr-core';
 
 import { auditCommand, checkCommand, extractMessage, syncCommand } from '../cli.ts';
 import { initCommand } from '../init/initCommand.ts';
@@ -140,10 +138,10 @@ export async function routeCommand(args: string[]): Promise<number> {
   if (command !== undefined && !command.startsWith('-')) {
     const typoMatch = findTypoMatch(command);
     if (typoMatch !== undefined) {
-      process.stderr.write(`Error: Unknown command '${command}'. Did you mean 'v11y ${typoMatch}'?\n`);
+      reportError(`Unknown command '${command}'. Did you mean 'v11y ${typoMatch}'?`);
       return 1;
     }
-    process.stderr.write(`Error: Unknown command '${command}'.\n`);
+    reportError(`Unknown command '${command}'.`);
     return 1;
   }
 
@@ -172,14 +170,14 @@ async function handleSubcommand(
   try {
     options = parseSharedFlags(flags);
   } catch (error: unknown) {
-    process.stderr.write(`Error: ${extractMessage(error)}\n`);
+    reportError(extractMessage(error));
     return 1;
   }
 
   try {
     return await handler(options);
   } catch (error: unknown) {
-    process.stderr.write(`Error: ${extractMessage(error)}\n`);
+    reportError(extractMessage(error));
     return 1;
   }
 }
@@ -200,7 +198,7 @@ function handleInit(flags: string[]): number {
   try {
     parsed = parseArgs(flags, initFlagSchema);
   } catch (error: unknown) {
-    process.stderr.write(`Error: ${extractMessage(error)}\n`);
+    reportError(extractMessage(error));
     return 1;
   }
 

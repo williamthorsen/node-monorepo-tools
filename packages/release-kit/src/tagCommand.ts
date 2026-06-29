@@ -18,7 +18,7 @@ export function tagCommand(argv: string[]): void {
   try {
     createTags({ dryRun, noGitChecks });
   } catch (error: unknown) {
-    console.error(error instanceof Error ? error.message : String(error));
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
 }

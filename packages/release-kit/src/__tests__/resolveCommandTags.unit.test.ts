@@ -65,7 +65,7 @@ describe(resolveCommandTags, () => {
     vi.spyOn(process, 'exit').mockImplementation((code) => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {
@@ -137,8 +137,8 @@ describe(resolveCommandTags, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith(
-      'Error: Unknown tag "missing-v9.9.9" in --tags. Available: nmr-core-v1.3.0, cli-v0.5.0, release-kit-v2.1.0',
+    expect(process.stderr.write).toHaveBeenCalledWith(
+      'Error: Unknown tag "missing-v9.9.9" in --tags. Available: nmr-core-v1.3.0, cli-v0.5.0, release-kit-v2.1.0\n',
     );
   });
 
@@ -154,8 +154,8 @@ describe(resolveCommandTags, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith(
-      'Error: Unknown tag "missing-v9.9.9" in --tags. Available: nmr-core-v1.3.0, cli-v0.5.0, release-kit-v2.1.0',
+    expect(process.stderr.write).toHaveBeenCalledWith(
+      'Error: Unknown tag "missing-v9.9.9" in --tags. Available: nmr-core-v1.3.0, cli-v0.5.0, release-kit-v2.1.0\n',
     );
   });
 
@@ -173,8 +173,8 @@ describe(resolveCommandTags, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith(
-      'Error: No release tags found on HEAD. Create tags with `release-kit tag` first.',
+    expect(process.stderr.write).toHaveBeenCalledWith(
+      'Error: No release tags found on HEAD. Create tags with `release-kit tag` first.\n',
     );
   });
 
@@ -192,7 +192,7 @@ describe(resolveCommandTags, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith('Error discovering workspaces: workspace read failure');
+    expect(process.stderr.write).toHaveBeenCalledWith('Error discovering workspaces: workspace read failure\n');
     expect(mockResolveReleaseTags).not.toHaveBeenCalled();
   });
 
@@ -212,8 +212,8 @@ describe(resolveCommandTags, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith(
-      "Error resolving workspaces: packages/core/package.json is missing a 'name' field (required for tag derivation).",
+    expect(process.stderr.write).toHaveBeenCalledWith(
+      "Error resolving workspaces: packages/core/package.json is missing a 'name' field (required for tag derivation).\n",
     );
     expect(mockResolveReleaseTags).not.toHaveBeenCalled();
   });

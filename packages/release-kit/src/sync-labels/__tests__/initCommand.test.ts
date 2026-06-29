@@ -60,7 +60,7 @@ describe(syncLabelsInitCommand, () => {
   it('returns 1 when workspace discovery throws', async () => {
     mockDiscoverWorkspaces.mockRejectedValue(new Error('filesystem error'));
     vi.spyOn(console, 'info').mockImplementation(() => undefined);
-    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
     const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false });
 
@@ -82,7 +82,7 @@ describe(syncLabelsInitCommand, () => {
     mockDiscoverWorkspaces.mockResolvedValue(undefined);
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'failed', filePath: 'some/file' });
     vi.spyOn(console, 'info').mockImplementation(() => undefined);
-    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
     const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false });
 

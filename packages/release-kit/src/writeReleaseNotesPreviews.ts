@@ -118,7 +118,7 @@ function writePreviewFile(filePath: string, content: string, dryRun: boolean): P
   const result = writeFileWithCheck(filePath, content, { dryRun: false, overwrite: true });
 
   if (result.outcome === 'failed') {
-    console.error(`Error writing ${filePath}: ${result.error ?? 'unknown error'}`);
+    process.stderr.write(`Error writing ${filePath}: ${result.error ?? 'unknown error'}\n`);
     return { filePath, outcome: 'failed', ...(result.error === undefined ? {} : { error: result.error }) };
   }
 

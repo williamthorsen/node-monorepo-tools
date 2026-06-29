@@ -829,10 +829,10 @@ function maybeEmitBaselineHint(
 
   const totalTags = candidates.reduce((sum, candidate) => sum + candidate.tagCount, 0);
   const example = candidates[0]?.exampleTags[0] ?? `${candidates[0]?.prefix ?? ''}?`;
-  console.error(
+  process.stderr.write(
     `Hint: no baseline tag found for ${workspace.dir} under '${workspace.tagPrefix}', but ` +
       `${totalTags} candidate-shaped tags exist (e.g., ${example}). ` +
-      "Run 'release-kit show-tag-prefixes' to check for undeclared legacy prefixes.",
+      "Run 'release-kit show-tag-prefixes' to check for undeclared legacy prefixes.\n",
   );
   state.emitted = true;
 }

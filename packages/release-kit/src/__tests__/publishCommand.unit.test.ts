@@ -96,7 +96,7 @@ describe(publishCommand, () => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
     vi.spyOn(console, 'info').mockImplementation(() => {});
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
@@ -169,7 +169,7 @@ describe(publishCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith('Error: Unknown option: --unknown');
+    expect(process.stderr.write).toHaveBeenCalledWith('Error: Unknown option: --unknown\n');
     expect(mockPublishPackage).not.toHaveBeenCalled();
   });
 
@@ -187,8 +187,8 @@ describe(publishCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith(
-      'Error: No release tags found on HEAD. Create tags with `release-kit tag` first.',
+    expect(process.stderr.write).toHaveBeenCalledWith(
+      'Error: No release tags found on HEAD. Create tags with `release-kit tag` first.\n',
     );
   });
 
@@ -240,7 +240,9 @@ describe(publishCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith('Error: Unknown tag "missing-v9.9.9" in --tags. Available: core-v1.3.0');
+    expect(process.stderr.write).toHaveBeenCalledWith(
+      'Error: Unknown tag "missing-v9.9.9" in --tags. Available: core-v1.3.0\n',
+    );
   });
 
   it('exits with code 1 when --only is passed (flag removed)', async () => {
@@ -255,7 +257,7 @@ describe(publishCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith('Error: Unknown option: --only');
+    expect(process.stderr.write).toHaveBeenCalledWith('Error: Unknown option: --only\n');
   });
 
   it('exits with code 1 when publishPackage throws', async () => {
@@ -274,7 +276,7 @@ describe(publishCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith('publish failed');
+    expect(process.stderr.write).toHaveBeenCalledWith('publish failed\n');
   });
 
   it('does not invoke any GitHub Release path during publish', async () => {
@@ -385,8 +387,8 @@ describe(publishCommand, () => {
 
       expect(thrown).toBeInstanceOf(ExitError);
       expect(thrown?.code).toBe(1);
-      expect(console.error).toHaveBeenCalledWith('Invalid config:');
-      expect(console.error).toHaveBeenCalledWith("  ❌ Unknown field: 'bogus'");
+      expect(process.stderr.write).toHaveBeenCalledWith('Invalid config:\n');
+      expect(process.stderr.write).toHaveBeenCalledWith("  ❌ Unknown field: 'bogus'\n");
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
   });
@@ -530,8 +532,8 @@ describe(publishCommand, () => {
 
       expect(thrown).toBeInstanceOf(ExitError);
       expect(thrown?.code).toBe(1);
-      expect(console.error).toHaveBeenCalledWith(
-        'Error: basic-v1.0.0 (packages/basic) cannot be published: package.json#private is true.',
+      expect(process.stderr.write).toHaveBeenCalledWith(
+        'Error: basic-v1.0.0 (packages/basic) cannot be published: package.json#private is true.\n',
       );
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
@@ -554,11 +556,11 @@ describe(publishCommand, () => {
 
       expect(thrown).toBeInstanceOf(ExitError);
       expect(thrown?.code).toBe(1);
-      expect(console.error).toHaveBeenCalledWith(
-        'Error: basic-v1.0.0 (packages/basic) cannot be published: package.json#private is true.',
+      expect(process.stderr.write).toHaveBeenCalledWith(
+        'Error: basic-v1.0.0 (packages/basic) cannot be published: package.json#private is true.\n',
       );
-      expect(console.error).toHaveBeenCalledWith(
-        'Error: internal-v2.0.0 (packages/internal) cannot be published: package.json#private is true.',
+      expect(process.stderr.write).toHaveBeenCalledWith(
+        'Error: internal-v2.0.0 (packages/internal) cannot be published: package.json#private is true.\n',
       );
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
@@ -587,8 +589,8 @@ describe(publishCommand, () => {
       // The presence of an unpublishable tag in --tags is an error: exit 1, no publishes.
       expect(thrown).toBeInstanceOf(ExitError);
       expect(thrown?.code).toBe(1);
-      expect(console.error).toHaveBeenCalledWith(
-        'Error: basic-v1.0.0 (packages/basic) cannot be published: package.json#private is true.',
+      expect(process.stderr.write).toHaveBeenCalledWith(
+        'Error: basic-v1.0.0 (packages/basic) cannot be published: package.json#private is true.\n',
       );
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
@@ -611,7 +613,7 @@ describe(publishCommand, () => {
 
       expect(thrown).toBeInstanceOf(ExitError);
       expect(thrown?.code).toBe(1);
-      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('uncommitted changes'));
+      expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('uncommitted changes'));
       expect(mockResolveReleaseTags).not.toHaveBeenCalled();
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });

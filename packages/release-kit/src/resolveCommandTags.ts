@@ -1,6 +1,8 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
+import { reportError } from '@williamthorsen/nmr-core';
+
 import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
 import type { ResolvedTag } from './resolveReleaseTags.ts';
@@ -25,7 +27,7 @@ export async function resolveCommandTags(tags: string[] | undefined): Promise<Re
   try {
     discoveredPaths = await discoverWorkspaces();
   } catch (error: unknown) {
-    console.error(`Error discovering workspaces: ${error instanceof Error ? error.message : String(error)}`);
+    process.stderr.write(`Error discovering workspaces: ${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
 
@@ -41,7 +43,7 @@ export async function resolveCommandTags(tags: string[] | undefined): Promise<Re
       workspaces = discoveredPaths.map((workspacePath) => deriveWorkspaceConfig(workspacePath));
     }
   } catch (error: unknown) {
-    console.error(`Error resolving workspaces: ${error instanceof Error ? error.message : String(error)}`);
+    process.stderr.write(`Error resolving workspaces: ${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
 
@@ -56,7 +58,7 @@ export async function resolveCommandTags(tags: string[] | undefined): Promise<Re
   }
 
   if (resolvedTags.length === 0) {
-    console.error('Error: No release tags found on HEAD. Create tags with `release-kit tag` first.');
+    reportError('No release tags found on HEAD. Create tags with `release-kit tag` first.');
     process.exit(1);
   }
 
@@ -65,7 +67,7 @@ export async function resolveCommandTags(tags: string[] | undefined): Promise<Re
     const availableTagNames = resolvedTags.map((t) => t.tag);
     for (const name of tags) {
       if (!availableTagNames.includes(name)) {
-        console.error(`Error: Unknown tag "${name}" in --tags. Available: ${availableTagNames.join(', ')}`);
+        reportError(`Unknown tag "${name}" in --tags. Available: ${availableTagNames.join(', ')}`);
         process.exit(1);
       }
     }

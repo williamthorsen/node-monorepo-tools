@@ -1,6 +1,8 @@
 import process from 'node:process';
 import { parseArgs as nodeParseArgs } from 'node:util';
 
+import { reportError } from './terminal.ts';
+
 /** Schema entry describing a single CLI flag. */
 export interface FlagDefinition {
   long: string;
@@ -136,7 +138,7 @@ export function parseArgsOrExit<S extends FlagSchema>(
     return parseArgs(argv, schema, options);
   } catch (error: unknown) {
     if (error instanceof ParseError) {
-      console.error(`Error: ${error.message}`);
+      reportError(error.message);
       process.exit(1);
     }
     throw error;

@@ -59,7 +59,7 @@ describe(createGithubReleaseCommand, () => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
     vi.spyOn(console, 'info').mockImplementation(() => {});
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {
@@ -142,7 +142,7 @@ describe(createGithubReleaseCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith('Error: Unknown option: --unknown');
+    expect(process.stderr.write).toHaveBeenCalledWith('Error: Unknown option: --unknown\n');
   });
 
   it('exits with code 1 when no release tags are found on HEAD', async () => {
@@ -159,8 +159,8 @@ describe(createGithubReleaseCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith(
-      'Error: No release tags found on HEAD. Create tags with `release-kit tag` first.',
+    expect(process.stderr.write).toHaveBeenCalledWith(
+      'Error: No release tags found on HEAD. Create tags with `release-kit tag` first.\n',
     );
   });
 
@@ -179,7 +179,9 @@ describe(createGithubReleaseCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith('Error: Unknown tag "core-v9.9.9" in --tags. Available: core-v1.3.0');
+    expect(process.stderr.write).toHaveBeenCalledWith(
+      'Error: Unknown tag "core-v9.9.9" in --tags. Available: core-v1.3.0\n',
+    );
   });
 
   it('exits with code 1 when discoverWorkspaces throws', async () => {
@@ -196,7 +198,7 @@ describe(createGithubReleaseCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith('Error discovering workspaces: discovery failed');
+    expect(process.stderr.write).toHaveBeenCalledWith('Error discovering workspaces: discovery failed\n');
   });
 
   it('does not exit when --tags is explicit and every skip is no-entry', async () => {
@@ -218,7 +220,7 @@ describe(createGithubReleaseCommand, () => {
 
     await createGithubReleaseCommand(['--tags=core-v1.3.0,extra-v0.1.0']);
 
-    expect(console.error).not.toHaveBeenCalled();
+    expect(process.stderr.write).not.toHaveBeenCalled();
     expect(console.info).toHaveBeenCalledWith(
       'Skipped 2 tag(s) with no releasable content: core-v1.3.0 (no-entry), extra-v0.1.0 (no-entry).',
     );
@@ -234,7 +236,7 @@ describe(createGithubReleaseCommand, () => {
 
     await createGithubReleaseCommand(['--tags=core-v1.3.0']);
 
-    expect(console.error).not.toHaveBeenCalled();
+    expect(process.stderr.write).not.toHaveBeenCalled();
     expect(console.info).toHaveBeenCalledWith(
       'Skipped 1 tag(s) with no releasable content: core-v1.3.0 (no-audience-content).',
     );
@@ -250,7 +252,7 @@ describe(createGithubReleaseCommand, () => {
 
     await createGithubReleaseCommand(['--tags=core-v1.3.0']);
 
-    expect(console.error).not.toHaveBeenCalled();
+    expect(process.stderr.write).not.toHaveBeenCalled();
     expect(console.info).toHaveBeenCalledWith('Skipped 1 tag(s) with no releasable content: core-v1.3.0 (empty-body).');
   });
 
@@ -269,7 +271,7 @@ describe(createGithubReleaseCommand, () => {
 
     await createGithubReleaseCommand(['--tags=core-v1.3.0,extra-v0.1.0']);
 
-    expect(console.error).not.toHaveBeenCalled();
+    expect(process.stderr.write).not.toHaveBeenCalled();
     expect(console.info).toHaveBeenCalledWith('Skipped 1 tag(s) with no releasable content: extra-v0.1.0 (no-entry).');
   });
 
@@ -300,7 +302,7 @@ describe(createGithubReleaseCommand, () => {
 
     await createGithubReleaseCommand(['--tags=core-v1.3.0,extra-v0.1.0']);
 
-    expect(console.error).not.toHaveBeenCalled();
+    expect(process.stderr.write).not.toHaveBeenCalled();
     expect(console.info).toHaveBeenCalledWith(
       'Skipped 1 tag(s) with no releasable content: extra-v0.1.0 (no-audience-content).',
     );
@@ -322,14 +324,14 @@ describe(createGithubReleaseCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith('Error creating GitHub Releases: gh release failed');
+    expect(process.stderr.write).toHaveBeenCalledWith('Error creating GitHub Releases: gh release failed\n');
   });
 
   it('exits with code 1 when resolveReleaseNotesConfig fails to load config', async () => {
     mockResolveReleaseNotesConfig.mockImplementation(() => {
       // Mirror the strictLoad path: the production code calls process.exit(1) inside the resolver,
       // which the spy converts into ExitError. Throwing it here matches that observable behavior.
-      console.error('Error: failed to load config: read failure');
+      process.stderr.write('Error: failed to load config: read failure\n');
       throw new ExitError(1);
     });
 
@@ -346,7 +348,7 @@ describe(createGithubReleaseCommand, () => {
     expect(thrown?.code).toBe(1);
     expect(mockResolveReleaseNotesConfig).toHaveBeenCalledWith({ strictLoad: true });
     expect(mockCreateGithubReleases).not.toHaveBeenCalled();
-    expect(console.error).toHaveBeenCalledWith('Error: failed to load config: read failure');
+    expect(process.stderr.write).toHaveBeenCalledWith('Error: failed to load config: read failure\n');
   });
 
   describe('--tags parsing', () => {
@@ -364,7 +366,7 @@ describe(createGithubReleaseCommand, () => {
 
       expect(thrown).toBeInstanceOf(ExitError);
       expect(thrown?.code).toBe(1);
-      expect(console.error).toHaveBeenCalledWith('Error: Missing value for option: --tags');
+      expect(process.stderr.write).toHaveBeenCalledWith('Error: Missing value for option: --tags\n');
       expect(mockCreateGithubReleases).not.toHaveBeenCalled();
     });
 

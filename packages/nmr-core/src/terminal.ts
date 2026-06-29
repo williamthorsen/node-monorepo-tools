@@ -1,5 +1,7 @@
 // Terminal output helpers for styled CLI messages.
 
+import process from 'node:process';
+
 import type { WriteResult } from './writeFileWithCheck.ts';
 
 /** Print a step label with a right-arrow prefix. */
@@ -19,7 +21,12 @@ export function printSkip(message: string): void {
 
 /** Print an error message to stderr. */
 export function printError(message: string): void {
-  console.error(`  ❌ ${message}`);
+  process.stderr.write(`  ❌ ${message}\n`);
+}
+
+/** Write a canonical `Error: <message>` line to stderr — the single sanctioned door for this output shape. */
+export function reportError(message: string): void {
+  process.stderr.write(`Error: ${message}\n`);
 }
 
 /** Print a terminal message for a write result based on its outcome. */

@@ -33,7 +33,7 @@ describe(resolveReleaseNotesConfig, () => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
     vi.spyOn(console, 'warn').mockImplementation(() => {});
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {
@@ -72,7 +72,7 @@ describe(resolveReleaseNotesConfig, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith('Error: failed to load config: config read failure');
+    expect(process.stderr.write).toHaveBeenCalledWith('Error: failed to load config: config read failure\n');
   });
 
   it('returns defaults when raw config is undefined', async () => {
@@ -107,8 +107,8 @@ describe(resolveReleaseNotesConfig, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(console.error).toHaveBeenCalledWith('Invalid config:');
-    expect(console.error).toHaveBeenCalledWith("  \u274C Unknown field: 'bogus'");
+    expect(process.stderr.write).toHaveBeenCalledWith('Invalid config:\n');
+    expect(process.stderr.write).toHaveBeenCalledWith("  \u274C Unknown field: 'bogus'\n");
   });
 
   it('logs each warning from validateConfig', async () => {

@@ -404,10 +404,9 @@ describe('releasePrepareProject (integration)', () => {
 
     const previousCwd = process.cwd();
     process.chdir(fixture.repoDir);
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation((msg: unknown) => {
-      if (typeof msg === 'string') {
-        errors.push(msg);
-      }
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation((chunk: string | Uint8Array) => {
+      errors.push(String(chunk));
+      return true;
     });
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation((code) => {
       exitCode = typeof code === 'number' ? code : undefined;
@@ -419,7 +418,7 @@ describe('releasePrepareProject (integration)', () => {
     } catch {
       // Expected: process.exit threw.
     } finally {
-      consoleErrorSpy.mockRestore();
+      stderrSpy.mockRestore();
       exitSpy.mockRestore();
       process.chdir(previousCwd);
     }

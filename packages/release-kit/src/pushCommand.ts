@@ -48,7 +48,7 @@ export async function pushCommand(argv: string[]): Promise<void> {
       }
     }
   } catch (error: unknown) {
-    console.error(error instanceof Error ? error.message : String(error));
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
 }

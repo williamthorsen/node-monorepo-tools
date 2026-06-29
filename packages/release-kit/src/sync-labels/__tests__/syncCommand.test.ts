@@ -25,7 +25,7 @@ describe(syncLabelsCommand, () => {
       if (cmd === 'gh --version') throw new Error('command not found: gh');
       return Buffer.from('');
     });
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
     const result = syncLabelsCommand();
 
@@ -36,7 +36,7 @@ describe(syncLabelsCommand, () => {
   it('returns 1 when workflow file does not exist', () => {
     mockExecSync.mockReturnValue(Buffer.from('gh version 2.0.0'));
     mockExistsSync.mockReturnValue(false);
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
     const result = syncLabelsCommand();
 
@@ -61,7 +61,7 @@ describe(syncLabelsCommand, () => {
       throw new Error('workflow dispatch failed');
     });
     mockExistsSync.mockReturnValue(true);
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
     const result = syncLabelsCommand();
 
