@@ -98,7 +98,7 @@ export default defineRdyKit({
           name: 'all workspace packages can build',
           severity: 'warn',
           check: allWorkspacePackagesCanBuild,
-          fix: 'Add "build": ":" to packages that don\'t need a build, or add tsconfig.generate-typings.json for packages that use the default nmr build',
+          fix: 'Add "build": ":" to packages that don\'t need a build, or ensure packages that use the default nmr build have a tsconfig.json and a src/ directory',
         },
 
         // -- Audit dependency --------------------------------------------------------
@@ -138,8 +138,8 @@ export default defineRdyKit({
 
 /**
  * Check that every workspace package can run `nmr build` successfully.
- * A package can build if it has a "build" override in package.json or has a
- * tsconfig.generate-typings.json (so the default nmr generate-typings step works).
+ * A package can build if it has a "build" override in package.json or has the inputs the default
+ * single-pass nmr-compile build needs: a tsconfig.json and a src/ directory.
  */
 function allWorkspacePackagesCanBuild(): boolean | CheckOutcome {
   const packagesDir = join(process.cwd(), 'packages');
@@ -154,9 +154,10 @@ function allWorkspacePackagesCanBuild(): boolean | CheckOutcome {
     if (!content) continue;
 
     const hasBuildOverride = /"build"\s*:/.test(content);
-    const hasTypingsConfig = fileExists(`packages/${entry.name}/tsconfig.generate-typings.json`);
+    const hasDefaultBuildInputs =
+      fileExists(`packages/${entry.name}/tsconfig.json`) && existsSync(join(packagesDir, entry.name, 'src'));
 
-    if (!hasBuildOverride && !hasTypingsConfig) {
+    if (!hasBuildOverride && !hasDefaultBuildInputs) {
       failing.push(entry.name);
     }
   }
@@ -164,7 +165,7 @@ function allWorkspacePackagesCanBuild(): boolean | CheckOutcome {
   if (failing.length === 0) return true;
   return {
     ok: false,
-    detail: `missing build override or tsconfig.generate-typings.json: ${failing.join(', ')}`,
+    detail: `missing build override or tsconfig.json + src/: ${failing.join(', ')}`,
   };
 }
 

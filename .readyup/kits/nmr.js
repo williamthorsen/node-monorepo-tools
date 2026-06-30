@@ -9,13 +9,14 @@ import { join } from "node:path";
 
 // packages/nmr/dist/esm/default-scripts.js
 var rootScripts = {
+  attw: "pnpm --recursive exec nmr attw",
   audit: ["audit:prod", "audit:dev"],
   "audit:dev": "pnpm exec v11y --dev",
   "audit:prod": "pnpm exec v11y --prod",
   build: "pnpm --recursive exec nmr build",
   check: ["typecheck", "fmt:check", "lint:check", "test"],
   "check:agent-files": "nmr-sync-agent-files --check",
-  "check:strict": ["typecheck", "fmt:check", "lint:strict", "test:coverage", "check:agent-files"],
+  "check:strict": ["typecheck", "fmt:check", "lint:strict", "test:coverage", "attw", "check:agent-files"],
   ci: ["build", "check:strict", "audit"],
   clean: "pnpm --recursive exec nmr clean",
   fix: ["lint", "fmt"],
@@ -133,7 +134,7 @@ var nmr_default = defineRdyKit({
           name: "all workspace packages can build",
           severity: "warn",
           check: allWorkspacePackagesCanBuild,
-          fix: `Add "build": ":" to packages that don't need a build, or add tsconfig.generate-typings.json for packages that use the default nmr build`
+          fix: `Add "build": ":" to packages that don't need a build, or ensure packages that use the default nmr build have a tsconfig.json and a src/ directory`
         },
         // -- Audit dependency --------------------------------------------------------
         {
@@ -177,15 +178,15 @@ function allWorkspacePackagesCanBuild() {
     const content = readFile(pkgPath);
     if (!content) continue;
     const hasBuildOverride = /"build"\s*:/.test(content);
-    const hasTypingsConfig = fileExists(`packages/${entry.name}/tsconfig.generate-typings.json`);
-    if (!hasBuildOverride && !hasTypingsConfig) {
+    const hasDefaultBuildInputs = fileExists(`packages/${entry.name}/tsconfig.json`) && existsSync(join(packagesDir, entry.name, "src"));
+    if (!hasBuildOverride && !hasDefaultBuildInputs) {
       failing.push(entry.name);
     }
   }
   if (failing.length === 0) return true;
   return {
     ok: false,
-    detail: `missing build override or tsconfig.generate-typings.json: ${failing.join(", ")}`
+    detail: `missing build override or tsconfig.json + src/: ${failing.join(", ")}`
   };
 }
 function codeQualityWorkflowDoesNotUseNmrCi() {
