@@ -220,6 +220,35 @@ describe('buildPackage emit correctness', () => {
     expect(fs.existsSync(path.join(dir, 'types', 'index.d.ts'))).toBe(false);
     expect(readOutput(dir, 'index.d.ts')).toMatch(/from ["']\.\/helper\.js["']/);
   });
+
+  it('rejects when the resolved TypeScript version is older than the supported floor', async () => {
+    scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' });
+
+    // `ts.versionMajorMinor` is typed as the literal installed version; alias to a widened view so
+    // the spy can return an older value. Force it below the >=5.7 floor and restore in finally so
+    // the override cannot leak into sibling tests.
+    const tsModule: { versionMajorMinor: string } = ts;
+    const versionSpy = vi.spyOn(tsModule, 'versionMajorMinor', 'get').mockReturnValue('5.6');
+    try {
+      await expect(buildPackage(dir)).rejects.toThrow(/requires TypeScript >=5\.7/);
+    } finally {
+      versionSpy.mockRestore();
+    }
+  });
+
+  it('rewrites an inline import-type alias to a relative .js specifier in the emitted .d.ts', async () => {
+    scaffoldPackage(dir, {
+      'helper.ts': 'export type Thing = { n: number };\n',
+      'index.ts': `export type Wrapped = { value: import('~/helper.ts').Thing };\n`,
+    });
+
+    await buildPackage(dir);
+
+    const declaration = readOutput(dir, 'index.d.ts');
+    expect(declaration).toMatch(/import\(["']\.\/helper\.js["']\)\.Thing/);
+    expect(declaration).not.toContain('~/helper.ts');
+    expect(declaration).not.toContain('./helper.ts');
+  });
 });
 
 describe('buildPackage caching', () => {
