@@ -5,16 +5,16 @@ export type ScriptRegistry = Record<string, ScriptValue>;
  * Workspace scripts shared by all test configurations.
  */
 export const commonWorkspaceScripts: ScriptRegistry = {
-  build: ['compile', 'generate-typings'],
+  attw: 'attw --pack --profile esm-only',
+  build: ['compile'],
   check: ['typecheck', 'fmt:check', 'lint:check', 'test'],
-  'check:strict': ['typecheck', 'fmt:check', 'lint:strict', 'test:coverage'],
+  'check:strict': ['typecheck', 'fmt:check', 'lint:strict', 'test:coverage', 'attw'],
   clean: 'pnpm exec rimraf dist/*',
   compile: 'nmr-compile',
   fix: ['lint', 'fmt'],
   'fix:check': ['fmt:check', 'lint:check'],
   fmt: 'prettier --list-different --write .',
   'fmt:check': 'prettier --check .',
-  'generate-typings': 'tsc --project tsconfig.generate-typings.json',
   lint: 'eslint --fix .',
   'lint:check': 'eslint .',
   'lint:strict': 'strict-lint',
@@ -46,13 +46,14 @@ export const standardTestScripts: ScriptRegistry = {
  * Root-level monorepo scripts.
  */
 export const rootScripts: ScriptRegistry = {
+  attw: 'pnpm --recursive exec nmr attw',
   audit: ['audit:prod', 'audit:dev'],
   'audit:dev': 'pnpm exec v11y --dev',
   'audit:prod': 'pnpm exec v11y --prod',
   build: 'pnpm --recursive exec nmr build',
   check: ['typecheck', 'fmt:check', 'lint:check', 'test'],
   'check:agent-files': 'nmr-sync-agent-files --check',
-  'check:strict': ['typecheck', 'fmt:check', 'lint:strict', 'test:coverage', 'check:agent-files'],
+  'check:strict': ['typecheck', 'fmt:check', 'lint:strict', 'test:coverage', 'attw', 'check:agent-files'],
   ci: ['build', 'check:strict', 'audit'],
   clean: 'pnpm --recursive exec nmr clean',
   fix: ['lint', 'fmt'],

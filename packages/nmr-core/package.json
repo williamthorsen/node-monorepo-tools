@@ -27,7 +27,7 @@
     "dist"
   ],
   "scripts": {
-    "prepare": "tsx ../nmr/src/cli-build.ts && tsc --project tsconfig.generate-typings.json"
+    "prepare": "tsx ../nmr/src/cli-build.ts"
   },
   "publishConfig": {
     "access": "public"

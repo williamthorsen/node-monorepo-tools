@@ -23,11 +23,11 @@ describe('defineConfig', () => {
   it('accepts string[] values for script definitions', () => {
     const config = defineConfig({
       workspaceScripts: {
-        build: ['compile', 'generate-typings'],
+        verify: ['compile', 'test'],
       },
     });
 
-    expect(config.workspaceScripts?.build).toStrictEqual(['compile', 'generate-typings']);
+    expect(config.workspaceScripts?.verify).toStrictEqual(['compile', 'test']);
   });
 
   it('accepts an empty config', () => {

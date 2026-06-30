@@ -38,7 +38,7 @@
     "templates"
   ],
   "scripts": {
-    "prepare": "tsx ../nmr/src/cli-build.ts && tsc --project tsconfig.generate-typings.json"
+    "prepare": "tsx ../nmr/src/cli-build.ts"
   },
   "dependencies": {
     "@williamthorsen/nmr-core": "workspace:*",

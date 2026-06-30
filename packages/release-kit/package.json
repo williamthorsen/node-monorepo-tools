@@ -33,7 +33,7 @@
   ],
   "scripts": {
     "build:post": "node scripts/copy-work-types.js",
-    "prepare": "tsx ../nmr/src/cli-build.ts && tsc --project tsconfig.generate-typings.json",
+    "prepare": "tsx ../nmr/src/cli-build.ts",
     "prepublishOnly": "nmr build",
     "work-types:check": "pnpm exec release-kit work-types check",
     "work-types:sync": "pnpm exec release-kit work-types sync"

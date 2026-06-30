@@ -19,11 +19,12 @@
     "packages/*"
   ],
   "scripts": {
-    "bootstrap": "cd packages/nmr && tsx src/cli-build.ts && tsc --project tsconfig.generate-typings.json",
+    "bootstrap": "cd packages/nmr && tsx src/cli-build.ts",
     "postinstall": "node scripts/postinstall.js",
     "prepare": "lefthook install"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.4",
     "@types/eslint": "9.6.1",
     "@types/node": "24.13.2",
     "@typescript-eslint/utils": "8.62.1",
