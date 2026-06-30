@@ -29,9 +29,17 @@ const TSCONFIG = {
 };
 
 /** Writes a self-contained package tree (package.json, tsconfig.json, and the given `src` files). */
-function scaffoldPackage(dir: string, sources: Record<string, string>): void {
+function scaffoldPackage(
+  dir: string,
+  sources: Record<string, string>,
+  extraCompilerOptions: Record<string, unknown> = {},
+): void {
   fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'fixture', type: 'module' }));
-  fs.writeFileSync(path.join(dir, 'tsconfig.json'), JSON.stringify(TSCONFIG));
+  const tsconfig = {
+    ...TSCONFIG,
+    compilerOptions: { ...TSCONFIG.compilerOptions, ...extraCompilerOptions },
+  };
+  fs.writeFileSync(path.join(dir, 'tsconfig.json'), JSON.stringify(tsconfig));
   for (const [relativePath, contents] of Object.entries(sources)) {
     const filePath = path.join(dir, 'src', relativePath);
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -106,7 +114,7 @@ describe('buildPackage regression suite', () => {
       'side.ts': 'export {};\n',
       'reexport.ts': 'export const reexport = 2;\n',
       'dyn.ts': 'export const dyn = 3;\n',
-      'nested/leaf.ts': `import { helper } from '~/helper.ts';\nexport const leaf = helper;\n`,
+      'nested/leaf.ts': `import { helper, type Thing } from '~/helper.ts';\nexport const leaf: Thing = { n: helper };\n`,
       'index.ts':
         [
           `import './side.ts';`,
@@ -163,13 +171,54 @@ describe('buildPackage regression suite', () => {
     expect(out).not.toContain('~/');
   });
 
-  it('resolves an alias relative to the importing file in a nested directory', () => {
+  it('resolves an alias relative to the importing file in a nested directory in both outputs', () => {
     expect(readOutput(dir, 'nested/leaf.js')).toMatch(/from ["']\.\.\/helper\.js["']/);
+    expect(readOutput(dir, 'nested/leaf.d.ts')).toMatch(/from ["']\.\.\/helper\.js["']/);
   });
 
   it('rewrites a re-export specifier to .js in both outputs', () => {
     expect(readOutput(dir, 'index.js')).toMatch(/from ["']\.\/reexport\.js["']/);
     expect(readOutput(dir, 'index.d.ts')).toMatch(/from ["']\.\/reexport\.js["']/);
+  });
+});
+
+describe('buildPackage emit correctness', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-build-emit-'));
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+    vi.mocked(console.info).mockRestore();
+    vi.mocked(ts.createProgram).mockClear();
+  });
+
+  it('throws when an aliased import resolves to a missing file', async () => {
+    scaffoldPackage(dir, {
+      'index.ts': `import { missing } from '~/nonexistent.ts';\nexport const value = missing;\n`,
+    });
+
+    await expect(buildPackage(dir)).rejects.toThrow(/could not resolve aliased import '~\/nonexistent\.ts'/);
+  });
+
+  it('emits declaration files under outDir even when tsconfig sets declarationDir', async () => {
+    scaffoldPackage(
+      dir,
+      {
+        'helper.ts': 'export const helper = 1;\nexport type Thing = { n: number };\n',
+        'index.ts': `import { helper, type Thing } from '~/helper.ts';\nexport const value: Thing = { n: helper };\n`,
+      },
+      { declarationDir: './types' },
+    );
+
+    await buildPackage(dir);
+
+    expect(fs.existsSync(path.join(dir, 'dist', 'esm', 'index.d.ts'))).toBe(true);
+    expect(fs.existsSync(path.join(dir, 'types', 'index.d.ts'))).toBe(false);
+    expect(readOutput(dir, 'index.d.ts')).toMatch(/from ["']\.\/helper\.js["']/);
   });
 });
 

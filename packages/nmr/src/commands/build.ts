@@ -32,12 +32,15 @@ const SOURCE_ROOT = 'src';
 const MINIMUM_TYPESCRIPT_MAJOR = 5;
 const MINIMUM_TYPESCRIPT_MINOR = 7;
 
-/** Maps each TypeScript source extension to the JavaScript extension its emit produces. */
+/**
+ * Maps the supported TypeScript source extension to the JavaScript extension its emit produces.
+ * `nmr-compile` targets ESM-only packages (`type: "module"`), so `.ts` → `.js` is the only supported
+ * mapping: under `type: "module"` a `.mjs` emit is redundant with `.js`, a `.cjs` emit from `.cts`
+ * would contradict the ESM-only output contract, and `.tsx` is out of scope for these Node packages.
+ * Keep this map, `DEFAULT_ENTRY_GLOBS`, `isRewritableOutput`, and `mapOutputToSource` in agreement.
+ */
 const TS_TO_JS_EXTENSION: Record<string, string> = {
   '.ts': '.js',
-  '.tsx': '.js',
-  '.mts': '.mjs',
-  '.cts': '.cjs',
 };
 
 /**
@@ -127,6 +130,11 @@ function emitPackage(packageDir: string, entryPoints: string[], outdir: string):
  * an emit config: enable `.js` + `.d.ts` output, rewrite relative import extensions, and pin the
  * output directory. Type errors do not block emit (`noEmitOnError: false`) — type-checking stays a
  * separate step, matching the prior esbuild behavior.
+ *
+ * `declarationDir` is pinned to the same resolved `outDir` so declaration files always co-locate
+ * with their `.js` siblings, overriding any `declarationDir` the base tsconfig sets. `mapOutputToSource`
+ * relies on every emitted file living under `outDir` to reconstruct its source-resolution context;
+ * a stray `declarationDir` would push `.d.ts` files outside that tree and silently skip alias rewriting.
  */
 function synthesizeCompilerOptions(packageDir: string, outdir: string): ts.CompilerOptions {
   const configPath = path.join(packageDir, 'tsconfig.json');
@@ -140,13 +148,15 @@ function synthesizeCompilerOptions(packageDir: string, outdir: string): ts.Compi
     throw new Error(`nmr-compile: failed to parse ${configPath}.\n${formatDiagnostics(parsed.errors)}`);
   }
 
+  const resolvedOutDir = path.resolve(packageDir, outdir);
   return {
     ...parsed.options,
     noEmit: false,
     emitDeclarationOnly: false,
     declaration: true,
     rewriteRelativeImportExtensions: true,
-    outDir: path.resolve(packageDir, outdir),
+    outDir: resolvedOutDir,
+    declarationDir: resolvedOutDir,
     rootDir: path.resolve(packageDir, SOURCE_ROOT),
     sourceMap: false,
     declarationMap: false,
@@ -215,7 +225,9 @@ function rewriteOutputSpecifiers(outputFile: string, compilerOptions: ts.Compile
  * Computes the runnable specifier for an emitted import, or `undefined` when no change is needed.
  * Relative specifiers ending in a TypeScript extension are re-extensioned to `.js`; `paths` aliases
  * are resolved to the target source file and expressed as a relative `.js` specifier. Bare package
- * specifiers and anything resolving outside the package source tree are left untouched.
+ * specifiers and aliases resolving outside the package source tree are left untouched. An alias that
+ * matches a known prefix but resolves to nothing is a broken import, so it throws rather than emitting
+ * an unrunnable specifier verbatim.
  */
 function resolveSpecifierReplacement(
   specifier: string,
@@ -234,7 +246,13 @@ function resolveSpecifierReplacement(
   }
 
   const resolved = ts.resolveModuleName(specifier, sourceContainingFile, compilerOptions, ts.sys).resolvedModule;
-  if (!resolved || !isWithin(sourceRoot, resolved.resolvedFileName)) {
+  if (!resolved) {
+    throw new Error(
+      `nmr-compile: could not resolve aliased import '${specifier}' from ${sourceContainingFile}. ` +
+        `Verify the tsconfig 'paths' mapping and that the target file exists.`,
+    );
+  }
+  if (!isWithin(sourceRoot, resolved.resolvedFileName)) {
     return undefined;
   }
 
@@ -344,7 +362,7 @@ function formatDiagnostics(diagnostics: readonly ts.Diagnostic[]): string {
 }
 
 function isRewritableOutput(file: string): boolean {
-  return file.endsWith('.d.ts') || file.endsWith('.js') || file.endsWith('.mjs') || file.endsWith('.cjs');
+  return file.endsWith('.d.ts') || file.endsWith('.js');
 }
 
 function isRelativeSpecifier(specifier: string): boolean {
@@ -364,7 +382,7 @@ function isWithin(parent: string, child: string): boolean {
 function mapOutputToSource(outputFile: string, compilerOptions: ts.CompilerOptions, sourceRoot: string): string {
   const outDir = compilerOptions.outDir ?? path.dirname(outputFile);
   const relativeFromOut = path.relative(outDir, outputFile);
-  const withoutExtension = relativeFromOut.replace(/\.d\.ts$|\.[mc]?js$/, '');
+  const withoutExtension = relativeFromOut.replace(/\.d\.ts$|\.js$/, '');
   return path.join(sourceRoot, `${withoutExtension}.ts`);
 }
 
