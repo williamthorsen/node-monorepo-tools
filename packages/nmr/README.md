@@ -154,11 +154,12 @@ These scripts are available out of the box. Repo-wide config (tier 2) and per-pa
 
 #### Integration test variant
 
-Packages with a `vitest.integration.config.ts` file get different test commands. Use the `--int-test` flag to select this variant.
+A package gets this variant automatically when it contains a `vitest.integration.config.ts` file: `test` and `test:coverage` run the standalone (non-integration) suite, and integration tests run only when invoked explicitly. Activation is detected per package, so it applies under the recursive `nmr ci` fan-out. Opting in requires **both** `vitest.integration.config.ts` and `vitest.standalone.config.ts`, since the standalone scripts reference the latter.
 
 | Command            | Runs                                                               |
 | ------------------ | ------------------------------------------------------------------ |
 | `test`             | `pnpm exec vitest --config=vitest.standalone.config.ts`            |
+| `test:all`         | `pnpm exec vitest`                                                 |
 | `test:coverage`    | `pnpm exec vitest --config=vitest.standalone.config.ts --coverage` |
 | `test:integration` | `pnpm exec vitest --config=vitest.integration.config.ts`           |
 | `test:watch`       | `pnpm exec vitest --config=vitest.standalone.config.ts --watch`    |
@@ -272,7 +273,6 @@ nmr [flags] <command> [args...]
 | `-q, --quiet`            | Suppress info messages; show full output on failure | —       |
 | `-?, --help`             | Show available commands                             | —       |
 | `-V, --version`          | Show version number                                 | —       |
-| `--int-test`             | Use integration test scripts                        | —       |
 
 ### Examples
 

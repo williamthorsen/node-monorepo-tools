@@ -18,7 +18,6 @@ describe(generateHelp, () => {
     expect(help).toContain('-R, --recursive');
     expect(help).toContain('-w, --workspace-root');
     expect(help).toContain('-?, --help');
-    expect(help).toContain('--int-test');
   });
 
   it('includes workspace commands section', () => {

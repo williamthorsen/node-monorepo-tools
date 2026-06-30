@@ -10,6 +10,7 @@ import {
   buildWorkspaceRegistry,
   describeScript,
   expandScript,
+  hasIntegrationTestConfig,
   resolveScript,
 } from '../resolver.ts';
 
@@ -259,5 +260,71 @@ describe('resolveScript', () => {
     const result = resolveScript('test', registry, tmpDir, false);
 
     expect(result).toStrictEqual({ command: 'vitest', source: 'default' });
+  });
+});
+
+describe(hasIntegrationTestConfig, () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-test-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('returns false when the package has no integration config', () => {
+    expect(hasIntegrationTestConfig(tmpDir)).toBe(false);
+  });
+
+  it('returns true when the package has a vitest.integration.config.ts', () => {
+    fs.writeFileSync(path.join(tmpDir, 'vitest.integration.config.ts'), '');
+    expect(hasIntegrationTestConfig(tmpDir)).toBe(true);
+  });
+});
+
+// End-to-end at the resolution layer: presence of vitest.integration.config.ts selects the integration variant. This
+// stands in for a real `pnpm --recursive exec nmr ...` run, which is impractical here because temp fixtures have no
+// installed vitest; recursion correctness follows from hasIntegrationTestConfig being evaluated per package on each
+// invocation's packageDir.
+describe('integration variant auto-activation (resolution layer)', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-test-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('resolves the integration variant when the package has vitest.integration.config.ts', () => {
+    fs.writeFileSync(path.join(tmpDir, 'vitest.integration.config.ts'), '');
+    const registry = buildWorkspaceRegistry({}, hasIntegrationTestConfig(tmpDir));
+
+    expect(resolveScript('test', registry, tmpDir, false)).toStrictEqual({
+      command: 'pnpm exec vitest --config=vitest.standalone.config.ts',
+      source: 'default',
+    });
+    expect(resolveScript('test:integration', registry, tmpDir, false)).toStrictEqual({
+      command: 'pnpm exec vitest --config=vitest.integration.config.ts',
+      source: 'default',
+    });
+    expect(resolveScript('test:all', registry, tmpDir, false)).toStrictEqual({
+      command: 'pnpm exec vitest',
+      source: 'default',
+    });
+  });
+
+  it('resolves the standard variant when the package has no integration config', () => {
+    const registry = buildWorkspaceRegistry({}, hasIntegrationTestConfig(tmpDir));
+
+    expect(resolveScript('test', registry, tmpDir, false)).toStrictEqual({
+      command: 'pnpm exec vitest',
+      source: 'default',
+    });
+    expect(resolveScript('test:integration', registry, tmpDir, false)).toBeUndefined();
+    expect(resolveScript('test:all', registry, tmpDir, false)).toBeUndefined();
   });
 });
