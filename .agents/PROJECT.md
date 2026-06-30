@@ -18,7 +18,7 @@ Packages live under `packages/`:
 Key files:
 
 - `.config/nmr.config.ts` — Per-repo nmr overrides (currently empty; dogfoods the config-loading feature)
-- `packages/nmr/src/commands/build.ts` — The nmr-managed esbuild build (`nmr-compile` bin) with order-invariant content-hash caching, `.ts`→`.js` extension rewriting, and `~/` package-root alias resolution
+- `packages/nmr/src/commands/build.ts` — The nmr-managed build (`nmr-compile` bin): a single TypeScript compiler-API emit of `.js` + `.d.ts` with order-invariant content-hash caching, AST-based relative `.ts`→`.js` rewriting, and tsconfig `paths` alias resolution in both outputs
 - `config/vitest.config.ts` — Shared Vitest base configuration
 
 ## Commands
@@ -36,7 +36,7 @@ Use `nmr {command}` for all monorepo scripts. Use `pnpm run {script}` only for s
 
 **Package-level (from any package directory):**
 
-- `nmr build` — Build current package (compile + generate typings)
+- `nmr build` — Build current package (single-pass `.js` + `.d.ts` emit)
 - `nmr test` — Run tests for current package
 - `nmr test:watch` — Tests in watch mode
 - `nmr test:coverage` — Tests with coverage
@@ -55,9 +55,10 @@ Use `nmr {command}` for all monorepo scripts. Use `pnpm run {script}` only for s
 
 ### Build system
 
-- esbuild via the nmr-managed `nmr-compile` bin (`packages/nmr/src/commands/build.ts`), the default `compile` script
-- Content-hash caching in `dist/esm/.cache` — skips rebuild when sources haven't changed
-- Each package also generates `.d.ts` typings via `tsc --project tsconfig.generate-typings.json`
+- A single TypeScript compiler-API emit via the nmr-managed `nmr-compile` bin (`packages/nmr/src/commands/build.ts`), the default `compile` script
+- Emits `.js` and `.d.ts` together; AST-based rewriting turns relative `.ts`→`.js` specifiers and tsconfig `paths` aliases into runnable relative `.js` in both outputs
+- `typescript` is a peer dependency (`>=5.7.0`); content-hash caching in `dist/esm/.cache` skips rebuild when sources haven't changed
+- Published types are validated by `attw` (the `attw` script, part of `check:strict`)
 - ESM-only output (`type: "module"` in all packages)
 
 ### Testing
