@@ -143,32 +143,23 @@ describe('buildPackage regression suite', () => {
     expect(readOutput(dir, 'index.d.ts')).toMatch(/import\(["']\.\/dyn\.js["']\)/);
   });
 
-  it('rewrites a bare side-effect import to .js in the emitted .js', () => {
+  it('rewrites a bare side-effect import to .js in both outputs', () => {
     expect(readOutput(dir, 'index.js')).toMatch(/import ["']\.\/side\.js["']/);
-  });
-
-  it('rewrites a bare side-effect import to .js in the emitted .d.ts', () => {
     expect(readOutput(dir, 'index.d.ts')).toMatch(/import ["']\.\/side\.js["']/);
   });
 
-  it('leaves a .ts specifier inside a string literal untouched in the emitted .js', () => {
+  it('leaves a .ts specifier inside a string literal untouched in both outputs', () => {
     expect(readOutput(dir, 'index.js')).toContain(`import x from './decoy.ts'`);
-  });
-
-  it('leaves a .ts specifier inside a string literal untouched in the emitted .d.ts', () => {
     expect(readOutput(dir, 'index.d.ts')).toContain(`import x from './decoy.ts'`);
   });
 
-  it('rewrites a tsconfig paths alias to a relative .js specifier in the emitted .js', () => {
-    const out = readOutput(dir, 'index.js');
-    expect(out).toMatch(/from ["']\.\/helper\.js["']/);
-    expect(out).not.toContain('~/');
-  });
-
-  it('rewrites a tsconfig paths alias to a relative .js specifier in the emitted .d.ts', () => {
-    const out = readOutput(dir, 'index.d.ts');
-    expect(out).toMatch(/from ["']\.\/helper\.js["']/);
-    expect(out).not.toContain('~/');
+  it('rewrites a tsconfig paths alias to a relative .js specifier in both outputs', () => {
+    const js = readOutput(dir, 'index.js');
+    const dts = readOutput(dir, 'index.d.ts');
+    expect(js).toMatch(/from ["']\.\/helper\.js["']/);
+    expect(js).not.toContain('~/');
+    expect(dts).toMatch(/from ["']\.\/helper\.js["']/);
+    expect(dts).not.toContain('~/');
   });
 
   it('resolves an alias relative to the importing file in a nested directory in both outputs', () => {

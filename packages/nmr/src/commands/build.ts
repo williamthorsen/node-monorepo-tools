@@ -33,15 +33,14 @@ const MINIMUM_TYPESCRIPT_MAJOR = 5;
 const MINIMUM_TYPESCRIPT_MINOR = 7;
 
 /**
- * Maps the supported TypeScript source extension to the JavaScript extension its emit produces.
+ * The supported TypeScript source extension and the JavaScript extension its emit produces.
  * `nmr-compile` targets ESM-only packages (`type: "module"`), so `.ts` → `.js` is the only supported
  * mapping: under `type: "module"` a `.mjs` emit is redundant with `.js`, a `.cjs` emit from `.cts`
  * would contradict the ESM-only output contract, and `.tsx` is out of scope for these Node packages.
- * Keep this map, `DEFAULT_ENTRY_GLOBS`, `isRewritableOutput`, and `mapOutputToSource` in agreement.
+ * Keep these extensions, `DEFAULT_ENTRY_GLOBS`, `isRewritableOutput`, and `mapOutputToSource` in agreement.
  */
-const TS_TO_JS_EXTENSION: Record<string, string> = {
-  '.ts': '.js',
-};
+const TS_EXTENSION = '.ts';
+const JS_EXTENSION = '.js';
 
 /**
  * Compiles a package's `src` tree to `dist/esm` with the TypeScript compiler API, emitting `.js`
@@ -398,12 +397,7 @@ function scriptKindFor(file: string): ts.ScriptKind {
 
 /** Replaces a trailing TypeScript extension with its JavaScript equivalent, leaving other specifiers intact. */
 function swapTypeScriptExtension(specifier: string): string {
-  for (const [tsExtension, jsExtension] of Object.entries(TS_TO_JS_EXTENSION)) {
-    if (specifier.endsWith(tsExtension)) {
-      return `${specifier.slice(0, -tsExtension.length)}${jsExtension}`;
-    }
-  }
-  return specifier;
+  return specifier.endsWith(TS_EXTENSION) ? `${specifier.slice(0, -TS_EXTENSION.length)}${JS_EXTENSION}` : specifier;
 }
 
 // endregion | Helpers
