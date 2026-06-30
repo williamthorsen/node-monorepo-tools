@@ -14,8 +14,10 @@ Options:
   --set-version=X.Y.Z   Set an explicit version; bypasses commit-derived bumps.
                          Requires --only in monorepo mode (rejected when a 'project' block is configured).
   --force               Release even when no commits or no bump-worthy commits exist
-                         since the last tag. Defaults to patch when --bump is not given;
-                         use --bump=X to release at a different level.
+                         since the last tag. In monorepo and project mode, defaults to
+                         patch when --bump is not given; use --bump=X for a different
+                         level. In single-package mode, a bare --force is rejected —
+                         pass --bump=major|minor|patch.
   --no-git-checks, -n   Skip the clean-working-tree check
   --only=name1,name2    Only process the named workspaces (comma-separated, monorepo only;
                          rejected when a 'project' block is configured)
