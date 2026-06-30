@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import type { NmrConfig } from './config.ts';
@@ -104,6 +104,16 @@ export function readPackageJsonScripts(packageDir: string): Record<string, strin
     }
     throw error;
   }
+}
+
+/**
+ * Returns true when a workspace opts into the integration test variant by
+ * providing a `vitest.integration.config.ts`. Detected per workspace, it
+ * engages under the recursive `nmr ci` fan-out so integration tests stay out of
+ * the default `test`/`test:coverage` runs.
+ */
+export function hasIntegrationTestConfig(packageDir: string): boolean {
+  return existsSync(path.join(packageDir, 'vitest.integration.config.ts'));
 }
 
 /**

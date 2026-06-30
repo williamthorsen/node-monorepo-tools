@@ -27,6 +27,7 @@ export const commonWorkspaceScripts: ScriptRegistry = {
  */
 export const integrationTestScripts: ScriptRegistry = {
   test: 'pnpm exec vitest --config=vitest.standalone.config.ts',
+  'test:all': 'pnpm exec vitest',
   'test:coverage': 'pnpm exec vitest --config=vitest.standalone.config.ts --coverage',
   'test:integration': 'pnpm exec vitest --config=vitest.integration.config.ts',
   'test:watch': 'pnpm exec vitest --config=vitest.standalone.config.ts --watch',

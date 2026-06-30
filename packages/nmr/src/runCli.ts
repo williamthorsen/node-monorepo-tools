@@ -7,7 +7,13 @@ import { resolveContext } from './context.ts';
 import { generateHelp } from './help.ts';
 import { isHookName } from './helpers/hook-name.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
-import { applyDevBin, buildRootRegistry, buildWorkspaceRegistry, resolveScript } from './resolver.ts';
+import {
+  applyDevBin,
+  buildRootRegistry,
+  buildWorkspaceRegistry,
+  hasIntegrationTestConfig,
+  resolveScript,
+} from './resolver.ts';
 import { runCommand } from './runner.ts';
 
 const VERSION = readPackageVersion(import.meta.url);
@@ -87,7 +93,9 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     return { exitCode };
   }
 
-  const registry = useRoot ? buildRootRegistry(context.config) : buildWorkspaceRegistry(context.config, parsed.intTest);
+  const registry = useRoot
+    ? buildRootRegistry(context.config)
+    : buildWorkspaceRegistry(context.config, hasIntegrationTestConfig(packageDir));
   const resolved = resolveScript(command, registry, packageDir, parsed.workspaceRoot);
 
   if (!resolved) {
@@ -129,7 +137,6 @@ interface ParsedArgs {
   workspaceRoot: boolean;
   help: boolean;
   version: boolean;
-  intTest: boolean;
   command?: string;
   passthrough: string[];
 }
@@ -143,7 +150,6 @@ function parseArgs(args: string[]): ParseResult {
     workspaceRoot: false,
     help: false,
     version: false,
-    intTest: false,
     passthrough: [],
   };
 
@@ -184,11 +190,6 @@ function parseArgs(args: string[]): ParseResult {
     }
     if (arg === '-q' || arg === '--quiet') {
       parsed.quiet = true;
-      i++;
-      continue;
-    }
-    if (arg === '--int-test') {
-      parsed.intTest = true;
       i++;
       continue;
     }

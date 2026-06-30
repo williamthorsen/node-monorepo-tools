@@ -14,21 +14,23 @@ describe('getDefaultWorkspaceScripts', () => {
     expect(scripts.typecheck).toBe('tsgo --noEmit');
   });
 
-  it('uses standard test scripts when --int-test is false', () => {
+  it('uses standard test scripts when useIntTests is false', () => {
     const scripts = getDefaultWorkspaceScripts(false);
 
     expect(scripts.test).toBe('pnpm exec vitest');
     expect(scripts['test:coverage']).toBe('pnpm exec vitest --coverage');
     expect(scripts['test:watch']).toBe('pnpm exec vitest --watch');
     expect(scripts['test:integration']).toBeUndefined();
+    expect(scripts['test:all']).toBeUndefined();
   });
 
-  it('uses integration test scripts when --int-test is true', () => {
+  it('uses integration test scripts when useIntTests is true', () => {
     const scripts = getDefaultWorkspaceScripts(true);
 
     expect(scripts.test).toBe('pnpm exec vitest --config=vitest.standalone.config.ts');
     expect(scripts['test:coverage']).toBe('pnpm exec vitest --config=vitest.standalone.config.ts --coverage');
     expect(scripts['test:integration']).toBe('pnpm exec vitest --config=vitest.integration.config.ts');
+    expect(scripts['test:all']).toBe('pnpm exec vitest');
   });
 });
 

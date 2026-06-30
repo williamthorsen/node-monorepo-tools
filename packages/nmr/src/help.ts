@@ -32,7 +32,6 @@ export function generateHelp(config: NmrConfig, packageDir: string | undefined, 
     '  -w, --workspace-root     Run root command regardless of cwd',
     '  -q, --quiet              Suppress output on success; show full output on failure',
     '  -?, --help               Show this help',
-    '      --int-test           Use integration test scripts',
     '',
     'Workspace commands:',
   ];
