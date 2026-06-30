@@ -5,7 +5,7 @@ import path from 'node:path';
 import * as ts from 'typescript';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { buildPackage, computeBuildHash } from '../build.ts';
+import { buildPackage, computeBuildHash, resolveTsconfigChain } from '../build.ts';
 
 // Default the compiler API to the real implementation so the regression suite compiles for real;
 // the cache-integrity tests override createProgram per-call to simulate a failing or transient compile.
@@ -49,6 +49,50 @@ function scaffoldPackage(
 
 function readOutput(dir: string, relativePath: string): string {
   return fs.readFileSync(path.join(dir, 'dist', 'esm', relativePath), 'utf8');
+}
+
+/**
+ * Writes a package under `rootDir/pkg` whose own tsconfig declares no `paths`; instead it `extends` a
+ * base config in the parent directory that supplies `baseUrl` and `paths`. This mirrors the real
+ * package layout (every package inherits `paths` from the repo-root config), where TypeScript anchors
+ * inherited `paths` to the base config's directory rather than the leaf's.
+ */
+function scaffoldExtendedBasePackage(rootDir: string): string {
+  const packageDir = path.join(rootDir, 'pkg');
+  fs.mkdirSync(path.join(packageDir, 'src', 'nested'), { recursive: true });
+  fs.writeFileSync(
+    path.join(rootDir, 'tsconfig.base.json'),
+    JSON.stringify({
+      compilerOptions: {
+        module: 'NodeNext',
+        moduleResolution: 'NodeNext',
+        target: 'ES2022',
+        allowImportingTsExtensions: true,
+        declaration: true,
+        strict: true,
+        baseUrl: '.',
+        paths: { '~/*': ['./pkg/src/*'] },
+      },
+    }),
+  );
+  fs.writeFileSync(
+    path.join(packageDir, 'tsconfig.json'),
+    JSON.stringify({ extends: '../tsconfig.base.json', include: ['src/'] }),
+  );
+  fs.writeFileSync(path.join(packageDir, 'package.json'), JSON.stringify({ name: 'fixture', type: 'module' }));
+  fs.writeFileSync(
+    path.join(packageDir, 'src', 'helper.ts'),
+    'export const helper = 1;\nexport type Thing = { n: number };\n',
+  );
+  fs.writeFileSync(
+    path.join(packageDir, 'src', 'index.ts'),
+    `import { helper, type Thing } from '~/helper.ts';\nexport const value: Thing = { n: helper };\n`,
+  );
+  fs.writeFileSync(
+    path.join(packageDir, 'src', 'nested', 'leaf.ts'),
+    `import { helper } from '~/helper.ts';\nexport const leaf = helper;\n`,
+  );
+  return packageDir;
 }
 
 describe(computeBuildHash, () => {
@@ -100,6 +144,57 @@ describe(computeBuildHash, () => {
     const other = await computeBuildHash(dir, ['a.ts'], { outdir: 'dist/cjs/' });
 
     expect(other).not.toBe(esm);
+  });
+
+  it('changes the digest when an extended base config in the chain changes', async () => {
+    const packageDir = path.join(dir, 'pkg');
+    fs.mkdirSync(packageDir);
+    fs.writeFileSync(path.join(packageDir, 'package.json'), JSON.stringify({ name: 'fixture', type: 'module' }));
+    fs.writeFileSync(path.join(dir, 'base.json'), JSON.stringify({ compilerOptions: { target: 'ES2022' } }));
+    fs.writeFileSync(path.join(packageDir, 'tsconfig.json'), JSON.stringify({ extends: '../base.json' }));
+
+    // The base config is reachable only through `extends`; the leaf tsconfig stays byte-identical.
+    const files = ['package.json', ...resolveTsconfigChain(packageDir)];
+    const before = await computeBuildHash(packageDir, files, { outdir: 'dist/esm/' });
+
+    fs.writeFileSync(path.join(dir, 'base.json'), JSON.stringify({ compilerOptions: { target: 'ES2021' } }));
+    const after = await computeBuildHash(packageDir, files, { outdir: 'dist/esm/' });
+
+    expect(after).not.toBe(before);
+  });
+});
+
+describe(resolveTsconfigChain, () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-tsconfig-chain-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('returns only the leaf tsconfig when it extends nothing', () => {
+    const packageDir = path.join(dir, 'pkg');
+    fs.mkdirSync(packageDir);
+    fs.writeFileSync(path.join(packageDir, 'tsconfig.json'), JSON.stringify({ compilerOptions: {} }));
+
+    expect(resolveTsconfigChain(packageDir)).toEqual(['tsconfig.json']);
+  });
+
+  it('includes the leaf and each transitively extended base config, relative to the package', () => {
+    const packageDir = path.join(dir, 'packages', 'pkg');
+    fs.mkdirSync(packageDir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'tsconfig.base.json'), JSON.stringify({ compilerOptions: { strict: true } }));
+    fs.writeFileSync(path.join(dir, 'tsconfig.json'), JSON.stringify({ extends: './tsconfig.base.json' }));
+    fs.writeFileSync(path.join(packageDir, 'tsconfig.json'), JSON.stringify({ extends: '../../tsconfig.json' }));
+
+    expect(resolveTsconfigChain(packageDir)).toEqual([
+      'tsconfig.json',
+      '../../tsconfig.json',
+      '../../tsconfig.base.json',
+    ]);
   });
 });
 
@@ -239,6 +334,58 @@ describe('buildPackage emit correctness', () => {
     expect(declaration).toMatch(/import\(["']\.\/helper\.js["']\)\.Thing/);
     expect(declaration).not.toContain('~/helper.ts');
     expect(declaration).not.toContain('./helper.ts');
+  });
+});
+
+describe('buildPackage with extends-inherited tsconfig paths', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-build-extends-'));
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+    vi.mocked(console.info).mockRestore();
+    vi.mocked(ts.createProgram).mockClear();
+  });
+
+  it('rewrites a base-config-inherited paths alias to a relative .js specifier in both outputs', async () => {
+    const packageDir = scaffoldExtendedBasePackage(dir);
+
+    await buildPackage(packageDir);
+
+    const js = fs.readFileSync(path.join(packageDir, 'dist', 'esm', 'index.js'), 'utf8');
+    const dts = fs.readFileSync(path.join(packageDir, 'dist', 'esm', 'index.d.ts'), 'utf8');
+    expect(js).toMatch(/from ["']\.\/helper\.js["']/);
+    expect(js).not.toContain('~/');
+    expect(dts).toMatch(/from ["']\.\/helper\.js["']/);
+    expect(dts).not.toContain('~/');
+  });
+
+  it('resolves a base-config-inherited alias relative to a nested importing file', async () => {
+    const packageDir = scaffoldExtendedBasePackage(dir);
+
+    await buildPackage(packageDir);
+
+    expect(fs.readFileSync(path.join(packageDir, 'dist', 'esm', 'nested', 'leaf.js'), 'utf8')).toMatch(
+      /from ["']\.\.\/helper\.js["']/,
+    );
+  });
+
+  it('rebuilds when a base config in the extends chain changes', async () => {
+    const packageDir = scaffoldExtendedBasePackage(dir);
+    await buildPackage(packageDir);
+
+    // Change only the base config; the package's own tsconfig and sources stay byte-identical, so a
+    // cache that ignored the extends chain would skip this rebuild and ship stale output.
+    const basePath = path.join(dir, 'tsconfig.base.json');
+    fs.writeFileSync(basePath, fs.readFileSync(basePath, 'utf8').replace('"ES2022"', '"ES2021"'));
+
+    await buildPackage(packageDir);
+
+    expect(ts.createProgram).toHaveBeenCalledTimes(2);
   });
 });
 

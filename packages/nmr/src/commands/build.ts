@@ -58,7 +58,7 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
     cwd: packageDir,
     ignore: options.ignore ?? DEFAULT_IGNORE,
   });
-  const dependencies = ['package.json', 'tsconfig.json'];
+  const dependencies = ['package.json', ...resolveTsconfigChain(packageDir)];
 
   const { changed, currentHash } = await detectBuildChanges(
     packageDir,
@@ -93,6 +93,44 @@ export async function computeBuildHash(packageDir: string, files: string[], emit
 
   hash.update(JSON.stringify(emitConfig));
   return hash.digest('hex');
+}
+
+/**
+ * Resolves a package's full tsconfig `extends` chain, returning every config file in it — the leaf
+ * `tsconfig.json` and each base it transitively extends, up to the repo root — as paths relative to
+ * `packageDir`. Emit is driven by the fully-resolved compiler options, so the base configs (where
+ * `target`, `module`, `paths`, `lib`, and `strict` are actually defined) must be in the cache's
+ * hashed input set; otherwise a change to a base config would not bust the cache and stale output
+ * could ship. Paths are returned relative to `packageDir` so `computeBuildHash` reads them and folds
+ * a stable, location-independent path string into the digest.
+ */
+export function resolveTsconfigChain(packageDir: string, configFileName = 'tsconfig.json'): string[] {
+  const resolvedChain: string[] = [];
+  const seen = new Set<string>();
+
+  function walk(configPath: string): void {
+    const normalized = path.resolve(configPath);
+    if (seen.has(normalized)) {
+      return;
+    }
+    seen.add(normalized);
+    resolvedChain.push(normalized);
+
+    const configFile = ts.readConfigFile(normalized, (fileName) => ts.sys.readFile(fileName));
+    if (configFile.error) {
+      throw new Error(`nmr-compile: failed to read ${normalized}.\n${formatDiagnostics([configFile.error])}`);
+    }
+
+    for (const entry of normalizeExtendsField(configFile.config)) {
+      const baseConfig = resolveExtendsTarget(entry, normalized);
+      if (baseConfig !== undefined) {
+        walk(baseConfig);
+      }
+    }
+  }
+
+  walk(path.resolve(packageDir, configFileName));
+  return resolvedChain.map((absolute) => path.relative(packageDir, absolute));
 }
 
 // region | Emit
@@ -362,6 +400,46 @@ function formatDiagnostics(diagnostics: readonly ts.Diagnostic[]): string {
 
 function isRewritableOutput(file: string): boolean {
   return file.endsWith('.d.ts') || file.endsWith('.js');
+}
+
+/** Normalizes a parsed tsconfig's `extends` field (absent, a single path, or an array) to a string array. */
+function normalizeExtendsField(config: unknown): string[] {
+  if (config === null || typeof config !== 'object' || !('extends' in config)) {
+    return [];
+  }
+  const extendsField: unknown = config.extends;
+  if (typeof extendsField === 'string') {
+    return [extendsField];
+  }
+  if (Array.isArray(extendsField)) {
+    return extendsField.filter((entry): entry is string => typeof entry === 'string');
+  }
+  return [];
+}
+
+/**
+ * Resolves a single tsconfig `extends` entry to an absolute config-file path, or `undefined` when it
+ * cannot be located. Relative and absolute entries resolve against the extending config's directory,
+ * appending `.json` when the bare path does not exist; package-specifier entries resolve through Node
+ * module resolution.
+ */
+function resolveExtendsTarget(extendsEntry: string, fromConfigPath: string): string | undefined {
+  if (isRelativeSpecifier(extendsEntry) || path.isAbsolute(extendsEntry)) {
+    const base = path.resolve(path.dirname(fromConfigPath), extendsEntry);
+    if (ts.sys.fileExists(base)) {
+      return base;
+    }
+    const withJsonExtension = `${base}.json`;
+    return ts.sys.fileExists(withJsonExtension) ? withJsonExtension : undefined;
+  }
+
+  const { resolvedModule } = ts.resolveModuleName(
+    extendsEntry,
+    fromConfigPath,
+    { moduleResolution: ts.ModuleResolutionKind.NodeNext, resolveJsonModule: true },
+    ts.sys,
+  );
+  return resolvedModule?.resolvedFileName;
 }
 
 function isRelativeSpecifier(specifier: string): boolean {
