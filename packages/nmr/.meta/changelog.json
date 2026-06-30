@@ -1,5 +1,45 @@
 [
   {
+    "version": "0.16.0",
+    "date": "2026-06-30",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Auto-activate integration test variant from config presence (#448)",
+            "body": "A package can now separate its integration tests from its standalone suite simply by including a `vitest.integration.config.ts` (alongside a `vitest.standalone.config.ts`). The `--int-test` flag that previously enabled this is removed — that config-file pairing is now the only way to activate the separation. In such a package, `test` and `test:coverage` run only the standalone suite and skip integration tests, while a new `test:all` runs both suites together. The separation now holds even when tests run across every package at once, so a full-workspace `test` run still keeps integration tests out of the default suite. Packages that previously hand-copied these test scripts no longer need to.",
+            "breaking": true,
+            "hash": "ee320b913ef1d7255c78eef6fc9ab3b9e94dfd39"
+          }
+        ]
+      },
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Prevent CLI output truncation when piped before exit (#446)",
+            "body": "Fixes an issue where large output from the `nmr` and `v11y` commands could be truncated when captured through a pipe — for example, by a CI job.",
+            "hash": "fa7eeb12c1739b4bce3a73d9143cea4dd967b291"
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Migrate ensure-prepublish-hooks to nmr-core parseArgs (#429)",
+            "body": "`ensure-prepublish-hooks` now parses its arguments with `nmr-core`'s shared `parseArgs` utilities instead of a hand-rolled `for`/`switch` loop, removing the last bespoke argument parser in the `nmr` package. Every `nmr` CLI now shares one argument-parsing and error-reporting path; as a side effect, stray positional arguments are ignored rather than rejected, while unknown flags and a missing `--command` value still exit non-zero.",
+            "hash": "6860c19d06f4068c249f6ecbe2e69906ba24155c"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.15.0",
     "date": "2026-06-27",
     "sections": [

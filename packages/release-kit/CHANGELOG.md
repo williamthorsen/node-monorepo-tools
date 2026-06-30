@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## 6.0.0 — 2026-06-30
+
+### 🎉 Features
+
+- 🚨 **Breaking:** Auto-activate integration test variant from config presence (#448)
+
+  A package can now separate its integration tests from its standalone suite simply by including a `vitest.integration.config.ts` (alongside a `vitest.standalone.config.ts`). The `--int-test` flag that previously enabled this is removed — that config-file pairing is now the only way to activate the separation. In such a package, `test` and `test:coverage` run only the standalone suite and skip integration tests, while a new `test:all` runs both suites together. The separation now holds even when tests run across every package at once, so a full-workspace `test` run still keeps integration tests out of the default suite. Packages that previously hand-copied these test scripts no longer need to.
+
+### ♻️ Refactoring
+
+- Consolidate prepare parsing onto parseArgsOrExit (#441)
+
+  Makes `release-kit`'s `prepare` command report invalid arguments the same way its other commands already do. The error message and exit code a user sees for a bad argument are unchanged.
+
+- Unify prepare help text into a testable module (#443)
+
+  Running `release-kit prepare --help` now lists the complete set of options. The `--force` flag and the restriction that `--set-version` and `--only` cannot be used when a project block is configured were previously missing from the help and are now shown there; the same `--set-version` restriction was added to the package README's `prepare` reference.
+
+### 📚 Documentation
+
+- Document single-package --force rejection in release-kit prepare (#450)
+
+  The `release-kit prepare` `--force` documentation now correctly describes per-mode behavior: a bare `--force` is rejected in a single-package repo, where an explicit `--bump` level must be passed, while the "defaults to patch" shortcut applies only in monorepo and project mode.
+
 ## 5.4.0 — 2026-06-27
 
 ### 🎉 Features

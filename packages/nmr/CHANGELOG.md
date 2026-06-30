@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.16.0 — 2026-06-30
+
+### 🎉 Features
+
+- 🚨 **Breaking:** Auto-activate integration test variant from config presence (#448)
+
+  A package can now separate its integration tests from its standalone suite simply by including a `vitest.integration.config.ts` (alongside a `vitest.standalone.config.ts`). The `--int-test` flag that previously enabled this is removed — that config-file pairing is now the only way to activate the separation. In such a package, `test` and `test:coverage` run only the standalone suite and skip integration tests, while a new `test:all` runs both suites together. The separation now holds even when tests run across every package at once, so a full-workspace `test` run still keeps integration tests out of the default suite. Packages that previously hand-copied these test scripts no longer need to.
+
+### 🐛 Bug fixes
+
+- Prevent CLI output truncation when piped before exit (#446)
+
+  Fixes an issue where large output from the `nmr` and `v11y` commands could be truncated when captured through a pipe — for example, by a CI job.
+
+### ♻️ Refactoring
+
+- Migrate ensure-prepublish-hooks to nmr-core parseArgs (#429)
+
+  `ensure-prepublish-hooks` now parses its arguments with `nmr-core`'s shared `parseArgs` utilities instead of a hand-rolled `for`/`switch` loop, removing the last bespoke argument parser in the `nmr` package. Every `nmr` CLI now shares one argument-parsing and error-reporting path; as a side effect, stray positional arguments are ignored rather than rejected, while unknown flags and a missing `--command` value still exit non-zero.
+
 ## 0.15.0 — 2026-06-27
 
 ### 🎉 Features

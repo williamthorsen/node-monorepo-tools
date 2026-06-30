@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.5.0 — 2026-06-30
+
+### 🎉 Features
+
+- Reject unexpected positional arguments by default (#432)
+
+  Commands built on nmr-core now reject unexpected positional arguments by default. Commands that take positional arguments can opt back in to accept them.
+
 ## 0.4.0 — 2026-06-27
 
 ### 🎉 Features
