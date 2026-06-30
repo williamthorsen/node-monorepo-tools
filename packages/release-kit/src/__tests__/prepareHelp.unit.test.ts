@@ -28,6 +28,14 @@ describe(prepareHelpText, () => {
     const caveats = prepareHelpText.match(/rejected when a 'project' block is configured/g);
     expect(caveats).toHaveLength(2);
   });
+
+  it('documents the single-package --force rejection caveat', () => {
+    expect(prepareHelpText).toContain('single-package mode');
+    // Tie the reject-stem to the caveat's distinctive `bare --force` marker (which appears
+    // nowhere else in the help text), order-independent so an active/passive rewording does
+    // not trip the guard while a dropped caveat still does.
+    expect(prepareHelpText).toMatch(/bare --force[^.]*reject|reject[^.]*bare --force/i);
+  });
 });
 
 describe(showPrepareHelp, () => {
