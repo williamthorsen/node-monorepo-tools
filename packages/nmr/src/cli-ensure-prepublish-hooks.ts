@@ -1,6 +1,3 @@
-/* eslint n/no-process-exit: off */
-/* eslint unicorn/no-process-exit: off */
-
 import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
 
 import { DEFAULT_HOOK, ensurePrepublishHooks } from './commands/ensure-prepublish-hooks.ts';
@@ -44,9 +41,9 @@ try {
   if (result.hasFailures) {
     const missing = result.packages.filter((p) => p.action === 'missing').length;
     process.stderr.write(`\n${missing} package(s) missing prepublishOnly. Use --fix to add it.\n`);
-    process.exit(1);
+    process.exitCode = 1;
   }
 } catch (error) {
   reportError(error instanceof Error ? error.message : String(error));
-  process.exit(1);
+  process.exitCode = 1;
 }

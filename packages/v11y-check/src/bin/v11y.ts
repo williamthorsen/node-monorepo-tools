@@ -1,5 +1,4 @@
-/* eslint n/hashbang: off, n/no-process-exit: off */
-/* eslint unicorn/no-process-exit: off */
+/* eslint n/hashbang: off */
 
 import process from 'node:process';
 
@@ -13,4 +12,4 @@ try {
   process.stderr.write(`v11y: unexpected error: ${message}\n`);
   exitCode = 1;
 }
-process.exit(exitCode);
+process.exitCode = exitCode;

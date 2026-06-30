@@ -1,6 +1,3 @@
-/* eslint n/no-process-exit: off */
-/* eslint unicorn/no-process-exit: off */
-
 import { buildPackage } from './commands/build.ts';
 
 try {
@@ -10,5 +7,5 @@ try {
   // itself, before nmr-core's dist exists. It must not import `@williamthorsen/nmr-core`, so it
   // cannot route through `reportError` and prints the message directly.
   process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-  process.exit(1);
+  process.exitCode = 1;
 }

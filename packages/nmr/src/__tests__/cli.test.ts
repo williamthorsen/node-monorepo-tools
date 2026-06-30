@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -75,6 +75,26 @@ describe('nmr CLI', () => {
     } catch {
       // Swallow warmup failure — tests will surface real issues themselves.
     }
+  });
+
+  // The bin (`cli.ts`) sets `process.exitCode` and returns rather than calling `process.exit()`, so output drains
+  // before the process exits. These spawn the real built bin to observe the kernel exit code and prompt termination;
+  // the in-process `runNmr` tests bypass the bin wrapper and cannot exercise that behavior.
+  describe('process exit behavior via the real bin (subprocess)', () => {
+    it('exits 0 for --help', () => {
+      const result = spawnSync('node', [CLI_PATH, '--help'], { cwd: MONOREPO_ROOT, timeout: 15_000, encoding: 'utf8' });
+      // A lingering-handle hang would hit the timeout and leave status null, failing this assertion.
+      expect(result.status).toBe(0);
+    });
+
+    it('exits 1 for an unknown command', () => {
+      const result = spawnSync('node', [CLI_PATH, 'definitely-not-a-real-command'], {
+        cwd: MONOREPO_ROOT,
+        timeout: 15_000,
+        encoding: 'utf8',
+      });
+      expect(result.status).toBe(1);
+    });
   });
 
   it('shows help with --help flag', async () => {

@@ -1,6 +1,3 @@
-/* eslint n/no-process-exit: off */
-/* eslint unicorn/no-process-exit: off */
-
 import process from 'node:process';
 
 import { runCli } from './runCli.ts';
@@ -13,8 +10,8 @@ try {
     stdout: process.stdout,
     stderr: process.stderr,
   });
-  process.exit(exitCode);
+  process.exitCode = exitCode;
 } catch (error: unknown) {
   process.stderr.write(`${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`);
-  process.exit(1);
+  process.exitCode = 1;
 }
