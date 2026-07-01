@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 7.0.0 — 2026-07-01
+
+### 🎉 Features
+
+- 🚨 **Breaking:** Rebuild nmr-compile on a unified tsc emit (#455)
+
+  `nmr` now compiles a package's JavaScript and type declarations in one step, rewriting every import form — static, re-export, dynamic `import()`, bare side-effect, and tsconfig `paths` aliases — to runnable `.js` in both outputs. It now requires TypeScript 5.7 or newer as a peer dependency.
+
 ## 6.0.0 — 2026-06-30
 
 ### 🎉 Features

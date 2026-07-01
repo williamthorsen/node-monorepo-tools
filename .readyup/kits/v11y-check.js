@@ -63,7 +63,7 @@ var v11y_check_default = defineRdyKit({
   ]
 });
 function getMinVersion() {
-  const picked = { "version": "0.9.0" };
+  const picked = { "version": "0.10.0" };
   if (typeof picked.version !== "string") {
     throw new TypeError("v11y-check/package.json: 'version' must be a string");
   }
