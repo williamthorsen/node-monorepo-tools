@@ -75,7 +75,7 @@ describe('expandScript', () => {
   });
 
   it('expands an array to chained nmr invocations', () => {
-    expect(expandScript(['compile', 'generate-typings'], false)).toBe('nmr compile && nmr generate-typings');
+    expect(expandScript(['fmt', 'lint'], false)).toBe('nmr fmt && nmr lint');
   });
 
   it('expands a single-element array', () => {
@@ -83,7 +83,7 @@ describe('expandScript', () => {
   });
 
   it('propagates -w to each step when workspaceRoot is true', () => {
-    expect(expandScript(['compile', 'generate-typings'], true)).toBe('nmr -w compile && nmr -w generate-typings');
+    expect(expandScript(['fmt', 'lint'], true)).toBe('nmr -w fmt && nmr -w lint');
   });
 
   it('propagates -w to a single-element array when workspaceRoot is true', () => {
@@ -97,7 +97,7 @@ describe('describeScript', () => {
   });
 
   it('describes an array script with brackets', () => {
-    expect(describeScript(['compile', 'generate-typings'])).toBe('[compile, generate-typings]');
+    expect(describeScript(['fmt', 'lint'])).toBe('[fmt, lint]');
   });
 });
 
@@ -109,7 +109,7 @@ describe('buildWorkspaceRegistry', () => {
     );
 
     expect(registry['copy-content']).toBe('tsx scripts/copy-content.ts');
-    expect(registry.build).toStrictEqual(['compile', 'generate-typings']);
+    expect(registry.build).toStrictEqual(['compile']);
   });
 
   it('allows config to override default scripts', () => {
@@ -149,21 +149,21 @@ describe('resolveScript', () => {
   });
 
   it('expands array scripts from the registry', () => {
-    const registry = { build: ['compile', 'generate-typings'] };
+    const registry = { build: ['fmt', 'lint'] };
     const result = resolveScript('build', registry, undefined, false);
 
     expect(result).toStrictEqual({
-      command: 'nmr compile && nmr generate-typings',
+      command: 'nmr fmt && nmr lint',
       source: 'default',
     });
   });
 
   it('propagates -w through composite expansion when workspaceRoot is true', () => {
-    const registry = { build: ['compile', 'generate-typings'] };
+    const registry = { build: ['fmt', 'lint'] };
     const result = resolveScript('build', registry, undefined, true);
 
     expect(result).toStrictEqual({
-      command: 'nmr -w compile && nmr -w generate-typings',
+      command: 'nmr -w fmt && nmr -w lint',
       source: 'default',
     });
   });
@@ -191,7 +191,7 @@ describe('resolveScript', () => {
       JSON.stringify({ name: 'test-pkg', scripts: { build: 'nmr compile' } }),
     );
 
-    const registry = { build: ['compile', 'generate-typings'] };
+    const registry = { build: ['fmt', 'lint'] };
     const result = resolveScript('build', registry, tmpDir, true);
 
     // User-authored override strings pass through untouched; only generated
@@ -214,11 +214,11 @@ describe('resolveScript', () => {
       JSON.stringify({ name: 'test-pkg', scripts: { build: 'nmr build' } }),
     );
 
-    const registry = { build: ['compile', 'generate-typings'] };
+    const registry = { build: ['fmt', 'lint'] };
     const result = resolveScript('build', registry, tmpDir, false);
 
     expect(result).toStrictEqual({
-      command: 'nmr compile && nmr generate-typings',
+      command: 'nmr fmt && nmr lint',
       source: 'default',
     });
   });
@@ -229,11 +229,11 @@ describe('resolveScript', () => {
       JSON.stringify({ name: 'test-pkg', scripts: { build: 'nmr build --verbose' } }),
     );
 
-    const registry = { build: ['compile', 'generate-typings'] };
+    const registry = { build: ['fmt', 'lint'] };
     const result = resolveScript('build', registry, tmpDir, false);
 
     expect(result).toStrictEqual({
-      command: 'nmr compile && nmr generate-typings',
+      command: 'nmr fmt && nmr lint',
       source: 'default',
     });
   });
@@ -244,7 +244,7 @@ describe('resolveScript', () => {
       JSON.stringify({ name: 'test-pkg', scripts: { build: 'nmr compile' } }),
     );
 
-    const registry = { build: ['compile', 'generate-typings'] };
+    const registry = { build: ['fmt', 'lint'] };
     const result = resolveScript('build', registry, tmpDir, false);
 
     expect(result).toStrictEqual({ command: 'nmr compile', source: 'package' });

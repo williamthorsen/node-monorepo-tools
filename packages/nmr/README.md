@@ -18,7 +18,7 @@ From a package directory:
 
 ```bash
 nmr test          # Run tests for the current package
-nmr build         # Compile + generate typings
+nmr build         # Compile to .js and .d.ts in one pass
 nmr check         # Typecheck, format check, lint check, and tests
 ```
 
@@ -61,11 +61,11 @@ Scripts resolve through three tiers. Higher tiers override lower ones:
 
 Given the `build` command for a package that defines its own build script:
 
-| Tier | Source                  | Value                             | Wins? |
-| ---- | ----------------------- | --------------------------------- | ----- |
-| 1    | Built-in default        | `['compile', 'generate-typings']` | —     |
-| 2    | `.config/nmr.config.ts` | _(not set)_                       | —     |
-| 3    | `package.json` scripts  | `"tsx custom-build.ts"`           | ✓     |
+| Tier | Source                  | Value                   | Wins? |
+| ---- | ----------------------- | ----------------------- | ----- |
+| 1    | Built-in default        | `['compile']`           | —     |
+| 2    | `.config/nmr.config.ts` | _(not set)_             | —     |
+| 3    | `package.json` scripts  | `"tsx custom-build.ts"` | ✓     |
 
 If no per-package override exists, the highest-tier value that is set wins. Set a script to `""` in `package.json` to skip it for that package.
 
@@ -76,8 +76,8 @@ If no per-package override exists, the highest-tier value that is set wins. Set 
 Script values can be `string` or `string[]`. Arrays expand to chained `nmr` sub-invocations:
 
 ```ts
-// "build": ["compile", "generate-typings"]
-// expands to: nmr compile && nmr generate-typings
+// "fix": ["lint", "fmt"]
+// expands to: nmr lint && nmr fmt
 ```
 
 ## Configuration
@@ -131,26 +131,26 @@ These scripts are available out of the box. Repo-wide config (tier 2) and per-pa
 
 ### Workspace scripts
 
-| Command            | Runs                                                     |
-| ------------------ | -------------------------------------------------------- |
-| `build`            | `compile`, `generate-typings`                            |
-| `check`            | `typecheck`, `fmt:check`, `lint:check`, `test`           |
-| `check:strict`     | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage` |
-| `clean`            | `pnpm exec rimraf dist/*`                                |
-| `compile`          | `nmr-compile`                                            |
-| `fix`              | `lint`, `fmt`                                            |
-| `fix:check`        | `fmt:check`, `lint:check`                                |
-| `fmt`              | `prettier --list-different --write .`                    |
-| `fmt:check`        | `prettier --check .`                                     |
-| `generate-typings` | `tsc --project tsconfig.generate-typings.json`           |
-| `lint`             | `eslint --fix .`                                         |
-| `lint:check`       | `eslint .`                                               |
-| `lint:strict`      | `strict-lint`                                            |
-| `test`             | `pnpm exec vitest`                                       |
-| `test:coverage`    | `pnpm exec vitest --coverage`                            |
-| `test:watch`       | `pnpm exec vitest --watch`                               |
-| `typecheck`        | `tsgo --noEmit`                                          |
-| `view-coverage`    | `open coverage/index.html`                               |
+| Command         | Runs                                                             |
+| --------------- | ---------------------------------------------------------------- |
+| `attw`          | `attw --pack --profile esm-only`                                 |
+| `build`         | `compile`                                                        |
+| `check`         | `typecheck`, `fmt:check`, `lint:check`, `test`                   |
+| `check:strict`  | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage`, `attw` |
+| `clean`         | `pnpm exec rimraf dist/*`                                        |
+| `compile`       | `nmr-compile`                                                    |
+| `fix`           | `lint`, `fmt`                                                    |
+| `fix:check`     | `fmt:check`, `lint:check`                                        |
+| `fmt`           | `prettier --list-different --write .`                            |
+| `fmt:check`     | `prettier --check .`                                             |
+| `lint`          | `eslint --fix .`                                                 |
+| `lint:check`    | `eslint .`                                                       |
+| `lint:strict`   | `strict-lint`                                                    |
+| `test`          | `pnpm exec vitest`                                               |
+| `test:coverage` | `pnpm exec vitest --coverage`                                    |
+| `test:watch`    | `pnpm exec vitest --watch`                                       |
+| `typecheck`     | `tsgo --noEmit`                                                  |
+| `view-coverage` | `open coverage/index.html`                                       |
 
 #### Integration test variant
 
@@ -176,11 +176,12 @@ A package gets this variant automatically when it contains a `vitest.integration
 
 #### Check and quality
 
-| Command             | Runs                                                                          |
-| ------------------- | ----------------------------------------------------------------------------- |
-| `check`             | `typecheck`, `fmt:check`, `lint:check`, `test`                                |
-| `check:agent-files` | `nmr-sync-agent-files --check`                                                |
-| `check:strict`      | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage`, `check:agent-files` |
+| Command             | Runs                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------- |
+| `attw`              | `pnpm --recursive exec nmr attw`                                                      |
+| `check`             | `typecheck`, `fmt:check`, `lint:check`, `test`                                        |
+| `check:agent-files` | `nmr-sync-agent-files --check`                                                        |
+| `check:strict`      | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage`, `attw`, `check:agent-files` |
 
 #### Fix
 
@@ -279,7 +280,7 @@ nmr [flags] <command> [args...]
 ```bash
 # From a package directory
 nmr test                    # Run workspace test script
-nmr build                   # Compile + generate typings
+nmr build                   # Compile to .js and .d.ts in one pass
 
 # From the monorepo root
 nmr test                    # Root tests + recursive workspace tests
@@ -336,7 +337,9 @@ nmr sync-pnpm-version
 
 ### `nmr-compile`
 
-Compile a single package's `src` tree to `dist/esm` with esbuild. Rewrites `~/` (package-root) import aliases and `.ts`→`.js` specifiers to match the emitted output, and skips the build when no input has changed (a content-and-path hash is cached in `dist/esm/.cache`). This is the default `compile` script — run it from a package directory.
+Compile a single package's `src` tree to `dist/esm` with the TypeScript compiler API, emitting `.js` and `.d.ts` in one pass. Because the compiler parses each source file, every relative import form — static, re-export, dynamic `import()`, and bare side-effect — is rewritten from `.ts` to `.js` in both outputs, and `.ts` occurrences inside strings and comments are left intact. tsconfig `paths` aliases are resolved to runnable relative `.js` specifiers in both outputs, sourced from the package's tsconfig. The build is skipped when no input has changed (a content-and-path hash is cached in `dist/esm/.cache`). This is the default `compile` script — run it from a package directory.
+
+`typescript` is a peer dependency (`>=5.7.0`, required for `rewriteRelativeImportExtensions`); the consuming repo provides it. Relative imports in source must carry explicit `.ts` extensions for them to be rewritten.
 
 ```bash
 nmr-compile

@@ -6,12 +6,27 @@ describe('getDefaultWorkspaceScripts', () => {
   it('includes all expected default workspace scripts', () => {
     const scripts = getDefaultWorkspaceScripts(false);
 
-    expect(scripts.build).toStrictEqual(['compile', 'generate-typings']);
+    expect(scripts.build).toStrictEqual(['compile']);
     expect(scripts.check).toStrictEqual(['typecheck', 'fmt:check', 'lint:check', 'test']);
     expect(scripts['fix:check']).toStrictEqual(['fmt:check', 'lint:check']);
     expect(scripts.clean).toBe('pnpm exec rimraf dist/*');
     expect(scripts.compile).toBe('nmr-compile');
     expect(scripts.typecheck).toBe('tsgo --noEmit');
+  });
+
+  it('builds in a single step with no separate typings script', () => {
+    const scripts = getDefaultWorkspaceScripts(false);
+
+    expect(scripts.build).toStrictEqual(['compile']);
+    expect(scripts['generate-typings']).toBeUndefined();
+  });
+
+  it('defines attw and includes it in check:strict but not check', () => {
+    const scripts = getDefaultWorkspaceScripts(false);
+
+    expect(scripts.attw).toBe('attw --pack --profile esm-only');
+    expect(scripts['check:strict']).toContain('attw');
+    expect(scripts.check).not.toContain('attw');
   });
 
   it('uses standard test scripts when useIntTests is false', () => {
@@ -38,6 +53,7 @@ describe('getDefaultRootScripts', () => {
   it('includes all expected default root scripts', () => {
     const scripts = getDefaultRootScripts();
 
+    expect(scripts.attw).toBe('pnpm --recursive exec nmr attw');
     expect(scripts.audit).toStrictEqual(['audit:prod', 'audit:dev']);
     expect(scripts.check).toStrictEqual(['typecheck', 'fmt:check', 'lint:check', 'test']);
     expect(scripts['fix:check']).toStrictEqual(['fmt:check', 'lint:check']);
@@ -54,7 +70,14 @@ describe('getDefaultRootScripts', () => {
     const scripts = getDefaultRootScripts();
     const checkStrict = scripts['check:strict'];
 
-    expect(checkStrict).toStrictEqual(['typecheck', 'fmt:check', 'lint:strict', 'test:coverage', 'check:agent-files']);
+    expect(checkStrict).toStrictEqual([
+      'typecheck',
+      'fmt:check',
+      'lint:strict',
+      'test:coverage',
+      'attw',
+      'check:agent-files',
+    ]);
     expect(checkStrict).not.toContain('audit');
   });
 

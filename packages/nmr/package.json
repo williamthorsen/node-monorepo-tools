@@ -41,11 +41,10 @@
   ],
   "scripts": {
     "build:post": "nmr-sync-agent-files",
-    "prepare": "tsx src/cli-build.ts && tsc --project tsconfig.generate-typings.json"
+    "prepare": "tsx src/cli-build.ts"
   },
   "dependencies": {
     "@williamthorsen/nmr-core": "workspace:*",
-    "esbuild": "0.28.1",
     "glob": "13.0.6",
     "jiti": "2.7.0",
     "yaml": "2.9.0",
@@ -53,6 +52,9 @@
   },
   "devDependencies": {
     "@williamthorsen/toolbelt.strings": "3.1.4"
+  },
+  "peerDependencies": {
+    "typescript": ">=5.7.0"
   },
   "publishConfig": {
     "access": "public"
