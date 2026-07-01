@@ -57,7 +57,7 @@ Use `nmr {command}` for all monorepo scripts. Use `pnpm run {script}` only for s
 
 - A single TypeScript compiler-API emit via the nmr-managed `nmr-compile` bin (`packages/nmr/src/commands/build.ts`), the default `compile` script
 - Emits `.js` and `.d.ts` together; AST-based rewriting turns relative `.ts`→`.js` specifiers and tsconfig `paths` aliases into runnable relative `.js` in both outputs
-- `typescript` is a peer dependency (`>=5.7.0`); content-hash caching in `dist/esm/.cache` skips rebuild when sources haven't changed
+- `typescript` is a peer dependency (`>=5.7.0`); content-hash caching under `node_modules/.cache/nmr-compile/` skips rebuild when sources haven't changed
 - Published types are validated by `attw` (the `attw` script, part of `check:strict`)
 - ESM-only output (`type: "module"` in all packages)
 
@@ -75,4 +75,4 @@ Use `nmr {command}` for all monorepo scripts. Use `pnpm run {script}` only for s
 ## Gotchas
 
 - **Bootstrap ordering**: nmr is both a workspace dependency and the script runner. After a fresh clone or if nmr's build output is missing, run `pnpm run bootstrap` from the root before using `nmr` commands.
-- **Build caching**: The content-hash cache (`dist/esm/.cache`) means a rebuild won't run if only non-source files change. Delete the cache file to force a rebuild.
+- **Build caching**: The content-hash cache (under `node_modules/.cache/nmr-compile/`) means a rebuild won't run if only non-source files change. Delete the cache file — or the package's `node_modules` — to force a rebuild.
