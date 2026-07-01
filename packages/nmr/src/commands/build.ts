@@ -10,7 +10,6 @@ export interface BuildOptions {
   entryGlobs?: string[];
   ignore?: string[];
   outdir?: string;
-  cacheFile?: string;
 }
 
 /** Output-shaping options folded into the build hash so a change to the emit shape busts the cache. */
@@ -26,7 +25,6 @@ const SKIPPED_ICON = '⏭️';
 const DEFAULT_ENTRY_GLOBS = ['src/**/*.ts'];
 const DEFAULT_IGNORE = ['**/__tests__/**'];
 const DEFAULT_OUTDIR = 'dist/esm/';
-const DEFAULT_CACHE_FILE = 'dist/esm/.cache';
 const SOURCE_ROOT = 'src';
 
 const MINIMUM_TYPESCRIPT_MAJOR = 5;
@@ -50,7 +48,7 @@ const JS_EXTENSION = '.js';
 export async function buildPackage(packageDir: string, options: BuildOptions = {}): Promise<void> {
   assertSupportedTypeScript();
 
-  const cacheFile = options.cacheFile ?? DEFAULT_CACHE_FILE;
+  const cachePath = resolveBuildCachePath(packageDir);
   const outdir = options.outdir ?? DEFAULT_OUTDIR;
   const emitConfig: EmitConfig = { outdir, declaration: true, rewriteRelativeImportExtensions: true };
 
@@ -64,7 +62,7 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
     packageDir,
     [...entryPoints, ...dependencies],
     emitConfig,
-    cacheFile,
+    cachePath,
   );
   if (!changed) {
     return;
@@ -74,7 +72,7 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
 
   // Persist the digest only after a successful build, so a failed compile cannot poison the cache
   // and cause the next run to skip a never-completed build.
-  await writeBuildCache(packageDir, cacheFile, currentHash);
+  await writeBuildCache(cachePath, currentHash);
 }
 
 /**
@@ -332,6 +330,41 @@ function getModuleSpecifier(node: ts.Node): ts.StringLiteralLike | undefined {
 // region | Cache
 
 /**
+ * Resolves the absolute path of a package's build-cache file. The cache lives under the conventional
+ * `node_modules/.cache/nmr-compile/` home rather than inside `dist`, so it stays git-ignored and is
+ * never swept into a published tarball by any `files` convention. The home is the nearest enclosing
+ * directory that already has a `node_modules` — the package's own when it has one, otherwise a hoisted
+ * ancestor (e.g. the workspace root for a zero-dependency package) — which avoids materializing a
+ * `node_modules` solely to hold the cache. The file name folds a digest of the absolute package path
+ * into a readable base name, so packages sharing a hoisted `node_modules` never collide while the path
+ * stays stable across runs for the same package.
+ */
+export function resolveBuildCachePath(packageDir: string): string {
+  const absolutePackageDir = path.resolve(packageDir);
+  const home = findNearestNodeModulesHost(absolutePackageDir) ?? absolutePackageDir;
+  const digest = createHash('sha256').update(absolutePackageDir).digest('hex').slice(0, 8);
+  const key = `${path.basename(absolutePackageDir)}-${digest}.hash`;
+  return path.join(home, 'node_modules', '.cache', 'nmr-compile', key);
+}
+
+/**
+ * Walks up from `startDir` (inclusive) to the filesystem root, returning the first directory that
+ * contains a `node_modules` entry, or `undefined` when none does.
+ */
+function findNearestNodeModulesHost(startDir: string): string | undefined {
+  let current = startDir;
+  let parent = path.dirname(current);
+  while (!existsSync(path.join(current, 'node_modules'))) {
+    if (parent === current) {
+      return undefined;
+    }
+    current = parent;
+    parent = path.dirname(current);
+  }
+  return current;
+}
+
+/**
  * Compares the current input digest against the cached one, reporting whether the inputs changed
  * and returning the freshly computed digest. Emits the 📦/⏭️ status but performs no write, so the
  * caller can persist the digest only after a successful build.
@@ -340,10 +373,9 @@ async function detectBuildChanges(
   packageDir: string,
   files: string[],
   emitConfig: EmitConfig,
-  cacheFile: string,
+  cachePath: string,
 ): Promise<{ changed: boolean; currentHash: string }> {
   const packageName = path.basename(packageDir);
-  const cachePath = path.join(packageDir, cacheFile);
   const previousHash = existsSync(cachePath) ? readFileSync(cachePath, 'utf8') : undefined;
   const currentHash = await computeBuildHash(packageDir, files, emitConfig);
 
@@ -357,8 +389,7 @@ async function detectBuildChanges(
 }
 
 /** Writes the build digest to the cache file, creating the cache directory if it does not exist. */
-async function writeBuildCache(packageDir: string, cacheFile: string, hash: string): Promise<void> {
-  const cachePath = path.join(packageDir, cacheFile);
+async function writeBuildCache(cachePath: string, hash: string): Promise<void> {
   await mkdir(path.dirname(cachePath), { recursive: true });
   await writeFile(cachePath, hash);
 }

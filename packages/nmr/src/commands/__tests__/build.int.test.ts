@@ -5,7 +5,7 @@ import path from 'node:path';
 import * as ts from 'typescript';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { buildPackage } from '../build.ts';
+import { buildPackage, resolveBuildCachePath } from '../build.ts';
 
 // Default the compiler API to the real implementation so the regression suite compiles for real;
 // the cache-integrity tests override createProgram per-call to simulate a failing or transient compile.
@@ -35,6 +35,9 @@ function scaffoldPackage(
   extraCompilerOptions: Record<string, unknown> = {},
 ): void {
   fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'fixture', type: 'module' }));
+  // Give the fixture its own node_modules so the build cache resolves inside the temp dir (hermetic,
+  // cleaned up with it) rather than to some ancestor node_modules above the OS temp root.
+  fs.mkdirSync(path.join(dir, 'node_modules'), { recursive: true });
   const tsconfig = {
     ...TSCONFIG,
     compilerOptions: { ...TSCONFIG.compilerOptions, ...extraCompilerOptions },
@@ -60,6 +63,7 @@ function readOutput(dir: string, relativePath: string): string {
 function scaffoldExtendedBasePackage(rootDir: string): string {
   const packageDir = path.join(rootDir, 'pkg');
   fs.mkdirSync(path.join(packageDir, 'src', 'nested'), { recursive: true });
+  fs.mkdirSync(path.join(packageDir, 'node_modules'), { recursive: true });
   fs.writeFileSync(
     path.join(rootDir, 'tsconfig.base.json'),
     JSON.stringify({
@@ -315,12 +319,24 @@ describe('buildPackage caching', () => {
   it('writes a cache file and skips an unchanged rebuild', async () => {
     scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' });
     await buildPackage(dir);
-    expect(fs.existsSync(path.join(dir, 'dist', 'esm', '.cache'))).toBe(true);
+    expect(fs.existsSync(resolveBuildCachePath(dir))).toBe(true);
 
     // Only the second (unchanged) build logs "No changes detected"; the first logs "Changes detected".
     await buildPackage(dir);
 
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining('No changes detected'));
+  });
+
+  it('writes the cache under node_modules/.cache/nmr-compile, never inside dist', async () => {
+    scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' });
+
+    await buildPackage(dir);
+
+    const cachePath = resolveBuildCachePath(dir);
+    expect(cachePath).toContain(path.join('node_modules', '.cache', 'nmr-compile'));
+    expect(fs.existsSync(cachePath)).toBe(true);
+    // The regression this guards: the digest must not land inside the published dist tree.
+    expect(fs.existsSync(path.join(dir, 'dist', 'esm', '.cache'))).toBe(false);
   });
 
   it('reports the package directory name and 📦 icon when changes are detected', async () => {
@@ -340,7 +356,7 @@ describe('buildPackage caching', () => {
 
     await expect(buildPackage(dir)).rejects.toThrow('compile failed');
 
-    expect(fs.existsSync(path.join(dir, 'dist', 'esm', '.cache'))).toBe(false);
+    expect(fs.existsSync(resolveBuildCachePath(dir))).toBe(false);
   });
 
   it('re-attempts and rebuilds after a transient compile failure instead of skipping', async () => {
@@ -356,13 +372,13 @@ describe('buildPackage caching', () => {
 
     expect(ts.createProgram).toHaveBeenCalledTimes(2);
     expect(fs.existsSync(path.join(dir, 'dist', 'esm', 'index.js'))).toBe(true);
-    expect(fs.existsSync(path.join(dir, 'dist', 'esm', '.cache'))).toBe(true);
+    expect(fs.existsSync(resolveBuildCachePath(dir))).toBe(true);
   });
 
   it('preserves an existing cache when a changed-source rebuild fails', async () => {
     scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' });
     await buildPackage(dir);
-    const cachePath = path.join(dir, 'dist', 'esm', '.cache');
+    const cachePath = resolveBuildCachePath(dir);
     const lastGoodDigest = fs.readFileSync(cachePath, 'utf8');
 
     // A changed source forces the rebuild to be attempted rather than skipped; make that rebuild fail.
@@ -379,5 +395,48 @@ describe('buildPackage caching', () => {
     await buildPackage(dir);
     expect(readOutput(dir, 'index.js')).toContain('value = 2');
     expect(fs.readFileSync(cachePath, 'utf8')).not.toBe(lastGoodDigest);
+  });
+});
+
+describe('resolveBuildCachePath', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-cache-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it("places the cache in the package's own node_modules when it has one", () => {
+    const packageDir = path.join(root, 'pkg');
+    fs.mkdirSync(path.join(packageDir, 'node_modules'), { recursive: true });
+
+    expect(path.dirname(resolveBuildCachePath(packageDir))).toBe(
+      path.join(packageDir, 'node_modules', '.cache', 'nmr-compile'),
+    );
+  });
+
+  it('falls back to the nearest ancestor node_modules for a package that has none', () => {
+    // Mirrors a zero-dependency workspace leaf (e.g. nmr-core): with no node_modules of its own, the
+    // cache must resolve to a hoisted ancestor rather than a stray directory beside dist.
+    fs.mkdirSync(path.join(root, 'node_modules'), { recursive: true });
+    const packageDir = path.join(root, 'packages', 'leaf');
+    fs.mkdirSync(packageDir, { recursive: true });
+
+    expect(path.dirname(resolveBuildCachePath(packageDir))).toBe(
+      path.join(root, 'node_modules', '.cache', 'nmr-compile'),
+    );
+  });
+
+  it('derives a stable, package-specific key', () => {
+    const a = path.join(root, 'a');
+    const b = path.join(root, 'b');
+    fs.mkdirSync(path.join(a, 'node_modules'), { recursive: true });
+    fs.mkdirSync(path.join(b, 'node_modules'), { recursive: true });
+
+    expect(resolveBuildCachePath(a)).toBe(resolveBuildCachePath(a));
+    expect(resolveBuildCachePath(a)).not.toBe(resolveBuildCachePath(b));
   });
 });

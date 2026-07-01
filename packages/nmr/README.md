@@ -337,7 +337,7 @@ nmr sync-pnpm-version
 
 ### `nmr-compile`
 
-Compile a single package's `src` tree to `dist/esm` with the TypeScript compiler API, emitting `.js` and `.d.ts` in one pass. Because the compiler parses each source file, every relative import form — static, re-export, dynamic `import()`, and bare side-effect — is rewritten from `.ts` to `.js` in both outputs, and `.ts` occurrences inside strings and comments are left intact. tsconfig `paths` aliases are resolved to runnable relative `.js` specifiers in both outputs, sourced from the package's tsconfig. The build is skipped when no input has changed (a content-and-path hash is cached in `dist/esm/.cache`). This is the default `compile` script — run it from a package directory.
+Compile a single package's `src` tree to `dist/esm` with the TypeScript compiler API, emitting `.js` and `.d.ts` in one pass. Because the compiler parses each source file, every relative import form — static, re-export, dynamic `import()`, and bare side-effect — is rewritten from `.ts` to `.js` in both outputs, and `.ts` occurrences inside strings and comments are left intact. tsconfig `paths` aliases are resolved to runnable relative `.js` specifiers in both outputs, sourced from the package's tsconfig. The build is skipped when no input has changed (a content-and-path hash is cached under `node_modules/.cache/nmr-compile/`, outside the published output). This is the default `compile` script — run it from a package directory.
 
 `typescript` is a peer dependency (`>=5.7.0`, required for `rewriteRelativeImportExtensions`); the consuming repo provides it. Relative imports in source must carry explicit `.ts` extensions for them to be rewritten.
 
