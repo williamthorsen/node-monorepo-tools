@@ -13,7 +13,7 @@
       "path": "kits/nmr.js",
       "readyupVersion": "0.21.2",
       "source": "kits/nmr.ts",
-      "targetHash": "9e8996e2"
+      "targetHash": "3e9de0df"
     },
     {
       "name": "npm-auto-publish",

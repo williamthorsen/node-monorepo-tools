@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.17.1",
+    "date": "2026-07-01",
+    "sections": [
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Relocate nmr-compile's build cache out of the published dist (#457)",
+            "body": "Fixes an issue where packages built with nmr-compile shipped an internal build-cache file inside their published npm tarball.",
+            "hash": "871fe03628a19cbf9eb854b8246d358a1b99653f"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.17.0",
     "date": "2026-07-01",
     "sections": [

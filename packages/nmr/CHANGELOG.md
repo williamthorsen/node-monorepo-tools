@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.17.1 — 2026-07-01
+
+### 🐛 Bug fixes
+
+- Relocate nmr-compile's build cache out of the published dist (#457)
+
+  Fixes an issue where packages built with nmr-compile shipped an internal build-cache file inside their published npm tarball.
+
 ## 0.17.0 — 2026-07-01
 
 ### 🎉 Features
