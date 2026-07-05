@@ -8,6 +8,8 @@ export interface PackageJson {
   private?: boolean;
   version?: string;
   packageManager?: string;
+  main?: string;
+  exports?: unknown;
   scripts?: Record<string, string>;
   pnpm?: { overrides?: Record<string, string> };
 }
@@ -30,6 +32,8 @@ export function readPackageJson(dir: string): PackageJson {
   if (parsed.private === true) pkg.private = true;
   if (typeof parsed.version === 'string') pkg.version = parsed.version;
   if (typeof parsed.packageManager === 'string') pkg.packageManager = parsed.packageManager;
+  if (typeof parsed.main === 'string') pkg.main = parsed.main;
+  if (parsed.exports !== undefined) pkg.exports = parsed.exports;
   if (isObject(parsed.scripts)) {
     const scripts: Record<string, string> = {};
     for (const [key, val] of Object.entries(parsed.scripts)) {
@@ -49,6 +53,15 @@ export function readPackageJson(dir: string): PackageJson {
   }
 
   return pkg;
+}
+
+/**
+ * Reports whether a package declares a publishable entry point — a `main` or an
+ * `exports` field. A package with neither has no importable surface for attw to
+ * resolve (a `bin`-only package included), so attw would false-positive on it.
+ */
+export function hasPublishableEntryPoint(pkg: PackageJson): boolean {
+  return pkg.main !== undefined || pkg.exports !== undefined;
 }
 
 /**
