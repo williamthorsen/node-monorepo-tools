@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.17.2 — 2026-07-06
+
+### 🐛 Bug fixes
+
+- Replace the raw attw script with an nmr-attw wrapper (#461)
+
+  Fixes the issues that made the default `nmr attw` check fail across monorepos:
+
+  - packages with no published API failed with a false `NoResolution` error;
+  - the check left stray `.tgz` files in the working tree ;
+  - output was a verbose per-package table; now output is terse on success, full diagnostics only on failure (`--verbose` to force full output);
+  - a missing `@arethetypeswrong/cli` gave a raw command-not-found; now a hint is given.
+
 ## 0.17.1 — 2026-07-01
 
 ### 🐛 Bug fixes

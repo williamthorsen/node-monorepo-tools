@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.17.2",
+    "date": "2026-07-06",
+    "sections": [
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Replace the raw attw script with an nmr-attw wrapper (#461)",
+            "body": "Fixes the issues that made the default `nmr attw` check fail across monorepos:\n\n- packages with no published API failed with a false `NoResolution` error;\n- the check left stray `.tgz` files in the working tree ;\n- output was a verbose per-package table; now output is terse on success, full diagnostics only on failure (`--verbose` to force full output);\n- a missing `@arethetypeswrong/cli` gave a raw command-not-found; now a hint is given.",
+            "hash": "ecf92884637bb43007b715597064ecc5ccd7a88a"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.17.1",
     "date": "2026-07-01",
     "sections": [
