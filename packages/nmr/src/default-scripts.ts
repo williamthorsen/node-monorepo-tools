@@ -5,7 +5,7 @@ export type ScriptRegistry = Record<string, ScriptValue>;
  * Workspace scripts shared by all test configurations.
  */
 export const commonWorkspaceScripts: ScriptRegistry = {
-  attw: 'attw --pack --profile esm-only',
+  attw: 'nmr-attw',
   build: ['compile'],
   check: ['typecheck', 'fmt:check', 'lint:check', 'test'],
   'check:strict': ['typecheck', 'fmt:check', 'lint:strict', 'test:coverage', 'attw'],

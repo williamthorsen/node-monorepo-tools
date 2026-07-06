@@ -24,7 +24,7 @@ describe('getDefaultWorkspaceScripts', () => {
   it('defines attw and includes it in check:strict but not check', () => {
     const scripts = getDefaultWorkspaceScripts(false);
 
-    expect(scripts.attw).toBe('attw --pack --profile esm-only');
+    expect(scripts.attw).toBe('nmr-attw');
     expect(scripts['check:strict']).toContain('attw');
     expect(scripts.check).not.toContain('attw');
   });

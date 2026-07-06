@@ -133,7 +133,7 @@ These scripts are available out of the box. Repo-wide config (tier 2) and per-pa
 
 | Command         | Runs                                                             |
 | --------------- | ---------------------------------------------------------------- |
-| `attw`          | `attw --pack --profile esm-only`                                 |
+| `attw`          | `nmr-attw`                                                       |
 | `build`         | `compile`                                                        |
 | `check`         | `typecheck`, `fmt:check`, `lint:check`, `test`                   |
 | `check:strict`  | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage`, `attw` |
@@ -343,6 +343,20 @@ Compile a single package's `src` tree to `dist/esm` with the TypeScript compiler
 
 ```bash
 nmr-compile
+```
+
+### `nmr-attw`
+
+Validate a package's published type-resolution surface with [`@arethetypeswrong/cli`](https://github.com/arethetypeswrong/arethetypeswrong.github.io). This is the default `attw` script — run it from a package directory. It wraps attw so that it behaves well across a monorepo:
+
+- **Skips packages with no publishable entry point** (neither `main` nor `exports`) — a message and exit 0, before attw runs. A package with no importable surface has nothing for attw to resolve, so running it would false-positive with `NoResolution`. A private package that _does_ declare `exports` is still checked.
+- **Leaves no `.tgz` in the working tree.** attw analyzes a packed tarball; nmr-attw packs into a temp directory instead of the package directory, so nothing litters the tree.
+- **Condenses output** to a terse per-package result on success and full attw diagnostics only on failure. Pass `--verbose` to print the full attw output on success too.
+
+`@arethetypeswrong/cli` is not bundled — a package that declares an entry point must have it installed; nmr-attw reports an actionable message if it is missing. Any other flags are forwarded to attw (the profile defaults to `esm-only`).
+
+```bash
+nmr-attw
 ```
 
 ### `ensure-prepublish-hooks`
