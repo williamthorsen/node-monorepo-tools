@@ -65,10 +65,10 @@ describe.skipIf(!attwAvailable)('runAttw (integration)', () => {
     expect(readdirSync(dir).some((file) => file.endsWith('.tgz'))).toBe(false);
   }, 30_000);
 
-  it('fails a package whose types are genuinely wrong, printing diagnostics and no leftover tarball', () => {
-    // The package declares `exports` (so it is not skipped) and ships types, but the ESM entry point
-    // contains CommonJS syntax — a real attw failure (UnexpectedModuleSyntax), distinct both from the
-    // no-entry-point skip case and from "no types"/"missing file", which attw treats as exit 0.
+  // The package declares `exports` (so it is not skipped) and ships types, but the ESM entry point
+  // contains CommonJS syntax — a real attw failure, distinct both from the no-entry-point skip case
+  // and from "no types"/"missing file", which attw treats as exit 0.
+  function writeBadPackage(): void {
     writePackage({
       'package.json': JSON.stringify({
         name: 'bad-pkg',
@@ -79,15 +79,51 @@ describe.skipIf(!attwAvailable)('runAttw (integration)', () => {
       'index.js': 'module.exports.value = 1;\n',
       'index.d.ts': 'export declare const value: number;\n',
     });
+  }
+
+  it('condenses a genuine failure to a terse verdict pointing at --verbose, with no leftover tarball', () => {
+    writeBadPackage();
+    const stdout = new PassThrough();
+    const readOut = collect(stdout);
+
+    const exitCode = runAttw({
+      packageDir: dir,
+      argv: ['--no-definitely-typed'],
+      stdout,
+      stderr: new PassThrough(),
+      env: process.env,
+    });
+
+    const out = readOut();
+    expect(exitCode).not.toBe(0);
+    expect(out).toContain('✗ bad-pkg');
+    expect(out).toContain('nmr attw --verbose');
+    // The condensed verdict must not dump attw's raw JSON or its full per-subpath firehose.
+    expect(out).not.toContain('"analysis"');
+    expect(out.trim().split('\n').length).toBeLessThanOrEqual(8);
+    expect(readdirSync(dir).some((file) => file.endsWith('.tgz'))).toBe(false);
+  }, 30_000);
+
+  it('passes attw full diagnostics through unchanged under --verbose', () => {
+    writeBadPackage();
     const stdout = new PassThrough();
     const readOut = collect(stdout);
     const stderr = new PassThrough();
     const readErr = collect(stderr);
 
-    const exitCode = runAttw({ packageDir: dir, argv: ['--no-definitely-typed'], stdout, stderr, env: process.env });
+    const exitCode = runAttw({
+      packageDir: dir,
+      argv: ['--no-definitely-typed', '--verbose'],
+      stdout,
+      stderr,
+      env: process.env,
+    });
 
+    const out = readOut() + readErr();
     expect(exitCode).not.toBe(0);
-    expect(readOut() + readErr()).not.toBe('');
-    expect(readdirSync(dir).some((file) => file.endsWith('.tgz'))).toBe(false);
+    expect(out).toContain('bad-pkg');
+    // Raw attw output, not the wrapper's condensed verdict.
+    expect(out).not.toContain('✗ bad-pkg —');
+    expect(out).not.toContain('nmr attw --verbose');
   }, 30_000);
 });

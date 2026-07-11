@@ -8,30 +8,51 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { attwSpawnErrorMessage, buildAttwArgs, formatAttwResult, runAttw, type SpawnSyncFn } from '../attw.ts';
 
 describe(buildAttwArgs, () => {
-  it('appends the default profile when none is supplied', () => {
-    expect(buildAttwArgs([])).toStrictEqual({ verbose: false, attwArgs: ['--profile', 'esm-only'] });
+  it('appends the default profile and requests JSON when nothing is supplied', () => {
+    expect(buildAttwArgs([])).toStrictEqual({
+      verbose: false,
+      profile: 'esm-only',
+      attwArgs: ['--profile', 'esm-only', '--format', 'json'],
+    });
   });
 
-  it('consumes --verbose without forwarding it', () => {
-    expect(buildAttwArgs(['--verbose'])).toStrictEqual({ verbose: true, attwArgs: ['--profile', 'esm-only'] });
+  it('consumes --verbose without forwarding it and omits --format json', () => {
+    expect(buildAttwArgs(['--verbose'])).toStrictEqual({
+      verbose: true,
+      profile: 'esm-only',
+      attwArgs: ['--profile', 'esm-only'],
+    });
   });
 
-  it('consumes -v without forwarding it', () => {
-    expect(buildAttwArgs(['-v'])).toStrictEqual({ verbose: true, attwArgs: ['--profile', 'esm-only'] });
+  it('consumes -v without forwarding it and omits --format json', () => {
+    expect(buildAttwArgs(['-v'])).toStrictEqual({
+      verbose: true,
+      profile: 'esm-only',
+      attwArgs: ['--profile', 'esm-only'],
+    });
   });
 
-  it('preserves a caller-supplied --profile', () => {
-    expect(buildAttwArgs(['--profile', 'strict'])).toStrictEqual({ verbose: false, attwArgs: ['--profile', 'strict'] });
+  it('preserves a caller-supplied --profile and reports it', () => {
+    expect(buildAttwArgs(['--profile', 'strict'])).toStrictEqual({
+      verbose: false,
+      profile: 'strict',
+      attwArgs: ['--profile', 'strict', '--format', 'json'],
+    });
   });
 
-  it('preserves a caller-supplied --profile= form', () => {
-    expect(buildAttwArgs(['--profile=strict'])).toStrictEqual({ verbose: false, attwArgs: ['--profile=strict'] });
+  it('preserves a caller-supplied --profile= form and reports it', () => {
+    expect(buildAttwArgs(['--profile=strict'])).toStrictEqual({
+      verbose: false,
+      profile: 'strict',
+      attwArgs: ['--profile=strict', '--format', 'json'],
+    });
   });
 
   it('forwards unrelated args and appends the default profile', () => {
     expect(buildAttwArgs(['--ignore-rules', 'cjs-only-exports-default'])).toStrictEqual({
       verbose: false,
-      attwArgs: ['--ignore-rules', 'cjs-only-exports-default', '--profile', 'esm-only'],
+      profile: 'esm-only',
+      attwArgs: ['--ignore-rules', 'cjs-only-exports-default', '--profile', 'esm-only', '--format', 'json'],
     });
   });
 });
@@ -44,17 +65,18 @@ describe(formatAttwResult, () => {
     attwStdout: 'TABLE',
     attwStderr: '',
   };
+  const esmOnlyIgnored = ['node10', 'node16-cjs'];
 
   it('prints a terse confirmation on success', () => {
     expect(formatAttwResult(base)).toStrictEqual({ status: 0, stdout: '✓ pkg: types OK\n', stderr: '' });
   });
 
-  it('prints full output on a verbose success', () => {
+  it('passes attw output through unchanged on a verbose success', () => {
     expect(formatAttwResult({ ...base, verbose: true })).toStrictEqual({ status: 0, stdout: 'TABLE', stderr: '' });
   });
 
-  it('prints full diagnostics on failure', () => {
-    expect(formatAttwResult({ ...base, attwStatus: 1, attwStderr: 'ERR' })).toStrictEqual({
+  it('passes attw diagnostics through unchanged on a verbose failure', () => {
+    expect(formatAttwResult({ ...base, verbose: true, attwStatus: 1, attwStderr: 'ERR' })).toStrictEqual({
       status: 1,
       stdout: 'TABLE',
       stderr: 'ERR',
@@ -63,6 +85,81 @@ describe(formatAttwResult, () => {
 
   it('maps a null exit status to 1', () => {
     expect(formatAttwResult({ ...base, attwStatus: null, verbose: true }).status).toBe(1);
+  });
+
+  it('renders a condensed verdict with a fix hint on a JSON failure', () => {
+    const result = formatAttwResult({
+      ...base,
+      attwStatus: 1,
+      attwStdout: attwJson([{ kind: 'FallbackCondition', entrypoint: '.', resolutionKind: 'node16-esm' }]),
+      ignoredResolutions: esmOnlyIgnored,
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain('✗ pkg — types resolve via a fallback condition (1 entry point)');
+    expect(result.stdout).toContain('Fix: in package.json "exports", put "types" before "import"');
+    expect(result.stderr).toBe('');
+  });
+
+  it('collapses a kind repeated across subpaths into an entry-point count', () => {
+    const result = formatAttwResult({
+      ...base,
+      attwStatus: 1,
+      attwStdout: attwJson([
+        { kind: 'FallbackCondition', entrypoint: '.', resolutionKind: 'node16-esm' },
+        { kind: 'FallbackCondition', entrypoint: './sub', resolutionKind: 'node16-esm' },
+      ]),
+      ignoredResolutions: esmOnlyIgnored,
+    });
+
+    expect(result.stdout).toContain('(2 entry points)');
+  });
+
+  it('drops problems on resolutions the profile ignores', () => {
+    const result = formatAttwResult({
+      ...base,
+      attwStatus: 1,
+      attwStdout: attwJson([
+        { kind: 'FallbackCondition', entrypoint: '.', resolutionKind: 'node10' },
+        { kind: 'FallbackCondition', entrypoint: './kept', resolutionKind: 'node16-esm' },
+      ]),
+      ignoredResolutions: esmOnlyIgnored,
+    });
+
+    expect(result.stdout).toContain('(1 entry point)');
+  });
+
+  it('falls back to an explicit failure notice when every problem is filtered out', () => {
+    const result = formatAttwResult({
+      ...base,
+      attwStatus: 1,
+      attwStdout: attwJson([{ kind: 'FallbackCondition', entrypoint: '.', resolutionKind: 'node10' }]),
+      attwStderr: 'raw',
+      ignoredResolutions: esmOnlyIgnored,
+    });
+
+    expect(result.stdout).toContain('✗ pkg: attw reported problems');
+    expect(result.stdout).toContain('nmr attw --verbose');
+    expect(result.stderr).toBe('raw');
+  });
+
+  it('falls back to an explicit failure notice when attw output is not JSON', () => {
+    const result = formatAttwResult({ ...base, attwStatus: 1, attwStdout: 'not json', attwStderr: 'raw' });
+
+    expect(result.stdout).toContain('✗ pkg: attw reported problems');
+    expect(result.stderr).toBe('raw');
+  });
+
+  it('uses the raw kind and a generic hint for an unmapped problem kind', () => {
+    const result = formatAttwResult({
+      ...base,
+      attwStatus: 1,
+      attwStdout: attwJson([{ kind: 'FalseCJS' }]),
+      ignoredResolutions: esmOnlyIgnored,
+    });
+
+    expect(result.stdout).toContain('✗ pkg — FalseCJS (1 occurrence)');
+    expect(result.stdout).toContain('Fix: run `nmr attw --verbose`');
   });
 });
 
@@ -161,6 +258,11 @@ function collectStream(stream: PassThrough): () => string {
 /** Builds an Error carrying `code: 'ENOENT'`, mimicking `spawnSync`'s result when a command binary can't be found. */
 function makeMissingBinaryError(message: string): Error {
   return Object.assign(new Error(message), { code: 'ENOENT' });
+}
+
+/** Serializes a minimal attw `--format json` payload carrying just the problems the wrapper reads. */
+function attwJson(problems: Array<{ kind: string; entrypoint?: string; resolutionKind?: string }>): string {
+  return JSON.stringify({ analysis: { problems } });
 }
 
 /**

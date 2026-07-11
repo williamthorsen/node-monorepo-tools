@@ -351,7 +351,7 @@ Validate a package's published type-resolution surface with [`@arethetypeswrong/
 
 - **Skips packages with no publishable entry point** (neither `main` nor `exports`) — a message and exit 0, before attw runs. A package with no importable surface has nothing for attw to resolve, so running it would false-positive with `NoResolution`. A private package that _does_ declare `exports` is still checked.
 - **Leaves no `.tgz` in the working tree.** attw analyzes a packed tarball; nmr-attw packs into a temp directory instead of the package directory, so nothing litters the tree.
-- **Condenses output** to a terse per-package result on success and full attw diagnostics only on failure. Pass `--verbose` to print the full attw output on success too.
+- **Condenses output.** On success, a terse per-package confirmation; on failure, a per-package verdict naming the problem kind with a concrete fix hint, driven by attw's machine-readable (`--format json`) output and matching attw's own pass/fail verdict. Pass `--verbose` to print attw's full diagnostics instead — on success and failure alike.
 
 `@arethetypeswrong/cli` is not bundled — a package that declares an entry point must have it installed; nmr-attw reports an actionable message if it is missing. Any other flags are forwarded to attw (the profile defaults to `esm-only`).
 
