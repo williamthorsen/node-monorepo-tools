@@ -21,12 +21,15 @@ const PROFILE_IGNORED_RESOLUTIONS: Record<string, readonly string[]> = {
 /**
  * The `spawnSync` surface the wrapper depends on, narrowed to a single signature
  * so a test can inject a stub in place of the real `npm`/`attw` subprocesses.
+ *
+ * `spawnSync` returns null for a stream redirected to a file descriptor, so a captured `stdout` is not
+ * available here; `runAttw` reads attw's output back from the file.
  */
 export type SpawnSyncFn = (
   command: string,
   args: string[],
   options: { cwd: string; encoding: 'utf8'; env: NodeJS.ProcessEnv; stdio?: SpawnStdio },
-) => Pick<SpawnSyncReturns<string>, 'error' | 'status' | 'stdout' | 'stderr'>;
+) => Pick<SpawnSyncReturns<string>, 'error' | 'status' | 'stderr'>;
 
 /** `stdio` triple as the wrapper uses it: attw's stdout goes to an open file descriptor. */
 export type SpawnStdio = ['ignore', number, 'pipe'];
@@ -271,10 +274,9 @@ function isAttwProblem(value: unknown): value is AttwJsonProblem {
  * Reduces attw's parsed problems to one entry per kind, dropping resolutions the profile ignores (to
  * match attw's exit code) and collapsing a kind's repeats across export subpaths into a count.
  *
- * attw's exit code also discounts kinds named by `--ignore-rules`, which this filter does not mirror,
- * so such a kind still appears in the breakdown. That is cosmetic: the exit status decides pass/fail,
- * and a rule-ignored kind can only ever surface alongside a genuinely counted one — were it the sole
- * problem, attw would have exited 0 and no breakdown would be rendered.
+ * The filter mirrors the profile's ignored resolutions but not the kinds named by `--ignore-rules`, so
+ * a rule-ignored kind can still appear in the breakdown. Pass/fail is anchored on attw's exit status,
+ * not on this summary.
  */
 function summarizeAttwFailure(attwStdout: string, ignoredResolutions: readonly string[]): ProblemSummary[] {
   const problems = parseAttwProblems(attwStdout) ?? [];

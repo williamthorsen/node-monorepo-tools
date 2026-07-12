@@ -332,18 +332,18 @@ function makeSpawnStub(config: {
 }): SpawnSyncFn {
   return (command, args, options) => {
     if (command === 'npm') {
-      if (config.packError) return { error: config.packError, status: null, stdout: '', stderr: '' };
+      if (config.packError) return { error: config.packError, status: null, stderr: '' };
       const status = config.packStatus ?? 0;
       if (status === 0 && (config.writeTarball ?? true)) {
         const dest = args[args.indexOf('--pack-destination') + 1];
         if (dest !== undefined) writeFileSync(path.join(dest, 'pkg-1.0.0.tgz'), '');
       }
-      return { status, stdout: '', stderr: status === 0 ? '' : 'npm ERR! pack failed' };
+      return { status, stderr: status === 0 ? '' : 'npm ERR! pack failed' };
     }
-    if (config.attwError) return { error: config.attwError, status: null, stdout: '', stderr: '' };
+    if (config.attwError) return { error: config.attwError, status: null, stderr: '' };
     const fd = options.stdio?.[1];
     if (fd !== undefined && config.attwStdout !== undefined) writeSync(fd, config.attwStdout);
-    return { status: config.attwStatus ?? 0, stdout: '', stderr: '' };
+    return { status: config.attwStatus ?? 0, stderr: '' };
   };
 }
 
