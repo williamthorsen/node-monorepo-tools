@@ -455,11 +455,7 @@ function makeSpawnStub(config: {
   };
 }
 
-/**
- * Builds the reader's view of a packed tarball. The stubbed `pnpm pack` writes a placeholder `.tgz` that is
- * never decoded, so the tests state the packed contents directly — the real decoding is covered by
- * `tarball.int.test.ts` against tarballs `pnpm pack` actually produced.
- */
+/** Builds the reader's view of a packed tarball; the stubbed `pnpm pack` writes a `.tgz` that is never decoded. */
 function packedTarball(files: string[], packageJson: PackedTarball['packageJson']): PackedTarball {
   return { files: ['package.json', ...files], packageJson: { name: 'p', version: '1.0.0', ...packageJson } };
 }

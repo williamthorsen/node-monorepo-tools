@@ -243,10 +243,8 @@ export function formatAttwResult(params: {
  * TypeScript consumer of it silently receives `any`. A package that declares none is a valid JavaScript
  * package, so it is reported but not failed.
  *
- * This runs in every output mode, `--verbose` included. It is derived from the tarball rather than from
- * attw's `analysis.types` precisely so that it can: that field reaches the wrapper only in the JSON
- * output that passthrough mode suppresses, so a check keyed on it would fail a package by default and
- * pass the very same package under `--verbose`.
+ * Must stay keyed on the tarball, not on attw's `analysis.types`: that field reaches the wrapper only in
+ * the JSON output passthrough mode suppresses, so a package would fail by default and pass under `--verbose`.
  */
 export function checkTypeClaim(params: {
   label: string;

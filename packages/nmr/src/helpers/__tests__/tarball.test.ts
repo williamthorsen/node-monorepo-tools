@@ -5,11 +5,9 @@ import { describe, expect, it } from 'vitest';
 import { decodePackedTarball } from '../tarball.ts';
 
 /**
- * Decoding tests over synthesized archives. The field layouts here replicate what `pnpm pack` was observed
- * to emit — a deep path split across `prefix`/`name`, and an over-long filename displaced into a PAX header
- * whose own entry is named `PaxHeader`. `tarball.int.test.ts` is the ground truth that real packers still
- * produce these encodings; these tests pin how the reader decodes them, and unlike the integration suite
- * they run under `nmr check:strict`.
+ * The synthesized layouts here are the ones npm and pnpm were observed to emit, down to the placeholder
+ * `PaxHeader` entry name. Keep them faithful to a real packer rather than to the tar spec's full generality:
+ * an idealized fixture would pass against a reader that no real tarball survives.
  */
 
 const BLOCK_SIZE = 512;

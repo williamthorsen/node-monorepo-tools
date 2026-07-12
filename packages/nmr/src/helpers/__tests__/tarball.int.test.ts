@@ -10,8 +10,7 @@ import { readPackedTarball } from '../tarball.ts';
 /**
  * tar splits an over-long path across its `prefix` and `name` header fields, but only at a `/`. These two
  * fixtures take the two branches that fall out of that: a deep path, which splits, and an over-long
- * filename, which cannot and so forces a PAX extended header instead. Both encodings hide the real path
- * from a naive reader — and a hidden `.d.ts` reads as a missing declaration, failing a healthy package.
+ * filename, which cannot and so forces a PAX extended header instead.
  */
 const DEEP_DIR = 'dist/esm/commands/subcommands/generated/deeply/nested/directory/segments/split-across-prefix';
 const DEEP_TYPES_PATH = `${DEEP_DIR}/index.d.ts`;

@@ -33,12 +33,7 @@ export function readPackedTarball(tarballPath: string): PackedTarball {
   return decodePackedTarball(readFileSync(tarballPath), tarballPath);
 }
 
-/**
- * Decodes a gzipped tarball's bytes. `source` names the archive in error messages.
- *
- * Separate from the file read so the decoding — the part with the failure mode that matters, where a
- * misread path hides a declaration and fails a healthy package — is testable without a filesystem.
- */
+/** Decodes a gzipped tarball's bytes. `source` names the archive in error messages. */
 export function decodePackedTarball(archive: Buffer, source: string): PackedTarball {
   let tar: Buffer;
   try {
