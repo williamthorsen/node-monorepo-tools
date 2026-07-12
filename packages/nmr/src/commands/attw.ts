@@ -1,5 +1,5 @@
 import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
-import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { closeSync, mkdtempSync, openSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { Writable } from 'node:stream';
@@ -25,8 +25,11 @@ const PROFILE_IGNORED_RESOLUTIONS: Record<string, readonly string[]> = {
 export type SpawnSyncFn = (
   command: string,
   args: string[],
-  options: { cwd: string; encoding: 'utf8'; env: NodeJS.ProcessEnv },
+  options: { cwd: string; encoding: 'utf8'; env: NodeJS.ProcessEnv; stdio?: SpawnStdio },
 ) => Pick<SpawnSyncReturns<string>, 'error' | 'status' | 'stdout' | 'stderr'>;
+
+/** `stdio` triple as the wrapper uses it: attw's stdout goes to an open file descriptor. */
+export type SpawnStdio = ['ignore', number, 'pipe'];
 
 /** @internal */
 export interface RunAttwOptions {
@@ -66,7 +69,7 @@ export function runAttw(options: RunAttwOptions): number {
     return 0;
   }
 
-  const { verbose, profile, attwArgs } = buildAttwArgs(argv);
+  const { passthrough, profile, attwArgs } = buildAttwArgs(argv);
 
   // Pack into a throwaway temp dir rather than letting `attw --pack` write the
   // tarball into the package dir, whose only cleanup is on attw's happy path.
@@ -88,11 +91,23 @@ export function runAttw(options: RunAttwOptions): number {
       return 1;
     }
 
-    const attw = spawn('attw', [path.join(tempDir, tarball), ...attwArgs], {
-      cwd: packageDir,
-      encoding: 'utf8',
-      env,
-    });
+    // attw calls `process.exit()` immediately after writing its JSON, discarding whatever is still
+    // buffered in an async pipe write — its output truncates at the 64 KiB pipe capacity, which a
+    // package of four or more entry points exceeds. Writes to a regular file are synchronous, so
+    // attw's stdout is routed through one and read back.
+    const attwStdoutPath = path.join(tempDir, 'attw-stdout');
+    const fd = openSync(attwStdoutPath, 'w');
+    let attw: ReturnType<SpawnSyncFn>;
+    try {
+      attw = spawn('attw', [path.join(tempDir, tarball), ...attwArgs], {
+        cwd: packageDir,
+        encoding: 'utf8',
+        env,
+        stdio: ['ignore', fd, 'pipe'],
+      });
+    } finally {
+      closeSync(fd);
+    }
     if (attw.error !== undefined) {
       stderr.write(attwSpawnErrorMessage(label, attw.error));
       return 1;
@@ -100,9 +115,9 @@ export function runAttw(options: RunAttwOptions): number {
 
     const outcome = formatAttwResult({
       label,
-      verbose,
+      passthrough,
       attwStatus: attw.status,
-      attwStdout: attw.stdout,
+      attwStdout: readFileSync(attwStdoutPath, 'utf8'),
       attwStderr: attw.stderr,
       ignoredResolutions: ignoredResolutionsForProfile(profile),
     });
@@ -116,12 +131,12 @@ export function runAttw(options: RunAttwOptions): number {
 
 /**
  * Splits post-command args into the wrapper's own `--verbose`/`-v` flag and the args forwarded to
- * attw. Appends the default `--profile` when the caller supplied none, and requests `--format json`
- * on the non-verbose path so the wrapper can render its own condensed verdict; `--verbose` keeps
- * attw's human diagnostics. Also reports the effective profile so the caller can mirror attw's
- * resolution filter.
+ * attw, appending the default `--profile` when the caller supplied none and reporting the effective
+ * profile. Requests `--format json` so the wrapper can render its own condensed verdict, except in
+ * passthrough mode — `--verbose`, or a caller-supplied `--format`, whose chosen format the wrapper
+ * has no way to condense — where attw's own output is emitted unchanged.
  */
-export function buildAttwArgs(argv: string[]): { verbose: boolean; profile: string; attwArgs: string[] } {
+export function buildAttwArgs(argv: string[]): { passthrough: boolean; profile: string; attwArgs: string[] } {
   let verbose = false;
   const attwArgs: string[] = [];
   for (const arg of argv) {
@@ -132,13 +147,14 @@ export function buildAttwArgs(argv: string[]): { verbose: boolean; profile: stri
     attwArgs.push(arg);
   }
   const profile = resolveProfile(attwArgs);
-  if (!attwArgs.some((arg) => arg === '--profile' || arg.startsWith('--profile='))) {
+  if (!hasFlag(attwArgs, '--profile')) {
     attwArgs.push('--profile', DEFAULT_PROFILE);
   }
-  if (!verbose) {
+  const passthrough = verbose || hasFlag(attwArgs, '--format', '-f');
+  if (!passthrough) {
     attwArgs.push('--format', 'json');
   }
-  return { verbose, profile, attwArgs };
+  return { passthrough, profile, attwArgs };
 }
 
 interface AttwOutcome {
@@ -148,24 +164,24 @@ interface AttwOutcome {
 }
 
 /**
- * Decides what the wrapper writes and returns from attw's captured result. On `--verbose`, attw's raw
- * diagnostics pass through unchanged. Otherwise: a terse confirmation on success, and on failure a
+ * Decides what the wrapper writes and returns from attw's captured result. In passthrough mode attw's
+ * own output is emitted unchanged. Otherwise: a terse confirmation on success, and on failure a
  * condensed, actionable verdict parsed from attw's `--format json` output — falling back to an explicit
  * failure notice when that output is absent, unparseable, or filtered empty by the profile.
  */
 export function formatAttwResult(params: {
   label: string;
-  verbose: boolean;
+  passthrough: boolean;
   attwStatus: number | null;
   attwStdout: string;
   attwStderr: string;
   /** Resolution kinds the active profile ignores; problems on them are dropped to match attw's exit code. */
   ignoredResolutions?: readonly string[];
 }): AttwOutcome {
-  const { label, verbose, attwStatus, attwStdout, attwStderr, ignoredResolutions = [] } = params;
+  const { label, passthrough, attwStatus, attwStdout, attwStderr, ignoredResolutions = [] } = params;
 
   const status = attwStatus ?? 1;
-  if (verbose) {
+  if (passthrough) {
     return { status, stdout: attwStdout, stderr: attwStderr };
   }
   if (status === 0) {
@@ -195,13 +211,19 @@ const PROBLEM_KIND_LABELS: Record<string, string> = {
   FallbackCondition: 'types resolve via a fallback condition',
 };
 
-/** Actionable fix hint per attw problem kind; unmapped kinds fall back to the generic hint. */
+/** Actionable fix hint per attw problem kind; a kind with no hint gets no `Fix:` line. */
 const FIX_HINTS: Record<string, string> = {
   FallbackCondition:
     'in package.json "exports", put "types" before "import" and point it at the built declaration (e.g. "types": "./dist/esm/index.d.ts")',
 };
 
-const GENERIC_FIX_HINT = 'run `nmr attw --verbose` for full diagnostics';
+/** Closes every condensed failure: the condensed verdict is the only place the discarded detail is offered. */
+const VERBOSE_TRAILER = "    Run `nmr attw --verbose` for attw's full diagnostics.";
+
+/** Reports whether the args carry any of the given flags, in either the space or `=` form. */
+function hasFlag(args: string[], ...flags: string[]): boolean {
+  return args.some((arg) => flags.some((flag) => arg === flag || arg.startsWith(`${flag}=`)));
+}
 
 /** Resolution kinds the given profile drops from its verdict, or none for an unrecognized profile. */
 function ignoredResolutionsForProfile(profile: string): readonly string[] {
@@ -248,6 +270,11 @@ function isAttwProblem(value: unknown): value is AttwJsonProblem {
 /**
  * Reduces attw's parsed problems to one entry per kind, dropping resolutions the profile ignores (to
  * match attw's exit code) and collapsing a kind's repeats across export subpaths into a count.
+ *
+ * attw's exit code also discounts kinds named by `--ignore-rules`, which this filter does not mirror,
+ * so such a kind still appears in the breakdown. That is cosmetic: the exit status decides pass/fail,
+ * and a rule-ignored kind can only ever surface alongside a genuinely counted one — were it the sole
+ * problem, attw would have exited 0 and no breakdown would be rendered.
  */
 function summarizeAttwFailure(attwStdout: string, ignoredResolutions: readonly string[]): ProblemSummary[] {
   const problems = parseAttwProblems(attwStdout) ?? [];
@@ -274,19 +301,23 @@ function summarizeAttwFailure(attwStdout: string, ignoredResolutions: readonly s
   });
 }
 
-/** Renders the per-kind condensed verdict: one `✗` line plus an indented fix hint for each kind. */
+/**
+ * Renders the per-kind condensed verdict: a `✗` line per kind, an indented fix hint for each kind that
+ * has one, and a closing pointer to the diagnostics the condensing discarded.
+ */
 function renderAttwFailure(label: string, summary: ProblemSummary[]): string {
   const lines = summary.flatMap(({ kind, count, unit }) => {
     const phrase = PROBLEM_KIND_LABELS[kind] ?? kind;
-    const plural = count === 1 ? '' : 's';
-    return [`✗ ${label} — ${phrase} (${count} ${unit}${plural})`, `    Fix: ${FIX_HINTS[kind] ?? GENERIC_FIX_HINT}`];
+    const verdict = `✗ ${label} — ${phrase} (${count} ${unit}${count === 1 ? '' : 's'})`;
+    const hint = FIX_HINTS[kind];
+    return hint === undefined ? [verdict] : [verdict, `    Fix: ${hint}`];
   });
-  return `${lines.join('\n')}\n`;
+  return `${[...lines, VERBOSE_TRAILER].join('\n')}\n`;
 }
 
 /** Renders the failure notice used when attw's JSON can't be parsed or the profile filters it empty. */
 function renderAttwFailureFallback(label: string): string {
-  return `✗ ${label}: attw reported problems · run \`nmr attw --verbose\` for full diagnostics\n`;
+  return `✗ ${label}: attw reported problems.\n${VERBOSE_TRAILER}\n`;
 }
 
 /**
