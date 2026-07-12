@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -137,4 +137,93 @@ describe.skipIf(!attwAvailable)('runAttw (integration)', () => {
     expect(out).toContain('"analysis"');
     expect(out).not.toContain('✗ bad-pkg —');
   }, 30_000);
+
+  describe('type claim', () => {
+    /** Writes a package declaring types at `./index.d.ts` while shipping only the JavaScript entry point. */
+    function writeUnbuiltPackage(): void {
+      writePackage({
+        'package.json': JSON.stringify({
+          name: 'unbuilt-pkg',
+          version: '1.0.0',
+          type: 'module',
+          exports: { '.': { types: './index.d.ts', import: './index.js' } },
+        }),
+        'index.js': 'export const value = 1;\n',
+      });
+    }
+
+    it('fails a package that declares types but ships none', () => {
+      // attw reports this as untyped and exits 0, indistinguishably from a package untyped by design.
+      writeUnbuiltPackage();
+
+      const { exitCode, out } = run(['--no-definitely-typed']);
+
+      expect(exitCode).not.toBe(0);
+      expect(out).toContain('✗ unbuilt-pkg — declares types at "./index.d.ts"');
+      expect(out).not.toContain('types OK');
+    }, 30_000);
+
+    it('reaches the same verdict under --verbose', () => {
+      // A claim keyed on attw's JSON would exit 0 here and 1 by default, for the same package.
+      writeUnbuiltPackage();
+
+      const { exitCode, out } = run(['--no-definitely-typed', '--verbose']);
+
+      expect(exitCode).not.toBe(0);
+      expect(out).toContain('✗ unbuilt-pkg — declares types at "./index.d.ts"');
+    }, 30_000);
+
+    it('reaches the same verdict under a caller-supplied --format', () => {
+      writeUnbuiltPackage();
+
+      const { exitCode, out } = run(['--no-definitely-typed', '--format', 'json']);
+
+      expect(exitCode).not.toBe(0);
+      expect(out).toContain('✗ unbuilt-pkg — declares types at "./index.d.ts"');
+    }, 30_000);
+
+    it('reports a package that declares no types and ships none, without failing it', () => {
+      writePackage({
+        'package.json': JSON.stringify({
+          name: 'js-pkg',
+          version: '1.0.0',
+          type: 'module',
+          exports: { '.': { import: './index.js' } },
+        }),
+        'index.js': 'export const value = 1;\n',
+      });
+
+      const { exitCode, out } = run(['--no-definitely-typed']);
+
+      expect(exitCode).toBe(0);
+      expect(out).toContain('ℹ js-pkg: Ships no type declarations, and declares none.');
+      expect(out).not.toContain('types OK');
+    }, 30_000);
+
+    it('honors a publishConfig rewrite of the type claim', () => {
+      // The source manifest points at `src`, which is not published; `publishConfig` redirects both
+      // conditions to the built `dist`. Only `pnpm pack` applies that rewrite — under `npm pack` the
+      // tarball would carry the `src` claim, whose declaration it does not ship, and this would fail.
+      mkdirSync(path.join(dir, 'dist'));
+      writePackage({
+        'package.json': JSON.stringify({
+          name: 'rewritten-pkg',
+          version: '1.0.0',
+          type: 'module',
+          files: ['dist'],
+          exports: { '.': { types: './src/index.ts', import: './src/index.ts' } },
+          publishConfig: {
+            exports: { '.': { types: './dist/index.d.ts', import: './dist/index.js' } },
+          },
+        }),
+        'dist/index.js': 'export const value = 1;\n',
+        'dist/index.d.ts': 'export declare const value: number;\n',
+      });
+
+      const { exitCode, out } = run(['--no-definitely-typed']);
+
+      expect(exitCode).toBe(0);
+      expect(out).toContain('✓ rewritten-pkg: types OK');
+    }, 30_000);
+  });
 });

@@ -5,7 +5,15 @@ import { PassThrough } from 'node:stream';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { attwSpawnErrorMessage, buildAttwArgs, formatAttwResult, runAttw, type SpawnSyncFn } from '../attw.ts';
+import type { PackedTarball } from '../../helpers/tarball.ts';
+import {
+  attwSpawnErrorMessage,
+  buildAttwArgs,
+  checkTypeClaim,
+  formatAttwResult,
+  runAttw,
+  type SpawnSyncFn,
+} from '../attw.ts';
 
 describe(buildAttwArgs, () => {
   it('appends the default profile and requests JSON when nothing is supplied', () => {
@@ -199,6 +207,53 @@ describe(formatAttwResult, () => {
   });
 });
 
+describe(checkTypeClaim, () => {
+  it('defers to attw when the tarball ships types', () => {
+    const result = checkTypeClaim({ label: 'pkg', declaredPaths: ['./index.d.ts'], tarballHasTypes: true });
+
+    expect(result).toBeUndefined();
+  });
+
+  it('defers to attw when the tarball ships types the package never declared', () => {
+    const result = checkTypeClaim({ label: 'pkg', declaredPaths: [], tarballHasTypes: true });
+
+    expect(result).toBeUndefined();
+  });
+
+  it('fails a package that declares types but ships none, naming the declared path', () => {
+    const result = checkTypeClaim({ label: 'pkg', declaredPaths: ['./dist/index.d.ts'], tarballHasTypes: false });
+
+    expect(result?.status).toBe(1);
+    expect(result?.stdout).toContain('✗ pkg — declares types at "./dist/index.d.ts"');
+    expect(result?.stdout).toContain('ships no type declarations');
+    expect(result?.stdout).toContain('Fix: build the declarations before packing');
+  });
+
+  it('names every declared path when a package claims more than one', () => {
+    const result = checkTypeClaim({
+      label: 'pkg',
+      declaredPaths: ['./dist/index.d.ts', './dist/sub.d.ts'],
+      tarballHasTypes: false,
+    });
+
+    expect(result?.stdout).toContain('"./dist/index.d.ts", "./dist/sub.d.ts"');
+  });
+
+  it('omits the --verbose pointer, since a missing type surface leaves attw nothing to say', () => {
+    const result = checkTypeClaim({ label: 'pkg', declaredPaths: ['./index.d.ts'], tarballHasTypes: false });
+
+    expect(result?.stdout).not.toContain('--verbose');
+  });
+
+  it('reports an untyped package informationally rather than as types OK', () => {
+    const result = checkTypeClaim({ label: 'pkg', declaredPaths: [], tarballHasTypes: false });
+
+    expect(result?.status).toBe(0);
+    expect(result?.stdout).toContain('ℹ pkg: Ships no type declarations, and declares none.');
+    expect(result?.stdout).not.toContain('types OK');
+  });
+});
+
 describe(attwSpawnErrorMessage, () => {
   it('returns an install hint when attw is not found (ENOENT)', () => {
     expect(attwSpawnErrorMessage('pkg', makeMissingBinaryError('spawn attw ENOENT'))).toContain(
@@ -237,34 +292,45 @@ describe(runAttw, () => {
     expect(readdirSync(dir).some((file) => file.endsWith('.tgz'))).toBe(false);
   });
 
-  it('surfaces the underlying error when npm pack fails to spawn', () => {
+  it('surfaces the underlying error when pnpm pack fails to spawn', () => {
     writeEntryPackage(dir);
 
     const { exitCode, err } = runWithSpawn(
       dir,
-      makeSpawnStub({ packError: makeMissingBinaryError('spawn npm ENOENT') }),
+      makeSpawnStub({ packError: makeMissingBinaryError('spawn pnpm ENOENT') }),
     );
 
     expect(exitCode).toBe(1);
-    expect(err).toContain('spawn npm ENOENT');
+    expect(err).toContain('spawn pnpm ENOENT');
   });
 
-  it('forwards npm pack output on a non-zero pack exit', () => {
+  it('forwards pnpm pack output on a non-zero pack exit', () => {
     writeEntryPackage(dir);
 
     const { exitCode, err } = runWithSpawn(dir, makeSpawnStub({ packStatus: 1 }));
 
     expect(exitCode).toBe(1);
-    expect(err).toContain('npm ERR! pack failed');
+    expect(err).toContain('ERR_PNPM_PACK failed');
   });
 
-  it('reports when npm pack produces no tarball', () => {
+  it('reports when pnpm pack produces no tarball', () => {
     writeEntryPackage(dir);
 
     const { exitCode, err } = runWithSpawn(dir, makeSpawnStub({ writeTarball: false }));
 
     expect(exitCode).toBe(1);
     expect(err).toContain('produced no tarball');
+  });
+
+  it('surfaces the reason when the packed tarball cannot be read', () => {
+    writeEntryPackage(dir);
+
+    const { exitCode, err } = runWithSpawn(dir, makeSpawnStub({}), () => {
+      throw new Error('Could not read tarball /tmp/x.tgz: incorrect header check');
+    });
+
+    expect(exitCode).toBe(1);
+    expect(err).toContain('incorrect header check');
   });
 
   it('emits the install hint when the attw binary is missing', () => {
@@ -292,6 +358,48 @@ describe(runAttw, () => {
 
     expect(exitCode).toBe(1);
     expect(out).toContain('✗ p — types resolve via a fallback condition (1 entry point)');
+  });
+
+  it('fails a package whose packed manifest declares types the tarball does not ship, without running attw', () => {
+    writeEntryPackage(dir);
+    let attwRan = false;
+    const spawn: SpawnSyncFn = (command, args, options) => {
+      if (command !== 'pnpm') attwRan = true;
+      return makeSpawnStub({})(command, args, options);
+    };
+
+    const { exitCode, out } = runWithSpawn(dir, spawn, () => packedTarball(['index.js'], { types: './index.d.ts' }));
+
+    expect(exitCode).toBe(1);
+    expect(out).toContain('✗ p — declares types at "./index.d.ts"');
+    expect(attwRan).toBe(false);
+  });
+
+  it('reads the type claim from the packed manifest, not the source package.json', () => {
+    // The source declares no types; the packed manifest does, as a `publishConfig` rewrite would leave it.
+    writeEntryPackage(dir);
+
+    const { exitCode, out } = runWithSpawn(dir, makeSpawnStub({}), () =>
+      packedTarball(['index.js'], { exports: { '.': { types: './dist/index.d.ts', default: './dist/index.js' } } }),
+    );
+
+    expect(exitCode).toBe(1);
+    expect(out).toContain('✗ p — declares types at "./dist/index.d.ts"');
+  });
+
+  it('reports an untyped package informationally without running attw', () => {
+    writeEntryPackage(dir);
+    let attwRan = false;
+    const spawn: SpawnSyncFn = (command, args, options) => {
+      if (command !== 'pnpm') attwRan = true;
+      return makeSpawnStub({})(command, args, options);
+    };
+
+    const { exitCode, out } = runWithSpawn(dir, spawn, () => packedTarball(['index.js'], {}));
+
+    expect(exitCode).toBe(0);
+    expect(out).toContain('ℹ p: Ships no type declarations, and declares none.');
+    expect(attwRan).toBe(false);
   });
 });
 
@@ -331,20 +439,36 @@ function makeSpawnStub(config: {
   attwStdout?: string;
 }): SpawnSyncFn {
   return (command, args, options) => {
-    if (command === 'npm') {
+    if (command === 'pnpm') {
       if (config.packError) return { error: config.packError, status: null, stderr: '' };
       const status = config.packStatus ?? 0;
       if (status === 0 && (config.writeTarball ?? true)) {
         const dest = args[args.indexOf('--pack-destination') + 1];
         if (dest !== undefined) writeFileSync(path.join(dest, 'pkg-1.0.0.tgz'), '');
       }
-      return { status, stderr: status === 0 ? '' : 'npm ERR! pack failed' };
+      return { status, stderr: status === 0 ? '' : 'ERR_PNPM_PACK failed' };
     }
     if (config.attwError) return { error: config.attwError, status: null, stderr: '' };
     const fd = options.stdio?.[1];
     if (fd !== undefined && config.attwStdout !== undefined) writeSync(fd, config.attwStdout);
     return { status: config.attwStatus ?? 0, stderr: '' };
   };
+}
+
+/**
+ * Builds the reader's view of a packed tarball. The stubbed `pnpm pack` writes a placeholder `.tgz` that is
+ * never decoded, so the tests state the packed contents directly — the real decoding is covered by
+ * `tarball.int.test.ts` against tarballs `pnpm pack` actually produced.
+ */
+function packedTarball(files: string[], packageJson: PackedTarball['packageJson']): PackedTarball {
+  return { files: ['package.json', ...files], packageJson: { name: 'p', version: '1.0.0', ...packageJson } };
+}
+
+/** A packed tarball shipping declarations, so `runAttw` passes the type-claim check and reaches attw. */
+function typedTarball(): PackedTarball {
+  return packedTarball(['index.js', 'index.d.ts'], {
+    exports: { '.': { types: './index.d.ts', default: './index.js' } },
+  });
 }
 
 /** Writes a minimal `package.json` declaring an `exports` entry point into `dir`, so `runAttw` clears the skip guard. */
@@ -355,13 +479,20 @@ function writeEntryPackage(dir: string): void {
   );
 }
 
-/** Runs `runAttw` against `dir` with an injected `spawn`; returns the exit code and the captured streams. */
-function runWithSpawn(dir: string, spawn: SpawnSyncFn): { exitCode: number; out: string; err: string } {
+/**
+ * Runs `runAttw` against `dir` with an injected `spawn` and tarball reader; returns the exit code and the
+ * captured streams. The reader defaults to a typed tarball, so a test that says nothing about types reaches attw.
+ */
+function runWithSpawn(
+  dir: string,
+  spawn: SpawnSyncFn,
+  readTarball: () => PackedTarball = typedTarball,
+): { exitCode: number; out: string; err: string } {
   const stdout = new PassThrough();
   const readOut = collectStream(stdout);
   const stderr = new PassThrough();
   const readErr = collectStream(stderr);
-  const exitCode = runAttw({ packageDir: dir, argv: [], stdout, stderr, env: process.env, spawn });
+  const exitCode = runAttw({ packageDir: dir, argv: [], stdout, stderr, env: process.env, spawn, readTarball });
   return { exitCode, out: readOut(), err: readErr() };
 }
 

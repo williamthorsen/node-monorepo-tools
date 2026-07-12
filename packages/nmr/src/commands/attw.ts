@@ -4,9 +4,17 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { Writable } from 'node:stream';
 
-import { hasPublishableEntryPoint, readPackageJson } from '../helpers/package-json.ts';
+import { getDeclaredTypesPaths, hasPublishableEntryPoint, readPackageJson } from '../helpers/package-json.ts';
+import { type PackedTarball, readPackedTarball } from '../helpers/tarball.ts';
 
 const DEFAULT_PROFILE = 'esm-only';
+
+/**
+ * File extensions TypeScript treats as type-bearing, mirroring attw's own `containsTypes()` scan of the
+ * tarball. Matching its predicate is what keeps nmr's verdict and attw's from ever disagreeing about
+ * whether a package is typed. The declaration forms (`.d.ts`, `.d.mts`, `.d.cts`) end with these.
+ */
+const TYPESCRIPT_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts'];
 
 /**
  * attw resolution kinds each profile drops from its verdict, mirroring attw's own `profiles` table.
@@ -44,10 +52,12 @@ export interface RunAttwOptions {
   stdout: Writable;
   /** Stream for error output (pack failures, missing-binary hint). */
   stderr: Writable;
-  /** Environment for the `npm pack` and `attw` subprocesses. */
+  /** Environment for the `pnpm pack` and `attw` subprocesses. */
   env: NodeJS.ProcessEnv;
   /** Subprocess runner, defaulting to `spawnSync`; injected in tests. */
   spawn?: SpawnSyncFn;
+  /** Packed-tarball reader, defaulting to the real one; injected in tests. */
+  readTarball?: (tarballPath: string) => PackedTarball;
 }
 
 /**
@@ -57,12 +67,17 @@ export interface RunAttwOptions {
  * per-package result on success and a condensed, actionable verdict on failure
  * (attw's full diagnostics stay behind `--verbose`).
  *
- * Returns the exit code: 0 for a skipped or passing package, attw's own code on a
- * finding, and 1 for a pack failure or a missing attw binary.
+ * Before attw runs, crosses the packed manifest's type claim with the tarball's contents to catch the
+ * case attw cannot see: a package that declares types and ships none. attw reports that as untyped and
+ * exits 0, indistinguishably from a package that is untyped by design.
+ *
+ * Returns the exit code: 0 for a skipped, untyped, or passing package, 1 for a declared-but-missing type
+ * surface, attw's own code on a finding, and 1 for a pack failure or a missing attw binary.
  */
 export function runAttw(options: RunAttwOptions): number {
   const { packageDir, argv, stdout, stderr, env } = options;
   const spawn: SpawnSyncFn = options.spawn ?? ((command, args, spawnOptions) => spawnSync(command, args, spawnOptions));
+  const readTarball = options.readTarball ?? readPackedTarball;
 
   const pkg = readPackageJson(packageDir);
   const label = pkg.name ?? path.basename(packageDir);
@@ -78,20 +93,42 @@ export function runAttw(options: RunAttwOptions): number {
   // tarball into the package dir, whose only cleanup is on attw's happy path.
   const tempDir = mkdtempSync(path.join(tmpdir(), 'nmr-attw-'));
   try {
-    const pack = spawn('npm', ['pack', '--pack-destination', tempDir], { cwd: packageDir, encoding: 'utf8', env });
+    // `pnpm pack`, not `npm pack`: only pnpm applies `publishConfig` field rewrites, so only its tarball
+    // carries the manifest consumers actually receive. Under `npm pack` both attw and the type-claim check
+    // below would read the un-rewritten source manifest.
+    const pack = spawn('pnpm', ['pack', '--pack-destination', tempDir], { cwd: packageDir, encoding: 'utf8', env });
     if (pack.error !== undefined) {
-      stderr.write(`nmr-attw: npm pack failed for ${label}: ${pack.error.message}\n`);
+      stderr.write(`nmr-attw: pnpm pack failed for ${label}: ${pack.error.message}\n`);
       return 1;
     }
     if (pack.status !== 0) {
-      stderr.write(pack.stderr || `nmr-attw: npm pack failed for ${label}\n`);
+      stderr.write(pack.stderr || `nmr-attw: pnpm pack failed for ${label}\n`);
       return pack.status ?? 1;
     }
 
     const tarball = readdirSync(tempDir).find((file) => file.endsWith('.tgz'));
     if (tarball === undefined) {
-      stderr.write(`nmr-attw: npm pack produced no tarball for ${label}\n`);
+      stderr.write(`nmr-attw: pnpm pack produced no tarball for ${label}\n`);
       return 1;
+    }
+
+    let packed: PackedTarball;
+    try {
+      packed = readTarball(path.join(tempDir, tarball));
+    } catch (error) {
+      stderr.write(`nmr-attw: ${error instanceof Error ? error.message : String(error)}\n`);
+      return 1;
+    }
+
+    const claim = checkTypeClaim({
+      label,
+      declaredPaths: getDeclaredTypesPaths(packed.packageJson),
+      tarballHasTypes: packed.files.some(hasTypeScriptExtension),
+    });
+    if (claim !== undefined) {
+      if (claim.stdout) stdout.write(claim.stdout);
+      if (claim.stderr) stderr.write(claim.stderr);
+      return claim.status;
     }
 
     // attw calls `process.exit()` immediately after writing its JSON, discarding whatever is still
@@ -195,6 +232,54 @@ export function formatAttwResult(params: {
     return { status, stdout: renderAttwFailure(label, summary), stderr: '' };
   }
   return { status, stdout: renderAttwFailureFallback(label), stderr: attwStderr };
+}
+
+/**
+ * Decides the verdict attw cannot reach, by crossing the packed manifest's type claim with what the
+ * tarball actually ships. Returns undefined when the tarball carries types — the case attw handles — and
+ * an outcome otherwise.
+ *
+ * A package that declares a type entry point and ships no declarations is broken unconditionally: every
+ * TypeScript consumer of it silently receives `any`. A package that declares none is a valid JavaScript
+ * package, so it is reported but not failed.
+ *
+ * This runs in every output mode, `--verbose` included. It is derived from the tarball rather than from
+ * attw's `analysis.types` precisely so that it can: that field reaches the wrapper only in the JSON
+ * output that passthrough mode suppresses, so a check keyed on it would fail a package by default and
+ * pass the very same package under `--verbose`.
+ */
+export function checkTypeClaim(params: {
+  label: string;
+  /** Every path the packed manifest declares type declarations at; empty when it claims none. */
+  declaredPaths: string[];
+  /** Whether the tarball ships any TypeScript file, by attw's own `containsTypes()` predicate. */
+  tarballHasTypes: boolean;
+}): AttwOutcome | undefined {
+  const { label, declaredPaths, tarballHasTypes } = params;
+
+  if (tarballHasTypes) return undefined;
+
+  if (declaredPaths.length === 0) {
+    return {
+      status: 0,
+      stdout: `ℹ ${label}: Ships no type declarations, and declares none. Nothing for attw to check.\n`,
+      stderr: '',
+    };
+  }
+
+  const declared = declaredPaths.map((declaredPath) => `"${declaredPath}"`).join(', ');
+  return {
+    status: 1,
+    stdout:
+      `✗ ${label} — declares types at ${declared}, but the packed tarball ships no type declarations\n` +
+      '    Fix: build the declarations before packing, and check that "files"/.npmignore does not exclude them.\n',
+    stderr: '',
+  };
+}
+
+/** Reports whether a path is one TypeScript treats as type-bearing. */
+function hasTypeScriptExtension(file: string): boolean {
+  return TYPESCRIPT_EXTENSIONS.some((extension) => file.endsWith(extension));
 }
 
 interface AttwJsonProblem {
