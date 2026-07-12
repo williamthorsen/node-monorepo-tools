@@ -76,6 +76,12 @@ describe(getDeclaredTypesPaths, () => {
     expect(getDeclaredTypesPaths(pkg)).toStrictEqual(['./a.d.ts', './b.d.ts']);
   });
 
+  it('collects a types condition from a fallback array of subpath targets', () => {
+    const pkg = { exports: { '.': [{ types: './a.d.ts', default: './a.js' }, './a.js'] } };
+
+    expect(getDeclaredTypesPaths(pkg)).toStrictEqual(['./a.d.ts']);
+  });
+
   it('treats a "./types" subpath as a subpath, not a types condition', () => {
     const pkg = { exports: { './types': './dist/types.js' } };
 

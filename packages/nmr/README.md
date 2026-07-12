@@ -357,6 +357,12 @@ Validate a package's published type-resolution surface with [`@arethetypeswrong/
 
 `@arethetypeswrong/cli` is not bundled — a package that declares an entry point must have it installed; nmr-attw reports an actionable message if it is missing. Any other flags are forwarded to attw (the profile defaults to `esm-only`). Supplying `--format` yourself turns off condensing and prints attw's output in the format you asked for, since the wrapper can only condense the machine-readable form it selects itself.
 
+The type-claim verdict below is nmr-attw's own, and it is emitted as text in every mode — `--verbose` and `--format` included — so that a package cannot pass in one mode and fail in another. attw's output, in whatever format you asked for, appears only on the third row, where the tarball ships types and attw is run at all.
+
+```bash
+nmr-attw
+```
+
 #### Verdicts
 
 attw is a type-_resolution_ checker: given types, do they resolve correctly? It treats "no types" as out of scope, reporting it and exiting 0. So a package that declares a type entry point and ships no declarations — because the build emitted none, or `files`/`.npmignore` excluded them — looks exactly like a package that is untyped by design, and passes. Every TypeScript consumer of it silently receives `any`.
@@ -382,10 +388,6 @@ A package typed only by _adjacency_ — `exports` naming `./dist/index.js`, with
     }
   }
 }
-```
-
-```bash
-nmr-attw
 ```
 
 ### `ensure-prepublish-hooks`

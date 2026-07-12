@@ -30,11 +30,21 @@ export interface PackedTarball {
  * Throws when the archive cannot be decompressed or carries no manifest at its root.
  */
 export function readPackedTarball(tarballPath: string): PackedTarball {
+  return decodePackedTarball(readFileSync(tarballPath), tarballPath);
+}
+
+/**
+ * Decodes a gzipped tarball's bytes. `source` names the archive in error messages.
+ *
+ * Separate from the file read so the decoding — the part with the failure mode that matters, where a
+ * misread path hides a declaration and fails a healthy package — is testable without a filesystem.
+ */
+export function decodePackedTarball(archive: Buffer, source: string): PackedTarball {
   let tar: Buffer;
   try {
-    tar = gunzipSync(readFileSync(tarballPath));
+    tar = gunzipSync(archive);
   } catch (error) {
-    throw new Error(`Could not read tarball ${tarballPath}: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(`Could not read tarball ${source}: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   const files: string[] = [];
@@ -74,10 +84,10 @@ export function readPackedTarball(tarballPath: string): PackedTarball {
   }
 
   if (manifest === undefined) {
-    throw new Error(`Tarball ${tarballPath} contains no package.json`);
+    throw new Error(`Tarball ${source} contains no package.json`);
   }
 
-  return { files, packageJson: parsePackageJson(manifest, tarballPath) };
+  return { files, packageJson: parsePackageJson(manifest, source) };
 }
 
 /** Reports whether a header block is all zeroes, which is how a tar archive marks its end. */

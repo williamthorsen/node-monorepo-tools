@@ -28,7 +28,7 @@ const PROFILE_IGNORED_RESOLUTIONS: Record<string, readonly string[]> = {
 
 /**
  * The `spawnSync` surface the wrapper depends on, narrowed to a single signature
- * so a test can inject a stub in place of the real `npm`/`attw` subprocesses.
+ * so a test can inject a stub in place of the real `pnpm`/`attw` subprocesses.
  *
  * `spawnSync` returns null for a stream redirected to a file descriptor, so a captured `stdout` is not
  * available here; `runAttw` reads attw's output back from the file.

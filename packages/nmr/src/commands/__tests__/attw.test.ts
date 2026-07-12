@@ -425,8 +425,8 @@ function attwJson(problems: Array<{ kind: string; entrypoint?: string; resolutio
 }
 
 /**
- * Builds a call-aware `spawnSync` stub that routes `npm` and `attw` invocations to canned results, so the wrapper's
- * subprocess-error branches run without a real subprocess. A successful `npm pack` writes a stand-in tarball into
+ * Builds a call-aware `spawnSync` stub that routes `pnpm` and `attw` invocations to canned results, so the wrapper's
+ * subprocess-error branches run without a real subprocess. A successful `pnpm pack` writes a stand-in tarball into
  * `--pack-destination` so the flow reaches the attw step, and the attw call writes `attwStdout` to the file descriptor
  * the wrapper supplied — the same channel the real attw writes to.
  */
