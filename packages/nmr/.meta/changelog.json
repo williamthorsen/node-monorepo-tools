@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.18.0",
+    "date": "2026-07-13",
+    "sections": [
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Remove the attw check and the nmr-attw binary (#469)",
+            "body": "Fixes an issue where a repo using nmr's default scripts could not pass `check:strict` without installing `@arethetypeswrong/cli` and conforming to inflexible requirements of questionable value. The `attw` check is removed.",
+            "hash": "57bce420a3fb1ebb0a988f9c13e7c6da79c07b3d"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.17.2",
     "date": "2026-07-06",
     "sections": [

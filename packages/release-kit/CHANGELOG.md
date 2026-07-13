@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## 8.0.0 — 2026-07-13
+
+### 🎉 Features
+
+- 🚨 **Breaking:** Fail a package that declares types but ships none (#467)
+
+  `nmr attw` now fails a package that claims to ship type declarations but ships none. Such a package used to pass, leaving every TypeScript consumer of it silently typed as `any`.
+
+  A package that ships working declarations found only by sitting beside its JavaScript entry point escapes the check, since it declares nothing. Add a `types` entry to bring it under the check.
+
 ## 7.0.0 — 2026-07-01
 
 ### 🎉 Features

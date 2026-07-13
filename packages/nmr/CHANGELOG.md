@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.18.0 — 2026-07-13
+
+### 🐛 Bug fixes
+
+- Remove the attw check and the nmr-attw binary (#469)
+
+  Fixes an issue where a repo using nmr's default scripts could not pass `check:strict` without installing `@arethetypeswrong/cli` and conforming to inflexible requirements of questionable value. The `attw` check is removed.
+
 ## 0.17.2 — 2026-07-06
 
 ### 🐛 Bug fixes

@@ -1,5 +1,23 @@
 [
   {
+    "version": "8.0.0",
+    "date": "2026-07-13",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Fail a package that declares types but ships none (#467)",
+            "body": "`nmr attw` now fails a package that claims to ship type declarations but ships none. Such a package used to pass, leaving every TypeScript consumer of it silently typed as `any`.\n\n  A package that ships working declarations found only by sitting beside its JavaScript entry point escapes the check, since it declares nothing. Add a `types` entry to bring it under the check.",
+            "breaking": true,
+            "hash": "8ccea9d93cd63a7963a7a7516e20f8d54069bd7b"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "7.0.0",
     "date": "2026-07-01",
     "sections": [
