@@ -5,7 +5,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { resolveBuildCachePath } from '../build.ts';
-import { cleanPackage } from '../clean.ts';
+import { cleanPackage, runClean } from '../clean.ts';
 
 /** Writes a package that looks freshly built: sources, emitted output, and a build-cache entry. */
 function scaffoldBuiltPackage(dir: string): void {
@@ -19,6 +19,24 @@ function scaffoldBuiltPackage(dir: string): void {
   const cachePath = resolveBuildCachePath(dir);
   fs.mkdirSync(path.dirname(cachePath), { recursive: true });
   fs.writeFileSync(cachePath, 'a-stale-digest');
+}
+
+/** Writes a pnpm workspace root holding two built packages, and returns their directories. */
+function scaffoldWorkspace(root: string): { a: string; b: string } {
+  fs.writeFileSync(path.join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
+  fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ name: 'root', type: 'module' }));
+
+  const a = path.join(root, 'packages', 'a');
+  const b = path.join(root, 'packages', 'b');
+  fs.mkdirSync(a, { recursive: true });
+  fs.mkdirSync(b, { recursive: true });
+  scaffoldBuiltPackage(a);
+  scaffoldBuiltPackage(b);
+  return { a, b };
+}
+
+function hasOutput(dir: string): boolean {
+  return fs.existsSync(path.join(dir, 'dist'));
 }
 
 describe(cleanPackage, () => {
@@ -64,5 +82,47 @@ describe(cleanPackage, () => {
     fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'fixture', type: 'module' }));
 
     await expect(cleanPackage(dir)).resolves.toBeUndefined();
+  });
+});
+
+describe(runClean, () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-clean-workspace-'));
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    fs.rmSync(root, { recursive: true, force: true });
+    vi.mocked(console.info).mockRestore();
+  });
+
+  it('cleans every workspace package when run from the monorepo root', async () => {
+    // One process cleans them all. Re-invoking a bin per package would die as soon as the sweep removed
+    // the output that bin loads from, in a repo that builds nmr itself — leaving the rest uncleaned.
+    const { a, b } = scaffoldWorkspace(root);
+
+    await runClean(root);
+
+    expect(hasOutput(a)).toBe(false);
+    expect(hasOutput(b)).toBe(false);
+  });
+
+  it('cleans only the containing package when run from inside one', async () => {
+    const { a, b } = scaffoldWorkspace(root);
+
+    await runClean(a);
+
+    expect(hasOutput(a)).toBe(false);
+    expect(hasOutput(b)).toBe(true);
+  });
+
+  it('cleans the current directory when it is not in a pnpm workspace', async () => {
+    scaffoldBuiltPackage(root);
+
+    await runClean(root);
+
+    expect(hasOutput(root)).toBe(false);
   });
 });

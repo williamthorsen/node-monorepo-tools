@@ -53,7 +53,7 @@ export const rootScripts: ScriptRegistry = {
   'check:agent-files': 'nmr-sync-agent-files --check',
   'check:strict': ['typecheck', 'fmt:check', 'lint:strict', 'test:coverage', 'check:agent-files'],
   ci: ['build', 'check:strict', 'audit'],
-  clean: 'pnpm --recursive exec nmr clean',
+  clean: 'nmr-clean',
   fix: ['lint', 'fmt'],
   'fix:check': ['fmt:check', 'lint:check'],
   fmt: 'sh -c \'prettier --list-different --write "${@:-.}"\' --',

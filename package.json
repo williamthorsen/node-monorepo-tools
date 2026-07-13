@@ -19,7 +19,7 @@
     "packages/*"
   ],
   "scripts": {
-    "bootstrap": "cd packages/nmr && tsx src/cli-build.ts",
+    "bootstrap": "pnpm --filter @williamthorsen/nmr-core run prepare && pnpm --filter @williamthorsen/nmr run prepare",
     "postinstall": "node scripts/postinstall.js",
     "prepare": "lefthook install"
   },

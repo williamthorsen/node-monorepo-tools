@@ -171,7 +171,7 @@ A package gets this variant automatically when it contains a `vitest.integration
 | ------- | --------------------------------- |
 | `build` | `pnpm --recursive exec nmr build` |
 | `ci`    | `build`, `check:strict`           |
-| `clean` | `pnpm --recursive exec nmr clean` |
+| `clean` | `nmr-clean`                       |
 
 #### Check and quality
 
@@ -335,7 +335,7 @@ nmr sync-pnpm-version
 
 ### `nmr-clean`
 
-Remove a single package's build output (`dist`) and its `nmr-compile` cache entry, leaving no state behind for the next build to skip on. Removal is idempotent — cleaning an unbuilt package is a silent no-op. This is the default `clean` script — run it from a package directory.
+Remove a package's build output (`dist`) and its `nmr-compile` cache entry, leaving no state behind for the next build to skip on. Run from a package directory it cleans that package; run from the monorepo root it cleans every workspace package, in a single pass. Removal is idempotent — cleaning an unbuilt package is a silent no-op. This is the default `clean` script at both levels.
 
 ```bash
 nmr-clean
