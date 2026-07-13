@@ -58,7 +58,6 @@ Use `nmr {command}` for all monorepo scripts. Use `pnpm run {script}` only for s
 - A single TypeScript compiler-API emit via the nmr-managed `nmr-compile` bin (`packages/nmr/src/commands/build.ts`), the default `compile` script
 - Emits `.js` and `.d.ts` together; AST-based rewriting turns relative `.ts`→`.js` specifiers and tsconfig `paths` aliases into runnable relative `.js` in both outputs
 - `typescript` is a peer dependency (`>=5.7.0`); content-hash caching under `node_modules/.cache/nmr-compile/` skips rebuild when sources haven't changed
-- Published types are validated by `attw` (the `attw` script, part of `check:strict`)
 - ESM-only output (`type: "module"` in all packages)
 
 ### Testing
