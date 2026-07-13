@@ -125,4 +125,34 @@ describe(runClean, () => {
 
     expect(hasOutput(root)).toBe(false);
   });
+
+  it("runs a package's own clean override from the root instead of sweeping it", async () => {
+    // The sweep stands in for a per-package delegation, so a package that overrides `clean` must still get
+    // its own command: a package emitting outside `dist` would otherwise be silently under-cleaned.
+    const { a, b } = scaffoldWorkspace(root);
+    fs.writeFileSync(
+      path.join(a, 'package.json'),
+      JSON.stringify({
+        name: 'a',
+        type: 'module',
+        scripts: { clean: `node --eval "require('fs').writeFileSync('cleaned.txt', '1')"` },
+      }),
+    );
+
+    await runClean(root);
+
+    expect(fs.existsSync(path.join(a, 'cleaned.txt'))).toBe(true);
+    expect(hasOutput(a)).toBe(true);
+    expect(hasOutput(b)).toBe(false);
+  });
+
+  it('fails loudly when a package’s clean override fails', async () => {
+    const { a } = scaffoldWorkspace(root);
+    fs.writeFileSync(
+      path.join(a, 'package.json'),
+      JSON.stringify({ name: 'a', type: 'module', scripts: { clean: 'exit 3' } }),
+    );
+
+    await expect(runClean(root)).rejects.toThrow(/exit code 3/);
+  });
 });

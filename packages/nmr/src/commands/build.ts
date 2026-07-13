@@ -64,7 +64,7 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
     [...entryPoints, ...dependencies],
     emitConfig,
     cachePath,
-    hasBuildOutput(packageDir, outdir, entryPoints.length),
+    hasExpectedBuildOutput(packageDir, outdir, entryPoints),
   );
   if (!changed) {
     return;
@@ -400,14 +400,17 @@ async function detectBuildChanges(
 }
 
 /**
- * Reports whether a previous build's output is still on disk. A package with no entry points emits
- * nothing, so its output directory never exists; it is reported as present rather than missing, or the
- * absent directory would force a pointless recompile — and a misleading "output is missing" — on every run.
+ * Reports whether the output a previous build would have produced is still on disk. Entry points that
+ * emit nothing expect no output, so their absent outdir is not deleted output: a `src` tree holding only
+ * declaration files, or none at all, would otherwise be reported as missing output and recompiled forever.
+ * The emit is what makes an outdir, so what counts is whether any entry point emits — not how many there are.
  */
-function hasBuildOutput(packageDir: string, outdir: string, entryPointCount: number): boolean {
-  if (entryPointCount === 0) {
+function hasExpectedBuildOutput(packageDir: string, outdir: string, entryPoints: string[]): boolean {
+  const emitsOutput = entryPoints.some((entry) => !entry.endsWith('.d.ts'));
+  if (!emitsOutput) {
     return true;
   }
+
   const outputDir = path.resolve(packageDir, outdir);
   return existsSync(outputDir) && readdirSync(outputDir).length > 0;
 }

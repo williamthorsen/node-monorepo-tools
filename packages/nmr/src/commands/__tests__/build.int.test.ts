@@ -379,6 +379,18 @@ describe('buildPackage caching', () => {
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Build output is missing'));
   });
 
+  it('skips a package whose sources are all declaration files instead of reporting missing output', async () => {
+    // A `.d.ts` file matches the entry glob but emits nothing, so no outdir is ever created. Keying the
+    // check on the entry count rather than on what those entries emit rebuilds such a package forever.
+    scaffoldPackage(dir, { 'ambient.d.ts': 'export declare const value: number;\n' });
+    await buildPackage(dir);
+
+    await buildPackage(dir);
+
+    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('No changes detected'));
+    expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('Build output is missing'));
+  });
+
   it('skips a package whose sources are all ignored instead of reporting missing output', async () => {
     // Only a test file, which the default ignore excludes: the package has no entry points, so it
     // emits nothing and its outdir never exists. That absence is not deleted output, and must not be

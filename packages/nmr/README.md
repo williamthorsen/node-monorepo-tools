@@ -335,7 +335,7 @@ nmr sync-pnpm-version
 
 ### `nmr-clean`
 
-Remove a package's build output (`dist`) and its `nmr-compile` cache entry, leaving no state behind for the next build to skip on. Run from a package directory it cleans that package; run from the monorepo root it cleans every workspace package, in a single pass. Removal is idempotent — cleaning an unbuilt package is a silent no-op. This is the default `clean` script at both levels.
+Remove a package's build output (`dist`) and its `nmr-compile` cache entry, leaving no state behind for the next build to skip on. Run from a package directory it cleans that package; run from the monorepo root it sweeps every workspace package in a single pass, running each package's resolved `clean` — so a package that overrides `clean`, in `.config/nmr.config.ts` or in its own `package.json`, gets its own command rather than the sweep. Removal is idempotent — cleaning an unbuilt package is a silent no-op. This is the default `clean` script at both levels.
 
 ```bash
 nmr-clean
