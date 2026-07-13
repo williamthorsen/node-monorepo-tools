@@ -131,26 +131,25 @@ These scripts are available out of the box. Repo-wide config (tier 2) and per-pa
 
 ### Workspace scripts
 
-| Command         | Runs                                                             |
-| --------------- | ---------------------------------------------------------------- |
-| `attw`          | `nmr-attw`                                                       |
-| `build`         | `compile`                                                        |
-| `check`         | `typecheck`, `fmt:check`, `lint:check`, `test`                   |
-| `check:strict`  | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage`, `attw` |
-| `clean`         | `pnpm exec rimraf dist/*`                                        |
-| `compile`       | `nmr-compile`                                                    |
-| `fix`           | `lint`, `fmt`                                                    |
-| `fix:check`     | `fmt:check`, `lint:check`                                        |
-| `fmt`           | `prettier --list-different --write .`                            |
-| `fmt:check`     | `prettier --check .`                                             |
-| `lint`          | `eslint --fix .`                                                 |
-| `lint:check`    | `eslint .`                                                       |
-| `lint:strict`   | `strict-lint`                                                    |
-| `test`          | `pnpm exec vitest`                                               |
-| `test:coverage` | `pnpm exec vitest --coverage`                                    |
-| `test:watch`    | `pnpm exec vitest --watch`                                       |
-| `typecheck`     | `tsgo --noEmit`                                                  |
-| `view-coverage` | `open coverage/index.html`                                       |
+| Command         | Runs                                                     |
+| --------------- | -------------------------------------------------------- |
+| `build`         | `compile`                                                |
+| `check`         | `typecheck`, `fmt:check`, `lint:check`, `test`           |
+| `check:strict`  | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage` |
+| `clean`         | `pnpm exec rimraf dist/*`                                |
+| `compile`       | `nmr-compile`                                            |
+| `fix`           | `lint`, `fmt`                                            |
+| `fix:check`     | `fmt:check`, `lint:check`                                |
+| `fmt`           | `prettier --list-different --write .`                    |
+| `fmt:check`     | `prettier --check .`                                     |
+| `lint`          | `eslint --fix .`                                         |
+| `lint:check`    | `eslint .`                                               |
+| `lint:strict`   | `strict-lint`                                            |
+| `test`          | `pnpm exec vitest`                                       |
+| `test:coverage` | `pnpm exec vitest --coverage`                            |
+| `test:watch`    | `pnpm exec vitest --watch`                               |
+| `typecheck`     | `tsgo --noEmit`                                          |
+| `view-coverage` | `open coverage/index.html`                               |
 
 #### Integration test variant
 
@@ -176,12 +175,11 @@ A package gets this variant automatically when it contains a `vitest.integration
 
 #### Check and quality
 
-| Command             | Runs                                                                                  |
-| ------------------- | ------------------------------------------------------------------------------------- |
-| `attw`              | `pnpm --recursive exec nmr attw`                                                      |
-| `check`             | `typecheck`, `fmt:check`, `lint:check`, `test`                                        |
-| `check:agent-files` | `nmr-sync-agent-files --check`                                                        |
-| `check:strict`      | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage`, `attw`, `check:agent-files` |
+| Command             | Runs                                                                          |
+| ------------------- | ----------------------------------------------------------------------------- |
+| `check`             | `typecheck`, `fmt:check`, `lint:check`, `test`                                |
+| `check:agent-files` | `nmr-sync-agent-files --check`                                                |
+| `check:strict`      | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage`, `check:agent-files` |
 
 #### Fix
 
@@ -343,51 +341,6 @@ Compile a single package's `src` tree to `dist/esm` with the TypeScript compiler
 
 ```bash
 nmr-compile
-```
-
-### `nmr-attw`
-
-Validate a package's published type-resolution surface with [`@arethetypeswrong/cli`](https://github.com/arethetypeswrong/arethetypeswrong.github.io). This is the default `attw` script — run it from a package directory. It wraps attw so that it behaves well across a monorepo:
-
-- **Catches a missing type surface**, which attw alone cannot. See [verdicts](#verdicts) below.
-- **Skips packages with no publishable entry point** (neither `main` nor `exports`) — a message and exit 0, before attw runs. A package with no importable surface has nothing for attw to resolve, so running it would false-positive with `NoResolution`. A private package that _does_ declare `exports` is still checked.
-- **Leaves no `.tgz` in the working tree.** attw analyzes a packed tarball; nmr-attw packs into a temp directory instead of the package directory, so nothing litters the tree.
-- **Packs with `pnpm pack`**, so `publishConfig` field rewrites are applied and `workspace:` dependencies are resolved. The analyzed tarball is therefore the artifact consumers actually install — under `npm pack` it would carry the un-rewritten source manifest instead.
-- **Condenses output.** On success, a terse per-package confirmation; on failure, a per-package verdict naming the problem kind with a concrete fix hint, driven by attw's machine-readable (`--format json`) output and matching attw's own pass/fail verdict. Every condensed failure closes with a pointer to `--verbose`, which prints attw's full diagnostics instead — on success and failure alike.
-
-`@arethetypeswrong/cli` is not bundled — a package that declares an entry point must have it installed; nmr-attw reports an actionable message if it is missing. Any other flags are forwarded to attw (the profile defaults to `esm-only`). Supplying `--format` yourself turns off condensing and prints attw's output in the format you asked for, since the wrapper can only condense the machine-readable form it selects itself.
-
-The type-claim verdict below is nmr-attw's own, and it is emitted as text in every mode — `--verbose` and `--format` included — so that a package cannot pass in one mode and fail in another. attw's output, in whatever format you asked for, appears only on the third row, where the tarball ships types and attw is run at all.
-
-```bash
-nmr-attw
-```
-
-#### Verdicts
-
-attw is a type-_resolution_ checker: given types, do they resolve correctly? It treats "no types" as out of scope, reporting it and exiting 0. So a package that declares a type entry point and ships no declarations — because the build emitted none, or `files`/`.npmignore` excluded them — looks exactly like a package that is untyped by design, and passes. Every TypeScript consumer of it silently receives `any`.
-
-nmr-attw closes that gap by crossing the packed manifest's type claim with what the tarball actually ships:
-
-| Declares types | Ships declarations | Verdict                                                           |
-| -------------- | ------------------ | ----------------------------------------------------------------- |
-| Yes            | No                 | ✗ **Fails**, naming the declared path. attw is not run.           |
-| No             | No                 | ℹ Reported, exit 0 — a valid JavaScript package. attw is not run. |
-| Either         | Yes                | Handed to attw, which validates that the types resolve.           |
-
-A package "declares types" when it has a top-level `types`/`typings` field, or a `types` condition in `exports`. The claim is read from the **packed** manifest, so a `publishConfig` rewrite is honored.
-
-A package typed only by _adjacency_ — `exports` naming `./dist/index.js`, with `./dist/index.d.ts` beside it and no `types` condition — declares nothing, so it lands in the second row and is not covered. Declare the types explicitly to bring it under the check, listing `types` **first** so it is matched before the condition that follows it:
-
-```json
-{
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
-    }
-  }
-}
 ```
 
 ### `ensure-prepublish-hooks`

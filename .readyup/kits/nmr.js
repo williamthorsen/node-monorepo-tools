@@ -9,14 +9,13 @@ import { join } from "node:path";
 
 // packages/nmr/dist/esm/default-scripts.js
 var rootScripts = {
-  attw: "pnpm --recursive exec nmr attw",
   audit: ["audit:prod", "audit:dev"],
   "audit:dev": "pnpm exec v11y --dev",
   "audit:prod": "pnpm exec v11y --prod",
   build: "pnpm --recursive exec nmr build",
   check: ["typecheck", "fmt:check", "lint:check", "test"],
   "check:agent-files": "nmr-sync-agent-files --check",
-  "check:strict": ["typecheck", "fmt:check", "lint:strict", "test:coverage", "attw", "check:agent-files"],
+  "check:strict": ["typecheck", "fmt:check", "lint:strict", "test:coverage", "check:agent-files"],
   ci: ["build", "check:strict", "audit"],
   clean: "pnpm --recursive exec nmr clean",
   fix: ["lint", "fmt"],
