@@ -9,7 +9,7 @@ describe('getDefaultWorkspaceScripts', () => {
     expect(scripts.build).toStrictEqual(['compile']);
     expect(scripts.check).toStrictEqual(['typecheck', 'fmt:check', 'lint:check', 'test']);
     expect(scripts['fix:check']).toStrictEqual(['fmt:check', 'lint:check']);
-    expect(scripts.clean).toBe('pnpm exec rimraf dist/*');
+    expect(scripts.clean).toBe('nmr-clean');
     expect(scripts.compile).toBe('nmr-compile');
     expect(scripts.typecheck).toBe('tsgo --noEmit');
   });

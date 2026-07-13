@@ -74,4 +74,4 @@ Use `nmr {command}` for all monorepo scripts. Use `pnpm run {script}` only for s
 ## Gotchas
 
 - **Bootstrap ordering**: nmr is both a workspace dependency and the script runner. After a fresh clone or if nmr's build output is missing, run `pnpm run bootstrap` from the root before using `nmr` commands.
-- **Build caching**: The content-hash cache (under `node_modules/.cache/nmr-compile/`) means a rebuild won't run if only non-source files change. Delete the cache file — or the package's `node_modules` — to force a rebuild.
+- **Build caching**: The content-hash cache (under `node_modules/.cache/nmr-compile/`) means a rebuild won't run if only non-source files change. Force a rebuild with `nmr clean`, or by deleting the package's `dist` — missing output is treated as a cache miss.

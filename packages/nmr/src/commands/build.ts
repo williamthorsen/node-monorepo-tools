@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -43,7 +43,8 @@ const JS_EXTENSION = '.js';
 /**
  * Compiles a package's `src` tree to `dist/esm` with the TypeScript compiler API, emitting `.js`
  * and `.d.ts` in one pass and rewriting relative `.ts` specifiers and tsconfig `paths` aliases to
- * runnable relative `.js` specifiers in both outputs. Skips the build when no input has changed.
+ * runnable relative `.js` specifiers in both outputs. Skips the build only when no input has changed
+ * and the previous output is still on disk.
  */
 export async function buildPackage(packageDir: string, options: BuildOptions = {}): Promise<void> {
   assertSupportedTypeScript();
@@ -63,6 +64,7 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
     [...entryPoints, ...dependencies],
     emitConfig,
     cachePath,
+    hasBuildOutput(packageDir, outdir, entryPoints.length),
   );
   if (!changed) {
     return;
@@ -365,27 +367,49 @@ function findNearestNodeModulesHost(startDir: string): string | undefined {
 }
 
 /**
- * Compares the current input digest against the cached one, reporting whether the inputs changed
- * and returning the freshly computed digest. Emits the 📦/⏭️ status but performs no write, so the
- * caller can persist the digest only after a successful build.
+ * Compares the current input digest against the cached one, reporting whether a build is needed and
+ * returning the freshly computed digest. Emits the 📦/⏭️ status but performs no write, so the caller
+ * can persist the digest only after a successful build.
+ *
+ * Unchanged inputs alone do not license a skip: the cache lives outside `dist`, so wiping the output
+ * leaves the digest intact and a digest-only check would skip the build and leave `dist` empty — an
+ * empty tarball for a package that publishes it. Missing output is therefore a cache miss.
  */
 async function detectBuildChanges(
   packageDir: string,
   files: string[],
   emitConfig: EmitConfig,
   cachePath: string,
+  outputPresent: boolean,
 ): Promise<{ changed: boolean; currentHash: string }> {
   const packageName = path.basename(packageDir);
   const previousHash = existsSync(cachePath) ? readFileSync(cachePath, 'utf8') : undefined;
   const currentHash = await computeBuildHash(packageDir, files, emitConfig);
 
   if (previousHash === currentHash) {
-    console.info(`${SKIPPED_ICON} ${packageName}: No changes detected. Skipping build.`);
-    return { changed: false, currentHash };
+    if (outputPresent) {
+      console.info(`${SKIPPED_ICON} ${packageName}: No changes detected. Skipping build.`);
+      return { changed: false, currentHash };
+    }
+    console.info(`${PACKAGE_ICON} ${packageName}: Build output is missing. Rebuilding.`);
+    return { changed: true, currentHash };
   }
 
   console.info(`${PACKAGE_ICON} ${packageName}: Changes detected.`);
   return { changed: true, currentHash };
+}
+
+/**
+ * Reports whether a previous build's output is still on disk. A package with no entry points emits
+ * nothing, so its output directory never exists; it is reported as present rather than missing, or the
+ * absent directory would force a pointless recompile — and a misleading "output is missing" — on every run.
+ */
+function hasBuildOutput(packageDir: string, outdir: string, entryPointCount: number): boolean {
+  if (entryPointCount === 0) {
+    return true;
+  }
+  const outputDir = path.resolve(packageDir, outdir);
+  return existsSync(outputDir) && readdirSync(outputDir).length > 0;
 }
 
 /** Writes the build digest to the cache file, creating the cache directory if it does not exist. */

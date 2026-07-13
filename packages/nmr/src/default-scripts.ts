@@ -8,7 +8,7 @@ export const commonWorkspaceScripts: ScriptRegistry = {
   build: ['compile'],
   check: ['typecheck', 'fmt:check', 'lint:check', 'test'],
   'check:strict': ['typecheck', 'fmt:check', 'lint:strict', 'test:coverage'],
-  clean: 'pnpm exec rimraf dist/*',
+  clean: 'nmr-clean',
   compile: 'nmr-compile',
   fix: ['lint', 'fmt'],
   'fix:check': ['fmt:check', 'lint:check'],
