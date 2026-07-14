@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.18.1 — 2026-07-14
+
+### 🐛 Bug fixes
+
+- Fix the stale build cache, the unshipped rimraf dependency, and the aborting root clean (#471)
+
+  Fixes the following issues:
+  - `nmr clean` failed with a missing-command error in any project that had not separately installed `rimraf`, a tool nmr neither declared nor shipped.
+  - If run from a monorepo root, `nmr clean` cleaned one package and then aborted, leaving every other package untouched. Only repos that build nmr from source were affected.
+  - If run from a monorepo root, `nmr clean` ignored a package's own `clean` script.
+  - `nmr compile` skipped the build for a package whose output had been deleted, because the sources were unchanged. The package compiled to an empty output directory with no error and no warning, and could be published as an empty tarball.
+  - `nmr compile` reported missing output and recompiled on every run for a package whose sources emit nothing, such as a source tree of only declaration files.
+
 ## 0.18.0 — 2026-07-13
 
 ### 🐛 Bug fixes
