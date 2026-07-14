@@ -23,6 +23,17 @@ const BUILT_IN_CLEAN = 'nmr-clean';
 const OUTPUT_ROOT = 'dist';
 
 /**
+ * Removes a package's build output and the build-cache entry that describes it, so no state survives to
+ * make the next build skip. Removal is idempotent: an already-clean package is a silent no-op.
+ */
+export async function cleanPackage(packageDir: string): Promise<void> {
+  await rm(path.resolve(packageDir, OUTPUT_ROOT), { recursive: true, force: true });
+  await rm(resolveBuildCachePath(packageDir), { force: true });
+
+  console.info(`${CLEAN_ICON} ${path.basename(packageDir)}: Removed build output and cache.`);
+}
+
+/**
  * Cleans the package containing `cwd`, or every workspace package when run from the monorepo root.
  *
  * From within a package this is the built-in clean itself: `nmr` has already resolved `clean` to this bin
@@ -55,17 +66,6 @@ export async function runClean(cwd: string = process.cwd()): Promise<void> {
 }
 
 /**
- * Removes a package's build output and the build-cache entry that describes it, so no state survives to
- * make the next build skip. Removal is idempotent: an already-clean package is a silent no-op.
- */
-export async function cleanPackage(packageDir: string): Promise<void> {
-  await rm(path.resolve(packageDir, OUTPUT_ROOT), { recursive: true, force: true });
-  await rm(resolveBuildCachePath(packageDir), { force: true });
-
-  console.info(`${CLEAN_ICON} ${path.basename(packageDir)}: Removed build output and cache.`);
-}
-
-/**
  * Cleans every workspace package, running each package's resolved `clean` — so a package that overrides
  * `clean`, in config or in its own `package.json`, still gets its own command rather than this sweep.
  *
@@ -74,6 +74,10 @@ export async function cleanPackage(packageDir: string): Promise<void> {
  * per package dies partway through and leaves most packages uncleaned; one process resolves its imports
  * up front and is immune to deleting them afterwards. An override is an ordinary command that does not
  * load that output, so spawning it is safe.
+ *
+ * `devBin` substitution therefore belongs on the spawn path alone, applied to the resolved script only after
+ * it is known not to be the built-in: this process is already whichever build `devBin` selects, so rewriting
+ * the built-in into a dev binary would spawn the same code per package and forfeit the single-process guarantee.
  */
 async function sweepWorkspace(monorepoRoot: string, workspacePackageDirs: string[]): Promise<void> {
   const config: NmrConfig = await loadConfig(monorepoRoot);
@@ -87,12 +91,12 @@ async function sweepWorkspace(monorepoRoot: string, workspacePackageDirs: string
       continue;
     }
 
-    const command = applyDevBin(resolved.command, config.devBin, monorepoRoot);
-    if (command === BUILT_IN_CLEAN) {
+    if (resolved.command === BUILT_IN_CLEAN) {
       await cleanPackage(packageDir);
       continue;
     }
 
+    const command = applyDevBin(resolved.command, config.devBin, monorepoRoot);
     const exitCode = runCommand(command, packageDir);
     if (exitCode !== 0) {
       throw new Error(`nmr-clean: \`${command}\` failed in ${path.basename(packageDir)} with exit code ${exitCode}.`);

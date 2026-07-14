@@ -7,38 +7,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resolveBuildCachePath } from '../build.ts';
 import { cleanPackage, runClean } from '../clean.ts';
 
-/** Writes a package that looks freshly built: sources, emitted output, and a build-cache entry. */
-function scaffoldBuiltPackage(dir: string): void {
-  fs.mkdirSync(path.join(dir, 'node_modules'), { recursive: true });
-  fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
-  fs.mkdirSync(path.join(dir, 'dist', 'esm'), { recursive: true });
-  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'fixture', type: 'module' }));
-  fs.writeFileSync(path.join(dir, 'src', 'index.ts'), 'export const value = 1;\n');
-  fs.writeFileSync(path.join(dir, 'dist', 'esm', 'index.js'), 'export const value = 1;\n');
-
-  const cachePath = resolveBuildCachePath(dir);
-  fs.mkdirSync(path.dirname(cachePath), { recursive: true });
-  fs.writeFileSync(cachePath, 'a-stale-digest');
-}
-
-/** Writes a pnpm workspace root holding two built packages, and returns their directories. */
-function scaffoldWorkspace(root: string): { a: string; b: string } {
-  fs.writeFileSync(path.join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
-  fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ name: 'root', type: 'module' }));
-
-  const a = path.join(root, 'packages', 'a');
-  const b = path.join(root, 'packages', 'b');
-  fs.mkdirSync(a, { recursive: true });
-  fs.mkdirSync(b, { recursive: true });
-  scaffoldBuiltPackage(a);
-  scaffoldBuiltPackage(b);
-  return { a, b };
-}
-
-function hasOutput(dir: string): boolean {
-  return fs.existsSync(path.join(dir, 'dist'));
-}
-
 describe(cleanPackage, () => {
   let dir: string;
 
@@ -155,4 +123,71 @@ describe(runClean, () => {
 
     await expect(runClean(root)).rejects.toThrow(/exit code 3/);
   });
+
+  it('cleans in-process even when devBin names the built-in clean', async () => {
+    // `devBin` substitutes a dev binary on the spawn path only: the sweep is already running whichever build
+    // devBin selected, and re-spawning the binary whose own output the sweep deletes is the failure the
+    // single-process sweep exists to prevent. The substitute fails if spawned, so a clean sweep proves it was not.
+    const { a, b } = scaffoldWorkspace(root);
+    scaffoldConfig(root, { devBin: { 'nmr-clean': 'exit 7' } });
+
+    await runClean(root);
+
+    expect(hasOutput(a)).toBe(false);
+    expect(hasOutput(b)).toBe(false);
+  });
+
+  it('skips a package whose clean resolves to an empty command', async () => {
+    // An empty script is the package.json convention for "skip this command", so the sweep must leave the
+    // output of a package that opted out of cleaning intact.
+    const { a, b } = scaffoldWorkspace(root);
+    fs.writeFileSync(
+      path.join(a, 'package.json'),
+      JSON.stringify({ name: 'a', type: 'module', scripts: { clean: '' } }),
+    );
+
+    await runClean(root);
+
+    expect(hasOutput(a)).toBe(true);
+    expect(hasOutput(b)).toBe(false);
+  });
 });
+
+/** Returns true if the `dist` directory exists. */
+function hasOutput(dir: string): boolean {
+  return fs.existsSync(path.join(dir, 'dist'));
+}
+
+/** Writes a package that looks freshly built: sources, emitted output, and a build-cache entry. */
+function scaffoldBuiltPackage(dir: string): void {
+  fs.mkdirSync(path.join(dir, 'node_modules'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'dist', 'esm'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'fixture', type: 'module' }));
+  fs.writeFileSync(path.join(dir, 'src', 'index.ts'), 'export const value = 1;\n');
+  fs.writeFileSync(path.join(dir, 'dist', 'esm', 'index.js'), 'export const value = 1;\n');
+
+  const cachePath = resolveBuildCachePath(dir);
+  fs.mkdirSync(path.dirname(cachePath), { recursive: true });
+  fs.writeFileSync(cachePath, 'a-stale-digest');
+}
+
+/** Writes an nmr config at the workspace root. */
+function scaffoldConfig(root: string, config: Record<string, unknown>): void {
+  fs.mkdirSync(path.join(root, '.config'), { recursive: true });
+  fs.writeFileSync(path.join(root, '.config', 'nmr.config.ts'), `export default ${JSON.stringify(config)};\n`);
+}
+
+/** Writes a pnpm workspace root holding two built packages, and returns their directories. */
+function scaffoldWorkspace(root: string): { a: string; b: string } {
+  fs.writeFileSync(path.join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
+  fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ name: 'root', type: 'module' }));
+
+  const a = path.join(root, 'packages', 'a');
+  const b = path.join(root, 'packages', 'b');
+  fs.mkdirSync(a, { recursive: true });
+  fs.mkdirSync(b, { recursive: true });
+  scaffoldBuiltPackage(a);
+  scaffoldBuiltPackage(b);
+  return { a, b };
+}
