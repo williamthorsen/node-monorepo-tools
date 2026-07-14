@@ -339,6 +339,71 @@ describe('buildPackage caching', () => {
     expect(fs.existsSync(path.join(dir, 'dist', 'esm', '.cache'))).toBe(false);
   });
 
+  it('rebuilds when the output directory has been deleted', async () => {
+    scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' });
+    await buildPackage(dir);
+
+    // The reported failure: the cache lives outside `dist`, so wiping the output leaves the digest
+    // intact. Skipping here would leave an empty `dist` — and pack an empty tarball — without error.
+    fs.rmSync(path.join(dir, 'dist'), { recursive: true, force: true });
+
+    await buildPackage(dir);
+
+    expect(ts.createProgram).toHaveBeenCalledTimes(2);
+    expect(fs.existsSync(path.join(dir, 'dist', 'esm', 'index.js'))).toBe(true);
+  });
+
+  it('rebuilds when the output directory survives but has been emptied', async () => {
+    scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' });
+    await buildPackage(dir);
+
+    // What the old `rimraf dist/*` default did: remove the children, leave the directory standing.
+    const outdir = path.join(dir, 'dist', 'esm');
+    for (const entry of fs.readdirSync(outdir)) {
+      fs.rmSync(path.join(outdir, entry), { recursive: true, force: true });
+    }
+
+    await buildPackage(dir);
+
+    expect(ts.createProgram).toHaveBeenCalledTimes(2);
+    expect(fs.existsSync(path.join(outdir, 'index.js'))).toBe(true);
+  });
+
+  it('reports missing output rather than changed inputs when the output is gone', async () => {
+    scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' });
+    await buildPackage(dir);
+    fs.rmSync(path.join(dir, 'dist'), { recursive: true, force: true });
+
+    await buildPackage(dir);
+
+    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Build output is missing'));
+  });
+
+  it('skips a package whose sources are all declaration files instead of reporting missing output', async () => {
+    // A `.d.ts` file matches the entry glob but emits nothing, so no outdir is ever created. Keying the
+    // check on the entry count rather than on what those entries emit rebuilds such a package forever.
+    scaffoldPackage(dir, { 'ambient.d.ts': 'export declare const value: number;\n' });
+    await buildPackage(dir);
+
+    await buildPackage(dir);
+
+    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('No changes detected'));
+    expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('Build output is missing'));
+  });
+
+  it('skips a package whose sources are all ignored instead of reporting missing output', async () => {
+    // Only a test file, which the default ignore excludes: the package has no entry points, so it
+    // emits nothing and its outdir never exists. That absence is not deleted output, and must not be
+    // mistaken for it on every subsequent run.
+    scaffoldPackage(dir, { '__tests__/index.test.ts': 'export const covered = 1;\n' });
+    await buildPackage(dir);
+
+    await buildPackage(dir);
+
+    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('No changes detected'));
+    expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('Build output is missing'));
+  });
+
   it('reports the package directory name and 📦 icon when changes are detected', async () => {
     scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' });
 

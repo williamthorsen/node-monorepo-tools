@@ -136,7 +136,7 @@ These scripts are available out of the box. Repo-wide config (tier 2) and per-pa
 | `build`         | `compile`                                                |
 | `check`         | `typecheck`, `fmt:check`, `lint:check`, `test`           |
 | `check:strict`  | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage` |
-| `clean`         | `pnpm exec rimraf dist/*`                                |
+| `clean`         | `nmr-clean`                                              |
 | `compile`       | `nmr-compile`                                            |
 | `fix`           | `lint`, `fmt`                                            |
 | `fix:check`     | `fmt:check`, `lint:check`                                |
@@ -171,7 +171,7 @@ A package gets this variant automatically when it contains a `vitest.integration
 | ------- | --------------------------------- |
 | `build` | `pnpm --recursive exec nmr build` |
 | `ci`    | `build`, `check:strict`           |
-| `clean` | `pnpm --recursive exec nmr clean` |
+| `clean` | `nmr-clean`                       |
 
 #### Check and quality
 
@@ -333,9 +333,17 @@ nmr sync-pnpm-version
 
 ## Standalone utilities
 
+### `nmr-clean`
+
+Remove a package's build output (`dist`) and its `nmr-compile` cache entry, leaving no state behind for the next build to skip on. Run from a package directory it cleans that package; run from the monorepo root it sweeps every workspace package in a single pass, running each package's resolved `clean` — so a package that overrides `clean`, in `.config/nmr.config.ts` or in its own `package.json`, gets its own command rather than the sweep. Removal is idempotent — cleaning an unbuilt package is a silent no-op. This is the default `clean` script at both levels.
+
+```bash
+nmr-clean
+```
+
 ### `nmr-compile`
 
-Compile a single package's `src` tree to `dist/esm` with the TypeScript compiler API, emitting `.js` and `.d.ts` in one pass. Because the compiler parses each source file, every relative import form — static, re-export, dynamic `import()`, and bare side-effect — is rewritten from `.ts` to `.js` in both outputs, and `.ts` occurrences inside strings and comments are left intact. tsconfig `paths` aliases are resolved to runnable relative `.js` specifiers in both outputs, sourced from the package's tsconfig. The build is skipped when no input has changed (a content-and-path hash is cached under `node_modules/.cache/nmr-compile/`, outside the published output). This is the default `compile` script — run it from a package directory.
+Compile a single package's `src` tree to `dist/esm` with the TypeScript compiler API, emitting `.js` and `.d.ts` in one pass. Because the compiler parses each source file, every relative import form — static, re-export, dynamic `import()`, and bare side-effect — is rewritten from `.ts` to `.js` in both outputs, and `.ts` occurrences inside strings and comments are left intact. tsconfig `paths` aliases are resolved to runnable relative `.js` specifiers in both outputs, sourced from the package's tsconfig. The build is skipped when no input has changed and the previous output is still on disk (a content-and-path hash is cached under `node_modules/.cache/nmr-compile/`, outside the published output). Deleting the output by any means — `nmr clean`, `rm -rf dist`, `git clean` — therefore forces a rebuild rather than a skip. This is the default `compile` script — run it from a package directory.
 
 `typescript` is a peer dependency (`>=5.7.0`, required for `rewriteRelativeImportExtensions`); the consuming repo provides it. Relative imports in source must carry explicit `.ts` extensions for them to be rewritten.
 
