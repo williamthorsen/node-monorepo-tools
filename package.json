@@ -41,7 +41,7 @@
     "prettier": "3.9.4",
     "readyup": "0.21.2",
     "tsx": "4.23.0",
-    "typescript": "5.9.3",
+    "typescript": "6.0.3",
     "typescript-eslint": "8.62.1",
     "v11y-check": "workspace:*",
     "vite": "8.1.3",
