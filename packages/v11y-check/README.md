@@ -6,6 +6,8 @@ Wraps [audit-ci](https://github.com/IBM/audit-ci) with a richer config model, ty
 
 ## Installation
 
+Requires Node.js 24 or later.
+
 ```shell
 pnpm add -D v11y-check
 ```

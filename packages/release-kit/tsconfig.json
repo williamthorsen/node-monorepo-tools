@@ -1,5 +1,10 @@
 {
   "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    // Pin the API surface to the package's own floor rather than inheriting the root's `ESNext`, which
+    // would type against library methods no supported Node is guaranteed to have. Matches its siblings.
+    "lib": ["es2022"],
+  },
   "include": [
     "src/", //
     "*.ts",

@@ -6,6 +6,8 @@ Context-aware script runner for PNPM monorepos. Ships an `nmr` (node-monorepo ru
 
 ## Installation
 
+Requires Node.js 24 or later.
+
 ```bash
 pnpm add -D @williamthorsen/nmr
 ```

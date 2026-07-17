@@ -8,6 +8,8 @@ Provides a self-contained CLI that auto-discovers workspaces from `pnpm-workspac
 
 ## Installation
 
+Requires Node.js 24 or later.
+
 ```bash
 pnpm add -D @williamthorsen/release-kit
 ```
