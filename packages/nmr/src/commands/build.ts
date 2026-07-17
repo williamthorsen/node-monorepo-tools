@@ -63,6 +63,7 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
     packageDir,
     [...entryPoints, ...dependencies],
     emitConfig,
+    ts.version,
     cachePath,
     hasExpectedBuildOutput(packageDir, outdir, entryPoints),
   );
@@ -78,11 +79,21 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
 }
 
 /**
- * Produces a digest of the given files (paths and contents) plus the emit config. The file list is
- * sorted so the digest is invariant to enumeration order, and each file's path is folded in so
- * renames and moves are detected — not just content edits.
+ * Produces a digest of the given files (paths and contents) plus the emit config and the compiler
+ * version. The file list is sorted so the digest is invariant to enumeration order, and each file's
+ * path is folded in so renames and moves are detected — not just content edits.
+ *
+ * The compiler version is an input because it shapes the emit: the same sources under a different
+ * TypeScript version can produce different output, so a digest blind to it would skip the rebuild
+ * and serve output from the previous compiler. It is a parameter rather than a direct `ts.version`
+ * read so this function stays pure and its version-busting is provable without stubbing the compiler.
  */
-export async function computeBuildHash(packageDir: string, files: string[], emitConfig: object): Promise<string> {
+export async function computeBuildHash(
+  packageDir: string,
+  files: string[],
+  emitConfig: object,
+  compilerVersion: string,
+): Promise<string> {
   const hash = createHash('sha256');
   // eslint-disable-next-line unicorn/no-array-sort -- spread already creates a fresh copy; toSorted requires Node >=20
   for (const file of [...files].sort()) {
@@ -92,6 +103,8 @@ export async function computeBuildHash(packageDir: string, files: string[], emit
   }
 
   hash.update(JSON.stringify(emitConfig));
+  hash.update('\0');
+  hash.update(compilerVersion);
   return hash.digest('hex');
 }
 
@@ -402,12 +415,13 @@ async function detectBuildChanges(
   packageDir: string,
   files: string[],
   emitConfig: EmitConfig,
+  compilerVersion: string,
   cachePath: string,
   outputPresent: boolean,
 ): Promise<{ changed: boolean; currentHash: string }> {
   const packageName = path.basename(packageDir);
   const previousHash = existsSync(cachePath) ? readFileSync(cachePath, 'utf8') : undefined;
-  const currentHash = await computeBuildHash(packageDir, files, emitConfig);
+  const currentHash = await computeBuildHash(packageDir, files, emitConfig, compilerVersion);
 
   if (previousHash === currentHash) {
     if (outputPresent) {
