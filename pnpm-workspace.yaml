@@ -1,6 +1,17 @@
 packages:
   - packages/*
 
-onlyBuiltDependencies:
-  - esbuild
-  - lefthook
+allowBuilds:
+  esbuild: true
+  lefthook: true
+
+# Keep pnpm 11's 24h minimumReleaseAge soak (supply-chain protection), set
+# explicitly to pin the policy, but exclude first-party packages so a freshly
+# published version can be consumed downstream without waiting out the soak.
+minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  - '@williamthorsen/*'
+  - readyup
+  - v11y-check
+
+savePrefix: ''
