@@ -137,6 +137,46 @@ function scaffoldRootEscapingAliasPackage(rootDir: string): string {
   return packageDir;
 }
 
+/**
+ * Writes a package under `rootDir/pkg` whose inherited alias maps `packages/*` to a sibling `packages/`
+ * tree, so `import 'packages/foo/src/x.ts'` escapes the package's `src/`. The target is reachable through
+ * the inherited `baseUrl` as well, so a fallback that emulated the runtime by stripping only `paths` would
+ * still resolve it and emit it verbatim — yet Node, which honors neither `baseUrl` nor `paths`, cannot
+ * load the bare specifier at runtime.
+ */
+function scaffoldBaseUrlReachableEscapingAliasPackage(rootDir: string): string {
+  const packageDir = path.join(rootDir, 'pkg');
+  fs.mkdirSync(path.join(packageDir, 'src'), { recursive: true });
+  fs.mkdirSync(path.join(packageDir, 'node_modules'), { recursive: true });
+  fs.mkdirSync(path.join(rootDir, 'packages', 'foo', 'src'), { recursive: true });
+  fs.writeFileSync(
+    path.join(rootDir, 'tsconfig.base.json'),
+    JSON.stringify({
+      compilerOptions: {
+        module: 'NodeNext',
+        moduleResolution: 'NodeNext',
+        target: 'ES2022',
+        allowImportingTsExtensions: true,
+        declaration: true,
+        strict: true,
+        baseUrl: '.',
+        paths: { 'packages/*': ['./packages/*'] },
+      },
+    }),
+  );
+  fs.writeFileSync(
+    path.join(packageDir, 'tsconfig.json'),
+    JSON.stringify({ extends: '../tsconfig.base.json', include: ['src/'] }),
+  );
+  fs.writeFileSync(path.join(packageDir, 'package.json'), JSON.stringify({ name: 'fixture', type: 'module' }));
+  fs.writeFileSync(path.join(rootDir, 'packages', 'foo', 'src', 'x.ts'), 'export const x = 1;\n');
+  fs.writeFileSync(
+    path.join(packageDir, 'src', 'index.ts'),
+    `import { x } from 'packages/foo/src/x.ts';\nexport const value = x;\n`,
+  );
+  return packageDir;
+}
+
 describe('buildPackage regression suite', () => {
   let dir: string;
 
@@ -349,6 +389,16 @@ describe('buildPackage with an alias target outside the package source tree', ()
 
     await expect(buildPackage(packageDir)).rejects.toThrow(
       /aliased import '~\/rootFile\.ts' from .* resolves to .*rootFile\.ts/,
+    );
+  });
+
+  it('fails the build when an escaping alias resolves only through baseUrl, which Node ignores', async () => {
+    // `packages/foo/src/x.ts` is reachable through `baseUrl`, so a fallback that stripped only `paths`
+    // would resolve it and emit it verbatim — then Node, ignoring `baseUrl`, throws at runtime.
+    const packageDir = scaffoldBaseUrlReachableEscapingAliasPackage(dir);
+
+    await expect(buildPackage(packageDir)).rejects.toThrow(
+      /aliased import 'packages\/foo\/src\/x\.ts' from .* resolves to .*x\.ts/,
     );
   });
 

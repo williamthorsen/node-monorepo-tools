@@ -263,7 +263,7 @@ function rewriteOutputSpecifiers(outputFile: string, compilerOptions: ts.Compile
  * Relative specifiers ending in a TypeScript extension are re-extensioned to `.js`; `paths` aliases
  * are resolved to the target source file and expressed as a relative `.js` specifier. Bare package
  * specifiers are left untouched. An alias resolving outside the package source tree is emitted verbatim
- * only when it still resolves without the `paths` mapping — genuinely external and runtime-runnable;
+ * only when it still resolves the way Node will at runtime — genuinely external and runtime-runnable;
  * otherwise the emitted specifier would fail at runtime, so it throws. An alias that matches a known
  * prefix but resolves to nothing is likewise a broken import, so it throws rather than emitting an
  * unrunnable specifier verbatim.
@@ -292,16 +292,17 @@ function resolveSpecifierReplacement(
     );
   }
   if (!isWithin(sourceRoot, resolved.resolvedFileName)) {
-    // The alias target escapes the package source tree. Re-resolve with `paths` stripped — the exact
-    // question Node asks at runtime, since it never sees tsconfig aliases. A specifier that still
-    // resolves is genuinely external and runtime-runnable (a type-shim `paths` key shadowing a real
-    // package, or a coarse prefix collision), so emit it verbatim. One that does not would ship an
-    // unresolvable specifier that fails at runtime, so fail the build instead.
-    const { paths: _paths, ...optionsWithoutPaths } = compilerOptions;
+    // The alias target escapes the package source tree. Re-resolve the way Node will at runtime, which
+    // honors none of TypeScript's resolution overlays: `paths`, `baseUrl`, and `rootDirs` each let a
+    // non-relative specifier resolve to a location Node cannot reach, so strip all three. A specifier
+    // that still resolves is genuinely external and runtime-runnable (a type-shim `paths` key shadowing
+    // a real package, or a coarse prefix collision), so emit it verbatim. One that does not would ship
+    // an unresolvable specifier that fails at runtime, so fail the build instead.
+    const { paths: _paths, baseUrl: _baseUrl, rootDirs: _rootDirs, ...nodeResolutionOptions } = compilerOptions;
     const bareResolved = ts.resolveModuleName(
       specifier,
       sourceContainingFile,
-      optionsWithoutPaths,
+      nodeResolutionOptions,
       ts.sys,
     ).resolvedModule;
     if (bareResolved) {
@@ -310,8 +311,8 @@ function resolveSpecifierReplacement(
     throw new Error(
       `nmr-compile: aliased import '${specifier}' from ${sourceContainingFile} resolves to ` +
         `${resolved.resolvedFileName}, outside the package source root ${sourceRoot}, and does not resolve ` +
-        `without the tsconfig 'paths' mapping. The emitted specifier would fail at runtime; re-anchor the ` +
-        `'paths' mapping inside the package.`,
+        `the way Node will at runtime, which ignores tsconfig 'paths', 'baseUrl', and 'rootDirs'. The ` +
+        `emitted specifier would fail at runtime; re-anchor the alias inside the package.`,
     );
   }
 
