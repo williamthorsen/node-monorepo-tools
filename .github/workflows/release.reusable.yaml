@@ -72,7 +72,7 @@ jobs:
 
       - name: Set up pnpm
         if: ${{ env.BUILD_LOCAL == 'true' }}
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
 
       # Materialize the cache flag via step output because the `env` context
       # is not evaluated in `with:` blocks.
