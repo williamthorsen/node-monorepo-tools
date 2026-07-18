@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.18.2 — 2026-07-18
+
+### 🐛 Bug fixes
+
+- Fail the build on aliased imports that escape the package source (#475)
+
+  Fixes an issue where an aliased import that resolved to a target outside the package's own source (one Node could not reach at runtime) passed the build but produced published output that crashed with a module-not-found error. `nmr-compile` now fails the build and reports the unresolvable import and where it pointed, so the problem surfaces before publish instead of in production. Aliased imports that resolve outside the source but remain genuinely external and runnable continue to build and ship unchanged.
+
 ## 0.18.1 — 2026-07-14
 
 ### 🐛 Bug fixes

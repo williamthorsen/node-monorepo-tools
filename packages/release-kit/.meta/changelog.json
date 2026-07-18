@@ -1,5 +1,22 @@
 [
   {
+    "version": "8.0.1",
+    "date": "2026-07-18",
+    "sections": [
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Skip private packages cleanly in publish and create-github-release (#477)",
+            "body": "Fixes an issue where a workspace marked private in its `package.json` could break a release: `release-kit publish` failed on it, and `release-kit create-github-release` created an unwanted public GitHub Release for it. Both commands now skip private workspaces cleanly: publish reports the skip and continues instead of failing the run, and create-github-release produces no Release for a private package. Any publishable packages released alongside it still publish and still get their Releases. Marking a workspace private is now all it takes to exclude it from both publishing and GitHub Releases.",
+            "hash": "d1a647c648a64f81d884c31e9c6e63b91b029687"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "8.0.0",
     "date": "2026-07-13",
     "sections": [

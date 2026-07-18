@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.18.2",
+    "date": "2026-07-18",
+    "sections": [
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Fail the build on aliased imports that escape the package source (#475)",
+            "body": "Fixes an issue where an aliased import that resolved to a target outside the package's own source (one Node could not reach at runtime) passed the build but produced published output that crashed with a module-not-found error. `nmr-compile` now fails the build and reports the unresolvable import and where it pointed, so the problem surfaces before publish instead of in production. Aliased imports that resolve outside the source but remain genuinely external and runnable continue to build and ship unchanged.",
+            "hash": "2f6fe3575bb1bdcca7c29923780a357ac54408be"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.18.1",
     "date": "2026-07-14",
     "sections": [
