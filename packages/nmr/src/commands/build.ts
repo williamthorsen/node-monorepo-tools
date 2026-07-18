@@ -262,9 +262,11 @@ function rewriteOutputSpecifiers(outputFile: string, compilerOptions: ts.Compile
  * Computes the runnable specifier for an emitted import, or `undefined` when no change is needed.
  * Relative specifiers ending in a TypeScript extension are re-extensioned to `.js`; `paths` aliases
  * are resolved to the target source file and expressed as a relative `.js` specifier. Bare package
- * specifiers and aliases resolving outside the package source tree are left untouched. An alias that
- * matches a known prefix but resolves to nothing is a broken import, so it throws rather than emitting
- * an unrunnable specifier verbatim.
+ * specifiers are left untouched. An alias resolving outside the package source tree is emitted verbatim
+ * only when it still resolves the way Node will at runtime — genuinely external and runtime-runnable;
+ * otherwise the emitted specifier would fail at runtime, so it throws. An alias that matches a known
+ * prefix but resolves to nothing is likewise a broken import, so it throws rather than emitting an
+ * unrunnable specifier verbatim.
  */
 function resolveSpecifierReplacement(
   specifier: string,
@@ -290,7 +292,28 @@ function resolveSpecifierReplacement(
     );
   }
   if (!isWithin(sourceRoot, resolved.resolvedFileName)) {
-    return undefined;
+    // The alias target escapes the package source tree. Re-resolve the way Node will at runtime, which
+    // honors none of TypeScript's resolution overlays: `paths`, `baseUrl`, and `rootDirs` each let a
+    // non-relative specifier resolve to a location Node cannot reach, so strip all three. A specifier
+    // that still resolves is genuinely external and runtime-runnable (a type-shim `paths` key shadowing
+    // a real package, or a coarse prefix collision), so emit it verbatim. One that does not would ship
+    // an unresolvable specifier that fails at runtime, so fail the build instead.
+    const { paths: _paths, baseUrl: _baseUrl, rootDirs: _rootDirs, ...nodeResolutionOptions } = compilerOptions;
+    const bareResolved = ts.resolveModuleName(
+      specifier,
+      sourceContainingFile,
+      nodeResolutionOptions,
+      ts.sys,
+    ).resolvedModule;
+    if (bareResolved) {
+      return undefined;
+    }
+    throw new Error(
+      `nmr-compile: aliased import '${specifier}' from ${sourceContainingFile} resolves to ` +
+        `${resolved.resolvedFileName}, outside the package source root ${sourceRoot}, and does not resolve ` +
+        `the way Node will at runtime, which ignores tsconfig 'paths', 'baseUrl', and 'rootDirs'. The ` +
+        `emitted specifier would fail at runtime; re-anchor the alias inside the package.`,
+    );
   }
 
   const relative = toRelativeSpecifier(path.dirname(sourceContainingFile), resolved.resolvedFileName);

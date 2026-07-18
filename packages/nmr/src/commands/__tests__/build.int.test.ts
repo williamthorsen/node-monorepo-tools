@@ -99,6 +99,84 @@ function scaffoldExtendedBasePackage(rootDir: string): string {
   return packageDir;
 }
 
+/**
+ * Writes a package under `rootDir/pkg` whose inherited `~/*` alias is anchored at `rootDir` and maps to
+ * `rootDir` itself, so an import of `~/rootFile.ts` resolves to a file above the package's `src/`. This
+ * reproduces the reported case: a package inheriting a root-anchored alias whose target escapes the
+ * package source tree, where the specifier is unresolvable at runtime because Node never sees `paths`.
+ */
+function scaffoldRootEscapingAliasPackage(rootDir: string): string {
+  const packageDir = path.join(rootDir, 'pkg');
+  fs.mkdirSync(path.join(packageDir, 'src'), { recursive: true });
+  fs.mkdirSync(path.join(packageDir, 'node_modules'), { recursive: true });
+  fs.writeFileSync(
+    path.join(rootDir, 'tsconfig.base.json'),
+    JSON.stringify({
+      compilerOptions: {
+        module: 'NodeNext',
+        moduleResolution: 'NodeNext',
+        target: 'ES2022',
+        allowImportingTsExtensions: true,
+        declaration: true,
+        strict: true,
+        baseUrl: '.',
+        paths: { '~/*': ['./*'] },
+      },
+    }),
+  );
+  fs.writeFileSync(
+    path.join(packageDir, 'tsconfig.json'),
+    JSON.stringify({ extends: '../tsconfig.base.json', include: ['src/'] }),
+  );
+  fs.writeFileSync(path.join(packageDir, 'package.json'), JSON.stringify({ name: 'fixture', type: 'module' }));
+  fs.writeFileSync(path.join(rootDir, 'rootFile.ts'), 'export const rootValue = 1;\n');
+  fs.writeFileSync(
+    path.join(packageDir, 'src', 'index.ts'),
+    `import { rootValue } from '~/rootFile.ts';\nexport const value = rootValue;\n`,
+  );
+  return packageDir;
+}
+
+/**
+ * Writes a package under `rootDir/pkg` whose inherited alias maps `packages/*` to a sibling `packages/`
+ * tree, so `import 'packages/foo/src/x.ts'` escapes the package's `src/`. The target is reachable through
+ * the inherited `baseUrl` as well, so a fallback that emulated the runtime by stripping only `paths` would
+ * still resolve it and emit it verbatim — yet Node, which honors neither `baseUrl` nor `paths`, cannot
+ * load the bare specifier at runtime.
+ */
+function scaffoldBaseUrlReachableEscapingAliasPackage(rootDir: string): string {
+  const packageDir = path.join(rootDir, 'pkg');
+  fs.mkdirSync(path.join(packageDir, 'src'), { recursive: true });
+  fs.mkdirSync(path.join(packageDir, 'node_modules'), { recursive: true });
+  fs.mkdirSync(path.join(rootDir, 'packages', 'foo', 'src'), { recursive: true });
+  fs.writeFileSync(
+    path.join(rootDir, 'tsconfig.base.json'),
+    JSON.stringify({
+      compilerOptions: {
+        module: 'NodeNext',
+        moduleResolution: 'NodeNext',
+        target: 'ES2022',
+        allowImportingTsExtensions: true,
+        declaration: true,
+        strict: true,
+        baseUrl: '.',
+        paths: { 'packages/*': ['./packages/*'] },
+      },
+    }),
+  );
+  fs.writeFileSync(
+    path.join(packageDir, 'tsconfig.json'),
+    JSON.stringify({ extends: '../tsconfig.base.json', include: ['src/'] }),
+  );
+  fs.writeFileSync(path.join(packageDir, 'package.json'), JSON.stringify({ name: 'fixture', type: 'module' }));
+  fs.writeFileSync(path.join(rootDir, 'packages', 'foo', 'src', 'x.ts'), 'export const x = 1;\n');
+  fs.writeFileSync(
+    path.join(packageDir, 'src', 'index.ts'),
+    `import { x } from 'packages/foo/src/x.ts';\nexport const value = x;\n`,
+  );
+  return packageDir;
+}
+
 describe('buildPackage regression suite', () => {
   let dir: string;
 
@@ -287,6 +365,70 @@ describe('buildPackage with extends-inherited tsconfig paths', () => {
     await buildPackage(packageDir);
 
     expect(ts.createProgram).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('buildPackage with an alias target outside the package source tree', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-build-escaping-'));
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+    vi.mocked(console.info).mockRestore();
+    vi.mocked(ts.createProgram).mockClear();
+  });
+
+  it('fails the build when an aliased import resolves outside src and does not bare-resolve', async () => {
+    // `~/rootFile.ts` resolves (via `paths`) to the root-level `rootFile.ts`, above the package's
+    // `src/`; without `paths` it is unresolvable, so the emitted specifier would fail at runtime.
+    const packageDir = scaffoldRootEscapingAliasPackage(dir);
+
+    await expect(buildPackage(packageDir)).rejects.toThrow(
+      /aliased import '~\/rootFile\.ts' from .* resolves to .*rootFile\.ts/,
+    );
+  });
+
+  it('fails the build when an escaping alias resolves only through baseUrl, which Node ignores', async () => {
+    // `packages/foo/src/x.ts` is reachable through `baseUrl`, so a fallback that stripped only `paths`
+    // would resolve it and emit it verbatim — then Node, ignoring `baseUrl`, throws at runtime.
+    const packageDir = scaffoldBaseUrlReachableEscapingAliasPackage(dir);
+
+    await expect(buildPackage(packageDir)).rejects.toThrow(
+      /aliased import 'packages\/foo\/src\/x\.ts' from .* resolves to .*x\.ts/,
+    );
+  });
+
+  it('emits verbatim when an alias-prefix-matched specifier resolves outside src but bare-resolves', async () => {
+    // A `paths` key `lodash` collides (via `startsWith`) with an innocent `lodash-es` import — a real
+    // installed package outside `src/`. It resolves the same with or without `paths`, so it is genuinely
+    // external and runtime-runnable and must ship verbatim rather than failing the build.
+    scaffoldPackage(
+      dir,
+      { 'index.ts': `import { merge } from 'lodash-es';\nexport const value = merge;\n` },
+      { paths: { lodash: ['./src/lodash-shim.ts'] } },
+    );
+    const lodashEsDir = path.join(dir, 'node_modules', 'lodash-es');
+    fs.mkdirSync(lodashEsDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(lodashEsDir, 'package.json'),
+      JSON.stringify({
+        name: 'lodash-es',
+        version: '1.0.0',
+        type: 'module',
+        main: './index.js',
+        types: './index.d.ts',
+      }),
+    );
+    fs.writeFileSync(path.join(lodashEsDir, 'index.js'), 'export const merge = 1;\n');
+    fs.writeFileSync(path.join(lodashEsDir, 'index.d.ts'), 'export declare const merge: number;\n');
+
+    await buildPackage(dir);
+
+    expect(readOutput(dir, 'index.js')).toMatch(/from ["']lodash-es["']/);
   });
 });
 
