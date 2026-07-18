@@ -8,6 +8,7 @@ import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { detectPackageManager } from './detectPackageManager.ts';
+import { formatPrivateSkip } from './formatPrivateSkip.ts';
 import { injectReleaseNotesIntoReadme, resolveReadmePath } from './injectReleaseNotesIntoReadme.ts';
 import { parseRequestedTags } from './parseRequestedTags.ts';
 import { publishPackage } from './publish.ts';
@@ -129,8 +130,8 @@ function filterPublishableTags(resolvedTags: ResolvedTag[], isExplicit: boolean)
   // user expected it to publish, so its skip is worth surfacing. Either way the tag is dropped,
   // never fatal — publishable tags in the same set still publish.
   if (isExplicit) {
-    for (const { tag, workspacePath } of unpublishable) {
-      console.warn(`Skipping ${tag} (${workspacePath}): package.json#private is true.`);
+    for (const resolvedTag of unpublishable) {
+      console.warn(formatPrivateSkip(resolvedTag));
     }
   }
 
