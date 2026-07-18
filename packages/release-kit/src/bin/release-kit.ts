@@ -157,7 +157,8 @@ function showCreateGithubReleaseHelp(): void {
   console.info(`
 Usage: release-kit create-github-release [options]
 
-Create GitHub Releases from changelog.json for tags on HEAD.
+Create GitHub Releases from changelog.json for tags on HEAD. Private
+(package.json#private) workspaces are skipped with a warning and get no Release.
 
 Options:
   --dry-run              Preview without creating releases
@@ -263,7 +264,8 @@ Usage: release-kit publish [options]
 
 Publish packages that have release tags on HEAD. Operates only on workspaces where
 package.json#private is absent or false. Without --tags, unpublishable workspaces are
-silently filtered out. With --tags, naming an unpublishable tag is an error.
+silently filtered out. With --tags, an unpublishable tag is skipped with a warning while
+any publishable tags still publish.
 
 Options:
   --dry-run              Preview without publishing
