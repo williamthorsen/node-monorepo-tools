@@ -112,10 +112,10 @@ export async function publishCommand(argv: string[]): Promise<void> {
 /**
  * Restrict the resolved tag set to publishable workspaces.
  *
- * When the user named tags explicitly via `--tags` (`isExplicit === true`), an unpublishable
- * tag is an error: each unpublishable tag is reported and the process exits 1. When
- * resolution was implicit, unpublishable tags are silently dropped. The caller handles the
- * empty-result case (printing `Nothing to publish.` and returning).
+ * When the user named tags explicitly via `--tags` (`isExplicit === true`), each unpublishable
+ * tag is skipped with a warning and the publishable tags still publish. When resolution was
+ * implicit, unpublishable tags are dropped silently. The caller handles the empty-result case
+ * (printing `Nothing to publish.` and returning).
  */
 function filterPublishableTags(resolvedTags: ResolvedTag[], isExplicit: boolean): ResolvedTag[] {
   const publishable: ResolvedTag[] = [];
@@ -124,11 +124,14 @@ function filterPublishableTags(resolvedTags: ResolvedTag[], isExplicit: boolean)
     (tag.isPublishable ? publishable : unpublishable).push(tag);
   }
 
-  if (isExplicit && unpublishable.length > 0) {
+  // Warn only on explicit naming. An implicit HEAD scan routinely surfaces private-but-tagged
+  // workspaces, so a warning per release would be noise; naming a tag is the signal that the
+  // user expected it to publish, so its skip is worth surfacing. Either way the tag is dropped,
+  // never fatal — publishable tags in the same set still publish.
+  if (isExplicit) {
     for (const { tag, workspacePath } of unpublishable) {
-      reportError(`${tag} (${workspacePath}) cannot be published: package.json#private is true.`);
+      console.warn(`Skipping ${tag} (${workspacePath}): package.json#private is true.`);
     }
-    process.exit(1);
   }
 
   return publishable;

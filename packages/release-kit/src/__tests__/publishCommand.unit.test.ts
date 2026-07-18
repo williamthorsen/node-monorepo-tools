@@ -501,6 +501,8 @@ describe(publishCommand, () => {
       // Listing only includes the publishable tag.
       expect(console.info).toHaveBeenCalledWith('  common-utils-v2.4.0 (packages/common-utils)');
       expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('basic-v1.0.0'));
+      // Implicit resolution drops unpublishable tags silently — no warning.
+      expect(console.warn).not.toHaveBeenCalledWith(expect.stringContaining('Skipping'));
     });
 
     it('exits 0 with "Nothing to publish." when implicit resolution yields zero publishable tags', async () => {
@@ -515,57 +517,42 @@ describe(publishCommand, () => {
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
 
-    it('exits 1 with a per-tag error when explicit --tags names an unpublishable tag', async () => {
+    it('skips with a warning and publishes nothing when explicit --tags names an unpublishable tag', async () => {
       mockDiscoverWorkspaces.mockResolvedValue(['packages/basic']);
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
       ]);
 
-      let thrown: ExitError | undefined;
-      try {
-        await publishCommand(['--tags=basic-v1.0.0']);
-      } catch (error: unknown) {
-        if (error instanceof ExitError) {
-          thrown = error;
-        }
-      }
+      await publishCommand(['--tags=basic-v1.0.0']);
 
-      expect(thrown).toBeInstanceOf(ExitError);
-      expect(thrown?.code).toBe(1);
-      expect(process.stderr.write).toHaveBeenCalledWith(
-        'Error: basic-v1.0.0 (packages/basic) cannot be published: package.json#private is true.\n',
+      // Explicit naming of an unpublishable tag warns and skips rather than exiting non-zero.
+      expect(console.warn).toHaveBeenCalledWith(
+        'Skipping basic-v1.0.0 (packages/basic): package.json#private is true.',
       );
+      expect(console.info).toHaveBeenCalledWith('Nothing to publish.');
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
 
-    it('reports every unpublishable tag before exit when explicit --tags names multiple unpublishable tags', async () => {
+    it('warns for every unpublishable tag when explicit --tags names multiple unpublishable tags', async () => {
       mockDiscoverWorkspaces.mockResolvedValue(['packages/basic', 'packages/internal']);
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
         { tag: 'internal-v2.0.0', dir: 'internal', workspacePath: 'packages/internal', isPublishable: false },
       ]);
 
-      let thrown: ExitError | undefined;
-      try {
-        await publishCommand(['--tags=basic-v1.0.0,internal-v2.0.0']);
-      } catch (error: unknown) {
-        if (error instanceof ExitError) {
-          thrown = error;
-        }
-      }
+      await publishCommand(['--tags=basic-v1.0.0,internal-v2.0.0']);
 
-      expect(thrown).toBeInstanceOf(ExitError);
-      expect(thrown?.code).toBe(1);
-      expect(process.stderr.write).toHaveBeenCalledWith(
-        'Error: basic-v1.0.0 (packages/basic) cannot be published: package.json#private is true.\n',
+      expect(console.warn).toHaveBeenCalledWith(
+        'Skipping basic-v1.0.0 (packages/basic): package.json#private is true.',
       );
-      expect(process.stderr.write).toHaveBeenCalledWith(
-        'Error: internal-v2.0.0 (packages/internal) cannot be published: package.json#private is true.\n',
+      expect(console.warn).toHaveBeenCalledWith(
+        'Skipping internal-v2.0.0 (packages/internal): package.json#private is true.',
       );
+      expect(console.info).toHaveBeenCalledWith('Nothing to publish.');
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
 
-    it('exits 1 without publishing when explicit --tags mixes publishable and unpublishable', async () => {
+    it('publishes the publishable subset and warns past the private tag when explicit --tags mixes both', async () => {
       mockDiscoverWorkspaces.mockResolvedValue(['packages/common-utils', 'packages/basic']);
       mockResolveReleaseTags.mockReturnValue([
         {
@@ -577,22 +564,23 @@ describe(publishCommand, () => {
         { tag: 'basic-v1.0.0', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
       ]);
 
-      let thrown: ExitError | undefined;
-      try {
-        await publishCommand(['--tags=common-utils-v2.4.0,basic-v1.0.0']);
-      } catch (error: unknown) {
-        if (error instanceof ExitError) {
-          thrown = error;
-        }
-      }
+      await publishCommand(['--tags=common-utils-v2.4.0,basic-v1.0.0']);
 
-      // The presence of an unpublishable tag in --tags is an error: exit 1, no publishes.
-      expect(thrown).toBeInstanceOf(ExitError);
-      expect(thrown?.code).toBe(1);
-      expect(process.stderr.write).toHaveBeenCalledWith(
-        'Error: basic-v1.0.0 (packages/basic) cannot be published: package.json#private is true.\n',
+      // The private tag is skipped with a warning; the publishable tag still publishes.
+      expect(console.warn).toHaveBeenCalledWith(
+        'Skipping basic-v1.0.0 (packages/basic): package.json#private is true.',
       );
-      expect(mockPublishPackage).not.toHaveBeenCalled();
+      expect(mockPublishPackage).toHaveBeenCalledTimes(1);
+      expect(mockPublishPackage).toHaveBeenCalledWith(
+        {
+          tag: 'common-utils-v2.4.0',
+          dir: 'common-utils',
+          workspacePath: 'packages/common-utils',
+          isPublishable: true,
+        },
+        'npm',
+        expect.objectContaining({ dryRun: false, provenance: false }),
+      );
     });
   });
 
