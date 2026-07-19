@@ -11,6 +11,9 @@ importers:
       '@types/node':
         specifier: 24.13.3
         version: 24.13.3
+      '@typescript-eslint/utils':
+        specifier: 8.64.0
+        version: 8.64.0(eslint@10.7.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3)
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260707.2
         version: 7.0.0-dev.20260707.2
