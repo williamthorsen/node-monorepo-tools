@@ -24,12 +24,11 @@
     "prepare": "lefthook install"
   },
   "devDependencies": {
-    "@eslint/js": "10.0.1",
     "@types/node": "24.13.3",
     "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "@vitest/coverage-v8": "4.1.10",
     "@vitest/eslint-plugin": "1.6.23",
-    "@williamthorsen/eslint-config-typescript": "6.0.0",
+    "@williamthorsen/eslint-config-typescript": "6.0.1",
     "@williamthorsen/nmr": "workspace:*",
     "@williamthorsen/release-kit": "workspace:*",
     "@williamthorsen/strict-lint": "7.0.0",
