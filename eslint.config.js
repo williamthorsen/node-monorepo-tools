@@ -64,11 +64,16 @@ export default [
     },
   },
   {
+    // Deprecation signals a gradual phase-out, not a removal deadline; the build does not gate on deprecated-API use.
+    rules: {
+      '@typescript-eslint/no-deprecated': 'off',
+    },
+  },
+  {
     // TODO(#481): Fix violations and then remove overrides, or selectively make overrides permanent.
     // Context: `eslint-config-typescript` v6 (which includes an upgrade of `eslint-plugin-unicorn` from 63 to 72,
     // adding new core rules) surfaced pre-existing violations that `eslint --fix` cannot resolve.
     rules: {
-      '@typescript-eslint/no-deprecated': 'off',
       'preserve-caught-error': 'off',
       'unicorn/max-nested-calls': 'off',
       'unicorn/no-computed-property-existence-check': 'off',
