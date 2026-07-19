@@ -90,7 +90,7 @@ export async function computeBuildHash(
   compilerVersion: string,
 ): Promise<string> {
   const hash = createHash('sha256');
-  // eslint-disable-next-line unicorn/no-array-sort -- spread already creates a fresh copy; toSorted requires Node >=20
+  // eslint-disable-next-line unicorn/no-array-sort -- spread already creates a fresh copy
   for (const file of [...files].sort()) {
     hash.update(file);
     hash.update('\0');
@@ -257,7 +257,7 @@ function rewriteOutputSpecifiers(outputFile: string, compilerOptions: ts.Compile
   }
 
   // Apply edits from the end of the file backwards so earlier offsets stay valid as text is spliced.
-  // eslint-disable-next-line unicorn/no-array-sort -- spread already creates a fresh copy; toSorted requires Node >=20
+  // eslint-disable-next-line unicorn/no-array-sort -- spread already creates a fresh copy
   const orderedEdits = [...edits].sort((a, b) => b.start - a.start);
   let updatedText = originalText;
   for (const edit of orderedEdits) {
