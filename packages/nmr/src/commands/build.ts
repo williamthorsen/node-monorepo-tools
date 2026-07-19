@@ -79,14 +79,9 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
 }
 
 /**
- * Produces a digest of the given files (paths and contents) plus the emit config and the compiler version.
- * The file list is sorted so the digest is invariant to enumeration order, and each file's path is folded in so that
- * renames and moves (and not just content edits) are detected.
- *
- * The compiler version is an input because it shapes the emit: The same sources under a different TypeScript version
- * can produce different output, so a digest blind to it would skip the rebuild and serve output from the previous
- * compiler. It is a parameter rather than a direct `ts.version` read so this function stays pure and its
- * version-busting is provable without stubbing the compiler.
+ * Produces a digest of the given files (paths and contents), the emit config, and the compiler version.
+ * The file list is sorted so the digest is order-invariant, and each path is folded in so renames are detected.
+ * The compiler version is included because the same sources can emit differently across TypeScript versions.
  */
 export async function computeBuildHash(
   packageDir: string,
