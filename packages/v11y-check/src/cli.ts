@@ -61,7 +61,7 @@ export async function auditCommand(options: CommandOptions): Promise<number> {
             process.stderr.write(`warning: ${warning}\n`);
           }
           for (const r of parsed.results) {
-            if (!allResults.some((existing) => existing.id === r.id)) {
+            if (allResults.every((existing) => existing.id !== r.id)) {
               allResults.push(r);
             }
           }

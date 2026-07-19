@@ -216,8 +216,8 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
     tags,
     formatCommand,
     dryRun,
-    ...(allWarnings.length > 0 ? { warnings: allWarnings } : {}),
-    ...(project === undefined ? {} : { project }),
+    ...(allWarnings.length > 0 && { warnings: allWarnings }),
+    ...(project !== undefined && { project }),
   };
 }
 
@@ -911,10 +911,12 @@ function topologicalSort(
   const sortedSet = new Set(sorted);
   const cyclicDirs: string[] = [];
   for (const dir of releaseDirs) {
-    if (!sortedSet.has(dir)) {
-      sorted.push(dir);
-      cyclicDirs.push(dir);
+    if (sortedSet.has(dir)) {
+      continue;
     }
+
+    sorted.push(dir);
+    cyclicDirs.push(dir);
   }
 
   return { sorted, cyclicDirs };

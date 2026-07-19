@@ -167,7 +167,7 @@ describe(releasePrepareProject, () => {
     mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
       if (cmd === 'git' && args[0] === 'describe') return 'v0.9.0\n';
       // 'chore' is not in the test workTypes (only feat, fix), so this commit is unparseable.
-      if (cmd === 'git' && args[0] === 'log') return 'chore: update deps\u001Fabc123';
+      if (cmd === 'git' && args[0] === 'log') return 'chore: update deps\u{1F}abc123';
       return '';
     });
     const tags: string[] = [];
@@ -223,7 +223,7 @@ describe(releasePrepareProject, () => {
     // at patch (rather than skipping).
     mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
       if (cmd === 'git' && args[0] === 'describe') return 'v0.9.0\n';
-      if (cmd === 'git' && args[0] === 'log') return 'chore: update deps\u001Fabc123';
+      if (cmd === 'git' && args[0] === 'log') return 'chore: update deps\u{1F}abc123';
       return '';
     });
     const tags: string[] = [];
@@ -251,7 +251,7 @@ describe(releasePrepareProject, () => {
     // `--bump=X` is set without `--force`.
     mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
       if (cmd === 'git' && args[0] === 'describe') return 'v0.9.0\n';
-      if (cmd === 'git' && args[0] === 'log') return 'chore: update deps\u001Fabc123';
+      if (cmd === 'git' && args[0] === 'log') return 'chore: update deps\u{1F}abc123';
       return '';
     });
     const tags: string[] = [];

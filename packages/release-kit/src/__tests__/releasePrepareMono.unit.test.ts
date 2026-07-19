@@ -171,10 +171,10 @@ function firstCacheRefreshCallIndex(): number {
       call[1].includes('--version') &&
       !call[1].includes('--config')
     ) {
-      return mockExecFileSync.mock.invocationCallOrder[index] ?? Number.POSITIVE_INFINITY;
+      return mockExecFileSync.mock.invocationCallOrder[index] ?? Infinity;
     }
   }
-  return Number.POSITIVE_INFINITY;
+  return Infinity;
 }
 
 /**
@@ -245,7 +245,7 @@ describe(releasePrepareMono, () => {
         return 'arrays-v1.0.0\n';
       }
       if (cmd === 'git' && args[0] === 'log') {
-        return 'feat: add utility\u001Fabc123';
+        return 'feat: add utility\u{1F}abc123';
       }
       return '';
     });
@@ -359,7 +359,7 @@ describe(releasePrepareMono, () => {
       if (cmd === 'git' && args[0] === 'log') {
         const hasArraysPath = args.includes('packages/arrays/**');
         if (hasArraysPath) {
-          return 'fix: fix array bug\u001Fdef456';
+          return 'fix: fix array bug\u{1F}def456';
         }
         return '';
       }
@@ -407,7 +407,7 @@ describe(releasePrepareMono, () => {
         return 'arrays-v1.0.0\n';
       }
       if (cmd === 'git' && args[0] === 'log') {
-        return 'feat: add feature\u001Fabc123';
+        return 'feat: add feature\u{1F}abc123';
       }
       return '';
     });
@@ -466,7 +466,7 @@ describe(releasePrepareMono, () => {
         if (matchArg?.includes('strings-v')) return 'strings-v1.0.0\n';
       }
       if (cmd === 'git' && args[0] === 'log') {
-        return 'feat: add feature\u001Fabc123';
+        return 'feat: add feature\u{1F}abc123';
       }
       return '';
     });
@@ -502,7 +502,7 @@ describe(releasePrepareMono, () => {
         return 'arrays-v1.0.0\n';
       }
       if (cmd === 'git' && args[0] === 'log') {
-        return 'fix: small patch\u001Fabc123';
+        return 'fix: small patch\u{1F}abc123';
       }
       return '';
     });
@@ -551,7 +551,7 @@ describe(releasePrepareMono, () => {
         return 'arrays-v1.0.0\n';
       }
       if (cmd === 'git' && args[0] === 'log') {
-        return 'chore: update deps\u001Fabc123';
+        return 'chore: update deps\u{1F}abc123';
       }
       return '';
     });
@@ -596,7 +596,7 @@ describe(releasePrepareMono, () => {
         return 'arrays-v1.0.0\n';
       }
       if (cmd === 'git' && args[0] === 'log') {
-        return 'chore: update deps\u001Fabc123';
+        return 'chore: update deps\u{1F}abc123';
       }
       return '';
     });
@@ -638,7 +638,7 @@ describe(releasePrepareMono, () => {
         return 'arrays-v1.0.0\n';
       }
       if (cmd === 'git' && args[0] === 'log') {
-        return 'chore: update deps\u001Fabc123';
+        return 'chore: update deps\u{1F}abc123';
       }
       return '';
     });
@@ -737,9 +737,9 @@ describe(releasePrepareMono, () => {
       if (cmd === 'git' && args[0] === 'log') {
         const hasArraysPath = args.includes('packages/arrays/**');
         if (hasArraysPath) {
-          return 'chore: update deps\u001Fabc123';
+          return 'chore: update deps\u{1F}abc123';
         }
-        return 'feat: add helper\u001Fdef456';
+        return 'feat: add helper\u{1F}def456';
       }
       return '';
     });
@@ -777,7 +777,7 @@ describe(releasePrepareMono, () => {
         return 'arrays-v1.0.0\n';
       }
       if (cmd === 'git' && args[0] === 'log') {
-        return 'feat: add utility\u001Fabc123\nchore: update deps\u001Fdef456';
+        return 'feat: add utility\u{1F}abc123\nchore: update deps\u{1F}def456';
       }
       return '';
     });
@@ -868,7 +868,7 @@ describe(releasePrepareMono, () => {
       if (cmd === 'git' && args[0] === 'log') {
         const hasStringsPath = args.includes('packages/strings/**');
         if (hasStringsPath) {
-          return 'feat: add string helper\u001Fabc123';
+          return 'feat: add string helper\u{1F}abc123';
         }
         return '';
       }
@@ -975,7 +975,7 @@ describe(releasePrepareMono, () => {
         return 'arrays-v1.0.0\n';
       }
       if (cmd === 'git' && args[0] === 'log') {
-        return 'feat: add feature\u001Fabc123';
+        return 'feat: add feature\u{1F}abc123';
       }
       return '';
     });
@@ -1012,7 +1012,7 @@ describe(releasePrepareMono, () => {
         return 'arrays-v1.0.0\n';
       }
       if (cmd === 'git' && args[0] === 'log') {
-        return 'feat: add feature\u001Fabc123';
+        return 'feat: add feature\u{1F}abc123';
       }
       return '';
     });
@@ -1044,7 +1044,7 @@ describe(releasePrepareMono, () => {
         return 'arrays-v1.0.0\n';
       }
       if (cmd === 'git' && args[0] === 'log') {
-        return 'feat: add utility\u001Fabc123';
+        return 'feat: add utility\u{1F}abc123';
       }
       return '';
     });
@@ -1104,7 +1104,7 @@ describe(releasePrepareMono, () => {
         }
         if (cmd === 'git' && args[0] === 'log') {
           const hasCorePath = args.includes('packages/core/**');
-          if (hasCorePath) return 'feat: add utility\u001Fabc123';
+          if (hasCorePath) return 'feat: add utility\u{1F}abc123';
           return '';
         }
         return '';
@@ -1186,7 +1186,7 @@ describe(releasePrepareMono, () => {
         }
         if (cmd === 'git' && args[0] === 'log') {
           const hasCorePath = args.includes('packages/core/**');
-          if (hasCorePath) return 'fix: bug fix\u001Fabc123';
+          if (hasCorePath) return 'fix: bug fix\u{1F}abc123';
           return '';
         }
         return '';
@@ -1244,7 +1244,7 @@ describe(releasePrepareMono, () => {
 
       mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
         if (cmd === 'git' && args[0] === 'describe') return 'core-v1.0.0\n';
-        if (cmd === 'git' && args[0] === 'log') return 'feat: new feature\u001Fabc123';
+        if (cmd === 'git' && args[0] === 'log') return 'feat: new feature\u{1F}abc123';
         return '';
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '1.0.0' }));
@@ -1454,8 +1454,8 @@ describe(releasePrepareMono, () => {
         if (cmd === 'git' && args[0] === 'log') {
           // Both have commits.
           const hasCorePath = args.includes('packages/core/**');
-          if (hasCorePath) return 'fix: core fix\u001Fabc123';
-          return 'feat: app feature\u001Fdef456';
+          if (hasCorePath) return 'fix: core fix\u{1F}abc123';
+          return 'feat: app feature\u{1F}def456';
         }
         return '';
       });

@@ -101,8 +101,8 @@ function sortSectionsByOrder(sections: ChangelogSection[], order: string[]): Cha
   }
   const indexed = sections.map((section, index) => ({ section, index }));
   indexed.sort((a, b) => {
-    const priorityA = priority.get(a.section.title) ?? Number.POSITIVE_INFINITY;
-    const priorityB = priority.get(b.section.title) ?? Number.POSITIVE_INFINITY;
+    const priorityA = priority.get(a.section.title) ?? Infinity;
+    const priorityB = priority.get(b.section.title) ?? Infinity;
     if (priorityA !== priorityB) {
       return priorityA - priorityB;
     }

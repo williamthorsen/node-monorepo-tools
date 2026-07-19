@@ -8,6 +8,8 @@ This package serves as the shared library foundation for the monorepo. For the n
 
 ## Installation
 
+Requires Node.js 24 or later.
+
 ```bash
 pnpm add -D @williamthorsen/nmr-core
 ```

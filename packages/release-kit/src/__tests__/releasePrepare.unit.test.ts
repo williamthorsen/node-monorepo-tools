@@ -89,7 +89,7 @@ function setupFeatCommit(): void {
       return 'v1.0.0\n';
     }
     if (cmd === 'git' && args[0] === 'log') {
-      return 'feat: add feature\u001Fabc123';
+      return 'feat: add feature\u{1F}abc123';
     }
     return '';
   });
@@ -157,7 +157,7 @@ describe(releasePrepare, () => {
         return 'v1.0.0\n';
       }
       if (cmd === 'git' && args[0] === 'log') {
-        return 'chore: update deps\u001Fabc123';
+        return 'chore: update deps\u{1F}abc123';
       }
       return '';
     });
@@ -182,7 +182,7 @@ describe(releasePrepare, () => {
         return 'v1.0.0\n';
       }
       if (cmd === 'git' && args[0] === 'log') {
-        return 'feat: add feature\u001Fabc123\nchore: update deps\u001Fdef456';
+        return 'feat: add feature\u{1F}abc123\nchore: update deps\u{1F}def456';
       }
       return '';
     });
@@ -277,7 +277,7 @@ describe(releasePrepare, () => {
         return 'my-lib-v1.0.0\n';
       }
       if (cmd === 'git' && args[0] === 'log') {
-        return 'feat: add feature\u001Fabc123';
+        return 'feat: add feature\u{1F}abc123';
       }
       return '';
     });
@@ -306,7 +306,7 @@ describe(releasePrepare, () => {
         return 'v0.5.0\n';
       }
       if (cmd === 'git' && args[0] === 'log') {
-        return 'chore: unrelated change\u001Fabc123';
+        return 'chore: unrelated change\u{1F}abc123';
       }
       return '';
     });

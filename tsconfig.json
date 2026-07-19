@@ -11,12 +11,11 @@
     "allowUnusedLabels": false,
     // "alwaysStrict": true, // implied by "strict"
     "declaration": true,
-    "emitDecoratorMetadata": true,
-    // Support importation of CJS modules in ESM.
-    "esModuleInterop": true,
+    // "emitDecoratorMetadata": true, // dropped: no decorators in this repo
+    // "esModuleInterop": true, // forced true in TS 6.0; the `false` form is an error
     // Report an error when the value `undefined` is given to an optional property that doesn't specify `undefined` as a valid value.
     "exactOptionalPropertyTypes": true,
-    "experimentalDecorators": true,
+    // "experimentalDecorators": true, // dropped: no decorators in this repo
     // Report an error when importing a file using a casing different from the casing on disk.
     "forceConsistentCasingInFileNames": true,
     // Enable stricter transpilation for better output.
@@ -59,8 +58,12 @@
     // "strictNullChecks": true,             // implied by "strict"
     // "strictPropertyInitialization": true, // implied by "strict"
 
-    // Enable top-level `await` and other modern ESM features.
+    // Enable top-level `await` and other modern ESM features. Since TS 6.0 the default `target` floats
+    // with the calendar year, so this pins output against a moving default rather than a fixed one.
+    // ES2024 would add no syntax over ES2022 — its additions are library methods, which `lib` governs.
     "target": "ES2022",
+    // Since TS 6.0 the default is `[]`, so this widens the ambient types to include Node's rather than
+    // narrowing an include-everything default. Removing it would leave no ambient Node types at all.
     "types": ["node"],
     // "useDefineForClassFields": true, // implied by target >= ES2022 (including ESNext)
   },
@@ -72,5 +75,7 @@
     "__tests__/",
     "config/",
     "scripts/",
+    // Root-level config files (vite/vitest); the project service resolves each linted `.ts` file's owning config here.
+    "*.ts",
   ],
 }

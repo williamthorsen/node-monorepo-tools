@@ -11,10 +11,11 @@ module.exports = {
  * @returns {boolean} - true if the package should be included
  */
 function filterResults(packageName, versioningMetadata) {
-  if (packageName === '@types/node' && Number.parseInt(versioningMetadata.upgradedVersionSemver.major) > 24) {
-    return false;
-  }
-
+  const major = Number.parseInt(versioningMetadata.upgradedVersionSemver.major);
+  // `@types/node` tracks the `engines` floor (Node 24); `typescript` is held at 6.x because TypeScript 7 ships no
+  // compiler API, which the build depends on. Keep both out of the available-upgrades report.
+  if (packageName === '@types/node' && major > 24) return false;
+  if (packageName === 'typescript' && major > 6) return false;
   return true;
 }
 

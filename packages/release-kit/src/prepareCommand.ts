@@ -141,9 +141,9 @@ export async function prepareCommand(argv: string[]): Promise<void> {
   const options = {
     dryRun,
     force,
-    ...(bumpOverride === undefined ? {} : { bumpOverride }),
-    ...(setVersion === undefined ? {} : { setVersion }),
-    ...(withReleaseNotes ? { withReleaseNotes: true } : {}),
+    ...(bumpOverride !== undefined && { bumpOverride }),
+    ...(setVersion !== undefined && { setVersion }),
+    ...(withReleaseNotes && { withReleaseNotes: true }),
   };
 
   if (dryRun) {
@@ -260,10 +260,12 @@ function runMonorepoMode(
 
     // Validate all names before mutating config
     for (const name of only) {
-      if (!knownNames.includes(name)) {
-        reportError(`Unknown workspace "${name}". Known workspaces: ${knownNames.join(', ')}`);
-        process.exit(1);
+      if (knownNames.includes(name)) {
+        continue;
       }
+
+      reportError(`Unknown workspace "${name}". Known workspaces: ${knownNames.join(', ')}`);
+      process.exit(1);
     }
 
     // Reject `--only` invocations that would silently strand changes in excluded internal

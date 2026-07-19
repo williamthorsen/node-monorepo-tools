@@ -119,7 +119,7 @@ function writePreviewFile(filePath: string, content: string, dryRun: boolean): P
 
   if (result.outcome === 'failed') {
     reportError(`Failed to write ${filePath}: ${result.error ?? 'unknown error'}`);
-    return { filePath, outcome: 'failed', ...(result.error === undefined ? {} : { error: result.error }) };
+    return { filePath, outcome: 'failed', ...(result.error !== undefined && { error: result.error }) };
   }
 
   // `writeFileWithCheck` with `overwrite: true` only returns 'created' or 'overwritten' on success.

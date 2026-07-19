@@ -55,7 +55,7 @@ export function renderInjectedReadme(
   const renderedSections = renderReleaseNotesSingle(entry, {
     filter: matchesAudience('all'),
     includeHeading: false,
-    ...(sectionOrder === undefined ? {} : { sectionOrder }),
+    ...(sectionOrder !== undefined && { sectionOrder }),
   });
 
   if (renderedSections.trimEnd().length === 0) {

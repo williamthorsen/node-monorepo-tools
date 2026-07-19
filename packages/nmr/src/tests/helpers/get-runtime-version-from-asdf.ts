@@ -19,7 +19,7 @@ export async function getRuntimeVersionFromAsdf(runtime: string, monorepoRoot: s
 
   assert.ok(versionLine, `${runtime} not found in .tool-versions`);
 
-  const [, version] = versionLine.trim().split(/\s+/);
+  const [, version] = versionLine.trim().split(/\s+/, 2);
   assert.ok(version, `${runtime} version missing in .tool-versions`);
 
   return version;

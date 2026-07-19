@@ -63,6 +63,7 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
     packageDir,
     [...entryPoints, ...dependencies],
     emitConfig,
+    ts.version,
     cachePath,
     hasExpectedBuildOutput(packageDir, outdir, entryPoints),
   );
@@ -78,13 +79,18 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
 }
 
 /**
- * Produces a digest of the given files (paths and contents) plus the emit config. The file list is
- * sorted so the digest is invariant to enumeration order, and each file's path is folded in so
- * renames and moves are detected — not just content edits.
+ * Produces a digest of the given files (paths and contents), the emit config, and the compiler version.
+ * The file list is sorted so the digest is order-invariant, and each path is folded in so renames are detected.
+ * The compiler version is included because the same sources can emit differently across TypeScript versions.
  */
-export async function computeBuildHash(packageDir: string, files: string[], emitConfig: object): Promise<string> {
+export async function computeBuildHash(
+  packageDir: string,
+  files: string[],
+  emitConfig: object,
+  compilerVersion: string,
+): Promise<string> {
   const hash = createHash('sha256');
-  // eslint-disable-next-line unicorn/no-array-sort -- spread already creates a fresh copy; toSorted requires Node >=20
+  // eslint-disable-next-line unicorn/no-array-sort -- spread already creates a fresh copy
   for (const file of [...files].sort()) {
     hash.update(file);
     hash.update('\0');
@@ -92,6 +98,8 @@ export async function computeBuildHash(packageDir: string, files: string[], emit
   }
 
   hash.update(JSON.stringify(emitConfig));
+  hash.update('\0');
+  hash.update(compilerVersion);
   return hash.digest('hex');
 }
 
@@ -249,7 +257,7 @@ function rewriteOutputSpecifiers(outputFile: string, compilerOptions: ts.Compile
   }
 
   // Apply edits from the end of the file backwards so earlier offsets stay valid as text is spliced.
-  // eslint-disable-next-line unicorn/no-array-sort -- spread already creates a fresh copy; toSorted requires Node >=20
+  // eslint-disable-next-line unicorn/no-array-sort -- spread already creates a fresh copy
   const orderedEdits = [...edits].sort((a, b) => b.start - a.start);
   let updatedText = originalText;
   for (const edit of orderedEdits) {
@@ -280,7 +288,7 @@ function resolveSpecifierReplacement(
     return rewritten === specifier ? undefined : rewritten;
   }
 
-  if (!aliasPrefixes.some((prefix) => specifier === prefix || specifier.startsWith(prefix))) {
+  if (aliasPrefixes.every((prefix) => !(specifier === prefix || specifier.startsWith(prefix)))) {
     return undefined;
   }
 
@@ -402,12 +410,13 @@ async function detectBuildChanges(
   packageDir: string,
   files: string[],
   emitConfig: EmitConfig,
+  compilerVersion: string,
   cachePath: string,
   outputPresent: boolean,
 ): Promise<{ changed: boolean; currentHash: string }> {
   const packageName = path.basename(packageDir);
   const previousHash = existsSync(cachePath) ? readFileSync(cachePath, 'utf8') : undefined;
-  const currentHash = await computeBuildHash(packageDir, files, emitConfig);
+  const currentHash = await computeBuildHash(packageDir, files, emitConfig, compilerVersion);
 
   if (previousHash === currentHash) {
     if (outputPresent) {
@@ -450,7 +459,7 @@ async function writeBuildCache(cachePath: string, hash: string): Promise<void> {
 
 /** Asserts the resolved `typescript` peer is new enough for `rewriteRelativeImportExtensions`. */
 function assertSupportedTypeScript(): void {
-  const [majorPart, minorPart] = ts.versionMajorMinor.split('.');
+  const [majorPart, minorPart] = ts.versionMajorMinor.split('.', 2);
   const major = majorPart === undefined ? 0 : Number(majorPart);
   const minor = minorPart === undefined ? 0 : Number(minorPart);
   const tooOld =

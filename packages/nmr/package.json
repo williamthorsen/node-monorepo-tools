@@ -64,7 +64,10 @@
     "@williamthorsen/toolbelt.strings": "3.1.4"
   },
   "peerDependencies": {
-    "typescript": ">=5.7.0"
+    "typescript": ">=5.7.0 <7"
+  },
+  "engines": {
+    "node": ">=24"
   },
   "publishConfig": {
     "access": "public"

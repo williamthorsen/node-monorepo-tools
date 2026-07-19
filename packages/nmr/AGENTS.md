@@ -38,7 +38,7 @@ Some root scripts (e.g. `lint`, `typecheck`, `test`) expand to `nmr root:X && pn
 
 ## Managed build
 
-The default `compile` script runs `nmr-compile`, a standalone bin that uses the TypeScript compiler API to emit a package's `src` to `dist/esm` as `.js` and `.d.ts` in one pass, rewriting relative `.ts`→`.js` specifiers and tsconfig `paths` aliases in both outputs, and skipping work when inputs are unchanged. `typescript` is a peer dependency (`>=5.7.0`). There is no repo-local build script to maintain, and no separate typings step; `nmr build` runs `compile` alone. To find or debug the build, look to `nmr-compile`, not a `config/build.ts` in the consuming repo.
+The default `compile` script runs `nmr-compile`, a standalone bin that uses the TypeScript compiler API to emit a package's `src` to `dist/esm` as `.js` and `.d.ts` in one pass, rewriting relative `.ts`→`.js` specifiers and tsconfig `paths` aliases in both outputs, and skipping work when inputs are unchanged. `typescript` is a peer dependency (`>=5.7.0 <7`; TypeScript 7 ships no compiler API). There is no repo-local build script to maintain, and no separate typings step; `nmr build` runs `compile` alone. To find or debug the build, look to `nmr-compile`, not a `config/build.ts` in the consuming repo.
 
 ## Override behaviors
 

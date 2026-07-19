@@ -65,7 +65,7 @@ export function createGithubRelease(options: CreateGithubReleaseOptions): Create
   const body = renderReleaseNotesSingle(entry, {
     filter: matchesAudience('all'),
     includeHeading: false,
-    ...(sectionOrder === undefined ? {} : { sectionOrder }),
+    ...(sectionOrder !== undefined && { sectionOrder }),
   });
 
   if (body.trim() === '') {
@@ -112,7 +112,7 @@ export function createGithubReleases(
       tag,
       changelogJsonPath,
       dryRun,
-      ...(sectionOrder === undefined ? {} : { sectionOrder }),
+      ...(sectionOrder !== undefined && { sectionOrder }),
     });
     if (result.status === 'created') {
       created.push(tag);
