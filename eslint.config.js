@@ -64,10 +64,9 @@ export default [
     },
   },
   {
-    // TEMPORARY (#481): eslint-config-typescript 6 (eslint-plugin-unicorn 63 → 72 plus new core rules)
-    // surfaced 224 pre-existing violations that `eslint --fix` cannot resolve. These rules are turned
-    // off until #481 remediates the violations and re-enables them, selectively. Do not add new
-    // entries here — fix new violations at the source rather than widening this block.
+    // TODO(#481): Fix violations and then remove overrides, or selectively make overrides permanent.
+    // Context: `eslint-config-typescript` v6 (which includes an upgrade of `eslint-plugin-unicorn` from 63 to 72,
+    // adding new core rules) surfaced pre-existing violations that `eslint --fix` cannot resolve.
     rules: {
       '@typescript-eslint/no-deprecated': 'off',
       'preserve-caught-error': 'off',
