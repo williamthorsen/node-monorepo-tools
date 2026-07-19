@@ -115,7 +115,7 @@ export async function resolveContext(cwd?: string): Promise<ResolvedContext> {
   return {
     monorepoRoot,
     isRoot: packageDir === undefined,
-    ...(packageDir === undefined ? {} : { packageDir }),
+    ...(packageDir !== undefined && { packageDir }),
     config,
   };
 }

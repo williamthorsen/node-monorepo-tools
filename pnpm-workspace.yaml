@@ -5,6 +5,12 @@ allowBuilds:
   esbuild: true
   lefthook: true
 
+# eslint-plugin-import has no release declaring an eslint 10 peer, but it shims the removed APIs
+# internally and runs under eslint 10. Clear the false unmet-peer scoped to this one edge.
+peerDependencyRules:
+  allowedVersions:
+    'eslint-plugin-import>eslint': '>=10'
+
 # Keep pnpm 11's 24h minimumReleaseAge soak (supply-chain protection), set
 # explicitly to pin the policy, but exclude first-party packages so a freshly
 # published version can be consumed downstream without waiting out the soak.

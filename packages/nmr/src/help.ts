@@ -86,10 +86,12 @@ function collectOverrides(packageDir: string): Record<string, string> {
 function applyOverrides(registry: ScriptRegistry, overrides: Record<string, string>): Set<string> {
   const marked = new Set<string>();
   for (const [name, value] of Object.entries(overrides)) {
-    if (name in registry) {
-      registry[name] = value;
-      marked.add(name);
+    if (!(name in registry)) {
+      continue;
     }
+
+    registry[name] = value;
+    marked.add(name);
   }
   return marked;
 }

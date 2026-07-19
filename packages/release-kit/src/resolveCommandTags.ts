@@ -66,10 +66,12 @@ export async function resolveCommandTags(tags: string[] | undefined): Promise<Re
   if (tags !== undefined) {
     const availableTagNames = resolvedTags.map((t) => t.tag);
     for (const name of tags) {
-      if (!availableTagNames.includes(name)) {
-        reportError(`Unknown tag "${name}" in --tags. Available: ${availableTagNames.join(', ')}`);
-        process.exit(1);
+      if (availableTagNames.includes(name)) {
+        continue;
       }
+
+      reportError(`Unknown tag "${name}" in --tags. Available: ${availableTagNames.join(', ')}`);
+      process.exit(1);
     }
     resolvedTags = resolvedTags.filter((t) => tags.includes(t.tag));
   }

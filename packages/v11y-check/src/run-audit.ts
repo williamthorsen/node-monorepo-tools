@@ -141,10 +141,12 @@ function extractPaths(advisory: AuditCiAdvisory): string[] {
   const ordered: string[] = [];
   for (const finding of advisory.findings) {
     for (const pathValue of finding.paths) {
-      if (!seen.has(pathValue)) {
-        seen.add(pathValue);
-        ordered.push(pathValue);
+      if (seen.has(pathValue)) {
+        continue;
       }
+
+      seen.add(pathValue);
+      ordered.push(pathValue);
     }
   }
   return ordered;

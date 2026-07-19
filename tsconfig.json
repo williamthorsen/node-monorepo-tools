@@ -75,5 +75,7 @@
     "__tests__/",
     "config/",
     "scripts/",
+    // Root-level config files (vite/vitest); the project service resolves each linted `.ts` file's owning config here.
+    "*.ts",
   ],
 }

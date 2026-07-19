@@ -17,6 +17,7 @@ describe('label-map.json schema', () => {
   });
 
   it('declares draft-07 as its meta-schema', () => {
+    // eslint-disable-next-line unicorn/prefer-https -- draft-07's meta-schema $id is canonically http; it identifies the schema, it is not fetched
     expect(schema).toMatchObject({ $schema: 'http://json-schema.org/draft-07/schema#' });
   });
 

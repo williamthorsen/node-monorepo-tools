@@ -103,10 +103,12 @@ function validateSingleOverride(key: string, rawEntry: unknown, errors: string[]
 
   let entryValid = true;
   for (const fieldName of Object.keys(rawEntry)) {
-    if (!KNOWN_OVERRIDE_FIELDS.has(fieldName)) {
-      errors.push(`overrides['${key}']: unknown field '${fieldName}'`);
-      entryValid = false;
+    if (KNOWN_OVERRIDE_FIELDS.has(fieldName)) {
+      continue;
     }
+
+    errors.push(`overrides['${key}']: unknown field '${fieldName}'`);
+    entryValid = false;
   }
 
   const result: ChangelogOverride = {};

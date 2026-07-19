@@ -48,10 +48,7 @@ describe(injectReleaseNotesIntoReadme, () => {
 
   function setupInjectionMocks(): void {
     mockExistsSync.mockImplementation((p: string) => {
-      if (typeof p === 'string' && (p.endsWith('README.md') || p.endsWith('changelog.json'))) {
-        return true;
-      }
-      return false;
+      return typeof p === 'string' && (p.endsWith('README.md') || p.endsWith('changelog.json'));
     });
     mockReadFileSync.mockReturnValue('# Original README\n');
     mockExtractVersion.mockReturnValue('1.0.0');

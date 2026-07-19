@@ -32,7 +32,7 @@ const CANONICAL_SECTION_ORDER: ReadonlyMap<string, number> = new Map(
 /** Lookup the canonical priority of a section title. Unknown sections sort to the end. */
 function canonicalSectionPriority(title: string): number {
   const index = CANONICAL_SECTION_ORDER.get(stripGroupDecorations(title));
-  return index ?? Number.POSITIVE_INFINITY;
+  return index ?? Infinity;
 }
 
 /**
@@ -249,7 +249,7 @@ function subjectHasBreakingMarker(message: string): boolean {
 
 /** Extract the description from a commit message, stripping ticket ID and type prefix. */
 function extractDescription(message: string): string {
-  const firstLine = message.split('\n')[0] ?? message;
+  const firstLine = message.split('\n', 1)[0] ?? message;
   const afterColon = firstLine.split(': ').slice(1).join(': ');
   if (afterColon.length > 0) {
     return afterColon.charAt(0).toUpperCase() + afterColon.slice(1);

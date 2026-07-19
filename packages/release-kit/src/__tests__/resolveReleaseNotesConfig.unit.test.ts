@@ -108,7 +108,7 @@ describe(resolveReleaseNotesConfig, () => {
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
     expect(process.stderr.write).toHaveBeenCalledWith('Invalid config:\n');
-    expect(process.stderr.write).toHaveBeenCalledWith("  \u274C Unknown field: 'bogus'\n");
+    expect(process.stderr.write).toHaveBeenCalledWith("  \u{274C} Unknown field: 'bogus'\n");
   });
 
   it('logs each warning from validateConfig', async () => {

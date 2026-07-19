@@ -153,10 +153,7 @@ function hasFindings(result: ScopeCheckResult): boolean {
 
 /** Format a scope's finding lines (without scope header). */
 function formatScopeFindings(result: ScopeCheckResult, now: Date): string[] {
-  const lines: string[] = [];
-  for (const vuln of result.unallowed) {
-    lines.push(formatUnallowedLine(vuln));
-  }
+  const lines: string[] = Array.from(result.unallowed, (vuln) => formatUnallowedLine(vuln));
   for (const vuln of result.allowed) {
     lines.push(formatAllowedLine(vuln, now));
   }

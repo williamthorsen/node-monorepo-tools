@@ -67,10 +67,9 @@ export async function previewTagPrefixes(): Promise<TagPrefixPreview> {
   const userConfig = await loadUserConfig();
   const overridesByDir = buildOverrideMap(userConfig);
 
-  const workspaces: TagPrefixPreviewRow[] = [];
-  for (const workspacePath of workspacePaths) {
-    workspaces.push(buildPreviewRow(workspacePath, overridesByDir));
-  }
+  const workspaces: TagPrefixPreviewRow[] = Array.from(workspacePaths, (workspacePath) =>
+    buildPreviewRow(workspacePath, overridesByDir),
+  );
 
   const retiredPackages = buildRetiredPreviewEntries(userConfig?.retiredPackages ?? []);
 
@@ -194,6 +193,6 @@ function buildRetiredPreviewEntries(retiredPackages: readonly RetiredPackage[]):
     name: retired.name,
     tagPrefix: retired.tagPrefix,
     tagCount: countTagsMatching(retired.tagPrefix),
-    ...(retired.successor !== undefined ? { successor: retired.successor } : {}),
+    ...(retired.successor !== undefined && { successor: retired.successor }),
   }));
 }

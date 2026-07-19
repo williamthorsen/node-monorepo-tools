@@ -50,7 +50,7 @@ export function getPnpmVersionFromPackageJson(monorepoRoot: string): string {
     throw new TypeError('"packageManager" field missing or not a string in package.json.');
   }
 
-  const [name, version] = pm.split('@');
+  const [name, version] = pm.split('@', 2);
   if (name !== 'pnpm') {
     throw new Error('packageManager is not pnpm.');
   }

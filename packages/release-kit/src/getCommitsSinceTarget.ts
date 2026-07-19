@@ -8,7 +8,7 @@ import type { Commit } from './types.ts';
  * this ASCII control character instead. It cannot appear in commit
  * subject lines produced by git.
  */
-const FIELD_SEPARATOR = '\u001F';
+const FIELD_SEPARATOR = '\u{1F}';
 
 /**
  * Checks whether an error is the expected "no matching tag" failure from `git describe`.

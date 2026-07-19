@@ -293,7 +293,7 @@ function resolveSpecifierReplacement(
     return rewritten === specifier ? undefined : rewritten;
   }
 
-  if (!aliasPrefixes.some((prefix) => specifier === prefix || specifier.startsWith(prefix))) {
+  if (aliasPrefixes.every((prefix) => !(specifier === prefix || specifier.startsWith(prefix)))) {
     return undefined;
   }
 
@@ -464,7 +464,7 @@ async function writeBuildCache(cachePath: string, hash: string): Promise<void> {
 
 /** Asserts the resolved `typescript` peer is new enough for `rewriteRelativeImportExtensions`. */
 function assertSupportedTypeScript(): void {
-  const [majorPart, minorPart] = ts.versionMajorMinor.split('.');
+  const [majorPart, minorPart] = ts.versionMajorMinor.split('.', 2);
   const major = majorPart === undefined ? 0 : Number(majorPart);
   const minor = minorPart === undefined ? 0 : Number(minorPart);
   const tooOld =

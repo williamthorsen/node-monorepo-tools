@@ -20,7 +20,7 @@ const SCOPE_HEADERS: Record<AuditScope, string> = {
 };
 
 /** Indentation for entry detail lines (below the marker + id line). */
-const DETAIL_INDENT = '     ';
+const DETAIL_INDENT = ' '.repeat(5);
 
 /** Approximate target width for wrapped description lines. */
 const WRAP_COLUMNS = 72;
@@ -37,11 +37,9 @@ export function formatCheckVerboseText(
   thresholds?: Partial<Record<AuditScope, SeverityThreshold>>,
 ): string {
   const effectiveNow = now ?? new Date();
-  const sections: string[] = [];
-
-  for (const scope of scopes) {
-    sections.push(formatScopeVerbose(scope, result[scope], effectiveNow, thresholds?.[scope]));
-  }
+  const sections: string[] = Array.from(scopes, (scope) =>
+    formatScopeVerbose(scope, result[scope], effectiveNow, thresholds?.[scope]),
+  );
 
   const actions = formatActionHints(result, scopes);
   const body = sections.join('\n\n') + '\n';
@@ -77,10 +75,7 @@ function formatScopeVerbose(
     return lines.join('\n');
   }
 
-  const blocks: string[] = [];
-  for (const vuln of result.unallowed) {
-    blocks.push(formatUnallowedBlock(vuln));
-  }
+  const blocks: string[] = Array.from(result.unallowed, (vuln) => formatUnallowedBlock(vuln));
   for (const vuln of result.allowed) {
     blocks.push(formatAllowedBlock(vuln, now));
   }
