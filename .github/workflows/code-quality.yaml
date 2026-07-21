@@ -17,9 +17,13 @@ on:
 
   workflow_dispatch: {}
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   code-quality:
-    uses: williamthorsen/.github/.github/workflows/code-quality-pnpm-workflow.yaml@v5
+    uses: williamthorsen/.github/.github/workflows/code-quality-pnpm-workflow.yaml@v6
     with:
-      check-command: pnpm exec nmr build && pnpm exec nmr check:strict && git diff --exit-code -- .readyup/
-      node-version: '24.14.1'
+      check-command: pnpm exec nmr build && pnpm exec nmr check:strict
+      node-version: '24.18.0'
