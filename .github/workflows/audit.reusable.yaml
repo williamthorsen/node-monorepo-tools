@@ -9,7 +9,7 @@ name: 'Reusable: Dependency audit'
 #     unallowed vulnerabilities are detected.
 #   - scheduled-audit (on `schedule` / `workflow_dispatch`): full audit
 #     (prod + dev) with grouped output, maintained on a single standing issue
-#     labeled `audit-status`.
+#     identified by its bot author and title.
 #
 # The v11y-check CLI is fetched via `pnpm dlx v11y-check@latest`,
 # so no local install step is needed. `@latest` is deliberate: vulnerability
@@ -183,26 +183,24 @@ jobs:
             echo 'AUDIT_EOF'
           } >> "$GITHUB_OUTPUT"
 
-      - name: Ensure audit-status label exists
-        run: |
-          gh label create audit-status --color "0075ca" --description "Tracks dependency audit status" || true
-        env:
-          GH_TOKEN: ${{ github.token }}
-
-      # Lookup is by label, not title, so the title format change is safe for existing standing
-      # issues — they are matched by label and have their titles rewritten on the next update step.
+      # `--author` requires the literal `github-actions[bot]`; the JSON output renders the same
+      # author as `app/github-actions`, which the filter does not match.
+      #
+      # The standing issue carries no label: `gh issue create --label` fails when the label does
+      # not exist, which would make any label a prerequisite for every consumer repo.
       - name: Find or create standing issue
         id: find-issue
         run: |
-          ISSUE_NUMBER=$(gh issue list --label audit-status --state open --json number --jq '.[0].number // empty')
+          ISSUE_NUMBER=$(gh issue list --state open --author 'github-actions[bot]' --limit 100 \
+            --json number,title \
+            --jq 'map(select(.title | contains("Dependency audit status"))) | .[0].number // empty')
           if [ -z "$ISSUE_NUMBER" ]; then
             ISSUE_NUMBER=$(gh issue create \
               --title "$TITLE" \
-              --label "audit-status" \
               --body "Awaiting first audit run." | grep -oE '[0-9]+$')
           fi
           if [ -z "$ISSUE_NUMBER" ]; then
-            echo "::error::Failed to create or find audit-status issue."
+            echo "::error::Failed to create or find the standing audit issue."
             exit 1
           fi
           echo "number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
