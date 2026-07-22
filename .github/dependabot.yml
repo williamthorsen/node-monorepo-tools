@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://json.schemastore.org/dependabot-2.0.json
+version: 2
+
+updates:
+  # Rotates the commit-SHA pins in .github/workflows, restoring the upgrade channel
+  # that pinning closes. Every bump is grouped into one pull request per run, so the
+  # cadence is one review a month rather than one per action.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns:
+          - '*'
