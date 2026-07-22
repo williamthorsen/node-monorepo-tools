@@ -42,7 +42,8 @@
     "nmr-compile": "bin/nmr-compile.js",
     "nmr-report-overrides": "bin/nmr-report-overrides.js",
     "nmr-sync-agent-files": "bin/nmr-sync-agent-files.js",
-    "nmr-sync-pnpm-version": "bin/nmr-sync-pnpm-version.js"
+    "nmr-sync-pnpm-version": "bin/nmr-sync-pnpm-version.js",
+    "nmr-taze": "bin/nmr-taze.js"
   },
   "files": [
     "AGENTS.md",
@@ -57,6 +58,7 @@
     "@williamthorsen/nmr-core": "workspace:*",
     "glob": "13.0.6",
     "jiti": "2.7.0",
+    "taze": "19.15.1",
     "yaml": "2.9.0",
     "zod": "4.4.3"
   },
