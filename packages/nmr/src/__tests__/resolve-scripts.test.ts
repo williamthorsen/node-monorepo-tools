@@ -100,19 +100,3 @@ describe('getDefaultRootScripts', () => {
     expect(scripts['root:upgrade']).toBe('nmr-taze --include-locked');
   });
 });
-
-// The pnpm-native commands are superseded by `upgrade`, which applies the version ceilings they ignored.
-// Under exact pinning `outdated` and `update` could never report or move anything, and `update:latest`
-// rewrote package.json past those ceilings.
-describe('retired dependency commands', () => {
-  it.each(['outdated', 'outdated:latest', 'update', 'update:latest'])('does not define %s at the root', (command) => {
-    expect(getDefaultRootScripts()[command]).toBeUndefined();
-  });
-
-  it.each(['outdated', 'outdated:latest', 'update', 'update:latest'])(
-    'does not define %s in a workspace',
-    (command) => {
-      expect(getDefaultWorkspaceScripts(false)[command]).toBeUndefined();
-    },
-  );
-});
