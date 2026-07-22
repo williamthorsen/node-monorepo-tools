@@ -184,17 +184,31 @@ jobs:
             echo 'AUDIT_EOF'
           } >> "$GITHUB_OUTPUT"
 
-      # `--author` requires the literal `github-actions[bot]`; the JSON output renders the same
-      # author as `app/github-actions`, which the filter does not match.
+      # `createdBy` requires the literal `github-actions[bot]`; the API renders the same account's
+      # login as `github-actions`, which the filter does not match.
+      #
+      # Ordering by `UPDATED_AT` is what bounds `first`: the final step rewrites the standing issue
+      # on every run, so it sorts first however many issues a repo's other workflows have opened.
       #
       # The standing issue carries no label: `gh issue create --label` fails when the label does
       # not exist, which would make any label a prerequisite for every consumer repo.
       - name: Find or create standing issue
         id: find-issue
         run: |
-          ISSUE_NUMBER=$(gh issue list --state open --author 'github-actions[bot]' --limit 1000 \
-            --json number,title \
-            --jq 'map(select(.title | contains("Dependency audit status"))) | .[0].number // empty')
+          ISSUE_NUMBER=$(gh api graphql \
+            -f owner="${GITHUB_REPOSITORY%/*}" -f repo="${GITHUB_REPOSITORY#*/}" \
+            -f query='
+              query($owner:String!,$repo:String!){
+                repository(owner:$owner,name:$repo){
+                  issues(first:30, states:OPEN,
+                         filterBy:{createdBy:"github-actions[bot]"},
+                         orderBy:{field:UPDATED_AT, direction:DESC}){
+                    nodes{ number title }
+                  }
+                }
+              }' \
+            --jq '[.data.repository.issues.nodes[]
+                   | select(.title | contains("Dependency audit status"))] | .[0].number // empty')
           if [ -z "$ISSUE_NUMBER" ]; then
             ISSUE_NUMBER=$(gh issue create \
               --title "$TITLE" \
