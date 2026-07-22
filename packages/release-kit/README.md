@@ -726,11 +726,11 @@ Manage GitHub label definitions via config-driven YAML files.
 
 The scaffolded workflow carries three triggers:
 
-| Trigger                                          | Job     | Token           | Effect                            |
-| ------------------------------------------------ | ------- | --------------- | --------------------------------- |
-| Push to `main` touching `.github/labels.yaml`    | `sync`  | `issues: write` | Applies the labels                |
-| Manual dispatch (`release-kit sync-labels sync`) | `sync`  | `issues: write` | Applies the labels                |
-| Pull request touching `.github/labels.yaml`      | `check` | `issues: read`  | Logs the diff without applying it |
+| Trigger                                                   | Job     | Token           | Effect                            |
+| --------------------------------------------------------- | ------- | --------------- | --------------------------------- |
+| Push to the default branch touching `.github/labels.yaml` | `sync`  | `issues: write` | Applies the labels                |
+| Manual dispatch (`release-kit sync-labels sync`)          | `sync`  | `issues: write` | Applies the labels                |
+| Pull request touching `.github/labels.yaml`               | `check` | `issues: read`  | Logs the diff without applying it |
 
 Applying on merge closes the window in which a regenerated `.github/labels.yaml` sits unapplied — a window in which a later manual dispatch would apply a label set nobody reviewed.
 
@@ -738,7 +738,7 @@ The `check` job runs the same sync in dry-run. Its **Label diff** log group list
 
 The two jobs are split because a job's permissions are fixed when the run is created and cannot vary by trigger. The split is what keeps a write-scoped token out of pull-request runs.
 
-Adjust the `push` trigger's branch if the repo's default branch is not `main`.
+The push trigger filters on the path alone; the `sync` job compares `github.ref_name` against the repository's default branch. The workflow therefore needs no per-repo edit whatever that branch is named — and a push touching `.github/labels.yaml` on any other branch produces a run whose jobs all skip.
 
 Manual dispatch is not a preview. It matches the `sync` job, so it applies the labels, deletions included; only the pull-request path runs in dry-run.
 

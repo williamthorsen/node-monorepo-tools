@@ -11,10 +11,7 @@ on:
   workflow_dispatch:
 
   # Apply on merge, so a regenerated labels file cannot sit unapplied.
-  # Adjust the branch per repo if the default branch is not \`main\`.
   push:
-    branches:
-      - main
     paths:
       - .github/labels.yaml
 
@@ -24,11 +21,13 @@ on:
     paths:
       - .github/labels.yaml
 
-# Two jobs rather than one, because permissions are fixed when the run is created and
-# cannot vary by trigger within a job. The split keeps a write token out of PR runs.
+# Permissions are fixed when a run is created and cannot vary by trigger within a job,
+# so applying and previewing are separate jobs and the write token stays out of PR runs.
 jobs:
+  # The push arm applies on the default branch alone. A \`branches:\` filter cannot name the
+  # default branch, so the gate lives on the job and this file stays identical across repos.
   sync:
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && (github.event_name != 'push' || github.ref_name == github.event.repository.default_branch)
     permissions:
       contents: read
       issues: write

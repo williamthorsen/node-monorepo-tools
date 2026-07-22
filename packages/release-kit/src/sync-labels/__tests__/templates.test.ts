@@ -11,18 +11,25 @@ const REUSABLE_USES =
 const parsedWorkflow: unknown = parse(syncLabelsWorkflow());
 
 describe(syncLabelsWorkflow, () => {
-  it('triggers on manual dispatch, on push to main, and on pull requests touching the labels file', () => {
+  it('triggers on manual dispatch, on push, and on pull requests touching the labels file', () => {
     expect(readPath('on')).toHaveProperty('workflow_dispatch');
-    expect(readPath('on.push.branches')).toEqual(['main']);
     expect(readPath('on.push.paths')).toEqual(['.github/labels.yaml']);
     expect(readPath('on.pull_request.paths')).toEqual(['.github/labels.yaml']);
   });
 
   it('applies labels from a write-scoped job that skips pull requests', () => {
-    expect(readPath('jobs.sync.if')).toBe("github.event_name != 'pull_request'");
+    expect(readPath('jobs.sync.if')).toContain("github.event_name != 'pull_request'");
     expect(readPath('jobs.sync.permissions')).toEqual({ contents: 'read', issues: 'write' });
     expect(readPath('jobs.sync.uses')).toBe(REUSABLE_USES);
     expect(readPath('jobs.sync.with')).toBeUndefined();
+  });
+
+  // The template ships to repos whose default branch is not `main`; a literal branch name
+  // anywhere in the push path would leave those repos never applying on merge.
+  it('gates the apply job on the repository default branch, naming no branch literally', () => {
+    expect(readPath('jobs.sync.if')).toContain('github.ref_name == github.event.repository.default_branch');
+    expect(readPath('on.push.branches')).toBeUndefined();
+    expect(syncLabelsWorkflow()).not.toContain('- main');
   });
 
   it('previews labels from a read-only pull-request job running in dry-run', () => {
