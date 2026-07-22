@@ -1,12 +1,31 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: 'Reusable: Sync labels'
 
+# Reusable label-sync workflow for repos consuming release-kit's `sync-labels`.
+#
+# Applies `.github/labels.yaml` to the repository's labels, deleting any label the
+# file does not declare. Pass `dry-run: true` to compute and log the diff without
+# applying it — the job log then carries the full set of creates, edits, renames,
+# and deletions, including deletions of labels absent from the file.
+#
+# Usage:
+#   jobs:
+#     sync:
+#       uses: williamthorsen/node-monorepo-tools/.github/workflows/sync-labels.reusable.yaml@workflow/sync-labels-v1
+#       with:
+#         dry-run: true
+
 on:
   workflow_call:
+    inputs:
+      dry-run:
+        description: Compute and log the label diff without applying it
+        type: boolean
+        required: false
+        default: false
 
-permissions:
-  contents: read
-  issues: write
+# Permissions are declared by the caller. A called workflow can only lower the caller's
+# grant, so declaring `issues: write` here would break a caller granting `issues: read`.
 
 jobs:
   sync:
@@ -14,8 +33,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+      # Pinned by commit SHA: the `v2` tag moves, and the action's unreleased `main` swaps the
+      # vendored engine for `@endbug/github-label-sync@3`, whose delete and rename semantics
+      # differ from the ones `delete-other-labels: true` relies on below.
+      #
+      # Engine verified for v2.3.3: vendors github-label-sync@2.3.1. Dependabot maintains the
+      # trailing comment only while it holds the version alone, and rewrites it in step with the
+      # SHA; this line does not move with it, so a bump fails the pin guard until the engine is
+      # re-verified against the new release's lockfile.
       - name: Sync labels
-        uses: EndBug/label-sync@v2
+        uses: EndBug/label-sync@52074158190acb45f3077f9099fea818aa43f97a # v2.3.3
         with:
           config-file: .github/labels.yaml
           delete-other-labels: true
+          dry-run: ${{ inputs.dry-run }}

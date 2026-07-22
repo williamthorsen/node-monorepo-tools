@@ -722,6 +722,40 @@ Manage GitHub label definitions via config-driven YAML files.
 
 `init` scaffolds `.config/sync-labels.config.ts` with auto-detected workspace scope labels and a `.github/workflows/sync-labels.yaml` caller workflow, then generates `.github/labels.yaml`. `generate` reads the config and writes `.github/labels.yaml`. `sync` triggers the workflow remotely — it requires the `gh` CLI and an existing workflow file.
 
+#### When labels are applied
+
+The scaffolded workflow carries three triggers:
+
+| Trigger                                                   | Job     | Token           | Effect                            |
+| --------------------------------------------------------- | ------- | --------------- | --------------------------------- |
+| Push to the default branch touching `.github/labels.yaml` | `sync`  | `issues: write` | Applies the labels                |
+| Manual dispatch (`release-kit sync-labels sync`)          | `sync`  | `issues: write` | Applies the labels                |
+| Pull request touching `.github/labels.yaml`               | `check` | `issues: read`  | Logs the diff without applying it |
+
+Applying on merge closes the window in which a regenerated `.github/labels.yaml` sits unapplied — a window in which a later manual dispatch would apply a label set nobody reviewed.
+
+The `check` job runs the same sync in dry-run. Its **Label diff** log group lists every create, edit, rename, and deletion the sync would perform, including deletions of labels the file does not declare — the destructive edits a diff of `.github/labels.yaml` alone cannot show, because a label created by hand or by another workflow is absent from the file both before and after. Read that log; the check reports success whether or not the diff is destructive, so a green check is not evidence that nothing will be deleted.
+
+The two jobs are split because a job's permissions are fixed when the run is created and cannot vary by trigger. The split is what keeps a write-scoped token out of pull-request runs.
+
+The push trigger filters on the path alone; the `sync` job compares `github.ref_name` against the repository's default branch. The workflow therefore needs no per-repo edit whatever that branch is named — and a push touching `.github/labels.yaml` on any other branch produces a run whose jobs all skip.
+
+Manual dispatch is not a preview. It matches the `sync` job, so it applies the labels, deletions included; only the pull-request path runs in dry-run.
+
+#### Dry-run checks on fork pull requests
+
+GitHub issues a read-only `GITHUB_TOKEN` to pull requests from forks, and by default holds runs from first-time contributors until a maintainer approves them. The dry-run reads labels and writes nothing, so the check normally runs once approved. A repo that disables workflows on fork pull requests gets no check at all; to preview such a change, push the branch to the base repo and open the pull request from there.
+
+#### Migrating an existing repo
+
+The caller workflow gained the `push` and `pull_request` triggers after its first release. A repo scaffolded before that keeps working on manual dispatch alone — nothing breaks — but it applies labels only when someone remembers to. To adopt the new shape:
+
+```sh
+pnpm exec release-kit sync-labels init --force
+```
+
+`readyup` prompts for this: its `sync-labels.yaml matches template` check fails once the scaffolded workflow no longer matches the current template.
+
 #### Published JSON Schema for `.meta/label-map.json`
 
 release-kit publishes a JSON Schema for `.meta/label-map.json` — a separate, generic data file that maps commit-prefix scopes and types to GitHub label names. The schema lives at `packages/release-kit/schemas/label-map.json` in this repo and is reachable via the stable raw URL:

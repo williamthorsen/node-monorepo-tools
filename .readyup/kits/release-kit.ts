@@ -39,7 +39,7 @@ function hasPublishablePackages(): boolean {
 // SHA-256 hashes of release-kit artifacts. Keep in sync. Verified by __tests__/rdy-kit-hashes.app.test.ts.
 export const CLIFF_TEMPLATE_HASH = 'bde3f6dba592e5ecdde2ec87503ccbbff8f5e48126319234c7e101d13db4bfd4';
 export const COMMON_PRESET_HASH = '25b1938b40006a00a39d291583d7cd2dabda699e1f4bfb0634ba49e7dffb3c45';
-export const SYNC_LABELS_WORKFLOW_HASH = '4dfde2454bac03280381f0da70c9c735916a7812100dec5437853b843c4bd797';
+export const SYNC_LABELS_WORKFLOW_HASH = '28eb8e3c94271384264b530d7698f0c79d281bdbef2e246426fd2ed9c5882d5b';
 export const RELEASE_WORKFLOW_HASH_MONOREPO = '0a9724b7b3c5e24087fd3a8f36fed8e990d699267fcf36028ce048ab40dc2946';
 export const RELEASE_WORKFLOW_HASH_SINGLE = 'a3d19bbc1ba8bb30622e53c590137b97e3179e80988c0967737b021cdaeab73f';
 export const PUBLISH_WORKFLOW_HASH_MONOREPO = '0afa9ffe914f3dc8f043e68252ebc604c8cc1a953422fcea37a909a4def370ee';

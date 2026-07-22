@@ -50,6 +50,18 @@ describe('rdy kit hashes match source files', () => {
     ).toBe(SYNC_LABELS_WORKFLOW_HASH);
   });
 
+  // This repo dogfoods the caller template, so its own workflow must be the template's
+  // output verbatim — the same identity readyup enforces in consumer repos.
+  it('SYNC_LABELS_WORKFLOW_HASH matches .github/workflows/sync-labels.yaml', () => {
+    const content = readFileSync(join(import.meta.dirname, '..', '.github', 'workflows', 'sync-labels.yaml'), 'utf8');
+    const actualHash = sha256(content);
+
+    expect(
+      actualHash,
+      'Run `release-kit sync-labels init --force` to regenerate .github/workflows/sync-labels.yaml from the template',
+    ).toBe(SYNC_LABELS_WORKFLOW_HASH);
+  });
+
   it('COMMON_PRESET_HASH matches presets/labels/common.yaml', () => {
     const content = readFileSync(join(presetsDir, 'common.yaml'), 'utf8');
     const actualHash = sha256(content);

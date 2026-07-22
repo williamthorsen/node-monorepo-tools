@@ -1,30 +1,51 @@
 import { describe, expect, it } from 'vitest';
+import { parse } from 'yaml';
 
+import { isRecord } from '../../typeGuards.ts';
 import { syncLabelsConfigScript, syncLabelsWorkflow } from '../templates.ts';
 import type { LabelDefinition } from '../types.ts';
 
-describe(syncLabelsWorkflow, () => {
-  it('produces a workflow_dispatch trigger that calls the reusable workflow', () => {
-    const result = syncLabelsWorkflow();
+const REUSABLE_USES =
+  'williamthorsen/node-monorepo-tools/.github/workflows/sync-labels.reusable.yaml@workflow/sync-labels-v1';
 
-    expect(result).toContain('workflow_dispatch:');
-    expect(result).toContain(
-      'uses: williamthorsen/node-monorepo-tools/.github/workflows/sync-labels.reusable.yaml@workflow/sync-labels-v1',
-    );
+const parsedWorkflow: unknown = parse(syncLabelsWorkflow());
+
+describe(syncLabelsWorkflow, () => {
+  it('triggers on manual dispatch, on push, and on pull requests touching the labels file', () => {
+    expect(readPath('on')).toHaveProperty('workflow_dispatch');
+    expect(readPath('on.push.paths')).toEqual(['.github/labels.yaml']);
+    expect(readPath('on.pull_request.paths')).toEqual(['.github/labels.yaml']);
   });
 
-  it('includes permissions for contents and issues', () => {
-    const result = syncLabelsWorkflow();
+  it('applies labels from a write-scoped job that skips pull requests', () => {
+    expect(readPath('jobs.sync.if')).toContain("github.event_name != 'pull_request'");
+    expect(readPath('jobs.sync.permissions')).toEqual({ contents: 'read', issues: 'write' });
+    expect(readPath('jobs.sync.uses')).toBe(REUSABLE_USES);
+    expect(readPath('jobs.sync.with')).toBeUndefined();
+  });
 
-    expect(result).toContain('permissions:');
-    expect(result).toContain('contents: read');
-    expect(result).toContain('issues: write');
+  // The template ships to repos whose default branch is not `main`; a branch filter on the
+  // trigger, or a literal comparison in the gate, would leave those repos never applying on merge.
+  it('gates the apply job on the repository default branch, naming no branch literally', () => {
+    expect(readPath('jobs.sync.if')).toContain('github.ref_name == github.event.repository.default_branch');
+    expect(readPath('on.push.branches')).toBeUndefined();
+  });
+
+  it('previews labels from a read-only pull-request job running in dry-run', () => {
+    expect(readPath('jobs.check.if')).toBe("github.event_name == 'pull_request'");
+    expect(readPath('jobs.check.permissions')).toEqual({ contents: 'read', issues: 'read' });
+    expect(readPath('jobs.check.uses')).toBe(REUSABLE_USES);
+    expect(readPath('jobs.check.with')).toEqual({ 'dry-run': true });
+  });
+
+  it('declares no workflow-level permissions, so the check job cannot inherit write access', () => {
+    expect(readPath('permissions')).toBeUndefined();
   });
 
   it('includes the yaml-language-server schema comment', () => {
-    const result = syncLabelsWorkflow();
-
-    expect(result).toContain('# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json');
+    expect(syncLabelsWorkflow()).toContain(
+      '# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json',
+    );
   });
 });
 
@@ -90,3 +111,13 @@ describe(syncLabelsConfigScript, () => {
     expect(result).toContain(String.raw`description: 'has \\ backslash'`);
   });
 });
+
+/** Read a dot-separated path out of the parsed caller workflow, yielding `undefined` if any segment is missing. */
+function readPath(path: string): unknown {
+  let node: unknown = parsedWorkflow;
+  for (const key of path.split('.')) {
+    if (!isRecord(node)) return undefined;
+    node = node[key];
+  }
+  return node;
+}
