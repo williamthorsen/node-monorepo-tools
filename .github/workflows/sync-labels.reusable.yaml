@@ -24,11 +24,8 @@ on:
         required: false
         default: false
 
-# No workflow-level `permissions` block, deliberately: a called workflow can only
-# lower the caller's grant, never raise it, so a hard-declared `issues: write` would
-# make GitHub reject any caller that grants only `issues: read` — which is exactly
-# the token a dry-run check should hold. The caller declares what it needs; see the
-# `audit.yaml` precedent for the caller-side contract.
+# Permissions are declared by the caller. A called workflow can only lower the caller's
+# grant, so declaring `issues: write` here would break a caller granting `issues: read`.
 
 jobs:
   sync:
@@ -36,11 +33,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      # Pinned by commit SHA: the `v2` tag is movable, and the action's unreleased `main`
-      # already swaps the vendored engine for `@endbug/github-label-sync@3`, whose delete
-      # and rename semantics are not the ones reasoned about here. Rotated by dependabot.
+      # Pinned by commit SHA: the `v2` tag moves, and the action's unreleased `main` swaps the
+      # vendored engine for `@endbug/github-label-sync@3`, whose delete and rename semantics
+      # differ from the ones `delete-other-labels: true` relies on below.
+      #
+      # Engine verified for v2.3.3: vendors github-label-sync@2.3.1. Dependabot maintains the
+      # trailing comment only while it holds the version alone, and rewrites it in step with the
+      # SHA; this line does not move with it, so a bump fails the pin guard until the engine is
+      # re-verified against the new release's lockfile.
       - name: Sync labels
-        uses: EndBug/label-sync@52074158190acb45f3077f9099fea818aa43f97a # v2.3.3 — vendors github-label-sync@2.3.1
+        uses: EndBug/label-sync@52074158190acb45f3077f9099fea818aa43f97a # v2.3.3
         with:
           config-file: .github/labels.yaml
           delete-other-labels: true
