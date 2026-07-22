@@ -4,10 +4,35 @@ name: Sync labels
 on:
   workflow_dispatch:
 
-permissions:
-  contents: read
-  issues: write
+  # Apply on merge, so a regenerated labels file cannot sit unapplied.
+  # Adjust the branch per repo if the default branch is not `main`.
+  push:
+    branches:
+      - main
+    paths:
+      - .github/labels.yaml
 
+  # Preview on review: the check's log carries the full computed diff,
+  # including deletions of labels the file does not declare.
+  pull_request:
+    paths:
+      - .github/labels.yaml
+
+# Two jobs rather than one, because permissions are fixed when the run is created and
+# cannot vary by trigger within a job. The split keeps a write token out of PR runs.
 jobs:
   sync:
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      issues: write
     uses: williamthorsen/node-monorepo-tools/.github/workflows/sync-labels.reusable.yaml@workflow/sync-labels-v1
+
+  check:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      issues: read
+    uses: williamthorsen/node-monorepo-tools/.github/workflows/sync-labels.reusable.yaml@workflow/sync-labels-v1
+    with:
+      dry-run: true
