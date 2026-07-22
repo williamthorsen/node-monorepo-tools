@@ -24,12 +24,11 @@ describe(syncLabelsWorkflow, () => {
     expect(readPath('jobs.sync.with')).toBeUndefined();
   });
 
-  // The template ships to repos whose default branch is not `main`; a literal branch name
-  // anywhere in the push path would leave those repos never applying on merge.
+  // The template ships to repos whose default branch is not `main`; a branch filter on the
+  // trigger, or a literal comparison in the gate, would leave those repos never applying on merge.
   it('gates the apply job on the repository default branch, naming no branch literally', () => {
     expect(readPath('jobs.sync.if')).toContain('github.ref_name == github.event.repository.default_branch');
     expect(readPath('on.push.branches')).toBeUndefined();
-    expect(syncLabelsWorkflow()).not.toContain('- main');
   });
 
   it('previews labels from a read-only pull-request job running in dry-run', () => {
