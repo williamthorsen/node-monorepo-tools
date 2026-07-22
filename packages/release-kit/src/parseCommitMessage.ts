@@ -3,6 +3,24 @@ import type { Commit, ParsedCommit, WorkTypeConfig } from './types.ts';
 /** Regex patterns stripped from the start of commit messages before parsing. */
 export const COMMIT_PREPROCESSOR_PATTERNS: readonly RegExp[] = [/^##\s+/, /^#\d+([.-]\d+)?\s+/, /^[A-Z]+-\d+\s+/];
 
+/**
+ * Regex source for the pipe-prefixed scope atom (the `web` in `web|feat: ...`).
+ *
+ * Deliberately permissive: `*` is the sanctioned structural scope for changes spanning every
+ * workspace, so the atom admits any run of non-pipe characters rather than word characters.
+ * `cliff.toml.template` embeds the same atom in every ticketed commit parser, and
+ * `cliffConfigAlignment.unit.test.ts` asserts that parity — exported so neither side can drift.
+ */
+export const PIPE_SCOPE_SOURCE = '[^|]+';
+
+// Match pipe-prefixed scope, type, optional parenthesized scope, breaking marker, description.
+// Group 1: pipe-prefixed scope (e.g., "web" in "web|feat: ...")
+// Group 2: type (e.g., "feat")
+// Group 3: parenthesized scope (e.g., "parser" in "fix(parser): ...")
+// Group 4: breaking marker ("!")
+// Group 5: description
+const COMMIT_SUBJECT_PATTERN = new RegExp(String.raw`^(?:(${PIPE_SCOPE_SOURCE})\|)?(\w+)(?:\(([^)]+)\))?(!)?:\s*(.*)$`);
+
 /** Surface where a `!`/`BREAKING CHANGE:` policy violation was detected. */
 export type PolicyViolationSurface = 'prefix' | 'body';
 
@@ -57,13 +75,7 @@ export function parseCommitMessage(
   const firstLine = message.split('\n', 1)[0] ?? '';
   const stripped = stripTicketPrefix(firstLine);
 
-  // Match pipe-prefixed scope, type, optional parenthesized scope, breaking marker, description.
-  // Group 1: pipe-prefixed scope (e.g., "web" in "web|feat: ...")
-  // Group 2: type (e.g., "feat")
-  // Group 3: parenthesized scope (e.g., "parser" in "fix(parser): ...")
-  // Group 4: breaking marker ("!")
-  // Group 5: description
-  const match = stripped.match(/^(?:([^|]+)\|)?(\w+)(?:\(([^)]+)\))?(!)?:\s*(.*)$/);
+  const match = stripped.match(COMMIT_SUBJECT_PATTERN);
   if (!match) {
     return undefined;
   }
