@@ -144,6 +144,7 @@ jobs:
         run: |
           STATUS=$(jq -r '.summary.status' audit.json)
           COUNT=$(jq -r '.summary.count' audit.json)
+          # Every branch must contain "Dependency audit status"; the standing-issue lookup matches on that substring.
           case "$STATUS" in
             none)
               TITLE="🤖 Dependency audit status: no vulnerabilities ✅"
@@ -191,7 +192,7 @@ jobs:
       - name: Find or create standing issue
         id: find-issue
         run: |
-          ISSUE_NUMBER=$(gh issue list --state open --author 'github-actions[bot]' --limit 100 \
+          ISSUE_NUMBER=$(gh issue list --state open --author 'github-actions[bot]' --limit 1000 \
             --json number,title \
             --jq 'map(select(.title | contains("Dependency audit status"))) | .[0].number // empty')
           if [ -z "$ISSUE_NUMBER" ]; then
