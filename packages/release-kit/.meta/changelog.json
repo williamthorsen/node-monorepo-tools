@@ -1,5 +1,33 @@
 [
   {
+    "version": "8.1.0",
+    "date": "2026-07-22",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Make label deletions reviewable and apply labels on merge (#493)",
+            "body": "Pull requests that touch a repository's label file now get a check listing every label change the sync would make, including deletions of labels the file never mentions, which a diff of the file cannot show. Merging the pull request now applies those labels. The sync's deletion and rename handling now changes only through a reviewed upgrade to a verified release. Repositories that already scaffolded this workflow adopt the new triggers by re-running `release-kit sync-labels init --force`.",
+            "hash": "05e9acec4c503b35e96906913f8a97c6875e9106"
+          }
+        ]
+      },
+      {
+        "title": "📦 Dependencies",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Upgrade dependencies and align the Node support policy (#483)",
+            "body": "All four published packages (`nmr`, `nmr-core`, `release-kit`, and `v11y-check`) now require Node.js 24 or later, up from Node 18.17. Separately, `nmr-compile` now rebuilds when the TypeScript version changes.",
+            "hash": "3090aa1ec68224f88e0b537ae09282e8e636f711"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "8.0.1",
     "date": "2026-07-18",
     "sections": [

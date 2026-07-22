@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.11.1 — 2026-07-22
+
+### 📦 Dependencies
+
+- Upgrade dependencies and align the Node support policy (#483)
+
+  All four published packages (`nmr`, `nmr-core`, `release-kit`, and `v11y-check`) now require Node.js 24 or later, up from Node 18.17. Separately, `nmr-compile` now rebuilds when the TypeScript version changes.
+
 ## 0.11.0 — 2026-07-13
 
 ### 🎉 Features

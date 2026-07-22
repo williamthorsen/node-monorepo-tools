@@ -1,5 +1,34 @@
 [
   {
+    "version": "0.19.0",
+    "date": "2026-07-22",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Replace the dependency commands with nmr upgrade (#491)",
+            "body": "Adds `nmr upgrade` as an ergonomic wrapper for displaying and applying available dependency upgrades. Taze is used under the hood to set a soaking period (customizable, defaulting to 7 days) before recently published dependencies will be accepted.\n\nRemoves the four dependency commands it replaces: `outdated`, `outdated:latest`, `update`, and `update:latest`.",
+            "breaking": true,
+            "hash": "c18ba9f8d1fef780cb5f0d114f2dde2af0efe935"
+          }
+        ]
+      },
+      {
+        "title": "📦 Dependencies",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Upgrade dependencies and align the Node support policy (#483)",
+            "body": "All four published packages (`nmr`, `nmr-core`, `release-kit`, and `v11y-check`) now require Node.js 24 or later, up from Node 18.17. Separately, `nmr-compile` now rebuilds when the TypeScript version changes.",
+            "hash": "3090aa1ec68224f88e0b537ae09282e8e636f711"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.18.2",
     "date": "2026-07-18",
     "sections": [

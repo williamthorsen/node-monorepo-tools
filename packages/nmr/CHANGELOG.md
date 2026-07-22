@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.19.0 — 2026-07-22
+
+### 🎉 Features
+
+- 🚨 **Breaking:** Replace the dependency commands with nmr upgrade (#491)
+
+  Adds `nmr upgrade` as an ergonomic wrapper for displaying and applying available dependency upgrades. Taze is used under the hood to set a soaking period (customizable, defaulting to 7 days) before recently published dependencies will be accepted.
+
+  Removes the four dependency commands it replaces: `outdated`, `outdated:latest`, `update`, and `update:latest`.
+
+### 📦 Dependencies
+
+- Upgrade dependencies and align the Node support policy (#483)
+
+  All four published packages (`nmr`, `nmr-core`, `release-kit`, and `v11y-check`) now require Node.js 24 or later, up from Node 18.17. Separately, `nmr-compile` now rebuilds when the TypeScript version changes.
+
 ## 0.18.2 — 2026-07-18
 
 ### 🐛 Bug fixes
