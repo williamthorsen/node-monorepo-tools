@@ -67,7 +67,7 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "@williamthorsen/toolbelt.strings": "3.1.4"
+    "@williamthorsen/toolbelt.strings": "3.1.6"
   },
   "peerDependencies": {
     "typescript": ">=5.7.0 <7"
