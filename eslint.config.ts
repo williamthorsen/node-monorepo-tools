@@ -1,10 +1,8 @@
-import config from '@williamthorsen/eslint-config-typescript';
+import baseConfig from '@williamthorsen/eslint-config-typescript';
+import { defineConfig } from 'eslint/config';
 
-/**
- * @type {import('eslint').Linter.Config[]}
- */
-export default [
-  ...config,
+const config = defineConfig([
+  ...baseConfig,
   {
     // Completely ignore these files
     ignores: ['**/*.sh', '**/.claude/**', '**/.readyup/**/*.js', '**/coverage/**', '**/dist/**', '**/local/**'],
@@ -94,4 +92,6 @@ export default [
       'unicorn/require-array-sort-compare': 'off',
     },
   },
-];
+]);
+
+export default config;
