@@ -39,6 +39,13 @@ describe('getDefaultWorkspaceScripts', () => {
     expect(scripts['test:integration']).toBe('pnpm exec vitest --config=vitest.integration.config.ts');
     expect(scripts['test:all']).toBe('pnpm exec vitest');
   });
+
+  // A workspace-context upgrade scans the cwd package alone; the recursive sweep is the root registry's.
+  it('upgrades the current package without recursing', () => {
+    const scripts = getDefaultWorkspaceScripts(false);
+
+    expect(scripts.upgrade).toBe('nmr-taze --include-locked');
+  });
 });
 
 describe('getDefaultRootScripts', () => {
@@ -85,4 +92,27 @@ describe('getDefaultRootScripts', () => {
 
     expect(scripts['root:lint:strict']).toBe("strict-lint --ignore-pattern 'packages/**' .");
   });
+
+  it('sweeps every package on upgrade, and the root alone on root:upgrade', () => {
+    const scripts = getDefaultRootScripts();
+
+    expect(scripts.upgrade).toBe('nmr-taze --include-locked --recursive');
+    expect(scripts['root:upgrade']).toBe('nmr-taze --include-locked');
+  });
+});
+
+// The pnpm-native commands are superseded by `upgrade`, which applies the version ceilings they ignored.
+// Under exact pinning `outdated` and `update` could never report or move anything, and `update:latest`
+// rewrote package.json past those ceilings.
+describe('retired dependency commands', () => {
+  it.each(['outdated', 'outdated:latest', 'update', 'update:latest'])('does not define %s at the root', (command) => {
+    expect(getDefaultRootScripts()[command]).toBeUndefined();
+  });
+
+  it.each(['outdated', 'outdated:latest', 'update', 'update:latest'])(
+    'does not define %s in a workspace',
+    (command) => {
+      expect(getDefaultWorkspaceScripts(false)[command]).toBeUndefined();
+    },
+  );
 });
