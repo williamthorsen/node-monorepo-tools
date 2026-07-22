@@ -92,26 +92,20 @@ Shortcut to run typechecking, linting, and tests:
 pnpm run check
 ```
 
-Check for outdated dependencies (entire monorepo):
+Check for available dependency upgrades:
 
 ```shell
-# Check for updates compatible with the current version ranges
-pnpm run outdated
-# Check for latest versions
-pnpm run outdated:latest
+# The root package.json and every workspace
+nmr upgrade
+# The root package.json alone
+nmr root:upgrade
+# A single workspace
+nmr -F @williamthorsen/nmr upgrade
 ```
 
-Upgrade dependencies (entire monorepo):
+These honor the version ceilings declared in `taze.config.ts`, which holds `@types/node` to the Node major the `engines` floor requires and `typescript` below 7. Add `major` to propose major upgrades, still inside those ceilings, and `--write` to apply the proposals:
 
 ```shell
-# Update dependencies compatible with the current version ranges
-pnpm run update
-# Update to the latest versions
-pnpm run update:latest
-```
-
-Upgrade transitive dependencies (entire monorepo):
-
-```shell
-pnpm upgrade
+nmr upgrade major
+nmr upgrade --write
 ```

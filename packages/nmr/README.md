@@ -127,6 +127,48 @@ For example, if a workspace script resolves to `my-cli --verbose`, nmr rewrites 
 
 > **Note:** Path resolution uses a heuristic: any non-flag token containing `/` is treated as a relative path. This works well for typical dev-tool commands but may incorrectly resolve URL-like values or glob patterns. Flags using `--flag=value` syntax are not resolved; use the spaced form `--flag value` for paths that need resolution.
 
+## Dependency upgrades
+
+`nmr upgrade` reports the dependency upgrades available to your repo. What it covers depends on where you run it:
+
+| Invocation                   | Covers                                      |
+| ---------------------------- | ------------------------------------------- |
+| `nmr upgrade` (from root)    | the root `package.json` and every workspace |
+| `nmr upgrade` (in a package) | that package                                |
+| `nmr -F <package> upgrade`   | that package, from anywhere                 |
+| `nmr root:upgrade`           | the root `package.json` alone               |
+
+The upgrade tool ([taze](https://github.com/antfu-collective/taze)) arrives with nmr, so your repo declares no dependency on it. Everything after the command name is passed through, including the range mode:
+
+```bash
+nmr upgrade          # upgrades available within each package's version ceilings
+nmr upgrade major    # major upgrades, still inside the ceilings
+nmr upgrade --write  # apply the proposals to package.json
+```
+
+> **Note:** `-w` means different things on either side of the command. `nmr upgrade -w` passes `--write` to the upgrade tool; `nmr -w upgrade` is nmr's own `--workspace-root` flag and applies no write. Prefer the long forms to keep them apart. Run the root-context commands from the monorepo root: like nmr's other `root:` scripts, they take the current directory as their starting point.
+
+### Configuring upgrades
+
+Declare version ceilings in a `taze.config.ts` at the monorepo root:
+
+```ts
+import { defineConfig } from '@williamthorsen/nmr/taze';
+
+export default defineConfig({
+  packageMode: {
+    // Hold @types/node at the Node major your `engines` floor requires.
+    '@types/node': 'minor',
+  },
+});
+```
+
+`defineConfig` supplies nmr's shared upgrade policy — currently a seven-day quarantine on brand-new releases — so your config carries only what is specific to your repo. Any setting you declare wins over nmr's default. Passing `undefined` clears a default rather than falling back to it, which is how you hand the quarantine policy back to `pnpm-workspace.yaml`'s `minimumReleaseAge`.
+
+Everything the [taze configuration](https://github.com/antfu-collective/taze#config-file) accepts is accepted here.
+
+> **Note:** `--include-locked` is part of both registry entries because a repo that pins dependencies to exact versions (pnpm's `savePrefix: ''`) has no dependency the tool would otherwise consider — without it, an upgrade pass reports nothing at all. Drop it via `.config/nmr.config.ts` if your repo declares version ranges instead.
+
 ## Default script registries
 
 These scripts are available out of the box. Repo-wide config (tier 2) and per-package overrides (tier 3) can add to or replace any of them.
@@ -151,6 +193,7 @@ These scripts are available out of the box. Repo-wide config (tier 2) and per-pa
 | `test:coverage` | `pnpm exec vitest --coverage`                            |
 | `test:watch`    | `pnpm exec vitest --watch`                               |
 | `typecheck`     | `tsgo --noEmit`                                          |
+| `upgrade`       | `nmr-taze --include-locked`                              |
 | `view-coverage` | `open coverage/index.html`                               |
 
 #### Integration test variant
@@ -230,12 +273,11 @@ A package gets this variant automatically when it contains a `vitest.integration
 
 #### Dependencies
 
-| Command           | Runs                                     |
-| ----------------- | ---------------------------------------- |
-| `outdated`        | `pnpm outdated --compatible --recursive` |
-| `outdated:latest` | `pnpm outdated --recursive`              |
-| `update`          | `pnpm update --recursive`                |
-| `update:latest`   | `pnpm update --latest --recursive`       |
+| Command   | Runs                                    |
+| --------- | --------------------------------------- |
+| `upgrade` | `nmr-taze --include-locked --recursive` |
+
+See [dependency upgrades](#dependency-upgrades) for the workflow and its configuration.
 
 #### Root-only
 
@@ -249,6 +291,7 @@ These scripts operate on root-level code only (not workspace packages):
 | `root:lint:strict` | `strict-lint --ignore-pattern 'packages/**' .`                |
 | `root:test`        | `vitest --config ./vitest.root.config.ts`                     |
 | `root:typecheck`   | `tsgo --noEmit`                                               |
+| `root:upgrade`     | `nmr-taze --include-locked`                                   |
 
 #### Utilities
 
@@ -351,6 +394,16 @@ Compile a single package's `src` tree to `dist/esm` with the TypeScript compiler
 
 ```bash
 nmr-compile
+```
+
+### `nmr-taze`
+
+Run the [taze](https://github.com/antfu-collective/taze) dependency-upgrade tool, forwarding every argument to it untouched. This is what the `upgrade` and `root:upgrade` scripts resolve to — see [dependency upgrades](#dependency-upgrades) for the workflow.
+
+Under pnpm's isolated `node_modules`, a transitive package's binary is absent from the consuming repo's `node_modules/.bin`, so a repo that depends on nmr cannot run `taze` directly. `nmr-taze` can, because nmr is a direct dependency, and it resolves the tool from the tree nmr controls.
+
+```bash
+nmr-taze --include-locked --recursive
 ```
 
 ### `ensure-prepublish-hooks`
