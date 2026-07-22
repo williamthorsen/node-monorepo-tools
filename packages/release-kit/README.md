@@ -740,9 +740,11 @@ The two jobs are split because a job's permissions are fixed when the run is cre
 
 Adjust the `push` trigger's branch if the repo's default branch is not `main`.
 
+Manual dispatch is not a preview. It matches the `sync` job, so it applies the labels, deletions included; only the pull-request path runs in dry-run.
+
 #### Dry-run checks on fork pull requests
 
-GitHub issues a read-only `GITHUB_TOKEN` to pull requests from forks, and by default holds runs from first-time contributors until a maintainer approves them. The dry-run reads labels and writes nothing, so the check normally runs once approved. A repo that disables workflows on fork pull requests gets no check at all; there, review a label change by dispatching the workflow from a branch in the base repo.
+GitHub issues a read-only `GITHUB_TOKEN` to pull requests from forks, and by default holds runs from first-time contributors until a maintainer approves them. The dry-run reads labels and writes nothing, so the check normally runs once approved. A repo that disables workflows on fork pull requests gets no check at all; to preview such a change, push the branch to the base repo and open the pull request from there.
 
 #### Migrating an existing repo
 
