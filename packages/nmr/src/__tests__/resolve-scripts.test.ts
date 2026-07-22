@@ -39,6 +39,13 @@ describe('getDefaultWorkspaceScripts', () => {
     expect(scripts['test:integration']).toBe('pnpm exec vitest --config=vitest.integration.config.ts');
     expect(scripts['test:all']).toBe('pnpm exec vitest');
   });
+
+  // A workspace-context upgrade scans the cwd package alone; the recursive sweep is the root registry's.
+  it('upgrades the current package without recursing', () => {
+    const scripts = getDefaultWorkspaceScripts(false);
+
+    expect(scripts.upgrade).toBe('nmr-taze --include-locked');
+  });
 });
 
 describe('getDefaultRootScripts', () => {
@@ -84,5 +91,12 @@ describe('getDefaultRootScripts', () => {
     const scripts = getDefaultRootScripts();
 
     expect(scripts['root:lint:strict']).toBe("strict-lint --ignore-pattern 'packages/**' .");
+  });
+
+  it('sweeps every package on upgrade, and the root alone on root:upgrade', () => {
+    const scripts = getDefaultRootScripts();
+
+    expect(scripts.upgrade).toBe('nmr-taze --include-locked --recursive');
+    expect(scripts['root:upgrade']).toBe('nmr-taze --include-locked');
   });
 });

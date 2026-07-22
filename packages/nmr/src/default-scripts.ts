@@ -18,6 +18,9 @@ export const commonWorkspaceScripts: ScriptRegistry = {
   'lint:check': 'eslint .',
   'lint:strict': 'strict-lint',
   typecheck: 'tsgo --noEmit',
+  // `--include-locked` is required rather than stylistic: a repo that pins exactly (pnpm's
+  // `savePrefix: ''`) has no dependency taze considers unlocked, so without it nothing is reported.
+  upgrade: 'nmr-taze --include-locked',
   'view-coverage': 'open coverage/index.html',
 };
 
@@ -63,8 +66,6 @@ export const rootScripts: ScriptRegistry = {
   lint: 'nmr root:lint && pnpm --recursive exec nmr lint',
   'lint:check': 'nmr root:lint:check && pnpm --recursive exec nmr lint:check',
   'lint:strict': 'nmr root:lint:strict && pnpm --recursive exec nmr lint:strict',
-  outdated: 'pnpm outdated --compatible --recursive',
-  'outdated:latest': 'pnpm outdated --recursive',
   'report-overrides': 'nmr-report-overrides',
   'root:check': ['root:typecheck', 'fmt:check', 'root:lint:check', 'root:test'],
   'root:lint': "eslint --fix --ignore-pattern 'packages/**' .",
@@ -72,12 +73,14 @@ export const rootScripts: ScriptRegistry = {
   'root:lint:strict': "strict-lint --ignore-pattern 'packages/**' .",
   'root:test': 'vitest --config ./vitest.root.config.ts',
   'root:typecheck': 'tsgo --noEmit',
+  'root:upgrade': 'nmr-taze --include-locked',
   'sync-agent-files': 'nmr-sync-agent-files',
   'sync-pnpm-version': 'nmr-sync-pnpm-version',
   test: 'nmr root:test && pnpm --recursive exec nmr test',
   'test:coverage': 'nmr root:test && pnpm --recursive exec nmr test:coverage',
   'test:watch': 'vitest --watch',
   typecheck: 'nmr root:typecheck && pnpm --recursive exec nmr typecheck',
-  update: 'pnpm update --recursive',
-  'update:latest': 'pnpm update --latest --recursive',
+  // taze handles pnpm workspaces natively, so this needs no `pnpm --recursive` fan-out: one process
+  // covers the root and every package, with a single deduplicated batch of registry requests.
+  upgrade: 'nmr-taze --include-locked --recursive',
 };
