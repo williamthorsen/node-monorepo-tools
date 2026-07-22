@@ -35,6 +35,19 @@ describe(parseCommitMessage, () => {
     });
   });
 
+  it('parses a "*|type: description" message, `*` being the scope spanning every workspace', () => {
+    const message = '#64 *|fix: Add repository field to package manifests';
+    const result = parseCommitMessage(message, 'stu901', workTypes);
+    expect(result).toStrictEqual({
+      message,
+      hash: 'stu901',
+      type: 'fix',
+      description: 'Add repository field to package manifests',
+      scope: '*',
+      breaking: false,
+    });
+  });
+
   it('resolves an alias to its canonical type', () => {
     const result = parseCommitMessage('feature: new dashboard', 'ghi789', workTypes);
     expect(result).toStrictEqual({
