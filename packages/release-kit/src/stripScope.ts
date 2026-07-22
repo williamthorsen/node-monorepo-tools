@@ -1,4 +1,7 @@
-import { COMMIT_PREPROCESSOR_PATTERNS } from './parseCommitMessage.ts';
+import { COMMIT_PREPROCESSOR_PATTERNS, PIPE_SCOPE_SOURCE } from './parseCommitMessage.ts';
+
+/** Matches a pipe-prefixed scope, capturing the remainder of the subject. */
+const PIPE_SCOPE_PATTERN = new RegExp(String.raw`^${PIPE_SCOPE_SOURCE}\|(.*)$`);
 
 /**
  * Strip scope indicators from a raw commit message.
@@ -20,8 +23,7 @@ export function stripScope(message: string): string {
     }
   }
 
-  // Try pipe-prefixed scope: `scope|type: desc` or `scope|type!: desc`
-  const pipeMatch = remainder.match(/^[^|]+\|(.*)$/);
+  const pipeMatch = remainder.match(PIPE_SCOPE_PATTERN);
   if (pipeMatch) {
     return `${ticketPrefix}${pipeMatch[1]}`;
   }

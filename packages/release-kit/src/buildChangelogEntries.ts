@@ -1,7 +1,7 @@
 import { extractVersion } from './changelogJsonUtils.ts';
 import { DEFAULT_WORK_TYPES } from './defaults.ts';
 import type { GenerateChangelogOptions } from './generateChangelogs.ts';
-import { COMMIT_PREPROCESSOR_PATTERNS } from './parseCommitMessage.ts';
+import { COMMIT_PREPROCESSOR_PATTERNS, PIPE_SCOPE_SOURCE } from './parseCommitMessage.ts';
 import { resolveCliffConfigPath } from './resolveCliffConfigPath.ts';
 import { runGitCliff } from './runGitCliff.ts';
 import { stripEmojiPrefix } from './stripEmojiPrefix.ts';
@@ -224,6 +224,9 @@ function stripCommentPrefix(group: string): string {
   return group.replace(HTML_COMMENT_PREFIX_PATTERN, '');
 }
 
+/** Matches a type-token with an optional scope (parenthesized or pipe-prefixed) followed by `!:`. */
+const SUBJECT_BREAKING_MARKER_PATTERN = new RegExp(String.raw`^(?:${PIPE_SCOPE_SOURCE}\|)?\w+(?:\([^)]+\))?!:`);
+
 /**
  * Detect a `!` breaking marker on the commit-subject prefix.
  *
@@ -240,11 +243,7 @@ function subjectHasBreakingMarker(message: string): boolean {
   for (const pattern of COMMIT_PREPROCESSOR_PATTERNS) {
     subject = subject.replace(pattern, '');
   }
-  // Match a type-token followed by an optional scope (parenthesized or pipe-prefixed) and a literal `!:`.
-  // Pipe-scope character class is `[^|]+` to mirror `parseCommitMessage`'s acceptance — keeping the
-  // two regexes aligned prevents a class of bug where a future scope outside `[\w-]` would parse
-  // as breaking via the prefix `!` but lose the changelog marker silently here.
-  return /^(?:[^|]+\|)?\w+(?:\([^)]+\))?!:/.test(subject);
+  return SUBJECT_BREAKING_MARKER_PATTERN.test(subject);
 }
 
 /** Extract the description from a commit message, stripping ticket ID and type prefix. */
