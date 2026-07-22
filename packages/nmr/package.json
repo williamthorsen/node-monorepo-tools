@@ -30,6 +30,10 @@
       "types": "./dist/esm/scripts.d.ts",
       "default": "./dist/esm/scripts.js"
     },
+    "./taze": {
+      "types": "./dist/esm/taze.d.ts",
+      "default": "./dist/esm/taze.js"
+    },
     "./tests": {
       "types": "./dist/esm/tests/consistency.d.ts",
       "default": "./dist/esm/tests/consistency.js"
