@@ -4,7 +4,7 @@
 import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
 
 import { check, sync } from './commands/sync-agent-files.ts';
-import { findMonorepoRoot } from './context.ts';
+import { findMonorepoRoot } from './workspace.ts';
 
 const flagSchema = {
   check: { long: '--check', type: 'boolean' as const },

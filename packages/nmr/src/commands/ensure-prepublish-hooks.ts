@@ -1,9 +1,9 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { getWorkspacePackageDirs } from '../context.ts';
 import { readPackageJson } from '../helpers/package-json.ts';
 import { isObject } from '../helpers/type-guards.ts';
+import { getWorkspacePackageDirs } from '../workspace.ts';
 
 export interface PackageHookStatus {
   packageName: string;

@@ -34,9 +34,9 @@
       "types": "./dist/esm/taze.d.ts",
       "default": "./dist/esm/taze.js"
     },
-    "./tests": {
-      "types": "./dist/esm/tests/consistency.d.ts",
-      "default": "./dist/esm/tests/consistency.js"
+    "./workspace": {
+      "types": "./dist/esm/workspace.d.ts",
+      "default": "./dist/esm/workspace.js"
     }
   },
   "bin": {
@@ -46,7 +46,6 @@
     "nmr-compile": "bin/nmr-compile.js",
     "nmr-report-overrides": "bin/nmr-report-overrides.js",
     "nmr-sync-agent-files": "bin/nmr-sync-agent-files.js",
-    "nmr-sync-pnpm-version": "bin/nmr-sync-pnpm-version.js",
     "nmr-taze": "bin/nmr-taze.js"
   },
   "files": [
@@ -63,11 +62,7 @@
     "glob": "13.0.6",
     "jiti": "2.7.0",
     "taze": "19.15.1",
-    "yaml": "2.9.0",
-    "zod": "4.4.3"
-  },
-  "devDependencies": {
-    "@williamthorsen/toolbelt.strings": "3.1.6"
+    "yaml": "2.9.0"
   },
   "peerDependencies": {
     "typescript": ">=5.7.0 <7"

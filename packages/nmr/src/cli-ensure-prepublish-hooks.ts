@@ -1,7 +1,7 @@
 import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
 
 import { DEFAULT_HOOK, ensurePrepublishHooks } from './commands/ensure-prepublish-hooks.ts';
-import { findMonorepoRoot } from './context.ts';
+import { findMonorepoRoot } from './workspace.ts';
 
 const flagSchema = {
   fix: { long: '--fix', type: 'boolean' as const },

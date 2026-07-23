@@ -61,7 +61,7 @@ describe('getDefaultRootScripts', () => {
     expect(scripts['fmt:sh']).toBe('shfmt --write **/*.sh');
     expect(scripts['root:check']).toStrictEqual(['root:typecheck', 'fmt:check', 'root:lint:check', 'root:test']);
     expect(scripts['report-overrides']).toBe('nmr-report-overrides');
-    expect(scripts['sync-pnpm-version']).toBe('nmr-sync-pnpm-version');
+    expect(scripts['sync-agent-files']).toBe('nmr-sync-agent-files');
   });
 
   it('excludes audit from check:strict', () => {
