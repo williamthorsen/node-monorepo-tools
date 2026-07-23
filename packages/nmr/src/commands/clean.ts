@@ -4,9 +4,9 @@ import path from 'node:path';
 import type { NmrConfig } from '../config.ts';
 import { loadConfig } from '../config.ts';
 import { findContainingPackageDir } from '../context.ts';
-import { findMonorepoRoot, getWorkspacePackageDirs } from '../workspace.ts';
 import { applyDevBin, buildWorkspaceRegistry, hasIntegrationTestConfig, resolveScript } from '../resolver.ts';
 import { runCommand } from '../runner.ts';
+import { findMonorepoRoot, getWorkspacePackageDirs } from '../workspace.ts';
 import { resolveBuildCachePath } from './build.ts';
 
 const CLEAN_ICON = '🧹';
