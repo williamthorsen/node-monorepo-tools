@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 import { stripGroupDecorations } from '../buildChangelogEntries.ts';
 import { DEFAULT_WORK_TYPES } from '../defaults.ts';
+import { PIPE_SCOPE_SOURCE } from '../parseCommitMessage.ts';
 import { stripEmojiPrefix } from '../stripEmojiPrefix.ts';
 
 const thisDir = dirname(fileURLToPath(import.meta.url));
@@ -59,6 +60,19 @@ function getCommitParsers(): CommitParser[] {
       return { message: entry.message, group: entry.group };
     });
 }
+
+/**
+ * Prefix shared by every ticketed commit parser: the ticket-ID alternation (`#123`, `#123.1`,
+ * `##`, `PROJ-123`) and its trailing whitespace. Selecting on it picks up the grouping parsers
+ * and the `fmt` skip parser while excluding `^release:`, `^Merge`, and the catch-all `.*`.
+ */
+const TICKET_PREFIX_SOURCE = String.raw`^(\#\d+([.\-]\d+)?|\#\#|[A-Z]+-\d+)\s+`;
+
+/** The pipe-scope group every ticketed parser must embed, built from `parseCommitMessage`'s atom. */
+const EXPECTED_SCOPE_GROUP = String.raw`(${PIPE_SCOPE_SOURCE}\|)?`;
+
+/** Census of ticketed parsers: 19 grouping entries plus the `fmt` skip entry. */
+const TICKETED_PARSER_COUNT = 20;
 
 /**
  * Work-type keys retained in `DEFAULT_WORK_TYPES` solely for version-bump determination.
@@ -140,6 +154,14 @@ describe('cliff.toml.template alignment with DEFAULT_WORK_TYPES', () => {
     }
   });
 
+  describe('every work type is matched with the `*` structural scope', () => {
+    for (const { typeName, header } of expectedTypes) {
+      it(`"#1 *|${typeName}: test" is matched and grouped as "${header}"`, () => {
+        assertParsedAs(`#1 *|${typeName}: test`, header);
+      });
+    }
+  });
+
   describe('breaking variants are matched', () => {
     for (const { typeName, header } of expectedTypes) {
       it(`"#1 ${typeName}!: test" (breaking) is matched as "${header}"`, () => {
@@ -148,6 +170,10 @@ describe('cliff.toml.template alignment with DEFAULT_WORK_TYPES', () => {
 
       it(`"#1 scope|${typeName}!: test" (pipe breaking) is matched as "${header}"`, () => {
         assertParsedAs(`#1 scope|${typeName}!: test`, header);
+      });
+
+      it(`"#1 *|${typeName}!: test" (star-scope breaking) is matched as "${header}"`, () => {
+        assertParsedAs(`#1 *|${typeName}!: test`, header);
       });
     }
   });
@@ -172,6 +198,23 @@ describe('cliff.toml.template alignment with DEFAULT_WORK_TYPES', () => {
         expect(knownHeadersBare).toContain(stripGroupDecorations(group));
       });
     }
+  });
+});
+
+describe('cliff.toml.template scope-pattern parity with parseCommitMessage', () => {
+  const ticketedParserMessages = getRawCommitParsers()
+    .map((entry) => entry.message)
+    .filter((message): message is string => typeof message === 'string' && message.startsWith(TICKET_PREFIX_SOURCE));
+
+  it(`selects all ${TICKETED_PARSER_COUNT} ticketed parsers`, () => {
+    // Pin the census so a newly added ticketed parser has to be accounted for here rather than
+    // slipping past the scope-group assertion below by not being selected at all.
+    expect(ticketedParserMessages).toHaveLength(TICKETED_PARSER_COUNT);
+  });
+
+  it('every ticketed parser embeds the pipe-scope group parseCommitMessage accepts', () => {
+    const nonConforming = ticketedParserMessages.filter((message) => !message.includes(EXPECTED_SCOPE_GROUP));
+    expect(nonConforming, `parsers missing the shared scope group "${EXPECTED_SCOPE_GROUP}"`).toEqual([]);
   });
 });
 
@@ -201,6 +244,7 @@ describe('cliff.toml.template skip rules', () => {
     const fmtMessages = [
       '#1 fmt: Run prettier',
       '#1 scope|fmt: Run prettier',
+      '#1 *|fmt: Run prettier',
       '#1 fmt!: Breaking format change',
       '#1 scope|fmt!: Breaking scoped format',
       '## fmt: Ad-hoc formatting',
