@@ -295,11 +295,10 @@ These scripts operate on root-level code only (not workspace packages):
 
 #### Utilities
 
-| Command             | Runs                    |
-| ------------------- | ----------------------- |
-| `report-overrides`  | `nmr-report-overrides`  |
-| `sync-agent-files`  | `nmr-sync-agent-files`  |
-| `sync-pnpm-version` | `nmr-sync-pnpm-version` |
+| Command            | Runs                   |
+| ------------------ | ---------------------- |
+| `report-overrides` | `nmr-report-overrides` |
+| `sync-agent-files` | `nmr-sync-agent-files` |
 
 ## CLI reference
 
@@ -368,14 +367,6 @@ To expose the synced guidance to Claude Code sessions, add this include to the c
 @nmr/AGENTS.md
 ```
 
-### `sync-pnpm-version`
-
-Synchronize the pnpm version from the root `package.json` `packageManager` field into the GitHub `code-quality.yaml` workflow file.
-
-```bash
-nmr sync-pnpm-version
-```
-
 ## Standalone utilities
 
 ### `nmr-clean`
@@ -433,18 +424,21 @@ After installing, a consuming repo's root `package.json` scripts shrink to lifec
 
 Per-package `package.json` files no longer need script entries. Run `nmr <command>` directly.
 
-## Consistency tests
+## Workspace introspection
 
-Export structural consistency checks for use in your test suite:
+Repo-wide tests and scripts often need to know where the monorepo root is, or which directories its workspace packages live in. The `@williamthorsen/nmr/workspace` subpath publishes the two pnpm-workspace lookups nmr uses internally:
 
 ```ts
-// __tests__/consistency.test.ts
-import { runConsistencyChecks } from '@williamthorsen/nmr/tests';
+// __tests__/packages.test.ts
+import { findMonorepoRoot, getWorkspacePackageDirs } from '@williamthorsen/nmr/workspace';
 
-runConsistencyChecks();
+const monorepoRoot = findMonorepoRoot();
+
+for (const packageDir of getWorkspacePackageDirs(monorepoRoot)) {
+  // assert something about every workspace package
+}
 ```
 
-This verifies:
+`findMonorepoRoot(startDir?)` walks up from `startDir`, defaulting to `process.cwd()`, until it reaches a directory containing `pnpm-workspace.yaml`. It throws if it runs out of parent directories without finding one.
 
-- pnpm version matches between `package.json` and GitHub workflow
-- Node.js version matches between `.tool-versions` and GitHub workflow
+`getWorkspacePackageDirs(monorepoRoot)` reads the workspace patterns from that repo's `pnpm-workspace.yaml` and resolves them to absolute package directories. Both `packages/*` patterns and exact paths such as `tools/cli` are supported, and a directory is included only if it holds a `package.json`. Deeper globs such as `packages/**` are not supported and contribute no directories.
