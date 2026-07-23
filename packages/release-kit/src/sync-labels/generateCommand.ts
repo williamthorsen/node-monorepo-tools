@@ -4,9 +4,9 @@ import { dirname } from 'node:path';
 import { reportError } from '@williamthorsen/nmr-core';
 import { stringify } from 'yaml';
 
-import { CONFIG_FILE_PATH, loadConfig } from '../loadConfig.ts';
+import { CONFIG_FILE_PATH } from '../loadConfig.ts';
+import { loadValidatedConfig } from '../loadValidatedConfig.ts';
 import type { RepoLabelsConfig } from '../types.ts';
-import { validateConfig } from '../validateConfig.ts';
 import { hashPresetFile } from './presets.ts';
 import { resolveLabels } from './resolveLabels.ts';
 import { checkRetiredSyncLabelsConfig } from './retiredConfig.ts';
@@ -35,37 +35,24 @@ export function formatLabelsYaml(labels: LabelDefinition[], presetHashes: Map<st
  * fails to load or validate, or carries no `repoLabels` block.
  */
 export async function loadRepoLabelsConfig(): Promise<RepoLabelsConfig | undefined> {
-  let raw: unknown;
-  try {
-    raw = await loadConfig();
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    reportError(`Failed to load config: ${message}`);
-    return undefined;
-  }
+  const result = await loadValidatedConfig();
 
-  if (raw === undefined) {
+  if (result.status === 'missing') {
     reportError(`No config file found at ${CONFIG_FILE_PATH}. Run \`release-kit sync-labels init\` first.`);
     return undefined;
   }
-
-  const { config, errors } = validateConfig(raw);
-  if (errors.length > 0) {
-    process.stderr.write('Invalid config:\n');
-    for (const err of errors) {
-      process.stderr.write(`  ❌ ${err}\n`);
-    }
+  if (result.status === 'invalid') {
     return undefined;
   }
 
-  if (config.repoLabels === undefined) {
+  if (result.config.repoLabels === undefined) {
     reportError(
       `No \`repoLabels\` block found in ${CONFIG_FILE_PATH}. Run \`release-kit sync-labels init\` to seed one.`,
     );
     return undefined;
   }
 
-  return config.repoLabels;
+  return result.config.repoLabels;
 }
 
 /** Options for the `sync-labels generate` subcommand. */

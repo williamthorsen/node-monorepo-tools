@@ -1,10 +1,10 @@
 import { existsSync } from 'node:fs';
 
-import { reportError, reportWriteResult, writeFileWithCheck } from '@williamthorsen/nmr-core';
+import { reportWriteResult, writeFileWithCheck } from '@williamthorsen/nmr-core';
 
 import { discoverWorkspaces } from '../discoverWorkspaces.ts';
-import { CONFIG_FILE_PATH, loadConfig } from '../loadConfig.ts';
-import { validateConfig } from '../validateConfig.ts';
+import { CONFIG_FILE_PATH } from '../loadConfig.ts';
+import { loadValidatedConfig } from '../loadValidatedConfig.ts';
 import { generateCommand, LABELS_OUTPUT_PATH } from './generateCommand.ts';
 import { checkRetiredSyncLabelsConfig } from './retiredConfig.ts';
 import { buildScopeLabels, renderRepoLabelsBlock, repoLabelsConfigScript, syncLabelsWorkflow } from './templates.ts';
@@ -127,29 +127,18 @@ export async function syncLabelsInitCommand({ dryRun, force }: InitOptions): Pro
 /**
  * Load the existing config and return the unscoped names of its `retiredPackages`.
  *
- * Returns `undefined` after reporting when the config cannot be loaded or validated —
- * init must not seed a label set from a config it cannot read.
+ * Returns `undefined` when the config cannot be loaded or validated — init must not seed
+ * a label set from a config it cannot read.
  */
 async function loadRetiredPackageNames(): Promise<string[] | undefined> {
-  let raw: unknown;
-  try {
-    raw = await loadConfig();
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    reportError(`Failed to load config: ${message}`);
+  const result = await loadValidatedConfig();
+  if (result.status === 'invalid') {
     return undefined;
   }
-
-  const { config, errors } = validateConfig(raw);
-  if (errors.length > 0) {
-    process.stderr.write('Invalid config:\n');
-    for (const err of errors) {
-      process.stderr.write(`  ❌ ${err}\n`);
-    }
-    return undefined;
+  if (result.status === 'missing') {
+    return [];
   }
-
-  return (config.retiredPackages ?? []).map((retired) => toUnscopedName(retired.name));
+  return (result.config.retiredPackages ?? []).map((retired) => toUnscopedName(retired.name));
 }
 
 /** Strip the npm scope from a package name (`@scope/name` → `name`). */
