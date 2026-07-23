@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
 
 import { isRecord } from '../../typeGuards.ts';
-import { syncLabelsConfigScript, syncLabelsWorkflow } from '../templates.ts';
+import { renderRepoLabelsBlock, repoLabelsConfigScript, syncLabelsWorkflow } from '../templates.ts';
 import type { LabelDefinition } from '../types.ts';
 
 const REUSABLE_USES =
@@ -49,44 +49,24 @@ describe(syncLabelsWorkflow, () => {
   });
 });
 
-describe(syncLabelsConfigScript, () => {
-  it('contains the expected import and export lines', () => {
-    const result = syncLabelsConfigScript([]);
+describe(renderRepoLabelsBlock, () => {
+  it('renders an empty labels record for an empty scope-labels array', () => {
+    const result = renderRepoLabelsBlock([]);
 
-    expect(result).toContain("import type { SyncLabelsConfig } from '@williamthorsen/release-kit'");
-    expect(result).toContain('export default config;');
-    expect(result).toContain('const config: SyncLabelsConfig');
+    expect(result).toContain("extends: ['common']");
+    expect(result).toContain('labels: {},');
   });
 
-  it('produces valid output with an empty scope labels array', () => {
-    const result = syncLabelsConfigScript([]);
-
-    expect(result).toContain("presets: ['common']");
-    expect(result).toContain('labels: [');
-    expect(result).toContain('],');
-  });
-
-  it('indents label objects by 4 spaces', () => {
-    const scopeLabels: LabelDefinition[] = [
-      { name: 'scope:root', color: '00ff96', description: 'Monorepo root configuration' },
-    ];
-
-    const result = syncLabelsConfigScript(scopeLabels);
-
-    expect(result).toContain("    { name: 'scope:root'");
-  });
-
-  it('interpolates scope labels correctly', () => {
+  it('renders each scope label as a quoted-key record entry', () => {
     const scopeLabels: LabelDefinition[] = [
       { name: 'scope:root', color: '00ff96', description: 'Monorepo root configuration' },
       { name: 'scope:my-package', color: '00ff96', description: 'my-package package' },
     ];
 
-    const result = syncLabelsConfigScript(scopeLabels);
+    const result = renderRepoLabelsBlock(scopeLabels);
 
-    expect(result).toContain("name: 'scope:root'");
-    expect(result).toContain("name: 'scope:my-package'");
-    expect(result).toContain("description: 'Monorepo root configuration'");
+    expect(result).toContain("'scope:root': { color: '00ff96', description: 'Monorepo root configuration' },");
+    expect(result).toContain("'scope:my-package': { color: '00ff96', description: 'my-package package' },");
   });
 
   it('escapes single quotes in label values', () => {
@@ -94,9 +74,9 @@ describe(syncLabelsConfigScript, () => {
       { name: "scope:it's-a-package", color: '00ff96', description: "it's a package" },
     ];
 
-    const result = syncLabelsConfigScript(scopeLabels);
+    const result = renderRepoLabelsBlock(scopeLabels);
 
-    expect(result).toContain(String.raw`name: 'scope:it\'s-a-package'`);
+    expect(result).toContain(String.raw`'scope:it\'s-a-package'`);
     expect(result).toContain(String.raw`description: 'it\'s a package'`);
   });
 
@@ -105,10 +85,31 @@ describe(syncLabelsConfigScript, () => {
       { name: String.raw`scope:back\slash`, color: '00ff96', description: String.raw`has \ backslash` },
     ];
 
-    const result = syncLabelsConfigScript(scopeLabels);
+    const result = renderRepoLabelsBlock(scopeLabels);
 
-    expect(result).toContain(String.raw`name: 'scope:back\\slash'`);
+    expect(result).toContain(String.raw`'scope:back\\slash'`);
     expect(result).toContain(String.raw`description: 'has \\ backslash'`);
+  });
+});
+
+describe(repoLabelsConfigScript, () => {
+  it('wraps the repoLabels block in a defineConfig default export', () => {
+    const result = repoLabelsConfigScript([]);
+
+    expect(result).toContain("import { defineConfig } from '@williamthorsen/release-kit'");
+    expect(result).toContain('export default defineConfig({');
+    expect(result).toContain('repoLabels: {');
+    expect(result).toContain('});');
+  });
+
+  it('embeds the rendered block verbatim', () => {
+    const scopeLabels: LabelDefinition[] = [
+      { name: 'scope:root', color: '00ff96', description: 'Monorepo root configuration' },
+    ];
+
+    const result = repoLabelsConfigScript(scopeLabels);
+
+    expect(result).toContain(renderRepoLabelsBlock(scopeLabels));
   });
 });
 

@@ -11,6 +11,7 @@
 import { type CheckOutcome, defineRdyKit, pickJson } from 'readyup';
 import {
   discoverWorkspaces,
+  fileContains,
   fileDoesNotContain,
   fileExists,
   fileMatchesHash,
@@ -135,6 +136,13 @@ export default defineRdyKit({
           fix: "Remove 'shouldCreateGithubRelease' from .config/release-kit.config.ts. Adoption of GitHub Releases is now signaled by installing the create-github-release workflow (see release-kit README for setup).",
         },
         {
+          name: '.config/release-kit.config.ts uses defineConfig',
+          severity: 'recommend',
+          skip: () => (!fileExists('.config/release-kit.config.ts') ? 'no release-kit config file' : false),
+          check: () => fileContains('.config/release-kit.config.ts', /defineConfig/),
+          fix: 'Wrap your config export with defineConfig() from @williamthorsen/release-kit for type safety',
+        },
+        {
           name: 'releaseNotes.shouldInjectIntoReadme is true',
           severity: 'warn',
           skip: () => (!fileExists('.config/release-kit.config.ts') ? 'no release-kit config file' : false),
@@ -183,15 +191,22 @@ export default defineRdyKit({
           fix: 'Update sync-labels.yaml to use @workflow/sync-labels-v1 (run `release-kit sync-labels init --force` to regenerate, or replace the ref manually)',
         },
         {
-          name: '.config/sync-labels.config.ts exists',
+          name: 'retired .config/sync-labels.config.ts is absent',
+          severity: 'error',
+          check: () => !fileExists('.config/sync-labels.config.ts'),
+          fix: 'Move the labels into the repoLabels block of .config/release-kit.config.ts, then delete .config/sync-labels.config.ts',
+        },
+        {
+          name: 'repoLabels block declared in .config/release-kit.config.ts',
           severity: 'recommend',
-          check: () => fileExists('.config/sync-labels.config.ts'),
-          fix: 'Run `release-kit sync-labels init` to scaffold the config, then customize labels',
+          skip: () => (!fileExists('.config/release-kit.config.ts') ? 'no release-kit config file' : false),
+          check: () => fileContains('.config/release-kit.config.ts', /repoLabels/),
+          fix: 'Run `release-kit sync-labels init` to seed a repoLabels block, then customize labels',
         },
         {
           name: '.github/labels.yaml exists',
           severity: 'warn',
-          skip: () => (!fileExists('.config/sync-labels.config.ts') ? 'no sync-labels config' : false),
+          skip: () => (!fileContains('.config/release-kit.config.ts', /repoLabels/) ? 'no repoLabels config' : false),
           check: () => fileExists('.github/labels.yaml'),
           fix: 'Run `release-kit sync-labels generate` to produce the labels file',
           checks: [

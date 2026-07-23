@@ -86,9 +86,9 @@ Configuration is optional. The CLI works out of the box by auto-discovering work
 ### Config file
 
 ```typescript
-import type { ReleaseKitConfig } from '@williamthorsen/release-kit';
+import { defineConfig } from '@williamthorsen/release-kit';
 
-const config: ReleaseKitConfig = {
+export default defineConfig({
   // Exclude a workspace from release processing
   workspaces: [{ dir: 'internal-tools', shouldExclude: true }],
 
@@ -100,12 +100,10 @@ const config: ReleaseKitConfig = {
 
   // Add or override work types (merged with defaults by key)
   workTypes: { perf: { header: 'Performance' } },
-};
-
-export default config;
+});
 ```
 
-The config file supports both `export default config` and `export const config = { ... }`.
+`defineConfig` is a type-safe identity function: it gives the config object validation and completion in `.ts` files and full inference in `.js` ones. The loader also accepts a plain `export default config` or `export const config = { ... }`.
 
 ### `ReleaseKitConfig` reference
 
@@ -120,6 +118,7 @@ The config file supports both `export default config` and `export const config =
 | `breakingPolicies` | `Record<string, 'forbidden' \| 'optional' \| 'required'>` | Per-type `!`-policy lookup. Defaults to `DEFAULT_BREAKING_POLICIES`. Replaces the default entirely when provided. Set to `{}` to disable enforcement |
 | `retiredPackages`  | `RetiredPackage[]`                                        | Packages that once lived in this repo but have been extracted or removed; suppresses undeclared-tag-prefix warnings                                  |
 | `project`          | `ProjectConfig`                                           | Opt-in project-level release block. Declaring `project: {}` (even empty) enables a project-release stage in `prepare`                                |
+| `repoLabels`       | `RepoLabelsConfig`                                        | Declares the repository's label registry for `sync-labels`; see [Label configuration](#label-configuration)                                          |
 
 All fields are optional.
 
@@ -155,13 +154,11 @@ interface RetiredPackage {
 Worked example — `preflight` was extracted from this monorepo and continues as the standalone `readyup` project. Its tags stay in this repo as historical anchors:
 
 ```typescript
-import type { ReleaseKitConfig } from '@williamthorsen/release-kit';
+import { defineConfig } from '@williamthorsen/release-kit';
 
-const config: ReleaseKitConfig = {
+export default defineConfig({
   retiredPackages: [{ name: '@scope/preflight', tagPrefix: 'preflight-v', successor: 'readyup' }],
-};
-
-export default config;
+});
 ```
 
 Validation rules:
@@ -712,15 +709,51 @@ The token needs `contents: read` on the codeassembly repo (fine-grained PAT scop
 
 ### `release-kit sync-labels`
 
-Manage GitHub label definitions via config-driven YAML files.
+Manage GitHub label definitions via the `repoLabels` block of `.config/release-kit.config.ts`.
 
 | Subcommand | Description                                                    | Flags                  |
 | ---------- | -------------------------------------------------------------- | ---------------------- |
-| `init`     | Scaffold config, caller workflow, and generate labels          | `--dry-run`, `--force` |
-| `generate` | Regenerate `.github/labels.yaml` from config                   | —                      |
+| `init`     | Scaffold the caller workflow, seed config, and generate labels | `--dry-run`, `--force` |
+| `generate` | Regenerate `.github/labels.yaml` from config                   | `--check`              |
 | `sync`     | Trigger the `sync-labels` GitHub Actions workflow via `gh` CLI | —                      |
 
-`init` scaffolds `.config/sync-labels.config.ts` with auto-detected workspace scope labels and a `.github/workflows/sync-labels.yaml` caller workflow, then generates `.github/labels.yaml`. `generate` reads the config and writes `.github/labels.yaml`. `sync` triggers the workflow remotely — it requires the `gh` CLI and an existing workflow file.
+`init` scaffolds the `.github/workflows/sync-labels.yaml` caller workflow and seeds a `repoLabels` block with scope labels discovered from workspaces and declared `retiredPackages`. When `.config/release-kit.config.ts` does not exist, `init` writes it; when it does, `init` prints the block for manual paste — a hand-authored config is never rewritten. `generate` resolves the block and writes `.github/labels.yaml`; with `--check` it regenerates in memory and exits non-zero if the committed file is stale or missing, writing nothing. `sync` triggers the workflow remotely — it requires the `gh` CLI and an existing workflow file.
+
+Every `sync-labels` subcommand refuses to run while the retired `.config/sync-labels.config.ts` is present, so custom labels cannot be silently dropped mid-migration; see [Migrating from `.config/sync-labels.config.ts`](#migrating-from-configsync-labelsconfigts).
+
+#### Label configuration
+
+```typescript
+import { defineConfig } from '@williamthorsen/release-kit';
+
+export default defineConfig({
+  repoLabels: {
+    extends: ['common'],
+    labels: {
+      'scope:my-package': { color: '00ff96', description: 'my-package package' }, // add
+      bug: { color: 'b60205', description: 'Something broken' }, // replace the preset's `bug`
+      wontfix: null, // remove the preset's `wontfix`
+    },
+  },
+});
+```
+
+The block declares the repository's label registry — the set of labels defined on the GitHub repo, distinct from labels applied to PRs and issues. Resolution is an ordered fold with last-writer-wins:
+
+1. Presets, in `extends` order — a later preset wins on a shared name.
+2. The `labels` record — an entry adds a label, replaces one an earlier layer defined, or removes it (`null`). A replacing entry supplies the full `{ color, description }`.
+
+Overlaps are never errors; order resolves them, and the committed `.github/labels.yaml` diff is where an unexpected change surfaces at review. The one config error is a dangling `null` — removing a name no preset defines — because that misstatement is invisible in the output diff.
+
+#### Migrating from `.config/sync-labels.config.ts`
+
+Label configuration formerly lived in a standalone `.config/sync-labels.config.ts` (`presets` + a `labels` array). To migrate:
+
+1. Move the preset list to `repoLabels.extends` in `.config/release-kit.config.ts`.
+2. Convert each `labels` array entry to a `'name': { color, description }` record entry under `repoLabels.labels`.
+3. Delete `.config/sync-labels.config.ts` and run `release-kit sync-labels generate`.
+
+The regenerated `.github/labels.yaml` differs only in its `# Source:` header line. Name collisions with preset labels, which the old format rejected, now mean your entry replaces the preset label.
 
 #### When labels are applied
 

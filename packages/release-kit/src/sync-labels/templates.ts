@@ -43,8 +43,13 @@ jobs:
 `;
 }
 
-/** Generate scope labels from a list of workspace paths. */
-export function buildScopeLabels(workspacePaths: string[]): LabelDefinition[] {
+/**
+ * Generate scope labels from workspace paths and retired-package names.
+ *
+ * Workspace labels are named after the path basename; retired-package labels after the
+ * unscoped package name, marked retired in the description.
+ */
+export function buildScopeLabels(workspacePaths: string[], retiredNames: string[] = []): LabelDefinition[] {
   const labels: LabelDefinition[] = [
     { name: 'scope:root', color: '00ff96', description: 'Monorepo root configuration' },
   ];
@@ -52,6 +57,10 @@ export function buildScopeLabels(workspacePaths: string[]): LabelDefinition[] {
   for (const workspacePath of workspacePaths) {
     const name = basename(workspacePath);
     labels.push({ name: `scope:${name}`, color: '00ff96', description: `${name} package` });
+  }
+
+  for (const retiredName of retiredNames) {
+    labels.push({ name: `scope:${retiredName}`, color: '00ff96', description: `${retiredName} package (retired)` });
   }
 
   return labels;
@@ -62,26 +71,34 @@ function escapeForSingleQuotedString(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/'/g, String.raw`\'`);
 }
 
-/** Generate the `.config/sync-labels.config.ts` config file content. */
-export function syncLabelsConfigScript(scopeLabels: LabelDefinition[]): string {
-  const labelsArray = scopeLabels
+/**
+ * Render the `repoLabels` config block, indented for pasting into the object passed to
+ * `defineConfig` in `.config/release-kit.config.ts`.
+ */
+export function renderRepoLabelsBlock(scopeLabels: LabelDefinition[]): string {
+  const entries = scopeLabels
     .map((label) => {
       const name = escapeForSingleQuotedString(label.name);
       const color = escapeForSingleQuotedString(label.color);
       const description = escapeForSingleQuotedString(label.description);
-      return `    { name: '${name}', color: '${color}', description: '${description}' },`;
+      return `      '${name}': { color: '${color}', description: '${description}' },`;
     })
     .join('\n');
 
-  return `import type { SyncLabelsConfig } from '@williamthorsen/release-kit';
+  const labelsBlock = entries === '' ? '    labels: {},' : `    labels: {\n${entries}\n    },`;
 
-const config: SyncLabelsConfig = {
-  presets: ['common'],
-  labels: [
-${labelsArray}
-  ],
-};
+  return `  repoLabels: {
+    extends: ['common'],
+${labelsBlock}
+  },`;
+}
 
-export default config;
+/** Generate a new `.config/release-kit.config.ts` carrying the `repoLabels` block. */
+export function repoLabelsConfigScript(scopeLabels: LabelDefinition[]): string {
+  return `import { defineConfig } from '@williamthorsen/release-kit';
+
+export default defineConfig({
+${renderRepoLabelsBlock(scopeLabels)}
+});
 `;
 }

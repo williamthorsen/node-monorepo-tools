@@ -3,6 +3,8 @@ import { existsSync } from 'node:fs';
 
 import { reportError } from '@williamthorsen/nmr-core';
 
+import { checkRetiredSyncLabelsConfig } from './retiredConfig.ts';
+
 /** Workflow file that must exist before triggering. */
 const WORKFLOW_FILE = '.github/workflows/sync-labels.yaml';
 
@@ -23,6 +25,10 @@ function checkGhAvailable(): boolean {
  * via `gh workflow run`. Returns 0 on success, 1 on failure.
  */
 export function syncLabelsCommand(): number {
+  if (checkRetiredSyncLabelsConfig()) {
+    return 1;
+  }
+
   if (!checkGhAvailable()) {
     reportError('The `gh` CLI is not installed or not in PATH. Install it from https://cli.github.com/');
     return 1;

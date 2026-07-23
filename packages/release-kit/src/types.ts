@@ -416,6 +416,37 @@ export const versionPatternsSchema = z
 /** Schema for a single `breakingPolicies` value. */
 export const breakingPolicyValueSchema = z.enum(['forbidden', 'optional', 'required']);
 
+/** Schema for a single label's spec in the `repoLabels.labels` record. */
+export const labelSpecSchema = z
+  .object({
+    color: z.string().min(1),
+    description: z.string(),
+  })
+  .strict();
+
+/** A label's color and description; the name is the record key in `repoLabels.labels`. */
+export type LabelSpec = z.infer<typeof labelSpecSchema>;
+
+/**
+ * Schema for the optional `repoLabels` block, which declares the repository's label
+ * registry (the labels defined on the GitHub repo, distinct from labels applied to PRs
+ * and issues).
+ *
+ * Resolution is an ordered fold with last-writer-wins: presets in `extends` order, then
+ * the `labels` record, where an entry adds a label, replaces one an earlier layer
+ * defined, or removes it (`null`). A `null` naming a label no earlier layer defined is
+ * a resolve-time error (`resolveLabels`), not a schema error.
+ */
+export const repoLabelsSchema = z
+  .object({
+    extends: z.array(z.string().min(1)).optional(),
+    labels: z.record(z.string().min(1), labelSpecSchema.nullable()).optional(),
+  })
+  .strict();
+
+/** Consumer-facing `repoLabels` block: bundled presets to extend plus per-name adjustments. */
+export type RepoLabelsConfig = z.infer<typeof repoLabelsSchema>;
+
 /** Schema for the consumer-facing config file shape (`.config/release-kit.config.ts`). */
 export const releaseKitConfigSchema = z
   .object({
@@ -425,6 +456,7 @@ export const releaseKitConfigSchema = z
     formatCommand: z.string().min(1).optional(),
     project: projectConfigSchema.optional(),
     releaseNotes: releaseNotesInputSchema.optional(),
+    repoLabels: repoLabelsSchema.optional(),
     retiredPackages: z.array(retiredPackageSchema).optional(),
     scopeAliases: z.record(z.string(), z.string()).optional(),
     versionPatterns: versionPatternsSchema.optional(),

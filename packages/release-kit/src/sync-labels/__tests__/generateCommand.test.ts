@@ -2,16 +2,23 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { LabelDefinition } from '../types.ts';
 
-const mockLoadSyncLabelsConfig = vi.hoisted(() => vi.fn());
+const mockExistsSync = vi.hoisted(() => vi.fn());
+const mockLoadConfig = vi.hoisted(() => vi.fn());
+const mockValidateConfig = vi.hoisted(() => vi.fn());
 const mockResolveLabels = vi.hoisted(() => vi.fn());
 const mockHashPresetFile = vi.hoisted(() => vi.fn());
 const mockMkdirSync = vi.hoisted(() => vi.fn());
+const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockWriteFileSync = vi.hoisted(() => vi.fn());
 
-vi.mock(import('../loadSyncLabelsConfig.ts'), async (importOriginal) => {
+vi.mock(import('../../loadConfig.ts'), async (importOriginal) => {
   const original = await importOriginal();
-  return { ...original, loadSyncLabelsConfig: mockLoadSyncLabelsConfig };
+  return { ...original, loadConfig: mockLoadConfig };
 });
+
+vi.mock(import('../../validateConfig.ts'), () => ({
+  validateConfig: mockValidateConfig,
+}));
 
 vi.mock(import('../resolveLabels.ts'), () => ({
   resolveLabels: mockResolveLabels,
@@ -23,24 +30,48 @@ vi.mock(import('../presets.ts'), async (importOriginal) => {
 });
 
 vi.mock(import('node:fs'), () => ({
+  existsSync: mockExistsSync,
   mkdirSync: mockMkdirSync,
+  readFileSync: mockReadFileSync,
   writeFileSync: mockWriteFileSync,
 }));
 
 import { formatLabelsYaml, generateCommand, LABELS_OUTPUT_PATH } from '../generateCommand.ts';
+import { RETIRED_SYNC_LABELS_CONFIG_PATH } from '../retiredConfig.ts';
+
+/** Configure a loadable config whose validation succeeds with the given typed config. */
+function givenValidConfig(config: Record<string, unknown>): void {
+  mockLoadConfig.mockResolvedValue(config);
+  mockValidateConfig.mockReturnValue({ config, errors: [], warnings: [] });
+}
 
 describe(generateCommand, () => {
   afterEach(() => {
-    mockLoadSyncLabelsConfig.mockReset();
+    mockExistsSync.mockReset();
+    mockLoadConfig.mockReset();
+    mockValidateConfig.mockReset();
     mockResolveLabels.mockReset();
     mockHashPresetFile.mockReset();
     mockMkdirSync.mockReset();
+    mockReadFileSync.mockReset();
     mockWriteFileSync.mockReset();
     vi.restoreAllMocks();
   });
 
+  it('returns 1 with a migration message when the retired sync-labels config exists', async () => {
+    mockExistsSync.mockImplementation((path: string) => path === RETIRED_SYNC_LABELS_CONFIG_PATH);
+    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    const exitCode = await generateCommand();
+
+    expect(exitCode).toBe(1);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('no longer read'));
+    expect(mockLoadConfig).not.toHaveBeenCalled();
+  });
+
   it('returns 1 when no config file is found', async () => {
-    mockLoadSyncLabelsConfig.mockResolvedValue(undefined);
+    mockExistsSync.mockReturnValue(false);
+    mockLoadConfig.mockResolvedValue(undefined);
     const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
     const exitCode = await generateCommand();
@@ -50,7 +81,8 @@ describe(generateCommand, () => {
   });
 
   it('returns 1 when config loading throws', async () => {
-    mockLoadSyncLabelsConfig.mockRejectedValue(new Error('parse failure'));
+    mockExistsSync.mockReturnValue(false);
+    mockLoadConfig.mockRejectedValue(new Error('parse failure'));
     const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
     const exitCode = await generateCommand();
@@ -59,22 +91,47 @@ describe(generateCommand, () => {
     expect(spy).toHaveBeenCalledWith(expect.stringContaining('parse failure'));
   });
 
+  it('returns 1 and prints validation errors when the config is invalid', async () => {
+    mockExistsSync.mockReturnValue(false);
+    mockLoadConfig.mockResolvedValue({ repoLabels: { extends: 'common' } });
+    mockValidateConfig.mockReturnValue({ config: {}, errors: ['repoLabels.extends: invalid'], warnings: [] });
+    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    const exitCode = await generateCommand();
+
+    expect(exitCode).toBe(1);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('repoLabels.extends: invalid'));
+  });
+
+  it('returns 1 when the config has no repoLabels block', async () => {
+    mockExistsSync.mockReturnValue(false);
+    givenValidConfig({});
+    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    const exitCode = await generateCommand();
+
+    expect(exitCode).toBe(1);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('repoLabels'));
+  });
+
   it('returns 1 when label resolution throws', async () => {
-    mockLoadSyncLabelsConfig.mockResolvedValue({ presets: ['common'] });
+    mockExistsSync.mockReturnValue(false);
+    givenValidConfig({ repoLabels: { extends: ['common'], labels: { ghost: null } } });
     mockResolveLabels.mockImplementation(() => {
-      throw new Error('Label name collision');
+      throw new Error("Label 'ghost' is set to null");
     });
     const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
     const exitCode = await generateCommand();
 
     expect(exitCode).toBe(1);
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('Label name collision'));
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining("Label 'ghost' is set to null"));
   });
 
   it('writes labels file and returns 0 on success', async () => {
     const labels: LabelDefinition[] = [{ name: 'bug', color: 'd73a4a', description: "Something isn't working" }];
-    mockLoadSyncLabelsConfig.mockResolvedValue({ presets: ['common'] });
+    mockExistsSync.mockReturnValue(false);
+    givenValidConfig({ repoLabels: { extends: ['common'] } });
     mockResolveLabels.mockReturnValue(labels);
     mockHashPresetFile.mockReturnValue('abc123');
     vi.spyOn(console, 'info').mockImplementation(() => undefined);
@@ -90,8 +147,56 @@ describe(generateCommand, () => {
     );
   });
 
+  it('with check, returns 0 without writing when the committed file matches', async () => {
+    const labels: LabelDefinition[] = [{ name: 'bug', color: 'd73a4a', description: 'Bug' }];
+    mockExistsSync.mockReturnValue(false);
+    givenValidConfig({ repoLabels: { extends: ['common'] } });
+    mockResolveLabels.mockReturnValue(labels);
+    mockHashPresetFile.mockReturnValue('abc123');
+    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+
+    mockReadFileSync.mockReturnValue(formatLabelsYaml(labels, new Map([['common', 'abc123']])));
+
+    const exitCode = await generateCommand({ check: true });
+
+    expect(exitCode).toBe(0);
+    expect(mockWriteFileSync).not.toHaveBeenCalled();
+  });
+
+  it('with check, returns 1 when the committed file is stale', async () => {
+    mockExistsSync.mockReturnValue(false);
+    givenValidConfig({ repoLabels: { extends: ['common'] } });
+    mockResolveLabels.mockReturnValue([{ name: 'bug', color: 'd73a4a', description: 'Bug' }]);
+    mockHashPresetFile.mockReturnValue('abc123');
+    mockReadFileSync.mockReturnValue('# outdated content\n');
+    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    const exitCode = await generateCommand({ check: true });
+
+    expect(exitCode).toBe(1);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('stale'));
+    expect(mockWriteFileSync).not.toHaveBeenCalled();
+  });
+
+  it('with check, returns 1 when the committed file is missing', async () => {
+    mockExistsSync.mockReturnValue(false);
+    givenValidConfig({ repoLabels: {} });
+    mockResolveLabels.mockReturnValue([]);
+    mockReadFileSync.mockImplementation(() => {
+      throw new Error('ENOENT');
+    });
+    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    const exitCode = await generateCommand({ check: true });
+
+    expect(exitCode).toBe(1);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('missing'));
+    expect(mockWriteFileSync).not.toHaveBeenCalled();
+  });
+
   it('returns 1 when file writing fails', async () => {
-    mockLoadSyncLabelsConfig.mockResolvedValue({ presets: ['common'] });
+    mockExistsSync.mockReturnValue(false);
+    givenValidConfig({ repoLabels: {} });
     mockResolveLabels.mockReturnValue([]);
     mockMkdirSync.mockImplementation(() => {
       throw new Error('EACCES');
@@ -108,13 +213,13 @@ describe(generateCommand, () => {
 describe(formatLabelsYaml, () => {
   const noPresets = new Map<string, string>();
 
-  it('includes the generated header comment', () => {
+  it('includes the generated header comment naming the unified config as source', () => {
     const labels: LabelDefinition[] = [{ name: 'bug', color: 'd73a4a', description: "Something isn't working" }];
 
     const result = formatLabelsYaml(labels, noPresets);
 
     expect(result).toContain('# Generated by release-kit sync-labels');
-    expect(result).toContain('# Source: .config/sync-labels.config.ts');
+    expect(result).toContain('# Source: .config/release-kit.config.ts');
   });
 
   it('includes preset hash lines in the header', () => {
@@ -165,7 +270,7 @@ describe(formatLabelsYaml, () => {
     const result = formatLabelsYaml([], noPresets);
 
     expect(result).toContain('# Generated by release-kit sync-labels');
-    expect(result).toContain('# Source: .config/sync-labels.config.ts');
+    expect(result).toContain('# Source: .config/release-kit.config.ts');
     // yaml stringifies an empty array as '[]\n'
     expect(result).toContain('[]\n');
   });
