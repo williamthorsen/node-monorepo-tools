@@ -65,8 +65,10 @@ function showSyncLabelsInitHelp(): void {
   console.info(`
 Usage: release-kit sync-labels init [options]
 
-Scaffold the sync-labels caller workflow and config file, auto-discover workspaces
-for scope labels, then generate .github/labels.yaml.
+Scaffold the sync-labels caller workflow and seed the repoLabels block of
+.config/release-kit.config.ts with scope labels discovered from workspaces and
+retired packages, then generate .github/labels.yaml. When the config file already
+exists, print the block for manual paste instead of rewriting the file.
 
 Options:
   --dry-run     Preview changes without writing files
@@ -77,11 +79,12 @@ Options:
 
 function showSyncLabelsGenerateHelp(): void {
   console.info(`
-Usage: release-kit sync-labels generate
+Usage: release-kit sync-labels generate [options]
 
-Regenerate .github/labels.yaml from .config/sync-labels.config.ts.
+Regenerate .github/labels.yaml from the repoLabels block of .config/release-kit.config.ts.
 
 Options:
+  --check       Report whether .github/labels.yaml is stale instead of writing it
   --help, -h    Show this help message
 `);
 }
@@ -417,12 +420,12 @@ if (command === 'sync-labels') {
       process.exit(0);
     }
 
-    if (subflags.length > 0) {
-      reportError(`Unknown option: ${subflags[0]}`);
-      process.exit(1);
-    }
+    const generateFlagSchema = {
+      check: { long: '--check', type: 'boolean' as const },
+    };
 
-    const exitCode = await generateCommand();
+    const { check } = parseArgsOrExit(subflags, generateFlagSchema).flags;
+    const exitCode = await generateCommand({ check });
     process.exit(exitCode);
   }
 

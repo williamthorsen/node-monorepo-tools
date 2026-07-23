@@ -8,6 +8,7 @@ const mockValidateConfig = vi.hoisted(() => vi.fn());
 const mockResolveLabels = vi.hoisted(() => vi.fn());
 const mockHashPresetFile = vi.hoisted(() => vi.fn());
 const mockMkdirSync = vi.hoisted(() => vi.fn());
+const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockWriteFileSync = vi.hoisted(() => vi.fn());
 
 vi.mock(import('../../loadConfig.ts'), async (importOriginal) => {
@@ -31,6 +32,7 @@ vi.mock(import('../presets.ts'), async (importOriginal) => {
 vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
   mkdirSync: mockMkdirSync,
+  readFileSync: mockReadFileSync,
   writeFileSync: mockWriteFileSync,
 }));
 
@@ -51,6 +53,7 @@ describe(generateCommand, () => {
     mockResolveLabels.mockReset();
     mockHashPresetFile.mockReset();
     mockMkdirSync.mockReset();
+    mockReadFileSync.mockReset();
     mockWriteFileSync.mockReset();
     vi.restoreAllMocks();
   });
@@ -142,6 +145,53 @@ describe(generateCommand, () => {
       expect.stringContaining('# common preset hash: abc123'),
       'utf8',
     );
+  });
+
+  it('with check, returns 0 without writing when the committed file matches', async () => {
+    const labels: LabelDefinition[] = [{ name: 'bug', color: 'd73a4a', description: 'Bug' }];
+    mockExistsSync.mockReturnValue(false);
+    givenValidConfig({ repoLabels: { extends: ['common'] } });
+    mockResolveLabels.mockReturnValue(labels);
+    mockHashPresetFile.mockReturnValue('abc123');
+    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+
+    mockReadFileSync.mockReturnValue(formatLabelsYaml(labels, new Map([['common', 'abc123']])));
+
+    const exitCode = await generateCommand({ check: true });
+
+    expect(exitCode).toBe(0);
+    expect(mockWriteFileSync).not.toHaveBeenCalled();
+  });
+
+  it('with check, returns 1 when the committed file is stale', async () => {
+    mockExistsSync.mockReturnValue(false);
+    givenValidConfig({ repoLabels: { extends: ['common'] } });
+    mockResolveLabels.mockReturnValue([{ name: 'bug', color: 'd73a4a', description: 'Bug' }]);
+    mockHashPresetFile.mockReturnValue('abc123');
+    mockReadFileSync.mockReturnValue('# outdated content\n');
+    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    const exitCode = await generateCommand({ check: true });
+
+    expect(exitCode).toBe(1);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('stale'));
+    expect(mockWriteFileSync).not.toHaveBeenCalled();
+  });
+
+  it('with check, returns 1 when the committed file is missing', async () => {
+    mockExistsSync.mockReturnValue(false);
+    givenValidConfig({ repoLabels: {} });
+    mockResolveLabels.mockReturnValue([]);
+    mockReadFileSync.mockImplementation(() => {
+      throw new Error('ENOENT');
+    });
+    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    const exitCode = await generateCommand({ check: true });
+
+    expect(exitCode).toBe(1);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('missing'));
+    expect(mockWriteFileSync).not.toHaveBeenCalled();
   });
 
   it('returns 1 when file writing fails', async () => {

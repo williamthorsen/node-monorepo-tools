@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import { reportError } from '@williamthorsen/nmr-core';
@@ -68,13 +68,21 @@ export async function loadRepoLabelsConfig(): Promise<RepoLabelsConfig | undefin
   return config.repoLabels;
 }
 
+/** Options for the `sync-labels generate` subcommand. */
+interface GenerateOptions {
+  /** Compare the regenerated content against the committed file instead of writing. */
+  check?: boolean;
+}
+
 /**
  * Run the `sync-labels generate` command.
  *
  * Loads the `repoLabels` block from `.config/release-kit.config.ts`, resolves presets and
- * label adjustments, and writes `.github/labels.yaml`. Returns 0 on success, 1 on failure.
+ * label adjustments, and writes `.github/labels.yaml` — or, with `check`, regenerates in
+ * memory and reports whether the committed file is stale, writing nothing. Returns 0 on
+ * success, 1 on failure.
  */
-export async function generateCommand(): Promise<number> {
+export async function generateCommand({ check = false }: GenerateOptions = {}): Promise<number> {
   if (checkRetiredSyncLabelsConfig()) {
     return 1;
   }
@@ -100,6 +108,10 @@ export async function generateCommand(): Promise<number> {
 
   const content = formatLabelsYaml(labels, presetHashes);
 
+  if (check) {
+    return compareAgainstCommittedFile(content);
+  }
+
   try {
     mkdirSync(dirname(LABELS_OUTPUT_PATH), { recursive: true });
     writeFileSync(LABELS_OUTPUT_PATH, content, 'utf8');
@@ -110,5 +122,24 @@ export async function generateCommand(): Promise<number> {
   }
 
   console.info(`Generated ${LABELS_OUTPUT_PATH} with ${String(labels.length)} labels.`);
+  return 0;
+}
+
+/** Compare regenerated content against the committed labels file; report and return an exit code. */
+function compareAgainstCommittedFile(expected: string): number {
+  let existing: string;
+  try {
+    existing = readFileSync(LABELS_OUTPUT_PATH, 'utf8');
+  } catch {
+    reportError(`${LABELS_OUTPUT_PATH} is missing. Run \`release-kit sync-labels generate\` and commit the result.`);
+    return 1;
+  }
+
+  if (existing !== expected) {
+    reportError(`${LABELS_OUTPUT_PATH} is stale. Run \`release-kit sync-labels generate\` and commit the result.`);
+    return 1;
+  }
+
+  console.info(`${LABELS_OUTPUT_PATH} is up to date.`);
   return 0;
 }
