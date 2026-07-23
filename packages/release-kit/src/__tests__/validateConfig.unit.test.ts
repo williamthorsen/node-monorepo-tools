@@ -694,6 +694,51 @@ describe(validateConfig, () => {
     });
   });
 
+  describe('repoLabels', () => {
+    it('validates a valid repoLabels block with extends, additions, replacements, and removals', () => {
+      const { config, errors } = validateConfig({
+        repoLabels: {
+          extends: ['common'],
+          labels: {
+            'scope:nmr': { color: '00ff96', description: 'nmr package' },
+            bug: { color: 'd73a4a', description: 'Something broken' },
+            wontfix: null,
+          },
+        },
+      });
+      expect(errors).toStrictEqual([]);
+      expect(config.repoLabels?.extends).toStrictEqual(['common']);
+      expect(config.repoLabels?.labels?.wontfix).toBeNull();
+    });
+
+    it('accepts an empty repoLabels block', () => {
+      const { errors } = validateConfig({ repoLabels: {} });
+      expect(errors).toStrictEqual([]);
+    });
+
+    it('returns an error when extends is not an array of strings', () => {
+      const { errors } = validateConfig({ repoLabels: { extends: 'common' } });
+      expectErrorAtPath(errors, 'repoLabels.extends');
+    });
+
+    it('returns an error when a label entry is missing a field', () => {
+      const { errors } = validateConfig({ repoLabels: { labels: { bug: { color: 'd73a4a' } } } });
+      expectErrorAtPath(errors, 'repoLabels.labels.bug.description');
+    });
+
+    it('returns an error when a label entry carries an unknown field', () => {
+      const { errors } = validateConfig({
+        repoLabels: { labels: { bug: { color: 'd73a4a', description: 'x', override: true } } },
+      });
+      expectErrorMentioning(errors, 'override');
+    });
+
+    it('returns an error for unknown keys in the repoLabels block', () => {
+      const { errors } = validateConfig({ repoLabels: { exclude: ['wontfix'] } });
+      expectErrorMentioning(errors, 'exclude');
+    });
+  });
+
   describe('cross-field warnings', () => {
     it('warns when shouldInjectIntoReadme is true but changelogJson is disabled', () => {
       const { warnings } = validateConfig({
