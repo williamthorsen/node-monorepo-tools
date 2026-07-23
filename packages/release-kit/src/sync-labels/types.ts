@@ -7,11 +7,3 @@ export interface LabelDefinition {
   /** Short description shown in the GitHub UI. */
   description: string;
 }
-
-/** Consumer-facing config shape for `.config/sync-labels.config.ts`. */
-export interface SyncLabelsConfig {
-  /** Preset names to include (e.g., `['common']`). Resolved from bundled preset files. */
-  presets?: string[];
-  /** Custom label definitions merged with preset labels. */
-  labels?: LabelDefinition[];
-}

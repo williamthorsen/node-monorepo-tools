@@ -1,15 +1,11 @@
 import type { RepoType } from './detectRepoType.ts';
 
-/**
- * Generate the `.config/release-kit.config.ts` starter config with TODOs for customization.
- *
- * Uses the new `ReleaseKitConfig` shape with `header` field for work type labels.
- */
+/** Generate the `.config/release-kit.config.ts` starter config with TODOs for customization. */
 export function releaseConfigScript(repoType: RepoType): string {
   if (repoType === 'monorepo') {
-    return `import type { ReleaseKitConfig } from '@williamthorsen/release-kit';
+    return `import { defineConfig } from '@williamthorsen/release-kit';
 
-const config: ReleaseKitConfig = {
+export default defineConfig({
   releaseNotes: {
     shouldInjectIntoReadme: true,
   },
@@ -26,15 +22,13 @@ const config: ReleaseKitConfig = {
 
   // Uncomment to add custom work types (merged with defaults):
   // workTypes: { perf: { header: 'Performance' } },
-};
-
-export default config;
+});
 `;
   }
 
-  return `import type { ReleaseKitConfig } from '@williamthorsen/release-kit';
+  return `import { defineConfig } from '@williamthorsen/release-kit';
 
-const config: ReleaseKitConfig = {
+export default defineConfig({
   releaseNotes: {
     shouldInjectIntoReadme: true,
   },
@@ -46,9 +40,7 @@ const config: ReleaseKitConfig = {
 
   // Uncomment to add custom work types (merged with defaults):
   // workTypes: { perf: { header: 'Performance' } },
-};
-
-export default config;
+});
 `;
 }
 

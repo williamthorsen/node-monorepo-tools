@@ -3,24 +3,24 @@ import { describe, expect, it } from 'vitest';
 import { createGithubReleaseWorkflow, publishWorkflow, releaseConfigScript, releaseWorkflow } from '../templates.ts';
 
 describe(releaseConfigScript, () => {
-  it('generates a ReleaseKitConfig for monorepo type', () => {
+  it('generates a defineConfig-wrapped config for monorepo type', () => {
     const script = releaseConfigScript('monorepo');
 
-    expect(script).toContain('ReleaseKitConfig');
+    expect(script).toContain("import { defineConfig } from '@williamthorsen/release-kit'");
     expect(script).toContain('workspaces:');
     expect(script).toContain('shouldExclude');
     expect(script).toContain('workTypes:');
     expect(script).toContain("header: 'Performance'");
-    expect(script).toContain('export default config');
+    expect(script).toContain('export default defineConfig({');
   });
 
-  it('generates a ReleaseKitConfig for single-package type', () => {
+  it('generates a defineConfig-wrapped config for single-package type', () => {
     const script = releaseConfigScript('single-package');
 
-    expect(script).toContain('ReleaseKitConfig');
+    expect(script).toContain("import { defineConfig } from '@williamthorsen/release-kit'");
     expect(script).toContain('workTypes:');
     expect(script).toContain("header: 'Performance'");
-    expect(script).toContain('export default config');
+    expect(script).toContain('export default defineConfig({');
     expect(script).not.toContain('workspaces');
   });
 

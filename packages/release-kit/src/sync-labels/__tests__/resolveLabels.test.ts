@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { LabelDefinition, SyncLabelsConfig } from '../types.ts';
+import type { RepoLabelsConfig } from '../../types.ts';
+import type { LabelDefinition } from '../types.ts';
 
 const mockLoadPreset = vi.hoisted(() => vi.fn());
 
@@ -19,8 +20,8 @@ describe(resolveLabels, () => {
     mockLoadPreset.mockReset();
   });
 
-  it('returns an empty array when config has no presets and no custom labels', () => {
-    const config: SyncLabelsConfig = {};
+  it('returns an empty array for an empty config', () => {
+    const config: RepoLabelsConfig = {};
     const result = resolveLabels(config);
     expect(result).toStrictEqual([]);
   });
@@ -28,80 +29,92 @@ describe(resolveLabels, () => {
   it('loads preset labels and returns them sorted alphabetically', () => {
     mockLoadPreset.mockReturnValue([featureLabel, bugLabel]);
 
-    const config: SyncLabelsConfig = { presets: ['common'] };
+    const config: RepoLabelsConfig = { extends: ['common'] };
     const result = resolveLabels(config);
 
     expect(mockLoadPreset).toHaveBeenCalledWith('common');
     expect(result).toStrictEqual([bugLabel, featureLabel]);
   });
 
-  it('merges preset and custom labels sorted alphabetically', () => {
+  it('adds labels from the labels record to preset labels', () => {
     mockLoadPreset.mockReturnValue([featureLabel]);
 
-    const config: SyncLabelsConfig = {
-      presets: ['common'],
-      labels: [docsLabel],
+    const config: RepoLabelsConfig = {
+      extends: ['common'],
+      labels: { [docsLabel.name]: { color: docsLabel.color, description: docsLabel.description } },
     };
     const result = resolveLabels(config);
 
     expect(result).toStrictEqual([docsLabel, featureLabel]);
   });
 
-  it('returns only custom labels when no presets are specified', () => {
-    const config: SyncLabelsConfig = {
-      labels: [featureLabel, bugLabel],
+  it('returns only local labels when extends is absent', () => {
+    const config: RepoLabelsConfig = {
+      labels: {
+        [featureLabel.name]: { color: featureLabel.color, description: featureLabel.description },
+        [bugLabel.name]: { color: bugLabel.color, description: bugLabel.description },
+      },
     };
     const result = resolveLabels(config);
 
     expect(result).toStrictEqual([bugLabel, featureLabel]);
   });
 
-  it('loads multiple presets in order', () => {
+  it('resolves a name shared by two presets to the later preset (last writer wins)', () => {
+    const recoloredBug: LabelDefinition = { ...bugLabel, color: 'ff0000' };
     mockLoadPreset.mockImplementation((name: string) => {
-      if (name === 'common') return [bugLabel];
-      if (name === 'extra') return [docsLabel];
+      if (name === 'preset-a') return [bugLabel, featureLabel];
+      if (name === 'preset-b') return [recoloredBug];
       return [];
     });
 
-    const config: SyncLabelsConfig = { presets: ['common', 'extra'] };
+    const config: RepoLabelsConfig = { extends: ['preset-a', 'preset-b'] };
     const result = resolveLabels(config);
 
-    expect(mockLoadPreset).toHaveBeenCalledWith('common');
-    expect(mockLoadPreset).toHaveBeenCalledWith('extra');
-    expect(result).toStrictEqual([bugLabel, docsLabel]);
+    expect(result).toStrictEqual([recoloredBug, featureLabel]);
   });
 
-  it('throws when a custom label name collides with a preset label name', () => {
-    mockLoadPreset.mockReturnValue([bugLabel]);
+  it('replaces a preset label with a local entry of the same name', () => {
+    mockLoadPreset.mockReturnValue([bugLabel, featureLabel]);
 
-    const config: SyncLabelsConfig = {
-      presets: ['common'],
-      labels: [{ name: 'bug', color: 'ff0000', description: 'Custom bug' }],
+    const config: RepoLabelsConfig = {
+      extends: ['common'],
+      labels: { bug: { color: 'ff0000', description: 'Custom bug' } },
+    };
+    const result = resolveLabels(config);
+
+    expect(result).toStrictEqual([{ name: 'bug', color: 'ff0000', description: 'Custom bug' }, featureLabel]);
+  });
+
+  it('removes a preset label when the local entry is null', () => {
+    mockLoadPreset.mockReturnValue([bugLabel, featureLabel]);
+
+    const config: RepoLabelsConfig = {
+      extends: ['common'],
+      labels: { bug: null },
+    };
+    const result = resolveLabels(config);
+
+    expect(result).toStrictEqual([featureLabel]);
+  });
+
+  it('throws on a null entry naming a label no preset defines', () => {
+    mockLoadPreset.mockReturnValue([featureLabel]);
+
+    const config: RepoLabelsConfig = {
+      extends: ['common'],
+      labels: { bug: null },
     };
 
-    expect(() => resolveLabels(config)).toThrow(/Label name collision/);
-    expect(() => resolveLabels(config)).toThrow(/bug/);
-  });
-
-  it('throws when two presets define the same label name', () => {
-    mockLoadPreset.mockImplementation((name: string) => {
-      if (name === 'preset-a') return [bugLabel];
-      if (name === 'preset-b') return [{ ...bugLabel, color: 'ff0000' }];
-      return [];
-    });
-
-    const config: SyncLabelsConfig = { presets: ['preset-a', 'preset-b'] };
-
-    expect(() => resolveLabels(config)).toThrow(/Label name collision within presets/);
-    expect(() => resolveLabels(config)).toThrow(/bug/);
+    expect(() => resolveLabels(config)).toThrow(/Label 'bug' is set to null/);
   });
 
   it('produces identical output for the same config (idempotent)', () => {
     mockLoadPreset.mockReturnValue([featureLabel, bugLabel]);
 
-    const config: SyncLabelsConfig = {
-      presets: ['common'],
-      labels: [docsLabel],
+    const config: RepoLabelsConfig = {
+      extends: ['common'],
+      labels: { [docsLabel.name]: { color: docsLabel.color, description: docsLabel.description } },
     };
 
     const result1 = resolveLabels(config);
