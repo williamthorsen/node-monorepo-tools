@@ -36,7 +36,6 @@ var rootScripts = {
   "root:typecheck": "tsgo --noEmit",
   "root:upgrade": "nmr-taze --include-locked",
   "sync-agent-files": "nmr-sync-agent-files",
-  "sync-pnpm-version": "nmr-sync-pnpm-version",
   test: "nmr root:test && pnpm --recursive exec nmr test",
   "test:coverage": "nmr root:test && pnpm --recursive exec nmr test:coverage",
   "test:watch": "vitest --watch",
