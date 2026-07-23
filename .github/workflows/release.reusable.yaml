@@ -59,7 +59,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           token: ${{ github.token }}
@@ -72,7 +72,7 @@ jobs:
 
       - name: Set up pnpm
         if: ${{ env.BUILD_LOCAL == 'true' }}
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@v6
 
       # Materialize the cache flag via step output because the `env` context
       # is not evaluated in `with:` blocks.
@@ -81,7 +81,7 @@ jobs:
         run: echo "value=${{ env.BUILD_LOCAL == 'true' && 'pnpm' || '' }}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: ${{ steps.cache-flag.outputs.value }}

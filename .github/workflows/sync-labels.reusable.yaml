@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       # Pinned by commit SHA: the action's `main` swaps the vendored engine for `@endbug/github-label-sync@3`,
       # whose delete and rename semantics differ from the ones `delete-other-labels: true` relies on below.
       #
