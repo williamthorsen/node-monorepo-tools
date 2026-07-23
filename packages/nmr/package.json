@@ -64,9 +64,6 @@
     "taze": "19.15.1",
     "yaml": "2.9.0"
   },
-  "devDependencies": {
-    "@williamthorsen/toolbelt.strings": "3.1.6"
-  },
   "peerDependencies": {
     "typescript": ">=5.7.0 <7"
   },

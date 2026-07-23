@@ -95,10 +95,6 @@ importers:
       yaml:
         specifier: 2.9.0
         version: 2.9.0
-    devDependencies:
-      '@williamthorsen/toolbelt.strings':
-        specifier: 3.1.6
-        version: 3.1.6
 
   packages/nmr-core: {}
 
@@ -749,28 +745,8 @@ packages:
     peerDependencies:
       eslint: '>=10'
 
-  '@williamthorsen/toolbelt.arrays@3.3.7':
-    resolution: {integrity: sha512-OvndX/T54RbdPoXjt5vGakFHrslupPtR6uqKScBofv/IsWpx5wfAv9uvescZhbBS2wFHSg307fDOXE9/JXS7pQ==}
-    engines: {node: '>=24.0.0'}
-
-  '@williamthorsen/toolbelt.guards@3.1.6':
-    resolution: {integrity: sha512-dcZ8scE+d7qUixdhRVd60BvGtITnH18Dn84mjE3kI8Homqab/F3fc7UFjaVSPLiAjA1qK4wD8UsL8OZ2doKVJw==}
-    engines: {node: '>=24.0.0'}
-
-  '@williamthorsen/toolbelt.numbers@4.3.6':
-    resolution: {integrity: sha512-aHDfjy0MsLNChfwHTZ6m09/Co+PG3W+W0UPrCA2CevjrA5whjlxuHHpWD2KbH3cOB3vYMu5ogPd4we54WvmyQA==}
-    engines: {node: '>=24.0.0'}
-
   '@williamthorsen/toolbelt.objects@3.2.8':
     resolution: {integrity: sha512-tInuPcHjojoZB19XsLJX7eM+TgyqvR/A8158wnv4Adc90H0bNALGELiLbnNJAeyDx+vjfDcnQeST9hdyxbZVfw==}
-    engines: {node: '>=24.0.0'}
-
-  '@williamthorsen/toolbelt.sets@3.0.7':
-    resolution: {integrity: sha512-TMdbTVNzi6+moUfdEDt6pG8Wvmc3yhyiM40C339hbsRpRofSHyjsDrI+xDoBIZHjIKyD6NvwGcZjAgPEvhtK0A==}
-    engines: {node: '>=24.0.0'}
-
-  '@williamthorsen/toolbelt.strings@3.1.6':
-    resolution: {integrity: sha512-sffRWNI9slaH7T9FlIqeYl+vGgKrUUT2WLARIjVwv+OioVRuYO+rKwz4iVT/Dg2SzkfUal07AH5vyrPlmVPr5g==}
     engines: {node: '>=24.0.0'}
 
   acorn-jsx@5.3.2:
@@ -2946,24 +2922,7 @@ snapshots:
     dependencies:
       eslint: 10.7.0(jiti@2.7.0)(supports-color@7.2.0)
 
-  '@williamthorsen/toolbelt.arrays@3.3.7':
-    dependencies:
-      '@williamthorsen/toolbelt.guards': 3.1.6
-      '@williamthorsen/toolbelt.numbers': 4.3.6
-
-  '@williamthorsen/toolbelt.guards@3.1.6': {}
-
-  '@williamthorsen/toolbelt.numbers@4.3.6': {}
-
   '@williamthorsen/toolbelt.objects@3.2.8': {}
-
-  '@williamthorsen/toolbelt.sets@3.0.7': {}
-
-  '@williamthorsen/toolbelt.strings@3.1.6':
-    dependencies:
-      '@williamthorsen/toolbelt.arrays': 3.3.7
-      '@williamthorsen/toolbelt.numbers': 4.3.6
-      '@williamthorsen/toolbelt.sets': 3.0.7
 
   acorn-jsx@5.3.2(acorn@8.16.0):
     dependencies:
