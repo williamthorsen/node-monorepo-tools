@@ -1,7 +1,7 @@
 import { reportError } from '@williamthorsen/nmr-core';
 
 import { reportOverrides } from './commands/report-overrides.ts';
-import { findMonorepoRoot } from './context.ts';
+import { findMonorepoRoot } from './workspace.ts';
 
 try {
   const monorepoRoot = findMonorepoRoot();

@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { getWorkspacePackageDirs } from '../context.ts';
+import { getWorkspacePackageDirs } from '../workspace.ts';
 import { readPackageJson } from '../helpers/package-json.ts';
 import { isObject } from '../helpers/type-guards.ts';
 
