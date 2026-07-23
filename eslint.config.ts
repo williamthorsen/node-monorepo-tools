@@ -1,12 +1,17 @@
 import baseConfig from '@williamthorsen/eslint-config-typescript';
-import { defineConfig } from 'eslint/config';
+import { defineConfig, globalIgnores } from 'eslint/config';
 
 const config = defineConfig([
   ...baseConfig,
-  {
-    // Completely ignore these files
-    ignores: ['**/*.sh', '**/.claude/**', '**/.readyup/**/*.js', '**/coverage/**', '**/dist/**', '**/local/**'],
-  },
+  globalIgnores([
+    // Completely ignore these files.
+    '**/*.sh',
+    '**/.claude/**',
+    '**/.readyup/**/*.js',
+    '**/coverage/**',
+    '**/dist/**',
+    '**/local/**',
+  ]),
   {
     files: ['**/*.js', '**/*.cjs', '**/*.mjs', '**/*.ts', '**/*.tsx'],
     rules: {
