@@ -70,4 +70,40 @@ describe('getWorkspacePackageDirs', () => {
       expect(dirs).toStrictEqual([]);
     });
   });
+
+  // Pattern semantics are covered against `resolvePackageDirs` directly; this asserts only that the
+  // manifest's patterns reach it intact, exclusions included.
+  describe('manifest patterns', () => {
+    let tempRoot: string;
+
+    beforeEach(() => {
+      tempRoot = mkdtempSync(path.join(tmpdir(), 'nmr-workspace-test-'));
+      for (const name of ['alpha', 'legacy']) {
+        mkdirSync(path.join(tempRoot, 'packages', name), { recursive: true });
+        writeFileSync(path.join(tempRoot, 'packages', name, 'package.json'), '{}');
+      }
+    });
+
+    afterEach(() => {
+      rmSync(tempRoot, { recursive: true, force: true });
+    });
+
+    it('honors an exclusion declared in the manifest', () => {
+      writeFileSync(
+        path.join(tempRoot, 'pnpm-workspace.yaml'),
+        "packages:\n  - 'packages/*'\n  - '!packages/legacy'\n",
+      );
+      const dirs = getWorkspacePackageDirs(tempRoot);
+      expect(dirs).toStrictEqual([path.join(tempRoot, 'packages', 'alpha')]);
+    });
+
+    // `yaml` resolves an unquoted `!packages/legacy` to an empty string, so the exclusion never reaches
+    // nmr and both packages resolve. A `yaml` release yielding a non-string instead would fail the
+    // all-strings check and empty the result for a workspace that has packages; this pins that seam.
+    it('resolves every package when an exclusion is left unquoted', () => {
+      writeFileSync(path.join(tempRoot, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n  - !packages/legacy\n');
+      const dirs = getWorkspacePackageDirs(tempRoot);
+      expect(dirs).toStrictEqual([path.join(tempRoot, 'packages', 'alpha'), path.join(tempRoot, 'packages', 'legacy')]);
+    });
+  });
 });
