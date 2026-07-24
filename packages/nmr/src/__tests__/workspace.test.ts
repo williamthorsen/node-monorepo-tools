@@ -70,4 +70,31 @@ describe('getWorkspacePackageDirs', () => {
       expect(dirs).toStrictEqual([]);
     });
   });
+
+  // Pattern semantics are covered against `resolvePackageDirs` directly; this asserts only that the
+  // manifest's patterns reach it intact, exclusions included.
+  describe('manifest patterns', () => {
+    let tempRoot: string;
+
+    beforeEach(() => {
+      tempRoot = mkdtempSync(path.join(tmpdir(), 'nmr-workspace-test-'));
+      for (const name of ['alpha', 'legacy']) {
+        mkdirSync(path.join(tempRoot, 'packages', name), { recursive: true });
+        writeFileSync(path.join(tempRoot, 'packages', name, 'package.json'), '{}');
+      }
+    });
+
+    afterEach(() => {
+      rmSync(tempRoot, { recursive: true, force: true });
+    });
+
+    it('honors an exclusion declared in the manifest', () => {
+      writeFileSync(
+        path.join(tempRoot, 'pnpm-workspace.yaml'),
+        "packages:\n  - 'packages/*'\n  - '!packages/legacy'\n",
+      );
+      const dirs = getWorkspacePackageDirs(tempRoot);
+      expect(dirs).toStrictEqual([path.join(tempRoot, 'packages', 'alpha')]);
+    });
+  });
 });

@@ -1,9 +1,10 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { parse } from 'yaml';
 
 import { isObject } from './helpers/type-guards.ts';
+import { resolvePackageDirs } from './helpers/workspace-patterns.ts';
 
 /**
  * Finds the monorepo root by walking up from `startDir` to find `pnpm-workspace.yaml`.
@@ -25,11 +26,10 @@ export function findMonorepoRoot(startDir?: string): string {
 }
 
 /**
- * Reads workspace patterns from `pnpm-workspace.yaml` and resolves them
- * to actual package directories on the filesystem.
+ * Reads the workspace patterns from `pnpm-workspace.yaml` and resolves them to absolute package
+ * directories, applying pnpm's pattern semantics — including `!`-prefixed exclusions.
  *
- * Handles simple glob patterns like `packages/*` by listing matching
- * subdirectories that contain a `package.json`.
+ * Returns an empty array when the manifest declares no usable `packages` list.
  */
 export function getWorkspacePackageDirs(monorepoRoot: string): string[] {
   const workspaceFile = path.join(monorepoRoot, 'pnpm-workspace.yaml');
@@ -42,31 +42,7 @@ export function getWorkspacePackageDirs(monorepoRoot: string): string[] {
     return [];
   }
 
-  const dirs: string[] = [];
-  for (const pattern of packages) {
-    if (pattern.endsWith('/*')) {
-      // Handle "packages/*" style patterns
-      const prefix = pattern.slice(0, -2);
-      const prefixDir = path.resolve(monorepoRoot, prefix);
-      if (existsSync(prefixDir)) {
-        for (const entry of readdirSync(prefixDir)) {
-          const fullPath = path.join(prefixDir, entry);
-          if (statSync(fullPath).isDirectory() && existsSync(path.join(fullPath, 'package.json'))) {
-            dirs.push(fullPath);
-          }
-        }
-      }
-    } else if (!pattern.includes('*')) {
-      // Handle exact paths like "tools/cli"
-      const fullPath = path.resolve(monorepoRoot, pattern);
-      if (existsSync(fullPath) && existsSync(path.join(fullPath, 'package.json'))) {
-        dirs.push(fullPath);
-      }
-    }
-    // More complex glob patterns (e.g., "packages/**") are not supported
-  }
-
-  return dirs;
+  return resolvePackageDirs(monorepoRoot, packages);
 }
 
 function getPackagesFromParsedYaml(parsed: unknown): string[] | undefined {
