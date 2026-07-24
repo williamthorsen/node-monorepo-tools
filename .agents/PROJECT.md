@@ -19,7 +19,7 @@ Key files:
 
 - `.config/nmr.config.ts` — Per-repo nmr overrides (currently empty; dogfoods the config-loading feature)
 - `packages/nmr/src/commands/build.ts` — The nmr-managed build (`nmr-compile` bin): a single TypeScript compiler-API emit of `.js` + `.d.ts` with order-invariant content-hash caching, AST-based relative `.ts`→`.js` rewriting, and tsconfig `paths` alias resolution in both outputs
-- `config/vitest.config.ts` — Shared Vitest base configuration
+- `.config/vitest/vitest.config.ts` — Shared Vitest base configuration
 
 ## Commands
 
