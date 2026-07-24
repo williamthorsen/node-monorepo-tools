@@ -36,8 +36,8 @@ importers:
         specifier: 8.0.0
         version: 8.0.0(eslint@10.7.0(jiti@2.7.0)(supports-color@7.2.0))
       '@williamthorsen/toolbelt.objects':
-        specifier: 3.2.8
-        version: 3.2.8
+        specifier: 3.2.9
+        version: 3.2.9
       eslint:
         specifier: 10.7.0
         version: 10.7.0(jiti@2.7.0)(supports-color@7.2.0)
@@ -804,8 +804,8 @@ packages:
     peerDependencies:
       eslint: '>=10'
 
-  '@williamthorsen/toolbelt.objects@3.2.8':
-    resolution: {integrity: sha512-tInuPcHjojoZB19XsLJX7eM+TgyqvR/A8158wnv4Adc90H0bNALGELiLbnNJAeyDx+vjfDcnQeST9hdyxbZVfw==}
+  '@williamthorsen/toolbelt.objects@3.2.9':
+    resolution: {integrity: sha512-iK2s0IM5hg4kIzk9BK5GT485WehzTaDbYjt4Cly9t5LB8PNZ3wwM/qYIucx4UjR5Cx84kvAAXg2P3tWlosBJFg==}
     engines: {node: '>=24.0.0'}
 
   acorn-jsx@5.3.2:
@@ -3096,7 +3096,7 @@ snapshots:
     dependencies:
       eslint: 10.7.0(jiti@2.7.0)(supports-color@7.2.0)
 
-  '@williamthorsen/toolbelt.objects@3.2.8': {}
+  '@williamthorsen/toolbelt.objects@3.2.9': {}
 
   acorn-jsx@5.3.2(acorn@8.16.0):
     dependencies:
