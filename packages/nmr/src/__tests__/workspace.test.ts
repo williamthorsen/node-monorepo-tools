@@ -96,5 +96,14 @@ describe('getWorkspacePackageDirs', () => {
       const dirs = getWorkspacePackageDirs(tempRoot);
       expect(dirs).toStrictEqual([path.join(tempRoot, 'packages', 'alpha')]);
     });
+
+    // `yaml` resolves an unquoted `!packages/legacy` to an empty string, so the exclusion never reaches
+    // nmr and both packages resolve. A `yaml` release yielding a non-string instead would fail the
+    // all-strings check and empty the result for a workspace that has packages; this pins that seam.
+    it('resolves every package when an exclusion is left unquoted', () => {
+      writeFileSync(path.join(tempRoot, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n  - !packages/legacy\n');
+      const dirs = getWorkspacePackageDirs(tempRoot);
+      expect(dirs).toStrictEqual([path.join(tempRoot, 'packages', 'alpha'), path.join(tempRoot, 'packages', 'legacy')]);
+    });
   });
 });

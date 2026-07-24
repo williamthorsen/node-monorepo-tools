@@ -14,16 +14,23 @@ export interface ResolvedContext {
 /**
  * Determines whether a directory is inside a workspace package.
  * Returns the package directory if so, or `undefined` if in root context.
+ *
+ * A workspace may nest one package inside another, so the deepest containing directory wins — matching
+ * pnpm, which resolves a cwd to the package that encloses it most nearly.
  */
 export function findContainingPackageDir(dir: string, workspacePackageDirs: string[]): string | undefined {
   const resolved = path.resolve(dir);
+  let nearest: string | undefined;
+
   for (const pkgDir of workspacePackageDirs) {
     const resolvedPkgDir = path.resolve(pkgDir);
-    if (resolved === resolvedPkgDir || resolved.startsWith(resolvedPkgDir + path.sep)) {
-      return resolvedPkgDir;
+    if (resolved !== resolvedPkgDir && !resolved.startsWith(resolvedPkgDir + path.sep)) continue;
+    if (nearest === undefined || resolvedPkgDir.length > nearest.length) {
+      nearest = resolvedPkgDir;
     }
   }
-  return undefined;
+
+  return nearest;
 }
 
 /**

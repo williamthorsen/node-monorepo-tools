@@ -20,9 +20,9 @@ const ALWAYS_EXCLUDED = ['**/node_modules/**'];
 /**
  * Resolves pnpm workspace patterns to absolute package directories.
  *
- * Applies pnpm's algorithm rather than enumerating the pattern shapes it recognizes: every pattern is
- * rewritten to match a manifest, `!`-prefixed patterns become exclusions, and the matcher decides the
- * rest. Exclusions filter the entire positive match set irrespective of declaration order, as under pnpm.
+ * Applies pnpm's algorithm: every pattern is rewritten to match a manifest, `!`-prefixed patterns become
+ * exclusions, and the matcher decides the rest. Exclusions filter the entire positive match set
+ * irrespective of declaration order.
  */
 export function resolvePackageDirs(monorepoRoot: string, patterns: string[]): string[] {
   const included: string[] = [];
@@ -46,9 +46,7 @@ export function resolvePackageDirs(monorepoRoot: string, patterns: string[]): st
   const options: GlobOptions = {
     cwd: monorepoRoot,
     exclude: [...excluded, ...ALWAYS_EXCLUDED],
-    // pnpm's matcher follows symlinks, as did the readdir-and-stat resolver this replaced. A package
-    // directory symlinked into the workspace is a package, and dropping it would be a silent omission
-    // of the same kind as the unhonored exclusions this resolver exists to fix.
+    // pnpm's matcher follows symlinks, so a package directory symlinked into the workspace is a package.
     followSymlinks: true,
   };
 
