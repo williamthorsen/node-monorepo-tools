@@ -1,6 +1,6 @@
 /** @noformat — @generated. Do not edit. Compiled by rdy. */
 /* eslint-disable */
-export const __readyupVersion = "0.21.2";
+export const __readyupVersion = "0.22.0";
 
 
 // .readyup/kits/release-kit.ts
@@ -62,7 +62,7 @@ function hasPublishablePackages() {
   return discoverWorkspaces({ filter: (w) => w.isPackage }).length > 0;
 }
 var CLIFF_TEMPLATE_HASH = "93b72e0b1393cd6b1fe8e2a0e303cd326fd323435951b0493396b305af32d2ec";
-var COMMON_PRESET_HASH = "25b1938b40006a00a39d291583d7cd2dabda699e1f4bfb0634ba49e7dffb3c45";
+var COMMON_PRESET_HASH = "dbb867ac70e9129f96e82698abba1dcc6142185e416729d009b53978068a49d9";
 var SYNC_LABELS_WORKFLOW_HASH = "d6e2403fb551d2d415f679125989c92760444eec887644565b2e05c9bf8f4c1e";
 var RELEASE_WORKFLOW_HASH_MONOREPO = "0a9724b7b3c5e24087fd3a8f36fed8e990d699267fcf36028ce048ab40dc2946";
 var RELEASE_WORKFLOW_HASH_SINGLE = "a3d19bbc1ba8bb30622e53c590137b97e3179e80988c0967737b021cdaeab73f";
