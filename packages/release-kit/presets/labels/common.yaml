@@ -2,6 +2,9 @@
 # Compatible with EndBug/label-sync format.
 
 # Main categories
+- name: ai
+  color: a2eeef
+  description: Documentation and configs used by agents
 - name: breaking
   color: b60205
   description: Breaking API change or removal of functionality
