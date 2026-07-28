@@ -65,7 +65,7 @@ nmr --workspace-root check
 Two consequences worth knowing:
 
 - `nmr --workspace-root clean` sweeps every workspace package, exactly as `nmr clean` does from the root. It does not clean only the package you are standing in.
-- Relative paths in passthrough arguments resolve against the script's directory, not your shell's. From `packages/nmr/src/`, `nmr fmt foo.ts` targets `packages/nmr/foo.ts`.
+- Relative paths in passthrough arguments resolve against the script's directory, not your shell's. From `packages/nmr/src/`, `nmr --workspace-root fmt pnpm-workspace.yaml` formats the file of that name at the monorepo root.
 
 ## Three-tier override system
 
