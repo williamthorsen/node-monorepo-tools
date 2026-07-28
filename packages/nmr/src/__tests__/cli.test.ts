@@ -657,4 +657,102 @@ export default defineConfig({
       });
     });
   });
+
+  // A resolved script runs in the directory that anchored its registry: the monorepo root when the root
+  // registry resolved it, the containing package otherwise. Scripts are authored against that directory,
+  // so running one anywhere else misdirects both its relative paths and its own `nmr` sub-invocations.
+  describe('script working directory', () => {
+    let anchorRoot: string;
+    let anchorPkgDir: string;
+    let anchorLogFile: string;
+
+    beforeAll(() => {
+      anchorRoot = mkdtempSync(path.join(tmpdir(), 'nmr-anchor-'));
+      writeFileSync(path.join(anchorRoot, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n");
+      anchorLogFile = path.join(anchorRoot, 'log.txt');
+      writeFileSync(anchorLogFile, '');
+
+      // Every candidate directory holds a `where.txt` naming itself, and the scripts under test `cat
+      // where.txt`, so the logged word is the directory the script ran in. This observes the working
+      // directory through relative-path resolution — the property that actually matters — rather than
+      // through `pwd`, which would compare a shell's physical path against the symlinked one mkdtempSync
+      // returns on macOS (/var -> /private/var) and fail for the wrong reason. Seeding every directory
+      // also means a regression logs the wrong word rather than failing to find the file at all.
+      writeFileSync(path.join(anchorRoot, 'where.txt'), 'root\n');
+
+      // A root-context directory that is not a workspace package: `isRoot` holds, but the cwd is not the root.
+      mkdirSync(path.join(anchorRoot, 'tools'), { recursive: true });
+      writeFileSync(path.join(anchorRoot, 'tools', 'where.txt'), 'sub\n');
+
+      anchorPkgDir = path.join(anchorRoot, 'packages', 'anchor-pkg');
+      mkdirSync(path.join(anchorPkgDir, 'src'), { recursive: true });
+      writeFileSync(path.join(anchorPkgDir, 'package.json'), JSON.stringify({ name: 'anchor-pkg' }));
+      writeFileSync(path.join(anchorPkgDir, 'where.txt'), 'pkg\n');
+      writeFileSync(path.join(anchorPkgDir, 'src', 'where.txt'), 'src\n');
+
+      // `anchor-inner` lives only in rootScripts, so the chained `nmr anchor-inner` resolves only when its
+      // parent runs at the root. `anchor-where` is defined in both registries so each context resolves it.
+      mkdirSync(path.join(anchorRoot, '.config'), { recursive: true });
+      writeFileSync(
+        path.join(anchorRoot, '.config', 'nmr.config.ts'),
+        `import { defineConfig } from '${NMR_PACKAGE_DIR}/dist/esm/index.js';
+export default defineConfig({
+  rootScripts: {
+    'anchor-where': 'cat where.txt >> ${anchorLogFile}',
+    'anchor-chain': 'nmr anchor-inner',
+    'anchor-inner': 'echo inner >> ${anchorLogFile}',
+  },
+  workspaceScripts: {
+    'anchor-where': 'cat where.txt >> ${anchorLogFile}',
+  },
+});
+`,
+      );
+    });
+
+    afterAll(() => {
+      rmSync(anchorRoot, { recursive: true, force: true });
+    });
+
+    const { read: readAnchorLog, clear: clearAnchorLog } = makeLogHelpers(() => anchorLogFile);
+
+    it('runs a root script at the monorepo root under -w from a package dir', async () => {
+      clearAnchorLog();
+      const { exitCode } = await runNmr('-w anchor-where', { cwd: anchorPkgDir });
+      expect(exitCode).toBe(0);
+      expect(readAnchorLog()).toStrictEqual(['root']);
+    });
+
+    it('runs a root script at the monorepo root from a non-package root subdirectory', async () => {
+      clearAnchorLog();
+      const { exitCode } = await runNmr('anchor-where', { cwd: path.join(anchorRoot, 'tools') });
+      expect(exitCode).toBe(0);
+      expect(readAnchorLog()).toStrictEqual(['root']);
+    });
+
+    it('runs a workspace script at the package root from a subdirectory of the package', async () => {
+      clearAnchorLog();
+      const { exitCode } = await runNmr('anchor-where', { cwd: path.join(anchorPkgDir, 'src') });
+      expect(exitCode).toBe(0);
+      expect(readAnchorLog()).toStrictEqual(['pkg']);
+    });
+
+    it('leaves root-cwd invocation unchanged', async () => {
+      clearAnchorLog();
+      const { exitCode } = await runNmr('anchor-where', { cwd: anchorRoot });
+      expect(exitCode).toBe(0);
+      expect(readAnchorLog()).toStrictEqual(['root']);
+    });
+
+    // The reported defect (#512): a root script whose string value chains `nmr <root-only command>`. The
+    // child re-derives its registry from wherever the parent placed it, so anchoring the parent at the root
+    // is what lets the child resolve a command that exists only in rootScripts. Before the fix the child ran
+    // in the package dir, derived a workspace registry, and exited 1 with "Unknown command: anchor-inner".
+    it('resolves a root-only command chained inside a root script string', async () => {
+      clearAnchorLog();
+      const { exitCode } = await runNmr('-w anchor-chain', { cwd: anchorPkgDir });
+      expect(exitCode).toBe(0);
+      expect(readAnchorLog()).toStrictEqual(['inner']);
+    });
+  });
 });

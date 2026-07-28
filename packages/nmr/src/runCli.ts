@@ -63,14 +63,14 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   // Determine which registry to use
   const useRoot = parsed.workspaceRoot || context.isRoot;
 
-  // packageDir for tier-3 (package.json) lookups follows useRoot so that `-w`
-  // is fully root-contextual: an override or hook defined in the monorepo
-  // root's package.json resolves under `nmr -w X` from any cwd, mirroring
-  // how it resolves under `nmr X` from root cwd.
-  const packageDir = useRoot ? context.monorepoRoot : (context.packageDir ?? context.monorepoRoot);
+  // The directory that anchors both registry resolution and execution: the monorepo root under
+  // `useRoot`, the containing package otherwise. Scripts are authored against their own registry's
+  // directory — root scripts against the monorepo root, workspace scripts against the package — so
+  // running one anywhere else misdirects its relative paths and its own `nmr` sub-invocations.
+  const anchorDir = useRoot ? context.monorepoRoot : (context.packageDir ?? context.monorepoRoot);
 
   if (parsed.help || !parsed.command) {
-    stdout.write(`${generateHelp(context.config, packageDir, useRoot)}\n`);
+    stdout.write(`${generateHelp(context.config, anchorDir, useRoot)}\n`);
     return { exitCode: 0 };
   }
 
@@ -95,8 +95,8 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   const registry = useRoot
     ? buildRootRegistry(context.config)
-    : buildWorkspaceRegistry(context.config, hasIntegrationTestConfig(packageDir));
-  const resolved = resolveScript(command, registry, packageDir, parsed.workspaceRoot);
+    : buildWorkspaceRegistry(context.config, hasIntegrationTestConfig(anchorDir));
+  const resolved = resolveScript(command, registry, anchorDir, parsed.workspaceRoot);
 
   if (!resolved) {
     if (env.NMR_RUN_IF_PRESENT === '1') {
@@ -106,13 +106,13 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     return { exitCode: 1 };
   }
 
-  const skipExitCode = handleSkipMessage(resolved.command, packageDir, parsed.quiet, stdout);
+  const skipExitCode = handleSkipMessage(resolved.command, anchorDir, parsed.quiet, stdout);
   if (skipExitCode !== undefined) {
     return { exitCode: skipExitCode };
   }
 
   if (resolved.source === 'package' && !parsed.quiet && registry[command] !== undefined) {
-    stdout.write(`📦 ${path.basename(packageDir)}: Using override script: ${resolved.command}\n`);
+    stdout.write(`📦 ${path.basename(anchorDir)}: Using override script: ${resolved.command}\n`);
   }
 
   const substitutedCommand = applyDevBin(resolved.command, context.config.devBin, context.monorepoRoot);
@@ -123,9 +123,9 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   const isHookInvocation = isHookName(command);
   const fullCommand = isHookInvocation
     ? mainCommand
-    : wrapWithHooks(command, mainCommand, registry, packageDir, parsed.workspaceRoot);
+    : wrapWithHooks(command, mainCommand, registry, anchorDir, parsed.workspaceRoot);
 
-  const exitCode = runCommand(fullCommand, cwd, runOptions);
+  const exitCode = runCommand(fullCommand, anchorDir, runOptions);
   return { exitCode };
 }
 
