@@ -42,7 +42,8 @@ export function generateHelp(config: NmrConfig, packageDir: string | undefined, 
 
   let hadOverride = false;
 
-  const useIntTests = packageDir !== undefined && hasIntegrationTestConfig(packageDir);
+  // The variant is a per-package property; in root context `packageDir` is the monorepo root, which stands for no package.
+  const useIntTests = !useRoot && packageDir !== undefined && hasIntegrationTestConfig(packageDir);
   const workspaceRegistry = filterHooks(buildWorkspaceRegistry(config, useIntTests));
   const workspaceMarked = !useRoot ? applyOverrides(workspaceRegistry, overrides) : new Set<string>();
   if (workspaceMarked.size > 0) hadOverride = true;

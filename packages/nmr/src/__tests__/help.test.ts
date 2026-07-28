@@ -250,8 +250,18 @@ describe(generateHelp, () => {
 
     it('lists the standard test commands when the package has no integration config', () => {
       const workspaceSection = sectionOf(generateHelp({}, tmpDir, false), 'Workspace commands:', 'Root commands:');
-      expect(workspaceSection).toContain('test');
+      expect(workspaceSection).toContain('pnpm exec vitest --coverage');
       expect(workspaceSection).not.toContain('test:integration');
+      expect(workspaceSection).not.toContain('vitest.standalone.config.ts');
+    });
+
+    it('lists the standard test commands in root context even when the monorepo root has an integration config', () => {
+      fs.writeFileSync(path.join(tmpDir, 'vitest.integration.config.ts'), '');
+
+      const workspaceSection = sectionOf(generateHelp({}, tmpDir, true), 'Workspace commands:', 'Root commands:');
+      expect(workspaceSection).toContain('pnpm exec vitest --coverage');
+      expect(workspaceSection).not.toContain('test:integration');
+      expect(workspaceSection).not.toContain('vitest.standalone.config.ts');
     });
   });
 });
