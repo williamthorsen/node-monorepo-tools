@@ -18,6 +18,7 @@ describe(generateHelp, () => {
     expect(help).toContain('-R, --recursive');
     expect(help).toContain('-w, --workspace-root');
     expect(help).toContain('-?, --help');
+    expect(help).toContain('-V, --version');
   });
 
   it('includes workspace commands section', () => {
@@ -223,6 +224,34 @@ describe(generateHelp, () => {
       // All rendered rows in the root section should share the same value-column offset
       const valueColumns = new Set(rows.map((line) => findValueColumn(line)));
       expect(valueColumns.size).toBe(1);
+    });
+  });
+
+  describe('test variant selection', () => {
+    let tmpDir: string;
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-help-test-'));
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('lists the split test commands when the package has an integration config', () => {
+      // `hasIntegrationTestConfig` tests only for the file's presence, so an empty file is a sufficient marker.
+      fs.writeFileSync(path.join(tmpDir, 'vitest.integration.config.ts'), '');
+
+      const workspaceSection = sectionOf(generateHelp({}, tmpDir, false), 'Workspace commands:', 'Root commands:');
+      expect(workspaceSection).toContain('test:integration');
+      expect(workspaceSection).toContain('test:all');
+      expect(workspaceSection).toContain('vitest.standalone.config.ts');
+    });
+
+    it('lists the standard test commands when the package has no integration config', () => {
+      const workspaceSection = sectionOf(generateHelp({}, tmpDir, false), 'Workspace commands:', 'Root commands:');
+      expect(workspaceSection).toContain('test');
+      expect(workspaceSection).not.toContain('test:integration');
     });
   });
 });
