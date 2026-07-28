@@ -60,11 +60,10 @@ export interface ResolvedScript {
  * Arrays are expanded to `nmr {step1} && nmr {step2}`.
  *
  * When `workspaceRoot` is true, the parent's `-w` flag is propagated to each
- * step's subprocess invocation (`nmr -w {step1} && nmr -w {step2}`) so children
- * resolve against the same root registry the parent used. Without this, a step
- * defined only in `rootScripts` would fail to resolve when the child re-derives
- * its registry from the package cwd. Mirrors the convention `wrapWithHooks`
- * uses for hook subprocess invocations.
+ * step's subprocess invocation (`nmr -w {step1} && nmr -w {step2}`), so each step
+ * selects the root registry on its own rather than depending on where the child
+ * derives its context from. Mirrors the convention `wrapWithHooks` uses for hook
+ * subprocess invocations.
  */
 export function expandScript(script: ScriptValue, workspaceRoot: boolean): string {
   if (typeof script === 'string') {

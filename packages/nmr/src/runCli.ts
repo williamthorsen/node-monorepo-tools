@@ -210,19 +210,19 @@ function parseArgs(args: string[]): ParseResult {
  */
 function handleSkipMessage(
   resolvedCommand: string,
-  packageDir: string,
+  anchorDir: string,
   quiet: boolean,
   stdout: Writable,
 ): number | undefined {
   if (resolvedCommand === '') {
     if (!quiet) {
-      stdout.write(`⛔ ${path.basename(packageDir)}: Override script is defined but empty. Skipping.\n`);
+      stdout.write(`⛔ ${path.basename(anchorDir)}: Override script is defined but empty. Skipping.\n`);
     }
     return 0;
   }
   if (resolvedCommand === ':') {
     if (!quiet) {
-      stdout.write(`⛔ ${path.basename(packageDir)}: Override script is a no-op. Skipping.\n`);
+      stdout.write(`⛔ ${path.basename(anchorDir)}: Override script is a no-op. Skipping.\n`);
     }
     return 0;
   }
@@ -239,26 +239,25 @@ function handleSkipMessage(
  * `&&` semantics; the failing exit code propagates.
  *
  * When the parent invocation used `-w`/`--workspace-root` to force root-registry
- * resolution, the flag is propagated to hook subprocess invocations so the child
- * resolves hooks against the same registry the parent used. Without this, a hook
- * defined only in `rootScripts` would fail to resolve when the child re-derives
- * its registry from the package cwd.
+ * resolution, the flag is propagated to hook subprocess invocations, so each hook
+ * selects the root registry on its own rather than depending on where the child
+ * derives its context from.
  */
 function wrapWithHooks(
   command: string,
   mainCommand: string,
   registry: ScriptRegistry,
-  packageDir: string,
+  anchorDir: string,
   workspaceRoot: boolean,
 ): string {
   const segments: string[] = [];
   const flag = workspaceRoot ? '-w ' : '';
 
-  if (hasRunnableHook(`${command}:pre`, registry, packageDir, workspaceRoot)) {
+  if (hasRunnableHook(`${command}:pre`, registry, anchorDir, workspaceRoot)) {
     segments.push(`nmr ${flag}${command}:pre`);
   }
   segments.push(mainCommand);
-  if (hasRunnableHook(`${command}:post`, registry, packageDir, workspaceRoot)) {
+  if (hasRunnableHook(`${command}:post`, registry, anchorDir, workspaceRoot)) {
     segments.push(`nmr ${flag}${command}:post`);
   }
 
@@ -273,10 +272,10 @@ function wrapWithHooks(
 function hasRunnableHook(
   hookName: string,
   registry: ScriptRegistry,
-  packageDir: string,
+  anchorDir: string,
   workspaceRoot: boolean,
 ): boolean {
-  const resolved = resolveScript(hookName, registry, packageDir, workspaceRoot);
+  const resolved = resolveScript(hookName, registry, anchorDir, workspaceRoot);
   if (!resolved) return false;
   return resolved.command !== '' && resolved.command !== ':';
 }

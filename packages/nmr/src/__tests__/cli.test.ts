@@ -744,10 +744,9 @@ export default defineConfig({
       expect(readAnchorLog()).toStrictEqual(['root']);
     });
 
-    // The reported defect (#512): a root script whose string value chains `nmr <root-only command>`. The
-    // child re-derives its registry from wherever the parent placed it, so anchoring the parent at the root
-    // is what lets the child resolve a command that exists only in rootScripts. Before the fix the child ran
-    // in the package dir, derived a workspace registry, and exited 1 with "Unknown command: anchor-inner".
+    // A root script whose string value chains `nmr <root-only command>`. The child re-derives its registry
+    // from wherever the parent placed it, so anchoring the parent at the root is what lets the child resolve
+    // a command that exists only in rootScripts.
     it('resolves a root-only command chained inside a root script string', async () => {
       clearAnchorLog();
       const { exitCode } = await runNmr('-w anchor-chain', { cwd: anchorPkgDir });
