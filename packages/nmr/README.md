@@ -47,11 +47,13 @@ nmr detects where you are and selects the right scripts automatically — see [c
 
 nmr's key feature is that the same command runs different scripts depending on where you invoke it. It walks up from your current directory to find `pnpm-workspace.yaml`, then checks whether your CWD is inside a workspace package directory.
 
-| Where you run `nmr`               | Registry used     | `nmr test` runs                               |
-| --------------------------------- | ----------------- | --------------------------------------------- |
-| Monorepo root                     | Root scripts      | Root tests + `pnpm --recursive exec nmr test` |
-| Inside a workspace package        | Workspace scripts | `pnpm exec vitest` (for that package only)    |
-| Anywhere, with `--workspace-root` | Root scripts      | Forces root registry regardless of location   |
+| Where you run `nmr`               | Registry used     | Working directory | `nmr test` runs                               |
+| --------------------------------- | ----------------- | ----------------- | --------------------------------------------- |
+| Monorepo root                     | Root scripts      | Monorepo root     | Root tests + `pnpm --recursive exec nmr test` |
+| Inside a workspace package        | Workspace scripts | The package root  | `pnpm exec vitest` (for that package only)    |
+| Anywhere, with `--workspace-root` | Root scripts      | Monorepo root     | Root tests + `pnpm --recursive exec nmr test` |
+
+A script always runs in the directory its registry belongs to — root scripts at the monorepo root, workspace scripts at the package root — never in the subdirectory you happened to be standing in. Scripts are written against that directory, so this is what makes `.` and other relative paths mean the same thing wherever you invoke them from.
 
 Use `--workspace-root` to escape package context:
 
@@ -59,6 +61,11 @@ Use `--workspace-root` to escape package context:
 # From inside packages/nmr-core, run the root check suite
 nmr --workspace-root check
 ```
+
+Two consequences worth knowing:
+
+- `nmr --workspace-root clean` sweeps every workspace package, exactly as `nmr clean` does from the root. It does not clean only the package you are standing in.
+- Relative paths in passthrough arguments resolve against the script's directory, not your shell's. From `packages/nmr/src/`, `nmr fmt foo.ts` targets `packages/nmr/foo.ts`.
 
 ## Three-tier override system
 
@@ -196,8 +203,6 @@ nmr upgrade          # upgrades available within each package's version ceilings
 nmr upgrade major    # major upgrades, still inside the ceilings
 nmr upgrade --write  # apply the proposals to package.json
 ```
-
-> **Note:** Run the root-context commands from the monorepo root: like nmr's other `root:` scripts, they take the current directory as their starting point.
 
 ### Configuring upgrades
 
@@ -365,7 +370,7 @@ Position determines ownership: flags before the command name are nmr's own, and 
 | ------------------------ | --------------------------------------------------- | ------- |
 | `-F, --filter <pattern>` | Run command in matching packages                    | —       |
 | `-R, --recursive`        | Run command in all packages                         | —       |
-| `-w, --workspace-root`   | Force root script registry                          | —       |
+| `-w, --workspace-root`   | Use root scripts, running at the monorepo root      | —       |
 | `-q, --quiet`            | Suppress info messages; show full output on failure | —       |
 | `-?, --help`             | Show available commands                             | —       |
 | `-V, --version`          | Show version number                                 | —       |
