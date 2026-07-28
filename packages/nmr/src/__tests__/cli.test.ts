@@ -658,9 +658,6 @@ export default defineConfig({
     });
   });
 
-  // A resolved script runs in the directory that anchored its registry: the monorepo root when the root
-  // registry resolved it, the containing package otherwise. Scripts are authored against that directory,
-  // so running one anywhere else misdirects both its relative paths and its own `nmr` sub-invocations.
   describe('script working directory', () => {
     let anchorRoot: string;
     let anchorPkgDir: string;
@@ -672,15 +669,12 @@ export default defineConfig({
       anchorLogFile = path.join(anchorRoot, 'log.txt');
       writeFileSync(anchorLogFile, '');
 
-      // Every candidate directory holds a `where.txt` naming itself, and the scripts under test `cat
-      // where.txt`, so the logged word is the directory the script ran in. This observes the working
-      // directory through relative-path resolution — the property that actually matters — rather than
-      // through `pwd`, which would compare a shell's physical path against the symlinked one mkdtempSync
-      // returns on macOS (/var -> /private/var) and fail for the wrong reason. Seeding every directory
-      // also means a regression logs the wrong word rather than failing to find the file at all.
+      // Each candidate directory holds a `where.txt` naming itself; the scripts `cat where.txt`, so the
+      // logged word is the directory the script ran in. `pwd` would compare a physical path against the
+      // symlinked one mkdtempSync returns on macOS.
       writeFileSync(path.join(anchorRoot, 'where.txt'), 'root\n');
 
-      // A root-context directory that is not a workspace package: `isRoot` holds, but the cwd is not the root.
+      // Root context without a workspace package.
       mkdirSync(path.join(anchorRoot, 'tools'), { recursive: true });
       writeFileSync(path.join(anchorRoot, 'tools', 'where.txt'), 'sub\n');
 
@@ -690,8 +684,7 @@ export default defineConfig({
       writeFileSync(path.join(anchorPkgDir, 'where.txt'), 'pkg\n');
       writeFileSync(path.join(anchorPkgDir, 'src', 'where.txt'), 'src\n');
 
-      // `anchor-inner` lives only in rootScripts, so the chained `nmr anchor-inner` resolves only when its
-      // parent runs at the root. `anchor-where` is defined in both registries so each context resolves it.
+      // `anchor-inner` lives only in rootScripts; `anchor-where` in both.
       mkdirSync(path.join(anchorRoot, '.config'), { recursive: true });
       writeFileSync(
         path.join(anchorRoot, '.config', 'nmr.config.ts'),
@@ -744,9 +737,6 @@ export default defineConfig({
       expect(readAnchorLog()).toStrictEqual(['root']);
     });
 
-    // A root script whose string value chains `nmr <root-only command>`. The child re-derives its registry
-    // from wherever the parent placed it, so anchoring the parent at the root is what lets the child resolve
-    // a command that exists only in rootScripts.
     it('resolves a root-only command chained inside a root script string', async () => {
       clearAnchorLog();
       const { exitCode } = await runNmr('-w anchor-chain', { cwd: anchorPkgDir });

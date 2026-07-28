@@ -59,11 +59,8 @@ export interface ResolvedScript {
  * Expands a script value into an executable command string.
  * Arrays are expanded to `nmr {step1} && nmr {step2}`.
  *
- * When `workspaceRoot` is true, the parent's `-w` flag is propagated to each
- * step's subprocess invocation (`nmr -w {step1} && nmr -w {step2}`), so each step
- * selects the root registry on its own rather than depending on where the child
- * derives its context from. Mirrors the convention `wrapWithHooks` uses for hook
- * subprocess invocations.
+ * `-w` is propagated to each step (`nmr -w {step1} && nmr -w {step2}`) so each step
+ * selects the root registry on its own, as `wrapWithHooks` does for hooks.
  */
 export function expandScript(script: ScriptValue, workspaceRoot: boolean): string {
   if (typeof script === 'string') {

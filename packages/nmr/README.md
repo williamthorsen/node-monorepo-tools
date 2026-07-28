@@ -53,7 +53,7 @@ nmr's key feature is that the same command runs different scripts depending on w
 | Inside a workspace package        | Workspace scripts | The package root  | `pnpm exec vitest` (for that package only)    |
 | Anywhere, with `--workspace-root` | Root scripts      | Monorepo root     | Root tests + `pnpm --recursive exec nmr test` |
 
-A script always runs in the directory its registry belongs to — root scripts at the monorepo root, workspace scripts at the package root — never in the subdirectory you happened to be standing in. Scripts are written against that directory, so this is what makes `.` and other relative paths mean the same thing wherever you invoke them from.
+Relative paths in a script resolve against that working directory, not the invocation directory.
 
 Use `--workspace-root` to escape package context:
 
@@ -62,10 +62,10 @@ Use `--workspace-root` to escape package context:
 nmr --workspace-root check
 ```
 
-Two consequences worth knowing:
+Two consequences:
 
-- `nmr --workspace-root clean` sweeps every workspace package, exactly as `nmr clean` does from the root. It does not clean only the package you are standing in.
-- Relative paths in passthrough arguments resolve against the script's directory, not your shell's. From `packages/nmr/src/`, `nmr --workspace-root fmt pnpm-workspace.yaml` formats the file of that name at the monorepo root.
+- `nmr --workspace-root clean` sweeps every workspace package, as `nmr clean` does from the root.
+- Passthrough paths resolve against the working directory: from `packages/nmr/src/`, `nmr --workspace-root fmt pnpm-workspace.yaml` formats the file at the monorepo root.
 
 ## Three-tier override system
 

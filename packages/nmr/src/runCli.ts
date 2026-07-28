@@ -63,10 +63,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   // Determine which registry to use
   const useRoot = parsed.workspaceRoot || context.isRoot;
 
-  // The directory that anchors both registry resolution and execution: the monorepo root under
-  // `useRoot`, the containing package otherwise. Scripts are authored against their own registry's
-  // directory — root scripts against the monorepo root, workspace scripts against the package — so
-  // running one anywhere else misdirects its relative paths and its own `nmr` sub-invocations.
+  // Anchors registry resolution and execution alike: a script runs in the directory its registry belongs to.
   const anchorDir = useRoot ? context.monorepoRoot : (context.packageDir ?? context.monorepoRoot);
 
   if (parsed.help || !parsed.command) {
@@ -238,10 +235,8 @@ function handleSkipMessage(
  * chain and produce no output. Hook failure short-circuits the chain via shell
  * `&&` semantics; the failing exit code propagates.
  *
- * When the parent invocation used `-w`/`--workspace-root` to force root-registry
- * resolution, the flag is propagated to hook subprocess invocations, so each hook
- * selects the root registry on its own rather than depending on where the child
- * derives its context from.
+ * `-w` is propagated to hook subprocesses so each hook selects the root registry
+ * on its own, independent of where the child derives its context from.
  */
 function wrapWithHooks(
   command: string,
