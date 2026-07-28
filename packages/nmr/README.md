@@ -29,7 +29,7 @@ From the monorepo root:
 ```bash
 nmr test          # Run root tests + recursive workspace tests
 nmr build         # Build all packages
-nmr ci            # Run check:strict && build (full CI pipeline)
+nmr ci            # Run build && check:strict && audit (full CI pipeline)
 ```
 
 nmr detects where you are and selects the right scripts automatically — see [context-aware resolution](#context-aware-resolution) below.
@@ -138,6 +138,8 @@ For example, if a workspace script resolves to `my-cli --verbose`, nmr rewrites 
 | `nmr -F <package> upgrade`   | that package, from anywhere                 |
 | `nmr root:upgrade`           | the root `package.json` alone               |
 
+`nmr upgrade` from the root precedes its report with any active `pnpm.overrides` declared in the root `package.json`; `nmr root:upgrade` does not. An override pins a transitive dependency, so an upgrade masked by one never appears in the report.
+
 The upgrade tool ([taze](https://github.com/antfu-collective/taze)) arrives with nmr, so your repo declares no dependency on it. Everything after the command name is passed through, including the range mode:
 
 ```bash
@@ -215,7 +217,7 @@ A package gets this variant automatically when it contains a `vitest.integration
 | Command | Runs                              |
 | ------- | --------------------------------- |
 | `build` | `pnpm --recursive exec nmr build` |
-| `ci`    | `build`, `check:strict`           |
+| `ci`    | `build`, `check:strict`, `audit`  |
 | `clean` | `nmr-clean`                       |
 
 #### Check and quality
@@ -273,9 +275,9 @@ A package gets this variant automatically when it contains a `vitest.integration
 
 #### Dependencies
 
-| Command   | Runs                                    |
-| --------- | --------------------------------------- |
-| `upgrade` | `nmr-taze --include-locked --recursive` |
+| Command   | Runs                                                            |
+| --------- | --------------------------------------------------------------- |
+| `upgrade` | `nmr-report-overrides && nmr-taze --include-locked --recursive` |
 
 See [dependency upgrades](#dependency-upgrades) for the workflow and its configuration.
 
@@ -326,7 +328,7 @@ nmr build                   # Compile to .js and .d.ts in one pass
 
 # From the monorepo root
 nmr test                    # Root tests + recursive workspace tests
-nmr ci                      # check:strict + build
+nmr ci                      # build + check:strict + audit
 
 # Target specific packages
 nmr -F core test            # Test only the core package
@@ -342,7 +344,7 @@ These commands are available as `nmr` subcommands and as standalone `nmr-`-prefi
 
 ### `report-overrides`
 
-Report any active `pnpm.overrides` in the root `package.json`. Useful as a `postinstall` hook to remind developers of active overrides that may need cleanup.
+Report any active `pnpm.overrides` in the root `package.json`, reminding developers of overrides that may need cleanup. The root `upgrade` script runs it automatically, so no per-repo wiring is needed. Invoking it directly is useful for a one-off report.
 
 ```bash
 nmr report-overrides
@@ -389,7 +391,7 @@ nmr-compile
 
 ### `nmr-taze`
 
-Run the [taze](https://github.com/antfu-collective/taze) dependency-upgrade tool, forwarding every argument to it untouched. This is what the `upgrade` and `root:upgrade` scripts resolve to — see [dependency upgrades](#dependency-upgrades) for the workflow.
+Run the [taze](https://github.com/antfu-collective/taze) dependency-upgrade tool, forwarding every argument to it untouched. This is what `root:upgrade` resolves to, and what the root `upgrade` script ends with — see [dependency upgrades](#dependency-upgrades) for the workflow.
 
 Under pnpm's isolated `node_modules`, a transitive package's binary is absent from the consuming repo's `node_modules/.bin`, so a repo that depends on nmr cannot run `taze` directly. `nmr-taze` can, because nmr is a direct dependency, and it resolves the tool from the tree nmr controls.
 
@@ -417,8 +419,7 @@ After installing, a consuming repo's root `package.json` scripts shrink to lifec
 
 ```json
 {
-  "prepare": "lefthook install",
-  "postinstall": "nmr report-overrides"
+  "prepare": "lefthook install"
 }
 ```
 

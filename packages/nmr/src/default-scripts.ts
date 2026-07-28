@@ -79,7 +79,15 @@ export const rootScripts: ScriptRegistry = {
   'test:coverage': 'nmr root:test && pnpm --recursive exec nmr test:coverage',
   'test:watch': 'vitest --watch',
   typecheck: 'nmr root:typecheck && pnpm --recursive exec nmr typecheck',
-  // taze handles pnpm workspaces natively, so this needs no `pnpm --recursive` fan-out: one process
-  // covers the root and every package, with a single deduplicated batch of registry requests.
-  upgrade: 'nmr-taze --include-locked --recursive',
+  // Both steps are bins rather than `nmr <command>` invocations: a string script runs with the invocation
+  // cwd, so an `nmr` step would re-derive its registry from there and fail to resolve a root-only command
+  // under `-w` from a package dir. Bins locate the monorepo root themselves.
+  //
+  // A string rather than a composite because passthrough args attach to the chain's last command — as a
+  // composite, `nmr upgrade major` would hand `major` to the override report instead of the upgrade tool.
+  //
+  // Overrides print first, as context for the report that follows: a pinned transitive dependency is why
+  // an expected upgrade may be missing from it. taze handles pnpm workspaces natively, so this needs no
+  // `pnpm --recursive` fan-out: one process covers the root and every package.
+  upgrade: 'nmr-report-overrides && nmr-taze --include-locked --recursive',
 };

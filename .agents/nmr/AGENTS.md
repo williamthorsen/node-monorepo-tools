@@ -1,5 +1,5 @@
 ---
-source: '@williamthorsen/nmr@0.18.2'
+source: '@williamthorsen/nmr@0.19.0'
 ---
 
 # nmr: agent guidance
