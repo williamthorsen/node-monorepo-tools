@@ -1,6 +1,6 @@
 # @williamthorsen/nmr
 
-Context-aware script runner for PNPM monorepos. Ships an `nmr` (node-monorepo run) binary that provides centralized, consistent script execution across workspace packages and the monorepo root.
+Context-aware script runner for pnpm monorepos. Ships an `nmr` (node-monorepo run) binary that provides centralized, consistent script execution across workspace packages and the monorepo root.
 
 <!-- section:release-notes --><!-- /section:release-notes -->
 
@@ -47,11 +47,13 @@ nmr detects where you are and selects the right scripts automatically — see [c
 
 nmr's key feature is that the same command runs different scripts depending on where you invoke it. It walks up from your current directory to find `pnpm-workspace.yaml`, then checks whether your CWD is inside a workspace package directory.
 
-| Where you run `nmr`               | Registry used     | `nmr test` runs                               |
-| --------------------------------- | ----------------- | --------------------------------------------- |
-| Monorepo root                     | Root scripts      | Root tests + `pnpm --recursive exec nmr test` |
-| Inside a workspace package        | Workspace scripts | `pnpm exec vitest` (for that package only)    |
-| Anywhere, with `--workspace-root` | Root scripts      | Forces root registry regardless of location   |
+| Where you run `nmr`               | Registry used     | Working directory | `nmr test` runs                               |
+| --------------------------------- | ----------------- | ----------------- | --------------------------------------------- |
+| Monorepo root                     | Root scripts      | Monorepo root     | Root tests + `pnpm --recursive exec nmr test` |
+| Inside a workspace package        | Workspace scripts | The package root  | `pnpm exec vitest` (for that package only)    |
+| Anywhere, with `--workspace-root` | Root scripts      | Monorepo root     | Root tests + `pnpm --recursive exec nmr test` |
+
+Relative paths in a script resolve against that working directory, not the invocation directory.
 
 Use `--workspace-root` to escape package context:
 
@@ -59,6 +61,11 @@ Use `--workspace-root` to escape package context:
 # From inside packages/nmr-core, run the root check suite
 nmr --workspace-root check
 ```
+
+Two consequences:
+
+- `nmr --workspace-root clean` sweeps every workspace package, as `nmr clean` does from the root.
+- Passthrough paths resolve against the working directory: from `packages/nmr/src/`, `nmr --workspace-root fmt pnpm-workspace.yaml` formats the file at the monorepo root.
 
 ## Three-tier override system
 
@@ -196,8 +203,6 @@ nmr upgrade          # upgrades available within each package's version ceilings
 nmr upgrade major    # major upgrades, still inside the ceilings
 nmr upgrade --write  # apply the proposals to package.json
 ```
-
-> **Note:** Run the root-context commands from the monorepo root: like nmr's other `root:` scripts, they take the current directory as their starting point.
 
 ### Configuring upgrades
 
@@ -365,7 +370,7 @@ Position determines ownership: flags before the command name are nmr's own, and 
 | ------------------------ | --------------------------------------------------- | ------- |
 | `-F, --filter <pattern>` | Run command in matching packages                    | —       |
 | `-R, --recursive`        | Run command in all packages                         | —       |
-| `-w, --workspace-root`   | Force root script registry                          | —       |
+| `-w, --workspace-root`   | Use root scripts, running at the monorepo root      | —       |
 | `-q, --quiet`            | Suppress info messages; show full output on failure | —       |
 | `-?, --help`             | Show available commands                             | —       |
 | `-V, --version`          | Show version number                                 | —       |

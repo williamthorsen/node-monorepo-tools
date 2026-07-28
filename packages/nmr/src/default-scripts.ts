@@ -79,10 +79,6 @@ export const rootScripts: ScriptRegistry = {
   'test:coverage': 'nmr root:test && pnpm --recursive exec nmr test:coverage',
   'test:watch': 'vitest --watch',
   typecheck: 'nmr root:typecheck && pnpm --recursive exec nmr typecheck',
-  // Both steps are bins rather than `nmr <command>` invocations: a string script runs with the invocation
-  // cwd, so an `nmr` step would re-derive its registry from there and fail to resolve a root-only command
-  // under `-w` from a package dir. Bins locate the monorepo root themselves.
-  //
   // A string rather than a composite because passthrough args attach to the chain's last command — as a
   // composite, `nmr upgrade major` would hand `major` to the override report instead of the upgrade tool.
   //

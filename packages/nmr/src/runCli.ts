@@ -63,14 +63,11 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   // Determine which registry to use
   const useRoot = parsed.workspaceRoot || context.isRoot;
 
-  // packageDir for tier-3 (package.json) lookups follows useRoot so that `-w`
-  // is fully root-contextual: an override or hook defined in the monorepo
-  // root's package.json resolves under `nmr -w X` from any cwd, mirroring
-  // how it resolves under `nmr X` from root cwd.
-  const packageDir = useRoot ? context.monorepoRoot : (context.packageDir ?? context.monorepoRoot);
+  // Anchors registry resolution and execution alike: a script runs in the directory its registry belongs to.
+  const anchorDir = useRoot ? context.monorepoRoot : (context.packageDir ?? context.monorepoRoot);
 
   if (parsed.help || !parsed.command) {
-    stdout.write(`${generateHelp(context.config, packageDir, useRoot)}\n`);
+    stdout.write(`${generateHelp(context.config, anchorDir, useRoot)}\n`);
     return { exitCode: 0 };
   }
 
@@ -95,8 +92,8 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   const registry = useRoot
     ? buildRootRegistry(context.config)
-    : buildWorkspaceRegistry(context.config, hasIntegrationTestConfig(packageDir));
-  const resolved = resolveScript(command, registry, packageDir, parsed.workspaceRoot);
+    : buildWorkspaceRegistry(context.config, hasIntegrationTestConfig(anchorDir));
+  const resolved = resolveScript(command, registry, anchorDir, parsed.workspaceRoot);
 
   if (!resolved) {
     if (env.NMR_RUN_IF_PRESENT === '1') {
@@ -106,13 +103,13 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     return { exitCode: 1 };
   }
 
-  const skipExitCode = handleSkipMessage(resolved.command, packageDir, parsed.quiet, stdout);
+  const skipExitCode = handleSkipMessage(resolved.command, anchorDir, parsed.quiet, stdout);
   if (skipExitCode !== undefined) {
     return { exitCode: skipExitCode };
   }
 
   if (resolved.source === 'package' && !parsed.quiet && registry[command] !== undefined) {
-    stdout.write(`📦 ${path.basename(packageDir)}: Using override script: ${resolved.command}\n`);
+    stdout.write(`📦 ${path.basename(anchorDir)}: Using override script: ${resolved.command}\n`);
   }
 
   const substitutedCommand = applyDevBin(resolved.command, context.config.devBin, context.monorepoRoot);
@@ -123,9 +120,9 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   const isHookInvocation = isHookName(command);
   const fullCommand = isHookInvocation
     ? mainCommand
-    : wrapWithHooks(command, mainCommand, registry, packageDir, parsed.workspaceRoot);
+    : wrapWithHooks(command, mainCommand, registry, anchorDir, parsed.workspaceRoot);
 
-  const exitCode = runCommand(fullCommand, cwd, runOptions);
+  const exitCode = runCommand(fullCommand, anchorDir, runOptions);
   return { exitCode };
 }
 
@@ -210,19 +207,19 @@ function parseArgs(args: string[]): ParseResult {
  */
 function handleSkipMessage(
   resolvedCommand: string,
-  packageDir: string,
+  anchorDir: string,
   quiet: boolean,
   stdout: Writable,
 ): number | undefined {
   if (resolvedCommand === '') {
     if (!quiet) {
-      stdout.write(`⛔ ${path.basename(packageDir)}: Override script is defined but empty. Skipping.\n`);
+      stdout.write(`⛔ ${path.basename(anchorDir)}: Override script is defined but empty. Skipping.\n`);
     }
     return 0;
   }
   if (resolvedCommand === ':') {
     if (!quiet) {
-      stdout.write(`⛔ ${path.basename(packageDir)}: Override script is a no-op. Skipping.\n`);
+      stdout.write(`⛔ ${path.basename(anchorDir)}: Override script is a no-op. Skipping.\n`);
     }
     return 0;
   }
@@ -238,27 +235,24 @@ function handleSkipMessage(
  * chain and produce no output. Hook failure short-circuits the chain via shell
  * `&&` semantics; the failing exit code propagates.
  *
- * When the parent invocation used `-w`/`--workspace-root` to force root-registry
- * resolution, the flag is propagated to hook subprocess invocations so the child
- * resolves hooks against the same registry the parent used. Without this, a hook
- * defined only in `rootScripts` would fail to resolve when the child re-derives
- * its registry from the package cwd.
+ * `-w` is propagated to hook subprocesses so each hook selects the root registry
+ * on its own, independent of where the child derives its context from.
  */
 function wrapWithHooks(
   command: string,
   mainCommand: string,
   registry: ScriptRegistry,
-  packageDir: string,
+  anchorDir: string,
   workspaceRoot: boolean,
 ): string {
   const segments: string[] = [];
   const flag = workspaceRoot ? '-w ' : '';
 
-  if (hasRunnableHook(`${command}:pre`, registry, packageDir, workspaceRoot)) {
+  if (hasRunnableHook(`${command}:pre`, registry, anchorDir, workspaceRoot)) {
     segments.push(`nmr ${flag}${command}:pre`);
   }
   segments.push(mainCommand);
-  if (hasRunnableHook(`${command}:post`, registry, packageDir, workspaceRoot)) {
+  if (hasRunnableHook(`${command}:post`, registry, anchorDir, workspaceRoot)) {
     segments.push(`nmr ${flag}${command}:post`);
   }
 
@@ -273,10 +267,10 @@ function wrapWithHooks(
 function hasRunnableHook(
   hookName: string,
   registry: ScriptRegistry,
-  packageDir: string,
+  anchorDir: string,
   workspaceRoot: boolean,
 ): boolean {
-  const resolved = resolveScript(hookName, registry, packageDir, workspaceRoot);
+  const resolved = resolveScript(hookName, registry, anchorDir, workspaceRoot);
   if (!resolved) return false;
   return resolved.command !== '' && resolved.command !== ':';
 }

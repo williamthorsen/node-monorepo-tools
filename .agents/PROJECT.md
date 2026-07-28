@@ -4,20 +4,20 @@
 
 ## Overview
 
-A PNPM monorepo of CLI tools for Node.js monorepo development. Packages provide a unified script runner (`nmr`) and release automation (`release-kit`), with shared utilities in `core`. Pre-deployment checks use `readyup` (external dev dependency).
+A pnpm monorepo of CLI tools for Node.js monorepo development. Packages provide a unified script runner (`nmr`) and release automation (`release-kit`), with shared utilities in `core`. Pre-deployment checks use `readyup` (external dev dependency).
 
 ## Project structure
 
 Packages live under `packages/`:
 
-- **`@williamthorsen/nmr`** — Context-aware script runner for PNPM monorepos. Detects root vs workspace context and resolves the appropriate script registry.
+- **`@williamthorsen/nmr`** — Context-aware script runner for pnpm monorepos. Detects root vs workspace context and resolves the appropriate script registry.
 - **`@williamthorsen/nmr-core`** — Shared utilities consumed by `release-kit`.
 - **`@williamthorsen/release-kit`** — Version-bumping and changelog-generation toolkit. Has integration tests (`vitest.integration.config.ts`).
 - **`v11y-check`** — Wraps audit-ci with a richer config model, typed JSON source of truth, and a sync workflow that automates allowlist management.
 
 Key files:
 
-- `.config/nmr.config.ts` — Per-repo nmr overrides (currently empty; dogfoods the config-loading feature)
+- `.config/nmr.config.ts` — Per-repo nmr overrides (currently a single `build:post` hook; dogfoods the config-loading feature)
 - `packages/nmr/src/commands/build.ts` — The nmr-managed build (`nmr-compile` bin): a single TypeScript compiler-API emit of `.js` + `.d.ts` with order-invariant content-hash caching, AST-based relative `.ts`→`.js` rewriting, and tsconfig `paths` alias resolution in both outputs
 - `.config/vitest/vitest.config.ts` — Shared Vitest base configuration
 
@@ -49,7 +49,7 @@ Use `nmr {command}` for all monorepo scripts. Use `pnpm run {script}` only for s
 
 ### nmr script runner
 
-- Default scripts defined in `packages/nmr/src/registries.ts`; per-repo overrides in `.config/nmr.config.ts`
+- Default scripts defined in `packages/nmr/src/default-scripts.ts`; per-repo overrides in `.config/nmr.config.ts`
 - Packages with `vitest.integration.config.ts` automatically get split test commands (`test`, `test:integration`, `test:watch`)
 - Root scripts delegate to workspaces via `pnpm --recursive exec nmr {command}`
 

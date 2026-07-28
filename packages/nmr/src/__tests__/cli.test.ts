@@ -657,4 +657,91 @@ export default defineConfig({
       });
     });
   });
+
+  describe('script working directory', () => {
+    let anchorRoot: string;
+    let anchorPkgDir: string;
+    let anchorLogFile: string;
+
+    beforeAll(() => {
+      anchorRoot = mkdtempSync(path.join(tmpdir(), 'nmr-anchor-'));
+      writeFileSync(path.join(anchorRoot, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n");
+      anchorLogFile = path.join(anchorRoot, 'log.txt');
+      writeFileSync(anchorLogFile, '');
+
+      // Each candidate directory holds a `where.txt` naming itself; the scripts `cat where.txt`, so the
+      // logged word is the directory the script ran in. `pwd` would compare a physical path against the
+      // symlinked one mkdtempSync returns on macOS.
+      writeFileSync(path.join(anchorRoot, 'where.txt'), 'root\n');
+
+      // Root context without a workspace package.
+      mkdirSync(path.join(anchorRoot, 'tools'), { recursive: true });
+      writeFileSync(path.join(anchorRoot, 'tools', 'where.txt'), 'sub\n');
+
+      anchorPkgDir = path.join(anchorRoot, 'packages', 'anchor-pkg');
+      mkdirSync(path.join(anchorPkgDir, 'src'), { recursive: true });
+      writeFileSync(path.join(anchorPkgDir, 'package.json'), JSON.stringify({ name: 'anchor-pkg' }));
+      writeFileSync(path.join(anchorPkgDir, 'where.txt'), 'pkg\n');
+      writeFileSync(path.join(anchorPkgDir, 'src', 'where.txt'), 'src\n');
+
+      // `anchor-inner` lives only in rootScripts; `anchor-where` in both.
+      mkdirSync(path.join(anchorRoot, '.config'), { recursive: true });
+      writeFileSync(
+        path.join(anchorRoot, '.config', 'nmr.config.ts'),
+        `import { defineConfig } from '${NMR_PACKAGE_DIR}/dist/esm/index.js';
+export default defineConfig({
+  rootScripts: {
+    'anchor-where': 'cat where.txt >> ${anchorLogFile}',
+    'anchor-chain': 'nmr anchor-inner',
+    'anchor-inner': 'echo inner >> ${anchorLogFile}',
+  },
+  workspaceScripts: {
+    'anchor-where': 'cat where.txt >> ${anchorLogFile}',
+  },
+});
+`,
+      );
+    });
+
+    afterAll(() => {
+      rmSync(anchorRoot, { recursive: true, force: true });
+    });
+
+    const { read: readAnchorLog, clear: clearAnchorLog } = makeLogHelpers(() => anchorLogFile);
+
+    it('runs a root script at the monorepo root under -w from a package dir', async () => {
+      clearAnchorLog();
+      const { exitCode } = await runNmr('-w anchor-where', { cwd: anchorPkgDir });
+      expect(exitCode).toBe(0);
+      expect(readAnchorLog()).toStrictEqual(['root']);
+    });
+
+    it('runs a root script at the monorepo root from a non-package root subdirectory', async () => {
+      clearAnchorLog();
+      const { exitCode } = await runNmr('anchor-where', { cwd: path.join(anchorRoot, 'tools') });
+      expect(exitCode).toBe(0);
+      expect(readAnchorLog()).toStrictEqual(['root']);
+    });
+
+    it('runs a workspace script at the package root from a subdirectory of the package', async () => {
+      clearAnchorLog();
+      const { exitCode } = await runNmr('anchor-where', { cwd: path.join(anchorPkgDir, 'src') });
+      expect(exitCode).toBe(0);
+      expect(readAnchorLog()).toStrictEqual(['pkg']);
+    });
+
+    it('leaves root-cwd invocation unchanged', async () => {
+      clearAnchorLog();
+      const { exitCode } = await runNmr('anchor-where', { cwd: anchorRoot });
+      expect(exitCode).toBe(0);
+      expect(readAnchorLog()).toStrictEqual(['root']);
+    });
+
+    it('resolves a root-only command chained inside a root script string', async () => {
+      clearAnchorLog();
+      const { exitCode } = await runNmr('-w anchor-chain', { cwd: anchorPkgDir });
+      expect(exitCode).toBe(0);
+      expect(readAnchorLog()).toStrictEqual(['inner']);
+    });
+  });
 });
