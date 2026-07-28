@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.20.0 — 2026-07-28
+
+### 🎉 Features
+
+- 🚨 **Breaking:** Migrate to code-quality workflow v7 and retire the version-restatement apparatus (#503)
+
+  Migrates the code-quality workflow from `@v6` to `@v7`, which no longer requires the Node version to be specified in two places, and removes the test that previously checked for drift. Also removed are the `nmr sync-pnpm-version` command and drift-related exported functions.
+
+  Taking this upgrade requires migrating the repo's code-quality workflow to `@v7` and deleting its version-alignment test in the same change.
+
+- 🚨 **Breaking:** Resolve workspace packages with pnpm's pattern semantics (#509)
+
+  nmr now excludes packages matched by a `!`-prefixed pattern in `pnpm-workspace.yaml` from the packages it operates on. Deep globs such as `packages/**` now match nested packages, and running a command from inside a nested package targets that package rather than an enclosing ancestor. Exclusion patterns must be quoted to take effect. nmr now requires Node.js 24.16 or later.
+
+- Report pnpm overrides when reviewing dependencies (#514)
+
+  From the monorepo root, `nmr upgrade` now reports the repo's active pnpm dependency overrides alongside the upgrade report, making clear when a pin is the reason an expected upgrade is absent. Repos that wired up this override report themselves with an install-time hook can now remove that hook.
+
+- Trim the bundled agent guidance to a cheatsheet (#516)
+
+  Trims the agent guidance nmr installs into consuming repos from 100 lines to 10. Only the bare essentials are now injected into context. Agents are instructed to consult the package's README for details.
+
+### 🐛 Bug fixes
+
+- Anchor script execution to the resolved registry's directory (#517)
+
+  Fixes an issue where `nmr --workspace-root`, run from inside a workspace package, either failed outright or silently acted on the wrong directory. Commands now behave the same regardless of the directory they are invoked from: root commands act on the monorepo root, and package commands on their own package. Two changes for existing users: `nmr --workspace-root clean` now sweeps every workspace package instead of cleaning only the current one, and relative paths passed to a script now resolve against the directory the script runs in.
+
 ## 0.19.0 — 2026-07-22
 
 ### 🎉 Features
@@ -80,6 +108,10 @@ All notable changes to this project will be documented in this file.
 
 ### 🎉 Features
 
+- 🚨 **Breaking:** Rewrite parseArgs on node:util with typed error and exit API (#428)
+
+  `@williamthorsen/nmr-core` gains a typed error API for CLI parsing: `parseArgsOrExit` (parse, or print a usage error and exit) and `ParseError` replace the per-command boilerplate, so every bundled CLI reports a flag mistake the same way. Breaking: the `translateParseError` export is removed and `parseArgs` now throws `ParseError`.
+
 - 🚨 **Breaking:** Auto-activate integration test variant from config presence (#448)
 
   A package can now separate its integration tests from its standalone suite simply by including a `vitest.integration.config.ts` (alongside a `vitest.standalone.config.ts`). The `--int-test` flag that previously enabled this is removed — that config-file pairing is now the only way to activate the separation. In such a package, `test` and `test:coverage` run only the standalone suite and skip integration tests, while a new `test:all` runs both suites together. The separation now holds even when tests run across every package at once, so a full-workspace `test` run still keeps integration tests out of the default suite. Packages that previously hand-copied these test scripts no longer need to.
@@ -95,6 +127,14 @@ All notable changes to this project will be documented in this file.
 - Migrate ensure-prepublish-hooks to nmr-core parseArgs (#429)
 
   `ensure-prepublish-hooks` now parses its arguments with `nmr-core`'s shared `parseArgs` utilities instead of a hand-rolled `for`/`switch` loop, removing the last bespoke argument parser in the `nmr` package. Every `nmr` CLI now shares one argument-parsing and error-reporting path; as a side effect, stray positional arguments are ignored rather than rejected, while unknown flags and a missing `--command` value still exit non-zero.
+
+- Route all CLI error reporting through a single stderr helper (#437)
+
+  Consolidates error reporting across the CLIs so every command reports errors the same way, and guards against the previous inconsistency returning. The error messages and exit codes users see are unchanged.
+
+- Normalize CLI error wording to the canonical Error: format (#439)
+
+  Single-line error messages from the `nmr` and `release-kit` commands now print in one uniform shape, so the same class of failure reads the same way no matter which command produced it. Previously the wording varied, which made error output harder to scan and harder for scripts to match against. Richer output, such as multi-line validation reports and the stack trace from an unexpected crash, is unchanged.
 
 ## 0.15.0 — 2026-06-27
 

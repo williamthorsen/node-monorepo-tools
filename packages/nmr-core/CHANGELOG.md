@@ -32,9 +32,23 @@ All notable changes to this project will be documented in this file.
 
 ### 🎉 Features
 
+- 🚨 **Breaking:** Rewrite parseArgs on node:util with typed error and exit API (#428)
+
+  `@williamthorsen/nmr-core` gains a typed error API for CLI parsing: `parseArgsOrExit` (parse, or print a usage error and exit) and `ParseError` replace the per-command boilerplate, so every bundled CLI reports a flag mistake the same way. Breaking: the `translateParseError` export is removed and `parseArgs` now throws `ParseError`.
+
 - Reject unexpected positional arguments by default (#432)
 
   Commands built on nmr-core now reject unexpected positional arguments by default. Commands that take positional arguments can opt back in to accept them.
+
+### ♻️ Refactoring
+
+- Route all CLI error reporting through a single stderr helper (#437)
+
+  Consolidates error reporting across the CLIs so every command reports errors the same way, and guards against the previous inconsistency returning. The error messages and exit codes users see are unchanged.
+
+- Normalize CLI error wording to the canonical Error: format (#439)
+
+  Single-line error messages from the `nmr` and `release-kit` commands now print in one uniform shape, so the same class of failure reads the same way no matter which command produced it. Previously the wording varied, which made error output harder to scan and harder for scripts to match against. Richer output, such as multi-line validation reports and the stack trace from an unexpected crash, is unchanged.
 
 ## 0.4.0 — 2026-06-27
 

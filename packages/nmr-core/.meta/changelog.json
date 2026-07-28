@@ -61,9 +61,31 @@
         "audience": "all",
         "items": [
           {
+            "description": "Rewrite parseArgs on node:util with typed error and exit API (#428)",
+            "body": "`@williamthorsen/nmr-core` gains a typed error API for CLI parsing: `parseArgsOrExit` (parse, or print a usage error and exit) and `ParseError` replace the per-command boilerplate, so every bundled CLI reports a flag mistake the same way. Breaking: the `translateParseError` export is removed and `parseArgs` now throws `ParseError`.",
+            "breaking": true,
+            "hash": "5629bef8f645485b401a04f06ff9153ef5472282"
+          },
+          {
             "description": "Reject unexpected positional arguments by default (#432)",
             "body": "Commands built on nmr-core now reject unexpected positional arguments by default. Commands that take positional arguments can opt back in to accept them.",
             "hash": "196871885cfa671dcab2996101e99cc73553cf6a"
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Route all CLI error reporting through a single stderr helper (#437)",
+            "body": "Consolidates error reporting across the CLIs so every command reports errors the same way, and guards against the previous inconsistency returning. The error messages and exit codes users see are unchanged.",
+            "hash": "63e36b3f80bd8858e940362ea2914cb9a19fd821"
+          },
+          {
+            "description": "Normalize CLI error wording to the canonical Error: format (#439)",
+            "body": "Single-line error messages from the `nmr` and `release-kit` commands now print in one uniform shape, so the same class of failure reads the same way no matter which command produced it. Previously the wording varied, which made error output harder to scan and harder for scripts to match against. Richer output, such as multi-line validation reports and the stack trace from an unexpected crash, is unchanged.",
+            "hash": "2cbb46523fc7c3f0d8387405cafbd2cc90274b19"
           }
         ]
       }

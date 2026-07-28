@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## 9.0.0 — 2026-07-28
+
+### 🎉 Features
+
+- 🚨 **Breaking:** Unify label configuration in release-kit.config.ts (#505)
+
+  Repositories now declare their label set alongside the rest of their release-kit configuration in `.config/release-kit.config.ts`, and the declaration is validated and completed in the editor as it is written. A label supplied by a bundled preset can now be recolored, reworded, or dropped. `sync-labels generate --check` now reports when the committed label file has fallen behind the declaration, writing nothing. The standalone `.config/sync-labels.config.ts` is no longer read; while it remains in place, every `sync-labels` command refuses to run, naming what to move and where.
+
+### 🐛 Bug fixes
+
+- Include commits scoped to `*` in the changelog (#496)
+
+  Fixes an issue where commits scoped to `*` raised the version but were silently dropped from the generated changelog.
+
 ## 8.1.0 — 2026-07-22
 
 ### 🎉 Features
@@ -46,11 +60,23 @@ All notable changes to this project will be documented in this file.
 
 ### 🎉 Features
 
+- 🚨 **Breaking:** Rewrite parseArgs on node:util with typed error and exit API (#428)
+
+  `@williamthorsen/nmr-core` gains a typed error API for CLI parsing: `parseArgsOrExit` (parse, or print a usage error and exit) and `ParseError` replace the per-command boilerplate, so every bundled CLI reports a flag mistake the same way. Breaking: the `translateParseError` export is removed and `parseArgs` now throws `ParseError`.
+
 - 🚨 **Breaking:** Auto-activate integration test variant from config presence (#448)
 
   A package can now separate its integration tests from its standalone suite simply by including a `vitest.integration.config.ts` (alongside a `vitest.standalone.config.ts`). The `--int-test` flag that previously enabled this is removed — that config-file pairing is now the only way to activate the separation. In such a package, `test` and `test:coverage` run only the standalone suite and skip integration tests, while a new `test:all` runs both suites together. The separation now holds even when tests run across every package at once, so a full-workspace `test` run still keeps integration tests out of the default suite. Packages that previously hand-copied these test scripts no longer need to.
 
 ### ♻️ Refactoring
+
+- Route all CLI error reporting through a single stderr helper (#437)
+
+  Consolidates error reporting across the CLIs so every command reports errors the same way, and guards against the previous inconsistency returning. The error messages and exit codes users see are unchanged.
+
+- Normalize CLI error wording to the canonical Error: format (#439)
+
+  Single-line error messages from the `nmr` and `release-kit` commands now print in one uniform shape, so the same class of failure reads the same way no matter which command produced it. Previously the wording varied, which made error output harder to scan and harder for scripts to match against. Richer output, such as multi-line validation reports and the stack trace from an unexpected crash, is unchanged.
 
 - Consolidate prepare parsing onto parseArgsOrExit (#441)
 
