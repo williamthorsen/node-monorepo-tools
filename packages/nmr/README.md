@@ -12,6 +12,15 @@ Requires Node.js 24.16 or later.
 pnpm add -D @williamthorsen/nmr
 ```
 
+### Making `nmr` resolvable
+
+nmr installs as a workspace bin, so the bare `nmr` command works only when your shell can find `<root>/node_modules/.bin/nmr`. Choose one:
+
+- **[direnv](https://direnv.net/)** (recommended for contributors). Add `PATH_add node_modules/.bin` to the repo's `.envrc`, and bare `nmr` works from any subdirectory.
+- **`pnpm exec nmr <command>`**. Works with no setup: pnpm resolves the bin from the workspace root.
+
+> **Note:** Avoid `npx nmr`. Inside a git worktree, `npx` can resolve a different nmr binary from outside the working tree, so the command succeeds while running the wrong code.
+
 ## Quick start
 
 nmr works out of the box with no configuration. It ships with built-in scripts for common monorepo tasks.
@@ -38,17 +47,17 @@ nmr detects where you are and selects the right scripts automatically — see [c
 
 nmr's key feature is that the same command runs different scripts depending on where you invoke it. It walks up from your current directory to find `pnpm-workspace.yaml`, then checks whether your CWD is inside a workspace package directory.
 
-| Where you run `nmr`        | Registry used     | `nmr test` runs                               |
-| -------------------------- | ----------------- | --------------------------------------------- |
-| Monorepo root              | Root scripts      | Root tests + `pnpm --recursive exec nmr test` |
-| Inside a workspace package | Workspace scripts | `pnpm exec vitest` (for that package only)    |
-| Anywhere, with `-w` flag   | Root scripts      | Forces root registry regardless of location   |
+| Where you run `nmr`               | Registry used     | `nmr test` runs                               |
+| --------------------------------- | ----------------- | --------------------------------------------- |
+| Monorepo root                     | Root scripts      | Root tests + `pnpm --recursive exec nmr test` |
+| Inside a workspace package        | Workspace scripts | `pnpm exec vitest` (for that package only)    |
+| Anywhere, with `--workspace-root` | Root scripts      | Forces root registry regardless of location   |
 
-Use `-w` to escape package context:
+Use `--workspace-root` to escape package context:
 
 ```bash
 # From inside packages/nmr-core, run the root check suite
-nmr -w check
+nmr --workspace-root check
 ```
 
 ## Three-tier override system
@@ -81,6 +90,8 @@ Script values can be `string` or `string[]`. Arrays expand to chained `nmr` sub-
 // "fix": ["lint", "fmt"]
 // expands to: nmr lint && nmr fmt
 ```
+
+Passthrough arguments attach to the final step alone, because the expansion is a single shell chain: `nmr fix --dry-run` runs `nmr lint && nmr fmt --dry-run`.
 
 ## Configuration
 
@@ -127,6 +138,44 @@ For example, if a workspace script resolves to `my-cli --verbose`, nmr rewrites 
 
 > **Note:** Path resolution uses a heuristic: any non-flag token containing `/` is treated as a relative path. This works well for typical dev-tool commands but may incorrectly resolve URL-like values or glob patterns. Flags using `--flag=value` syntax are not resolved; use the spaced form `--flag value` for paths that need resolution.
 
+## Pre and post hooks
+
+Every `nmr X` invocation auto-wraps as the equivalent of `nmr X:pre && nmr X && nmr X:post`. Hooks are first-class scripts that resolve through the same three tiers as any other script (built-in defaults, then `.config/nmr.config.ts`, then per-package `package.json`). Wrapping is uniform: nested invocations from composite expansion get their own hook treatment. Hook failure short-circuits the chain via shell `&&` semantics, propagating the failing exit code.
+
+Behaviors worth knowing:
+
+- **Silent when absent**: Missing hooks produce no error and no output.
+- **Skip overrides apply to hooks**: A hook value of `""` or `":"` is treated the same as not defining the hook, with no console message.
+- **Skipping the main command skips its hooks**: When `X` is overridden to `""` or `":"`, neither `X:pre` nor `X:post` fires.
+- **Recursion guard**: Direct invocation of a hook (e.g. `nmr build:pre`) is treated as a leaf operation. It does not itself attempt to resolve `build:pre:pre` or `build:pre:post`.
+- **Passthrough args attach only to the main command**: `nmr X --flag value` runs hooks without `--flag value`.
+
+Extend `nmr build` with a pre-build step for every workspace package:
+
+```ts
+// .config/nmr.config.ts
+import { defineConfig } from '@williamthorsen/nmr';
+
+export default defineConfig({
+  workspaceScripts: {
+    'build:pre': 'npx rdy compile',
+  },
+});
+```
+
+Attach a post-build step to one package:
+
+```jsonc
+// packages/nmr/package.json
+{
+  "scripts": {
+    "build:post": "nmr-sync-agent-files",
+  },
+}
+```
+
+The second example calls the bin directly, which sidesteps the workspace-versus-root registry distinction.
+
 ## Dependency upgrades
 
 `nmr upgrade` reports the dependency upgrades available to your repo. What it covers depends on where you run it:
@@ -148,7 +197,7 @@ nmr upgrade major    # major upgrades, still inside the ceilings
 nmr upgrade --write  # apply the proposals to package.json
 ```
 
-> **Note:** `-w` means different things on either side of the command. `nmr upgrade -w` passes `--write` to the upgrade tool; `nmr -w upgrade` is nmr's own `--workspace-root` flag and applies no write. Prefer the long forms to keep them apart. Run the root-context commands from the monorepo root: like nmr's other `root:` scripts, they take the current directory as their starting point.
+> **Note:** Run the root-context commands from the monorepo root: like nmr's other `root:` scripts, they take the current directory as their starting point.
 
 ### Configuring upgrades
 
@@ -310,6 +359,8 @@ These scripts operate on root-level code only (not workspace packages):
 nmr [flags] <command> [args...]
 ```
 
+Position determines ownership: flags before the command name are nmr's own, and everything after the command name is forwarded untouched to the resolved command.
+
 | Flag                     | Description                                         | Default |
 | ------------------------ | --------------------------------------------------- | ------- |
 | `-F, --filter <pattern>` | Run command in matching packages                    | —       |
@@ -331,11 +382,11 @@ nmr test                    # Root tests + recursive workspace tests
 nmr ci                      # build + check:strict + audit
 
 # Target specific packages
-nmr -F core test            # Test only the core package
-nmr -R lint                 # Lint all workspace packages
+nmr --filter core test      # Test only the core package
+nmr --recursive lint        # Lint all workspace packages
 
 # Force root context from anywhere
-nmr -w check                # Run root check from a package dir
+nmr --workspace-root check  # Run root check from a package dir
 ```
 
 ## Additional subcommands
@@ -368,6 +419,17 @@ To expose the synced guidance to Claude Code sessions, add this include to the c
 ```markdown
 @nmr/AGENTS.md
 ```
+
+#### What belongs in the synced file
+
+The synced file is injected at launch in every consuming repo, so every line is paid for on every task whether or not it is relevant. It is a cheatsheet, not a manual.
+
+A line earns a place in `AGENTS.md` only if both hold:
+
+1. It is absent from nmr's own output. Bare `nmr` already prints the flags, every command, and the shell command each resolves to; failing checks already name their own fix. Repeating any of that costs launch tokens to say something the agent will be told anyway, at the moment it matters.
+2. The obvious action goes wrong without it. Guidance that prevents a silent mistake earns its place; guidance that prevents a mistake the next error message would diagnose does not.
+
+Everything else belongs in this README, reachable on demand at `node_modules/@williamthorsen/nmr/README.md`, with a pointer from `AGENTS.md` naming the topic so an agent knows to look. When adding a feature, document it here and extend that pointer rather than the cheatsheet.
 
 ## Standalone utilities
 

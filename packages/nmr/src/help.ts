@@ -5,6 +5,7 @@ import {
   buildRootRegistry,
   buildWorkspaceRegistry,
   describeScript,
+  hasIntegrationTestConfig,
   isSelfReferential,
   readPackageJsonScripts,
 } from './resolver.ts';
@@ -32,6 +33,7 @@ export function generateHelp(config: NmrConfig, packageDir: string | undefined, 
     '  -w, --workspace-root     Run root command regardless of cwd',
     '  -q, --quiet              Suppress output on success; show full output on failure',
     '  -?, --help               Show this help',
+    '  -V, --version            Show version number',
     '',
     'Workspace commands:',
   ];
@@ -40,7 +42,9 @@ export function generateHelp(config: NmrConfig, packageDir: string | undefined, 
 
   let hadOverride = false;
 
-  const workspaceRegistry = filterHooks(buildWorkspaceRegistry(config, false));
+  // The variant is a per-package property; in root context `packageDir` is the monorepo root, which stands for no package.
+  const useIntTests = !useRoot && packageDir !== undefined && hasIntegrationTestConfig(packageDir);
+  const workspaceRegistry = filterHooks(buildWorkspaceRegistry(config, useIntTests));
   const workspaceMarked = !useRoot ? applyOverrides(workspaceRegistry, overrides) : new Set<string>();
   if (workspaceMarked.size > 0) hadOverride = true;
   formatRegistry(workspaceRegistry, workspaceMarked, lines);
