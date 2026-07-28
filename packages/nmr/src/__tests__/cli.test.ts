@@ -128,17 +128,6 @@ describe('nmr CLI', () => {
     expect(stderr).toContain('Error: -F/--filter requires a pattern argument');
   });
 
-  it('resolves root package.json scripts at monorepo root', async () => {
-    const { exitCode } = await runNmr('postinstall');
-    expect(exitCode).toBe(0);
-  });
-
-  it('does not log override message for package.json scripts not in registry', async () => {
-    const { stdout, exitCode } = await runNmr('postinstall');
-    expect(exitCode).toBe(0);
-    expect(stdout).not.toContain('Using override script');
-  });
-
   describe('override script messages', () => {
     let tempRoot: string;
     let overridePkgDir: string;
@@ -645,14 +634,26 @@ export default defineConfig({
         expect(readConfigLog()).toStrictEqual(['wroot-step1', 'wroot-step2']);
       });
 
+      // Reaches `useRoot` through `context.isRoot` rather than through the `-w` flag (the two disjuncts at runCli.ts).
+      // This is the path an ordinary root `package.json` script takes.
+      it('resolves tier-3 (root package.json) scripts at the monorepo root', async () => {
+        clearConfigLog();
+        const { exitCode } = await runNmr('wpkg-cmd', { cwd: configRoot });
+        expect(exitCode).toBe(0);
+        expect(readConfigLog()).toStrictEqual(['wpkg-pre', 'wpkg-main', 'wpkg-post']);
+      });
+
       it('resolves tier-3 (root package.json) scripts under -w from a subpackage', async () => {
         clearConfigLog();
         // wpkg-cmd and its hooks live only in the root package.json scripts (tier 3 from root cwd).
         // Under -w from a subpackage, packageDir must follow useRoot so the resolver consults root's package.json
         // instead of the subpackage's, otherwise the command and its hooks fail with "Unknown command".
-        const { exitCode } = await runNmr('-w wpkg-cmd', { cwd: configPkgDir });
+        const { stdout, exitCode } = await runNmr('-w wpkg-cmd', { cwd: configPkgDir });
         expect(exitCode).toBe(0);
         expect(readConfigLog()).toStrictEqual(['wpkg-pre', 'wpkg-main', 'wpkg-post']);
+        // wpkg-cmd is in no registry, so the override-script message is suppressed: it announces a
+        // package.json script that *replaces* a built-in, not every tier-3 entry that happens to resolve.
+        expect(stdout).not.toContain('Using override script');
       });
     });
   });

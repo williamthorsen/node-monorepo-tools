@@ -28,9 +28,9 @@ Use `nmr {command}` for all monorepo scripts. Use `pnpm run {script}` only for s
 **Root-level (from repo root):**
 
 - `pnpm install` — Install all dependencies
-- `nmr ci` — Full CI pipeline (strict checks + build)
+- `nmr ci` — Full CI pipeline (build, strict checks, audit)
 - `nmr check` — Typecheck, format check, lint check, and tests
-- `nmr check:strict` — Strict checks including coverage and audit
+- `nmr check:strict` — Strict checks including coverage and the agent-file stamp; audit runs separately under `ci`
 - `nmr build` — Build all packages
 - `nmr test` — Run tests across all packages
 

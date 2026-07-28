@@ -2,7 +2,7 @@ import { getPnpmOverrides, readPackageJson } from '../helpers/package-json.ts';
 
 /**
  * Reports any active pnpm dependency overrides in the monorepo root package.json.
- * Used as a postinstall hook to remind developers of active overrides.
+ * Runs ahead of the report produced by the root `upgrade` script.
  */
 export function reportOverrides(monorepoRoot: string): void {
   const pkg = readPackageJson(monorepoRoot);

@@ -41,10 +41,12 @@ describe('getDefaultWorkspaceScripts', () => {
   });
 
   // A workspace-context upgrade scans the cwd package alone; the recursive sweep is the root registry's.
+  // It reports no overrides either: `pnpm.overrides` is declared in the root `package.json` alone.
   it('upgrades the current package without recursing', () => {
     const scripts = getDefaultWorkspaceScripts(false);
 
     expect(scripts.upgrade).toBe('nmr-taze --include-locked');
+    expect(scripts['report-overrides']).toBeUndefined();
   });
 });
 
@@ -72,6 +74,11 @@ describe('getDefaultRootScripts', () => {
     expect(checkStrict).not.toContain('audit');
   });
 
+  // Overrides are reported while reviewing dependencies, not on every check run.
+  it.each(['check', 'check:strict', 'root:check'])('leaves %s without an override report', (name) => {
+    expect(getDefaultRootScripts()[name]).not.toContain('report-overrides');
+  });
+
   it('includes audit in ci after check:strict', () => {
     const scripts = getDefaultRootScripts();
     const ci = scripts.ci;
@@ -96,7 +103,37 @@ describe('getDefaultRootScripts', () => {
   it('sweeps every package on upgrade, and the root alone on root:upgrade', () => {
     const scripts = getDefaultRootScripts();
 
-    expect(scripts.upgrade).toBe('nmr-taze --include-locked --recursive');
+    expect(scripts.upgrade).toBe('nmr-report-overrides && nmr-taze --include-locked --recursive');
     expect(scripts['root:upgrade']).toBe('nmr-taze --include-locked');
+  });
+
+  // A string script runs with the invocation cwd, so an `nmr <command>` step re-derives its registry from
+  // there: under `-w` from a package dir the child would look for a root-only command in the workspace
+  // registry and exit 1, and `&&` would swallow the upgrade report behind it. Bins locate the root themselves.
+  it('chains only bins, so upgrade survives -w from a package cwd', () => {
+    const upgrade = getDefaultRootScripts().upgrade;
+    if (typeof upgrade !== 'string') throw new Error('Expected upgrade to be a chained command');
+
+    for (const step of upgrade.split('&&')) {
+      expect(step.trim()).not.toMatch(/^nmr\s/);
+    }
+  });
+
+  // A pinned transitive dependency is why an expected upgrade may be missing from the report, so the
+  // override list has to precede it.
+  it('reports overrides before the upgrade report', () => {
+    const upgrade = getDefaultRootScripts().upgrade;
+    if (typeof upgrade !== 'string') throw new Error('Expected upgrade to be a chained command');
+
+    expect(upgrade.indexOf('report-overrides')).toBeLessThan(upgrade.indexOf('nmr-taze'));
+  });
+
+  // Passthrough args attach to the last command in the chain, so the upgrade tool has to end it:
+  // as a composite, `nmr upgrade major` would hand `major` to the override report instead.
+  it('ends the upgrade chain with the upgrade tool so passthrough args reach it', () => {
+    const upgrade = getDefaultRootScripts().upgrade;
+    if (typeof upgrade !== 'string') throw new Error('Expected upgrade to be a chained command');
+
+    expect(upgrade.split('&&').at(-1)?.trim()).toBe('nmr-taze --include-locked --recursive');
   });
 });

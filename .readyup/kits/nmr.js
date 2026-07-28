@@ -40,7 +40,7 @@ var rootScripts = {
   "test:coverage": "nmr root:test && pnpm --recursive exec nmr test:coverage",
   "test:watch": "vitest --watch",
   typecheck: "nmr root:typecheck && pnpm --recursive exec nmr typecheck",
-  upgrade: "nmr-taze --include-locked --recursive"
+  upgrade: "nmr-report-overrides && nmr-taze --include-locked --recursive"
 };
 
 // packages/nmr/dist/esm/resolve-scripts.js
