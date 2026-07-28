@@ -4,13 +4,13 @@
 
 ## Overview
 
-A PNPM monorepo of CLI tools for Node.js monorepo development. Packages provide a unified script runner (`nmr`) and release automation (`release-kit`), with shared utilities in `core`. Pre-deployment checks use `readyup` (external dev dependency).
+A pnpm monorepo of CLI tools for Node.js monorepo development. Packages provide a unified script runner (`nmr`) and release automation (`release-kit`), with shared utilities in `core`. Pre-deployment checks use `readyup` (external dev dependency).
 
 ## Project structure
 
 Packages live under `packages/`:
 
-- **`@williamthorsen/nmr`** — Context-aware script runner for PNPM monorepos. Detects root vs workspace context and resolves the appropriate script registry.
+- **`@williamthorsen/nmr`** — Context-aware script runner for pnpm monorepos. Detects root vs workspace context and resolves the appropriate script registry.
 - **`@williamthorsen/nmr-core`** — Shared utilities consumed by `release-kit`.
 - **`@williamthorsen/release-kit`** — Version-bumping and changelog-generation toolkit. Has integration tests (`vitest.integration.config.ts`).
 - **`v11y-check`** — Wraps audit-ci with a richer config model, typed JSON source of truth, and a sync workflow that automates allowlist management.

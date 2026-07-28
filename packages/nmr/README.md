@@ -1,6 +1,6 @@
 # @williamthorsen/nmr
 
-Context-aware script runner for PNPM monorepos. Ships an `nmr` (node-monorepo run) binary that provides centralized, consistent script execution across workspace packages and the monorepo root.
+Context-aware script runner for pnpm monorepos. Ships an `nmr` (node-monorepo run) binary that provides centralized, consistent script execution across workspace packages and the monorepo root.
 
 <!-- section:release-notes --><!-- /section:release-notes -->
 

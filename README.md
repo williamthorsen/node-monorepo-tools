@@ -1,10 +1,10 @@
-# PNPM Node monorepo
+# Pnpm Node monorepo
 
 ## Packages
 
 | Package                                               | Description                                                 |
 | ----------------------------------------------------- | ----------------------------------------------------------- |
-| [`@williamthorsen/nmr`](packages/nmr)                 | Context-aware script runner for PNPM monorepos              |
+| [`@williamthorsen/nmr`](packages/nmr)                 | Context-aware script runner for pnpm monorepos              |
 | [`@williamthorsen/nmr-core`](packages/nmr-core)       | Shared utilities for monorepo tools                         |
 | [`@williamthorsen/release-kit`](packages/release-kit) | Version-bumping and changelog generation                    |
 | [`v11y-check`](packages/v11y-check)                   | Wraps audit-ci with a richer config model and sync workflow |
@@ -13,7 +13,7 @@
 
 This project uses [pnpm](https://github.com/pnpm/pnpm) and NodeJS. The versions of each are set in `.tool-versions`.
 
-If you don't have PNPM installed, it is recommended that you use the [ASDF runtime manager](https://asdf-vm.com/) to install it. For alternative methods, see the [pnpm installation instructions](https://pnpm.io/installation).
+If you don't have pnpm installed, it is recommended that you use the [ASDF runtime manager](https://asdf-vm.com/) to install it. For alternative methods, see the [pnpm installation instructions](https://pnpm.io/installation).
 
 ```shell
 # Install ASDF runtime-version manager
@@ -21,7 +21,7 @@ git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.10.2
 # OR (not tested)
 brew install asdf
 
-# Install PNPM
+# Install pnpm
 asdf plugin add pnpm
 asdf install pnpm 7.21.0
 ```
