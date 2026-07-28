@@ -91,6 +91,8 @@ Script values can be `string` or `string[]`. Arrays expand to chained `nmr` sub-
 // expands to: nmr lint && nmr fmt
 ```
 
+Passthrough arguments attach to the final step alone, because the expansion is a single shell chain: `nmr fix --dry-run` runs `nmr lint && nmr fmt --dry-run`.
+
 ## Configuration
 
 Create `.config/nmr.config.ts` in the monorepo root to add or override scripts:
@@ -357,7 +359,7 @@ These scripts operate on root-level code only (not workspace packages):
 nmr [flags] <command> [args...]
 ```
 
-Position determines ownership: flags before the command name are nmr's own, and everything after the command name is forwarded untouched to the underlying tool.
+Position determines ownership: flags before the command name are nmr's own, and everything after the command name is forwarded untouched to the resolved command.
 
 | Flag                     | Description                                         | Default |
 | ------------------------ | --------------------------------------------------- | ------- |
@@ -380,8 +382,8 @@ nmr test                    # Root tests + recursive workspace tests
 nmr ci                      # build + check:strict + audit
 
 # Target specific packages
-nmr -F core test            # Test only the core package
-nmr -R lint                 # Lint all workspace packages
+nmr --filter core test      # Test only the core package
+nmr --recursive lint        # Lint all workspace packages
 
 # Force root context from anywhere
 nmr --workspace-root check  # Run root check from a package dir
