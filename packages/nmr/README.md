@@ -514,3 +514,72 @@ for (const packageDir of getWorkspacePackageDirs(monorepoRoot)) {
 One divergence from pnpm: a directory counts as a package only if it holds a `package.json`, not a `package.yaml` or `package.json5`.
 
 Quote exclusion patterns in the manifest — `- '!packages/legacy'`. An unquoted `!` opens a YAML tag rather than a string, so the entry never reaches nmr (or pnpm) as a pattern.
+
+## Shared Vitest config
+
+Every repo consuming nmr otherwise writes and maintains its own Vitest config. The `@williamthorsen/nmr/vitest` subpath publishes that config as a factory, so a repo declares only what it customizes:
+
+```ts
+// vitest.config.ts
+import { defineVitestConfig } from '@williamthorsen/nmr/vitest';
+
+export default defineVitestConfig();
+```
+
+`vitest` is a peer dependency (`>=4.0.0 <5`), declared optional — the consuming repo provides it, and repos that never import this subpath are unaffected.
+
+### Test categories
+
+The config declares three projects, named for what the tests cover:
+
+| Project       | Matches                                | Covers                                   |
+| ------------- | -------------------------------------- | ---------------------------------------- |
+| `unit`        | every test file the others don't claim | source code                              |
+| `integration` | `*.int.test.{ts,tsx}`                  | behavior beyond source code              |
+| `app`         | `*.app.test.{ts,tsx}`                  | the app's own tooling, e.g. drift checks |
+
+All three match only under a `__tests__` directory. Select them at run time with `--project`, which accepts negation:
+
+```bash
+vitest --project '!integration'   # everything except integration tests
+vitest --project integration      # integration tests alone
+vitest                            # every project
+```
+
+`unit` is defined by subtracting the other categories rather than by an allow-list of suffixes, so a file such as `parser.smoke.test.ts` runs under `unit` instead of being silently dropped.
+
+### Customizing by scope
+
+Vitest applies some options at the root of a `projects` config and others per project, and placing one at the wrong level is silent rather than loud. The factory therefore takes two separate override surfaces instead of one merged config:
+
+```ts
+export default defineVitestConfig({
+  // Vite-level options, plus the test options Vitest honours only at the root.
+  root: { resolve: { conditions: ['development'] } },
+  // Applied to every project.
+  project: { setupFiles: ['./vitest.setup.ts'] },
+});
+```
+
+`root` is typed to accept only the options that work at the root, so writing a per-project option there is a compile error rather than a setting that never runs. Both surfaces merge into the generated config rather than replacing it, so overriding one coverage field leaves the rest intact.
+
+Arrays concatenate rather than replace. `exclude` and `setupFiles` therefore add to what the config already declares, and neither seam can narrow `include` or drop a default exclusion. Adding an `include` pattern through `project` widens all three projects at once, so a file matching it is collected by each and runs three times.
+
+### Root-scoped tests
+
+A monorepo's own root-level tests need a second config, because the package config is found by walking up from a package directory:
+
+```ts
+// vitest.root.config.ts
+import { defineRootVitestConfig } from '@williamthorsen/nmr/vitest';
+
+export default defineRootVitestConfig();
+```
+
+This variant reads `pnpm-workspace.yaml` and excludes every workspace package from all three projects, so a root run covers only root-level files. It reports no coverage of its own — packages cover their own sources.
+
+The monorepo root is located by walking up from the working directory, and every project is pinned to it, so the exclusions hold wherever the run is invoked from. Pass `startDir` to locate it from somewhere else:
+
+```ts
+export default defineRootVitestConfig({ startDir: import.meta.dirname });
+```
