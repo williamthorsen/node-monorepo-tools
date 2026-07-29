@@ -563,6 +563,8 @@ export default defineVitestConfig({
 
 `root` is typed to accept only the options that work at the root, so writing a per-project option there is a compile error rather than a setting that never runs. Both surfaces merge into the generated config rather than replacing it, so overriding one coverage field leaves the rest intact.
 
+Arrays concatenate rather than replace. `exclude` and `setupFiles` therefore add to what the config already declares, and neither seam can narrow `include` or drop a default exclusion. Adding an `include` pattern through `project` widens all three projects at once, so a file matching it is collected by each and runs three times.
+
 ### Root-scoped tests
 
 A monorepo's own root-level tests need a second config, because the package config is found by walking up from a package directory:
@@ -575,3 +577,9 @@ export default defineRootVitestConfig();
 ```
 
 This variant reads `pnpm-workspace.yaml` and excludes every workspace package from all three projects, so a root run covers only root-level files. It reports no coverage of its own — packages cover their own sources.
+
+The monorepo root is located by walking up from the working directory, and every project is pinned to it, so the exclusions hold wherever the run is invoked from. Pass `startDir` to locate it from somewhere else:
+
+```ts
+export default defineRootVitestConfig({ startDir: import.meta.dirname });
+```
