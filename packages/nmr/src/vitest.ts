@@ -26,6 +26,11 @@ export interface VitestConfigOptions {
   project?: ProjectConfig;
 }
 
+export interface RootVitestConfigOptions extends VitestConfigOptions {
+  /** Directory the monorepo root is located from, defaulting to the process working directory. */
+  startDir?: string;
+}
+
 const APP_PATTERNS = ['**/__tests__/**/*.app.test.{ts,tsx}'];
 const INTEGRATION_PATTERNS = ['**/__tests__/**/*.int.test.{ts,tsx}'];
 
@@ -55,18 +60,25 @@ export function defineVitestConfig(options: VitestConfigOptions = {}): ViteUserC
  * Builds the shared Vitest config for repo-root tests. Excludes every workspace package from all projects, and
  * reports no coverage of its own — packages cover their own sources.
  */
-export function defineRootVitestConfig(options: VitestConfigOptions = {}): ViteUserConfig {
-  return buildConfig(options, { coverageInclude: [], projectExclude: getWorkspaceExcludePatterns() });
+export function defineRootVitestConfig(options: RootVitestConfigOptions = {}): ViteUserConfig {
+  const monorepoRoot = findMonorepoRoot(options.startDir);
+
+  return buildConfig(options, {
+    coverageInclude: [],
+    projectExclude: getWorkspaceExcludePatterns(monorepoRoot),
+    projectRoot: monorepoRoot,
+  });
 }
 
 interface BuildOptions {
   coverageInclude: string[];
   projectExclude?: string[];
+  projectRoot?: string;
 }
 
 function buildConfig(
   options: VitestConfigOptions,
-  { coverageInclude, projectExclude = [] }: BuildOptions,
+  { coverageInclude, projectExclude = [], projectRoot }: BuildOptions,
 ): ViteUserConfig {
   const config: ViteUserConfig = {
     test: {
@@ -76,7 +88,7 @@ function buildConfig(
         include: coverageInclude,
         provider: 'v8',
       },
-      projects: buildProjects(options.project, projectExclude),
+      projects: buildProjects(options.project, projectExclude, projectRoot),
       silent: 'passed-only', // see logs from failing tests only
       watch: false, // don't enter watch mode unless the `--watch` flag is passed
     },
@@ -86,7 +98,11 @@ function buildConfig(
 }
 
 /** Builds one project per test category, each inheriting the root config. */
-function buildProjects(overrides: ProjectConfig | undefined, extraExclude: string[]): TestProjectInlineConfiguration[] {
+function buildProjects(
+  overrides: ProjectConfig | undefined,
+  extraExclude: string[],
+  projectRoot: string | undefined,
+): TestProjectInlineConfiguration[] {
   const categories = [
     { exclude: [], include: APP_PATTERNS, name: 'app' },
     { exclude: [], include: INTEGRATION_PATTERNS, name: 'integration' },
@@ -98,6 +114,8 @@ function buildProjects(overrides: ProjectConfig | undefined, extraExclude: strin
       // Without this, Vitest gives the project no Vite config file at all, so root-level options
       // such as `resolve.conditions` never reach it.
       extends: true,
+      // Patterns resolve against the project root, which otherwise defaults to the working directory.
+      ...(projectRoot !== undefined && { root: projectRoot }),
       test: { exclude: [...defaultExclude, ...exclude, ...extraExclude], include, name },
     };
 
@@ -106,9 +124,7 @@ function buildProjects(overrides: ProjectConfig | undefined, extraExclude: strin
 }
 
 /** Resolves each workspace package directory to a glob relative to the monorepo root. */
-function getWorkspaceExcludePatterns(): string[] {
-  const monorepoRoot = findMonorepoRoot();
-
+function getWorkspaceExcludePatterns(monorepoRoot: string): string[] {
   return getWorkspacePackageDirs(monorepoRoot)
     .map((dir) => `${path.relative(monorepoRoot, dir).split(path.sep).join('/')}/**`)
     .toSorted();

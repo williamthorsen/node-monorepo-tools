@@ -87,7 +87,45 @@ describe(defineVitestConfig, () => {
 });
 
 describe(defineRootVitestConfig, () => {
-  it('excludes every workspace package from every project', () => {
+  let workspaceRoot: string;
+
+  beforeAll(() => {
+    workspaceRoot = mkdtempSync(path.join(tmpdir(), 'nmr-vitest-workspace-'));
+    writeFileSync(
+      path.join(workspaceRoot, 'pnpm-workspace.yaml'),
+      "packages:\n  - 'packages/*'\n  - 'tools/cli'\n  - '!packages/legacy'\n",
+    );
+    for (const dir of ['packages/alpha', 'packages/legacy', 'tools/cli']) {
+      mkdirSync(path.join(workspaceRoot, dir), { recursive: true });
+      writeFileSync(path.join(workspaceRoot, dir, 'package.json'), '{}');
+    }
+  });
+
+  afterAll(() => {
+    rmSync(workspaceRoot, { recursive: true, force: true });
+  });
+
+  it('derives one sorted, posix-separated glob per workspace package', () => {
+    for (const project of getProjects(defineRootVitestConfig({ startDir: workspaceRoot }))) {
+      expect(project.test?.exclude).toStrictEqual([
+        '**/node_modules/**',
+        '**/.git/**',
+        ...(project.test?.name === 'unit'
+          ? ['**/__tests__/**/*.app.test.{ts,tsx}', '**/__tests__/**/*.int.test.{ts,tsx}']
+          : []),
+        'packages/alpha/**',
+        'tools/cli/**',
+      ]);
+    }
+  });
+
+  it('pins every project to the monorepo root, so the globs resolve from the same base', () => {
+    for (const project of getProjects(defineRootVitestConfig({ startDir: workspaceRoot }))) {
+      expect(project.root).toBe(workspaceRoot);
+    }
+  });
+
+  it('locates the monorepo root from the working directory when no start directory is given', () => {
     for (const project of getProjects(defineRootVitestConfig())) {
       expect(project.test?.exclude).toContain('packages/nmr/**');
     }
