@@ -127,6 +127,12 @@ describe(noIntegrationSuffixedTests, () => {
     expect(detail).toContain('packages/api/src/__tests__/api.integration.test.ts');
     expect(detail).toContain('packages/web/src/__tests__/web.integration.test.tsx');
   });
+
+  it('ignores a suffixed file outside __tests__, which no project collects', () => {
+    const dir = buildRepo({ 'packages/api/src/fixtures/legacy.integration.test.ts': '' });
+
+    expect(noIntegrationSuffixedTests(dir)).toBe(true);
+  });
 });
 
 describe(noDriftSuffixedTests, () => {
@@ -170,8 +176,18 @@ describe(noReExportOnlyVitestConfigs, () => {
     expect(noReExportOnlyVitestConfigs(dir)).toBe(true);
   });
 
+  it('leaves a package-local re-export alone, which the delete fix would break', () => {
+    const dir = buildRepo({
+      'packages/api/vitest.base.ts': SHARED_CONFIG,
+      'packages/api/vitest.config.ts': 'export { default } from "./vitest.base.ts";\n',
+      'vitest.config.ts': SHARED_CONFIG,
+    });
+
+    expect(noReExportOnlyVitestConfigs(dir)).toBe(true);
+  });
+
   it('never reports the root config, which is the re-export target', () => {
-    const dir = buildRepo({ 'vitest.config.ts': 'export { default } from "./other.ts";\n' });
+    const dir = buildRepo({ 'vitest.config.ts': 'export { default } from "../other.ts";\n' });
 
     expect(noReExportOnlyVitestConfigs(dir)).toBe(true);
   });

@@ -182,10 +182,13 @@ const CONFIG_EXTENSIONS = '{ts,mts,cts,js,mjs,cjs}';
 /** Extensions a test file can carry, matching the suffix set in the shared config's project patterns. */
 const TEST_EXTENSIONS = '{ts,tsx}';
 
+/** The directory scope every project in the shared config collects from. A file outside it runs nowhere. */
+const TEST_GLOB_PREFIX = '**/__tests__/**';
+
 const SHARED_VITEST_MODULE = '@williamthorsen/nmr/vitest';
 
-/** Matches a line that only re-exports another module's default (or everything) and nothing else. */
-const RE_EXPORT_LINE_PATTERN = /^export\s*(?:\{\s*default\s*\}|\*)\s*from\s*['"][^'"]+['"];?$/;
+/** Matches a line whose only content is a re-export from an ancestor directory. */
+const RE_EXPORT_LINE_PATTERN = /^export\s*(?:\{\s*default\s*\}|\*)\s*from\s*['"]\.\.\/[^'"]*['"];?$/;
 
 /**
  * Check that every workspace package can run `nmr build` successfully.
@@ -270,7 +273,11 @@ function findFiles(patterns: string[], cwd: string): string[] {
     .toSorted();
 }
 
-/** Renders offending paths as a work list rather than a boolean, one per line under a count. */
+/**
+ * Renders offending paths as a work list rather than a boolean, one per line under a count.
+ *
+ * The indent clears readyup's three-space nesting step so a path does not read as a nested check.
+ */
 function formatPaths(paths: string[]): string {
   return `${paths.length} found:\n${paths.map((path) => `      ${path}`).join('\n')}`;
 }
@@ -301,10 +308,11 @@ function importsSharedExport(content: string | undefined, exportName: string): b
 }
 
 /**
- * Checks whether a config's entire content is a re-export of another module.
+ * Checks whether a config's entire content is a re-export of an ancestor config.
  *
- * A file carrying any substantive statement is a real config and is left alone. Missing an exotic re-export
- * spelling is a recommend-severity false negative, which is the cheap direction to err.
+ * A file carrying any substantive statement is a real config and is left alone, as is one whose target is
+ * package-local, which the check's delete fix would break. Missing an exotic re-export spelling is a
+ * recommend-severity false negative, which is the cheap direction to err.
  */
 function isReExportOnly(content: string | undefined): boolean {
   if (content === undefined) return false;
@@ -319,24 +327,25 @@ function isReExportOnly(content: string | undefined): boolean {
 }
 
 /**
- * Checks that no test file uses the `.drift.` suffix, which the `app` project does not match.
+ * Checks that no collected test file uses the `.drift.` suffix, which the `app` project does not match.
  *
  * @internal - Exported only to enable testing
  */
 export function noDriftSuffixedTests(cwd: string = process.cwd()): boolean | CheckOutcome {
-  return checkNoMatchingFiles([`**/*.drift.test.${TEST_EXTENSIONS}`], cwd);
+  return checkNoMatchingFiles([`${TEST_GLOB_PREFIX}/*.drift.test.${TEST_EXTENSIONS}`], cwd);
 }
 
 /**
- * Checks that no test file uses the `.integration.` suffix.
+ * Checks that no collected test file uses the `.integration.` suffix.
  *
  * These match the `unit` project's include pattern and no project's exclude, so they run under `nmr test`
- * while `nmr test:integration` collects nothing and passes. Silent on both sides.
+ * while `nmr test:integration` collects nothing and passes. Silent on both sides. The scope is the
+ * projects' own, so every match is a file the rename actually moves between projects.
  *
  * @internal - Exported only to enable testing
  */
 export function noIntegrationSuffixedTests(cwd: string = process.cwd()): boolean | CheckOutcome {
-  return checkNoMatchingFiles([`**/*.integration.test.${TEST_EXTENSIONS}`], cwd);
+  return checkNoMatchingFiles([`${TEST_GLOB_PREFIX}/*.integration.test.${TEST_EXTENSIONS}`], cwd);
 }
 
 /**

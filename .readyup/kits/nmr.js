@@ -207,8 +207,9 @@ var nmr_default = defineRdyKit({
 var SCAN_EXCLUDE_DIRS = /* @__PURE__ */ new Set([".git", "coverage", "dist", "node_modules"]);
 var CONFIG_EXTENSIONS = "{ts,mts,cts,js,mjs,cjs}";
 var TEST_EXTENSIONS = "{ts,tsx}";
+var TEST_GLOB_PREFIX = "**/__tests__/**";
 var SHARED_VITEST_MODULE = "@williamthorsen/nmr/vitest";
-var RE_EXPORT_LINE_PATTERN = /^export\s*(?:\{\s*default\s*\}|\*)\s*from\s*['"][^'"]+['"];?$/;
+var RE_EXPORT_LINE_PATTERN = /^export\s*(?:\{\s*default\s*\}|\*)\s*from\s*['"]\.\.\/[^'"]*['"];?$/;
 function allWorkspacePackagesCanBuild() {
   const packagesDir = join(process.cwd(), "packages");
   if (!existsSync(packagesDir)) return true;
@@ -277,10 +278,10 @@ function isReExportOnly(content) {
   return statements.length > 0 && statements.every((line) => RE_EXPORT_LINE_PATTERN.test(line));
 }
 function noDriftSuffixedTests(cwd = process.cwd()) {
-  return checkNoMatchingFiles([`**/*.drift.test.${TEST_EXTENSIONS}`], cwd);
+  return checkNoMatchingFiles([`${TEST_GLOB_PREFIX}/*.drift.test.${TEST_EXTENSIONS}`], cwd);
 }
 function noIntegrationSuffixedTests(cwd = process.cwd()) {
-  return checkNoMatchingFiles([`**/*.integration.test.${TEST_EXTENSIONS}`], cwd);
+  return checkNoMatchingFiles([`${TEST_GLOB_PREFIX}/*.integration.test.${TEST_EXTENSIONS}`], cwd);
 }
 function noReExportOnlyVitestConfigs(cwd = process.cwd()) {
   const nonRootConfigs = findFiles([`**/vitest.config.${CONFIG_EXTENSIONS}`], cwd).filter((path) => path.includes("/"));
