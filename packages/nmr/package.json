@@ -48,6 +48,7 @@
     "nmr": "bin/nmr.js",
     "nmr-clean": "bin/nmr-clean.js",
     "nmr-compile": "bin/nmr-compile.js",
+    "nmr-fmt": "bin/nmr-fmt.js",
     "nmr-report-overrides": "bin/nmr-report-overrides.js",
     "nmr-sync-agent-files": "bin/nmr-sync-agent-files.js",
     "nmr-taze": "bin/nmr-taze.js"
@@ -69,14 +70,19 @@
     "yaml": "2.9.0"
   },
   "devDependencies": {
+    "prettier": "3.9.5",
     "tinyglobby": "0.2.17",
     "vitest": "4.1.10"
   },
   "peerDependencies": {
+    "prettier": ">=3.9.5 <4",
     "typescript": ">=5.7.0 <7",
     "vitest": ">=4.0.0 <5"
   },
   "peerDependenciesMeta": {
+    "prettier": {
+      "optional": true
+    },
     "vitest": {
       "optional": true
     }

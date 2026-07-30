@@ -240,8 +240,8 @@ These scripts are available out of the box. Repo-wide config (tier 2) and per-pa
 | `compile`          | `nmr-compile`                                            |
 | `fix`              | `lint`, `fmt`                                            |
 | `fix:check`        | `fmt:check`, `lint:check`                                |
-| `fmt`              | `prettier --list-different --write .`                    |
-| `fmt:check`        | `prettier --check .`                                     |
+| `fmt`              | `nmr-fmt --write`                                        |
+| `fmt:check`        | `nmr-fmt --check`                                        |
 | `lint`             | `eslint --fix .`                                         |
 | `lint:check`       | `eslint .`                                               |
 | `lint:strict`      | `strict-lint`                                            |
@@ -253,6 +253,8 @@ These scripts are available out of the box. Repo-wide config (tier 2) and per-pa
 | `typecheck`        | `tsgo --noEmit`                                          |
 | `upgrade`          | `nmr-taze --include-locked`                              |
 | `view-coverage`    | `open coverage/index.html`                               |
+
+`fmt` and `fmt:check` select their files through git rather than by walking the directory, which is what makes a package-level run and a root-level run apply the same ignore rules — see [file selection](#file-selection).
 
 #### Test selections
 
@@ -328,12 +330,18 @@ The same five names the workspace registry carries, so a command means the same 
 
 #### Format
 
-| Command     | Runs                                  |
-| ----------- | ------------------------------------- |
-| `fmt`       | `prettier --list-different --write .` |
-| `fmt:all`   | `fmt`, `fmt:sh`                       |
-| `fmt:check` | `prettier --check .`                  |
-| `fmt:sh`    | `shfmt --write **/*.sh`               |
+| Command     | Runs                    |
+| ----------- | ----------------------- |
+| `fmt`       | `nmr-fmt --write`       |
+| `fmt:all`   | `fmt`, `fmt:sh`         |
+| `fmt:check` | `nmr-fmt --check`       |
+| `fmt:sh`    | `shfmt --write **/*.sh` |
+
+#### File selection
+
+`fmt` and `fmt:check` format the files git reports: tracked files, plus untracked files git does not ignore. Prettier reads `.gitignore` and `.prettierignore` from the working directory alone, so a pattern in `packages/<pkg>/.gitignore` never reaches a run started at the monorepo root. git knows the whole hierarchy, including `.git/info/exclude` and `core.excludesFile`, and every `.prettierignore` in the tree is discovered from the repository root, so package-level exclusions apply from any directory as well.
+
+A file git ignores is never formatted, even when named directly. Trailing arguments are git pathspecs rather than Prettier flags, so `nmr fmt:check packages/nmr` narrows the run, while an unrecognized option and a pathspec matching no formattable file both fail it. Running outside a git repository fails rather than reporting a clean run.
 
 #### Audit
 
@@ -472,6 +480,23 @@ Compile a single package's `src` tree to `dist/esm` with the TypeScript compiler
 
 ```bash
 nmr-compile
+```
+
+### `nmr-fmt`
+
+Format, or check the formatting of, the files git reports for the working directory. Exactly one of `--check` and `--write` is required; a bare invocation prints usage and exits non-zero rather than defaulting to a mutation. `--write` also lists the files it rewrote. This is what `fmt` and `fmt:check` resolve to, in both registries.
+
+The selection is tracked files plus untracked files git does not ignore, scoped to the working directory, with every `.prettierignore` in the tree discovered from the repository root and passed to Prettier explicitly — see [file selection](#file-selection) for what that buys. Paths the index names but the filesystem does not have (a file deleted but not yet staged) and submodule gitlinks are both dropped, so neither reaches Prettier.
+
+Trailing arguments are git pathspecs, not Prettier flags: they narrow the selection, an unrecognized option is rejected rather than forwarded, and pathspecs that match no formattable file fail rather than passing quietly.
+
+`prettier` is an optional peer dependency (`>=3.9.5 <4`); the consuming repo provides it, and it is resolved through the module graph rather than from `PATH`, so the copy that runs is the one the repo declares and not whichever `prettier` happens to come first. A repository's formatter has to be the one its editor and pre-commit hook also run, which is why nmr takes it from the consumer instead of bundling a copy. It is optional because a repo can use nmr purely as a script runner; one that formats without a resolvable Prettier gets a message naming the package and the range.
+
+The floor is a currency policy, not a capability boundary. What the design requires is `--ignore-path` honouring every flag rather than only the last, so a repository-root ignore file passed alongside a package-level one is not silently dropped — Prettier has done that since 3.0.0, while 2.x honoured only the final flag. The floor sits at the current release because every consuming repo tracks it; lowering it to `>=3.0.0` would cost correctness nothing.
+
+```bash
+nmr-fmt --check
+nmr-fmt --write packages/nmr
 ```
 
 ### `nmr-taze`
