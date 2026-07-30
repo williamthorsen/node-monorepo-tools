@@ -3,4 +3,4 @@
 [post-create]
 direnv = "direnv allow"
 deps = "pnpm install"
-
+bootstrap = "pnpm run bootstrap"
