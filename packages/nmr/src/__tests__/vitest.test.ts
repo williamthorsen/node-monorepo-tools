@@ -49,9 +49,6 @@ describe(defineVitestConfig, () => {
     expect(rootTest.coverage?.include).toStrictEqual(['**/src/**/*.{ts,tsx}']);
   });
 
-  // A selection that collects nothing is a normal state, not a misconfiguration: `nmr test:integration` fans out
-  // to every package and most have no integration tests. Accepting it here rather than per command keeps the
-  // command strings uniform.
   it('accepts a run that collects no test files', () => {
     expect(defineVitestConfig().test?.passWithNoTests).toBe(true);
   });

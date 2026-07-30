@@ -88,9 +88,8 @@ function buildConfig(
         include: coverageInclude,
         provider: 'v8',
       },
-      // Vitest counts the run's total collected files, not each project's, so an empty project never fails a run
-      // that collected files elsewhere. What this covers is the run collecting nothing at all, which is the normal
-      // case for `nmr test:integration` under the recursive fan-out: most packages have no integration tests.
+      // Vitest counts the run's total collected files, not each project's, so this covers the run that collects
+      // nothing at all — the normal case for `nmr test:integration` fanning out over packages that have none.
       passWithNoTests: true,
       projects: buildProjects(options.project, projectExclude, projectRoot),
       silent: 'passed-only', // see logs from failing tests only

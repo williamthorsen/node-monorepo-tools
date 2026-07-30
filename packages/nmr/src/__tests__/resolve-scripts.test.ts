@@ -21,8 +21,6 @@ describe('getDefaultWorkspaceScripts', () => {
     expect(scripts['generate-typings']).toBeUndefined();
   });
 
-  // `test` negates `integration` rather than naming the code-only projects, so a category added later joins the
-  // default run instead of being dropped from it.
   it('selects Vitest projects, exposing all five test commands to every package', () => {
     const scripts = getDefaultWorkspaceScripts();
 
@@ -87,7 +85,6 @@ describe('getDefaultRootScripts', () => {
     expect(scripts.typecheck).toBe('nmr root:typecheck && pnpm --recursive exec nmr typecheck');
   });
 
-  // The same five test names the workspace registry carries, so a command means the same thing in either context.
   it('fans every test selection out to the root and to each package', () => {
     const scripts = getDefaultRootScripts();
 
@@ -105,8 +102,6 @@ describe('getDefaultRootScripts', () => {
     expect(scripts['root:test:integration']).toBe('vitest --config ./vitest.root.config.ts --project integration');
   });
 
-  // Watching cannot chain, so this one command spans the whole tree in a single process. Omitting `--config` is
-  // what achieves that: bare `vitest` at the monorepo root resolves the root `vitest.config.ts`.
   it('watches the whole tree from one process, excluding integration tests', () => {
     expect(getDefaultRootScripts()['test:watch']).toBe("vitest --project '!integration' --watch");
   });

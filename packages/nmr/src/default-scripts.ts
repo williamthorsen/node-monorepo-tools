@@ -2,14 +2,11 @@ export type ScriptValue = string | string[];
 export type ScriptRegistry = Record<string, ScriptValue>;
 
 /**
- * Workspace scripts. Every package resolves the same table, with no filesystem inspection: the test commands
- * select Vitest projects, so a package opts into integration segregation by having `.int.test.ts` files rather
- * than by carrying extra config files.
+ * Workspace scripts, identical for every package: the test commands select Vitest projects, so a package
+ * separates its integration tests by naming them `*.int.test.ts` rather than by carrying extra config files.
  *
  * `test` negates `integration` rather than naming the code-only projects, so a category added later joins the
- * default run instead of being silently dropped from it. `test:all` is the only unfiltered entry point, which
- * makes it the one that composes with a `--project` filter — a second `--project` on `test` widens the selection
- * rather than narrowing it.
+ * default run instead of being silently dropped from it.
  */
 export const workspaceScripts: ScriptRegistry = {
   build: ['compile'],
@@ -71,14 +68,11 @@ export const rootScripts: ScriptRegistry = {
   'sync-agent-files': 'nmr-sync-agent-files',
   test: 'nmr root:test && pnpm --recursive exec nmr test',
   'test:all': 'nmr root:test:all && pnpm --recursive exec nmr test:all',
-  // `test:coverage` chains `root:test`, not a `root:test:coverage`: the root config reports no coverage of its
-  // own, because packages cover their own sources.
+  // Chains `root:test`, not a `root:test:coverage`: the root config reports no coverage of its own.
   'test:coverage': 'nmr root:test && pnpm --recursive exec nmr test:coverage',
   'test:integration': 'nmr root:test:integration && pnpm --recursive exec nmr test:integration',
-  // The only test command that spans the root and every package in one process, and so the only one that can
-  // watch. Omitting `--config` is what makes that work: bare `vitest` at the monorepo root resolves the root
-  // `vitest.config.ts`, whose projects then cover the whole tree. A chain like the others would never advance
-  // past its first watcher. Narrow to root files alone with `nmr root:test --watch`.
+  // Omitting `--config` is deliberate: bare `vitest` at the monorepo root resolves the root `vitest.config.ts`,
+  // covering the whole tree in one process. A chain like the others would never advance past its first watcher.
   'test:watch': "vitest --project '!integration' --watch",
   typecheck: 'nmr root:typecheck && pnpm --recursive exec nmr typecheck',
   // A string rather than a composite because passthrough args attach to the chain's last command — as a

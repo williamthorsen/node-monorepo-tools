@@ -260,9 +260,7 @@ describe('resolveScript', () => {
 });
 
 // Guards against reintroducing the retired on-disk probe: nmr once chose a package's test scripts by looking for a
-// `vitest.integration.config.ts`, so the fixture plants exactly that file and asserts it changes nothing. Test
-// selection is a Vitest project filter now, decided at run time by which files exist, not at resolution time by
-// which config files do.
+// `vitest.integration.config.ts`, so the fixture plants exactly that file and asserts it changes nothing.
 describe('test command resolution ignores the package contents', () => {
   let tmpDir: string;
 
