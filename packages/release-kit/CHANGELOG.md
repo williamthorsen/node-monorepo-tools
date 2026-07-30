@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 9.0.1 — 2026-07-30
+
+### ⚙️ Tooling
+
+- Adopt Vitest projects in this repo (#530)
+
+  Simplifies test configurations so that every package exposes the same test commands, which select suites by test category: `nmr test` runs everything except integration tests, `nmr test:integration` runs only those, and `nmr test:all` runs both. `nmr test:integration` now succeeds in a package that has no integration tests instead of failing. release-kit's drift checks can now be run on their own, apart from unit and integration tests. A fresh clone now has to run `pnpm run bootstrap` before any test run, not just before `nmr` commands.
+
 ## 9.0.0 — 2026-07-28
 
 ### 🎉 Features

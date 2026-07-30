@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.21.0 — 2026-07-30
+
+### 🎉 Features
+
+- Add a shared Vitest config export (#526)
+
+  Adds a shared Vitest configuration that can be used by repos that use `nmr`. Tests are now sorted into three named categories (unit, integration, and app), so that a run can target or skip a single category. A second variant excludes all tests in workspace packages, allowing the monorepo's own root-level tests to be run separately.
+
+- 🚨 **Breaking:** Retire the Vitest config-file variants from nmr's defaults (#533)
+
+  Packages no longer need extra Vitest config files to keep integration tests out of the default test run. Integration tests are now recognized by an `*.int.test.ts` suffix, and every package gets the same five commands: `test`, `test:all`, `test:coverage`, `test:integration`, and `test:watch`. The same five commands work from the monorepo root. A Vitest run that collects no test files now passes instead of failing. Consumers should migrate the Vitest config when upgrading.
+
+### 🐛 Bug fixes
+
+- Apply ignore rules from any working directory when formatting (#535)
+
+  Fixes an issue where `nmr fmt` and `nmr fmt:check` did not apply a pattern from a package's `.gitignore` or `.prettierignore` when the run started at the monorepo root, so files a package excluded could fail a root-level format gate while passing a package-scoped one. Untracked files that git does not ignore are now formatted alongside tracked ones, and a run started outside a git repository now fails instead of reporting a clean pass over nothing. Trailing arguments to `nmr fmt` are git pathspecs rather than Prettier flags; one that matches no formattable file now fails instead of exiting silently.
+
+### ⚙️ Tooling
+
+- Adopt Vitest projects in this repo (#530)
+
+  Simplifies test configurations so that every package exposes the same test commands, which select suites by test category: `nmr test` runs everything except integration tests, `nmr test:integration` runs only those, and `nmr test:all` runs both. `nmr test:integration` now succeeds in a package that has no integration tests instead of failing. release-kit's drift checks can now be run on their own, apart from unit and integration tests. A fresh clone now has to run `pnpm run bootstrap` before any test run, not just before `nmr` commands.
+
 ## 0.20.0 — 2026-07-28
 
 ### 🎉 Features
