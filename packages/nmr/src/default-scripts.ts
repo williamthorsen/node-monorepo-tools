@@ -2,10 +2,10 @@ export type ScriptValue = string | string[];
 export type ScriptRegistry = Record<string, ScriptValue>;
 
 /**
- * Workspace scripts, identical for every package: the test commands select Vitest projects, so a package
+ * Workspace scripts, identical for every package: The test commands select Vitest projects, so a package
  * separates its integration tests by naming them `*.int.test.ts` rather than by carrying extra config files.
  *
- * `test` negates `integration` rather than naming the code-only projects, so a category added later joins the
+ * `test` negates `integration` rather than naming the code-only projects, so that a category added later joins the
  * default run instead of being silently dropped from it.
  */
 export const workspaceScripts: ScriptRegistry = {

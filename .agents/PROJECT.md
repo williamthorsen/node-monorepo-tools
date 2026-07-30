@@ -66,7 +66,7 @@ Use `nmr {command}` for all monorepo scripts. Use `pnpm run {script}` only for s
 - Vitest with v8 coverage provider, configured by two files at the repo root, both thin wrappers over `@williamthorsen/nmr/vitest`
 - Both configs declare three projects named for what the tests cover: `unit` (every test file the others don't claim), `integration` (`*.int.test.ts`), and `app` (`*.app.test.ts`, e.g. drift checks). Select them with `--project`, which accepts negation
 - `nmr test` runs `--project '!integration'`, `nmr test:integration` runs `--project integration`, and `nmr test:all` runs every project. The same five names work from the repo root and from inside a package; `root:test*` variants scope to root-level files alone
-- The shared config sets `passWithNoTests`, so a run collecting no files passes — required for `test:integration` to fan out across packages that have none. `__tests__/workspace-test-presence.app.test.ts` is what keeps that from hiding a package whose suite disappeared
+- The shared config sets `passWithNoTests`, so a run collecting no files passes, which `test:integration` needs in order to fan out across packages that have none. `__tests__/workspace-test-presence.app.test.ts` keeps that from hiding a package whose suite disappeared
 - Typecheck uses `tsgo` (TypeScript native preview)
 
 ### Code quality

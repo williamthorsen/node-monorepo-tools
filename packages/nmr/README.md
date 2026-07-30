@@ -268,7 +268,7 @@ Every package resolves the same five test commands. Nothing is detected on disk:
 
 `test:coverage` and `test:watch` are the same selection as `test` in a different mode. There are no `test:integration --coverage` equivalents because none are needed: everything after a command name is forwarded untouched, so `nmr test:integration --coverage` already works.
 
-To narrow to a single project, go through `test:all` — `nmr test:all --project app`. Narrowing through `test` does not work, because a second `--project` widens the filter rather than restricting it.
+To narrow to a single project, go through `test:all`: `nmr test:all --project app`. Narrowing through `test` does not work, because a second `--project` widens the filter rather than restricting it.
 
 A run that collects no test files passes. That is what lets `nmr test:integration` fan out across a monorepo in which most packages have no integration tests, and it means a package with no tests at all needs no `"test": ""` override.
 
@@ -308,7 +308,7 @@ The same five names the workspace registry carries, so a command means the same 
 | `test:integration` | `nmr root:test:integration && pnpm --recursive exec nmr test:integration` |
 | `test:watch`       | `vitest --project '!integration' --watch`                                 |
 
-`test:coverage` chains `root:test` rather than a `root:test:coverage`, because the root config reports no coverage of its own — packages cover their own sources.
+`test:coverage` chains `root:test` rather than a `root:test:coverage`, because the root config reports no coverage of its own; packages cover their own sources.
 
 `test:watch` is the exception to the fan-out shape, and deliberately omits `--config`: bare `vitest` at the monorepo root resolves the root `vitest.config.ts`, whose projects then cover the whole tree in one process. A chain like the others would never advance past its first watcher. To watch root-level files alone, run `nmr root:test --watch`.
 
@@ -604,10 +604,10 @@ export default defineRootVitestConfig({ startDir: import.meta.dirname });
 
 ### Migrating from the config-file variants
 
-nmr once selected a package's test scripts by looking for a `vitest.integration.config.ts` on disk, which meant three config files per package that separated its integration tests. Those files are no longer consulted. **Migrate the config and the scripts together** — one without the other leaves the repo in one of the two states below.
+nmr once selected a package's test scripts by looking for a `vitest.integration.config.ts` on disk, which meant three config files per package that separated its integration tests. Those files are no longer consulted. **Migrate the config and the scripts together**: one without the other leaves the repo in one of the two states below.
 
 1. Replace the repo's root `vitest.config.ts` with `defineVitestConfig()`, and its root-scoped config with `defineRootVitestConfig()`.
-2. Delete every `vitest.integration.config.ts` and `vitest.standalone.config.ts`, plus any per-package `vitest.config.ts` that only re-exports an ancestor — Vitest resolves config by walking up from the run root, so those are redundant.
+2. Delete every `vitest.integration.config.ts` and `vitest.standalone.config.ts`, plus any per-package `vitest.config.ts` that only re-exports an ancestor. Vitest resolves config by walking up from the run root, so those are redundant.
 3. Rename integration tests to `*.int.test.ts` and tooling or drift tests to `*.app.test.ts`.
 4. Drop any hand-copied `test*` entries from `package.json`, which now shadow the defaults.
 
