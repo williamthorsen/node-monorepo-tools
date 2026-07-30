@@ -1,17 +1,9 @@
-import { defineConfig, mergeConfig } from 'vitest/config';
+/**
+ * Vitest configuration for the monorepo's own root-level tests, excluding every workspace package.
+ *
+ * `startDir` locates the monorepo root from this file rather than from the working directory, so the exclusions
+ * hold wherever the run is invoked from.
+ */
+import { defineRootVitestConfig } from '@williamthorsen/nmr/vitest';
 
-import baseConfig from './.config/vitest/vitest.config.ts';
-
-// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,unicorn/no-top-level-side-effects
-delete baseConfig.test?.coverage?.include;
-
-const config = defineConfig({
-  test: {
-    coverage: {
-      include: [],
-    },
-    exclude: ['packages/**'],
-  },
-});
-
-export default mergeConfig(baseConfig, config);
+export default defineRootVitestConfig({ startDir: import.meta.dirname });
