@@ -258,7 +258,7 @@ These scripts are available out of the box. Repo-wide config (tier 2) and per-pa
 
 Every package resolves the same five test commands. Nothing is detected on disk: the commands select [Vitest projects](#shared-vitest-config), so a package separates its integration tests by naming them `*.int.test.ts`, not by carrying extra config files.
 
-| Runs                                | Command            |
+| To run                              | Command            |
 | ----------------------------------- | ------------------ |
 | Everything except integration tests | `test`             |
 | Integration tests alone             | `test:integration` |

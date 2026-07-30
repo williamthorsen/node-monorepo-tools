@@ -241,9 +241,9 @@ describe(generateHelp, () => {
     it('lists all five test commands for every package', () => {
       const workspaceSection = sectionOf(generateHelp({}, tmpDir, false), 'Workspace commands:', 'Root commands:');
 
-      for (const command of ['test', 'test:all', 'test:coverage', 'test:integration', 'test:watch']) {
-        expect(workspaceSection).toContain(command);
-      }
+      expect(commandNamesIn(workspaceSection)).toEqual(
+        expect.arrayContaining(['test', 'test:all', 'test:coverage', 'test:integration', 'test:watch']),
+      );
       expect(workspaceSection).toContain("pnpm exec vitest --project '!integration'");
     });
 
@@ -262,12 +262,23 @@ describe(generateHelp, () => {
     it('lists the root test selections in root context', () => {
       const rootSection = sectionOf(generateHelp({}, tmpDir, true), 'Root commands:', '* Overridden');
 
-      for (const command of ['root:test', 'root:test:all', 'root:test:integration', 'test:all', 'test:integration']) {
-        expect(rootSection).toContain(command);
-      }
+      expect(commandNamesIn(rootSection)).toEqual(
+        expect.arrayContaining(['root:test', 'root:test:all', 'root:test:integration', 'test:all', 'test:integration']),
+      );
     });
   });
 });
+
+/**
+ * Collects the command name from every rendered registry row in `section`, dropping the `*` override marker.
+ * Names compare exactly, so a row is not satisfied by a longer sibling that merely contains it.
+ */
+function commandNamesIn(section: string): string[] {
+  return section
+    .split('\n')
+    .filter((line) => line.startsWith('  '))
+    .map((line) => (line.trim().split(/\s+/, 1)[0] ?? '').replace(/\*$/, ''));
+}
 
 /**
  * Extracts the substring between two markers (exclusive of the end marker).
