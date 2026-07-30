@@ -48,8 +48,8 @@ importers:
         specifier: 2.1.10
         version: 2.1.10
       prettier:
-        specifier: 3.9.5
-        version: 3.9.5
+        specifier: 3.9.6
+        version: 3.9.6
       readyup:
         specifier: 0.22.0
         version: 0.22.0(esbuild@0.28.1)
@@ -87,8 +87,8 @@ importers:
         specifier: 2.7.0
         version: 2.7.0
       taze:
-        specifier: 19.15.1
-        version: 19.15.1
+        specifier: 19.16.0
+        version: 19.16.0
       typescript:
         specifier: '>=5.7.0 <7'
         version: 6.0.3
@@ -97,8 +97,8 @@ importers:
         version: 2.9.0
     devDependencies:
       prettier:
-        specifier: 3.9.5
-        version: 3.9.5
+        specifier: 3.9.6
+        version: 3.9.6
       tinyglobby:
         specifier: 0.2.17
         version: 0.2.17
@@ -1920,8 +1920,8 @@ packages:
     resolution: {integrity: sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g==}
     engines: {node: '>= 0.8.0'}
 
-  prettier@3.9.5:
-    resolution: {integrity: sha512-/FVl766LpUfB5vXgCYOYa0MeV/441Ia99AeICQIQFTY/Nw0roZwULcXpku5i1/m5kt/baz+s4Zogspd839HSMg==}
+  prettier@3.9.6:
+    resolution: {integrity: sha512-OpN0zzVdiaiAhxpuuj5efpIS4sY9j7bY6uR5mnj5yPzGkdkjNKSJeUThPb60Jw29QuAZgA4o+/iB49kFiaBX6g==}
     engines: {node: '>=14'}
     hasBin: true
 
@@ -2157,8 +2157,8 @@ packages:
     resolution: {integrity: sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A==}
     engines: {node: '>=6'}
 
-  taze@19.15.1:
-    resolution: {integrity: sha512-nQ52myEfhTUyz18LCPtXmBC0lMSGaNz5ncuVsBKa+rXyJVXCkETUuXwIBqgta0TQs9pB0BvHEGMqCAaIO+pRkQ==}
+  taze@19.16.0:
+    resolution: {integrity: sha512-E33PiGSHYB40yKOgi/KvaBDvRJEn5ajRa6xeGS7V/02aLBSWkpQ68ayUMDRQOYbyaBMPZ+xqbkH41woACluQTg==}
     hasBin: true
 
   through2@4.0.2:
@@ -4207,7 +4207,7 @@ snapshots:
 
   prelude-ls@1.2.1: {}
 
-  prettier@3.9.5: {}
+  prettier@3.9.6: {}
 
   proc-log@6.1.0: {}
 
@@ -4491,7 +4491,7 @@ snapshots:
 
   tapable@2.3.3: {}
 
-  taze@19.15.1:
+  taze@19.16.0:
     dependencies:
       '@antfu/ni': 30.2.0
       '@henrygd/queue': 1.2.0
