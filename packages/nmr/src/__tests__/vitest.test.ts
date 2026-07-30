@@ -30,7 +30,13 @@ describe(defineVitestConfig, () => {
   it('keeps per-project options out of the root test block', () => {
     const rootTest = defineVitestConfig().test ?? {};
 
-    expect(Object.keys(rootTest).toSorted()).toStrictEqual(['coverage', 'projects', 'silent', 'watch']);
+    expect(Object.keys(rootTest).toSorted()).toStrictEqual([
+      'coverage',
+      'passWithNoTests',
+      'projects',
+      'silent',
+      'watch',
+    ]);
   });
 
   it('carries over the settings the shared config has always applied', () => {
@@ -41,6 +47,19 @@ describe(defineVitestConfig, () => {
     expect(rootTest.coverage?.provider).toBe('v8');
     expect(rootTest.coverage?.enabled).toBe(false);
     expect(rootTest.coverage?.include).toStrictEqual(['**/src/**/*.{ts,tsx}']);
+  });
+
+  // A selection that collects nothing is a normal state, not a misconfiguration: `nmr test:integration` fans out
+  // to every package and most have no integration tests. Accepting it here rather than per command keeps the
+  // command strings uniform.
+  it('accepts a run that collects no test files', () => {
+    expect(defineVitestConfig().test?.passWithNoTests).toBe(true);
+  });
+
+  it('lets the root seam turn the empty-run allowance back off', () => {
+    const config = defineVitestConfig({ root: { test: { passWithNoTests: false } } });
+
+    expect(config.test?.passWithNoTests).toBe(false);
   });
 
   it('extends the default exclusions from Vitest rather than replacing them', () => {
@@ -140,6 +159,10 @@ describe(defineRootVitestConfig, () => {
 
   it('reports no coverage of its own', () => {
     expect(defineRootVitestConfig().test?.coverage?.include).toStrictEqual([]);
+  });
+
+  it('accepts a run that collects no test files', () => {
+    expect(defineRootVitestConfig().test?.passWithNoTests).toBe(true);
   });
 });
 
