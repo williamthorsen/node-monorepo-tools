@@ -17,10 +17,10 @@ Packages live under `packages/`:
 
 Key files:
 
-- `.config/nmr.config.ts` — Per-repo nmr overrides (a `build:post` hook plus the transitional test-script overrides described below; dogfoods the config-loading feature)
-- `packages/nmr/src/commands/build.ts` — The nmr-managed build (`nmr-compile` bin): a single TypeScript compiler-API emit of `.js` + `.d.ts` with order-invariant content-hash caching, AST-based relative `.ts`→`.js` rewriting, and tsconfig `paths` alias resolution in both outputs
-- `vitest.config.ts` — Vitest config for workspace packages; the ancestor each package resolves by walking up
-- `vitest.root.config.ts` — Vitest config for root-level tests, excluding every workspace package
+- `.config/nmr.config.ts`: Per-repo nmr overrides (a `build:post` hook; dogfoods the config-loading feature)
+- `packages/nmr/src/commands/build.ts`: The nmr-managed build (`nmr-compile` bin): a single TypeScript compiler-API emit of `.js` + `.d.ts` with order-invariant content-hash caching, AST-based relative `.ts`→`.js` rewriting, and tsconfig `paths` alias resolution in both outputs
+- `vitest.config.ts`: Vitest config for workspace packages; the ancestor each package resolves by walking up
+- `vitest.root.config.ts`: Vitest config for root-level tests, excluding every workspace package
 
 ## Commands
 
@@ -51,7 +51,7 @@ Use `nmr {command}` for all monorepo scripts. Use `pnpm run {script}` only for s
 ### nmr script runner
 
 - Default scripts defined in `packages/nmr/src/default-scripts.ts`; per-repo overrides in `.config/nmr.config.ts`
-- nmr's own defaults still select test scripts by probing for `vitest.integration.config.ts`; this repo overrides `workspaceScripts` in `.config/nmr.config.ts` to select Vitest projects instead. Those overrides are transitional and are removed when nmr's defaults change (#523) — keep them matching the target defaults so that step is a deletion.
+- nmr's default test scripts select Vitest projects, so registry construction touches no files and this repo needs no test-script overrides
 - Root scripts delegate to workspaces via `pnpm --recursive exec nmr {command}`
 
 ### Build system
@@ -65,7 +65,8 @@ Use `nmr {command}` for all monorepo scripts. Use `pnpm run {script}` only for s
 
 - Vitest with v8 coverage provider, configured by two files at the repo root, both thin wrappers over `@williamthorsen/nmr/vitest`
 - Both configs declare three projects named for what the tests cover: `unit` (every test file the others don't claim), `integration` (`*.int.test.ts`), and `app` (`*.app.test.ts`, e.g. drift checks). Select them with `--project`, which accepts negation
-- `nmr test` runs `--project '!integration'`, `nmr test:integration` runs `--project integration --passWithNoTests`, and `nmr test:all` runs every project
+- `nmr test` runs `--project '!integration'`, `nmr test:integration` runs `--project integration`, and `nmr test:all` runs every project. The same five names work from the repo root and from inside a package; `root:test*` variants scope to root-level files alone
+- The shared config sets `passWithNoTests`, so a run collecting no files passes — required for `test:integration` to fan out across packages that have none. `__tests__/workspace-test-presence.app.test.ts` is what keeps that from hiding a package whose suite disappeared
 - Typecheck uses `tsgo` (TypeScript native preview)
 
 ### Code quality
