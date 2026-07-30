@@ -254,6 +254,8 @@ These scripts are available out of the box. Repo-wide config (tier 2) and per-pa
 | `upgrade`          | `nmr-taze --include-locked`                              |
 | `view-coverage`    | `open coverage/index.html`                               |
 
+`fmt` and `fmt:check` select their files through git rather than by walking the directory, which is what makes a package-level run and a root-level run apply the same ignore rules — see [file selection](#file-selection).
+
 #### Test selections
 
 Every package resolves the same five test commands. Nothing is detected on disk: the commands select [Vitest projects](#shared-vitest-config), so a package separates its integration tests by naming them `*.int.test.ts`, not by carrying extra config files.
@@ -339,7 +341,7 @@ The same five names the workspace registry carries, so a command means the same 
 
 `fmt` and `fmt:check` format the files git reports: tracked files, plus untracked files git does not ignore. Prettier reads `.gitignore` and `.prettierignore` from the working directory alone, so a pattern in `packages/<pkg>/.gitignore` never reaches a run started at the monorepo root. git knows the whole hierarchy, including `.git/info/exclude` and `core.excludesFile`, and every `.prettierignore` in the tree is discovered from the repository root, so package-level exclusions apply from any directory as well.
 
-A file git ignores is never formatted, even when named directly. Trailing arguments are git pathspecs rather than Prettier flags, so `nmr fmt:check packages/nmr` narrows the run while an unrecognized option is rejected. Running outside a git repository fails rather than reporting a clean run.
+A file git ignores is never formatted, even when named directly. Trailing arguments are git pathspecs rather than Prettier flags, so `nmr fmt:check packages/nmr` narrows the run, while an unrecognized option and a pathspec matching no formattable file both fail it. Running outside a git repository fails rather than reporting a clean run.
 
 #### Audit
 
@@ -478,6 +480,19 @@ Compile a single package's `src` tree to `dist/esm` with the TypeScript compiler
 
 ```bash
 nmr-compile
+```
+
+### `nmr-fmt`
+
+Format, or check the formatting of, the files git reports for the working directory. Exactly one of `--check` and `--write` is required; a bare invocation prints usage and exits non-zero rather than defaulting to a mutation. `--write` also lists the files it rewrote. This is what `fmt` and `fmt:check` resolve to, in both registries.
+
+The selection is tracked files plus untracked files git does not ignore, scoped to the working directory, with every `.prettierignore` in the tree discovered from the repository root and passed to Prettier explicitly — see [file selection](#file-selection) for what that buys. Paths the index names but the filesystem does not have (a file deleted but not yet staged) and submodule gitlinks are both dropped, so neither reaches Prettier.
+
+Trailing arguments are git pathspecs, not Prettier flags: they narrow the selection, an unrecognized option is rejected rather than forwarded, and pathspecs that match no formattable file fail rather than passing quietly. Prettier itself is resolved from `PATH`.
+
+```bash
+nmr-fmt --check
+nmr-fmt --write packages/nmr
 ```
 
 ### `nmr-taze`

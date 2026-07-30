@@ -10,13 +10,16 @@ import { resolveFormatTargets } from '../fmt.ts';
 /**
  * Tracked fixture files. `packages/a` carries both kinds of ignore file, so one repository exercises
  * the gitignore hierarchy (which git applies during selection) and the prettierignore hierarchy
- * (which it cannot).
+ * (which it cannot). The root `.prettierignore` mirrors a package pattern the way a repo working
+ * around the hierarchy gap does, and is also matched by the `*.prettierignore` pathspec.
  */
 const TRACKED_FILES = {
+  '.prettierignore': 'packages/a/mirrored.js\n',
   'package.json': '{}\n',
   'root.js': 'const root = 1;\n',
   'packages/a/.gitignore': 'generated/\n',
   'packages/a/.prettierignore': 'protected.js\n',
+  'packages/a/mirrored.js': 'const mirrored = 1;\n',
   'packages/a/protected.js': 'const protectedValue = 1;\n',
   'packages/b/custom.prettierignore': 'nothing\n',
   'packages/b/ok.js': 'const ok = 1;\n',
@@ -37,9 +40,11 @@ describe(resolveFormatTargets, () => {
     const result = resolveFormatTargets(repository);
 
     expect(unwrap(result).files).toStrictEqual([
+      '.prettierignore',
       'package.json',
       'packages/a/.gitignore',
       'packages/a/.prettierignore',
+      'packages/a/mirrored.js',
       'packages/a/protected.js',
       'packages/b/custom.prettierignore',
       'packages/b/ok.js',
@@ -78,10 +83,52 @@ describe(resolveFormatTargets, () => {
     expect(unwrap(result).ignorePaths).toContain(path.join(repository, 'packages/a/.prettierignore'));
   });
 
-  it('reports the repository-root .prettierignore first, even though the fixture has none', () => {
+  it('reports the repository-root .prettierignore first', () => {
     const result = resolveFormatTargets(repository);
 
     expect(unwrap(result).ignorePaths[0]).toBe(path.join(repository, '.prettierignore'));
+  });
+
+  it('lists the repository-root .prettierignore once, though the pathspec also matches it', () => {
+    const result = resolveFormatTargets(repository);
+    const rootIgnorePath = path.join(repository, '.prettierignore');
+
+    expect(unwrap(result).ignorePaths.filter((entry) => entry === rootIgnorePath)).toHaveLength(1);
+  });
+
+  it('still reports the repository-root .prettierignore when the repository has none', () => {
+    fs.rmSync(path.join(repository, '.prettierignore'));
+
+    const result = resolveFormatTargets(repository);
+
+    expect(unwrap(result).ignorePaths[0]).toBe(path.join(repository, '.prettierignore'));
+  });
+
+  it('omits a file deleted from the working tree but still held in the index', () => {
+    fs.rmSync(path.join(repository, 'root.js'));
+
+    const result = resolveFormatTargets(repository);
+
+    expect(unwrap(result).files).not.toContain('root.js');
+  });
+
+  it('omits a submodule gitlink, which Prettier would otherwise recurse into', () => {
+    const submodule = path.join(repository, 'vendor', 'sub');
+    fs.mkdirSync(submodule, { recursive: true });
+    writeFile(submodule, 'sub.js', 'const sub = 1;\n');
+    runGitOrThrow(['init', '--quiet'], submodule);
+    runGitOrThrow(['add', '--all'], submodule);
+    runGitOrThrow(['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '--quiet', '--message', 'init'], submodule);
+    runGitOrThrow(
+      ['-c', 'protocol.file.allow=always', 'submodule', '--quiet', 'add', submodule, 'vendor/sub'],
+      repository,
+    );
+
+    const result = resolveFormatTargets(repository);
+
+    // `.gitmodules` confirms the submodule was really added, so the gitlink's absence means something.
+    expect(unwrap(result).files).toContain('.gitmodules');
+    expect(unwrap(result).files).not.toContain('vendor/sub');
   });
 
   it('discovers .prettierignore files from the repository root when run inside a package', () => {

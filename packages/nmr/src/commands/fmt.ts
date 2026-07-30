@@ -1,5 +1,6 @@
 import { Buffer } from 'node:buffer';
 import { spawnSync } from 'node:child_process';
+import { statSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
@@ -73,8 +74,14 @@ export function runFmt(argv: string[], cwd: string = process.cwd()): number {
   }
 
   const { files, ignorePaths } = resolved.targets;
-  // Prettier given no file arguments reads stdin and fails; nothing to format is simply nothing to do.
   if (files.length === 0) {
+    // A caller who named paths and got nothing back selected nothing, which a clean run looks exactly
+    // like. Without pathspecs there is simply nothing to format, and Prettier given no file arguments
+    // would read stdin and fail.
+    if (parsed.pathspecs.length > 0) {
+      reportError(`nmr-fmt: no formattable files matched: ${parsed.pathspecs.join(', ')}`);
+      return 1;
+    }
     return 0;
   }
 
@@ -113,13 +120,28 @@ export function resolveFormatTargets(cwd: string, pathspecs: string[] = []): Res
     ok: true,
     targets: {
       // Sorted for a stable file order across runs; `--cached --others` emits untracked entries first.
-      files: dedupe(splitNulSeparated(listed.stdout)).toSorted(),
+      files: dedupe(splitNulSeparated(listed.stdout))
+        .filter((file) => isFormattableFile(cwd, file))
+        .toSorted(),
       // The repository-root file leads whether or not it exists. Passing any explicit `--ignore-path`
       // suppresses Prettier's working-directory-relative default discovery, and that suppression is what
       // makes the ignore set identical from every directory. Prettier tolerates a path that is not there.
       ignorePaths: dedupe([path.join(repositoryRoot, IGNORE_FILENAME), ...discovered]),
     },
   };
+}
+
+/**
+ * Reports whether a path git named is something Prettier can be handed.
+ *
+ * git answers from the index, which holds paths the filesystem does not: a file deleted but not yet
+ * staged, and a broken symlink. Prettier exits 2 on a path that is not there. git also reports a
+ * submodule as a single gitlink, and Prettier handed a directory recurses into it, formatting a
+ * separate repository under ignore rules discovered from this one. Both are directories or absences,
+ * so one is-a-file check settles them.
+ */
+function isFormattableFile(cwd: string, file: string): boolean {
+  return statSync(path.resolve(cwd, file), { throwIfNoEntry: false })?.isFile() === true;
 }
 
 type ParseArgsResult = { ok: true; mode: FormatMode; pathspecs: string[] } | { ok: false; error: string };
@@ -154,8 +176,19 @@ function parseFmtArgs(argv: string[]): ParseArgsResult {
 /**
  * Runs Prettier over the selection, returning the first non-zero exit code. Every batch runs even after
  * one fails, so a check reports every offending file rather than only those in the first batch.
+ *
+ * `budgetBytes` is a parameter so the multi-batch path can be exercised without a fixture large enough
+ * to reach the real ceiling.
+ *
+ * @internal
  */
-function runPrettier(mode: FormatMode, files: string[], ignorePaths: string[], cwd: string): number {
+export function runPrettier(
+  mode: FormatMode,
+  files: string[],
+  ignorePaths: string[],
+  cwd: string,
+  budgetBytes: number = ARGUMENT_BUDGET_BYTES,
+): number {
   const options = [
     // The file list carries types Prettier has no parser for, ignore files and images among them.
     '--ignore-unknown',
@@ -165,7 +198,7 @@ function runPrettier(mode: FormatMode, files: string[], ignorePaths: string[], c
 
   let firstFailure = 0;
 
-  for (const batch of batchWithinBudget(files, ARGUMENT_BUDGET_BYTES)) {
+  for (const batch of batchWithinBudget(files, budgetBytes)) {
     const result = spawnSync(PRETTIER_BIN, [...options, ...batch], { cwd, stdio: 'inherit' });
 
     if (result.error) {
