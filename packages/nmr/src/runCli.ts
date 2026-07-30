@@ -7,13 +7,7 @@ import { resolveContext } from './context.ts';
 import { generateHelp } from './help.ts';
 import { isHookName } from './helpers/hook-name.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
-import {
-  applyDevBin,
-  buildRootRegistry,
-  buildWorkspaceRegistry,
-  hasIntegrationTestConfig,
-  resolveScript,
-} from './resolver.ts';
+import { applyDevBin, buildRootRegistry, buildWorkspaceRegistry, resolveScript } from './resolver.ts';
 import { runCommand } from './runner.ts';
 
 const VERSION = readPackageVersion(import.meta.url);
@@ -90,9 +84,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     return { exitCode };
   }
 
-  const registry = useRoot
-    ? buildRootRegistry(context.config)
-    : buildWorkspaceRegistry(context.config, hasIntegrationTestConfig(anchorDir));
+  const registry = useRoot ? buildRootRegistry(context.config) : buildWorkspaceRegistry(context.config);
   const resolved = resolveScript(command, registry, anchorDir, parsed.workspaceRoot);
 
   if (!resolved) {

@@ -4,7 +4,7 @@ import { getDefaultRootScripts, getDefaultWorkspaceScripts } from '../resolve-sc
 
 describe('getDefaultWorkspaceScripts', () => {
   it('includes all expected default workspace scripts', () => {
-    const scripts = getDefaultWorkspaceScripts(false);
+    const scripts = getDefaultWorkspaceScripts();
 
     expect(scripts.build).toStrictEqual(['compile']);
     expect(scripts.check).toStrictEqual(['typecheck', 'fmt:check', 'lint:check', 'test']);
@@ -15,35 +15,28 @@ describe('getDefaultWorkspaceScripts', () => {
   });
 
   it('builds in a single step with no separate typings script', () => {
-    const scripts = getDefaultWorkspaceScripts(false);
+    const scripts = getDefaultWorkspaceScripts();
 
     expect(scripts.build).toStrictEqual(['compile']);
     expect(scripts['generate-typings']).toBeUndefined();
   });
 
-  it('uses standard test scripts when useIntTests is false', () => {
-    const scripts = getDefaultWorkspaceScripts(false);
+  // `test` negates `integration` rather than naming the code-only projects, so a category added later joins the
+  // default run instead of being dropped from it.
+  it('selects Vitest projects, exposing all five test commands to every package', () => {
+    const scripts = getDefaultWorkspaceScripts();
 
-    expect(scripts.test).toBe('pnpm exec vitest');
-    expect(scripts['test:coverage']).toBe('pnpm exec vitest --coverage');
-    expect(scripts['test:watch']).toBe('pnpm exec vitest --watch');
-    expect(scripts['test:integration']).toBeUndefined();
-    expect(scripts['test:all']).toBeUndefined();
-  });
-
-  it('uses integration test scripts when useIntTests is true', () => {
-    const scripts = getDefaultWorkspaceScripts(true);
-
-    expect(scripts.test).toBe('pnpm exec vitest --config=vitest.standalone.config.ts');
-    expect(scripts['test:coverage']).toBe('pnpm exec vitest --config=vitest.standalone.config.ts --coverage');
-    expect(scripts['test:integration']).toBe('pnpm exec vitest --config=vitest.integration.config.ts');
+    expect(scripts.test).toBe("pnpm exec vitest --project '!integration'");
     expect(scripts['test:all']).toBe('pnpm exec vitest');
+    expect(scripts['test:coverage']).toBe("pnpm exec vitest --project '!integration' --coverage");
+    expect(scripts['test:integration']).toBe('pnpm exec vitest --project integration');
+    expect(scripts['test:watch']).toBe("pnpm exec vitest --project '!integration' --watch");
   });
 
   // A workspace-context upgrade scans the cwd package alone; the recursive sweep is the root registry's.
   // It reports no overrides either: `pnpm.overrides` is declared in the root `package.json` alone.
   it('upgrades the current package without recursing', () => {
-    const scripts = getDefaultWorkspaceScripts(false);
+    const scripts = getDefaultWorkspaceScripts();
 
     expect(scripts.upgrade).toBe('nmr-taze --include-locked');
     expect(scripts['report-overrides']).toBeUndefined();
@@ -92,6 +85,30 @@ describe('getDefaultRootScripts', () => {
     expect(scripts.lint).toBe('nmr root:lint && pnpm --recursive exec nmr lint');
     expect(scripts.test).toBe('nmr root:test && pnpm --recursive exec nmr test');
     expect(scripts.typecheck).toBe('nmr root:typecheck && pnpm --recursive exec nmr typecheck');
+  });
+
+  // The same five test names the workspace registry carries, so a command means the same thing in either context.
+  it('fans every test selection out to the root and to each package', () => {
+    const scripts = getDefaultRootScripts();
+
+    expect(scripts.test).toBe('nmr root:test && pnpm --recursive exec nmr test');
+    expect(scripts['test:all']).toBe('nmr root:test:all && pnpm --recursive exec nmr test:all');
+    expect(scripts['test:coverage']).toBe('nmr root:test && pnpm --recursive exec nmr test:coverage');
+    expect(scripts['test:integration']).toBe('nmr root:test:integration && pnpm --recursive exec nmr test:integration');
+  });
+
+  it('scopes each root-only test selection to the root config', () => {
+    const scripts = getDefaultRootScripts();
+
+    expect(scripts['root:test']).toBe("vitest --config ./vitest.root.config.ts --project '!integration'");
+    expect(scripts['root:test:all']).toBe('vitest --config ./vitest.root.config.ts');
+    expect(scripts['root:test:integration']).toBe('vitest --config ./vitest.root.config.ts --project integration');
+  });
+
+  // Watching cannot chain, so this one command spans the whole tree in a single process. Omitting `--config` is
+  // what achieves that: bare `vitest` at the monorepo root resolves the root `vitest.config.ts`.
+  it('watches the whole tree from one process, excluding integration tests', () => {
+    expect(getDefaultRootScripts()['test:watch']).toBe("vitest --project '!integration' --watch");
   });
 
   it('runs strict-lint against the monorepo root, excluding packages', () => {

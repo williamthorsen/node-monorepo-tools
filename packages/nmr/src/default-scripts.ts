@@ -2,9 +2,16 @@ export type ScriptValue = string | string[];
 export type ScriptRegistry = Record<string, ScriptValue>;
 
 /**
- * Workspace scripts shared by all test configurations.
+ * Workspace scripts. Every package resolves the same table, with no filesystem inspection: the test commands
+ * select Vitest projects, so a package opts into integration segregation by having `.int.test.ts` files rather
+ * than by carrying extra config files.
+ *
+ * `test` negates `integration` rather than naming the code-only projects, so a category added later joins the
+ * default run instead of being silently dropped from it. `test:all` is the only unfiltered entry point, which
+ * makes it the one that composes with a `--project` filter — a second `--project` on `test` widens the selection
+ * rather than narrowing it.
  */
-export const commonWorkspaceScripts: ScriptRegistry = {
+export const workspaceScripts: ScriptRegistry = {
   build: ['compile'],
   check: ['typecheck', 'fmt:check', 'lint:check', 'test'],
   'check:strict': ['typecheck', 'fmt:check', 'lint:strict', 'test:coverage'],
@@ -17,31 +24,16 @@ export const commonWorkspaceScripts: ScriptRegistry = {
   lint: 'eslint --fix .',
   'lint:check': 'eslint .',
   'lint:strict': 'strict-lint',
+  test: "pnpm exec vitest --project '!integration'",
+  'test:all': 'pnpm exec vitest',
+  'test:coverage': "pnpm exec vitest --project '!integration' --coverage",
+  'test:integration': 'pnpm exec vitest --project integration',
+  'test:watch': "pnpm exec vitest --project '!integration' --watch",
   typecheck: 'tsgo --noEmit',
   // `--include-locked` is required rather than stylistic: a repo that pins exactly (pnpm's
   // `savePrefix: ''`) has no dependency taze considers unlocked, so without it nothing is reported.
   upgrade: 'nmr-taze --include-locked',
   'view-coverage': 'open coverage/index.html',
-};
-
-/**
- * Test scripts for packages with a separate integration test config.
- */
-export const integrationTestScripts: ScriptRegistry = {
-  test: 'pnpm exec vitest --config=vitest.standalone.config.ts',
-  'test:all': 'pnpm exec vitest',
-  'test:coverage': 'pnpm exec vitest --config=vitest.standalone.config.ts --coverage',
-  'test:integration': 'pnpm exec vitest --config=vitest.integration.config.ts',
-  'test:watch': 'pnpm exec vitest --config=vitest.standalone.config.ts --watch',
-};
-
-/**
- * Test scripts for packages using the default vitest config.
- */
-export const standardTestScripts: ScriptRegistry = {
-  test: 'pnpm exec vitest',
-  'test:coverage': 'pnpm exec vitest --coverage',
-  'test:watch': 'pnpm exec vitest --watch',
 };
 
 /**
@@ -71,13 +63,23 @@ export const rootScripts: ScriptRegistry = {
   'root:lint': "eslint --fix --ignore-pattern 'packages/**' .",
   'root:lint:check': "eslint --ignore-pattern 'packages/**' .",
   'root:lint:strict': "strict-lint --ignore-pattern 'packages/**' .",
-  'root:test': 'vitest --config ./vitest.root.config.ts',
+  'root:test': "vitest --config ./vitest.root.config.ts --project '!integration'",
+  'root:test:all': 'vitest --config ./vitest.root.config.ts',
+  'root:test:integration': 'vitest --config ./vitest.root.config.ts --project integration',
   'root:typecheck': 'tsgo --noEmit',
   'root:upgrade': 'nmr-taze --include-locked',
   'sync-agent-files': 'nmr-sync-agent-files',
   test: 'nmr root:test && pnpm --recursive exec nmr test',
+  'test:all': 'nmr root:test:all && pnpm --recursive exec nmr test:all',
+  // `test:coverage` chains `root:test`, not a `root:test:coverage`: the root config reports no coverage of its
+  // own, because packages cover their own sources.
   'test:coverage': 'nmr root:test && pnpm --recursive exec nmr test:coverage',
-  'test:watch': 'vitest --watch',
+  'test:integration': 'nmr root:test:integration && pnpm --recursive exec nmr test:integration',
+  // The only test command that spans the root and every package in one process, and so the only one that can
+  // watch. Omitting `--config` is what makes that work: bare `vitest` at the monorepo root resolves the root
+  // `vitest.config.ts`, whose projects then cover the whole tree. A chain like the others would never advance
+  // past its first watcher. Narrow to root files alone with `nmr root:test --watch`.
+  'test:watch': "vitest --project '!integration' --watch",
   typecheck: 'nmr root:typecheck && pnpm --recursive exec nmr typecheck',
   // A string rather than a composite because passthrough args attach to the chain's last command — as a
   // composite, `nmr upgrade major` would hand `major` to the override report instead of the upgrade tool.

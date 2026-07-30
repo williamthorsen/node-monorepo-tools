@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { NmrConfig } from '../config.ts';
 import { loadConfig } from '../config.ts';
 import { findContainingPackageDir } from '../context.ts';
-import { applyDevBin, buildWorkspaceRegistry, hasIntegrationTestConfig, resolveScript } from '../resolver.ts';
+import { applyDevBin, buildWorkspaceRegistry, resolveScript } from '../resolver.ts';
 import { runCommand } from '../runner.ts';
 import { findMonorepoRoot, getWorkspacePackageDirs } from '../workspace.ts';
 import { resolveBuildCachePath } from './build.ts';
@@ -82,9 +82,10 @@ export async function runClean(cwd: string = process.cwd()): Promise<void> {
  */
 async function sweepWorkspace(monorepoRoot: string, workspacePackageDirs: string[]): Promise<void> {
   const config: NmrConfig = await loadConfig(monorepoRoot);
+  // Every package resolves the same registry, so it is built once; only tier-3 resolution varies per package.
+  const registry = buildWorkspaceRegistry(config);
 
   for (const packageDir of workspacePackageDirs) {
-    const registry = buildWorkspaceRegistry(config, hasIntegrationTestConfig(packageDir));
     const resolved = resolveScript(CLEAN_COMMAND, registry, packageDir, false);
 
     // An empty command is the package.json convention for "skip this script".

@@ -227,7 +227,7 @@ describe(generateHelp, () => {
     });
   });
 
-  describe('test variant selection', () => {
+  describe('test commands', () => {
     let tmpDir: string;
 
     beforeEach(() => {
@@ -238,30 +238,33 @@ describe(generateHelp, () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     });
 
-    it('lists the split test commands when the package has an integration config', () => {
-      // `hasIntegrationTestConfig` tests only for the file's presence, so an empty file is a sufficient marker.
-      fs.writeFileSync(path.join(tmpDir, 'vitest.integration.config.ts'), '');
-
+    it('lists all five test commands for every package', () => {
       const workspaceSection = sectionOf(generateHelp({}, tmpDir, false), 'Workspace commands:', 'Root commands:');
-      expect(workspaceSection).toContain('test:integration');
-      expect(workspaceSection).toContain('test:all');
-      expect(workspaceSection).toContain('vitest.standalone.config.ts');
+
+      for (const command of ['test', 'test:all', 'test:coverage', 'test:integration', 'test:watch']) {
+        expect(workspaceSection).toContain(command);
+      }
+      expect(workspaceSection).toContain("pnpm exec vitest --project '!integration'");
     });
 
-    it('lists the standard test commands when the package has no integration config', () => {
-      const workspaceSection = sectionOf(generateHelp({}, tmpDir, false), 'Workspace commands:', 'Root commands:');
-      expect(workspaceSection).toContain('pnpm exec vitest --coverage');
-      expect(workspaceSection).not.toContain('test:integration');
-      expect(workspaceSection).not.toContain('vitest.standalone.config.ts');
+    // Help renders the registry, so a probe reintroduced anywhere would show up as a different listing here.
+    it('lists the same commands when the retired variant config is present', () => {
+      const bare = sectionOf(generateHelp({}, tmpDir, false), 'Workspace commands:', 'Root commands:');
+      fs.writeFileSync(path.join(tmpDir, 'vitest.integration.config.ts'), '');
+      fs.writeFileSync(path.join(tmpDir, 'vitest.standalone.config.ts'), '');
+
+      const withConfigs = sectionOf(generateHelp({}, tmpDir, false), 'Workspace commands:', 'Root commands:');
+
+      expect(withConfigs).toBe(bare);
+      expect(withConfigs).not.toContain('vitest.standalone.config.ts');
     });
 
-    it('lists the standard test commands in root context even when the monorepo root has an integration config', () => {
-      fs.writeFileSync(path.join(tmpDir, 'vitest.integration.config.ts'), '');
+    it('lists the root test selections in root context', () => {
+      const rootSection = sectionOf(generateHelp({}, tmpDir, true), 'Root commands:', '* Overridden');
 
-      const workspaceSection = sectionOf(generateHelp({}, tmpDir, true), 'Workspace commands:', 'Root commands:');
-      expect(workspaceSection).toContain('pnpm exec vitest --coverage');
-      expect(workspaceSection).not.toContain('test:integration');
-      expect(workspaceSection).not.toContain('vitest.standalone.config.ts');
+      for (const command of ['root:test', 'root:test:all', 'root:test:integration', 'test:all', 'test:integration']) {
+        expect(rootSection).toContain(command);
+      }
     });
   });
 });
