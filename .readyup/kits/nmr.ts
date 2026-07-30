@@ -2,14 +2,13 @@
  * Readyup kit for consumers of @williamthorsen/nmr.
  *
  * Verifies that the consuming repo's nmr setup is current and correctly configured.
- * The minimum version is read from the nmr package's package.json and inlined by
- * esbuild at compile time.
+ * The minimum version is read from the nmr package's package.json and inlined by esbuild at compile time.
  *
  * Run from a target repo's working directory:
  *   rdy run --file <path-to>/nmr.js
  */
-import { existsSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, globSync, readdirSync, readFileSync } from 'node:fs';
+import { basename, join, sep } from 'node:path';
 
 import { getDefaultRootScripts } from '@williamthorsen/nmr/scripts';
 import { type CheckOutcome, defineRdyKit, pickJson } from 'readyup';
@@ -101,6 +100,44 @@ export default defineRdyKit({
           fix: 'Add "build": ":" to packages that don\'t need a build, or ensure packages that use the default nmr build have a tsconfig.json and a src/ directory',
         },
 
+        // -- Vitest projects -----------------------------------------------------
+        {
+          name: 'no retired Vitest config variants',
+          severity: 'error',
+          check: () => noRetiredVitestConfigs(),
+          fix: "Delete every vitest.standalone.config.* and vitest.integration.config.*. nmr's test scripts select Vitest projects instead of naming config files",
+        },
+        {
+          name: 'vitest.config.ts builds on @williamthorsen/nmr/vitest',
+          severity: 'error',
+          check: () => vitestConfigBuildsOnSharedConfig(),
+          fix: "Replace vitest.config.ts with: import { defineVitestConfig } from '@williamthorsen/nmr/vitest'; export default defineVitestConfig();",
+        },
+        {
+          name: 'vitest.root.config.ts builds on @williamthorsen/nmr/vitest',
+          severity: 'error',
+          check: () => vitestRootConfigBuildsOnSharedConfig(),
+          fix: "Replace vitest.root.config.ts with: import { defineRootVitestConfig } from '@williamthorsen/nmr/vitest'; export default defineRootVitestConfig({ startDir: import.meta.dirname });",
+        },
+        {
+          name: 'no test files use the .integration. suffix',
+          severity: 'error',
+          check: () => noIntegrationSuffixedTests(),
+          fix: 'Rename *.integration.test.ts to *.int.test.ts. The integration project matches .int. only, so these run as unit tests while nmr test:integration collects nothing',
+        },
+        {
+          name: 'no test files use the .drift. suffix',
+          severity: 'recommend',
+          check: () => noDriftSuffixedTests(),
+          fix: 'Rename *.drift.test.ts to *.app.test.ts, the canonical suffix for the app project',
+        },
+        {
+          name: 'no package re-exports the ancestor Vitest config',
+          severity: 'recommend',
+          check: () => noReExportOnlyVitestConfigs(),
+          fix: 'Delete these files. Vitest resolves config by walking up from the run root, so a per-package re-export is redundant',
+        },
+
         // -- Audit dependency --------------------------------------------------------
         {
           name: 'v11y-check in devDependencies',
@@ -136,6 +173,20 @@ export default defineRdyKit({
 
 // region | Helpers
 
+/** Directories whose contents are generated or vendored, and so are never the source of a finding. */
+const SCAN_EXCLUDE_DIRS = new Set(['.git', 'coverage', 'dist', 'node_modules']);
+
+/** Extensions a Vitest config can carry. Globbing `.ts` alone would miss a repo on any other one. */
+const CONFIG_EXTENSIONS = '{ts,mts,cts,js,mjs,cjs}';
+
+/** Extensions a test file can carry, matching the suffix set in the shared config's project patterns. */
+const TEST_EXTENSIONS = '{ts,tsx}';
+
+const SHARED_VITEST_MODULE = '@williamthorsen/nmr/vitest';
+
+/** Matches a line that only re-exports another module's default (or everything) and nothing else. */
+const RE_EXPORT_LINE_PATTERN = /^export\s*(?:\{\s*default\s*\}|\*)\s*from\s*['"][^'"]+['"];?$/;
+
 /**
  * Check that every workspace package can run `nmr build` successfully.
  * A package can build if it has a "build" override in package.json or has the inputs the default
@@ -169,6 +220,30 @@ function allWorkspacePackagesCanBuild(): boolean | CheckOutcome {
   };
 }
 
+/** Reports every file matching the given patterns, passing when there are none. */
+function checkNoMatchingFiles(patterns: string[], cwd: string): boolean | CheckOutcome {
+  const found = findFiles(patterns, cwd);
+  if (found.length === 0) return true;
+  return { ok: false, detail: formatPaths(found) };
+}
+
+/**
+ * Checks that a root Vitest config is present and built on the shared config from nmr.
+ *
+ * An absent file is folded in here rather than split into its own check: a repo with no root config leaves
+ * packages walking up past the repo root, which is a worse failure than a wrong config, not a lesser one.
+ */
+function checkRootVitestConfig(baseName: string, exportName: string, cwd: string): boolean | CheckOutcome {
+  const matches = findFiles([`${baseName}.${CONFIG_EXTENSIONS}`], cwd);
+  if (matches.length === 0) {
+    return { ok: false, detail: `${baseName}.ts is missing` };
+  }
+
+  const stale = matches.filter((relativePath) => !importsSharedExport(readFileIn(cwd, relativePath), exportName));
+  if (stale.length === 0) return true;
+  return { ok: false, detail: `does not import ${exportName} from ${SHARED_VITEST_MODULE}: ${stale.join(', ')}` };
+}
+
 /**
  * Checks that the code-quality workflow does not use `nmr ci` as the check command.
  *
@@ -180,6 +255,26 @@ export function codeQualityWorkflowDoesNotUseNmrCi(): boolean {
   return !/check-command:\s*pnpm exec nmr ci(\s|$)/.test(content);
 }
 
+/**
+ * Globs for the given patterns, pruning generated and vendored directories.
+ *
+ * The `exclude` callback receives a path relative to `cwd`, not a bare name, so the comparison has to be
+ * against its basename: an identity check would prune only at depth 0 and miss the per-package
+ * `node_modules` directories pnpm creates.
+ *
+ * Returns POSIX-separator paths, sorted, so check details are stable across platforms and runs.
+ */
+function findFiles(patterns: string[], cwd: string): string[] {
+  return globSync(patterns, { cwd, exclude: (path) => SCAN_EXCLUDE_DIRS.has(basename(path)) })
+    .map((path) => path.split(sep).join('/'))
+    .toSorted();
+}
+
+/** Renders offending paths as a work list rather than a boolean, one per line under a count. */
+function formatPaths(paths: string[]): string {
+  return `${paths.length} found:\n${paths.map((path) => `      ${path}`).join('\n')}`;
+}
+
 function getMinVersion(): string {
   // `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline only the listed fields.
   // Defer the call into a function so module load does not invoke the runtime stub (which throws):
@@ -189,6 +284,74 @@ function getMinVersion(): string {
     throw new TypeError("nmr/package.json: 'version' must be a string");
   }
   return picked.version;
+}
+
+/**
+ * Checks whether a config imports a named export from the shared Vitest module.
+ *
+ * `defineVitestConfig` does not match inside `defineRootVitestConfig`, so the root-config and
+ * root-tests-config checks cannot satisfy each other.
+ */
+function importsSharedExport(content: string | undefined, exportName: string): boolean {
+  if (content === undefined) return false;
+  const pattern = new RegExp(
+    String.raw`import\s*\{[^}]*\b${exportName}\b[^}]*\}\s*from\s*['"]${SHARED_VITEST_MODULE}['"]`,
+  );
+  return pattern.test(content);
+}
+
+/**
+ * Checks whether a config's entire content is a re-export of another module.
+ *
+ * A file carrying any substantive statement is a real config and is left alone. Missing an exotic re-export
+ * spelling is a recommend-severity false negative, which is the cheap direction to err.
+ */
+function isReExportOnly(content: string | undefined): boolean {
+  if (content === undefined) return false;
+  const statements = content
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  return statements.length > 0 && statements.every((line) => RE_EXPORT_LINE_PATTERN.test(line));
+}
+
+/**
+ * Checks that no test file uses the `.drift.` suffix, which the `app` project does not match.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function noDriftSuffixedTests(cwd: string = process.cwd()): boolean | CheckOutcome {
+  return checkNoMatchingFiles([`**/*.drift.test.${TEST_EXTENSIONS}`], cwd);
+}
+
+/**
+ * Checks that no test file uses the `.integration.` suffix.
+ *
+ * These match the `unit` project's include pattern and no project's exclude, so they run under `nmr test`
+ * while `nmr test:integration` collects nothing and passes. Silent on both sides.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function noIntegrationSuffixedTests(cwd: string = process.cwd()): boolean | CheckOutcome {
+  return checkNoMatchingFiles([`**/*.integration.test.${TEST_EXTENSIONS}`], cwd);
+}
+
+/**
+ * Checks that no package carries a `vitest.config.*` that only re-exports an ancestor config.
+ *
+ * Only non-root configs qualify, identified by their path carrying a separator.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function noReExportOnlyVitestConfigs(cwd: string = process.cwd()): boolean | CheckOutcome {
+  const nonRootConfigs = findFiles([`**/vitest.config.${CONFIG_EXTENSIONS}`], cwd).filter((path) => path.includes('/'));
+  const reExports = nonRootConfigs.filter((path) => isReExportOnly(readFileIn(cwd, path)));
+
+  if (reExports.length === 0) return true;
+  return { ok: false, detail: formatPaths(reExports) };
 }
 
 /** Check that root package.json has no scripts that duplicate nmr built-in root scripts. */
@@ -206,6 +369,18 @@ function noRedundantRootScripts(): boolean | CheckOutcome {
     ok: false,
     detail: `redundant: ${redundant.join(', ')}`,
   };
+}
+
+/**
+ * Checks that no retired Vitest config variant survives anywhere in the repo.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function noRetiredVitestConfigs(cwd: string = process.cwd()): boolean | CheckOutcome {
+  return checkNoMatchingFiles(
+    [`**/vitest.standalone.config.${CONFIG_EXTENSIONS}`, `**/vitest.integration.config.${CONFIG_EXTENSIONS}`],
+    cwd,
+  );
 }
 
 /** Checks that no workspace package.json references run-workspace-script or "pnpm run ws". */
@@ -231,6 +406,15 @@ function noWorkspaceRunScriptReferences(): boolean | CheckOutcome {
   };
 }
 
+/** Reads a file resolved against `cwd`, returning undefined when it cannot be read. */
+function readFileIn(cwd: string, relativePath: string): string | undefined {
+  try {
+    return readFileSync(join(cwd, relativePath), 'utf8');
+  } catch {
+    return undefined;
+  }
+}
+
 /** Check whether a named script exists in root package.json. */
 function scriptExists(name: string): boolean {
   const pkg = readPackageJson();
@@ -254,6 +438,29 @@ function toolVersionsHasNoPnpm(): boolean {
   const content = readFile('.tool-versions');
   if (content === undefined) return true;
   return !/^pnpm\s/m.test(content);
+}
+
+/**
+ * Checks that the root `vitest.config.*` is present and built on `defineVitestConfig`.
+ *
+ * This is the ancestor config every workspace package resolves by walking up from its own directory.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function vitestConfigBuildsOnSharedConfig(cwd: string = process.cwd()): boolean | CheckOutcome {
+  return checkRootVitestConfig('vitest.config', 'defineVitestConfig', cwd);
+}
+
+/**
+ * Checks that the root `vitest.root.config.*` is present and built on `defineRootVitestConfig`.
+ *
+ * nmr's root test scripts name this file by path, and a config declaring no projects makes
+ * `nmr root:test:integration` exit 1.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function vitestRootConfigBuildsOnSharedConfig(cwd: string = process.cwd()): boolean | CheckOutcome {
+  return checkRootVitestConfig('vitest.root.config', 'defineRootVitestConfig', cwd);
 }
 
 // endregion | Helpers

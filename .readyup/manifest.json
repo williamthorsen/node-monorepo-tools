@@ -20,8 +20,8 @@
       "path": "kits/nmr.js",
       "readyupVersion": "0.22.0",
       "source": "kits/nmr.ts",
-      "sourceHash": "1057a688",
-      "targetHash": "cf32da3b"
+      "sourceHash": "b5c4199b",
+      "targetHash": "930ad5cb"
     },
     {
       "checklists": [
