@@ -88,6 +88,7 @@ function buildConfig(
         include: coverageInclude,
         provider: 'v8',
       },
+      passWithNoTests: true, // `nmr test:integration` fans out over packages with no integration tests
       projects: buildProjects(options.project, projectExclude, projectRoot),
       silent: 'passed-only', // see logs from failing tests only
       watch: false, // don't enter watch mode unless the `--watch` flag is passed
@@ -111,8 +112,8 @@ function buildProjects(
 
   return categories.map(({ exclude, include, name }) => {
     const project: TestProjectInlineConfiguration = {
-      // Without this, Vitest gives the project no Vite config file at all, so root-level options
-      // such as `resolve.conditions` never reach it.
+      // Without this, Vitest gives the project no Vite config file at all, so root-level options such as
+      // `resolve.conditions` never reach it.
       extends: true,
       // Patterns resolve against the project root, which otherwise defaults to the working directory.
       ...(projectRoot !== undefined && { root: projectRoot }),

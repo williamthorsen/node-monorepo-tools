@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import type { NmrConfig } from './config.ts';
@@ -103,22 +103,12 @@ export function readPackageJsonScripts(packageDir: string): Record<string, strin
 }
 
 /**
- * Returns true when a workspace opts into the integration test variant by
- * providing a `vitest.integration.config.ts`. Detected per workspace, it
- * engages under the recursive `nmr ci` fan-out so integration tests stay out of
- * the default `test`/`test:coverage` runs.
- */
-export function hasIntegrationTestConfig(packageDir: string): boolean {
-  return existsSync(path.join(packageDir, 'vitest.integration.config.ts'));
-}
-
-/**
  * Builds the merged workspace script registry:
  * tier 1 (defaults) + tier 2 (config overrides)
  */
-export function buildWorkspaceRegistry(config: NmrConfig, useIntTests: boolean): ScriptRegistry {
+export function buildWorkspaceRegistry(config: NmrConfig): ScriptRegistry {
   return {
-    ...getDefaultWorkspaceScripts(useIntTests),
+    ...getDefaultWorkspaceScripts(),
     ...config.workspaceScripts,
   };
 }
