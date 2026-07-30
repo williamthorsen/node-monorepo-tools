@@ -4,8 +4,8 @@ export const __readyupVersion = "0.22.0";
 
 
 // .readyup/kits/nmr.ts
-import { existsSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, globSync, readdirSync, readFileSync } from "node:fs";
+import { basename, join, sep } from "node:path";
 
 // packages/nmr/dist/esm/default-scripts.js
 var rootScripts = {
@@ -136,6 +136,43 @@ var nmr_default = defineRdyKit({
           check: allWorkspacePackagesCanBuild,
           fix: `Add "build": ":" to packages that don't need a build, or ensure packages that use the default nmr build have a tsconfig.json and a src/ directory`
         },
+        // -- Vitest projects -----------------------------------------------------
+        {
+          name: "no retired Vitest config variants",
+          severity: "error",
+          check: () => noRetiredVitestConfigs(),
+          fix: "Delete every vitest.standalone.config.* and vitest.integration.config.*. nmr's test scripts select Vitest projects instead of naming config files"
+        },
+        {
+          name: "vitest.config.ts builds on @williamthorsen/nmr/vitest",
+          severity: "error",
+          check: () => vitestConfigBuildsOnSharedConfig(),
+          fix: "Replace vitest.config.ts with: import { defineVitestConfig } from '@williamthorsen/nmr/vitest'; export default defineVitestConfig();"
+        },
+        {
+          name: "vitest.root.config.ts builds on @williamthorsen/nmr/vitest",
+          severity: "error",
+          check: () => vitestRootConfigBuildsOnSharedConfig(),
+          fix: "Replace vitest.root.config.ts with: import { defineRootVitestConfig } from '@williamthorsen/nmr/vitest'; export default defineRootVitestConfig({ startDir: import.meta.dirname });"
+        },
+        {
+          name: "no test files use the .integration. suffix",
+          severity: "error",
+          check: () => noIntegrationSuffixedTests(),
+          fix: "Rename *.integration.test.ts to *.int.test.ts. The integration project matches .int. only, so these run as unit tests while nmr test:integration collects nothing"
+        },
+        {
+          name: "no test files use the .drift. suffix",
+          severity: "recommend",
+          check: () => noDriftSuffixedTests(),
+          fix: "Rename *.drift.test.ts to *.app.test.ts, the canonical suffix for the app project"
+        },
+        {
+          name: "no package re-exports the ancestor Vitest config",
+          severity: "recommend",
+          check: () => noReExportOnlyVitestConfigs(),
+          fix: "Delete these files. Vitest resolves config by walking up from the run root, so a per-package re-export is redundant"
+        },
         // -- Audit dependency --------------------------------------------------------
         {
           name: "v11y-check in devDependencies",
@@ -167,6 +204,12 @@ var nmr_default = defineRdyKit({
     }
   ]
 });
+var SCAN_EXCLUDE_DIRS = /* @__PURE__ */ new Set([".git", "coverage", "dist", "node_modules"]);
+var CONFIG_EXTENSIONS = "{ts,mts,cts,js,mjs,cjs}";
+var TEST_EXTENSIONS = "{ts,tsx}";
+var TEST_GLOB_PREFIX = "**/__tests__/**";
+var SHARED_VITEST_MODULE = "@williamthorsen/nmr/vitest";
+var RE_EXPORT_LINE_PATTERN = /^export\s*(?:\{\s*default\s*\}|\*)\s*from\s*['"]\.\.\/[^'"]*['"];?$/;
 function allWorkspacePackagesCanBuild() {
   const packagesDir = join(process.cwd(), "packages");
   if (!existsSync(packagesDir)) return true;
@@ -189,10 +232,31 @@ function allWorkspacePackagesCanBuild() {
     detail: `missing build override or tsconfig.json + src/: ${failing.join(", ")}`
   };
 }
+function checkNoMatchingFiles(patterns, cwd) {
+  const found = findFiles(patterns, cwd);
+  if (found.length === 0) return true;
+  return { ok: false, detail: formatPaths(found) };
+}
+function checkRootVitestConfig(baseName, exportName, cwd) {
+  const matches = findFiles([`${baseName}.${CONFIG_EXTENSIONS}`], cwd);
+  if (matches.length === 0) {
+    return { ok: false, detail: `${baseName}.ts is missing` };
+  }
+  const stale = matches.filter((relativePath) => !importsSharedExport(readFileIn(cwd, relativePath), exportName));
+  if (stale.length === 0) return true;
+  return { ok: false, detail: `does not import ${exportName} from ${SHARED_VITEST_MODULE}: ${stale.join(", ")}` };
+}
 function codeQualityWorkflowDoesNotUseNmrCi() {
   const content = readFile(".github/workflows/code-quality.yaml");
   if (content === void 0) return true;
   return !/check-command:\s*pnpm exec nmr ci(\s|$)/.test(content);
+}
+function findFiles(patterns, cwd) {
+  return globSync(patterns, { cwd, exclude: (path) => SCAN_EXCLUDE_DIRS.has(basename(path)) }).map((path) => path.split(sep).join("/")).toSorted();
+}
+function formatPaths(paths) {
+  return `${paths.length} found:
+${paths.map((path) => `      ${path}`).join("\n")}`;
 }
 function getMinVersion() {
   const picked = { "version": "0.20.0" };
@@ -200,6 +264,30 @@ function getMinVersion() {
     throw new TypeError("nmr/package.json: 'version' must be a string");
   }
   return picked.version;
+}
+function importsSharedExport(content, exportName) {
+  if (content === void 0) return false;
+  const pattern = new RegExp(
+    String.raw`import\s*\{[^}]*\b${exportName}\b[^}]*\}\s*from\s*['"]${SHARED_VITEST_MODULE}['"]`
+  );
+  return pattern.test(content);
+}
+function isReExportOnly(content) {
+  if (content === void 0) return false;
+  const statements = content.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "").split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
+  return statements.length > 0 && statements.every((line) => RE_EXPORT_LINE_PATTERN.test(line));
+}
+function noDriftSuffixedTests(cwd = process.cwd()) {
+  return checkNoMatchingFiles([`${TEST_GLOB_PREFIX}/*.drift.test.${TEST_EXTENSIONS}`], cwd);
+}
+function noIntegrationSuffixedTests(cwd = process.cwd()) {
+  return checkNoMatchingFiles([`${TEST_GLOB_PREFIX}/*.integration.test.${TEST_EXTENSIONS}`], cwd);
+}
+function noReExportOnlyVitestConfigs(cwd = process.cwd()) {
+  const nonRootConfigs = findFiles([`**/vitest.config.${CONFIG_EXTENSIONS}`], cwd).filter((path) => path.includes("/"));
+  const reExports = nonRootConfigs.filter((path) => isReExportOnly(readFileIn(cwd, path)));
+  if (reExports.length === 0) return true;
+  return { ok: false, detail: formatPaths(reExports) };
 }
 function noRedundantRootScripts() {
   const pkg = readPackageJson();
@@ -213,6 +301,12 @@ function noRedundantRootScripts() {
     ok: false,
     detail: `redundant: ${redundant.join(", ")}`
   };
+}
+function noRetiredVitestConfigs(cwd = process.cwd()) {
+  return checkNoMatchingFiles(
+    [`**/vitest.standalone.config.${CONFIG_EXTENSIONS}`, `**/vitest.integration.config.${CONFIG_EXTENSIONS}`],
+    cwd
+  );
 }
 function noWorkspaceRunScriptReferences() {
   const packagesDir = join(process.cwd(), "packages");
@@ -233,6 +327,13 @@ function noWorkspaceRunScriptReferences() {
     detail: `found in: ${matches.join(", ")}`
   };
 }
+function readFileIn(cwd, relativePath) {
+  try {
+    return readFileSync(join(cwd, relativePath), "utf8");
+  } catch {
+    return void 0;
+  }
+}
 function scriptExists(name) {
   const pkg = readPackageJson();
   if (!pkg) return false;
@@ -252,7 +353,19 @@ function toolVersionsHasNoPnpm() {
   if (content === void 0) return true;
   return !/^pnpm\s/m.test(content);
 }
+function vitestConfigBuildsOnSharedConfig(cwd = process.cwd()) {
+  return checkRootVitestConfig("vitest.config", "defineVitestConfig", cwd);
+}
+function vitestRootConfigBuildsOnSharedConfig(cwd = process.cwd()) {
+  return checkRootVitestConfig("vitest.root.config", "defineRootVitestConfig", cwd);
+}
 export {
   codeQualityWorkflowDoesNotUseNmrCi,
-  nmr_default as default
+  nmr_default as default,
+  noDriftSuffixedTests,
+  noIntegrationSuffixedTests,
+  noReExportOnlyVitestConfigs,
+  noRetiredVitestConfigs,
+  vitestConfigBuildsOnSharedConfig,
+  vitestRootConfigBuildsOnSharedConfig
 };
