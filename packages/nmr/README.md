@@ -488,7 +488,11 @@ Format, or check the formatting of, the files git reports for the working direct
 
 The selection is tracked files plus untracked files git does not ignore, scoped to the working directory, with every `.prettierignore` in the tree discovered from the repository root and passed to Prettier explicitly — see [file selection](#file-selection) for what that buys. Paths the index names but the filesystem does not have (a file deleted but not yet staged) and submodule gitlinks are both dropped, so neither reaches Prettier.
 
-Trailing arguments are git pathspecs, not Prettier flags: they narrow the selection, an unrecognized option is rejected rather than forwarded, and pathspecs that match no formattable file fail rather than passing quietly. Prettier itself is resolved from `PATH`.
+Trailing arguments are git pathspecs, not Prettier flags: they narrow the selection, an unrecognized option is rejected rather than forwarded, and pathspecs that match no formattable file fail rather than passing quietly.
+
+`prettier` is an optional peer dependency (`>=3.9.5 <4`); the consuming repo provides it, and it is resolved through the module graph rather than from `PATH`, so the copy that runs is the one the repo declares and not whichever `prettier` happens to come first. A repository's formatter has to be the one its editor and pre-commit hook also run, which is why nmr takes it from the consumer instead of bundling a copy. It is optional because a repo can use nmr purely as a script runner; one that formats without a resolvable Prettier gets a message naming the package and the range.
+
+The floor is a currency policy, not a capability boundary. What the design requires is `--ignore-path` honouring every flag rather than only the last, so a repository-root ignore file passed alongside a package-level one is not silently dropped — Prettier has done that since 3.0.0, while 2.x honoured only the final flag. The floor sits at the current release because every consuming repo tracks it; lowering it to `>=3.0.0` would cost correctness nothing.
 
 ```bash
 nmr-fmt --check

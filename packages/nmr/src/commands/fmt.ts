@@ -1,10 +1,13 @@
 import { Buffer } from 'node:buffer';
 import { spawnSync } from 'node:child_process';
-import { statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import process from 'node:process';
 
 import { reportError } from '@williamthorsen/nmr-core';
+
+import { isObject } from '../helpers/type-guards.ts';
 
 /** The ignore file Prettier reads but does not discover hierarchically. */
 const IGNORE_FILENAME = '.prettierignore';
@@ -23,8 +26,10 @@ const LIST_FILES_ARGS = ['ls-files', '-z', '--cached', '--others', '--exclude-st
  */
 const IGNORE_FILE_PATHSPEC = `*${IGNORE_FILENAME}`;
 
-/** Resolved from PATH, as the Prettier invocations these scripts replace already were. */
-const PRETTIER_BIN = 'prettier';
+const PRETTIER_PACKAGE = 'prettier';
+
+/** The peer range, quoted back to a consumer whose repository has no resolvable Prettier. */
+const PRETTIER_RANGE = '>=3.9.5 <4';
 
 /**
  * Ceiling on the bytes of file arguments handed to one Prettier process, well under the smallest
@@ -85,7 +90,13 @@ export function runFmt(argv: string[], cwd: string = process.cwd()): number {
     return 0;
   }
 
-  return runPrettier(parsed.mode, files, ignorePaths, cwd);
+  const cli = resolvePrettierCli();
+  if (!cli.ok) {
+    reportError(`nmr-fmt: ${cli.error}`);
+    return 1;
+  }
+
+  return runPrettier({ cliPath: cli.cliPath, mode: parsed.mode, files, ignorePaths, cwd });
 }
 
 /**
@@ -174,22 +185,68 @@ function parseFmtArgs(argv: string[]): ParseArgsResult {
 }
 
 /**
+ * Locates the Prettier CLI in the consuming repository's own installation.
+ *
+ * Prettier is a peer dependency rather than something nmr bundles, because a repository's formatter has
+ * to be the one its editor and pre-commit hook also run: a copy of nmr's choosing would reformat files
+ * the editor then reformats back. Resolution goes through the module graph rather than PATH so the
+ * declared copy is the one that runs — under pnpm's isolated layout the `prettier` first on PATH need
+ * not be the one the repository depends on.
+ *
+ * The floor is a currency policy, not a capability boundary. What the design requires is `--ignore-path`
+ * honouring every flag rather than only the last, so that a repository-root ignore file passed alongside
+ * a package-level one is not silently dropped; Prettier has done that since 3.0.0. The floor sits at the
+ * current release because every consuming repository tracks it, so lowering it to 3.0.0 would cost
+ * correctness nothing.
+ */
+function resolvePrettierCli(): { ok: true; cliPath: string } | { ok: false; error: string } {
+  const missing = {
+    ok: false as const,
+    error: `\`${PRETTIER_PACKAGE}\` (${PRETTIER_RANGE}) could not be resolved. Install it in this repository.`,
+  };
+
+  let manifestPath: string;
+  try {
+    manifestPath = createRequire(import.meta.url).resolve(`${PRETTIER_PACKAGE}/package.json`);
+  } catch {
+    return missing;
+  }
+
+  const manifest: unknown = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  if (!isObject(manifest)) return missing;
+
+  // Prettier declares a lone CLI, as a bare path in 3.x and as a named map in some releases.
+  const bin = isObject(manifest.bin) ? manifest.bin[PRETTIER_PACKAGE] : manifest.bin;
+  if (typeof bin !== 'string') return missing;
+
+  return { ok: true, cliPath: path.resolve(path.dirname(manifestPath), bin) };
+}
+
+/** @internal */
+export interface RunPrettierOptions {
+  cliPath: string;
+  mode: FormatMode;
+  files: string[];
+  ignorePaths: string[];
+  cwd: string;
+  /** Overridable so the multi-batch path is reachable without a fixture that hits the real ceiling. */
+  budgetBytes?: number;
+}
+
+/**
  * Runs Prettier over the selection, returning the first non-zero exit code. Every batch runs even after
  * one fails, so a check reports every offending file rather than only those in the first batch.
  *
- * `budgetBytes` is a parameter so the multi-batch path can be exercised without a fixture large enough
- * to reach the real ceiling.
+ * The CLI runs under this process's own Node rather than through its shebang, so it does not depend on
+ * the file's execute bit or on PATH holding a `node`.
  *
  * @internal
  */
-export function runPrettier(
-  mode: FormatMode,
-  files: string[],
-  ignorePaths: string[],
-  cwd: string,
-  budgetBytes: number = ARGUMENT_BUDGET_BYTES,
-): number {
-  const options = [
+export function runPrettier(options: RunPrettierOptions): number {
+  const { cliPath, mode, files, ignorePaths, cwd, budgetBytes = ARGUMENT_BUDGET_BYTES } = options;
+
+  const prettierArgs = [
+    cliPath,
     // The file list carries types Prettier has no parser for, ignore files and images among them.
     '--ignore-unknown',
     ...ignorePaths.flatMap((ignorePath) => ['--ignore-path', ignorePath]),
@@ -199,10 +256,10 @@ export function runPrettier(
   let firstFailure = 0;
 
   for (const batch of batchWithinBudget(files, budgetBytes)) {
-    const result = spawnSync(PRETTIER_BIN, [...options, ...batch], { cwd, stdio: 'inherit' });
+    const result = spawnSync(process.execPath, [...prettierArgs, ...batch], { cwd, stdio: 'inherit' });
 
     if (result.error) {
-      reportError(`nmr-fmt: could not run \`${PRETTIER_BIN}\` (${result.error.message}). Is Prettier installed?`);
+      reportError(`nmr-fmt: could not run \`${PRETTIER_PACKAGE}\` (${result.error.message}).`);
       return 1;
     }
 
