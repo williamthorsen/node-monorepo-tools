@@ -240,8 +240,8 @@ These scripts are available out of the box. Repo-wide config (tier 2) and per-pa
 | `compile`          | `nmr-compile`                                            |
 | `fix`              | `lint`, `fmt`                                            |
 | `fix:check`        | `fmt:check`, `lint:check`                                |
-| `fmt`              | `prettier --list-different --write .`                    |
-| `fmt:check`        | `prettier --check .`                                     |
+| `fmt`              | `nmr-fmt --write`                                        |
+| `fmt:check`        | `nmr-fmt --check`                                        |
 | `lint`             | `eslint --fix .`                                         |
 | `lint:check`       | `eslint .`                                               |
 | `lint:strict`      | `strict-lint`                                            |
@@ -328,12 +328,18 @@ The same five names the workspace registry carries, so a command means the same 
 
 #### Format
 
-| Command     | Runs                                  |
-| ----------- | ------------------------------------- |
-| `fmt`       | `prettier --list-different --write .` |
-| `fmt:all`   | `fmt`, `fmt:sh`                       |
-| `fmt:check` | `prettier --check .`                  |
-| `fmt:sh`    | `shfmt --write **/*.sh`               |
+| Command     | Runs                    |
+| ----------- | ----------------------- |
+| `fmt`       | `nmr-fmt --write`       |
+| `fmt:all`   | `fmt`, `fmt:sh`         |
+| `fmt:check` | `nmr-fmt --check`       |
+| `fmt:sh`    | `shfmt --write **/*.sh` |
+
+#### File selection
+
+`fmt` and `fmt:check` format the files git reports: tracked files, plus untracked files git does not ignore. Prettier reads `.gitignore` and `.prettierignore` from the working directory alone, so a pattern in `packages/<pkg>/.gitignore` never reaches a run started at the monorepo root. git knows the whole hierarchy, including `.git/info/exclude` and `core.excludesFile`, and every `.prettierignore` in the tree is discovered from the repository root, so package-level exclusions apply from any directory as well.
+
+A file git ignores is never formatted, even when named directly. Trailing arguments are git pathspecs rather than Prettier flags, so `nmr fmt:check packages/nmr` narrows the run while an unrecognized option is rejected. Running outside a git repository fails rather than reporting a clean run.
 
 #### Audit
 

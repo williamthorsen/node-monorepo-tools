@@ -11,6 +11,8 @@ describe('getDefaultWorkspaceScripts', () => {
     expect(scripts['fix:check']).toStrictEqual(['fmt:check', 'lint:check']);
     expect(scripts.clean).toBe('nmr-clean');
     expect(scripts.compile).toBe('nmr-compile');
+    expect(scripts.fmt).toBe('nmr-fmt --write');
+    expect(scripts['fmt:check']).toBe('nmr-fmt --check');
     expect(scripts.typecheck).toBe('tsgo --noEmit');
   });
 
@@ -52,6 +54,9 @@ describe('getDefaultRootScripts', () => {
     expect(scripts.clean).toBe('nmr-clean');
     expect(scripts['fmt:all']).toStrictEqual(['fmt', 'fmt:sh']);
     expect(scripts['fmt:sh']).toBe('shfmt --write **/*.sh');
+    // Identical to the workspace entries: the bin needs no `sh -c` wrapper to default its own selection.
+    expect(scripts.fmt).toBe('nmr-fmt --write');
+    expect(scripts['fmt:check']).toBe('nmr-fmt --check');
     expect(scripts['root:check']).toStrictEqual(['root:typecheck', 'fmt:check', 'root:lint:check', 'root:test']);
     expect(scripts['report-overrides']).toBe('nmr-report-overrides');
     expect(scripts['sync-agent-files']).toBe('nmr-sync-agent-files');
