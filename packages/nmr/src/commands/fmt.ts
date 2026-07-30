@@ -1,5 +1,9 @@
+import { Buffer } from 'node:buffer';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
+import process from 'node:process';
+
+import { reportError } from '@williamthorsen/nmr-core';
 
 /** The ignore file Prettier reads but does not discover hierarchically. */
 const IGNORE_FILENAME = '.prettierignore';
@@ -18,6 +22,26 @@ const LIST_FILES_ARGS = ['ls-files', '-z', '--cached', '--others', '--exclude-st
  */
 const IGNORE_FILE_PATHSPEC = `*${IGNORE_FILENAME}`;
 
+/** Resolved from PATH, as the Prettier invocations these scripts replace already were. */
+const PRETTIER_BIN = 'prettier';
+
+/**
+ * Ceiling on the bytes of file arguments handed to one Prettier process, well under the smallest
+ * `ARG_MAX` in play. Repositories below it run in a single process, which keeps the output to one
+ * "Checking formatting..." banner; larger ones spill into further processes rather than failing.
+ */
+const ARGUMENT_BUDGET_BYTES = 100_000;
+
+const USAGE = 'Usage: nmr-fmt (--check | --write) [pathspec...]';
+
+export type FormatMode = 'check' | 'write';
+
+/** `--write` keeps `--list-different` so a write run still names the files it changed. */
+const MODE_ARGS: Record<FormatMode, string[]> = {
+  check: ['--check'],
+  write: ['--list-different', '--write'],
+};
+
 export interface FormatTargets {
   /** Paths relative to the working directory, as `git ls-files` emits them. */
   files: string[];
@@ -26,6 +50,36 @@ export interface FormatTargets {
 }
 
 export type ResolveTargetsResult = { ok: true; targets: FormatTargets } | { ok: false; error: string };
+
+/**
+ * Formats or checks the files git reports for `cwd`, and returns the exit code to report.
+ *
+ * Trailing arguments are git pathspecs, not Prettier flags; an unrecognized option is rejected rather
+ * than passed along, since git would read it as a pathspec matching nothing and the run would report
+ * success over an empty selection.
+ */
+export function runFmt(argv: string[], cwd: string = process.cwd()): number {
+  const parsed = parseFmtArgs(argv);
+  if (!parsed.ok) {
+    reportError(`nmr-fmt: ${parsed.error}`);
+    process.stderr.write(`${USAGE}\n`);
+    return 1;
+  }
+
+  const resolved = resolveFormatTargets(cwd, parsed.pathspecs);
+  if (!resolved.ok) {
+    reportError(`nmr-fmt: ${resolved.error}`);
+    return 1;
+  }
+
+  const { files, ignorePaths } = resolved.targets;
+  // Prettier given no file arguments reads stdin and fails; nothing to format is simply nothing to do.
+  if (files.length === 0) {
+    return 0;
+  }
+
+  return runPrettier(parsed.mode, files, ignorePaths, cwd);
+}
 
 /**
  * Resolves what Prettier should format and which ignore files govern it, using git rather than Prettier's
@@ -66,6 +120,89 @@ export function resolveFormatTargets(cwd: string, pathspecs: string[] = []): Res
       ignorePaths: dedupe([path.join(repositoryRoot, IGNORE_FILENAME), ...discovered]),
     },
   };
+}
+
+type ParseArgsResult = { ok: true; mode: FormatMode; pathspecs: string[] } | { ok: false; error: string };
+
+/** Reads the required mode flag and treats every remaining argument as a git pathspec. */
+function parseFmtArgs(argv: string[]): ParseArgsResult {
+  let mode: FormatMode | undefined;
+  const pathspecs: string[] = [];
+
+  for (const arg of argv) {
+    if (arg === '--check' || arg === '--write') {
+      const requested: FormatMode = arg === '--check' ? 'check' : 'write';
+      if (mode !== undefined && mode !== requested) {
+        return { ok: false, error: 'Pass --check or --write, not both.' };
+      }
+      mode = requested;
+      continue;
+    }
+    if (arg.startsWith('-')) {
+      return { ok: false, error: `Unknown option: ${arg}` };
+    }
+    pathspecs.push(arg);
+  }
+
+  if (mode === undefined) {
+    return { ok: false, error: 'Pass --check or --write.' };
+  }
+
+  return { ok: true, mode, pathspecs };
+}
+
+/**
+ * Runs Prettier over the selection, returning the first non-zero exit code. Every batch runs even after
+ * one fails, so a check reports every offending file rather than only those in the first batch.
+ */
+function runPrettier(mode: FormatMode, files: string[], ignorePaths: string[], cwd: string): number {
+  const options = [
+    // The file list carries types Prettier has no parser for, ignore files and images among them.
+    '--ignore-unknown',
+    ...ignorePaths.flatMap((ignorePath) => ['--ignore-path', ignorePath]),
+    ...MODE_ARGS[mode],
+  ];
+
+  let firstFailure = 0;
+
+  for (const batch of batchWithinBudget(files, ARGUMENT_BUDGET_BYTES)) {
+    const result = spawnSync(PRETTIER_BIN, [...options, ...batch], { cwd, stdio: 'inherit' });
+
+    if (result.error) {
+      reportError(`nmr-fmt: could not run \`${PRETTIER_BIN}\` (${result.error.message}). Is Prettier installed?`);
+      return 1;
+    }
+
+    const status = result.status ?? 1;
+    if (status !== 0 && firstFailure === 0) {
+      firstFailure = status;
+    }
+  }
+
+  return firstFailure;
+}
+
+/** Groups paths into batches whose combined byte length stays within `budget`. */
+function batchWithinBudget(files: string[], budget: number): string[][] {
+  const batches: string[][] = [];
+  let batch: string[] = [];
+  let size = 0;
+
+  for (const file of files) {
+    // The separator each argument costs the caller alongside its own bytes.
+    const cost = Buffer.byteLength(file) + 1;
+    if (batch.length > 0 && size + cost > budget) {
+      batches.push(batch);
+      batch = [];
+      size = 0;
+    }
+    batch.push(file);
+    size += cost;
+  }
+
+  if (batch.length > 0) batches.push(batch);
+
+  return batches;
 }
 
 /**
