@@ -167,6 +167,14 @@ describe(defineRootVitestConfig, () => {
     expect(() => defineRootVitestConfig({})).toThrow('defineRootVitestConfig requires `monorepoRoot`');
   });
 
+  // A relative root reaches `path.join` and `projectRoot` unresolved, so the config would describe whichever
+  // monorepo the run started in — the resolution this option replaces.
+  it('throws when the monorepo root is not an absolute path', () => {
+    for (const monorepoRoot of ['', '.', 'packages/..']) {
+      expect(() => defineRootVitestConfig({ monorepoRoot })).toThrow('defineRootVitestConfig requires `monorepoRoot`');
+    }
+  });
+
   it('excludes no packages when the manifest declares none, as in a single-package repo', () => {
     for (const project of getProjects(defineRootVitestConfig({ monorepoRoot: singlePackageRoot }))) {
       expect(project.test?.exclude).toStrictEqual([
