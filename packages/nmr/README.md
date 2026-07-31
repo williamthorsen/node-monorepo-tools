@@ -28,17 +28,17 @@ nmr works out of the box with no configuration. It ships with built-in scripts f
 From a package directory:
 
 ```bash
-nmr test          # Run tests for the current package
-nmr build         # Compile to .js and .d.ts in one pass
-nmr check         # Typecheck, format check, lint check, and tests
+nmr test  # Run tests for the current package
+nmr build # Compile to .js and .d.ts in one pass
+nmr check # Typecheck, format check, lint check, and tests
 ```
 
 From the monorepo root:
 
 ```bash
-nmr test          # Run root tests + recursive workspace tests
-nmr build         # Build all packages
-nmr ci            # Run build && check:strict && audit (full CI pipeline)
+nmr test  # Run root tests + recursive workspace tests
+nmr build # Build all packages
+nmr ci    # Run build && check:strict && audit (full CI pipeline)
 ```
 
 nmr detects where you are and selects the right scripts automatically — see [context-aware resolution](#context-aware-resolution) below.
@@ -199,9 +199,9 @@ The second example calls the bin directly, which sidesteps the workspace-versus-
 The upgrade tool ([taze](https://github.com/antfu-collective/taze)) arrives with nmr, so your repo declares no dependency on it. Everything after the command name is passed through, including the range mode:
 
 ```bash
-nmr upgrade          # upgrades available within each package's version ceilings
-nmr upgrade major    # major upgrades, still inside the ceilings
-nmr upgrade --write  # apply the proposals to package.json
+nmr upgrade         # upgrades available within each package's version ceilings
+nmr upgrade major   # major upgrades, still inside the ceilings
+nmr upgrade --write # apply the proposals to package.json
 ```
 
 ### Configuring upgrades
@@ -403,19 +403,19 @@ Position determines ownership: flags before the command name are nmr's own, and 
 
 ```bash
 # From a package directory
-nmr test                    # Run workspace test script
-nmr build                   # Compile to .js and .d.ts in one pass
+nmr test  # Run workspace test script
+nmr build # Compile to .js and .d.ts in one pass
 
 # From the monorepo root
-nmr test                    # Root tests + recursive workspace tests
-nmr ci                      # build + check:strict + audit
+nmr test # Root tests + recursive workspace tests
+nmr ci   # build + check:strict + audit
 
 # Target specific packages
-nmr --filter core test      # Test only the core package
-nmr --recursive lint        # Lint all workspace packages
+nmr --filter core test # Test only the core package
+nmr --recursive lint   # Lint all workspace packages
 
 # Force root context from anywhere
-nmr --workspace-root check  # Run root check from a package dir
+nmr --workspace-root check # Run root check from a package dir
 ```
 
 ## Additional subcommands
@@ -435,8 +435,8 @@ nmr report-overrides
 Sync the agent-facing guidance shipped with nmr into the consuming repo.
 
 ```bash
-nmr sync-agent-files          # write .agents/nmr/AGENTS.md, stamped with the installed nmr version
-nmr sync-agent-files --check  # verify the stamp matches; exit 1 with a fix message if not
+nmr sync-agent-files         # write .agents/nmr/AGENTS.md, stamped with the installed nmr version
+nmr sync-agent-files --check # verify the stamp matches; exit 1 with a fix message if not
 ```
 
 Run `nmr sync-agent-files` once after upgrading nmr. The generated file is committed to the consuming repo; do not edit it by hand.
@@ -635,9 +635,9 @@ The config declares three projects, named for what the tests cover:
 All three match only under a `__tests__` directory. Select them at run time with `--project`, which accepts negation:
 
 ```bash
-vitest --project '!integration'   # everything except integration tests
-vitest --project integration      # integration tests alone
-vitest                            # every project
+vitest --project '!integration' # everything except integration tests
+vitest --project integration    # integration tests alone
+vitest                          # every project
 ```
 
 `unit` is defined by subtracting the other categories rather than by an allow-list of suffixes, so a file such as `parser.smoke.test.ts` runs under `unit` instead of being silently dropped.
