@@ -550,7 +550,7 @@ for (const packageDir of getWorkspacePackageDirs(monorepoRoot)) {
 
 `findMonorepoRoot(startDir?)` walks up from `startDir`, defaulting to `process.cwd()`, until it reaches a directory containing `pnpm-workspace.yaml`. It throws if it runs out of parent directories without finding one.
 
-`getWorkspacePackageDirs(monorepoRoot)` reads the workspace patterns from that repo's `pnpm-workspace.yaml` and resolves them to absolute package directories, sorted and free of duplicates. Patterns carry pnpm's own semantics: `packages/*`, deeper globs such as `packages/**`, exact paths such as `tools/cli`, and `!`-prefixed exclusions such as `!packages/legacy` or `!**/test/**`, which filter every directory the positive patterns matched regardless of where they appear in the list. Nothing under `node_modules` is ever returned.
+`getWorkspacePackageDirs(monorepoRoot)` reads the workspace patterns from that repo's `pnpm-workspace.yaml` and resolves them to absolute package directories, sorted and free of duplicates. It throws if `monorepoRoot` holds no `pnpm-workspace.yaml`. Patterns carry pnpm's own semantics: `packages/*`, deeper globs such as `packages/**`, exact paths such as `tools/cli`, and `!`-prefixed exclusions such as `!packages/legacy` or `!**/test/**`, which filter every directory the positive patterns matched regardless of where they appear in the list. Nothing under `node_modules` is ever returned.
 
 One divergence from pnpm: a directory counts as a package only if it holds a `package.json`, not a `package.yaml` or `package.json5`.
 
@@ -667,22 +667,18 @@ A monorepo's own root-level tests need a second config, because the package conf
 // vitest.root.config.ts
 import { defineRootVitestConfig } from '@williamthorsen/nmr/vitest';
 
-export default defineRootVitestConfig();
+export default defineRootVitestConfig({ monorepoRoot: import.meta.dirname });
 ```
 
 This variant reads `pnpm-workspace.yaml` and excludes every workspace package from all three projects, so a root run covers only root-level files. It reports no coverage of its own — packages cover their own sources.
 
-The monorepo root is located by walking up from the working directory, and every project is pinned to it, so the exclusions hold wherever the run is invoked from. Pass `startDir` to locate it from somewhere else:
-
-```ts
-export default defineRootVitestConfig({ startDir: import.meta.dirname });
-```
+`monorepoRoot` is required, and because the config sits at the monorepo root, it is always `import.meta.dirname`. Stating the root rather than searching for it is what makes the exclusions describe this repo: a search from the working directory would resolve whichever monorepo the run started in, and every project is then pinned to that one. A directory holding no `pnpm-workspace.yaml` throws, naming the directory.
 
 ### Migrating from the config-file variants
 
 nmr once selected a package's test scripts by looking for a `vitest.integration.config.ts` on disk, which meant three config files per package that separated its integration tests. Those files are no longer consulted. **Migrate the config and the scripts together**: one without the other leaves the repo in one of the two states below.
 
-1. Replace the repo's root `vitest.config.ts` with `defineVitestConfig()`, and its root-scoped config with `defineRootVitestConfig()`.
+1. Replace the repo's root `vitest.config.ts` with `defineVitestConfig()`, and its root-scoped config with `defineRootVitestConfig({ monorepoRoot: import.meta.dirname })`.
 2. Delete every `vitest.integration.config.ts` and `vitest.standalone.config.ts`, plus any per-package `vitest.config.ts` that only re-exports an ancestor. Vitest resolves config by walking up from the run root, so those are redundant.
 3. Rename integration tests to `*.int.test.ts` and tooling or drift tests to `*.app.test.ts`.
 4. Drop any hand-copied `test*` entries from `package.json`, which now shadow the defaults.

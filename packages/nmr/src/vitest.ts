@@ -4,7 +4,7 @@ import type { TestProjectInlineConfiguration, ViteUserConfig } from 'vitest/conf
 import { defaultExclude, mergeConfig } from 'vitest/config';
 import type { InlineConfig, ProjectConfig } from 'vitest/node';
 
-import { findMonorepoRoot, getWorkspacePackageDirs } from './workspace.ts';
+import { getWorkspacePackageDirs } from './workspace.ts';
 
 /**
  * Test options Vitest honours only at the root of a `projects` config. Derived from Vitest's own types rather than
@@ -27,8 +27,12 @@ export interface VitestConfigOptions {
 }
 
 export interface RootVitestConfigOptions extends VitestConfigOptions {
-  /** Directory the monorepo root is located from, defaulting to the process working directory. */
-  startDir?: string;
+  /**
+   * An absolute path to the monorepo root, which must hold `pnpm-workspace.yaml`. A root config sits at that
+   * directory by construction, so this is `import.meta.dirname`. Stated rather than searched for: resolving it
+   * from the working directory would make the config describe whichever monorepo the run happened to start in.
+   */
+  monorepoRoot: string;
 }
 
 const APP_PATTERNS = ['**/__tests__/**/*.app.test.{ts,tsx}'];
@@ -48,6 +52,9 @@ const COVERAGE_EXCLUDE = [
 
 const PACKAGE_COVERAGE_INCLUDE = ['**/src/**/*.{ts,tsx}'];
 
+const MISSING_MONOREPO_ROOT =
+  'defineRootVitestConfig requires `monorepoRoot`, an absolute path to the directory holding pnpm-workspace.yaml. Pass `import.meta.dirname` from the root config.';
+
 /**
  * Builds the shared Vitest config for a workspace package, declaring the `unit`, `integration`, and `app` projects.
  * Select them at run time with `--project`, which accepts negation.
@@ -59,9 +66,23 @@ export function defineVitestConfig(options: VitestConfigOptions = {}): ViteUserC
 /**
  * Builds the shared Vitest config for repo-root tests. Excludes every workspace package from all projects, and
  * reports no coverage of its own — packages cover their own sources.
+ *
+ * The parameter admits `undefined` in its type but is not optional, so omitting it stays a type error while
+ * the guard below can still catch the JavaScript config that types never reach.
  */
-export function defineRootVitestConfig(options: RootVitestConfigOptions = {}): ViteUserConfig {
-  const monorepoRoot = findMonorepoRoot(options.startDir);
+export function defineRootVitestConfig(options: RootVitestConfigOptions | undefined): ViteUserConfig {
+  if (options === undefined) {
+    throw new TypeError(MISSING_MONOREPO_ROOT);
+  }
+
+  // Reading through `unknown` is what keeps the check live: the declared type alone would make it statically
+  // dead. A relative path would resolve against the working directory, which is the resolution this option
+  // exists to replace.
+  const monorepoRoot: unknown = options.monorepoRoot;
+
+  if (typeof monorepoRoot !== 'string' || !path.isAbsolute(monorepoRoot)) {
+    throw new TypeError(MISSING_MONOREPO_ROOT);
+  }
 
   return buildConfig(options, {
     coverageInclude: [],

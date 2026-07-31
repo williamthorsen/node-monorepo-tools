@@ -6,6 +6,9 @@ import { parse } from 'yaml';
 import { isObject } from './helpers/type-guards.ts';
 import { resolvePackageDirs } from './helpers/workspace-patterns.ts';
 
+/** The manifest whose presence marks a directory as the monorepo root. */
+const WORKSPACE_MANIFEST = 'pnpm-workspace.yaml';
+
 /**
  * Finds the monorepo root by walking up from `startDir` to find `pnpm-workspace.yaml`.
  * Throws if no workspace root is found.
@@ -14,12 +17,12 @@ export function findMonorepoRoot(startDir?: string): string {
   let dir = path.resolve(startDir ?? process.cwd());
 
   for (;;) {
-    if (existsSync(path.join(dir, 'pnpm-workspace.yaml'))) {
+    if (existsSync(path.join(dir, WORKSPACE_MANIFEST))) {
       return dir;
     }
     const parent = path.dirname(dir);
     if (parent === dir) {
-      throw new Error('Could not find monorepo root: no pnpm-workspace.yaml found in any parent directory');
+      throw new Error(`Could not find monorepo root: no ${WORKSPACE_MANIFEST} found in any parent directory`);
     }
     dir = parent;
   }
@@ -29,10 +32,16 @@ export function findMonorepoRoot(startDir?: string): string {
  * Reads the workspace patterns from `pnpm-workspace.yaml` and resolves them to absolute package
  * directories, applying pnpm's pattern semantics — including `!`-prefixed exclusions.
  *
- * Returns an empty array when the manifest declares no usable `packages` list.
+ * Returns an empty array when the manifest declares no usable `packages` list, and throws when
+ * `monorepoRoot` holds no manifest at all — the caller named a directory that is not a monorepo root.
  */
 export function getWorkspacePackageDirs(monorepoRoot: string): string[] {
-  const workspaceFile = path.join(monorepoRoot, 'pnpm-workspace.yaml');
+  const workspaceFile = path.join(monorepoRoot, WORKSPACE_MANIFEST);
+
+  if (!existsSync(workspaceFile)) {
+    throw new Error(`Not a monorepo root: no ${WORKSPACE_MANIFEST} in ${monorepoRoot}`);
+  }
+
   const content = readFileSync(workspaceFile, 'utf8');
   const parsed: unknown = parse(content);
 

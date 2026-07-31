@@ -16,7 +16,7 @@ import {
 const SHARED_CONFIG =
   "import { defineVitestConfig } from '@williamthorsen/nmr/vitest';\nexport default defineVitestConfig();\n";
 const SHARED_ROOT_CONFIG =
-  "import { defineRootVitestConfig } from '@williamthorsen/nmr/vitest';\nexport default defineRootVitestConfig({ startDir: import.meta.dirname });\n";
+  "import { defineRootVitestConfig } from '@williamthorsen/nmr/vitest';\nexport default defineRootVitestConfig({ monorepoRoot: import.meta.dirname });\n";
 
 const fixtureDirs: string[] = [];
 

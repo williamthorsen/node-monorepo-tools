@@ -151,7 +151,7 @@ var nmr_default = defineRdyKit({
           name: "vitest.root.config.ts builds on @williamthorsen/nmr/vitest",
           severity: "error",
           check: () => vitestRootConfigBuildsOnSharedConfig(),
-          fix: "Replace vitest.root.config.ts with: import { defineRootVitestConfig } from '@williamthorsen/nmr/vitest'; export default defineRootVitestConfig({ startDir: import.meta.dirname });"
+          fix: "Replace vitest.root.config.ts with: import { defineRootVitestConfig } from '@williamthorsen/nmr/vitest'; export default defineRootVitestConfig({ monorepoRoot: import.meta.dirname });"
         },
         {
           name: "no test files use the .integration. suffix",
