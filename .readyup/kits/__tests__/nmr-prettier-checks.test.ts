@@ -11,14 +11,14 @@ const SHARED_CONFIG =
 
 const fixtureDirs: string[] = [];
 
-afterEach(() => {
-  for (const dir of fixtureDirs) {
-    rmSync(dir, { force: true, recursive: true });
-  }
-  fixtureDirs.length = 0;
-});
-
 describe(prettierConfigBuildsOnSharedConfig, () => {
+  afterEach(() => {
+    for (const dir of fixtureDirs) {
+      rmSync(dir, { force: true, recursive: true });
+    }
+    fixtureDirs.length = 0;
+  });
+
   // Both spellings are configs Prettier reads, so a check matching only one would report a
   // conformant repo as stale. This repo uses the `.prettierrc.js` form.
   it.each(['.prettierrc.js', '.prettierrc.mjs', '.prettierrc.ts', 'prettier.config.js', 'prettier.config.mts'])(
@@ -85,6 +85,8 @@ describe(prettierConfigBuildsOnSharedConfig, () => {
   });
 });
 
+// region | Helpers
+
 function buildRepo(files: Record<string, string>): string {
   const dir = mkdtempSync(join(tmpdir(), 'nmr-kit-'));
   fixtureDirs.push(dir);
@@ -105,3 +107,5 @@ function detailOf(outcome: boolean | { ok: boolean; detail?: string | undefined 
   expect(outcome.ok).toBe(false);
   return outcome.detail ?? '';
 }
+
+// endregion | Helpers
