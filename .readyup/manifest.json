@@ -21,7 +21,7 @@
       "readyupVersion": "0.22.0",
       "source": "kits/nmr.ts",
       "sourceHash": "081ff553",
-      "targetHash": "ac1b9028"
+      "targetHash": "bbc37c24"
     },
     {
       "checklists": [
@@ -44,7 +44,7 @@
       "readyupVersion": "0.22.0",
       "source": "kits/release-kit.ts",
       "sourceHash": "981ce41e",
-      "targetHash": "f2b75410"
+      "targetHash": "4dca45aa"
     },
     {
       "checklists": [

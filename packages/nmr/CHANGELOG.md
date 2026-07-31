@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.22.0 — 2026-07-31
+
+### 🎉 Features
+
+- 🚨 **Breaking:** Ship shell and Dockerfile formatting from a shared nmr Prettier config (#540)
+
+  Adds the ability to format shell scripts and Dockerfiles to `nmr fmt`. `@williamthorsen/nmr` now provides a common config for consistency across projects. Shell fences inside Markdown are now formatted as well. These features are absorbed into `nmr fmt` and `nmr fmt:check`; the `fmt:sh` and `fmt:all` commands are removed.
+
+- 🚨 **Breaking:** Require the monorepo root in the shared root Vitest config (#541)
+
+  Modifies the testing configuration so that root-level test runs always cover the repository containing the configuration. The shared root Vitest config now requires a `monorepoRoot` option specifying an absolute path to the repository's own root, in place of the optional search origin. A repository nested inside a parent monorepo fails instead of resolving silently to its parent.
+
 ## 0.21.0 — 2026-07-30
 
 ### 🎉 Features

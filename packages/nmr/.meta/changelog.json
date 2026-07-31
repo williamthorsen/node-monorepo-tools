@@ -1,5 +1,29 @@
 [
   {
+    "version": "0.22.0",
+    "date": "2026-07-31",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Ship shell and Dockerfile formatting from a shared nmr Prettier config (#540)",
+            "body": "Adds the ability to format shell scripts and Dockerfiles to `nmr fmt`. `@williamthorsen/nmr` now provides a common config for consistency across projects. Shell fences inside Markdown are now formatted as well. These features are absorbed into `nmr fmt` and `nmr fmt:check`; the `fmt:sh` and `fmt:all` commands are removed.",
+            "breaking": true,
+            "hash": "e87669bc70834d0314c01f3ebb02c330faa4150f"
+          },
+          {
+            "description": "Require the monorepo root in the shared root Vitest config (#541)",
+            "body": "Modifies the testing configuration so that root-level test runs always cover the repository containing the configuration. The shared root Vitest config now requires a `monorepoRoot` option specifying an absolute path to the repository's own root, in place of the optional search origin. A repository nested inside a parent monorepo fails instead of resolving silently to its parent.",
+            "breaking": true,
+            "hash": "87bbe7129cf3ccac99bc85790654c1e6e86a4602"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.21.0",
     "date": "2026-07-30",
     "sections": [

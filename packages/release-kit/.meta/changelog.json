@@ -1,5 +1,22 @@
 [
   {
+    "version": "9.1.0",
+    "date": "2026-07-31",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Make label descriptions optional and generate none for scope labels (#539)",
+            "body": "`release-kit` now supports labels without a description, and `release-kit sync-labels init` generates scope labels without one. Applying a label without a description clears any existing description the repository carries for that label.",
+            "hash": "275108cfbc5694647a945de5aa75ac0ac6d07152"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "9.0.1",
     "date": "2026-07-30",
     "sections": [

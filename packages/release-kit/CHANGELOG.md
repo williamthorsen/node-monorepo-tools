@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 9.1.0 — 2026-07-31
+
+### 🎉 Features
+
+- Make label descriptions optional and generate none for scope labels (#539)
+
+  `release-kit` now supports labels without a description, and `release-kit sync-labels init` generates scope labels without one. Applying a label without a description clears any existing description the repository carries for that label.
+
 ## 9.0.1 — 2026-07-30
 
 ### ⚙️ Tooling
