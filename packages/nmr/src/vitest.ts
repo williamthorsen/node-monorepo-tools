@@ -52,6 +52,9 @@ const COVERAGE_EXCLUDE = [
 
 const PACKAGE_COVERAGE_INCLUDE = ['**/src/**/*.{ts,tsx}'];
 
+const MISSING_MONOREPO_ROOT =
+  'defineRootVitestConfig requires `monorepoRoot`, the directory holding pnpm-workspace.yaml. Pass `import.meta.dirname` from the root config.';
+
 /**
  * Builds the shared Vitest config for a workspace package, declaring the `unit`, `integration`, and `app` projects.
  * Select them at run time with `--project`, which accepts negation.
@@ -63,16 +66,23 @@ export function defineVitestConfig(options: VitestConfigOptions = {}): ViteUserC
 /**
  * Builds the shared Vitest config for repo-root tests. Excludes every workspace package from all projects, and
  * reports no coverage of its own — packages cover their own sources.
+ *
+ * The parameter admits `undefined` in its type but is not optional, so omitting it stays a type error while
+ * the guard below can still catch the JavaScript config that types never reach.
  */
-export function defineRootVitestConfig(options: RootVitestConfigOptions): ViteUserConfig {
-  // Guards the JavaScript caller that types cannot reach. A missing root would otherwise surface as a
-  // `path.join` TypeError naming neither the option nor this function.
-  const monorepoRoot: unknown = options?.monorepoRoot;
+export function defineRootVitestConfig(options: RootVitestConfigOptions | undefined): ViteUserConfig {
+  // A JavaScript config can omit the options object entirely — typically by copying the argument-less form
+  // this option replaced — or pass one without the root. Name the fix in both cases, rather than letting the
+  // omission surface as a `path.join` TypeError. Reading through `unknown` is what keeps the check live: the
+  // declared type alone would make it statically dead.
+  if (options === undefined) {
+    throw new TypeError(MISSING_MONOREPO_ROOT);
+  }
+
+  const monorepoRoot: unknown = options.monorepoRoot;
 
   if (typeof monorepoRoot !== 'string' || monorepoRoot === '') {
-    throw new TypeError(
-      'defineRootVitestConfig requires `monorepoRoot`, the directory holding pnpm-workspace.yaml. Pass `import.meta.dirname` from the root config.',
-    );
+    throw new TypeError(MISSING_MONOREPO_ROOT);
   }
 
   return buildConfig(options, {

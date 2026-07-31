@@ -157,9 +157,14 @@ describe(defineRootVitestConfig, () => {
     );
   });
 
-  it('throws when given no monorepo root, which types alone cannot prevent in a JavaScript config', () => {
-    // @ts-expect-error -- the option is required; this is the call a JavaScript consumer can still make.
+  it('throws when given no options at all, which types alone cannot prevent in a JavaScript config', () => {
+    // @ts-expect-error -- the argument is required; this is the call a JavaScript consumer can still make.
     expect(() => defineRootVitestConfig()).toThrow('defineRootVitestConfig requires `monorepoRoot`');
+  });
+
+  it('throws when given options carrying no monorepo root', () => {
+    // @ts-expect-error -- the option is required; a JavaScript consumer can still omit it.
+    expect(() => defineRootVitestConfig({})).toThrow('defineRootVitestConfig requires `monorepoRoot`');
   });
 
   it('excludes no packages when the manifest declares none, as in a single-package repo', () => {
