@@ -13,19 +13,34 @@ import * as shPlugin from 'prettier-plugin-sh';
 const INFERRED_LANGUAGES = new Set(['Dockerfile', 'Shell']);
 
 /**
- * Filenames the Shell language claims that no formatter should touch. `.flaskenv` holds dotenv content the plugin
- * misfiles as shell, and so splits on an unquoted `&` exactly as `.env` would; `gradlew` and `mvnw` are vendored
- * wrapper scripts whose generators would overwrite the result.
+ * Filenames the Shell language claims that no formatter should touch, in four groups.
+ * `.cshrc`, `cshrc`, `.login`, and `login` hold csh, which the shell parser rejects outright — the same reason the
+ * `Tcsh` language is left out of `INFERRED_LANGUAGES`, applied to the dotfiles `Shell` claims for itself.
+ * `.flaskenv` holds dotenv content the plugin misfiles as shell, and so splits on an unquoted `&` exactly as `.env`
+ * would. `gradlew` and `mvnw` are vendored wrapper scripts whose generators would overwrite the result.
+ * `.bash_history` is machine-written and routinely holds partial commands that do not parse.
  */
-const EXCLUDED_FILENAMES = new Set(['.flaskenv', 'gradlew', 'mvnw']);
+const EXCLUDED_FILENAMES = new Set([
+  '.bash_history',
+  '.cshrc',
+  '.flaskenv',
+  '.login',
+  'cshrc',
+  'gradlew',
+  'login',
+  'mvnw',
+]);
 
 /**
  * House Prettier options, shared by every repo consuming this config.
  *
  * The three shell options restore shfmt's CLI defaults, which the plugin inverts by defaulting all of them to `true`.
  * Pinning them back is what makes adoption a no-op in a repo whose scripts shfmt already formatted.
- * They sit here rather than in a `*.sh` override so that a consumer passing one as a scalar option overrides it:
- * An override would win over the scalar instead, which is the opposite of what this factory promises.
+ * They sit here rather than in a `*.sh` override for two reasons. A consumer passing one as a scalar option
+ * overrides it, where an override would win over the scalar instead — the opposite of what this factory promises.
+ * And Prettier resolves `overrides` against the containing file's path, so a `*.sh` entry never reaches a
+ * ```bash fence inside a Markdown file, which registering the plugin also formats; the fence and the standalone
+ * script would then be formatted in two different shell dialects.
  * Parsers other than `sh` ignore them.
  */
 const DEFAULT_OPTIONS: Config = {

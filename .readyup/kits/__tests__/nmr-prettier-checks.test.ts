@@ -78,6 +78,22 @@ describe(prettierConfigBuildsOnSharedConfig, () => {
     expect(detailOf(prettierConfigBuildsOnSharedConfig(dir))).toContain('missing');
   });
 
+  // Every repo this check runs against carries `prettier` as a dependency, so mistaking that entry for a config
+  // key would make the misreport the common case rather than the edge one.
+  it('reads prettier in devDependencies as a dependency, not as a config key', () => {
+    const dir = buildRepo({
+      'package.json': '{\n  "name": "repo",\n  "devDependencies": {\n    "prettier": "3.9.6"\n  }\n}\n',
+    });
+
+    expect(detailOf(prettierConfigBuildsOnSharedConfig(dir))).toContain('missing');
+  });
+
+  it('reports a malformed package.json as a missing config rather than throwing', () => {
+    const dir = buildRepo({ 'package.json': '{ not json\n' });
+
+    expect(detailOf(prettierConfigBuildsOnSharedConfig(dir))).toContain('missing');
+  });
+
   it('ignores a config inside a nested node_modules', () => {
     const dir = buildRepo({ 'node_modules/dep/.prettierrc.js': 'export default {};\n' });
 

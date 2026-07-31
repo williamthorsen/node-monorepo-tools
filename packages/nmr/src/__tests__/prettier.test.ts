@@ -15,16 +15,21 @@ const fixturesDir = path.join(import.meta.dirname, 'fixtures');
  * is the defect being guarded against.
  */
 const UNCLAIMED_PATHS = [
+  '.bash_history',
+  '.cshrc',
   '.env',
   '.flaskenv',
   '.gitignore',
   '.ics',
+  '.login',
   '.prettierignore',
   '.properties',
   '.vcf',
   'CODEOWNERS',
+  'cshrc',
   'gradlew',
   'hosts',
+  'login',
   'mvnw',
   'thing.csh',
   'thing.nu',
@@ -96,12 +101,18 @@ describe(definePrettierConfig, () => {
       expect(info.inferredParser).toBe('dockerfile');
     });
 
-    it('keeps the dropped languages reachable through an explicit parser assignment', async () => {
+    // Filtering `languages` while leaving `parsers` whole is what keeps this escape hatch open. `APKBUILD` infers
+    // nothing, so the explicit parser is the only thing routing it to the shell printer.
+    it.each(['APKBUILD', 'thing.ebuild'])('formats %s through an explicitly assigned parser', async (file) => {
       const config = definePrettierConfig();
-      const output = await format('FROM node:24-alpine   AS base\n', {
-        ...toFormatOptions(config, 'anything.containerfile'),
-        parser: 'dockerfile',
-      });
+      const output = await format('build() {\n\t\tmake\n}\n', { ...toFormatOptions(config, file), parser: 'sh' });
+
+      expect(output).toBe('build() {\n  make\n}\n');
+    });
+
+    it('formats a Dockerfile through the inferred Dockerfile printer', async () => {
+      const config = definePrettierConfig();
+      const output = await format('FROM node:24-alpine   AS base\n', toFormatOptions(config, 'Dockerfile'));
 
       expect(output).toBe('FROM node:24-alpine AS base\n');
     });

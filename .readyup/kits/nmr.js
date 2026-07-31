@@ -276,11 +276,20 @@ function prettierConfigBuildsOnSharedConfig(cwd = process.cwd()) {
 function describeMissingPrettierConfig(cwd) {
   const inert = findFiles(INERT_PRETTIER_CONFIGS, cwd);
   if (inert.length > 0) return `holds no code to call the factory: ${inert.join(", ")}`;
-  const manifest = readFileIn(cwd, "package.json");
-  if (manifest !== void 0 && /^\s*"prettier"\s*:/m.test(manifest)) {
+  if (hasPrettierConfigKey(cwd)) {
     return 'holds no code to call the factory: the "prettier" key in package.json';
   }
   return ".prettierrc.js is missing";
+}
+function hasPrettierConfigKey(cwd) {
+  const manifest = readFileIn(cwd, "package.json");
+  if (manifest === void 0) return false;
+  try {
+    const parsed = JSON.parse(manifest);
+    return isRecord(parsed) && parsed.prettier !== void 0;
+  } catch {
+    return false;
+  }
 }
 function codeQualityWorkflowDoesNotUseNmrCi() {
   const content = readFile(".github/workflows/code-quality.yaml");

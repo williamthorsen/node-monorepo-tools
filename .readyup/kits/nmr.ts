@@ -298,12 +298,29 @@ function describeMissingPrettierConfig(cwd: string): string {
   const inert = findFiles(INERT_PRETTIER_CONFIGS, cwd);
   if (inert.length > 0) return `holds no code to call the factory: ${inert.join(', ')}`;
 
-  const manifest = readFileIn(cwd, 'package.json');
-  if (manifest !== undefined && /^\s*"prettier"\s*:/m.test(manifest)) {
+  if (hasPrettierConfigKey(cwd)) {
     return 'holds no code to call the factory: the "prettier" key in package.json';
   }
 
   return '.prettierrc.js is missing';
+}
+
+/**
+ * Reports whether `package.json` configures Prettier through its own top-level key.
+ *
+ * Parsed rather than pattern-matched, because `prettier` also appears as a dependency entry in every repo this check
+ * runs against — `nmr fmt` requires it as a peer — and a line-anchored pattern cannot tell the two depths apart.
+ */
+function hasPrettierConfigKey(cwd: string): boolean {
+  const manifest = readFileIn(cwd, 'package.json');
+  if (manifest === undefined) return false;
+
+  try {
+    const parsed: unknown = JSON.parse(manifest);
+    return isRecord(parsed) && parsed.prettier !== undefined;
+  } catch {
+    return false;
+  }
 }
 
 /**

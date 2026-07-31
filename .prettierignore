@@ -1,4 +1,4 @@
-# Shell fixtures assert formatter behaviour, so formatting them would erase what they test.
-packages/nmr/src/__tests__/fixtures/
 .readyup/manifest.json
+# Shell fixtures assert formatter behavior, so formatting them would erase what they test.
+packages/nmr/src/__tests__/fixtures/
 pnpm-lock.yaml
