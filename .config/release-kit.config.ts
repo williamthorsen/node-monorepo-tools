@@ -8,12 +8,12 @@ export default defineConfig({
   repoLabels: {
     extends: ['common'],
     labels: {
-      'scope:root': { color: '00ff96', description: 'Monorepo root configuration' },
-      'scope:core': { color: '00ff96', description: 'core package' },
-      'scope:nmr': { color: '00ff96', description: 'nmr package' },
-      'scope:preflight': { color: '00ff96', description: 'preflight package' },
-      'scope:release-kit': { color: '00ff96', description: 'release-kit package' },
-      'scope:v11y-check': { color: '00ff96', description: 'v11y-check package' },
+      'scope:root': { color: '00ff96' },
+      'scope:core': { color: '00ff96' },
+      'scope:nmr': { color: '00ff96' },
+      'scope:preflight': { color: '00ff96' },
+      'scope:release-kit': { color: '00ff96' },
+      'scope:v11y-check': { color: '00ff96' },
     },
   },
   retiredPackages: [{ name: '@williamthorsen/preflight', tagPrefix: 'preflight-v', successor: 'readyup' }],

@@ -86,6 +86,28 @@ describe(resolveLabels, () => {
     expect(result).toStrictEqual([{ name: 'bug', color: 'ff0000', description: 'Custom bug' }, featureLabel]);
   });
 
+  it('carries no description key for a local entry that omits one', () => {
+    const config: RepoLabelsConfig = { labels: { 'scope:nmr': { color: '00ff96' } } };
+
+    const result = resolveLabels(config);
+
+    expect(result).toStrictEqual([{ name: 'scope:nmr', color: '00ff96' }]);
+  });
+
+  // Replacement is wholesale, so a color-only override drops the preset's description rather than inheriting it;
+  // this is what makes a bare scope entry actually resolve to bare.
+  it('drops a preset description when the replacing entry omits one', () => {
+    mockLoadPreset.mockReturnValue([bugLabel]);
+
+    const config: RepoLabelsConfig = {
+      extends: ['common'],
+      labels: { bug: { color: 'ff0000' } },
+    };
+    const result = resolveLabels(config);
+
+    expect(result).toStrictEqual([{ name: 'bug', color: 'ff0000' }]);
+  });
+
   it('removes a preset label when the local entry is null', () => {
     mockLoadPreset.mockReturnValue([bugLabel, featureLabel]);
 

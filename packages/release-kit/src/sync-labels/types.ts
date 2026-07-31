@@ -4,6 +4,6 @@ export interface LabelDefinition {
   name: string;
   /** Hex color code without the leading `#`. */
   color: string;
-  /** Short description shown in the GitHub UI. */
-  description: string;
+  /** Short description shown in the GitHub UI. Absent when the label carries none. */
+  description?: string;
 }

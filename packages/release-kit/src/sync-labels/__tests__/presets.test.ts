@@ -50,9 +50,23 @@ describe(loadPreset, () => {
 
   it('throws when an entry is missing a required field', () => {
     mockExistsSync.mockReturnValue(true);
-    mockReadFileSync.mockReturnValue('- name: bug\n  color: d73a4a\n');
+    mockReadFileSync.mockReturnValue('- name: bug\n  description: Something broken\n');
 
     expect(() => loadPreset('bad')).toThrow(/invalid fields/);
+  });
+
+  it('throws when an entry has a non-string description', () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue('- name: bug\n  color: d73a4a\n  description: 123\n');
+
+    expect(() => loadPreset('bad')).toThrow(/invalid fields/);
+  });
+
+  it('omits the description key for an entry that declares none', () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue('- name: scope:nmr\n  color: 00ff96\n');
+
+    expect(loadPreset('scopes')).toStrictEqual([{ name: 'scope:nmr', color: '00ff96' }]);
   });
 
   it('returns correctly parsed labels for valid YAML', () => {

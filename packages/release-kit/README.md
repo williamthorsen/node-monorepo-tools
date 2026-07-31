@@ -730,7 +730,7 @@ export default defineConfig({
   repoLabels: {
     extends: ['common'],
     labels: {
-      'scope:my-package': { color: '00ff96', description: 'my-package package' }, // add
+      'scope:my-package': { color: '00ff96' }, // add, with no description
       bug: { color: 'b60205', description: 'Something broken' }, // replace the preset's `bug`
       wontfix: null, // remove the preset's `wontfix`
     },
@@ -741,7 +741,9 @@ export default defineConfig({
 The block declares the repository's label registry — the set of labels defined on the GitHub repo, distinct from labels applied to PRs and issues. Resolution is an ordered fold with last-writer-wins:
 
 1. Presets, in `extends` order — a later preset wins on a shared name.
-2. The `labels` record — an entry adds a label, replaces one an earlier layer defined, or removes it (`null`). A replacing entry supplies the full `{ color, description }`.
+2. The `labels` record — an entry adds a label, replaces one an earlier layer defined, or removes it (`null`). Replacement is wholesale: an entry omitting `description` resolves to no description rather than inheriting the one an earlier layer supplied.
+
+`description` is optional throughout, in a preset as in the `labels` record, and `sync-labels init` generates none for a scope label. The generated file spells an absent description `''` because `github-label-sync` reads an omitted description as "leave the label's current one alone"; the empty form clears it.
 
 Overlaps are never errors; order resolves them, and the committed `.github/labels.yaml` diff is where an unexpected change surfaces at review. The one config error is a dangling `null` — removing a name no preset defines — because that misstatement is invisible in the output diff.
 
@@ -750,7 +752,7 @@ Overlaps are never errors; order resolves them, and the committed `.github/label
 Label configuration formerly lived in a standalone `.config/sync-labels.config.ts` (`presets` + a `labels` array). To migrate:
 
 1. Move the preset list to `repoLabels.extends` in `.config/release-kit.config.ts`.
-2. Convert each `labels` array entry to a `'name': { color, description }` record entry under `repoLabels.labels`.
+2. Convert each `labels` array entry to a `'name': { color }` record entry under `repoLabels.labels`, adding `description` where the label carries one.
 3. Delete `.config/sync-labels.config.ts` and run `release-kit sync-labels generate`.
 
 The regenerated `.github/labels.yaml` differs only in its `# Source:` header line. Name collisions with preset labels, which the old format rejected, now mean your entry replaces the preset label.

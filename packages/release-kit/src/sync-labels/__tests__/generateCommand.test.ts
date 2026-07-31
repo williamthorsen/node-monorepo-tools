@@ -39,12 +39,6 @@ vi.mock(import('node:fs'), () => ({
 import { formatLabelsYaml, generateCommand, LABELS_OUTPUT_PATH } from '../generateCommand.ts';
 import { RETIRED_SYNC_LABELS_CONFIG_PATH } from '../retiredConfig.ts';
 
-/** Configure a loadable config whose validation succeeds with the given typed config. */
-function givenValidConfig(config: Record<string, unknown>): void {
-  mockLoadConfig.mockResolvedValue(config);
-  mockValidateConfig.mockReturnValue({ config, errors: [], warnings: [] });
-}
-
 describe(generateCommand, () => {
   afterEach(() => {
     mockExistsSync.mockReset();
@@ -258,6 +252,16 @@ describe(formatLabelsYaml, () => {
     expect(result).toContain('- name: feature');
   });
 
+  // `github-label-sync` reads an omitted description as "leave the label's current one alone",
+  // so the file has to declare an empty one to clear a description the repo still carries.
+  it('declares an empty description for a label that carries none', () => {
+    const labels: LabelDefinition[] = [{ name: 'scope:nmr', color: '00ff96' }];
+
+    const result = formatLabelsYaml(labels, noPresets);
+
+    expect(result).toContain("- name: scope:nmr\n  color: 00ff96\n  description: ''\n");
+  });
+
   it('uses single quotes for values that need quoting', () => {
     const labels: LabelDefinition[] = [{ name: 'true', color: 'd73a4a', description: 'A boolean-like name' }];
 
@@ -287,3 +291,13 @@ describe(formatLabelsYaml, () => {
     expect(result1).toBe(result2);
   });
 });
+
+// region | Helpers
+
+/** Configures a loadable config whose validation succeeds with the given typed config. */
+function givenValidConfig(config: Record<string, unknown>): void {
+  mockLoadConfig.mockResolvedValue(config);
+  mockValidateConfig.mockReturnValue({ config, errors: [], warnings: [] });
+}
+
+// endregion | Helpers

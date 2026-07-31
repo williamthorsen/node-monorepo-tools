@@ -8,13 +8,7 @@ import { parse } from 'yaml';
 import { isRecord } from '../typeGuards.ts';
 import type { LabelDefinition } from './types.ts';
 
-/** Resolve a preset name to the path of its bundled YAML file. */
-function resolvePresetPath(presetName: string): string {
-  const root = findPackageRoot(import.meta.url);
-  return resolve(root, 'presets', 'labels', `${presetName}.yaml`);
-}
-
-/** Compute SHA-256 hex digest of a preset file's raw content. Throws if the preset does not exist. */
+/** Computes SHA-256 hex digest of a preset file's raw content. Throws if the preset does not exist. */
 export function hashPresetFile(presetName: string): string {
   const presetPath = resolvePresetPath(presetName);
   if (!existsSync(presetPath)) {
@@ -25,7 +19,7 @@ export function hashPresetFile(presetName: string): string {
 }
 
 /**
- * Load a named preset from the bundled YAML files.
+ * Loads a named preset from the bundled YAML files.
  *
  * Returns the parsed label definitions. Throws if the preset does not exist or has invalid content.
  */
@@ -54,11 +48,28 @@ export function loadPreset(presetName: string): LabelDefinition[] {
     if (!isRecord(entry)) {
       throw new Error(`Preset "${presetName}" contains an invalid label entry: ${JSON.stringify(entry)}`);
     }
-    if (typeof entry.name !== 'string' || typeof entry.color !== 'string' || typeof entry.description !== 'string') {
+    // `description` is optional here as it is in the `repoLabels.labels` record,
+    // so a preset can ship bare labels rather than restating each name.
+    const { description } = entry;
+    if (
+      typeof entry.name !== 'string' ||
+      typeof entry.color !== 'string' ||
+      (description !== undefined && typeof description !== 'string')
+    ) {
       throw new TypeError(`Preset "${presetName}" contains a label with invalid fields: ${JSON.stringify(entry)}`);
     }
-    labels.push({ name: entry.name, color: entry.color, description: entry.description });
+    labels.push({ name: entry.name, color: entry.color, ...(description !== undefined && { description }) });
   }
 
   return labels;
 }
+
+// region | Helpers
+
+/** Resolves a preset name to the path of its bundled YAML file. */
+function resolvePresetPath(presetName: string): string {
+  const root = findPackageRoot(import.meta.url);
+  return resolve(root, 'presets', 'labels', `${presetName}.yaml`);
+}
+
+// endregion | Helpers

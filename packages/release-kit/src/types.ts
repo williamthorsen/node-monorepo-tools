@@ -420,22 +420,24 @@ export const breakingPolicyValueSchema = z.enum(['forbidden', 'optional', 'requi
 export const labelSpecSchema = z
   .object({
     color: z.string().min(1),
-    description: z.string(),
+    description: z.string().optional(),
   })
   .strict();
 
-/** A label's color and description; the name is the record key in `repoLabels.labels`. */
+/**
+ * A label's color and optional description; the name is the record key in `repoLabels.labels`.
+ * An omitted description resolves to empty, which the generated labels file declares explicitly so that a sync
+ * clears whatever description the label carries today.
+ */
 export type LabelSpec = z.infer<typeof labelSpecSchema>;
 
 /**
- * Schema for the optional `repoLabels` block, which declares the repository's label
- * registry (the labels defined on the GitHub repo, distinct from labels applied to PRs
- * and issues).
+ * Schema for the optional `repoLabels` block, which declares the repository's label registry (the labels defined on
+ * the GitHub repo, distinct from labels applied to PRs and issues).
  *
- * Resolution is an ordered fold with last-writer-wins: presets in `extends` order, then
- * the `labels` record, where an entry adds a label, replaces one an earlier layer
- * defined, or removes it (`null`). A `null` naming a label no earlier layer defined is
- * a resolve-time error (`resolveLabels`), not a schema error.
+ * Resolution is an ordered fold with last-writer-wins: presets in `extends` order, then the `labels` record,
+ * where an entry adds a label, replaces one an earlier layer defined, or removes it (`null`).
+ * A `null` naming a label no earlier layer defined is a resolve-time error (`resolveLabels`), not a schema error.
  */
 export const repoLabelsSchema = z
   .object({
@@ -520,9 +522,9 @@ export interface WorkspaceConfig {
   /** Glob patterns passed to `git log -- <paths>` for commit filtering. */
   paths: string[];
   /**
-   * Prior identities of this workspace. Each identity's `tagPrefix` is consulted in addition
-   * to the current `tagPrefix` when searching for baseline tags and generating changelogs.
-   * `undefined` is equivalent to the empty array.
+   * Prior identities of this workspace.
+   * Each identity's `tagPrefix` is consulted in addition to the current `tagPrefix` when searching for baseline
+   * tags and generating changelogs. `undefined` is equivalent to the empty array.
    */
   legacyIdentities?: LegacyIdentity[];
 }
@@ -536,9 +538,9 @@ export interface MonorepoReleaseConfig {
   /** Version bump patterns. Defaults to `DEFAULT_VERSION_PATTERNS`. */
   versionPatterns?: VersionPatterns;
   /**
-   * Per-canonical-type breaking-policy lookup. Defaults to `DEFAULT_BREAKING_POLICIES`. When
-   * provided, replaces the default entirely. Pass `{}` to disable enforcement (parser falls
-   * back to `'optional'` for missing types).
+   * Per-canonical-type breaking-policy lookup. Defaults to `DEFAULT_BREAKING_POLICIES`.
+   * When provided, replaces the default entirely.
+   * Pass `{}` to disable enforcement (parser falls back to `'optional'` for missing types).
    */
   breakingPolicies?: Record<string, 'forbidden' | 'optional' | 'required'>;
   /**
@@ -560,9 +562,8 @@ export interface MonorepoReleaseConfig {
   /** Controls release notes consumption (README injection). */
   releaseNotes: ReleaseNotesConfig;
   /**
-   * Project-level release config. Present iff the consumer declared `project: {}`. When
-   * present, `releasePrepareMono` runs an additional project-release stage after the
-   * per-workspace loop.
+   * Project-level release config. Present iff the consumer declared `project: {}`.
+   * When present, `releasePrepareMono` runs an additional project-release stage after the per-workspace loop.
    */
   project?: ResolvedProjectConfig;
 }
@@ -587,8 +588,8 @@ export interface ReleaseConfig {
   breakingPolicies?: Record<string, 'forbidden' | 'optional' | 'required'>;
   /**
    * Shell command to run after changelog generation (e.g., 'pnpm run fmt').
-   * Modified file paths (package.json files and CHANGELOGs) are appended as space-separated
-   * arguments. Paths are repo-relative; file paths containing spaces are not supported.
+   * Modified file paths (package.json files and CHANGELOGs) are appended as space-separated arguments.
+   * Paths are repo-relative; file paths containing spaces are not supported.
    */
   formatCommand?: string;
   /** Path to the cliff.toml file; defaults to 'cliff.toml' when absent. */
