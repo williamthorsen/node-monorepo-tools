@@ -8,9 +8,10 @@ import type { LabelDefinition } from './types.ts';
  * Resolution is an ordered fold with last-writer-wins: presets are loaded in `extends`
  * order (a later preset replaces an earlier preset's label of the same name), then the
  * `labels` record is applied — an entry adds a label, replaces one an earlier layer
- * defined, or removes it (`null`). Throws only on a dangling `null`: a removal naming a
- * label no preset defined, which is a stale reference that would otherwise produce no
- * output diff to review.
+ * defined, or removes it (`null`). Replacement is wholesale, so an entry omitting
+ * `description` drops the one an earlier layer supplied rather than inheriting it. Throws
+ * only on a dangling `null`: a removal naming a label no preset defined, which is a stale
+ * reference that would otherwise produce no output diff to review.
  */
 export function resolveLabels(config: RepoLabelsConfig): LabelDefinition[] {
   const resolved = new Map<string, LabelDefinition>();
@@ -30,7 +31,13 @@ export function resolveLabels(config: RepoLabelsConfig): LabelDefinition[] {
       }
       resolved.delete(name);
     } else {
-      resolved.set(name, { name, color: spec.color, description: spec.description });
+      // Spread the description conditionally: Zod infers an optional field as `string |
+      // undefined`, which `exactOptionalPropertyTypes` rejects for a `description?: string`.
+      resolved.set(name, {
+        name,
+        color: spec.color,
+        ...(spec.description !== undefined && { description: spec.description }),
+      });
     }
   }
 

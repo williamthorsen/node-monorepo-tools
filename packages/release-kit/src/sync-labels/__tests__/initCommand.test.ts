@@ -252,32 +252,40 @@ describe(buildScopeLabels, () => {
     const result = buildScopeLabels(['packages/core', 'packages/utils']);
 
     expect(result).toStrictEqual([
-      { name: 'scope:root', color: '00ff96', description: 'Monorepo root configuration' },
-      { name: 'scope:core', color: '00ff96', description: 'core package' },
-      { name: 'scope:utils', color: '00ff96', description: 'utils package' },
+      { name: 'scope:root', color: '00ff96' },
+      { name: 'scope:core', color: '00ff96' },
+      { name: 'scope:utils', color: '00ff96' },
     ]);
   });
 
   it('always includes scope:root', () => {
     const result = buildScopeLabels([]);
 
-    expect(result).toStrictEqual([{ name: 'scope:root', color: '00ff96', description: 'Monorepo root configuration' }]);
+    expect(result).toStrictEqual([{ name: 'scope:root', color: '00ff96' }]);
   });
 
   it('extracts basename from nested paths', () => {
     const result = buildScopeLabels(['libs/shared/core']);
 
     expect(result).toHaveLength(2);
-    expect(result[1]).toStrictEqual({ name: 'scope:core', color: '00ff96', description: 'core package' });
+    expect(result[1]).toStrictEqual({ name: 'scope:core', color: '00ff96' });
   });
 
   it('appends retired-package labels after workspace labels', () => {
     const result = buildScopeLabels(['packages/core'], ['preflight']);
 
     expect(result).toStrictEqual([
-      { name: 'scope:root', color: '00ff96', description: 'Monorepo root configuration' },
-      { name: 'scope:core', color: '00ff96', description: 'core package' },
-      { name: 'scope:preflight', color: '00ff96', description: 'preflight package (retired)' },
+      { name: 'scope:root', color: '00ff96' },
+      { name: 'scope:core', color: '00ff96' },
+      { name: 'scope:preflight', color: '00ff96' },
     ]);
+  });
+
+  // Retired scopes are indistinguishable from live ones by design: describing only the retired
+  // ones would give them the visual prominence the bare-label rule exists to remove.
+  it('describes no scope, retired ones included', () => {
+    const result = buildScopeLabels(['packages/core'], ['preflight']);
+
+    expect(result.every((label) => label.description === undefined)).toBe(true);
   });
 });

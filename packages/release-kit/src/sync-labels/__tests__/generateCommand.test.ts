@@ -258,6 +258,16 @@ describe(formatLabelsYaml, () => {
     expect(result).toContain('- name: feature');
   });
 
+  // `github-label-sync` reads an omitted description as "leave the label's current one alone",
+  // so the file has to declare an empty one to clear a description the repo still carries.
+  it('declares an empty description for a label that carries none', () => {
+    const labels: LabelDefinition[] = [{ name: 'scope:nmr', color: '00ff96' }];
+
+    const result = formatLabelsYaml(labels, noPresets);
+
+    expect(result).toContain("- name: scope:nmr\n  color: 00ff96\n  description: ''\n");
+  });
+
   it('uses single quotes for values that need quoting', () => {
     const labels: LabelDefinition[] = [{ name: 'true', color: 'd73a4a', description: 'A boolean-like name' }];
 

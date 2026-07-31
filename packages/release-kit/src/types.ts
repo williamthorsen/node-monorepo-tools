@@ -420,11 +420,15 @@ export const breakingPolicyValueSchema = z.enum(['forbidden', 'optional', 'requi
 export const labelSpecSchema = z
   .object({
     color: z.string().min(1),
-    description: z.string(),
+    description: z.string().optional(),
   })
   .strict();
 
-/** A label's color and description; the name is the record key in `repoLabels.labels`. */
+/**
+ * A label's color and optional description; the name is the record key in
+ * `repoLabels.labels`. An omitted description resolves to empty, which the generated labels
+ * file declares explicitly so a sync clears whatever description the label carries today.
+ */
 export type LabelSpec = z.infer<typeof labelSpecSchema>;
 
 /**

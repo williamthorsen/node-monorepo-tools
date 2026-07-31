@@ -59,14 +59,22 @@ describe(renderRepoLabelsBlock, () => {
 
   it('renders each scope label as a quoted-key record entry', () => {
     const scopeLabels: LabelDefinition[] = [
-      { name: 'scope:root', color: '00ff96', description: 'Monorepo root configuration' },
-      { name: 'scope:my-package', color: '00ff96', description: 'my-package package' },
+      { name: 'scope:root', color: '00ff96' },
+      { name: 'scope:my-package', color: '00ff96' },
     ];
 
     const result = renderRepoLabelsBlock(scopeLabels);
 
-    expect(result).toContain("'scope:root': { color: '00ff96', description: 'Monorepo root configuration' },");
-    expect(result).toContain("'scope:my-package': { color: '00ff96', description: 'my-package package' },");
+    expect(result).toContain("'scope:root': { color: '00ff96' },");
+    expect(result).toContain("'scope:my-package': { color: '00ff96' },");
+  });
+
+  it('renders a description when the label carries one', () => {
+    const scopeLabels: LabelDefinition[] = [{ name: 'bug', color: 'd73a4a', description: 'Something broken' }];
+
+    const result = renderRepoLabelsBlock(scopeLabels);
+
+    expect(result).toContain("'bug': { color: 'd73a4a', description: 'Something broken' },");
   });
 
   it('escapes single quotes in label values', () => {
@@ -103,9 +111,7 @@ describe(repoLabelsConfigScript, () => {
   });
 
   it('embeds the rendered block verbatim', () => {
-    const scopeLabels: LabelDefinition[] = [
-      { name: 'scope:root', color: '00ff96', description: 'Monorepo root configuration' },
-    ];
+    const scopeLabels: LabelDefinition[] = [{ name: 'scope:root', color: '00ff96' }];
 
     const result = repoLabelsConfigScript(scopeLabels);
 

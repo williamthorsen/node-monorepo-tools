@@ -23,8 +23,13 @@ export function formatLabelsYaml(labels: LabelDefinition[], presetHashes: Map<st
     headerLines.push(`# ${name} preset hash: ${hash}`);
   }
 
+  // Declare a description for every label, empty where none is configured. `github-label-sync`
+  // reads an omitted description as "leave the label's current one alone" and an empty one as
+  // "clear it", so omitting the key would let a stale description outlive its declaration.
+  const declared = labels.map((label) => ({ ...label, description: label.description ?? '' }));
+
   // Use single quotes when quoting is needed; let yaml decide when to quote; disable line wrapping
-  const yamlBody = stringify(labels, { singleQuote: true, lineWidth: 0 });
+  const yamlBody = stringify(declared, { singleQuote: true, lineWidth: 0 });
   return headerLines.join('\n') + '\n' + yamlBody;
 }
 

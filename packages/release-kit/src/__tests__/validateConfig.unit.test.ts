@@ -721,9 +721,15 @@ describe(validateConfig, () => {
       expectErrorAtPath(errors, 'repoLabels.extends');
     });
 
-    it('returns an error when a label entry is missing a field', () => {
-      const { errors } = validateConfig({ repoLabels: { labels: { bug: { color: 'd73a4a' } } } });
-      expectErrorAtPath(errors, 'repoLabels.labels.bug.description');
+    it('accepts a label entry that omits the description', () => {
+      const { config, errors } = validateConfig({ repoLabels: { labels: { 'scope:nmr': { color: '00ff96' } } } });
+      expect(errors).toStrictEqual([]);
+      expect(config.repoLabels?.labels?.['scope:nmr']).toStrictEqual({ color: '00ff96' });
+    });
+
+    it('returns an error when a label entry is missing the color', () => {
+      const { errors } = validateConfig({ repoLabels: { labels: { bug: { description: 'Something broken' } } } });
+      expectErrorAtPath(errors, 'repoLabels.labels.bug.color');
     });
 
     it('returns an error when a label entry carries an unknown field', () => {

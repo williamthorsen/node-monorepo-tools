@@ -47,23 +47,14 @@ jobs:
  * Generate scope labels from workspace paths and retired-package names.
  *
  * Workspace labels are named after the path basename; retired-package labels after the
- * unscoped package name, marked retired in the description.
+ * unscoped package name. None carries a description: GitHub renders a described label taller
+ * and more prominently than a bare one, and the scope labels are meant to read as a compact
+ * group. Describing only the retired scopes would single them out for that prominence.
  */
 export function buildScopeLabels(workspacePaths: string[], retiredNames: string[] = []): LabelDefinition[] {
-  const labels: LabelDefinition[] = [
-    { name: 'scope:root', color: '00ff96', description: 'Monorepo root configuration' },
-  ];
+  const scopes = ['root', ...workspacePaths.map((workspacePath) => basename(workspacePath)), ...retiredNames];
 
-  for (const workspacePath of workspacePaths) {
-    const name = basename(workspacePath);
-    labels.push({ name: `scope:${name}`, color: '00ff96', description: `${name} package` });
-  }
-
-  for (const retiredName of retiredNames) {
-    labels.push({ name: `scope:${retiredName}`, color: '00ff96', description: `${retiredName} package (retired)` });
-  }
-
-  return labels;
+  return scopes.map((scope) => ({ name: `scope:${scope}`, color: '00ff96' }));
 }
 
 /** Escape a value for embedding in a single-quoted TypeScript string literal. */
@@ -80,8 +71,9 @@ export function renderRepoLabelsBlock(scopeLabels: LabelDefinition[]): string {
     .map((label) => {
       const name = escapeForSingleQuotedString(label.name);
       const color = escapeForSingleQuotedString(label.color);
-      const description = escapeForSingleQuotedString(label.description);
-      return `      '${name}': { color: '${color}', description: '${description}' },`;
+      const description =
+        label.description === undefined ? '' : `, description: '${escapeForSingleQuotedString(label.description)}'`;
+      return `      '${name}': { color: '${color}'${description} },`;
     })
     .join('\n');
 
