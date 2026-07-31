@@ -119,7 +119,9 @@ describe(repoLabelsConfigScript, () => {
   });
 });
 
-/** Read a dot-separated path out of the parsed caller workflow, yielding `undefined` if any segment is missing. */
+// region | Helpers
+
+/** Reads a dot-separated path out of the parsed caller workflow, yielding `undefined` if any segment is missing. */
 function readPath(path: string): unknown {
   let node: unknown = parsedWorkflow;
   for (const key of path.split('.')) {
@@ -128,3 +130,5 @@ function readPath(path: string): unknown {
   }
   return node;
 }
+
+// endregion | Helpers

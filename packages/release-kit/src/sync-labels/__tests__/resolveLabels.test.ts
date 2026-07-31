@@ -94,8 +94,8 @@ describe(resolveLabels, () => {
     expect(result).toStrictEqual([{ name: 'scope:nmr', color: '00ff96' }]);
   });
 
-  // Replacement is wholesale, so a color-only override drops the preset's description rather
-  // than inheriting it — which is what makes a bare scope entry actually resolve to bare.
+  // Replacement is wholesale, so a color-only override drops the preset's description rather than inheriting it;
+  // this is what makes a bare scope entry actually resolve to bare.
   it('drops a preset description when the replacing entry omits one', () => {
     mockLoadPreset.mockReturnValue([bugLabel]);
 

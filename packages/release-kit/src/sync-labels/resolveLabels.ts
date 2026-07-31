@@ -3,15 +3,14 @@ import { loadPreset } from './presets.ts';
 import type { LabelDefinition } from './types.ts';
 
 /**
- * Resolve the repository's label set from a `repoLabels` config block.
+ * Resolves the repository's label set from a `repoLabels` config block.
  *
- * Resolution is an ordered fold with last-writer-wins: presets are loaded in `extends`
- * order (a later preset replaces an earlier preset's label of the same name), then the
- * `labels` record is applied — an entry adds a label, replaces one an earlier layer
- * defined, or removes it (`null`). Replacement is wholesale, so an entry omitting
- * `description` drops the one an earlier layer supplied rather than inheriting it. Throws
- * only on a dangling `null`: a removal naming a label no preset defined, which is a stale
- * reference that would otherwise produce no output diff to review.
+ * Resolution is an ordered fold with last-writer-wins: presets are loaded in `extends` order (a later preset replaces
+ * an earlier preset's label of the same name), then the `labels` record is applied: An entry adds a label, replaces
+ * one an earlier layer defined, or removes it (`null`). Replacement is wholesale, so an entry omitting `description`
+ * drops the one an earlier layer supplied rather than inheriting it.
+ * Throws only on a dangling `null`: a removal naming a label no preset defined, which is a stale reference that
+ * would otherwise produce no output diff to review.
  */
 export function resolveLabels(config: RepoLabelsConfig): LabelDefinition[] {
   const resolved = new Map<string, LabelDefinition>();
@@ -44,8 +43,12 @@ export function resolveLabels(config: RepoLabelsConfig): LabelDefinition[] {
   return sortLabels([...resolved.values()]);
 }
 
-/** Sort labels alphabetically by name (case-insensitive). */
+// region | Helpers
+
+/** Sorts labels alphabetically by name (case-insensitive). */
 function sortLabels(labels: LabelDefinition[]): LabelDefinition[] {
   // eslint-disable-next-line unicorn/no-array-sort -- toSorted requires Node 20+; engine target is >=18.17.0
   return [...labels].sort((a, b) => a.name.localeCompare(b.name));
 }
+
+// endregion | Helpers

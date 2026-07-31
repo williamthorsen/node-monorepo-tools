@@ -2,32 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import { validateConfig } from '../validateConfig.ts';
 
-/**
- * Assert that at least one error in `errors` is attributed to the given field path. Used
- * for cases where the validator's responsibility is to catch the input at the right path
- * — the message text itself is Zod's default and should not be pinned to a specific
- * wording (Zod minor versions can shift wording without our code changing).
- *
- * For errors with messages we own (deprecation messages, duplicate-detection messages,
- * collision messages, cross-field warnings, our targeted "must be a non-empty string"
- * customization), use `expect(errors).toContain('exact message')` instead.
- */
-function expectErrorAtPath(errors: readonly string[], path: string): void {
-  const matched = errors.some((e) => e.startsWith(`${path}:`));
-  expect(matched, `expected an error at path '${path}'\nactual errors:\n  ${errors.join('\n  ')}`).toBe(true);
-}
-
-/**
- * Assert that at least one error in `errors` mentions the given substring. Used for
- * top-level errors that have no path prefix (e.g., a top-level `Unrecognized key: "X"`
- * from Zod's `.strict()` check) where we want to confirm the validator surfaced the
- * offending key without pinning the wording.
- */
-function expectErrorMentioning(errors: readonly string[], substring: string): void {
-  const matched = errors.some((e) => e.includes(substring));
-  expect(matched, `expected an error mentioning '${substring}'\nactual errors:\n  ${errors.join('\n  ')}`).toBe(true);
-}
-
 describe(validateConfig, () => {
   it('returns no errors for an empty config object', () => {
     const { errors } = validateConfig({});
@@ -770,3 +744,30 @@ describe(validateConfig, () => {
     });
   });
 });
+
+// region | Helpers
+
+/**
+ * Asserts that at least one error in `errors` is attributed to the given field path.
+ * Used for cases where the validator's responsibility is to catch the input at the right path.
+ * The message text itself is Zod's default and should not be pinned to a specific wording.
+ *
+ * For errors with messages we own (deprecation messages, duplicate-detection messages, collision messages,
+ * cross-field warnings, our targeted "must be a non-empty string" customization), use
+ * `expect(errors).toContain('exact message')` instead. */
+function expectErrorAtPath(errors: readonly string[], path: string): void {
+  const matched = errors.some((e) => e.startsWith(`${path}:`));
+  expect(matched, `expected an error at path '${path}'\nactual errors:\n  ${errors.join('\n  ')}`).toBe(true);
+}
+
+/**
+ * Asserts that at least one error in `errors` mentions the given substring.
+ * Used for top-level errors that have no path prefix (e.g., a top-level `Unrecognized key: "X"` from Zod's
+ * `.strict()` check) where we want to confirm the validator surfaced the offending key without pinning the wording.
+ */
+function expectErrorMentioning(errors: readonly string[], substring: string): void {
+  const matched = errors.some((e) => e.includes(substring));
+  expect(matched, `expected an error mentioning '${substring}'\nactual errors:\n  ${errors.join('\n  ')}`).toBe(true);
+}
+
+// endregion | Helpers

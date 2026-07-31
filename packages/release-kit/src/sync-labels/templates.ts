@@ -2,7 +2,7 @@ import { basename } from 'node:path';
 
 import type { LabelDefinition } from './types.ts';
 
-/** Generate the caller workflow YAML for `sync-labels`. */
+/** Generates the caller workflow YAML for `sync-labels`. */
 export function syncLabelsWorkflow(): string {
   return `# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: Sync labels
@@ -44,12 +44,12 @@ jobs:
 }
 
 /**
- * Generate scope labels from workspace paths and retired-package names.
+ * Generates scope labels from workspace paths and retired-package names.
  *
- * Workspace labels are named after the path basename; retired-package labels after the
- * unscoped package name. None carries a description: GitHub renders a described label taller
- * and more prominently than a bare one, and the scope labels are meant to read as a compact
- * group. Describing only the retired scopes would single them out for that prominence.
+ * Workspace labels are named after the path basename; retired-package labels after the unscoped package name.
+ * None carries a description: GitHub renders a described label taller and more prominently than a bare one, and
+ * the scope labels are meant to read as a compact group.
+ * Describing only the retired scopes would single them out for that prominence.
  */
 export function buildScopeLabels(workspacePaths: string[], retiredNames: string[] = []): LabelDefinition[] {
   const scopes = ['root', ...workspacePaths.map((workspacePath) => basename(workspacePath)), ...retiredNames];
@@ -57,14 +57,14 @@ export function buildScopeLabels(workspacePaths: string[], retiredNames: string[
   return scopes.map((scope) => ({ name: `scope:${scope}`, color: '00ff96' }));
 }
 
-/** Escape a value for embedding in a single-quoted TypeScript string literal. */
+/** Escapes a value for embedding in a single-quoted TypeScript string literal. */
 function escapeForSingleQuotedString(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/'/g, String.raw`\'`);
 }
 
 /**
- * Render the `repoLabels` config block, indented for pasting into the object passed to
- * `defineConfig` in `.config/release-kit.config.ts`.
+ * Renders the `repoLabels` config block, indented for pasting into the object passed to `defineConfig` in
+ * `.config/release-kit.config.ts`.
  */
 export function renderRepoLabelsBlock(scopeLabels: LabelDefinition[]): string {
   const entries = scopeLabels
@@ -85,7 +85,7 @@ ${labelsBlock}
   },`;
 }
 
-/** Generate a new `.config/release-kit.config.ts` carrying the `repoLabels` block. */
+/** Generates a new `.config/release-kit.config.ts` carrying the `repoLabels` block. */
 export function repoLabelsConfigScript(scopeLabels: LabelDefinition[]): string {
   return `import { defineConfig } from '@williamthorsen/release-kit';
 

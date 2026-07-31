@@ -39,12 +39,6 @@ vi.mock(import('node:fs'), () => ({
 import { formatLabelsYaml, generateCommand, LABELS_OUTPUT_PATH } from '../generateCommand.ts';
 import { RETIRED_SYNC_LABELS_CONFIG_PATH } from '../retiredConfig.ts';
 
-/** Configure a loadable config whose validation succeeds with the given typed config. */
-function givenValidConfig(config: Record<string, unknown>): void {
-  mockLoadConfig.mockResolvedValue(config);
-  mockValidateConfig.mockReturnValue({ config, errors: [], warnings: [] });
-}
-
 describe(generateCommand, () => {
   afterEach(() => {
     mockExistsSync.mockReset();
@@ -297,3 +291,13 @@ describe(formatLabelsYaml, () => {
     expect(result1).toBe(result2);
   });
 });
+
+// region | Helpers
+
+/** Configures a loadable config whose validation succeeds with the given typed config. */
+function givenValidConfig(config: Record<string, unknown>): void {
+  mockLoadConfig.mockResolvedValue(config);
+  mockValidateConfig.mockReturnValue({ config, errors: [], warnings: [] });
+}
+
+// endregion | Helpers

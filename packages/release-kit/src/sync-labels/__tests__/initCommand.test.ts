@@ -42,17 +42,6 @@ import { syncLabelsInitCommand } from '../initCommand.ts';
 import { RETIRED_SYNC_LABELS_CONFIG_PATH } from '../retiredConfig.ts';
 import { buildScopeLabels } from '../templates.ts';
 
-/** Make only the given repo files exist. */
-function givenExistingFiles(...paths: string[]): void {
-  mockExistsSync.mockImplementation((path: string) => paths.includes(path));
-}
-
-/** Configure a loadable config whose validation succeeds with the given typed config. */
-function givenValidConfig(config: Record<string, unknown>): void {
-  mockLoadConfig.mockResolvedValue(config);
-  mockValidateConfig.mockReturnValue({ config, errors: [], warnings: [] });
-}
-
 describe(syncLabelsInitCommand, () => {
   afterEach(() => {
     mockDiscoverWorkspaces.mockReset();
@@ -281,11 +270,26 @@ describe(buildScopeLabels, () => {
     ]);
   });
 
-  // Retired scopes are indistinguishable from live ones by design: describing only the retired
-  // ones would give them the visual prominence the bare-label rule exists to remove.
+  // Retired scopes are indistinguishable from live ones by design:
+  // Describing only the retired ones would give them the visual prominence the bare-label rule exists to remove.
   it('describes no scope, retired ones included', () => {
     const result = buildScopeLabels(['packages/core'], ['preflight']);
 
     expect(result.every((label) => label.description === undefined)).toBe(true);
   });
 });
+
+// region | Helpers
+
+/** Makes only the given repo files exist. */
+function givenExistingFiles(...paths: string[]): void {
+  mockExistsSync.mockImplementation((path: string) => paths.includes(path));
+}
+
+/** Configures a loadable config whose validation succeeds with the given typed config. */
+function givenValidConfig(config: Record<string, unknown>): void {
+  mockLoadConfig.mockResolvedValue(config);
+  mockValidateConfig.mockReturnValue({ config, errors: [], warnings: [] });
+}
+
+// endregion | Helpers
