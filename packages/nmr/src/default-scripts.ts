@@ -51,9 +51,7 @@ export const rootScripts: ScriptRegistry = {
   // Identical to the workspace entries: the bin scopes its own selection to the working directory, so
   // neither registry needs the `sh -c '… "${@:-.}"' --` wrapper that gave the root form a default path.
   fmt: 'nmr-fmt --write',
-  'fmt:all': ['fmt', 'fmt:sh'],
   'fmt:check': 'nmr-fmt --check',
-  'fmt:sh': 'shfmt --write **/*.sh',
   lint: 'nmr root:lint && pnpm --recursive exec nmr lint',
   'lint:check': 'nmr root:lint:check && pnpm --recursive exec nmr lint:check',
   'lint:strict': 'nmr root:lint:strict && pnpm --recursive exec nmr lint:strict',

@@ -52,14 +52,21 @@ describe('getDefaultRootScripts', () => {
     expect(scripts['fix:check']).toStrictEqual(['fmt:check', 'lint:check']);
     expect(scripts.ci).toStrictEqual(['build', 'check:strict', 'audit']);
     expect(scripts.clean).toBe('nmr-clean');
-    expect(scripts['fmt:all']).toStrictEqual(['fmt', 'fmt:sh']);
-    expect(scripts['fmt:sh']).toBe('shfmt --write **/*.sh');
     // Identical to the workspace entries: the bin needs no `sh -c` wrapper to default its own selection.
     expect(scripts.fmt).toBe('nmr-fmt --write');
     expect(scripts['fmt:check']).toBe('nmr-fmt --check');
     expect(scripts['root:check']).toStrictEqual(['root:typecheck', 'fmt:check', 'root:lint:check', 'root:test']);
     expect(scripts['report-overrides']).toBe('nmr-report-overrides');
     expect(scripts['sync-agent-files']).toBe('nmr-sync-agent-files');
+  });
+
+  // `fmt` covers shell through the shared Prettier config, so a shell-specific command would be a
+  // second way to format the same files -- and `fmt:sh` invoked a binary no CI runner installs.
+  it('declares no shfmt-backed scripts', () => {
+    const scripts = getDefaultRootScripts();
+
+    expect(scripts).not.toHaveProperty('fmt:all');
+    expect(scripts).not.toHaveProperty('fmt:sh');
   });
 
   it('excludes audit from check:strict', () => {
