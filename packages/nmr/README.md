@@ -28,17 +28,17 @@ nmr works out of the box with no configuration. It ships with built-in scripts f
 From a package directory:
 
 ```bash
-nmr test          # Run tests for the current package
-nmr build         # Compile to .js and .d.ts in one pass
-nmr check         # Typecheck, format check, lint check, and tests
+nmr test  # Run tests for the current package
+nmr build # Compile to .js and .d.ts in one pass
+nmr check # Typecheck, format check, lint check, and tests
 ```
 
 From the monorepo root:
 
 ```bash
-nmr test          # Run root tests + recursive workspace tests
-nmr build         # Build all packages
-nmr ci            # Run build && check:strict && audit (full CI pipeline)
+nmr test  # Run root tests + recursive workspace tests
+nmr build # Build all packages
+nmr ci    # Run build && check:strict && audit (full CI pipeline)
 ```
 
 nmr detects where you are and selects the right scripts automatically — see [context-aware resolution](#context-aware-resolution) below.
@@ -199,9 +199,9 @@ The second example calls the bin directly, which sidesteps the workspace-versus-
 The upgrade tool ([taze](https://github.com/antfu-collective/taze)) arrives with nmr, so your repo declares no dependency on it. Everything after the command name is passed through, including the range mode:
 
 ```bash
-nmr upgrade          # upgrades available within each package's version ceilings
-nmr upgrade major    # major upgrades, still inside the ceilings
-nmr upgrade --write  # apply the proposals to package.json
+nmr upgrade         # upgrades available within each package's version ceilings
+nmr upgrade major   # major upgrades, still inside the ceilings
+nmr upgrade --write # apply the proposals to package.json
 ```
 
 ### Configuring upgrades
@@ -330,12 +330,10 @@ The same five names the workspace registry carries, so a command means the same 
 
 #### Format
 
-| Command     | Runs                    |
-| ----------- | ----------------------- |
-| `fmt`       | `nmr-fmt --write`       |
-| `fmt:all`   | `fmt`, `fmt:sh`         |
-| `fmt:check` | `nmr-fmt --check`       |
-| `fmt:sh`    | `shfmt --write **/*.sh` |
+| Command     | Runs              |
+| ----------- | ----------------- |
+| `fmt`       | `nmr-fmt --write` |
+| `fmt:check` | `nmr-fmt --check` |
 
 #### File selection
 
@@ -405,19 +403,19 @@ Position determines ownership: flags before the command name are nmr's own, and 
 
 ```bash
 # From a package directory
-nmr test                    # Run workspace test script
-nmr build                   # Compile to .js and .d.ts in one pass
+nmr test  # Run workspace test script
+nmr build # Compile to .js and .d.ts in one pass
 
 # From the monorepo root
-nmr test                    # Root tests + recursive workspace tests
-nmr ci                      # build + check:strict + audit
+nmr test # Root tests + recursive workspace tests
+nmr ci   # build + check:strict + audit
 
 # Target specific packages
-nmr --filter core test      # Test only the core package
-nmr --recursive lint        # Lint all workspace packages
+nmr --filter core test # Test only the core package
+nmr --recursive lint   # Lint all workspace packages
 
 # Force root context from anywhere
-nmr --workspace-root check  # Run root check from a package dir
+nmr --workspace-root check # Run root check from a package dir
 ```
 
 ## Additional subcommands
@@ -437,8 +435,8 @@ nmr report-overrides
 Sync the agent-facing guidance shipped with nmr into the consuming repo.
 
 ```bash
-nmr sync-agent-files          # write .agents/nmr/AGENTS.md, stamped with the installed nmr version
-nmr sync-agent-files --check  # verify the stamp matches; exit 1 with a fix message if not
+nmr sync-agent-files         # write .agents/nmr/AGENTS.md, stamped with the installed nmr version
+nmr sync-agent-files --check # verify the stamp matches; exit 1 with a fix message if not
 ```
 
 Run `nmr sync-agent-files` once after upgrading nmr. The generated file is committed to the consuming repo; do not edit it by hand.
@@ -558,6 +556,59 @@ One divergence from pnpm: a directory counts as a package only if it holds a `pa
 
 Quote exclusion patterns in the manifest — `- '!packages/legacy'`. An unquoted `!` opens a YAML tag rather than a string, so the entry never reaches nmr (or pnpm) as a pattern.
 
+## Shared Prettier config
+
+Every repo consuming nmr otherwise maintains its own copy of the house Prettier options, and wires up shell formatting itself. The `@williamthorsen/nmr/prettier` subpath publishes both as a factory, so a repo declares only what it customizes:
+
+```js
+// .prettierrc.js
+import { definePrettierConfig } from '@williamthorsen/nmr/prettier';
+
+export default definePrettierConfig();
+```
+
+`prettier` is a peer dependency (`>=3.9.5 <4`), declared optional — the consuming repo provides it. The shell and Dockerfile plugin is a dependency of nmr rather than a peer, so its version is pinned centrally and two repos cannot format the same script differently.
+
+### What it formats
+
+Beyond everything Prettier already handles, this config formats `.sh`, `.bash`, `.zsh`, and the other extensions and dotfile names of the Shell language, plus `Dockerfile` and `Containerfile`. `nmr fmt` therefore covers shell scripts with no extra script, glob, or workflow entry.
+
+Shell output matches `shfmt` run with no flags: `binaryNextLine`, `spaceRedirects`, and `switchCaseIndent` are pinned to shfmt's CLI defaults, which the underlying plugin inverts. A repo whose scripts shfmt already formatted sees no diff on adoption.
+
+### Language scoping
+
+`prettier-plugin-sh` routes 20 further file types to the same shell parser, among them `.gitignore`, `.env`, `.csh`, `.nu`, `.properties`, `.ics`, `.vcf`, `CODEOWNERS`, and `hosts`. Since `nmr fmt` hands git's whole file list to Prettier, registering the plugin as shipped would make every one of them formattable — and the shell parser either fails on them or silently rewrites them. A `.gitignore` pattern such as `a(b)c` fails to parse, and an unquoted `&` in a `.env` or `.properties` value is split across two lines.
+
+This config registers a narrowed plugin, so Prettier infers a parser for the Shell and Dockerfile languages alone. `.flaskenv`, `gradlew`, and `mvnw` are dropped from Shell as well: the first holds dotenv content the plugin misfiles as shell, and the other two are vendored wrappers their generators would overwrite.
+
+The parsers themselves stay registered, so a repo that wants a dropped language back assigns it explicitly:
+
+```js
+export default definePrettierConfig({
+  additionalOverrides: [{ files: ['APKBUILD', '*.ebuild'], options: { parser: 'sh' } }],
+});
+```
+
+### Customizing
+
+Any Prettier option passed to the factory spreads over the defaults:
+
+```js
+export default definePrettierConfig({
+  printWidth: 100,
+  additionalPlugins: [await import('prettier-plugin-tailwindcss')],
+  additionalOverrides: [{ files: ['*.md'], options: { proseWrap: 'always' } }],
+});
+```
+
+`additionalPlugins` and `additionalOverrides` append to what the config declares, so a later override wins over nmr's own and no seam can drop shell support. Passing `plugins` or `overrides` throws, and both are typed `never` — replacement is inexpressible rather than merely discouraged, because a silently ignored key would produce no diff to notice.
+
+### Adoption caveats
+
+- **Indentation follows `.editorconfig`**, as it did under shfmt: Prettier maps `indent_style` and `indent_size` to `useTabs` and `tabWidth`, and the plugin honours both. With no `.editorconfig`, the two disagree — shfmt indents shell with tabs, Prettier with two spaces. Add `indent_style = tab` under `[*.sh]` to keep tabs.
+- **Shell fences in Markdown are formatted**, which collapses hand-aligned comment columns in documentation. Prettier keeps the original text when an embedded snippet fails to parse, so illustrative or truncated fences are safe. Use `<!-- prettier-ignore -->` before a fence whose alignment matters.
+- **Adopting the house options reformats the repo.** `singleQuote`, `trailingComma`, and the rest apply on the first run; review that diff separately from the shell one.
+
 ## Shared Vitest config
 
 Every repo consuming nmr otherwise writes and maintains its own Vitest config. The `@williamthorsen/nmr/vitest` subpath publishes that config as a factory, so a repo declares only what it customizes:
@@ -584,9 +635,9 @@ The config declares three projects, named for what the tests cover:
 All three match only under a `__tests__` directory. Select them at run time with `--project`, which accepts negation:
 
 ```bash
-vitest --project '!integration'   # everything except integration tests
-vitest --project integration      # integration tests alone
-vitest                            # every project
+vitest --project '!integration' # everything except integration tests
+vitest --project integration    # integration tests alone
+vitest                          # every project
 ```
 
 `unit` is defined by subtracting the other categories rather than by an allow-list of suffixes, so a file such as `parser.smoke.test.ts` runs under `unit` instead of being silently dropped.

@@ -138,6 +138,14 @@ export default defineRdyKit({
           fix: 'Delete these files. Vitest resolves config by walking up from the run root, so a per-package re-export is redundant',
         },
 
+        // -- Shared Prettier config ----------------------------------------------
+        {
+          name: 'Prettier config builds on @williamthorsen/nmr/prettier',
+          severity: 'error',
+          check: () => prettierConfigBuildsOnSharedConfig(),
+          fix: "Replace the Prettier config with: import { definePrettierConfig } from '@williamthorsen/nmr/prettier'; export default definePrettierConfig();",
+        },
+
         // -- Audit dependency --------------------------------------------------------
         {
           name: 'v11y-check in devDependencies',
@@ -186,6 +194,11 @@ const TEST_EXTENSIONS = '{ts,tsx}';
 const TEST_GLOB_PREFIX = '**/__tests__/**';
 
 const SHARED_VITEST_MODULE = '@williamthorsen/nmr/vitest';
+
+const SHARED_PRETTIER_MODULE = '@williamthorsen/nmr/prettier';
+
+/** Prettier config forms that hold data rather than code, so none of them can call a factory. */
+const INERT_PRETTIER_CONFIGS = ['.prettierrc', '.prettierrc.{json,json5,yaml,yml,toml}'];
 
 /** Matches a line whose only content is a re-export from an ancestor directory. */
 const RE_EXPORT_LINE_PATTERN = /^export\s*(?:\{\s*default\s*\}|\*)\s*from\s*['"]\.\.\/[^'"]*['"];?$/;
@@ -242,9 +255,72 @@ function checkRootVitestConfig(baseName: string, exportName: string, cwd: string
     return { ok: false, detail: `${baseName}.ts is missing` };
   }
 
-  const stale = matches.filter((relativePath) => !importsSharedExport(readFileIn(cwd, relativePath), exportName));
+  const stale = matches.filter(
+    (relativePath) => !importsSharedExport(readFileIn(cwd, relativePath), exportName, SHARED_VITEST_MODULE),
+  );
   if (stale.length === 0) return true;
   return { ok: false, detail: `does not import ${exportName} from ${SHARED_VITEST_MODULE}: ${stale.join(', ')}` };
+}
+
+/**
+ * Checks that the repo's Prettier config is built on the shared config from nmr.
+ *
+ * Both naming families count: Prettier reads `.prettierrc.js` and `prettier.config.js` alike, and matching
+ * only the latter would report a conformant repo as stale. A config in one of the data-only forms fails
+ * rather than being skipped — it cannot call a factory at all, so skipping would read as conformant when
+ * the repo is in fact the furthest from it.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function prettierConfigBuildsOnSharedConfig(cwd: string = process.cwd()): boolean | CheckOutcome {
+  const configs = findFiles(
+    [`.prettierrc.${CONFIG_EXTENSIONS}`, `prettier.config.${CONFIG_EXTENSIONS}`], //
+    cwd,
+  );
+
+  if (configs.length === 0) {
+    return { ok: false, detail: describeMissingPrettierConfig(cwd) };
+  }
+
+  const stale = configs.filter(
+    (relativePath) =>
+      !importsSharedExport(readFileIn(cwd, relativePath), 'definePrettierConfig', SHARED_PRETTIER_MODULE),
+  );
+  if (stale.length === 0) return true;
+  return {
+    ok: false,
+    detail: `does not import definePrettierConfig from ${SHARED_PRETTIER_MODULE}: ${stale.join(', ')}`,
+  };
+}
+
+/** Names the data-only config standing in for an executable one, so the fix says what to convert. */
+function describeMissingPrettierConfig(cwd: string): string {
+  const inert = findFiles(INERT_PRETTIER_CONFIGS, cwd);
+  if (inert.length > 0) return `holds no code to call the factory: ${inert.join(', ')}`;
+
+  if (hasPrettierConfigKey(cwd)) {
+    return 'holds no code to call the factory: the "prettier" key in package.json';
+  }
+
+  return '.prettierrc.js is missing';
+}
+
+/**
+ * Reports whether `package.json` configures Prettier through its own top-level key.
+ *
+ * Parsed rather than pattern-matched, because `prettier` also appears as a dependency entry in every repo this check
+ * runs against — `nmr fmt` requires it as a peer — and a line-anchored pattern cannot tell the two depths apart.
+ */
+function hasPrettierConfigKey(cwd: string): boolean {
+  const manifest = readFileIn(cwd, 'package.json');
+  if (manifest === undefined) return false;
+
+  try {
+    const parsed: unknown = JSON.parse(manifest);
+    return isRecord(parsed) && parsed.prettier !== undefined;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -294,16 +370,14 @@ function getMinVersion(): string {
 }
 
 /**
- * Checks whether a config imports a named export from the shared Vitest module.
+ * Checks whether a config imports a named export from one of nmr's shared-config modules.
  *
  * `defineVitestConfig` does not match inside `defineRootVitestConfig`, so the root-config and
  * root-tests-config checks cannot satisfy each other.
  */
-function importsSharedExport(content: string | undefined, exportName: string): boolean {
+function importsSharedExport(content: string | undefined, exportName: string, moduleSpecifier: string): boolean {
   if (content === undefined) return false;
-  const pattern = new RegExp(
-    String.raw`import\s*\{[^}]*\b${exportName}\b[^}]*\}\s*from\s*['"]${SHARED_VITEST_MODULE}['"]`,
-  );
+  const pattern = new RegExp(String.raw`import\s*\{[^}]*\b${exportName}\b[^}]*\}\s*from\s*['"]${moduleSpecifier}['"]`);
   return pattern.test(content);
 }
 

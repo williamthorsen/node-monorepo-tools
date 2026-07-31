@@ -72,10 +72,11 @@ Use `nmr {command}` for all monorepo scripts. Use `pnpm run {script}` only for s
 ### Code quality
 
 - Lefthook pre-commit hook auto-formats staged files with Prettier
+- `.prettierrc.js` is a thin wrapper over `@williamthorsen/nmr/prettier`, which carries the house options and registers a narrowed `prettier-plugin-sh`, so `nmr fmt` covers shell scripts and Dockerfiles as well
 - ESLint with `@williamthorsen/eslint-config-typescript`; optional strict linting via `@williamthorsen/strict-lint`
 
 ## Gotchas
 
 - **Bootstrap ordering**: nmr is both a workspace dependency and the script runner. After a fresh clone, or whenever the build output of nmr or nmr-core is missing (`nmr clean` from the root removes both), run `pnpm run bootstrap` from the root before using `nmr` commands. The `nmr` binary loads nmr-core at startup, so a missing nmr-core build breaks every `nmr` command — bootstrap rebuilds both, in order.
-- **Bootstrap now gates Vitest too**: `vitest.config.ts` imports nmr's build output, so a missing `dist` fails every Vitest run as a config-load error, not only every `nmr` command. `nmr check` does not build, so bootstrap (or `nmr build`) has to come first. Editing `packages/nmr/src/vitest.ts` and re-running tests without rebuilding silently exercises the previous config.
+- **Bootstrap now gates Vitest and Prettier too**: `vitest.config.ts` and `.prettierrc.js` both import nmr's build output, so a missing `dist` fails every Vitest run and every format run as a config-load error, not only every `nmr` command. It reaches further than `nmr`: the lefthook pre-commit hook invokes `prettier` directly, so a fresh clone cannot commit until bootstrap has run. `nmr check` does not build, so bootstrap (or `nmr build`) has to come first. Editing `packages/nmr/src/vitest.ts` or `src/prettier.ts` and re-running without rebuilding silently exercises the previous config.
 - **Build caching**: The content-hash cache (under `node_modules/.cache/nmr-compile/`) means a rebuild won't run if only non-source files change. Force a rebuild with `nmr clean`, or by deleting the package's `dist` — missing output is treated as a cache miss.

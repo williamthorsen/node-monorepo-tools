@@ -21,9 +21,7 @@ var rootScripts = {
   fix: ["lint", "fmt"],
   "fix:check": ["fmt:check", "lint:check"],
   fmt: "nmr-fmt --write",
-  "fmt:all": ["fmt", "fmt:sh"],
   "fmt:check": "nmr-fmt --check",
-  "fmt:sh": "shfmt --write **/*.sh",
   lint: "nmr root:lint && pnpm --recursive exec nmr lint",
   "lint:check": "nmr root:lint:check && pnpm --recursive exec nmr lint:check",
   "lint:strict": "nmr root:lint:strict && pnpm --recursive exec nmr lint:strict",
@@ -173,6 +171,13 @@ var nmr_default = defineRdyKit({
           check: () => noReExportOnlyVitestConfigs(),
           fix: "Delete these files. Vitest resolves config by walking up from the run root, so a per-package re-export is redundant"
         },
+        // -- Shared Prettier config ----------------------------------------------
+        {
+          name: "Prettier config builds on @williamthorsen/nmr/prettier",
+          severity: "error",
+          check: () => prettierConfigBuildsOnSharedConfig(),
+          fix: "Replace the Prettier config with: import { definePrettierConfig } from '@williamthorsen/nmr/prettier'; export default definePrettierConfig();"
+        },
         // -- Audit dependency --------------------------------------------------------
         {
           name: "v11y-check in devDependencies",
@@ -209,6 +214,8 @@ var CONFIG_EXTENSIONS = "{ts,mts,cts,js,mjs,cjs}";
 var TEST_EXTENSIONS = "{ts,tsx}";
 var TEST_GLOB_PREFIX = "**/__tests__/**";
 var SHARED_VITEST_MODULE = "@williamthorsen/nmr/vitest";
+var SHARED_PRETTIER_MODULE = "@williamthorsen/nmr/prettier";
+var INERT_PRETTIER_CONFIGS = [".prettierrc", ".prettierrc.{json,json5,yaml,yml,toml}"];
 var RE_EXPORT_LINE_PATTERN = /^export\s*(?:\{\s*default\s*\}|\*)\s*from\s*['"]\.\.\/[^'"]*['"];?$/;
 function allWorkspacePackagesCanBuild() {
   const packagesDir = join(process.cwd(), "packages");
@@ -242,9 +249,47 @@ function checkRootVitestConfig(baseName, exportName, cwd) {
   if (matches.length === 0) {
     return { ok: false, detail: `${baseName}.ts is missing` };
   }
-  const stale = matches.filter((relativePath) => !importsSharedExport(readFileIn(cwd, relativePath), exportName));
+  const stale = matches.filter(
+    (relativePath) => !importsSharedExport(readFileIn(cwd, relativePath), exportName, SHARED_VITEST_MODULE)
+  );
   if (stale.length === 0) return true;
   return { ok: false, detail: `does not import ${exportName} from ${SHARED_VITEST_MODULE}: ${stale.join(", ")}` };
+}
+function prettierConfigBuildsOnSharedConfig(cwd = process.cwd()) {
+  const configs = findFiles(
+    [`.prettierrc.${CONFIG_EXTENSIONS}`, `prettier.config.${CONFIG_EXTENSIONS}`],
+    //
+    cwd
+  );
+  if (configs.length === 0) {
+    return { ok: false, detail: describeMissingPrettierConfig(cwd) };
+  }
+  const stale = configs.filter(
+    (relativePath) => !importsSharedExport(readFileIn(cwd, relativePath), "definePrettierConfig", SHARED_PRETTIER_MODULE)
+  );
+  if (stale.length === 0) return true;
+  return {
+    ok: false,
+    detail: `does not import definePrettierConfig from ${SHARED_PRETTIER_MODULE}: ${stale.join(", ")}`
+  };
+}
+function describeMissingPrettierConfig(cwd) {
+  const inert = findFiles(INERT_PRETTIER_CONFIGS, cwd);
+  if (inert.length > 0) return `holds no code to call the factory: ${inert.join(", ")}`;
+  if (hasPrettierConfigKey(cwd)) {
+    return 'holds no code to call the factory: the "prettier" key in package.json';
+  }
+  return ".prettierrc.js is missing";
+}
+function hasPrettierConfigKey(cwd) {
+  const manifest = readFileIn(cwd, "package.json");
+  if (manifest === void 0) return false;
+  try {
+    const parsed = JSON.parse(manifest);
+    return isRecord(parsed) && parsed.prettier !== void 0;
+  } catch {
+    return false;
+  }
 }
 function codeQualityWorkflowDoesNotUseNmrCi() {
   const content = readFile(".github/workflows/code-quality.yaml");
@@ -265,11 +310,9 @@ function getMinVersion() {
   }
   return picked.version;
 }
-function importsSharedExport(content, exportName) {
+function importsSharedExport(content, exportName, moduleSpecifier) {
   if (content === void 0) return false;
-  const pattern = new RegExp(
-    String.raw`import\s*\{[^}]*\b${exportName}\b[^}]*\}\s*from\s*['"]${SHARED_VITEST_MODULE}['"]`
-  );
+  const pattern = new RegExp(String.raw`import\s*\{[^}]*\b${exportName}\b[^}]*\}\s*from\s*['"]${moduleSpecifier}['"]`);
   return pattern.test(content);
 }
 function isReExportOnly(content) {
@@ -366,6 +409,7 @@ export {
   noIntegrationSuffixedTests,
   noReExportOnlyVitestConfigs,
   noRetiredVitestConfigs,
+  prettierConfigBuildsOnSharedConfig,
   vitestConfigBuildsOnSharedConfig,
   vitestRootConfigBuildsOnSharedConfig
 };
