@@ -34,7 +34,7 @@ export function formatLabelsYaml(labels: LabelDefinition[], presetHashes: Map<st
 }
 
 /**
- * Loads `.config/release-kit.config.ts` and return its `repoLabels` block.
+ * Loads `.config/release-kit.config.ts` and returns its `repoLabels` block.
  *
  * Reports an actionable error and returns `undefined` when the config file is missing,
  * fails to load or validate, or carries no `repoLabels` block.
@@ -118,7 +118,7 @@ export async function generateCommand({ check = false }: GenerateOptions = {}): 
 
 // region | Helpers
 
-/** Compares regenerated content against the committed labels file; report and return an exit code. */
+/** Compares regenerated content against the committed labels file; reports and returns an exit code. */
 function compareAgainstCommittedFile(expected: string): number {
   let existing: string;
   try {

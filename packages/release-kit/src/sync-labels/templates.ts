@@ -71,9 +71,9 @@ export function renderRepoLabelsBlock(scopeLabels: LabelDefinition[]): string {
     .map((label) => {
       const name = escapeForSingleQuotedString(label.name);
       const color = escapeForSingleQuotedString(label.color);
-      const description =
+      const descriptionClause =
         label.description === undefined ? '' : `, description: '${escapeForSingleQuotedString(label.description)}'`;
-      return `      '${name}': { color: '${color}'${description} },`;
+      return `      '${name}': { color: '${color}'${descriptionClause} },`;
     })
     .join('\n');
 
