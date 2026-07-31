@@ -104,6 +104,8 @@ describe(defineVitestConfig, () => {
 
 describe(defineRootVitestConfig, () => {
   let workspaceRoot: string;
+  let singlePackageRoot: string;
+  let notARoot: string;
 
   beforeAll(() => {
     workspaceRoot = mkdtempSync(path.join(tmpdir(), 'nmr-vitest-workspace-'));
@@ -115,14 +117,22 @@ describe(defineRootVitestConfig, () => {
       mkdirSync(path.join(workspaceRoot, dir), { recursive: true });
       writeFileSync(path.join(workspaceRoot, dir, 'package.json'), '{}');
     }
+
+    // A pnpm-10 single-package repo: the manifest exists to carry settings and declares no `packages`.
+    singlePackageRoot = mkdtempSync(path.join(tmpdir(), 'nmr-vitest-single-'));
+    writeFileSync(path.join(singlePackageRoot, 'pnpm-workspace.yaml'), 'onlyBuiltDependencies:\n  - esbuild\n');
+
+    notARoot = mkdtempSync(path.join(tmpdir(), 'nmr-vitest-not-a-root-'));
   });
 
   afterAll(() => {
-    rmSync(workspaceRoot, { recursive: true, force: true });
+    for (const dir of [workspaceRoot, singlePackageRoot, notARoot]) {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('derives one sorted, posix-separated glob per workspace package', () => {
-    for (const project of getProjects(defineRootVitestConfig({ startDir: workspaceRoot }))) {
+    for (const project of getProjects(defineRootVitestConfig({ monorepoRoot: workspaceRoot }))) {
       expect(project.test?.exclude).toStrictEqual([
         '**/node_modules/**',
         '**/.git/**',
@@ -136,30 +146,47 @@ describe(defineRootVitestConfig, () => {
   });
 
   it('pins every project to the monorepo root, so the globs resolve from the same base', () => {
-    for (const project of getProjects(defineRootVitestConfig({ startDir: workspaceRoot }))) {
+    for (const project of getProjects(defineRootVitestConfig({ monorepoRoot: workspaceRoot }))) {
       expect(project.root).toBe(workspaceRoot);
     }
   });
 
-  it('locates the monorepo root from the working directory when no start directory is given', () => {
-    for (const project of getProjects(defineRootVitestConfig())) {
-      expect(project.test?.exclude).toContain('packages/nmr/**');
+  it('throws a message naming the directory when it holds no workspace manifest', () => {
+    expect(() => defineRootVitestConfig({ monorepoRoot: notARoot })).toThrow(
+      `Not a monorepo root: no pnpm-workspace.yaml in ${notARoot}`,
+    );
+  });
+
+  it('throws when given no monorepo root, which types alone cannot prevent in a JavaScript config', () => {
+    // @ts-expect-error -- the option is required; this is the call a JavaScript consumer can still make.
+    expect(() => defineRootVitestConfig()).toThrow('defineRootVitestConfig requires `monorepoRoot`');
+  });
+
+  it('excludes no packages when the manifest declares none, as in a single-package repo', () => {
+    for (const project of getProjects(defineRootVitestConfig({ monorepoRoot: singlePackageRoot }))) {
+      expect(project.test?.exclude).toStrictEqual([
+        '**/node_modules/**',
+        '**/.git/**',
+        ...(project.test?.name === 'unit'
+          ? ['**/__tests__/**/*.app.test.{ts,tsx}', '**/__tests__/**/*.int.test.{ts,tsx}']
+          : []),
+      ]);
     }
   });
 
   it('applies the workspace exclusion to the projects, not the root test block', () => {
-    const rootTest = defineRootVitestConfig().test ?? {};
+    const rootTest = defineRootVitestConfig({ monorepoRoot: workspaceRoot }).test ?? {};
 
     expect(rootTest).not.toHaveProperty('exclude');
     expect(rootTest).not.toHaveProperty('include');
   });
 
   it('reports no coverage of its own', () => {
-    expect(defineRootVitestConfig().test?.coverage?.include).toStrictEqual([]);
+    expect(defineRootVitestConfig({ monorepoRoot: workspaceRoot }).test?.coverage?.include).toStrictEqual([]);
   });
 
   it('accepts a run that collects no test files', () => {
-    expect(defineRootVitestConfig().test?.passWithNoTests).toBe(true);
+    expect(defineRootVitestConfig({ monorepoRoot: workspaceRoot }).test?.passWithNoTests).toBe(true);
   });
 });
 

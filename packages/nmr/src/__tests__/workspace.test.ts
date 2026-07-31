@@ -44,6 +44,18 @@ describe('getWorkspacePackageDirs', () => {
     }
   });
 
+  it('throws a message naming the directory when it holds no manifest', () => {
+    const notARoot = mkdtempSync(path.join(tmpdir(), 'nmr-workspace-test-'));
+
+    try {
+      expect(() => getWorkspacePackageDirs(notARoot)).toThrow(
+        `Not a monorepo root: no pnpm-workspace.yaml in ${notARoot}`,
+      );
+    } finally {
+      rmSync(notARoot, { recursive: true, force: true });
+    }
+  });
+
   describe('exact-path patterns', () => {
     let tempRoot: string;
 
