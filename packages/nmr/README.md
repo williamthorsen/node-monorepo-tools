@@ -575,6 +575,8 @@ Beyond everything Prettier already handles, this config formats `.sh`, `.bash`, 
 
 Shell output matches `shfmt` run with no flags: `binaryNextLine`, `spaceRedirects`, and `switchCaseIndent` are pinned to shfmt's CLI defaults, which the underlying plugin inverts. A repo whose scripts shfmt already formatted sees no diff on adoption.
 
+Code fences inside Markdown are left alone, in every language rather than shell alone. Registering the shell plugin also routes a fence tagged `bash` to shfmt, where a documented command's angle-bracket placeholders are valid redirections: `cmd --type <type> --harness claude` is reprinted as `cmd --type claude <type >--harness`, which still runs but no longer does what it documents. It cannot be narrowed back to shell, because Prettier matches a fence tag against the same `extensions` its file inference reads, so the `.bash` routing a script also claims the tag `bash`.
+
 ### Language scoping
 
 `prettier-plugin-sh` routes 20 further file types to the same shell parser, among them `.gitignore`, `.env`, `.csh`, `.nu`, `.properties`, `.ics`, `.vcf`, `CODEOWNERS`, and `hosts`. Since `nmr fmt` hands git's whole file list to Prettier, registering the plugin as shipped would make every one of them formattable — and the shell parser either fails on them or silently rewrites them. A `.gitignore` pattern such as `a(b)c` fails to parse, and an unquoted `&` in a `.env` or `.properties` value is split across two lines.
@@ -606,7 +608,7 @@ export default definePrettierConfig({
 ### Adoption caveats
 
 - **Indentation follows `.editorconfig`**, as it did under shfmt: Prettier maps `indent_style` and `indent_size` to `useTabs` and `tabWidth`, and the plugin honours both. With no `.editorconfig`, the two disagree — shfmt indents shell with tabs, Prettier with two spaces. Add `indent_style = tab` under `[*.sh]` to keep tabs.
-- **Shell fences in Markdown are formatted**, which collapses hand-aligned comment columns in documentation. Prettier keeps the original text when an embedded snippet fails to parse, so illustrative or truncated fences are safe. Use `<!-- prettier-ignore -->` before a fence whose alignment matters.
+- **Markdown fences stop being tidied.** The carve-out that protects documented shell commands costs the `ts`, `json`, and `yaml` fences their formatting too. Fences already formatted stay as they are, so nothing churns on adoption; new ones are simply left as written. A repo whose docs hold no shell can take them back for the Markdown paths it actually uses: `additionalOverrides: [{ files: ['*.md'], options: { embeddedLanguageFormatting: 'auto' } }]` restores `.md` alone, and the carve-out still covers every other path Prettier reads as Markdown.
 - **Adopting the house options reformats the repo.** `singleQuote`, `trailingComma`, and the rest apply on the first run; review that diff separately from the shell one.
 
 ## Shared Vitest config
