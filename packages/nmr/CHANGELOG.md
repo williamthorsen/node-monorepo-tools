@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.23.0 — 2026-08-01
+
+### 🎉 Features
+
+- 🚨 **Breaking:** Close the shared Vitest config's path gaps (#546)
+
+  Defines common patterns to determine which files are considered test files and which are subject to code coverage. Consumers that use `defineVitestConfig` benefit from these patterns if they follow naming and file-location conventions.
+
+### 🐛 Bug fixes
+
+- Stop rewriting documented commands inside Markdown fences (#549)
+
+  Fixes an issue where `nmr fmt` silently rewrote shell commands documented in a repository's Markdown, leaving usage examples that no longer ran as written. Code fences inside Markdown are now left untouched in any language, withdrawing the fence formatting added in 0.22.0. Fence formatting can be reenabled on selected paths via the config.
+
 ## 0.22.0 — 2026-07-31
 
 ### 🎉 Features

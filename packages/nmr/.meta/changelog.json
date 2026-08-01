@@ -1,5 +1,34 @@
 [
   {
+    "version": "0.23.0",
+    "date": "2026-08-01",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Close the shared Vitest config's path gaps (#546)",
+            "body": "Defines common patterns to determine which files are considered test files and which are subject to code coverage. Consumers that use `defineVitestConfig` benefit from these patterns if they follow naming and file-location conventions.",
+            "breaking": true,
+            "hash": "9db1a65ad484e43fb214e958cb7599274cde5986"
+          }
+        ]
+      },
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Stop rewriting documented commands inside Markdown fences (#549)",
+            "body": "Fixes an issue where `nmr fmt` silently rewrote shell commands documented in a repository's Markdown, leaving usage examples that no longer ran as written. Code fences inside Markdown are now left untouched in any language, withdrawing the fence formatting added in 0.22.0. Fence formatting can be reenabled on selected paths via the config.",
+            "hash": "a3e6b2030bff82683b79e2c72f9924bbef941949"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.22.0",
     "date": "2026-07-31",
     "sections": [
