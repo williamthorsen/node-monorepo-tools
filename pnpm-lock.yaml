@@ -51,8 +51,8 @@ importers:
         specifier: 3.9.6
         version: 3.9.6
       readyup:
-        specifier: 0.22.0
-        version: 0.22.0(esbuild@0.28.1)
+        specifier: 0.23.0
+        version: 0.23.0(esbuild@0.28.1)
       tsx:
         specifier: 4.23.1
         version: 4.23.1
@@ -1973,8 +1973,8 @@ packages:
     resolution: {integrity: sha512-7KA6+N9IGat52d83dvxnApAWN+MtVb1MiVuMR/cf1O4kYsJG+g/Aav0AHcHKsb6StinayfPLne0+fMX2sOzAKg==}
     engines: {node: '>=6'}
 
-  readyup@0.22.0:
-    resolution: {integrity: sha512-p8vA82m9e2TvX2MBnv9kgILaHLzbeeCFuO0rm/o+Sb07kMSFV28Utueo1ZskgVL+CQDWEdMukPs38l4OOIgqrA==}
+  readyup@0.23.0:
+    resolution: {integrity: sha512-a+QiEgbgdmcjnX6EMRNSZGJ9GB5tF5Ef521IECmyPpUmlJlf4cQ+z/iYNmNdOwHF8yqn4m2Gxp33Jwhp8kmajQ==}
     engines: {node: '>=24'}
     hasBin: true
     peerDependencies:
@@ -4267,7 +4267,7 @@ snapshots:
 
   readline-transform@1.0.0: {}
 
-  readyup@0.22.0(esbuild@0.28.1):
+  readyup@0.23.0(esbuild@0.28.1):
     dependencies:
       jiti: 2.7.0
       jsonc-parser: 3.3.1

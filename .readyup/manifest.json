@@ -7,10 +7,10 @@
       ],
       "name": "default",
       "path": "kits/default.js",
-      "readyupVersion": "0.22.0",
+      "readyupVersion": "0.23.0",
       "source": "kits/default.ts",
       "sourceHash": "49139cf0",
-      "targetHash": "65a8a809"
+      "targetHash": "1a223ce8"
     },
     {
       "checklists": [
@@ -18,10 +18,10 @@
       ],
       "name": "nmr",
       "path": "kits/nmr.js",
-      "readyupVersion": "0.22.0",
+      "readyupVersion": "0.23.0",
       "source": "kits/nmr.ts",
       "sourceHash": "081ff553",
-      "targetHash": "bbc37c24"
+      "targetHash": "ab892b85"
     },
     {
       "checklists": [
@@ -30,10 +30,10 @@
       ],
       "name": "npm-auto-publish",
       "path": "kits/npm-auto-publish.js",
-      "readyupVersion": "0.22.0",
+      "readyupVersion": "0.23.0",
       "source": "kits/npm-auto-publish.ts",
       "sourceHash": "71e894e6",
-      "targetHash": "02f173ba"
+      "targetHash": "c1c05255"
     },
     {
       "checklists": [
@@ -41,10 +41,10 @@
       ],
       "name": "release-kit",
       "path": "kits/release-kit.js",
-      "readyupVersion": "0.22.0",
+      "readyupVersion": "0.23.0",
       "source": "kits/release-kit.ts",
       "sourceHash": "981ce41e",
-      "targetHash": "4dca45aa"
+      "targetHash": "c0724ad5"
     },
     {
       "checklists": [
@@ -52,10 +52,10 @@
       ],
       "name": "v11y-check",
       "path": "kits/v11y-check.js",
-      "readyupVersion": "0.22.0",
+      "readyupVersion": "0.23.0",
       "source": "kits/v11y-check.ts",
       "sourceHash": "2f4c8c2d",
-      "targetHash": "1722d6c1"
+      "targetHash": "0ed2dad9"
     }
   ]
 }
