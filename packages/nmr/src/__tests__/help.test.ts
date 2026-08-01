@@ -238,13 +238,13 @@ describe(generateHelp, () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     });
 
-    it('lists all five test commands for every package', () => {
+    it('lists all six test commands for every package', () => {
       const workspaceSection = sectionOf(generateHelp({}, tmpDir, false), 'Workspace commands:', 'Root commands:');
 
       expect(commandNamesIn(workspaceSection)).toStrictEqual(
-        expect.arrayContaining(['test', 'test:all', 'test:coverage', 'test:integration', 'test:watch']),
+        expect.arrayContaining(['test', 'test:all', 'test:coverage', 'test:tool', 'test:unit', 'test:watch']),
       );
-      expect(workspaceSection).toContain("pnpm exec vitest --project '!integration'");
+      expect(workspaceSection).toContain('pnpm exec vitest --project unit --project tool');
     });
 
     // Help renders the registry, so a probe reintroduced anywhere would show up as a different listing here.
@@ -263,7 +263,15 @@ describe(generateHelp, () => {
       const rootSection = sectionOf(generateHelp({}, tmpDir, true), 'Root commands:', '* Overridden');
 
       expect(commandNamesIn(rootSection)).toStrictEqual(
-        expect.arrayContaining(['root:test', 'root:test:all', 'root:test:integration', 'test:all', 'test:integration']),
+        expect.arrayContaining([
+          'root:test',
+          'root:test:all',
+          'root:test:tool',
+          'root:test:unit',
+          'test:all',
+          'test:tool',
+          'test:unit',
+        ]),
       );
     });
   });
