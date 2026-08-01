@@ -47,6 +47,16 @@ const TIERS = ['tool', 'localhost', 'remote'] as const;
 // forgotten here would have its files collected twice, by its own project and by the residual, with the suite green.
 const TIERED_PATTERNS = TIERS.flatMap(buildTierPatterns);
 
+/**
+ * Timeout for every tier above `unit`, whose tests wait on something they don't control. Vitest's 5s default is a
+ * unit-test budget: a test that drives a compiler already approaches it, and coverage instrumentation roughly
+ * quadruples the wall time, so the default turns green suites flaky the moment `nmr test:coverage` collects them.
+ *
+ * A per-project value rather than a root one, so the fast tier keeps the tight budget that makes a hung unit test
+ * fail quickly. The `project` seam merges over this, so a consumer can still set their own.
+ */
+const TIER_TEST_TIMEOUT = 30_000;
+
 const ALL_TEST_PATTERNS = ['**/__tests__/**/*.test.{ts,tsx}'];
 
 // Fixtures are excluded from coverage but never from collection: a coverage exclude cannot hide a real test, while a
@@ -137,6 +147,7 @@ interface ProjectCategory {
   exclude: string[];
   include: string[];
   name: string;
+  testTimeout?: number;
 }
 
 /** Builds one project per tier, in ladder order, each inheriting the root config. */
@@ -147,17 +158,27 @@ function buildProjects(
 ): TestProjectInlineConfiguration[] {
   const categories: ProjectCategory[] = [
     { exclude: TIERED_PATTERNS, include: ALL_TEST_PATTERNS, name: 'unit' },
-    ...TIERS.map((tier) => ({ exclude: [], include: buildTierPatterns(tier), name: tier })),
+    ...TIERS.map((tier) => ({
+      exclude: [],
+      include: buildTierPatterns(tier),
+      name: tier,
+      testTimeout: TIER_TEST_TIMEOUT,
+    })),
   ];
 
-  return categories.map(({ exclude, include, name }) => {
+  return categories.map(({ exclude, include, name, testTimeout }) => {
     const project: TestProjectInlineConfiguration = {
       // Without this, Vitest gives the project no Vite config file at all, so root-level options such as
       // `resolve.conditions` never reach it.
       extends: true,
       // Patterns resolve against the project root, which otherwise defaults to the working directory.
       ...(projectRoot !== undefined && { root: projectRoot }),
-      test: { exclude: [...defaultExclude, ...BUILD_OUTPUT_EXCLUDE, ...exclude, ...extraExclude], include, name },
+      test: {
+        exclude: [...defaultExclude, ...BUILD_OUTPUT_EXCLUDE, ...exclude, ...extraExclude],
+        include,
+        name,
+        ...(testTimeout !== undefined && { testTimeout }),
+      },
     };
 
     return overrides ? mergeConfig(project, { test: overrides }) : project;

@@ -43,6 +43,25 @@ describe(defineVitestConfig, () => {
     expect(projects.map((project) => project.extends)).toStrictEqual(PROJECT_NAMES.map(() => true));
   });
 
+  // Vitest's 5s default is a unit-test budget. A tier test waits on something it doesn't control, and coverage
+  // instrumentation multiplies that wait, so the default makes a green suite flaky once `test:coverage` collects it.
+  it('gives every tier above unit a timeout that survives coverage instrumentation', () => {
+    const timeouts = new Map(
+      getProjects(defineVitestConfig()).map((project) => [project.test?.name, project.test?.testTimeout]),
+    );
+
+    expect(timeouts.get('unit')).toBeUndefined();
+    for (const tier of ['tool', 'localhost', 'remote']) {
+      expect(timeouts.get(tier)).toBe(30_000);
+    }
+  });
+
+  it('lets the project seam override the tier timeout', () => {
+    const projects = getProjects(defineVitestConfig({ project: { testTimeout: 1_000 } }));
+
+    expect(projects.map((project) => project.test?.testTimeout)).toStrictEqual(PROJECT_NAMES.map(() => 1_000));
+  });
+
   // Neither has a script, so nothing would surface their absence at run time. An undeclared tier's files fall into
   // the residual and run in the default gate, which is the silent failure declaring them prevents.
   it('declares the scriptless tiers, so their files cannot fall into the residual', () => {
