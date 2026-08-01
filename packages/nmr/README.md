@@ -657,11 +657,11 @@ vitest                               # every project
 
 Every tier above `unit` carries a 30-second `testTimeout` and `hookTimeout`, where `unit` keeps Vitest's defaults of 5 and 10 seconds. A tier test waits on something it doesn't control, and coverage instrumentation multiplies that wait, so the defaults turn a green suite flaky the moment `nmr test:coverage` collects it. Both budgets move together because a tier that scaffolds in `beforeAll` moves that wait out from under `testTimeout` entirely, where raising the test budget alone never reaches it. `unit` keeps the tight budgets, which is what makes a hung unit test fail fast.
 
-The `project` seam merges over both, but like every option passed through it, the value reaches all four projects at once -- raising a tier's budget raises `unit`'s with it. To lift the ceiling for one file instead, pass a timeout to the individual test or hook, which is the narrower tool and the one to reach for first.
+To raise a budget for one tier and no other, use the `tiers` seam below. The `project` seam merges over both budgets as well, but like every option passed through it the value reaches all four projects at once -- raising a tier's budget raises `unit`'s with it. To lift the ceiling for a single file rather than a whole tier, pass a timeout to the individual test or hook, which stays the narrower tool.
 
 ### Customizing by scope
 
-Vitest applies some options at the root of a `projects` config and others per project, and placing one at the wrong level is silent rather than loud. The factory therefore takes two separate override surfaces instead of one merged config:
+Vitest applies some options at the root of a `projects` config and others per project, and placing one at the wrong level is silent rather than loud. The factory therefore takes separate override surfaces instead of one merged config:
 
 ```ts
 export default defineVitestConfig({
@@ -669,12 +669,50 @@ export default defineVitestConfig({
   root: { resolve: { conditions: ['development'] } },
   // Applied to every project.
   project: { setupFiles: ['./vitest.setup.ts'] },
+  // Applied to one tier, after the `project` block above.
+  tiers: { tool: { testTimeout: 120_000 } },
 });
 ```
 
-`root` is typed to accept only the options that work at the root, so writing a per-project option there is a compile error rather than a setting that never runs. Both surfaces merge into the generated config rather than replacing it, so overriding one coverage field leaves the rest intact.
+`root` is typed to accept only the options that work at the root, so writing a per-project option there is a compile error rather than a setting that never runs. Every surface merges into the generated config rather than replacing it, so overriding one coverage field leaves the rest intact.
 
-Arrays concatenate rather than replace. `exclude` and `setupFiles` therefore add to what the config already declares, and neither seam can narrow `include` or drop a default exclusion. Adding an `include` pattern through `project` widens all four projects at once, so a file matching it is collected by each and runs four times.
+`tiers` is keyed by tier name and reaches all four, `unit` included. A key naming no tier throws and names the valid ones: ignoring it would leave the suite green on the budget the key failed to change, which nothing in the run reports. A tier target sets whichever keys it names and no others, so raising `testTimeout` alone leaves that tier's `hookTimeout` at 30 seconds.
+
+Arrays concatenate rather than replace. `exclude` and `setupFiles` therefore add to what the config already declares, and no surface can narrow `include` or drop a default exclusion. Adding an `include` pattern through `project` widens all four projects at once, so a file matching it is collected by each and runs four times.
+
+`resolve.conditions` concatenates too, and Vite takes the first match, so a condition declared earlier wins and a later one cannot narrow it. `resolve.alias` inverts that ordering: Vite merges aliases override-first, so a later alias takes precedence over an earlier one.
+
+### Sharing options across config files
+
+Vitest resolves one config per run, found by walking up from the run root. A package that adds its own `vitest.config.ts` therefore stops seeing the repo's root config entirely -- not the one setting it meant to change, all of them.
+
+Pass the shared settings as a layer rather than re-declaring them. Both factories take any number of layers and fold them left to right:
+
+```ts
+// vitest.shared.ts
+import type { VitestConfigOptions } from '@williamthorsen/nmr/vitest';
+
+export const shared: VitestConfigOptions = {
+  root: { resolve: { conditions: ['source'] } },
+  project: { setupFiles: ['./vitest.setup.ts'] },
+};
+```
+
+```ts
+// packages/web/vitest.config.ts
+export default defineVitestConfig(shared, { project: { environment: 'jsdom' } });
+
+// vitest.root.config.ts
+export default defineRootVitestConfig(shared, { monorepoRoot: import.meta.dirname });
+```
+
+A later layer wins on a scalar, and arrays concatenate in layer order, so every entry an earlier layer contributes precedes every entry a later one adds. Where `setupFiles` is concerned that ordering is the whole point: a shared setup file establishes the environment the package's own then runs in.
+
+`monorepoRoot` rides on the last layer, which is the config file's own. A shared layer describes settings, not which repo they belong to, and only the root config's `import.meta.dirname` states this one.
+
+**Do not merge the returned config.** `mergeConfig(defineVitestConfig(), mine)` looks like the idiomatic recovery and fails two ways, neither visible in a test run: the two `projects` arrays concatenate into eight projects, so every test runs twice, and any per-project option in `mine` lands at the root of a config that declares `projects`, where Vitest ignores it. Layers merge the factory's inputs instead, which is why they yield four projects however many fold.
+
+A config file that omits the shared layer still loses those settings, silently. That is Vitest's own resolution contract rather than something the factory can intercept, so a repo relying on shared layers is worth guarding with a test that fails when a package's suite goes missing -- the same guard that catches a shared `exclude` pattern swallowing one package's tests, which `passWithNoTests` otherwise reports as a green run collecting nothing.
 
 ### What the config excludes
 
