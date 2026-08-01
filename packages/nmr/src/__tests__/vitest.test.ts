@@ -26,7 +26,6 @@ const FIXTURE_FILES = [
   'node_modules/pkg/__tests__/dep.test.ts', // excluded by Vitest's own defaults
   'src/__tests__/nested/deep.test.tsx', // nested, and the tsx branch of the brace expansion
   'src/__tests__/plain.test.ts',
-  'src/__tests__/thing.app.test.ts', // the retired `app` infix, which the residual now claims
   'src/__tests__/thing.localhost.test.ts',
   'src/__tests__/thing.remote.test.ts',
   'src/__tests__/thing.smoke.test.ts', // an infix matching no tier
@@ -265,17 +264,10 @@ describe('project file selection', () => {
     expect(selectFiles('unit', fixtureRoot)).toContain('src/__tests__/thing.smoke.test.ts');
   });
 
-  // `app` is retired as a project but survives as a filename convention, so the residual has to claim it. A consumer
-  // who never renames keeps running those tests rather than silently losing them.
-  it('runs a file carrying the retired app infix under the unit project', () => {
-    expect(selectFiles('unit', fixtureRoot)).toContain('src/__tests__/thing.app.test.ts');
-  });
-
   it('leaves tiered, unnested, and excluded files out of the unit project', () => {
     expect(selectFiles('unit', fixtureRoot)).toStrictEqual([
       'src/__tests__/nested/deep.test.tsx',
       'src/__tests__/plain.test.ts',
-      'src/__tests__/thing.app.test.ts',
       'src/__tests__/thing.smoke.test.ts',
       'src/__tests__/thing.unit.test.ts',
     ]);

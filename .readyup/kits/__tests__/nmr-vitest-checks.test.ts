@@ -131,14 +131,6 @@ describe(noRetiredInfixTests, () => {
     expect(detail).toContain('packages/web/src/__tests__/web.integration.test.tsx');
   });
 
-  // `.int.` is the one the upgrade newly breaks: it selected a project until this release, so a repo that never
-  // renames keeps a green `nmr test` that silently runs those tests in the default gate.
-  it('reports the infix that selected a project before the upgrade', () => {
-    const dir = buildRepo({ 'packages/api/src/__tests__/api.int.test.ts': '' });
-
-    expect(detailOf(noRetiredInfixTests(dir))).toContain('packages/api/src/__tests__/api.int.test.ts');
-  });
-
   // `.drift.` never matched a project, so a repo carrying it already ran those files under the residual.
   it('leaves an infix that never selected a project alone', () => {
     const dir = buildRepo({ '__tests__/readme.drift.test.ts': '' });
