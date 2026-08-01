@@ -20,14 +20,14 @@ const SHARED_ROOT_CONFIG =
 
 const fixtureDirs: string[] = [];
 
-afterEach(() => {
-  for (const dir of fixtureDirs) {
-    rmSync(dir, { force: true, recursive: true });
-  }
-  fixtureDirs.length = 0;
-});
-
 describe(noRetiredVitestConfigs, () => {
+  afterEach(() => {
+    for (const dir of fixtureDirs) {
+      rmSync(dir, { force: true, recursive: true });
+    }
+    fixtureDirs.length = 0;
+  });
+
   it('passes when no retired variant survives', () => {
     const dir = buildRepo({ 'vitest.config.ts': SHARED_CONFIG });
 
@@ -214,7 +214,7 @@ function buildRepo(files: Record<string, string>): string {
 
 /** Extracts the detail string from a failing check outcome. */
 function detailOf(outcome: boolean | { ok: boolean; detail?: string | undefined }): string {
-  expect(typeof outcome).toBe('object');
+  expect(outcome).toBeTypeOf('object');
   if (typeof outcome === 'boolean') throw new TypeError('expected a CheckOutcome');
   expect(outcome.ok).toBe(false);
   return outcome.detail ?? '';

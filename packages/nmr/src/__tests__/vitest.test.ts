@@ -61,7 +61,7 @@ describe(defineVitestConfig, () => {
 
   it('extends the default exclusions from Vitest rather than replacing them', () => {
     for (const project of getProjects(defineVitestConfig())) {
-      expect(project.test?.exclude).toEqual(expect.arrayContaining(['**/node_modules/**', '**/.git/**']));
+      expect(project.test?.exclude).toStrictEqual(expect.arrayContaining(['**/node_modules/**', '**/.git/**']));
     }
   });
 

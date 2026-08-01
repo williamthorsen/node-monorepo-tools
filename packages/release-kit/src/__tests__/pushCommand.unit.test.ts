@@ -3,11 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mockPushRelease = vi.hoisted(() => vi.fn());
 const mockResolveCommandTags = vi.hoisted(() => vi.fn());
 
-vi.mock('../pushRelease.ts', () => ({
+vi.mock(import('../pushRelease.ts'), () => ({
   pushRelease: mockPushRelease,
 }));
 
-vi.mock('../resolveCommandTags.ts', () => ({
+vi.mock(import('../resolveCommandTags.ts'), () => ({
   resolveCommandTags: mockResolveCommandTags,
 }));
 

@@ -6,21 +6,21 @@ const mockWriteFileWithCheck = vi.hoisted(() => vi.fn());
 const mockRenderInjectedReadme = vi.hoisted(() => vi.fn());
 const mockExtractVersion = vi.hoisted(() => vi.fn());
 
-vi.mock('node:fs', () => ({
+vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
   readFileSync: mockReadFileSync,
 }));
 
-vi.mock('@williamthorsen/nmr-core', async (importOriginal) => ({
+vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => ({
   ...(await importOriginal<typeof import('@williamthorsen/nmr-core')>()),
   writeFileWithCheck: mockWriteFileWithCheck,
 }));
 
-vi.mock('../injectReleaseNotesIntoReadme.ts', () => ({
+vi.mock(import('../injectReleaseNotesIntoReadme.ts'), () => ({
   renderInjectedReadme: mockRenderInjectedReadme,
 }));
 
-vi.mock('../changelogJsonUtils.ts', () => ({
+vi.mock(import('../changelogJsonUtils.ts'), () => ({
   extractVersion: mockExtractVersion,
 }));
 
@@ -90,7 +90,7 @@ describe(writeReleaseNotesPreviews, () => {
     expect(result.injectedReadme?.outcome).toBe('overwritten');
     expect(result.releaseNotes?.outcome).toBe('overwritten');
     for (const call of mockWriteFileWithCheck.mock.calls) {
-      expect(call[2]).toEqual({ dryRun: false, overwrite: true });
+      expect(call[2]).toStrictEqual({ dryRun: false, overwrite: true });
     }
   });
 
@@ -198,7 +198,7 @@ describe(writeReleaseNotesPreviews, () => {
     });
 
     const call = mockRenderInjectedReadme.mock.calls[0];
-    expect(call?.[3]).toEqual(['Bug fixes', 'Features']);
+    expect(call?.[3]).toStrictEqual(['Bug fixes', 'Features']);
   });
 
   it('writes the standalone file with a trailing newline even when the rendered notes lack one', () => {

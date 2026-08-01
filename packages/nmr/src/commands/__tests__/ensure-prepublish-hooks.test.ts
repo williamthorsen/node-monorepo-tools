@@ -35,7 +35,7 @@ function createFixture(
   }
 }
 
-describe('ensurePrepublishHooks', () => {
+describe(ensurePrepublishHooks, () => {
   let tmpDir: string;
 
   beforeEach(() => {

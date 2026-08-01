@@ -118,7 +118,7 @@ function buildRepo(files: Record<string, string>): string {
 
 /** Extracts the detail string from a failing check outcome. */
 function detailOf(outcome: boolean | { ok: boolean; detail?: string | undefined }): string {
-  expect(typeof outcome).toBe('object');
+  expect(outcome).toBeTypeOf('object');
   if (typeof outcome === 'boolean') throw new TypeError('expected a CheckOutcome');
   expect(outcome.ok).toBe(false);
   return outcome.detail ?? '';

@@ -4,29 +4,18 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { extractStaleEntries, parseAuditCiOutput } from '../run-audit.ts';
 
-// ---------------------------------------------------------------------------
-// Hoisted mocks for runAudit / runReport tests
-// ---------------------------------------------------------------------------
-
 const mockSpawnSync = vi.hoisted(() => vi.fn<typeof import('node:child_process').spawnSync>());
 
 vi.mock('node:child_process', () => ({
   spawnSync: mockSpawnSync,
 }));
 
-function spawnResult(overrides: Partial<SpawnSyncReturns<string>> = {}): SpawnSyncReturns<string> {
-  return {
-    pid: 1234,
-    output: [null, '', ''],
-    stdout: '',
-    stderr: '',
-    status: 0,
-    signal: null,
-    ...overrides,
-  };
-}
-
 describe(parseAuditCiOutput, () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
+  });
+
   it('parses advisories from a flat advisories object', () => {
     const json = JSON.stringify({
       advisories: {
@@ -257,6 +246,11 @@ describe(parseAuditCiOutput, () => {
 });
 
 describe(extractStaleEntries, () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
+  });
+
   it('extracts stale entries from allowlistedAdvisoriesNotFound', () => {
     const json = JSON.stringify({
       allowlistedAdvisoriesNotFound: ['GHSA-old1', 'GHSA-old2'],
@@ -283,19 +277,15 @@ describe(extractStaleEntries, () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// runAudit / runReport (with mocked spawnSync)
-// ---------------------------------------------------------------------------
-
 // Import after vi.mock so the mock is active
 const { resolveAuditCiBin, runAudit, runReport } = await import('../run-audit.ts');
 
-afterEach(() => {
-  vi.restoreAllMocks();
-  vi.clearAllMocks();
-});
-
 describe(runAudit, () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
+  });
+
   it('passes --config and --output-format json when json is true', () => {
     mockSpawnSync.mockReturnValue(spawnResult({ stdout: '{}' }));
 
@@ -334,6 +324,11 @@ describe(runAudit, () => {
 });
 
 describe(runReport, () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
+  });
+
   it('returns parsed results regardless of exit code', () => {
     const advisoryOutput = JSON.stringify({
       advisories: {
@@ -382,11 +377,32 @@ describe(runReport, () => {
 });
 
 describe(resolveAuditCiBin, () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
+  });
+
   it('returns fallback "audit-ci" when import.meta.resolve fails', () => {
     // import.meta.resolve for audit-ci may or may not work in the test env;
     // if it fails, the function returns 'audit-ci' as fallback
     const result = resolveAuditCiBin();
-    expect(typeof result).toBe('string');
+    expect(result).toBeTypeOf('string');
     expect(result.length).toBeGreaterThan(0);
   });
 });
+
+// region | Helpers
+
+function spawnResult(overrides: Partial<SpawnSyncReturns<string>> = {}): SpawnSyncReturns<string> {
+  return {
+    pid: 1234,
+    output: [null, '', ''],
+    stdout: '',
+    stderr: '',
+    status: 0,
+    signal: null,
+    ...overrides,
+  };
+}
+
+// endregion | Helpers

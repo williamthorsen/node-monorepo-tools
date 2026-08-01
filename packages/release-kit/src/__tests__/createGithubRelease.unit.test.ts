@@ -6,11 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ChangelogEntry } from '../types.ts';
 
-vi.mock('node:child_process', () => ({
+vi.mock(import('node:child_process'), () => ({
   execFileSync: vi.fn(),
 }));
 
-vi.mock('../renderReleaseNotes.ts', async () => {
+vi.mock(import('../renderReleaseNotes.ts'), async () => {
   const actual = await vi.importActual<typeof import('../renderReleaseNotes.ts')>('../renderReleaseNotes.ts');
   return {
     ...actual,
@@ -59,7 +59,7 @@ describe(createGithubRelease, () => {
       changelogJsonPath: join(tempDir, 'nonexistent.json'),
       dryRun: false,
     });
-    expect(result).toEqual({ status: 'skipped', reason: 'no-entry' });
+    expect(result).toStrictEqual({ status: 'skipped', reason: 'no-entry' });
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('not found'));
   });
 
@@ -72,7 +72,7 @@ describe(createGithubRelease, () => {
       changelogJsonPath,
       dryRun: false,
     });
-    expect(result).toEqual({ status: 'skipped', reason: 'no-entry' });
+    expect(result).toStrictEqual({ status: 'skipped', reason: 'no-entry' });
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('could not parse'));
   });
 
@@ -85,7 +85,7 @@ describe(createGithubRelease, () => {
       changelogJsonPath,
       dryRun: false,
     });
-    expect(result).toEqual({ status: 'skipped', reason: 'no-entry' });
+    expect(result).toStrictEqual({ status: 'skipped', reason: 'no-entry' });
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('no changelog entry'));
   });
 
@@ -98,7 +98,7 @@ describe(createGithubRelease, () => {
       changelogJsonPath,
       dryRun: true,
     });
-    expect(result).toEqual({ status: 'created' });
+    expect(result).toStrictEqual({ status: 'created' });
     expect(mockedExecFileSync).not.toHaveBeenCalled();
     expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('[dry-run]'));
   });
@@ -174,7 +174,7 @@ describe(createGithubRelease, () => {
       dryRun: false,
     });
 
-    expect(result).toEqual({ status: 'skipped', reason: 'no-audience-content' });
+    expect(result).toStrictEqual({ status: 'skipped', reason: 'no-audience-content' });
     expect(mockedExecFileSync).not.toHaveBeenCalled();
     // Intentional skips must stay silent at the lib layer; the per-tag info summary is the
     // command's responsibility and does not run through console.warn.
@@ -193,7 +193,7 @@ describe(createGithubRelease, () => {
       dryRun: false,
     });
 
-    expect(result).toEqual({ status: 'skipped', reason: 'empty-body' });
+    expect(result).toStrictEqual({ status: 'skipped', reason: 'empty-body' });
     expect(mockedExecFileSync).not.toHaveBeenCalled();
     expect(warnSpy).not.toHaveBeenCalled();
   });

@@ -68,7 +68,7 @@ describe(initCommand, () => {
     const exitCode = initCommand({ dryRun: false, force: false, withConfig: false });
 
     expect(exitCode).toBe(0);
-    expect(mockScaffoldFiles).toHaveBeenCalledOnce();
+    expect(mockScaffoldFiles).toHaveBeenCalledTimes(1);
   });
 
   it('returns 1 when eligibility check fails', () => {

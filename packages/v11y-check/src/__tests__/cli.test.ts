@@ -1,11 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { auditCommand, checkCommand, syncCommand } from '../cli.ts';
 import type { LoadConfigResult } from '../config.ts';
 import type { CommandOptions, V11yCheckConfig } from '../types.ts';
-
-// ---------------------------------------------------------------------------
-// Hoisted mocks
-// ---------------------------------------------------------------------------
 
 const mocks = vi.hoisted(() => ({
   generateAuditCiConfig: vi.fn<() => Promise<string>>(),
@@ -17,19 +14,19 @@ const mocks = vi.hoisted(() => ({
   withTempDir: vi.fn(),
 }));
 
-vi.mock('../config.ts', () => ({
+vi.mock(import('../config.ts'), () => ({
   loadConfig: mocks.loadConfig,
 }));
 
-vi.mock('../init/scaffold.ts', () => ({
+vi.mock(import('../init/scaffold.ts'), () => ({
   scaffoldConfig: mocks.scaffoldConfig,
 }));
 
-vi.mock('../generate.ts', () => ({
+vi.mock(import('../generate.ts'), () => ({
   generateAuditCiConfig: mocks.generateAuditCiConfig,
 }));
 
-vi.mock('../run-audit.ts', async (importOriginal) => {
+vi.mock(import('../run-audit.ts'), async (importOriginal) => {
   const actual = await importOriginal<typeof import('../run-audit.ts')>();
   return {
     ...actual,
@@ -38,7 +35,7 @@ vi.mock('../run-audit.ts', async (importOriginal) => {
   };
 });
 
-vi.mock('../sync.ts', async (importOriginal) => {
+vi.mock(import('../sync.ts'), async (importOriginal) => {
   const actual = await importOriginal<typeof import('../sync.ts')>();
   return {
     ...actual,
@@ -46,45 +43,9 @@ vi.mock('../sync.ts', async (importOriginal) => {
   };
 });
 
-vi.mock('../tmp.ts', () => ({
+vi.mock(import('../tmp.ts'), () => ({
   withTempDir: mocks.withTempDir,
 }));
-
-import { auditCommand, checkCommand, syncCommand } from '../cli.ts';
-
-// ---------------------------------------------------------------------------
-// Fixtures
-// ---------------------------------------------------------------------------
-
-function makeConfig(overrides?: Partial<V11yCheckConfig>): V11yCheckConfig {
-  return {
-    dev: { allowlist: [] },
-    prod: { allowlist: [] },
-    ...overrides,
-  };
-}
-
-function makeOptions(overrides?: Partial<CommandOptions>): CommandOptions {
-  return { json: false, scopes: [], verbose: false, ...overrides };
-}
-
-function setupLoadConfig(config?: V11yCheckConfig, source: 'defaults' | 'file' = 'file'): void {
-  mocks.loadConfig.mockResolvedValue({
-    config: config ?? makeConfig(),
-    configDir: '/fake/dir',
-    configFilePath: '/fake/dir/v11y-check.config.json',
-    configSource: source,
-  });
-}
-
-/**
- * Configure withTempDir mock to execute the callback with a fake temp path.
- *
- * Must be called before each test that exercises commands using temp dirs.
- */
-function setupTempDir(): void {
-  mocks.withTempDir.mockImplementation(async (fn: (dir: string) => Promise<unknown>) => fn('/fake/tmp'));
-}
 
 // ---------------------------------------------------------------------------
 // Stderr / stdout capture helpers
@@ -93,6 +54,8 @@ function setupTempDir(): void {
 let stderrOutput: string;
 let stdoutOutput: string;
 
+// FIXME: #545
+// eslint-disable-next-line vitest/require-top-level-describe
 beforeEach(() => {
   stderrOutput = '';
   stdoutOutput = '';
@@ -109,6 +72,7 @@ beforeEach(() => {
   mocks.scaffoldConfig.mockReturnValue({ configResult: { outcome: 'created' } });
 });
 
+// eslint-disable-next-line vitest/require-top-level-describe
 afterEach(() => {
   vi.restoreAllMocks();
   vi.clearAllMocks();
@@ -869,3 +833,37 @@ describe(syncCommand, () => {
     expect(stderrOutput).toContain('Failed to create config file');
   });
 });
+
+// region | Helpers
+
+function makeConfig(overrides?: Partial<V11yCheckConfig>): V11yCheckConfig {
+  return {
+    dev: { allowlist: [] },
+    prod: { allowlist: [] },
+    ...overrides,
+  };
+}
+
+function makeOptions(overrides?: Partial<CommandOptions>): CommandOptions {
+  return { json: false, scopes: [], verbose: false, ...overrides };
+}
+
+function setupLoadConfig(config?: V11yCheckConfig, source: 'defaults' | 'file' = 'file'): void {
+  mocks.loadConfig.mockResolvedValue({
+    config: config ?? makeConfig(),
+    configDir: '/fake/dir',
+    configFilePath: '/fake/dir/v11y-check.config.json',
+    configSource: source,
+  });
+}
+
+/**
+ * Configure withTempDir mock to execute the callback with a fake temp path.
+ *
+ * Must be called before each test that exercises commands using temp dirs.
+ */
+function setupTempDir(): void {
+  mocks.withTempDir.mockImplementation(async (fn: (dir: string) => Promise<unknown>) => fn('/fake/tmp'));
+}
+
+// endregion | Helpers

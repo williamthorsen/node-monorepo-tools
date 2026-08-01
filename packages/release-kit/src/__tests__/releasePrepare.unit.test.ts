@@ -8,26 +8,26 @@ const mockWriteFileSync = vi.hoisted(() => vi.fn());
 const mockHasPrettierConfig = vi.hoisted(() => vi.fn());
 const mockWriteReleaseNotesPreviews = vi.hoisted(() => vi.fn());
 
-vi.mock('node:child_process', () => ({
+vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
   execSync: mockExecSync,
 }));
 
-vi.mock('node:fs', () => ({
+vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
   readFileSync: mockReadFileSync,
   writeFileSync: mockWriteFileSync,
 }));
 
-vi.mock('../resolveCliffConfigPath.ts', () => ({
+vi.mock(import('../resolveCliffConfigPath.ts'), () => ({
   resolveCliffConfigPath: () => 'cliff.toml',
 }));
 
-vi.mock('../hasPrettierConfig.ts', () => ({
+vi.mock(import('../hasPrettierConfig.ts'), () => ({
   hasPrettierConfig: mockHasPrettierConfig,
 }));
 
-vi.mock('../writeReleaseNotesPreviews.ts', () => ({
+vi.mock(import('../writeReleaseNotesPreviews.ts'), () => ({
   writeReleaseNotesPreviews: mockWriteReleaseNotesPreviews,
 }));
 
@@ -39,11 +39,11 @@ const mockUpsertChangelogJsonAndReturn = vi.hoisted(() => vi.fn());
 const mockMergeChangelogEntriesWithDisk = vi.hoisted(() => vi.fn());
 const mockWriteChangelogMarkdown = vi.hoisted(() => vi.fn());
 
-vi.mock('../buildChangelogEntries.ts', () => ({
+vi.mock(import('../buildChangelogEntries.ts'), () => ({
   buildChangelogEntries: mockBuildChangelogEntries,
 }));
 
-vi.mock('../changelogJsonFile.ts', () => ({
+vi.mock(import('../changelogJsonFile.ts'), () => ({
   resolveChangelogJsonPath: (config: { changelogJson: { outputPath: string } }, changelogPath: string): string =>
     `${changelogPath}/${config.changelogJson.outputPath}`,
   writeChangelogJson: vi.fn(),
@@ -52,7 +52,7 @@ vi.mock('../changelogJsonFile.ts', () => ({
   mergeChangelogEntriesWithDisk: mockMergeChangelogEntriesWithDisk,
 }));
 
-vi.mock('../renderChangelogMarkdown.ts', () => ({
+vi.mock(import('../renderChangelogMarkdown.ts'), () => ({
   writeChangelogMarkdown: mockWriteChangelogMarkdown,
 }));
 

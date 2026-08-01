@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const mockUnlinkSync = vi.hoisted(() => vi.fn());
 
-vi.mock('node:fs', () => ({
+vi.mock(import('node:fs'), () => ({
   unlinkSync: mockUnlinkSync,
 }));
 

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCreateTags = vi.hoisted(() => vi.fn());
 
-vi.mock('../createTags.ts', () => ({
+vi.mock(import('../createTags.ts'), () => ({
   createTags: mockCreateTags,
 }));
 

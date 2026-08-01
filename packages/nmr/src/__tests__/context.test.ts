@@ -8,7 +8,7 @@ import { findContainingPackageDir } from '../context.ts';
 const MONOREPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..', '..');
 const NMR_PACKAGE_DIR = path.resolve(MONOREPO_ROOT, 'packages', 'nmr');
 
-describe('findContainingPackageDir', () => {
+describe(findContainingPackageDir, () => {
   const workspaceDirs = [NMR_PACKAGE_DIR];
 
   it('returns the package dir when cwd is the package root', () => {

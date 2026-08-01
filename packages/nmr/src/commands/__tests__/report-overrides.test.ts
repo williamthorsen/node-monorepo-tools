@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { reportOverrides } from '../report-overrides.ts';
 
-describe('reportOverrides', () => {
+describe(reportOverrides, () => {
   let tmpDir: string;
 
   beforeEach(() => {

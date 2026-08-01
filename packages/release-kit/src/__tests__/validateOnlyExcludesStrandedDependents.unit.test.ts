@@ -57,7 +57,7 @@ describe(validateOnlyExcludesStrandedDependents, () => {
 
     const result = validateOnlyExcludesStrandedDependents([a, b], ['a'], graph, probe);
 
-    expect(result).toEqual([{ dir: 'b', downstreamOf: 'a', tag: 'b-v1.0.0' }]);
+    expect(result).toStrictEqual([{ dir: 'b', downstreamOf: 'a', tag: 'b-v1.0.0' }]);
   });
 
   it('flags multiple excluded dependents at the same depth, sorted by dir', () => {
@@ -73,7 +73,7 @@ describe(validateOnlyExcludesStrandedDependents, () => {
 
     const result = validateOnlyExcludesStrandedDependents([a, b, c], ['a'], graph, probe);
 
-    expect(result).toEqual([
+    expect(result).toStrictEqual([
       { dir: 'b', downstreamOf: 'a', tag: 'b-v1.0.0' },
       { dir: 'c', downstreamOf: 'a', tag: 'c-v1.0.0' },
     ]);
@@ -93,7 +93,7 @@ describe(validateOnlyExcludesStrandedDependents, () => {
 
     const result = validateOnlyExcludesStrandedDependents([a, b, c], ['a', 'b'], graph, probe);
 
-    expect(result).toEqual([{ dir: 'c', downstreamOf: 'b', tag: 'c-v1.0.0' }]);
+    expect(result).toStrictEqual([{ dir: 'c', downstreamOf: 'b', tag: 'c-v1.0.0' }]);
   });
 
   it('walks through anticipated-fix dependents to surface deeper footguns in one pass', () => {
@@ -111,7 +111,7 @@ describe(validateOnlyExcludesStrandedDependents, () => {
 
     const result = validateOnlyExcludesStrandedDependents([a, b, c], ['a'], graph, probe);
 
-    expect(result).toEqual([
+    expect(result).toStrictEqual([
       { dir: 'b', downstreamOf: 'a', tag: 'b-v1.0.0' },
       { dir: 'c', downstreamOf: 'b', tag: 'c-v1.0.0' },
     ]);
@@ -153,7 +153,7 @@ describe(validateOnlyExcludesStrandedDependents, () => {
 
     const result = validateOnlyExcludesStrandedDependents([a, b], ['a'], graph, probe);
 
-    expect(result).toEqual([{ dir: 'b', downstreamOf: 'a', tag: undefined }]);
+    expect(result).toStrictEqual([{ dir: 'b', downstreamOf: 'a', tag: undefined }]);
   });
 
   it('memoizes hasCommits — each workspace is probed at most once', () => {

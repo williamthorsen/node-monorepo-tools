@@ -141,7 +141,7 @@ describe('cliff.toml.template canonical-order encoding (drift detection)', () =>
   });
 });
 
-describe('stripGroupDecorations', () => {
+describe(stripGroupDecorations, () => {
   it('strips a `<!-- NN -->` HTML comment prefix and emoji', () => {
     expect(stripGroupDecorations('<!-- 04 -->🐛 Bug fixes')).toBe('Bug fixes');
   });

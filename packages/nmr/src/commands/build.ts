@@ -90,8 +90,7 @@ export async function computeBuildHash(
   compilerVersion: string,
 ): Promise<string> {
   const hash = createHash('sha256');
-  // eslint-disable-next-line unicorn/no-array-sort -- spread already creates a fresh copy
-  for (const file of [...files].sort()) {
+  for (const file of files.toSorted()) {
     hash.update(file);
     hash.update('\0');
     hash.update(await readFile(path.join(packageDir, file)));
@@ -104,13 +103,12 @@ export async function computeBuildHash(
 }
 
 /**
- * Resolves a package's full tsconfig `extends` chain, returning every config file in it — the leaf
- * `tsconfig.json` and each base it transitively extends, up to the repo root — as paths relative to
- * `packageDir`. Emit is driven by the fully-resolved compiler options, so the base configs (where
- * `target`, `module`, `paths`, `lib`, and `strict` are actually defined) must be in the cache's
- * hashed input set; otherwise a change to a base config would not bust the cache and stale output
- * could ship. Paths are returned relative to `packageDir` so `computeBuildHash` reads them and folds
- * a stable, location-independent path string into the digest.
+ * Resolves a package's full tsconfig `extends` chain, returning every config file in it (the leaf `tsconfig.json` and
+ * each base it transitively extends, up to the repo root) as paths relative to `packageDir`.
+ * Emit is driven by the fully-resolved compiler options, so the base configs (where `target`, `module`, `paths`,
+ * `lib`, and `strict` are actually defined) must be in the cache's hashed input set; otherwise a change to a base
+ * config would not bust the cache and stale output could ship. Paths are returned relative to `packageDir`, so
+ * `computeBuildHash` reads them and folds a stable, location-independent path string into the digest.
  */
 export function resolveTsconfigChain(packageDir: string, configFileName = 'tsconfig.json'): string[] {
   const resolvedChain: string[] = [];

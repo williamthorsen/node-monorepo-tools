@@ -9,16 +9,16 @@ import type { ChangelogEntry, ChangelogJsonConfig, ReleaseConfig } from '../type
 const mockRunGitCliff = vi.hoisted(() => vi.fn());
 const mockWriteFileSync = vi.hoisted(() => vi.fn());
 
-vi.mock('../runGitCliff.ts', () => ({
+vi.mock(import('../runGitCliff.ts'), () => ({
   runGitCliff: mockRunGitCliff,
 }));
 
-vi.mock('node:fs', () => ({
+vi.mock(import('node:fs'), () => ({
   writeFileSync: mockWriteFileSync,
 }));
 
 // Mock resolveCliffConfigPath to return a dummy path.
-vi.mock('../resolveCliffConfigPath.ts', () => ({
+vi.mock(import('../resolveCliffConfigPath.ts'), () => ({
   resolveCliffConfigPath: () => '/fake/cliff.toml',
 }));
 

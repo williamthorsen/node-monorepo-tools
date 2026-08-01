@@ -152,8 +152,8 @@ describe('work-types.json structural invariants', () => {
 
   it('every entry has a non-empty `label` and `emoji`', () => {
     for (const entry of WORK_TYPES_DATA.types) {
-      expect(entry.label, `entry "${entry.key}" has an empty label`).toBeTruthy();
-      expect(entry.emoji, `entry "${entry.key}" has an empty emoji`).toBeTruthy();
+      expect(!!entry.label, `entry "${entry.key}" has an empty label`).toBe(true);
+      expect(!!entry.emoji, `entry "${entry.key}" has an empty emoji`).toBe(true);
     }
   });
 

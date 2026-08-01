@@ -1,7 +1,6 @@
 // `@williamthorsen/eslint-config-typescript` v6 added new unicorn rules, surfacing new violations in existing code.
 // Errors are downgraded to warnings here until a decision is made whether to remove the rule or fix the violations.
 export const deferredLintRules = {
-  'unicorn/max-nested-calls': 'warn',
   'unicorn/no-computed-property-existence-check': 'warn',
   'unicorn/no-declarations-before-early-exit': 'warn',
   'unicorn/no-for-each': 'warn',
@@ -18,4 +17,14 @@ export const deferredLintRules = {
   'unicorn/prefer-iterator-to-array': 'warn',
   'unicorn/prefer-simple-condition-first': 'warn',
   'preserve-caught-error': 'warn',
+} as const;
+
+// Remove these; see #545.
+export const deferredTestRules = {
+  'vitest/expect-expect': 'warn',
+  'vitest/no-conditional-expect': 'warn',
+  'vitest/no-conditional-in-test': 'warn',
+  'vitest/require-mock-type-parameters': 'warn',
+  'vitest/require-to-throw-message': 'warn',
+  'vitest/prefer-each': 'warn',
 } as const;

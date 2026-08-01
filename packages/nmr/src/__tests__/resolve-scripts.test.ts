@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { getDefaultRootScripts, getDefaultWorkspaceScripts } from '../resolve-scripts.ts';
 
-describe('getDefaultWorkspaceScripts', () => {
+describe(getDefaultWorkspaceScripts, () => {
   it('includes all expected default workspace scripts', () => {
     const scripts = getDefaultWorkspaceScripts();
 
@@ -43,7 +43,7 @@ describe('getDefaultWorkspaceScripts', () => {
   });
 });
 
-describe('getDefaultRootScripts', () => {
+describe(getDefaultRootScripts, () => {
   it('includes all expected default root scripts', () => {
     const scripts = getDefaultRootScripts();
 

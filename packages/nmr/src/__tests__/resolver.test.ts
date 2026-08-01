@@ -64,7 +64,7 @@ describe(applyDevBin, () => {
   });
 });
 
-describe('expandScript', () => {
+describe(expandScript, () => {
   it('returns a string script unchanged', () => {
     expect(expandScript('vitest', false)).toBe('vitest');
   });
@@ -90,7 +90,7 @@ describe('expandScript', () => {
   });
 });
 
-describe('describeScript', () => {
+describe(describeScript, () => {
   it('describes a string script as itself', () => {
     expect(describeScript('vitest --coverage')).toBe('vitest --coverage');
   });
@@ -100,7 +100,7 @@ describe('describeScript', () => {
   });
 });
 
-describe('buildWorkspaceRegistry', () => {
+describe(buildWorkspaceRegistry, () => {
   it('merges config overrides on top of defaults', () => {
     const registry = buildWorkspaceRegistry({ workspaceScripts: { 'copy-content': 'tsx scripts/copy-content.ts' } });
 
@@ -115,7 +115,7 @@ describe('buildWorkspaceRegistry', () => {
   });
 });
 
-describe('buildRootRegistry', () => {
+describe(buildRootRegistry, () => {
   it('merges config overrides on top of defaults', () => {
     const registry = buildRootRegistry({
       rootScripts: { 'demo:catwalk': 'pnpx http-server --port=5189' },
@@ -126,7 +126,7 @@ describe('buildRootRegistry', () => {
   });
 });
 
-describe('resolveScript', () => {
+describe(resolveScript, () => {
   let tmpDir: string;
 
   beforeEach(() => {

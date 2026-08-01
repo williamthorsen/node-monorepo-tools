@@ -4,7 +4,7 @@ const { mockedReadFile } = vi.hoisted(() => ({
   mockedReadFile: vi.fn<(path: string) => string | undefined>(),
 }));
 
-vi.mock('readyup/check-utils', async (importOriginal) => {
+vi.mock(import('readyup/check-utils'), async (importOriginal) => {
   const actual = await importOriginal<typeof import('readyup/check-utils')>();
   return {
     ...actual,
@@ -14,11 +14,11 @@ vi.mock('readyup/check-utils', async (importOriginal) => {
 
 import { codeQualityWorkflowDoesNotUseNmrCi } from '../nmr.ts';
 
-afterEach(() => {
-  vi.restoreAllMocks();
-});
-
 describe(codeQualityWorkflowDoesNotUseNmrCi, () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('returns true when workflow file is absent', () => {
     mockedReadFile.mockReturnValue(undefined);
 

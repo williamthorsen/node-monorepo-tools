@@ -168,7 +168,7 @@ describe(runPrettier, () => {
   it('names the files it rewrites in write mode', () => {
     runPrettier({ cliPath, mode: 'write', files: ['a.js'], ignorePaths: [], cwd: stubDir });
 
-    expect(readCalls(recordPath)[0]).toEqual(expect.arrayContaining(['--list-different', '--write']));
+    expect(readCalls(recordPath)[0]).toStrictEqual(expect.arrayContaining(['--list-different', '--write']));
   });
 
   it('reports the exit code Prettier returned', () => {

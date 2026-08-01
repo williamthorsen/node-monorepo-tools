@@ -8,18 +8,18 @@ const mockReadChangelogEntries = vi.hoisted(() => vi.fn());
 const mockMatchesAudience = vi.hoisted(() => vi.fn());
 const mockRenderReleaseNotesSingle = vi.hoisted(() => vi.fn());
 
-vi.mock('node:fs', () => ({
+vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
   readFileSync: mockReadFileSync,
   writeFileSync: mockWriteFileSync,
 }));
 
-vi.mock('../changelogJsonUtils.ts', () => ({
+vi.mock(import('../changelogJsonUtils.ts'), () => ({
   extractVersion: mockExtractVersion,
   readChangelogEntries: mockReadChangelogEntries,
 }));
 
-vi.mock('../renderReleaseNotes.ts', () => ({
+vi.mock(import('../renderReleaseNotes.ts'), () => ({
   matchesAudience: mockMatchesAudience,
   renderReleaseNotesSingle: mockRenderReleaseNotesSingle,
 }));

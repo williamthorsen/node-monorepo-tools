@@ -11,28 +11,28 @@ const mockReleasePrepareMono = vi.hoisted(() => vi.fn());
 const mockReleasePrepare = vi.hoisted(() => vi.fn());
 const mockWriteFileWithCheck = vi.hoisted(() => vi.fn());
 
-vi.mock('node:fs', () => ({
+vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
   readFileSync: mockReadFileSync,
 }));
 
-vi.mock('../assertCleanWorkingTree.ts', () => ({
+vi.mock(import('../assertCleanWorkingTree.ts'), () => ({
   assertCleanWorkingTree: mockAssertCleanWorkingTree,
 }));
 
-vi.mock('../buildReleaseSummary.ts', () => ({
+vi.mock(import('../buildReleaseSummary.ts'), () => ({
   buildReleaseSummary: mockBuildReleaseSummary,
 }));
 
-vi.mock('../discoverWorkspaces.ts', () => ({
+vi.mock(import('../discoverWorkspaces.ts'), () => ({
   discoverWorkspaces: mockDiscoverWorkspaces,
 }));
 
-vi.mock('../getCommitsSinceTarget.ts', () => ({
+vi.mock(import('../getCommitsSinceTarget.ts'), () => ({
   getCommitsSinceTarget: mockGetCommitsSinceTarget,
 }));
 
-vi.mock('../loadConfig.ts', async (importOriginal) => {
+vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
   const actual = await importOriginal<typeof import('../loadConfig.ts')>();
   return {
     ...actual,
@@ -40,11 +40,11 @@ vi.mock('../loadConfig.ts', async (importOriginal) => {
   };
 });
 
-vi.mock('../releasePrepareMono.ts', () => ({
+vi.mock(import('../releasePrepareMono.ts'), () => ({
   releasePrepareMono: mockReleasePrepareMono,
 }));
 
-vi.mock('../releasePrepare.ts', () => ({
+vi.mock(import('../releasePrepare.ts'), () => ({
   releasePrepare: mockReleasePrepare,
 }));
 

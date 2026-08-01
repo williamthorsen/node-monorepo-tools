@@ -6,23 +6,23 @@ const mockLoadConfig = vi.hoisted(() => vi.fn());
 const mockDeriveWorkspaceConfig = vi.hoisted(() => vi.fn());
 const mockDetectUndeclared = vi.hoisted(() => vi.fn());
 
-vi.mock('node:child_process', () => ({
+vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
 }));
 
-vi.mock('../discoverWorkspaces.ts', () => ({
+vi.mock(import('../discoverWorkspaces.ts'), () => ({
   discoverWorkspaces: mockDiscoverWorkspaces,
 }));
 
-vi.mock('../loadConfig.ts', () => ({
+vi.mock(import('../loadConfig.ts'), () => ({
   loadConfig: mockLoadConfig,
 }));
 
-vi.mock('../deriveWorkspaceConfig.ts', () => ({
+vi.mock(import('../deriveWorkspaceConfig.ts'), () => ({
   deriveWorkspaceConfig: mockDeriveWorkspaceConfig,
 }));
 
-vi.mock('../detectUndeclaredTagPrefixes.ts', () => ({
+vi.mock(import('../detectUndeclaredTagPrefixes.ts'), () => ({
   detectUndeclaredTagPrefixes: mockDetectUndeclared,
 }));
 

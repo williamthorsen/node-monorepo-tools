@@ -3,11 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mockPreview = vi.hoisted(() => vi.fn());
 const mockDetectRepoType = vi.hoisted(() => vi.fn());
 
-vi.mock('../previewTagPrefixes.ts', () => ({
+vi.mock(import('../previewTagPrefixes.ts'), () => ({
   previewTagPrefixes: mockPreview,
 }));
 
-vi.mock('../init/detectRepoType.ts', () => ({
+vi.mock(import('../init/detectRepoType.ts'), () => ({
   detectRepoType: mockDetectRepoType,
 }));
 

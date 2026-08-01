@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } fr
 
 import { runCommand } from '../runner.ts';
 
-vi.mock('node:child_process', () => ({
+vi.mock(import('node:child_process'), () => ({
   spawnSync: vi.fn(),
 }));
 
@@ -72,8 +72,8 @@ describe(runCommand, () => {
       const stdio = stdioFromCall(0);
       // process.stdout/stderr expose numeric fds in Node — channels should be those fds, not 'pipe'.
       expect(stdio[0]).toBe('inherit');
-      expect(typeof stdio[1]).toBe('number');
-      expect(typeof stdio[2]).toBe('number');
+      expect(stdio[1]).toBeTypeOf('number');
+      expect(stdio[2]).toBeTypeOf('number');
     });
 
     it('returns the exit code on failure', () => {

@@ -12,7 +12,7 @@ import { formatValidateOverridesResult, validateOverridesCommand } from '../vali
 // `validateOverridesCommand → buildChangelogEntries → validateAllChangelogOverrides` pipeline
 // without requiring git-cliff on PATH. Other tests in this file inject `buildEntries` directly,
 // so they never reach the stubbed call site.
-vi.mock('../runGitCliff.ts', () => ({
+vi.mock(import('../runGitCliff.ts'), () => ({
   runGitCliff: vi.fn(() => '[]'),
 }));
 
@@ -186,7 +186,7 @@ describe(validateOverridesCommand, () => {
         return { errors: [], warnings: [] };
       },
     });
-    expect(capturedHashes).toEqual([
+    expect(capturedHashes).toStrictEqual([
       'aabbcc1234567890aabbcc1234567890aabbcc12',
       'ddeeff5678901234ddeeff5678901234ddeeff56',
       '9988aabbccddeeff9988aabbccddeeff9988aabb',
@@ -388,19 +388,19 @@ describe(validateOverridesCommand, () => {
       expect(calls).toHaveLength(3);
 
       // foo: workspace tagPattern is the union of derived + legacy prefixes; includePaths is the workspace glob.
-      expect(calls[0]).toEqual({
+      expect(calls[0]).toStrictEqual({
         tagPattern: '(foo-v|old-foo-v)[0-9].*',
         includePaths: ['packages/foo/**'],
       });
 
       // bar: single derived prefix (no legacy identities); includePaths is its workspace glob.
-      expect(calls[1]).toEqual({
+      expect(calls[1]).toStrictEqual({
         tagPattern: 'bar-v[0-9].*',
         includePaths: ['packages/bar/**'],
       });
 
       // Project tier: project tagPattern; includePaths is the union of workspace globs.
-      expect(calls[2]).toEqual({
+      expect(calls[2]).toStrictEqual({
         tagPattern: 'mono-v[0-9].*',
         includePaths: ['packages/foo/**', 'packages/bar/**'],
       });

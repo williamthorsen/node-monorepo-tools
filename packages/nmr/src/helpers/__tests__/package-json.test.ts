@@ -74,6 +74,6 @@ describe(readPackageJson, () => {
   it('throws when the manifest is not valid JSON', () => {
     writeFileSync(path.join(dir, 'package.json'), '{ not json');
 
-    expect(() => readPackageJson(dir)).toThrow();
+    expect(() => readPackageJson(dir)).toThrow(/Expected property name/);
   });
 });

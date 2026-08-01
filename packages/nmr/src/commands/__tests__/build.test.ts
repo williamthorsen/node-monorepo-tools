@@ -102,7 +102,7 @@ describe(resolveTsconfigChain, () => {
     fs.mkdirSync(packageDir);
     fs.writeFileSync(path.join(packageDir, 'tsconfig.json'), JSON.stringify({ compilerOptions: {} }));
 
-    expect(resolveTsconfigChain(packageDir)).toEqual(['tsconfig.json']);
+    expect(resolveTsconfigChain(packageDir)).toStrictEqual(['tsconfig.json']);
   });
 
   it('includes the leaf and each transitively extended base config, relative to the package', () => {
@@ -112,7 +112,7 @@ describe(resolveTsconfigChain, () => {
     fs.writeFileSync(path.join(dir, 'tsconfig.json'), JSON.stringify({ extends: './tsconfig.base.json' }));
     fs.writeFileSync(path.join(packageDir, 'tsconfig.json'), JSON.stringify({ extends: '../../tsconfig.json' }));
 
-    expect(resolveTsconfigChain(packageDir)).toEqual([
+    expect(resolveTsconfigChain(packageDir)).toStrictEqual([
       'tsconfig.json',
       '../../tsconfig.json',
       '../../tsconfig.base.json',

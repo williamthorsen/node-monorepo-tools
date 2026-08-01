@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { stripEmojiPrefix } from '../stripEmojiPrefix.ts';
 
-describe('stripEmojiPrefix', () => {
+describe(stripEmojiPrefix, () => {
   it('strips a leading single-codepoint emoji and the following space', () => {
     expect(stripEmojiPrefix('🐛 Bug fixes')).toBe('Bug fixes');
     expect(stripEmojiPrefix('🎉 Features')).toBe('Features');

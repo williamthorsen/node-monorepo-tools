@@ -241,7 +241,7 @@ describe(generateHelp, () => {
     it('lists all five test commands for every package', () => {
       const workspaceSection = sectionOf(generateHelp({}, tmpDir, false), 'Workspace commands:', 'Root commands:');
 
-      expect(commandNamesIn(workspaceSection)).toEqual(
+      expect(commandNamesIn(workspaceSection)).toStrictEqual(
         expect.arrayContaining(['test', 'test:all', 'test:coverage', 'test:integration', 'test:watch']),
       );
       expect(workspaceSection).toContain("pnpm exec vitest --project '!integration'");
@@ -262,7 +262,7 @@ describe(generateHelp, () => {
     it('lists the root test selections in root context', () => {
       const rootSection = sectionOf(generateHelp({}, tmpDir, true), 'Root commands:', '* Overridden');
 
-      expect(commandNamesIn(rootSection)).toEqual(
+      expect(commandNamesIn(rootSection)).toStrictEqual(
         expect.arrayContaining(['root:test', 'root:test:all', 'root:test:integration', 'test:all', 'test:integration']),
       );
     });

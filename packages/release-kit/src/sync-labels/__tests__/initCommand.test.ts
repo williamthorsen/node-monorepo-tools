@@ -83,7 +83,7 @@ describe(syncLabelsInitCommand, () => {
       dryRun: false,
       overwrite: false,
     });
-    expect(mockGenerateCommand).toHaveBeenCalledOnce();
+    expect(mockGenerateCommand).toHaveBeenCalledTimes(1);
     expect(mockLoadConfig).not.toHaveBeenCalled();
   });
 

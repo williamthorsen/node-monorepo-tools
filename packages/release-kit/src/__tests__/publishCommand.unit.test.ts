@@ -13,31 +13,31 @@ const mockWriteFileSync = vi.hoisted(() => vi.fn());
 const mockDeriveWorkspaceConfig = vi.hoisted(() => vi.fn());
 const mockAssertCleanWorkingTree = vi.hoisted(() => vi.fn());
 
-vi.mock('node:fs', () => ({
+vi.mock(import('node:fs'), () => ({
   writeFileSync: mockWriteFileSync,
 }));
 
-vi.mock('../discoverWorkspaces.ts', () => ({
+vi.mock(import('../discoverWorkspaces.ts'), () => ({
   discoverWorkspaces: mockDiscoverWorkspaces,
 }));
 
-vi.mock('../resolveReleaseTags.ts', () => ({
+vi.mock(import('../resolveReleaseTags.ts'), () => ({
   resolveReleaseTags: mockResolveReleaseTags,
 }));
 
-vi.mock('../deriveWorkspaceConfig.ts', () => ({
+vi.mock(import('../deriveWorkspaceConfig.ts'), () => ({
   deriveWorkspaceConfig: mockDeriveWorkspaceConfig,
 }));
 
-vi.mock('../detectPackageManager.ts', () => ({
+vi.mock(import('../detectPackageManager.ts'), () => ({
   detectPackageManager: mockDetectPackageManager,
 }));
 
-vi.mock('../publish.ts', () => ({
+vi.mock(import('../publish.ts'), () => ({
   publishPackage: mockPublishPackage,
 }));
 
-vi.mock('../loadConfig.ts', async () => {
+vi.mock(import('../loadConfig.ts'), async () => {
   const actual = await vi.importActual<typeof import('../loadConfig.ts')>('../loadConfig.ts');
   return {
     ...actual,
@@ -45,20 +45,20 @@ vi.mock('../loadConfig.ts', async () => {
   };
 });
 
-vi.mock('../validateConfig.ts', () => ({
+vi.mock(import('../validateConfig.ts'), () => ({
   validateConfig: mockValidateConfig,
 }));
 
-vi.mock('../createGithubRelease.ts', () => ({
+vi.mock(import('../createGithubRelease.ts'), () => ({
   createGithubReleases: mockCreateGithubReleases,
 }));
 
-vi.mock('../injectReleaseNotesIntoReadme.ts', () => ({
+vi.mock(import('../injectReleaseNotesIntoReadme.ts'), () => ({
   injectReleaseNotesIntoReadme: mockInjectReleaseNotesIntoReadme,
   resolveReadmePath: mockResolveReadmePath,
 }));
 
-vi.mock('../assertCleanWorkingTree.ts', () => ({
+vi.mock(import('../assertCleanWorkingTree.ts'), () => ({
   assertCleanWorkingTree: mockAssertCleanWorkingTree,
 }));
 

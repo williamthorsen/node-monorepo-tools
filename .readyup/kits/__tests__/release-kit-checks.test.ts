@@ -6,7 +6,7 @@ const { mockedDiscoverWorkspaces, mockedReadFile } = vi.hoisted(() => ({
   mockedReadFile: vi.fn<(path: string) => string | undefined>(),
 }));
 
-vi.mock('readyup/check-utils', async (importOriginal) => {
+vi.mock(import('readyup/check-utils'), async (importOriginal) => {
   const actual = await importOriginal<typeof import('readyup/check-utils')>();
   return {
     ...actual,
@@ -17,22 +17,11 @@ vi.mock('readyup/check-utils', async (importOriginal) => {
 
 import { readmeHasReleaseNotesMarkers, readmesHaveReleaseNotesMarkers } from '../release-kit.ts';
 
-afterEach(() => {
-  vi.restoreAllMocks();
-});
-
-/** Build a minimal Workspace-shaped fixture for tests. */
-function workspaceAt(dir: string): Workspace {
-  return {
-    dir,
-    absolutePath: `/abs/${dir}`,
-    name: dir === '.' ? 'consumer' : dir.replace(/^packages\//, ''),
-    isPackage: true,
-    packageJson: {},
-  };
-}
-
 describe(readmeHasReleaseNotesMarkers, () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('returns true when both opening and closing markers are present', () => {
     const content = '# Title\n<!-- section:release-notes -->\nNotes here\n<!-- /section:release-notes -->\n';
 
@@ -59,7 +48,7 @@ describe(readmeHasReleaseNotesMarkers, () => {
 describe(readmesHaveReleaseNotesMarkers, () => {
   describe('single-package mode', () => {
     it('returns true when root README contains both markers', () => {
-      mockedDiscoverWorkspaces.mockReturnValue([workspaceAt('.')]);
+      mockedDiscoverWorkspaces.mockReturnValue([createWorkspaceAt('.')]);
       mockedReadFile.mockImplementation((path) => {
         if (path === 'README.md') return '<!-- section:release-notes -->\n<!-- /section:release-notes -->';
         return undefined;
@@ -69,23 +58,23 @@ describe(readmesHaveReleaseNotesMarkers, () => {
     });
 
     it('reports the missing root README in CheckOutcome.detail', () => {
-      mockedDiscoverWorkspaces.mockReturnValue([workspaceAt('.')]);
+      mockedDiscoverWorkspaces.mockReturnValue([createWorkspaceAt('.')]);
       mockedReadFile.mockReturnValue(undefined);
 
-      expect(readmesHaveReleaseNotesMarkers()).toEqual({
+      expect(readmesHaveReleaseNotesMarkers()).toStrictEqual({
         ok: false,
         detail: 'missing markers or README: README.md',
       });
     });
 
     it('reports the root README path when markers are missing', () => {
-      mockedDiscoverWorkspaces.mockReturnValue([workspaceAt('.')]);
+      mockedDiscoverWorkspaces.mockReturnValue([createWorkspaceAt('.')]);
       mockedReadFile.mockImplementation((path) => {
         if (path === 'README.md') return '# Plain README';
         return undefined;
       });
 
-      expect(readmesHaveReleaseNotesMarkers()).toEqual({
+      expect(readmesHaveReleaseNotesMarkers()).toStrictEqual({
         ok: false,
         detail: 'missing markers or README: README.md',
       });
@@ -94,7 +83,10 @@ describe(readmesHaveReleaseNotesMarkers, () => {
 
   describe('monorepo mode', () => {
     it('returns true when every workspace package README has both markers', () => {
-      mockedDiscoverWorkspaces.mockReturnValue([workspaceAt('packages/alpha'), workspaceAt('packages/beta')]);
+      mockedDiscoverWorkspaces.mockReturnValue([
+        createWorkspaceAt('packages/alpha'),
+        createWorkspaceAt('packages/beta'),
+      ]);
       mockedReadFile.mockImplementation((path) => {
         if (path === 'packages/alpha/README.md')
           return '<!-- section:release-notes -->\n<!-- /section:release-notes -->';
@@ -108,9 +100,9 @@ describe(readmesHaveReleaseNotesMarkers, () => {
 
     it('aggregates failing packages into CheckOutcome.detail', () => {
       mockedDiscoverWorkspaces.mockReturnValue([
-        workspaceAt('packages/alpha'),
-        workspaceAt('packages/beta'),
-        workspaceAt('packages/gamma'),
+        createWorkspaceAt('packages/alpha'),
+        createWorkspaceAt('packages/beta'),
+        createWorkspaceAt('packages/gamma'),
       ]);
       mockedReadFile.mockImplementation((path) => {
         if (path === 'packages/alpha/README.md')
@@ -120,7 +112,7 @@ describe(readmesHaveReleaseNotesMarkers, () => {
         return undefined;
       });
 
-      expect(readmesHaveReleaseNotesMarkers()).toEqual({
+      expect(readmesHaveReleaseNotesMarkers()).toStrictEqual({
         ok: false,
         detail: 'missing markers or README: packages/beta/README.md, packages/gamma/README.md',
       });
@@ -133,3 +125,18 @@ describe(readmesHaveReleaseNotesMarkers, () => {
     });
   });
 });
+
+// region | Helpers
+
+/** Build a minimal Workspace-shaped fixture for tests. */
+function createWorkspaceAt(dir: string): Workspace {
+  return {
+    dir,
+    absolutePath: `/abs/${dir}`,
+    name: dir === '.' ? 'consumer' : dir.replace(/^packages\//, ''),
+    isPackage: true,
+    packageJson: {},
+  };
+}
+
+// region | Helpers

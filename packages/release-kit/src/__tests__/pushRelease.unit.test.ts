@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockExecFileSync = vi.hoisted(() => vi.fn());
 
-vi.mock('node:child_process', () => ({
+vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
 }));
 
@@ -59,7 +59,7 @@ describe(pushRelease, () => {
   it('returns steps for branch and all tags', () => {
     const steps = pushRelease(TAGS);
 
-    expect(steps).toEqual([
+    expect(steps).toStrictEqual([
       { type: 'branch', ref: 'main', command: ['git', 'push', 'origin', 'main'] },
       { type: 'tag', ref: 'core-v1.2.0', command: ['git', 'push', '--no-follow-tags', 'origin', 'core-v1.2.0'] },
       { type: 'tag', ref: 'cli-v0.5.0', command: ['git', 'push', '--no-follow-tags', 'origin', 'cli-v0.5.0'] },
@@ -69,7 +69,7 @@ describe(pushRelease, () => {
   it('returns only tag steps when tagsOnly is true', () => {
     const steps = pushRelease(TAGS, { tagsOnly: true });
 
-    expect(steps).toEqual([
+    expect(steps).toStrictEqual([
       { type: 'tag', ref: 'core-v1.2.0', command: ['git', 'push', '--no-follow-tags', 'origin', 'core-v1.2.0'] },
       { type: 'tag', ref: 'cli-v0.5.0', command: ['git', 'push', '--no-follow-tags', 'origin', 'cli-v0.5.0'] },
     ]);
@@ -79,6 +79,6 @@ describe(pushRelease, () => {
     const steps = pushRelease(TAGS, { dryRun: true });
 
     expect(steps).toHaveLength(3);
-    expect(steps[0]).toEqual({ type: 'branch', ref: 'main', command: ['git', 'push', 'origin', 'main'] });
+    expect(steps[0]).toStrictEqual({ type: 'branch', ref: 'main', command: ['git', 'push', 'origin', 'main'] });
   });
 });

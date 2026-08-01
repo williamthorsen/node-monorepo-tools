@@ -57,7 +57,7 @@ describe('README.md "Work types and tiers" table alignment with DEFAULT_WORK_TYP
   const defaultKeys = Object.keys(DEFAULT_WORK_TYPES);
 
   it('documents every key defined in DEFAULT_WORK_TYPES in canonical order', () => {
-    expect(readmeKeys).toEqual(defaultKeys);
+    expect(readmeKeys).toStrictEqual(defaultKeys);
   });
 
   it('uses the canonical header for each non-skipped work type', () => {

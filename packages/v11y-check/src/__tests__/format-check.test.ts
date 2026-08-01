@@ -633,22 +633,20 @@ describe(formatCheckJson, () => {
     });
 
     const parsed: unknown = JSON.parse(formatCheckJson(result, ['prod']));
-    expect(parsed).toStrictEqual(
-      expect.objectContaining({
-        prod: expect.objectContaining({
-          allowed: [
-            expect.objectContaining({
-              addedAt: '2026-04-01T00:00:00.000Z',
-              cvss: { score: 7.5 },
-              description: 'Detailed description',
-              paths: ['pkg', 'other-pkg>pkg'],
-              reason: 'Accepted risk',
-              title: 'Prototype pollution',
-            }),
-          ],
-        }),
-      }),
-    );
+    expect(parsed).toMatchObject({
+      prod: {
+        allowed: [
+          {
+            addedAt: '2026-04-01T00:00:00.000Z',
+            cvss: { score: 7.5 },
+            description: 'Detailed description',
+            paths: ['pkg', 'other-pkg>pkg'],
+            reason: 'Accepted risk',
+            title: 'Prototype pollution',
+          },
+        ],
+      },
+    });
   });
 
   it('includes below-threshold array in JSON output', () => {
@@ -664,13 +662,9 @@ describe(formatCheckJson, () => {
     });
 
     const parsed: unknown = JSON.parse(formatCheckJson(result, ['prod']));
-    expect(parsed).toStrictEqual(
-      expect.objectContaining({
-        prod: expect.objectContaining({
-          belowThreshold: [expect.objectContaining({ id: 'GHSA-bt', severity: 'low' })],
-        }),
-      }),
-    );
+    expect(parsed).toMatchObject({
+      prod: { belowThreshold: [expect.objectContaining({ id: 'GHSA-bt', severity: 'low' })] },
+    });
   });
 
   it('includes only requested scopes', () => {
@@ -694,20 +688,12 @@ describe(formatCheckJson, () => {
     });
 
     const parsed: unknown = JSON.parse(formatCheckJson(result, ['prod', 'dev']));
-    expect(parsed).toEqual(
-      expect.objectContaining({
-        summary: { status: 'vulnerabilities-found', count: 2 },
-      }),
-    );
+    expect(parsed).toMatchObject({ summary: { status: 'vulnerabilities-found', count: 2 } });
   });
 
   it('emits summary { status: "none", count: 0 } for a clean result', () => {
     const parsed: unknown = JSON.parse(formatCheckJson(makeCheckResult(), ['prod', 'dev']));
-    expect(parsed).toEqual(
-      expect.objectContaining({
-        summary: { status: 'none', count: 0 },
-      }),
-    );
+    expect(parsed).toMatchObject({ summary: { status: 'none', count: 0 } });
   });
 
   it('derives the summary across only the requested scopes', () => {
@@ -721,9 +707,9 @@ describe(formatCheckJson, () => {
     });
 
     const prodOnly: unknown = JSON.parse(formatCheckJson(result, ['prod']));
-    expect(prodOnly).toEqual(expect.objectContaining({ summary: { status: 'none', count: 0 } }));
+    expect(prodOnly).toMatchObject({ summary: { status: 'none', count: 0 } });
 
     const devOnly: unknown = JSON.parse(formatCheckJson(result, ['dev']));
-    expect(devOnly).toEqual(expect.objectContaining({ summary: { status: 'vulnerabilities-found', count: 1 } }));
+    expect(devOnly).toMatchObject({ summary: { status: 'vulnerabilities-found', count: 1 } });
   });
 });

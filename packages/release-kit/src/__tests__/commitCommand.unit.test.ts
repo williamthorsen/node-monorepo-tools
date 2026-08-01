@@ -3,11 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockExecFileSync = vi.hoisted(() => vi.fn());
 
-vi.mock('node:fs', () => ({
+vi.mock(import('node:fs'), () => ({
   readFileSync: mockReadFileSync,
 }));
 
-vi.mock('node:child_process', () => ({
+vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
 }));
 

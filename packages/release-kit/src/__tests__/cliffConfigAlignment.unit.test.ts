@@ -214,7 +214,7 @@ describe('cliff.toml.template scope-pattern parity with parseCommitMessage', () 
 
   it('every ticketed parser embeds the pipe-scope group parseCommitMessage accepts', () => {
     const nonConforming = ticketedParserMessages.filter((message) => !message.includes(EXPECTED_SCOPE_GROUP));
-    expect(nonConforming, `parsers missing the shared scope group "${EXPECTED_SCOPE_GROUP}"`).toEqual([]);
+    expect(nonConforming, `parsers missing the shared scope group "${EXPECTED_SCOPE_GROUP}"`).toStrictEqual([]);
   });
 });
 

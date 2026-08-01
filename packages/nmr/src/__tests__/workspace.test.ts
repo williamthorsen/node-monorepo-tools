@@ -10,7 +10,7 @@ import { findMonorepoRoot, getWorkspacePackageDirs } from '../workspace.ts';
 const MONOREPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..', '..');
 const NMR_PACKAGE_DIR = path.resolve(MONOREPO_ROOT, 'packages', 'nmr');
 
-describe('findMonorepoRoot', () => {
+describe(findMonorepoRoot, () => {
   it('finds root from the monorepo root', () => {
     expect(findMonorepoRoot(MONOREPO_ROOT)).toBe(MONOREPO_ROOT);
   });
@@ -31,7 +31,7 @@ describe('findMonorepoRoot', () => {
   });
 });
 
-describe('getWorkspacePackageDirs', () => {
+describe(getWorkspacePackageDirs, () => {
   it('returns directories matching workspace patterns', () => {
     const dirs = getWorkspacePackageDirs(MONOREPO_ROOT);
     expect(dirs).toContainEqual(NMR_PACKAGE_DIR);

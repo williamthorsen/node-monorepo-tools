@@ -605,7 +605,7 @@ describe('buildPackage caching', () => {
   });
 });
 
-describe('resolveBuildCachePath', () => {
+describe(resolveBuildCachePath, () => {
   let root: string;
 
   beforeEach(() => {

@@ -1,7 +1,7 @@
-import baseConfig from '@williamthorsen/eslint-config-typescript';
+import baseConfig, { createConfig } from '@williamthorsen/eslint-config-typescript';
 import { defineConfig, globalIgnores } from 'eslint/config';
 
-import { deferredLintRules } from './.config/eslint/deferred-lint-rules.ts';
+import { deferredLintRules, deferredTestRules } from './.config/eslint/deferred-lint-rules.ts';
 
 const config = defineConfig([
   ...baseConfig,
@@ -48,12 +48,14 @@ const config = defineConfig([
       ],
     },
   },
-  {
+  defineConfig({
     files: ['**/*.test.ts', '**/*.test.tsx'],
+    extends: [await createConfig.vitest()],
     rules: {
-      '@typescript-eslint/no-unsafe-assignment': 'off',
+      ...deferredTestRules,
+      'vitest/prefer-import-in-mock': 'off', // this rule's fixer can produce bad code; see issue #545
     },
-  },
+  }),
   {
     files: ['**/scripts/**/*'],
     rules: {

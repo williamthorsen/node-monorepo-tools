@@ -24,6 +24,8 @@ function isScaffoldModule(value: unknown): value is ScaffoldModule {
 
 describe('copyWorkflowTemplate (integration)', () => {
   it('resolves audit.yaml.template from the built output and writes .github/workflows/audit.yaml', async () => {
+    // FIXME: See #545
+    // eslint-disable-next-line vitest/no-conditional-in-test
     if (!existsSync(distScaffoldPath)) {
       throw new Error(
         `Built output not found at ${distScaffoldPath}. Run \`nmr build\` before running integration tests.`,

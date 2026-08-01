@@ -4,15 +4,15 @@ const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
 const mockResolveReleaseTags = vi.hoisted(() => vi.fn());
 const mockDeriveWorkspaceConfig = vi.hoisted(() => vi.fn());
 
-vi.mock('../discoverWorkspaces.ts', () => ({
+vi.mock(import('../discoverWorkspaces.ts'), () => ({
   discoverWorkspaces: mockDiscoverWorkspaces,
 }));
 
-vi.mock('../resolveReleaseTags.ts', () => ({
+vi.mock(import('../resolveReleaseTags.ts'), () => ({
   resolveReleaseTags: mockResolveReleaseTags,
 }));
 
-vi.mock('../deriveWorkspaceConfig.ts', () => ({
+vi.mock(import('../deriveWorkspaceConfig.ts'), () => ({
   deriveWorkspaceConfig: mockDeriveWorkspaceConfig,
 }));
 

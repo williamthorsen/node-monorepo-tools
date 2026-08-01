@@ -6,7 +6,7 @@ import { stripEmojiPrefix } from '../stripEmojiPrefix.ts';
 const mockLoadConfig = vi.hoisted(() => vi.fn());
 const mockValidateConfig = vi.hoisted(() => vi.fn());
 
-vi.mock('../loadConfig.ts', async () => {
+vi.mock(import('../loadConfig.ts'), async () => {
   const actual = await vi.importActual<typeof import('../loadConfig.ts')>('../loadConfig.ts');
   return {
     ...actual,
@@ -14,7 +14,7 @@ vi.mock('../loadConfig.ts', async () => {
   };
 });
 
-vi.mock('../validateConfig.ts', () => ({
+vi.mock(import('../validateConfig.ts'), () => ({
   validateConfig: mockValidateConfig,
 }));
 

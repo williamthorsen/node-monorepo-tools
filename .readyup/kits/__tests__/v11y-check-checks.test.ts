@@ -15,11 +15,11 @@ vi.mock('node:fs', async (importOriginal) => {
 
 import { noLegacyAuditCiDirectory, skipLegacyAuditCiCheck } from '../v11y-check.ts';
 
-afterEach(() => {
-  vi.restoreAllMocks();
-});
-
 describe(noLegacyAuditCiDirectory, () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('returns true when .audit-ci/ directory does not exist', () => {
     mockedExistsSync.mockReturnValue(false);
 
@@ -34,6 +34,10 @@ describe(noLegacyAuditCiDirectory, () => {
 });
 
 describe(skipLegacyAuditCiCheck, () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('returns skip message when .audit-ci/ directory does not exist', () => {
     mockedExistsSync.mockReturnValue(false);
 

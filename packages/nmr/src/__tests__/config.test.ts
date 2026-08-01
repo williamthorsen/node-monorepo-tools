@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { defineConfig, loadConfig } from '../config.ts';
 
-describe('defineConfig', () => {
+describe(defineConfig, () => {
   it('returns the config unchanged (identity function)', () => {
     const config = {
       workspaceScripts: {
@@ -45,7 +45,7 @@ describe('defineConfig', () => {
   });
 });
 
-describe('loadConfig', () => {
+describe(loadConfig, () => {
   let tmpDir: string;
 
   beforeEach(() => {

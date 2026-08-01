@@ -79,6 +79,8 @@ function hasTestFile(dir: string, inTestDir = false): boolean {
       if (hasTestFile(path.join(dir, entry.name), inTestDir || entry.name === TEST_DIR)) return true;
       continue;
     }
+    // FIXME: See issue #545
+    // eslint-disable-next-line vitest/no-conditional-tests
     if (inTestDir && TEST_FILE_PATTERN.test(entry.name)) return true;
   }
   return false;

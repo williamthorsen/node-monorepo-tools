@@ -13,13 +13,13 @@ const parsedWorkflow: unknown = parse(syncLabelsWorkflow());
 describe(syncLabelsWorkflow, () => {
   it('triggers on manual dispatch, on push, and on pull requests touching the labels file', () => {
     expect(readPath('on')).toHaveProperty('workflow_dispatch');
-    expect(readPath('on.push.paths')).toEqual(['.github/labels.yaml']);
-    expect(readPath('on.pull_request.paths')).toEqual(['.github/labels.yaml']);
+    expect(readPath('on.push.paths')).toStrictEqual(['.github/labels.yaml']);
+    expect(readPath('on.pull_request.paths')).toStrictEqual(['.github/labels.yaml']);
   });
 
   it('applies labels from a write-scoped job that skips pull requests', () => {
     expect(readPath('jobs.sync.if')).toContain("github.event_name != 'pull_request'");
-    expect(readPath('jobs.sync.permissions')).toEqual({ contents: 'read', issues: 'write' });
+    expect(readPath('jobs.sync.permissions')).toStrictEqual({ contents: 'read', issues: 'write' });
     expect(readPath('jobs.sync.uses')).toBe(REUSABLE_USES);
     expect(readPath('jobs.sync.with')).toBeUndefined();
   });
@@ -33,9 +33,9 @@ describe(syncLabelsWorkflow, () => {
 
   it('previews labels from a read-only pull-request job running in dry-run', () => {
     expect(readPath('jobs.check.if')).toBe("github.event_name == 'pull_request'");
-    expect(readPath('jobs.check.permissions')).toEqual({ contents: 'read', issues: 'read' });
+    expect(readPath('jobs.check.permissions')).toStrictEqual({ contents: 'read', issues: 'read' });
     expect(readPath('jobs.check.uses')).toBe(REUSABLE_USES);
-    expect(readPath('jobs.check.with')).toEqual({ 'dry-run': true });
+    expect(readPath('jobs.check.with')).toStrictEqual({ 'dry-run': true });
   });
 
   it('declares no workflow-level permissions, so the check job cannot inherit write access', () => {

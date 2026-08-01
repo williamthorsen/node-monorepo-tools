@@ -16,11 +16,11 @@ const mockMergeChangelogEntriesWithDisk = vi.hoisted(() => vi.fn());
 const mockWriteChangelogMarkdown = vi.hoisted(() => vi.fn());
 const mockWriteReleaseNotesPreviews = vi.hoisted(() => vi.fn());
 
-vi.mock('node:child_process', () => ({
+vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
 }));
 
-vi.mock('node:fs', () => ({
+vi.mock(import('node:fs'), () => ({
   copyFileSync: mockCopyFileSync,
   existsSync: mockExistsSync,
   mkdirSync: mockMkdirSync,
@@ -30,15 +30,15 @@ vi.mock('node:fs', () => ({
   writeFileSync: mockWriteFileSync,
 }));
 
-vi.mock('../resolveCliffConfigPath.ts', () => ({
+vi.mock(import('../resolveCliffConfigPath.ts'), () => ({
   resolveCliffConfigPath: () => 'cliff.toml',
 }));
 
-vi.mock('../buildChangelogEntries.ts', () => ({
+vi.mock(import('../buildChangelogEntries.ts'), () => ({
   buildChangelogEntries: mockBuildChangelogEntries,
 }));
 
-vi.mock('../changelogJsonFile.ts', () => ({
+vi.mock(import('../changelogJsonFile.ts'), () => ({
   resolveChangelogJsonPath: (config: { changelogJson: { outputPath: string } }, changelogPath: string): string =>
     `${changelogPath}/${config.changelogJson.outputPath}`,
   writeChangelogJson: mockWriteChangelogJson,
@@ -47,11 +47,11 @@ vi.mock('../changelogJsonFile.ts', () => ({
   mergeChangelogEntriesWithDisk: mockMergeChangelogEntriesWithDisk,
 }));
 
-vi.mock('../renderChangelogMarkdown.ts', () => ({
+vi.mock(import('../renderChangelogMarkdown.ts'), () => ({
   writeChangelogMarkdown: mockWriteChangelogMarkdown,
 }));
 
-vi.mock('../writeReleaseNotesPreviews.ts', () => ({
+vi.mock(import('../writeReleaseNotesPreviews.ts'), () => ({
   writeReleaseNotesPreviews: mockWriteReleaseNotesPreviews,
 }));
 
@@ -653,19 +653,17 @@ describe(releasePrepareProject, () => {
       expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledTimes(1);
       expect(mockWriteChangelogJson).toHaveBeenCalledTimes(1);
       const writeEntries = mockWriteChangelogJson.mock.calls[0]?.[1];
-      expect(writeEntries).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            version: '0.9.1',
-            sections: expect.arrayContaining([
-              expect.objectContaining({
-                title: 'Notes',
-                items: expect.arrayContaining([expect.objectContaining({ description: 'Forced version bump.' })]),
-              }),
-            ]),
-          }),
-        ]),
-      );
+      expect(writeEntries).toStrictEqual([
+        expect.objectContaining({
+          version: '0.9.1',
+          sections: expect.arrayContaining([
+            expect.objectContaining({
+              title: 'Notes',
+              items: expect.arrayContaining([expect.objectContaining({ description: 'Forced version bump.' })]),
+            }),
+          ]),
+        }),
+      ]);
       // Build-via-cliff path must not be exercised on the empty-range branch.
       expect(mockBuildChangelogEntries).not.toHaveBeenCalled();
     });

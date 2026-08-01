@@ -31,7 +31,7 @@ function fakeAdvisory(id: string): AuditResult {
 describe(deriveSummary, () => {
   it('returns status "none" with count 0 when both scopes are empty', () => {
     const result = makeCheckResult();
-    expect(deriveSummary(result, ['prod', 'dev'])).toEqual({ status: 'none', count: 0 });
+    expect(deriveSummary(result, ['prod', 'dev'])).toStrictEqual({ status: 'none', count: 0 });
   });
 
   it('returns "vulnerabilities-found" with the total unallowed count across scopes', () => {
@@ -39,7 +39,7 @@ describe(deriveSummary, () => {
       dev: { ...emptyScopeResult(), unallowed: [fakeAdvisory('GHSA-1')] },
       prod: { ...emptyScopeResult(), unallowed: [fakeAdvisory('GHSA-2'), fakeAdvisory('GHSA-3')] },
     });
-    expect(deriveSummary(result, ['prod', 'dev'])).toEqual({ status: 'vulnerabilities-found', count: 3 });
+    expect(deriveSummary(result, ['prod', 'dev'])).toStrictEqual({ status: 'vulnerabilities-found', count: 3 });
   });
 
   it('returns "suppressed-vulnerabilities" with the total allowed count when no unallowed exist', () => {
@@ -52,14 +52,14 @@ describe(deriveSummary, () => {
         ],
       },
     });
-    expect(deriveSummary(result, ['prod', 'dev'])).toEqual({ status: 'suppressed-vulnerabilities', count: 2 });
+    expect(deriveSummary(result, ['prod', 'dev'])).toStrictEqual({ status: 'suppressed-vulnerabilities', count: 2 });
   });
 
   it('returns "stale-overrides" with the total stale count when no vulnerabilities exist', () => {
     const result = makeCheckResult({
       prod: { ...emptyScopeResult(), stale: [{ id: 'GHSA-old' }] },
     });
-    expect(deriveSummary(result, ['prod', 'dev'])).toEqual({ status: 'stale-overrides', count: 1 });
+    expect(deriveSummary(result, ['prod', 'dev'])).toStrictEqual({ status: 'stale-overrides', count: 1 });
   });
 
   it('prioritizes unallowed over allowed and stale, and reports only the unallowed count', () => {
@@ -71,7 +71,7 @@ describe(deriveSummary, () => {
         unallowed: [fakeAdvisory('GHSA-new')],
       },
     });
-    expect(deriveSummary(result, ['prod', 'dev'])).toEqual({ status: 'vulnerabilities-found', count: 1 });
+    expect(deriveSummary(result, ['prod', 'dev'])).toStrictEqual({ status: 'vulnerabilities-found', count: 1 });
   });
 
   it('prioritizes allowed over stale when no unallowed exist, and reports only the allowed count', () => {
@@ -83,7 +83,7 @@ describe(deriveSummary, () => {
         unallowed: [],
       },
     });
-    expect(deriveSummary(result, ['prod', 'dev'])).toEqual({ status: 'suppressed-vulnerabilities', count: 1 });
+    expect(deriveSummary(result, ['prod', 'dev'])).toStrictEqual({ status: 'suppressed-vulnerabilities', count: 1 });
   });
 
   it('ignores below-threshold findings when classifying status', () => {
@@ -95,7 +95,7 @@ describe(deriveSummary, () => {
         ],
       },
     });
-    expect(deriveSummary(result, ['prod', 'dev'])).toEqual({ status: 'none', count: 0 });
+    expect(deriveSummary(result, ['prod', 'dev'])).toStrictEqual({ status: 'none', count: 0 });
   });
 
   it('only considers requested scopes', () => {
@@ -103,7 +103,7 @@ describe(deriveSummary, () => {
       dev: { ...emptyScopeResult(), unallowed: [fakeAdvisory('GHSA-dev-only')] },
       prod: emptyScopeResult(),
     });
-    expect(deriveSummary(result, ['prod'])).toEqual({ status: 'none', count: 0 });
-    expect(deriveSummary(result, ['dev'])).toEqual({ status: 'vulnerabilities-found', count: 1 });
+    expect(deriveSummary(result, ['prod'])).toStrictEqual({ status: 'none', count: 0 });
+    expect(deriveSummary(result, ['dev'])).toStrictEqual({ status: 'vulnerabilities-found', count: 1 });
   });
 });
