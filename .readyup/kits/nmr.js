@@ -180,16 +180,10 @@ var nmr_default = defineRdyKit({
           fix: "Replace vitest.root.config.ts with: import { defineRootVitestConfig } from '@williamthorsen/nmr/vitest'; export default defineRootVitestConfig({ monorepoRoot: import.meta.dirname });"
         },
         {
-          name: "no test files use the .integration. suffix",
+          name: "no test files use a retired isolation infix",
           severity: "error",
-          check: () => noIntegrationSuffixedTests(),
-          fix: "Rename *.integration.test.ts to *.int.test.ts. The integration project matches .int. only, so these run as unit tests while nmr test:integration collects nothing"
-        },
-        {
-          name: "no test files use the .drift. suffix",
-          severity: "recommend",
-          check: () => noDriftSuffixedTests(),
-          fix: "Rename *.drift.test.ts to *.app.test.ts, the canonical suffix for the app project"
+          check: () => noRetiredInfixTests(),
+          fix: "Rename *.int.test.ts and *.integration.test.ts to *.tool.test.ts if the test reaches a program the environment supplies, and drop the infix otherwise. Neither matches a project now, so these run under unit in the default gate with nothing reporting the lost separation"
         },
         {
           name: "no package re-exports the ancestor Vitest config",
@@ -239,6 +233,7 @@ var SCAN_EXCLUDE_DIRS = /* @__PURE__ */ new Set([".git", "coverage", "dist", "no
 var CONFIG_EXTENSIONS = "{ts,mts,cts,js,mjs,cjs}";
 var TEST_EXTENSIONS = "{ts,tsx}";
 var TEST_GLOB_PREFIX = "**/__tests__/**";
+var RETIRED_TEST_INFIXES = ["int", "integration"];
 var SHARED_VITEST_MODULE = "@williamthorsen/nmr/vitest";
 var SHARED_PRETTIER_MODULE = "@williamthorsen/nmr/prettier";
 var INERT_PRETTIER_CONFIGS = [".prettierrc", ".prettierrc.{json,json5,yaml,yml,toml}"];
@@ -346,11 +341,11 @@ function isReExportOnly(content) {
   const statements = content.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "").split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
   return statements.length > 0 && statements.every((line) => RE_EXPORT_LINE_PATTERN.test(line));
 }
-function noDriftSuffixedTests(cwd = process.cwd()) {
-  return checkNoMatchingFiles([`${TEST_GLOB_PREFIX}/*.drift.test.${TEST_EXTENSIONS}`], cwd);
-}
-function noIntegrationSuffixedTests(cwd = process.cwd()) {
-  return checkNoMatchingFiles([`${TEST_GLOB_PREFIX}/*.integration.test.${TEST_EXTENSIONS}`], cwd);
+function noRetiredInfixTests(cwd = process.cwd()) {
+  return checkNoMatchingFiles(
+    RETIRED_TEST_INFIXES.map((infix) => `${TEST_GLOB_PREFIX}/*.${infix}.test.${TEST_EXTENSIONS}`),
+    cwd
+  );
 }
 function noReExportOnlyVitestConfigs(cwd = process.cwd()) {
   const nonRootConfigs = findFiles([`**/vitest.config.${CONFIG_EXTENSIONS}`], cwd).filter((path) => path.includes("/"));
@@ -431,9 +426,8 @@ function vitestRootConfigBuildsOnSharedConfig(cwd = process.cwd()) {
 export {
   codeQualityWorkflowDoesNotUseNmrCi,
   nmr_default as default,
-  noDriftSuffixedTests,
-  noIntegrationSuffixedTests,
   noReExportOnlyVitestConfigs,
+  noRetiredInfixTests,
   noRetiredVitestConfigs,
   prettierConfigBuildsOnSharedConfig,
   vitestConfigBuildsOnSharedConfig,

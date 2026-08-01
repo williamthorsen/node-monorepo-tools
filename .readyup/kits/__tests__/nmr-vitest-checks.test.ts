@@ -5,9 +5,8 @@ import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
-  noDriftSuffixedTests,
-  noIntegrationSuffixedTests,
   noReExportOnlyVitestConfigs,
+  noRetiredInfixTests,
   noRetiredVitestConfigs,
   vitestConfigBuildsOnSharedConfig,
   vitestRootConfigBuildsOnSharedConfig,
@@ -109,43 +108,48 @@ describe(vitestRootConfigBuildsOnSharedConfig, () => {
   });
 });
 
-describe(noIntegrationSuffixedTests, () => {
-  it('passes when integration tests use the canonical .int. suffix', () => {
-    const dir = buildRepo({ 'packages/api/src/__tests__/api.int.test.ts': '' });
+describe(noRetiredInfixTests, () => {
+  it('passes when tests carry a live tier infix', () => {
+    const dir = buildRepo({
+      'packages/api/src/__tests__/api.tool.test.ts': '',
+      'packages/api/src/__tests__/api.unit.test.ts': '',
+      'packages/web/src/__tests__/web.test.tsx': '',
+    });
 
-    expect(noIntegrationSuffixedTests(dir)).toBe(true);
+    expect(noRetiredInfixTests(dir)).toBe(true);
   });
 
-  it('reports .integration.-suffixed tests', () => {
+  it('reports both retired infixes together', () => {
     const dir = buildRepo({
-      'packages/api/src/__tests__/api.integration.test.ts': '',
+      'packages/api/src/__tests__/api.int.test.ts': '',
       'packages/web/src/__tests__/web.integration.test.tsx': '',
     });
 
-    const detail = detailOf(noIntegrationSuffixedTests(dir));
+    const detail = detailOf(noRetiredInfixTests(dir));
     expect(detail).toContain('2 found');
-    expect(detail).toContain('packages/api/src/__tests__/api.integration.test.ts');
+    expect(detail).toContain('packages/api/src/__tests__/api.int.test.ts');
     expect(detail).toContain('packages/web/src/__tests__/web.integration.test.tsx');
   });
 
-  it('ignores a suffixed file outside __tests__, which no project collects', () => {
-    const dir = buildRepo({ 'packages/api/src/fixtures/legacy.integration.test.ts': '' });
+  // `.int.` is the one the upgrade newly breaks: it selected a project until this release, so a repo that never
+  // renames keeps a green `nmr test` that silently runs those tests in the default gate.
+  it('reports the infix that selected a project before the upgrade', () => {
+    const dir = buildRepo({ 'packages/api/src/__tests__/api.int.test.ts': '' });
 
-    expect(noIntegrationSuffixedTests(dir)).toBe(true);
-  });
-});
-
-describe(noDriftSuffixedTests, () => {
-  it('passes when app tests use the canonical .app. suffix', () => {
-    const dir = buildRepo({ '__tests__/readme.app.test.ts': '' });
-
-    expect(noDriftSuffixedTests(dir)).toBe(true);
+    expect(detailOf(noRetiredInfixTests(dir))).toContain('packages/api/src/__tests__/api.int.test.ts');
   });
 
-  it('reports .drift.-suffixed tests', () => {
+  // `.drift.` never matched a project, so a repo carrying it already ran those files under the residual.
+  it('leaves an infix that never selected a project alone', () => {
     const dir = buildRepo({ '__tests__/readme.drift.test.ts': '' });
 
-    expect(detailOf(noDriftSuffixedTests(dir))).toContain('__tests__/readme.drift.test.ts');
+    expect(noRetiredInfixTests(dir)).toBe(true);
+  });
+
+  it('ignores a retired infix outside __tests__, which no project collects', () => {
+    const dir = buildRepo({ 'packages/api/src/fixtures/legacy.integration.test.ts': '' });
+
+    expect(noRetiredInfixTests(dir)).toBe(true);
   });
 });
 
