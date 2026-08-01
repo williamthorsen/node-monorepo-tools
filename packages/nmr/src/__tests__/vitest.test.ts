@@ -147,6 +147,106 @@ describe(defineVitestConfig, () => {
 
     expect(config.test?.projects).toHaveLength(PROJECT_NAMES.length);
   });
+
+  it('folds layers left to right, so a later layer wins on a scalar', () => {
+    const projects = getProjects(
+      defineVitestConfig({ project: { testTimeout: 1_000 } }, { project: { testTimeout: 2_000 } }),
+    );
+
+    expect(projects.map((project) => project.test?.testTimeout)).toStrictEqual(PROJECT_NAMES.map(() => 2_000));
+  });
+
+  // Order decides which setup runs first, so a shared layer's entry — which establishes the environment the rest
+  // run in — has to stay ahead of whatever a package adds after it.
+  it('keeps an earlier layer of array entries ahead of a later one', () => {
+    const projects = getProjects(
+      defineVitestConfig({ project: { setupFiles: ['./shared.ts'] } }, { project: { setupFiles: ['./package.ts'] } }),
+    );
+
+    expect(projects.map((project) => project.test?.setupFiles)).toStrictEqual(
+      PROJECT_NAMES.map(() => ['./shared.ts', './package.ts']),
+    );
+  });
+
+  // Merging two built configs instead would concatenate their `projects` arrays and run every test twice, green.
+  it('declares one project per tier however many layers fold', () => {
+    const config = defineVitestConfig({ project: {} }, { root: {} }, { tiers: { tool: {} } });
+
+    expect(config.test?.projects).toHaveLength(PROJECT_NAMES.length);
+  });
+
+  it('folds a root layer from any position, not only the first', () => {
+    const config = defineVitestConfig(
+      { root: { resolve: { conditions: ['source'] } } },
+      { root: { test: { passWithNoTests: false } } },
+    );
+
+    expect(config.resolve?.conditions).toStrictEqual(['source']);
+    expect(config.test?.passWithNoTests).toBe(false);
+  });
+
+  // The point of the seam: raising one tier's ceiling leaves `unit` on the tight budget that fails a hung test fast.
+  it('targets one tier, leaving the others on their base budgets', () => {
+    const budgets = getTestTimeouts(defineVitestConfig({ tiers: { tool: { testTimeout: 120_000 } } }));
+
+    expect(budgets.get('tool')).toBe(120_000);
+    expect(budgets.get('unit')).toBeUndefined();
+    expect(budgets.get('localhost')).toBe(30_000);
+    expect(budgets.get('remote')).toBe(30_000);
+  });
+
+  // `unit` is the tier a uniform `project` override flattens, so it is the likeliest target — and the one a tier
+  // list meaning "above unit" would leave unreachable.
+  it('targets the unit tier, which the list of tiers above unit does not name', () => {
+    const budgets = getTestTimeouts(defineVitestConfig({ tiers: { unit: { testTimeout: 500 } } }));
+
+    expect(budgets.get('unit')).toBe(500);
+    expect(budgets.get('tool')).toBe(30_000);
+  });
+
+  it('applies a tier target after the same layer of uniform options', () => {
+    const budgets = getTestTimeouts(
+      defineVitestConfig({ project: { testTimeout: 1_000 }, tiers: { tool: { testTimeout: 2_000 } } }),
+    );
+
+    expect(budgets.get('tool')).toBe(2_000);
+    expect(budgets.get('unit')).toBe(1_000);
+  });
+
+  // The base sets both budgets from one field so they cannot drift; a tier target sets whichever key it names and
+  // leaves the other alone. Pinned because the config then reads 120s while a hook still fails at 30s.
+  it('leaves the hook budget alone when a tier target names only the test budget', () => {
+    const tool = getProjects(defineVitestConfig({ tiers: { tool: { testTimeout: 120_000 } } })).find(
+      ({ test }) => test?.name === 'tool',
+    );
+
+    expect(tool?.test?.testTimeout).toBe(120_000);
+    expect(tool?.test?.hookTimeout).toBe(30_000);
+  });
+
+  // Ignoring it would leave the suite green on the budget the key failed to change, which nothing reports.
+  it('rejects a tiers key naming no tier', () => {
+    const build = () =>
+      defineVitestConfig({
+        // @ts-expect-error - the key names no tier; a JavaScript consumer can still write it
+        tiers: { toool: { testTimeout: 1_000 } },
+      });
+
+    expect(build).toThrow('Unknown tier "toool" in `tiers`. Valid tiers: unit, tool, localhost, remote.');
+  });
+
+  it('checks every layer for an unknown tier, not only the last', () => {
+    const build = () =>
+      defineVitestConfig(
+        {
+          // @ts-expect-error - the key names no tier; a JavaScript consumer can still write it
+          tiers: { toool: {} },
+        },
+        { project: {} },
+      );
+
+    expect(build).toThrow('Unknown tier "toool"');
+  });
 });
 
 describe(defineRootVitestConfig, () => {
@@ -246,6 +346,29 @@ describe(defineRootVitestConfig, () => {
   it('accepts a run that collects no test files', () => {
     expect(defineRootVitestConfig({ monorepoRoot: workspaceRoot }).test?.passWithNoTests).toBe(true);
   });
+
+  it('folds a shared layer ahead of the layer carrying the monorepo root', () => {
+    const config = defineRootVitestConfig(
+      { project: { setupFiles: ['./shared.ts'] }, root: { resolve: { conditions: ['source'] } } },
+      { monorepoRoot: workspaceRoot },
+    );
+
+    expect(config.resolve?.conditions).toStrictEqual(['source']);
+    for (const project of getProjects(config)) {
+      expect(project.test?.setupFiles).toStrictEqual(['./shared.ts']);
+      expect(project.root).toBe(workspaceRoot);
+    }
+  });
+
+  // A shared layer describes settings, not which repo they belong to, so the root has to ride on the config file's
+  // own layer — the only one whose `import.meta.dirname` states this repo.
+  it('throws when the last layer carries no monorepo root, however many precede it', () => {
+    const build = () =>
+      // @ts-expect-error - the last layer must carry `monorepoRoot`; a JavaScript consumer can still omit it
+      defineRootVitestConfig({ monorepoRoot: workspaceRoot }, { project: {} });
+
+    expect(build).toThrow('defineRootVitestConfig requires `monorepoRoot`');
+  });
 });
 
 describe('project file selection', () => {
@@ -304,6 +427,15 @@ function getProjects(config: ViteUserConfig): TestProjectInlineConfiguration[] {
 
 function isInlineProject(project: TestProjectConfiguration): project is TestProjectInlineConfiguration {
   return typeof project === 'object' && !(project instanceof Promise);
+}
+
+/** Maps each tier's name to its test budget, for assertions about which tiers an option reached. */
+function getTestTimeouts(config: ViteUserConfig): Map<string, number | undefined> {
+  const projects = getProjects(config);
+
+  return new Map(
+    PROJECT_NAMES.map((name) => [name, projects.find(({ test }) => test?.name === name)?.test?.testTimeout]),
+  );
 }
 
 /** Resolves a project's patterns against the fixture tree using the engine Vitest discovers with. */
