@@ -79,12 +79,9 @@ describe('the shipped Vitest config, run for real', () => {
     removeProject(projectRoot);
   });
 
+  // `src/uncovered.ts` appearing here also proves a source untouched by any test is reported rather than dropped.
   it('measures the sources and nothing else', () => {
     expect(coveredFiles).toStrictEqual(['src/covered.ts', 'src/uncovered.ts']);
-  });
-
-  it('leaves a source untouched by any test in the report rather than dropping it', () => {
-    expect(coveredFiles).toContain('src/uncovered.ts');
   });
 
   it('excludes a fixture directory under src, whether or not a test imports it', () => {

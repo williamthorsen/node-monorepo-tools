@@ -42,12 +42,9 @@ const INTEGRATION_PATTERNS = ['**/__tests__/**/*.int.test.{ts,tsx}'];
 // runs rather than being dropped by an allow-list.
 const ALL_TEST_PATTERNS = ['**/__tests__/**/*.test.{ts,tsx}'];
 
-// The dunder directories are enumerated rather than matched by a `__*__` wildcard: the wildcard's only gain is
-// pre-empting the next dunder directory, the direction a consumer can already extend, at the cost of claiming
-// `__generated__/`, which they could not undo. `__snapshots__` is omitted because `.snap` never matches the include.
-//
-// Fixtures are excluded here and never from collection: a coverage exclude cannot hide a real test, while an
-// unremovable `fixtures` collection exclude would permanently swallow one a consumer legitimately placed there.
+// Fixtures are excluded from coverage but never from collection: a coverage exclude cannot hide a real test, while a
+// collection exclude could swallow one legitimately placed under `fixtures/`. `__snapshots__` needs no entry because
+// `.snap` files never match the include.
 const COVERAGE_EXCLUDE = [
   '**/__{fixtures,mocks,tests}__/**',
   '**/index.ts',
@@ -56,13 +53,8 @@ const COVERAGE_EXCLUDE = [
   '**/*.types.ts',
 ];
 
-// Build output is excluded from collection but deliberately not from coverage. A build that copies `.ts` sources under
-// a `__tests__` path yields a stale second suite that passes green, which a consumer cannot self-diagnose; reaching the
-// coverage include additionally takes a preserved `src/` segment, and the result is a visible 0% entry, which they can.
-//
-// Neither list is exported as a `defaultPaths` object. The seams already support the add direction, the factory returns
-// a plain config object for the rare removal, and an eject hatch would let a consumer bypass the factory, which tooling
-// built on this config expects every config to route through.
+// Excluded from collection but deliberately not from coverage: a stale test copy under `dist/` passes green, which a
+// consumer cannot self-diagnose, whereas a `dist/` entry in the coverage report is a visible 0% they can.
 const BUILD_OUTPUT_EXCLUDE = ['**/dist/**'];
 
 const PACKAGE_COVERAGE_INCLUDE = ['**/src/**/*.{ts,tsx}'];
