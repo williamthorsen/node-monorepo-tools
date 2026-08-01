@@ -12,7 +12,7 @@ Packages live under `packages/`:
 
 - **`@williamthorsen/nmr`** — Context-aware script runner for pnpm monorepos. Detects root vs workspace context and resolves the appropriate script registry.
 - **`@williamthorsen/nmr-core`** — Shared utilities consumed by `release-kit`.
-- **`@williamthorsen/release-kit`** — Version-bumping and changelog-generation toolkit. Has integration tests (`*.int.test.ts`).
+- **`@williamthorsen/release-kit`** — Version-bumping and changelog-generation toolkit. Holds the repo's only `*.tool.test.ts` outside nmr (it drives `git`), plus `*.packaged.test.ts` files that need a prior build.
 - **`v11y-check`** — Wraps audit-ci with a richer config model, typed JSON source of truth, and a sync workflow that automates allowlist management.
 
 Key files:
@@ -64,9 +64,10 @@ Use `nmr {command}` for all monorepo scripts. Use `pnpm run {script}` only for s
 ### Testing
 
 - Vitest with v8 coverage provider, configured by two files at the repo root, both thin wrappers over `@williamthorsen/nmr/vitest`
-- Both configs declare three projects named for what the tests cover: `unit` (every test file the others don't claim), `integration` (`*.int.test.ts`), and `app` (`*.app.test.ts`, e.g. drift checks). Select them with `--project`, which accepts negation
-- `nmr test` runs `--project '!integration'`, `nmr test:integration` runs `--project integration`, and `nmr test:all` runs every project. The same five names work from the repo root and from inside a package; `root:test*` variants scope to root-level files alone
-- The shared config sets `passWithNoTests`, so a run collecting no files passes, which `test:integration` needs in order to fan out across packages that have none. `__tests__/workspace-test-presence.app.test.ts` keeps that from hiding a package whose suite disappeared
+- Both configs declare four projects, an isolation ladder named for the furthest thing a test reaches: `unit` (every test file the others don't claim), `tool` (`*.tool.test.ts`, reaching a program the environment supplies), `localhost`, and `remote`. Select them with `--project`, which unions when repeated and accepts negation
+- A tier names what a test reaches, not how it invokes it: `build.tool.test.ts` drives the TypeScript compiler in-process and is still `tool`. Nor does it describe preconditions: the three `*.packaged.test.ts` files need a prior build but reach only the filesystem while running, so they fall to `unit`. `.packaged.` and `.app.` match no project and exist as documentation
+- `nmr test` runs `--project unit --project tool`, `test:unit` and `test:tool` narrow to one, and `test:all` runs every project. The same six names work from the repo root and from inside a package; `root:test*` variants scope to root-level files alone
+- The shared config sets `passWithNoTests`, so a run collecting no files passes, which `test:tool` needs in order to fan out across packages that have none. `__tests__/workspace-test-presence.app.test.ts` keeps that from hiding a package whose suite disappeared
 - Typecheck uses `tsgo` (TypeScript native preview)
 
 ### Code quality
