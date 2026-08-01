@@ -48,14 +48,17 @@ const TIERS = ['tool', 'localhost', 'remote'] as const;
 const TIERED_PATTERNS = TIERS.flatMap(buildTierPatterns);
 
 /**
- * Timeout for every tier above `unit`, whose tests wait on something they don't control. Vitest's 5s default is a
- * unit-test budget: a test that drives a compiler already approaches it, and coverage instrumentation roughly
- * quadruples the wall time, so the default turns green suites flaky the moment `nmr test:coverage` collects them.
+ * Timeout for every tier above `unit`, whose tests wait on something they don't control. Vitest's defaults are
+ * unit-test budgets -- 5s for a test, 10s for a hook -- and a test that drives a compiler already approaches the
+ * first, while coverage instrumentation roughly quadruples the wall time.
+ *
+ * One value covers both budgets. A tier that scaffolds in `beforeAll` for speed moves that wait out from under
+ * `testTimeout` entirely, so raising the test budget alone leaves the slowest operation on the unit-test default.
  *
  * A per-project value rather than a root one, so the fast tier keeps the tight budget that makes a hung unit test
- * fail quickly. The `project` seam merges over this, so a consumer can still set their own.
+ * fail quickly. The `project` seam merges over this, though it reaches every project at once (see #550).
  */
-const TIER_TEST_TIMEOUT = 30_000;
+const TIER_TIMEOUT = 30_000;
 
 const ALL_TEST_PATTERNS = ['**/__tests__/**/*.test.{ts,tsx}'];
 
@@ -143,11 +146,13 @@ function buildConfig(
   return options.root ? mergeConfig(config, options.root) : config;
 }
 
-interface ProjectCategory {
+/** One project's definition before it becomes a Vitest project config: the residual `unit`, then every tier in `TIERS`. */
+interface ProjectTier {
   exclude: string[];
   include: string[];
   name: string;
-  testTimeout?: number;
+  /** Budget for `hookTimeout` and `testTimeout` alike, held as one field so the two cannot drift apart. */
+  timeout?: number;
 }
 
 /** Builds one project per tier, in ladder order, each inheriting the root config. */
@@ -156,17 +161,17 @@ function buildProjects(
   extraExclude: string[],
   projectRoot: string | undefined,
 ): TestProjectInlineConfiguration[] {
-  const categories: ProjectCategory[] = [
+  const projectTiers: ProjectTier[] = [
     { exclude: TIERED_PATTERNS, include: ALL_TEST_PATTERNS, name: 'unit' },
     ...TIERS.map((tier) => ({
       exclude: [],
       include: buildTierPatterns(tier),
       name: tier,
-      testTimeout: TIER_TEST_TIMEOUT,
+      timeout: TIER_TIMEOUT,
     })),
   ];
 
-  return categories.map(({ exclude, include, name, testTimeout }) => {
+  return projectTiers.map(({ exclude, include, name, timeout }) => {
     const project: TestProjectInlineConfiguration = {
       // Without this, Vitest gives the project no Vite config file at all, so root-level options such as
       // `resolve.conditions` never reach it.
@@ -177,7 +182,7 @@ function buildProjects(
         exclude: [...defaultExclude, ...BUILD_OUTPUT_EXCLUDE, ...exclude, ...extraExclude],
         include,
         name,
-        ...(testTimeout !== undefined && { testTimeout }),
+        ...(timeout !== undefined && { hookTimeout: timeout, testTimeout: timeout }),
       },
     };
 

@@ -26,6 +26,7 @@ const FIXTURE_FILES = [
   'node_modules/pkg/__tests__/dep.test.ts', // excluded by Vitest's own defaults
   'src/__tests__/nested/deep.test.tsx', // nested, and the tsx branch of the brace expansion
   'src/__tests__/plain.test.ts',
+  'src/__tests__/thing.app.test.ts', // the retired project's infix, which must keep landing in the residual
   'src/__tests__/thing.localhost.test.ts',
   'src/__tests__/thing.remote.test.ts',
   'src/__tests__/thing.smoke.test.ts', // an infix matching no tier
@@ -42,22 +43,29 @@ describe(defineVitestConfig, () => {
     expect(projects.map((project) => project.extends)).toStrictEqual(PROJECT_NAMES.map(() => true));
   });
 
-  // Vitest's 5s default is a unit-test budget. A tier test waits on something it doesn't control, and coverage
-  // instrumentation multiplies that wait, so the default makes a green suite flaky once `test:coverage` collects it.
-  it('gives every tier above unit a timeout that survives coverage instrumentation', () => {
-    const timeouts = new Map(
-      getProjects(defineVitestConfig()).map((project) => [project.test?.name, project.test?.testTimeout]),
+  // Vitest's defaults are unit-test budgets: 5s for a test, 10s for a hook. A tier test waits on something it
+  // doesn't control, and coverage instrumentation multiplies that wait, so the defaults make a green suite flaky
+  // once `test:coverage` collects it. Hooks carry the same budget as tests because a tier that scaffolds in
+  // `beforeAll` moves the wait out from under `testTimeout`, where raising the test budget alone never reaches it.
+  it('gives every tier above unit budgets that survive coverage instrumentation', () => {
+    const budgets = new Map(
+      getProjects(defineVitestConfig()).map((project) => [
+        project.test?.name,
+        { hookTimeout: project.test?.hookTimeout, testTimeout: project.test?.testTimeout },
+      ]),
     );
 
-    expect(timeouts.get('unit')).toBeUndefined();
+    expect(budgets.get('unit')).toStrictEqual({ hookTimeout: undefined, testTimeout: undefined });
     for (const tier of ['tool', 'localhost', 'remote']) {
-      expect(timeouts.get(tier)).toBe(30_000);
+      expect(budgets.get(tier)).toStrictEqual({ hookTimeout: 30_000, testTimeout: 30_000 });
     }
   });
 
-  it('lets the project seam override the tier timeout', () => {
-    const projects = getProjects(defineVitestConfig({ project: { testTimeout: 1_000 } }));
+  // Distinct values rather than one, so the assertion would catch a seam that set both budgets from either key.
+  it('lets the project seam override both tier budgets', () => {
+    const projects = getProjects(defineVitestConfig({ project: { hookTimeout: 2_000, testTimeout: 1_000 } }));
 
+    expect(projects.map((project) => project.test?.hookTimeout)).toStrictEqual(PROJECT_NAMES.map(() => 2_000));
     expect(projects.map((project) => project.test?.testTimeout)).toStrictEqual(PROJECT_NAMES.map(() => 1_000));
   });
 
@@ -268,6 +276,7 @@ describe('project file selection', () => {
     expect(selectFiles('unit', fixtureRoot)).toStrictEqual([
       'src/__tests__/nested/deep.test.tsx',
       'src/__tests__/plain.test.ts',
+      'src/__tests__/thing.app.test.ts',
       'src/__tests__/thing.smoke.test.ts',
       'src/__tests__/thing.unit.test.ts',
     ]);

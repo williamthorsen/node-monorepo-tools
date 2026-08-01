@@ -655,7 +655,9 @@ vitest                               # every project
 
 `localhost` and `remote` have no test script of their own. They are declared anyway, so that a `*.remote.test.ts` file cannot fall into `unit` and run in the default gate unnoticed.
 
-Every tier above `unit` carries a 30-second `testTimeout`, where `unit` keeps Vitest's 5-second default. A tier test waits on something it doesn't control, and coverage instrumentation multiplies that wait, so the default budget turns a green suite flaky the moment `nmr test:coverage` collects it. `unit` keeps the tight budget, which is what makes a hung unit test fail fast. Override either through the `project` seam, which merges over the tier value.
+Every tier above `unit` carries a 30-second `testTimeout` and `hookTimeout`, where `unit` keeps Vitest's defaults of 5 and 10 seconds. A tier test waits on something it doesn't control, and coverage instrumentation multiplies that wait, so the defaults turn a green suite flaky the moment `nmr test:coverage` collects it. Both budgets move together because a tier that scaffolds in `beforeAll` moves that wait out from under `testTimeout` entirely, where raising the test budget alone never reaches it. `unit` keeps the tight budgets, which is what makes a hung unit test fail fast.
+
+The `project` seam merges over both, but like every option passed through it, the value reaches all four projects at once -- raising a tier's budget raises `unit`'s with it. To lift the ceiling for one file instead, pass a timeout to the individual test or hook, which is the narrower tool and the one to reach for first.
 
 ### Customizing by scope
 
