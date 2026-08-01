@@ -8,6 +8,30 @@ import { existsSync, globSync, readdirSync, readFileSync } from "node:fs";
 import { basename, join, sep } from "node:path";
 
 // packages/nmr/dist/esm/default-scripts.js
+var GATE_PROJECTS = "--project unit --project tool";
+var workspaceScripts = {
+  build: ["compile"],
+  check: ["typecheck", "fmt:check", "lint:check", "test"],
+  "check:strict": ["typecheck", "fmt:check", "lint:strict", "test:coverage"],
+  clean: "nmr-clean",
+  compile: "nmr-compile",
+  fix: ["lint", "fmt"],
+  "fix:check": ["fmt:check", "lint:check"],
+  fmt: "nmr-fmt --write",
+  "fmt:check": "nmr-fmt --check",
+  lint: "eslint --fix .",
+  "lint:check": "eslint .",
+  "lint:strict": "strict-lint",
+  test: `pnpm exec vitest ${GATE_PROJECTS}`,
+  "test:all": "pnpm exec vitest",
+  "test:coverage": `pnpm exec vitest ${GATE_PROJECTS} --coverage`,
+  "test:tool": "pnpm exec vitest --project tool",
+  "test:unit": "pnpm exec vitest --project unit",
+  "test:watch": `pnpm exec vitest ${GATE_PROJECTS} --watch`,
+  typecheck: "tsgo --noEmit",
+  upgrade: "nmr-taze --include-locked",
+  "view-coverage": "open coverage/index.html"
+};
 var rootScripts = {
   audit: ["audit:prod", "audit:dev"],
   "audit:dev": "pnpm exec v11y --dev",
@@ -30,17 +54,19 @@ var rootScripts = {
   "root:lint": "eslint --fix --ignore-pattern 'packages/**' .",
   "root:lint:check": "eslint --ignore-pattern 'packages/**' .",
   "root:lint:strict": "strict-lint --ignore-pattern 'packages/**' .",
-  "root:test": "vitest --config ./vitest.root.config.ts --project '!integration'",
+  "root:test": `vitest --config ./vitest.root.config.ts ${GATE_PROJECTS}`,
   "root:test:all": "vitest --config ./vitest.root.config.ts",
-  "root:test:integration": "vitest --config ./vitest.root.config.ts --project integration",
+  "root:test:tool": "vitest --config ./vitest.root.config.ts --project tool",
+  "root:test:unit": "vitest --config ./vitest.root.config.ts --project unit",
   "root:typecheck": "tsgo --noEmit",
   "root:upgrade": "nmr-taze --include-locked",
   "sync-agent-files": "nmr-sync-agent-files",
   test: "nmr root:test && pnpm --recursive exec nmr test",
   "test:all": "nmr root:test:all && pnpm --recursive exec nmr test:all",
   "test:coverage": "nmr root:test && pnpm --recursive exec nmr test:coverage",
-  "test:integration": "nmr root:test:integration && pnpm --recursive exec nmr test:integration",
-  "test:watch": "vitest --project '!integration' --watch",
+  "test:tool": "nmr root:test:tool && pnpm --recursive exec nmr test:tool",
+  "test:unit": "nmr root:test:unit && pnpm --recursive exec nmr test:unit",
+  "test:watch": `vitest ${GATE_PROJECTS} --watch`,
   typecheck: "nmr root:typecheck && pnpm --recursive exec nmr typecheck",
   upgrade: "nmr-report-overrides && nmr-taze --include-locked --recursive"
 };
