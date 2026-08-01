@@ -42,13 +42,20 @@ const INTEGRATION_PATTERNS = ['**/__tests__/**/*.int.test.{ts,tsx}'];
 // runs rather than being dropped by an allow-list.
 const ALL_TEST_PATTERNS = ['**/__tests__/**/*.test.{ts,tsx}'];
 
+// Fixtures are excluded from coverage but never from collection: a coverage exclude cannot hide a real test, while a
+// collection exclude could swallow one legitimately placed under `fixtures/`. `__snapshots__` needs no entry because
+// `.snap` files never match the include.
 const COVERAGE_EXCLUDE = [
-  '**/__{mocks,tests}__/*', //
+  '**/__{fixtures,mocks,tests}__/**',
   '**/index.ts',
   '**/mock*.{ts,tsx}',
   '**/*.d.ts',
   '**/*.types.ts',
 ];
+
+// Excluded from collection but deliberately not from coverage: a stale test copy under `dist/` passes green, which a
+// consumer cannot self-diagnose, whereas a `dist/` entry in the coverage report is a visible 0% they can.
+const BUILD_OUTPUT_EXCLUDE = ['**/dist/**'];
 
 const PACKAGE_COVERAGE_INCLUDE = ['**/src/**/*.{ts,tsx}'];
 
@@ -138,7 +145,7 @@ function buildProjects(
       extends: true,
       // Patterns resolve against the project root, which otherwise defaults to the working directory.
       ...(projectRoot !== undefined && { root: projectRoot }),
-      test: { exclude: [...defaultExclude, ...exclude, ...extraExclude], include, name },
+      test: { exclude: [...defaultExclude, ...BUILD_OUTPUT_EXCLUDE, ...exclude, ...extraExclude], include, name },
     };
 
     return overrides ? mergeConfig(project, { test: overrides }) : project;
