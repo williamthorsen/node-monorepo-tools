@@ -4,10 +4,10 @@
     "severityThreshold": "moderate",
     "allowlist": [
       {
-        "addedAt": "2026-07-27T22:07:39.029Z",
-        "id": "1124334",
+        "addedAt": "2026-08-01T00:59:54.257Z",
+        "id": "1130588",
         "path": ".>@williamthorsen/eslint-config-typescript>eslint-plugin-import>minimatch>brace-expansion",
-        "reason": "Added by v11y sync at 2026-07-27 22:07:39 UTC",
+        "reason": "Added by v11y sync at 2026-08-01 00:59:54 UTC",
         "url": "https://github.com/advisories/GHSA-mh99-v99m-4gvg"
       }
     ]
