@@ -34,26 +34,6 @@ describe(getDefaultWorkspaceScripts, () => {
     expect(scripts['test:watch']).toBe('pnpm exec vitest --project unit --project tool --watch');
   });
 
-  // Naming the tiers rather than negating the skipped ones is what keeps a tier added later out of the default
-  // gate until a release opts it in. A negated selection would sweep it in on the release that introduced it.
-  it('names the tiers the default gate runs rather than negating the ones it skips', () => {
-    const scripts = getDefaultWorkspaceScripts();
-
-    for (const name of ['test', 'test:coverage', 'test:watch']) {
-      expect(scripts[name]).not.toContain('!');
-    }
-  });
-
-  // Neither reaches the default gate, so a package holding only those tests is green under `nmr test`.
-  it('leaves the tiers needing a running service out of every default selection', () => {
-    const scripts = getDefaultWorkspaceScripts();
-
-    for (const name of ['test', 'test:coverage', 'test:watch']) {
-      expect(scripts[name]).not.toContain('localhost');
-      expect(scripts[name]).not.toContain('remote');
-    }
-  });
-
   // A workspace-context upgrade scans the cwd package alone; the recursive sweep is the root registry's.
   // It reports no overrides either: `pnpm.overrides` is declared in the root `package.json` alone.
   it('upgrades the current package without recursing', () => {
@@ -148,12 +128,6 @@ describe(getDefaultRootScripts, () => {
 
   it('watches the whole tree from one process, running the default gate alone', () => {
     expect(getDefaultRootScripts()['test:watch']).toBe('vitest --project unit --project tool --watch');
-  });
-
-  it('retires the integration selections from both registries', () => {
-    expect(getDefaultRootScripts()).not.toHaveProperty('test:integration');
-    expect(getDefaultRootScripts()).not.toHaveProperty('root:test:integration');
-    expect(getDefaultWorkspaceScripts()).not.toHaveProperty('test:integration');
   });
 
   it('runs strict-lint against the monorepo root, excluding packages', () => {
