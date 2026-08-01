@@ -42,13 +42,28 @@ const INTEGRATION_PATTERNS = ['**/__tests__/**/*.int.test.{ts,tsx}'];
 // runs rather than being dropped by an allow-list.
 const ALL_TEST_PATTERNS = ['**/__tests__/**/*.test.{ts,tsx}'];
 
+// The dunder directories are enumerated rather than matched by a `__*__` wildcard: the wildcard's only gain is
+// pre-empting the next dunder directory, the direction a consumer can already extend, at the cost of claiming
+// `__generated__/`, which they could not undo. `__snapshots__` is omitted because `.snap` never matches the include.
+//
+// Fixtures are excluded here and never from collection: a coverage exclude cannot hide a real test, while an
+// unremovable `fixtures` collection exclude would permanently swallow one a consumer legitimately placed there.
 const COVERAGE_EXCLUDE = [
-  '**/__{mocks,tests}__/*', //
+  '**/__{fixtures,mocks,tests}__/**',
   '**/index.ts',
   '**/mock*.{ts,tsx}',
   '**/*.d.ts',
   '**/*.types.ts',
 ];
+
+// Build output is excluded from collection but deliberately not from coverage. A build that copies `.ts` sources under
+// a `__tests__` path yields a stale second suite that passes green, which a consumer cannot self-diagnose; reaching the
+// coverage include additionally takes a preserved `src/` segment, and the result is a visible 0% entry, which they can.
+//
+// Neither list is exported as a `defaultPaths` object. The seams already support the add direction, the factory returns
+// a plain config object for the rare removal, and an eject hatch would let a consumer bypass the factory, which tooling
+// built on this config expects every config to route through.
+const BUILD_OUTPUT_EXCLUDE = ['**/dist/**'];
 
 const PACKAGE_COVERAGE_INCLUDE = ['**/src/**/*.{ts,tsx}'];
 
@@ -138,7 +153,7 @@ function buildProjects(
       extends: true,
       // Patterns resolve against the project root, which otherwise defaults to the working directory.
       ...(projectRoot !== undefined && { root: projectRoot }),
-      test: { exclude: [...defaultExclude, ...exclude, ...extraExclude], include, name },
+      test: { exclude: [...defaultExclude, ...BUILD_OUTPUT_EXCLUDE, ...exclude, ...extraExclude], include, name },
     };
 
     return overrides ? mergeConfig(project, { test: overrides }) : project;

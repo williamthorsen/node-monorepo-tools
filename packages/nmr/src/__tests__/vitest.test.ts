@@ -10,6 +10,9 @@ import { defineRootVitestConfig, defineVitestConfig } from '../vitest.ts';
 
 // Files the fixture tree holds, each chosen for a category boundary the config has to get right.
 const FIXTURE_FILES = [
+  // A build that copies sources rather than compiling them. The `dist/src/` shape is the one that also survives the
+  // coverage include, so the single fixture stands for both surfaces.
+  'dist/src/__tests__/copied.test.ts',
   'node_modules/pkg/__tests__/dep.test.ts', // excluded by Vitest's own defaults
   'src/__tests__/nested/deep.test.tsx', // nested, and the tsx branch of the brace expansion
   'src/__tests__/plain.test.ts',
@@ -136,6 +139,7 @@ describe(defineRootVitestConfig, () => {
       expect(project.test?.exclude).toStrictEqual([
         '**/node_modules/**',
         '**/.git/**',
+        '**/dist/**',
         ...(project.test?.name === 'unit'
           ? ['**/__tests__/**/*.app.test.{ts,tsx}', '**/__tests__/**/*.int.test.{ts,tsx}']
           : []),
@@ -180,6 +184,7 @@ describe(defineRootVitestConfig, () => {
       expect(project.test?.exclude).toStrictEqual([
         '**/node_modules/**',
         '**/.git/**',
+        '**/dist/**',
         ...(project.test?.name === 'unit'
           ? ['**/__tests__/**/*.app.test.{ts,tsx}', '**/__tests__/**/*.int.test.{ts,tsx}']
           : []),
@@ -237,6 +242,13 @@ describe('project file selection', () => {
       'src/__tests__/plain.test.ts',
       'src/__tests__/thing.smoke.test.ts',
     ]);
+  });
+
+  // A copy of the suite under `dist/` runs green against stale code, so no project may collect it.
+  it('leaves a test file copied into build output out of every project', () => {
+    for (const name of ['app', 'integration', 'unit']) {
+      expect(selectFiles(name, fixtureRoot)).not.toContain('dist/src/__tests__/copied.test.ts');
+    }
   });
 });
 
