@@ -38,9 +38,9 @@ const EXCLUDED_FILENAMES = new Set([
  * Pinning them back is what makes adoption a no-op in a repo whose scripts shfmt already formatted.
  * They sit here rather than in a `*.sh` override for two reasons. A consumer passing one as a scalar option
  * overrides it, where an override would win over the scalar instead — the opposite of what this factory promises.
- * And Prettier resolves `overrides` against the containing file's path, so a `*.sh` entry never reaches a
- * ```bash fence inside a Markdown file, which registering the plugin also formats; the fence and the standalone
- * script would then be formatted in two different shell dialects.
+ * And Prettier resolves `overrides` against the containing file's path, so a `*.sh` entry would miss a shell fence
+ * inside Markdown, formatting the fence and the standalone script in two different shell dialects for any consumer
+ * that takes fence formatting back.
  * Parsers other than `sh` ignore them.
  */
 const DEFAULT_OPTIONS: Config = {
@@ -58,6 +58,35 @@ const DEFAULT_OVERRIDES: NonNullable<Config['overrides']> = [
   {
     files: ['*.json5', '*.jsonc', 'tsconfig.json', 'tsconfig.*.json'],
     options: { parser: 'jsonc', singleQuote: false, trailingComma: 'all' },
+  },
+  /*
+   * Registering the shell plugin also hands a fence tagged `bash` to shfmt, where a documented command's
+   * angle-bracket placeholders are valid redirections: `--type <type>` is reprinted as a read from a file named
+   * `type`, silently turning the documented command into a different one that still runs.
+   * It cannot be narrowed to shell. Prettier matches a fence tag against the same `extensions` its file inference
+   * reads, so the `.bash` routing a script also claims the tag, and dropping it would take inference with it.
+   * The cost is every embedded language in Markdown, `ts` and `json` included.
+   * The list is Prettier's Markdown and MDX claim in full, extensionless `README` included, because a path left
+   * out is rewritten with nothing to report it. A parity test fails when Prettier's claim grows past it.
+   */
+  {
+    files: [
+      '*.livemd',
+      '*.markdown',
+      '*.md',
+      '*.mdown',
+      '*.mdwn',
+      '*.mdx',
+      '*.mkd',
+      '*.mkdn',
+      '*.mkdown',
+      '*.ronn',
+      '*.scd',
+      '*.workbook',
+      'README',
+      'contents.lr',
+    ],
+    options: { embeddedLanguageFormatting: 'off' },
   },
 ];
 
