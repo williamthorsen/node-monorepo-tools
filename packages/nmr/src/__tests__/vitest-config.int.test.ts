@@ -10,9 +10,9 @@ const CONFIG_SOURCE = path.join(import.meta.dirname, '../vitest.ts');
 const VITEST_CLI = path.join(REPO_ROOT, 'node_modules/vitest/vitest.mjs');
 
 /**
- * A package tree whose files sit on either side of every boundary the exclusions draw. Each fixture exists in an
- * imported and an unimported variant: the unimported one reaches coverage through the file glob, the imported one
- * through `isIncluded()`, and only running Vitest exercises both paths at once.
+ * A package tree whose files sit on either side of every boundary the exclusions draw.
+ * Each fixture exists in an imported and an unimported variant: the unimported one reaches coverage through the
+ * file glob, the imported one through `isIncluded()`, and only running Vitest exercises both paths at once.
  */
 const PROJECT_FILES: Record<string, string> = {
   'package.json': JSON.stringify({ name: 'vitest-config-fixture', private: true, type: 'module' }),
@@ -40,7 +40,7 @@ const PROJECT_FILES: Record<string, string> = {
     '',
   ].join('\n'),
 
-  // A build that copies sources rather than compiling them. It passes, which is the point: an unexcluded copy runs
+  // A build that copies sources rather than compiling them. It passes, which is the point: An unexcluded copy runs
   // green against stale code, so the collected file list is the only thing that can detect it.
   'dist/src/__tests__/suite.test.ts': [
     "import { expect, it } from 'vitest';",
@@ -142,16 +142,16 @@ function buildChildEnv(): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
 
   for (const [name, value] of Object.entries(process.env)) {
-    if (name.startsWith('VITEST') || name === 'TEST' || name === 'NODE_V8_COVERAGE') continue;
+    if (name === 'TEST' || name === 'NODE_V8_COVERAGE' || name.startsWith('VITEST')) continue;
     env[name] = value;
   }
 
   return env;
 }
 
-/** The files the coverage report measured, relative to the project root. */
+/** The files the coverage report measured, relative to the project root. Its keys are absolute paths. */
 function readCoveredFiles(projectRoot: string): string[] {
-  const summary = readJson(path.join(projectRoot, 'coverage/coverage-summary.json'));
+  const summary = readJsonObject(path.join(projectRoot, 'coverage/coverage-summary.json'));
 
   return Object.keys(summary)
     .filter((key) => key !== 'total')
@@ -161,31 +161,33 @@ function readCoveredFiles(projectRoot: string): string[] {
 
 /** The test files the run collected, relative to the project root. */
 function readCollectedTestFiles(projectRoot: string): string[] {
-  const results = readJson(path.join(projectRoot, 'results.json'));
-  const testResults: unknown = results.testResults;
+  const results = readJsonObject(path.join(projectRoot, 'results.json'));
+  const testResults: unknown = 'testResults' in results ? results.testResults : undefined;
 
   if (!Array.isArray(testResults)) {
     throw new TypeError('the JSON reporter wrote no testResults array');
   }
 
-  return testResults
-    .map((result: unknown) => {
-      if (typeof result !== 'object' || result === null || !('name' in result) || typeof result.name !== 'string') {
-        throw new TypeError('a testResults entry named no file');
-      }
-      return toRelativePosix(projectRoot, result.name);
-    })
-    .toSorted();
+  return testResults.map((result: unknown) => toRelativePosix(projectRoot, readTestFileName(result))).toSorted();
 }
 
-function readJson(filePath: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-
-  if (typeof parsed !== 'object' || parsed === null) {
-    throw new TypeError(`expected an object in ${filePath}`);
+/** The `name` of one JSON-reporter result, which holds the absolute path of the test file it ran. */
+function readTestFileName(result: unknown): string {
+  if (result === null || typeof result !== 'object' || !('name' in result) || typeof result.name !== 'string') {
+    throw new TypeError('a testResults entry named no file');
   }
 
-  return parsed as Record<string, unknown>;
+  return result.name;
+}
+
+function readJsonObject(filePath: string): object {
+  const parsed: unknown = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+
+  if (parsed === null || typeof parsed !== 'object') {
+    throw new TypeError(`expected a JSON object in ${filePath}`);
+  }
+
+  return parsed;
 }
 
 function toRelativePosix(from: string, to: string): string {
