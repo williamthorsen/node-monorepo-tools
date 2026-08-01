@@ -112,7 +112,7 @@ function withinFixture<T>(repoDir: string, fn: () => T): T {
   }
 }
 
-describe('releasePrepareProject (integration)', () => {
+describe('releasePrepareProject (tool)', () => {
   let fixture: Fixture;
 
   beforeEach(() => {
@@ -387,7 +387,7 @@ describe('releasePrepareProject (integration)', () => {
   }, 60_000);
 
   it('rejects --only via prepareCommand before any project work runs', async () => {
-    // The CLI guard lives in prepareCommand. We exercise it directly so the integration test
+    // The CLI guard lives in prepareCommand. We exercise it directly so this test
     // reflects the user-observable behavior end-to-end. Failure must occur before any file is
     // written: assert no CHANGELOG.md, no bumped version, no project-tag artifact.
     const { prepareCommand } = await import('../prepareCommand.ts');

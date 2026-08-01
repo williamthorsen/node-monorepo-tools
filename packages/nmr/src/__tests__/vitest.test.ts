@@ -8,7 +8,17 @@ import type { TestProjectConfiguration, TestProjectInlineConfiguration, ViteUser
 
 import { defineRootVitestConfig, defineVitestConfig } from '../vitest.ts';
 
-// Files the fixture tree holds, each chosen for a category boundary the config has to get right.
+/** Every project the shared config declares, in the order it emits them: the residual, then the ladder. */
+const PROJECT_NAMES = ['unit', 'tool', 'localhost', 'remote'];
+
+// Spelled out rather than derived from the config, so the assertion fails if the derivation itself drifts.
+const TIERED_PATTERNS = [
+  '**/__tests__/**/*.tool.test.{ts,tsx}',
+  '**/__tests__/**/*.localhost.test.{ts,tsx}',
+  '**/__tests__/**/*.remote.test.{ts,tsx}',
+];
+
+// Files the fixture tree holds, each chosen for a tier boundary the config has to get right.
 const FIXTURE_FILES = [
   // A build that copies sources rather than compiling them. The `dist/src/` shape is the one that also survives the
   // coverage include, so the single fixture stands for both surfaces.
@@ -16,18 +26,56 @@ const FIXTURE_FILES = [
   'node_modules/pkg/__tests__/dep.test.ts', // excluded by Vitest's own defaults
   'src/__tests__/nested/deep.test.tsx', // nested, and the tsx branch of the brace expansion
   'src/__tests__/plain.test.ts',
-  'src/__tests__/thing.app.test.ts',
-  'src/__tests__/thing.int.test.ts',
-  'src/__tests__/thing.smoke.test.ts', // a suffix matching no category
+  'src/__tests__/thing.app.test.ts', // the retired project's infix, which must keep landing in the residual
+  'src/__tests__/thing.localhost.test.ts',
+  'src/__tests__/thing.remote.test.ts',
+  'src/__tests__/thing.smoke.test.ts', // an infix matching no tier
+  'src/__tests__/thing.tool.test.ts',
+  'src/__tests__/thing.unit.test.ts', // the optional, purely informative `unit` infix
   'src/outside.test.ts', // outside a `__tests__` directory
 ];
 
 describe(defineVitestConfig, () => {
-  it('declares the three categories, each inheriting the root config', () => {
+  it('declares every tier, each inheriting the root config', () => {
     const projects = getProjects(defineVitestConfig());
 
-    expect(projects.map((project) => project.test?.name)).toStrictEqual(['app', 'integration', 'unit']);
-    expect(projects.map((project) => project.extends)).toStrictEqual([true, true, true]);
+    expect(projects.map((project) => project.test?.name)).toStrictEqual(PROJECT_NAMES);
+    expect(projects.map((project) => project.extends)).toStrictEqual(PROJECT_NAMES.map(() => true));
+  });
+
+  // Vitest's defaults are unit-test budgets: 5s for a test, 10s for a hook. A tier test waits on something it
+  // doesn't control, and coverage instrumentation multiplies that wait, so the defaults make a green suite flaky
+  // once `test:coverage` collects it. Hooks carry the same budget as tests because a tier that scaffolds in
+  // `beforeAll` moves the wait out from under `testTimeout`, where raising the test budget alone never reaches it.
+  it('gives every tier above unit budgets that survive coverage instrumentation', () => {
+    const budgets = new Map(
+      getProjects(defineVitestConfig()).map((project) => [
+        project.test?.name,
+        { hookTimeout: project.test?.hookTimeout, testTimeout: project.test?.testTimeout },
+      ]),
+    );
+
+    expect(budgets.get('unit')).toStrictEqual({ hookTimeout: undefined, testTimeout: undefined });
+    for (const tier of ['tool', 'localhost', 'remote']) {
+      expect(budgets.get(tier)).toStrictEqual({ hookTimeout: 30_000, testTimeout: 30_000 });
+    }
+  });
+
+  // Distinct values rather than one, so the assertion would catch a seam that set both budgets from either key.
+  it('lets the project seam override both tier budgets', () => {
+    const projects = getProjects(defineVitestConfig({ project: { hookTimeout: 2_000, testTimeout: 1_000 } }));
+
+    expect(projects.map((project) => project.test?.hookTimeout)).toStrictEqual(PROJECT_NAMES.map(() => 2_000));
+    expect(projects.map((project) => project.test?.testTimeout)).toStrictEqual(PROJECT_NAMES.map(() => 1_000));
+  });
+
+  // Neither has a script, so nothing would surface their absence at run time. An undeclared tier's files fall into
+  // the residual and run in the default gate, which is the silent failure declaring them prevents.
+  it('declares the scriptless tiers, so their files cannot fall into the residual', () => {
+    const names = getProjects(defineVitestConfig()).map((project) => project.test?.name);
+
+    expect(names).toContain('localhost');
+    expect(names).toContain('remote');
   });
 
   it('keeps per-project options out of the root test block', () => {
@@ -71,11 +119,7 @@ describe(defineVitestConfig, () => {
   it('applies a project override to every project', () => {
     const projects = getProjects(defineVitestConfig({ project: { setupFiles: ['./setup.ts'] } }));
 
-    expect(projects.map((project) => project.test?.setupFiles)).toStrictEqual([
-      ['./setup.ts'],
-      ['./setup.ts'],
-      ['./setup.ts'],
-    ]);
+    expect(projects.map((project) => project.test?.setupFiles)).toStrictEqual(PROJECT_NAMES.map(() => ['./setup.ts']));
   });
 
   it('applies a root override to the root config', () => {
@@ -101,7 +145,7 @@ describe(defineVitestConfig, () => {
       },
     });
 
-    expect(config.test?.projects).toHaveLength(3);
+    expect(config.test?.projects).toHaveLength(PROJECT_NAMES.length);
   });
 });
 
@@ -140,9 +184,7 @@ describe(defineRootVitestConfig, () => {
         '**/node_modules/**',
         '**/.git/**',
         '**/dist/**',
-        ...(project.test?.name === 'unit'
-          ? ['**/__tests__/**/*.app.test.{ts,tsx}', '**/__tests__/**/*.int.test.{ts,tsx}']
-          : []),
+        ...(project.test?.name === 'unit' ? TIERED_PATTERNS : []),
         'packages/alpha/**',
         'tools/cli/**',
       ]);
@@ -185,9 +227,7 @@ describe(defineRootVitestConfig, () => {
         '**/node_modules/**',
         '**/.git/**',
         '**/dist/**',
-        ...(project.test?.name === 'unit'
-          ? ['**/__tests__/**/*.app.test.{ts,tsx}', '**/__tests__/**/*.int.test.{ts,tsx}']
-          : []),
+        ...(project.test?.name === 'unit' ? TIERED_PATTERNS : []),
       ]);
     }
   });
@@ -224,29 +264,34 @@ describe('project file selection', () => {
     rmSync(fixtureRoot, { recursive: true, force: true });
   });
 
-  it('selects only integration tests for the integration project', () => {
-    expect(selectFiles('integration', fixtureRoot)).toStrictEqual(['src/__tests__/thing.int.test.ts']);
+  it.each(['tool', 'localhost', 'remote'])('selects only its own infix for the %s project', (tier) => {
+    expect(selectFiles(tier, fixtureRoot)).toStrictEqual([`src/__tests__/thing.${tier}.test.ts`]);
   });
 
-  it('selects only app tests for the app project', () => {
-    expect(selectFiles('app', fixtureRoot)).toStrictEqual(['src/__tests__/thing.app.test.ts']);
-  });
-
-  it('runs a file whose suffix matches no category under the unit project', () => {
+  it('runs a file whose infix matches no tier under the unit project', () => {
     expect(selectFiles('unit', fixtureRoot)).toContain('src/__tests__/thing.smoke.test.ts');
   });
 
-  it('leaves categorised, unnested, and excluded files out of the unit project', () => {
+  it('leaves tiered, unnested, and excluded files out of the unit project', () => {
     expect(selectFiles('unit', fixtureRoot)).toStrictEqual([
       'src/__tests__/nested/deep.test.tsx',
       'src/__tests__/plain.test.ts',
+      'src/__tests__/thing.app.test.ts',
       'src/__tests__/thing.smoke.test.ts',
+      'src/__tests__/thing.unit.test.ts',
     ]);
+  });
+
+  // The residual subtracts the tiers, so an overlap would collect the same file twice and run it twice, green.
+  it('claims each file exactly once across the projects', () => {
+    const collected = PROJECT_NAMES.flatMap((name) => selectFiles(name, fixtureRoot));
+
+    expect(collected).toStrictEqual([...new Set(collected)]);
   });
 
   // A copy of the suite under `dist/` runs green against stale code, so no project may collect it.
   it('leaves a test file copied into build output out of every project', () => {
-    for (const name of ['app', 'integration', 'unit']) {
+    for (const name of PROJECT_NAMES) {
       expect(selectFiles(name, fixtureRoot)).not.toContain('dist/src/__tests__/copied.test.ts');
     }
   });

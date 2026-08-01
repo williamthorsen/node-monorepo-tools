@@ -12,7 +12,7 @@ Packages live under `packages/`:
 
 - **`@williamthorsen/nmr`** — Context-aware script runner for pnpm monorepos. Detects root vs workspace context and resolves the appropriate script registry.
 - **`@williamthorsen/nmr-core`** — Shared utilities consumed by `release-kit`.
-- **`@williamthorsen/release-kit`** — Version-bumping and changelog-generation toolkit. Has integration tests (`*.int.test.ts`).
+- **`@williamthorsen/release-kit`** — Version-bumping and changelog-generation toolkit. Holds the repo's only `*.tool.test.ts` outside nmr (it drives `git`), plus `*.packaged.test.ts` files that need a prior build.
 - **`v11y-check`** — Wraps audit-ci with a richer config model, typed JSON source of truth, and a sync workflow that automates allowlist management.
 
 Key files:
@@ -64,9 +64,10 @@ Use `nmr {command}` for all monorepo scripts. Use `pnpm run {script}` only for s
 ### Testing
 
 - Vitest with v8 coverage provider, configured by two files at the repo root, both thin wrappers over `@williamthorsen/nmr/vitest`
-- Both configs declare three projects named for what the tests cover: `unit` (every test file the others don't claim), `integration` (`*.int.test.ts`), and `app` (`*.app.test.ts`, e.g. drift checks). Select them with `--project`, which accepts negation
-- `nmr test` runs `--project '!integration'`, `nmr test:integration` runs `--project integration`, and `nmr test:all` runs every project. The same five names work from the repo root and from inside a package; `root:test*` variants scope to root-level files alone
-- The shared config sets `passWithNoTests`, so a run collecting no files passes, which `test:integration` needs in order to fan out across packages that have none. `__tests__/workspace-test-presence.app.test.ts` keeps that from hiding a package whose suite disappeared
+- Both configs declare four projects, an isolation ladder named for the furthest thing a test reaches: `unit` (every test file the others don't claim), `tool` (`*.tool.test.ts`, reaching a program the environment supplies), `localhost`, and `remote`. Select them with `--project`, which unions when repeated and accepts negation
+- A tier names what a test reaches, not how it invokes it: `build.tool.test.ts` drives the TypeScript compiler in-process and is still `tool`. Nor does it describe preconditions: the three `*.packaged.test.ts` files need a prior build but reach only the filesystem while running, so they fall to `unit`. `.packaged.` and `.app.` match no project and exist as documentation
+- `nmr test` runs `--project unit --project tool`, `test:unit` and `test:tool` narrow to one, and `test:all` runs every project. The same six names work from the repo root and from inside a package; `root:test*` variants scope to root-level files alone
+- The shared config sets `passWithNoTests`, so a run collecting no files passes, which `test:tool` needs in order to fan out across packages that have none. `__tests__/workspace-test-presence.app.test.ts` keeps that from hiding a package whose suite disappeared
 - Typecheck uses `tsgo` (TypeScript native preview)
 
 ### Code quality
@@ -78,5 +79,6 @@ Use `nmr {command}` for all monorepo scripts. Use `pnpm run {script}` only for s
 ## Gotchas
 
 - **Bootstrap ordering**: nmr is both a workspace dependency and the script runner. After a fresh clone, or whenever the build output of nmr or nmr-core is missing (`nmr clean` from the root removes both), run `pnpm run bootstrap` from the root before using `nmr` commands. The `nmr` binary loads nmr-core at startup, so a missing nmr-core build breaks every `nmr` command — bootstrap rebuilds both, in order.
-- **Bootstrap now gates Vitest and Prettier too**: `vitest.config.ts` and `.prettierrc.js` both import nmr's build output, so a missing `dist` fails every Vitest run and every format run as a config-load error, not only every `nmr` command. It reaches further than `nmr`: the lefthook pre-commit hook invokes `prettier` directly, so a fresh clone cannot commit until bootstrap has run. `nmr check` does not build, so bootstrap (or `nmr build`) has to come first. Editing `packages/nmr/src/vitest.ts` or `src/prettier.ts` and re-running without rebuilding silently exercises the previous config.
+- **Bootstrap now gates Vitest and Prettier too**: `vitest.config.ts` and `.prettierrc.js` both import nmr's build output, so a missing `dist` fails every Vitest run and every format run as a config-load error, not only every `nmr` command. It reaches further than `nmr`: the lefthook pre-commit hook invokes `prettier` directly, so a fresh clone cannot commit until bootstrap has run. `nmr check` does not build, so a build has to come first; see the next entry for how much of one. Editing `packages/nmr/src/vitest.ts` or `src/prettier.ts` and re-running without rebuilding silently exercises the previous config.
+- **`nmr check` needs a full build, not just bootstrap**: the three `*.packaged.test.ts` files import their package's build output and throw when it is missing, and they land in the residual `unit` project, so `nmr test`, `nmr check`, and `nmr check:strict` all collect them. `pnpm run bootstrap` builds only nmr-core and nmr, so run `nmr build` from the root before any of the three. `nmr ci` is unaffected: it builds first.
 - **Build caching**: The content-hash cache (under `node_modules/.cache/nmr-compile/`) means a rebuild won't run if only non-source files change. Force a rebuild with `nmr clean`, or by deleting the package's `dist` — missing output is treated as a cache miss.

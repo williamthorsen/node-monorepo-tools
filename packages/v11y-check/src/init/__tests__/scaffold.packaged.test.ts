@@ -22,17 +22,15 @@ function isScaffoldModule(value: unknown): value is ScaffoldModule {
   );
 }
 
-describe('copyWorkflowTemplate (integration)', () => {
+describe('copyWorkflowTemplate (packaged)', () => {
   it('resolves audit.yaml.template from the built output and writes .github/workflows/audit.yaml', async () => {
     // FIXME: See #545
     // eslint-disable-next-line vitest/no-conditional-in-test
     if (!existsSync(distScaffoldPath)) {
-      throw new Error(
-        `Built output not found at ${distScaffoldPath}. Run \`nmr build\` before running integration tests.`,
-      );
+      throw new Error(`Built output not found at ${distScaffoldPath}. Run \`nmr build\` before running this test.`);
     }
 
-    const tempDir = mkdtempSync(join(tmpdir(), 'v11y-check-scaffold-int-'));
+    const tempDir = mkdtempSync(join(tmpdir(), 'v11y-check-scaffold-packaged-'));
     const originalCwd = process.cwd();
 
     try {

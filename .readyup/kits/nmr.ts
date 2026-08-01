@@ -120,16 +120,10 @@ export default defineRdyKit({
           fix: "Replace vitest.root.config.ts with: import { defineRootVitestConfig } from '@williamthorsen/nmr/vitest'; export default defineRootVitestConfig({ monorepoRoot: import.meta.dirname });",
         },
         {
-          name: 'no test files use the .integration. suffix',
+          name: 'no test files use a retired isolation infix',
           severity: 'error',
-          check: () => noIntegrationSuffixedTests(),
-          fix: 'Rename *.integration.test.ts to *.int.test.ts. The integration project matches .int. only, so these run as unit tests while nmr test:integration collects nothing',
-        },
-        {
-          name: 'no test files use the .drift. suffix',
-          severity: 'recommend',
-          check: () => noDriftSuffixedTests(),
-          fix: 'Rename *.drift.test.ts to *.app.test.ts, the canonical suffix for the app project',
+          check: () => noRetiredInfixTests(),
+          fix: 'Rename *.int.test.ts and *.integration.test.ts to *.tool.test.ts if the test reaches a program the environment supplies, and drop the infix otherwise. Neither matches a project now, so these run under unit in the default gate with nothing reporting the lost separation',
         },
         {
           name: 'no package re-exports the ancestor Vitest config',
@@ -192,6 +186,12 @@ const TEST_EXTENSIONS = '{ts,tsx}';
 
 /** The directory scope every project in the shared config collects from. A file outside it runs nowhere. */
 const TEST_GLOB_PREFIX = '**/__tests__/**';
+
+/**
+ * Infixes that once selected a project and no longer match one. `.drift.` is absent deliberately: it never matched
+ * a project, so a repo carrying it has always run those files under the residual and loses nothing by keeping them.
+ */
+const RETIRED_TEST_INFIXES = ['int', 'integration'];
 
 const SHARED_VITEST_MODULE = '@williamthorsen/nmr/vitest';
 
@@ -401,25 +401,20 @@ function isReExportOnly(content: string | undefined): boolean {
 }
 
 /**
- * Checks that no collected test file uses the `.drift.` suffix, which the `app` project does not match.
+ * Checks that no collected test file uses a retired isolation infix.
+ *
+ * `.int.` named the retired `integration` project and `.integration.` never matched it. Neither matches a tier
+ * now, so both fall to the residual `unit` project: the files still run, in the default gate, and nothing says
+ * the tier separation was lost. Silent on both sides, which is what makes this worth checking rather than
+ * leaving to a failing run. The scope is the projects' own, so every match is a file the rename actually moves.
  *
  * @internal - Exported only to enable testing
  */
-export function noDriftSuffixedTests(cwd: string = process.cwd()): boolean | CheckOutcome {
-  return checkNoMatchingFiles([`${TEST_GLOB_PREFIX}/*.drift.test.${TEST_EXTENSIONS}`], cwd);
-}
-
-/**
- * Checks that no collected test file uses the `.integration.` suffix.
- *
- * These match the `unit` project's include pattern and no project's exclude, so they run under `nmr test`
- * while `nmr test:integration` collects nothing and passes. Silent on both sides. The scope is the
- * projects' own, so every match is a file the rename actually moves between projects.
- *
- * @internal - Exported only to enable testing
- */
-export function noIntegrationSuffixedTests(cwd: string = process.cwd()): boolean | CheckOutcome {
-  return checkNoMatchingFiles([`${TEST_GLOB_PREFIX}/*.integration.test.${TEST_EXTENSIONS}`], cwd);
+export function noRetiredInfixTests(cwd: string = process.cwd()): boolean | CheckOutcome {
+  return checkNoMatchingFiles(
+    RETIRED_TEST_INFIXES.map((infix) => `${TEST_GLOB_PREFIX}/*.${infix}.test.${TEST_EXTENSIONS}`),
+    cwd,
+  );
 }
 
 /**
@@ -538,7 +533,7 @@ export function vitestConfigBuildsOnSharedConfig(cwd: string = process.cwd()): b
  * Checks that the root `vitest.root.config.*` is present and built on `defineRootVitestConfig`.
  *
  * nmr's root test scripts name this file by path, and a config declaring no projects makes
- * `nmr root:test:integration` exit 1.
+ * `nmr root:test:tool` exit 1.
  *
  * @internal - Exported only to enable testing
  */

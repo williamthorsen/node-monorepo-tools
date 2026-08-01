@@ -35,11 +35,31 @@ export interface RootVitestConfigOptions extends VitestConfigOptions {
   monorepoRoot: string;
 }
 
-const APP_PATTERNS = ['**/__tests__/**/*.app.test.{ts,tsx}'];
-const INTEGRATION_PATTERNS = ['**/__tests__/**/*.int.test.{ts,tsx}'];
+/**
+ * The tiers above `unit`, ordered by the furthest thing a test reaches. A tier names what a test reaches, never how
+ * it invokes it: a test driving a compiler through its JavaScript API is `tool`, exactly as one spawning `tsc` would
+ * be. Each tier's name is also its filename infix, so `parse.tool.test.ts` lands in `tool`.
+ */
+const TIERS = ['tool', 'localhost', 'remote'] as const;
 
-// `unit` includes every test file and subtracts the categorised ones, so a file whose suffix matches no category still
-// runs rather than being dropped by an allow-list.
+// `unit` includes every test file and subtracts the tiered ones, so a file whose infix matches no tier still runs
+// rather than being dropped by an allow-list. Derived from `TIERS` rather than hand-listed: a tier added there and
+// forgotten here would have its files collected twice, by its own project and by the residual, with the suite green.
+const TIERED_PATTERNS = TIERS.flatMap(buildTierPatterns);
+
+/**
+ * Timeout for every tier above `unit`, whose tests wait on something they don't control. Vitest's defaults are
+ * unit-test budgets -- 5s for a test, 10s for a hook -- and a test that drives a compiler already approaches the
+ * first, while coverage instrumentation roughly quadruples the wall time.
+ *
+ * One value covers both budgets. A tier that scaffolds in `beforeAll` for speed moves that wait out from under
+ * `testTimeout` entirely, so raising the test budget alone leaves the slowest operation on the unit-test default.
+ *
+ * A per-project value rather than a root one, so the fast tier keeps the tight budget that makes a hung unit test
+ * fail quickly. The `project` seam merges over this, though it reaches every project at once (see #550).
+ */
+const TIER_TIMEOUT = 30_000;
+
 const ALL_TEST_PATTERNS = ['**/__tests__/**/*.test.{ts,tsx}'];
 
 // Fixtures are excluded from coverage but never from collection: a coverage exclude cannot hide a real test, while a
@@ -63,8 +83,8 @@ const MISSING_MONOREPO_ROOT =
   'defineRootVitestConfig requires `monorepoRoot`, an absolute path to the directory holding pnpm-workspace.yaml. Pass `import.meta.dirname` from the root config.';
 
 /**
- * Builds the shared Vitest config for a workspace package, declaring the `unit`, `integration`, and `app` projects.
- * Select them at run time with `--project`, which accepts negation.
+ * Builds the shared Vitest config for a workspace package, declaring the `unit`, `tool`, `localhost`, and `remote`
+ * projects. Select them at run time with `--project`, which unions when repeated and accepts negation.
  */
 export function defineVitestConfig(options: VitestConfigOptions = {}): ViteUserConfig {
   return buildConfig(options, { coverageInclude: PACKAGE_COVERAGE_INCLUDE });
@@ -116,7 +136,7 @@ function buildConfig(
         include: coverageInclude,
         provider: 'v8',
       },
-      passWithNoTests: true, // `nmr test:integration` fans out over packages with no integration tests
+      passWithNoTests: true, // `nmr test:tool` fans out over packages holding no tool-tier tests
       projects: buildProjects(options.project, projectExclude, projectRoot),
       silent: 'passed-only', // see logs from failing tests only
       watch: false, // don't enter watch mode unless the `--watch` flag is passed
@@ -126,30 +146,53 @@ function buildConfig(
   return options.root ? mergeConfig(config, options.root) : config;
 }
 
-/** Builds one project per test category, each inheriting the root config. */
+/** One project's definition before it becomes a Vitest project config: the residual `unit`, then every tier in `TIERS`. */
+interface ProjectTier {
+  exclude: string[];
+  include: string[];
+  name: string;
+  /** Budget for `hookTimeout` and `testTimeout` alike, held as one field so the two cannot drift apart. */
+  timeout?: number;
+}
+
+/** Builds one project per tier, in ladder order, each inheriting the root config. */
 function buildProjects(
   overrides: ProjectConfig | undefined,
   extraExclude: string[],
   projectRoot: string | undefined,
 ): TestProjectInlineConfiguration[] {
-  const categories = [
-    { exclude: [], include: APP_PATTERNS, name: 'app' },
-    { exclude: [], include: INTEGRATION_PATTERNS, name: 'integration' },
-    { exclude: [...APP_PATTERNS, ...INTEGRATION_PATTERNS], include: ALL_TEST_PATTERNS, name: 'unit' },
+  const projectTiers: ProjectTier[] = [
+    { exclude: TIERED_PATTERNS, include: ALL_TEST_PATTERNS, name: 'unit' },
+    ...TIERS.map((tier) => ({
+      exclude: [],
+      include: buildTierPatterns(tier),
+      name: tier,
+      timeout: TIER_TIMEOUT,
+    })),
   ];
 
-  return categories.map(({ exclude, include, name }) => {
+  return projectTiers.map(({ exclude, include, name, timeout }) => {
     const project: TestProjectInlineConfiguration = {
       // Without this, Vitest gives the project no Vite config file at all, so root-level options such as
       // `resolve.conditions` never reach it.
       extends: true,
       // Patterns resolve against the project root, which otherwise defaults to the working directory.
       ...(projectRoot !== undefined && { root: projectRoot }),
-      test: { exclude: [...defaultExclude, ...BUILD_OUTPUT_EXCLUDE, ...exclude, ...extraExclude], include, name },
+      test: {
+        exclude: [...defaultExclude, ...BUILD_OUTPUT_EXCLUDE, ...exclude, ...extraExclude],
+        include,
+        name,
+        ...(timeout !== undefined && { hookTimeout: timeout, testTimeout: timeout }),
+      },
     };
 
     return overrides ? mergeConfig(project, { test: overrides }) : project;
   });
+}
+
+/** Builds the collection patterns for one tier. Every project collects from `__tests__` directories alone. */
+function buildTierPatterns(tier: string): string[] {
+  return [`**/__tests__/**/*.${tier}.test.{ts,tsx}`];
 }
 
 /** Resolves each workspace package directory to a glob relative to the monorepo root. */

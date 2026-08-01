@@ -21,12 +21,10 @@ function isResolverModule(value: unknown): value is ResolverModule {
   );
 }
 
-describe('resolveCliffConfigPath (integration)', () => {
+describe('resolveCliffConfigPath (packaged)', () => {
   it('resolves the bundled cliff.toml.template from the built output', async () => {
     if (!existsSync(distResolverPath)) {
-      throw new Error(
-        `Built output not found at ${distResolverPath}. Run \`nmr build\` before running integration tests.`,
-      );
+      throw new Error(`Built output not found at ${distResolverPath}. Run \`nmr build\` before running this test.`);
     }
 
     // Import from the compiled JS so that import.meta.url resolution uses dist/esm/ paths.

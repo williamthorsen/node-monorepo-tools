@@ -273,14 +273,15 @@ describe('test command resolution ignores the package contents', () => {
   });
 
   const expected: Record<string, string> = {
-    test: "pnpm exec vitest --project '!integration'",
+    test: 'pnpm exec vitest --project unit --project tool',
     'test:all': 'pnpm exec vitest',
-    'test:coverage': "pnpm exec vitest --project '!integration' --coverage",
-    'test:integration': 'pnpm exec vitest --project integration',
-    'test:watch': "pnpm exec vitest --project '!integration' --watch",
+    'test:coverage': 'pnpm exec vitest --project unit --project tool --coverage',
+    'test:tool': 'pnpm exec vitest --project tool',
+    'test:unit': 'pnpm exec vitest --project unit',
+    'test:watch': 'pnpm exec vitest --project unit --project tool --watch',
   };
 
-  it('resolves the same five test commands for a bare package', () => {
+  it('resolves the same six test commands for a bare package', () => {
     const registry = buildWorkspaceRegistry({});
 
     for (const [command, expectedCommand] of Object.entries(expected)) {
@@ -291,7 +292,7 @@ describe('test command resolution ignores the package contents', () => {
     }
   });
 
-  it('resolves the same five test commands when the retired variant config is present', () => {
+  it('resolves the same six test commands when the retired variant config is present', () => {
     fs.writeFileSync(path.join(tmpDir, 'vitest.integration.config.ts'), '');
     fs.writeFileSync(path.join(tmpDir, 'vitest.standalone.config.ts'), '');
     const registry = buildWorkspaceRegistry({});

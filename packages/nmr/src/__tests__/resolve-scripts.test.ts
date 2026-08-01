@@ -23,14 +23,15 @@ describe(getDefaultWorkspaceScripts, () => {
     expect(scripts['generate-typings']).toBeUndefined();
   });
 
-  it('selects Vitest projects, exposing all five test commands to every package', () => {
+  it('selects Vitest projects, exposing all six test commands to every package', () => {
     const scripts = getDefaultWorkspaceScripts();
 
-    expect(scripts.test).toBe("pnpm exec vitest --project '!integration'");
+    expect(scripts.test).toBe('pnpm exec vitest --project unit --project tool');
     expect(scripts['test:all']).toBe('pnpm exec vitest');
-    expect(scripts['test:coverage']).toBe("pnpm exec vitest --project '!integration' --coverage");
-    expect(scripts['test:integration']).toBe('pnpm exec vitest --project integration');
-    expect(scripts['test:watch']).toBe("pnpm exec vitest --project '!integration' --watch");
+    expect(scripts['test:coverage']).toBe('pnpm exec vitest --project unit --project tool --coverage');
+    expect(scripts['test:tool']).toBe('pnpm exec vitest --project tool');
+    expect(scripts['test:unit']).toBe('pnpm exec vitest --project unit');
+    expect(scripts['test:watch']).toBe('pnpm exec vitest --project unit --project tool --watch');
   });
 
   // A workspace-context upgrade scans the cwd package alone; the recursive sweep is the root registry's.
@@ -103,19 +104,30 @@ describe(getDefaultRootScripts, () => {
     expect(scripts.test).toBe('nmr root:test && pnpm --recursive exec nmr test');
     expect(scripts['test:all']).toBe('nmr root:test:all && pnpm --recursive exec nmr test:all');
     expect(scripts['test:coverage']).toBe('nmr root:test && pnpm --recursive exec nmr test:coverage');
-    expect(scripts['test:integration']).toBe('nmr root:test:integration && pnpm --recursive exec nmr test:integration');
+    expect(scripts['test:tool']).toBe('nmr root:test:tool && pnpm --recursive exec nmr test:tool');
+    expect(scripts['test:unit']).toBe('nmr root:test:unit && pnpm --recursive exec nmr test:unit');
   });
 
   it('scopes each root-only test selection to the root config', () => {
     const scripts = getDefaultRootScripts();
 
-    expect(scripts['root:test']).toBe("vitest --config ./vitest.root.config.ts --project '!integration'");
+    expect(scripts['root:test']).toBe('vitest --config ./vitest.root.config.ts --project unit --project tool');
     expect(scripts['root:test:all']).toBe('vitest --config ./vitest.root.config.ts');
-    expect(scripts['root:test:integration']).toBe('vitest --config ./vitest.root.config.ts --project integration');
+    expect(scripts['root:test:tool']).toBe('vitest --config ./vitest.root.config.ts --project tool');
+    expect(scripts['root:test:unit']).toBe('vitest --config ./vitest.root.config.ts --project unit');
   });
 
-  it('watches the whole tree from one process, excluding integration tests', () => {
-    expect(getDefaultRootScripts()['test:watch']).toBe("vitest --project '!integration' --watch");
+  // Every selection carrying a `root:` form is what lets a failure be isolated to root code rather than a package.
+  it('gives each chained test selection a root-only counterpart', () => {
+    const scripts = getDefaultRootScripts();
+
+    for (const name of ['test', 'test:all', 'test:tool', 'test:unit']) {
+      expect(scripts).toHaveProperty(`root:${name}`);
+    }
+  });
+
+  it('watches the whole tree from one process, running the default gate alone', () => {
+    expect(getDefaultRootScripts()['test:watch']).toBe('vitest --project unit --project tool --watch');
   });
 
   it('runs strict-lint against the monorepo root, excluding packages', () => {

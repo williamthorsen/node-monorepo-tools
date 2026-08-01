@@ -39,7 +39,7 @@ npm install @scope/pkg
 \`\`\`
 `;
 
-describe('writeReleaseNotesPreviews (integration)', () => {
+describe(writeReleaseNotesPreviews, () => {
   let tempDir: string;
   let changelogJsonPath: string;
 

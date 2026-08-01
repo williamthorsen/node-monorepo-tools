@@ -22,15 +22,13 @@ function isScaffoldModule(value: unknown): value is ScaffoldModule {
   );
 }
 
-describe('copyCliffTemplate (integration)', () => {
+describe('copyCliffTemplate (packaged)', () => {
   it('resolves cliff.toml.template from the built output and writes .config/git-cliff.toml', async () => {
     if (!existsSync(distScaffoldPath)) {
-      throw new Error(
-        `Built output not found at ${distScaffoldPath}. Run \`nmr build\` before running integration tests.`,
-      );
+      throw new Error(`Built output not found at ${distScaffoldPath}. Run \`nmr build\` before running this test.`);
     }
 
-    const tempDir = mkdtempSync(join(tmpdir(), 'scaffold-int-'));
+    const tempDir = mkdtempSync(join(tmpdir(), 'scaffold-packaged-'));
     const originalCwd = process.cwd();
 
     try {

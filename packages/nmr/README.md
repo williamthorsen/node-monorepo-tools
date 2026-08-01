@@ -47,11 +47,11 @@ nmr detects where you are and selects the right scripts automatically — see [c
 
 nmr's key feature is that the same command runs different scripts depending on where you invoke it. It walks up from your current directory to find `pnpm-workspace.yaml`, then checks whether your CWD is inside a workspace package directory.
 
-| Where you run `nmr`               | Registry used     | Working directory | `nmr test` runs                                                 |
-| --------------------------------- | ----------------- | ----------------- | --------------------------------------------------------------- |
-| Monorepo root                     | Root scripts      | Monorepo root     | Root tests + `pnpm --recursive exec nmr test`                   |
-| Inside a workspace package        | Workspace scripts | The package root  | `pnpm exec vitest --project '!integration'` (that package only) |
-| Anywhere, with `--workspace-root` | Root scripts      | Monorepo root     | Root tests + `pnpm --recursive exec nmr test`                   |
+| Where you run `nmr`               | Registry used     | Working directory | `nmr test` runs                                                      |
+| --------------------------------- | ----------------- | ----------------- | -------------------------------------------------------------------- |
+| Monorepo root                     | Root scripts      | Monorepo root     | Root tests + `pnpm --recursive exec nmr test`                        |
+| Inside a workspace package        | Workspace scripts | The package root  | `pnpm exec vitest --project unit --project tool` (that package only) |
+| Anywhere, with `--workspace-root` | Root scripts      | Monorepo root     | Root tests + `pnpm --recursive exec nmr test`                        |
 
 Relative paths in a script resolve against that working directory, not the invocation directory.
 
@@ -231,48 +231,50 @@ These scripts are available out of the box. Repo-wide config (tier 2) and per-pa
 
 ### Workspace scripts
 
-| Command            | Runs                                                     |
-| ------------------ | -------------------------------------------------------- |
-| `build`            | `compile`                                                |
-| `check`            | `typecheck`, `fmt:check`, `lint:check`, `test`           |
-| `check:strict`     | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage` |
-| `clean`            | `nmr-clean`                                              |
-| `compile`          | `nmr-compile`                                            |
-| `fix`              | `lint`, `fmt`                                            |
-| `fix:check`        | `fmt:check`, `lint:check`                                |
-| `fmt`              | `nmr-fmt --write`                                        |
-| `fmt:check`        | `nmr-fmt --check`                                        |
-| `lint`             | `eslint --fix .`                                         |
-| `lint:check`       | `eslint .`                                               |
-| `lint:strict`      | `strict-lint`                                            |
-| `test`             | `pnpm exec vitest --project '!integration'`              |
-| `test:all`         | `pnpm exec vitest`                                       |
-| `test:coverage`    | `pnpm exec vitest --project '!integration' --coverage`   |
-| `test:integration` | `pnpm exec vitest --project integration`                 |
-| `test:watch`       | `pnpm exec vitest --project '!integration' --watch`      |
-| `typecheck`        | `tsgo --noEmit`                                          |
-| `upgrade`          | `nmr-taze --include-locked`                              |
-| `view-coverage`    | `open coverage/index.html`                               |
+| Command         | Runs                                                        |
+| --------------- | ----------------------------------------------------------- |
+| `build`         | `compile`                                                   |
+| `check`         | `typecheck`, `fmt:check`, `lint:check`, `test`              |
+| `check:strict`  | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage`    |
+| `clean`         | `nmr-clean`                                                 |
+| `compile`       | `nmr-compile`                                               |
+| `fix`           | `lint`, `fmt`                                               |
+| `fix:check`     | `fmt:check`, `lint:check`                                   |
+| `fmt`           | `nmr-fmt --write`                                           |
+| `fmt:check`     | `nmr-fmt --check`                                           |
+| `lint`          | `eslint --fix .`                                            |
+| `lint:check`    | `eslint .`                                                  |
+| `lint:strict`   | `strict-lint`                                               |
+| `test`          | `pnpm exec vitest --project unit --project tool`            |
+| `test:all`      | `pnpm exec vitest`                                          |
+| `test:coverage` | `pnpm exec vitest --project unit --project tool --coverage` |
+| `test:tool`     | `pnpm exec vitest --project tool`                           |
+| `test:unit`     | `pnpm exec vitest --project unit`                           |
+| `test:watch`    | `pnpm exec vitest --project unit --project tool --watch`    |
+| `typecheck`     | `tsgo --noEmit`                                             |
+| `upgrade`       | `nmr-taze --include-locked`                                 |
+| `view-coverage` | `open coverage/index.html`                                  |
 
 `fmt` and `fmt:check` select their files through git rather than by walking the directory, which is what makes a package-level run and a root-level run apply the same ignore rules — see [file selection](#file-selection).
 
 #### Test selections
 
-Every package resolves the same five test commands. Nothing is detected on disk: the commands select [Vitest projects](#shared-vitest-config), so a package separates its integration tests by naming them `*.int.test.ts`, not by carrying extra config files.
+Every package resolves the same six test commands. Nothing is detected on disk: the commands select [Vitest projects](#shared-vitest-config), so a package separates its tool-tier tests by naming them `*.tool.test.ts`, not by carrying extra config files.
 
-| To run                              | Command            |
-| ----------------------------------- | ------------------ |
-| Everything except integration tests | `test`             |
-| Integration tests alone             | `test:integration` |
-| Every project                       | `test:all`         |
+| To run                                        | Command     |
+| --------------------------------------------- | ----------- |
+| Everything that runs on a bare install        | `test`      |
+| The fastest tier alone                        | `test:unit` |
+| Tests reaching a program alone                | `test:tool` |
+| Every tier, including those needing a service | `test:all`  |
 
-`test` negates `integration` rather than naming the code-only projects, so a category added later joins the default run instead of being dropped from it.
+`test` names the tiers it runs rather than negating the ones it skips, so a tier added in a later release is opt-in rather than joining the default run on arrival. It covers `unit` and `tool`, the two that need nothing beyond a checkout and an install; `localhost` and `remote` are reached only through `test:all` or an explicit `--project`.
 
-`test:coverage` and `test:watch` are the same selection as `test` in a different mode. There are no `test:integration --coverage` equivalents because none are needed: everything after a command name is forwarded untouched, so `nmr test:integration --coverage` already works.
+`test:coverage` and `test:watch` are the same selection as `test` in a different mode. There are no `test:tool --coverage` equivalents because none are needed: everything after a command name is forwarded untouched, so `nmr test:tool --coverage` already works.
 
-To narrow to a single project, go through `test:all`: `nmr test:all --project app`. Narrowing through `test` does not work, because a second `--project` widens the filter rather than restricting it.
+To narrow to a single project, go through `test:all`: `nmr test:all --project remote`. Narrowing through `test` does not work, because a second `--project` widens the selection rather than restricting it.
 
-A run that collects no test files passes. That is what lets `nmr test:integration` fan out across a monorepo in which most packages have no integration tests, and it means a package with no tests at all needs no `"test": ""` override.
+A run that collects no test files passes. That is what lets `nmr test:tool` fan out across a monorepo in which most packages hold no tool-tier tests, and it means a package with no tests at all needs no `"test": ""` override.
 
 ### Root scripts
 
@@ -300,15 +302,16 @@ A run that collects no test files passes. That is what lets `nmr test:integratio
 
 #### Test
 
-The same five names the workspace registry carries, so a command means the same thing from the monorepo root as from inside a package. Each fans out to root-level files and every workspace package.
+The same six names the workspace registry carries, so a command means the same thing from the monorepo root as from inside a package. Each fans out to root-level files and every workspace package.
 
-| Command            | Runs                                                                      |
-| ------------------ | ------------------------------------------------------------------------- |
-| `test`             | `nmr root:test && pnpm --recursive exec nmr test`                         |
-| `test:all`         | `nmr root:test:all && pnpm --recursive exec nmr test:all`                 |
-| `test:coverage`    | `nmr root:test && pnpm --recursive exec nmr test:coverage`                |
-| `test:integration` | `nmr root:test:integration && pnpm --recursive exec nmr test:integration` |
-| `test:watch`       | `vitest --project '!integration' --watch`                                 |
+| Command         | Runs                                                        |
+| --------------- | ----------------------------------------------------------- |
+| `test`          | `nmr root:test && pnpm --recursive exec nmr test`           |
+| `test:all`      | `nmr root:test:all && pnpm --recursive exec nmr test:all`   |
+| `test:coverage` | `nmr root:test && pnpm --recursive exec nmr test:coverage`  |
+| `test:tool`     | `nmr root:test:tool && pnpm --recursive exec nmr test:tool` |
+| `test:unit`     | `nmr root:test:unit && pnpm --recursive exec nmr test:unit` |
+| `test:watch`    | `vitest --project unit --project tool --watch`              |
 
 `test:coverage` chains `root:test` rather than a `root:test:coverage`, because the root config reports no coverage of its own; packages cover their own sources.
 
@@ -361,17 +364,18 @@ See [dependency upgrades](#dependency-upgrades) for the workflow and its configu
 
 These scripts operate on root-level code only (not workspace packages):
 
-| Command                 | Runs                                                               |
-| ----------------------- | ------------------------------------------------------------------ |
-| `root:check`            | `root:typecheck`, `fmt:check`, `root:lint:check`, `root:test`      |
-| `root:lint`             | `eslint --fix --ignore-pattern 'packages/**' .`                    |
-| `root:lint:check`       | `eslint --ignore-pattern 'packages/**' .`                          |
-| `root:lint:strict`      | `strict-lint --ignore-pattern 'packages/**' .`                     |
-| `root:test`             | `vitest --config ./vitest.root.config.ts --project '!integration'` |
-| `root:test:all`         | `vitest --config ./vitest.root.config.ts`                          |
-| `root:test:integration` | `vitest --config ./vitest.root.config.ts --project integration`    |
-| `root:typecheck`        | `tsgo --noEmit`                                                    |
-| `root:upgrade`          | `nmr-taze --include-locked`                                        |
+| Command            | Runs                                                                    |
+| ------------------ | ----------------------------------------------------------------------- |
+| `root:check`       | `root:typecheck`, `fmt:check`, `root:lint:check`, `root:test`           |
+| `root:lint`        | `eslint --fix --ignore-pattern 'packages/**' .`                         |
+| `root:lint:check`  | `eslint --ignore-pattern 'packages/**' .`                               |
+| `root:lint:strict` | `strict-lint --ignore-pattern 'packages/**' .`                          |
+| `root:test`        | `vitest --config ./vitest.root.config.ts --project unit --project tool` |
+| `root:test:all`    | `vitest --config ./vitest.root.config.ts`                               |
+| `root:test:tool`   | `vitest --config ./vitest.root.config.ts --project tool`                |
+| `root:test:unit`   | `vitest --config ./vitest.root.config.ts --project unit`                |
+| `root:typecheck`   | `tsgo --noEmit`                                                         |
+| `root:upgrade`     | `nmr-taze --include-locked`                                             |
 
 #### Utilities
 
@@ -624,25 +628,36 @@ export default defineVitestConfig();
 
 `vitest` is a peer dependency (`>=4.0.0 <5`), declared optional — the consuming repo provides it, and repos that never import this subpath are unaffected.
 
-### Test categories
+### Test tiers
 
-The config declares three projects, named for what the tests cover:
+The config declares four projects, an ordered ladder named for the furthest thing a test reaches:
 
-| Project       | Matches                                | Covers                                   |
-| ------------- | -------------------------------------- | ---------------------------------------- |
-| `unit`        | every test file the others don't claim | source code                              |
-| `integration` | `*.int.test.{ts,tsx}`                  | behavior beyond source code              |
-| `app`         | `*.app.test.{ts,tsx}`                  | the app's own tooling, e.g. drift checks |
+| Project     | Matches                                | Reaches                                              |
+| ----------- | -------------------------------------- | ---------------------------------------------------- |
+| `unit`      | every test file the others don't claim | nothing outside the package's own dependency closure |
+| `tool`      | `*.tool.test.{ts,tsx}`                 | a program the environment must supply                |
+| `localhost` | `*.localhost.test.{ts,tsx}`            | a service running on this machine                    |
+| `remote`    | `*.remote.test.{ts,tsx}`               | a machine that isn't this one                        |
 
-All three match only under a `__tests__` directory. Select them at run time with `--project`, which accepts negation:
+All four match only under a `__tests__` directory. Select them at run time with `--project`, which unions when repeated and accepts negation:
 
 ```bash
-vitest --project '!integration' # everything except integration tests
-vitest --project integration    # integration tests alone
-vitest                          # every project
+vitest --project unit --project tool # everything that runs on a bare install
+vitest --project tool                # tests reaching a program, alone
+vitest                               # every project
 ```
 
-`unit` is defined by subtracting the other categories rather than by an allow-list of suffixes, so a file such as `parser.smoke.test.ts` runs under `unit` instead of being silently dropped.
+**A tier names what a test reaches, never how it invokes it.** A test driving a compiler through its JavaScript API is `tool`, exactly as one spawning the compiler binary is; whether a program ships as a library or an executable is an accident of packaging, not a property of the test. A package's `peerDependencies`, plus whatever binaries it spawns, are a good statement of where its `tool` boundary sits: a bundled dependency ships inside the package's own closure and is always present, so reaching one is `unit`.
+
+**A tier is not a statement about preconditions.** A `unit` test may still need something set up before it runs: a build, a generated fixture, a seeded file. What makes it `unit` is that it reaches nothing beyond the test process _while running_. The filesystem sits in `unit` for the same reason the tiers exist: they gate on what must be available, and the filesystem always is.
+
+`unit` is defined by subtracting the tiers rather than by an allow-list of infixes, so a file such as `parser.smoke.test.ts` runs under `unit` instead of being silently dropped. That is also what makes an unrecognized infix safe to use as documentation: `resolveConfig.packaged.test.ts` runs under `unit` and reads as a companion to `resolveConfig.unit.test.ts`.
+
+`localhost` and `remote` have no test script of their own. They are declared anyway, so that a `*.remote.test.ts` file cannot fall into `unit` and run in the default gate unnoticed.
+
+Every tier above `unit` carries a 30-second `testTimeout` and `hookTimeout`, where `unit` keeps Vitest's defaults of 5 and 10 seconds. A tier test waits on something it doesn't control, and coverage instrumentation multiplies that wait, so the defaults turn a green suite flaky the moment `nmr test:coverage` collects it. Both budgets move together because a tier that scaffolds in `beforeAll` moves that wait out from under `testTimeout` entirely, where raising the test budget alone never reaches it. `unit` keeps the tight budgets, which is what makes a hung unit test fail fast.
+
+The `project` seam merges over both, but like every option passed through it, the value reaches all four projects at once -- raising a tier's budget raises `unit`'s with it. To lift the ceiling for one file instead, pass a timeout to the individual test or hook, which is the narrower tool and the one to reach for first.
 
 ### Customizing by scope
 
@@ -659,7 +674,7 @@ export default defineVitestConfig({
 
 `root` is typed to accept only the options that work at the root, so writing a per-project option there is a compile error rather than a setting that never runs. Both surfaces merge into the generated config rather than replacing it, so overriding one coverage field leaves the rest intact.
 
-Arrays concatenate rather than replace. `exclude` and `setupFiles` therefore add to what the config already declares, and neither seam can narrow `include` or drop a default exclusion. Adding an `include` pattern through `project` widens all three projects at once, so a file matching it is collected by each and runs three times.
+Arrays concatenate rather than replace. `exclude` and `setupFiles` therefore add to what the config already declares, and neither seam can narrow `include` or drop a default exclusion. Adding an `include` pattern through `project` widens all four projects at once, so a file matching it is collected by each and runs four times.
 
 ### What the config excludes
 
@@ -688,24 +703,31 @@ import { defineRootVitestConfig } from '@williamthorsen/nmr/vitest';
 export default defineRootVitestConfig({ monorepoRoot: import.meta.dirname });
 ```
 
-This variant reads `pnpm-workspace.yaml` and excludes every workspace package from all three projects, so a root run covers only root-level files. It reports no coverage of its own — packages cover their own sources.
+This variant reads `pnpm-workspace.yaml` and excludes every workspace package from all four projects, so a root run covers only root-level files. It reports no coverage of its own — packages cover their own sources.
 
 `monorepoRoot` is required, and because the config sits at the monorepo root, it is always `import.meta.dirname`. Stating the root rather than searching for it is what makes the exclusions describe this repo: a search from the working directory would resolve whichever monorepo the run started in, and every project is then pinned to that one. A directory holding no `pnpm-workspace.yaml` throws, naming the directory.
 
+### Migrating to the isolation tiers
+
+The projects were once named `unit`, `integration`, and `app`, for what a test _covered_ rather than what it _reached_. `integration` and `app` are gone.
+
+1. Rename every `*.int.test.ts`. A test that reaches a program the environment supplies becomes `*.tool.test.ts`; one that reaches nothing beyond the test process drops the infix. Re-read each file rather than renaming in bulk -- the axis changed, so the old bucket does not map onto one new tier.
+2. Leave `*.app.test.ts` alone, or rename at your leisure. `app` was never a tier, and its files now land in `unit`.
+3. Replace `nmr test:integration` with `nmr test:tool`, and `nmr root:test:integration` with `nmr root:test:tool`, wherever a script or workflow names them.
+
+**An unrenamed `*.int.test.ts` file is a silent failure.** `.int.` no longer matches a project, so the residual `unit` claims those files and they run in the default gate -- green, with nothing reporting that the separation was lost. `rdy run nmr` reports them; a passing test run does not. Run it before treating the migration as done.
+
+`nmr test` also runs the `tool` tier, which the old `test` excluded. Those tests previously ran in no default selection at all: `check`, `check:strict`, and `ci` all inherited the exclusion, so a green pipeline said nothing about them. Expect `nmr test` to take longer and to surface failures that were never gated.
+
 ### Migrating from the config-file variants
 
-nmr once selected a package's test scripts by looking for a `vitest.integration.config.ts` on disk, which meant three config files per package that separated its integration tests. Those files are no longer consulted. **Migrate the config and the scripts together**: one without the other leaves the repo in one of the two states below.
+nmr once selected a package's test scripts by looking for a `vitest.integration.config.ts` on disk, which meant three config files per package that separated its integration tests. Those files are no longer consulted.
 
 1. Replace the repo's root `vitest.config.ts` with `defineVitestConfig()`, and its root-scoped config with `defineRootVitestConfig({ monorepoRoot: import.meta.dirname })`.
 2. Delete every `vitest.integration.config.ts` and `vitest.standalone.config.ts`, plus any per-package `vitest.config.ts` that only re-exports an ancestor. Vitest resolves config by walking up from the run root, so those are redundant.
-3. Rename integration tests to `*.int.test.ts` and tooling or drift tests to `*.app.test.ts`.
+3. Rename the tests onto the tiers, per the section above.
 4. Drop any hand-copied `test*` entries from `package.json`, which now shadow the defaults.
 
-Until step 1 is done, an upgraded nmr behaves as follows against a config that declares no projects:
+Until step 1 is done, every test command that names a tier fails against a config declaring no projects, with `Error: No projects matched the filter "unit", "tool".` at startup. `test:all` is the exception: it names no project, so it runs everything the config collects.
 
-| Command                      | Result                                                                                                                                             |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `nmr test` / `test:coverage` | **Succeeds, and runs integration tests too.** The separation is lost with no error, because `--project '!integration'` matches nothing to exclude. |
-| `nmr test:integration`       | **Fails** with `No projects matched the filter "integration"`.                                                                                     |
-
-The second is the reliable signal that migration is incomplete. The first is silent, so do not treat a green `nmr test` as evidence that the move succeeded.
+That is a change for the better. While `test` selected by negation, an unmigrated config produced a _green_ run, because `--project '!integration'` had nothing to exclude, so the separation was lost with no error anywhere. Positive selection turns the same state into a startup failure that names the missing projects.

@@ -9,7 +9,7 @@ import { generateAuditCiConfig } from '../generate.ts';
 import { buildUpdatedConfig, computeSyncDiff, serializeConfig } from '../sync.ts';
 import type { AuditResult, V11yCheckConfig } from '../types.ts';
 
-describe('integration: generate -> sync cycle', () => {
+describe('generate -> sync cycle', () => {
   let tempDir: string;
   let configDir: string;
 
