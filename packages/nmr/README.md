@@ -659,6 +659,22 @@ export default defineVitestConfig({
 
 Arrays concatenate rather than replace. `exclude` and `setupFiles` therefore add to what the config already declares, and neither seam can narrow `include` or drop a default exclusion. Adding an `include` pattern through `project` widens all three projects at once, so a file matching it is collected by each and runs three times.
 
+### What the config excludes
+
+Collection skips `**/node_modules/**`, `**/.git/**`, and `**/dist/**`. Coverage skips `**/__{fixtures,mocks,tests}__/**`, `**/index.ts`, `**/mock*.{ts,tsx}`, `**/*.d.ts`, and `**/*.types.ts`.
+
+Because both seams concatenate, a consumer can add an exclusion but never remove one. A pattern therefore earns its place in these lists only by preventing a _silent_ failure, one a consumer cannot self-diagnose. A visible failure, such as a stray file sitting at 0% in the coverage report, is left to the consumer's own `project` seam.
+
+Excluding build output from collection is the clearest case. A build that copies `.ts` sources rather than compiling them puts a second copy of the suite under `dist/`, where it is collected and passes green against stale code, and nothing in the run says so. (`nmr build` emits only `.js` and `.d.ts`, neither of which the include matches, so an nmr-built package was never exposed.) `dist/` is deliberately absent from the coverage list, because build output reaching a coverage report shows up as a diagnosable 0% entry.
+
+#### Where to put fixtures
+
+A `__fixtures__/` directory is excluded from coverage at any depth, so fixture data stops counting against a package's numbers whether or not a test imports it.
+
+Placing it outside `__tests__/` settles a second problem: anything named `*.test.{ts,tsx}` under `__tests__/` is collected and run, whatever it holds, so a fixture carrying that name becomes a failing test. `src/__fixtures__/` resolves both halves; `src/__tests__/__fixtures__/` resolves the coverage half alone.
+
+No collection pattern names fixtures, and that asymmetry is intentional. A coverage exclusion cannot hide a real test, whereas a collection exclusion can; since it could not be removed, a consumer who legitimately keeps a test under `__fixtures__/` would have no recourse.
+
 ### Root-scoped tests
 
 A monorepo's own root-level tests need a second config, because the package config is found by walking up from a package directory:
