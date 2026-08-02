@@ -86,7 +86,7 @@ Configuration is optional. The CLI works out of the box by auto-discovering work
 ### Config file
 
 ```typescript
-import { defineConfig } from '@williamthorsen/release-kit';
+import { defineConfig } from '@williamthorsen/release-kit/config';
 
 export default defineConfig({
   // Exclude a workspace from release processing
@@ -154,7 +154,7 @@ interface RetiredPackage {
 Worked example — `preflight` was extracted from this monorepo and continues as the standalone `readyup` project. Its tags stay in this repo as historical anchors:
 
 ```typescript
-import { defineConfig } from '@williamthorsen/release-kit';
+import { defineConfig } from '@williamthorsen/release-kit/config';
 
 export default defineConfig({
   retiredPackages: [{ name: '@scope/preflight', tagPrefix: 'preflight-v', successor: 'readyup' }],
@@ -187,7 +187,7 @@ The rule is enforced at config load; the resulting error identifies both collidi
 Some monorepos ship a single combined deliverable — a Chrome extension, a CLI binary, a packaged desktop app — for which the per-workspace tags and changelogs alone do not describe what the user actually receives. Declare the optional `project` block to add a project-level release stage that runs alongside the per-workspace pipeline.
 
 ```typescript
-import type { ReleaseKitConfig } from '@williamthorsen/release-kit';
+import type { ReleaseKitConfig } from '@williamthorsen/release-kit/config';
 
 const config: ReleaseKitConfig = {
   // Empty object is enough to opt in. Every non-excluded workspace contributes.
@@ -724,7 +724,7 @@ Every `sync-labels` subcommand refuses to run while the retired `.config/sync-la
 #### Label configuration
 
 ```typescript
-import { defineConfig } from '@williamthorsen/release-kit';
+import { defineConfig } from '@williamthorsen/release-kit/config';
 
 export default defineConfig({
   repoLabels: {
@@ -871,7 +871,7 @@ Minimal worked example for a repo whose pre-v5 tags were `core-v0.2.7` and whose
 
 ```typescript
 // .config/release-kit.config.ts
-import type { ReleaseKitConfig } from '@williamthorsen/release-kit';
+import type { ReleaseKitConfig } from '@williamthorsen/release-kit/config';
 
 const config: ReleaseKitConfig = {
   workspaces: [

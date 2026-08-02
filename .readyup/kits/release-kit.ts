@@ -140,7 +140,7 @@ export default defineRdyKit({
           severity: 'recommend',
           skip: () => (!fileExists('.config/release-kit.config.ts') ? 'no release-kit config file' : false),
           check: () => fileContains('.config/release-kit.config.ts', /defineConfig/),
-          fix: 'Wrap your config export with defineConfig() from @williamthorsen/release-kit for type safety',
+          fix: 'Wrap your config export with defineConfig() from @williamthorsen/release-kit/config for type safety',
         },
         {
           name: 'releaseNotes.shouldInjectIntoReadme is true',

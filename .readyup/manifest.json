@@ -43,8 +43,8 @@
       "path": "kits/release-kit.js",
       "readyupVersion": "0.23.0",
       "source": "kits/release-kit.ts",
-      "sourceHash": "981ce41e",
-      "targetHash": "ab43d007"
+      "sourceHash": "409fa6c7",
+      "targetHash": "df756a80"
     },
     {
       "checklists": [

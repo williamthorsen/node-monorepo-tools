@@ -87,7 +87,7 @@ ${labelsBlock}
 
 /** Generates a new `.config/release-kit.config.ts` carrying the `repoLabels` block. */
 export function repoLabelsConfigScript(scopeLabels: LabelDefinition[]): string {
-  return `import { defineConfig } from '@williamthorsen/release-kit';
+  return `import { defineConfig } from '@williamthorsen/release-kit/config';
 
 export default defineConfig({
 ${renderRepoLabelsBlock(scopeLabels)}
