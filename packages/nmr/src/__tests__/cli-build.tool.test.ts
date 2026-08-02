@@ -40,7 +40,7 @@ describe('nmr-compile', () => {
         'index.ts': 'export const value = 1;\n',
         'fixtures/sample.ts': 'export const sample = 1;\n',
       },
-      `export default { build: { extendIgnore: ['**/fixtures/**'] } };\n`,
+      `export default { build: { extraIgnorePatterns: ['**/fixtures/**'] } };\n`,
     );
 
     runCompile(dir);

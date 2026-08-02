@@ -473,37 +473,37 @@ describe('buildPackage entry-point selection', () => {
     expect(listEmitted(dir)).toContain('test-utils/helper.js');
   });
 
-  it('replaces the default ignore set when given `ignore`', async () => {
+  it('replaces the default ignore set when given `ignorePatterns`', async () => {
     scaffoldPackage(dir, {
       'index.ts': 'export const value = 1;\n',
       'test-utils/helper.ts': 'export const helper = 1;\n',
     });
 
-    await buildPackage(dir, { ignore: [] });
+    await buildPackage(dir, { ignorePatterns: [] });
 
     expect(listEmitted(dir)).toContain('test-utils/helper.js');
   });
 
-  it('adds to the effective ignore set when given `extendIgnore`', async () => {
+  it('adds to the effective ignore set when given `extraIgnorePatterns`', async () => {
     scaffoldPackage(dir, {
       'index.ts': 'export const value = 1;\n',
       'internal/helper.ts': 'export const helper = 1;\n',
     });
 
-    await buildPackage(dir, { extendIgnore: ['**/internal/**'] });
+    await buildPackage(dir, { extraIgnorePatterns: ['**/internal/**'] });
 
     expect(listEmitted(dir)).toStrictEqual(['index.d.ts', 'index.js']);
   });
 
-  it('composes `extendIgnore` onto an `ignore` override rather than onto the default', async () => {
+  it('composes `extraIgnorePatterns` onto an `ignorePatterns` override rather than onto the default', async () => {
     scaffoldPackage(dir, {
       'index.ts': 'export const value = 1;\n',
       'internal/helper.ts': 'export const helper = 1;\n',
       'test-utils/helper.ts': 'export const helper = 1;\n',
     });
 
-    // `ignore: []` drops the defaults, so test-utils/ returns as an entry point; extendIgnore applies on top.
-    await buildPackage(dir, { ignore: [], extendIgnore: ['**/internal/**'] });
+    // `ignorePatterns: []` drops the defaults, so test-utils/ returns as an entry point; the extras apply on top.
+    await buildPackage(dir, { ignorePatterns: [], extraIgnorePatterns: ['**/internal/**'] });
 
     expect(listEmitted(dir)).toStrictEqual([
       'index.d.ts',
@@ -549,7 +549,7 @@ describe('buildPackage output-directory ownership', () => {
       'index.ts': 'export const value = 1;\n',
       'test-utils/helper.ts': 'export const helper = 1;\n',
     });
-    await buildPackage(dir, { ignore: [] });
+    await buildPackage(dir, { ignorePatterns: [] });
     expect(listEmitted(dir)).toContain('test-utils/helper.js');
 
     await buildPackage(dir);
@@ -612,9 +612,9 @@ describe('buildPackage caching', () => {
   });
 
   it.each([
-    ['creating', undefined, `export default { build: { extendIgnore: ['**/a/**'] } };\n`],
-    ['editing', `export default { build: {} };\n`, `export default { build: { extendIgnore: ['**/a/**'] } };\n`],
-    ['deleting', `export default { build: { extendIgnore: ['**/a/**'] } };\n`, undefined],
+    ['creating', undefined, `export default { build: { extraIgnorePatterns: ['**/a/**'] } };\n`],
+    ['editing', `export default { build: {} };\n`, `export default { build: { extraIgnorePatterns: ['**/a/**'] } };\n`],
+    ['deleting', `export default { build: { extraIgnorePatterns: ['**/a/**'] } };\n`, undefined],
   ])('rebuilds after %s the package config', async (_action, before, after) => {
     const configPath = path.join(dir, '.config', 'nmr.config.ts');
     scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' });

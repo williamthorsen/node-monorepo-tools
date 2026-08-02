@@ -106,12 +106,12 @@ describe(loadConfig, () => {
     expect(config.workspaceScripts).toStrictEqual({ hello: 'echo hello' });
   });
 
-  it('loads build.extendIgnore', async () => {
-    writeConfig(tmpDir, `export default { build: { extendIgnore: ['**/fixtures/**'] } };`);
+  it('loads build.extraIgnorePatterns', async () => {
+    writeConfig(tmpDir, `export default { build: { extraIgnorePatterns: ['**/fixtures/**'] } };`);
 
     const config = await loadConfig(tmpDir);
 
-    expect(config.build).toStrictEqual({ extendIgnore: ['**/fixtures/**'] });
+    expect(config.build).toStrictEqual({ extraIgnorePatterns: ['**/fixtures/**'] });
   });
 
   it('throws when build is not an object', async () => {
@@ -120,10 +120,10 @@ describe(loadConfig, () => {
     await expect(loadConfig(tmpDir)).rejects.toThrow('`build` must be an object');
   });
 
-  it('throws when build.extendIgnore is not an array of strings', async () => {
-    writeConfig(tmpDir, `export default { build: { extendIgnore: ['ok', 7] } };`);
+  it('throws when build.extraIgnorePatterns is not an array of strings', async () => {
+    writeConfig(tmpDir, `export default { build: { extraIgnorePatterns: ['ok', 7] } };`);
 
-    await expect(loadConfig(tmpDir)).rejects.toThrow('`build.extendIgnore` must be a string[]');
+    await expect(loadConfig(tmpDir)).rejects.toThrow('`build.extraIgnorePatterns` must be a string[]');
   });
 });
 
@@ -143,11 +143,11 @@ describe(loadWorkspaceConfig, () => {
   });
 
   it('loads a config declaring build alone', async () => {
-    writeConfig(tmpDir, `export default { build: { extendIgnore: ['**/fixtures/**'] } };`);
+    writeConfig(tmpDir, `export default { build: { extraIgnorePatterns: ['**/fixtures/**'] } };`);
 
     const config = await loadWorkspaceConfig(tmpDir);
 
-    expect(config.build).toStrictEqual({ extendIgnore: ['**/fixtures/**'] });
+    expect(config.build).toStrictEqual({ extraIgnorePatterns: ['**/fixtures/**'] });
   });
 
   it('throws naming every root-tier key the package config declares', async () => {

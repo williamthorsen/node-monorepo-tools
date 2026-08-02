@@ -9,9 +9,9 @@ export interface BuildConfig {
   /**
    * Patterns added to the build's default ignore set. Extends rather than replaces, so that declaring one pattern
    * cannot silently drop the defaults and start shipping a package's own tests.
-   * The programmatic `buildPackage` option of the same name behaves identically; its bare `ignore` is what replaces.
+   * The programmatic `buildPackage` option of the same name behaves identically; its bare `ignorePatterns` replaces.
    */
-  extendIgnore?: string[];
+  extraIgnorePatterns?: string[];
 }
 
 export interface NmrConfig {
@@ -49,7 +49,7 @@ export function resolveConfigPath(baseDir: string): string {
   return path.join(baseDir, CONFIG_DIR, CONFIG_FILENAME);
 }
 
-/** Narrow an unknown value to a record of script entries. */
+/** Narrows an unknown value to a record of script entries. */
 function isScriptRecord(value: unknown): value is Record<string, string | string[]> {
   if (!isObject(value)) return false;
   for (const v of Object.values(value)) {
@@ -59,7 +59,7 @@ function isScriptRecord(value: unknown): value is Record<string, string | string
   return true;
 }
 
-/** Validate and extract a single script-record field from the raw config object. */
+/** Validates and extracts a single script-record field from the raw config object. */
 function validateScriptField(
   value: Record<string, unknown>,
   fieldName: string,
@@ -76,12 +76,12 @@ function validateScriptField(
   return value[fieldName];
 }
 
-/** Narrow an unknown value to an array of plain strings. */
+/** Narrows an unknown value to an array of plain strings. */
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string');
 }
 
-/** Validate and extract the `build` field from the raw config object. */
+/** Validates and extracts the `build` field from the raw config object. */
 function validateBuildField(value: Record<string, unknown>, configPath: string): BuildConfig | undefined {
   const build: unknown = value.build;
   if (build === undefined) {
@@ -91,12 +91,12 @@ function validateBuildField(value: Record<string, unknown>, configPath: string):
     throw new Error(`Invalid nmr config at ${configPath}: \`build\` must be an object`);
   }
 
-  const extendIgnore: unknown = build.extendIgnore;
-  if (extendIgnore !== undefined && !isStringArray(extendIgnore)) {
-    throw new Error(`Invalid nmr config at ${configPath}: \`build.extendIgnore\` must be a string[]`);
+  const extraIgnorePatterns: unknown = build.extraIgnorePatterns;
+  if (extraIgnorePatterns !== undefined && !isStringArray(extraIgnorePatterns)) {
+    throw new Error(`Invalid nmr config at ${configPath}: \`build.extraIgnorePatterns\` must be a string[]`);
   }
 
-  return extendIgnore === undefined ? {} : { extendIgnore };
+  return extraIgnorePatterns === undefined ? {} : { extraIgnorePatterns };
 }
 
 /** Narrows an unknown value to a record of plain strings. */
@@ -108,7 +108,7 @@ function isStringRecord(value: unknown): value is Record<string, string> {
   return true;
 }
 
-/** Validates and extract a `Record<string, string>` field from the raw config object. */
+/** Validates and extracts a `Record<string, string>` field from the raw config object. */
 function validateStringRecordField(
   value: Record<string, unknown>,
   fieldName: string,

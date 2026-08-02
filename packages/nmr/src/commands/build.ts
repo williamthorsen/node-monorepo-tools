@@ -10,10 +10,10 @@ import { resolveConfigPath } from '../config.ts';
 
 export interface BuildOptions {
   entryGlobs?: string[];
-  /** Adds to the effective ignore set, whether that set is the default or an `ignore` override. */
-  extendIgnore?: string[];
+  /** Adds to the effective ignore set, whether that set is the default or an `ignorePatterns` override. */
+  extraIgnorePatterns?: string[];
   /** Replaces the default ignore set. */
-  ignore?: string[];
+  ignorePatterns?: string[];
   outdir?: string;
 }
 
@@ -39,7 +39,7 @@ const DEFAULT_ENTRY_GLOBS = ['src/**/*.ts'];
  * surviving entry points import, which is what keeps a production module that uses a helper from emitting a
  * dangling specifier. Widening this list can therefore only drop files nothing in production reaches.
  */
-const DEFAULT_IGNORE = ['**/__fixtures__/**', '**/__mocks__/**', '**/__tests__/**', '**/test-utils/**'];
+const DEFAULT_IGNORE_PATTERNS = ['**/__fixtures__/**', '**/__mocks__/**', '**/__tests__/**', '**/test-utils/**'];
 const DEFAULT_OUTDIR = 'dist/esm/';
 const SOURCE_ROOT = 'src';
 
@@ -77,7 +77,7 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
 
   const entryPoints = await glob(options.entryGlobs ?? DEFAULT_ENTRY_GLOBS, {
     cwd: packageDir,
-    ignore: [...(options.ignore ?? DEFAULT_IGNORE), ...(options.extendIgnore ?? [])],
+    ignore: [...(options.ignorePatterns ?? DEFAULT_IGNORE_PATTERNS), ...(options.extraIgnorePatterns ?? [])],
   });
   // The config file joins the digest only when it exists: `computeBuildHash` reads every listed file, so an
   // unconditional entry would fail every package that has none. Conditional entry still covers all three

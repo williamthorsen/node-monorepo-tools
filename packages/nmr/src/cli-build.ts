@@ -8,7 +8,7 @@ try {
   const { build } = await loadWorkspaceConfig(packageDir);
 
   await buildPackage(packageDir, {
-    ...(build?.extendIgnore !== undefined && { extendIgnore: build.extendIgnore }),
+    ...(build?.extraIgnorePatterns !== undefined && { extraIgnorePatterns: build.extraIgnorePatterns }),
   });
 } catch (error) {
   // This file is the build bootstrap: nmr-core's `prepare` runs it (via tsx) to build nmr-core
