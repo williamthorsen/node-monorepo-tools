@@ -50,7 +50,7 @@
   },
   "devDependencies": {
     "@types/semver": "7.7.1",
-    "smol-toml": "1.7.0"
+    "smol-toml": "1.7.1"
   },
   "engines": {
     "node": ">=24"

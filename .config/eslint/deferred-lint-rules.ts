@@ -24,7 +24,6 @@ export const deferredTestRules = {
   'vitest/expect-expect': 'warn',
   'vitest/no-conditional-expect': 'warn',
   'vitest/no-conditional-in-test': 'warn',
-  'vitest/require-mock-type-parameters': 'warn',
   'vitest/require-to-throw-message': 'warn',
   'vitest/prefer-each': 'warn',
 } as const;
