@@ -10,10 +10,10 @@ A pnpm monorepo of CLI tools for Node.js monorepo development. Packages provide 
 
 Packages live under `packages/`:
 
-- **`@williamthorsen/nmr`** — Context-aware script runner for pnpm monorepos. Detects root vs workspace context and resolves the appropriate script registry.
-- **`@williamthorsen/nmr-core`** — Shared utilities consumed by `release-kit`.
-- **`@williamthorsen/release-kit`** — Version-bumping and changelog-generation toolkit. Holds the repo's only `*.tool.test.ts` outside nmr (it drives `git`), plus `*.packaged.test.ts` files that need a prior build.
-- **`v11y-check`** — Wraps audit-ci with a richer config model, typed JSON source of truth, and a sync workflow that automates allowlist management.
+- **`@williamthorsen/nmr`**: Context-aware script runner for pnpm monorepos. Detects root vs workspace context and resolves the appropriate script registry.
+- **`@williamthorsen/nmr-core`**: Shared utilities consumed by `release-kit`.
+- **`@williamthorsen/release-kit`**: Version-bumping and changelog-generation toolkit. Holds the repo's only `*.tool.test.ts` outside nmr (it drives `git`), plus `*.packaged.test.ts` files that need a prior build.
+- **`v11y-check`**: Wraps audit-ci with a richer config model, typed JSON source of truth, and a sync workflow that automates allowlist management.
 
 Key files:
 
@@ -28,25 +28,23 @@ Use `nmr {command}` for all monorepo scripts. Use `pnpm run {script}` only for s
 
 **Root-level (from repo root):**
 
-- `pnpm install` — Install all dependencies
-- `nmr prepush` — Everything the remote runs, before you push (`ci` plus the audit)
-- `nmr ci` — What the code-quality workflow runs (build, then strict checks)
-- `nmr check` — Typecheck, format check, lint check, and tests
-- `nmr check:strict` — Strict checks including coverage and the agent-file stamp; the audit runs separately under `prepush`
-- `nmr build` — Build all packages
-- `nmr test` — Run tests across all packages
+- `pnpm install`: Install all dependencies
+- `nmr ci`: What the code-quality workflow runs (build, then strict checks)
+- `nmr prepush`: Run the `ci` check plus an audit; a good command to run before pushing to the remote
 
-**Package-level (from any package directory):**
+**From the root or any package directory:**
 
-- `nmr build` — Build current package (single-pass `.js` + `.d.ts` emit)
-- `nmr test` — Run tests for current package
-- `nmr test:watch` — Tests in watch mode
-- `nmr test:coverage` — Tests with coverage
+If run under a package directory, the command applies to that package. Otherwise, it runs recursively in the entire repo:
 
-**Recovery, in order (when build output is missing):**
+- `nmr check`: Typecheck, format check, lint check, and tests
+- `nmr check:strict`: Strict checks including coverage
+- `nmr build`: Build for distribution
+- `nmr test`: Run tests
 
-- `pnpm run bootstrap` — Rebuild nmr-core and nmr from source, restoring the `nmr` command
-- `nmr build` — Rebuild the remaining packages, which `nmr check` collects tests against
+**Recovery, in order (run from the root when build output is missing):**
+
+- `pnpm run bootstrap`: Rebuild nmr-core and nmr from source, restoring the `nmr` command
+- `nmr build`: Rebuild the remaining packages, which `nmr check` collects tests against
 
 ## Architecture
 
@@ -82,4 +80,4 @@ Use `nmr {command}` for all monorepo scripts. Use `pnpm run {script}` only for s
 
 - **After `nmr clean`, rebuild before anything else**: run from the repo root, clean removes every package's build output, which the `nmr` binary, `vitest.config.ts`, and `.prettierrc.js` all load, so `nmr`, Vitest, Prettier, and the pre-commit hook all fail. Recover from the root with `pnpm run bootstrap`, then `nmr build`; bootstrap has to come first, because `nmr` itself is broken until it runs. A fresh clone needs none of it: `pnpm install` compiles every package.
 - **Stale nmr config fails silently**: editing `packages/nmr/src/vitest.ts` or `src/prettier.ts` and re-running without rebuilding exercises the previous config with no error.
-- **Build caching**: The content-hash cache (under `node_modules/.cache/nmr-compile/`) means a rebuild won't run if only non-source files change. Force a rebuild with `nmr clean`, or by deleting the package's `dist` — missing output is treated as a cache miss.
+- **Build caching**: The content-hash cache (under `node_modules/.cache/nmr-compile/`) means a rebuild won't run if only non-source files change. Force a rebuild with `nmr clean`, or by deleting the package's `dist`; missing output is treated as a cache miss.
