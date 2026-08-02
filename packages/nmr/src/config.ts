@@ -14,8 +14,26 @@ export interface BuildConfig {
   extraIgnorePatterns?: string[];
 }
 
+/** Check-result cache settings honored at the monorepo root. */
+export interface CheckCacheConfig {
+  /** Set to `false` to turn the gate off entirely, so every command runs. */
+  enabled?: boolean;
+  /**
+   * Command names removed from the cacheable set, applied after `extraCommands`. This is how a repo retires a
+   * name whose chain turned out to do more than report an exit status.
+   */
+  excludeCommands?: string[];
+  /**
+   * Command names added to the cacheable set. Extends rather than replaces, so that declaring one command
+   * cannot silently drop the defaults. A name listed here promises exit-status-only semantics through its whole
+   * chain, hooks included.
+   */
+  extraCommands?: string[];
+}
+
 export interface NmrConfig {
   build?: BuildConfig;
+  checkCache?: CheckCacheConfig;
   devBin?: Record<string, string>;
   workspaceScripts?: Record<string, string | string[]>;
   rootScripts?: Record<string, string | string[]>;
@@ -39,7 +57,7 @@ interface ConfigTier {
 const CONFIG_TIERS: Record<'root' | 'workspace', ConfigTier> = {
   root: {
     label: 'a monorepo-root config',
-    honoredKeys: ['devBin', 'rootScripts', 'workspaceScripts'],
+    honoredKeys: ['checkCache', 'devBin', 'rootScripts', 'workspaceScripts'],
     elsewhere: "the package's own config",
   },
   workspace: {
@@ -51,6 +69,7 @@ const CONFIG_TIERS: Record<'root' | 'workspace', ConfigTier> = {
 
 const RECOGNIZED_KEYS = [...CONFIG_TIERS.root.honoredKeys, ...CONFIG_TIERS.workspace.honoredKeys];
 const RECOGNIZED_BUILD_KEYS = ['extraIgnorePatterns'];
+const RECOGNIZED_CHECK_CACHE_KEYS = ['enabled', 'excludeCommands', 'extraCommands'];
 
 /**
  * Type-safe identity function for configuration files.
@@ -125,6 +144,41 @@ function validateBuildField(value: Record<string, unknown>, configPath: string):
   return extraIgnorePatterns === undefined ? {} : { extraIgnorePatterns };
 }
 
+/** Validates and extracts the `checkCache` field from the raw config object. */
+function validateCheckCacheField(value: Record<string, unknown>, configPath: string): CheckCacheConfig | undefined {
+  const checkCache: unknown = value.checkCache;
+  if (checkCache === undefined) {
+    return undefined;
+  }
+  if (!isObject(checkCache)) {
+    throw new Error(`Invalid nmr config at ${configPath}: \`checkCache\` must be an object`);
+  }
+  assertRecognizedKeys(checkCache, RECOGNIZED_CHECK_CACHE_KEYS, configPath, 'checkCache.');
+
+  const config: CheckCacheConfig = {};
+
+  const enabled: unknown = checkCache.enabled;
+  if (enabled !== undefined) {
+    if (typeof enabled !== 'boolean') {
+      throw new Error(`Invalid nmr config at ${configPath}: \`checkCache.enabled\` must be a boolean`);
+    }
+    config.enabled = enabled;
+  }
+
+  for (const field of ['excludeCommands', 'extraCommands'] as const) {
+    const commands: unknown = checkCache[field];
+    if (commands === undefined) {
+      continue;
+    }
+    if (!isStringArray(commands)) {
+      throw new Error(`Invalid nmr config at ${configPath}: \`checkCache.${field}\` must be a string[]`);
+    }
+    config[field] = commands;
+  }
+
+  return config;
+}
+
 /** Narrows an unknown value to a record of plain strings. */
 function isStringRecord(value: unknown): value is Record<string, string> {
   if (!isObject(value)) return false;
@@ -160,6 +214,9 @@ function validateConfig(value: unknown, configPath: string): NmrConfig {
 
   const build = validateBuildField(value, configPath);
   if (build) config.build = build;
+
+  const checkCache = validateCheckCacheField(value, configPath);
+  if (checkCache) config.checkCache = checkCache;
 
   const devBin = validateStringRecordField(value, 'devBin', configPath);
   if (devBin) config.devBin = devBin;
