@@ -1,8 +1,7 @@
-import { createHash } from 'node:crypto';
 import { existsSync, readdirSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
+import { readCacheEntry, resolveCacheEntryPath } from '@williamthorsen/nmr-core';
 import { glob } from 'glob';
 
 export interface BuildOptions {
@@ -30,8 +29,8 @@ export const DEFAULT_IGNORE_PATTERNS = ['**/__fixtures__/**', '**/__mocks__/**',
 
 export const DEFAULT_OUTDIR = 'dist/esm/';
 
-/** The digest length that separates packages sharing a hoisted `node_modules` while keeping the name readable. */
-const DIGEST_LENGTH = 8;
+/** The cache a build's entries live in. Renaming it orphans every entry a previous build wrote. */
+const BUILD_CACHE_TOOL = 'nmr-compile';
 
 /**
  * Reports whether the output a build of `packageDir` would produce is currently on disk. Applies the rule the
@@ -71,54 +70,24 @@ export function hasExpectedBuildOutput(packageDir: string, outdir: string, entry
  * came from a different tree reports a different one, which is what tells a stale `dist` from a current one.
  */
 export async function readBuildDigest(packageDir: string): Promise<string | undefined> {
-  try {
-    return await readFile(resolveBuildCachePath(packageDir), 'utf8');
-  } catch {
-    return undefined;
-  }
+  return readCacheEntry(resolveBuildCachePath(packageDir));
 }
 
 /**
- * Resolves the absolute path of a package's build-cache file. The cache lives under the conventional
- * `node_modules/.cache/nmr-compile/` home rather than inside `dist`, so it stays git-ignored and is
- * never swept into a published tarball by any `files` convention. The home is the nearest enclosing
- * directory that already has a `node_modules` — the package's own when it has one, otherwise a hoisted
- * ancestor (e.g. the workspace root for a zero-dependency package) — which avoids materializing a
- * `node_modules` solely to hold the cache. The file name folds a digest of the absolute package path
- * into a readable base name, so packages sharing a hoisted `node_modules` never collide while the path
- * stays stable across runs for the same package.
+ * Resolves the absolute path of a package's build-cache file, one entry in the shared store. The package
+ * directory is the entry's scope, so the store keys the file to it and packages sharing a hoisted
+ * `node_modules` never collide.
  *
- * This duplicates `resolveCacheEntryPath` from `@williamthorsen/nmr-core`, which is deliberate and is the one
- * place here that may not be deduplicated. `cli-build.ts` is the build bootstrap: nmr-core's own `prepare` runs
- * it to build nmr-core, before nmr-core's `dist` exists, so nothing this module's import graph reaches may
- * resolve through that package.
+ * The `.hash` extension and the package's own directory name as the slug are what hold the path where every
+ * previously written entry already sits; changing either strands them.
  */
 export function resolveBuildCachePath(packageDir: string): string {
   const absolutePackageDir = path.resolve(packageDir);
-  const home = findNearestNodeModulesHost(absolutePackageDir) ?? absolutePackageDir;
-  const digest = createHash('sha256').update(absolutePackageDir).digest('hex').slice(0, DIGEST_LENGTH);
-  const key = `${path.basename(absolutePackageDir)}-${digest}.hash`;
 
-  return path.join(home, 'node_modules', '.cache', 'nmr-compile', key);
+  return resolveCacheEntryPath({
+    tool: BUILD_CACHE_TOOL,
+    scopeDir: absolutePackageDir,
+    slug: path.basename(absolutePackageDir),
+    extension: '.hash',
+  });
 }
-
-// region | Helpers
-
-/**
- * Walks up from `startDir` (inclusive) to the filesystem root, returning the first directory that
- * contains a `node_modules` entry, or `undefined` when none does.
- */
-function findNearestNodeModulesHost(startDir: string): string | undefined {
-  let current = startDir;
-  let parent = path.dirname(current);
-  while (!existsSync(path.join(current, 'node_modules'))) {
-    if (parent === current) {
-      return undefined;
-    }
-    current = parent;
-    parent = path.dirname(current);
-  }
-  return current;
-}
-
-// endregion | Helpers

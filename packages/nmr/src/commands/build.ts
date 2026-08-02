@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 
+import { readCacheEntry, writeCacheEntry } from '@williamthorsen/nmr-core';
 import { glob } from 'glob';
 import * as ts from 'typescript';
 
@@ -91,7 +92,7 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
 
   // Persist the digest only after a successful build, so a failed compile cannot poison the cache
   // and cause the next run to skip a never-completed build.
-  await writeBuildCache(cachePath, currentHash);
+  await writeCacheEntry(cachePath, currentHash);
 }
 
 /**
@@ -418,7 +419,7 @@ async function detectBuildChanges(
   outputPresent: boolean,
 ): Promise<{ changed: boolean; currentHash: string }> {
   const packageName = path.basename(packageDir);
-  const previousHash = existsSync(cachePath) ? readFileSync(cachePath, 'utf8') : undefined;
+  const previousHash = await readCacheEntry(cachePath);
   const currentHash = await computeBuildHash(packageDir, files, emitConfig, compilerVersion);
 
   if (previousHash === currentHash) {
@@ -432,12 +433,6 @@ async function detectBuildChanges(
 
   console.info(`${PACKAGE_ICON} ${packageName}: Changes detected.`);
   return { changed: true, currentHash };
-}
-
-/** Writes the build digest to the cache file, creating the cache directory if it does not exist. */
-async function writeBuildCache(cachePath: string, hash: string): Promise<void> {
-  await mkdir(path.dirname(cachePath), { recursive: true });
-  await writeFile(cachePath, hash);
 }
 
 // endregion | Cache
