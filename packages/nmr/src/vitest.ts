@@ -80,13 +80,9 @@ const ALL_TEST_PATTERNS = ['**/__tests__/**/*.test.{ts,tsx}'];
 // Fixtures are excluded from coverage but never from collection: a coverage exclude cannot hide a real test, while a
 // collection exclude could swallow one legitimately placed under `fixtures/`. `__snapshots__` needs no entry because
 // `.snap` files never match the include.
-const COVERAGE_EXCLUDE = [
-  '**/__{fixtures,mocks,tests}__/**',
-  '**/index.ts',
-  '**/mock*.{ts,tsx}',
-  '**/*.d.ts',
-  '**/*.types.ts',
-];
+//
+// Each entry names what cannot hold runtime code by construction: a directory, a barrel, a declaration file.
+const COVERAGE_EXCLUDE = ['**/__{fixtures,mocks,tests}__/**', '**/index.ts', '**/*.d.ts'];
 
 // Excluded from collection but deliberately not from coverage: a stale test copy under `dist/` passes green, which a
 // consumer cannot self-diagnose, whereas a `dist/` entry in the coverage report is a visible 0% they can.

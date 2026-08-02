@@ -100,6 +100,13 @@ describe(defineVitestConfig, () => {
     expect(rootTest.coverage?.include).toStrictEqual(['**/src/**/*.{ts,tsx}']);
   });
 
+  // Pinned rather than sampled: the risk is an addition, not a removal.
+  it('excludes from coverage only what cannot hold runtime code', () => {
+    const rootTest = defineVitestConfig().test ?? {};
+
+    expect(rootTest.coverage?.exclude).toStrictEqual(['**/__{fixtures,mocks,tests}__/**', '**/index.ts', '**/*.d.ts']);
+  });
+
   it('accepts a run that collects no test files', () => {
     expect(defineVitestConfig().test?.passWithNoTests).toBe(true);
   });

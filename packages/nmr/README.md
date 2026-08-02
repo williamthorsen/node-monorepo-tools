@@ -749,7 +749,7 @@ A config file that omits the shared layer still loses those settings, silently -
 
 ### What the config excludes
 
-Collection skips `**/node_modules/**`, `**/.git/**`, and `**/dist/**`. Coverage skips `**/__{fixtures,mocks,tests}__/**`, `**/index.ts`, `**/mock*.{ts,tsx}`, `**/*.d.ts`, and `**/*.types.ts`.
+Collection skips `**/node_modules/**`, `**/.git/**`, and `**/dist/**`. Coverage skips `**/__{fixtures,mocks,tests}__/**`, `**/index.ts`, and `**/*.d.ts`.
 
 Because both seams concatenate, a consumer can add an exclusion but never remove one. A pattern therefore earns its place in these lists only by preventing a _silent_ failure, one a consumer cannot self-diagnose. A visible failure, such as a stray file sitting at 0% in the coverage report, is left to the consumer's own `project` seam.
 
