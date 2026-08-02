@@ -43,27 +43,24 @@ export interface RootVitestConfigOptions extends VitestConfigOptions {
   monorepoRoot: string;
 }
 
-/**
- * The tiers above `unit`, ordered by the furthest thing a test reaches. A tier names what a test reaches, never how
- * it invokes it: a test driving a compiler through its JavaScript API is `tool`, exactly as one spawning `tsc` would
- * be. Each tier's name is also its filename infix, so `parse.tool.test.ts` lands in `tool`.
- */
-const TIERS = ['tool', 'localhost', 'remote'] as const;
+/** Any number of shared layers, then the config file's own, which states the monorepo root. */
+type RootConfigLayers = [...(VitestConfigOptions | undefined)[], RootVitestConfigOptions];
 
 /**
- * The full ladder, `unit` included. `TIERS` deliberately means the tiers *above* `unit`, because `TIERED_PATTERNS`
- * subtracts them to form the residual. This is the list a consumer targets, and `unit` is the likeliest target,
- * being the tier a uniform `project` override otherwise flattens.
+ * The isolation ladder, ordered by the furthest thing a test reaches. A tier names what a test reaches, never how it
+ * invokes it: a test driving a compiler through its JavaScript API is `tool`, exactly as one spawning `tsc` would be.
+ * Each named tier's name is also its filename infix, so `parse.tool.test.ts` lands in `tool`.
  */
-const TIER_NAMES = ['unit', ...TIERS] as const;
+const TIER_NAMES = ['unit', 'tool', 'localhost', 'remote'] as const;
 
 /** One of the four isolation tiers. */
 export type TierName = (typeof TIER_NAMES)[number];
 
-// `unit` includes every test file and subtracts the tiered ones, so a file whose infix matches no tier still runs
-// rather than being dropped by an allow-list. Derived from `TIERS` rather than hand-listed: a tier added there and
-// forgotten here would have its files collected twice, by its own project and by the residual, with the suite green.
-const TIERED_PATTERNS = TIERS.flatMap(buildTierPatterns);
+// The head of the ladder is the residual: it collects every test file the named tiers don't claim, so a file whose
+// infix matches no tier still runs rather than being dropped by an allow-list.
+const [RESIDUAL_TIER, ...NAMED_TIERS] = TIER_NAMES;
+
+const TIERED_PATTERNS = NAMED_TIERS.flatMap(buildTierPatterns);
 
 /**
  * Timeout for every tier above `unit`, whose tests wait on something they don't control. Vitest's defaults are
@@ -119,12 +116,10 @@ export function defineVitestConfig(...layers: (VitestConfigOptions | undefined)[
  * reports no coverage of its own — packages cover their own sources.
  *
  * `monorepoRoot` rides on the last layer, which is the config file's own: a shared layer describes settings, not
- * which repo they belong to, and only the root config's `import.meta.dirname` states this one. The type requires
- * that layer, while the guard below still catches the JavaScript config that types never reach.
+ * which repo they belong to, and only the root config's `import.meta.dirname` states this one. The guard below
+ * still catches the JavaScript config that types never reach.
  */
-export function defineRootVitestConfig(
-  ...layers: [...(VitestConfigOptions | undefined)[], RootVitestConfigOptions]
-): ViteUserConfig {
+export function defineRootVitestConfig(...layers: RootConfigLayers): ViteUserConfig {
   // Reading through `unknown` is what keeps the check live: the declared type alone would make it statically
   // dead. A relative path would resolve against the working directory, which is the resolution this option
   // exists to replace.
@@ -175,7 +170,7 @@ function buildConfig(
   return layers.reduce<ViteUserConfig>((merged, { root }) => (root ? mergeConfig(merged, root) : merged), config);
 }
 
-/** One project's definition before it becomes a Vitest project config: the residual `unit`, then every tier in `TIERS`. */
+/** One project's definition before it becomes a Vitest project config: the residual, then every named tier. */
 interface ProjectTier {
   exclude: string[];
   include: string[];
@@ -191,8 +186,8 @@ function buildProjects(
   projectRoot: string | undefined,
 ): TestProjectInlineConfiguration[] {
   const projectTiers: ProjectTier[] = [
-    { exclude: TIERED_PATTERNS, include: ALL_TEST_PATTERNS, name: 'unit' },
-    ...TIERS.map((tier) => ({
+    { exclude: TIERED_PATTERNS, include: ALL_TEST_PATTERNS, name: RESIDUAL_TIER },
+    ...NAMED_TIERS.map((tier) => ({
       exclude: [],
       include: buildTierPatterns(tier),
       name: tier,
