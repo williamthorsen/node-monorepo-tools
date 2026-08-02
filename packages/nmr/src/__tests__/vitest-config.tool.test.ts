@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../../..');
 const CONFIG_SOURCE = path.join(import.meta.dirname, '../vitest.ts');
 const VITEST_CLI = path.join(REPO_ROOT, 'node_modules/vitest/vitest.mjs');
+const SETUP_LOG = 'setup-order.log';
 
 /**
  * A package tree whose files sit on either side of every boundary the exclusions draw.
@@ -53,6 +54,36 @@ const PROJECT_FILES: Record<string, string> = {
 };
 
 /**
+ * A package whose config composes two option layers, each contributing a setup file that records when it ran.
+ * Only a real run settles the order: the config object shows the array, not which entry Vitest executes first.
+ */
+const LAYER_ORDER_FILES: Record<string, string> = {
+  'package.json': JSON.stringify({ name: 'vitest-layer-fixture', private: true, type: 'module' }),
+
+  'vitest.config.ts': [
+    `import { defineVitestConfig } from ${JSON.stringify(CONFIG_SOURCE)};`,
+    '',
+    'export default defineVitestConfig(',
+    "  { project: { setupFiles: ['./shared-setup.ts'] } },",
+    "  { project: { setupFiles: ['./package-setup.ts'] } },",
+    ');',
+    '',
+  ].join('\n'),
+
+  'shared-setup.ts': buildSetupFile('shared'),
+  'package-setup.ts': buildSetupFile('package'),
+
+  'src/__tests__/suite.test.ts': [
+    "import { expect, it } from 'vitest';",
+    '',
+    "it('runs once both setup files have', () => {",
+    '  expect(true).toBe(true);',
+    '});',
+    '',
+  ].join('\n'),
+};
+
+/**
  * Runs the shipped config against a real Vitest invocation. The coverage guarantee cannot be asserted from the
  * pattern alone: `isIncluded()` matches absolute paths with picomatch's `contains` flag, whose effect is not
  * visible in the pattern, and a unit test replicating that call would keep passing if Vitest stopped passing it.
@@ -63,7 +94,7 @@ describe('the shipped Vitest config, run for real', () => {
   let collectedTestFiles: string[];
 
   beforeAll(() => {
-    projectRoot = scaffoldProject();
+    projectRoot = scaffoldProject(PROJECT_FILES);
     const run = runVitestWithCoverage(projectRoot);
 
     // Surface the child's own output, or a failure here reads as an unexplained empty result.
@@ -99,13 +130,39 @@ describe('the shipped Vitest config, run for real', () => {
   });
 });
 
+describe('composed option layers, run for real', () => {
+  let projectRoot: string;
+  let setupOrder: string[];
+
+  beforeAll(() => {
+    projectRoot = scaffoldProject(LAYER_ORDER_FILES);
+    const run = runVitest(projectRoot);
+
+    if (run.status !== 0) {
+      throw new Error(`fixture run failed with status ${String(run.status)}:\n${run.stdout}\n${run.stderr}`);
+    }
+
+    setupOrder = fs.readFileSync(path.join(projectRoot, SETUP_LOG), 'utf8').split('\n').filter(Boolean);
+  }, 120_000);
+
+  afterAll(() => {
+    removeProject(projectRoot);
+  });
+
+  // A shared entry establishes the environment the later ones run in, so the order is the guarantee rather than
+  // the membership. Asserting on the config object would pass even if Vitest executed the two the other way round.
+  it('runs an earlier layer of setup files before a later one', () => {
+    expect(setupOrder).toStrictEqual(['shared', 'package']);
+  });
+});
+
 /** Writes the fixture tree and links the repository's `node_modules` so Vitest and its coverage provider resolve. */
-function scaffoldProject(): string {
+function scaffoldProject(files: Record<string, string>): string {
   // Resolve through `realpath`: macOS exposes the temp root through a symlink, while the paths Vitest reports back
   // are resolved, and the two have to agree for the relative paths below to come out right.
   const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-vitest-config-')));
 
-  for (const [relativePath, contents] of Object.entries(PROJECT_FILES)) {
+  for (const [relativePath, contents] of Object.entries(files)) {
     const absolute = path.join(dir, relativePath);
     fs.mkdirSync(path.dirname(absolute), { recursive: true });
     fs.writeFileSync(absolute, contents);
@@ -129,6 +186,20 @@ function runVitestWithCoverage(cwd: string): { status: number | null; stdout: st
   ];
 
   return spawnSync(process.execPath, args, { cwd, encoding: 'utf8', env: buildChildEnv() });
+}
+
+function runVitest(cwd: string): { status: number | null; stdout: string; stderr: string } {
+  return spawnSync(process.execPath, [VITEST_CLI, 'run'], { cwd, encoding: 'utf8', env: buildChildEnv() });
+}
+
+/** A setup file that appends its own name to a log beside itself, so the run records the order the two ran in. */
+function buildSetupFile(name: string): string {
+  return [
+    "import { appendFileSync } from 'node:fs';",
+    '',
+    `appendFileSync(new URL(${JSON.stringify(SETUP_LOG)}, import.meta.url), ${JSON.stringify(`${name}\n`)});`,
+    '',
+  ].join('\n');
 }
 
 /**

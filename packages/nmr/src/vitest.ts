@@ -4,6 +4,7 @@ import type { TestProjectInlineConfiguration, ViteUserConfig } from 'vitest/conf
 import { defaultExclude, mergeConfig } from 'vitest/config';
 import type { InlineConfig, ProjectConfig } from 'vitest/node';
 
+import { isObject } from './helpers/type-guards.ts';
 import { getWorkspacePackageDirs } from './workspace.ts';
 
 /**
@@ -24,6 +25,13 @@ export interface VitestConfigOptions {
 
   /** Merged into every declared project. This is where per-project options such as `setupFiles` go. */
   project?: ProjectConfig;
+
+  /**
+   * Merged into one tier's project alone, after this layer's `project` block. Raising a budget for `tool` here
+   * leaves `unit` on the tight default that makes a hung unit test fail fast, which a uniform `project` override
+   * would flatten.
+   */
+  tiers?: Partial<Record<TierName, ProjectConfig>>;
 }
 
 export interface RootVitestConfigOptions extends VitestConfigOptions {
@@ -35,17 +43,24 @@ export interface RootVitestConfigOptions extends VitestConfigOptions {
   monorepoRoot: string;
 }
 
-/**
- * The tiers above `unit`, ordered by the furthest thing a test reaches. A tier names what a test reaches, never how
- * it invokes it: a test driving a compiler through its JavaScript API is `tool`, exactly as one spawning `tsc` would
- * be. Each tier's name is also its filename infix, so `parse.tool.test.ts` lands in `tool`.
- */
-const TIERS = ['tool', 'localhost', 'remote'] as const;
+/** Any number of shared layers, then the config file's own, which states the monorepo root. */
+type RootConfigLayers = [...(VitestConfigOptions | undefined)[], RootVitestConfigOptions];
 
-// `unit` includes every test file and subtracts the tiered ones, so a file whose infix matches no tier still runs
-// rather than being dropped by an allow-list. Derived from `TIERS` rather than hand-listed: a tier added there and
-// forgotten here would have its files collected twice, by its own project and by the residual, with the suite green.
-const TIERED_PATTERNS = TIERS.flatMap(buildTierPatterns);
+/**
+ * The isolation ladder, ordered by the furthest thing a test reaches. A tier names what a test reaches, never how it
+ * invokes it: a test driving a compiler through its JavaScript API is `tool`, exactly as one spawning `tsc` would be.
+ * Each named tier's name is also its filename infix, so `parse.tool.test.ts` lands in `tool`.
+ */
+const TIER_NAMES = ['unit', 'tool', 'localhost', 'remote'] as const;
+
+/** One of the four isolation tiers. */
+export type TierName = (typeof TIER_NAMES)[number];
+
+// The head of the ladder is the residual: it collects every test file the named tiers don't claim, so a file whose
+// infix matches no tier still runs rather than being dropped by an allow-list.
+const [RESIDUAL_TIER, ...NAMED_TIERS] = TIER_NAMES;
+
+const TIERED_PATTERNS = NAMED_TIERS.flatMap(buildTierPatterns);
 
 /**
  * Timeout for every tier above `unit`, whose tests wait on something they don't control. Vitest's defaults are
@@ -56,7 +71,7 @@ const TIERED_PATTERNS = TIERS.flatMap(buildTierPatterns);
  * `testTimeout` entirely, so raising the test budget alone leaves the slowest operation on the unit-test default.
  *
  * A per-project value rather than a root one, so the fast tier keeps the tight budget that makes a hung unit test
- * fail quickly. The `project` seam merges over this, though it reaches every project at once (see #550).
+ * fail quickly. The `project` seam merges over this and reaches every project at once; the `tiers` seam targets one.
  */
 const TIER_TIMEOUT = 30_000;
 
@@ -80,38 +95,42 @@ const BUILD_OUTPUT_EXCLUDE = ['**/dist/**'];
 const PACKAGE_COVERAGE_INCLUDE = ['**/src/**/*.{ts,tsx}'];
 
 const MISSING_MONOREPO_ROOT =
-  'defineRootVitestConfig requires `monorepoRoot`, an absolute path to the directory holding pnpm-workspace.yaml. Pass `import.meta.dirname` from the root config.';
+  'defineRootVitestConfig requires `monorepoRoot`, an absolute path to the directory holding pnpm-workspace.yaml. Pass `import.meta.dirname` in the last options layer, from the root config.';
 
 /**
  * Builds the shared Vitest config for a workspace package, declaring the `unit`, `tool`, `localhost`, and `remote`
  * projects. Select them at run time with `--project`, which unions when repeated and accepts negation.
+ *
+ * Layers fold left to right, later winning and arrays composing, so a config file shares settings by passing a
+ * layer ahead of its own. Merging two of this function's *outputs* is not the way: both declare the same four
+ * project names, which Vitest rejects at startup.
+ *
+ * An `undefined` layer is skipped, so `defineVitestConfig(shared, isCI ? ciLayer : undefined)` composes.
  */
-export function defineVitestConfig(options: VitestConfigOptions = {}): ViteUserConfig {
-  return buildConfig(options, { coverageInclude: PACKAGE_COVERAGE_INCLUDE });
+export function defineVitestConfig(...layers: (VitestConfigOptions | undefined)[]): ViteUserConfig {
+  return buildConfig(layers, { coverageInclude: PACKAGE_COVERAGE_INCLUDE });
 }
 
 /**
  * Builds the shared Vitest config for repo-root tests. Excludes every workspace package from all projects, and
  * reports no coverage of its own — packages cover their own sources.
  *
- * The parameter admits `undefined` in its type but is not optional, so omitting it stays a type error while
- * the guard below can still catch the JavaScript config that types never reach.
+ * `monorepoRoot` rides on the last layer, which is the config file's own: a shared layer describes settings, not
+ * which repo they belong to, and only the root config's `import.meta.dirname` states this one. The guard below
+ * still catches the JavaScript config that types never reach.
  */
-export function defineRootVitestConfig(options: RootVitestConfigOptions | undefined): ViteUserConfig {
-  if (options === undefined) {
-    throw new TypeError(MISSING_MONOREPO_ROOT);
-  }
-
+export function defineRootVitestConfig(...layers: RootConfigLayers): ViteUserConfig {
   // Reading through `unknown` is what keeps the check live: the declared type alone would make it statically
   // dead. A relative path would resolve against the working directory, which is the resolution this option
   // exists to replace.
-  const monorepoRoot: unknown = options.monorepoRoot;
+  const lastLayer: unknown = layers.at(-1);
+  const monorepoRoot: unknown = isObject(lastLayer) ? lastLayer.monorepoRoot : undefined;
 
   if (typeof monorepoRoot !== 'string' || !path.isAbsolute(monorepoRoot)) {
     throw new TypeError(MISSING_MONOREPO_ROOT);
   }
 
-  return buildConfig(options, {
+  return buildConfig(layers, {
     coverageInclude: [],
     projectExclude: getWorkspaceExcludePatterns(monorepoRoot),
     projectRoot: monorepoRoot,
@@ -125,9 +144,14 @@ interface BuildOptions {
 }
 
 function buildConfig(
-  options: VitestConfigOptions,
+  declaredLayers: readonly (VitestConfigOptions | undefined)[],
   { coverageInclude, projectExclude = [], projectRoot }: BuildOptions,
 ): ViteUserConfig {
+  // Dropping the empty layers here rather than at each fold keeps every consumer of `layers` below total.
+  const layers = declaredLayers.filter((layer) => layer !== undefined);
+
+  assertKnownTiers(layers);
+
   const config: ViteUserConfig = {
     test: {
       coverage: {
@@ -137,33 +161,33 @@ function buildConfig(
         provider: 'v8',
       },
       passWithNoTests: true, // `nmr test:tool` fans out over packages holding no tool-tier tests
-      projects: buildProjects(options.project, projectExclude, projectRoot),
+      projects: buildProjects(layers, projectExclude, projectRoot),
       silent: 'passed-only', // see logs from failing tests only
       watch: false, // don't enter watch mode unless the `--watch` flag is passed
     },
   };
 
-  return options.root ? mergeConfig(config, options.root) : config;
+  return layers.reduce<ViteUserConfig>((merged, { root }) => (root ? mergeConfig(merged, root) : merged), config);
 }
 
-/** One project's definition before it becomes a Vitest project config: the residual `unit`, then every tier in `TIERS`. */
+/** One project's definition before it becomes a Vitest project config: the residual, then every named tier. */
 interface ProjectTier {
   exclude: string[];
   include: string[];
-  name: string;
+  name: TierName;
   /** Budget for `hookTimeout` and `testTimeout` alike, held as one field so the two cannot drift apart. */
   timeout?: number;
 }
 
 /** Builds one project per tier, in ladder order, each inheriting the root config. */
 function buildProjects(
-  overrides: ProjectConfig | undefined,
+  layers: readonly VitestConfigOptions[],
   extraExclude: string[],
   projectRoot: string | undefined,
 ): TestProjectInlineConfiguration[] {
   const projectTiers: ProjectTier[] = [
-    { exclude: TIERED_PATTERNS, include: ALL_TEST_PATTERNS, name: 'unit' },
-    ...TIERS.map((tier) => ({
+    { exclude: TIERED_PATTERNS, include: ALL_TEST_PATTERNS, name: RESIDUAL_TIER },
+    ...NAMED_TIERS.map((tier) => ({
       exclude: [],
       include: buildTierPatterns(tier),
       name: tier,
@@ -186,8 +210,43 @@ function buildProjects(
       },
     };
 
-    return overrides ? mergeConfig(project, { test: overrides }) : project;
+    return layers.reduce((merged, layer) => applyLayer(merged, layer, name), project);
   });
+}
+
+/**
+ * Applies one layer to one project: its uniform `project` block, then whatever it targets at this tier.
+ *
+ * Layers apply in sequence rather than being merged with each other first, which is what keeps each layer's array
+ * entries contiguous. A shared `setupFiles` entry therefore precedes every entry a later layer adds — load-bearing
+ * where the shared entry establishes the environment the later ones run in.
+ */
+function applyLayer(
+  project: TestProjectInlineConfiguration,
+  layer: VitestConfigOptions,
+  tier: TierName,
+): TestProjectInlineConfiguration {
+  const withProject = layer.project ? mergeConfig(project, { test: layer.project }) : project;
+  const targeted = layer.tiers?.[tier];
+
+  return targeted ? mergeConfig(withProject, { test: targeted }) : withProject;
+}
+
+/**
+ * Rejects a `tiers` key naming no tier. Ignoring it would leave the suite green on whichever budget the key failed
+ * to change, which a consumer cannot self-diagnose. A tier renamed in a later nmr release is a breaking change that
+ * ships with a migration note, so the throw is that migration's signal rather than a surprise.
+ */
+function assertKnownTiers(layers: readonly VitestConfigOptions[]): void {
+  const known: readonly string[] = TIER_NAMES;
+
+  for (const { tiers } of layers) {
+    for (const name of Object.keys(tiers ?? {})) {
+      if (!known.includes(name)) {
+        throw new TypeError(`Unknown tier "${name}" in \`tiers\`. Valid tiers: ${TIER_NAMES.join(', ')}.`);
+      }
+    }
+  }
 }
 
 /** Builds the collection patterns for one tier. Every project collects from `__tests__` directories alone. */
