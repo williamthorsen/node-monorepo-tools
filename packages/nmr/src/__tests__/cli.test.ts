@@ -592,7 +592,7 @@ describe('nmr CLI', () => {
 
         // Composite hook (array) — only allowed in tier 1+2, so requires .config/nmr.config.ts
         // rootScripts entries also live here; they are reachable only via -w from a package cwd.
-        const configContent = `import { defineConfig } from '${NMR_PACKAGE_DIR}/dist/esm/index.js';
+        const configContent = `import { defineConfig } from '${NMR_PACKAGE_DIR}/dist/esm/defineConfig.js';
 export default defineConfig({
   workspaceScripts: {
     'clean:pre': ['cfg-pre-step1', 'cfg-pre-step2'],
@@ -711,7 +711,7 @@ export default defineConfig({
       mkdirSync(path.join(anchorRoot, '.config'), { recursive: true });
       writeFileSync(
         path.join(anchorRoot, '.config', 'nmr.config.ts'),
-        `import { defineConfig } from '${NMR_PACKAGE_DIR}/dist/esm/index.js';
+        `import { defineConfig } from '${NMR_PACKAGE_DIR}/dist/esm/defineConfig.js';
 export default defineConfig({
   rootScripts: {
     'anchor-where': 'cat where.txt >> ${anchorLogFile}',

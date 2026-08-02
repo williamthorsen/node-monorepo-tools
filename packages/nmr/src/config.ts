@@ -3,41 +3,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { isObject, isStringRecord } from './helpers/type-guards.ts';
-
-/** Build settings honored by `nmr-compile`. */
-export interface BuildConfig {
-  /**
-   * Patterns added to the build's default ignore set. Extends rather than replaces, so that declaring one pattern
-   * cannot silently drop the defaults and start shipping a package's own tests.
-   * The programmatic `buildPackage` option of the same name behaves identically; its bare `ignorePatterns` replaces.
-   */
-  extraIgnorePatterns?: string[];
-}
-
-/** Check-result cache settings honored at the monorepo root. */
-export interface CheckCacheConfig {
-  /** Set to `false` to turn the gate off entirely, so every command runs. */
-  enabled?: boolean;
-  /**
-   * Command names removed from the cacheable set, applied after `extraCommands`. This is how a repo retires a
-   * name whose chain turned out to do more than report an exit status.
-   */
-  excludeCommands?: string[];
-  /**
-   * Command names added to the cacheable set. Extends rather than replaces, so that declaring one command
-   * cannot silently drop the defaults. A name listed here promises exit-status-only semantics through its whole
-   * chain, hooks included.
-   */
-  extraCommands?: string[];
-}
-
-export interface NmrConfig {
-  build?: BuildConfig;
-  checkCache?: CheckCacheConfig;
-  devBin?: Record<string, string>;
-  workspaceScripts?: Record<string, string | string[]>;
-  rootScripts?: Record<string, string | string[]>;
-}
+import type { BuildConfig, CheckCacheConfig, NmrConfig } from './types.ts';
 
 const CONFIG_FILENAME = 'nmr.config.ts';
 const CONFIG_DIR = '.config';
@@ -70,19 +36,6 @@ const CONFIG_TIERS: Record<'root' | 'workspace', ConfigTier> = {
 const RECOGNIZED_KEYS = [...CONFIG_TIERS.root.honoredKeys, ...CONFIG_TIERS.workspace.honoredKeys];
 const RECOGNIZED_BUILD_KEYS = ['extraIgnorePatterns'];
 const RECOGNIZED_CHECK_CACHE_KEYS = ['enabled', 'excludeCommands', 'extraCommands'];
-
-/**
- * Type-safe identity function for configuration files.
- *
- * Usage in `.config/nmr.config.ts`:
- * ```ts
- * import { defineConfig } from '@williamthorsen/nmr';
- * export default defineConfig({ ... });
- * ```
- */
-export function defineConfig(config: NmrConfig): NmrConfig {
-  return config;
-}
 
 /**
  * Resolves the config-file path for a directory, whether that is the monorepo root or a package.

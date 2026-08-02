@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { defineConfig, loadConfig, loadRootConfig, loadWorkspaceConfig } from '../config.ts';
+import { loadConfig, loadRootConfig, loadWorkspaceConfig } from '../config.ts';
 
 /** Writes a config file into `dir/.config/nmr.config.ts`, creating the directory. */
 function writeConfig(dir: string, source: string): void {
@@ -12,45 +12,6 @@ function writeConfig(dir: string, source: string): void {
   fs.mkdirSync(configDir, { recursive: true });
   fs.writeFileSync(path.join(configDir, 'nmr.config.ts'), source);
 }
-
-describe(defineConfig, () => {
-  it('returns the config unchanged (identity function)', () => {
-    const config = {
-      workspaceScripts: {
-        'copy-content': 'tsx scripts/copy-content.ts',
-      },
-      rootScripts: {
-        demo: 'pnpx http-server --port=5189',
-      },
-    };
-
-    expect(defineConfig(config)).toBe(config);
-  });
-
-  it('accepts string[] values for script definitions', () => {
-    const config = defineConfig({
-      workspaceScripts: {
-        verify: ['compile', 'test'],
-      },
-    });
-
-    expect(config.workspaceScripts?.verify).toStrictEqual(['compile', 'test']);
-  });
-
-  it('accepts an empty config', () => {
-    expect(defineConfig({})).toStrictEqual({});
-  });
-
-  it('accepts a config with devBin', () => {
-    const config = defineConfig({
-      devBin: {
-        'my-cli': 'tsx packages/my-cli/src/cli.ts',
-      },
-    });
-
-    expect(config.devBin).toStrictEqual({ 'my-cli': 'tsx packages/my-cli/src/cli.ts' });
-  });
-});
 
 describe(loadConfig, () => {
   let tmpDir: string;
