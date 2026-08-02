@@ -11,27 +11,20 @@
 
 ## Getting started
 
-This project uses [pnpm](https://github.com/pnpm/pnpm) and NodeJS. The versions of each are set in `.tool-versions`.
+### Prerequisites
 
-If you don't have pnpm installed, it is recommended that you use the [ASDF runtime manager](https://asdf-vm.com/) to install it. For alternative methods, see the [pnpm installation instructions](https://pnpm.io/installation).
+- **Node** -- the version is pinned in `.tool-versions`, which [asdf](https://asdf-vm.com/) and [mise](https://mise.jdx.dev/) both read.
+- **pnpm** -- the version is pinned by the `packageManager` field in the root `package.json`. [Corepack](https://github.com/nodejs/corepack) reads that field and gives you the matching version, so it is the method least likely to drift from the repo; its README covers installation. Any [other method](https://pnpm.io/installation) works too.
 
-```shell
-# Install ASDF runtime-version manager
-git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.10.2
-# OR (not tested)
-brew install asdf
-
-# Install pnpm
-asdf plugin add pnpm
-asdf install pnpm 7.21.0
-```
-
-You can also use ASDF to install the correct version of Node:
+### Set up a checkout
 
 ```shell
-asdf plugin add nodejs
-asdf install nodejs 18.12.1
+pnpm install
 ```
+
+Each package compiles during install, so no separate build step is needed.
+
+If `nmr` stops running -- `nmr clean` removes the build output it needs, and Vitest and Prettier read it too -- run `pnpm run bootstrap` and then `nmr build`, both from the repo root.
 
 ## Recommended setup
 
@@ -41,58 +34,33 @@ Without direnv, prefix workspace bins with `pnpm exec` (e.g., `pnpm exec nmr <co
 
 ## Scripts
 
-Install dependencies (this script has the same effect regardless of where it is run in the project):
+`nmr` runs this repo's scripts. Scope follows the working directory: from the root a command covers root files and every package; from inside a package, that package alone. `nmr -F <package> <command>` targets one package from anywhere, and `nmr root:<command>` targets root files alone.
+
+Run bare `nmr` to list every command with the shell command it resolves to.
+
+Everyday commands:
 
 ```shell
-pnpm install
+nmr build            # compile .js and .d.ts
+nmr check            # typecheck, format check, lint check, tests
+nmr fix              # apply lint and format fixes
+nmr test             # the unit and tool tiers
+nmr test:coverage    # the same tiers, with coverage
+nmr test:watch       # the same tiers, in watch mode
 ```
 
----
+Tests are grouped into isolation tiers, each named for the furthest thing a test reaches. `nmr test:unit` and `nmr test:tool` narrow to one tier; `nmr test:all` adds the `localhost` and `remote` tiers.
 
-These commands can be run at the project level or at the level of an individual package (i.e., the simulator API or the Svelte app).
-
-To run at the project level, run the command from the project root. To run at a package level, change to the package's directory. Example: `cd packages/svelte`.
-
-Run all code checks:
+Before pushing:
 
 ```shell
-pnpm run check
+nmr ci               # what the code-quality workflow runs: build, then strict checks
+nmr prepush          # ci plus the dependency audit
 ```
 
-Run the typechecker
+### Dependency upgrades
 
-```shell
-pnpm run typecheck
-```
-
-Run the linter:
-
-```shell
-pnpm run lint
-# OR check for lint and fix issues that can be automatically
-pnpm run lint:fix
-```
-
-Run tests:
-
-```shell
-# Test and watch for changes
-pnpm test
-
-# Run tests once
-pnpm run test:run
-
-# Run coverage checker
-pnpm run test:coverage
-```
-
-Shortcut to run typechecking, linting, and tests:
-
-```shell
-pnpm run check
-```
-
-Check for available dependency upgrades:
+Check for available upgrades:
 
 ```shell
 # The root package.json and every workspace
