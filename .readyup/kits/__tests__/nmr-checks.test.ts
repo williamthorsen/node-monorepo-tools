@@ -12,9 +12,9 @@ vi.mock(import('readyup/check-utils'), async (importOriginal) => {
   };
 });
 
-import { codeQualityWorkflowDoesNotUseNmrCi } from '../nmr.ts';
+import { codeQualityWorkflowDoesNotUseNmrPrepush } from '../nmr.ts';
 
-describe(codeQualityWorkflowDoesNotUseNmrCi, () => {
+describe(codeQualityWorkflowDoesNotUseNmrPrepush, () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -22,30 +22,36 @@ describe(codeQualityWorkflowDoesNotUseNmrCi, () => {
   it('returns true when workflow file is absent', () => {
     mockedReadFile.mockReturnValue(undefined);
 
-    expect(codeQualityWorkflowDoesNotUseNmrCi()).toBe(true);
+    expect(codeQualityWorkflowDoesNotUseNmrPrepush()).toBe(true);
   });
 
-  it('returns false when workflow uses nmr ci as check command', () => {
-    mockedReadFile.mockReturnValue('check-command: pnpm exec nmr ci\n');
+  it('returns false when workflow uses nmr prepush as check command', () => {
+    mockedReadFile.mockReturnValue('check-command: pnpm exec nmr prepush\n');
 
-    expect(codeQualityWorkflowDoesNotUseNmrCi()).toBe(false);
+    expect(codeQualityWorkflowDoesNotUseNmrPrepush()).toBe(false);
   });
 
   it('returns false when check-command has no trailing newline', () => {
-    mockedReadFile.mockReturnValue('check-command: pnpm exec nmr ci');
+    mockedReadFile.mockReturnValue('check-command: pnpm exec nmr prepush');
 
-    expect(codeQualityWorkflowDoesNotUseNmrCi()).toBe(false);
+    expect(codeQualityWorkflowDoesNotUseNmrPrepush()).toBe(false);
   });
 
-  it('returns true when workflow uses updated build && check:strict command', () => {
+  it('returns true when workflow uses nmr ci', () => {
+    mockedReadFile.mockReturnValue('check-command: pnpm exec nmr ci\n');
+
+    expect(codeQualityWorkflowDoesNotUseNmrPrepush()).toBe(true);
+  });
+
+  it('returns true when workflow uses build && check:strict command', () => {
     mockedReadFile.mockReturnValue('check-command: pnpm exec nmr build && pnpm exec nmr check:strict\n');
 
-    expect(codeQualityWorkflowDoesNotUseNmrCi()).toBe(true);
+    expect(codeQualityWorkflowDoesNotUseNmrPrepush()).toBe(true);
   });
 
-  it('does not false-positive on nmr ci:something variant', () => {
-    mockedReadFile.mockReturnValue('check-command: pnpm exec nmr ci:something\n');
+  it('does not false-positive on nmr prepush:something variant', () => {
+    mockedReadFile.mockReturnValue('check-command: pnpm exec nmr prepush:something\n');
 
-    expect(codeQualityWorkflowDoesNotUseNmrCi()).toBe(true);
+    expect(codeQualityWorkflowDoesNotUseNmrPrepush()).toBe(true);
   });
 });

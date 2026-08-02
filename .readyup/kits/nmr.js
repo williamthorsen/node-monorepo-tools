@@ -40,7 +40,7 @@ var rootScripts = {
   check: ["typecheck", "fmt:check", "lint:check", "test"],
   "check:agent-files": "nmr-sync-agent-files --check",
   "check:strict": ["typecheck", "fmt:check", "lint:strict", "test:coverage", "check:agent-files"],
-  ci: ["build", "check:strict", "audit"],
+  ci: ["build", "check:strict"],
   clean: "nmr-clean",
   fix: ["lint", "fmt"],
   "fix:check": ["fmt:check", "lint:check"],
@@ -49,6 +49,7 @@ var rootScripts = {
   lint: "nmr root:lint && pnpm --recursive exec nmr lint",
   "lint:check": "nmr root:lint:check && pnpm --recursive exec nmr lint:check",
   "lint:strict": "nmr root:lint:strict && pnpm --recursive exec nmr lint:strict",
+  prepush: ["ci", "audit"],
   "report-overrides": "nmr-report-overrides",
   "root:check": ["root:typecheck", "fmt:check", "root:lint:check", "root:test"],
   "root:lint": "eslint --fix --ignore-pattern 'packages/**' .",
@@ -206,11 +207,11 @@ var nmr_default = defineRdyKit({
           fix: "pnpm add --save-dev v11y-check"
         },
         {
-          name: "code-quality workflow does not use nmr ci",
+          name: "code-quality workflow does not use nmr prepush",
           severity: "warn",
           skip: () => !fileExists(".github/workflows/code-quality.yaml") ? "no code-quality workflow" : false,
-          check: codeQualityWorkflowDoesNotUseNmrCi,
-          fix: 'Change the check-command in .github/workflows/code-quality.yaml from "pnpm exec nmr ci" to "pnpm exec nmr build && pnpm exec nmr check:strict"'
+          check: codeQualityWorkflowDoesNotUseNmrPrepush,
+          fix: 'Change the check-command in .github/workflows/code-quality.yaml from "pnpm exec nmr prepush" to "pnpm exec nmr ci", which runs the same checks without the audit that audit.yaml already runs'
         },
         // -- Legacy script runner ------------------------------------------------
         {
@@ -312,10 +313,10 @@ function hasPrettierConfigKey(cwd) {
     return false;
   }
 }
-function codeQualityWorkflowDoesNotUseNmrCi() {
+function codeQualityWorkflowDoesNotUseNmrPrepush() {
   const content = readFile(".github/workflows/code-quality.yaml");
   if (content === void 0) return true;
-  return !/check-command:\s*pnpm exec nmr ci(\s|$)/.test(content);
+  return !/check-command:\s*pnpm exec nmr prepush(\s|$)/.test(content);
 }
 function findFiles(patterns, cwd) {
   return globSync(patterns, { cwd, exclude: (path) => SCAN_EXCLUDE_DIRS.has(basename(path)) }).map((path) => path.split(sep).join("/")).toSorted();
@@ -424,7 +425,7 @@ function vitestRootConfigBuildsOnSharedConfig(cwd = process.cwd()) {
   return checkRootVitestConfig("vitest.root.config", "defineRootVitestConfig", cwd);
 }
 export {
-  codeQualityWorkflowDoesNotUseNmrCi,
+  codeQualityWorkflowDoesNotUseNmrPrepush,
   nmr_default as default,
   noReExportOnlyVitestConfigs,
   noRetiredInfixTests,

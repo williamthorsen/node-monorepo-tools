@@ -148,11 +148,11 @@ export default defineRdyKit({
           fix: 'pnpm add --save-dev v11y-check',
         },
         {
-          name: 'code-quality workflow does not use nmr ci',
+          name: 'code-quality workflow does not use nmr prepush',
           severity: 'warn',
           skip: () => (!fileExists('.github/workflows/code-quality.yaml') ? 'no code-quality workflow' : false),
-          check: codeQualityWorkflowDoesNotUseNmrCi,
-          fix: 'Change the check-command in .github/workflows/code-quality.yaml from "pnpm exec nmr ci" to "pnpm exec nmr build && pnpm exec nmr check:strict"',
+          check: codeQualityWorkflowDoesNotUseNmrPrepush,
+          fix: 'Change the check-command in .github/workflows/code-quality.yaml from "pnpm exec nmr prepush" to "pnpm exec nmr ci", which runs the same checks without the audit that audit.yaml already runs',
         },
 
         // -- Legacy script runner ------------------------------------------------
@@ -324,14 +324,16 @@ function hasPrettierConfigKey(cwd: string): boolean {
 }
 
 /**
- * Checks that the code-quality workflow does not use `nmr ci` as the check command.
+ * Checks that the code-quality workflow does not use `nmr prepush` as the check command.
+ *
+ * `prepush` carries the audit that `audit.yaml` already runs on its own schedule.
  *
  * @internal - Exported only to enable testing
  */
-export function codeQualityWorkflowDoesNotUseNmrCi(): boolean {
+export function codeQualityWorkflowDoesNotUseNmrPrepush(): boolean {
   const content = readFile('.github/workflows/code-quality.yaml');
   if (content === undefined) return true;
-  return !/check-command:\s*pnpm exec nmr ci(\s|$)/.test(content);
+  return !/check-command:\s*pnpm exec nmr prepush(\s|$)/.test(content);
 }
 
 /**

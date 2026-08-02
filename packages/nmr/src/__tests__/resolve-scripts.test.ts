@@ -51,7 +51,7 @@ describe(getDefaultRootScripts, () => {
     expect(scripts.audit).toStrictEqual(['audit:prod', 'audit:dev']);
     expect(scripts.check).toStrictEqual(['typecheck', 'fmt:check', 'lint:check', 'test']);
     expect(scripts['fix:check']).toStrictEqual(['fmt:check', 'lint:check']);
-    expect(scripts.ci).toStrictEqual(['build', 'check:strict', 'audit']);
+    expect(scripts.ci).toStrictEqual(['build', 'check:strict']);
     expect(scripts.clean).toBe('nmr-clean');
     // Identical to the workspace entries: the bin needs no `sh -c` wrapper to default its own selection.
     expect(scripts.fmt).toBe('nmr-fmt --write');
@@ -83,11 +83,19 @@ describe(getDefaultRootScripts, () => {
     expect(getDefaultRootScripts()[name]).not.toContain('report-overrides');
   });
 
-  it('includes audit in ci after check:strict', () => {
+  it('excludes audit from ci', () => {
     const scripts = getDefaultRootScripts();
     const ci = scripts.ci;
 
-    expect(ci).toStrictEqual(['build', 'check:strict', 'audit']);
+    expect(ci).toStrictEqual(['build', 'check:strict']);
+    expect(ci).not.toContain('audit');
+  });
+
+  // Pins the composition: a flattened `prepush` runs identically today but stops tracking `ci`.
+  it('composes prepush from ci and audit', () => {
+    const scripts = getDefaultRootScripts();
+
+    expect(scripts.prepush).toStrictEqual(['ci', 'audit']);
   });
 
   it('composes root scripts that delegate to workspaces', () => {
