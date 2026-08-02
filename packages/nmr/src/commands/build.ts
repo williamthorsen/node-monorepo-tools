@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 
+import { readCacheEntry, resolveCacheEntryPath, writeCacheEntry } from '@williamthorsen/nmr-core';
 import { glob } from 'glob';
 import * as ts from 'typescript';
 
@@ -26,6 +27,9 @@ interface EmitConfig {
 
 const PACKAGE_ICON = '📦';
 const SKIPPED_ICON = '⏭️';
+
+/** The tool whose cache directory holds build digests. */
+const CACHE_TOOL = 'nmr-compile';
 
 const DEFAULT_ENTRY_GLOBS = ['src/**/*.ts'];
 
@@ -431,38 +435,19 @@ function getModuleSpecifier(node: ts.Node): ts.StringLiteralLike | undefined {
 // region | Cache
 
 /**
- * Resolves the absolute path of a package's build-cache file. The cache lives under the conventional
- * `node_modules/.cache/nmr-compile/` home rather than inside `dist`, so it stays git-ignored and is
- * never swept into a published tarball by any `files` convention. The home is the nearest enclosing
- * directory that already has a `node_modules` — the package's own when it has one, otherwise a hoisted
- * ancestor (e.g. the workspace root for a zero-dependency package) — which avoids materializing a
- * `node_modules` solely to hold the cache. The file name folds a digest of the absolute package path
- * into a readable base name, so packages sharing a hoisted `node_modules` never collide while the path
- * stays stable across runs for the same package.
+ * Resolves the absolute path of a package's build-cache file, on the cache-store layout every nmr tool
+ * shares: an entry under the conventional `node_modules/.cache/{tool}/` home, named for the package and
+ * separated from its neighbours by a digest of the package's absolute path.
  */
 export function resolveBuildCachePath(packageDir: string): string {
   const absolutePackageDir = path.resolve(packageDir);
-  const home = findNearestNodeModulesHost(absolutePackageDir) ?? absolutePackageDir;
-  const digest = createHash('sha256').update(absolutePackageDir).digest('hex').slice(0, 8);
-  const key = `${path.basename(absolutePackageDir)}-${digest}.hash`;
-  return path.join(home, 'node_modules', '.cache', 'nmr-compile', key);
-}
 
-/**
- * Walks up from `startDir` (inclusive) to the filesystem root, returning the first directory that
- * contains a `node_modules` entry, or `undefined` when none does.
- */
-function findNearestNodeModulesHost(startDir: string): string | undefined {
-  let current = startDir;
-  let parent = path.dirname(current);
-  while (!existsSync(path.join(current, 'node_modules'))) {
-    if (parent === current) {
-      return undefined;
-    }
-    current = parent;
-    parent = path.dirname(current);
-  }
-  return current;
+  return resolveCacheEntryPath({
+    tool: CACHE_TOOL,
+    scopeDir: absolutePackageDir,
+    slug: path.basename(absolutePackageDir),
+    extension: '.hash',
+  });
 }
 
 /**
@@ -483,7 +468,7 @@ async function detectBuildChanges(
   outputPresent: boolean,
 ): Promise<{ changed: boolean; currentHash: string }> {
   const packageName = path.basename(packageDir);
-  const previousHash = existsSync(cachePath) ? readFileSync(cachePath, 'utf8') : undefined;
+  const previousHash = await readCacheEntry(cachePath);
   const currentHash = await computeBuildHash(packageDir, files, emitConfig, compilerVersion);
 
   if (previousHash === currentHash) {
@@ -515,10 +500,12 @@ function hasExpectedBuildOutput(packageDir: string, outdir: string, entryPoints:
   return existsSync(outputDir) && readdirSync(outputDir).length > 0;
 }
 
-/** Writes the build digest to the cache file, creating the cache directory if it does not exist. */
+/**
+ * Writes the build digest to the cache file, creating the cache directory if it does not exist. The write
+ * lands atomically, so a build racing another package's read cannot hand it a truncated digest.
+ */
 async function writeBuildCache(cachePath: string, hash: string): Promise<void> {
-  await mkdir(path.dirname(cachePath), { recursive: true });
-  await writeFile(cachePath, hash);
+  await writeCacheEntry(cachePath, hash);
 }
 
 // endregion | Cache
