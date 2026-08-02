@@ -22,42 +22,6 @@ const TSCONFIG = {
   include: ['src/'],
 };
 
-/** Writes a package tree, plus a `.config/nmr.config.ts` when `config` is given. */
-function scaffoldPackage(dir: string, sources: Record<string, string>, config?: string): void {
-  fs.mkdirSync(path.join(dir, 'node_modules'), { recursive: true });
-  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'fixture', type: 'module' }));
-  fs.writeFileSync(path.join(dir, 'tsconfig.json'), JSON.stringify(TSCONFIG));
-
-  for (const [relativePath, contents] of Object.entries(sources)) {
-    const filePath = path.join(dir, 'src', relativePath);
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, contents);
-  }
-
-  if (config !== undefined) {
-    fs.mkdirSync(path.join(dir, '.config'), { recursive: true });
-    fs.writeFileSync(path.join(dir, '.config', 'nmr.config.ts'), config);
-  }
-}
-
-function listEmitted(dir: string): string[] {
-  const outdir = path.join(dir, 'dist', 'esm');
-  if (!fs.existsSync(outdir)) {
-    return [];
-  }
-
-  return fs
-    .readdirSync(outdir, { recursive: true })
-    .map(String)
-    .filter((entry) => fs.statSync(path.join(outdir, entry)).isFile())
-    .map((entry) => entry.split(path.sep).join('/'))
-    .toSorted();
-}
-
-function runCompile(dir: string): string {
-  return execFileSync(process.execPath, [CLI_PATH], { cwd: dir, encoding: 'utf8' });
-}
-
 describe('nmr-compile', () => {
   let dir: string;
 
@@ -102,3 +66,43 @@ describe('nmr-compile', () => {
     expect(listEmitted(dir)).toStrictEqual([]);
   });
 });
+
+// region | Helpers
+
+function listEmitted(dir: string): string[] {
+  const outdir = path.join(dir, 'dist', 'esm');
+  if (!fs.existsSync(outdir)) {
+    return [];
+  }
+
+  return fs
+    .readdirSync(outdir, { recursive: true })
+    .map(String)
+    .filter((entry) => fs.statSync(path.join(outdir, entry)).isFile())
+    .map((entry) => entry.split(path.sep).join('/'))
+    .toSorted();
+}
+
+/** Writes a package tree, plus a `.config/nmr.config.ts` when `config` is given. */
+function scaffoldPackage(dir: string, sources: Record<string, string>, config?: string): void {
+  fs.mkdirSync(path.join(dir, 'node_modules'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'fixture', type: 'module' }));
+  fs.writeFileSync(path.join(dir, 'tsconfig.json'), JSON.stringify(TSCONFIG));
+
+  for (const [relativePath, contents] of Object.entries(sources)) {
+    const filePath = path.join(dir, 'src', relativePath);
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, contents);
+  }
+
+  if (config !== undefined) {
+    fs.mkdirSync(path.join(dir, '.config'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.config', 'nmr.config.ts'), config);
+  }
+}
+
+function runCompile(dir: string): string {
+  return execFileSync(process.execPath, [CLI_PATH], { cwd: dir, encoding: 'utf8' });
+}
+
+// endregion | Helpers

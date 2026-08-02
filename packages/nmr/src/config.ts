@@ -7,9 +7,9 @@ import { isObject } from './helpers/type-guards.ts';
 /** Build settings honored by `nmr-compile`. */
 export interface BuildConfig {
   /**
-   * Patterns added to the build's default ignore set. Extends rather than replaces, so declaring one pattern
-   * cannot silently drop the defaults and start shipping a package's own tests. The programmatic
-   * `buildPackage` option of the same name behaves identically; its bare `ignore` is what replaces.
+   * Patterns added to the build's default ignore set. Extends rather than replaces, so that declaring one pattern
+   * cannot silently drop the defaults and start shipping a package's own tests.
+   * The programmatic `buildPackage` option of the same name behaves identically; its bare `ignore` is what replaces.
    */
   extendIgnore?: string[];
 }
@@ -41,9 +41,9 @@ export function defineConfig(config: NmrConfig): NmrConfig {
 }
 
 /**
- * Resolves the config-file path for a directory, whether that is the monorepo root or a package. Callers that
- * only need to know whether a config exists -- the build, which folds it into its cache digest -- go through
- * this rather than spelling the path again, so the two cannot drift into hashing a file nothing reads.
+ * Resolves the config-file path for a directory, whether that is the monorepo root or a package.
+ * Callers that only need to know whether a config exists -- the build, which folds it into its cache digest -- go
+ * through this rather than spelling the path again, so that the two cannot drift into hashing a file nothing reads.
  */
 export function resolveConfigPath(baseDir: string): string {
   return path.join(baseDir, CONFIG_DIR, CONFIG_FILENAME);
@@ -99,7 +99,7 @@ function validateBuildField(value: Record<string, unknown>, configPath: string):
   return extendIgnore === undefined ? {} : { extendIgnore };
 }
 
-/** Narrow an unknown value to a record of plain strings. */
+/** Narrows an unknown value to a record of plain strings. */
 function isStringRecord(value: unknown): value is Record<string, string> {
   if (!isObject(value)) return false;
   for (const v of Object.values(value)) {
@@ -108,7 +108,7 @@ function isStringRecord(value: unknown): value is Record<string, string> {
   return true;
 }
 
-/** Validate and extract a `Record<string, string>` field from the raw config object. */
+/** Validates and extract a `Record<string, string>` field from the raw config object. */
 function validateStringRecordField(
   value: Record<string, unknown>,
   fieldName: string,
@@ -123,7 +123,7 @@ function validateStringRecordField(
   return value[fieldName];
 }
 
-/** Validate that a loaded value conforms to the expected `NmrConfig` shape. */
+/** Validates that a loaded value conforms to the expected `NmrConfig` shape. */
 function validateConfig(value: unknown, configPath: string): NmrConfig {
   if (!isObject(value)) {
     throw new Error(`Invalid nmr config at ${configPath}: expected an object, got ${typeof value}`);
@@ -159,7 +159,7 @@ export async function loadConfig(baseDir: string): Promise<NmrConfig> {
   }
 
   // Node type-strips `.ts` natively at this package's engines floor, so the config needs no transform step
-  // and no loader dependency. `import()` takes a URL, not a path: a bare Windows path parses as a scheme.
+  // and no loader dependency. `import()` takes a URL, not a path: A bare Windows path parses as a scheme.
   const imported: unknown = await import(pathToFileURL(configPath).href);
   const loaded = isObject(imported) ? imported.default : undefined;
 

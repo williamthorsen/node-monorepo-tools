@@ -54,21 +54,6 @@ function readOutput(dir: string, relativePath: string): string {
   return fs.readFileSync(path.join(dir, 'dist', 'esm', relativePath), 'utf8');
 }
 
-/** Lists every file under the package's emit directory, as sorted forward-slash paths relative to it. */
-function listEmitted(dir: string): string[] {
-  const outdir = path.join(dir, 'dist', 'esm');
-  if (!fs.existsSync(outdir)) {
-    return [];
-  }
-
-  return fs
-    .readdirSync(outdir, { recursive: true })
-    .map(String)
-    .filter((entry) => fs.statSync(path.join(outdir, entry)).isFile())
-    .map((entry) => entry.split(path.sep).join('/'))
-    .toSorted();
-}
-
 /**
  * Writes a package under `rootDir/pkg` whose own tsconfig declares no `paths`; instead it `extends` a
  * base config in the parent directory that supplies `baseUrl` and `paths`. This mirrors the real
@@ -828,3 +813,22 @@ describe(resolveBuildCachePath, () => {
     expect(resolveBuildCachePath(a)).not.toBe(resolveBuildCachePath(b));
   });
 });
+
+// region | Helpers
+
+/** Lists every file under the package's emit directory, as sorted forward-slash paths relative to it. */
+function listEmitted(dir: string): string[] {
+  const outdir = path.join(dir, 'dist', 'esm');
+  if (!fs.existsSync(outdir)) {
+    return [];
+  }
+
+  return fs
+    .readdirSync(outdir, { recursive: true })
+    .map(String)
+    .filter((entry) => fs.statSync(path.join(outdir, entry)).isFile())
+    .map((entry) => entry.split(path.sep).join('/'))
+    .toSorted();
+}
+
+// endregion | Helpers
