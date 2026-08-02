@@ -7,7 +7,9 @@ try {
   const packageDir = process.cwd();
   const { build } = await loadWorkspaceConfig(packageDir);
 
-  await buildPackage(packageDir, { extendIgnore: build?.extendIgnore });
+  await buildPackage(packageDir, {
+    ...(build?.extendIgnore !== undefined && { extendIgnore: build.extendIgnore }),
+  });
 } catch (error) {
   // This file is the build bootstrap: nmr-core's `prepare` runs it (via tsx) to build nmr-core
   // itself, before nmr-core's dist exists. It must not import `@williamthorsen/nmr-core`, so it

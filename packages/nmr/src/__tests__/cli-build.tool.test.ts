@@ -69,7 +69,7 @@ describe('nmr-compile', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  it('excludes a directory the package config adds to the ignore set', async () => {
+  it('excludes a directory the package config adds to the ignore set', () => {
     scaffoldPackage(
       dir,
       {
@@ -81,10 +81,10 @@ describe('nmr-compile', () => {
 
     runCompile(dir);
 
-    expect(listEmitted(dir)).toEqual(['index.d.ts', 'index.js']);
+    expect(listEmitted(dir)).toStrictEqual(['index.d.ts', 'index.js']);
   });
 
-  it('builds on the defaults when the package has no config', async () => {
+  it('builds on the defaults when the package has no config', () => {
     scaffoldPackage(dir, {
       'index.ts': 'export const value = 1;\n',
       'test-utils/helper.ts': 'export const helper = 1;\n',
@@ -92,10 +92,10 @@ describe('nmr-compile', () => {
 
     runCompile(dir);
 
-    expect(listEmitted(dir)).toEqual(['index.d.ts', 'index.js']);
+    expect(listEmitted(dir)).toStrictEqual(['index.d.ts', 'index.js']);
   });
 
-  it('fails when the package config declares a key the workspace tier does not honor', async () => {
+  it('fails when the package config declares a key the workspace tier does not honor', () => {
     scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' }, `export default { rootScripts: {} };\n`);
 
     expect(() => runCompile(dir)).toThrow(/not rootScripts/);

@@ -471,7 +471,7 @@ describe('buildPackage entry-point selection', () => {
 
       await buildPackage(dir);
 
-      expect(listEmitted(dir)).toEqual(['index.d.ts', 'index.js']);
+      expect(listEmitted(dir)).toStrictEqual(['index.d.ts', 'index.js']);
     },
   );
 
@@ -507,7 +507,7 @@ describe('buildPackage entry-point selection', () => {
 
     await buildPackage(dir, { extendIgnore: ['**/internal/**'] });
 
-    expect(listEmitted(dir)).toEqual(['index.d.ts', 'index.js']);
+    expect(listEmitted(dir)).toStrictEqual(['index.d.ts', 'index.js']);
   });
 
   it('composes `extendIgnore` onto an `ignore` override rather than onto the default', async () => {
@@ -520,7 +520,12 @@ describe('buildPackage entry-point selection', () => {
     // `ignore: []` drops the defaults, so test-utils/ returns as an entry point; extendIgnore applies on top.
     await buildPackage(dir, { ignore: [], extendIgnore: ['**/internal/**'] });
 
-    expect(listEmitted(dir)).toEqual(['index.d.ts', 'index.js', 'test-utils/helper.d.ts', 'test-utils/helper.js']);
+    expect(listEmitted(dir)).toStrictEqual([
+      'index.d.ts',
+      'index.js',
+      'test-utils/helper.d.ts',
+      'test-utils/helper.js',
+    ]);
   });
 });
 
@@ -549,7 +554,7 @@ describe('buildPackage output-directory ownership', () => {
     fs.rmSync(path.join(dir, 'src', 'obsolete.ts'));
     await buildPackage(dir);
 
-    expect(listEmitted(dir)).toEqual(['index.d.ts', 'index.js']);
+    expect(listEmitted(dir)).toStrictEqual(['index.d.ts', 'index.js']);
   });
 
   it('drops output whose source has since become ignored', async () => {
@@ -564,7 +569,7 @@ describe('buildPackage output-directory ownership', () => {
 
     await buildPackage(dir);
 
-    expect(listEmitted(dir)).toEqual(['index.d.ts', 'index.js']);
+    expect(listEmitted(dir)).toStrictEqual(['index.d.ts', 'index.js']);
   });
 
   it.each(['.', '../escape'])('refuses to build into %s and removes nothing', async (outdir) => {

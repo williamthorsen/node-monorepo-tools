@@ -160,9 +160,10 @@ export async function loadConfig(baseDir: string): Promise<NmrConfig> {
 
   // Node type-strips `.ts` natively at this package's engines floor, so the config needs no transform step
   // and no loader dependency. `import()` takes a URL, not a path: a bare Windows path parses as a scheme.
-  const imported: { default?: unknown } = await import(pathToFileURL(configPath).href);
+  const imported: unknown = await import(pathToFileURL(configPath).href);
+  const loaded = isObject(imported) ? imported.default : undefined;
 
-  return validateConfig(imported.default, configPath);
+  return validateConfig(loaded, configPath);
 }
 
 /**

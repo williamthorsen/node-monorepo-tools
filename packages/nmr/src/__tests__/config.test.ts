@@ -139,7 +139,7 @@ describe(loadWorkspaceConfig, () => {
   });
 
   it('returns an empty config when the package has no config file', async () => {
-    expect(await loadWorkspaceConfig(tmpDir)).toStrictEqual({});
+    await expect(loadWorkspaceConfig(tmpDir)).resolves.toStrictEqual({});
   });
 
   it('loads a config declaring build alone', async () => {
