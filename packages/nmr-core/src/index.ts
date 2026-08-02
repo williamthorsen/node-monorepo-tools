@@ -1,5 +1,16 @@
 export const PACKAGE_NAME = '@williamthorsen/nmr-core';
+export type { CacheDirRef, CacheEntryRef } from './cache-store.ts';
+export {
+  readCacheEntry,
+  readJsonCacheEntry,
+  removeCacheDir,
+  resolveCacheDir,
+  resolveCacheEntryPath,
+  writeCacheEntry,
+} from './cache-store.ts';
 export { findPackageRoot } from './findPackageRoot.ts';
+export type { WorkingTreeHashResult } from './hashWorkingTree.ts';
+export { hashWorkingTree, readHeadSha } from './hashWorkingTree.ts';
 export type {
   FlagDefinition,
   FlagSchema,

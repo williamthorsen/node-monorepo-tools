@@ -1,13 +1,14 @@
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
 
+import { removeCheckCache } from '../check-cache.ts';
 import type { NmrConfig } from '../config.ts';
 import { loadRootConfig } from '../config.ts';
 import { findContainingPackageDir } from '../context.ts';
 import { applyDevBin, buildWorkspaceRegistry, resolveScript } from '../resolver.ts';
 import { runCommand } from '../runner.ts';
 import { findMonorepoRoot, getWorkspacePackageDirs } from '../workspace.ts';
-import { resolveBuildCachePath } from './build.ts';
+import { resolveBuildCachePath } from './build-output.ts';
 
 const CLEAN_ICON = '🧹';
 
@@ -52,9 +53,14 @@ export async function runClean(cwd: string = process.cwd()): Promise<void> {
   } catch {
     // Outside a pnpm workspace there is nothing to sweep; clean the package standing here, as nmr-compile
     // compiles the package standing here.
+    await clearCheckCache(cwd);
     await cleanPackage(cwd);
     return;
   }
+
+  // Cleared repo-wide, whatever scope the clean was invoked at: a check result records the tree it passed on,
+  // not the package it ran in, so one package's entries are not separable from the rest.
+  await clearCheckCache(monorepoRoot);
 
   const workspacePackageDirs = getWorkspacePackageDirs(monorepoRoot);
   const packageDir = findContainingPackageDir(cwd, workspacePackageDirs);
@@ -64,6 +70,15 @@ export async function runClean(cwd: string = process.cwd()): Promise<void> {
   }
 
   await sweepWorkspace(monorepoRoot, workspacePackageDirs);
+}
+
+// region | Helpers
+
+/** Removes every recorded check result for `scopeDir`, so nothing survives to make the next check skip. */
+async function clearCheckCache(scopeDir: string): Promise<void> {
+  await removeCheckCache(scopeDir);
+
+  console.info(`${CLEAN_ICON} Removed all recorded check results.`);
 }
 
 /**
@@ -105,3 +120,5 @@ async function sweepWorkspace(monorepoRoot: string, workspacePackageDirs: string
     }
   }
 }
+
+// endregion | Helpers

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -7,15 +7,14 @@ import { glob } from 'glob';
 import * as ts from 'typescript';
 
 import { resolveConfigPath } from '../config.ts';
-
-export interface BuildOptions {
-  entryGlobs?: string[];
-  /** Adds to the effective ignore set, whether that set is the default or an `ignorePatterns` override. */
-  extraIgnorePatterns?: string[];
-  /** Replaces the default ignore set. */
-  ignorePatterns?: string[];
-  outdir?: string;
-}
+import type { BuildOptions } from './build-output.ts';
+import {
+  DEFAULT_ENTRY_GLOBS,
+  DEFAULT_IGNORE_PATTERNS,
+  DEFAULT_OUTDIR,
+  hasExpectedBuildOutput,
+  resolveBuildCachePath,
+} from './build-output.ts';
 
 /** Output-shaping options folded into the build hash so a change to the emit shape busts the cache. */
 interface EmitConfig {
@@ -27,20 +26,6 @@ interface EmitConfig {
 const PACKAGE_ICON = '📦';
 const SKIPPED_ICON = '⏭️';
 
-const DEFAULT_ENTRY_GLOBS = ['src/**/*.ts'];
-
-/**
- * Directories holding test scaffolding rather than shipped code, excluded from entry-point selection so a
- * package does not publish its own helpers. Deliberately not the vitest factory's `COVERAGE_EXCLUDE`: helpers
- * live in `test-utils/` precisely so they stay inside the coverage include set, so the two lists overlap
- * without converging and neither can be derived from the other.
- *
- * Ignoring a file removes it as an entry point, not from the emit. The compiler still emits whatever the
- * surviving entry points import, which is what keeps a production module that uses a helper from emitting a
- * dangling specifier. Widening this list can therefore only drop files nothing in production reaches.
- */
-const DEFAULT_IGNORE_PATTERNS = ['**/__fixtures__/**', '**/__mocks__/**', '**/__tests__/**', '**/test-utils/**'];
-const DEFAULT_OUTDIR = 'dist/esm/';
 const SOURCE_ROOT = 'src';
 
 const MINIMUM_TYPESCRIPT_MAJOR = 5;
@@ -416,41 +401,6 @@ function getModuleSpecifier(node: ts.Node): ts.StringLiteralLike | undefined {
 // region | Cache
 
 /**
- * Resolves the absolute path of a package's build-cache file. The cache lives under the conventional
- * `node_modules/.cache/nmr-compile/` home rather than inside `dist`, so it stays git-ignored and is
- * never swept into a published tarball by any `files` convention. The home is the nearest enclosing
- * directory that already has a `node_modules` — the package's own when it has one, otherwise a hoisted
- * ancestor (e.g. the workspace root for a zero-dependency package) — which avoids materializing a
- * `node_modules` solely to hold the cache. The file name folds a digest of the absolute package path
- * into a readable base name, so packages sharing a hoisted `node_modules` never collide while the path
- * stays stable across runs for the same package.
- */
-export function resolveBuildCachePath(packageDir: string): string {
-  const absolutePackageDir = path.resolve(packageDir);
-  const home = findNearestNodeModulesHost(absolutePackageDir) ?? absolutePackageDir;
-  const digest = createHash('sha256').update(absolutePackageDir).digest('hex').slice(0, 8);
-  const key = `${path.basename(absolutePackageDir)}-${digest}.hash`;
-  return path.join(home, 'node_modules', '.cache', 'nmr-compile', key);
-}
-
-/**
- * Walks up from `startDir` (inclusive) to the filesystem root, returning the first directory that
- * contains a `node_modules` entry, or `undefined` when none does.
- */
-function findNearestNodeModulesHost(startDir: string): string | undefined {
-  let current = startDir;
-  let parent = path.dirname(current);
-  while (!existsSync(path.join(current, 'node_modules'))) {
-    if (parent === current) {
-      return undefined;
-    }
-    current = parent;
-    parent = path.dirname(current);
-  }
-  return current;
-}
-
-/**
  * Compares the current input digest against the cached one, reporting whether a build is needed and
  * returning the freshly computed digest. Emits the 📦/⏭️ status but performs no write, so the caller
  * can persist the digest only after a successful build.
@@ -482,22 +432,6 @@ async function detectBuildChanges(
 
   console.info(`${PACKAGE_ICON} ${packageName}: Changes detected.`);
   return { changed: true, currentHash };
-}
-
-/**
- * Reports whether the output a previous build would have produced is still on disk. Entry points that
- * emit nothing expect no output, so their absent outdir is not deleted output: a `src` tree holding only
- * declaration files, or none at all, would otherwise be reported as missing output and recompiled forever.
- * The emit is what makes an outdir, so what counts is whether any entry point emits — not how many there are.
- */
-function hasExpectedBuildOutput(packageDir: string, outdir: string, entryPoints: string[]): boolean {
-  const emitsOutput = entryPoints.some((entry) => !entry.endsWith('.d.ts'));
-  if (!emitsOutput) {
-    return true;
-  }
-
-  const outputDir = path.resolve(packageDir, outdir);
-  return existsSync(outputDir) && readdirSync(outputDir).length > 0;
 }
 
 /** Writes the build digest to the cache file, creating the cache directory if it does not exist. */

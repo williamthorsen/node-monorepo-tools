@@ -130,7 +130,7 @@ describe(loadConfig, () => {
     writeConfig(tmpDir, `export default { bild: { extraIgnorePatterns: ['**/fixtures/**'] } };`);
 
     await expect(loadConfig(tmpDir)).rejects.toThrow(
-      'unrecognized key `bild`. Recognized: `build`, `devBin`, `rootScripts`, `workspaceScripts`.',
+      'unrecognized key `bild`. Recognized: `build`, `checkCache`, `devBin`, `rootScripts`, `workspaceScripts`.',
     );
   });
 
@@ -138,6 +138,55 @@ describe(loadConfig, () => {
     writeConfig(tmpDir, `export default { zeta: 1, alpha: 2 };`);
 
     await expect(loadConfig(tmpDir)).rejects.toThrow('unrecognized keys `alpha`, `zeta`');
+  });
+
+  it('loads every checkCache field', async () => {
+    writeConfig(
+      tmpDir,
+      `export default { checkCache: { enabled: false, extraCommands: ['verify'], excludeCommands: ['test'] } };`,
+    );
+
+    const config = await loadConfig(tmpDir);
+
+    expect(config.checkCache).toStrictEqual({
+      enabled: false,
+      excludeCommands: ['test'],
+      extraCommands: ['verify'],
+    });
+  });
+
+  it('throws when checkCache is not an object', async () => {
+    writeConfig(tmpDir, `export default { checkCache: true };`);
+
+    await expect(loadConfig(tmpDir)).rejects.toThrow('`checkCache` must be an object');
+  });
+
+  it('throws when checkCache.enabled is not a boolean', async () => {
+    writeConfig(tmpDir, `export default { checkCache: { enabled: 'no' } };`);
+
+    await expect(loadConfig(tmpDir)).rejects.toThrow('`checkCache.enabled` must be a boolean');
+  });
+
+  it('throws when checkCache.extraCommands is not an array of strings', async () => {
+    writeConfig(tmpDir, `export default { checkCache: { extraCommands: ['ok', 7] } };`);
+
+    await expect(loadConfig(tmpDir)).rejects.toThrow('`checkCache.extraCommands` must be a string[]');
+  });
+
+  it('throws when checkCache.excludeCommands is not an array of strings', async () => {
+    writeConfig(tmpDir, `export default { checkCache: { excludeCommands: 'test' } };`);
+
+    await expect(loadConfig(tmpDir)).rejects.toThrow('`checkCache.excludeCommands` must be a string[]');
+  });
+
+  it('throws naming an unrecognized checkCache subkey', async () => {
+    // A misspelled subkey is a setting nothing reads, which no output of a cached run would reveal.
+    writeConfig(tmpDir, `export default { checkCache: { extraCommand: ['verify'] } };`);
+
+    await expect(loadConfig(tmpDir)).rejects.toThrow(
+      'unrecognized key `checkCache.extraCommand`. Recognized: `checkCache.enabled`, ' +
+        '`checkCache.excludeCommands`, `checkCache.extraCommands`.',
+    );
   });
 
   it('throws naming an unrecognized build subkey', async () => {
@@ -206,11 +255,20 @@ describe(loadRootConfig, () => {
     expect(config.rootScripts).toStrictEqual({ a: 'x' });
   });
 
+  it('loads checkCache, which the root tier honors', async () => {
+    writeConfig(tmpDir, `export default { checkCache: { excludeCommands: ['test:coverage'] } };`);
+
+    const config = await loadRootConfig(tmpDir);
+
+    expect(config.checkCache).toStrictEqual({ excludeCommands: ['test:coverage'] });
+  });
+
   it('throws when the root config declares build, which only a package config reaches', async () => {
     writeConfig(tmpDir, `export default { build: { extraIgnorePatterns: ['**/fixtures/**'] } };`);
 
     await expect(loadRootConfig(tmpDir)).rejects.toThrow(
-      "honors devBin, rootScripts, workspaceScripts alone, not build. Move those keys to the package's own config.",
+      'honors checkCache, devBin, rootScripts, workspaceScripts alone, not build. ' +
+        "Move those keys to the package's own config.",
     );
   });
 });

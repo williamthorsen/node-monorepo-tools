@@ -5,7 +5,8 @@ import path from 'node:path';
 import * as ts from 'typescript';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { buildPackage, resolveBuildCachePath } from '../build.ts';
+import { buildPackage } from '../build.ts';
+import { resolveBuildCachePath } from '../build-output.ts';
 
 // Default the compiler API to the real implementation so the regression suite compiles for real;
 // the cache-integrity tests override createProgram per-call to simulate a failing or transient compile.

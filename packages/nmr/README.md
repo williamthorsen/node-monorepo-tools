@@ -119,16 +119,17 @@ export default defineConfig({
 
 ### `defineConfig` fields
 
-| Field              | Type                                 | Description                                                    |
-| ------------------ | ------------------------------------ | -------------------------------------------------------------- |
-| `build`            | `{ extraIgnorePatterns?: string[] }` | Patterns added to the build's ignore set (package config only) |
-| `workspaceScripts` | `Record<string, string \| string[]>` | Scripts added or overridden in the workspace registry (tier 2) |
-| `rootScripts`      | `Record<string, string \| string[]>` | Scripts added or overridden in the root registry (tier 2)      |
-| `devBin`           | `Record<string, string>`             | Map binary names to source-repo replacement commands           |
+| Field              | Type                                                                          | Description                                                           |
+| ------------------ | ----------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `build`            | `{ extraIgnorePatterns?: string[] }`                                          | Patterns added to the build's ignore set (package config only)        |
+| `checkCache`       | `{ enabled?: boolean; extraCommands?: string[]; excludeCommands?: string[] }` | Which commands the [check-result cache](#check-result-cache) may skip |
+| `workspaceScripts` | `Record<string, string \| string[]>`                                          | Scripts added or overridden in the workspace registry (tier 2)        |
+| `rootScripts`      | `Record<string, string \| string[]>`                                          | Scripts added or overridden in the root registry (tier 2)             |
+| `devBin`           | `Record<string, string>`                                                      | Map binary names to source-repo replacement commands                  |
 
 All fields are optional. `workspaceScripts` and `rootScripts` values follow the same `string | string[]` convention described in [script values](#script-values).
 
-Each field belongs to exactly one tier, and a config loads only the fields its own tier honors: `build` in a package config, the other three in the monorepo-root config. Declaring a field at the wrong tier fails with a message naming it and where it goes, as does a key nmr does not recognize at all — a typo cannot degrade into a setting that silently applies nowhere.
+Each field belongs to exactly one tier, and a config loads only the fields its own tier honors: `build` in a package config, the other four in the monorepo-root config. Declaring a field at the wrong tier fails with a message naming it and where it goes, as does a key nmr does not recognize at all — a typo cannot degrade into a setting that silently applies nowhere.
 
 ### Package-level configuration
 
@@ -202,6 +203,114 @@ Attach a post-build step to one package:
 ```
 
 The second example calls the bin directly, which sidesteps the workspace-versus-root registry distinction.
+
+## Check-result cache
+
+A check that passed on a working tree passes again on the same working tree. nmr records that, and the next run of the same command on an unchanged tree exits 0 without doing the work:
+
+```console
+$ nmr ci
+# ... four minutes of build, typecheck, lint, and coverage ...
+
+$ nmr ci
+⏭️ ci: passed 2m ago on this tree (saved ~4m). Re-run with --no-cache.
+```
+
+Composite commands expand into child `nmr` processes, so one green `nmr ci` records a pass for every cacheable command in the chain, at every scope it ran at. A later `nmr check`, `nmr typecheck`, or `nmr -F core test` on the same tree skips too. The skip line is suppressed by `-q`.
+
+The cache is a working-tree cache, not a build cache: it answers "has this exact tree already passed this check?" and nothing else. It is also local to one checkout (the install fingerprint in its key is machine-specific), so it saves repeated work in a working copy rather than sharing results across machines or with CI.
+
+### What is cached
+
+Cacheable by default: `check`, `check:agent-files`, `check:strict`, `ci`, `fix:check`, `fmt:check`, `lint:check`, `lint:strict`, `test`, `test:coverage`, `test:tool`, `test:unit`, `typecheck`, and the `root:` variants `root:check`, `root:lint:check`, `root:lint:strict`, `root:test`, `root:test:tool`, `root:test:unit`, and `root:typecheck`.
+
+Everything else runs every time:
+
+| Command                         | Why it is never skipped                                                                                                                   |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `audit`, `prepush`              | Consult a vulnerability database that moves without the tree. `prepush`'s `ci` constituent still skips while its `audit` runs every time. |
+| `build`, `compile`              | Carry a cache of their own.                                                                                                               |
+| `fix`, `fmt`, `lint`, `upgrade` | Rewrite the tree they were asked about, so a recorded pass would describe a tree that no longer exists.                                   |
+| `test:all`                      | Reaches the `localhost` and `remote` tiers, which the environment supplies rather than the tree.                                          |
+
+### The exit-status-only contract
+
+**A cacheable name promises that its whole contribution is an exit status**, through its entire chain, `:pre` and `:post` hooks included. A hit skips that chain wholesale, so any file a cacheable command was relied on to produce is a file that will not appear.
+
+`test:coverage` is cacheable on exactly this reading: what it contributes is the pass, not the `coverage/` directory, which a skipped run leaves as whatever the last real run wrote. Read `coverage/` after a `test:coverage` that may have skipped, and it may be stale; `--no-cache` is how you insist on a fresh one.
+
+Overriding a cacheable name, in `package.json` or in `workspaceScripts`, inherits its cacheability. An override that writes something anyone depends on belongs in `excludeCommands`.
+
+### What the key is made of
+
+A hit requires all of these to match the run that recorded the pass:
+
+- **The working tree's content**, hashed from the commit's tree object folded with the current content of every path git reports as changed or untracked. Timestamps are not content, so a `touch` that rewrites no bytes leaves the hash alone.
+- **The command string that would run**, hooks and all, and the scope it would run in.
+- **nmr's version**, the **Node version**, and the **platform and architecture**.
+- **What pnpm has installed**, so an install, a prune, or a lockfile change forces a re-run.
+- **`TZ`, `LANG`, `LC_ALL`, and `NODE_OPTIONS`.** This set is fixed, so two machines that differ only in shell decoration still agree.
+
+A hit additionally requires the build output of every package nmr's own build covers to be present, and to have been built from this tree. Output is git-ignored, so neither its removal nor its replacement moves the hash: restoring a tree with `git stash` or `git checkout` restores none of the output that tree was built with. nmr compares each covered package's recorded build digest against the one on disk, so a `dist` compiled from another tree is a miss the following run repairs. A package that overrides `build` or `compile` emits on terms nmr does not know and is exempt.
+
+A pass is recorded only when the command exits 0, only when the tree still matches the one the run started against, only when every covered package's output is present, and never for a run that executed nothing (a `""`/`":"` skip override, or an `NMR_RUN_IF_PRESENT` miss).
+
+### Out of contract
+
+These change what a check concludes without moving the hash. Where one applies, exclude the affected command:
+
+- **Content filters.** `core.autocrlf` and `.gitattributes` filters mean the bytes on disk differ from the bytes git records; the hash follows what is on disk, but a checkout on another platform may not reproduce it.
+- **Symlinked inputs.** A symlink is hashed by the path it names, not by the content at the far end.
+- **Gitignored inputs.** Anything git does not report is invisible to the hash. The build-output probe is the one exception, and covers only nmr's own build.
+- **`passWithNoTests`.** A suite that collects no files exits 0, and that green is recorded like any other.
+
+Committing an already-checked tree also moves the hash, because the commit's tree object is the base of the fold; the next run does the work again. The reverse holds and is useful: a rebase or an amended message that preserves content leaves the hash alone, as does checking out a branch whose tree is identical.
+
+### When the gate stands aside
+
+The gate never wrongly skips. Where it cannot be sure, it does nothing and the command runs:
+
+- Outside a git repository, when git fails, or when there is no commit at `HEAD`.
+- When the repository declares or contains submodules, whose content the hash does not cover.
+- When the monorepo root is not the git toplevel.
+- When a changed path cannot be read, or is neither a file nor a symlink (an untracked nested repository, for instance).
+- When there is no pnpm install to fingerprint.
+- Under a `devBin` substitution, which runs a binary built from somewhere the hash does not describe.
+- For any invocation carrying arguments after the command name.
+
+`NMR_DEBUG=1` reports why a run did not skip and why the gate stood aside.
+
+### Bypassing and clearing
+
+Reach for these in order; the first is almost always the right one.
+
+| Step                                   | Effect                                                                    |
+| -------------------------------------- | ------------------------------------------------------------------------- |
+| `nmr --no-cache <command>`             | Runs the command, then records the fresh result. Reaches the whole chain. |
+| `NMR_NO_CACHE=1`                       | The same, for every nmr invocation in the shell.                          |
+| `rm -rf node_modules/.cache/nmr-check` | Forgets every recorded pass, leaving build output alone.                  |
+| `nmr clean`                            | Forgets every recorded pass and removes build output, at any scope.       |
+
+`--no-cache` belongs before the command name. After it, it is an argument to the command rather than a flag to nmr; nmr says so rather than letting the bypass silently not happen.
+
+### Reserved environment variables
+
+`NMR_TREE_SNAPSHOT` is nmr's own: it carries one observation of the tree from a top-level invocation down to the processes it spawns, so a chain hashes the tree once rather than at every link. nmr trusts an inherited value only while `HEAD` still stands where it did when the observation was taken, which bounds a process that outlives the run that spawned it. That bound does not extend to a tree edited without committing, so **a process that survives its run and later invokes nmr should clear `NMR_TREE_SNAPSHOT`** — a test suite that shells out to `nmr` is the case worth checking.
+
+### Configuring
+
+```ts
+export default defineConfig({
+  checkCache: {
+    // Names promising exit-status-only semantics through their whole chain.
+    extraCommands: ['verify:contracts'],
+    // Names that turned out to do more than report an exit status.
+    excludeCommands: ['test:coverage'],
+  },
+});
+```
+
+`extraCommands` extends the default set rather than replacing it, so naming one command cannot silently drop the rest; `excludeCommands` is applied afterwards, so a name in both is excluded. `enabled: false` turns the gate off entirely. The key is `checkCache`, in the monorepo-root config.
 
 ## Dependency upgrades
 
@@ -419,14 +528,15 @@ nmr [flags] <command> [args...]
 
 Position determines ownership: flags before the command name are nmr's own, and everything after the command name is forwarded untouched to the resolved command.
 
-| Flag                     | Description                                         | Default |
-| ------------------------ | --------------------------------------------------- | ------- |
-| `-F, --filter <pattern>` | Run command in matching packages                    | —       |
-| `-R, --recursive`        | Run command in all packages                         | —       |
-| `-w, --workspace-root`   | Use root scripts, running at the monorepo root      | —       |
-| `-q, --quiet`            | Suppress info messages; show full output on failure | —       |
-| `-?, --help`             | Show available commands                             | —       |
-| `-V, --version`          | Show version number                                 | —       |
+| Flag                     | Description                                             | Default |
+| ------------------------ | ------------------------------------------------------- | ------- |
+| `-F, --filter <pattern>` | Run command in matching packages                        | —       |
+| `-R, --recursive`        | Run command in all packages                             | —       |
+| `-w, --workspace-root`   | Use root scripts, running at the monorepo root          | —       |
+| `-q, --quiet`            | Suppress info messages; show full output on failure     | —       |
+| `--no-cache`             | Run even if this tree already passed; record the result | —       |
+| `-?, --help`             | Show available commands                                 | —       |
+| `-V, --version`          | Show version number                                     | —       |
 
 ### Examples
 
