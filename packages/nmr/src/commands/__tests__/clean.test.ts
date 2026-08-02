@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { readCheckCacheEntry, writeCheckCacheEntry } from '../../check-cache.ts';
 import { resolveBuildCachePath } from '../build.ts';
 import { cleanPackage, runClean } from '../clean.ts';
 
@@ -137,6 +138,38 @@ describe(runClean, () => {
     expect(hasOutput(b)).toBe(false);
   });
 
+  it('clears every recorded check result when run from the monorepo root', async () => {
+    scaffoldWorkspace(root);
+    await recordCheckResult(root, root, 'ci');
+
+    await runClean(root);
+
+    await expect(readCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci' })).resolves.toBeUndefined();
+  });
+
+  it('clears the whole table when run from inside one package', async () => {
+    // A check result records the tree it passed on, not the package it ran in, so clearing one package's
+    // entries would leave the repo half-distrusted -- never what someone reaching for `clean` meant.
+    const { a, b } = scaffoldWorkspace(root);
+    await recordCheckResult(root, a, 'check');
+    await recordCheckResult(root, b, 'check');
+
+    await runClean(a);
+
+    await expect(readCheckCacheEntry({ monorepoRoot: root, anchorDir: b, command: 'check' })).resolves.toBeUndefined();
+  });
+
+  it('clears the recorded check results of a package standing outside a workspace', async () => {
+    scaffoldBuiltPackage(root);
+    await recordCheckResult(root, root, 'check');
+
+    await runClean(root);
+
+    await expect(
+      readCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'check' }),
+    ).resolves.toBeUndefined();
+  });
+
   it('skips a package whose clean resolves to an empty command', async () => {
     // An empty script is the package.json convention for "skip this command", so the sweep must leave the
     // output of a package that opted out of cleaning intact.
@@ -152,6 +185,25 @@ describe(runClean, () => {
     expect(hasOutput(b)).toBe(false);
   });
 });
+
+/** Records a check result, standing in for a green run at that scope. */
+async function recordCheckResult(monorepoRoot: string, anchorDir: string, command: string): Promise<void> {
+  await writeCheckCacheEntry({
+    monorepoRoot,
+    anchorDir,
+    command,
+    entry: {
+      key: 'a-key',
+      treeHash: 'a-tree-hash',
+      headSha: 'a-head-sha',
+      commandString: `nmr ${command}`,
+      nmrVersion: '1.0.0',
+      nodeVersion: 'v24.0.0',
+      durationMs: 1000,
+      recordedAt: '2026-08-02T12:00:00.000Z',
+    },
+  });
+}
 
 /** Returns true if the `dist` directory exists. */
 function hasOutput(dir: string): boolean {

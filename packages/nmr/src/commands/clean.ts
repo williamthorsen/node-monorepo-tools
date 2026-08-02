@@ -1,6 +1,7 @@
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
 
+import { removeCheckCache } from '../check-cache.ts';
 import type { NmrConfig } from '../config.ts';
 import { loadRootConfig } from '../config.ts';
 import { findContainingPackageDir } from '../context.ts';
@@ -52,9 +53,15 @@ export async function runClean(cwd: string = process.cwd()): Promise<void> {
   } catch {
     // Outside a pnpm workspace there is nothing to sweep; clean the package standing here, as nmr-compile
     // compiles the package standing here.
+    await clearCheckCache(cwd);
     await cleanPackage(cwd);
     return;
   }
+
+  // Every clean clears the whole table, whatever scope it was invoked at. A check result records the tree it
+  // passed on, not the package it ran in, so clearing one package's entries would leave a repo half-distrusted
+  // -- which is never what someone reaching for `clean` meant.
+  await clearCheckCache(monorepoRoot);
 
   const workspacePackageDirs = getWorkspacePackageDirs(monorepoRoot);
   const packageDir = findContainingPackageDir(cwd, workspacePackageDirs);
@@ -64,6 +71,14 @@ export async function runClean(cwd: string = process.cwd()): Promise<void> {
   }
 
   await sweepWorkspace(monorepoRoot, workspacePackageDirs);
+}
+
+/** Removes every recorded check result for `scopeDir`, so nothing survives to make the next check skip. */
+async function clearCheckCache(scopeDir: string): Promise<void> {
+  await removeCheckCache(scopeDir);
+
+  // Unqualified by a package name, because the table it removes is the whole repository's.
+  console.info(`${CLEAN_ICON} Removed all recorded check results.`);
 }
 
 /**
