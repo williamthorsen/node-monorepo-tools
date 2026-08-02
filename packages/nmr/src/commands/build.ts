@@ -110,6 +110,21 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
 }
 
 /**
+ * Reports whether the output a build of `packageDir` would produce is currently on disk. Shares the rule the
+ * build itself applies, so a caller probing for output and the build deciding whether to rebuild cannot
+ * disagree: a package whose entry points emit nothing expects no output, and reports present.
+ */
+export async function hasBuildOutput(packageDir: string, options: BuildOptions = {}): Promise<boolean> {
+  const outdir = options.outdir ?? DEFAULT_OUTDIR;
+  const entryPoints = await glob(options.entryGlobs ?? DEFAULT_ENTRY_GLOBS, {
+    cwd: packageDir,
+    ignore: [...(options.ignorePatterns ?? DEFAULT_IGNORE_PATTERNS), ...(options.extraIgnorePatterns ?? [])],
+  });
+
+  return hasExpectedBuildOutput(packageDir, outdir, entryPoints);
+}
+
+/**
  * Produces a digest of the given files (paths and contents), the emit config, and the compiler version.
  * The file list is sorted so the digest is order-invariant, and each path is folded in so renames are detected.
  * The compiler version is included because the same sources can emit differently across TypeScript versions.
