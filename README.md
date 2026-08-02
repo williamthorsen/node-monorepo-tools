@@ -20,11 +20,11 @@
 
 ```shell
 pnpm install
-pnpm run bootstrap
-pnpm exec nmr build
 ```
 
-`nmr` is both a package in this repo and the runner for its scripts, so a fresh checkout has to build it before `nmr`, Vitest, or Prettier will run. `bootstrap` does that, and it is the one script invoked through `pnpm run` rather than `nmr`. The `nmr build` that follows covers the remaining packages, which some tests import.
+Each package compiles during install, so that is the whole setup.
+
+If `nmr` stops running -- `nmr clean` removes the build output it needs, and Vitest and Prettier read it too -- rebuild it from source with `pnpm run bootstrap`, then `nmr build` to restore the rest.
 
 ## Recommended setup
 
