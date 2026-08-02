@@ -43,6 +43,9 @@ async function runNmr(
   options: { cwd?: string; env?: Record<string, string> } = {},
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   const args = argString.length === 0 ? [] : argString.split(/\s+/).filter((s) => s.length > 0);
+  // The suite may itself be running under `nmr test`, whose check-result-cache variables would otherwise reach
+  // these invocations and let one of them skip on a pass recorded by the run that launched the suite.
+  const { NMR_TREE_SNAPSHOT: _snapshot, NMR_NO_CACHE: _noCache, NMR_DEBUG: _debug, ...ambient } = process.env;
   const stdoutChunks: Buffer[] = [];
   const stderrChunks: Buffer[] = [];
   const stdoutStream = new PassThrough();
@@ -53,7 +56,7 @@ async function runNmr(
   const { exitCode } = await runCli({
     args,
     cwd: options.cwd ?? MONOREPO_ROOT,
-    env: { ...process.env, ...options.env },
+    env: { ...ambient, ...options.env },
     stdout: stdoutStream,
     stderr: stderrStream,
   });
@@ -189,6 +192,26 @@ describe('nmr CLI', () => {
   });
 
   describe('--quiet flag', () => {
+    // A fixture rather than this repo's own package: `typecheck` is cacheable, so running it here would record
+    // a pass into the developer's own check-result cache as a side effect of running the suite.
+    let quietRoot: string;
+    let quietPkgDir: string;
+
+    beforeAll(() => {
+      quietRoot = mkdtempSync(path.join(tmpdir(), 'nmr-quiet-'));
+      writeFileSync(path.join(quietRoot, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n");
+      quietPkgDir = path.join(quietRoot, 'packages', 'quiet-pkg');
+      mkdirSync(quietPkgDir, { recursive: true });
+      writeFileSync(
+        path.join(quietPkgDir, 'package.json'),
+        JSON.stringify({ name: 'quiet-pkg', scripts: { typecheck: 'echo noise && echo trouble >&2' } }),
+      );
+    });
+
+    afterAll(() => {
+      rmSync(quietRoot, { recursive: true, force: true });
+    });
+
     it('accepts -q flag without parse errors', async () => {
       const { stdout, exitCode } = await runNmr('-q --help');
       expect(exitCode).toBe(0);
@@ -207,7 +230,7 @@ describe('nmr CLI', () => {
     });
 
     it('suppresses output on successful command in quiet mode', async () => {
-      const { stdout, stderr, exitCode } = await runNmr('-q typecheck', { cwd: NMR_PACKAGE_DIR });
+      const { stdout, stderr, exitCode } = await runNmr('-q typecheck', { cwd: quietPkgDir });
       expect(exitCode).toBe(0);
       expect(stdout).toBe('');
       expect(stderr).toBe('');

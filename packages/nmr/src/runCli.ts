@@ -3,11 +3,30 @@ import type { Writable } from 'node:stream';
 
 import { readPackageVersion, reportError } from '@williamthorsen/nmr-core';
 
+import type { TreeSnapshot } from './check-cache.ts';
+import {
+  computeCacheKey,
+  CURRENT_RUNTIME,
+  encodeTreeSnapshot,
+  formatMisplacedNoCacheWarning,
+  formatSkipLine,
+  hasCompleteBuildOutput,
+  NO_CACHE_ENV_VAR,
+  readCheckCacheEntry,
+  resolveCacheableCommands,
+  resolveTreeSnapshot,
+  TREE_SNAPSHOT_ENV_VAR,
+  writeCheckCacheEntry,
+  writeDebugNote,
+} from './check-cache.ts';
+import type { NmrConfig } from './config.ts';
 import { resolveContext } from './context.ts';
 import { generateHelp } from './help.ts';
 import { isHookName } from './helpers/hook-name.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
+import type { ResolvedScript } from './resolver.ts';
 import { applyDevBin, buildRootRegistry, buildWorkspaceRegistry, resolveScript } from './resolver.ts';
+import type { RunCommandOptions } from './runner.ts';
 import { runCommand } from './runner.ts';
 
 const VERSION = readPackageVersion(import.meta.url);
@@ -67,7 +86,19 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   const { command } = parsed;
   const passthrough = parsed.passthrough.length > 0 ? ' ' + parsed.passthrough.map(shellQuote).join(' ') : '';
-  const runOptions = { quiet: parsed.quiet, stdout, stderr, env };
+
+  const snapshot = openGate({
+    command,
+    config: context.config,
+    env,
+    monorepoRoot: context.monorepoRoot,
+    passthrough: parsed.passthrough,
+    stderr,
+  });
+
+  const noCache = parsed.noCache || env[NO_CACHE_ENV_VAR] === '1';
+  const childEnv = buildChildEnv(env, snapshot, noCache);
+  const runOptions = { quiet: parsed.quiet, stdout, stderr, env: childEnv };
 
   // -F: delegate to pnpm --filter
   if (parsed.filter) {
@@ -78,9 +109,9 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   // -R: delegate to pnpm --recursive
   if (parsed.recursive) {
-    const childEnv = { ...env, NMR_RUN_IF_PRESENT: '1' };
+    const delegateEnv = { ...childEnv, NMR_RUN_IF_PRESENT: '1' };
     const delegateCmd = `pnpm --recursive exec nmr ${command}${passthrough}`;
-    const exitCode = runCommand(delegateCmd, context.monorepoRoot, { ...runOptions, env: childEnv });
+    const exitCode = runCommand(delegateCmd, context.monorepoRoot, { ...runOptions, env: delegateEnv });
     return { exitCode };
   }
 
@@ -100,10 +131,6 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     return { exitCode: skipExitCode };
   }
 
-  if (resolved.source === 'package' && !parsed.quiet && registry[command] !== undefined) {
-    stdout.write(`📦 ${path.basename(anchorDir)}: Using override script: ${resolved.command}\n`);
-  }
-
   const substitutedCommand = applyDevBin(resolved.command, context.config.devBin, context.monorepoRoot);
   const mainCommand = substitutedCommand + passthrough;
 
@@ -114,13 +141,43 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     ? mainCommand
     : wrapWithHooks(command, mainCommand, registry, anchorDir, parsed.workspaceRoot);
 
-  const exitCode = runCommand(fullCommand, anchorDir, runOptions);
+  // The key waits until the whole chain is known, so it describes what would actually run -- the hooks wrapped
+  // around the command included.
+  const key = resolveCacheKey({
+    anchorDir,
+    command,
+    commandString: fullCommand,
+    env,
+    monorepoRoot: context.monorepoRoot,
+    snapshot,
+    stderr,
+    substitution: substitutedCommand === resolved.command ? undefined : substitutedCommand,
+  });
+
+  const exitCode = await runGated({
+    anchorDir,
+    command,
+    commandString: fullCommand,
+    config: context.config,
+    env,
+    key,
+    monorepoRoot: context.monorepoRoot,
+    noCache,
+    overrideNotice: formatOverrideNotice(resolved, registry, command, anchorDir, parsed.quiet),
+    quiet: parsed.quiet,
+    runOptions,
+    snapshot,
+    stderr,
+    stdout,
+  });
+
   return { exitCode };
 }
 
 /** @internal */
 interface ParsedArgs {
   filter?: string;
+  noCache: boolean;
   quiet: boolean;
   recursive: boolean;
   workspaceRoot: boolean;
@@ -134,6 +191,7 @@ type ParseResult = { ok: true; parsed: ParsedArgs } | { ok: false; error: string
 
 function parseArgs(args: string[]): ParseResult {
   const parsed: ParsedArgs = {
+    noCache: false,
     quiet: false,
     recursive: false,
     workspaceRoot: false,
@@ -182,6 +240,11 @@ function parseArgs(args: string[]): ParseResult {
       i++;
       continue;
     }
+    if (arg === '--no-cache') {
+      parsed.noCache = true;
+      i++;
+      continue;
+    }
 
     // First non-flag argument is the command; rest is passthrough
     parsed.command = arg;
@@ -216,6 +279,284 @@ function handleSkipMessage(
     return 0;
   }
   return undefined;
+}
+
+/**
+ * Builds the environment every process below this one inherits. The snapshot travels down so a chain of nmr
+ * invocations gates on one observation of the tree, and a bypass travels down so it covers the whole chain
+ * rather than only the command it was typed next to.
+ */
+function buildChildEnv(
+  env: NodeJS.ProcessEnv,
+  snapshot: TreeSnapshot | undefined,
+  noCache: boolean,
+): NodeJS.ProcessEnv {
+  return {
+    ...env,
+    ...(snapshot !== undefined && { [TREE_SNAPSHOT_ENV_VAR]: encodeTreeSnapshot(snapshot) }),
+    ...(noCache && { [NO_CACHE_ENV_VAR]: '1' }),
+  };
+}
+
+/**
+ * Returns the line announcing that a `package.json` script is standing in for a built-in, or `undefined` when
+ * none is due. Only a script replacing a name the registry already defines is worth announcing; an ordinary
+ * tier-3 entry that happens to resolve is not standing in for anything.
+ */
+function formatOverrideNotice(
+  resolved: ResolvedScript,
+  registry: ScriptRegistry,
+  command: string,
+  anchorDir: string,
+  quiet: boolean,
+): string | undefined {
+  if (quiet || resolved.source !== 'package' || registry[command] === undefined) {
+    return undefined;
+  }
+
+  return `📦 ${path.basename(anchorDir)}: Using override script: ${resolved.command}\n`;
+}
+
+/**
+ * Decides whether the check-result cache covers this invocation, and takes the tree snapshot it would gate on.
+ * Returns `undefined` when the gate stands aside, which always means the command runs.
+ *
+ * Decided before anything is resolved or spawned, so that a delegating invocation hands the snapshot to its
+ * children rather than leaving each of them to hash the tree again. A hook leaf is out of scope because it is
+ * not a command anyone asks for: it runs as part of the chain the gate already covers. Arguments are out of
+ * scope because they change what a command does in ways the gate has no way to read.
+ */
+function openGate(options: {
+  command: string;
+  config: NmrConfig;
+  env: NodeJS.ProcessEnv;
+  monorepoRoot: string;
+  passthrough: string[];
+  stderr: Writable;
+}): TreeSnapshot | undefined {
+  const { command, config, env, monorepoRoot, passthrough, stderr } = options;
+
+  const covered =
+    !isHookName(command) &&
+    config.checkCache?.enabled !== false &&
+    resolveCacheableCommands(config.checkCache).has(command);
+  if (!covered) {
+    return undefined;
+  }
+
+  // A `--no-cache` past the command name is an argument to that command, and is passed on as one. Saying so is
+  // all that stands between a developer and a bypass they believe happened.
+  if (passthrough.includes('--no-cache')) {
+    stderr.write(`${formatMisplacedNoCacheWarning(command)}\n`);
+  }
+  if (passthrough.length > 0) {
+    return undefined;
+  }
+
+  const snapshot = resolveTreeSnapshot({ monorepoRoot, env });
+  if (!snapshot.ok) {
+    writeDebugNote(`gate disabled: ${snapshot.reason}`, env, stderr);
+    return undefined;
+  }
+
+  return snapshot.snapshot;
+}
+
+/**
+ * Computes the key this invocation would be recorded under, or `undefined` when the gate stands aside. A
+ * `devBin` substitution takes it aside: the substitute is built from somewhere the tree hash does not describe,
+ * so a pass by it is not a pass by the command the key names.
+ */
+function resolveCacheKey(options: {
+  anchorDir: string;
+  command: string;
+  commandString: string;
+  env: NodeJS.ProcessEnv;
+  monorepoRoot: string;
+  snapshot: TreeSnapshot | undefined;
+  stderr: Writable;
+  substitution: string | undefined;
+}): string | undefined {
+  const { env, snapshot, stderr, substitution } = options;
+  if (snapshot === undefined) {
+    return undefined;
+  }
+  if (substitution !== undefined) {
+    writeDebugNote(`gate disabled: devBin substituted \`${substitution}\``, env, stderr);
+    return undefined;
+  }
+
+  const result = computeCacheKey({
+    anchorDir: options.anchorDir,
+    command: options.command,
+    commandString: options.commandString,
+    env,
+    monorepoRoot: options.monorepoRoot,
+    nmrVersion: VERSION,
+    snapshot,
+  });
+  if (!result.ok) {
+    writeDebugNote(`gate disabled: ${result.reason}`, env, stderr);
+    return undefined;
+  }
+
+  return result.key;
+}
+
+/**
+ * Returns the line a skipped command leaves behind when a recorded pass covers this invocation, or `undefined`
+ * when the command has to run. A key match alone is not a pass: build output is git-ignored, so the tree hash
+ * says nothing about whether it is still on disk, and the run that follows a missing-output miss restores it.
+ */
+async function lookUpRecordedPass(options: {
+  anchorDir: string;
+  command: string;
+  config: NmrConfig;
+  env: NodeJS.ProcessEnv;
+  key: string;
+  monorepoRoot: string;
+  stderr: Writable;
+}): Promise<string | undefined> {
+  const { anchorDir, command, env, key, monorepoRoot, stderr } = options;
+
+  const entry = await readCheckCacheEntry({ anchorDir, command, monorepoRoot });
+  if (entry === undefined) {
+    writeDebugNote(`running ${command}: no pass recorded for this scope`, env, stderr);
+    return undefined;
+  }
+  if (entry.key !== key) {
+    writeDebugNote(`running ${command}: the tree or its inputs changed since the last pass`, env, stderr);
+    return undefined;
+  }
+
+  const outputPresent = await hasCompleteBuildOutput(monorepoRoot, options.config);
+  if (!outputPresent.ok) {
+    writeDebugNote(`running ${command}: ${outputPresent.reason}`, env, stderr);
+    return undefined;
+  }
+
+  return formatSkipLine(command, entry, Date.now());
+}
+
+/**
+ * Records a pass, unless the chain moved the tree it was asked about while it ran: a check that rewrites a file
+ * describes a tree that no longer exists, and recording it would certify content nothing ran against. The
+ * recorded key is the one the snapshot produced, so every entry from one invocation refers to one tree.
+ *
+ * A cache that cannot be written is not worth failing a green run over, so that failure goes to the debug note.
+ */
+async function recordPass(options: {
+  anchorDir: string;
+  command: string;
+  commandString: string;
+  durationMs: number;
+  env: NodeJS.ProcessEnv;
+  key: string;
+  monorepoRoot: string;
+  snapshot: TreeSnapshot;
+  stderr: Writable;
+}): Promise<void> {
+  const { anchorDir, command, env, monorepoRoot, snapshot, stderr } = options;
+
+  // Hashed afresh rather than inherited: an inherited snapshot is the observation this is meant to re-test.
+  const current = resolveTreeSnapshot({ monorepoRoot, env: {} });
+  if (!current.ok) {
+    writeDebugNote(`not recording ${command}: ${current.reason}`, env, stderr);
+    return;
+  }
+  if (current.snapshot.hash !== snapshot.hash) {
+    writeDebugNote(`not recording ${command}: the tree changed while it ran`, env, stderr);
+    return;
+  }
+
+  try {
+    await writeCheckCacheEntry({
+      anchorDir,
+      command,
+      monorepoRoot,
+      entry: {
+        key: options.key,
+        treeHash: snapshot.hash,
+        headSha: snapshot.headSha,
+        commandString: options.commandString,
+        nmrVersion: VERSION,
+        nodeVersion: CURRENT_RUNTIME.nodeVersion,
+        durationMs: options.durationMs,
+        recordedAt: new Date().toISOString(),
+      },
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    writeDebugNote(`could not record ${command}: ${message}`, env, stderr);
+  }
+}
+
+/**
+ * Runs the resolved chain behind the check-result cache: skips it when a recorded pass covers this invocation,
+ * and records a pass when one is earned. Returns the exit code either way.
+ *
+ * The override notice waits until the command is going to run, because naming the script that stands in for a
+ * built-in says nothing useful about an invocation that skipped it.
+ */
+async function runGated(options: {
+  anchorDir: string;
+  command: string;
+  commandString: string;
+  config: NmrConfig;
+  env: NodeJS.ProcessEnv;
+  key: string | undefined;
+  monorepoRoot: string;
+  noCache: boolean;
+  overrideNotice: string | undefined;
+  quiet: boolean;
+  runOptions: RunCommandOptions;
+  snapshot: TreeSnapshot | undefined;
+  stderr: Writable;
+  stdout: Writable;
+}): Promise<number> {
+  const { anchorDir, command, commandString, env, key, monorepoRoot, snapshot, stderr, stdout } = options;
+  const gated = key !== undefined && snapshot !== undefined;
+
+  if (gated && !options.noCache) {
+    const skipLine = await lookUpRecordedPass({
+      anchorDir,
+      command,
+      config: options.config,
+      env,
+      key,
+      monorepoRoot,
+      stderr,
+    });
+    if (skipLine !== undefined) {
+      if (!options.quiet) {
+        stdout.write(`${skipLine}\n`);
+      }
+      return 0;
+    }
+  }
+
+  if (options.overrideNotice !== undefined) {
+    stdout.write(options.overrideNotice);
+  }
+
+  const startedAt = Date.now();
+  const exitCode = runCommand(commandString, anchorDir, options.runOptions);
+
+  if (exitCode === 0 && gated) {
+    await recordPass({
+      anchorDir,
+      command,
+      commandString,
+      durationMs: Date.now() - startedAt,
+      env,
+      key,
+      monorepoRoot,
+      snapshot,
+      stderr,
+    });
+  }
+
+  return exitCode;
 }
 
 /**

@@ -117,7 +117,8 @@ const INSTALL_FINGERPRINT_FILES = [
 /** Characters a command name may contribute to a file name; every other character becomes a hyphen. */
 const UNSAFE_SLUG_CHARACTERS = /[^\w.-]+/g;
 
-const CURRENT_RUNTIME: RuntimeIdentity = {
+/** The interpreter this process is running on, folded into every key and recorded alongside every pass. */
+export const CURRENT_RUNTIME: RuntimeIdentity = {
   arch: process.arch,
   nodeVersion: process.version,
   platform: process.platform,
