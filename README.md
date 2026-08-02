@@ -11,27 +11,20 @@
 
 ## Getting started
 
-This project uses [pnpm](https://github.com/pnpm/pnpm) and NodeJS. The versions of each are set in `.tool-versions`.
+### Prerequisites
 
-If you don't have pnpm installed, it is recommended that you use the [ASDF runtime manager](https://asdf-vm.com/) to install it. For alternative methods, see the [pnpm installation instructions](https://pnpm.io/installation).
+- **Node** -- the version is pinned in `.tool-versions`, which [asdf](https://asdf-vm.com/) and [mise](https://mise.jdx.dev/) both read.
+- **pnpm** -- the version is pinned by the `packageManager` field in the root `package.json`. [Corepack](https://github.com/nodejs/corepack) reads that field and gives you the matching version, so it is the method least likely to drift from the repo; its README covers installation. Any [other method](https://pnpm.io/installation) works too.
 
-```shell
-# Install ASDF runtime-version manager
-git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.10.2
-# OR (not tested)
-brew install asdf
-
-# Install pnpm
-asdf plugin add pnpm
-asdf install pnpm 7.21.0
-```
-
-You can also use ASDF to install the correct version of Node:
+### Set up a checkout
 
 ```shell
-asdf plugin add nodejs
-asdf install nodejs 18.12.1
+pnpm install
+pnpm run bootstrap
+pnpm exec nmr build
 ```
+
+`nmr` is both a package in this repo and the runner for its scripts, so a fresh checkout has to build it before `nmr`, Vitest, or Prettier will run. `bootstrap` does that, and it is the one script invoked through `pnpm run` rather than `nmr`. The `nmr build` that follows covers the remaining packages, which some tests import.
 
 ## Recommended setup
 
