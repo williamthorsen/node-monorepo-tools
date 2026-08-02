@@ -11,11 +11,11 @@ import {
   resolveCacheDir,
   resolveCacheEntryPath,
   writeCacheEntry,
-} from '../cacheStore.ts';
+} from '../cache-store.ts';
 
 const TOOL = 'test-tool';
 
-describe('cacheStore', () => {
+describe('cache-store', () => {
   let root: string;
 
   beforeEach(() => {

@@ -58,9 +58,8 @@ export async function runClean(cwd: string = process.cwd()): Promise<void> {
     return;
   }
 
-  // Every clean clears the whole table, whatever scope it was invoked at. A check result records the tree it
-  // passed on, not the package it ran in, so clearing one package's entries would leave a repo half-distrusted
-  // -- which is never what someone reaching for `clean` meant.
+  // Cleared repo-wide, whatever scope the clean was invoked at: a check result records the tree it passed on,
+  // not the package it ran in, so one package's entries are not separable from the rest.
   await clearCheckCache(monorepoRoot);
 
   const workspacePackageDirs = getWorkspacePackageDirs(monorepoRoot);
@@ -73,11 +72,12 @@ export async function runClean(cwd: string = process.cwd()): Promise<void> {
   await sweepWorkspace(monorepoRoot, workspacePackageDirs);
 }
 
+// region | Helpers
+
 /** Removes every recorded check result for `scopeDir`, so nothing survives to make the next check skip. */
 async function clearCheckCache(scopeDir: string): Promise<void> {
   await removeCheckCache(scopeDir);
 
-  // Unqualified by a package name, because the table it removes is the whole repository's.
   console.info(`${CLEAN_ICON} Removed all recorded check results.`);
 }
 
@@ -120,3 +120,5 @@ async function sweepWorkspace(monorepoRoot: string, workspacePackageDirs: string
     }
   }
 }
+
+// endregion | Helpers

@@ -4,8 +4,8 @@ import { existsSync, lstatSync, readFileSync, readlinkSync } from 'node:fs';
 import path from 'node:path';
 
 /**
- * A whole-repo content hash, or the reason one could not be produced. Every degraded condition -- no repository,
- * no commit, a git failure, a tree this hash cannot describe -- reports `ok: false` rather than a hash a caller
+ * A whole-repo content hash, or the reason one could not be produced. Every degraded condition (no repository,
+ * no commit, a git failure, a tree this hash cannot describe) reports `ok: false` rather than a hash a caller
  * might act on. A caller that gates work on the hash therefore does the work whenever the hash is unavailable.
  */
 export type WorkingTreeHashResult =
@@ -175,6 +175,14 @@ function collectChangedPaths(statusOutput: string): ChangedPathsResult {
   return { ok: true, paths };
 }
 
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function digestBuffer(buffer: Buffer): string {
+  return createHash('sha256').update(buffer).digest('hex');
+}
+
 /**
  * Digests one changed path's current content. A path git named but that is no longer on disk folds as absent,
  * which is what makes a deletion move the hash. A path that exists but cannot be read, or that is neither a
@@ -207,14 +215,6 @@ function digestPathContent(toplevel: string, relativePath: string): PathContentR
 
   // A directory here is an untracked repository, which git reports as a single entry and does not look inside.
   return { ok: false, reason: `${relativePath} is neither a file nor a symlink, so its content is not hashable` };
-}
-
-function describeError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function digestBuffer(buffer: Buffer): string {
-  return createHash('sha256').update(buffer).digest('hex');
 }
 
 /** Returns the space-separated field at `fieldIndex`, or `undefined` when the record has no such field. */

@@ -140,7 +140,7 @@ describe('check-cache', () => {
     });
 
     it('hashes the tree itself when no parent passed one down', () => {
-      // The fixture is no git repository, so hashing refuses -- which is what disables the gate.
+      // The fixture is no git repository, so hashing refuses, which is what disables the gate.
       expect(resolveTreeSnapshot({ monorepoRoot: root, env: {} })).toStrictEqual({
         ok: false,
         reason: expect.stringContaining('not a git repository'),
@@ -394,19 +394,19 @@ function scaffoldWorkspace(root: string): { a: string; b: string } {
   return { a, b };
 }
 
+/** Writes the pnpm files the install fingerprint reads. */
+function writeInstallFingerprint(root: string): void {
+  fs.mkdirSync(path.join(root, 'node_modules', '.pnpm'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'node_modules', '.modules.yaml'), 'hoistPattern:\n  - "types"\n');
+  fs.writeFileSync(path.join(root, 'node_modules', '.pnpm', 'lock.yaml'), 'lockfileVersion: "9.0"\n');
+}
+
 /** Writes a package manifest, optionally declaring scripts that override the built-in build. */
 function writePackageJson(dir: string, scripts?: Record<string, string>, name = path.basename(dir)): void {
   fs.writeFileSync(
     path.join(dir, 'package.json'),
     JSON.stringify({ name, type: 'module', ...(scripts && { scripts }) }),
   );
-}
-
-/** Writes the pnpm files the install fingerprint reads. */
-function writeInstallFingerprint(root: string): void {
-  fs.mkdirSync(path.join(root, 'node_modules', '.pnpm'), { recursive: true });
-  fs.writeFileSync(path.join(root, 'node_modules', '.modules.yaml'), 'hoistPattern:\n  - "types"\n');
-  fs.writeFileSync(path.join(root, 'node_modules', '.pnpm', 'lock.yaml'), 'lockfileVersion: "9.0"\n');
 }
 
 // endregion | Helpers

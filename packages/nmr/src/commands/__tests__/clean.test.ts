@@ -148,8 +148,7 @@ describe(runClean, () => {
   });
 
   it('clears the whole table when run from inside one package', async () => {
-    // A check result records the tree it passed on, not the package it ran in, so clearing one package's
-    // entries would leave the repo half-distrusted -- never what someone reaching for `clean` meant.
+    // `b` is the package the invocation never enters, so its entry is what proves the clearing is repo-wide.
     const { a, b } = scaffoldWorkspace(root);
     await recordCheckResult(root, a, 'check');
     await recordCheckResult(root, b, 'check');
@@ -186,6 +185,11 @@ describe(runClean, () => {
   });
 });
 
+/** Returns true if the `dist` directory exists. */
+function hasOutput(dir: string): boolean {
+  return fs.existsSync(path.join(dir, 'dist'));
+}
+
 /** Records a check result, standing in for a green run at that scope. */
 async function recordCheckResult(monorepoRoot: string, anchorDir: string, command: string): Promise<void> {
   await writeCheckCacheEntry({
@@ -203,11 +207,6 @@ async function recordCheckResult(monorepoRoot: string, anchorDir: string, comman
       recordedAt: '2026-08-02T12:00:00.000Z',
     },
   });
-}
-
-/** Returns true if the `dist` directory exists. */
-function hasOutput(dir: string): boolean {
-  return fs.existsSync(path.join(dir, 'dist'));
 }
 
 /** Writes a package that looks freshly built: sources, emitted output, and a build-cache entry. */

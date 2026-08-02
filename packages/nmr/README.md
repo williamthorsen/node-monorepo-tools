@@ -218,7 +218,7 @@ $ nmr ci
 
 Composite commands expand into child `nmr` processes, so one green `nmr ci` records a pass for every cacheable command in the chain, at every scope it ran at. A later `nmr check`, `nmr typecheck`, or `nmr -F core test` on the same tree skips too. The skip line is suppressed by `-q`.
 
-The cache is a working-tree cache, not a build cache: it answers "has this exact tree already passed this check?" and nothing else. It is also local to one checkout — the install fingerprint in its key is machine-specific — so it saves repeated work in a working copy rather than sharing results across machines or with CI.
+The cache is a working-tree cache, not a build cache: it answers "has this exact tree already passed this check?" and nothing else. It is also local to one checkout (the install fingerprint in its key is machine-specific), so it saves repeated work in a working copy rather than sharing results across machines or with CI.
 
 ### What is cached
 
@@ -235,11 +235,11 @@ Everything else runs every time:
 
 ### The exit-status-only contract
 
-**A cacheable name promises that its whole contribution is an exit status** — through its entire chain, `:pre` and `:post` hooks included. A hit skips that chain wholesale, so any file a cacheable command was relied on to produce is a file that will not appear.
+**A cacheable name promises that its whole contribution is an exit status**, through its entire chain, `:pre` and `:post` hooks included. A hit skips that chain wholesale, so any file a cacheable command was relied on to produce is a file that will not appear.
 
 `test:coverage` is cacheable on exactly this reading: what it contributes is the pass, not the `coverage/` directory, which a skipped run leaves as whatever the last real run wrote. Read `coverage/` after a `test:coverage` that may have skipped, and it may be stale; `--no-cache` is how you insist on a fresh one.
 
-Overriding a cacheable name — in `package.json` or in `workspaceScripts` — inherits its cacheability. An override that writes something anyone depends on belongs in `excludeCommands`.
+Overriding a cacheable name, in `package.json` or in `workspaceScripts`, inherits its cacheability. An override that writes something anyone depends on belongs in `excludeCommands`.
 
 ### What the key is made of
 
@@ -251,7 +251,7 @@ A hit requires all of these to match the run that recorded the pass:
 - **What pnpm has installed**, so an install, a prune, or a lockfile change forces a re-run.
 - **`TZ`, `LANG`, `LC_ALL`, and `NODE_OPTIONS`.** This set is fixed, so two machines that differ only in shell decoration still agree.
 
-A hit additionally requires the build output of every package nmr's own build covers to be present. Output is git-ignored, so its removal moves no hash — without this probe, a cached `ci` would return green over a repository whose `dist` had been deleted. A package that overrides `build` or `compile` emits on terms nmr does not know and is exempt.
+A hit additionally requires the build output of every package nmr's own build covers to be present. Output is git-ignored, so its removal moves no hash; without this probe, a cached `ci` would return green over a repository whose `dist` had been deleted. A package that overrides `build` or `compile` emits on terms nmr does not know and is exempt.
 
 A pass is recorded only when the command exits 0, only when the tree still matches the one the run started against, and never for a run that executed nothing (a `""`/`":"` skip override, or an `NMR_RUN_IF_PRESENT` miss).
 

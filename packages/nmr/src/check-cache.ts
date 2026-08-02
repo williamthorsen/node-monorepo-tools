@@ -47,14 +47,15 @@ export interface TreeSnapshot {
   headSha: string;
 }
 
+/** The interpreter this process is running on, folded into every key and recorded alongside every pass. */
+export const CURRENT_RUNTIME: RuntimeIdentity = {
+  arch: process.arch,
+  nodeVersion: process.version,
+  platform: process.platform,
+};
+
 /** Set to `1` to hear why the gate did not skip, or why it is disabled. */
 export const DEBUG_ENV_VAR = 'NMR_DEBUG';
-
-/** Set to `1` for the standing equivalent of `--no-cache`: skip the lookup, still record on success. */
-export const NO_CACHE_ENV_VAR = 'NMR_NO_CACHE';
-
-/** Carries the top-level tree snapshot down the spawned chain, so one invocation hashes the tree once. */
-export const TREE_SNAPSHOT_ENV_VAR = 'NMR_TREE_SNAPSHOT';
 
 /**
  * The commands cacheable without configuration: those whose whole contribution is an exit status, and that
@@ -89,21 +90,17 @@ export const DEFAULT_CACHEABLE_COMMANDS = [
   'typecheck',
 ];
 
-/** Names the fold. Bump it whenever an ingredient is added or removed, so older entries read as misses. */
-const KEY_FORMAT = 'nmr-check-cache-v1';
+/** Set to `1` for the standing equivalent of `--no-cache`: skip the lookup, still record on success. */
+export const NO_CACHE_ENV_VAR = 'NMR_NO_CACHE';
 
-/** The tool whose cache directory holds check results. */
-const CACHE_TOOL = 'nmr-check';
+/** Carries the top-level tree snapshot down the spawned chain, so one invocation hashes the tree once. */
+export const TREE_SNAPSHOT_ENV_VAR = 'NMR_TREE_SNAPSHOT';
 
 /** The default `compile` script: nmr's own build. A package resolving to it is one the presence probe covers. */
 const BUILT_IN_COMPILE = 'nmr-compile';
 
-/**
- * Environment variables a check can read its way to a different conclusion through. A repo needing more folds
- * them in by excluding the affected command rather than by extending this list, which stays fixed so that the
- * key is the same on two machines that merely differ in shell decoration.
- */
-const KEYED_ENV_VARS = ['LANG', 'LC_ALL', 'NODE_OPTIONS', 'TZ'];
+/** The tool whose cache directory holds check results. */
+const CACHE_TOOL = 'nmr-check';
 
 /**
  * The pnpm files that together describe what is installed. Both are internal to pnpm; either one going missing
@@ -114,15 +111,18 @@ const INSTALL_FINGERPRINT_FILES = [
   path.join('node_modules', '.pnpm', 'lock.yaml'),
 ];
 
+/** Names the fold. Bump it whenever an ingredient is added or removed, so older entries read as misses. */
+const KEY_FORMAT = 'nmr-check-cache-v1';
+
+/**
+ * Environment variables a check can read its way to a different conclusion through. A repo needing more folds
+ * them in by excluding the affected command rather than by extending this list, which stays fixed so that the
+ * key is the same on two machines that merely differ in shell decoration.
+ */
+const KEYED_ENV_VARS = ['LANG', 'LC_ALL', 'NODE_OPTIONS', 'TZ'];
+
 /** Characters a command name may contribute to a file name; every other character becomes a hyphen. */
 const UNSAFE_SLUG_CHARACTERS = /[^\w.-]+/g;
-
-/** The interpreter this process is running on, folded into every key and recorded alongside every pass. */
-export const CURRENT_RUNTIME: RuntimeIdentity = {
-  arch: process.arch,
-  nodeVersion: process.version,
-  platform: process.platform,
-};
 
 /**
  * Folds everything that can change what a command concludes into one key: the tree's content, the command

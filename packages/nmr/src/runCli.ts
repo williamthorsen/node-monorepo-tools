@@ -141,7 +141,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     ? mainCommand
     : wrapWithHooks(command, mainCommand, registry, anchorDir, parsed.workspaceRoot);
 
-  // The key waits until the whole chain is known, so it describes what would actually run -- the hooks wrapped
+  // The key waits until the whole chain is known, so it describes what would actually run: the hooks wrapped
   // around the command included.
   const key = resolveCacheKey({
     anchorDir,
@@ -174,6 +174,8 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   return { exitCode };
 }
 
+// region | Helpers
+
 /** @internal */
 interface ParsedArgs {
   filter?: string;
@@ -188,6 +190,164 @@ interface ParsedArgs {
 }
 
 type ParseResult = { ok: true; parsed: ParsedArgs } | { ok: false; error: string };
+
+/**
+ * Builds the environment every process below this one inherits. The snapshot travels down so a chain of nmr
+ * invocations gates on one observation of the tree, and a bypass travels down so it covers the whole chain
+ * rather than only the command it was typed next to.
+ */
+function buildChildEnv(
+  env: NodeJS.ProcessEnv,
+  snapshot: TreeSnapshot | undefined,
+  noCache: boolean,
+): NodeJS.ProcessEnv {
+  return {
+    ...env,
+    ...(snapshot !== undefined && { [TREE_SNAPSHOT_ENV_VAR]: encodeTreeSnapshot(snapshot) }),
+    ...(noCache && { [NO_CACHE_ENV_VAR]: '1' }),
+  };
+}
+
+/**
+ * Returns the line announcing that a `package.json` script is standing in for a built-in, or `undefined` when
+ * none is due. Only a script replacing a name the registry already defines is worth announcing; an ordinary
+ * tier-3 entry that happens to resolve is not standing in for anything.
+ */
+function formatOverrideNotice(
+  resolved: ResolvedScript,
+  registry: ScriptRegistry,
+  command: string,
+  anchorDir: string,
+  quiet: boolean,
+): string | undefined {
+  if (quiet || resolved.source !== 'package' || registry[command] === undefined) {
+    return undefined;
+  }
+
+  return `📦 ${path.basename(anchorDir)}: Using override script: ${resolved.command}\n`;
+}
+
+/**
+ * Returns the exit code to use when a resolved command is an explicit skip
+ * (`""` or `":"`), writing the skip message to `stdout` unless quiet. Returns
+ * undefined when the command is not a skip, indicating execution should proceed.
+ */
+function handleSkipMessage(
+  resolvedCommand: string,
+  anchorDir: string,
+  quiet: boolean,
+  stdout: Writable,
+): number | undefined {
+  if (resolvedCommand === '') {
+    if (!quiet) {
+      stdout.write(`⛔ ${path.basename(anchorDir)}: Override script is defined but empty. Skipping.\n`);
+    }
+    return 0;
+  }
+  if (resolvedCommand === ':') {
+    if (!quiet) {
+      stdout.write(`⛔ ${path.basename(anchorDir)}: Override script is a no-op. Skipping.\n`);
+    }
+    return 0;
+  }
+  return undefined;
+}
+
+/**
+ * Returns true when a hook script resolves to a runnable command.
+ * A hook is runnable when it resolves and the resolved value is neither
+ * `""` nor `":"` (both of which mean "skip").
+ */
+function hasRunnableHook(
+  hookName: string,
+  registry: ScriptRegistry,
+  anchorDir: string,
+  workspaceRoot: boolean,
+): boolean {
+  const resolved = resolveScript(hookName, registry, anchorDir, workspaceRoot);
+  if (!resolved) return false;
+  return resolved.command !== '' && resolved.command !== ':';
+}
+
+/**
+ * Returns the line a skipped command leaves behind when a recorded pass covers this invocation, or `undefined`
+ * when the command has to run. A key match alone is not a pass: the build output the key says nothing about
+ * has to still be on disk, and the run that follows a missing-output miss is what restores it.
+ */
+async function lookUpRecordedPass(options: {
+  anchorDir: string;
+  command: string;
+  config: NmrConfig;
+  env: NodeJS.ProcessEnv;
+  key: string;
+  monorepoRoot: string;
+  stderr: Writable;
+}): Promise<string | undefined> {
+  const { anchorDir, command, env, key, monorepoRoot, stderr } = options;
+
+  const entry = await readCheckCacheEntry({ anchorDir, command, monorepoRoot });
+  if (entry === undefined) {
+    writeDebugNote(`running ${command}: no pass recorded for this scope`, env, stderr);
+    return undefined;
+  }
+  if (entry.key !== key) {
+    writeDebugNote(`running ${command}: the tree or its inputs changed since the last pass`, env, stderr);
+    return undefined;
+  }
+
+  const outputPresent = await hasCompleteBuildOutput(monorepoRoot, options.config);
+  if (!outputPresent.ok) {
+    writeDebugNote(`running ${command}: ${outputPresent.reason}`, env, stderr);
+    return undefined;
+  }
+
+  return formatSkipLine(command, entry, Date.now());
+}
+
+/**
+ * Decides whether the check-result cache covers this invocation, and takes the tree snapshot it would gate on.
+ * Returns `undefined` when the gate stands aside, which always means the command runs.
+ *
+ * Decided before anything is resolved or spawned, so that a delegating invocation hands the snapshot to its
+ * children rather than leaving each of them to hash the tree again. A hook leaf is out of scope because it is
+ * not a command anyone asks for: it runs as part of the chain the gate already covers. Arguments are out of
+ * scope because they change what a command does in ways the gate has no way to read.
+ */
+function openGate(options: {
+  command: string;
+  config: NmrConfig;
+  env: NodeJS.ProcessEnv;
+  monorepoRoot: string;
+  passthrough: string[];
+  stderr: Writable;
+}): TreeSnapshot | undefined {
+  const { command, config, env, monorepoRoot, passthrough, stderr } = options;
+
+  const covered =
+    !isHookName(command) &&
+    config.checkCache?.enabled !== false &&
+    resolveCacheableCommands(config.checkCache).has(command);
+  if (!covered) {
+    return undefined;
+  }
+
+  // A `--no-cache` past the command name is an argument to that command, and is passed on as one. Saying so is
+  // all that stands between a developer and a bypass they believe happened.
+  if (passthrough.includes('--no-cache')) {
+    stderr.write(`${formatMisplacedNoCacheWarning(command)}\n`);
+  }
+  if (passthrough.length > 0) {
+    return undefined;
+  }
+
+  const snapshot = resolveTreeSnapshot({ monorepoRoot, env });
+  if (!snapshot.ok) {
+    writeDebugNote(`gate disabled: ${snapshot.reason}`, env, stderr);
+    return undefined;
+  }
+
+  return snapshot.snapshot;
+}
 
 function parseArgs(args: string[]): ParseResult {
   const parsed: ParsedArgs = {
@@ -256,189 +416,6 @@ function parseArgs(args: string[]): ParseResult {
 }
 
 /**
- * Returns the exit code to use when a resolved command is an explicit skip
- * (`""` or `":"`), writing the skip message to `stdout` unless quiet. Returns
- * undefined when the command is not a skip, indicating execution should proceed.
- */
-function handleSkipMessage(
-  resolvedCommand: string,
-  anchorDir: string,
-  quiet: boolean,
-  stdout: Writable,
-): number | undefined {
-  if (resolvedCommand === '') {
-    if (!quiet) {
-      stdout.write(`⛔ ${path.basename(anchorDir)}: Override script is defined but empty. Skipping.\n`);
-    }
-    return 0;
-  }
-  if (resolvedCommand === ':') {
-    if (!quiet) {
-      stdout.write(`⛔ ${path.basename(anchorDir)}: Override script is a no-op. Skipping.\n`);
-    }
-    return 0;
-  }
-  return undefined;
-}
-
-/**
- * Builds the environment every process below this one inherits. The snapshot travels down so a chain of nmr
- * invocations gates on one observation of the tree, and a bypass travels down so it covers the whole chain
- * rather than only the command it was typed next to.
- */
-function buildChildEnv(
-  env: NodeJS.ProcessEnv,
-  snapshot: TreeSnapshot | undefined,
-  noCache: boolean,
-): NodeJS.ProcessEnv {
-  return {
-    ...env,
-    ...(snapshot !== undefined && { [TREE_SNAPSHOT_ENV_VAR]: encodeTreeSnapshot(snapshot) }),
-    ...(noCache && { [NO_CACHE_ENV_VAR]: '1' }),
-  };
-}
-
-/**
- * Returns the line announcing that a `package.json` script is standing in for a built-in, or `undefined` when
- * none is due. Only a script replacing a name the registry already defines is worth announcing; an ordinary
- * tier-3 entry that happens to resolve is not standing in for anything.
- */
-function formatOverrideNotice(
-  resolved: ResolvedScript,
-  registry: ScriptRegistry,
-  command: string,
-  anchorDir: string,
-  quiet: boolean,
-): string | undefined {
-  if (quiet || resolved.source !== 'package' || registry[command] === undefined) {
-    return undefined;
-  }
-
-  return `📦 ${path.basename(anchorDir)}: Using override script: ${resolved.command}\n`;
-}
-
-/**
- * Decides whether the check-result cache covers this invocation, and takes the tree snapshot it would gate on.
- * Returns `undefined` when the gate stands aside, which always means the command runs.
- *
- * Decided before anything is resolved or spawned, so that a delegating invocation hands the snapshot to its
- * children rather than leaving each of them to hash the tree again. A hook leaf is out of scope because it is
- * not a command anyone asks for: it runs as part of the chain the gate already covers. Arguments are out of
- * scope because they change what a command does in ways the gate has no way to read.
- */
-function openGate(options: {
-  command: string;
-  config: NmrConfig;
-  env: NodeJS.ProcessEnv;
-  monorepoRoot: string;
-  passthrough: string[];
-  stderr: Writable;
-}): TreeSnapshot | undefined {
-  const { command, config, env, monorepoRoot, passthrough, stderr } = options;
-
-  const covered =
-    !isHookName(command) &&
-    config.checkCache?.enabled !== false &&
-    resolveCacheableCommands(config.checkCache).has(command);
-  if (!covered) {
-    return undefined;
-  }
-
-  // A `--no-cache` past the command name is an argument to that command, and is passed on as one. Saying so is
-  // all that stands between a developer and a bypass they believe happened.
-  if (passthrough.includes('--no-cache')) {
-    stderr.write(`${formatMisplacedNoCacheWarning(command)}\n`);
-  }
-  if (passthrough.length > 0) {
-    return undefined;
-  }
-
-  const snapshot = resolveTreeSnapshot({ monorepoRoot, env });
-  if (!snapshot.ok) {
-    writeDebugNote(`gate disabled: ${snapshot.reason}`, env, stderr);
-    return undefined;
-  }
-
-  return snapshot.snapshot;
-}
-
-/**
- * Computes the key this invocation would be recorded under, or `undefined` when the gate stands aside. A
- * `devBin` substitution takes it aside: the substitute is built from somewhere the tree hash does not describe,
- * so a pass by it is not a pass by the command the key names.
- */
-function resolveCacheKey(options: {
-  anchorDir: string;
-  command: string;
-  commandString: string;
-  env: NodeJS.ProcessEnv;
-  monorepoRoot: string;
-  snapshot: TreeSnapshot | undefined;
-  stderr: Writable;
-  substitution: string | undefined;
-}): string | undefined {
-  const { env, snapshot, stderr, substitution } = options;
-  if (snapshot === undefined) {
-    return undefined;
-  }
-  if (substitution !== undefined) {
-    writeDebugNote(`gate disabled: devBin substituted \`${substitution}\``, env, stderr);
-    return undefined;
-  }
-
-  const result = computeCacheKey({
-    anchorDir: options.anchorDir,
-    command: options.command,
-    commandString: options.commandString,
-    env,
-    monorepoRoot: options.monorepoRoot,
-    nmrVersion: VERSION,
-    snapshot,
-  });
-  if (!result.ok) {
-    writeDebugNote(`gate disabled: ${result.reason}`, env, stderr);
-    return undefined;
-  }
-
-  return result.key;
-}
-
-/**
- * Returns the line a skipped command leaves behind when a recorded pass covers this invocation, or `undefined`
- * when the command has to run. A key match alone is not a pass: build output is git-ignored, so the tree hash
- * says nothing about whether it is still on disk, and the run that follows a missing-output miss restores it.
- */
-async function lookUpRecordedPass(options: {
-  anchorDir: string;
-  command: string;
-  config: NmrConfig;
-  env: NodeJS.ProcessEnv;
-  key: string;
-  monorepoRoot: string;
-  stderr: Writable;
-}): Promise<string | undefined> {
-  const { anchorDir, command, env, key, monorepoRoot, stderr } = options;
-
-  const entry = await readCheckCacheEntry({ anchorDir, command, monorepoRoot });
-  if (entry === undefined) {
-    writeDebugNote(`running ${command}: no pass recorded for this scope`, env, stderr);
-    return undefined;
-  }
-  if (entry.key !== key) {
-    writeDebugNote(`running ${command}: the tree or its inputs changed since the last pass`, env, stderr);
-    return undefined;
-  }
-
-  const outputPresent = await hasCompleteBuildOutput(monorepoRoot, options.config);
-  if (!outputPresent.ok) {
-    writeDebugNote(`running ${command}: ${outputPresent.reason}`, env, stderr);
-    return undefined;
-  }
-
-  return formatSkipLine(command, entry, Date.now());
-}
-
-/**
  * Records a pass, unless the chain moved the tree it was asked about while it ran: a check that rewrites a file
  * describes a tree that no longer exists, and recording it would certify content nothing ran against. The
  * recorded key is the one the snapshot produced, so every entry from one invocation refers to one tree.
@@ -489,6 +466,47 @@ async function recordPass(options: {
     const message = error instanceof Error ? error.message : String(error);
     writeDebugNote(`could not record ${command}: ${message}`, env, stderr);
   }
+}
+
+/**
+ * Computes the key this invocation would be recorded under, or `undefined` when the gate stands aside. A
+ * `devBin` substitution takes it aside: the substitute is built from somewhere the tree hash does not describe,
+ * so a pass by it is not a pass by the command the key names.
+ */
+function resolveCacheKey(options: {
+  anchorDir: string;
+  command: string;
+  commandString: string;
+  env: NodeJS.ProcessEnv;
+  monorepoRoot: string;
+  snapshot: TreeSnapshot | undefined;
+  stderr: Writable;
+  substitution: string | undefined;
+}): string | undefined {
+  const { env, snapshot, stderr, substitution } = options;
+  if (snapshot === undefined) {
+    return undefined;
+  }
+  if (substitution !== undefined) {
+    writeDebugNote(`gate disabled: devBin substituted \`${substitution}\``, env, stderr);
+    return undefined;
+  }
+
+  const result = computeCacheKey({
+    anchorDir: options.anchorDir,
+    command: options.command,
+    commandString: options.commandString,
+    env,
+    monorepoRoot: options.monorepoRoot,
+    nmrVersion: VERSION,
+    snapshot,
+  });
+  if (!result.ok) {
+    writeDebugNote(`gate disabled: ${result.reason}`, env, stderr);
+    return undefined;
+  }
+
+  return result.key;
 }
 
 /**
@@ -560,6 +578,14 @@ async function runGated(options: {
 }
 
 /**
+ * Shell-escapes a single argument by wrapping in single quotes
+ * and escaping any embedded single quotes.
+ */
+function shellQuote(arg: string): string {
+  return "'" + arg.replace(/'/g, String.raw`'\''`) + "'";
+}
+
+/**
  * Wraps a resolved main command with `nmr <command>:pre` and `nmr <command>:post`
  * invocations when the corresponding hooks resolve to non-skip values.
  *
@@ -592,26 +618,4 @@ function wrapWithHooks(
   return segments.join(' && ');
 }
 
-/**
- * Returns true when a hook script resolves to a runnable command.
- * A hook is runnable when it resolves and the resolved value is neither
- * `""` nor `":"` (both of which mean "skip").
- */
-function hasRunnableHook(
-  hookName: string,
-  registry: ScriptRegistry,
-  anchorDir: string,
-  workspaceRoot: boolean,
-): boolean {
-  const resolved = resolveScript(hookName, registry, anchorDir, workspaceRoot);
-  if (!resolved) return false;
-  return resolved.command !== '' && resolved.command !== ':';
-}
-
-/**
- * Shell-escapes a single argument by wrapping in single quotes
- * and escaping any embedded single quotes.
- */
-function shellQuote(arg: string): string {
-  return "'" + arg.replace(/'/g, String.raw`'\''`) + "'";
-}
+// endregion | Helpers

@@ -69,12 +69,11 @@ export async function removeCacheDir(ref: CacheDirRef): Promise<void> {
 }
 
 /**
- * Resolves the absolute path of a tool's cache directory. The cache lives under the conventional
- * `node_modules/.cache/{tool}/` home rather than inside a build output directory, so it stays git-ignored and is
- * never swept into a published tarball by any `files` convention. The home is the nearest enclosing directory
- * that already has a `node_modules` — the scope's own when it has one, otherwise a hoisted ancestor (e.g. the
- * workspace root for a zero-dependency package) — which avoids materializing a `node_modules` solely to hold
- * the cache.
+ * Resolves the absolute path of a tool's cache directory. The conventional `node_modules/.cache/{tool}/` home is
+ * git-ignored and outside any `files` convention, so an entry never reaches a published tarball. The home is the
+ * nearest enclosing directory that already has a `node_modules`: the scope's own when it has one, otherwise a
+ * hoisted ancestor, such as the workspace root for a zero-dependency package. No `node_modules` is ever
+ * materialized solely to hold the cache.
  */
 export function resolveCacheDir(ref: CacheDirRef): string {
   const absoluteScopeDir = path.resolve(ref.scopeDir);

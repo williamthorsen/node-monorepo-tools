@@ -110,21 +110,6 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
 }
 
 /**
- * Reports whether the output a build of `packageDir` would produce is currently on disk. Shares the rule the
- * build itself applies, so a caller probing for output and the build deciding whether to rebuild cannot
- * disagree: a package whose entry points emit nothing expects no output, and reports present.
- */
-export async function hasBuildOutput(packageDir: string, options: BuildOptions = {}): Promise<boolean> {
-  const outdir = options.outdir ?? DEFAULT_OUTDIR;
-  const entryPoints = await glob(options.entryGlobs ?? DEFAULT_ENTRY_GLOBS, {
-    cwd: packageDir,
-    ignore: [...(options.ignorePatterns ?? DEFAULT_IGNORE_PATTERNS), ...(options.extraIgnorePatterns ?? [])],
-  });
-
-  return hasExpectedBuildOutput(packageDir, outdir, entryPoints);
-}
-
-/**
  * Produces a digest of the given files (paths and contents), the emit config, and the compiler version.
  * The file list is sorted so the digest is order-invariant, and each path is folded in so renames are detected.
  * The compiler version is included because the same sources can emit differently across TypeScript versions.
@@ -146,6 +131,21 @@ export async function computeBuildHash(
   hash.update('\0');
   hash.update(compilerVersion);
   return hash.digest('hex');
+}
+
+/**
+ * Reports whether the output a build of `packageDir` would produce is currently on disk. Shares the rule the
+ * build itself applies, so a caller probing for output and the build deciding whether to rebuild cannot
+ * disagree: a package whose entry points emit nothing expects no output, and reports present.
+ */
+export async function hasBuildOutput(packageDir: string, options: BuildOptions = {}): Promise<boolean> {
+  const outdir = options.outdir ?? DEFAULT_OUTDIR;
+  const entryPoints = await glob(options.entryGlobs ?? DEFAULT_ENTRY_GLOBS, {
+    cwd: packageDir,
+    ignore: [...(options.ignorePatterns ?? DEFAULT_IGNORE_PATTERNS), ...(options.extraIgnorePatterns ?? [])],
+  });
+
+  return hasExpectedBuildOutput(packageDir, outdir, entryPoints);
 }
 
 /**
@@ -440,10 +440,9 @@ function getModuleSpecifier(node: ts.Node): ts.StringLiteralLike | undefined {
  * into a readable base name, so packages sharing a hoisted `node_modules` never collide while the path
  * stays stable across runs for the same package.
  *
- * This duplicates `resolveCacheEntryPath` from `@williamthorsen/nmr-core`, which is deliberate and is
- * the one place in this file that may not be deduplicated. `cli-build.ts` is the build bootstrap:
- * nmr-core's own `prepare` runs it to build nmr-core, before nmr-core's `dist` exists, so nothing this
- * module's import graph reaches may resolve through that package.
+ * `cli-build.ts` is the build bootstrap: nmr-core's own `prepare` runs it to build nmr-core, before
+ * nmr-core's `dist` exists. Nothing this module's import graph reaches may therefore resolve through
+ * `@williamthorsen/nmr-core`, including the `resolveCacheEntryPath` that this function repeats.
  */
 export function resolveBuildCachePath(packageDir: string): string {
   const absolutePackageDir = path.resolve(packageDir);

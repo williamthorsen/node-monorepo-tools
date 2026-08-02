@@ -147,7 +147,7 @@ describe(hashWorkingTree, () => {
 
     it('agrees across two branches holding identical content', () => {
       // The commit's tree object is the base of the fold, so two histories that arrive at the same content
-      // hash alike -- which is what lets a rebase or an amended message leave the hash where it was.
+      // hash alike, which is what lets a rebase or an amended message leave the hash where it was.
       initRepo(repo);
       const onMain = hashOf(repo);
       git(repo, ['checkout', '-b', 'other']);
@@ -245,17 +245,6 @@ function makeTemporaryDir(): string {
   return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-tree-hash-')));
 }
 
-/**
- * Returns the leading character of every `--porcelain=v2` record git currently reports, so a test can pin which
- * record shape its fixture produces rather than assume it.
- */
-function statusRecordTypes(repo: string): string[] {
-  return git(repo, ['status', '--porcelain=v2', '-z', '--untracked-files=all'])
-    .split('\0')
-    .filter((record) => record !== '')
-    .map((record) => record.slice(0, 1));
-}
-
 /** Leaves the repository mid-merge with one conflicted path, and returns that path. */
 function startConflictingMerge(repo: string): string {
   const conflicted = path.join(repo, 'src', 'index.ts');
@@ -275,6 +264,17 @@ function startConflictingMerge(repo: string): string {
   }
 
   return conflicted;
+}
+
+/**
+ * Returns the leading character of every `--porcelain=v2` record git currently reports, so a test can pin which
+ * record shape its fixture produces rather than assume it.
+ */
+function statusRecordTypes(repo: string): string[] {
+  return git(repo, ['status', '--porcelain=v2', '-z', '--untracked-files=all'])
+    .split('\0')
+    .filter((record) => record !== '')
+    .map((record) => record.slice(0, 1));
 }
 
 // endregion | Helpers
