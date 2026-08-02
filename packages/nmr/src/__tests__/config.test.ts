@@ -4,7 +4,14 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { defineConfig, loadConfig } from '../config.ts';
+import { defineConfig, loadConfig, loadWorkspaceConfig } from '../config.ts';
+
+/** Writes a config file into `dir/.config/nmr.config.ts`, creating the directory. */
+function writeConfig(dir: string, source: string): void {
+  const configDir = path.join(dir, '.config');
+  fs.mkdirSync(configDir, { recursive: true });
+  fs.writeFileSync(path.join(configDir, 'nmr.config.ts'), source);
+}
 
 describe(defineConfig, () => {
   it('returns the config unchanged (identity function)', () => {
@@ -97,5 +104,56 @@ describe(loadConfig, () => {
     const config = await loadConfig(tmpDir);
     expect(config.devBin).toBeUndefined();
     expect(config.workspaceScripts).toStrictEqual({ hello: 'echo hello' });
+  });
+
+  it('loads build.extendIgnore', async () => {
+    writeConfig(tmpDir, `export default { build: { extendIgnore: ['**/fixtures/**'] } };`);
+
+    const config = await loadConfig(tmpDir);
+
+    expect(config.build).toStrictEqual({ extendIgnore: ['**/fixtures/**'] });
+  });
+
+  it('throws when build is not an object', async () => {
+    writeConfig(tmpDir, `export default { build: 'nope' };`);
+
+    await expect(loadConfig(tmpDir)).rejects.toThrow('`build` must be an object');
+  });
+
+  it('throws when build.extendIgnore is not an array of strings', async () => {
+    writeConfig(tmpDir, `export default { build: { extendIgnore: ['ok', 7] } };`);
+
+    await expect(loadConfig(tmpDir)).rejects.toThrow('`build.extendIgnore` must be a string[]');
+  });
+});
+
+describe(loadWorkspaceConfig, () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(os.tmpdir() + '/nmr-workspace-config-test-');
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('returns an empty config when the package has no config file', async () => {
+    expect(await loadWorkspaceConfig(tmpDir)).toStrictEqual({});
+  });
+
+  it('loads a config declaring build alone', async () => {
+    writeConfig(tmpDir, `export default { build: { extendIgnore: ['**/fixtures/**'] } };`);
+
+    const config = await loadWorkspaceConfig(tmpDir);
+
+    expect(config.build).toStrictEqual({ extendIgnore: ['**/fixtures/**'] });
+  });
+
+  it('throws naming every root-tier key the package config declares', async () => {
+    // Silently dropping these would leave the package running on settings its own config appears to set.
+    writeConfig(tmpDir, `export default { rootScripts: { a: 'x' }, devBin: { b: 'y' }, build: {} };`);
+
+    await expect(loadWorkspaceConfig(tmpDir)).rejects.toThrow('not devBin, rootScripts');
   });
 });
