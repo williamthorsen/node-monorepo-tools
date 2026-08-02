@@ -621,6 +621,30 @@ describe('buildPackage caching', () => {
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining('No changes detected'));
   });
 
+  it.each([
+    ['creating', undefined, `export default { build: { extendIgnore: ['**/a/**'] } };\n`],
+    ['editing', `export default { build: {} };\n`, `export default { build: { extendIgnore: ['**/a/**'] } };\n`],
+    ['deleting', `export default { build: { extendIgnore: ['**/a/**'] } };\n`, undefined],
+  ])('rebuilds after %s the package config', async (_action, before, after) => {
+    const configPath = path.join(dir, '.config', 'nmr.config.ts');
+    scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' });
+    fs.mkdirSync(path.join(dir, '.config'), { recursive: true });
+    if (before !== undefined) {
+      fs.writeFileSync(configPath, before);
+    }
+    await buildPackage(dir);
+    vi.mocked(console.info).mockClear();
+
+    if (after === undefined) {
+      fs.rmSync(configPath);
+    } else {
+      fs.writeFileSync(configPath, after);
+    }
+    await buildPackage(dir);
+
+    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Changes detected'));
+  });
+
   it('writes the cache under node_modules/.cache/nmr-compile, never inside dist', async () => {
     scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' });
 

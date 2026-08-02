@@ -6,6 +6,8 @@ import path from 'node:path';
 import { glob } from 'glob';
 import * as ts from 'typescript';
 
+import { resolveConfigPath } from '../config.ts';
+
 export interface BuildOptions {
   entryGlobs?: string[];
   /** Adds to the effective ignore set, whether that set is the default or an `ignore` override. */
@@ -77,7 +79,16 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
     cwd: packageDir,
     ignore: [...(options.ignore ?? DEFAULT_IGNORE), ...(options.extendIgnore ?? [])],
   });
-  const dependencies = ['package.json', ...resolveTsconfigChain(packageDir)];
+  // The config file joins the digest only when it exists: `computeBuildHash` reads every listed file, so an
+  // unconditional entry would fail every package that has none. Conditional entry still covers all three
+  // edits, because the file's path is hashed alongside its contents -- creating or deleting it moves the
+  // digest exactly as editing it does.
+  const configPath = resolveConfigPath(packageDir);
+  const dependencies = [
+    'package.json',
+    ...(existsSync(configPath) ? [path.relative(packageDir, configPath)] : []),
+    ...resolveTsconfigChain(packageDir),
+  ];
 
   const { changed, currentHash } = await detectBuildChanges(
     packageDir,

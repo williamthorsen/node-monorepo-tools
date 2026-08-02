@@ -40,6 +40,15 @@ export function defineConfig(config: NmrConfig): NmrConfig {
   return config;
 }
 
+/**
+ * Resolves the config-file path for a directory, whether that is the monorepo root or a package. Callers that
+ * only need to know whether a config exists -- the build, which folds it into its cache digest -- go through
+ * this rather than spelling the path again, so the two cannot drift into hashing a file nothing reads.
+ */
+export function resolveConfigPath(baseDir: string): string {
+  return path.join(baseDir, CONFIG_DIR, CONFIG_FILENAME);
+}
+
 /** Narrow an unknown value to a record of script entries. */
 function isScriptRecord(value: unknown): value is Record<string, string | string[]> {
   if (!isObject(value)) return false;
@@ -143,7 +152,7 @@ function validateConfig(value: unknown, configPath: string): NmrConfig {
  * doesn't exist.
  */
 export async function loadConfig(baseDir: string): Promise<NmrConfig> {
-  const configPath = path.join(baseDir, CONFIG_DIR, CONFIG_FILENAME);
+  const configPath = resolveConfigPath(baseDir);
 
   if (!existsSync(configPath)) {
     return {};
@@ -168,7 +177,7 @@ export async function loadWorkspaceConfig(packageDir: string): Promise<NmrConfig
   const unsupported = Object.keys(config).filter((key) => !WORKSPACE_CONFIG_KEYS.includes(key));
 
   if (unsupported.length > 0) {
-    const configPath = path.join(packageDir, CONFIG_DIR, CONFIG_FILENAME);
+    const configPath = resolveConfigPath(packageDir);
     throw new Error(
       `Invalid nmr config at ${configPath}: a package config honors ${WORKSPACE_CONFIG_KEYS.join(', ')} alone, ` +
         `not ${unsupported.toSorted().join(', ')}. Move those keys to the monorepo-root config.`,
