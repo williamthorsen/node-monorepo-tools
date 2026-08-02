@@ -9,6 +9,8 @@ export {
   writeCacheEntry,
 } from './cacheStore.ts';
 export { findPackageRoot } from './findPackageRoot.ts';
+export type { WorkingTreeHashResult } from './hashWorkingTree.ts';
+export { hashWorkingTree } from './hashWorkingTree.ts';
 export type {
   FlagDefinition,
   FlagSchema,
