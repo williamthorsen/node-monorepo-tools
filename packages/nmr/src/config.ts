@@ -1,7 +1,6 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-
-import { createJiti } from 'jiti';
+import { pathToFileURL } from 'node:url';
 
 import { isObject } from './helpers/type-guards.ts';
 
@@ -109,8 +108,9 @@ export async function loadConfig(monorepoRoot: string): Promise<NmrConfig> {
     return {};
   }
 
-  const jiti = createJiti(path.join(monorepoRoot, 'package.json'));
-  const loaded: unknown = await jiti.import(configPath, { default: true });
+  // Node type-strips `.ts` natively at this package's engines floor, so the config needs no transform step
+  // and no loader dependency. `import()` takes a URL, not a path: a bare Windows path parses as a scheme.
+  const imported: { default?: unknown } = await import(pathToFileURL(configPath).href);
 
-  return validateConfig(loaded, configPath);
+  return validateConfig(imported.default, configPath);
 }

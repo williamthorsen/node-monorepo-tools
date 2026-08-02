@@ -83,9 +83,6 @@ importers:
       glob:
         specifier: 13.0.6
         version: 13.0.6
-      jiti:
-        specifier: 2.7.0
-        version: 2.7.0
       prettier-plugin-sh:
         specifier: 0.19.0
         version: 0.19.0(prettier@3.9.6)
