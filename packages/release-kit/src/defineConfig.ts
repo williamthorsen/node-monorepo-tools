@@ -12,7 +12,7 @@ export type { LabelSpec, ReleaseKitConfig, RepoLabelsConfig } from './types.ts';
  *
  * Usage in `.config/release-kit.config.ts`:
  * ```ts
- * import { defineConfig } from '@williamthorsen/release-kit';
+ * import { defineConfig } from '@williamthorsen/release-kit/config';
  * export default defineConfig({ ... });
  * ```
  */

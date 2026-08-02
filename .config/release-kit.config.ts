@@ -1,4 +1,4 @@
-import { defineConfig } from '@williamthorsen/release-kit';
+import { defineConfig } from '@williamthorsen/release-kit/config';
 
 export default defineConfig({
   formatCommand: 'npx prettier --write',

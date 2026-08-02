@@ -6,7 +6,7 @@ describe(releaseConfigScript, () => {
   it('generates a defineConfig-wrapped config for monorepo type', () => {
     const script = releaseConfigScript('monorepo');
 
-    expect(script).toContain("import { defineConfig } from '@williamthorsen/release-kit'");
+    expect(script).toContain("import { defineConfig } from '@williamthorsen/release-kit/config'");
     expect(script).toContain('workspaces:');
     expect(script).toContain('shouldExclude');
     expect(script).toContain('workTypes:');
@@ -17,7 +17,7 @@ describe(releaseConfigScript, () => {
   it('generates a defineConfig-wrapped config for single-package type', () => {
     const script = releaseConfigScript('single-package');
 
-    expect(script).toContain("import { defineConfig } from '@williamthorsen/release-kit'");
+    expect(script).toContain("import { defineConfig } from '@williamthorsen/release-kit/config'");
     expect(script).toContain('workTypes:');
     expect(script).toContain("header: 'Performance'");
     expect(script).toContain('export default defineConfig({');

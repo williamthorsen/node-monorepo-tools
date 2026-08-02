@@ -3,7 +3,7 @@ import type { RepoType } from './detectRepoType.ts';
 /** Generate the `.config/release-kit.config.ts` starter config with TODOs for customization. */
 export function releaseConfigScript(repoType: RepoType): string {
   if (repoType === 'monorepo') {
-    return `import { defineConfig } from '@williamthorsen/release-kit';
+    return `import { defineConfig } from '@williamthorsen/release-kit/config';
 
 export default defineConfig({
   releaseNotes: {
@@ -26,7 +26,7 @@ export default defineConfig({
 `;
   }
 
-  return `import { defineConfig } from '@williamthorsen/release-kit';
+  return `import { defineConfig } from '@williamthorsen/release-kit/config';
 
 export default defineConfig({
   releaseNotes: {

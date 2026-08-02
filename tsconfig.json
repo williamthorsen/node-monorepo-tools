@@ -42,7 +42,7 @@
     // Report an error when a variable is declared but never used.
     "noUnusedLocals": true,
     "paths": {
-      "@williamthorsen/release-kit": ["./packages/release-kit/src/index.ts"],
+      "@williamthorsen/release-kit/config": ["./packages/release-kit/src/defineConfig.ts"],
       "~/*": ["./*"],
     },
     "removeComments": true,

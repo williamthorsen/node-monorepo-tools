@@ -104,7 +104,7 @@ describe(repoLabelsConfigScript, () => {
   it('wraps the repoLabels block in a defineConfig default export', () => {
     const result = repoLabelsConfigScript([]);
 
-    expect(result).toContain("import { defineConfig } from '@williamthorsen/release-kit'");
+    expect(result).toContain("import { defineConfig } from '@williamthorsen/release-kit/config'");
     expect(result).toContain('export default defineConfig({');
     expect(result).toContain('repoLabels: {');
     expect(result).toContain('});');
