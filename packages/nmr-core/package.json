@@ -22,6 +22,7 @@
   "type": "module",
   "exports": {
     ".": {
+      "nmr-source": "./src/index.ts",
       "types": "./dist/esm/index.d.ts",
       "default": "./dist/esm/index.js"
     }
@@ -30,7 +31,7 @@
     "dist"
   ],
   "scripts": {
-    "prepare": "tsx ../nmr/src/cli-build.ts"
+    "prepare": "node --conditions nmr-source ../nmr/src/cli-build.ts"
   },
   "engines": {
     "node": ">=24"
