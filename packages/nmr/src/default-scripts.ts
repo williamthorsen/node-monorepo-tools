@@ -53,7 +53,8 @@ export const rootScripts: ScriptRegistry = {
   check: ['typecheck', 'fmt:check', 'lint:check', 'test'],
   'check:agent-files': 'nmr-sync-agent-files --check',
   'check:strict': ['typecheck', 'fmt:check', 'lint:strict', 'test:coverage', 'check:agent-files'],
-  ci: ['build', 'check:strict', 'audit'],
+  // Excludes the audit, which has a workflow of its own.
+  ci: ['build', 'check:strict'],
   clean: 'nmr-clean',
   fix: ['lint', 'fmt'],
   'fix:check': ['fmt:check', 'lint:check'],
@@ -64,6 +65,8 @@ export const rootScripts: ScriptRegistry = {
   lint: 'nmr root:lint && pnpm --recursive exec nmr lint',
   'lint:check': 'nmr root:lint:check && pnpm --recursive exec nmr lint:check',
   'lint:strict': 'nmr root:lint:strict && pnpm --recursive exec nmr lint:strict',
+  // Everything the remote runs: the code-quality gate plus the audit workflow.
+  prepush: ['ci', 'audit'],
   'report-overrides': 'nmr-report-overrides',
   'root:check': ['root:typecheck', 'fmt:check', 'root:lint:check', 'root:test'],
   'root:lint': "eslint --fix --ignore-pattern 'packages/**' .",

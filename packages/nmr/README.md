@@ -36,9 +36,9 @@ nmr check # Typecheck, format check, lint check, and tests
 From the monorepo root:
 
 ```bash
-nmr test  # Run root tests + recursive workspace tests
-nmr build # Build all packages
-nmr ci    # Run build && check:strict && audit (full CI pipeline)
+nmr test    # Run root tests + recursive workspace tests
+nmr build   # Build all packages
+nmr prepush # Run everything the remote runs, before you push
 ```
 
 nmr detects where you are and selects the right scripts automatically — see [context-aware resolution](#context-aware-resolution) below.
@@ -280,11 +280,16 @@ A run that collects no test files passes. That is what lets `nmr test:tool` fan 
 
 #### Build and CI
 
-| Command | Runs                              |
-| ------- | --------------------------------- |
-| `build` | `pnpm --recursive exec nmr build` |
-| `ci`    | `build`, `check:strict`, `audit`  |
-| `clean` | `nmr-clean`                       |
+| Command   | Runs                              |
+| --------- | --------------------------------- |
+| `build`   | `pnpm --recursive exec nmr build` |
+| `ci`      | `build`, `check:strict`           |
+| `clean`   | `nmr-clean`                       |
+| `prepush` | `ci`, `audit`                     |
+
+`ci` is what a code-quality workflow runs; it leaves out the audit, which belongs in a workflow of its own. `prepush` is what a developer runs before pushing: both gates. It composes `ci` rather than restating its stages, so a stage added to `ci` joins the pre-push run too.
+
+Neither is bound to a git hook. `prepush` is named for when you run it, not for a hook nmr installs.
 
 #### Check and quality
 
@@ -411,8 +416,9 @@ nmr test  # Run workspace test script
 nmr build # Compile to .js and .d.ts in one pass
 
 # From the monorepo root
-nmr test # Root tests + recursive workspace tests
-nmr ci   # build + check:strict + audit
+nmr test    # Root tests + recursive workspace tests
+nmr ci      # build + check:strict
+nmr prepush # ci + audit
 
 # Target specific packages
 nmr --filter core test # Test only the core package
