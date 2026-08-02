@@ -1,4 +1,13 @@
 export const PACKAGE_NAME = '@williamthorsen/nmr-core';
+export type { CacheDirRef, CacheEntryRef } from './cacheStore.ts';
+export {
+  readCacheEntry,
+  readJsonCacheEntry,
+  removeCacheDir,
+  resolveCacheDir,
+  resolveCacheEntryPath,
+  writeCacheEntry,
+} from './cacheStore.ts';
 export { findPackageRoot } from './findPackageRoot.ts';
 export type {
   FlagDefinition,
