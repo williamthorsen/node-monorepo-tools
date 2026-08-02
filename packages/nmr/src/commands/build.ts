@@ -8,6 +8,9 @@ import * as ts from 'typescript';
 
 export interface BuildOptions {
   entryGlobs?: string[];
+  /** Adds to the effective ignore set, whether that set is the default or an `ignore` override. */
+  extendIgnore?: string[];
+  /** Replaces the default ignore set. */
   ignore?: string[];
   outdir?: string;
 }
@@ -23,7 +26,18 @@ const PACKAGE_ICON = '📦';
 const SKIPPED_ICON = '⏭️';
 
 const DEFAULT_ENTRY_GLOBS = ['src/**/*.ts'];
-const DEFAULT_IGNORE = ['**/__tests__/**'];
+
+/**
+ * Directories holding test scaffolding rather than shipped code, excluded from entry-point selection so a
+ * package does not publish its own helpers. Deliberately not the vitest factory's `COVERAGE_EXCLUDE`: helpers
+ * live in `test-utils/` precisely so they stay inside the coverage include set, so the two lists overlap
+ * without converging and neither can be derived from the other.
+ *
+ * Ignoring a file removes it as an entry point, not from the emit. The compiler still emits whatever the
+ * surviving entry points import, which is what keeps a production module that uses a helper from emitting a
+ * dangling specifier. Widening this list can therefore only drop files nothing in production reaches.
+ */
+const DEFAULT_IGNORE = ['**/__fixtures__/**', '**/__mocks__/**', '**/__tests__/**', '**/test-utils/**'];
 const DEFAULT_OUTDIR = 'dist/esm/';
 const SOURCE_ROOT = 'src';
 
@@ -55,7 +69,7 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
 
   const entryPoints = await glob(options.entryGlobs ?? DEFAULT_ENTRY_GLOBS, {
     cwd: packageDir,
-    ignore: options.ignore ?? DEFAULT_IGNORE,
+    ignore: [...(options.ignore ?? DEFAULT_IGNORE), ...(options.extendIgnore ?? [])],
   });
   const dependencies = ['package.json', ...resolveTsconfigChain(packageDir)];
 

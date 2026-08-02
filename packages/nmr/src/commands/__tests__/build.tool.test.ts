@@ -54,6 +54,21 @@ function readOutput(dir: string, relativePath: string): string {
   return fs.readFileSync(path.join(dir, 'dist', 'esm', relativePath), 'utf8');
 }
 
+/** Lists every file under the package's emit directory, as sorted forward-slash paths relative to it. */
+function listEmitted(dir: string): string[] {
+  const outdir = path.join(dir, 'dist', 'esm');
+  if (!fs.existsSync(outdir)) {
+    return [];
+  }
+
+  return fs
+    .readdirSync(outdir, { recursive: true })
+    .map(String)
+    .filter((entry) => fs.statSync(path.join(outdir, entry)).isFile())
+    .map((entry) => entry.split(path.sep).join('/'))
+    .toSorted();
+}
+
 /**
  * Writes a package under `rootDir/pkg` whose own tsconfig declares no `paths`; instead it `extends` a
  * base config in the parent directory that supplies `baseUrl` and `paths`. This mirrors the real
@@ -429,6 +444,83 @@ describe('buildPackage with an alias target outside the package source tree', ()
     await buildPackage(dir);
 
     expect(readOutput(dir, 'index.js')).toMatch(/from ["']lodash-es["']/);
+  });
+});
+
+describe('buildPackage entry-point selection', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-build-'));
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+    vi.mocked(console.info).mockRestore();
+    vi.mocked(ts.createProgram).mockClear();
+  });
+
+  it.each(['__fixtures__', '__mocks__', '__tests__', 'test-utils'])(
+    'excludes %s/ from the default entry points',
+    async (directory) => {
+      scaffoldPackage(dir, {
+        'index.ts': 'export const value = 1;\n',
+        [`${directory}/helper.ts`]: 'export const helper = 1;\n',
+      });
+
+      await buildPackage(dir);
+
+      expect(listEmitted(dir)).toEqual(['index.d.ts', 'index.js']);
+    },
+  );
+
+  it('emits a helper that production code imports, despite the ignore', async () => {
+    // The ignore selects entry points; the compiler still emits whatever they reach. Suppressing a reachable
+    // file would leave index.js importing a specifier that was never written.
+    scaffoldPackage(dir, {
+      'index.ts': `import { helper } from './test-utils/helper.ts';\nexport const value = helper;\n`,
+      'test-utils/helper.ts': 'export const helper = 1;\n',
+    });
+
+    await buildPackage(dir);
+
+    expect(listEmitted(dir)).toContain('test-utils/helper.js');
+  });
+
+  it('replaces the default ignore set when given `ignore`', async () => {
+    scaffoldPackage(dir, {
+      'index.ts': 'export const value = 1;\n',
+      'test-utils/helper.ts': 'export const helper = 1;\n',
+    });
+
+    await buildPackage(dir, { ignore: [] });
+
+    expect(listEmitted(dir)).toContain('test-utils/helper.js');
+  });
+
+  it('adds to the effective ignore set when given `extendIgnore`', async () => {
+    scaffoldPackage(dir, {
+      'index.ts': 'export const value = 1;\n',
+      'internal/helper.ts': 'export const helper = 1;\n',
+    });
+
+    await buildPackage(dir, { extendIgnore: ['**/internal/**'] });
+
+    expect(listEmitted(dir)).toEqual(['index.d.ts', 'index.js']);
+  });
+
+  it('composes `extendIgnore` onto an `ignore` override rather than onto the default', async () => {
+    scaffoldPackage(dir, {
+      'index.ts': 'export const value = 1;\n',
+      'internal/helper.ts': 'export const helper = 1;\n',
+      'test-utils/helper.ts': 'export const helper = 1;\n',
+    });
+
+    // `ignore: []` drops the defaults, so test-utils/ returns as an entry point; extendIgnore applies on top.
+    await buildPackage(dir, { ignore: [], extendIgnore: ['**/internal/**'] });
+
+    expect(listEmitted(dir)).toEqual(['index.d.ts', 'index.js', 'test-utils/helper.d.ts', 'test-utils/helper.js']);
   });
 });
 
