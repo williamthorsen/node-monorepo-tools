@@ -8,10 +8,11 @@ import {
   computeCacheKey,
   CURRENT_RUNTIME,
   encodeTreeSnapshot,
+  findStaleBuildOutput,
   formatMisplacedNoCacheWarning,
   formatSkipLine,
-  hasCompleteBuildOutput,
   NO_CACHE_ENV_VAR,
+  readBuildOutputState,
   readCheckCacheEntry,
   resolveCacheableCommands,
   resolveTreeSnapshot,
@@ -295,9 +296,18 @@ async function lookUpRecordedPass(options: {
     return undefined;
   }
 
-  const outputPresent = await hasCompleteBuildOutput(monorepoRoot, options.config);
-  if (!outputPresent.ok) {
-    writeDebugNote(`running ${command}: ${outputPresent.reason}`, env, stderr);
+  const output = await readBuildOutputState(monorepoRoot, options.config);
+  const [missing] = output.missing;
+  if (missing !== undefined) {
+    writeDebugNote(`running ${command}: ${missing} has no build output`, env, stderr);
+    return undefined;
+  }
+
+  // Presence alone would let a `dist` compiled from another tree pass for this one: git ignores build output,
+  // so restoring a tree restores none of it, and the run that would have rebuilt it is the one being skipped.
+  const stale = findStaleBuildOutput(entry.buildDigests, output.digests);
+  if (stale !== undefined) {
+    writeDebugNote(`running ${command}: ${stale}'s build output came from a different tree`, env, stderr);
     return undefined;
   }
 
@@ -426,6 +436,7 @@ async function recordPass(options: {
   anchorDir: string;
   command: string;
   commandString: string;
+  config: NmrConfig;
   durationMs: number;
   env: NodeJS.ProcessEnv;
   key: string;
@@ -446,6 +457,15 @@ async function recordPass(options: {
     return;
   }
 
+  // Read after the chain, so the digests describe the output the pass was actually earned over. A pass over a
+  // repository still missing output describes a state no later run should be held to, so it is not recorded.
+  const output = await readBuildOutputState(monorepoRoot, options.config);
+  const [missing] = output.missing;
+  if (missing !== undefined) {
+    writeDebugNote(`not recording ${command}: ${missing} has no build output`, env, stderr);
+    return;
+  }
+
   try {
     await writeCheckCacheEntry({
       anchorDir,
@@ -460,6 +480,7 @@ async function recordPass(options: {
         nodeVersion: CURRENT_RUNTIME.nodeVersion,
         durationMs: options.durationMs,
         recordedAt: new Date().toISOString(),
+        buildDigests: output.digests,
       },
     });
   } catch (error: unknown) {
@@ -565,6 +586,7 @@ async function runGated(options: {
       anchorDir,
       command,
       commandString,
+      config: options.config,
       durationMs: Date.now() - startedAt,
       env,
       key,

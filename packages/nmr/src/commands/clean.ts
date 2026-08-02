@@ -8,7 +8,7 @@ import { findContainingPackageDir } from '../context.ts';
 import { applyDevBin, buildWorkspaceRegistry, resolveScript } from '../resolver.ts';
 import { runCommand } from '../runner.ts';
 import { findMonorepoRoot, getWorkspacePackageDirs } from '../workspace.ts';
-import { resolveBuildCachePath } from './build.ts';
+import { resolveBuildCachePath } from './build-output.ts';
 
 const CLEAN_ICON = '🧹';
 

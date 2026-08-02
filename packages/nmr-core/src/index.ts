@@ -10,7 +10,7 @@ export {
 } from './cache-store.ts';
 export { findPackageRoot } from './findPackageRoot.ts';
 export type { WorkingTreeHashResult } from './hashWorkingTree.ts';
-export { hashWorkingTree } from './hashWorkingTree.ts';
+export { hashWorkingTree, readHeadSha } from './hashWorkingTree.ts';
 export type {
   FlagDefinition,
   FlagSchema,

@@ -9,18 +9,17 @@ import type { CheckCacheEntry, TreeSnapshot } from '../check-cache.ts';
 import {
   computeCacheKey,
   DEFAULT_CACHEABLE_COMMANDS,
-  encodeTreeSnapshot,
+  findStaleBuildOutput,
   formatMisplacedNoCacheWarning,
   formatSkipLine,
-  hasCompleteBuildOutput,
+  readBuildOutputState,
   readCheckCacheEntry,
   removeCheckCache,
   resolveCacheableCommands,
-  resolveTreeSnapshot,
-  TREE_SNAPSHOT_ENV_VAR,
   writeCheckCacheEntry,
   writeDebugNote,
 } from '../check-cache.ts';
+import { resolveBuildCachePath } from '../commands/build-output.ts';
 
 const SNAPSHOT: TreeSnapshot = { hash: 'tree-hash', headSha: 'head-sha' };
 
@@ -131,29 +130,6 @@ describe('check-cache', () => {
     });
   });
 
-  describe(resolveTreeSnapshot, () => {
-    it('takes the snapshot a parent process already observed', () => {
-      // One invocation hashes the tree once; every process below it gates on that same observation.
-      const env = { [TREE_SNAPSHOT_ENV_VAR]: encodeTreeSnapshot(SNAPSHOT) };
-
-      expect(resolveTreeSnapshot({ monorepoRoot: root, env })).toStrictEqual({ ok: true, snapshot: SNAPSHOT });
-    });
-
-    it('hashes the tree itself when no parent passed one down', () => {
-      // The fixture is no git repository, so hashing refuses, which is what disables the gate.
-      expect(resolveTreeSnapshot({ monorepoRoot: root, env: {} })).toStrictEqual({
-        ok: false,
-        reason: expect.stringContaining('not a git repository'),
-      });
-    });
-
-    it('ignores a malformed inherited snapshot rather than gating on it', () => {
-      const env = { [TREE_SNAPSHOT_ENV_VAR]: 'nonsense' };
-
-      expect(resolveTreeSnapshot({ monorepoRoot: root, env })).toMatchObject({ ok: false });
-    });
-  });
-
   describe('recorded entries', () => {
     it('reads back what it recorded', async () => {
       const entry = makeEntry();
@@ -234,49 +210,52 @@ describe('check-cache', () => {
     });
   });
 
-  describe(hasCompleteBuildOutput, () => {
-    it('reports complete output when every built package has its dist', async () => {
-      scaffoldWorkspace(root);
+  describe(readBuildOutputState, () => {
+    it('reports a digest for every package nmr’s build covers', async () => {
+      const { a, b } = scaffoldWorkspace(root);
+      writeBuildDigest(a, 'digest-a');
+      writeBuildDigest(b, 'digest-b');
 
-      await expect(hasCompleteBuildOutput(root, {})).resolves.toStrictEqual({ ok: true });
+      await expect(readBuildOutputState(root, {})).resolves.toStrictEqual({
+        missing: [],
+        digests: { a: 'digest-a', b: 'digest-b' },
+      });
     });
 
     it('names the package whose output went missing', async () => {
-      // Build output is git-ignored, so the tree hash says nothing about it: without this probe a cached `ci`
+      // Build output is git-ignored, so the tree hash says nothing about it: without this a cached `ci`
       // would hand back a green exit over a repository that cannot run.
       const { a } = scaffoldWorkspace(root);
       fs.rmSync(path.join(a, 'dist'), { recursive: true, force: true });
 
-      await expect(hasCompleteBuildOutput(root, {})).resolves.toStrictEqual({
-        ok: false,
-        reason: 'a has no build output',
-      });
+      await expect(readBuildOutputState(root, {})).resolves.toMatchObject({ missing: ['a'] });
     });
 
-    it('exempts a package that overrides build in its package.json', async () => {
-      // An override emits somewhere this probe does not know about, so demanding a `dist` would make the
-      // package a permanent miss rather than a covered one.
+    it('leaves out a package that overrides build in its package.json', async () => {
+      // An override emits somewhere this does not know about, so demanding a `dist` would make the package a
+      // permanent miss rather than a covered one.
       const { a } = scaffoldWorkspace(root);
       fs.rmSync(path.join(a, 'dist'), { recursive: true, force: true });
       writePackageJson(a, { build: 'tsup' });
 
-      await expect(hasCompleteBuildOutput(root, {})).resolves.toStrictEqual({ ok: true });
+      await expect(readBuildOutputState(root, {})).resolves.toMatchObject({ missing: [] });
     });
 
-    it('exempts a package that overrides compile in its package.json', async () => {
+    it('leaves out a package that overrides compile in its package.json', async () => {
       const { a } = scaffoldWorkspace(root);
       fs.rmSync(path.join(a, 'dist'), { recursive: true, force: true });
       writePackageJson(a, { compile: 'tsc' });
 
-      await expect(hasCompleteBuildOutput(root, {})).resolves.toStrictEqual({ ok: true });
+      await expect(readBuildOutputState(root, {})).resolves.toMatchObject({ missing: [] });
     });
 
-    it('exempts every package when the repo redefines build in its config', async () => {
+    it('leaves out every package when the repo redefines build in its config', async () => {
       const { a } = scaffoldWorkspace(root);
       fs.rmSync(path.join(a, 'dist'), { recursive: true, force: true });
 
-      await expect(hasCompleteBuildOutput(root, { workspaceScripts: { build: 'make' } })).resolves.toStrictEqual({
-        ok: true,
+      await expect(readBuildOutputState(root, { workspaceScripts: { build: 'make' } })).resolves.toStrictEqual({
+        missing: [],
+        digests: {},
       });
     });
 
@@ -285,7 +264,37 @@ describe('check-cache', () => {
       fs.rmSync(path.join(a, 'dist'), { recursive: true, force: true });
       fs.rmSync(path.join(a, 'src'), { recursive: true, force: true });
 
-      await expect(hasCompleteBuildOutput(root, {})).resolves.toStrictEqual({ ok: true });
+      await expect(readBuildOutputState(root, {})).resolves.toMatchObject({ missing: [] });
+    });
+
+    it('expects no output from a package whose own config ignores every entry point', async () => {
+      // The build compiles the entry set the package's own options leave; reading a different set here would
+      // demand output the build never emits, and one such package takes the whole repo's gate down.
+      const { a } = scaffoldWorkspace(root);
+      fs.rmSync(path.join(a, 'dist'), { recursive: true, force: true });
+      writeWorkspaceConfig(a, { build: { extraIgnorePatterns: ['**/*.ts'] } });
+
+      await expect(readBuildOutputState(root, {})).resolves.toMatchObject({ missing: [] });
+    });
+  });
+
+  describe(findStaleBuildOutput, () => {
+    it('finds nothing when every package still holds the output the pass was recorded over', () => {
+      expect(findStaleBuildOutput({ a: 'one', b: 'two' }, { a: 'one', b: 'two' })).toBeUndefined();
+    });
+
+    it('names a package whose output was rebuilt from different sources', () => {
+      // Restoring a tree restores none of its build output, so presence alone would let a `dist` compiled
+      // from another tree pass for this one -- and the run that would have rebuilt it is the one being skipped.
+      expect(findStaleBuildOutput({ a: 'one', b: 'two' }, { a: 'one', b: 'other' })).toBe('b');
+    });
+
+    it('names a package that has appeared since the pass was recorded', () => {
+      expect(findStaleBuildOutput({ a: 'one' }, { a: 'one', b: 'two' })).toBe('b');
+    });
+
+    it('names a package that has disappeared since the pass was recorded', () => {
+      expect(findStaleBuildOutput({ a: 'one', b: 'two' }, { a: 'one' })).toBe('b');
     });
   });
 
@@ -362,6 +371,7 @@ function makeEntry(overrides: Partial<CheckCacheEntry> = {}): CheckCacheEntry {
     nodeVersion: 'v24.0.0',
     durationMs: 1000,
     recordedAt: '2026-08-02T12:00:00.000Z',
+    buildDigests: {},
     ...overrides,
   };
 }
@@ -392,6 +402,19 @@ function scaffoldWorkspace(root: string): { a: string; b: string } {
   }
 
   return { a, b };
+}
+
+/** Writes the digest a build of `packageDir` would have left behind. */
+function writeBuildDigest(packageDir: string, digest: string): void {
+  const cachePath = resolveBuildCachePath(packageDir);
+  fs.mkdirSync(path.dirname(cachePath), { recursive: true });
+  fs.writeFileSync(cachePath, digest);
+}
+
+/** Writes a package's own nmr config. */
+function writeWorkspaceConfig(packageDir: string, config: Record<string, unknown>): void {
+  fs.mkdirSync(path.join(packageDir, '.config'), { recursive: true });
+  fs.writeFileSync(path.join(packageDir, '.config', 'nmr.config.ts'), `export default ${JSON.stringify(config)};\n`);
 }
 
 /** Writes the pnpm files the install fingerprint reads. */

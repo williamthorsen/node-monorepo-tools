@@ -6,6 +6,7 @@ import { PassThrough } from 'node:stream';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { resolveBuildCachePath } from '../commands/build-output.ts';
 import { runCli } from '../runCli.ts';
 
 /** The cacheable command every test drives; the fixture maps it to a script whose runs are countable. */
@@ -282,6 +283,29 @@ describe('the check-result cache gate', () => {
       expect(stderr).toContain('a has no build output');
     });
 
+    it('runs again when the output on disk came from a different tree', async () => {
+      // Restoring a tree restores none of its build output: `git stash` and `git checkout` leave `dist` where
+      // it was. Presence alone would let output compiled from another tree pass for this one, and the run
+      // that would have rebuilt it is exactly the run being skipped.
+      await runNmr(COMMAND, repo);
+
+      writeBuildDigest(path.join(repo, 'packages', 'a'), 'digest-from-another-tree');
+      const { stderr } = await runNmr(COMMAND, repo, { NMR_DEBUG: '1' });
+
+      expect(runCount()).toBe(2);
+      expect(stderr).toContain('came from a different tree');
+    });
+
+    it('settles rather than missing forever once it has run against the output on disk', async () => {
+      await runNmr(COMMAND, repo);
+      writeBuildDigest(path.join(repo, 'packages', 'a'), 'digest-from-another-tree');
+      await runNmr(COMMAND, repo);
+
+      await runNmr(COMMAND, repo);
+
+      expect(runCount()).toBe(2);
+    });
+
     it('skips again once the output is back', async () => {
       await runNmr(COMMAND, repo);
       fs.rmSync(path.join(repo, 'packages', 'a', 'dist'), { recursive: true, force: true });
@@ -358,6 +382,13 @@ describe('the check-result cache gate', () => {
 
 // region | Helpers
 
+/** Writes the digest a build of `packageDir` would have left beside its output. */
+function writeBuildDigest(packageDir: string, digest: string): void {
+  const cachePath = resolveBuildCachePath(packageDir);
+  fs.mkdirSync(path.dirname(cachePath), { recursive: true });
+  fs.writeFileSync(cachePath, digest);
+}
+
 /** Runs git in `cwd`, discarding its output. */
 function git(cwd: string, args: string[]): void {
   execFileSync('git', args, { cwd, stdio: 'ignore' });
@@ -385,6 +416,7 @@ function scaffoldRepo(repo: string, log: string): void {
   fs.writeFileSync(path.join(packageDir, 'package.json'), JSON.stringify({ name: 'a', type: 'module' }));
   fs.writeFileSync(path.join(packageDir, 'src', 'index.ts'), 'export const value = 1;\n');
   fs.writeFileSync(path.join(packageDir, 'dist', 'esm', 'index.js'), 'export const value = 1;\n');
+  writeBuildDigest(packageDir, 'digest-from-this-tree');
 
   writeConfig(repo, log);
 

@@ -7,13 +7,16 @@ import type { Writable } from 'node:stream';
 import type { CacheEntryRef } from '@williamthorsen/nmr-core';
 import {
   hashWorkingTree,
+  readHeadSha,
   readJsonCacheEntry,
   removeCacheDir,
   resolveCacheEntryPath,
   writeCacheEntry,
 } from '@williamthorsen/nmr-core';
 
+import { hasBuildOutput, readBuildDigest } from './commands/build-output.ts';
 import type { CheckCacheConfig, NmrConfig } from './config.ts';
+import { loadWorkspaceConfig } from './config.ts';
 import { isObject } from './helpers/type-guards.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
 import { getDefaultWorkspaceScripts } from './resolve-scripts.ts';
@@ -32,6 +35,20 @@ export interface CheckCacheEntry {
   durationMs: number;
   /** ISO-8601 instant the pass completed, which the skip line spends as the age of the pass. */
   recordedAt: string;
+  /**
+   * The build digest each covered package's output carried when the pass was recorded. Build output is
+   * git-ignored, so the tree hash cannot describe it; comparing these is what separates output built from this
+   * tree from output another tree left behind.
+   */
+  buildDigests: Record<string, string>;
+}
+
+/** What nmr's own build has left on disk across the workspace. */
+export interface BuildOutputState {
+  /** Covered packages whose output is absent. */
+  missing: string[];
+  /** The digest of the inputs each covered package's output was built from, keyed by package name. */
+  digests: Record<string, string>;
 }
 
 /** The parts of the running interpreter that can change what a check concludes. */
@@ -183,6 +200,20 @@ export function encodeTreeSnapshot(snapshot: TreeSnapshot): string {
 }
 
 /**
+ * Names a covered package whose output no longer came from the tree it did when the pass was recorded, or
+ * `undefined` when every package agrees. A package that has appeared or disappeared since counts as a
+ * disagreement, because the output the pass was recorded over is not the output standing here now.
+ */
+export function findStaleBuildOutput(
+  recorded: Record<string, string>,
+  current: Record<string, string>,
+): string | undefined {
+  const names = [...new Set([...Object.keys(recorded), ...Object.keys(current)])].toSorted();
+
+  return names.find((name) => recorded[name] !== current[name]);
+}
+
+/**
  * Renders the warning for a `--no-cache` that landed after the command name, where it is an argument to the
  * command rather than a flag to nmr. Passing it on unchanged is the honest thing to do with an argument, so
  * the warning is all that separates this from a silently un-bypassed run.
@@ -203,42 +234,51 @@ export function formatSkipLine(command: string, entry: CheckCacheEntry, now: num
 }
 
 /**
- * Reports whether every workspace package nmr's own build covers currently has its output on disk. Build
- * output is git-ignored, so the tree hash says nothing about it: without this probe a `ci` whose `build`
- * constituent is cached would skip on a tree whose `dist` had been deleted, and hand back a green exit over
- * a repository that cannot run. Absence is a miss, and the run that follows restores the output.
+ * Reads the state of the build output nmr's own build covers. Build output is git-ignored, so the tree hash
+ * says nothing about it: a `ci` whose `build` constituent is cached would otherwise skip on a tree whose `dist`
+ * had been deleted, or whose `dist` was compiled from a different tree, and hand back a green exit over a
+ * repository that cannot run.
  *
- * A package whose `build` or `compile` is overridden emits somewhere this probe does not know about, so it is
- * exempt rather than a permanent miss.
+ * A package whose `build` or `compile` is overridden emits somewhere this does not know about, so it is left
+ * out rather than made a permanent miss.
  */
-export async function hasCompleteBuildOutput(
-  monorepoRoot: string,
-  config: NmrConfig,
-): Promise<{ ok: true } | { ok: false; reason: string }> {
+export async function readBuildOutputState(monorepoRoot: string, config: NmrConfig): Promise<BuildOutputState> {
+  const state: BuildOutputState = { missing: [], digests: {} };
+
   let packageDirs: string[];
   try {
     packageDirs = getWorkspacePackageDirs(monorepoRoot);
   } catch {
-    return { ok: true };
+    return state;
   }
-
-  // Deferred so that the ordinary `nmr` invocation never pays to load the TypeScript compiler that the build
-  // module pulls in; only a run that has already matched a key reaches this.
-  const { hasBuildOutput } = await import('./commands/build.ts');
 
   const registry = buildWorkspaceRegistry(config);
-  const defaultRegistry = getDefaultWorkspaceScripts();
+  // Hoisted out of the loop, where it does not vary: a repo redefining `build` exempts its whole workspace,
+  // and answering that once lets such a repo return without reading a single package.
+  if (JSON.stringify(registry.build) !== JSON.stringify(getDefaultWorkspaceScripts().build)) {
+    return state;
+  }
 
   for (const packageDir of packageDirs) {
-    if (!isProbeSubject(packageDir, registry, defaultRegistry)) {
+    if (!isProbeSubject(packageDir, registry)) {
       continue;
     }
-    if (!(await hasBuildOutput(packageDir))) {
-      return { ok: false, reason: `${path.basename(packageDir)} has no build output` };
+
+    // Read on the package's own build options, so the entry set here is the one the build actually compiles.
+    // A package whose extra patterns leave nothing to emit expects no output, and reporting it missing would
+    // make it a permanent miss that takes the whole repo's gate down with it.
+    const { build } = await loadWorkspaceConfig(packageDir);
+    const options = build?.extraIgnorePatterns === undefined ? {} : { extraIgnorePatterns: build.extraIgnorePatterns };
+
+    const name = path.basename(packageDir);
+    if (await hasBuildOutput(packageDir, options)) {
+      state.digests[name] = (await readBuildDigest(packageDir)) ?? '';
+    } else {
+      state.missing.push(name);
     }
   }
 
-  return { ok: true };
+  return state;
 }
 
 /** Reads the entry recorded for one command at one scope, or `undefined` when there is none to trust. */
@@ -282,8 +322,13 @@ export function resolveTreeSnapshot(options: {
   monorepoRoot: string;
   env: NodeJS.ProcessEnv;
 }): { ok: true; snapshot: TreeSnapshot } | { ok: false; reason: string } {
+  // An inherited snapshot is trusted only while HEAD stands where it did when the snapshot was taken. A
+  // process that outlives the run that spawned it carries the variable with it, and would otherwise gate a
+  // later invocation on an observation of a tree that has since moved on. Falling through costs one hash and
+  // answers honestly; it does not bound a tree edited without committing, which is why the variable is
+  // documented as reserved.
   const inherited = decodeTreeSnapshot(options.env[TREE_SNAPSHOT_ENV_VAR]);
-  if (inherited !== undefined) {
+  if (inherited !== undefined && readHeadSha(options.monorepoRoot) === inherited.headSha) {
     return { ok: true, snapshot: inherited };
   }
 
@@ -379,21 +424,24 @@ function isCheckCacheEntry(value: unknown): value is CheckCacheEntry {
   return (
     typeof value.durationMs === 'number' &&
     Number.isFinite(value.durationMs) &&
-    !Number.isNaN(Date.parse(String(value.recordedAt)))
+    !Number.isNaN(Date.parse(String(value.recordedAt))) &&
+    isStringRecord(value.buildDigests)
   );
 }
 
+/** Narrows an unknown value to a record of plain strings. */
+function isStringRecord(value: unknown): value is Record<string, string> {
+  return isObject(value) && Object.values(value).every((entry) => typeof entry === 'string');
+}
+
 /**
- * Reports whether a package's build output is nmr's own to look for: its `build` is still the default chain,
- * and its `compile` still resolves to the built-in bin. Either overridden, and the package emits on terms this
- * probe does not know, so demanding a `dist` would make every run a miss.
+ * Reports whether a package's build output is nmr's own to look for: neither its `build` nor its `compile` is
+ * overridden by the package itself. Either overridden, and the package emits on terms this does not know, so
+ * demanding a `dist` would make every run a miss.
  */
-function isProbeSubject(packageDir: string, registry: ScriptRegistry, defaultRegistry: ScriptRegistry): boolean {
+function isProbeSubject(packageDir: string, registry: ScriptRegistry): boolean {
   const build = resolveScript('build', registry, packageDir, false);
   if (build === undefined || build.source === 'package') {
-    return false;
-  }
-  if (JSON.stringify(registry.build) !== JSON.stringify(defaultRegistry.build)) {
     return false;
   }
 

@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 /** The bin nmr-core's `prepare` runs, under tsx, to build nmr-core before nmr-core's `dist` exists. */
 const BOOTSTRAP_ENTRY = path.resolve(import.meta.dirname, '..', 'cli-build.ts');
 
-/** The package the bootstrap cannot reach, because the bootstrap is what produces it. */
+/** The package the bootstrap cannot reach, because the bootstrap is what produces it. Subpaths included. */
 const UNREACHABLE_PACKAGE = '@williamthorsen/nmr-core';
 
 /** Matches the specifier of any static or dynamic import, or of a re-export. */
@@ -19,7 +19,9 @@ describe('the build bootstrap', () => {
     // `dist` that does not exist yet, and the install fails before a single package is built. Nothing else in
     // the suite catches it, because every other test runs against a repository that is already built.
     const offenders = collectClosure(BOOTSTRAP_ENTRY).filter((file) =>
-      readSpecifiers(file).includes(UNREACHABLE_PACKAGE),
+      readSpecifiers(file).some(
+        (specifier) => specifier === UNREACHABLE_PACKAGE || specifier.startsWith(`${UNREACHABLE_PACKAGE}/`),
+      ),
     );
 
     expect(offenders.map((file) => path.relative(path.resolve(import.meta.dirname, '..'), file))).toStrictEqual([]);

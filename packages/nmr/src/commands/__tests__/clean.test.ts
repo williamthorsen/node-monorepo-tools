@@ -5,7 +5,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { readCheckCacheEntry, writeCheckCacheEntry } from '../../check-cache.ts';
-import { resolveBuildCachePath } from '../build.ts';
+import { resolveBuildCachePath } from '../build-output.ts';
 import { cleanPackage, runClean } from '../clean.ts';
 
 describe(cleanPackage, () => {
@@ -205,6 +205,7 @@ async function recordCheckResult(monorepoRoot: string, anchorDir: string, comman
       nodeVersion: 'v24.0.0',
       durationMs: 1000,
       recordedAt: '2026-08-02T12:00:00.000Z',
+      buildDigests: {},
     },
   });
 }

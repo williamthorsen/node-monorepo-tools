@@ -110,6 +110,20 @@ export function hashWorkingTree(cwd: string): WorkingTreeHashResult {
   return { ok: true, hash: hash.digest('hex'), headSha, toplevel };
 }
 
+/**
+ * Returns the commit `HEAD` names, or `undefined` when git cannot say. Cheap next to a full hash, so a caller
+ * holding an observation of a tree can ask whether the commit still stands where it did without retaking it.
+ */
+export function readHeadSha(cwd: string): string | undefined {
+  const result = runGit(['rev-parse', 'HEAD'], cwd);
+  if (!result.ok) {
+    return undefined;
+  }
+
+  const headSha = result.stdout.trim();
+  return headSha === '' ? undefined : headSha;
+}
+
 // region | Helpers
 
 /** What a changed path turned out to be on disk, folded in alongside its digest so a swap of kinds registers. */

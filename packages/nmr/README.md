@@ -251,9 +251,9 @@ A hit requires all of these to match the run that recorded the pass:
 - **What pnpm has installed**, so an install, a prune, or a lockfile change forces a re-run.
 - **`TZ`, `LANG`, `LC_ALL`, and `NODE_OPTIONS`.** This set is fixed, so two machines that differ only in shell decoration still agree.
 
-A hit additionally requires the build output of every package nmr's own build covers to be present. Output is git-ignored, so its removal moves no hash; without this probe, a cached `ci` would return green over a repository whose `dist` had been deleted. A package that overrides `build` or `compile` emits on terms nmr does not know and is exempt.
+A hit additionally requires the build output of every package nmr's own build covers to be present, and to have been built from this tree. Output is git-ignored, so neither its removal nor its replacement moves the hash: restoring a tree with `git stash` or `git checkout` restores none of the output that tree was built with. nmr compares each covered package's recorded build digest against the one on disk, so a `dist` compiled from another tree is a miss the following run repairs. A package that overrides `build` or `compile` emits on terms nmr does not know and is exempt.
 
-A pass is recorded only when the command exits 0, only when the tree still matches the one the run started against, and never for a run that executed nothing (a `""`/`":"` skip override, or an `NMR_RUN_IF_PRESENT` miss).
+A pass is recorded only when the command exits 0, only when the tree still matches the one the run started against, only when every covered package's output is present, and never for a run that executed nothing (a `""`/`":"` skip override, or an `NMR_RUN_IF_PRESENT` miss).
 
 ### Out of contract
 
@@ -290,6 +290,10 @@ Reach for these in order; the first is almost always the right one.
 | `NMR_NO_CACHE=1`                       | The same, for every nmr invocation in the shell.                          |
 | `rm -rf node_modules/.cache/nmr-check` | Forgets every recorded pass, leaving build output alone.                  |
 | `nmr clean`                            | Forgets every recorded pass and removes build output, at any scope.       |
+
+### Reserved environment variables
+
+`NMR_TREE_SNAPSHOT` is nmr's own: it carries one observation of the tree from a top-level invocation down to the processes it spawns, so a chain hashes the tree once rather than at every link. nmr trusts an inherited value only while `HEAD` still stands where it did when the observation was taken, which bounds a process that outlives the run that spawned it. That bound does not extend to a tree edited without committing, so **a process that survives its run and later invokes nmr should clear `NMR_TREE_SNAPSHOT`** — a test suite that shells out to `nmr` is the case worth checking.
 
 `--no-cache` belongs before the command name. After it, it is an argument to the command rather than a flag to nmr; nmr says so rather than letting the bypass silently not happen.
 
