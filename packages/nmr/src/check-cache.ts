@@ -17,7 +17,7 @@ import {
 import { hasBuildOutput, readBuildDigest } from './commands/build-output.ts';
 import type { CheckCacheConfig, NmrConfig } from './config.ts';
 import { loadWorkspaceConfig } from './config.ts';
-import { isObject } from './helpers/type-guards.ts';
+import { isObject, isStringRecord } from './helpers/type-guards.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
 import { getDefaultWorkspaceScripts } from './resolve-scripts.ts';
 import { buildWorkspaceRegistry, resolveScript } from './resolver.ts';
@@ -270,7 +270,10 @@ export async function readBuildOutputState(monorepoRoot: string, config: NmrConf
     const { build } = await loadWorkspaceConfig(packageDir);
     const options = build?.extraIgnorePatterns === undefined ? {} : { extraIgnorePatterns: build.extraIgnorePatterns };
 
-    const name = path.basename(packageDir);
+    // Relative to the monorepo root rather than a bare basename: a workspace whose globs yield two packages
+    // with the same directory name would otherwise record one digest for both, and the shadowed package's
+    // output would never be compared. This is the identity `computeCacheKey` already uses for a scope.
+    const name = path.relative(monorepoRoot, packageDir);
     if (await hasBuildOutput(packageDir, options)) {
       state.digests[name] = (await readBuildDigest(packageDir)) ?? '';
     } else {
@@ -427,11 +430,6 @@ function isCheckCacheEntry(value: unknown): value is CheckCacheEntry {
     !Number.isNaN(Date.parse(String(value.recordedAt))) &&
     isStringRecord(value.buildDigests)
   );
-}
-
-/** Narrows an unknown value to a record of plain strings. */
-function isStringRecord(value: unknown): value is Record<string, string> {
-  return isObject(value) && Object.values(value).every((entry) => typeof entry === 'string');
 }
 
 /**

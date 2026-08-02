@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { isObject } from './helpers/type-guards.ts';
+import { isObject, isStringRecord } from './helpers/type-guards.ts';
 
 /** Build settings honored by `nmr-compile`. */
 export interface BuildConfig {
@@ -177,15 +177,6 @@ function validateCheckCacheField(value: Record<string, unknown>, configPath: str
   }
 
   return config;
-}
-
-/** Narrows an unknown value to a record of plain strings. */
-function isStringRecord(value: unknown): value is Record<string, string> {
-  if (!isObject(value)) return false;
-  for (const v of Object.values(value)) {
-    if (typeof v !== 'string') return false;
-  }
-  return true;
 }
 
 /** Validates and extracts a `Record<string, string>` field from the raw config object. */

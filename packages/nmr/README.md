@@ -291,11 +291,11 @@ Reach for these in order; the first is almost always the right one.
 | `rm -rf node_modules/.cache/nmr-check` | Forgets every recorded pass, leaving build output alone.                  |
 | `nmr clean`                            | Forgets every recorded pass and removes build output, at any scope.       |
 
+`--no-cache` belongs before the command name. After it, it is an argument to the command rather than a flag to nmr; nmr says so rather than letting the bypass silently not happen.
+
 ### Reserved environment variables
 
 `NMR_TREE_SNAPSHOT` is nmr's own: it carries one observation of the tree from a top-level invocation down to the processes it spawns, so a chain hashes the tree once rather than at every link. nmr trusts an inherited value only while `HEAD` still stands where it did when the observation was taken, which bounds a process that outlives the run that spawned it. That bound does not extend to a tree edited without committing, so **a process that survives its run and later invokes nmr should clear `NMR_TREE_SNAPSHOT`** — a test suite that shells out to `nmr` is the case worth checking.
-
-`--no-cache` belongs before the command name. After it, it is an argument to the command rather than a flag to nmr; nmr says so rather than letting the bypass silently not happen.
 
 ### Configuring
 

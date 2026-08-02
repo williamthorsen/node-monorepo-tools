@@ -218,7 +218,18 @@ describe('check-cache', () => {
 
       await expect(readBuildOutputState(root, {})).resolves.toStrictEqual({
         missing: [],
-        digests: { a: 'digest-a', b: 'digest-b' },
+        digests: { 'packages/a': 'digest-a', 'packages/b': 'digest-b' },
+      });
+    });
+
+    it('keeps two packages of the same directory name apart', async () => {
+      // A workspace glob set yielding `apps/web` beside `packages/web` would collapse onto one key if the
+      // basename identified a package, and the shadowed one's output would never be compared again.
+      scaffoldCollidingWorkspace(root);
+
+      await expect(readBuildOutputState(root, {})).resolves.toStrictEqual({
+        missing: [],
+        digests: { 'apps/web': 'digest-app', 'packages/web': 'digest-package' },
       });
     });
 
@@ -228,7 +239,7 @@ describe('check-cache', () => {
       const { a } = scaffoldWorkspace(root);
       fs.rmSync(path.join(a, 'dist'), { recursive: true, force: true });
 
-      await expect(readBuildOutputState(root, {})).resolves.toMatchObject({ missing: ['a'] });
+      await expect(readBuildOutputState(root, {})).resolves.toMatchObject({ missing: ['packages/a'] });
     });
 
     it('leaves out a package that overrides build in its package.json', async () => {
@@ -381,6 +392,24 @@ function overwriteEntries(root: string, content: string): void {
   const cacheDir = path.join(root, 'node_modules', '.cache', 'nmr-check');
   for (const entry of fs.readdirSync(cacheDir)) {
     fs.writeFileSync(path.join(cacheDir, entry), content);
+  }
+}
+
+/** Writes a workspace whose globs yield two packages sharing a directory name, each freshly built. */
+function scaffoldCollidingWorkspace(root: string): void {
+  fs.writeFileSync(path.join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "apps/*"\n  - "packages/*"\n');
+
+  for (const [relativePath, digest] of [
+    ['apps/web', 'digest-app'],
+    ['packages/web', 'digest-package'],
+  ] as const) {
+    const dir = path.join(root, relativePath);
+    fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+    fs.mkdirSync(path.join(dir, 'dist', 'esm'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'src', 'index.ts'), 'export const value = 1;\n');
+    fs.writeFileSync(path.join(dir, 'dist', 'esm', 'index.js'), 'export const value = 1;\n');
+    writePackageJson(dir, undefined, relativePath.replace('/', '-'));
+    writeBuildDigest(dir, digest);
   }
 }
 

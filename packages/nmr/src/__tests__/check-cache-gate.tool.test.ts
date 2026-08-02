@@ -280,7 +280,7 @@ describe('the check-result cache gate', () => {
       const { stderr } = await runNmr(COMMAND, repo, { NMR_DEBUG: '1' });
 
       expect(runCount()).toBe(2);
-      expect(stderr).toContain('a has no build output');
+      expect(stderr).toContain('packages/a has no build output');
     });
 
     it('runs again when the output on disk came from a different tree', async () => {
