@@ -105,10 +105,12 @@ const MISSING_MONOREPO_ROOT =
  * projects. Select them at run time with `--project`, which unions when repeated and accepts negation.
  *
  * Layers fold left to right, later winning and arrays composing, so a config file shares settings by passing a
- * layer ahead of its own. Merging this function's *output* instead is unsupported and silent in two ways: the two
- * `projects` arrays concatenate into eight, and a per-project option lands at a root that ignores it.
+ * layer ahead of its own. Merging two of this function's *outputs* is not the way: both declare the same four
+ * project names, which Vitest rejects at startup.
+ *
+ * An `undefined` layer is skipped, so `defineVitestConfig(shared, isCI ? ciLayer : undefined)` composes.
  */
-export function defineVitestConfig(...layers: VitestConfigOptions[]): ViteUserConfig {
+export function defineVitestConfig(...layers: (VitestConfigOptions | undefined)[]): ViteUserConfig {
   return buildConfig(layers, { coverageInclude: PACKAGE_COVERAGE_INCLUDE });
 }
 
@@ -120,7 +122,9 @@ export function defineVitestConfig(...layers: VitestConfigOptions[]): ViteUserCo
  * which repo they belong to, and only the root config's `import.meta.dirname` states this one. The type requires
  * that layer, while the guard below still catches the JavaScript config that types never reach.
  */
-export function defineRootVitestConfig(...layers: [...VitestConfigOptions[], RootVitestConfigOptions]): ViteUserConfig {
+export function defineRootVitestConfig(
+  ...layers: [...(VitestConfigOptions | undefined)[], RootVitestConfigOptions]
+): ViteUserConfig {
   // Reading through `unknown` is what keeps the check live: the declared type alone would make it statically
   // dead. A relative path would resolve against the working directory, which is the resolution this option
   // exists to replace.
@@ -145,9 +149,12 @@ interface BuildOptions {
 }
 
 function buildConfig(
-  layers: readonly VitestConfigOptions[],
+  declaredLayers: readonly (VitestConfigOptions | undefined)[],
   { coverageInclude, projectExclude = [], projectRoot }: BuildOptions,
 ): ViteUserConfig {
+  // Dropping the empty layers here rather than at each fold keeps every consumer of `layers` below total.
+  const layers = declaredLayers.filter((layer) => layer !== undefined);
+
   assertKnownTiers(layers);
 
   const config: ViteUserConfig = {

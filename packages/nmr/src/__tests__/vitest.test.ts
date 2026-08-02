@@ -168,7 +168,8 @@ describe(defineVitestConfig, () => {
     );
   });
 
-  // Merging two built configs instead would concatenate their `projects` arrays and run every test twice, green.
+  // Merging two built configs instead concatenates their `projects` arrays, which Vitest rejects at startup
+  // because the four names then repeat.
   it('declares one project per tier however many layers fold', () => {
     const config = defineVitestConfig({ project: {} }, { root: {} }, { tiers: { tool: {} } });
 
@@ -211,6 +212,31 @@ describe(defineVitestConfig, () => {
 
     expect(budgets.get('tool')).toBe(2_000);
     expect(budgets.get('unit')).toBe(1_000);
+  });
+
+  // Locality beats specificity across layers: the nearer config wins even where the further one was specific.
+  // Pinned because folding every layer's uniform block before any tier target would invert it, and no assertion
+  // about array order would notice -- that refactor keeps the entries contiguous.
+  it('lets a later uniform block override an earlier layer of tier targets', () => {
+    const budgets = getTestTimeouts(
+      defineVitestConfig({ tiers: { tool: { testTimeout: 120_000 } } }, { project: { testTimeout: 10_000 } }),
+    );
+
+    expect(budgets.get('tool')).toBe(10_000);
+    expect(budgets.get('unit')).toBe(10_000);
+  });
+
+  // A conditional layer is the idiom a variadic signature invites, and the ternary's empty branch is `undefined`.
+  // Every position is covered because the fold, the tier check, and the root merge each walk the list separately.
+  it('skips an empty layer wherever it falls, so a conditional layer needs no spread', () => {
+    const config = defineVitestConfig(undefined, { project: { testTimeout: 1_000 } }, undefined);
+
+    expect(getTestTimeouts(config).get('unit')).toBe(1_000);
+    expect(config.test?.projects).toHaveLength(PROJECT_NAMES.length);
+  });
+
+  it('builds the default config when every layer is empty', () => {
+    expect(defineVitestConfig(undefined).test?.projects).toHaveLength(PROJECT_NAMES.length);
   });
 
   // The base sets both budgets from one field so they cannot drift; a tier target sets whichever key it names and
@@ -345,6 +371,12 @@ describe(defineRootVitestConfig, () => {
 
   it('accepts a run that collects no test files', () => {
     expect(defineRootVitestConfig({ monorepoRoot: workspaceRoot }).test?.passWithNoTests).toBe(true);
+  });
+
+  it('skips an empty layer ahead of the layer carrying the monorepo root', () => {
+    const config = defineRootVitestConfig(undefined, { monorepoRoot: workspaceRoot });
+
+    expect(getProjects(config)).toHaveLength(4);
   });
 
   it('folds a shared layer ahead of the layer carrying the monorepo root', () => {
