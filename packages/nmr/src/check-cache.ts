@@ -361,15 +361,26 @@ function formatDuration(milliseconds: number): string {
   return `${Math.round(minutes / MINUTES_PER_HOUR)}h`;
 }
 
-/** Narrows a parsed entry, so that one written by an older format reads as a miss rather than as a pass. */
+/**
+ * Narrows a parsed entry, so that one written by an older format reads as a miss rather than as a pass. The
+ * timestamp has to parse and the duration has to be finite, because both are spent on the skip line: an entry
+ * that would render as `passed NaNs ago` is one no reader can act on.
+ */
 function isCheckCacheEntry(value: unknown): value is CheckCacheEntry {
   if (!isObject(value)) {
     return false;
   }
 
   const stringFields = ['key', 'treeHash', 'headSha', 'commandString', 'nmrVersion', 'nodeVersion', 'recordedAt'];
+  if (stringFields.some((field) => typeof value[field] !== 'string')) {
+    return false;
+  }
 
-  return stringFields.every((field) => typeof value[field] === 'string') && typeof value.durationMs === 'number';
+  return (
+    typeof value.durationMs === 'number' &&
+    Number.isFinite(value.durationMs) &&
+    !Number.isNaN(Date.parse(String(value.recordedAt)))
+  );
 }
 
 /**
