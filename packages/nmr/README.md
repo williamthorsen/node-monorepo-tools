@@ -684,9 +684,7 @@ Arrays concatenate rather than replace. `exclude` and `setupFiles` therefore add
 
 ### Sharing options across config files
 
-Vitest resolves one config per run, found by walking up from the run root. A package that adds its own `vitest.config.ts` therefore stops seeing the repo's root config entirely -- not the one setting it meant to change, all of them.
-
-Pass the shared settings as a layer rather than re-declaring them. Both factories take any number of layers and fold them left to right:
+Vitest resolves one config per run, so a package that adds its own `vitest.config.ts` stops seeing the repo's root config entirely -- not the one setting it meant to change, all of them. Pass the shared settings as a layer instead:
 
 ```ts
 // vitest.shared.ts
@@ -709,28 +707,15 @@ import { shared } from '../../vitest.shared.ts';
 export default defineVitestConfig(shared, { project: { environment: 'jsdom' } });
 ```
 
-```ts
-// vitest.root.config.ts
-import { defineRootVitestConfig } from '@williamthorsen/nmr/vitest';
+Both factories fold any number of layers left to right: a later layer wins on a scalar, arrays concatenate in layer order, and an `undefined` layer is skipped, so `defineVitestConfig(shared, isCI ? ciLayer : undefined)` composes without a spread. `defineRootVitestConfig` takes the same layers, with `monorepoRoot` on the last one -- the config file's own, the only place `import.meta.dirname` names this repo.
 
-import { shared } from './vitest.shared.ts';
+Order is the point where `setupFiles` is concerned, since a shared setup file establishes the environment the package's own then runs in. A later layer's `project` block likewise wins over an earlier layer's `tiers` target: the nearer config is the more deliberate.
 
-export default defineRootVitestConfig(shared, { monorepoRoot: import.meta.dirname });
-```
+**A path in a shared layer must be absolute.** Vitest resolves `setupFiles` against each project's own root, not against the module that declared the path, so a bare `'./vitest.setup.ts'` in a shared module names a different file in every package that consumes it -- and a package that happens to own a file by that name loads the wrong one instead of failing. The co-located form stays correct in a config file that declares the path directly.
 
-**A path in a shared layer must be absolute.** Vitest resolves `setupFiles` against each project's own root, not against the module that declared the path, so a bare `'./vitest.setup.ts'` in a shared module names a different file in every package that consumes it -- `packages/web/vitest.setup.ts` here, and the repo root's copy from the root config. A package that happens to own a file by that name loads the wrong one instead of failing. Resolving from `import.meta.url` pins the file the shared module meant. The co-located `'./vitest.setup.ts'` form stays correct in a config file that declares it directly.
+**Do not merge two returned configs.** `mergeConfig(defineVitestConfig(), defineVitestConfig(mine))` looks like the idiomatic recovery and fails at startup: both sides declare the same four project names, which Vitest rejects with `Project name "unit" ... is not unique`. Layers merge the factory's inputs instead, which is why they yield four projects however many fold.
 
-A later layer wins on a scalar, and arrays concatenate in layer order, so every entry an earlier layer contributes precedes every entry a later one adds. Where `setupFiles` is concerned that ordering is the whole point: a shared setup file establishes the environment the package's own then runs in.
-
-A later layer's `project` block also wins over an earlier layer's `tiers` target, so a package raising a budget for every tier overrides a shared per-tier one. Locality beats specificity: the nearer config is the more deliberate.
-
-An `undefined` layer is skipped, so `defineVitestConfig(shared, isCI ? ciLayer : undefined)` composes without a spread.
-
-`monorepoRoot` rides on the last layer, which is the config file's own. A shared layer describes settings, not which repo they belong to, and only the root config's `import.meta.dirname` states this one.
-
-**Do not merge two returned configs.** `mergeConfig(defineVitestConfig(), defineVitestConfig(mine))` looks like the idiomatic recovery, and fails at startup: both sides declare the same four project names, and Vitest rejects the duplicates with `Project name "unit" ... is not unique`. Layers merge the factory's inputs instead, which is why they yield four projects however many fold.
-
-A config file that omits the shared layer still loses those settings, silently. That is Vitest's own resolution contract rather than something the factory can intercept, so a repo relying on shared layers is worth guarding with a test that fails when a package's suite goes missing -- the same guard that catches a shared `exclude` pattern swallowing one package's tests, which `passWithNoTests` otherwise reports as a green run collecting nothing.
+A config file that omits the shared layer still loses those settings, silently -- Vitest's own resolution contract, not something the factory can intercept. Guard it with a test that fails when a package's suite goes missing, which also catches a shared `exclude` pattern swallowing one package's tests.
 
 ### What the config excludes
 
