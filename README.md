@@ -22,9 +22,9 @@
 pnpm install
 ```
 
-Each package compiles during install, so that is the whole setup.
+Each package compiles during install, so no separate build step is needed.
 
-If `nmr` stops running -- `nmr clean` removes the build output it needs, and Vitest and Prettier read it too -- rebuild it from source with `pnpm run bootstrap`, then `nmr build` to restore the rest.
+If `nmr` stops running -- `nmr clean` removes the build output it needs, and Vitest and Prettier read it too -- run `pnpm run bootstrap` and then `nmr build`, both from the repo root.
 
 ## Recommended setup
 
