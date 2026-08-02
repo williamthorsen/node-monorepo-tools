@@ -128,9 +128,11 @@ export default defineConfig({
 
 All fields are optional. `workspaceScripts` and `rootScripts` values follow the same `string | string[]` convention described in [script values](#script-values).
 
+Each field belongs to exactly one tier, and a config loads only the fields its own tier honors: `build` in a package config, the other three in the monorepo-root config. Declaring a field at the wrong tier fails with a message naming it and where it goes, as does a key nmr does not recognize at all — a typo cannot degrade into a setting that silently applies nowhere.
+
 ### Package-level configuration
 
-A package may carry its own `.config/nmr.config.ts`, which `nmr-compile` reads from the package it is compiling. This tier honors `build` alone; declaring `workspaceScripts`, `rootScripts`, or `devBin` there fails with a message naming them, rather than being quietly ignored — those belong in the monorepo-root config, and a package that appeared to set them would otherwise build on settings nothing applied.
+A package may carry its own `.config/nmr.config.ts`, which `nmr-compile` reads from the package it is compiling. This tier honors `build` alone; declaring `workspaceScripts`, `rootScripts`, or `devBin` there fails with a message naming them, rather than being quietly ignored — those belong in the monorepo-root config, and a package that appeared to set them would otherwise build on settings nothing applied. The monorepo-root config carries the mirror restriction: `build` there fails the same way, since only a package's own config reaches the compile.
 
 ```ts
 // packages/my-package/.config/nmr.config.ts

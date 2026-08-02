@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { defineConfig, loadConfig, loadWorkspaceConfig } from '../config.ts';
+import { defineConfig, loadConfig, loadRootConfig, loadWorkspaceConfig } from '../config.ts';
 
 /** Writes a config file into `dir/.config/nmr.config.ts`, creating the directory. */
 function writeConfig(dir: string, source: string): void {
@@ -125,6 +125,28 @@ describe(loadConfig, () => {
 
     await expect(loadConfig(tmpDir)).rejects.toThrow('`build.extraIgnorePatterns` must be a string[]');
   });
+
+  it('throws naming an unrecognized top-level key and the recognized set', async () => {
+    writeConfig(tmpDir, `export default { bild: { extraIgnorePatterns: ['**/fixtures/**'] } };`);
+
+    await expect(loadConfig(tmpDir)).rejects.toThrow(
+      'unrecognized key `bild`. Recognized: `build`, `devBin`, `rootScripts`, `workspaceScripts`.',
+    );
+  });
+
+  it('throws naming every unrecognized top-level key at once', async () => {
+    writeConfig(tmpDir, `export default { zeta: 1, alpha: 2 };`);
+
+    await expect(loadConfig(tmpDir)).rejects.toThrow('unrecognized keys `alpha`, `zeta`');
+  });
+
+  it('throws naming an unrecognized build subkey', async () => {
+    writeConfig(tmpDir, `export default { build: { extendIgnore: ['**/fixtures/**'] } };`);
+
+    await expect(loadConfig(tmpDir)).rejects.toThrow(
+      'unrecognized key `build.extendIgnore`. Recognized: `build.extraIgnorePatterns`.',
+    );
+  });
 });
 
 describe(loadWorkspaceConfig, () => {
@@ -155,5 +177,40 @@ describe(loadWorkspaceConfig, () => {
     writeConfig(tmpDir, `export default { rootScripts: { a: 'x' }, devBin: { b: 'y' }, build: {} };`);
 
     await expect(loadWorkspaceConfig(tmpDir)).rejects.toThrow('not devBin, rootScripts');
+  });
+});
+
+describe(loadRootConfig, () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(os.tmpdir() + '/nmr-root-config-test-');
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('returns an empty config when the root has no config file', async () => {
+    await expect(loadRootConfig(tmpDir)).resolves.toStrictEqual({});
+  });
+
+  it('loads the script and devBin keys the root tier honors', async () => {
+    writeConfig(
+      tmpDir,
+      `export default { rootScripts: { a: 'x' }, workspaceScripts: { b: 'y' }, devBin: { c: 'z' } };`,
+    );
+
+    const config = await loadRootConfig(tmpDir);
+
+    expect(config.rootScripts).toStrictEqual({ a: 'x' });
+  });
+
+  it('throws when the root config declares build, which only a package config reaches', async () => {
+    writeConfig(tmpDir, `export default { build: { extraIgnorePatterns: ['**/fixtures/**'] } };`);
+
+    await expect(loadRootConfig(tmpDir)).rejects.toThrow(
+      "honors devBin, rootScripts, workspaceScripts alone, not build. Move those keys to the package's own config.",
+    );
   });
 });

@@ -2,7 +2,7 @@ import { rm } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { NmrConfig } from '../config.ts';
-import { loadConfig } from '../config.ts';
+import { loadRootConfig } from '../config.ts';
 import { findContainingPackageDir } from '../context.ts';
 import { applyDevBin, buildWorkspaceRegistry, resolveScript } from '../resolver.ts';
 import { runCommand } from '../runner.ts';
@@ -81,7 +81,7 @@ export async function runClean(cwd: string = process.cwd()): Promise<void> {
  * the built-in into a dev binary would spawn the same code per package and forfeit the single-process guarantee.
  */
 async function sweepWorkspace(monorepoRoot: string, workspacePackageDirs: string[]): Promise<void> {
-  const config: NmrConfig = await loadConfig(monorepoRoot);
+  const config: NmrConfig = await loadRootConfig(monorepoRoot);
   // Every package resolves the same registry, so it is built once; only tier-3 resolution varies per package.
   const registry = buildWorkspaceRegistry(config);
 

@@ -65,6 +65,20 @@ describe('nmr-compile', () => {
     expect(() => runCompile(dir)).toThrow(/not rootScripts/);
     expect(listEmitted(dir)).toStrictEqual([]);
   });
+
+  it('fails when the package config misspells a build key rather than compiling on the defaults', () => {
+    scaffoldPackage(
+      dir,
+      {
+        'index.ts': 'export const value = 1;\n',
+        'fixtures/sample.ts': 'export const sample = 1;\n',
+      },
+      `export default { build: { extraIgnorePattern: ['**/fixtures/**'] } };\n`,
+    );
+
+    expect(() => runCompile(dir)).toThrow(/unrecognized key `build\.extraIgnorePattern`/);
+    expect(listEmitted(dir)).toStrictEqual([]);
+  });
 });
 
 // region | Helpers
