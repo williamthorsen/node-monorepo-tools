@@ -102,7 +102,7 @@ Passthrough arguments attach to the final step alone, because the expansion is a
 
 ## Configuration
 
-Create `.config/nmr.config.ts` in the monorepo root to add or override scripts:
+Create `.config/nmr.config.ts` in the monorepo root to add or override scripts. A package may carry one too, for [build settings of its own](#package-level-configuration):
 
 ```ts
 import { defineConfig } from '@williamthorsen/nmr';
@@ -121,11 +121,31 @@ export default defineConfig({
 
 | Field              | Type                                 | Description                                                    |
 | ------------------ | ------------------------------------ | -------------------------------------------------------------- |
+| `build`            | `{ extraIgnorePatterns?: string[] }` | Patterns added to the build's ignore set (package config only) |
 | `workspaceScripts` | `Record<string, string \| string[]>` | Scripts added or overridden in the workspace registry (tier 2) |
 | `rootScripts`      | `Record<string, string \| string[]>` | Scripts added or overridden in the root registry (tier 2)      |
 | `devBin`           | `Record<string, string>`             | Map binary names to source-repo replacement commands           |
 
 All fields are optional. `workspaceScripts` and `rootScripts` values follow the same `string | string[]` convention described in [script values](#script-values).
+
+Each field belongs to exactly one tier, and a config loads only the fields its own tier honors: `build` in a package config, the other three in the monorepo-root config. Declaring a field at the wrong tier fails with a message naming it and where it goes, as does a key nmr does not recognize at all — a typo cannot degrade into a setting that silently applies nowhere.
+
+### Package-level configuration
+
+A package may carry its own `.config/nmr.config.ts`, which `nmr-compile` reads from the package it is compiling. This tier honors `build` alone; declaring `workspaceScripts`, `rootScripts`, or `devBin` there fails with a message naming them, rather than being quietly ignored — those belong in the monorepo-root config, and a package that appeared to set them would otherwise build on settings nothing applied. The monorepo-root config carries the mirror restriction: `build` there fails the same way, since only a package's own config reaches the compile.
+
+```ts
+// packages/my-package/.config/nmr.config.ts
+import { defineConfig } from '@williamthorsen/nmr';
+
+export default defineConfig({
+  build: { extraIgnorePatterns: ['**/fixtures/**'] },
+});
+```
+
+`extraIgnorePatterns` adds to the build's [default ignore set](#nmr-compile) rather than replacing it, so declaring a pattern cannot start a package shipping its own tests. The programmatic `buildPackage` option of the same name behaves identically; its bare `ignorePatterns` is the one that replaces.
+
+> **Building nmr from source:** a config file that has to load while nmr itself is being built — before its `dist` exists — must use the type-only form, `import type { NmrConfig }` with `satisfies NmrConfig`, which carries no runtime import. `defineConfig` resolves through nmr's build output and so is unavailable at that moment. Every other config, including every consumer's, installs nmr from a tarball that ships `dist` and can use `defineConfig` freely.
 
 ### `devBin` — source-repo binary substitution
 
@@ -483,6 +503,10 @@ nmr-clean
 ### `nmr-compile`
 
 Compile a single package's `src` tree to `dist/esm` with the TypeScript compiler API, emitting `.js` and `.d.ts` in one pass. Because the compiler parses each source file, every relative import form — static, re-export, dynamic `import()`, and bare side-effect — is rewritten from `.ts` to `.js` in both outputs, and `.ts` occurrences inside strings and comments are left intact. tsconfig `paths` aliases are resolved to runnable relative `.js` specifiers in both outputs, sourced from the package's tsconfig. An aliased import whose target resolves outside the package's `src/` and is not resolvable without the alias mapping fails the build with a diagnostic, rather than being emitted verbatim to produce output that fails at runtime. The build is skipped when no input has changed and the previous output is still on disk (a content-and-path hash is cached under `node_modules/.cache/nmr-compile/`, outside the published output). Deleting the output by any means — `nmr clean`, `rm -rf dist`, `git clean` — therefore forces a rebuild rather than a skip. This is the default `compile` script — run it from a package directory.
+
+**What it compiles.** Entry points are `src/**/*.ts` less the directories that hold test scaffolding rather than shipped code: `__fixtures__/`, `__mocks__/`, `__tests__/`, and `test-utils/`. Add to that list per package with [`build.extraIgnorePatterns`](#package-level-configuration). Ignoring a directory drops it as an _entry point_, not from the emit: the compiler still emits whatever the surviving entry points import, so a helper that production code uses is still compiled and its importer never emits a dangling specifier. This list is deliberately not the Vitest [coverage exclusions](#what-the-config-excludes) — helpers live in `test-utils/` precisely so they stay covered.
+
+**The build owns its output directory.** Every rebuild wipes `dist/esm` before emitting, so the directory holds exactly the current emit: a source that was deleted, or that a widened ignore set now covers, leaves nothing behind. Assets therefore belong outside the output directory, or in a `build:post` hook, which runs after the wipe and so composes correctly. Note that a bare `nmr compile` runs no hook, so assets a `build:post` step copies in are absent until a full `nmr build` restores them. An `outdir` that does not resolve inside the package is rejected rather than wiped.
 
 `typescript` is a peer dependency (`>=5.7.0 <7`); the consuming repo provides it. The floor is what `rewriteRelativeImportExtensions` requires; the ceiling is because TypeScript 7 ships no compiler API — its root export is a version constant, so `nmr-compile` cannot run on it. Relative imports in source must carry explicit `.ts` extensions for them to be rewritten.
 

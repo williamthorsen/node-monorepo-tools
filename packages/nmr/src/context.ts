@@ -1,7 +1,7 @@
 import path from 'node:path';
 
 import type { NmrConfig } from './config.ts';
-import { loadConfig } from './config.ts';
+import { loadRootConfig } from './config.ts';
 import { findMonorepoRoot, getWorkspacePackageDirs } from './workspace.ts';
 
 export interface ResolvedContext {
@@ -40,7 +40,7 @@ export function findContainingPackageDir(dir: string, workspacePackageDirs: stri
 export async function resolveContext(cwd?: string): Promise<ResolvedContext> {
   const resolvedCwd = path.resolve(cwd ?? process.cwd());
   const monorepoRoot = findMonorepoRoot(resolvedCwd);
-  const config = await loadConfig(monorepoRoot);
+  const config = await loadRootConfig(monorepoRoot);
   const workspaceDirs = getWorkspacePackageDirs(monorepoRoot);
   const packageDir = findContainingPackageDir(resolvedCwd, workspaceDirs);
 

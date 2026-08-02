@@ -432,6 +432,148 @@ describe('buildPackage with an alias target outside the package source tree', ()
   });
 });
 
+describe('buildPackage entry-point selection', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-build-'));
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+    vi.mocked(console.info).mockRestore();
+    vi.mocked(ts.createProgram).mockClear();
+  });
+
+  it.each(['__fixtures__', '__mocks__', '__tests__', 'test-utils'])(
+    'excludes %s/ from the default entry points',
+    async (directory) => {
+      scaffoldPackage(dir, {
+        'index.ts': 'export const value = 1;\n',
+        [`${directory}/helper.ts`]: 'export const helper = 1;\n',
+      });
+
+      await buildPackage(dir);
+
+      expect(listEmitted(dir)).toStrictEqual(['index.d.ts', 'index.js']);
+    },
+  );
+
+  it('emits a helper that production code imports, despite the ignore', async () => {
+    // The ignore selects entry points; the compiler still emits whatever they reach. Suppressing a reachable
+    // file would leave index.js importing a specifier that was never written.
+    scaffoldPackage(dir, {
+      'index.ts': `import { helper } from './test-utils/helper.ts';\nexport const value = helper;\n`,
+      'test-utils/helper.ts': 'export const helper = 1;\n',
+    });
+
+    await buildPackage(dir);
+
+    expect(listEmitted(dir)).toContain('test-utils/helper.js');
+  });
+
+  it('replaces the default ignore set when given `ignorePatterns`', async () => {
+    scaffoldPackage(dir, {
+      'index.ts': 'export const value = 1;\n',
+      'test-utils/helper.ts': 'export const helper = 1;\n',
+    });
+
+    await buildPackage(dir, { ignorePatterns: [] });
+
+    expect(listEmitted(dir)).toContain('test-utils/helper.js');
+  });
+
+  it('adds to the effective ignore set when given `extraIgnorePatterns`', async () => {
+    scaffoldPackage(dir, {
+      'index.ts': 'export const value = 1;\n',
+      'internal/helper.ts': 'export const helper = 1;\n',
+    });
+
+    await buildPackage(dir, { extraIgnorePatterns: ['**/internal/**'] });
+
+    expect(listEmitted(dir)).toStrictEqual(['index.d.ts', 'index.js']);
+  });
+
+  it('composes `extraIgnorePatterns` onto an `ignorePatterns` override rather than onto the default', async () => {
+    scaffoldPackage(dir, {
+      'index.ts': 'export const value = 1;\n',
+      'internal/helper.ts': 'export const helper = 1;\n',
+      'test-utils/helper.ts': 'export const helper = 1;\n',
+    });
+
+    // `ignorePatterns: []` drops the defaults, so test-utils/ returns as an entry point; the extras apply on top.
+    await buildPackage(dir, { ignorePatterns: [], extraIgnorePatterns: ['**/internal/**'] });
+
+    expect(listEmitted(dir)).toStrictEqual([
+      'index.d.ts',
+      'index.js',
+      'test-utils/helper.d.ts',
+      'test-utils/helper.js',
+    ]);
+  });
+});
+
+describe('buildPackage output-directory ownership', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-build-'));
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+    vi.mocked(console.info).mockRestore();
+    vi.mocked(ts.createProgram).mockClear();
+  });
+
+  it('drops output whose source has been deleted', async () => {
+    scaffoldPackage(dir, {
+      'index.ts': 'export const value = 1;\n',
+      'obsolete.ts': 'export const obsolete = 1;\n',
+    });
+    await buildPackage(dir);
+    expect(listEmitted(dir)).toContain('obsolete.js');
+
+    fs.rmSync(path.join(dir, 'src', 'obsolete.ts'));
+    await buildPackage(dir);
+
+    expect(listEmitted(dir)).toStrictEqual(['index.d.ts', 'index.js']);
+  });
+
+  it('drops output whose source has since become ignored', async () => {
+    // The upgrade path for the packaging defect: a helper emitted by an earlier build has to disappear once
+    // the ignore set covers it, which a rebuild that only writes would leave in place.
+    scaffoldPackage(dir, {
+      'index.ts': 'export const value = 1;\n',
+      'test-utils/helper.ts': 'export const helper = 1;\n',
+    });
+    await buildPackage(dir, { ignorePatterns: [] });
+    expect(listEmitted(dir)).toContain('test-utils/helper.js');
+
+    await buildPackage(dir);
+
+    expect(listEmitted(dir)).toStrictEqual(['index.d.ts', 'index.js']);
+  });
+
+  it.each(['.', '../escape'])('refuses to build into %s and removes nothing', async (outdir) => {
+    scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' });
+
+    await expect(buildPackage(dir, { outdir })).rejects.toThrow(/does not resolve inside the package/);
+
+    expect(fs.existsSync(path.join(dir, 'src', 'index.ts'))).toBe(true);
+  });
+
+  it('builds a package with no entry points without touching an absent output directory', async () => {
+    scaffoldPackage(dir, { '__tests__/index.test.ts': 'export const covered = 1;\n' });
+
+    await buildPackage(dir);
+
+    expect(fs.existsSync(path.join(dir, 'dist'))).toBe(false);
+  });
+});
+
 describe('buildPackage caching', () => {
   let dir: string;
 
@@ -467,6 +609,30 @@ describe('buildPackage caching', () => {
     await buildPackage(dir);
 
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining('No changes detected'));
+  });
+
+  it.each([
+    ['creating', undefined, `export default { build: { extraIgnorePatterns: ['**/a/**'] } };\n`],
+    ['editing', `export default { build: {} };\n`, `export default { build: { extraIgnorePatterns: ['**/a/**'] } };\n`],
+    ['deleting', `export default { build: { extraIgnorePatterns: ['**/a/**'] } };\n`, undefined],
+  ])('rebuilds after %s the package config', async (_action, before, after) => {
+    const configPath = path.join(dir, '.config', 'nmr.config.ts');
+    scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' });
+    fs.mkdirSync(path.join(dir, '.config'), { recursive: true });
+    if (before !== undefined) {
+      fs.writeFileSync(configPath, before);
+    }
+    await buildPackage(dir);
+    vi.mocked(console.info).mockClear();
+
+    if (after === undefined) {
+      fs.rmSync(configPath);
+    } else {
+      fs.writeFileSync(configPath, after);
+    }
+    await buildPackage(dir);
+
+    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Changes detected'));
   });
 
   it('writes the cache under node_modules/.cache/nmr-compile, never inside dist', async () => {
@@ -647,3 +813,22 @@ describe(resolveBuildCachePath, () => {
     expect(resolveBuildCachePath(a)).not.toBe(resolveBuildCachePath(b));
   });
 });
+
+// region | Helpers
+
+/** Lists every file under the package's emit directory, as sorted forward-slash paths relative to it. */
+function listEmitted(dir: string): string[] {
+  const outdir = path.join(dir, 'dist', 'esm');
+  if (!fs.existsSync(outdir)) {
+    return [];
+  }
+
+  return fs
+    .readdirSync(outdir, { recursive: true })
+    .map(String)
+    .filter((entry) => fs.statSync(path.join(outdir, entry)).isFile())
+    .map((entry) => entry.split(path.sep).join('/'))
+    .toSorted();
+}
+
+// endregion | Helpers

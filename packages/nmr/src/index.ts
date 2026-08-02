@@ -1,2 +1,2 @@
-export type { NmrConfig } from './config.ts';
+export type { BuildConfig, NmrConfig } from './config.ts';
 export { defineConfig } from './config.ts';

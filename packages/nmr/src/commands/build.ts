@@ -1,14 +1,19 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { glob } from 'glob';
 import * as ts from 'typescript';
 
+import { resolveConfigPath } from '../config.ts';
+
 export interface BuildOptions {
   entryGlobs?: string[];
-  ignore?: string[];
+  /** Adds to the effective ignore set, whether that set is the default or an `ignorePatterns` override. */
+  extraIgnorePatterns?: string[];
+  /** Replaces the default ignore set. */
+  ignorePatterns?: string[];
   outdir?: string;
 }
 
@@ -23,7 +28,18 @@ const PACKAGE_ICON = '📦';
 const SKIPPED_ICON = '⏭️';
 
 const DEFAULT_ENTRY_GLOBS = ['src/**/*.ts'];
-const DEFAULT_IGNORE = ['**/__tests__/**'];
+
+/**
+ * Directories holding test scaffolding rather than shipped code, excluded from entry-point selection so a
+ * package does not publish its own helpers. Deliberately not the vitest factory's `COVERAGE_EXCLUDE`: helpers
+ * live in `test-utils/` precisely so they stay inside the coverage include set, so the two lists overlap
+ * without converging and neither can be derived from the other.
+ *
+ * Ignoring a file removes it as an entry point, not from the emit. The compiler still emits whatever the
+ * surviving entry points import, which is what keeps a production module that uses a helper from emitting a
+ * dangling specifier. Widening this list can therefore only drop files nothing in production reaches.
+ */
+const DEFAULT_IGNORE_PATTERNS = ['**/__fixtures__/**', '**/__mocks__/**', '**/__tests__/**', '**/test-utils/**'];
 const DEFAULT_OUTDIR = 'dist/esm/';
 const SOURCE_ROOT = 'src';
 
@@ -45,19 +61,34 @@ const JS_EXTENSION = '.js';
  * and `.d.ts` in one pass and rewriting relative `.ts` specifiers and tsconfig `paths` aliases to
  * runnable relative `.js` specifiers in both outputs. Skips the build only when no input has changed
  * and the previous output is still on disk.
+ *
+ * The build owns its output directory: every emit wipes it first, so `dist` is a function of the current
+ * inputs rather than an accumulation of every build that ever ran. Assets belong outside it, or in a
+ * `build:post` hook, which runs after the wipe.
  */
 export async function buildPackage(packageDir: string, options: BuildOptions = {}): Promise<void> {
   assertSupportedTypeScript();
 
   const cachePath = resolveBuildCachePath(packageDir);
   const outdir = options.outdir ?? DEFAULT_OUTDIR;
+  // Validate before any work, so an outdir that would take the wipe outside the package fails fast.
+  resolveEmitDir(packageDir, outdir);
   const emitConfig: EmitConfig = { outdir, declaration: true, rewriteRelativeImportExtensions: true };
 
   const entryPoints = await glob(options.entryGlobs ?? DEFAULT_ENTRY_GLOBS, {
     cwd: packageDir,
-    ignore: options.ignore ?? DEFAULT_IGNORE,
+    ignore: [...(options.ignorePatterns ?? DEFAULT_IGNORE_PATTERNS), ...(options.extraIgnorePatterns ?? [])],
   });
-  const dependencies = ['package.json', ...resolveTsconfigChain(packageDir)];
+  // The config file joins the digest only when it exists: `computeBuildHash` reads every listed file, so an
+  // unconditional entry would fail every package that has none. Conditional entry still covers all three
+  // edits, because the file's path is hashed alongside its contents -- creating or deleting it moves the
+  // digest exactly as editing it does.
+  const configPath = resolveConfigPath(packageDir);
+  const dependencies = [
+    'package.json',
+    ...(existsSync(configPath) ? [path.relative(packageDir, configPath)] : []),
+    ...resolveTsconfigChain(packageDir),
+  ];
 
   const { changed, currentHash } = await detectBuildChanges(
     packageDir,
@@ -71,7 +102,7 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
     return;
   }
 
-  emitPackage(packageDir, entryPoints, outdir);
+  await emitPackage(packageDir, entryPoints, outdir);
 
   // Persist the digest only after a successful build, so a failed compile cannot poison the cache
   // and cause the next run to skip a never-completed build.
@@ -146,12 +177,17 @@ export function resolveTsconfigChain(packageDir: string, configFileName = 'tscon
  * and tsconfig `paths` aliases to runnable relative `.js` specifiers across every emitted file.
  * Throws with formatted diagnostics when the program cannot be emitted.
  */
-function emitPackage(packageDir: string, entryPoints: string[], outdir: string): void {
+async function emitPackage(packageDir: string, entryPoints: string[], outdir: string): Promise<void> {
   const compilerOptions = synthesizeCompilerOptions(packageDir, outdir);
   const rootNames = entryPoints.map((entry) => path.resolve(packageDir, entry));
   const sourceRoot = path.resolve(packageDir, SOURCE_ROOT);
 
   const program = ts.createProgram(rootNames, compilerOptions);
+
+  // Wipe only once the program stands: constructing it writes nothing, so a malformed tsconfig or an
+  // unresolvable alias leaves the previous output untouched. A failure past this point empties the
+  // directory, which `hasExpectedBuildOutput` reads as missing output and so rebuilds on the next run.
+  await rm(resolveEmitDir(packageDir, outdir), { force: true, recursive: true });
 
   const emittedFiles: string[] = [];
   const emitResult = program.emit(undefined, (fileName, text, writeByteOrderMark) => {
@@ -166,6 +202,25 @@ function emitPackage(packageDir: string, entryPoints: string[], outdir: string):
   for (const file of emittedFiles) {
     rewriteOutputSpecifiers(file, compilerOptions, sourceRoot);
   }
+}
+
+/**
+ * Resolves the emit directory, refusing one that is not strictly inside the package. The build wipes this
+ * directory before every emit, so an `outdir` of `.` or `../sibling` would take the package's own sources
+ * with it. A caller that misconfigures it has to hear about it rather than lose a tree.
+ */
+function resolveEmitDir(packageDir: string, outdir: string): string {
+  const resolved = path.resolve(packageDir, outdir);
+  const relative = path.relative(packageDir, resolved);
+
+  if (relative === '' || relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error(
+      `nmr-compile: refusing to build into '${outdir}', which does not resolve inside the package. ` +
+        'The build wipes its output directory before each emit, so the directory must sit below the package root.',
+    );
+  }
+
+  return resolved;
 }
 
 /**
