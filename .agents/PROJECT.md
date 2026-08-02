@@ -43,9 +43,10 @@ Use `nmr {command}` for all monorepo scripts. Use `pnpm run {script}` only for s
 - `nmr test:watch` — Tests in watch mode
 - `nmr test:coverage` — Tests with coverage
 
-**Bootstrap (when nmr isn't built yet):**
+**Recovery, in order (when build output is missing):**
 
-- `pnpm run bootstrap` — Build nmr from the root to resolve the chicken-and-egg dependency
+- `pnpm run bootstrap` — Rebuild nmr-core and nmr from source, restoring the `nmr` command
+- `nmr build` — Rebuild the remaining packages, which `nmr check` collects tests against
 
 ## Architecture
 
