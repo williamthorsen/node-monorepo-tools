@@ -524,6 +524,66 @@ describe('buildPackage entry-point selection', () => {
   });
 });
 
+describe('buildPackage output-directory ownership', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-build-'));
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+    vi.mocked(console.info).mockRestore();
+    vi.mocked(ts.createProgram).mockClear();
+  });
+
+  it('drops output whose source has been deleted', async () => {
+    scaffoldPackage(dir, {
+      'index.ts': 'export const value = 1;\n',
+      'obsolete.ts': 'export const obsolete = 1;\n',
+    });
+    await buildPackage(dir);
+    expect(listEmitted(dir)).toContain('obsolete.js');
+
+    fs.rmSync(path.join(dir, 'src', 'obsolete.ts'));
+    await buildPackage(dir);
+
+    expect(listEmitted(dir)).toEqual(['index.d.ts', 'index.js']);
+  });
+
+  it('drops output whose source has since become ignored', async () => {
+    // The upgrade path for the packaging defect: a helper emitted by an earlier build has to disappear once
+    // the ignore set covers it, which a rebuild that only writes would leave in place.
+    scaffoldPackage(dir, {
+      'index.ts': 'export const value = 1;\n',
+      'test-utils/helper.ts': 'export const helper = 1;\n',
+    });
+    await buildPackage(dir, { ignore: [] });
+    expect(listEmitted(dir)).toContain('test-utils/helper.js');
+
+    await buildPackage(dir);
+
+    expect(listEmitted(dir)).toEqual(['index.d.ts', 'index.js']);
+  });
+
+  it.each(['.', '../escape'])('refuses to build into %s and removes nothing', async (outdir) => {
+    scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' });
+
+    await expect(buildPackage(dir, { outdir })).rejects.toThrow(/does not resolve inside the package/);
+
+    expect(fs.existsSync(path.join(dir, 'src', 'index.ts'))).toBe(true);
+  });
+
+  it('builds a package with no entry points without touching an absent output directory', async () => {
+    scaffoldPackage(dir, { '__tests__/index.test.ts': 'export const covered = 1;\n' });
+
+    await buildPackage(dir);
+
+    expect(fs.existsSync(path.join(dir, 'dist'))).toBe(false);
+  });
+});
+
 describe('buildPackage caching', () => {
   let dir: string;
 
