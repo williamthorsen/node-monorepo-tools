@@ -5,9 +5,11 @@ import { describe, expect, it } from 'vitest';
 
 import type { LabelSpec, ReleaseKitConfig, RepoLabelsConfig } from '../defineConfig.ts';
 import { defineConfig } from '../defineConfig.ts';
-// The barrel keeps its config types, so a config written as `import type { ReleaseKitConfig }` survives the removal
-// of `defineConfig` from it. Using the alias below to type a config object is the assertion.
-import type { ReleaseKitConfig as BarrelReleaseKitConfig } from '../index.ts';
+import type {
+  LabelSpec as BarrelLabelSpec,
+  ReleaseKitConfig as BarrelReleaseKitConfig,
+  RepoLabelsConfig as BarrelRepoLabelsConfig,
+} from '../index.ts';
 
 /** The entry module's basename. The `./config` subpath's targets are this name with the built extensions. */
 const ENTRY_BASENAME = 'defineConfig';
@@ -16,7 +18,7 @@ const packageRoot = path.resolve(import.meta.dirname, '../..');
 
 describe(defineConfig, () => {
   it('returns the config it is given', () => {
-    const config: BarrelReleaseKitConfig = { formatCommand: 'npx prettier --write' };
+    const config: ReleaseKitConfig = { formatCommand: 'npx prettier --write' };
 
     expect(defineConfig(config)).toBe(config);
   });
@@ -63,5 +65,15 @@ describe('the package barrel', () => {
     const barrel: Record<string, unknown> = await import('../index.ts');
 
     expect(barrel).not.toHaveProperty('defineConfig');
+  });
+
+  // Typing values with the barrel's aliases is the assertion: a config written as `import type { ReleaseKitConfig }`
+  // keeps working without the barrel's `defineConfig`, so all three names have to stay reachable there.
+  it('still exports the config types', () => {
+    const labels: Record<string, BarrelLabelSpec | null> = { bug: { color: 'b60205' } };
+    const repoLabels: BarrelRepoLabelsConfig = { extends: ['common'], labels };
+    const config: BarrelReleaseKitConfig = { repoLabels };
+
+    expect(config.repoLabels).toBe(repoLabels);
   });
 });

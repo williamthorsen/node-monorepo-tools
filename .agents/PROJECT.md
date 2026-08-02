@@ -12,7 +12,7 @@ Packages live under `packages/`:
 
 - **`@williamthorsen/nmr`**: Context-aware script runner for pnpm monorepos. Detects root vs workspace context and resolves the appropriate script registry.
 - **`@williamthorsen/nmr-core`**: Shared utilities consumed by `release-kit`.
-- **`@williamthorsen/release-kit`**: Version-bumping and changelog-generation toolkit. Holds the repo's only `*.tool.test.ts` outside nmr (it drives `git`), plus `*.packaged.test.ts` files that need a prior build.
+- **`@williamthorsen/release-kit`**: Version-bumping and changelog-generation toolkit. Holds the only `*.tool.test.ts` files outside nmr (one drives `git`, one drives Node's type stripper), plus `*.packaged.test.ts` files that need a prior build.
 - **`v11y-check`**: Wraps audit-ci with a richer config model, typed JSON source of truth, and a sync workflow that automates allowlist management.
 
 Key files:
