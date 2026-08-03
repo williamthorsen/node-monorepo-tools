@@ -2,15 +2,7 @@
   "$schema": "https://github.com/williamthorsen/node-monorepo-tools/raw/main/packages/v11y-check/schemas/config.json",
   "dev": {
     "severityThreshold": "moderate",
-    "allowlist": [
-      {
-        "addedAt": "2026-08-01T00:59:54.257Z",
-        "id": "1130588",
-        "path": ".>@williamthorsen/eslint-config-typescript>eslint-plugin-import>minimatch>brace-expansion",
-        "reason": "Added by v11y sync at 2026-08-01 00:59:54 UTC",
-        "url": "https://github.com/advisories/GHSA-mh99-v99m-4gvg"
-      }
-    ]
+    "allowlist": []
   },
   "prod": {
     "severityThreshold": "low",
