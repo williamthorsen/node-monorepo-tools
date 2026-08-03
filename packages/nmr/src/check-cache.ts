@@ -16,6 +16,7 @@ import {
 
 import { hasBuildOutput, readBuildDigest } from './commands/build-output.ts';
 import { loadWorkspaceConfig } from './config.ts';
+import { formatDuration } from './helpers/duration.ts';
 import { isObject, isStringRecord } from './helpers/type-guards.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
 import { getDefaultWorkspaceScripts } from './resolve-scripts.ts';
@@ -376,10 +377,6 @@ export function writeDebugNote(message: string, env: NodeJS.ProcessEnv, stderr: 
 
 // region | Helpers
 
-const MILLISECONDS_PER_SECOND = 1000;
-const SECONDS_PER_MINUTE = 60;
-const MINUTES_PER_HOUR = 60;
-
 /** Reads a snapshot a parent process encoded, or `undefined` when the value is absent or malformed. */
 function decodeTreeSnapshot(encoded: string | undefined): TreeSnapshot | undefined {
   if (encoded === undefined) {
@@ -392,21 +389,6 @@ function decodeTreeSnapshot(encoded: string | undefined): TreeSnapshot | undefin
   }
 
   return { hash, headSha };
-}
-
-/** Renders a duration at the coarsest unit that still says something, for a line a reader skims. */
-function formatDuration(milliseconds: number): string {
-  const seconds = Math.round(milliseconds / MILLISECONDS_PER_SECOND);
-  if (seconds < SECONDS_PER_MINUTE) {
-    return `${seconds}s`;
-  }
-
-  const minutes = Math.round(seconds / SECONDS_PER_MINUTE);
-  if (minutes < MINUTES_PER_HOUR) {
-    return `${minutes}m`;
-  }
-
-  return `${Math.round(minutes / MINUTES_PER_HOUR)}h`;
 }
 
 /**
