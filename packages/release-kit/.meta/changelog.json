@@ -1,5 +1,33 @@
 [
   {
+    "version": "10.1.0",
+    "date": "2026-08-03",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Publish nmr's readyup kit with a test-tier conformance check (#580)",
+            "body": "`@williamthorsen/nmr` is now bundled with ReadyUp kits that check a repo's alignment with `nmr` requirements and recommendations.\n\n`rdy run --from npm:@williamthorsen/nmr` checks the repo against the kits without prior configuration. Once the package is added to the ReadyUp config, `rdy run --packages` will run the `nmr` kits along with those of any other registered package. Requires `readyup` v0.23 or greater.",
+            "hash": "94bd46acfecf87d6ec0f981ee561c0ebf22d9c09"
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Load the config with Node's TypeScript support instead of jiti (#573)",
+            "body": "`release-kit` now uses native Node with type-stripping to read its configs. `jiti` is no longer needed as a dependency. As a result, relative imports inside `.config/release-kit.config.ts` now require an explicit file extension.",
+            "hash": "b4837030475b6a65023001b31eeb746b6439eac3"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "10.0.0",
     "date": "2026-08-03",
     "sections": [

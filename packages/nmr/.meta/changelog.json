@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.25.0",
+    "date": "2026-08-03",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Mark a cache hit's time saving with a speed-boost icon (#579)",
+            "body": "Time saved due to `nmr`'s cache feature now earns a rocket emoji in the terminal output.\nSavings less than 1 second are no longer reported.",
+            "hash": "cf7b9563000a64e9c8a1acf834a0183155988ee3"
+          },
+          {
+            "description": "Publish nmr's readyup kit with a test-tier conformance check (#580)",
+            "body": "`@williamthorsen/nmr` is now bundled with ReadyUp kits that check a repo's alignment with `nmr` requirements and recommendations.\n\n`rdy run --from npm:@williamthorsen/nmr` checks the repo against the kits without prior configuration. Once the package is added to the ReadyUp config, `rdy run --packages` will run the `nmr` kits along with those of any other registered package. Requires `readyup` v0.23 or greater.",
+            "hash": "94bd46acfecf87d6ec0f981ee561c0ebf22d9c09"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.24.0",
     "date": "2026-08-03",
     "sections": [

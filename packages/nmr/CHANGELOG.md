@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.25.0 — 2026-08-03
+
+### 🎉 Features
+
+- Mark a cache hit's time saving with a speed-boost icon (#579)
+
+  Time saved due to `nmr`'s cache feature now earns a rocket emoji in the terminal output.
+  Savings less than 1 second are no longer reported.
+
+- Publish nmr's readyup kit with a test-tier conformance check (#580)
+
+  `@williamthorsen/nmr` is now bundled with ReadyUp kits that check a repo's alignment with `nmr` requirements and recommendations.
+
+  `rdy run --from npm:@williamthorsen/nmr` checks the repo against the kits without prior configuration. Once the package is added to the ReadyUp config, `rdy run --packages` will run the `nmr` kits along with those of any other registered package. Requires `readyup` v0.23 or greater.
+
 ## 0.24.0 — 2026-08-03
 
 ### 🎉 Features

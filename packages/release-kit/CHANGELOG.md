@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## 10.1.0 — 2026-08-03
+
+### 🎉 Features
+
+- Publish nmr's readyup kit with a test-tier conformance check (#580)
+
+  `@williamthorsen/nmr` is now bundled with ReadyUp kits that check a repo's alignment with `nmr` requirements and recommendations.
+
+  `rdy run --from npm:@williamthorsen/nmr` checks the repo against the kits without prior configuration. Once the package is added to the ReadyUp config, `rdy run --packages` will run the `nmr` kits along with those of any other registered package. Requires `readyup` v0.23 or greater.
+
+### ♻️ Refactoring
+
+- Load the config with Node's TypeScript support instead of jiti (#573)
+
+  `release-kit` now uses native Node with type-stripping to read its configs. `jiti` is no longer needed as a dependency. As a result, relative imports inside `.config/release-kit.config.ts` now require an explicit file extension.
+
 ## 10.0.0 — 2026-08-03
 
 ### 🎉 Features

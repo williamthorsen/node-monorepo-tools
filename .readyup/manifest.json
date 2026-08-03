@@ -33,7 +33,7 @@
       "readyupVersion": "0.23.0",
       "source": "kits/release-kit.ts",
       "sourceHash": "a0b0ade6",
-      "targetHash": "596c1835"
+      "targetHash": "82b1ad29"
     },
     {
       "checklists": [
@@ -44,7 +44,7 @@
       "readyupVersion": "0.23.0",
       "source": "kits/v11y-check.ts",
       "sourceHash": "d9f96f67",
-      "targetHash": "562647cc"
+      "targetHash": "59f421a6"
     }
   ]
 }
