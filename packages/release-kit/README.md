@@ -59,7 +59,7 @@ That's it for most repos. The CLI auto-discovers workspaces and applies sensible
 ## How it works
 
 1. **Workspace discovery**: reads `pnpm-workspace.yaml` and resolves its `packages` globs to find workspace directories. Each directory containing a `package.json` becomes a workspace. If no workspace file is found, the repo is treated as a single-package project.
-2. **Config loading**: loads `.config/release-kit.config.ts` (if present) via [jiti](https://github.com/unjs/jiti) and merges it with discovered defaults.
+2. **Config loading**: loads `.config/release-kit.config.ts` (if present) and merges it with discovered defaults.
 3. **Commit analysis**: for each workspace, finds commits since the last version tag, parses them for type and scope, and determines the appropriate version bump.
 4. **Version bump + changelog**: bumps `package.json` versions, builds structured `ChangelogEntry[]` from `git-cliff --context`, applies any [editorial overrides](#editorial-overrides) from per-scope `.meta/changelog-overrides.json` files, and renders both `CHANGELOG.md` and `.meta/changelog.json` from that single source. `git-cliff` is invoked only for its `--context` JSON; markdown rendering happens in-process so `.meta/changelog.json` and `CHANGELOG.md` always agree.
 5. **Release tags file**: writes computed tags to `tmp/.release-tags` for the release workflow to read when tagging and pushing.
@@ -104,6 +104,8 @@ export default defineConfig({
 ```
 
 `defineConfig` is a type-safe identity function: it gives the config object validation and completion in `.ts` files and full inference in `.js` ones. The loader also accepts a plain `export default config` or `export const config = { ... }`.
+
+Node loads the file directly, so a relative import inside it needs an explicit file extension — `./work-types.ts`, not `./work-types`.
 
 ### `ReleaseKitConfig` reference
 
