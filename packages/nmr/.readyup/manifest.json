@@ -2,7 +2,9 @@
   "version": 1,
   "kits": [
     {
-      "checklists": ["nmr"],
+      "checklists": [
+        "nmr"
+      ],
       "name": "default",
       "path": "kits/default.js",
       "readyupVersion": "0.23.0",

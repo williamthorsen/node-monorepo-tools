@@ -1,4 +1,5 @@
-.readyup/manifest.json
+# `rdy compile` rewrites every manifest it reads, so formatting one makes the build and the formatter alternate.
+**/.readyup/manifest.json
 # Shell fixtures assert formatter behavior, so formatting them would erase what they test.
 packages/nmr/src/__tests__/fixtures/
 pnpm-lock.yaml

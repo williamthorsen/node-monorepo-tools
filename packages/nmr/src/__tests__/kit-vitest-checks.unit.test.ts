@@ -19,14 +19,9 @@ const SHARED_ROOT_CONFIG =
 
 const fixtureDirs: string[] = [];
 
-afterEach(() => {
-  for (const dir of fixtureDirs) {
-    rmSync(dir, { force: true, recursive: true });
-  }
-  fixtureDirs.length = 0;
-});
-
 describe(noRetiredVitestConfigs, () => {
+  afterEach(removeFixtureDirs);
+
   it('passes when no retired variant survives', () => {
     const dir = buildRepo({ 'vitest.config.ts': SHARED_CONFIG });
 
@@ -109,6 +104,8 @@ describe(vitestRootConfigBuildsOnSharedConfig, () => {
 });
 
 describe(everyTestFileNamesItsTier, () => {
+  afterEach(removeFixtureDirs);
+
   it('passes when every collected file names a tier', () => {
     const dir = buildRepo({
       '.readyup/kits/__tests__/kit.unit.test.ts': '',
@@ -237,4 +234,12 @@ function detailOf(outcome: boolean | { ok: boolean; detail?: string | undefined 
   if (typeof outcome === 'boolean') throw new TypeError('expected a CheckOutcome');
   expect(outcome.ok).toBe(false);
   return outcome.detail ?? '';
+}
+
+/** Removes every fixture directory built so far. Registered per describe block, which the hook placement rule wants. */
+function removeFixtureDirs(): void {
+  for (const dir of fixtureDirs) {
+    rmSync(dir, { force: true, recursive: true });
+  }
+  fixtureDirs.length = 0;
 }

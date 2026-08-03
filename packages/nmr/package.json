@@ -58,7 +58,8 @@
     "nmr-taze": "bin/nmr-taze.js"
   },
   "files": [
-    ".readyup",
+    ".readyup/kits/*.js",
+    ".readyup/manifest.json",
     "AGENTS.md",
     "bin",
     "dist"
