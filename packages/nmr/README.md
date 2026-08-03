@@ -917,7 +917,7 @@ This variant reads `pnpm-workspace.yaml` and excludes every workspace package fr
 
 The projects were once named `unit`, `integration`, and `app`, for what a test _covered_ rather than what it _reached_. `integration` and `app` are gone.
 
-1. Rename every `*.int.test.ts`. A test that reaches a program the environment supplies becomes `*.tool.test.ts`; one that reaches nothing beyond the test process drops the infix. Re-read each file rather than renaming in bulk -- the axis changed, so the old bucket does not map onto one new tier.
+1. Rename every `*.int.test.ts`. A test that reaches a program the environment supplies becomes `*.tool.test.ts`; one that reaches nothing beyond the test process becomes `*.unit.test.ts`. Re-read each file rather than renaming in bulk -- the axis changed, so the old bucket does not map onto one new tier.
 2. Rename every `*.app.test.ts` onto the convention. `app` was never a tier, so keep it as the aspect segment and add the tier after it: `scaffold.app.test.ts` becomes `scaffold.app.unit.test.ts`.
 3. Replace `nmr test:integration` with `nmr test:tool`, and `nmr root:test:integration` with `nmr root:test:tool`, wherever a script or workflow names them.
 
