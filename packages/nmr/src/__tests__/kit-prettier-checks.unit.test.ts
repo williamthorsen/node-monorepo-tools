@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { prettierConfigBuildsOnSharedConfig } from '../nmr.ts';
+import { prettierConfigBuildsOnSharedConfig } from '../../.readyup/kits/default.ts';
 
 const SHARED_CONFIG =
   "import { definePrettierConfig } from '@williamthorsen/nmr/prettier';\nexport default definePrettierConfig();\n";

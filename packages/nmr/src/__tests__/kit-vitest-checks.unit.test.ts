@@ -5,12 +5,12 @@ import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  everyTestFileNamesItsTier,
   noReExportOnlyVitestConfigs,
-  noRetiredInfixTests,
   noRetiredVitestConfigs,
   vitestConfigBuildsOnSharedConfig,
   vitestRootConfigBuildsOnSharedConfig,
-} from '../nmr.ts';
+} from '../../.readyup/kits/default.ts';
 
 const SHARED_CONFIG =
   "import { defineVitestConfig } from '@williamthorsen/nmr/vitest';\nexport default defineVitestConfig();\n";
@@ -20,12 +20,7 @@ const SHARED_ROOT_CONFIG =
 const fixtureDirs: string[] = [];
 
 describe(noRetiredVitestConfigs, () => {
-  afterEach(() => {
-    for (const dir of fixtureDirs) {
-      rmSync(dir, { force: true, recursive: true });
-    }
-    fixtureDirs.length = 0;
-  });
+  afterEach(removeFixtureDirs);
 
   it('passes when no retired variant survives', () => {
     const dir = buildRepo({ 'vitest.config.ts': SHARED_CONFIG });
@@ -61,6 +56,8 @@ describe(noRetiredVitestConfigs, () => {
 });
 
 describe(vitestConfigBuildsOnSharedConfig, () => {
+  afterEach(removeFixtureDirs);
+
   it('passes when the root config imports defineVitestConfig', () => {
     const dir = buildRepo({ 'vitest.config.ts': SHARED_CONFIG });
 
@@ -89,6 +86,8 @@ describe(vitestConfigBuildsOnSharedConfig, () => {
 });
 
 describe(vitestRootConfigBuildsOnSharedConfig, () => {
+  afterEach(removeFixtureDirs);
+
   it('passes when the root-tests config imports defineRootVitestConfig', () => {
     const dir = buildRepo({ 'vitest.root.config.ts': SHARED_ROOT_CONFIG });
 
@@ -108,44 +107,71 @@ describe(vitestRootConfigBuildsOnSharedConfig, () => {
   });
 });
 
-describe(noRetiredInfixTests, () => {
-  it('passes when tests carry a live tier infix', () => {
+describe(everyTestFileNamesItsTier, () => {
+  afterEach(removeFixtureDirs);
+
+  it('passes when every collected file names a tier', () => {
     const dir = buildRepo({
+      '.readyup/kits/__tests__/kit.unit.test.ts': '',
       'packages/api/src/__tests__/api.tool.test.ts': '',
       'packages/api/src/__tests__/api.unit.test.ts': '',
-      'packages/web/src/__tests__/web.test.tsx': '',
+      'packages/web/src/__tests__/web.unit.test.tsx': '',
     });
 
-    expect(noRetiredInfixTests(dir)).toBe(true);
+    expect(everyTestFileNamesItsTier(dir)).toBe(true);
   });
 
-  it('reports both retired infixes together', () => {
+  it('reports every offender by path', () => {
     const dir = buildRepo({
-      'packages/api/src/__tests__/api.int.test.ts': '',
-      'packages/web/src/__tests__/web.integration.test.tsx': '',
+      'packages/api/src/__tests__/api.test.ts': '',
+      'packages/api/src/__tests__/api.unit.test.ts': '',
+      'packages/web/src/__tests__/web.smoke.test.tsx': '',
     });
 
-    const detail = detailOf(noRetiredInfixTests(dir));
+    const detail = detailOf(everyTestFileNamesItsTier(dir));
     expect(detail).toContain('2 found');
+    expect(detail).toContain('packages/api/src/__tests__/api.test.ts');
+    expect(detail).toContain('packages/web/src/__tests__/web.smoke.test.tsx');
+  });
+
+  // Vitest collects these, so a check globbing for them would pass clean over a repo whose kit tests all run untiered.
+  it('reports a misnamed file under a dot-directory', () => {
+    const dir = buildRepo({ '.readyup/kits/__tests__/kit.test.ts': '' });
+
+    expect(detailOf(everyTestFileNamesItsTier(dir))).toContain('.readyup/kits/__tests__/kit.test.ts');
+  });
+
+  it('passes a file carrying an aspect segment ahead of its tier', () => {
+    const dir = buildRepo({ 'packages/api/src/__tests__/scaffold.packaged.unit.test.ts': '' });
+
+    expect(everyTestFileNamesItsTier(dir)).toBe(true);
+  });
+
+  // The retired-infix check this replaces reported the same file, so keeping both would double-report it.
+  it('reports a retired infix once, as the untiered file it is', () => {
+    const dir = buildRepo({ 'packages/api/src/__tests__/api.int.test.ts': '' });
+
+    const detail = detailOf(everyTestFileNamesItsTier(dir));
+    expect(detail).toContain('1 found');
     expect(detail).toContain('packages/api/src/__tests__/api.int.test.ts');
-    expect(detail).toContain('packages/web/src/__tests__/web.integration.test.tsx');
   });
 
-  // `.drift.` never matched a project, so a repo carrying it already ran those files under the residual.
-  it('leaves an infix that never selected a project alone', () => {
-    const dir = buildRepo({ '__tests__/readme.drift.test.ts': '' });
-
-    expect(noRetiredInfixTests(dir)).toBe(true);
-  });
-
-  it('ignores a retired infix outside __tests__, which no project collects', () => {
+  it('ignores a misnamed file outside __tests__, which no project collects', () => {
     const dir = buildRepo({ 'packages/api/src/fixtures/legacy.integration.test.ts': '' });
 
-    expect(noRetiredInfixTests(dir)).toBe(true);
+    expect(everyTestFileNamesItsTier(dir)).toBe(true);
+  });
+
+  it('ignores a dependency owning the only misnamed file', () => {
+    const dir = buildRepo({ 'node_modules/dep/__tests__/dep.test.ts': '' });
+
+    expect(everyTestFileNamesItsTier(dir)).toBe(true);
   });
 });
 
 describe(noReExportOnlyVitestConfigs, () => {
+  afterEach(removeFixtureDirs);
+
   it('passes when no package carries a Vitest config', () => {
     const dir = buildRepo({ 'vitest.config.ts': SHARED_CONFIG });
 
@@ -214,4 +240,12 @@ function detailOf(outcome: boolean | { ok: boolean; detail?: string | undefined 
   if (typeof outcome === 'boolean') throw new TypeError('expected a CheckOutcome');
   expect(outcome.ok).toBe(false);
   return outcome.detail ?? '';
+}
+
+/** Removes every fixture directory built so far. */
+function removeFixtureDirs(): void {
+  for (const dir of fixtureDirs) {
+    rmSync(dir, { force: true, recursive: true });
+  }
+  fixtureDirs.length = 0;
 }

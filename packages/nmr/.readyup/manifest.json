@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "kits": [
+    {
+      "checklists": [
+        "nmr"
+      ],
+      "name": "default",
+      "path": "kits/default.js",
+      "readyupVersion": "0.23.0",
+      "source": "kits/default.ts",
+      "sourceHash": "f646e7fb",
+      "targetHash": "2b7560e1"
+    }
+  ]
+}

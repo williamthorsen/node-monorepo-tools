@@ -316,6 +316,7 @@ describe(defineRootVitestConfig, () => {
       expect(project.test?.exclude).toStrictEqual([
         '**/node_modules/**',
         '**/.git/**',
+        '**/coverage/**',
         '**/dist/**',
         ...(project.test?.name === 'unit' ? TIERED_PATTERNS : []),
         'packages/alpha/**',
@@ -359,6 +360,7 @@ describe(defineRootVitestConfig, () => {
       expect(project.test?.exclude).toStrictEqual([
         '**/node_modules/**',
         '**/.git/**',
+        '**/coverage/**',
         '**/dist/**',
         ...(project.test?.name === 'unit' ? TIERED_PATTERNS : []),
       ]);

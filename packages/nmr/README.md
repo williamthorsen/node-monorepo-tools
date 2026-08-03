@@ -665,6 +665,29 @@ ensure-prepublish-hooks
 | `--dry-run`           | Preview what `--fix` would do | —                 |
 | `--command <command>` | Custom hook command           | `"npm run build"` |
 
+## Conformance checks
+
+nmr publishes a `readyup` kit that checks a consuming repo against the current release: the shared Vitest and Prettier configs, the workspace layout, the root script registry, and the [test-tier convention](#test-tiers). The kit ships inside the package, so it checks against the nmr version installed rather than whatever a repository ref happens to point at, and a tier added or renamed in nmr reaches the repo on upgrade.
+
+Add `readyup` as a devDependency, then name nmr in its config:
+
+```ts
+// .config/readyup.config.ts
+import { defineRdyConfig } from 'readyup';
+
+export default defineRdyConfig({
+  packages: ['@williamthorsen/nmr'],
+});
+```
+
+```bash
+rdy run --packages                       # every kit each listed package publishes
+rdy run --from npm:@williamthorsen/nmr   # nmr's kit alone, without the config entry
+rdy list --from npm:@williamthorsen/nmr  # what nmr publishes
+```
+
+`--packages` is the form that survives nmr publishing further kits. Both need `readyup` 0.23 or later, and `@williamthorsen/nmr` as a _direct_ devDependency: a strict pnpm layout links nothing else into the project, so a transitive copy is unreachable.
+
 ## Consumer migration
 
 After installing, a consuming repo's root `package.json` scripts shrink to lifecycle hooks:
@@ -791,7 +814,9 @@ vitest                               # every project
 
 **A tier is not a statement about preconditions.** A `unit` test may still need something set up before it runs: a build, a generated fixture, a seeded file. What makes it `unit` is that it reaches nothing beyond the test process _while running_. The filesystem sits in `unit` for the same reason the tiers exist: they gate on what must be available, and the filesystem always is.
 
-`unit` is defined by subtracting the tiers rather than by an allow-list of infixes, so a file such as `parser.smoke.test.ts` runs under `unit` instead of being silently dropped. That is also what makes an unrecognized infix safe to use as documentation: `resolveConfig.packaged.test.ts` runs under `unit` and reads as a companion to `resolveConfig.unit.test.ts`.
+**Every test file names its tier**, in the form `<subject>[.<aspect>].<tier>.test.ts`. Only the segment immediately before `.test.` selects a project, so an earlier one is free for documentation: `resolveConfig.packaged.unit.test.ts` reads as a companion to `resolveConfig.unit.test.ts` and still names `unit`.
+
+`unit` is defined by subtracting the tiers rather than by an allow-list of infixes, so a file such as `parser.smoke.test.ts` runs under `unit` instead of being silently dropped. That is a safety net, not a licence to omit the tier: a file whose tier segment is missing or misspelt runs under `unit` and reports success, so no test run distinguishes it from a conformant one. [nmr's readyup kit](#conformance-checks) reports those files, which is the only thing that does.
 
 `localhost` and `remote` have no test script of their own. They are declared anyway, so that a `*.remote.test.ts` file cannot fall into `unit` and run in the default gate unnoticed.
 
@@ -892,11 +917,11 @@ This variant reads `pnpm-workspace.yaml` and excludes every workspace package fr
 
 The projects were once named `unit`, `integration`, and `app`, for what a test _covered_ rather than what it _reached_. `integration` and `app` are gone.
 
-1. Rename every `*.int.test.ts`. A test that reaches a program the environment supplies becomes `*.tool.test.ts`; one that reaches nothing beyond the test process drops the infix. Re-read each file rather than renaming in bulk -- the axis changed, so the old bucket does not map onto one new tier.
-2. Leave `*.app.test.ts` alone, or rename at your leisure. `app` was never a tier, and its files now land in `unit`.
+1. Rename every `*.int.test.ts`. A test that reaches a program the environment supplies becomes `*.tool.test.ts`; one that reaches nothing beyond the test process becomes `*.unit.test.ts`. Re-read each file rather than renaming in bulk -- the axis changed, so the old bucket does not map onto one new tier.
+2. Rename every `*.app.test.ts` onto the convention. `app` was never a tier, so keep it as the aspect segment and add the tier after it: `scaffold.app.test.ts` becomes `scaffold.app.unit.test.ts`.
 3. Replace `nmr test:integration` with `nmr test:tool`, and `nmr root:test:integration` with `nmr root:test:tool`, wherever a script or workflow names them.
 
-**An unrenamed `*.int.test.ts` file is a silent failure.** `.int.` no longer matches a project, so the residual `unit` claims those files and they run in the default gate -- green, with nothing reporting that the separation was lost. `rdy run nmr` reports them; a passing test run does not. Run it before treating the migration as done.
+**A file left without a tier is a silent failure.** The residual `unit` claims it and it runs in the default gate -- green, with nothing reporting that the separation was lost. [nmr's readyup kit](#conformance-checks) reports every such file; a passing test run does not. Run it before treating the migration as done.
 
 `nmr test` also runs the `tool` tier, which the old `test` excluded. Those tests previously ran in no default selection at all: `check`, `check:strict`, and `ci` all inherited the exclusion, so a green pipeline said nothing about them. Expect `nmr test` to take longer and to surface failures that were never gated.
 

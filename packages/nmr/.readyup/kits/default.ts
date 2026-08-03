@@ -5,12 +5,11 @@
  * The minimum version is read from the nmr package's package.json and inlined by esbuild at compile time.
  *
  * Run from a target repo's working directory:
- *   rdy run --file <path-to>/nmr.js
+ *   rdy run --from npm:@williamthorsen/nmr
  */
 import { existsSync, globSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, join, sep } from 'node:path';
 
-import { getDefaultRootScripts } from '@williamthorsen/nmr/scripts';
 import { type CheckOutcome, defineRdyKit, pickJson } from 'readyup';
 import {
   fileContains,
@@ -22,6 +21,9 @@ import {
   readFile,
   readPackageJson,
 } from 'readyup/check-utils';
+
+import { getDefaultRootScripts } from '../../src/resolve-scripts.ts';
+import { findTestFiles, hasTierInfix, TIER_NAMES } from '../../src/tiers.ts';
 
 export default defineRdyKit({
   checklists: [
@@ -120,10 +122,10 @@ export default defineRdyKit({
           fix: "Replace vitest.root.config.ts with: import { defineRootVitestConfig } from '@williamthorsen/nmr/vitest'; export default defineRootVitestConfig({ monorepoRoot: import.meta.dirname });",
         },
         {
-          name: 'no test files use a retired isolation infix',
+          name: 'every test file names its isolation tier',
           severity: 'error',
-          check: () => noRetiredInfixTests(),
-          fix: 'Rename *.int.test.ts and *.integration.test.ts to *.tool.test.ts if the test reaches a program the environment supplies, and drop the infix otherwise. Neither matches a project now, so these run under unit in the default gate with nothing reporting the lost separation',
+          check: () => everyTestFileNamesItsTier(),
+          fix: `Rename each to <subject>[.<aspect>].<tier>.test.ts, naming one of ${TIER_NAMES.join(', ')}. Use tool for a test that reaches a program the environment supplies, which is where a retired .int. or .integration. file belongs. Only the segment before .test. selects a project, so an untiered file runs under the residual unit project and reports success`,
         },
         {
           name: 'no package re-exports the ancestor Vitest config',
@@ -180,18 +182,6 @@ const SCAN_EXCLUDE_DIRS = new Set(['.git', 'coverage', 'dist', 'node_modules']);
 
 /** Extensions a Vitest config can carry. Globbing `.ts` alone would miss a repo on any other one. */
 const CONFIG_EXTENSIONS = '{ts,mts,cts,js,mjs,cjs}';
-
-/** Extensions a test file can carry, matching the suffix set in the shared config's project patterns. */
-const TEST_EXTENSIONS = '{ts,tsx}';
-
-/** The directory scope every project in the shared config collects from. A file outside it runs nowhere. */
-const TEST_GLOB_PREFIX = '**/__tests__/**';
-
-/**
- * Infixes that once selected a project and no longer match one. `.drift.` is absent deliberately: it never matched
- * a project, so a repo carrying it has always run those files under the residual and loses nothing by keeping them.
- */
-const RETIRED_TEST_INFIXES = ['int', 'integration'];
 
 const SHARED_VITEST_MODULE = '@williamthorsen/nmr/vitest';
 
@@ -337,6 +327,22 @@ export function codeQualityWorkflowDoesNotUseNmrPrepush(): boolean {
 }
 
 /**
+ * Checks that every test file the shared config's projects collect names one of nmr's isolation tiers.
+ *
+ * `unit` is the residual project and the shared config sets `passWithNoTests`, so a file whose tier segment is
+ * missing or misspelt runs under `unit` and reports success: no test run distinguishes it from a conformant file.
+ * A retired `.int.` or `.integration.` infix fails here too, and is reported once as the untiered file it is.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function everyTestFileNamesItsTier(cwd: string = process.cwd()): boolean | CheckOutcome {
+  const untiered = findTestFiles(cwd).filter((path) => !hasTierInfix(path));
+
+  if (untiered.length === 0) return true;
+  return { ok: false, detail: formatPaths(untiered) };
+}
+
+/**
  * Globs for the given patterns, pruning generated and vendored directories.
  *
  * The `exclude` callback receives a path relative to `cwd`, not a bare name, so the comparison has to be
@@ -364,7 +370,7 @@ function getMinVersion(): string {
   // `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline only the listed fields.
   // Defer the call into a function so module load does not invoke the runtime stub (which throws):
   // This keeps the module importable in tests that bypass the compile step.
-  const picked = pickJson('../../packages/nmr/package.json', ['version']);
+  const picked = pickJson('../../package.json', ['version']);
   if (typeof picked.version !== 'string') {
     throw new TypeError("nmr/package.json: 'version' must be a string");
   }
@@ -400,23 +406,6 @@ function isReExportOnly(content: string | undefined): boolean {
     .filter((line) => line.length > 0);
 
   return statements.length > 0 && statements.every((line) => RE_EXPORT_LINE_PATTERN.test(line));
-}
-
-/**
- * Checks that no collected test file uses a retired isolation infix.
- *
- * `.int.` named the retired `integration` project and `.integration.` never matched it. Neither matches a tier
- * now, so both fall to the residual `unit` project: the files still run, in the default gate, and nothing says
- * the tier separation was lost. Silent on both sides, which is what makes this worth checking rather than
- * leaving to a failing run. The scope is the projects' own, so every match is a file the rename actually moves.
- *
- * @internal - Exported only to enable testing
- */
-export function noRetiredInfixTests(cwd: string = process.cwd()): boolean | CheckOutcome {
-  return checkNoMatchingFiles(
-    RETIRED_TEST_INFIXES.map((infix) => `${TEST_GLOB_PREFIX}/*.${infix}.test.${TEST_EXTENSIONS}`),
-    cwd,
-  );
 }
 
 /**

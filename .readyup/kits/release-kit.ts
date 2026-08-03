@@ -37,7 +37,7 @@ function hasPublishablePackages(): boolean {
   return discoverWorkspaces({ filter: (w) => w.isPackage }).length > 0;
 }
 
-// SHA-256 hashes of release-kit artifacts. Keep in sync. Verified by __tests__/rdy-kit-hashes.app.test.ts.
+// SHA-256 hashes of release-kit artifacts. Keep in sync. Verified by __tests__/rdy-kit-hashes.app.unit.test.ts.
 export const CLIFF_TEMPLATE_HASH = '93b72e0b1393cd6b1fe8e2a0e303cd326fd323435951b0493396b305af32d2ec';
 export const COMMON_PRESET_HASH = 'dbb867ac70e9129f96e82698abba1dcc6142185e416729d009b53978068a49d9';
 export const SYNC_LABELS_WORKFLOW_HASH = 'd6e2403fb551d2d415f679125989c92760444eec887644565b2e05c9bf8f4c1e';

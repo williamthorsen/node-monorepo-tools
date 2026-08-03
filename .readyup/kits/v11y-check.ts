@@ -14,7 +14,7 @@ import { defineRdyKit, pickJson } from 'readyup';
 import { fileExists, fileMatchesHash, hasDevDependency, hasMinDevDependencyVersion } from 'readyup/check-utils';
 
 // SHA-256 hash of the canonical .github/workflows/audit.yaml wrapper.
-// Keep in sync — verified by __tests__/rdy-kit-hashes.app.test.ts.
+// Keep in sync — verified by __tests__/rdy-kit-hashes.app.unit.test.ts.
 export const AUDIT_WORKFLOW_HASH = 'cdcab39d794ed7ec5ea45e8f3c887eb5d15edb63eab65e515714556933d9b03f';
 
 export default defineRdyKit({

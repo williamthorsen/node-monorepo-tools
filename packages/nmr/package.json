@@ -58,12 +58,14 @@
     "nmr-taze": "bin/nmr-taze.js"
   },
   "files": [
+    ".readyup/kits/*.js",
+    ".readyup/manifest.json",
     "AGENTS.md",
     "bin",
     "dist"
   ],
   "scripts": {
-    "build:post": "nmr-sync-agent-files",
+    "build:post": "nmr-sync-agent-files && rdy compile",
     "prepare": "node src/cli-build.ts"
   },
   "dependencies": {
@@ -75,6 +77,7 @@
   },
   "devDependencies": {
     "prettier": "3.9.6",
+    "readyup": "0.23.0",
     "tinyglobby": "0.2.17",
     "vitest": "4.1.10"
   },
