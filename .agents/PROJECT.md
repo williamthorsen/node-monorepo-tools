@@ -68,7 +68,7 @@ If run under a package directory, the command applies to that package. Otherwise
 - Both configs declare four projects, an isolation ladder named for the furthest thing a test reaches: `unit` (every test file the others don't claim), `tool` (`*.tool.test.ts`, reaching a program the environment supplies), `localhost`, and `remote`. Select them with `--project`, which unions when repeated and accepts negation
 - A tier names what a test reaches, not how it invokes it: `build.tool.test.ts` drives the TypeScript compiler in-process and is still `tool`. Nor does it describe preconditions: the three `*.packaged.test.ts` files need a prior build but reach only the filesystem while running, so they fall to `unit`. `.packaged.` and `.app.` match no project and exist as documentation
 - `nmr test` runs `--project unit --project tool`, `test:unit` and `test:tool` narrow to one, and `test:all` runs every project. The same six names work from the repo root and from inside a package; `root:test*` variants scope to root-level files alone
-- The shared config sets `passWithNoTests`, so a run collecting no files passes, which `test:tool` needs in order to fan out across packages that have none. `__tests__/workspace-test-presence.app.test.ts` keeps that from hiding a package whose suite disappeared
+- The shared config sets `passWithNoTests`, so a run collecting no files passes, which `test:tool` needs in order to fan out across packages that have none. `__tests__/workspace-test-presence.app.unit.test.ts` keeps that from hiding a package whose suite disappeared
 - Typecheck uses `tsgo` (TypeScript native preview)
 
 ### Code quality

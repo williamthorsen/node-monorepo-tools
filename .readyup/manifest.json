@@ -32,7 +32,7 @@
       "path": "kits/release-kit.js",
       "readyupVersion": "0.23.0",
       "source": "kits/release-kit.ts",
-      "sourceHash": "409fa6c7",
+      "sourceHash": "a0b0ade6",
       "targetHash": "596c1835"
     },
     {
@@ -43,7 +43,7 @@
       "path": "kits/v11y-check.js",
       "readyupVersion": "0.23.0",
       "source": "kits/v11y-check.ts",
-      "sourceHash": "2f4c8c2d",
+      "sourceHash": "d9f96f67",
       "targetHash": "562647cc"
     }
   ]
