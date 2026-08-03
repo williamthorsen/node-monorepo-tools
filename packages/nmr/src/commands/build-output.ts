@@ -78,8 +78,9 @@ export async function readBuildDigest(packageDir: string): Promise<string | unde
  * directory is the entry's scope, so the store keys the file to it and packages sharing a hoisted
  * `node_modules` never collide.
  *
- * The `.hash` extension and the package's own directory name as the slug are what hold the path where every
- * previously written entry already sits; changing either strands them.
+ * Three things hold the path where every previously written entry already sits: the `.hash` extension, the
+ * package's own directory name as the slug, and the absence of `discriminators`, which would otherwise fold
+ * into the digest. Changing any of them strands every entry on disk.
  */
 export function resolveBuildCachePath(packageDir: string): string {
   const absolutePackageDir = path.resolve(packageDir);

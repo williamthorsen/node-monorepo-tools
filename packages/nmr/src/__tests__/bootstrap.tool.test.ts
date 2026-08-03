@@ -30,6 +30,9 @@ const SOURCE_CONDITION = 'nmr-source';
 /** The scope every workspace package in this repo publishes under. */
 const WORKSPACE_SCOPE = '@williamthorsen/';
 
+/** The one workspace package the bootstrap imports, and the only one carrying a source condition. */
+const NMR_CORE_SPECIFIER = `${WORKSPACE_SCOPE}nmr-core`;
+
 const TSCONFIG = {
   compilerOptions: {
     allowImportingTsExtensions: true,
@@ -45,7 +48,7 @@ const TSCONFIG = {
 describe('the build bootstrap', () => {
   it('reaches a workspace import, so the guards below cover something', () => {
     // A traversal that silently found nothing would let the resolution guard pass over an empty set forever.
-    expect(collectWorkspaceImports().map((entry) => entry.specifier)).toContain(`${WORKSPACE_SCOPE}nmr-core`);
+    expect(collectWorkspaceImports().map((entry) => entry.specifier)).toContain(NMR_CORE_SPECIFIER);
   });
 
   it('resolves every workspace import to source rather than to build output', () => {
@@ -60,9 +63,9 @@ describe('the build bootstrap', () => {
 
   it('resolves that same import to build output when the condition is absent', () => {
     // Without this the guard above would read as satisfied against a package carrying no source condition.
-    const entry = collectWorkspaceImports()[0];
+    const entry = collectWorkspaceImports().find((candidate) => candidate.specifier === NMR_CORE_SPECIFIER);
     if (entry === undefined) {
-      throw new Error('the bootstrap closure reaches no workspace import');
+      throw new Error(`the bootstrap closure does not import ${NMR_CORE_SPECIFIER}`);
     }
 
     expect(resolveFrom(entry.specifier, entry.fromDir, [])).toContain('/dist/');

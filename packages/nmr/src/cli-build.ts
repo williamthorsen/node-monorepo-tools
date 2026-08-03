@@ -1,3 +1,9 @@
+// Every package's `prepare` runs this file under bare `node`, so this module and everything it reaches must be
+// erasable TypeScript. nmr-core's passes `--conditions nmr-source`, which is what lets the compiler import
+// `@williamthorsen/nmr-core` before nmr-core's own `dist` exists.
+
+import { reportError } from '@williamthorsen/nmr-core';
+
 import { buildPackage } from './commands/build.ts';
 import { loadWorkspaceConfig } from './config.ts';
 
@@ -11,9 +17,6 @@ try {
     ...(build?.extraIgnorePatterns !== undefined && { extraIgnorePatterns: build.extraIgnorePatterns }),
   });
 } catch (error) {
-  // This file is the build bootstrap: nmr-core's `prepare` runs it (via tsx) to build nmr-core
-  // itself, before nmr-core's dist exists. It must not import `@williamthorsen/nmr-core`, so it
-  // cannot route through `reportError` and prints the message directly.
-  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+  reportError(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
 }
