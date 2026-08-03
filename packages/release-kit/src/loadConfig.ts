@@ -69,7 +69,8 @@ export const CONFIG_FILE_PATH = '.config/release-kit.config.ts';
 
 /**
  * Loads the config file at `.config/release-kit.config.ts`, returning the raw config object, or `undefined` when the
- * file does not exist. Throws when the file exists but exports neither a default nor a named `config`.
+ * file does not exist. Throws when the file exists but cannot be imported, or exports neither a default nor a named
+ * `config`.
  */
 export async function loadConfig(): Promise<unknown> {
   const absoluteConfigPath = path.resolve(process.cwd(), CONFIG_FILE_PATH);
@@ -82,9 +83,8 @@ export async function loadConfig(): Promise<unknown> {
   // loader dependency. `import()` takes a URL, not a path: A bare Windows path parses as a scheme.
   const imported: unknown = await import(pathToFileURL(absoluteConfigPath).href);
 
-  // Support both default export and named `config` export. A module namespace is always a record, so the guard
-  // narrows rather than rejects; a non-object default export is `validateConfig`'s to refuse. Reading an undeclared
-  // export off a namespace yields `undefined` rather than throwing, so the fallback needs no membership check.
+  // Support both default export and named `config` export. `isRecord` narrows the namespace for property access;
+  // reading an undeclared export off it yields `undefined`, so the fallback needs no membership check.
   const resolved = isRecord(imported) ? (imported.default ?? imported.config) : undefined;
   if (resolved === undefined) {
     throw new Error(
