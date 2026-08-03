@@ -16,6 +16,7 @@ import {
 
 import { hasBuildOutput, readBuildDigest } from './commands/build-output.ts';
 import { loadWorkspaceConfig } from './config.ts';
+import { formatDuration, formatSaving } from './helpers/duration.ts';
 import { isObject, isStringRecord } from './helpers/type-guards.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
 import { getDefaultWorkspaceScripts } from './resolve-scripts.ts';
@@ -225,12 +226,16 @@ export function formatMisplacedNoCacheWarning(command: string): string {
   );
 }
 
-/** Renders the line a skipped command leaves behind, spending the recorded metadata on the reader. */
+/**
+ * Renders the line a skipped command leaves behind, spending the recorded metadata on the reader. A saving too
+ * small to be worth naming takes its whole clause with it, rather than leaving an empty parenthetical behind.
+ */
 export function formatSkipLine(command: string, entry: CheckCacheEntry, now: number): string {
   const age = formatDuration(Math.max(0, now - Date.parse(entry.recordedAt)));
-  const saved = formatDuration(entry.durationMs);
+  const saving = formatSaving(entry.durationMs);
+  const savingClause = saving === undefined ? '' : ` (${saving})`;
 
-  return `⏭️ ${command}: passed ${age} ago on this tree (saved ~${saved}). Re-run with --no-cache.`;
+  return `⏭️ ${command}: passed ${age} ago on this tree${savingClause}. Re-run with --no-cache.`;
 }
 
 /**
@@ -376,10 +381,6 @@ export function writeDebugNote(message: string, env: NodeJS.ProcessEnv, stderr: 
 
 // region | Helpers
 
-const MILLISECONDS_PER_SECOND = 1000;
-const SECONDS_PER_MINUTE = 60;
-const MINUTES_PER_HOUR = 60;
-
 /** Reads a snapshot a parent process encoded, or `undefined` when the value is absent or malformed. */
 function decodeTreeSnapshot(encoded: string | undefined): TreeSnapshot | undefined {
   if (encoded === undefined) {
@@ -392,21 +393,6 @@ function decodeTreeSnapshot(encoded: string | undefined): TreeSnapshot | undefin
   }
 
   return { hash, headSha };
-}
-
-/** Renders a duration at the coarsest unit that still says something, for a line a reader skims. */
-function formatDuration(milliseconds: number): string {
-  const seconds = Math.round(milliseconds / MILLISECONDS_PER_SECOND);
-  if (seconds < SECONDS_PER_MINUTE) {
-    return `${seconds}s`;
-  }
-
-  const minutes = Math.round(seconds / SECONDS_PER_MINUTE);
-  if (minutes < MINUTES_PER_HOUR) {
-    return `${minutes}m`;
-  }
-
-  return `${Math.round(minutes / MINUTES_PER_HOUR)}h`;
 }
 
 /**

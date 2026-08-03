@@ -213,7 +213,7 @@ $ nmr ci
 # ... four minutes of build, typecheck, lint, and coverage ...
 
 $ nmr ci
-⏭️ ci: passed 2m ago on this tree (saved ~4m). Re-run with --no-cache.
+⏭️ ci: passed 2m ago on this tree (🚀 saved ~4m). Re-run with --no-cache.
 ```
 
 Composite commands expand into child `nmr` processes, so one green `nmr ci` records a pass for every cacheable command in the chain, at every scope it ran at. A later `nmr check`, `nmr typecheck`, or `nmr -F core test` on the same tree skips too. The skip line is suppressed by `-q`.
