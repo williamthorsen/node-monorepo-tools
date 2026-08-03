@@ -8,4 +8,5 @@ export default defineRdyConfig({
   internal: {
     dir: 'internal',
   },
+  packages: ['@williamthorsen/nmr'],
 });
