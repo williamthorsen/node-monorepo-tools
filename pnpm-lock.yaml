@@ -113,9 +113,6 @@ importers:
       glob:
         specifier: 13.0.6
         version: 13.0.6
-      jiti:
-        specifier: 2.7.0
-        version: 2.7.0
       json-stringify-pretty-compact:
         specifier: 4.0.0
         version: 4.0.0
