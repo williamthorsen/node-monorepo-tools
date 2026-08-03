@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## 10.0.0 — 2026-08-03
+
+### 🎉 Features
+
+- 🚨 **Breaking:** Retire integration label in favor of an isolation-tier test ladder (#552)
+
+  Test groups are now named for what a test reaches rather than for how much of the codebase it covers: `integration` and `app` are replaced by `unit`, `tool`, `localhost`, and `remote`.
+
+  `nmr test` now runs the `tool` group alongside `unit`, so the first run after upgrading may fail on tests that nothing was running before. Upgrading means renaming `*.int.test.ts` files onto the new groups and replacing `nmr test:integration` with `nmr test:tool`.
+
+### ♻️ Refactoring
+
+- 🚨 **Breaking:** Move defineConfig to a dedicated config subpath (#566)
+
+  `defineConfig` now comes from the `@williamthorsen/release-kit/config` subpath rather than from the package root. The subpath also carries the config types.
+
+- Share nmr-core's cache primitives with nmr-compile (#570)
+
+  A package's writes to the build cache are now hidden from other packages until the write is complete. A failing build now reports its error in the same form as every other `nmr` command. `tsx` is no longer required to build a package.
+
 ## 9.1.0 — 2026-07-31
 
 ### 🎉 Features

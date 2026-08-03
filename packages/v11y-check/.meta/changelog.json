@@ -1,5 +1,34 @@
 [
   {
+    "version": "0.12.0",
+    "date": "2026-08-03",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Retire integration label in favor of an isolation-tier test ladder (#552)",
+            "body": "Test groups are now named for what a test reaches rather than for how much of the codebase it covers: `integration` and `app` are replaced by `unit`, `tool`, `localhost`, and `remote`.\n\n`nmr test` now runs the `tool` group alongside `unit`, so the first run after upgrading may fail on tests that nothing was running before. Upgrading means renaming `*.int.test.ts` files onto the new groups and replacing `nmr test:integration` with `nmr test:tool`.",
+            "breaking": true,
+            "hash": "81f16694dc295c754d35e692eedd75f47be35f4d"
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Share nmr-core's cache primitives with nmr-compile (#570)",
+            "body": "A package's writes to the build cache are now hidden from other packages until the write is complete. A failing build now reports its error in the same form as every other `nmr` command. `tsx` is no longer required to build a package.",
+            "hash": "2a67cf1e6181cb8713de485859c3731e16edacf6"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.11.3",
     "date": "2026-07-30",
     "sections": [

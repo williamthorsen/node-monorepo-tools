@@ -2,6 +2,54 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.24.0 — 2026-08-03
+
+### 🎉 Features
+
+- 🚨 **Breaking:** Retire integration label in favor of an isolation-tier test ladder (#552)
+
+  Test groups are now named for what a test reaches rather than for how much of the codebase it covers: `integration` and `app` are replaced by `unit`, `tool`, `localhost`, and `remote`.
+
+  `nmr test` now runs the `tool` group alongside `unit`, so the first run after upgrading may fail on tests that nothing was running before. Upgrading means renaming `*.int.test.ts` files onto the new groups and replacing `nmr test:integration` with `nmr test:tool`.
+
+- Let Vitest config files compose shared options and target one tier (#556)
+
+  Vitest settings can now be shared across config files: A repo declares its common options once, and a workspace can use its own config file to supplement or override them. Shared setup files run first. An option can now target a single test tier instead of all tiers, allowing per-tier timeouts to be set.
+
+- 🚨 **Breaking:** Redefine ci as the code-quality gate and add prepush (#559)
+
+  Repurposes the `nmr ci` command to align with its name; it now runs the code-quality checks that run in CI: `nmr build && nmr check:strict`. A new `nmr prepush` command, combining code-quality checks and the security audit, takes the place of `nmr ci`. nmr's readyup kit is adjusted to account for the changes.
+
+- Exclude test scaffolding from builds and make the ignore set configurable (#564)
+
+  The `build` command now ignores the directories typically used for test scaffolding, such as fixtures and mocks. The exclusion includes `test-utils/`, which is treated as the conventional name for a directory containing test utilities. A package can declare additional ignore patterns in its config file.
+
+- Skip checks that already passed on the current working tree (#568)
+
+  `nmr` commands now skip any pure check (types, lint, tests) that has already passed on an unchanged working tree; instead, success is reported immediately. `nmr --no-cache` causes the cache check to be skipped, and `NMR_NO_CACHE=1` does the same for a whole shell. Cached results are cleared by `nmr clean`. Which commands can skip is configurable at the monorepo root, and `NMR_DEBUG=1` reports why a run didn't skip.
+
+### 🪦 Removed
+
+- 🚨 **Breaking:** Remove the package root entry in favor of /config (#569)
+
+  `defineConfig` is now imported from `@williamthorsen/nmr/config` instead of the bare package.
+
+### 🐛 Bug fixes
+
+- Stop excluding _.types.ts and mock_ files from coverage
+
+  Coverage now measures modules matching `*.types.ts` and `mock*`, which the shared Vitest config previously excluded. A type module that grows a type guard, or a mock helper placed in `test-utils/` where helpers are meant to stay measured, was left out of the report with nothing saying so, and because exclusions concatenate, no consuming repo could add it back.
+
+  What remains excluded names something that cannot hold runtime code by construction: a directory of test scaffolding, a barrel, and a declaration file. A pattern resting on a filename alone suppresses nothing it could claim to, since a file with no executable statements is absent from the report either way.
+
+  A repo enforcing its own coverage thresholds may see a lower figure once these files enter the denominator.
+
+### ♻️ Refactoring
+
+- Share nmr-core's cache primitives with nmr-compile (#570)
+
+  A package's writes to the build cache are now hidden from other packages until the write is complete. A failing build now reports its error in the same form as every other `nmr` command. `tsx` is no longer required to build a package.
+
 ## 0.23.0 — 2026-08-01
 
 ### 🎉 Features

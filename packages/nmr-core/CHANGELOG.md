@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.8.0 — 2026-08-03
+
+### 🎉 Features
+
+- Skip checks that already passed on the current working tree (#568)
+
+  `nmr` commands now skip any pure check (types, lint, tests) that has already passed on an unchanged working tree; instead, success is reported immediately. `nmr --no-cache` causes the cache check to be skipped, and `NMR_NO_CACHE=1` does the same for a whole shell. Cached results are cleared by `nmr clean`. Which commands can skip is configurable at the monorepo root, and `NMR_DEBUG=1` reports why a run didn't skip.
+
+### ♻️ Refactoring
+
+- Share nmr-core's cache primitives with nmr-compile (#570)
+
+  A package's writes to the build cache are now hidden from other packages until the write is complete. A failing build now reports its error in the same form as every other `nmr` command. `tsx` is no longer required to build a package.
+
 ## 0.7.3 — 2026-07-30
 
 ### ⚙️ Tooling
