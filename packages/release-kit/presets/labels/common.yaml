@@ -70,30 +70,28 @@
 # Priority
 - name: 'priority:critical'
   color: b60205
-  description: Demands immediate attention
 - name: 'priority:high'
   color: d93f0b
-  description: Address soon
 - name: 'priority:medium'
   color: fbca04
-  description: No rush but don't forget
 - name: 'priority:low'
   color: cfd3d7
-  description: Get to it eventually
+
+# Status
+- name: 'status:blocked'
+  color: b83280
+- name: 'status:on-hold'
+  color: fbcfe8
 
 # Value
 - name: 'value:must-have'
   color: 7057ff
-  description: Essential for the application to fulfill its purpose
 - name: 'value:should-have'
   color: 8d83fc
-  description: Important but the application is usable without it
 - name: 'value:nice-to-have'
   color: a8b2f8
-  description: A nice-to-have enhancement
 - name: 'value:questionable'
   color: c5def5
-  description: Decision needed on whether this would add sufficient value
 
 # Triage
 - name: duplicate
