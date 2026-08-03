@@ -316,7 +316,17 @@ describe('check-cache', () => {
 
       const line = formatSkipLine('ci', entry, recordedAt.getTime() + 720_000);
 
-      expect(line).toBe('⏭️ ci: passed 12m ago on this tree (saved ~4m). Re-run with --no-cache.');
+      expect(line).toBe('⏭️ ci: passed 12m ago on this tree (🚀 saved ~4m). Re-run with --no-cache.');
+    });
+
+    it('drops the whole saving clause when the pass was too quick to have saved anything', () => {
+      // An empty or zeroed parenthetical would spend the icon on nothing; the sentence has to read without it.
+      const recordedAt = new Date('2026-08-02T12:00:00Z');
+      const entry = makeEntry({ recordedAt: recordedAt.toISOString(), durationMs: 40 });
+
+      const line = formatSkipLine('typecheck', entry, recordedAt.getTime() + 720_000);
+
+      expect(line).toBe('⏭️ typecheck: passed 12m ago on this tree. Re-run with --no-cache.');
     });
 
     it('names the flag’s intended position when it lands after the command', () => {

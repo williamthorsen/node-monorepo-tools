@@ -16,7 +16,7 @@ import {
 
 import { hasBuildOutput, readBuildDigest } from './commands/build-output.ts';
 import { loadWorkspaceConfig } from './config.ts';
-import { formatDuration } from './helpers/duration.ts';
+import { formatDuration, formatSaving } from './helpers/duration.ts';
 import { isObject, isStringRecord } from './helpers/type-guards.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
 import { getDefaultWorkspaceScripts } from './resolve-scripts.ts';
@@ -226,12 +226,16 @@ export function formatMisplacedNoCacheWarning(command: string): string {
   );
 }
 
-/** Renders the line a skipped command leaves behind, spending the recorded metadata on the reader. */
+/**
+ * Renders the line a skipped command leaves behind, spending the recorded metadata on the reader. A saving too
+ * small to be worth naming takes its whole clause with it, rather than leaving an empty parenthetical behind.
+ */
 export function formatSkipLine(command: string, entry: CheckCacheEntry, now: number): string {
   const age = formatDuration(Math.max(0, now - Date.parse(entry.recordedAt)));
-  const saved = formatDuration(entry.durationMs);
+  const saving = formatSaving(entry.durationMs);
+  const savingClause = saving === undefined ? '' : ` (${saving})`;
 
-  return `⏭️ ${command}: passed ${age} ago on this tree (saved ~${saved}). Re-run with --no-cache.`;
+  return `⏭️ ${command}: passed ${age} ago on this tree${savingClause}. Re-run with --no-cache.`;
 }
 
 /**
