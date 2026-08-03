@@ -5,7 +5,11 @@ import { defaultExclude, mergeConfig } from 'vitest/config';
 import type { InlineConfig, ProjectConfig } from 'vitest/node';
 
 import { isObject } from './helpers/type-guards.ts';
+import type { TierName } from './tiers.ts';
+import { ALL_TEST_PATTERNS, buildTierPatterns, TEST_COLLECTION_EXCLUDE, TIER_NAMES } from './tiers.ts';
 import { getWorkspacePackageDirs } from './workspace.ts';
+
+export type { TierName } from './tiers.ts';
 
 /**
  * Test options Vitest honours only at the root of a `projects` config. Derived from Vitest's own types rather than
@@ -46,16 +50,6 @@ export interface RootVitestConfigOptions extends VitestConfigOptions {
 /** Any number of shared layers, then the config file's own, which states the monorepo root. */
 type RootConfigLayers = [...(VitestConfigOptions | undefined)[], RootVitestConfigOptions];
 
-/**
- * The isolation ladder, ordered by the furthest thing a test reaches. A tier names what a test reaches, never how it
- * invokes it: a test driving a compiler through its JavaScript API is `tool`, exactly as one spawning `tsc` would be.
- * Each named tier's name is also its filename infix, so `parse.tool.test.ts` lands in `tool`.
- */
-const TIER_NAMES = ['unit', 'tool', 'localhost', 'remote'] as const;
-
-/** One of the four isolation tiers. */
-export type TierName = (typeof TIER_NAMES)[number];
-
 // The head of the ladder is the residual: it collects every test file the named tiers don't claim, so a file whose
 // infix matches no tier still runs rather than being dropped by an allow-list.
 const [RESIDUAL_TIER, ...NAMED_TIERS] = TIER_NAMES;
@@ -75,8 +69,6 @@ const TIERED_PATTERNS = NAMED_TIERS.flatMap(buildTierPatterns);
  */
 const TIER_TIMEOUT = 30_000;
 
-const ALL_TEST_PATTERNS = ['**/__tests__/**/*.test.{ts,tsx}'];
-
 // Fixtures are excluded from coverage but never from collection: a coverage exclude cannot hide a real test, while a
 // collection exclude could swallow one legitimately placed under `fixtures/`. `__snapshots__` needs no entry because
 // `.snap` files never match the include.
@@ -84,9 +76,11 @@ const ALL_TEST_PATTERNS = ['**/__tests__/**/*.test.{ts,tsx}'];
 // Each entry names what cannot hold runtime code by construction: a directory, a barrel, a declaration file.
 const COVERAGE_EXCLUDE = ['**/__{fixtures,mocks,tests}__/**', '**/index.ts', '**/*.d.ts'];
 
-// Excluded from collection but deliberately not from coverage: a stale test copy under `dist/` passes green, which a
-// consumer cannot self-diagnose, whereas a `dist/` entry in the coverage report is a visible 0% they can.
-const BUILD_OUTPUT_EXCLUDE = ['**/dist/**'];
+// The pruned directories as collection globs, unioned with Vitest's own defaults so a later release's addition still
+// reaches every project. `dist/` is excluded from collection but deliberately not from coverage: a stale test copy
+// under it passes green, which a consumer cannot self-diagnose, whereas a `dist/` entry in the coverage report is a
+// visible 0% they can.
+const COLLECTION_EXCLUDE = [...new Set([...defaultExclude, ...TEST_COLLECTION_EXCLUDE.map((dir) => `**/${dir}/**`)])];
 
 const PACKAGE_COVERAGE_INCLUDE = ['**/src/**/*.{ts,tsx}'];
 
@@ -199,7 +193,7 @@ function buildProjects(
       // Patterns resolve against the project root, which otherwise defaults to the working directory.
       ...(projectRoot !== undefined && { root: projectRoot }),
       test: {
-        exclude: [...defaultExclude, ...BUILD_OUTPUT_EXCLUDE, ...exclude, ...extraExclude],
+        exclude: [...COLLECTION_EXCLUDE, ...exclude, ...extraExclude],
         include,
         name,
         ...(timeout !== undefined && { hookTimeout: timeout, testTimeout: timeout }),
@@ -243,11 +237,6 @@ function assertKnownTiers(layers: readonly VitestConfigOptions[]): void {
       }
     }
   }
-}
-
-/** Builds the collection patterns for one tier. Every project collects from `__tests__` directories alone. */
-function buildTierPatterns(tier: string): string[] {
-  return [`**/__tests__/**/*.${tier}.test.{ts,tsx}`];
 }
 
 /** Resolves each workspace package directory to a glob relative to the monorepo root. */
