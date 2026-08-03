@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -812,6 +813,18 @@ describe(resolveBuildCachePath, () => {
 
     expect(resolveBuildCachePath(a)).toBe(resolveBuildCachePath(a));
     expect(resolveBuildCachePath(a)).not.toBe(resolveBuildCachePath(b));
+  });
+
+  it('resolves to the path entries already on disk were written under', () => {
+    const packageDir = path.join(root, 'pkg');
+    fs.mkdirSync(path.join(packageDir, 'node_modules'), { recursive: true });
+    // Spelled out rather than derived from the store, so that a change to how the store keys an entry fails
+    // here instead of silently stranding every digest a previous build wrote into a spurious full rebuild.
+    const digest = createHash('sha256').update(packageDir).digest('hex').slice(0, 8);
+
+    expect(resolveBuildCachePath(packageDir)).toBe(
+      path.join(packageDir, 'node_modules', '.cache', 'nmr-compile', `pkg-${digest}.hash`),
+    );
   });
 });
 

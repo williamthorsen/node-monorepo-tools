@@ -64,7 +64,7 @@
   ],
   "scripts": {
     "build:post": "nmr-sync-agent-files",
-    "prepare": "tsx src/cli-build.ts"
+    "prepare": "node src/cli-build.ts"
   },
   "dependencies": {
     "@williamthorsen/nmr-core": "workspace:*",

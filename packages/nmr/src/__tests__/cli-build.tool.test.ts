@@ -5,7 +5,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-// The bin runs the source directly under Node's type stripping, exactly as `prepare` does through tsx.
+// The bin runs the source directly under Node's type stripping, exactly as `prepare` does.
 // Driving it as a process is what covers the wiring the unit tests cannot: that `nmr-compile` reads the
 // config of whichever package it is invoked in.
 const CLI_PATH = path.join(import.meta.dirname, '..', 'cli-build.ts');
