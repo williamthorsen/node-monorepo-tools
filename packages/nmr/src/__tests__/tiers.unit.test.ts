@@ -5,7 +5,7 @@ import path from 'node:path';
 import { globSync } from 'tinyglobby';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { ALL_TEST_PATTERNS, findTestFiles, hasTierInfix, TIER_NAMES } from '../tiers.ts';
+import { ALL_TEST_PATTERNS, findTestFiles, hasTierInfix, TEST_COLLECTION_EXCLUDE, TIER_NAMES } from '../tiers.ts';
 
 // Each file stands for a boundary the walk has to get right.
 const FIXTURE_FILES = [
@@ -27,6 +27,7 @@ const COLLECTED_FILES = [
 
 describe(findTestFiles, () => {
   let fixtureRoot: string;
+  let emptyRoot: string;
 
   beforeAll(() => {
     fixtureRoot = mkdtempSync(path.join(tmpdir(), 'nmr-tiers-'));
@@ -35,10 +36,14 @@ describe(findTestFiles, () => {
       mkdirSync(path.dirname(absolute), { recursive: true });
       writeFileSync(absolute, '');
     }
+
+    emptyRoot = mkdtempSync(path.join(tmpdir(), 'nmr-tiers-empty-'));
   });
 
   afterAll(() => {
-    rmSync(fixtureRoot, { recursive: true, force: true });
+    for (const dir of [fixtureRoot, emptyRoot]) {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('collects every test file the projects claim, and nothing else', () => {
@@ -57,14 +62,14 @@ describe(findTestFiles, () => {
     const globbed = globSync(ALL_TEST_PATTERNS, {
       cwd: fixtureRoot,
       dot: true,
-      ignore: ['**/coverage/**', '**/dist/**', '**/node_modules/**'],
+      ignore: TEST_COLLECTION_EXCLUDE.map((dir) => `**/${dir}/**`),
     });
 
     expect(globbed.toSorted()).toStrictEqual(findTestFiles(fixtureRoot));
   });
 
   it('returns an empty list for a tree holding no test file', () => {
-    expect(findTestFiles(mkdtempSync(path.join(tmpdir(), 'nmr-tiers-empty-')))).toStrictEqual([]);
+    expect(findTestFiles(emptyRoot)).toStrictEqual([]);
   });
 });
 

@@ -56,6 +56,8 @@ describe(noRetiredVitestConfigs, () => {
 });
 
 describe(vitestConfigBuildsOnSharedConfig, () => {
+  afterEach(removeFixtureDirs);
+
   it('passes when the root config imports defineVitestConfig', () => {
     const dir = buildRepo({ 'vitest.config.ts': SHARED_CONFIG });
 
@@ -84,6 +86,8 @@ describe(vitestConfigBuildsOnSharedConfig, () => {
 });
 
 describe(vitestRootConfigBuildsOnSharedConfig, () => {
+  afterEach(removeFixtureDirs);
+
   it('passes when the root-tests config imports defineRootVitestConfig', () => {
     const dir = buildRepo({ 'vitest.root.config.ts': SHARED_ROOT_CONFIG });
 
@@ -166,6 +170,8 @@ describe(everyTestFileNamesItsTier, () => {
 });
 
 describe(noReExportOnlyVitestConfigs, () => {
+  afterEach(removeFixtureDirs);
+
   it('passes when no package carries a Vitest config', () => {
     const dir = buildRepo({ 'vitest.config.ts': SHARED_CONFIG });
 
@@ -236,7 +242,7 @@ function detailOf(outcome: boolean | { ok: boolean; detail?: string | undefined 
   return outcome.detail ?? '';
 }
 
-/** Removes every fixture directory built so far. Registered per describe block, which the hook placement rule wants. */
+/** Removes every fixture directory built so far. */
 function removeFixtureDirs(): void {
   for (const dir of fixtureDirs) {
     rmSync(dir, { force: true, recursive: true });
