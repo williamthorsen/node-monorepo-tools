@@ -12,7 +12,7 @@ vi.mock(import('readyup/check-utils'), async (importOriginal) => {
   };
 });
 
-import { codeQualityWorkflowDoesNotUseNmrPrepush } from '../nmr.ts';
+import { codeQualityWorkflowDoesNotUseNmrPrepush } from '../../.readyup/kits/default.ts';
 
 describe(codeQualityWorkflowDoesNotUseNmrPrepush, () => {
   afterEach(() => {

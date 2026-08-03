@@ -10,7 +10,7 @@ import {
   noRetiredVitestConfigs,
   vitestConfigBuildsOnSharedConfig,
   vitestRootConfigBuildsOnSharedConfig,
-} from '../nmr.ts';
+} from '../../.readyup/kits/default.ts';
 
 const SHARED_CONFIG =
   "import { defineVitestConfig } from '@williamthorsen/nmr/vitest';\nexport default defineVitestConfig();\n";

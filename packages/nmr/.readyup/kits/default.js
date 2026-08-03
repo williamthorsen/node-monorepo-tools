@@ -3,11 +3,22 @@
 export const __readyupVersion = "0.23.0";
 
 
-// .readyup/kits/nmr.ts
+// .readyup/kits/default.ts
 import { existsSync, globSync, readdirSync, readFileSync } from "node:fs";
 import { basename, join, sep } from "node:path";
+import { defineRdyKit } from "readyup";
+import {
+  fileContains,
+  fileExists,
+  hasDevDependency,
+  hasMinDevDependencyVersion,
+  hasPackageJsonField,
+  isRecord,
+  readFile,
+  readPackageJson
+} from "readyup/check-utils";
 
-// packages/nmr/src/default-scripts.ts
+// src/default-scripts.ts
 var GATE_PROJECTS = "--project unit --project tool";
 var workspaceScripts = {
   build: ["compile"],
@@ -87,24 +98,13 @@ var rootScripts = {
   upgrade: "nmr-report-overrides && nmr-taze --include-locked --recursive"
 };
 
-// packages/nmr/src/resolve-scripts.ts
+// src/resolve-scripts.ts
 function getDefaultRootScripts() {
   return { ...rootScripts };
 }
 
-// .readyup/kits/nmr.ts
-import { defineRdyKit } from "readyup";
-import {
-  fileContains,
-  fileExists,
-  hasDevDependency,
-  hasMinDevDependencyVersion,
-  hasPackageJsonField,
-  isRecord,
-  readFile,
-  readPackageJson
-} from "readyup/check-utils";
-var nmr_default = defineRdyKit({
+// .readyup/kits/default.ts
+var default_default = defineRdyKit({
   checklists: [
     {
       name: "nmr",
@@ -441,7 +441,7 @@ function vitestRootConfigBuildsOnSharedConfig(cwd = process.cwd()) {
 }
 export {
   codeQualityWorkflowDoesNotUseNmrPrepush,
-  nmr_default as default,
+  default_default as default,
   noReExportOnlyVitestConfigs,
   noRetiredInfixTests,
   noRetiredVitestConfigs,

@@ -5,12 +5,11 @@
  * The minimum version is read from the nmr package's package.json and inlined by esbuild at compile time.
  *
  * Run from a target repo's working directory:
- *   rdy run --file <path-to>/nmr.js
+ *   rdy run --from npm:@williamthorsen/nmr
  */
 import { existsSync, globSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, join, sep } from 'node:path';
 
-import { getDefaultRootScripts } from '@williamthorsen/nmr/scripts';
 import { type CheckOutcome, defineRdyKit, pickJson } from 'readyup';
 import {
   fileContains,
@@ -22,6 +21,8 @@ import {
   readFile,
   readPackageJson,
 } from 'readyup/check-utils';
+
+import { getDefaultRootScripts } from '../../src/resolve-scripts.ts';
 
 export default defineRdyKit({
   checklists: [
@@ -364,7 +365,7 @@ function getMinVersion(): string {
   // `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline only the listed fields.
   // Defer the call into a function so module load does not invoke the runtime stub (which throws):
   // This keeps the module importable in tests that bypass the compile step.
-  const picked = pickJson('../../packages/nmr/package.json', ['version']);
+  const picked = pickJson('../../package.json', ['version']);
   if (typeof picked.version !== 'string') {
     throw new TypeError("nmr/package.json: 'version' must be a string");
   }

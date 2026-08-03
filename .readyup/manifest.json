@@ -14,17 +14,6 @@
     },
     {
       "checklists": [
-        "nmr"
-      ],
-      "name": "nmr",
-      "path": "kits/nmr.js",
-      "readyupVersion": "0.23.0",
-      "source": "kits/nmr.ts",
-      "sourceHash": "5a26af82",
-      "targetHash": "8f3f0084"
-    },
-    {
-      "checklists": [
         "repo",
         "packages"
       ],
