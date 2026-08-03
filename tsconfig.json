@@ -42,6 +42,11 @@
     // Report an error when a variable is declared but never used.
     "noUnusedLocals": true,
     "paths": {
+      "@williamthorsen/nmr/config": ["./packages/nmr/src/defineConfig.ts"],
+      "@williamthorsen/nmr/scripts": ["./packages/nmr/src/scripts.ts"],
+      "@williamthorsen/nmr/taze": ["./packages/nmr/src/taze.ts"],
+      "@williamthorsen/nmr/vitest": ["./packages/nmr/src/vitest.ts"],
+      "@williamthorsen/nmr/workspace": ["./packages/nmr/src/workspace.ts"],
       "@williamthorsen/release-kit/config": ["./packages/release-kit/src/defineConfig.ts"],
       "~/*": ["./*"],
     },

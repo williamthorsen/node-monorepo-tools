@@ -1,4 +1,3 @@
-import type { NmrConfig } from './config.ts';
 import { isHookName } from './helpers/hook-name.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
 import {
@@ -8,6 +7,7 @@ import {
   isSelfReferential,
   readPackageJsonScripts,
 } from './resolver.ts';
+import type { NmrConfig } from './types.ts';
 
 /**
  * Generates the help text for the `nmr` CLI. Renders only nmr commands —

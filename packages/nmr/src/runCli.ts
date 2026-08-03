@@ -20,7 +20,6 @@ import {
   writeCheckCacheEntry,
   writeDebugNote,
 } from './check-cache.ts';
-import type { NmrConfig } from './config.ts';
 import { resolveContext } from './context.ts';
 import { generateHelp } from './help.ts';
 import { isHookName } from './helpers/hook-name.ts';
@@ -29,6 +28,7 @@ import type { ResolvedScript } from './resolver.ts';
 import { applyDevBin, buildRootRegistry, buildWorkspaceRegistry, resolveScript } from './resolver.ts';
 import type { RunCommandOptions } from './runner.ts';
 import { runCommand } from './runner.ts';
+import type { NmrConfig } from './types.ts';
 
 const VERSION = readPackageVersion(import.meta.url);
 

@@ -73,7 +73,7 @@ export default defineRdyKit({
           severity: 'recommend',
           skip: () => (!fileExists('.config/nmr.config.ts') ? 'no nmr config file' : false),
           check: () => fileContains('.config/nmr.config.ts', /defineConfig/),
-          fix: 'Wrap your config export with defineConfig() from @williamthorsen/nmr for type safety',
+          fix: 'Wrap your config export with defineConfig() from @williamthorsen/nmr/config for type safety',
         },
 
         // -- Root script cleanup -------------------------------------------------

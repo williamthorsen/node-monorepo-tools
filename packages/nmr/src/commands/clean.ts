@@ -2,11 +2,11 @@ import { rm } from 'node:fs/promises';
 import path from 'node:path';
 
 import { removeCheckCache } from '../check-cache.ts';
-import type { NmrConfig } from '../config.ts';
 import { loadRootConfig } from '../config.ts';
 import { findContainingPackageDir } from '../context.ts';
 import { applyDevBin, buildWorkspaceRegistry, resolveScript } from '../resolver.ts';
 import { runCommand } from '../runner.ts';
+import type { NmrConfig } from '../types.ts';
 import { findMonorepoRoot, getWorkspacePackageDirs } from '../workspace.ts';
 import { resolveBuildCachePath } from './build-output.ts';
 

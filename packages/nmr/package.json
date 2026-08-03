@@ -22,9 +22,9 @@
   "author": "William Thorsen <william@thorsen.dev> (https://github.com/williamthorsen)",
   "type": "module",
   "exports": {
-    ".": {
-      "types": "./dist/esm/index.d.ts",
-      "default": "./dist/esm/index.js"
+    "./config": {
+      "types": "./dist/esm/defineConfig.d.ts",
+      "default": "./dist/esm/defineConfig.js"
     },
     "./prettier": {
       "types": "./dist/esm/prettier.d.ts",

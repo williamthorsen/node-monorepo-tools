@@ -15,12 +15,12 @@ import {
 } from '@williamthorsen/nmr-core';
 
 import { hasBuildOutput, readBuildDigest } from './commands/build-output.ts';
-import type { CheckCacheConfig, NmrConfig } from './config.ts';
 import { loadWorkspaceConfig } from './config.ts';
 import { isObject, isStringRecord } from './helpers/type-guards.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
 import { getDefaultWorkspaceScripts } from './resolve-scripts.ts';
 import { buildWorkspaceRegistry, resolveScript } from './resolver.ts';
+import type { CheckCacheConfig, NmrConfig } from './types.ts';
 import { getWorkspacePackageDirs } from './workspace.ts';
 
 /** A recorded pass: what ran, on which tree, and what it cost. */

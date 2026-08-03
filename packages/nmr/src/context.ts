@@ -1,7 +1,7 @@
 import path from 'node:path';
 
-import type { NmrConfig } from './config.ts';
 import { loadRootConfig } from './config.ts';
+import type { NmrConfig } from './types.ts';
 import { findMonorepoRoot, getWorkspacePackageDirs } from './workspace.ts';
 
 export interface ResolvedContext {

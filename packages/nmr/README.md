@@ -105,7 +105,7 @@ Passthrough arguments attach to the final step alone, because the expansion is a
 Create `.config/nmr.config.ts` in the monorepo root to add or override scripts. A package may carry one too, for [build settings of its own](#package-level-configuration):
 
 ```ts
-import { defineConfig } from '@williamthorsen/nmr';
+import { defineConfig } from '@williamthorsen/nmr/config';
 
 export default defineConfig({
   workspaceScripts: {
@@ -137,7 +137,7 @@ A package may carry its own `.config/nmr.config.ts`, which `nmr-compile` reads f
 
 ```ts
 // packages/my-package/.config/nmr.config.ts
-import { defineConfig } from '@williamthorsen/nmr';
+import { defineConfig } from '@williamthorsen/nmr/config';
 
 export default defineConfig({
   build: { extraIgnorePatterns: ['**/fixtures/**'] },
@@ -146,7 +146,7 @@ export default defineConfig({
 
 `extraIgnorePatterns` adds to the build's [default ignore set](#nmr-compile) rather than replacing it, so declaring a pattern cannot start a package shipping its own tests. The programmatic `buildPackage` option of the same name behaves identically; its bare `ignorePatterns` is the one that replaces.
 
-> **Building nmr from source:** a config file that has to load while nmr itself is being built — before its `dist` exists — must use the type-only form, `import type { NmrConfig }` with `satisfies NmrConfig`, which carries no runtime import. `defineConfig` resolves through nmr's build output and so is unavailable at that moment. Every other config, including every consumer's, installs nmr from a tarball that ships `dist` and can use `defineConfig` freely.
+> **Building nmr from source:** a config file that has to load while nmr itself is being built — before its `dist` exists — must use the type-only form, `import type { NmrConfig } from '@williamthorsen/nmr/config'` with `satisfies NmrConfig`, which carries no runtime import. `defineConfig` resolves through nmr's build output and so is unavailable at that moment. Every other config, including every consumer's, installs nmr from a tarball that ships `dist` and can use `defineConfig` freely.
 
 ### `devBin` — source-repo binary substitution
 
@@ -182,7 +182,7 @@ Extend `nmr build` with a pre-build step for every workspace package:
 
 ```ts
 // .config/nmr.config.ts
-import { defineConfig } from '@williamthorsen/nmr';
+import { defineConfig } from '@williamthorsen/nmr/config';
 
 export default defineConfig({
   workspaceScripts: {
