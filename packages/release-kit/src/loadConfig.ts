@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import {
   DEFAULT_CHANGELOG_JSON_CONFIG,
@@ -67,10 +68,8 @@ export function readRootPackageVersion(): { exists: boolean; version: string | u
 export const CONFIG_FILE_PATH = '.config/release-kit.config.ts';
 
 /**
- * Loads the config file at `.config/release-kit.config.ts` using jiti for TypeScript loading.
- *
- * @returns The raw config object, or `undefined` if the file does not exist.
- * @throws If the file exists but cannot be loaded or does not have a default export.
+ * Loads the config file at `.config/release-kit.config.ts`, returning the raw config object, or `undefined` when the
+ * file does not exist. Throws when the file exists but exports neither a default nor a named `config`.
  */
 export async function loadConfig(): Promise<unknown> {
   const absoluteConfigPath = path.resolve(process.cwd(), CONFIG_FILE_PATH);
@@ -79,16 +78,14 @@ export async function loadConfig(): Promise<unknown> {
     return undefined;
   }
 
-  const { createJiti } = await import('jiti');
-  const jiti = createJiti(import.meta.url);
-  const imported: unknown = await jiti.import(absoluteConfigPath);
+  // Node type-strips `.ts` natively across this package's engines range, so the config needs no transform step and no
+  // loader dependency. `import()` takes a URL, not a path: A bare Windows path parses as a scheme.
+  const imported: unknown = await import(pathToFileURL(absoluteConfigPath).href);
 
-  if (!isRecord(imported)) {
-    throw new Error(`Config file must export an object, got ${Array.isArray(imported) ? 'array' : typeof imported}`);
-  }
-
-  // Support both default export and named `config` export
-  const resolved = imported.default ?? imported.config;
+  // Support both default export and named `config` export. A module namespace is always a record, so the guard
+  // narrows rather than rejects; a non-object default export is `validateConfig`'s to refuse. Reading an undeclared
+  // export off a namespace yields `undefined` rather than throwing, so the fallback needs no membership check.
+  const resolved = isRecord(imported) ? (imported.default ?? imported.config) : undefined;
   if (resolved === undefined) {
     throw new Error(
       'Config file must have a default export or a named `config` export (e.g., `export default { ... }` or `export const config = { ... }`)',

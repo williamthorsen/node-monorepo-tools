@@ -1,19 +1,20 @@
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 
+import type { MockInstance } from 'vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockExistsSync = vi.hoisted(() => vi.fn());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
-const mockJitiImport = vi.hoisted(() => vi.fn());
 
 vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
   readFileSync: mockReadFileSync,
 }));
 
-vi.mock('jiti', () => ({
-  createJiti: () => ({ import: mockJitiImport }),
-}));
+// The loader suite drives the real thing -- a real file on disk, imported by the runtime -- so it needs the unmocked
+// module that the three suites below deliberately replace.
+const actualFs = await vi.importActual<typeof import('node:fs')>('node:fs');
 
 import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from '../defaults.ts';
 import {
@@ -40,82 +41,76 @@ function mockPackageNames(namesByPath: Record<string, string>): void {
 }
 
 describe(loadConfig, () => {
+  let tmpDir: string;
+  let cwdSpy: MockInstance<() => string>;
+
+  beforeEach(() => {
+    // A fresh directory per test. `import()` caches by URL for the process lifetime, so a reused fixture path would
+    // replay the first config and pass every later case for the wrong reason.
+    tmpDir = actualFs.mkdtempSync(path.join(tmpdir(), 'release-kit-config-'));
+    cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpDir);
+    // Delegate to the real `existsSync`, so a mistyped fixture path surfaces as a missing config rather than as an
+    // opaque module-resolution failure from the import.
+    mockExistsSync.mockImplementation(actualFs.existsSync);
+  });
+
   afterEach(() => {
+    cwdSpy.mockRestore();
     mockExistsSync.mockReset();
     mockReadFileSync.mockReset();
-    mockJitiImport.mockReset();
+    actualFs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
   it('returns undefined when the config file does not exist', async () => {
-    mockExistsSync.mockReturnValue(false);
-
     const result = await loadConfig();
 
     expect(result).toBeUndefined();
   });
 
   it('resolves the config path against process.cwd()', async () => {
-    const expectedPath = path.resolve(process.cwd(), CONFIG_FILE_PATH);
-    mockExistsSync.mockReturnValue(true);
-    mockJitiImport.mockResolvedValue({ default: {} });
+    writeConfig('export default { formatCommand: "pnpm run fmt" };');
 
     await loadConfig();
 
-    expect(mockExistsSync).toHaveBeenCalledWith(expectedPath);
-    expect(mockJitiImport).toHaveBeenCalledWith(expectedPath);
+    expect(mockExistsSync).toHaveBeenCalledWith(path.resolve(tmpDir, CONFIG_FILE_PATH));
   });
 
-  it('throws when jiti returns a non-object value', async () => {
-    mockExistsSync.mockReturnValue(true);
-    mockJitiImport.mockResolvedValue('not-an-object');
+  it('returns the default export when present', async () => {
+    writeConfig('export default { workTypes: { perf: { header: "Performance" } } };');
 
-    await expect(loadConfig()).rejects.toThrow('Config file must export an object, got string');
+    const result = await loadConfig();
+
+    expect(result).toStrictEqual({ workTypes: { perf: { header: 'Performance' } } });
   });
 
-  it('throws when jiti returns an array', async () => {
-    mockExistsSync.mockReturnValue(true);
-    mockJitiImport.mockResolvedValue([1, 2, 3]);
+  it('returns the named config export when no default is present', async () => {
+    writeConfig('export const config = { formatCommand: "pnpm run fmt" };');
 
-    await expect(loadConfig()).rejects.toThrow('Config file must export an object, got array');
+    const result = await loadConfig();
+
+    expect(result).toStrictEqual({ formatCommand: 'pnpm run fmt' });
   });
 
-  it('throws when the exported record has no default or config export', async () => {
-    mockExistsSync.mockReturnValue(true);
-    mockJitiImport.mockResolvedValue({ unrelated: true });
+  it('prefers the default export over the named config export', async () => {
+    writeConfig('export default { formatCommand: "default" };\nexport const config = { formatCommand: "named" };');
+
+    const result = await loadConfig();
+
+    expect(result).toStrictEqual({ formatCommand: 'default' });
+  });
+
+  it('throws when the module has neither a default nor a named config export', async () => {
+    writeConfig('export const unrelated = true;');
 
     await expect(loadConfig()).rejects.toThrow('must have a default export or a named `config` export');
   });
 
-  it('returns the default export when present', async () => {
-    const configObject = { workTypes: { perf: { header: 'Performance' } } };
-    mockExistsSync.mockReturnValue(true);
-    mockJitiImport.mockResolvedValue({ default: configObject });
-
-    const result = await loadConfig();
-
-    expect(result).toBe(configObject);
-  });
-
-  it('returns the named config export when no default is present', async () => {
-    const configObject = { formatCommand: 'pnpm run fmt' };
-    mockExistsSync.mockReturnValue(true);
-    mockJitiImport.mockResolvedValue({ config: configObject });
-
-    const result = await loadConfig();
-
-    expect(result).toBe(configObject);
-  });
-
-  it('prefers the default export over the named config export', async () => {
-    const defaultConfig = { formatCommand: 'default' };
-    const namedConfig = { formatCommand: 'named' };
-    mockExistsSync.mockReturnValue(true);
-    mockJitiImport.mockResolvedValue({ default: defaultConfig, config: namedConfig });
-
-    const result = await loadConfig();
-
-    expect(result).toBe(defaultConfig);
-  });
+  /** Writes `source` to the config path the loader resolves under the temp directory standing in for the cwd. */
+  function writeConfig(source: string): void {
+    const configPath = path.resolve(tmpDir, CONFIG_FILE_PATH);
+    actualFs.mkdirSync(path.dirname(configPath), { recursive: true });
+    actualFs.writeFileSync(configPath, source);
+  }
 });
 
 describe(mergeMonorepoConfig, () => {
