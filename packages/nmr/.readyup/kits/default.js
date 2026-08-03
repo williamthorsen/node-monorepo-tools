@@ -4,7 +4,7 @@ export const __readyupVersion = "0.23.0";
 
 
 // .readyup/kits/default.ts
-import { existsSync, globSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, globSync, readdirSync as readdirSync2, readFileSync } from "node:fs";
 import { basename, join, sep } from "node:path";
 import { defineRdyKit } from "readyup";
 import {
@@ -103,6 +103,38 @@ function getDefaultRootScripts() {
   return { ...rootScripts };
 }
 
+// src/tiers.ts
+import { readdirSync } from "node:fs";
+import path from "node:path";
+var TEST_DIR = "__tests__";
+var TEST_EXTENSIONS = "{ts,tsx}";
+var TEST_GLOB_PREFIX = `**/${TEST_DIR}/**`;
+var TEST_FILE_PATTERN = /\.test\.tsx?$/;
+var ALL_TEST_PATTERNS = [`${TEST_GLOB_PREFIX}/*.test.${TEST_EXTENSIONS}`];
+function findTestFiles(rootDir) {
+  const found = [];
+  collectTestFiles(rootDir, "", false, found);
+  return found.toSorted();
+}
+function hasTierInfix(filePath) {
+  const tiers = TIER_NAMES;
+  return tiers.includes(path.basename(filePath).split(".").at(-3) ?? "");
+}
+var TEST_COLLECTION_EXCLUDE = [".git", "coverage", "dist", "node_modules"];
+var TIER_NAMES = ["unit", "tool", "localhost", "remote"];
+function collectTestFiles(dir, relativeDir, inTestDir, found) {
+  const entries = readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const relativePath = relativeDir === "" ? entry.name : `${relativeDir}/${entry.name}`;
+    if (entry.isDirectory()) {
+      if (TEST_COLLECTION_EXCLUDE.includes(entry.name)) continue;
+      collectTestFiles(path.join(dir, entry.name), relativePath, inTestDir || entry.name === TEST_DIR, found);
+    } else if (inTestDir && TEST_FILE_PATTERN.test(entry.name)) {
+      found.push(relativePath);
+    }
+  }
+}
+
 // .readyup/kits/default.ts
 var default_default = defineRdyKit({
   checklists: [
@@ -196,10 +228,10 @@ var default_default = defineRdyKit({
           fix: "Replace vitest.root.config.ts with: import { defineRootVitestConfig } from '@williamthorsen/nmr/vitest'; export default defineRootVitestConfig({ monorepoRoot: import.meta.dirname });"
         },
         {
-          name: "no test files use a retired isolation infix",
+          name: "every test file names its isolation tier",
           severity: "error",
-          check: () => noRetiredInfixTests(),
-          fix: "Rename *.int.test.ts and *.integration.test.ts to *.tool.test.ts if the test reaches a program the environment supplies, and drop the infix otherwise. Neither matches a project now, so these run under unit in the default gate with nothing reporting the lost separation"
+          check: () => everyTestFileNamesItsTier(),
+          fix: `Rename each to <subject>[.<aspect>].<tier>.test.ts, naming one of ${TIER_NAMES.join(", ")}. Use tool for a test that reaches a program the environment supplies, which is where a retired .int. or .integration. file belongs. Only the segment before .test. selects a project, so an untiered file runs under the residual unit project and reports success`
         },
         {
           name: "no package re-exports the ancestor Vitest config",
@@ -247,9 +279,6 @@ var default_default = defineRdyKit({
 });
 var SCAN_EXCLUDE_DIRS = /* @__PURE__ */ new Set([".git", "coverage", "dist", "node_modules"]);
 var CONFIG_EXTENSIONS = "{ts,mts,cts,js,mjs,cjs}";
-var TEST_EXTENSIONS = "{ts,tsx}";
-var TEST_GLOB_PREFIX = "**/__tests__/**";
-var RETIRED_TEST_INFIXES = ["int", "integration"];
 var SHARED_VITEST_MODULE = "@williamthorsen/nmr/vitest";
 var SHARED_PRETTIER_MODULE = "@williamthorsen/nmr/prettier";
 var INERT_PRETTIER_CONFIGS = [".prettierrc", ".prettierrc.{json,json5,yaml,yml,toml}"];
@@ -257,7 +286,7 @@ var RE_EXPORT_LINE_PATTERN = /^export\s*(?:\{\s*default\s*\}|\*)\s*from\s*['"]\.
 function allWorkspacePackagesCanBuild() {
   const packagesDir = join(process.cwd(), "packages");
   if (!existsSync(packagesDir)) return true;
-  const entries = readdirSync(packagesDir, { withFileTypes: true });
+  const entries = readdirSync2(packagesDir, { withFileTypes: true });
   const failing = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
@@ -333,12 +362,17 @@ function codeQualityWorkflowDoesNotUseNmrPrepush() {
   if (content === void 0) return true;
   return !/check-command:\s*pnpm exec nmr prepush(\s|$)/.test(content);
 }
+function everyTestFileNamesItsTier(cwd = process.cwd()) {
+  const untiered = findTestFiles(cwd).filter((path2) => !hasTierInfix(path2));
+  if (untiered.length === 0) return true;
+  return { ok: false, detail: formatPaths(untiered) };
+}
 function findFiles(patterns, cwd) {
-  return globSync(patterns, { cwd, exclude: (path) => SCAN_EXCLUDE_DIRS.has(basename(path)) }).map((path) => path.split(sep).join("/")).toSorted();
+  return globSync(patterns, { cwd, exclude: (path2) => SCAN_EXCLUDE_DIRS.has(basename(path2)) }).map((path2) => path2.split(sep).join("/")).toSorted();
 }
 function formatPaths(paths) {
   return `${paths.length} found:
-${paths.map((path) => `      ${path}`).join("\n")}`;
+${paths.map((path2) => `      ${path2}`).join("\n")}`;
 }
 function getMinVersion() {
   const picked = { "version": "0.24.0" };
@@ -357,15 +391,9 @@ function isReExportOnly(content) {
   const statements = content.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "").split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
   return statements.length > 0 && statements.every((line) => RE_EXPORT_LINE_PATTERN.test(line));
 }
-function noRetiredInfixTests(cwd = process.cwd()) {
-  return checkNoMatchingFiles(
-    RETIRED_TEST_INFIXES.map((infix) => `${TEST_GLOB_PREFIX}/*.${infix}.test.${TEST_EXTENSIONS}`),
-    cwd
-  );
-}
 function noReExportOnlyVitestConfigs(cwd = process.cwd()) {
-  const nonRootConfigs = findFiles([`**/vitest.config.${CONFIG_EXTENSIONS}`], cwd).filter((path) => path.includes("/"));
-  const reExports = nonRootConfigs.filter((path) => isReExportOnly(readFileIn(cwd, path)));
+  const nonRootConfigs = findFiles([`**/vitest.config.${CONFIG_EXTENSIONS}`], cwd).filter((path2) => path2.includes("/"));
+  const reExports = nonRootConfigs.filter((path2) => isReExportOnly(readFileIn(cwd, path2)));
   if (reExports.length === 0) return true;
   return { ok: false, detail: formatPaths(reExports) };
 }
@@ -392,7 +420,7 @@ function noWorkspaceRunScriptReferences() {
   const packagesDir = join(process.cwd(), "packages");
   if (!existsSync(packagesDir)) return true;
   const legacyPattern = /run-workspace-script|"pnpm\s+run\s+ws\b/;
-  const entries = readdirSync(packagesDir, { withFileTypes: true });
+  const entries = readdirSync2(packagesDir, { withFileTypes: true });
   const matches = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
@@ -442,8 +470,8 @@ function vitestRootConfigBuildsOnSharedConfig(cwd = process.cwd()) {
 export {
   codeQualityWorkflowDoesNotUseNmrPrepush,
   default_default as default,
+  everyTestFileNamesItsTier,
   noReExportOnlyVitestConfigs,
-  noRetiredInfixTests,
   noRetiredVitestConfigs,
   prettierConfigBuildsOnSharedConfig,
   vitestConfigBuildsOnSharedConfig,
