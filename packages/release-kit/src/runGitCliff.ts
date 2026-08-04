@@ -13,12 +13,9 @@ import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
  * the npx flags, the spawned-process environment, and the temp dir holding both the
  * `.template`→`.toml` config copy and cliff's output file.
  *
- * Output is routed through `--output` to a temp file rather than captured from stdout,
- * because `--context` emits a workspace's entire matching tag history on every run and so
- * grows without bound with the repo. Piping it meant `execFileSync`'s default 1 MiB
- * `maxBuffer`: Node killed the child and reported `ENOBUFS` naming `npx`, never the output
- * that overflowed. Writing to a file removes the ceiling instead of raising it, so no
- * consumer meets a limit again regardless of repo size.
+ * Output is routed through `--output` to a temp file and read back. `--context` emits a
+ * workspace's entire matching tag history on every run, so its size grows without bound with
+ * the repo; a file accommodates that, while a pipe is bounded by `maxBuffer`.
  *
  * The `--prefer-offline` flag and `npm_config_progress=false` env entry are deliberate:
  * `--prefer-offline` skips npx's per-call npm-registry revalidation HTTP round-trip
@@ -53,9 +50,8 @@ export function runGitCliff(cliffConfigPath: string, cliffArgs: readonly string[
 
     const outputPath = join(tempDir, 'output.json');
 
-    // Discard stdout: with --output there is nothing left on it to read, and ignoring it rather than
-    // piping it leaves no parent-side buffer to overflow. stderr stays inherited so npx and cliff
-    // errors reach the terminal.
+    // stdout carries nothing once `--output` is set, and discarding it leaves no parent-side buffer.
+    // stderr is inherited so npx and cliff errors reach the terminal.
     execFileSync(
       'npx',
       ['--prefer-offline', '--yes', 'git-cliff', '--config', configPath, ...cliffArgs, '--output', outputPath],
@@ -82,9 +78,8 @@ export function runGitCliff(cliffConfigPath: string, cliffArgs: readonly string[
  *
  * Stdio: stdin ignored, stdout piped (the version line is suppressed as noise), stderr
  * inherited (npm errors and any rare upgrade notice surface, but only once per run).
- * `maxBuffer` is declared even though the piped output is a single version line, because
- * every call that pipes stdout declares one — the omission is what left the `--context`
- * capture on the 1 MiB default until it started failing.
+ * `maxBuffer` is declared even though the piped output is a single version line, because every
+ * call that pipes stdout declares one.
  *
  * Errors propagate unchanged — a failed cache refresh fails the prepare run loudly rather
  * than silently degrading.

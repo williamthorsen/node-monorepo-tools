@@ -135,7 +135,7 @@ describe(runGitCliff, () => {
     expect(mockRmSync).toHaveBeenCalledWith('/tmp/cliff-abc123', { recursive: true, force: true });
   });
 
-  it('removes the temp dir for a non-.template config, which now needs one for the output file', () => {
+  it('removes the temp dir for a non-.template config', () => {
     runGitCliff('/explicit/cliff.toml', []);
 
     expect(mockMkdtempSync).toHaveBeenCalledWith('/tmp/cliff-');
