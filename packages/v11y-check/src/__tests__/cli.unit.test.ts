@@ -54,9 +54,11 @@ vi.mock(import('../tmp.ts'), () => ({
 let stderrOutput: string;
 let stdoutOutput: string;
 
-// FIXME: #545
-// eslint-disable-next-line vitest/require-top-level-describe
-beforeEach(() => {
+/**
+ * Captures stdout and stderr and primes the mocks every command in this file depends on. Registered by each
+ * suite below rather than at file scope, which would put a hook outside any describe.
+ */
+function captureStdio(): void {
   stderrOutput = '';
   stdoutOutput = '';
   vi.spyOn(process.stderr, 'write').mockImplementation((chunk: string | Uint8Array) => {
@@ -70,19 +72,23 @@ beforeEach(() => {
   setupTempDir();
   mocks.generateAuditCiConfig.mockResolvedValue('/fake/tmp/audit-ci.json');
   mocks.scaffoldConfig.mockReturnValue({ configResult: { outcome: 'created' } });
-});
+}
 
-// eslint-disable-next-line vitest/require-top-level-describe
-afterEach(() => {
+/** Releases the stdio spies and clears the module mocks, so a suite starts from the same state each time. */
+function releaseStdio(): void {
   vi.restoreAllMocks();
   vi.clearAllMocks();
-});
+}
 
 // ---------------------------------------------------------------------------
 // auditCommand
 // ---------------------------------------------------------------------------
 
 describe(auditCommand, () => {
+  beforeEach(captureStdio);
+
+  afterEach(releaseStdio);
+
   it('returns 1 when config loading fails', async () => {
     mocks.loadConfig.mockRejectedValue(new Error('Config not found'));
 
@@ -247,6 +253,10 @@ describe(auditCommand, () => {
 // ---------------------------------------------------------------------------
 
 describe(checkCommand, () => {
+  beforeEach(captureStdio);
+
+  afterEach(releaseStdio);
+
   it('returns 1 when config loading fails', async () => {
     mocks.loadConfig.mockRejectedValue(new Error('Config not found'));
 
@@ -695,6 +705,10 @@ describe(checkCommand, () => {
 // ---------------------------------------------------------------------------
 
 describe(syncCommand, () => {
+  beforeEach(captureStdio);
+
+  afterEach(releaseStdio);
+
   it('returns 1 when config loading fails', async () => {
     mocks.loadConfig.mockRejectedValue(new Error('Config not found'));
 
