@@ -13,7 +13,7 @@ vi.mock('node:fs', async (importOriginal) => {
   };
 });
 
-import { noLegacyAuditCiDirectory, skipLegacyAuditCiCheck } from '../v11y-check.ts';
+import { noLegacyAuditCiDirectory, skipLegacyAuditCiCheck } from '../../.readyup/kits/default.ts';
 
 describe(noLegacyAuditCiDirectory, () => {
   afterEach(() => {

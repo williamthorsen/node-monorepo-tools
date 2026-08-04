@@ -15,7 +15,7 @@ vi.mock(import('readyup/check-utils'), async (importOriginal) => {
   };
 });
 
-import { readmeHasReleaseNotesMarkers, readmesHaveReleaseNotesMarkers } from '../release-kit.ts';
+import { readmeHasReleaseNotesMarkers, readmesHaveReleaseNotesMarkers } from '../../.readyup/kits/default.ts';
 
 describe(readmeHasReleaseNotesMarkers, () => {
   afterEach(() => {

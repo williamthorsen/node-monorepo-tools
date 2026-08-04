@@ -33,17 +33,25 @@
     "v11y-check": "bin/v11y.js"
   },
   "files": [
+    ".readyup/kits/*.js",
+    ".readyup/manifest.json",
     "bin",
     "dist",
     "templates"
   ],
   "scripts": {
-    "prepare": "node ../nmr/src/cli-build.ts"
+    "build:post": "rdy compile",
+    "build:pre": "rdy verify",
+    "prepare": "node ../nmr/src/cli-build.ts",
+    "prepublishOnly": "nmr build"
   },
   "dependencies": {
     "@williamthorsen/nmr-core": "workspace:*",
     "audit-ci": "7.1.0",
     "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "readyup": "0.23.0"
   },
   "engines": {
     "node": ">=24"

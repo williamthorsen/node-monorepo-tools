@@ -6,7 +6,7 @@
  * inlined by esbuild at compile time.
  *
  * Run from a target repo's working directory:
- *   rdy run --file <path-to>/release-kit.js
+ *   rdy run --from npm:@williamthorsen/release-kit
  */
 import { type CheckOutcome, defineRdyKit, pickJson } from 'readyup';
 import {
@@ -20,13 +20,13 @@ import {
   readFile,
 } from 'readyup/check-utils';
 
-import { detectRepoType } from '../../packages/release-kit/src/init/detectRepoType.ts';
+import { detectRepoType } from '../../src/init/detectRepoType.ts';
 
 function getMinVersion(): string {
   // `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline only the listed fields.
   // Defer the call into a function so module load does not invoke the runtime stub (which throws):
   // This keeps the module importable in tests that bypass the compile step.
-  const picked = pickJson('../../packages/release-kit/package.json', ['version']);
+  const picked = pickJson('../../package.json', ['version']);
   if (typeof picked.version !== 'string') {
     throw new TypeError("release-kit/package.json: 'version' must be a string");
   }
@@ -37,7 +37,7 @@ function hasPublishablePackages(): boolean {
   return discoverWorkspaces({ filter: (w) => w.isPackage }).length > 0;
 }
 
-// SHA-256 hashes of release-kit artifacts. Keep in sync. Verified by __tests__/rdy-kit-hashes.app.unit.test.ts.
+// SHA-256 hashes of release-kit artifacts. Keep in sync. Verified by src/__tests__/kit-hashes.unit.test.ts.
 export const CLIFF_TEMPLATE_HASH = '93b72e0b1393cd6b1fe8e2a0e303cd326fd323435951b0493396b305af32d2ec';
 export const COMMON_PRESET_HASH = '86f9e1db9000793a91168e8c6b5695311a422ee208121324549c068fe67fa184';
 export const SYNC_LABELS_WORKFLOW_HASH = 'd6e2403fb551d2d415f679125989c92760444eec887644565b2e05c9bf8f4c1e';

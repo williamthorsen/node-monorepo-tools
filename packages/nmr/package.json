@@ -66,7 +66,9 @@
   ],
   "scripts": {
     "build:post": "nmr-sync-agent-files && rdy compile",
-    "prepare": "node src/cli-build.ts"
+    "build:pre": "rdy verify",
+    "prepare": "node src/cli-build.ts",
+    "prepublishOnly": "nmr build"
   },
   "dependencies": {
     "@williamthorsen/nmr-core": "workspace:*",

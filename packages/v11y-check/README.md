@@ -125,6 +125,31 @@ Other options:
 
 The scaffolded workflow triggers on pull requests to `main`/`next`, on a daily schedule, and on manual `workflow_dispatch`. Commit the file into your repository so the caller runs in CI. If the reusable workflow's caller-side requirements change (for example, the tag bumps), re-run `v11y init --force` to refresh the file.
 
+## Readiness checks
+
+v11y-check publishes a [readyup](https://www.npmjs.com/package/readyup) kit that checks a consuming repo against the release it has installed: that v11y-check is a devDependency at or above the current version, that audit-ci configs sit under `.config/audit-ci/`, and that `.github/workflows/audit.yaml` matches the template this package scaffolds. The kit ships inside the package, so it checks against the version you installed rather than whatever a repository ref happens to point at.
+
+Add `readyup` as a devDependency, then name v11y-check in its config:
+
+```ts
+// .config/readyup.config.ts
+import { defineRdyConfig } from 'readyup';
+
+export default defineRdyConfig({
+  packages: ['v11y-check'],
+});
+```
+
+```bash
+rdy run --packages              # every kit each listed package publishes
+rdy run --from npm:v11y-check   # v11y-check's kit alone, without the config entry
+rdy list --from npm:v11y-check  # what v11y-check publishes
+```
+
+`--packages` is the form that survives v11y-check publishing further kits. Every form needs `readyup` 0.23 or later, and `v11y-check` as a _direct_ devDependency: a strict pnpm layout links nothing else into the project, so a transitive copy is unreachable.
+
+The kit is no longer reachable through `rdy run --from github:williamthorsen/node-monorepo-tools`. Repos still using that form should switch to one of the invocations above.
+
 ## Migration from v0.3
 
 v0.4 introduces breaking changes to the config schema:

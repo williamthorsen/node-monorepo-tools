@@ -4,7 +4,7 @@
 
 ## Overview
 
-A pnpm monorepo of CLI tools for Node.js monorepo development. Packages provide a unified script runner (`nmr`) and release automation (`release-kit`), with shared utilities in `core`. Pre-deployment checks use `readyup` (external dev dependency).
+A pnpm monorepo of CLI tools for Node.js monorepo development. Packages provide a unified script runner (`nmr`) and release automation (`release-kit`), with shared utilities in `core`. Pre-deployment checks use `readyup` (external dev dependency); `nmr`, `release-kit`, and `v11y-check` each publish the kit that checks their own setup.
 
 ## Project structure
 
@@ -17,7 +17,7 @@ Packages live under `packages/`:
 
 Key files:
 
-- `.config/nmr.config.ts`: Per-repo nmr overrides (a `build:post` hook; dogfoods the config-loading feature)
+- `.config/readyup.config.ts`: Names the three packages whose kits `rdy run --packages` runs
 - `packages/nmr/src/commands/build.ts`: The nmr-managed build (`nmr-compile` bin): a single TypeScript compiler-API emit of `.js` + `.d.ts` with order-invariant content-hash caching, AST-based relative `.ts`→`.js` rewriting, and tsconfig `paths` alias resolution in both outputs
 - `vitest.config.ts`: Vitest config for workspace packages; the ancestor each package resolves by walking up
 - `vitest.root.config.ts`: Vitest config for root-level tests, excluding every workspace package
@@ -50,7 +50,7 @@ If run under a package directory, the command applies to that package. Otherwise
 
 ### nmr script runner
 
-- Default scripts defined in `packages/nmr/src/default-scripts.ts`; per-repo overrides in `.config/nmr.config.ts`
+- Default scripts defined in `packages/nmr/src/default-scripts.ts`; a repo overrides them in `.config/nmr.config.ts`, which this repo no longer carries because the defaults cover it
 - nmr's default test scripts select Vitest projects, so registry construction touches no files and this repo needs no test-script overrides
 - Root scripts delegate to workspaces via `pnpm --recursive exec nmr {command}`
 
@@ -82,6 +82,7 @@ If run under a package directory, the command applies to that package. Otherwise
 
 - **After `nmr clean`, rebuild before anything else**: run from the repo root, clean removes every package's build output, which the `nmr` binary, `vitest.config.ts`, and `.prettierrc.js` all load, so `nmr`, Vitest, Prettier, and the pre-commit hook all fail. Recover from the root with `pnpm run bootstrap`, then `nmr build`; bootstrap has to come first, because `nmr` itself is broken until it runs. A fresh clone needs none of it: `pnpm install` compiles every package.
 - **Stale nmr config fails silently**: editing `packages/nmr/src/vitest.ts` or `src/prettier.ts` and re-running without rebuilding exercises the previous config with no error.
+- **Editing a kit source fails the build until it is recompiled**: `nmr`, `release-kit`, and `v11y-check` each carry `build:pre: rdy verify`, which compares `.readyup/kits/*.js` against the manifest and reports `source stale` when the `.ts` moved on. Recompile with `rdy compile` from that package, and commit the bundle and manifest together. The hook runs even when the build itself skips as unchanged, and it runs before `build:post`'s `rdy compile` precisely so compiling cannot launder the drift.
 - **Build caching**: The content-hash cache (under `node_modules/.cache/nmr-compile/`) means a rebuild won't run if only non-source files change. Force a rebuild with `nmr clean`, or by deleting the package's `dist`; missing output is treated as a cache miss.
 - **The bootstrap's source condition breaks fresh clones only**: nmr-core's `nmr-source` export condition, and the `--conditions nmr-source` its `prepare` passes, are what let the compiler import nmr-core before nmr-core is built. Remove either and every already-built checkout keeps working, because the import falls through to a `dist` that happens to be there; a fresh clone's `pnpm install` fails instead. `packages/nmr/src/__tests__/bootstrap.tool.test.ts` is what catches it.
 - **The bootstrap runs under bare `node`, not a transform**: anything the build's import closure reaches must be erasable TypeScript with explicit `.ts` extensions. A package-level `.config/nmr.config.ts` is loaded the same way, so it cannot use tsconfig `paths` aliases or non-erasable syntax such as `enum`.

@@ -29,6 +29,8 @@
     "release-kit": "./bin/release-kit.js"
   },
   "files": [
+    ".readyup/kits/*.js",
+    ".readyup/manifest.json",
     "bin",
     "dist/*",
     "cliff.toml.template",
@@ -37,7 +39,8 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "build:post": "node scripts/copy-work-types.js",
+    "build:post": "node scripts/copy-work-types.js && rdy compile",
+    "build:pre": "rdy verify",
     "prepare": "node ../nmr/src/cli-build.ts",
     "prepublishOnly": "nmr build",
     "work-types:check": "pnpm exec release-kit work-types check",
@@ -53,6 +56,7 @@
   },
   "devDependencies": {
     "@types/semver": "7.7.1",
+    "readyup": "0.23.0",
     "smol-toml": "1.7.1"
   },
   "engines": {

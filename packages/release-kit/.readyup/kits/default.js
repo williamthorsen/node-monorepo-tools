@@ -3,7 +3,7 @@
 export const __readyupVersion = "0.23.0";
 
 
-// .readyup/kits/release-kit.ts
+// .readyup/kits/default.ts
 import { defineRdyKit } from "readyup";
 import {
   discoverWorkspaces,
@@ -16,15 +16,15 @@ import {
   readFile
 } from "readyup/check-utils";
 
-// packages/release-kit/src/init/detectRepoType.ts
+// src/init/detectRepoType.ts
 import { existsSync, readFileSync } from "node:fs";
 
-// packages/release-kit/src/typeGuards.ts
+// src/typeGuards.ts
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-// packages/release-kit/src/init/parseJsonRecord.ts
+// src/init/parseJsonRecord.ts
 function parseJsonRecord(raw) {
   let parsed;
   try {
@@ -35,7 +35,7 @@ function parseJsonRecord(raw) {
   return isRecord(parsed) ? parsed : void 0;
 }
 
-// packages/release-kit/src/init/detectRepoType.ts
+// src/init/detectRepoType.ts
 function detectRepoType() {
   if (existsSync("pnpm-workspace.yaml")) {
     return "monorepo";
@@ -50,7 +50,7 @@ function detectRepoType() {
   return "single-package";
 }
 
-// .readyup/kits/release-kit.ts
+// .readyup/kits/default.ts
 function getMinVersion() {
   const picked = { "version": "10.1.0" };
   if (typeof picked.version !== "string") {
@@ -68,7 +68,7 @@ var RELEASE_WORKFLOW_HASH_MONOREPO = "0a9724b7b3c5e24087fd3a8f36fed8e990d699267f
 var RELEASE_WORKFLOW_HASH_SINGLE = "a3d19bbc1ba8bb30622e53c590137b97e3179e80988c0967737b021cdaeab73f";
 var PUBLISH_WORKFLOW_HASH_MONOREPO = "0afa9ffe914f3dc8f043e68252ebc604c8cc1a953422fcea37a909a4def370ee";
 var PUBLISH_WORKFLOW_HASH_SINGLE = "6f31183e0a1e66be791a19266c3b028dadbd9fe010f7fc4452f3f8970c937b43";
-var release_kit_default = defineRdyKit({
+var default_default = defineRdyKit({
   checklists: [
     {
       name: "release-kit",
@@ -287,7 +287,7 @@ export {
   RELEASE_WORKFLOW_HASH_MONOREPO,
   RELEASE_WORKFLOW_HASH_SINGLE,
   SYNC_LABELS_WORKFLOW_HASH,
-  release_kit_default as default,
+  default_default as default,
   readmeHasReleaseNotesMarkers,
   readmesHaveReleaseNotesMarkers
 };
