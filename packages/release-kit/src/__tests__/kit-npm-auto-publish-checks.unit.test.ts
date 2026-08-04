@@ -1,7 +1,7 @@
 import type { Workspace } from 'readyup/check-utils';
 import { describe, expect, it } from 'vitest';
 
-import { buildWorkspaceCheck, skipIfNotPublishable } from '../npm-auto-publish.ts';
+import { buildWorkspaceCheck, skipIfNotPublishable } from '../../.readyup/kits/npm-auto-publish.ts';
 
 function makeWorkspace(overrides: Partial<Workspace> & Pick<Workspace, 'isPackage'>): Workspace {
   return {
