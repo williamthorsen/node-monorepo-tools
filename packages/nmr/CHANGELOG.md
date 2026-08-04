@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.26.0 — 2026-08-04
+
+### 🎉 Features
+
+- Publish each package's readyup kit from the package that owns it (#590)
+
+  ReadyUp checks for `@williamthorsen/nmr`, `@williamthorsen/release-kit`, and `v11y-check` are now run directly against these packages, guaranteeing a version-appropriate check, instead of against their host repo. The package must be installed as a direct dependency in the calling repo.
+
+  The syntax is `rdy run --from npm:<package>`. `rdy run --packages` runs the kits contained in any packages listed in `.config/readyup.config.ts`. Requires `readyup` 0.23 or later.
+
+- Ship agent guidance as CodeAssembly package content (#591)
+
+  A repo that consumes `@williamthorsen/nmr` can now adopt `nmr`'s agent guidance by naming the package in `.agents/codeassembly.yaml`. `codeassembly sync` then delivers that guidance to every agent harness. Guidance updates are thus delivered directly with each package, eliminating the need to keep a guidance file in sync. The `nmr sync-agent-files` command has been removed.
+
+  Migration guide: Delete `.agents/nmr/`, remove the `@nmr/AGENTS.md` include line, and remove all uses of `check:agent-files`.
+
 ## 0.25.0 — 2026-08-03
 
 ### 🎉 Features

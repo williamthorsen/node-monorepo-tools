@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## 10.2.0 — 2026-08-04
+
+### 🎉 Features
+
+- Add status labels and clear grouped-label descriptions (#585)
+
+  Adds two status labels (`status:blocked` and `status:on-hold`) to the common preset and removes descriptions from other scoped labels (`priority:` and `value:`) to keep scoped groups compact in the GitHub UI.
+
+- Publish each package's readyup kit from the package that owns it (#590)
+
+  ReadyUp checks for `@williamthorsen/nmr`, `@williamthorsen/release-kit`, and `v11y-check` are now run directly against these packages, guaranteeing a version-appropriate check, instead of against their host repo. The package must be installed as a direct dependency in the calling repo.
+
+  The syntax is `rdy run --from npm:<package>`. `rdy run --packages` runs the kits contained in any packages listed in `.config/readyup.config.ts`. Requires `readyup` 0.23 or later.
+
 ## 10.1.0 — 2026-08-03
 
 ### 🎉 Features

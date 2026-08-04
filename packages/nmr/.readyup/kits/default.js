@@ -363,7 +363,7 @@ function formatPaths(paths) {
 ${paths.map((path2) => `      ${path2}`).join("\n")}`;
 }
 function getMinVersion() {
-  const picked = { "version": "0.25.0" };
+  const picked = { "version": "0.26.0" };
   if (typeof picked.version !== "string") {
     throw new TypeError("nmr/package.json: 'version' must be a string");
   }

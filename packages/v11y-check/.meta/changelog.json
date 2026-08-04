@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.14.0",
+    "date": "2026-08-04",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Publish each package's readyup kit from the package that owns it (#590)",
+            "body": "ReadyUp checks for `@williamthorsen/nmr`, `@williamthorsen/release-kit`, and `v11y-check` are now run directly against these packages, guaranteeing a version-appropriate check, instead of against their host repo. The package must be installed as a direct dependency in the calling repo.\n\nThe syntax is `rdy run --from npm:<package>`. `rdy run --packages` runs the kits contained in any packages listed in `.config/readyup.config.ts`. Requires `readyup` 0.23 or later.",
+            "hash": "f0fa3b416564ed4490c48007453fcb20c04807b3"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.13.0",
     "date": "2026-08-03",
     "sections": [
