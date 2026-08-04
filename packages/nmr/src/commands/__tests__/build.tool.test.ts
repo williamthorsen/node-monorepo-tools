@@ -11,9 +11,13 @@ import { resolveBuildCachePath } from '../build-output.ts';
 
 // Default the compiler API to the real implementation so the regression suite compiles for real;
 // the cache-integrity tests override createProgram per-call to simulate a failing or transient compile.
-vi.mock('typescript', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('typescript')>();
-  return { ...actual, createProgram: vi.fn(actual.createProgram) };
+vi.mock(import('typescript'), async (importOriginal) => {
+  const actual = await importOriginal();
+  // Attach the implementation after construction. Passing it to `vi.fn` would infer the overloaded signature of
+  // `createProgram`, and `Mock<T>` collapses an overload set to its last member, which the module's shape rejects.
+  const createProgram = vi.fn();
+  createProgram.mockImplementation(actual.createProgram);
+  return { ...actual, createProgram };
 });
 
 const TSCONFIG = {

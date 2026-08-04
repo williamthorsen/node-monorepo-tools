@@ -9,9 +9,12 @@ vi.mock(import('node:fs'), () => ({
   readFileSync: mockReadFileSync,
 }));
 
-vi.mock('glob', () => ({
-  glob: mockGlob,
-}));
+// `glob`'s export is a callable namespace carrying `sync`, `stream`, `Glob` and a dozen more members, so a bare
+// mock function does not satisfy its declared shape. Borrow the real members and keep the mocked call behavior.
+vi.mock(import('glob'), async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, glob: Object.assign(mockGlob, actual.glob) };
+});
 
 import { discoverWorkspaces } from '../discoverWorkspaces.ts';
 

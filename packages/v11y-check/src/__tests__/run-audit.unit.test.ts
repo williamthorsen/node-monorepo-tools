@@ -4,9 +4,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { extractStaleEntries, parseAuditCiOutput } from '../run-audit.ts';
 
-const mockSpawnSync = vi.hoisted(() => vi.fn<typeof import('node:child_process').spawnSync>());
+// Left bare: `spawnSync` is overloaded, and a type argument would collapse `Mock<T>` to the last overload, which
+// the module's declared shape then rejects.
+const mockSpawnSync = vi.hoisted(() => vi.fn());
 
-vi.mock('node:child_process', () => ({
+vi.mock(import('node:child_process'), () => ({
   spawnSync: mockSpawnSync,
 }));
 

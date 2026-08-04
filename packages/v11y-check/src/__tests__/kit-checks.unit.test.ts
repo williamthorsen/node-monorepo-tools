@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const { mockedExistsSync } = vi.hoisted(() => ({
-  mockedExistsSync: vi.fn<(path: string) => boolean>(),
+  mockedExistsSync: vi.fn<typeof import('node:fs').existsSync>(),
 }));
 
-vi.mock('node:fs', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:fs')>();
+vi.mock(import('node:fs'), async (importOriginal) => {
+  const actual = await importOriginal();
   return {
     ...actual,
     default: { ...actual, existsSync: mockedExistsSync },
