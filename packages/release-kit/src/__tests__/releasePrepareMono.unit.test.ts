@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockExecFileSync = vi.hoisted(() => vi.fn());
 const mockExecSync = vi.hoisted(() => vi.fn());
@@ -543,7 +543,7 @@ describe(releasePrepareMono, () => {
       commitCount: 1,
       parsedCommitCount: 0,
     });
-    if (workspace?.status !== 'skipped') throw new Error('expected skipped');
+    assert(workspace?.status === 'skipped', 'expected skipped');
     expect(workspace.skipReason).toContain('No bump-worthy commits for arrays since arrays-v1.0.0');
     expect(workspace.skipReason).toContain('Pass --force to release at patch');
     expect(workspace.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'abc123' }]);
@@ -629,7 +629,7 @@ describe(releasePrepareMono, () => {
       status: 'skipped',
       commitCount: 1,
     });
-    if (workspace?.status !== 'skipped') throw new Error('expected skipped');
+    assert(workspace?.status === 'skipped', 'expected skipped');
     expect(workspace.skipReason).toContain('No bump-worthy commits for arrays since arrays-v1.0.0');
   });
 
@@ -672,7 +672,7 @@ describe(releasePrepareMono, () => {
       parsedCommitCount: 0,
       releaseType: 'patch',
     });
-    if (workspace?.status !== 'released') throw new Error('expected released');
+    assert(workspace?.status === 'released', 'expected released');
     expect(workspace.bumpOverride).toBeUndefined();
   });
 
@@ -1025,7 +1025,7 @@ describe(releasePrepareMono, () => {
 
     expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
     const workspace = result.workspaces[0];
-    if (workspace?.status !== 'released') throw new Error('expected released');
+    assert(workspace?.status === 'released', 'expected released');
     expect(workspace.changelogFiles).toStrictEqual([
       'packages/arrays/CHANGELOG.md',
       'packages/arrays/docs/CHANGELOG.md',
@@ -1255,7 +1255,7 @@ describe(releasePrepareMono, () => {
         currentVersion: '0.5.0',
         setVersion: '1.0.0',
       });
-      if (coreResult?.status !== 'released') throw new Error('expected released');
+      assert(coreResult?.status === 'released', 'expected released');
       expect(coreResult.releaseType).toBeUndefined();
       expect(result.tags).toStrictEqual(['core-v1.0.0']);
       expect(plannedContent(result, 'packages/core/package.json')).toContain('"version": "1.0.0"');
@@ -1618,7 +1618,7 @@ describe(releasePrepareMono, () => {
 
       expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
       const workspace = result.workspaces[0];
-      if (workspace?.status !== 'released') throw new Error('expected released');
+      assert(workspace?.status === 'released', 'expected released');
       expect(workspace.changelogFiles).toStrictEqual(['packages/arrays/CHANGELOG.md']);
 
       const changelogWrites = mockWriteFileSync.mock.calls.filter(
@@ -2042,7 +2042,7 @@ describe(releasePrepareMono, () => {
 
       expect(result.project).toBeDefined();
       const project = result.project;
-      if (project?.status !== 'released') throw new Error('expected released project');
+      assert(project?.status === 'released', 'expected released project');
       expect(project.tag).toBe('v0.10.0');
       expect(project.releaseType).toBe('minor');
       expect(result.tags).toContain('arrays-v1.1.0');

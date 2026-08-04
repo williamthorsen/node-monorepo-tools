@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { parse } from 'smol-toml';
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 
 import { stripGroupDecorations } from '../buildChangelogEntries.ts';
 import { composeHeader, WORK_TYPES_DATA } from '../defaults.ts';
@@ -73,22 +73,22 @@ describe('cliff.toml.template canonical-order encoding (drift detection)', () =>
   });
 
   it('numbering is per unique group, not per parser entry — all parsers routing to the same bare group share the same prefix', () => {
-    const bareToPrefix = new Map<string, number>();
+    // Collect every prefix seen per bare group, then assert each bare group settled on exactly one. Accumulating
+    // first keeps the comparison unconditional, and reports every disagreeing parser rather than the first.
+    const prefixesByBare = new Map<string, Map<number, string>>();
     for (const parser of groupParsers) {
       const group = parser.group ?? '';
-      const bare = stripGroupDecorations(group);
       const prefix = extractPrefixNumber(group);
-      expect(prefix, `group "${group}" has no numeric prefix`).toBeDefined();
-      if (prefix === undefined) continue;
-      const existing = bareToPrefix.get(bare);
-      if (existing === undefined) {
-        bareToPrefix.set(bare, prefix);
-      } else {
-        expect(
-          prefix,
-          `parser group "${group}" has prefix ${prefix} but a previous parser routing to "${bare}" used ${existing}`,
-        ).toBe(existing);
-      }
+      assert(prefix !== undefined, `group "${group}" has no numeric prefix`);
+      const bare = stripGroupDecorations(group);
+      const seen = prefixesByBare.get(bare) ?? new Map<number, string>();
+      seen.set(prefix, group);
+      prefixesByBare.set(bare, seen);
+    }
+
+    for (const [bare, seen] of prefixesByBare) {
+      const rendered = [...seen].map(([prefix, group]) => `"${group}" uses ${prefix}`).join(', ');
+      expect(seen.size, `parsers routing to "${bare}" disagree on prefix: ${rendered}`).toBe(1);
     }
   });
 

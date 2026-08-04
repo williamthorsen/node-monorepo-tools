@@ -36,11 +36,9 @@ describe('DEFAULT_WORK_TYPES derivation from work-types.json', () => {
   it('wires every alias from the JSON onto its canonical entry', () => {
     for (const entry of workTypesData.types) {
       const config = DEFAULT_WORK_TYPES[entry.key];
-      if (entry.aliases.length === 0) {
-        expect(config?.aliases).toBeUndefined();
-        continue;
-      }
-      expect(config?.aliases).toStrictEqual(entry.aliases);
+      // An entry with no aliases in the JSON carries no `aliases` key at all on its canonical entry.
+      const expected = entry.aliases.length === 0 ? undefined : entry.aliases;
+      expect(config?.aliases, `aliases for "${entry.key}"`).toStrictEqual(expected);
     }
   });
 

@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mergeMonorepoConfig } from '../loadConfig.ts';
 import type { ReleasePlan } from '../releasePlan.ts';
@@ -144,7 +144,7 @@ describe('releasePrepareProject (tool)', () => {
 
       // Project release happened.
       const project = result.project;
-      if (project?.status !== 'released') throw new Error('expected released project');
+      assert(project?.status === 'released', 'expected released project');
       expect(project.previousTag).toBe('v0.9.0');
       // 2 feat + 1 fix → minor bump → 0.10.0 (pre-1.0 collapse not relevant since feat is minor).
       expect(project.releaseType).toBe('minor');
@@ -208,7 +208,7 @@ describe('releasePrepareProject (tool)', () => {
       const result = prepareAndApply(config, { bumpOverride: 'major' });
 
       const project = result.project;
-      if (project?.status !== 'released') throw new Error('expected released project');
+      assert(project?.status === 'released', 'expected released project');
       expect(project.releaseType).toBe('major');
       expect(project.newVersion).toBe('2.0.0');
       expect(result.tags).toContain('v2.0.0');
@@ -226,7 +226,7 @@ describe('releasePrepareProject (tool)', () => {
       const result = releasePrepareMono(config, {});
 
       const project = result.project;
-      if (project?.status !== 'released') throw new Error('expected released project');
+      assert(project?.status === 'released', 'expected released project');
       expect(project.tag).toBe('v0.10.0');
       expect(result.tags).toContain('v0.10.0');
 
@@ -310,7 +310,7 @@ describe('releasePrepareProject (tool)', () => {
 
       // Project release proceeded under --force, choosing patch level (issue #369 fix).
       const project = result.project;
-      if (project?.status !== 'released') throw new Error('expected released project');
+      assert(project?.status === 'released', 'expected released project');
       expect(project.previousTag).toBe('v0.9.0');
       expect(project.commits).toHaveLength(0);
       expect(project.releaseType).toBe('patch');
@@ -465,7 +465,7 @@ describe('prepare atomicity (tool)', () => {
       // The last workspace declares a package file that does not exist, so its bump throws
       // during the execute phase — after the two workspaces before it have been planned.
       const lastWorkspace = config.workspaces.at(-1);
-      if (lastWorkspace === undefined) throw new Error('expected a workspace to break');
+      assert(lastWorkspace !== undefined, 'expected a workspace to break');
       lastWorkspace.packageFiles = [...lastWorkspace.packageFiles, 'packages/pkg-c/missing.json'];
 
       expect(() => prepareAndApply(config, {})).toThrow('missing.json');

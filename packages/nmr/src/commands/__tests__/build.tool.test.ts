@@ -20,6 +20,9 @@ vi.mock(import('typescript'), async (importOriginal) => {
   return { ...actual, createProgram };
 });
 
+/** One edit to a package's `.config/nmr.config.ts`, applied by path so a case can create, rewrite, or delete it. */
+type ConfigStep = (configPath: string) => void;
+
 const TSCONFIG = {
   compilerOptions: {
     module: 'NodeNext',
@@ -617,25 +620,27 @@ describe('buildPackage caching', () => {
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining('No changes detected'));
   });
 
+  // Each row carries the config edits as steps, so the parameterized body applies them without branching on
+  // whether a config is present before or after.
+  const leaveAbsent: ConfigStep = () => {};
+  const writeEmptyConfig: ConfigStep = (configPath) => fs.writeFileSync(configPath, `export default { build: {} };\n`);
+  const writeIgnorePatterns: ConfigStep = (configPath) =>
+    fs.writeFileSync(configPath, `export default { build: { extraIgnorePatterns: ['**/a/**'] } };\n`);
+  const removeConfig: ConfigStep = (configPath) => fs.rmSync(configPath);
+
   it.each([
-    ['creating', undefined, `export default { build: { extraIgnorePatterns: ['**/a/**'] } };\n`],
-    ['editing', `export default { build: {} };\n`, `export default { build: { extraIgnorePatterns: ['**/a/**'] } };\n`],
-    ['deleting', `export default { build: { extraIgnorePatterns: ['**/a/**'] } };\n`, undefined],
-  ])('rebuilds after %s the package config', async (_action, before, after) => {
+    ['creating', leaveAbsent, writeIgnorePatterns],
+    ['editing', writeEmptyConfig, writeIgnorePatterns],
+    ['deleting', writeIgnorePatterns, removeConfig],
+  ])('rebuilds after %s the package config', async (_action, setUpConfig, changeConfig) => {
     const configPath = path.join(dir, '.config', 'nmr.config.ts');
     scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' });
     fs.mkdirSync(path.join(dir, '.config'), { recursive: true });
-    if (before !== undefined) {
-      fs.writeFileSync(configPath, before);
-    }
+    setUpConfig(configPath);
     await buildPackage(dir);
     vi.mocked(console.info).mockClear();
 
-    if (after === undefined) {
-      fs.rmSync(configPath);
-    } else {
-      fs.writeFileSync(configPath, after);
-    }
+    changeConfig(configPath);
     await buildPackage(dir);
 
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Changes detected'));

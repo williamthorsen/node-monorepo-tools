@@ -2,7 +2,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ChangelogEntry } from '../types.ts';
 
@@ -130,12 +130,11 @@ describe(createGithubRelease, () => {
 
     const callArgs = mockedExecFileSync.mock.calls[0];
     const args = callArgs?.[1];
-    if (Array.isArray(args)) {
-      const notesIndex = args.indexOf('--notes');
-      const body = args[notesIndex + 1];
-      expect(body).toContain('Features');
-      expect(body).not.toContain('CI');
-    }
+    assert(Array.isArray(args));
+    const notesIndex = args.indexOf('--notes');
+    const body = args[notesIndex + 1];
+    expect(body).toContain('Features');
+    expect(body).not.toContain('CI');
   });
 
   it('propagates the error when gh CLI invocation fails', () => {
@@ -214,11 +213,10 @@ describe(createGithubRelease, () => {
     );
     const callArgs = mockedExecFileSync.mock.calls[0];
     const args = callArgs?.[1];
-    if (Array.isArray(args)) {
-      const notesIndex = args.indexOf('--notes');
-      const body = args[notesIndex + 1];
-      expect(body).toContain('Add widget');
-    }
+    assert(Array.isArray(args));
+    const notesIndex = args.indexOf('--notes');
+    const body = args[notesIndex + 1];
+    expect(body).toContain('Add widget');
   });
 
   it('forwards sectionOrder to renderReleaseNotesSingle when provided', () => {

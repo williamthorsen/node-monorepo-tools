@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockExecFileSync = vi.hoisted(() => vi.fn());
 const mockExecSync = vi.hoisted(() => vi.fn());
@@ -139,7 +139,7 @@ describe(releasePrepare, () => {
       parsedCommitCount: 1,
     });
     expect(workspace?.name).toBeUndefined();
-    if (workspace?.status !== 'released') throw new Error('expected released');
+    assert(workspace?.status === 'released', 'expected released');
     expect(workspace.bumpedFiles).toStrictEqual(['package.json']);
     expect(workspace.changelogFiles).toStrictEqual(['CHANGELOG.md']);
   });
@@ -306,7 +306,7 @@ describe(releasePrepare, () => {
       tag: 'v1.0.0',
       setVersion: '1.0.0',
     });
-    if (workspace?.status !== 'released') throw new Error('expected released');
+    assert(workspace?.status === 'released', 'expected released');
     expect(workspace.releaseType).toBeUndefined();
     expect(plannedContent(result, 'package.json')).toContain('"version": "1.0.0"');
   });
@@ -328,7 +328,7 @@ describe(releasePrepare, () => {
     const result = releasePrepare(makeConfig(), { setVersion: '1.0.0' });
 
     const workspace = result.workspaces[0];
-    if (workspace?.status !== 'released') throw new Error('expected released');
+    assert(workspace?.status === 'released', 'expected released');
     expect(workspace.changelogFiles).toStrictEqual(['CHANGELOG.md']);
 
     // The empty-range branch builds the synthetic entry and routes it through the markdown
@@ -466,7 +466,7 @@ describe(releasePrepare, () => {
 
       expect(result.tags).toStrictEqual(['v1.0.1']);
       const workspace = result.workspaces[0];
-      if (workspace?.status !== 'released') throw new Error('expected released');
+      assert(workspace?.status === 'released', 'expected released');
       expect(workspace.changelogFiles).toStrictEqual(['CHANGELOG.md']);
 
       // The empty-range branch builds a synthetic entry and routes it through the markdown
@@ -537,7 +537,7 @@ describe(releasePrepare, () => {
       expect(mockWriteFileSync).not.toHaveBeenCalled();
       expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledTimes(1);
       const workspace = result.workspaces[0];
-      if (workspace?.status !== 'released') throw new Error('expected released');
+      assert(workspace?.status === 'released', 'expected released');
       expect(workspace.changelogFiles).toStrictEqual(['CHANGELOG.md']);
     });
 
