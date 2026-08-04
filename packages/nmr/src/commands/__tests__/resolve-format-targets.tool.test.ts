@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, assert, beforeEach, describe, expect, it } from 'vitest';
 
 import { resolveFormatTargets } from '../fmt.ts';
 
@@ -164,7 +164,7 @@ describe(resolveFormatTargets, () => {
 
     const result = resolveFormatTargets(outside);
 
-    if (result.ok) throw new Error('expected resolution to fail outside a git repository');
+    assert(!result.ok, 'expected resolution to fail outside a git repository');
     expect(result.error).toMatch(/not a git repository/);
 
     fs.rmSync(outside, { recursive: true, force: true });

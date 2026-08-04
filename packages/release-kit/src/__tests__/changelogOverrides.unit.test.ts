@@ -2,7 +2,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, assert, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   applyChangelogOverrides,
@@ -41,8 +41,7 @@ describe(loadChangelogOverrides, () => {
     writeFileSync(filePath, '{not-valid', 'utf8');
 
     const result = loadChangelogOverrides(filePath);
-    expect('errors' in result).toBe(true);
-    if (!('errors' in result)) return;
+    assert('errors' in result);
     expect(result.errors[0]).toMatch(/Failed to parse override file/);
   });
 
@@ -51,8 +50,7 @@ describe(loadChangelogOverrides, () => {
     writeFileSync(filePath, '[]', 'utf8');
 
     const result = loadChangelogOverrides(filePath);
-    expect('errors' in result).toBe(true);
-    if (!('errors' in result)) return;
+    assert('errors' in result);
     expect(result.errors[0]).toMatch(/top-level value must be an object/);
   });
 
@@ -68,8 +66,7 @@ describe(loadChangelogOverrides, () => {
     );
 
     const result = loadChangelogOverrides(filePath);
-    expect('overrides' in result).toBe(true);
-    if (!('overrides' in result)) return;
+    assert('overrides' in result);
     expect(result.overrides.get('8296231')).toStrictEqual({ audience: 'skip' });
     expect(result.overrides.get('abc1234d')).toStrictEqual({ body: 'Replacement body' });
   });

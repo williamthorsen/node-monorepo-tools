@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 
 /**
  * The `@williamthorsen/release-kit/config` entry ships as `dist/esm/defineConfig.js`, and what keeps a config load off
@@ -18,9 +18,10 @@ const MODULE_REFERENCE = /\b(?:from\s*['"]|import\s*[('"]|require\s*\()/;
 
 describe('the built ./config entry', () => {
   it('reaches no other module', () => {
-    if (!existsSync(BUILT_ENTRY_PATH)) {
-      throw new Error(`Built output not found at ${BUILT_ENTRY_PATH}. Run \`nmr build\` before running this test.`);
-    }
+    assert(
+      existsSync(BUILT_ENTRY_PATH),
+      `Built output not found at ${BUILT_ENTRY_PATH}. Run \`nmr build\` before running this test.`,
+    );
 
     expect(readFileSync(BUILT_ENTRY_PATH, 'utf8')).not.toMatch(MODULE_REFERENCE);
   });

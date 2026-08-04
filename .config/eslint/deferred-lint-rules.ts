@@ -18,12 +18,3 @@ export const deferredLintRules = {
   'unicorn/prefer-simple-condition-first': 'warn',
   'preserve-caught-error': 'warn',
 } as const;
-
-// Remove these; see #545.
-export const deferredTestRules = {
-  'vitest/expect-expect': 'warn',
-  'vitest/no-conditional-expect': 'warn',
-  'vitest/no-conditional-in-test': 'warn',
-  'vitest/require-to-throw-message': 'warn',
-  'vitest/prefer-each': 'warn',
-} as const;

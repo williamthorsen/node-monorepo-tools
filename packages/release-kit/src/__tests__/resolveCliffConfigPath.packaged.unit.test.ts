@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 
 const thisDir = dirname(fileURLToPath(import.meta.url));
 const distResolverPath = join(thisDir, '..', '..', 'dist', 'esm', 'resolveCliffConfigPath.js');
@@ -23,15 +23,14 @@ function isResolverModule(value: unknown): value is ResolverModule {
 
 describe('resolveCliffConfigPath (packaged)', () => {
   it('resolves the bundled cliff.toml.template from the built output', async () => {
-    if (!existsSync(distResolverPath)) {
-      throw new Error(`Built output not found at ${distResolverPath}. Run \`nmr build\` before running this test.`);
-    }
+    assert(
+      existsSync(distResolverPath),
+      `Built output not found at ${distResolverPath}. Run \`nmr build\` before running this test.`,
+    );
 
     // Import from the compiled JS so that import.meta.url resolution uses dist/esm/ paths.
     const mod: unknown = await import(distResolverPath);
-    if (!isResolverModule(mod)) {
-      throw new Error('Module does not export `resolveCliffConfigPath` as a function');
-    }
+    assert(isResolverModule(mod), 'Module does not export `resolveCliffConfigPath` as a function');
 
     // Pass the compiled module's URL so the bundled template resolves from dist/esm/resolveCliffConfigPath.js.
     const moduleUrl = new URL(`file://${distResolverPath}`).href;

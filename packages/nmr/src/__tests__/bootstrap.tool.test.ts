@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import * as ts from 'typescript';
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 
 import { isObject, isStringRecord } from '../helpers/type-guards.ts';
 
@@ -64,9 +64,7 @@ describe('the build bootstrap', () => {
   it('resolves that same import to build output when the condition is absent', () => {
     // Without this the guard above would read as satisfied against a package carrying no source condition.
     const entry = collectWorkspaceImports().find((candidate) => candidate.specifier === NMR_CORE_SPECIFIER);
-    if (entry === undefined) {
-      throw new Error(`the bootstrap closure does not import ${NMR_CORE_SPECIFIER}`);
-    }
+    assert(entry !== undefined, `the bootstrap closure does not import ${NMR_CORE_SPECIFIER}`);
 
     expect(resolveFrom(entry.specifier, entry.fromDir, [])).toContain('/dist/');
   });
@@ -122,9 +120,7 @@ describe("nmr-core's bootstrap wiring", () => {
   it('points the source condition at a file on disk', () => {
     const { rootEntry } = readNmrCoreWiring();
     const target = rootEntry[SOURCE_CONDITION];
-    if (target === undefined) {
-      throw new Error(`nmr-core declares no \`${SOURCE_CONDITION}\` condition`);
-    }
+    assert(target !== undefined, `nmr-core declares no \`${SOURCE_CONDITION}\` condition`);
 
     expect(existsSync(path.resolve(path.dirname(NMR_CORE_MANIFEST), target))).toBe(true);
   });

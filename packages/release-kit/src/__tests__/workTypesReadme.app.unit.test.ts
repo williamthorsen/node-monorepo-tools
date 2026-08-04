@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 
 import { DEFAULT_WORK_TYPES } from '../defaults.ts';
 
@@ -63,16 +63,11 @@ describe('README.md "Work types and tiers" table alignment with DEFAULT_WORK_TYP
   it('uses the canonical header for each non-skipped work type', () => {
     for (const row of rows) {
       const config = DEFAULT_WORK_TYPES[row.key];
-      if (config === undefined) {
-        expect.fail(`README.md lists key "${row.key}" that is not in DEFAULT_WORK_TYPES`);
-      }
+      assert(config !== undefined, `README.md lists key "${row.key}" that is not in DEFAULT_WORK_TYPES`);
       // The `fmt` row uses "(excluded from changelog)" instead of the header because
       // `fmt` carries `excludedFromChangelog: true` and is skipped at the parser level.
-      if (row.key === 'fmt') {
-        expect(row.header).toBe('(excluded from changelog)');
-        continue;
-      }
-      expect(row.header).toBe(config.header);
+      const expectedHeader = row.key === 'fmt' ? '(excluded from changelog)' : config.header;
+      expect(row.header, `header for "${row.key}"`).toBe(expectedHeader);
     }
   });
 });

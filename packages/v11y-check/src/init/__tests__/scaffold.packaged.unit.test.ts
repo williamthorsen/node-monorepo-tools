@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 
 const thisDir = dirname(fileURLToPath(import.meta.url));
 const distScaffoldPath = join(thisDir, '..', '..', '..', 'dist', 'esm', 'init', 'scaffold.js');
@@ -24,11 +24,10 @@ function isScaffoldModule(value: unknown): value is ScaffoldModule {
 
 describe('copyWorkflowTemplate (packaged)', () => {
   it('resolves audit.yaml.template from the built output and writes .github/workflows/audit.yaml', async () => {
-    // FIXME: See #545
-    // eslint-disable-next-line vitest/no-conditional-in-test
-    if (!existsSync(distScaffoldPath)) {
-      throw new Error(`Built output not found at ${distScaffoldPath}. Run \`nmr build\` before running this test.`);
-    }
+    assert(
+      existsSync(distScaffoldPath),
+      `Built output not found at ${distScaffoldPath}. Run \`nmr build\` before running this test.`,
+    );
 
     const tempDir = mkdtempSync(join(tmpdir(), 'v11y-check-scaffold-packaged-'));
     const originalCwd = process.cwd();

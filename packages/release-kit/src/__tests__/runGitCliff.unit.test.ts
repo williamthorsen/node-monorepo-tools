@@ -1,20 +1,24 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// Leave every `vi.fn()` bare. An inline implementation infers a narrow `Mock<() => string>`, which no overloaded
+// `node:fs` export accepts: `Mock<T>` derives its one call signature from `ReturnType<T>`, and that collapses an
+// overload set to its last member. A bare `vi.fn()` stays `Mock<Procedure>`, whose `any` return satisfies every
+// overload. Defaults belong in `beforeEach` below.
 const mockExecFileSync = vi.hoisted(() => vi.fn());
 const mockCopyFileSync = vi.hoisted(() => vi.fn());
-const mockMkdtempSync = vi.hoisted(() => vi.fn(() => '/tmp/cliff-abc123'));
-const mockReadFileSync = vi.hoisted(() => vi.fn(() => ''));
+const mockMkdtempSync = vi.hoisted(() => vi.fn());
+const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockRmSync = vi.hoisted(() => vi.fn());
-const mockTmpdir = vi.hoisted(() => vi.fn(() => '/tmp'));
+const mockTmpdir = vi.hoisted(() => vi.fn());
 
-vi.mock('node:child_process', () => ({ execFileSync: mockExecFileSync }));
-vi.mock('node:fs', () => ({
+vi.mock(import('node:child_process'), () => ({ execFileSync: mockExecFileSync }));
+vi.mock(import('node:fs'), () => ({
   copyFileSync: mockCopyFileSync,
   mkdtempSync: mockMkdtempSync,
   readFileSync: mockReadFileSync,
   rmSync: mockRmSync,
 }));
-vi.mock('node:os', () => ({ tmpdir: mockTmpdir }));
+vi.mock(import('node:os'), () => ({ tmpdir: mockTmpdir }));
 
 import { refreshGitCliffCache, runGitCliff } from '../runGitCliff.ts';
 
@@ -22,7 +26,7 @@ import { refreshGitCliffCache, runGitCliff } from '../runGitCliff.ts';
 const OUTPUT_PATH = '/tmp/cliff-abc123/output.json';
 
 describe(runGitCliff, () => {
-  afterEach(() => {
+  beforeEach(() => {
     mockExecFileSync.mockReset();
     mockCopyFileSync.mockReset();
     mockMkdtempSync.mockReset().mockReturnValue('/tmp/cliff-abc123');
@@ -182,7 +186,7 @@ describe(runGitCliff, () => {
 });
 
 describe(refreshGitCliffCache, () => {
-  afterEach(() => {
+  beforeEach(() => {
     mockExecFileSync.mockReset();
   });
 

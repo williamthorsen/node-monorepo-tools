@@ -106,7 +106,8 @@ function getKnownHeaders(): Set<string> {
 
 describe('cliff.toml.template alignment with DEFAULT_WORK_TYPES', () => {
   const parsers = getCommitParsers();
-  const expectedTypes = getExpectedTypes();
+  // Tuple rows so `%s` renders each value raw; `$prop` interpolation would quote the strings.
+  const expectedTypes = getExpectedTypes().map(({ typeName, header }) => [typeName, header] as const);
   const knownHeaders = getKnownHeaders();
 
   /**
@@ -123,81 +124,66 @@ describe('cliff.toml.template alignment with DEFAULT_WORK_TYPES', () => {
   }
 
   describe('every work type is matched with GitHub-style ticket prefix', () => {
-    for (const { typeName, header } of expectedTypes) {
-      it(`"#1 ${typeName}: test" is matched and grouped as "${header}"`, () => {
-        assertParsedAs(`#1 ${typeName}: test`, header);
-      });
-    }
+    it.each(expectedTypes)('"#1 %s: test" is matched and grouped as "%s"', (typeName, header) => {
+      assertParsedAs(`#1 ${typeName}: test`, header);
+    });
   });
 
   describe('every work type is matched with Jira-style ticket prefix', () => {
-    for (const { typeName, header } of expectedTypes) {
-      it(`"PROJ-1 ${typeName}: test" is matched and grouped as "${header}"`, () => {
-        assertParsedAs(`PROJ-1 ${typeName}: test`, header);
-      });
-    }
+    it.each(expectedTypes)('"PROJ-1 %s: test" is matched and grouped as "%s"', (typeName, header) => {
+      assertParsedAs(`PROJ-1 ${typeName}: test`, header);
+    });
   });
 
   describe('every work type is matched with ## synthetic prefix', () => {
-    for (const { typeName, header } of expectedTypes) {
-      it(`"## ${typeName}: test" is matched and grouped as "${header}"`, () => {
-        assertParsedAs(`## ${typeName}: test`, header);
-      });
-    }
+    it.each(expectedTypes)('"## %s: test" is matched and grouped as "%s"', (typeName, header) => {
+      assertParsedAs(`## ${typeName}: test`, header);
+    });
   });
 
   describe('every work type is matched in pipe-prefixed scope format', () => {
-    for (const { typeName, header } of expectedTypes) {
-      it(`"#1 scope|${typeName}: test" is matched and grouped as "${header}"`, () => {
-        assertParsedAs(`#1 scope|${typeName}: test`, header);
-      });
-    }
+    it.each(expectedTypes)('"#1 scope|%s: test" is matched and grouped as "%s"', (typeName, header) => {
+      assertParsedAs(`#1 scope|${typeName}: test`, header);
+    });
   });
 
   describe('every work type is matched with the `*` structural scope', () => {
-    for (const { typeName, header } of expectedTypes) {
-      it(`"#1 *|${typeName}: test" is matched and grouped as "${header}"`, () => {
-        assertParsedAs(`#1 *|${typeName}: test`, header);
-      });
-    }
+    it.each(expectedTypes)('"#1 *|%s: test" is matched and grouped as "%s"', (typeName, header) => {
+      assertParsedAs(`#1 *|${typeName}: test`, header);
+    });
   });
 
   describe('breaking variants are matched', () => {
-    for (const { typeName, header } of expectedTypes) {
-      it(`"#1 ${typeName}!: test" (breaking) is matched as "${header}"`, () => {
-        assertParsedAs(`#1 ${typeName}!: test`, header);
-      });
+    it.each(expectedTypes)('"#1 %s!: test" (breaking) is matched as "%s"', (typeName, header) => {
+      assertParsedAs(`#1 ${typeName}!: test`, header);
+    });
 
-      it(`"#1 scope|${typeName}!: test" (pipe breaking) is matched as "${header}"`, () => {
-        assertParsedAs(`#1 scope|${typeName}!: test`, header);
-      });
+    it.each(expectedTypes)('"#1 scope|%s!: test" (pipe breaking) is matched as "%s"', (typeName, header) => {
+      assertParsedAs(`#1 scope|${typeName}!: test`, header);
+    });
 
-      it(`"#1 *|${typeName}!: test" (star-scope breaking) is matched as "${header}"`, () => {
-        assertParsedAs(`#1 *|${typeName}!: test`, header);
-      });
-    }
+    it.each(expectedTypes)('"#1 *|%s!: test" (star-scope breaking) is matched as "%s"', (typeName, header) => {
+      assertParsedAs(`#1 *|${typeName}!: test`, header);
+    });
   });
 
   describe('sub-ticket variants are matched', () => {
-    for (const { typeName, header } of expectedTypes) {
-      it(`"#1.2 ${typeName}: test" (dot sub-ticket) is matched as "${header}"`, () => {
-        assertParsedAs(`#1.2 ${typeName}: test`, header);
-      });
+    it.each(expectedTypes)('"#1.2 %s: test" (dot sub-ticket) is matched as "%s"', (typeName, header) => {
+      assertParsedAs(`#1.2 ${typeName}: test`, header);
+    });
 
-      it(`"#1-2 ${typeName}: test" (dash sub-ticket) is matched as "${header}"`, () => {
-        assertParsedAs(`#1-2 ${typeName}: test`, header);
-      });
-    }
+    it.each(expectedTypes)('"#1-2 %s: test" (dash sub-ticket) is matched as "%s"', (typeName, header) => {
+      assertParsedAs(`#1-2 ${typeName}: test`, header);
+    });
   });
 
   describe('every commit parser group maps to a known work type header', () => {
     const uniqueGroups = [...new Set(parsers.map((p) => p.group))];
     const knownHeadersBare = new Set([...knownHeaders].map(stripEmojiPrefix));
-    for (const group of uniqueGroups) {
-      it(`group "${group}" corresponds to a DEFAULT_WORK_TYPES header`, () => {
-        expect(knownHeadersBare).toContain(stripGroupDecorations(group));
-      });
-    }
+
+    it.each(uniqueGroups)('group "%s" corresponds to a DEFAULT_WORK_TYPES header', (group) => {
+      expect(knownHeadersBare).toContain(stripGroupDecorations(group));
+    });
   });
 });
 

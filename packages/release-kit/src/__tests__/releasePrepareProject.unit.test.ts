@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockExecFileSync = vi.hoisted(() => vi.fn());
 const mockExistsSync = vi.hoisted(() => vi.fn());
@@ -145,7 +145,7 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
-    if (result.status !== 'skipped') throw new Error('expected skipped');
+    assert(result.status === 'skipped', 'expected skipped');
     expect(result.commitCount).toBe(0);
     expect(result.parsedCommitCount).toBe(0);
     expect(result.previousTag).toBe('v0.9.0');
@@ -174,7 +174,7 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
-    if (result.status !== 'skipped') throw new Error('expected skipped');
+    assert(result.status === 'skipped', 'expected skipped');
     expect(result.commitCount).toBe(1);
     expect(result.previousTag).toBe('v0.9.0');
     expect(result.parsedCommitCount).toBe(0);
@@ -204,7 +204,7 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
-    if (result.status !== 'released') throw new Error('expected released');
+    assert(result.status === 'released', 'expected released');
     expect(result.releaseType).toBe('patch');
     expect(result.newVersion).toBe('0.9.1');
     expect(result.commitCount).toBe(0);
@@ -232,7 +232,7 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
-    if (result.status !== 'released') throw new Error('expected released');
+    assert(result.status === 'released', 'expected released');
     expect(result.releaseType).toBe('patch');
     expect(result.newVersion).toBe('0.9.1');
     expect(result.commitCount).toBe(1);
@@ -261,7 +261,7 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
-    if (result.status !== 'skipped') throw new Error('expected skipped');
+    assert(result.status === 'skipped', 'expected skipped');
     expect(result.skipReason).toContain('No bump-worthy commits since v0.9.0');
     expect(tags).toStrictEqual([]);
     expect(modifiedFiles).toStrictEqual([]);
@@ -282,7 +282,7 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
-    if (result.status !== 'released') throw new Error('expected released');
+    assert(result.status === 'released', 'expected released');
     expect(result.tag).toBe('v0.10.0');
     expect(result.releaseType).toBe('minor');
     expect(result.currentVersion).toBe('0.9.0');
@@ -351,7 +351,7 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
-    if (result.status !== 'released') throw new Error('expected released');
+    assert(result.status === 'released', 'expected released');
     expect(result.releaseType).toBe('major');
     expect(result.bumpOverride).toBe('major');
     expect(result.newVersion).toBe('2.0.0');
@@ -375,7 +375,7 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
-    if (result.status !== 'released') throw new Error('expected released');
+    assert(result.status === 'released', 'expected released');
     expect(result.releaseType).toBe('patch');
     expect(result.newVersion).toBe('0.9.1');
     expect(tags).toStrictEqual(['v0.9.1']);
@@ -394,7 +394,7 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
-    if (result.status !== 'released') throw new Error('expected released');
+    assert(result.status === 'released', 'expected released');
     expect(result.tag).toBe('v0.10.0');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
     expect(
@@ -540,7 +540,7 @@ describe(releasePrepareProject, () => {
       tags,
     });
 
-    if (result.status !== 'released') throw new Error('expected released');
+    assert(result.status === 'released', 'expected released');
     expect(result.previousTag).toBe('v0.9.0');
     expect(result.commitCount).toBe(2);
     expect(result.releaseType).toBe('minor'); // feat triggers minor over fix's patch
@@ -599,7 +599,7 @@ describe(releasePrepareProject, () => {
         tags,
       });
 
-      if (result.status !== 'released') throw new Error('expected released');
+      assert(result.status === 'released', 'expected released');
       expect(result.tag).toBe('v0.9.1');
       expect(result.changelogFiles).toContain('CHANGELOG.md');
       expect(tags).toStrictEqual(['v0.9.1']);
@@ -683,7 +683,7 @@ describe(releasePrepareProject, () => {
         tags,
       });
 
-      if (result.status !== 'released') throw new Error('expected released');
+      assert(result.status === 'released', 'expected released');
       expect(tags).toStrictEqual(['v0.9.1']);
       expect(modifiedFiles).toContain('CHANGELOG.md');
       expect(modifiedFiles).toContain('./.meta/changelog.json');
@@ -765,7 +765,7 @@ describe(releasePrepareProject, () => {
       });
 
       expect(result.status).toBe('released');
-      if (result.status !== 'released') throw new Error('expected released');
+      assert(result.status === 'released', 'expected released');
       expect(result.policyViolations).toBeUndefined();
     });
 

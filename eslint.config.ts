@@ -1,7 +1,7 @@
 import baseConfig, { createConfig } from '@williamthorsen/eslint-config-typescript';
 import { defineConfig, globalIgnores } from 'eslint/config';
 
-import { deferredLintRules, deferredTestRules } from './.config/eslint/deferred-lint-rules.ts';
+import { deferredLintRules } from './.config/eslint/deferred-lint-rules.ts';
 
 const config = defineConfig([
   ...baseConfig,
@@ -52,8 +52,12 @@ const config = defineConfig([
     files: ['**/*.test.ts', '**/*.test.tsx'],
     extends: [await createConfig.vitest()],
     rules: {
-      ...deferredTestRules,
-      'vitest/prefer-import-in-mock': 'off', // this rule's fixer can produce bad code; see issue #545
+      // Assertions here run through helpers named `expectX` and `assertX`; without these patterns the rule reports
+      // every test that uses one. `expect*` subsumes plain `expect`.
+      'vitest/expect-expect': ['warn', { assertFunctionNames: ['expect*', 'assert*'] }],
+      // Off upstream, re-enabled here: the `import()` form typechecks the specifier, so a moved or renamed module
+      // fails the build instead of silently leaving the real module in place.
+      'vitest/prefer-import-in-mock': 'warn',
     },
   }),
   {

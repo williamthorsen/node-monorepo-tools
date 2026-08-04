@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 
 import { decideRelease } from '../decideRelease.ts';
 import { DEFAULT_VERSION_PATTERNS } from '../defaults.ts';
@@ -34,10 +34,8 @@ describe(decideRelease, () => {
         skipReasons,
       });
 
-      expect(result.outcome).toBe('skip');
-      if (result.outcome === 'skip') {
-        expect(result.skipReason).toBe(skipReasons.noCommits);
-      }
+      assert(result.outcome === 'skip');
+      expect(result.skipReason).toBe(skipReasons.noCommits);
     });
   });
 
@@ -53,10 +51,8 @@ describe(decideRelease, () => {
         skipReasons,
       });
 
-      expect(result.outcome).toBe('skip');
-      if (result.outcome === 'skip') {
-        expect(result.skipReason).toBe(skipReasons.noCommits);
-      }
+      assert(result.outcome === 'skip');
+      expect(result.skipReason).toBe(skipReasons.noCommits);
     });
   });
 
@@ -72,10 +68,8 @@ describe(decideRelease, () => {
         skipReasons,
       });
 
-      expect(result.outcome).toBe('release');
-      if (result.outcome === 'release') {
-        expect(result.releaseType).toBe('patch');
-      }
+      assert(result.outcome === 'release');
+      expect(result.releaseType).toBe('patch');
     });
   });
 
@@ -91,10 +85,8 @@ describe(decideRelease, () => {
         skipReasons,
       });
 
-      expect(result.outcome).toBe('release');
-      if (result.outcome === 'release') {
-        expect(result.releaseType).toBe('minor');
-      }
+      assert(result.outcome === 'release');
+      expect(result.releaseType).toBe('minor');
     });
   });
 
@@ -110,11 +102,9 @@ describe(decideRelease, () => {
         skipReasons,
       });
 
-      expect(result.outcome).toBe('release');
-      if (result.outcome === 'release') {
-        expect(result.releaseType).toBe('minor');
-        expect(result.parsedCommitCount).toBe(1);
-      }
+      assert(result.outcome === 'release');
+      expect(result.releaseType).toBe('minor');
+      expect(result.parsedCommitCount).toBe(1);
     });
   });
 
@@ -130,10 +120,8 @@ describe(decideRelease, () => {
         skipReasons,
       });
 
-      expect(result.outcome).toBe('release');
-      if (result.outcome === 'release') {
-        expect(result.releaseType).toBe('patch');
-      }
+      assert(result.outcome === 'release');
+      expect(result.releaseType).toBe('patch');
     });
   });
 
@@ -149,10 +137,8 @@ describe(decideRelease, () => {
         skipReasons,
       });
 
-      expect(result.outcome).toBe('release');
-      if (result.outcome === 'release') {
-        expect(result.releaseType).toBe('minor');
-      }
+      assert(result.outcome === 'release');
+      expect(result.releaseType).toBe('minor');
     });
   });
 
@@ -168,10 +154,8 @@ describe(decideRelease, () => {
         skipReasons,
       });
 
-      expect(result.outcome).toBe('release');
-      if (result.outcome === 'release') {
-        expect(result.releaseType).toBe('patch');
-      }
+      assert(result.outcome === 'release');
+      expect(result.releaseType).toBe('patch');
     });
   });
 
@@ -189,12 +173,10 @@ describe(decideRelease, () => {
         skipReasons,
       });
 
-      expect(result.outcome).toBe('skip');
-      if (result.outcome === 'skip') {
-        expect(result.skipReason).toBe(skipReasons.noBumpWorthy);
-        expect(result.parsedCommitCount).toBe(0);
-        expect(result.unparseableCommits).toStrictEqual([{ message: 'chore: deps', hash: 'abc1234' }]);
-      }
+      assert(result.outcome === 'skip');
+      expect(result.skipReason).toBe(skipReasons.noBumpWorthy);
+      expect(result.parsedCommitCount).toBe(0);
+      expect(result.unparseableCommits).toStrictEqual([{ message: 'chore: deps', hash: 'abc1234' }]);
     });
   });
 
@@ -210,10 +192,8 @@ describe(decideRelease, () => {
         skipReasons,
       });
 
-      expect(result.outcome).toBe('skip');
-      if (result.outcome === 'skip') {
-        expect(result.skipReason).toBe(skipReasons.noBumpWorthy);
-      }
+      assert(result.outcome === 'skip');
+      expect(result.skipReason).toBe(skipReasons.noBumpWorthy);
     });
   });
 
@@ -229,11 +209,9 @@ describe(decideRelease, () => {
         skipReasons,
       });
 
-      expect(result.outcome).toBe('release');
-      if (result.outcome === 'release') {
-        expect(result.releaseType).toBe('patch');
-        expect(result.parsedCommitCount).toBe(0);
-      }
+      assert(result.outcome === 'release');
+      expect(result.releaseType).toBe('patch');
+      expect(result.parsedCommitCount).toBe(0);
     });
   });
 
@@ -249,10 +227,8 @@ describe(decideRelease, () => {
         skipReasons,
       });
 
-      expect(result.outcome).toBe('release');
-      if (result.outcome === 'release') {
-        expect(result.releaseType).toBe('major');
-      }
+      assert(result.outcome === 'release');
+      expect(result.releaseType).toBe('major');
     });
   });
 

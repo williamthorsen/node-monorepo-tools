@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 
 const thisDir = dirname(fileURLToPath(import.meta.url));
 const distScaffoldPath = join(thisDir, '..', '..', '..', 'dist', 'esm', 'init', 'scaffold.js');
@@ -24,9 +24,10 @@ function isScaffoldModule(value: unknown): value is ScaffoldModule {
 
 describe('copyCliffTemplate (packaged)', () => {
   it('resolves cliff.toml.template from the built output and writes .config/git-cliff.toml', async () => {
-    if (!existsSync(distScaffoldPath)) {
-      throw new Error(`Built output not found at ${distScaffoldPath}. Run \`nmr build\` before running this test.`);
-    }
+    assert(
+      existsSync(distScaffoldPath),
+      `Built output not found at ${distScaffoldPath}. Run \`nmr build\` before running this test.`,
+    );
 
     const tempDir = mkdtempSync(join(tmpdir(), 'scaffold-packaged-'));
     const originalCwd = process.cwd();
@@ -36,9 +37,7 @@ describe('copyCliffTemplate (packaged)', () => {
 
       // Import from the compiled JS so that `import.meta.url` points to dist/esm/init/scaffold.js.
       const mod: unknown = await import(distScaffoldPath);
-      if (!isScaffoldModule(mod)) {
-        throw new Error('Module does not export `copyCliffTemplate` as a function');
-      }
+      assert(isScaffoldModule(mod), 'Module does not export `copyCliffTemplate` as a function');
 
       mod.copyCliffTemplate(false, false);
 

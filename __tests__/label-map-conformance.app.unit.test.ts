@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 
 import { isRecord, isUnknownArray } from '../packages/release-kit/src/typeGuards.ts';
 
@@ -48,10 +48,7 @@ describe('.meta/label-map.json conforms to release-kit schema', () => {
 
   it('contains only string values in `types`', () => {
     const types = parsedLabelMap.types;
-    expect(isRecord(types)).toBe(true);
-    // FIXME: See issue #545
-    // eslint-disable-next-line vitest/no-conditional-in-test
-    if (!isRecord(types)) return;
+    assert(isRecord(types));
     for (const [key, value] of Object.entries(types)) {
       expect(value, `types['${key}'] must be a string`).toBeTypeOf('string');
     }
@@ -59,10 +56,7 @@ describe('.meta/label-map.json conforms to release-kit schema', () => {
 
   it('contains only string values in `scopes`', () => {
     const scopes = parsedLabelMap.scopes;
-    expect(isRecord(scopes)).toBe(true);
-    // FIXME: See issue #545
-    // eslint-disable-next-line vitest/no-conditional-in-test
-    if (!isRecord(scopes)) return;
+    assert(isRecord(scopes));
     for (const [key, value] of Object.entries(scopes)) {
       expect(value, `scopes['${key}'] must be a string`).toBeTypeOf('string');
     }
