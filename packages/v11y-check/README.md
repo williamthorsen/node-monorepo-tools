@@ -146,7 +146,7 @@ rdy run --from npm:v11y-check   # v11y-check's kit alone, without the config ent
 rdy list --from npm:v11y-check  # what v11y-check publishes
 ```
 
-`--packages` is the form that survives v11y-check publishing further kits. Both need `readyup` 0.23 or later, and `v11y-check` as a _direct_ devDependency: a strict pnpm layout links nothing else into the project, so a transitive copy is unreachable.
+`--packages` is the form that survives v11y-check publishing further kits. Every form needs `readyup` 0.23 or later, and `v11y-check` as a _direct_ devDependency: a strict pnpm layout links nothing else into the project, so a transitive copy is unreachable.
 
 The kit is no longer reachable through `rdy run --from github:williamthorsen/node-monorepo-tools`. Repos still using that form should switch to one of the invocations above.
 

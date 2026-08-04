@@ -10,8 +10,7 @@ const workflowsDir = join(repoRoot, '.github', 'workflows');
 
 /**
  * This repo dogfoods the workflow templates its own packages scaffold, so each caller workflow here must be the
- * template's output verbatim -- the same identity the kits enforce in consumer repos. Comparing content rather
- * than hashes is deliberate: a failure shows which lines drifted, where a digest mismatch shows nothing.
+ * template's output verbatim -- the same identity the kits enforce in consumer repos.
  */
 describe('repo workflows match the templates its packages ship', () => {
   it('sync-labels.yaml matches release-kit syncLabelsWorkflow()', () => {
@@ -26,8 +25,6 @@ describe('repo workflows match the templates its packages ship', () => {
     const content = readFileSync(join(workflowsDir, 'audit.yaml'), 'utf8');
     const template = readFileSync(join(repoRoot, 'packages', 'v11y-check', 'templates', 'audit.yaml.template'), 'utf8');
 
-    expect(content, 'Replace .github/workflows/audit.yaml with v11y-check templates/audit.yaml.template').toBe(
-      template,
-    );
+    expect(content, 'Run `v11y init --force` to regenerate .github/workflows/audit.yaml').toBe(template);
   });
 });
