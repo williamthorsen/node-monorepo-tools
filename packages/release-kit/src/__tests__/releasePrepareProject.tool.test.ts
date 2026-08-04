@@ -240,9 +240,7 @@ describe('releasePrepareProject (tool)', () => {
   }, 60_000);
 
   it('overwrites an unparseable existing root changelog.json without warning (no-read at project stage)', () => {
-    // Pin: the project stage no longer reads the existing root changelog.json. An unparseable
-    // file is structurally bypassed — the soft `console.warn → return []` path inside
-    // upsertChangelogJson cannot fire here because the project stage uses writeChangelogJson.
+    // No warning is possible: the stage renders from the cliff entries alone and never parses the existing file.
     withinFixture(fixture.repoDir, () => {
       const changelogJsonPath = join(fixture.repoDir, '.meta', 'changelog.json');
       mkdirSync(join(fixture.repoDir, '.meta'), { recursive: true });

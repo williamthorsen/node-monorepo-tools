@@ -194,11 +194,7 @@ describe(buildChangelogEntries, () => {
   });
 
   it('always invokes git-cliff and never writes the changelog file', () => {
-    // Pins the intentional dry-run behavioral change: `buildChangelogEntries` does not short-
-    // circuit. The caller's `dryRun` controls only the persistence step (writeChangelogJson /
-    // upsertChangelogJson), not the cliff invocation. This test asserts:
-    //   1. runGitCliff IS called (git-cliff runs).
-    //   2. writeFileSync is NOT called (no file is written by this helper).
+    // git-cliff runs unconditionally; persistence is the caller's concern, so this helper never short-circuits.
     const cliffContext = [
       {
         version: 'v1.0.0',

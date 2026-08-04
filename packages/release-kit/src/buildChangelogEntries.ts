@@ -72,10 +72,9 @@ interface CliffContextRelease {
  * `ChangelogEntry[]`. Performs no `changelog.json` I/O — callers persist the entries via
  * `renderChangelogJson`.
  *
- * Always invokes git-cliff: dry-run is the caller's concern (it governs whether the file
- * write happens, not whether git-cliff runs). This means dry-run exercises the full
- * git-cliff toolchain and surfaces missing-binary, malformed-config, and template-resolution
- * failures earlier than before.
+ * Always invokes git-cliff: dry-run is the caller's concern (it governs whether the file write happens,
+ * not whether git-cliff runs). This means dry-run exercises the full git-cliff toolchain and surfaces missing-binary,
+ * malformed-config, and template-resolution failures earlier than before.
  */
 export function buildChangelogEntries(
   config: Pick<ReleaseConfig, 'cliffConfigPath' | 'changelogJson'>,
@@ -230,13 +229,12 @@ const SUBJECT_BREAKING_MARKER_PATTERN = new RegExp(String.raw`^(?:${PIPE_SCOPE_S
 /**
  * Detect a `!` breaking marker on the commit-subject prefix.
  *
- * Matches `type!:`, `type(scope)!:`, and `scope|type!:` formats at the start of the first
- * line, after any leading ticket prefix (e.g. `#42 `, `TOOL-123 `, `## `) is stripped via
- * `COMMIT_PREPROCESSOR_PATTERNS`. The `BREAKING CHANGE:` body footer is intentionally NOT
- * considered — only the prefix `!` marks a changelog item as breaking, keeping the changelog
- * signal aligned with the commit-prefix policy. The regex is anchored so descriptions
- * containing `!:` later in the line (e.g. `"Fix edge case using field!: value notation"`)
- * are not misclassified as breaking.
+ * Matches `type!:`, `type(scope)!:`, and `scope|type!:` formats at the start of the first line, after any leading
+ * ticket prefix (e.g. `#42 `, `TOOL-123 `, `## `) is stripped via `COMMIT_PREPROCESSOR_PATTERNS`.
+ * The `BREAKING CHANGE:` body footer is not considered: Only the prefix `!` marks a changelog item as breaking,
+ * keeping the changelog signal aligned with the commit-prefix policy.
+ * The regex is anchored so descriptions containing `!:` later in the line (e.g. `"Fix edge case using field!: value
+ * notation"`) are not misclassified as breaking.
  */
 function subjectHasBreakingMarker(message: string): boolean {
   let subject = message.split('\n', 1)[0] ?? '';
