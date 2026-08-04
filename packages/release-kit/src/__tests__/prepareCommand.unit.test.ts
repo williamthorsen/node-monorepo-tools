@@ -56,7 +56,8 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
   };
 });
 
-import { parseArgs, prepareCommand, RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from '../prepareCommand.ts';
+import { parseArgs, prepareCommand } from '../prepareCommand.ts';
+import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from '../releaseFiles.ts';
 import type { PrepareResult } from '../types.ts';
 
 describe(prepareCommand, () => {
@@ -681,18 +682,6 @@ describe(parseArgs, () => {
   it('defaults withReleaseNotes to false', () => {
     const result = parseArgs([]);
     expect(result.withReleaseNotes).toBe(false);
-  });
-});
-
-describe('RELEASE_TAGS_FILE', () => {
-  it('points to tmp/ relative to the project root', () => {
-    expect(RELEASE_TAGS_FILE).toBe('tmp/.release-tags');
-  });
-});
-
-describe('RELEASE_SUMMARY_FILE', () => {
-  it('points to tmp/ relative to the project root', () => {
-    expect(RELEASE_SUMMARY_FILE).toBe('tmp/.release-summary');
   });
 });
 

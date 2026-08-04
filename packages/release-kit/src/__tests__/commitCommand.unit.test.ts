@@ -64,12 +64,20 @@ describe(commitCommand, () => {
     expect(console.info).toHaveBeenCalledWith('Created release commit: release: release-kit-v2.4.0 core-v1.0.0');
   });
 
-  it('throws when tags file is missing', () => {
+  it('if the tags file is missing, throws naming the resolved path', () => {
     mockReadFileSync.mockImplementation(() => {
-      throw new Error('ENOENT');
+      throw errnoError('ENOENT: no such file or directory', 'ENOENT');
     });
 
-    expect(() => commitCommand([])).toThrow('No tags file found. Run `release-kit prepare` first.');
+    expect(() => commitCommand([])).toThrow('No tags file found at');
+  });
+
+  it('if the tags file is unreadable, reports the errno rather than reporting it missing', () => {
+    mockReadFileSync.mockImplementation(() => {
+      throw errnoError('EACCES: permission denied', 'EACCES');
+    });
+
+    expect(() => commitCommand([])).toThrow('Cannot read the tags file at');
   });
 
   it('throws when tags file is empty', () => {
@@ -78,7 +86,7 @@ describe(commitCommand, () => {
       throw errnoError('ENOENT', 'ENOENT');
     });
 
-    expect(() => commitCommand([])).toThrow('Tags file is empty. Run `release-kit prepare` first.');
+    expect(() => commitCommand([])).toThrow('is empty. Run `release-kit prepare` first.');
   });
 
   it('falls back to empty body when summary file is missing', () => {

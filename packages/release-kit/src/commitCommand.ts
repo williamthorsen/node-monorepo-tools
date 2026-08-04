@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 
 import { GIT_OUTPUT_LIMIT, parseArgsOrExit } from '@williamthorsen/nmr-core';
 
-import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './prepareCommand.ts';
+import { readReleaseTags, RELEASE_SUMMARY_FILE, resolveReleaseTagsPath } from './releaseFiles.ts';
 
 const commitFlagSchema = {
   dryRun: { long: '--dry-run', type: 'boolean' as const },
@@ -19,20 +19,10 @@ export function commitCommand(argv: string[]): void {
   const dryRun = parseArgsOrExit(argv, commitFlagSchema).flags.dryRun;
 
   // Read tags file.
-  let tagsContent: string;
-  try {
-    tagsContent = readFileSync(RELEASE_TAGS_FILE, 'utf8');
-  } catch {
-    throw new Error('No tags file found. Run `release-kit prepare` first.');
-  }
-
-  const tags = tagsContent
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+  const tags = readReleaseTags();
 
   if (tags.length === 0) {
-    throw new Error('Tags file is empty. Run `release-kit prepare` first.');
+    throw new Error(`Tags file at ${resolveReleaseTagsPath()} is empty. Run \`release-kit prepare\` first.`);
   }
 
   // Read summary file (optional — may not exist for propagation-only releases).

@@ -11,24 +11,13 @@ import { discoverWorkspaces } from './discoverWorkspaces.ts';
 import { dim } from './format.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { loadConfig, mergeMonorepoConfig, mergeSinglePackageConfig, readRootPackageVersion } from './loadConfig.ts';
+import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './releaseFiles.ts';
 import { releasePrepare } from './releasePrepare.ts';
 import { releasePrepareMono } from './releasePrepareMono.ts';
 import { reportPrepare } from './reportPrepare.ts';
 import type { MonorepoReleaseConfig, PrepareResult, ReleaseKitConfig, ReleaseType } from './types.ts';
 import { validateConfig } from './validateConfig.ts';
 import { validateOnlyExcludesStrandedDependents } from './validateOnlyExcludesStrandedDependents.ts';
-
-/**
- * File written by the release preparation step, containing one tag per line.
- * Relative to the project root so it works identically in CI and local runs.
- */
-export const RELEASE_TAGS_FILE = 'tmp/.release-tags';
-
-/**
- * File written by the release preparation step, containing the commit body summary.
- * Relative to the project root so it works identically in CI and local runs.
- */
-export const RELEASE_SUMMARY_FILE = 'tmp/.release-summary';
 
 const VALID_BUMP_TYPES: readonly string[] = ['major', 'minor', 'patch'];
 
