@@ -228,13 +228,17 @@ export function formatMisplacedNoCacheWarning(command: string): string {
 /**
  * Renders the line a skipped command leaves behind, spending the recorded metadata on the reader. A saving too
  * small to be worth naming takes its whole clause with it, rather than leaving an empty parenthetical behind.
+ *
+ * The line names no flag, on purpose. It reaches the reader exactly where the next command is chosen, so a
+ * pointer to `--no-cache` reads there as an instruction to re-run, and re-running is the one thing a recorded
+ * pass has already made pointless. `nmr --help` lists the flag; the README says when it is the right one.
  */
 export function formatSkipLine(command: string, entry: CheckCacheEntry, now: number): string {
   const age = formatDuration(Math.max(0, now - Date.parse(entry.recordedAt)));
   const saving = formatSaving(entry.durationMs);
   const savingClause = saving === undefined ? '' : ` (${saving})`;
 
-  return `⏭️ ${command}: passed ${age} ago on this tree${savingClause}. Re-run with --no-cache.`;
+  return `⏭️ ${command}: passed ${age} ago on this tree${savingClause}.`;
 }
 
 /**
