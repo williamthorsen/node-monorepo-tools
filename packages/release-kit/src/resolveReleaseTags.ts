@@ -1,5 +1,7 @@
 import { execFileSync } from 'node:child_process';
 
+import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
+
 import type { WorkspaceConfig } from './types.ts';
 
 export interface ResolvedTag {
@@ -40,7 +42,10 @@ type ResolveReleaseTagsArgs = { workspaces: readonly WorkspaceConfig[] } | { sin
  * `isPublishable: true`. Production callers should pass one of the named forms.
  */
 export function resolveReleaseTags(args?: ResolveReleaseTagsArgs): ResolvedTag[] {
-  const output = execFileSync('git', ['tag', '--points-at', 'HEAD'], { encoding: 'utf8' });
+  const output = execFileSync('git', ['tag', '--points-at', 'HEAD'], {
+    encoding: 'utf8',
+    maxBuffer: GIT_OUTPUT_LIMIT,
+  });
 
   const tags = output
     .split('\n')

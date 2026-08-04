@@ -1,6 +1,8 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
+import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
+
 import { deleteFileIfExists } from './deleteFileIfExists.ts';
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './prepareCommand.ts';
 
@@ -48,7 +50,7 @@ export function createTags(options: CreateTagsOptions): string[] {
   const created: string[] = [];
   for (const tag of tags) {
     try {
-      execFileSync('git', ['tag', '-a', tag, '-m', tag]);
+      execFileSync('git', ['tag', '-a', tag, '-m', tag], { maxBuffer: GIT_OUTPUT_LIMIT });
       created.push(tag);
     } catch (error: unknown) {
       if (created.length > 0) {
@@ -75,8 +77,8 @@ export function createTags(options: CreateTagsOptions): string[] {
 /** Throw if the git working tree has uncommitted changes. */
 function assertCleanWorkingTree(): void {
   try {
-    execFileSync('git', ['diff', '--quiet']);
-    execFileSync('git', ['diff', '--quiet', '--cached']);
+    execFileSync('git', ['diff', '--quiet'], { maxBuffer: GIT_OUTPUT_LIMIT });
+    execFileSync('git', ['diff', '--quiet', '--cached'], { maxBuffer: GIT_OUTPUT_LIMIT });
   } catch (error: unknown) {
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
       throw error;

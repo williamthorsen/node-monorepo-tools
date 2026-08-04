@@ -215,7 +215,7 @@ describe(buildChangelogEntries, () => {
     expect(entries).toHaveLength(1);
   });
 
-  it('passes the resolved config path, --context/--tag args, and capture stdio to runGitCliff', () => {
+  it('passes the resolved config path and --context/--tag args to runGitCliff', () => {
     const cliffContext = [
       {
         version: 'v1.0.0',
@@ -227,11 +227,15 @@ describe(buildChangelogEntries, () => {
 
     buildChangelogEntries(makeConfig(), 'v1.0.0', { tagPattern: 'v[0-9].*', includePaths: ['packages/foo'] });
 
-    expect(mockRunGitCliff).toHaveBeenCalledWith(
-      '/fake/cliff.toml',
-      ['--context', '--tag', 'v1.0.0', '--tag-pattern', 'v[0-9].*', '--include-path', 'packages/foo'],
-      ['pipe', 'pipe', 'inherit'],
-    );
+    expect(mockRunGitCliff).toHaveBeenCalledWith('/fake/cliff.toml', [
+      '--context',
+      '--tag',
+      'v1.0.0',
+      '--tag-pattern',
+      'v[0-9].*',
+      '--include-path',
+      'packages/foo',
+    ]);
   });
 
   it('wraps thrown errors from the helper with site-specific context', () => {

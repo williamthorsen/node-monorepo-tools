@@ -1,3 +1,4 @@
+import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockReadFileSync = vi.hoisted(() => vi.fn());
@@ -60,14 +61,16 @@ describe(createTags, () => {
 
     const result = createTags({ dryRun: false, noGitChecks: true });
 
-    expect(mockExecFileSync).toHaveBeenCalledWith('git', [
-      'tag',
-      '-a',
-      'release-kit-v2.1.0',
-      '-m',
-      'release-kit-v2.1.0',
-    ]);
-    expect(mockExecFileSync).toHaveBeenCalledWith('git', ['tag', '-a', 'core-v1.3.0', '-m', 'core-v1.3.0']);
+    expect(mockExecFileSync).toHaveBeenCalledWith(
+      'git',
+      ['tag', '-a', 'release-kit-v2.1.0', '-m', 'release-kit-v2.1.0'],
+      {
+        maxBuffer: GIT_OUTPUT_LIMIT,
+      },
+    );
+    expect(mockExecFileSync).toHaveBeenCalledWith('git', ['tag', '-a', 'core-v1.3.0', '-m', 'core-v1.3.0'], {
+      maxBuffer: GIT_OUTPUT_LIMIT,
+    });
     expect(result).toStrictEqual(['release-kit-v2.1.0', 'core-v1.3.0']);
   });
 
@@ -97,8 +100,10 @@ describe(createTags, () => {
 
     createTags({ dryRun: false, noGitChecks: false });
 
-    expect(mockExecFileSync).toHaveBeenCalledWith('git', ['diff', '--quiet']);
-    expect(mockExecFileSync).toHaveBeenCalledWith('git', ['diff', '--quiet', '--cached']);
+    expect(mockExecFileSync).toHaveBeenCalledWith('git', ['diff', '--quiet'], { maxBuffer: GIT_OUTPUT_LIMIT });
+    expect(mockExecFileSync).toHaveBeenCalledWith('git', ['diff', '--quiet', '--cached'], {
+      maxBuffer: GIT_OUTPUT_LIMIT,
+    });
   });
 
   it('throws when the working tree is dirty', () => {

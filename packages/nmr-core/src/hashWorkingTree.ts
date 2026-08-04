@@ -3,6 +3,8 @@ import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, readFileSync, readlinkSync } from 'node:fs';
 import path from 'node:path';
 
+import { GIT_OUTPUT_LIMIT } from './gitOutputLimit.ts';
+
 /**
  * A whole-repo content hash, or the reason one could not be produced. Every degraded condition (no repository,
  * no commit, a git failure, a tree this hash cannot describe) reports `ok: false` rather than a hash a caller
@@ -16,9 +18,6 @@ export type WorkingTreeHashResult =
  * cannot be mistaken for entries describing the same tree.
  */
 const HASH_FORMAT = 'nmr-working-tree-v1';
-
-/** Raised well above the 1 MiB default so a tree with thousands of untracked files still reports a status. */
-const GIT_OUTPUT_LIMIT = 64 * 1024 * 1024;
 
 /**
  * The count of space-separated fields each `--porcelain=v2` record type carries ahead of its path: an ordinary

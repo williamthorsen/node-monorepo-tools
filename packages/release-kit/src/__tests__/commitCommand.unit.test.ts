@@ -1,3 +1,4 @@
+import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockReadFileSync = vi.hoisted(() => vi.fn());
@@ -50,12 +51,16 @@ describe(commitCommand, () => {
 
     commitCommand([]);
 
-    expect(mockExecFileSync).toHaveBeenCalledWith('git', ['add', '-A']);
-    expect(mockExecFileSync).toHaveBeenCalledWith('git', [
-      'commit',
-      '-m',
-      'release: release-kit-v2.4.0 core-v1.0.0\n\nrelease-kit-v2.4.0\n- feat: Add commit command\n\ncore-v1.0.0\n- fix: Bug',
-    ]);
+    expect(mockExecFileSync).toHaveBeenCalledWith('git', ['add', '-A'], { maxBuffer: GIT_OUTPUT_LIMIT });
+    expect(mockExecFileSync).toHaveBeenCalledWith(
+      'git',
+      [
+        'commit',
+        '-m',
+        'release: release-kit-v2.4.0 core-v1.0.0\n\nrelease-kit-v2.4.0\n- feat: Add commit command\n\ncore-v1.0.0\n- fix: Bug',
+      ],
+      { maxBuffer: GIT_OUTPUT_LIMIT },
+    );
     expect(console.info).toHaveBeenCalledWith('Created release commit: release: release-kit-v2.4.0 core-v1.0.0');
   });
 
@@ -84,7 +89,9 @@ describe(commitCommand, () => {
 
     commitCommand([]);
 
-    expect(mockExecFileSync).toHaveBeenCalledWith('git', ['commit', '-m', 'release: v1.0.0']);
+    expect(mockExecFileSync).toHaveBeenCalledWith('git', ['commit', '-m', 'release: v1.0.0'], {
+      maxBuffer: GIT_OUTPUT_LIMIT,
+    });
   });
 
   it('reports without executing in dry-run mode', () => {
@@ -99,7 +106,10 @@ describe(commitCommand, () => {
 
     expect(console.info).toHaveBeenCalledWith('[dry-run] Would create commit with message:\n');
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining('release: v1.0.0'));
-    expect(mockExecFileSync).toHaveBeenCalledWith('git', ['status', '--porcelain'], { encoding: 'utf8' });
+    expect(mockExecFileSync).toHaveBeenCalledWith('git', ['status', '--porcelain'], {
+      encoding: 'utf8',
+      maxBuffer: GIT_OUTPUT_LIMIT,
+    });
     expect(console.info).toHaveBeenCalledWith('\nUncommitted changes:');
     // Should not call git add or git commit.
     expect(mockExecFileSync).not.toHaveBeenCalledWith('git', expect.arrayContaining(['add']));
@@ -115,7 +125,9 @@ describe(commitCommand, () => {
 
     commitCommand([]);
 
-    expect(mockExecFileSync).toHaveBeenCalledWith('git', ['commit', '-m', 'release: v1.0.0']);
+    expect(mockExecFileSync).toHaveBeenCalledWith('git', ['commit', '-m', 'release: v1.0.0'], {
+      maxBuffer: GIT_OUTPUT_LIMIT,
+    });
   });
 
   it('re-throws non-ENOENT errors when reading summary file', () => {
