@@ -1,5 +1,7 @@
 import { execFileSync } from 'node:child_process';
 
+import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
+
 import type { Commit } from './types.ts';
 
 /**
@@ -42,6 +44,7 @@ function findLatestTag(tagPrefixes: readonly string[]): string | undefined {
   try {
     const tagResult = execFileSync('git', ['describe', '--tags', '--abbrev=0', ...matchArgs], {
       encoding: 'utf8',
+      maxBuffer: GIT_OUTPUT_LIMIT,
       stdio: ['pipe', 'pipe', 'pipe'],
     }).trim();
     return tagResult || undefined;
@@ -114,6 +117,7 @@ export function getCommitsSinceTarget(
   try {
     logOutput = execFileSync('git', args, {
       encoding: 'utf8',
+      maxBuffer: GIT_OUTPUT_LIMIT,
       stdio: ['pipe', 'pipe', 'pipe'],
     }).trim();
   } catch (error: unknown) {

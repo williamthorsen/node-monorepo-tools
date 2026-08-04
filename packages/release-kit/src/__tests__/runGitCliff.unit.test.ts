@@ -73,8 +73,22 @@ describe(runGitCliff, () => {
   it('appends --output after the caller args so a caller-supplied --output cannot win', () => {
     runGitCliff('cliff.toml', ['--output', '/caller/hijack.json']);
 
-    const [, args] = mockExecFileSync.mock.calls[0] ?? [];
-    expect(args?.slice(-2)).toEqual(['--output', OUTPUT_PATH]);
+    // Both flags reach git-cliff; the helper's comes last, and clap takes the last occurrence.
+    expect(mockExecFileSync).toHaveBeenCalledWith(
+      'npx',
+      [
+        '--prefer-offline',
+        '--yes',
+        'git-cliff',
+        '--config',
+        'cliff.toml',
+        '--output',
+        '/caller/hijack.json',
+        '--output',
+        OUTPUT_PATH,
+      ],
+      expect.any(Object),
+    );
   });
 
   it('discards stdout and inherits stderr, leaving no parent-side buffer to overflow', () => {

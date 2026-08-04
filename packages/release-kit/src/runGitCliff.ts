@@ -3,6 +3,8 @@ import { copyFileSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
+
 /**
  * Invokes `git-cliff` via `npx` and returns the output it produced.
  *
@@ -80,12 +82,16 @@ export function runGitCliff(cliffConfigPath: string, cliffArgs: readonly string[
  *
  * Stdio: stdin ignored, stdout piped (the version line is suppressed as noise), stderr
  * inherited (npm errors and any rare upgrade notice surface, but only once per run).
+ * `maxBuffer` is declared even though the piped output is a single version line, because
+ * every call that pipes stdout declares one — the omission is what left the `--context`
+ * capture on the 1 MiB default until it started failing.
  *
  * Errors propagate unchanged — a failed cache refresh fails the prepare run loudly rather
  * than silently degrading.
  */
 export function refreshGitCliffCache(): void {
   execFileSync('npx', ['--yes', 'git-cliff', '--version'], {
+    maxBuffer: GIT_OUTPUT_LIMIT,
     stdio: ['ignore', 'pipe', 'inherit'],
     env: { ...process.env, npm_config_progress: 'false' },
   });

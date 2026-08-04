@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
-import { parseArgsOrExit } from '@williamthorsen/nmr-core';
+import { GIT_OUTPUT_LIMIT, parseArgsOrExit } from '@williamthorsen/nmr-core';
 
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './prepareCommand.ts';
 
@@ -56,7 +56,10 @@ export function commitCommand(argv: string[]): void {
     console.info(message);
 
     try {
-      const status = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' });
+      const status = execFileSync('git', ['status', '--porcelain'], {
+        encoding: 'utf8',
+        maxBuffer: GIT_OUTPUT_LIMIT,
+      });
       if (status.trim().length > 0) {
         console.info('\nUncommitted changes:');
         console.info(status.trimEnd());

@@ -1,3 +1,4 @@
+import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockReadFileSync = vi.hoisted(() => vi.fn());
@@ -99,7 +100,10 @@ describe(commitCommand, () => {
 
     expect(console.info).toHaveBeenCalledWith('[dry-run] Would create commit with message:\n');
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining('release: v1.0.0'));
-    expect(mockExecFileSync).toHaveBeenCalledWith('git', ['status', '--porcelain'], { encoding: 'utf8' });
+    expect(mockExecFileSync).toHaveBeenCalledWith('git', ['status', '--porcelain'], {
+      encoding: 'utf8',
+      maxBuffer: GIT_OUTPUT_LIMIT,
+    });
     expect(console.info).toHaveBeenCalledWith('\nUncommitted changes:');
     // Should not call git add or git commit.
     expect(mockExecFileSync).not.toHaveBeenCalledWith('git', expect.arrayContaining(['add']));
