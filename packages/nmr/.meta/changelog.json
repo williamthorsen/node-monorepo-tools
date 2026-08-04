@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.26.1",
+    "date": "2026-08-04",
+    "sections": [
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Prevent unnecessary bypasses of the check-result cache (#595)",
+            "body": "Agents are now instructed never to bypass `nmr`'s check-result cache in order to force a supposed \"real\" run of a check that has already passed in the working tree, unless the output (and not only the result) of that check is needed. The \"Re-run with --no-cache\" hint, which was being treated as an instruction by agents, has been removed.",
+            "hash": "52b6294b375aa2041319e7936c232334fd6ea799"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.26.0",
     "date": "2026-08-04",
     "sections": [

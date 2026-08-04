@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.14.1",
+    "date": "2026-08-04",
+    "sections": [
+      {
+        "title": "Dependency updates",
+        "audience": "dev",
+        "items": [{ "description": "Bumped `@williamthorsen/nmr-core` to 0.9.1" }]
+      }
+    ]
+  },
+  {
     "version": "0.14.0",
     "date": "2026-08-04",
     "sections": [

@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.26.1 — 2026-08-04
+
+### 🐛 Bug fixes
+
+- Prevent unnecessary bypasses of the check-result cache (#595)
+
+  Agents are now instructed never to bypass `nmr`'s check-result cache in order to force a supposed "real" run of a check that has already passed in the working tree, unless the output (and not only the result) of that check is needed. The "Re-run with --no-cache" hint, which was being treated as an instruction by agents, has been removed.
+
 ## 0.26.0 — 2026-08-04
 
 ### 🎉 Features

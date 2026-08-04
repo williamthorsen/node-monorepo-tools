@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.9.1",
+    "date": "2026-08-04",
+    "sections": [
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Remove the 1 MiB ceiling on captured git output (#596)",
+            "body": "Fixes an issue where `release-kit prepare` began aborting once a repository's release history grew long enough, leaving that repository unable to cut another release. The fix covers, in addition to `prepare`, every other release-kit command that reads from git.",
+            "hash": "07bf786d00c493f7bc4c0fda6932ea9659ca6f95"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.9.0",
     "date": "2026-08-03",
     "sections": [

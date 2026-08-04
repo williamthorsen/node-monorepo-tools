@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 10.2.1 — 2026-08-04
+
+### 🐛 Bug fixes
+
+- Remove the 1 MiB ceiling on captured git output (#596)
+
+  Fixes an issue where `release-kit prepare` began aborting once a repository's release history grew long enough, leaving that repository unable to cut another release. The fix covers, in addition to `prepare`, every other release-kit command that reads from git.
+
 ## 10.2.0 — 2026-08-04
 
 ### 🎉 Features
