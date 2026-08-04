@@ -7,7 +7,11 @@ export const __readyupVersion = "0.23.0";
 import { execSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { defineRdyChecklist, defineRdyKit, defineRdyStagedChecklist } from "readyup";
+import {
+  defineRdyChecklist,
+  defineRdyKit,
+  defineRdyStagedChecklist
+} from "readyup";
 import {
   discoverWorkspaces,
   fileContains,
@@ -17,7 +21,17 @@ import {
   readFile,
   readJsonFile
 } from "readyup/check-utils";
+var AUTH_ERROR_CODES = /* @__PURE__ */ new Set(["E401", "ENEEDAUTH"]);
 var PUBLISH_WORKFLOW_FILE = "publish.yaml";
+var UNREACHABLE_ERROR_CODES = /* @__PURE__ */ new Set([
+  "EAI_AGAIN",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "ENETUNREACH",
+  "ENOTFOUND",
+  "ERR_SOCKET_TIMEOUT",
+  "ETIMEDOUT"
+]);
 var repoChecklist = defineRdyStagedChecklist({
   name: "repo",
   preconditions: [
@@ -62,6 +76,16 @@ var packagesChecklist = defineRdyChecklist({
       name: "At least one workspace discovered",
       check: () => discoverWorkspaces().length > 0,
       fix: "Ensure pnpm-workspace.yaml lists package globs, or that a root package.json exists"
+    },
+    {
+      name: "Logged in to npm",
+      check: () => {
+        const auth = getCachedNpmAuthStatus();
+        return auth.status === "authenticated" ? { ok: true } : { ok: false, detail: auth.detail };
+      },
+      get fix() {
+        return getCachedNpmAuthStatus().status === "unreachable" ? "Restore access to the npm registry, then re-run; the trusted-publisher check queries it directly" : "Log in to npm: npm login";
+      }
     }
   ],
   get checks() {
@@ -100,7 +124,7 @@ function buildWorkspaceCheck(workspace) {
       checks: [
         {
           name: "trusted publisher configured",
-          check: () => hasTrustedPublisher(displayName, getCachedOwnerRepo(), PUBLISH_WORKFLOW_FILE),
+          check: () => checkTrustedPublisher(displayName),
           get fix() {
             return `Run: npm trust github ${displayName} --repo ${getCachedOwnerRepo()} --file ${PUBLISH_WORKFLOW_FILE}`;
           }
@@ -148,6 +172,75 @@ function checkProvenanceMatchesVisibility() {
   }
   return { ok: true };
 }
+function checkTrustedPublisher(packageName) {
+  const result = classifyTrustQuery(
+    runNpmJson(`npm trust list ${packageName} --json`),
+    getCachedOwnerRepo(),
+    PUBLISH_WORKFLOW_FILE
+  );
+  switch (result.status) {
+    case "configured":
+      return { ok: true };
+    case "not-configured":
+      return { ok: false, detail: "No trusted publisher is configured for this package" };
+    default:
+      return { ok: false, detail: result.detail };
+  }
+}
+function classifyNpmAuth(result) {
+  if (result.exitOk) {
+    return { status: "authenticated" };
+  }
+  const error = readNpmError(result.stdout);
+  if (error === void 0) {
+    return { status: "unreachable", detail: "The npm registry query failed without a readable error payload" };
+  }
+  if (AUTH_ERROR_CODES.has(error.code)) {
+    return { status: "unauthenticated", detail: `The npm registry rejected the session (${error.code})` };
+  }
+  if (UNREACHABLE_ERROR_CODES.has(error.code)) {
+    return { status: "unreachable", detail: `Cannot reach the npm registry (${error.code})` };
+  }
+  return { status: "unreachable", detail: `The npm registry query failed (${error.code}): ${error.summary}` };
+}
+function classifyTrustQuery(result, expectedRepo, expectedFile) {
+  if (!result.exitOk) {
+    const error = readNpmError(result.stdout);
+    if (error === void 0) {
+      return { status: "error", detail: "The npm trust query failed without a readable error payload" };
+    }
+    if (error.code === "E404") {
+      return { status: "not-configured" };
+    }
+    return { status: "error", detail: `The npm trust query failed (${error.code}): ${error.summary}` };
+  }
+  const relationships = readTrustRelationships(result.stdout);
+  if (relationships === void 0) {
+    return { status: "error", detail: "The npm trust query returned a payload this check cannot read" };
+  }
+  if (relationships.length === 0) {
+    return { status: "not-configured" };
+  }
+  const isMatch = relationships.some(
+    (relationship) => relationship.type === "github" && relationship.repository === expectedRepo && relationship.file === expectedFile
+  );
+  return isMatch ? { status: "configured" } : {
+    status: "mismatched",
+    detail: `Expected github ${expectedRepo} (${expectedFile}); found ${describeTrustRelationships(relationships)}`
+  };
+}
+function describeTrustRelationships(relationships) {
+  return relationships.map((relationship) => {
+    const type = typeof relationship.type === "string" ? relationship.type : "(unknown)";
+    const repository = typeof relationship.repository === "string" ? relationship.repository : "(unknown)";
+    return `${type} ${repository}`;
+  }).join(", ");
+}
+var cachedNpmAuthStatus;
+function getCachedNpmAuthStatus() {
+  cachedNpmAuthStatus ??= classifyNpmAuth(runNpmJson("npm whoami --json"));
+  return cachedNpmAuthStatus;
+}
 var cachedOwnerRepo;
 function getCachedOwnerRepo() {
   if (cachedOwnerRepo === void 0) {
@@ -183,27 +276,6 @@ function hasTokenReferences() {
   }
   return false;
 }
-function hasTrustedPublisher(packageName, expectedRepo, expectedFile) {
-  let output;
-  try {
-    output = execSync(`npm trust list ${packageName} --json`, {
-      encoding: "utf8",
-      stdio: "pipe"
-    });
-  } catch {
-    return false;
-  }
-  let parsed;
-  try {
-    parsed = JSON.parse(output);
-  } catch {
-    return false;
-  }
-  if (!isRecord(parsed)) {
-    return false;
-  }
-  return parsed.type === "github" && parsed.repository === expectedRepo && parsed.file === expectedFile;
-}
 function isPublishedToNpm(packageName) {
   try {
     execSync(`npm view ${packageName} version`, {
@@ -225,11 +297,50 @@ function isRepoPrivate() {
 function parseProvenanceSetting(workflowContent) {
   return /^[^#]*provenance:\s*['"]?true['"]?/im.test(workflowContent);
 }
+function readNpmError(stdout) {
+  let parsed;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    return void 0;
+  }
+  if (!isRecord(parsed) || !isRecord(parsed.error) || typeof parsed.error.code !== "string") {
+    return void 0;
+  }
+  const { code, summary } = parsed.error;
+  return { code, summary: typeof summary === "string" ? summary : "" };
+}
+function readTrustRelationships(stdout) {
+  let parsed;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    return void 0;
+  }
+  if (Array.isArray(parsed)) {
+    return parsed.filter((entry) => isRecord(entry));
+  }
+  if (!isRecord(parsed)) {
+    return void 0;
+  }
+  return "type" in parsed ? [parsed] : [];
+}
+function runNpmJson(command) {
+  try {
+    return { exitOk: true, stdout: execSync(command, { encoding: "utf8", stdio: "pipe" }) };
+  } catch (error) {
+    const stdout = isRecord(error) && typeof error.stdout === "string" ? error.stdout : "";
+    return { exitOk: false, stdout };
+  }
+}
 function skipIfNotPublishable(workspace) {
   return workspace.isPackage ? false : "package.json#private is true";
 }
 export {
   buildWorkspaceCheck,
+  classifyNpmAuth,
+  classifyTrustQuery,
   npm_auto_publish_default as default,
+  packagesChecklist,
   skipIfNotPublishable
 };
