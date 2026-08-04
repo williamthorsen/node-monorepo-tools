@@ -13,14 +13,18 @@ export function resolveChangelogJsonPath(config: Pick<ReleaseConfig, 'changelogJ
   return join(changelogPath, config.changelogJson.outputPath);
 }
 
+/** Renders changelog entries as a `changelog.json` file's complete content, sorted newest-first. */
+export function renderChangelogJson(entries: ChangelogEntry[]): string {
+  return stringify(sortNewestFirst(entries), { maxLength: 100 }) + '\n';
+}
+
 /**
  * Write changelog entries to disk, sorted newest-first. Overwrites unconditionally — does not
  * read the existing file. Returns the file path written.
  */
 export function writeChangelogJson(filePath: string, entries: ChangelogEntry[]): string {
-  const sorted = sortNewestFirst(entries);
   mkdirSync(dirname(filePath), { recursive: true });
-  writeFileSync(filePath, stringify(sorted, { maxLength: 100 }) + '\n', 'utf8');
+  writeFileSync(filePath, renderChangelogJson(entries), 'utf8');
   return filePath;
 }
 
@@ -46,7 +50,7 @@ export function upsertChangelogJsonAndReturn(filePath: string, entries: Changelo
   const existing = readExistingEntries(filePath);
   const merged = mergeEntries(entries, existing);
   mkdirSync(dirname(filePath), { recursive: true });
-  writeFileSync(filePath, stringify(merged, { maxLength: 100 }) + '\n', 'utf8');
+  writeFileSync(filePath, renderChangelogJson(merged), 'utf8');
   return merged;
 }
 

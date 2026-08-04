@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
 import { bumpVersion } from './bumpVersion.ts';
+import type { PlannedWrite } from './releasePlan.ts';
 import type { BumpResult, ReleaseType } from './types.ts';
 
 interface PackageJson {
@@ -8,8 +9,41 @@ interface PackageJson {
   version: string;
 }
 
+/** A version change computed for a workspace's package files but not yet written. */
+export interface VersionBumpPlan {
+  currentVersion: string;
+  newVersion: string;
+  writes: PlannedWrite[];
+}
+
 function isPackageJson(value: unknown): value is PackageJson {
   return typeof value === 'object' && value !== null && 'version' in value && typeof value.version === 'string';
+}
+
+/**
+ * Computes the version bump for a workspace's package files without writing them.
+ *
+ * The current version comes from the first package file, and the new one from the release type.
+ * Every file's post-bump content is rendered in full, preserving the fields the file already
+ * carries and the two-space indentation with a trailing newline.
+ */
+export function planVersionBump(packageFiles: readonly string[], releaseType: ReleaseType): VersionBumpPlan {
+  const { firstFile, firstPkg } = readPrimaryPackage(packageFiles);
+  const currentVersion = firstPkg.version;
+  const newVersion = bumpVersion(currentVersion, releaseType);
+
+  return { currentVersion, newVersion, writes: renderVersionWrites(packageFiles, firstFile, firstPkg, newVersion) };
+}
+
+/**
+ * Computes an explicit version assignment for a workspace's package files without writing them,
+ * bypassing commit-derived bump logic. Backs the `--set-version` flag.
+ */
+export function planVersionSet(packageFiles: readonly string[], newVersion: string): VersionBumpPlan {
+  const { firstFile, firstPkg } = readPrimaryPackage(packageFiles);
+  const currentVersion = firstPkg.version;
+
+  return { currentVersion, newVersion, writes: renderVersionWrites(packageFiles, firstFile, firstPkg, newVersion) };
 }
 
 /**
@@ -81,6 +115,35 @@ function writeVersionToAllFiles(
       throw new Error(`Failed to write ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
+}
+
+/**
+ * Reads the first package file, which supplies the pre-change version for the whole workspace.
+ *
+ * @throws If no package files are configured.
+ */
+function readPrimaryPackage(packageFiles: readonly string[]): { firstFile: string; firstPkg: PackageJson } {
+  const firstFile = packageFiles[0];
+  if (firstFile === undefined) {
+    throw new Error('No package files specified');
+  }
+
+  return { firstFile, firstPkg: readPackageJson(firstFile) };
+}
+
+/** Renders each package file's complete content with `version` set to `newVersion`. */
+function renderVersionWrites(
+  packageFiles: readonly string[],
+  firstFile: string,
+  firstPkg: PackageJson,
+  newVersion: string,
+): PlannedWrite[] {
+  return packageFiles.map((filePath) => {
+    const pkg = filePath === firstFile ? firstPkg : readPackageJson(filePath);
+    pkg.version = newVersion;
+
+    return { path: filePath, content: JSON.stringify(pkg, null, 2) + '\n' };
+  });
 }
 
 /**

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { extractVersion, readChangelogEntries } from './changelogJsonUtils.ts';
 import { injectSection } from './injectSection.ts';
 import { matchesAudience, renderReleaseNotesSingle } from './renderReleaseNotes.ts';
+import type { ChangelogEntry } from './types.ts';
 
 /** Rendered artifacts produced by `renderInjectedReadme`. */
 export interface RenderedInjectedReadme {
@@ -18,33 +19,23 @@ export interface RenderedInjectedReadme {
 }
 
 /**
- * Render a README with release notes injected at the marker position, and the standalone
- * release-notes markdown, from an already-loaded README string and a changelog JSON path.
+ * Renders a README with release notes injected at the marker position, and the standalone
+ * release-notes markdown, from an already-loaded README string and an in-memory entry set.
  *
- * This is the pure rendering core shared by both the publish-time injection flow and the
- * `--with-release-notes` preview flow. It performs no file writes; callers decide whether to
- * persist the artifacts.
+ * This is the pure rendering core: it reads nothing and writes nothing, so a caller holding
+ * entries a release has computed but not yet written gets the same result as one rendering from
+ * a saved file.
  *
- * Returns `undefined` when any skip condition applies (missing or unparseable changelog, no
- * entry for the version, or no public-audience sections).
+ * Returns `undefined` when no entry matches the tag's version, or when the matching entry has no
+ * public-audience sections.
  */
-export function renderInjectedReadme(
+export function renderInjectedReadmeFromEntries(
   readme: string,
-  changelogJsonPath: string,
+  entries: readonly ChangelogEntry[],
   tag: string,
   sectionOrder?: string[],
 ): RenderedInjectedReadme | undefined {
-  if (!existsSync(changelogJsonPath)) {
-    console.warn(`Warning: ${changelogJsonPath} not found; skipping README injection`);
-    return undefined;
-  }
-
   const version = extractVersion(tag);
-  const entries = readChangelogEntries(changelogJsonPath);
-  if (entries === undefined) {
-    console.warn(`Warning: could not parse ${changelogJsonPath}; skipping README injection`);
-    return undefined;
-  }
 
   const entry = entries.find((e) => e.version === version);
   if (entry === undefined) {
@@ -72,6 +63,33 @@ export function renderInjectedReadme(
   const injectedReadme = injectSection(readme, 'release-notes', releaseNotesMarkdown);
 
   return { injectedReadme, releaseNotesMarkdown };
+}
+
+/**
+ * Path-taking wrapper over {@link renderInjectedReadmeFromEntries} for callers rendering from a
+ * saved `changelog.json`, such as the publish-time injection flow.
+ *
+ * Adds the two skip conditions that only a file can present: the changelog is missing, or it does
+ * not parse.
+ */
+export function renderInjectedReadme(
+  readme: string,
+  changelogJsonPath: string,
+  tag: string,
+  sectionOrder?: string[],
+): RenderedInjectedReadme | undefined {
+  if (!existsSync(changelogJsonPath)) {
+    console.warn(`Warning: ${changelogJsonPath} not found; skipping README injection`);
+    return undefined;
+  }
+
+  const entries = readChangelogEntries(changelogJsonPath);
+  if (entries === undefined) {
+    console.warn(`Warning: could not parse ${changelogJsonPath}; skipping README injection`);
+    return undefined;
+  }
+
+  return renderInjectedReadmeFromEntries(readme, entries, tag, sectionOrder);
 }
 
 /**

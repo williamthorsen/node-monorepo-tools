@@ -4,9 +4,37 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { resolveChangelogJsonPath, upsertChangelogJson, writeChangelogJson } from '../changelogJsonFile.ts';
+import {
+  renderChangelogJson,
+  resolveChangelogJsonPath,
+  upsertChangelogJson,
+  writeChangelogJson,
+} from '../changelogJsonFile.ts';
 import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
 import type { ChangelogEntry } from '../types.ts';
+
+describe(renderChangelogJson, () => {
+  it('orders entries newest-first regardless of input order', () => {
+    const rendered = renderChangelogJson([
+      { version: '1.0.0', date: '2024-01-01', sections: [] },
+      { version: '2.0.0', date: '2024-02-01', sections: [] },
+    ]);
+
+    const parsed: unknown = JSON.parse(rendered);
+    expect(parsed).toStrictEqual([
+      { version: '2.0.0', date: '2024-02-01', sections: [] },
+      { version: '1.0.0', date: '2024-01-01', sections: [] },
+    ]);
+  });
+
+  it('ends with a trailing newline', () => {
+    expect(renderChangelogJson([{ version: '1.0.0', date: '2024-01-01', sections: [] }])).toMatch(/\n$/);
+  });
+
+  it('renders an empty entry list as an empty array', () => {
+    expect(renderChangelogJson([])).toBe('[]\n');
+  });
+});
 
 describe(resolveChangelogJsonPath, () => {
   it('joins the changelog path with the config-supplied output path', () => {
