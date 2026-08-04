@@ -89,7 +89,7 @@ export const packagesChecklist = defineRdyChecklist({
       fix: 'Ensure pnpm-workspace.yaml lists package globs, or that a root package.json exists',
     },
     {
-      name: 'Logged in to npm',
+      name: 'npm session is usable',
       check: () => {
         const auth = getCachedNpmAuthStatus();
         return auth.status === 'authenticated' ? { ok: true } : { ok: false, detail: auth.detail };
@@ -268,8 +268,7 @@ export type TrustQueryResult =
  * Classifies the outcome of `npm trust list <package> --json` against the expected publisher.
  *
  * A query that could not be answered is its own state, distinct from a package that has no trusted
- * publisher: reporting the two alike is what made an unauthenticated run look like a repo-wide
- * misconfiguration.
+ * publisher.
  *
  * @internal - Exported only to enable testing
  */
@@ -311,13 +310,14 @@ export function classifyTrustQuery(
       };
 }
 
-/** Renders trust relationships for a failure detail. */
+/** Renders trust relationships for a failure detail, in the shape the expected publisher is named in. */
 function describeTrustRelationships(relationships: TrustRelationship[]): string {
   return relationships
     .map((relationship) => {
       const type = typeof relationship.type === 'string' ? relationship.type : '(unknown)';
       const repository = typeof relationship.repository === 'string' ? relationship.repository : '(unknown)';
-      return `${type} ${repository}`;
+      const file = typeof relationship.file === 'string' ? relationship.file : '(unknown)';
+      return `${type} ${repository} (${file})`;
     })
     .join(', ');
 }
@@ -442,7 +442,7 @@ interface TrustRelationship {
  * Reads the trust relationships from a successful `npm trust list` payload.
  *
  * The subcommand is named `list`, so a package may carry more than one relationship; both a bare
- * object and an array of them are accepted. A payload carrying no `type` field describes no
+ * object and an array of them are accepted. An entry carrying no `type` field describes no
  * relationship, which is absence rather than an unreadable response.
  */
 function readTrustRelationships(stdout: string): TrustRelationship[] | undefined {
@@ -454,7 +454,7 @@ function readTrustRelationships(stdout: string): TrustRelationship[] | undefined
   }
 
   if (Array.isArray(parsed)) {
-    return parsed.filter((entry) => isRecord(entry));
+    return parsed.filter((entry): entry is TrustRelationship => isRecord(entry) && 'type' in entry);
   }
 
   if (!isRecord(parsed)) {

@@ -158,9 +158,18 @@ describe(classifyTrustQuery, () => {
     expect(result).toHaveProperty('detail', expect.stringContaining('someone/else'));
   });
 
+  it('names the workflow file when it is the only field that differs', () => {
+    const otherFile = { type: 'github', repository: OWNER_REPO, file: 'release.yaml' };
+    const result = classifyTrustQuery({ exitOk: true, stdout: JSON.stringify(otherFile) }, OWNER_REPO, WORKFLOW_FILE);
+
+    expect(result.status).toBe('mismatched');
+    expect(result).toHaveProperty('detail', expect.stringContaining('release.yaml'));
+  });
+
   it.each([
     ['an empty object', '{}'],
     ['an empty array', '[]'],
+    ['an array of entries naming no relationship', '[{}]'],
   ])('reports %s as not configured', (_label, stdout) => {
     expect(classifyTrustQuery({ exitOk: true, stdout }, OWNER_REPO, WORKFLOW_FILE)).toStrictEqual({
       status: 'not-configured',
@@ -191,11 +200,11 @@ describe(classifyTrustQuery, () => {
 });
 
 describe('packagesChecklist', () => {
-  // Read names only. Every check's `fix` is a getter, and the login precondition's queries the
+  // Read names only. Every check's `fix` is a getter, and the session precondition's queries the
   // registry, so touching one here would put a network call in a unit test.
-  it('gates the checklist on an npm login', () => {
+  it('gates the checklist on a usable npm session', () => {
     const preconditionNames = packagesChecklist.preconditions?.map((precondition) => precondition.name) ?? [];
 
-    expect(preconditionNames).toContain('Logged in to npm');
+    expect(preconditionNames).toContain('npm session is usable');
   });
 });

@@ -78,7 +78,7 @@ var packagesChecklist = defineRdyChecklist({
       fix: "Ensure pnpm-workspace.yaml lists package globs, or that a root package.json exists"
     },
     {
-      name: "Logged in to npm",
+      name: "npm session is usable",
       check: () => {
         const auth = getCachedNpmAuthStatus();
         return auth.status === "authenticated" ? { ok: true } : { ok: false, detail: auth.detail };
@@ -233,7 +233,8 @@ function describeTrustRelationships(relationships) {
   return relationships.map((relationship) => {
     const type = typeof relationship.type === "string" ? relationship.type : "(unknown)";
     const repository = typeof relationship.repository === "string" ? relationship.repository : "(unknown)";
-    return `${type} ${repository}`;
+    const file = typeof relationship.file === "string" ? relationship.file : "(unknown)";
+    return `${type} ${repository} (${file})`;
   }).join(", ");
 }
 var cachedNpmAuthStatus;
@@ -318,7 +319,7 @@ function readTrustRelationships(stdout) {
     return void 0;
   }
   if (Array.isArray(parsed)) {
-    return parsed.filter((entry) => isRecord(entry));
+    return parsed.filter((entry) => isRecord(entry) && "type" in entry);
   }
   if (!isRecord(parsed)) {
     return void 0;
