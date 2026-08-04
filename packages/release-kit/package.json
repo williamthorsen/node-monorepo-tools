@@ -40,6 +40,7 @@
   ],
   "scripts": {
     "build:post": "node scripts/copy-work-types.js && rdy compile",
+    "build:pre": "rdy verify",
     "prepare": "node ../nmr/src/cli-build.ts",
     "prepublishOnly": "nmr build",
     "work-types:check": "pnpm exec release-kit work-types check",

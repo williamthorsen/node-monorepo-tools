@@ -41,6 +41,7 @@
   ],
   "scripts": {
     "build:post": "rdy compile",
+    "build:pre": "rdy verify",
     "prepare": "node ../nmr/src/cli-build.ts"
   },
   "dependencies": {
