@@ -89,9 +89,36 @@ describe(getDefaultRootScripts, () => {
   it('composes root scripts that delegate to workspaces', () => {
     const scripts = getDefaultRootScripts();
 
-    expect(scripts.lint).toBe('nmr root:lint && pnpm --recursive exec nmr lint');
     expect(scripts.test).toBe('nmr root:test && pnpm --recursive exec nmr test');
     expect(scripts.typecheck).toBe('nmr root:typecheck && pnpm --recursive exec nmr typecheck');
+  });
+
+  it('lints the whole tree in one process, delegating to no workspace', () => {
+    const scripts = getDefaultRootScripts();
+
+    expect(scripts.lint).toBe('eslint --fix .');
+    expect(scripts['lint:check']).toBe('eslint .');
+    expect(scripts['lint:strict']).toBe('strict-lint');
+  });
+
+  // The root registry's lint commands cover the tree the workspace registry's cover one package of, so the two
+  // resolve to the same string: a divergence would mean one scope had picked up a flag the other lacks.
+  it('gives root and workspace lint commands the same form', () => {
+    const rootScripts = getDefaultRootScripts();
+    const workspaceScripts = getDefaultWorkspaceScripts();
+
+    for (const name of ['lint', 'lint:check', 'lint:strict']) {
+      expect(rootScripts[name]).toBe(workspaceScripts[name]);
+    }
+  });
+
+  // Retained as the isolate-to-root-code counterparts of the collapsed commands, mirroring `root:test`.
+  it('scopes each root-only lint command away from packages', () => {
+    const scripts = getDefaultRootScripts();
+
+    expect(scripts['root:lint']).toBe("eslint --fix --ignore-pattern 'packages/**' .");
+    expect(scripts['root:lint:check']).toBe("eslint --ignore-pattern 'packages/**' .");
+    expect(scripts['root:lint:strict']).toBe("strict-lint --ignore-pattern 'packages/**' .");
   });
 
   it('fans every test selection out to the root and to each package', () => {
@@ -124,12 +151,6 @@ describe(getDefaultRootScripts, () => {
 
   it('watches the whole tree from one process, running the default gate alone', () => {
     expect(getDefaultRootScripts()['test:watch']).toBe('vitest --project unit --project tool --watch');
-  });
-
-  it('runs strict-lint against the monorepo root, excluding packages', () => {
-    const scripts = getDefaultRootScripts();
-
-    expect(scripts['root:lint:strict']).toBe("strict-lint --ignore-pattern 'packages/**' .");
   });
 
   it('sweeps every package on upgrade, and the root alone on root:upgrade', () => {

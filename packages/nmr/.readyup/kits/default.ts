@@ -44,7 +44,7 @@ export default defineRdyKit({
               severity: 'error',
               check: () =>
                 hasMinDevDependencyVersion('@williamthorsen/nmr', getMinVersion(), {
-                  exempt: (range) => range.startsWith('workspace:'),
+                  exempt: resolvesVersionViaWorkspace,
                 }),
               get fix() {
                 return `pnpm add --save-dev @williamthorsen/nmr@^${getMinVersion()}`;
@@ -76,6 +76,31 @@ export default defineRdyKit({
           skip: () => (!fileExists('.config/nmr.config.ts') ? 'no nmr config file' : false),
           check: () => fileContains('.config/nmr.config.ts', /defineConfig/),
           fix: 'Wrap your config export with defineConfig() from @williamthorsen/nmr/config for type safety',
+        },
+
+        // `error` because falling short produces wrong results rather than a failure. Names and fixes are
+        // getters because their version constants are declared below the kit.
+        {
+          get name() {
+            return `eslint >= ${MIN_ESLINT_VERSION}`;
+          },
+          severity: 'error',
+          skip: () => (!hasDevDependency('eslint') ? 'eslint not installed' : false),
+          check: hasSupportedEslintVersion,
+          get fix() {
+            return `pnpm add --save-dev eslint@^${MIN_ESLINT_VERSION} — earlier releases resolve config from the working directory, so nmr's root lint and lint:check would apply the root config to every package`;
+          },
+        },
+        {
+          get name() {
+            return `@williamthorsen/strict-lint >= ${MIN_STRICT_LINT_VERSION}`;
+          },
+          severity: 'error',
+          skip: () => (!hasDevDependency('@williamthorsen/strict-lint') ? 'strict-lint not installed' : false),
+          check: hasSupportedStrictLintVersion,
+          get fix() {
+            return `pnpm add --save-dev @williamthorsen/strict-lint@^${MIN_STRICT_LINT_VERSION} — earlier releases pin ESLint to one config and resolve ceilings from the working directory, so nmr's root lint:strict would report the wrong rules for every package`;
+          },
         },
 
         // -- Root script cleanup -------------------------------------------------
@@ -191,7 +216,16 @@ const SHARED_PRETTIER_MODULE = '@williamthorsen/nmr/prettier';
 const INERT_PRETTIER_CONFIGS = ['.prettierrc', '.prettierrc.{json,json5,yaml,yml,toml}'];
 
 /** Matches a line whose only content is a re-export from an ancestor directory. */
-const RE_EXPORT_LINE_PATTERN = /^export\s*(?:\{\s*default\s*\}|\*)\s*from\s*['"]\.\.\/[^'"]*['"];?$/;
+const RE_EXPORT_LINE_PATTERN = /^export\s*(?:\{\s*default\s*}|\*)\s*from\s*['"]\.\.\/[^'"]*['"];?$/;
+
+/** The first ESLint release that resolves config per linted file rather than from the working directory. */
+const MIN_ESLINT_VERSION = '10.0.0';
+
+/** The first strict-lint release that resolves both the ESLint config and its own ceilings per linted file. */
+const MIN_STRICT_LINT_VERSION = '9.3.0';
+
+/** Protocols that defer a dependency's version to pnpm-workspace.yaml or to a sibling package. */
+const WORKSPACE_VERSION_MARKERS = ['catalog:', 'workspace:'];
 
 /**
  * Check that every workspace package can run `nmr build` successfully.
@@ -377,11 +411,23 @@ function getMinVersion(): string {
   return picked.version;
 }
 
+export function hasSupportedEslintVersion(): boolean {
+  return hasMinDevDependencyVersion('eslint', MIN_ESLINT_VERSION, {
+    exempt: resolvesVersionViaWorkspace,
+  });
+}
+
+export function hasSupportedStrictLintVersion(): boolean {
+  return hasMinDevDependencyVersion('@williamthorsen/strict-lint', MIN_STRICT_LINT_VERSION, {
+    exempt: resolvesVersionViaWorkspace,
+  });
+}
+
 /**
  * Checks whether a config imports a named export from one of nmr's shared-config modules.
  *
- * `defineVitestConfig` does not match inside `defineRootVitestConfig`, so the root-config and
- * root-tests-config checks cannot satisfy each other.
+ * `defineVitestConfig` does not match inside `defineRootVitestConfig`,
+ * so the root-config and root-tests-config checks cannot satisfy each other.
  */
 function importsSharedExport(content: string | undefined, exportName: string, moduleSpecifier: string): boolean {
   if (content === undefined) return false;
@@ -484,12 +530,17 @@ function readFileIn(cwd: string, relativePath: string): string | undefined {
   }
 }
 
+/** Reports whether a range defers to a workspace-level declaration instead of naming a version. */
+function resolvesVersionViaWorkspace(range: string): boolean {
+  return WORKSPACE_VERSION_MARKERS.some((marker) => range.startsWith(marker));
+}
+
 /** Check whether a named script exists in root package.json. */
 function scriptExists(name: string): boolean {
   const pkg = readPackageJson();
   if (!pkg) return false;
   const scripts = pkg.scripts;
-  return isRecord(scripts) && name in scripts;
+  return isRecord(scripts) && Object.hasOwn(scripts, name);
 }
 
 /** Check whether a named script's value matches a regex. Return false if absent. */

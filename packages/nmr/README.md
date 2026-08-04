@@ -458,11 +458,17 @@ The same six names the workspace registry carries, so a command means the same t
 
 #### Lint
 
-| Command       | Runs                                                            |
-| ------------- | --------------------------------------------------------------- |
-| `lint`        | `nmr root:lint && pnpm --recursive exec nmr lint`               |
-| `lint:check`  | `nmr root:lint:check && pnpm --recursive exec nmr lint:check`   |
-| `lint:strict` | `nmr root:lint:strict && pnpm --recursive exec nmr lint:strict` |
+The lint commands respect each package's own `eslint.config.*`. Use the `root:` variants below to lint root-level code alone.
+
+Requires `eslint` >= 10 and, for `lint:strict`, `@williamthorsen/strict-lint` >= 9.3.0.
+
+| Command       | Runs             |
+| ------------- | ---------------- |
+| `lint`        | `eslint --fix .` |
+| `lint:check`  | `eslint .`       |
+| `lint:strict` | `strict-lint`    |
+
+The run never enters a package, so per-package `lint:pre` and `lint:post` hooks do not fire from the root. They still run from inside the package and under `nmr -F <package> lint`.
 
 #### Format
 
