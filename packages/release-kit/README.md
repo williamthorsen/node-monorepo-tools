@@ -858,6 +858,32 @@ The body template is intentionally empty: release-kit reads cliff's `--context` 
 
 To customize, scaffold a local copy with `release-kit init --with-config` and edit `.config/git-cliff.toml`. Edit only the `[git]` section — body-template changes have no effect.
 
+## Readiness checks
+
+release-kit publishes two [readyup](https://www.npmjs.com/package/readyup) kits that check a consuming repo against the release it has installed: the `default` kit covers release-kit's own setup — workflows matching the current templates, config free of removed fields, sync-labels wiring — and `npm-auto-publish` covers a repo's OIDC-based npm publishing setup. Both ship inside the package, so they check against the version you installed rather than whatever a repository ref happens to point at, and a check added in a release reaches your repo on upgrade.
+
+Add `readyup` as a devDependency, then name release-kit in its config:
+
+```ts
+// .config/readyup.config.ts
+import { defineRdyConfig } from 'readyup';
+
+export default defineRdyConfig({
+  packages: ['@williamthorsen/release-kit'],
+});
+```
+
+```bash
+rdy run --packages                                               # every kit each listed package publishes
+rdy run --from npm:@williamthorsen/release-kit                   # the default kit alone
+rdy run --from npm:@williamthorsen/release-kit npm-auto-publish  # the npm-auto-publish kit
+rdy list --from npm:@williamthorsen/release-kit                  # what release-kit publishes
+```
+
+`--packages` is the form that survives release-kit publishing further kits. Every form needs `readyup` 0.23 or later, and `@williamthorsen/release-kit` as a _direct_ devDependency: a strict pnpm layout links nothing else into the project, so a transitive copy is unreachable.
+
+These kits are no longer reachable through `rdy run --from github:williamthorsen/node-monorepo-tools`. Repos still using that form should switch to one of the invocations above.
+
 ## External dependencies
 
 This package shells out to two external tools:
