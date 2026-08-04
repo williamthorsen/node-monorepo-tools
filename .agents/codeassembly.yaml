@@ -1,0 +1,5 @@
+# nmr ships its own agent guidance. The root devDepends on it as `workspace:*`, so this declaration
+# resolves the live `packages/nmr/agents` tree rather than a packed copy.
+packages:
+  use:
+    - '@williamthorsen/nmr'

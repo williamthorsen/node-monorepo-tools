@@ -1,8 +1,10 @@
 ---
-source: '@williamthorsen/nmr@0.23.0'
+slug: nmr
+description: Invocation rules for the nmr script runner in a pnpm monorepo.
+delivery: ambient
 ---
 
-# nmr: agent guidance (generated; do not edit)
+# nmr: agent guidance
 
 - Use `nmr <command>`, not `pnpm run <command>`, for anything nmr provides. Run bare `nmr` to list every command and the shell command it resolves to; a wrong guess reports only `Unknown command`, with no list.
 - Scope follows cwd, and bare `nmr` lists both registries: from the repo root a command covers root files and every workspace; from inside a package, that package alone. `nmr -F <pkg> <command>` targets one package from anywhere; `nmr root:<command>` targets root files alone, which isolates a failure to root code.

@@ -17,6 +17,8 @@ peerDependencyRules:
 minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   - '@williamthorsen/*'
+  - codeassembly
+  - codeassembly-lifecycle
   - readyup
   - v11y-check
 

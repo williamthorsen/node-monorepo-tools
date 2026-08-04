@@ -38,6 +38,9 @@ importers:
       '@williamthorsen/toolbelt.objects':
         specifier: 3.2.10
         version: 3.2.10
+      codeassembly:
+        specifier: 0.4.0
+        version: 0.4.0
       eslint:
         specifier: 10.8.0
         version: 10.8.0(jiti@2.7.0)(supports-color@7.2.0)
@@ -777,6 +780,11 @@ packages:
       eslint: '>=10'
       typescript: '>=5'
 
+  '@williamthorsen/kb@0.3.0':
+    resolution: {integrity: sha512-IHQUQ6XMpxU78TnJAuYcyVrOWmMd1dV/Ku8TzFE0sfqalMSUhAS+siv+z+dtwCuOFoy+V7VcERWUt+w/gDvXBA==}
+    engines: {node: '>=24'}
+    hasBin: true
+
   '@williamthorsen/strict-lint@9.2.0':
     resolution: {integrity: sha512-AWj5SM8PZ/R9bjGspN7f9/9o2Yg8DkhGMscPKYJyzIUwtKosN1+1XnMh2RvVW2YRnO4hLi7RIezn7cM2YrHIyg==}
     engines: {node: '>=24'}
@@ -918,6 +926,15 @@ packages:
   cliui@8.0.1:
     resolution: {integrity: sha512-BSeNnyus75C4//NQ9gQt1/csTXyo/8Sb+afLAkzAptFuMsod9HFokGNudZpi/oQV73hnVK+sR+5PVRMd+Dr7YQ==}
     engines: {node: '>=12'}
+
+  codeassembly-lifecycle@0.2.0:
+    resolution: {integrity: sha512-ycszfwd7+FWlFX80Wwd7lgTadMPWMeaXKBaq0diUAAEeiG1tBFdxntboeBy7MNMoWAngqaG8chXguk5ip+AU7A==}
+    engines: {node: '>=24'}
+
+  codeassembly@0.4.0:
+    resolution: {integrity: sha512-0QxBXfElxnUFbG/I+TvcGEO5VMFp4lBR7/xc/5FJPwXITxjfu6A5uhcXDvw0WOkijBdNPDxZWlYK02DyMaTJ1Q==}
+    engines: {node: '>=24'}
+    hasBin: true
 
   color-convert@2.0.1:
     resolution: {integrity: sha512-RRECPsj7iu/xb5oKYcsFHSppFNnsj/52OVTRKb4zP5onXwVF3zVmmToNcOfGC+CRDpfK/U584fMg38ZHCaElKQ==}
@@ -2274,6 +2291,10 @@ packages:
   ufo@1.6.4:
     resolution: {integrity: sha512-JFNbkD1Svwe0KvGi8GOeLcP4kAWQ609twvCdcHxq1oSL8svv39ZuSvajcD8B+5D0eL4+s1Is2D/O6KN3qcTeRA==}
 
+  ulid@3.0.2:
+    resolution: {integrity: sha512-yu26mwteFYzBAot7KVMqFGCVpsF6g8wXfJzQUHvu1no3+rRRSFcSV2nKeYvNPLD2J4b08jYBDhHUjeH0ygIl9w==}
+    hasBin: true
+
   unbox-primitive@1.1.0:
     resolution: {integrity: sha512-nWJ91DjeOkej/TA8pXQ3myruKpKEYgqvpw9lz4OPHj/NWFNluYrjbz9j01CJ8yKQd2g4jFoOkINCTW2I5LEEyw==}
     engines: {node: '>= 0.4'}
@@ -2984,6 +3005,12 @@ snapshots:
       - supports-color
       - ts-declaration-location
 
+  '@williamthorsen/kb@0.3.0':
+    dependencies:
+      picomatch: 4.0.5
+      yaml: 2.9.0
+      zod: 4.4.3
+
   '@williamthorsen/strict-lint@9.2.0(eslint@10.8.0(jiti@2.7.0)(supports-color@7.2.0))':
     dependencies:
       '@williamthorsen/toolbelt.filesystem': 0.2.1
@@ -3145,6 +3172,16 @@ snapshots:
       string-width: 4.2.3
       strip-ansi: 6.0.1
       wrap-ansi: 7.0.0
+
+  codeassembly-lifecycle@0.2.0: {}
+
+  codeassembly@0.4.0:
+    dependencies:
+      '@williamthorsen/kb': 0.3.0
+      codeassembly-lifecycle: 0.2.0
+      ulid: 3.0.2
+      yaml: 2.9.0
+      zod: 4.4.3
 
   color-convert@2.0.1:
     dependencies:
@@ -4649,6 +4686,8 @@ snapshots:
   typescript@6.0.3: {}
 
   ufo@1.6.4: {}
+
+  ulid@3.0.2: {}
 
   unbox-primitive@1.1.0:
     dependencies:
