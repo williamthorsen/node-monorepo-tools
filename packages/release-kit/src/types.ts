@@ -149,6 +149,8 @@ export interface ReleasedWorkspaceResult {
   tag: string;
   bumpedFiles: string[];
   changelogFiles: string[];
+  /** Release-notes preview files; present only under `--with-release-notes`. */
+  previewFiles?: string[];
   /** Raw commits associated with this workspace (present for direct releases, absent for propagation-only). */
   commits?: Commit[];
   /**
@@ -224,6 +226,8 @@ export interface ReleasedProjectResult {
   tag: string;
   bumpedFiles: string[];
   changelogFiles: string[];
+  /** Release-notes preview files; present only under `--with-release-notes`. */
+  previewFiles?: string[];
   /** Raw commits in the project's contributing-paths window since the last project tag. */
   commits: Commit[];
   /**

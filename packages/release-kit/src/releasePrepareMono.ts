@@ -524,7 +524,7 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
   // A workspace is empty-range when it has a direct release (i.e., not propagation-only) but
   // its commit window is empty — the `--force` / `--bump=X` / `--set-version` paths land here.
   const isEmptyRange = directResult !== undefined && directResult.commits.length === 0;
-  const changelogFiles = generateWorkspaceChangelogs({
+  const { changelogFiles, previewFiles } = generateWorkspaceChangelogs({
     workspace,
     releaseEntry,
     newTag,
@@ -550,6 +550,7 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     tag: newTag,
     bumpedFiles: bump.writes.map((write) => write.path),
     changelogFiles,
+    ...(previewFiles.length > 0 && { previewFiles }),
   };
   attachReleasedWorkspaceOptionals(released, {
     previousTag: directResult?.tag ?? previousTags.get(dir),
@@ -641,7 +642,10 @@ interface GenerateWorkspaceChangelogsArgs {
  * overrides, merging with the JSON on disk, and rendering both `changelog.json` and
  * `CHANGELOG.md` from the merged set so the two reflect the same post-override view.
  */
-function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): string[] {
+function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): {
+  changelogFiles: string[];
+  previewFiles: string[];
+} {
   const {
     workspace,
     releaseEntry,
@@ -693,8 +697,10 @@ function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): str
     changelogFiles.push(changelogFile);
   }
 
-  writes.push(...planPreviews(workspace, newTag, firstMergedEntries, previewOptions, warnings));
-  return changelogFiles;
+  const previews = planPreviews(workspace, newTag, firstMergedEntries, previewOptions, warnings);
+  writes.push(...previews);
+
+  return { changelogFiles, previewFiles: previews.map((write) => write.path) };
 }
 
 /** Arguments for {@link buildWorkspaceEntries}. */

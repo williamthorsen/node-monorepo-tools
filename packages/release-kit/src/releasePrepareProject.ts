@@ -169,6 +169,7 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
 
   // 9. Optional release-notes previews under root docs/, rendered from the entries this stage
   // plans to write rather than from the file it has not written yet.
+  const previewFiles: string[] = [];
   if (withReleaseNotes === true && config.changelogJson.enabled && changelogJsonFiles.length > 0) {
     const previews = planReleaseNotesPreviews({
       workspacePath: ROOT_CHANGELOG_PATH,
@@ -178,6 +179,7 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
     });
     writes.push(...previews.writes);
     warnings.push(...previews.warnings);
+    previewFiles.push(...previews.writes.map((write) => write.path));
   }
 
   // 10. Append the project tag and modified files to the shared aggregators so downstream
@@ -198,6 +200,9 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
     changelogFiles,
     commits,
   };
+  if (previewFiles.length > 0) {
+    result.previewFiles = previewFiles;
+  }
   if (tag !== undefined) {
     result.previousTag = tag;
   }

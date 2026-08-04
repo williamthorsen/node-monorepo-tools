@@ -9,6 +9,15 @@ export interface PlannedWrite {
   content: string;
 }
 
+/** A write that reached disk, and whether it created the file or replaced existing content. */
+interface AppliedWrite {
+  path: string;
+  created: boolean;
+}
+
+/** Files a release writes for the next command to read, rather than release content. */
+const HANDOFF_FILES = new Set([RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE]);
+
 /**
  * A release computed in full but not yet written.
  *
@@ -38,20 +47,20 @@ export interface ReleasePlan extends PrepareResult {
  */
 export function applyReleasePlan(plan: ReleasePlan): string[] {
   const ordered = orderPlannedWrites(plan);
-  const written: string[] = [];
+  const applied: AppliedWrite[] = [];
 
   for (const [index, write] of ordered.entries()) {
     const result = writeFileWithCheck(write.path, write.content, { dryRun: false, overwrite: true });
 
     if (result.outcome === 'failed') {
       const unwritten = ordered.slice(index).map((pending) => pending.path);
-      throw new Error(describeApplyFailure(write.path, result.error, written, unwritten));
+      throw new Error(describeApplyFailure({ failedPath: write.path, error: result.error, applied, unwritten }));
     }
 
-    written.push(write.path);
+    applied.push({ path: write.path, created: result.outcome === 'created' });
   }
 
-  return written;
+  return applied.map((write) => write.path);
 }
 
 /** Orders a plan's writes for application, appending the summary and tags files in that order. */
@@ -68,37 +77,67 @@ function orderPlannedWrites(plan: ReleasePlan): PlannedWrite[] {
   return ordered;
 }
 
+/** Inputs to {@link describeApplyFailure}. */
+interface DescribeApplyFailureArgs {
+  failedPath: string;
+  error: string | undefined;
+  applied: readonly AppliedWrite[];
+  unwritten: readonly string[];
+}
+
 /**
  * Composes the failure message for a partially applied plan.
  *
- * Names both sides of the boundary and the command that reverts the written side. A tree left
- * midway through a release looks like an ordinary set of edits, so the operator has no way to
- * tell the two apart without being told which files the run touched.
+ * Names both sides of the boundary and how to undo the written side. A tree left midway through
+ * a release looks like an ordinary set of edits, so the operator has no way to tell the two apart
+ * without being told which files the run touched.
  */
-function describeApplyFailure(
-  failedPath: string,
-  error: string | undefined,
-  written: readonly string[],
-  unwritten: readonly string[],
-): string {
-  const total = written.length + unwritten.length;
+function describeApplyFailure(args: DescribeApplyFailureArgs): string {
+  const { failedPath, error, applied, unwritten } = args;
+  const total = applied.length + unwritten.length;
   const lines = [`Failed to write ${failedPath}: ${error ?? 'unknown error'}`, ''];
 
-  if (written.length === 0) {
+  if (applied.length === 0) {
     lines.push(`The release was not applied. None of its ${total} files were written.`);
     return lines.join('\n');
   }
 
   lines.push(
-    `The release was partially applied. ${written.length} of ${total} files were written:`,
-    ...written.map((path) => `  ${path}`),
+    `The release was partially applied. ${applied.length} of ${total} files were written:`,
+    ...applied.map((write) => `  ${write.path}`),
     '',
     'Not written:',
     ...unwritten.map((path) => `  ${path}`),
-    '',
-    'Revert the written files before re-running `release-kit prepare`:',
-    `  git restore ${written.join(' ')}`,
+    ...describeRecovery(applied),
   );
 
   return lines.join('\n');
+}
+
+/**
+ * Renders the commands that undo a partial apply, one per kind of write.
+ *
+ * A replaced file is restored from git; a created file is deleted, since git has no entry to
+ * restore it from and a single `git restore` over both fails on the unmatched pathspec. The
+ * handoff files are left out: `prepare` overwrites them on its next run, and they sit under a
+ * conventionally ignored directory where `git restore` would fail on them too.
+ */
+function describeRecovery(applied: readonly AppliedWrite[]): string[] {
+  const releaseWrites = applied.filter((write) => !HANDOFF_FILES.has(write.path));
+  const replaced = releaseWrites.filter((write) => !write.created).map((write) => write.path);
+  const created = releaseWrites.filter((write) => write.created).map((write) => write.path);
+
+  if (replaced.length === 0 && created.length === 0) {
+    return [];
+  }
+
+  const lines = ['', 'Undo the written release files before re-running `release-kit prepare`:'];
+  if (replaced.length > 0) {
+    lines.push(`  git restore ${replaced.join(' ')}`);
+  }
+  if (created.length > 0) {
+    lines.push(`  rm ${created.join(' ')}`);
+  }
+
+  return lines;
 }

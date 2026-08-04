@@ -9,9 +9,6 @@ const mockMkdtempSync = vi.hoisted(() => vi.fn());
 const mockRmSync = vi.hoisted(() => vi.fn());
 const mockCopyFileSync = vi.hoisted(() => vi.fn());
 const mockBuildChangelogEntries = vi.hoisted(() => vi.fn());
-const mockWriteChangelogJson = vi.hoisted(() => vi.fn());
-const mockUpsertChangelogJson = vi.hoisted(() => vi.fn());
-const mockUpsertChangelogJsonAndReturn = vi.hoisted(() => vi.fn());
 const mockMergeChangelogEntriesWithDisk = vi.hoisted(() => vi.fn());
 const mockRenderChangelogMarkdown = vi.hoisted(() => vi.fn());
 const mockRenderChangelogJson = vi.hoisted(() => vi.fn());
@@ -42,10 +39,7 @@ vi.mock(import('../buildChangelogEntries.ts'), () => ({
 vi.mock(import('../changelogJsonFile.ts'), () => ({
   resolveChangelogJsonPath: (config: { changelogJson: { outputPath: string } }, changelogPath: string): string =>
     `${changelogPath}/${config.changelogJson.outputPath}`,
-  writeChangelogJson: mockWriteChangelogJson,
   renderChangelogJson: mockRenderChangelogJson,
-  upsertChangelogJson: mockUpsertChangelogJson,
-  upsertChangelogJsonAndReturn: mockUpsertChangelogJsonAndReturn,
   mergeChangelogEntriesWithDisk: mockMergeChangelogEntriesWithDisk,
 }));
 
@@ -110,9 +104,6 @@ function setupDefaultGit(): void {
 describe(releasePrepareProject, () => {
   beforeEach(() => {
     mockBuildChangelogEntries.mockReturnValue([]);
-    mockWriteChangelogJson.mockImplementation((filePath: string) => filePath);
-    mockUpsertChangelogJson.mockImplementation((filePath: string) => filePath);
-    mockUpsertChangelogJsonAndReturn.mockImplementation((_filePath: string, entries: unknown[]) => entries);
     mockMergeChangelogEntriesWithDisk.mockImplementation((_filePath: string, entries: unknown[]) => entries);
     mockRenderChangelogMarkdown.mockReturnValue('# Changelog\n');
     mockRenderChangelogJson.mockReturnValue('[]\n');
@@ -131,9 +122,6 @@ describe(releasePrepareProject, () => {
     mockRmSync.mockReset();
     mockCopyFileSync.mockReset();
     mockBuildChangelogEntries.mockReset();
-    mockWriteChangelogJson.mockReset();
-    mockUpsertChangelogJson.mockReset();
-    mockUpsertChangelogJsonAndReturn.mockReset();
     mockMergeChangelogEntriesWithDisk.mockReset();
     mockRenderChangelogMarkdown.mockReset();
     mockRenderChangelogJson.mockReset();
@@ -393,7 +381,7 @@ describe(releasePrepareProject, () => {
     expect(tags).toStrictEqual(['v0.9.1']);
   });
 
-  it('does not write any files in dry-run mode', () => {
+  it('plans the project release without writing any file', () => {
     setupDefaultGit();
     const tags: string[] = [];
     const modifiedFiles: string[] = [];
@@ -409,9 +397,6 @@ describe(releasePrepareProject, () => {
     if (result.status !== 'released') throw new Error('expected released');
     expect(result.tag).toBe('v0.10.0');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
-    // The Markdown CHANGELOG path: git-cliff itself is invoked through `generateChangelog`,
-    // which short-circuits in dry-run, so no `npx git-cliff` call appears here. The structured
-    // JSON path is exercised in the dedicated tests below.
     expect(
       mockExecFileSync.mock.calls.find(
         (call) => call[0] === 'npx' && Array.isArray(call[1]) && call[1].includes('git-cliff'),
@@ -419,10 +404,9 @@ describe(releasePrepareProject, () => {
     ).toBeUndefined();
   });
 
-  it('writes the root changelog.json without invoking the upsert path (project-stage no-merge)', () => {
-    // Pin: the project stage uses writeChangelogJson (overwrite, no read-merge), not
-    // upsertChangelogJson. This is the structural fix for #316 W4: by removing the read,
-    // there is no parse-failure path to silently discard entries.
+  it('renders the root changelog.json from the cliff entries alone, with no read-merge', () => {
+    // The project stage overwrites rather than merging, so a malformed existing file cannot
+    // silently discard entries.
     setupDefaultGit();
     const config = makeConfig({
       changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
@@ -440,7 +424,6 @@ describe(releasePrepareProject, () => {
     expect(mockBuildChangelogEntries).toHaveBeenCalledTimes(1);
     expect(mockRenderChangelogJson).toHaveBeenCalledTimes(1);
     expect(mockRenderChangelogJson).toHaveBeenCalledWith(expect.any(Array));
-    expect(mockUpsertChangelogJson).not.toHaveBeenCalled();
     expect(modifiedFiles).toContain('./.meta/changelog.json');
   });
 
@@ -474,10 +457,7 @@ describe(releasePrepareProject, () => {
     expect(mockRenderChangelogJson).toHaveBeenCalledTimes(1);
   });
 
-  it('invokes buildChangelogEntries even in dry-run mode (intentional behavioral change)', () => {
-    // Pin: under the layered redesign, buildChangelogEntries always runs and dryRun governs
-    // only the file write. This is the deliberate change called out in Task 1 of the plan —
-    // dry-run now exercises the full git-cliff toolchain.
+  it('invokes buildChangelogEntries whenever the project releases', () => {
     setupDefaultGit();
     const config = makeConfig({
       changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
@@ -493,7 +473,6 @@ describe(releasePrepareProject, () => {
     });
 
     expect(mockBuildChangelogEntries).toHaveBeenCalledTimes(1);
-    expect(mockWriteChangelogJson).not.toHaveBeenCalled();
     expect(modifiedFiles).toContain('./.meta/changelog.json');
   });
 

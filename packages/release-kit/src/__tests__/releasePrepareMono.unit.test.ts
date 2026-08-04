@@ -37,8 +37,6 @@ vi.mock(import('../planReleaseNotesPreviews.ts'), () => ({
 const mockBuildChangelogEntries = vi.hoisted(() => vi.fn());
 const mockBuildSyntheticChangelogEntry = vi.hoisted(() => vi.fn());
 const mockBuildEmptyReleaseEntry = vi.hoisted(() => vi.fn());
-const mockUpsertChangelogJson = vi.hoisted(() => vi.fn());
-const mockUpsertChangelogJsonAndReturn = vi.hoisted(() => vi.fn());
 const mockMergeChangelogEntriesWithDisk = vi.hoisted(() => vi.fn());
 const mockRenderChangelogMarkdown = vi.hoisted(() => vi.fn());
 const mockRenderChangelogJson = vi.hoisted(() => vi.fn());
@@ -58,10 +56,7 @@ vi.mock(import('../buildEmptyReleaseEntry.ts'), () => ({
 vi.mock(import('../changelogJsonFile.ts'), () => ({
   resolveChangelogJsonPath: (config: { changelogJson: { outputPath: string } }, changelogPath: string): string =>
     `${changelogPath}/${config.changelogJson.outputPath}`,
-  writeChangelogJson: vi.fn(),
   renderChangelogJson: mockRenderChangelogJson,
-  upsertChangelogJson: mockUpsertChangelogJson,
-  upsertChangelogJsonAndReturn: mockUpsertChangelogJsonAndReturn,
   mergeChangelogEntriesWithDisk: mockMergeChangelogEntriesWithDisk,
 }));
 
@@ -186,9 +181,8 @@ function firstCliffWorkCallIndex(): number {
 
 describe(releasePrepareMono, () => {
   beforeEach(() => {
-    // Default: pretend buildChangelogEntries returned no entries, the synthetic constructor
-    // returned an empty stub entry, and upsertChangelogJson echoed the file path. Individual
-    // tests can override if needed.
+    // Default: pretend buildChangelogEntries returned no entries and the synthetic constructor
+    // returned an empty stub entry. Individual tests can override if needed.
     mockBuildChangelogEntries.mockReturnValue([]);
     mockBuildSyntheticChangelogEntry.mockReturnValue({ version: '0.0.0', date: '2024-01-01', sections: [] });
     mockBuildEmptyReleaseEntry.mockReturnValue({
@@ -196,8 +190,6 @@ describe(releasePrepareMono, () => {
       date: '2024-01-01',
       sections: [{ title: 'Notes', audience: 'dev', items: [{ description: 'Forced version bump.' }] }],
     });
-    mockUpsertChangelogJson.mockImplementation((filePath: string) => filePath);
-    mockUpsertChangelogJsonAndReturn.mockImplementation((_filePath: string, entries: unknown[]) => entries);
     mockMergeChangelogEntriesWithDisk.mockImplementation((_filePath: string, entries: unknown[]) => entries);
     mockRenderChangelogMarkdown.mockReturnValue('# Changelog\n');
     mockRenderChangelogJson.mockReturnValue('[]\n');
@@ -215,8 +207,6 @@ describe(releasePrepareMono, () => {
     mockBuildChangelogEntries.mockReset();
     mockBuildSyntheticChangelogEntry.mockReset();
     mockBuildEmptyReleaseEntry.mockReset();
-    mockUpsertChangelogJson.mockReset();
-    mockUpsertChangelogJsonAndReturn.mockReset();
     mockMergeChangelogEntriesWithDisk.mockReset();
     mockRenderChangelogMarkdown.mockReset();
     mockRenderChangelogJson.mockReset();
@@ -868,7 +858,7 @@ describe(releasePrepareMono, () => {
     expect(result.tags).toStrictEqual(['arrays-v1.0.1', 'strings-v2.0.1']);
   });
 
-  it('does not write files when force and dryRun are both true', () => {
+  it('force-bumps an empty range without writing or invoking git-cliff', () => {
     const config = makeConfig({
       workspaces: [
         {
@@ -1327,7 +1317,7 @@ describe(releasePrepareMono, () => {
       );
     });
 
-    it('does not write files in dry-run mode with --set-version', () => {
+    it('plans the --set-version tag without writing any file', () => {
       const config = makeConfig({
         workspaces: [
           {
@@ -1618,7 +1608,7 @@ describe(releasePrepareMono, () => {
       expect(changelogWrites).toHaveLength(0);
     });
 
-    it('skips synthetic file writes in dry-run mode but still returns tag and changelog path', () => {
+    it('returns the tag and changelog path without writing either', () => {
       stubEmptyRange();
 
       const result = releasePrepareMono(
@@ -1631,12 +1621,10 @@ describe(releasePrepareMono, () => {
       if (workspace?.status !== 'released') throw new Error('expected released');
       expect(workspace.changelogFiles).toStrictEqual(['packages/arrays/CHANGELOG.md']);
 
-      // No CHANGELOG.md write under dry-run; the path is still surfaced.
       const changelogWrites = mockWriteFileSync.mock.calls.filter(
         (call: unknown[]) => call[0] === 'packages/arrays/CHANGELOG.md',
       );
       expect(changelogWrites).toHaveLength(0);
-      expect(mockUpsertChangelogJson).not.toHaveBeenCalled();
     });
 
     it('does not invoke git-cliff for any empty-range unit in a multi-workspace --force run', () => {
@@ -1729,10 +1717,7 @@ describe(releasePrepareMono, () => {
       mockExistsSync.mockReturnValue(false);
     }
 
-    it('does not write changelog.json when changelogJson.enabled is false', () => {
-      // Regression: the SSOT pivot previously called `upsertChangelogJsonAndReturn` (a write)
-      // unconditionally, silently creating `.meta/changelog.json` for users who had opted out.
-      // The fix routes through the pure read-and-merge path when `enabled` is false.
+    it('plans no changelog.json write when changelogJson.enabled is false', () => {
       stubFeatCommit();
 
       releasePrepareMono(
@@ -1740,7 +1725,6 @@ describe(releasePrepareMono, () => {
         {},
       );
 
-      expect(mockUpsertChangelogJsonAndReturn).not.toHaveBeenCalled();
       expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledTimes(1);
     });
 
@@ -2240,6 +2224,9 @@ describe(releasePrepareMono, () => {
       const plan = releasePrepareMono(config, { withReleaseNotes: true });
 
       expect(plannedContent(plan, 'packages/arrays/docs/RELEASE_NOTES.v1.1.0.md')).toBe('# Notes\n');
+      expect(plan.workspaces[0]).toMatchObject({
+        previewFiles: ['packages/arrays/docs/RELEASE_NOTES.v1.1.0.md'],
+      });
     });
 
     it('invokes planReleaseNotesPreviews for both direct-bumped and propagation-only workspaces', () => {
@@ -2638,7 +2625,7 @@ describe(releasePrepareMono, () => {
       expect(firstCacheRefreshCallIndex()).toBeLessThan(firstCliffWorkCallIndex());
     });
 
-    it('refreshes the git-cliff cache even in dry-run mode (cliff is invoked under dry-run for changelog.json)', () => {
+    it('refreshes the git-cliff cache once per run', () => {
       const config = makeConfig({
         workspaces: [
           {

@@ -215,7 +215,7 @@ describe('releasePrepareProject (tool)', () => {
     });
   }, 60_000);
 
-  it('writes no files in --dry-run mode but still computes the project tag', () => {
+  it('computes the project tag without writing, when the plan is not applied', () => {
     withinFixture(fixture.repoDir, () => {
       const config = mergeMonorepoConfig(
         ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],

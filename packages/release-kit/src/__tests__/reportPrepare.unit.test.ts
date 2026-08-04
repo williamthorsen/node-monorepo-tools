@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { bold, dim, sectionHeader } from '../format.ts';
 import { reportPrepare } from '../reportPrepare.ts';
-import type { PrepareResult } from '../types.ts';
+import type { PrepareResult, ReleasedWorkspaceResult } from '../types.ts';
 
 describe(reportPrepare, () => {
   describe('single-package mode', () => {
@@ -111,6 +111,47 @@ describe(reportPrepare, () => {
       expect(output).toContain(dim('  [dry-run] Would run: npx --yes git-cliff ... --output ./CHANGELOG.md'));
       expect(output).toContain(
         dim('\n  [dry-run] Would run format command: npx prettier --write package.json ./CHANGELOG.md'),
+      );
+    });
+
+    it('names the failing format command and its error when formatting failed', () => {
+      const result: PrepareResult = {
+        workspaces: [makeReleasedWorkspace()],
+        tags: ['v1.0.1'],
+        formatCommand: { command: 'npx prettier --write package.json', files: ['package.json'] },
+      };
+
+      const output = reportPrepare(result, { applied: true, formatError: 'Command failed with exit code 2' });
+
+      expect(output).toContain('\n  ⚠️  Format command failed: npx prettier --write package.json');
+      expect(output).toContain('     Command failed with exit code 2');
+    });
+
+    it('renders the release-notes preview files a release plans', () => {
+      const result: PrepareResult = {
+        workspaces: [
+          makeReleasedWorkspace({
+            previewFiles: ['docs/README.v1.0.1.md', 'docs/RELEASE_NOTES.v1.0.1.md'],
+          }),
+        ],
+        tags: ['v1.0.1'],
+      };
+
+      expect(reportPrepare(result, { applied: true })).toContain(dim('  Wrote docs/RELEASE_NOTES.v1.0.1.md'));
+      expect(reportPrepare(result, { applied: false })).toContain(
+        dim('  [dry-run] Would write docs/RELEASE_NOTES.v1.0.1.md'),
+      );
+    });
+
+    it('surfaces warnings on a single-package release', () => {
+      const result: PrepareResult = {
+        workspaces: [makeReleasedWorkspace()],
+        tags: ['v1.0.1'],
+        warnings: ['README.md not found; skipping injected-README preview'],
+      };
+
+      expect(reportPrepare(result, { applied: true })).toContain(
+        '⚠️  README.md not found; skipping injected-README preview',
       );
     });
 
@@ -996,3 +1037,20 @@ describe(reportPrepare, () => {
     });
   });
 });
+
+/** Build a released single-package workspace result, overriding any field. */
+function makeReleasedWorkspace(overrides: Partial<ReleasedWorkspaceResult> = {}): ReleasedWorkspaceResult {
+  return {
+    status: 'released',
+    previousTag: 'v1.0.0',
+    commitCount: 1,
+    parsedCommitCount: 1,
+    releaseType: 'patch',
+    currentVersion: '1.0.0',
+    newVersion: '1.0.1',
+    tag: 'v1.0.1',
+    bumpedFiles: ['package.json'],
+    changelogFiles: ['./CHANGELOG.md'],
+    ...overrides,
+  };
+}

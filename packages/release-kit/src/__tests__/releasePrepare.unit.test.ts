@@ -34,8 +34,6 @@ vi.mock(import('../planReleaseNotesPreviews.ts'), () => ({
 // Stub the new helpers when tests exercise the changelogJson-enabled path, so no git-cliff
 // invocation or filesystem access is required.
 const mockBuildChangelogEntries = vi.hoisted(() => vi.fn());
-const mockUpsertChangelogJson = vi.hoisted(() => vi.fn());
-const mockUpsertChangelogJsonAndReturn = vi.hoisted(() => vi.fn());
 const mockMergeChangelogEntriesWithDisk = vi.hoisted(() => vi.fn());
 const mockRenderChangelogMarkdown = vi.hoisted(() => vi.fn());
 const mockRenderChangelogJson = vi.hoisted(() => vi.fn());
@@ -47,10 +45,7 @@ vi.mock(import('../buildChangelogEntries.ts'), () => ({
 vi.mock(import('../changelogJsonFile.ts'), () => ({
   resolveChangelogJsonPath: (config: { changelogJson: { outputPath: string } }, changelogPath: string): string =>
     `${changelogPath}/${config.changelogJson.outputPath}`,
-  writeChangelogJson: vi.fn(),
   renderChangelogJson: mockRenderChangelogJson,
-  upsertChangelogJson: mockUpsertChangelogJson,
-  upsertChangelogJsonAndReturn: mockUpsertChangelogJsonAndReturn,
   mergeChangelogEntriesWithDisk: mockMergeChangelogEntriesWithDisk,
 }));
 
@@ -101,8 +96,6 @@ function setupFeatCommit(): void {
 describe(releasePrepare, () => {
   beforeEach(() => {
     mockBuildChangelogEntries.mockReturnValue([]);
-    mockUpsertChangelogJson.mockImplementation((filePath: string) => filePath);
-    mockUpsertChangelogJsonAndReturn.mockImplementation((_filePath: string, entries: unknown[]) => entries);
     mockMergeChangelogEntriesWithDisk.mockImplementation((_filePath: string, entries: unknown[]) => entries);
     mockRenderChangelogMarkdown.mockReturnValue('# Changelog\n');
     mockRenderChangelogJson.mockReturnValue('[]\n');
@@ -121,8 +114,6 @@ describe(releasePrepare, () => {
     mockHasPrettierConfig.mockReset();
     mockPlanReleaseNotesPreviews.mockReset();
     mockBuildChangelogEntries.mockReset();
-    mockUpsertChangelogJson.mockReset();
-    mockUpsertChangelogJsonAndReturn.mockReset();
     mockMergeChangelogEntriesWithDisk.mockReset();
     mockRenderChangelogMarkdown.mockReset();
     mockRenderChangelogJson.mockReset();
@@ -283,7 +274,7 @@ describe(releasePrepare, () => {
     });
   });
 
-  it('populates tags in dry-run mode', () => {
+  it('populates tags on the plan', () => {
     setupFeatCommit();
 
     const result = releasePrepare(makeConfig(), {});
@@ -446,6 +437,7 @@ describe(releasePrepare, () => {
     });
 
     expect(plannedContent(plan, 'docs/RELEASE_NOTES.v1.1.0.md')).toBe('# Notes\n');
+    expect(plan.workspaces[0]).toMatchObject({ previewFiles: ['docs/RELEASE_NOTES.v1.1.0.md'] });
   });
 
   describe('empty-range (--force / --bump / --set-version with zero commits)', () => {
@@ -531,7 +523,7 @@ describe(releasePrepare, () => {
       expect(mockBuildChangelogEntries).not.toHaveBeenCalled();
     });
 
-    it('skips synthetic file writes in dry-run mode but still returns paths', () => {
+    it('returns the synthetic changelog path without writing it', () => {
       stubEmptyRange();
 
       const result = releasePrepare(
@@ -563,7 +555,7 @@ describe(releasePrepare, () => {
     });
   });
 
-  it('does not write files in dry-run mode with --set-version', () => {
+  it('plans the --set-version tag without writing any file', () => {
     mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
       if (cmd === 'git' && args[0] === 'describe') {
         return 'v0.5.0\n';
@@ -713,10 +705,7 @@ describe(releasePrepare, () => {
   });
 
   describe('changelogJson.enabled gating', () => {
-    it('does not write changelog.json when changelogJson.enabled is false', () => {
-      // Regression: the SSOT pivot previously called `upsertChangelogJsonAndReturn` (a write)
-      // unconditionally, silently creating `.meta/changelog.json` for users who had opted out.
-      // The fix routes through the pure read-and-merge path when `enabled` is false.
+    it('plans no changelog.json write when changelogJson.enabled is false', () => {
       setupFeatCommit();
 
       releasePrepare(makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: false } }), {});
@@ -787,7 +776,7 @@ describe(releasePrepare, () => {
       expect(Array.isArray(findCliffWorkCallIndices())).toBe(true);
     });
 
-    it('refreshes the git-cliff cache even in dry-run mode (cliff is invoked under dry-run for changelog.json)', () => {
+    it('refreshes the git-cliff cache once per run', () => {
       setupFeatCommit();
 
       releasePrepare(makeConfig(), {});

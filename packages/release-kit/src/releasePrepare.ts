@@ -176,10 +176,14 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   const { changelogFiles, changelogJsonFiles } = changelogs;
 
   // 4c. Plan release-notes previews (optional, opt-in via --with-release-notes)
-  writes.push(
-    ...changelogs.writes,
-    ...planSinglePackagePreviews(withReleaseNotes === true, config, newTag, changelogs.entries, overrideWarnings),
+  const previewWrites = planSinglePackagePreviews(
+    withReleaseNotes === true,
+    config,
+    newTag,
+    changelogs.entries,
+    overrideWarnings,
   );
+  writes.push(...changelogs.writes, ...previewWrites);
 
   // 5. Render the format command over the modified file paths; the caller runs it once the
   // plan is on disk, since it reformats the very files the plan writes.
@@ -206,6 +210,7 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
     unparseableCommits,
     policyViolations: collector.violations.length > 0 ? collector.violations : undefined,
     setVersion,
+    previewFiles: previewWrites.map((write) => write.path),
   });
 
   const plan: ReleasePlan = {
@@ -263,6 +268,7 @@ interface BuildReleasedSinglePackageArgs {
   bump: VersionBumpPlan;
   newTag: string;
   changelogFiles: string[];
+  previewFiles: string[];
   previousTag: string | undefined;
   parsedCommitCount: number | undefined;
   releaseType: ReleaseType | undefined;
@@ -317,6 +323,9 @@ function buildReleasedSinglePackage(args: BuildReleasedSinglePackageArgs): Relea
   }
   if (setVersion !== undefined) {
     released.setVersion = setVersion;
+  }
+  if (args.previewFiles.length > 0) {
+    released.previewFiles = args.previewFiles;
   }
   return released;
 }

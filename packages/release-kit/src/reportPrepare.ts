@@ -90,9 +90,13 @@ function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOpti
   // Changelog info
   lines.push(dim('Generating changelogs...'));
   formatChangelogFiles(lines, workspace, dryRun);
+  formatPreviewFiles(lines, workspace, dryRun);
 
   // Format command
   formatFormatCommand(lines, result, options);
+
+  // Warnings
+  formatWarnings(lines, result);
 
   // Completion
   lines.push(`✅ Release preparation complete.`, `   🏷️  ${bold(workspace.tag)}`);
@@ -192,6 +196,7 @@ function formatProjectSection(lines: string[], project: ProjectPrepareResult, dr
       lines.push(dim(`    Generating changelog: ${file}`));
     }
   }
+  formatPreviewFiles(lines, project, dryRun, '  ');
 
   lines.push(`  🏷️  ${bold(tag)}`);
 }
@@ -239,6 +244,7 @@ function formatWorkspaceSection(lines: string[], workspace: WorkspacePrepareResu
   formatBumpFiles(lines, workspace, dryRun, '  ');
   lines.push(dim('  Generating changelogs...'));
   formatChangelogFiles(lines, workspace, dryRun, '  ');
+  formatPreviewFiles(lines, workspace, dryRun, '  ');
 
   lines.push(`  🏷️  ${bold(workspace.tag)}`);
 }
@@ -308,6 +314,22 @@ function formatChangelogFiles(lines: string[], workspace: ReleasedWorkspaceResul
       lines.push(dim(`${indent}  [dry-run] Would run: npx --yes git-cliff ... --output ${file}`));
     } else {
       lines.push(dim(`${indent}  Generating changelog: ${file}`));
+    }
+  }
+}
+
+/** Append release-notes preview file lines, which are present only under `--with-release-notes`. */
+function formatPreviewFiles(
+  lines: string[],
+  release: Pick<ReleasedWorkspaceResult, 'previewFiles'>,
+  dryRun: boolean,
+  indent = '',
+): void {
+  for (const file of release.previewFiles ?? []) {
+    if (dryRun) {
+      lines.push(dim(`${indent}  [dry-run] Would write ${file}`));
+    } else {
+      lines.push(dim(`${indent}  Wrote ${file}`));
     }
   }
 }
