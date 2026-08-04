@@ -42,14 +42,13 @@ describe('the check-result cache gate', () => {
       expect(second.stdout).toContain('passed');
     });
 
-    it('names the command and the way out on the skip line', async () => {
+    it('names the command and the tree on the skip line', async () => {
       await runNmr(COMMAND, repo);
 
       const { stdout } = await runNmr(COMMAND, repo);
 
       expect(stdout).toContain(`⏭️ ${COMMAND}:`);
       expect(stdout).toContain('on this tree');
-      expect(stdout).toContain('--no-cache');
     });
 
     it('skips silently under --quiet', async () => {

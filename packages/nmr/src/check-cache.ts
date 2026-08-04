@@ -234,7 +234,7 @@ export function formatSkipLine(command: string, entry: CheckCacheEntry, now: num
   const saving = formatSaving(entry.durationMs);
   const savingClause = saving === undefined ? '' : ` (${saving})`;
 
-  return `⏭️ ${command}: passed ${age} ago on this tree${savingClause}. Re-run with --no-cache.`;
+  return `⏭️ ${command}: passed ${age} ago on this tree${savingClause}.`;
 }
 
 /**
