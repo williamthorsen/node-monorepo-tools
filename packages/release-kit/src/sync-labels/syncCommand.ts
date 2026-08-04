@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 
-import { reportError } from '@williamthorsen/nmr-core';
+import { GIT_OUTPUT_LIMIT, reportError } from '@williamthorsen/nmr-core';
 
 import { checkRetiredSyncLabelsConfig } from './retiredConfig.ts';
 
@@ -11,7 +11,7 @@ const WORKFLOW_FILE = '.github/workflows/sync-labels.yaml';
 /** Check that the `gh` CLI is available. */
 function checkGhAvailable(): boolean {
   try {
-    execSync('gh --version', { stdio: 'pipe' });
+    execSync('gh --version', { maxBuffer: GIT_OUTPUT_LIMIT, stdio: 'pipe' });
     return true;
   } catch {
     return false;

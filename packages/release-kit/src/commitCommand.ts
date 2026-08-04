@@ -72,8 +72,8 @@ export function commitCommand(argv: string[]): void {
   }
 
   // Stage all changes and create the commit.
-  execFileSync('git', ['add', '-A']);
-  execFileSync('git', ['commit', '-m', message]);
+  execFileSync('git', ['add', '-A'], { maxBuffer: GIT_OUTPUT_LIMIT });
+  execFileSync('git', ['commit', '-m', message], { maxBuffer: GIT_OUTPUT_LIMIT });
 
   console.info(`Created release commit: ${title}`);
 }
