@@ -186,23 +186,23 @@ import { defineConfig } from '@williamthorsen/nmr/config';
 
 export default defineConfig({
   workspaceScripts: {
-    'build:pre': 'npx rdy compile',
+    'build:pre': 'node scripts/generate-manifest.ts',
   },
 });
 ```
 
-Attach a post-build step to one package:
+Attach a step to one package's hook:
 
 ```jsonc
-// packages/nmr/package.json
+// packages/my-package/package.json
 {
   "scripts": {
-    "build:post": "nmr-sync-agent-files",
+    "upgrade:post": "nmr-report-overrides",
   },
 }
 ```
 
-The second example calls the bin directly, which sidesteps the workspace-versus-root registry distinction.
+The second example calls the bin directly: `report-overrides` is a root-registry command, so `nmr report-overrides` from inside a package fails with `Unknown command`, while the bin runs from either scope.
 
 ## Check-result cache
 
@@ -222,7 +222,7 @@ The cache is a working-tree cache, not a build cache: it answers "has this exact
 
 ### What is cached
 
-Cacheable by default: `check`, `check:agent-files`, `check:strict`, `ci`, `fix:check`, `fmt:check`, `lint:check`, `lint:strict`, `test`, `test:coverage`, `test:tool`, `test:unit`, `typecheck`, and the `root:` variants `root:check`, `root:lint:check`, `root:lint:strict`, `root:test`, `root:test:tool`, `root:test:unit`, and `root:typecheck`.
+Cacheable by default: `check`, `check:strict`, `ci`, `fix:check`, `fmt:check`, `lint:check`, `lint:strict`, `test`, `test:coverage`, `test:tool`, `test:unit`, `typecheck`, and the `root:` variants `root:check`, `root:lint:check`, `root:lint:strict`, `root:test`, `root:test:tool`, `root:test:unit`, and `root:typecheck`.
 
 Everything else runs every time:
 
@@ -422,11 +422,10 @@ Neither is bound to a git hook. `prepush` is named for when you run it, not for 
 
 #### Check and quality
 
-| Command             | Runs                                                                          |
-| ------------------- | ----------------------------------------------------------------------------- |
-| `check`             | `typecheck`, `fmt:check`, `lint:check`, `test`                                |
-| `check:agent-files` | `nmr-sync-agent-files --check`                                                |
-| `check:strict`      | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage`, `check:agent-files` |
+| Command        | Runs                                                     |
+| -------------- | -------------------------------------------------------- |
+| `check`        | `typecheck`, `fmt:check`, `lint:check`, `test`           |
+| `check:strict` | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage` |
 
 #### Fix
 
@@ -516,7 +515,6 @@ These scripts operate on root-level code only (not workspace packages):
 | Command            | Runs                   |
 | ------------------ | ---------------------- |
 | `report-overrides` | `nmr-report-overrides` |
-| `sync-agent-files` | `nmr-sync-agent-files` |
 
 ## CLI reference
 
@@ -570,35 +568,33 @@ Report any active `pnpm.overrides` in the root `package.json`, reminding develop
 nmr report-overrides
 ```
 
-### `sync-agent-files`
+## Agent guidance
 
-Sync the agent-facing guidance shipped with nmr into the consuming repo.
+nmr ships the rules an agent needs in order to invoke it, as [CodeAssembly](https://github.com/williamthorsen/codeassembly) package content. Adopt it by naming the package in the consuming repo's `.agents/codeassembly.yaml`:
 
-```bash
-nmr sync-agent-files         # write .agents/nmr/AGENTS.md, stamped with the installed nmr version
-nmr sync-agent-files --check # verify the stamp matches; exit 1 with a fix message if not
+```yaml
+packages:
+  use:
+    - '@williamthorsen/nmr'
 ```
 
-Run `nmr sync-agent-files` once after upgrading nmr. The generated file is committed to the consuming repo; do not edit it by hand.
+Then add `codeassembly` as a devDependency and run `codeassembly sync`. The guidance is injected into the machine-local guidance file each harness loads at launch; nothing is copied into the repo or committed there. It resolves from the installed package, so upgrading nmr updates it with no second step.
 
-The default root `check:strict` composite includes `check:agent-files`, which runs `--check` automatically — so any CI pipeline already running `check:strict` catches drift without per-consumer wiring.
+Wiring the sync to `postinstall` keeps it current without a hand-run command:
 
-To expose the synced guidance to Claude Code sessions, add this include to the consuming repo's `.agents/PROJECT.md`:
-
-```markdown
-@nmr/AGENTS.md
+```json
+{
+  "scripts": {
+    "postinstall": "codeassembly sync --warn-only"
+  }
+}
 ```
 
-#### What belongs in the synced file
+`--warn-only` reports a sync failure and exits 0; without it, a failed sync aborts `pnpm install`.
 
-The synced file is injected at launch in every consuming repo, so every line is paid for on every task whether or not it is relevant. It is a cheatsheet, not a manual.
+### Migrating from `sync-agent-files`
 
-A line earns a place in `AGENTS.md` only if both hold:
-
-1. It is absent from nmr's own output. Bare `nmr` already prints the flags, every command, and the shell command each resolves to; failing checks already name their own fix. Repeating any of that costs launch tokens to say something the agent will be told anyway, at the moment it matters.
-2. The obvious action goes wrong without it. Guidance that prevents a silent mistake earns its place; guidance that prevents a mistake the next error message would diagnose does not.
-
-Everything else belongs in this README, reachable on demand at `node_modules/@williamthorsen/nmr/README.md`, with a pointer from `AGENTS.md` naming the topic so an agent knows to look. When adding a feature, document it here and extend that pointer rather than the cheatsheet.
+The `nmr sync-agent-files` command, its `nmr-sync-agent-files` bin, and the `check:agent-files` script were removed in favor of the above. After upgrading, delete the generated `.agents/nmr/` directory and the `@nmr/AGENTS.md` line it was exposed through, drop `check:agent-files` from any `check:strict` override that enumerates it, and remove any direct call to the bin.
 
 ## Standalone utilities
 

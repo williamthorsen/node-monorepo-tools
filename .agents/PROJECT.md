@@ -1,7 +1,5 @@
 # Node Monorepo Tools
 
-@nmr/AGENTS.md
-
 ## Overview
 
 A pnpm monorepo of CLI tools for Node.js monorepo development. Packages provide a unified script runner (`nmr`) and release automation (`release-kit`), with shared utilities in `core`. Pre-deployment checks use `readyup` (external dev dependency); `nmr`, `release-kit`, and `v11y-check` each publish the kit that checks their own setup.

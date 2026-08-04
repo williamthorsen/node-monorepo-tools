@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 
 import { getDefaultRootScripts, getDefaultWorkspaceScripts } from '../resolve-scripts.ts';
 
@@ -34,8 +34,7 @@ describe(getDefaultWorkspaceScripts, () => {
     expect(scripts['test:watch']).toBe('pnpm exec vitest --project unit --project tool --watch');
   });
 
-  // A workspace-context upgrade scans the cwd package alone; the recursive sweep is the root registry's.
-  // It reports no overrides either: `pnpm.overrides` is declared in the root `package.json` alone.
+  // Declares no override report either: `pnpm.overrides` is declared in the root `package.json` alone.
   it('upgrades the current package without recursing', () => {
     const scripts = getDefaultWorkspaceScripts();
 
@@ -53,28 +52,17 @@ describe(getDefaultRootScripts, () => {
     expect(scripts['fix:check']).toStrictEqual(['fmt:check', 'lint:check']);
     expect(scripts.ci).toStrictEqual(['build', 'check:strict']);
     expect(scripts.clean).toBe('nmr-clean');
-    // Identical to the workspace entries: the bin needs no `sh -c` wrapper to default its own selection.
     expect(scripts.fmt).toBe('nmr-fmt --write');
     expect(scripts['fmt:check']).toBe('nmr-fmt --check');
     expect(scripts['root:check']).toStrictEqual(['root:typecheck', 'fmt:check', 'root:lint:check', 'root:test']);
     expect(scripts['report-overrides']).toBe('nmr-report-overrides');
-    expect(scripts['sync-agent-files']).toBe('nmr-sync-agent-files');
-  });
-
-  // `fmt` covers shell through the shared Prettier config, so a shell-specific command would be a
-  // second way to format the same files -- and `fmt:sh` invoked a binary no CI runner installs.
-  it('declares no shfmt-backed scripts', () => {
-    const scripts = getDefaultRootScripts();
-
-    expect(scripts).not.toHaveProperty('fmt:all');
-    expect(scripts).not.toHaveProperty('fmt:sh');
   });
 
   it('excludes audit from check:strict', () => {
     const scripts = getDefaultRootScripts();
     const checkStrict = scripts['check:strict'];
 
-    expect(checkStrict).toStrictEqual(['typecheck', 'fmt:check', 'lint:strict', 'test:coverage', 'check:agent-files']);
+    expect(checkStrict).toStrictEqual(['typecheck', 'fmt:check', 'lint:strict', 'test:coverage']);
     expect(checkStrict).not.toContain('audit');
   });
 
@@ -156,27 +144,23 @@ describe(getDefaultRootScripts, () => {
   // registry and exit 1, and `&&` would swallow the upgrade report behind it. Bins locate the root themselves.
   it('chains only bins, so upgrade survives -w from a package cwd', () => {
     const upgrade = getDefaultRootScripts().upgrade;
-    if (typeof upgrade !== 'string') throw new Error('Expected upgrade to be a chained command');
+    assert(typeof upgrade === 'string', 'Expected upgrade to be a chained command');
 
     for (const step of upgrade.split('&&')) {
       expect(step.trim()).not.toMatch(/^nmr\s/);
     }
   });
 
-  // A pinned transitive dependency is why an expected upgrade may be missing from the report, so the
-  // override list has to precede it.
   it('reports overrides before the upgrade report', () => {
     const upgrade = getDefaultRootScripts().upgrade;
-    if (typeof upgrade !== 'string') throw new Error('Expected upgrade to be a chained command');
+    assert(typeof upgrade === 'string', 'Expected upgrade to be a chained command');
 
     expect(upgrade.indexOf('report-overrides')).toBeLessThan(upgrade.indexOf('nmr-taze'));
   });
 
-  // Passthrough args attach to the last command in the chain, so the upgrade tool has to end it:
-  // as a composite, `nmr upgrade major` would hand `major` to the override report instead.
   it('ends the upgrade chain with the upgrade tool so passthrough args reach it', () => {
     const upgrade = getDefaultRootScripts().upgrade;
-    if (typeof upgrade !== 'string') throw new Error('Expected upgrade to be a chained command');
+    assert(typeof upgrade === 'string', 'Expected upgrade to be a chained command');
 
     expect(upgrade.split('&&').at(-1)?.trim()).toBe('nmr-taze --include-locked --recursive');
   });

@@ -34,7 +34,7 @@ export interface CheckCacheEntry {
   nmrVersion: string;
   nodeVersion: string;
   durationMs: number;
-  /** ISO-8601 instant the pass completed, which the skip line spends as the age of the pass. */
+  /** ISO-8601 instant the pass completed. */
   recordedAt: string;
   /**
    * The build digest each covered package's output carried when the pass was recorded. Build output is
@@ -87,7 +87,6 @@ export const DEBUG_ENV_VAR = 'NMR_DEBUG';
  */
 export const DEFAULT_CACHEABLE_COMMANDS = [
   'check',
-  'check:agent-files',
   'check:strict',
   'ci',
   'fix:check',
@@ -114,7 +113,7 @@ export const NO_CACHE_ENV_VAR = 'NMR_NO_CACHE';
 /** Carries the top-level tree snapshot down the spawned chain, so one invocation hashes the tree once. */
 export const TREE_SNAPSHOT_ENV_VAR = 'NMR_TREE_SNAPSHOT';
 
-/** The default `compile` script: nmr's own build. A package resolving to it is one the presence probe covers. */
+/** The default `compile` script: nmr's own build. */
 const BUILT_IN_COMPILE = 'nmr-compile';
 
 /** The tool whose cache directory holds check results. */
@@ -332,9 +331,7 @@ export function resolveTreeSnapshot(options: {
 }): { ok: true; snapshot: TreeSnapshot } | { ok: false; reason: string } {
   // An inherited snapshot is trusted only while HEAD stands where it did when the snapshot was taken. A
   // process that outlives the run that spawned it carries the variable with it, and would otherwise gate a
-  // later invocation on an observation of a tree that has since moved on. Falling through costs one hash and
-  // answers honestly; it does not bound a tree edited without committing, which is why the variable is
-  // documented as reserved.
+  // later invocation on an observation of a tree that has since moved on.
   const inherited = decodeTreeSnapshot(options.env[TREE_SNAPSHOT_ENV_VAR]);
   if (inherited !== undefined && readHeadSha(options.monorepoRoot) === inherited.headSha) {
     return { ok: true, snapshot: inherited };

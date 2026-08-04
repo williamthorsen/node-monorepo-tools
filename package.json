@@ -20,6 +20,7 @@
   ],
   "scripts": {
     "bootstrap": "pnpm --filter @williamthorsen/nmr-core run prepare && pnpm --filter @williamthorsen/nmr run prepare",
+    "postinstall": "codeassembly sync --warn-only",
     "prepare": "lefthook install"
   },
   "devDependencies": {
@@ -33,6 +34,7 @@
     "@williamthorsen/release-kit": "workspace:*",
     "@williamthorsen/strict-lint": "9.2.0",
     "@williamthorsen/toolbelt.objects": "3.2.10",
+    "codeassembly": "0.4.0",
     "eslint": "10.8.0",
     "eslint-plugin-import": "2.32.0",
     "lefthook": "2.1.10",
