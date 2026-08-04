@@ -3,13 +3,13 @@
 export const __readyupVersion = "0.23.0";
 
 
-// .readyup/kits/v11y-check.ts
+// .readyup/kits/default.ts
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { defineRdyKit } from "readyup";
 import { fileExists, fileMatchesHash, hasDevDependency, hasMinDevDependencyVersion } from "readyup/check-utils";
 var AUDIT_WORKFLOW_HASH = "cdcab39d794ed7ec5ea45e8f3c887eb5d15edb63eab65e515714556933d9b03f";
-var v11y_check_default = defineRdyKit({
+var default_default = defineRdyKit({
   checklists: [
     {
       name: "v11y-check",
@@ -77,7 +77,7 @@ function skipLegacyAuditCiCheck() {
 }
 export {
   AUDIT_WORKFLOW_HASH,
-  v11y_check_default as default,
+  default_default as default,
   noLegacyAuditCiDirectory,
   skipLegacyAuditCiCheck
 };

@@ -150,6 +150,10 @@ importers:
       zod:
         specifier: 4.4.3
         version: 4.4.3
+    devDependencies:
+      readyup:
+        specifier: 0.23.0
+        version: 0.23.0(esbuild@0.28.1)
 
 packages:
 

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "kits": [
+    {
+      "checklists": [
+        "v11y-check"
+      ],
+      "name": "default",
+      "path": "kits/default.js",
+      "readyupVersion": "0.23.0",
+      "source": "kits/default.ts",
+      "sourceHash": "7bf5eedb",
+      "targetHash": "6fdb2773"
+    }
+  ]
+}

@@ -5,7 +5,7 @@
  * The minimum version is read from the v11y-check package's package.json and inlined by esbuild at compile time.
  *
  * Run from a target repo's working directory:
- *   rdy run --file <path-to>/v11y-check.js
+ *   rdy run --from npm:v11y-check
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -13,8 +13,8 @@ import { join } from 'node:path';
 import { defineRdyKit, pickJson } from 'readyup';
 import { fileExists, fileMatchesHash, hasDevDependency, hasMinDevDependencyVersion } from 'readyup/check-utils';
 
-// SHA-256 hash of the canonical .github/workflows/audit.yaml wrapper.
-// Keep in sync — verified by __tests__/rdy-kit-hashes.app.unit.test.ts.
+// SHA-256 hash of the canonical audit workflow this package scaffolds.
+// Keep in sync — verified by src/__tests__/kit-hashes.unit.test.ts.
 export const AUDIT_WORKFLOW_HASH = 'cdcab39d794ed7ec5ea45e8f3c887eb5d15edb63eab65e515714556933d9b03f';
 
 export default defineRdyKit({
@@ -80,7 +80,7 @@ function getMinVersion(): string {
   // `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline only the listed fields.
   // Defer the call into a function so module load does not invoke the runtime stub (which throws):
   // This keeps the module importable in tests that bypass the compile step.
-  const picked = pickJson('../../packages/v11y-check/package.json', ['version']);
+  const picked = pickJson('../../package.json', ['version']);
   if (typeof picked.version !== 'string') {
     throw new TypeError("v11y-check/package.json: 'version' must be a string");
   }
