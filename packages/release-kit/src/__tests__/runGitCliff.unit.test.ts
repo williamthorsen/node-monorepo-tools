@@ -3,42 +3,49 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const mockExecFileSync = vi.hoisted(() => vi.fn());
 const mockCopyFileSync = vi.hoisted(() => vi.fn());
 const mockMkdtempSync = vi.hoisted(() => vi.fn(() => '/tmp/cliff-abc123'));
+const mockReadFileSync = vi.hoisted(() => vi.fn(() => ''));
 const mockRmSync = vi.hoisted(() => vi.fn());
 const mockTmpdir = vi.hoisted(() => vi.fn(() => '/tmp'));
 
 vi.mock('node:child_process', () => ({ execFileSync: mockExecFileSync }));
-vi.mock('node:fs', () => ({ copyFileSync: mockCopyFileSync, mkdtempSync: mockMkdtempSync, rmSync: mockRmSync }));
+vi.mock('node:fs', () => ({
+  copyFileSync: mockCopyFileSync,
+  mkdtempSync: mockMkdtempSync,
+  readFileSync: mockReadFileSync,
+  rmSync: mockRmSync,
+}));
 vi.mock('node:os', () => ({ tmpdir: mockTmpdir }));
 
 import { refreshGitCliffCache, runGitCliff } from '../runGitCliff.ts';
+
+/** The output path the helper derives from the mocked temp dir; asserted against in several cases. */
+const OUTPUT_PATH = '/tmp/cliff-abc123/output.json';
 
 describe(runGitCliff, () => {
   afterEach(() => {
     mockExecFileSync.mockReset();
     mockCopyFileSync.mockReset();
     mockMkdtempSync.mockReset().mockReturnValue('/tmp/cliff-abc123');
+    mockReadFileSync.mockReset().mockReturnValue('');
     mockRmSync.mockReset();
     mockTmpdir.mockReset().mockReturnValue('/tmp');
   });
 
   it('passes --prefer-offline and --yes to npx ahead of git-cliff', () => {
-    mockExecFileSync.mockReturnValueOnce('');
-
-    runGitCliff('cliff.toml', ['--tag', 'v1.0.0'], 'inherit');
+    runGitCliff('cliff.toml', ['--tag', 'v1.0.0']);
 
     expect(mockExecFileSync).toHaveBeenCalledTimes(1);
     expect(mockExecFileSync).toHaveBeenCalledWith(
       'npx',
-      ['--prefer-offline', '--yes', 'git-cliff', '--config', 'cliff.toml', '--tag', 'v1.0.0'],
+      ['--prefer-offline', '--yes', 'git-cliff', '--config', 'cliff.toml', '--tag', 'v1.0.0', '--output', OUTPUT_PATH],
       expect.any(Object),
     );
   });
 
   it('sets npm_config_progress=false in the spawned env while preserving inherited variables', () => {
-    mockExecFileSync.mockReturnValueOnce('');
     const previousPath = process.env.PATH;
 
-    runGitCliff('cliff.toml', [], 'inherit');
+    runGitCliff('cliff.toml', []);
 
     expect(mockExecFileSync).toHaveBeenCalledWith(
       'npx',
@@ -53,35 +60,35 @@ describe(runGitCliff, () => {
     );
   });
 
-  it('forces utf8 encoding so the return type is string', () => {
-    mockExecFileSync.mockReturnValueOnce('cliff stdout');
+  it('returns the contents of the file git-cliff wrote, not its stdout', () => {
+    mockExecFileSync.mockReturnValueOnce('stdout that must be ignored');
+    mockReadFileSync.mockReturnValueOnce('[{"version":"v1.0.0"}]');
 
-    const result = runGitCliff('cliff.toml', [], ['pipe', 'pipe', 'inherit']);
+    const result = runGitCliff('cliff.toml', []);
 
-    expect(mockExecFileSync).toHaveBeenCalledWith(
-      'npx',
-      expect.any(Array),
-      expect.objectContaining({ encoding: 'utf8' }),
-    );
-    expect(result).toBe('cliff stdout');
+    expect(mockReadFileSync).toHaveBeenCalledWith(OUTPUT_PATH, 'utf8');
+    expect(result).toBe('[{"version":"v1.0.0"}]');
   });
 
-  it('passes the caller-supplied stdio value through to execFileSync', () => {
-    mockExecFileSync.mockReturnValueOnce('');
+  it('appends --output after the caller args so a caller-supplied --output cannot win', () => {
+    runGitCliff('cliff.toml', ['--output', '/caller/hijack.json']);
 
-    runGitCliff('cliff.toml', [], ['pipe', 'pipe', 'inherit']);
+    const [, args] = mockExecFileSync.mock.calls[0] ?? [];
+    expect(args?.slice(-2)).toEqual(['--output', OUTPUT_PATH]);
+  });
+
+  it('discards stdout and inherits stderr, leaving no parent-side buffer to overflow', () => {
+    runGitCliff('cliff.toml', []);
 
     expect(mockExecFileSync).toHaveBeenCalledWith(
       'npx',
       expect.any(Array),
-      expect.objectContaining({ stdio: ['pipe', 'pipe', 'inherit'] }),
+      expect.objectContaining({ stdio: ['ignore', 'ignore', 'inherit'] }),
     );
   });
 
   it('copies a .template config to a temp .toml and uses the temp path as --config', () => {
-    mockExecFileSync.mockReturnValueOnce('');
-
-    runGitCliff('/bundled/cliff.toml.template', ['--tag', 'v1.0.0'], 'inherit');
+    runGitCliff('/bundled/cliff.toml.template', ['--tag', 'v1.0.0']);
 
     expect(mockMkdtempSync).toHaveBeenCalledWith('/tmp/cliff-');
     expect(mockCopyFileSync).toHaveBeenCalledWith('/bundled/cliff.toml.template', '/tmp/cliff-abc123/cliff.toml');
@@ -97,12 +104,9 @@ describe(runGitCliff, () => {
     );
   });
 
-  it('passes a non-.template config path through unchanged without creating a temp dir', () => {
-    mockExecFileSync.mockReturnValueOnce('');
+  it('passes a non-.template config path through unchanged without copying it', () => {
+    runGitCliff('/explicit/cliff.toml', []);
 
-    runGitCliff('/explicit/cliff.toml', [], 'inherit');
-
-    expect(mockMkdtempSync).not.toHaveBeenCalled();
     expect(mockCopyFileSync).not.toHaveBeenCalled();
     expect(mockExecFileSync).toHaveBeenCalledWith(
       'npx',
@@ -111,11 +115,16 @@ describe(runGitCliff, () => {
     );
   });
 
-  it('removes the temp dir after a successful invocation when a .template was used', () => {
-    mockExecFileSync.mockReturnValueOnce('');
+  it('removes the temp dir after a successful invocation', () => {
+    runGitCliff('/bundled/cliff.toml.template', []);
 
-    runGitCliff('/bundled/cliff.toml.template', [], 'inherit');
+    expect(mockRmSync).toHaveBeenCalledWith('/tmp/cliff-abc123', { recursive: true, force: true });
+  });
 
+  it('removes the temp dir for a non-.template config, which now needs one for the output file', () => {
+    runGitCliff('/explicit/cliff.toml', []);
+
+    expect(mockMkdtempSync).toHaveBeenCalledWith('/tmp/cliff-');
     expect(mockRmSync).toHaveBeenCalledWith('/tmp/cliff-abc123', { recursive: true, force: true });
   });
 
@@ -124,7 +133,16 @@ describe(runGitCliff, () => {
       throw new Error('git-cliff failed');
     });
 
-    expect(() => runGitCliff('/bundled/cliff.toml.template', [], 'inherit')).toThrow('git-cliff failed');
+    expect(() => runGitCliff('/bundled/cliff.toml.template', [])).toThrow('git-cliff failed');
+    expect(mockRmSync).toHaveBeenCalledWith('/tmp/cliff-abc123', { recursive: true, force: true });
+  });
+
+  it('removes the temp dir even when readFileSync throws', () => {
+    mockReadFileSync.mockImplementationOnce(() => {
+      throw new Error('ENOENT: no such file or directory');
+    });
+
+    expect(() => runGitCliff('cliff.toml', [])).toThrow('ENOENT');
     expect(mockRmSync).toHaveBeenCalledWith('/tmp/cliff-abc123', { recursive: true, force: true });
   });
 
@@ -133,7 +151,7 @@ describe(runGitCliff, () => {
       throw new Error('template unreadable');
     });
 
-    expect(() => runGitCliff('/bundled/cliff.toml.template', [], 'inherit')).toThrow('template unreadable');
+    expect(() => runGitCliff('/bundled/cliff.toml.template', [])).toThrow('template unreadable');
     expect(mockMkdtempSync).toHaveBeenCalledWith('/tmp/cliff-');
     expect(mockRmSync).toHaveBeenCalledWith('/tmp/cliff-abc123', { recursive: true, force: true });
     expect(mockExecFileSync).not.toHaveBeenCalled();
@@ -145,16 +163,7 @@ describe(runGitCliff, () => {
       throw underlying;
     });
 
-    expect(() => runGitCliff('cliff.toml', [], 'inherit')).toThrow(underlying);
-  });
-
-  it('does not invoke rmSync when no temp dir was created (non-.template path)', () => {
-    mockExecFileSync.mockImplementationOnce(() => {
-      throw new Error('git-cliff failed');
-    });
-
-    expect(() => runGitCliff('/explicit/cliff.toml', [], 'inherit')).toThrow('git-cliff failed');
-    expect(mockRmSync).not.toHaveBeenCalled();
+    expect(() => runGitCliff('cliff.toml', [])).toThrow(underlying);
   });
 });
 

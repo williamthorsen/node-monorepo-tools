@@ -95,7 +95,7 @@ export function buildChangelogEntries(
   }
 
   try {
-    const contextJson = runGitCliff(resolvedConfigPath, cliffArgs, ['pipe', 'pipe', 'inherit']);
+    const contextJson = runGitCliff(resolvedConfigPath, cliffArgs);
 
     const releases = parseCliffContext(contextJson);
     const devOnlySections = new Set(config.changelogJson.devOnlySections);
