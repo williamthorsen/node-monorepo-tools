@@ -748,7 +748,7 @@ describe('buildPackage caching', () => {
     vi.mocked(ts.createProgram).mockImplementationOnce(() => {
       throw new Error('transient failure');
     });
-    await expect(buildPackage(dir)).rejects.toThrow();
+    await expect(buildPackage(dir)).rejects.toThrow('transient failure');
 
     // Sources are unchanged: a cache poisoned by the failed run would make this skip the compile.
     // Instead it must re-attempt, and with the transient failure gone, produce output and cache it.
@@ -770,7 +770,7 @@ describe('buildPackage caching', () => {
     vi.mocked(ts.createProgram).mockImplementationOnce(() => {
       throw new Error('rebuild failed');
     });
-    await expect(buildPackage(dir)).rejects.toThrow();
+    await expect(buildPackage(dir)).rejects.toThrow('rebuild failed');
 
     // The failed rebuild must leave the last successful build's digest intact, not overwrite it.
     expect(fs.readFileSync(cachePath, 'utf8')).toBe(lastGoodDigest);

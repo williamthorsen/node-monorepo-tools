@@ -79,9 +79,10 @@ function hasTestFile(dir: string, inTestDir = false): boolean {
       if (hasTestFile(path.join(dir, entry.name), inTestDir || entry.name === TEST_DIR)) return true;
       continue;
     }
-    // FIXME: See issue #545
-    // eslint-disable-next-line vitest/no-conditional-tests
-    if (inTestDir && TEST_FILE_PATTERN.test(entry.name)) return true;
+    // Hoisted out of the condition: `no-conditional-tests` reports any identifier named `test` under an `if`,
+    // and `RegExp.prototype.test` called there reads to the rule as a test declaration.
+    const isTestFile = TEST_FILE_PATTERN.test(entry.name);
+    if (inTestDir && isTestFile) return true;
   }
   return false;
 }
