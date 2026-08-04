@@ -70,7 +70,7 @@ interface CliffContextRelease {
  *
  * Pure data: invokes git-cliff, parses its `--context` output, and returns the transformed
  * `ChangelogEntry[]`. Performs no `changelog.json` I/O — callers persist the entries via
- * `writeChangelogJson` or `upsertChangelogJson`.
+ * `renderChangelogJson`.
  *
  * Always invokes git-cliff: dry-run is the caller's concern (it governs whether the file
  * write happens, not whether git-cliff runs). This means dry-run exercises the full

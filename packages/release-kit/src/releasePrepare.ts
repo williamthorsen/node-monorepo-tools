@@ -3,8 +3,8 @@ import { join as joinPath } from 'node:path';
 import { buildChangelogEntries } from './buildChangelogEntries.ts';
 import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
 import { buildReleaseSummary } from './buildReleaseSummary.ts';
-import type { VersionBumpPlan } from './bumpAllVersions.ts';
-import { planVersionBump, planVersionSet } from './bumpAllVersions.ts';
+import type { VersionBumpPlan } from './planVersionBump.ts';
+import { planVersionBump, planVersionSet } from './planVersionBump.ts';
 import { mergeChangelogEntriesWithDisk, renderChangelogJson, resolveChangelogJsonPath } from './changelogJsonFile.ts';
 import {
   applyChangelogOverrides,
@@ -33,12 +33,15 @@ import type {
   ReleaseType,
   SkippedWorkspaceResult,
 } from './types.ts';
-import { planReleaseNotesPreviews } from './writeReleaseNotesPreviews.ts';
+import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
 
-/** Options for the release preparation workflow. */
+/**
+ * Options for the release preparation workflow.
+ *
+ * Carries no dry-run flag: preparation only ever computes a plan, and whether that plan is
+ * applied is the caller's decision.
+ */
 export interface ReleasePrepareOptions {
-  /** If true, logs actions without modifying files. */
-  dryRun: boolean;
   /**
    * Release even when no commits or no bump-worthy commits exist since the last tag
    * (monorepo only). Orthogonal to `bumpOverride`: when `bumpOverride` is not given,
@@ -102,7 +105,7 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
 
   if (setVersion !== undefined) {
     // Bypass commit-derived bump logic. Read the current version directly from the primary
-    // package file so validation runs once, then perform a single write honouring `dryRun`.
+    // package file so validation runs once, before any version write is planned.
     const primaryPackageFile = config.packageFiles[0];
     if (primaryPackageFile === undefined) {
       throw new Error('No package files specified');

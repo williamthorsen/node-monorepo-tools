@@ -2,7 +2,7 @@ import { join as joinPath } from 'node:path';
 
 import { buildChangelogEntries } from './buildChangelogEntries.ts';
 import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
-import { planVersionBump } from './bumpAllVersions.ts';
+import { planVersionBump } from './planVersionBump.ts';
 import { mergeChangelogEntriesWithDisk, renderChangelogJson, resolveChangelogJsonPath } from './changelogJsonFile.ts';
 import { applyChangelogOverrides } from './changelogOverrides.ts';
 import { createPolicyViolationCollector } from './collectPolicyViolations.ts';
@@ -21,7 +21,7 @@ import type {
   ProjectPrepareResult,
   SkippedProjectResult,
 } from './types.ts';
-import { planReleaseNotesPreviews } from './writeReleaseNotesPreviews.ts';
+import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
 
 /** File path for the root `package.json` bumped during the project release stage. */
 const ROOT_PACKAGE_FILE = './package.json';

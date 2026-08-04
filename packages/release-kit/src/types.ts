@@ -97,13 +97,6 @@ export interface PropagationSource {
   newVersion: string;
 }
 
-/** Structured result from bumping version fields in package.json files. */
-export interface BumpResult {
-  currentVersion: string;
-  newVersion: string;
-  files: string[];
-}
-
 /**
  * A `!`-policy violation detected while parsing commits during release preparation.
  *

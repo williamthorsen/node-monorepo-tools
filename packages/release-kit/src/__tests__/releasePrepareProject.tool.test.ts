@@ -140,7 +140,7 @@ describe('releasePrepareProject (tool)', () => {
         { exists: true, version: '0.9.0' },
       );
 
-      const result = prepareAndApply(config, { dryRun: false });
+      const result = prepareAndApply(config, {});
 
       // Project release happened.
       const project = result.project;
@@ -205,7 +205,7 @@ describe('releasePrepareProject (tool)', () => {
         { exists: true, version: '1.0.0' },
       );
 
-      const result = prepareAndApply(config, { dryRun: false, bumpOverride: 'major' });
+      const result = prepareAndApply(config, { bumpOverride: 'major' });
 
       const project = result.project;
       if (project?.status !== 'released') throw new Error('expected released project');
@@ -223,7 +223,7 @@ describe('releasePrepareProject (tool)', () => {
         { exists: true, version: '0.9.0' },
       );
 
-      const result = releasePrepareMono(config, { dryRun: false });
+      const result = releasePrepareMono(config, {});
 
       const project = result.project;
       if (project?.status !== 'released') throw new Error('expected released project');
@@ -257,7 +257,7 @@ describe('releasePrepareProject (tool)', () => {
           { exists: true, version: '0.9.0' },
         );
 
-        prepareAndApply(config, { dryRun: false });
+        prepareAndApply(config, {});
 
         // No warning was emitted (the existing file was never parsed).
         const warnedAboutChangelogJson = warnSpy.mock.calls.some((call) =>
@@ -284,7 +284,7 @@ describe('releasePrepareProject (tool)', () => {
         { exists: true, version: '0.9.0' },
       );
 
-      prepareAndApply(config, { dryRun: false, withReleaseNotes: true });
+      prepareAndApply(config, { withReleaseNotes: true });
 
       // The project preview file lives at root docs/.
       const previewPath = join(fixture.repoDir, 'docs', 'RELEASE_NOTES.v0.10.0.md');
@@ -308,7 +308,7 @@ describe('releasePrepareProject (tool)', () => {
         { exists: true, version: '0.9.0' },
       );
 
-      const result = prepareAndApply(config, { dryRun: false, force: true });
+      const result = prepareAndApply(config, { force: true });
 
       // Project release proceeded under --force, choosing patch level (issue #369 fix).
       const project = result.project;
@@ -378,7 +378,7 @@ describe('releasePrepareProject (tool)', () => {
         { exists: true, version: '0.9.0' },
       );
 
-      prepareAndApply(config, { dryRun: false, force: true });
+      prepareAndApply(config, { force: true });
 
       const written: Array<{ version: string; sections: Array<{ items: Array<{ description: string }> }> }> =
         JSON.parse(readFileSync(changelogJsonPath, 'utf8'));

@@ -1,8 +1,8 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 
 import { bumpVersion } from './bumpVersion.ts';
 import type { PlannedWrite } from './releasePlan.ts';
-import type { BumpResult, ReleaseType } from './types.ts';
+import type { ReleaseType } from './types.ts';
 
 interface PackageJson {
   [key: string]: unknown;
@@ -44,77 +44,6 @@ export function planVersionSet(packageFiles: readonly string[], newVersion: stri
   const currentVersion = firstPkg.version;
 
   return { currentVersion, newVersion, writes: renderVersionWrites(packageFiles, firstFile, firstPkg, newVersion) };
-}
-
-/**
- * Bump the version field in all specified package.json files.
- *
- * Reads each file, parses the JSON, bumps the `version` field, and writes
- * the result back with the original formatting (2-space indentation, trailing newline).
- * Returns a structured result with the current version, new version, and processed files.
- */
-export function bumpAllVersions(
-  packageFiles: readonly string[],
-  releaseType: ReleaseType,
-  dryRun: boolean,
-): BumpResult {
-  const firstFile = packageFiles[0];
-  if (firstFile === undefined) {
-    throw new Error('No package files specified');
-  }
-
-  const firstPkg = readPackageJson(firstFile);
-  const currentVersion = firstPkg.version;
-  const newVersion = bumpVersion(currentVersion, releaseType);
-
-  writeVersionToAllFiles(packageFiles, firstFile, firstPkg, newVersion, dryRun);
-
-  return { currentVersion, newVersion, files: [...packageFiles] };
-}
-
-/**
- * Write an explicit version string to all specified package.json files, bypassing
- * commit-derived bump logic.
- *
- * Reads the first file to capture the pre-write `currentVersion`, then writes `newVersion`
- * to every file in `packageFiles`. Used by the `--set-version` CLI flag.
- */
-export function setAllVersions(packageFiles: readonly string[], newVersion: string, dryRun: boolean): BumpResult {
-  const firstFile = packageFiles[0];
-  if (firstFile === undefined) {
-    throw new Error('No package files specified');
-  }
-
-  const firstPkg = readPackageJson(firstFile);
-  const currentVersion = firstPkg.version;
-
-  writeVersionToAllFiles(packageFiles, firstFile, firstPkg, newVersion, dryRun);
-
-  return { currentVersion, newVersion, files: [...packageFiles] };
-}
-
-/** Write `newVersion` to every file in `packageFiles`, reusing `firstPkg` for the first file. */
-function writeVersionToAllFiles(
-  packageFiles: readonly string[],
-  firstFile: string,
-  firstPkg: PackageJson,
-  newVersion: string,
-  dryRun: boolean,
-): void {
-  for (const filePath of packageFiles) {
-    if (dryRun) {
-      continue;
-    }
-
-    const pkg = filePath === firstFile ? firstPkg : readPackageJson(filePath);
-    pkg.version = newVersion;
-
-    try {
-      writeFileSync(filePath, JSON.stringify(pkg, null, 2) + '\n', 'utf8');
-    } catch (error: unknown) {
-      throw new Error(`Failed to write ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
 }
 
 /**

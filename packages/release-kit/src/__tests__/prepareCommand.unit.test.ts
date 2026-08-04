@@ -110,7 +110,7 @@ describe(prepareCommand, () => {
       expect.objectContaining({
         workspaces: expect.arrayContaining([expect.objectContaining({ tagPrefix: 'arrays-v' })]),
       }),
-      { dryRun: false, force: false },
+      { force: false },
     );
   });
 
@@ -120,7 +120,6 @@ describe(prepareCommand, () => {
     await prepareCommand([]);
 
     expect(mockReleasePrepare).toHaveBeenCalledWith(expect.objectContaining({ tagPrefix: 'v' }), {
-      dryRun: false,
       force: false,
     });
   });
@@ -129,7 +128,6 @@ describe(prepareCommand, () => {
     await prepareCommand(['--dry-run']);
 
     expect(mockReleasePrepareMono).toHaveBeenCalledWith(expect.any(Object), {
-      dryRun: true,
       force: false,
     });
   });
@@ -138,7 +136,6 @@ describe(prepareCommand, () => {
     await prepareCommand(['--bump=minor']);
 
     expect(mockReleasePrepareMono).toHaveBeenCalledWith(expect.any(Object), {
-      dryRun: false,
       force: false,
       bumpOverride: 'minor',
     });
@@ -148,7 +145,6 @@ describe(prepareCommand, () => {
     await prepareCommand(['--force', '--bump=patch']);
 
     expect(mockReleasePrepareMono).toHaveBeenCalledWith(expect.any(Object), {
-      dryRun: false,
       force: true,
       bumpOverride: 'patch',
     });
@@ -191,7 +187,6 @@ describe(prepareCommand, () => {
     await prepareCommand(['--force', '--bump=patch']);
 
     expect(mockReleasePrepare).toHaveBeenCalledWith(expect.any(Object), {
-      dryRun: false,
       force: true,
       bumpOverride: 'patch',
     });
@@ -297,12 +292,12 @@ describe(prepareCommand, () => {
 
   it('prints stage-attributed errors with the canonical Error prefix and no "Error preparing release:" wrapper', async () => {
     mockReleasePrepareMono.mockImplementation(() => {
-      throw new Error("workspace 'arrays' release stage: bumpAllVersions failed: ENOENT");
+      throw new Error("workspace 'arrays' release stage: planVersionBump failed: ENOENT");
     });
 
     await expect(prepareCommand([])).rejects.toThrow(ExitError);
     expect(process.stderr.write).toHaveBeenCalledWith(
-      "Error: workspace 'arrays' release stage: bumpAllVersions failed: ENOENT\n",
+      "Error: workspace 'arrays' release stage: planVersionBump failed: ENOENT\n",
     );
     expect(process.stderr.write).not.toHaveBeenCalledWith(expect.stringContaining('Error preparing release'));
   });

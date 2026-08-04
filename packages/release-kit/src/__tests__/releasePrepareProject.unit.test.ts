@@ -53,7 +53,7 @@ vi.mock(import('../renderChangelogMarkdown.ts'), () => ({
   renderChangelogMarkdown: mockRenderChangelogMarkdown,
 }));
 
-vi.mock(import('../writeReleaseNotesPreviews.ts'), () => ({
+vi.mock(import('../planReleaseNotesPreviews.ts'), () => ({
   planReleaseNotesPreviews: mockPlanReleaseNotesPreviews,
 }));
 
@@ -151,7 +151,7 @@ describe(releasePrepareProject, () => {
 
     const result = releasePrepareProject({
       config: makeConfig(),
-      options: { dryRun: false },
+      options: {},
       modifiedFiles,
       writes: [],
       tags,
@@ -180,7 +180,7 @@ describe(releasePrepareProject, () => {
 
     const result = releasePrepareProject({
       config: makeConfig(),
-      options: { dryRun: false },
+      options: {},
       modifiedFiles,
       writes: [],
       tags,
@@ -210,7 +210,7 @@ describe(releasePrepareProject, () => {
 
     const result = releasePrepareProject({
       config: makeConfig(),
-      options: { dryRun: false, force: true },
+      options: { force: true },
       modifiedFiles,
       writes: [],
       tags,
@@ -238,7 +238,7 @@ describe(releasePrepareProject, () => {
 
     const result = releasePrepareProject({
       config: makeConfig(),
-      options: { dryRun: false, force: true },
+      options: { force: true },
       modifiedFiles,
       writes: [],
       tags,
@@ -267,7 +267,7 @@ describe(releasePrepareProject, () => {
 
     const result = releasePrepareProject({
       config: makeConfig(),
-      options: { dryRun: false, bumpOverride: 'minor' },
+      options: { bumpOverride: 'minor' },
       modifiedFiles,
       writes: [],
       tags,
@@ -288,7 +288,7 @@ describe(releasePrepareProject, () => {
 
     const result = releasePrepareProject({
       config: makeConfig(),
-      options: { dryRun: false },
+      options: {},
       modifiedFiles,
       writes,
       tags,
@@ -329,7 +329,7 @@ describe(releasePrepareProject, () => {
 
     releasePrepareProject({
       config,
-      options: { dryRun: false },
+      options: {},
       modifiedFiles: [],
       writes: [],
       tags: [],
@@ -357,7 +357,7 @@ describe(releasePrepareProject, () => {
 
     const result = releasePrepareProject({
       config: makeConfig(),
-      options: { dryRun: false, bumpOverride: 'major' },
+      options: { bumpOverride: 'major' },
       modifiedFiles,
       writes: [],
       tags,
@@ -381,7 +381,7 @@ describe(releasePrepareProject, () => {
 
     const result = releasePrepareProject({
       config: makeConfig(),
-      options: { dryRun: false, force: true, bumpOverride: 'patch' },
+      options: { force: true, bumpOverride: 'patch' },
       modifiedFiles,
       writes: [],
       tags,
@@ -400,7 +400,7 @@ describe(releasePrepareProject, () => {
 
     const result = releasePrepareProject({
       config: makeConfig(),
-      options: { dryRun: true },
+      options: {},
       modifiedFiles,
       writes: [],
       tags,
@@ -431,7 +431,7 @@ describe(releasePrepareProject, () => {
 
     releasePrepareProject({
       config,
-      options: { dryRun: false },
+      options: {},
       modifiedFiles: modifiedFiles,
       writes: [],
       tags: [],
@@ -464,7 +464,7 @@ describe(releasePrepareProject, () => {
 
     releasePrepareProject({
       config,
-      options: { dryRun: false },
+      options: {},
       modifiedFiles: [],
       writes: [],
       tags: [],
@@ -486,7 +486,7 @@ describe(releasePrepareProject, () => {
 
     releasePrepareProject({
       config,
-      options: { dryRun: true },
+      options: {},
       modifiedFiles,
       writes: [],
       tags: [],
@@ -507,7 +507,7 @@ describe(releasePrepareProject, () => {
 
     releasePrepareProject({
       config,
-      options: { dryRun: false, withReleaseNotes: true },
+      options: { withReleaseNotes: true },
       modifiedFiles,
       writes: [],
       tags,
@@ -532,7 +532,7 @@ describe(releasePrepareProject, () => {
 
     releasePrepareProject({
       config,
-      options: { dryRun: false },
+      options: {},
       modifiedFiles: [],
       writes: [],
       tags: [],
@@ -555,7 +555,7 @@ describe(releasePrepareProject, () => {
 
     const result = releasePrepareProject({
       config: makeConfig(),
-      options: { dryRun: false },
+      options: {},
       modifiedFiles: [],
       writes: [],
       tags,
@@ -575,7 +575,7 @@ describe(releasePrepareProject, () => {
     expect(() =>
       releasePrepareProject({
         config,
-        options: { dryRun: false },
+        options: {},
         modifiedFiles: [],
         writes: [],
         tags: [],
@@ -614,7 +614,7 @@ describe(releasePrepareProject, () => {
 
       const result = releasePrepareProject({
         config: makeConfig(),
-        options: { dryRun: false, force: true },
+        options: { force: true },
         modifiedFiles,
         writes: [],
         tags,
@@ -648,7 +648,7 @@ describe(releasePrepareProject, () => {
 
       releasePrepareProject({
         config: makeConfig(),
-        options: { dryRun: false, force: true },
+        options: { force: true },
         modifiedFiles: [],
         writes: [],
         tags: [],
@@ -664,7 +664,7 @@ describe(releasePrepareProject, () => {
 
       releasePrepareProject({
         config,
-        options: { dryRun: false, force: true },
+        options: { force: true },
         modifiedFiles: [],
         writes: [],
         tags: [],
@@ -698,7 +698,7 @@ describe(releasePrepareProject, () => {
 
       const result = releasePrepareProject({
         config: makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
-        options: { dryRun: false, force: true },
+        options: { force: true },
         modifiedFiles,
         writes,
         tags,
@@ -721,7 +721,7 @@ describe(releasePrepareProject, () => {
 
       releasePrepareProject({
         config: makeConfig(),
-        options: { dryRun: false },
+        options: {},
         modifiedFiles: [],
         writes: [],
         tags: [],
@@ -739,7 +739,7 @@ describe(releasePrepareProject, () => {
 
       const result = releasePrepareProject({
         config: makeConfig(),
-        options: { dryRun: false }, // No --force, no --bump → skip path.
+        options: {}, // No --force, no --bump → skip path.
         modifiedFiles,
         writes: [],
         tags,
@@ -779,7 +779,7 @@ describe(releasePrepareProject, () => {
 
       const result = releasePrepareProject({
         config,
-        options: { dryRun: false },
+        options: {},
         modifiedFiles: [],
         writes: [],
         tags: [],
@@ -796,7 +796,7 @@ describe(releasePrepareProject, () => {
 
       const result = releasePrepareProject({
         config,
-        options: { dryRun: false },
+        options: {},
         modifiedFiles: [],
         writes: [],
         tags: [],
@@ -818,7 +818,7 @@ describe(releasePrepareProject, () => {
 
       const result = releasePrepareProject({
         config,
-        options: { dryRun: false },
+        options: {},
         modifiedFiles: [],
         writes: [],
         tags: [],
@@ -840,7 +840,7 @@ describe(releasePrepareProject, () => {
 
       const result = releasePrepareProject({
         config,
-        options: { dryRun: false },
+        options: {},
         modifiedFiles: [],
         writes: [],
         tags: [],
@@ -863,7 +863,7 @@ describe(releasePrepareProject, () => {
 
       const result = releasePrepareProject({
         config,
-        options: { dryRun: false },
+        options: {},
         modifiedFiles: [],
         writes: [],
         tags: [],

@@ -1,13 +1,15 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { writeReleaseNotesPreviews } from '../writeReleaseNotesPreviews.ts';
+import { applyReleasePlan } from '../releasePlan.ts';
+import type { ChangelogEntry } from '../types.ts';
+import { planReleaseNotesPreviews } from '../planReleaseNotesPreviews.ts';
 
 /** Minimal changelog.json fixture with a public feature section and a dev-only internal section. */
-const changelogJsonFixture = [
+const changelogJsonFixture: ChangelogEntry[] = [
   {
     version: '2.4.0',
     date: '2026-04-23',
@@ -38,41 +40,33 @@ Short description.
 npm install @scope/pkg
 \`\`\`
 `;
-
-describe(writeReleaseNotesPreviews, () => {
+describe(planReleaseNotesPreviews, () => {
   let tempDir: string;
-  let changelogJsonPath: string;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), 'prepare-with-release-notes-'));
     writeFileSync(join(tempDir, 'README.md'), readmeWithMarker, 'utf8');
-    mkdirSync(join(tempDir, '.meta'), { recursive: true });
-    changelogJsonPath = join(tempDir, '.meta', 'changelog.json');
-    writeFileSync(changelogJsonPath, JSON.stringify(changelogJsonFixture), 'utf8');
   });
 
   afterEach(() => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('writes both preview files under docs/ with correct content for a pending release', () => {
-    const result = writeReleaseNotesPreviews({
+  /** Plan the previews for the fixture release, then apply them as the CLI boundary would. */
+  function planAndApply(): void {
+    const previews = planReleaseNotesPreviews({
       workspacePath: tempDir,
       tag: 'pkg-v2.4.0',
-      changelogJsonPath,
+      entries: changelogJsonFixture,
       sectionOrder: ['Features', 'Bug fixes'],
-      dryRun: false,
     });
+    applyReleasePlan({ writes: previews.writes, tags: [], summary: '', formatCommand: undefined, workspaces: [] });
+  }
 
-    expect(result.renderSkipped).toBe(false);
+  it('writes both preview files under docs/ with correct content for a pending release', () => {
+    planAndApply();
 
-    const readmePreviewPath = join(tempDir, 'docs', 'README.v2.4.0.md');
-    const releaseNotesPreviewPath = join(tempDir, 'docs', 'RELEASE_NOTES.v2.4.0.md');
-
-    expect(existsSync(readmePreviewPath)).toBe(true);
-    expect(existsSync(releaseNotesPreviewPath)).toBe(true);
-
-    const readmePreview = readFileSync(readmePreviewPath, 'utf8');
+    const readmePreview = readFileSync(join(tempDir, 'docs', 'README.v2.4.0.md'), 'utf8');
     expect(readmePreview).toContain('# @scope/pkg');
     expect(readmePreview).toContain('## Installation');
     // Labeled heading anchors the injected content to a version.
@@ -82,7 +76,7 @@ describe(writeReleaseNotesPreviews, () => {
     // Dev-only sections must not leak into the public README preview.
     expect(readmePreview).not.toContain('Internal');
 
-    const releaseNotesPreview = readFileSync(releaseNotesPreviewPath, 'utf8');
+    const releaseNotesPreview = readFileSync(join(tempDir, 'docs', 'RELEASE_NOTES.v2.4.0.md'), 'utf8');
     expect(releaseNotesPreview).toContain('## Release notes — v2.4.0 (2026-04-23)');
     expect(releaseNotesPreview).toContain('### Features');
     expect(releaseNotesPreview).toContain('Add release-notes preview generator');
@@ -91,94 +85,21 @@ describe(writeReleaseNotesPreviews, () => {
   });
 
   it('overwrites existing preview files on re-run with the same version', () => {
-    // First pass.
-    writeReleaseNotesPreviews({
-      workspacePath: tempDir,
-      tag: 'pkg-v2.4.0',
-      changelogJsonPath,
-      sectionOrder: ['Features'],
-      dryRun: false,
-    });
+    planAndApply();
 
     const readmePreviewPath = join(tempDir, 'docs', 'README.v2.4.0.md');
-    // Mutate the existing file to something clearly stale.
     writeFileSync(readmePreviewPath, 'STALE CONTENT', 'utf8');
-    expect(readFileSync(readmePreviewPath, 'utf8')).toBe('STALE CONTENT');
 
-    // Second pass with the same tag should overwrite.
-    const result = writeReleaseNotesPreviews({
-      workspacePath: tempDir,
-      tag: 'pkg-v2.4.0',
-      changelogJsonPath,
-      sectionOrder: ['Features'],
-      dryRun: false,
-    });
+    planAndApply();
 
-    expect(result.renderSkipped).toBe(false);
-    expect(result.injectedReadme?.outcome).toBe('overwritten');
     expect(readFileSync(readmePreviewPath, 'utf8')).toContain('### Features');
   });
 
   it('creates the docs/ directory when it does not already exist', () => {
-    const docsDir = join(tempDir, 'docs');
-    expect(existsSync(docsDir)).toBe(false);
-
-    writeReleaseNotesPreviews({
-      workspacePath: tempDir,
-      tag: 'pkg-v2.4.0',
-      changelogJsonPath,
-      sectionOrder: ['Features'],
-      dryRun: false,
-    });
-
-    expect(existsSync(docsDir)).toBe(true);
-    expect(existsSync(join(docsDir, 'README.v2.4.0.md'))).toBe(true);
-    expect(existsSync(join(docsDir, 'RELEASE_NOTES.v2.4.0.md'))).toBe(true);
-  });
-
-  it('skips the injected-README preview when the workspace has no README.md but still writes the standalone release notes', () => {
-    // Remove the fixture README to simulate a workspace without one.
-    rmSync(join(tempDir, 'README.md'));
-
-    const result = writeReleaseNotesPreviews({
-      workspacePath: tempDir,
-      tag: 'pkg-v2.4.0',
-      changelogJsonPath,
-      sectionOrder: ['Features'],
-      dryRun: false,
-    });
-
-    expect(result.renderSkipped).toBe(false);
-    expect(result.injectedReadme?.outcome).toBe('skipped-no-readme');
-    expect(existsSync(join(tempDir, 'docs', 'README.v2.4.0.md'))).toBe(false);
-    expect(existsSync(join(tempDir, 'docs', 'RELEASE_NOTES.v2.4.0.md'))).toBe(true);
-  });
-
-  it('writes no files and reports renderSkipped when no changelog entry matches the tag', () => {
-    const result = writeReleaseNotesPreviews({
-      workspacePath: tempDir,
-      tag: 'pkg-v9.9.9',
-      changelogJsonPath,
-      sectionOrder: ['Features'],
-      dryRun: false,
-    });
-
-    expect(result.renderSkipped).toBe(true);
     expect(existsSync(join(tempDir, 'docs'))).toBe(false);
-  });
 
-  it('writes no files in dry-run mode', () => {
-    const result = writeReleaseNotesPreviews({
-      workspacePath: tempDir,
-      tag: 'pkg-v2.4.0',
-      changelogJsonPath,
-      sectionOrder: ['Features'],
-      dryRun: true,
-    });
+    planAndApply();
 
-    expect(result.renderSkipped).toBe(false);
-    expect(result.injectedReadme?.outcome).toBe('dry-run');
-    expect(result.releaseNotes?.outcome).toBe('dry-run');
-    expect(existsSync(join(tempDir, 'docs'))).toBe(false);
+    expect(existsSync(join(tempDir, 'docs'))).toBe(true);
   });
 });

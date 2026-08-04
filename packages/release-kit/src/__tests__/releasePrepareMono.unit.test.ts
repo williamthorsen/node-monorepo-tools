@@ -27,7 +27,7 @@ vi.mock(import('../hasPrettierConfig.ts'), () => ({
   hasPrettierConfig: mockHasPrettierConfig,
 }));
 
-vi.mock(import('../writeReleaseNotesPreviews.ts'), () => ({
+vi.mock(import('../planReleaseNotesPreviews.ts'), () => ({
   planReleaseNotesPreviews: mockPlanReleaseNotesPreviews,
 }));
 
@@ -249,7 +249,7 @@ describe(releasePrepareMono, () => {
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, { dryRun: false });
+    const result = releasePrepareMono(config, {});
 
     expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
     expect(result.workspaces).toHaveLength(1);
@@ -301,7 +301,7 @@ describe(releasePrepareMono, () => {
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, { dryRun: false });
+    const result = releasePrepareMono(config, {});
 
     expect(result.tags).toStrictEqual([]);
     expect(result.workspaces).toHaveLength(1);
@@ -363,7 +363,7 @@ describe(releasePrepareMono, () => {
 
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, { dryRun: false });
+    const result = releasePrepareMono(config, {});
 
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
     expect(result.workspaces).toHaveLength(2);
@@ -408,7 +408,7 @@ describe(releasePrepareMono, () => {
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, { dryRun: false });
+    const result = releasePrepareMono(config, {});
 
     expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
     expect(mockWriteFileSync).not.toHaveBeenCalled();
@@ -464,7 +464,7 @@ describe(releasePrepareMono, () => {
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, { dryRun: false });
+    const result = releasePrepareMono(config, {});
 
     expect(mockExecSync).not.toHaveBeenCalled();
     expect(result.formatCommand?.command).toBe(
@@ -499,7 +499,7 @@ describe(releasePrepareMono, () => {
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, { dryRun: false, bumpOverride: 'minor' });
+    const result = releasePrepareMono(config, { bumpOverride: 'minor' });
 
     expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
 
@@ -544,7 +544,7 @@ describe(releasePrepareMono, () => {
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, { dryRun: false });
+    const result = releasePrepareMono(config, {});
 
     expect(result.tags).toStrictEqual([]);
     const workspace = result.workspaces[0];
@@ -589,7 +589,7 @@ describe(releasePrepareMono, () => {
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, { dryRun: false, force: true });
+    const result = releasePrepareMono(config, { force: true });
 
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
     expect(result.workspaces[0]).toMatchObject({
@@ -631,7 +631,7 @@ describe(releasePrepareMono, () => {
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, { dryRun: false, bumpOverride: 'minor' });
+    const result = releasePrepareMono(config, { bumpOverride: 'minor' });
 
     expect(result.tags).toStrictEqual([]);
     const workspace = result.workspaces[0];
@@ -672,7 +672,7 @@ describe(releasePrepareMono, () => {
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, { dryRun: false, force: true });
+    const result = releasePrepareMono(config, { force: true });
 
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
     const workspace = result.workspaces[0];
@@ -735,7 +735,7 @@ describe(releasePrepareMono, () => {
       return JSON.stringify({ version: '2.0.0' });
     });
 
-    const result = releasePrepareMono(config, { dryRun: false, force: true });
+    const result = releasePrepareMono(config, { force: true });
 
     // arrays falls back to patch (chore is not bump-worthy); strings uses natural minor (feat).
     expect(result.tags).toStrictEqual(['arrays-v1.0.1', 'strings-v2.1.0']);
@@ -770,7 +770,7 @@ describe(releasePrepareMono, () => {
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, { dryRun: false });
+    const result = releasePrepareMono(config, {});
 
     expect(result.workspaces[0]).toMatchObject({
       status: 'released',
@@ -807,7 +807,7 @@ describe(releasePrepareMono, () => {
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, { dryRun: false, force: true, bumpOverride: 'patch' });
+    const result = releasePrepareMono(config, { force: true, bumpOverride: 'patch' });
 
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
     expect(plannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.0.1"');
@@ -862,7 +862,7 @@ describe(releasePrepareMono, () => {
       return JSON.stringify({ version: '2.0.0' });
     });
 
-    const result = releasePrepareMono(config, { dryRun: false, force: true, bumpOverride: 'patch' });
+    const result = releasePrepareMono(config, { force: true, bumpOverride: 'patch' });
 
     // arrays is bumped via --force (0 commits); strings is bumped via commits; both use bumpOverride: 'patch'
     expect(result.tags).toStrictEqual(['arrays-v1.0.1', 'strings-v2.0.1']);
@@ -895,7 +895,7 @@ describe(releasePrepareMono, () => {
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, { dryRun: true, force: true, bumpOverride: 'patch' });
+    const result = releasePrepareMono(config, { force: true, bumpOverride: 'patch' });
 
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
     expect(mockWriteFileSync).not.toHaveBeenCalled();
@@ -930,7 +930,7 @@ describe(releasePrepareMono, () => {
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, { dryRun: false });
+    const result = releasePrepareMono(config, {});
 
     expect(result.tags).toStrictEqual([]);
     expect(mockExecSync).not.toHaveBeenCalled();
@@ -964,7 +964,7 @@ describe(releasePrepareMono, () => {
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, { dryRun: false });
+    const result = releasePrepareMono(config, {});
 
     expect(result.formatCommand?.command).toBe(
       'npx prettier --write packages/arrays/package.json packages/arrays/CHANGELOG.md',
@@ -999,7 +999,7 @@ describe(releasePrepareMono, () => {
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    releasePrepareMono(config, { dryRun: false });
+    releasePrepareMono(config, {});
 
     expect(mockExecSync).not.toHaveBeenCalled();
   });
@@ -1031,7 +1031,7 @@ describe(releasePrepareMono, () => {
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, { dryRun: false });
+    const result = releasePrepareMono(config, {});
 
     expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
     const workspace = result.workspaces[0];
@@ -1107,7 +1107,7 @@ describe(releasePrepareMono, () => {
       });
       mockExistsSync.mockReturnValue(false);
 
-      const result = releasePrepareMono(config, { dryRun: false });
+      const result = releasePrepareMono(config, {});
 
       // core is bumped directly (minor), app is propagated (patch).
       expect(result.tags).toContain('core-v1.1.0');
@@ -1186,7 +1186,7 @@ describe(releasePrepareMono, () => {
       });
       mockExistsSync.mockReturnValue(false);
 
-      const result = releasePrepareMono(config, { dryRun: false });
+      const result = releasePrepareMono(config, {});
 
       // git-cliff (via buildChangelogEntries) is called only for core (direct), not for app (propagated).
       expect(countCliffCalls()).toBe(1);
@@ -1225,7 +1225,7 @@ describe(releasePrepareMono, () => {
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '1.0.0' }));
 
-      const result = releasePrepareMono(config, { dryRun: false });
+      const result = releasePrepareMono(config, {});
 
       // Only core should be released since app is not in config.workspaces.
       expect(result.tags).toStrictEqual(['core-v1.1.0']);
@@ -1256,7 +1256,7 @@ describe(releasePrepareMono, () => {
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
       mockExistsSync.mockReturnValue(false);
 
-      const result = releasePrepareMono(config, { dryRun: false, setVersion: '1.0.0' });
+      const result = releasePrepareMono(config, { setVersion: '1.0.0' });
 
       const coreResult = result.workspaces.find((c) => c.name === 'core');
       expect(coreResult).toMatchObject({
@@ -1294,7 +1294,7 @@ describe(releasePrepareMono, () => {
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
 
-      expect(() => releasePrepareMono(config, { dryRun: false, setVersion: '0.3.0' })).toThrow(
+      expect(() => releasePrepareMono(config, { setVersion: '0.3.0' })).toThrow(
         '--set-version 0.3.0 is not greater than current version 0.5.0',
       );
     });
@@ -1322,7 +1322,7 @@ describe(releasePrepareMono, () => {
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
 
-      expect(() => releasePrepareMono(config, { dryRun: false, setVersion: '0.5.0' })).toThrow(
+      expect(() => releasePrepareMono(config, { setVersion: '0.5.0' })).toThrow(
         '--set-version 0.5.0 is not greater than current version 0.5.0',
       );
     });
@@ -1351,7 +1351,7 @@ describe(releasePrepareMono, () => {
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/core', version: '0.5.0' }));
       mockExistsSync.mockReturnValue(false);
 
-      const result = releasePrepareMono(config, { dryRun: true, setVersion: '1.0.0' });
+      const result = releasePrepareMono(config, { setVersion: '1.0.0' });
 
       expect(result.tags).toStrictEqual(['core-v1.0.0']);
       expect(mockWriteFileSync).not.toHaveBeenCalled();
@@ -1385,7 +1385,7 @@ describe(releasePrepareMono, () => {
         ],
       });
 
-      expect(() => releasePrepareMono(config, { dryRun: false, setVersion: '1.0.0' })).toThrow(
+      expect(() => releasePrepareMono(config, { setVersion: '1.0.0' })).toThrow(
         '--set-version requires exactly one workspace',
       );
     });
@@ -1445,7 +1445,7 @@ describe(releasePrepareMono, () => {
         return '{}';
       });
 
-      const result = releasePrepareMono(config, { dryRun: false });
+      const result = releasePrepareMono(config, {});
 
       // app has its own minor bump from commits; propagation adds metadata but keeps minor.
       const appResult = result.workspaces.find((c) => c.name === 'app');
@@ -1492,7 +1492,7 @@ describe(releasePrepareMono, () => {
     it('writes a synthetic Notes / Forced version bump entry when --force is used with no commits', () => {
       stubEmptyRange();
 
-      const result = releasePrepareMono(singleWorkspaceConfig(), { dryRun: false, force: true });
+      const result = releasePrepareMono(singleWorkspaceConfig(), { force: true });
 
       expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
 
@@ -1505,7 +1505,7 @@ describe(releasePrepareMono, () => {
     it('does not invoke git-cliff for an empty-range workspace', () => {
       stubEmptyRange();
 
-      releasePrepareMono(singleWorkspaceConfig(), { dryRun: false, bumpOverride: 'minor' });
+      releasePrepareMono(singleWorkspaceConfig(), { bumpOverride: 'minor' });
 
       expect(countCliffCalls()).toBe(0);
     });
@@ -1515,7 +1515,7 @@ describe(releasePrepareMono, () => {
 
       releasePrepareMono(
         singleWorkspaceConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
-        { dryRun: false, force: true },
+        { force: true },
       );
 
       expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledTimes(1);
@@ -1578,7 +1578,7 @@ describe(releasePrepareMono, () => {
       });
       mockExistsSync.mockReturnValue(false);
 
-      releasePrepareMono(config, { dryRun: false });
+      releasePrepareMono(config, {});
 
       // The propagation-only path constructs a synthetic propagation entry, not an empty-range
       // entry. Both constructors are mocked, so observe the call counts.
@@ -1598,7 +1598,7 @@ describe(releasePrepareMono, () => {
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
 
-      releasePrepareMono(config, { dryRun: false });
+      releasePrepareMono(config, {});
 
       // Real commits → cliff path runs.
       expect(countCliffCalls()).toBe(1);
@@ -1607,7 +1607,7 @@ describe(releasePrepareMono, () => {
     it('does not write synthetic entries for workspaces correctly skipped (no commits, no --force)', () => {
       stubEmptyRange();
 
-      const result = releasePrepareMono(singleWorkspaceConfig(), { dryRun: false });
+      const result = releasePrepareMono(singleWorkspaceConfig(), {});
 
       expect(result.tags).toStrictEqual([]);
       expect(result.workspaces[0]).toMatchObject({ status: 'skipped' });
@@ -1623,7 +1623,7 @@ describe(releasePrepareMono, () => {
 
       const result = releasePrepareMono(
         singleWorkspaceConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
-        { dryRun: true, force: true },
+        { force: true },
       );
 
       expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
@@ -1695,7 +1695,7 @@ describe(releasePrepareMono, () => {
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
       mockExistsSync.mockReturnValue(false);
 
-      releasePrepareMono(config, { dryRun: false, force: true });
+      releasePrepareMono(config, { force: true });
 
       // Three workspaces, all empty-range, all forced — git-cliff must be invoked zero times.
       expect(countCliffCalls()).toBe(0);
@@ -1737,7 +1737,7 @@ describe(releasePrepareMono, () => {
 
       releasePrepareMono(
         singleWorkspaceConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: false } }),
-        { dryRun: false },
+        {},
       );
 
       expect(mockUpsertChangelogJsonAndReturn).not.toHaveBeenCalled();
@@ -1749,7 +1749,7 @@ describe(releasePrepareMono, () => {
 
       const plan = releasePrepareMono(
         singleWorkspaceConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
-        { dryRun: false },
+        {},
       );
 
       expect(mockRenderChangelogJson).toHaveBeenCalledTimes(1);
@@ -1797,7 +1797,7 @@ describe(releasePrepareMono, () => {
         return true;
       });
 
-      releasePrepareMono(config, { dryRun: true });
+      releasePrepareMono(config, {});
 
       expect(messages).toHaveLength(1);
       const message = messages[0] ?? '';
@@ -1831,7 +1831,7 @@ describe(releasePrepareMono, () => {
         return true;
       });
 
-      releasePrepareMono(config, { dryRun: true });
+      releasePrepareMono(config, {});
 
       expect(messages).toHaveLength(0);
       errorSpy.mockRestore();
@@ -1859,7 +1859,7 @@ describe(releasePrepareMono, () => {
         return true;
       });
 
-      releasePrepareMono(config, { dryRun: true });
+      releasePrepareMono(config, {});
 
       expect(messages).toHaveLength(0);
       errorSpy.mockRestore();
@@ -1902,7 +1902,7 @@ describe(releasePrepareMono, () => {
         return true;
       });
 
-      releasePrepareMono(config, { dryRun: true });
+      releasePrepareMono(config, {});
 
       expect(messages).toHaveLength(0);
       errorSpy.mockRestore();
@@ -1943,7 +1943,7 @@ describe(releasePrepareMono, () => {
         return true;
       });
 
-      releasePrepareMono(config, { dryRun: true });
+      releasePrepareMono(config, {});
 
       expect(messages).toHaveLength(0);
       errorSpy.mockRestore();
@@ -1981,7 +1981,7 @@ describe(releasePrepareMono, () => {
         return true;
       });
 
-      releasePrepareMono(config, { dryRun: true });
+      releasePrepareMono(config, {});
 
       expect(messages).toHaveLength(1);
       errorSpy.mockRestore();
@@ -2015,7 +2015,7 @@ describe(releasePrepareMono, () => {
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-      const result = releasePrepareMono(config, { dryRun: false });
+      const result = releasePrepareMono(config, {});
 
       expect(result.project).toBeUndefined();
       // The arrays workspace was bumped; no project tag was added.
@@ -2054,7 +2054,7 @@ describe(releasePrepareMono, () => {
         return JSON.stringify({ version: '1.0.0' });
       });
 
-      const result = releasePrepareMono(config, { dryRun: false });
+      const result = releasePrepareMono(config, {});
 
       expect(result.project).toBeDefined();
       const project = result.project;
@@ -2098,7 +2098,7 @@ describe(releasePrepareMono, () => {
         return JSON.stringify({ version: '1.0.0' });
       });
 
-      const result = releasePrepareMono(config, { dryRun: false });
+      const result = releasePrepareMono(config, {});
 
       const formatCall = result.formatCommand?.command;
       expect(formatCall).toContain('packages/arrays/package.json');
@@ -2138,10 +2138,10 @@ describe(releasePrepareMono, () => {
       return config;
     }
 
-    it('invokes writeReleaseNotesPreviews for each released workspace when enabled', () => {
+    it('invokes planReleaseNotesPreviews for each released workspace when enabled', () => {
       const config = setupArraysWithFeat();
 
-      releasePrepareMono(config, { dryRun: false, withReleaseNotes: true });
+      releasePrepareMono(config, { withReleaseNotes: true });
 
       expect(mockPlanReleaseNotesPreviews).toHaveBeenCalledTimes(1);
       expect(mockPlanReleaseNotesPreviews).toHaveBeenCalledWith(
@@ -2154,10 +2154,10 @@ describe(releasePrepareMono, () => {
       );
     });
 
-    it('does not invoke writeReleaseNotesPreviews when the flag is not set', () => {
+    it('does not invoke planReleaseNotesPreviews when the flag is not set', () => {
       const config = setupArraysWithFeat();
 
-      releasePrepareMono(config, { dryRun: false });
+      releasePrepareMono(config, {});
 
       expect(mockPlanReleaseNotesPreviews).not.toHaveBeenCalled();
     });
@@ -2189,7 +2189,7 @@ describe(releasePrepareMono, () => {
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-      releasePrepareMono(config, { dryRun: false, withReleaseNotes: true });
+      releasePrepareMono(config, { withReleaseNotes: true });
 
       expect(mockPlanReleaseNotesPreviews).not.toHaveBeenCalled();
       expect(warnSpy).toHaveBeenCalledWith(
@@ -2224,7 +2224,7 @@ describe(releasePrepareMono, () => {
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
 
-      releasePrepareMono(config, { dryRun: false, withReleaseNotes: true });
+      releasePrepareMono(config, { withReleaseNotes: true });
 
       expect(mockPlanReleaseNotesPreviews).not.toHaveBeenCalled();
     });
@@ -2237,12 +2237,12 @@ describe(releasePrepareMono, () => {
         warnings: [],
       });
 
-      const plan = releasePrepareMono(config, { dryRun: false, withReleaseNotes: true });
+      const plan = releasePrepareMono(config, { withReleaseNotes: true });
 
       expect(plannedContent(plan, 'packages/arrays/docs/RELEASE_NOTES.v1.1.0.md')).toBe('# Notes\n');
     });
 
-    it('invokes writeReleaseNotesPreviews for both direct-bumped and propagation-only workspaces', () => {
+    it('invokes planReleaseNotesPreviews for both direct-bumped and propagation-only workspaces', () => {
       // Mirrors the `dependency propagation` setup: core is bumped directly (feat commit), and
       // app is bumped only through propagation. Both branches of `generateWorkspaceChangelogs`
       // must reach `maybeWritePreviews` so previews are written for each workspace.
@@ -2298,7 +2298,7 @@ describe(releasePrepareMono, () => {
       });
       mockExistsSync.mockReturnValue(false);
 
-      releasePrepareMono(config, { dryRun: false, withReleaseNotes: true });
+      releasePrepareMono(config, { withReleaseNotes: true });
 
       expect(mockPlanReleaseNotesPreviews).toHaveBeenCalledTimes(2);
       // Confirm each workspace received a preview call with the correct workspacePath and tag.
@@ -2350,7 +2350,7 @@ describe(releasePrepareMono, () => {
         throw underlying;
       });
 
-      const wrapped = captureError(() => releasePrepareMono(config, { dryRun: false }));
+      const wrapped = captureError(() => releasePrepareMono(config, {}));
 
       expect(wrapped.message).toMatch(/^workspace 'arrays' release stage: .*git describe failed: not a git repo$/);
       // `cause` is preserved through the chain — at minimum, an Error instance.
@@ -2373,7 +2373,7 @@ describe(releasePrepareMono, () => {
         throw underlying;
       });
 
-      const wrapped = captureError(() => releasePrepareMono(config, { dryRun: false }));
+      const wrapped = captureError(() => releasePrepareMono(config, {}));
 
       expect(wrapped.message).toMatch(/^workspace 'arrays' release stage: .*git-cliff exited with status 1$/);
       // `cause` is preserved through the chain — at minimum, an Error instance.
@@ -2407,7 +2407,7 @@ describe(releasePrepareMono, () => {
         return [];
       });
 
-      const wrapped = captureError(() => releasePrepareMono(config, { dryRun: false }));
+      const wrapped = captureError(() => releasePrepareMono(config, {}));
 
       expect(wrapped.message).toMatch(/^project release stage: .*cliff exploded on root$/);
       expect(wrapped.cause).toBeInstanceOf(Error);
@@ -2422,7 +2422,7 @@ describe(releasePrepareMono, () => {
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '0.5.0' }));
 
-      const wrapped = captureError(() => releasePrepareMono(config, { dryRun: false, setVersion: '0.3.0' }));
+      const wrapped = captureError(() => releasePrepareMono(config, { setVersion: '0.3.0' }));
 
       expect(wrapped.message).toBe('--set-version 0.3.0 is not greater than current version 0.5.0');
       expect(wrapped.message).not.toContain('stage:');
@@ -2466,7 +2466,7 @@ describe(releasePrepareMono, () => {
       const config = makeConfig({ workspaces: [makeWorkspace()], workTypes: DEFAULT_WORK_TYPES });
       stubLog('arrays-v1.0.0', logLine('feat!: drop legacy export', 'abc1234'));
 
-      const result = releasePrepareMono(config, { dryRun: false });
+      const result = releasePrepareMono(config, {});
 
       expect(result.workspaces[0]?.policyViolations).toBeUndefined();
     });
@@ -2475,7 +2475,7 @@ describe(releasePrepareMono, () => {
       const config = makeConfig({ workspaces: [makeWorkspace()], workTypes: DEFAULT_WORK_TYPES });
       stubLog('arrays-v1.0.0', logLine('internal!: refactor cache', 'def5678'));
 
-      const result = releasePrepareMono(config, { dryRun: false });
+      const result = releasePrepareMono(config, {});
 
       expect(result.workspaces[0]?.policyViolations).toStrictEqual([
         {
@@ -2491,7 +2491,7 @@ describe(releasePrepareMono, () => {
       const config = makeConfig({ workspaces: [makeWorkspace()], workTypes: DEFAULT_WORK_TYPES });
       stubLog('arrays-v1.0.0', logLine('drop: remove deprecated API', '9abc012'));
 
-      const result = releasePrepareMono(config, { dryRun: false });
+      const result = releasePrepareMono(config, {});
 
       expect(result.workspaces[0]?.policyViolations).toStrictEqual([
         {
@@ -2511,7 +2511,7 @@ describe(releasePrepareMono, () => {
       });
       stubLog('arrays-v1.0.0', logLine('internal!: refactor cache', 'def5678'));
 
-      const result = releasePrepareMono(config, { dryRun: false });
+      const result = releasePrepareMono(config, {});
 
       expect(result.workspaces[0]?.policyViolations).toBeUndefined();
     });
@@ -2547,7 +2547,7 @@ describe(releasePrepareMono, () => {
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-      const result = releasePrepareMono(config, { dryRun: false });
+      const result = releasePrepareMono(config, {});
 
       const arraysResult = result.workspaces.find((w) => w.name === 'arrays');
       const coreResult = result.workspaces.find((w) => w.name === 'core');
@@ -2568,7 +2568,7 @@ describe(releasePrepareMono, () => {
       });
       stubLog('arrays-v1.0.0', logLine('feat: rework auth (BREAKING CHANGE: removes /v1)', 'body0001'));
 
-      const result = releasePrepareMono(config, { dryRun: false });
+      const result = releasePrepareMono(config, {});
 
       expect(result.workspaces[0]?.policyViolations).toStrictEqual([
         {
@@ -2631,7 +2631,7 @@ describe(releasePrepareMono, () => {
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-      releasePrepareMono(config, { dryRun: false });
+      releasePrepareMono(config, {});
 
       expect(countCacheRefreshCalls()).toBe(1);
       // The single warmup must precede every per-workspace cliff work invocation.
@@ -2661,7 +2661,7 @@ describe(releasePrepareMono, () => {
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-      releasePrepareMono(config, { dryRun: true });
+      releasePrepareMono(config, {});
 
       expect(countCacheRefreshCalls()).toBe(1);
     });
@@ -2693,7 +2693,7 @@ describe(releasePrepareMono, () => {
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '1.0.0' }));
 
-      releasePrepareMono(config, { dryRun: false });
+      releasePrepareMono(config, {});
 
       expect(countCacheRefreshCalls()).toBe(0);
       expect(countCliffCalls()).toBe(0);
@@ -2760,7 +2760,7 @@ describe(releasePrepareMono, () => {
         },
       ]);
 
-      const result = releasePrepareMono(config, { dryRun: false });
+      const result = releasePrepareMono(config, {});
 
       // The per-workspace stale-key warning must surface on PrepareResult.warnings — proves
       // `applyWorkspaceOverrides`'s `overrideWarnings.push(...)` is correctly threaded through

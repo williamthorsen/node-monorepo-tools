@@ -1,6 +1,3 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { dirname, join as joinPath } from 'node:path';
-
 import { renderReleaseNotesMulti } from './renderReleaseNotes.ts';
 import type { ChangelogEntry } from './types.ts';
 
@@ -47,35 +44,4 @@ export function renderChangelogMarkdown(entries: ChangelogEntry[], options?: Ren
   }
   parts.push(CHANGELOG_FOOTER);
   return parts.join('\n\n') + '\n';
-}
-
-/** Parameters for writing a rendered changelog to disk. */
-export interface WriteChangelogMarkdownParams {
-  changelogPath: string;
-  entries: ChangelogEntry[];
-  sectionOrder?: string[];
-  dryRun?: boolean;
-}
-
-/**
- * Render `entries` and write the result to `${changelogPath}/CHANGELOG.md`.
- *
- * Replaces the cliff `--output` invocation that the previous `generateChangelog` helper
- * shelled out to. The file is overwritten unconditionally — historical preservation is
- * carried by the `changelog.json` artifact, which is the SSOT for entries.
- *
- * Returns the file path written. In dry-run mode performs no I/O but still returns the path.
- */
-export function writeChangelogMarkdown(params: WriteChangelogMarkdownParams): string {
-  const { changelogPath, entries, sectionOrder, dryRun = false } = params;
-  const filePath = joinPath(changelogPath, 'CHANGELOG.md');
-
-  if (dryRun) {
-    return filePath;
-  }
-
-  const rendered = renderChangelogMarkdown(entries, sectionOrder !== undefined ? { sectionOrder } : undefined);
-  mkdirSync(dirname(filePath), { recursive: true });
-  writeFileSync(filePath, rendered, 'utf8');
-  return filePath;
 }

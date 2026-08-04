@@ -108,14 +108,12 @@ export function parseArgs(argv: string[]): {
  * 1. Discovers workspaces from `pnpm-workspace.yaml`.
  * 2. Loads and validates `.config/release-kit.config.ts` (if present).
  * 3. Merges discovered defaults with user config.
- * 4. Delegates to `releasePrepare` or `releasePrepareMono`.
- * 5. Formats and prints the result via `reportPrepare`.
- * 6. Writes `.release-tags` for CI consumption.
+ * 4. Delegates to `releasePrepare` or `releasePrepareMono` to compute the release plan.
+ * 5. Applies the plan, runs the format command, and prints the result via `reportPrepare`.
  */
 export async function prepareCommand(argv: string[]): Promise<void> {
   const { dryRun, force, noGitChecks, bumpOverride, only, setVersion, withReleaseNotes } = parseArgs(argv);
   const options = {
-    dryRun,
     force,
     ...(bumpOverride !== undefined && { bumpOverride }),
     ...(setVersion !== undefined && { setVersion }),
@@ -289,7 +287,6 @@ function runMonorepoMode(
 }
 
 interface PrepareOptions {
-  dryRun: boolean;
   force: boolean;
   bumpOverride?: ReleaseType;
   setVersion?: string;
