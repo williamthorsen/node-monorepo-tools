@@ -6,6 +6,8 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mergeMonorepoConfig } from '../loadConfig.ts';
+import type { ReleasePlan } from '../releasePlan.ts';
+import { applyReleasePlan } from '../releasePlan.ts';
 import { releasePrepareMono } from '../releasePrepareMono.ts';
 
 /**
@@ -112,6 +114,13 @@ function withinFixture<T>(repoDir: string, fn: () => T): T {
   }
 }
 
+/** Compute the release plan and apply it, mirroring what the CLI boundary does. */
+function prepareAndApply(...args: Parameters<typeof releasePrepareMono>): ReleasePlan {
+  const plan = releasePrepareMono(...args);
+  applyReleasePlan(plan);
+  return plan;
+}
+
 describe('releasePrepareProject (tool)', () => {
   let fixture: Fixture;
 
@@ -131,7 +140,7 @@ describe('releasePrepareProject (tool)', () => {
         { exists: true, version: '0.9.0' },
       );
 
-      const result = releasePrepareMono(config, { dryRun: false });
+      const result = prepareAndApply(config, {});
 
       // Project release happened.
       const project = result.project;
@@ -196,7 +205,7 @@ describe('releasePrepareProject (tool)', () => {
         { exists: true, version: '1.0.0' },
       );
 
-      const result = releasePrepareMono(config, { dryRun: false, bumpOverride: 'major' });
+      const result = prepareAndApply(config, { bumpOverride: 'major' });
 
       const project = result.project;
       if (project?.status !== 'released') throw new Error('expected released project');
@@ -206,7 +215,7 @@ describe('releasePrepareProject (tool)', () => {
     });
   }, 60_000);
 
-  it('writes no files in --dry-run mode but still computes the project tag', () => {
+  it('computes the project tag without writing, when the plan is not applied', () => {
     withinFixture(fixture.repoDir, () => {
       const config = mergeMonorepoConfig(
         ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
@@ -214,14 +223,14 @@ describe('releasePrepareProject (tool)', () => {
         { exists: true, version: '0.9.0' },
       );
 
-      const result = releasePrepareMono(config, { dryRun: true });
+      const result = releasePrepareMono(config, {});
 
       const project = result.project;
       if (project?.status !== 'released') throw new Error('expected released project');
       expect(project.tag).toBe('v0.10.0');
       expect(result.tags).toContain('v0.10.0');
 
-      // Nothing was written to disk.
+      // Planning alone writes nothing to disk.
       const rootPackageJson: { version: string } = JSON.parse(
         readFileSync(join(fixture.repoDir, 'package.json'), 'utf8'),
       );
@@ -231,9 +240,7 @@ describe('releasePrepareProject (tool)', () => {
   }, 60_000);
 
   it('overwrites an unparseable existing root changelog.json without warning (no-read at project stage)', () => {
-    // Pin: the project stage no longer reads the existing root changelog.json. An unparseable
-    // file is structurally bypassed — the soft `console.warn → return []` path inside
-    // upsertChangelogJson cannot fire here because the project stage uses writeChangelogJson.
+    // No warning is possible: the stage renders from the cliff entries alone and never parses the existing file.
     withinFixture(fixture.repoDir, () => {
       const changelogJsonPath = join(fixture.repoDir, '.meta', 'changelog.json');
       mkdirSync(join(fixture.repoDir, '.meta'), { recursive: true });
@@ -248,7 +255,7 @@ describe('releasePrepareProject (tool)', () => {
           { exists: true, version: '0.9.0' },
         );
 
-        releasePrepareMono(config, { dryRun: false });
+        prepareAndApply(config, {});
 
         // No warning was emitted (the existing file was never parsed).
         const warnedAboutChangelogJson = warnSpy.mock.calls.some((call) =>
@@ -275,7 +282,7 @@ describe('releasePrepareProject (tool)', () => {
         { exists: true, version: '0.9.0' },
       );
 
-      releasePrepareMono(config, { dryRun: false, withReleaseNotes: true });
+      prepareAndApply(config, { withReleaseNotes: true });
 
       // The project preview file lives at root docs/.
       const previewPath = join(fixture.repoDir, 'docs', 'RELEASE_NOTES.v0.10.0.md');
@@ -299,7 +306,7 @@ describe('releasePrepareProject (tool)', () => {
         { exists: true, version: '0.9.0' },
       );
 
-      const result = releasePrepareMono(config, { dryRun: false, force: true });
+      const result = prepareAndApply(config, { force: true });
 
       // Project release proceeded under --force, choosing patch level (issue #369 fix).
       const project = result.project;
@@ -369,7 +376,7 @@ describe('releasePrepareProject (tool)', () => {
         { exists: true, version: '0.9.0' },
       );
 
-      releasePrepareMono(config, { dryRun: false, force: true });
+      prepareAndApply(config, { force: true });
 
       const written: Array<{ version: string; sections: Array<{ items: Array<{ description: string }> }> }> =
         JSON.parse(readFileSync(changelogJsonPath, 'utf8'));
@@ -433,3 +440,45 @@ describe('releasePrepareProject (tool)', () => {
     expect(rootPackageJson.version).toBe('0.9.0');
   }, 60_000);
 });
+
+describe('prepare atomicity (tool)', () => {
+  let fixture: Fixture;
+
+  beforeEach(() => {
+    fixture = setupFixture();
+  });
+
+  afterEach(() => {
+    fixture.cleanup();
+  });
+
+  it('leaves the working tree untouched when a workspace fails partway through preparation', () => {
+    withinFixture(fixture.repoDir, () => {
+      expect(gitStatus(fixture.repoDir)).toBe('');
+
+      const config = mergeMonorepoConfig(
+        ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
+        { changelogJson: { enabled: false } },
+        { exists: true, version: '0.9.0' },
+      );
+
+      // The last workspace declares a package file that does not exist, so its bump throws
+      // during the execute phase — after the two workspaces before it have been planned.
+      const lastWorkspace = config.workspaces.at(-1);
+      if (lastWorkspace === undefined) throw new Error('expected a workspace to break');
+      lastWorkspace.packageFiles = [...lastWorkspace.packageFiles, 'packages/pkg-c/missing.json'];
+
+      expect(() => prepareAndApply(config, {})).toThrow('missing.json');
+      expect(gitStatus(fixture.repoDir)).toBe('');
+    });
+  }, 60_000);
+});
+
+/** Porcelain status of the fixture repo, trimmed; empty when the tree is clean. */
+function gitStatus(repoDir: string): string {
+  return execFileSync('git', ['status', '--porcelain'], {
+    cwd: repoDir,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+}

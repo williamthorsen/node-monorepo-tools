@@ -97,13 +97,6 @@ export interface PropagationSource {
   newVersion: string;
 }
 
-/** Structured result from bumping version fields in package.json files. */
-export interface BumpResult {
-  currentVersion: string;
-  newVersion: string;
-  files: string[];
-}
-
 /**
  * A `!`-policy violation detected while parsing commits during release preparation.
  *
@@ -156,6 +149,8 @@ export interface ReleasedWorkspaceResult {
   tag: string;
   bumpedFiles: string[];
   changelogFiles: string[];
+  /** Release-notes preview files; present only under `--with-release-notes`. */
+  previewFiles?: string[];
   /** Raw commits associated with this workspace (present for direct releases, absent for propagation-only). */
   commits?: Commit[];
   /**
@@ -231,6 +226,8 @@ export interface ReleasedProjectResult {
   tag: string;
   bumpedFiles: string[];
   changelogFiles: string[];
+  /** Release-notes preview files; present only under `--with-release-notes`. */
+  previewFiles?: string[];
   /** Raw commits in the project's contributing-paths window since the last project tag. */
   commits: Commit[];
   /**
@@ -281,11 +278,9 @@ export interface PrepareResult {
   formatCommand?:
     | {
         command: string;
-        executed: boolean;
         files: string[];
       }
     | undefined;
-  dryRun: boolean;
   /** Warnings surfaced during preparation (e.g., circular dependency detection). */
   warnings?: string[] | undefined;
   /** Result of the project-level release stage (present only when `config.project` is configured and the stage ran). */

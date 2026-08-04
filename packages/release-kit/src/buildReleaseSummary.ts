@@ -11,7 +11,7 @@ import type { PrepareResult } from './types.ts';
  * string when no released workspaces have commits and there is no project
  * release.
  */
-export function buildReleaseSummary(result: PrepareResult): string {
+export function buildReleaseSummary(result: Pick<PrepareResult, 'project' | 'workspaces'>): string {
   const sections: string[] = [];
 
   for (const workspace of result.workspaces) {

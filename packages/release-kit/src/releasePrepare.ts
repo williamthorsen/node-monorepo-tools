@@ -1,13 +1,9 @@
-import { execSync } from 'node:child_process';
+import { join as joinPath } from 'node:path';
 
 import { buildChangelogEntries } from './buildChangelogEntries.ts';
 import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
-import { bumpAllVersions, setAllVersions } from './bumpAllVersions.ts';
-import {
-  mergeChangelogEntriesWithDisk,
-  resolveChangelogJsonPath,
-  upsertChangelogJsonAndReturn,
-} from './changelogJsonFile.ts';
+import { buildReleaseSummary } from './buildReleaseSummary.ts';
+import { mergeChangelogEntriesWithDisk, renderChangelogJson, resolveChangelogJsonPath } from './changelogJsonFile.ts';
 import {
   applyChangelogOverrides,
   formatStaleOverrideKeyWarning,
@@ -20,27 +16,32 @@ import { determineBumpFromCommits } from './determineBumpFromCommits.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import { resolveWorkTypes } from './loadConfig.ts';
+import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
+import type { VersionBumpPlan } from './planVersionBump.ts';
+import { planVersionBump, planVersionSet } from './planVersionBump.ts';
 import { readCurrentVersion } from './readCurrentVersion.ts';
-import { writeChangelogMarkdown } from './renderChangelogMarkdown.ts';
+import type { PlannedWrite, ReleasePlan } from './releasePlan.ts';
+import { renderChangelogMarkdown } from './renderChangelogMarkdown.ts';
 import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
 import { refreshGitCliffCache } from './runGitCliff.ts';
 import type {
-  BumpResult,
+  ChangelogEntry,
   ChangelogOverride,
   Commit,
   PolicyViolation,
-  PrepareResult,
   ReleaseConfig,
   ReleasedWorkspaceResult,
   ReleaseType,
   SkippedWorkspaceResult,
 } from './types.ts';
-import { writeReleaseNotesPreviews } from './writeReleaseNotesPreviews.ts';
 
-/** Options for the release preparation workflow. */
+/**
+ * Options for the release preparation workflow.
+ *
+ * Carries no dry-run flag: preparation only ever computes a plan, and whether that plan is
+ * applied is the caller's decision.
+ */
 export interface ReleasePrepareOptions {
-  /** If true, logs actions without modifying files. */
-  dryRun: boolean;
   /**
    * Release even when no commits or no bump-worthy commits exist since the last tag
    * (monorepo only). Orthogonal to `bumpOverride`: when `bumpOverride` is not given,
@@ -75,8 +76,9 @@ export interface ReleasePrepareOptions {
  *
  * Returns a structured `PrepareResult` with all data needed for presentation.
  */
-export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOptions): PrepareResult {
-  const { dryRun, bumpOverride, setVersion, withReleaseNotes } = options;
+export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOptions): ReleasePlan {
+  const { bumpOverride, setVersion, withReleaseNotes } = options;
+  const writes: PlannedWrite[] = [];
   const workTypes = config.workTypes ?? { ...DEFAULT_WORK_TYPES };
   const versionPatterns = config.versionPatterns ?? { ...DEFAULT_VERSION_PATTERNS };
   const breakingPolicies = config.breakingPolicies ?? DEFAULT_BREAKING_POLICIES;
@@ -99,11 +101,11 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   let parsedCommitCount: number | undefined;
   let unparseableCommits: Commit[] | undefined;
   const collector = createPolicyViolationCollector();
-  let bump: BumpResult;
+  let bump: VersionBumpPlan;
 
   if (setVersion !== undefined) {
     // Bypass commit-derived bump logic. Read the current version directly from the primary
-    // package file so validation runs once, then perform a single write honouring `dryRun`.
+    // package file so validation runs once, before any version write is planned.
     const primaryPackageFile = config.packageFiles[0];
     if (primaryPackageFile === undefined) {
       throw new Error('No package files specified');
@@ -115,10 +117,8 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
     if (!isForwardVersion(currentVersion, setVersion)) {
       throw new Error(`--set-version ${setVersion} is not greater than current version ${currentVersion}`);
     }
-    // Warm the git-cliff cache *before* writing any package.json bumps so a refresh failure
-    // leaves the working tree unchanged.
     refreshGitCliffCache();
-    bump = setAllVersions(config.packageFiles, setVersion, dryRun);
+    bump = planVersionSet(config.packageFiles, setVersion);
   } else {
     if (bumpOverride === undefined) {
       const determination = determineBumpFromCommits(commits, workTypes, versionPatterns, config.scopeAliases, {
@@ -143,17 +143,20 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
       return {
         workspaces: [skipped],
         tags: [],
-        dryRun,
+        writes: [],
+        summary: '',
+        formatCommand: undefined,
       };
     }
 
-    // 3. Bump all versions. Warm the git-cliff cache *before* writing any bumps so a
-    // refresh failure leaves the working tree unchanged. The `--prefer-offline` flag in
-    // `runGitCliff` would otherwise pin the cached binary forever; one warmup per run
-    // revalidates it without losing the per-call perf win.
+    // 3. Plan the version bumps. The `--prefer-offline` flag in `runGitCliff` would otherwise
+    // pin the cached binary forever; one warmup per run revalidates it without losing the
+    // per-call perf win.
     refreshGitCliffCache();
-    bump = bumpAllVersions(config.packageFiles, releaseType, dryRun);
+    bump = planVersionBump(config.packageFiles, releaseType);
   }
+
+  writes.push(...bump.writes);
 
   const newTag = `${config.tagPrefix}${bump.newVersion}`;
 
@@ -162,42 +165,38 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   // `--set-version` with no new commits), the routing helper bypasses git-cliff in favor
   // of the synthetic "Forced version bump." entry — issue #369.
   const overrideWarnings: string[] = [];
-  const { changelogFiles, changelogJsonFiles } = writeSinglePackageChangelogs({
+  const changelogs = planSinglePackageChangelogs({
     config,
     commits,
     newTag,
     newVersion: bump.newVersion,
-    dryRun,
     overrides,
     overrideWarnings,
   });
+  const { changelogFiles, changelogJsonFiles } = changelogs;
 
-  // 4c. Write release-notes previews (optional, opt-in via --with-release-notes)
-  maybeWriteSinglePackagePreviews(withReleaseNotes === true, config, newTag, changelogJsonFiles[0], dryRun);
+  // 4c. Plan release-notes previews (optional, opt-in via --with-release-notes)
+  const previewWrites = planSinglePackagePreviews(
+    withReleaseNotes === true,
+    config,
+    newTag,
+    changelogs.entries,
+    overrideWarnings,
+  );
+  writes.push(...changelogs.writes, ...previewWrites);
 
-  // 5. Run format command, appending modified file paths
+  // 5. Render the format command over the modified file paths; the caller runs it once the
+  // plan is on disk, since it reformats the very files the plan writes.
   const formatCommandStr = config.formatCommand ?? (hasPrettierConfig() ? 'npx prettier --write' : undefined);
-  let formatCommand: PrepareResult['formatCommand'];
+  let formatCommand: ReleasePlan['formatCommand'];
 
   if (formatCommandStr !== undefined) {
     const modifiedFiles = [
       ...config.packageFiles,
-      ...config.changelogPaths.map((p) => `${p}/CHANGELOG.md`),
+      ...config.changelogPaths.map((changelogPath) => joinPath(changelogPath, 'CHANGELOG.md')),
       ...changelogJsonFiles,
     ];
-    const fullCommand = `${formatCommandStr} ${modifiedFiles.join(' ')}`;
-
-    if (dryRun) {
-      formatCommand = { command: fullCommand, executed: false, files: modifiedFiles };
-    } else {
-      try {
-        execSync(fullCommand, { stdio: 'inherit' });
-      } catch (error: unknown) {
-        const baseMessage = error instanceof Error ? error.message : String(error);
-        throw new Error(`format stage: ${baseMessage} (command: '${fullCommand}')`, { cause: error });
-      }
-      formatCommand = { command: fullCommand, executed: true, files: modifiedFiles };
-    }
+    formatCommand = { command: `${formatCommandStr} ${modifiedFiles.join(' ')}`, files: modifiedFiles };
   }
 
   const released = buildReleasedSinglePackage({
@@ -211,18 +210,20 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
     unparseableCommits,
     policyViolations: collector.violations.length > 0 ? collector.violations : undefined,
     setVersion,
+    previewFiles: previewWrites.map((write) => write.path),
   });
 
-  const result: PrepareResult = {
+  const plan: ReleasePlan = {
     workspaces: [released],
     tags: [newTag],
+    writes,
+    summary: buildReleaseSummary({ workspaces: [released] }),
     formatCommand,
-    dryRun,
   };
   if (overrideWarnings.length > 0) {
-    result.warnings = overrideWarnings;
+    plan.warnings = overrideWarnings;
   }
-  return result;
+  return plan;
 }
 
 /** Inputs to {@link buildSkippedSinglePackage}. */
@@ -264,9 +265,10 @@ function buildSkippedSinglePackage(args: BuildSkippedSinglePackageArgs): Skipped
 /** Inputs to {@link buildReleasedSinglePackage}. */
 interface BuildReleasedSinglePackageArgs {
   commits: Commit[];
-  bump: BumpResult;
+  bump: VersionBumpPlan;
   newTag: string;
   changelogFiles: string[];
+  previewFiles: string[];
   previousTag: string | undefined;
   parsedCommitCount: number | undefined;
   releaseType: ReleaseType | undefined;
@@ -300,7 +302,7 @@ function buildReleasedSinglePackage(args: BuildReleasedSinglePackageArgs): Relea
     currentVersion: bump.currentVersion,
     newVersion: bump.newVersion,
     tag: newTag,
-    bumpedFiles: bump.files,
+    bumpedFiles: bump.writes.map((write) => write.path),
     changelogFiles,
     commits,
   };
@@ -322,34 +324,40 @@ function buildReleasedSinglePackage(args: BuildReleasedSinglePackageArgs): Relea
   if (setVersion !== undefined) {
     released.setVersion = setVersion;
   }
+  if (args.previewFiles.length > 0) {
+    released.previewFiles = args.previewFiles;
+  }
   return released;
 }
 
-/** Inputs to {@link writeSinglePackageChangelogs}. */
-interface WriteSinglePackageChangelogsArgs {
+/** Inputs to {@link planSinglePackageChangelogs}. */
+interface PlanSinglePackageChangelogsArgs {
   config: ReleaseConfig;
   commits: Commit[];
   newTag: string;
   newVersion: string;
-  dryRun: boolean;
   overrides: Map<string, ChangelogOverride>;
-  /** Mutated in-place to surface override warnings (zero-match keys) on the `PrepareResult`. */
+  /** Mutated in-place to surface override warnings (zero-match keys) on the plan. */
   overrideWarnings: string[];
 }
 
 /**
- * Single-package changelog writer. Builds entries (via cliff or synthetic empty-range),
- * applies editorial overrides, persists the merged JSON, and renders `CHANGELOG.md` from
- * the merged set so both artifacts reflect the same post-override view.
+ * Single-package changelog planner. Builds entries (via cliff or synthetic empty-range), applies
+ * editorial overrides, and renders both `changelog.json` and `CHANGELOG.md` from the merged set
+ * so the two artifacts reflect the same post-override view.
  *
- * Override application errors abort the release; warnings (zero-match keys) are accumulated
- * on `overrideWarnings` so the caller can surface them on `PrepareResult.warnings`.
+ * Override application errors abort the release; warnings (zero-match keys) are accumulated on
+ * `overrideWarnings` so the caller can surface them on the plan.
+ *
+ * Returns the entries alongside the writes, so previews render from the same set.
  */
-function writeSinglePackageChangelogs(args: WriteSinglePackageChangelogsArgs): {
+function planSinglePackageChangelogs(args: PlanSinglePackageChangelogsArgs): {
   changelogFiles: string[];
   changelogJsonFiles: string[];
+  entries: ChangelogEntry[];
+  writes: PlannedWrite[];
 } {
-  const { config, commits, newTag, newVersion, dryRun, overrides, overrideWarnings } = args;
+  const { config, commits, newTag, newVersion, overrides, overrideWarnings } = args;
   const isEmptyRange = commits.length === 0;
   const today = new Date().toISOString().slice(0, 10);
 
@@ -372,61 +380,63 @@ function writeSinglePackageChangelogs(args: WriteSinglePackageChangelogsArgs): {
   const sectionOrder = deriveSectionOrder(resolveWorkTypes(config.workTypes));
   const changelogFiles: string[] = [];
   const changelogJsonFiles: string[] = [];
+  const writes: PlannedWrite[] = [];
+  let firstMergedEntries: ChangelogEntry[] = [];
 
   for (const changelogPath of config.changelogPaths) {
     const jsonPath = resolveChangelogJsonPath(config, changelogPath);
-    // Only write `changelog.json` when `changelogJson.enabled`. When disabled (or dry-run), use
-    // the pure read-and-merge path so the markdown renderer still sees prior on-disk entries
-    // without creating or modifying the JSON file.
-    const shouldWriteJson = config.changelogJson.enabled && !dryRun;
-    const mergedEntries = shouldWriteJson
-      ? upsertChangelogJsonAndReturn(jsonPath, applied.entries)
-      : mergeChangelogEntriesWithDisk(jsonPath, applied.entries);
+    // Merge with what is on disk so the markdown renderer sees prior entries. Only plan the
+    // JSON write when `changelogJson.enabled`; when disabled the merge still runs, so the
+    // markdown reflects the same set either way.
+    const mergedEntries = mergeChangelogEntriesWithDisk(jsonPath, applied.entries);
+    if (changelogFiles.length === 0) {
+      firstMergedEntries = mergedEntries;
+    }
 
     if (config.changelogJson.enabled) {
+      writes.push({ path: jsonPath, content: renderChangelogJson(mergedEntries) });
       changelogJsonFiles.push(jsonPath);
     }
 
-    changelogFiles.push(
-      writeChangelogMarkdown({
-        changelogPath,
-        entries: mergedEntries,
-        sectionOrder,
-        dryRun,
-      }),
-    );
+    const changelogFile = joinPath(changelogPath, 'CHANGELOG.md');
+    writes.push({ path: changelogFile, content: renderChangelogMarkdown(mergedEntries, { sectionOrder }) });
+    changelogFiles.push(changelogFile);
   }
 
-  return { changelogFiles, changelogJsonFiles };
+  return { changelogFiles, changelogJsonFiles, entries: firstMergedEntries, writes };
 }
 
 /**
- * Invoke `writeReleaseNotesPreviews` for a single-package workspace when the user requested
- * previews. Warns and returns when `changelogJson.enabled` is false; silently returns when no
- * changelog JSON file was produced (e.g., no changelog paths configured).
+ * Plans the release-notes previews for a single-package workspace when the user requested them.
+ *
+ * Warns and plans nothing when `changelogJson.enabled` is false; plans nothing when no changelog
+ * paths are configured, since there are then no entries to render.
  */
-function maybeWriteSinglePackagePreviews(
+function planSinglePackagePreviews(
   withReleaseNotes: boolean,
   config: ReleaseConfig,
   newTag: string,
-  changelogJsonPath: string | undefined,
-  dryRun: boolean,
-): void {
+  entries: readonly ChangelogEntry[],
+  warnings: string[],
+): PlannedWrite[] {
   if (!withReleaseNotes) {
-    return;
+    return [];
   }
   if (!config.changelogJson.enabled) {
     console.warn('Warning: --with-release-notes requires changelogJson.enabled; skipping preview generation');
-    return;
+    return [];
   }
-  if (changelogJsonPath === undefined) {
-    return;
+  if (config.changelogPaths.length === 0) {
+    return [];
   }
-  writeReleaseNotesPreviews({
+
+  const previews = planReleaseNotesPreviews({
     workspacePath: process.cwd(),
     tag: newTag,
-    changelogJsonPath,
+    entries,
     sectionOrder: deriveSectionOrder(resolveWorkTypes(config.workTypes)),
-    dryRun,
   });
+  warnings.push(...previews.warnings);
+
+  return previews.writes;
 }

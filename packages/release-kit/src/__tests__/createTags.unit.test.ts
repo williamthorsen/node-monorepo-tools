@@ -29,14 +29,20 @@ describe(createTags, () => {
     vi.restoreAllMocks();
   });
 
-  it('throws when the tags file is missing', () => {
+  it('if the tags file is missing, throws naming the resolved path', () => {
     mockReadFileSync.mockImplementation(() => {
-      throw new Error('ENOENT');
+      throw Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' });
     });
 
-    expect(() => createTags({ dryRun: false, noGitChecks: false })).toThrow(
-      'No tags file found. Run `release-kit prepare` first.',
-    );
+    expect(() => createTags({ dryRun: false, noGitChecks: false })).toThrow('No tags file found at');
+  });
+
+  it('if the tags file is unreadable, reports the errno rather than reporting it missing', () => {
+    mockReadFileSync.mockImplementation(() => {
+      throw Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' });
+    });
+
+    expect(() => createTags({ dryRun: false, noGitChecks: false })).toThrow('Cannot read the tags file at');
   });
 
   it('returns an empty array when the tags file is empty', () => {

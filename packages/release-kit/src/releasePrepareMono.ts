@@ -1,16 +1,12 @@
-import { execSync } from 'node:child_process';
+import { join as joinPath } from 'node:path';
 
 import { buildChangelogEntries } from './buildChangelogEntries.ts';
 import type { DependencyGraph } from './buildDependencyGraph.ts';
 import { buildDependencyGraph } from './buildDependencyGraph.ts';
 import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
+import { buildReleaseSummary } from './buildReleaseSummary.ts';
 import { buildSyntheticChangelogEntry } from './buildSyntheticChangelogEntry.ts';
-import { bumpAllVersions, setAllVersions } from './bumpAllVersions.ts';
-import {
-  mergeChangelogEntriesWithDisk,
-  resolveChangelogJsonPath,
-  upsertChangelogJsonAndReturn,
-} from './changelogJsonFile.ts';
+import { mergeChangelogEntriesWithDisk, renderChangelogJson, resolveChangelogJsonPath } from './changelogJsonFile.ts';
 import {
   applyWorkspaceOverrides,
   createOverrideContext,
@@ -26,12 +22,15 @@ import { buildTagPattern, getAllTagPrefixes } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import { resolveWorkTypes } from './loadConfig.ts';
+import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
+import { planVersionBump, planVersionSet } from './planVersionBump.ts';
 import type { CurrentVersions, ReleaseEntry } from './propagateBumps.ts';
 import { propagateBumps } from './propagateBumps.ts';
 import { readCurrentVersion } from './readCurrentVersion.ts';
+import type { PlannedWrite, ReleasePlan } from './releasePlan.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
 import { releasePrepareProject } from './releasePrepareProject.ts';
-import { writeChangelogMarkdown } from './renderChangelogMarkdown.ts';
+import { renderChangelogMarkdown } from './renderChangelogMarkdown.ts';
 import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
 import { refreshGitCliffCache } from './runGitCliff.ts';
 import type {
@@ -39,7 +38,6 @@ import type {
   Commit,
   MonorepoReleaseConfig,
   PolicyViolation,
-  PrepareResult,
   ProjectPrepareResult,
   ReleasedWorkspaceResult,
   ReleaseType,
@@ -47,7 +45,6 @@ import type {
   WorkspaceConfig,
   WorkspacePrepareResult,
 } from './types.ts';
-import { writeReleaseNotesPreviews } from './writeReleaseNotesPreviews.ts';
 
 /** Intermediate result from Phase 1 (determine direct bumps). */
 interface DirectBumpResult {
@@ -94,8 +91,9 @@ interface Phase1Result {
  * Phase 2b: Topologically sort the full release set.
  * Phase 3: Execute bumps and generate changelogs in dependency order.
  */
-export function releasePrepareMono(config: MonorepoReleaseConfig, options: ReleasePrepareOptions): PrepareResult {
-  const { dryRun, withReleaseNotes } = options;
+export function releasePrepareMono(config: MonorepoReleaseConfig, options: ReleasePrepareOptions): ReleasePlan {
+  const { withReleaseNotes } = options;
+  const writes: PlannedWrite[] = [];
 
   if (withReleaseNotes === true && !config.changelogJson.enabled) {
     console.warn('Warning: --with-release-notes requires changelogJson.enabled; skipping preview generation');
@@ -157,7 +155,8 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
     config,
     directResults,
     previousTags,
-    dryRun,
+    writes,
+    warnings,
     workspaces,
     previewOptions,
     overrideContext,
@@ -187,7 +186,9 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
         config,
         options,
         modifiedFiles,
+        writes,
         tags,
+        warnings,
         rootOverrides: overrideContext.project,
         overrideWarnings: overrideContext.overrideWarnings,
         globalMatchedRootKeys: overrideContext.globalMatchedRootKeys,
@@ -195,8 +196,8 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
     );
   }
 
-  // === Phase 4: Format ===
-  const formatCommand = runFormatCommand(config, tags, modifiedFiles, dryRun);
+  // === Phase 4: Render the format command ===
+  const formatCommand = planFormatCommand(config, tags, modifiedFiles);
 
   // Emit one stale-key warning per ROOT key that didn't match anywhere — in any workspace
   // apply call (where it wasn't shadowed) or in the project apply call. Keys matched in at
@@ -214,8 +215,9 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
   return {
     workspaces,
     tags,
+    writes,
+    summary: buildReleaseSummary({ workspaces, ...(project !== undefined && { project }) }),
     formatCommand,
-    dryRun,
     ...(allWarnings.length > 0 && { warnings: allWarnings }),
     ...(project !== undefined && { project }),
   };
@@ -400,14 +402,17 @@ interface ExecuteReleaseSetArgs {
   config: MonorepoReleaseConfig;
   directResults: Map<string, DirectBumpResult>;
   previousTags: Map<string, string | undefined>;
-  dryRun: boolean;
+  /** Mutated in-place to append every file the release set intends to write. */
+  writes: PlannedWrite[];
+  /** Mutated in-place to append warnings raised while planning, such as preview skips. */
+  warnings: string[];
   workspaces: WorkspacePrepareResult[];
   previewOptions: PreviewOptions;
   overrideContext: OverrideContext;
   sectionOrder: string[];
 }
 
-/** Execute bumps and generate changelogs for each workspace in dependency order. */
+/** Plan bumps and changelogs for each workspace in dependency order. */
 function executeReleaseSet(args: ExecuteReleaseSetArgs): { tags: string[]; modifiedFiles: string[] } {
   const {
     sortedDirs,
@@ -415,7 +420,8 @@ function executeReleaseSet(args: ExecuteReleaseSetArgs): { tags: string[]; modif
     config,
     directResults,
     previousTags,
-    dryRun,
+    writes,
+    warnings,
     workspaces,
     previewOptions,
     overrideContext,
@@ -444,10 +450,11 @@ function executeReleaseSet(args: ExecuteReleaseSetArgs): { tags: string[]; modif
         directResult: directResults.get(dir),
         previousTags,
         config,
-        dryRun,
         today,
         tags,
         modifiedFiles,
+        writes,
+        warnings,
         workspaces,
         previewOptions,
         overrideContext,
@@ -467,17 +474,18 @@ interface ExecuteWorkspaceReleaseArgs {
   directResult: DirectBumpResult | undefined;
   previousTags: Map<string, string | undefined>;
   config: MonorepoReleaseConfig;
-  dryRun: boolean;
   today: string;
   tags: string[];
   modifiedFiles: string[];
+  writes: PlannedWrite[];
+  warnings: string[];
   workspaces: WorkspacePrepareResult[];
   previewOptions: PreviewOptions;
   overrideContext: OverrideContext;
   sectionOrder: string[];
 }
 
-/** Bump, generate changelogs, and append the workspace result for one entry in the release set. */
+/** Plan the bump and changelogs, and append the workspace result, for one entry in the release set. */
 function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
   const {
     dir,
@@ -486,32 +494,37 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     directResult,
     previousTags,
     config,
-    dryRun,
     today,
     tags,
     modifiedFiles,
+    writes,
+    warnings,
     workspaces,
     previewOptions,
     overrideContext,
     sectionOrder,
   } = args;
 
-  // Bump all versions for this workspace. For --set-version workspaces, write the explicit
-  // version directly; otherwise compute the bump from the release type.
+  // Plan the version change for this workspace. For --set-version workspaces, use the explicit
+  // version; otherwise derive the bump from the release type.
   const setVersionTarget = directResult?.setVersion;
   const bump =
     setVersionTarget === undefined
-      ? bumpAllVersions(workspace.packageFiles, releaseEntry.releaseType, dryRun)
-      : setAllVersions(workspace.packageFiles, setVersionTarget, dryRun);
+      ? planVersionBump(workspace.packageFiles, releaseEntry.releaseType)
+      : planVersionSet(workspace.packageFiles, setVersionTarget);
   const newTag = `${workspace.tagPrefix}${bump.newVersion}`;
   tags.push(newTag);
-  modifiedFiles.push(...workspace.packageFiles, ...workspace.changelogPaths.map((p) => `${p}/CHANGELOG.md`));
+  writes.push(...bump.writes);
+  modifiedFiles.push(
+    ...workspace.packageFiles,
+    ...workspace.changelogPaths.map((changelogPath) => joinPath(changelogPath, 'CHANGELOG.md')),
+  );
 
   const isPropagationOnly = directResult === undefined;
   // A workspace is empty-range when it has a direct release (i.e., not propagation-only) but
   // its commit window is empty — the `--force` / `--bump=X` / `--set-version` paths land here.
   const isEmptyRange = directResult !== undefined && directResult.commits.length === 0;
-  const changelogFiles = generateWorkspaceChangelogs({
+  const { changelogFiles, previewFiles } = generateWorkspaceChangelogs({
     workspace,
     releaseEntry,
     newTag,
@@ -519,9 +532,10 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     isPropagationOnly,
     isEmptyRange,
     config,
-    dryRun,
     today,
     modifiedFiles,
+    writes,
+    warnings,
     previewOptions,
     overrideContext,
     sectionOrder,
@@ -534,8 +548,9 @@ function executeWorkspaceRelease(args: ExecuteWorkspaceReleaseArgs): void {
     currentVersion: bump.currentVersion,
     newVersion: bump.newVersion,
     tag: newTag,
-    bumpedFiles: bump.files,
+    bumpedFiles: bump.writes.map((write) => write.path),
     changelogFiles,
+    ...(previewFiles.length > 0 && { previewFiles }),
   };
   attachReleasedWorkspaceOptionals(released, {
     previousTag: directResult?.tag ?? previousTags.get(dir),
@@ -612,21 +627,25 @@ interface GenerateWorkspaceChangelogsArgs {
    */
   isEmptyRange: boolean;
   config: MonorepoReleaseConfig;
-  dryRun: boolean;
   today: string;
   modifiedFiles: string[];
+  writes: PlannedWrite[];
+  warnings: string[];
   previewOptions: PreviewOptions;
   overrideContext: OverrideContext;
   sectionOrder: string[];
 }
 
 /**
- * Generate changelog artifacts for a workspace by routing to one of three branches to build
- * the new entries (propagation-only synthetic, empty-range synthetic, or git-cliff), applying
- * editorial overrides, persisting the merged JSON, and rendering `CHANGELOG.md` from the
- * merged set so both artifacts reflect the same post-override view.
+ * Plan a workspace's changelog artifacts by routing to one of three branches to build the new
+ * entries (propagation-only synthetic, empty-range synthetic, or git-cliff), applying editorial
+ * overrides, merging with the JSON on disk, and rendering both `changelog.json` and
+ * `CHANGELOG.md` from the merged set so the two reflect the same post-override view.
  */
-function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): string[] {
+function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): {
+  changelogFiles: string[];
+  previewFiles: string[];
+} {
   const {
     workspace,
     releaseEntry,
@@ -635,9 +654,10 @@ function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): str
     isPropagationOnly,
     isEmptyRange,
     config,
-    dryRun,
     today,
     modifiedFiles,
+    writes,
+    warnings,
     previewOptions,
     overrideContext,
     sectionOrder,
@@ -657,35 +677,30 @@ function generateWorkspaceChangelogs(args: GenerateWorkspaceChangelogsArgs): str
   const applied = applyWorkspaceOverrides(newEntries, workspace.workspacePath, overrideContext);
 
   const changelogFiles: string[] = [];
-  let firstChangelogJsonPath: string | undefined;
+  let firstMergedEntries: ChangelogEntry[] | undefined;
 
   for (const changelogPath of workspace.changelogPaths) {
     const jsonPath = resolveChangelogJsonPath(config, changelogPath);
-    // Only write `changelog.json` when `changelogJson.enabled`. When disabled (or dry-run), use
-    // the pure read-and-merge path so the markdown renderer still sees prior on-disk entries
-    // without creating or modifying the JSON file.
-    const shouldWriteJson = config.changelogJson.enabled && !dryRun;
-    const mergedEntries = shouldWriteJson
-      ? upsertChangelogJsonAndReturn(jsonPath, applied.entries)
-      : mergeChangelogEntriesWithDisk(jsonPath, applied.entries);
+    // Merge with what is on disk so the markdown renderer sees prior entries. Only plan the JSON
+    // write when `changelogJson.enabled`; the merge runs either way, so the markdown reflects
+    // the same set whether or not the JSON artifact is produced.
+    const mergedEntries = mergeChangelogEntriesWithDisk(jsonPath, applied.entries);
 
     if (config.changelogJson.enabled) {
+      writes.push({ path: jsonPath, content: renderChangelogJson(mergedEntries) });
       modifiedFiles.push(jsonPath);
-      firstChangelogJsonPath ??= jsonPath;
+      firstMergedEntries ??= mergedEntries;
     }
 
-    changelogFiles.push(
-      writeChangelogMarkdown({
-        changelogPath,
-        entries: mergedEntries,
-        sectionOrder,
-        dryRun,
-      }),
-    );
+    const changelogFile = joinPath(changelogPath, 'CHANGELOG.md');
+    writes.push({ path: changelogFile, content: renderChangelogMarkdown(mergedEntries, { sectionOrder }) });
+    changelogFiles.push(changelogFile);
   }
 
-  maybeWritePreviews(workspace, newTag, firstChangelogJsonPath, previewOptions, dryRun);
-  return changelogFiles;
+  const previews = planPreviews(workspace, newTag, firstMergedEntries, previewOptions, warnings);
+  writes.push(...previews);
+
+  return { changelogFiles, previewFiles: previews.map((write) => write.path) };
 }
 
 /** Arguments for {@link buildWorkspaceEntries}. */
@@ -723,53 +738,50 @@ function buildWorkspaceEntries(args: BuildWorkspaceEntriesArgs): ChangelogEntry[
   return buildChangelogEntries(config, newTag, { tagPattern, includePaths: workspace.paths });
 }
 
-/** Invoke `writeReleaseNotesPreviews` for a workspace when previews are enabled and a changelog JSON path is known. */
-function maybeWritePreviews(
+/**
+ * Plan a workspace's release-notes previews when previews are enabled and the workspace produced
+ * changelog entries, rendering them from those entries rather than from the file not yet written.
+ */
+function planPreviews(
   workspace: WorkspaceConfig,
   newTag: string,
-  changelogJsonPath: string | undefined,
+  entries: ChangelogEntry[] | undefined,
   previewOptions: PreviewOptions,
-  dryRun: boolean,
-): void {
-  if (!previewOptions.enabled || changelogJsonPath === undefined) {
-    return;
+  warnings: string[],
+): PlannedWrite[] {
+  if (!previewOptions.enabled || entries === undefined) {
+    return [];
   }
-  writeReleaseNotesPreviews({
+
+  const previews = planReleaseNotesPreviews({
     workspacePath: workspace.workspacePath,
     tag: newTag,
-    changelogJsonPath,
+    entries,
     sectionOrder: previewOptions.sectionOrder,
-    dryRun,
   });
+  warnings.push(...previews.warnings);
+
+  return previews.writes;
 }
 
-/** Run the format command on modified files, if configured. */
-function runFormatCommand(
+/**
+ * Render the format command over the modified files, if configured.
+ *
+ * The command is not run here: it reformats the very files the plan has yet to write, so the
+ * caller runs it once the plan is on disk.
+ */
+function planFormatCommand(
   config: MonorepoReleaseConfig,
   tags: string[],
   modifiedFiles: string[],
-  dryRun: boolean,
-): PrepareResult['formatCommand'] {
+): ReleasePlan['formatCommand'] {
   const formatCommandStr = config.formatCommand ?? (hasPrettierConfig() ? 'npx prettier --write' : undefined);
 
   if (tags.length === 0 || formatCommandStr === undefined) {
     return undefined;
   }
 
-  const fullCommand = `${formatCommandStr} ${modifiedFiles.join(' ')}`;
-
-  if (dryRun) {
-    return { command: fullCommand, executed: false, files: modifiedFiles };
-  }
-
-  try {
-    execSync(fullCommand, { stdio: 'inherit' });
-  } catch (error: unknown) {
-    const baseMessage = error instanceof Error ? error.message : String(error);
-    throw new Error(`format stage: ${baseMessage} (command: '${fullCommand}')`, { cause: error });
-  }
-
-  return { command: fullCommand, executed: true, files: modifiedFiles };
+  return { command: `${formatCommandStr} ${modifiedFiles.join(' ')}`, files: modifiedFiles };
 }
 
 /** Find a workspace by its `dir` in the workspaces array. */

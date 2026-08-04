@@ -1,10 +1,9 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 
 import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
 
 import { deleteFileIfExists } from './deleteFileIfExists.ts';
-import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './prepareCommand.ts';
+import { readReleaseTags, RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './releaseFiles.ts';
 
 export interface CreateTagsOptions {
   dryRun: boolean;
@@ -19,17 +18,7 @@ export interface CreateTagsOptions {
 export function createTags(options: CreateTagsOptions): string[] {
   const { dryRun, noGitChecks } = options;
 
-  let content: string;
-  try {
-    content = readFileSync(RELEASE_TAGS_FILE, 'utf8');
-  } catch {
-    throw new Error('No tags file found. Run `release-kit prepare` first.');
-  }
-
-  const tags = content
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+  const tags = readReleaseTags();
 
   if (tags.length === 0) {
     return [];

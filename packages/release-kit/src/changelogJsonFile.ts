@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import stringify from 'json-stringify-pretty-compact';
 import semver from 'semver';
@@ -13,50 +13,19 @@ export function resolveChangelogJsonPath(config: Pick<ReleaseConfig, 'changelogJ
   return join(changelogPath, config.changelogJson.outputPath);
 }
 
-/**
- * Write changelog entries to disk, sorted newest-first. Overwrites unconditionally — does not
- * read the existing file. Returns the file path written.
- */
-export function writeChangelogJson(filePath: string, entries: ChangelogEntry[]): string {
-  const sorted = sortNewestFirst(entries);
-  mkdirSync(dirname(filePath), { recursive: true });
-  writeFileSync(filePath, stringify(sorted, { maxLength: 100 }) + '\n', 'utf8');
-  return filePath;
+/** Renders changelog entries as a `changelog.json` file's complete content, sorted newest-first. */
+export function renderChangelogJson(entries: ChangelogEntry[]): string {
+  return stringify(sortNewestFirst(entries), { maxLength: 100 }) + '\n';
 }
 
 /**
- * Read existing changelog entries, merge with the new entries (new wins on version match), sort
- * newest-first, and write the result. Returns the file path written.
+ * Merges `entries` with the on-disk entries at `filePath` and returns the merged set in
+ * newest-first order, without writing.
  *
- * Preserves entries that exist in the file but are absent from `entries` — load-bearing for
- * synthetic-entry preservation across propagation runs. Soft-fails on parse error: warns and
- * treats the existing file as empty, so a malformed file does not abort the release.
- */
-export function upsertChangelogJson(filePath: string, entries: ChangelogEntry[]): string {
-  upsertChangelogJsonAndReturn(filePath, entries);
-  return filePath;
-}
-
-/**
- * Upsert variant that returns the merged entries in newest-first order so the caller can
- * feed them to the markdown renderer without re-reading the file. Same on-disk semantics as
- * {@link upsertChangelogJson}.
- */
-export function upsertChangelogJsonAndReturn(filePath: string, entries: ChangelogEntry[]): ChangelogEntry[] {
-  const existing = readExistingEntries(filePath);
-  const merged = mergeEntries(entries, existing);
-  mkdirSync(dirname(filePath), { recursive: true });
-  writeFileSync(filePath, stringify(merged, { maxLength: 100 }) + '\n', 'utf8');
-  return merged;
-}
-
-/**
- * In-memory variant of upsert: merges `entries` with the on-disk entries at `filePath` and
- * returns the merged set in newest-first order without writing. Used by dry-run renderers
- * and by the markdown pivot when the JSON write itself is gated by `dryRun`.
- *
- * Reads the file when present; treats a missing or malformed file as an empty existing set
- * (matches `upsertChangelogJson`'s soft-fail semantics).
+ * Preserves entries that exist on disk but are absent from `entries` — load-bearing for
+ * synthetic-entry preservation across propagation runs. Reads the file when present; treats a
+ * missing or malformed file as an empty existing set, so a malformed file does not abort the
+ * release.
  */
 export function mergeChangelogEntriesWithDisk(filePath: string, entries: ChangelogEntry[]): ChangelogEntry[] {
   const existing = readExistingEntries(filePath);
@@ -72,8 +41,8 @@ function sortNewestFirst(entries: Iterable<ChangelogEntry>): ChangelogEntry[] {
 /**
  * Read existing changelog entries from a JSON file, if it exists.
  *
- * Warns to stderr and returns `[]` on parse error — load-bearing for synthetic-entry preservation
- * in upsert callers. For the silent-`undefined` variant used by render paths, see
+ * Warns to stderr and returns `[]` on parse error — load-bearing for synthetic-entry
+ * preservation. For the silent-`undefined` variant used by render paths, see
  * `readChangelogEntries` in `./changelogJsonUtils.ts`.
  */
 function readExistingEntries(filePath: string): ChangelogEntry[] {

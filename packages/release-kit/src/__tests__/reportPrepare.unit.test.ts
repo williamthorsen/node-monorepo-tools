@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { bold, dim, sectionHeader } from '../format.ts';
 import { reportPrepare } from '../reportPrepare.ts';
-import type { PrepareResult } from '../types.ts';
+import type { PrepareResult, ReleasedWorkspaceResult } from '../types.ts';
 
 describe(reportPrepare, () => {
   describe('single-package mode', () => {
@@ -23,10 +23,9 @@ describe(reportPrepare, () => {
           },
         ],
         tags: ['v1.1.0'],
-        dryRun: false,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain(dim('Found 3 commits since v1.0.0'));
       expect(output).toContain(dim('  Parsed 2 typed commits'));
@@ -55,10 +54,9 @@ describe(reportPrepare, () => {
           },
         ],
         tags: ['v0.1.0'],
-        dryRun: false,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain(dim('Found 5 commits since the beginning'));
     });
@@ -75,10 +73,9 @@ describe(reportPrepare, () => {
           },
         ],
         tags: [],
-        dryRun: false,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain(dim('Found 1 commits since v1.0.0'));
       expect(output).toContain('⏭️  No release-worthy changes found. Skipping.');
@@ -104,18 +101,57 @@ describe(reportPrepare, () => {
         tags: ['v1.0.1'],
         formatCommand: {
           command: 'npx prettier --write package.json ./CHANGELOG.md',
-          executed: false,
           files: ['package.json', './CHANGELOG.md'],
         },
-        dryRun: true,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: false });
 
       expect(output).toContain(dim('  [dry-run] Would bump package.json'));
       expect(output).toContain(dim('  [dry-run] Would run: npx --yes git-cliff ... --output ./CHANGELOG.md'));
       expect(output).toContain(
         dim('\n  [dry-run] Would run format command: npx prettier --write package.json ./CHANGELOG.md'),
+      );
+    });
+
+    it('names the failing format command and its error when formatting failed', () => {
+      const result: PrepareResult = {
+        workspaces: [makeReleasedWorkspace()],
+        tags: ['v1.0.1'],
+        formatCommand: { command: 'npx prettier --write package.json', files: ['package.json'] },
+      };
+
+      const output = reportPrepare(result, { applied: true, formatError: 'Command failed with exit code 2' });
+
+      expect(output).toContain('\n  ⚠️  Format command failed: npx prettier --write package.json');
+      expect(output).toContain('     Command failed with exit code 2');
+    });
+
+    it('renders the release-notes preview files a release plans', () => {
+      const result: PrepareResult = {
+        workspaces: [
+          makeReleasedWorkspace({
+            previewFiles: ['docs/README.v1.0.1.md', 'docs/RELEASE_NOTES.v1.0.1.md'],
+          }),
+        ],
+        tags: ['v1.0.1'],
+      };
+
+      expect(reportPrepare(result, { applied: true })).toContain(dim('  Wrote docs/RELEASE_NOTES.v1.0.1.md'));
+      expect(reportPrepare(result, { applied: false })).toContain(
+        dim('  [dry-run] Would write docs/RELEASE_NOTES.v1.0.1.md'),
+      );
+    });
+
+    it('surfaces warnings on a single-package release', () => {
+      const result: PrepareResult = {
+        workspaces: [makeReleasedWorkspace()],
+        tags: ['v1.0.1'],
+        warnings: ['README.md not found; skipping injected-README preview'],
+      };
+
+      expect(reportPrepare(result, { applied: true })).toContain(
+        '⚠️  README.md not found; skipping injected-README preview',
       );
     });
 
@@ -137,10 +173,9 @@ describe(reportPrepare, () => {
           },
         ],
         tags: ['v2.0.0'],
-        dryRun: false,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain('Using bump override: major');
     });
@@ -161,10 +196,9 @@ describe(reportPrepare, () => {
           },
         ],
         tags: ['v1.0.0'],
-        dryRun: false,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain('Using version override: 1.0.0');
       expect(output).toContain(`📦 0.5.0 → ${bold('1.0.0')} (version override)`);
@@ -192,10 +226,9 @@ describe(reportPrepare, () => {
           },
         ],
         tags: ['v1.0.1'],
-        dryRun: false,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain('⚠️  2 commits could not be parsed (defaulting to patch bump)');
       expect(output).toContain('· abc1234 chore: update deps');
@@ -220,10 +253,9 @@ describe(reportPrepare, () => {
           },
         ],
         tags: ['v1.1.0'],
-        dryRun: false,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain('⚠️  1 commit could not be parsed');
       expect(output).not.toContain('defaulting to patch bump');
@@ -247,10 +279,9 @@ describe(reportPrepare, () => {
           },
         ],
         tags: ['v1.1.0'],
-        dryRun: false,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).not.toContain('⚠️');
       expect(output).not.toContain('could not be parsed');
@@ -262,10 +293,9 @@ describe(reportPrepare, () => {
       const result: PrepareResult = {
         workspaces: [],
         tags: [],
-        dryRun: false,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toBe('');
     });
@@ -303,10 +333,9 @@ describe(reportPrepare, () => {
           },
         ],
         tags: ['arrays-v1.1.0', 'strings-v2.0.1'],
-        dryRun: false,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain(sectionHeader('arrays'));
       expect(output).toContain(sectionHeader('strings'));
@@ -334,10 +363,9 @@ describe(reportPrepare, () => {
           },
         ],
         tags: ['arrays-v0.1.0'],
-        dryRun: false,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain(dim('  Found 4 commits (no previous release found)'));
     });
@@ -360,10 +388,9 @@ describe(reportPrepare, () => {
           },
         ],
         tags: ['arrays-v1.0.1'],
-        dryRun: false,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain(dim('  Generating changelogs...'));
       expect(output).not.toContain('Generating changelog:');
@@ -394,10 +421,9 @@ describe(reportPrepare, () => {
           },
         ],
         tags: ['arrays-v1.0.1'],
-        dryRun: false,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain(sectionHeader('arrays'));
       expect(output).toContain(sectionHeader('strings'));
@@ -422,10 +448,9 @@ describe(reportPrepare, () => {
           },
         ],
         tags: ['arrays-v1.0.0'],
-        dryRun: false,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain('Using version override: 1.0.0');
       expect(output).toContain(`  📦 0.5.0 → ${bold('1.0.0')} (version override)`);
@@ -461,10 +486,9 @@ describe(reportPrepare, () => {
           },
         ],
         tags: ['core-v1.0.0', 'app-v2.0.1'],
-        dryRun: false,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       // core shows the version-override label.
       expect(output).toContain('Using version override: 1.0.0');
@@ -485,10 +509,9 @@ describe(reportPrepare, () => {
           },
         ],
         tags: [],
-        dryRun: false,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain('⏭️  No workspaces had release-worthy changes.');
     });
@@ -512,10 +535,9 @@ describe(reportPrepare, () => {
           },
         ],
         tags: ['arrays-v1.0.1'],
-        dryRun: false,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain('⚠️  1 commit could not be parsed (defaulting to patch bump)');
       expect(output).toContain('· abc1234 chore: update deps');
@@ -541,13 +563,11 @@ describe(reportPrepare, () => {
         tags: ['arrays-v1.0.1'],
         formatCommand: {
           command: 'npx prettier --write packages/arrays/package.json packages/arrays/CHANGELOG.md',
-          executed: true,
           files: ['packages/arrays/package.json', 'packages/arrays/CHANGELOG.md'],
         },
-        dryRun: false,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain(
         dim(
@@ -574,13 +594,12 @@ describe(reportPrepare, () => {
           },
         ],
         tags: ['core-v1.0.1'],
-        dryRun: false,
         warnings: [
           'Circular workspace dependencies detected among: a, b. Propagation metadata may be incomplete for these workspaces.',
         ],
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain('⚠️  Circular workspace dependencies detected among: a, b');
     });
@@ -616,10 +635,9 @@ describe(reportPrepare, () => {
           },
         ],
         tags: ['core-v1.0.1', 'app-v2.0.1'],
-        dryRun: false,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain('0 commits (bumped via dependency: @scope/core)');
       expect(output).toContain('(patch, dependency: @scope/core)');
@@ -645,7 +663,6 @@ describe(reportPrepare, () => {
           },
         ],
         tags: ['arrays-v1.1.0', 'v0.10.0'],
-        dryRun: false,
         project: {
           status: 'released',
           previousTag: 'v0.9.0',
@@ -661,7 +678,7 @@ describe(reportPrepare, () => {
         },
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain(sectionHeader('project'));
       expect(output).toContain(`📦 0.9.0 → ${bold('0.10.0')} (minor)`);
@@ -675,7 +692,6 @@ describe(reportPrepare, () => {
       const result: PrepareResult = {
         workspaces: [],
         tags: ['v0.10.0'],
-        dryRun: true,
         project: {
           status: 'released',
           previousTag: 'v0.9.0',
@@ -691,7 +707,7 @@ describe(reportPrepare, () => {
         },
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: false });
 
       expect(output).toContain(dim('    [dry-run] Would bump ./package.json'));
       expect(output).toContain(dim('    [dry-run] Would run: npx --yes git-cliff ... --output ./CHANGELOG.md'));
@@ -715,10 +731,9 @@ describe(reportPrepare, () => {
           },
         ],
         tags: ['arrays-v1.1.0'],
-        dryRun: false,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).not.toContain(sectionHeader('project'));
     });
@@ -727,7 +742,6 @@ describe(reportPrepare, () => {
       const result: PrepareResult = {
         workspaces: [],
         tags: ['v0.1.0'],
-        dryRun: false,
         project: {
           status: 'released',
           commitCount: 1,
@@ -742,7 +756,7 @@ describe(reportPrepare, () => {
         },
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain(dim('  Found 1 commits (no previous release found)'));
     });
@@ -751,7 +765,6 @@ describe(reportPrepare, () => {
       const result: PrepareResult = {
         workspaces: [],
         tags: ['v0.9.1'],
-        dryRun: false,
         project: {
           status: 'released',
           previousTag: 'v0.9.0',
@@ -768,7 +781,7 @@ describe(reportPrepare, () => {
         },
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain('⚠️  1 commit could not be parsed (defaulting to patch bump)');
       expect(output).toContain('· abc1234 wip: undocumented');
@@ -780,7 +793,6 @@ describe(reportPrepare, () => {
       const result: PrepareResult = {
         workspaces: [],
         tags: [],
-        dryRun: false,
         project: {
           status: 'skipped',
           previousTag: 'v0.9.0',
@@ -790,7 +802,7 @@ describe(reportPrepare, () => {
         },
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain(sectionHeader('project'));
       expect(output).toContain(dim('  Found 0 commits since v0.9.0'));
@@ -808,7 +820,6 @@ describe(reportPrepare, () => {
       const result: PrepareResult = {
         workspaces: [],
         tags: [],
-        dryRun: false,
         project: {
           status: 'skipped',
           previousTag: 'v0.9.0',
@@ -820,7 +831,7 @@ describe(reportPrepare, () => {
         },
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain(sectionHeader('project'));
       expect(output).toContain(dim('  Found 1 commits since v0.9.0'));
@@ -857,10 +868,9 @@ describe(reportPrepare, () => {
           },
         ],
         tags: ['v1.0.1'],
-        dryRun: false,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain('1 policy violation:');
       expect(output).toContain("· def5678 'internal!: refactor cache' — type 'internal' at prefix surface");
@@ -896,10 +906,9 @@ describe(reportPrepare, () => {
           },
         ],
         tags: ['v1.0.1'],
-        dryRun: false,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain('2 policy violations:');
       expect(output).toContain("· aaa1111 'internal!: refactor X' — type 'internal' at prefix surface");
@@ -931,10 +940,9 @@ describe(reportPrepare, () => {
           },
         ],
         tags: ['arrays-v1.0.1'],
-        dryRun: false,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain('1 policy violation:');
       expect(output).toContain("· def5678 'internal!: refactor cache' — type 'internal' at prefix surface");
@@ -944,7 +952,6 @@ describe(reportPrepare, () => {
       const result: PrepareResult = {
         workspaces: [],
         tags: ['v1.0.1'],
-        dryRun: false,
         project: {
           status: 'released',
           previousTag: 'v1.0.0',
@@ -968,7 +975,7 @@ describe(reportPrepare, () => {
         },
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain('1 policy violation:');
       expect(output).toContain("· def5678 'internal!: refactor cache' — type 'internal' at prefix surface");
@@ -990,10 +997,9 @@ describe(reportPrepare, () => {
           },
         ],
         tags: ['v1.1.0'],
-        dryRun: false,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).not.toContain('policy violation');
     });
@@ -1023,12 +1029,28 @@ describe(reportPrepare, () => {
           },
         ],
         tags: ['v1.0.1'],
-        dryRun: false,
       };
 
-      const output = reportPrepare(result);
+      const output = reportPrepare(result, { applied: true });
 
       expect(output).toContain(`'${longSubject.slice(0, 69)}...'`);
     });
   });
 });
+
+/** Build a released single-package workspace result, overriding any field. */
+function makeReleasedWorkspace(overrides: Partial<ReleasedWorkspaceResult> = {}): ReleasedWorkspaceResult {
+  return {
+    status: 'released',
+    previousTag: 'v1.0.0',
+    commitCount: 1,
+    parsedCommitCount: 1,
+    releaseType: 'patch',
+    currentVersion: '1.0.0',
+    newVersion: '1.0.1',
+    tag: 'v1.0.1',
+    bumpedFiles: ['package.json'],
+    changelogFiles: ['./CHANGELOG.md'],
+    ...overrides,
+  };
+}
