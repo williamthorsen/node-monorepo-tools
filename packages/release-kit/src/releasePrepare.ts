@@ -3,8 +3,6 @@ import { join as joinPath } from 'node:path';
 import { buildChangelogEntries } from './buildChangelogEntries.ts';
 import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
 import { buildReleaseSummary } from './buildReleaseSummary.ts';
-import type { VersionBumpPlan } from './planVersionBump.ts';
-import { planVersionBump, planVersionSet } from './planVersionBump.ts';
 import { mergeChangelogEntriesWithDisk, renderChangelogJson, resolveChangelogJsonPath } from './changelogJsonFile.ts';
 import {
   applyChangelogOverrides,
@@ -18,6 +16,9 @@ import { determineBumpFromCommits } from './determineBumpFromCommits.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import { resolveWorkTypes } from './loadConfig.ts';
+import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
+import type { VersionBumpPlan } from './planVersionBump.ts';
+import { planVersionBump, planVersionSet } from './planVersionBump.ts';
 import { readCurrentVersion } from './readCurrentVersion.ts';
 import type { PlannedWrite, ReleasePlan } from './releasePlan.ts';
 import { renderChangelogMarkdown } from './renderChangelogMarkdown.ts';
@@ -33,7 +34,6 @@ import type {
   ReleaseType,
   SkippedWorkspaceResult,
 } from './types.ts';
-import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
 
 /**
  * Options for the release preparation workflow.

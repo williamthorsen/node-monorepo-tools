@@ -442,3 +442,45 @@ describe('releasePrepareProject (tool)', () => {
     expect(rootPackageJson.version).toBe('0.9.0');
   }, 60_000);
 });
+
+describe('prepare atomicity (tool)', () => {
+  let fixture: Fixture;
+
+  beforeEach(() => {
+    fixture = setupFixture();
+  });
+
+  afterEach(() => {
+    fixture.cleanup();
+  });
+
+  it('leaves the working tree untouched when a workspace fails partway through preparation', () => {
+    withinFixture(fixture.repoDir, () => {
+      expect(gitStatus(fixture.repoDir)).toBe('');
+
+      const config = mergeMonorepoConfig(
+        ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
+        { changelogJson: { enabled: false } },
+        { exists: true, version: '0.9.0' },
+      );
+
+      // The last workspace declares a package file that does not exist, so its bump throws
+      // during the execute phase — after the two workspaces before it have been planned.
+      const lastWorkspace = config.workspaces.at(-1);
+      if (lastWorkspace === undefined) throw new Error('expected a workspace to break');
+      lastWorkspace.packageFiles = [...lastWorkspace.packageFiles, 'packages/pkg-c/missing.json'];
+
+      expect(() => prepareAndApply(config, {})).toThrow('missing.json');
+      expect(gitStatus(fixture.repoDir)).toBe('');
+    });
+  }, 60_000);
+});
+
+/** Porcelain status of the fixture repo, trimmed; empty when the tree is clean. */
+function gitStatus(repoDir: string): string {
+  return execFileSync('git', ['status', '--porcelain'], {
+    cwd: repoDir,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+}

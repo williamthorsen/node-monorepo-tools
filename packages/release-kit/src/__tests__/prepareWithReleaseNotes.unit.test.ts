@@ -4,9 +4,9 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { planReleaseNotesPreviews } from '../planReleaseNotesPreviews.ts';
 import { applyReleasePlan } from '../releasePlan.ts';
 import type { ChangelogEntry } from '../types.ts';
-import { planReleaseNotesPreviews } from '../planReleaseNotesPreviews.ts';
 
 /** Minimal changelog.json fixture with a public feature section and a dev-only internal section. */
 const changelogJsonFixture: ChangelogEntry[] = [
@@ -40,6 +40,7 @@ Short description.
 npm install @scope/pkg
 \`\`\`
 `;
+
 describe(planReleaseNotesPreviews, () => {
   let tempDir: string;
 

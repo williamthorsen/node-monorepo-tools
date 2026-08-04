@@ -2,7 +2,6 @@ import { join as joinPath } from 'node:path';
 
 import { buildChangelogEntries } from './buildChangelogEntries.ts';
 import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
-import { planVersionBump } from './planVersionBump.ts';
 import { mergeChangelogEntriesWithDisk, renderChangelogJson, resolveChangelogJsonPath } from './changelogJsonFile.ts';
 import { applyChangelogOverrides } from './changelogOverrides.ts';
 import { createPolicyViolationCollector } from './collectPolicyViolations.ts';
@@ -10,6 +9,8 @@ import { decideRelease } from './decideRelease.ts';
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { buildTagPattern } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
+import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
+import { planVersionBump } from './planVersionBump.ts';
 import type { PlannedWrite } from './releasePlan.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
 import { renderChangelogMarkdown } from './renderChangelogMarkdown.ts';
@@ -21,7 +22,6 @@ import type {
   ProjectPrepareResult,
   SkippedProjectResult,
 } from './types.ts';
-import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
 
 /** File path for the root `package.json` bumped during the project release stage. */
 const ROOT_PACKAGE_FILE = './package.json';

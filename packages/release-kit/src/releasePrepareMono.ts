@@ -6,7 +6,6 @@ import { buildDependencyGraph } from './buildDependencyGraph.ts';
 import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
 import { buildReleaseSummary } from './buildReleaseSummary.ts';
 import { buildSyntheticChangelogEntry } from './buildSyntheticChangelogEntry.ts';
-import { planVersionBump, planVersionSet } from './planVersionBump.ts';
 import { mergeChangelogEntriesWithDisk, renderChangelogJson, resolveChangelogJsonPath } from './changelogJsonFile.ts';
 import {
   applyWorkspaceOverrides,
@@ -23,6 +22,8 @@ import { buildTagPattern, getAllTagPrefixes } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import { resolveWorkTypes } from './loadConfig.ts';
+import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
+import { planVersionBump, planVersionSet } from './planVersionBump.ts';
 import type { CurrentVersions, ReleaseEntry } from './propagateBumps.ts';
 import { propagateBumps } from './propagateBumps.ts';
 import { readCurrentVersion } from './readCurrentVersion.ts';
@@ -44,7 +45,6 @@ import type {
   WorkspaceConfig,
   WorkspacePrepareResult,
 } from './types.ts';
-import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
 
 /** Intermediate result from Phase 1 (determine direct bumps). */
 interface DirectBumpResult {
