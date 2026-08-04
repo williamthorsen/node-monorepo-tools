@@ -5,7 +5,7 @@ import { formatDuration, formatSaving } from '../duration.ts';
 describe(formatDuration, () => {
   it.each([
     [0, '0s'],
-    [1000, '1s'],
+    [1_000, '1s'],
     [59_000, '59s'],
   ])('renders %ims in seconds as %s', (milliseconds, expected) => {
     expect(formatDuration(milliseconds)).toBe(expected);
@@ -34,7 +34,7 @@ describe(formatSaving, () => {
 
   it('marks the smallest saving it will name', () => {
     // The threshold is where the icon starts appearing, so it is the boundary a reader notices.
-    expect(formatSaving(1000)).toBe('🚀 saved ~1s');
+    expect(formatSaving(1_000)).toBe('🚀 saved ~1s');
   });
 
   it.each([0, 1, 500, 999])('names no saving for %ims, which is under a second', (milliseconds) => {
@@ -42,7 +42,7 @@ describe(formatSaving, () => {
   });
 
   it('names no saving for a negative duration', () => {
-    expect(formatSaving(-1000)).toBeUndefined();
+    expect(formatSaving(-1_000)).toBeUndefined();
   });
 
   it.each([NaN, Infinity])('names no saving for the non-finite %d', (milliseconds) => {

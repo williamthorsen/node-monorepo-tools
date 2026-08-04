@@ -165,7 +165,7 @@ function transformReleases(releases: CliffContextRelease[], devOnlySections: Set
 
     const version = extractVersion(release.version);
     const date =
-      release.timestamp !== undefined ? new Date(release.timestamp * 1000).toISOString().slice(0, 10) : 'unreleased';
+      release.timestamp !== undefined ? new Date(release.timestamp * 1_000).toISOString().slice(0, 10) : 'unreleased';
 
     const sectionMap = new Map<string, ChangelogItem[]>();
 

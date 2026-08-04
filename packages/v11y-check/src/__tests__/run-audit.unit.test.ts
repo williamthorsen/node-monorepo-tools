@@ -20,7 +20,7 @@ describe(parseAuditCiOutput, () => {
     const json = JSON.stringify({
       advisories: {
         '1234': {
-          id: 1234,
+          id: 1_234,
           module_name: 'lodash',
           url: 'https://github.com/advisories/GHSA-1234',
           findings: [{ paths: ['lodash>underscore'] }],
@@ -43,7 +43,7 @@ describe(parseAuditCiOutput, () => {
       {
         advisories: {
           '5678': {
-            id: 5678,
+            id: 5_678,
             module_name: 'express',
             url: 'https://example.com/5678',
             findings: [{ paths: ['express'] }],
@@ -101,7 +101,7 @@ describe(parseAuditCiOutput, () => {
     const json = JSON.stringify({
       advisories: {
         '1234': {
-          id: 1234,
+          id: 1_234,
           github_advisory_id: 'GHSA-f886-m6hf-6m8u',
           module_name: 'lodash',
           url: 'https://github.com/advisories/GHSA-f886-m6hf-6m8u',
@@ -119,7 +119,7 @@ describe(parseAuditCiOutput, () => {
     const json = JSON.stringify({
       advisories: {
         '1234': {
-          id: 1234,
+          id: 1_234,
           module_name: 'lodash',
           url: 'https://github.com/advisories/GHSA-1234',
           findings: [{ paths: ['lodash'] }],
@@ -135,7 +135,7 @@ describe(parseAuditCiOutput, () => {
     const json = JSON.stringify({
       advisories: {
         '1234': {
-          id: 1234,
+          id: 1_234,
           module_name: 'lodash',
           severity: 'high',
           url: 'https://github.com/advisories/GHSA-1234',
@@ -159,7 +159,7 @@ describe(parseAuditCiOutput, () => {
     const json = JSON.stringify({
       advisories: {
         '1234': {
-          id: 1234,
+          id: 1_234,
           module_name: 'lodash',
           url: 'https://github.com/advisories/GHSA-1234',
           findings: [{ paths: ['lodash>underscore'] }],
@@ -175,7 +175,7 @@ describe(parseAuditCiOutput, () => {
     const json = JSON.stringify({
       advisories: {
         '9999': {
-          id: 9999,
+          id: 9_999,
           module_name: 'some-pkg',
           url: 'https://example.com/9999',
           findings: [],
@@ -192,7 +192,7 @@ describe(parseAuditCiOutput, () => {
     const json = JSON.stringify({
       advisories: {
         '1234': {
-          id: 1234,
+          id: 1_234,
           module_name: 'lodash',
           url: 'https://github.com/advisories/GHSA-1234',
           findings: [{ paths: ['a>b>lodash', 'c>lodash'] }, { paths: ['c>lodash', 'd>lodash'] }],
@@ -209,7 +209,7 @@ describe(parseAuditCiOutput, () => {
     const json = JSON.stringify({
       advisories: {
         '1234': {
-          id: 1234,
+          id: 1_234,
           module_name: 'lodash',
           title: 'Prototype pollution in lodash',
           overview: 'Detailed description of the vulnerability.',
@@ -230,7 +230,7 @@ describe(parseAuditCiOutput, () => {
     const json = JSON.stringify({
       advisories: {
         '1234': {
-          id: 1234,
+          id: 1_234,
           module_name: 'lodash',
           url: 'https://github.com/advisories/GHSA-1234',
           findings: [{ paths: ['lodash'] }],
@@ -395,7 +395,7 @@ describe(resolveAuditCiBin, () => {
 
 function spawnResult(overrides: Partial<SpawnSyncReturns<string>> = {}): SpawnSyncReturns<string> {
   return {
-    pid: 1234,
+    pid: 1_234,
     output: [null, '', ''],
     stdout: '',
     stderr: '',

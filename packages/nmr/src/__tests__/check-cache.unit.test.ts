@@ -390,7 +390,7 @@ function makeEntry(overrides: Partial<CheckCacheEntry> = {}): CheckCacheEntry {
     commandString: 'nmr build && nmr check:strict',
     nmrVersion: '1.0.0',
     nodeVersion: 'v24.0.0',
-    durationMs: 1000,
+    durationMs: 1_000,
     recordedAt: '2026-08-02T12:00:00.000Z',
     buildDigests: {},
     ...overrides,

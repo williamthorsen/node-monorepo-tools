@@ -44,8 +44,8 @@ export interface WorkTypesData {
    * canonical and required; additional keys are permitted for forward-compatibility.
    */
   markers: {
-    breaking: MarkerEntry;
     [key: string]: MarkerEntry;
+    breaking: MarkerEntry;
   };
 }
 

@@ -16,7 +16,7 @@ function spawnResult(
   overrides: Partial<SpawnSyncReturns<Buffer<ArrayBuffer>>> = {},
 ): SpawnSyncReturns<Buffer<ArrayBuffer>> {
   return {
-    pid: 1234,
+    pid: 1_234,
     output: [null, null, null],
     stdout: Buffer.from(''),
     stderr: Buffer.from(''),

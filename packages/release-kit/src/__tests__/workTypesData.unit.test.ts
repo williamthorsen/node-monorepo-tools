@@ -24,8 +24,8 @@ interface WorkTypesJsonData {
     excludedFromChangelog?: boolean;
   }>;
   markers: {
-    breaking: { emoji: string; label: string };
     [key: string]: { emoji: string; label: string };
+    breaking: { emoji: string; label: string };
   };
 }
 

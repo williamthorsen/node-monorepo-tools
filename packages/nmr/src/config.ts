@@ -113,7 +113,7 @@ function validateCheckCacheField(value: Record<string, unknown>, configPath: str
   const enabled: unknown = checkCache.enabled;
   if (enabled !== undefined) {
     if (typeof enabled !== 'boolean') {
-      throw new Error(`Invalid nmr config at ${configPath}: \`checkCache.enabled\` must be a boolean`);
+      throw new TypeError(`Invalid nmr config at ${configPath}: \`checkCache.enabled\` must be a boolean`);
     }
     config.enabled = enabled;
   }

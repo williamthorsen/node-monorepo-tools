@@ -4,8 +4,8 @@ import { bumpVersion } from './bumpVersion.ts';
 import type { BumpResult, ReleaseType } from './types.ts';
 
 interface PackageJson {
-  version: string;
   [key: string]: unknown;
+  version: string;
 }
 
 function isPackageJson(value: unknown): value is PackageJson {

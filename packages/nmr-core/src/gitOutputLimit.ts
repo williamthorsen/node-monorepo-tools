@@ -7,4 +7,4 @@
  * output that overflowed. A call site that omits the option inherits the default silently and fails only once
  * the repo it runs against has grown enough, which is why the value is shared rather than chosen per site.
  */
-export const GIT_OUTPUT_LIMIT = 64 * 1024 * 1024;
+export const GIT_OUTPUT_LIMIT = 64 * 1_024 * 1_024;

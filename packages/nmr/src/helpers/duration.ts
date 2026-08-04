@@ -31,7 +31,7 @@ export function formatSaving(milliseconds: number): string | undefined {
 
 // region | Helpers
 
-const MILLISECONDS_PER_SECOND = 1000;
+const MILLISECONDS_PER_SECOND = 1_000;
 const MINUTES_PER_HOUR = 60;
 const SECONDS_PER_MINUTE = 60;
 

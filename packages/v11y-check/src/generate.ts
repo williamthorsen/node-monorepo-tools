@@ -5,9 +5,9 @@ import type { AuditScope, ScopeConfig } from './types.ts';
 
 /** Flat JSON shape that audit-ci expects as its config file. */
 interface AuditCiFlatConfig {
+  [key: string]: boolean | string | string[] | undefined;
   allowlist: string[];
   'show-not-found'?: boolean;
-  [key: string]: boolean | string | string[] | undefined;
 }
 
 /**
