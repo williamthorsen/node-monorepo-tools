@@ -1,15 +1,18 @@
+import { join as joinPath } from 'node:path';
+
 import { buildChangelogEntries } from './buildChangelogEntries.ts';
 import { buildEmptyReleaseEntry } from './buildEmptyReleaseEntry.ts';
-import { bumpAllVersions } from './bumpAllVersions.ts';
-import { mergeChangelogEntriesWithDisk, resolveChangelogJsonPath, writeChangelogJson } from './changelogJsonFile.ts';
+import { planVersionBump } from './bumpAllVersions.ts';
+import { mergeChangelogEntriesWithDisk, renderChangelogJson, resolveChangelogJsonPath } from './changelogJsonFile.ts';
 import { applyChangelogOverrides } from './changelogOverrides.ts';
 import { createPolicyViolationCollector } from './collectPolicyViolations.ts';
 import { decideRelease } from './decideRelease.ts';
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { buildTagPattern } from './generateChangelogs.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
+import type { PlannedWrite } from './releasePlan.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
-import { writeChangelogMarkdown } from './renderChangelogMarkdown.ts';
+import { renderChangelogMarkdown } from './renderChangelogMarkdown.ts';
 import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
 import type {
   ChangelogEntry,
@@ -18,7 +21,7 @@ import type {
   ProjectPrepareResult,
   SkippedProjectResult,
 } from './types.ts';
-import { writeReleaseNotesPreviews } from './writeReleaseNotesPreviews.ts';
+import { planReleaseNotesPreviews } from './writeReleaseNotesPreviews.ts';
 
 /** File path for the root `package.json` bumped during the project release stage. */
 const ROOT_PACKAGE_FILE = './package.json';
@@ -33,8 +36,15 @@ export interface ReleasePrepareProjectArgs {
   options: ReleasePrepareOptions;
   /** Mutated in-place to append project-level files (root package.json, root CHANGELOG.md, root changelog.json). */
   modifiedFiles: string[];
+  /** Mutated in-place to append every file this stage intends to write. */
+  writes: PlannedWrite[];
   /** Mutated in-place to append the project tag. */
   tags: string[];
+  /**
+   * Mutated in-place to surface warnings this stage raises that are not override-specific
+   * (currently the release-notes previews' skip reasons). Defaults to a discardable sink.
+   */
+  warnings?: string[];
   /**
    * Root-tier editorial overrides loaded once at the top of the prepare run. Defaults to an
    * empty map when omitted (no overrides applied). The project changelog applies only the
@@ -73,9 +83,9 @@ export interface ReleasePrepareProjectArgs {
  * configured, so this orchestrator never has to reason about workspace-narrowing flags.
  */
 export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectPrepareResult {
-  const { config, options, modifiedFiles, tags } = args;
-  const { rootOverrides, overrideWarnings, globalMatchedRootKeys } = resolveOptionalOverrideArgs(args);
-  const { dryRun, bumpOverride, withReleaseNotes, force } = options;
+  const { config, options, modifiedFiles, writes, tags } = args;
+  const { rootOverrides, overrideWarnings, globalMatchedRootKeys, warnings } = resolveOptionalOverrideArgs(args);
+  const { bumpOverride, withReleaseNotes, force } = options;
   const project = config.project;
   if (project === undefined) {
     throw new Error('releasePrepareProject called without a configured project block');
@@ -133,39 +143,41 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
 
   const { releaseType, parsedCommitCount, unparseableCommits } = decision;
 
-  // 4/5. Bump root package.json (handles dry-run internally).
-  const bump = bumpAllVersions([ROOT_PACKAGE_FILE], releaseType, dryRun);
+  // 4/5. Plan the root package.json bump.
+  const bump = planVersionBump([ROOT_PACKAGE_FILE], releaseType);
+  writes.push(...bump.writes);
 
   // 6. Compose the project tag.
   const newTag = `${project.tagPrefix}${bump.newVersion}`;
 
-  // 7/8. Generate the root CHANGELOG and (optionally) changelog.json via the routing helper.
+  // 7/8. Plan the root CHANGELOG and (optionally) changelog.json via the routing helper.
   //      When `commits.length === 0` (forced empty-range project release) the helper bypasses
   //      git-cliff in favor of the synthetic "Forced version bump." entry — issue #369.
-  const { changelogFiles, changelogJsonFiles } = writeProjectChangelogs({
+  const changelogs = planProjectChangelogs({
     config,
     project,
     commits,
     contributingPaths,
     newTag,
     newVersion: bump.newVersion,
-    dryRun,
     rootOverrides,
     overrideWarnings,
     globalMatchedRootKeys,
   });
+  const { changelogFiles, changelogJsonFiles } = changelogs;
+  writes.push(...changelogs.writes);
 
-  // 9. Optional release-notes previews under root docs/.
-  const firstChangelogJsonPath = changelogJsonFiles[0];
-  if (withReleaseNotes === true && config.changelogJson.enabled && firstChangelogJsonPath !== undefined) {
-    const sectionOrder = deriveSectionOrder(workTypes);
-    writeReleaseNotesPreviews({
+  // 9. Optional release-notes previews under root docs/, rendered from the entries this stage
+  // plans to write rather than from the file it has not written yet.
+  if (withReleaseNotes === true && config.changelogJson.enabled && changelogJsonFiles.length > 0) {
+    const previews = planReleaseNotesPreviews({
       workspacePath: ROOT_CHANGELOG_PATH,
       tag: newTag,
-      changelogJsonPath: firstChangelogJsonPath,
-      sectionOrder,
-      dryRun,
+      entries: changelogs.entries,
+      sectionOrder: deriveSectionOrder(workTypes),
     });
+    writes.push(...previews.writes);
+    warnings.push(...previews.warnings);
   }
 
   // 10. Append the project tag and modified files to the shared aggregators so downstream
@@ -182,7 +194,7 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
     currentVersion: bump.currentVersion,
     newVersion: bump.newVersion,
     tag: newTag,
-    bumpedFiles: bump.files,
+    bumpedFiles: bump.writes.map((write) => write.path),
     changelogFiles,
     commits,
   };
@@ -210,40 +222,45 @@ function resolveOptionalOverrideArgs(args: ReleasePrepareProjectArgs): {
   rootOverrides: Map<string, ChangelogOverride>;
   overrideWarnings: string[];
   globalMatchedRootKeys: Set<string>;
+  warnings: string[];
 } {
   return {
     rootOverrides: args.rootOverrides ?? new Map<string, ChangelogOverride>(),
     overrideWarnings: args.overrideWarnings ?? [],
     globalMatchedRootKeys: args.globalMatchedRootKeys ?? new Set<string>(),
+    warnings: args.warnings ?? [],
   };
 }
 
-/** Inputs to {@link writeProjectChangelogs}. */
-interface WriteProjectChangelogsArgs {
+/** Inputs to {@link planProjectChangelogs}. */
+interface PlanProjectChangelogsArgs {
   config: MonorepoReleaseConfig;
   project: NonNullable<MonorepoReleaseConfig['project']>;
   commits: ReadonlyArray<unknown>;
   contributingPaths: string[];
   newTag: string;
   newVersion: string;
-  dryRun: boolean;
   rootOverrides: Map<string, ChangelogOverride>;
   overrideWarnings: string[];
   globalMatchedRootKeys: Set<string>;
 }
 
 /**
- * Build the project's new entries (cliff or synthetic empty-range), apply editorial
- * overrides, persist `changelog.json`, and render `CHANGELOG.md` from the merged set.
+ * Builds the project's new entries (cliff or synthetic empty-range), applies editorial
+ * overrides, and renders `changelog.json` and `CHANGELOG.md` from the resulting set.
  *
- * The cliff path uses `writeChangelogJson` (fresh overwrite) because git-cliff returns the
- * FULL release history in `--context` mode and the project changelog is regenerated in
- * full each run. The empty-range path passes through the disk-merging path so prior
- * synthetic entries are preserved.
+ * The cliff path renders a fresh overwrite because git-cliff returns the FULL release history in
+ * `--context` mode and the project changelog is regenerated in full each run. The empty-range
+ * path merges with what is on disk so prior synthetic entries are preserved.
+ *
+ * Returns the rendered writes alongside the entry set they carry, so the caller can render the
+ * release-notes previews from the same entries rather than re-reading the file.
  */
-function writeProjectChangelogs(args: WriteProjectChangelogsArgs): {
+function planProjectChangelogs(args: PlanProjectChangelogsArgs): {
   changelogFiles: string[];
   changelogJsonFiles: string[];
+  entries: ChangelogEntry[];
+  writes: PlannedWrite[];
 } {
   const {
     config,
@@ -252,7 +269,6 @@ function writeProjectChangelogs(args: WriteProjectChangelogsArgs): {
     contributingPaths,
     newTag,
     newVersion,
-    dryRun,
     rootOverrides,
     overrideWarnings,
     globalMatchedRootKeys,
@@ -279,34 +295,21 @@ function writeProjectChangelogs(args: WriteProjectChangelogsArgs): {
   const changelogJsonPath = resolveChangelogJsonPath(config, ROOT_CHANGELOG_PATH);
   const sectionOrder = deriveSectionOrder(config.workTypes ?? { ...DEFAULT_WORK_TYPES });
 
-  // For the cliff path, write fresh (cliff returns full history). For empty-range, merge
+  // For the cliff path, render fresh (cliff returns full history). For empty-range, merge
   // with disk to preserve prior synthetic entries.
   const renderEntries: ChangelogEntry[] = isEmptyRange
     ? mergeChangelogEntriesWithDisk(changelogJsonPath, applied.entries)
     : applied.entries;
 
-  if (config.changelogJson.enabled && !dryRun) {
-    if (isEmptyRange) {
-      // The merged entries are the post-merge truth; persist them as a fresh overwrite.
-      writeChangelogJson(changelogJsonPath, renderEntries);
-    } else {
-      writeChangelogJson(changelogJsonPath, applied.entries);
-    }
-  }
-
-  const changelogFiles = [
-    writeChangelogMarkdown({
-      changelogPath: ROOT_CHANGELOG_PATH,
-      entries: renderEntries,
-      sectionOrder,
-      dryRun,
-    }),
-  ];
-
+  const writes: PlannedWrite[] = [];
   const changelogJsonFiles: string[] = [];
   if (config.changelogJson.enabled) {
+    writes.push({ path: changelogJsonPath, content: renderChangelogJson(renderEntries) });
     changelogJsonFiles.push(changelogJsonPath);
   }
 
-  return { changelogFiles, changelogJsonFiles };
+  const changelogFile = joinPath(ROOT_CHANGELOG_PATH, 'CHANGELOG.md');
+  writes.push({ path: changelogFile, content: renderChangelogMarkdown(renderEntries, { sectionOrder }) });
+
+  return { changelogFiles: [changelogFile], changelogJsonFiles, entries: renderEntries, writes };
 }

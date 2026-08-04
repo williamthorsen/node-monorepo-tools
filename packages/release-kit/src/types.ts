@@ -281,11 +281,9 @@ export interface PrepareResult {
   formatCommand?:
     | {
         command: string;
-        executed: boolean;
         files: string[];
       }
     | undefined;
-  dryRun: boolean;
   /** Warnings surfaced during preparation (e.g., circular dependency detection). */
   warnings?: string[] | undefined;
   /** Result of the project-level release stage (present only when `config.project` is configured and the stage ran). */

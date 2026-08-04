@@ -8,7 +8,6 @@ function makeResult(overrides?: Partial<PrepareResult>): PrepareResult {
   return {
     workspaces: [],
     tags: [],
-    dryRun: false,
     ...overrides,
   };
 }

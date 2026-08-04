@@ -6,6 +6,8 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mergeMonorepoConfig } from '../loadConfig.ts';
+import type { ReleasePlan } from '../releasePlan.ts';
+import { applyReleasePlan } from '../releasePlan.ts';
 import { releasePrepareMono } from '../releasePrepareMono.ts';
 
 /**
@@ -112,6 +114,13 @@ function withinFixture<T>(repoDir: string, fn: () => T): T {
   }
 }
 
+/** Compute the release plan and apply it, mirroring what the CLI boundary does. */
+function prepareAndApply(...args: Parameters<typeof releasePrepareMono>): ReleasePlan {
+  const plan = releasePrepareMono(...args);
+  applyReleasePlan(plan);
+  return plan;
+}
+
 describe('releasePrepareProject (tool)', () => {
   let fixture: Fixture;
 
@@ -131,7 +140,7 @@ describe('releasePrepareProject (tool)', () => {
         { exists: true, version: '0.9.0' },
       );
 
-      const result = releasePrepareMono(config, { dryRun: false });
+      const result = prepareAndApply(config, { dryRun: false });
 
       // Project release happened.
       const project = result.project;
@@ -196,7 +205,7 @@ describe('releasePrepareProject (tool)', () => {
         { exists: true, version: '1.0.0' },
       );
 
-      const result = releasePrepareMono(config, { dryRun: false, bumpOverride: 'major' });
+      const result = prepareAndApply(config, { dryRun: false, bumpOverride: 'major' });
 
       const project = result.project;
       if (project?.status !== 'released') throw new Error('expected released project');
@@ -214,14 +223,14 @@ describe('releasePrepareProject (tool)', () => {
         { exists: true, version: '0.9.0' },
       );
 
-      const result = releasePrepareMono(config, { dryRun: true });
+      const result = releasePrepareMono(config, { dryRun: false });
 
       const project = result.project;
       if (project?.status !== 'released') throw new Error('expected released project');
       expect(project.tag).toBe('v0.10.0');
       expect(result.tags).toContain('v0.10.0');
 
-      // Nothing was written to disk.
+      // Planning alone writes nothing to disk.
       const rootPackageJson: { version: string } = JSON.parse(
         readFileSync(join(fixture.repoDir, 'package.json'), 'utf8'),
       );
@@ -248,7 +257,7 @@ describe('releasePrepareProject (tool)', () => {
           { exists: true, version: '0.9.0' },
         );
 
-        releasePrepareMono(config, { dryRun: false });
+        prepareAndApply(config, { dryRun: false });
 
         // No warning was emitted (the existing file was never parsed).
         const warnedAboutChangelogJson = warnSpy.mock.calls.some((call) =>
@@ -275,7 +284,7 @@ describe('releasePrepareProject (tool)', () => {
         { exists: true, version: '0.9.0' },
       );
 
-      releasePrepareMono(config, { dryRun: false, withReleaseNotes: true });
+      prepareAndApply(config, { dryRun: false, withReleaseNotes: true });
 
       // The project preview file lives at root docs/.
       const previewPath = join(fixture.repoDir, 'docs', 'RELEASE_NOTES.v0.10.0.md');
@@ -299,7 +308,7 @@ describe('releasePrepareProject (tool)', () => {
         { exists: true, version: '0.9.0' },
       );
 
-      const result = releasePrepareMono(config, { dryRun: false, force: true });
+      const result = prepareAndApply(config, { dryRun: false, force: true });
 
       // Project release proceeded under --force, choosing patch level (issue #369 fix).
       const project = result.project;
@@ -369,7 +378,7 @@ describe('releasePrepareProject (tool)', () => {
         { exists: true, version: '0.9.0' },
       );
 
-      releasePrepareMono(config, { dryRun: false, force: true });
+      prepareAndApply(config, { dryRun: false, force: true });
 
       const written: Array<{ version: string; sections: Array<{ items: Array<{ description: string }> }> }> =
         JSON.parse(readFileSync(changelogJsonPath, 'utf8'));

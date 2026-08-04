@@ -6,7 +6,7 @@ const mockExistsSync = vi.hoisted(() => vi.fn());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockWriteFileSync = vi.hoisted(() => vi.fn());
 const mockHasPrettierConfig = vi.hoisted(() => vi.fn());
-const mockWriteReleaseNotesPreviews = vi.hoisted(() => vi.fn());
+const mockPlanReleaseNotesPreviews = vi.hoisted(() => vi.fn());
 
 vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
@@ -28,7 +28,7 @@ vi.mock(import('../hasPrettierConfig.ts'), () => ({
 }));
 
 vi.mock(import('../writeReleaseNotesPreviews.ts'), () => ({
-  writeReleaseNotesPreviews: mockWriteReleaseNotesPreviews,
+  planReleaseNotesPreviews: mockPlanReleaseNotesPreviews,
 }));
 
 // Stub out the new helpers for tests in this file that exercise the
@@ -40,7 +40,8 @@ const mockBuildEmptyReleaseEntry = vi.hoisted(() => vi.fn());
 const mockUpsertChangelogJson = vi.hoisted(() => vi.fn());
 const mockUpsertChangelogJsonAndReturn = vi.hoisted(() => vi.fn());
 const mockMergeChangelogEntriesWithDisk = vi.hoisted(() => vi.fn());
-const mockWriteChangelogMarkdown = vi.hoisted(() => vi.fn());
+const mockRenderChangelogMarkdown = vi.hoisted(() => vi.fn());
+const mockRenderChangelogJson = vi.hoisted(() => vi.fn());
 
 vi.mock(import('../buildChangelogEntries.ts'), () => ({
   buildChangelogEntries: mockBuildChangelogEntries,
@@ -58,13 +59,14 @@ vi.mock(import('../changelogJsonFile.ts'), () => ({
   resolveChangelogJsonPath: (config: { changelogJson: { outputPath: string } }, changelogPath: string): string =>
     `${changelogPath}/${config.changelogJson.outputPath}`,
   writeChangelogJson: vi.fn(),
+  renderChangelogJson: mockRenderChangelogJson,
   upsertChangelogJson: mockUpsertChangelogJson,
   upsertChangelogJsonAndReturn: mockUpsertChangelogJsonAndReturn,
   mergeChangelogEntriesWithDisk: mockMergeChangelogEntriesWithDisk,
 }));
 
 vi.mock(import('../renderChangelogMarkdown.ts'), () => ({
-  writeChangelogMarkdown: mockWriteChangelogMarkdown,
+  renderChangelogMarkdown: mockRenderChangelogMarkdown,
 }));
 
 import {
@@ -107,14 +109,14 @@ function countCliffCalls(): number {
  * `<changelog>/CHANGELOG.md` entries derived from the renderer's first call to keep
  * pre-pivot tests passing — the markdown writer is the new owner of those concepts.
  */
-function findCliffCallArgs(): readonly unknown[] {
+function findCliffCallArgs(plan: { writes: readonly { path: string }[] }): readonly unknown[] {
   const buildCall = mockBuildChangelogEntries.mock.calls[0];
   if (buildCall === undefined) {
     throw new Error('buildChangelogEntries was not called');
   }
   const tag = buildCall[1];
   const options = buildCall[2] ?? {};
-  const renderCall = mockWriteChangelogMarkdown.mock.calls[0]?.[0];
+  const changelogPath = plan.writes.find((write) => write.path.endsWith('CHANGELOG.md'))?.path;
   const args: unknown[] = ['git-cliff', '--config', '<resolved>'];
   if (typeof tag === 'string') {
     args.push('--tag', tag);
@@ -127,19 +129,14 @@ function findCliffCallArgs(): readonly unknown[] {
       args.push('--include-path', includePath);
     }
   }
-  if (isRenderCallArg(renderCall) && typeof renderCall.changelogPath === 'string') {
-    args.push('--output', `${renderCall.changelogPath}/CHANGELOG.md`);
+  if (changelogPath !== undefined) {
+    args.push('--output', changelogPath);
   }
   return args;
 }
 
 /** Type guard for the third positional argument passed to `buildChangelogEntries`. */
 function isCliffOptions(value: unknown): value is { tagPattern?: string; includePaths?: string[] } {
-  return typeof value === 'object' && value !== null;
-}
-
-/** Type guard for the first positional argument passed to `writeChangelogMarkdown`. */
-function isRenderCallArg(value: unknown): value is { changelogPath?: string; dryRun?: boolean } {
   return typeof value === 'object' && value !== null;
 }
 
@@ -202,9 +199,9 @@ describe(releasePrepareMono, () => {
     mockUpsertChangelogJson.mockImplementation((filePath: string) => filePath);
     mockUpsertChangelogJsonAndReturn.mockImplementation((_filePath: string, entries: unknown[]) => entries);
     mockMergeChangelogEntriesWithDisk.mockImplementation((_filePath: string, entries: unknown[]) => entries);
-    mockWriteChangelogMarkdown.mockImplementation(
-      (args: { changelogPath: string }) => `${args.changelogPath}/CHANGELOG.md`,
-    );
+    mockRenderChangelogMarkdown.mockReturnValue('# Changelog\n');
+    mockRenderChangelogJson.mockReturnValue('[]\n');
+    mockPlanReleaseNotesPreviews.mockReturnValue({ writes: [], warnings: [] });
   });
 
   afterEach(() => {
@@ -214,14 +211,15 @@ describe(releasePrepareMono, () => {
     mockReadFileSync.mockReset();
     mockWriteFileSync.mockReset();
     mockHasPrettierConfig.mockReset();
-    mockWriteReleaseNotesPreviews.mockReset();
+    mockPlanReleaseNotesPreviews.mockReset();
     mockBuildChangelogEntries.mockReset();
     mockBuildSyntheticChangelogEntry.mockReset();
     mockBuildEmptyReleaseEntry.mockReset();
     mockUpsertChangelogJson.mockReset();
     mockUpsertChangelogJsonAndReturn.mockReset();
     mockMergeChangelogEntriesWithDisk.mockReset();
-    mockWriteChangelogMarkdown.mockReset();
+    mockRenderChangelogMarkdown.mockReset();
+    mockRenderChangelogJson.mockReset();
   });
 
   it('processes a workspace that has commits', () => {
@@ -264,15 +262,12 @@ describe(releasePrepareMono, () => {
       changelogFiles: ['packages/arrays/CHANGELOG.md'],
     });
 
-    // Verify bumpAllVersions wrote a new version
-    expect(mockWriteFileSync).toHaveBeenCalledWith(
-      'packages/arrays/package.json',
-      expect.stringContaining('"version": "1.1.0"'),
-      'utf8',
-    );
+    // Verify the plan carries the new version
+    expect(plannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.1.0"');
+    expect(mockWriteFileSync).not.toHaveBeenCalled();
 
     // Verify git-cliff was called for the workspace's changelog path
-    const cliffArgs = findCliffCallArgs();
+    const cliffArgs = findCliffCallArgs(result);
     expect(cliffArgs).toContain('--output');
     expect(cliffArgs).toContain('packages/arrays/CHANGELOG.md');
     expect(cliffArgs).toContain('--include-path');
@@ -375,17 +370,17 @@ describe(releasePrepareMono, () => {
     expect(result.workspaces[0]).toMatchObject({ name: 'arrays', status: 'released' });
     expect(result.workspaces[1]).toMatchObject({ name: 'strings', status: 'skipped' });
 
-    // Only arrays package.json should be written
-    expect(mockWriteFileSync).toHaveBeenCalledTimes(1);
-    expect(mockWriteFileSync).toHaveBeenCalledWith('packages/arrays/package.json', expect.any(String), 'utf8');
+    // Only arrays package.json should be planned
+    expect(result.writes.map((write) => write.path)).toContain('packages/arrays/package.json');
+    expect(result.writes.map((write) => write.path)).not.toContain('packages/strings/package.json');
 
     // Only arrays changelog should be generated
     expect(countCliffCalls()).toBe(1);
-    const cliffArgs = findCliffCallArgs();
+    const cliffArgs = findCliffCallArgs(result);
     expect(cliffArgs).toContain('packages/arrays/CHANGELOG.md');
   });
 
-  it('does not write files or run formatCommand when dryRun is true', () => {
+  it('plans files and the format command without performing either', () => {
     const config = makeConfig({
       formatCommand: 'npx prettier --write',
       workspaces: [
@@ -413,26 +408,23 @@ describe(releasePrepareMono, () => {
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    const result = releasePrepareMono(config, { dryRun: true });
+    const result = releasePrepareMono(config, { dryRun: false });
 
     expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
-    expect(result.dryRun).toBe(true);
     expect(mockWriteFileSync).not.toHaveBeenCalled();
-    // After the SSOT pivot, `buildChangelogEntries` is invoked even under dry-run (it has no
-    // file-write side effects); only the per-changelog-path markdown writer respects the flag.
     expect(countCliffCalls()).toBe(1);
-    const writeArgs = mockWriteChangelogMarkdown.mock.calls[0]?.[0];
-    expect(isRenderCallArg(writeArgs) ? writeArgs.dryRun : undefined).toBe(true);
     expect(mockExecSync).not.toHaveBeenCalled();
 
-    // Verify the format command is captured but not executed
+    expect(result.writes.map((write) => write.path)).toStrictEqual([
+      'packages/arrays/package.json',
+      'packages/arrays/CHANGELOG.md',
+    ]);
     expect(result.formatCommand).toMatchObject({
       command: 'npx prettier --write packages/arrays/package.json packages/arrays/CHANGELOG.md',
-      executed: false,
     });
   });
 
-  it('runs formatCommand once after all workspaces are processed', () => {
+  it('renders one formatCommand covering every processed workspace', () => {
     const config = makeConfig({
       formatCommand: 'npx prettier --write',
       workspaces: [
@@ -472,12 +464,11 @@ describe(releasePrepareMono, () => {
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    releasePrepareMono(config, { dryRun: false });
+    const result = releasePrepareMono(config, { dryRun: false });
 
-    expect(mockExecSync).toHaveBeenCalledTimes(1);
-    expect(mockExecSync).toHaveBeenCalledWith(
+    expect(mockExecSync).not.toHaveBeenCalled();
+    expect(result.formatCommand?.command).toBe(
       'npx prettier --write packages/arrays/package.json packages/arrays/CHANGELOG.md packages/strings/package.json packages/strings/CHANGELOG.md',
-      { stdio: 'inherit' },
     );
   });
 
@@ -513,13 +504,9 @@ describe(releasePrepareMono, () => {
     expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
 
     // Should use the override (minor) rather than the commit-derived type (patch)
-    expect(mockWriteFileSync).toHaveBeenCalledWith(
-      'packages/arrays/package.json',
-      expect.stringContaining('"version": "1.1.0"'),
-      'utf8',
-    );
+    expect(plannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.1.0"');
 
-    const cliffArgs = findCliffCallArgs();
+    const cliffArgs = findCliffCallArgs(result);
     expect(cliffArgs).toContain('--tag');
     expect(cliffArgs).toContain('arrays-v1.1.0');
   });
@@ -823,11 +810,7 @@ describe(releasePrepareMono, () => {
     const result = releasePrepareMono(config, { dryRun: false, force: true, bumpOverride: 'patch' });
 
     expect(result.tags).toStrictEqual(['arrays-v1.0.1']);
-    expect(mockWriteFileSync).toHaveBeenCalledWith(
-      'packages/arrays/package.json',
-      expect.stringContaining('"version": "1.0.1"'),
-      'utf8',
-    );
+    expect(plannedContent(result, 'packages/arrays/package.json')).toContain('"version": "1.0.1"');
     // Empty-range release: git-cliff is bypassed in favor of the synthetic
     // "Notes / Forced version bump." entry (issue #369).
     expect(countCliffCalls()).toBe(0);
@@ -981,12 +964,10 @@ describe(releasePrepareMono, () => {
     });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    releasePrepareMono(config, { dryRun: false });
+    const result = releasePrepareMono(config, { dryRun: false });
 
-    expect(mockExecSync).toHaveBeenCalledTimes(1);
-    expect(mockExecSync).toHaveBeenCalledWith(
+    expect(result.formatCommand?.command).toBe(
       'npx prettier --write packages/arrays/package.json packages/arrays/CHANGELOG.md',
-      { stdio: 'inherit' },
     );
   });
 
@@ -1063,10 +1044,8 @@ describe(releasePrepareMono, () => {
     // full release history) and the markdown renderer is called once per `changelogPaths` entry.
     expect(countCliffCalls()).toBe(1);
     expect(
-      mockWriteChangelogMarkdown.mock.calls.map((call) =>
-        isRenderCallArg(call[0]) ? call[0].changelogPath : undefined,
-      ),
-    ).toStrictEqual(['packages/arrays', 'packages/arrays/docs']);
+      result.writes.filter((write) => write.path.endsWith('CHANGELOG.md')).map((write) => write.path),
+    ).toStrictEqual(['packages/arrays/CHANGELOG.md', 'packages/arrays/docs/CHANGELOG.md']);
   });
 
   describe('dependency propagation', () => {
@@ -1207,22 +1186,19 @@ describe(releasePrepareMono, () => {
       });
       mockExistsSync.mockReturnValue(false);
 
-      releasePrepareMono(config, { dryRun: false });
+      const result = releasePrepareMono(config, { dryRun: false });
 
       // git-cliff (via buildChangelogEntries) is called only for core (direct), not for app (propagated).
       expect(countCliffCalls()).toBe(1);
-      const cliffArgs = findCliffCallArgs();
+      const cliffArgs = findCliffCallArgs(result);
       expect(cliffArgs).toContain('packages/core/CHANGELOG.md');
 
       // Synthetic propagation entry constructor was called for the app workspace.
       expect(mockBuildSyntheticChangelogEntry).toHaveBeenCalledTimes(1);
       const propagatedFromArg = mockBuildSyntheticChangelogEntry.mock.calls[0]?.[0];
       expect(JSON.stringify(propagatedFromArg)).toContain('@test/core');
-      // The renderer was invoked for the app's changelog path.
-      const appRenderCall = mockWriteChangelogMarkdown.mock.calls.find(
-        (call) => isRenderCallArg(call[0]) && call[0].changelogPath === 'packages/app',
-      );
-      expect(appRenderCall).toBeDefined();
+      // The app's changelog is planned alongside core's.
+      expect(result.writes.map((write) => write.path)).toContain('packages/app/CHANGELOG.md');
     });
 
     it('does not propagate to workspaces excluded from config.workspaces', () => {
@@ -1292,11 +1268,7 @@ describe(releasePrepareMono, () => {
       if (coreResult?.status !== 'released') throw new Error('expected released');
       expect(coreResult.releaseType).toBeUndefined();
       expect(result.tags).toStrictEqual(['core-v1.0.0']);
-      expect(mockWriteFileSync).toHaveBeenCalledWith(
-        'packages/core/package.json',
-        expect.stringContaining('"version": "1.0.0"'),
-        'utf8',
-      );
+      expect(plannedContent(result, 'packages/core/package.json')).toContain('"version": "1.0.0"');
     });
 
     it('throws when --set-version is not greater than the current version', () => {
@@ -1382,7 +1354,6 @@ describe(releasePrepareMono, () => {
       const result = releasePrepareMono(config, { dryRun: true, setVersion: '1.0.0' });
 
       expect(result.tags).toStrictEqual(['core-v1.0.0']);
-      expect(result.dryRun).toBe(true);
       expect(mockWriteFileSync).not.toHaveBeenCalled();
     });
 
@@ -1528,10 +1499,7 @@ describe(releasePrepareMono, () => {
       // The empty-range branch builds a synthetic Notes entry (mocked) and routes it through
       // the markdown renderer; assert on the renderer's args.
       expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledWith('1.0.1', expect.any(String));
-      const renderCall = mockWriteChangelogMarkdown.mock.calls.find(
-        (call) => isRenderCallArg(call[0]) && call[0].changelogPath === 'packages/arrays',
-      );
-      expect(renderCall).toBeDefined();
+      expect(result.writes.map((write) => write.path)).toContain('packages/arrays/CHANGELOG.md');
     });
 
     it('does not invoke git-cliff for an empty-range workspace', () => {
@@ -1553,7 +1521,7 @@ describe(releasePrepareMono, () => {
       expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledTimes(1);
       expect(mockBuildEmptyReleaseEntry).toHaveBeenCalledWith('1.0.1', expect.any(String));
       expect(mockBuildChangelogEntries).not.toHaveBeenCalled();
-      expect(mockUpsertChangelogJsonAndReturn).toHaveBeenCalledTimes(1);
+      expect(mockRenderChangelogJson).toHaveBeenCalledTimes(1);
     });
 
     it('keeps propagation-only workspaces on the propagation path (no regression)', () => {
@@ -1776,16 +1744,16 @@ describe(releasePrepareMono, () => {
       expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledTimes(1);
     });
 
-    it('writes changelog.json when changelogJson.enabled is true', () => {
+    it('plans a changelog.json write when changelogJson.enabled is true', () => {
       stubFeatCommit();
 
-      releasePrepareMono(
+      const plan = releasePrepareMono(
         singleWorkspaceConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }),
         { dryRun: false },
       );
 
-      expect(mockUpsertChangelogJsonAndReturn).toHaveBeenCalledTimes(1);
-      expect(mockMergeChangelogEntriesWithDisk).not.toHaveBeenCalled();
+      expect(mockRenderChangelogJson).toHaveBeenCalledTimes(1);
+      expect(plan.writes.map((write) => write.path)).toContain('packages/arrays/.meta/changelog.json');
     });
   });
 
@@ -2130,13 +2098,12 @@ describe(releasePrepareMono, () => {
         return JSON.stringify({ version: '1.0.0' });
       });
 
-      releasePrepareMono(config, { dryRun: false });
+      const result = releasePrepareMono(config, { dryRun: false });
 
-      expect(mockExecSync).toHaveBeenCalledTimes(1);
-      const formatCall = mockExecSync.mock.calls[0]?.[0];
+      const formatCall = result.formatCommand?.command;
       expect(formatCall).toContain('packages/arrays/package.json');
       expect(formatCall).toContain('./package.json');
-      expect(formatCall).toContain('./CHANGELOG.md');
+      expect(formatCall).toContain('CHANGELOG.md');
     });
   });
 
@@ -2176,12 +2143,12 @@ describe(releasePrepareMono, () => {
 
       releasePrepareMono(config, { dryRun: false, withReleaseNotes: true });
 
-      expect(mockWriteReleaseNotesPreviews).toHaveBeenCalledTimes(1);
-      expect(mockWriteReleaseNotesPreviews).toHaveBeenCalledWith(
+      expect(mockPlanReleaseNotesPreviews).toHaveBeenCalledTimes(1);
+      expect(mockPlanReleaseNotesPreviews).toHaveBeenCalledWith(
         expect.objectContaining({
           workspacePath: 'packages/arrays',
           tag: 'arrays-v1.1.0',
-          dryRun: false,
+          entries: expect.any(Array),
           sectionOrder: expect.any(Array),
         }),
       );
@@ -2192,7 +2159,7 @@ describe(releasePrepareMono, () => {
 
       releasePrepareMono(config, { dryRun: false });
 
-      expect(mockWriteReleaseNotesPreviews).not.toHaveBeenCalled();
+      expect(mockPlanReleaseNotesPreviews).not.toHaveBeenCalled();
     });
 
     it('warns and skips when --with-release-notes is set but changelogJson.enabled is false', () => {
@@ -2224,7 +2191,7 @@ describe(releasePrepareMono, () => {
 
       releasePrepareMono(config, { dryRun: false, withReleaseNotes: true });
 
-      expect(mockWriteReleaseNotesPreviews).not.toHaveBeenCalled();
+      expect(mockPlanReleaseNotesPreviews).not.toHaveBeenCalled();
       expect(warnSpy).toHaveBeenCalledWith(
         expect.stringContaining('--with-release-notes requires changelogJson.enabled'),
       );
@@ -2259,15 +2226,20 @@ describe(releasePrepareMono, () => {
 
       releasePrepareMono(config, { dryRun: false, withReleaseNotes: true });
 
-      expect(mockWriteReleaseNotesPreviews).not.toHaveBeenCalled();
+      expect(mockPlanReleaseNotesPreviews).not.toHaveBeenCalled();
     });
 
-    it('propagates dryRun through to writeReleaseNotesPreviews', () => {
+    it('carries the planned preview files into the plan', () => {
       const config = setupArraysWithFeat();
 
-      releasePrepareMono(config, { dryRun: true, withReleaseNotes: true });
+      mockPlanReleaseNotesPreviews.mockReturnValue({
+        writes: [{ path: 'packages/arrays/docs/RELEASE_NOTES.v1.1.0.md', content: '# Notes\n' }],
+        warnings: [],
+      });
 
-      expect(mockWriteReleaseNotesPreviews).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }));
+      const plan = releasePrepareMono(config, { dryRun: false, withReleaseNotes: true });
+
+      expect(plannedContent(plan, 'packages/arrays/docs/RELEASE_NOTES.v1.1.0.md')).toBe('# Notes\n');
     });
 
     it('invokes writeReleaseNotesPreviews for both direct-bumped and propagation-only workspaces', () => {
@@ -2328,12 +2300,12 @@ describe(releasePrepareMono, () => {
 
       releasePrepareMono(config, { dryRun: false, withReleaseNotes: true });
 
-      expect(mockWriteReleaseNotesPreviews).toHaveBeenCalledTimes(2);
+      expect(mockPlanReleaseNotesPreviews).toHaveBeenCalledTimes(2);
       // Confirm each workspace received a preview call with the correct workspacePath and tag.
-      expect(mockWriteReleaseNotesPreviews).toHaveBeenCalledWith(
+      expect(mockPlanReleaseNotesPreviews).toHaveBeenCalledWith(
         expect.objectContaining({ workspacePath: 'packages/core', tag: 'core-v1.1.0' }),
       );
-      expect(mockWriteReleaseNotesPreviews).toHaveBeenCalledWith(
+      expect(mockPlanReleaseNotesPreviews).toHaveBeenCalledWith(
         expect.objectContaining({ workspacePath: 'packages/app', tag: 'app-v2.0.1' }),
       );
     });
@@ -2439,25 +2411,6 @@ describe(releasePrepareMono, () => {
 
       expect(wrapped.message).toMatch(/^project release stage: .*cliff exploded on root$/);
       expect(wrapped.cause).toBeInstanceOf(Error);
-    });
-
-    it('wraps a format-stage throw with the format-stage label and the failing command', () => {
-      const config = makeArraysConfig({ formatCommand: 'npx prettier --write' });
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') return 'arrays-v1.0.0\n';
-        if (cmd === 'git' && args[0] === 'log') return 'feat: addbarabc123';
-        return '';
-      });
-      mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
-      const underlying = new Error('prettier exited 2');
-      mockExecSync.mockImplementation(() => {
-        throw underlying;
-      });
-
-      const wrapped = captureError(() => releasePrepareMono(config, { dryRun: false }));
-
-      expect(wrapped.message).toMatch(/^format stage: prettier exited 2 \(command: 'npx prettier --write .+'\)$/);
-      expect(wrapped.cause).toBe(underlying);
     });
 
     it('does not wrap --set-version validation throws with a stage label', () => {
@@ -2819,3 +2772,11 @@ describe(releasePrepareMono, () => {
     });
   });
 });
+
+/** Content the plan intends to write to `path`, or undefined when the plan does not write it. */
+function plannedContent(
+  plan: { writes: readonly { path: string; content: string }[] },
+  path: string,
+): string | undefined {
+  return plan.writes.find((write) => write.path === path)?.content;
+}

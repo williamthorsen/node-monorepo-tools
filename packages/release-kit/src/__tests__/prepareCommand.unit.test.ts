@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockAssertCleanWorkingTree = vi.hoisted(() => vi.fn());
-const mockBuildReleaseSummary = vi.hoisted(() => vi.fn());
 const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
 const mockGetCommitsSinceTarget = vi.hoisted(() => vi.fn());
 const mockLoadConfig = vi.hoisted(() => vi.fn());
@@ -10,6 +9,11 @@ const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockReleasePrepareMono = vi.hoisted(() => vi.fn());
 const mockReleasePrepare = vi.hoisted(() => vi.fn());
 const mockWriteFileWithCheck = vi.hoisted(() => vi.fn());
+const mockExecSync = vi.hoisted(() => vi.fn());
+
+vi.mock(import('node:child_process'), () => ({
+  execSync: mockExecSync,
+}));
 
 vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
@@ -18,10 +22,6 @@ vi.mock(import('node:fs'), () => ({
 
 vi.mock(import('../assertCleanWorkingTree.ts'), () => ({
   assertCleanWorkingTree: mockAssertCleanWorkingTree,
-}));
-
-vi.mock(import('../buildReleaseSummary.ts'), () => ({
-  buildReleaseSummary: mockBuildReleaseSummary,
 }));
 
 vi.mock(import('../discoverWorkspaces.ts'), () => ({
@@ -58,11 +58,10 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
 
 import { parseArgs, prepareCommand } from '../prepareCommand.ts';
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from '../releaseFiles.ts';
-import type { PrepareResult } from '../types.ts';
+import type { ReleasePlan } from '../releasePlan.ts';
 
 describe(prepareCommand, () => {
   beforeEach(() => {
-    mockBuildReleaseSummary.mockReturnValue('');
     mockDiscoverWorkspaces.mockResolvedValue(['packages/arrays', 'packages/strings']);
     mockLoadConfig.mockResolvedValue(undefined);
     // Default: pretend the root package.json does not exist. Tests that exercise the project
@@ -81,7 +80,7 @@ describe(prepareCommand, () => {
     mockReleasePrepare.mockReturnValue(makePrepareResult());
     // Default: no commits anywhere, so the stranded-dependents validator stays silent.
     mockGetCommitsSinceTarget.mockReturnValue({ tag: undefined, commits: [] });
-    mockWriteFileWithCheck.mockReturnValue({ filePath: RELEASE_TAGS_FILE, outcome: 'created' });
+    mockWriteFileWithCheck.mockImplementation((path: string) => ({ filePath: path, outcome: 'created' }));
     vi.spyOn(process, 'exit').mockImplementation((code) => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
@@ -92,7 +91,6 @@ describe(prepareCommand, () => {
 
   afterEach(() => {
     mockAssertCleanWorkingTree.mockReset();
-    mockBuildReleaseSummary.mockReset();
     mockDiscoverWorkspaces.mockReset();
     mockLoadConfig.mockReset();
     mockExistsSync.mockReset();
@@ -101,6 +99,7 @@ describe(prepareCommand, () => {
     mockReleasePrepare.mockReset();
     mockGetCommitsSinceTarget.mockReset();
     mockWriteFileWithCheck.mockReset();
+    mockExecSync.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -246,8 +245,7 @@ describe(prepareCommand, () => {
     expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('unknownField'));
   });
 
-  it('writes release tags after successful preparation', async () => {
-    mockWriteFileWithCheck.mockReturnValue({ filePath: RELEASE_TAGS_FILE, outcome: 'created' });
+  it('writes release tags after applying the plan', async () => {
     mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['arrays-v1.0.0'] }));
 
     await prepareCommand([]);
@@ -258,20 +256,34 @@ describe(prepareCommand, () => {
     });
   });
 
-  it('passes dryRun to writeFileWithCheck during a dry run', async () => {
-    mockWriteFileWithCheck.mockReturnValue({ filePath: RELEASE_TAGS_FILE, outcome: 'created' });
-    mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['arrays-v1.0.0'], dryRun: true }));
+  it('writes nothing during a dry run', async () => {
+    mockReleasePrepareMono.mockReturnValue(
+      makePrepareResult({
+        tags: ['arrays-v1.0.0'],
+        summary: 'arrays-v1.0.0\n- feat: Add a thing',
+        writes: [{ path: 'packages/arrays/package.json', content: '{}\n' }],
+      }),
+    );
 
     await prepareCommand(['--dry-run']);
 
-    expect(mockWriteFileWithCheck).toHaveBeenCalledWith(RELEASE_TAGS_FILE, 'arrays-v1.0.0', {
-      dryRun: true,
-      overwrite: true,
-    });
+    expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
+  });
+
+  it('writes the tags file last, after the release files', async () => {
+    mockReleasePrepareMono.mockReturnValue(
+      makePrepareResult({
+        tags: ['arrays-v1.0.0'],
+        writes: [{ path: 'packages/arrays/package.json', content: '{}\n' }],
+      }),
+    );
+
+    await prepareCommand([]);
+
+    expect(writtenPaths()).toStrictEqual(['packages/arrays/package.json', RELEASE_TAGS_FILE]);
   });
 
   it('joins multiple tags with newlines in the release tags file', async () => {
-    mockWriteFileWithCheck.mockReturnValue({ filePath: RELEASE_TAGS_FILE, outcome: 'created' });
     mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['arrays-v1.0.0', 'strings-v2.0.1'] }));
 
     await prepareCommand([]);
@@ -307,33 +319,51 @@ describe(prepareCommand, () => {
     expect(process.stderr.write).not.toHaveBeenCalledWith(expect.stringContaining('Error preparing release'));
   });
 
-  it('exits with a distinct error when writing release tags fails', async () => {
-    mockWriteFileWithCheck.mockReturnValue({
-      filePath: RELEASE_TAGS_FILE,
-      outcome: 'failed',
-      error: 'permission denied',
+  it('reports that the working tree is unchanged when computation fails', async () => {
+    mockReleasePrepareMono.mockImplementation(() => {
+      throw new Error("workspace 'arrays' release stage: ENOBUFS");
     });
-    mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['arrays-v1.0.0'] }));
 
     await expect(prepareCommand([])).rejects.toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('release tags'));
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('permission denied'));
-    expect(process.stderr.write).not.toHaveBeenCalledWith(expect.stringContaining('Error preparing release'));
+    expect(process.stderr.write).toHaveBeenCalledWith('No files were written; the working tree is unchanged.\n');
   });
 
-  it('exits with a distinct error when writing release summary fails', async () => {
-    mockBuildReleaseSummary.mockReturnValue('arrays-v1.0.0\n- feat: Something');
-    mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['arrays-v1.0.0'] }));
-    mockWriteFileWithCheck.mockImplementation((_path: string) => {
-      if (_path === RELEASE_SUMMARY_FILE) {
-        return { filePath: RELEASE_SUMMARY_FILE, outcome: 'failed', error: 'permission denied' };
-      }
-      return { filePath: RELEASE_TAGS_FILE, outcome: 'created' };
+  it('exits and names the written and unwritten files when the apply pass fails', async () => {
+    mockReleasePrepareMono.mockReturnValue(
+      makePrepareResult({
+        tags: ['arrays-v1.0.0'],
+        writes: [
+          { path: 'packages/arrays/package.json', content: '{}\n' },
+          { path: 'packages/arrays/CHANGELOG.md', content: '# Changelog\n' },
+        ],
+      }),
+    );
+    mockWriteFileWithCheck.mockImplementation((path: string) =>
+      path === 'packages/arrays/CHANGELOG.md'
+        ? { filePath: path, outcome: 'failed', error: 'permission denied' }
+        : { filePath: path, outcome: 'created' },
+    );
+
+    await expect(prepareCommand([])).rejects.toThrow(ExitError);
+    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('permission denied'));
+    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('packages/arrays/package.json'));
+    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('Not written:'));
+  });
+
+  it('leaves the release applied and the tags file written when the format command fails', async () => {
+    mockReleasePrepareMono.mockReturnValue(
+      makePrepareResult({
+        tags: ['arrays-v1.0.0'],
+        formatCommand: { command: 'npx prettier --write packages/arrays/package.json', files: [] },
+      }),
+    );
+    mockExecSync.mockImplementation(() => {
+      throw new Error('prettier exited with code 2');
     });
 
     await expect(prepareCommand([])).rejects.toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('release summary'));
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('permission denied'));
+    expect(mockWriteFileWithCheck).toHaveBeenCalledWith(RELEASE_TAGS_FILE, 'arrays-v1.0.0', expect.any(Object));
+    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('the release is prepared'));
   });
 
   it('prints release tags file path when tags are produced', async () => {
@@ -345,7 +375,7 @@ describe(prepareCommand, () => {
   });
 
   it('does not print release tags file path during a dry run', async () => {
-    mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['arrays-v1.0.0'], dryRun: true }));
+    mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['arrays-v1.0.0'] }));
 
     await prepareCommand(['--dry-run']);
 
@@ -360,9 +390,13 @@ describe(prepareCommand, () => {
     expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('Release tags file:'));
   });
 
-  it('writes the release summary file when summary is non-empty', async () => {
-    mockBuildReleaseSummary.mockReturnValue('release-kit-v2.4.0\n- feat: Add commit command');
-    mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['release-kit-v2.4.0'] }));
+  it('writes the release summary file when the plan carries a summary', async () => {
+    mockReleasePrepareMono.mockReturnValue(
+      makePrepareResult({
+        tags: ['release-kit-v2.4.0'],
+        summary: 'release-kit-v2.4.0\n- feat: Add commit command',
+      }),
+    );
 
     await prepareCommand([]);
 
@@ -373,8 +407,7 @@ describe(prepareCommand, () => {
     );
   });
 
-  it('does not write the release summary file when summary is empty', async () => {
-    mockBuildReleaseSummary.mockReturnValue('');
+  it('does not write the release summary file when the plan carries none', async () => {
     mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['core-v1.0.0'] }));
 
     await prepareCommand([]);
@@ -395,7 +428,7 @@ describe(prepareCommand, () => {
   });
 
   it('does not print follow-up message during dry run', async () => {
-    mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['v1.0.0'], dryRun: true }));
+    mockReleasePrepareMono.mockReturnValue(makePrepareResult({ tags: ['v1.0.0'] }));
 
     await prepareCommand(['--dry-run']);
 
@@ -694,12 +727,18 @@ class ExitError extends Error {
 }
 
 /** Build a minimal PrepareResult for mocking. */
-function makePrepareResult(overrides?: Partial<PrepareResult>): PrepareResult {
+function makePrepareResult(overrides?: Partial<ReleasePlan>): ReleasePlan {
   return {
     workspaces: [],
     tags: [],
-    dryRun: false,
+    writes: [],
+    summary: '',
     ...overrides,
   };
+}
+
+/** Paths passed to `writeFileWithCheck`, in call order. */
+function writtenPaths(): string[] {
+  return mockWriteFileWithCheck.mock.calls.map((call: unknown[]) => String(call[0]));
 }
 // endregion | Helpers

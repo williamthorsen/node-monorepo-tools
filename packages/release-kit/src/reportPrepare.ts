@@ -9,26 +9,38 @@ import type {
   WorkspacePrepareResult,
 } from './types.ts';
 
+/** How the plan was carried out, which decides the tense the report is rendered in. */
+export interface ReportPrepareOptions {
+  /** True when the plan was written to disk; false for a dry run. */
+  applied: boolean;
+  /** The format command's failure message, when it ran and failed. */
+  formatError?: string;
+}
+
 /**
- * Format a `PrepareResult` into styled terminal output.
+ * Format a release plan into styled terminal output.
  *
  * Pure function: accepts structured data, returns a string. Never writes to stdout.
  * Single-workspace mode (no `name` field) renders flat output; multi-workspace mode
  * renders section headers per workspace, an optional project section, and a tag summary
  * at the end.
+ *
+ * Whether the plan was applied is a property of the render, not of the plan: the same plan
+ * produces the dry-run report and the applied report.
  */
-export function reportPrepare(result: PrepareResult): string {
-  const isMultiWorkspace = result.workspaces.some((w) => w.name !== undefined) || result.project !== undefined;
+export function reportPrepare(plan: PrepareResult, options: ReportPrepareOptions): string {
+  const isMultiWorkspace = plan.workspaces.some((w) => w.name !== undefined) || plan.project !== undefined;
 
   if (isMultiWorkspace) {
-    return formatMultiWorkspace(result);
+    return formatMultiWorkspace(plan, options);
   }
 
-  return formatSingleWorkspace(result);
+  return formatSingleWorkspace(plan, options);
 }
 
 /** Format output for a single-package release. */
-function formatSingleWorkspace(result: PrepareResult): string {
+function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOptions): string {
+  const dryRun = !options.applied;
   const lines: string[] = [];
   const workspace = result.workspaces[0];
 
@@ -73,14 +85,14 @@ function formatSingleWorkspace(result: PrepareResult): string {
   }
 
   // Bump file details
-  formatBumpFiles(lines, workspace, result.dryRun);
+  formatBumpFiles(lines, workspace, dryRun);
 
   // Changelog info
   lines.push(dim('Generating changelogs...'));
-  formatChangelogFiles(lines, workspace, result.dryRun);
+  formatChangelogFiles(lines, workspace, dryRun);
 
   // Format command
-  formatFormatCommand(lines, result);
+  formatFormatCommand(lines, result, options);
 
   // Completion
   lines.push(`✅ Release preparation complete.`, `   🏷️  ${bold(workspace.tag)}`);
@@ -89,19 +101,20 @@ function formatSingleWorkspace(result: PrepareResult): string {
 }
 
 /** Format output for a monorepo release with multiple workspaces. */
-function formatMultiWorkspace(result: PrepareResult): string {
+function formatMultiWorkspace(result: PrepareResult, options: ReportPrepareOptions): string {
+  const dryRun = !options.applied;
   const lines: string[] = [];
 
   for (const workspace of result.workspaces) {
-    formatWorkspaceSection(lines, workspace, result.dryRun);
+    formatWorkspaceSection(lines, workspace, dryRun);
   }
 
   if (result.project !== undefined) {
-    formatProjectSection(lines, result.project, result.dryRun);
+    formatProjectSection(lines, result.project, dryRun);
   }
 
   // Format command
-  formatFormatCommand(lines, result);
+  formatFormatCommand(lines, result, options);
 
   // Warnings
   formatWarnings(lines, result);
@@ -377,14 +390,20 @@ function formatWarnings(lines: string[], result: PrepareResult): void {
 }
 
 /** Append format command lines. */
-function formatFormatCommand(lines: string[], result: PrepareResult): void {
+function formatFormatCommand(lines: string[], result: PrepareResult, options: ReportPrepareOptions): void {
   if (result.formatCommand === undefined) {
     return;
   }
 
-  if (result.formatCommand.executed) {
-    lines.push(dim(`\n  Running format command: ${result.formatCommand.command}`));
-  } else {
+  if (!options.applied) {
     lines.push(dim(`\n  [dry-run] Would run format command: ${result.formatCommand.command}`));
+    return;
   }
+
+  if (options.formatError === undefined) {
+    lines.push(dim(`\n  Running format command: ${result.formatCommand.command}`));
+    return;
+  }
+
+  lines.push(`\n  ⚠️  Format command failed: ${result.formatCommand.command}`, `     ${options.formatError}`);
 }

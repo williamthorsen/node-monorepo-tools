@@ -6,7 +6,7 @@ const mockExistsSync = vi.hoisted(() => vi.fn());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockWriteFileSync = vi.hoisted(() => vi.fn());
 const mockHasPrettierConfig = vi.hoisted(() => vi.fn());
-const mockWriteReleaseNotesPreviews = vi.hoisted(() => vi.fn());
+const mockPlanReleaseNotesPreviews = vi.hoisted(() => vi.fn());
 
 vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
@@ -28,7 +28,7 @@ vi.mock(import('../hasPrettierConfig.ts'), () => ({
 }));
 
 vi.mock(import('../writeReleaseNotesPreviews.ts'), () => ({
-  writeReleaseNotesPreviews: mockWriteReleaseNotesPreviews,
+  planReleaseNotesPreviews: mockPlanReleaseNotesPreviews,
 }));
 
 // Stub the new helpers when tests exercise the changelogJson-enabled path, so no git-cliff
@@ -37,7 +37,8 @@ const mockBuildChangelogEntries = vi.hoisted(() => vi.fn());
 const mockUpsertChangelogJson = vi.hoisted(() => vi.fn());
 const mockUpsertChangelogJsonAndReturn = vi.hoisted(() => vi.fn());
 const mockMergeChangelogEntriesWithDisk = vi.hoisted(() => vi.fn());
-const mockWriteChangelogMarkdown = vi.hoisted(() => vi.fn());
+const mockRenderChangelogMarkdown = vi.hoisted(() => vi.fn());
+const mockRenderChangelogJson = vi.hoisted(() => vi.fn());
 
 vi.mock(import('../buildChangelogEntries.ts'), () => ({
   buildChangelogEntries: mockBuildChangelogEntries,
@@ -47,13 +48,14 @@ vi.mock(import('../changelogJsonFile.ts'), () => ({
   resolveChangelogJsonPath: (config: { changelogJson: { outputPath: string } }, changelogPath: string): string =>
     `${changelogPath}/${config.changelogJson.outputPath}`,
   writeChangelogJson: vi.fn(),
+  renderChangelogJson: mockRenderChangelogJson,
   upsertChangelogJson: mockUpsertChangelogJson,
   upsertChangelogJsonAndReturn: mockUpsertChangelogJsonAndReturn,
   mergeChangelogEntriesWithDisk: mockMergeChangelogEntriesWithDisk,
 }));
 
 vi.mock(import('../renderChangelogMarkdown.ts'), () => ({
-  writeChangelogMarkdown: mockWriteChangelogMarkdown,
+  renderChangelogMarkdown: mockRenderChangelogMarkdown,
 }));
 
 import {
@@ -102,9 +104,9 @@ describe(releasePrepare, () => {
     mockUpsertChangelogJson.mockImplementation((filePath: string) => filePath);
     mockUpsertChangelogJsonAndReturn.mockImplementation((_filePath: string, entries: unknown[]) => entries);
     mockMergeChangelogEntriesWithDisk.mockImplementation((_filePath: string, entries: unknown[]) => entries);
-    mockWriteChangelogMarkdown.mockImplementation(
-      (args: { changelogPath: string }) => `${args.changelogPath}/CHANGELOG.md`,
-    );
+    mockRenderChangelogMarkdown.mockReturnValue('# Changelog\n');
+    mockRenderChangelogJson.mockReturnValue('[]\n');
+    mockPlanReleaseNotesPreviews.mockReturnValue({ writes: [], warnings: [] });
     // Default `existsSync` to false so synthetic-write paths skip the read-existing-file
     // branch by default. Individual tests override per-call when they exercise prepend behavior.
     mockExistsSync.mockReturnValue(false);
@@ -117,12 +119,13 @@ describe(releasePrepare, () => {
     mockReadFileSync.mockReset();
     mockWriteFileSync.mockReset();
     mockHasPrettierConfig.mockReset();
-    mockWriteReleaseNotesPreviews.mockReset();
+    mockPlanReleaseNotesPreviews.mockReset();
     mockBuildChangelogEntries.mockReset();
     mockUpsertChangelogJson.mockReset();
     mockUpsertChangelogJsonAndReturn.mockReset();
     mockMergeChangelogEntriesWithDisk.mockReset();
-    mockWriteChangelogMarkdown.mockReset();
+    mockRenderChangelogMarkdown.mockReset();
+    mockRenderChangelogJson.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -132,7 +135,6 @@ describe(releasePrepare, () => {
     const result = releasePrepare(makeConfig(), { dryRun: false });
 
     expect(result.tags).toStrictEqual(['v1.1.0']);
-    expect(result.dryRun).toBe(false);
     expect(result.workspaces).toHaveLength(1);
 
     const workspace = result.workspaces[0];
@@ -148,7 +150,7 @@ describe(releasePrepare, () => {
     expect(workspace?.name).toBeUndefined();
     if (workspace?.status !== 'released') throw new Error('expected released');
     expect(workspace.bumpedFiles).toStrictEqual(['package.json']);
-    expect(workspace.changelogFiles).toStrictEqual(['./CHANGELOG.md']);
+    expect(workspace.changelogFiles).toStrictEqual(['CHANGELOG.md']);
   });
 
   it('applies patch floor when commits exist but none are release-worthy', () => {
@@ -198,7 +200,7 @@ describe(releasePrepare, () => {
     expect(result.workspaces[0]?.unparseableCommits).toStrictEqual([{ message: 'chore: update deps', hash: 'def456' }]);
   });
 
-  it('runs format command with package files and changelog paths appended', () => {
+  it('renders the format command over package files and changelog paths', () => {
     const config = makeConfig({
       formatCommand: 'npx prettier --write',
       packageFiles: ['package.json', 'packages/core/package.json'],
@@ -208,15 +210,13 @@ describe(releasePrepare, () => {
 
     const result = releasePrepare(config, { dryRun: false });
 
-    expect(mockExecSync).toHaveBeenCalledTimes(1);
-    expect(mockExecSync).toHaveBeenCalledWith(
-      'npx prettier --write package.json packages/core/package.json ./CHANGELOG.md packages/core/CHANGELOG.md',
-      { stdio: 'inherit' },
-    );
-    expect(result.formatCommand).toMatchObject({ executed: true });
+    expect(result.formatCommand).toStrictEqual({
+      command: 'npx prettier --write package.json packages/core/package.json CHANGELOG.md packages/core/CHANGELOG.md',
+      files: ['package.json', 'packages/core/package.json', 'CHANGELOG.md', 'packages/core/CHANGELOG.md'],
+    });
   });
 
-  it('captures format command without executing in dry-run mode', () => {
+  it('does not run the format command, leaving that to the caller that applies the plan', () => {
     const config = makeConfig({
       formatCommand: 'npx prettier --write',
       packageFiles: ['package.json'],
@@ -224,13 +224,9 @@ describe(releasePrepare, () => {
     });
     setupFeatCommit();
 
-    const result = releasePrepare(config, { dryRun: true });
+    releasePrepare(config, { dryRun: false });
 
     expect(mockExecSync).not.toHaveBeenCalled();
-    expect(result.formatCommand).toMatchObject({
-      command: 'npx prettier --write package.json ./CHANGELOG.md',
-      executed: false,
-    });
   });
 
   it('defaults to prettier when no formatCommand is set and prettier config exists', () => {
@@ -239,11 +235,7 @@ describe(releasePrepare, () => {
 
     const result = releasePrepare(makeConfig(), { dryRun: false });
 
-    expect(mockExecSync).toHaveBeenCalledTimes(1);
-    expect(mockExecSync).toHaveBeenCalledWith('npx prettier --write package.json ./CHANGELOG.md', {
-      stdio: 'inherit',
-    });
-    expect(result.formatCommand).toMatchObject({ executed: true });
+    expect(result.formatCommand).toMatchObject({ command: 'npx prettier --write package.json CHANGELOG.md' });
   });
 
   it('skips formatting when no formatCommand is set and no prettier config exists', () => {
@@ -297,7 +289,6 @@ describe(releasePrepare, () => {
     const result = releasePrepare(makeConfig(), { dryRun: true });
 
     expect(result.tags).toStrictEqual(['v1.1.0']);
-    expect(result.dryRun).toBe(true);
   });
 
   it('writes the explicit --set-version value, bypassing commit-derived bumps', () => {
@@ -326,11 +317,7 @@ describe(releasePrepare, () => {
     });
     if (workspace?.status !== 'released') throw new Error('expected released');
     expect(workspace.releaseType).toBeUndefined();
-    expect(mockWriteFileSync).toHaveBeenCalledWith(
-      'package.json',
-      expect.stringContaining('"version": "1.0.0"'),
-      'utf8',
-    );
+    expect(plannedContent(result, 'package.json')).toContain('"version": "1.0.0"');
   });
 
   it('writes a synthetic empty-range changelog when --set-version is used with zero commits', () => {
@@ -351,24 +338,23 @@ describe(releasePrepare, () => {
 
     const workspace = result.workspaces[0];
     if (workspace?.status !== 'released') throw new Error('expected released');
-    expect(workspace.changelogFiles).toStrictEqual(['./CHANGELOG.md']);
+    expect(workspace.changelogFiles).toStrictEqual(['CHANGELOG.md']);
 
     // The empty-range branch builds the synthetic entry and routes it through the markdown
     // renderer; assert on the entries the renderer received.
-    expect(mockWriteChangelogMarkdown).toHaveBeenCalledWith(
-      expect.objectContaining({
-        entries: expect.arrayContaining([
-          expect.objectContaining({
-            version: '1.0.0',
-            sections: expect.arrayContaining([
-              expect.objectContaining({
-                title: 'Notes',
-                items: expect.arrayContaining([expect.objectContaining({ description: 'Forced version bump.' })]),
-              }),
-            ]),
-          }),
-        ]),
-      }),
+    expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          version: '1.0.0',
+          sections: expect.arrayContaining([
+            expect.objectContaining({
+              title: 'Notes',
+              items: expect.arrayContaining([expect.objectContaining({ description: 'Forced version bump.' })]),
+            }),
+          ]),
+        }),
+      ]),
+      expect.anything(),
     );
 
     // Build-via-cliff path must not be exercised on the empty-range branch.
@@ -409,7 +395,7 @@ describe(releasePrepare, () => {
     );
   });
 
-  it('calls writeReleaseNotesPreviews when --with-release-notes is set and changelogJson is enabled', () => {
+  it('calls planReleaseNotesPreviews when --with-release-notes is set and changelogJson is enabled', () => {
     setupFeatCommit();
     vi.spyOn(process, 'cwd').mockReturnValue('/single-pkg');
 
@@ -418,14 +404,13 @@ describe(releasePrepare, () => {
       withReleaseNotes: true,
     });
 
-    expect(mockWriteReleaseNotesPreviews).toHaveBeenCalledTimes(1);
-    expect(mockWriteReleaseNotesPreviews).toHaveBeenCalledWith(
+    expect(mockPlanReleaseNotesPreviews).toHaveBeenCalledTimes(1);
+    expect(mockPlanReleaseNotesPreviews).toHaveBeenCalledWith(
       expect.objectContaining({
         workspacePath: '/single-pkg',
         tag: 'v1.1.0',
-        dryRun: false,
         sectionOrder: expect.any(Array),
-        changelogJsonPath: './.meta/changelog.json',
+        entries: expect.any(Array),
       }),
     );
   });
@@ -436,7 +421,7 @@ describe(releasePrepare, () => {
 
     releasePrepare(makeConfig(), { dryRun: false, withReleaseNotes: true });
 
-    expect(mockWriteReleaseNotesPreviews).not.toHaveBeenCalled();
+    expect(mockPlanReleaseNotesPreviews).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining('--with-release-notes requires changelogJson.enabled'),
     );
@@ -449,18 +434,22 @@ describe(releasePrepare, () => {
       dryRun: false,
     });
 
-    expect(mockWriteReleaseNotesPreviews).not.toHaveBeenCalled();
+    expect(mockPlanReleaseNotesPreviews).not.toHaveBeenCalled();
   });
 
-  it('propagates dryRun to writeReleaseNotesPreviews', () => {
+  it('carries the planned preview files into the plan', () => {
     setupFeatCommit();
+    mockPlanReleaseNotesPreviews.mockReturnValue({
+      writes: [{ path: 'docs/RELEASE_NOTES.v1.1.0.md', content: '# Notes\n' }],
+      warnings: [],
+    });
 
-    releasePrepare(makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }), {
-      dryRun: true,
+    const plan = releasePrepare(makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }), {
+      dryRun: false,
       withReleaseNotes: true,
     });
 
-    expect(mockWriteReleaseNotesPreviews).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }));
+    expect(plannedContent(plan, 'docs/RELEASE_NOTES.v1.1.0.md')).toBe('# Notes\n');
   });
 
   describe('empty-range (--force / --bump / --set-version with zero commits)', () => {
@@ -490,25 +479,24 @@ describe(releasePrepare, () => {
       expect(result.tags).toStrictEqual(['v1.0.1']);
       const workspace = result.workspaces[0];
       if (workspace?.status !== 'released') throw new Error('expected released');
-      expect(workspace.changelogFiles).toStrictEqual(['./CHANGELOG.md']);
+      expect(workspace.changelogFiles).toStrictEqual(['CHANGELOG.md']);
 
       // The empty-range branch builds a synthetic entry and routes it through the markdown
       // renderer; assert on the entries the renderer received rather than the literal file
       // bytes (the writer is mocked).
-      expect(mockWriteChangelogMarkdown).toHaveBeenCalledWith(
-        expect.objectContaining({
-          entries: [
-            expect.objectContaining({
-              version: '1.0.1',
-              sections: [
-                expect.objectContaining({
-                  title: 'Notes',
-                  items: [expect.objectContaining({ description: 'Forced version bump.' })],
-                }),
-              ],
-            }),
-          ],
-        }),
+      expect(mockRenderChangelogMarkdown).toHaveBeenCalledWith(
+        [
+          expect.objectContaining({
+            version: '1.0.1',
+            sections: [
+              expect.objectContaining({
+                title: 'Notes',
+                items: [expect.objectContaining({ description: 'Forced version bump.' })],
+              }),
+            ],
+          }),
+        ],
+        expect.anything(),
       );
     });
 
@@ -530,8 +518,8 @@ describe(releasePrepare, () => {
         bumpOverride: 'patch',
       });
 
-      expect(mockUpsertChangelogJsonAndReturn).toHaveBeenCalledTimes(1);
-      const upsertEntries = mockUpsertChangelogJsonAndReturn.mock.calls[0]?.[1];
+      expect(mockRenderChangelogJson).toHaveBeenCalledTimes(1);
+      const upsertEntries = mockRenderChangelogJson.mock.calls[0]?.[0];
       expect(upsertEntries).toMatchObject([
         {
           version: '1.0.1',
@@ -560,14 +548,11 @@ describe(releasePrepare, () => {
       );
 
       expect(result.tags).toStrictEqual(['v1.0.1']);
-      // Under dry-run, `writeChangelogMarkdown` is invoked but its dryRun option suppresses I/O.
-      expect(mockWriteChangelogMarkdown).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }));
-      // Upsert is also skipped under dry-run; the in-memory merge path runs instead.
-      expect(mockUpsertChangelogJsonAndReturn).not.toHaveBeenCalled();
+      expect(mockWriteFileSync).not.toHaveBeenCalled();
       expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledTimes(1);
       const workspace = result.workspaces[0];
       if (workspace?.status !== 'released') throw new Error('expected released');
-      expect(workspace.changelogFiles).toStrictEqual(['./CHANGELOG.md']);
+      expect(workspace.changelogFiles).toStrictEqual(['CHANGELOG.md']);
     });
 
     it('appends synthetic CHANGELOG.md and changelog.json paths to formatCommand.files', () => {
@@ -579,7 +564,7 @@ describe(releasePrepare, () => {
 
       const result = releasePrepare(config, { dryRun: true, bumpOverride: 'patch' });
 
-      expect(result.formatCommand?.files).toContain('./CHANGELOG.md');
+      expect(result.formatCommand?.files).toContain('CHANGELOG.md');
       expect(result.formatCommand?.files).toContain('./.meta/changelog.json');
     });
   });
@@ -599,7 +584,6 @@ describe(releasePrepare, () => {
     const result = releasePrepare(makeConfig(), { dryRun: true, setVersion: '1.0.0' });
 
     expect(result.tags).toStrictEqual(['v1.0.0']);
-    expect(result.dryRun).toBe(true);
     expect(mockWriteFileSync).not.toHaveBeenCalled();
   });
 
@@ -745,19 +729,19 @@ describe(releasePrepare, () => {
         dryRun: false,
       });
 
-      expect(mockUpsertChangelogJsonAndReturn).not.toHaveBeenCalled();
+      expect(mockRenderChangelogJson).not.toHaveBeenCalled();
       expect(mockMergeChangelogEntriesWithDisk).toHaveBeenCalledTimes(1);
     });
 
-    it('writes changelog.json when changelogJson.enabled is true', () => {
+    it('plans a changelog.json write when changelogJson.enabled is true', () => {
       setupFeatCommit();
 
-      releasePrepare(makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }), {
+      const plan = releasePrepare(makeConfig({ changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } }), {
         dryRun: false,
       });
 
-      expect(mockUpsertChangelogJsonAndReturn).toHaveBeenCalledTimes(1);
-      expect(mockMergeChangelogEntriesWithDisk).not.toHaveBeenCalled();
+      expect(mockRenderChangelogJson).toHaveBeenCalledTimes(1);
+      expect(plan.writes.map((write) => write.path)).toContain('./.meta/changelog.json');
     });
   });
 
@@ -840,3 +824,11 @@ describe(releasePrepare, () => {
     });
   });
 });
+
+/** Content the plan intends to write to `path`, or undefined when the plan does not write it. */
+function plannedContent(
+  plan: { writes: readonly { path: string; content: string }[] },
+  path: string,
+): string | undefined {
+  return plan.writes.find((write) => write.path === path)?.content;
+}

@@ -1,18 +1,12 @@
 import { writeFileWithCheck } from '@williamthorsen/nmr-core';
 
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './releaseFiles.ts';
-import type { ProjectPrepareResult, WorkspacePrepareResult } from './types.ts';
+import type { PrepareResult } from './types.ts';
 
 /** One file a release will write, carried as its complete intended content. */
 export interface PlannedWrite {
   path: string;
   content: string;
-}
-
-/** The format command a release runs once its files are on disk, rendered but not executed. */
-export interface FormatCommandPlan {
-  command: string;
-  files: string[];
 }
 
 /**
@@ -21,15 +15,14 @@ export interface FormatCommandPlan {
  * Holding every intended file up front is what lets `prepare` fail during computation without
  * leaving anything on disk. {@link applyReleasePlan} is the only step that mutates the tree, so
  * a dry run is this same plan with the apply step skipped rather than a separate code path.
+ *
+ * Extends the reporting view with the two fields only the apply step needs, so `reportPrepare`
+ * can render a plan without knowing about file content.
  */
-export interface ReleasePlan {
+export interface ReleasePlan extends PrepareResult {
   writes: readonly PlannedWrite[];
-  tags: readonly string[];
+  /** Body of the release commit message, written alongside the tags file. */
   summary: string;
-  formatCommand: FormatCommandPlan | undefined;
-  workspaces: WorkspacePrepareResult[];
-  project?: ProjectPrepareResult;
-  warnings?: string[];
 }
 
 /**

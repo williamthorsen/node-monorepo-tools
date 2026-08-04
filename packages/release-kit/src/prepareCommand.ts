@@ -1,21 +1,23 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
-import type { WriteResult } from '@williamthorsen/nmr-core';
-import { parseArgsOrExit, reportError, writeFileWithCheck } from '@williamthorsen/nmr-core';
+import { execSync } from 'node:child_process';
+
+import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { buildDependencyGraph } from './buildDependencyGraph.ts';
-import { buildReleaseSummary } from './buildReleaseSummary.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
 import { dim } from './format.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
 import { loadConfig, mergeMonorepoConfig, mergeSinglePackageConfig, readRootPackageVersion } from './loadConfig.ts';
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './releaseFiles.ts';
+import type { ReleasePlan } from './releasePlan.ts';
+import { applyReleasePlan } from './releasePlan.ts';
 import { releasePrepare } from './releasePrepare.ts';
 import { releasePrepareMono } from './releasePrepareMono.ts';
 import { reportPrepare } from './reportPrepare.ts';
-import type { MonorepoReleaseConfig, PrepareResult, ReleaseKitConfig, ReleaseType } from './types.ts';
+import type { MonorepoReleaseConfig, ReleaseKitConfig, ReleaseType } from './types.ts';
 import { validateConfig } from './validateConfig.ts';
 import { validateOnlyExcludesStrandedDependents } from './validateOnlyExcludesStrandedDependents.ts';
 
@@ -98,21 +100,6 @@ export function parseArgs(argv: string[]): {
     setVersion,
     withReleaseNotes: flags.withReleaseNotes,
   };
-}
-
-/**
- * Writes computed tags to the `.release-tags` file so the CI workflow can read them
- * instead of deriving tag names independently.
- */
-export function writeReleaseTags(tags: string[], dryRun: boolean): WriteResult | undefined {
-  if (tags.length === 0) {
-    return undefined;
-  }
-
-  return writeFileWithCheck(RELEASE_TAGS_FILE, tags.join('\n'), {
-    dryRun,
-    overwrite: true,
-  });
 }
 
 /**
@@ -339,55 +326,91 @@ async function loadAndValidateConfig(): Promise<ReleaseKitConfig | undefined> {
   return config;
 }
 
-/** Executes the prepare workflow, format the result, write to stdout, and handle errors. */
-function runAndReport(execute: () => PrepareResult, dryRun: boolean): void {
-  let result: PrepareResult;
+/**
+ * Computes the release plan, applies it, runs the format command, and prints the report.
+ *
+ * The plan is applied before anything is printed, so a partially applied plan is never preceded
+ * by a success-shaped report. The format command runs last because it rewrites the very files
+ * the plan just put on disk; its failure leaves the release materialized and the tags file in
+ * place, so `release-kit commit` still proceeds.
+ */
+function runAndReport(computePlan: () => ReleasePlan, dryRun: boolean): void {
+  let plan: ReleasePlan;
   try {
-    result = execute();
+    plan = computePlan();
+  } catch (error: unknown) {
+    reportError(error instanceof Error ? error.message : String(error));
+    process.stderr.write('No files were written; the working tree is unchanged.\n');
+    process.exit(1);
+  }
+
+  if (dryRun) {
+    process.stdout.write(reportPrepare(plan, { applied: false }) + '\n');
+    reportPlanFiles(plan, true);
+    return;
+  }
+
+  try {
+    applyReleasePlan(plan);
   } catch (error: unknown) {
     reportError(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 
-  process.stdout.write(reportPrepare(result) + '\n');
+  const formatError = runFormatCommand(plan.formatCommand);
 
-  const writeResult = writeReleaseTags(result.tags, dryRun);
+  process.stdout.write(
+    reportPrepare(plan, { applied: true, ...(formatError !== undefined && { formatError }) }) + '\n',
+  );
+  reportPlanFiles(plan, false);
 
-  if (writeResult?.outcome === 'failed') {
-    reportError(`Failed to write release tags: ${writeResult.error ?? 'unknown error'}`);
+  if (formatError !== undefined) {
+    reportError(
+      `The format command failed, but the release is prepared and ${RELEASE_TAGS_FILE} is written. ` +
+        `Format the release files and run 'release-kit commit'.`,
+    );
     process.exit(1);
   }
+}
 
-  if (writeResult) {
-    if (dryRun) {
-      console.info(dim(`  [dry-run] Would write ${RELEASE_TAGS_FILE}: ${result.tags.join(' ')}`));
-    } else {
-      console.info(dim(`  Wrote ${RELEASE_TAGS_FILE}: ${result.tags.join(' ')}`));
-      console.info(dim(`\n   Release tags file: ${RELEASE_TAGS_FILE}`));
-    }
+/**
+ * Runs the plan's format command, returning its failure message if it fails.
+ *
+ * Never throws. By the time this runs the release is already on disk, so a formatting failure is
+ * reported rather than allowed to unmake it.
+ */
+function runFormatCommand(formatCommand: ReleasePlan['formatCommand']): string | undefined {
+  if (formatCommand === undefined) {
+    return undefined;
   }
 
-  // Writes the release summary file for the commit command.
-  const summary = buildReleaseSummary(result);
-  if (summary.length > 0) {
-    const summaryResult = writeFileWithCheck(RELEASE_SUMMARY_FILE, summary, {
-      dryRun,
-      overwrite: true,
-    });
+  try {
+    execSync(formatCommand.command, { stdio: 'inherit' });
+    return undefined;
+  } catch (error: unknown) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
 
-    if (summaryResult.outcome === 'failed') {
-      reportError(`Failed to write release summary: ${summaryResult.error ?? 'unknown error'}`);
-      process.exit(1);
-    }
+/** Reports the tags and summary files the plan carries, in the prepare command's dim style. */
+function reportPlanFiles(plan: ReleasePlan, dryRun: boolean): void {
+  if (plan.tags.length === 0) {
+    return;
+  }
 
-    if (dryRun) {
+  if (dryRun) {
+    console.info(dim(`  [dry-run] Would write ${RELEASE_TAGS_FILE}: ${plan.tags.join(' ')}`));
+    if (plan.summary.length > 0) {
       console.info(dim(`  [dry-run] Would write ${RELEASE_SUMMARY_FILE}`));
-    } else {
-      console.info(dim(`  Wrote ${RELEASE_SUMMARY_FILE}`));
     }
+    return;
   }
 
-  if (writeResult && !dryRun) {
-    process.stderr.write(`\nRun 'release-kit commit' to create the release commit.\n`);
+  console.info(dim(`  Wrote ${RELEASE_TAGS_FILE}: ${plan.tags.join(' ')}`));
+  console.info(dim(`\n   Release tags file: ${RELEASE_TAGS_FILE}`));
+  if (plan.summary.length > 0) {
+    console.info(dim(`  Wrote ${RELEASE_SUMMARY_FILE}`));
   }
+
+  process.stderr.write(`\nRun 'release-kit commit' to create the release commit.\n`);
 }
