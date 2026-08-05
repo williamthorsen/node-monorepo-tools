@@ -1,3 +1,15 @@
+/**
+ * Readyup kit for consumers of @williamthorsen/release-kit.
+ *
+ * Verifies that the consuming repo publishes to npm through OIDC trusted publishing: the workflow declares the
+ * id-token permission and carries no token references, and each publishable workspace has a trusted publisher.
+ *
+ * Run from a target repo's working directory:
+ *   rdy run --from npm:@williamthorsen/release-kit npm-auto-publish
+ *
+ * A check asserting the absence of something declares `quiet`: a conformant repo is already in the passing
+ * state, so only a failure is worth a line.
+ */
 import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -55,6 +67,7 @@ const repoChecklist = defineRdyStagedChecklist({
       },
       {
         name: 'No legacy token references in workflow files',
+        quiet: true,
         check: () => !hasTokenReferences(),
         fix: 'Remove NPM_TOKEN/NODE_AUTH_TOKEN references from workflow files; OIDC auth replaces token-based auth',
       },
