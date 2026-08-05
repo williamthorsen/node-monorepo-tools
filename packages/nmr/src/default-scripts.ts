@@ -8,11 +8,10 @@ export type ScriptRegistry = Record<string, ScriptValue>;
 const GATE_PROJECTS = '--project unit --project tool';
 
 /**
- * Workspace scripts, identical for every package: The test commands select Vitest projects, so a package
- * separates its tool-tier tests by naming them `*.tool.test.ts` rather than by carrying extra config files.
- *
- * Naming the tiers `test` runs makes a tier added later opt-in, not swept into the default gate on the release
- * that introduces it.
+ * Workspace scripts, identical for every package.
+ * Four Vitest projects are recognized: `tool`, `localhost`, `remote`, and `unit`. The latter is also a catch-all.
+ * Name a test file with the matching infix to associate it with a project.
+ * Example: `nmr test:tool` runs every file carrying the `tool` infix, such as `my-file.tool.test.ts`.
  */
 export const workspaceScripts: ScriptRegistry = {
   build: ['compile'],
@@ -53,9 +52,9 @@ export const rootScripts: ScriptRegistry = {
   'fix:check': ['fmt:check', 'lint:check'],
   fmt: 'nmr-fmt --write',
   'fmt:check': 'nmr-fmt --check',
-  lint: 'nmr root:lint && pnpm --recursive exec nmr lint',
-  'lint:check': 'nmr root:lint:check && pnpm --recursive exec nmr lint:check',
-  'lint:strict': 'nmr root:lint:strict && pnpm --recursive exec nmr lint:strict',
+  lint: 'eslint --fix .',
+  'lint:check': 'eslint .',
+  'lint:strict': 'strict-lint',
   prepush: ['ci', 'audit'],
   'report-overrides': 'nmr-report-overrides',
   'root:check': ['root:typecheck', 'fmt:check', 'root:lint:check', 'root:test'],
@@ -73,10 +72,8 @@ export const rootScripts: ScriptRegistry = {
   'test:coverage': 'nmr root:test && pnpm --recursive exec nmr test:coverage',
   'test:tool': 'nmr root:test:tool && pnpm --recursive exec nmr test:tool',
   'test:unit': 'nmr root:test:unit && pnpm --recursive exec nmr test:unit',
-  // Bare `vitest` at the monorepo root resolves the root `vitest.config.ts`, covering the whole tree in one
-  // process; a chain like the others would never advance past its first watcher.
   'test:watch': `vitest ${GATE_PROJECTS} --watch`,
   typecheck: 'nmr root:typecheck && pnpm --recursive exec nmr typecheck',
-  // A string rather than a composite: Passthrough args attach to the chain's last command.
+  // The command must be a string rather than a composite: Passthrough args attach to the chain's last command.
   upgrade: 'nmr-report-overrides && nmr-taze --include-locked --recursive',
 };

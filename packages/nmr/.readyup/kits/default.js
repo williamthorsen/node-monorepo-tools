@@ -58,9 +58,9 @@ var rootScripts = {
   "fix:check": ["fmt:check", "lint:check"],
   fmt: "nmr-fmt --write",
   "fmt:check": "nmr-fmt --check",
-  lint: "nmr root:lint && pnpm --recursive exec nmr lint",
-  "lint:check": "nmr root:lint:check && pnpm --recursive exec nmr lint:check",
-  "lint:strict": "nmr root:lint:strict && pnpm --recursive exec nmr lint:strict",
+  lint: "eslint --fix .",
+  "lint:check": "eslint .",
+  "lint:strict": "strict-lint",
   prepush: ["ci", "audit"],
   "report-overrides": "nmr-report-overrides",
   "root:check": ["root:typecheck", "fmt:check", "root:lint:check", "root:test"],
@@ -78,11 +78,9 @@ var rootScripts = {
   "test:coverage": "nmr root:test && pnpm --recursive exec nmr test:coverage",
   "test:tool": "nmr root:test:tool && pnpm --recursive exec nmr test:tool",
   "test:unit": "nmr root:test:unit && pnpm --recursive exec nmr test:unit",
-  // Bare `vitest` at the monorepo root resolves the root `vitest.config.ts`, covering the whole tree in one
-  // process; a chain like the others would never advance past its first watcher.
   "test:watch": `vitest ${GATE_PROJECTS} --watch`,
   typecheck: "nmr root:typecheck && pnpm --recursive exec nmr typecheck",
-  // A string rather than a composite: Passthrough args attach to the chain's last command.
+  // The command must be a string rather than a composite: Passthrough args attach to the chain's last command.
   upgrade: "nmr-report-overrides && nmr-taze --include-locked --recursive"
 };
 
@@ -142,7 +140,7 @@ var default_default = defineRdyKit({
               },
               severity: "error",
               check: () => hasMinDevDependencyVersion("@williamthorsen/nmr", getMinVersion(), {
-                exempt: (range) => range.startsWith("workspace:")
+                exempt: resolvesVersionViaWorkspace
               }),
               get fix() {
                 return `pnpm add --save-dev @williamthorsen/nmr@^${getMinVersion()}`;
@@ -174,6 +172,30 @@ var default_default = defineRdyKit({
           skip: () => !fileExists(".config/nmr.config.ts") ? "no nmr config file" : false,
           check: () => fileContains(".config/nmr.config.ts", /defineConfig/),
           fix: "Wrap your config export with defineConfig() from @williamthorsen/nmr/config for type safety"
+        },
+        // `error` because falling short produces wrong results rather than a failure. Names and fixes are
+        // getters because their version constants are declared below the kit.
+        {
+          get name() {
+            return `eslint >= ${MIN_ESLINT_VERSION}`;
+          },
+          severity: "error",
+          skip: () => !hasDevDependency("eslint") ? "eslint not installed" : false,
+          check: hasSupportedEslintVersion,
+          get fix() {
+            return `pnpm add --save-dev eslint@^${MIN_ESLINT_VERSION} \u2014 earlier releases resolve config from the working directory, so nmr's root lint and lint:check would apply the root config to every package`;
+          }
+        },
+        {
+          get name() {
+            return `@williamthorsen/strict-lint >= ${MIN_STRICT_LINT_VERSION}`;
+          },
+          severity: "error",
+          skip: () => !hasDevDependency("@williamthorsen/strict-lint") ? "strict-lint not installed" : false,
+          check: hasSupportedStrictLintVersion,
+          get fix() {
+            return `pnpm add --save-dev @williamthorsen/strict-lint@^${MIN_STRICT_LINT_VERSION} \u2014 earlier releases pin ESLint to one config and resolve ceilings from the working directory, so nmr's root lint:strict would report the wrong rules for every package`;
+          }
         },
         // -- Root script cleanup -------------------------------------------------
         {
@@ -270,7 +292,10 @@ var CONFIG_EXTENSIONS = "{ts,mts,cts,js,mjs,cjs}";
 var SHARED_VITEST_MODULE = "@williamthorsen/nmr/vitest";
 var SHARED_PRETTIER_MODULE = "@williamthorsen/nmr/prettier";
 var INERT_PRETTIER_CONFIGS = [".prettierrc", ".prettierrc.{json,json5,yaml,yml,toml}"];
-var RE_EXPORT_LINE_PATTERN = /^export\s*(?:\{\s*default\s*\}|\*)\s*from\s*['"]\.\.\/[^'"]*['"];?$/;
+var RE_EXPORT_LINE_PATTERN = /^export\s*(?:\{\s*default\s*}|\*)\s*from\s*['"]\.\.\/[^'"]*['"];?$/;
+var MIN_ESLINT_VERSION = "10.0.0";
+var MIN_STRICT_LINT_VERSION = "9.3.0";
+var WORKSPACE_VERSION_MARKERS = ["catalog:", "workspace:"];
 function allWorkspacePackagesCanBuild() {
   const packagesDir = join(process.cwd(), "packages");
   if (!existsSync(packagesDir)) return true;
@@ -369,6 +394,16 @@ function getMinVersion() {
   }
   return picked.version;
 }
+function hasSupportedEslintVersion() {
+  return hasMinDevDependencyVersion("eslint", MIN_ESLINT_VERSION, {
+    exempt: resolvesVersionViaWorkspace
+  });
+}
+function hasSupportedStrictLintVersion() {
+  return hasMinDevDependencyVersion("@williamthorsen/strict-lint", MIN_STRICT_LINT_VERSION, {
+    exempt: resolvesVersionViaWorkspace
+  });
+}
 function importsSharedExport(content, exportName, moduleSpecifier) {
   if (content === void 0) return false;
   const pattern = new RegExp(String.raw`import\s*\{[^}]*\b${exportName}\b[^}]*\}\s*from\s*['"]${moduleSpecifier}['"]`);
@@ -430,11 +465,14 @@ function readFileIn(cwd, relativePath) {
     return void 0;
   }
 }
+function resolvesVersionViaWorkspace(range) {
+  return WORKSPACE_VERSION_MARKERS.some((marker) => range.startsWith(marker));
+}
 function scriptExists(name) {
   const pkg = readPackageJson();
   if (!pkg) return false;
   const scripts = pkg.scripts;
-  return isRecord(scripts) && name in scripts;
+  return isRecord(scripts) && Object.hasOwn(scripts, name);
 }
 function scriptMatches(name, pattern) {
   const pkg = readPackageJson();
@@ -459,6 +497,8 @@ export {
   codeQualityWorkflowDoesNotUseNmrPrepush,
   default_default as default,
   everyTestFileNamesItsTier,
+  hasSupportedEslintVersion,
+  hasSupportedStrictLintVersion,
   noReExportOnlyVitestConfigs,
   noRetiredVitestConfigs,
   prettierConfigBuildsOnSharedConfig,
