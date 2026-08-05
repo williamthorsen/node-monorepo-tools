@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.14.2",
+    "date": "2026-08-05",
+    "sections": [
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Clear the deferred vitest test rules and enforce them (#602)",
+            "body": "Fixes a subset of previously deferred lint violations and restores the severity of Vitest lint rules to \"error\" for purposes strict linting.",
+            "hash": "4b43d29580fe9736fb2b4fa4ae6c2348cca53754"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.14.1",
     "date": "2026-08-04",
     "sections": [

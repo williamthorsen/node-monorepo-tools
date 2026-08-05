@@ -1,5 +1,34 @@
 [
   {
+    "version": "0.27.0",
+    "date": "2026-08-05",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Lint the whole tree in one process, not one per workspace (#604)",
+            "body": "Linting of the entire monorepo now runs in a single call instead of via fan-out, eliminating the startup time previously incurred for each workspace.\n\nAs a result of the change, `lint:pre` and `lint:post` hooks in a workspace are no longer triggered by a run from the monorepo root. They continue to be triggered by a run targeting the workspace itself.",
+            "breaking": true,
+            "hash": "563dfab72135b3880e6f271b85a8eccd77dad363"
+          }
+        ]
+      },
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Clear the deferred vitest test rules and enforce them (#602)",
+            "body": "Fixes a subset of previously deferred lint violations and restores the severity of Vitest lint rules to \"error\" for purposes strict linting.",
+            "hash": "4b43d29580fe9736fb2b4fa4ae6c2348cca53754"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.26.1",
     "date": "2026-08-04",
     "sections": [

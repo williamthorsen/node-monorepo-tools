@@ -1,5 +1,38 @@
 [
   {
+    "version": "10.2.2",
+    "date": "2026-08-05",
+    "sections": [
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Report the missing npm login once, not per package (#598)",
+            "body": "Fixes an issue where running release-kit's publish-readiness checks without an npm login reported a trusted-publisher failure for every published package. The missing login is now reported once, with `npm login` as the fix. An unreachable registry now has its own check. The trusted publisher check produces more informative failure messages.",
+            "hash": "47e8dd774b617ebc6095c7fc0c9b5e8e0a0de883"
+          },
+          {
+            "description": "Make prepare all-or-nothing and report the tags file by path (#601)",
+            "body": "Fixes an issue where a failed `prepare` could leave the release flow in a broken intermediate state. A release now lands completely or not at all, and a formatting failure no longer discards one that already landed. When a write fails partway, the error names every file that reached disk, every file that did not, and the commands that undo them.\r\n\r\n`commit` and `tag` now report the full path of the tags file they looked for, and distinguish a missing file from one that could not be read, so that running from the wrong directory or worktree is no longer reported as a release that never happened.\r\n\r\nRuns with `--with-release-notes` now list the preview files they write, and `--dry-run` names the ones a real run would write.",
+            "hash": "83ac6e45cf9d4b5371650cda42d7830ed4988660"
+          }
+        ]
+      },
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Clear the deferred vitest test rules and enforce them (#602)",
+            "body": "Fixes a subset of previously deferred lint violations and restores the severity of Vitest lint rules to \"error\" for purposes strict linting.",
+            "hash": "4b43d29580fe9736fb2b4fa4ae6c2348cca53754"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "10.2.1",
     "date": "2026-08-04",
     "sections": [

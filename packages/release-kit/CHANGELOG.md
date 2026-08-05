@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## 10.2.2 — 2026-08-05
+
+### 🐛 Bug fixes
+
+- Report the missing npm login once, not per package (#598)
+
+  Fixes an issue where running release-kit's publish-readiness checks without an npm login reported a trusted-publisher failure for every published package. The missing login is now reported once, with `npm login` as the fix. An unreachable registry now has its own check. The trusted publisher check produces more informative failure messages.
+
+- Make prepare all-or-nothing and report the tags file by path (#601)
+
+  Fixes an issue where a failed `prepare` could leave the release flow in a broken intermediate state. A release now lands completely or not at all, and a formatting failure no longer discards one that already landed. When a write fails partway, the error names every file that reached disk, every file that did not, and the commands that undo them.
+
+  `commit` and `tag` now report the full path of the tags file they looked for, and distinguish a missing file from one that could not be read, so that running from the wrong directory or worktree is no longer reported as a release that never happened.
+
+  Runs with `--with-release-notes` now list the preview files they write, and `--dry-run` names the ones a real run would write.
+
+### 🧪 Tests
+
+- Clear the deferred vitest test rules and enforce them (#602)
+
+  Fixes a subset of previously deferred lint violations and restores the severity of Vitest lint rules to "error" for purposes strict linting.
+
 ## 10.2.1 — 2026-08-04
 
 ### 🐛 Bug fixes

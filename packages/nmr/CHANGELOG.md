@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.27.0 — 2026-08-05
+
+### 🎉 Features
+
+- 🚨 **Breaking:** Lint the whole tree in one process, not one per workspace (#604)
+
+  Linting of the entire monorepo now runs in a single call instead of via fan-out, eliminating the startup time previously incurred for each workspace.
+
+  As a result of the change, `lint:pre` and `lint:post` hooks in a workspace are no longer triggered by a run from the monorepo root. They continue to be triggered by a run targeting the workspace itself.
+
+### 🧪 Tests
+
+- Clear the deferred vitest test rules and enforce them (#602)
+
+  Fixes a subset of previously deferred lint violations and restores the severity of Vitest lint rules to "error" for purposes strict linting.
+
 ## 0.26.1 — 2026-08-04
 
 ### 🐛 Bug fixes

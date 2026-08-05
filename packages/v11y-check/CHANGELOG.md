@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.14.2 — 2026-08-05
+
+### 🧪 Tests
+
+- Clear the deferred vitest test rules and enforce them (#602)
+
+  Fixes a subset of previously deferred lint violations and restores the severity of Vitest lint rules to "error" for purposes strict linting.
+
 ## 0.14.1 — 2026-08-04
 
 ### Dependency updates
