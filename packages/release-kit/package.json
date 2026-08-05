@@ -56,7 +56,7 @@
   },
   "devDependencies": {
     "@types/semver": "7.7.1",
-    "readyup": "0.23.0",
+    "readyup": "0.24.0",
     "smol-toml": "1.7.1"
   },
   "engines": {
