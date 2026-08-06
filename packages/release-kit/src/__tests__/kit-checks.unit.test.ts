@@ -39,17 +39,31 @@ describe(configFileExportsConfig, () => {
     expect(configFileExportsConfig()).toBe(false);
   });
 
+  // Each case is a shape `loadConfig` resolves off the module namespace via `imported.default ?? imported.config`.
+  // Rejecting one blocks the five checks nested beneath the gate, so the whole set has to pass.
   it.each([
     ['a default export', 'export default defineConfig({});\n'],
-    ['a named config export', 'export const config = defineConfig({});\n'],
+    ['a const config export', 'export const config = defineConfig({});\n'],
+    ['a let config export', 'export let config = defineConfig({});\n'],
+    ['a var config export', 'export var config = defineConfig({});\n'],
+    ['a brace config export', 'const config = defineConfig({});\nexport { config };\n'],
+    ['a multi-line brace config export', 'const config = defineConfig({});\nexport {\n  config,\n};\n'],
+    ['an aliased default export', 'const cfg = defineConfig({});\nexport { cfg as default };\n'],
+    ['an aliased config export', 'const cfg = defineConfig({});\nexport { cfg as config };\n'],
+    ['a re-exported default', "export { default } from './release-kit.base.ts';\n"],
+    ['a star re-export', "export * from './release-kit.base.ts';\n"],
   ])('returns true for %s', (_label, content) => {
     mockedReadFile.mockReturnValue(content);
 
     expect(configFileExportsConfig()).toBe(true);
   });
 
-  it('returns false when the file exports neither shape', () => {
-    mockedReadFile.mockReturnValue('export const releaseKitConfig = defineConfig({});\n');
+  it.each([
+    ['the config is exported under another name', 'export const releaseKitConfig = defineConfig({});\n'],
+    ['nothing is exported', 'const config = defineConfig({});\n'],
+    ['only an unrelated binding is brace-exported', 'const other = 1;\nexport { other };\n'],
+  ])('returns false when %s', (_label, content) => {
+    mockedReadFile.mockReturnValue(content);
 
     expect(configFileExportsConfig()).toBe(false);
   });

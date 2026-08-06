@@ -40,6 +40,14 @@ function hasPublishablePackages(): boolean {
   return discoverWorkspaces({ filter: (w) => w.isPackage }).length > 0;
 }
 
+/** Source shapes that can put `default` or `config` on the module namespace, which is what `loadConfig` reads. */
+const CONFIG_EXPORT_PATTERNS = [
+  /export\s+default\b/,
+  /export\s+(?:const|let|var)\s+config\b/,
+  /export\s*\{[^}]*\b(?:config|default)\b[^}]*\}/,
+  /export\s*\*/,
+];
+
 // SHA-256 hashes of release-kit artifacts. Keep in sync. Verified by src/__tests__/kit-hashes.unit.test.ts.
 export const CLIFF_TEMPLATE_HASH = '93b72e0b1393cd6b1fe8e2a0e303cd326fd323435951b0493396b305af32d2ec';
 export const COMMON_PRESET_HASH = '86f9e1db9000793a91168e8c6b5695311a422ee208121324549c068fe67fa184';
@@ -243,14 +251,16 @@ export default defineRdyKit({
  * Checks that the config file exports a config release-kit can load.
  *
  * `loadConfig` resolves `imported.default ?? imported.config` and throws when the file exports neither, so the
- * checks nested beneath this one have nothing to read until it passes.
+ * checks nested beneath this one have nothing to read until it passes. Source text cannot decide a module's export
+ * names exactly, and this check gates five others at `error` severity, so the pattern errs wide: a config the
+ * regex admits and `loadConfig` rejects costs one honest failure downstream, where the reverse blocks seven lines.
  *
  * @internal - Exported only to enable testing
  */
 export function configFileExportsConfig(): boolean {
   const content = readFile('.config/release-kit.config.ts');
   if (content === undefined) return false;
-  return /export\s+default|export\s+const\s+config\b/.test(content);
+  return CONFIG_EXPORT_PATTERNS.some((pattern) => pattern.test(content));
 }
 
 /** Checks whether `.github/labels.yaml` contains the expected hash for a named preset. */

@@ -61,6 +61,12 @@ function getMinVersion() {
 function hasPublishablePackages() {
   return discoverWorkspaces({ filter: (w) => w.isPackage }).length > 0;
 }
+var CONFIG_EXPORT_PATTERNS = [
+  /export\s+default\b/,
+  /export\s+(?:const|let|var)\s+config\b/,
+  /export\s*\{[^}]*\b(?:config|default)\b[^}]*\}/,
+  /export\s*\*/
+];
 var CLIFF_TEMPLATE_HASH = "93b72e0b1393cd6b1fe8e2a0e303cd326fd323435951b0493396b305af32d2ec";
 var COMMON_PRESET_HASH = "86f9e1db9000793a91168e8c6b5695311a422ee208121324549c068fe67fa184";
 var SYNC_LABELS_WORKFLOW_HASH = "d6e2403fb551d2d415f679125989c92760444eec887644565b2e05c9bf8f4c1e";
@@ -254,7 +260,7 @@ var default_default = defineRdyKit({
 function configFileExportsConfig() {
   const content = readFile(".config/release-kit.config.ts");
   if (content === void 0) return false;
-  return /export\s+default|export\s+const\s+config\b/.test(content);
+  return CONFIG_EXPORT_PATTERNS.some((pattern) => pattern.test(content));
 }
 function labelsHaveCurrentPresetHash(presetName, expectedHash) {
   const content = readFile(".github/labels.yaml");
