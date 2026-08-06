@@ -1,11 +1,25 @@
-import type { Workspace } from 'readyup/check-utils';
-import { describe, expect, it } from 'vitest';
+import { isFlatChecklist, type RdyCheck, type RdyChecklist } from 'readyup';
+import type { DiscoverWorkspacesOptions, Workspace } from 'readyup/check-utils';
+import { afterEach, assert, describe, expect, it, vi } from 'vitest';
 
-import {
+const { mockedDiscoverWorkspaces } = vi.hoisted(() => ({
+  mockedDiscoverWorkspaces: vi.fn<(options?: DiscoverWorkspacesOptions) => Workspace[]>(),
+}));
+
+vi.mock(import('readyup/check-utils'), async (importOriginal) => {
+  const actual = await importOriginal<typeof import('readyup/check-utils')>();
+  return {
+    ...actual,
+    discoverWorkspaces: mockedDiscoverWorkspaces,
+  };
+});
+
+import kit, {
   buildWorkspaceCheck,
   classifyNpmAuth,
   classifyTrustQuery,
   packagesChecklist,
+  skipIfNothingPublishable,
   skipIfNotPublishable,
 } from '../../.readyup/kits/npm-auto-publish.ts';
 
@@ -17,15 +31,29 @@ const TRUST_E401 = String.raw`{"error":{"code":"E401","summary":"401 Unauthorize
 const OWNER_REPO = 'williamthorsen/node-monorepo-tools';
 const WORKFLOW_FILE = 'publish.yaml';
 
-function makeWorkspace(overrides: Partial<Workspace> & Pick<Workspace, 'isPackage'>): Workspace {
-  return {
-    dir: 'packages/example',
-    absolutePath: '/repo/packages/example',
-    name: '@scope/example',
-    packageJson: { name: '@scope/example' },
-    ...overrides,
-  };
-}
+describe(skipIfNothingPublishable, () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns false when at least one workspace is publishable', () => {
+    mockWorkspaces([makeWorkspace({ isPackage: false }), makeWorkspace({ isPackage: true })]);
+
+    expect(skipIfNothingPublishable()).toBe(false);
+  });
+
+  it('returns the skip reason when every workspace is private', () => {
+    mockWorkspaces([makeWorkspace({ isPackage: false }), makeWorkspace({ isPackage: false })]);
+
+    expect(skipIfNothingPublishable()).toBe('no publishable packages');
+  });
+
+  it('returns the skip reason when no workspace is discovered', () => {
+    mockWorkspaces([]);
+
+    expect(skipIfNothingPublishable()).toBe('no publishable packages');
+  });
+});
 
 describe(skipIfNotPublishable, () => {
   it('returns false for a publishable workspace (isPackage true)', () => {
@@ -199,12 +227,119 @@ describe(classifyTrustQuery, () => {
   });
 });
 
-describe('packagesChecklist', () => {
-  // Read names only. Every check's `fix` is a getter, and the session precondition's queries the
-  // registry, so touching one here would put a network call in a unit test.
-  it('gates the checklist on a usable npm session', () => {
-    const preconditionNames = packagesChecklist.preconditions?.map((precondition) => precondition.name) ?? [];
+// Both checklists stand down when the repo publishes nothing. Readyup runs, reports, and counts nothing beneath a
+// check whose `skip` fires, so each checklist's substantive work has to hang beneath one gate.
+describe('repo checklist', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
-    expect(preconditionNames).toContain('npm session is usable');
+  it('runs publish.yaml exists as a check rather than a precondition', () => {
+    const checklist = findChecklist('repo');
+
+    expect(checklist.preconditions).toBeUndefined();
+    expect(checklist.checks.map((check) => check.name)).toStrictEqual(['publish.yaml exists']);
+  });
+
+  it('skips publish.yaml exists when the repo publishes nothing', () => {
+    mockWorkspaces([makeWorkspace({ isPackage: false })]);
+
+    expect(findCheck('publish.yaml exists', findChecklist('repo').checks).skip?.()).toBe('no publishable packages');
+  });
+
+  it('runs publish.yaml exists when the repo publishes something', () => {
+    mockWorkspaces([makeWorkspace({ isPackage: true })]);
+
+    expect(findCheck('publish.yaml exists', findChecklist('repo').checks).skip?.()).toBe(false);
+  });
+
+  it('hangs the workflow-content checks beneath publish.yaml exists', () => {
+    const gate = findCheck('publish.yaml exists', findChecklist('repo').checks);
+
+    expect(gate.checks?.map((check) => check.name)).toStrictEqual([
+      'id-token: write permission declared',
+      'No legacy token references in workflow files',
+      'Provenance setting matches repo visibility',
+    ]);
   });
 });
+
+describe('packages checklist', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('keeps only the preconditions that read local files', () => {
+    const preconditionNames = packagesChecklist.preconditions?.map((precondition) => precondition.name);
+
+    expect(preconditionNames).toStrictEqual([
+      'packageManager field starts with "pnpm"',
+      'At least one workspace discovered',
+    ]);
+  });
+
+  it('runs the npm session check as a check rather than a precondition', () => {
+    expect(packagesChecklist.checks.map((check) => check.name)).toStrictEqual(['npm session is usable']);
+  });
+
+  it('skips the npm session check when the repo publishes nothing', () => {
+    mockWorkspaces([makeWorkspace({ isPackage: false })]);
+
+    expect(findCheck('npm session is usable', packagesChecklist.checks).skip?.()).toBe('no publishable packages');
+  });
+
+  it('runs the npm session check when the repo publishes something', () => {
+    mockWorkspaces([makeWorkspace({ isPackage: true })]);
+
+    expect(findCheck('npm session is usable', packagesChecklist.checks).skip?.()).toBe(false);
+  });
+
+  // Read names only: the per-workspace `trusted publisher configured` check declares `fix` as a getter that shells
+  // out to git, so touching one here would put a subprocess in a unit test.
+  it('hangs a check for every discovered workspace beneath the npm session check', () => {
+    mockWorkspaces([
+      makeWorkspace({ isPackage: true, name: '@scope/published' }),
+      makeWorkspace({ isPackage: false, name: '@scope/private' }),
+    ]);
+
+    const gate = findCheck('npm session is usable', packagesChecklist.checks);
+
+    expect(gate.checks?.map((check) => check.name)).toStrictEqual(['@scope/published', '@scope/private']);
+  });
+});
+
+// region | Helpers
+
+/** Finds a check by name among `siblings`, asserting it exists so a rename fails loudly. */
+function findCheck(name: string, siblings: RdyCheck[]): RdyCheck {
+  const check = siblings.find((candidate) => candidate.name === name);
+  assert(check, `Expected a "${name}" check`);
+  return check;
+}
+
+/** Returns the named checklist from the kit, asserting it is flat so a staged form fails loudly. */
+function findChecklist(name: string): RdyChecklist {
+  const checklist = kit.checklists.find((candidate) => candidate.name === name);
+  assert(checklist && isFlatChecklist(checklist), `Expected the kit to carry a flat "${name}" checklist`);
+  return checklist;
+}
+
+/** Builds a minimal Workspace-shaped fixture. */
+function makeWorkspace(overrides: Partial<Workspace> & Pick<Workspace, 'isPackage'>): Workspace {
+  return {
+    dir: 'packages/example',
+    absolutePath: '/repo/packages/example',
+    name: '@scope/example',
+    packageJson: { name: '@scope/example' },
+    ...overrides,
+  };
+}
+
+/** Makes `discoverWorkspaces` yield the given workspaces, honoring the filter its callers pass. */
+function mockWorkspaces(workspaces: Workspace[]): void {
+  mockedDiscoverWorkspaces.mockImplementation((options) =>
+    workspaces.filter((workspace) => options?.filter?.(workspace) ?? true),
+  );
+}
+
+// endregion | Helpers
