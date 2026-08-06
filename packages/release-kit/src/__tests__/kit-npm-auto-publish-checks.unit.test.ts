@@ -294,6 +294,17 @@ describe('packages checklist', () => {
     expect(findCheck('npm session is usable', packagesChecklist.checks).skip?.()).toBe(false);
   });
 
+  // Asserted against the property descriptor because the symptom of an accessor is a registry query at kit load,
+  // which readyup performs before it consults `skip` and again when it validates the tree. No check outcome moves.
+  it('declares the npm session fix as a value, not an accessor', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      findCheck('npm session is usable', packagesChecklist.checks),
+      'fix',
+    );
+
+    expect(descriptor?.value).toBeTypeOf('string');
+  });
+
   // Read names only: the per-workspace `trusted publisher configured` check declares `fix` as a getter that shells
   // out to git, so touching one here would put a subprocess in a unit test.
   it('hangs a check for every discovered workspace beneath the npm session check', () => {
