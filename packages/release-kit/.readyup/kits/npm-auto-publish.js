@@ -50,6 +50,7 @@ var repoChecklist = defineRdyStagedChecklist({
       },
       {
         name: "No legacy token references in workflow files",
+        quiet: true,
         check: () => !hasTokenReferences(),
         fix: "Remove NPM_TOKEN/NODE_AUTH_TOKEN references from workflow files; OIDC auth replaces token-based auth"
       },

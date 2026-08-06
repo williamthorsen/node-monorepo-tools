@@ -13,7 +13,7 @@ vi.mock(import('node:fs'), async (importOriginal) => {
   };
 });
 
-import { noLegacyAuditCiDirectory, skipLegacyAuditCiCheck } from '../../.readyup/kits/default.ts';
+import { noLegacyAuditCiDirectory } from '../../.readyup/kits/default.ts';
 
 describe(noLegacyAuditCiDirectory, () => {
   afterEach(() => {
@@ -30,23 +30,5 @@ describe(noLegacyAuditCiDirectory, () => {
     mockedExistsSync.mockReturnValue(true);
 
     expect(noLegacyAuditCiDirectory()).toBe(false);
-  });
-});
-
-describe(skipLegacyAuditCiCheck, () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it('returns skip message when .audit-ci/ directory does not exist', () => {
-    mockedExistsSync.mockReturnValue(false);
-
-    expect(skipLegacyAuditCiCheck()).toBe('no legacy .audit-ci/ directory');
-  });
-
-  it('returns false when .audit-ci/ directory exists (check should run)', () => {
-    mockedExistsSync.mockReturnValue(true);
-
-    expect(skipLegacyAuditCiCheck()).toBe(false);
   });
 });

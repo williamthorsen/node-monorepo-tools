@@ -6,6 +6,9 @@
  *
  * Run from a target repo's working directory:
  *   rdy run --from npm:@williamthorsen/nmr
+ *
+ * A check asserting the absence of something declares `quiet`: a conformant repo is already in the passing
+ * state, so only a failure is worth a line.
  */
 import { existsSync, globSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, join, sep } from 'node:path';
@@ -67,6 +70,7 @@ export default defineRdyKit({
         {
           name: '.tool-versions does not list pnpm',
           severity: 'warn',
+          quiet: true,
           check: toolVersionsHasNoPnpm,
           fix: 'Remove pnpm from .tool-versions — manage via packageManager field and corepack',
         },
@@ -107,16 +111,9 @@ export default defineRdyKit({
         {
           name: 'root package.json has no nmr-provided scripts',
           severity: 'warn',
+          quiet: true,
           check: noRedundantRootScripts,
           fix: 'Remove scripts from root package.json that nmr provides as built-in root scripts — invoke via nmr directly',
-        },
-
-        {
-          name: 'root:lint:strict does not use echo fallback',
-          severity: 'warn',
-          skip: () => (!scriptExists('root:lint:strict') ? 'no root:lint:strict script' : false),
-          check: () => !scriptMatches('root:lint:strict', /\becho\b/),
-          fix: 'Replace the echo fallback in root:lint:strict — strict-lint now supports path arguments',
         },
 
         // -- Workspace build readiness -------------------------------------------
@@ -131,6 +128,7 @@ export default defineRdyKit({
         {
           name: 'no retired Vitest config variants',
           severity: 'error',
+          quiet: true,
           check: () => noRetiredVitestConfigs(),
           fix: "Delete every vitest.standalone.config.* and vitest.integration.config.*. nmr's test scripts select Vitest projects instead of naming config files",
         },
@@ -155,6 +153,7 @@ export default defineRdyKit({
         {
           name: 'no package re-exports the ancestor Vitest config',
           severity: 'recommend',
+          quiet: true,
           check: () => noReExportOnlyVitestConfigs(),
           fix: 'Delete these files. Vitest resolves config by walking up from the run root, so a per-package re-export is redundant',
         },
@@ -177,6 +176,7 @@ export default defineRdyKit({
         {
           name: 'code-quality workflow does not use nmr prepush',
           severity: 'warn',
+          quiet: true,
           skip: () => (!fileExists('.github/workflows/code-quality.yaml') ? 'no code-quality workflow' : false),
           check: codeQualityWorkflowDoesNotUseNmrPrepush,
           fix: 'Change the check-command in .github/workflows/code-quality.yaml from "pnpm exec nmr prepush" to "pnpm exec nmr ci", which runs the same checks without the audit that audit.yaml already runs',
@@ -186,12 +186,14 @@ export default defineRdyKit({
         {
           name: 'scripts/run-workspace-script.ts does not exist',
           severity: 'error',
+          quiet: true,
           check: () => !fileExists('scripts/run-workspace-script.ts'),
           fix: 'Delete scripts/run-workspace-script.ts — nmr replaces this custom script runner',
         },
         {
           name: 'no workspace packages reference run-workspace-script or "pnpm run ws"',
           severity: 'error',
+          quiet: true,
           check: noWorkspaceRunScriptReferences,
           fix: 'Remove "ws" script entries and replace any "pnpm run ws" invocations with nmr in each packages/*/package.json',
         },
@@ -533,24 +535,6 @@ function readFileIn(cwd: string, relativePath: string): string | undefined {
 /** Reports whether a range defers to a workspace-level declaration instead of naming a version. */
 function resolvesVersionViaWorkspace(range: string): boolean {
   return WORKSPACE_VERSION_MARKERS.some((marker) => range.startsWith(marker));
-}
-
-/** Check whether a named script exists in root package.json. */
-function scriptExists(name: string): boolean {
-  const pkg = readPackageJson();
-  if (!pkg) return false;
-  const scripts = pkg.scripts;
-  return isRecord(scripts) && Object.hasOwn(scripts, name);
-}
-
-/** Check whether a named script's value matches a regex. Return false if absent. */
-function scriptMatches(name: string, pattern: RegExp): boolean {
-  const pkg = readPackageJson();
-  if (!pkg) return false;
-  const scripts = pkg.scripts;
-  if (!isRecord(scripts)) return false;
-  const value = scripts[name];
-  return typeof value === 'string' && pattern.test(value);
 }
 
 /** Checks that .tool-versions does not list pnpm. Pass if the file is absent. */

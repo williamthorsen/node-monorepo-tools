@@ -163,6 +163,7 @@ var default_default = defineRdyKit({
         {
           name: ".tool-versions does not list pnpm",
           severity: "warn",
+          quiet: true,
           check: toolVersionsHasNoPnpm,
           fix: "Remove pnpm from .tool-versions \u2014 manage via packageManager field and corepack"
         },
@@ -201,15 +202,9 @@ var default_default = defineRdyKit({
         {
           name: "root package.json has no nmr-provided scripts",
           severity: "warn",
+          quiet: true,
           check: noRedundantRootScripts,
           fix: "Remove scripts from root package.json that nmr provides as built-in root scripts \u2014 invoke via nmr directly"
-        },
-        {
-          name: "root:lint:strict does not use echo fallback",
-          severity: "warn",
-          skip: () => !scriptExists("root:lint:strict") ? "no root:lint:strict script" : false,
-          check: () => !scriptMatches("root:lint:strict", /\becho\b/),
-          fix: "Replace the echo fallback in root:lint:strict \u2014 strict-lint now supports path arguments"
         },
         // -- Workspace build readiness -------------------------------------------
         {
@@ -222,6 +217,7 @@ var default_default = defineRdyKit({
         {
           name: "no retired Vitest config variants",
           severity: "error",
+          quiet: true,
           check: () => noRetiredVitestConfigs(),
           fix: "Delete every vitest.standalone.config.* and vitest.integration.config.*. nmr's test scripts select Vitest projects instead of naming config files"
         },
@@ -246,6 +242,7 @@ var default_default = defineRdyKit({
         {
           name: "no package re-exports the ancestor Vitest config",
           severity: "recommend",
+          quiet: true,
           check: () => noReExportOnlyVitestConfigs(),
           fix: "Delete these files. Vitest resolves config by walking up from the run root, so a per-package re-export is redundant"
         },
@@ -266,6 +263,7 @@ var default_default = defineRdyKit({
         {
           name: "code-quality workflow does not use nmr prepush",
           severity: "warn",
+          quiet: true,
           skip: () => !fileExists(".github/workflows/code-quality.yaml") ? "no code-quality workflow" : false,
           check: codeQualityWorkflowDoesNotUseNmrPrepush,
           fix: 'Change the check-command in .github/workflows/code-quality.yaml from "pnpm exec nmr prepush" to "pnpm exec nmr ci", which runs the same checks without the audit that audit.yaml already runs'
@@ -274,12 +272,14 @@ var default_default = defineRdyKit({
         {
           name: "scripts/run-workspace-script.ts does not exist",
           severity: "error",
+          quiet: true,
           check: () => !fileExists("scripts/run-workspace-script.ts"),
           fix: "Delete scripts/run-workspace-script.ts \u2014 nmr replaces this custom script runner"
         },
         {
           name: 'no workspace packages reference run-workspace-script or "pnpm run ws"',
           severity: "error",
+          quiet: true,
           check: noWorkspaceRunScriptReferences,
           fix: 'Remove "ws" script entries and replace any "pnpm run ws" invocations with nmr in each packages/*/package.json'
         }
@@ -467,20 +467,6 @@ function readFileIn(cwd, relativePath) {
 }
 function resolvesVersionViaWorkspace(range) {
   return WORKSPACE_VERSION_MARKERS.some((marker) => range.startsWith(marker));
-}
-function scriptExists(name) {
-  const pkg = readPackageJson();
-  if (!pkg) return false;
-  const scripts = pkg.scripts;
-  return isRecord(scripts) && Object.hasOwn(scripts, name);
-}
-function scriptMatches(name, pattern) {
-  const pkg = readPackageJson();
-  if (!pkg) return false;
-  const scripts = pkg.scripts;
-  if (!isRecord(scripts)) return false;
-  const value = scripts[name];
-  return typeof value === "string" && pattern.test(value);
 }
 function toolVersionsHasNoPnpm() {
   const content = readFile(".tool-versions");

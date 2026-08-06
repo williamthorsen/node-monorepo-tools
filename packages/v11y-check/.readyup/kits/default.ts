@@ -6,6 +6,9 @@
  *
  * Run from a target repo's working directory:
  *   rdy run --from npm:v11y-check
+ *
+ * A check asserting the absence of something declares `quiet`: a conformant repo is already in the passing
+ * state, so only a failure is worth a line.
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -49,7 +52,7 @@ export default defineRdyKit({
         {
           name: 'audit-ci configs are under .config/audit-ci/',
           severity: 'warn',
-          skip: skipLegacyAuditCiCheck,
+          quiet: true,
           check: noLegacyAuditCiDirectory,
           fix: 'Move audit-ci configs from .audit-ci/ to .config/audit-ci/ and update references',
         },
@@ -87,14 +90,9 @@ function getMinVersion(): string {
   return picked.version;
 }
 
-/** Check whether a legacy `.audit-ci/` directory exists. */
+/** Checks that no legacy `.audit-ci/` directory exists. */
 export function noLegacyAuditCiDirectory(): boolean {
   return !existsSync(join(process.cwd(), '.audit-ci'));
-}
-
-/** Returns true if the legacy audit-ci check should be skipped because there is no `.audit-ci/` directory. */
-export function skipLegacyAuditCiCheck(): string | false {
-  return !existsSync(join(process.cwd(), '.audit-ci')) ? 'no legacy .audit-ci/ directory' : false;
 }
 
 // endregion | Helpers

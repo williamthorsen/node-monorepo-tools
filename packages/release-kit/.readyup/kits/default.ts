@@ -7,6 +7,9 @@
  *
  * Run from a target repo's working directory:
  *   rdy run --from npm:@williamthorsen/release-kit
+ *
+ * A check asserting the absence of something declares `quiet`: a conformant repo is already in the passing
+ * state, so only a failure is worth a line.
  */
 import { type CheckOutcome, defineRdyKit, pickJson } from 'readyup';
 import {
@@ -91,6 +94,7 @@ export default defineRdyKit({
             {
               name: 'release.yaml does not reference deprecated tag ref',
               severity: 'error',
+              quiet: true,
               check: () => fileDoesNotContain('.github/workflows/release.yaml', /@(release|publish)-workflow-v[0-9]/),
               fix: 'Update release.yaml to use @workflow/release-v1 (run `release-kit init --force` to regenerate, or replace the ref manually)',
             },
@@ -116,6 +120,7 @@ export default defineRdyKit({
             {
               name: 'publish.yaml does not reference deprecated tag ref',
               severity: 'error',
+              quiet: true,
               check: () => fileDoesNotContain('.github/workflows/publish.yaml', /@(release|publish)-workflow-v[0-9]/),
               fix: 'Update publish.yaml to use @workflow/publish-v1 (run `release-kit init --force` to regenerate, or replace the ref manually)',
             },
@@ -131,7 +136,7 @@ export default defineRdyKit({
         {
           name: 'config does not use removed releaseNotes.shouldCreateGithubRelease',
           severity: 'error',
-          skip: () => (!fileExists('.config/release-kit.config.ts') ? 'no release-kit config file' : false),
+          quiet: true,
           check: () => fileDoesNotContain('.config/release-kit.config.ts', /shouldCreateGithubRelease/),
           fix: "Remove 'shouldCreateGithubRelease' from .config/release-kit.config.ts. Adoption of GitHub Releases is now signaled by installing the create-github-release workflow (see release-kit README for setup).",
         },
@@ -160,6 +165,7 @@ export default defineRdyKit({
         {
           name: 'git-cliff not in devDependencies',
           severity: 'recommend',
+          quiet: true,
           check: () => !hasDevDependency('git-cliff'),
           fix: 'pnpm remove git-cliff — release-kit handles changelog generation directly',
         },
@@ -187,12 +193,14 @@ export default defineRdyKit({
         {
           name: 'sync-labels.yaml does not reference deprecated tag ref',
           severity: 'error',
+          quiet: true,
           check: () => fileDoesNotContain('.github/workflows/sync-labels.yaml', /@sync-labels-workflow-v[0-9]/),
           fix: 'Update sync-labels.yaml to use @workflow/sync-labels-v1 (run `release-kit sync-labels init --force` to regenerate, or replace the ref manually)',
         },
         {
           name: 'retired .config/sync-labels.config.ts is absent',
           severity: 'error',
+          quiet: true,
           check: () => !fileExists('.config/sync-labels.config.ts'),
           fix: 'Move the labels into the repoLabels block of .config/release-kit.config.ts, then delete .config/sync-labels.config.ts',
         },

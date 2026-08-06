@@ -39,7 +39,7 @@ var default_default = defineRdyKit({
         {
           name: "audit-ci configs are under .config/audit-ci/",
           severity: "warn",
-          skip: skipLegacyAuditCiCheck,
+          quiet: true,
           check: noLegacyAuditCiDirectory,
           fix: "Move audit-ci configs from .audit-ci/ to .config/audit-ci/ and update references"
         },
@@ -72,12 +72,8 @@ function getMinVersion() {
 function noLegacyAuditCiDirectory() {
   return !existsSync(join(process.cwd(), ".audit-ci"));
 }
-function skipLegacyAuditCiCheck() {
-  return !existsSync(join(process.cwd(), ".audit-ci")) ? "no legacy .audit-ci/ directory" : false;
-}
 export {
   AUDIT_WORKFLOW_HASH,
   default_default as default,
-  noLegacyAuditCiDirectory,
-  skipLegacyAuditCiCheck
+  noLegacyAuditCiDirectory
 };
