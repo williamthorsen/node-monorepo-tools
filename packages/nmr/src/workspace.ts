@@ -56,7 +56,7 @@ export function getWorkspacePackageDirs(monorepoRoot: string): string[] {
 
 function getPackagesFromParsedYaml(parsed: unknown): string[] | undefined {
   if (!isObject(parsed)) return undefined;
-  const packages = parsed.packages;
+  const packages = parsed['packages'];
   if (!Array.isArray(packages)) return undefined;
   if (!packages.every((p): p is string => typeof p === 'string')) return undefined;
   return packages;

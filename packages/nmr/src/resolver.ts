@@ -86,7 +86,7 @@ export function readPackageJsonScripts(packageDir: string): Record<string, strin
     const parsed: unknown = JSON.parse(raw);
     if (!isObject(parsed)) return undefined;
 
-    const scripts = parsed.scripts;
+    const scripts = parsed['scripts'];
     if (!isObject(scripts)) return undefined;
 
     const result: Record<string, string> = {};

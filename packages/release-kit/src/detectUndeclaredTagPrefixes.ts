@@ -60,7 +60,7 @@ export function detectUndeclaredTagPrefixes(knownPrefixes: readonly string[]): U
     if (tag === '') continue;
     const match = CANDIDATE_TAG_PATTERN.exec(tag);
     if (match === null) continue;
-    const prefix = match.groups?.prefix ?? '';
+    const prefix = match.groups?.['prefix'] ?? '';
     if (prefix === '' || known.has(prefix)) continue;
 
     let tags = grouped.get(prefix);

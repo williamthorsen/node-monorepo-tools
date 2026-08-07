@@ -26,9 +26,9 @@ function createFixture(
     fs.mkdirSync(pkgDir);
 
     const pkgJson: Record<string, unknown> = { name: pkg.name, version: '1.0.0' };
-    if (pkg.private) pkgJson.private = true;
+    if (pkg.private) pkgJson['private'] = true;
     if (pkg.prepublishOnly) {
-      pkgJson.scripts = { prepublishOnly: pkg.prepublishOnly };
+      pkgJson['scripts'] = { prepublishOnly: pkg.prepublishOnly };
     }
 
     fs.writeFileSync(path.join(pkgDir, 'package.json'), JSON.stringify(pkgJson, null, 2) + '\n');
@@ -98,7 +98,7 @@ describe(ensurePrepublishHooks, () => {
 
       // Verify file was actually written
       const written = readPackageJson(path.join(tmpDir, 'packages', 'lib-a'));
-      expect(written.scripts?.prepublishOnly).toBe('npm run build');
+      expect(written.scripts?.['prepublishOnly']).toBe('npm run build');
     });
 
     it('creates scripts object if missing', () => {
@@ -116,7 +116,7 @@ describe(ensurePrepublishHooks, () => {
       ensurePrepublishHooks(tmpDir, { fix: true, dryRun: false, command: 'pnpm run build' });
 
       const written = readPackageJson(path.join(tmpDir, 'packages', 'lib-a'));
-      expect(written.scripts?.prepublishOnly).toBe('pnpm run build');
+      expect(written.scripts?.['prepublishOnly']).toBe('pnpm run build');
     });
 
     it('does not modify private packages', () => {

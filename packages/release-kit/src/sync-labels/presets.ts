@@ -50,15 +50,15 @@ export function loadPreset(presetName: string): LabelDefinition[] {
     }
     // `description` is optional here as it is in the `repoLabels.labels` record,
     // so a preset can ship bare labels rather than restating each name.
-    const { description } = entry;
+    const { color, description, name } = entry;
     if (
-      typeof entry.name !== 'string' ||
-      typeof entry.color !== 'string' ||
+      typeof name !== 'string' ||
+      typeof color !== 'string' ||
       (description !== undefined && typeof description !== 'string')
     ) {
       throw new TypeError(`Preset "${presetName}" contains a label with invalid fields: ${JSON.stringify(entry)}`);
     }
-    labels.push({ name: entry.name, color: entry.color, ...(description !== undefined && { description }) });
+    labels.push({ name, color, ...(description !== undefined && { description }) });
   }
 
   return labels;

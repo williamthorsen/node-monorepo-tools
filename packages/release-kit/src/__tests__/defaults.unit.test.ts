@@ -43,7 +43,7 @@ describe('DEFAULT_WORK_TYPES derivation from work-types.json', () => {
   });
 
   it('exposes `utility` as an alias of `internal`', () => {
-    expect(DEFAULT_WORK_TYPES.internal?.aliases).toContain('utility');
+    expect(DEFAULT_WORK_TYPES['internal']?.aliases).toContain('utility');
   });
 });
 

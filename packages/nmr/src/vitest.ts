@@ -114,7 +114,7 @@ export function defineRootVitestConfig(...layers: RootConfigLayers): ViteUserCon
   // dead. A relative path would resolve against the working directory, which is the resolution this option
   // exists to replace.
   const lastLayer: unknown = layers.at(-1);
-  const monorepoRoot: unknown = isObject(lastLayer) ? lastLayer.monorepoRoot : undefined;
+  const monorepoRoot: unknown = isObject(lastLayer) ? lastLayer['monorepoRoot'] : undefined;
 
   if (typeof monorepoRoot !== 'string' || !path.isAbsolute(monorepoRoot)) {
     throw new TypeError(MISSING_MONOREPO_ROOT);

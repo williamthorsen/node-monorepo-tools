@@ -63,7 +63,7 @@ var packagesChecklist = defineRdyChecklist({
       name: 'packageManager field starts with "pnpm"',
       check: () => {
         const rootPkg = readJsonFile("package.json");
-        const pm = typeof rootPkg?.packageManager === "string" ? rootPkg.packageManager : "";
+        const pm = typeof rootPkg?.["packageManager"] === "string" ? rootPkg["packageManager"] : "";
         return pm.startsWith("pnpm");
       },
       fix: 'Set "packageManager": "pnpm@..." in root package.json'
@@ -101,7 +101,7 @@ function buildWorkspaceCheck(workspace) {
   const children = [
     {
       name: "repository field exists",
-      check: () => workspace.packageJson.repository !== void 0 && workspace.packageJson.repository !== null,
+      check: () => workspace.packageJson["repository"] !== void 0 && workspace.packageJson["repository"] !== null,
       fix: `Add a "repository" field to ${pkgJsonPath} pointing to the GitHub repo`
     }
   ];
@@ -133,7 +133,7 @@ function buildWorkspaceCheck(workspace) {
     {
       name: "files field exists",
       severity: "warn",
-      check: () => workspace.packageJson.files !== void 0,
+      check: () => workspace.packageJson["files"] !== void 0,
       fix: `Add a "files" field to ${pkgJsonPath} to control which files are included in the published tarball`
     }
   );
@@ -304,10 +304,10 @@ function readNpmError(stdout) {
   } catch {
     return void 0;
   }
-  if (!isRecord(parsed) || !isRecord(parsed.error) || typeof parsed.error.code !== "string") {
+  if (!isRecord(parsed) || !isRecord(parsed["error"]) || typeof parsed["error"]["code"] !== "string") {
     return void 0;
   }
-  const { code, summary } = parsed.error;
+  const { code, summary } = parsed["error"];
   return { code, summary: typeof summary === "string" ? summary : "" };
 }
 function readTrustRelationships(stdout) {
@@ -329,7 +329,7 @@ function runNpmJson(command) {
   try {
     return { exitOk: true, stdout: execSync(command, { encoding: "utf8", stdio: "pipe" }) };
   } catch (error) {
-    const stdout = isRecord(error) && typeof error.stdout === "string" ? error.stdout : "";
+    const stdout = isRecord(error) && typeof error["stdout"] === "string" ? error["stdout"] : "";
     return { exitOk: false, stdout };
   }
 }

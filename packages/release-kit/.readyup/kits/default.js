@@ -43,7 +43,7 @@ function detectRepoType() {
   if (existsSync("package.json")) {
     const raw = readFileSync("package.json", "utf8");
     const pkg = parseJsonRecord(raw);
-    if (pkg !== void 0 && Array.isArray(pkg.workspaces)) {
+    if (pkg !== void 0 && Array.isArray(pkg["workspaces"])) {
       return "monorepo";
     }
   }
@@ -53,10 +53,10 @@ function detectRepoType() {
 // .readyup/kits/default.ts
 function getMinVersion() {
   const picked = { "version": "10.2.2" };
-  if (typeof picked.version !== "string") {
+  if (typeof picked["version"] !== "string") {
     throw new TypeError("release-kit/package.json: 'version' must be a string");
   }
-  return picked.version;
+  return picked["version"];
 }
 function hasPublishablePackages() {
   return discoverWorkspaces({ filter: (w) => w.isPackage }).length > 0;

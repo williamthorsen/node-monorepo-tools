@@ -37,7 +37,7 @@ export function usesPnpm(): CheckResult {
 
   const raw = readFileSync('package.json', 'utf8');
   const pkg = parseJsonRecord(raw);
-  if (pkg !== undefined && typeof pkg.packageManager === 'string' && pkg.packageManager.startsWith('pnpm')) {
+  if (pkg !== undefined && typeof pkg['packageManager'] === 'string' && pkg['packageManager'].startsWith('pnpm')) {
     return { ok: true };
   }
 

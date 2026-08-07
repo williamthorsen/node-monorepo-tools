@@ -121,14 +121,14 @@ function toCliffContextRelease(value: unknown): CliffContextRelease {
     return {};
   }
   const release: CliffContextRelease = {};
-  if (typeof value.version === 'string') {
-    release.version = value.version;
+  if (typeof value['version'] === 'string') {
+    release.version = value['version'];
   }
-  if (typeof value.timestamp === 'number') {
-    release.timestamp = value.timestamp;
+  if (typeof value['timestamp'] === 'number') {
+    release.timestamp = value['timestamp'];
   }
-  if (isUnknownArray(value.commits)) {
-    release.commits = value.commits.map(toCliffContextCommit);
+  if (isUnknownArray(value['commits'])) {
+    release.commits = value['commits'].map(toCliffContextCommit);
   }
   return release;
 }
@@ -139,13 +139,13 @@ function toCliffContextCommit(value: unknown): CliffContextCommit {
     return { message: '' };
   }
   const commit: CliffContextCommit = {
-    message: typeof value.message === 'string' ? value.message : '',
+    message: typeof value['message'] === 'string' ? value['message'] : '',
   };
-  if (typeof value.group === 'string') {
-    commit.group = value.group;
+  if (typeof value['group'] === 'string') {
+    commit.group = value['group'];
   }
-  if (typeof value.id === 'string') {
-    commit.id = value.id;
+  if (typeof value['id'] === 'string') {
+    commit.id = value['id'];
   }
   return commit;
 }

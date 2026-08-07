@@ -455,7 +455,7 @@ describe(validateConfig, () => {
         workTypes: { perf: { header: 'Performance', aliases: ['performance'] } },
       });
       expect(errors).toStrictEqual([]);
-      expect(config.workTypes?.perf?.aliases).toStrictEqual(['performance']);
+      expect(config.workTypes?.['perf']?.aliases).toStrictEqual(['performance']);
     });
 
     it('returns an error when workTypes is an array', () => {
@@ -682,7 +682,7 @@ describe(validateConfig, () => {
       });
       expect(errors).toStrictEqual([]);
       expect(config.repoLabels?.extends).toStrictEqual(['common']);
-      expect(config.repoLabels?.labels?.wontfix).toBeNull();
+      expect(config.repoLabels?.labels?.['wontfix']).toBeNull();
     });
 
     it('accepts an empty repoLabels block', () => {

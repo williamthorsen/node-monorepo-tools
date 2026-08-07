@@ -112,8 +112,8 @@ function validateSingleOverride(key: string, rawEntry: unknown, errors: string[]
   }
 
   const result: ChangelogOverride = {};
-  if (rawEntry.audience !== undefined) {
-    const audienceResult = validateAudience(key, rawEntry.audience, errors);
+  if (rawEntry['audience'] !== undefined) {
+    const audienceResult = validateAudience(key, rawEntry['audience'], errors);
     if (audienceResult === undefined) {
       entryValid = false;
     } else {
@@ -121,30 +121,30 @@ function validateSingleOverride(key: string, rawEntry: unknown, errors: string[]
     }
   }
 
-  if (rawEntry.description !== undefined) {
-    if (typeof rawEntry.description !== 'string') {
+  if (rawEntry['description'] !== undefined) {
+    if (typeof rawEntry['description'] !== 'string') {
       errors.push(`overrides['${key}']: 'description' must be a string`);
       entryValid = false;
     } else {
-      result.description = rawEntry.description;
+      result.description = rawEntry['description'];
     }
   }
 
-  if (rawEntry.body !== undefined) {
-    if (typeof rawEntry.body !== 'string') {
+  if (rawEntry['body'] !== undefined) {
+    if (typeof rawEntry['body'] !== 'string') {
       errors.push(`overrides['${key}']: 'body' must be a string`);
       entryValid = false;
     } else {
-      result.body = rawEntry.body;
+      result.body = rawEntry['body'];
     }
   }
 
-  if (rawEntry.breaking !== undefined) {
-    if (typeof rawEntry.breaking !== 'boolean') {
+  if (rawEntry['breaking'] !== undefined) {
+    if (typeof rawEntry['breaking'] !== 'boolean') {
       errors.push(`overrides['${key}']: 'breaking' must be a boolean`);
       entryValid = false;
     } else {
-      result.breaking = rawEntry.breaking;
+      result.breaking = rawEntry['breaking'];
     }
   }
 

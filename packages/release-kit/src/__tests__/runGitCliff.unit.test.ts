@@ -47,7 +47,7 @@ describe(runGitCliff, () => {
   });
 
   it('sets npm_config_progress=false in the spawned env while preserving inherited variables', () => {
-    const previousPath = process.env.PATH;
+    const previousPath = process.env['PATH'];
 
     runGitCliff('cliff.toml', []);
 
@@ -218,7 +218,7 @@ describe(refreshGitCliffCache, () => {
 
   it('sets npm_config_progress=false in the spawned env while preserving inherited variables', () => {
     mockExecFileSync.mockReturnValueOnce('');
-    const previousPath = process.env.PATH;
+    const previousPath = process.env['PATH'];
 
     refreshGitCliffCache();
 

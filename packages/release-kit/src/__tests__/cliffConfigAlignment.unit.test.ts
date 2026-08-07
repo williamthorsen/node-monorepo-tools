@@ -26,7 +26,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 /** Parse the [git] section from cliff.toml.template with runtime validation. */
 function getGitSection(): Record<string, unknown> {
   const config = parse(templateContent);
-  const git = config.git;
+  const git = config['git'];
   if (!isRecord(git)) {
     throw new Error('cliff.toml.template is missing [git] section');
   }
@@ -36,7 +36,7 @@ function getGitSection(): Record<string, unknown> {
 /** Extract all raw commit_parsers entries from the TOML [git] section. */
 function getRawCommitParsers(): Array<Record<string, unknown>> {
   const git = getGitSection();
-  const parsers = git.commit_parsers;
+  const parsers = git['commit_parsers'];
   if (!Array.isArray(parsers)) {
     throw new TypeError('cliff.toml.template is missing git.commit_parsers array');
   }
@@ -52,12 +52,12 @@ function getRawCommitParsers(): Array<Record<string, unknown>> {
 /** Extract only the group-mapping commit_parsers (skip entries excluded). */
 function getCommitParsers(): CommitParser[] {
   return getRawCommitParsers()
-    .filter((entry) => entry.skip !== true)
+    .filter((entry) => entry['skip'] !== true)
     .map((entry) => {
-      if (typeof entry.message !== 'string' || typeof entry.group !== 'string') {
+      if (typeof entry['message'] !== 'string' || typeof entry['group'] !== 'string') {
         throw new TypeError(`Invalid commit_parser entry: ${JSON.stringify(entry)}`);
       }
-      return { message: entry.message, group: entry.group };
+      return { message: entry['message'], group: entry['group'] };
     });
 }
 
@@ -189,7 +189,7 @@ describe('cliff.toml.template alignment with DEFAULT_WORK_TYPES', () => {
 
 describe('cliff.toml.template scope-pattern parity with parseCommitMessage', () => {
   const ticketedParserMessages = getRawCommitParsers()
-    .map((entry) => entry.message)
+    .map((entry) => entry['message'])
     .filter((message): message is string => typeof message === 'string' && message.startsWith(TICKET_PREFIX_SOURCE));
 
   it(`selects all ${TICKETED_PARSER_COUNT} ticketed parsers`, () => {
@@ -206,11 +206,11 @@ describe('cliff.toml.template scope-pattern parity with parseCommitMessage', () 
 
 describe('cliff.toml.template skip rules', () => {
   const rawParsers = getRawCommitParsers();
-  const skipParsers = rawParsers.filter((entry) => entry.skip === true);
+  const skipParsers = rawParsers.filter((entry) => entry['skip'] === true);
   const groupParsers = getCommitParsers();
 
   it('includes a catch-all `.*` skip rule', () => {
-    const catchAll = skipParsers.find((entry) => entry.message === '.*');
+    const catchAll = skipParsers.find((entry) => entry['message'] === '.*');
     expect(catchAll).toBeDefined();
   });
 
@@ -221,7 +221,7 @@ describe('cliff.toml.template skip rules', () => {
 
   it('includes a skip rule for merge commits', () => {
     const mergeSkip = skipParsers.find(
-      (entry) => typeof entry.message === 'string' && new RegExp(entry.message).test('Merge pull request #1'),
+      (entry) => typeof entry['message'] === 'string' && new RegExp(entry['message']).test('Merge pull request #1'),
     );
     expect(mergeSkip).toBeDefined();
   });
@@ -239,11 +239,11 @@ describe('cliff.toml.template skip rules', () => {
 
     for (const message of fmtMessages) {
       const firstMatchingRaw = rawParsers.find(
-        (entry) => typeof entry.message === 'string' && new RegExp(entry.message).test(message),
+        (entry) => typeof entry['message'] === 'string' && new RegExp(entry['message']).test(message),
       );
-      expect(firstMatchingRaw?.skip, `"${message}" first-matching parser did not have skip: true`).toBe(true);
+      expect(firstMatchingRaw?.['skip'], `"${message}" first-matching parser did not have skip: true`).toBe(true);
       expect(
-        firstMatchingRaw?.message,
+        firstMatchingRaw?.['message'],
         `"${message}" was caught by the catch-all, not the dedicated fmt parser`,
       ).not.toBe('.*');
       const groupedBy = groupParsers.find((parser) => new RegExp(parser.message).test(message));

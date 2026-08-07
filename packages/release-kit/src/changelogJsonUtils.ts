@@ -12,10 +12,10 @@ import type { ChangelogEntry, ChangelogItem } from './types.ts';
  */
 export function isChangelogItem(value: unknown): value is ChangelogItem {
   if (!isRecord(value)) return false;
-  if (typeof value.description !== 'string') return false;
-  if (value.body !== undefined && typeof value.body !== 'string') return false;
-  if (value.breaking !== undefined && typeof value.breaking !== 'boolean') return false;
-  if (value.hash !== undefined && typeof value.hash !== 'string') return false;
+  if (typeof value['description'] !== 'string') return false;
+  if (value['body'] !== undefined && typeof value['body'] !== 'string') return false;
+  if (value['breaking'] !== undefined && typeof value['breaking'] !== 'boolean') return false;
+  if (value['hash'] !== undefined && typeof value['hash'] !== 'string') return false;
   return true;
 }
 
@@ -23,9 +23,9 @@ export function isChangelogItem(value: unknown): value is ChangelogItem {
 export function isChangelogEntry(value: unknown): value is ChangelogEntry {
   return (
     isRecord(value) &&
-    typeof value.version === 'string' &&
-    typeof value.date === 'string' &&
-    isUnknownArray(value.sections)
+    typeof value['version'] === 'string' &&
+    typeof value['date'] === 'string' &&
+    isUnknownArray(value['sections'])
   );
 }
 

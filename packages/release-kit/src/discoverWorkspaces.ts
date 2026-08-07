@@ -38,7 +38,7 @@ export async function discoverWorkspaces(): Promise<string[] | undefined> {
     return undefined;
   }
 
-  const packagesField = parsed.packages;
+  const packagesField = parsed['packages'];
   if (!Array.isArray(packagesField)) {
     return undefined;
   }

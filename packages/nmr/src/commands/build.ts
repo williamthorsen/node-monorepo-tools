@@ -145,10 +145,7 @@ export function resolveTsconfigChain(packageDir: string, configFileName = 'tscon
     }
 
     for (const entry of normalizeExtendsField(configFile.config)) {
-      const baseConfig = resolveExtendsTarget(entry, normalized);
-      if (baseConfig !== undefined) {
-        walk(baseConfig);
-      }
+      walk(resolveExtendsTarget(entry, normalized));
     }
   }
 
@@ -490,23 +487,39 @@ function normalizeExtendsField(config: unknown): string[] {
 }
 
 /**
- * Resolves a single tsconfig `extends` entry to an absolute config-file path, or `undefined` when it
- * cannot be located. Relative and absolute entries resolve against the extending config's directory,
- * appending `.json` when the bare path does not exist; package-specifier entries resolve through Node
- * module resolution.
+ * Resolves a single tsconfig `extends` entry to an absolute config-file path. Relative and absolute
+ * entries resolve against the extending config's directory, appending `.json` when the bare path does
+ * not exist; package-specifier entries resolve through Node module resolution. Throws when an entry
+ * cannot be located.
  */
-function resolveExtendsTarget(extendsEntry: string, fromConfigPath: string): string | undefined {
+function resolveExtendsTarget(extendsEntry: string, fromConfigPath: string): string {
   if (isRelativeSpecifier(extendsEntry) || path.isAbsolute(extendsEntry)) {
     const base = path.resolve(path.dirname(fromConfigPath), extendsEntry);
     if (ts.sys.fileExists(base)) {
       return base;
     }
     const withJsonExtension = `${base}.json`;
-    return ts.sys.fileExists(withJsonExtension) ? withJsonExtension : undefined;
+    if (ts.sys.fileExists(withJsonExtension)) {
+      return withJsonExtension;
+    }
+    throw new Error(`nmr-compile: ${fromConfigPath} extends '${extendsEntry}', which does not exist.`);
   }
 
+  // A package that ships no `exports` map is reachable only at its `tsconfig.json` path, which is what
+  // TypeScript's own config resolver falls back to.
+  const resolved =
+    resolvePackageSpecifier(extendsEntry, fromConfigPath) ??
+    resolvePackageSpecifier(`${extendsEntry}/tsconfig.json`, fromConfigPath);
+  if (resolved === undefined) {
+    throw new Error(`nmr-compile: ${fromConfigPath} extends '${extendsEntry}', which does not resolve to a file.`);
+  }
+  return resolved;
+}
+
+/** Resolves a package specifier to a file through Node module resolution, or `undefined` when it does not resolve. */
+function resolvePackageSpecifier(specifier: string, fromConfigPath: string): string | undefined {
   const { resolvedModule } = ts.resolveModuleName(
-    extendsEntry,
+    specifier,
     fromConfigPath,
     { moduleResolution: ts.ModuleResolutionKind.NodeNext, resolveJsonModule: true },
     ts.sys,

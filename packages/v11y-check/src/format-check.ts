@@ -233,6 +233,6 @@ export function formatCheckJson(result: CheckResult, scopes: AuditScope[]): stri
   for (const scope of scopes) {
     output[scope] = result[scope];
   }
-  output.summary = deriveSummary(result, scopes);
+  output['summary'] = deriveSummary(result, scopes);
   return JSON.stringify(output, null, 2) + '\n';
 }

@@ -25,11 +25,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 /** Read the [git].commit_parsers array from the template. */
 function getRawCommitParsers(): CommitParser[] {
   const config = parse(templateContent);
-  const git = config.git;
+  const git = config['git'];
   if (!isRecord(git)) {
     throw new Error('cliff.toml.template is missing [git] section');
   }
-  const parsers = git.commit_parsers;
+  const parsers = git['commit_parsers'];
   if (!Array.isArray(parsers)) {
     throw new TypeError('cliff.toml.template is missing git.commit_parsers array');
   }
@@ -37,14 +37,14 @@ function getRawCommitParsers(): CommitParser[] {
     if (!isRecord(entry)) {
       throw new Error(`Invalid commit_parser entry: ${JSON.stringify(entry)}`);
     }
-    if (typeof entry.message !== 'string') {
+    if (typeof entry['message'] !== 'string') {
       throw new TypeError(`commit_parser entry has non-string message: ${JSON.stringify(entry)}`);
     }
-    const result: CommitParser = { message: entry.message };
-    if (typeof entry.group === 'string') {
-      result.group = entry.group;
+    const result: CommitParser = { message: entry['message'] };
+    if (typeof entry['group'] === 'string') {
+      result.group = entry['group'];
     }
-    if (entry.skip === true) {
+    if (entry['skip'] === true) {
       result.skip = true;
     }
     return result;

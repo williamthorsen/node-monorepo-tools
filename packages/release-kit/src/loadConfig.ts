@@ -61,7 +61,7 @@ export function readRootPackageVersion(): { exists: boolean; version: string | u
   if (!isRecord(parsed)) {
     return { exists: true, version: undefined };
   }
-  return { exists: true, version: typeof parsed.version === 'string' ? parsed.version : undefined };
+  return { exists: true, version: typeof parsed['version'] === 'string' ? parsed['version'] : undefined };
 }
 
 /** The path where the consumer-facing config file is expected. */
@@ -85,7 +85,7 @@ export async function loadConfig(): Promise<unknown> {
 
   // Support both default export and named `config` export. `isRecord` narrows the namespace for property access;
   // reading an undeclared export off it yields `undefined`, so the fallback needs no membership check.
-  const resolved = isRecord(imported) ? (imported.default ?? imported.config) : undefined;
+  const resolved = isRecord(imported) ? (imported['default'] ?? imported['config']) : undefined;
   if (resolved === undefined) {
     throw new Error(
       'Config file must have a default export or a named `config` export (e.g., `export default { ... }` or `export const config = { ... }`)',

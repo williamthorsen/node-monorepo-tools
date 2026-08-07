@@ -104,14 +104,16 @@ describe(buildWorkspaceRegistry, () => {
   it('merges config overrides on top of defaults', () => {
     const registry = buildWorkspaceRegistry({ workspaceScripts: { 'copy-content': 'tsx scripts/copy-content.ts' } });
 
-    expect(registry['copy-content']).toBe('tsx scripts/copy-content.ts');
-    expect(registry.build).toStrictEqual(['compile']);
+    expect(registry).toMatchObject({
+      build: ['compile'],
+      'copy-content': 'tsx scripts/copy-content.ts',
+    });
   });
 
   it('allows config to override default scripts', () => {
     const registry = buildWorkspaceRegistry({ workspaceScripts: { clean: 'rm -rf dist' } });
 
-    expect(registry.clean).toBe('rm -rf dist');
+    expect(registry['clean']).toBe('rm -rf dist');
   });
 });
 
@@ -121,8 +123,10 @@ describe(buildRootRegistry, () => {
       rootScripts: { 'demo:catwalk': 'pnpx http-server --port=5189' },
     });
 
-    expect(registry['demo:catwalk']).toBe('pnpx http-server --port=5189');
-    expect(registry.ci).toStrictEqual(['build', 'check:strict']);
+    expect(registry).toMatchObject({
+      ci: ['build', 'check:strict'],
+      'demo:catwalk': 'pnpx http-server --port=5189',
+    });
   });
 });
 

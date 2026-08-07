@@ -357,7 +357,7 @@ function hasPrettierConfigKey(cwd) {
   if (manifest === void 0) return false;
   try {
     const parsed = JSON.parse(manifest);
-    return isRecord(parsed) && parsed.prettier !== void 0;
+    return isRecord(parsed) && parsed["prettier"] !== void 0;
   } catch {
     return false;
   }
@@ -376,10 +376,10 @@ ${paths.map((path2) => `      ${path2}`).join("\n")}`;
 }
 function getMinVersion() {
   const picked = { "version": "0.27.0" };
-  if (typeof picked.version !== "string") {
+  if (typeof picked["version"] !== "string") {
     throw new TypeError("nmr/package.json: 'version' must be a string");
   }
-  return picked.version;
+  return picked["version"];
 }
 function hasSupportedEslintVersion() {
   return hasMinDevDependencyVersion("eslint", MIN_ESLINT_VERSION, {
@@ -410,7 +410,7 @@ function noReExportOnlyVitestConfigs(cwd = process.cwd()) {
 function noRedundantRootScripts() {
   const pkg = readPackageJson();
   if (!pkg) return true;
-  const scripts = pkg.scripts;
+  const scripts = pkg["scripts"];
   if (!isRecord(scripts)) return true;
   const builtInNames = Object.keys(getDefaultRootScripts());
   const redundant = Object.keys(scripts).filter((name) => builtInNames.includes(name));

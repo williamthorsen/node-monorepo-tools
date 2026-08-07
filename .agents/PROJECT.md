@@ -58,6 +58,7 @@ If run under a package directory, the command applies to that package. Otherwise
 - Emits `.js` and `.d.ts` together; AST-based rewriting turns relative `.ts`→`.js` specifiers and tsconfig `paths` aliases into runnable relative `.js` in both outputs
 - `typescript` is a peer dependency (`>=5.7.0`); content-hash caching under `node_modules/.cache/nmr-compile/` skips rebuild when sources haven't changed
 - ESM-only output (`type: "module"` in all packages)
+- The compiler baseline comes from the published `@williamthorsen/tsconfig`, which the root `tsconfig.json` extends and the package configs reach through it; changing a compiler option means upgrading that package, not editing a config here
 - Every package's `prepare` runs the compiler from nmr's source under bare `node`, relying on native type stripping; nmr-core's passes `--conditions nmr-source` so the compiler's own `@williamthorsen/nmr-core` import resolves to source on a tree with no build output
 
 ### Testing

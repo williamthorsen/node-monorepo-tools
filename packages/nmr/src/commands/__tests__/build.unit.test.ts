@@ -118,4 +118,38 @@ describe(resolveTsconfigChain, () => {
       '../../tsconfig.base.json',
     ]);
   });
+
+  it('throws when a relative extends target does not exist', () => {
+    const packageDir = path.join(dir, 'pkg');
+    fs.mkdirSync(packageDir);
+    fs.writeFileSync(path.join(packageDir, 'tsconfig.json'), JSON.stringify({ extends: './tsconfig.base.json' }));
+
+    expect(() => resolveTsconfigChain(packageDir)).toThrow(/tsconfig\.base\.json/);
+  });
+
+  it('resolves a package specifier whose base is reachable only at its tsconfig.json', () => {
+    const packageDir = path.join(dir, 'pkg');
+    const baseDir = path.join(packageDir, 'node_modules', '@fixture', 'base');
+    fs.mkdirSync(baseDir, { recursive: true });
+    // The `@tsconfig/*` family ships this shape: no `exports` map, config at the package root.
+    fs.writeFileSync(path.join(baseDir, 'package.json'), JSON.stringify({ name: '@fixture/base', version: '1.0.0' }));
+    fs.writeFileSync(path.join(baseDir, 'tsconfig.json'), JSON.stringify({ compilerOptions: { strict: true } }));
+    fs.writeFileSync(path.join(packageDir, 'tsconfig.json'), JSON.stringify({ extends: '@fixture/base' }));
+
+    // Node module resolution reports a realpath, which on a symlinked temp root is not `packageDir`-relative.
+    const chain = resolveTsconfigChain(packageDir);
+    expect(chain).toHaveLength(2);
+    expect(chain[1]).toMatch(/@fixture[/\\]base[/\\]tsconfig\.json$/);
+  });
+
+  it('throws when a package-specifier extends target does not resolve', () => {
+    const packageDir = path.join(dir, 'pkg');
+    fs.mkdirSync(packageDir);
+    fs.writeFileSync(
+      path.join(packageDir, 'tsconfig.json'),
+      JSON.stringify({ extends: '@williamthorsen/absent-tsconfig/tsconfig.base.json' }),
+    );
+
+    expect(() => resolveTsconfigChain(packageDir)).toThrow(/absent-tsconfig/);
+  });
 });

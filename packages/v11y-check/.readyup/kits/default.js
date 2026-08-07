@@ -64,10 +64,10 @@ var default_default = defineRdyKit({
 });
 function getMinVersion() {
   const picked = { "version": "0.14.2" };
-  if (typeof picked.version !== "string") {
+  if (typeof picked["version"] !== "string") {
     throw new TypeError("v11y-check/package.json: 'version' must be a string");
   }
-  return picked.version;
+  return picked["version"];
 }
 function noLegacyAuditCiDirectory() {
   return !existsSync(join(process.cwd(), ".audit-ci"));
