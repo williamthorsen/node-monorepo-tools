@@ -34,6 +34,7 @@
     "@williamthorsen/release-kit": "workspace:*",
     "@williamthorsen/strict-lint": "9.4.0",
     "@williamthorsen/toolbelt.objects": "3.2.10",
+    "@williamthorsen/tsconfig": "0.3.0",
     "codeassembly": "0.6.0",
     "eslint": "10.8.0",
     "eslint-plugin-import": "2.32.0",

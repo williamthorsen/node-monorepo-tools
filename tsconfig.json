@@ -1,46 +1,9 @@
-// TSConfig for monorepo root
-// Adapted from https://blog.logrocket.com/setting-up-monorepo-with-lerna-typescript/
+// TSConfig for the monorepo root. The compiler baseline comes from `@williamthorsen/tsconfig`;
+// only the keys that base leaves to its consumer are set here.
 {
   "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@williamthorsen/tsconfig/tsconfig.base.json",
   "compilerOptions": {
-    "allowJs": false,
-    "allowImportingTsExtensions": true,
-    // Report an error for unreachable code instead of just a warning.
-    "allowUnreachableCode": false,
-    // Report an error for unused labels instead of just a warning.
-    "allowUnusedLabels": false,
-    // "alwaysStrict": true, // implied by "strict"
-    "declaration": true,
-    // "emitDecoratorMetadata": true, // dropped: no decorators in this repo
-    // "esModuleInterop": true, // forced true in TS 6.0; the `false` form is an error
-    // Report an error when the value `undefined` is given to an optional property that doesn't specify `undefined` as a valid value.
-    "exactOptionalPropertyTypes": true,
-    // "experimentalDecorators": true, // dropped: no decorators in this repo
-    // Report an error when importing a file using a casing different from the casing on disk.
-    "forceConsistentCasingInFileNames": true,
-    // Enable stricter transpilation for better output.
-    "isolatedModules": true,
-    "lib": ["ESNext"],
-    "module": "NodeNext",
-    "moduleDetection": "force",
-    // Enable node-style module resolution for things like NPM package imports.
-    "moduleResolution": "NodeNext",
-    "noEmit": true,
-    // Report errors for fallthrough cases in switch statements.
-    "noFallthroughCasesInSwitch": true,
-    // "noImplicitAny": true,                // implied by "strict"
-    // Force functions designed to override their parent class to be specified as `override`.
-    "noImplicitOverride": true,
-    // Force functions to specify that they can return `undefined` if a possible code path does not return a value.
-    "noImplicitReturns": true,
-    // "noImplicitThis": true,               // implied by "strict"
-    // Consider enabling this; see https://www.typescriptlang.org/tsconfig#noPropertyAccessFromIndexSignature
-    // "noPropertyAccessFromIndexSignature": true,
-    "noLib": false,
-    // Force the usage of the indexed syntax to access fields declared using an index signature.
-    "noUncheckedIndexedAccess": true,
-    // Report an error when a variable is declared but never used.
-    "noUnusedLocals": true,
     "paths": {
       "@williamthorsen/nmr/config": ["./packages/nmr/src/defineConfig.ts"],
       "@williamthorsen/nmr/scripts": ["./packages/nmr/src/scripts.ts"],
@@ -50,27 +13,8 @@
       "@williamthorsen/release-kit/config": ["./packages/release-kit/src/defineConfig.ts"],
       "~/*": ["./*"],
     },
-    "removeComments": true,
-
-    // Enable JSON imports.
-    "resolveJsonModule": true,
-    // Don't typecheck libraries and declaration (.d.ts) files
-    "skipLibCheck": true,
-    "sourceMap": true,
-    "strict": true,
-    // "strictBindCallApply": true,          // implied by "strict"
-    // "strictFunctionTypes": true,          // implied by "strict"
-    // "strictNullChecks": true,             // implied by "strict"
-    // "strictPropertyInitialization": true, // implied by "strict"
-
-    // Enable top-level `await` and other modern ESM features. Since TS 6.0 the default `target` floats
-    // with the calendar year, so this pins output against a moving default rather than a fixed one.
-    // ES2024 would add no syntax over ES2022 — its additions are library methods, which `lib` governs.
-    "target": "ES2022",
-    // Since TS 6.0 the default is `[]`, so this widens the ambient types to include Node's rather than
-    // narrowing an include-everything default. Removing it would leave no ambient Node types at all.
+    // The base leaves ambient types to the consumer, defaulting to none.
     "types": ["node"],
-    // "useDefineForClassFields": true, // implied by target >= ES2022 (including ESNext)
   },
   "exclude": ["node_modules"],
   "include": [

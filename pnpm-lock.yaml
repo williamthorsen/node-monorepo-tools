@@ -38,6 +38,9 @@ importers:
       '@williamthorsen/toolbelt.objects':
         specifier: 3.2.10
         version: 3.2.10
+      '@williamthorsen/tsconfig':
+        specifier: 0.3.0
+        version: 0.3.0
       codeassembly:
         specifier: 0.6.0
         version: 0.6.0
@@ -776,6 +779,10 @@ packages:
   '@williamthorsen/toolbelt.objects@3.2.10':
     resolution: {integrity: sha512-xaeJjM9JNMOwLGRaaXpGpgkH4/BVOgewjLu2twtBiAtTmS5dxNzok1nJQ8t2DIem68DhX7VFEwIdoH19PfrjFA==}
     engines: {node: '>=24.0.0'}
+
+  '@williamthorsen/tsconfig@0.3.0':
+    resolution: {integrity: sha512-rajRi79is5CAvStqS9hXsq94RiCqwtBWZno35ZjqCIbIvGOhzIOcGmxI1n5yCJzP1wAETRoQnXtQQ2fdNbJ0UA==}
+    engines: {node: '>=24'}
 
   acorn-jsx@5.3.2:
     resolution: {integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==}
@@ -2961,6 +2968,8 @@ snapshots:
   '@williamthorsen/toolbelt.filesystem@0.2.1': {}
 
   '@williamthorsen/toolbelt.objects@3.2.10': {}
+
+  '@williamthorsen/tsconfig@0.3.0': {}
 
   acorn-jsx@5.3.2(acorn@8.16.0):
     dependencies:

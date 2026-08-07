@@ -1,9 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
   "extends": "../../tsconfig.json",
-  "compilerOptions": {
-    "lib": ["es2025"],
-  },
   "include": [
     "src/", //
     "*.ts",
