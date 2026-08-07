@@ -89,7 +89,8 @@ export function buildChangelogEntries(
     cliffArgs.push('--tag-pattern', options.tagPattern);
   }
 
-  for (const includePath of options?.includePaths ?? []) {
+  const includePaths = options?.includePaths ?? [];
+  for (const includePath of includePaths) {
     cliffArgs.push('--include-path', includePath);
   }
 
@@ -169,7 +170,8 @@ function transformReleases(releases: CliffContextRelease[], devOnlySections: Set
 
     const sectionMap = new Map<string, ChangelogItem[]>();
 
-    for (const commit of release.commits ?? []) {
+    const commits = release.commits ?? [];
+    for (const commit of commits) {
       // Strip the canonical-order HTML comment prefix from the group key so changelog.json
       // titles surface bare (the prefix exists only to drive cliff's group_by sort order).
       const group = stripCommentPrefix(commit.group ?? 'Other');

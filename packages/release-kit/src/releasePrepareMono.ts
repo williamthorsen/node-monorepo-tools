@@ -910,7 +910,8 @@ function topologicalSort(
     }
     sorted.push(dir);
 
-    for (const dependent of forwardEdges.get(dir) ?? []) {
+    const dependents = forwardEdges.get(dir) ?? [];
+    for (const dependent of dependents) {
       const newDegree = (inDegree.get(dependent) ?? 1) - 1;
       inDegree.set(dependent, newDegree);
       if (newDegree === 0) {

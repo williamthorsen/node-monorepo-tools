@@ -15,13 +15,15 @@ import type { LabelDefinition } from './types.ts';
 export function resolveLabels(config: RepoLabelsConfig): LabelDefinition[] {
   const resolved = new Map<string, LabelDefinition>();
 
-  for (const presetName of config.extends ?? []) {
+  const presetNames = config.extends ?? [];
+  for (const presetName of presetNames) {
     for (const label of loadPreset(presetName)) {
       resolved.set(label.name, label);
     }
   }
 
-  for (const [name, spec] of Object.entries(config.labels ?? {})) {
+  const labelEntries = Object.entries(config.labels ?? {});
+  for (const [name, spec] of labelEntries) {
     if (spec === null) {
       if (!resolved.has(name)) {
         throw new Error(

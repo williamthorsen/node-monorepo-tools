@@ -325,7 +325,8 @@ function formatPreviewFiles(
   dryRun: boolean,
   indent = '',
 ): void {
-  for (const file of release.previewFiles ?? []) {
+  const previewFiles = release.previewFiles ?? [];
+  for (const file of previewFiles) {
     if (dryRun) {
       lines.push(dim(`${indent}  [dry-run] Would write ${file}`));
     } else {

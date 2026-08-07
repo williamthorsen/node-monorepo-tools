@@ -391,7 +391,8 @@ export function loadOverridesForScopes(scopes: {
     }
   }
 
-  for (const workspacePath of scopes.workspaces ?? []) {
+  const workspacePaths = scopes.workspaces ?? [];
+  for (const workspacePath of workspacePaths) {
     const result = loadChangelogOverrides(resolveOverridePath(workspacePath));
     if ('errors' in result) {
       errors.push(...result.errors);

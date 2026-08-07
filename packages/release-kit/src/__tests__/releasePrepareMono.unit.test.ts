@@ -120,7 +120,8 @@ function findCliffCallArgs(plan: { writes: readonly { path: string }[] }): reado
     if (typeof options.tagPattern === 'string') {
       args.push('--tag-pattern', options.tagPattern);
     }
-    for (const includePath of options.includePaths ?? []) {
+    const includePaths = options.includePaths ?? [];
+    for (const includePath of includePaths) {
       args.push('--include-path', includePath);
     }
   }
