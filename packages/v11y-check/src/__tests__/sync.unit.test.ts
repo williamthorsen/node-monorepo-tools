@@ -270,4 +270,24 @@ describe(syncAllowlist, () => {
     expect(written).toHaveProperty('dev.allowlist[0].id', '1001');
     expect(written).toHaveProperty('dev.severityThreshold', 'high');
   });
+
+  it('reports a failed config write with the underlying error as the cause', async () => {
+    const config: V11yCheckConfig = {
+      dev: { allowlist: [], severityThreshold: 'high' },
+      prod: { allowlist: [] },
+    };
+    const configPath = path.join(tempDir, 'absent-directory', 'config.json');
+
+    // `rejects.toThrow` does not surface the rejection value, which the `cause` assertion needs.
+    let rejection: unknown;
+    try {
+      await syncAllowlist(config, 'dev', [], configPath, fixedDate);
+    } catch (error: unknown) {
+      rejection = error;
+    }
+
+    expect(rejection).toBeInstanceOf(Error);
+    expect(rejection).toHaveProperty('message', expect.stringContaining(`Failed to write config file '${configPath}'`));
+    expect(rejection).toHaveProperty('cause.code', 'ENOENT');
+  });
 });
