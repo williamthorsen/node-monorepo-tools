@@ -23,22 +23,22 @@ export function readPackageJson(dir: string): PackageJson {
   }
 
   const pkg: PackageJson = {};
-  if (typeof parsed.name === 'string') pkg.name = parsed.name;
-  if (parsed.private === true) pkg.private = true;
-  if (typeof parsed.version === 'string') pkg.version = parsed.version;
-  if (typeof parsed.packageManager === 'string') pkg.packageManager = parsed.packageManager;
-  if (isObject(parsed.scripts)) {
+  if (typeof parsed['name'] === 'string') pkg.name = parsed['name'];
+  if (parsed['private'] === true) pkg.private = true;
+  if (typeof parsed['version'] === 'string') pkg.version = parsed['version'];
+  if (typeof parsed['packageManager'] === 'string') pkg.packageManager = parsed['packageManager'];
+  if (isObject(parsed['scripts'])) {
     const scripts: Record<string, string> = {};
-    for (const [key, val] of Object.entries(parsed.scripts)) {
+    for (const [key, val] of Object.entries(parsed['scripts'])) {
       if (typeof val === 'string') scripts[key] = val;
     }
     pkg.scripts = scripts;
   }
-  if (isObject(parsed.pnpm)) {
-    const pnpm = parsed.pnpm;
-    if (isObject(pnpm.overrides)) {
+  if (isObject(parsed['pnpm'])) {
+    const pnpm = parsed['pnpm'];
+    if (isObject(pnpm['overrides'])) {
       const overrides: Record<string, string> = {};
-      for (const [key, val] of Object.entries(pnpm.overrides)) {
+      for (const [key, val] of Object.entries(pnpm['overrides'])) {
         if (typeof val === 'string') overrides[key] = val;
       }
       pkg.pnpm = { overrides };

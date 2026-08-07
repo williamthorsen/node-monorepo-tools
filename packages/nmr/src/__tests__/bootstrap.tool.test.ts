@@ -185,14 +185,14 @@ function readNmrCoreWiring(): NmrCoreWiring {
     throw new Error(malformed);
   }
 
-  const exportMap: unknown = parsed.exports;
-  const scripts: unknown = parsed.scripts;
+  const exportMap: unknown = parsed['exports'];
+  const scripts: unknown = parsed['scripts'];
   if (!isObject(exportMap) || !isObject(scripts)) {
     throw new Error(malformed);
   }
 
   const rootEntry: unknown = exportMap['.'];
-  const prepare: unknown = scripts.prepare;
+  const prepare: unknown = scripts['prepare'];
   if (!isStringRecord(rootEntry) || typeof prepare !== 'string') {
     throw new Error(malformed);
   }

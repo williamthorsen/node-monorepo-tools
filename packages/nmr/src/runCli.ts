@@ -120,7 +120,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   const resolved = resolveScript(command, registry, anchorDir, parsed.workspaceRoot);
 
   if (!resolved) {
-    if (env.NMR_RUN_IF_PRESENT === '1') {
+    if (env['NMR_RUN_IF_PRESENT'] === '1') {
       return { exitCode: 0 };
     }
     reportError(`Unknown command: ${command}`, stderr);

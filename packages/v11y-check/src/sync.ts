@@ -32,9 +32,9 @@ function serializeEntry(entry: AllowlistEntry): Record<string, string> {
 function serializeScopeConfig(scopeConfig: ScopeConfig): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   if (scopeConfig.severityThreshold !== undefined) {
-    result.severityThreshold = scopeConfig.severityThreshold;
+    result['severityThreshold'] = scopeConfig.severityThreshold;
   }
-  result.allowlist = scopeConfig.allowlist.map(serializeEntry);
+  result['allowlist'] = scopeConfig.allowlist.map(serializeEntry);
   return result;
 }
 
@@ -122,11 +122,11 @@ export function serializeConfig(config: V11yCheckConfig): string {
   const serializable: Record<string, unknown> = {};
 
   if (config.$schema !== undefined) {
-    serializable.$schema = config.$schema;
+    serializable['$schema'] = config.$schema;
   }
 
-  serializable.dev = serializeScopeConfig(config.dev);
-  serializable.prod = serializeScopeConfig(config.prod);
+  serializable['dev'] = serializeScopeConfig(config.dev);
+  serializable['prod'] = serializeScopeConfig(config.prod);
 
   return JSON.stringify(serializable, null, 2) + '\n';
 }

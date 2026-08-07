@@ -142,7 +142,7 @@ function stripLocalOnlyFields(value: unknown): unknown {
     return value;
   }
   const record: Record<string, unknown> = { ...value };
-  delete record.$schema;
+  delete record['$schema'];
   return record;
 }
 

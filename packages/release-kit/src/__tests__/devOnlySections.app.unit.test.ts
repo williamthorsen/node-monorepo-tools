@@ -28,20 +28,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 /** Extract all unique group values from cliff.toml.template commit_parsers. */
 function getTemplateGroups(): Set<string> {
   const config = parse(templateContent);
-  const git = config.git;
+  const git = config['git'];
   if (!isRecord(git)) {
     throw new Error('cliff.toml.template is missing [git] section');
   }
 
-  const parsers = git.commit_parsers;
+  const parsers = git['commit_parsers'];
   if (!Array.isArray(parsers)) {
     throw new TypeError('cliff.toml.template is missing git.commit_parsers array');
   }
 
   const groups = new Set<string>();
   for (const entry of parsers) {
-    if (isRecord(entry) && typeof entry.group === 'string') {
-      groups.add(entry.group);
+    if (isRecord(entry) && typeof entry['group'] === 'string') {
+      groups.add(entry['group']);
     }
   }
   return groups;

@@ -52,13 +52,13 @@ export function loadPreset(presetName: string): LabelDefinition[] {
     // so a preset can ship bare labels rather than restating each name.
     const { description } = entry;
     if (
-      typeof entry.name !== 'string' ||
-      typeof entry.color !== 'string' ||
+      typeof entry['name'] !== 'string' ||
+      typeof entry['color'] !== 'string' ||
       (description !== undefined && typeof description !== 'string')
     ) {
       throw new TypeError(`Preset "${presetName}" contains a label with invalid fields: ${JSON.stringify(entry)}`);
     }
-    labels.push({ name: entry.name, color: entry.color, ...(description !== undefined && { description }) });
+    labels.push({ name: entry['name'], color: entry['color'], ...(description !== undefined && { description }) });
   }
 
   return labels;

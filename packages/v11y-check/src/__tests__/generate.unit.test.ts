@@ -19,7 +19,7 @@ describe(buildFlatConfig, () => {
 
     const flat = buildFlatConfig(scopeConfig, 'prod');
     expect(flat.allowlist).toStrictEqual(['GHSA-1234', 'GHSA-5678']);
-    expect(flat.moderate).toBe(true);
+    expect(flat['moderate']).toBe(true);
     expect(flat['show-not-found']).toBe(true);
   });
 
@@ -27,7 +27,7 @@ describe(buildFlatConfig, () => {
     const scopeConfig: ScopeConfig = { allowlist: [], severityThreshold: 'high' };
     const flat = buildFlatConfig(scopeConfig, 'dev');
     expect(flat.allowlist).toStrictEqual([]);
-    expect(flat.high).toBe(true);
+    expect(flat['high']).toBe(true);
   });
 
   it('omits severity keys when severityThreshold is undefined', () => {

@@ -47,7 +47,7 @@ function extractLocalSchemaUrl(content: string): string | undefined {
   if (!isRecord(parsed)) {
     return undefined;
   }
-  const schema = parsed.$schema;
+  const schema = parsed['$schema'];
   return typeof schema === 'string' ? schema : undefined;
 }
 

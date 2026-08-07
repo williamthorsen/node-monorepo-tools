@@ -43,7 +43,7 @@ function detectRepoType() {
   if (existsSync("package.json")) {
     const raw = readFileSync("package.json", "utf8");
     const pkg = parseJsonRecord(raw);
-    if (pkg !== void 0 && Array.isArray(pkg.workspaces)) {
+    if (pkg !== void 0 && Array.isArray(pkg["workspaces"])) {
       return "monorepo";
     }
   }

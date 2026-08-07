@@ -33,7 +33,7 @@ describe(defineConfig, () => {
       },
     });
 
-    expect(config.workspaceScripts?.verify).toStrictEqual(['compile', 'test']);
+    expect(config.workspaceScripts?.['verify']).toStrictEqual(['compile', 'test']);
   });
 
   it('accepts an empty config', () => {
@@ -84,7 +84,7 @@ describe(defineConfig, () => {
 describe('the ./config subpath', () => {
   it('targets the entry module and its declarations', () => {
     const manifest: unknown = JSON.parse(readFileSync(path.join(packageRoot, 'package.json'), 'utf8'));
-    const exportsMap = isObject(manifest) && isObject(manifest.exports) ? manifest.exports : {};
+    const exportsMap = isObject(manifest) && isObject(manifest['exports']) ? manifest['exports'] : {};
 
     expect(exportsMap['./config']).toStrictEqual({
       types: `./dist/esm/${ENTRY_BASENAME}.d.ts`,

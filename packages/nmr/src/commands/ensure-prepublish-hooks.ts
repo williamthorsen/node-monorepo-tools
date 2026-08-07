@@ -42,13 +42,13 @@ export function ensurePrepublishHooks(
         packageName,
         packageDir,
         isPrivate: true,
-        prepublishOnly: pkg.scripts?.prepublishOnly,
+        prepublishOnly: pkg.scripts?.['prepublishOnly'],
         action: 'ok',
       });
       continue;
     }
 
-    const existing = pkg.scripts?.prepublishOnly;
+    const existing = pkg.scripts?.['prepublishOnly'];
 
     if (existing) {
       packages.push({
@@ -101,9 +101,9 @@ function addPrepublishOnly(packageDir: string, command: string): void {
     throw new TypeError(`Invalid package.json in ${packageDir}: expected an object`);
   }
 
-  const scripts = isObject(parsed.scripts) ? parsed.scripts : {};
-  scripts.prepublishOnly = command;
-  parsed.scripts = scripts;
+  const scripts = isObject(parsed['scripts']) ? parsed['scripts'] : {};
+  scripts['prepublishOnly'] = command;
+  parsed['scripts'] = scripts;
 
   writeFileSync(filePath, JSON.stringify(parsed, null, 2) + '\n', 'utf8');
 }

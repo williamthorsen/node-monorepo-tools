@@ -6,27 +6,27 @@ describe(getDefaultWorkspaceScripts, () => {
   it('includes all expected default workspace scripts', () => {
     const scripts = getDefaultWorkspaceScripts();
 
-    expect(scripts.build).toStrictEqual(['compile']);
-    expect(scripts.check).toStrictEqual(['typecheck', 'fmt:check', 'lint:check', 'test']);
+    expect(scripts['build']).toStrictEqual(['compile']);
+    expect(scripts['check']).toStrictEqual(['typecheck', 'fmt:check', 'lint:check', 'test']);
     expect(scripts['fix:check']).toStrictEqual(['fmt:check', 'lint:check']);
-    expect(scripts.clean).toBe('nmr-clean');
-    expect(scripts.compile).toBe('nmr-compile');
-    expect(scripts.fmt).toBe('nmr-fmt --write');
+    expect(scripts['clean']).toBe('nmr-clean');
+    expect(scripts['compile']).toBe('nmr-compile');
+    expect(scripts['fmt']).toBe('nmr-fmt --write');
     expect(scripts['fmt:check']).toBe('nmr-fmt --check');
-    expect(scripts.typecheck).toBe('tsgo --noEmit');
+    expect(scripts['typecheck']).toBe('tsgo --noEmit');
   });
 
   it('builds in a single step with no separate typings script', () => {
     const scripts = getDefaultWorkspaceScripts();
 
-    expect(scripts.build).toStrictEqual(['compile']);
+    expect(scripts['build']).toStrictEqual(['compile']);
     expect(scripts['generate-typings']).toBeUndefined();
   });
 
   it('selects Vitest projects, exposing all six test commands to every package', () => {
     const scripts = getDefaultWorkspaceScripts();
 
-    expect(scripts.test).toBe('pnpm exec vitest --project unit --project tool');
+    expect(scripts['test']).toBe('pnpm exec vitest --project unit --project tool');
     expect(scripts['test:all']).toBe('pnpm exec vitest');
     expect(scripts['test:coverage']).toBe('pnpm exec vitest --project unit --project tool --coverage');
     expect(scripts['test:tool']).toBe('pnpm exec vitest --project tool');
@@ -38,7 +38,7 @@ describe(getDefaultWorkspaceScripts, () => {
   it('upgrades the current package without recursing', () => {
     const scripts = getDefaultWorkspaceScripts();
 
-    expect(scripts.upgrade).toBe('nmr-taze --include-locked');
+    expect(scripts['upgrade']).toBe('nmr-taze --include-locked');
     expect(scripts['report-overrides']).toBeUndefined();
   });
 });
@@ -47,12 +47,12 @@ describe(getDefaultRootScripts, () => {
   it('includes all expected default root scripts', () => {
     const scripts = getDefaultRootScripts();
 
-    expect(scripts.audit).toStrictEqual(['audit:prod', 'audit:dev']);
-    expect(scripts.check).toStrictEqual(['typecheck', 'fmt:check', 'lint:check', 'test']);
+    expect(scripts['audit']).toStrictEqual(['audit:prod', 'audit:dev']);
+    expect(scripts['check']).toStrictEqual(['typecheck', 'fmt:check', 'lint:check', 'test']);
     expect(scripts['fix:check']).toStrictEqual(['fmt:check', 'lint:check']);
-    expect(scripts.ci).toStrictEqual(['build', 'check:strict']);
-    expect(scripts.clean).toBe('nmr-clean');
-    expect(scripts.fmt).toBe('nmr-fmt --write');
+    expect(scripts['ci']).toStrictEqual(['build', 'check:strict']);
+    expect(scripts['clean']).toBe('nmr-clean');
+    expect(scripts['fmt']).toBe('nmr-fmt --write');
     expect(scripts['fmt:check']).toBe('nmr-fmt --check');
     expect(scripts['root:check']).toStrictEqual(['root:typecheck', 'fmt:check', 'root:lint:check', 'root:test']);
     expect(scripts['report-overrides']).toBe('nmr-report-overrides');
@@ -73,7 +73,7 @@ describe(getDefaultRootScripts, () => {
 
   it('excludes audit from ci', () => {
     const scripts = getDefaultRootScripts();
-    const ci = scripts.ci;
+    const ci = scripts['ci'];
 
     expect(ci).toStrictEqual(['build', 'check:strict']);
     expect(ci).not.toContain('audit');
@@ -83,20 +83,20 @@ describe(getDefaultRootScripts, () => {
   it('composes prepush from ci and audit', () => {
     const scripts = getDefaultRootScripts();
 
-    expect(scripts.prepush).toStrictEqual(['ci', 'audit']);
+    expect(scripts['prepush']).toStrictEqual(['ci', 'audit']);
   });
 
   it('composes root scripts that delegate to workspaces', () => {
     const scripts = getDefaultRootScripts();
 
-    expect(scripts.test).toBe('nmr root:test && pnpm --recursive exec nmr test');
-    expect(scripts.typecheck).toBe('nmr root:typecheck && pnpm --recursive exec nmr typecheck');
+    expect(scripts['test']).toBe('nmr root:test && pnpm --recursive exec nmr test');
+    expect(scripts['typecheck']).toBe('nmr root:typecheck && pnpm --recursive exec nmr typecheck');
   });
 
   it('lints the whole tree in one process, delegating to no workspace', () => {
     const scripts = getDefaultRootScripts();
 
-    expect(scripts.lint).toBe('eslint --fix .');
+    expect(scripts['lint']).toBe('eslint --fix .');
     expect(scripts['lint:check']).toBe('eslint .');
     expect(scripts['lint:strict']).toBe('strict-lint');
   });
@@ -124,7 +124,7 @@ describe(getDefaultRootScripts, () => {
   it('fans every test selection out to the root and to each package', () => {
     const scripts = getDefaultRootScripts();
 
-    expect(scripts.test).toBe('nmr root:test && pnpm --recursive exec nmr test');
+    expect(scripts['test']).toBe('nmr root:test && pnpm --recursive exec nmr test');
     expect(scripts['test:all']).toBe('nmr root:test:all && pnpm --recursive exec nmr test:all');
     expect(scripts['test:coverage']).toBe('nmr root:test && pnpm --recursive exec nmr test:coverage');
     expect(scripts['test:tool']).toBe('nmr root:test:tool && pnpm --recursive exec nmr test:tool');
@@ -156,7 +156,7 @@ describe(getDefaultRootScripts, () => {
   it('sweeps every package on upgrade, and the root alone on root:upgrade', () => {
     const scripts = getDefaultRootScripts();
 
-    expect(scripts.upgrade).toBe('nmr-report-overrides && nmr-taze --include-locked --recursive');
+    expect(scripts['upgrade']).toBe('nmr-report-overrides && nmr-taze --include-locked --recursive');
     expect(scripts['root:upgrade']).toBe('nmr-taze --include-locked');
   });
 
@@ -164,7 +164,7 @@ describe(getDefaultRootScripts, () => {
   // there: under `-w` from a package dir the child would look for a root-only command in the workspace
   // registry and exit 1, and `&&` would swallow the upgrade report behind it. Bins locate the root themselves.
   it('chains only bins, so upgrade survives -w from a package cwd', () => {
-    const upgrade = getDefaultRootScripts().upgrade;
+    const upgrade = getDefaultRootScripts()['upgrade'];
     assert(typeof upgrade === 'string', 'Expected upgrade to be a chained command');
 
     for (const step of upgrade.split('&&')) {
@@ -173,14 +173,14 @@ describe(getDefaultRootScripts, () => {
   });
 
   it('reports overrides before the upgrade report', () => {
-    const upgrade = getDefaultRootScripts().upgrade;
+    const upgrade = getDefaultRootScripts()['upgrade'];
     assert(typeof upgrade === 'string', 'Expected upgrade to be a chained command');
 
     expect(upgrade.indexOf('report-overrides')).toBeLessThan(upgrade.indexOf('nmr-taze'));
   });
 
   it('ends the upgrade chain with the upgrade tool so passthrough args reach it', () => {
-    const upgrade = getDefaultRootScripts().upgrade;
+    const upgrade = getDefaultRootScripts()['upgrade'];
     assert(typeof upgrade === 'string', 'Expected upgrade to be a chained command');
 
     expect(upgrade.split('&&').at(-1)?.trim()).toBe('nmr-taze --include-locked --recursive');

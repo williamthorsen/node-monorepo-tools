@@ -18,8 +18,8 @@ export function detectPackageManager(): PackageManager {
     const content = readFileSync(packageJsonPath, 'utf8');
     const parsed: unknown = JSON.parse(content);
 
-    if (isRecord(parsed) && typeof parsed.packageManager === 'string') {
-      const [name, version] = parsed.packageManager.split('@', 2);
+    if (isRecord(parsed) && typeof parsed['packageManager'] === 'string') {
+      const [name, version] = parsed['packageManager'].split('@', 2);
       if (name === 'pnpm' || name === 'npm') {
         return name;
       }

@@ -12,11 +12,11 @@ const parsedSchema: unknown = JSON.parse(readFileSync(schemaPath, 'utf8'));
 if (!isRecord(parsedSchema)) {
   throw new TypeError('schema must be a JSON object');
 }
-const required = parsedSchema.required;
+const required = parsedSchema['required'];
 if (!isUnknownArray(required) || !required.every((entry): entry is string => typeof entry === 'string')) {
   throw new TypeError('schema.required must be an array of strings');
 }
-const properties = parsedSchema.properties;
+const properties = parsedSchema['properties'];
 if (!isRecord(properties)) {
   throw new TypeError('schema.properties must be a JSON object');
 }
@@ -47,7 +47,7 @@ describe('.meta/label-map.json conforms to release-kit schema', () => {
   });
 
   it('contains only string values in `types`', () => {
-    const types = parsedLabelMap.types;
+    const types = parsedLabelMap['types'];
     assert(isRecord(types));
     for (const [key, value] of Object.entries(types)) {
       expect(value, `types['${key}'] must be a string`).toBeTypeOf('string');
@@ -55,7 +55,7 @@ describe('.meta/label-map.json conforms to release-kit schema', () => {
   });
 
   it('contains only string values in `scopes`', () => {
-    const scopes = parsedLabelMap.scopes;
+    const scopes = parsedLabelMap['scopes'];
     assert(isRecord(scopes));
     for (const [key, value] of Object.entries(scopes)) {
       expect(value, `scopes['${key}'] must be a string`).toBeTypeOf('string');

@@ -478,9 +478,9 @@ describe('buildChangelogEntries + renderReleaseNotesSingle integration', () => {
 
   it('renders public release notes with priority-ordered sections, bodies under bullets, and no dev-only or skipped sections', () => {
     // Group names mirror the production cliff template: emoji-prefixed, matching DEFAULT_WORK_TYPES headers.
-    const featHeader = DEFAULT_WORK_TYPES.feat?.header ?? 'Features';
-    const fixHeader = DEFAULT_WORK_TYPES.fix?.header ?? 'Bug fixes';
-    const refactorHeader = DEFAULT_WORK_TYPES.refactor?.header ?? 'Refactoring';
+    const featHeader = DEFAULT_WORK_TYPES['feat']?.header ?? 'Features';
+    const fixHeader = DEFAULT_WORK_TYPES['fix']?.header ?? 'Bug fixes';
+    const refactorHeader = DEFAULT_WORK_TYPES['refactor']?.header ?? 'Refactoring';
     const cliffContext = [
       {
         version: 'v0.17.0',

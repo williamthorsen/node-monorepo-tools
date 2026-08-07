@@ -80,7 +80,7 @@ function isStringArray(value: unknown): value is string[] {
 
 /** Validates and extracts the `build` field from the raw config object. */
 function validateBuildField(value: Record<string, unknown>, configPath: string): BuildConfig | undefined {
-  const build: unknown = value.build;
+  const build: unknown = value['build'];
   if (build === undefined) {
     return undefined;
   }
@@ -89,7 +89,7 @@ function validateBuildField(value: Record<string, unknown>, configPath: string):
   }
   assertRecognizedKeys(build, RECOGNIZED_BUILD_KEYS, configPath, 'build.');
 
-  const extraIgnorePatterns: unknown = build.extraIgnorePatterns;
+  const extraIgnorePatterns: unknown = build['extraIgnorePatterns'];
   if (extraIgnorePatterns !== undefined && !isStringArray(extraIgnorePatterns)) {
     throw new Error(`Invalid nmr config at ${configPath}: \`build.extraIgnorePatterns\` must be a string[]`);
   }
@@ -99,7 +99,7 @@ function validateBuildField(value: Record<string, unknown>, configPath: string):
 
 /** Validates and extracts the `checkCache` field from the raw config object. */
 function validateCheckCacheField(value: Record<string, unknown>, configPath: string): CheckCacheConfig | undefined {
-  const checkCache: unknown = value.checkCache;
+  const checkCache: unknown = value['checkCache'];
   if (checkCache === undefined) {
     return undefined;
   }
@@ -110,7 +110,7 @@ function validateCheckCacheField(value: Record<string, unknown>, configPath: str
 
   const config: CheckCacheConfig = {};
 
-  const enabled: unknown = checkCache.enabled;
+  const enabled: unknown = checkCache['enabled'];
   if (enabled !== undefined) {
     if (typeof enabled !== 'boolean') {
       throw new TypeError(`Invalid nmr config at ${configPath}: \`checkCache.enabled\` must be a boolean`);
@@ -189,7 +189,7 @@ export async function loadConfig(baseDir: string): Promise<NmrConfig> {
   // Node type-strips `.ts` natively at this package's engines floor, so the config needs no transform step
   // and no loader dependency. `import()` takes a URL, not a path: A bare Windows path parses as a scheme.
   const imported: unknown = await import(pathToFileURL(configPath).href);
-  const loaded = isObject(imported) ? imported.default : undefined;
+  const loaded = isObject(imported) ? imported['default'] : undefined;
 
   return validateConfig(loaded, configPath);
 }

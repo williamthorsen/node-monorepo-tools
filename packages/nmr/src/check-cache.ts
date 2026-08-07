@@ -259,7 +259,7 @@ export async function readBuildOutputState(monorepoRoot: string, config: NmrConf
   const registry = buildWorkspaceRegistry(config);
   // Hoisted out of the loop, where it does not vary: a repo redefining `build` exempts its whole workspace,
   // and answering that once lets such a repo return without reading a single package.
-  if (JSON.stringify(registry.build) !== JSON.stringify(getDefaultWorkspaceScripts().build)) {
+  if (JSON.stringify(registry['build']) !== JSON.stringify(getDefaultWorkspaceScripts()['build'])) {
     return state;
   }
 
@@ -409,10 +409,10 @@ function isCheckCacheEntry(value: unknown): value is CheckCacheEntry {
   }
 
   return (
-    typeof value.durationMs === 'number' &&
-    Number.isFinite(value.durationMs) &&
-    !Number.isNaN(Date.parse(String(value.recordedAt))) &&
-    isStringRecord(value.buildDigests)
+    typeof value['durationMs'] === 'number' &&
+    Number.isFinite(value['durationMs']) &&
+    !Number.isNaN(Date.parse(String(value['recordedAt']))) &&
+    isStringRecord(value['buildDigests'])
   );
 }
 

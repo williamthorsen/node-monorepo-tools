@@ -216,7 +216,7 @@ function resolvePrettierCli(): { ok: true; cliPath: string } | { ok: false; erro
   if (!isObject(manifest)) return missing;
 
   // Prettier declares a lone CLI, as a bare path in 3.x and as a named map in some releases.
-  const bin = isObject(manifest.bin) ? manifest.bin[PRETTIER_PACKAGE] : manifest.bin;
+  const bin = isObject(manifest['bin']) ? manifest['bin'][PRETTIER_PACKAGE] : manifest['bin'];
   if (typeof bin !== 'string') return missing;
 
   return { ok: true, cliPath: path.resolve(path.dirname(manifestPath), bin) };

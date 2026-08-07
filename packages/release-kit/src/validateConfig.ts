@@ -67,29 +67,29 @@ function preprocessDeprecatedKeys(raw: unknown): { cleaned: unknown; deprecation
   const errors: string[] = [];
   const cleaned: Record<string, unknown> = { ...raw };
 
-  if (isRecord(cleaned.releaseNotes) && 'shouldCreateGithubRelease' in cleaned.releaseNotes) {
+  if (isRecord(cleaned['releaseNotes']) && 'shouldCreateGithubRelease' in cleaned['releaseNotes']) {
     errors.push(
       'releaseNotes.shouldCreateGithubRelease is no longer supported. Adoption is now signaled by installing the create-github-release workflow. Remove this field from your config; see README for the updated workflow.',
     );
-    const releaseNotesCopy = { ...cleaned.releaseNotes };
-    delete releaseNotesCopy.shouldCreateGithubRelease;
-    cleaned.releaseNotes = releaseNotesCopy;
+    const releaseNotesCopy = { ...cleaned['releaseNotes'] };
+    delete releaseNotesCopy['shouldCreateGithubRelease'];
+    cleaned['releaseNotes'] = releaseNotesCopy;
   }
 
-  if (Array.isArray(cleaned.workspaces)) {
-    cleaned.workspaces = cleaned.workspaces.map((ws: unknown, i: number): unknown => {
+  if (Array.isArray(cleaned['workspaces'])) {
+    cleaned['workspaces'] = cleaned['workspaces'].map((ws: unknown, i: number): unknown => {
       if (!isRecord(ws)) return ws;
       const wsCopy = { ...ws };
       if ('tagPrefix' in wsCopy) {
-        const dir = typeof wsCopy.dir === 'string' && wsCopy.dir !== '' ? wsCopy.dir : '<dir>';
+        const dir = typeof wsCopy['dir'] === 'string' && wsCopy['dir'] !== '' ? wsCopy['dir'] : '<dir>';
         errors.push(`workspaces[${i}]: 'tagPrefix' is no longer supported; remove it to use the default '${dir}-v'`);
-        delete wsCopy.tagPrefix;
+        delete wsCopy['tagPrefix'];
       }
       if ('legacyTagPrefixes' in wsCopy) {
         errors.push(
           `workspaces[${i}]: 'legacyTagPrefixes' is no longer supported; use 'legacyIdentities: [{ name, tagPrefix }, ...]' instead`,
         );
-        delete wsCopy.legacyTagPrefixes;
+        delete wsCopy['legacyTagPrefixes'];
       }
       return wsCopy;
     });

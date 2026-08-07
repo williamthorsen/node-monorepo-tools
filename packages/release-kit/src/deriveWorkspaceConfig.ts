@@ -23,14 +23,14 @@ export function deriveWorkspaceConfig(workspacePath: string): WorkspaceConfig {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Failed to read ${packageJsonPath}: ${message}`);
   }
-  const name = isRecord(parsed) ? parsed.name : undefined;
+  const name = isRecord(parsed) ? parsed['name'] : undefined;
 
   if (typeof name !== 'string' || name.length === 0) {
     throw new Error(`${packageJsonPath} is missing a 'name' field (required for tag derivation).`);
   }
 
   const unscopedName = stripNpmScope(name);
-  const privateField = isRecord(parsed) ? parsed.private : undefined;
+  const privateField = isRecord(parsed) ? parsed['private'] : undefined;
   // Publishable when `private` is absent or `false`. Any other value (including non-boolean
   // truthy values) is treated as `private: true` — match how npm/pnpm refuse to publish.
   const isPublishable = privateField === undefined || privateField === false;

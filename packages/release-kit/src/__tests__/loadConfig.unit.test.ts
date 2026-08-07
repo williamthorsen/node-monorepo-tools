@@ -189,8 +189,8 @@ describe(mergeMonorepoConfig, () => {
       workTypes: { perf: { header: 'Performance' } },
     });
 
-    expect(result.workTypes?.perf).toStrictEqual({ header: 'Performance' });
-    expect(result.workTypes?.fix).toStrictEqual(DEFAULT_WORK_TYPES.fix);
+    expect(result.workTypes?.['perf']).toStrictEqual({ header: 'Performance' });
+    expect(result.workTypes?.['fix']).toStrictEqual(DEFAULT_WORK_TYPES['fix']);
   });
 
   it('replaces versionPatterns entirely when provided', () => {
@@ -569,8 +569,8 @@ describe(mergeSinglePackageConfig, () => {
       workTypes: { perf: { header: 'Performance' } },
     });
 
-    expect(result.workTypes?.perf).toStrictEqual({ header: 'Performance' });
-    expect(result.workTypes?.fix).toStrictEqual(DEFAULT_WORK_TYPES.fix);
+    expect(result.workTypes?.['perf']).toStrictEqual({ header: 'Performance' });
+    expect(result.workTypes?.['fix']).toStrictEqual(DEFAULT_WORK_TYPES['fix']);
   });
 
   it('replaces versionPatterns entirely when provided', () => {

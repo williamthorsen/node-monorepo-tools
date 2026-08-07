@@ -32,7 +32,7 @@ export function errorMessage(error: unknown): string {
  * injection, so this reads `process.env` directly.
  */
 export function buildFetchInit(): RequestInit | undefined {
-  const token = process.env.GITHUB_TOKEN;
+  const token = process.env['GITHUB_TOKEN'];
   if (token === undefined || token === '') {
     return undefined;
   }

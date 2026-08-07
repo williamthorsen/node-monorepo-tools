@@ -48,36 +48,36 @@ function isStringArray(value: unknown): value is string[] {
 
 function isWorkTypesJsonData(value: unknown): value is WorkTypesJsonData {
   if (!isRecord(value)) return false;
-  if (!isStringArray(value.tiers)) return false;
-  if (!Array.isArray(value.types) || !value.types.every(isWorkTypesEntry)) return false;
-  if (!isMarkersRecord(value.markers)) return false;
+  if (!isStringArray(value['tiers'])) return false;
+  if (!Array.isArray(value['types']) || !value['types'].every(isWorkTypesEntry)) return false;
+  if (!isMarkersRecord(value['markers'])) return false;
   return true;
 }
 
 function isMarkerEntry(value: unknown): value is { emoji: string; label: string } {
   if (!isRecord(value)) return false;
-  return typeof value.emoji === 'string' && typeof value.label === 'string';
+  return typeof value['emoji'] === 'string' && typeof value['label'] === 'string';
 }
 
 function isMarkersRecord(value: unknown): value is WorkTypesJsonData['markers'] {
   if (!isRecord(value)) return false;
-  if (!isMarkerEntry(value.breaking)) return false;
+  if (!isMarkerEntry(value['breaking'])) return false;
   return Object.values(value).every(isMarkerEntry);
 }
 
 function isWorkTypesEntry(value: unknown): value is WorkTypesJsonData['types'][number] {
   if (!isRecord(value)) return false;
   if (
-    typeof value.tier !== 'string' ||
-    typeof value.key !== 'string' ||
-    typeof value.emoji !== 'string' ||
-    typeof value.label !== 'string' ||
-    typeof value.breakingPolicy !== 'string'
+    typeof value['tier'] !== 'string' ||
+    typeof value['key'] !== 'string' ||
+    typeof value['emoji'] !== 'string' ||
+    typeof value['label'] !== 'string' ||
+    typeof value['breakingPolicy'] !== 'string'
   ) {
     return false;
   }
-  if (!isStringArray(value.aliases)) return false;
-  if (value.excludedFromChangelog !== undefined && typeof value.excludedFromChangelog !== 'boolean') {
+  if (!isStringArray(value['aliases'])) return false;
+  if (value['excludedFromChangelog'] !== undefined && typeof value['excludedFromChangelog'] !== 'boolean') {
     return false;
   }
   return true;
