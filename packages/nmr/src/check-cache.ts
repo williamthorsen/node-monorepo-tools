@@ -309,7 +309,8 @@ export async function removeCheckCache(scopeDir: string): Promise<void> {
  */
 export function resolveCacheableCommands(checkCache: CheckCacheConfig | undefined): Set<string> {
   const commands = new Set([...DEFAULT_CACHEABLE_COMMANDS, ...(checkCache?.extraCommands ?? [])]);
-  for (const excluded of checkCache?.excludeCommands ?? []) {
+  const excludedCommands = checkCache?.excludeCommands ?? [];
+  for (const excluded of excludedCommands) {
     commands.delete(excluded);
   }
 
