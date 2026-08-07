@@ -2323,7 +2323,7 @@ describe(releasePrepareMono, () => {
         fn();
       } catch (error) {
         if (error instanceof Error) return error;
-        throw new Error(`Expected an Error to be thrown, got ${typeof error}: ${String(error)}`);
+        throw new Error(`Expected an Error to be thrown, got ${typeof error}: ${String(error)}`, { cause: error });
       }
       throw new Error('Expected fn to throw, but it returned normally');
     }

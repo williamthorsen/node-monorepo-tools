@@ -27,6 +27,16 @@ describe(loadPreset, () => {
     expect(() => loadPreset('nonexistent')).toThrow(/Unknown preset "nonexistent"/);
   });
 
+  it('preserves the underlying error as the cause when the preset file cannot be read', () => {
+    const underlying = new Error('EACCES: permission denied');
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockImplementation(() => {
+      throw underlying;
+    });
+
+    expect(() => loadPreset('bad')).toThrow(expect.objectContaining({ cause: underlying }));
+  });
+
   it('throws when YAML content is not an array', () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue('key: value\n');

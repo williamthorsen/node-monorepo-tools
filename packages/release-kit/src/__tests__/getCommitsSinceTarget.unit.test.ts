@@ -154,6 +154,18 @@ describe(getCommitsSinceTarget, () => {
     expect(() => getCommitsSinceTarget(['v'])).toThrow("Failed to run 'git describe': permission denied");
   });
 
+  it('preserves the underlying error as the cause', () => {
+    const underlying = Object.assign(new Error('permission denied'), { status: 1 });
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') {
+        throw underlying;
+      }
+      return '';
+    });
+
+    expect(() => getCommitsSinceTarget(['v'])).toThrow(expect.objectContaining({ cause: underlying }));
+  });
+
   it('wraps and re-throws git log failures', () => {
     mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
       if (cmd === 'git' && args[0] === 'describe') {

@@ -60,6 +60,25 @@ describe(planVersionBump, () => {
   it('throws when no package files are specified', () => {
     expect(() => planVersionBump([], 'patch')).toThrow('No package files specified');
   });
+
+  it('preserves the underlying error as the cause when a package file cannot be read', () => {
+    const underlying = new Error('EACCES: permission denied');
+    mockReadFileSync.mockImplementation(() => {
+      throw underlying;
+    });
+
+    expect(() => planVersionBump(['packages/a/package.json'], 'minor')).toThrow(
+      expect.objectContaining({ cause: underlying }),
+    );
+  });
+
+  it('preserves the underlying error as the cause when a package file holds invalid JSON', () => {
+    mockReadFileSync.mockReturnValue('{ not valid json');
+
+    expect(() => planVersionBump(['packages/a/package.json'], 'minor')).toThrow(
+      expect.objectContaining({ cause: expect.any(SyntaxError) }),
+    );
+  });
 });
 
 describe(planVersionSet, () => {

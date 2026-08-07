@@ -46,6 +46,7 @@ export function readRootPackageVersion(): { exists: boolean; version: string | u
   } catch (error: unknown) {
     throw new Error(
       `Failed to read root ${ROOT_PACKAGE_JSON_PATH}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
     );
   }
 
@@ -55,6 +56,7 @@ export function readRootPackageVersion(): { exists: boolean; version: string | u
   } catch (error: unknown) {
     throw new Error(
       `Failed to parse root ${ROOT_PACKAGE_JSON_PATH}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
     );
   }
 

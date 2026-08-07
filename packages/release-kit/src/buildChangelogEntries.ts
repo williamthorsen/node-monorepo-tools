@@ -102,6 +102,7 @@ export function buildChangelogEntries(
   } catch (error: unknown) {
     throw new Error(
       `Failed to build changelog entries for tag ${tag}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
     );
   }
 }

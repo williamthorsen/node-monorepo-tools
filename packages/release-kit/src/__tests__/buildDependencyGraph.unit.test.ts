@@ -191,4 +191,21 @@ describe(buildDependencyGraph, () => {
     expect(graph.packageNameToDir.size).toBe(0);
     expect(graph.dependentsOf.size).toBe(0);
   });
+
+  it('preserves the underlying error as the cause when a package file cannot be read', () => {
+    const underlying = new Error('EACCES: permission denied');
+    mockReadFileSync.mockImplementation(() => {
+      throw underlying;
+    });
+
+    expect(() => buildDependencyGraph([makeWorkspace('core')])).toThrow(expect.objectContaining({ cause: underlying }));
+  });
+
+  it('preserves the underlying error as the cause when a package file holds invalid JSON', () => {
+    mockReadFileSync.mockReturnValue('{ not valid json');
+
+    expect(() => buildDependencyGraph([makeWorkspace('core')])).toThrow(
+      expect.objectContaining({ cause: expect.any(SyntaxError) }),
+    );
+  });
 });

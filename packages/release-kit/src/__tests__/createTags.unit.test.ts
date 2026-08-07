@@ -123,6 +123,20 @@ describe(createTags, () => {
     expect(() => createTags({ dryRun: false, noGitChecks: false })).toThrow('Working tree is dirty');
   });
 
+  it('preserves the underlying error as the cause of the dirty-tree failure', () => {
+    const underlying = new Error('exit code 1');
+    mockReadFileSync.mockReturnValue('v1.0.0\n');
+    mockExecFileSync.mockImplementation((_cmd: string, args: string[]) => {
+      if (args[0] === 'diff') {
+        throw underlying;
+      }
+    });
+
+    expect(() => createTags({ dryRun: false, noGitChecks: false })).toThrow(
+      expect.objectContaining({ cause: underlying }),
+    );
+  });
+
   it('skips the dirty check when noGitChecks is true', () => {
     mockReadFileSync.mockReturnValue('v1.0.0\n');
 

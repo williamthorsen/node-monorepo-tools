@@ -244,6 +244,15 @@ describe(buildChangelogEntries, () => {
     );
   });
 
+  it('preserves the underlying error as the cause', () => {
+    const underlying = new Error('npx exited with code 1');
+    mockRunGitCliff.mockImplementationOnce(() => {
+      throw underlying;
+    });
+
+    expect(() => buildChangelogEntries(makeConfig(), 'v9.9.9')).toThrow(expect.objectContaining({ cause: underlying }));
+  });
+
   describe('commit hash capture', () => {
     it('captures the full commit SHA from cliff-context `id` into `ChangelogItem.hash`', () => {
       const cliffContext = [
