@@ -118,4 +118,23 @@ describe(resolveTsconfigChain, () => {
       '../../tsconfig.base.json',
     ]);
   });
+
+  it('throws when a relative extends target does not exist', () => {
+    const packageDir = path.join(dir, 'pkg');
+    fs.mkdirSync(packageDir);
+    fs.writeFileSync(path.join(packageDir, 'tsconfig.json'), JSON.stringify({ extends: './tsconfig.base.json' }));
+
+    expect(() => resolveTsconfigChain(packageDir)).toThrow(/tsconfig\.base\.json/);
+  });
+
+  it('throws when a package-specifier extends target does not resolve', () => {
+    const packageDir = path.join(dir, 'pkg');
+    fs.mkdirSync(packageDir);
+    fs.writeFileSync(
+      path.join(packageDir, 'tsconfig.json'),
+      JSON.stringify({ extends: '@williamthorsen/absent-tsconfig/tsconfig.base.json' }),
+    );
+
+    expect(() => resolveTsconfigChain(packageDir)).toThrow(/absent-tsconfig/);
+  });
 });
