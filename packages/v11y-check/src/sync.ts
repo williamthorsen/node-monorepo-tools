@@ -30,12 +30,10 @@ function serializeEntry(entry: AllowlistEntry): Record<string, string> {
 
 /** Build a serializable representation of a scope config with ordered keys. */
 function serializeScopeConfig(scopeConfig: ScopeConfig): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  if (scopeConfig.severityThreshold !== undefined) {
-    result['severityThreshold'] = scopeConfig.severityThreshold;
-  }
-  result['allowlist'] = scopeConfig.allowlist.map(serializeEntry);
-  return result;
+  return {
+    ...(scopeConfig.severityThreshold !== undefined && { severityThreshold: scopeConfig.severityThreshold }),
+    allowlist: scopeConfig.allowlist.map(serializeEntry),
+  };
 }
 
 /** Result of a sync operation for a single scope. */
@@ -119,14 +117,11 @@ export function buildUpdatedConfig(
  * Includes `$schema` when present. Uses `severityThreshold` instead of boolean fields.
  */
 export function serializeConfig(config: V11yCheckConfig): string {
-  const serializable: Record<string, unknown> = {};
-
-  if (config.$schema !== undefined) {
-    serializable['$schema'] = config.$schema;
-  }
-
-  serializable['dev'] = serializeScopeConfig(config.dev);
-  serializable['prod'] = serializeScopeConfig(config.prod);
+  const serializable = {
+    ...(config.$schema !== undefined && { $schema: config.$schema }),
+    dev: serializeScopeConfig(config.dev),
+    prod: serializeScopeConfig(config.prod),
+  };
 
   return JSON.stringify(serializable, null, 2) + '\n';
 }
