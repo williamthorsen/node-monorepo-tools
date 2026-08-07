@@ -278,16 +278,9 @@ describe(syncAllowlist, () => {
     };
     const configPath = path.join(tempDir, 'absent-directory', 'config.json');
 
-    // `rejects.toThrow` does not surface the rejection value, which the `cause` assertion needs.
-    let rejection: unknown;
-    try {
-      await syncAllowlist(config, 'dev', [], configPath, fixedDate);
-    } catch (error: unknown) {
-      rejection = error;
-    }
+    const promise = syncAllowlist(config, 'dev', [], configPath, fixedDate);
 
-    expect(rejection).toBeInstanceOf(Error);
-    expect(rejection).toHaveProperty('message', expect.stringContaining(`Failed to write config file '${configPath}'`));
-    expect(rejection).toHaveProperty('cause.code', 'ENOENT');
+    await expect(promise).rejects.toThrow(`Failed to write config file '${configPath}'`);
+    await expect(promise).rejects.toHaveProperty('cause.code', 'ENOENT');
   });
 });
