@@ -62,7 +62,7 @@ function validateScriptField(
   fieldName: string,
   configPath: string,
 ): Record<string, string | string[]> | undefined {
-  if (!(fieldName in value) || value[fieldName] === undefined) {
+  if (!Object.hasOwn(value, fieldName) || value[fieldName] === undefined) {
     return undefined;
   }
   if (!isScriptRecord(value[fieldName])) {
@@ -138,7 +138,7 @@ function validateStringRecordField(
   fieldName: string,
   configPath: string,
 ): Record<string, string> | undefined {
-  if (!(fieldName in value) || value[fieldName] === undefined) {
+  if (!Object.hasOwn(value, fieldName) || value[fieldName] === undefined) {
     return undefined;
   }
   if (!isStringRecord(value[fieldName])) {

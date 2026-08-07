@@ -88,7 +88,7 @@ function collectOverrides(packageDir: string): Record<string, string> {
 function applyOverrides(registry: ScriptRegistry, overrides: Record<string, string>): Set<string> {
   const marked = new Set<string>();
   for (const [name, value] of Object.entries(overrides)) {
-    if (!(name in registry)) {
+    if (!Object.hasOwn(registry, name)) {
       continue;
     }
 

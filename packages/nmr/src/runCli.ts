@@ -221,7 +221,8 @@ function formatOverrideNotice(
   anchorDir: string,
   quiet: boolean,
 ): string | undefined {
-  if (quiet || resolved.source !== 'package' || registry[command] === undefined) {
+  const registryEntry = Object.hasOwn(registry, command) ? registry[command] : undefined;
+  if (quiet || resolved.source !== 'package' || registryEntry === undefined) {
     return undefined;
   }
 
