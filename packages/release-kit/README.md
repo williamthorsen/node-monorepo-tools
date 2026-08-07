@@ -557,7 +557,7 @@ Run release preparation with automatic workspace discovery.
 | `--set-version=X.Y.Z`        | Set an explicit canonical semver version; bypasses commit-derived bumps. Requires `--only` in monorepo mode (rejected when a `project` block is configured).                                                                                                            |
 | `--force`                    | Release even when no commits or no bump-worthy commits exist since the last tag. In monorepo/project mode, defaults to patch (combine with `--bump=X` for a different level); in single-package mode, a bare `--force` is rejected — pass `--bump=major\|minor\|patch`. |
 | `--only=name1,name2`         | Only process the named workspaces (monorepo only; rejected when a `project` block is configured)                                                                                                                                                                        |
-| `--with-release-notes`       | Write per-workspace release-notes previews under `{workspacePath}/docs/`                                                                                                                                                                                                |
+| `--with-release-notes`       | Write per-workspace release-notes previews under `<workspacePath>/docs/`                                                                                                                                                                                                |
 | `--help`, `-h`               | Show help                                                                                                                                                                                                                                                               |
 
 Workspace names for `--only` match the package directory name (e.g., `arrays`, `release-kit`).
@@ -566,8 +566,8 @@ Workspace names for `--only` match the package directory name (e.g., `arrays`, `
 
 `--with-release-notes` writes two versioned files per workspace after each workspace's `changelog.json` is produced:
 
-- `{workspacePath}/docs/README.v{version}.md` — the workspace `README.md` with release notes injected at the `<!-- section:release-notes -->` marker.
-- `{workspacePath}/docs/RELEASE_NOTES.v{version}.md` — the standalone release notes for this version.
+- `<workspacePath>/docs/README.v<version>.md` — the workspace `README.md` with release notes injected at the `<!-- section:release-notes -->` marker.
+- `<workspacePath>/docs/RELEASE_NOTES.v<version>.md` — the standalone release notes for this version.
 
 The publish-time inject-and-revert lifecycle is unchanged; previews are additive, deterministic, and safe to regenerate. When `changelogJson.enabled` is `false`, the flag logs a warning and skips preview generation. In dry-run mode, planned writes are logged and no files are created.
 
