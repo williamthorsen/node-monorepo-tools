@@ -260,14 +260,6 @@ var default_default = defineRdyKit({
           check: () => hasDevDependency("v11y-check"),
           fix: "pnpm add --save-dev v11y-check"
         },
-        {
-          name: "code-quality workflow does not use nmr prepush",
-          severity: "warn",
-          quiet: true,
-          skip: () => !fileExists(".github/workflows/code-quality.yaml") ? "no code-quality workflow" : false,
-          check: codeQualityWorkflowDoesNotUseNmrPrepush,
-          fix: 'Change the check-command in .github/workflows/code-quality.yaml from "pnpm exec nmr prepush" to "pnpm exec nmr ci", which runs the same checks without the audit that audit.yaml already runs'
-        },
         // -- Legacy script runner ------------------------------------------------
         {
           name: "scripts/run-workspace-script.ts does not exist",
@@ -369,11 +361,6 @@ function hasPrettierConfigKey(cwd) {
   } catch {
     return false;
   }
-}
-function codeQualityWorkflowDoesNotUseNmrPrepush() {
-  const content = readFile(".github/workflows/code-quality.yaml");
-  if (content === void 0) return true;
-  return !/check-command:\s*pnpm exec nmr prepush(\s|$)/.test(content);
 }
 function everyTestFileNamesItsTier(cwd = process.cwd()) {
   const untiered = findTestFiles(cwd).filter((path2) => !hasTierInfix(path2));
@@ -480,7 +467,6 @@ function vitestRootConfigBuildsOnSharedConfig(cwd = process.cwd()) {
   return checkRootVitestConfig("vitest.root.config", "defineRootVitestConfig", cwd);
 }
 export {
-  codeQualityWorkflowDoesNotUseNmrPrepush,
   default_default as default,
   everyTestFileNamesItsTier,
   hasSupportedEslintVersion,

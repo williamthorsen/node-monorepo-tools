@@ -14,14 +14,7 @@ import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import {
-  type CheckOutcome,
-  defineRdyChecklist,
-  defineRdyKit,
-  defineRdyStagedChecklist,
-  type RdyCheck,
-  type SkipResult,
-} from 'readyup';
+import { type CheckOutcome, defineRdyChecklist, defineRdyKit, type RdyCheck, type SkipResult } from 'readyup';
 import {
   discoverWorkspaces,
   fileContains,
@@ -49,33 +42,32 @@ const UNREACHABLE_ERROR_CODES = new Set([
   'ETIMEDOUT',
 ]);
 
-const repoChecklist = defineRdyStagedChecklist({
+const repoChecklist = defineRdyChecklist({
   name: 'repo',
-  preconditions: [
+  checks: [
     {
       name: 'publish.yaml exists',
+      skip: () => skipIfNothingPublishable(),
       check: () => fileExists('.github/workflows/publish.yaml'),
       fix: 'Run "release-kit init" to scaffold the publish workflow, or create .github/workflows/publish.yaml manually',
+      checks: [
+        {
+          name: 'id-token: write permission declared',
+          check: () => fileContains('.github/workflows/publish.yaml', /id-token:\s*write/),
+          fix: 'Add "permissions: { id-token: write, contents: read }" to .github/workflows/publish.yaml — required for OIDC-based npm authentication',
+        },
+        {
+          name: 'No legacy token references in workflow files',
+          quiet: true,
+          check: () => !hasTokenReferences(),
+          fix: 'Remove NPM_TOKEN/NODE_AUTH_TOKEN references from workflow files; OIDC auth replaces token-based auth',
+        },
+        {
+          name: 'Provenance setting matches repo visibility',
+          check: checkProvenanceMatchesVisibility,
+        },
+      ],
     },
-  ],
-  groups: [
-    [
-      {
-        name: 'id-token: write permission declared',
-        check: () => fileContains('.github/workflows/publish.yaml', /id-token:\s*write/),
-        fix: 'Add "permissions: { id-token: write, contents: read }" to .github/workflows/publish.yaml — required for OIDC-based npm authentication',
-      },
-      {
-        name: 'No legacy token references in workflow files',
-        quiet: true,
-        check: () => !hasTokenReferences(),
-        fix: 'Remove NPM_TOKEN/NODE_AUTH_TOKEN references from workflow files; OIDC auth replaces token-based auth',
-      },
-      {
-        name: 'Provenance setting matches repo visibility',
-        check: checkProvenanceMatchesVisibility,
-      },
-    ],
   ],
 });
 
@@ -101,22 +93,23 @@ export const packagesChecklist = defineRdyChecklist({
       check: () => discoverWorkspaces().length > 0,
       fix: 'Ensure pnpm-workspace.yaml lists package globs, or that a root package.json exists',
     },
+  ],
+  checks: [
     {
       name: 'npm session is usable',
+      skip: () => skipIfNothingPublishable(),
       check: () => {
         const auth = getCachedNpmAuthStatus();
         return auth.status === 'authenticated' ? { ok: true } : { ok: false, detail: auth.detail };
       },
-      get fix() {
-        return getCachedNpmAuthStatus().status === 'unreachable'
-          ? 'Restore access to the npm registry, then re-run; the trusted-publisher check queries it directly'
-          : 'Log in to npm: npm login';
+      // readyup reads `fix` before it consults `skip`, and again when it validates the kit, so a getter here would
+      // reach the registry on every run regardless of the skip. Per-outcome wording goes in the check's detail.
+      fix: 'Restore a usable npm session: log in with "npm login", or restore access to the registry, which the trusted-publisher check queries directly',
+      get checks(): RdyCheck[] {
+        return discoverWorkspaces().map((workspace) => buildWorkspaceCheck(workspace));
       },
     },
   ],
-  get checks(): RdyCheck[] {
-    return discoverWorkspaces().map((workspace) => buildWorkspaceCheck(workspace));
-  },
 });
 
 export default defineRdyKit({
@@ -495,6 +488,19 @@ function runNpmJson(command: string): NpmCommandResult {
     const stdout = isRecord(error) && typeof error.stdout === 'string' ? error.stdout : '';
     return { exitOk: false, stdout };
   }
+}
+
+/**
+ * Skip predicate: Returns the skip reason when the repo publishes nothing, else `false` (the checks should run).
+ *
+ * Wired into the check that parents each checklist's substantive work, so a repo that publishes nothing reports one
+ * line per checklist and reaches neither the npm registry nor the GitHub API.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function skipIfNothingPublishable(): SkipResult {
+  const publishable = discoverWorkspaces({ filter: (workspace) => workspace.isPackage });
+  return publishable.length > 0 ? false : 'no publishable packages';
 }
 
 /**

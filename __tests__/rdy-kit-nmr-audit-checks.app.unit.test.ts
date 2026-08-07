@@ -17,12 +17,6 @@ describe('nmr kit audit config migration checks against this repo', () => {
     expect(existsSync(join(repoRoot, '.audit-ci'))).toBe(false);
   });
 
-  it('passes: code-quality workflow does not use nmr prepush', () => {
-    const content = readRepoFile(workflowPath);
-
-    expect(content).not.toMatch(/check-command:\s*pnpm exec nmr prepush(\s|$)/);
-  });
-
   it('passes: code-quality workflow uses build && check:strict', () => {
     const content = readRepoFile(workflowPath);
 

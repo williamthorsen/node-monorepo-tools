@@ -61,6 +61,12 @@ function getMinVersion() {
 function hasPublishablePackages() {
   return discoverWorkspaces({ filter: (w) => w.isPackage }).length > 0;
 }
+var CONFIG_EXPORT_PATTERNS = [
+  /export\s+default\b/,
+  /export\s+(?:const|let|var)\s+config\b/,
+  /export\s*\{[^}]*\b(?:config|default)\b[^}]*\}/,
+  /export\s*\*/
+];
 var CLIFF_TEMPLATE_HASH = "93b72e0b1393cd6b1fe8e2a0e303cd326fd323435951b0493396b305af32d2ec";
 var COMMON_PRESET_HASH = "86f9e1db9000793a91168e8c6b5695311a422ee208121324549c068fe67fa184";
 var SYNC_LABELS_WORKFLOW_HASH = "d6e2403fb551d2d415f679125989c92760444eec887644565b2e05c9bf8f4c1e";
@@ -143,11 +149,60 @@ var default_default = defineRdyKit({
           ]
         },
         {
-          name: "releaseNotes config is consistent with changelogJson",
-          severity: "warn",
+          name: ".config/release-kit.config.ts exports a config",
+          severity: "error",
           skip: () => !fileExists(".config/release-kit.config.ts") ? "no release-kit config file" : false,
-          check: () => releaseNotesConfigIsConsistent(),
-          fix: "Either enable changelogJson.enabled or disable releaseNotes.shouldInjectIntoReadme"
+          check: () => configFileExportsConfig(),
+          fix: "Export the config from .config/release-kit.config.ts as a default export or as a named `config` export; release-kit resolves no other export",
+          checks: [
+            {
+              name: "releaseNotes config is consistent with changelogJson",
+              severity: "warn",
+              check: () => releaseNotesConfigIsConsistent(),
+              fix: "Either enable changelogJson.enabled or disable releaseNotes.shouldInjectIntoReadme"
+            },
+            {
+              name: ".config/release-kit.config.ts uses defineConfig",
+              severity: "recommend",
+              check: () => fileContains(".config/release-kit.config.ts", /defineConfig/),
+              fix: "Wrap your config export with defineConfig() from @williamthorsen/release-kit/config for type safety"
+            },
+            {
+              name: "releaseNotes.shouldInjectIntoReadme is true",
+              severity: "warn",
+              check: () => releaseNotesInjectsIntoReadme(),
+              fix: "Set releaseNotes.shouldInjectIntoReadme to true in .config/release-kit.config.ts",
+              checks: [
+                {
+                  name: "README contains release-notes section markers",
+                  severity: "warn",
+                  check: readmesHaveReleaseNotesMarkers,
+                  fix: "Add `<!-- section:release-notes -->` and `<!-- /section:release-notes -->` markers to each affected README"
+                }
+              ]
+            },
+            {
+              name: "repoLabels block declared in .config/release-kit.config.ts",
+              severity: "recommend",
+              check: () => fileContains(".config/release-kit.config.ts", /repoLabels/),
+              fix: "Run `release-kit sync-labels init` to seed a repoLabels block, then customize labels"
+            },
+            {
+              name: ".github/labels.yaml exists",
+              severity: "warn",
+              skip: () => !fileContains(".config/release-kit.config.ts", /repoLabels/) ? "no repoLabels config" : false,
+              check: () => fileExists(".github/labels.yaml"),
+              fix: "Run `release-kit sync-labels generate` to produce the labels file",
+              checks: [
+                {
+                  name: "labels.yaml has current common preset",
+                  severity: "warn",
+                  check: () => labelsHaveCurrentPresetHash("common", COMMON_PRESET_HASH),
+                  fix: "Run `release-kit sync-labels generate` to incorporate updated common labels"
+                }
+              ]
+            }
+          ]
         },
         {
           name: "config does not use removed releaseNotes.shouldCreateGithubRelease",
@@ -155,28 +210,6 @@ var default_default = defineRdyKit({
           quiet: true,
           check: () => fileDoesNotContain(".config/release-kit.config.ts", /shouldCreateGithubRelease/),
           fix: "Remove 'shouldCreateGithubRelease' from .config/release-kit.config.ts. Adoption of GitHub Releases is now signaled by installing the create-github-release workflow (see release-kit README for setup)."
-        },
-        {
-          name: ".config/release-kit.config.ts uses defineConfig",
-          severity: "recommend",
-          skip: () => !fileExists(".config/release-kit.config.ts") ? "no release-kit config file" : false,
-          check: () => fileContains(".config/release-kit.config.ts", /defineConfig/),
-          fix: "Wrap your config export with defineConfig() from @williamthorsen/release-kit/config for type safety"
-        },
-        {
-          name: "releaseNotes.shouldInjectIntoReadme is true",
-          severity: "warn",
-          skip: () => !fileExists(".config/release-kit.config.ts") ? "no release-kit config file" : false,
-          check: () => releaseNotesInjectsIntoReadme(),
-          fix: "Set releaseNotes.shouldInjectIntoReadme to true in .config/release-kit.config.ts",
-          checks: [
-            {
-              name: "README contains release-notes section markers",
-              severity: "warn",
-              check: readmesHaveReleaseNotesMarkers,
-              fix: "Add `<!-- section:release-notes -->` and `<!-- /section:release-notes -->` markers to each affected README"
-            }
-          ]
         },
         {
           name: "git-cliff not in devDependencies",
@@ -219,33 +252,16 @@ var default_default = defineRdyKit({
           quiet: true,
           check: () => !fileExists(".config/sync-labels.config.ts"),
           fix: "Move the labels into the repoLabels block of .config/release-kit.config.ts, then delete .config/sync-labels.config.ts"
-        },
-        {
-          name: "repoLabels block declared in .config/release-kit.config.ts",
-          severity: "recommend",
-          skip: () => !fileExists(".config/release-kit.config.ts") ? "no release-kit config file" : false,
-          check: () => fileContains(".config/release-kit.config.ts", /repoLabels/),
-          fix: "Run `release-kit sync-labels init` to seed a repoLabels block, then customize labels"
-        },
-        {
-          name: ".github/labels.yaml exists",
-          severity: "warn",
-          skip: () => !fileContains(".config/release-kit.config.ts", /repoLabels/) ? "no repoLabels config" : false,
-          check: () => fileExists(".github/labels.yaml"),
-          fix: "Run `release-kit sync-labels generate` to produce the labels file",
-          checks: [
-            {
-              name: "labels.yaml has current common preset",
-              severity: "warn",
-              check: () => labelsHaveCurrentPresetHash("common", COMMON_PRESET_HASH),
-              fix: "Run `release-kit sync-labels generate` to incorporate updated common labels"
-            }
-          ]
         }
       ]
     }
   ]
 });
+function configFileExportsConfig() {
+  const content = readFile(".config/release-kit.config.ts");
+  if (content === void 0) return false;
+  return CONFIG_EXPORT_PATTERNS.some((pattern) => pattern.test(content));
+}
 function labelsHaveCurrentPresetHash(presetName, expectedHash) {
   const content = readFile(".github/labels.yaml");
   if (content === void 0) return false;
@@ -292,6 +308,7 @@ export {
   RELEASE_WORKFLOW_HASH_MONOREPO,
   RELEASE_WORKFLOW_HASH_SINGLE,
   SYNC_LABELS_WORKFLOW_HASH,
+  configFileExportsConfig,
   default_default as default,
   readmeHasReleaseNotesMarkers,
   readmesHaveReleaseNotesMarkers
