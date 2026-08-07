@@ -337,7 +337,9 @@ describe('check-cache', () => {
       // A reason to run is not news; a line per invocation would bury the output of whatever did run.
       const stderr = new PassThrough();
       const chunks: Buffer[] = [];
-      stderr.on('data', (chunk: Buffer) => chunks.push(chunk));
+      stderr.on('data', (chunk: Buffer) => {
+        chunks.push(chunk);
+      });
 
       writeDebugNote('tree changed', {}, stderr);
 
@@ -347,7 +349,9 @@ describe('check-cache', () => {
     it('explains a gate decision when NMR_DEBUG is set', () => {
       const stderr = new PassThrough();
       const chunks: Buffer[] = [];
-      stderr.on('data', (chunk: Buffer) => chunks.push(chunk));
+      stderr.on('data', (chunk: Buffer) => {
+        chunks.push(chunk);
+      });
 
       writeDebugNote('tree changed', { NMR_DEBUG: '1' }, stderr);
 

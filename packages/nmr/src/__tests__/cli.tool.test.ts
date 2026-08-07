@@ -50,8 +50,12 @@ async function runNmr(
   const stderrChunks: Buffer[] = [];
   const stdoutStream = new PassThrough();
   const stderrStream = new PassThrough();
-  stdoutStream.on('data', (chunk: Buffer) => stdoutChunks.push(chunk));
-  stderrStream.on('data', (chunk: Buffer) => stderrChunks.push(chunk));
+  stdoutStream.on('data', (chunk: Buffer) => {
+    stdoutChunks.push(chunk);
+  });
+  stderrStream.on('data', (chunk: Buffer) => {
+    stderrChunks.push(chunk);
+  });
 
   const { exitCode } = await runCli({
     args,

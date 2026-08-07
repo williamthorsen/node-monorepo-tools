@@ -117,7 +117,9 @@ describe(resolveTazeCliPath, () => {
 function captureStream(): { stderr: PassThrough; read: () => string } {
   const chunks: string[] = [];
   const stderr = new PassThrough();
-  stderr.on('data', (chunk: Buffer) => chunks.push(chunk.toString()));
+  stderr.on('data', (chunk: Buffer) => {
+    chunks.push(chunk.toString());
+  });
 
   return { stderr, read: () => chunks.join('') };
 }
