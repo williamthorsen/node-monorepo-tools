@@ -358,8 +358,12 @@ describe('the check-result cache gate', () => {
     const stderrChunks: Buffer[] = [];
     const stdout = new PassThrough();
     const stderr = new PassThrough();
-    stdout.on('data', (chunk: Buffer) => stdoutChunks.push(chunk));
-    stderr.on('data', (chunk: Buffer) => stderrChunks.push(chunk));
+    stdout.on('data', (chunk: Buffer) => {
+      stdoutChunks.push(chunk);
+    });
+    stderr.on('data', (chunk: Buffer) => {
+      stderrChunks.push(chunk);
+    });
 
     const { exitCode } = await runCli({
       args: argString.split(/\s+/).filter((argument) => argument.length > 0),

@@ -169,6 +169,23 @@ describe(resolveScript, () => {
     expect(resolveScript('unknown', registry, undefined, false)).toBeUndefined();
   });
 
+  // The registry is a plain object, so `'constructor' in registry` is true and the inherited value is a function.
+  // Reaching the expansion step with one throws instead of reporting an unknown command.
+  it('returns undefined for a command named for an `Object.prototype` member', () => {
+    const registry = { test: 'vitest' };
+    expect(resolveScript('constructor', registry, undefined, false)).toBeUndefined();
+    expect(resolveScript('toString', registry, undefined, false)).toBeUndefined();
+  });
+
+  it('does not treat an `Object.prototype` member as a package.json override', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'package.json'),
+      JSON.stringify({ name: 'test-pkg', scripts: { test: 'jest' } }),
+    );
+
+    expect(resolveScript('constructor', { test: 'vitest' }, tmpDir, false)).toBeUndefined();
+  });
+
   it('uses package.json override when present (tier 3)', () => {
     fs.writeFileSync(
       path.join(tmpDir, 'package.json'),

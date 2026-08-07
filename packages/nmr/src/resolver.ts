@@ -152,7 +152,7 @@ export function resolveScript(
   // Check tier 3: per-package package.json overrides
   if (packageDir) {
     const pkgScripts = readPackageJsonScripts(packageDir);
-    if (pkgScripts && commandName in pkgScripts) {
+    if (pkgScripts && Object.hasOwn(pkgScripts, commandName)) {
       const override = pkgScripts[commandName];
       if (override !== undefined && !isSelfReferential(override, commandName)) {
         return { command: override, source: 'package' };
@@ -160,7 +160,11 @@ export function resolveScript(
     }
   }
 
-  // Check tiers 1+2 (already merged in the registry)
+  // Check tiers 1+2 (already merged in the registry). The registry is a plain object, so the own-key check is what
+  // keeps a command named for an `Object.prototype` member from resolving to the inherited value.
+  if (!Object.hasOwn(registry, commandName)) {
+    return undefined;
+  }
   const registryEntry = registry[commandName];
   if (registryEntry === undefined) {
     return undefined;

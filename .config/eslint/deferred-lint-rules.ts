@@ -1,10 +1,8 @@
 // `@williamthorsen/eslint-config-typescript` v6 added new unicorn rules, surfacing new violations in existing code.
 // Errors are downgraded to warnings here until a decision is made whether to remove the rule or fix the violations.
 export const deferredLintRules = {
-  'unicorn/no-computed-property-existence-check': 'warn',
   'unicorn/no-for-each': 'warn',
   'unicorn/no-incorrect-template-string-interpolation': 'warn',
-  'unicorn/no-return-array-push': 'warn',
   'unicorn/no-top-level-assignment-in-function': 'warn',
   'unicorn/no-unreadable-for-of-expression': 'warn',
   'unicorn/prefer-await': 'warn',

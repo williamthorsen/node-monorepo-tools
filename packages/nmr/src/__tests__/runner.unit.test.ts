@@ -106,7 +106,9 @@ describe(runCommand, () => {
     it('forwards captured stdout into a caller-supplied PassThrough stream', () => {
       const captured: Buffer[] = [];
       const stdoutStream = new PassThrough();
-      stdoutStream.on('data', (chunk: Buffer) => captured.push(chunk));
+      stdoutStream.on('data', (chunk: Buffer) => {
+        captured.push(chunk);
+      });
 
       mockedSpawnSync.mockReturnValue(spawnResult({ stdout: Buffer.from('hello world\n') }));
 
@@ -121,7 +123,9 @@ describe(runCommand, () => {
     it('forwards captured stderr into a caller-supplied PassThrough stream', () => {
       const captured: Buffer[] = [];
       const stderrStream = new PassThrough();
-      stderrStream.on('data', (chunk: Buffer) => captured.push(chunk));
+      stderrStream.on('data', (chunk: Buffer) => {
+        captured.push(chunk);
+      });
 
       mockedSpawnSync.mockReturnValue(spawnResult({ stderr: Buffer.from('warning\n') }));
 
@@ -177,7 +181,9 @@ describe(runCommand, () => {
     it('writes quiet-mode failure output to caller-supplied stderr, not process.stderr', () => {
       const captured: Buffer[] = [];
       const stderrStream = new PassThrough();
-      stderrStream.on('data', (chunk: Buffer) => captured.push(chunk));
+      stderrStream.on('data', (chunk: Buffer) => {
+        captured.push(chunk);
+      });
 
       const stdout = Buffer.from('lint errors\n');
       const stderr = Buffer.from('error details\n');

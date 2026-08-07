@@ -157,7 +157,12 @@ function buildConfig(
     },
   };
 
-  return layers.reduce<ViteUserConfig>((merged, { root }) => (root ? mergeConfig(merged, root) : merged), config);
+  let merged = config;
+  for (const { root } of layers) {
+    if (root) merged = mergeConfig(merged, root);
+  }
+
+  return merged;
 }
 
 /** One project's definition before it becomes a Vitest project config: the residual, then every named tier. */
@@ -200,7 +205,12 @@ function buildProjects(
       },
     };
 
-    return layers.reduce((merged, layer) => applyLayer(merged, layer, name), project);
+    let merged = project;
+    for (const layer of layers) {
+      merged = applyLayer(merged, layer, name);
+    }
+
+    return merged;
   });
 }
 
@@ -231,7 +241,8 @@ function assertKnownTiers(layers: readonly VitestConfigOptions[]): void {
   const known: readonly string[] = TIER_NAMES;
 
   for (const { tiers } of layers) {
-    for (const name of Object.keys(tiers ?? {})) {
+    const declaredTiers = Object.keys(tiers ?? {});
+    for (const name of declaredTiers) {
       if (!known.includes(name)) {
         throw new TypeError(`Unknown tier "${name}" in \`tiers\`. Valid tiers: ${TIER_NAMES.join(', ')}.`);
       }

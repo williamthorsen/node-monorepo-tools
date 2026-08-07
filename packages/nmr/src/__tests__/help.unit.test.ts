@@ -150,6 +150,23 @@ describe(generateHelp, () => {
       expect(help).not.toContain('postinstall');
     });
 
+    it('omits an override named for an `Object.prototype` member', () => {
+      // The registry is a plain object, so `'toString' in registry` is true and the override would be written in
+      // as though it were overriding a real command.
+      fs.writeFileSync(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({
+          name: 'pkg-prototype-name',
+          scripts: { toString: 'sentinel-prototype-value' },
+        }),
+      );
+
+      const help = generateHelp({}, tmpDir, false);
+      expect(help).not.toContain('toString');
+      expect(help).not.toContain('sentinel-prototype-value');
+      expect(help).not.toContain('* Overridden by package.json');
+    });
+
     it('inlines workspace overrides with `*` marker and footnote when useRoot=false', () => {
       fs.writeFileSync(
         path.join(tmpDir, 'package.json'),

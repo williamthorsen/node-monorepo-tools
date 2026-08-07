@@ -312,7 +312,9 @@ describe(defineRootVitestConfig, () => {
   });
 
   it('derives one sorted, posix-separated glob per workspace package', () => {
-    for (const project of getProjects(defineRootVitestConfig({ monorepoRoot: workspaceRoot }))) {
+    const projects = getProjects(defineRootVitestConfig({ monorepoRoot: workspaceRoot }));
+
+    for (const project of projects) {
       expect(project.test?.exclude).toStrictEqual([
         '**/node_modules/**',
         '**/.git/**',
@@ -326,7 +328,9 @@ describe(defineRootVitestConfig, () => {
   });
 
   it('pins every project to the monorepo root, so the globs resolve from the same base', () => {
-    for (const project of getProjects(defineRootVitestConfig({ monorepoRoot: workspaceRoot }))) {
+    const projects = getProjects(defineRootVitestConfig({ monorepoRoot: workspaceRoot }));
+
+    for (const project of projects) {
       expect(project.root).toBe(workspaceRoot);
     }
   });
@@ -356,7 +360,9 @@ describe(defineRootVitestConfig, () => {
   });
 
   it('excludes no packages when the manifest declares none, as in a single-package repo', () => {
-    for (const project of getProjects(defineRootVitestConfig({ monorepoRoot: singlePackageRoot }))) {
+    const projects = getProjects(defineRootVitestConfig({ monorepoRoot: singlePackageRoot }));
+
+    for (const project of projects) {
       expect(project.test?.exclude).toStrictEqual([
         '**/node_modules/**',
         '**/.git/**',
