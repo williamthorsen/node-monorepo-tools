@@ -139,6 +139,7 @@ describe('nmr CLI', () => {
     let tempRoot: string;
     let overridePkgDir: string;
     let noopPkgDir: string;
+    let prototypeNamePkgDir: string;
 
     beforeAll(() => {
       tempRoot = mkdtempSync(path.join(tmpdir(), 'nmr-test-'));
@@ -156,6 +157,13 @@ describe('nmr CLI', () => {
       writeFileSync(
         path.join(noopPkgDir, 'package.json'),
         JSON.stringify({ name: 'test-noop', scripts: { build: ':' } }),
+      );
+
+      prototypeNamePkgDir = path.join(tempRoot, 'packages', 'test-prototype-name');
+      mkdirSync(prototypeNamePkgDir, { recursive: true });
+      writeFileSync(
+        path.join(prototypeNamePkgDir, 'package.json'),
+        JSON.stringify({ name: 'test-prototype-name', scripts: { toString: 'echo ok' } }),
       );
     });
 
@@ -176,6 +184,15 @@ describe('nmr CLI', () => {
 
     it('suppresses override-script message in quiet mode', async () => {
       const { stdout } = await runNmr('--quiet build', { cwd: overridePkgDir });
+      expect(stdout).not.toContain('Using override script');
+    });
+
+    // The registry is a plain object, so an unguarded lookup of `toString` finds the inherited function rather
+    // than the `undefined` that suppresses the notice. Exit 0 is the indirect assertion that the script ran.
+    it('announces no override for a script named for an `Object.prototype` member', async () => {
+      const { stdout, exitCode } = await runNmr('toString', { cwd: prototypeNamePkgDir });
+
+      expect(exitCode).toBe(0);
       expect(stdout).not.toContain('Using override script');
     });
   });
