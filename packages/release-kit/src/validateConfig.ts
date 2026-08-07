@@ -67,7 +67,7 @@ function preprocessDeprecatedKeys(raw: unknown): { cleaned: unknown; deprecation
   const errors: string[] = [];
   const cleaned: Record<string, unknown> = { ...raw };
 
-  if (isRecord(cleaned['releaseNotes']) && 'shouldCreateGithubRelease' in cleaned['releaseNotes']) {
+  if (isRecord(cleaned['releaseNotes']) && Object.hasOwn(cleaned['releaseNotes'], 'shouldCreateGithubRelease')) {
     errors.push(
       'releaseNotes.shouldCreateGithubRelease is no longer supported. Adoption is now signaled by installing the create-github-release workflow. Remove this field from your config; see README for the updated workflow.',
     );
@@ -80,12 +80,12 @@ function preprocessDeprecatedKeys(raw: unknown): { cleaned: unknown; deprecation
     cleaned['workspaces'] = cleaned['workspaces'].map((ws: unknown, i: number): unknown => {
       if (!isRecord(ws)) return ws;
       const wsCopy = { ...ws };
-      if ('tagPrefix' in wsCopy) {
+      if (Object.hasOwn(wsCopy, 'tagPrefix')) {
         const dir = typeof wsCopy['dir'] === 'string' && wsCopy['dir'] !== '' ? wsCopy['dir'] : '<dir>';
         errors.push(`workspaces[${i}]: 'tagPrefix' is no longer supported; remove it to use the default '${dir}-v'`);
         delete wsCopy['tagPrefix'];
       }
-      if ('legacyTagPrefixes' in wsCopy) {
+      if (Object.hasOwn(wsCopy, 'legacyTagPrefixes')) {
         errors.push(
           `workspaces[${i}]: 'legacyTagPrefixes' is no longer supported; use 'legacyIdentities: [{ name, tagPrefix }, ...]' instead`,
         );
