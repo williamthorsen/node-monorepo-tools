@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 /* eslint n/hashbang: off, n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
+// The command dispatch is a flat sequence of `process.exit(0)` guards, which the rule reads as
+// fall-through; the dispatch goes away with #445.
+/* eslint unicorn/prefer-else-if: "off" */
 
 import { parseArgsOrExit, readPackageVersion, reportError } from '@williamthorsen/nmr-core';
 
@@ -288,7 +291,7 @@ if (command === '--version' || command === '-V') {
   process.exit(0);
 }
 
-if (command === '--help' || command === '-h' || command === undefined) {
+if (command === undefined || ['--help', '-h'].includes(command)) {
   showUsage();
   process.exit(0);
 }
@@ -393,7 +396,7 @@ if (command === 'sync-labels') {
   const subcommand = flags[0];
   const subflags = flags.slice(1);
 
-  if (subcommand === '--help' || subcommand === '-h' || subcommand === undefined) {
+  if (subcommand === undefined || ['--help', '-h'].includes(subcommand)) {
     showSyncLabelsHelp();
     process.exit(0);
   }
@@ -453,7 +456,7 @@ if (command === 'overrides') {
   const subcommand = flags[0];
   const subflags = flags.slice(1);
 
-  if (subcommand === '--help' || subcommand === '-h' || subcommand === undefined) {
+  if (subcommand === undefined || ['--help', '-h'].includes(subcommand)) {
     showOverridesHelp();
     process.exit(0);
   }
@@ -485,7 +488,7 @@ if (command === 'work-types') {
   const subcommand = flags[0];
   const subflags = flags.slice(1);
 
-  if (subcommand === '--help' || subcommand === '-h' || subcommand === undefined) {
+  if (subcommand === undefined || ['--help', '-h'].includes(subcommand)) {
     showWorkTypesHelp();
     process.exit(0);
   }
