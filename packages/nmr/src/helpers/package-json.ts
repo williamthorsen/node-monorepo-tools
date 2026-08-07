@@ -29,7 +29,8 @@ export function readPackageJson(dir: string): PackageJson {
   if (typeof parsed['packageManager'] === 'string') pkg.packageManager = parsed['packageManager'];
   if (isObject(parsed['scripts'])) {
     const scripts: Record<string, string> = {};
-    for (const [key, val] of Object.entries(parsed['scripts'])) {
+    const scriptEntries = Object.entries(parsed['scripts']);
+    for (const [key, val] of scriptEntries) {
       if (typeof val === 'string') scripts[key] = val;
     }
     pkg.scripts = scripts;
@@ -38,7 +39,8 @@ export function readPackageJson(dir: string): PackageJson {
     const pnpm = parsed['pnpm'];
     if (isObject(pnpm['overrides'])) {
       const overrides: Record<string, string> = {};
-      for (const [key, val] of Object.entries(pnpm['overrides'])) {
+      const overrideEntries = Object.entries(pnpm['overrides']);
+      for (const [key, val] of overrideEntries) {
         if (typeof val === 'string') overrides[key] = val;
       }
       pkg.pnpm = { overrides };
