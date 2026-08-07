@@ -42,7 +42,7 @@ export function resolveLabels(config: RepoLabelsConfig): LabelDefinition[] {
     }
   }
 
-  return sortLabels([...resolved.values()]);
+  return sortLabels(resolved.values().toArray());
 }
 
 // region | Helpers

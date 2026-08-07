@@ -14,20 +14,21 @@ vi.mock(import('../init/detectRepoType.ts'), () => ({
 import { showTagPrefixesCommand } from '../showTagPrefixesCommand.ts';
 
 /** Capture stdout output across a command invocation. */
-function captureStdout(run: () => Promise<number>): Promise<{ exitCode: number; output: string }> {
+async function captureStdout(run: () => Promise<number>): Promise<{ exitCode: number; output: string }> {
   const chunks: string[] = [];
   const originalWrite = process.stdout.write.bind(process.stdout);
   const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
     chunks.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8'));
     return true;
   });
-  return run()
-    .then((exitCode) => ({ exitCode, output: chunks.join('') }))
-    .finally(() => {
-      writeSpy.mockRestore();
-      // Silence unused-variable warning for the bound reference.
-      void originalWrite;
-    });
+  try {
+    const exitCode = await run();
+    return { exitCode, output: chunks.join('') };
+  } finally {
+    writeSpy.mockRestore();
+    // Silence unused-variable warning for the bound reference.
+    void originalWrite;
+  }
 }
 
 describe(showTagPrefixesCommand, () => {

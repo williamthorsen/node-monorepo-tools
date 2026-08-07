@@ -177,7 +177,7 @@ function firstCacheRefreshCallIndex(): number {
  * work for ordering assertions.
  */
 function firstCliffWorkCallIndex(): number {
-  return mockBuildChangelogEntries.mock.invocationCallOrder[0] ?? Number.NEGATIVE_INFINITY;
+  return mockBuildChangelogEntries.mock.invocationCallOrder[0] ?? -Infinity;
 }
 
 describe(releasePrepareMono, () => {
@@ -2526,8 +2526,7 @@ describe(releasePrepareMono, () => {
         if (args[0] === 'describe') {
           if (args.some((a) => a.includes('arrays-v'))) return 'arrays-v1.0.0\n';
           if (args.some((a) => a.includes('core-v'))) return 'core-v1.0.0\n';
-        }
-        if (args[0] === 'log') {
+        } else if (args[0] === 'log') {
           if (args.includes('packages/arrays/**')) return logLine('internal!: refactor cache', 'def5678');
           if (args.includes('packages/core/**')) return logLine('feat: add helper', 'aaa1111');
         }
