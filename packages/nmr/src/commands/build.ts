@@ -505,16 +505,26 @@ function resolveExtendsTarget(extendsEntry: string, fromConfigPath: string): str
     throw new Error(`nmr-compile: ${fromConfigPath} extends '${extendsEntry}', which does not exist.`);
   }
 
+  // A package that ships no `exports` map is reachable only at its `tsconfig.json` path, which is what
+  // TypeScript's own config resolver falls back to.
+  const resolved =
+    resolvePackageSpecifier(extendsEntry, fromConfigPath) ??
+    resolvePackageSpecifier(`${extendsEntry}/tsconfig.json`, fromConfigPath);
+  if (resolved === undefined) {
+    throw new Error(`nmr-compile: ${fromConfigPath} extends '${extendsEntry}', which does not resolve to a file.`);
+  }
+  return resolved;
+}
+
+/** Resolves a package specifier to a file through Node module resolution, or `undefined` when it does not resolve. */
+function resolvePackageSpecifier(specifier: string, fromConfigPath: string): string | undefined {
   const { resolvedModule } = ts.resolveModuleName(
-    extendsEntry,
+    specifier,
     fromConfigPath,
     { moduleResolution: ts.ModuleResolutionKind.NodeNext, resolveJsonModule: true },
     ts.sys,
   );
-  if (resolvedModule === undefined) {
-    throw new Error(`nmr-compile: ${fromConfigPath} extends '${extendsEntry}', which does not resolve to a file.`);
-  }
-  return resolvedModule.resolvedFileName;
+  return resolvedModule?.resolvedFileName;
 }
 
 function isRelativeSpecifier(specifier: string): boolean {
