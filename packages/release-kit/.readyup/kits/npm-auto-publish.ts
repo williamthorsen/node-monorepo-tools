@@ -83,7 +83,7 @@ export const packagesChecklist = defineRdyChecklist({
       name: 'packageManager field starts with "pnpm"',
       check: () => {
         const rootPkg = readJsonFile('package.json');
-        const pm = typeof rootPkg?.packageManager === 'string' ? rootPkg.packageManager : '';
+        const pm = typeof rootPkg?.['packageManager'] === 'string' ? rootPkg['packageManager'] : '';
         return pm.startsWith('pnpm');
       },
       fix: 'Set "packageManager": "pnpm@..." in root package.json',
@@ -127,7 +127,7 @@ export function buildWorkspaceCheck(workspace: Workspace): RdyCheck {
   const children: RdyCheck[] = [
     {
       name: 'repository field exists',
-      check: () => workspace.packageJson.repository !== undefined && workspace.packageJson.repository !== null,
+      check: () => workspace.packageJson['repository'] !== undefined && workspace.packageJson['repository'] !== null,
       fix: `Add a "repository" field to ${pkgJsonPath} pointing to the GitHub repo`,
     },
   ];
@@ -161,7 +161,7 @@ export function buildWorkspaceCheck(workspace: Workspace): RdyCheck {
     {
       name: 'files field exists',
       severity: 'warn',
-      check: () => workspace.packageJson.files !== undefined,
+      check: () => workspace.packageJson['files'] !== undefined,
       fix: `Add a "files" field to ${pkgJsonPath} to control which files are included in the published tarball`,
     },
   );
@@ -430,11 +430,11 @@ function readNpmError(stdout: string): NpmErrorPayload | undefined {
     return undefined;
   }
 
-  if (!isRecord(parsed) || !isRecord(parsed.error) || typeof parsed.error.code !== 'string') {
+  if (!isRecord(parsed) || !isRecord(parsed['error']) || typeof parsed['error']['code'] !== 'string') {
     return undefined;
   }
 
-  const { code, summary } = parsed.error;
+  const { code, summary } = parsed['error'];
   return { code, summary: typeof summary === 'string' ? summary : '' };
 }
 
@@ -485,7 +485,7 @@ function runNpmJson(command: string): NpmCommandResult {
   try {
     return { exitOk: true, stdout: execSync(command, { encoding: 'utf8', stdio: 'pipe' }) };
   } catch (error) {
-    const stdout = isRecord(error) && typeof error.stdout === 'string' ? error.stdout : '';
+    const stdout = isRecord(error) && typeof error['stdout'] === 'string' ? error['stdout'] : '';
     return { exitOk: false, stdout };
   }
 }

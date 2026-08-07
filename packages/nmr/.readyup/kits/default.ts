@@ -335,7 +335,7 @@ function hasPrettierConfigKey(cwd: string): boolean {
 
   try {
     const parsed: unknown = JSON.parse(manifest);
-    return isRecord(parsed) && parsed.prettier !== undefined;
+    return isRecord(parsed) && parsed['prettier'] !== undefined;
   } catch {
     return false;
   }
@@ -386,10 +386,10 @@ function getMinVersion(): string {
   // Defer the call into a function so module load does not invoke the runtime stub (which throws):
   // This keeps the module importable in tests that bypass the compile step.
   const picked = pickJson('../../package.json', ['version']);
-  if (typeof picked.version !== 'string') {
+  if (typeof picked['version'] !== 'string') {
     throw new TypeError("nmr/package.json: 'version' must be a string");
   }
-  return picked.version;
+  return picked['version'];
 }
 
 export function hasSupportedEslintVersion(): boolean {
@@ -454,7 +454,7 @@ export function noReExportOnlyVitestConfigs(cwd: string = process.cwd()): boolea
 function noRedundantRootScripts(): boolean | CheckOutcome {
   const pkg = readPackageJson();
   if (!pkg) return true;
-  const scripts = pkg.scripts;
+  const scripts = pkg['scripts'];
   if (!isRecord(scripts)) return true;
 
   const builtInNames = Object.keys(getDefaultRootScripts());

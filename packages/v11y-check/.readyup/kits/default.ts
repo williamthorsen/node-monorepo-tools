@@ -84,10 +84,10 @@ function getMinVersion(): string {
   // Defer the call into a function so module load does not invoke the runtime stub (which throws):
   // This keeps the module importable in tests that bypass the compile step.
   const picked = pickJson('../../package.json', ['version']);
-  if (typeof picked.version !== 'string') {
+  if (typeof picked['version'] !== 'string') {
     throw new TypeError("v11y-check/package.json: 'version' must be a string");
   }
-  return picked.version;
+  return picked['version'];
 }
 
 /** Checks that no legacy `.audit-ci/` directory exists. */
