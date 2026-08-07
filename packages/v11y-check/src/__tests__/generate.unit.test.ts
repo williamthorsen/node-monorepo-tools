@@ -18,16 +18,20 @@ describe(buildFlatConfig, () => {
     };
 
     const flat = buildFlatConfig(scopeConfig, 'prod');
-    expect(flat.allowlist).toStrictEqual(['GHSA-1234', 'GHSA-5678']);
-    expect(flat['moderate']).toBe(true);
-    expect(flat['show-not-found']).toBe(true);
+    expect(flat).toMatchObject({
+      allowlist: ['GHSA-1234', 'GHSA-5678'],
+      moderate: true,
+      'show-not-found': true,
+    });
   });
 
   it('produces an empty allowlist when the source has no entries', () => {
     const scopeConfig: ScopeConfig = { allowlist: [], severityThreshold: 'high' };
     const flat = buildFlatConfig(scopeConfig, 'dev');
-    expect(flat.allowlist).toStrictEqual([]);
-    expect(flat['high']).toBe(true);
+    expect(flat).toMatchObject({
+      allowlist: [],
+      high: true,
+    });
   });
 
   it('omits severity keys when severityThreshold is undefined', () => {
