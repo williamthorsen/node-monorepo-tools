@@ -198,7 +198,7 @@ function wrapParagraph(paragraph: string, columns: number): string[] {
       lines.push(current);
       current = word;
     } else {
-      current = `${current} ${word}`;
+      current += ` ${word}`;
     }
   }
   if (current !== '') lines.push(current);

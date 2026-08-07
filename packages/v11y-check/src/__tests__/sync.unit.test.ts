@@ -270,4 +270,17 @@ describe(syncAllowlist, () => {
     expect(written).toHaveProperty('dev.allowlist[0].id', '1001');
     expect(written).toHaveProperty('dev.severityThreshold', 'high');
   });
+
+  it('reports a failed config write with the underlying error as the cause', async () => {
+    const config: V11yCheckConfig = {
+      dev: { allowlist: [], severityThreshold: 'high' },
+      prod: { allowlist: [] },
+    };
+    const configPath = path.join(tempDir, 'absent-directory', 'config.json');
+
+    const promise = syncAllowlist(config, 'dev', [], configPath, fixedDate);
+
+    await expect(promise).rejects.toThrow(`Failed to write config file '${configPath}'`);
+    await expect(promise).rejects.toHaveProperty('cause.code', 'ENOENT');
+  });
 });

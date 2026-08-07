@@ -150,7 +150,7 @@ export async function syncAllowlist(
     await writeFile(configFilePath, serializeConfig(updatedConfig), 'utf8');
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to write config file '${configFilePath}': ${message}`);
+    throw new Error(`Failed to write config file '${configFilePath}': ${message}`, { cause: error });
   }
 
   return {
