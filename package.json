@@ -29,10 +29,10 @@
     "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "@vitest/coverage-v8": "4.1.10",
     "@vitest/eslint-plugin": "1.6.24",
-    "@williamthorsen/eslint-config-typescript": "8.5.0",
+    "@williamthorsen/eslint-config-typescript": "8.6.0",
     "@williamthorsen/nmr": "workspace:*",
     "@williamthorsen/release-kit": "workspace:*",
-    "@williamthorsen/strict-lint": "9.3.0",
+    "@williamthorsen/strict-lint": "9.4.0",
     "@williamthorsen/toolbelt.objects": "3.2.10",
     "codeassembly": "0.6.0",
     "eslint": "10.8.0",
@@ -47,7 +47,7 @@
     "vitest": "4.1.10",
     "zod": "4.4.3"
   },
-  "packageManager": "pnpm@11.18.0",
+  "packageManager": "pnpm@11.19.0",
   "engines": {
     "node": ">=24.16.0"
   }
