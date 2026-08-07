@@ -236,18 +236,14 @@ function describeTrustRelationships(relationships) {
     return `${type} ${repository} (${file})`;
   }).join(", ");
 }
-var cachedNpmAuthStatus;
-function getCachedNpmAuthStatus() {
-  cachedNpmAuthStatus ??= classifyNpmAuth(runNpmJson("npm whoami --json"));
-  return cachedNpmAuthStatus;
-}
-var cachedOwnerRepo;
-function getCachedOwnerRepo() {
-  if (cachedOwnerRepo === void 0) {
-    cachedOwnerRepo = getOwnerRepo();
-  }
-  return cachedOwnerRepo;
-}
+var getCachedNpmAuthStatus = /* @__PURE__ */ (() => {
+  let cached;
+  return () => cached ??= classifyNpmAuth(runNpmJson("npm whoami --json"));
+})();
+var getCachedOwnerRepo = /* @__PURE__ */ (() => {
+  let cached;
+  return () => cached ??= getOwnerRepo();
+})();
 function getOwnerRepo() {
   const url = execSync("git remote get-url origin", {
     encoding: "utf8"

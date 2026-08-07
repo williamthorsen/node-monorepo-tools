@@ -21,8 +21,8 @@
       "path": "kits/npm-auto-publish.js",
       "readyupVersion": "0.24.0",
       "source": "kits/npm-auto-publish.ts",
-      "sourceHash": "67a5f97b",
-      "targetHash": "9a12aa7d"
+      "sourceHash": "ac484613",
+      "targetHash": "f790e7d5"
     }
   ]
 }
