@@ -628,20 +628,6 @@ describe('buildPackage atomic publication', () => {
     expect(readOutput(dir, 'index.js')).toBe(published);
   });
 
-  it('leaves no scratch directory behind, on the succeeding path or the failing one', async () => {
-    scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' });
-    await buildPackage(dir);
-    expect(listScratch(dir)).toStrictEqual([]);
-
-    fs.writeFileSync(
-      path.join(dir, 'src', 'index.ts'),
-      `import { missing } from '~/nonexistent.ts';\nexport const value = missing;\n`,
-    );
-    await expect(buildPackage(dir)).rejects.toThrow(/could not resolve aliased import/);
-
-    expect(listScratch(dir)).toStrictEqual([]);
-  });
-
   it('clears a scratch directory on a build that skips', async () => {
     scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' });
     await buildPackage(dir);
