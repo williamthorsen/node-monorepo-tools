@@ -32,18 +32,20 @@ describe('published tarball', () => {
 // region | Helpers
 
 /**
- * Returns the package-root-relative paths `pnpm pack` would publish. `--dry-run` writes no tarball but still
- * runs `prepare`, which the compiler's content-hash cache reduces to a no-op on an already-built tree.
+ * Returns the package-root-relative paths `pnpm pack` would publish. Scripts are skipped so `prepare` does not
+ * compile the package: nothing asserted here reads `dist`, and building it would rewrite the working tree as a
+ * side effect of a question about `files`. `pnpm pack` rejects a bare `--ignore-scripts`, hence the `--config`
+ * form. An assertion that does read `dist` would have to restore the build, because the list then reports
+ * whatever output happens to be on disk.
  */
 function listPackedPaths(): Array<string> {
-  const stdout = execFileSync('pnpm', ['pack', '--dry-run', '--json'], {
+  const stdout = execFileSync('pnpm', ['pack', '--dry-run', '--json', '--config.ignore-scripts=true'], {
     cwd: packageDir,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'ignore'],
   });
 
-  // The build's own progress line precedes the JSON on stdout, so parse from the first brace.
-  const parsed: unknown = JSON.parse(stdout.slice(stdout.indexOf('{')));
+  const parsed: unknown = JSON.parse(stdout);
   if (!isPackReport(parsed)) {
     throw new Error(`pnpm pack --json returned no file list: ${stdout}`);
   }

@@ -4,10 +4,10 @@ import os from 'node:os';
 import path from 'node:path';
 
 import * as ts from 'typescript';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, assert, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildPackage } from '../build.ts';
-import { resolveBuildCachePath } from '../build-output.ts';
+import { resolveBuildCachePath, resolveScratchDirs } from '../build-output.ts';
 
 // Default the compiler API to the real implementation so the regression suite compiles for real;
 // the cache-integrity tests override createProgram per-call to simulate a failing or transient compile.
@@ -583,6 +583,101 @@ describe('buildPackage output-directory ownership', () => {
   });
 });
 
+describe('buildPackage atomic publication', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-build-atomic-'));
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+    vi.mocked(console.info).mockRestore();
+    vi.mocked(ts.createProgram).mockClear();
+  });
+
+  it('leaves the previous output intact when the specifier rewrite fails', async () => {
+    scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' });
+    await buildPackage(dir);
+    const published = readOutput(dir, 'index.js');
+
+    // An alias with no target survives the emit and fails in the rewrite pass, which is the furthest point
+    // a build can fail: everything the publish needs has already been produced.
+    fs.writeFileSync(
+      path.join(dir, 'src', 'index.ts'),
+      `import { missing } from '~/nonexistent.ts';\nexport const value = missing;\n`,
+    );
+    await expect(buildPackage(dir)).rejects.toThrow(/could not resolve aliased import/);
+
+    expect(readOutput(dir, 'index.js')).toBe(published);
+  });
+
+  it('leaves the previous output intact when writing the staged output fails', async () => {
+    scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' });
+    await buildPackage(dir);
+    const published = readOutput(dir, 'index.js');
+
+    fs.writeFileSync(path.join(dir, 'src', 'index.ts'), 'export const value = 2;\n');
+    const writeFile = vi.spyOn(ts.sys, 'writeFile').mockImplementationOnce(() => {
+      throw new Error('ENOSPC: no space left on device');
+    });
+    await expect(buildPackage(dir)).rejects.toThrow('ENOSPC');
+    writeFile.mockRestore();
+
+    expect(readOutput(dir, 'index.js')).toBe(published);
+  });
+
+  it('leaves the previous output intact when the emit reports itself skipped', async () => {
+    scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' });
+    await buildPackage(dir);
+    const published = readOutput(dir, 'index.js');
+
+    fs.writeFileSync(path.join(dir, 'src', 'index.ts'), 'export const value = 2;\n');
+    const compile = vi.mocked(ts.createProgram).getMockImplementation();
+    assert(compile !== undefined);
+    // A skipped emit is the emit-path failure that lands after the program is complete.
+    vi.mocked(ts.createProgram).mockImplementationOnce((...args) => ({
+      ...compile(...args),
+      emit: () => ({ diagnostics: [], emitSkipped: true }),
+    }));
+    await expect(buildPackage(dir)).rejects.toThrow(/emit failed/);
+
+    expect(readOutput(dir, 'index.js')).toBe(published);
+  });
+
+  it('clears a scratch directory on a build that skips', async () => {
+    scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' });
+    await buildPackage(dir);
+
+    const { staging } = resolveScratchDirs(path.join(dir, 'dist', 'esm'));
+    fs.mkdirSync(staging, { recursive: true });
+
+    // Inputs are unchanged, so this run never reaches the emit -- the one path with no other sweeper.
+    await buildPackage(dir);
+
+    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('⏭️'));
+    expect(listScratch(dir)).toStrictEqual([]);
+  });
+
+  it('clears a scratch directory left behind by a killed run', async () => {
+    scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' });
+    await buildPackage(dir);
+
+    const { staging } = resolveScratchDirs(path.join(dir, 'dist', 'esm'));
+    fs.mkdirSync(staging, { recursive: true });
+    fs.writeFileSync(path.join(staging, 'orphan.js'), 'export const orphan = 1;\n');
+
+    fs.writeFileSync(path.join(dir, 'src', 'index.ts'), 'export const value = 2;\n');
+    await buildPackage(dir);
+
+    // The orphan is gone rather than published: a fixed scratch name is cleared before use, so nothing
+    // accumulates and no sweep has to tell an orphan from a directory another build is still writing.
+    expect(listScratch(dir)).toStrictEqual([]);
+    expect(listEmitted(dir)).toStrictEqual(['index.d.ts', 'index.js']);
+  });
+});
+
 describe('buildPackage caching', () => {
   let dir: string;
 
@@ -852,6 +947,16 @@ function listEmitted(dir: string): string[] {
     .filter((entry) => fs.statSync(path.join(outdir, entry)).isFile())
     .map((entry) => entry.split(path.sep).join('/'))
     .toSorted();
+}
+
+/** Returns the names of the scratch directories still sitting beside the package's emit directory. */
+function listScratch(dir: string): string[] {
+  // Listed rather than reached through `Object.values`, whose fixed-key overload yields `any[]`.
+  const { previous, staging } = resolveScratchDirs(path.join(dir, 'dist', 'esm'));
+
+  return [previous, staging]
+    .filter((scratchDir) => fs.existsSync(scratchDir))
+    .map((scratchDir) => path.basename(scratchDir));
 }
 
 // endregion | Helpers
