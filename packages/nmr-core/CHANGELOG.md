@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.9.3 — 2026-08-08
+
+### ⚙️ Tooling
+
+- Migrate to the shared tsconfig baseline (#626)
+
+  Adopts `@williamthorsen/tsconfig` as the standard TypeScript configuration for this repo, replacing the previous hand-maintained copy. Reading a property through an index signature now requires bracket notation or a type that declares the property. The `nmr` build now fails on a base TypeScript config it cannot resolve, rather than building without it, and it now resolves a base config named by package name alone.
+
 ## 0.9.1 — 2026-08-04
 
 ### 🐛 Bug fixes

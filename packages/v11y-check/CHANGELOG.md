@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.15.0 — 2026-08-08
+
+### 🎉 Features
+
+- Stop reporting absence checks that pass (#610)
+
+  A ReadyUp check that checks for a problem (such as an unwanted file or a stale config reference) now stays silent unless it finds one. The `nmr`, `release-kit`, and `v11y-check` ReadyUp kits previously printed a line for every such check on every run.
+
+### 🐛 Bug fixes
+
+- Publish build output atomically so a failed build cannot destroy it (#631)
+
+  Fixes an issue where a failed or still-running `nmr build` could leave a package with no build output at all, breaking the tooling that a subsequent build depends on. Separately, the error reported when a package's build output is missing now names the correct recovery command.
+
+### ⚙️ Tooling
+
+- Fix lint in v11y-check and clear four deferred lint rules (#620)
+
+  Fixes deferred lint violations in v11y-check package and removes the cap on the severity of four associated rules when a strict-lint check is run.
+
+- Migrate to the shared tsconfig baseline (#626)
+
+  Adopts `@williamthorsen/tsconfig` as the standard TypeScript configuration for this repo, replacing the previous hand-maintained copy. Reading a property through an index signature now requires bracket notation or a type that declares the property. The `nmr` build now fails on a base TypeScript config it cannot resolve, rather than building without it, and it now resolves a base config named by package name alone.
+
 ## 0.14.2 — 2026-08-05
 
 ### 🧪 Tests

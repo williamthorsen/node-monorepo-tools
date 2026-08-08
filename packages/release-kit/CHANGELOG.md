@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## 10.3.0 — 2026-08-08
+
+### 🎉 Features
+
+- Stop reporting absence checks that pass (#610)
+
+  A ReadyUp check that checks for a problem (such as an unwanted file or a stale config reference) now stays silent unless it finds one. The `nmr`, `release-kit`, and `v11y-check` ReadyUp kits previously printed a line for every such check on every run.
+
+- Stop reporting non-issues in the readyup kits (#613)
+
+  Modifies the `release-kit` and `nmr` ReadyUp kits to avoid verbose reporting when an initial check determines that further checks aren't applicable. In particular, a repo with no `release-kit` config file gets a single line in the `release-kit` report, and a repo that publishes nothing now bypasses the `npm-auto-publish` kit instead of failing it.
+
+### 🐛 Bug fixes
+
+- Publish build output atomically so a failed build cannot destroy it (#631)
+
+  Fixes an issue where a failed or still-running `nmr build` could leave a package with no build output at all, breaking the tooling that a subsequent build depends on. Separately, the error reported when a package's build output is missing now names the correct recovery command.
+
+### ♻️ Refactoring
+
+- Retire the deferred-lint-rule list and enforce its rules (#628)
+
+  Errors that `release-kit` rethrows now carry the original error as their cause, previously available only as message text. Help text and documentation for `--with-release-notes` now use the same placeholder notation for its output paths.
+
+  All violations of lint rules in the `release-kit` project are now cleared, and the list of deferred lint rules is retired, restoring associated rules to a max severity of "error" during strict linting.
+
+### ⚙️ Tooling
+
+- Migrate to the shared tsconfig baseline (#626)
+
+  Adopts `@williamthorsen/tsconfig` as the standard TypeScript configuration for this repo, replacing the previous hand-maintained copy. Reading a property through an index signature now requires bracket notation or a type that declares the property. The `nmr` build now fails on a base TypeScript config it cannot resolve, rather than building without it, and it now resolves a base config named by package name alone.
+
 ## 10.2.2 — 2026-08-05
 
 ### 🐛 Bug fixes

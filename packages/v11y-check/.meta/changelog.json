@@ -1,5 +1,49 @@
 [
   {
+    "version": "0.15.0",
+    "date": "2026-08-08",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Stop reporting absence checks that pass (#610)",
+            "body": "A ReadyUp check that checks for a problem (such as an unwanted file or a stale config reference) now stays silent unless it finds one. The `nmr`, `release-kit`, and `v11y-check` ReadyUp kits previously printed a line for every such check on every run.",
+            "hash": "aa4cbae89dfe4f6268ca4de318213fc3f610aba0"
+          }
+        ]
+      },
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Publish build output atomically so a failed build cannot destroy it (#631)",
+            "body": "Fixes an issue where a failed or still-running `nmr build` could leave a package with no build output at all, breaking the tooling that a subsequent build depends on. Separately, the error reported when a package's build output is missing now names the correct recovery command.",
+            "hash": "79ea249c38dfa265c4be6da57f8a340e54e578b8"
+          }
+        ]
+      },
+      {
+        "title": "⚙️ Tooling",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Fix lint in v11y-check and clear four deferred lint rules (#620)",
+            "body": "Fixes deferred lint violations in v11y-check package and removes the cap on the severity of four associated rules when a strict-lint check is run.",
+            "hash": "b761f0698962b2bd4acbd0ce9976aebba7244624"
+          },
+          {
+            "description": "Migrate to the shared tsconfig baseline (#626)",
+            "body": "Adopts `@williamthorsen/tsconfig` as the standard TypeScript configuration for this repo, replacing the previous hand-maintained copy. Reading a property through an index signature now requires bracket notation or a type that declares the property. The `nmr` build now fails on a base TypeScript config it cannot resolve, rather than building without it, and it now resolves a base config named by package name alone.",
+            "hash": "890a67c84b99d7efa663f8e64cf0beb89168581b"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.14.2",
     "date": "2026-08-05",
     "sections": [
