@@ -78,7 +78,7 @@
   },
   "devDependencies": {
     "prettier": "3.9.6",
-    "readyup": "0.24.0",
+    "readyup": "0.26.0",
     "tinyglobby": "0.2.17",
     "vitest": "4.1.10"
   },
