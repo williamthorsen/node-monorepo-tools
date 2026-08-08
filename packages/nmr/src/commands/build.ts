@@ -94,13 +94,8 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
   if (!changed) {
     // The only path that never reaches `emitPackage`, and so the only one where a scratch directory left by a
     // run killed mid-publish survives -- as far as a `prepublishOnly` build, which skips on unchanged inputs
-    // and would pack it. Tidying up must not fail a build that is otherwise a no-op, and `rm` still throws
-    // when it races another build removing the same tree.
-    try {
-      await removeScratchDirs(resolveScratchDirs(emitDir));
-    } catch {
-      // A scratch directory that outlives this run is inert; the next build that emits clears it.
-    }
+    // and would pack it.
+    await discardScratchDirs(resolveScratchDirs(emitDir));
     return;
   }
 
@@ -177,8 +172,8 @@ export function resolveTsconfigChain(packageDir: string, configFileName = 'tscon
  * buffered in memory, written to a staging directory, and swapped into place by rename.
  *
  * Every throw therefore precedes the first rename, so a failed build leaves the previous output exactly as it
- * was, and a process reading the output directory meanwhile sees the previous build or the new one -- never a
- * directory mid-write. Throws with formatted diagnostics when the program cannot be emitted.
+ * was. The output directory is never observed mid-write: it holds the previous build or the new one, and is
+ * absent only between the two renames. Throws with formatted diagnostics when the program cannot be emitted.
  */
 async function emitPackage(packageDir: string, entryPoints: string[], outdir: string): Promise<void> {
   const compilerOptions = synthesizeCompilerOptions(packageDir, outdir);
@@ -219,6 +214,19 @@ async function emitPackage(packageDir: string, entryPoints: string[], outdir: st
 
   writeStagedOutput(staged, emitDir, scratchDirs.staging);
   await swapIntoPlace(emitDir, scratchDirs);
+}
+
+/**
+ * Removes both scratch directories without failing the caller. `force` suppresses only a missing top-level
+ * path and `rm` does not retry, so a removal racing another build's leaves `ENOTEMPTY`, `EBUSY`, and `EPERM`
+ * live.
+ */
+async function discardScratchDirs(scratchDirs: ScratchDirs): Promise<void> {
+  try {
+    await removeScratchDirs(scratchDirs);
+  } catch {
+    // The removal is advisory: a directory that survives is cleared by the next emit or the next skip.
+  }
 }
 
 /** Removes both scratch directories, tolerating their absence. */
@@ -263,14 +271,14 @@ async function swapIntoPlace(emitDir: string, scratchDirs: ScratchDirs): Promise
   try {
     await rename(scratchDirs.staging, emitDir);
   } catch (error: unknown) {
-    // Restore only what was moved: a first rename that failed left the output in place already.
+    // Restore only when `previous` holds the outgoing output and nothing has since taken its place.
     if (hadPreviousOutput && !existsSync(emitDir)) {
       await rename(scratchDirs.previous, emitDir);
     }
     throw error;
   }
 
-  await rm(scratchDirs.previous, { force: true, recursive: true });
+  await discardScratchDirs(scratchDirs);
 }
 
 /**

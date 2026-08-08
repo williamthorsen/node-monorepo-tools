@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import * as ts from 'typescript';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, assert, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildPackage } from '../build.ts';
 import { resolveBuildCachePath, resolveScratchDirs } from '../build-output.ts';
@@ -624,6 +624,24 @@ describe('buildPackage atomic publication', () => {
     });
     await expect(buildPackage(dir)).rejects.toThrow('ENOSPC');
     writeFile.mockRestore();
+
+    expect(readOutput(dir, 'index.js')).toBe(published);
+  });
+
+  it('leaves the previous output intact when the emit reports itself skipped', async () => {
+    scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' });
+    await buildPackage(dir);
+    const published = readOutput(dir, 'index.js');
+
+    fs.writeFileSync(path.join(dir, 'src', 'index.ts'), 'export const value = 2;\n');
+    const compile = vi.mocked(ts.createProgram).getMockImplementation();
+    assert(compile !== undefined);
+    // A skipped emit is the emit-path failure that lands after the program is complete.
+    vi.mocked(ts.createProgram).mockImplementationOnce((...args) => ({
+      ...compile(...args),
+      emit: () => ({ diagnostics: [], emitSkipped: true }),
+    }));
+    await expect(buildPackage(dir)).rejects.toThrow(/emit failed/);
 
     expect(readOutput(dir, 'index.js')).toBe(published);
   });

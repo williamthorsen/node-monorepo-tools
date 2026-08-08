@@ -107,7 +107,8 @@ export function resolveBuildCachePath(packageDir: string): string {
  *
  * The names are fixed rather than unique because the build removes both before use. That removal is what a
  * unique name would need a sweep to accomplish, and a sweep cannot tell a directory orphaned by a killed run
- * from one a concurrent build is still writing.
+ * from one a concurrent build is still writing. A directory left behind by a failed build is cleared the same
+ * way, so the failure path needs no cleanup of its own.
  */
 export function resolveScratchDirs(emitDir: string): ScratchDirs {
   const parent = path.dirname(emitDir);
