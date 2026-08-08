@@ -154,7 +154,7 @@ describe(getCommitsSinceTarget, () => {
     expect(() => getCommitsSinceTarget(['v'])).toThrow("Failed to run 'git describe': permission denied");
   });
 
-  it('preserves the underlying error as the cause', () => {
+  it('preserves the underlying error as the cause of a git describe failure', () => {
     const underlying = Object.assign(new Error('permission denied'), { status: 1 });
     mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
       if (cmd === 'git' && args[0] === 'describe') {
@@ -180,6 +180,21 @@ describe(getCommitsSinceTarget, () => {
     expect(() => getCommitsSinceTarget(['v'])).toThrow(
       "Failed to run 'git log' for range 'v1.0.0..HEAD': spawn git ENOENT",
     );
+  });
+
+  it('preserves the underlying error as the cause of a git log failure', () => {
+    const underlying = new Error('spawn git ENOENT');
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') {
+        return 'v1.0.0\n';
+      }
+      if (cmd === 'git' && args[0] === 'log') {
+        throw underlying;
+      }
+      return '';
+    });
+
+    expect(() => getCommitsSinceTarget(['v'])).toThrow(expect.objectContaining({ cause: underlying }));
   });
 
   describe('multiple tag prefixes', () => {
