@@ -9,8 +9,8 @@
       "path": "kits/default.js",
       "readyupVersion": "0.24.0",
       "source": "kits/default.ts",
-      "sourceHash": "0e38a9b8",
-      "targetHash": "c95a3ec0"
+      "sourceHash": "fe239d01",
+      "targetHash": "4ed5a924"
     },
     {
       "checklists": [
@@ -21,8 +21,8 @@
       "path": "kits/npm-auto-publish.js",
       "readyupVersion": "0.24.0",
       "source": "kits/npm-auto-publish.ts",
-      "sourceHash": "67a5f97b",
-      "targetHash": "9a12aa7d"
+      "sourceHash": "ac484613",
+      "targetHash": "f790e7d5"
     }
   ]
 }

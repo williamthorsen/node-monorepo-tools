@@ -120,7 +120,8 @@ function findCliffCallArgs(plan: { writes: readonly { path: string }[] }): reado
     if (typeof options.tagPattern === 'string') {
       args.push('--tag-pattern', options.tagPattern);
     }
-    for (const includePath of options.includePaths ?? []) {
+    const includePaths = options.includePaths ?? [];
+    for (const includePath of includePaths) {
       args.push('--include-path', includePath);
     }
   }
@@ -176,7 +177,7 @@ function firstCacheRefreshCallIndex(): number {
  * work for ordering assertions.
  */
 function firstCliffWorkCallIndex(): number {
-  return mockBuildChangelogEntries.mock.invocationCallOrder[0] ?? Number.NEGATIVE_INFINITY;
+  return mockBuildChangelogEntries.mock.invocationCallOrder[0] ?? -Infinity;
 }
 
 describe(releasePrepareMono, () => {
@@ -2323,7 +2324,7 @@ describe(releasePrepareMono, () => {
         fn();
       } catch (error) {
         if (error instanceof Error) return error;
-        throw new Error(`Expected an Error to be thrown, got ${typeof error}: ${String(error)}`);
+        throw new Error(`Expected an Error to be thrown, got ${typeof error}: ${String(error)}`, { cause: error });
       }
       throw new Error('Expected fn to throw, but it returned normally');
     }
@@ -2525,8 +2526,7 @@ describe(releasePrepareMono, () => {
         if (args[0] === 'describe') {
           if (args.some((a) => a.includes('arrays-v'))) return 'arrays-v1.0.0\n';
           if (args.some((a) => a.includes('core-v'))) return 'core-v1.0.0\n';
-        }
-        if (args[0] === 'log') {
+        } else if (args[0] === 'log') {
           if (args.includes('packages/arrays/**')) return logLine('internal!: refactor cache', 'def5678');
           if (args.includes('packages/core/**')) return logLine('feat: add helper', 'aaa1111');
         }

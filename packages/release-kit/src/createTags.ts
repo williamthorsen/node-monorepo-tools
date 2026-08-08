@@ -74,6 +74,7 @@ function assertCleanWorkingTree(): void {
     }
     throw new Error(
       'Working tree is dirty. Commit or stash changes before tagging, or use `--no-git-checks` to skip this check.',
+      { cause: error },
     );
   }
 }

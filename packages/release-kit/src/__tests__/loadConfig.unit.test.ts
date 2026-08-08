@@ -429,6 +429,21 @@ describe(readRootPackageVersion, () => {
     });
     expect(() => readRootPackageVersion()).toThrow(/Failed to read root package\.json/);
   });
+
+  it('preserves the underlying error as the cause when the root package.json cannot be read', () => {
+    const underlying = new Error('permission denied');
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockImplementation(() => {
+      throw underlying;
+    });
+    expect(() => readRootPackageVersion()).toThrow(expect.objectContaining({ cause: underlying }));
+  });
+
+  it('preserves the underlying error as the cause when the root package.json holds invalid JSON', () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue('{ not valid json');
+    expect(() => readRootPackageVersion()).toThrow(expect.objectContaining({ cause: expect.any(SyntaxError) }));
+  });
 });
 
 describe('mergeMonorepoConfig project block', () => {

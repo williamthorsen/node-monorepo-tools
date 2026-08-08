@@ -85,14 +85,18 @@ function readPackageJson(filePath: string): PackageJson {
   try {
     content = readFileSync(filePath, 'utf8');
   } catch (error: unknown) {
-    throw new Error(`Failed to read ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(`Failed to read ${filePath}: ${error instanceof Error ? error.message : String(error)}`, {
+      cause: error,
+    });
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(content);
   } catch (error: unknown) {
-    throw new Error(`Failed to parse JSON in ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(`Failed to parse JSON in ${filePath}: ${error instanceof Error ? error.message : String(error)}`, {
+      cause: error,
+    });
   }
 
   if (!isPackageJson(parsed)) {

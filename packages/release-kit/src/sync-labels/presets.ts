@@ -35,7 +35,7 @@ export function loadPreset(presetName: string): LabelDefinition[] {
     content = readFileSync(presetPath, 'utf8');
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to read preset "${presetName}": ${message}`);
+    throw new Error(`Failed to read preset "${presetName}": ${message}`, { cause: error });
   }
 
   const parsed: unknown = parse(content);

@@ -331,23 +331,17 @@ function describeTrustRelationships(relationships: TrustRelationship[]): string 
 // Cached so that the registry is queried at most once per kit invocation. The precondition's `fix`
 // getter reads this too: readyup resolves `fix` before running the check, so the memo is what lets
 // remediation vary by outcome without a second round trip.
-let cachedNpmAuthStatus: NpmAuthStatus | undefined;
-
-function getCachedNpmAuthStatus(): NpmAuthStatus {
-  cachedNpmAuthStatus ??= classifyNpmAuth(runNpmJson('npm whoami --json'));
-  return cachedNpmAuthStatus;
-}
+const getCachedNpmAuthStatus: () => NpmAuthStatus = (() => {
+  let cached: NpmAuthStatus | undefined;
+  return () => (cached ??= classifyNpmAuth(runNpmJson('npm whoami --json')));
+})();
 
 // Cached so that `getOwnerRepo` (which shells out to git) runs at most once per kit invocation;
 // this also keeps module load tolerant of environments without a git remote configured.
-let cachedOwnerRepo: string | undefined;
-
-function getCachedOwnerRepo(): string {
-  if (cachedOwnerRepo === undefined) {
-    cachedOwnerRepo = getOwnerRepo();
-  }
-  return cachedOwnerRepo;
-}
+const getCachedOwnerRepo: () => string = (() => {
+  let cached: string | undefined;
+  return () => (cached ??= getOwnerRepo());
+})();
 
 /** Derive {owner}/{repo} from the git remote origin URL. */
 function getOwnerRepo(): string {

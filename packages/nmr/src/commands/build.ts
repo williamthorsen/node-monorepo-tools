@@ -342,6 +342,7 @@ function resolveSpecifierReplacement(
     // that still resolves is genuinely external and runtime-runnable (a type-shim `paths` key shadowing
     // a real package, or a coarse prefix collision), so emit it verbatim. One that does not would ship
     // an unresolvable specifier that fails at runtime, so fail the build instead.
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- named only to strip it; TypeScript still honors it
     const { paths: _paths, baseUrl: _baseUrl, rootDirs: _rootDirs, ...nodeResolutionOptions } = compilerOptions;
     const bareResolved = ts.resolveModuleName(
       specifier,

@@ -46,6 +46,7 @@ export function readRootPackageVersion(): { exists: boolean; version: string | u
   } catch (error: unknown) {
     throw new Error(
       `Failed to read root ${ROOT_PACKAGE_JSON_PATH}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
     );
   }
 
@@ -55,6 +56,7 @@ export function readRootPackageVersion(): { exists: boolean; version: string | u
   } catch (error: unknown) {
     throw new Error(
       `Failed to parse root ${ROOT_PACKAGE_JSON_PATH}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
     );
   }
 
@@ -397,7 +399,8 @@ function assertNoTagPrefixCollisions(
   for (const workspace of workspaces) {
     const owner = `ws:${workspace.dir}`;
     sources.push({ prefix: workspace.tagPrefix, label: `workspace '${workspace.dir}'`, owner });
-    for (const identity of workspace.legacyIdentities ?? []) {
+    const legacyIdentities = workspace.legacyIdentities ?? [];
+    for (const identity of legacyIdentities) {
       sources.push({
         prefix: identity.tagPrefix,
         label: `workspace '${workspace.dir}' legacyIdentities entry (name='${identity.name}')`,
@@ -405,7 +408,8 @@ function assertNoTagPrefixCollisions(
       });
     }
   }
-  for (const [index, retired] of (retiredPackages ?? []).entries()) {
+  const retiredEntries = (retiredPackages ?? []).entries();
+  for (const [index, retired] of retiredEntries) {
     sources.push({
       prefix: retired.tagPrefix,
       label: `retiredPackages entry (name='${retired.name}')`,

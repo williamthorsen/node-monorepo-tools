@@ -52,7 +52,7 @@ function findLatestTag(tagPrefixes: readonly string[]): string | undefined {
     if (isNoTagError(error)) {
       return undefined;
     }
-    throw new Error(`Failed to run 'git describe': ${errorMessage(error)}`);
+    throw new Error(`Failed to run 'git describe': ${errorMessage(error)}`, { cause: error });
   }
 }
 
@@ -121,7 +121,7 @@ export function getCommitsSinceTarget(
       stdio: ['pipe', 'pipe', 'pipe'],
     }).trim();
   } catch (error: unknown) {
-    throw new Error(`Failed to run 'git log' for range '${range}': ${errorMessage(error)}`);
+    throw new Error(`Failed to run 'git log' for range '${range}': ${errorMessage(error)}`, { cause: error });
   }
 
   if (logOutput === '') {

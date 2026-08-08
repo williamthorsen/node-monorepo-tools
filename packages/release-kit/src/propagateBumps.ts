@@ -8,9 +8,9 @@ export interface ReleaseEntry {
   /** Present when this workspace was bumped (wholly or partly) due to a dependency update. */
   propagatedFrom?: PropagationSource[];
   /**
-   * Explicit new version override used for propagation metadata. When set, dependents see this
-   * value in their `propagatedFrom.newVersion` entry instead of a version computed from `releaseType`.
-   * Used by the `--set-version` CLI path so propagation reflects the overridden version.
+   * Explicit new version override used for propagation metadata.
+   * When set, dependents see this value in their `propagatedFrom.newVersion` entry instead of a version computed from
+   * `releaseType`. Used by the `--set-version` CLI path so propagation reflects the overridden version.
    */
   newVersionOverride?: string;
 }
@@ -38,7 +38,7 @@ export function propagateBumps(
   }
 
   // BFS queue: workspace dirs whose dependents need to be checked.
-  const queue: string[] = [...directBumps.keys()];
+  const queue: string[] = directBumps.keys().toArray();
   const visited = new Set<string>();
 
   while (queue.length > 0) {

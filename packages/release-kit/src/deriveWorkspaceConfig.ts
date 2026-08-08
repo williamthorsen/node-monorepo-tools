@@ -21,7 +21,7 @@ export function deriveWorkspaceConfig(workspacePath: string): WorkspaceConfig {
     parsed = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to read ${packageJsonPath}: ${message}`);
+    throw new Error(`Failed to read ${packageJsonPath}: ${message}`, { cause: error });
   }
   const name = isRecord(parsed) ? parsed['name'] : undefined;
 

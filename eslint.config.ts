@@ -1,8 +1,6 @@
 import baseConfig, { createConfig } from '@williamthorsen/eslint-config-typescript';
 import { defineConfig, globalIgnores } from 'eslint/config';
 
-import { deferredLintRules } from './.config/eslint/deferred-lint-rules.ts';
-
 const config = defineConfig([
   ...baseConfig,
   globalIgnores([
@@ -30,7 +28,6 @@ const config = defineConfig([
       },
     },
     rules: {
-      ...deferredLintRules,
       '@typescript-eslint/no-confusing-void-expression': [
         'warn',
         {
@@ -64,16 +61,6 @@ const config = defineConfig([
     files: ['**/scripts/**/*'],
     rules: {
       'no-console': 'off',
-    },
-  },
-  {
-    rules: {
-      // Deprecation signals a gradual phase-out, not a removal deadline; the build does not gate on deprecated-API use.
-      '@typescript-eslint/no-deprecated': 'off',
-      // Asks that the cheaper operand lead a `&&` chain, at the cost of the reading order the surrounding code
-      // establishes, and its own diagnostic concedes it cannot verify the reorder is safe. Goes away once
-      // williamthorsen/eslint-config#124 turns the rule off centrally.
-      'unicorn/prefer-simple-condition-first': 'off',
     },
   },
 ]);

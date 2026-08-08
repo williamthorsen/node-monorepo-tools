@@ -88,7 +88,8 @@ function getExpectedTypes(): Array<{ typeName: string; header: string }> {
       continue;
     }
     entries.push({ typeName: key, header: config.header });
-    for (const alias of config.aliases ?? []) {
+    const aliases = config.aliases ?? [];
+    for (const alias of aliases) {
       entries.push({ typeName: alias, header: config.header });
     }
   }

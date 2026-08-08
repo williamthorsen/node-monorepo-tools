@@ -274,7 +274,8 @@ function readmeHasReleaseNotesMarkers(content) {
 }
 function readmesHaveReleaseNotesMarkers() {
   const failing = [];
-  for (const { dir } of discoverWorkspaces({ filter: (w) => w.isPackage })) {
+  const packageWorkspaces = discoverWorkspaces({ filter: (w) => w.isPackage });
+  for (const { dir } of packageWorkspaces) {
     const readmePath = dir === "." ? "README.md" : `${dir}/README.md`;
     const content = readFile(readmePath);
     if (content === void 0 || !readmeHasReleaseNotesMarkers(content)) {

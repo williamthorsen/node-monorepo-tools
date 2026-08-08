@@ -292,7 +292,8 @@ export function readmeHasReleaseNotesMarkers(content: string): boolean {
  */
 export function readmesHaveReleaseNotesMarkers(): boolean | CheckOutcome {
   const failing: string[] = [];
-  for (const { dir } of discoverWorkspaces({ filter: (w) => w.isPackage })) {
+  const packageWorkspaces = discoverWorkspaces({ filter: (w) => w.isPackage });
+  for (const { dir } of packageWorkspaces) {
     const readmePath = dir === '.' ? 'README.md' : `${dir}/README.md`;
     const content = readFile(readmePath);
     if (content === undefined || !readmeHasReleaseNotesMarkers(content)) {
