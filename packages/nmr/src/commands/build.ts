@@ -102,7 +102,8 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
   await emitPackage(packageDir, entryPoints, outdir);
 
   // Persist the digest only after a successful build, so a failed compile cannot poison the cache
-  // and cause the next run to skip a never-completed build.
+  // and cause the next run to skip a never-completed build. Writing it after the output is in place also keeps
+  // the digest from ever advertising output that is not yet published.
   await writeCacheEntry(cachePath, currentHash);
 }
 

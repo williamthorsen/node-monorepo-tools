@@ -3,7 +3,7 @@ import type { Writable } from 'node:stream';
 
 import { readPackageVersion, reportError } from '@williamthorsen/nmr-core';
 
-import type { TreeSnapshot } from './check-cache.ts';
+import type { BuildOutputState, TreeSnapshot } from './check-cache.ts';
 import {
   computeCacheKey,
   CURRENT_RUNTIME,
@@ -278,14 +278,14 @@ function hasRunnableHook(
  */
 async function lookUpRecordedPass(options: {
   anchorDir: string;
+  buildOutput: BuildOutputState;
   command: string;
-  config: NmrConfig;
   env: NodeJS.ProcessEnv;
   key: string;
   monorepoRoot: string;
   stderr: Writable;
 }): Promise<string | undefined> {
-  const { anchorDir, command, env, key, monorepoRoot, stderr } = options;
+  const { anchorDir, buildOutput, command, env, key, monorepoRoot, stderr } = options;
 
   const entry = await readCheckCacheEntry({ anchorDir, command, monorepoRoot });
   if (entry === undefined) {
@@ -297,8 +297,7 @@ async function lookUpRecordedPass(options: {
     return undefined;
   }
 
-  const output = await readBuildOutputState(monorepoRoot, options.config);
-  const [missing] = output.missing;
+  const [missing] = buildOutput.missing;
   if (missing !== undefined) {
     writeDebugNote(`running ${command}: ${missing} has no build output`, env, stderr);
     return undefined;
@@ -306,7 +305,7 @@ async function lookUpRecordedPass(options: {
 
   // Presence alone would let a `dist` compiled from another tree pass for this one: git ignores build output,
   // so restoring a tree restores none of it, and the run that would have rebuilt it is the one being skipped.
-  const stale = findStaleBuildOutput(entry.buildDigests, output.digests);
+  const stale = findStaleBuildOutput(entry.buildDigests, buildOutput.digests);
   if (stale !== undefined) {
     writeDebugNote(`running ${command}: ${stale}'s build output came from a different tree`, env, stderr);
     return undefined;
@@ -427,14 +426,16 @@ function parseArgs(args: string[]): ParseResult {
 }
 
 /**
- * Records a pass, unless the chain moved the tree it was asked about while it ran: a check that rewrites a file
- * describes a tree that no longer exists, and recording it would certify content nothing ran against. The
- * recorded key is the one the snapshot produced, so every entry from one invocation refers to one tree.
+ * Records a pass, unless what the check was asked about moved while it ran: a rewritten file describes a tree
+ * that no longer exists, and build output that changed leaves no answer to which output the pass was earned
+ * over. Recording either would certify content nothing ran against. The recorded key is the one the snapshot
+ * produced, so every entry from one invocation refers to one tree.
  *
  * A cache that cannot be written is not worth failing a green run over, so that failure goes to the debug note.
  */
 async function recordPass(options: {
   anchorDir: string;
+  buildOutputBefore: BuildOutputState;
   command: string;
   commandString: string;
   config: NmrConfig;
@@ -464,6 +465,14 @@ async function recordPass(options: {
   const [missing] = output.missing;
   if (missing !== undefined) {
     writeDebugNote(`not recording ${command}: ${missing} has no build output`, env, stderr);
+    return;
+  }
+
+  // The check read one output and the entry would record the other, so neither describes the pass. A chain that
+  // builds its own covered output disagrees with itself here and declines for the same reason.
+  const changed = findStaleBuildOutput(options.buildOutputBefore.digests, output.digests);
+  if (changed !== undefined) {
+    writeDebugNote(`not recording ${command}: ${changed}'s build output changed while it ran`, env, stderr);
     return;
   }
 
@@ -555,15 +564,21 @@ async function runGated(options: {
   stdout: Writable;
 }): Promise<number> {
   const { anchorDir, command, commandString, env, key, monorepoRoot, snapshot, stderr, stdout } = options;
-  const gated = key !== undefined && snapshot !== undefined;
 
-  if (gated && !options.noCache) {
+  // The build output is read before the run, so a pass can be held to the output the run actually saw. One
+  // reading serves the lookup and the recording alike, and `--no-cache` bypasses only the former.
+  const gate =
+    key !== undefined && snapshot !== undefined
+      ? { buildOutputBefore: await readBuildOutputState(monorepoRoot, options.config), key, snapshot }
+      : undefined;
+
+  if (gate !== undefined && !options.noCache) {
     const skipLine = await lookUpRecordedPass({
       anchorDir,
+      buildOutput: gate.buildOutputBefore,
       command,
-      config: options.config,
       env,
-      key,
+      key: gate.key,
       monorepoRoot,
       stderr,
     });
@@ -582,17 +597,18 @@ async function runGated(options: {
   const startedAt = Date.now();
   const exitCode = runCommand(commandString, anchorDir, options.runOptions);
 
-  if (exitCode === 0 && gated) {
+  if (exitCode === 0 && gate !== undefined) {
     await recordPass({
       anchorDir,
+      buildOutputBefore: gate.buildOutputBefore,
       command,
       commandString,
       config: options.config,
       durationMs: Date.now() - startedAt,
       env,
-      key,
+      key: gate.key,
       monorepoRoot,
-      snapshot,
+      snapshot: gate.snapshot,
       stderr,
     });
   }

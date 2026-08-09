@@ -253,7 +253,7 @@ A hit requires all of these to match the run that recorded the pass:
 
 A hit additionally requires the build output of every package nmr's own build covers to be present, and to have been built from this tree. Output is git-ignored, so neither its removal nor its replacement moves the hash: restoring a tree with `git stash` or `git checkout` restores none of the output that tree was built with. nmr compares each covered package's recorded build digest against the one on disk, so a `dist` compiled from another tree is a miss the following run repairs. A package that overrides `build` or `compile` emits on terms nmr does not know and is exempt.
 
-A pass is recorded only when the command exits 0, only when the tree still matches the one the run started against, only when every covered package's output is present, and never for a run that executed nothing (a `""`/`":"` skip override, or an `NMR_RUN_IF_PRESENT` miss).
+A pass is recorded only when the command exits 0, only when the tree still matches the one the run started against, only when every covered package's output is present and unchanged since the run started, and never for a run that executed nothing (a `""`/`":"` skip override, or an `NMR_RUN_IF_PRESENT` miss). Output that moves mid-run leaves no answer to which output the pass was earned over, whether another process rebuilt it or the chain built it itself: `nmr ci` is the one default command whose chain does, and it records nothing on a run whose build did work. The `nmr check:strict` inside that chain still records, because its own window opens after the build.
 
 ### Out of contract
 

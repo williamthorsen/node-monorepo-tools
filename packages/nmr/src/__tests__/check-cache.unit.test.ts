@@ -290,21 +290,19 @@ describe('check-cache', () => {
   });
 
   describe(findStaleBuildOutput, () => {
-    it('finds nothing when every package still holds the output the pass was recorded over', () => {
+    it('finds nothing when both observations found the same output', () => {
       expect(findStaleBuildOutput({ a: 'one', b: 'two' }, { a: 'one', b: 'two' })).toBeUndefined();
     });
 
     it('names a package whose output was rebuilt from different sources', () => {
-      // Restoring a tree restores none of its build output, so presence alone would let a `dist` compiled
-      // from another tree pass for this one -- and the run that would have rebuilt it is the one being skipped.
       expect(findStaleBuildOutput({ a: 'one', b: 'two' }, { a: 'one', b: 'other' })).toBe('b');
     });
 
-    it('names a package that has appeared since the pass was recorded', () => {
+    it('names a package that has appeared between the two observations', () => {
       expect(findStaleBuildOutput({ a: 'one' }, { a: 'one', b: 'two' })).toBe('b');
     });
 
-    it('names a package that has disappeared since the pass was recorded', () => {
+    it('names a package that has disappeared between the two observations', () => {
       expect(findStaleBuildOutput({ a: 'one', b: 'two' }, { a: 'one' })).toBe('b');
     });
   });
