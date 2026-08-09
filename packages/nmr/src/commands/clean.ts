@@ -6,6 +6,7 @@ import { loadRootConfig } from '../config.ts';
 import { findContainingPackageDir } from '../context.ts';
 import { applyDevBin, buildWorkspaceRegistry, resolveScript } from '../resolver.ts';
 import { runCommand } from '../runner.ts';
+import { renderChain } from '../steps.ts';
 import type { NmrConfig } from '../types.ts';
 import { findMonorepoRoot, getWorkspacePackageDirs } from '../workspace.ts';
 import { resolveBuildCachePath } from './build-output.ts';
@@ -102,18 +103,19 @@ async function sweepWorkspace(monorepoRoot: string, workspacePackageDirs: string
 
   for (const packageDir of workspacePackageDirs) {
     const resolved = resolveScript(CLEAN_COMMAND, registry, packageDir, false);
+    const resolvedCommand = resolved === undefined ? undefined : renderChain(resolved.steps);
 
     // An empty command is the package.json convention for "skip this script".
-    if (resolved === undefined || resolved.command === '') {
+    if (resolvedCommand === undefined || resolvedCommand === '') {
       continue;
     }
 
-    if (resolved.command === BUILT_IN_CLEAN) {
+    if (resolvedCommand === BUILT_IN_CLEAN) {
       await cleanPackage(packageDir);
       continue;
     }
 
-    const command = applyDevBin(resolved.command, config.devBin, monorepoRoot);
+    const command = applyDevBin(resolvedCommand, config.devBin, monorepoRoot);
     const { exitCode } = await runCommand(command, packageDir);
     if (exitCode !== 0) {
       throw new Error(`nmr-clean: \`${command}\` failed in ${path.basename(packageDir)} with exit code ${exitCode}.`);

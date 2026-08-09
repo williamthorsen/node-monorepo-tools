@@ -65,28 +65,34 @@ describe(applyDevBin, () => {
 });
 
 describe(expandScript, () => {
-  it('returns a string script unchanged', () => {
-    expect(expandScript('vitest', false)).toBe('vitest');
+  it('holds a string script as a single opaque step', () => {
+    expect(expandScript('vitest', false)).toStrictEqual([{ kind: 'opaque', command: 'vitest' }]);
   });
 
-  it('returns a string script unchanged regardless of workspaceRoot', () => {
-    expect(expandScript('vitest', true)).toBe('vitest');
+  it('holds a string script as a single opaque step regardless of workspaceRoot', () => {
+    expect(expandScript('vitest', true)).toStrictEqual([{ kind: 'opaque', command: 'vitest' }]);
   });
 
-  it('expands an array to chained nmr invocations', () => {
-    expect(expandScript(['fmt', 'lint'], false)).toBe('nmr fmt && nmr lint');
+  it('expands an array to one structural step per element', () => {
+    expect(expandScript(['fmt', 'lint'], false)).toStrictEqual([
+      { kind: 'structural', argv: ['nmr', 'fmt'] },
+      { kind: 'structural', argv: ['nmr', 'lint'] },
+    ]);
   });
 
   it('expands a single-element array', () => {
-    expect(expandScript(['test'], false)).toBe('nmr test');
+    expect(expandScript(['test'], false)).toStrictEqual([{ kind: 'structural', argv: ['nmr', 'test'] }]);
   });
 
   it('propagates -w to each step when workspaceRoot is true', () => {
-    expect(expandScript(['fmt', 'lint'], true)).toBe('nmr -w fmt && nmr -w lint');
+    expect(expandScript(['fmt', 'lint'], true)).toStrictEqual([
+      { kind: 'structural', argv: ['nmr', '-w', 'fmt'] },
+      { kind: 'structural', argv: ['nmr', '-w', 'lint'] },
+    ]);
   });
 
   it('propagates -w to a single-element array when workspaceRoot is true', () => {
-    expect(expandScript(['test'], true)).toBe('nmr -w test');
+    expect(expandScript(['test'], true)).toStrictEqual([{ kind: 'structural', argv: ['nmr', '-w', 'test'] }]);
   });
 });
 
@@ -145,7 +151,7 @@ describe(resolveScript, () => {
     const registry = { test: 'vitest' };
     const result = resolveScript('test', registry, undefined, false);
 
-    expect(result).toStrictEqual({ command: 'vitest', source: 'default' });
+    expect(result).toStrictEqual({ source: 'default', steps: [{ kind: 'opaque', command: 'vitest' }] });
   });
 
   it('expands array scripts from the registry', () => {
@@ -153,8 +159,11 @@ describe(resolveScript, () => {
     const result = resolveScript('build', registry, undefined, false);
 
     expect(result).toStrictEqual({
-      command: 'nmr fmt && nmr lint',
       source: 'default',
+      steps: [
+        { kind: 'structural', argv: ['nmr', 'fmt'] },
+        { kind: 'structural', argv: ['nmr', 'lint'] },
+      ],
     });
   });
 
@@ -163,8 +172,11 @@ describe(resolveScript, () => {
     const result = resolveScript('build', registry, undefined, true);
 
     expect(result).toStrictEqual({
-      command: 'nmr -w fmt && nmr -w lint',
       source: 'default',
+      steps: [
+        { kind: 'structural', argv: ['nmr', '-w', 'fmt'] },
+        { kind: 'structural', argv: ['nmr', '-w', 'lint'] },
+      ],
     });
   });
 
@@ -199,7 +211,7 @@ describe(resolveScript, () => {
     const registry = { test: 'vitest' };
     const result = resolveScript('test', registry, tmpDir, false);
 
-    expect(result).toStrictEqual({ command: 'jest', source: 'package' });
+    expect(result).toStrictEqual({ source: 'package', steps: [{ kind: 'opaque', command: 'jest' }] });
   });
 
   it('does not rewrite tier-3 override strings when workspaceRoot is true', () => {
@@ -213,7 +225,7 @@ describe(resolveScript, () => {
 
     // User-authored override strings pass through untouched; only generated
     // chains receive the -w flag.
-    expect(result).toStrictEqual({ command: 'nmr compile', source: 'package' });
+    expect(result).toStrictEqual({ source: 'package', steps: [{ kind: 'opaque', command: 'nmr compile' }] });
   });
 
   it('skips execution when package.json override is empty string', () => {
@@ -222,7 +234,7 @@ describe(resolveScript, () => {
     const registry = { lint: 'eslint .' };
     const result = resolveScript('lint', registry, tmpDir, false);
 
-    expect(result).toStrictEqual({ command: '', source: 'package' });
+    expect(result).toStrictEqual({ source: 'package', steps: [{ kind: 'opaque', command: '' }] });
   });
 
   it('skips self-referential package.json override (exact match)', () => {
@@ -235,8 +247,11 @@ describe(resolveScript, () => {
     const result = resolveScript('build', registry, tmpDir, false);
 
     expect(result).toStrictEqual({
-      command: 'nmr fmt && nmr lint',
       source: 'default',
+      steps: [
+        { kind: 'structural', argv: ['nmr', 'fmt'] },
+        { kind: 'structural', argv: ['nmr', 'lint'] },
+      ],
     });
   });
 
@@ -250,8 +265,11 @@ describe(resolveScript, () => {
     const result = resolveScript('build', registry, tmpDir, false);
 
     expect(result).toStrictEqual({
-      command: 'nmr fmt && nmr lint',
       source: 'default',
+      steps: [
+        { kind: 'structural', argv: ['nmr', 'fmt'] },
+        { kind: 'structural', argv: ['nmr', 'lint'] },
+      ],
     });
   });
 
@@ -264,7 +282,7 @@ describe(resolveScript, () => {
     const registry = { build: ['fmt', 'lint'] };
     const result = resolveScript('build', registry, tmpDir, false);
 
-    expect(result).toStrictEqual({ command: 'nmr compile', source: 'package' });
+    expect(result).toStrictEqual({ source: 'package', steps: [{ kind: 'opaque', command: 'nmr compile' }] });
   });
 
   it('falls through to registry when package.json has no matching script', () => {
@@ -276,7 +294,7 @@ describe(resolveScript, () => {
     const registry = { test: 'vitest' };
     const result = resolveScript('test', registry, tmpDir, false);
 
-    expect(result).toStrictEqual({ command: 'vitest', source: 'default' });
+    expect(result).toStrictEqual({ source: 'default', steps: [{ kind: 'opaque', command: 'vitest' }] });
   });
 });
 
@@ -307,8 +325,8 @@ describe('test command resolution ignores the package contents', () => {
 
     for (const [command, expectedCommand] of Object.entries(expected)) {
       expect(resolveScript(command, registry, tmpDir, false)).toStrictEqual({
-        command: expectedCommand,
         source: 'default',
+        steps: [{ kind: 'opaque', command: expectedCommand }],
       });
     }
   });
@@ -320,8 +338,8 @@ describe('test command resolution ignores the package contents', () => {
 
     for (const [command, expectedCommand] of Object.entries(expected)) {
       expect(resolveScript(command, registry, tmpDir, false)).toStrictEqual({
-        command: expectedCommand,
         source: 'default',
+        steps: [{ kind: 'opaque', command: expectedCommand }],
       });
     }
   });

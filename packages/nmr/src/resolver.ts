@@ -4,6 +4,8 @@ import path from 'node:path';
 import { isObject } from './helpers/type-guards.ts';
 import type { ScriptRegistry, ScriptValue } from './resolve-scripts.ts';
 import { getDefaultRootScripts, getDefaultWorkspaceScripts } from './resolve-scripts.ts';
+import type { Step } from './steps.ts';
+import { composeNmrStep } from './steps.ts';
 import type { NmrConfig } from './types.ts';
 
 /**
@@ -51,23 +53,19 @@ function resolveReplacementPaths(replacement: string, monorepoRoot: string): str
 }
 
 export interface ResolvedScript {
-  command: string;
   source: 'default' | 'package';
+  steps: readonly Step[];
 }
 
 /**
- * Expands a script value into an executable command string.
- * Arrays are expanded to `nmr {step1} && nmr {step2}`.
- *
- * `-w` is propagated to each step (`nmr -w {step1} && nmr -w {step2}`) so each step
- * selects the root registry on its own, as `wrapWithHooks` does for hooks.
+ * Expands a script value into the ordered steps it runs as: a string is one opaque step, and an array is one
+ * structural step per element.
  */
-export function expandScript(script: ScriptValue, workspaceRoot: boolean): string {
+export function expandScript(script: ScriptValue, workspaceRoot: boolean): readonly Step[] {
   if (typeof script === 'string') {
-    return script;
+    return [{ kind: 'opaque', command: script }];
   }
-  const flag = workspaceRoot ? '-w ' : '';
-  return script.map((s) => `nmr ${flag}${s}`).join(' && ');
+  return script.map((element) => composeNmrStep(element, workspaceRoot));
 }
 
 /**
@@ -139,9 +137,8 @@ export function isSelfReferential(script: string, commandName: string): boolean 
  * 2. Repo-wide config (.config/nmr.config.ts)
  * 3. Per-package overrides (package.json scripts)
  *
- * Returns undefined if the command is not found in the registry.
- * Returns a ResolvedScript with an empty command if the package.json
- * override is an empty string (indicating skip).
+ * Returns undefined if the command is not found in the registry. A package.json override of `""` (indicating
+ * skip) resolves to a single opaque step carrying it, which renders back to the empty string.
  */
 export function resolveScript(
   commandName: string,
@@ -155,7 +152,7 @@ export function resolveScript(
     if (pkgScripts && Object.hasOwn(pkgScripts, commandName)) {
       const override = pkgScripts[commandName];
       if (override !== undefined && !isSelfReferential(override, commandName)) {
-        return { command: override, source: 'package' };
+        return { source: 'package', steps: [{ kind: 'opaque', command: override }] };
       }
     }
   }
@@ -170,5 +167,5 @@ export function resolveScript(
     return undefined;
   }
 
-  return { command: expandScript(registryEntry, workspaceRoot), source: 'default' };
+  return { source: 'default', steps: expandScript(registryEntry, workspaceRoot) };
 }
