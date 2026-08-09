@@ -1,5 +1,38 @@
 [
   {
+    "version": "0.29.0",
+    "date": "2026-08-09",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Run the dependency audit before ci in prepush (#634)",
+            "body": "`nmr prepush` now runs the dependency audit before the code-quality gate, so a vulnerability surfaces within seconds instead of after a full build-and-check pass. A failing audit now stops the run before the code-quality gate.",
+            "hash": "2adbd1a69b7b4993f5ce6e58e3071391a90443db"
+          }
+        ]
+      },
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Record no pass when build output changes while a check runs (#641)",
+            "body": "Fixes an issue where rebuilding a package in one terminal while `nmr prepush` ran in another could mark a check as passed against build output it never saw, causing a later run on the same tree to skip it. Because `nmr ci` builds during its own run, it now needs one further run before it can skip, and that run repeats only the build phase.",
+            "hash": "ba88dcc7dd84ad017e0ea662f2952be5f5fa4dfd"
+          },
+          {
+            "description": "Stream command output so a large writer is no longer killed (#642)",
+            "body": "Fixes an issue where a command that wrote more than a mebibyte of output under `nmr -q` was cut off and reported as failed while the tool itself kept running. When `nmr`'s output is piped or redirected to a file, a command's output now appears as it is produced instead of arriving all at once when the command exits. Piping `nmr` into a reader that stops early, such as `head`, now ends the run cleanly. A command killed by a signal now reports 128 plus the signal number rather than a bare 1.",
+            "hash": "4a4065eec5bcda2c9841fb4fac76d6de664e8347"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.28.0",
     "date": "2026-08-08",
     "sections": [

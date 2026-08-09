@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.29.0 — 2026-08-09
+
+### 🎉 Features
+
+- Run the dependency audit before ci in prepush (#634)
+
+  `nmr prepush` now runs the dependency audit before the code-quality gate, so a vulnerability surfaces within seconds instead of after a full build-and-check pass. A failing audit now stops the run before the code-quality gate.
+
+### 🐛 Bug fixes
+
+- Record no pass when build output changes while a check runs (#641)
+
+  Fixes an issue where rebuilding a package in one terminal while `nmr prepush` ran in another could mark a check as passed against build output it never saw, causing a later run on the same tree to skip it. Because `nmr ci` builds during its own run, it now needs one further run before it can skip, and that run repeats only the build phase.
+
+- Stream command output so a large writer is no longer killed (#642)
+
+  Fixes an issue where a command that wrote more than a mebibyte of output under `nmr -q` was cut off and reported as failed while the tool itself kept running. When `nmr`'s output is piped or redirected to a file, a command's output now appears as it is produced instead of arriving all at once when the command exits. Piping `nmr` into a reader that stops early, such as `head`, now ends the run cleanly. A command killed by a signal now reports 128 plus the signal number rather than a bare 1.
+
 ## 0.28.0 — 2026-08-08
 
 ### 🎉 Features
