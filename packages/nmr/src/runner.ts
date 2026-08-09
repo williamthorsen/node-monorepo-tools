@@ -1,8 +1,18 @@
-import { spawnSync } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
+import { spawn } from 'node:child_process';
+import os from 'node:os';
 import process from 'node:process';
-import type { Writable } from 'node:stream';
+import type { Readable, Writable } from 'node:stream';
 
 import { reportError } from '@williamthorsen/nmr-core';
+
+import { createBoundedBuffer } from './helpers/createBoundedBuffer.ts';
+
+/** Exit codes a shell reserves for a death by signal, offset by the signal number. */
+const SIGNAL_EXIT_BASE = 128;
+
+/** How long a completed command's pipes are given to drain before a descendant holding them open is abandoned. */
+const PIPE_DRAIN_GRACE_MS = 2_000;
 
 export interface RunCommandOptions {
   /** When true, suppress output on success and write captured output to stderr on failure. */
@@ -15,61 +25,171 @@ export interface RunCommandOptions {
   env?: NodeJS.ProcessEnv;
 }
 
+/** How a command ended, and the exit code that carries that ending to nmr's own caller. */
+type CommandCompletion =
+  | { outcome: 'exited'; exitCode: number }
+  | { outcome: 'signaled'; exitCode: number; signal: NodeJS.Signals }
+  | { outcome: 'spawn-failed'; exitCode: number; error: Error };
+
+export type RunCommandResult = CommandCompletion & {
+  /**
+   * Output retained while the command ran, elided in the middle when it overran the bound.
+   * `undefined` where the stream was handed to the child directly, or where capture stopped early
+   * and the retained copy would understate what the command produced.
+   */
+  stdout: Buffer | undefined;
+  stderr: Buffer | undefined;
+};
+
 /**
- * Executes a command synchronously.
- * Returns the exit code of the command.
+ * Runs a command through a shell and resolves once it has ended.
  *
- * In quiet mode, output is captured (piped) instead of inherited.
- * On success, captured output is discarded. On failure, it is written to `options.stderr`.
- *
- * In non-quiet mode, each of stdout/stderr is routed by fd inheritance when the
- * caller's stream exposes one (the production path via `process.stdout`/`stderr`)
- * for real-time streaming, otherwise piped and forwarded into the caller's stream
- * after the child exits (the test path via `PassThrough`).
+ * A stream whose destination is a terminal is handed to the child as a descriptor, so the child's terminal
+ * detection matches nmr's. Every other destination is piped: output is forwarded as it arrives, with the
+ * destination's back-pressure throttling the child, and a bounded copy is retained. Quiet mode pipes both
+ * streams regardless, discarding the retained copy on success and writing it to `options.stderr` on failure.
  */
-export function runCommand(command: string, cwd?: string, options?: RunCommandOptions): number {
+export async function runCommand(
+  command: string,
+  cwd?: string,
+  options?: RunCommandOptions,
+): Promise<RunCommandResult> {
   const quiet = options?.quiet === true;
   const stdout = options?.stdout ?? process.stdout;
   const stderr = options?.stderr ?? process.stderr;
   const env = options?.env ?? process.env;
 
-  const stdoutChannel = quiet ? 'pipe' : streamFdOrPipe(stdout);
-  const stderrChannel = quiet ? 'pipe' : streamFdOrPipe(stderr);
-
-  const result = spawnSync(command, [], {
+  const child = spawn(command, [], {
     shell: true,
-    stdio: ['inherit', stdoutChannel, stderrChannel],
+    stdio: ['inherit', resolveChannel(stdout, quiet), resolveChannel(stderr, quiet)],
     cwd,
     env,
   });
 
-  // Spawn failures (missing binary, shell-not-found) are surfaced even in quiet mode:
-  // there are no captured buffers to forward, and a silent exit 1 would be the classic silent-failure trap.
-  // Quiet means "no chatter on success", not "swallow catastrophic configuration errors".
-  if (result.error) {
+  // A stream handed to the child as a descriptor is null here, and nmr never sees a byte of it.
+  const stdoutCapture = child.stdout === null ? undefined : captureStream(child.stdout, quiet ? undefined : stdout);
+  const stderrCapture = child.stderr === null ? undefined : captureStream(child.stderr, quiet ? undefined : stderr);
+
+  const completion = await awaitCompletion(child);
+
+  stdoutCapture?.detach();
+  stderrCapture?.detach();
+
+  const result: RunCommandResult = {
+    ...completion,
+    stdout: stdoutCapture?.toBuffer(),
+    stderr: stderrCapture?.toBuffer(),
+  };
+
+  // A spawn failure has no captured output to forward, so quiet mode reports it rather than exiting 1 in silence.
+  if (result.outcome === 'spawn-failed') {
     reportError(result.error.message, stderr);
-    return 1;
+    return result;
   }
 
-  if (quiet) {
-    if (result.status !== 0) {
-      writeBuffer(result.stdout, stderr);
-      writeBuffer(result.stderr, stderr);
+  if (quiet && result.exitCode !== 0) {
+    writeBuffer(result.stdout, stderr);
+    writeBuffer(result.stderr, stderr);
+  }
+
+  return result;
+}
+
+// region | Helpers
+
+/** Consumes a child stream, forwarding it to a destination when there is one and retaining a bounded copy. */
+function captureStream(
+  source: Readable,
+  destination: Writable | undefined,
+): { toBuffer: () => Buffer | undefined; detach: () => void } {
+  const retained = createBoundedBuffer();
+  let isComplete = true;
+
+  // Whatever stops the run from reading the source through to its end leaves the retained copy understating
+  // what the command produced, so it is reported as absent rather than as the whole of the output.
+  function abandon(): void {
+    isComplete = false;
+    source.destroy();
+  }
+
+  // Closing the read end hands the child an EPIPE of its own, so `nmr <command> | head` ends the run
+  // rather than letting the command write on into a destination that has gone away.
+  function handleDestinationError(): void {
+    if (destination !== undefined) source.unpipe(destination);
+    abandon();
+  }
+
+  source.on('error', abandon);
+  if (destination !== undefined) {
+    destination.on('error', handleDestinationError);
+    source.pipe(destination, { end: false });
+  }
+  source.on('data', (chunk: Buffer) => retained.append(chunk));
+
+  return {
+    toBuffer: () => (isComplete ? retained.toBuffer() : undefined),
+    detach: () => {
+      destination?.off('error', handleDestinationError);
+    },
+  };
+}
+
+/** Resolves once the child has ended, abandoning pipes a descendant holds open past the grace period. */
+function awaitCompletion(child: ChildProcess): Promise<CommandCompletion> {
+  return new Promise((resolve) => {
+    let exitCompletion: CommandCompletion | undefined;
+    let graceTimer: NodeJS.Timeout | undefined;
+    let isSettled = false;
+
+    function settle(completion: CommandCompletion): void {
+      if (isSettled) return;
+      isSettled = true;
+      if (graceTimer !== undefined) clearTimeout(graceTimer);
+      resolve(completion);
     }
-  } else {
-    if (stdoutChannel === 'pipe') writeBuffer(result.stdout, stdout);
-    if (stderrChannel === 'pipe') writeBuffer(result.stderr, stderr);
+
+    child.on('error', (error: Error) => {
+      settle({ outcome: 'spawn-failed', exitCode: 1, error });
+    });
+
+    child.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
+      const completion = describeExit(code, signal);
+      exitCompletion = completion;
+      graceTimer = setTimeout(() => {
+        child.stdout?.destroy();
+        child.stderr?.destroy();
+        settle(completion);
+      }, PIPE_DRAIN_GRACE_MS);
+    });
+
+    child.on('close', () => {
+      settle(exitCompletion ?? { outcome: 'exited', exitCode: 1 });
+    });
+  });
+}
+
+/** Maps a child's exit status onto the code nmr propagates, so a signal death is distinguishable from an exit. */
+function describeExit(code: number | null, signal: NodeJS.Signals | null): CommandCompletion {
+  if (signal !== null) {
+    return { outcome: 'signaled', exitCode: SIGNAL_EXIT_BASE + os.constants.signals[signal], signal };
   }
-
-  return result.status ?? 1;
+  return { outcome: 'exited', exitCode: code ?? 1 };
 }
 
-/** Returns the stream's numeric file descriptor for fd inheritance, or `'pipe'` if unavailable. */
-function streamFdOrPipe(stream: Writable): number | 'pipe' {
-  return 'fd' in stream && typeof stream.fd === 'number' ? stream.fd : 'pipe';
+/** Returns the descriptor to hand the child, or `'pipe'` where nmr captures the stream instead. */
+function resolveChannel(stream: Writable, quiet: boolean): number | 'pipe' {
+  if (quiet) return 'pipe';
+  return isTerminal(stream) ? stream.fd : 'pipe';
 }
 
-/** Writes a captured buffer to the destination stream, skipping empty payloads. */
-function writeBuffer(buffer: Buffer | string, dest: Writable): void {
-  if (buffer.length > 0) dest.write(buffer);
+/** Narrows a stream to one backed by a terminal, whose descriptor the child can be handed. */
+function isTerminal(stream: Writable): stream is Writable & { fd: number } {
+  return 'isTTY' in stream && stream.isTTY === true && 'fd' in stream && typeof stream.fd === 'number';
 }
+
+/** Writes a retained buffer to the destination stream, skipping absent and empty payloads. */
+function writeBuffer(buffer: Buffer | undefined, destination: Writable): void {
+  if (buffer !== undefined && buffer.length > 0) destination.write(buffer);
+}
+
+// endregion | Helpers

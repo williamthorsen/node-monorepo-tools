@@ -1,208 +1,333 @@
-import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
-import process from 'node:process';
-import { PassThrough } from 'node:stream';
+import { spawn } from 'node:child_process';
+import { EventEmitter } from 'node:events';
+import { PassThrough, Writable } from 'node:stream';
 
-import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { runCommand } from '../runner.ts';
 
 vi.mock(import('node:child_process'), () => ({
-  spawnSync: vi.fn(),
+  spawn: vi.fn(),
 }));
 
-const mockedSpawnSync = vi.mocked(spawnSync);
+const mockedSpawn = vi.mocked(spawn);
 
-function spawnResult(
-  overrides: Partial<SpawnSyncReturns<Buffer<ArrayBuffer>>> = {},
-): SpawnSyncReturns<Buffer<ArrayBuffer>> {
-  return {
-    pid: 1_234,
-    output: [null, null, null],
-    stdout: Buffer.from(''),
-    stderr: Buffer.from(''),
-    status: 0,
-    signal: null,
-    ...overrides,
+interface FakeChild extends EventEmitter {
+  stdout: PassThrough | null;
+  stderr: PassThrough | null;
+}
+
+/**
+ * Installs a spawn mock whose child mirrors the stdio the runner asked for: a pipe becomes a `PassThrough`,
+ * a descriptor becomes `null`, exactly as `child_process` behaves.
+ */
+function stubSpawn(): () => FakeChild {
+  let child: FakeChild | undefined;
+
+  mockedSpawn.mockImplementation((_command, _args, options) => {
+    const stdio = Array.isArray(options.stdio) ? options.stdio : [];
+    // eslint-disable-next-line unicorn/prefer-event-target -- the runner attaches EventEmitter listeners to the child.
+    const fake = Object.assign(new EventEmitter(), {
+      stdout: stdio[1] === 'pipe' ? new PassThrough() : null,
+      stderr: stdio[2] === 'pipe' ? new PassThrough() : null,
+    });
+    child = fake;
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- the runner reads only stdout, stderr, and the event methods, so the fake models those alone.
+    return fake as unknown as ReturnType<typeof spawn>;
+  });
+
+  return () => {
+    if (child === undefined) throw new Error('spawn was not called');
+    return child;
   };
 }
 
-/** Reads the stdio array passed to spawnSync from the nth call. Throws if no such call was made. */
-function stdioFromCall(callIndex: number): Array<'pipe' | 'inherit' | 'ignore' | number | null | undefined> {
-  const call = mockedSpawnSync.mock.calls[callIndex];
-  if (!call) throw new Error(`No spawnSync call at index ${callIndex}`);
-  const options = call[2];
+/** Reads the stdio array the runner passed to spawn. */
+function stdioFromCall(): unknown[] {
+  const options = mockedSpawn.mock.calls[0]?.[2];
   if (!options || !Array.isArray(options.stdio)) throw new Error('Expected stdio to be an array');
-  return options.stdio.filter(
-    (entry): entry is 'pipe' | 'inherit' | 'ignore' | number | null | undefined =>
-      entry === 'pipe' ||
-      entry === 'inherit' ||
-      entry === 'ignore' ||
-      entry === null ||
-      entry === undefined ||
-      typeof entry === 'number',
-  );
+  return options.stdio;
+}
+
+/** Returns the child's stdout pipe, failing the test when the runner chose a descriptor instead. */
+function requireStdout(child: FakeChild): PassThrough {
+  if (child.stdout === null) throw new Error('Expected the runner to pipe stdout');
+  return child.stdout;
+}
+
+/** Ends the child's pipes, lets them flush, then emits the exit and close events Node would. */
+async function endChild(child: FakeChild, code: number | null = 0, signal: NodeJS.Signals | null = null) {
+  const flushes: Promise<void>[] = [];
+  for (const stream of [child.stdout, child.stderr]) {
+    if (stream === null) continue;
+    flushes.push(new Promise<void>((resolve) => stream.on('end', () => resolve())));
+    stream.end();
+  }
+  await Promise.all(flushes);
+  child.emit('exit', code, signal);
+  child.emit('close');
+}
+
+/** Builds a stream that reports itself as a terminal, so the runner hands its descriptor to the child. */
+function createTerminalStream() {
+  return Object.assign(new PassThrough(), { fd: 1, isTTY: true });
+}
+
+/** Builds a stream that accepts nothing until released, so a pipe into it must apply back-pressure. */
+function createBlockingStream(): { stream: Writable; release: () => void } {
+  let pendingCallback: (() => void) | undefined;
+  const stream = new Writable({
+    highWaterMark: 1,
+    write(_chunk, _encoding, callback) {
+      pendingCallback = () => callback();
+    },
+  });
+  return {
+    stream,
+    release: () => pendingCallback?.(),
+  };
+}
+
+/** Collects everything written to a stream, for comparison against what the child produced. */
+function collect(stream: PassThrough): () => Buffer {
+  const chunks: Buffer[] = [];
+  stream.on('data', (chunk: Buffer) => {
+    chunks.push(chunk);
+  });
+  return () => Buffer.concat(chunks);
+}
+
+/** Yields to the event loop so piped chunks reach their destination. */
+function flushEventLoop(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
 }
 
 describe(runCommand, () => {
-  let stderrWriteSpy: MockInstance;
-  let stdoutWriteSpy: MockInstance;
-
   beforeEach(() => {
-    mockedSpawnSync.mockReset();
-    stderrWriteSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    stdoutWriteSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    mockedSpawn.mockReset();
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
-  describe('without quiet option', () => {
-    it('inherits stdio from process streams by default', () => {
-      mockedSpawnSync.mockReturnValue(spawnResult());
+  describe('stream routing', () => {
+    it.each([
+      { channel: 1, isQuiet: false, scenario: 'a terminal destination in loud mode', useTerminal: true },
+      { channel: 'pipe', isQuiet: false, scenario: 'a piped destination in loud mode', useTerminal: false },
+      { channel: 'pipe', isQuiet: true, scenario: 'a terminal destination in quiet mode', useTerminal: true },
+    ])('given $scenario, uses $channel for stdout', async ({ channel, isQuiet, useTerminal }) => {
+      const getChild = stubSpawn();
+      const destination = useTerminal ? createTerminalStream() : new PassThrough();
 
-      const code = runCommand('echo hello', '/tmp');
+      const pending = runCommand('cmd', undefined, { quiet: isQuiet, stderr: new PassThrough(), stdout: destination });
+      await endChild(getChild());
+      await pending;
 
-      expect(code).toBe(0);
-      const callOptions = mockedSpawnSync.mock.calls[0]?.[2];
-      expect(callOptions).toMatchObject({
-        shell: true,
-        cwd: '/tmp',
+      expect(stdioFromCall()[1]).toBe(channel);
+    });
+
+    it('inherits stdin so an interactive command keeps its input', async () => {
+      const getChild = stubSpawn();
+
+      const pending = runCommand('cmd', undefined, { stderr: new PassThrough(), stdout: new PassThrough() });
+      await endChild(getChild());
+      await pending;
+
+      expect(stdioFromCall()[0]).toBe('inherit');
+    });
+
+    it('passes caller-supplied env and cwd to spawn', async () => {
+      const getChild = stubSpawn();
+
+      const pending = runCommand('echo $FOO', '/tmp', {
+        env: { FOO: 'bar' },
+        stderr: new PassThrough(),
+        stdout: new PassThrough(),
       });
-      const stdio = stdioFromCall(0);
-      // process.stdout/stderr expose numeric fds in Node — channels should be those fds, not 'pipe'.
-      expect(stdio[0]).toBe('inherit');
-      expect(stdio[1]).toBeTypeOf('number');
-      expect(stdio[2]).toBeTypeOf('number');
-    });
+      await endChild(getChild());
+      await pending;
 
-    it('returns the exit code on failure', () => {
-      mockedSpawnSync.mockReturnValue(spawnResult({ status: 2 }));
-
-      const code = runCommand('failing-command');
-
-      expect(code).toBe(2);
-    });
-
-    it('returns 1 when the process is terminated by a signal (status null)', () => {
-      mockedSpawnSync.mockReturnValue(spawnResult({ status: null, signal: 'SIGTERM' }));
-
-      const code = runCommand('killed-command');
-
-      expect(code).toBe(1);
-    });
-
-    it('returns 1 and writes the canonical Error line for the spawn error when spawn fails', () => {
-      mockedSpawnSync.mockReturnValue(
-        spawnResult({ status: null, error: Object.assign(new Error('ENOENT'), { code: 'ENOENT' }) }),
-      );
-
-      const code = runCommand('nonexistent-bin');
-
-      expect(code).toBe(1);
-      expect(stderrWriteSpy).toHaveBeenCalledWith('Error: ENOENT\n');
-    });
-
-    it('forwards captured stdout into a caller-supplied PassThrough stream', () => {
-      const captured: Buffer[] = [];
-      const stdoutStream = new PassThrough();
-      stdoutStream.on('data', (chunk: Buffer) => {
-        captured.push(chunk);
-      });
-
-      mockedSpawnSync.mockReturnValue(spawnResult({ stdout: Buffer.from('hello world\n') }));
-
-      const code = runCommand('echo hello world', undefined, { stdout: stdoutStream });
-
-      expect(code).toBe(0);
-      // PassThrough has no numeric fd, so the runner must use 'pipe' and forward the buffer.
-      expect(stdioFromCall(0)[1]).toBe('pipe');
-      expect(Buffer.concat(captured).toString('utf8')).toBe('hello world\n');
-    });
-
-    it('forwards captured stderr into a caller-supplied PassThrough stream', () => {
-      const captured: Buffer[] = [];
-      const stderrStream = new PassThrough();
-      stderrStream.on('data', (chunk: Buffer) => {
-        captured.push(chunk);
-      });
-
-      mockedSpawnSync.mockReturnValue(spawnResult({ stderr: Buffer.from('warning\n') }));
-
-      const code = runCommand('noisy-command', undefined, { stderr: stderrStream });
-
-      expect(code).toBe(0);
-      expect(stdioFromCall(0)[2]).toBe('pipe');
-      expect(Buffer.concat(captured).toString('utf8')).toBe('warning\n');
-    });
-
-    it('passes caller-supplied env to spawnSync', () => {
-      mockedSpawnSync.mockReturnValue(spawnResult());
-
-      runCommand('echo $FOO', undefined, { env: { FOO: 'bar' } });
-
-      expect(mockedSpawnSync.mock.calls[0]?.[2]?.env).toStrictEqual({ FOO: 'bar' });
+      expect(mockedSpawn.mock.calls[0]?.[2]).toMatchObject({ cwd: '/tmp', env: { FOO: 'bar' }, shell: true });
     });
   });
 
-  describe('with quiet option', () => {
-    it('uses pipe for both stdio channels', () => {
-      mockedSpawnSync.mockReturnValue(spawnResult({ stdout: Buffer.from('some output') }));
+  describe('forwarding', () => {
+    it('forwards a chunk before the command exits', async () => {
+      const getChild = stubSpawn();
+      const destination = new PassThrough();
+      const received = collect(destination);
 
-      const code = runCommand('echo hello', '/tmp', { quiet: true });
+      const pending = runCommand('cmd', undefined, { stderr: new PassThrough(), stdout: destination });
+      const child = getChild();
+      requireStdout(child).write('first');
+      await flushEventLoop();
 
-      expect(code).toBe(0);
-      const stdio = stdioFromCall(0);
-      expect(stdio[1]).toBe('pipe');
-      expect(stdio[2]).toBe('pipe');
+      expect(received().toString('utf8')).toBe('first');
+
+      await endChild(child);
+      await pending;
     });
 
-    it('does not write any output on success', () => {
-      mockedSpawnSync.mockReturnValue(spawnResult({ stdout: Buffer.from('some output') }));
+    it('when the destination applies back-pressure, pauses the child stream until it drains', async () => {
+      const getChild = stubSpawn();
+      const { release, stream } = createBlockingStream();
 
-      runCommand('echo hello', undefined, { quiet: true });
+      const pending = runCommand('cmd', undefined, { stderr: new PassThrough(), stdout: stream });
+      const child = getChild();
+      const childStdout = requireStdout(child);
+      childStdout.write('a'.repeat(64));
+      await flushEventLoop();
 
-      expect(stderrWriteSpy).not.toHaveBeenCalled();
-      expect(stdoutWriteSpy).not.toHaveBeenCalled();
+      expect(childStdout.isPaused()).toBe(true);
+
+      release();
+      await flushEventLoop();
+
+      expect(childStdout.isPaused()).toBe(false);
+
+      await endChild(child);
+      await pending;
     });
 
-    it('writes captured stdout and stderr to process.stderr on failure by default', () => {
-      const stdout = Buffer.from('lint errors\n');
-      const stderr = Buffer.from('error details\n');
-      mockedSpawnSync.mockReturnValue(spawnResult({ status: 1, stdout, stderr }));
+    it('does not end a caller-supplied destination, so a later command can still write to it', async () => {
+      const getChild = stubSpawn();
+      const destination = new PassThrough();
 
-      const code = runCommand('lint', undefined, { quiet: true });
+      const pending = runCommand('cmd', undefined, { stderr: new PassThrough(), stdout: destination });
+      await endChild(getChild());
+      await pending;
 
-      expect(code).toBe(1);
-      expect(stderrWriteSpy).toHaveBeenCalledWith(stdout);
-      expect(stderrWriteSpy).toHaveBeenCalledWith(stderr);
+      expect(destination.writableEnded).toBe(false);
+      expect(destination.write('later')).toBe(true);
     });
 
-    it('writes quiet-mode failure output to caller-supplied stderr, not process.stderr', () => {
-      const captured: Buffer[] = [];
-      const stderrStream = new PassThrough();
-      stderrStream.on('data', (chunk: Buffer) => {
-        captured.push(chunk);
+    it('when output exceeds the retained bound, forwards every byte the command produced', async () => {
+      const getChild = stubSpawn();
+      const destination = new PassThrough();
+      const received = collect(destination);
+      const produced = Buffer.alloc(3_000_000, 'a');
+
+      const pending = runCommand('cmd', undefined, { stderr: new PassThrough(), stdout: destination });
+      const child = getChild();
+      requireStdout(child).write(produced);
+      const result = await (async () => {
+        await endChild(child);
+        return pending;
+      })();
+
+      expect(received()).toHaveLength(produced.length);
+      expect(result.stdout?.length).toBeLessThan(produced.length);
+    });
+  });
+
+  describe('destination failure', () => {
+    it('when the destination errors, destroys the child stream and reports the capture as incomplete', async () => {
+      const getChild = stubSpawn();
+      const destination = new PassThrough();
+
+      const pending = runCommand('cmd', undefined, { stderr: new PassThrough(), stdout: destination });
+      const child = getChild();
+      const childStdout = requireStdout(child);
+      destination.emit('error', Object.assign(new Error('write EPIPE'), { code: 'EPIPE' }));
+      await flushEventLoop();
+
+      expect(childStdout.destroyed).toBe(true);
+
+      child.emit('exit', 0, null);
+      child.emit('close');
+      const result = await pending;
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toBeUndefined();
+    });
+  });
+
+  describe('outcome', () => {
+    it('when the command exits non-zero, returns that code', async () => {
+      const getChild = stubSpawn();
+
+      const pending = runCommand('failing-command', undefined, {
+        stderr: new PassThrough(),
+        stdout: new PassThrough(),
       });
+      await endChild(getChild(), 2);
 
-      const stdout = Buffer.from('lint errors\n');
-      const stderr = Buffer.from('error details\n');
-      mockedSpawnSync.mockReturnValue(spawnResult({ status: 1, stdout, stderr }));
-
-      const code = runCommand('lint', undefined, { quiet: true, stderr: stderrStream });
-
-      expect(code).toBe(1);
-      expect(stderrWriteSpy).not.toHaveBeenCalled();
-      expect(Buffer.concat(captured).toString('utf8')).toBe('lint errors\nerror details\n');
+      await expect(pending).resolves.toMatchObject({ exitCode: 2, outcome: 'exited' });
     });
 
-    it('skips writes when failure produces empty stdout and stderr buffers', () => {
-      mockedSpawnSync.mockReturnValue(spawnResult({ status: 1, stdout: Buffer.from(''), stderr: Buffer.from('') }));
+    it('when the command dies by signal, returns 128 plus the signal number', async () => {
+      const getChild = stubSpawn();
 
-      const code = runCommand('lint', undefined, { quiet: true });
+      const pending = runCommand('killed-command', undefined, {
+        stderr: new PassThrough(),
+        stdout: new PassThrough(),
+      });
+      await endChild(getChild(), null, 'SIGTERM');
 
-      expect(code).toBe(1);
-      expect(stderrWriteSpy).not.toHaveBeenCalled();
+      await expect(pending).resolves.toMatchObject({ exitCode: 143, outcome: 'signaled', signal: 'SIGTERM' });
+    });
+
+    it('when the spawn fails, returns 1 and writes the error line to the error stream', async () => {
+      const getChild = stubSpawn();
+      const errorStream = new PassThrough();
+      const reported = collect(errorStream);
+
+      const pending = runCommand('nonexistent-bin', undefined, { stderr: errorStream, stdout: new PassThrough() });
+      getChild().emit('error', new Error('spawn /bin/sh ENOENT'));
+      const result = await pending;
+      await flushEventLoop();
+
+      expect(result).toMatchObject({ exitCode: 1, outcome: 'spawn-failed' });
+      expect(reported().toString('utf8')).toBe('Error: spawn /bin/sh ENOENT\n');
+    });
+
+    it('when a descendant holds the pipe open, resolves on the exit status after the grace period', async () => {
+      vi.useFakeTimers();
+      const getChild = stubSpawn();
+
+      const pending = runCommand('cmd', undefined, { stderr: new PassThrough(), stdout: new PassThrough() });
+      const child = getChild();
+      // `close` never arrives: the descendant still holds the write end of the pipe.
+      child.emit('exit', 3, null);
+      await vi.advanceTimersByTimeAsync(2_000);
+
+      await expect(pending).resolves.toMatchObject({ exitCode: 3, outcome: 'exited' });
+      expect(requireStdout(child).destroyed).toBe(true);
+    });
+  });
+
+  describe('quiet mode', () => {
+    it('writes nothing when the command succeeds', async () => {
+      const getChild = stubSpawn();
+      const errorStream = new PassThrough();
+      const reported = collect(errorStream);
+
+      const pending = runCommand('cmd', undefined, { quiet: true, stderr: errorStream, stdout: new PassThrough() });
+      const child = getChild();
+      requireStdout(child).write('some output');
+      await endChild(child);
+      await pending;
+      await flushEventLoop();
+
+      expect(reported()).toHaveLength(0);
+    });
+
+    it('writes retained stdout then stderr to the error stream when the command fails', async () => {
+      const getChild = stubSpawn();
+      const errorStream = new PassThrough();
+      const reported = collect(errorStream);
+
+      const pending = runCommand('lint', undefined, { quiet: true, stderr: errorStream, stdout: new PassThrough() });
+      const child = getChild();
+      requireStdout(child).write('lint errors\n');
+      child.stderr?.write('error details\n');
+      await endChild(child, 1);
+      await pending;
+      await flushEventLoop();
+
+      expect(reported().toString('utf8')).toBe('lint errors\nerror details\n');
     });
   });
 });

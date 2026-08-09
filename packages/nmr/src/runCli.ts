@@ -104,7 +104,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   // -F: delegate to pnpm --filter
   if (parsed.filter) {
     const delegateCmd = `pnpm --filter ${shellQuote(parsed.filter)} exec nmr ${command}${passthrough}`;
-    const exitCode = runCommand(delegateCmd, context.monorepoRoot, runOptions);
+    const { exitCode } = await runCommand(delegateCmd, context.monorepoRoot, runOptions);
     return { exitCode };
   }
 
@@ -112,7 +112,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   if (parsed.recursive) {
     const delegateEnv = { ...childEnv, NMR_RUN_IF_PRESENT: '1' };
     const delegateCmd = `pnpm --recursive exec nmr ${command}${passthrough}`;
-    const exitCode = runCommand(delegateCmd, context.monorepoRoot, { ...runOptions, env: delegateEnv });
+    const { exitCode } = await runCommand(delegateCmd, context.monorepoRoot, { ...runOptions, env: delegateEnv });
     return { exitCode };
   }
 
@@ -595,7 +595,7 @@ async function runGated(options: {
   }
 
   const startedAt = Date.now();
-  const exitCode = runCommand(commandString, anchorDir, options.runOptions);
+  const { exitCode } = await runCommand(commandString, anchorDir, options.runOptions);
 
   if (exitCode === 0 && gate !== undefined) {
     await recordPass({
