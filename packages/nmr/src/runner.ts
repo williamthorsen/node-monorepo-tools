@@ -48,6 +48,9 @@ export type RunCommandResult = CommandCompletion & {
  * detection matches nmr's. Every other destination is piped: output is forwarded as it arrives, with the
  * destination's back-pressure throttling the child, and a bounded copy is retained. Quiet mode pipes both
  * streams regardless, discarding the retained copy on success and writing it to `options.stderr` on failure.
+ *
+ * Piped stdout and stderr are ordered by arrival rather than by a shared descriptor, so their interleaving
+ * is approximate.
  */
 export async function runCommand(
   command: string,
@@ -70,7 +73,10 @@ export async function runCommand(
   const stdoutCapture = child.stdout === null ? undefined : captureStream(child.stdout, quiet ? undefined : stdout);
   const stderrCapture = child.stderr === null ? undefined : captureStream(child.stderr, quiet ? undefined : stderr);
 
-  const completion = await awaitCompletion(child);
+  const completion = await awaitCompletion(child, () => {
+    stdoutCapture?.stopReading();
+    stderrCapture?.stopReading();
+  });
 
   stdoutCapture?.detach();
   stderrCapture?.detach();
@@ -101,27 +107,30 @@ export async function runCommand(
 function captureStream(
   source: Readable,
   destination: Writable | undefined,
-): { toBuffer: () => Buffer | undefined; detach: () => void } {
+): { toBuffer: () => Buffer | undefined; detach: () => void; stopReading: () => void } {
   const retained = createBoundedBuffer();
   let isComplete = true;
 
-  // Whatever stops the run from reading the source through to its end leaves the retained copy understating
-  // what the command produced, so it is reported as absent rather than as the whole of the output.
-  function abandon(): void {
-    isComplete = false;
+  /**
+   * Stops consuming the source. Unpiping first is what releases the listeners `pipe` registered on the
+   * destination; `destroy` alone leaves them attached, and a shared destination accumulates a set per run.
+   */
+  function stopReading(): void {
+    if (destination !== undefined) source.unpipe(destination);
     source.destroy();
   }
 
-  // Closing the read end hands the child an EPIPE of its own, so `nmr <command> | head` ends the run
-  // rather than letting the command write on into a destination that has gone away.
-  function handleDestinationError(): void {
-    if (destination !== undefined) source.unpipe(destination);
-    abandon();
+  /** Stops reading and reports the retained copy as absent, since it would understate the command's output. */
+  function abandon(): void {
+    isComplete = false;
+    stopReading();
   }
 
   source.on('error', abandon);
   if (destination !== undefined) {
-    destination.on('error', handleDestinationError);
+    // Closing the read end hands the child an EPIPE of its own, so `nmr <command> | head` ends the run
+    // rather than letting the command write on into a destination that has gone away.
+    destination.on('error', abandon);
     source.pipe(destination, { end: false });
   }
   source.on('data', (chunk: Buffer) => retained.append(chunk));
@@ -129,13 +138,14 @@ function captureStream(
   return {
     toBuffer: () => (isComplete ? retained.toBuffer() : undefined),
     detach: () => {
-      destination?.off('error', handleDestinationError);
+      destination?.off('error', abandon);
     },
+    stopReading,
   };
 }
 
-/** Resolves once the child has ended, abandoning pipes a descendant holds open past the grace period. */
-function awaitCompletion(child: ChildProcess): Promise<CommandCompletion> {
+/** Resolves once the child has ended, releasing pipes a descendant holds open past the grace period. */
+function awaitCompletion(child: ChildProcess, stopReading: () => void): Promise<CommandCompletion> {
   return new Promise((resolve) => {
     let exitCompletion: CommandCompletion | undefined;
     let graceTimer: NodeJS.Timeout | undefined;
@@ -156,8 +166,7 @@ function awaitCompletion(child: ChildProcess): Promise<CommandCompletion> {
       const completion = describeExit(code, signal);
       exitCompletion = completion;
       graceTimer = setTimeout(() => {
-        child.stdout?.destroy();
-        child.stderr?.destroy();
+        stopReading();
         settle(completion);
       }, PIPE_DRAIN_GRACE_MS);
     });

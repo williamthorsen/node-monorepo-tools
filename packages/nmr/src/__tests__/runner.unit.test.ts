@@ -284,17 +284,41 @@ describe(runCommand, () => {
     });
 
     it('when a descendant holds the pipe open, resolves on the exit status after the grace period', async () => {
-      vi.useFakeTimers();
       const getChild = stubSpawn();
+      const destination = new PassThrough();
+      const received = collect(destination);
 
-      const pending = runCommand('cmd', undefined, { stderr: new PassThrough(), stdout: new PassThrough() });
+      const pending = runCommand('cmd', undefined, { stderr: new PassThrough(), stdout: destination });
       const child = getChild();
+      requireStdout(child).write('produced');
+      await flushEventLoop();
       // `close` never arrives: the descendant still holds the write end of the pipe.
       child.emit('exit', 3, null);
-      await vi.advanceTimersByTimeAsync(2_000);
+      const result = await pending;
 
-      await expect(pending).resolves.toMatchObject({ exitCode: 3, outcome: 'exited' });
+      expect(result).toMatchObject({ exitCode: 3, outcome: 'exited' });
       expect(requireStdout(child).destroyed).toBe(true);
+      expect(received().toString('utf8')).toBe('produced');
+      // What the command wrote before exiting is its whole output, so the retained copy stands.
+      expect(result.stdout?.toString('utf8')).toBe('produced');
+    }, 20_000);
+
+    it('when a descendant holds the pipe open, leaves no pipe listeners on a shared destination', async () => {
+      vi.useFakeTimers();
+      const destination = new PassThrough();
+      destination.resume();
+
+      for (let run = 0; run < 3; run++) {
+        const getChild = stubSpawn();
+        const pending = runCommand('cmd', undefined, { stderr: new PassThrough(), stdout: destination });
+        getChild().emit('exit', 0, null);
+        await vi.advanceTimersByTimeAsync(2_000);
+        await pending;
+      }
+
+      for (const event of ['close', 'error', 'finish', 'unpipe'] as const) {
+        expect(destination.listenerCount(event)).toBe(0);
+      }
     });
   });
 
