@@ -200,17 +200,17 @@ export function encodeTreeSnapshot(snapshot: TreeSnapshot): string {
 }
 
 /**
- * Names a covered package whose output no longer came from the tree it did when the pass was recorded, or
- * `undefined` when every package agrees. A package that has appeared or disappeared since counts as a
- * disagreement, because the output the pass was recorded over is not the output standing here now.
+ * Names a covered package whose output differs between two observations of it, or `undefined` when every
+ * package agrees. A package that has appeared or disappeared between them counts as a disagreement, because
+ * the output the earlier observation describes is not the output the later one found.
  */
 export function findStaleBuildOutput(
-  recorded: Record<string, string>,
-  current: Record<string, string>,
+  earlier: Record<string, string>,
+  later: Record<string, string>,
 ): string | undefined {
-  const names = [...new Set([...Object.keys(recorded), ...Object.keys(current)])].toSorted();
+  const names = [...new Set([...Object.keys(earlier), ...Object.keys(later)])].toSorted();
 
-  return names.find((name) => recorded[name] !== current[name]);
+  return names.find((name) => earlier[name] !== later[name]);
 }
 
 /**

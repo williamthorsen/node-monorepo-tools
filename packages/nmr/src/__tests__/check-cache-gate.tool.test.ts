@@ -319,6 +319,45 @@ describe('the check-result cache gate', () => {
     });
   });
 
+  describe('build output that moves while the check runs', () => {
+    it('records no pass when a covered package’s digest changes mid-run', async () => {
+      // The build cache lives under gitignored `node_modules/`, so rewriting the digest moves no tree hash:
+      // the comparison of the two reads is the only thing that can catch it.
+      writeConfig(repo, log, { command: `echo ran >> ${log} && ${rebuildDigest('digest-from-a-concurrent-build')}` });
+
+      const { stderr } = await runNmr(COMMAND, repo, { NMR_DEBUG: '1' });
+
+      expect(cacheEntryCount()).toBe(0);
+      expect(stderr).toContain("packages/a's build output changed while it ran");
+    });
+
+    it('records no pass when the run itself builds output that was absent', async () => {
+      // The shape `nmr ci` takes, whose chain builds what its checks then read. Declining is deliberate: the
+      // pass cannot say which output it was earned over.
+      const outputDir = path.join(repo, 'packages', 'a', 'dist', 'esm');
+      writeConfig(repo, log, {
+        command: `echo ran >> ${log} && mkdir -p ${outputDir} && echo built > ${path.join(outputDir, 'index.js')}`,
+      });
+      fs.rmSync(path.join(repo, 'packages', 'a', 'dist'), { recursive: true, force: true });
+
+      const { stderr } = await runNmr(COMMAND, repo, { NMR_DEBUG: '1' });
+
+      expect(cacheEntryCount()).toBe(0);
+      expect(stderr).toContain("packages/a's build output changed while it ran");
+    });
+
+    it('settles rather than missing forever once the digest stands still', async () => {
+      // The second run rewrites the same digest the first left behind, so its two reads agree and it records.
+      writeConfig(repo, log, { command: `echo ran >> ${log} && ${rebuildDigest('digest-from-a-concurrent-build')}` });
+      await runNmr(COMMAND, repo);
+      await runNmr(COMMAND, repo);
+
+      await runNmr(COMMAND, repo);
+
+      expect(runCount()).toBe(2);
+    });
+  });
+
   // region | Helpers
 
   /** Counts the entries the cache currently holds for the fixture repository. */
@@ -336,6 +375,11 @@ describe('the check-result cache gate', () => {
       .readFileSync(log, 'utf8')
       .split('\n')
       .filter((line) => line.length > 0);
+  }
+
+  /** Renders a shell command standing in for a concurrent build of the fixture's one covered package. */
+  function rebuildDigest(digest: string): string {
+    return `echo ${digest} > ${resolveBuildCachePath(path.join(repo, 'packages', 'a'))}`;
   }
 
   /** Counts how many times the fixture's command has actually run. */
