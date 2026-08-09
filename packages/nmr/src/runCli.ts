@@ -27,7 +27,7 @@ import type { ScriptRegistry } from './resolve-scripts.ts';
 import type { ResolvedScript } from './resolver.ts';
 import { applyDevBin, buildRootRegistry, buildWorkspaceRegistry, resolveScript } from './resolver.ts';
 import type { RunCommandOptions } from './runner.ts';
-import { runCommand } from './runner.ts';
+import { resolveChannel, runCommand } from './runner.ts';
 import type { Step } from './steps.ts';
 import { composeNmrStep, renderChain } from './steps.ts';
 import type { NmrConfig } from './types.ts';
@@ -101,7 +101,13 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   const noCache = parsed.noCache || env[NO_CACHE_ENV_VAR] === '1';
   const childEnv = buildChildEnv(env, snapshot, noCache);
-  const runOptions = { quiet: parsed.quiet, stdout, stderr, env: childEnv };
+  const runOptions = {
+    channels: { stderr: resolveChannel(stderr, parsed.quiet), stdout: resolveChannel(stdout, parsed.quiet) },
+    quiet: parsed.quiet,
+    stdout,
+    stderr,
+    env: childEnv,
+  };
 
   // -F: delegate to pnpm --filter
   if (parsed.filter) {

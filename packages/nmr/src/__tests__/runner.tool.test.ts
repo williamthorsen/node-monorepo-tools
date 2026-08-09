@@ -3,9 +3,13 @@ import { PassThrough } from 'node:stream';
 
 import { describe, expect, it } from 'vitest';
 
+import type { OutputChannels } from '../runner.ts';
 import { runCommand } from '../runner.ts';
 
 const PRODUCED_BYTES = 2_000_000;
+
+/** What a caller writing to a non-terminal destination resolves, which is the arrangement these model. */
+const PIPED_CHANNELS: OutputChannels = { stderr: 'pipe', stdout: 'pipe' };
 
 /** Collects everything written to a stream, for comparison against what the command produced. */
 function collect(stream: PassThrough): () => Buffer {
@@ -24,7 +28,7 @@ describe(runCommand, () => {
     const result = await runCommand(
       `"${process.execPath}" -e "process.stdout.write('a'.repeat(${PRODUCED_BYTES}))"`,
       undefined,
-      { stderr: new PassThrough(), stdout: destination },
+      { channels: PIPED_CHANNELS, stderr: new PassThrough(), stdout: destination },
     );
 
     expect(result).toMatchObject({ exitCode: 0, outcome: 'exited' });
@@ -39,6 +43,7 @@ describe(runCommand, () => {
 
     // `sleep` inherits the pipe and outlives the shell, so the pipe never closes on its own.
     const result = await runCommand('sleep 20 & echo ready', undefined, {
+      channels: PIPED_CHANNELS,
       stderr: new PassThrough(),
       stdout: destination,
     });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildRootRegistry, buildWorkspaceRegistry, expandScript } from '../resolver.ts';
 import type { ScriptRegistry } from '../resolve-scripts.ts';
+import { buildRootRegistry, buildWorkspaceRegistry, expandScript } from '../resolver.ts';
 import { renderChain } from '../steps.ts';
 
 /** One default script's chain string, pinned as nmr shelled it before a command resolved to a step list. */

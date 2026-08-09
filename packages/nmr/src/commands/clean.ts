@@ -5,7 +5,7 @@ import { removeCheckCache } from '../check-cache.ts';
 import { loadRootConfig } from '../config.ts';
 import { findContainingPackageDir } from '../context.ts';
 import { applyDevBin, buildWorkspaceRegistry, resolveScript } from '../resolver.ts';
-import { runCommand } from '../runner.ts';
+import { resolveChannel, runCommand } from '../runner.ts';
 import { renderChain } from '../steps.ts';
 import type { NmrConfig } from '../types.ts';
 import { findMonorepoRoot, getWorkspacePackageDirs } from '../workspace.ts';
@@ -116,7 +116,9 @@ async function sweepWorkspace(monorepoRoot: string, workspacePackageDirs: string
     }
 
     const command = applyDevBin(resolvedCommand, config.devBin, monorepoRoot);
-    const { exitCode } = await runCommand(command, packageDir);
+    const { exitCode } = await runCommand(command, packageDir, {
+      channels: { stderr: resolveChannel(process.stderr, false), stdout: resolveChannel(process.stdout, false) },
+    });
     if (exitCode !== 0) {
       throw new Error(`nmr-clean: \`${command}\` failed in ${path.basename(packageDir)} with exit code ${exitCode}.`);
     }

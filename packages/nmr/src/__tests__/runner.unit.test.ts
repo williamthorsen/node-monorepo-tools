@@ -4,13 +4,17 @@ import { PassThrough, Writable } from 'node:stream';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { runCommand } from '../runner.ts';
+import type { OutputChannels } from '../runner.ts';
+import { resolveChannel, runCommand } from '../runner.ts';
 
 vi.mock(import('node:child_process'), () => ({
   spawn: vi.fn(),
 }));
 
 const mockedSpawn = vi.mocked(spawn);
+
+/** What a caller writing to a non-terminal destination resolves, which is the arrangement most of these model. */
+const PIPED_CHANNELS: OutputChannels = { stderr: 'pipe', stdout: 'pipe' };
 
 interface FakeChild extends EventEmitter {
   stdout: PassThrough | null;
@@ -102,6 +106,19 @@ function flushEventLoop(): Promise<void> {
   return new Promise((resolve) => setImmediate(resolve));
 }
 
+describe(resolveChannel, () => {
+  it.each([
+    { channel: 1, isQuiet: false, scenario: 'a terminal destination in loud mode', useTerminal: true },
+    { channel: 'pipe', isQuiet: false, scenario: 'a piped destination in loud mode', useTerminal: false },
+    { channel: 'pipe', isQuiet: true, scenario: 'a terminal destination in quiet mode', useTerminal: true },
+    { channel: 'pipe', isQuiet: true, scenario: 'a piped destination in quiet mode', useTerminal: false },
+  ])('given $scenario, resolves to $channel', ({ channel, isQuiet, useTerminal }) => {
+    const destination = useTerminal ? createTerminalStream() : new PassThrough();
+
+    expect(resolveChannel(destination, isQuiet)).toBe(channel);
+  });
+});
+
 describe(runCommand, () => {
   beforeEach(() => {
     mockedSpawn.mockReset();
@@ -113,25 +130,42 @@ describe(runCommand, () => {
   });
 
   describe('stream routing', () => {
-    it.each([
-      { channel: 1, isQuiet: false, scenario: 'a terminal destination in loud mode', useTerminal: true },
-      { channel: 'pipe', isQuiet: false, scenario: 'a piped destination in loud mode', useTerminal: false },
-      { channel: 'pipe', isQuiet: true, scenario: 'a terminal destination in quiet mode', useTerminal: true },
-    ])('given $scenario, uses $channel for stdout', async ({ channel, isQuiet, useTerminal }) => {
+    it('runs each stream on the channel the caller chose', async () => {
       const getChild = stubSpawn();
-      const destination = useTerminal ? createTerminalStream() : new PassThrough();
 
-      const pending = runCommand('cmd', undefined, { quiet: isQuiet, stderr: new PassThrough(), stdout: destination });
+      const pending = runCommand('cmd', undefined, {
+        channels: { stderr: 2, stdout: 'pipe' },
+        stderr: new PassThrough(),
+        stdout: new PassThrough(),
+      });
       await endChild(getChild());
       await pending;
 
-      expect(stdioFromCall()[1]).toBe(channel);
+      expect(stdioFromCall().slice(1)).toStrictEqual(['pipe', 2]);
+    });
+
+    it('given a descriptor channel, retains no copy of that stream', async () => {
+      const getChild = stubSpawn();
+
+      const pending = runCommand('cmd', undefined, {
+        channels: { stderr: 'pipe', stdout: 1 },
+        stderr: new PassThrough(),
+        stdout: new PassThrough(),
+      });
+      await endChild(getChild());
+      const result = await pending;
+
+      expect(result.stdout).toBeUndefined();
     });
 
     it('inherits stdin so an interactive command keeps its input', async () => {
       const getChild = stubSpawn();
 
-      const pending = runCommand('cmd', undefined, { stderr: new PassThrough(), stdout: new PassThrough() });
+      const pending = runCommand('cmd', undefined, {
+        channels: PIPED_CHANNELS,
+        stderr: new PassThrough(),
+        stdout: new PassThrough(),
+      });
       await endChild(getChild());
       await pending;
 
@@ -142,6 +176,7 @@ describe(runCommand, () => {
       const getChild = stubSpawn();
 
       const pending = runCommand('echo $FOO', '/tmp', {
+        channels: PIPED_CHANNELS,
         env: { FOO: 'bar' },
         stderr: new PassThrough(),
         stdout: new PassThrough(),
@@ -159,7 +194,11 @@ describe(runCommand, () => {
       const destination = new PassThrough();
       const received = collect(destination);
 
-      const pending = runCommand('cmd', undefined, { stderr: new PassThrough(), stdout: destination });
+      const pending = runCommand('cmd', undefined, {
+        channels: PIPED_CHANNELS,
+        stderr: new PassThrough(),
+        stdout: destination,
+      });
       const child = getChild();
       requireStdout(child).write('first');
       await flushEventLoop();
@@ -174,7 +213,11 @@ describe(runCommand, () => {
       const getChild = stubSpawn();
       const { release, stream } = createBlockingStream();
 
-      const pending = runCommand('cmd', undefined, { stderr: new PassThrough(), stdout: stream });
+      const pending = runCommand('cmd', undefined, {
+        channels: PIPED_CHANNELS,
+        stderr: new PassThrough(),
+        stdout: stream,
+      });
       const child = getChild();
       const childStdout = requireStdout(child);
       childStdout.write('a'.repeat(64));
@@ -195,7 +238,11 @@ describe(runCommand, () => {
       const getChild = stubSpawn();
       const destination = new PassThrough();
 
-      const pending = runCommand('cmd', undefined, { stderr: new PassThrough(), stdout: destination });
+      const pending = runCommand('cmd', undefined, {
+        channels: PIPED_CHANNELS,
+        stderr: new PassThrough(),
+        stdout: destination,
+      });
       await endChild(getChild());
       await pending;
 
@@ -209,7 +256,11 @@ describe(runCommand, () => {
       const received = collect(destination);
       const produced = Buffer.alloc(3_000_000, 'a');
 
-      const pending = runCommand('cmd', undefined, { stderr: new PassThrough(), stdout: destination });
+      const pending = runCommand('cmd', undefined, {
+        channels: PIPED_CHANNELS,
+        stderr: new PassThrough(),
+        stdout: destination,
+      });
       const child = getChild();
       requireStdout(child).write(produced);
       const result = await (async () => {
@@ -227,7 +278,11 @@ describe(runCommand, () => {
       const getChild = stubSpawn();
       const destination = new PassThrough();
 
-      const pending = runCommand('cmd', undefined, { stderr: new PassThrough(), stdout: destination });
+      const pending = runCommand('cmd', undefined, {
+        channels: PIPED_CHANNELS,
+        stderr: new PassThrough(),
+        stdout: destination,
+      });
       const child = getChild();
       const childStdout = requireStdout(child);
       destination.emit('error', Object.assign(new Error('write EPIPE'), { code: 'EPIPE' }));
@@ -249,6 +304,7 @@ describe(runCommand, () => {
       const getChild = stubSpawn();
 
       const pending = runCommand('failing-command', undefined, {
+        channels: PIPED_CHANNELS,
         stderr: new PassThrough(),
         stdout: new PassThrough(),
       });
@@ -261,6 +317,7 @@ describe(runCommand, () => {
       const getChild = stubSpawn();
 
       const pending = runCommand('killed-command', undefined, {
+        channels: PIPED_CHANNELS,
         stderr: new PassThrough(),
         stdout: new PassThrough(),
       });
@@ -274,7 +331,11 @@ describe(runCommand, () => {
       const errorStream = new PassThrough();
       const reported = collect(errorStream);
 
-      const pending = runCommand('nonexistent-bin', undefined, { stderr: errorStream, stdout: new PassThrough() });
+      const pending = runCommand('nonexistent-bin', undefined, {
+        channels: PIPED_CHANNELS,
+        stderr: errorStream,
+        stdout: new PassThrough(),
+      });
       getChild().emit('error', new Error('spawn /bin/sh ENOENT'));
       const result = await pending;
       await flushEventLoop();
@@ -288,7 +349,11 @@ describe(runCommand, () => {
       const destination = new PassThrough();
       const received = collect(destination);
 
-      const pending = runCommand('cmd', undefined, { stderr: new PassThrough(), stdout: destination });
+      const pending = runCommand('cmd', undefined, {
+        channels: PIPED_CHANNELS,
+        stderr: new PassThrough(),
+        stdout: destination,
+      });
       const child = getChild();
       requireStdout(child).write('produced');
       await flushEventLoop();
@@ -310,7 +375,11 @@ describe(runCommand, () => {
 
       for (let run = 0; run < 3; run++) {
         const getChild = stubSpawn();
-        const pending = runCommand('cmd', undefined, { stderr: new PassThrough(), stdout: destination });
+        const pending = runCommand('cmd', undefined, {
+          channels: PIPED_CHANNELS,
+          stderr: new PassThrough(),
+          stdout: destination,
+        });
         getChild().emit('exit', 0, null);
         await vi.advanceTimersByTimeAsync(2_000);
         await pending;
@@ -328,7 +397,12 @@ describe(runCommand, () => {
       const errorStream = new PassThrough();
       const reported = collect(errorStream);
 
-      const pending = runCommand('cmd', undefined, { quiet: true, stderr: errorStream, stdout: new PassThrough() });
+      const pending = runCommand('cmd', undefined, {
+        channels: PIPED_CHANNELS,
+        quiet: true,
+        stderr: errorStream,
+        stdout: new PassThrough(),
+      });
       const child = getChild();
       requireStdout(child).write('some output');
       await endChild(child);
@@ -343,7 +417,12 @@ describe(runCommand, () => {
       const errorStream = new PassThrough();
       const reported = collect(errorStream);
 
-      const pending = runCommand('lint', undefined, { quiet: true, stderr: errorStream, stdout: new PassThrough() });
+      const pending = runCommand('lint', undefined, {
+        channels: PIPED_CHANNELS,
+        quiet: true,
+        stderr: errorStream,
+        stdout: new PassThrough(),
+      });
       const child = getChild();
       requireStdout(child).write('lint errors\n');
       child.stderr?.write('error details\n');
