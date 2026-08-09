@@ -346,6 +346,16 @@ describe('the check-result cache gate', () => {
       expect(stderr).toContain("packages/a's build output changed while it ran");
     });
 
+    it('records no pass under --no-cache when the digest changes mid-run', async () => {
+      // The bypass reaches the lookup, not the recording, so the comparison still stands between this run and
+      // an entry describing output it never saw.
+      writeConfig(repo, log, { command: `echo ran >> ${log} && ${rebuildDigest('digest-from-a-concurrent-build')}` });
+
+      await runNmr(`--no-cache ${COMMAND}`, repo);
+
+      expect(cacheEntryCount()).toBe(0);
+    });
+
     it('settles rather than missing forever once the digest stands still', async () => {
       // The second run rewrites the same digest the first left behind, so its two reads agree and it records.
       writeConfig(repo, log, { command: `echo ran >> ${log} && ${rebuildDigest('digest-from-a-concurrent-build')}` });
