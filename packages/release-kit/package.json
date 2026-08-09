@@ -55,7 +55,7 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "@types/semver": "7.7.1",
+    "@types/semver": "7.8.0",
     "readyup": "0.26.0",
     "smol-toml": "1.7.1"
   },
