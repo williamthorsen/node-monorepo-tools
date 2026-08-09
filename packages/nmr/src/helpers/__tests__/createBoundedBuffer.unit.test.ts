@@ -42,6 +42,10 @@ describe(createBoundedBuffer, () => {
     expect(retain(['abcd', 'e', 'f', 'g', 'h', 'i', 'j'])).toBe('abcd\n… nmr elided 2 bytes …\nghij');
   });
 
+  it('when a chunk straddles the end of the tail ring, wraps its remainder to the front', () => {
+    expect(retain(['abcd', 'efg', 'hi'])).toBe('abcd\n… nmr elided 1 byte …\nfghi');
+  });
+
   it('when exactly one byte is dropped, the marker reads in the singular', () => {
     expect(retain(['abcd', 'e', 'f', 'g', 'h', 'i'])).toBe('abcd\n… nmr elided 1 byte …\nfghi');
   });
