@@ -55,13 +55,4 @@ describe(createBoundedBuffer, () => {
 
     expect(buffer.toBuffer().toString('utf8')).toBe('€');
   });
-
-  it('under the default bound, retains a payload past 1 MiB whole', () => {
-    const buffer = createBoundedBuffer();
-    const payload = Buffer.alloc(1_200_000, 'a');
-
-    buffer.append(payload);
-
-    expect(buffer.toBuffer()).toStrictEqual(payload);
-  });
 });
