@@ -114,7 +114,7 @@ async function sweepWorkspace(monorepoRoot: string, workspacePackageDirs: string
     }
 
     const command = applyDevBin(resolved.command, config.devBin, monorepoRoot);
-    const exitCode = runCommand(command, packageDir);
+    const { exitCode } = await runCommand(command, packageDir);
     if (exitCode !== 0) {
       throw new Error(`nmr-clean: \`${command}\` failed in ${path.basename(packageDir)} with exit code ${exitCode}.`);
     }
