@@ -70,11 +70,11 @@ describe(getDefaultRootScripts, () => {
     expect(getDefaultRootScripts()[name]).not.toContain('report-overrides');
   });
 
-  // Pins the composition: a flattened `prepush` runs identically today but stops tracking `ci`.
-  it('composes prepush from ci and audit', () => {
+  // Two invariants: the audit gates the run, and `prepush` names `ci` so a stage added to `ci` joins the pre-push run.
+  it('composes prepush from audit and ci, in that order', () => {
     const scripts = getDefaultRootScripts();
 
-    expect(scripts['prepush']).toStrictEqual(['ci', 'audit']);
+    expect(scripts['prepush']).toStrictEqual(['audit', 'ci']);
   });
 
   it('composes root scripts that delegate to workspaces', () => {
