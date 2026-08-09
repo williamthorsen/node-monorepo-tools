@@ -55,7 +55,7 @@ Before pushing:
 
 ```shell
 nmr ci               # what the code-quality workflow runs: build, then strict checks
-nmr prepush          # ci plus the dependency audit
+nmr prepush          # the dependency audit, then ci
 ```
 
 ### Dependency upgrades

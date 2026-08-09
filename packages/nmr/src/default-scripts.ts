@@ -55,7 +55,8 @@ export const rootScripts: ScriptRegistry = {
   lint: 'eslint --fix .',
   'lint:check': 'eslint .',
   'lint:strict': 'strict-lint',
-  prepush: ['ci', 'audit'],
+  // The audit costs seconds and `ci` costs minutes, so the cheap gate fails first.
+  prepush: ['audit', 'ci'],
   'report-overrides': 'nmr-report-overrides',
   'root:check': ['root:typecheck', 'fmt:check', 'root:lint:check', 'root:test'],
   'root:lint': "eslint --fix --ignore-pattern 'packages/**' .",

@@ -414,9 +414,11 @@ A run that collects no test files passes. That is what lets `nmr test:tool` fan 
 | `build`   | `pnpm --recursive exec nmr build` |
 | `ci`      | `build`, `check:strict`           |
 | `clean`   | `nmr-clean`                       |
-| `prepush` | `ci`, `audit`                     |
+| `prepush` | `audit`, `ci`                     |
 
-`ci` is what a code-quality workflow runs; it leaves out the audit, which belongs in a workflow of its own. `prepush` is what a developer runs before pushing: both gates. It composes `ci` rather than restating its stages, so a stage added to `ci` joins the pre-push run too.
+`ci` is what a code-quality workflow runs; it leaves out the audit, which belongs in a workflow of its own. `prepush` is what a developer runs before pushing: both gates, audit first. The audit takes seconds and `ci` takes minutes, so a vulnerability surfaces before the long gate runs. It composes `ci` rather than restating its stages, so a stage added to `ci` joins the pre-push run too.
+
+The audit reaches the network. With no network, `ci` is the gate that still runs.
 
 Neither is bound to a git hook. `prepush` is named for when you run it, not for a hook nmr installs.
 
@@ -552,7 +554,7 @@ nmr build # Compile to .js and .d.ts in one pass
 # From the monorepo root
 nmr test    # Root tests + recursive workspace tests
 nmr ci      # build + check:strict
-nmr prepush # ci + audit
+nmr prepush # audit + ci
 
 # Target specific packages
 nmr --filter core test # Test only the core package
