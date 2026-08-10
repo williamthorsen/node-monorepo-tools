@@ -25,9 +25,9 @@ import { generateHelp } from './help.ts';
 import { isHookName } from './helpers/hook-name.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
 import type { ResolvedScript } from './resolver.ts';
-import { applyDevBin, buildRootRegistry, buildWorkspaceRegistry, resolveScript } from './resolver.ts';
-import type { RunCommandOptions } from './runner.ts';
-import { resolveChannel, runCommand } from './runner.ts';
+import { applyDevBinToSteps, buildRootRegistry, buildWorkspaceRegistry, resolveScript } from './resolver.ts';
+import type { RunStepsOptions } from './runner.ts';
+import { runSteps } from './runner.ts';
 import type { Step } from './steps.ts';
 import { composeNmrStep, renderChain } from './steps.ts';
 import type { NmrConfig } from './types.ts';
@@ -77,12 +77,12 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     reportError(verbosity.error, stderr);
     return { exitCode: 1 };
   }
-  const quiet = verbosity.verbosity === 'quiet';
-
   if (parsed.version) {
     stdout.write(`${VERSION}\n`);
     return { exitCode: 0 };
   }
+
+  const quiet = verbosity.verbosity === 'quiet';
 
   const context = await resolveContext(cwd);
 
@@ -98,7 +98,6 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   }
 
   const { command } = parsed;
-  const passthrough = parsed.passthrough.length > 0 ? ' ' + parsed.passthrough.map(shellQuote).join(' ') : '';
 
   const snapshot = openGate({
     command,
@@ -111,8 +110,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   const noCache = parsed.noCache || env[NO_CACHE_ENV_VAR] === '1';
   const childEnv = buildChildEnv(env, snapshot, noCache, verbosity.verbosity);
-  const runOptions = {
-    channels: { stderr: resolveChannel(stderr, quiet), stdout: resolveChannel(stdout, quiet) },
+  const runOptions: RunStepsOptions = {
     quiet,
     stdout,
     stderr,
@@ -121,17 +119,15 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   // -F: delegate to pnpm --filter
   if (parsed.filter) {
-    const delegateCmd = composeDelegate(['--filter', parsed.filter], command, parsed.passthrough);
-    const { exitCode } = await runCommand(delegateCmd, context.monorepoRoot, runOptions);
-    return { exitCode };
+    const delegate = composeDelegate(['--filter', parsed.filter], command, parsed.passthrough);
+    return runSteps([delegate], context.monorepoRoot, runOptions);
   }
 
   // -R: delegate to pnpm --recursive
   if (parsed.recursive) {
     const delegateEnv = { ...childEnv, NMR_RUN_IF_PRESENT: '1' };
-    const delegateCmd = composeDelegate(['--recursive'], command, parsed.passthrough);
-    const { exitCode } = await runCommand(delegateCmd, context.monorepoRoot, { ...runOptions, env: delegateEnv });
-    return { exitCode };
+    const delegate = composeDelegate(['--recursive'], command, parsed.passthrough);
+    return runSteps([delegate], context.monorepoRoot, { ...runOptions, env: delegateEnv });
   }
 
   const registry = useRoot ? buildRootRegistry(context.config) : buildWorkspaceRegistry(context.config);
@@ -152,15 +148,17 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     return { exitCode: skipExitCode };
   }
 
-  const substitutedCommand = applyDevBin(resolvedCommand, context.config.devBin, context.monorepoRoot);
-  const mainCommand = substitutedCommand + passthrough;
+  const substitutedSteps = applyDevBinToSteps(resolved.steps, context.config.devBin, context.monorepoRoot);
+  const substitutedCommand = renderChain(substitutedSteps);
+  const mainSteps = appendPassthrough(substitutedSteps, parsed.passthrough);
 
   // Hook recursion guard: commands ending in :pre or :post are leaf operations
   // and are not themselves wrapped in additional hook lookups.
   const isHookInvocation = isHookName(command);
-  const fullCommand = isHookInvocation
-    ? mainCommand
-    : wrapWithHooks(command, mainCommand, registry, anchorDir, parsed.workspaceRoot);
+  const fullSteps = isHookInvocation
+    ? mainSteps
+    : wrapWithHooks(command, mainSteps, registry, anchorDir, parsed.workspaceRoot);
+  const fullCommand = renderChain(fullSteps);
 
   // The key waits until the whole chain is known, so it describes what would actually run: the hooks wrapped
   // around the command included.
@@ -180,6 +178,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     command,
     commandString: fullCommand,
     config: context.config,
+    steps: fullSteps,
     env,
     key,
     monorepoRoot: context.monorepoRoot,
@@ -236,11 +235,30 @@ function buildChildEnv(
 }
 
 /**
- * Composes the pnpm delegate that runs a command in other packages. One structural step, so the pattern a `-F`
- * carries and the arguments passed on stay argv tokens rather than text spliced into a shell string.
+ * Appends the invocation's trailing arguments to the last step of the main command, so they reach the command
+ * the user named and never a hook wrapped around it.
  */
-function composeDelegate(scope: readonly string[], command: string, passthrough: readonly string[]): string {
-  return renderChain([{ kind: 'structural', argv: ['pnpm', ...scope, 'exec', 'nmr', command, ...passthrough] }]);
+function appendPassthrough(steps: readonly Step[], passthrough: readonly string[]): readonly Step[] {
+  const last = steps.at(-1);
+  if (passthrough.length === 0 || last === undefined) {
+    return steps;
+  }
+
+  const bound: Step =
+    last.kind === 'structural'
+      ? { kind: 'structural', argv: [...last.argv, ...passthrough] }
+      : { kind: 'opaque', command: `${last.command} ${passthrough.map(shellQuote).join(' ')}` };
+
+  return [...steps.slice(0, -1), bound];
+}
+
+/**
+ * Composes the pnpm delegate that runs a command in other packages. One structural step, so the pattern a `-F`
+ * carries and the arguments passed on stay argv tokens rather than text spliced into a shell string, and so the
+ * nmr processes underneath write where this one writes although the binary spawned is `pnpm`.
+ */
+function composeDelegate(scope: readonly string[], command: string, passthrough: readonly string[]): Step {
+  return { kind: 'structural', argv: ['pnpm', ...scope, 'exec', 'nmr', command, ...passthrough] };
 }
 
 /**
@@ -577,8 +595,8 @@ function resolveCacheKey(options: {
 }
 
 /**
- * Runs the resolved chain behind the check-result cache: skips it when a recorded pass covers this invocation,
- * and records a pass when one is earned. Returns the exit code either way.
+ * Runs the resolved steps behind the check-result cache: skips them when a recorded pass covers this
+ * invocation, and records a pass when one is earned. Returns the exit code either way.
  *
  * The override notice waits until the command is going to run, because naming the script that stands in for a
  * built-in says nothing useful about an invocation that skipped it.
@@ -594,8 +612,9 @@ async function runGated(options: {
   noCache: boolean;
   overrideNotice: string | undefined;
   quiet: boolean;
-  runOptions: RunCommandOptions;
+  runOptions: RunStepsOptions;
   snapshot: TreeSnapshot | undefined;
+  steps: readonly Step[];
   stderr: Writable;
   stdout: Writable;
 }): Promise<number> {
@@ -631,7 +650,7 @@ async function runGated(options: {
   }
 
   const startedAt = Date.now();
-  const { exitCode } = await runCommand(commandString, anchorDir, options.runOptions);
+  const { exitCode } = await runSteps(options.steps, anchorDir, options.runOptions);
 
   if (exitCode === 0 && gate !== undefined) {
     await recordPass({
@@ -661,35 +680,35 @@ function shellQuote(arg: string): string {
 }
 
 /**
- * Wraps a resolved main command with `nmr <command>:pre` and `nmr <command>:post`
- * invocations when the corresponding hooks resolve to non-skip values.
+ * Wraps a resolved main command's steps with `nmr <command>:pre` and `nmr <command>:post`
+ * steps when the corresponding hooks resolve to non-skip values.
  *
  * Hooks are looked up via the same 3-tier registry as the main command. Missing
  * hooks (and explicit `""`/`":"` skips) are silent — they do not appear in the
- * chain and produce no output. Hook failure short-circuits the chain via shell
- * `&&` semantics; the failing exit code propagates.
+ * chain and produce no output. Hook failure ends the sequence; the failing exit
+ * code propagates.
  *
  * `-w` is propagated to hook subprocesses so each hook selects the root registry
  * on its own, independent of where the child derives its context from.
  */
 function wrapWithHooks(
   command: string,
-  mainCommand: string,
+  mainSteps: readonly Step[],
   registry: ScriptRegistry,
   anchorDir: string,
   workspaceRoot: boolean,
-): string {
+): readonly Step[] {
   const steps: Step[] = [];
 
   if (hasRunnableHook(`${command}:pre`, registry, anchorDir, workspaceRoot)) {
     steps.push(composeNmrStep(`${command}:pre`, workspaceRoot));
   }
-  steps.push({ kind: 'opaque', command: mainCommand });
+  steps.push(...mainSteps);
   if (hasRunnableHook(`${command}:post`, registry, anchorDir, workspaceRoot)) {
     steps.push(composeNmrStep(`${command}:post`, workspaceRoot));
   }
 
-  return renderChain(steps);
+  return steps;
 }
 
 // endregion | Helpers

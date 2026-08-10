@@ -31,6 +31,26 @@ export function applyDevBin(command: string, devBin: Record<string, string> | un
 }
 
 /**
+ * Applies a `devBin` substitution to each opaque step, leaving nmr's own compositions alone.
+ *
+ * A structural step names a command nmr resolves for itself, so substituting its first token would replace the
+ * `nmr` that carries the composite rather than the leaf tool `devBin` documents replacing.
+ */
+export function applyDevBinToSteps(
+  steps: readonly Step[],
+  devBin: Record<string, string> | undefined,
+  monorepoRoot: string,
+): readonly Step[] {
+  if (!devBin) {
+    return steps;
+  }
+
+  return steps.map((step) =>
+    step.kind === 'opaque' ? { kind: 'opaque', command: applyDevBin(step.command, devBin, monorepoRoot) } : step,
+  );
+}
+
+/**
  * Resolve relative paths in a replacement command against `monorepoRoot`.
  * The first token (the runner binary) is left as-is; subsequent tokens
  * that contain `/` and don't start with `-` are resolved.

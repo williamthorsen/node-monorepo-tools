@@ -20,6 +20,7 @@ import {
   writeDebugNote,
 } from '../check-cache.ts';
 import { resolveBuildCachePath } from '../commands/build-output.ts';
+import { COMMAND_VERBOSITY_ENV_VAR } from '../verbosity.ts';
 
 const SNAPSHOT: TreeSnapshot = { hash: 'tree-hash', headSha: 'head-sha' };
 
@@ -118,6 +119,14 @@ describe('check-cache', () => {
     it('ignores an environment variable outside the fixed set', () => {
       // The set stays fixed so that two machines differing only in shell decoration agree on the key.
       expect(keyOf(root, { env: { EDITOR: 'vim' } })).toBe(keyOf(root));
+    });
+
+    // Loudness changes what a run prints and never what it concludes, so a quiet run hits a pass a loud one
+    // recorded. Folding it in would split every recorded pass across the two modes, and silently.
+    it('ignores the verbosity a run was asked for', () => {
+      expect(keyOf(root, { env: { [COMMAND_VERBOSITY_ENV_VAR]: 'quiet' } })).toBe(
+        keyOf(root, { env: { [COMMAND_VERBOSITY_ENV_VAR]: 'full' } }),
+      );
     });
 
     it('refuses a key when the install fingerprint is unreadable', () => {
