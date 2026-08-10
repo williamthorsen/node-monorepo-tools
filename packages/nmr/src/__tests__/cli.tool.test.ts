@@ -7,6 +7,7 @@ import { PassThrough } from 'node:stream';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { runCli } from '../runCli.ts';
+import { readAmbientEnv } from '../test-utils/readAmbientEnv.ts';
 
 function makeLogHelpers(getPath: () => string): { read: () => string[]; clear: () => void } {
   return {
@@ -43,9 +44,7 @@ async function runNmr(
   options: { cwd?: string; env?: Record<string, string> } = {},
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   const args = argString.length === 0 ? [] : argString.split(/\s+/).filter((s) => s.length > 0);
-  // The suite may itself be running under `nmr test`, whose check-result-cache variables would otherwise reach
-  // these invocations and let one of them skip on a pass recorded by the run that launched the suite.
-  const { NMR_TREE_SNAPSHOT: _snapshot, NMR_NO_CACHE: _noCache, NMR_DEBUG: _debug, ...ambient } = process.env;
+  const ambient = readAmbientEnv();
   const stdoutChunks: Buffer[] = [];
   const stderrChunks: Buffer[] = [];
   const stdoutStream = new PassThrough();

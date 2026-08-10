@@ -7,6 +7,8 @@ import process from 'node:process';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { readAmbientEnv } from '../test-utils/readAmbientEnv.ts';
+
 const MONOREPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..', '..');
 const CLI_PATH = path.join(MONOREPO_ROOT, 'packages', 'nmr', 'dist', 'esm', 'cli.js');
 const BIN_DIR = path.join(MONOREPO_ROOT, 'node_modules', '.bin');
@@ -68,7 +70,7 @@ describe('signal handling', () => {
 
 /** The environment the run needs: `nmr` on PATH for the argv spawn, and no inherited pass to skip on. */
 function childEnv(): NodeJS.ProcessEnv {
-  const { NMR_TREE_SNAPSHOT: _snapshot, NMR_NO_CACHE: _noCache, NMR_DEBUG: _debug, ...ambient } = process.env;
+  const ambient = readAmbientEnv();
 
   return { ...ambient, PATH: `${BIN_DIR}${path.delimiter}${ambient['PATH'] ?? ''}` };
 }

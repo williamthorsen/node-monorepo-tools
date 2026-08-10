@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { resolveBuildCachePath } from '../commands/build-output.ts';
 import { runCli } from '../runCli.ts';
+import { readAmbientEnv } from '../test-utils/readAmbientEnv.ts';
 
 /** The cacheable command every test drives; the fixture maps it to a script whose runs are countable. */
 const COMMAND = 'typecheck';
@@ -407,7 +408,7 @@ describe('the check-result cache gate', () => {
     cwd: string,
     extraEnv: Record<string, string> = {},
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-    const { NMR_TREE_SNAPSHOT: _snapshot, NMR_NO_CACHE: _noCache, NMR_DEBUG: _debug, ...ambient } = process.env;
+    const ambient = readAmbientEnv();
     const stdoutChunks: Buffer[] = [];
     const stderrChunks: Buffer[] = [];
     const stdout = new PassThrough();

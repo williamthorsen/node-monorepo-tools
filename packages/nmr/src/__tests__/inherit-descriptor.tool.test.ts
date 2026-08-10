@@ -6,6 +6,8 @@ import process from 'node:process';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { readAmbientEnv } from '../test-utils/readAmbientEnv.ts';
+
 const MONOREPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..', '..');
 const CLI_PATH = path.join(MONOREPO_ROOT, 'packages', 'nmr', 'dist', 'esm', 'cli.js');
 const BIN_DIR = path.join(MONOREPO_ROOT, 'node_modules', '.bin');
@@ -63,7 +65,7 @@ describe.skipIf(process.platform !== 'darwin')('descriptor inheritance', () => {
    */
   function run(argv: readonly [string, ...string[]]): { stdout: string } {
     const [file, ...args] = argv;
-    const { NMR_TREE_SNAPSHOT: _snapshot, NMR_NO_CACHE: _noCache, NMR_DEBUG: _debug, ...ambient } = process.env;
+    const ambient = readAmbientEnv();
 
     const result = spawnSync(file, args, {
       cwd: repo,
