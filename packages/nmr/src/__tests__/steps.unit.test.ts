@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Step } from '../steps.ts';
-import { composeNmrStep, renderChain } from '../steps.ts';
+import { composeNmrStep, findUnexpressibleToken, renderChain } from '../steps.ts';
 
 describe(composeNmrStep, () => {
   it('composes a bare command name as an nmr invocation', () => {
@@ -22,6 +22,28 @@ describe(composeNmrStep, () => {
 
   it('drops the empty tokens surrounding and repeated whitespace would leave', () => {
     expect(composeNmrStep('  -q   build ', false)).toStrictEqual({ kind: 'structural', argv: ['nmr', '-q', 'build'] });
+  });
+});
+
+describe(findUnexpressibleToken, () => {
+  it.each([
+    { element: 'fmt:check', scenario: 'a bare command name' },
+    { element: '-q build', scenario: 'a command name preceded by an nmr flag' },
+    { element: '  fmt   ', scenario: 'an element padded with whitespace' },
+  ])('given $scenario, finds nothing', ({ element }) => {
+    expect(findUnexpressibleToken(element)).toBeUndefined();
+  });
+
+  it.each([
+    { element: "lint --ignore-pattern 'packages/**'", expected: "'packages/**'", scenario: 'a quoted argument' },
+    { element: 'build && echo done', expected: '&&', scenario: 'a shell operator' },
+    { element: 'test --reporter=$REPORTER', expected: '--reporter=$REPORTER', scenario: 'a variable reference' },
+  ])('given $scenario, returns the token that puts it outside the grammar', ({ element, expected }) => {
+    expect(findUnexpressibleToken(element)).toBe(expected);
+  });
+
+  it('returns the leftmost offending token when the element holds several', () => {
+    expect(findUnexpressibleToken('build && echo $HOME')).toBe('&&');
   });
 });
 

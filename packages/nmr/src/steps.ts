@@ -19,6 +19,15 @@ export function composeNmrStep(element: string, workspaceRoot: boolean): Step {
 }
 
 /**
+ * Returns the first token of a composite element that falls outside the grammar, or `undefined` when the
+ * element is a command name optionally preceded by nmr's own flags. A token the shell would not read
+ * literally is one the rendering would quote whole, turning the element into a command nobody wrote.
+ */
+export function findUnexpressibleToken(element: string): string | undefined {
+  return tokenize(element).find((token) => !SHELL_SAFE_TOKEN.test(token));
+}
+
+/**
  * Renders a step list as the `&&` chain a shell runs.
  *
  * The sole producer of a chain string: the check-result cache keys on that string, so a change to the rendering

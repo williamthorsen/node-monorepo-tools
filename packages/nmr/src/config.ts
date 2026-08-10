@@ -3,6 +3,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { isObject, isStringRecord } from './helpers/type-guards.ts';
+import { findUnexpressibleToken } from './steps.ts';
 import type { BuildConfig, CheckCacheConfig, NmrConfig } from './types.ts';
 
 const CONFIG_FILENAME = 'nmr.config.ts';
@@ -65,12 +66,40 @@ function validateScriptField(
   if (!Object.hasOwn(value, fieldName) || value[fieldName] === undefined) {
     return undefined;
   }
-  if (!isScriptRecord(value[fieldName])) {
+  const scripts = value[fieldName];
+  if (!isScriptRecord(scripts)) {
     throw new Error(
       `Invalid nmr config at ${configPath}: \`${fieldName}\` must be a Record<string, string | string[]>`,
     );
   }
-  return value[fieldName];
+  assertExpressibleElements(scripts, fieldName, configPath);
+  return scripts;
+}
+
+/**
+ * Rejects a composite element outside the grammar: a command name optionally preceded by nmr's own flags.
+ * An element carrying a quoted argument or shell syntax renders as one quoted token, so accepting it would
+ * run a command nobody wrote.
+ */
+function assertExpressibleElements(
+  scripts: Record<string, string | string[]>,
+  fieldName: string,
+  configPath: string,
+): void {
+  for (const [command, script] of Object.entries(scripts)) {
+    if (typeof script === 'string') continue;
+
+    for (const element of script) {
+      const token = findUnexpressibleToken(element);
+      if (token === undefined) continue;
+
+      throw new Error(
+        `Invalid nmr config at ${configPath}: \`${fieldName}.${command}\` element \`${element}\` carries ` +
+          `\`${token}\`, which is neither a command name nor an nmr flag. Name it as a script of its own and ` +
+          `reference that name here.`,
+      );
+    }
+  }
 }
 
 /** Narrows an unknown value to an array of plain strings. */

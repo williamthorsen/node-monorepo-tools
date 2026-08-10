@@ -150,6 +150,20 @@ describe(loadConfig, () => {
     );
   });
 
+  it('loads a composite script whose elements are command names', async () => {
+    writeConfig(tmpDir, `export default { rootScripts: { check: ['typecheck', '-q test'] } };`);
+
+    const config = await loadConfig(tmpDir);
+
+    expect(config.rootScripts).toStrictEqual({ check: ['typecheck', '-q test'] });
+  });
+
+  it('throws naming the composite element and the token that puts it outside the grammar', async () => {
+    writeConfig(tmpDir, `export default { rootScripts: { check: ['build && echo done'] } };`);
+
+    await expect(loadConfig(tmpDir)).rejects.toThrow('`rootScripts.check` element `build && echo done` carries `&&`');
+  });
+
   it('throws naming an unrecognized build subkey', async () => {
     writeConfig(tmpDir, `export default { build: { extendIgnore: ['**/fixtures/**'] } };`);
 
