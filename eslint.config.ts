@@ -17,6 +17,16 @@ const config = defineConfig([
     rules: {
       'n/no-extraneous-import': ['error', { allowModules: ['vitest'] }],
       'no-console': ['error', { allow: ['debug', 'info', 'warn'] }],
+      'no-restricted-syntax': [
+        'error',
+        {
+          // Matches on the conditional's shape rather than the binding's name, so `err` and `e` are caught too.
+          // An `instanceof Error` test inside an `if` is a different shape and stays available for errno narrowing.
+          selector: "ConditionalExpression[test.operator='instanceof'][test.right.name='Error']",
+          message:
+            "Extract a thrown value's message with `describeError` from '@williamthorsen/toolbelt.errors/candidate'.",
+        },
+      ],
     },
   },
   {
