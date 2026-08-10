@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { runCli } from '../runCli.ts';
 import { runCommand } from '../runner.ts';
+import { COMMAND_VERBOSITY_ENV_VAR } from '../verbosity.ts';
 
 vi.mock(import('../runner.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
@@ -83,6 +84,51 @@ describe(runCli, () => {
       await runNmr(['-F', 'my-pkg', 'build'], repo);
 
       expect(mockedRunCommand.mock.calls[0]?.[2].env).not.toHaveProperty('NMR_RUN_IF_PRESENT');
+    });
+  });
+
+  describe('verbosity', () => {
+    it.each([
+      { args: ['-F', 'my-pkg', 'build'], expected: 'full', scenario: 'a loud run' },
+      { args: ['-q', '-F', 'my-pkg', 'build'], expected: 'quiet', scenario: 'a quiet run' },
+    ])('given $scenario, hands the resolved verbosity to every process below it', async ({ args, expected }) => {
+      await runNmr(args, repo);
+
+      expect(mockedRunCommand.mock.calls[0]?.[2].env).toMatchObject({ [COMMAND_VERBOSITY_ENV_VAR]: expected });
+    });
+
+    it('lets an inherited quiet reach a run that passed no flag', async () => {
+      await runCli({
+        args: ['-F', 'my-pkg', 'build'],
+        cwd: repo,
+        env: { [COMMAND_VERBOSITY_ENV_VAR]: 'quiet' },
+        stderr: new PassThrough(),
+        stdout: new PassThrough(),
+      });
+
+      expect(mockedRunCommand.mock.calls[0]?.[2].quiet).toBe(true);
+    });
+
+    it.each([
+      { args: ['--version'], scenario: 'the version flag' },
+      { args: ['--help'], scenario: 'the help flag' },
+      { args: ['build'], scenario: 'a command' },
+    ])('given an unrecognized inherited value, rejects $scenario before doing anything', async ({ args }) => {
+      const stdout = new PassThrough();
+      const written: Buffer[] = [];
+      stdout.on('data', (chunk: Buffer) => written.push(chunk));
+
+      const { exitCode } = await runCli({
+        args,
+        cwd: repo,
+        env: { [COMMAND_VERBOSITY_ENV_VAR]: 'silent' },
+        stderr: new PassThrough(),
+        stdout,
+      });
+
+      expect(exitCode).toBe(1);
+      expect(Buffer.concat(written)).toHaveLength(0);
+      expect(mockedRunCommand).not.toHaveBeenCalled();
     });
   });
 });

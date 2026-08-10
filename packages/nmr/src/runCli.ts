@@ -31,6 +31,8 @@ import { resolveChannel, runCommand } from './runner.ts';
 import type { Step } from './steps.ts';
 import { composeNmrStep, renderChain } from './steps.ts';
 import type { NmrConfig } from './types.ts';
+import type { CommandVerbosity } from './verbosity.ts';
+import { COMMAND_VERBOSITY_ENV_VAR, resolveVerbosity } from './verbosity.ts';
 
 const VERSION = readPackageVersion(import.meta.url);
 
@@ -69,6 +71,14 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   }
   const { parsed } = parseResult;
 
+  // Ahead of every other outcome, `--version` and `--help` included, so one variable's validity has one answer.
+  const verbosity = resolveVerbosity(env, parsed.quiet);
+  if (!verbosity.ok) {
+    reportError(verbosity.error, stderr);
+    return { exitCode: 1 };
+  }
+  const quiet = verbosity.verbosity === 'quiet';
+
   if (parsed.version) {
     stdout.write(`${VERSION}\n`);
     return { exitCode: 0 };
@@ -100,10 +110,10 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   });
 
   const noCache = parsed.noCache || env[NO_CACHE_ENV_VAR] === '1';
-  const childEnv = buildChildEnv(env, snapshot, noCache);
+  const childEnv = buildChildEnv(env, snapshot, noCache, verbosity.verbosity);
   const runOptions = {
-    channels: { stderr: resolveChannel(stderr, parsed.quiet), stdout: resolveChannel(stdout, parsed.quiet) },
-    quiet: parsed.quiet,
+    channels: { stderr: resolveChannel(stderr, quiet), stdout: resolveChannel(stdout, quiet) },
+    quiet,
     stdout,
     stderr,
     env: childEnv,
@@ -137,7 +147,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   const resolvedCommand = renderChain(resolved.steps);
 
-  const skipExitCode = handleSkipMessage(resolvedCommand, anchorDir, parsed.quiet, stdout);
+  const skipExitCode = handleSkipMessage(resolvedCommand, anchorDir, quiet, stdout);
   if (skipExitCode !== undefined) {
     return { exitCode: skipExitCode };
   }
@@ -174,8 +184,8 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     key,
     monorepoRoot: context.monorepoRoot,
     noCache,
-    overrideNotice: formatOverrideNotice(resolved, registry, command, anchorDir, parsed.quiet),
-    quiet: parsed.quiet,
+    overrideNotice: formatOverrideNotice(resolved, registry, command, anchorDir, quiet),
+    quiet,
     runOptions,
     snapshot,
     stderr,
@@ -204,18 +214,24 @@ type ParseResult = { ok: true; parsed: ParsedArgs } | { ok: false; error: string
 
 /**
  * Builds the environment every process below this one inherits. The snapshot travels down so a chain of nmr
- * invocations gates on one observation of the tree, and a bypass travels down so it covers the whole chain
- * rather than only the command it was typed next to.
+ * invocations gates on one observation of the tree, a bypass travels down so it covers the whole chain rather
+ * than only the command it was typed next to, and the verbosity travels down so each process suppresses the
+ * output of the command it runs rather than of the subtree beneath it.
+ *
+ * The verbosity is written in both modes, so a chain's loudness is decided once at the top rather than
+ * re-derived at every link from an environment a caller may have set.
  */
 function buildChildEnv(
   env: NodeJS.ProcessEnv,
   snapshot: TreeSnapshot | undefined,
   noCache: boolean,
+  verbosity: CommandVerbosity,
 ): NodeJS.ProcessEnv {
   return {
     ...env,
     ...(snapshot !== undefined && { [TREE_SNAPSHOT_ENV_VAR]: encodeTreeSnapshot(snapshot) }),
     ...(noCache && { [NO_CACHE_ENV_VAR]: '1' }),
+    [COMMAND_VERBOSITY_ENV_VAR]: verbosity,
   };
 }
 
