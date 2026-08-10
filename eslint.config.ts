@@ -19,6 +19,10 @@ const config = defineConfig([
       'no-console': ['error', { allow: ['debug', 'info', 'warn'] }],
       'no-restricted-syntax': [
         'error',
+        // ESLint replaces a rule's options rather than merging them, so the base config's entries are restated here.
+        'DebuggerStatement',
+        'LabeledStatement',
+        'WithStatement',
         {
           // Matches on the conditional's shape rather than the binding's name, so `err` and `e` are caught too.
           // An `instanceof Error` test inside an `if` is a different shape and stays available for errno narrowing.
