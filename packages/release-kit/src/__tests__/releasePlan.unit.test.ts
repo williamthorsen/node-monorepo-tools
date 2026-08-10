@@ -1,4 +1,5 @@
 import type { WriteResult } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockWriteFileWithCheck = vi.hoisted(() =>
@@ -12,8 +13,6 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
     writeFileWithCheck: mockWriteFileWithCheck,
   };
 });
-
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import type { ReleasePlan } from '../releasePlan.ts';
 import { applyReleasePlan } from '../releasePlan.ts';

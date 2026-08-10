@@ -251,12 +251,12 @@ function getModuleSpecifier(node: ts.Node): ts.StringLiteralLike | undefined {
 
 /** Returns the `name` of every package the workspace manifest claims, which is what makes a specifier local. */
 function readWorkspacePackageNames(): string[] {
-  return getWorkspacePackageDirs(findMonorepoRoot(import.meta.dirname)).flatMap((dir) => {
+  return getWorkspacePackageDirs(findMonorepoRoot(import.meta.dirname)).map((dir) => {
     const parsed: unknown = JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8'));
     if (!isObject(parsed) || typeof parsed['name'] !== 'string') {
       throw new Error(`${dir} holds no package.json carrying a name`);
     }
-    return [parsed['name']];
+    return parsed['name'];
   });
 }
 
