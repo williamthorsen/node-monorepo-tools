@@ -100,7 +100,7 @@ Script values can be `string` or `string[]`. Arrays expand to chained `nmr` sub-
 
 Each array element is a command name, optionally preceded by nmr's own flags, split on whitespace. An element carrying a quoted argument or shell syntax is rejected when the config loads: name that command as a script of its own and reference the name.
 
-Passthrough arguments attach to the final step alone, because the expansion is a single shell chain: `nmr fix --dry-run` runs `nmr lint && nmr fmt --dry-run`.
+Passthrough arguments attach to the final step alone: `nmr fix --dry-run` runs `nmr lint`, then `nmr fmt --dry-run`.
 
 ## Configuration
 
@@ -170,7 +170,7 @@ For example, if a workspace script resolves to `my-cli --verbose`, nmr rewrites 
 
 ## Pre and post hooks
 
-Every `nmr X` invocation auto-wraps as the equivalent of `nmr X:pre && nmr X && nmr X:post`. Hooks are first-class scripts that resolve through the same three tiers as any other script (built-in defaults, then `.config/nmr.config.ts`, then per-package `package.json`). Wrapping is uniform: nested invocations from composite expansion get their own hook treatment. Hook failure short-circuits the chain via shell `&&` semantics, propagating the failing exit code.
+Every `nmr X` invocation auto-wraps as the equivalent of `nmr X:pre && nmr X && nmr X:post`. Hooks are first-class scripts that resolve through the same three tiers as any other script (built-in defaults, then `.config/nmr.config.ts`, then per-package `package.json`). Wrapping is uniform: nested invocations from composite expansion get their own hook treatment. A failing hook ends the sequence, and its exit code propagates.
 
 Behaviors worth knowing:
 
@@ -298,6 +298,10 @@ Reach for these in order; the first is almost always the right one.
 ### Reserved environment variables
 
 `NMR_TREE_SNAPSHOT` is nmr's own: it carries one observation of the tree from a top-level invocation down to the processes it spawns, so a chain hashes the tree once rather than at every link. nmr trusts an inherited value only while `HEAD` still stands where it did when the observation was taken, which bounds a process that outlives the run that spawned it. That bound does not extend to a tree edited without committing, so **a process that survives its run and later invokes nmr should clear `NMR_TREE_SNAPSHOT`** — a test suite that shells out to `nmr` is the case worth checking.
+
+`NMR_COMMAND_VERBOSITY` is nmr's own as well, and carries how loudly a run reports the output of the commands it runs. Its values are `full` and `quiet`; anything else is reported and exits 1, rather than falling back to a mode nobody chose. It governs the commands nmr runs and never nmr's own messages, and each process in a chain suppresses the output of the command it runs rather than of everything below it, so a failure still surrenders the failing command's output.
+
+`-q` sets it for the run and outranks an inherited value. Both values are spelled out so either direction is expressible: export `NMR_COMMAND_VERBOSITY=quiet` for a quiet shell, and set `full` on one invocation to opt back out.
 
 ### Configuring
 
