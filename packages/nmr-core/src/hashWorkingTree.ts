@@ -3,6 +3,8 @@ import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, readFileSync, readlinkSync } from 'node:fs';
 import path from 'node:path';
 
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+
 import { GIT_OUTPUT_LIMIT } from './gitOutputLimit.ts';
 
 /**
@@ -186,10 +188,6 @@ function collectChangedPaths(statusOutput: string): ChangedPathsResult {
   }
 
   return { ok: true, paths };
-}
-
-function describeError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function digestBuffer(buffer: Buffer): string {

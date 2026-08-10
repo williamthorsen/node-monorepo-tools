@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
 
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+
 import type { WorkspaceConfig } from './types.ts';
 
 /** Reverse adjacency map from package names to their workspace dependents. */
@@ -94,7 +96,7 @@ function readPackageJsonSubset(filePath: string): PackageJsonSubset {
   try {
     content = readFileSync(filePath, 'utf8');
   } catch (error: unknown) {
-    throw new Error(`Failed to read ${filePath}: ${error instanceof Error ? error.message : String(error)}`, {
+    throw new Error(`Failed to read ${filePath}: ${describeError(error)}`, {
       cause: error,
     });
   }
@@ -103,7 +105,7 @@ function readPackageJsonSubset(filePath: string): PackageJsonSubset {
   try {
     parsed = JSON.parse(content);
   } catch (error: unknown) {
-    throw new Error(`Failed to parse JSON in ${filePath}: ${error instanceof Error ? error.message : String(error)}`, {
+    throw new Error(`Failed to parse JSON in ${filePath}: ${describeError(error)}`, {
       cause: error,
     });
   }

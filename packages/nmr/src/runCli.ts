@@ -2,6 +2,7 @@ import path from 'node:path';
 import type { Writable } from 'node:stream';
 
 import { readPackageVersion, reportError } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import type { BuildOutputState, TreeSnapshot } from './check-cache.ts';
 import {
@@ -573,7 +574,7 @@ async function recordPass(options: {
       },
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = describeError(error);
     writeDebugNote(`could not record ${command}: ${message}`, env, stderr);
   }
 }

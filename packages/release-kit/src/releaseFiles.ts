@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+
 /**
  * File written by the release preparation step, containing one tag per line.
  *
@@ -60,7 +62,7 @@ function describeTagsReadFailure(error: unknown): string {
     return `No tags file found at ${tagsPath}. Run \`release-kit prepare\` first.`;
   }
 
-  const detail = error instanceof Error ? error.message : String(error);
+  const detail = describeError(error);
   return `Cannot read the tags file at ${tagsPath}: ${detail}`;
 }
 

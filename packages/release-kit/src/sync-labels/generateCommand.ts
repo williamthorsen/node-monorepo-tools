@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import { reportError } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 import { stringify } from 'yaml';
 
 import { CONFIG_FILE_PATH } from '../loadConfig.ts';
@@ -88,7 +89,7 @@ export async function generateCommand({ check = false }: GenerateOptions = {}): 
   try {
     labels = resolveLabels(repoLabels);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = describeError(error);
     reportError(`Failed to resolve labels: ${message}`);
     return 1;
   }
@@ -109,7 +110,7 @@ export async function generateCommand({ check = false }: GenerateOptions = {}): 
     mkdirSync(dirname(LABELS_OUTPUT_PATH), { recursive: true });
     writeFileSync(LABELS_OUTPUT_PATH, content, 'utf8');
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = describeError(error);
     reportError(`Failed to write ${LABELS_OUTPUT_PATH}: ${message}`);
     return 1;
   }

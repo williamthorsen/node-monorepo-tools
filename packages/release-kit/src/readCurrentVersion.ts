@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
 
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+
 /** Type guard asserting that `value` is an object with a string `version` field. */
 function hasVersionField(value: unknown): value is { version: string } {
   return typeof value === 'object' && value !== null && 'version' in value && typeof value.version === 'string';
@@ -16,9 +18,7 @@ export function readCurrentVersion(filePath: string): string | undefined {
   } catch (error: unknown) {
     // Return undefined so benign callers degrade gracefully, but surface the failure so
     // operators get a signal when --set-version or similar paths depend on this value.
-    console.warn(
-      `Failed to read current version from ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    console.warn(`Failed to read current version from ${filePath}: ${describeError(error)}`);
   }
   return undefined;
 }

@@ -1,6 +1,7 @@
 import { parseArgs, readPackageVersion, reportError } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
-import { auditCommand, checkCommand, extractMessage, syncCommand } from '../cli.ts';
+import { auditCommand, checkCommand, syncCommand } from '../cli.ts';
 import { initCommand } from '../init/initCommand.ts';
 import type { AuditScope, CommandOptions } from '../types.ts';
 
@@ -170,14 +171,14 @@ async function handleSubcommand(
   try {
     options = parseSharedFlags(flags);
   } catch (error: unknown) {
-    reportError(extractMessage(error));
+    reportError(describeError(error));
     return 1;
   }
 
   try {
     return await handler(options);
   } catch (error: unknown) {
-    reportError(extractMessage(error));
+    reportError(describeError(error));
     return 1;
   }
 }
@@ -198,7 +199,7 @@ function handleInit(flags: string[]): number {
   try {
     parsed = parseArgs(flags, initFlagSchema);
   } catch (error: unknown) {
-    reportError(extractMessage(error));
+    reportError(describeError(error));
     return 1;
   }
 

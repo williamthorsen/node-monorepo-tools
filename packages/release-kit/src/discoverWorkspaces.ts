@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 import { glob } from 'glob';
 import { parse } from 'yaml';
 
@@ -29,7 +30,7 @@ export async function discoverWorkspaces(): Promise<string[] | undefined> {
   try {
     content = readFileSync(workspaceFile, 'utf8');
   } catch (error: unknown) {
-    console.warn(`Warning: Failed to read ${workspaceFile}: ${error instanceof Error ? error.message : String(error)}`);
+    console.warn(`Warning: Failed to read ${workspaceFile}: ${describeError(error)}`);
     return undefined;
   }
 

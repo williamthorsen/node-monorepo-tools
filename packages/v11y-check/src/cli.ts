@@ -1,6 +1,7 @@
 import process from 'node:process';
 
 import { reportError } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import type { LoadConfigResult } from './config.ts';
 import { loadConfig } from './config.ts';
@@ -15,11 +16,6 @@ import { withTempDir } from './tmp.ts';
 import type { AllowlistEntry, AuditResult, AuditScope, CommandOptions, SeverityThreshold } from './types.ts';
 import { AUDIT_SCOPES, isSeverityAtOrAbove } from './types.ts';
 
-/** Extract a displayable message from an unknown thrown value. */
-export function extractMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 /**
  * Run the default audit command (CI mode).
  *
@@ -30,7 +26,7 @@ export async function auditCommand(options: CommandOptions): Promise<number> {
   try {
     loaded = await loadConfig(options.configPath);
   } catch (error: unknown) {
-    reportError(extractMessage(error));
+    reportError(describeError(error));
     return 1;
   }
 
@@ -86,7 +82,7 @@ export async function auditCommand(options: CommandOptions): Promise<number> {
       return exitCode;
     });
   } catch (error: unknown) {
-    reportError(extractMessage(error));
+    reportError(describeError(error));
     return 1;
   }
 }
@@ -106,7 +102,7 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
   try {
     loaded = await loadConfig(options.configPath);
   } catch (error: unknown) {
-    reportError(extractMessage(error));
+    reportError(describeError(error));
     return 1;
   }
 
@@ -186,7 +182,7 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
       return hasUnallowed ? 1 : 0;
     });
   } catch (error: unknown) {
-    reportError(extractMessage(error));
+    reportError(describeError(error));
     return 1;
   }
 }
@@ -203,7 +199,7 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
   try {
     loaded = await loadConfig(options.configPath);
   } catch (error: unknown) {
-    reportError(extractMessage(error));
+    reportError(describeError(error));
     return 1;
   }
 
@@ -255,7 +251,7 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
       return 0;
     });
   } catch (error: unknown) {
-    reportError(extractMessage(error));
+    reportError(describeError(error));
     return 1;
   }
 }

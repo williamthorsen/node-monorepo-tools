@@ -1,5 +1,7 @@
 import { join as joinPath } from 'node:path';
 
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+
 import { buildChangelogEntries } from './buildChangelogEntries.ts';
 import type { DependencyGraph } from './buildDependencyGraph.ts';
 import { buildDependencyGraph } from './buildDependencyGraph.ts';
@@ -795,7 +797,7 @@ function findWorkspace(workspaces: readonly WorkspaceConfig[], dir: string): Wor
  * stage-attributed errors.
  */
 function wrapStageError(stageLabel: string, error: unknown): Error {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = describeError(error);
   return new Error(`${stageLabel}: ${message}`, { cause: error });
 }
 

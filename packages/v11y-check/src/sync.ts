@@ -1,5 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+
 import type { AllowlistEntry, AuditResult, AuditScope, ScopeConfig, V11yCheckConfig } from './types.ts';
 
 /** Produce a full ISO 8601 UTC datetime string. */
@@ -144,7 +146,7 @@ export async function syncAllowlist(
   try {
     await writeFile(configFilePath, serializeConfig(updatedConfig), 'utf8');
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = describeError(error);
     throw new Error(`Failed to write config file '${configFilePath}': ${message}`, { cause: error });
   }
 

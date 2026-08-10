@@ -13,6 +13,8 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
   };
 });
 
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+
 import type { ReleasePlan } from '../releasePlan.ts';
 import { applyReleasePlan } from '../releasePlan.ts';
 
@@ -175,7 +177,7 @@ function captureApplyFailure(plan: ReleasePlan): string {
   try {
     applyReleasePlan(plan);
   } catch (error) {
-    return error instanceof Error ? error.message : String(error);
+    return describeError(error);
   }
   throw new Error('expected applyReleasePlan to throw');
 }

@@ -2,6 +2,7 @@
 /* eslint unicorn/no-process-exit: off */
 
 import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { parseRequestedTags } from './parseRequestedTags.ts';
 import { pushRelease } from './pushRelease.ts';
@@ -48,7 +49,7 @@ export async function pushCommand(argv: string[]): Promise<void> {
       }
     }
   } catch (error: unknown) {
-    reportError(error instanceof Error ? error.message : String(error));
+    reportError(describeError(error));
     process.exit(1);
   }
 }

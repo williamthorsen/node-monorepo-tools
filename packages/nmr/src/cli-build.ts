@@ -3,6 +3,7 @@
 // `@williamthorsen/nmr-core` before nmr-core's own `dist` exists.
 
 import { reportError } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { buildPackage } from './commands/build.ts';
 import { loadWorkspaceConfig } from './config.ts';
@@ -17,6 +18,6 @@ try {
     ...(build?.extraIgnorePatterns !== undefined && { extraIgnorePatterns: build.extraIgnorePatterns }),
   });
 } catch (error) {
-  reportError(error instanceof Error ? error.message : String(error));
+  reportError(describeError(error));
   process.exitCode = 1;
 }
