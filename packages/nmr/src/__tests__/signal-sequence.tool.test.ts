@@ -68,7 +68,7 @@ describe('signal handling', () => {
 
 // region | Helpers
 
-/** The environment the run needs: `nmr` on PATH for the argv spawn, and no inherited pass to skip on. */
+/** The environment the run needs: `nmr` on PATH for the argv spawn, and none of nmr's own variables carried over. */
 function childEnv(): NodeJS.ProcessEnv {
   const ambient = readAmbientEnv();
 

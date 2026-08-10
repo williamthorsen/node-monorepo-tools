@@ -57,8 +57,8 @@ describe.skipIf(process.platform !== 'darwin')('descriptor inheritance', () => {
 
   /**
    * Runs a command against the fixture repo. `.bin` joins PATH because a structural step spawns `nmr` by argv,
-   * which a temporary working directory cannot resolve on its own, and the cache variables are dropped because
-   * the suite may itself be running under `nmr test`.
+   * which a temporary working directory cannot resolve on its own, and nmr's own variables are dropped because
+   * an inherited verbosity would suppress the output these assertions read.
    *
    * stdin comes from `/dev/null` rather than the socket `spawnSync` supplies by default: BSD `script` copies
    * its own terminal settings before allocating a pty, and `tcgetattr` on a socket fails outright.
