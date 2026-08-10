@@ -46,7 +46,7 @@ describe(findShelledNmrStep, () => {
     expect(findShelledNmrStep(steps)).toBe('nmr first');
   });
 
-  it.each([
+  it.each<{ scenario: string; steps: readonly Step[] }>([
     { scenario: 'a structural step nmr composed', steps: [{ kind: 'structural', argv: ['nmr', 'typecheck'] }] },
     {
       scenario: 'a step reaching nmr through another program',
@@ -58,7 +58,7 @@ describe(findShelledNmrStep, () => {
     },
     { scenario: 'an empty step list', steps: [] },
   ])('given $scenario, finds nothing', ({ steps }) => {
-    expect(findShelledNmrStep(steps as readonly Step[])).toBeUndefined();
+    expect(findShelledNmrStep(steps)).toBeUndefined();
   });
 });
 

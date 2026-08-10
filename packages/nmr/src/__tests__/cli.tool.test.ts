@@ -77,7 +77,7 @@ describe('nmr CLI', () => {
   // is non-fatal: tests still pass against a cold cache, just more slowly.
   beforeAll(() => {
     try {
-      execSync(`node ${CLI_PATH} --help`, { stdio: 'ignore', timeout: 10_000 });
+      execSync(`node ${CLI_PATH} --help`, { env: readAmbientEnv(), stdio: 'ignore', timeout: 10_000 });
     } catch {
       // Swallow warmup failure — tests will surface real issues themselves.
     }
@@ -86,9 +86,18 @@ describe('nmr CLI', () => {
   // The bin (`cli.ts`) sets `process.exitCode` and returns rather than calling `process.exit()`, so output drains
   // before the process exits. These spawn the real built bin to observe the kernel exit code and prompt termination;
   // the in-process `runNmr` tests bypass the bin wrapper and cannot exercise that behavior.
+  //
+  // Each spawn runs on the ambient environment: a subprocess inherits `process.env` whole, and this suite running
+  // under `nmr test` would otherwise hand the bin an `NMR_RUN_IF_PRESENT` that turns the unknown command below
+  // into the silent success the assertion is written to catch.
   describe('process exit behavior via the real bin (subprocess)', () => {
     it('exits 0 for --help', () => {
-      const result = spawnSync('node', [CLI_PATH, '--help'], { cwd: MONOREPO_ROOT, timeout: 15_000, encoding: 'utf8' });
+      const result = spawnSync('node', [CLI_PATH, '--help'], {
+        cwd: MONOREPO_ROOT,
+        encoding: 'utf8',
+        env: readAmbientEnv(),
+        timeout: 15_000,
+      });
       // A lingering-handle hang would hit the timeout and leave status null, failing this assertion.
       expect(result.status).toBe(0);
     });
@@ -96,8 +105,9 @@ describe('nmr CLI', () => {
     it('exits 1 for an unknown command', () => {
       const result = spawnSync('node', [CLI_PATH, 'definitely-not-a-real-command'], {
         cwd: MONOREPO_ROOT,
-        timeout: 15_000,
         encoding: 'utf8',
+        env: readAmbientEnv(),
+        timeout: 15_000,
       });
       expect(result.status).toBe(1);
     });
