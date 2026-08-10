@@ -36,6 +36,12 @@ import { COMMAND_VERBOSITY_ENV_VAR, resolveVerbosity } from './verbosity.ts';
 
 const VERSION = readPackageVersion(import.meta.url);
 
+/**
+ * Marks a run made on a delegating caller's behalf, where a command the registry does not define exits 0
+ * rather than failing.
+ */
+export const RUN_IF_PRESENT_ENV_VAR = 'NMR_RUN_IF_PRESENT';
+
 /** @internal */
 export interface RunCliOptions {
   /** Post-slice CLI arguments (equivalent to `process.argv.slice(2)`). */
@@ -125,7 +131,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   // -R: delegate to pnpm --recursive
   if (parsed.recursive) {
-    const delegateEnv = { ...childEnv, NMR_RUN_IF_PRESENT: '1' };
+    const delegateEnv = { ...childEnv, [RUN_IF_PRESENT_ENV_VAR]: '1' };
     const delegate = composeDelegate(['--recursive'], command, parsed.passthrough);
     return runSteps([delegate], context.monorepoRoot, { ...runOptions, env: delegateEnv });
   }
@@ -134,7 +140,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   const resolved = resolveScript(command, registry, anchorDir, parsed.workspaceRoot);
 
   if (!resolved) {
-    if (env['NMR_RUN_IF_PRESENT'] === '1') {
+    if (env[RUN_IF_PRESENT_ENV_VAR] === '1') {
       return { exitCode: 0 };
     }
     reportError(`Unknown command: ${command}`, stderr);
