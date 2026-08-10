@@ -247,6 +247,65 @@ describe(runCli, () => {
       await expect(runNmr(['fix'], repo)).resolves.toStrictEqual({ exitCode: 2 });
     });
   });
+
+  describe('the shelled-nmr boundary', () => {
+    it('reports a step that reaches nmr through a shell', async () => {
+      writeConfig(repo, { rootScripts: { probe: 'nmr fmt && echo done' } });
+
+      const { stderr } = await runNmrReadingStderr(['probe'], repo);
+
+      expect(stderr).toContain('⚠️ probe: `nmr fmt && echo done` runs nmr behind a shell');
+      expect(stderr).toContain('`.config/nmr.config.ts`');
+    });
+
+    it('spends one line on it', async () => {
+      writeConfig(repo, { rootScripts: { probe: 'nmr fmt' } });
+
+      const { stderr } = await runNmrReadingStderr(['probe'], repo);
+
+      expect(stderr.split('\n').filter((line) => line.length > 0)).toHaveLength(1);
+    });
+
+    it.each([
+      { args: ['-q', 'probe'], scenario: 'the -q flag' },
+      { args: ['probe'], env: { NMR_COMMAND_VERBOSITY: 'quiet' }, scenario: 'an inherited verbosity' },
+    ])('reports it although $scenario made the run quiet', async ({ args, env }) => {
+      writeConfig(repo, { rootScripts: { probe: 'nmr fmt' } });
+
+      const { stderr } = await runNmrReadingStderr(args, repo, env);
+
+      expect(stderr).toContain('runs nmr behind a shell');
+    });
+
+    it('reports a tier-3 override that reaches nmr through a shell', async () => {
+      fs.writeFileSync(path.join(repo, 'package.json'), JSON.stringify({ scripts: { probe: 'nmr fmt' } }));
+
+      const { stderr } = await runNmrReadingStderr(['probe'], repo);
+
+      expect(stderr).toContain('⚠️ probe: `nmr fmt` runs nmr behind a shell');
+    });
+
+    it('leaves the exit code alone', async () => {
+      writeConfig(repo, { rootScripts: { probe: 'nmr fmt' } });
+
+      const { exitCode } = await runNmrReadingStderr(['probe'], repo);
+
+      expect(exitCode).toBe(0);
+    });
+
+    it.each([
+      { args: ['fix'], scenario: 'a step list' },
+      { args: ['build'], scenario: 'a default that reaches nmr through pnpm' },
+      { args: ['-R', 'build'], scenario: 'the recursive delegate' },
+      { args: ['-F', 'my-pkg', 'build'], scenario: 'the filter delegate' },
+    ])('given $scenario, reports nothing', async ({ args }) => {
+      writeConfig(repo, { rootScripts: { build: 'pnpm --recursive exec nmr build' } });
+
+      const { stderr } = await runNmrReadingStderr(args, repo);
+
+      expect(stderr).toBe('');
+    });
+  });
 });
 
 // region | Helpers
@@ -254,6 +313,23 @@ describe(runCli, () => {
 /** Runs the CLI in-process against `cwd`, discarding both output streams. */
 async function runNmr(args: string[], cwd: string, env: NodeJS.ProcessEnv = {}): Promise<{ exitCode: number }> {
   return runCli({ args, cwd, env, stderr: new PassThrough(), stdout: new PassThrough() });
+}
+
+/** Runs the CLI in-process against `cwd`, returning what it wrote to stderr. */
+async function runNmrReadingStderr(
+  args: string[],
+  cwd: string,
+  env: NodeJS.ProcessEnv = {},
+): Promise<{ exitCode: number; stderr: string }> {
+  const chunks: Buffer[] = [];
+  const stderr = new PassThrough();
+  stderr.on('data', (chunk: Buffer) => {
+    chunks.push(chunk);
+  });
+
+  const { exitCode } = await runCli({ args, cwd, env, stderr, stdout: new PassThrough() });
+
+  return { exitCode, stderr: Buffer.concat(chunks).toString('utf8') };
 }
 
 /** Reads the step list the runner was handed. */

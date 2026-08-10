@@ -42,7 +42,7 @@ export const rootScripts: ScriptRegistry = {
   audit: ['audit:prod', 'audit:dev'],
   'audit:dev': 'pnpm exec v11y --dev',
   'audit:prod': 'pnpm exec v11y --prod',
-  build: 'pnpm --recursive exec nmr build',
+  build: ['-R build'],
   check: ['typecheck', 'fmt:check', 'lint:check', 'test'],
   'check:strict': ['typecheck', 'fmt:check', 'lint:strict', 'test:coverage'],
   // Excludes the audit, which in CI has a workflow of its own.
@@ -68,13 +68,13 @@ export const rootScripts: ScriptRegistry = {
   'root:test:unit': 'vitest --config ./vitest.root.config.ts --project unit',
   'root:typecheck': 'tsgo --noEmit',
   'root:upgrade': 'nmr-taze --include-locked',
-  test: 'nmr root:test && pnpm --recursive exec nmr test',
-  'test:all': 'nmr root:test:all && pnpm --recursive exec nmr test:all',
-  'test:coverage': 'nmr root:test && pnpm --recursive exec nmr test:coverage',
-  'test:tool': 'nmr root:test:tool && pnpm --recursive exec nmr test:tool',
-  'test:unit': 'nmr root:test:unit && pnpm --recursive exec nmr test:unit',
+  test: ['root:test', '-R test'],
+  'test:all': ['root:test:all', '-R test:all'],
+  'test:coverage': ['root:test', '-R test:coverage'],
+  'test:tool': ['root:test:tool', '-R test:tool'],
+  'test:unit': ['root:test:unit', '-R test:unit'],
   'test:watch': `vitest ${GATE_PROJECTS} --watch`,
-  typecheck: 'nmr root:typecheck && pnpm --recursive exec nmr typecheck',
+  typecheck: ['root:typecheck', '-R typecheck'],
   // The command must be a string rather than a composite: Passthrough args attach to the chain's last command.
   upgrade: 'nmr-report-overrides && nmr-taze --include-locked --recursive',
 };

@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import process from 'node:process';
 import { PassThrough } from 'node:stream';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -60,6 +61,20 @@ describe('the check-result cache gate', () => {
       expect(exitCode).toBe(0);
       expect(stdout).toBe('');
       expect(runCount()).toBe(1);
+    });
+
+    // The boundary belongs to the command's shape, not to the run's outcome, so a command that usually skips
+    // would otherwise report it almost never.
+    it('reports a shelled nmr step although the run skipped', async () => {
+      const bin = writeNmrShim(workspace, log);
+      writeConfig(repo, log, { command: 'nmr ok' });
+      const withShim = { PATH: `${bin}${path.delimiter}${process.env['PATH'] ?? ''}` };
+
+      await runNmr(COMMAND, repo, withShim);
+      const { stdout, stderr } = await runNmr(COMMAND, repo, withShim);
+
+      expect(stdout).toContain('passed');
+      expect(stderr).toContain('⚠️ typecheck: `nmr ok` runs nmr behind a shell');
     });
 
     it('records one pass per scope, so a command run at the root skips at the root', async () => {
@@ -439,6 +454,19 @@ describe('the check-result cache gate', () => {
 });
 
 // region | Helpers
+
+/**
+ * Writes an executable named `nmr` that stands in for the real one, returning the directory to put on `PATH`.
+ * A step leading with the `nmr` token has to spawn something that succeeds before a pass can be recorded, and
+ * the installed binary is not reliably on the suite's `PATH`.
+ */
+function writeNmrShim(workspace: string, log: string): string {
+  const bin = path.join(workspace, 'bin');
+  const shim = path.join(bin, 'nmr');
+  fs.mkdirSync(bin, { recursive: true });
+  fs.writeFileSync(shim, `#!/bin/sh\necho ran >> ${log}\n`, { mode: 0o755 });
+  return bin;
+}
 
 /** Writes the digest a build of `packageDir` would have left beside its output. */
 function writeBuildDigest(packageDir: string, digest: string): void {

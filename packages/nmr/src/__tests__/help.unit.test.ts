@@ -291,6 +291,12 @@ describe(generateHelp, () => {
         ]),
       );
     });
+
+    it('describes a delegating root selection as the steps it runs', () => {
+      const rootSection = sectionOf(generateHelp({}, tmpDir, true), 'Root commands:', '* Overridden');
+
+      expect(rootSection).toContain('[root:test, -R test]');
+    });
   });
 });
 

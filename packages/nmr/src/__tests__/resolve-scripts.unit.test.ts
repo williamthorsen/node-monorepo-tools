@@ -81,8 +81,8 @@ describe(getDefaultRootScripts, () => {
     const scripts = getDefaultRootScripts();
 
     expect(scripts).toMatchObject({
-      test: 'nmr root:test && pnpm --recursive exec nmr test',
-      typecheck: 'nmr root:typecheck && pnpm --recursive exec nmr typecheck',
+      test: ['root:test', '-R test'],
+      typecheck: ['root:typecheck', '-R typecheck'],
     });
   });
 
@@ -122,11 +122,11 @@ describe(getDefaultRootScripts, () => {
     const scripts = getDefaultRootScripts();
 
     expect(scripts).toMatchObject({
-      test: 'nmr root:test && pnpm --recursive exec nmr test',
-      'test:all': 'nmr root:test:all && pnpm --recursive exec nmr test:all',
-      'test:coverage': 'nmr root:test && pnpm --recursive exec nmr test:coverage',
-      'test:tool': 'nmr root:test:tool && pnpm --recursive exec nmr test:tool',
-      'test:unit': 'nmr root:test:unit && pnpm --recursive exec nmr test:unit',
+      test: ['root:test', '-R test'],
+      'test:all': ['root:test:all', '-R test:all'],
+      'test:coverage': ['root:test', '-R test:coverage'],
+      'test:tool': ['root:test:tool', '-R test:tool'],
+      'test:unit': ['root:test:unit', '-R test:unit'],
     });
   });
 

@@ -29,12 +29,18 @@ import { applyDevBinToSteps, buildRootRegistry, buildWorkspaceRegistry, resolveS
 import type { RunStepsOptions } from './runner.ts';
 import { runSteps } from './runner.ts';
 import type { Step } from './steps.ts';
-import { composeNmrStep, renderChain } from './steps.ts';
+import { composeNmrStep, findShelledNmrStep, renderChain } from './steps.ts';
 import type { NmrConfig } from './types.ts';
 import type { CommandVerbosity } from './verbosity.ts';
 import { COMMAND_VERBOSITY_ENV_VAR, resolveVerbosity } from './verbosity.ts';
 
 const VERSION = readPackageVersion(import.meta.url);
+
+/**
+ * Marks a run made on a delegating caller's behalf, where a command the registry does not define exits 0
+ * rather than failing.
+ */
+export const RUN_IF_PRESENT_ENV_VAR = 'NMR_RUN_IF_PRESENT';
 
 /** @internal */
 export interface RunCliOptions {
@@ -125,7 +131,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   // -R: delegate to pnpm --recursive
   if (parsed.recursive) {
-    const delegateEnv = { ...childEnv, NMR_RUN_IF_PRESENT: '1' };
+    const delegateEnv = { ...childEnv, [RUN_IF_PRESENT_ENV_VAR]: '1' };
     const delegate = composeDelegate(['--recursive'], command, parsed.passthrough);
     return runSteps([delegate], context.monorepoRoot, { ...runOptions, env: delegateEnv });
   }
@@ -134,7 +140,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   const resolved = resolveScript(command, registry, anchorDir, parsed.workspaceRoot);
 
   if (!resolved) {
-    if (env['NMR_RUN_IF_PRESENT'] === '1') {
+    if (env[RUN_IF_PRESENT_ENV_VAR] === '1') {
       return { exitCode: 0 };
     }
     reportError(`Unknown command: ${command}`, stderr);
@@ -159,6 +165,12 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     ? mainSteps
     : wrapWithHooks(command, mainSteps, registry, anchorDir, parsed.workspaceRoot);
   const fullCommand = renderChain(fullSteps);
+
+  // Ahead of the gate, so a command that usually skips still reports the boundary it carries.
+  const shelledStep = findShelledNmrStep(fullSteps);
+  if (shelledStep !== undefined) {
+    stderr.write(`${formatShelledNmrWarning(command, shelledStep)}\n`);
+  }
 
   // The key waits until the whole chain is known, so it describes what would actually run: the hooks wrapped
   // around the command included.
@@ -279,6 +291,19 @@ function formatOverrideNotice(
   }
 
   return `📦 ${path.basename(anchorDir)}: Using override script: ${renderChain(resolved.steps)}\n`;
+}
+
+/**
+ * Renders the line reporting a step that reaches nmr through a shell, which puts the nested run's output on the
+ * channels a tool's takes: withheld as one block under `quiet`, and relayed through this process under `full`.
+ *
+ * `.config/nmr.config.ts` is named because it is the one tier a step list can be written at.
+ */
+function formatShelledNmrWarning(command: string, step: string): string {
+  return (
+    `⚠️ ${command}: \`${step}\` runs nmr behind a shell, so nmr handles its output as a tool's rather than a ` +
+    `nested run's. A step list in \`.config/nmr.config.ts\` avoids it.`
+  );
 }
 
 /**

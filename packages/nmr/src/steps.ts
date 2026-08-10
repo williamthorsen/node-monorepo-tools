@@ -22,6 +22,23 @@ export function composeNmrStep(element: string, workspaceRoot: boolean): Step {
 }
 
 /**
+ * Returns the text of the first opaque step that reaches nmr through a shell, or `undefined` when none does.
+ *
+ * A partial detector rather than a rule: only a step leading with the token `nmr` is recognized, so one
+ * reaching nmr through another program is not, and a tier-3 `package.json` override is a plain string with no
+ * step list to be expressed as. What it finds is the boundary below which nmr cannot tell its own processes
+ * from the tools it runs.
+ */
+export function findShelledNmrStep(steps: readonly Step[]): string | undefined {
+  for (const step of steps) {
+    if (step.kind === 'opaque' && tokenize(step.command)[0] === 'nmr') {
+      return step.command;
+    }
+  }
+  return undefined;
+}
+
+/**
  * Returns the first token of a composite element that falls outside the grammar, or `undefined` when the
  * element is a command name optionally preceded by nmr's own flags. A token the shell would not read
  * literally is one the rendering would quote whole, turning the element into a command nobody wrote.
