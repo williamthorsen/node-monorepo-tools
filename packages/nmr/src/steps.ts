@@ -4,8 +4,11 @@ const SHELL_SAFE_TOKEN = /^[\w@%+=:,./-]+$/;
 /**
  * One element of a resolved command chain, carrying how it was composed rather than how its text reads.
  * A `structural` step is nmr's own composition, held as argv; an `opaque` step is a command nmr does not parse.
+ *
+ * A structural step's argv leads with the file to spawn, so the runner has one to hand `spawn` without a shell.
  */
-export type Step = { kind: 'opaque'; command: string } | { kind: 'structural'; argv: readonly string[] };
+export type Step =
+  { kind: 'opaque'; command: string } | { kind: 'structural'; argv: readonly [string, ...(readonly string[])] };
 
 /**
  * Composes the structural step that re-invokes nmr for one composite element.
