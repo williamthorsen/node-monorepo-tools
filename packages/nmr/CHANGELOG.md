@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.30.0 — 2026-08-10
+
+### 🎉 Features
+
+- 🚨 **Breaking:** Resolve a command to a step list and reject a script element carrying shell syntax (#648)
+
+  A script defined in `.config/nmr.config.ts` as a list of nmr commands now holds one command name per entry, optionally preceded by nmr's own flags. An entry that carries a quoted argument or any other shell syntax previously ran as written and is now rejected when the config loads. Before upgrading, a repo relying on such an entry should define that command as a script of its own and reference it by name from the list.
+
+- 🚨 **Breaking:** Sequence a command's steps in nmr rather than in a shell (#649)
+
+  When a run in quiet mode fails, it now shows only the output of the command that failed instead of everything the run had produced up to that point. Quiet mode can now be set for a whole shell session with the `NMR_COMMAND_VERBOSITY` environment variable, which accepts `full` or `quiet`; `-q` still takes precedence for a single run, and an unrecognized value is reported as an error. Interrupting a run now stops the commands that would have followed it.
+
+  Breaking: a `devBin` entry that maps `nmr` itself no longer takes effect inside a command that runs other nmr commands. Mapping any other tool (the documented use) is unaffected.
+
+- 🚨 **Breaking:** Express the seven root defaults as steps (#650)
+
+  Running `nmr build`, `nmr test`, `nmr test:all`, `nmr test:coverage`, `nmr test:tool`, `nmr test:unit`, or `nmr typecheck` from a monorepo root now passes over a package that does not define the command, instead of failing there. The first run of `test`, `test:coverage`, `test:tool`, `test:unit`, or `typecheck` after the upgrade no longer skips as already passed; skipping resumes on the run after.
+
+  `nmr` now also warns when a command it is about to run invokes `nmr` again through a shell, where a failure reports the whole inner run's output instead of the failing command's. The warning catches only a direct `nmr` call, so a command that reaches `nmr` through another program goes unreported.
+
 ## 0.29.0 — 2026-08-09
 
 ### 🎉 Features

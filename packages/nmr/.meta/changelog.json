@@ -1,5 +1,35 @@
 [
   {
+    "version": "0.30.0",
+    "date": "2026-08-10",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Resolve a command to a step list and reject a script element carrying shell syntax (#648)",
+            "body": "A script defined in `.config/nmr.config.ts` as a list of nmr commands now holds one command name per entry, optionally preceded by nmr's own flags. An entry that carries a quoted argument or any other shell syntax previously ran as written and is now rejected when the config loads. Before upgrading, a repo relying on such an entry should define that command as a script of its own and reference it by name from the list.",
+            "breaking": true,
+            "hash": "d40c65deff59ed550e0a20c9d472ae2ebc8ace24"
+          },
+          {
+            "description": "Sequence a command's steps in nmr rather than in a shell (#649)",
+            "body": "When a run in quiet mode fails, it now shows only the output of the command that failed instead of everything the run had produced up to that point. Quiet mode can now be set for a whole shell session with the `NMR_COMMAND_VERBOSITY` environment variable, which accepts `full` or `quiet`; `-q` still takes precedence for a single run, and an unrecognized value is reported as an error. Interrupting a run now stops the commands that would have followed it.\n\nBreaking: a `devBin` entry that maps `nmr` itself no longer takes effect inside a command that runs other nmr commands. Mapping any other tool (the documented use) is unaffected.",
+            "breaking": true,
+            "hash": "21382e589336901379f93ff0fcea322cf7c7e5cd"
+          },
+          {
+            "description": "Express the seven root defaults as steps (#650)",
+            "body": "Running `nmr build`, `nmr test`, `nmr test:all`, `nmr test:coverage`, `nmr test:tool`, `nmr test:unit`, or `nmr typecheck` from a monorepo root now passes over a package that does not define the command, instead of failing there. The first run of `test`, `test:coverage`, `test:tool`, `test:unit`, or `typecheck` after the upgrade no longer skips as already passed; skipping resumes on the run after.\n\n`nmr` now also warns when a command it is about to run invokes `nmr` again through a shell, where a failure reports the whole inner run's output instead of the failing command's. The warning catches only a direct `nmr` call, so a command that reaches `nmr` through another program goes unreported.",
+            "breaking": true,
+            "hash": "97b5113f80c7dd69fe864aa9a9d81c20c6799a9e"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.29.0",
     "date": "2026-08-09",
     "sections": [
