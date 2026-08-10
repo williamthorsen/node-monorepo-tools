@@ -192,6 +192,16 @@ describe(buildDependencyGraph, () => {
     expect(graph.dependentsOf.size).toBe(0);
   });
 
+  it('names the unreadable package file and quotes the underlying message', () => {
+    mockReadFileSync.mockImplementation(() => {
+      throw new Error('EACCES: permission denied');
+    });
+
+    expect(() => buildDependencyGraph([makeWorkspace('core')])).toThrow(
+      'Failed to read packages/core/package.json: EACCES: permission denied',
+    );
+  });
+
   it('preserves the underlying error as the cause when a package file cannot be read', () => {
     const underlying = new Error('EACCES: permission denied');
     mockReadFileSync.mockImplementation(() => {
@@ -199,6 +209,14 @@ describe(buildDependencyGraph, () => {
     });
 
     expect(() => buildDependencyGraph([makeWorkspace('core')])).toThrow(expect.objectContaining({ cause: underlying }));
+  });
+
+  it('names the package file holding invalid JSON', () => {
+    mockReadFileSync.mockReturnValue('{ not valid json');
+
+    expect(() => buildDependencyGraph([makeWorkspace('core')])).toThrow(
+      /^Failed to parse JSON in packages\/core\/package\.json: /,
+    );
   });
 
   it('preserves the underlying error as the cause when a package file holds invalid JSON', () => {
