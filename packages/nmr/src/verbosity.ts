@@ -40,7 +40,8 @@ export function resolveVerbosity(env: NodeJS.ProcessEnv, quietFlag: boolean): Ve
 
 /** Narrows a raw environment value to a point on the loudness ladder. */
 function isCommandVerbosity(value: string): value is CommandVerbosity {
-  return COMMAND_VERBOSITIES.some((candidate) => candidate === value);
+  const names: readonly string[] = COMMAND_VERBOSITIES;
+  return names.includes(value);
 }
 
 // endregion | Helpers

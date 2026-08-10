@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import type { VerbosityResolution } from '../verbosity.ts';
 import { COMMAND_VERBOSITY_ENV_VAR, resolveVerbosity } from '../verbosity.ts';
 
 describe(resolveVerbosity, () => {
@@ -35,12 +36,11 @@ describe(resolveVerbosity, () => {
   });
 
   it('names the variable and both accepted values when it rejects', () => {
-    const result = resolveVerbosity({ [COMMAND_VERBOSITY_ENV_VAR]: 'silent' }, false);
+    const error = errorFrom(resolveVerbosity({ [COMMAND_VERBOSITY_ENV_VAR]: 'silent' }, false));
 
-    if (result.ok) throw new Error('Expected an unrecognized value to be rejected');
-    expect(result.error).toContain(COMMAND_VERBOSITY_ENV_VAR);
-    expect(result.error).toContain('full');
-    expect(result.error).toContain('quiet');
+    expect(error).toContain(COMMAND_VERBOSITY_ENV_VAR);
+    expect(error).toContain('full');
+    expect(error).toContain('quiet');
   });
 
   // The flag cannot rescue a value the environment got wrong: a run that silently ignored it would leave the
@@ -49,3 +49,13 @@ describe(resolveVerbosity, () => {
     expect(resolveVerbosity({ [COMMAND_VERBOSITY_ENV_VAR]: 'silent' }, true).ok).toBe(false);
   });
 });
+
+// region | Helpers
+
+/** Returns the rejection message, failing the test when the value was accepted. */
+function errorFrom(resolution: VerbosityResolution): string {
+  if (resolution.ok) throw new Error('Expected an unrecognized value to be rejected');
+  return resolution.error;
+}
+
+// endregion | Helpers
