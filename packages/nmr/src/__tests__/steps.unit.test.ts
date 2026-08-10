@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Step } from '../steps.ts';
-import { composeNmrStep, findUnexpressibleToken, renderChain } from '../steps.ts';
+import { composeNmrStep, findShelledNmrStep, findUnexpressibleToken, renderChain } from '../steps.ts';
 
 describe(composeNmrStep, () => {
   it('composes a bare command name as an nmr invocation', () => {
@@ -22,6 +22,43 @@ describe(composeNmrStep, () => {
 
   it('drops the empty tokens surrounding and repeated whitespace would leave', () => {
     expect(composeNmrStep('  -q   build ', false)).toStrictEqual({ kind: 'structural', argv: ['nmr', '-q', 'build'] });
+  });
+});
+
+describe(findShelledNmrStep, () => {
+  it('finds an opaque step leading with the nmr token', () => {
+    const steps: readonly Step[] = [{ kind: 'opaque', command: 'nmr root:test && pnpm --recursive exec nmr test' }];
+
+    expect(findShelledNmrStep(steps)).toBe('nmr root:test && pnpm --recursive exec nmr test');
+  });
+
+  it('reads past the whitespace a step is padded with', () => {
+    expect(findShelledNmrStep([{ kind: 'opaque', command: '  nmr fmt' }])).toBe('  nmr fmt');
+  });
+
+  it('returns the leftmost qualifying step when a list holds several', () => {
+    const steps: readonly Step[] = [
+      { kind: 'structural', argv: ['nmr', 'fmt'] },
+      { kind: 'opaque', command: 'nmr first' },
+      { kind: 'opaque', command: 'nmr second' },
+    ];
+
+    expect(findShelledNmrStep(steps)).toBe('nmr first');
+  });
+
+  it.each([
+    { scenario: 'a structural step nmr composed', steps: [{ kind: 'structural', argv: ['nmr', 'typecheck'] }] },
+    {
+      scenario: 'a step reaching nmr through another program',
+      steps: [{ kind: 'opaque', command: 'pnpm exec nmr build' }],
+    },
+    {
+      scenario: 'a step whose leading token merely begins with nmr',
+      steps: [{ kind: 'opaque', command: 'nmr-compile' }],
+    },
+    { scenario: 'an empty step list', steps: [] },
+  ])('given $scenario, finds nothing', ({ steps }) => {
+    expect(findShelledNmrStep(steps as readonly Step[])).toBeUndefined();
   });
 });
 
