@@ -33,7 +33,6 @@
     "@williamthorsen/nmr": "workspace:*",
     "@williamthorsen/release-kit": "workspace:*",
     "@williamthorsen/strict-lint": "9.4.0",
-    "@williamthorsen/toolbelt.objects": "3.2.11",
     "@williamthorsen/tsconfig": "0.4.0",
     "codeassembly": "0.8.0",
     "eslint": "10.8.0",
