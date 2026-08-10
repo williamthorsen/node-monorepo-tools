@@ -31,7 +31,7 @@ describe(readAmbientEnv, () => {
       vi.stubEnv(name, '1');
     }
 
-    expect(Object.keys(readAmbientEnv())).toStrictEqual(expect.not.arrayContaining(OWN_ENV_VARS));
+    expect(Object.keys(readAmbientEnv()).filter((name) => OWN_ENV_VARS.includes(name))).toStrictEqual([]);
   });
 
   it('keeps a variable nmr does not own', () => {
