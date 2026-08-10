@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { findPackageRoot } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
 import { parse } from 'yaml';
 
 import { isRecord } from '../typeGuards.ts';
@@ -35,8 +35,7 @@ export function loadPreset(presetName: string): LabelDefinition[] {
   try {
     content = readFileSync(presetPath, 'utf8');
   } catch (error: unknown) {
-    const message = describeError(error);
-    throw new Error(`Failed to read preset "${presetName}": ${message}`, { cause: error });
+    throw chainError(`Failed to read preset "${presetName}"`, error);
   }
 
   const parsed: unknown = parse(content);

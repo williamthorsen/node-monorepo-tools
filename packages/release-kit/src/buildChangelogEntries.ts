@@ -1,4 +1,4 @@
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { extractVersion } from './changelogJsonUtils.ts';
 import { DEFAULT_WORK_TYPES } from './defaults.ts';
@@ -103,7 +103,7 @@ export function buildChangelogEntries(
     const devOnlySections = new Set(config.changelogJson.devOnlySections);
     return transformReleases(releases, devOnlySections);
   } catch (error: unknown) {
-    throw new Error(`Failed to build changelog entries for tag ${tag}: ${describeError(error)}`, { cause: error });
+    throw chainError(`Failed to build changelog entries for tag ${tag}`, error);
   }
 }
 

@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import type { AllowlistEntry, AuditResult, AuditScope, ScopeConfig, V11yCheckConfig } from './types.ts';
 
@@ -146,8 +146,7 @@ export async function syncAllowlist(
   try {
     await writeFile(configFilePath, serializeConfig(updatedConfig), 'utf8');
   } catch (error: unknown) {
-    const message = describeError(error);
-    throw new Error(`Failed to write config file '${configFilePath}': ${message}`, { cause: error });
+    throw chainError(`Failed to write config file '${configFilePath}'`, error);
   }
 
   return {

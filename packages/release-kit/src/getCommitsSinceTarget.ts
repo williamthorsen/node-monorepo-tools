@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 
 import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import type { Commit } from './types.ts';
 
@@ -48,7 +48,7 @@ function findLatestTag(tagPrefixes: readonly string[]): string | undefined {
     if (isNoTagError(error)) {
       return undefined;
     }
-    throw new Error(`Failed to run 'git describe': ${describeError(error)}`, { cause: error });
+    throw chainError(`Failed to run 'git describe'`, error);
   }
 }
 
@@ -117,7 +117,7 @@ export function getCommitsSinceTarget(
       stdio: ['pipe', 'pipe', 'pipe'],
     }).trim();
   } catch (error: unknown) {
-    throw new Error(`Failed to run 'git log' for range '${range}': ${describeError(error)}`, { cause: error });
+    throw chainError(`Failed to run 'git log' for range '${range}'`, error);
   }
 
   if (logOutput === '') {

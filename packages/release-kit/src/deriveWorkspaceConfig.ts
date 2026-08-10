@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { isRecord } from './typeGuards.ts';
 import type { WorkspaceConfig } from './types.ts';
@@ -22,8 +22,7 @@ export function deriveWorkspaceConfig(workspacePath: string): WorkspaceConfig {
   try {
     parsed = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
   } catch (error) {
-    const message = describeError(error);
-    throw new Error(`Failed to read ${packageJsonPath}: ${message}`, { cause: error });
+    throw chainError(`Failed to read ${packageJsonPath}`, error);
   }
   const name = isRecord(parsed) ? parsed['name'] : undefined;
 
