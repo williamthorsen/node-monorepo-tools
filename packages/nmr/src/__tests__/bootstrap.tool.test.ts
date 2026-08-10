@@ -7,6 +7,7 @@ import * as ts from 'typescript';
 import { assert, describe, expect, it } from 'vitest';
 
 import { isObject, isStringRecord } from '../helpers/type-guards.ts';
+import { findMonorepoRoot, getWorkspacePackageDirs } from '../workspace.ts';
 
 /**
  * Proof that nmr-core's `prepare` can build nmr-core on a tree that holds no build output, which is what a
@@ -27,11 +28,15 @@ const NMR_CORE_MANIFEST = path.resolve(NMR_SRC, '..', '..', 'nmr-core', 'package
 /** The export condition naming nmr-core's TypeScript source, which only the bootstrap opts into. */
 const SOURCE_CONDITION = 'nmr-source';
 
-/** The scope every workspace package in this repo publishes under. */
-const WORKSPACE_SCOPE = '@williamthorsen/';
+/**
+ * The names every workspace package publishes under, read from the manifests rather than inferred from a
+ * scope. Third-party dependencies share the `@williamthorsen/` scope, and their build output ships in the
+ * tarball, so a scope prefix names packages whose `dist` the bootstrap has no reason to have produced.
+ */
+const WORKSPACE_PACKAGE_NAMES = readWorkspacePackageNames();
 
 /** The one workspace package the bootstrap imports, and the only one carrying a source condition. */
-const NMR_CORE_SPECIFIER = `${WORKSPACE_SCOPE}nmr-core`;
+const NMR_CORE_SPECIFIER = '@williamthorsen/nmr-core';
 
 const TSCONFIG = {
   compilerOptions: {
@@ -172,9 +177,14 @@ function collectClosure(entry: string): string[] {
 function collectWorkspaceImports(): WorkspaceImport[] {
   return collectClosure(BOOTSTRAP_ENTRY).flatMap((file) =>
     readSpecifiers(file)
-      .filter((specifier) => specifier.startsWith(WORKSPACE_SCOPE))
+      .filter((specifier) => WORKSPACE_PACKAGE_NAMES.some((name) => isPackageSpecifier(specifier, name)))
       .map((specifier) => ({ fromDir: path.dirname(file), specifier })),
   );
+}
+
+/** Reports whether `specifier` names `packageName` itself or one of its subpath exports. */
+function isPackageSpecifier(specifier: string, packageName: string): boolean {
+  return specifier === packageName || specifier.startsWith(`${packageName}/`);
 }
 
 /** Reads the nmr-core manifest fields the bootstrap depends on, failing loudly when they are not where expected. */
@@ -237,6 +247,17 @@ function getModuleSpecifier(node: ts.Node): ts.StringLiteralLike | undefined {
   }
 
   return undefined;
+}
+
+/** Returns the `name` of every package the workspace manifest claims, which is what makes a specifier local. */
+function readWorkspacePackageNames(): string[] {
+  return getWorkspacePackageDirs(findMonorepoRoot(import.meta.dirname)).flatMap((dir) => {
+    const parsed: unknown = JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8'));
+    if (!isObject(parsed) || typeof parsed['name'] !== 'string') {
+      throw new Error(`${dir} holds no package.json carrying a name`);
+    }
+    return [parsed['name']];
+  });
 }
 
 /** Resolves `specifier` the way a module in `fromDir` would, under the given export conditions. */
