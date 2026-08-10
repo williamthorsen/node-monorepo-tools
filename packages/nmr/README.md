@@ -49,9 +49,9 @@ nmr's key feature is that the same command runs different scripts depending on w
 
 | Where you run `nmr`               | Registry used     | Working directory | `nmr test` runs                                                      |
 | --------------------------------- | ----------------- | ----------------- | -------------------------------------------------------------------- |
-| Monorepo root                     | Root scripts      | Monorepo root     | Root tests + `pnpm --recursive exec nmr test`                        |
+| Monorepo root                     | Root scripts      | Monorepo root     | `root:test`, then `-R test`                                          |
 | Inside a workspace package        | Workspace scripts | The package root  | `pnpm exec vitest --project unit --project tool` (that package only) |
-| Anywhere, with `--workspace-root` | Root scripts      | Monorepo root     | Root tests + `pnpm --recursive exec nmr test`                        |
+| Anywhere, with `--workspace-root` | Root scripts      | Monorepo root     | `root:test`, then `-R test`                                          |
 
 Relative paths in a script resolve against that working directory, not the invocation directory.
 
@@ -98,9 +98,13 @@ Script values can be `string` or `string[]`. Arrays expand to chained `nmr` sub-
 // expands to: nmr lint && nmr fmt
 ```
 
-Each array element is a command name, optionally preceded by nmr's own flags, split on whitespace. An element carrying a quoted argument or shell syntax is rejected when the config loads: name that command as a script of its own and reference the name.
+Each array element is a command name, optionally preceded by nmr's own flags, split on whitespace — `-R test` runs the element in every package, the way `nmr -R test` does. An element carrying a quoted argument or shell syntax is rejected when the config loads: name that command as a script of its own and reference the name.
 
 Passthrough arguments attach to the final step alone: `nmr fix --dry-run` runs `nmr lint`, then `nmr fmt --dry-run`.
+
+A string value is spawned through a shell as one command, so an `nmr` invocation inside it is invisible to the process above: a quiet failure surrenders the whole nested subtree rather than the failing step, and a loud run relays the nested tree through a forwarding pipe. nmr writes one line to stderr, in every verbosity, when a command resolves to a step whose first token is `nmr`.
+
+That line reports a boundary rather than enforcing a rule, and it is partial: a step reaching nmr through another program, such as `pnpm --recursive exec nmr build`, goes unreported. Only the built-in defaults and `.config/nmr.config.ts` carry arrays, so a `package.json` script embedding nmr has nowhere to move but up a tier.
 
 ## Configuration
 
@@ -415,12 +419,12 @@ A run that collects no test files passes. That is what lets `nmr test:tool` fan 
 
 #### Build and CI
 
-| Command   | Runs                              |
-| --------- | --------------------------------- |
-| `build`   | `pnpm --recursive exec nmr build` |
-| `ci`      | `build`, `check:strict`           |
-| `clean`   | `nmr-clean`                       |
-| `prepush` | `audit`, `ci`                     |
+| Command   | Runs                    |
+| --------- | ----------------------- |
+| `build`   | `-R build`              |
+| `ci`      | `build`, `check:strict` |
+| `clean`   | `nmr-clean`             |
+| `prepush` | `audit`, `ci`           |
 
 `ci` is what a code-quality workflow runs; it leaves out the audit, which belongs in a workflow of its own. `prepush` is what a developer runs before pushing: both gates, audit first. The audit takes seconds and `ci` takes minutes, so a vulnerability surfaces before the long gate runs. It composes `ci` rather than restating its stages, so a stage added to `ci` joins the pre-push run too.
 
@@ -445,14 +449,14 @@ Neither is bound to a git hook. `prepush` is named for when you run it, not for 
 
 The same six names the workspace registry carries, so a command means the same thing from the monorepo root as from inside a package. Each fans out to root-level files and every workspace package.
 
-| Command         | Runs                                                        |
-| --------------- | ----------------------------------------------------------- |
-| `test`          | `nmr root:test && pnpm --recursive exec nmr test`           |
-| `test:all`      | `nmr root:test:all && pnpm --recursive exec nmr test:all`   |
-| `test:coverage` | `nmr root:test && pnpm --recursive exec nmr test:coverage`  |
-| `test:tool`     | `nmr root:test:tool && pnpm --recursive exec nmr test:tool` |
-| `test:unit`     | `nmr root:test:unit && pnpm --recursive exec nmr test:unit` |
-| `test:watch`    | `vitest --project unit --project tool --watch`              |
+| Command         | Runs                                           |
+| --------------- | ---------------------------------------------- |
+| `test`          | `root:test`, `-R test`                         |
+| `test:all`      | `root:test:all`, `-R test:all`                 |
+| `test:coverage` | `root:test`, `-R test:coverage`                |
+| `test:tool`     | `root:test:tool`, `-R test:tool`               |
+| `test:unit`     | `root:test:unit`, `-R test:unit`               |
+| `test:watch`    | `vitest --project unit --project tool --watch` |
 
 `test:coverage` chains `root:test` rather than a `root:test:coverage`, because the root config reports no coverage of its own; packages cover their own sources.
 
@@ -460,9 +464,9 @@ The same six names the workspace registry carries, so a command means the same t
 
 #### Typecheck
 
-| Command     | Runs                                                        |
-| ----------- | ----------------------------------------------------------- |
-| `typecheck` | `nmr root:typecheck && pnpm --recursive exec nmr typecheck` |
+| Command     | Runs                             |
+| ----------- | -------------------------------- |
+| `typecheck` | `root:typecheck`, `-R typecheck` |
 
 #### Lint
 

@@ -50,7 +50,7 @@ If run under a package directory, the command applies to that package. Otherwise
 
 - Default scripts defined in `packages/nmr/src/default-scripts.ts`; a repo overrides them in `.config/nmr.config.ts`, which here adds only `check:content` and the `check:strict:post` hook that runs it
 - nmr's default test scripts select Vitest projects, so registry construction touches no files and this repo needs no test-script overrides
-- Root scripts delegate to workspaces via `pnpm --recursive exec nmr {command}`, except `lint`, `lint:check`, and `lint:strict`, which run one root-anchored process covering the whole tree
+- Root scripts delegate to workspaces via an `-R {command}` step, except `lint`, `lint:check`, and `lint:strict`, which run one root-anchored process covering the whole tree
 
 ### Build system
 
