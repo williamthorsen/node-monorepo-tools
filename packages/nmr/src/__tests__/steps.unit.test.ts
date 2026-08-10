@@ -76,7 +76,7 @@ describe(renderChain, () => {
   });
 
   it('leaves a structural token the shell reads literally bare', () => {
-    const argv = ['pnpm', '--filter', '@scope/pkg', 'exec', 'nmr', 'build'];
+    const argv = ['pnpm', '--filter', '@scope/pkg', 'exec', 'nmr', 'build'] as const;
 
     expect(renderChain([{ kind: 'structural', argv }])).toBe('pnpm --filter @scope/pkg exec nmr build');
   });

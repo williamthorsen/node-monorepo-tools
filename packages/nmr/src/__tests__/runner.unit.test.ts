@@ -5,7 +5,8 @@ import { PassThrough, Writable } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { OutputChannels } from '../runner.ts';
-import { resolveChannel, runCommand } from '../runner.ts';
+import { resolveChannel, resolveInheritedChannel, runCommand, runSteps } from '../runner.ts';
+import type { Step } from '../steps.ts';
 
 vi.mock(import('node:child_process'), () => ({
   spawn: vi.fn(),
@@ -77,6 +78,40 @@ function createTerminalStream() {
   return Object.assign(new PassThrough(), { fd: 1, isTTY: true });
 }
 
+/** Builds a stream carrying a descriptor without being a terminal, which is a redirected stdout. */
+function createRedirectedStream() {
+  return Object.assign(new PassThrough(), { fd: 1 });
+}
+
+/**
+ * Installs a spawn mock that ends each child as soon as it is created, taking each exit code from the queue in
+ * turn, so a step list runs to completion without the test driving every child by hand.
+ */
+function stubSequence(exitCodes: readonly number[]): void {
+  let index = 0;
+
+  mockedSpawn.mockImplementation((_file, _args, options) => {
+    const stdio = Array.isArray(options.stdio) ? options.stdio : [];
+    // eslint-disable-next-line unicorn/prefer-event-target -- the runner attaches EventEmitter listeners to the child.
+    const fake = Object.assign(new EventEmitter(), {
+      stdout: stdio[1] === 'pipe' ? new PassThrough() : null,
+      stderr: stdio[2] === 'pipe' ? new PassThrough() : null,
+    });
+    const exitCode = exitCodes[index] ?? 0;
+    index++;
+    setImmediate(() => {
+      void endChild(fake, exitCode);
+    });
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- the runner reads only stdout, stderr, and the event methods, so the fake models those alone.
+    return fake as unknown as ReturnType<typeof spawn>;
+  });
+}
+
+/** Reads the file each spawn was asked for, in call order. */
+function filesFromCalls(): (string | undefined)[] {
+  return mockedSpawn.mock.calls.map((call) => call[0]);
+}
+
 /** Builds a stream that accepts nothing until released, so a pipe into it must apply back-pressure. */
 function createBlockingStream(): { stream: Writable; release: () => void } {
   let pendingCallback: (() => void) | undefined;
@@ -116,6 +151,16 @@ describe(resolveChannel, () => {
     const destination = useTerminal ? createTerminalStream() : new PassThrough();
 
     expect(resolveChannel(destination, isQuiet)).toBe(channel);
+  });
+});
+
+describe(resolveInheritedChannel, () => {
+  it.each([
+    { channel: 1, scenario: 'a terminal destination', createStream: createTerminalStream },
+    { channel: 1, scenario: 'a destination redirected to a file', createStream: createRedirectedStream },
+    { channel: 'pipe', scenario: 'a destination carrying no descriptor', createStream: () => new PassThrough() },
+  ])('given $scenario, resolves to $channel', ({ channel, createStream }) => {
+    expect(resolveInheritedChannel(createStream())).toBe(channel);
   });
 });
 
@@ -431,6 +476,213 @@ describe(runCommand, () => {
       await flushEventLoop();
 
       expect(reported().toString('utf8')).toBe('lint errors\nerror details\n');
+    });
+  });
+});
+
+const OPAQUE_STEP: Step = { kind: 'opaque', command: 'eslint .' };
+const STRUCTURAL_STEP: Step = { kind: 'structural', argv: ['nmr', '-w', 'typecheck'] };
+
+describe(runSteps, () => {
+  beforeEach(() => {
+    mockedSpawn.mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  describe('sequencing', () => {
+    it('runs every step when each succeeds', async () => {
+      stubSequence([0, 0, 0]);
+
+      const result = await runSteps([STRUCTURAL_STEP, OPAQUE_STEP, STRUCTURAL_STEP], undefined, {
+        stderr: new PassThrough(),
+        stdout: new PassThrough(),
+      });
+
+      expect(result).toStrictEqual({ exitCode: 0 });
+      expect(mockedSpawn).toHaveBeenCalledTimes(3);
+    });
+
+    it('stops at the first non-zero exit and returns that code', async () => {
+      stubSequence([0, 2, 0]);
+
+      const result = await runSteps([STRUCTURAL_STEP, OPAQUE_STEP, STRUCTURAL_STEP], undefined, {
+        stderr: new PassThrough(),
+        stdout: new PassThrough(),
+      });
+
+      expect(result).toStrictEqual({ exitCode: 2 });
+      expect(mockedSpawn).toHaveBeenCalledTimes(2);
+    });
+
+    it('runs the steps in the order given', async () => {
+      stubSequence([0, 0]);
+
+      await runSteps([OPAQUE_STEP, STRUCTURAL_STEP], undefined, {
+        stderr: new PassThrough(),
+        stdout: new PassThrough(),
+      });
+
+      expect(filesFromCalls()).toStrictEqual(['eslint .', 'nmr']);
+    });
+
+    it('given an empty step list, exits 0 without spawning', async () => {
+      stubSequence([]);
+
+      const result = await runSteps([], undefined, { stderr: new PassThrough(), stdout: new PassThrough() });
+
+      expect(result).toStrictEqual({ exitCode: 0 });
+      expect(mockedSpawn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('spawning', () => {
+    it('hands an opaque step to a shell as one command line', async () => {
+      stubSequence([0]);
+
+      await runSteps([OPAQUE_STEP], '/repo', { stderr: new PassThrough(), stdout: new PassThrough() });
+
+      expect(mockedSpawn.mock.calls[0]?.slice(0, 2)).toStrictEqual(['eslint .', []]);
+      expect(mockedSpawn.mock.calls[0]?.[2]).toMatchObject({ cwd: '/repo', shell: true });
+    });
+
+    it('spawns a structural step by argv, so no shell reads its arguments', async () => {
+      stubSequence([0]);
+
+      await runSteps([{ kind: 'structural', argv: ['nmr', 'test', '-t', 'a b'] }], '/repo', {
+        stderr: new PassThrough(),
+        stdout: new PassThrough(),
+      });
+
+      expect(mockedSpawn.mock.calls[0]?.slice(0, 2)).toStrictEqual(['nmr', ['test', '-t', 'a b']]);
+      expect(mockedSpawn.mock.calls[0]?.[2]).toMatchObject({ shell: false });
+    });
+  });
+
+  describe('channels', () => {
+    it.each([
+      { expected: [1, 1], isQuiet: false, scenario: 'a loud run' },
+      { expected: [1, 1], isQuiet: true, scenario: 'a quiet run' },
+    ])('given $scenario, hands a structural step nmr descriptors', async ({ expected, isQuiet }) => {
+      stubSequence([0]);
+
+      await runSteps([STRUCTURAL_STEP], undefined, {
+        quiet: isQuiet,
+        stderr: Object.assign(new PassThrough(), { fd: 1 }),
+        stdout: Object.assign(new PassThrough(), { fd: 1 }),
+      });
+
+      expect(stdioFromCall().slice(1)).toStrictEqual(expected);
+    });
+
+    it('falls back to a pipe for a structural step when the stream carries no descriptor', async () => {
+      stubSequence([0]);
+
+      await runSteps([STRUCTURAL_STEP], undefined, { stderr: new PassThrough(), stdout: new PassThrough() });
+
+      expect(stdioFromCall().slice(1)).toStrictEqual(['pipe', 'pipe']);
+    });
+
+    it('withholds an opaque step under quiet, where a descriptor would leave nothing to withhold', async () => {
+      stubSequence([0]);
+
+      await runSteps([OPAQUE_STEP], undefined, {
+        quiet: true,
+        stderr: createTerminalStream(),
+        stdout: createTerminalStream(),
+      });
+
+      expect(stdioFromCall().slice(1)).toStrictEqual(['pipe', 'pipe']);
+    });
+  });
+
+  describe('quiet mode', () => {
+    // Each process suppresses the output of the command it runs, never of the subtree beneath it: the nmr
+    // process a structural step spawns does its own withholding, so this one forwards whatever reaches it.
+    it('forwards a structural step even under quiet', async () => {
+      const destination = new PassThrough();
+      const received = collect(destination);
+      mockedSpawn.mockImplementation((_file, _args, options) => {
+        const stdio = Array.isArray(options.stdio) ? options.stdio : [];
+        // eslint-disable-next-line unicorn/prefer-event-target -- the runner attaches EventEmitter listeners to the child.
+        const fake = Object.assign(new EventEmitter(), {
+          stdout: stdio[1] === 'pipe' ? new PassThrough() : null,
+          stderr: stdio[2] === 'pipe' ? new PassThrough() : null,
+        });
+        setImmediate(() => {
+          fake.stdout?.write('a child verdict\n');
+          void endChild(fake, 0);
+        });
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- the runner reads only stdout, stderr, and the event methods, so the fake models those alone.
+        return fake as unknown as ReturnType<typeof spawn>;
+      });
+
+      await runSteps([STRUCTURAL_STEP], undefined, {
+        quiet: true,
+        stderr: new PassThrough(),
+        stdout: destination,
+      });
+      await flushEventLoop();
+
+      expect(received().toString('utf8')).toBe('a child verdict\n');
+    });
+
+    it('surrenders the failing step alone, leaving an earlier step it already withheld unreported', async () => {
+      const errorStream = new PassThrough();
+      const reported = collect(errorStream);
+      let index = 0;
+      mockedSpawn.mockImplementation((_file, _args, options) => {
+        const stdio = Array.isArray(options.stdio) ? options.stdio : [];
+        // eslint-disable-next-line unicorn/prefer-event-target -- the runner attaches EventEmitter listeners to the child.
+        const fake = Object.assign(new EventEmitter(), {
+          stdout: stdio[1] === 'pipe' ? new PassThrough() : null,
+          stderr: stdio[2] === 'pipe' ? new PassThrough() : null,
+        });
+        const step = index;
+        index++;
+        setImmediate(() => {
+          fake.stdout?.write(step === 0 ? 'first step chatter\n' : 'second step failure\n');
+          void endChild(fake, step === 0 ? 0 : 1);
+        });
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- the runner reads only stdout, stderr, and the event methods, so the fake models those alone.
+        return fake as unknown as ReturnType<typeof spawn>;
+      });
+
+      const result = await runSteps([OPAQUE_STEP, { kind: 'opaque', command: 'vitest' }], undefined, {
+        quiet: true,
+        stderr: errorStream,
+        stdout: new PassThrough(),
+      });
+      await flushEventLoop();
+
+      expect(result).toStrictEqual({ exitCode: 1 });
+      expect(reported().toString('utf8')).toBe('second step failure\n');
+    });
+  });
+
+  describe('spawn failure', () => {
+    it('ends the sequence rather than running on to the next step', async () => {
+      mockedSpawn.mockImplementation((_file, _args, options) => {
+        const stdio = Array.isArray(options.stdio) ? options.stdio : [];
+        // eslint-disable-next-line unicorn/prefer-event-target -- the runner attaches EventEmitter listeners to the child.
+        const fake = Object.assign(new EventEmitter(), {
+          stdout: stdio[1] === 'pipe' ? new PassThrough() : null,
+          stderr: stdio[2] === 'pipe' ? new PassThrough() : null,
+        });
+        setImmediate(() => fake.emit('error', new Error('spawn nmr ENOENT')));
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- the runner reads only stdout, stderr, and the event methods, so the fake models those alone.
+        return fake as unknown as ReturnType<typeof spawn>;
+      });
+
+      const result = await runSteps([STRUCTURAL_STEP, OPAQUE_STEP], undefined, {
+        stderr: new PassThrough(),
+        stdout: new PassThrough(),
+      });
+
+      expect(result).toStrictEqual({ exitCode: 1 });
+      expect(mockedSpawn).toHaveBeenCalledTimes(1);
     });
   });
 });

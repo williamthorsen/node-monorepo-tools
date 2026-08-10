@@ -7,6 +7,7 @@ import type { Readable, Writable } from 'node:stream';
 import { reportError } from '@williamthorsen/nmr-core';
 
 import { createBoundedBuffer } from './helpers/createBoundedBuffer.ts';
+import type { Step } from './steps.ts';
 
 /** Exit codes a shell reserves for a death by signal, offset by the signal number. */
 const SIGNAL_EXIT_BASE = 128;
@@ -36,6 +37,9 @@ export interface RunCommandOptions {
   env?: NodeJS.ProcessEnv;
 }
 
+/** What a step list needs to run. Each step's channels follow its kind, so the caller chooses none of them. */
+export type RunStepsOptions = Omit<RunCommandOptions, 'channels'>;
+
 /** How a command ended, and the exit code that carries that ending to nmr's own caller. */
 type CommandCompletion =
   | { outcome: 'exited'; exitCode: number }
@@ -62,6 +66,45 @@ export function resolveChannel(stream: Writable, quiet: boolean): OutputChannel 
 }
 
 /**
+ * Returns the channel a step running an nmr process below this one runs on: nmr's own descriptor whenever it
+ * has one, so the child writes where nmr writes and no ancestor stands between them relaying bytes. A stream
+ * carrying no descriptor, which is the one a test injects, falls back to a pipe.
+ */
+export function resolveInheritedChannel(stream: Writable): OutputChannel {
+  return hasDescriptor(stream) ? stream.fd : 'pipe';
+}
+
+/**
+ * Runs a step list in order and resolves once one fails or all have run, carrying the `&&` semantics nmr
+ * promises: the first non-zero exit ends the sequence and is the code returned.
+ *
+ * Sequencing here rather than in a spawned shell is what lets each step run on the channels its kind calls
+ * for, and what makes a signal to nmr end the run: the steps after it are never reached, where a shell would
+ * have gone on running them unsupervised.
+ */
+export async function runSteps(
+  steps: readonly Step[],
+  cwd: string | undefined,
+  options: RunStepsOptions,
+): Promise<{ exitCode: number }> {
+  const resolved = {
+    ...options,
+    quiet: options.quiet === true,
+    stdout: options.stdout ?? process.stdout,
+    stderr: options.stderr ?? process.stderr,
+  };
+
+  for (const step of steps) {
+    const { exitCode } = await runStep(step, cwd, resolved);
+    if (exitCode !== 0) {
+      return { exitCode };
+    }
+  }
+
+  return { exitCode: 0 };
+}
+
+/**
  * Runs a command through a shell and resolves once it has ended.
  *
  * The caller chooses each stream's channel. A descriptor is handed to the child and nmr sees none of what
@@ -78,13 +121,31 @@ export async function runCommand(
   cwd: string | undefined,
   options: RunCommandOptions,
 ): Promise<RunCommandResult> {
+  return runSpawned({ args: [], file: command, useShell: true }, cwd, options);
+}
+
+// region | Helpers
+
+/** What to hand `spawn`: a whole command line for a shell to parse, or a file and the arguments it receives. */
+interface SpawnSpec {
+  args: readonly string[];
+  file: string;
+  useShell: boolean;
+}
+
+/** Spawns one child on the caller's channels and resolves once it has ended. */
+async function runSpawned(
+  { args, file, useShell }: SpawnSpec,
+  cwd: string | undefined,
+  options: RunCommandOptions,
+): Promise<RunCommandResult> {
   const quiet = options.quiet === true;
   const stdout = options.stdout ?? process.stdout;
   const stderr = options.stderr ?? process.stderr;
   const env = options.env ?? process.env;
 
-  const child = spawn(command, [], {
-    shell: true,
+  const child = spawn(file, args, {
+    shell: useShell,
     stdio: ['inherit', options.channels.stdout, options.channels.stderr],
     cwd,
     env,
@@ -122,7 +183,33 @@ export async function runCommand(
   return result;
 }
 
-// region | Helpers
+/**
+ * Runs one step on the channels its kind calls for.
+ *
+ * A structural step runs loud whatever mode this process is in: the nmr process underneath suppresses the
+ * output of the command it runs, and an ancestor withholding it as well would be suppressing the subtree.
+ */
+function runStep(
+  step: Step,
+  cwd: string | undefined,
+  options: RunStepsOptions & { quiet: boolean; stderr: Writable; stdout: Writable },
+): Promise<RunCommandResult> {
+  const { quiet, stderr, stdout } = options;
+
+  if (step.kind === 'opaque') {
+    return runSpawned({ args: [], file: step.command, useShell: true }, cwd, {
+      ...options,
+      channels: { stderr: resolveChannel(stderr, quiet), stdout: resolveChannel(stdout, quiet) },
+    });
+  }
+
+  const [file, ...args] = step.argv;
+  return runSpawned({ args, file, useShell: false }, cwd, {
+    ...options,
+    quiet: false,
+    channels: { stderr: resolveInheritedChannel(stderr), stdout: resolveInheritedChannel(stdout) },
+  });
+}
 
 /** Consumes a child stream, forwarding it to a destination when there is one and retaining a bounded copy. */
 function captureStream(
@@ -206,9 +293,14 @@ function describeExit(code: number | null, signal: NodeJS.Signals | null): Comma
   return { outcome: 'exited', exitCode: code ?? 1 };
 }
 
+/** Narrows a stream to one carrying a descriptor a child can be handed, terminal or not. */
+function hasDescriptor(stream: Writable): stream is Writable & { fd: number } {
+  return 'fd' in stream && typeof stream.fd === 'number';
+}
+
 /** Narrows a stream to one backed by a terminal, whose descriptor the child can be handed. */
 function isTerminal(stream: Writable): stream is Writable & { fd: number } {
-  return 'isTTY' in stream && stream.isTTY === true && 'fd' in stream && typeof stream.fd === 'number';
+  return 'isTTY' in stream && stream.isTTY === true && hasDescriptor(stream);
 }
 
 /** Writes a retained buffer to the destination stream, skipping absent and empty payloads. */
