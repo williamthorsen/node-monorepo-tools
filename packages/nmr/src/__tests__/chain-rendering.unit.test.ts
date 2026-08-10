@@ -120,7 +120,8 @@ const ROOT_CHAINS: readonly ChainRow[] = [
   },
   {
     command: 'build',
-    chain: 'pnpm --recursive exec nmr build',
+    chain: 'nmr -R build',
+    workspaceRootChain: 'nmr -w -R build',
   },
   {
     command: 'check',
@@ -223,23 +224,28 @@ const ROOT_CHAINS: readonly ChainRow[] = [
   },
   {
     command: 'test',
-    chain: 'nmr root:test && pnpm --recursive exec nmr test',
+    chain: 'nmr root:test && nmr -R test',
+    workspaceRootChain: 'nmr -w root:test && nmr -w -R test',
   },
   {
     command: 'test:all',
-    chain: 'nmr root:test:all && pnpm --recursive exec nmr test:all',
+    chain: 'nmr root:test:all && nmr -R test:all',
+    workspaceRootChain: 'nmr -w root:test:all && nmr -w -R test:all',
   },
   {
     command: 'test:coverage',
-    chain: 'nmr root:test && pnpm --recursive exec nmr test:coverage',
+    chain: 'nmr root:test && nmr -R test:coverage',
+    workspaceRootChain: 'nmr -w root:test && nmr -w -R test:coverage',
   },
   {
     command: 'test:tool',
-    chain: 'nmr root:test:tool && pnpm --recursive exec nmr test:tool',
+    chain: 'nmr root:test:tool && nmr -R test:tool',
+    workspaceRootChain: 'nmr -w root:test:tool && nmr -w -R test:tool',
   },
   {
     command: 'test:unit',
-    chain: 'nmr root:test:unit && pnpm --recursive exec nmr test:unit',
+    chain: 'nmr root:test:unit && nmr -R test:unit',
+    workspaceRootChain: 'nmr -w root:test:unit && nmr -w -R test:unit',
   },
   {
     command: 'test:watch',
@@ -247,7 +253,8 @@ const ROOT_CHAINS: readonly ChainRow[] = [
   },
   {
     command: 'typecheck',
-    chain: 'nmr root:typecheck && pnpm --recursive exec nmr typecheck',
+    chain: 'nmr root:typecheck && nmr -R typecheck',
+    workspaceRootChain: 'nmr -w root:typecheck && nmr -w -R typecheck',
   },
   {
     command: 'upgrade',
