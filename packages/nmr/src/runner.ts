@@ -14,7 +14,18 @@ const SIGNAL_EXIT_BASE = 128;
 /** How long a completed command's pipes are given to drain before a descendant holding them open is abandoned. */
 const PIPE_DRAIN_GRACE_MS = 2_000;
 
+/** Where one of a child's output streams goes: a descriptor the child writes to, or a pipe nmr reads. */
+export type OutputChannel = number | 'pipe';
+
+/** The channel each of a child's output streams runs on. */
+export interface OutputChannels {
+  stderr: OutputChannel;
+  stdout: OutputChannel;
+}
+
 export interface RunCommandOptions {
+  /** The channel each of the child's output streams runs on. */
+  channels: OutputChannels;
   /** When true, suppress output on success and write captured output to stderr on failure. */
   quiet?: boolean;
   /** Stream that subprocess stdout flows to in non-quiet mode. Defaults to `process.stdout`. */
@@ -42,29 +53,39 @@ export type RunCommandResult = CommandCompletion & {
 };
 
 /**
+ * Returns the channel a stream runs on: the stream's own descriptor when it is a terminal and output is not
+ * being withheld, so the child's terminal detection matches nmr's, and a pipe everywhere else.
+ */
+export function resolveChannel(stream: Writable, quiet: boolean): OutputChannel {
+  if (quiet) return 'pipe';
+  return isTerminal(stream) ? stream.fd : 'pipe';
+}
+
+/**
  * Runs a command through a shell and resolves once it has ended.
  *
- * A stream whose destination is a terminal is handed to the child as a descriptor, so the child's terminal
- * detection matches nmr's. Every other destination is piped: output is forwarded as it arrives, with the
- * destination's back-pressure throttling the child, and a bounded copy is retained. Quiet mode pipes both
- * streams regardless, discarding the retained copy on success and writing it to `options.stderr` on failure.
+ * The caller chooses each stream's channel. A descriptor is handed to the child and nmr sees none of what
+ * flows through it; a pipe is forwarded to the matching option stream as it arrives, with that destination's
+ * back-pressure throttling the child, and a bounded copy is retained. Quiet mode withholds the forwarding,
+ * discarding the retained copy on success and writing it to `options.stderr` on failure, so it has nothing to
+ * report unless the caller chose a pipe on both streams.
  *
  * Piped stdout and stderr are ordered by arrival rather than by a shared descriptor, so their interleaving
  * is approximate.
  */
 export async function runCommand(
   command: string,
-  cwd?: string,
-  options?: RunCommandOptions,
+  cwd: string | undefined,
+  options: RunCommandOptions,
 ): Promise<RunCommandResult> {
-  const quiet = options?.quiet === true;
-  const stdout = options?.stdout ?? process.stdout;
-  const stderr = options?.stderr ?? process.stderr;
-  const env = options?.env ?? process.env;
+  const quiet = options.quiet === true;
+  const stdout = options.stdout ?? process.stdout;
+  const stderr = options.stderr ?? process.stderr;
+  const env = options.env ?? process.env;
 
   const child = spawn(command, [], {
     shell: true,
-    stdio: ['inherit', resolveChannel(stdout, quiet), resolveChannel(stderr, quiet)],
+    stdio: ['inherit', options.channels.stdout, options.channels.stderr],
     cwd,
     env,
   });
@@ -183,12 +204,6 @@ function describeExit(code: number | null, signal: NodeJS.Signals | null): Comma
     return { outcome: 'signaled', exitCode: SIGNAL_EXIT_BASE + os.constants.signals[signal], signal };
   }
   return { outcome: 'exited', exitCode: code ?? 1 };
-}
-
-/** Returns the descriptor to hand the child, or `'pipe'` where nmr captures the stream instead. */
-function resolveChannel(stream: Writable, quiet: boolean): number | 'pipe' {
-  if (quiet) return 'pipe';
-  return isTerminal(stream) ? stream.fd : 'pipe';
 }
 
 /** Narrows a stream to one backed by a terminal, whose descriptor the child can be handed. */

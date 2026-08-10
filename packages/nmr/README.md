@@ -98,6 +98,8 @@ Script values can be `string` or `string[]`. Arrays expand to chained `nmr` sub-
 // expands to: nmr lint && nmr fmt
 ```
 
+Each array element is a command name, optionally preceded by nmr's own flags, split on whitespace. An element carrying a quoted argument or shell syntax is rejected when the config loads: name that command as a script of its own and reference the name.
+
 Passthrough arguments attach to the final step alone, because the expansion is a single shell chain: `nmr fix --dry-run` runs `nmr lint && nmr fmt --dry-run`.
 
 ## Configuration

@@ -21,6 +21,7 @@ import { isObject, isStringRecord } from './helpers/type-guards.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
 import { getDefaultWorkspaceScripts } from './resolve-scripts.ts';
 import { buildWorkspaceRegistry, resolveScript } from './resolver.ts';
+import { renderChain } from './steps.ts';
 import type { CheckCacheConfig, NmrConfig } from './types.ts';
 import { getWorkspacePackageDirs } from './workspace.ts';
 
@@ -429,7 +430,7 @@ function isProbeSubject(packageDir: string, registry: ScriptRegistry): boolean {
 
   const compile = resolveScript('compile', registry, packageDir, false);
 
-  return compile !== undefined && compile.command === BUILT_IN_COMPILE;
+  return compile !== undefined && renderChain(compile.steps) === BUILT_IN_COMPILE;
 }
 
 /**

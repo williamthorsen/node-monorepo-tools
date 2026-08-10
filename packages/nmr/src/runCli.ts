@@ -27,7 +27,9 @@ import type { ScriptRegistry } from './resolve-scripts.ts';
 import type { ResolvedScript } from './resolver.ts';
 import { applyDevBin, buildRootRegistry, buildWorkspaceRegistry, resolveScript } from './resolver.ts';
 import type { RunCommandOptions } from './runner.ts';
-import { runCommand } from './runner.ts';
+import { resolveChannel, runCommand } from './runner.ts';
+import type { Step } from './steps.ts';
+import { composeNmrStep, renderChain } from './steps.ts';
 import type { NmrConfig } from './types.ts';
 
 const VERSION = readPackageVersion(import.meta.url);
@@ -99,11 +101,17 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   const noCache = parsed.noCache || env[NO_CACHE_ENV_VAR] === '1';
   const childEnv = buildChildEnv(env, snapshot, noCache);
-  const runOptions = { quiet: parsed.quiet, stdout, stderr, env: childEnv };
+  const runOptions = {
+    channels: { stderr: resolveChannel(stderr, parsed.quiet), stdout: resolveChannel(stdout, parsed.quiet) },
+    quiet: parsed.quiet,
+    stdout,
+    stderr,
+    env: childEnv,
+  };
 
   // -F: delegate to pnpm --filter
   if (parsed.filter) {
-    const delegateCmd = `pnpm --filter ${shellQuote(parsed.filter)} exec nmr ${command}${passthrough}`;
+    const delegateCmd = composeDelegate(['--filter', parsed.filter], command, parsed.passthrough);
     const { exitCode } = await runCommand(delegateCmd, context.monorepoRoot, runOptions);
     return { exitCode };
   }
@@ -111,7 +119,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   // -R: delegate to pnpm --recursive
   if (parsed.recursive) {
     const delegateEnv = { ...childEnv, NMR_RUN_IF_PRESENT: '1' };
-    const delegateCmd = `pnpm --recursive exec nmr ${command}${passthrough}`;
+    const delegateCmd = composeDelegate(['--recursive'], command, parsed.passthrough);
     const { exitCode } = await runCommand(delegateCmd, context.monorepoRoot, { ...runOptions, env: delegateEnv });
     return { exitCode };
   }
@@ -127,12 +135,14 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     return { exitCode: 1 };
   }
 
-  const skipExitCode = handleSkipMessage(resolved.command, anchorDir, parsed.quiet, stdout);
+  const resolvedCommand = renderChain(resolved.steps);
+
+  const skipExitCode = handleSkipMessage(resolvedCommand, anchorDir, parsed.quiet, stdout);
   if (skipExitCode !== undefined) {
     return { exitCode: skipExitCode };
   }
 
-  const substitutedCommand = applyDevBin(resolved.command, context.config.devBin, context.monorepoRoot);
+  const substitutedCommand = applyDevBin(resolvedCommand, context.config.devBin, context.monorepoRoot);
   const mainCommand = substitutedCommand + passthrough;
 
   // Hook recursion guard: commands ending in :pre or :post are leaf operations
@@ -152,7 +162,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     monorepoRoot: context.monorepoRoot,
     snapshot,
     stderr,
-    substitution: substitutedCommand === resolved.command ? undefined : substitutedCommand,
+    substitution: substitutedCommand === resolvedCommand ? undefined : substitutedCommand,
   });
 
   const exitCode = await runGated({
@@ -210,6 +220,14 @@ function buildChildEnv(
 }
 
 /**
+ * Composes the pnpm delegate that runs a command in other packages. One structural step, so the pattern a `-F`
+ * carries and the arguments passed on stay argv tokens rather than text spliced into a shell string.
+ */
+function composeDelegate(scope: readonly string[], command: string, passthrough: readonly string[]): string {
+  return renderChain([{ kind: 'structural', argv: ['pnpm', ...scope, 'exec', 'nmr', command, ...passthrough] }]);
+}
+
+/**
  * Returns the line announcing that a `package.json` script is standing in for a built-in, or `undefined` when
  * none is due. Only a script replacing a name the registry already defines is worth announcing; an ordinary
  * tier-3 entry that happens to resolve is not standing in for anything.
@@ -226,7 +244,7 @@ function formatOverrideNotice(
     return undefined;
   }
 
-  return `📦 ${path.basename(anchorDir)}: Using override script: ${resolved.command}\n`;
+  return `📦 ${path.basename(anchorDir)}: Using override script: ${renderChain(resolved.steps)}\n`;
 }
 
 /**
@@ -268,7 +286,9 @@ function hasRunnableHook(
 ): boolean {
   const resolved = resolveScript(hookName, registry, anchorDir, workspaceRoot);
   if (!resolved) return false;
-  return resolved.command !== '' && resolved.command !== ':';
+
+  const chain = renderChain(resolved.steps);
+  return chain !== '' && chain !== ':';
 }
 
 /**
@@ -643,18 +663,17 @@ function wrapWithHooks(
   anchorDir: string,
   workspaceRoot: boolean,
 ): string {
-  const segments: string[] = [];
-  const flag = workspaceRoot ? '-w ' : '';
+  const steps: Step[] = [];
 
   if (hasRunnableHook(`${command}:pre`, registry, anchorDir, workspaceRoot)) {
-    segments.push(`nmr ${flag}${command}:pre`);
+    steps.push(composeNmrStep(`${command}:pre`, workspaceRoot));
   }
-  segments.push(mainCommand);
+  steps.push({ kind: 'opaque', command: mainCommand });
   if (hasRunnableHook(`${command}:post`, registry, anchorDir, workspaceRoot)) {
-    segments.push(`nmr ${flag}${command}:post`);
+    steps.push(composeNmrStep(`${command}:post`, workspaceRoot));
   }
 
-  return segments.join(' && ');
+  return renderChain(steps);
 }
 
 // endregion | Helpers
