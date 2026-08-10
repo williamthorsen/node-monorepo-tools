@@ -2,6 +2,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
+
 import {
   DEFAULT_CHANGELOG_JSON_CONFIG,
   DEFAULT_PROJECT_TAG_PREFIX,
@@ -44,20 +46,14 @@ export function readRootPackageVersion(): { exists: boolean; version: string | u
   try {
     contents = readFileSync(absolutePath, 'utf8');
   } catch (error: unknown) {
-    throw new Error(
-      `Failed to read root ${ROOT_PACKAGE_JSON_PATH}: ${error instanceof Error ? error.message : String(error)}`,
-      { cause: error },
-    );
+    throw chainError(`Failed to read root ${ROOT_PACKAGE_JSON_PATH}`, error);
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(contents);
   } catch (error: unknown) {
-    throw new Error(
-      `Failed to parse root ${ROOT_PACKAGE_JSON_PATH}: ${error instanceof Error ? error.message : String(error)}`,
-      { cause: error },
-    );
+    throw chainError(`Failed to parse root ${ROOT_PACKAGE_JSON_PATH}`, error);
   }
 
   if (!isRecord(parsed)) {

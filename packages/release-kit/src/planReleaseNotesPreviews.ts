@@ -1,6 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+
 import { extractVersion } from './changelogJsonUtils.ts';
 import { renderInjectedReadmeFromEntries } from './injectReleaseNotesIntoReadme.ts';
 import type { PlannedWrite } from './releasePlan.ts';
@@ -93,7 +95,7 @@ function readWorkspaceReadme(
   try {
     return { content: readFileSync(readmePath, 'utf8'), exists: true, unreadable: false };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = describeError(error);
     warnings.push(`failed to read ${readmePath}: ${message}; skipping injected-README preview`);
     return { content: '', exists: false, unreadable: true };
   }

@@ -1,5 +1,6 @@
 import type { WriteResult } from '@williamthorsen/nmr-core';
 import { printError, printStep, printSuccess, reportWriteResult } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import type { CheckResult } from './checks.ts';
 import { hasPackageJson, isGitRepo, usesPnpm } from './checks.ts';
@@ -49,7 +50,7 @@ export function initCommand({ dryRun, force, withConfig }: InitOptions): number 
   try {
     eligible = checkEligibility();
   } catch (error: unknown) {
-    printError(`Eligibility check failed: ${error instanceof Error ? error.message : String(error)}`);
+    printError(`Eligibility check failed: ${describeError(error)}`);
     return 1;
   }
   if (!eligible) return 1;
@@ -60,7 +61,7 @@ export function initCommand({ dryRun, force, withConfig }: InitOptions): number 
   try {
     repoType = detectRepoType();
   } catch (error: unknown) {
-    printError(`Failed to detect repo type: ${error instanceof Error ? error.message : String(error)}`);
+    printError(`Failed to detect repo type: ${describeError(error)}`);
     return 1;
   }
   printSuccess(`Detected: ${repoType}`);
@@ -71,7 +72,7 @@ export function initCommand({ dryRun, force, withConfig }: InitOptions): number 
   try {
     results = scaffoldFiles({ repoType, dryRun, overwrite: force, withConfig });
   } catch (error: unknown) {
-    printError(`Failed to scaffold files: ${error instanceof Error ? error.message : String(error)}`);
+    printError(`Failed to scaffold files: ${describeError(error)}`);
     return 1;
   }
 

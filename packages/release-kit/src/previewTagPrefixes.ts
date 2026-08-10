@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { basename } from 'node:path';
 
 import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
 import type { UndeclaredTagPrefix } from './detectUndeclaredTagPrefixes.ts';
@@ -115,7 +116,7 @@ function buildPreviewRow(workspacePath: string, overridesByDir: Map<string, Lega
   try {
     derivedPrefix = deriveWorkspaceConfig(workspacePath).tagPrefix;
   } catch (error: unknown) {
-    derivationError = error instanceof Error ? error.message : String(error);
+    derivationError = describeError(error);
   }
 
   const derivedTagCount = derivedPrefix === null ? 0 : countTagsMatching(derivedPrefix);

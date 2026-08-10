@@ -7,7 +7,6 @@ import { routeCommand } from '../route.ts';
 vi.mock(import('../../cli.ts'), () => ({
   auditCommand: vi.fn().mockResolvedValue(0),
   checkCommand: vi.fn().mockResolvedValue(0),
-  extractMessage: vi.fn((e: unknown) => (e instanceof Error ? e.message : String(e))),
   syncCommand: vi.fn().mockResolvedValue(0),
 }));
 

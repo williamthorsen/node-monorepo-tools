@@ -4,6 +4,7 @@
 import { execSync } from 'node:child_process';
 
 import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { buildDependencyGraph } from './buildDependencyGraph.ts';
@@ -129,7 +130,7 @@ export async function prepareCommand(argv: string[]): Promise<void> {
     try {
       assertCleanWorkingTree();
     } catch (error: unknown) {
-      reportError(error instanceof Error ? error.message : String(error));
+      reportError(describeError(error));
       process.exit(1);
     }
   }
@@ -141,7 +142,7 @@ export async function prepareCommand(argv: string[]): Promise<void> {
   try {
     discoveredPaths = await discoverWorkspaces();
   } catch (error: unknown) {
-    reportError(`Failed to discover workspaces: ${error instanceof Error ? error.message : String(error)}`);
+    reportError(`Failed to discover workspaces: ${describeError(error)}`);
     process.exit(1);
   }
 
@@ -197,7 +198,7 @@ function runMonorepoMode(
     const rootPackage = readRootPackageVersion();
     config = mergeMonorepoConfig(discoveredPaths, userConfig, rootPackage);
   } catch (error: unknown) {
-    reportError(`Failed to resolve workspaces: ${error instanceof Error ? error.message : String(error)}`);
+    reportError(`Failed to resolve workspaces: ${describeError(error)}`);
     process.exit(1);
   }
 
@@ -299,7 +300,7 @@ async function loadAndValidateConfig(): Promise<ReleaseKitConfig | undefined> {
   try {
     rawConfig = await loadConfig();
   } catch (error: unknown) {
-    reportError(`Failed to load config: ${error instanceof Error ? error.message : String(error)}`);
+    reportError(`Failed to load config: ${describeError(error)}`);
     process.exit(1);
   }
 
@@ -336,7 +337,7 @@ function runAndReport(computePlan: () => ReleasePlan, dryRun: boolean): void {
   try {
     plan = computePlan();
   } catch (error: unknown) {
-    reportError(error instanceof Error ? error.message : String(error));
+    reportError(describeError(error));
     process.stderr.write('No files were written; the working tree is unchanged.\n');
     process.exit(1);
   }
@@ -350,7 +351,7 @@ function runAndReport(computePlan: () => ReleasePlan, dryRun: boolean): void {
   try {
     applyReleasePlan(plan);
   } catch (error: unknown) {
-    reportError(error instanceof Error ? error.message : String(error));
+    reportError(describeError(error));
     process.exit(1);
   }
 
@@ -385,7 +386,7 @@ function runFormatCommand(formatCommand: ReleasePlan['formatCommand']): string |
     execSync(formatCommand.command, { stdio: 'inherit' });
     return undefined;
   } catch (error: unknown) {
-    return error instanceof Error ? error.message : String(error);
+    return describeError(error);
   }
 }
 

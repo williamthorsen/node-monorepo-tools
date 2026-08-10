@@ -2,6 +2,7 @@
 /* eslint unicorn/no-process-exit: off */
 
 import { reportError } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from './defaults.ts';
 import { loadConfig, resolveWorkTypes } from './loadConfig.ts';
@@ -39,7 +40,7 @@ export async function resolveReleaseNotesConfig(
   try {
     rawConfig = await loadConfig();
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = describeError(error);
     if (strictLoad) {
       reportError(`Failed to load config: ${message}`);
       process.exit(1);

@@ -2,6 +2,7 @@
 /* eslint unicorn/no-process-exit: off */
 
 import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { createGithubReleases } from './createGithubRelease.ts';
 import { formatPrivateSkip } from './formatPrivateSkip.ts';
@@ -50,7 +51,7 @@ export async function createGithubReleaseCommand(argv: string[]): Promise<void> 
   try {
     outcome = createGithubReleases(publishableTags, changelogJsonOutputPath, dryRun, sectionOrder);
   } catch (error: unknown) {
-    reportError(`Failed to create GitHub Releases: ${error instanceof Error ? error.message : String(error)}`);
+    reportError(`Failed to create GitHub Releases: ${describeError(error)}`);
     process.exit(1);
   }
 

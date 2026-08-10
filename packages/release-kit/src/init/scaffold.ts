@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 
 import type { WriteResult } from '@williamthorsen/nmr-core';
 import { findPackageRoot, writeFileWithCheck } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import type { RepoType } from './detectRepoType.ts';
 import { createGithubReleaseWorkflow, publishWorkflow, releaseConfigScript, releaseWorkflow } from './templates.ts';
@@ -28,7 +29,7 @@ export function copyCliffTemplate(dryRun: boolean, overwrite: boolean): WriteRes
   try {
     content = readFileSync(templatePath, 'utf8');
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = describeError(error);
     return { filePath: destPath, outcome: 'failed', error: `Failed to read template ${templatePath}: ${message}` };
   }
 

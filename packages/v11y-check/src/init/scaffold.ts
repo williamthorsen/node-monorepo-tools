@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 
 import type { WriteResult } from '@williamthorsen/nmr-core';
 import { findPackageRoot, writeFileWithCheck } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { v11yCheckConfigTemplate } from './templates.ts';
 
@@ -35,7 +36,7 @@ export function copyWorkflowTemplate(dryRun: boolean, overwrite: boolean): Write
   try {
     root = findPackageRoot(import.meta.url);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = describeError(error);
     return { filePath: WORKFLOW_PATH, outcome: 'failed', error: `Failed to resolve package root: ${message}` };
   }
   const templatePath = resolve(root, 'templates', 'audit.yaml.template');
@@ -48,7 +49,7 @@ export function copyWorkflowTemplate(dryRun: boolean, overwrite: boolean): Write
   try {
     content = readFileSync(templatePath, 'utf8');
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = describeError(error);
     return { filePath: WORKFLOW_PATH, outcome: 'failed', error: `Failed to read template ${templatePath}: ${message}` };
   }
 

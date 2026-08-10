@@ -35,9 +35,6 @@ importers:
       '@williamthorsen/strict-lint':
         specifier: 9.4.0
         version: 9.4.0(eslint@10.8.0(jiti@2.7.0)(supports-color@7.2.0))
-      '@williamthorsen/toolbelt.objects':
-        specifier: 3.2.11
-        version: 3.2.11
       '@williamthorsen/tsconfig':
         specifier: 0.4.0
         version: 0.4.0
@@ -83,6 +80,9 @@ importers:
       '@williamthorsen/nmr-core':
         specifier: workspace:*
         version: link:../nmr-core
+      '@williamthorsen/toolbelt.errors':
+        specifier: 0.2.0
+        version: 0.2.0
       glob:
         specifier: 13.0.6
         version: 13.0.6
@@ -112,13 +112,20 @@ importers:
         specifier: 4.1.10
         version: 4.1.10(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(vite@8.2.0(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
 
-  packages/nmr-core: {}
+  packages/nmr-core:
+    dependencies:
+      '@williamthorsen/toolbelt.errors':
+        specifier: 0.2.0
+        version: 0.2.0
 
   packages/release-kit:
     dependencies:
       '@williamthorsen/nmr-core':
         specifier: workspace:*
         version: link:../nmr-core
+      '@williamthorsen/toolbelt.errors':
+        specifier: 0.2.0
+        version: 0.2.0
       glob:
         specifier: 13.0.6
         version: 13.0.6
@@ -150,6 +157,9 @@ importers:
       '@williamthorsen/nmr-core':
         specifier: workspace:*
         version: link:../nmr-core
+      '@williamthorsen/toolbelt.errors':
+        specifier: 0.2.0
+        version: 0.2.0
       audit-ci:
         specifier: 7.1.0
         version: 7.1.0
@@ -565,10 +575,6 @@ packages:
   '@rtsao/scc@1.1.0':
     resolution: {integrity: sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g==}
 
-  '@sindresorhus/is@8.1.0':
-    resolution: {integrity: sha512-2SX/1jW6CIMAiebvVv5ZInoCEuWQmMyBoJXXGC6Vjakjp/fpxP5eHs7/V6WKuPEIbuK06+VpjH+vjLQhr98rDQ==}
-    engines: {node: '>=22'}
-
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
@@ -776,16 +782,16 @@ packages:
     peerDependencies:
       eslint: '>=10'
 
+  '@williamthorsen/toolbelt.errors@0.2.0':
+    resolution: {integrity: sha512-DV4mjO8/KH5EylwQ8erGMzqX/DgWw9LXc9LSFJy/GRgM7J2gR99hgx6TOEHdmsvAlMaCe048JTU8cTpxzlx+vg==}
+    engines: {node: '>=24.0.0'}
+
   '@williamthorsen/toolbelt.filesystem@0.2.1':
     resolution: {integrity: sha512-vC+LkLEVBKaTcOsR6G8R0cGPnseX3IC3ZiWeYGuPcwOwypmWb8+CgG/a8P6fhaSU/aqXpszUFB41nTLsEeTyWw==}
     engines: {node: '>=24.0.0'}
 
   '@williamthorsen/toolbelt.filesystem@0.3.0':
     resolution: {integrity: sha512-LAgacq4EBEtrmXCMUsZ6gslzOGF01HHLluwIQRwuqitdcjqrOMU/kh8GFJTWpWnT77JtFwAb80bGyGCYCz6NWQ==}
-    engines: {node: '>=24.0.0'}
-
-  '@williamthorsen/toolbelt.objects@3.2.11':
-    resolution: {integrity: sha512-EXNIncBaj0jmhHmlPZyK68/TwzJbfLLZixlajtNcbyrPq4Yomdz1BW7RCON1GgBmyrRYsNVhsfyzuNMBjrj8wA==}
     engines: {node: '>=24.0.0'}
 
   '@williamthorsen/toolbelt.packaging@0.2.0':
@@ -2744,8 +2750,6 @@ snapshots:
 
   '@rtsao/scc@1.1.0': {}
 
-  '@sindresorhus/is@8.1.0': {}
-
   '@standard-schema/spec@1.1.0': {}
 
   '@types/chai@5.2.3':
@@ -2996,13 +3000,11 @@ snapshots:
       '@williamthorsen/toolbelt.filesystem': 0.2.1
       eslint: 10.8.0(jiti@2.7.0)(supports-color@7.2.0)
 
+  '@williamthorsen/toolbelt.errors@0.2.0': {}
+
   '@williamthorsen/toolbelt.filesystem@0.2.1': {}
 
   '@williamthorsen/toolbelt.filesystem@0.3.0': {}
-
-  '@williamthorsen/toolbelt.objects@3.2.11':
-    dependencies:
-      '@sindresorhus/is': 8.1.0
 
   '@williamthorsen/toolbelt.packaging@0.2.0':
     dependencies:

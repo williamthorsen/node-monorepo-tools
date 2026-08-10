@@ -1,4 +1,5 @@
 import type { WriteResult } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockWriteFileWithCheck = vi.hoisted(() =>
@@ -175,7 +176,7 @@ function captureApplyFailure(plan: ReleasePlan): string {
   try {
     applyReleasePlan(plan);
   } catch (error) {
-    return error instanceof Error ? error.message : String(error);
+    return describeError(error);
   }
   throw new Error('expected applyReleasePlan to throw');
 }

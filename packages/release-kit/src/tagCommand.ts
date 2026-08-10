@@ -2,6 +2,7 @@
 /* eslint unicorn/no-process-exit: off */
 
 import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { createTags } from './createTags.ts';
 
@@ -18,7 +19,7 @@ export function tagCommand(argv: string[]): void {
   try {
     createTags({ dryRun, noGitChecks });
   } catch (error: unknown) {
-    reportError(error instanceof Error ? error.message : String(error));
+    reportError(describeError(error));
     process.exit(1);
   }
 }

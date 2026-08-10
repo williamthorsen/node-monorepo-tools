@@ -1,6 +1,6 @@
 import { printError, printStep, reportWriteResult } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
-import { extractMessage } from '../cli.ts';
 import { scaffoldFiles } from './scaffold.ts';
 
 interface InitOptions {
@@ -24,7 +24,7 @@ export function initCommand({ dryRun, force }: InitOptions): number {
   try {
     results = scaffoldFiles({ dryRun, force });
   } catch (error: unknown) {
-    printError(`Failed to scaffold files: ${extractMessage(error)}`);
+    printError(`Failed to scaffold files: ${describeError(error)}`);
     return 1;
   }
 

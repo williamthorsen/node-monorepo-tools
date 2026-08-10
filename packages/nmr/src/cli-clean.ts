@@ -1,10 +1,11 @@
 import { reportError } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { runClean } from './commands/clean.ts';
 
 try {
   await runClean(process.cwd());
 } catch (error) {
-  reportError(error instanceof Error ? error.message : String(error));
+  reportError(describeError(error));
   process.exitCode = 1;
 }

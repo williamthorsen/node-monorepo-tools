@@ -5,6 +5,7 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { detectPackageManager } from './detectPackageManager.ts';
@@ -39,7 +40,7 @@ export async function publishCommand(argv: string[]): Promise<void> {
     try {
       assertCleanWorkingTree();
     } catch (error: unknown) {
-      reportError(error instanceof Error ? error.message : String(error));
+      reportError(describeError(error));
       process.exit(1);
     }
   }
@@ -105,7 +106,7 @@ export async function publishCommand(argv: string[]): Promise<void> {
         console.warn(`  ${t}`);
       }
     }
-    reportError(error instanceof Error ? error.message : String(error));
+    reportError(describeError(error));
     process.exit(1);
   }
 }

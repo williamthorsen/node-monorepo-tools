@@ -17,11 +17,6 @@ export function hasExpectedTopLevelShape(value: unknown): value is { tiers: unkn
   return Array.isArray(value.tiers) && Array.isArray(value.types);
 }
 
-/** Render an unknown error value as a string for diagnostics. */
-export function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 /**
  * Build the `init` argument for `fetch` to reach codeassembly's canonical work-types files.
  *

@@ -6,6 +6,7 @@
 /* eslint unicorn/prefer-else-if: "off" */
 
 import { parseArgsOrExit, readPackageVersion, reportError } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { checkWorkTypesDrift } from '../checkWorkTypesDrift.ts';
 import { commitCommand } from '../commitCommand.ts';
@@ -315,7 +316,7 @@ if (command === 'commit') {
   try {
     commitCommand(flags);
   } catch (error: unknown) {
-    reportError(error instanceof Error ? error.message : String(error));
+    reportError(describeError(error));
     process.exit(1);
   }
   process.exit(0);

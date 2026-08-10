@@ -1,4 +1,5 @@
 import { formatErrorLine } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { buildChangelogEntries } from './buildChangelogEntries.ts';
 import {
@@ -76,7 +77,7 @@ export async function validateOverridesCommand(
   try {
     rawConfig = await load();
   } catch (error: unknown) {
-    return { exitCode: 2, message: formatErrorLine(`Failed to load config: ${errorMessage(error)}`) };
+    return { exitCode: 2, message: formatErrorLine(`Failed to load config: ${describeError(error)}`) };
   }
 
   let userConfig: ReleaseKitConfig | undefined;
@@ -84,14 +85,14 @@ export async function validateOverridesCommand(
     // An invalid config is a verdict, not a failed operation — surfaced bare, unlike the load failure above.
     userConfig = validateLoadedConfig(rawConfig);
   } catch (error: unknown) {
-    return { exitCode: 2, message: errorMessage(error) };
+    return { exitCode: 2, message: describeError(error) };
   }
 
   let discoveredPaths: string[] | undefined;
   try {
     discoveredPaths = await discover();
   } catch (error: unknown) {
-    return { exitCode: 2, message: formatErrorLine(`Failed to discover workspaces: ${errorMessage(error)}`) };
+    return { exitCode: 2, message: formatErrorLine(`Failed to discover workspaces: ${describeError(error)}`) };
   }
 
   let inputs: ValidateAllChangelogOverridesInputs;
@@ -101,7 +102,7 @@ export async function validateOverridesCommand(
         ? buildSinglePackageInputs(userConfig, buildEntries)
         : buildMonorepoInputs(discoveredPaths, userConfig, buildEntries);
   } catch (error: unknown) {
-    return { exitCode: 2, message: formatErrorLine(`Failed to resolve overrides scope: ${errorMessage(error)}`) };
+    return { exitCode: 2, message: formatErrorLine(`Failed to resolve overrides scope: ${describeError(error)}`) };
   }
 
   const result = validate(inputs);
@@ -142,10 +143,6 @@ function formatSummaryLine(errorCount: number, warningCount: number): string {
 
 function pluralize(count: number, noun: string): string {
   return count === 1 ? `${count} ${noun}` : `${count} ${noun}s`;
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 /**

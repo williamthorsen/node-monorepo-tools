@@ -2,6 +2,7 @@ import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 
 import { GIT_OUTPUT_LIMIT, reportError } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { checkRetiredSyncLabelsConfig } from './retiredConfig.ts';
 
@@ -42,7 +43,7 @@ export function syncLabelsCommand(): number {
   try {
     execSync('gh workflow run sync-labels.yaml', { stdio: 'inherit' });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = describeError(error);
     reportError(`Failed to trigger workflow: ${message}`);
     return 1;
   }

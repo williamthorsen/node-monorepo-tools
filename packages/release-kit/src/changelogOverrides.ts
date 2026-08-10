@@ -1,6 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+
 import { isRecord } from './typeGuards.ts';
 import type { ChangelogEntry, ChangelogItem, ChangelogOverride, ChangelogSection, WorkspaceConfig } from './types.ts';
 
@@ -39,7 +41,7 @@ export function loadChangelogOverrides(path: string): LoadChangelogOverridesResu
     content = readFileSync(path, 'utf8');
   } catch (error: unknown) {
     return {
-      errors: [`Failed to read override file ${path}: ${error instanceof Error ? error.message : String(error)}`],
+      errors: [`Failed to read override file ${path}: ${describeError(error)}`],
     };
   }
 
@@ -48,7 +50,7 @@ export function loadChangelogOverrides(path: string): LoadChangelogOverridesResu
     parsed = JSON.parse(content);
   } catch (error: unknown) {
     return {
-      errors: [`Failed to parse override file ${path}: ${error instanceof Error ? error.message : String(error)}`],
+      errors: [`Failed to parse override file ${path}: ${describeError(error)}`],
     };
   }
 

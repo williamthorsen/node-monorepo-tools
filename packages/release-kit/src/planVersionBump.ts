@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
 
+import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
+
 import { bumpVersion } from './bumpVersion.ts';
 import type { PlannedWrite } from './releasePlan.ts';
 import type { ReleaseType } from './types.ts';
@@ -85,18 +87,14 @@ function readPackageJson(filePath: string): PackageJson {
   try {
     content = readFileSync(filePath, 'utf8');
   } catch (error: unknown) {
-    throw new Error(`Failed to read ${filePath}: ${error instanceof Error ? error.message : String(error)}`, {
-      cause: error,
-    });
+    throw chainError(`Failed to read ${filePath}`, error);
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(content);
   } catch (error: unknown) {
-    throw new Error(`Failed to parse JSON in ${filePath}: ${error instanceof Error ? error.message : String(error)}`, {
-      cause: error,
-    });
+    throw chainError(`Failed to parse JSON in ${filePath}`, error);
   }
 
   if (!isPackageJson(parsed)) {

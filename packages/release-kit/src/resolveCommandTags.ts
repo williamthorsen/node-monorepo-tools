@@ -2,6 +2,7 @@
 /* eslint unicorn/no-process-exit: off */
 
 import { reportError } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
@@ -27,7 +28,7 @@ export async function resolveCommandTags(tags: string[] | undefined): Promise<Re
   try {
     discoveredPaths = await discoverWorkspaces();
   } catch (error: unknown) {
-    reportError(`Failed to discover workspaces: ${error instanceof Error ? error.message : String(error)}`);
+    reportError(`Failed to discover workspaces: ${describeError(error)}`);
     process.exit(1);
   }
 
@@ -43,7 +44,7 @@ export async function resolveCommandTags(tags: string[] | undefined): Promise<Re
       workspaces = discoveredPaths.map((workspacePath) => deriveWorkspaceConfig(workspacePath));
     }
   } catch (error: unknown) {
-    reportError(`Failed to resolve workspaces: ${error instanceof Error ? error.message : String(error)}`);
+    reportError(`Failed to resolve workspaces: ${describeError(error)}`);
     process.exit(1);
   }
 

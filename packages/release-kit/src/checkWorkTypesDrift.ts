@@ -3,8 +3,9 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { formatErrorLine } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
-import { buildFetchInit, errorMessage, hasExpectedTopLevelShape } from './workTypesUtils.ts';
+import { buildFetchInit, hasExpectedTopLevelShape } from './workTypesUtils.ts';
 
 /** URL of the upstream canonical `work-types.json` published by codeassembly. */
 export const UPSTREAM_WORK_TYPES_URL =
@@ -65,7 +66,7 @@ export async function checkWorkTypesDrift(
   } catch (error) {
     return {
       exitCode: 3,
-      message: `Local work-types.json is not valid JSON: ${errorMessage(error)}`,
+      message: `Local work-types.json is not valid JSON: ${describeError(error)}`,
     };
   }
 
@@ -76,7 +77,7 @@ export async function checkWorkTypesDrift(
   } catch (error) {
     return {
       exitCode: 2,
-      message: formatErrorLine(`Failed to fetch upstream work-types.json: ${errorMessage(error)}`),
+      message: formatErrorLine(`Failed to fetch upstream work-types.json: ${describeError(error)}`),
     };
   }
 
@@ -103,7 +104,7 @@ export async function checkWorkTypesDrift(
   } catch (error) {
     return {
       exitCode: 3,
-      message: `Upstream work-types.json is not valid JSON: ${errorMessage(error)}`,
+      message: `Upstream work-types.json is not valid JSON: ${describeError(error)}`,
     };
   }
 

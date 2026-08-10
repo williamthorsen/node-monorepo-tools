@@ -1,4 +1,5 @@
 import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { DEFAULT_HOOK, ensurePrepublishHooks } from './commands/ensure-prepublish-hooks.ts';
 import { findMonorepoRoot } from './workspace.ts';
@@ -44,6 +45,6 @@ try {
     process.exitCode = 1;
   }
 } catch (error) {
-  reportError(error instanceof Error ? error.message : String(error));
+  reportError(describeError(error));
   process.exitCode = 1;
 }

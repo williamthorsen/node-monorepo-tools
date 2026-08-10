@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 
 import { reportWriteResult, writeFileWithCheck } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { discoverWorkspaces } from '../discoverWorkspaces.ts';
 import { CONFIG_FILE_PATH } from '../loadConfig.ts';
@@ -42,7 +43,7 @@ export async function syncLabelsInitCommand({ dryRun, force }: InitOptions): Pro
   try {
     workspacePaths = await discoverWorkspaces();
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = describeError(error);
     process.stderr.write(`  Failed to discover workspaces: ${message}\n`);
     return 1;
   }

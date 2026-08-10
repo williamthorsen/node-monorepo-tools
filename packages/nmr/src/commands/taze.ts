@@ -4,6 +4,7 @@ import type { Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
 import { reportError } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 /**
  * taze's declared CLI export, which is the module taze's own `bin/taze.mjs` imports. Resolving it
@@ -45,7 +46,7 @@ export function runTaze(args: string[], options: RunTazeOptions = {}): number {
   try {
     cliPath = resolveCliPath();
   } catch (error: unknown) {
-    const detail = error instanceof Error ? error.message : String(error);
+    const detail = describeError(error);
     reportError(
       `Could not resolve '${TAZE_CLI_SPECIFIER}' from nmr's dependencies. Reinstall the workspace to restore it. (${detail})`,
       stderr,

@@ -3,10 +3,11 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { formatErrorLine } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { UPSTREAM_WORK_TYPES_URL } from './checkWorkTypesDrift.ts';
 import { isRecord } from './typeGuards.ts';
-import { buildFetchInit, errorMessage, hasExpectedTopLevelShape } from './workTypesUtils.ts';
+import { buildFetchInit, hasExpectedTopLevelShape } from './workTypesUtils.ts';
 
 /** Outcome of a sync operation. */
 export interface SyncResult {
@@ -70,7 +71,7 @@ export async function syncWorkTypes(dependencies: SyncWorkTypesDependencies = {}
   } catch (error) {
     return {
       exitCode: 2,
-      message: formatErrorLine(`Failed to fetch upstream work-types.json: ${errorMessage(error)}`),
+      message: formatErrorLine(`Failed to fetch upstream work-types.json: ${describeError(error)}`),
     };
   }
 
@@ -90,7 +91,7 @@ export async function syncWorkTypes(dependencies: SyncWorkTypesDependencies = {}
   } catch (error) {
     return {
       exitCode: 3,
-      message: `Upstream work-types.json is not valid JSON: ${errorMessage(error)}`,
+      message: `Upstream work-types.json is not valid JSON: ${describeError(error)}`,
     };
   }
 
@@ -130,7 +131,7 @@ export async function syncWorkTypes(dependencies: SyncWorkTypesDependencies = {}
   } catch (error) {
     return {
       exitCode: 2,
-      message: formatErrorLine(`Failed to write ${localPath}: ${errorMessage(error)}`),
+      message: formatErrorLine(`Failed to write ${localPath}: ${describeError(error)}`),
     };
   }
   return {

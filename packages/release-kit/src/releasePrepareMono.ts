@@ -1,5 +1,7 @@
 import { join as joinPath } from 'node:path';
 
+import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
+
 import { buildChangelogEntries } from './buildChangelogEntries.ts';
 import type { DependencyGraph } from './buildDependencyGraph.ts';
 import { buildDependencyGraph } from './buildDependencyGraph.ts';
@@ -790,21 +792,14 @@ function findWorkspace(workspaces: readonly WorkspaceConfig[], dir: string): Wor
 }
 
 /**
- * Wrap an unknown thrown value with a stage label, preserving the original via `Error.cause`.
- * The resulting message starts with `<stageLabel>:` so the outer CLI boundary can recognize
- * stage-attributed errors.
+ * Runs `fn` and rethrows any thrown value behind a stage label. The composed message starts with
+ * `<stageLabel>:`, which is how the outer CLI boundary recognizes a stage-attributed error.
  */
-function wrapStageError(stageLabel: string, error: unknown): Error {
-  const message = error instanceof Error ? error.message : String(error);
-  return new Error(`${stageLabel}: ${message}`, { cause: error });
-}
-
-/** Run `fn` and rethrow any thrown value wrapped with a stage label via `wrapStageError`. */
 function tryStage<T>(stageLabel: string, fn: () => T): T {
   try {
     return fn();
   } catch (error) {
-    throw wrapStageError(stageLabel, error);
+    throw chainError(stageLabel, error);
   }
 }
 

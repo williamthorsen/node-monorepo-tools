@@ -61,6 +61,16 @@ describe(planVersionBump, () => {
     expect(() => planVersionBump([], 'patch')).toThrow('No package files specified');
   });
 
+  it('names the unreadable package file and quotes the underlying message', () => {
+    mockReadFileSync.mockImplementation(() => {
+      throw new Error('EACCES: permission denied');
+    });
+
+    expect(() => planVersionBump(['packages/a/package.json'], 'minor')).toThrow(
+      'Failed to read packages/a/package.json: EACCES: permission denied',
+    );
+  });
+
   it('preserves the underlying error as the cause when a package file cannot be read', () => {
     const underlying = new Error('EACCES: permission denied');
     mockReadFileSync.mockImplementation(() => {
@@ -69,6 +79,14 @@ describe(planVersionBump, () => {
 
     expect(() => planVersionBump(['packages/a/package.json'], 'minor')).toThrow(
       expect.objectContaining({ cause: underlying }),
+    );
+  });
+
+  it('names the package file holding invalid JSON', () => {
+    mockReadFileSync.mockReturnValue('{ not valid json');
+
+    expect(() => planVersionBump(['packages/a/package.json'], 'minor')).toThrow(
+      /^Failed to parse JSON in packages\/a\/package\.json: /,
     );
   });
 

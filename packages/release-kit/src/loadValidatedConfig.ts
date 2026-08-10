@@ -1,4 +1,5 @@
 import { reportError } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { loadConfig } from './loadConfig.ts';
 import type { ReleaseKitConfig } from './types.ts';
@@ -20,7 +21,7 @@ export async function loadValidatedConfig(): Promise<LoadValidatedConfigResult> 
   try {
     raw = await loadConfig();
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = describeError(error);
     reportError(`Failed to load config: ${message}`);
     return { status: 'invalid' };
   }
