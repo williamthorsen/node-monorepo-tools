@@ -10,12 +10,12 @@ Packages live under `packages/`:
 
 - **`@williamthorsen/nmr`**: Context-aware script runner for pnpm monorepos. Detects root vs workspace context and resolves the appropriate script registry.
 - **`@williamthorsen/nmr-core`**: Shared utilities consumed by `release-kit`.
-- **`@williamthorsen/release-kit`**: Version-bumping and changelog-generation toolkit. Holds the only `*.tool.test.ts` files outside nmr (one drives `git`, one drives Node's type stripper), plus `*.packaged.test.ts` files that need a prior build.
-- **`v11y-check`**: Wraps audit-ci with a richer config model, typed JSON source of truth, and a sync workflow that automates allowlist management.
+- **`@williamthorsen/release-kit`**: Version-bumping and changelog-generation toolkit. Holds the only `*.tool.test.ts` files outside nmr (one drives `git`, one drives Node's type stripper), plus three of the four `*.packaged.unit.test.ts` files, which need a prior build.
+- **`v11y-check`**: Wraps audit-ci with a richer config model, typed JSON source of truth, and a sync workflow that automates allowlist management. Holds the fourth `*.packaged.unit.test.ts` file.
 
 Key files:
 
-- `.config/readyup.config.ts`: Names the three packages whose kits `rdy run --packages` runs
+- `.config/readyup.config.ts`: Names every package whose kit `rdy run --packages` runs, external dependencies included
 - `packages/nmr/src/commands/build.ts`: The nmr-managed build (`nmr-compile` bin): a single TypeScript compiler-API emit of `.js` + `.d.ts` with order-invariant content-hash caching, AST-based relative `.ts`→`.js` rewriting, and tsconfig `paths` alias resolution in both outputs
 - `vitest.config.ts`: Vitest config for workspace packages; the ancestor each package resolves by walking up
 - `vitest.root.config.ts`: Vitest config for root-level tests, excluding every workspace package
@@ -50,7 +50,7 @@ If run under a package directory, the command applies to that package. Otherwise
 
 - Default scripts defined in `packages/nmr/src/default-scripts.ts`; a repo overrides them in `.config/nmr.config.ts`, which here adds only `check:content` and the `check:strict:post` hook that runs it
 - nmr's default test scripts select Vitest projects, so registry construction touches no files and this repo needs no test-script overrides
-- Root scripts delegate to workspaces via an `-R {command}` step, except `lint`, `lint:check`, and `lint:strict`, which run one root-anchored process covering the whole tree
+- `build`, `typecheck`, and every `test` script but `test:watch` fan out to workspaces via an `-R {command}` step; no other root script does, so `lint*`, `fmt*`, `clean`, `audit*`, and `upgrade` cover the whole tree from the root instead
 
 ### Build system
 
@@ -66,8 +66,8 @@ If run under a package directory, the command applies to that package. Otherwise
 - Vitest with v8 coverage provider, configured by two files at the repo root, both thin wrappers over `@williamthorsen/nmr/vitest`
 - Both configs declare four projects, an isolation ladder named for the furthest thing a test reaches: `unit` (every test file the others don't claim), `tool` (`*.tool.test.ts`, reaching a program the environment supplies), `localhost`, and `remote`. Select them with `--project`, which unions when repeated and accepts negation
 - Every test file names its tier, in the form `<subject>[.<aspect>].<tier>.test.ts`. Only the segment before `.test.` selects a project, so an earlier one (`app`, `packaged`) is free-form documentation. nmr's readyup kit reports an untiered file, which `rdy run --packages` runs here; no test run does, because the residual `unit` claims it and reports success
-- A tier names what a test reaches, not how it invokes it: `build.tool.test.ts` drives the TypeScript compiler in-process and is still `tool`. Nor does it describe preconditions: the three `*.packaged.unit.test.ts` files need a prior build but reach only the filesystem while running, so they are `unit`
-- `nmr test` runs `--project unit --project tool`, `test:unit` and `test:tool` narrow to one, and `test:all` runs every project. The same six names work from the repo root and from inside a package; `root:test*` variants scope to root-level files alone
+- A tier names what a test reaches, not how it invokes it: `build.tool.test.ts` drives the TypeScript compiler in-process and is still `tool`. Nor does it describe preconditions: the four `*.packaged.unit.test.ts` files need a prior build but reach only the filesystem while running, so they are `unit`
+- `nmr test` runs `--project unit --project tool`, `test:unit` and `test:tool` narrow to one, and `test:all` runs every project. `localhost` and `remote` need something running, so no gate selects them and nothing in CI reaches them; `test:all` is the only script that does. The same six names work from the repo root and from inside a package; `root:test*` variants scope to root-level files alone
 - The shared config sets `passWithNoTests`, so a run collecting no files passes, which `test:tool` needs in order to fan out across packages that have none. `__tests__/workspace-test-presence.app.unit.test.ts` keeps that from hiding a package whose suite disappeared
 - Typecheck uses `tsgo` (TypeScript native preview)
 
@@ -76,6 +76,14 @@ If run under a package directory, the command applies to that package. Otherwise
 - Lefthook pre-commit hook auto-formats staged files with Prettier
 - `.prettierrc.js` is a thin wrapper over `@williamthorsen/nmr/prettier`, which carries the house options and registers a narrowed `prettier-plugin-sh`, so `nmr fmt` covers shell scripts and Dockerfiles as well
 - ESLint with `@williamthorsen/eslint-config-typescript`; optional strict linting via `@williamthorsen/strict-lint`
+
+### Agent guidance
+
+- This file is the guidance host: Rovo Dev reads it unaided, and Claude Code reaches it through the `@../AGENTS.md` in `.claude/CLAUDE.md`, resolved against that file's own directory rather than the repo root
+- `postinstall` runs `codeassembly sync --warn-only`, which writes the gitignored `CLAUDE.local.md` carrying the ambient rulebooks this repo declares; `--warn-only` keeps a sync failure from breaking the install
+- `.agents/codeassembly.yaml` names `@williamthorsen/nmr`, a `workspace:*` devDependency, so this repo consumes the rulebook it authors at `packages/nmr/agents/guidance/rulebooks/nmr.md`; `.config/nmr.config.ts`'s `check:content` override validates that tree
+- `sync` treats this file as a legacy ambient host and strips any codeassembly rulebook region it finds here, so hand-authored guidance carries none
+- codeassembly's `guidance` checklist verifies the wiring above, and `rdy run --packages` is the only thing that runs it; no workflow does
 
 ## Gotchas
 
