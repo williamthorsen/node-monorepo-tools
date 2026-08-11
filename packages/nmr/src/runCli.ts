@@ -317,7 +317,9 @@ function describeCrossingRemedy(options: {
       };
     case 'config':
       return {
-        remedy: 'Write it as a step list, whose elements nmr runs itself.',
+        remedy:
+          `Write the nmr steps as a step list, and move any others to a \`${origin.key}:pre\` or ` +
+          `\`${origin.key}:post\` script.`,
         subject: `${configSite}: \`${origin.field}.${origin.key}\``,
       };
     case 'package':
@@ -400,7 +402,8 @@ function formatOverrideNotice(
  * Returns the edit that resolves a crossing declared in a `package.json`, which holds no step list of its own.
  *
  * The entry has to go either way; where its steps go depends on what the registry already defines for the
- * command, so an override merely restating that entry is told to be deleted outright.
+ * command, so an override merely restating that entry is told to be deleted outright. A step list holds nmr
+ * commands alone, so anything else the entry runs is named for a hook rather than for the list.
  */
 function formatPackageRemedy(options: {
   configSite: string;
@@ -415,7 +418,7 @@ function formatPackageRemedy(options: {
   if (registryEntry === undefined) {
     return (
       `A \`package.json\` script holds no step list: define \`${key}\` in \`${configSite}\` and move the ` +
-      `package-specific steps to a \`${key}:post\` script.`
+      `package-specific steps to a \`${key}:pre\` or \`${key}:post\` script.`
     );
   }
 
@@ -424,7 +427,7 @@ function formatPackageRemedy(options: {
     return `Delete the entry: nmr's own \`${key}\` already runs \`${registryChain}\`.`;
   }
 
-  return `Delete the entry and move the steps it adds to a \`${key}:post\` script.`;
+  return `Delete the entry and move the steps it adds to a \`${key}:pre\` or \`${key}:post\` script.`;
 }
 
 /**

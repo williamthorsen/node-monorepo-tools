@@ -255,7 +255,7 @@ describe(runCli, () => {
         expected:
           '⚠️ .config/nmr.config.ts: `rootScripts.probe` reaches nmr through a shell ' +
           "(`nmr fmt && echo done`), so nmr handles the nested run's output as a tool's. " +
-          'Write it as a step list, whose elements nmr runs itself.',
+          'Write the nmr steps as a step list, and move any others to a `probe:pre` or `probe:post` script.',
         command: 'probe',
         scenario: 'a config entry',
         setup: (repo: string) => writeConfig(repo, { rootScripts: { probe: 'nmr fmt && echo done' } }),
@@ -273,7 +273,7 @@ describe(runCli, () => {
         expected:
           '⚠️ package.json: `scripts.fix` reaches nmr through a shell (`nmr lint && rdy compile`), ' +
           "so nmr handles the nested run's output as a tool's. " +
-          'Delete the entry and move the steps it adds to a `fix:post` script.',
+          'Delete the entry and move the steps it adds to a `fix:pre` or `fix:post` script.',
         command: 'fix',
         scenario: 'a package.json entry adding steps to what nmr already runs',
         setup: (repo: string) => writePackageScripts(repo, { fix: 'nmr lint && rdy compile' }),
@@ -283,7 +283,7 @@ describe(runCli, () => {
           '⚠️ package.json: `scripts.probe` reaches nmr through a shell (`nmr fmt && tsx sync.ts`), ' +
           "so nmr handles the nested run's output as a tool's. " +
           'A `package.json` script holds no step list: define `probe` in `.config/nmr.config.ts` and move the ' +
-          'package-specific steps to a `probe:post` script.',
+          'package-specific steps to a `probe:pre` or `probe:post` script.',
         command: 'probe',
         scenario: 'a package.json entry whose command the registry does not define',
         setup: (repo: string) => writePackageScripts(repo, { probe: 'nmr fmt && tsx sync.ts' }),
