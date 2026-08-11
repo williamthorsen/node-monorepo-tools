@@ -1,6 +1,7 @@
 import { assert, describe, expect, it } from 'vitest';
 
 import { getDefaultRootScripts, getDefaultWorkspaceScripts } from '../resolve-scripts.ts';
+import { findNmrCrossing } from '../steps.ts';
 
 describe(getDefaultWorkspaceScripts, () => {
   it('includes all expected default workspace scripts', () => {
@@ -187,5 +188,20 @@ describe(getDefaultRootScripts, () => {
     assert(typeof upgrade === 'string', 'Expected upgrade to be a chained command');
 
     expect(upgrade.split('&&').at(-1)?.trim()).toBe('nmr-taze --include-locked --recursive');
+  });
+});
+
+// A default reaching nmr through a shell would be an nmr defect rather than a consumer's, which is what the
+// shelled-nmr diagnostic's tier-1 remedy says. This keeps that remedy unreachable.
+describe('the built-in defaults', () => {
+  it.each([
+    { registry: getDefaultRootScripts(), scenario: 'root' },
+    { registry: getDefaultWorkspaceScripts(), scenario: 'workspace' },
+  ])('reach nmr through no shell in the $scenario registry', ({ registry }) => {
+    for (const [command, script] of Object.entries(registry)) {
+      if (typeof script !== 'string') continue;
+
+      expect(findNmrCrossing([{ kind: 'opaque', command: script }]), command).toBeUndefined();
+    }
   });
 });

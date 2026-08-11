@@ -30,7 +30,7 @@ import { applyDevBinToSteps, buildRootRegistry, buildWorkspaceRegistry, resolveS
 import type { RunStepsOptions } from './runner.ts';
 import { runSteps } from './runner.ts';
 import type { Step } from './steps.ts';
-import { composeNmrStep, findShelledNmrStep, renderChain } from './steps.ts';
+import { composeNmrStep, findNmrCrossing, renderChain } from './steps.ts';
 import type { NmrConfig } from './types.ts';
 import type { CommandVerbosity } from './verbosity.ts';
 import { COMMAND_VERBOSITY_ENV_VAR, resolveVerbosity } from './verbosity.ts';
@@ -168,7 +168,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   const fullCommand = renderChain(fullSteps);
 
   // Ahead of the gate, so a command that usually skips still reports the boundary it carries.
-  const shelledStep = findShelledNmrStep(fullSteps);
+  const shelledStep = findNmrCrossing(fullSteps);
   if (shelledStep !== undefined) {
     stderr.write(`${formatShelledNmrWarning(command, shelledStep)}\n`);
   }

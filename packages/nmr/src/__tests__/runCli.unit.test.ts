@@ -293,9 +293,16 @@ describe(runCli, () => {
       expect(exitCode).toBe(0);
     });
 
+    it('reports a step reaching nmr through a launcher', async () => {
+      writeConfig(repo, { rootScripts: { probe: 'pnpm --recursive exec nmr build' } });
+
+      const { stderr } = await runNmrReadingStderr(['probe'], repo);
+
+      expect(stderr).toContain('runs nmr behind a shell');
+    });
+
     it.each([
       { args: ['fix'], scenario: 'a step list' },
-      { args: ['build'], scenario: 'a default that reaches nmr through pnpm' },
       { args: ['-R', 'build'], scenario: 'the recursive delegate' },
       { args: ['-F', 'my-pkg', 'build'], scenario: 'the filter delegate' },
     ])('given $scenario, reports nothing', async ({ args }) => {
