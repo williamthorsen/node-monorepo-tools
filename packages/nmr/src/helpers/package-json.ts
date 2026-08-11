@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { UserError } from '../UserError.ts';
 import { isObject } from './type-guards.ts';
 
 export interface PackageJson {
@@ -19,7 +20,7 @@ export function readPackageJson(dir: string): PackageJson {
   const parsed: unknown = JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8'));
 
   if (!isObject(parsed)) {
-    throw new TypeError(`Invalid package.json in ${dir}: expected an object`);
+    throw new UserError(`Invalid package.json in ${dir}: expected an object`);
   }
 
   const pkg: PackageJson = {};

@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { UserError } from '../../UserError.ts';
 import { readPackageJson } from '../package-json.ts';
 
 describe(readPackageJson, () => {
@@ -68,7 +69,7 @@ describe(readPackageJson, () => {
   it('throws when the manifest is not an object', () => {
     writeFileSync(path.join(dir, 'package.json'), '"not an object"');
 
-    expect(() => readPackageJson(dir)).toThrow(TypeError);
+    expect(() => readPackageJson(dir)).toThrow(UserError);
   });
 
   it('throws when the manifest is not valid JSON', () => {
