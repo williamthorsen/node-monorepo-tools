@@ -52,7 +52,7 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "readyup": "0.26.0"
+    "readyup": "0.27.0"
   },
   "engines": {
     "node": ">=24"
