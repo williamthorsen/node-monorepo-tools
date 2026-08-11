@@ -287,7 +287,7 @@ function formatOverrideNotice(
   quiet: boolean,
 ): string | undefined {
   const registryEntry = Object.hasOwn(registry, command) ? registry[command] : undefined;
-  if (quiet || resolved.source !== 'package' || registryEntry === undefined) {
+  if (quiet || resolved.origin.tier !== 'package' || registryEntry === undefined) {
     return undefined;
   }
 

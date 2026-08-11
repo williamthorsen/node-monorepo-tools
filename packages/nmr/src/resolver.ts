@@ -72,8 +72,16 @@ function resolveReplacementPaths(replacement: string, monorepoRoot: string): str
     .join(' ');
 }
 
+/**
+ * Where a resolved script was read from.
+ *
+ * `registry` covers the built-in defaults and the repo-wide config together, which resolution cannot tell
+ * apart: it receives the two already merged. A caller holding the config refines the two.
+ */
+export type ScriptOrigin = { tier: 'registry'; key: string } | { tier: 'package'; file: string; key: string };
+
 export interface ResolvedScript {
-  source: 'default' | 'package';
+  origin: ScriptOrigin;
   steps: readonly Step[];
 }
 
@@ -100,7 +108,7 @@ export function describeScript(script: ScriptValue): string {
  */
 export function readPackageJsonScripts(packageDir: string): Record<string, string> | undefined {
   try {
-    const raw = readFileSync(path.join(packageDir, 'package.json'), 'utf8');
+    const raw = readFileSync(resolvePackageJsonPath(packageDir), 'utf8');
     const parsed: unknown = JSON.parse(raw);
     if (!isObject(parsed)) return undefined;
 
@@ -118,6 +126,14 @@ export function readPackageJsonScripts(packageDir: string): Record<string, strin
     }
     throw error;
   }
+}
+
+/**
+ * Resolves the `package.json` path for a directory: the file tier-3 scripts are read from.
+ * Carried by a resolved script's origin, so a caller naming the source names the file that was read.
+ */
+export function resolvePackageJsonPath(packageDir: string): string {
+  return path.join(packageDir, 'package.json');
 }
 
 /**
@@ -172,7 +188,10 @@ export function resolveScript(
     if (pkgScripts && Object.hasOwn(pkgScripts, commandName)) {
       const override = pkgScripts[commandName];
       if (override !== undefined && !isSelfReferential(override, commandName)) {
-        return { source: 'package', steps: [{ kind: 'opaque', command: override }] };
+        return {
+          origin: { tier: 'package', file: resolvePackageJsonPath(packageDir), key: commandName },
+          steps: [{ kind: 'opaque', command: override }],
+        };
       }
     }
   }
@@ -187,5 +206,5 @@ export function resolveScript(
     return undefined;
   }
 
-  return { source: 'default', steps: expandScript(registryEntry, workspaceRoot) };
+  return { origin: { tier: 'registry', key: commandName }, steps: expandScript(registryEntry, workspaceRoot) };
 }
