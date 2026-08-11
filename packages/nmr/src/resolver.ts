@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { parsePackageJson, readScriptRecord, resolvePackageJsonPath } from './helpers/package-json.ts';
 import { isObject } from './helpers/type-guards.ts';
 import type { ScriptRegistry, ScriptValue } from './resolve-scripts.ts';
 import { getDefaultRootScripts, getDefaultWorkspaceScripts } from './resolve-scripts.ts';
@@ -72,8 +73,16 @@ function resolveReplacementPaths(replacement: string, monorepoRoot: string): str
     .join(' ');
 }
 
+/**
+ * Where a resolved script was read from.
+ *
+ * `registry` covers the built-in defaults and the repo-wide config together, which resolution cannot tell
+ * apart: it receives the two already merged. A caller holding the config refines the two.
+ */
+export type ScriptOrigin = { tier: 'registry'; key: string } | { tier: 'package'; file: string; key: string };
+
 export interface ResolvedScript {
-  source: 'default' | 'package';
+  origin: ScriptOrigin;
   steps: readonly Step[];
 }
 
@@ -96,28 +105,32 @@ export function describeScript(script: ScriptValue): string {
 }
 
 /**
- * Reads a package.json file and returns the scripts object.
+ * Reads a package.json's `scripts`, rejecting any value that is not a string.
+ *
+ * npm and pnpm read a script as a string too, so a value of any other type is malformed however it got there.
+ * Dropping one silently would run the registry's entry in its place, which is what an array written here after
+ * being told a step list resolves a shelled-nmr crossing would otherwise do.
  */
 export function readPackageJsonScripts(packageDir: string): Record<string, string> | undefined {
+  const file = resolvePackageJsonPath(packageDir);
+
+  let raw: string;
   try {
-    const raw = readFileSync(path.join(packageDir, 'package.json'), 'utf8');
-    const parsed: unknown = JSON.parse(raw);
-    if (!isObject(parsed)) return undefined;
-
-    const scripts = parsed['scripts'];
-    if (!isObject(scripts)) return undefined;
-
-    const result: Record<string, string> = {};
-    for (const [key, val] of Object.entries(scripts)) {
-      if (typeof val === 'string') result[key] = val;
-    }
-    return result;
+    raw = readFileSync(file, 'utf8');
   } catch (error: unknown) {
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
       return undefined;
     }
     throw error;
   }
+
+  const parsed = parsePackageJson(raw, file);
+  if (!isObject(parsed)) return undefined;
+
+  const scripts = parsed['scripts'];
+  if (!isObject(scripts)) return undefined;
+
+  return readScriptRecord(packageDir, scripts);
 }
 
 /**
@@ -172,7 +185,10 @@ export function resolveScript(
     if (pkgScripts && Object.hasOwn(pkgScripts, commandName)) {
       const override = pkgScripts[commandName];
       if (override !== undefined && !isSelfReferential(override, commandName)) {
-        return { source: 'package', steps: [{ kind: 'opaque', command: override }] };
+        return {
+          origin: { tier: 'package', file: resolvePackageJsonPath(packageDir), key: commandName },
+          steps: [{ kind: 'opaque', command: override }],
+        };
       }
     }
   }
@@ -187,5 +203,5 @@ export function resolveScript(
     return undefined;
   }
 
-  return { source: 'default', steps: expandScript(registryEntry, workspaceRoot) };
+  return { origin: { tier: 'registry', key: commandName }, steps: expandScript(registryEntry, workspaceRoot) };
 }

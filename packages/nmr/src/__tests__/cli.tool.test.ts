@@ -102,6 +102,29 @@ describe('nmr CLI', () => {
       expect(result.status).toBe(0);
     });
 
+    // A config mistake names a file to edit; a stack trace names where nmr noticed it, which is nmr's business.
+    it('reports an invalid config as a message alone, with no stack trace', () => {
+      const repo = mkdtempSync(path.join(tmpdir(), 'nmr-config-error-'));
+      writeFileSync(path.join(repo, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n');
+      mkdirSync(path.join(repo, '.config'), { recursive: true });
+      writeFileSync(path.join(repo, '.config', 'nmr.config.ts'), 'export default { notAKey: 1 };\n');
+
+      try {
+        const result = spawnSync('node', [CLI_PATH, 'fmt'], {
+          cwd: repo,
+          encoding: 'utf8',
+          env: readAmbientEnv(),
+          timeout: 15_000,
+        });
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Error: Invalid nmr config at');
+        expect(result.stderr).not.toContain('    at ');
+      } finally {
+        rmSync(repo, { recursive: true, force: true });
+      }
+    });
+
     it('exits 1 for an unknown command', () => {
       const result = spawnSync('node', [CLI_PATH, 'definitely-not-a-real-command'], {
         cwd: MONOREPO_ROOT,

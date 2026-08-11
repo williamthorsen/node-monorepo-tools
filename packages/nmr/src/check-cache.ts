@@ -424,7 +424,7 @@ function isCheckCacheEntry(value: unknown): value is CheckCacheEntry {
  */
 function isProbeSubject(packageDir: string, registry: ScriptRegistry): boolean {
   const build = resolveScript('build', registry, packageDir, false);
-  if (build === undefined || build.source === 'package') {
+  if (build === undefined || build.origin.tier === 'package') {
     return false;
   }
 

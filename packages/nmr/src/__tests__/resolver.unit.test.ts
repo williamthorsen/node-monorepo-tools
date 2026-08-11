@@ -12,6 +12,7 @@ import {
   expandScript,
   resolveScript,
 } from '../resolver.ts';
+import { UserError } from '../UserError.ts';
 
 describe(applyDevBin, () => {
   const monorepoRoot = '/repo';
@@ -151,7 +152,10 @@ describe(resolveScript, () => {
     const registry = { test: 'vitest' };
     const result = resolveScript('test', registry, undefined, false);
 
-    expect(result).toStrictEqual({ source: 'default', steps: [{ kind: 'opaque', command: 'vitest' }] });
+    expect(result).toStrictEqual({
+      origin: { tier: 'registry', key: 'test' },
+      steps: [{ kind: 'opaque', command: 'vitest' }],
+    });
   });
 
   it('expands array scripts from the registry', () => {
@@ -159,7 +163,7 @@ describe(resolveScript, () => {
     const result = resolveScript('build', registry, undefined, false);
 
     expect(result).toStrictEqual({
-      source: 'default',
+      origin: { tier: 'registry', key: 'build' },
       steps: [
         { kind: 'structural', argv: ['nmr', 'fmt'] },
         { kind: 'structural', argv: ['nmr', 'lint'] },
@@ -172,7 +176,7 @@ describe(resolveScript, () => {
     const result = resolveScript('build', registry, undefined, true);
 
     expect(result).toStrictEqual({
-      source: 'default',
+      origin: { tier: 'registry', key: 'build' },
       steps: [
         { kind: 'structural', argv: ['nmr', '-w', 'fmt'] },
         { kind: 'structural', argv: ['nmr', '-w', 'lint'] },
@@ -211,7 +215,10 @@ describe(resolveScript, () => {
     const registry = { test: 'vitest' };
     const result = resolveScript('test', registry, tmpDir, false);
 
-    expect(result).toStrictEqual({ source: 'package', steps: [{ kind: 'opaque', command: 'jest' }] });
+    expect(result).toStrictEqual({
+      origin: { tier: 'package', file: path.join(tmpDir, 'package.json'), key: 'test' },
+      steps: [{ kind: 'opaque', command: 'jest' }],
+    });
   });
 
   it('does not rewrite tier-3 override strings when workspaceRoot is true', () => {
@@ -225,7 +232,10 @@ describe(resolveScript, () => {
 
     // User-authored override strings pass through untouched; only generated
     // chains receive the -w flag.
-    expect(result).toStrictEqual({ source: 'package', steps: [{ kind: 'opaque', command: 'nmr compile' }] });
+    expect(result).toStrictEqual({
+      origin: { tier: 'package', file: path.join(tmpDir, 'package.json'), key: 'build' },
+      steps: [{ kind: 'opaque', command: 'nmr compile' }],
+    });
   });
 
   it('skips execution when package.json override is empty string', () => {
@@ -234,7 +244,10 @@ describe(resolveScript, () => {
     const registry = { lint: 'eslint .' };
     const result = resolveScript('lint', registry, tmpDir, false);
 
-    expect(result).toStrictEqual({ source: 'package', steps: [{ kind: 'opaque', command: '' }] });
+    expect(result).toStrictEqual({
+      origin: { tier: 'package', file: path.join(tmpDir, 'package.json'), key: 'lint' },
+      steps: [{ kind: 'opaque', command: '' }],
+    });
   });
 
   it('skips self-referential package.json override (exact match)', () => {
@@ -247,7 +260,7 @@ describe(resolveScript, () => {
     const result = resolveScript('build', registry, tmpDir, false);
 
     expect(result).toStrictEqual({
-      source: 'default',
+      origin: { tier: 'registry', key: 'build' },
       steps: [
         { kind: 'structural', argv: ['nmr', 'fmt'] },
         { kind: 'structural', argv: ['nmr', 'lint'] },
@@ -265,7 +278,7 @@ describe(resolveScript, () => {
     const result = resolveScript('build', registry, tmpDir, false);
 
     expect(result).toStrictEqual({
-      source: 'default',
+      origin: { tier: 'registry', key: 'build' },
       steps: [
         { kind: 'structural', argv: ['nmr', 'fmt'] },
         { kind: 'structural', argv: ['nmr', 'lint'] },
@@ -282,7 +295,48 @@ describe(resolveScript, () => {
     const registry = { build: ['fmt', 'lint'] };
     const result = resolveScript('build', registry, tmpDir, false);
 
-    expect(result).toStrictEqual({ source: 'package', steps: [{ kind: 'opaque', command: 'nmr compile' }] });
+    expect(result).toStrictEqual({
+      origin: { tier: 'package', file: path.join(tmpDir, 'package.json'), key: 'build' },
+      steps: [{ kind: 'opaque', command: 'nmr compile' }],
+    });
+  });
+
+  it.each([
+    {
+      expected:
+        '`scripts.build` must be a string. A step list belongs in `.config/nmr.config.ts` under `workspaceScripts`.',
+      scenario: 'a step list written into a package',
+      setup: (dir: string) => writeScripts(dir, { build: ['compile'] }),
+    },
+    {
+      expected: '`scripts.build` must be a string. A step list belongs in `.config/nmr.config.ts` under `rootScripts`.',
+      scenario: 'a step list written into the monorepo root',
+      setup: (dir: string) => {
+        fs.writeFileSync(path.join(dir, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n');
+        writeScripts(dir, { build: ['compile'] });
+      },
+    },
+    {
+      expected: '`scripts.build` must be a string.',
+      scenario: 'a value of some other type',
+      setup: (dir: string) => writeScripts(dir, { build: 7 }),
+    },
+  ])('rejects $scenario, naming where it belongs', ({ expected, setup }) => {
+    setup(tmpDir);
+
+    expect(() => resolveScript('build', { build: ['compile'] }, tmpDir, false)).toThrow(expected);
+  });
+
+  it('rejects a package.json that does not parse, naming the file', () => {
+    fs.writeFileSync(path.join(tmpDir, 'package.json'), '{ not json');
+
+    expect(() => resolveScript('build', { build: ['compile'] }, tmpDir, false)).toThrow(UserError);
+  });
+
+  it('rejects a malformed script as a UserError', () => {
+    fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify({ scripts: { build: ['compile'] } }));
+
+    expect(() => resolveScript('build', { build: ['compile'] }, tmpDir, false)).toThrow(UserError);
   });
 
   it('falls through to registry when package.json has no matching script', () => {
@@ -294,7 +348,10 @@ describe(resolveScript, () => {
     const registry = { test: 'vitest' };
     const result = resolveScript('test', registry, tmpDir, false);
 
-    expect(result).toStrictEqual({ source: 'default', steps: [{ kind: 'opaque', command: 'vitest' }] });
+    expect(result).toStrictEqual({
+      origin: { tier: 'registry', key: 'test' },
+      steps: [{ kind: 'opaque', command: 'vitest' }],
+    });
   });
 });
 
@@ -325,7 +382,7 @@ describe('test command resolution ignores the package contents', () => {
 
     for (const [command, expectedCommand] of Object.entries(expected)) {
       expect(resolveScript(command, registry, tmpDir, false)).toStrictEqual({
-        source: 'default',
+        origin: { tier: 'registry', key: command },
         steps: [{ kind: 'opaque', command: expectedCommand }],
       });
     }
@@ -338,9 +395,18 @@ describe('test command resolution ignores the package contents', () => {
 
     for (const [command, expectedCommand] of Object.entries(expected)) {
       expect(resolveScript(command, registry, tmpDir, false)).toStrictEqual({
-        source: 'default',
+        origin: { tier: 'registry', key: command },
         steps: [{ kind: 'opaque', command: expectedCommand }],
       });
     }
   });
 });
+
+// region | Helpers
+
+/** Writes a `package.json` carrying `scripts` as given, malformed values included. */
+function writeScripts(dir: string, scripts: Record<string, unknown>): void {
+  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'test-pkg', scripts }));
+}
+
+// endregion | Helpers

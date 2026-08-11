@@ -74,7 +74,7 @@ describe('the check-result cache gate', () => {
       const { stdout, stderr } = await runNmr(COMMAND, repo, withShim);
 
       expect(stdout).toContain('passed');
-      expect(stderr).toContain('⚠️ typecheck: `nmr ok` runs nmr behind a shell');
+      expect(stderr).toContain('`rootScripts.typecheck` reaches nmr through a shell (`nmr ok`)');
     });
 
     it('records one pass per scope, so a command run at the root skips at the root', async () => {

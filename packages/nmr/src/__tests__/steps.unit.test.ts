@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Step } from '../steps.ts';
-import { composeNmrStep, findShelledNmrStep, findUnexpressibleToken, renderChain } from '../steps.ts';
+import { composeNmrStep, findNmrCrossing, findUnexpressibleToken, renderChain } from '../steps.ts';
 
 describe(composeNmrStep, () => {
   it('composes a bare command name as an nmr invocation', () => {
@@ -25,40 +25,72 @@ describe(composeNmrStep, () => {
   });
 });
 
-describe(findShelledNmrStep, () => {
-  it('finds an opaque step leading with the nmr token', () => {
-    const steps: readonly Step[] = [{ kind: 'opaque', command: 'nmr root:test && pnpm --recursive exec nmr test' }];
-
-    expect(findShelledNmrStep(steps)).toBe('nmr root:test && pnpm --recursive exec nmr test');
-  });
-
-  it('reads past the whitespace a step is padded with', () => {
-    expect(findShelledNmrStep([{ kind: 'opaque', command: '  nmr fmt' }])).toBe('  nmr fmt');
+describe(findNmrCrossing, () => {
+  it.each([
+    { command: 'nmr fmt', scenario: 'the step itself' },
+    { command: '  nmr fmt', scenario: 'the step past the whitespace padding it' },
+    { command: 'rdy verify && nmr compile', scenario: 'a segment following &&' },
+    { command: 'rdy verify || nmr compile', scenario: 'a segment following ||' },
+    { command: 'rdy verify; nmr compile', scenario: 'a segment following ;' },
+    { command: 'cat log | nmr compile', scenario: 'a segment following |' },
+    { command: 'FORCE_COLOR=1 nmr build', scenario: 'a segment behind an environment assignment' },
+    { command: String.raw`echo 'a \' && nmr b`, scenario: 'a segment past a backslash single quotes read literally' },
+    { command: 'npx nmr build', scenario: 'npx' },
+    { command: 'npx --yes nmr build', scenario: 'npx carrying a flag' },
+    { command: 'bunx nmr build', scenario: 'bunx' },
+    { command: 'bun x nmr build', scenario: 'bun x' },
+    { command: 'npm exec nmr build', scenario: 'npm exec' },
+    { command: 'yarn dlx nmr build', scenario: 'yarn dlx' },
+    { command: 'pnpm exec nmr build', scenario: 'pnpm exec' },
+    { command: 'pnpm --recursive exec nmr test', scenario: 'pnpm exec behind a flag' },
+    { command: 'pnpm --filter foo exec nmr build', scenario: 'pnpm exec behind a flag taking a value' },
+  ])('given nmr in command position at $scenario, returns the whole step', ({ command }) => {
+    expect(findNmrCrossing([{ kind: 'opaque', command }])).toBe(command);
   });
 
   it('returns the leftmost qualifying step when a list holds several', () => {
     const steps: readonly Step[] = [
       { kind: 'structural', argv: ['nmr', 'fmt'] },
-      { kind: 'opaque', command: 'nmr first' },
+      { kind: 'opaque', command: 'rdy verify && nmr first' },
       { kind: 'opaque', command: 'nmr second' },
     ];
 
-    expect(findShelledNmrStep(steps)).toBe('nmr first');
+    expect(findNmrCrossing(steps)).toBe('rdy verify && nmr first');
   });
 
   it.each<{ scenario: string; steps: readonly Step[] }>([
     { scenario: 'a structural step nmr composed', steps: [{ kind: 'structural', argv: ['nmr', 'typecheck'] }] },
-    {
-      scenario: 'a step reaching nmr through another program',
-      steps: [{ kind: 'opaque', command: 'pnpm exec nmr build' }],
-    },
+    { scenario: 'an empty step list', steps: [] },
     {
       scenario: 'a step whose leading token merely begins with nmr',
       steps: [{ kind: 'opaque', command: 'nmr-compile' }],
     },
-    { scenario: 'an empty step list', steps: [] },
+    {
+      scenario: 'a separator standing inside double quotes',
+      steps: [{ kind: 'opaque', command: 'echo "a && nmr b"' }],
+    },
+    {
+      scenario: 'a separator standing inside single quotes',
+      steps: [{ kind: 'opaque', command: "echo 'a; nmr b'" }],
+    },
+    {
+      scenario: 'a separator the shell reads literally',
+      steps: [{ kind: 'opaque', command: String.raw`echo a \&\& nmr b` }],
+    },
+    {
+      scenario: 'a separator past an escaped quote inside a double-quoted run',
+      steps: [{ kind: 'opaque', command: String.raw`echo "a \" && nmr b"` }],
+    },
+    { scenario: 'nmr named as an argument', steps: [{ kind: 'opaque', command: 'grep nmr package.json' }] },
+    {
+      scenario: 'a package named nmr selected by a filter',
+      steps: [{ kind: 'opaque', command: 'pnpm --filter nmr build' }],
+    },
+    { scenario: 'a script named nmr', steps: [{ kind: 'opaque', command: 'pnpm run nmr' }] },
+    // The documented residual: a value-taking flag standing immediately before the program name hides it.
+    { scenario: 'npx given a package flag', steps: [{ kind: 'opaque', command: 'npx -p foo nmr build' }] },
   ])('given $scenario, finds nothing', ({ steps }) => {
-    expect(findShelledNmrStep(steps)).toBeUndefined();
+    expect(findNmrCrossing(steps)).toBeUndefined();
   });
 });
 

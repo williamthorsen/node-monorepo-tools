@@ -91,7 +91,7 @@ If no per-package override exists, the highest-tier value that is set wins. Set 
 
 ### Script values
 
-Script values can be `string` or `string[]`. Arrays expand to chained `nmr` sub-invocations:
+Script values can be `string` or `string[]`. Only the built-in defaults and `.config/nmr.config.ts` carry an array; a `package.json` script must be a string, and any other value is rejected when the scripts are read. Arrays expand to chained `nmr` sub-invocations:
 
 ```ts
 // "fix": ["lint", "fmt"]
@@ -102,9 +102,11 @@ Each array element is a command name, optionally preceded by nmr's own flags, sp
 
 Passthrough arguments attach to the final step alone: `nmr fix --dry-run` runs `nmr lint`, then `nmr fmt --dry-run`.
 
-A string value is spawned through a shell as one command, so an `nmr` invocation inside it is invisible to the process above: a quiet failure surrenders the whole nested subtree rather than the failing step, and a loud run relays the nested tree through a forwarding pipe. nmr writes one line to stderr, in every verbosity, when a command resolves to a step whose first token is `nmr`.
+A string value is spawned through a shell as one command, so an `nmr` invocation inside it is invisible to the process above: a quiet failure surrenders the whole nested subtree rather than the failing step, and a loud run relays the nested tree through a forwarding pipe. nmr writes one line to stderr, in every verbosity, when a command resolves to a step reaching nmr through a shell.
 
-That line reports a boundary rather than enforcing a rule, and it is partial: a step reaching nmr through another program, such as `pnpm --recursive exec nmr build`, goes unreported. Only the built-in defaults and `.config/nmr.config.ts` carry arrays, so a `package.json` script embedding nmr has nowhere to move but up a tier.
+The line names the declaration it is an edit to — the file, the field, and the key — and its remedy follows from that site. A `.config/nmr.config.ts` entry keeps its nmr steps as a step list and moves anything else to a `<command>:pre` or `<command>:post` script: a step-list element is composed into `nmr <element>`, so it can name only an nmr command. A `package.json` entry has to go, since `package.json` holds no step list: delete it outright when it restates what nmr already runs for that command, and move the steps it adds to a `<command>:pre` or `<command>:post` script when they are the package's own. Where the registry defines no such command, both apply: name the command in `.config/nmr.config.ts`, and put the package-specific steps in a hook. The pair is named rather than `:post` alone because an entry's extra steps may run on either side of the chain: `rdy verify && nmr compile` puts them first.
+
+nmr recognizes `nmr` in command position: at the start of a step, after an unquoted `&&`, `||`, `;`, or `|`, and behind `npx`, `bunx`, or an `exec`, `dlx`, or `x` subcommand of `npm`, `pnpm`, `yarn`, or `bun`. The line reports a boundary rather than enforcing a rule, and it stays partial in stated ways: a value-taking flag standing immediately before the program name hides it (`npx -p foo nmr`), a launcher outside that set goes unreported, and a `devBin` substitution that introduces `nmr` itself is not reported, the line being an edit to a declaration rather than to a substitution.
 
 ## Configuration
 

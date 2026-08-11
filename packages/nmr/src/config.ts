@@ -5,9 +5,13 @@ import { pathToFileURL } from 'node:url';
 import { isObject, isStringRecord } from './helpers/type-guards.ts';
 import { findUnexpressibleToken } from './steps.ts';
 import type { BuildConfig, CheckCacheConfig, NmrConfig } from './types.ts';
+import { UserError } from './UserError.ts';
 
 const CONFIG_FILENAME = 'nmr.config.ts';
 const CONFIG_DIR = '.config';
+
+/** The config's path relative to the directory holding it, for a message composed without one in hand. */
+export const CONFIG_RELATIVE_PATH = path.join(CONFIG_DIR, CONFIG_FILENAME);
 
 interface ConfigTier {
   /** Names the tier in an error message. */
@@ -68,7 +72,7 @@ function validateScriptField(
   }
   const scripts = value[fieldName];
   if (!isScriptRecord(scripts)) {
-    throw new Error(
+    throw new UserError(
       `Invalid nmr config at ${configPath}: \`${fieldName}\` must be a Record<string, string | string[]>`,
     );
   }
@@ -93,7 +97,7 @@ function assertExpressibleElements(
       const token = findUnexpressibleToken(element);
       if (token === undefined) continue;
 
-      throw new Error(
+      throw new UserError(
         `Invalid nmr config at ${configPath}: \`${fieldName}.${command}\` element \`${element}\` carries ` +
           `\`${token}\`, which is neither a command name nor an nmr flag. Name it as a script of its own and ` +
           `reference that name here.`,
@@ -114,13 +118,13 @@ function validateBuildField(value: Record<string, unknown>, configPath: string):
     return undefined;
   }
   if (!isObject(build)) {
-    throw new Error(`Invalid nmr config at ${configPath}: \`build\` must be an object`);
+    throw new UserError(`Invalid nmr config at ${configPath}: \`build\` must be an object`);
   }
   assertRecognizedKeys(build, RECOGNIZED_BUILD_KEYS, configPath, 'build.');
 
   const extraIgnorePatterns: unknown = build['extraIgnorePatterns'];
   if (extraIgnorePatterns !== undefined && !isStringArray(extraIgnorePatterns)) {
-    throw new Error(`Invalid nmr config at ${configPath}: \`build.extraIgnorePatterns\` must be a string[]`);
+    throw new UserError(`Invalid nmr config at ${configPath}: \`build.extraIgnorePatterns\` must be a string[]`);
   }
 
   return extraIgnorePatterns === undefined ? {} : { extraIgnorePatterns };
@@ -133,7 +137,7 @@ function validateCheckCacheField(value: Record<string, unknown>, configPath: str
     return undefined;
   }
   if (!isObject(checkCache)) {
-    throw new Error(`Invalid nmr config at ${configPath}: \`checkCache\` must be an object`);
+    throw new UserError(`Invalid nmr config at ${configPath}: \`checkCache\` must be an object`);
   }
   assertRecognizedKeys(checkCache, RECOGNIZED_CHECK_CACHE_KEYS, configPath, 'checkCache.');
 
@@ -142,7 +146,7 @@ function validateCheckCacheField(value: Record<string, unknown>, configPath: str
   const enabled: unknown = checkCache['enabled'];
   if (enabled !== undefined) {
     if (typeof enabled !== 'boolean') {
-      throw new TypeError(`Invalid nmr config at ${configPath}: \`checkCache.enabled\` must be a boolean`);
+      throw new UserError(`Invalid nmr config at ${configPath}: \`checkCache.enabled\` must be a boolean`);
     }
     config.enabled = enabled;
   }
@@ -153,7 +157,7 @@ function validateCheckCacheField(value: Record<string, unknown>, configPath: str
       continue;
     }
     if (!isStringArray(commands)) {
-      throw new Error(`Invalid nmr config at ${configPath}: \`checkCache.${field}\` must be a string[]`);
+      throw new UserError(`Invalid nmr config at ${configPath}: \`checkCache.${field}\` must be a string[]`);
     }
     config[field] = commands;
   }
@@ -171,7 +175,7 @@ function validateStringRecordField(
     return undefined;
   }
   if (!isStringRecord(value[fieldName])) {
-    throw new Error(`Invalid nmr config at ${configPath}: \`${fieldName}\` must be a Record<string, string>`);
+    throw new UserError(`Invalid nmr config at ${configPath}: \`${fieldName}\` must be a Record<string, string>`);
   }
   return value[fieldName];
 }
@@ -179,7 +183,7 @@ function validateStringRecordField(
 /** Validates that a loaded value conforms to the expected `NmrConfig` shape. */
 function validateConfig(value: unknown, configPath: string): NmrConfig {
   if (!isObject(value)) {
-    throw new Error(`Invalid nmr config at ${configPath}: expected an object, got ${typeof value}`);
+    throw new UserError(`Invalid nmr config at ${configPath}: expected an object, got ${typeof value}`);
   }
   assertRecognizedKeys(value, RECOGNIZED_KEYS, configPath);
 
@@ -266,7 +270,7 @@ function assertRecognizedKeys(
     return;
   }
 
-  throw new Error(
+  throw new UserError(
     `Invalid nmr config at ${configPath}: unrecognized ${unrecognized.length === 1 ? 'key' : 'keys'} ` +
       `${formatKeyList(unrecognized, prefix)}. Recognized: ${formatKeyList(recognizedKeys, prefix)}.`,
   );
@@ -282,7 +286,7 @@ function assertTierKeys(config: NmrConfig, tier: ConfigTier, configPath: string)
     return;
   }
 
-  throw new Error(
+  throw new UserError(
     `Invalid nmr config at ${configPath}: ${tier.label} honors ${tier.honoredKeys.toSorted().join(', ')} alone, ` +
       `not ${unsupported.toSorted().join(', ')}. Move those keys to ${tier.elsewhere}.`,
   );

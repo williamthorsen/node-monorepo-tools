@@ -5,6 +5,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { loadConfig, loadRootConfig, loadWorkspaceConfig } from '../config.ts';
+import { UserError } from '../UserError.ts';
 
 /** Writes a config file into `dir/.config/nmr.config.ts`, creating the directory. */
 function writeConfig(dir: string, source: string): void {
@@ -44,6 +45,13 @@ describe(loadConfig, () => {
 
     const config = await loadConfig(tmpDir);
     expect(config.devBin).toStrictEqual({ 'my-cli': 'tsx packages/my-cli/src/cli.ts' });
+  });
+
+  // The class, not the message, is what the CLI boundary reads to print a config error without a stack trace.
+  it('rejects an invalid config as a UserError', async () => {
+    writeConfig(tmpDir, `export default { devBin: { 'my-cli': 123 } };`);
+
+    await expect(loadConfig(tmpDir)).rejects.toThrow(UserError);
   });
 
   it('throws when devBin contains a non-string value', async () => {

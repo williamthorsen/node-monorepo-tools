@@ -1,3 +1,29 @@
+/** Matches the `NAME=value` assignment a shell consumes before the program name. */
+const ENV_ASSIGNMENT = /^\w+=/;
+
+/**
+ * The programs that run another program named by a later token, each mapped to the subcommands through which
+ * it reaches a binary. An empty set means the program follows the launcher directly, after any flags.
+ *
+ * Requiring the subcommand for the rest is what keeps `pnpm --filter nmr build` from reading as a crossing in
+ * a repo holding a package named `nmr`, and `pnpm run nmr` from reading as one at all: that runs a script by
+ * that name, not the binary.
+ */
+const LAUNCHERS = new Map<string, ReadonlySet<string>>([
+  ['bun', new Set(['x'])],
+  ['bunx', new Set()],
+  ['npm', new Set(['exec'])],
+  ['npx', new Set()],
+  ['pnpm', new Set(['dlx', 'exec'])],
+  ['yarn', new Set(['dlx', 'exec'])],
+]);
+
+/** The characters that open a quoted run, inside which a separator is read literally. */
+const QUOTES = new Set(['"', "'"]);
+
+/** The characters that end one command and begin the next, the doubled `&&` and `||` included. */
+const SEGMENT_SEPARATORS = new Set([';', '|', '&']);
+
 /** The characters a POSIX shell reads literally, so a token built only from them needs no quoting. */
 const SHELL_SAFE_TOKEN = /^[\w@%+=:,./-]+$/;
 
@@ -24,14 +50,18 @@ export function composeNmrStep(element: string, workspaceRoot: boolean): Step {
 /**
  * Returns the text of the first opaque step that reaches nmr through a shell, or `undefined` when none does.
  *
- * A partial detector rather than a rule: only a step leading with the token `nmr` is recognized, so one
- * reaching nmr through another program is not, and a tier-3 `package.json` override is a plain string with no
- * step list to be expressed as. What it finds is the boundary below which nmr cannot tell its own processes
- * from the tools it runs.
+ * Recognizes nmr in command position: at the start of the step, after `&&`, `||`, `;`, or `|`, and behind a
+ * launcher such as `npx` or `pnpm exec`. A separator inside quotes opens no position, so a command merely
+ * naming nmr in an argument is not a crossing.
+ *
+ * Partial by construction, and partial in stated ways rather than arbitrary ones: a value-taking flag standing
+ * immediately before the program name hides it (`npx -p foo nmr`), and a launcher outside `LAUNCHERS` goes
+ * unreported. What it finds is the boundary below which nmr cannot tell its own processes from the tools it
+ * runs.
  */
-export function findShelledNmrStep(steps: readonly Step[]): string | undefined {
+export function findNmrCrossing(steps: readonly Step[]): string | undefined {
   for (const step of steps) {
-    if (step.kind === 'opaque' && tokenize(step.command)[0] === 'nmr') {
+    if (step.kind === 'opaque' && splitSegments(step.command).some(reachesNmr)) {
       return step.command;
     }
   }
@@ -59,6 +89,12 @@ export function renderChain(steps: readonly Step[]): string {
 
 // region | Helpers
 
+/** Drops the leading `NAME=value` assignments, leaving the program name at the head. */
+function dropLeadingAssignments(tokens: readonly string[]): readonly string[] {
+  const start = tokens.findIndex((token) => !ENV_ASSIGNMENT.test(token));
+  return start === -1 ? [] : tokens.slice(start);
+}
+
 /** Quotes a token the shell would not read literally, and leaves every other token bare. */
 function quoteToken(token: string): string {
   if (SHELL_SAFE_TOKEN.test(token)) {
@@ -67,9 +103,90 @@ function quoteToken(token: string): string {
   return "'" + token.replaceAll("'", String.raw`'\''`) + "'";
 }
 
+/** Reports whether a segment runs nmr, whether named directly or reached through a launcher. */
+function reachesNmr(segment: string): boolean {
+  const [head, ...rest] = dropLeadingAssignments(tokenize(segment));
+
+  if (head === undefined) {
+    return false;
+  }
+  if (head === 'nmr') {
+    return true;
+  }
+
+  const subcommands = LAUNCHERS.get(head);
+  if (subcommands === undefined) {
+    return false;
+  }
+  if (subcommands.size === 0) {
+    return rest.find((token) => !token.startsWith('-')) === 'nmr';
+  }
+
+  const subcommandIndex = rest.findIndex((token) => subcommands.has(token));
+  return subcommandIndex !== -1 && rest[subcommandIndex + 1] === 'nmr';
+}
+
 /** Renders one step as the text a shell runs. */
 function renderStep(step: Step): string {
   return step.kind === 'opaque' ? step.command : step.argv.map(quoteToken).join(' ');
+}
+
+/**
+ * Splits a command into the segments a shell would run as separate commands, breaking on `&&`, `||`, `;`, and
+ * `|` outside quotes.
+ *
+ * Quote and escape state are tracked character by character rather than by matching tokens, so a separator
+ * standing inside an argument stays part of the segment holding it. A backslash escapes outside quotes and
+ * inside a double-quoted run; inside a single-quoted run the shell reads it literally, and so does this.
+ */
+function splitSegments(command: string): string[] {
+  const segments: string[] = [];
+  let current = '';
+  let quote: string | undefined;
+  let index = 0;
+
+  while (index < command.length) {
+    const char = command[index] ?? '';
+
+    if (quote !== undefined) {
+      if (char === '\\' && quote === '"') {
+        current += char + (command[index + 1] ?? '');
+        index += 2;
+        continue;
+      }
+      current += char;
+      if (char === quote) quote = undefined;
+      index += 1;
+      continue;
+    }
+
+    if (char === '\\') {
+      current += char + (command[index + 1] ?? '');
+      index += 2;
+      continue;
+    }
+
+    if (QUOTES.has(char)) {
+      quote = char;
+      current += char;
+      index += 1;
+      continue;
+    }
+
+    if (SEGMENT_SEPARATORS.has(char)) {
+      // `&&` and `||` spend two characters on the break a lone `&` or `|` spends one on.
+      index += command[index + 1] === char ? 2 : 1;
+      segments.push(current);
+      current = '';
+      continue;
+    }
+
+    current += char;
+    index += 1;
+  }
+
+  segments.push(current);
+  return segments;
 }
 
 /** Splits a composite element into argv tokens, dropping the empties surrounding whitespace would leave. */

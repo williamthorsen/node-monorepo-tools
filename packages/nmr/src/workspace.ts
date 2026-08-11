@@ -5,9 +5,15 @@ import { parse } from 'yaml';
 
 import { isObject } from './helpers/type-guards.ts';
 import { resolvePackageDirs } from './helpers/workspace-patterns.ts';
+import { UserError } from './UserError.ts';
 
 /** The manifest whose presence marks a directory as the monorepo root. */
 const WORKSPACE_MANIFEST = 'pnpm-workspace.yaml';
+
+/** Reports whether a directory is the monorepo root, which the workspace manifest's presence marks. */
+export function isMonorepoRoot(dir: string): boolean {
+  return existsSync(path.join(dir, WORKSPACE_MANIFEST));
+}
 
 /**
  * Finds the monorepo root by walking up from `startDir` to find `pnpm-workspace.yaml`.
@@ -17,12 +23,12 @@ export function findMonorepoRoot(startDir?: string): string {
   let dir = path.resolve(startDir ?? process.cwd());
 
   for (;;) {
-    if (existsSync(path.join(dir, WORKSPACE_MANIFEST))) {
+    if (isMonorepoRoot(dir)) {
       return dir;
     }
     const parent = path.dirname(dir);
     if (parent === dir) {
-      throw new Error(`Could not find monorepo root: no ${WORKSPACE_MANIFEST} found in any parent directory`);
+      throw new UserError(`Could not find monorepo root: no ${WORKSPACE_MANIFEST} found in any parent directory`);
     }
     dir = parent;
   }
@@ -39,7 +45,7 @@ export function getWorkspacePackageDirs(monorepoRoot: string): string[] {
   const workspaceFile = path.join(monorepoRoot, WORKSPACE_MANIFEST);
 
   if (!existsSync(workspaceFile)) {
-    throw new Error(`Not a monorepo root: no ${WORKSPACE_MANIFEST} in ${monorepoRoot}`);
+    throw new UserError(`Not a monorepo root: no ${WORKSPACE_MANIFEST} in ${monorepoRoot}`);
   }
 
   const content = readFileSync(workspaceFile, 'utf8');

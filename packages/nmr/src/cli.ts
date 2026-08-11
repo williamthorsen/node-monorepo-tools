@@ -1,7 +1,6 @@
 import process from 'node:process';
 
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
-
+import { reportCliFailure } from './reportCliFailure.ts';
 import { runCli } from './runCli.ts';
 
 try {
@@ -14,9 +13,6 @@ try {
   });
   process.exitCode = exitCode;
 } catch (error: unknown) {
-  // The CLI boundary reports the stack when there is one; `describeError` covers an Error without one and a
-  // thrown non-Error alike.
-  const detail = error instanceof Error && error.stack !== undefined ? error.stack : describeError(error);
-  process.stderr.write(`${detail}\n`);
+  reportCliFailure(error, process.stderr);
   process.exitCode = 1;
 }
