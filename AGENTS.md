@@ -9,7 +9,7 @@ A pnpm monorepo of CLI tools for Node.js monorepo development. Packages provide 
 Packages live under `packages/`:
 
 - **`@williamthorsen/nmr`**: Context-aware script runner for pnpm monorepos. Detects root vs workspace context and resolves the appropriate script registry.
-- **`@williamthorsen/nmr-core`**: Shared utilities consumed by `release-kit`.
+- **`@williamthorsen/nmr-core`**: Shared utilities consumed by `nmr`, `release-kit`, and `v11y-check`.
 - **`@williamthorsen/release-kit`**: Version-bumping and changelog-generation toolkit. Holds the only `*.tool.test.ts` files outside nmr (one drives `git`, one drives Node's type stripper), plus three of the four `*.packaged.unit.test.ts` files, which need a prior build.
 - **`v11y-check`**: Wraps audit-ci with a richer config model, typed JSON source of truth, and a sync workflow that automates allowlist management. Holds the fourth `*.packaged.unit.test.ts` file.
 
@@ -50,7 +50,7 @@ If run under a package directory, the command applies to that package. Otherwise
 
 - Default scripts defined in `packages/nmr/src/default-scripts.ts`; a repo overrides them in `.config/nmr.config.ts`, which here adds only `check:content` and the `check:strict:post` hook that runs it
 - nmr's default test scripts select Vitest projects, so registry construction touches no files and this repo needs no test-script overrides
-- `build`, `typecheck`, and every `test` script but `test:watch` fan out to workspaces via an `-R {command}` step; no other root script does, so `lint*`, `fmt*`, `clean`, `audit*`, and `upgrade` cover the whole tree from the root instead
+- `build`, `typecheck`, and every `test` script but `test:watch` fan out to workspaces via an `-R {command}` step; no other root script does, so `audit*`, `clean`, `fmt*`, `lint*`, `report-overrides`, and `upgrade` cover the whole tree from the root instead
 
 ### Build system
 
@@ -83,7 +83,7 @@ If run under a package directory, the command applies to that package. Otherwise
 - `postinstall` runs `codeassembly sync --warn-only`, which writes the gitignored `CLAUDE.local.md` carrying the ambient rulebooks this repo declares; `--warn-only` keeps a sync failure from breaking the install
 - `.agents/codeassembly.yaml` names `@williamthorsen/nmr`, a `workspace:*` devDependency, so this repo consumes the rulebook it authors at `packages/nmr/agents/guidance/rulebooks/nmr.md`; `.config/nmr.config.ts`'s `check:content` override validates that tree
 - `sync` treats this file as a legacy ambient host and strips any codeassembly rulebook region it finds here, so hand-authored guidance carries none
-- codeassembly's `guidance` checklist verifies the wiring above, and `rdy run --packages` is the only thing that runs it; no workflow does
+- codeassembly's `guidance` checklist checks this file alone -- non-empty, reachable from `.claude/CLAUDE.md`, current, and inside the budget -- so it catches neither a broken `postinstall` nor a `.agents/codeassembly.yaml` that stopped naming the rulebook; `rdy run --packages` is the only thing that runs it, and no workflow does
 
 ## Gotchas
 
