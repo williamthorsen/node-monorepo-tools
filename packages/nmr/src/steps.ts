@@ -18,6 +18,12 @@ const LAUNCHERS = new Map<string, ReadonlySet<string>>([
   ['yarn', new Set(['dlx', 'exec'])],
 ]);
 
+/** The characters that open a quoted run, inside which a separator is read literally. */
+const QUOTES = new Set(['"', "'"]);
+
+/** The characters that end one command and begin the next, the doubled `&&` and `||` included. */
+const SEGMENT_SEPARATORS = new Set([';', '|', '&']);
+
 /** The characters a POSIX shell reads literally, so a token built only from them needs no quoting. */
 const SHELL_SAFE_TOKEN = /^[\w@%+=:,./-]+$/;
 
@@ -144,21 +150,32 @@ function splitSegments(command: string): string[] {
     if (quote !== undefined) {
       current += char;
       if (char === quote) quote = undefined;
-    } else if (char === '\\') {
-      current += char + (command[index + 1] ?? '');
       index += 1;
-    } else if (char === "'" || char === '"') {
-      quote = char;
-      current += char;
-    } else if (char === ';' || char === '|' || char === '&') {
-      // `&&` and `||` spend two characters on the break a lone `&` or `|` spends one on.
-      if (command[index + 1] === char) index += 1;
-      segments.push(current);
-      current = '';
-    } else {
-      current += char;
+      continue;
     }
 
+    if (char === '\\') {
+      current += char + (command[index + 1] ?? '');
+      index += 2;
+      continue;
+    }
+
+    if (QUOTES.has(char)) {
+      quote = char;
+      current += char;
+      index += 1;
+      continue;
+    }
+
+    if (SEGMENT_SEPARATORS.has(char)) {
+      // `&&` and `||` spend two characters on the break a lone `&` or `|` spends one on.
+      index += command[index + 1] === char ? 2 : 1;
+      segments.push(current);
+      current = '';
+      continue;
+    }
+
+    current += char;
     index += 1;
   }
 

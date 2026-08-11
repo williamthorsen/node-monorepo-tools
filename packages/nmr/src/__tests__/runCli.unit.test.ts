@@ -249,13 +249,51 @@ describe(runCli, () => {
   });
 
   describe('the shelled-nmr boundary', () => {
-    it('reports a step that reaches nmr through a shell', async () => {
-      writeConfig(repo, { rootScripts: { probe: 'nmr fmt && echo done' } });
+    // The remedy follows from where the step was declared, so each origin gets the edit that resolves it.
+    it.each([
+      {
+        expected:
+          '⚠️ .config/nmr.config.ts: `rootScripts.probe` reaches nmr through a shell ' +
+          "(`nmr fmt && echo done`), so nmr handles the nested run's output as a tool's. " +
+          'Write it as a step list, whose elements nmr runs itself.',
+        command: 'probe',
+        scenario: 'a config entry',
+        setup: (repo: string) => writeConfig(repo, { rootScripts: { probe: 'nmr fmt && echo done' } }),
+      },
+      {
+        expected:
+          '⚠️ package.json: `scripts.fix` reaches nmr through a shell (`nmr lint && nmr fmt`), ' +
+          "so nmr handles the nested run's output as a tool's. " +
+          "Delete the entry: nmr's own `fix` already runs `nmr lint && nmr fmt`.",
+        command: 'fix',
+        scenario: 'a package.json entry restating what nmr already runs',
+        setup: (repo: string) => writePackageScripts(repo, { fix: 'nmr lint && nmr fmt' }),
+      },
+      {
+        expected:
+          '⚠️ package.json: `scripts.fix` reaches nmr through a shell (`nmr lint && rdy compile`), ' +
+          "so nmr handles the nested run's output as a tool's. " +
+          'Delete the entry and move the steps it adds to a `fix:post` script.',
+        command: 'fix',
+        scenario: 'a package.json entry adding steps to what nmr already runs',
+        setup: (repo: string) => writePackageScripts(repo, { fix: 'nmr lint && rdy compile' }),
+      },
+      {
+        expected:
+          '⚠️ package.json: `scripts.probe` reaches nmr through a shell (`nmr fmt && tsx sync.ts`), ' +
+          "so nmr handles the nested run's output as a tool's. " +
+          'A `package.json` script holds no step list: define `probe` in `.config/nmr.config.ts` and move the ' +
+          'package-specific steps to a `probe:post` script.',
+        command: 'probe',
+        scenario: 'a package.json entry whose command the registry does not define',
+        setup: (repo: string) => writePackageScripts(repo, { probe: 'nmr fmt && tsx sync.ts' }),
+      },
+    ])('given $scenario, names the site and the edit that resolves it', async ({ command, expected, setup }) => {
+      setup(repo);
 
-      const { stderr } = await runNmrReadingStderr(['probe'], repo);
+      const { stderr } = await runNmrReadingStderr([command], repo);
 
-      expect(stderr).toContain('⚠️ probe: `nmr fmt && echo done` runs nmr behind a shell');
-      expect(stderr).toContain('`.config/nmr.config.ts`');
+      expect(stderr.trim()).toBe(expected);
     });
 
     it('spends one line on it', async () => {
@@ -274,15 +312,7 @@ describe(runCli, () => {
 
       const { stderr } = await runNmrReadingStderr(args, repo, env);
 
-      expect(stderr).toContain('runs nmr behind a shell');
-    });
-
-    it('reports a tier-3 override that reaches nmr through a shell', async () => {
-      fs.writeFileSync(path.join(repo, 'package.json'), JSON.stringify({ scripts: { probe: 'nmr fmt' } }));
-
-      const { stderr } = await runNmrReadingStderr(['probe'], repo);
-
-      expect(stderr).toContain('⚠️ probe: `nmr fmt` runs nmr behind a shell');
+      expect(stderr).toContain('reaches nmr through a shell');
     });
 
     it('leaves the exit code alone', async () => {
@@ -298,7 +328,7 @@ describe(runCli, () => {
 
       const { stderr } = await runNmrReadingStderr(['probe'], repo);
 
-      expect(stderr).toContain('runs nmr behind a shell');
+      expect(stderr).toContain('reaches nmr through a shell');
     });
 
     it.each([
@@ -342,6 +372,11 @@ async function runNmrReadingStderr(
 /** Reads the step list the runner was handed. */
 function stepsFromCall(): readonly Step[] | undefined {
   return mockedRunSteps.mock.calls[0]?.[0];
+}
+
+/** Writes the tier-3 scripts of the monorepo root's own `package.json`. */
+function writePackageScripts(repo: string, scripts: Record<string, string>): void {
+  fs.writeFileSync(path.join(repo, 'package.json'), JSON.stringify({ scripts }));
 }
 
 /** Writes a monorepo-root config, which is the only tier that carries `devBin` and the script registries. */

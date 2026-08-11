@@ -21,12 +21,19 @@ import {
   writeCheckCacheEntry,
   writeDebugNote,
 } from './check-cache.ts';
+import { resolveConfigPath } from './config.ts';
 import { resolveContext } from './context.ts';
 import { generateHelp } from './help.ts';
 import { isHookName } from './helpers/hook-name.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
-import type { ResolvedScript } from './resolver.ts';
-import { applyDevBinToSteps, buildRootRegistry, buildWorkspaceRegistry, resolveScript } from './resolver.ts';
+import type { ResolvedScript, ScriptOrigin } from './resolver.ts';
+import {
+  applyDevBinToSteps,
+  buildRootRegistry,
+  buildWorkspaceRegistry,
+  expandScript,
+  resolveScript,
+} from './resolver.ts';
 import type { RunStepsOptions } from './runner.ts';
 import { runSteps } from './runner.ts';
 import type { Step } from './steps.ts';
@@ -36,6 +43,9 @@ import type { CommandVerbosity } from './verbosity.ts';
 import { COMMAND_VERBOSITY_ENV_VAR, resolveVerbosity } from './verbosity.ts';
 
 const VERSION = readPackageVersion(import.meta.url);
+
+/** The consequence a crossing carries, which every origin's line reports before naming its remedy. */
+const CROSSING_CONSEQUENCE = "so nmr handles the nested run's output as a tool's.";
 
 /**
  * Marks a run made on a delegating caller's behalf, where a command the registry does not define exits 0
@@ -167,10 +177,19 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     : wrapWithHooks(command, mainSteps, registry, anchorDir, parsed.workspaceRoot);
   const fullCommand = renderChain(fullSteps);
 
-  // Ahead of the gate, so a command that usually skips still reports the boundary it carries.
-  const shelledStep = findNmrCrossing(fullSteps);
-  if (shelledStep !== undefined) {
-    stderr.write(`${formatShelledNmrWarning(command, shelledStep)}\n`);
+  // Ahead of the gate, so a command that usually skips still reports the boundary it carries. Reads the resolved
+  // steps rather than the full chain: the line names a declaration to edit, and a hook, a passthrough, and a
+  // `devBin` substitution are none.
+  const crossing = findNmrCrossing(resolved.steps);
+  if (crossing !== undefined) {
+    const warning = formatNmrCrossingWarning({
+      crossing,
+      monorepoRoot: context.monorepoRoot,
+      origin: describeOrigin(resolved.origin, context.config, useRoot),
+      registry,
+      workspaceRoot: parsed.workspaceRoot,
+    });
+    stderr.write(`${warning}\n`);
   }
 
   // The key waits until the whole chain is known, so it describes what would actually run: the hooks wrapped
@@ -275,6 +294,89 @@ function composeDelegate(scope: readonly string[], command: string, passthrough:
 }
 
 /**
+ * Returns what a crossing's line names: the declaration site it leads with, and the edit that resolves it.
+ *
+ * The remedy follows from the origin rather than naming one tier for every case, so the switch is exhaustive:
+ * an origin kind added without a remedy fails to compile.
+ */
+function describeCrossingRemedy(options: {
+  crossing: string;
+  monorepoRoot: string;
+  origin: DiagnosticOrigin;
+  registry: ScriptRegistry;
+  workspaceRoot: boolean;
+}): { remedy: string; subject: string } {
+  const { crossing, monorepoRoot, origin, registry, workspaceRoot } = options;
+  const configSite = path.relative(monorepoRoot, resolveConfigPath(monorepoRoot));
+
+  switch (origin.tier) {
+    case 'default':
+      return {
+        remedy: 'A built-in default reaching nmr through a shell is an nmr defect: please report it.',
+        subject: `nmr built-in \`${origin.key}\``,
+      };
+    case 'config':
+      return {
+        remedy: 'Write it as a step list, whose elements nmr runs itself.',
+        subject: `${configSite}: \`${origin.field}.${origin.key}\``,
+      };
+    case 'package':
+      return {
+        remedy: formatPackageRemedy({ configSite, crossing, key: origin.key, registry, workspaceRoot }),
+        subject: `${path.relative(monorepoRoot, origin.file)}: \`scripts.${origin.key}\``,
+      };
+    default: {
+      const unhandled: never = origin;
+      throw new Error(`Unhandled script origin: ${JSON.stringify(unhandled)}`);
+    }
+  }
+}
+
+/** A resolved script's origin, refined into the tier whose remedy the diagnostic names. */
+type DiagnosticOrigin =
+  | { tier: 'default'; key: string }
+  | { tier: 'config'; field: 'rootScripts' | 'workspaceScripts'; key: string }
+  | { tier: 'package'; file: string; key: string };
+
+/**
+ * Refines a resolved script's origin into the tier the diagnostic names.
+ *
+ * Resolution reports the defaults and the config as one tier, having received them merged. Separating them
+ * needs the config, which this holds and resolution does not.
+ */
+function describeOrigin(origin: ScriptOrigin, config: NmrConfig, useRoot: boolean): DiagnosticOrigin {
+  if (origin.tier === 'package') {
+    return origin;
+  }
+
+  const field = useRoot ? 'rootScripts' : 'workspaceScripts';
+  const configScripts = config[field];
+
+  return configScripts !== undefined && Object.hasOwn(configScripts, origin.key)
+    ? { tier: 'config', field, key: origin.key }
+    : { tier: 'default', key: origin.key };
+}
+
+/**
+ * Renders the line reporting a step that reaches nmr through a shell, which puts the nested run's output on the
+ * channels a tool's takes: withheld as one block under `quiet`, and relayed through this process under `full`.
+ *
+ * Leads with the declaration site, so each report a recursive run emits names the file it is an edit to, and
+ * derives the remedy from that site rather than naming one tier for every case.
+ */
+function formatNmrCrossingWarning(options: {
+  crossing: string;
+  monorepoRoot: string;
+  origin: DiagnosticOrigin;
+  registry: ScriptRegistry;
+  workspaceRoot: boolean;
+}): string {
+  const { remedy, subject } = describeCrossingRemedy(options);
+
+  return `⚠️ ${subject} reaches nmr through a shell (\`${options.crossing}\`), ${CROSSING_CONSEQUENCE} ${remedy}`;
+}
+
+/**
  * Returns the line announcing that a `package.json` script is standing in for a built-in, or `undefined` when
  * none is due. Only a script replacing a name the registry already defines is worth announcing; an ordinary
  * tier-3 entry that happens to resolve is not standing in for anything.
@@ -295,16 +397,34 @@ function formatOverrideNotice(
 }
 
 /**
- * Renders the line reporting a step that reaches nmr through a shell, which puts the nested run's output on the
- * channels a tool's takes: withheld as one block under `quiet`, and relayed through this process under `full`.
+ * Returns the edit that resolves a crossing declared in a `package.json`, which holds no step list of its own.
  *
- * `.config/nmr.config.ts` is named because it is the one tier a step list can be written at.
+ * The entry has to go either way; where its steps go depends on what the registry already defines for the
+ * command, so an override merely restating that entry is told to be deleted outright.
  */
-function formatShelledNmrWarning(command: string, step: string): string {
-  return (
-    `⚠️ ${command}: \`${step}\` runs nmr behind a shell, so nmr handles its output as a tool's rather than a ` +
-    `nested run's. A step list in \`.config/nmr.config.ts\` avoids it.`
-  );
+function formatPackageRemedy(options: {
+  configSite: string;
+  crossing: string;
+  key: string;
+  registry: ScriptRegistry;
+  workspaceRoot: boolean;
+}): string {
+  const { configSite, crossing, key, registry, workspaceRoot } = options;
+  const registryEntry = Object.hasOwn(registry, key) ? registry[key] : undefined;
+
+  if (registryEntry === undefined) {
+    return (
+      `A \`package.json\` script holds no step list: define \`${key}\` in \`${configSite}\` and move the ` +
+      `package-specific steps to a \`${key}:post\` script.`
+    );
+  }
+
+  const registryChain = renderChain(expandScript(registryEntry, workspaceRoot));
+  if (registryChain === crossing) {
+    return `Delete the entry: nmr's own \`${key}\` already runs \`${registryChain}\`.`;
+  }
+
+  return `Delete the entry and move the steps it adds to a \`${key}:post\` script.`;
 }
 
 /**
