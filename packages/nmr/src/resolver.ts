@@ -1,15 +1,13 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { CONFIG_RELATIVE_PATH } from './config.ts';
+import { parsePackageJson, readScriptRecord, resolvePackageJsonPath } from './helpers/package-json.ts';
 import { isObject } from './helpers/type-guards.ts';
 import type { ScriptRegistry, ScriptValue } from './resolve-scripts.ts';
 import { getDefaultRootScripts, getDefaultWorkspaceScripts } from './resolve-scripts.ts';
 import type { Step } from './steps.ts';
 import { composeNmrStep } from './steps.ts';
 import type { NmrConfig } from './types.ts';
-import { UserError } from './UserError.ts';
-import { isMonorepoRoot } from './workspace.ts';
 
 /**
  * Replace the first token of a command with a `devBin` substitute.
@@ -114,51 +112,25 @@ export function describeScript(script: ScriptValue): string {
  * being told a step list resolves a shelled-nmr crossing would otherwise do.
  */
 export function readPackageJsonScripts(packageDir: string): Record<string, string> | undefined {
+  const file = resolvePackageJsonPath(packageDir);
+
+  let raw: string;
   try {
-    const raw = readFileSync(resolvePackageJsonPath(packageDir), 'utf8');
-    const parsed: unknown = JSON.parse(raw);
-    if (!isObject(parsed)) return undefined;
-
-    const scripts = parsed['scripts'];
-    if (!isObject(scripts)) return undefined;
-
-    const result: Record<string, string> = {};
-    for (const [key, val] of Object.entries(scripts)) {
-      if (typeof val !== 'string') {
-        throw new UserError(formatMalformedScript(packageDir, key, val));
-      }
-      result[key] = val;
-    }
-    return result;
+    raw = readFileSync(file, 'utf8');
   } catch (error: unknown) {
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
       return undefined;
     }
     throw error;
   }
-}
 
-/**
- * Returns the message rejecting a `package.json` script value that is not a string, naming where a step list
- * belongs when the value is one. The root's own scripts sit at a different config key than a package's.
- */
-function formatMalformedScript(packageDir: string, key: string, value: unknown): string {
-  const rejection = `Invalid package.json at ${resolvePackageJsonPath(packageDir)}: \`scripts.${key}\` must be a string.`;
-  if (!Array.isArray(value)) {
-    return rejection;
-  }
+  const parsed = parsePackageJson(raw, file);
+  if (!isObject(parsed)) return undefined;
 
-  const field = isMonorepoRoot(packageDir) ? 'rootScripts' : 'workspaceScripts';
+  const scripts = parsed['scripts'];
+  if (!isObject(scripts)) return undefined;
 
-  return `${rejection} A step list belongs in \`${CONFIG_RELATIVE_PATH}\` under \`${field}\`.`;
-}
-
-/**
- * Resolves the `package.json` path for a directory: the file tier-3 scripts are read from.
- * Carried by a resolved script's origin, so a caller naming the source names the file that was read.
- */
-export function resolvePackageJsonPath(packageDir: string): string {
-  return path.join(packageDir, 'package.json');
+  return readScriptRecord(packageDir, scripts);
 }
 
 /**

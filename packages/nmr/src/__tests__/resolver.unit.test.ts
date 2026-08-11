@@ -327,6 +327,12 @@ describe(resolveScript, () => {
     expect(() => resolveScript('build', { build: ['compile'] }, tmpDir, false)).toThrow(expected);
   });
 
+  it('rejects a package.json that does not parse, naming the file', () => {
+    fs.writeFileSync(path.join(tmpDir, 'package.json'), '{ not json');
+
+    expect(() => resolveScript('build', { build: ['compile'] }, tmpDir, false)).toThrow(UserError);
+  });
+
   it('rejects a malformed script as a UserError', () => {
     fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify({ scripts: { build: ['compile'] } }));
 
