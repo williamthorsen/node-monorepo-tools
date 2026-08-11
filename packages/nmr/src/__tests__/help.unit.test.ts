@@ -7,6 +7,19 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { generateHelp } from '../help.ts';
 
 describe(generateHelp, () => {
+  // The listing reads the same tier-3 scripts resolution does, so a malformed entry stops it rather than being
+  // omitted from a help text that looks complete.
+  it('rejects a malformed package.json script rather than omitting it', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-help-'));
+    fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify({ scripts: { build: ['compile'] } }));
+
+    try {
+      expect(() => generateHelp({}, tmpDir, false)).toThrow('`scripts.build` must be a string');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it('includes usage line', () => {
     const help = generateHelp({}, undefined, false);
     expect(help).toContain('Usage: nmr [flags] <command> [args...]');

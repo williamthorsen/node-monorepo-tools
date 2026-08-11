@@ -9,6 +9,11 @@ import { resolvePackageDirs } from './helpers/workspace-patterns.ts';
 /** The manifest whose presence marks a directory as the monorepo root. */
 const WORKSPACE_MANIFEST = 'pnpm-workspace.yaml';
 
+/** Reports whether a directory is the monorepo root, which the workspace manifest's presence marks. */
+export function isMonorepoRoot(dir: string): boolean {
+  return existsSync(path.join(dir, WORKSPACE_MANIFEST));
+}
+
 /**
  * Finds the monorepo root by walking up from `startDir` to find `pnpm-workspace.yaml`.
  * Throws if no workspace root is found.
@@ -17,7 +22,7 @@ export function findMonorepoRoot(startDir?: string): string {
   let dir = path.resolve(startDir ?? process.cwd());
 
   for (;;) {
-    if (existsSync(path.join(dir, WORKSPACE_MANIFEST))) {
+    if (isMonorepoRoot(dir)) {
       return dir;
     }
     const parent = path.dirname(dir);

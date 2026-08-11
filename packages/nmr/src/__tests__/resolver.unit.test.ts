@@ -12,6 +12,7 @@ import {
   expandScript,
   resolveScript,
 } from '../resolver.ts';
+import { UserError } from '../UserError.ts';
 
 describe(applyDevBin, () => {
   const monorepoRoot = '/repo';
@@ -300,6 +301,38 @@ describe(resolveScript, () => {
     });
   });
 
+  it.each([
+    {
+      expected:
+        '`scripts.build` must be a string. A step list belongs in `.config/nmr.config.ts` under `workspaceScripts`.',
+      scenario: 'a step list written into a package',
+      setup: (dir: string) => writeScripts(dir, { build: ['compile'] }),
+    },
+    {
+      expected: '`scripts.build` must be a string. A step list belongs in `.config/nmr.config.ts` under `rootScripts`.',
+      scenario: 'a step list written into the monorepo root',
+      setup: (dir: string) => {
+        fs.writeFileSync(path.join(dir, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n');
+        writeScripts(dir, { build: ['compile'] });
+      },
+    },
+    {
+      expected: '`scripts.build` must be a string.',
+      scenario: 'a value of some other type',
+      setup: (dir: string) => writeScripts(dir, { build: 7 }),
+    },
+  ])('rejects $scenario, naming where it belongs', ({ expected, setup }) => {
+    setup(tmpDir);
+
+    expect(() => resolveScript('build', { build: ['compile'] }, tmpDir, false)).toThrow(expected);
+  });
+
+  it('rejects a malformed script as a UserError', () => {
+    fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify({ scripts: { build: ['compile'] } }));
+
+    expect(() => resolveScript('build', { build: ['compile'] }, tmpDir, false)).toThrow(UserError);
+  });
+
   it('falls through to registry when package.json has no matching script', () => {
     fs.writeFileSync(
       path.join(tmpDir, 'package.json'),
@@ -362,3 +395,12 @@ describe('test command resolution ignores the package contents', () => {
     }
   });
 });
+
+// region | Helpers
+
+/** Writes a `package.json` carrying `scripts` as given, malformed values included. */
+function writeScripts(dir: string, scripts: Record<string, unknown>): void {
+  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'test-pkg', scripts }));
+}
+
+// endregion | Helpers

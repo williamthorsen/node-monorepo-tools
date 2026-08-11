@@ -1,12 +1,15 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { CONFIG_RELATIVE_PATH } from './config.ts';
 import { isObject } from './helpers/type-guards.ts';
 import type { ScriptRegistry, ScriptValue } from './resolve-scripts.ts';
 import { getDefaultRootScripts, getDefaultWorkspaceScripts } from './resolve-scripts.ts';
 import type { Step } from './steps.ts';
 import { composeNmrStep } from './steps.ts';
 import type { NmrConfig } from './types.ts';
+import { UserError } from './UserError.ts';
+import { isMonorepoRoot } from './workspace.ts';
 
 /**
  * Replace the first token of a command with a `devBin` substitute.
@@ -104,7 +107,11 @@ export function describeScript(script: ScriptValue): string {
 }
 
 /**
- * Reads a package.json file and returns the scripts object.
+ * Reads a package.json's `scripts`, rejecting any value that is not a string.
+ *
+ * npm and pnpm read a script as a string too, so a value of any other type is malformed however it got there.
+ * Dropping one silently would run the registry's entry in its place, which is what an array written here after
+ * being told a step list resolves a shelled-nmr crossing would otherwise do.
  */
 export function readPackageJsonScripts(packageDir: string): Record<string, string> | undefined {
   try {
@@ -117,7 +124,10 @@ export function readPackageJsonScripts(packageDir: string): Record<string, strin
 
     const result: Record<string, string> = {};
     for (const [key, val] of Object.entries(scripts)) {
-      if (typeof val === 'string') result[key] = val;
+      if (typeof val !== 'string') {
+        throw new UserError(formatMalformedScript(packageDir, key, val));
+      }
+      result[key] = val;
     }
     return result;
   } catch (error: unknown) {
@@ -126,6 +136,21 @@ export function readPackageJsonScripts(packageDir: string): Record<string, strin
     }
     throw error;
   }
+}
+
+/**
+ * Returns the message rejecting a `package.json` script value that is not a string, naming where a step list
+ * belongs when the value is one. The root's own scripts sit at a different config key than a package's.
+ */
+function formatMalformedScript(packageDir: string, key: string, value: unknown): string {
+  const rejection = `Invalid package.json at ${resolvePackageJsonPath(packageDir)}: \`scripts.${key}\` must be a string.`;
+  if (!Array.isArray(value)) {
+    return rejection;
+  }
+
+  const field = isMonorepoRoot(packageDir) ? 'rootScripts' : 'workspaceScripts';
+
+  return `${rejection} A step list belongs in \`${CONFIG_RELATIVE_PATH}\` under \`${field}\`.`;
 }
 
 /**

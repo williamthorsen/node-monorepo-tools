@@ -10,6 +10,9 @@ import { UserError } from './UserError.ts';
 const CONFIG_FILENAME = 'nmr.config.ts';
 const CONFIG_DIR = '.config';
 
+/** The config's path relative to the directory holding it, for a message composed without one in hand. */
+export const CONFIG_RELATIVE_PATH = path.join(CONFIG_DIR, CONFIG_FILENAME);
+
 interface ConfigTier {
   /** Names the tier in an error message. */
   label: string;
