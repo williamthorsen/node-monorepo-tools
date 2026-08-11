@@ -136,7 +136,8 @@ function renderStep(step: Step): string {
  * `|` outside quotes.
  *
  * Quote and escape state are tracked character by character rather than by matching tokens, so a separator
- * standing inside an argument stays part of the segment holding it.
+ * standing inside an argument stays part of the segment holding it. A backslash escapes outside quotes and
+ * inside a double-quoted run; inside a single-quoted run the shell reads it literally, and so does this.
  */
 function splitSegments(command: string): string[] {
   const segments: string[] = [];
@@ -148,6 +149,11 @@ function splitSegments(command: string): string[] {
     const char = command[index] ?? '';
 
     if (quote !== undefined) {
+      if (char === '\\' && quote === '"') {
+        current += char + (command[index + 1] ?? '');
+        index += 2;
+        continue;
+      }
       current += char;
       if (char === quote) quote = undefined;
       index += 1;

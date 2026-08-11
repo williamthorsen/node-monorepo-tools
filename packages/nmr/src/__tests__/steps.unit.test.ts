@@ -34,6 +34,7 @@ describe(findNmrCrossing, () => {
     { command: 'rdy verify; nmr compile', scenario: 'a segment following ;' },
     { command: 'cat log | nmr compile', scenario: 'a segment following |' },
     { command: 'FORCE_COLOR=1 nmr build', scenario: 'a segment behind an environment assignment' },
+    { command: String.raw`echo 'a \' && nmr b`, scenario: 'a segment past a backslash single quotes read literally' },
     { command: 'npx nmr build', scenario: 'npx' },
     { command: 'npx --yes nmr build', scenario: 'npx carrying a flag' },
     { command: 'bunx nmr build', scenario: 'bunx' },
@@ -75,6 +76,10 @@ describe(findNmrCrossing, () => {
     {
       scenario: 'a separator the shell reads literally',
       steps: [{ kind: 'opaque', command: String.raw`echo a \&\& nmr b` }],
+    },
+    {
+      scenario: 'a separator past an escaped quote inside a double-quoted run',
+      steps: [{ kind: 'opaque', command: String.raw`echo "a \" && nmr b"` }],
     },
     { scenario: 'nmr named as an argument', steps: [{ kind: 'opaque', command: 'grep nmr package.json' }] },
     {
