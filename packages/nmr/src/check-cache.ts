@@ -5,6 +5,7 @@ import process from 'node:process';
 import type { Writable } from 'node:stream';
 
 import type { CacheEntryRef } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 import {
   hashWorkingTree,
   readHeadSha,
@@ -179,6 +180,43 @@ const RETENTION_KEYED_ENV_VARS = ['CI', 'COLUMNS', 'FORCE_COLOR', 'NO_COLOR', 'T
 
 /** Characters a command name may contribute to a file name; every other character becomes a hyphen. */
 const UNSAFE_SLUG_CHARACTERS = /[^\w.-]+/g;
+
+/**
+ * Restamps a recalled entry's retention with the run that is replaying it, so an excerpt this run certified
+ * can join the assembly a composite above it records.
+ *
+ * A recall certifies as surely as a recording does: the pass key matched, so the excerpt describes this tree,
+ * and the caller reaches this only where the retention key matched too, so it describes this presentation
+ * environment. Everything else the entry records stands -- the instant and the duration belong to the run that
+ * earned the pass, and a recall must not make it read as later or longer than it was.
+ *
+ * A cache that cannot be written is not worth failing a green run over, so that failure goes to the debug note.
+ */
+export async function certifyRetention(options: {
+  anchorDir: string;
+  command: string;
+  entry: CheckCacheEntry;
+  env: NodeJS.ProcessEnv;
+  monorepoRoot: string;
+  runId: string;
+  stderr: Writable;
+}): Promise<void> {
+  const { entry, runId } = options;
+  if (entry.retention === undefined || entry.retention.runId === runId) {
+    return;
+  }
+
+  try {
+    await writeCheckCacheEntry({
+      anchorDir: options.anchorDir,
+      command: options.command,
+      monorepoRoot: options.monorepoRoot,
+      entry: { ...entry, retention: { ...entry.retention, runId } },
+    });
+  } catch (error: unknown) {
+    writeDebugNote(`could not certify ${options.command}: ${describeError(error)}`, options.env, options.stderr);
+  }
+}
 
 /**
  * Folds everything that can change what a command concludes into one key: the tree's content, the command

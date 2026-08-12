@@ -4,8 +4,9 @@ import type { Writable } from 'node:stream';
 import { readPackageVersion, reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
-import type { BuildOutputState, ReplayLine, Retention, TreeSnapshot } from './check-cache.ts';
+import type { BuildOutputState, CheckCacheEntry, ReplayLine, Retention, TreeSnapshot } from './check-cache.ts';
 import {
+  certifyRetention,
   computeCacheKey,
   computeRetentionKey,
   CURRENT_RUNTIME,
@@ -537,6 +538,8 @@ function hasRunnableHook(
  *
  * The excerpts a skip replays come back only where the retention key matches too. A recording made under
  * another presentation environment is still a pass, and is not this environment's output.
+ *
+ * The entry comes back with them, so the caller can certify what it is about to replay.
  */
 async function lookUpRecordedPass(options: {
   anchorDir: string;
@@ -547,7 +550,7 @@ async function lookUpRecordedPass(options: {
   monorepoRoot: string;
   retentionKey: string;
   stderr: Writable;
-}): Promise<{ ageMs: number; replay?: ReplayLine[]; savedMs: number } | undefined> {
+}): Promise<{ ageMs: number; entry: CheckCacheEntry; replay?: ReplayLine[]; savedMs: number } | undefined> {
   const { anchorDir, buildOutput, command, env, key, monorepoRoot, stderr } = options;
 
   const entry = await readCheckCacheEntry({ anchorDir, command, monorepoRoot });
@@ -576,6 +579,7 @@ async function lookUpRecordedPass(options: {
 
   return {
     ageMs: Math.max(0, Date.now() - Date.parse(entry.recordedAt)),
+    entry,
     savedMs: entry.durationMs,
     // Replayed only where the recording describes this environment's output; otherwise the verdict prints alone.
     ...(entry.retention?.key === options.retentionKey && { replay: entry.retention.replay }),
@@ -906,7 +910,14 @@ async function runGated(options: {
       stderr,
     });
     if (recalled !== undefined) {
-      return { exitCode: 0, outcome: { outcome: 'recalled', ...recalled } };
+      const { entry, ...recall } = recalled;
+      // An excerpt this run declined to replay is one it has not certified, and vouching for it here would put
+      // another environment's output into the assembly a composite above this one records.
+      if (recall.replay !== undefined) {
+        await certifyRetention({ anchorDir, command, entry, env, monorepoRoot, runId: options.runId, stderr });
+      }
+
+      return { exitCode: 0, outcome: { outcome: 'recalled', ...recall } };
     }
   }
 
