@@ -37,6 +37,7 @@ import {
   expandScript,
   resolveScript,
 } from './resolver.ts';
+import { assembleReplay } from './replay-assembly.ts';
 import type { RetainedOutput, RunStepsOptions } from './runner.ts';
 import { resolveChannel, runSteps } from './runner.ts';
 import type { Step } from './steps.ts';
@@ -232,6 +233,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     monorepoRoot: context.monorepoRoot,
     noCache,
     overrideNotice: formatOverrideNotice(resolved, registry, command, anchorDir, quiet),
+    ownSteps: mainSteps,
     runId,
     runOptions,
     snapshot,
@@ -318,33 +320,44 @@ function composeDelegate(scope: readonly string[], command: string, passthrough:
 
 /**
  * Composes the retention a pass carries, or `undefined` when the run left nothing to replay: a command whose
- * streams were handed to a terminal retained no copy, and one that printed nothing yields no excerpt.
+ * streams were handed to a terminal retained no copy, one that printed nothing yields no excerpt, and a
+ * composite whose constituents recorded none has nothing to assemble.
  *
- * The excerpt is drawn from stdout, falling back to stderr only where stdout retained nothing, which is where
- * every command the gate covers writes its substance.
+ * A leaf hands back what its own command wrote, and the excerpt is drawn from stdout, falling back to stderr
+ * only where stdout retained nothing, which is where every command the gate covers writes its substance. A
+ * composite hands back nothing of its own -- `expandScript` gives a step list that is either one opaque step
+ * or all structural ones -- so its retention is the assembly of what its constituents recorded.
  */
-function composeRetention(options: {
+async function composeRetention(options: {
+  anchorDir: string;
   command: string;
   key: string;
+  monorepoRoot: string;
   retained: RetainedOutput | undefined;
   runId: string;
-  scope: string;
-}): Retention | undefined {
-  const { retained } = options;
-  if (retained === undefined) {
-    return undefined;
+  steps: readonly Step[];
+  treeHash: string;
+}): Promise<Retention | undefined> {
+  const { anchorDir, command, key, retained, runId } = options;
+
+  if (retained !== undefined) {
+    const excerpt = deriveExcerpt(retained.stdout.toString('utf8')) ?? deriveExcerpt(retained.stderr.toString('utf8'));
+    if (excerpt === undefined) {
+      return undefined;
+    }
+
+    return { key, replay: [{ command, excerpt, scope: path.basename(anchorDir) }], runId };
   }
 
-  const excerpt = deriveExcerpt(retained.stdout.toString('utf8')) ?? deriveExcerpt(retained.stderr.toString('utf8'));
-  if (excerpt === undefined) {
-    return undefined;
-  }
+  const replay = await assembleReplay({
+    anchorDir,
+    monorepoRoot: options.monorepoRoot,
+    runId,
+    steps: options.steps,
+    treeHash: options.treeHash,
+  });
 
-  return {
-    key: options.key,
-    replay: [{ command: options.command, excerpt, scope: options.scope }],
-    runId: options.runId,
-  };
+  return replay.length === 0 ? undefined : { key, replay, runId };
 }
 
 /**
@@ -704,7 +717,8 @@ function reportVerdict(verdict: Verdict, stdout: Writable): void {
  * A cache that cannot be written is not worth failing a green run over, so that failure goes to the debug note.
  *
  * The retention a skip replays is composed here for the same reason and after the same tests: a pass nothing
- * recorded must leave behind no excerpt claiming it did.
+ * recorded must leave behind no excerpt claiming it did. A composite's assembly is built here rather than when
+ * it skips, so every excerpt in it was certified during the run whose pass carries it.
  */
 async function recordPass(options: {
   anchorDir: string;
@@ -717,6 +731,7 @@ async function recordPass(options: {
   key: string;
   monorepoRoot: string;
   retained: RetainedOutput | undefined;
+  ownSteps: readonly Step[];
   retentionKey: string;
   runId: string;
   snapshot: TreeSnapshot;
@@ -752,12 +767,15 @@ async function recordPass(options: {
     return;
   }
 
-  const retention = composeRetention({
+  const retention = await composeRetention({
+    anchorDir,
     command,
     key: options.retentionKey,
+    monorepoRoot,
     retained: options.retained,
     runId: options.runId,
-    scope: path.basename(anchorDir),
+    steps: options.ownSteps,
+    treeHash: snapshot.hash,
   });
 
   try {
@@ -832,6 +850,10 @@ function resolveCacheKey(options: {
  *
  * The override notice waits until the command is going to run, because naming the script that stands in for a
  * built-in says nothing useful about an invocation that skipped it.
+ *
+ * Two step lists: `steps` is the chain that runs, the hooks wrapped around the command included, and
+ * `ownSteps` is the command's alone, which is what a composite's assembly reads. A hook contributes nothing to
+ * what a skip replays, as it contributes nothing to a leaf's excerpt.
  */
 async function runGated(options: {
   anchorDir: string;
@@ -843,6 +865,7 @@ async function runGated(options: {
   monorepoRoot: string;
   noCache: boolean;
   overrideNotice: string | undefined;
+  ownSteps: readonly Step[];
   runId: string;
   runOptions: RunStepsOptions;
   snapshot: TreeSnapshot | undefined;
@@ -906,6 +929,7 @@ async function runGated(options: {
       env,
       key: gate.key,
       monorepoRoot,
+      ownSteps: options.ownSteps,
       retained,
       retentionKey: gate.retentionKey,
       runId: options.runId,
