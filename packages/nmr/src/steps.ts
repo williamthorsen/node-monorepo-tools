@@ -36,6 +36,13 @@ const SHELL_SAFE_TOKEN = /^[\w@%+=:,./-]+$/;
 export type Step =
   { kind: 'opaque'; command: string } | { kind: 'structural'; argv: readonly [string, ...(readonly string[])] };
 
+/** What a structural step asks of the nmr process it spawns. */
+export interface NmrStepTarget {
+  command: string;
+  /** Whether the command is fanned out to other scopes, where a `-R` or `-F` sends it. */
+  isDelegate: boolean;
+}
+
 /**
  * Composes the structural step that re-invokes nmr for one composite element.
  *
@@ -75,6 +82,47 @@ export function findNmrCrossing(steps: readonly Step[]): string | undefined {
  */
 export function findUnexpressibleToken(element: string): string | undefined {
   return tokenize(element).find((token) => !SHELL_SAFE_TOKEN.test(token));
+}
+
+/**
+ * Returns the command a structural step's nmr process runs, and whether the step hands that command to other
+ * scopes rather than running it where it stands. Reports nothing for a step that names no nmr command.
+ *
+ * The inverse of `composeNmrStep`, and beside it because the two share one grammar: an element may lead with
+ * nmr's own flags, and the command is the first token that is not one.
+ */
+export function readNmrStep(step: Step): NmrStepTarget | undefined {
+  if (step.kind !== 'structural') {
+    return undefined;
+  }
+
+  const [file, ...rest] = step.argv;
+  if (file !== 'nmr') {
+    return undefined;
+  }
+
+  let isDelegate = false;
+  let index = 0;
+
+  while (index < rest.length) {
+    const token = rest[index] ?? '';
+
+    if (token === '-F' || token === '--filter') {
+      // The pattern is the flag's value, and reading it as a command name would name whichever package it
+      // selects rather than the command every selected scope runs.
+      isDelegate = true;
+      index += 2;
+    } else if (token === '-R' || token === '--recursive') {
+      isDelegate = true;
+      index += 1;
+    } else if (token.startsWith('-')) {
+      index += 1;
+    } else {
+      return { command: token, isDelegate };
+    }
+  }
+
+  return undefined;
 }
 
 /**
