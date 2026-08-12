@@ -11,7 +11,6 @@ import {
   encodeTreeSnapshot,
   findStaleBuildOutput,
   formatMisplacedNoCacheWarning,
-  formatSkipLine,
   NO_CACHE_ENV_VAR,
   readBuildOutputState,
   readCheckCacheEntry,
@@ -41,6 +40,8 @@ import { composeNmrStep, findNmrCrossing, renderChain } from './steps.ts';
 import type { NmrConfig } from './types.ts';
 import type { CommandVerbosity } from './verbosity.ts';
 import { COMMAND_VERBOSITY_ENV_VAR, resolveVerbosity } from './verbosity.ts';
+import type { Verdict, VerdictOutcome } from './verdict.ts';
+import { writeVerdict } from './verdict.ts';
 
 const VERSION = readPackageVersion(import.meta.url);
 
@@ -116,6 +117,11 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   const { command } = parsed;
 
+  // Hook recursion guard: a command ending in `:pre` or `:post` is a leaf operation, and is not itself
+  // wrapped in further hook lookups.
+  const isHookInvocation = isHookName(command);
+  const scope = path.basename(anchorDir);
+
   const snapshot = openGate({
     command,
     config: context.config,
@@ -160,18 +166,16 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   const resolvedCommand = renderChain(resolved.steps);
 
-  const skipExitCode = handleSkipMessage(resolvedCommand, anchorDir, quiet, stdout);
-  if (skipExitCode !== undefined) {
-    return { exitCode: skipExitCode };
+  const noOpReason = findNoOpReason(resolvedCommand);
+  if (noOpReason !== undefined) {
+    reportVerdict({ command, scope, outcome: 'no-op', reason: noOpReason }, stdout);
+    return { exitCode: 0 };
   }
 
   const substitutedSteps = applyDevBinToSteps(resolved.steps, context.config.devBin, context.monorepoRoot);
   const substitutedCommand = renderChain(substitutedSteps);
   const mainSteps = appendPassthrough(substitutedSteps, parsed.passthrough);
 
-  // Hook recursion guard: commands ending in :pre or :post are leaf operations
-  // and are not themselves wrapped in additional hook lookups.
-  const isHookInvocation = isHookName(command);
   const fullSteps = isHookInvocation
     ? mainSteps
     : wrapWithHooks(command, mainSteps, registry, anchorDir, parsed.workspaceRoot);
@@ -205,7 +209,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     substitution: substitutedCommand === resolvedCommand ? undefined : substitutedCommand,
   });
 
-  const exitCode = await runGated({
+  const { exitCode, outcome } = await runGated({
     anchorDir,
     command,
     commandString: fullCommand,
@@ -216,12 +220,13 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     monorepoRoot: context.monorepoRoot,
     noCache,
     overrideNotice: formatOverrideNotice(resolved, registry, command, anchorDir, quiet),
-    quiet,
     runOptions,
     snapshot,
     stderr,
     stdout,
   });
+
+  reportVerdict({ command, scope, ...outcome }, stdout);
 
   return { exitCode };
 }
@@ -431,27 +436,16 @@ function formatPackageRemedy(options: {
 }
 
 /**
- * Returns the exit code to use when a resolved command is an explicit skip
- * (`""` or `":"`), writing the skip message to `stdout` unless quiet. Returns
- * undefined when the command is not a skip, indicating execution should proceed.
+ * Returns why a resolved command runs nothing, or `undefined` when there is something to run. A command that
+ * ran nothing is not a command that passed, and the two exit alike, so the reason is what a verdict spends on
+ * telling them apart.
  */
-function handleSkipMessage(
-  resolvedCommand: string,
-  anchorDir: string,
-  quiet: boolean,
-  stdout: Writable,
-): number | undefined {
+function findNoOpReason(resolvedCommand: string): 'empty-override' | 'noop-override' | undefined {
   if (resolvedCommand === '') {
-    if (!quiet) {
-      stdout.write(`⛔ ${path.basename(anchorDir)}: Override script is defined but empty. Skipping.\n`);
-    }
-    return 0;
+    return 'empty-override';
   }
   if (resolvedCommand === ':') {
-    if (!quiet) {
-      stdout.write(`⛔ ${path.basename(anchorDir)}: Override script is a no-op. Skipping.\n`);
-    }
-    return 0;
+    return 'noop-override';
   }
   return undefined;
 }
@@ -475,9 +469,9 @@ function hasRunnableHook(
 }
 
 /**
- * Returns the line a skipped command leaves behind when a recorded pass covers this invocation, or `undefined`
- * when the command has to run. A key match alone is not a pass: the build output the key says nothing about
- * has to still be on disk, and the run that follows a missing-output miss is what restores it.
+ * Returns the age and saving a recalled pass reports when a recorded pass covers this invocation, or
+ * `undefined` when the command has to run. A key match alone is not a pass: the build output the key says
+ * nothing about has to still be on disk, and the run that follows a missing-output miss is what restores it.
  */
 async function lookUpRecordedPass(options: {
   anchorDir: string;
@@ -487,7 +481,7 @@ async function lookUpRecordedPass(options: {
   key: string;
   monorepoRoot: string;
   stderr: Writable;
-}): Promise<string | undefined> {
+}): Promise<{ ageMs: number; savedMs: number } | undefined> {
   const { anchorDir, buildOutput, command, env, key, monorepoRoot, stderr } = options;
 
   const entry = await readCheckCacheEntry({ anchorDir, command, monorepoRoot });
@@ -514,7 +508,7 @@ async function lookUpRecordedPass(options: {
     return undefined;
   }
 
-  return formatSkipLine(command, entry, Date.now());
+  return { ageMs: Math.max(0, Date.now() - Date.parse(entry.recordedAt)), savedMs: entry.durationMs };
 }
 
 /**
@@ -626,6 +620,21 @@ function parseArgs(args: string[]): ParseResult {
   }
 
   return { ok: true, parsed };
+}
+
+/**
+ * Reports an invocation's verdict, unless the levels around it already report for it.
+ *
+ * A hook leaf reports none: it is not a command anyone asked for, but part of the chain the level that wrapped
+ * it reports on, and a line here would say the same thing twice under a different name. A delegating
+ * invocation reports none either, and needs no test here -- it returns before a verdict is composed, every
+ * scope it fans out to reporting one of its own.
+ */
+function reportVerdict(verdict: Verdict, stdout: Writable): void {
+  if (isHookName(verdict.command)) {
+    return;
+  }
+  writeVerdict(verdict, stdout);
 }
 
 /**
@@ -745,7 +754,8 @@ function resolveCacheKey(options: {
 
 /**
  * Runs the resolved steps behind the check-result cache: skips them when a recorded pass covers this
- * invocation, and records a pass when one is earned. Returns the exit code either way.
+ * invocation, and records a pass when one is earned. Returns the exit code and the outcome a verdict reports,
+ * either way.
  *
  * The override notice waits until the command is going to run, because naming the script that stands in for a
  * built-in says nothing useful about an invocation that skipped it.
@@ -760,13 +770,12 @@ async function runGated(options: {
   monorepoRoot: string;
   noCache: boolean;
   overrideNotice: string | undefined;
-  quiet: boolean;
   runOptions: RunStepsOptions;
   snapshot: TreeSnapshot | undefined;
   steps: readonly Step[];
   stderr: Writable;
   stdout: Writable;
-}): Promise<number> {
+}): Promise<{ exitCode: number; outcome: VerdictOutcome }> {
   const { anchorDir, command, commandString, env, key, monorepoRoot, snapshot, stderr, stdout } = options;
 
   // The build output is read before the run, so a pass can be held to the output the run actually saw. One
@@ -777,7 +786,7 @@ async function runGated(options: {
       : undefined;
 
   if (gate !== undefined && !options.noCache) {
-    const skipLine = await lookUpRecordedPass({
+    const recalled = await lookUpRecordedPass({
       anchorDir,
       buildOutput: gate.buildOutputBefore,
       command,
@@ -786,11 +795,8 @@ async function runGated(options: {
       monorepoRoot,
       stderr,
     });
-    if (skipLine !== undefined) {
-      if (!options.quiet) {
-        stdout.write(`${skipLine}\n`);
-      }
-      return 0;
+    if (recalled !== undefined) {
+      return { exitCode: 0, outcome: { outcome: 'recalled', ...recalled } };
     }
   }
 
@@ -800,6 +806,7 @@ async function runGated(options: {
 
   const startedAt = Date.now();
   const { exitCode } = await runSteps(options.steps, anchorDir, options.runOptions);
+  const durationMs = Date.now() - startedAt;
 
   if (exitCode === 0 && gate !== undefined) {
     await recordPass({
@@ -808,7 +815,7 @@ async function runGated(options: {
       command,
       commandString,
       config: options.config,
-      durationMs: Date.now() - startedAt,
+      durationMs,
       env,
       key: gate.key,
       monorepoRoot,
@@ -817,7 +824,10 @@ async function runGated(options: {
     });
   }
 
-  return exitCode;
+  return {
+    exitCode,
+    outcome: exitCode === 0 ? { outcome: 'passed', durationMs } : { outcome: 'failed', durationMs, exitCode },
+  };
 }
 
 /**

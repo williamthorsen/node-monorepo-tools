@@ -343,6 +343,70 @@ describe(runCli, () => {
       expect(stderr).toBe('');
     });
   });
+
+  describe('verdicts', () => {
+    it('reports a pass, naming the scope the command ran at', async () => {
+      const { stdout } = await runNmrReadingStdout(['typecheck'], repo);
+
+      expect(stdout).toMatch(new RegExp(String.raw`^✅ ${path.basename(repo)}: typecheck: passed in [\d.]+s` + '\n$'));
+    });
+
+    it('reports a failure with the exit code, which separates an interrupt from a real failure', async () => {
+      mockedRunSteps.mockResolvedValue({ exitCode: 130 });
+
+      const { exitCode, stdout } = await runNmrReadingStdout(['typecheck'], repo);
+
+      expect(exitCode).toBe(130);
+      expect(stdout).toContain('❌');
+      expect(stdout).toContain('typecheck: failed in');
+      expect(stdout).toContain('(exit 130)');
+    });
+
+    it('reports in quiet mode, which withholds the command output and not the words nmr writes itself', async () => {
+      const { stdout } = await runNmrReadingStdout(['-q', 'typecheck'], repo);
+
+      expect(stdout).toContain('✅');
+    });
+
+    it.each([
+      { args: ['typecheck:pre'], scenario: 'a hook leaf, whose chain the level above reports on' },
+      { args: ['-R', 'typecheck'], scenario: 'the recursive delegate, whose scopes each report' },
+      { args: ['-F', 'my-pkg', 'typecheck'], scenario: 'the filter delegate, whose scope reports' },
+    ])('given $scenario, reports no verdict', async ({ args }) => {
+      writeConfig(repo, { rootScripts: { 'typecheck:pre': 'echo hi' } });
+
+      const { stdout } = await runNmrReadingStdout(args, repo);
+
+      expect(stdout).toBe('');
+    });
+
+    it('reports nothing for a command the registry does not define, having none to report on', async () => {
+      const { exitCode, stdout } = await runNmrReadingStdout(['nonexistent'], repo, { NMR_RUN_IF_PRESENT: '1' });
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toBe('');
+    });
+
+    it.each([
+      { expected: 'the override is empty', script: '', scenario: 'an empty override' },
+      { expected: 'the override is a no-op', script: ':', scenario: 'a no-op override' },
+    ])('given $scenario, reports a skip distinguishable from a pass', async ({ expected, script }) => {
+      writePackageScripts(repo, { typecheck: script });
+
+      const { exitCode, stdout } = await runNmrReadingStdout(['typecheck'], repo);
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toBe(`⛔ ${path.basename(repo)}: typecheck: skipped, ${expected}\n`);
+    });
+
+    it('reports the skip in quiet mode, where a silent exit 0 would read as a pass', async () => {
+      writePackageScripts(repo, { typecheck: ':' });
+
+      const { stdout } = await runNmrReadingStdout(['-q', 'typecheck'], repo);
+
+      expect(stdout).toContain('⛔');
+    });
+  });
 });
 
 // region | Helpers
@@ -350,6 +414,23 @@ describe(runCli, () => {
 /** Runs the CLI in-process against `cwd`, discarding both output streams. */
 async function runNmr(args: string[], cwd: string, env: NodeJS.ProcessEnv = {}): Promise<{ exitCode: number }> {
   return runCli({ args, cwd, env, stderr: new PassThrough(), stdout: new PassThrough() });
+}
+
+/** Runs the CLI in-process against `cwd`, returning what it wrote to stdout. */
+async function runNmrReadingStdout(
+  args: string[],
+  cwd: string,
+  env: NodeJS.ProcessEnv = {},
+): Promise<{ exitCode: number; stdout: string }> {
+  const chunks: Buffer[] = [];
+  const stdout = new PassThrough();
+  stdout.on('data', (chunk: Buffer) => {
+    chunks.push(chunk);
+  });
+
+  const { exitCode } = await runCli({ args, cwd, env, stderr: new PassThrough(), stdout });
+
+  return { exitCode, stdout: Buffer.concat(chunks).toString('utf8') };
 }
 
 /** Runs the CLI in-process against `cwd`, returning what it wrote to stderr. */

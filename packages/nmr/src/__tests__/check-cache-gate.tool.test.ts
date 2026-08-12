@@ -44,22 +44,22 @@ describe('the check-result cache gate', () => {
       expect(second.stdout).toContain('passed');
     });
 
-    it('names the command and the tree on the skip line', async () => {
+    it('names the scope, the command, and the tree on the skip line', async () => {
       await runNmr(COMMAND, repo);
 
       const { stdout } = await runNmr(COMMAND, repo);
 
-      expect(stdout).toContain(`⏭️ ${COMMAND}:`);
+      expect(stdout).toContain(`⏭️ ${path.basename(repo)}: ${COMMAND}:`);
       expect(stdout).toContain('on this tree');
     });
 
-    it('skips silently under --quiet', async () => {
+    it('reports the skip under --quiet, which suppresses the command output and not the verdict', async () => {
       await runNmr(COMMAND, repo);
 
       const { stdout, exitCode } = await runNmr(`-q ${COMMAND}`, repo);
 
       expect(exitCode).toBe(0);
-      expect(stdout).toBe('');
+      expect(stdout).toContain(`⏭️ ${path.basename(repo)}: ${COMMAND}:`);
       expect(runCount()).toBe(1);
     });
 

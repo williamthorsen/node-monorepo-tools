@@ -208,10 +208,10 @@ describe('nmr CLI', () => {
       expect(stdout).toContain('📦 test-override: Using override script: echo ok');
     });
 
-    it('logs no-op message for colon override', async () => {
+    it('distinguishes a colon override from a command that passed', async () => {
       const { stdout, exitCode } = await runNmr('build', { cwd: noopPkgDir });
       expect(exitCode).toBe(0);
-      expect(stdout).toContain('⛔ test-noop: Override script is a no-op. Skipping.');
+      expect(stdout).toContain('⛔ test-noop: build: skipped, the override is a no-op');
     });
 
     it('suppresses override-script message in quiet mode', async () => {
@@ -282,10 +282,10 @@ describe('nmr CLI', () => {
       expect(stdout).toContain('-q, --quiet');
     });
 
-    it('suppresses output on successful command in quiet mode', async () => {
+    it('suppresses the command output on a successful quiet run, leaving the verdict', async () => {
       const { stdout, stderr, exitCode } = await runNmr('-q typecheck', { cwd: quietPkgDir });
       expect(exitCode).toBe(0);
-      expect(stdout).toBe('');
+      expect(stdout).toMatch(/^✅ [\w-]+: typecheck: passed in [\d.]+s\n$/);
       expect(stderr).toBe('');
     });
 
@@ -612,8 +612,9 @@ describe('nmr CLI', () => {
       expect(exitCode).toBe(0);
       // Log proves the full chain ran
       expect(readLog()).toStrictEqual(['pre', 'main', 'post']);
-      // -q suppresses all stdout from the chain
-      expect(stdout).toBe('');
+      expect(stdout).not.toContain('noise');
+      // Each hook is a leaf of the chain `clean` reports on, so one verdict covers all three.
+      expect(stdout.split('\n').filter((line) => line.length > 0)).toHaveLength(1);
     });
 
     describe('config-defined hooks', () => {
