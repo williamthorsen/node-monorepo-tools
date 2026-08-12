@@ -41,6 +41,8 @@ export interface NmrStepTarget {
   command: string;
   /** Whether the command is fanned out to other scopes, where a `-R` or `-F` sends it. */
   isDelegate: boolean;
+  /** Whether the command runs against the root registry, where a `-w` anchors it. */
+  isWorkspaceRoot: boolean;
 }
 
 /**
@@ -85,8 +87,9 @@ export function findUnexpressibleToken(element: string): string | undefined {
 }
 
 /**
- * Returns the command a structural step's nmr process runs, and whether the step hands that command to other
- * scopes rather than running it where it stands. Reports nothing for a step that names no nmr command.
+ * Returns the command a structural step's nmr process runs, whether the step hands that command to other
+ * scopes rather than running it where it stands, and whether it anchors the command at the monorepo root.
+ * Reports nothing for a step that names no nmr command.
  *
  * The inverse of `composeNmrStep`, and beside it because the two share one grammar: an element may lead with
  * nmr's own flags, and the command is the first token that is not one.
@@ -102,23 +105,35 @@ export function readNmrStep(step: Step): NmrStepTarget | undefined {
   }
 
   let isDelegate = false;
+  let isWorkspaceRoot = false;
   let index = 0;
 
   while (index < rest.length) {
     const token = rest[index] ?? '';
 
-    if (token === '-F' || token === '--filter') {
+    switch (token) {
       // The pattern is the flag's value, and reading it as a command name would name whichever package it
       // selects rather than the command every selected scope runs.
-      isDelegate = true;
-      index += 2;
-    } else if (token === '-R' || token === '--recursive') {
-      isDelegate = true;
-      index += 1;
-    } else if (token.startsWith('-')) {
-      index += 1;
-    } else {
-      return { command: token, isDelegate };
+      case '-F':
+      case '--filter':
+        isDelegate = true;
+        index += 2;
+        break;
+      case '-R':
+      case '--recursive':
+        isDelegate = true;
+        index += 1;
+        break;
+      case '-w':
+      case '--workspace-root':
+        isWorkspaceRoot = true;
+        index += 1;
+        break;
+      default:
+        if (!token.startsWith('-')) {
+          return { command: token, isDelegate, isWorkspaceRoot };
+        }
+        index += 1;
     }
   }
 

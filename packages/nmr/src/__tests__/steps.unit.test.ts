@@ -118,13 +118,34 @@ describe(findUnexpressibleToken, () => {
 
 describe(readNmrStep, () => {
   it.each([
-    { argv: ['nmr', 'fmt:check'], expected: { command: 'fmt:check', isDelegate: false }, scenario: 'a bare command' },
-    { argv: ['nmr', '-w', 'test'], expected: { command: 'test', isDelegate: false }, scenario: 'a -w element' },
-    { argv: ['nmr', '-q', 'build'], expected: { command: 'build', isDelegate: false }, scenario: 'a flag it carries' },
-    { argv: ['nmr', '-R', 'test'], expected: { command: 'test', isDelegate: true }, scenario: 'a -R delegate' },
+    {
+      argv: ['nmr', 'fmt:check'],
+      expected: { command: 'fmt:check', isDelegate: false, isWorkspaceRoot: false },
+      scenario: 'a bare command',
+    },
+    {
+      argv: ['nmr', '-w', 'test'],
+      expected: { command: 'test', isDelegate: false, isWorkspaceRoot: true },
+      scenario: 'a -w element, which anchors at the monorepo root',
+    },
+    {
+      argv: ['nmr', '--workspace-root', 'test'],
+      expected: { command: 'test', isDelegate: false, isWorkspaceRoot: true },
+      scenario: 'the long form of -w',
+    },
+    {
+      argv: ['nmr', '-q', 'build'],
+      expected: { command: 'build', isDelegate: false, isWorkspaceRoot: false },
+      scenario: 'a flag it carries',
+    },
+    {
+      argv: ['nmr', '-R', 'test'],
+      expected: { command: 'test', isDelegate: true, isWorkspaceRoot: false },
+      scenario: 'a -R delegate',
+    },
     {
       argv: ['nmr', '--filter', 'core', 'test'],
-      expected: { command: 'test', isDelegate: true },
+      expected: { command: 'test', isDelegate: true, isWorkspaceRoot: false },
       scenario: 'a --filter delegate, past the pattern',
     },
   ])('reads the command behind $scenario', ({ argv, expected }) => {
@@ -147,6 +168,7 @@ describe(readNmrStep, () => {
     expect(readNmrStep(composeNmrStep('-R test:coverage', true))).toStrictEqual({
       command: 'test:coverage',
       isDelegate: true,
+      isWorkspaceRoot: true,
     });
   });
 });

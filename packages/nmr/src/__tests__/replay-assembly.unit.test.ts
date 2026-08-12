@@ -75,6 +75,24 @@ describe(assembleReplay, () => {
     await expect(assemble([composeNmrStep('-F a test', false)])).resolves.toStrictEqual([lineFor('test', 'a')]);
   });
 
+  // `-w` moves the child's anchor to the monorepo root, which is how a package-scoped composite reaches a
+  // root command.
+  it('reads a -w element at the monorepo root rather than at the composite’s own scope', async () => {
+    const packageDir = path.join(root, 'packages', 'a');
+    await record({ command: 'lint:check', scopeDir: root });
+    await record({ command: 'lint:check', scopeDir: packageDir });
+
+    const replay = await assembleReplay({
+      anchorDir: packageDir,
+      monorepoRoot: root,
+      runId: RUN_ID,
+      steps: [composeNmrStep('-w lint:check', false)],
+      treeHash: TREE_HASH,
+    });
+
+    expect(replay).toStrictEqual([lineFor('lint:check')]);
+  });
+
   it('leaves out an excerpt another run certified', async () => {
     await record({ command: 'test', runId: 'another-run', scopeDir: root });
 

@@ -13,6 +13,9 @@ import { getWorkspacePackageDirs } from './workspace.ts';
  * `check:strict` line. Nothing is computed and nothing is inferred: a constituent with no admissible entry is
  * absent from the assembly.
  *
+ * A constituent is looked up at the scope its own process anchors at: the composite's anchor, or the monorepo
+ * root for an element carrying `-w`, which is how a package-scoped composite reaches a root command.
+ *
  * An entry is admissible where the run that certified it is this one and the tree it describes is this one.
  * The witness is what a run stamps on an excerpt it records and on one it recalls and replays; the tree hash
  * is what bounds an identity a process carried out of the run that issued it.
@@ -32,7 +35,9 @@ export async function assembleReplay(options: {
       return [];
     }
 
-    const scopeDirs = target.isDelegate ? resolveDelegateScopes(monorepoRoot) : [anchorDir];
+    const scopeDirs = target.isDelegate
+      ? resolveDelegateScopes(monorepoRoot)
+      : [target.isWorkspaceRoot ? monorepoRoot : anchorDir];
 
     return scopeDirs.map((scopeDir) => ({ anchorDir: scopeDir, command: target.command, monorepoRoot }));
   });

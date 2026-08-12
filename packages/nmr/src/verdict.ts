@@ -128,8 +128,9 @@ function describeOutcome(verdict: Verdict): { icon: string; phrase: string } {
 /**
  * Renders a recalled pass's replay for the detail slot, or `undefined` when there is nothing to replay.
  *
- * A single excerpt drops its attribution, which the verdict's own scope and command already carry. Where
- * several scopes contributed, each excerpt keeps the attribution naming the one it came from.
+ * An excerpt the verdict's own scope and command already name drops its attribution, which is the leaf whose
+ * output the line is. Every other line keeps the attribution naming where it came from, so a composite
+ * replaying one constituent's excerpt does not present it as its own.
  */
 function renderReplay(verdict: Verdict): string | undefined {
   if (verdict.outcome !== 'recalled' || verdict.replay === undefined || verdict.replay.length === 0) {
@@ -137,7 +138,7 @@ function renderReplay(verdict: Verdict): string | undefined {
   }
 
   const [first] = verdict.replay;
-  if (verdict.replay.length === 1 && first !== undefined) {
+  if (verdict.replay.length === 1 && first?.command === verdict.command && first.scope === verdict.scope) {
     return `${REPLAY_MARKER} ${first.excerpt}`;
   }
 

@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { readCheckCacheEntry } from '../check-cache.ts';
 import { runCli } from '../runCli.ts';
@@ -18,13 +18,14 @@ describe('a composite’s assembled replay', () => {
   let repo: string;
   let scope: string;
 
-  beforeAll(() => {
+  // A fixture per test, so each one decides for itself which of the fixture's commands are already warm.
+  beforeEach(() => {
     repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-assembly-e2e-')));
     scope = path.basename(repo);
     scaffoldRepo(repo);
   });
 
-  afterAll(() => {
+  afterEach(() => {
     fs.rmSync(repo, { recursive: true, force: true });
   });
 
@@ -52,9 +53,26 @@ describe('a composite’s assembled replay', () => {
     expect(stdout).toContain(`replayed: ${scope}: typecheck: typecheck summary; ${scope}: lint:check: lint summary`);
   });
 
+  it('keeps a constituent that was already warm when the composite ran', async () => {
+    await runNmr(['-q', 'typecheck']);
+
+    const { stdout } = await runNmr(['-q', 'check']);
+
+    // The warm constituent skipped and was certified by this run; the other ran in it.
+    expect(stdout).toContain(`⏭️ ${scope}: typecheck:`);
+    expect(stdout).toContain(`✅ ${scope}: lint:check:`);
+    await expect(readEntry('check')).resolves.toMatchObject({
+      retention: {
+        replay: [
+          { command: 'typecheck', excerpt: 'typecheck summary', scope },
+          { command: 'lint:check', excerpt: 'lint summary', scope },
+        ],
+      },
+    });
+  });
+
   it('carries one identity to every scope, so the constituents’ entries name the run above them', async () => {
-    // Run rather than recalled, so the composite and its constituents record in the same run.
-    await runNmr(['--no-cache', '-q', 'check']);
+    await runNmr(['-q', 'check']);
 
     const [composite, constituent] = await Promise.all([readEntry('check'), readEntry('typecheck')]);
 
