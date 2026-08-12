@@ -26,6 +26,7 @@ export const workspaceScripts: ScriptRegistry = {
   lint: 'eslint --fix .',
   'lint:check': 'eslint .',
   'lint:strict': 'strict-lint',
+  'report-catalog': 'nmr-report-catalog',
   test: `pnpm exec vitest ${GATE_PROJECTS}`,
   'test:all': 'pnpm exec vitest',
   'test:coverage': `pnpm exec vitest ${GATE_PROJECTS} --coverage`,
@@ -33,8 +34,9 @@ export const workspaceScripts: ScriptRegistry = {
   'test:unit': 'pnpm exec vitest --project unit',
   'test:watch': `pnpm exec vitest ${GATE_PROJECTS} --watch`,
   typecheck: 'tsgo --noEmit',
-  // Without `--include-locked`, nothing would be reported in a repo that pins exact version numbers.
-  upgrade: 'nmr-taze --include-locked',
+  // Without `--include-locked`, nothing would be reported in a repo that pins exact version numbers. The
+  // command must be a string rather than a composite: Passthrough args attach to the chain's last command.
+  upgrade: 'nmr-report-catalog && nmr-taze --include-locked',
   'view-coverage': 'open coverage/index.html',
 };
 

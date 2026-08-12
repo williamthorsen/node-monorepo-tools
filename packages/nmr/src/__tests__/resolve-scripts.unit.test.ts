@@ -39,12 +39,39 @@ describe(getDefaultWorkspaceScripts, () => {
     });
   });
 
-  // Declares no override report either: `pnpm.overrides` is declared in the root `package.json` alone.
+  // Declares no override report: an override is declared at the monorepo root alone.
   it('upgrades the current package without recursing', () => {
     const scripts = getDefaultWorkspaceScripts();
 
-    expect(scripts['upgrade']).toBe('nmr-taze --include-locked');
+    expect(scripts['upgrade']).toBe('nmr-report-catalog && nmr-taze --include-locked');
     expect(scripts['report-overrides']).toBeUndefined();
+  });
+
+  it('reports the catalog before the upgrade report', () => {
+    const upgrade = getDefaultWorkspaceScripts()['upgrade'];
+    assert(typeof upgrade === 'string', 'Expected upgrade to be a chained command');
+
+    expect(upgrade.indexOf('report-catalog')).toBeLessThan(upgrade.indexOf('nmr-taze'));
+  });
+
+  it('chains only bins, so upgrade survives -w from a package cwd', () => {
+    const upgrade = getDefaultWorkspaceScripts()['upgrade'];
+    assert(typeof upgrade === 'string', 'Expected upgrade to be a chained command');
+
+    for (const step of upgrade.split('&&')) {
+      expect(step.trim()).not.toMatch(/^nmr\s/);
+    }
+  });
+
+  it('ends the upgrade chain with the upgrade tool so passthrough args reach it', () => {
+    const upgrade = getDefaultWorkspaceScripts()['upgrade'];
+    assert(typeof upgrade === 'string', 'Expected upgrade to be a chained command');
+
+    expect(upgrade.split('&&').at(-1)?.trim()).toBe('nmr-taze --include-locked');
+  });
+
+  it('exposes the catalog report as a command of its own', () => {
+    expect(getDefaultWorkspaceScripts()['report-catalog']).toBe('nmr-report-catalog');
   });
 });
 

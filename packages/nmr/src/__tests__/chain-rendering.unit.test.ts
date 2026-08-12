@@ -67,6 +67,10 @@ const WORKSPACE_CHAINS: readonly ChainRow[] = [
     chain: 'strict-lint',
   },
   {
+    command: 'report-catalog',
+    chain: 'nmr-report-catalog',
+  },
+  {
     command: 'test',
     chain: 'pnpm exec vitest --project unit --project tool',
   },
@@ -96,7 +100,7 @@ const WORKSPACE_CHAINS: readonly ChainRow[] = [
   },
   {
     command: 'upgrade',
-    chain: 'nmr-taze --include-locked',
+    chain: 'nmr-report-catalog && nmr-taze --include-locked',
   },
   {
     command: 'view-coverage',
