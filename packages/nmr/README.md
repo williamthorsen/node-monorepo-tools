@@ -321,7 +321,7 @@ $ nmr test
 ⏭️ nmr: test: passed 2m ago on this tree, saved ~12s — replayed: Test Files 6 passed (6) Tests 41 passed (41)
 ```
 
-The excerpt is the last blank-line-delimited block of what the command wrote, which is the closing statement a tool separates from its progress output. It is flattened onto one line, with escape sequences stripped and table rules dropped. Nothing is parsed and no figure is computed: nmr replays bytes it recorded.
+The excerpt is the last blank-line-delimited block of what the command wrote, which is the closing statement a tool separates from its progress output. It is flattened onto one line, with escape sequences stripped, table rules dropped, and a redrawn progress line reduced to what a reader was left looking at. Nothing is parsed and no figure is computed: nmr replays bytes it recorded. A block wider than a few kilobytes is cut and marked with `…`, so a command whose closing statement is one long line cannot carry its whole output into the cache.
 
 It is written by the same operation that records the pass, so a pass declined because the tree moved or build output changed leaves no excerpt behind either, and `nmr clean` clears excerpts along with the passes they belong to.
 

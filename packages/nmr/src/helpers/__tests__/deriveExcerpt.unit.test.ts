@@ -66,6 +66,13 @@ describe(deriveExcerpt, () => {
     );
   });
 
+  it.each([
+    { form: 'semicolon-separated', setter: '\u{1B}[38;2;255;0;0m' },
+    { form: 'colon-separated', setter: '\u{1B}[38:2:255:0:0m' },
+  ])('strips a $form color escape, so a replayed line leaves no color behind', ({ setter }) => {
+    expect(deriveExcerpt(`progress\n\n${setter}2 failed\u{1B}[39m (2)\n`)).toBe('2 failed (2)');
+  });
+
   it('strips the escape sequences a command writes when it colors piped output', () => {
     const transcript = 'progress\n\n\u{1B}[32m\u{1B}[1m2 passed\u{1B}[22m\u{1B}[39m (2)\n';
 
@@ -80,7 +87,25 @@ describe(deriveExcerpt, () => {
     expect(deriveExcerpt('banner\n\nthe summary\n\n\n')).toBe('the summary');
   });
 
-  it('given a carriage-returned progress line, keeps the block it belongs to on one line', () => {
-    expect(deriveExcerpt('banner\n\nchecking...\rdone in 4s\n')).toBe('checking... done in 4s');
+  it('given a redrawn progress line, keeps what a reader was left looking at', () => {
+    expect(deriveExcerpt('banner\n\nchecking 1/9\rchecking 9/9\rdone in 4s\n')).toBe('done in 4s');
+  });
+
+  it('keeps a line ending in a carriage return, which a terminal still shows', () => {
+    expect(deriveExcerpt('banner\n\nall good\r\n')).toBe('all good');
+  });
+
+  it('cuts an excerpt that would overrun the byte bound, marking the cut', () => {
+    const excerpt = deriveExcerpt(`banner\n\n${'x'.repeat(200_000)}\n`);
+
+    expect(Buffer.byteLength(excerpt ?? '')).toBeLessThanOrEqual(2_048);
+    expect(excerpt).toMatch(/…$/u);
+  });
+
+  it('cuts between code points, so a multi-byte character is never stored in halves', () => {
+    const excerpt = deriveExcerpt(`banner\n\n${'⏭'.repeat(2_000)}\n`) ?? '';
+
+    expect(excerpt).toBe(Buffer.from(excerpt).toString('utf8'));
+    expect(Buffer.byteLength(excerpt)).toBeLessThanOrEqual(2_048);
   });
 });

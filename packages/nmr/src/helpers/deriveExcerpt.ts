@@ -8,11 +8,29 @@
 const MAX_BLOCK_LINES = 8;
 
 /**
+ * The bound on the line this returns, and so on what a caller persists beside a recorded pass.
+ *
+ * The line cap bounds how many lines the reduction keeps, not how long one of them is: a tool whose closing
+ * block is a single long line -- a one-line JSON report, a wide table the whitespace fold collapses -- would
+ * otherwise carry the whole retained tail into whatever stores it, to show at most a verdict line's worth.
+ * Generous enough to leave every summary measured here untouched.
+ */
+const MAX_EXCERPT_BYTES = 2_048;
+
+/**
  * Matches the escape sequences a command writes when it colors output it is not sending to a terminal: a
  * control sequence, and an operating-system command such as the one a hyperlink is wrapped in.
+ *
+ * The parameter, intermediate, and final byte ranges are ECMA-48's own, so the colon-separated form of a
+ * 24-bit color is matched alongside the semicolon-separated one. Admitting only the commoner form would strip
+ * a reset while leaving the setter that precedes it, and a replayed line would color the terminal for good.
  */
-// eslint-disable-next-line no-control-regex -- an escape sequence is defined by the control characters composing it.
-const ANSI_PATTERN = /\u{1B}(?:\[[\d;?]*[\u{20}-\u{2F}]*[\u{40}-\u{7E}]|\][^\u{7}\u{1B}]*(?:\u{7}|\u{1B}\\))/gu;
+const ANSI_PATTERN =
+  // eslint-disable-next-line no-control-regex -- an escape sequence is defined by the control characters composing it.
+  /\u{1B}(?:\[[\u{30}-\u{3F}]*[\u{20}-\u{2F}]*[\u{40}-\u{7E}]|\][^\u{7}\u{1B}]*(?:\u{7}|\u{1B}\\))/gu;
+
+/** Marks a line that was cut, so a reader can tell a truncated excerpt from a complete one. */
+const TRUNCATION_MARK = '…';
 
 /** A character no horizontal rule is drawn from, so a line holding one is carrying content. */
 const NON_RULE_CHARACTER = /[^-=_~*+.|:#]/u;
@@ -24,11 +42,15 @@ const NON_RULE_CHARACTER = /[^-=_~*+.|:#]/u;
  * statement with a blank line, so the blank line is the tool naming where its summary starts. A fixed count of
  * trailing lines fits vitest's four-line summary and v8's six-line coverage summary only by coincidence.
  *
- * The 512-byte ceiling a verdict line is held to is not applied here, which leaves the line's grammar and its
- * clamp with the module that owns them.
+ * The line carries a byte bound of its own, so what a caller persists is bounded. The 512-byte ceiling a
+ * verdict line is held to is not applied here, which leaves that line's grammar and its clamp with the module
+ * that owns them.
  */
 export function deriveExcerpt(transcript: string): string | undefined {
-  const lines = transcript.replaceAll(ANSI_PATTERN, '').split(/\r?\n/u);
+  const lines = transcript
+    .replaceAll(ANSI_PATTERN, '')
+    .split('\n')
+    .map((line) => renderCarriageReturns(line));
 
   let end = lines.length;
   while (end > 0 && isBlank(lines[end - 1])) {
@@ -48,10 +70,34 @@ export function deriveExcerpt(transcript: string): string | undefined {
     .replaceAll(/\s+/gu, ' ')
     .trim();
 
-  return excerpt === '' ? undefined : excerpt;
+  return excerpt === '' ? undefined : clampToBytes(excerpt);
 }
 
 // region | Helpers
+
+/**
+ * Cuts a line that would overrun the byte bound, marking the cut.
+ *
+ * Cuts between code points rather than between bytes, so a multi-byte character is never stored in halves.
+ */
+function clampToBytes(line: string): string {
+  if (Buffer.byteLength(line) <= MAX_EXCERPT_BYTES) {
+    return line;
+  }
+
+  const budget = MAX_EXCERPT_BYTES - Buffer.byteLength(TRUNCATION_MARK);
+  let kept = '';
+  let bytes = 0;
+
+  for (const character of line) {
+    const size = Buffer.byteLength(character);
+    if (bytes + size > budget) break;
+    kept += character;
+    bytes += size;
+  }
+
+  return `${kept}${TRUNCATION_MARK}`;
+}
 
 /** Reports whether a line holds nothing but whitespace, which is what delimits one block from the next. */
 function isBlank(line: string | undefined): boolean {
@@ -66,6 +112,23 @@ function isRuleOnly(line: string): boolean {
   const content = line.replaceAll(/\s/gu, '');
 
   return content !== '' && !NON_RULE_CHARACTER.test(content);
+}
+
+/**
+ * Reduces a line a tool redrew to what a reader was left looking at: the last segment a carriage return moved
+ * the cursor back for. Every earlier segment was overwritten, and joining them would replay text no one saw.
+ *
+ * A segment carrying nothing leaves the one before it standing, so a line ending in a carriage return keeps
+ * its text rather than reading as blank and splitting the block it belongs to.
+ */
+function renderCarriageReturns(line: string): string {
+  if (!line.includes('\r')) {
+    return line;
+  }
+
+  const segments = line.split('\r').filter((segment) => segment.trim() !== '');
+
+  return segments.at(-1) ?? '';
 }
 
 // endregion | Helpers
