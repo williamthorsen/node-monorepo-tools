@@ -44,7 +44,7 @@ function rejectLegacyOverrides(monorepoRoot: string): void {
 
   throw new UserError(
     [
-      'pnpm 11 reads no `pnpm.overrides` from package.json, so these pin nothing while `nmr upgrade --write` goes on rewriting them:',
+      'pnpm 11 reads no `pnpm.overrides` from package.json, so these pin nothing while an upgrade run with `--write` goes on rewriting them:',
       ...legacy.map(([name, version]) => `- ${name} → ${version}`),
       'Move them to the `overrides` block in pnpm-workspace.yaml, quoting each version, or run `pnpx codemod run pnpm-v10-to-v11`.',
     ].join('\n'),

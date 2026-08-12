@@ -224,7 +224,7 @@ const ROOT_CHAINS: readonly ChainRow[] = [
   },
   {
     command: 'root:upgrade',
-    chain: 'nmr-taze --include-locked',
+    chain: 'nmr-report-overrides && nmr-taze --include-locked',
   },
   {
     command: 'test',

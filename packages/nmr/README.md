@@ -384,9 +384,9 @@ export default defineConfig({
 
 A [pnpm catalog](https://pnpm.io/catalogs) is declared in `pnpm-workspace.yaml`, and the upgrade tool reads that file only when it sits at the working directory, irrespective of `--recursive`, which is why `root:upgrade` covers every catalog too. A package-scoped invocation therefore cannot see a dependency the catalog declares, and a package whose dependencies are all catalogued would otherwise report itself up to date. It runs [`report-catalog`](#report-catalog) first instead, which names each catalogued dependency and the root a covering pass runs from.
 
-`nmr upgrade` from the root precedes its report with any active override, which pnpm declares in `pnpm-workspace.yaml`; `nmr root:upgrade` does not. An override pins a transitive dependency, so an upgrade masked by one never appears in the report.
+Both root-scoped invocations precede their report with any active override, which pnpm declares in `pnpm-workspace.yaml`. An override pins a transitive dependency, so an upgrade masked by one never appears in the report.
 
-A `pnpm.overrides` block left in the root `package.json` fails the command instead. pnpm reads no setting from that field as of pnpm 11, so the block pins nothing, while the upgrade tool keeps its own list of dependency fields and goes on rewriting the versions in it under `--write` — a block that looks maintained and governs nothing. Failing is what keeps that write from happening. nmr supports pnpm 11 and later.
+A `pnpm.overrides` block left in the root `package.json` fails the command instead. pnpm reads no setting from that field as of pnpm 11, so the block pins nothing, while the upgrade tool keeps its own list of dependency fields and goes on rewriting the versions in it under `--write` — a block that looks maintained and governs nothing. Failing ahead of the tool is what keeps that write from happening, on `root:upgrade` as much as on `upgrade`. nmr supports pnpm 11 and later.
 
 The upgrade tool ([taze](https://github.com/antfu-collective/taze)) arrives with nmr, so your repo declares no dependency on it. Everything after the command name is passed through, including the range mode:
 
@@ -580,7 +580,7 @@ These scripts operate on root-level code only (not workspace packages):
 | `root:test:tool`   | `vitest --config ./vitest.root.config.ts --project tool`                |
 | `root:test:unit`   | `vitest --config ./vitest.root.config.ts --project unit`                |
 | `root:typecheck`   | `tsgo --noEmit`                                                         |
-| `root:upgrade`     | `nmr-taze --include-locked`                                             |
+| `root:upgrade`     | `nmr-report-overrides && nmr-taze --include-locked`                     |
 
 #### Utilities
 
@@ -723,7 +723,7 @@ nmr-fmt --write packages/nmr
 
 ### `nmr-taze`
 
-Run the [taze](https://github.com/antfu-collective/taze) dependency-upgrade tool, forwarding every argument to it untouched. This is what `root:upgrade` resolves to, and what both `upgrade` chains end with — see [dependency upgrades](#dependency-upgrades) for the workflow.
+Run the [taze](https://github.com/antfu-collective/taze) dependency-upgrade tool, forwarding every argument to it untouched. This is what every `upgrade` chain ends with, `root:upgrade` included — see [dependency upgrades](#dependency-upgrades) for the workflow.
 
 Under pnpm's isolated `node_modules`, a transitive package's binary is absent from the consuming repo's `node_modules/.bin`, so a repo that depends on nmr cannot run `taze` directly. `nmr-taze` can, because nmr is a direct dependency, and it resolves the tool from the tree nmr controls.
 
