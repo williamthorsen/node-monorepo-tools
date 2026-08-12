@@ -225,7 +225,7 @@ Every command nmr runs reports one line naming the scope it ran at, the command,
 
 The scope is the directory the command's registry belongs to: a package's own directory, or the monorepo root. Durations and ages truncate and carry at most two units, so a check that passed 90 seconds ago reports `1m 30s ago` and never `2m ago`.
 
-Verdicts nest. A composite reports, and so does every command it expands into; a `:pre` or `:post` hook reports nothing of its own, since the command it wraps already reports for the chain, though a hook that delegates to a named command reports under that name. A `-R` or `-F` invocation reports nothing either, every scope it fans out to reporting instead. A cold repo-wide `nmr ci` in this package's own monorepo spends 25 lines on the whole tree.
+Verdicts nest. A composite reports, and so does every command it expands into; a `:pre` or `:post` hook reports nothing of its own, since the command it wraps already reports for the chain, though a hook that delegates to a named command reports under that name. A `-R` or `-F` invocation reports nothing either, every scope it fans out to reporting instead. A cold repo-wide `nmr ci` in this package's own monorepo spends 26 lines on a run that prints roughly 250.
 
 A verdict is one write of at most 512 bytes, the smallest `PIPE_BUF` POSIX permits, so packages running concurrently under `pnpm --recursive` cannot interleave within a line. A line longer than that is cut and marked with `…`; nothing nmr reports today comes near it.
 
