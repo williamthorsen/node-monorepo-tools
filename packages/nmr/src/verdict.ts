@@ -1,5 +1,6 @@
 import type { Writable } from 'node:stream';
 
+import type { ReplayLine } from './check-cache.ts';
 import { formatDuration, formatSaving } from './helpers/duration.ts';
 
 /**
@@ -26,11 +27,14 @@ export type Verdict = { command: string; scope: string } & VerdictOutcome;
 /**
  * How a command ended, together with the facts that ending carries and no other does, and the trailing detail
  * a line reserves room for.
+ *
+ * A recalled pass carries the excerpts it replays rather than a composed detail string, so the marker naming
+ * them a recording, and the ceiling they are held to, stay with the module that owns the line's grammar.
  */
 export type VerdictOutcome = { detail?: string } & (
   | { outcome: 'passed'; durationMs: number }
   | { outcome: 'failed'; durationMs: number; exitCode: number }
-  | { outcome: 'recalled'; ageMs: number; savedMs: number }
+  | { outcome: 'recalled'; ageMs: number; savedMs: number; replay?: ReplayLine[] }
   | { outcome: 'no-op'; reason: 'empty-override' | 'noop-override' }
 );
 
@@ -43,7 +47,7 @@ export type VerdictOutcome = { detail?: string } & (
  */
 export function renderVerdict(verdict: Verdict): string {
   const { icon, phrase } = describeOutcome(verdict);
-  const detail = verdict.detail === undefined ? '' : flattenDetail(verdict.detail);
+  const detail = flattenDetail(verdict.detail ?? renderReplay(verdict) ?? '');
   const detailClause = detail === '' ? '' : ` — ${detail}`;
 
   return clampToLimit(`${icon} ${verdict.scope}: ${verdict.command}: ${phrase}${detailClause}`);
@@ -61,6 +65,9 @@ export function writeVerdict(verdict: Verdict, stream: Writable): void {
 
 /** How much of the ceiling the newline `writeVerdict` appends spends. */
 const NEWLINE_BYTES = 1;
+
+/** Marks the detail as a recording of an earlier run rather than as what this invocation produced. */
+const REPLAY_MARKER = 'replayed:';
 
 /** Marks a line that was cut, so a reader can tell a truncated verdict from a complete one. */
 const TRUNCATION_MARK = '…';
@@ -116,6 +123,27 @@ function describeOutcome(verdict: Verdict): { icon: string; phrase: string } {
       throw new Error(`Unhandled verdict outcome: ${JSON.stringify(unhandled)}`);
     }
   }
+}
+
+/**
+ * Renders a recalled pass's replay for the detail slot, or `undefined` when there is nothing to replay.
+ *
+ * A single excerpt drops its attribution, which the verdict's own scope and command already carry. Where
+ * several scopes contributed, each excerpt keeps the attribution naming the one it came from.
+ */
+function renderReplay(verdict: Verdict): string | undefined {
+  if (verdict.outcome !== 'recalled' || verdict.replay === undefined || verdict.replay.length === 0) {
+    return undefined;
+  }
+
+  const [first] = verdict.replay;
+  if (verdict.replay.length === 1 && first !== undefined) {
+    return `${REPLAY_MARKER} ${first.excerpt}`;
+  }
+
+  const lines = verdict.replay.map((line) => `${line.scope}: ${line.command}: ${line.excerpt}`);
+
+  return `${REPLAY_MARKER} ${lines.join('; ')}`;
 }
 
 /**

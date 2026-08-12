@@ -83,11 +83,18 @@ function createRedirectedStream() {
   return Object.assign(new PassThrough(), { fd: 1 });
 }
 
+/** What one step of a stubbed sequence writes before it exits. */
+interface StepOutput {
+  stderr?: string;
+  stdout?: string;
+}
+
 /**
- * Installs a spawn mock that ends each child as soon as it is created, taking each exit code from the queue in
- * turn, so a step list runs to completion without the test driving every child by hand.
+ * Installs a spawn mock that ends each child as soon as it is created, taking each exit code and each step's
+ * output from the queues in turn, so a step list runs to completion without the test driving every child by
+ * hand.
  */
-function stubSequence(exitCodes: readonly number[]): void {
+function stubSequence(exitCodes: readonly number[], outputs: readonly StepOutput[] = []): void {
   let index = 0;
 
   mockedSpawn.mockImplementation((_file, _args, options) => {
@@ -98,8 +105,11 @@ function stubSequence(exitCodes: readonly number[]): void {
       stderr: stdio[2] === 'pipe' ? new PassThrough() : null,
     });
     const exitCode = exitCodes[index] ?? 0;
+    const output = outputs[index] ?? {};
     index++;
     setImmediate(() => {
+      if (output.stdout !== undefined) fake.stdout?.write(output.stdout);
+      if (output.stderr !== undefined) fake.stderr?.write(output.stderr);
       void endChild(fake, exitCode);
     });
     // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- the runner reads only stdout, stderr, and the event methods, so the fake models those alone.
@@ -501,7 +511,7 @@ describe(runSteps, () => {
         stdout: new PassThrough(),
       });
 
-      expect(result).toStrictEqual({ exitCode: 0 });
+      expect(result.exitCode).toBe(0);
       expect(mockedSpawn).toHaveBeenCalledTimes(3);
     });
 
@@ -513,7 +523,7 @@ describe(runSteps, () => {
         stdout: new PassThrough(),
       });
 
-      expect(result).toStrictEqual({ exitCode: 2 });
+      expect(result.exitCode).toBe(2);
       expect(mockedSpawn).toHaveBeenCalledTimes(2);
     });
 
@@ -598,6 +608,111 @@ describe(runSteps, () => {
     });
   });
 
+  describe('retention', () => {
+    it('carries back what an opaque step wrote, each stream apart from the other', async () => {
+      stubSequence([0], [{ stderr: 'a warning\n', stdout: 'a summary\n' }]);
+
+      const result = await runSteps([OPAQUE_STEP], undefined, {
+        stderr: new PassThrough(),
+        stdout: new PassThrough(),
+      });
+
+      expect(result.retained?.stdout.toString('utf8')).toBe('a summary\n');
+      expect(result.retained?.stderr.toString('utf8')).toBe('a warning\n');
+    });
+
+    it('concatenates several opaque steps per stream in declaration order', async () => {
+      stubSequence([0, 0], [{ stdout: 'first\n' }, { stdout: 'second\n' }]);
+
+      const result = await runSteps([OPAQUE_STEP, { kind: 'opaque', command: 'vitest' }], undefined, {
+        stderr: new PassThrough(),
+        stdout: new PassThrough(),
+      });
+
+      expect(result.retained?.stdout.toString('utf8')).toBe('first\nsecond\n');
+    });
+
+    // A composite hands its descriptors to the nmr processes below it, and a destination carrying none makes
+    // those steps piped like any other, so the kind is the only thing that separates them.
+    it('given a list of structural steps alone, retains nothing even though they ran on pipes', async () => {
+      stubSequence([0, 0], [{ stdout: 'a constituent verdict\n' }, { stdout: 'another verdict\n' }]);
+
+      const result = await runSteps([STRUCTURAL_STEP, STRUCTURAL_STEP], undefined, {
+        stderr: new PassThrough(),
+        stdout: new PassThrough(),
+      });
+
+      expect(result.retained).toBeUndefined();
+    });
+
+    it('given hooks wrapped around the command, retains the command output alone', async () => {
+      stubSequence([0, 0, 0], [{ stdout: 'before\n' }, { stdout: 'the command\n' }, { stdout: 'after\n' }]);
+
+      const result = await runSteps(
+        [
+          { kind: 'structural', argv: ['nmr', 'check:pre'] },
+          OPAQUE_STEP,
+          { kind: 'structural', argv: ['nmr', 'check:post'] },
+        ],
+        undefined,
+        { stderr: new PassThrough(), stdout: new PassThrough() },
+      );
+
+      expect(result.retained?.stdout.toString('utf8')).toBe('the command\n');
+    });
+
+    it('given a stream handed to the child as a descriptor, retains nothing', async () => {
+      stubSequence([0], [{ stdout: 'a summary\n' }]);
+
+      const result = await runSteps([OPAQUE_STEP], undefined, {
+        stderr: createTerminalStream(),
+        stdout: createTerminalStream(),
+      });
+
+      expect(result.retained).toBeUndefined();
+    });
+
+    it('given one opaque step captured and another handed a descriptor, retains nothing', async () => {
+      let call = 0;
+      mockedSpawn.mockImplementation((_file, _args, options) => {
+        const stdio = Array.isArray(options.stdio) ? options.stdio : [];
+        // The second step is the one whose stderr goes to a descriptor, which is a capture short of both streams.
+        const isPartial = call === 1;
+        call++;
+        // eslint-disable-next-line unicorn/prefer-event-target -- the runner attaches EventEmitter listeners to the child.
+        const fake = Object.assign(new EventEmitter(), {
+          stdout: stdio[1] === 'pipe' ? new PassThrough() : null,
+          stderr: isPartial || stdio[2] !== 'pipe' ? null : new PassThrough(),
+        });
+        setImmediate(() => {
+          fake.stdout?.write('a summary\n');
+          void endChild(fake, 0);
+        });
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- the runner reads only stdout, stderr, and the event methods, so the fake models those alone.
+        return fake as unknown as ReturnType<typeof spawn>;
+      });
+
+      const result = await runSteps([OPAQUE_STEP, { kind: 'opaque', command: 'vitest' }], undefined, {
+        stderr: new PassThrough(),
+        stdout: new PassThrough(),
+      });
+
+      expect(result.retained).toBeUndefined();
+    });
+
+    it('given a failing step, still carries back what ran', async () => {
+      stubSequence([1], [{ stdout: 'the failure\n' }]);
+
+      const result = await runSteps([OPAQUE_STEP], undefined, {
+        stderr: new PassThrough(),
+        stdout: new PassThrough(),
+      });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.retained?.stdout.toString('utf8')).toBe('the failure\n');
+    });
+  });
+
   describe('quiet mode', () => {
     // Each process suppresses the output of the command it runs, never of the subtree beneath it: the nmr
     // process a structural step spawns does its own withholding, so this one forwards whatever reaches it.
@@ -657,7 +772,7 @@ describe(runSteps, () => {
       });
       await flushEventLoop();
 
-      expect(result).toStrictEqual({ exitCode: 1 });
+      expect(result.exitCode).toBe(1);
       expect(reported().toString('utf8')).toBe('second step failure\n');
     });
   });

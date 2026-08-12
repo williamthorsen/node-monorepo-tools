@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { CheckCacheEntry, TreeSnapshot } from '../check-cache.ts';
 import {
   computeCacheKey,
+  computeRetentionKey,
   DEFAULT_CACHEABLE_COMMANDS,
   findStaleBuildOutput,
   formatMisplacedNoCacheWarning,
@@ -138,6 +139,67 @@ describe('check-cache', () => {
     });
   });
 
+  describe(computeRetentionKey, () => {
+    it('agrees with itself on unchanged inputs', () => {
+      expect(retentionKeyOf()).toBe(retentionKeyOf());
+    });
+
+    it.each([
+      ['CI', { env: { CI: '1' } }],
+      ['COLUMNS', { env: { COLUMNS: '80' } }],
+      ['FORCE_COLOR', { env: { FORCE_COLOR: '3' } }],
+      ['NO_COLOR', { env: { NO_COLOR: '1' } }],
+      ['TERM', { env: { TERM: 'dumb' } }],
+    ])('moves when %s changes', (_label, overrides) => {
+      expect(retentionKeyOf(overrides)).not.toBe(retentionKeyOf());
+    });
+
+    it.each([
+      ['stdout', { channels: { stderr: 'pipe', stdout: 1 } }],
+      ['stderr', { channels: { stderr: 2, stdout: 'pipe' } }],
+    ] as const)('moves when the channel %s ran on changes', (_label, overrides) => {
+      expect(retentionKeyOf(overrides)).not.toBe(retentionKeyOf());
+    });
+
+    // The number names which terminal a command wrote to, not whether what it wrote was a transcript.
+    it('ignores which descriptor a stream ran on', () => {
+      expect(retentionKeyOf({ channels: { stderr: 2, stdout: 1 } })).toBe(
+        retentionKeyOf({ channels: { stderr: 9, stdout: 8 } }),
+      );
+    });
+
+    it('moves when the pass it certifies moves', () => {
+      expect(retentionKeyOf({ passKey: 'another-pass' })).not.toBe(retentionKeyOf());
+    });
+
+    it('separates an unset environment variable from one set to the empty string', () => {
+      expect(retentionKeyOf({ env: { TERM: '' } })).not.toBe(retentionKeyOf({ env: {} }));
+    });
+
+    it('ignores an environment variable outside the fixed set', () => {
+      expect(retentionKeyOf({ env: { EDITOR: 'vim' } })).toBe(retentionKeyOf());
+    });
+
+    describe('against the pass key', () => {
+      beforeEach(() => {
+        writeInstallFingerprint(root);
+      });
+
+      it('given a presentation variable, moves while the pass key stands', () => {
+        const passKey = keyOf(root, { env: { COLUMNS: '80' } });
+
+        expect(passKey).toBe(keyOf(root));
+        expect(retentionKeyOf({ env: { COLUMNS: '80' }, passKey })).not.toBe(retentionKeyOf({ passKey }));
+      });
+
+      it('given a channel kind, moves while the pass key stands', () => {
+        expect(retentionKeyOf({ channels: { stderr: 2, stdout: 1 }, passKey: keyOf(root) })).not.toBe(
+          retentionKeyOf({ passKey: keyOf(root) }),
+        );
+      });
+    });
+  });
+
   describe('recorded entries', () => {
     it('reads back what it recorded', async () => {
       const entry = makeEntry();
@@ -189,6 +251,41 @@ describe('check-cache', () => {
 
       const entry = await readCheckCacheEntry({ monorepoRoot: root, anchorDir: packageDir, command: 'check' });
       expect(entry?.key).toBe('package-key');
+    });
+
+    it('reads back the retention recorded beside a pass', async () => {
+      const entry = makeEntry({
+        retention: { key: 'a-retention-key', replay: [{ command: 'test', excerpt: '27 passed', scope: 'nmr' }] },
+      });
+      await writeCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'test', entry });
+
+      await expect(
+        readCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'test' }),
+      ).resolves.toStrictEqual(entry);
+    });
+
+    it('reads an entry recorded before retention existed as a pass carrying nothing to replay', async () => {
+      await writeCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci', entry: makeEntry() });
+
+      const entry = await readCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci' });
+
+      expect(entry?.key).toBe('a-key');
+      expect(entry?.retention).toBeUndefined();
+    });
+
+    it.each([
+      ['retention with no key', { replay: [] }],
+      ['a replay that is not a list', { key: 'a-retention-key', replay: 'summary' }],
+      ['a replay line missing its excerpt', { key: 'a-retention-key', replay: [{ command: 'test', scope: 'nmr' }] }],
+    ])('reads an entry claiming %s as a pass carrying nothing to replay', async (_label, retention) => {
+      // What a skip would have replayed cannot decide whether the pass beneath it stands.
+      await writeCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci', entry: makeEntry() });
+      overwriteEntries(root, JSON.stringify({ ...makeEntry(), retention }));
+
+      const entry = await readCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci' });
+
+      expect(entry?.key).toBe('a-key');
+      expect(entry?.retention).toBeUndefined();
     });
 
     it('reads an entry of the wrong shape as no entry', async () => {
@@ -370,6 +467,16 @@ function keyOptions(root: string): Parameters<typeof computeCacheKey>[0] {
     runtime: { arch: 'x64', nodeVersion: 'v24.0.0', platform: 'linux' },
     snapshot: SNAPSHOT,
   };
+}
+
+/** The baseline retention-key inputs each test varies one ingredient of. */
+function retentionKeyOf(overrides: Partial<Parameters<typeof computeRetentionKey>[0]> = {}): string {
+  return computeRetentionKey({
+    channels: { stderr: 'pipe', stdout: 'pipe' },
+    env: {},
+    passKey: 'a-pass-key',
+    ...overrides,
+  });
 }
 
 /** Builds a valid entry, so a test varies only the field it is about. */

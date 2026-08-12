@@ -20,6 +20,7 @@ import { isObject, isStringRecord } from './helpers/type-guards.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
 import { getDefaultWorkspaceScripts } from './resolve-scripts.ts';
 import { buildWorkspaceRegistry, resolveScript } from './resolver.ts';
+import type { OutputChannel, OutputChannels } from './runner.ts';
 import { renderChain } from './steps.ts';
 import type { CheckCacheConfig, NmrConfig } from './types.ts';
 import { getWorkspacePackageDirs } from './workspace.ts';
@@ -42,6 +43,26 @@ export interface CheckCacheEntry {
    * tree from output another tree left behind.
    */
   buildDigests: Record<string, string>;
+  /** What a skip replays in place of the run it recalls, absent on a pass that retained nothing. */
+  retention?: Retention;
+}
+
+/** One command's excerpt, attributed to the scope and the command that produced it. */
+export interface ReplayLine {
+  command: string;
+  excerpt: string;
+  scope: string;
+}
+
+/**
+ * What a recalled pass replays, and the key certifying the excerpts describe this environment's output.
+ *
+ * A list rather than one excerpt: a composite's entry carries its constituents' lines, and a nested one's are
+ * spliced into its parent's, where the attribution cannot be re-derived from the entry that holds them.
+ */
+export interface Retention {
+  key: string;
+  replay: ReplayLine[];
 }
 
 /** What nmr's own build has left on disk across the workspace. */
@@ -138,6 +159,16 @@ const KEY_FORMAT = 'nmr-check-cache-v1';
  */
 const KEYED_ENV_VARS = ['LANG', 'LC_ALL', 'NODE_OPTIONS', 'TZ'];
 
+/** Names the retention fold. Bump it to invalidate retained excerpts without invalidating a single pass. */
+const RETENTION_KEY_FORMAT = 'nmr-retention-v1';
+
+/**
+ * Environment variables a tool reads to decide how to present itself. They change what a transcript looks
+ * like without changing what the command concludes, so they belong to the retention key alone: a run under a
+ * different terminal width recalls the same pass and declines to replay its excerpt.
+ */
+const RETENTION_KEYED_ENV_VARS = ['CI', 'COLUMNS', 'FORCE_COLOR', 'NO_COLOR', 'TERM'];
+
 /** Characters a command name may contribute to a file name; every other character becomes a hyphen. */
 const UNSAFE_SLUG_CHARACTERS = /[^\w.-]+/g;
 
@@ -179,19 +210,31 @@ export function computeCacheKey(options: {
     fingerprint.fingerprint,
   ];
 
-  // Presence and value are folded separately, so an unset variable and one set to the empty string differ.
-  for (const name of KEYED_ENV_VARS) {
-    const value = options.env[name];
-    parts.push(name, value === undefined ? 'unset' : 'set', value ?? '');
-  }
+  return { ok: true, key: digestParts([...parts, ...composeEnvParts(KEYED_ENV_VARS, options.env)]) };
+}
 
-  const hash = createHash('sha256');
-  for (const part of parts) {
-    hash.update(part);
-    hash.update('\0');
-  }
+/**
+ * Folds what changes a transcript without changing a conclusion onto the pass key: the channel each of the
+ * command's output streams ran on, and the environment variables a tool presents itself through.
+ *
+ * Taking the pass key as an ingredient rather than recomputing its parts is what keeps the two from drifting
+ * apart. The channel kind is what keeps a run at a terminal from replaying a piped recording; folding in raw
+ * TTY-ness instead would be wrong under quiet mode, where the child sees pipes at a terminal and the
+ * transcript is reproducible.
+ */
+export function computeRetentionKey(options: {
+  channels: OutputChannels;
+  env: NodeJS.ProcessEnv;
+  passKey: string;
+}): string {
+  const parts = [
+    RETENTION_KEY_FORMAT,
+    options.passKey,
+    describeChannel(options.channels.stdout),
+    describeChannel(options.channels.stderr),
+  ];
 
-  return { ok: true, key: hash.digest('hex') };
+  return digestParts([...parts, ...composeEnvParts(RETENTION_KEYED_ENV_VARS, options.env)]);
 }
 
 /** Renders a snapshot for the environment of every process below this one. */
@@ -276,13 +319,26 @@ export async function readBuildOutputState(monorepoRoot: string, config: NmrConf
   return state;
 }
 
-/** Reads the entry recorded for one command at one scope, or `undefined` when there is none to trust. */
+/**
+ * Reads the entry recorded for one command at one scope, or `undefined` when there is none to trust.
+ *
+ * Retention is vouched for separately from the pass it rides on: an excerpt of a shape this cannot read is
+ * dropped, leaving a pass that skips cleanly and reports its verdict alone. Voiding the pass instead would
+ * cost a full run to avoid a line nobody would have printed.
+ */
 export async function readCheckCacheEntry(options: {
   anchorDir: string;
   command: string;
   monorepoRoot: string;
 }): Promise<CheckCacheEntry | undefined> {
-  return readJsonCacheEntry(resolveEntryPath(options), isCheckCacheEntry);
+  const parsed = await readJsonCacheEntry(resolveEntryPath(options), isParsedCheckCacheEntry);
+  if (parsed === undefined) {
+    return undefined;
+  }
+
+  const { retention, ...pass } = parsed;
+
+  return isRetention(retention) ? { ...pass, retention } : pass;
 }
 
 /** Removes every recorded pass for a monorepo, or for a standalone package outside one. */
@@ -367,6 +423,17 @@ export function writeDebugNote(message: string, env: NodeJS.ProcessEnv, stderr: 
 
 // region | Helpers
 
+/** A recorded pass as it parses, before the retention beside it has been vouched for. */
+type ParsedCheckCacheEntry = Omit<CheckCacheEntry, 'retention'> & { retention?: unknown };
+
+/** Renders each variable's presence and its value separately, so an unset variable and an empty one differ. */
+function composeEnvParts(names: readonly string[], env: NodeJS.ProcessEnv): string[] {
+  return names.flatMap((name) => {
+    const value = env[name];
+    return [name, value === undefined ? 'unset' : 'set', value ?? ''];
+  });
+}
+
 /** Reads a snapshot a parent process encoded, or `undefined` when the value is absent or malformed. */
 function decodeTreeSnapshot(encoded: string | undefined): TreeSnapshot | undefined {
   if (encoded === undefined) {
@@ -382,11 +449,33 @@ function decodeTreeSnapshot(encoded: string | undefined): TreeSnapshot | undefin
 }
 
 /**
+ * Names the kind of channel a stream ran on. The descriptor number is left out: it names which terminal a
+ * command wrote to, not whether what it wrote was a transcript.
+ */
+function describeChannel(channel: OutputChannel): string {
+  return channel === 'pipe' ? 'pipe' : 'descriptor';
+}
+
+/** Folds an ordered list of ingredients into one digest, delimiting them so two lists cannot collide. */
+function digestParts(parts: readonly string[]): string {
+  const hash = createHash('sha256');
+  for (const part of parts) {
+    hash.update(part);
+    hash.update('\0');
+  }
+
+  return hash.digest('hex');
+}
+
+/**
  * Narrows a parsed entry, so that one written by an older format reads as a miss rather than as a pass. The
  * timestamp has to parse and the duration has to be finite, because a recalled pass spends both on its verdict:
  * an entry that would render as `passed NaNs ago` is one no reader can act on.
+ *
+ * The retention an entry may carry is left unread here, so that what a skip replays cannot decide whether the
+ * pass beneath it stands.
  */
-function isCheckCacheEntry(value: unknown): value is CheckCacheEntry {
+function isParsedCheckCacheEntry(value: unknown): value is ParsedCheckCacheEntry {
   if (!isObject(value)) {
     return false;
   }
@@ -418,6 +507,26 @@ function isProbeSubject(packageDir: string, registry: ScriptRegistry): boolean {
   const compile = resolveScript('compile', registry, packageDir, false);
 
   return compile !== undefined && renderChain(compile.steps) === BUILT_IN_COMPILE;
+}
+
+/** Narrows a recorded replay line, whose three fields a rendered line spends in full. */
+function isReplayLine(value: unknown): value is ReplayLine {
+  return (
+    isObject(value) &&
+    typeof value['command'] === 'string' &&
+    typeof value['excerpt'] === 'string' &&
+    typeof value['scope'] === 'string'
+  );
+}
+
+/** Narrows recorded retention, so an entry claiming an excerpt it cannot produce reads as a miss. */
+function isRetention(value: unknown): value is Retention {
+  return (
+    isObject(value) &&
+    typeof value['key'] === 'string' &&
+    Array.isArray(value['replay']) &&
+    value['replay'].every((line) => isReplayLine(line))
+  );
 }
 
 /**

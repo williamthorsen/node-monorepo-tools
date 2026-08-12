@@ -7,6 +7,8 @@ import { PassThrough } from 'node:stream';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import type { CheckCacheEntry } from '../check-cache.ts';
+import { readCheckCacheEntry } from '../check-cache.ts';
 import { resolveBuildCachePath } from '../commands/build-output.ts';
 import { runCli } from '../runCli.ts';
 import { readAmbientEnv } from '../test-utils/readAmbientEnv.ts';
@@ -285,6 +287,122 @@ describe('the check-result cache gate', () => {
     });
   });
 
+  describe('retained output', () => {
+    it('records an excerpt of the run beside the pass it earned', async () => {
+      writeConfig(repo, log, { command: `echo ran >> ${log} && echo '27 passed (27)'` });
+
+      await runNmr(COMMAND, repo);
+
+      expect((await readEntry())?.retention?.replay).toStrictEqual([
+        { command: COMMAND, excerpt: '27 passed (27)', scope: path.basename(repo) },
+      ]);
+    });
+
+    it('records no retention for a command that printed nothing', async () => {
+      await runNmr(COMMAND, repo);
+
+      const entry = await readEntry();
+
+      expect(entry?.key).toBeDefined();
+      expect(entry?.retention).toBeUndefined();
+    });
+
+    it('draws the excerpt from stderr where stdout retained nothing', async () => {
+      writeConfig(repo, log, { command: `echo ran >> ${log} && echo '3 warnings' 1>&2` });
+
+      await runNmr(COMMAND, repo);
+
+      expect((await readEntry())?.retention?.replay).toStrictEqual([
+        { command: COMMAND, excerpt: '3 warnings', scope: path.basename(repo) },
+      ]);
+    });
+
+    it('draws the excerpt from the command rather than from a hook that ran after it', async () => {
+      const bin = writeNmrShim(workspace, log, 'the hook output');
+      writeConfig(repo, log, {
+        command: `echo ran >> ${log} && echo 'the command output'`,
+        extraRootScripts: { [`${COMMAND}:post`]: 'echo post' },
+      });
+
+      await runNmr(COMMAND, repo, { PATH: `${bin}${path.delimiter}${process.env['PATH'] ?? ''}` });
+
+      expect((await readEntry())?.retention?.replay).toStrictEqual([
+        { command: COMMAND, excerpt: 'the command output', scope: path.basename(repo) },
+      ]);
+    });
+
+    // A composite hands its descriptors to the nmr processes below it and retains nothing of its own, which is
+    // what keeps one verdict line reachable however far the tree beneath it fans out.
+    it('records no retention for a composite, whose steps report for themselves', async () => {
+      const bin = writeNmrShim(workspace, log, 'a constituent summary');
+      writeConfig(repo, log, { command: ['inner'] });
+
+      await runNmr(COMMAND, repo, { PATH: `${bin}${path.delimiter}${process.env['PATH'] ?? ''}` });
+
+      const entry = await readEntry();
+
+      expect(entry?.commandString).toBe('nmr inner');
+      expect(entry?.retention).toBeUndefined();
+    });
+
+    it('records a pass and no retention when the command wrote to a descriptor of its own', async () => {
+      const terminalPath = path.join(workspace, 'terminal.txt');
+      const terminalFd = fs.openSync(terminalPath, 'w');
+      writeConfig(repo, log, { command: `echo ran >> ${log} && echo '27 passed (27)'` });
+
+      try {
+        await runNmr(COMMAND, repo, {}, { terminalFd });
+      } finally {
+        fs.closeSync(terminalFd);
+      }
+
+      // The command wrote where nmr never saw it, so the pass stands and there is nothing to replay.
+      expect(fs.readFileSync(terminalPath, 'utf8')).toContain('27 passed (27)');
+      expect((await readEntry())?.key).toBeDefined();
+      expect((await readEntry())?.retention).toBeUndefined();
+    });
+
+    it('replays the excerpt on the skip line, marked as a recording', async () => {
+      writeConfig(repo, log, { command: `echo ran >> ${log} && echo '27 passed (27)'` });
+      await runNmr(COMMAND, repo);
+
+      const { stdout } = await runNmr(COMMAND, repo);
+
+      expect(runCount()).toBe(1);
+      expect(stdout).toContain('replayed: 27 passed (27)');
+    });
+
+    it('reports the verdict alone when the recording describes another presentation environment', async () => {
+      writeConfig(repo, log, { command: `echo ran >> ${log} && echo '27 passed (27)'` });
+      await runNmr(COMMAND, repo);
+
+      const { stdout } = await runNmr(COMMAND, repo, { COLUMNS: '80' });
+
+      // Still a pass on this tree; only the excerpt is another environment's.
+      expect(runCount()).toBe(1);
+      expect(stdout).toContain('on this tree');
+      expect(stdout).not.toContain('replayed:');
+    });
+
+    it('reports the verdict alone for a pass that retained nothing', async () => {
+      await runNmr(COMMAND, repo);
+
+      const { stdout } = await runNmr(COMMAND, repo);
+
+      expect(runCount()).toBe(1);
+      expect(stdout).toContain('on this tree');
+      expect(stdout).not.toContain('replayed:');
+    });
+
+    it('leaves no excerpt behind for a run whose pass was declined', async () => {
+      writeConfig(repo, log, { command: `echo ran >> ${log} && echo '27 passed (27)' && exit 3` });
+
+      await runNmr(COMMAND, repo);
+
+      await expect(readEntry()).resolves.toBeUndefined();
+    });
+  });
+
   describe('build output the tree hash cannot see', () => {
     it('runs again when a package’s build output has gone missing', async () => {
       // Output is git-ignored, so its removal moves no hash: only the probe stands between a deleted `dist`
@@ -422,12 +540,13 @@ describe('the check-result cache gate', () => {
     argString: string,
     cwd: string,
     extraEnv: Record<string, string> = {},
+    options: { terminalFd?: number } = {},
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
     const ambient = readAmbientEnv();
     const stdoutChunks: Buffer[] = [];
     const stderrChunks: Buffer[] = [];
-    const stdout = new PassThrough();
-    const stderr = new PassThrough();
+    const stdout = asDestination(new PassThrough(), options.terminalFd);
+    const stderr = asDestination(new PassThrough(), options.terminalFd);
     stdout.on('data', (chunk: Buffer) => {
       stdoutChunks.push(chunk);
     });
@@ -450,21 +569,35 @@ describe('the check-result cache gate', () => {
     };
   }
 
+  /** Reads the entry the fixture's runs record for the cacheable command at the repository root. */
+  async function readEntry(): Promise<CheckCacheEntry | undefined> {
+    return readCheckCacheEntry({ anchorDir: repo, command: COMMAND, monorepoRoot: repo });
+  }
+
   // endregion | Helpers
 });
 
 // region | Helpers
 
 /**
+ * Decorates a destination as a terminal on the given descriptor, so the runner hands the child that descriptor
+ * and nmr sees none of what flows through it. Left undecorated, the stream carries no descriptor and is piped.
+ */
+function asDestination(stream: PassThrough, terminalFd: number | undefined): PassThrough {
+  return terminalFd === undefined ? stream : Object.assign(stream, { fd: terminalFd, isTTY: true });
+}
+
+/**
  * Writes an executable named `nmr` that stands in for the real one, returning the directory to put on `PATH`.
  * A step leading with the `nmr` token has to spawn something that succeeds before a pass can be recorded, and
  * the installed binary is not reliably on the suite's `PATH`.
  */
-function writeNmrShim(workspace: string, log: string): string {
+function writeNmrShim(workspace: string, log: string, output?: string): string {
   const bin = path.join(workspace, 'bin');
   const shim = path.join(bin, 'nmr');
   fs.mkdirSync(bin, { recursive: true });
-  fs.writeFileSync(shim, `#!/bin/sh\necho ran >> ${log}\n`, { mode: 0o755 });
+  const echoOutput = output === undefined ? '' : `echo '${output}'\n`;
+  fs.writeFileSync(shim, `#!/bin/sh\necho ran >> ${log}\n${echoOutput}`, { mode: 0o755 });
   return bin;
 }
 
@@ -523,7 +656,7 @@ function writeConfig(
   log: string,
   options: {
     checkCache?: Record<string, unknown>;
-    command?: string;
+    command?: string | string[];
     devBin?: Record<string, string>;
     extraRootScripts?: Record<string, string | string[]>;
   } = {},

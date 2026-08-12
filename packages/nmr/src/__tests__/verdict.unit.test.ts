@@ -49,6 +49,83 @@ describe(renderVerdict, () => {
     expect(renderVerdict(verdict)).toBe('✅ nmr-core: test: passed in 12s — Test Files 6 passed (6)');
   });
 
+  describe('a replayed excerpt', () => {
+    it('marks the excerpt as a recording rather than as this run’s output', () => {
+      const verdict = makeVerdict({
+        outcome: 'recalled',
+        ageMs: 240_000,
+        savedMs: 12_000,
+        replay: [{ command: 'test', excerpt: 'Test Files 6 passed (6)', scope: 'nmr-core' }],
+      });
+
+      expect(renderVerdict(verdict)).toBe(
+        '⏭️ nmr-core: test: passed 4m ago on this tree, saved ~12s — replayed: Test Files 6 passed (6)',
+      );
+    });
+
+    it('drops the attribution of a lone excerpt, which the line already carries', () => {
+      const verdict = makeVerdict({
+        outcome: 'recalled',
+        ageMs: 240_000,
+        savedMs: 12_000,
+        replay: [{ command: 'test', excerpt: '6 passed', scope: 'nmr-core' }],
+      });
+
+      expect(renderVerdict(verdict)).not.toContain('nmr-core: test: 6 passed');
+    });
+
+    it('attributes each excerpt where several scopes contributed', () => {
+      const verdict = makeVerdict({
+        outcome: 'recalled',
+        ageMs: 240_000,
+        savedMs: 12_000,
+        replay: [
+          { command: 'test:unit', excerpt: '6 passed', scope: 'nmr-core' },
+          { command: 'test:unit', excerpt: '4 passed', scope: 'nmr' },
+        ],
+      });
+
+      expect(renderVerdict(verdict)).toBe(
+        '⏭️ nmr-core: test: passed 4m ago on this tree, saved ~12s — ' +
+          'replayed: nmr-core: test:unit: 6 passed; nmr: test:unit: 4 passed',
+      );
+    });
+
+    it.each([
+      { replay: undefined, scenario: 'a pass that retained nothing' },
+      { replay: [], scenario: 'a replay holding no excerpt' },
+    ])('reports the verdict alone for $scenario', ({ replay }) => {
+      const verdict = makeVerdict({ outcome: 'recalled', ageMs: 240_000, savedMs: 12_000, ...(replay && { replay }) });
+
+      expect(renderVerdict(verdict)).toBe('⏭️ nmr-core: test: passed 4m ago on this tree, saved ~12s');
+    });
+
+    it('collapses the line breaks an excerpt carries, so one verdict stays one line', () => {
+      const verdict = makeVerdict({
+        outcome: 'recalled',
+        ageMs: 240_000,
+        savedMs: 12_000,
+        replay: [{ command: 'test', excerpt: 'first\nsecond', scope: 'nmr-core' }],
+      });
+
+      expect(renderVerdict(verdict)).toContain('replayed: first second');
+    });
+
+    it('holds a replayed line to the same ceiling, so the single write survives an excerpt', () => {
+      const verdict = makeVerdict({
+        outcome: 'recalled',
+        ageMs: 240_000,
+        savedMs: 12_000,
+        replay: [{ command: 'test', excerpt: 'x'.repeat(VERDICT_LINE_LIMIT), scope: 'nmr-core' }],
+      });
+
+      const line = renderVerdict(verdict);
+
+      expect(Buffer.byteLength(line) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT);
+      expect(line).toMatch(/…$/);
+    });
+  });
+
   describe('a detail lifted from command output', () => {
     it('collapses the line breaks it carries, so one verdict stays one line', () => {
       const verdict = makeVerdict({ outcome: 'passed', durationMs: 12_000, detail: 'line one\nline two' });

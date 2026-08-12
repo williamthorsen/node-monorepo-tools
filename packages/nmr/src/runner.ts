@@ -40,6 +40,21 @@ export interface RunCommandOptions {
 /** What a step list needs to run. Each step's channels follow its kind, so the caller chooses none of them. */
 export type RunStepsOptions = Omit<RunCommandOptions, 'channels'>;
 
+/** A bounded copy of what a step list's own commands wrote, each stream kept apart from the other. */
+export interface RetainedOutput {
+  stderr: Buffer;
+  stdout: Buffer;
+}
+
+export interface RunStepsResult {
+  exitCode: number;
+  /**
+   * What the list's opaque steps produced, absent unless every one of them was captured whole and there was
+   * at least one to capture.
+   */
+  retained?: RetainedOutput;
+}
+
 /** How a command ended, and the exit code that carries that ending to nmr's own caller. */
 type CommandCompletion =
   | { outcome: 'exited'; exitCode: number }
@@ -81,12 +96,16 @@ export function resolveInheritedChannel(stream: Writable): OutputChannel {
  * Sequencing here rather than in a spawned shell is what lets each step run on the channels its kind calls
  * for, and what makes a signal to nmr end the run: the steps after it are never reached, where a shell would
  * have gone on running them unsupervised.
+ *
+ * Carries back a bounded copy of what the list's own commands wrote, so a caller can retain it. Only opaque
+ * steps contribute: a structural step is another nmr process reporting for the subtree beneath it, and its
+ * output is that subtree's to account for.
  */
 export async function runSteps(
   steps: readonly Step[],
   cwd: string | undefined,
   options: RunStepsOptions,
-): Promise<{ exitCode: number }> {
+): Promise<RunStepsResult> {
   const resolved = {
     ...options,
     quiet: options.quiet === true,
@@ -94,14 +113,30 @@ export async function runSteps(
     stderr: options.stderr ?? process.stderr,
   };
 
+  const parts: RetainedOutput[] = [];
+  let isCaptureWhole = true;
+
   for (const step of steps) {
-    const { exitCode } = await runStep(step, cwd, resolved);
-    if (exitCode !== 0) {
-      return { exitCode };
+    const result = await runStep(step, cwd, resolved);
+
+    // Read from the step's kind rather than from whether the child handed back a pipe. A structural step runs
+    // on inherited descriptors, but a destination carrying none falls back to a pipe and is captured like any
+    // other, which would let a composite's constituents and a `:pre`/`:post` hook contribute output of their
+    // own.
+    if (step.kind === 'opaque') {
+      if (result.stderr === undefined || result.stdout === undefined) {
+        isCaptureWhole = false;
+      } else {
+        parts.push({ stderr: result.stderr, stdout: result.stdout });
+      }
+    }
+
+    if (result.exitCode !== 0) {
+      return { exitCode: result.exitCode, ...composeRetainedOutput(parts, isCaptureWhole) };
     }
   }
 
-  return { exitCode: 0 };
+  return { exitCode: 0, ...composeRetainedOutput(parts, isCaptureWhole) };
 }
 
 /**
@@ -209,6 +244,28 @@ function runStep(
     quiet: false,
     channels: { stderr: resolveInheritedChannel(stderr), stdout: resolveInheritedChannel(stdout) },
   });
+}
+
+/**
+ * Concatenates in declaration order what each opaque step retained, or reports none when a step's capture fell
+ * short of both streams and when the list held no opaque step at all.
+ *
+ * A partial capture is reported as none rather than as what was gathered, which would understate the run.
+ */
+function composeRetainedOutput(
+  parts: readonly RetainedOutput[],
+  isCaptureWhole: boolean,
+): { retained?: RetainedOutput } {
+  if (!isCaptureWhole || parts.length === 0) {
+    return {};
+  }
+
+  return {
+    retained: {
+      stderr: Buffer.concat(parts.map((part) => part.stderr)),
+      stdout: Buffer.concat(parts.map((part) => part.stdout)),
+    },
+  };
 }
 
 /** Consumes a child stream, forwarding it to a destination when there is one and retaining a bounded copy. */

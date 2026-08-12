@@ -4,9 +4,10 @@ import type { Writable } from 'node:stream';
 import { readPackageVersion, reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
-import type { BuildOutputState, TreeSnapshot } from './check-cache.ts';
+import type { BuildOutputState, ReplayLine, Retention, TreeSnapshot } from './check-cache.ts';
 import {
   computeCacheKey,
+  computeRetentionKey,
   CURRENT_RUNTIME,
   encodeTreeSnapshot,
   findStaleBuildOutput,
@@ -23,6 +24,7 @@ import {
 import { resolveConfigPath } from './config.ts';
 import { resolveContext } from './context.ts';
 import { generateHelp } from './help.ts';
+import { deriveExcerpt } from './helpers/deriveExcerpt.ts';
 import { isHookName } from './helpers/hook-name.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
 import type { ResolvedScript, ScriptOrigin } from './resolver.ts';
@@ -33,8 +35,8 @@ import {
   expandScript,
   resolveScript,
 } from './resolver.ts';
-import type { RunStepsOptions } from './runner.ts';
-import { runSteps } from './runner.ts';
+import type { RetainedOutput, RunStepsOptions } from './runner.ts';
+import { resolveChannel, runSteps } from './runner.ts';
 import type { Step } from './steps.ts';
 import { composeNmrStep, findNmrCrossing, renderChain } from './steps.ts';
 import type { NmrConfig } from './types.ts';
@@ -306,6 +308,32 @@ function composeDelegate(scope: readonly string[], command: string, passthrough:
 }
 
 /**
+ * Composes the retention a pass carries, or `undefined` when the run left nothing to replay: a command whose
+ * streams were handed to a terminal retained no copy, and one that printed nothing yields no excerpt.
+ *
+ * The excerpt is drawn from stdout, falling back to stderr only where stdout retained nothing, which is where
+ * every command the gate covers writes its substance.
+ */
+function composeRetention(options: {
+  command: string;
+  key: string;
+  retained: RetainedOutput | undefined;
+  scope: string;
+}): Retention | undefined {
+  const { retained } = options;
+  if (retained === undefined) {
+    return undefined;
+  }
+
+  const excerpt = deriveExcerpt(retained.stdout.toString('utf8')) ?? deriveExcerpt(retained.stderr.toString('utf8'));
+  if (excerpt === undefined) {
+    return undefined;
+  }
+
+  return { key: options.key, replay: [{ command: options.command, excerpt, scope: options.scope }] };
+}
+
+/**
  * Returns what a crossing's line names: the declaration site it leads with, and the edit that resolves it.
  *
  * The remedy follows from the origin rather than naming one tier for every case, so the switch is exhaustive:
@@ -479,6 +507,9 @@ function hasRunnableHook(
  * Returns the age and saving a recalled pass reports when a recorded pass covers this invocation, or
  * `undefined` when the command has to run. A key match alone is not a pass: the build output the key says
  * nothing about has to still be on disk, and the run that follows a missing-output miss is what restores it.
+ *
+ * The excerpts a skip replays come back only where the retention key matches too. A recording made under
+ * another presentation environment is still a pass, and is not this environment's output.
  */
 async function lookUpRecordedPass(options: {
   anchorDir: string;
@@ -487,8 +518,9 @@ async function lookUpRecordedPass(options: {
   env: NodeJS.ProcessEnv;
   key: string;
   monorepoRoot: string;
+  retentionKey: string;
   stderr: Writable;
-}): Promise<{ ageMs: number; savedMs: number } | undefined> {
+}): Promise<{ ageMs: number; replay?: ReplayLine[]; savedMs: number } | undefined> {
   const { anchorDir, buildOutput, command, env, key, monorepoRoot, stderr } = options;
 
   const entry = await readCheckCacheEntry({ anchorDir, command, monorepoRoot });
@@ -515,7 +547,12 @@ async function lookUpRecordedPass(options: {
     return undefined;
   }
 
-  return { ageMs: Math.max(0, Date.now() - Date.parse(entry.recordedAt)), savedMs: entry.durationMs };
+  return {
+    ageMs: Math.max(0, Date.now() - Date.parse(entry.recordedAt)),
+    savedMs: entry.durationMs,
+    // Replayed only where the recording describes this environment's output; otherwise the verdict prints alone.
+    ...(entry.retention?.key === options.retentionKey && { replay: entry.retention.replay }),
+  };
 }
 
 /**
@@ -651,6 +688,9 @@ function reportVerdict(verdict: Verdict, stdout: Writable): void {
  * produced, so every entry from one invocation refers to one tree.
  *
  * A cache that cannot be written is not worth failing a green run over, so that failure goes to the debug note.
+ *
+ * The retention a skip replays is composed here for the same reason and after the same tests: a pass nothing
+ * recorded must leave behind no excerpt claiming it did.
  */
 async function recordPass(options: {
   anchorDir: string;
@@ -662,6 +702,8 @@ async function recordPass(options: {
   env: NodeJS.ProcessEnv;
   key: string;
   monorepoRoot: string;
+  retained: RetainedOutput | undefined;
+  retentionKey: string;
   snapshot: TreeSnapshot;
   stderr: Writable;
 }): Promise<void> {
@@ -695,6 +737,13 @@ async function recordPass(options: {
     return;
   }
 
+  const retention = composeRetention({
+    command,
+    key: options.retentionKey,
+    retained: options.retained,
+    scope: path.basename(anchorDir),
+  });
+
   try {
     await writeCheckCacheEntry({
       anchorDir,
@@ -710,6 +759,7 @@ async function recordPass(options: {
         durationMs: options.durationMs,
         recordedAt: new Date().toISOString(),
         buildDigests: output.digests,
+        ...(retention !== undefined && { retention }),
       },
     });
   } catch (error: unknown) {
@@ -787,9 +837,21 @@ async function runGated(options: {
 
   // The build output is read before the run, so a pass can be held to the output the run actually saw. One
   // reading serves the lookup and the recording alike, and `--no-cache` bypasses only the former.
+  // The channels an opaque step of this run would hand its child, read from the same `resolveChannel` the
+  // runner calls, so the retention key and the run cannot disagree about what the child saw.
+  const quiet = options.runOptions.quiet === true;
   const gate =
     key !== undefined && snapshot !== undefined
-      ? { buildOutputBefore: await readBuildOutputState(monorepoRoot, options.config), key, snapshot }
+      ? {
+          buildOutputBefore: await readBuildOutputState(monorepoRoot, options.config),
+          key,
+          retentionKey: computeRetentionKey({
+            channels: { stderr: resolveChannel(stderr, quiet), stdout: resolveChannel(stdout, quiet) },
+            env,
+            passKey: key,
+          }),
+          snapshot,
+        }
       : undefined;
 
   if (gate !== undefined && !options.noCache) {
@@ -800,6 +862,7 @@ async function runGated(options: {
       env,
       key: gate.key,
       monorepoRoot,
+      retentionKey: gate.retentionKey,
       stderr,
     });
     if (recalled !== undefined) {
@@ -812,7 +875,7 @@ async function runGated(options: {
   }
 
   const startedAt = Date.now();
-  const { exitCode } = await runSteps(options.steps, anchorDir, options.runOptions);
+  const { exitCode, retained } = await runSteps(options.steps, anchorDir, options.runOptions);
   const durationMs = Date.now() - startedAt;
 
   if (exitCode === 0 && gate !== undefined) {
@@ -826,6 +889,8 @@ async function runGated(options: {
       env,
       key: gate.key,
       monorepoRoot,
+      retained,
+      retentionKey: gate.retentionKey,
       snapshot: gate.snapshot,
       stderr,
     });
