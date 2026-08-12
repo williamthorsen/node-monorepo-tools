@@ -328,6 +328,21 @@ Reach for these in order; the first is almost always the right one.
 
 `-q` sets it for the run and outranks an inherited value. Both values are spelled out so either direction is expressible: export `NMR_COMMAND_VERBOSITY=quiet` for a quiet shell, and set `full` on one invocation to opt back out.
 
+#### Where a verbosity comes from
+
+Four sources, in precedence order. Each is read once, at the top of a chain: the resolved value travels down as `NMR_COMMAND_VERBOSITY`, so a nested process reads a decision already made rather than making its own.
+
+| Source                                                | Set it when                                                |
+| ----------------------------------------------------- | ---------------------------------------------------------- |
+| `-q`                                                  | One invocation should be quiet.                            |
+| `NMR_COMMAND_VERBOSITY`                               | A shell, or a harness that launches one, should be quiet.  |
+| `output.commandVerbosity` in the monorepo-root config | A repo should be quiet for everyone working in it.         |
+| An agent harness nmr recognizes in the environment    | Nothing above applies and an agent is running the command. |
+
+Falling off the bottom leaves the run `full`, which is what an unrecognized harness gets: detection adds quiet where it fires and changes nothing where it does not.
+
+Detection reads a set of environment-variable names and fires on any one of them holding a non-empty value. The shipped set is `CLAUDECODE`, `ROVODEV_CLI`, and `ROVO_CLI`. **Treat that set as perishable.** The names belong to ecosystems nmr does not control and that rename, and a rename fails silently here, since the symptom is a return to loud output rather than an error. `output.extraAgentEnvVars` is how a repo adds a name — a harness nmr has never heard of, or one whose marker was renamed after the installed version shipped — without waiting for a release. A repo that wants no detection at all configures `output.commandVerbosity: 'full'`, which outranks it.
+
 ### Configuring
 
 ```ts
@@ -342,6 +357,19 @@ export default defineConfig({
 ```
 
 `extraCommands` extends the default set rather than replacing it, so naming one command cannot silently drop the rest; `excludeCommands` is applied afterwards, so a name in both is excluded. `enabled: false` turns the gate off entirely. The key is `checkCache`, in the monorepo-root config.
+
+```ts
+export default defineConfig({
+  output: {
+    // The verbosity a run takes when neither `-q` nor the environment named one.
+    commandVerbosity: 'quiet',
+    // Markers of a harness the shipped set does not name, added to it rather than replacing it.
+    extraAgentEnvVars: ['MY_HARNESS'],
+  },
+});
+```
+
+`output` is a monorepo-root key, and both of its fields feed the [verbosity ladder](#where-a-verbosity-comes-from).
 
 ## Dependency upgrades
 
