@@ -8,14 +8,29 @@ import { UserError } from '../UserError.ts';
 import { isMonorepoRoot } from '../workspace.ts';
 import { isObject } from './type-guards.ts';
 
-export interface PackageJson {
+/**
+ * The `package.json` fields that carry a dependency's version specifier.
+ *
+ * pnpm accepts the `catalog:` protocol in all four, so a reader looking for catalogued dependencies has to
+ * sweep the whole set rather than the two that carry most of them.
+ */
+export const DEPENDENCY_FIELDS = [
+  'dependencies',
+  'devDependencies',
+  'optionalDependencies',
+  'peerDependencies',
+] as const;
+
+export type DependencyField = (typeof DEPENDENCY_FIELDS)[number];
+
+export type PackageJson = {
   name?: string;
   private?: boolean;
   version?: string;
   packageManager?: string;
   scripts?: Record<string, string>;
   pnpm?: { overrides?: Record<string, string> };
-}
+} & { [K in DependencyField]?: Record<string, string> };
 
 /**
  * Reads and parses the package.json at the given directory, keeping only the fields nmr reads.
@@ -45,6 +60,12 @@ export function readPackageJson(dir: string): PackageJson {
         if (typeof val === 'string') overrides[key] = val;
       }
       pkg.pnpm = { overrides };
+    }
+  }
+  for (const field of DEPENDENCY_FIELDS) {
+    const declared = parsed[field];
+    if (isObject(declared)) {
+      pkg[field] = readStringValues(declared);
     }
   }
 
@@ -119,6 +140,15 @@ function formatMalformedScript(dir: string, key: string, value: unknown): string
   const field = isMonorepoRoot(dir) ? 'rootScripts' : 'workspaceScripts';
 
   return `${rejection} A step list belongs in \`${CONFIG_RELATIVE_PATH}\` under \`${field}\`.`;
+}
+
+/** Keeps the entries whose value is a string, dropping the rest. */
+function readStringValues(record: Record<string, unknown>): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(record)) {
+    if (typeof value === 'string') result[key] = value;
+  }
+  return result;
 }
 
 // endregion | Helpers
