@@ -99,7 +99,8 @@ describe(loadConfig, () => {
     writeConfig(tmpDir, `export default { bild: { extraIgnorePatterns: ['**/fixtures/**'] } };`);
 
     await expect(loadConfig(tmpDir)).rejects.toThrow(
-      'unrecognized key `bild`. Recognized: `build`, `checkCache`, `devBin`, `rootScripts`, `workspaceScripts`.',
+      'unrecognized key `bild`. Recognized: `build`, `checkCache`, `devBin`, `output`, `rootScripts`, ' +
+        '`workspaceScripts`.',
     );
   });
 
@@ -179,6 +180,46 @@ describe(loadConfig, () => {
       'unrecognized key `build.extendIgnore`. Recognized: `build.extraIgnorePatterns`.',
     );
   });
+
+  it('loads every output field', async () => {
+    writeConfig(tmpDir, `export default { output: { commandVerbosity: 'quiet', extraAgentEnvVars: ['MY_CLI'] } };`);
+
+    const config = await loadConfig(tmpDir);
+
+    expect(config.output).toStrictEqual({ commandVerbosity: 'quiet', extraAgentEnvVars: ['MY_CLI'] });
+  });
+
+  it('throws when output is not an object', async () => {
+    writeConfig(tmpDir, `export default { output: 'quiet' };`);
+
+    await expect(loadConfig(tmpDir)).rejects.toThrow('`output` must be an object');
+  });
+
+  it.each([
+    { scenario: 'a point that is not on the ladder', value: `'silent'` },
+    { scenario: 'a recognized value in the wrong case', value: `'QUIET'` },
+    { scenario: 'a value that is not a string at all', value: '0' },
+  ])('throws naming both accepted values given $scenario', async ({ value }) => {
+    writeConfig(tmpDir, `export default { output: { commandVerbosity: ${value} } };`);
+
+    await expect(loadConfig(tmpDir)).rejects.toThrow(
+      '`output.commandVerbosity` is `' + value.replaceAll(`'`, '') + '`, which is not one of: full, quiet',
+    );
+  });
+
+  it('throws when output.extraAgentEnvVars is not an array of strings', async () => {
+    writeConfig(tmpDir, `export default { output: { extraAgentEnvVars: 'MY_CLI' } };`);
+
+    await expect(loadConfig(tmpDir)).rejects.toThrow('`output.extraAgentEnvVars` must be a string[]');
+  });
+
+  it('throws naming an unrecognized output subkey', async () => {
+    writeConfig(tmpDir, `export default { output: { agentEnvVars: ['MY_CLI'] } };`);
+
+    await expect(loadConfig(tmpDir)).rejects.toThrow(
+      'unrecognized key `output.agentEnvVars`. Recognized: `output.commandVerbosity`, `output.extraAgentEnvVars`.',
+    );
+  });
 });
 
 describe(loadWorkspaceConfig, () => {
@@ -206,9 +247,12 @@ describe(loadWorkspaceConfig, () => {
 
   it('throws naming every root-tier key the package config declares', async () => {
     // Silently dropping these would leave the package running on settings its own config appears to set.
-    writeConfig(tmpDir, `export default { rootScripts: { a: 'x' }, devBin: { b: 'y' }, build: {} };`);
+    writeConfig(
+      tmpDir,
+      `export default { rootScripts: { a: 'x' }, devBin: { b: 'y' }, output: { commandVerbosity: 'quiet' }, build: {} };`,
+    );
 
-    await expect(loadWorkspaceConfig(tmpDir)).rejects.toThrow('not devBin, rootScripts');
+    await expect(loadWorkspaceConfig(tmpDir)).rejects.toThrow('not devBin, output, rootScripts');
   });
 });
 
@@ -238,6 +282,14 @@ describe(loadRootConfig, () => {
     expect(config.rootScripts).toStrictEqual({ a: 'x' });
   });
 
+  it('loads output, which the root tier honors', async () => {
+    writeConfig(tmpDir, `export default { output: { commandVerbosity: 'quiet' } };`);
+
+    const config = await loadRootConfig(tmpDir);
+
+    expect(config.output).toStrictEqual({ commandVerbosity: 'quiet' });
+  });
+
   it('loads checkCache, which the root tier honors', async () => {
     writeConfig(tmpDir, `export default { checkCache: { excludeCommands: ['test:coverage'] } };`);
 
@@ -250,7 +302,7 @@ describe(loadRootConfig, () => {
     writeConfig(tmpDir, `export default { build: { extraIgnorePatterns: ['**/fixtures/**'] } };`);
 
     await expect(loadRootConfig(tmpDir)).rejects.toThrow(
-      'honors checkCache, devBin, rootScripts, workspaceScripts alone, not build. ' +
+      'honors checkCache, devBin, output, rootScripts, workspaceScripts alone, not build. ' +
         "Move those keys to the package's own config.",
     );
   });

@@ -238,6 +238,62 @@ describe(runCli, () => {
       expect(Buffer.concat(written)).toHaveLength(0);
       expect(mockedRunSteps).not.toHaveBeenCalled();
     });
+
+    // The config is loaded after this point, so reaching it would make an invalid one break an unrelated flag.
+    it('reports the version against a repo whose config cannot be loaded', async () => {
+      fs.mkdirSync(path.join(repo, '.config'), { recursive: true });
+      fs.writeFileSync(path.join(repo, '.config', 'nmr.config.ts'), `export default { bild: {} };\n`);
+
+      const { exitCode, stdout } = await runNmrReadingStdout(['--version'], repo);
+
+      expect(exitCode).toBe(0);
+      expect(stdout.trim()).not.toBe('');
+    });
+
+    it('takes the verbosity the repo configured', async () => {
+      writeConfig(repo, { output: { commandVerbosity: 'quiet' } });
+
+      await runNmr(['fix'], repo);
+
+      expect(mockedRunSteps.mock.calls[0]?.[2].quiet).toBe(true);
+    });
+
+    it('lets an inherited full outrank a quiet the repo configured', async () => {
+      writeConfig(repo, { output: { commandVerbosity: 'quiet' } });
+
+      await runNmr(['fix'], repo, { [COMMAND_VERBOSITY_ENV_VAR]: 'full' });
+
+      expect(mockedRunSteps.mock.calls[0]?.[2].quiet).toBe(false);
+    });
+
+    it('goes quiet under a harness on the shipped list', async () => {
+      await runNmr(['fix'], repo, { CLAUDECODE: '1' });
+
+      expect(mockedRunSteps.mock.calls[0]?.[2].quiet).toBe(true);
+    });
+
+    it('goes quiet under a harness the repo added', async () => {
+      writeConfig(repo, { output: { extraAgentEnvVars: ['MY_CLI'] } });
+
+      await runNmr(['fix'], repo, { MY_CLI: '1' });
+
+      expect(mockedRunSteps.mock.calls[0]?.[2].quiet).toBe(true);
+    });
+
+    // Declining detection is what a configured `full` says, so no switch of its own exists to turn it off.
+    it('stays loud under a detected harness when the repo configured full', async () => {
+      writeConfig(repo, { output: { commandVerbosity: 'full' } });
+
+      await runNmr(['fix'], repo, { CLAUDECODE: '1' });
+
+      expect(mockedRunSteps.mock.calls[0]?.[2].quiet).toBe(false);
+    });
+
+    it('leaves an unrecognized harness exactly as loud as it is today', async () => {
+      await runNmr(['fix'], repo, { SOME_OTHER_CLI: '1' });
+
+      expect(mockedRunSteps.mock.calls[0]?.[2].quiet).toBe(false);
+    });
   });
 
   describe('exit codes', () => {

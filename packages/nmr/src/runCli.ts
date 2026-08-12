@@ -39,7 +39,7 @@ import type { Step } from './steps.ts';
 import { composeNmrStep, findNmrCrossing, renderChain } from './steps.ts';
 import type { NmrConfig } from './types.ts';
 import type { CommandVerbosity } from './verbosity.ts';
-import { COMMAND_VERBOSITY_ENV_VAR, resolveVerbosity } from './verbosity.ts';
+import { COMMAND_VERBOSITY_ENV_VAR, readVerbosityEnv, resolveVerbosity } from './verbosity.ts';
 import type { Verdict, VerdictOutcome } from './verdict.ts';
 import { writeVerdict } from './verdict.ts';
 
@@ -90,9 +90,10 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   const { parsed } = parseResult;
 
   // Ahead of every other outcome, `--version` and `--help` included, so one variable's validity has one answer.
-  const verbosity = resolveVerbosity(env, parsed.quiet);
-  if (!verbosity.ok) {
-    reportError(verbosity.error, stderr);
+  // The levels below the environment wait on the config, which `--version` must keep not loading.
+  const envVerbosity = readVerbosityEnv(env);
+  if (!envVerbosity.ok) {
+    reportError(envVerbosity.error, stderr);
     return { exitCode: 1 };
   }
   if (parsed.version) {
@@ -100,9 +101,15 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     return { exitCode: 0 };
   }
 
-  const quiet = verbosity.verbosity === 'quiet';
-
   const context = await resolveContext(cwd);
+
+  const verbosity = resolveVerbosity({
+    env,
+    envVerbosity: envVerbosity.verbosity,
+    output: context.config.output,
+    quietFlag: parsed.quiet,
+  });
+  const quiet = verbosity === 'quiet';
 
   // Determine which registry to use
   const useRoot = parsed.workspaceRoot || context.isRoot;
@@ -129,7 +136,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   });
 
   const noCache = parsed.noCache || env[NO_CACHE_ENV_VAR] === '1';
-  const childEnv = buildChildEnv(env, snapshot, noCache, verbosity.verbosity);
+  const childEnv = buildChildEnv(env, snapshot, noCache, verbosity);
   const runOptions: RunStepsOptions = {
     quiet,
     stdout,
