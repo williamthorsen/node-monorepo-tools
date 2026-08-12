@@ -53,6 +53,7 @@
     "nmr-clean": "bin/nmr-clean.js",
     "nmr-compile": "bin/nmr-compile.js",
     "nmr-fmt": "bin/nmr-fmt.js",
+    "nmr-report-catalog": "bin/nmr-report-catalog.js",
     "nmr-report-overrides": "bin/nmr-report-overrides.js",
     "nmr-taze": "bin/nmr-taze.js"
   },
@@ -97,7 +98,8 @@
     }
   },
   "engines": {
-    "node": ">=24.16.0"
+    "node": ">=24.16.0",
+    "pnpm": ">=11"
   },
   "publishConfig": {
     "access": "public"

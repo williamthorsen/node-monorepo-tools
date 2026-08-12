@@ -3,6 +3,9 @@ import { assert, describe, expect, it } from 'vitest';
 import { getDefaultRootScripts, getDefaultWorkspaceScripts } from '../resolve-scripts.ts';
 import { findNmrCrossing } from '../steps.ts';
 
+/** The root commands that end in the upgrade tool, and so carry the same chain invariants. */
+const UPGRADE_COMMANDS = ['upgrade', 'root:upgrade'] as const;
+
 describe(getDefaultWorkspaceScripts, () => {
   it('includes all expected default workspace scripts', () => {
     const scripts = getDefaultWorkspaceScripts();
@@ -39,12 +42,39 @@ describe(getDefaultWorkspaceScripts, () => {
     });
   });
 
-  // Declares no override report either: `pnpm.overrides` is declared in the root `package.json` alone.
+  // Declares no override report: an override is declared at the monorepo root alone.
   it('upgrades the current package without recursing', () => {
     const scripts = getDefaultWorkspaceScripts();
 
-    expect(scripts['upgrade']).toBe('nmr-taze --include-locked');
+    expect(scripts['upgrade']).toBe('nmr-report-catalog && nmr-taze --include-locked');
     expect(scripts['report-overrides']).toBeUndefined();
+  });
+
+  it('reports the catalog before the upgrade report', () => {
+    const upgrade = getDefaultWorkspaceScripts()['upgrade'];
+    assert(typeof upgrade === 'string', 'Expected upgrade to be a chained command');
+
+    expect(upgrade.indexOf('report-catalog')).toBeLessThan(upgrade.indexOf('nmr-taze'));
+  });
+
+  it('chains only bins on upgrade, so no step spawns a second nmr', () => {
+    const upgrade = getDefaultWorkspaceScripts()['upgrade'];
+    assert(typeof upgrade === 'string', 'Expected upgrade to be a chained command');
+
+    for (const step of upgrade.split('&&')) {
+      expect(step.trim()).not.toMatch(/^nmr\s/);
+    }
+  });
+
+  it('ends the upgrade chain with the upgrade tool so passthrough args reach it', () => {
+    const upgrade = getDefaultWorkspaceScripts()['upgrade'];
+    assert(typeof upgrade === 'string', 'Expected upgrade to be a chained command');
+
+    expect(upgrade.split('&&').at(-1)?.trim()).toBe('nmr-taze --include-locked');
+  });
+
+  it('exposes the catalog report as a command of its own', () => {
+    expect(getDefaultWorkspaceScripts()['report-catalog']).toBe('nmr-report-catalog');
   });
 });
 
@@ -159,7 +189,7 @@ describe(getDefaultRootScripts, () => {
     const scripts = getDefaultRootScripts();
 
     expect(scripts).toMatchObject({
-      'root:upgrade': 'nmr-taze --include-locked',
+      'root:upgrade': 'nmr-report-overrides && nmr-taze --include-locked',
       upgrade: 'nmr-report-overrides && nmr-taze --include-locked --recursive',
     });
   });
@@ -167,27 +197,23 @@ describe(getDefaultRootScripts, () => {
   // A string script runs with the invocation cwd, so an `nmr <command>` step re-derives its registry from
   // there: under `-w` from a package dir the child would look for a root-only command in the workspace
   // registry and exit 1, and `&&` would swallow the upgrade report behind it. Bins locate the root themselves.
-  it('chains only bins, so upgrade survives -w from a package cwd', () => {
-    const upgrade = getDefaultRootScripts()['upgrade'];
-    assert(typeof upgrade === 'string', 'Expected upgrade to be a chained command');
+  it.each(UPGRADE_COMMANDS)('chains only bins on %s, so it survives -w from a package cwd', (command) => {
+    const chain = readChain(command);
 
-    for (const step of upgrade.split('&&')) {
+    for (const step of chain.split('&&')) {
       expect(step.trim()).not.toMatch(/^nmr\s/);
     }
   });
 
-  it('reports overrides before the upgrade report', () => {
-    const upgrade = getDefaultRootScripts()['upgrade'];
-    assert(typeof upgrade === 'string', 'Expected upgrade to be a chained command');
+  // Both invocations reach the upgrade tool, which rewrites a `pnpm.overrides` block the reporter rejects.
+  it.each(UPGRADE_COMMANDS)('reports overrides before the %s report', (command) => {
+    const chain = readChain(command);
 
-    expect(upgrade.indexOf('report-overrides')).toBeLessThan(upgrade.indexOf('nmr-taze'));
+    expect(chain.indexOf('report-overrides')).toBeLessThan(chain.indexOf('nmr-taze'));
   });
 
-  it('ends the upgrade chain with the upgrade tool so passthrough args reach it', () => {
-    const upgrade = getDefaultRootScripts()['upgrade'];
-    assert(typeof upgrade === 'string', 'Expected upgrade to be a chained command');
-
-    expect(upgrade.split('&&').at(-1)?.trim()).toBe('nmr-taze --include-locked --recursive');
+  it.each(UPGRADE_COMMANDS)('ends the %s chain with the upgrade tool so passthrough args reach it', (command) => {
+    expect(readChain(command).split('&&').at(-1)?.trim()).toMatch(/^nmr-taze /);
   });
 });
 
@@ -205,3 +231,15 @@ describe('the built-in defaults', () => {
     }
   });
 });
+
+// region | Helpers
+
+/** Returns a root command's chain, rejecting a registry entry that is not one. */
+function readChain(command: string): string {
+  const chain = getDefaultRootScripts()[command];
+  assert(typeof chain === 'string', `Expected ${command} to be a chained command`);
+
+  return chain;
+}
+
+// endregion | Helpers

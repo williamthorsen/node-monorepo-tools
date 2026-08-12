@@ -26,6 +26,7 @@ export const workspaceScripts: ScriptRegistry = {
   lint: 'eslint --fix .',
   'lint:check': 'eslint .',
   'lint:strict': 'strict-lint',
+  'report-catalog': 'nmr-report-catalog',
   test: `pnpm exec vitest ${GATE_PROJECTS}`,
   'test:all': 'pnpm exec vitest',
   'test:coverage': `pnpm exec vitest ${GATE_PROJECTS} --coverage`,
@@ -33,8 +34,9 @@ export const workspaceScripts: ScriptRegistry = {
   'test:unit': 'pnpm exec vitest --project unit',
   'test:watch': `pnpm exec vitest ${GATE_PROJECTS} --watch`,
   typecheck: 'tsgo --noEmit',
-  // Without `--include-locked`, nothing would be reported in a repo that pins exact version numbers.
-  upgrade: 'nmr-taze --include-locked',
+  // Without `--include-locked`, nothing would be reported in a repo that pins exact version numbers. The
+  // command must be a string rather than a composite: Passthrough args attach to the chain's last command.
+  upgrade: 'nmr-report-catalog && nmr-taze --include-locked',
   'view-coverage': 'open coverage/index.html',
 };
 
@@ -67,7 +69,9 @@ export const rootScripts: ScriptRegistry = {
   'root:test:tool': 'vitest --config ./vitest.root.config.ts --project tool',
   'root:test:unit': 'vitest --config ./vitest.root.config.ts --project unit',
   'root:typecheck': 'tsgo --noEmit',
-  'root:upgrade': 'nmr-taze --include-locked',
+  // Carries the override report for the same reason `upgrade` does: both end in the tool that rewrites a
+  // `pnpm.overrides` block, so both need the reporter's rejection ahead of them.
+  'root:upgrade': 'nmr-report-overrides && nmr-taze --include-locked',
   test: ['root:test', '-R test'],
   'test:all': ['root:test:all', '-R test:all'],
   'test:coverage': ['root:test', '-R test:coverage'],
