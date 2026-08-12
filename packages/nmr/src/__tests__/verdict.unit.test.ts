@@ -63,7 +63,7 @@ describe(renderVerdict, () => {
       );
     });
 
-    it('drops the attribution of a lone excerpt, which the line already carries', () => {
+    it('drops the attribution of a lone excerpt the line itself already names', () => {
       const verdict = makeVerdict({
         outcome: 'recalled',
         ageMs: 240_000,
@@ -72,6 +72,33 @@ describe(renderVerdict, () => {
       });
 
       expect(renderVerdict(verdict)).not.toContain('nmr-core: test: 6 passed');
+    });
+
+    // A composite where one constituent speaks replays one line, and the bare form would present another
+    // command's output as the composite's own.
+    it('attributes a lone excerpt another command produced', () => {
+      const verdict = makeVerdict({
+        outcome: 'recalled',
+        ageMs: 240_000,
+        savedMs: 12_000,
+        replay: [{ command: 'fmt:check', excerpt: 'All matched files use Prettier code style!', scope: 'nmr-core' }],
+      });
+
+      expect(renderVerdict(verdict)).toBe(
+        '⏭️ nmr-core: test: passed 4m ago on this tree, saved ~12s — ' +
+          'replayed: nmr-core: fmt:check: All matched files use Prettier code style!',
+      );
+    });
+
+    it('attributes a lone excerpt another scope produced', () => {
+      const verdict = makeVerdict({
+        outcome: 'recalled',
+        ageMs: 240_000,
+        savedMs: 12_000,
+        replay: [{ command: 'test', excerpt: '6 passed', scope: 'nmr' }],
+      });
+
+      expect(renderVerdict(verdict)).toContain('replayed: nmr: test: 6 passed');
     });
 
     it('attributes each excerpt where several scopes contributed', () => {

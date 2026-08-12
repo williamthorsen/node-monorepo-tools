@@ -16,6 +16,8 @@ import {
   readCheckCacheEntry,
   removeCheckCache,
   resolveCacheableCommands,
+  resolveRunId,
+  RUN_ID_ENV_VAR,
   writeCheckCacheEntry,
   writeDebugNote,
 } from '../check-cache.ts';
@@ -200,6 +202,20 @@ describe('check-cache', () => {
     });
   });
 
+  describe(resolveRunId, () => {
+    it('keeps the identity an ancestor passed down, so one run has one identity at every scope', () => {
+      expect(resolveRunId({ [RUN_ID_ENV_VAR]: 'the-run' })).toBe('the-run');
+    });
+
+    it('starts a run when the environment carries none', () => {
+      expect(resolveRunId({})).not.toBe(resolveRunId({}));
+    });
+
+    it('starts a run when the inherited value is empty', () => {
+      expect(resolveRunId({ [RUN_ID_ENV_VAR]: '' })).not.toBe('');
+    });
+  });
+
   describe('recorded entries', () => {
     it('reads back what it recorded', async () => {
       const entry = makeEntry();
@@ -255,7 +271,11 @@ describe('check-cache', () => {
 
     it('reads back the retention recorded beside a pass', async () => {
       const entry = makeEntry({
-        retention: { key: 'a-retention-key', replay: [{ command: 'test', excerpt: '27 passed', scope: 'nmr' }] },
+        retention: {
+          key: 'a-retention-key',
+          replay: [{ command: 'test', excerpt: '27 passed', scope: 'nmr' }],
+          runId: 'a-run',
+        },
       });
       await writeCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'test', entry });
 
@@ -274,9 +294,13 @@ describe('check-cache', () => {
     });
 
     it.each([
-      ['retention with no key', { replay: [] }],
-      ['a replay that is not a list', { key: 'a-retention-key', replay: 'summary' }],
-      ['a replay line missing its excerpt', { key: 'a-retention-key', replay: [{ command: 'test', scope: 'nmr' }] }],
+      ['retention with no key', { replay: [], runId: 'a-run' }],
+      ['retention with no witness', { key: 'a-retention-key', replay: [] }],
+      ['a replay that is not a list', { key: 'a-retention-key', replay: 'summary', runId: 'a-run' }],
+      [
+        'a replay line missing its excerpt',
+        { key: 'a-retention-key', replay: [{ command: 'test', scope: 'nmr' }], runId: 'a-run' },
+      ],
     ])('reads an entry claiming %s as a pass carrying nothing to replay', async (_label, retention) => {
       // What a skip would have replayed cannot decide whether the pass beneath it stands.
       await writeCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci', entry: makeEntry() });

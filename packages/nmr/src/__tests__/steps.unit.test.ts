@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Step } from '../steps.ts';
-import { composeNmrStep, findNmrCrossing, findUnexpressibleToken, renderChain } from '../steps.ts';
+import { composeNmrStep, findNmrCrossing, findUnexpressibleToken, readNmrStep, renderChain } from '../steps.ts';
 
 describe(composeNmrStep, () => {
   it('composes a bare command name as an nmr invocation', () => {
@@ -116,6 +116,63 @@ describe(findUnexpressibleToken, () => {
   });
 });
 
+describe(readNmrStep, () => {
+  it.each([
+    {
+      argv: ['nmr', 'fmt:check'],
+      expected: { command: 'fmt:check', isDelegate: false, isWorkspaceRoot: false },
+      scenario: 'a bare command',
+    },
+    {
+      argv: ['nmr', '-w', 'test'],
+      expected: { command: 'test', isDelegate: false, isWorkspaceRoot: true },
+      scenario: 'a -w element, which anchors at the monorepo root',
+    },
+    {
+      argv: ['nmr', '--workspace-root', 'test'],
+      expected: { command: 'test', isDelegate: false, isWorkspaceRoot: true },
+      scenario: 'the long form of -w',
+    },
+    {
+      argv: ['nmr', '-q', 'build'],
+      expected: { command: 'build', isDelegate: false, isWorkspaceRoot: false },
+      scenario: 'a flag it carries',
+    },
+    {
+      argv: ['nmr', '-R', 'test'],
+      expected: { command: 'test', isDelegate: true, isWorkspaceRoot: false },
+      scenario: 'a -R delegate',
+    },
+    {
+      argv: ['nmr', '--filter', 'core', 'test'],
+      expected: { command: 'test', isDelegate: true, isWorkspaceRoot: false },
+      scenario: 'a --filter delegate, past the pattern',
+    },
+  ])('reads the command behind $scenario', ({ argv, expected }) => {
+    expect(readNmrStep(composeStep(argv))).toStrictEqual(expected);
+  });
+
+  it.each([
+    { argv: ['nmr'], scenario: 'a step naming no command' },
+    { argv: ['nmr', '-R'], scenario: 'a delegate naming no command' },
+    { argv: ['pnpm', '--recursive', 'exec', 'nmr', 'test'], scenario: 'a step spawning something other than nmr' },
+  ])('reports nothing for $scenario', ({ argv }) => {
+    expect(readNmrStep(composeStep(argv))).toBeUndefined();
+  });
+
+  it('reports nothing for an opaque step, whose text nmr does not parse', () => {
+    expect(readNmrStep({ kind: 'opaque', command: 'nmr test' })).toBeUndefined();
+  });
+
+  it('reads back what composeNmrStep composed', () => {
+    expect(readNmrStep(composeNmrStep('-R test:coverage', true))).toStrictEqual({
+      command: 'test:coverage',
+      isDelegate: true,
+      isWorkspaceRoot: true,
+    });
+  });
+});
+
 describe(renderChain, () => {
   it('renders an opaque step as its own text', () => {
     expect(renderChain([{ kind: 'opaque', command: 'eslint --fix .' }])).toBe('eslint --fix .');
@@ -161,3 +218,14 @@ describe(renderChain, () => {
     expect(renderChain([{ kind: 'structural', argv: ['pnpm', token] }])).toBe(`pnpm ${expected}`);
   });
 });
+
+// region | Helpers
+
+/** Builds the structural step whose argv is the given tokens. */
+function composeStep(argv: readonly string[]): Step {
+  const [file = '', ...rest] = argv;
+
+  return { kind: 'structural', argv: [file, ...rest] };
+}
+
+// endregion | Helpers

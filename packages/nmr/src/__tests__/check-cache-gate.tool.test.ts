@@ -5,10 +5,11 @@ import path from 'node:path';
 import process from 'node:process';
 import { PassThrough } from 'node:stream';
 
+import { hashWorkingTree } from '@williamthorsen/nmr-core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { CheckCacheEntry } from '../check-cache.ts';
-import { readCheckCacheEntry } from '../check-cache.ts';
+import { readCheckCacheEntry, RUN_ID_ENV_VAR, writeCheckCacheEntry } from '../check-cache.ts';
 import { resolveBuildCachePath } from '../commands/build-output.ts';
 import { runCli } from '../runCli.ts';
 import { readAmbientEnv } from '../test-utils/readAmbientEnv.ts';
@@ -400,6 +401,146 @@ describe('the check-result cache gate', () => {
       await runNmr(COMMAND, repo);
 
       await expect(readEntry()).resolves.toBeUndefined();
+    });
+  });
+
+  describe('an assembled replay', () => {
+    /** The identity the fixture's runs report, standing in for the one a top-level invocation generates. */
+    const RUN = 'the-run';
+
+    it('assembles a composite’s retention from what its constituents recorded', async () => {
+      const treeHash = scaffoldComposite(['inner', 'other']);
+      await plantConstituent({ command: 'inner', excerpt: '27 passed (27)', treeHash });
+      await plantConstituent({ command: 'other', excerpt: 'no issues', treeHash });
+
+      await runComposite();
+
+      expect((await readEntry())?.retention?.replay).toStrictEqual([
+        { command: 'inner', excerpt: '27 passed (27)', scope: 'a-scope' },
+        { command: 'other', excerpt: 'no issues', scope: 'a-scope' },
+      ]);
+    });
+
+    it('replays an assembly attributed line by line, marked as a recording', async () => {
+      const treeHash = scaffoldComposite(['inner', 'other']);
+      await plantConstituent({ command: 'inner', excerpt: '27 passed (27)', treeHash });
+      await plantConstituent({ command: 'other', excerpt: 'no issues', treeHash });
+      await runComposite();
+
+      const { stdout } = await runComposite();
+
+      expect(stdout).toContain('replayed: a-scope: inner: 27 passed (27); a-scope: other: no issues');
+      expect(stdout).not.toContain('passed in');
+    });
+
+    it('leaves out an excerpt another run certified', async () => {
+      const treeHash = scaffoldComposite(['inner']);
+      await plantConstituent({ command: 'inner', excerpt: '27 passed (27)', runId: 'another-run', treeHash });
+
+      await runComposite();
+
+      expect((await readEntry())?.retention).toBeUndefined();
+    });
+
+    it('leaves out an excerpt describing another tree', async () => {
+      scaffoldComposite(['inner']);
+      await plantConstituent({ command: 'inner', excerpt: '27 passed (27)', treeHash: 'another-tree' });
+
+      await runComposite();
+
+      expect((await readEntry())?.retention).toBeUndefined();
+    });
+
+    // region | Helpers
+
+    /** Writes the entry a constituent's own run would have left behind at the fixture's scope. */
+    async function plantConstituent(options: {
+      command: string;
+      excerpt: string;
+      runId?: string;
+      treeHash: string;
+    }): Promise<void> {
+      const entry: CheckCacheEntry = {
+        key: `${options.command}-key`,
+        treeHash: options.treeHash,
+        headSha: 'head-sha',
+        commandString: options.command,
+        nmrVersion: '0.0.0',
+        nodeVersion: 'v22.0.0',
+        durationMs: 1_000,
+        recordedAt: new Date().toISOString(),
+        buildDigests: {},
+        retention: {
+          key: `${options.command}-retention`,
+          replay: [{ command: options.command, excerpt: options.excerpt, scope: 'a-scope' }],
+          runId: options.runId ?? RUN,
+        },
+      };
+
+      await writeCheckCacheEntry({ anchorDir: repo, command: options.command, entry, monorepoRoot: repo });
+    }
+
+    /** Runs the fixture's composite, its elements spawning the shim, under one fixed run identity. */
+    async function runComposite(): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+      const bin = writeNmrShim(workspace, log);
+
+      return runNmr(COMMAND, repo, {
+        PATH: `${bin}${path.delimiter}${process.env['PATH'] ?? ''}`,
+        [RUN_ID_ENV_VAR]: RUN,
+      });
+    }
+
+    /**
+     * Maps the fixture's cacheable command to a composite of the given elements, and returns the hash of the
+     * tree that leaves behind: a planted constituent has to describe the tree the run will be recorded against.
+     */
+    function scaffoldComposite(elements: string[]): string {
+      writeConfig(repo, log, { command: elements });
+      const hashed = hashWorkingTree(repo);
+      if (!hashed.ok) {
+        throw new Error(hashed.reason);
+      }
+
+      return hashed.hash;
+    }
+
+    // endregion | Helpers
+  });
+
+  describe('certifying what a skip replays', () => {
+    const RUN = 'the-later-run';
+
+    beforeEach(async () => {
+      writeConfig(repo, log, { command: `echo ran >> ${log} && echo '27 passed (27)'` });
+      await runNmr(COMMAND, repo);
+    });
+
+    it('restamps the entry it recalls with the run replaying it', async () => {
+      const recorded = await readEntry();
+
+      await runNmr(COMMAND, repo, { [RUN_ID_ENV_VAR]: RUN });
+
+      const certified = await readEntry();
+      expect(recorded?.retention?.runId).not.toBe(RUN);
+      expect(certified?.retention?.runId).toBe(RUN);
+    });
+
+    it('leaves the instant and the duration the earning run recorded alone', async () => {
+      const recorded = await readEntry();
+
+      await runNmr(COMMAND, repo, { [RUN_ID_ENV_VAR]: RUN });
+
+      const certified = await readEntry();
+      expect(certified?.recordedAt).toBe(recorded?.recordedAt);
+      expect(certified?.durationMs).toBe(recorded?.durationMs);
+    });
+
+    it('certifies nothing when the recording describes another presentation environment', async () => {
+      const recorded = await readEntry();
+
+      await runNmr(COMMAND, repo, { COLUMNS: '80', [RUN_ID_ENV_VAR]: RUN });
+
+      expect((await readEntry())?.retention?.runId).toBe(recorded?.retention?.runId);
     });
   });
 

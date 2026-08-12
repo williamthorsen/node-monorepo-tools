@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -13,6 +13,7 @@ import {
   resolveCacheEntryPath,
   writeCacheEntry,
 } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { hasBuildOutput, readBuildDigest } from './commands/build-output.ts';
 import { loadWorkspaceConfig } from './config.ts';
@@ -55,14 +56,19 @@ export interface ReplayLine {
 }
 
 /**
- * What a recalled pass replays, and the key certifying the excerpts describe this environment's output.
+ * What a recalled pass replays, the key certifying the excerpts describe this environment's output, and the
+ * run that last vouched for them.
  *
  * A list rather than one excerpt: a composite's entry carries its constituents' lines, and a nested one's are
  * spliced into its parent's, where the attribution cannot be re-derived from the entry that holds them.
+ *
+ * The witness is what admits a constituent's line into the assembly its parent records: a run writes it when
+ * it records an excerpt, and restamps it when it recalls one and replays it.
  */
 export interface Retention {
   key: string;
   replay: ReplayLine[];
+  runId: string;
 }
 
 /** What nmr's own build has left on disk across the workspace. */
@@ -131,6 +137,9 @@ export const DEFAULT_CACHEABLE_COMMANDS = [
 /** Set to `1` for the standing equivalent of `--no-cache`: skip the lookup, still record on success. */
 export const NO_CACHE_ENV_VAR = 'NMR_NO_CACHE';
 
+/** Carries one run's identity down the spawned chain, so an entry can name the run that vouched for it. */
+export const RUN_ID_ENV_VAR = 'NMR_RUN_ID';
+
 /** Carries the top-level tree snapshot down the spawned chain, so one invocation hashes the tree once. */
 export const TREE_SNAPSHOT_ENV_VAR = 'NMR_TREE_SNAPSHOT';
 
@@ -171,6 +180,43 @@ const RETENTION_KEYED_ENV_VARS = ['CI', 'COLUMNS', 'FORCE_COLOR', 'NO_COLOR', 'T
 
 /** Characters a command name may contribute to a file name; every other character becomes a hyphen. */
 const UNSAFE_SLUG_CHARACTERS = /[^\w.-]+/g;
+
+/**
+ * Restamps a recalled entry's retention with the run that is replaying it, so an excerpt this run certified
+ * can join the assembly a composite above it records.
+ *
+ * A recall certifies as surely as a recording does: the pass key matched, so the excerpt describes this tree,
+ * and the caller reaches this only where the retention key matched too, so it describes this presentation
+ * environment. Everything else the entry records stands -- the instant and the duration belong to the run that
+ * earned the pass, and a recall must not make it read as later or longer than it was.
+ *
+ * A cache that cannot be written is not worth failing a green run over, so that failure goes to the debug note.
+ */
+export async function certifyRetention(options: {
+  anchorDir: string;
+  command: string;
+  entry: CheckCacheEntry;
+  env: NodeJS.ProcessEnv;
+  monorepoRoot: string;
+  runId: string;
+  stderr: Writable;
+}): Promise<void> {
+  const { entry, runId } = options;
+  if (entry.retention === undefined || entry.retention.runId === runId) {
+    return;
+  }
+
+  try {
+    await writeCheckCacheEntry({
+      anchorDir: options.anchorDir,
+      command: options.command,
+      monorepoRoot: options.monorepoRoot,
+      entry: { ...entry, retention: { ...entry.retention, runId } },
+    });
+  } catch (error: unknown) {
+    writeDebugNote(`could not certify ${options.command}: ${describeError(error)}`, options.env, options.stderr);
+  }
+}
 
 /**
  * Folds everything that can change what a command concludes into one key: the tree's content, the command
@@ -362,6 +408,20 @@ export function resolveCacheableCommands(checkCache: CheckCacheConfig | undefine
 }
 
 /**
+ * Resolves the identity of the run this invocation belongs to: the one an ancestor nmr process passed down,
+ * and otherwise a fresh one, this invocation being where the run starts.
+ *
+ * Unbounded where the tree snapshot is bounded by a HEAD comparison: a process that outlives its run hands a
+ * stale identity to the invocations it later makes, and what keeps that harmless is the tree hash every
+ * constituent entry is held to before its excerpt joins an assembly.
+ */
+export function resolveRunId(env: NodeJS.ProcessEnv): string {
+  const inherited = env[RUN_ID_ENV_VAR];
+
+  return inherited === undefined || inherited === '' ? randomUUID() : inherited;
+}
+
+/**
  * Resolves the tree snapshot this invocation gates on: the one a parent nmr process already took, when there
  * is one, and otherwise a fresh hash of the working tree. Reports a reason instead when no snapshot can be
  * had, which disables the gate.
@@ -524,6 +584,7 @@ function isRetention(value: unknown): value is Retention {
   return (
     isObject(value) &&
     typeof value['key'] === 'string' &&
+    typeof value['runId'] === 'string' &&
     Array.isArray(value['replay']) &&
     value['replay'].every((line) => isReplayLine(line))
   );

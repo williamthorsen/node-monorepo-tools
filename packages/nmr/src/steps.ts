@@ -36,6 +36,15 @@ const SHELL_SAFE_TOKEN = /^[\w@%+=:,./-]+$/;
 export type Step =
   { kind: 'opaque'; command: string } | { kind: 'structural'; argv: readonly [string, ...(readonly string[])] };
 
+/** What a structural step asks of the nmr process it spawns. */
+export interface NmrStepTarget {
+  command: string;
+  /** Whether the command is fanned out to other scopes, where a `-R` or `-F` sends it. */
+  isDelegate: boolean;
+  /** Whether the command runs against the root registry, where a `-w` anchors it. */
+  isWorkspaceRoot: boolean;
+}
+
 /**
  * Composes the structural step that re-invokes nmr for one composite element.
  *
@@ -75,6 +84,60 @@ export function findNmrCrossing(steps: readonly Step[]): string | undefined {
  */
 export function findUnexpressibleToken(element: string): string | undefined {
   return tokenize(element).find((token) => !SHELL_SAFE_TOKEN.test(token));
+}
+
+/**
+ * Returns the command a structural step's nmr process runs, whether the step hands that command to other
+ * scopes rather than running it where it stands, and whether it anchors the command at the monorepo root.
+ * Reports nothing for a step that names no nmr command.
+ *
+ * The inverse of `composeNmrStep`, and beside it because the two share one grammar: an element may lead with
+ * nmr's own flags, and the command is the first token that is not one.
+ */
+export function readNmrStep(step: Step): NmrStepTarget | undefined {
+  if (step.kind !== 'structural') {
+    return undefined;
+  }
+
+  const [file, ...rest] = step.argv;
+  if (file !== 'nmr') {
+    return undefined;
+  }
+
+  let isDelegate = false;
+  let isWorkspaceRoot = false;
+  let index = 0;
+
+  while (index < rest.length) {
+    const token = rest[index] ?? '';
+
+    switch (token) {
+      // The pattern is the flag's value, and reading it as a command name would name whichever package it
+      // selects rather than the command every selected scope runs.
+      case '-F':
+      case '--filter':
+        isDelegate = true;
+        index += 2;
+        break;
+      case '-R':
+      case '--recursive':
+        isDelegate = true;
+        index += 1;
+        break;
+      case '-w':
+      case '--workspace-root':
+        isWorkspaceRoot = true;
+        index += 1;
+        break;
+      default:
+        if (!token.startsWith('-')) {
+          return { command: token, isDelegate, isWorkspaceRoot };
+        }
+        index += 1;
+    }
+  }
+
+  return undefined;
 }
 
 /**

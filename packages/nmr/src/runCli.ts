@@ -4,8 +4,9 @@ import type { Writable } from 'node:stream';
 import { readPackageVersion, reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
-import type { BuildOutputState, ReplayLine, Retention, TreeSnapshot } from './check-cache.ts';
+import type { BuildOutputState, CheckCacheEntry, ReplayLine, Retention, TreeSnapshot } from './check-cache.ts';
 import {
+  certifyRetention,
   computeCacheKey,
   computeRetentionKey,
   CURRENT_RUNTIME,
@@ -16,7 +17,9 @@ import {
   readBuildOutputState,
   readCheckCacheEntry,
   resolveCacheableCommands,
+  resolveRunId,
   resolveTreeSnapshot,
+  RUN_ID_ENV_VAR,
   TREE_SNAPSHOT_ENV_VAR,
   writeCheckCacheEntry,
   writeDebugNote,
@@ -26,6 +29,7 @@ import { resolveContext } from './context.ts';
 import { generateHelp } from './help.ts';
 import { deriveExcerpt } from './helpers/deriveExcerpt.ts';
 import { isHookName } from './helpers/hook-name.ts';
+import { assembleReplay } from './replay-assembly.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
 import type { ResolvedScript, ScriptOrigin } from './resolver.ts';
 import {
@@ -138,7 +142,8 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   });
 
   const noCache = parsed.noCache || env[NO_CACHE_ENV_VAR] === '1';
-  const childEnv = buildChildEnv(env, snapshot, noCache, verbosity);
+  const runId = resolveRunId(env);
+  const childEnv = buildChildEnv({ env, noCache, runId, snapshot, verbosity });
   const runOptions: RunStepsOptions = {
     quiet,
     stdout,
@@ -229,6 +234,8 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     monorepoRoot: context.monorepoRoot,
     noCache,
     overrideNotice: formatOverrideNotice(resolved, registry, command, anchorDir, quiet),
+    ownSteps: mainSteps,
+    runId,
     runOptions,
     snapshot,
     stderr,
@@ -260,23 +267,28 @@ type ParseResult = { ok: true; parsed: ParsedArgs } | { ok: false; error: string
 /**
  * Builds the environment every process below this one inherits. The snapshot travels down so a chain of nmr
  * invocations gates on one observation of the tree, a bypass travels down so it covers the whole chain rather
- * than only the command it was typed next to, and the verbosity travels down so each process suppresses the
- * output of the command it runs rather than of the subtree beneath it.
+ * than only the command it was typed next to, the verbosity travels down so each process suppresses the
+ * output of the command it runs rather than of the subtree beneath it, and the run's identity travels down so
+ * the excerpts a run records at every scope are recognizable as one run's.
  *
  * The verbosity is written in both modes, so a chain's loudness is decided once at the top rather than
  * re-derived at every link from an environment a caller may have set.
  */
-function buildChildEnv(
-  env: NodeJS.ProcessEnv,
-  snapshot: TreeSnapshot | undefined,
-  noCache: boolean,
-  verbosity: CommandVerbosity,
-): NodeJS.ProcessEnv {
+function buildChildEnv(options: {
+  env: NodeJS.ProcessEnv;
+  noCache: boolean;
+  runId: string;
+  snapshot: TreeSnapshot | undefined;
+  verbosity: CommandVerbosity;
+}): NodeJS.ProcessEnv {
+  const { env, noCache, runId, snapshot, verbosity } = options;
+
   return {
     ...env,
     ...(snapshot !== undefined && { [TREE_SNAPSHOT_ENV_VAR]: encodeTreeSnapshot(snapshot) }),
     ...(noCache && { [NO_CACHE_ENV_VAR]: '1' }),
     [COMMAND_VERBOSITY_ENV_VAR]: verbosity,
+    [RUN_ID_ENV_VAR]: runId,
   };
 }
 
@@ -309,28 +321,44 @@ function composeDelegate(scope: readonly string[], command: string, passthrough:
 
 /**
  * Composes the retention a pass carries, or `undefined` when the run left nothing to replay: a command whose
- * streams were handed to a terminal retained no copy, and one that printed nothing yields no excerpt.
+ * streams were handed to a terminal retained no copy, one that printed nothing yields no excerpt, and a
+ * composite whose constituents recorded none has nothing to assemble.
  *
- * The excerpt is drawn from stdout, falling back to stderr only where stdout retained nothing, which is where
- * every command the gate covers writes its substance.
+ * A leaf hands back what its own command wrote, and the excerpt is drawn from stdout, falling back to stderr
+ * only where stdout retained nothing, which is where every command the gate covers writes its substance. A
+ * composite hands back nothing of its own -- `expandScript` gives a step list that is either one opaque step
+ * or all structural ones -- so its retention is the assembly of what its constituents recorded.
  */
-function composeRetention(options: {
+async function composeRetention(options: {
+  anchorDir: string;
   command: string;
   key: string;
+  monorepoRoot: string;
   retained: RetainedOutput | undefined;
-  scope: string;
-}): Retention | undefined {
-  const { retained } = options;
-  if (retained === undefined) {
-    return undefined;
+  runId: string;
+  steps: readonly Step[];
+  treeHash: string;
+}): Promise<Retention | undefined> {
+  const { anchorDir, command, key, retained, runId } = options;
+
+  if (retained !== undefined) {
+    const excerpt = deriveExcerpt(retained.stdout.toString('utf8')) ?? deriveExcerpt(retained.stderr.toString('utf8'));
+    if (excerpt === undefined) {
+      return undefined;
+    }
+
+    return { key, replay: [{ command, excerpt, scope: path.basename(anchorDir) }], runId };
   }
 
-  const excerpt = deriveExcerpt(retained.stdout.toString('utf8')) ?? deriveExcerpt(retained.stderr.toString('utf8'));
-  if (excerpt === undefined) {
-    return undefined;
-  }
+  const replay = await assembleReplay({
+    anchorDir,
+    monorepoRoot: options.monorepoRoot,
+    runId,
+    steps: options.steps,
+    treeHash: options.treeHash,
+  });
 
-  return { key: options.key, replay: [{ command: options.command, excerpt, scope: options.scope }] };
+  return replay.length === 0 ? undefined : { key, replay, runId };
 }
 
 /**
@@ -510,6 +538,8 @@ function hasRunnableHook(
  *
  * The excerpts a skip replays come back only where the retention key matches too. A recording made under
  * another presentation environment is still a pass, and is not this environment's output.
+ *
+ * The entry comes back with them, so the caller can certify what it is about to replay.
  */
 async function lookUpRecordedPass(options: {
   anchorDir: string;
@@ -520,7 +550,7 @@ async function lookUpRecordedPass(options: {
   monorepoRoot: string;
   retentionKey: string;
   stderr: Writable;
-}): Promise<{ ageMs: number; replay?: ReplayLine[]; savedMs: number } | undefined> {
+}): Promise<{ ageMs: number; entry: CheckCacheEntry; replay?: ReplayLine[]; savedMs: number } | undefined> {
   const { anchorDir, buildOutput, command, env, key, monorepoRoot, stderr } = options;
 
   const entry = await readCheckCacheEntry({ anchorDir, command, monorepoRoot });
@@ -549,6 +579,7 @@ async function lookUpRecordedPass(options: {
 
   return {
     ageMs: Math.max(0, Date.now() - Date.parse(entry.recordedAt)),
+    entry,
     savedMs: entry.durationMs,
     // Replayed only where the recording describes this environment's output; otherwise the verdict prints alone.
     ...(entry.retention?.key === options.retentionKey && { replay: entry.retention.replay }),
@@ -690,7 +721,8 @@ function reportVerdict(verdict: Verdict, stdout: Writable): void {
  * A cache that cannot be written is not worth failing a green run over, so that failure goes to the debug note.
  *
  * The retention a skip replays is composed here for the same reason and after the same tests: a pass nothing
- * recorded must leave behind no excerpt claiming it did.
+ * recorded must leave behind no excerpt claiming it did. A composite's assembly is built here rather than when
+ * it skips, so every excerpt in it was certified during the run whose pass carries it.
  */
 async function recordPass(options: {
   anchorDir: string;
@@ -703,7 +735,9 @@ async function recordPass(options: {
   key: string;
   monorepoRoot: string;
   retained: RetainedOutput | undefined;
+  ownSteps: readonly Step[];
   retentionKey: string;
+  runId: string;
   snapshot: TreeSnapshot;
   stderr: Writable;
 }): Promise<void> {
@@ -737,11 +771,15 @@ async function recordPass(options: {
     return;
   }
 
-  const retention = composeRetention({
+  const retention = await composeRetention({
+    anchorDir,
     command,
     key: options.retentionKey,
+    monorepoRoot,
     retained: options.retained,
-    scope: path.basename(anchorDir),
+    runId: options.runId,
+    steps: options.ownSteps,
+    treeHash: snapshot.hash,
   });
 
   try {
@@ -816,6 +854,10 @@ function resolveCacheKey(options: {
  *
  * The override notice waits until the command is going to run, because naming the script that stands in for a
  * built-in says nothing useful about an invocation that skipped it.
+ *
+ * Two step lists: `steps` is the chain that runs, the hooks wrapped around the command included, and
+ * `ownSteps` is the command's alone, which is what a composite's assembly reads. A hook contributes nothing to
+ * what a skip replays, as it contributes nothing to a leaf's excerpt.
  */
 async function runGated(options: {
   anchorDir: string;
@@ -827,6 +869,8 @@ async function runGated(options: {
   monorepoRoot: string;
   noCache: boolean;
   overrideNotice: string | undefined;
+  ownSteps: readonly Step[];
+  runId: string;
   runOptions: RunStepsOptions;
   snapshot: TreeSnapshot | undefined;
   steps: readonly Step[];
@@ -866,7 +910,14 @@ async function runGated(options: {
       stderr,
     });
     if (recalled !== undefined) {
-      return { exitCode: 0, outcome: { outcome: 'recalled', ...recalled } };
+      const { entry, ...recall } = recalled;
+      // An excerpt this run declined to replay is one it has not certified, and vouching for it here would put
+      // another environment's output into the assembly a composite above this one records.
+      if (recall.replay !== undefined) {
+        await certifyRetention({ anchorDir, command, entry, env, monorepoRoot, runId: options.runId, stderr });
+      }
+
+      return { exitCode: 0, outcome: { outcome: 'recalled', ...recall } };
     }
   }
 
@@ -889,8 +940,10 @@ async function runGated(options: {
       env,
       key: gate.key,
       monorepoRoot,
+      ownSteps: options.ownSteps,
       retained,
       retentionKey: gate.retentionKey,
+      runId: options.runId,
       snapshot: gate.snapshot,
       stderr,
     });
