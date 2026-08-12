@@ -29,6 +29,7 @@ import { resolveContext } from './context.ts';
 import { generateHelp } from './help.ts';
 import { deriveExcerpt } from './helpers/deriveExcerpt.ts';
 import { isHookName } from './helpers/hook-name.ts';
+import { assembleReplay } from './replay-assembly.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
 import type { ResolvedScript, ScriptOrigin } from './resolver.ts';
 import {
@@ -38,7 +39,6 @@ import {
   expandScript,
   resolveScript,
 } from './resolver.ts';
-import { assembleReplay } from './replay-assembly.ts';
 import type { RetainedOutput, RunStepsOptions } from './runner.ts';
 import { resolveChannel, runSteps } from './runner.ts';
 import type { Step } from './steps.ts';

@@ -5,7 +5,6 @@ import process from 'node:process';
 import type { Writable } from 'node:stream';
 
 import type { CacheEntryRef } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 import {
   hashWorkingTree,
   readHeadSha,
@@ -14,6 +13,7 @@ import {
   resolveCacheEntryPath,
   writeCacheEntry,
 } from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { hasBuildOutput, readBuildDigest } from './commands/build-output.ts';
 import { loadWorkspaceConfig } from './config.ts';
