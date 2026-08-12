@@ -384,7 +384,9 @@ export default defineConfig({
 
 A [pnpm catalog](https://pnpm.io/catalogs) is declared in `pnpm-workspace.yaml`, and the upgrade tool reads that file only when it sits at the working directory, irrespective of `--recursive`, which is why `root:upgrade` covers every catalog too. A package-scoped invocation therefore cannot see a dependency the catalog declares, and a package whose dependencies are all catalogued would otherwise report itself up to date. It runs [`report-catalog`](#report-catalog) first instead, which names each catalogued dependency and the root a covering pass runs from.
 
-`nmr upgrade` from the root precedes its report with any active override, declared either in `pnpm-workspace.yaml` or as `pnpm.overrides` in the root `package.json`; `nmr root:upgrade` does not. An override pins a transitive dependency, so an upgrade masked by one never appears in the report.
+`nmr upgrade` from the root precedes its report with any active override, which pnpm declares in `pnpm-workspace.yaml`; `nmr root:upgrade` does not. An override pins a transitive dependency, so an upgrade masked by one never appears in the report.
+
+A `pnpm.overrides` block left in the root `package.json` fails the command instead. pnpm reads no setting from that field as of pnpm 11, so the block pins nothing, while the upgrade tool keeps its own list of dependency fields and goes on rewriting the versions in it under `--write` — a block that looks maintained and governs nothing. Failing is what keeps that write from happening. nmr supports pnpm 11 and later.
 
 The upgrade tool ([taze](https://github.com/antfu-collective/taze)) arrives with nmr, so your repo declares no dependency on it. Everything after the command name is passed through, including the range mode:
 
@@ -640,7 +642,9 @@ nmr report-catalog
 
 ### `report-overrides`
 
-Report any active pnpm override, declared either in `pnpm-workspace.yaml` or as `pnpm.overrides` in the root `package.json`, reminding developers of overrides that may need cleanup. Each line names the file the override was declared in. The root `upgrade` script runs it automatically, so no per-repo wiring is needed. Invoking it directly is useful for a one-off report.
+Report any active pnpm override, declared in the root `pnpm-workspace.yaml`, reminding developers of overrides that may need cleanup. The root `upgrade` script runs it automatically, so no per-repo wiring is needed. Invoking it directly is useful for a one-off report.
+
+A `pnpm.overrides` block in the root `package.json` fails the command, naming every entry it holds and where to move it — see [dependency upgrades](#dependency-upgrades) for why the block is inert. `pnpx codemod run pnpm-v10-to-v11` performs the move.
 
 ```bash
 nmr report-overrides
