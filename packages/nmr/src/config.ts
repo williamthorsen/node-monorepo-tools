@@ -4,8 +4,9 @@ import { pathToFileURL } from 'node:url';
 
 import { isObject, isStringRecord } from './helpers/type-guards.ts';
 import { findUnexpressibleToken } from './steps.ts';
-import type { BuildConfig, CheckCacheConfig, NmrConfig } from './types.ts';
+import type { BuildConfig, CheckCacheConfig, NmrConfig, OutputConfig } from './types.ts';
 import { UserError } from './UserError.ts';
+import { formatVerbosityRejection, isCommandVerbosity } from './verbosity.ts';
 
 const CONFIG_FILENAME = 'nmr.config.ts';
 const CONFIG_DIR = '.config';
@@ -28,7 +29,7 @@ interface ConfigTier {
 const CONFIG_TIERS: Record<'root' | 'workspace', ConfigTier> = {
   root: {
     label: 'a monorepo-root config',
-    honoredKeys: ['checkCache', 'devBin', 'rootScripts', 'workspaceScripts'],
+    honoredKeys: ['checkCache', 'devBin', 'output', 'rootScripts', 'workspaceScripts'],
     elsewhere: "the package's own config",
   },
   workspace: {
@@ -41,6 +42,7 @@ const CONFIG_TIERS: Record<'root' | 'workspace', ConfigTier> = {
 const RECOGNIZED_KEYS = [...CONFIG_TIERS.root.honoredKeys, ...CONFIG_TIERS.workspace.honoredKeys];
 const RECOGNIZED_BUILD_KEYS = ['extraIgnorePatterns'];
 const RECOGNIZED_CHECK_CACHE_KEYS = ['enabled', 'excludeCommands', 'extraCommands'];
+const RECOGNIZED_OUTPUT_KEYS = ['commandVerbosity', 'extraAgentEnvVars'];
 
 /**
  * Resolves the config-file path for a directory, whether that is the monorepo root or a package.
@@ -165,6 +167,41 @@ function validateCheckCacheField(value: Record<string, unknown>, configPath: str
   return config;
 }
 
+/** Validates and extracts the `output` field from the raw config object. */
+function validateOutputField(value: Record<string, unknown>, configPath: string): OutputConfig | undefined {
+  const output: unknown = value['output'];
+  if (output === undefined) {
+    return undefined;
+  }
+  if (!isObject(output)) {
+    throw new UserError(`Invalid nmr config at ${configPath}: \`output\` must be an object`);
+  }
+  assertRecognizedKeys(output, RECOGNIZED_OUTPUT_KEYS, configPath, 'output.');
+
+  const config: OutputConfig = {};
+
+  const commandVerbosity: unknown = output['commandVerbosity'];
+  if (commandVerbosity !== undefined) {
+    if (typeof commandVerbosity !== 'string' || !isCommandVerbosity(commandVerbosity)) {
+      const rendered = typeof commandVerbosity === 'string' ? commandVerbosity : String(commandVerbosity);
+      throw new UserError(
+        `Invalid nmr config at ${configPath}: ${formatVerbosityRejection('`output.commandVerbosity`', rendered)}`,
+      );
+    }
+    config.commandVerbosity = commandVerbosity;
+  }
+
+  const extraAgentEnvVars: unknown = output['extraAgentEnvVars'];
+  if (extraAgentEnvVars !== undefined) {
+    if (!isStringArray(extraAgentEnvVars)) {
+      throw new UserError(`Invalid nmr config at ${configPath}: \`output.extraAgentEnvVars\` must be a string[]`);
+    }
+    config.extraAgentEnvVars = extraAgentEnvVars;
+  }
+
+  return config;
+}
+
 /** Validates and extracts a `Record<string, string>` field from the raw config object. */
 function validateStringRecordField(
   value: Record<string, unknown>,
@@ -197,6 +234,9 @@ function validateConfig(value: unknown, configPath: string): NmrConfig {
 
   const devBin = validateStringRecordField(value, 'devBin', configPath);
   if (devBin) config.devBin = devBin;
+
+  const output = validateOutputField(value, configPath);
+  if (output) config.output = output;
 
   const workspaceScripts = validateScriptField(value, 'workspaceScripts', configPath);
   if (workspaceScripts) config.workspaceScripts = workspaceScripts;

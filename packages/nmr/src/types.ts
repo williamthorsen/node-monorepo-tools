@@ -1,5 +1,8 @@
 // The config shape, held apart from both the loader and the `./config` entry so that neither has to import the
 // other to reach it. The entry must retain no module specifier at all, which a dependency on `config.ts` would break.
+import type { CommandVerbosity } from './verbosity.ts';
+
+export type { CommandVerbosity } from './verbosity.ts';
 
 /** Build settings honored by `nmr-compile`. */
 export interface BuildConfig {
@@ -28,10 +31,26 @@ export interface CheckCacheConfig {
   extraCommands?: string[];
 }
 
+/** Output settings honored at the monorepo root. */
+export interface OutputConfig {
+  /**
+   * The verbosity a run takes when neither `-q` nor the environment named one. Both of those outrank it, and it
+   * outranks agent-harness detection, so `full` here is also how a repo declines to be detected.
+   */
+  commandVerbosity?: CommandVerbosity;
+  /**
+   * Environment-variable names added to the set whose presence marks an agent harness. Extends rather than
+   * replaces, so that declaring one name cannot silently drop the shipped list, and a repo absorbs a harness's
+   * rename without waiting for an nmr release.
+   */
+  extraAgentEnvVars?: string[];
+}
+
 export interface NmrConfig {
   build?: BuildConfig;
   checkCache?: CheckCacheConfig;
   devBin?: Record<string, string>;
+  output?: OutputConfig;
   workspaceScripts?: Record<string, string | string[]>;
   rootScripts?: Record<string, string | string[]>;
 }

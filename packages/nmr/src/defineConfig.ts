@@ -4,7 +4,7 @@
 // and still pull `types.ts` into a config load. `__tests__/defineConfig.tool.test.ts` enforces the invariant.
 import type { NmrConfig } from './types.ts';
 
-export type { BuildConfig, CheckCacheConfig, NmrConfig } from './types.ts';
+export type { BuildConfig, CheckCacheConfig, CommandVerbosity, NmrConfig, OutputConfig } from './types.ts';
 
 /**
  * Type-safe identity function for configuration files.

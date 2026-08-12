@@ -18,6 +18,20 @@ export type CommandVerbosity = (typeof COMMAND_VERBOSITIES)[number];
 export type VerbosityResolution = { ok: true; verbosity: CommandVerbosity } | { ok: false; error: string };
 
 /**
+ * Renders the rejection of a value off the loudness ladder, naming where it was written. Every source that accepts
+ * a verbosity renders through this, so no two of them can come to name different ladders.
+ */
+export function formatVerbosityRejection(source: string, value: string): string {
+  return `${source} is \`${value}\`, which is not one of: ${COMMAND_VERBOSITIES.join(', ')}`;
+}
+
+/** Narrows a raw value to a point on the loudness ladder. */
+export function isCommandVerbosity(value: string): value is CommandVerbosity {
+  const names: readonly string[] = COMMAND_VERBOSITIES;
+  return names.includes(value);
+}
+
+/**
  * Resolves the verbosity this process runs at. `-q` outranks an inherited value, which outranks the `full`
  * default; an unrecognized inherited value resolves to nothing at all, since falling back would pick a mode
  * nobody chose and hide a misspelling for the life of the shell.
@@ -27,21 +41,8 @@ export function resolveVerbosity(env: NodeJS.ProcessEnv, quietFlag: boolean): Ve
   const inherited = raw === undefined || raw === '' ? 'full' : raw;
 
   if (!isCommandVerbosity(inherited)) {
-    return {
-      ok: false,
-      error: `${COMMAND_VERBOSITY_ENV_VAR} is \`${inherited}\`, which is not one of: ${COMMAND_VERBOSITIES.join(', ')}`,
-    };
+    return { ok: false, error: formatVerbosityRejection(COMMAND_VERBOSITY_ENV_VAR, inherited) };
   }
 
   return { ok: true, verbosity: quietFlag ? 'quiet' : inherited };
 }
-
-// region | Helpers
-
-/** Narrows a raw environment value to a point on the loudness ladder. */
-function isCommandVerbosity(value: string): value is CommandVerbosity {
-  const names: readonly string[] = COMMAND_VERBOSITIES;
-  return names.includes(value);
-}
-
-// endregion | Helpers
