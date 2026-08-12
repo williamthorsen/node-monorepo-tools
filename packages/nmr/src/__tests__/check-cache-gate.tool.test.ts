@@ -352,6 +352,38 @@ describe('the check-result cache gate', () => {
       expect((await readEntry())?.retention).toBeUndefined();
     });
 
+    it('replays the excerpt on the skip line, marked as a recording', async () => {
+      writeConfig(repo, log, { command: `echo ran >> ${log} && echo '27 passed (27)'` });
+      await runNmr(COMMAND, repo);
+
+      const { stdout } = await runNmr(COMMAND, repo);
+
+      expect(runCount()).toBe(1);
+      expect(stdout).toContain('replayed: 27 passed (27)');
+    });
+
+    it('reports the verdict alone when the recording describes another presentation environment', async () => {
+      writeConfig(repo, log, { command: `echo ran >> ${log} && echo '27 passed (27)'` });
+      await runNmr(COMMAND, repo);
+
+      const { stdout } = await runNmr(COMMAND, repo, { COLUMNS: '80' });
+
+      // Still a pass on this tree; only the excerpt is another environment's.
+      expect(runCount()).toBe(1);
+      expect(stdout).toContain('on this tree');
+      expect(stdout).not.toContain('replayed:');
+    });
+
+    it('reports the verdict alone for a pass that retained nothing', async () => {
+      await runNmr(COMMAND, repo);
+
+      const { stdout } = await runNmr(COMMAND, repo);
+
+      expect(runCount()).toBe(1);
+      expect(stdout).toContain('on this tree');
+      expect(stdout).not.toContain('replayed:');
+    });
+
     it('leaves no excerpt behind for a run whose pass was declined', async () => {
       writeConfig(repo, log, { command: `echo ran >> ${log} && echo '27 passed (27)' && exit 3` });
 

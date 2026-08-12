@@ -4,7 +4,7 @@ import type { Writable } from 'node:stream';
 import { readPackageVersion, reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
-import type { BuildOutputState, Retention, TreeSnapshot } from './check-cache.ts';
+import type { BuildOutputState, ReplayLine, Retention, TreeSnapshot } from './check-cache.ts';
 import {
   computeCacheKey,
   computeRetentionKey,
@@ -507,6 +507,9 @@ function hasRunnableHook(
  * Returns the age and saving a recalled pass reports when a recorded pass covers this invocation, or
  * `undefined` when the command has to run. A key match alone is not a pass: the build output the key says
  * nothing about has to still be on disk, and the run that follows a missing-output miss is what restores it.
+ *
+ * The excerpts a skip replays come back only where the retention key matches too. A recording made under
+ * another presentation environment is still a pass, and is not this environment's output.
  */
 async function lookUpRecordedPass(options: {
   anchorDir: string;
@@ -515,8 +518,9 @@ async function lookUpRecordedPass(options: {
   env: NodeJS.ProcessEnv;
   key: string;
   monorepoRoot: string;
+  retentionKey: string;
   stderr: Writable;
-}): Promise<{ ageMs: number; savedMs: number } | undefined> {
+}): Promise<{ ageMs: number; replay?: ReplayLine[]; savedMs: number } | undefined> {
   const { anchorDir, buildOutput, command, env, key, monorepoRoot, stderr } = options;
 
   const entry = await readCheckCacheEntry({ anchorDir, command, monorepoRoot });
@@ -543,7 +547,12 @@ async function lookUpRecordedPass(options: {
     return undefined;
   }
 
-  return { ageMs: Math.max(0, Date.now() - Date.parse(entry.recordedAt)), savedMs: entry.durationMs };
+  return {
+    ageMs: Math.max(0, Date.now() - Date.parse(entry.recordedAt)),
+    savedMs: entry.durationMs,
+    // Replayed only where the recording describes this environment's output; otherwise the verdict prints alone.
+    ...(entry.retention?.key === options.retentionKey && { replay: entry.retention.replay }),
+  };
 }
 
 /**
@@ -853,6 +862,7 @@ async function runGated(options: {
       env,
       key: gate.key,
       monorepoRoot,
+      retentionKey: gate.retentionKey,
       stderr,
     });
     if (recalled !== undefined) {
