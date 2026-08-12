@@ -307,6 +307,16 @@ describe('the check-result cache gate', () => {
       expect(entry?.retention).toBeUndefined();
     });
 
+    it('draws the excerpt from stderr where stdout retained nothing', async () => {
+      writeConfig(repo, log, { command: `echo ran >> ${log} && echo '3 warnings' 1>&2` });
+
+      await runNmr(COMMAND, repo);
+
+      expect((await readEntry())?.retention?.replay).toStrictEqual([
+        { command: COMMAND, excerpt: '3 warnings', scope: path.basename(repo) },
+      ]);
+    });
+
     it('draws the excerpt from the command rather than from a hook that ran after it', async () => {
       const bin = writeNmrShim(workspace, log, 'the hook output');
       writeConfig(repo, log, {
