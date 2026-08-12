@@ -62,8 +62,8 @@ export function getWorkspacePackageDirs(monorepoRoot: string): string[] {
 }
 
 /**
- * Reads the `overrides` block from the monorepo root's `pnpm-workspace.yaml`, the second site pnpm accepts an
- * override in, beside the root `package.json`'s `pnpm.overrides`.
+ * Reads the `overrides` block from the monorepo root's `pnpm-workspace.yaml`, the site pnpm reads an override
+ * from.
  *
  * Returns nothing when the manifest or the block is missing, and drops an entry whose value is not a string.
  */

@@ -79,6 +79,19 @@ describe(reportOverrides, () => {
     expect(() => reportOverrides(tmpDir)).toThrow(/pnpm-workspace\.yaml/);
   });
 
+  // The gate proves the block absent, so a value it cannot render is still a key the user has to move.
+  it('rejects a pnpm.overrides block carrying a non-string value, naming that entry', () => {
+    writePackageJson({
+      name: 'test',
+      version: '1.0.0',
+      pnpm: { overrides: { react: 18 } },
+    });
+
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    expect(() => reportOverrides(tmpDir)).toThrow(/react → 18/);
+  });
+
   it('accepts an empty pnpm.overrides block', () => {
     writePackageJson({ name: 'test', version: '1.0.0', pnpm: { overrides: {} } });
 

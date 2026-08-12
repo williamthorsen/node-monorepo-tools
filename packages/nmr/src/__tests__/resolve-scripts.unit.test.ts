@@ -57,7 +57,7 @@ describe(getDefaultWorkspaceScripts, () => {
     expect(upgrade.indexOf('report-catalog')).toBeLessThan(upgrade.indexOf('nmr-taze'));
   });
 
-  it('chains only bins, so upgrade survives -w from a package cwd', () => {
+  it('chains only bins on upgrade, so no step spawns a second nmr', () => {
     const upgrade = getDefaultWorkspaceScripts()['upgrade'];
     assert(typeof upgrade === 'string', 'Expected upgrade to be a chained command');
 

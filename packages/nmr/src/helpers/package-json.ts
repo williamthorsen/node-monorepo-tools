@@ -30,7 +30,9 @@ export type PackageJson = {
   version?: string;
   packageManager?: string;
   scripts?: Record<string, string>;
-  pnpm?: { overrides?: Record<string, string> };
+  // Kept unnarrowed: its one reader proves the block absent, and a value dropped on the way in would be a key
+  // the proof never sees.
+  pnpm?: { overrides?: Record<string, unknown> };
 } & { [K in DependencyField]?: Record<string, string> };
 
 /**
@@ -55,7 +57,7 @@ export function readPackageJson(dir: string): PackageJson {
   if (isObject(parsed['pnpm'])) {
     const pnpm = parsed['pnpm'];
     if (isObject(pnpm['overrides'])) {
-      pkg.pnpm = { overrides: readStringValues(pnpm['overrides']) };
+      pkg.pnpm = { overrides: pnpm['overrides'] };
     }
   }
   for (const field of DEPENDENCY_FIELDS) {
@@ -69,20 +71,14 @@ export function readPackageJson(dir: string): PackageJson {
 }
 
 /**
- * Checks if a package.json has pnpm overrides and returns them.
+ * Returns the `pnpm.overrides` block a package.json declares, every key it holds and each value as written.
  */
-export function getPnpmOverrides(pkg: PackageJson): Record<string, string> | undefined {
+export function getPnpmOverrides(pkg: PackageJson): Record<string, unknown> | undefined {
   if (!isObject(pkg.pnpm)) return undefined;
 
   const overrides = pkg.pnpm.overrides;
-  if (!isObject(overrides)) return undefined;
 
-  // Verify all values are strings
-  for (const value of Object.values(overrides)) {
-    if (typeof value !== 'string') return undefined;
-  }
-
-  return overrides;
+  return isObject(overrides) ? overrides : undefined;
 }
 
 /**
