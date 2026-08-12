@@ -16,7 +16,6 @@ import {
 
 import { hasBuildOutput, readBuildDigest } from './commands/build-output.ts';
 import { loadWorkspaceConfig } from './config.ts';
-import { formatDuration, formatSaving } from './helpers/duration.ts';
 import { isObject, isStringRecord } from './helpers/type-guards.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
 import { getDefaultWorkspaceScripts } from './resolve-scripts.ts';
@@ -227,18 +226,6 @@ export function formatMisplacedNoCacheWarning(command: string): string {
 }
 
 /**
- * Renders the line a skipped command leaves behind, spending the recorded metadata on the reader. A saving too
- * small to be worth naming takes its whole clause with it, rather than leaving an empty parenthetical behind.
- */
-export function formatSkipLine(command: string, entry: CheckCacheEntry, now: number): string {
-  const age = formatDuration(Math.max(0, now - Date.parse(entry.recordedAt)));
-  const saving = formatSaving(entry.durationMs);
-  const savingClause = saving === undefined ? '' : ` (${saving})`;
-
-  return `⏭️ ${command}: passed ${age} ago on this tree${savingClause}.`;
-}
-
-/**
  * Reads the state of the build output nmr's own build covers. Build output is git-ignored, so the tree hash
  * says nothing about it: a `ci` whose `build` constituent is cached would otherwise skip on a tree whose `dist`
  * had been deleted, or whose `dist` was compiled from a different tree, and hand back a green exit over a
@@ -396,8 +383,8 @@ function decodeTreeSnapshot(encoded: string | undefined): TreeSnapshot | undefin
 
 /**
  * Narrows a parsed entry, so that one written by an older format reads as a miss rather than as a pass. The
- * timestamp has to parse and the duration has to be finite, because both are spent on the skip line: an entry
- * that would render as `passed NaNs ago` is one no reader can act on.
+ * timestamp has to parse and the duration has to be finite, because a recalled pass spends both on its verdict:
+ * an entry that would render as `passed NaNs ago` is one no reader can act on.
  */
 function isCheckCacheEntry(value: unknown): value is CheckCacheEntry {
   if (!isObject(value)) {
