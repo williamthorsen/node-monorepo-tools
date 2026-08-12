@@ -38,13 +38,15 @@ export type VerdictOutcome = { detail?: string } & (
  * Renders a verdict as the line nmr reports it on, without the newline that terminates it.
  *
  * The line ends without terminal punctuation and reserves its tail for `detail`, so a later change appends to
- * the grammar rather than rewriting it.
+ * the grammar rather than rewriting it. A detail carrying nothing but line breaks takes its whole clause with
+ * it, rather than leaving a separator pointing at nothing.
  */
 export function renderVerdict(verdict: Verdict): string {
   const { icon, phrase } = describeOutcome(verdict);
-  const detail = verdict.detail === undefined ? '' : ` — ${verdict.detail}`;
+  const detail = verdict.detail === undefined ? '' : flattenDetail(verdict.detail);
+  const detailClause = detail === '' ? '' : ` — ${detail}`;
 
-  return clampToLimit(`${icon} ${verdict.scope}: ${verdict.command}: ${phrase}${detail}`);
+  return clampToLimit(`${icon} ${verdict.scope}: ${verdict.command}: ${phrase}${detailClause}`);
 }
 
 /**
@@ -114,6 +116,17 @@ function describeOutcome(verdict: Verdict): { icon: string; phrase: string } {
       throw new Error(`Unhandled verdict outcome: ${JSON.stringify(unhandled)}`);
     }
   }
+}
+
+/**
+ * Collapses a detail's line breaks into single spaces, so one verdict stays one line.
+ *
+ * A detail is text lifted from a command's output, which is where line breaks live. The byte ceiling is held
+ * here rather than at the call site for the same reason a line's shape is: both belong to the module that owns
+ * the grammar, not to whoever fills the slot.
+ */
+function flattenDetail(detail: string): string {
+  return detail.replaceAll(/[\r\n]+/gu, ' ').trim();
 }
 
 // endregion | Helpers

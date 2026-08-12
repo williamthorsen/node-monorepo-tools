@@ -49,6 +49,29 @@ describe(renderVerdict, () => {
     expect(renderVerdict(verdict)).toBe('✅ nmr-core: test: passed in 12s — Test Files 6 passed (6)');
   });
 
+  describe('a detail lifted from command output', () => {
+    it('collapses the line breaks it carries, so one verdict stays one line', () => {
+      const verdict = makeVerdict({ outcome: 'passed', durationMs: 12_000, detail: 'line one\nline two' });
+
+      expect(renderVerdict(verdict)).toBe('✅ nmr-core: test: passed in 12s — line one line two');
+    });
+
+    it('spends one space on a run of them, and none on the ones bounding the text', () => {
+      const verdict = makeVerdict({ outcome: 'passed', durationMs: 12_000, detail: '\r\nfirst\r\n\r\nsecond\n' });
+
+      expect(renderVerdict(verdict)).toBe('✅ nmr-core: test: passed in 12s — first second');
+    });
+
+    it.each([
+      { detail: '', scenario: 'an empty detail' },
+      { detail: '\n\n', scenario: 'a detail that was nothing but line breaks' },
+    ])('drops the whole clause for $scenario, rather than pointing a separator at nothing', ({ detail }) => {
+      const verdict = makeVerdict({ outcome: 'passed', durationMs: 12_000, detail });
+
+      expect(renderVerdict(verdict)).toBe('✅ nmr-core: test: passed in 12s');
+    });
+  });
+
   describe('the byte ceiling', () => {
     it('leaves room for the newline the write appends', () => {
       const verdict = makeVerdict({ outcome: 'passed', durationMs: 12_000, detail: 'x'.repeat(VERDICT_LINE_LIMIT) });

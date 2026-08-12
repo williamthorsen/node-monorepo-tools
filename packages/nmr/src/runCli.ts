@@ -117,9 +117,6 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   const { command } = parsed;
 
-  // Hook recursion guard: a command ending in `:pre` or `:post` is a leaf operation, and is not itself
-  // wrapped in further hook lookups.
-  const isHookInvocation = isHookName(command);
   const scope = path.basename(anchorDir);
 
   const snapshot = openGate({
@@ -176,6 +173,9 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   const substitutedCommand = renderChain(substitutedSteps);
   const mainSteps = appendPassthrough(substitutedSteps, parsed.passthrough);
 
+  // Hook recursion guard: a command ending in `:pre` or `:post` is a leaf operation, and is not itself
+  // wrapped in further hook lookups.
+  const isHookInvocation = isHookName(command);
   const fullSteps = isHookInvocation
     ? mainSteps
     : wrapWithHooks(command, mainSteps, registry, anchorDir, parsed.workspaceRoot);
