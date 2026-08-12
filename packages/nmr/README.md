@@ -223,6 +223,8 @@ Every command nmr runs reports one line naming the scope it ran at, the command,
 ⛔ nmr-core: lint: skipped, the override is empty
 ```
 
+A recalled pass also carries an excerpt of the run it recalls, where that run left one; see [Replaying a skipped run's output](#replaying-a-skipped-runs-output).
+
 The scope is the directory the command's registry belongs to: a package's own directory, or the monorepo root. Durations and ages truncate and carry at most two units, so a check that passed 90 seconds ago reports `1m 30s ago` and never `2m ago`.
 
 Verdicts nest. A composite reports, and so does every command it expands into; a `:pre` or `:post` hook reports nothing of its own, since the command it wraps already reports for the chain, though a hook that delegates to a named command reports under that name. A `-R` or `-F` invocation reports nothing either, every scope it fans out to reporting instead. A cold repo-wide `nmr ci` in this package's own monorepo spends 26 lines on a run that prints roughly 250.
@@ -306,6 +308,28 @@ The gate never wrongly skips. Where it cannot be sure, it does nothing and the c
 - For any invocation carrying arguments after the command name.
 
 `NMR_DEBUG=1` reports why a run did not skip and why the gate stood aside.
+
+### Replaying a skipped run's output
+
+A skip reports an excerpt of the run it recalls, marked as a recording rather than as this run's output:
+
+```console
+$ nmr test
+# ... the suite runs ...
+
+$ nmr test
+⏭️ nmr: test: passed 2m ago on this tree, saved ~12s — replayed: Test Files 6 passed (6) Tests 41 passed (41)
+```
+
+The excerpt is the last blank-line-delimited block of what the command wrote, which is the closing statement a tool separates from its progress output. It is flattened onto one line, with escape sequences stripped and table rules dropped. Nothing is parsed and no figure is computed: nmr replays bytes it recorded.
+
+It is written by the same operation that records the pass, so a pass declined because the tree moved or build output changed leaves no excerpt behind either, and `nmr clean` clears excerpts along with the passes they belong to.
+
+**Capture happens at the command, and only where nmr can see its output.** A command whose stdout or stderr is a terminal writes where nmr never reads, so an interactive run retains nothing and its progress display is untouched; a piped or redirected run, and any run under `-q`, retains both streams. A composite hands its descriptors to the child `nmr` processes below it and retains nothing of its own, and a `:pre` or `:post` hook contributes nothing to the command it wraps: an excerpt is the command's own output or none.
+
+**A replay is held to more than the pass is.** Retention carries its own key: the [pass key](#what-the-key-is-made-of) folded with the channel each output stream ran on and with `CI`, `COLUMNS`, `FORCE_COLOR`, `NO_COLOR`, and `TERM`. A recording made under a different one is recalled as a pass all the same; its excerpt is simply not replayed, and the verdict prints alone, as it does for a pass that retained nothing.
+
+The whole line, excerpt included, is held to the same [512-byte ceiling](#what-nmr-reports) every verdict is, so one write still carries it whole under concurrent fan-out.
 
 ### Bypassing and clearing
 
