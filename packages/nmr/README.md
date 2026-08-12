@@ -632,7 +632,7 @@ These commands are available as `nmr` subcommands and as standalone `nmr-`-prefi
 
 ### `report-catalog`
 
-Report the dependencies the current package takes from a [pnpm catalog](https://pnpm.io/catalogs), which a package-scoped `upgrade` cannot reach (see [dependency upgrades](#dependency-upgrades) for why). Each line names the dependency, its `catalog:` specifier, and the monorepo root a covering pass runs from. The workspace `upgrade` script runs it automatically, so no per-repo wiring is needed. Run from the monorepo root it reports nothing, because a root-scoped pass reads the catalog itself.
+Report the dependencies the current package takes from a [pnpm catalog](https://pnpm.io/catalogs), which a package-scoped `upgrade` cannot reach (see [dependency upgrades](#dependency-upgrades) for why). Each line names the dependency, its `catalog:` specifier, and the monorepo root a covering pass runs from. The workspace `upgrade` script runs it automatically, so no per-repo wiring is needed. The subcommand belongs to the workspace registry, so it runs from a package directory; the `nmr-report-catalog` bin reports nothing when run from the monorepo root, because a root-scoped pass reads the catalog itself.
 
 ```bash
 nmr report-catalog
