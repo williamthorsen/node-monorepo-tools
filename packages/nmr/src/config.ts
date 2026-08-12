@@ -183,7 +183,8 @@ function validateOutputField(value: Record<string, unknown>, configPath: string)
   const commandVerbosity: unknown = output['commandVerbosity'];
   if (commandVerbosity !== undefined) {
     if (typeof commandVerbosity !== 'string' || !isCommandVerbosity(commandVerbosity)) {
-      const rendered = typeof commandVerbosity === 'string' ? commandVerbosity : String(commandVerbosity);
+      // A non-string renders through JSON so an object reaches the reader as its shape, not `[object Object]`.
+      const rendered = typeof commandVerbosity === 'string' ? commandVerbosity : JSON.stringify(commandVerbosity);
       throw new UserError(
         `Invalid nmr config at ${configPath}: ${formatVerbosityRejection('`output.commandVerbosity`', rendered)}`,
       );
