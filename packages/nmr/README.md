@@ -375,14 +375,16 @@ export default defineConfig({
 
 `nmr upgrade` reports the dependency upgrades available to your repo. What it covers depends on where you run it:
 
-| Invocation                   | Covers                                      |
-| ---------------------------- | ------------------------------------------- |
-| `nmr upgrade` (from root)    | the root `package.json` and every workspace |
-| `nmr upgrade` (in a package) | that package                                |
-| `nmr -F <package> upgrade`   | that package, from anywhere                 |
-| `nmr root:upgrade`           | the root `package.json` alone               |
+| Invocation                   | Covers                                      | Catalogs |
+| ---------------------------- | ------------------------------------------- | -------- |
+| `nmr upgrade` (from root)    | the root `package.json` and every workspace | yes      |
+| `nmr upgrade` (in a package) | that package                                | no       |
+| `nmr -F <package> upgrade`   | that package, from anywhere                 | no       |
+| `nmr root:upgrade`           | the root `package.json`                     | yes      |
 
-`nmr upgrade` from the root precedes its report with any active `pnpm.overrides` declared in the root `package.json`; `nmr root:upgrade` does not. An override pins a transitive dependency, so an upgrade masked by one never appears in the report.
+A [pnpm catalog](https://pnpm.io/catalogs) is declared in `pnpm-workspace.yaml`, and the upgrade tool reads that file only when it sits at the working directory, irrespective of `--recursive`, which is why `root:upgrade` covers every catalog too. A package-scoped invocation therefore cannot see a dependency the catalog declares, and a package whose dependencies are all catalogued would otherwise report itself up to date. It runs [`report-catalog`](#report-catalog) first instead, which names each catalogued dependency and the root a covering pass runs from.
+
+`nmr upgrade` from the root precedes its report with any active override, declared either in `pnpm-workspace.yaml` or as `pnpm.overrides` in the root `package.json`; `nmr root:upgrade` does not. An override pins a transitive dependency, so an upgrade masked by one never appears in the report.
 
 The upgrade tool ([taze](https://github.com/antfu-collective/taze)) arrives with nmr, so your repo declares no dependency on it. Everything after the command name is passed through, including the range mode:
 
@@ -419,29 +421,30 @@ These scripts are available out of the box. Repo-wide config (tier 2) and per-pa
 
 ### Workspace scripts
 
-| Command         | Runs                                                        |
-| --------------- | ----------------------------------------------------------- |
-| `build`         | `compile`                                                   |
-| `check`         | `typecheck`, `fmt:check`, `lint:check`, `test`              |
-| `check:strict`  | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage`    |
-| `clean`         | `nmr-clean`                                                 |
-| `compile`       | `nmr-compile`                                               |
-| `fix`           | `lint`, `fmt`                                               |
-| `fix:check`     | `fmt:check`, `lint:check`                                   |
-| `fmt`           | `nmr-fmt --write`                                           |
-| `fmt:check`     | `nmr-fmt --check`                                           |
-| `lint`          | `eslint --fix .`                                            |
-| `lint:check`    | `eslint .`                                                  |
-| `lint:strict`   | `strict-lint`                                               |
-| `test`          | `pnpm exec vitest --project unit --project tool`            |
-| `test:all`      | `pnpm exec vitest`                                          |
-| `test:coverage` | `pnpm exec vitest --project unit --project tool --coverage` |
-| `test:tool`     | `pnpm exec vitest --project tool`                           |
-| `test:unit`     | `pnpm exec vitest --project unit`                           |
-| `test:watch`    | `pnpm exec vitest --project unit --project tool --watch`    |
-| `typecheck`     | `tsgo --noEmit`                                             |
-| `upgrade`       | `nmr-taze --include-locked`                                 |
-| `view-coverage` | `open coverage/index.html`                                  |
+| Command          | Runs                                                        |
+| ---------------- | ----------------------------------------------------------- |
+| `build`          | `compile`                                                   |
+| `check`          | `typecheck`, `fmt:check`, `lint:check`, `test`              |
+| `check:strict`   | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage`    |
+| `clean`          | `nmr-clean`                                                 |
+| `compile`        | `nmr-compile`                                               |
+| `fix`            | `lint`, `fmt`                                               |
+| `fix:check`      | `fmt:check`, `lint:check`                                   |
+| `fmt`            | `nmr-fmt --write`                                           |
+| `fmt:check`      | `nmr-fmt --check`                                           |
+| `lint`           | `eslint --fix .`                                            |
+| `lint:check`     | `eslint .`                                                  |
+| `lint:strict`    | `strict-lint`                                               |
+| `report-catalog` | `nmr-report-catalog`                                        |
+| `test`           | `pnpm exec vitest --project unit --project tool`            |
+| `test:all`       | `pnpm exec vitest`                                          |
+| `test:coverage`  | `pnpm exec vitest --project unit --project tool --coverage` |
+| `test:tool`      | `pnpm exec vitest --project tool`                           |
+| `test:unit`      | `pnpm exec vitest --project unit`                           |
+| `test:watch`     | `pnpm exec vitest --project unit --project tool --watch`    |
+| `typecheck`      | `tsgo --noEmit`                                             |
+| `upgrade`        | `nmr-report-catalog && nmr-taze --include-locked`           |
+| `view-coverage`  | `open coverage/index.html`                                  |
 
 `fmt` and `fmt:check` select their files through git rather than by walking the directory, which is what makes a package-level run and a root-level run apply the same ignore rules — see [file selection](#file-selection).
 
@@ -627,9 +630,17 @@ nmr --workspace-root check # Run root check from a package dir
 
 These commands are available as `nmr` subcommands and as standalone `nmr-`-prefixed binaries (for use in lifecycle hooks).
 
+### `report-catalog`
+
+Report the dependencies the current package takes from a [pnpm catalog](https://pnpm.io/catalogs), which a package-scoped `upgrade` cannot reach (see [dependency upgrades](#dependency-upgrades) for why). Each line names the dependency, its `catalog:` specifier, and the monorepo root a covering pass runs from. The workspace `upgrade` script runs it automatically, so no per-repo wiring is needed. Run from the monorepo root it reports nothing, because a root-scoped pass reads the catalog itself.
+
+```bash
+nmr report-catalog
+```
+
 ### `report-overrides`
 
-Report any active `pnpm.overrides` in the root `package.json`, reminding developers of overrides that may need cleanup. The root `upgrade` script runs it automatically, so no per-repo wiring is needed. Invoking it directly is useful for a one-off report.
+Report any active pnpm override, declared either in `pnpm-workspace.yaml` or as `pnpm.overrides` in the root `package.json`, reminding developers of overrides that may need cleanup. Each line names the file the override was declared in. The root `upgrade` script runs it automatically, so no per-repo wiring is needed. Invoking it directly is useful for a one-off report.
 
 ```bash
 nmr report-overrides
@@ -708,7 +719,7 @@ nmr-fmt --write packages/nmr
 
 ### `nmr-taze`
 
-Run the [taze](https://github.com/antfu-collective/taze) dependency-upgrade tool, forwarding every argument to it untouched. This is what `root:upgrade` resolves to, and what the root `upgrade` script ends with — see [dependency upgrades](#dependency-upgrades) for the workflow.
+Run the [taze](https://github.com/antfu-collective/taze) dependency-upgrade tool, forwarding every argument to it untouched. This is what `root:upgrade` resolves to, and what both `upgrade` chains end with — see [dependency upgrades](#dependency-upgrades) for the workflow.
 
 Under pnpm's isolated `node_modules`, a transitive package's binary is absent from the consuming repo's `node_modules/.bin`, so a repo that depends on nmr cannot run `taze` directly. `nmr-taze` can, because nmr is a direct dependency, and it resolves the tool from the tree nmr controls.
 
