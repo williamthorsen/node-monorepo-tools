@@ -159,7 +159,7 @@ const KEY_FORMAT = 'nmr-check-cache-v1';
  */
 const KEYED_ENV_VARS = ['LANG', 'LC_ALL', 'NODE_OPTIONS', 'TZ'];
 
-/** Names the retention fold. Bump it to invalidate retained output without invalidating a single pass. */
+/** Names the retention fold. Bump it to invalidate retained excerpts without invalidating a single pass. */
 const RETENTION_KEY_FORMAT = 'nmr-retention-v1';
 
 /**
@@ -319,13 +319,26 @@ export async function readBuildOutputState(monorepoRoot: string, config: NmrConf
   return state;
 }
 
-/** Reads the entry recorded for one command at one scope, or `undefined` when there is none to trust. */
+/**
+ * Reads the entry recorded for one command at one scope, or `undefined` when there is none to trust.
+ *
+ * Retention is vouched for separately from the pass it rides on: an excerpt of a shape this cannot read is
+ * dropped, leaving a pass that skips cleanly and reports its verdict alone. Voiding the pass instead would
+ * cost a full run to avoid a line nobody would have printed.
+ */
 export async function readCheckCacheEntry(options: {
   anchorDir: string;
   command: string;
   monorepoRoot: string;
 }): Promise<CheckCacheEntry | undefined> {
-  return readJsonCacheEntry(resolveEntryPath(options), isCheckCacheEntry);
+  const parsed = await readJsonCacheEntry(resolveEntryPath(options), isParsedCheckCacheEntry);
+  if (parsed === undefined) {
+    return undefined;
+  }
+
+  const { retention, ...pass } = parsed;
+
+  return isRetention(retention) ? { ...pass, retention } : pass;
 }
 
 /** Removes every recorded pass for a monorepo, or for a standalone package outside one. */
@@ -410,6 +423,9 @@ export function writeDebugNote(message: string, env: NodeJS.ProcessEnv, stderr: 
 
 // region | Helpers
 
+/** A recorded pass as it parses, before the retention beside it has been vouched for. */
+type ParsedCheckCacheEntry = Omit<CheckCacheEntry, 'retention'> & { retention?: unknown };
+
 /** Renders each variable's presence and its value separately, so an unset variable and an empty one differ. */
 function composeEnvParts(names: readonly string[], env: NodeJS.ProcessEnv): string[] {
   return names.flatMap((name) => {
@@ -456,9 +472,10 @@ function digestParts(parts: readonly string[]): string {
  * timestamp has to parse and the duration has to be finite, because a recalled pass spends both on its verdict:
  * an entry that would render as `passed NaNs ago` is one no reader can act on.
  *
- * Retention is optional, so an entry recorded before it existed reads as a pass carrying nothing to replay.
+ * The retention an entry may carry is left unread here, so that what a skip replays cannot decide whether the
+ * pass beneath it stands.
  */
-function isCheckCacheEntry(value: unknown): value is CheckCacheEntry {
+function isParsedCheckCacheEntry(value: unknown): value is ParsedCheckCacheEntry {
   if (!isObject(value)) {
     return false;
   }
@@ -472,8 +489,7 @@ function isCheckCacheEntry(value: unknown): value is CheckCacheEntry {
     typeof value['durationMs'] === 'number' &&
     Number.isFinite(value['durationMs']) &&
     !Number.isNaN(Date.parse(String(value['recordedAt']))) &&
-    isStringRecord(value['buildDigests']) &&
-    (value['retention'] === undefined || isRetention(value['retention']))
+    isStringRecord(value['buildDigests'])
   );
 }
 

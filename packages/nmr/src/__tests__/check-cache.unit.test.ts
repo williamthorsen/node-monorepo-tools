@@ -277,14 +277,15 @@ describe('check-cache', () => {
       ['retention with no key', { replay: [] }],
       ['a replay that is not a list', { key: 'a-retention-key', replay: 'summary' }],
       ['a replay line missing its excerpt', { key: 'a-retention-key', replay: [{ command: 'test', scope: 'nmr' }] }],
-    ])('reads an entry claiming %s as no entry', async (_label, retention) => {
-      // The excerpt cannot be produced, and a miss costs one run where a wrong replay costs a reader's trust.
+    ])('reads an entry claiming %s as a pass carrying nothing to replay', async (_label, retention) => {
+      // What a skip would have replayed cannot decide whether the pass beneath it stands.
       await writeCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci', entry: makeEntry() });
       overwriteEntries(root, JSON.stringify({ ...makeEntry(), retention }));
 
-      await expect(
-        readCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci' }),
-      ).resolves.toBeUndefined();
+      const entry = await readCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci' });
+
+      expect(entry?.key).toBe('a-key');
+      expect(entry?.retention).toBeUndefined();
     });
 
     it('reads an entry of the wrong shape as no entry', async () => {
