@@ -16,7 +16,9 @@ import {
   readBuildOutputState,
   readCheckCacheEntry,
   resolveCacheableCommands,
+  resolveRunId,
   resolveTreeSnapshot,
+  RUN_ID_ENV_VAR,
   TREE_SNAPSHOT_ENV_VAR,
   writeCheckCacheEntry,
   writeDebugNote,
@@ -138,7 +140,8 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   });
 
   const noCache = parsed.noCache || env[NO_CACHE_ENV_VAR] === '1';
-  const childEnv = buildChildEnv(env, snapshot, noCache, verbosity);
+  const runId = resolveRunId(env);
+  const childEnv = buildChildEnv({ env, noCache, runId, snapshot, verbosity });
   const runOptions: RunStepsOptions = {
     quiet,
     stdout,
@@ -229,6 +232,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     monorepoRoot: context.monorepoRoot,
     noCache,
     overrideNotice: formatOverrideNotice(resolved, registry, command, anchorDir, quiet),
+    runId,
     runOptions,
     snapshot,
     stderr,
@@ -260,23 +264,28 @@ type ParseResult = { ok: true; parsed: ParsedArgs } | { ok: false; error: string
 /**
  * Builds the environment every process below this one inherits. The snapshot travels down so a chain of nmr
  * invocations gates on one observation of the tree, a bypass travels down so it covers the whole chain rather
- * than only the command it was typed next to, and the verbosity travels down so each process suppresses the
- * output of the command it runs rather than of the subtree beneath it.
+ * than only the command it was typed next to, the verbosity travels down so each process suppresses the
+ * output of the command it runs rather than of the subtree beneath it, and the run's identity travels down so
+ * the excerpts a run records at every scope are recognizable as one run's.
  *
  * The verbosity is written in both modes, so a chain's loudness is decided once at the top rather than
  * re-derived at every link from an environment a caller may have set.
  */
-function buildChildEnv(
-  env: NodeJS.ProcessEnv,
-  snapshot: TreeSnapshot | undefined,
-  noCache: boolean,
-  verbosity: CommandVerbosity,
-): NodeJS.ProcessEnv {
+function buildChildEnv(options: {
+  env: NodeJS.ProcessEnv;
+  noCache: boolean;
+  runId: string;
+  snapshot: TreeSnapshot | undefined;
+  verbosity: CommandVerbosity;
+}): NodeJS.ProcessEnv {
+  const { env, noCache, runId, snapshot, verbosity } = options;
+
   return {
     ...env,
     ...(snapshot !== undefined && { [TREE_SNAPSHOT_ENV_VAR]: encodeTreeSnapshot(snapshot) }),
     ...(noCache && { [NO_CACHE_ENV_VAR]: '1' }),
     [COMMAND_VERBOSITY_ENV_VAR]: verbosity,
+    [RUN_ID_ENV_VAR]: runId,
   };
 }
 
@@ -318,6 +327,7 @@ function composeRetention(options: {
   command: string;
   key: string;
   retained: RetainedOutput | undefined;
+  runId: string;
   scope: string;
 }): Retention | undefined {
   const { retained } = options;
@@ -330,7 +340,11 @@ function composeRetention(options: {
     return undefined;
   }
 
-  return { key: options.key, replay: [{ command: options.command, excerpt, scope: options.scope }] };
+  return {
+    key: options.key,
+    replay: [{ command: options.command, excerpt, scope: options.scope }],
+    runId: options.runId,
+  };
 }
 
 /**
@@ -704,6 +718,7 @@ async function recordPass(options: {
   monorepoRoot: string;
   retained: RetainedOutput | undefined;
   retentionKey: string;
+  runId: string;
   snapshot: TreeSnapshot;
   stderr: Writable;
 }): Promise<void> {
@@ -741,6 +756,7 @@ async function recordPass(options: {
     command,
     key: options.retentionKey,
     retained: options.retained,
+    runId: options.runId,
     scope: path.basename(anchorDir),
   });
 
@@ -827,6 +843,7 @@ async function runGated(options: {
   monorepoRoot: string;
   noCache: boolean;
   overrideNotice: string | undefined;
+  runId: string;
   runOptions: RunStepsOptions;
   snapshot: TreeSnapshot | undefined;
   steps: readonly Step[];
@@ -891,6 +908,7 @@ async function runGated(options: {
       monorepoRoot,
       retained,
       retentionKey: gate.retentionKey,
+      runId: options.runId,
       snapshot: gate.snapshot,
       stderr,
     });
