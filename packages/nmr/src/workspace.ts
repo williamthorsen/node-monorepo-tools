@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { parse } from 'yaml';
 
-import { isObject } from './helpers/type-guards.ts';
+import { isObject, isStringRecord } from './helpers/type-guards.ts';
 import { resolvePackageDirs } from './helpers/workspace-patterns.ts';
 import { UserError } from './UserError.ts';
 
@@ -58,6 +58,30 @@ export function getWorkspacePackageDirs(monorepoRoot: string): string[] {
   }
 
   return resolvePackageDirs(monorepoRoot, packages);
+}
+
+/**
+ * Reads the `overrides` block from the monorepo root's `pnpm-workspace.yaml`, the second site pnpm accepts an
+ * override in, beside the root `package.json`'s `pnpm.overrides`.
+ *
+ * Returns nothing when the manifest, the block, or a string value is missing. pnpm reads an override as a
+ * string, so a block carrying anything else is malformed however it got there.
+ */
+export function readWorkspaceOverrides(monorepoRoot: string): Record<string, string> | undefined {
+  const workspaceFile = path.join(monorepoRoot, WORKSPACE_MANIFEST);
+
+  if (!existsSync(workspaceFile)) {
+    return undefined;
+  }
+
+  const parsed: unknown = parse(readFileSync(workspaceFile, 'utf8'));
+  if (!isObject(parsed)) {
+    return undefined;
+  }
+
+  const overrides = parsed['overrides'];
+
+  return isStringRecord(overrides) ? overrides : undefined;
 }
 
 function getPackagesFromParsedYaml(parsed: unknown): string[] | undefined {
