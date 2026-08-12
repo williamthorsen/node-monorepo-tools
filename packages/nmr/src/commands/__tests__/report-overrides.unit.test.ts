@@ -66,6 +66,18 @@ describe(reportOverrides, () => {
     expect(warnSpy).toHaveBeenCalledWith('- current-package → 2.0.0 (pnpm-workspace.yaml)');
   });
 
+  // YAML's implicit typing turns an unquoted version into a number, which must not cost the entries beside it.
+  it('keeps the string entries of a workspace block carrying a non-string value', () => {
+    writePackageJson({ name: 'test', version: '1.0.0' });
+    writeWorkspaceManifest('overrides:\n  react: 18\n  node-fetch: 2.6.7\n');
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    reportOverrides(tmpDir);
+
+    expect(warnSpy).toHaveBeenCalledWith('- node-fetch → 2.6.7 (pnpm-workspace.yaml)');
+    expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining('react'));
+  });
+
   it('does nothing when overrides object is empty', () => {
     writePackageJson({
       name: 'test',

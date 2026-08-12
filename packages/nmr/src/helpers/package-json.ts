@@ -6,6 +6,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 import { CONFIG_RELATIVE_PATH } from '../config.ts';
 import { UserError } from '../UserError.ts';
 import { isMonorepoRoot } from '../workspace.ts';
+import { readStringValues } from './readStringValues.ts';
 import { isObject } from './type-guards.ts';
 
 /**
@@ -54,12 +55,7 @@ export function readPackageJson(dir: string): PackageJson {
   if (isObject(parsed['pnpm'])) {
     const pnpm = parsed['pnpm'];
     if (isObject(pnpm['overrides'])) {
-      const overrides: Record<string, string> = {};
-      const overrideEntries = Object.entries(pnpm['overrides']);
-      for (const [key, val] of overrideEntries) {
-        if (typeof val === 'string') overrides[key] = val;
-      }
-      pkg.pnpm = { overrides };
+      pkg.pnpm = { overrides: readStringValues(pnpm['overrides']) };
     }
   }
   for (const field of DEPENDENCY_FIELDS) {
@@ -140,15 +136,6 @@ function formatMalformedScript(dir: string, key: string, value: unknown): string
   const field = isMonorepoRoot(dir) ? 'rootScripts' : 'workspaceScripts';
 
   return `${rejection} A step list belongs in \`${CONFIG_RELATIVE_PATH}\` under \`${field}\`.`;
-}
-
-/** Keeps the entries whose value is a string, dropping the rest. */
-function readStringValues(record: Record<string, unknown>): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const [key, value] of Object.entries(record)) {
-    if (typeof value === 'string') result[key] = value;
-  }
-  return result;
 }
 
 // endregion | Helpers
