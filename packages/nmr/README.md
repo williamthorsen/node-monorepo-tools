@@ -212,6 +212,25 @@ Attach a step to one package's hook:
 
 The second example calls the bin directly: `report-overrides` is a root-registry command, so `nmr report-overrides` from inside a package fails with `Unknown command`, while the bin runs from either scope.
 
+## What nmr reports
+
+Every command nmr runs reports one line naming the scope it ran at, the command, the outcome, and the timing:
+
+```console
+✅ nmr-core: test: passed in 12.4s
+❌ nmr: build: failed in 1.2s (exit 1)
+⏭️ nmr-core: test: passed 4m ago on this tree, saved ~12s
+⛔ nmr-core: lint: skipped, the override is empty
+```
+
+The scope is the directory the command's registry belongs to: a package's own directory, or the monorepo root. Durations and ages truncate and carry at most two units, so a check that passed 90 seconds ago reports `1m 30s ago` and never `2m ago`.
+
+Verdicts nest. A composite reports, and so does every command it expands into; a `:pre` or `:post` hook reports nothing of its own, since the command it wraps already reports for the chain, though a hook that delegates to a named command reports under that name. A `-R` or `-F` invocation reports nothing either, every scope it fans out to reporting instead. A cold repo-wide `nmr ci` in this package's own monorepo spends 25 lines on the whole tree.
+
+A verdict is one write of at most 512 bytes, the smallest `PIPE_BUF` POSIX permits, so packages running concurrently under `pnpm --recursive` cannot interleave within a line. A line longer than that is cut and marked with `…`; nothing nmr reports today comes near it.
+
+**Verdicts print in every verbosity.** `-q` withholds the output of the commands nmr runs, never nmr's own words: a passing quiet run reports its verdicts and nothing else. A command whose override resolved to `""` or `":"` reports the skip rather than exiting 0 in silence, which is what separates it from a command that passed. An `NMR_RUN_IF_PRESENT` miss reports nothing, having no command to report on.
+
 ## Check-result cache
 
 A check that passed on a working tree passes again on the same working tree. nmr records that, and the next run of the same command on an unchanged tree exits 0 without doing the work:
@@ -221,10 +240,10 @@ $ nmr ci
 # ... four minutes of build, typecheck, lint, and coverage ...
 
 $ nmr ci
-⏭️ ci: passed 2m ago on this tree (🚀 saved ~4m).
+⏭️ node-monorepo-tools: ci: passed 2m ago on this tree, saved ~4m
 ```
 
-Composite commands expand into child `nmr` processes, so one green `nmr ci` records a pass for every cacheable command in the chain, at every scope it ran at. A later `nmr check`, `nmr typecheck`, or `nmr -F core test` on the same tree skips too. The skip line is suppressed by `-q`.
+Composite commands expand into child `nmr` processes, so one green `nmr ci` records a pass for every cacheable command in the chain, at every scope it ran at. A later `nmr check`, `nmr typecheck`, or `nmr -F core test` on the same tree skips too. The skip is [reported](#what-nmr-reports) in every verbosity.
 
 The cache is a working-tree cache, not a build cache: it answers "has this exact tree already passed this check?" and nothing else. It is also local to one checkout (the install fingerprint in its key is machine-specific), so it saves repeated work in a working copy rather than sharing results across machines or with CI.
 
@@ -305,7 +324,7 @@ Reach for these in order; the first is almost always the right one.
 
 `NMR_TREE_SNAPSHOT` is nmr's own: it carries one observation of the tree from a top-level invocation down to the processes it spawns, so a chain hashes the tree once rather than at every link. nmr trusts an inherited value only while `HEAD` still stands where it did when the observation was taken, which bounds a process that outlives the run that spawned it. That bound does not extend to a tree edited without committing, so **a process that survives its run and later invokes nmr should clear `NMR_TREE_SNAPSHOT`** — a test suite that shells out to `nmr` is the case worth checking.
 
-`NMR_COMMAND_VERBOSITY` is nmr's own as well, and carries how loudly a run reports the output of the commands it runs. Its values are `full` and `quiet`; any other non-empty value is reported and exits 1, rather than falling back to a mode nobody chose, and an empty value reads as unset. Each process in a chain suppresses the output of the command it runs rather than of everything below it, so a failure still surrenders the failing command's output. nmr's own messages — the skip line, the override notice, and the `""`/`":"` skip notices — keep the suppression `-q` has always given them.
+`NMR_COMMAND_VERBOSITY` is nmr's own as well, and carries how loudly a run reports the output of the commands it runs. Its values are `full` and `quiet`; any other non-empty value is reported and exits 1, rather than falling back to a mode nobody chose, and an empty value reads as unset. Each process in a chain suppresses the output of the command it runs rather than of everything below it, so a failure still surrenders the failing command's output. It governs those commands' output alone: nmr's [verdicts](#what-nmr-reports) print in every verbosity, and the override notice is the one message a quiet run withholds.
 
 `-q` sets it for the run and outranks an inherited value. Both values are spelled out so either direction is expressible: export `NMR_COMMAND_VERBOSITY=quiet` for a quiet shell, and set `full` on one invocation to opt back out.
 
@@ -551,7 +570,7 @@ Position determines ownership: flags before the command name are nmr's own, and 
 | `-F, --filter <pattern>` | Run command in matching packages                        | —       |
 | `-R, --recursive`        | Run command in all packages                             | —       |
 | `-w, --workspace-root`   | Use root scripts, running at the monorepo root          | —       |
-| `-q, --quiet`            | Suppress info messages; show full output on failure     | —       |
+| `-q, --quiet`            | Suppress command output, keeping nmr's verdicts         | —       |
 | `--no-cache`             | Run even if this tree already passed; record the result | —       |
 | `-?, --help`             | Show available commands                                 | —       |
 | `-V, --version`          | Show version number                                     | —       |
