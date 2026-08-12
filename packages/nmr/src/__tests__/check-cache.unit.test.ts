@@ -323,11 +323,11 @@ describe('check-cache', () => {
 
       const line = formatSkipLine('ci', entry, recordedAt.getTime() + 720_000);
 
-      expect(line).toBe('⏭️ ci: passed 12m ago on this tree (🚀 saved ~4m).');
+      expect(line).toBe('⏭️ ci: passed 12m ago on this tree (saved ~4m).');
     });
 
     it('drops the whole saving clause when the pass was too quick to have saved anything', () => {
-      // An empty or zeroed parenthetical would spend the icon on nothing; the sentence has to read without it.
+      // An empty or zeroed parenthetical would say nothing; the sentence has to read without it.
       const recordedAt = new Date('2026-08-02T12:00:00Z');
       const entry = makeEntry({ recordedAt: recordedAt.toISOString(), durationMs: 40 });
 
