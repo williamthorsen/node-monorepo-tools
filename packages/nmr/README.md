@@ -325,11 +325,24 @@ The excerpt is the last blank-line-delimited block of what the command wrote, wh
 
 It is written by the same operation that records the pass, so a pass declined because the tree moved or build output changed leaves no excerpt behind either, and `nmr clean` clears excerpts along with the passes they belong to.
 
-**Capture happens at the command, and only where nmr can see its output.** A command whose stdout or stderr is a terminal writes where nmr never reads, so an interactive run retains nothing and its progress display is untouched; a piped or redirected run, and any run under `-q`, retains both streams. A composite hands its descriptors to the child `nmr` processes below it and retains nothing of its own, and a `:pre` or `:post` hook contributes nothing to the command it wraps: an excerpt is the command's own output or none.
+**Capture happens at the command, and only where nmr can see its output.** A command whose stdout or stderr is a terminal writes where nmr never reads, so an interactive run retains nothing and its progress display is untouched; a piped or redirected run, and any run under `-q`, retains both streams. A composite hands its descriptors to the child `nmr` processes below it and captures nothing of its own, and a `:pre` or `:post` hook contributes nothing to the command it wraps: an excerpt is the command's own output or none.
+
+**A composite replays its constituents' excerpts.** Capturing nothing of its own, a composite assembles what its constituents recorded, each line attributed to the scope and command that produced it:
+
+```console
+$ nmr check
+⏭️ nmr-core: check: passed 3m ago on this tree, saved ~48s — replayed: nmr-core: fmt:check: All matched files use Prettier code style!; nmr-core: test: Test Files 6 passed (6) Tests 41 passed (41)
+```
+
+The assembly is flat: a constituent that is itself a composite contributes its own leaves' lines, so a skipped `ci` replays a package's `test:coverage` rather than one opaque `check:strict` line. A delegate expands into the scopes it fans out to, and a constituent that recorded no excerpt is absent rather than inferred: `typecheck` and `lint:check` print nothing on success and contribute nothing above, and a command outside the [cacheable set](#what-is-cached) records nothing at all, so `ci` replays what `check:strict` earned and nothing for `build`.
+
+It is assembled when the composite records its pass rather than when it skips, so every excerpt in it was certified during that one run, on that one tree. `NMR_RUN_ID` is what makes that provable; see [reserved environment variables](#reserved-environment-variables).
+
+**A skip certifies what it replays.** Recalling a pass proves the excerpt describes this tree, and a matching retention key proves it describes this presentation environment, so a skip restamps the recalled entry with the run replaying it. A constituent already warm when a composite ran therefore still contributes its line: `nmr check` after `nmr test` replays the test summary. The restamp touches nothing else -- the instant and the duration belong to the run that earned the pass.
 
 **A replay is held to more than the pass is.** Retention carries its own key: the [pass key](#what-the-key-is-made-of) folded with the channel each output stream ran on and with `CI`, `COLUMNS`, `FORCE_COLOR`, `NO_COLOR`, and `TERM`. A recording made under a different one is recalled as a pass all the same; its excerpt is simply not replayed, and the verdict prints alone, as it does for a pass that retained nothing.
 
-The whole line, excerpt included, is held to the same [512-byte ceiling](#what-nmr-reports) every verdict is, so one write still carries it whole under concurrent fan-out.
+The whole line, excerpt included, is held to the same [512-byte ceiling](#what-nmr-reports) every verdict is, so one write still carries it whole under concurrent fan-out. An assembly wide enough to overrun it is cut and marked with `…` rather than spread over several lines.
 
 ### Bypassing and clearing
 
@@ -347,6 +360,8 @@ Reach for these in order; the first is almost always the right one.
 ### Reserved environment variables
 
 `NMR_TREE_SNAPSHOT` is nmr's own: it carries one observation of the tree from a top-level invocation down to the processes it spawns, so a chain hashes the tree once rather than at every link. nmr trusts an inherited value only while `HEAD` still stands where it did when the observation was taken, which bounds a process that outlives the run that spawned it. That bound does not extend to a tree edited without committing, so **a process that survives its run and later invokes nmr should clear `NMR_TREE_SNAPSHOT`** — a test suite that shells out to `nmr` is the case worth checking.
+
+`NMR_RUN_ID` is nmr's own too: it carries one run's identity from a top-level invocation down to the processes it spawns, so the excerpts recorded at every scope during one run are recognizable as that run's, and a composite can assemble from them. Where `NMR_TREE_SNAPSHOT` is bounded by `HEAD`, this is bounded by the tree hash each entry records, so a process that outlives its run and carries the identity into a later one contributes nothing to that run's assemblies.
 
 `NMR_COMMAND_VERBOSITY` is nmr's own as well, and carries how loudly a run reports the output of the commands it runs. Its values are `full` and `quiet`; any other non-empty value is reported and exits 1, rather than falling back to a mode nobody chose, and an empty value reads as unset. Each process in a chain suppresses the output of the command it runs rather than of everything below it, so a failure still surrenders the failing command's output. It governs those commands' output alone: nmr's [verdicts](#what-nmr-reports) print in every verbosity, and the override notice is the one message a quiet run withholds.
 
