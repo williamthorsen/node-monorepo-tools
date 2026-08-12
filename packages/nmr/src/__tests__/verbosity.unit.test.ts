@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { OutputConfig } from '../types.ts';
-import type { VerbosityRead } from '../verbosity.ts';
+import type { CommandVerbosity, VerbosityRead } from '../verbosity.ts';
 import { AGENT_ENV_VARS, COMMAND_VERBOSITY_ENV_VAR, readVerbosityEnv, resolveVerbosity } from '../verbosity.ts';
 
 describe(readVerbosityEnv, () => {
@@ -108,10 +108,10 @@ function errorFrom(read: VerbosityRead): string {
 /** Resolves against an empty ladder, so each case declares only the levels it is about. */
 function resolve(options: {
   env?: NodeJS.ProcessEnv;
-  envVerbosity?: 'full' | 'quiet';
+  envVerbosity?: CommandVerbosity;
   output?: OutputConfig;
   quietFlag?: boolean;
-}): string {
+}): CommandVerbosity {
   return resolveVerbosity({
     env: options.env ?? {},
     envVerbosity: options.envVerbosity,

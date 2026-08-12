@@ -13,13 +13,7 @@ const NMR_OWN_ENV_VARS: readonly string[] = [
   TREE_SNAPSHOT_ENV_VAR,
 ];
 
-/**
- * Variables nmr reads without owning: a harness sets them, and nmr resolves quiet from their presence. Held apart
- * from the set above, which is nmr's own, so neither name has to describe the other.
- */
-const DETECTED_ENV_VARS: readonly string[] = AGENT_ENV_VARS;
-
-const STRIPPED_ENV_VARS: ReadonlySet<string> = new Set([...NMR_OWN_ENV_VARS, ...DETECTED_ENV_VARS]);
+const STRIPPED_ENV_VARS: ReadonlySet<string> = new Set([...NMR_OWN_ENV_VARS, ...AGENT_ENV_VARS]);
 
 /**
  * Returns the environment with the variables nmr reads removed.
