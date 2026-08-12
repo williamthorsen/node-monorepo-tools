@@ -43,6 +43,26 @@ export interface CheckCacheEntry {
    * tree from output another tree left behind.
    */
   buildDigests: Record<string, string>;
+  /** What a skip replays in place of the run it recalls, absent on a pass that retained nothing. */
+  retention?: Retention;
+}
+
+/** One command's excerpt, attributed to the scope and the command that produced it. */
+export interface ReplayLine {
+  command: string;
+  excerpt: string;
+  scope: string;
+}
+
+/**
+ * What a recalled pass replays, and the key certifying the excerpts describe this environment's output.
+ *
+ * A list rather than one excerpt: a composite's entry carries its constituents' lines, and a nested one's are
+ * spliced into its parent's, where the attribution cannot be re-derived from the entry that holds them.
+ */
+export interface Retention {
+  key: string;
+  replay: ReplayLine[];
 }
 
 /** What nmr's own build has left on disk across the workspace. */
@@ -435,6 +455,8 @@ function digestParts(parts: readonly string[]): string {
  * Narrows a parsed entry, so that one written by an older format reads as a miss rather than as a pass. The
  * timestamp has to parse and the duration has to be finite, because a recalled pass spends both on its verdict:
  * an entry that would render as `passed NaNs ago` is one no reader can act on.
+ *
+ * Retention is optional, so an entry recorded before it existed reads as a pass carrying nothing to replay.
  */
 function isCheckCacheEntry(value: unknown): value is CheckCacheEntry {
   if (!isObject(value)) {
@@ -450,7 +472,8 @@ function isCheckCacheEntry(value: unknown): value is CheckCacheEntry {
     typeof value['durationMs'] === 'number' &&
     Number.isFinite(value['durationMs']) &&
     !Number.isNaN(Date.parse(String(value['recordedAt']))) &&
-    isStringRecord(value['buildDigests'])
+    isStringRecord(value['buildDigests']) &&
+    (value['retention'] === undefined || isRetention(value['retention']))
   );
 }
 
@@ -468,6 +491,26 @@ function isProbeSubject(packageDir: string, registry: ScriptRegistry): boolean {
   const compile = resolveScript('compile', registry, packageDir, false);
 
   return compile !== undefined && renderChain(compile.steps) === BUILT_IN_COMPILE;
+}
+
+/** Narrows a recorded replay line, whose three fields a rendered line spends in full. */
+function isReplayLine(value: unknown): value is ReplayLine {
+  return (
+    isObject(value) &&
+    typeof value['command'] === 'string' &&
+    typeof value['excerpt'] === 'string' &&
+    typeof value['scope'] === 'string'
+  );
+}
+
+/** Narrows recorded retention, so an entry claiming an excerpt it cannot produce reads as a miss. */
+function isRetention(value: unknown): value is Retention {
+  return (
+    isObject(value) &&
+    typeof value['key'] === 'string' &&
+    Array.isArray(value['replay']) &&
+    value['replay'].every((line) => isReplayLine(line))
+  );
 }
 
 /**

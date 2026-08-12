@@ -253,6 +253,40 @@ describe('check-cache', () => {
       expect(entry?.key).toBe('package-key');
     });
 
+    it('reads back the retention recorded beside a pass', async () => {
+      const entry = makeEntry({
+        retention: { key: 'a-retention-key', replay: [{ command: 'test', excerpt: '27 passed', scope: 'nmr' }] },
+      });
+      await writeCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'test', entry });
+
+      await expect(
+        readCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'test' }),
+      ).resolves.toStrictEqual(entry);
+    });
+
+    it('reads an entry recorded before retention existed as a pass carrying nothing to replay', async () => {
+      await writeCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci', entry: makeEntry() });
+
+      const entry = await readCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci' });
+
+      expect(entry?.key).toBe('a-key');
+      expect(entry?.retention).toBeUndefined();
+    });
+
+    it.each([
+      ['retention with no key', { replay: [] }],
+      ['a replay that is not a list', { key: 'a-retention-key', replay: 'summary' }],
+      ['a replay line missing its excerpt', { key: 'a-retention-key', replay: [{ command: 'test', scope: 'nmr' }] }],
+    ])('reads an entry claiming %s as no entry', async (_label, retention) => {
+      // The excerpt cannot be produced, and a miss costs one run where a wrong replay costs a reader's trust.
+      await writeCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci', entry: makeEntry() });
+      overwriteEntries(root, JSON.stringify({ ...makeEntry(), retention }));
+
+      await expect(
+        readCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci' }),
+      ).resolves.toBeUndefined();
+    });
+
     it('reads an entry of the wrong shape as no entry', async () => {
       // An entry written by an older format is not a pass anyone can act on.
       await writeCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci', entry: makeEntry() });
