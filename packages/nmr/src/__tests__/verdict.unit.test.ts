@@ -323,18 +323,62 @@ describe(serializeVerdict, () => {
     });
 
     it('surrenders the replay outright where the structural fields alone leave no room for it', () => {
-      const verdict: Verdict = {
-        command: 'c'.repeat(240),
-        scope: 's'.repeat(240),
-        outcome: 'recalled',
-        ageMs: 1_000,
-        savedMs: 1_000,
-        replay: [{ command: 'test', excerpt: 'Test Files 6 passed (6)', scope: 'nmr-core' }],
-      };
-      const parsed = parseVerdict(serializeVerdict(verdict));
+      const parsed = parseVerdict(serializeVerdict(OVERSIZED_STRUCTURE));
 
       expect(parsed).not.toHaveProperty('replay');
       expect(parsed).toMatchObject({ outcome: 'recalled', ageMs: 1_000, savedMs: 1_000 });
+    });
+
+    // The scope and the command are the last thing a record gives up, and it does give them up: a line that
+    // overruns can be split across a pipe and corrupt every scope's records, where a marked cut costs one.
+    it('holds the ceiling where the structural fields alone overrun it', () => {
+      const line = serializeVerdict(OVERSIZED_STRUCTURE);
+
+      expect(Buffer.byteLength(line) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT);
+      expect(() => parseVerdict(line)).not.toThrow();
+      expect(line).toContain('…');
+    });
+
+    // An assembly this wide is what a root composite produces once every package reports; before the ladder
+    // shed excerpts ahead of entries, the whole array went and the record named no constituent at all.
+    it('keeps every constituent named at the width a root composite assembles', () => {
+      const parsed = parseVerdict(serializeVerdict(makeAssembly(8, 49)));
+
+      expect(scopesOf(parsed)).toStrictEqual([
+        'scope-0',
+        'scope-1',
+        'scope-2',
+        'scope-3',
+        'scope-4',
+        'scope-5',
+        'scope-6',
+        'scope-7',
+      ]);
+    });
+
+    it('sheds the excerpts before the constituents carrying them', () => {
+      const parsed = parseVerdict(serializeVerdict(makeAssembly(8, 49)));
+
+      expect(excerptsOf(parsed)).toStrictEqual([]);
+      expect(scopesOf(parsed)).toHaveLength(8);
+    });
+
+    // The overrun is shared, so no constituent is emptied to leave a later one whole. Which excerpts would
+    // have survived was decided by step order, which carries no meaning for a consumer.
+    it("cuts an assembly's excerpts down together rather than spending the overrun on the first", () => {
+      const lengths = excerptsOf(parseVerdict(serializeVerdict(makeAssembly(4, 200)))).map((excerpt) => excerpt.length);
+
+      // Comparable rather than equal: the share is integer arithmetic, so the last cut absorbs the remainder.
+      expect(lengths).toHaveLength(4);
+      expect(Math.min(...lengths) * 2).toBeGreaterThanOrEqual(Math.max(...lengths));
+    });
+
+    // An excerpt cut to nothing reads as a run that recorded nothing, which is a different fact.
+    it('leaves every cut excerpt marked rather than emptied', () => {
+      const excerpts = excerptsOf(parseVerdict(serializeVerdict(makeAssembly(4, 200))));
+
+      expect(excerpts.every((excerpt) => excerpt.endsWith('…'))).toBe(true);
+      expect(excerpts).not.toContain('');
     });
   });
 });
@@ -363,6 +407,21 @@ describe(writeVerdict, () => {
 
 // region | Helpers
 
+/** A verdict whose scope and command alone overrun the ceiling, leaving nothing structural left to shed. */
+const OVERSIZED_STRUCTURE: Verdict = {
+  command: 'c'.repeat(240),
+  scope: 's'.repeat(240),
+  outcome: 'recalled',
+  ageMs: 1_000,
+  savedMs: 1_000,
+  replay: [{ command: 'test', excerpt: 'Test Files 6 passed (6)', scope: 'nmr-core' }],
+};
+
+/** Reads the excerpts a parsed record's replay carries, skipping an entry the ladder shed the excerpt from. */
+function excerptsOf(parsed: unknown): string[] {
+  return readReplay(parsed).flatMap((line) => (typeof line['excerpt'] === 'string' ? [line['excerpt']] : []));
+}
+
 /** Builds a recalled verdict carrying an assembly wide enough to overrun the ceiling. */
 function makeAssembly(constituents: number, excerptLength: number): Verdict {
   return makeVerdict({
@@ -387,6 +446,26 @@ function parseVerdict(line: string): unknown {
   const parsed: unknown = JSON.parse(line);
 
   return parsed;
+}
+
+/** Reads the replay entries a parsed record carries, or none where the ladder shed the array. */
+function readReplay(parsed: unknown): Record<string, unknown>[] {
+  if (typeof parsed !== 'object' || parsed === null || !('replay' in parsed)) {
+    return [];
+  }
+  const { replay } = parsed;
+
+  return Array.isArray(replay) ? replay.filter(isRecord) : [];
+}
+
+/** Reports whether a replay entry parsed back as an object, which every one nmr emits does. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+/** Reads the scope each constituent of a parsed record's replay names. */
+function scopesOf(parsed: unknown): string[] {
+  return readReplay(parsed).flatMap((line) => (typeof line['scope'] === 'string' ? [line['scope']] : []));
 }
 
 // endregion | Helpers

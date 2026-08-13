@@ -255,7 +255,14 @@ Every object carries `command`, `scope`, and `outcome`, and then what that outco
 
 Both renderings are produced from one record, so neither reports what the other does not. Where the prose line makes a presentation decision the record does not — a saving too small to be worth a clause, say — the object carries the fact and leaves the decision to whoever reads it.
 
-**An object is one write of at most 512 bytes**, the [same ceiling](#what-nmr-reports) a prose line is held to, so packages running concurrently under `pnpm --recursive` cannot interleave within one. A record that would overrun is cut inside its replay excerpts rather than across its structure, so the line still parses; the longest excerpt goes first, which keeps every constituent of an assembly named where the prose line drops its tail. A record overrunning with every excerpt emptied carries no `replay` at all.
+**An object is one write of at most 512 bytes**, the [same ceiling](#what-nmr-reports) a prose line is held to, so packages running concurrently under `pnpm --recursive` cannot interleave within one. Cuts land inside the record's text rather than across its structure, so the line still parses, and a record that overruns is fitted by rungs — each shedding what a reader can better spare than the one below it:
+
+1. **The excerpts are shortened toward one another**, so an assembly's constituents come down together rather than the first ones being emptied to leave the last whole. No excerpt is cut below `…`, which keeps a cut one distinguishable from a run that recorded nothing.
+2. **The excerpts go**, leaving the `scope` and `command` that name each constituent. An entry carrying no `excerpt` key is one whose text did not fit.
+3. **The trailing constituents go**, as the prose line drops its own tail, and the `replay` array itself once none fit.
+4. **The `scope` and `command` are cut**, each marked. This is the last resort and the reason for it is the ceiling itself: a line that overruns can be split across a pipe and corrupt the records of every scope sharing it, where a marked cut costs only its own.
+
+A four-package root `check` reaches rung 1 or 2; nothing in this repository reaches rung 3, and rung 4 needs a scope and command running to hundreds of bytes between them.
 
 **The mode implies quiet.** The commands' own output is withheld, so stdout carries the objects alone — no prose verdict, and no override notice. `NMR_COMMAND_VERBOSITY=full` does not opt back out. A failure still surrenders the failing command's output, on stderr, as under any quiet run. Both modes leave a command on the same channels, so a machine-readable run and a quiet one share a [retention key](#replaying-a-skipped-runs-output): each replays what the other recorded.
 

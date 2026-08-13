@@ -820,13 +820,6 @@ async function reportRecording(options: {
 }
 
 /**
- * Reports a step that reaches nmr through a shell, where the resolved script holds one.
- *
- * Ahead of the gate, so a command that usually skips still reports the boundary it carries. A `--log` reports
- * none, running nothing that could cross. Reads the resolved steps rather than the full chain: the line names
- * a declaration to edit, and a hook, a passthrough, and a `devBin` substitution are none.
- */
-/**
  * Reads the two variables that decide how a run presents itself, or the message naming why one of them could
  * not be read. Read together, so a run carrying two unreadable values is not fixed one release at a time.
  */
@@ -848,6 +841,13 @@ function readPresentationEnv(
   return { ok: true, format: format.format, verbosity: verbosity.verbosity };
 }
 
+/**
+ * Reports a step that reaches nmr through a shell, where the resolved script holds one.
+ *
+ * Ahead of the gate, so a command that usually skips still reports the boundary it carries. A `--log` reports
+ * none, running nothing that could cross. Reads the resolved steps rather than the full chain: the line names
+ * a declaration to edit, and a hook, a passthrough, and a `devBin` substitution are none.
+ */
 function reportNmrCrossing(options: {
   config: NmrConfig;
   isReading: boolean;

@@ -1,7 +1,7 @@
 import type { Writable } from 'node:stream';
 
 import type { ReplayLine } from './check-cache.ts';
-import { clampToBytes } from './helpers/clampToBytes.ts';
+import { clampToBytes, TRUNCATION_MARK } from './helpers/clampToBytes.ts';
 import { formatDuration, formatSaving } from './helpers/duration.ts';
 import type { ReportFormat } from './report-format.ts';
 
@@ -59,27 +59,15 @@ export function renderVerdict(verdict: Verdict): string {
  * Renders a verdict as the JSON object a machine consumer reads, without the newline that terminates it.
  *
  * Held to the ceiling the prose line is held to, so one write still reaches a pipe whole where concurrent
- * scopes share a descriptor. A record that overruns is cut inside its text -- the excerpts a replay carries
- * and the detail slot -- rather than across its structure, which is what leaves the line parseable. Each pass
- * cuts the longest of them, so an assembly loses excerpt text before it loses a constituent, where the prose
- * line composes the whole assembly and then drops its tail. A record overrunning with every one of them
- * emptied surrenders them outright, leaving the scope, the command, and the facts the outcome carries, none
- * of which can be cut without describing a run that did not happen.
+ * scopes share a descriptor. Cuts land inside the record's text rather than across its structure, which is
+ * what leaves the line parseable, and a record is fitted by rungs, each shedding what a reader can better
+ * spare than the rung below it. What the ceiling costs is [documented](../README.md#reporting-for-a-machine)
+ * in the same order.
  */
 export function serializeVerdict(verdict: Verdict): string {
-  let candidate = verdict;
-  let rendered = JSON.stringify(candidate);
+  const rendered = JSON.stringify(verdict);
 
-  while (Buffer.byteLength(rendered) > LINE_BUDGET_BYTES) {
-    const shortened = shortenLongestText(candidate, Buffer.byteLength(rendered) - LINE_BUDGET_BYTES);
-    if (shortened === undefined) {
-      return renderWithoutCuttableText(candidate);
-    }
-    candidate = shortened;
-    rendered = JSON.stringify(candidate);
-  }
-
-  return rendered;
+  return isWithinBudget(rendered) ? rendered : renderWithinBudget(verdict);
 }
 
 /**
@@ -164,51 +152,166 @@ function flattenDetail(detail: string): string {
   return detail.replaceAll(/[\r\n]+/gu, ' ').trim();
 }
 
-/**
- * Renders the record with everything cuttable gone, which is what a record still overrunning the ceiling with
- * every one of them emptied is left with.
- */
-function renderWithoutCuttableText(verdict: Verdict): string {
-  const record: Record<string, unknown> = { ...verdict };
-  delete record['detail'];
-  delete record['replay'];
+/** What a cut never takes a string below, so every string that was cut still carries the mark saying so. */
+const MIN_CUT_BYTES = Buffer.byteLength(TRUNCATION_MARK);
 
-  return JSON.stringify(record);
+/**
+ * Returns the size to cut the longest of a set of strings down to, so that cutting each in turn brings the set
+ * level rather than spending the whole overrun on the first string reached.
+ *
+ * The target is the next size another string holds; where none does, because every string is already that
+ * size, it is this string's share of what is still owed. A string at or below the mark is no size to level
+ * toward -- counting one, as the empty detail slot would be every time, puts the target at the mark and
+ * collapses the whole set on the first pass.
+ */
+function findCutTarget(sizes: readonly number[], longest: number, overrunBytes: number): number {
+  const below = sizes.filter((size) => size < longest && size > MIN_CUT_BYTES);
+  const share = Math.ceil(overrunBytes / sizes.filter((size) => size === longest).length);
+  const target = below.length === 0 ? longest - share : Math.max(...below, longest - overrunBytes);
+
+  return Math.max(MIN_CUT_BYTES, target);
+}
+
+/** Reports whether a rendered line, once the newline is counted, sits inside the ceiling. */
+function isWithinBudget(rendered: string): boolean {
+  return Buffer.byteLength(rendered) <= LINE_BUDGET_BYTES;
+}
+
+/** Returns what each constituent of a replay is, with the excerpt it carried gone. */
+function readAttribution(verdict: Verdict): { command: string; scope: string }[] {
+  if (verdict.outcome !== 'recalled' || verdict.replay === undefined) {
+    return [];
+  }
+
+  return verdict.replay.map((line) => ({ command: line.command, scope: line.scope }));
 }
 
 /**
- * Returns the verdict with its longest cuttable string shortened by at least the overrun, or `undefined` when
- * every one of them is already empty and there is nothing left to give.
- *
- * Shortening by the overrun is what makes the loop that calls this terminate: dropping raw content drops at
- * least as many bytes from the rendering, since escaping only ever adds to what a character costs there.
+ * Returns the strings a cut can take from, in the order an index addresses them: the detail slot, and then
+ * each constituent's excerpt.
  */
-function shortenLongestText(verdict: Verdict, overrunBytes: number): Verdict | undefined {
-  const detailSize = Buffer.byteLength(verdict.detail ?? '');
+function readCuttableText(verdict: Verdict): string[] {
+  const excerpts =
+    verdict.outcome === 'recalled' && verdict.replay !== undefined ? verdict.replay.map((line) => line.excerpt) : [];
 
-  if (verdict.outcome === 'recalled' && verdict.replay !== undefined) {
-    const sizes = verdict.replay.map((line) => Buffer.byteLength(line.excerpt));
-    const longest = Math.max(0, ...sizes);
-    if (longest > 0 && longest >= detailSize) {
-      const target = sizes.indexOf(longest);
-      const replay = verdict.replay.map((line, position) =>
-        position === target ? { ...line, excerpt: shortenText(line.excerpt, overrunBytes) } : line,
-      );
+  return [verdict.detail ?? '', ...excerpts];
+}
 
-      return { ...verdict, replay };
+/**
+ * Cuts the scope and the command, which is all a record has left to give once every structure above them is
+ * gone. Each is marked, as the prose line marks the same fields when it clamps.
+ */
+function renderClamped(record: Record<string, unknown>): string {
+  const clamped = { ...record };
+  let rendered = JSON.stringify(clamped);
+
+  while (!isWithinBudget(rendered)) {
+    const fields = ['command', 'scope'];
+    const sizes = fields.map((field) => Buffer.byteLength(typeof clamped[field] === 'string' ? clamped[field] : ''));
+    const longest = Math.max(...sizes);
+    if (longest <= MIN_CUT_BYTES) {
+      return rendered;
+    }
+
+    const target = findCutTarget(sizes, longest, Buffer.byteLength(rendered) - LINE_BUDGET_BYTES);
+    const field = fields[sizes.indexOf(longest)] ?? 'command';
+    clamped[field] = clampToBytes(typeof clamped[field] === 'string' ? clamped[field] : '', target);
+    rendered = JSON.stringify(clamped);
+  }
+
+  return rendered;
+}
+
+/**
+ * Fits a record that overran the ceiling, by rungs.
+ *
+ * Each rung sheds what a reader can better spare than the rung below it: the excerpts are shortened toward one
+ * another until they fit or every one sits at the mark; then they go, leaving the scope and command that name
+ * each constituent; then the constituents themselves go from the end, as the prose line drops its own tail;
+ * and last the scope and the command are cut, because a line that overruns can be split across a pipe and
+ * corrupt the records of every scope sharing it, where a marked cut costs only its own.
+ */
+function renderWithinBudget(verdict: Verdict): string {
+  const shortened = shortenCuttableText(verdict);
+  const shortenedLine = JSON.stringify(shortened);
+  if (isWithinBudget(shortenedLine)) {
+    return shortenedLine;
+  }
+
+  const record: Record<string, unknown> = { ...shortened };
+  delete record['detail'];
+
+  const attribution = readAttribution(shortened);
+  for (let kept = attribution.length; kept > 0; kept--) {
+    record['replay'] = attribution.slice(0, kept);
+    const rendered = JSON.stringify(record);
+    if (isWithinBudget(rendered)) {
+      return rendered;
     }
   }
 
-  if (verdict.detail === undefined || detailSize === 0) {
+  delete record['replay'];
+  const bare = JSON.stringify(record);
+
+  return isWithinBudget(bare) ? bare : renderClamped(record);
+}
+
+/**
+ * Shortens the record's cuttable strings toward one another until they fit or every one sits at the mark.
+ *
+ * Cutting the longest down toward the next-longest is what spreads the overrun over the whole assembly rather
+ * than spending it on whichever constituent happens to be listed first, and the floor at the mark is what
+ * leaves every cut string distinguishable from one that recorded nothing.
+ */
+function shortenCuttableText(verdict: Verdict): Verdict {
+  let candidate = verdict;
+  let rendered = JSON.stringify(candidate);
+
+  while (!isWithinBudget(rendered)) {
+    const shortened = shortenLongestText(candidate, Buffer.byteLength(rendered) - LINE_BUDGET_BYTES);
+    if (shortened === undefined) {
+      return candidate;
+    }
+    candidate = shortened;
+    rendered = JSON.stringify(candidate);
+  }
+
+  return candidate;
+}
+
+/**
+ * Returns the verdict with its longest cuttable string cut toward the next-longest, or `undefined` when every
+ * one of them already sits at the mark and there is nothing left to give.
+ *
+ * The cut is always a strict shortening, bounded below by the mark, which is what makes the loop calling this
+ * terminate.
+ */
+function shortenLongestText(verdict: Verdict, overrunBytes: number): Verdict | undefined {
+  const texts = readCuttableText(verdict);
+  const sizes = texts.map((text) => Buffer.byteLength(text));
+  const longest = Math.max(...sizes);
+  if (longest <= MIN_CUT_BYTES) {
     return undefined;
   }
 
-  return { ...verdict, detail: shortenText(verdict.detail, overrunBytes) };
+  const index = sizes.indexOf(longest);
+  const target = findCutTarget(sizes, longest, overrunBytes);
+
+  return writeCuttableText(verdict, index, clampToBytes(texts[index] ?? '', target));
 }
 
-/** Cuts at least the overrun off a string, which the caller has established is not already empty. */
-function shortenText(value: string, overrunBytes: number): string {
-  return clampToBytes(value, Math.max(0, Buffer.byteLength(value) - overrunBytes));
+/** Returns the verdict with one of its cuttable strings replaced, addressed as `readCuttableText` orders them. */
+function writeCuttableText(verdict: Verdict, index: number, value: string): Verdict {
+  if (index === 0) {
+    return { ...verdict, detail: value };
+  }
+  if (verdict.outcome !== 'recalled' || verdict.replay === undefined) {
+    return verdict;
+  }
+
+  const replay = verdict.replay.map((line, position) => (position === index - 1 ? { ...line, excerpt: value } : line));
+
+  return { ...verdict, replay };
 }
 
 // endregion | Helpers
