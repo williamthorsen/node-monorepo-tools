@@ -14,6 +14,8 @@ import {
   formatMisplacedNoCacheWarning,
   readBuildOutputState,
   readCheckCacheEntry,
+  readTranscript,
+  recordTranscript,
   removeCheckCache,
   resolveCacheableCommands,
   resolveRunId,
@@ -336,6 +338,68 @@ describe('check-cache', () => {
       await expect(
         readCheckCacheEntry({ monorepoRoot: root, anchorDir: packageDir, command: 'check' }),
       ).resolves.toBeUndefined();
+    });
+  });
+
+  describe('a recorded transcript', () => {
+    const REF = { anchorDir: '', command: 'test', monorepoRoot: '' };
+
+    /** The ref for this test's temporary root, which `beforeEach` creates afresh. */
+    function refFor(command: string, anchorDir?: string) {
+      return { ...REF, anchorDir: anchorDir ?? root, command, monorepoRoot: root };
+    }
+
+    it('reads back what it recorded', async () => {
+      await recordTranscript(refFor('test'), 'Test Files  6 passed (6)\n');
+
+      await expect(readTranscript(refFor('test'))).resolves.toBe('Test Files  6 passed (6)\n');
+    });
+
+    it('reports none for a command that recorded none', async () => {
+      await expect(readTranscript(refFor('typecheck'))).resolves.toBeUndefined();
+    });
+
+    it('keeps one command’s transcript separate from another’s', async () => {
+      await recordTranscript(refFor('test'), 'test output');
+      await recordTranscript(refFor('typecheck'), 'typecheck output');
+
+      await expect(readTranscript(refFor('test'))).resolves.toBe('test output');
+    });
+
+    it('keeps one scope’s transcript separate from another’s', async () => {
+      const packageDir = path.join(root, 'packages', 'a');
+      await recordTranscript(refFor('test'), 'root output');
+      await recordTranscript(refFor('test', packageDir), 'package output');
+
+      await expect(readTranscript(refFor('test', packageDir))).resolves.toBe('package output');
+    });
+
+    // A composite retains nothing of its own, so a leaf's transcript left standing beside its entry would be
+    // dated by a run that never produced it.
+    it('withdraws what an earlier pass left when this pass retained nothing', async () => {
+      await recordTranscript(refFor('test'), 'an earlier run');
+
+      await recordTranscript(refFor('test'), undefined);
+
+      await expect(readTranscript(refFor('test'))).resolves.toBeUndefined();
+    });
+
+    it('leaves the entry beside it alone', async () => {
+      await writeCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'test', entry: makeEntry() });
+
+      await recordTranscript(refFor('test'), undefined);
+
+      await expect(
+        readCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'test' }),
+      ).resolves.toBeDefined();
+    });
+
+    it('is cleared with the passes it belongs to', async () => {
+      await recordTranscript(refFor('test'), 'test output');
+
+      await removeCheckCache(root);
+
+      await expect(readTranscript(refFor('test'))).resolves.toBeUndefined();
     });
   });
 

@@ -16,6 +16,7 @@ import {
   NO_CACHE_ENV_VAR,
   readBuildOutputState,
   readCheckCacheEntry,
+  recordTranscript,
   resolveCacheableCommands,
   resolveRunId,
   resolveTreeSnapshot,
@@ -28,6 +29,7 @@ import { resolveConfigPath } from './config.ts';
 import { resolveContext } from './context.ts';
 import { generateHelp } from './help.ts';
 import { deriveExcerpt } from './helpers/deriveExcerpt.ts';
+import { composeTranscript } from './helpers/transcript.ts';
 import { isHookName } from './helpers/hook-name.ts';
 import { assembleReplay } from './replay-assembly.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
@@ -782,11 +784,15 @@ async function recordPass(options: {
     treeHash: snapshot.hash,
   });
 
+  const ref = { anchorDir, command, monorepoRoot };
+  const transcript = options.retained === undefined ? undefined : composeTranscript(options.retained);
+
   try {
+    // Ahead of the entry, and withdrawn again where the entry fails to land, so a reader never dates one
+    // run's bytes by another run's instant.
+    await recordTranscript(ref, transcript);
     await writeCheckCacheEntry({
-      anchorDir,
-      command,
-      monorepoRoot,
+      ...ref,
       entry: {
         key: options.key,
         treeHash: snapshot.hash,
@@ -801,8 +807,8 @@ async function recordPass(options: {
       },
     });
   } catch (error: unknown) {
-    const message = describeError(error);
-    writeDebugNote(`could not record ${command}: ${message}`, env, stderr);
+    await recordTranscript(ref, undefined).catch(() => undefined);
+    writeDebugNote(`could not record ${command}: ${describeError(error)}`, env, stderr);
   }
 }
 

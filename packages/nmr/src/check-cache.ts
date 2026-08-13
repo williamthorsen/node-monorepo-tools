@@ -7,9 +7,11 @@ import type { Writable } from 'node:stream';
 import type { CacheEntryRef } from '@williamthorsen/nmr-core';
 import {
   hashWorkingTree,
+  readCacheEntry,
   readHeadSha,
   readJsonCacheEntry,
   removeCacheDir,
+  removeCacheEntry,
   resolveCacheEntryPath,
   writeCacheEntry,
 } from '@williamthorsen/nmr-core';
@@ -46,6 +48,13 @@ export interface CheckCacheEntry {
   buildDigests: Record<string, string>;
   /** What a skip replays in place of the run it recalls, absent on a pass that retained nothing. */
   retention?: Retention;
+}
+
+/** What locates one command's recorded pass at one scope, and the transcript beside it. */
+export interface EntryRef {
+  anchorDir: string;
+  command: string;
+  monorepoRoot: string;
 }
 
 /** One command's excerpt, attributed to the scope and the command that produced it. */
@@ -387,6 +396,34 @@ export async function readCheckCacheEntry(options: {
   return isRetention(retention) ? { ...pass, retention } : pass;
 }
 
+/**
+ * Reads the whole output one recorded pass retained, or `undefined` where it retained none.
+ *
+ * Held to nothing on its own: the entry beside it is what says which tree the bytes describe, and a caller
+ * that has not matched the entry's key is reading a transcript of some other tree.
+ */
+export async function readTranscript(ref: EntryRef): Promise<string | undefined> {
+  return readCacheEntry(resolveEntryPath(ref, '.log'));
+}
+
+/**
+ * Makes the transcript beside one entry be exactly what this pass retained, removing what an earlier pass
+ * left when this one retained nothing.
+ *
+ * A composite retains nothing of its own, so without the removal a leaf's transcript would stand beside an
+ * entry that never produced it, and `--log` would date another run's bytes by this one's instant.
+ */
+export async function recordTranscript(ref: EntryRef, transcript: string | undefined): Promise<void> {
+  const entryPath = resolveEntryPath(ref, '.log');
+
+  if (transcript === undefined) {
+    await removeCacheEntry(entryPath);
+    return;
+  }
+
+  await writeCacheEntry(entryPath, transcript);
+}
+
 /** Removes every recorded pass for a monorepo, or for a standalone package outside one. */
 export async function removeCheckCache(scopeDir: string): Promise<void> {
   await removeCacheDir({ tool: CACHE_TOOL, scopeDir });
@@ -591,16 +628,17 @@ function isRetention(value: unknown): value is Retention {
 }
 
 /**
- * Locates one command's entry. Every entry in a monorepo lives in one directory, keyed by the scope and the
- * command, so a single removal clears the whole table however many packages recorded into it.
+ * Locates one command's entry, or the transcript beside it. Every entry in a monorepo lives in one directory,
+ * keyed by the scope and the command, so a single removal clears the whole table however many packages
+ * recorded into it. The pair shares one digest, differing only in extension.
  */
-function resolveEntryPath(options: { anchorDir: string; command: string; monorepoRoot: string }): string {
+function resolveEntryPath(options: EntryRef, extension: '.json' | '.log' = '.json'): string {
   const anchorDir = path.resolve(options.anchorDir);
   const ref: CacheEntryRef = {
     tool: CACHE_TOOL,
     scopeDir: options.monorepoRoot,
     slug: `${path.basename(anchorDir)}-${options.command.replaceAll(UNSAFE_SLUG_CHARACTERS, '-')}`,
-    extension: '.json',
+    extension,
     discriminators: [anchorDir, options.command],
   };
 
