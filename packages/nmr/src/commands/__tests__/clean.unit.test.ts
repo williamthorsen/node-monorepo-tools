@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { readCheckCacheEntry, writeCheckCacheEntry } from '../../check-cache.ts';
@@ -13,7 +14,7 @@ describe(cleanPackage, () => {
 
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-clean-'));
-    vi.spyOn(console, 'info').mockImplementation(() => {});
+    silenceConsole(['info']);
   });
 
   afterEach(() => {
@@ -59,7 +60,7 @@ describe(runClean, () => {
 
   beforeEach(() => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-clean-workspace-'));
-    vi.spyOn(console, 'info').mockImplementation(() => {});
+    silenceConsole(['info']);
   });
 
   afterEach(() => {

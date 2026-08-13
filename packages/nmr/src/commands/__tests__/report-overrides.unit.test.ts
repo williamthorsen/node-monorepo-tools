@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { reportOverrides } from '../report-overrides.ts';
 
@@ -15,27 +16,26 @@ describe(reportOverrides, () => {
 
   afterEach(() => {
     fs.rmSync(tmpDir, { recursive: true });
-    vi.restoreAllMocks();
   });
 
   it('does nothing when no overrides exist', () => {
     writePackageJson({ name: 'test', version: '1.0.0' });
 
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    using silent = silenceConsole(['warn']);
     reportOverrides(tmpDir);
 
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(silent.warn).not.toHaveBeenCalled();
   });
 
   it('reports the overrides declared in pnpm-workspace.yaml', () => {
     writePackageJson({ name: 'test', version: '1.0.0' });
     writeWorkspaceManifest('overrides:\n  some-package: 1.2.3\n');
 
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    using silent = silenceConsole(['warn']);
     reportOverrides(tmpDir);
 
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('pnpm overrides are active'));
-    expect(warnSpy).toHaveBeenCalledWith('- some-package → 1.2.3');
+    expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('pnpm overrides are active'));
+    expect(silent.warn).toHaveBeenCalledWith('- some-package → 1.2.3');
   });
 
   // YAML's implicit typing turns an unquoted version into a number, which must not cost the entries beside it.
@@ -43,21 +43,21 @@ describe(reportOverrides, () => {
     writePackageJson({ name: 'test', version: '1.0.0' });
     writeWorkspaceManifest('overrides:\n  react: 18\n  node-fetch: 2.6.7\n');
 
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    using silent = silenceConsole(['warn']);
     reportOverrides(tmpDir);
 
-    expect(warnSpy).toHaveBeenCalledWith('- node-fetch → 2.6.7');
-    expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining('react'));
+    expect(silent.warn).toHaveBeenCalledWith('- node-fetch → 2.6.7');
+    expect(silent.warn).not.toHaveBeenCalledWith(expect.stringContaining('react'));
   });
 
   it('does nothing when the workspace overrides block is empty', () => {
     writePackageJson({ name: 'test', version: '1.0.0' });
     writeWorkspaceManifest('packages:\n  - packages/*\n');
 
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    using silent = silenceConsole(['warn']);
     reportOverrides(tmpDir);
 
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(silent.warn).not.toHaveBeenCalled();
   });
 
   it('rejects a pnpm.overrides block, naming every entry and the remedy', () => {
@@ -67,7 +67,7 @@ describe(reportOverrides, () => {
       pnpm: { overrides: { 'some-package': '1.2.3', 'other-package': '4.5.6' } },
     });
 
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    using _silent = silenceConsole(['warn']);
 
     expect(() => reportOverrides(tmpDir)).toThrow(
       expect.objectContaining({
@@ -87,7 +87,7 @@ describe(reportOverrides, () => {
       pnpm: { overrides: { react: 18 } },
     });
 
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    using _silent = silenceConsole(['warn']);
 
     expect(() => reportOverrides(tmpDir)).toThrow(/react → 18/);
   });
@@ -95,10 +95,10 @@ describe(reportOverrides, () => {
   it('accepts an empty pnpm.overrides block', () => {
     writePackageJson({ name: 'test', version: '1.0.0', pnpm: { overrides: {} } });
 
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    using silent = silenceConsole(['warn']);
     reportOverrides(tmpDir);
 
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(silent.warn).not.toHaveBeenCalled();
   });
 
   it('reports the supported site before rejecting the legacy one', () => {
@@ -109,10 +109,10 @@ describe(reportOverrides, () => {
     });
     writeWorkspaceManifest('overrides:\n  current-package: 2.0.0\n');
 
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    using silent = silenceConsole(['warn']);
 
     expect(() => reportOverrides(tmpDir)).toThrow(/legacy-package/);
-    expect(warnSpy).toHaveBeenCalledWith('- current-package → 2.0.0');
+    expect(silent.warn).toHaveBeenCalledWith('- current-package → 2.0.0');
   });
 
   // region | Helpers

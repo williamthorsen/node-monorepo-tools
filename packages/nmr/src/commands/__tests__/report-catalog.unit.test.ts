@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { reportCatalog } from '../report-catalog.ts';
 
@@ -16,7 +17,6 @@ describe(reportCatalog, () => {
 
   afterEach(() => {
     fs.rmSync(monorepoRoot, { recursive: true });
-    vi.restoreAllMocks();
   });
 
   it('names every catalogued dependency, its specifier, and the root a covering pass runs from', () => {
@@ -25,22 +25,22 @@ describe(reportCatalog, () => {
       devDependencies: { lodash: 'catalog:legacy' },
     });
 
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    using silent = silenceConsole(['warn']);
     reportCatalog(packageDir);
 
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('2 dependencies come from a catalog'));
-    expect(warnSpy).toHaveBeenCalledWith('- lodash → catalog:legacy');
-    expect(warnSpy).toHaveBeenCalledWith('- zod → catalog:');
-    expect(warnSpy).toHaveBeenCalledWith(`Run \`nmr upgrade\` from ${monorepoRoot} to include them.`);
+    expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('2 dependencies come from a catalog'));
+    expect(silent.warn).toHaveBeenCalledWith('- lodash → catalog:legacy');
+    expect(silent.warn).toHaveBeenCalledWith('- zod → catalog:');
+    expect(silent.warn).toHaveBeenCalledWith(`Run \`nmr upgrade\` from ${monorepoRoot} to include them.`);
   });
 
   it('names an uncatalogued dependency nowhere in the report', () => {
     const packageDir = writePackage('a', { dependencies: { zod: 'catalog:', semver: '7.5.0' } });
 
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    using silent = silenceConsole(['warn']);
     reportCatalog(packageDir);
 
-    expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining('semver'));
+    expect(silent.warn).not.toHaveBeenCalledWith(expect.stringContaining('semver'));
   });
 
   it('recognizes the catalog protocol in every field that carries a specifier', () => {
@@ -51,12 +51,12 @@ describe(reportCatalog, () => {
       peerDependencies: { typescript: 'catalog:tooling' },
     });
 
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    using silent = silenceConsole(['warn']);
     reportCatalog(packageDir);
 
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('4 dependencies come from a catalog'));
-    expect(warnSpy).toHaveBeenCalledWith('- typescript → catalog:tooling');
-    expect(warnSpy).toHaveBeenCalledWith('- vitest → catalog:default');
+    expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('4 dependencies come from a catalog'));
+    expect(silent.warn).toHaveBeenCalledWith('- typescript → catalog:tooling');
+    expect(silent.warn).toHaveBeenCalledWith('- vitest → catalog:default');
   });
 
   it('reports a dependency declared in two fields once', () => {
@@ -65,30 +65,30 @@ describe(reportCatalog, () => {
       peerDependencies: { typescript: 'catalog:' },
     });
 
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    using silent = silenceConsole(['warn']);
     reportCatalog(packageDir);
 
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('1 dependency comes from a catalog'));
-    expect(warnSpy.mock.calls.filter(([line]) => String(line).includes('typescript'))).toHaveLength(1);
+    expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('1 dependency comes from a catalog'));
+    expect(silent.warn.mock.calls.filter(([line]) => String(line).includes('typescript'))).toHaveLength(1);
   });
 
   it('says nothing when the package declares no catalogued dependency', () => {
     const packageDir = writePackage('a', { dependencies: { semver: '7.5.0' } });
 
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    using silent = silenceConsole(['warn']);
     reportCatalog(packageDir);
 
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(silent.warn).not.toHaveBeenCalled();
   });
 
   it('says nothing when the pass runs at the monorepo root', () => {
     writePackage('a', { dependencies: { zod: 'catalog:' } });
     fs.writeFileSync(path.join(monorepoRoot, 'package.json'), JSON.stringify({ name: 'root', private: true }));
 
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    using silent = silenceConsole(['warn']);
     reportCatalog(monorepoRoot);
 
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(silent.warn).not.toHaveBeenCalled();
   });
 
   it('says nothing when the directory is outside every declared workspace package', () => {
@@ -96,10 +96,10 @@ describe(reportCatalog, () => {
     fs.mkdirSync(outsideDir);
     fs.writeFileSync(path.join(outsideDir, 'package.json'), JSON.stringify({ dependencies: { zod: 'catalog:' } }));
 
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    using silent = silenceConsole(['warn']);
     reportCatalog(outsideDir);
 
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(silent.warn).not.toHaveBeenCalled();
   });
 
   // region | Helpers

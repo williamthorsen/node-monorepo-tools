@@ -1,3 +1,4 @@
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockExecFileSync = vi.hoisted(() => vi.fn());
@@ -2172,12 +2173,12 @@ describe(releasePrepareMono, () => {
         return '';
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      using silent = silenceConsole(['warn']);
 
       releasePrepareMono(config, { withReleaseNotes: true });
 
       expect(mockPlanReleaseNotesPreviews).not.toHaveBeenCalled();
-      expect(warnSpy).toHaveBeenCalledWith(
+      expect(silent.warn).toHaveBeenCalledWith(
         expect.stringContaining('--with-release-notes requires changelogJson.enabled'),
       );
     });

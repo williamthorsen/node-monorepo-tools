@@ -1,3 +1,4 @@
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockExecFileSync = vi.hoisted(() => vi.fn());
@@ -11,7 +12,7 @@ import type { ResolvedTag } from '../resolveReleaseTags.ts';
 
 describe(publishPackage, () => {
   beforeEach(() => {
-    vi.spyOn(console, 'info').mockImplementation(() => {});
+    silenceConsole(['info']);
   });
 
   afterEach(() => {

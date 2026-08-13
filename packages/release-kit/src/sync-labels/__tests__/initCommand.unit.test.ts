@@ -1,3 +1,4 @@
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
@@ -70,7 +71,7 @@ describe(syncLabelsInitCommand, () => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/utils']);
     mockGenerateCommand.mockResolvedValue(0);
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
-    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    using _silent = silenceConsole(['info']);
 
     const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false });
 
@@ -92,7 +93,7 @@ describe(syncLabelsInitCommand, () => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
     givenValidConfig({});
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
-    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    using silent = silenceConsole(['info']);
 
     const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false });
 
@@ -103,7 +104,7 @@ describe(syncLabelsInitCommand, () => {
       expect.any(String),
       expect.any(Object),
     );
-    expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining("'scope:core': { color: '00ff96'"));
+    expect(silent.info).toHaveBeenCalledWith(expect.stringContaining("'scope:core': { color: '00ff96'"));
     expect(mockGenerateCommand).not.toHaveBeenCalled();
   });
 
@@ -114,11 +115,11 @@ describe(syncLabelsInitCommand, () => {
       retiredPackages: [{ name: '@acme/preflight', tagPrefix: 'preflight-v' }],
     });
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
-    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    using silent = silenceConsole(['info']);
 
     await syncLabelsInitCommand({ dryRun: false, force: false });
 
-    expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining("'scope:preflight'"));
+    expect(silent.info).toHaveBeenCalledWith(expect.stringContaining("'scope:preflight'"));
   });
 
   it('returns 1 when the existing config fails validation', async () => {
@@ -126,7 +127,7 @@ describe(syncLabelsInitCommand, () => {
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
     mockLoadConfig.mockResolvedValue({ bad: true });
     mockValidateConfig.mockReturnValue({ config: {}, errors: ['bad config'], warnings: [] });
-    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    using _silent = silenceConsole(['info']);
     vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
     const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false });
@@ -140,7 +141,7 @@ describe(syncLabelsInitCommand, () => {
     mockDiscoverWorkspaces.mockResolvedValue(undefined);
     mockGenerateCommand.mockResolvedValue(0);
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
-    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    using _silent = silenceConsole(['info']);
 
     const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false });
 
@@ -155,7 +156,7 @@ describe(syncLabelsInitCommand, () => {
   it('returns 1 when workspace discovery throws', async () => {
     givenExistingFiles();
     mockDiscoverWorkspaces.mockRejectedValue(new Error('filesystem error'));
-    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    using _silent = silenceConsole(['info']);
     vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
     const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false });
@@ -168,7 +169,7 @@ describe(syncLabelsInitCommand, () => {
     mockDiscoverWorkspaces.mockResolvedValue(undefined);
     mockGenerateCommand.mockResolvedValue(1);
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
-    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    using _silent = silenceConsole(['info']);
 
     const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false });
 
@@ -179,7 +180,7 @@ describe(syncLabelsInitCommand, () => {
     givenExistingFiles();
     mockDiscoverWorkspaces.mockResolvedValue(undefined);
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'failed', filePath: 'some/file' });
-    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    using _silent = silenceConsole(['info']);
     vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
     const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false });
@@ -192,7 +193,7 @@ describe(syncLabelsInitCommand, () => {
     givenExistingFiles();
     mockDiscoverWorkspaces.mockResolvedValue(undefined);
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
-    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    using _silent = silenceConsole(['info']);
 
     const exitCode = await syncLabelsInitCommand({ dryRun: true, force: false });
 
@@ -205,7 +206,7 @@ describe(syncLabelsInitCommand, () => {
     mockDiscoverWorkspaces.mockResolvedValue(undefined);
     mockGenerateCommand.mockResolvedValue(0);
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
-    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    using _silent = silenceConsole(['info']);
 
     await syncLabelsInitCommand({ dryRun: false, force: true });
 
@@ -227,7 +228,7 @@ describe(syncLabelsInitCommand, () => {
     mockDiscoverWorkspaces.mockResolvedValue(undefined);
     mockGenerateCommand.mockResolvedValue(0);
     mockWriteFileWithCheck.mockReturnValue(result);
-    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    using _silent = silenceConsole(['info']);
 
     await syncLabelsInitCommand({ dryRun, force: false });
 

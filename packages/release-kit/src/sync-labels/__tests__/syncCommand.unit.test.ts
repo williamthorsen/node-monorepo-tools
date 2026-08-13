@@ -1,3 +1,4 @@
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockExecSync = vi.hoisted(() => vi.fn());
@@ -64,7 +65,7 @@ describe(syncLabelsCommand, () => {
   it('returns 0 and triggers workflow on success', () => {
     mockExecSync.mockReturnValue(Buffer.from(''));
     givenExistingFiles('.github/workflows/sync-labels.yaml');
-    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    using _silent = silenceConsole(['info']);
 
     const result = syncLabelsCommand();
 

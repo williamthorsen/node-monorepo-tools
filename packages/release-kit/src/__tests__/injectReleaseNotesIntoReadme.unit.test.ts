@@ -1,3 +1,4 @@
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockExistsSync = vi.hoisted(() => vi.fn());
@@ -32,7 +33,7 @@ import {
 
 describe(injectReleaseNotesIntoReadme, () => {
   beforeEach(() => {
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    silenceConsole(['warn']);
   });
 
   afterEach(() => {
@@ -144,7 +145,7 @@ describe(injectReleaseNotesIntoReadme, () => {
 
 describe(renderInjectedReadme, () => {
   beforeEach(() => {
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    silenceConsole(['warn']);
   });
 
   afterEach(() => {

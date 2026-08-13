@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { describe, expect, it } from 'vitest';
 
 import { prepareHelpText, showPrepareHelp } from '../help/prepareHelp.ts';
 import { prepareFlagSchema } from '../prepareCommand.ts';
@@ -40,11 +41,10 @@ describe(prepareHelpText, () => {
 
 describe(showPrepareHelp, () => {
   it('prints the help text', () => {
-    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+    using silent = silenceConsole(['info']);
 
     showPrepareHelp();
 
-    expect(info).toHaveBeenCalledWith(prepareHelpText);
-    info.mockRestore();
+    expect(silent.info).toHaveBeenCalledWith(prepareHelpText);
   });
 });

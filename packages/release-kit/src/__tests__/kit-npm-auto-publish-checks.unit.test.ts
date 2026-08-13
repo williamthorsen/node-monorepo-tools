@@ -1,6 +1,6 @@
 import { isFlatChecklist, type RdyCheck, type RdyChecklist } from 'readyup';
 import type { DiscoverWorkspacesOptions, Workspace } from 'readyup/check-utils';
-import { afterEach, assert, describe, expect, it, vi } from 'vitest';
+import { assert, describe, expect, it, vi } from 'vitest';
 
 const { mockedDiscoverWorkspaces } = vi.hoisted(() => ({
   mockedDiscoverWorkspaces: vi.fn<(options?: DiscoverWorkspacesOptions) => Workspace[]>(),
@@ -32,10 +32,6 @@ const OWNER_REPO = 'williamthorsen/node-monorepo-tools';
 const WORKFLOW_FILE = 'publish.yaml';
 
 describe(skipIfNothingPublishable, () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('returns false when at least one workspace is publishable', () => {
     mockWorkspaces([makeWorkspace({ isPackage: false }), makeWorkspace({ isPackage: true })]);
 
@@ -230,10 +226,6 @@ describe(classifyTrustQuery, () => {
 // Both checklists stand down when the repo publishes nothing. Readyup runs, reports, and counts nothing beneath a
 // check whose `skip` fires, so each checklist's substantive work has to hang beneath one gate.
 describe('repo checklist', () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('runs publish.yaml exists as a check rather than a precondition', () => {
     const checklist = findChecklist('repo');
 
@@ -265,10 +257,6 @@ describe('repo checklist', () => {
 });
 
 describe('packages checklist', () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('keeps only the preconditions that read local files', () => {
     const preconditionNames = packagesChecklist.preconditions?.map((precondition) => precondition.name);
 

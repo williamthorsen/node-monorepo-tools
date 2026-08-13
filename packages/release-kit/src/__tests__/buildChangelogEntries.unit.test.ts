@@ -1,4 +1,4 @@
-import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
+import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.ts';
 import { matchesAudience, renderReleaseNotesSingle } from '../renderReleaseNotes.ts';
@@ -42,10 +42,6 @@ describe(buildChangelogEntries, () => {
   beforeEach(() => {
     mockRunGitCliff.mockReset();
     mockWriteFileSync.mockReset();
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
   });
 
   it('transforms git-cliff context into ChangelogEntry array', () => {
@@ -479,10 +475,6 @@ describe('buildChangelogEntries + renderReleaseNotesSingle integration', () => {
   beforeEach(() => {
     mockRunGitCliff.mockReset();
     mockWriteFileSync.mockReset();
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
   });
 
   it('renders public release notes with priority-ordered sections, bodies under bullets, and no dev-only or skipped sections', () => {

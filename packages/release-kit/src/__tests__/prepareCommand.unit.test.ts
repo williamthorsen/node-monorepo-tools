@@ -1,3 +1,4 @@
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockAssertCleanWorkingTree = vi.hoisted(() => vi.fn());
@@ -84,7 +85,7 @@ describe(prepareCommand, () => {
     vi.spyOn(process, 'exit').mockImplementation((code) => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
-    vi.spyOn(console, 'info').mockImplementation(() => {});
+    silenceConsole(['info']);
     vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
   });
@@ -604,7 +605,7 @@ describe(parseArgs, () => {
     vi.spyOn(process, 'exit').mockImplementation((code) => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
-    vi.spyOn(console, 'info').mockImplementation(() => {});
+    silenceConsole(['info']);
     vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 

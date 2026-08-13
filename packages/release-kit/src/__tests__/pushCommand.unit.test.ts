@@ -1,3 +1,4 @@
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockPushRelease = vi.hoisted(() => vi.fn());
@@ -33,7 +34,7 @@ describe(pushCommand, () => {
     vi.spyOn(process, 'exit').mockImplementation((code) => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
-    vi.spyOn(console, 'info').mockImplementation(() => {});
+    silenceConsole(['info']);
     vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 

@@ -1,3 +1,4 @@
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { LabelDefinition } from '../types.ts';
@@ -128,7 +129,7 @@ describe(generateCommand, () => {
     givenValidConfig({ repoLabels: { extends: ['common'] } });
     mockResolveLabels.mockReturnValue(labels);
     mockHashPresetFile.mockReturnValue('abc123');
-    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    using _silent = silenceConsole(['info']);
 
     const exitCode = await generateCommand();
 
@@ -147,7 +148,7 @@ describe(generateCommand, () => {
     givenValidConfig({ repoLabels: { extends: ['common'] } });
     mockResolveLabels.mockReturnValue(labels);
     mockHashPresetFile.mockReturnValue('abc123');
-    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    using _silent = silenceConsole(['info']);
 
     mockReadFileSync.mockReturnValue(formatLabelsYaml(labels, new Map([['common', 'abc123']])));
 

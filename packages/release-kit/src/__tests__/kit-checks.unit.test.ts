@@ -1,6 +1,6 @@
 import { isFlatChecklist, type RdyCheck } from 'readyup';
 import type { Workspace } from 'readyup/check-utils';
-import { afterEach, assert, describe, expect, it, vi } from 'vitest';
+import { assert, describe, expect, it, vi } from 'vitest';
 
 const { mockedDiscoverWorkspaces, mockedFileContains, mockedFileExists, mockedReadFile } = vi.hoisted(() => ({
   mockedDiscoverWorkspaces: vi.fn<() => Workspace[]>(),
@@ -29,10 +29,6 @@ import kit, {
 const CONFIG_GATE = '.config/release-kit.config.ts exports a config';
 
 describe(configFileExportsConfig, () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('returns false when the config file is absent', () => {
     mockedReadFile.mockReturnValue(undefined);
 
@@ -72,10 +68,6 @@ describe(configFileExportsConfig, () => {
 // The gate is what collapses a config-less repo's report to one line: readyup runs, reports, and counts nothing
 // beneath a check whose `skip` fires, so every check that reads the config file has to hang below it.
 describe('release-kit config gate', () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('reports the gate as an error', () => {
     expect(getConfigGate().severity).toBe('error');
   });
@@ -127,10 +119,6 @@ describe('release-kit config gate', () => {
 });
 
 describe(readmeHasReleaseNotesMarkers, () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('returns true when both opening and closing markers are present', () => {
     const content = '# Title\n<!-- section:release-notes -->\nNotes here\n<!-- /section:release-notes -->\n';
 

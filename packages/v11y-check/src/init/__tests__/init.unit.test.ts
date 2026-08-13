@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { initCommand } from '../initCommand.ts';
@@ -184,8 +185,7 @@ describe(initCommand, () => {
     tempDir = path.join(tmpdir(), `v11y-check-initcmd-test-${Date.now()}`);
     mkdirSync(tempDir, { recursive: true });
     process.chdir(tempDir);
-    // Suppress console output during tests
-    vi.spyOn(console, 'info').mockImplementation(() => {});
+    silenceConsole(['info']);
   });
 
   afterEach(() => {
@@ -252,27 +252,21 @@ describe(initCommand, () => {
   });
 
   it('mentions the scaffolded workflow in next-steps output', () => {
-    const consoleOutput: string[] = [];
-    vi.spyOn(console, 'info').mockImplementation((...args: unknown[]) => {
-      consoleOutput.push(args.map(String).join(' '));
-    });
+    using silent = silenceConsole(['info']);
 
     initCommand({ dryRun: false, force: false });
 
-    const fullOutput = consoleOutput.join('\n');
+    const fullOutput = silent.info.mock.calls.map((args) => args.map(String).join(' ')).join('\n');
     expect(fullOutput).toContain('.github/workflows/audit.yaml');
     expect(fullOutput).toContain('.config/v11y-check.config.json');
   });
 
   it('does not mention generate in next-steps output', () => {
-    const consoleOutput: string[] = [];
-    vi.spyOn(console, 'info').mockImplementation((...args: unknown[]) => {
-      consoleOutput.push(args.map(String).join(' '));
-    });
+    using silent = silenceConsole(['info']);
 
     initCommand({ dryRun: false, force: false });
 
-    const fullOutput = consoleOutput.join('\n');
+    const fullOutput = silent.info.mock.calls.map((args) => args.map(String).join(' ')).join('\n');
     expect(fullOutput).not.toContain('generate');
   });
 

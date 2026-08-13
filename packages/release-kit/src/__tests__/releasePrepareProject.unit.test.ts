@@ -1,3 +1,4 @@
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockExecFileSync = vi.hoisted(() => vi.fn());
@@ -443,7 +444,7 @@ describe(releasePrepareProject, () => {
       if (typeof path === 'string' && path.endsWith('/.meta/changelog.json')) return '{invalid json';
       return JSON.stringify({ name: 'root', version: '0.9.0' });
     });
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    using silent = silenceConsole(['warn']);
 
     releasePrepareProject({
       config,
@@ -453,7 +454,7 @@ describe(releasePrepareProject, () => {
       tags: [],
     });
 
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(silent.warn).not.toHaveBeenCalled();
     expect(mockRenderChangelogJson).toHaveBeenCalledTimes(1);
   });
 

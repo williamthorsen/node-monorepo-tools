@@ -1,3 +1,4 @@
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockExecFileSync = vi.hoisted(() => vi.fn());
@@ -407,12 +408,12 @@ describe(releasePrepare, () => {
 
   it('warns and skips preview generation when --with-release-notes is set but changelogJson is disabled', () => {
     setupFeatCommit();
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    using silent = silenceConsole(['warn']);
 
     releasePrepare(makeConfig(), { withReleaseNotes: true });
 
     expect(mockPlanReleaseNotesPreviews).not.toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalledWith(
+    expect(silent.warn).toHaveBeenCalledWith(
       expect.stringContaining('--with-release-notes requires changelogJson.enabled'),
     );
   });

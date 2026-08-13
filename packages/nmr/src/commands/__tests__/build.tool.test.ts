@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import * as ts from 'typescript';
 import { afterAll, afterEach, assert, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -190,7 +191,7 @@ describe('buildPackage regression suite', () => {
   let dir: string;
 
   beforeAll(async () => {
-    vi.spyOn(console, 'info').mockImplementation(() => {});
+    silenceConsole(['info']);
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-build-regression-'));
     scaffoldPackage(dir, {
       'helper.ts': 'export const helper = 1;\nexport type Thing = { n: number };\n',
@@ -261,7 +262,7 @@ describe('buildPackage emit correctness', () => {
 
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-build-emit-'));
-    vi.spyOn(console, 'info').mockImplementation(() => {});
+    silenceConsole(['info']);
   });
 
   afterEach(() => {
@@ -330,7 +331,7 @@ describe('buildPackage with extends-inherited tsconfig paths', () => {
 
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-build-extends-'));
-    vi.spyOn(console, 'info').mockImplementation(() => {});
+    silenceConsole(['info']);
   });
 
   afterEach(() => {
@@ -382,7 +383,7 @@ describe('buildPackage with an alias target outside the package source tree', ()
 
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-build-escaping-'));
-    vi.spyOn(console, 'info').mockImplementation(() => {});
+    silenceConsole(['info']);
   });
 
   afterEach(() => {
@@ -446,7 +447,7 @@ describe('buildPackage entry-point selection', () => {
 
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-build-'));
-    vi.spyOn(console, 'info').mockImplementation(() => {});
+    silenceConsole(['info']);
   });
 
   afterEach(() => {
@@ -528,7 +529,7 @@ describe('buildPackage output-directory ownership', () => {
 
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-build-'));
-    vi.spyOn(console, 'info').mockImplementation(() => {});
+    silenceConsole(['info']);
   });
 
   afterEach(() => {
@@ -588,7 +589,7 @@ describe('buildPackage atomic publication', () => {
 
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-build-atomic-'));
-    vi.spyOn(console, 'info').mockImplementation(() => {});
+    silenceConsole(['info']);
   });
 
   afterEach(() => {
@@ -683,7 +684,7 @@ describe('buildPackage caching', () => {
 
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-build-'));
-    vi.spyOn(console, 'info').mockImplementation(() => {});
+    silenceConsole(['info']);
   });
 
   afterEach(() => {

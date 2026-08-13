@@ -1,3 +1,4 @@
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockExecFileSync = vi.hoisted(() => vi.fn());
@@ -28,7 +29,7 @@ function makeWorkspace(
 
 describe(resolveReleaseTags, () => {
   beforeEach(() => {
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    silenceConsole(['warn']);
   });
 
   afterEach(() => {

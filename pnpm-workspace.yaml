@@ -1,6 +1,10 @@
 packages:
   - packages/*
 
+catalog:
+  '@williamthorsen/toolbelt.errors': 0.4.0
+  '@williamthorsen/toolbelt.vitest': 0.2.0
+
 allowBuilds:
   esbuild: true
   lefthook: true
