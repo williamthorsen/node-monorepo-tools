@@ -82,6 +82,7 @@
     "yaml": "2.9.0"
   },
   "devDependencies": {
+    "@williamthorsen/toolbelt.vitest": "catalog:",
     "prettier": "3.9.6",
     "readyup": "0.27.0",
     "tinyglobby": "0.2.17",

@@ -4,6 +4,12 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+catalogs:
+  default:
+    '@williamthorsen/toolbelt.vitest':
+      specifier: 0.2.0
+      version: 0.2.0
+
 importers:
 
   .:
@@ -96,6 +102,9 @@ importers:
         specifier: 2.9.0
         version: 2.9.0
     devDependencies:
+      '@williamthorsen/toolbelt.vitest':
+        specifier: 'catalog:'
+        version: 0.2.0(vitest@4.1.10)
       prettier:
         specifier: 3.9.6
         version: 3.9.6
@@ -117,6 +126,10 @@ importers:
       '@williamthorsen/toolbelt.errors':
         specifier: 0.4.0
         version: 0.4.0
+    devDependencies:
+      '@williamthorsen/toolbelt.vitest':
+        specifier: 'catalog:'
+        version: 0.2.0(vitest@4.1.10)
 
   packages/release-kit:
     dependencies:
@@ -145,6 +158,9 @@ importers:
       '@types/semver':
         specifier: 7.8.0
         version: 7.8.0
+      '@williamthorsen/toolbelt.vitest':
+        specifier: 'catalog:'
+        version: 0.2.0(vitest@4.1.10)
       readyup:
         specifier: 0.27.0
         version: 0.27.0(esbuild@0.28.1)
@@ -167,6 +183,9 @@ importers:
         specifier: 4.4.3
         version: 4.4.3
     devDependencies:
+      '@williamthorsen/toolbelt.vitest':
+        specifier: 'catalog:'
+        version: 0.2.0(vitest@4.1.10)
       readyup:
         specifier: 0.27.0
         version: 0.27.0(esbuild@0.28.1)
@@ -817,6 +836,12 @@ packages:
   '@williamthorsen/toolbelt.packaging@0.3.0':
     resolution: {integrity: sha512-cmWHKbVp+6cNe5pBtbzmTTm8DOB7B2m8prvyL2uyw/2va1VinoP4K1ud+K/9ehQCD8Yktgm6/p7uS7V7Jtt/qw==}
     engines: {node: '>=24.0.0'}
+
+  '@williamthorsen/toolbelt.vitest@0.2.0':
+    resolution: {integrity: sha512-vHBHwacMRU/wanhDRidtVCAwx15FlZkV53P20ua4488Kd2t2WI0v3LBuubLUcHJxrxjok35hKmUMNivM+ApKZQ==}
+    engines: {node: '>=24.0.0'}
+    peerDependencies:
+      vitest: ^4.0.0
 
   '@williamthorsen/tsconfig@0.5.0':
     resolution: {integrity: sha512-GNWk0qdf3jSsjXCTipOnvYgDFIdBxxPiuJwjc8MkroVq+9eIWFzOWohX3Nb4m6cCba0k90SaFOLiBvUikyiHWw==}
@@ -3049,6 +3074,10 @@ snapshots:
   '@williamthorsen/toolbelt.packaging@0.3.0':
     dependencies:
       '@williamthorsen/toolbelt.filesystem': 0.4.0
+
+  '@williamthorsen/toolbelt.vitest@0.2.0(vitest@4.1.10)':
+    dependencies:
+      vitest: 4.1.10(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
 
   '@williamthorsen/tsconfig@0.5.0': {}
 
