@@ -20,6 +20,9 @@
   },
   "license": "ISC",
   "author": "William Thorsen <william@thorsen.dev> (https://github.com/williamthorsen)",
+  "sideEffects": [
+    "./dist/esm/cli*.js"
+  ],
   "type": "module",
   "exports": {
     "./config": {
@@ -82,6 +85,7 @@
     "prettier": "3.9.6",
     "readyup": "0.27.0",
     "tinyglobby": "0.2.17",
+    "typescript": "6.0.3",
     "vitest": "4.1.10"
   },
   "peerDependencies": {
