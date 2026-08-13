@@ -3,7 +3,13 @@
   "version": "0.0.0",
   "private": true,
   "description": "Monorepo for @williamthorsen/nmr and related packages",
-  "keywords": [],
+  "keywords": [
+    "monorepo",
+    "pnpm",
+    "release-automation",
+    "script-runner",
+    "workspace"
+  ],
   "homepage": "https://github.com/williamthorsen/node-monorepo-tools#readme",
   "bugs": {
     "url": "https://github.com/williamthorsen/node-monorepo-tools/issues"
@@ -29,11 +35,11 @@
     "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "@vitest/coverage-v8": "4.1.10",
     "@vitest/eslint-plugin": "1.6.26",
-    "@williamthorsen/eslint-config-typescript": "8.7.0",
+    "@williamthorsen/eslint-config-typescript": "10.0.0",
     "@williamthorsen/nmr": "workspace:*",
     "@williamthorsen/release-kit": "workspace:*",
-    "@williamthorsen/strict-lint": "9.4.0",
-    "@williamthorsen/tsconfig": "0.4.0",
+    "@williamthorsen/strict-lint": "11.0.0",
+    "@williamthorsen/tsconfig": "0.5.0",
     "codeassembly": "0.8.0",
     "eslint": "10.8.0",
     "eslint-plugin-import": "2.32.0",
