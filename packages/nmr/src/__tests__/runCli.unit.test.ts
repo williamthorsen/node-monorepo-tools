@@ -157,17 +157,76 @@ describe(runCli, () => {
   });
 
   describe('passthrough arguments', () => {
-    it('binds to the last element of a composite and never to a hook', async () => {
+    it('binds to every element of a composite and never to a hook', async () => {
       writeConfig(repo, { rootScripts: { 'fix:post': 'echo done', 'fix:pre': 'echo starting' } });
 
       await runNmr(['fix', '--dry-run'], repo);
 
       expect(stepsFromCall()).toStrictEqual([
         { kind: 'structural', argv: ['nmr', 'fix:pre'] },
-        { kind: 'structural', argv: ['nmr', 'lint'] },
+        { kind: 'structural', argv: ['nmr', 'lint', '--dry-run'] },
         { kind: 'structural', argv: ['nmr', 'fmt', '--dry-run'] },
         { kind: 'structural', argv: ['nmr', 'fix:post'] },
       ]);
+    });
+
+    it('leaves a declining element unnarrowed', async () => {
+      writeConfig(repo, {
+        rootScripts: { verify: [{ run: 'build', declinesArgs: true }, 'lint'] },
+      });
+
+      await runNmr(['verify', 'src/'], repo);
+
+      expect(stepsFromCall()).toStrictEqual([
+        { kind: 'structural', argv: ['nmr', 'build'], declinesArgs: true },
+        { kind: 'structural', argv: ['nmr', 'lint', 'src/'] },
+      ]);
+    });
+
+    it('runs nothing when no element accepts them, naming the command', async () => {
+      writeConfig(repo, {
+        rootScripts: {
+          verify: [
+            { run: 'build', declinesArgs: true },
+            { run: 'lint', declinesArgs: true },
+          ],
+        },
+      });
+
+      const { exitCode, stderr } = await runNmrReadingStderr(['verify', 'src/'], repo);
+
+      expect(exitCode).toBe(1);
+      expect(stepsFromCall()).toBeUndefined();
+      expect(stderr).toContain('`verify` takes no trailing arguments');
+    });
+
+    // The rejection precedes the recording branch, so reading what a command did and running it answer an
+    // unroutable argument alike rather than one reporting nothing recorded.
+    it('rejects an unroutable argument under --log too', async () => {
+      writeConfig(repo, {
+        rootScripts: {
+          verify: [
+            { run: 'build', declinesArgs: true },
+            { run: 'lint', declinesArgs: true },
+          ],
+        },
+      });
+
+      const { exitCode, stderr } = await runNmrReadingStderr(['--log', 'verify', 'src/'], repo);
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('`verify` takes no trailing arguments');
+    });
+
+    // An empty override resolves to no steps, and no step accepts on an empty list. The no-op check precedes
+    // the rejection so the override keeps reporting as one.
+    it('reports an empty override as a no-op rather than rejecting the argument', async () => {
+      writeConfig(repo, { rootScripts: { verify: [] } });
+
+      const { exitCode, stdout } = await runNmrReadingStdout(['verify', 'src/'], repo);
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('verify: skipped, the override is empty');
     });
 
     it('binds to a string script as shell-quoted text', async () => {
@@ -180,7 +239,7 @@ describe(runCli, () => {
       await runNmr(['fix', '-t', 'a b'], repo);
 
       expect(stepsFromCall()?.at(-1)).toStrictEqual({ kind: 'structural', argv: ['nmr', 'fmt', '-t', 'a b'] });
-      expect(renderChain(stepsFromCall() ?? [])).toBe("nmr lint && nmr fmt -t 'a b'");
+      expect(renderChain(stepsFromCall() ?? [])).toBe("nmr lint -t 'a b' && nmr fmt -t 'a b'");
     });
   });
 

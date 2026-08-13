@@ -1,7 +1,7 @@
 import type { ScriptRegistry } from './default-scripts.ts';
 import { rootScripts, workspaceScripts } from './default-scripts.ts';
 
-export type { ScriptRegistry, ScriptValue } from './default-scripts.ts';
+export type { ScriptRegistry, ScriptValue, StepSpec } from './default-scripts.ts';
 
 /**
  * Return the default workspace scripts.

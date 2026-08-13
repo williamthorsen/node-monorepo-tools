@@ -1,4 +1,18 @@
-export type ScriptValue = string | string[];
+/**
+ * One element of a composite, paired with what it does with the invocation's trailing arguments. The bare
+ * string form of an element is this spec with `declinesArgs` left at its default.
+ */
+export interface StepSpec {
+  /** A command name, optionally preceded by nmr's own flags, as it would be typed after `nmr`. */
+  run: string;
+  /**
+   * Set where the trailing arguments cannot narrow this step's work: it is a prerequisite the narrowed steps
+   * run against, or the tool it reaches would be misled by them. A declining step runs unnarrowed.
+   */
+  declinesArgs?: boolean;
+}
+
+export type ScriptValue = string | ReadonlyArray<string | StepSpec>;
 export type ScriptRegistry = Record<string, ScriptValue>;
 
 /**
@@ -8,6 +22,19 @@ export type ScriptRegistry = Record<string, ScriptValue>;
 const GATE_PROJECTS = '--project unit --project tool';
 
 /**
+ * The typecheck step of every composite that carries one. It declines the invocation's trailing arguments
+ * because `tsgo --noEmit <file>` abandons the tsconfig and checks that file under default options, so an
+ * argument meant to narrow the run would quietly change what the run means.
+ *
+ * In the root registry it names a composite whose own steps both decline, so unmarking it there fails the
+ * whole check on a forwarded argument rather than misleading the compiler.
+ */
+const TYPECHECK_STEP = { run: 'typecheck', declinesArgs: true } as const;
+
+/** The root-scoped typecheck step, declining for the reason `TYPECHECK_STEP` gives: it reaches tsgo directly. */
+const ROOT_TYPECHECK_STEP = { run: 'root:typecheck', declinesArgs: true } as const;
+
+/**
  * Workspace scripts, identical for every package.
  * Four Vitest projects are recognized: `tool`, `localhost`, `remote`, and `unit`. The latter is also a catch-all.
  * Name a test file with the matching infix to associate it with a project.
@@ -15,8 +42,8 @@ const GATE_PROJECTS = '--project unit --project tool';
  */
 export const workspaceScripts: ScriptRegistry = {
   build: ['compile'],
-  check: ['typecheck', 'fmt:check', 'lint:check', 'test'],
-  'check:strict': ['typecheck', 'fmt:check', 'lint:strict', 'test:coverage'],
+  check: [TYPECHECK_STEP, 'fmt:check', 'lint:check', 'test'],
+  'check:strict': [TYPECHECK_STEP, 'fmt:check', 'lint:strict', 'test:coverage'],
   clean: 'nmr-clean',
   compile: 'nmr-compile',
   fix: ['lint', 'fmt'],
@@ -35,7 +62,7 @@ export const workspaceScripts: ScriptRegistry = {
   'test:watch': `pnpm exec vitest ${GATE_PROJECTS} --watch`,
   typecheck: 'tsgo --noEmit',
   // Without `--include-locked`, nothing would be reported in a repo that pins exact version numbers. The
-  // command must be a string rather than a composite: Passthrough args attach to the chain's last command.
+  // command is a string because neither half names an nmr command: both are binaries.
   upgrade: 'nmr-report-catalog && nmr-taze --include-locked',
   'view-coverage': 'open coverage/index.html',
 };
@@ -45,10 +72,11 @@ export const rootScripts: ScriptRegistry = {
   'audit:dev': 'pnpm exec v11y --dev',
   'audit:prod': 'pnpm exec v11y --prod',
   build: ['-R build'],
-  check: ['typecheck', 'fmt:check', 'lint:check', 'test'],
-  'check:strict': ['typecheck', 'fmt:check', 'lint:strict', 'test:coverage'],
-  // Excludes the audit, which in CI has a workflow of its own.
-  ci: ['build', 'check:strict'],
+  check: [TYPECHECK_STEP, 'fmt:check', 'lint:check', 'test'],
+  'check:strict': [TYPECHECK_STEP, 'fmt:check', 'lint:strict', 'test:coverage'],
+  // Excludes the audit, which in CI has a workflow of its own. The build is what the narrowed check runs
+  // against, so it declines the arguments rather than being narrowed by them.
+  ci: [{ run: 'build', declinesArgs: true }, 'check:strict'],
   clean: 'nmr-clean',
   fix: ['lint', 'fmt'],
   'fix:check': ['fmt:check', 'lint:check'],
@@ -57,10 +85,11 @@ export const rootScripts: ScriptRegistry = {
   lint: 'eslint --fix .',
   'lint:check': 'eslint .',
   'lint:strict': 'strict-lint',
-  // The audit costs seconds and `ci` costs minutes, so the cheap gate fails first.
-  prepush: ['audit', 'ci'],
+  // The audit costs seconds and `ci` costs minutes, so the cheap gate fails first. The audit reads the
+  // dependency tree, which no argument narrowing the code under test says anything about.
+  prepush: [{ run: 'audit', declinesArgs: true }, 'ci'],
   'report-overrides': 'nmr-report-overrides',
-  'root:check': ['root:typecheck', 'fmt:check', 'root:lint:check', 'root:test'],
+  'root:check': [ROOT_TYPECHECK_STEP, 'fmt:check', 'root:lint:check', 'root:test'],
   'root:lint': "eslint --fix --ignore-pattern 'packages/**' .",
   'root:lint:check': "eslint --ignore-pattern 'packages/**' .",
   'root:lint:strict': "strict-lint --ignore-pattern 'packages/**' .",
@@ -78,7 +107,10 @@ export const rootScripts: ScriptRegistry = {
   'test:tool': ['root:test:tool', '-R test:tool'],
   'test:unit': ['root:test:unit', '-R test:unit'],
   'test:watch': `vitest ${GATE_PROJECTS} --watch`,
-  typecheck: ['root:typecheck', '-R typecheck'],
-  // The command must be a string rather than a composite: Passthrough args attach to the chain's last command.
+  // Neither step is narrowable, so `nmr typecheck <file>` is rejected rather than checking that file under
+  // default options at the root and hunting for it in every package.
+  typecheck: [ROOT_TYPECHECK_STEP, { run: '-R typecheck', declinesArgs: true }],
+  // The command is a string because neither half names an nmr command: both are binaries, and a composite
+  // element can name only a command.
   upgrade: 'nmr-report-overrides && nmr-taze --include-locked --recursive',
 };

@@ -32,9 +32,14 @@ const SHELL_SAFE_TOKEN = /^[\w@%+=:,./-]+$/;
  * A `structural` step is nmr's own composition, held as argv; an `opaque` step is a command nmr does not parse.
  *
  * A structural step's argv leads with the file to spawn, so the runner has one to hand `spawn` without a shell.
+ *
+ * `declinesArgs` travels from the composite element that composed the step to the one reader that acts on it,
+ * the binding of the invocation's trailing arguments. Every stage between the two -- the devBin substitution,
+ * the chain rendering, the replay assembly, the runner -- passes it through and asks nothing of it.
  */
 export type Step =
-  { kind: 'opaque'; command: string } | { kind: 'structural'; argv: readonly [string, ...(readonly string[])] };
+  | { kind: 'opaque'; command: string }
+  | { kind: 'structural'; argv: readonly [string, ...(readonly string[])]; declinesArgs?: boolean };
 
 /** What a structural step asks of the nmr process it spawns. */
 export interface NmrStepTarget {
@@ -50,10 +55,13 @@ export interface NmrStepTarget {
  *
  * The element tokenizes on whitespace, so it may carry nmr's own flags but cannot carry a space-bearing token.
  * `-w` is prepended as its own token, so the child selects the root registry on its own.
+ *
+ * `declinesArgs` is set only where it holds, so a step that takes the trailing arguments renders and compares
+ * exactly as it did before any element declared anything.
  */
-export function composeNmrStep(element: string, workspaceRoot: boolean): Step {
+export function composeNmrStep(element: string, workspaceRoot: boolean, declinesArgs = false): Step {
   const flags = workspaceRoot ? ['-w'] : [];
-  return { kind: 'structural', argv: ['nmr', ...flags, ...tokenize(element)] };
+  return { kind: 'structural', argv: ['nmr', ...flags, ...tokenize(element)], ...(declinesArgs && { declinesArgs }) };
 }
 
 /**

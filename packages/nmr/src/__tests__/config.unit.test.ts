@@ -167,10 +167,48 @@ describe(loadConfig, () => {
     expect(config.rootScripts).toStrictEqual({ check: ['typecheck', '-q test'] });
   });
 
+  it('loads a composite script whose element declares what it does with trailing arguments', async () => {
+    writeConfig(
+      tmpDir,
+      `export default { rootScripts: { check: [{ run: 'typecheck', declinesArgs: true }, 'test'] } };`,
+    );
+
+    const config = await loadConfig(tmpDir);
+
+    expect(config.rootScripts).toStrictEqual({ check: [{ run: 'typecheck', declinesArgs: true }, 'test'] });
+  });
+
   it('throws naming the composite element and the token that puts it outside the grammar', async () => {
     writeConfig(tmpDir, `export default { rootScripts: { check: ['build && echo done'] } };`);
 
     await expect(loadConfig(tmpDir)).rejects.toThrow('`rootScripts.check` element `build && echo done` carries `&&`');
+  });
+
+  it('holds a spec element to the same grammar its bare string is held to', async () => {
+    writeConfig(tmpDir, `export default { rootScripts: { check: [{ run: 'build && echo done' }] } };`);
+
+    await expect(loadConfig(tmpDir)).rejects.toThrow('`rootScripts.check` element `build && echo done` carries `&&`');
+  });
+
+  it('throws naming the shape when an element is neither a string nor a spec', async () => {
+    writeConfig(tmpDir, `export default { rootScripts: { check: [{ command: 'typecheck' }] } };`);
+
+    await expect(loadConfig(tmpDir)).rejects.toThrow('`rootScripts` must be a Record<string, string | element[]>');
+  });
+
+  it('throws naming an unrecognized spec key, which would otherwise read as the default', async () => {
+    writeConfig(tmpDir, `export default { rootScripts: { check: [{ run: 'typecheck', declineArgs: true }] } };`);
+
+    await expect(loadConfig(tmpDir)).rejects.toThrow(
+      'unrecognized key `rootScripts.check.declineArgs`. Recognized: `rootScripts.check.declinesArgs`, ' +
+        '`rootScripts.check.run`.',
+    );
+  });
+
+  it('throws when a spec declares a non-boolean policy', async () => {
+    writeConfig(tmpDir, `export default { rootScripts: { check: [{ run: 'typecheck', declinesArgs: 'yes' }] } };`);
+
+    await expect(loadConfig(tmpDir)).rejects.toThrow('`rootScripts` must be a Record<string, string | element[]>');
   });
 
   it('throws naming an unrecognized build subkey', async () => {

@@ -20,10 +20,12 @@ import {
 
 // src/default-scripts.ts
 var GATE_PROJECTS = "--project unit --project tool";
+var TYPECHECK_STEP = { run: "typecheck", declinesArgs: true };
+var ROOT_TYPECHECK_STEP = { run: "root:typecheck", declinesArgs: true };
 var workspaceScripts = {
   build: ["compile"],
-  check: ["typecheck", "fmt:check", "lint:check", "test"],
-  "check:strict": ["typecheck", "fmt:check", "lint:strict", "test:coverage"],
+  check: [TYPECHECK_STEP, "fmt:check", "lint:check", "test"],
+  "check:strict": [TYPECHECK_STEP, "fmt:check", "lint:strict", "test:coverage"],
   clean: "nmr-clean",
   compile: "nmr-compile",
   fix: ["lint", "fmt"],
@@ -42,7 +44,7 @@ var workspaceScripts = {
   "test:watch": `pnpm exec vitest ${GATE_PROJECTS} --watch`,
   typecheck: "tsgo --noEmit",
   // Without `--include-locked`, nothing would be reported in a repo that pins exact version numbers. The
-  // command must be a string rather than a composite: Passthrough args attach to the chain's last command.
+  // command is a string because neither half names an nmr command: both are binaries.
   upgrade: "nmr-report-catalog && nmr-taze --include-locked",
   "view-coverage": "open coverage/index.html"
 };
@@ -51,10 +53,11 @@ var rootScripts = {
   "audit:dev": "pnpm exec v11y --dev",
   "audit:prod": "pnpm exec v11y --prod",
   build: ["-R build"],
-  check: ["typecheck", "fmt:check", "lint:check", "test"],
-  "check:strict": ["typecheck", "fmt:check", "lint:strict", "test:coverage"],
-  // Excludes the audit, which in CI has a workflow of its own.
-  ci: ["build", "check:strict"],
+  check: [TYPECHECK_STEP, "fmt:check", "lint:check", "test"],
+  "check:strict": [TYPECHECK_STEP, "fmt:check", "lint:strict", "test:coverage"],
+  // Excludes the audit, which in CI has a workflow of its own. The build is what the narrowed check runs
+  // against, so it declines the arguments rather than being narrowed by them.
+  ci: [{ run: "build", declinesArgs: true }, "check:strict"],
   clean: "nmr-clean",
   fix: ["lint", "fmt"],
   "fix:check": ["fmt:check", "lint:check"],
@@ -63,10 +66,11 @@ var rootScripts = {
   lint: "eslint --fix .",
   "lint:check": "eslint .",
   "lint:strict": "strict-lint",
-  // The audit costs seconds and `ci` costs minutes, so the cheap gate fails first.
-  prepush: ["audit", "ci"],
+  // The audit costs seconds and `ci` costs minutes, so the cheap gate fails first. The audit reads the
+  // dependency tree, which no argument narrowing the code under test says anything about.
+  prepush: [{ run: "audit", declinesArgs: true }, "ci"],
   "report-overrides": "nmr-report-overrides",
-  "root:check": ["root:typecheck", "fmt:check", "root:lint:check", "root:test"],
+  "root:check": [ROOT_TYPECHECK_STEP, "fmt:check", "root:lint:check", "root:test"],
   "root:lint": "eslint --fix --ignore-pattern 'packages/**' .",
   "root:lint:check": "eslint --ignore-pattern 'packages/**' .",
   "root:lint:strict": "strict-lint --ignore-pattern 'packages/**' .",
@@ -84,8 +88,11 @@ var rootScripts = {
   "test:tool": ["root:test:tool", "-R test:tool"],
   "test:unit": ["root:test:unit", "-R test:unit"],
   "test:watch": `vitest ${GATE_PROJECTS} --watch`,
-  typecheck: ["root:typecheck", "-R typecheck"],
-  // The command must be a string rather than a composite: Passthrough args attach to the chain's last command.
+  // Neither step is narrowable, so `nmr typecheck <file>` is rejected rather than checking that file under
+  // default options at the root and hunting for it in every package.
+  typecheck: [ROOT_TYPECHECK_STEP, { run: "-R typecheck", declinesArgs: true }],
+  // The command is a string because neither half names an nmr command: both are binaries, and a composite
+  // element can name only a command.
   upgrade: "nmr-report-overrides && nmr-taze --include-locked --recursive"
 };
 

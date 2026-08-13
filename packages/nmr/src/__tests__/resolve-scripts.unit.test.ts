@@ -12,7 +12,7 @@ describe(getDefaultWorkspaceScripts, () => {
 
     expect(scripts).toMatchObject({
       build: ['compile'],
-      check: ['typecheck', 'fmt:check', 'lint:check', 'test'],
+      check: [{ run: 'typecheck', declinesArgs: true }, 'fmt:check', 'lint:check', 'test'],
       clean: 'nmr-clean',
       compile: 'nmr-compile',
       'fix:check': ['fmt:check', 'lint:check'],
@@ -84,15 +84,15 @@ describe(getDefaultRootScripts, () => {
 
     expect(scripts).toMatchObject({
       audit: ['audit:prod', 'audit:dev'],
-      check: ['typecheck', 'fmt:check', 'lint:check', 'test'],
-      'check:strict': ['typecheck', 'fmt:check', 'lint:strict', 'test:coverage'],
-      ci: ['build', 'check:strict'],
+      check: [{ run: 'typecheck', declinesArgs: true }, 'fmt:check', 'lint:check', 'test'],
+      'check:strict': [{ run: 'typecheck', declinesArgs: true }, 'fmt:check', 'lint:strict', 'test:coverage'],
+      ci: [{ run: 'build', declinesArgs: true }, 'check:strict'],
       clean: 'nmr-clean',
       'fix:check': ['fmt:check', 'lint:check'],
       fmt: 'nmr-fmt --write',
       'fmt:check': 'nmr-fmt --check',
       'report-overrides': 'nmr-report-overrides',
-      'root:check': ['root:typecheck', 'fmt:check', 'root:lint:check', 'root:test'],
+      'root:check': [{ run: 'root:typecheck', declinesArgs: true }, 'fmt:check', 'root:lint:check', 'root:test'],
     });
   });
 
@@ -105,7 +105,7 @@ describe(getDefaultRootScripts, () => {
   it('composes prepush from audit and ci, in that order', () => {
     const scripts = getDefaultRootScripts();
 
-    expect(scripts['prepush']).toStrictEqual(['audit', 'ci']);
+    expect(scripts['prepush']).toStrictEqual([{ run: 'audit', declinesArgs: true }, 'ci']);
   });
 
   it('composes root scripts that delegate to workspaces', () => {
@@ -113,7 +113,10 @@ describe(getDefaultRootScripts, () => {
 
     expect(scripts).toMatchObject({
       test: ['root:test', '-R test'],
-      typecheck: ['root:typecheck', '-R typecheck'],
+      typecheck: [
+        { run: 'root:typecheck', declinesArgs: true },
+        { run: '-R typecheck', declinesArgs: true },
+      ],
     });
   });
 
@@ -228,6 +231,27 @@ describe('the built-in defaults', () => {
       if (typeof script !== 'string') continue;
 
       expect(findNmrCrossing([{ kind: 'opaque', command: script }]), command).toBeUndefined();
+    }
+  });
+});
+
+// A step reaching `tsgo --noEmit` is narrowed by a file argument into checking that file under default
+// compiler options, which reports on a tsconfig nobody configured. The sweep is registry-wide because the
+// harm follows the command rather than the composite that happens to name it.
+describe('every step reaching a typecheck', () => {
+  it.each([
+    { registry: getDefaultRootScripts(), scenario: 'root' },
+    { registry: getDefaultWorkspaceScripts(), scenario: 'workspace' },
+  ])('declines trailing arguments in the $scenario registry', ({ registry }) => {
+    for (const [command, script] of Object.entries(registry)) {
+      if (typeof script === 'string') continue;
+
+      for (const element of script) {
+        const instruction = typeof element === 'string' ? element : element.run;
+        if (!instruction.endsWith('typecheck')) continue;
+
+        expect(typeof element === 'string' ? false : element.declinesArgs, `${command} -> ${instruction}`).toBe(true);
+      }
     }
   });
 });
