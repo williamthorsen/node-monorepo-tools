@@ -8,6 +8,7 @@ import {
   readCacheEntry,
   readJsonCacheEntry,
   removeCacheDir,
+  removeCacheEntry,
   resolveCacheDir,
   resolveCacheEntryPath,
   writeCacheEntry,
@@ -192,6 +193,25 @@ describe('cache-store', () => {
       await expect(writeCacheEntry(entryPath, 'a-digest')).rejects.toThrow(/occupied/);
 
       expect(fs.readdirSync(root)).toStrictEqual(['occupied']);
+    });
+  });
+
+  describe(removeCacheEntry, () => {
+    it('removes the entry it names, leaving its neighbours alone', async () => {
+      const ref = { tool: TOOL, scopeDir: root };
+      const mine = resolveCacheEntryPath({ ...ref, slug: 'a', extension: '.hash' });
+      const neighbour = resolveCacheEntryPath({ ...ref, slug: 'b', extension: '.hash' });
+      await writeCacheEntry(mine, 'one');
+      await writeCacheEntry(neighbour, 'two');
+
+      await removeCacheEntry(mine);
+
+      expect(fs.existsSync(mine)).toBe(false);
+      expect(fs.existsSync(neighbour)).toBe(true);
+    });
+
+    it('given an entry that is not there, does nothing', async () => {
+      await expect(removeCacheEntry(path.join(root, 'absent.hash'))).resolves.toBeUndefined();
     });
   });
 

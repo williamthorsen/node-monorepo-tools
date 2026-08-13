@@ -1,3 +1,5 @@
+import { formatElisionMarker } from './transcript.ts';
+
 /** Bound applied to each end of the retained copy, so a run that overruns still yields both. */
 const DEFAULT_HEAD_LIMIT_BYTES = 1_048_576;
 const DEFAULT_TAIL_LIMIT_BYTES = 1_048_576;
@@ -88,13 +90,3 @@ export function createBoundedBuffer(options: BoundedBufferOptions = {}): Bounded
 
   return { append, toBuffer };
 }
-
-// region | Helpers
-
-/** Renders the line that stands in for dropped bytes, in nmr's voice so it is not mistaken for the tool's. */
-function formatElisionMarker(byteCount: number): string {
-  const unit = byteCount === 1 ? 'byte' : 'bytes';
-  return `\n… nmr elided ${byteCount.toLocaleString('en-US')} ${unit} …\n`;
-}
-
-// endregion | Helpers
