@@ -50,7 +50,6 @@ describe(createGithubRelease, () => {
   afterEach(() => {
     rmSync(tempDir, { recursive: true, force: true });
     mockedRenderReleaseNotesSingle.mockClear();
-    vi.restoreAllMocks();
   });
 
   it('returns no-entry skip and warns when changelog.json does not exist', () => {

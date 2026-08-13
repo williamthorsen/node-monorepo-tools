@@ -60,7 +60,6 @@ describe(initCommand, () => {
     mockPrintStep.mockReset();
     mockPrintSuccess.mockReset();
     mockReportWriteResult.mockReset();
-    vi.restoreAllMocks();
   });
 
   it('returns 0 on success', () => {

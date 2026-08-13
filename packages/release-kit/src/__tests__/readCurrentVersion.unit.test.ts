@@ -12,7 +12,6 @@ import { readCurrentVersion } from '../readCurrentVersion.ts';
 describe(readCurrentVersion, () => {
   afterEach(() => {
     mockReadFileSync.mockReset();
-    vi.restoreAllMocks();
   });
 
   it('returns the version field when package.json parses successfully', () => {
