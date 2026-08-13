@@ -92,7 +92,7 @@ describe(getDefaultRootScripts, () => {
       fmt: 'nmr-fmt --write',
       'fmt:check': 'nmr-fmt --check',
       'report-overrides': 'nmr-report-overrides',
-      'root:check': ['root:typecheck', 'fmt:check', 'root:lint:check', 'root:test'],
+      'root:check': [{ run: 'root:typecheck', declinesArgs: true }, 'fmt:check', 'root:lint:check', 'root:test'],
     });
   });
 
@@ -231,6 +231,27 @@ describe('the built-in defaults', () => {
       if (typeof script !== 'string') continue;
 
       expect(findNmrCrossing([{ kind: 'opaque', command: script }]), command).toBeUndefined();
+    }
+  });
+});
+
+// A step reaching `tsgo --noEmit` is narrowed by a file argument into checking that file under default
+// compiler options, which reports on a tsconfig nobody configured. The sweep is registry-wide because the
+// harm follows the command rather than the composite that happens to name it.
+describe('every step reaching a typecheck', () => {
+  it.each([
+    { registry: getDefaultRootScripts(), scenario: 'root' },
+    { registry: getDefaultWorkspaceScripts(), scenario: 'workspace' },
+  ])('declines trailing arguments in the $scenario registry', ({ registry }) => {
+    for (const [command, script] of Object.entries(registry)) {
+      if (typeof script === 'string') continue;
+
+      for (const element of script) {
+        const instruction = typeof element === 'string' ? element : element.run;
+        if (!instruction.endsWith('typecheck')) continue;
+
+        expect(typeof element === 'string' ? false : element.declinesArgs, `${command} -> ${instruction}`).toBe(true);
+      }
     }
   });
 });

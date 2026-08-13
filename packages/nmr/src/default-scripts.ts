@@ -25,8 +25,14 @@ const GATE_PROJECTS = '--project unit --project tool';
  * The typecheck step of every composite that carries one. It declines the invocation's trailing arguments
  * because `tsgo --noEmit <file>` abandons the tsconfig and checks that file under default options, so an
  * argument meant to narrow the run would quietly change what the run means.
+ *
+ * In the root registry it names a composite whose own steps both decline, so unmarking it there fails the
+ * whole check on a forwarded argument rather than misleading the compiler.
  */
 const TYPECHECK_STEP = { run: 'typecheck', declinesArgs: true } as const;
+
+/** The root-scoped typecheck step, declining for the reason `TYPECHECK_STEP` gives: it reaches tsgo directly. */
+const ROOT_TYPECHECK_STEP = { run: 'root:typecheck', declinesArgs: true } as const;
 
 /**
  * Workspace scripts, identical for every package.
@@ -83,7 +89,7 @@ export const rootScripts: ScriptRegistry = {
   // dependency tree, which no argument narrowing the code under test says anything about.
   prepush: [{ run: 'audit', declinesArgs: true }, 'ci'],
   'report-overrides': 'nmr-report-overrides',
-  'root:check': ['root:typecheck', 'fmt:check', 'root:lint:check', 'root:test'],
+  'root:check': [ROOT_TYPECHECK_STEP, 'fmt:check', 'root:lint:check', 'root:test'],
   'root:lint': "eslint --fix --ignore-pattern 'packages/**' .",
   'root:lint:check': "eslint --ignore-pattern 'packages/**' .",
   'root:lint:strict': "strict-lint --ignore-pattern 'packages/**' .",
@@ -103,10 +109,7 @@ export const rootScripts: ScriptRegistry = {
   'test:watch': `vitest ${GATE_PROJECTS} --watch`,
   // Neither step is narrowable, so `nmr typecheck <file>` is rejected rather than checking that file under
   // default options at the root and hunting for it in every package.
-  typecheck: [
-    { run: 'root:typecheck', declinesArgs: true },
-    { run: '-R typecheck', declinesArgs: true },
-  ],
+  typecheck: [ROOT_TYPECHECK_STEP, { run: '-R typecheck', declinesArgs: true }],
   // The command is a string because neither half names an nmr command: both are binaries, and a composite
   // element can name only a command.
   upgrade: 'nmr-report-overrides && nmr-taze --include-locked --recursive',

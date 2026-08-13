@@ -196,6 +196,15 @@ describe(loadConfig, () => {
     await expect(loadConfig(tmpDir)).rejects.toThrow('`rootScripts` must be a Record<string, string | element[]>');
   });
 
+  it('throws naming an unrecognized spec key, which would otherwise read as the default', async () => {
+    writeConfig(tmpDir, `export default { rootScripts: { check: [{ run: 'typecheck', declineArgs: true }] } };`);
+
+    await expect(loadConfig(tmpDir)).rejects.toThrow(
+      'unrecognized key `rootScripts.check.declineArgs`. Recognized: `rootScripts.check.declinesArgs`, ' +
+        '`rootScripts.check.run`.',
+    );
+  });
+
   it('throws when a spec declares a non-boolean policy', async () => {
     writeConfig(tmpDir, `export default { rootScripts: { check: [{ run: 'typecheck', declinesArgs: 'yes' }] } };`);
 

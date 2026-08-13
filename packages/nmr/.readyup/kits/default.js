@@ -21,6 +21,7 @@ import {
 // src/default-scripts.ts
 var GATE_PROJECTS = "--project unit --project tool";
 var TYPECHECK_STEP = { run: "typecheck", declinesArgs: true };
+var ROOT_TYPECHECK_STEP = { run: "root:typecheck", declinesArgs: true };
 var workspaceScripts = {
   build: ["compile"],
   check: [TYPECHECK_STEP, "fmt:check", "lint:check", "test"],
@@ -69,7 +70,7 @@ var rootScripts = {
   // dependency tree, which no argument narrowing the code under test says anything about.
   prepush: [{ run: "audit", declinesArgs: true }, "ci"],
   "report-overrides": "nmr-report-overrides",
-  "root:check": ["root:typecheck", "fmt:check", "root:lint:check", "root:test"],
+  "root:check": [ROOT_TYPECHECK_STEP, "fmt:check", "root:lint:check", "root:test"],
   "root:lint": "eslint --fix --ignore-pattern 'packages/**' .",
   "root:lint:check": "eslint --ignore-pattern 'packages/**' .",
   "root:lint:strict": "strict-lint --ignore-pattern 'packages/**' .",
@@ -89,10 +90,7 @@ var rootScripts = {
   "test:watch": `vitest ${GATE_PROJECTS} --watch`,
   // Neither step is narrowable, so `nmr typecheck <file>` is rejected rather than checking that file under
   // default options at the root and hunting for it in every package.
-  typecheck: [
-    { run: "root:typecheck", declinesArgs: true },
-    { run: "-R typecheck", declinesArgs: true }
-  ],
+  typecheck: [ROOT_TYPECHECK_STEP, { run: "-R typecheck", declinesArgs: true }],
   // The command is a string because neither half names an nmr command: both are binaries, and a composite
   // element can name only a command.
   upgrade: "nmr-report-overrides && nmr-taze --include-locked --recursive"

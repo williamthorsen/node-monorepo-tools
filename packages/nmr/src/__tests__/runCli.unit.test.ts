@@ -200,6 +200,35 @@ describe(runCli, () => {
       expect(stderr).toContain('`verify` takes no trailing arguments');
     });
 
+    // The rejection precedes the recording branch, so reading what a command did and running it answer an
+    // unroutable argument alike rather than one reporting nothing recorded.
+    it('rejects an unroutable argument under --log too', async () => {
+      writeConfig(repo, {
+        rootScripts: {
+          verify: [
+            { run: 'build', declinesArgs: true },
+            { run: 'lint', declinesArgs: true },
+          ],
+        },
+      });
+
+      const { exitCode, stderr } = await runNmrReadingStderr(['--log', 'verify', 'src/'], repo);
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('`verify` takes no trailing arguments');
+    });
+
+    // An empty override resolves to no steps, and no step accepts on an empty list. The no-op check precedes
+    // the rejection so the override keeps reporting as one.
+    it('reports an empty override as a no-op rather than rejecting the argument', async () => {
+      writeConfig(repo, { rootScripts: { verify: [] } });
+
+      const { exitCode, stdout } = await runNmrReadingStdout(['verify', 'src/'], repo);
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('verify: skipped, the override is empty');
+    });
+
     it('binds to a string script as shell-quoted text', async () => {
       await runNmr(['lint', '--max-warnings', '0'], repo);
 

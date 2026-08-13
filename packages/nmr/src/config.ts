@@ -43,6 +43,7 @@ const RECOGNIZED_KEYS = [...CONFIG_TIERS.root.honoredKeys, ...CONFIG_TIERS.works
 const RECOGNIZED_BUILD_KEYS = ['extraIgnorePatterns'];
 const RECOGNIZED_CHECK_CACHE_KEYS = ['enabled', 'excludeCommands', 'extraCommands'];
 const RECOGNIZED_OUTPUT_KEYS = ['commandVerbosity', 'extraAgentEnvVars'];
+const RECOGNIZED_STEP_KEYS = ['declinesArgs', 'run'];
 
 /**
  * Resolves the config-file path for a directory, whether that is the monorepo root or a package.
@@ -88,20 +89,27 @@ function validateScriptField(
         'where an element is a command string or `{ run: string, declinesArgs?: boolean }`',
     );
   }
-  assertExpressibleElements(scripts, fieldName, configPath);
+  assertValidElements(scripts, fieldName, configPath);
   return scripts;
 }
 
 /**
- * Rejects a composite element outside the grammar: a command name optionally preceded by nmr's own flags.
- * An element carrying a quoted argument or shell syntax renders as one quoted token, so accepting it would
- * run a command nobody wrote.
+ * Rejects a composite element outside the grammar on either axis.
+ *
+ * An instruction is a command name optionally preceded by nmr's own flags; one carrying a quoted argument or
+ * shell syntax renders as a single quoted token, so accepting it would run a command nobody wrote. A spec
+ * carrying a key nmr does not recognize is rejected for the reason every other nested config object is: a
+ * misspelled `declinesArgs` would otherwise read as the default, narrowing a step meant to decline.
  */
-function assertExpressibleElements(scripts: Record<string, ScriptValue>, fieldName: string, configPath: string): void {
+function assertValidElements(scripts: Record<string, ScriptValue>, fieldName: string, configPath: string): void {
   for (const [command, script] of Object.entries(scripts)) {
     if (typeof script === 'string') continue;
 
     for (const spec of script) {
+      if (typeof spec !== 'string') {
+        assertRecognizedKeys(spec, RECOGNIZED_STEP_KEYS, configPath, `${fieldName}.${command}.`);
+      }
+
       const element = typeof spec === 'string' ? spec : spec.run;
       const token = findUnexpressibleToken(element);
       if (token === undefined) continue;
@@ -307,12 +315,7 @@ export async function loadWorkspaceConfig(packageDir: string): Promise<NmrConfig
  * Throws on any key outside the recognized set, naming the offenders and the file. An unrecognized key is a
  * typo or a stale spelling, and the setting it appears to make is one nothing reads.
  */
-function assertRecognizedKeys(
-  value: Record<string, unknown>,
-  recognizedKeys: string[],
-  configPath: string,
-  prefix = '',
-): void {
+function assertRecognizedKeys(value: object, recognizedKeys: string[], configPath: string, prefix = ''): void {
   const unrecognized = Object.keys(value).filter((key) => !recognizedKeys.includes(key));
   if (unrecognized.length === 0) {
     return;
