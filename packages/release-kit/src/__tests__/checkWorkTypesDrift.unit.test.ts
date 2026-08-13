@@ -46,7 +46,6 @@ describe(checkWorkTypesDrift, () => {
 
   afterEach(() => {
     rmSync(tempDir, { recursive: true, force: true });
-    vi.restoreAllMocks();
     vi.unstubAllEnvs();
   });
 

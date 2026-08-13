@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 const { mockedExistsSync } = vi.hoisted(() => ({
   mockedExistsSync: vi.fn<typeof import('node:fs').existsSync>(),
@@ -16,10 +16,6 @@ vi.mock(import('node:fs'), async (importOriginal) => {
 import { noLegacyAuditCiDirectory } from '../../.readyup/kits/default.ts';
 
 describe(noLegacyAuditCiDirectory, () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('returns true when .audit-ci/ directory does not exist', () => {
     mockedExistsSync.mockReturnValue(false);
 

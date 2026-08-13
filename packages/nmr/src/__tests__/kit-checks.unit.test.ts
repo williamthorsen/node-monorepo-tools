@@ -1,5 +1,5 @@
 import { isFlatChecklist, type RdyCheck } from 'readyup';
-import { afterEach, assert, describe, expect, it, vi } from 'vitest';
+import { assert, describe, expect, it, vi } from 'vitest';
 
 const { mockedHasDevDependency, mockedHasMinDevDependencyVersion } = vi.hoisted(() => ({
   mockedHasDevDependency: vi.fn<(name: string) => boolean>(),
@@ -18,10 +18,6 @@ vi.mock(import('readyup/check-utils'), async (importOriginal) => {
 import kit, { hasSupportedEslintVersion, hasSupportedStrictLintVersion } from '../../.readyup/kits/default.ts';
 
 describe(hasSupportedEslintVersion, () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   // The floor is ESLint 10, the release that resolves config per linted file. Pinning the argument is the point
   // of the test: a floor that drifted below 10 would let the root lint scripts report the wrong rules.
   it('requires eslint 10 or later', () => {
@@ -41,10 +37,6 @@ describe(hasSupportedEslintVersion, () => {
 });
 
 describe(hasSupportedStrictLintVersion, () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   // 9.3.0 is the first release that stopped pinning ESLint to one config; 9.2.0 and earlier still do.
   it('requires strict-lint 9.3.0 or later', () => {
     mockedHasMinDevDependencyVersion.mockReturnValue(true);
@@ -65,10 +57,6 @@ describe(hasSupportedStrictLintVersion, () => {
 // A repo that overrode nmr's lint scripts away need not carry the linter at all, so an absent tool skips rather
 // than failing. The kit cannot read nmr's resolved registry, so absence of the tool is the signal it uses.
 describe('lint version-floor checks', () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   const cases = [
     { checkName: 'eslint >= 10.0.0', dependency: 'eslint', skipReason: 'eslint not installed' },
     {

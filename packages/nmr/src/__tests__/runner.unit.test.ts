@@ -181,7 +181,6 @@ describe(runCommand, () => {
 
   afterEach(() => {
     vi.useRealTimers();
-    vi.restoreAllMocks();
   });
 
   describe('stream routing', () => {
@@ -496,10 +495,6 @@ const STRUCTURAL_STEP: Step = { kind: 'structural', argv: ['nmr', '-w', 'typeche
 describe(runSteps, () => {
   beforeEach(() => {
     mockedSpawn.mockReset();
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
   });
 
   describe('sequencing', () => {

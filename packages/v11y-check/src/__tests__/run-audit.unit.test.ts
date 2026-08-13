@@ -14,7 +14,6 @@ vi.mock(import('node:child_process'), () => ({
 
 describe(parseAuditCiOutput, () => {
   afterEach(() => {
-    vi.restoreAllMocks();
     vi.clearAllMocks();
   });
 
@@ -249,7 +248,6 @@ describe(parseAuditCiOutput, () => {
 
 describe(extractStaleEntries, () => {
   afterEach(() => {
-    vi.restoreAllMocks();
     vi.clearAllMocks();
   });
 
@@ -284,7 +282,6 @@ const { resolveAuditCiBin, runAudit, runReport } = await import('../run-audit.ts
 
 describe(runAudit, () => {
   afterEach(() => {
-    vi.restoreAllMocks();
     vi.clearAllMocks();
   });
 
@@ -327,7 +324,6 @@ describe(runAudit, () => {
 
 describe(runReport, () => {
   afterEach(() => {
-    vi.restoreAllMocks();
     vi.clearAllMocks();
   });
 
@@ -380,7 +376,6 @@ describe(runReport, () => {
 
 describe(resolveAuditCiBin, () => {
   afterEach(() => {
-    vi.restoreAllMocks();
     vi.clearAllMocks();
   });
 

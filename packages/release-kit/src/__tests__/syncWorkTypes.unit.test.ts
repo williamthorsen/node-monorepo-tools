@@ -52,7 +52,6 @@ describe(syncWorkTypes, () => {
       // tempDir may already be writable; ignore.
     }
     rmSync(tempDir, { recursive: true, force: true });
-    vi.restoreAllMocks();
     vi.unstubAllEnvs();
   });
 
