@@ -1,3 +1,4 @@
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
@@ -95,9 +96,8 @@ describe(publishCommand, () => {
     vi.spyOn(process, 'exit').mockImplementation((code) => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
-    vi.spyOn(console, 'info').mockImplementation(() => {});
+    silenceConsole(['info', 'warn']);
     vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
   afterEach(() => {
