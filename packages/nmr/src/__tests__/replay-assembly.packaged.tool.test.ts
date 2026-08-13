@@ -71,6 +71,25 @@ describe('a composite’s assembled replay', () => {
     });
   });
 
+  // A composite retains nothing of its own, so the assembly is the whole of what it has to show a reader.
+  it('is what --log prints for the composite, one attributed line per constituent', async () => {
+    await runNmr(['-q', 'check']);
+
+    const { exitCode, stdout } = await runNmr(['--log', 'check']);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain(`${scope}: typecheck: typecheck summary\n${scope}: lint:check: lint summary\n`);
+  });
+
+  it('leaves a constituent’s own transcript to that constituent’s --log', async () => {
+    await runNmr(['-q', 'check']);
+
+    const { stdout } = await runNmr(['--log', 'typecheck']);
+
+    expect(stdout).toContain('typecheck summary');
+    expect(stdout).not.toContain('lint summary');
+  });
+
   it('carries one identity to every scope, so the constituents’ entries name the run above them', async () => {
     await runNmr(['-q', 'check']);
 

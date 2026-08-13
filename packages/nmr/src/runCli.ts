@@ -31,6 +31,7 @@ import { generateHelp } from './help.ts';
 import { deriveExcerpt } from './helpers/deriveExcerpt.ts';
 import { composeTranscript } from './helpers/transcript.ts';
 import { isHookName } from './helpers/hook-name.ts';
+import { renderRecording, renderRefusal, resolveRecording } from './recording.ts';
 import { assembleReplay } from './replay-assembly.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
 import type { ResolvedScript, ScriptOrigin } from './resolver.ts';
@@ -125,6 +126,11 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   // Anchors registry resolution and execution alike: a script runs in the directory its registry belongs to.
   const anchorDir = useRoot ? context.monorepoRoot : (context.packageDir ?? context.monorepoRoot);
 
+  if (!parsed.help && parsed.log && parsed.command === undefined) {
+    reportError('--log requires a command name: `nmr --log <command>`', stderr);
+    return { exitCode: 1 };
+  }
+
   if (parsed.help || !parsed.command) {
     stdout.write(`${generateHelp(context.config, anchorDir, useRoot)}\n`);
     return { exitCode: 0 };
@@ -155,14 +161,25 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   // -F: delegate to pnpm --filter
   if (parsed.filter) {
-    const delegate = composeDelegate(['--filter', parsed.filter], command, parsed.passthrough);
-    return runSteps([delegate], context.monorepoRoot, runOptions);
+    const delegate = composeDelegate({
+      command,
+      log: parsed.log,
+      passthrough: parsed.passthrough,
+      scope: ['--filter', parsed.filter],
+    });
+    const delegateEnv = parsed.log ? { ...childEnv, [RUN_IF_PRESENT_ENV_VAR]: '1' } : childEnv;
+    return runSteps([delegate], context.monorepoRoot, { ...runOptions, env: delegateEnv });
   }
 
   // -R: delegate to pnpm --recursive
   if (parsed.recursive) {
     const delegateEnv = { ...childEnv, [RUN_IF_PRESENT_ENV_VAR]: '1' };
-    const delegate = composeDelegate(['--recursive'], command, parsed.passthrough);
+    const delegate = composeDelegate({
+      command,
+      log: parsed.log,
+      passthrough: parsed.passthrough,
+      scope: ['--recursive'],
+    });
     return runSteps([delegate], context.monorepoRoot, { ...runOptions, env: delegateEnv });
   }
 
@@ -180,7 +197,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   const resolvedCommand = renderChain(resolved.steps);
 
   const noOpReason = findNoOpReason(resolvedCommand);
-  if (noOpReason !== undefined) {
+  if (noOpReason !== undefined && !parsed.log) {
     reportVerdict({ command, scope, outcome: 'no-op', reason: noOpReason }, stdout);
     return { exitCode: 0 };
   }
@@ -201,7 +218,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   // steps rather than the full chain: the line names a declaration to edit, and a hook, a passthrough, and a
   // `devBin` substitution are none.
   const crossing = findNmrCrossing(resolved.steps);
-  if (crossing !== undefined) {
+  if (crossing !== undefined && !parsed.log) {
     const warning = formatNmrCrossingWarning({
       crossing,
       monorepoRoot: context.monorepoRoot,
@@ -224,6 +241,22 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     stderr,
     substitution: substitutedCommand === resolvedCommand ? undefined : substitutedCommand,
   });
+
+  // Reading a recording is not running one: the branch takes over once the key describing this chain is in
+  // hand, and nothing below it -- hook, verdict, or cache write -- is reached.
+  if (parsed.log) {
+    return reportRecording({
+      anchorDir,
+      command,
+      config: context.config,
+      env,
+      key,
+      monorepoRoot: context.monorepoRoot,
+      scope,
+      stderr,
+      stdout,
+    });
+  }
 
   const { exitCode, outcome } = await runGated({
     anchorDir,
@@ -254,6 +287,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 /** @internal */
 interface ParsedArgs {
   filter?: string;
+  log: boolean;
   noCache: boolean;
   quiet: boolean;
   recursive: boolean;
@@ -316,9 +350,22 @@ function appendPassthrough(steps: readonly Step[], passthrough: readonly string[
  * Composes the pnpm delegate that runs a command in other packages. One structural step, so the pattern a `-F`
  * carries and the arguments passed on stay argv tokens rather than text spliced into a shell string, and so the
  * nmr processes underneath write where this one writes although the binary spawned is `pnpm`.
+ *
+ * A flag of nmr's own precedes the command name, where the nmr underneath will read it as its own rather than
+ * pass it on to the command.
  */
-function composeDelegate(scope: readonly string[], command: string, passthrough: readonly string[]): Step {
-  return { kind: 'structural', argv: ['pnpm', ...scope, 'exec', 'nmr', command, ...passthrough] };
+function composeDelegate(options: {
+  command: string;
+  log: boolean;
+  passthrough: readonly string[];
+  scope: readonly string[];
+}): Step {
+  const flags = options.log ? ['--log'] : [];
+
+  return {
+    kind: 'structural',
+    argv: ['pnpm', ...options.scope, 'exec', 'nmr', ...flags, options.command, ...options.passthrough],
+  };
 }
 
 /**
@@ -635,6 +682,7 @@ function openGate(options: {
 
 function parseArgs(args: string[]): ParseResult {
   const parsed: ParsedArgs = {
+    log: false,
     noCache: false,
     quiet: false,
     recursive: false,
@@ -684,6 +732,11 @@ function parseArgs(args: string[]): ParseResult {
       i++;
       continue;
     }
+    if (arg === '--log') {
+      parsed.log = true;
+      i++;
+      continue;
+    }
     if (arg === '--no-cache') {
       parsed.noCache = true;
       i++;
@@ -697,6 +750,45 @@ function parseArgs(args: string[]): ParseResult {
   }
 
   return { ok: true, parsed };
+}
+
+/**
+ * Prints what the current scope has recorded for one command, and reports what it exits with.
+ *
+ * A refusal ends the invocation non-zero, which is what tells a caller that nothing on stdout is the run it
+ * asked for. Under a delegate it does not: a fan-out asks every selected scope, and a scope that never ran the
+ * command is a gap in a survey rather than a failure of one, so bailing there would hide every scope that has
+ * something to show.
+ */
+async function reportRecording(options: {
+  anchorDir: string;
+  command: string;
+  config: NmrConfig;
+  env: NodeJS.ProcessEnv;
+  key: string | undefined;
+  monorepoRoot: string;
+  scope: string;
+  stderr: Writable;
+  stdout: Writable;
+}): Promise<RunCliResult> {
+  const { command, config, scope } = options;
+
+  const lookup = await resolveRecording({
+    anchorDir: options.anchorDir,
+    command,
+    isCacheable: config.checkCache?.enabled !== false && resolveCacheableCommands(config.checkCache).has(command),
+    key: options.key,
+    monorepoRoot: options.monorepoRoot,
+  });
+
+  if (!lookup.ok) {
+    options.stderr.write(`${renderRefusal({ command, refusal: lookup.refusal, scope })}\n`);
+    return { exitCode: options.env[RUN_IF_PRESENT_ENV_VAR] === '1' ? 0 : 1 };
+  }
+
+  options.stdout.write(renderRecording({ command, recording: lookup.recording, scope }));
+
+  return { exitCode: 0 };
 }
 
 /**

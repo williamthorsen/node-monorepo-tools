@@ -95,6 +95,26 @@ describe(runCli, () => {
 
       expect(mockedRunSteps.mock.calls[0]?.[2].env).not.toHaveProperty('NMR_RUN_IF_PRESENT');
     });
+
+    it.each([
+      {
+        args: ['-F', 'my-pkg', '--log', 'test'],
+        expected: ['pnpm', '--filter', 'my-pkg', 'exec', 'nmr', '--log', 'test'],
+      },
+      { args: ['-R', '--log', 'test'], expected: ['pnpm', '--recursive', 'exec', 'nmr', '--log', 'test'] },
+    ])('carries `--log` into the delegate, ahead of the command name', async ({ args, expected }) => {
+      await runNmr(args, repo);
+
+      expect(stepsFromCall()).toStrictEqual([{ kind: 'structural', argv: expected }]);
+    });
+
+    // A fan-out asks every selected scope, so a scope that never ran the command is a gap in a survey rather
+    // than a failure of one.
+    it('tells a `--log` filter delegate to pass over a scope with nothing to show', async () => {
+      await runNmr(['-F', 'my-pkg', '--log', 'test'], repo);
+
+      expect(mockedRunSteps.mock.calls[0]?.[2].env).toMatchObject({ NMR_RUN_IF_PRESENT: '1' });
+    });
   });
 
   describe('step composition', () => {
