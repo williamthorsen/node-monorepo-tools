@@ -2,12 +2,36 @@ import type { CheckCacheEntry } from './check-cache.ts';
 import { readCheckCacheEntry, readTranscript } from './check-cache.ts';
 import { formatDuration } from './helpers/duration.ts';
 
+/**
+ * What this invocation would be recorded under, insofar as an entry records the same facts. A mismatch is read
+ * against these, so a refusal names the ingredient that moved rather than blaming the tree for all of them.
+ */
+export interface RunIdentity {
+  commandString: string;
+  nmrVersion: string;
+  nodeVersion: string;
+  /** Absent where no snapshot was taken, which leaves the tree unattributable rather than assumed equal. */
+  treeHash: string | undefined;
+}
+
 /** A recorded pass and what it left a reader: its command's own transcript, or the assembly a composite holds. */
 export interface Recording {
   entry: CheckCacheEntry;
   /** What the command wrote, absent on a composite, which retains nothing of its own. */
   transcript?: string;
 }
+
+/**
+ * Which of the pass key's ingredients a recorded pass and this invocation disagree on, insofar as an entry
+ * records enough to tell: the residual covers what it does not, which is the install, the platform, and the
+ * environment variables the key folds in.
+ */
+export type KeyDifference =
+  | { ingredient: 'tree' }
+  | { ingredient: 'command-string' }
+  | { ingredient: 'nmr-version'; current: string; recorded: string }
+  | { ingredient: 'node-version'; current: string; recorded: string }
+  | { ingredient: 'other' };
 
 /** What `--log` found for one command at one scope. */
 export type RecordingLookup = { ok: true; recording: Recording } | { ok: false; refusal: RecordingRefusal };
@@ -21,7 +45,7 @@ export type RecordingRefusal =
   | { kind: 'uncacheable' }
   | { kind: 'gate-aside' }
   | { kind: 'unrecorded' }
-  | { kind: 'other-tree'; ageMs: number }
+  | { kind: 'mismatched'; ageMs: number; difference: KeyDifference }
   | { kind: 'no-output'; ageMs: number };
 
 /**
@@ -61,6 +85,7 @@ export function renderRefusal(options: { command: string; refusal: RecordingRefu
 export async function resolveRecording(options: {
   anchorDir: string;
   command: string;
+  current: RunIdentity;
   isCacheable: boolean;
   key: string | undefined;
   monorepoRoot: string;
@@ -81,7 +106,7 @@ export async function resolveRecording(options: {
 
   const ageMs = Math.max(0, Date.now() - Date.parse(entry.recordedAt));
   if (entry.key !== options.key) {
-    return { ok: false, refusal: { kind: 'other-tree', ageMs } };
+    return { ok: false, refusal: { kind: 'mismatched', ageMs, difference: findKeyDifference(entry, options.current) } };
   }
 
   const transcript = await readTranscript({ anchorDir, command, monorepoRoot });
@@ -99,6 +124,26 @@ function appendNewline(body: string): string {
   return body.endsWith('\n') ? body : `${body}\n`;
 }
 
+/** Returns the clause naming what a recorded pass and this invocation disagree on. */
+function describeDifference(difference: KeyDifference): string {
+  switch (difference.ingredient) {
+    case 'tree':
+      return 'on a tree this is not';
+    case 'command-string':
+      return 'over a command chain this is not';
+    case 'nmr-version':
+      return `under nmr ${difference.recorded}, not ${difference.current}`;
+    case 'node-version':
+      return `under Node ${difference.recorded}, not ${difference.current}`;
+    case 'other':
+      return 'under an install or environment this run does not share';
+    default: {
+      const unhandled: never = difference;
+      throw new Error(`Unhandled key difference: ${JSON.stringify(unhandled)}`);
+    }
+  }
+}
+
 /** Returns the clause a refusal spends on why there is nothing to print. */
 function describeRefusal(command: string, refusal: RecordingRefusal): string {
   switch (refusal.kind) {
@@ -108,8 +153,8 @@ function describeRefusal(command: string, refusal: RecordingRefusal): string {
       return 'the check-result cache is standing aside here (NMR_DEBUG=1 reports why)';
     case 'unrecorded':
       return 'nothing has recorded a pass for this scope';
-    case 'other-tree':
-      return `the last pass was ${formatDuration(refusal.ageMs)} ago, on a tree this is not`;
+    case 'mismatched':
+      return `the last pass was ${formatDuration(refusal.ageMs)} ago, ${describeDifference(refusal.difference)}`;
     case 'no-output':
       return `the pass ${formatDuration(refusal.ageMs)} ago retained none, as a run printing nothing or writing to a terminal does`;
     default: {
@@ -117,6 +162,27 @@ function describeRefusal(command: string, refusal: RecordingRefusal): string {
       throw new Error(`Unhandled refusal: ${JSON.stringify(unhandled)}`);
     }
   }
+}
+
+/**
+ * Names the first ingredient a recorded pass and this invocation disagree on, in the order a reader would
+ * check them: the tree, then the chain that would run, then the versions the key folds in.
+ */
+function findKeyDifference(entry: CheckCacheEntry, current: RunIdentity): KeyDifference {
+  if (current.treeHash !== undefined && entry.treeHash !== current.treeHash) {
+    return { ingredient: 'tree' };
+  }
+  if (entry.commandString !== current.commandString) {
+    return { ingredient: 'command-string' };
+  }
+  if (entry.nmrVersion !== current.nmrVersion) {
+    return { ingredient: 'nmr-version', current: current.nmrVersion, recorded: entry.nmrVersion };
+  }
+  if (entry.nodeVersion !== current.nodeVersion) {
+    return { ingredient: 'node-version', current: current.nodeVersion, recorded: entry.nodeVersion };
+  }
+
+  return { ingredient: 'other' };
 }
 
 /**

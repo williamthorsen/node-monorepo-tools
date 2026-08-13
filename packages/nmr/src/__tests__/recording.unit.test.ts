@@ -13,6 +13,14 @@ const COMMAND = 'test';
 const KEY = 'a-key';
 const SCOPE = 'nmr-core';
 
+/** What the fixture's entries were recorded under, which a mismatch test varies one ingredient of. */
+const IDENTITY = {
+  commandString: 'vitest run',
+  nmrVersion: '1.0.0',
+  nodeVersion: 'v24.0.0',
+  treeHash: 'a-tree',
+};
+
 describe('a recording', () => {
   let root: string;
 
@@ -76,8 +84,36 @@ describe('a recording', () => {
 
       const lookup = await resolveRecording(lookupFor());
 
-      expect(lookup).toMatchObject({ ok: false, refusal: { kind: 'other-tree' } });
+      expect(lookup).toMatchObject({ ok: false, refusal: { kind: 'mismatched', ageMs: expect.any(Number) } });
       expect(lookup).not.toMatchObject({ ok: true });
+    });
+
+    // The key folds in the install, the interpreter, and the chain that would run, so attributing every
+    // mismatch to the tree sends a reader with a clean `git status` looking in the wrong place.
+    it.each([
+      ['the tree moved', { treeHash: 'another-tree' }, { ingredient: 'tree' }],
+      ['the chain changed', { commandString: 'vitest run --coverage' }, { ingredient: 'command-string' }],
+      ['nmr was upgraded', { nmrVersion: '1.1.0' }, { ingredient: 'nmr-version', current: '1.1.0', recorded: '1.0.0' }],
+      [
+        'Node was upgraded',
+        { nodeVersion: 'v25.0.0' },
+        { ingredient: 'node-version', current: 'v25.0.0', recorded: 'v24.0.0' },
+      ],
+      ['only the install moved', {}, { ingredient: 'other' }],
+    ])('given %s, names the ingredient that moved', async (_scenario, current, difference) => {
+      await writeCheckCacheEntry({ ...refFor(), entry: { ...makeEntry(), key: 'another-key' } });
+
+      const lookup = await resolveRecording({ ...lookupFor(), current: { ...IDENTITY, ...current } });
+
+      expect(lookup).toMatchObject({ ok: false, refusal: { difference } });
+    });
+
+    it('leaves the tree unattributed where no snapshot was taken', async () => {
+      await writeCheckCacheEntry({ ...refFor(), entry: { ...makeEntry(), key: 'another-key' } });
+
+      const lookup = await resolveRecording({ ...lookupFor(), current: { ...IDENTITY, treeHash: undefined } });
+
+      expect(lookup).toMatchObject({ ok: false, refusal: { difference: { ingredient: 'other' } } });
     });
 
     it('given a pass that retained nothing, refuses', async () => {
@@ -146,7 +182,39 @@ describe('a recording', () => {
       ['uncacheable', { kind: 'uncacheable' }, 'is outside the check-result cache'],
       ['gate-aside', { kind: 'gate-aside' }, 'standing aside here'],
       ['unrecorded', { kind: 'unrecorded' }, 'nothing has recorded a pass'],
-      ['other-tree', { kind: 'other-tree', ageMs: 60_000 }, 'the last pass was 1m ago, on a tree this is not'],
+      [
+        'a moved tree',
+        { kind: 'mismatched', ageMs: 60_000, difference: { ingredient: 'tree' } },
+        'the last pass was 1m ago, on a tree this is not',
+      ],
+      [
+        'a changed chain',
+        { kind: 'mismatched', ageMs: 60_000, difference: { ingredient: 'command-string' } },
+        'over a command chain this is not',
+      ],
+      [
+        'an upgraded nmr',
+        {
+          kind: 'mismatched',
+          ageMs: 60_000,
+          difference: { ingredient: 'nmr-version', current: '1.1.0', recorded: '1.0.0' },
+        },
+        'under nmr 1.0.0, not 1.1.0',
+      ],
+      [
+        'an upgraded Node',
+        {
+          kind: 'mismatched',
+          ageMs: 60_000,
+          difference: { ingredient: 'node-version', current: 'v25.0.0', recorded: 'v24.0.0' },
+        },
+        'under Node v24.0.0, not v25.0.0',
+      ],
+      [
+        'an ingredient the entry does not record',
+        { kind: 'mismatched', ageMs: 60_000, difference: { ingredient: 'other' } },
+        'under an install or environment this run does not share',
+      ],
       ['no-output', { kind: 'no-output', ageMs: 60_000 }, 'the pass 1m ago retained none'],
     ] as const)('given %s, names the scope, the command, and what is missing', (_kind, refusal, clause) => {
       const rendered = renderRefusal({ command: COMMAND, refusal, scope: SCOPE });
@@ -166,11 +234,11 @@ describe('a recording', () => {
   function makeEntry(): CheckCacheEntry {
     return {
       key: KEY,
-      treeHash: 'a-tree',
+      treeHash: IDENTITY.treeHash,
       headSha: 'a-head',
-      commandString: 'vitest run',
-      nmrVersion: '1.0.0',
-      nodeVersion: 'v24.0.0',
+      commandString: IDENTITY.commandString,
+      nmrVersion: IDENTITY.nmrVersion,
+      nodeVersion: IDENTITY.nodeVersion,
       durationMs: 1_000,
       recordedAt: new Date().toISOString(),
       buildDigests: {},
@@ -187,7 +255,7 @@ describe('a recording', () => {
   }
 
   function lookupFor() {
-    return { ...refFor(), isCacheable: true, key: KEY };
+    return { ...refFor(), current: { ...IDENTITY }, isCacheable: true, key: KEY };
   }
 
   function refFor() {

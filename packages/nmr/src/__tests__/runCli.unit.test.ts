@@ -475,6 +475,21 @@ describe(runCli, () => {
       expect(stdout).toBe(`⛔ ${path.basename(repo)}: typecheck: skipped, ${expected}\n`);
     });
 
+    // A verdict is a report on a run, and `--log` makes none: the reader gets a refusal instead.
+    it.each([
+      { scenario: 'an empty override', script: '' },
+      { scenario: 'a no-op override', script: ':' },
+    ])('given $scenario, reports no skip verdict under --log', async ({ script }) => {
+      writePackageScripts(repo, { typecheck: script });
+
+      const { exitCode, stdout } = await runNmrReadingStdout(['--log', 'typecheck'], repo);
+      const { stderr } = await runNmrReadingStderr(['--log', 'typecheck'], repo);
+
+      expect(exitCode).toBe(1);
+      expect(stdout).toBe('');
+      expect(stderr).toContain('no recording');
+    });
+
     it('reports the skip in quiet mode, where a silent exit 0 would read as a pass', async () => {
       writePackageScripts(repo, { typecheck: ':' });
 

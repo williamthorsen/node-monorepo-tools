@@ -6,8 +6,7 @@ import { PassThrough } from 'node:stream';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { runCli } from '../runCli.ts';
-import { RUN_IF_PRESENT_ENV_VAR } from '../runCli.ts';
+import { RUN_IF_PRESENT_ENV_VAR, runCli } from '../runCli.ts';
 import { readAmbientEnv } from '../test-utils/readAmbientEnv.ts';
 
 /** The cacheable command every test drives; the fixture maps it to a script whose output is recognizable. */
@@ -114,6 +113,15 @@ describe('a run printed by --log', () => {
 
     expect(exitCode).toBe(0);
     expect(stderr).toContain('nothing has recorded a pass');
+  });
+
+  // The refusal points at NMR_DEBUG, so the gate has to have written a note for every way it stands aside.
+  it('reports why the gate stood aside for a command carrying arguments', async () => {
+    const { exitCode, stderr } = await runNmr(`--log ${COMMAND} --project unit`, { NMR_DEBUG: '1' });
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain(`gate disabled: ${COMMAND} was passed arguments`);
+    expect(stderr).toContain('standing aside here');
   });
 
   it('names the flag when no command follows it', async () => {

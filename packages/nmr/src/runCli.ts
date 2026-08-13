@@ -13,11 +13,11 @@ import {
   encodeTreeSnapshot,
   findStaleBuildOutput,
   formatMisplacedNoCacheWarning,
+  isCacheableCommand,
   NO_CACHE_ENV_VAR,
   readBuildOutputState,
   readCheckCacheEntry,
   recordTranscript,
-  resolveCacheableCommands,
   resolveRunId,
   resolveTreeSnapshot,
   RUN_ID_ENV_VAR,
@@ -221,11 +221,13 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     return reportRecording({
       anchorDir,
       command,
+      commandString: fullCommand,
       config: context.config,
       env,
       key,
       monorepoRoot: context.monorepoRoot,
       scope,
+      snapshot,
       stderr,
       stdout,
     });
@@ -660,11 +662,7 @@ function openGate(options: {
 }): TreeSnapshot | undefined {
   const { command, config, env, monorepoRoot, passthrough, stderr } = options;
 
-  const covered =
-    !isHookName(command) &&
-    config.checkCache?.enabled !== false &&
-    resolveCacheableCommands(config.checkCache).has(command);
-  if (!covered) {
+  if (!isCacheableCommand(config.checkCache, command)) {
     return undefined;
   }
 
@@ -674,6 +672,7 @@ function openGate(options: {
     stderr.write(`${formatMisplacedNoCacheWarning(command)}\n`);
   }
   if (passthrough.length > 0) {
+    writeDebugNote(`gate disabled: ${command} was passed arguments`, env, stderr);
     return undefined;
   }
 
@@ -771,11 +770,13 @@ function parseArgs(args: string[]): ParseResult {
 async function reportRecording(options: {
   anchorDir: string;
   command: string;
+  commandString: string;
   config: NmrConfig;
   env: NodeJS.ProcessEnv;
   key: string | undefined;
   monorepoRoot: string;
   scope: string;
+  snapshot: TreeSnapshot | undefined;
   stderr: Writable;
   stdout: Writable;
 }): Promise<RunCliResult> {
@@ -784,7 +785,13 @@ async function reportRecording(options: {
   const lookup = await resolveRecording({
     anchorDir: options.anchorDir,
     command,
-    isCacheable: config.checkCache?.enabled !== false && resolveCacheableCommands(config.checkCache).has(command),
+    current: {
+      commandString: options.commandString,
+      nmrVersion: VERSION,
+      nodeVersion: CURRENT_RUNTIME.nodeVersion,
+      treeHash: options.snapshot?.hash,
+    },
+    isCacheable: isCacheableCommand(config.checkCache, command),
     key: options.key,
     monorepoRoot: options.monorepoRoot,
   });

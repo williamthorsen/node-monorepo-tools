@@ -19,6 +19,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { hasBuildOutput, readBuildDigest } from './commands/build-output.ts';
 import { loadWorkspaceConfig } from './config.ts';
+import { isHookName } from './helpers/hook-name.ts';
 import { isObject, isStringRecord } from './helpers/type-guards.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
 import { getDefaultWorkspaceScripts } from './resolve-scripts.ts';
@@ -321,6 +322,17 @@ export function formatMisplacedNoCacheWarning(command: string): string {
     `⚠️ --no-cache after the command name is passed to \`${command}\`, not read by nmr. ` +
     `Did you mean \`nmr --no-cache ${command}\`?`
   );
+}
+
+/**
+ * Reports whether a command's passes are recorded at all, which is what separates a command with no recording
+ * from one that could never have had one.
+ *
+ * A hook is excluded here rather than at one caller: it is not a command anyone asks for, so nothing records
+ * it, and a repo naming one in `extraCommands` must not make the gate and a reader of its entries disagree.
+ */
+export function isCacheableCommand(checkCache: CheckCacheConfig | undefined, command: string): boolean {
+  return !isHookName(command) && checkCache?.enabled !== false && resolveCacheableCommands(checkCache).has(command);
 }
 
 /**
