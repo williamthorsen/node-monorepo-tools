@@ -2,7 +2,6 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import process from 'node:process';
 import { PassThrough } from 'node:stream';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -51,7 +50,10 @@ describe('a run printed by --log', () => {
       const { stdout } = await runNmr(`--log ${COMMAND}`);
 
       expect(stdout).toMatch(
-        new RegExp(`^📼 ${path.basename(repo)}: ${COMMAND} — recorded \\d{4}-.*ago\\), ran in .*\\n\\$ .*echo`, 'u'),
+        new RegExp(
+          String.raw`^📼 ${path.basename(repo)}: ${COMMAND} — recorded \d{4}-.*ago\), ran in .*\n\$ .*echo`,
+          'u',
+        ),
       );
     });
 

@@ -108,8 +108,10 @@ describe('a recording', () => {
 
       const rendered = renderRecording({ command: COMMAND, recording: { entry }, scope: SCOPE });
 
-      expect(rendered.split('\n')[0]).toBe(`📼 ${SCOPE}: ${COMMAND} — recorded ${recordedAt} (1m ago), ran in 12.4s`);
-      expect(rendered.split('\n')[1]).toBe('$ vitest --project unit');
+      expect(rendered.split('\n', 1)[0]).toBe(
+        `📼 ${SCOPE}: ${COMMAND} — recorded ${recordedAt} (1m ago), ran in 12.4s`,
+      );
+      expect(rendered.split('\n', 2)[1]).toBe('$ vitest --project unit');
     });
 
     it('prints the transcript below a blank line, as the run wrote it', () => {
