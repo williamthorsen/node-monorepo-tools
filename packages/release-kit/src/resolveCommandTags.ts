@@ -2,7 +2,7 @@
 /* eslint unicorn/no-process-exit: off */
 
 import { reportError } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';

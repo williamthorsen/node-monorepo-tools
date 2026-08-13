@@ -4,7 +4,7 @@
 import { execSync } from 'node:child_process';
 
 import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { buildDependencyGraph } from './buildDependencyGraph.ts';

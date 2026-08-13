@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 
 import type { WriteResult } from '@williamthorsen/nmr-core';
 import { findPackageRoot, writeFileWithCheck } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import type { RepoType } from './detectRepoType.ts';
 import { createGithubReleaseWorkflow, publishWorkflow, releaseConfigScript, releaseWorkflow } from './templates.ts';

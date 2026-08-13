@@ -35,7 +35,7 @@
     "prepare": "node --conditions nmr-source ../nmr/src/cli-build.ts"
   },
   "dependencies": {
-    "@williamthorsen/toolbelt.errors": "0.2.0"
+    "@williamthorsen/toolbelt.errors": "0.4.0"
   },
   "engines": {
     "node": ">=24"

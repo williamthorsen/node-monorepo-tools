@@ -57,7 +57,7 @@
   },
   "dependencies": {
     "@williamthorsen/nmr-core": "workspace:*",
-    "@williamthorsen/toolbelt.errors": "0.2.0",
+    "@williamthorsen/toolbelt.errors": "0.4.0",
     "glob": "13.0.6",
     "json-stringify-pretty-compact": "4.0.0",
     "semver": "7.8.5",

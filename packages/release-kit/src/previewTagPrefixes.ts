@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { basename } from 'node:path';
 
 import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
 import type { UndeclaredTagPrefix } from './detectUndeclaredTagPrefixes.ts';

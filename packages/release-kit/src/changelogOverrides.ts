@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { isRecord } from './typeGuards.ts';
 import type { ChangelogEntry, ChangelogItem, ChangelogOverride, ChangelogSection, WorkspaceConfig } from './types.ts';

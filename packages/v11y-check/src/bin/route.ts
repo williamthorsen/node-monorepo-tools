@@ -1,5 +1,5 @@
 import { parseArgs, readPackageVersion, reportError } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { auditCommand, checkCommand, syncCommand } from '../cli.ts';
 import { initCommand } from '../init/initCommand.ts';

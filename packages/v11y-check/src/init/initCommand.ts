@@ -1,5 +1,5 @@
 import { printError, printStep, reportWriteResult } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { scaffoldFiles } from './scaffold.ts';
 

@@ -1,5 +1,5 @@
 import { reportError } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { runClean } from './commands/clean.ts';
 

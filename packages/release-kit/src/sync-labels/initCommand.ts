@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 
 import { reportWriteResult, writeFileWithCheck } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { discoverWorkspaces } from '../discoverWorkspaces.ts';
 import { CONFIG_FILE_PATH } from '../loadConfig.ts';

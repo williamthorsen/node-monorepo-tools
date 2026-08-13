@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { formatErrorLine } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { UPSTREAM_WORK_TYPES_URL } from './checkWorkTypesDrift.ts';
 import { isRecord } from './typeGuards.ts';

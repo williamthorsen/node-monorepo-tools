@@ -6,7 +6,7 @@
 /* eslint unicorn/prefer-else-if: "off" */
 
 import { parseArgsOrExit, readPackageVersion, reportError } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { checkWorkTypesDrift } from '../checkWorkTypesDrift.ts';
 import { commitCommand } from '../commitCommand.ts';

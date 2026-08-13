@@ -1,5 +1,5 @@
 import type { WriteResult } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockWriteFileWithCheck = vi.hoisted(() =>

@@ -15,7 +15,7 @@ import {
   resolveCacheEntryPath,
   writeCacheEntry,
 } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { hasBuildOutput, readBuildDigest } from './commands/build-output.ts';
 import { loadWorkspaceConfig } from './config.ts';

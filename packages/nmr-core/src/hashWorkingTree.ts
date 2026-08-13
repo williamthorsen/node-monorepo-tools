@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, readFileSync, readlinkSync } from 'node:fs';
 import path from 'node:path';
 
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { GIT_OUTPUT_LIMIT } from './gitOutputLimit.ts';
 

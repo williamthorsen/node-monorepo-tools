@@ -2,7 +2,7 @@
 /* eslint unicorn/no-process-exit: off */
 
 import { reportError } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from './defaults.ts';
 import { loadConfig, resolveWorkTypes } from './loadConfig.ts';

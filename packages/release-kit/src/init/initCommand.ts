@@ -1,6 +1,6 @@
 import type { WriteResult } from '@williamthorsen/nmr-core';
 import { printError, printStep, printSuccess, reportWriteResult } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import type { CheckResult } from './checks.ts';
 import { hasPackageJson, isGitRepo, usesPnpm } from './checks.ts';

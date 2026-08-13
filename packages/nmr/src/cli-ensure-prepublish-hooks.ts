@@ -1,5 +1,5 @@
 import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { DEFAULT_HOOK, ensurePrepublishHooks } from './commands/ensure-prepublish-hooks.ts';
 import { findMonorepoRoot } from './workspace.ts';

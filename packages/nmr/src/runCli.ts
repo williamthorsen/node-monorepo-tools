@@ -2,7 +2,7 @@ import path from 'node:path';
 import type { Writable } from 'node:stream';
 
 import { readPackageVersion, reportError } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import type { BuildOutputState, CheckCacheEntry, ReplayLine, Retention, TreeSnapshot } from './check-cache.ts';
 import {

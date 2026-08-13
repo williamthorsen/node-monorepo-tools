@@ -2,7 +2,7 @@
 /* eslint unicorn/no-process-exit: off */
 
 import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { createGithubReleases } from './createGithubRelease.ts';
 import { formatPrivateSkip } from './formatPrivateSkip.ts';

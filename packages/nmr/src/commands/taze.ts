@@ -4,7 +4,7 @@ import type { Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
 import { reportError } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
 /**
  * taze's declared CLI export, which is the module taze's own `bin/taze.mjs` imports. Resolving it

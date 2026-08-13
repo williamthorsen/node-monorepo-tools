@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 
-import { describeError } from '@williamthorsen/toolbelt.errors/candidate';
+import { describeError } from '@williamthorsen/toolbelt.errors';
 
 /** Type guard asserting that `value` is an object with a string `version` field. */
 function hasVersionField(value: unknown): value is { version: string } {
