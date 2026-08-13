@@ -367,7 +367,7 @@ The header is what presents the body as a recording rather than as this invocati
 
 **A composite prints its assembly.** Retaining nothing of its own, a composite prints the excerpts its constituents recorded, one attributed line each. The transcript of any one of them is that constituent's own `--log` to print.
 
-**Nothing to show is said rather than left blank.** A refusal names which it is -- the command is outside the [cacheable set](#what-is-cached), the gate is [standing aside](#when-the-gate-stands-aside), nothing has recorded a pass, the last pass was on another tree, or the pass retained no output because it wrote to a terminal -- and exits non-zero, so a caller can tell an empty `stdout` from a recording.
+**Nothing to show is said rather than left blank.** A refusal names which it is -- the command is outside the [cacheable set](#what-is-cached), the gate is [standing aside](#when-the-gate-stands-aside), nothing has recorded a pass, the last pass was on another tree, or the pass retained no output, having printed none or written to a terminal -- and exits non-zero, so a caller can tell an empty `stdout` from a recording.
 
 ```console
 $ nmr --log test

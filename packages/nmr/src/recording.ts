@@ -111,7 +111,7 @@ function describeRefusal(command: string, refusal: RecordingRefusal): string {
     case 'other-tree':
       return `the last pass was ${formatDuration(refusal.ageMs)} ago, on a tree this is not`;
     case 'no-output':
-      return `the pass ${formatDuration(refusal.ageMs)} ago retained none, as a run writing to a terminal does`;
+      return `the pass ${formatDuration(refusal.ageMs)} ago retained none, as a run printing nothing or writing to a terminal does`;
     default: {
       const unhandled: never = refusal;
       throw new Error(`Unhandled refusal: ${JSON.stringify(unhandled)}`);
