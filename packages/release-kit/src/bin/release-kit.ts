@@ -285,7 +285,6 @@ Options:
 
 const args = process.argv.slice(2);
 const command = args[0];
-const flags = args.slice(1);
 
 if (command === '--version' || command === '-V') {
   console.info(VERSION);
@@ -296,6 +295,8 @@ if (command === undefined || ['--help', '-h'].includes(command)) {
   showUsage();
   process.exit(0);
 }
+
+const flags = args.slice(1);
 
 if (command === 'prepare') {
   if (flags.some((f) => f === '--help' || f === '-h')) {
@@ -395,12 +396,13 @@ if (command === 'init') {
 
 if (command === 'sync-labels') {
   const subcommand = flags[0];
-  const subflags = flags.slice(1);
 
   if (subcommand === undefined || ['--help', '-h'].includes(subcommand)) {
     showSyncLabelsHelp();
     process.exit(0);
   }
+
+  const subflags = flags.slice(1);
 
   if (subcommand === 'init') {
     if (subflags.some((f) => f === '--help' || f === '-h')) {
@@ -455,12 +457,13 @@ if (command === 'sync-labels') {
 
 if (command === 'overrides') {
   const subcommand = flags[0];
-  const subflags = flags.slice(1);
 
   if (subcommand === undefined || ['--help', '-h'].includes(subcommand)) {
     showOverridesHelp();
     process.exit(0);
   }
+
+  const subflags = flags.slice(1);
 
   if (subcommand === 'validate') {
     if (subflags.some((f) => f === '--help' || f === '-h')) {
@@ -487,12 +490,13 @@ if (command === 'overrides') {
 
 if (command === 'work-types') {
   const subcommand = flags[0];
-  const subflags = flags.slice(1);
 
   if (subcommand === undefined || ['--help', '-h'].includes(subcommand)) {
     showWorkTypesHelp();
     process.exit(0);
   }
+
+  const subflags = flags.slice(1);
 
   if (subcommand === 'check') {
     if (subflags.some((f) => f === '--help' || f === '-h')) {
