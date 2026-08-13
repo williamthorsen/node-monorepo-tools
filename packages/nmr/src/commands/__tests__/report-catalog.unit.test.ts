@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { reportCatalog } from '../report-catalog.ts';
 
@@ -17,7 +17,6 @@ describe(reportCatalog, () => {
 
   afterEach(() => {
     fs.rmSync(monorepoRoot, { recursive: true });
-    vi.restoreAllMocks();
   });
 
   it('names every catalogued dependency, its specifier, and the root a covering pass runs from', () => {

@@ -185,7 +185,6 @@ describe(initCommand, () => {
     tempDir = path.join(tmpdir(), `v11y-check-initcmd-test-${Date.now()}`);
     mkdirSync(tempDir, { recursive: true });
     process.chdir(tempDir);
-    // Suppress console output during tests
     silenceConsole(['info']);
   });
 
