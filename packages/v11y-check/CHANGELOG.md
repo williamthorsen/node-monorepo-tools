@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.15.2 — 2026-08-13
+
+### ♻️ Refactoring
+
+- Adopt toolbelt.errors for error-message extraction and cause-chaining (#652)
+
+  Improves error reporting by adopting standardized ways of capturing and describing errors across the codebase.
+
+### ⚙️ Tooling
+
+- Upgrade the lint config and clear its violations (#671)
+
+  Upgrades `@williamthorsen/eslint-config-typescript`, along with other config packages, and clears lint violations surfaced by the newly activated rules.
+
 ## 0.15.0 — 2026-08-08
 
 ### 🎉 Features

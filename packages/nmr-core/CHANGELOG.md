@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.10.0 — 2026-08-13
+
+### 🎉 Features
+
+- Print a retained run with nmr --log (#669)
+
+  Adds `nmr --log <command>`, which prints what the last recorded pass wrote instead of running the command again. The whole transcript, up to a limit of 256 KiB, is now saved for any passing command that is not writing straight to a terminal; `--log` prints it under a header giving the instant, the duration, and the command chain that succeeded. The log of a composite is the sum of its constituents' excerpts. If a change disqualifies the recording, `--log` instead reports the change.
+
+### ♻️ Refactoring
+
+- Adopt toolbelt.errors for error-message extraction and cause-chaining (#652)
+
+  Improves error reporting by adopting standardized ways of capturing and describing errors across the codebase.
+
+### ⚙️ Tooling
+
+- Upgrade the lint config and clear its violations (#671)
+
+  Upgrades `@williamthorsen/eslint-config-typescript`, along with other config packages, and clears lint violations surfaced by the newly activated rules.
+
 ## 0.9.3 — 2026-08-08
 
 ### ⚙️ Tooling

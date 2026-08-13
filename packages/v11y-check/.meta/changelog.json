@@ -1,5 +1,33 @@
 [
   {
+    "version": "0.15.2",
+    "date": "2026-08-13",
+    "sections": [
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Adopt toolbelt.errors for error-message extraction and cause-chaining (#652)",
+            "body": "Improves error reporting by adopting standardized ways of capturing and describing errors across the codebase.",
+            "hash": "30e6dac440ca7c61b8f44fb2998ff9e933425008"
+          }
+        ]
+      },
+      {
+        "title": "⚙️ Tooling",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Upgrade the lint config and clear its violations (#671)",
+            "body": "Upgrades `@williamthorsen/eslint-config-typescript`, along with other config packages, and clears lint violations surfaced by the newly activated rules.",
+            "hash": "17124c0ccd1a101d9fc46743b8e6b05d1e639e19"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.15.0",
     "date": "2026-08-08",
     "sections": [

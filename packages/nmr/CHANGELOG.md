@@ -2,6 +2,82 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.31.0 — 2026-08-13
+
+### 🎉 Features
+
+- Report a verdict for every command nmr runs (#659)
+
+  `nmr` now reports one line for every command it runs, naming the scope, command, outcome, and timing. The lines print in every verbosity, which makes `-q` the low-noise way to run rather than a silent one: a passing quiet run reports its verdicts and nothing else, so a pass, a cached skip, and a no-op override stay distinguishable.
+
+  Verdicts nest. A composite reports alongside every command it expands into, while a `:pre`/`:post` hook leaf and a `--filter`/`--recursive` delegate report nothing, since each is already covered by the levels around it.
+
+- Resolve a run's verbosity from repo config and agent-harness detection (#660)
+
+  A verbosity preference for `nmr` can now be set in the repo's root config, and `nmr` now automatically switches to quiet mode when it detects a known agent harness. This makes four ways to set verbosity: the `-q` option, the `NMR_COMMAND_VERBOSITY` env var, config, and harness detection, consulted in that order and defaulting to `full` when none applies.
+
+- 🚨 **Breaking:** Refine nmr upgrade to support catalogs (#661)
+
+  Adds `nmr-report-catalog`, which names the dependencies a package takes from a pnpm catalog, their `catalog:` specifiers, and the monorepo root a covering pass runs from. The workspace `upgrade` default chains it ahead of the upgrade tool, and `nmr report-catalog` runs it alone. Because taze reads `pnpm-workspace.yaml` only when that file sits at its working directory, changes to the catalog are not attempted during a package-scoped upgrade.
+
+  Separately, `nmr-report-overrides` now reports the `overrides` block in `pnpm-workspace.yaml` and fails on a `pnpm.overrides` block in the root `package.json`. Both `upgrade` and `root:upgrade` run the reporter ahead of taze. This avoids a scenario where taze would meaninglessly write to the latter block.
+
+  Migration: Move the block to `overrides` in `pnpm-workspace.yaml`, quoting each version, or run `pnpx codemod run pnpm-v10-to-v11`. `engines` declares `pnpm: ">=11"`.
+
+- Replay an excerpt of the run a skip recalls (#667)
+
+  `nmr` can now show the result of the previous check when a check is skipped. When `nmr` runs a command, it stores the result, keyed by presentation environment. The result is deemed to be the last blank-line-delimited block written by the command. If the command is run again in the same presentation environment, the stored result is shown, labeled "replayed:" for clarity.
+
+- Assemble a skipped composite's replay from its constituents' excerpts (#668)
+
+  A skipped composite now replays what its constituents recorded, with each line attributed to the scope and command that produced it:
+
+  ```console
+  ⏭️ nmr: check: passed 35.7s ago on this tree, saved ~10s — replayed: nmr: fmt:check: All matched files use Prettier code style!; nmr: test: Test Files 52 passed (52) Tests 987 passed (987)
+  ```
+
+  Nesting collapses. A constituent that fans out across packages contributes a line from every package that recorded one; a constituent that recorded nothing is omitted.
+
+  A new reserved variable, `NMR_RUN_ID`, carries a run's identity to every process below it. Every recorded excerpt names the run that last certified it. A composite summary includes saved results with the same status as a fresh result.
+
+- Print a retained run with nmr --log (#669)
+
+  Adds `nmr --log <command>`, which prints what the last recorded pass wrote instead of running the command again. The whole transcript, up to a limit of 256 KiB, is now saved for any passing command that is not writing straight to a terminal; `--log` prints it under a header giving the instant, the duration, and the command chain that succeeded. The log of a composite is the sum of its constituents' excerpts. If a change disqualifies the recording, `--log` instead reports the change.
+
+- Emit one JSON object per command for machine consumers (#672)
+
+  Adds `--json` to `nmr`, allowing the caller to request output in JSON format instead of prose. An env var carries the choice of `json` or `text` down a spawned chain. When the output is JSON, the consumer receives one JSON object per command; each object carries the command, scope, and outcome, and a recalled pass carries the recorded excerpts.
+
+  The mode implies quiet. Stdout carries the objects alone (with no prose verdict line and no override notice); a failing command still displays its output on stderr.
+
+- 🚨 **Breaking:** Bind trailing arguments to every step that accepts them (#675)
+
+  Routes an argument passed to an `nmr` command to every step of that command that accepts it, in place of the last step alone. Thus, `nmr test <file>` therefore runs only that file's tests; previously, the root suite ran in full alongside the narrowed package runs. Steps by default accept passed arguments, but can be configured to ignore them. If no step of a command accepts the argument, `nmr` names the command and runs nothing.
+
+  A command carrying an argument also reads the check-result cache nowhere in its chain, so it no longer skips part of its work from a pass recorded for an unnarrowed run.
+
+  Migration: Existing configs need no change, since a bare string element keeps its present meaning. Two behaviors differ: A composite passes its arguments to every accepting step rather than to its final step alone; and `nmr typecheck <file>` at the repo root is refused, where it previously checked that file under default compiler options at the root and hunted for it in every package.
+
+### 🐛 Bug fixes
+
+- Derive the shelled-nmr remedy from the declaration site and reject a malformed package.json (#658)
+
+  Fixes a shelled-nmr warning that named `.config/nmr.config.ts` as the remedy for every step it reported, including the `package.json` entries that tier cannot resolve. The line now names the relevant declaration and remedy. Shelled nmr can now be detected not only in a step's first token but anywhere in the step.
+
+  Separately, a configuration mistake now reports as a plain message rather than a Node stack trace.
+
+### ♻️ Refactoring
+
+- Adopt toolbelt.errors for error-message extraction and cause-chaining (#652)
+
+  Improves error reporting by adopting standardized ways of capturing and describing errors across the codebase.
+
+### ⚙️ Tooling
+
+- Upgrade the lint config and clear its violations (#671)
+
+  Upgrades `@williamthorsen/eslint-config-typescript`, along with other config packages, and clears lint violations surfaced by the newly activated rules.
+
 ## 0.30.0 — 2026-08-10
 
 ### 🎉 Features
