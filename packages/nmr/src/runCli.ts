@@ -49,7 +49,7 @@ import { resolveChannel, runSteps } from './runner.ts';
 import type { Step } from './steps.ts';
 import { composeNmrStep, findNmrCrossing, renderChain } from './steps.ts';
 import type { NmrConfig } from './types.ts';
-import type { CommandVerbosity } from './verbosity.ts';
+import type { CommandVerbosity, ResolveVerbosityOptions } from './verbosity.ts';
 import { COMMAND_VERBOSITY_ENV_VAR, readVerbosityEnv, resolveVerbosity } from './verbosity.ts';
 import type { Verdict, VerdictOutcome } from './verdict.ts';
 import { writeVerdict } from './verdict.ts';
@@ -102,14 +102,9 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   // Ahead of every other outcome, `--version` and `--help` included, so one variable's validity has one answer.
   // The levels below the environment wait on the config, which `--version` must keep not loading.
-  const envVerbosity = readVerbosityEnv(env);
-  if (!envVerbosity.ok) {
-    reportError(envVerbosity.error, stderr);
-    return { exitCode: 1 };
-  }
-  const envFormat = readReportFormatEnv(env);
-  if (!envFormat.ok) {
-    reportError(envFormat.error, stderr);
+  const inherited = readPresentationEnv(env);
+  if (!inherited.ok) {
+    reportError(inherited.error, stderr);
     return { exitCode: 1 };
   }
   if (parsed.version) {
@@ -119,20 +114,14 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   const context = await resolveContext(cwd);
 
-  const format = resolveReportFormat({ envFormat: envFormat.format, jsonFlag: parsed.json });
-
-  // A machine-readable run reports on stdout and nothing else may, so it withholds the commands' own output
-  // whatever the loudness ladder would have resolved to. A failure still surrenders it on stderr, as under any
-  // quiet run: the two modes leave the child on the same channels, so they also share a retention key.
-  const verbosity =
-    format === 'json'
-      ? 'quiet'
-      : resolveVerbosity({
-          env,
-          envVerbosity: envVerbosity.verbosity,
-          output: context.config.output,
-          quietFlag: parsed.quiet,
-        });
+  const format = resolveReportFormat({ envFormat: inherited.format, jsonFlag: parsed.json });
+  const verbosity = resolveReportingVerbosity({
+    env,
+    envVerbosity: inherited.verbosity,
+    format,
+    output: context.config.output,
+    quietFlag: parsed.quiet,
+  });
   const quiet = verbosity === 'quiet';
 
   // Determine which registry to use
@@ -837,6 +826,28 @@ async function reportRecording(options: {
  * none, running nothing that could cross. Reads the resolved steps rather than the full chain: the line names
  * a declaration to edit, and a hook, a passthrough, and a `devBin` substitution are none.
  */
+/**
+ * Reads the two variables that decide how a run presents itself, or the message naming why one of them could
+ * not be read. Read together, so a run carrying two unreadable values is not fixed one release at a time.
+ */
+function readPresentationEnv(
+  env: NodeJS.ProcessEnv,
+):
+  | { ok: true; format: ReportFormat | undefined; verbosity: CommandVerbosity | undefined }
+  | { ok: false; error: string } {
+  const verbosity = readVerbosityEnv(env);
+  if (!verbosity.ok) {
+    return verbosity;
+  }
+
+  const format = readReportFormatEnv(env);
+  if (!format.ok) {
+    return format;
+  }
+
+  return { ok: true, format: format.format, verbosity: verbosity.verbosity };
+}
+
 function reportNmrCrossing(options: {
   config: NmrConfig;
   isReading: boolean;
@@ -876,6 +887,19 @@ function reportVerdict(verdict: Verdict, stdout: Writable, format: ReportFormat)
     return;
   }
   writeVerdict(verdict, stdout, format);
+}
+
+/**
+ * Resolves how loudly this run reports the output of the commands it runs.
+ *
+ * A machine-readable run reports on stdout and nothing else may, so it withholds that output whatever the
+ * loudness ladder would have resolved to. A failure still surrenders it on stderr, as under any quiet run: the
+ * two leave the child on the same channels, so a machine-readable run and a quiet one share a retention key.
+ */
+function resolveReportingVerbosity(options: ResolveVerbosityOptions & { format: ReportFormat }): CommandVerbosity {
+  const { format, ...ladder } = options;
+
+  return format === 'json' ? 'quiet' : resolveVerbosity(ladder);
 }
 
 /**
