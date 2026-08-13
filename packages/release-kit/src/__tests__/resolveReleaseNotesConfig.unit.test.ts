@@ -1,3 +1,4 @@
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.ts';
@@ -32,7 +33,7 @@ describe(resolveReleaseNotesConfig, () => {
     vi.spyOn(process, 'exit').mockImplementation((code) => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    silenceConsole(['warn']);
     vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 

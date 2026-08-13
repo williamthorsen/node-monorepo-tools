@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mergeMonorepoConfig } from '../loadConfig.ts';
@@ -246,31 +247,27 @@ describe('releasePrepareProject (tool)', () => {
       mkdirSync(join(fixture.repoDir, '.meta'), { recursive: true });
       writeFileSync(changelogJsonPath, '{this is not valid JSON', 'utf8');
 
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      using silent = silenceConsole(['warn']);
 
-      try {
-        const config = mergeMonorepoConfig(
-          ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
-          { project: {} },
-          { exists: true, version: '0.9.0' },
-        );
+      const config = mergeMonorepoConfig(
+        ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
+        { project: {} },
+        { exists: true, version: '0.9.0' },
+      );
 
-        prepareAndApply(config, {});
+      prepareAndApply(config, {});
 
-        // No warning was emitted (the existing file was never parsed).
-        const warnedAboutChangelogJson = warnSpy.mock.calls.some((call) =>
-          call.some((arg) => typeof arg === 'string' && arg.includes('could not parse existing')),
-        );
-        expect(warnedAboutChangelogJson).toBe(false);
+      // No warning was emitted (the existing file was never parsed).
+      const warnedAboutChangelogJson = silent.warn.mock.calls.some((call) =>
+        call.some((arg) => typeof arg === 'string' && arg.includes('could not parse existing')),
+      );
+      expect(warnedAboutChangelogJson).toBe(false);
 
-        // The file was overwritten with cliff-derived content (valid JSON).
-        const written = readFileSync(changelogJsonPath, 'utf8');
-        const parsed: Array<{ version: string }> = JSON.parse(written);
-        expect(Array.isArray(parsed)).toBe(true);
-        expect(parsed.some((entry) => entry.version === '0.10.0')).toBe(true);
-      } finally {
-        warnSpy.mockRestore();
-      }
+      // The file was overwritten with cliff-derived content (valid JSON).
+      const written = readFileSync(changelogJsonPath, 'utf8');
+      const parsed: Array<{ version: string }> = JSON.parse(written);
+      expect(Array.isArray(parsed)).toBe(true);
+      expect(parsed.some((entry) => entry.version === '0.10.0')).toBe(true);
     });
   }, 60_000);
 

@@ -1,4 +1,5 @@
 import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockReadFileSync = vi.hoisted(() => vi.fn());
@@ -31,7 +32,7 @@ describe(commitCommand, () => {
     vi.spyOn(process, 'exit').mockImplementation((code) => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
-    vi.spyOn(console, 'info').mockImplementation(() => {});
+    silenceConsole(['info']);
     vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 

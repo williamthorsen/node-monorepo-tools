@@ -2,6 +2,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ChangelogEntry } from '../types.ts';
@@ -53,19 +54,19 @@ describe(createGithubRelease, () => {
   });
 
   it('returns no-entry skip and warns when changelog.json does not exist', () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    using silent = silenceConsole(['warn']);
     const result = createGithubRelease({
       tag: 'v1.0.0',
       changelogJsonPath: join(tempDir, 'nonexistent.json'),
       dryRun: false,
     });
     expect(result).toStrictEqual({ status: 'skipped', reason: 'no-entry' });
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('not found'));
+    expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('not found'));
   });
 
   it('returns no-entry skip and warns when changelog.json cannot be parsed', () => {
     writeFileSync(changelogJsonPath, 'not valid json{{{', 'utf8');
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    using silent = silenceConsole(['warn']);
 
     const result = createGithubRelease({
       tag: 'v1.0.0',
@@ -73,12 +74,12 @@ describe(createGithubRelease, () => {
       dryRun: false,
     });
     expect(result).toStrictEqual({ status: 'skipped', reason: 'no-entry' });
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('could not parse'));
+    expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('could not parse'));
   });
 
   it('returns no-entry skip and warns when version is not in changelog.json', () => {
     writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    using silent = silenceConsole(['warn']);
 
     const result = createGithubRelease({
       tag: 'v99.0.0',
@@ -86,12 +87,12 @@ describe(createGithubRelease, () => {
       dryRun: false,
     });
     expect(result).toStrictEqual({ status: 'skipped', reason: 'no-entry' });
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('no changelog entry'));
+    expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('no changelog entry'));
   });
 
   it('logs the command in dry-run mode without executing', () => {
     writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
-    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    using silent = silenceConsole(['info']);
 
     const result = createGithubRelease({
       tag: 'v1.0.0',
@@ -100,7 +101,7 @@ describe(createGithubRelease, () => {
     });
     expect(result).toStrictEqual({ status: 'created' });
     expect(mockedExecFileSync).not.toHaveBeenCalled();
-    expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('[dry-run]'));
+    expect(silent.info).toHaveBeenCalledWith(expect.stringContaining('[dry-run]'));
   });
 
   it('calls gh CLI with correct arguments', () => {
@@ -154,7 +155,7 @@ describe(createGithubRelease, () => {
 
   it('skips release with reason no-audience-content when entry has only dev-audience sections', () => {
     mockedExecFileSync.mockClear();
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    using silent = silenceConsole(['warn']);
     const devOnlyEntries: ChangelogEntry[] = [
       {
         version: '2.0.0',
@@ -177,12 +178,12 @@ describe(createGithubRelease, () => {
     expect(mockedExecFileSync).not.toHaveBeenCalled();
     // Intentional skips must stay silent at the lib layer; the per-tag info summary is the
     // command's responsibility and does not run through console.warn.
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(silent.warn).not.toHaveBeenCalled();
   });
 
   it('skips release with reason empty-body when rendered all-audience body is empty', () => {
     mockedExecFileSync.mockClear();
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    using silent = silenceConsole(['warn']);
     writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
     mockedRenderReleaseNotesSingle.mockReturnValueOnce('   \n   ');
 
@@ -194,7 +195,7 @@ describe(createGithubRelease, () => {
 
     expect(result).toStrictEqual({ status: 'skipped', reason: 'empty-body' });
     expect(mockedExecFileSync).not.toHaveBeenCalled();
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(silent.warn).not.toHaveBeenCalled();
   });
 
   it('extracts version from prefixed tags and matches correct entry', () => {

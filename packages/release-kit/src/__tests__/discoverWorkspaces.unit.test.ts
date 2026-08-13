@@ -1,3 +1,4 @@
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockExistsSync = vi.hoisted(() => vi.fn());
@@ -20,7 +21,7 @@ import { discoverWorkspaces } from '../discoverWorkspaces.ts';
 
 describe(discoverWorkspaces, () => {
   beforeEach(() => {
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    silenceConsole(['warn']);
   });
 
   afterEach(() => {

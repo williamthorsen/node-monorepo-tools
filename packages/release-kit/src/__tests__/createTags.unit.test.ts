@@ -1,4 +1,5 @@
 import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockReadFileSync = vi.hoisted(() => vi.fn());
@@ -18,8 +19,7 @@ import { createTags } from '../createTags.ts';
 
 describe(createTags, () => {
   beforeEach(() => {
-    vi.spyOn(console, 'info').mockImplementation(() => {});
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    silenceConsole(['info', 'warn']);
   });
 
   afterEach(() => {

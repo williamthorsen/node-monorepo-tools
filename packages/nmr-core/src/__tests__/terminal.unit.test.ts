@@ -1,5 +1,6 @@
 import { PassThrough } from 'node:stream';
 
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { formatErrorLine, reportError, reportWriteResult } from '../terminal.ts';
@@ -42,66 +43,66 @@ describe(reportWriteResult, () => {
   });
 
   it('prints success for created outcome', () => {
-    const spy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    using silent = silenceConsole(['info']);
     const result: WriteResult = { filePath: 'some/file.ts', outcome: 'created' };
 
     reportWriteResult(result, false);
 
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('Created some/file.ts'));
+    expect(silent.info).toHaveBeenCalledWith(expect.stringContaining('Created some/file.ts'));
   });
 
   it('prints dry-run message for created outcome in dry-run mode', () => {
-    const spy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    using silent = silenceConsole(['info']);
     const result: WriteResult = { filePath: 'some/file.ts', outcome: 'created' };
 
     reportWriteResult(result, true);
 
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('[dry-run] Would create some/file.ts'));
+    expect(silent.info).toHaveBeenCalledWith(expect.stringContaining('[dry-run] Would create some/file.ts'));
   });
 
   it('prints success for overwritten outcome', () => {
-    const spy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    using silent = silenceConsole(['info']);
     const result: WriteResult = { filePath: 'some/file.ts', outcome: 'overwritten' };
 
     reportWriteResult(result, false);
 
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('Overwrote some/file.ts'));
+    expect(silent.info).toHaveBeenCalledWith(expect.stringContaining('Overwrote some/file.ts'));
   });
 
   it('prints dry-run message for overwritten outcome in dry-run mode', () => {
-    const spy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    using silent = silenceConsole(['info']);
     const result: WriteResult = { filePath: 'some/file.ts', outcome: 'overwritten' };
 
     reportWriteResult(result, true);
 
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('[dry-run] Would overwrite some/file.ts'));
+    expect(silent.info).toHaveBeenCalledWith(expect.stringContaining('[dry-run] Would overwrite some/file.ts'));
   });
 
   it('prints success for up-to-date outcome', () => {
-    const spy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    using silent = silenceConsole(['info']);
     const result: WriteResult = { filePath: 'some/file.ts', outcome: 'up-to-date' };
 
     reportWriteResult(result, false);
 
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('some/file.ts (up to date)'));
+    expect(silent.info).toHaveBeenCalledWith(expect.stringContaining('some/file.ts (up to date)'));
   });
 
   it('prints skip for skipped outcome', () => {
-    const spy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    using silent = silenceConsole(['info']);
     const result: WriteResult = { filePath: 'some/file.ts', outcome: 'skipped' };
 
     reportWriteResult(result, false);
 
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('some/file.ts (already exists)'));
+    expect(silent.info).toHaveBeenCalledWith(expect.stringContaining('some/file.ts (already exists)'));
   });
 
   it('prints skip with error detail when skipped outcome has an error', () => {
-    const spy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    using silent = silenceConsole(['info']);
     const result: WriteResult = { filePath: 'some/file.ts', outcome: 'skipped', error: 'EACCES: permission denied' };
 
     reportWriteResult(result, false);
 
-    expect(spy).toHaveBeenCalledWith(
+    expect(silent.info).toHaveBeenCalledWith(
       expect.stringContaining('some/file.ts (could not read for comparison: EACCES: permission denied)'),
     );
   });

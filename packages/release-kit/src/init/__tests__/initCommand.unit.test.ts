@@ -1,3 +1,4 @@
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockIsGitRepo = vi.hoisted(() => vi.fn());
@@ -143,22 +144,22 @@ describe(initCommand, () => {
 
   it('includes provenance and trusted publisher hints in next steps', () => {
     setupPassingChecks();
-    const spy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    using silent = silenceConsole(['info']);
 
     initCommand({ dryRun: false, force: false, withConfig: false });
 
-    const allOutput = spy.mock.calls.map((call) => String(call[0])).join('\n');
+    const allOutput = silent.info.mock.calls.map((call) => String(call[0])).join('\n');
     expect(allOutput).toContain('provenance: true');
     expect(allOutput).toContain('trusted publisher');
   });
 
   it('prints dry-run banner when dryRun is true', () => {
     setupPassingChecks();
-    const spy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    using silent = silenceConsole(['info']);
 
     initCommand({ dryRun: true, force: false, withConfig: false });
 
-    expect(spy).toHaveBeenCalledWith('[dry-run mode]');
+    expect(silent.info).toHaveBeenCalledWith('[dry-run mode]');
   });
 
   it('passes detected repoType to scaffoldFiles', () => {
