@@ -12,7 +12,7 @@ describe(getDefaultWorkspaceScripts, () => {
 
     expect(scripts).toMatchObject({
       build: ['compile'],
-      check: ['typecheck', 'fmt:check', 'lint:check', 'test'],
+      check: [{ run: 'typecheck', declinesArgs: true }, 'fmt:check', 'lint:check', 'test'],
       clean: 'nmr-clean',
       compile: 'nmr-compile',
       'fix:check': ['fmt:check', 'lint:check'],
@@ -84,9 +84,9 @@ describe(getDefaultRootScripts, () => {
 
     expect(scripts).toMatchObject({
       audit: ['audit:prod', 'audit:dev'],
-      check: ['typecheck', 'fmt:check', 'lint:check', 'test'],
-      'check:strict': ['typecheck', 'fmt:check', 'lint:strict', 'test:coverage'],
-      ci: ['build', 'check:strict'],
+      check: [{ run: 'typecheck', declinesArgs: true }, 'fmt:check', 'lint:check', 'test'],
+      'check:strict': [{ run: 'typecheck', declinesArgs: true }, 'fmt:check', 'lint:strict', 'test:coverage'],
+      ci: [{ run: 'build', declinesArgs: true }, 'check:strict'],
       clean: 'nmr-clean',
       'fix:check': ['fmt:check', 'lint:check'],
       fmt: 'nmr-fmt --write',
@@ -105,7 +105,7 @@ describe(getDefaultRootScripts, () => {
   it('composes prepush from audit and ci, in that order', () => {
     const scripts = getDefaultRootScripts();
 
-    expect(scripts['prepush']).toStrictEqual(['audit', 'ci']);
+    expect(scripts['prepush']).toStrictEqual([{ run: 'audit', declinesArgs: true }, 'ci']);
   });
 
   it('composes root scripts that delegate to workspaces', () => {
@@ -113,7 +113,10 @@ describe(getDefaultRootScripts, () => {
 
     expect(scripts).toMatchObject({
       test: ['root:test', '-R test'],
-      typecheck: ['root:typecheck', '-R typecheck'],
+      typecheck: [
+        { run: 'root:typecheck', declinesArgs: true },
+        { run: '-R typecheck', declinesArgs: true },
+      ],
     });
   });
 

@@ -95,6 +95,31 @@ describe(expandScript, () => {
   it('propagates -w to a single-element array when workspaceRoot is true', () => {
     expect(expandScript(['test'], true)).toStrictEqual([{ kind: 'structural', argv: ['nmr', '-w', 'test'] }]);
   });
+
+  it('composes a `run` spec into the step its bare string composes', () => {
+    expect(expandScript([{ run: '-R test' }], false)).toStrictEqual(expandScript(['-R test'], false));
+  });
+
+  it('carries a declining spec onto its step', () => {
+    expect(expandScript([{ run: 'typecheck', declinesArgs: true }, 'test'], false)).toStrictEqual([
+      { kind: 'structural', argv: ['nmr', 'typecheck'], declinesArgs: true },
+      { kind: 'structural', argv: ['nmr', 'test'] },
+    ]);
+  });
+
+  // The check-result cache keys on the rendered chain, so an accepting step that carried the property would
+  // invalidate every recorded pass the moment the defaults declared anything.
+  it('leaves an accepting spec indistinguishable from a bare element', () => {
+    expect(expandScript([{ run: 'test', declinesArgs: false }], false)).toStrictEqual([
+      { kind: 'structural', argv: ['nmr', 'test'] },
+    ]);
+  });
+
+  it('propagates -w to a spec element', () => {
+    expect(expandScript([{ run: 'typecheck', declinesArgs: true }], true)).toStrictEqual([
+      { kind: 'structural', argv: ['nmr', '-w', 'typecheck'], declinesArgs: true },
+    ]);
+  });
 });
 
 describe(describeScript, () => {
@@ -104,6 +129,12 @@ describe(describeScript, () => {
 
   it('describes an array script with brackets', () => {
     expect(describeScript(['fmt', 'lint'])).toBe('[fmt, lint]');
+  });
+
+  it('names a declining element, which reads alike otherwise', () => {
+    expect(describeScript([{ run: 'typecheck', declinesArgs: true }, { run: 'test' }])).toBe(
+      '[typecheck (no args), test]',
+    );
   });
 });
 
@@ -131,7 +162,7 @@ describe(buildRootRegistry, () => {
     });
 
     expect(registry).toMatchObject({
-      ci: ['build', 'check:strict'],
+      ci: [{ run: 'build', declinesArgs: true }, 'check:strict'],
       'demo:catwalk': 'pnpx http-server --port=5189',
     });
   });

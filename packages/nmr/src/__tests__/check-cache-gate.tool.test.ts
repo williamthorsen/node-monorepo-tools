@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { CheckCacheEntry } from '../check-cache.ts';
 import { readCheckCacheEntry, RUN_ID_ENV_VAR, writeCheckCacheEntry } from '../check-cache.ts';
 import { resolveBuildCachePath } from '../commands/build-output.ts';
+import type { ScriptValue } from '../resolve-scripts.ts';
 import { runCli } from '../runCli.ts';
 import { readAmbientEnv } from '../test-utils/readAmbientEnv.ts';
 
@@ -182,6 +183,40 @@ describe('the check-result cache gate', () => {
       const { stderr } = await runNmr('fmt --no-cache', repo);
 
       expect(stderr).not.toContain('Did you mean');
+    });
+  });
+
+  describe('an invocation carrying arguments', () => {
+    // The arguments take the invocation itself out of scope, but its steps are separate nmr processes carrying
+    // none of their own. A step that declines them would otherwise skip from a recorded pass while its
+    // narrowed siblings ran.
+    it('serves no step of its chain from a recorded pass, the declining one included', async () => {
+      writeConfig(repo, log, {
+        command: [{ run: 'lint:check', declinesArgs: true }, 'fmt:check'],
+        extraRootScripts: { 'fmt:check': `echo fmt >> ${log}`, 'lint:check': `echo lint >> ${log}` },
+      });
+
+      await runNmr(COMMAND, repo);
+      expect(runCount()).toBe(2);
+
+      await runNmr(`${COMMAND} --flag`, repo);
+
+      expect(runCount()).toBe(4);
+    });
+
+    it('still records the pass a declining step earned, having run its whole work', async () => {
+      writeConfig(repo, log, {
+        command: [{ run: 'lint:check', declinesArgs: true }, 'fmt:check'],
+        extraRootScripts: { 'fmt:check': `echo fmt >> ${log}`, 'lint:check': `echo lint >> ${log}` },
+      });
+
+      await runNmr(`${COMMAND} --flag`, repo);
+      expect(runCount()).toBe(2);
+
+      // Only `lint:check` recorded a pass, so only it skips.
+      await runNmr(COMMAND, repo);
+
+      expect(runCount()).toBe(3);
     });
   });
 
@@ -797,9 +832,9 @@ function writeConfig(
   log: string,
   options: {
     checkCache?: Record<string, unknown>;
-    command?: string | string[];
+    command?: ScriptValue;
     devBin?: Record<string, string>;
-    extraRootScripts?: Record<string, string | string[]>;
+    extraRootScripts?: Record<string, ScriptValue>;
   } = {},
 ): void {
   const config = {

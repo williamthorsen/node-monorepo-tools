@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { parsePackageJson, readScriptRecord, resolvePackageJsonPath } from './helpers/package-json.ts';
 import { isObject } from './helpers/type-guards.ts';
-import type { ScriptRegistry, ScriptValue } from './resolve-scripts.ts';
+import type { ScriptRegistry, ScriptValue, StepSpec } from './resolve-scripts.ts';
 import { getDefaultRootScripts, getDefaultWorkspaceScripts } from './resolve-scripts.ts';
 import type { Step } from './steps.ts';
 import { composeNmrStep } from './steps.ts';
@@ -89,19 +89,37 @@ export interface ResolvedScript {
 /**
  * Expands a script value into the ordered steps it runs as: a string is one opaque step, and an array is one
  * structural step per element.
+ *
+ * A bare string element and the `{ run }` spec compose the same step. The spec's only addition is the
+ * declaration of what the step does with the invocation's trailing arguments, which position cannot carry.
  */
 export function expandScript(script: ScriptValue, workspaceRoot: boolean): readonly Step[] {
   if (typeof script === 'string') {
     return [{ kind: 'opaque', command: script }];
   }
-  return script.map((element) => composeNmrStep(element, workspaceRoot));
+  return script.map((element) =>
+    typeof element === 'string'
+      ? composeNmrStep(element, workspaceRoot)
+      : composeNmrStep(element.run, workspaceRoot, element.declinesArgs),
+  );
 }
 
 /**
  * Returns a description of a script for help output.
  */
 export function describeScript(script: ScriptValue): string {
-  return typeof script === 'string' ? script : `[${script.join(', ')}]`;
+  return typeof script === 'string' ? script : `[${script.map(describeElement).join(', ')}]`;
+}
+
+/**
+ * Renders one composite element for help output, naming a declining step so that two composites reading alike
+ * are not routing the trailing arguments differently.
+ */
+function describeElement(element: string | StepSpec): string {
+  if (typeof element === 'string') {
+    return element;
+  }
+  return element.declinesArgs === true ? `${element.run} (no args)` : element.run;
 }
 
 /**

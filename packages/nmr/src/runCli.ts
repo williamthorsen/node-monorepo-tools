@@ -150,7 +150,17 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   const noCache = parsed.noCache || env[NO_CACHE_ENV_VAR] === '1';
   const runId = resolveRunId(env);
-  const childEnv = buildChildEnv({ env, format, noCache, runId, snapshot, verbosity });
+  // `openGate` has already stood this process's own gate down for the arguments, but the steps below it are
+  // separate nmr invocations carrying none of their own, and a narrowed command serving any part of its work
+  // from a recorded pass is the second half of the surprise the binding fixes.
+  const childEnv = buildChildEnv({
+    env,
+    format,
+    noCache: noCache || parsed.passthrough.length > 0,
+    runId,
+    snapshot,
+    verbosity,
+  });
   const runOptions: RunStepsOptions = {
     quiet,
     stdout,
@@ -185,6 +195,14 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   const substitutedSteps = applyDevBinToSteps(resolved.steps, context.config.devBin, context.monorepoRoot);
   const substitutedCommand = renderChain(substitutedSteps);
+
+  // Ahead of the recording branch as well as the run, so that reading what a command did and running it answer
+  // an unroutable argument the same way.
+  if (parsed.passthrough.length > 0 && !substitutedSteps.some(acceptsArgs)) {
+    reportError(formatUnroutableArgsError(command), stderr);
+    return { exitCode: 1 };
+  }
+
   const mainSteps = appendPassthrough(substitutedSteps, parsed.passthrough);
 
   // Hook recursion guard: a command ending in `:pre` or `:post` is a leaf operation, and is not itself
@@ -311,21 +329,43 @@ function buildChildEnv(options: {
 }
 
 /**
- * Appends the invocation's trailing arguments to the last step of the main command, so they reach the command
- * the user named and never a hook wrapped around it.
+ * Reports whether a step receives the invocation's trailing arguments.
+ *
+ * An opaque step is a leaf tool, and nmr hands it the arguments rather than judging whether it can use them.
+ * Only a composite declares, and only against its default of receiving them.
+ */
+function acceptsArgs(step: Step): boolean {
+  return step.kind === 'opaque' || step.declinesArgs !== true;
+}
+
+/**
+ * Appends the invocation's trailing arguments to every step that accepts them, leaving a declining step to run
+ * unnarrowed.
+ *
+ * A hook is out of reach here rather than excluded: `wrapWithHooks` wraps what this returns, so a `:pre` or
+ * `:post` step is composed after the arguments have already been placed.
  */
 function appendPassthrough(steps: readonly Step[], passthrough: readonly string[]): readonly Step[] {
-  const last = steps.at(-1);
-  if (passthrough.length === 0 || last === undefined) {
+  if (passthrough.length === 0) {
     return steps;
   }
 
-  const bound: Step =
-    last.kind === 'structural'
-      ? { kind: 'structural', argv: [...last.argv, ...passthrough] }
-      : { kind: 'opaque', command: `${last.command} ${passthrough.map(shellQuote).join(' ')}` };
+  return steps.map((step) => {
+    if (!acceptsArgs(step)) {
+      return step;
+    }
+    return step.kind === 'structural'
+      ? { ...step, argv: [...step.argv, ...passthrough] }
+      : { kind: 'opaque', command: `${step.command} ${passthrough.map(shellQuote).join(' ')}` };
+  });
+}
 
-  return [...steps.slice(0, -1), bound];
+/** Returns the line an invocation gets when its arguments have nowhere to land. */
+function formatUnroutableArgsError(command: string): string {
+  return (
+    `\`${command}\` takes no trailing arguments: every step of its chain declines them. ` +
+    'Running it unnarrowed is not what the arguments asked for, so nothing ran.'
+  );
 }
 
 /**

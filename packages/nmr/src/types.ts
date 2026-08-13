@@ -1,7 +1,9 @@
 // The config shape, held apart from both the loader and the `./config` entry so that neither has to import the
 // other to reach it. The entry must retain no module specifier at all, which a dependency on `config.ts` would break.
+import type { ScriptValue } from './default-scripts.ts';
 import type { CommandVerbosity } from './verbosity.ts';
 
+export type { ScriptValue, StepSpec } from './default-scripts.ts';
 export type { CommandVerbosity } from './verbosity.ts';
 
 /** Build settings honored by `nmr-compile`. */
@@ -51,6 +53,6 @@ export interface NmrConfig {
   checkCache?: CheckCacheConfig;
   devBin?: Record<string, string>;
   output?: OutputConfig;
-  workspaceScripts?: Record<string, string | string[]>;
-  rootScripts?: Record<string, string | string[]>;
+  workspaceScripts?: Record<string, ScriptValue>;
+  rootScripts?: Record<string, ScriptValue>;
 }

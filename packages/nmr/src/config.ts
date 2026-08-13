@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 
 import { isObject, isStringRecord } from './helpers/type-guards.ts';
 import { findUnexpressibleToken } from './steps.ts';
-import type { BuildConfig, CheckCacheConfig, NmrConfig, OutputConfig } from './types.ts';
+import type { BuildConfig, CheckCacheConfig, NmrConfig, OutputConfig, ScriptValue, StepSpec } from './types.ts';
 import { UserError } from './UserError.ts';
 import { formatVerbosityRejection, isCommandVerbosity } from './verbosity.ts';
 
@@ -54,13 +54,22 @@ export function resolveConfigPath(baseDir: string): string {
 }
 
 /** Narrows an unknown value to a record of script entries. */
-function isScriptRecord(value: unknown): value is Record<string, string | string[]> {
+function isScriptRecord(value: unknown): value is Record<string, ScriptValue> {
   if (!isObject(value)) return false;
   for (const v of Object.values(value)) {
-    if (typeof v !== 'string' && !Array.isArray(v)) return false;
-    if (Array.isArray(v) && v.some((item) => typeof item !== 'string')) return false;
+    if (typeof v === 'string') continue;
+    if (!Array.isArray(v) || !v.every(isScriptElement)) return false;
   }
   return true;
+}
+
+/** Narrows an unknown value to a composite element: the bare instruction, or the spec that also declares. */
+function isScriptElement(value: unknown): value is string | StepSpec {
+  if (typeof value === 'string') return true;
+  if (!isObject(value) || typeof value['run'] !== 'string') return false;
+
+  const declinesArgs: unknown = value['declinesArgs'];
+  return declinesArgs === undefined || typeof declinesArgs === 'boolean';
 }
 
 /** Validates and extracts a single script-record field from the raw config object. */
@@ -68,14 +77,15 @@ function validateScriptField(
   value: Record<string, unknown>,
   fieldName: string,
   configPath: string,
-): Record<string, string | string[]> | undefined {
+): Record<string, ScriptValue> | undefined {
   if (!Object.hasOwn(value, fieldName) || value[fieldName] === undefined) {
     return undefined;
   }
   const scripts = value[fieldName];
   if (!isScriptRecord(scripts)) {
     throw new UserError(
-      `Invalid nmr config at ${configPath}: \`${fieldName}\` must be a Record<string, string | string[]>`,
+      `Invalid nmr config at ${configPath}: \`${fieldName}\` must be a Record<string, string | element[]>, ` +
+        'where an element is a command string or `{ run: string, declinesArgs?: boolean }`',
     );
   }
   assertExpressibleElements(scripts, fieldName, configPath);
@@ -87,15 +97,12 @@ function validateScriptField(
  * An element carrying a quoted argument or shell syntax renders as one quoted token, so accepting it would
  * run a command nobody wrote.
  */
-function assertExpressibleElements(
-  scripts: Record<string, string | string[]>,
-  fieldName: string,
-  configPath: string,
-): void {
+function assertExpressibleElements(scripts: Record<string, ScriptValue>, fieldName: string, configPath: string): void {
   for (const [command, script] of Object.entries(scripts)) {
     if (typeof script === 'string') continue;
 
-    for (const element of script) {
+    for (const spec of script) {
+      const element = typeof spec === 'string' ? spec : spec.run;
       const token = findUnexpressibleToken(element);
       if (token === undefined) continue;
 

@@ -91,7 +91,7 @@ If no per-package override exists, the highest-tier value that is set wins. Set 
 
 ### Script values
 
-Script values can be `string` or `string[]`. Only the built-in defaults and `.config/nmr.config.ts` carry an array; a `package.json` script must be a string, and any other value is rejected when the scripts are read. Arrays expand to chained `nmr` sub-invocations:
+A script value is a string or an array of steps. Only the built-in defaults and `.config/nmr.config.ts` carry an array; a `package.json` script must be a string, and any other value is rejected when the scripts are read. Arrays expand to chained `nmr` sub-invocations:
 
 ```ts
 // "fix": ["lint", "fmt"]
@@ -100,7 +100,22 @@ Script values can be `string` or `string[]`. Only the built-in defaults and `.co
 
 Each array element is a command name, optionally preceded by nmr's own flags, split on whitespace — `-R test` runs the element in every package, the way `nmr -R test` does. An element carrying a quoted argument or shell syntax is rejected when the config loads: name that command as a script of its own and reference the name.
 
-Passthrough arguments attach to the final step alone: `nmr fix --dry-run` runs `nmr lint`, then `nmr fmt --dry-run`.
+#### Where trailing arguments go
+
+Trailing arguments reach every step of a composite, so `nmr fix --dry-run` runs `nmr lint --dry-run`, then `nmr fmt --dry-run`. A step whose work the arguments cannot narrow declines them by taking the long form of an element, and runs unnarrowed:
+
+```ts
+// "ci": [{ run: "build", declinesArgs: true }, "check:strict"]
+// nmr ci src/foo.ts  ->  nmr build && nmr check:strict src/foo.ts
+```
+
+`{ run }` is the bare string element with room for the declaration; `declinesArgs` defaults to `false`, and an element that accepts is written as the string. Decline where the step is a prerequisite the narrowed steps run against, or where the tool it reaches would be misled — `tsgo --noEmit foo.ts` abandons the tsconfig, which is why every default `typecheck` step declines. A leaf tool that merely ignores what it is handed is not a reason to decline: nmr forwards, and the tool decides.
+
+Where no step of a command accepts them, nmr rejects the invocation and runs nothing, rather than running the whole command unnarrowed. That is what `nmr typecheck src/foo.ts` gets at the root, whose two steps both decline.
+
+Two kinds of step are not declarable. A string script is one command handed to a leaf tool, so it always receives the arguments — which is why `nmr typecheck src/foo.ts` inside a package still reaches `tsgo`, where the root rejects it. A `:pre` or `:post` hook never receives them, the arguments having been placed before the hooks wrap the chain.
+
+An invocation carrying trailing arguments also serves no part of its work from the [check-result cache](#check-result-cache), the steps that decline them included.
 
 A string value is spawned through a shell as one command, so an `nmr` invocation inside it is invisible to the process above: a quiet failure surrenders the whole nested subtree rather than the failing step, and a loud run relays the nested tree through a forwarding pipe. nmr writes one line to stderr, in every verbosity, when a command resolves to a step reaching nmr through a shell.
 
@@ -131,11 +146,11 @@ export default defineConfig({
 | ------------------ | ----------------------------------------------------------------------------- | --------------------------------------------------------------------- |
 | `build`            | `{ extraIgnorePatterns?: string[] }`                                          | Patterns added to the build's ignore set (package config only)        |
 | `checkCache`       | `{ enabled?: boolean; extraCommands?: string[]; excludeCommands?: string[] }` | Which commands the [check-result cache](#check-result-cache) may skip |
-| `workspaceScripts` | `Record<string, string \| string[]>`                                          | Scripts added or overridden in the workspace registry (tier 2)        |
-| `rootScripts`      | `Record<string, string \| string[]>`                                          | Scripts added or overridden in the root registry (tier 2)             |
+| `workspaceScripts` | `Record<string, ScriptValue>`                                                 | Scripts added or overridden in the workspace registry (tier 2)        |
+| `rootScripts`      | `Record<string, ScriptValue>`                                                 | Scripts added or overridden in the root registry (tier 2)             |
 | `devBin`           | `Record<string, string>`                                                      | Map binary names to source-repo replacement commands                  |
 
-All fields are optional. `workspaceScripts` and `rootScripts` values follow the same `string | string[]` convention described in [script values](#script-values).
+All fields are optional. A `ScriptValue` is a command string or an array of steps, each a command string or `{ run, declinesArgs? }`; both are described in [script values](#script-values), and both types are exported from `@williamthorsen/nmr/config`.
 
 Each field belongs to exactly one tier, and a config loads only the fields its own tier honors: `build` in a package config, the other four in the monorepo-root config. Declaring a field at the wrong tier fails with a message naming it and where it goes, as does a key nmr does not recognize at all — a typo cannot degrade into a setting that silently applies nowhere.
 
@@ -342,7 +357,7 @@ The gate never wrongly skips. Where it cannot be sure, it does nothing and the c
 - When a changed path cannot be read, or is neither a file nor a symlink (an untracked nested repository, for instance).
 - When there is no pnpm install to fingerprint.
 - Under a `devBin` substitution, which runs a binary built from somewhere the hash does not describe.
-- For any invocation carrying arguments after the command name.
+- For any invocation carrying arguments after the command name, and for every step below it: the arguments narrow what runs, and a step served from a recorded pass is a step that did not.
 
 `NMR_DEBUG=1` reports why a run did not skip and why the gate stood aside.
 
