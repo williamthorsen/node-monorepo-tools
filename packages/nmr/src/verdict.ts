@@ -89,6 +89,9 @@ const NEWLINE_BYTES = 1;
 /** What a rendered line may spend, the newline `writeVerdict` appends already taken out of the ceiling. */
 const LINE_BUDGET_BYTES = VERDICT_LINE_LIMIT - NEWLINE_BYTES;
 
+/** What a cut never takes a string below, so every string that was cut still carries the mark saying so. */
+const MIN_CUT_BYTES = Buffer.byteLength(TRUNCATION_MARK);
+
 /** Marks the detail as a recording of an earlier run rather than as what this invocation produced. */
 const REPLAY_MARKER = 'replayed:';
 
@@ -151,9 +154,6 @@ function renderReplay(verdict: Verdict): string | undefined {
 function flattenDetail(detail: string): string {
   return detail.replaceAll(/[\r\n]+/gu, ' ').trim();
 }
-
-/** What a cut never takes a string below, so every string that was cut still carries the mark saying so. */
-const MIN_CUT_BYTES = Buffer.byteLength(TRUNCATION_MARK);
 
 /**
  * Returns the size to cut the longest of a set of strings down to, so that cutting each in turn brings the set

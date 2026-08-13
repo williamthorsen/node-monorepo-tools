@@ -339,9 +339,9 @@ describe(serializeVerdict, () => {
       expect(line).toContain('…');
     });
 
-    // An assembly this wide is what a root composite produces once every package reports; before the ladder
-    // shed excerpts ahead of entries, the whole array went and the record named no constituent at all.
-    it('keeps every constituent named at the width a root composite assembles', () => {
+    // The widest assembly of this shape the ceiling still names in full. Before the ladder shed excerpts
+    // ahead of entries, the whole array went at this width and the record named no constituent at all.
+    it('keeps every constituent named where the ceiling can hold them all', () => {
       const parsed = parseVerdict(serializeVerdict(makeAssembly(8, 49)));
 
       expect(scopesOf(parsed)).toStrictEqual([
@@ -354,6 +354,26 @@ describe(serializeVerdict, () => {
         'scope-6',
         'scope-7',
       ]);
+    });
+
+    // Twelve is what a four-package root `check` assembles: `typecheck` and `test` each fan out to every
+    // package, and `assembleReplay` splices a nested composite's list in flat. Past what the ceiling can
+    // name, so the tail goes rather than the array, and what is left still parses inside the ceiling.
+    it('drops the trailing constituents at a width the ceiling cannot name', () => {
+      const line = serializeVerdict(makeAssembly(12, 49));
+
+      expect(scopesOf(parseVerdict(line))).toStrictEqual([
+        'scope-0',
+        'scope-1',
+        'scope-2',
+        'scope-3',
+        'scope-4',
+        'scope-5',
+        'scope-6',
+        'scope-7',
+        'scope-8',
+      ]);
+      expect(Buffer.byteLength(line) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT);
     });
 
     it('sheds the excerpts before the constituents carrying them', () => {
@@ -422,6 +442,11 @@ function excerptsOf(parsed: unknown): string[] {
   return readReplay(parsed).flatMap((line) => (typeof line['excerpt'] === 'string' ? [line['excerpt']] : []));
 }
 
+/** Reports whether a replay entry parsed back as an object, which every one nmr emits does. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 /** Builds a recalled verdict carrying an assembly wide enough to overrun the ceiling. */
 function makeAssembly(constituents: number, excerptLength: number): Verdict {
   return makeVerdict({
@@ -456,11 +481,6 @@ function readReplay(parsed: unknown): Record<string, unknown>[] {
   const { replay } = parsed;
 
   return Array.isArray(replay) ? replay.filter(isRecord) : [];
-}
-
-/** Reports whether a replay entry parsed back as an object, which every one nmr emits does. */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
 
 /** Reads the scope each constituent of a parsed record's replay names. */
