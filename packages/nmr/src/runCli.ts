@@ -851,7 +851,7 @@ function reportVerdict(verdict: Verdict, stdout: Writable): void {
   if (isHookName(verdict.command)) {
     return;
   }
-  writeVerdict(verdict, stdout);
+  writeVerdict(verdict, stdout, 'text');
 }
 
 /**

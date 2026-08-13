@@ -3,6 +3,7 @@ import type { Writable } from 'node:stream';
 import type { ReplayLine } from './check-cache.ts';
 import { clampToBytes } from './helpers/clampToBytes.ts';
 import { formatDuration, formatSaving } from './helpers/duration.ts';
+import type { ReportFormat } from './report-format.ts';
 
 /**
  * The ceiling a rendered verdict, its newline included, is held to.
@@ -55,11 +56,41 @@ export function renderVerdict(verdict: Verdict): string {
 }
 
 /**
- * Writes a verdict to a stream as a single write, which is what holds a line together when concurrent scopes
- * share one descriptor.
+ * Renders a verdict as the JSON object a machine consumer reads, without the newline that terminates it.
+ *
+ * Held to the ceiling the prose line is held to, so one write still reaches a pipe whole where concurrent
+ * scopes share a descriptor. A record that overruns is cut inside its text -- the excerpts a replay carries
+ * and the detail slot -- rather than across its structure, which is what leaves the line parseable. Each pass
+ * cuts the longest of them, so an assembly loses excerpt text before it loses a constituent, where the prose
+ * line composes the whole assembly and then drops its tail. A record overrunning with every one of them
+ * emptied surrenders them outright, leaving the scope, the command, and the facts the outcome carries, none
+ * of which can be cut without describing a run that did not happen.
  */
-export function writeVerdict(verdict: Verdict, stream: Writable): void {
-  stream.write(`${renderVerdict(verdict)}\n`);
+export function serializeVerdict(verdict: Verdict): string {
+  let candidate = verdict;
+  let rendered = JSON.stringify(candidate);
+
+  while (Buffer.byteLength(rendered) > LINE_BUDGET_BYTES) {
+    const shortened = shortenLongestText(candidate, Buffer.byteLength(rendered) - LINE_BUDGET_BYTES);
+    if (shortened === undefined) {
+      return renderWithoutCuttableText(candidate);
+    }
+    candidate = shortened;
+    rendered = JSON.stringify(candidate);
+  }
+
+  return rendered;
+}
+
+/**
+ * Writes a verdict to a stream as a single write, which is what holds a line together when concurrent scopes
+ * share one descriptor. Both renderings spend the one record, so neither can come to report what the other
+ * does not.
+ */
+export function writeVerdict(verdict: Verdict, stream: Writable, format: ReportFormat): void {
+  const line = format === 'json' ? serializeVerdict(verdict) : renderVerdict(verdict);
+
+  stream.write(`${line}\n`);
 }
 
 // region | Helpers
@@ -131,6 +162,53 @@ function renderReplay(verdict: Verdict): string | undefined {
  */
 function flattenDetail(detail: string): string {
   return detail.replaceAll(/[\r\n]+/gu, ' ').trim();
+}
+
+/**
+ * Renders the record with everything cuttable gone, which is what a record still overrunning the ceiling with
+ * every one of them emptied is left with.
+ */
+function renderWithoutCuttableText(verdict: Verdict): string {
+  const record: Record<string, unknown> = { ...verdict };
+  delete record['detail'];
+  delete record['replay'];
+
+  return JSON.stringify(record);
+}
+
+/**
+ * Returns the verdict with its longest cuttable string shortened by at least the overrun, or `undefined` when
+ * every one of them is already empty and there is nothing left to give.
+ *
+ * Shortening by the overrun is what makes the loop that calls this terminate: dropping raw content drops at
+ * least as many bytes from the rendering, since escaping only ever adds to what a character costs there.
+ */
+function shortenLongestText(verdict: Verdict, overrunBytes: number): Verdict | undefined {
+  const detailSize = Buffer.byteLength(verdict.detail ?? '');
+
+  if (verdict.outcome === 'recalled' && verdict.replay !== undefined) {
+    const sizes = verdict.replay.map((line) => Buffer.byteLength(line.excerpt));
+    const longest = Math.max(0, ...sizes);
+    if (longest > 0 && longest >= detailSize) {
+      const target = sizes.indexOf(longest);
+      const replay = verdict.replay.map((line, position) =>
+        position === target ? { ...line, excerpt: shortenText(line.excerpt, overrunBytes) } : line,
+      );
+
+      return { ...verdict, replay };
+    }
+  }
+
+  if (verdict.detail === undefined || detailSize === 0) {
+    return undefined;
+  }
+
+  return { ...verdict, detail: shortenText(verdict.detail, overrunBytes) };
+}
+
+/** Cuts at least the overrun off a string, which the caller has established is not already empty. */
+function shortenText(value: string, overrunBytes: number): string {
+  return clampToBytes(value, Math.max(0, Buffer.byteLength(value) - overrunBytes));
 }
 
 // endregion | Helpers
