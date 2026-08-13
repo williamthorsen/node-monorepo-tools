@@ -323,7 +323,7 @@ $ nmr test
 
 The excerpt is the last blank-line-delimited block of what the command wrote, which is the closing statement a tool separates from its progress output. It is flattened onto one line, with escape sequences stripped, table rules dropped, and a redrawn progress line reduced to what a reader was left looking at. Nothing is parsed and no figure is computed: nmr replays bytes it recorded. A block wider than a few kilobytes is cut and marked with `…`, so a command whose closing statement is one long line cannot carry its whole output into the cache.
 
-It is written by the same operation that records the pass, so a pass declined because the tree moved or build output changed leaves no excerpt behind either, and `nmr clean` clears excerpts along with the passes they belong to.
+The excerpt and the whole transcript it is drawn from are written by the same operation that records the pass, so a pass declined because the tree moved or build output changed leaves neither behind, and `nmr clean` clears both along with the passes they belong to.
 
 **Capture happens at the command, and only where nmr can see its output.** A command whose stdout or stderr is a terminal writes where nmr never reads, so an interactive run retains nothing and its progress display is untouched; a piped or redirected run, and any run under `-q`, retains both streams. A composite hands its descriptors to the child `nmr` processes below it and captures nothing of its own, and a `:pre` or `:post` hook contributes nothing to the command it wraps: an excerpt is the command's own output or none.
 
@@ -343,6 +343,40 @@ It is assembled when the composite records its pass rather than when it skips, s
 **A replay is held to more than the pass is.** Retention carries its own key: the [pass key](#what-the-key-is-made-of) folded with the channel each output stream ran on and with `CI`, `COLUMNS`, `FORCE_COLOR`, `NO_COLOR`, and `TERM`. A recording made under a different one is recalled as a pass all the same; its excerpt is simply not replayed, and the verdict prints alone, as it does for a pass that retained nothing.
 
 The whole line, excerpt included, is held to the same [512-byte ceiling](#what-nmr-reports) every verdict is, so one write still carries it whole under concurrent fan-out. An assembly wide enough to overrun it is cut and marked with `…` rather than spread over several lines.
+
+### Reading a retained run
+
+The excerpt is a line; the run behind it is kept whole. `nmr --log <command>` prints it, led by a header dating what follows:
+
+```console
+$ nmr --log test
+📼 nmr: test — recorded 2026-08-12T15:04:05.412Z (12m ago), ran in 12.4s
+$ pnpm exec vitest --project unit --project tool
+
+ ✓ src/__tests__/resolver.unit.test.ts (18 tests) 12ms
+
+ Test Files  6 passed (6)
+      Tests  41 passed (41)
+```
+
+The header is what presents the body as a recording rather than as this invocation's output. The command string is the whole chain, hooks included, so it names what earned the pass and not merely what was typed. A flag rather than a subcommand, since `log` would collide with the script registry.
+
+**Reading a recording runs nothing.** No hook runs, no verdict prints, and nothing is recorded or restamped. `--no-cache` governs running rather than reading and is ignored.
+
+**A recording is held to the tree, not to the terminal.** `--log` prints exactly what a skip would have recalled: the [pass key](#what-the-key-is-made-of) has to match. The [retention key](#replaying-a-skipped-runs-output) is not consulted, so a recording made under a different terminal width, or through a pipe, still prints -- a reader at a terminal being shown what a piped run wrote is the case the flag exists for.
+
+**A composite prints its assembly.** Retaining nothing of its own, a composite prints the excerpts its constituents recorded, one attributed line each. The transcript of any one of them is that constituent's own `--log` to print.
+
+**Nothing to show is said rather than left blank.** A refusal names which it is -- the command is outside the [cacheable set](#what-is-cached), the gate is [standing aside](#when-the-gate-stands-aside), nothing has recorded a pass, the last pass was on another tree, or the pass retained no output because it wrote to a terminal -- and exits non-zero, so a caller can tell an empty `stdout` from a recording.
+
+```console
+$ nmr --log test
+📭 nmr: test: no recording; the last pass was 3m ago, on a tree this is not
+```
+
+**`--log` reaches the scopes `-F` and `-R` select.** The flag rides the delegate, so each scope prints its own recording. There a scope with nothing to show reports its gap and exits 0: partial coverage is a survey's normal shape, and failing on the first gap would hide every scope that had something.
+
+**Retention has a ceiling of 256 KiB per recorded pass**, distinct from the 512 bytes a verdict line is held to. A transcript overrunning it keeps 128 KiB from each end, because a run's opening and its closing statement each carry what the other does not, and the drop is marked with a line naming the bytes it stands for rather than being cut silently.
 
 ### Bypassing and clearing
 
@@ -643,6 +677,7 @@ Position determines ownership: flags before the command name are nmr's own, and 
 | `-R, --recursive`        | Run command in all packages                             | —       |
 | `-w, --workspace-root`   | Use root scripts, running at the monorepo root          | —       |
 | `-q, --quiet`            | Suppress command output, keeping nmr's verdicts         | —       |
+| `--log`                  | Print the recorded run instead of running it            | —       |
 | `--no-cache`             | Run even if this tree already passed; record the result | —       |
 | `-?, --help`             | Show available commands                                 | —       |
 | `-V, --version`          | Show version number                                     | —       |

@@ -30,6 +30,8 @@ describe(generateHelp, () => {
     expect(help).toContain('-F, --filter');
     expect(help).toContain('-R, --recursive');
     expect(help).toContain('-w, --workspace-root');
+    expect(help).toContain('--log');
+    expect(help).toContain('--no-cache');
     expect(help).toContain('-?, --help');
     expect(help).toContain('-V, --version');
   });
