@@ -33,6 +33,8 @@ import { isHookName } from './helpers/hook-name.ts';
 import { composeTranscript } from './helpers/transcript.ts';
 import { renderRecording, renderRefusal, resolveRecording } from './recording.ts';
 import { assembleReplay } from './replay-assembly.ts';
+import type { ReportFormat } from './report-format.ts';
+import { readReportFormatEnv, REPORT_FORMAT_ENV_VAR, resolveReportFormat } from './report-format.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
 import type { ResolvedScript, ScriptOrigin } from './resolver.ts';
 import {
@@ -105,6 +107,11 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     reportError(envVerbosity.error, stderr);
     return { exitCode: 1 };
   }
+  const envFormat = readReportFormatEnv(env);
+  if (!envFormat.ok) {
+    reportError(envFormat.error, stderr);
+    return { exitCode: 1 };
+  }
   if (parsed.version) {
     stdout.write(`${VERSION}\n`);
     return { exitCode: 0 };
@@ -112,12 +119,20 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   const context = await resolveContext(cwd);
 
-  const verbosity = resolveVerbosity({
-    env,
-    envVerbosity: envVerbosity.verbosity,
-    output: context.config.output,
-    quietFlag: parsed.quiet,
-  });
+  const format = resolveReportFormat({ envFormat: envFormat.format, jsonFlag: parsed.json });
+
+  // A machine-readable run reports on stdout and nothing else may, so it withholds the commands' own output
+  // whatever the loudness ladder would have resolved to. A failure still surrenders it on stderr, as under any
+  // quiet run: the two modes leave the child on the same channels, so they also share a retention key.
+  const verbosity =
+    format === 'json'
+      ? 'quiet'
+      : resolveVerbosity({
+          env,
+          envVerbosity: envVerbosity.verbosity,
+          output: context.config.output,
+          quietFlag: parsed.quiet,
+        });
   const quiet = verbosity === 'quiet';
 
   // Determine which registry to use
@@ -146,7 +161,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   const noCache = parsed.noCache || env[NO_CACHE_ENV_VAR] === '1';
   const runId = resolveRunId(env);
-  const childEnv = buildChildEnv({ env, noCache, runId, snapshot, verbosity });
+  const childEnv = buildChildEnv({ env, format, noCache, runId, snapshot, verbosity });
   const runOptions: RunStepsOptions = {
     quiet,
     stdout,
@@ -175,7 +190,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   const noOpReason = findNoOpReason(resolvedCommand);
   if (noOpReason !== undefined && !parsed.log) {
-    reportVerdict({ command, scope, outcome: 'no-op', reason: noOpReason }, stdout);
+    reportVerdict({ command, scope, outcome: 'no-op', reason: noOpReason }, stdout, format);
     return { exitCode: 0 };
   }
 
@@ -252,7 +267,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     stdout,
   });
 
-  reportVerdict({ command, scope, ...outcome }, stdout);
+  reportVerdict({ command, scope, ...outcome }, stdout, format);
 
   return { exitCode };
 }
@@ -262,6 +277,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 /** @internal */
 interface ParsedArgs {
   filter?: string;
+  json: boolean;
   log: boolean;
   noCache: boolean;
   quiet: boolean;
@@ -287,18 +303,20 @@ type ParseResult = { ok: true; parsed: ParsedArgs } | { ok: false; error: string
  */
 function buildChildEnv(options: {
   env: NodeJS.ProcessEnv;
+  format: ReportFormat;
   noCache: boolean;
   runId: string;
   snapshot: TreeSnapshot | undefined;
   verbosity: CommandVerbosity;
 }): NodeJS.ProcessEnv {
-  const { env, noCache, runId, snapshot, verbosity } = options;
+  const { env, format, noCache, runId, snapshot, verbosity } = options;
 
   return {
     ...env,
     ...(snapshot !== undefined && { [TREE_SNAPSHOT_ENV_VAR]: encodeTreeSnapshot(snapshot) }),
     ...(noCache && { [NO_CACHE_ENV_VAR]: '1' }),
     [COMMAND_VERBOSITY_ENV_VAR]: verbosity,
+    [REPORT_FORMAT_ENV_VAR]: format,
     [RUN_ID_ENV_VAR]: runId,
   };
 }
@@ -687,6 +705,7 @@ function openGate(options: {
 
 function parseArgs(args: string[]): ParseResult {
   const parsed: ParsedArgs = {
+    json: false,
     log: false,
     noCache: false,
     quiet: false,
@@ -734,6 +753,11 @@ function parseArgs(args: string[]): ParseResult {
     }
     if (arg === '-q' || arg === '--quiet') {
       parsed.quiet = true;
+      i++;
+      continue;
+    }
+    if (arg === '--json') {
+      parsed.json = true;
       i++;
       continue;
     }
@@ -847,11 +871,11 @@ function reportNmrCrossing(options: {
  * invocation reports none either, and needs no test here -- it returns before a verdict is composed, every
  * scope it fans out to reporting one of its own.
  */
-function reportVerdict(verdict: Verdict, stdout: Writable): void {
+function reportVerdict(verdict: Verdict, stdout: Writable, format: ReportFormat): void {
   if (isHookName(verdict.command)) {
     return;
   }
-  writeVerdict(verdict, stdout, 'text');
+  writeVerdict(verdict, stdout, format);
 }
 
 /**
