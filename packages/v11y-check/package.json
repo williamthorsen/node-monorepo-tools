@@ -50,7 +50,7 @@
   },
   "dependencies": {
     "@williamthorsen/nmr-core": "workspace:*",
-    "@williamthorsen/toolbelt.errors": "0.4.0",
+    "@williamthorsen/toolbelt.errors": "catalog:",
     "audit-ci": "7.1.0",
     "zod": "4.4.3"
   },

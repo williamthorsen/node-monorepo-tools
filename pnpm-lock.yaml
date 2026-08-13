@@ -6,6 +6,9 @@ settings:
 
 catalogs:
   default:
+    '@williamthorsen/toolbelt.errors':
+      specifier: 0.4.0
+      version: 0.4.0
     '@williamthorsen/toolbelt.vitest':
       specifier: 0.2.0
       version: 0.2.0
@@ -87,7 +90,7 @@ importers:
         specifier: workspace:*
         version: link:../nmr-core
       '@williamthorsen/toolbelt.errors':
-        specifier: 0.4.0
+        specifier: 'catalog:'
         version: 0.4.0
       glob:
         specifier: 13.0.6
@@ -124,7 +127,7 @@ importers:
   packages/nmr-core:
     dependencies:
       '@williamthorsen/toolbelt.errors':
-        specifier: 0.4.0
+        specifier: 'catalog:'
         version: 0.4.0
     devDependencies:
       '@williamthorsen/toolbelt.vitest':
@@ -137,7 +140,7 @@ importers:
         specifier: workspace:*
         version: link:../nmr-core
       '@williamthorsen/toolbelt.errors':
-        specifier: 0.4.0
+        specifier: 'catalog:'
         version: 0.4.0
       glob:
         specifier: 13.0.6
@@ -174,7 +177,7 @@ importers:
         specifier: workspace:*
         version: link:../nmr-core
       '@williamthorsen/toolbelt.errors':
-        specifier: 0.4.0
+        specifier: 'catalog:'
         version: 0.4.0
       audit-ci:
         specifier: 7.1.0
