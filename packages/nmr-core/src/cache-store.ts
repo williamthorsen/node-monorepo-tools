@@ -68,6 +68,11 @@ export async function removeCacheDir(ref: CacheDirRef): Promise<void> {
   await rm(resolveCacheDir(ref), { force: true, recursive: true });
 }
 
+/** Removes a single entry. Idempotent: an absent entry is a silent no-op, as is an absent cache directory. */
+export async function removeCacheEntry(entryPath: string): Promise<void> {
+  await rm(entryPath, { force: true });
+}
+
 /**
  * Resolves the absolute path of a tool's cache directory. The conventional `node_modules/.cache/{tool}/` home is
  * git-ignored and outside any `files` convention, so an entry never reaches a published tarball. The home is the

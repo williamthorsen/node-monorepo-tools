@@ -4,6 +4,7 @@ export {
   readCacheEntry,
   readJsonCacheEntry,
   removeCacheDir,
+  removeCacheEntry,
   resolveCacheDir,
   resolveCacheEntryPath,
   writeCacheEntry,

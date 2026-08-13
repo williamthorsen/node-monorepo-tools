@@ -1,3 +1,5 @@
+import { cleanTranscript } from './transcript.ts';
+
 /**
  * How many lines of the closing block an excerpt keeps.
  *
@@ -17,18 +19,6 @@ const MAX_BLOCK_LINES = 8;
  */
 const MAX_EXCERPT_BYTES = 2_048;
 
-/**
- * Matches the escape sequences a command writes when it colors output it is not sending to a terminal: a
- * control sequence, and an operating-system command such as the one a hyperlink is wrapped in.
- *
- * The parameter, intermediate, and final byte ranges are ECMA-48's own, so the colon-separated form of a
- * 24-bit color is matched alongside the semicolon-separated one. Admitting only the commoner form would strip
- * a reset while leaving the setter that precedes it, and a replayed line would color the terminal for good.
- */
-const ANSI_PATTERN =
-  // eslint-disable-next-line no-control-regex -- an escape sequence is defined by the control characters composing it.
-  /\u{1B}(?:\[[\u{30}-\u{3F}]*[\u{20}-\u{2F}]*[\u{40}-\u{7E}]|\][^\u{7}\u{1B}]*(?:\u{7}|\u{1B}\\))/gu;
-
 /** Marks a line that was cut, so a reader can tell a truncated excerpt from a complete one. */
 const TRUNCATION_MARK = '…';
 
@@ -47,10 +37,7 @@ const NON_RULE_CHARACTER = /[^-=_~*+.|:#]/u;
  * that owns them.
  */
 export function deriveExcerpt(transcript: string): string | undefined {
-  const lines = transcript
-    .replaceAll(ANSI_PATTERN, '')
-    .split('\n')
-    .map((line) => renderCarriageReturns(line));
+  const lines = cleanTranscript(transcript).split('\n');
 
   let end = lines.length;
   while (end > 0 && isBlank(lines[end - 1])) {
@@ -112,23 +99,6 @@ function isRuleOnly(line: string): boolean {
   const content = line.replaceAll(/\s/gu, '');
 
   return content !== '' && !NON_RULE_CHARACTER.test(content);
-}
-
-/**
- * Reduces a line a tool redrew to what a reader was left looking at: the last segment a carriage return moved
- * the cursor back for. Every earlier segment was overwritten, and joining them would replay text no one saw.
- *
- * A segment carrying nothing leaves the one before it standing, so a line ending in a carriage return keeps
- * its text rather than reading as blank and splitting the block it belongs to.
- */
-function renderCarriageReturns(line: string): string {
-  if (!line.includes('\r')) {
-    return line;
-  }
-
-  const segments = line.split('\r').filter((segment) => segment.trim() !== '');
-
-  return segments.at(-1) ?? '';
 }
 
 // endregion | Helpers

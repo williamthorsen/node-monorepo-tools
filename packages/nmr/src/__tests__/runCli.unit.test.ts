@@ -95,6 +95,26 @@ describe(runCli, () => {
 
       expect(mockedRunSteps.mock.calls[0]?.[2].env).not.toHaveProperty('NMR_RUN_IF_PRESENT');
     });
+
+    it.each([
+      {
+        args: ['-F', 'my-pkg', '--log', 'test'],
+        expected: ['pnpm', '--filter', 'my-pkg', 'exec', 'nmr', '--log', 'test'],
+      },
+      { args: ['-R', '--log', 'test'], expected: ['pnpm', '--recursive', 'exec', 'nmr', '--log', 'test'] },
+    ])('carries `--log` into the delegate, ahead of the command name', async ({ args, expected }) => {
+      await runNmr(args, repo);
+
+      expect(stepsFromCall()).toStrictEqual([{ kind: 'structural', argv: expected }]);
+    });
+
+    // A fan-out asks every selected scope, so a scope that never ran the command is a gap in a survey rather
+    // than a failure of one.
+    it('tells a `--log` filter delegate to pass over a scope with nothing to show', async () => {
+      await runNmr(['-F', 'my-pkg', '--log', 'test'], repo);
+
+      expect(mockedRunSteps.mock.calls[0]?.[2].env).toMatchObject({ NMR_RUN_IF_PRESENT: '1' });
+    });
   });
 
   describe('step composition', () => {
@@ -453,6 +473,21 @@ describe(runCli, () => {
 
       expect(exitCode).toBe(0);
       expect(stdout).toBe(`⛔ ${path.basename(repo)}: typecheck: skipped, ${expected}\n`);
+    });
+
+    // A verdict is a report on a run, and `--log` makes none: the reader gets a refusal instead.
+    it.each([
+      { scenario: 'an empty override', script: '' },
+      { scenario: 'a no-op override', script: ':' },
+    ])('given $scenario, reports no skip verdict under --log', async ({ script }) => {
+      writePackageScripts(repo, { typecheck: script });
+
+      const { exitCode, stdout } = await runNmrReadingStdout(['--log', 'typecheck'], repo);
+      const { stderr } = await runNmrReadingStderr(['--log', 'typecheck'], repo);
+
+      expect(exitCode).toBe(1);
+      expect(stdout).toBe('');
+      expect(stderr).toContain('no recording');
     });
 
     it('reports the skip in quiet mode, where a silent exit 0 would read as a pass', async () => {

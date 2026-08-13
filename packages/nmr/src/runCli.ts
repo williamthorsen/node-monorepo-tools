@@ -13,10 +13,11 @@ import {
   encodeTreeSnapshot,
   findStaleBuildOutput,
   formatMisplacedNoCacheWarning,
+  isCacheableCommand,
   NO_CACHE_ENV_VAR,
   readBuildOutputState,
   readCheckCacheEntry,
-  resolveCacheableCommands,
+  recordTranscript,
   resolveRunId,
   resolveTreeSnapshot,
   RUN_ID_ENV_VAR,
@@ -29,6 +30,8 @@ import { resolveContext } from './context.ts';
 import { generateHelp } from './help.ts';
 import { deriveExcerpt } from './helpers/deriveExcerpt.ts';
 import { isHookName } from './helpers/hook-name.ts';
+import { composeTranscript } from './helpers/transcript.ts';
+import { renderRecording, renderRefusal, resolveRecording } from './recording.ts';
 import { assembleReplay } from './replay-assembly.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
 import type { ResolvedScript, ScriptOrigin } from './resolver.ts';
@@ -151,17 +154,10 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     env: childEnv,
   };
 
-  // -F: delegate to pnpm --filter
-  if (parsed.filter) {
-    const delegate = composeDelegate(['--filter', parsed.filter], command, parsed.passthrough);
-    return runSteps([delegate], context.monorepoRoot, runOptions);
-  }
-
-  // -R: delegate to pnpm --recursive
-  if (parsed.recursive) {
-    const delegateEnv = { ...childEnv, [RUN_IF_PRESENT_ENV_VAR]: '1' };
-    const delegate = composeDelegate(['--recursive'], command, parsed.passthrough);
-    return runSteps([delegate], context.monorepoRoot, { ...runOptions, env: delegateEnv });
+  // -F and -R: delegate to pnpm, which runs one nmr per scope it selects
+  const delegation = composeDelegation({ childEnv, command, parsed });
+  if (delegation !== undefined) {
+    return runSteps([delegation.step], context.monorepoRoot, { ...runOptions, env: delegation.env });
   }
 
   const registry = useRoot ? buildRootRegistry(context.config) : buildWorkspaceRegistry(context.config);
@@ -178,7 +174,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   const resolvedCommand = renderChain(resolved.steps);
 
   const noOpReason = findNoOpReason(resolvedCommand);
-  if (noOpReason !== undefined) {
+  if (noOpReason !== undefined && !parsed.log) {
     reportVerdict({ command, scope, outcome: 'no-op', reason: noOpReason }, stdout);
     return { exitCode: 0 };
   }
@@ -195,20 +191,16 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     : wrapWithHooks(command, mainSteps, registry, anchorDir, parsed.workspaceRoot);
   const fullCommand = renderChain(fullSteps);
 
-  // Ahead of the gate, so a command that usually skips still reports the boundary it carries. Reads the resolved
-  // steps rather than the full chain: the line names a declaration to edit, and a hook, a passthrough, and a
-  // `devBin` substitution are none.
-  const crossing = findNmrCrossing(resolved.steps);
-  if (crossing !== undefined) {
-    const warning = formatNmrCrossingWarning({
-      crossing,
-      monorepoRoot: context.monorepoRoot,
-      origin: describeOrigin(resolved.origin, context.config, useRoot),
-      registry,
-      workspaceRoot: parsed.workspaceRoot,
-    });
-    stderr.write(`${warning}\n`);
-  }
+  reportNmrCrossing({
+    config: context.config,
+    isReading: parsed.log,
+    monorepoRoot: context.monorepoRoot,
+    registry,
+    resolved,
+    stderr,
+    useRoot,
+    workspaceRoot: parsed.workspaceRoot,
+  });
 
   // The key waits until the whole chain is known, so it describes what would actually run: the hooks wrapped
   // around the command included.
@@ -222,6 +214,24 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     stderr,
     substitution: substitutedCommand === resolvedCommand ? undefined : substitutedCommand,
   });
+
+  // Reading a recording is not running one: the branch takes over once the key describing this chain is in
+  // hand, and nothing below it -- hook, verdict, or cache write -- is reached.
+  if (parsed.log) {
+    return reportRecording({
+      anchorDir,
+      command,
+      commandString: fullCommand,
+      config: context.config,
+      env,
+      key,
+      monorepoRoot: context.monorepoRoot,
+      scope,
+      snapshot,
+      stderr,
+      stdout,
+    });
+  }
 
   const { exitCode, outcome } = await runGated({
     anchorDir,
@@ -252,6 +262,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 /** @internal */
 interface ParsedArgs {
   filter?: string;
+  log: boolean;
   noCache: boolean;
   quiet: boolean;
   recursive: boolean;
@@ -311,12 +322,44 @@ function appendPassthrough(steps: readonly Step[], passthrough: readonly string[
 }
 
 /**
- * Composes the pnpm delegate that runs a command in other packages. One structural step, so the pattern a `-F`
- * carries and the arguments passed on stay argv tokens rather than text spliced into a shell string, and so the
- * nmr processes underneath write where this one writes although the binary spawned is `pnpm`.
+ * Composes the delegation an `-F` or `-R` calls for, or `undefined` where the invocation runs here.
+ *
+ * One structural step, so the pattern a `-F` carries and the arguments passed on stay argv tokens rather than
+ * text spliced into a shell string, and so the nmr processes underneath write where this one writes although
+ * the binary spawned is `pnpm`. A flag of nmr's own precedes the command name, where the nmr underneath reads
+ * it as its own rather than passing it on to the command.
+ *
+ * A `--log` fan-out surveys the scopes selected, so a scope with nothing to show is a gap in the survey rather
+ * than a failure of it, however that scope was selected.
  */
-function composeDelegate(scope: readonly string[], command: string, passthrough: readonly string[]): Step {
-  return { kind: 'structural', argv: ['pnpm', ...scope, 'exec', 'nmr', command, ...passthrough] };
+function composeDelegation(options: {
+  childEnv: NodeJS.ProcessEnv;
+  command: string;
+  parsed: ParsedArgs;
+}): { env: NodeJS.ProcessEnv; step: Step } | undefined {
+  const { childEnv, command, parsed } = options;
+
+  let scope: string[] | undefined;
+  let runIfPresent = parsed.log;
+  if (parsed.filter) {
+    scope = ['--filter', parsed.filter];
+  } else if (parsed.recursive) {
+    scope = ['--recursive'];
+    runIfPresent = true;
+  }
+  if (scope === undefined) {
+    return undefined;
+  }
+
+  const flags = parsed.log ? ['--log'] : [];
+
+  return {
+    env: runIfPresent ? { ...childEnv, [RUN_IF_PRESENT_ENV_VAR]: '1' } : childEnv,
+    step: {
+      kind: 'structural',
+      argv: ['pnpm', ...scope, 'exec', 'nmr', ...flags, command, ...parsed.passthrough],
+    },
+  };
 }
 
 /**
@@ -499,6 +542,20 @@ function formatPackageRemedy(options: {
 }
 
 /**
+ * Returns what is wrong with a parsed invocation, or `undefined` when nothing is.
+ *
+ * `--log` names what to print rather than what to run, so an invocation carrying it and no command has asked
+ * for nothing; the help text answers a different question and is not a stand-in for the flag's own grammar.
+ */
+function findArgError(parsed: ParsedArgs): string | undefined {
+  if (parsed.log && parsed.command === undefined && !parsed.help && !parsed.version) {
+    return '--log requires a command name: `nmr --log <command>`';
+  }
+
+  return undefined;
+}
+
+/**
  * Returns why a resolved command runs nothing, or `undefined` when there is something to run. A command that
  * ran nothing is not a command that passed, and the two exit alike, so the reason is what a verdict spends on
  * telling them apart.
@@ -605,11 +662,7 @@ function openGate(options: {
 }): TreeSnapshot | undefined {
   const { command, config, env, monorepoRoot, passthrough, stderr } = options;
 
-  const covered =
-    !isHookName(command) &&
-    config.checkCache?.enabled !== false &&
-    resolveCacheableCommands(config.checkCache).has(command);
-  if (!covered) {
+  if (!isCacheableCommand(config.checkCache, command)) {
     return undefined;
   }
 
@@ -619,6 +672,7 @@ function openGate(options: {
     stderr.write(`${formatMisplacedNoCacheWarning(command)}\n`);
   }
   if (passthrough.length > 0) {
+    writeDebugNote(`gate disabled: ${command} was passed arguments`, env, stderr);
     return undefined;
   }
 
@@ -633,6 +687,7 @@ function openGate(options: {
 
 function parseArgs(args: string[]): ParseResult {
   const parsed: ParsedArgs = {
+    log: false,
     noCache: false,
     quiet: false,
     recursive: false,
@@ -682,6 +737,11 @@ function parseArgs(args: string[]): ParseResult {
       i++;
       continue;
     }
+    if (arg === '--log') {
+      parsed.log = true;
+      i++;
+      continue;
+    }
     if (arg === '--no-cache') {
       parsed.noCache = true;
       i++;
@@ -694,7 +754,89 @@ function parseArgs(args: string[]): ParseResult {
     break;
   }
 
-  return { ok: true, parsed };
+  const error = findArgError(parsed);
+
+  return error === undefined ? { ok: true, parsed } : { ok: false, error };
+}
+
+/**
+ * Prints what the current scope has recorded for one command, and reports what it exits with.
+ *
+ * A refusal ends the invocation non-zero, which is what tells a caller that nothing on stdout is the run it
+ * asked for. Under a delegate it does not: a fan-out asks every selected scope, and a scope that never ran the
+ * command is a gap in a survey rather than a failure of one, so bailing there would hide every scope that has
+ * something to show.
+ */
+async function reportRecording(options: {
+  anchorDir: string;
+  command: string;
+  commandString: string;
+  config: NmrConfig;
+  env: NodeJS.ProcessEnv;
+  key: string | undefined;
+  monorepoRoot: string;
+  scope: string;
+  snapshot: TreeSnapshot | undefined;
+  stderr: Writable;
+  stdout: Writable;
+}): Promise<RunCliResult> {
+  const { command, config, scope } = options;
+
+  const lookup = await resolveRecording({
+    anchorDir: options.anchorDir,
+    command,
+    current: {
+      commandString: options.commandString,
+      nmrVersion: VERSION,
+      nodeVersion: CURRENT_RUNTIME.nodeVersion,
+      treeHash: options.snapshot?.hash,
+    },
+    isCacheable: isCacheableCommand(config.checkCache, command),
+    key: options.key,
+    monorepoRoot: options.monorepoRoot,
+  });
+
+  if (!lookup.ok) {
+    options.stderr.write(`${renderRefusal({ command, refusal: lookup.refusal, scope })}\n`);
+    return { exitCode: options.env[RUN_IF_PRESENT_ENV_VAR] === '1' ? 0 : 1 };
+  }
+
+  options.stdout.write(renderRecording({ command, recording: lookup.recording, scope }));
+
+  return { exitCode: 0 };
+}
+
+/**
+ * Reports a step that reaches nmr through a shell, where the resolved script holds one.
+ *
+ * Ahead of the gate, so a command that usually skips still reports the boundary it carries. A `--log` reports
+ * none, running nothing that could cross. Reads the resolved steps rather than the full chain: the line names
+ * a declaration to edit, and a hook, a passthrough, and a `devBin` substitution are none.
+ */
+function reportNmrCrossing(options: {
+  config: NmrConfig;
+  isReading: boolean;
+  monorepoRoot: string;
+  registry: ScriptRegistry;
+  resolved: ResolvedScript;
+  stderr: Writable;
+  useRoot: boolean;
+  workspaceRoot: boolean;
+}): void {
+  const crossing = findNmrCrossing(options.resolved.steps);
+  if (options.isReading || crossing === undefined) {
+    return;
+  }
+
+  const warning = formatNmrCrossingWarning({
+    crossing,
+    monorepoRoot: options.monorepoRoot,
+    origin: describeOrigin(options.resolved.origin, options.config, options.useRoot),
+    registry: options.registry,
+    workspaceRoot: options.workspaceRoot,
+  });
+
+  options.stderr.write(`${warning}\n`);
 }
 
 /**
@@ -782,11 +924,15 @@ async function recordPass(options: {
     treeHash: snapshot.hash,
   });
 
+  const ref = { anchorDir, command, monorepoRoot };
+  const transcript = options.retained === undefined ? undefined : composeTranscript(options.retained);
+
   try {
+    // Ahead of the entry, and withdrawn again where the entry fails to land, so a reader never dates one
+    // run's bytes by another run's instant.
+    await recordTranscript(ref, transcript);
     await writeCheckCacheEntry({
-      anchorDir,
-      command,
-      monorepoRoot,
+      ...ref,
       entry: {
         key: options.key,
         treeHash: snapshot.hash,
@@ -801,8 +947,12 @@ async function recordPass(options: {
       },
     });
   } catch (error: unknown) {
-    const message = describeError(error);
-    writeDebugNote(`could not record ${command}: ${message}`, env, stderr);
+    try {
+      await recordTranscript(ref, undefined);
+    } catch {
+      // The entry's own failure is what the caller needs to hear about.
+    }
+    writeDebugNote(`could not record ${command}: ${describeError(error)}`, env, stderr);
   }
 }
 
