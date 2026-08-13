@@ -150,13 +150,11 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   const noCache = parsed.noCache || env[NO_CACHE_ENV_VAR] === '1';
   const runId = resolveRunId(env);
-  // `openGate` has already stood this process's own gate down for the arguments, but the steps below it are
-  // separate nmr invocations carrying none of their own, and a narrowed command serving any part of its work
-  // from a recorded pass is the second half of the surprise the binding fixes.
   const childEnv = buildChildEnv({
     env,
     format,
-    noCache: noCache || parsed.passthrough.length > 0,
+    noCache,
+    passthrough: parsed.passthrough,
     runId,
     snapshot,
     verbosity,
@@ -198,12 +196,13 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   // Ahead of the recording branch as well as the run, so that reading what a command did and running it answer
   // an unroutable argument the same way.
-  if (parsed.passthrough.length > 0 && !substitutedSteps.some(acceptsArgs)) {
-    reportError(formatUnroutableArgsError(command), stderr);
+  const bound = bindPassthrough(substitutedSteps, parsed.passthrough, command);
+  if (!bound.ok) {
+    reportError(bound.error, stderr);
     return { exitCode: 1 };
   }
 
-  const mainSteps = appendPassthrough(substitutedSteps, parsed.passthrough);
+  const mainSteps = bound.steps;
 
   // Hook recursion guard: a command ending in `:pre` or `:post` is a leaf operation, and is not itself
   // wrapped in further hook lookups.
@@ -307,21 +306,29 @@ type ParseResult = { ok: true; parsed: ParsedArgs } | { ok: false; error: string
  *
  * The verbosity is written in both modes, so a chain's loudness is decided once at the top rather than
  * re-derived at every link from an environment a caller may have set.
+ *
+ * Trailing arguments bypass alongside `--no-cache`, which is why the passthrough is read here rather than
+ * folded into `noCache` by the caller: `openGate` has already stood this invocation's own gate down for them,
+ * but the steps below it are separate nmr invocations carrying none of their own, so a narrowed command would
+ * otherwise serve part of its work from a recorded pass.
  */
 function buildChildEnv(options: {
   env: NodeJS.ProcessEnv;
   format: ReportFormat;
   noCache: boolean;
+  passthrough: readonly string[];
   runId: string;
   snapshot: TreeSnapshot | undefined;
   verbosity: CommandVerbosity;
 }): NodeJS.ProcessEnv {
-  const { env, format, noCache, runId, snapshot, verbosity } = options;
+  const { env, format, noCache, passthrough, runId, snapshot, verbosity } = options;
+
+  const bypassesCache = noCache || passthrough.length > 0;
 
   return {
     ...env,
     ...(snapshot !== undefined && { [TREE_SNAPSHOT_ENV_VAR]: encodeTreeSnapshot(snapshot) }),
-    ...(noCache && { [NO_CACHE_ENV_VAR]: '1' }),
+    ...(bypassesCache && { [NO_CACHE_ENV_VAR]: '1' }),
     [COMMAND_VERBOSITY_ENV_VAR]: verbosity,
     [REPORT_FORMAT_ENV_VAR]: format,
     [RUN_ID_ENV_VAR]: runId,
@@ -339,18 +346,28 @@ function acceptsArgs(step: Step): boolean {
 }
 
 /**
- * Appends the invocation's trailing arguments to every step that accepts them, leaving a declining step to run
- * unnarrowed.
+ * Binds the invocation's trailing arguments to every step that accepts them, leaving a declining step to run
+ * unnarrowed, and refuses the invocation where no step accepts them at all.
+ *
+ * The refusal and the binding read `acceptsArgs` together, so what nmr rejects is exactly what would have left
+ * the arguments nowhere to land. Splitting the two is what would let them drift.
  *
  * A hook is out of reach here rather than excluded: `wrapWithHooks` wraps what this returns, so a `:pre` or
  * `:post` step is composed after the arguments have already been placed.
  */
-function appendPassthrough(steps: readonly Step[], passthrough: readonly string[]): readonly Step[] {
+function bindPassthrough(
+  steps: readonly Step[],
+  passthrough: readonly string[],
+  command: string,
+): { ok: true; steps: readonly Step[] } | { ok: false; error: string } {
   if (passthrough.length === 0) {
-    return steps;
+    return { ok: true, steps };
+  }
+  if (!steps.some(acceptsArgs)) {
+    return { ok: false, error: formatUnroutableArgsError(command) };
   }
 
-  return steps.map((step) => {
+  const boundSteps: readonly Step[] = steps.map((step) => {
     if (!acceptsArgs(step)) {
       return step;
     }
@@ -358,6 +375,8 @@ function appendPassthrough(steps: readonly Step[], passthrough: readonly string[
       ? { ...step, argv: [...step.argv, ...passthrough] }
       : { kind: 'opaque', command: `${step.command} ${passthrough.map(shellQuote).join(' ')}` };
   });
+
+  return { ok: true, steps: boundSteps };
 }
 
 /** Returns the line an invocation gets when its arguments have nowhere to land. */
