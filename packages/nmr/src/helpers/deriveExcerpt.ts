@@ -1,3 +1,4 @@
+import { clampToBytes } from './clampToBytes.ts';
 import { cleanTranscript } from './transcript.ts';
 
 /**
@@ -19,9 +20,6 @@ const MAX_BLOCK_LINES = 8;
  */
 const MAX_EXCERPT_BYTES = 2_048;
 
-/** Marks a line that was cut, so a reader can tell a truncated excerpt from a complete one. */
-const TRUNCATION_MARK = '…';
-
 /** A character no horizontal rule is drawn from, so a line holding one is carrying content. */
 const NON_RULE_CHARACTER = /[^-=_~*+.|:#]/u;
 
@@ -33,8 +31,7 @@ const NON_RULE_CHARACTER = /[^-=_~*+.|:#]/u;
  * trailing lines fits vitest's four-line summary and v8's six-line coverage summary only by coincidence.
  *
  * The line carries a byte bound of its own, so what a caller persists is bounded. The 512-byte ceiling a
- * verdict line is held to is not applied here, which leaves that line's grammar and its clamp with the module
- * that owns them.
+ * verdict line is held to is not applied here, which leaves that line's grammar with the module that owns it.
  */
 export function deriveExcerpt(transcript: string): string | undefined {
   const lines = cleanTranscript(transcript).split('\n');
@@ -57,34 +54,10 @@ export function deriveExcerpt(transcript: string): string | undefined {
     .replaceAll(/\s+/gu, ' ')
     .trim();
 
-  return excerpt === '' ? undefined : clampToBytes(excerpt);
+  return excerpt === '' ? undefined : clampToBytes(excerpt, MAX_EXCERPT_BYTES);
 }
 
 // region | Helpers
-
-/**
- * Cuts a line that would overrun the byte bound, marking the cut.
- *
- * Cuts between code points rather than between bytes, so a multi-byte character is never stored in halves.
- */
-function clampToBytes(line: string): string {
-  if (Buffer.byteLength(line) <= MAX_EXCERPT_BYTES) {
-    return line;
-  }
-
-  const budget = MAX_EXCERPT_BYTES - Buffer.byteLength(TRUNCATION_MARK);
-  let kept = '';
-  let bytes = 0;
-
-  for (const character of line) {
-    const size = Buffer.byteLength(character);
-    if (bytes + size > budget) break;
-    kept += character;
-    bytes += size;
-  }
-
-  return `${kept}${TRUNCATION_MARK}`;
-}
 
 /** Reports whether a line holds nothing but whitespace, which is what delimits one block from the next. */
 function isBlank(line: string | undefined): boolean {

@@ -3,7 +3,7 @@ import { PassThrough } from 'node:stream';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Verdict, VerdictOutcome } from '../verdict.ts';
-import { renderVerdict, VERDICT_LINE_LIMIT, writeVerdict } from '../verdict.ts';
+import { renderVerdict, serializeVerdict, VERDICT_LINE_LIMIT, writeVerdict } from '../verdict.ts';
 
 describe(renderVerdict, () => {
   it('reports a pass with its scope, command, and duration', () => {
@@ -207,23 +207,285 @@ describe(renderVerdict, () => {
   });
 });
 
+describe(serializeVerdict, () => {
+  describe('the field set', () => {
+    it.each([
+      {
+        outcome: { outcome: 'passed', durationMs: 12_449 },
+        expected: { command: 'test', scope: 'nmr-core', outcome: 'passed', durationMs: 12_449 },
+        scenario: 'a pass',
+      },
+      {
+        outcome: { outcome: 'failed', durationMs: 1_200, exitCode: 130 },
+        expected: { command: 'test', scope: 'nmr-core', outcome: 'failed', durationMs: 1_200, exitCode: 130 },
+        scenario: 'a failure',
+      },
+      {
+        outcome: { outcome: 'recalled', ageMs: 240_000, savedMs: 12_000 },
+        expected: { command: 'test', scope: 'nmr-core', outcome: 'recalled', ageMs: 240_000, savedMs: 12_000 },
+        scenario: 'a recalled pass',
+      },
+      {
+        outcome: { outcome: 'no-op', reason: 'empty-override' },
+        expected: { command: 'test', scope: 'nmr-core', outcome: 'no-op', reason: 'empty-override' },
+        scenario: 'a skipped override',
+      },
+    ] satisfies { outcome: VerdictOutcome; expected: unknown; scenario: string }[])(
+      "carries $scenario as the record's own fields",
+      ({ outcome, expected }) => {
+        expect(parseVerdict(serializeVerdict(makeVerdict(outcome)))).toStrictEqual(expected);
+      },
+    );
+
+    // A saving below the threshold the prose line spends a clause on is still a fact the record carries.
+    it('carries a saving the prose line declines to name', () => {
+      const line = serializeVerdict(makeVerdict({ outcome: 'recalled', ageMs: 1_000, savedMs: 40 }));
+
+      expect(parseVerdict(line)).toMatchObject({ savedMs: 40 });
+    });
+
+    it('carries the excerpts a recalled pass replays, each attributed', () => {
+      const verdict = makeVerdict({
+        outcome: 'recalled',
+        ageMs: 240_000,
+        savedMs: 12_000,
+        replay: [{ command: 'test', excerpt: 'Test Files 6 passed (6)', scope: 'nmr-core' }],
+      });
+
+      expect(parseVerdict(serializeVerdict(verdict))).toMatchObject({
+        replay: [{ command: 'test', excerpt: 'Test Files 6 passed (6)', scope: 'nmr-core' }],
+      });
+    });
+
+    it('leaves a record within the ceiling uncut', () => {
+      const line = serializeVerdict(makeVerdict({ outcome: 'passed', durationMs: 12_000 }));
+
+      expect(line).not.toContain('…');
+    });
+
+    it('introduces no escape sequence of its own', () => {
+      const line = serializeVerdict(makeVerdict({ outcome: 'passed', durationMs: 12_000 }));
+
+      expect(line).not.toContain('\u{1B}');
+    });
+  });
+
+  describe('the ceiling', () => {
+    it('holds an assembly whose excerpts would overrun to the ceiling, and still parses', () => {
+      const line = serializeVerdict(makeAssembly(6, 400));
+
+      expect(Buffer.byteLength(line) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT);
+      expect(() => parseVerdict(line)).not.toThrow();
+    });
+
+    // Where the prose line composes the whole assembly and drops its tail, the record keeps every
+    // constituent and spends the ceiling on shorter excerpts. A `toMatchObject` array holds the record to
+    // this length as well as to these scopes.
+    it('keeps every constituent of an assembly named', () => {
+      expect(parseVerdict(serializeVerdict(makeAssembly(6, 400)))).toMatchObject({
+        replay: [
+          { scope: 'scope-0' },
+          { scope: 'scope-1' },
+          { scope: 'scope-2' },
+          { scope: 'scope-3' },
+          { scope: 'scope-4' },
+          { scope: 'scope-5' },
+        ],
+      });
+    });
+
+    it('cuts between code points, so a multi-byte excerpt is never left in halves', () => {
+      const verdict = makeVerdict({
+        outcome: 'recalled',
+        ageMs: 1_000,
+        savedMs: 1_000,
+        replay: [{ command: 'test', excerpt: '⏭'.repeat(600), scope: 'nmr-core' }],
+      });
+      const line = serializeVerdict(verdict);
+
+      expect(line).toBe(Buffer.from(line).toString('utf8'));
+      expect(Buffer.byteLength(line) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT);
+      expect(() => parseVerdict(line)).not.toThrow();
+    });
+
+    it('budgets the detail slot alongside the excerpts', () => {
+      const verdict: Verdict = {
+        command: 'test',
+        scope: 'nmr-core',
+        outcome: 'passed',
+        durationMs: 12_000,
+        detail: 'x'.repeat(2_000),
+      };
+      const line = serializeVerdict(verdict);
+
+      expect(Buffer.byteLength(line) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT);
+      expect(() => parseVerdict(line)).not.toThrow();
+    });
+
+    it('surrenders the replay outright where the structural fields alone leave no room for it', () => {
+      const parsed = parseVerdict(serializeVerdict(OVERSIZED_STRUCTURE));
+
+      expect(parsed).not.toHaveProperty('replay');
+      expect(parsed).toMatchObject({ outcome: 'recalled', ageMs: 1_000, savedMs: 1_000 });
+    });
+
+    // The scope and the command are the last thing a record gives up, and it does give them up: a line that
+    // overruns can be split across a pipe and corrupt every scope's records, where a marked cut costs one.
+    it('holds the ceiling where the structural fields alone overrun it', () => {
+      const line = serializeVerdict(OVERSIZED_STRUCTURE);
+
+      expect(Buffer.byteLength(line) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT);
+      expect(() => parseVerdict(line)).not.toThrow();
+      expect(line).toContain('…');
+    });
+
+    // The widest assembly of this shape the ceiling still names in full. Before the ladder shed excerpts
+    // ahead of entries, the whole array went at this width and the record named no constituent at all.
+    it('keeps every constituent named where the ceiling can hold them all', () => {
+      const parsed = parseVerdict(serializeVerdict(makeAssembly(8, 49)));
+
+      expect(scopesOf(parsed)).toStrictEqual([
+        'scope-0',
+        'scope-1',
+        'scope-2',
+        'scope-3',
+        'scope-4',
+        'scope-5',
+        'scope-6',
+        'scope-7',
+      ]);
+    });
+
+    // Twelve is what a four-package root `check` assembles: `typecheck` and `test` each fan out to every
+    // package, and `assembleReplay` splices a nested composite's list in flat. Past what the ceiling can
+    // name, so the tail goes rather than the array, and what is left still parses inside the ceiling.
+    it('drops the trailing constituents at a width the ceiling cannot name', () => {
+      const line = serializeVerdict(makeAssembly(12, 49));
+
+      expect(scopesOf(parseVerdict(line))).toStrictEqual([
+        'scope-0',
+        'scope-1',
+        'scope-2',
+        'scope-3',
+        'scope-4',
+        'scope-5',
+        'scope-6',
+        'scope-7',
+        'scope-8',
+      ]);
+      expect(Buffer.byteLength(line) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT);
+    });
+
+    it('sheds the excerpts before the constituents carrying them', () => {
+      const parsed = parseVerdict(serializeVerdict(makeAssembly(8, 49)));
+
+      expect(excerptsOf(parsed)).toStrictEqual([]);
+      expect(scopesOf(parsed)).toHaveLength(8);
+    });
+
+    // The overrun is shared, so no constituent is emptied to leave a later one whole. Which excerpts would
+    // have survived was decided by step order, which carries no meaning for a consumer.
+    it("cuts an assembly's excerpts down together rather than spending the overrun on the first", () => {
+      const lengths = excerptsOf(parseVerdict(serializeVerdict(makeAssembly(4, 200)))).map((excerpt) => excerpt.length);
+
+      // Comparable rather than equal: the share is integer arithmetic, so the last cut absorbs the remainder.
+      expect(lengths).toHaveLength(4);
+      expect(Math.min(...lengths) * 2).toBeGreaterThanOrEqual(Math.max(...lengths));
+    });
+
+    // An excerpt cut to nothing reads as a run that recorded nothing, which is a different fact.
+    it('leaves every cut excerpt marked rather than emptied', () => {
+      const excerpts = excerptsOf(parseVerdict(serializeVerdict(makeAssembly(4, 200))));
+
+      expect(excerpts.every((excerpt) => excerpt.endsWith('…'))).toBe(true);
+      expect(excerpts).not.toContain('');
+    });
+  });
+});
+
 describe(writeVerdict, () => {
   it('spends one write on a line, which is what concurrent scopes sharing a descriptor rely on', () => {
     const stream = new PassThrough();
     const write = vi.spyOn(stream, 'write');
 
-    writeVerdict(makeVerdict({ outcome: 'passed', durationMs: 12_000 }), stream);
+    writeVerdict(makeVerdict({ outcome: 'passed', durationMs: 12_000 }), stream, 'text');
 
     expect(write).toHaveBeenCalledTimes(1);
     expect(write).toHaveBeenCalledWith('✅ nmr-core: test: passed in 12s\n');
+  });
+
+  it('spends one write on a JSON object too, terminated by the newline that delimits records', () => {
+    const stream = new PassThrough();
+    const write = vi.spyOn(stream, 'write');
+
+    writeVerdict(makeVerdict({ outcome: 'passed', durationMs: 12_000 }), stream, 'json');
+
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(write).toHaveBeenCalledWith('{"command":"test","scope":"nmr-core","outcome":"passed","durationMs":12000}\n');
   });
 });
 
 // region | Helpers
 
+/** A verdict whose scope and command alone overrun the ceiling, leaving nothing structural left to shed. */
+const OVERSIZED_STRUCTURE: Verdict = {
+  command: 'c'.repeat(240),
+  scope: 's'.repeat(240),
+  outcome: 'recalled',
+  ageMs: 1_000,
+  savedMs: 1_000,
+  replay: [{ command: 'test', excerpt: 'Test Files 6 passed (6)', scope: 'nmr-core' }],
+};
+
+/** Reads the excerpts a parsed record's replay carries, skipping an entry the ladder shed the excerpt from. */
+function excerptsOf(parsed: unknown): string[] {
+  return readReplay(parsed).flatMap((line) => (typeof line['excerpt'] === 'string' ? [line['excerpt']] : []));
+}
+
+/** Reports whether a replay entry parsed back as an object, which every one nmr emits does. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+/** Builds a recalled verdict carrying an assembly wide enough to overrun the ceiling. */
+function makeAssembly(constituents: number, excerptLength: number): Verdict {
+  return makeVerdict({
+    outcome: 'recalled',
+    ageMs: 240_000,
+    savedMs: 12_000,
+    replay: Array.from({ length: constituents }, (_unused, index) => ({
+      command: `command-${index}`,
+      excerpt: 'x'.repeat(excerptLength),
+      scope: `scope-${index}`,
+    })),
+  });
+}
+
 /** Builds a verdict on a fixed scope and command, so a case states only the outcome under test. */
 function makeVerdict(outcome: VerdictOutcome): Verdict {
   return { command: 'test', scope: 'nmr-core', ...outcome };
+}
+
+/** Parses one serialized verdict, so a case asserts on the record rather than on the bytes. */
+function parseVerdict(line: string): unknown {
+  const parsed: unknown = JSON.parse(line);
+
+  return parsed;
+}
+
+/** Reads the replay entries a parsed record carries, or none where the ladder shed the array. */
+function readReplay(parsed: unknown): Record<string, unknown>[] {
+  if (typeof parsed !== 'object' || parsed === null || !('replay' in parsed)) {
+    return [];
+  }
+  const { replay } = parsed;
+
+  return Array.isArray(replay) ? replay.filter(isRecord) : [];
+}
+
+/** Reads the scope each constituent of a parsed record's replay names. */
+function scopesOf(parsed: unknown): string[] {
+  return readReplay(parsed).flatMap((line) => (typeof line['scope'] === 'string' ? [line['scope']] : []));
 }
 
 // endregion | Helpers

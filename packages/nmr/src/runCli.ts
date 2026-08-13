@@ -33,6 +33,8 @@ import { isHookName } from './helpers/hook-name.ts';
 import { composeTranscript } from './helpers/transcript.ts';
 import { renderRecording, renderRefusal, resolveRecording } from './recording.ts';
 import { assembleReplay } from './replay-assembly.ts';
+import type { ReportFormat } from './report-format.ts';
+import { readReportFormatEnv, REPORT_FORMAT_ENV_VAR, resolveReportFormat } from './report-format.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
 import type { ResolvedScript, ScriptOrigin } from './resolver.ts';
 import {
@@ -47,7 +49,7 @@ import { resolveChannel, runSteps } from './runner.ts';
 import type { Step } from './steps.ts';
 import { composeNmrStep, findNmrCrossing, renderChain } from './steps.ts';
 import type { NmrConfig } from './types.ts';
-import type { CommandVerbosity } from './verbosity.ts';
+import type { CommandVerbosity, ResolveVerbosityOptions } from './verbosity.ts';
 import { COMMAND_VERBOSITY_ENV_VAR, readVerbosityEnv, resolveVerbosity } from './verbosity.ts';
 import type { Verdict, VerdictOutcome } from './verdict.ts';
 import { writeVerdict } from './verdict.ts';
@@ -100,9 +102,9 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   // Ahead of every other outcome, `--version` and `--help` included, so one variable's validity has one answer.
   // The levels below the environment wait on the config, which `--version` must keep not loading.
-  const envVerbosity = readVerbosityEnv(env);
-  if (!envVerbosity.ok) {
-    reportError(envVerbosity.error, stderr);
+  const inherited = readPresentationEnv(env);
+  if (!inherited.ok) {
+    reportError(inherited.error, stderr);
     return { exitCode: 1 };
   }
   if (parsed.version) {
@@ -112,9 +114,11 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   const context = await resolveContext(cwd);
 
-  const verbosity = resolveVerbosity({
+  const format = resolveReportFormat({ envFormat: inherited.format, jsonFlag: parsed.json });
+  const verbosity = resolveReportingVerbosity({
     env,
-    envVerbosity: envVerbosity.verbosity,
+    envVerbosity: inherited.verbosity,
+    format,
     output: context.config.output,
     quietFlag: parsed.quiet,
   });
@@ -146,7 +150,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   const noCache = parsed.noCache || env[NO_CACHE_ENV_VAR] === '1';
   const runId = resolveRunId(env);
-  const childEnv = buildChildEnv({ env, noCache, runId, snapshot, verbosity });
+  const childEnv = buildChildEnv({ env, format, noCache, runId, snapshot, verbosity });
   const runOptions: RunStepsOptions = {
     quiet,
     stdout,
@@ -175,7 +179,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   const noOpReason = findNoOpReason(resolvedCommand);
   if (noOpReason !== undefined && !parsed.log) {
-    reportVerdict({ command, scope, outcome: 'no-op', reason: noOpReason }, stdout);
+    reportVerdict({ command, scope, outcome: 'no-op', reason: noOpReason }, stdout, format);
     return { exitCode: 0 };
   }
 
@@ -252,7 +256,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     stdout,
   });
 
-  reportVerdict({ command, scope, ...outcome }, stdout);
+  reportVerdict({ command, scope, ...outcome }, stdout, format);
 
   return { exitCode };
 }
@@ -262,6 +266,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 /** @internal */
 interface ParsedArgs {
   filter?: string;
+  json: boolean;
   log: boolean;
   noCache: boolean;
   quiet: boolean;
@@ -287,18 +292,20 @@ type ParseResult = { ok: true; parsed: ParsedArgs } | { ok: false; error: string
  */
 function buildChildEnv(options: {
   env: NodeJS.ProcessEnv;
+  format: ReportFormat;
   noCache: boolean;
   runId: string;
   snapshot: TreeSnapshot | undefined;
   verbosity: CommandVerbosity;
 }): NodeJS.ProcessEnv {
-  const { env, noCache, runId, snapshot, verbosity } = options;
+  const { env, format, noCache, runId, snapshot, verbosity } = options;
 
   return {
     ...env,
     ...(snapshot !== undefined && { [TREE_SNAPSHOT_ENV_VAR]: encodeTreeSnapshot(snapshot) }),
     ...(noCache && { [NO_CACHE_ENV_VAR]: '1' }),
     [COMMAND_VERBOSITY_ENV_VAR]: verbosity,
+    [REPORT_FORMAT_ENV_VAR]: format,
     [RUN_ID_ENV_VAR]: runId,
   };
 }
@@ -687,6 +694,7 @@ function openGate(options: {
 
 function parseArgs(args: string[]): ParseResult {
   const parsed: ParsedArgs = {
+    json: false,
     log: false,
     noCache: false,
     quiet: false,
@@ -734,6 +742,11 @@ function parseArgs(args: string[]): ParseResult {
     }
     if (arg === '-q' || arg === '--quiet') {
       parsed.quiet = true;
+      i++;
+      continue;
+    }
+    if (arg === '--json') {
+      parsed.json = true;
       i++;
       continue;
     }
@@ -807,6 +820,28 @@ async function reportRecording(options: {
 }
 
 /**
+ * Reads the two variables that decide how a run presents itself, or the message naming why one of them could
+ * not be read. Read together, so a run carrying two unreadable values is not fixed one release at a time.
+ */
+function readPresentationEnv(
+  env: NodeJS.ProcessEnv,
+):
+  | { ok: true; format: ReportFormat | undefined; verbosity: CommandVerbosity | undefined }
+  | { ok: false; error: string } {
+  const verbosity = readVerbosityEnv(env);
+  if (!verbosity.ok) {
+    return verbosity;
+  }
+
+  const format = readReportFormatEnv(env);
+  if (!format.ok) {
+    return format;
+  }
+
+  return { ok: true, format: format.format, verbosity: verbosity.verbosity };
+}
+
+/**
  * Reports a step that reaches nmr through a shell, where the resolved script holds one.
  *
  * Ahead of the gate, so a command that usually skips still reports the boundary it carries. A `--log` reports
@@ -847,11 +882,24 @@ function reportNmrCrossing(options: {
  * invocation reports none either, and needs no test here -- it returns before a verdict is composed, every
  * scope it fans out to reporting one of its own.
  */
-function reportVerdict(verdict: Verdict, stdout: Writable): void {
+function reportVerdict(verdict: Verdict, stdout: Writable, format: ReportFormat): void {
   if (isHookName(verdict.command)) {
     return;
   }
-  writeVerdict(verdict, stdout);
+  writeVerdict(verdict, stdout, format);
+}
+
+/**
+ * Resolves how loudly this run reports the output of the commands it runs.
+ *
+ * A machine-readable run reports on stdout and nothing else may, so it withholds that output whatever the
+ * loudness ladder would have resolved to. A failure still surrenders it on stderr, as under any quiet run: the
+ * two leave the child on the same channels, so a machine-readable run and a quiet one share a retention key.
+ */
+function resolveReportingVerbosity(options: ResolveVerbosityOptions & { format: ReportFormat }): CommandVerbosity {
+  const { format, ...ladder } = options;
+
+  return format === 'json' ? 'quiet' : resolveVerbosity(ladder);
 }
 
 /**

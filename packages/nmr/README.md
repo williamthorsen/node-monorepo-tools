@@ -233,6 +233,43 @@ A verdict is one write of at most 512 bytes, the smallest `PIPE_BUF` POSIX permi
 
 **Verdicts print in every verbosity.** `-q` withholds the output of the commands nmr runs, never nmr's own words: a passing quiet run reports its verdicts and nothing else. A command whose override resolved to `""` or `":"` reports the skip rather than exiting 0 in silence, which is what separates it from a command that passed. An `NMR_RUN_IF_PRESENT` miss reports nothing, having no command to report on.
 
+### Reporting for a machine
+
+`--json` renders each verdict as a JSON object instead of a line of prose — one object per line, newline-delimited, with no enclosing array and no separators between them. A consumer parses each line as it arrives, and a run cut off partway still leaves every line it already emitted parseable, which an enclosing array would not.
+
+```console
+$ nmr --json check
+{"command":"typecheck","scope":"nmr-core","outcome":"passed","durationMs":255}
+{"command":"fmt:check","scope":"nmr-core","outcome":"recalled","ageMs":240000,"savedMs":3888,"replay":[{"command":"fmt:check","excerpt":"Checking formatting... All matched files use Prettier code style!","scope":"nmr-core"}]}
+{"command":"check","scope":"nmr-core","outcome":"passed","durationMs":31204}
+```
+
+Every object carries `command`, `scope`, and `outcome`, and then what that outcome carries and no other does:
+
+| `outcome`  | Also carries                                                                                               |
+| ---------- | ---------------------------------------------------------------------------------------------------------- |
+| `passed`   | `durationMs`                                                                                               |
+| `failed`   | `durationMs`, `exitCode`                                                                                   |
+| `recalled` | `ageMs`, `savedMs`, and `replay` where the skip has excerpts to [replay](#replaying-a-skipped-runs-output) |
+| `no-op`    | `reason`, either `empty-override` or `noop-override`                                                       |
+
+Both renderings are produced from one record, so neither reports what the other does not. Where the prose line makes a presentation decision the record does not — a saving too small to be worth a clause, say — the object carries the fact and leaves the decision to whoever reads it.
+
+**An object is one write of at most 512 bytes**, the [same ceiling](#what-nmr-reports) a prose line is held to, so packages running concurrently under `pnpm --recursive` cannot interleave within one. Cuts land inside the record's text rather than across its structure, so the line still parses, and a record that overruns is fitted by rungs — each shedding what a reader can better spare than the one below it:
+
+1. **The excerpts are shortened toward one another**, so an assembly's constituents come down together rather than the first ones being emptied to leave the last whole. No excerpt is cut below `…`, which keeps a cut one distinguishable from a run that recorded nothing.
+2. **The excerpts go**, leaving the `scope` and `command` that name each constituent. An entry carrying no `excerpt` key is one whose text did not fit.
+3. **The trailing constituents go**, as the prose line drops its own tail, and the `replay` array itself once none fit.
+4. **The `scope` and `command` are cut**, each marked. This is the last resort and the reason for it is the ceiling itself: a line that overruns can be split across a pipe and corrupt the records of every scope sharing it, where a marked cut costs only its own.
+
+A package-scoped `check` carries four constituents and fits uncut. A four-package root `check` assembles twelve — `typecheck` and `test` each fan out to every package, and a nested composite's list is spliced in flat — which is more than the ceiling can name: it reaches rung 3, keeping eight and dropping the trailing four. Rung 4 needs a scope and command running to hundreds of bytes between them.
+
+**The mode implies quiet.** The commands' own output is withheld, so stdout carries the objects alone — no prose verdict, and no override notice. `NMR_COMMAND_VERBOSITY=full` does not opt back out. A failure still surrenders the failing command's output, on stderr, as under any quiet run. Both modes leave a command on the same channels, so a machine-readable run and a quiet one share a [retention key](#replaying-a-skipped-runs-output): each replays what the other recorded.
+
+The format is nmr's own reporting and not a mode the commands it runs are told about, so it is out of the [pass key](#what-the-key-is-made-of) and the retention key alike. Selecting it neither invalidates a recorded pass nor costs a replay.
+
+`--log`, `--help`, and `--version` are unaffected: none of them reports a verdict, and what `--log` prints is a tool's own transcript, which has no rendering as a record.
+
 ## Check-result cache
 
 A check that passed on a working tree passes again on the same working tree. nmr records that, and the next run of the same command on an unchanged tree exits 0 without doing the work:
@@ -400,6 +437,8 @@ Reach for these in order; the first is almost always the right one.
 `NMR_COMMAND_VERBOSITY` is nmr's own as well, and carries how loudly a run reports the output of the commands it runs. Its values are `full` and `quiet`; any other non-empty value is reported and exits 1, rather than falling back to a mode nobody chose, and an empty value reads as unset. Each process in a chain suppresses the output of the command it runs rather than of everything below it, so a failure still surrenders the failing command's output. It governs those commands' output alone: nmr's [verdicts](#what-nmr-reports) print in every verbosity, and the override notice is the one message a quiet run withholds.
 
 `-q` sets it for the run and outranks an inherited value. Both values are spelled out so either direction is expressible: export `NMR_COMMAND_VERBOSITY=quiet` for a quiet shell, and set `full` on one invocation to opt back out.
+
+`NMR_REPORT_FORMAT` is nmr's own as well, and carries how nmr renders its own verdicts. Its values are `text` and `json`; any other non-empty value is reported and exits 1, and an empty value reads as unset. `--json` sets it for the run and outranks an inherited value, and both values are spelled out so either direction is expressible: export `NMR_REPORT_FORMAT=json` for a shell whose consumer parses, and set `text` on one invocation to opt back out. Two sources, then, where a verbosity has four: no repo-level default and no harness detection, since detection would hand every agent JSON in place of the prose the [shipped guidance](#agent-guidance) teaches. See [reporting for a machine](#reporting-for-a-machine) for what the objects carry.
 
 #### Where a verbosity comes from
 
@@ -671,16 +710,17 @@ nmr [flags] <command> [args...]
 
 Position determines ownership: flags before the command name are nmr's own, and everything after the command name is forwarded untouched to the resolved command.
 
-| Flag                     | Description                                             | Default |
-| ------------------------ | ------------------------------------------------------- | ------- |
-| `-F, --filter <pattern>` | Run command in matching packages                        | —       |
-| `-R, --recursive`        | Run command in all packages                             | —       |
-| `-w, --workspace-root`   | Use root scripts, running at the monorepo root          | —       |
-| `-q, --quiet`            | Suppress command output, keeping nmr's verdicts         | —       |
-| `--log`                  | Print the recorded run instead of running it            | —       |
-| `--no-cache`             | Run even if this tree already passed; record the result | —       |
-| `-?, --help`             | Show available commands                                 | —       |
-| `-V, --version`          | Show version number                                     | —       |
+| Flag                     | Description                                                    | Default |
+| ------------------------ | -------------------------------------------------------------- | ------- |
+| `-F, --filter <pattern>` | Run command in matching packages                               | —       |
+| `-R, --recursive`        | Run command in all packages                                    | —       |
+| `-w, --workspace-root`   | Use root scripts, running at the monorepo root                 | —       |
+| `-q, --quiet`            | Suppress command output, keeping nmr's verdicts                | —       |
+| `--json`                 | Report one JSON object per command, withholding command output | —       |
+| `--log`                  | Print the recorded run instead of running it                   | —       |
+| `--no-cache`             | Run even if this tree already passed; record the result        | —       |
+| `-?, --help`             | Show available commands                                        | —       |
+| `-V, --version`          | Show version number                                            | —       |
 
 ### Examples
 
