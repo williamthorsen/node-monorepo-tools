@@ -24,6 +24,7 @@ import {
   writeDebugNote,
 } from '../check-cache.ts';
 import { resolveBuildCachePath } from '../commands/build-output.ts';
+import { REPORT_FORMAT_ENV_VAR } from '../report-format.ts';
 import { COMMAND_VERBOSITY_ENV_VAR } from '../verbosity.ts';
 
 const SNAPSHOT: TreeSnapshot = { hash: 'tree-hash', headSha: 'head-sha' };
@@ -133,6 +134,13 @@ describe('check-cache', () => {
       );
     });
 
+    // The format nmr reports its own verdicts in reaches no command, so it cannot change what one concludes.
+    it('ignores the format a run reports in', () => {
+      expect(keyOf(root, { env: { [REPORT_FORMAT_ENV_VAR]: 'json' } })).toBe(
+        keyOf(root, { env: { [REPORT_FORMAT_ENV_VAR]: 'text' } }),
+      );
+    });
+
     it('refuses a key when the install fingerprint is unreadable', () => {
       fs.rmSync(path.join(root, 'node_modules', '.pnpm'), { recursive: true, force: true });
 
@@ -169,6 +177,14 @@ describe('check-cache', () => {
     it('ignores which descriptor a stream ran on', () => {
       expect(retentionKeyOf({ channels: { stderr: 2, stdout: 1 } })).toBe(
         retentionKeyOf({ channels: { stderr: 9, stdout: 8 } }),
+      );
+    });
+
+    // A machine-readable run is quiet, so it leaves a command on the channels a quiet run does and replays
+    // what one recorded. Folding the format in would split every retained excerpt across the two.
+    it('ignores the format a run reports in', () => {
+      expect(retentionKeyOf({ env: { [REPORT_FORMAT_ENV_VAR]: 'json' } })).toBe(
+        retentionKeyOf({ env: { [REPORT_FORMAT_ENV_VAR]: 'text' } }),
       );
     });
 
