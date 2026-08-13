@@ -1,6 +1,7 @@
 import type { Writable } from 'node:stream';
 
 import type { ReplayLine } from './check-cache.ts';
+import { clampToBytes } from './helpers/clampToBytes.ts';
 import { formatDuration, formatSaving } from './helpers/duration.ts';
 
 /**
@@ -50,7 +51,7 @@ export function renderVerdict(verdict: Verdict): string {
   const detail = flattenDetail(verdict.detail ?? renderReplay(verdict) ?? '');
   const detailClause = detail === '' ? '' : ` — ${detail}`;
 
-  return clampToLimit(`${icon} ${verdict.scope}: ${verdict.command}: ${phrase}${detailClause}`);
+  return clampToBytes(`${icon} ${verdict.scope}: ${verdict.command}: ${phrase}${detailClause}`, LINE_BUDGET_BYTES);
 }
 
 /**
@@ -66,37 +67,11 @@ export function writeVerdict(verdict: Verdict, stream: Writable): void {
 /** How much of the ceiling the newline `writeVerdict` appends spends. */
 const NEWLINE_BYTES = 1;
 
+/** What a rendered line may spend, the newline `writeVerdict` appends already taken out of the ceiling. */
+const LINE_BUDGET_BYTES = VERDICT_LINE_LIMIT - NEWLINE_BYTES;
+
 /** Marks the detail as a recording of an earlier run rather than as what this invocation produced. */
 const REPLAY_MARKER = 'replayed:';
-
-/** Marks a line that was cut, so a reader can tell a truncated verdict from a complete one. */
-const TRUNCATION_MARK = '…';
-
-/**
- * Cuts a line that would overrun the ceiling, marking the cut.
- *
- * Cuts between code points rather than between bytes: `⏭️` is two of them, and a byte cut landing inside one
- * would put a partial character on the wire. Graphemes are left unconsidered, which can separate an emoji from
- * a modifier following it -- a cost this pays only on a line nothing today comes near producing.
- */
-function clampToLimit(line: string): string {
-  if (Buffer.byteLength(line) + NEWLINE_BYTES <= VERDICT_LINE_LIMIT) {
-    return line;
-  }
-
-  const budget = VERDICT_LINE_LIMIT - NEWLINE_BYTES - Buffer.byteLength(TRUNCATION_MARK);
-  let kept = '';
-  let bytes = 0;
-
-  for (const character of line) {
-    const size = Buffer.byteLength(character);
-    if (bytes + size > budget) break;
-    kept += character;
-    bytes += size;
-  }
-
-  return `${kept}${TRUNCATION_MARK}`;
-}
 
 /** Returns the icon a verdict leads with and the phrase it reports, which no other module composes. */
 function describeOutcome(verdict: Verdict): { icon: string; phrase: string } {
