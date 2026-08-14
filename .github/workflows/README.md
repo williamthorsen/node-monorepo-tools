@@ -3,7 +3,7 @@
 ## Naming convention
 
 - **Caller workflows:** `{name}.yaml` — repo-specific workflows that trigger on events (e.g., `workflow_dispatch`) and delegate to a reusable workflow.
-- **Reusable workflows:** `{name}.reusable.yaml` — shared workflows invoked via `workflow_call`. These can be consumed by this repo (via relative path) or by other repos (via full reference).
+- **Reusable workflows:** `{name}.reusable.yaml` — shared workflows invoked via `workflow_call`. The Versioning section below covers how callers reach them.
 
 ## Versioning
 
@@ -39,9 +39,6 @@ Package release tags need to be easy to discover and read in tooling (e.g., in r
 
 ### Deprecated pointer tags
 
-The earlier pointer tags — `audit-workflow-v1`, `release-workflow-v1`, `sync-labels-workflow-v1` — are **frozen and deprecated**. They remain at their original commits so downstream repos using the `release-kit` templates (which still emit these refs) keep working. New updates happen only on the `workflow/{name}-v{major}` tags.
+The earlier pointer tags — `audit-workflow-v1`, `release-workflow-v1`, `sync-labels-workflow-v1` — are **frozen and deprecated**. They remain at their original commits so downstream repos scaffolded before the templates migrated keep working. New updates happen only on the `workflow/{name}-v{major}` tags.
 
-These old tags will be removed after:
-
-1. `release-kit` ships a release whose `init` and `sync-labels` templates emit the new `workflow/{name}-v{major}` refs, and
-2. downstream repos have had a release cycle to adopt that release-kit version.
+Removal was gated on two conditions. The first is satisfied: `release-kit-v10.3.2` ships `init` and `sync-labels` templates that emit only the `workflow/{name}-v{major}` refs. The second still stands, so removal waits on downstream repos having had a release cycle to adopt that version.
