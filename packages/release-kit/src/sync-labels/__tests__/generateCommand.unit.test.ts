@@ -1,3 +1,4 @@
+import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -50,63 +51,62 @@ describe(generateCommand, () => {
     mockMkdirSync.mockReset();
     mockReadFileSync.mockReset();
     mockWriteFileSync.mockReset();
-    vi.restoreAllMocks();
   });
 
   it('returns 1 with a migration message when the retired sync-labels config exists', async () => {
     mockExistsSync.mockImplementation((path: string) => path === RETIRED_SYNC_LABELS_CONFIG_PATH);
-    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    using capture = captureStdio();
 
     const exitCode = await generateCommand();
 
     expect(exitCode).toBe(1);
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('no longer read'));
+    expect(capture.stderr).toContain('no longer read');
     expect(mockLoadConfig).not.toHaveBeenCalled();
   });
 
   it('returns 1 when no config file is found', async () => {
     mockExistsSync.mockReturnValue(false);
     mockLoadConfig.mockResolvedValue(undefined);
-    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    using capture = captureStdio();
 
     const exitCode = await generateCommand();
 
     expect(exitCode).toBe(1);
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('Error: No config file found'));
+    expect(capture.stderr).toContain('Error: No config file found');
   });
 
   it('returns 1 when config loading throws', async () => {
     mockExistsSync.mockReturnValue(false);
     mockLoadConfig.mockRejectedValue(new Error('parse failure'));
-    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    using capture = captureStdio();
 
     const exitCode = await generateCommand();
 
     expect(exitCode).toBe(1);
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('parse failure'));
+    expect(capture.stderr).toContain('parse failure');
   });
 
   it('returns 1 and prints validation errors when the config is invalid', async () => {
     mockExistsSync.mockReturnValue(false);
     mockLoadConfig.mockResolvedValue({ repoLabels: { extends: 'common' } });
     mockValidateConfig.mockReturnValue({ config: {}, errors: ['repoLabels.extends: invalid'], warnings: [] });
-    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    using capture = captureStdio();
 
     const exitCode = await generateCommand();
 
     expect(exitCode).toBe(1);
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('repoLabels.extends: invalid'));
+    expect(capture.stderr).toContain('repoLabels.extends: invalid');
   });
 
   it('returns 1 when the config has no repoLabels block', async () => {
     mockExistsSync.mockReturnValue(false);
     givenValidConfig({});
-    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    using capture = captureStdio();
 
     const exitCode = await generateCommand();
 
     expect(exitCode).toBe(1);
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('repoLabels'));
+    expect(capture.stderr).toContain('repoLabels');
   });
 
   it('returns 1 when label resolution throws', async () => {
@@ -115,12 +115,12 @@ describe(generateCommand, () => {
     mockResolveLabels.mockImplementation(() => {
       throw new Error("Label 'ghost' is set to null");
     });
-    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    using capture = captureStdio();
 
     const exitCode = await generateCommand();
 
     expect(exitCode).toBe(1);
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining("Label 'ghost' is set to null"));
+    expect(capture.stderr).toContain("Label 'ghost' is set to null");
   });
 
   it('writes labels file and returns 0 on success', async () => {
@@ -164,12 +164,12 @@ describe(generateCommand, () => {
     mockResolveLabels.mockReturnValue([{ name: 'bug', color: 'd73a4a', description: 'Bug' }]);
     mockHashPresetFile.mockReturnValue('abc123');
     mockReadFileSync.mockReturnValue('# outdated content\n');
-    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    using capture = captureStdio();
 
     const exitCode = await generateCommand({ check: true });
 
     expect(exitCode).toBe(1);
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('stale'));
+    expect(capture.stderr).toContain('stale');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
   });
 
@@ -180,12 +180,12 @@ describe(generateCommand, () => {
     mockReadFileSync.mockImplementation(() => {
       throw new Error('ENOENT');
     });
-    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    using capture = captureStdio();
 
     const exitCode = await generateCommand({ check: true });
 
     expect(exitCode).toBe(1);
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('missing'));
+    expect(capture.stderr).toContain('missing');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
   });
 
@@ -196,12 +196,12 @@ describe(generateCommand, () => {
     mockMkdirSync.mockImplementation(() => {
       throw new Error('EACCES');
     });
-    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    using capture = captureStdio();
 
     const exitCode = await generateCommand();
 
     expect(exitCode).toBe(1);
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('EACCES'));
+    expect(capture.stderr).toContain('EACCES');
   });
 });
 

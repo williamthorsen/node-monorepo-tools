@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -396,7 +397,6 @@ describe('releasePrepareProject (tool)', () => {
     // written: assert no CHANGELOG.md, no bumped version, no project-tag artifact.
     const { prepareCommand } = await import('../prepareCommand.ts');
     let exitCode: number | undefined;
-    const errors: string[] = [];
 
     // Write a minimal release-kit config that declares the project block.
     mkdirSync(join(fixture.repoDir, '.config'), { recursive: true });
@@ -408,10 +408,7 @@ describe('releasePrepareProject (tool)', () => {
 
     const previousCwd = process.cwd();
     process.chdir(fixture.repoDir);
-    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation((chunk: string | Uint8Array) => {
-      errors.push(String(chunk));
-      return true;
-    });
+    using capture = captureStdio();
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation((code) => {
       exitCode = typeof code === 'number' ? code : undefined;
       throw new Error('process.exit');
@@ -422,13 +419,12 @@ describe('releasePrepareProject (tool)', () => {
     } catch {
       // Expected: process.exit threw.
     } finally {
-      stderrSpy.mockRestore();
       exitSpy.mockRestore();
       process.chdir(previousCwd);
     }
 
     expect(exitCode).toBe(1);
-    expect(errors.some((m) => m.includes('--only cannot be combined with a project release'))).toBe(true);
+    expect(capture.stderr).toContain('--only cannot be combined with a project release');
     // No file was written.
     expect(existsSync(join(fixture.repoDir, 'CHANGELOG.md'))).toBe(false);
     const rootPackageJson: { version: string } = JSON.parse(

@@ -1,3 +1,4 @@
+import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -17,16 +18,19 @@ class ExitError extends Error {
 }
 
 describe(tagCommand, () => {
+  let capture: CapturedStdio;
+
   beforeEach(() => {
+    capture = captureStdio();
     mockCreateTags.mockReturnValue([]);
     vi.spyOn(process, 'exit').mockImplementation((code) => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
     silenceConsole(['info']);
-    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {
+    capture[Symbol.dispose]();
     mockCreateTags.mockReset();
     vi.restoreAllMocks();
   });
@@ -67,7 +71,7 @@ describe(tagCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith('Error: Unknown option: --unknown\n');
+    expect(capture.stderrChunks).toContain('Error: Unknown option: --unknown\n');
     expect(mockCreateTags).not.toHaveBeenCalled();
   });
 
@@ -87,6 +91,6 @@ describe(tagCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith('Error: No tags file found. Run `release-kit prepare` first.\n');
+    expect(capture.stderrChunks).toContain('Error: No tags file found. Run `release-kit prepare` first.\n');
   });
 });

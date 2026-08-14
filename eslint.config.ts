@@ -68,6 +68,9 @@ const config = defineConfig([
       // Off upstream, re-enabled here: the `import()` form typechecks the specifier, so a moved or renamed module
       // fails the build instead of silently leaving the real module in place.
       'vitest/prefer-import-in-mock': 'warn',
+      // Off here: the rule's hand-maintained `Symbol` allow-list omits `dispose`, which a suite-scoped
+      // `captureStdio` binding calls to restore the streams, and the rule takes no options to extend it.
+      'unicorn/no-nonstandard-builtin-properties': 'off',
     },
   }),
   {

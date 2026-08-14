@@ -1,3 +1,4 @@
+import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -29,15 +30,18 @@ class ExitError extends Error {
 }
 
 describe(resolveReleaseNotesConfig, () => {
+  let capture: CapturedStdio;
+
   beforeEach(() => {
+    capture = captureStdio();
     vi.spyOn(process, 'exit').mockImplementation((code) => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
     silenceConsole(['warn']);
-    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {
+    capture[Symbol.dispose]();
     mockLoadConfig.mockReset();
     mockValidateConfig.mockReset();
     vi.restoreAllMocks();
@@ -73,7 +77,7 @@ describe(resolveReleaseNotesConfig, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith('Error: Failed to load config: config read failure\n');
+    expect(capture.stderrChunks).toContain('Error: Failed to load config: config read failure\n');
   });
 
   it('returns defaults when raw config is undefined', async () => {
@@ -108,8 +112,8 @@ describe(resolveReleaseNotesConfig, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith('Invalid config:\n');
-    expect(process.stderr.write).toHaveBeenCalledWith("  \u{274C} Unknown field: 'bogus'\n");
+    expect(capture.stderrChunks).toContain('Invalid config:\n');
+    expect(capture.stderrChunks).toContain("  \u{274C} Unknown field: 'bogus'\n");
   });
 
   it('logs each warning from validateConfig', async () => {

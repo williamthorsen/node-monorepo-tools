@@ -1,7 +1,8 @@
 import { PassThrough } from 'node:stream';
 
+import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { formatErrorLine, reportError, reportWriteResult } from '../terminal.ts';
 import type { WriteResult } from '../writeFileWithCheck.ts';
@@ -13,35 +14,27 @@ describe(formatErrorLine, () => {
 });
 
 describe(reportError, () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('writes a canonical Error line with a trailing newline to stderr by default', () => {
-    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    using capture = captureStdio();
 
     reportError('something went wrong');
 
-    expect(spy).toHaveBeenCalledWith('Error: something went wrong\n');
+    expect(capture.stderrChunks).toContain('Error: something went wrong\n');
   });
 
   it('writes to a provided stream instead of stderr', () => {
-    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    using capture = captureStdio();
     const stream = new PassThrough();
     const writeSpy = vi.spyOn(stream, 'write');
 
     reportError('something went wrong', stream);
 
     expect(writeSpy).toHaveBeenCalledWith('Error: something went wrong\n');
-    expect(stderrSpy).not.toHaveBeenCalled();
+    expect(capture.stderr).toBe('');
   });
 });
 
 describe(reportWriteResult, () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('prints success for created outcome', () => {
     using silent = silenceConsole(['info']);
     const result: WriteResult = { filePath: 'some/file.ts', outcome: 'created' };
@@ -108,16 +101,16 @@ describe(reportWriteResult, () => {
   });
 
   it('prints error for failed outcome', () => {
-    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    using capture = captureStdio();
     const result: WriteResult = { filePath: 'some/file.ts', outcome: 'failed' };
 
     reportWriteResult(result, false);
 
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('Failed to write some/file.ts'));
+    expect(capture.stderr).toContain('Failed to write some/file.ts');
   });
 
   it('prints error with detail when failed outcome has an error', () => {
-    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    using capture = captureStdio();
     const result: WriteResult = {
       filePath: 'some/file.ts',
       outcome: 'failed',
@@ -126,8 +119,6 @@ describe(reportWriteResult, () => {
 
     reportWriteResult(result, false);
 
-    expect(spy).toHaveBeenCalledWith(
-      expect.stringContaining('Failed to write some/file.ts: ENOSPC: no space left on device'),
-    );
+    expect(capture.stderr).toContain('Failed to write some/file.ts: ENOSPC: no space left on device');
   });
 });

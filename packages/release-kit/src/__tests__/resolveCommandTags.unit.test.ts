@@ -1,3 +1,4 @@
+import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
@@ -47,7 +48,10 @@ function makeWorkspace(dir: string, tagPrefix: string, workspacePath: string, is
 }
 
 describe(resolveCommandTags, () => {
+  let capture: CapturedStdio;
+
   beforeEach(() => {
+    capture = captureStdio();
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core', 'packages/cli', 'packages/release-kit']);
     mockResolveReleaseTags.mockReturnValue(TAGS);
     mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => {
@@ -65,10 +69,10 @@ describe(resolveCommandTags, () => {
     vi.spyOn(process, 'exit').mockImplementation((code) => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
-    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {
+    capture[Symbol.dispose]();
     mockDiscoverWorkspaces.mockReset();
     mockResolveReleaseTags.mockReset();
     mockDeriveWorkspaceConfig.mockReset();
@@ -137,7 +141,7 @@ describe(resolveCommandTags, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith(
+    expect(capture.stderrChunks).toContain(
       'Error: Unknown tag "missing-v9.9.9" in --tags. Available: nmr-core-v1.3.0, cli-v0.5.0, release-kit-v2.1.0\n',
     );
   });
@@ -154,7 +158,7 @@ describe(resolveCommandTags, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith(
+    expect(capture.stderrChunks).toContain(
       'Error: Unknown tag "missing-v9.9.9" in --tags. Available: nmr-core-v1.3.0, cli-v0.5.0, release-kit-v2.1.0\n',
     );
   });
@@ -173,7 +177,7 @@ describe(resolveCommandTags, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith(
+    expect(capture.stderrChunks).toContain(
       'Error: No release tags found on HEAD. Create tags with `release-kit tag` first.\n',
     );
   });
@@ -192,7 +196,7 @@ describe(resolveCommandTags, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith('Error: Failed to discover workspaces: workspace read failure\n');
+    expect(capture.stderrChunks).toContain('Error: Failed to discover workspaces: workspace read failure\n');
     expect(mockResolveReleaseTags).not.toHaveBeenCalled();
   });
 
@@ -212,7 +216,7 @@ describe(resolveCommandTags, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith(
+    expect(capture.stderrChunks).toContain(
       "Error: Failed to resolve workspaces: packages/core/package.json is missing a 'name' field (required for tag derivation).\n",
     );
     expect(mockResolveReleaseTags).not.toHaveBeenCalled();

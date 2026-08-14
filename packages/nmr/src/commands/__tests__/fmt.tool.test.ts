@@ -3,7 +3,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { runFmt, runPrettier } from '../fmt.ts';
 
@@ -28,15 +29,16 @@ const TRACKED_FILES = {
  */
 describe(runFmt, () => {
   let repository: string;
+  let capture: CapturedStdio;
 
   beforeEach(() => {
+    capture = captureStdio();
     repository = scaffoldRepository(TRACKED_FILES);
-    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {
+    capture[Symbol.dispose]();
     fs.rmSync(repository, { recursive: true, force: true });
-    vi.restoreAllMocks();
   });
 
   it('honours a package-level .prettierignore from the repository root', () => {
@@ -128,18 +130,19 @@ describe(runPrettier, () => {
   let stubDir: string;
   let cliPath: string;
   let recordPath: string;
+  let capture: CapturedStdio;
 
   beforeEach(() => {
+    capture = captureStdio();
     stubDir = makeTempDir('nmr-fmt-stub-');
     cliPath = path.join(stubDir, 'stub.cjs');
     recordPath = path.join(stubDir, 'calls.jsonl');
     writeRecordingStub(cliPath, recordPath, 0);
-    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {
+    capture[Symbol.dispose]();
     fs.rmSync(stubDir, { recursive: true, force: true });
-    vi.restoreAllMocks();
   });
 
   it('leaves unparseable files to Prettier rather than filtering them out', () => {
