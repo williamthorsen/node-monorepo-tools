@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { runFmt, runPrettier } from '../fmt.ts';
 
@@ -39,7 +39,6 @@ describe(runFmt, () => {
   afterEach(() => {
     capture[Symbol.dispose]();
     fs.rmSync(repository, { recursive: true, force: true });
-    vi.restoreAllMocks();
   });
 
   it('honours a package-level .prettierignore from the repository root', () => {
@@ -144,7 +143,6 @@ describe(runPrettier, () => {
   afterEach(() => {
     capture[Symbol.dispose]();
     fs.rmSync(stubDir, { recursive: true, force: true });
-    vi.restoreAllMocks();
   });
 
   it('leaves unparseable files to Prettier rather than filtering them out', () => {

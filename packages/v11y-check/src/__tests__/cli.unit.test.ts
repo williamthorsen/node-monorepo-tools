@@ -52,24 +52,15 @@ vi.mock(import('../tmp.ts'), () => ({
 // Suite setup
 // ---------------------------------------------------------------------------
 
-let capture: CapturedStdio;
-
 /**
- * Opens a stdio capture and primes the mocks every command in this file depends on. Registered by each suite
- * below rather than at file scope, which would put a hook outside any describe.
+ * Primes the mocks every command in this file depends on and returns an open stdio capture. Registered by each
+ * suite below rather than at file scope, which would put a hook outside any describe.
  */
-function primeSuite(): void {
-  capture = captureStdio();
+function primeSuite(): CapturedStdio {
   setupTempDir();
   mocks.generateAuditCiConfig.mockResolvedValue('/fake/tmp/audit-ci.json');
   mocks.scaffoldConfig.mockReturnValue({ configResult: { outcome: 'created' } });
-}
-
-/** Disposes the capture and clears the module mocks, so a suite starts from the same state each time. */
-function releaseSuite(): void {
-  capture[Symbol.dispose]();
-  vi.restoreAllMocks();
-  vi.clearAllMocks();
+  return captureStdio();
 }
 
 // ---------------------------------------------------------------------------
@@ -77,9 +68,16 @@ function releaseSuite(): void {
 // ---------------------------------------------------------------------------
 
 describe(auditCommand, () => {
-  beforeEach(primeSuite);
+  let capture: CapturedStdio;
 
-  afterEach(releaseSuite);
+  beforeEach(() => {
+    capture = primeSuite();
+  });
+
+  afterEach(() => {
+    capture[Symbol.dispose]();
+    vi.clearAllMocks();
+  });
 
   it('returns 1 when config loading fails', async () => {
     mocks.loadConfig.mockRejectedValue(new Error('Config not found'));
@@ -245,9 +243,16 @@ describe(auditCommand, () => {
 // ---------------------------------------------------------------------------
 
 describe(checkCommand, () => {
-  beforeEach(primeSuite);
+  let capture: CapturedStdio;
 
-  afterEach(releaseSuite);
+  beforeEach(() => {
+    capture = primeSuite();
+  });
+
+  afterEach(() => {
+    capture[Symbol.dispose]();
+    vi.clearAllMocks();
+  });
 
   it('returns 1 when config loading fails', async () => {
     mocks.loadConfig.mockRejectedValue(new Error('Config not found'));
@@ -697,9 +702,16 @@ describe(checkCommand, () => {
 // ---------------------------------------------------------------------------
 
 describe(syncCommand, () => {
-  beforeEach(primeSuite);
+  let capture: CapturedStdio;
 
-  afterEach(releaseSuite);
+  beforeEach(() => {
+    capture = primeSuite();
+  });
+
+  afterEach(() => {
+    capture[Symbol.dispose]();
+    vi.clearAllMocks();
+  });
 
   it('returns 1 when config loading fails', async () => {
     mocks.loadConfig.mockRejectedValue(new Error('Config not found'));

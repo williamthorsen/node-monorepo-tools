@@ -54,7 +54,6 @@ describe(syncLabelsInitCommand, () => {
     mockReportWriteResult.mockReset();
     mockValidateConfig.mockReset();
     mockWriteFileWithCheck.mockReset();
-    vi.restoreAllMocks();
   });
 
   it('returns 1 without writing when the retired sync-labels config exists', async () => {

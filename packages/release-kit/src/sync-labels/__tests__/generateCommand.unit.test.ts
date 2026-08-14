@@ -51,7 +51,6 @@ describe(generateCommand, () => {
     mockMkdirSync.mockReset();
     mockReadFileSync.mockReset();
     mockWriteFileSync.mockReset();
-    vi.restoreAllMocks();
   });
 
   it('returns 1 with a migration message when the retired sync-labels config exists', async () => {

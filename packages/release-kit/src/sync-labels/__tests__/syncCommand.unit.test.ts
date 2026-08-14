@@ -25,7 +25,6 @@ describe(syncLabelsCommand, () => {
   afterEach(() => {
     mockExecSync.mockReset();
     mockExistsSync.mockReset();
-    vi.restoreAllMocks();
   });
 
   it('returns 1 with a migration message when the retired sync-labels config exists', () => {

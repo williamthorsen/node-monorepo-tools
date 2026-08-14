@@ -39,10 +39,6 @@ describe(reportError, () => {
 });
 
 describe(reportWriteResult, () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('prints success for created outcome', () => {
     using silent = silenceConsole(['info']);
     const result: WriteResult = { filePath: 'some/file.ts', outcome: 'created' };
