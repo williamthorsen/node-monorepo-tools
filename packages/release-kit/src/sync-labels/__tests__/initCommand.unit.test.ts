@@ -1,3 +1,4 @@
+import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -128,7 +129,7 @@ describe(syncLabelsInitCommand, () => {
     mockLoadConfig.mockResolvedValue({ bad: true });
     mockValidateConfig.mockReturnValue({ config: {}, errors: ['bad config'], warnings: [] });
     using _silent = silenceConsole(['info']);
-    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    using _capture = captureStdio();
 
     const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false });
 
@@ -157,7 +158,7 @@ describe(syncLabelsInitCommand, () => {
     givenExistingFiles();
     mockDiscoverWorkspaces.mockRejectedValue(new Error('filesystem error'));
     using _silent = silenceConsole(['info']);
-    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    using _capture = captureStdio();
 
     const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false });
 
@@ -181,7 +182,7 @@ describe(syncLabelsInitCommand, () => {
     mockDiscoverWorkspaces.mockResolvedValue(undefined);
     mockWriteFileWithCheck.mockReturnValue({ outcome: 'failed', filePath: 'some/file' });
     using _silent = silenceConsole(['info']);
-    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    using _capture = captureStdio();
 
     const exitCode = await syncLabelsInitCommand({ dryRun: false, force: false });
 

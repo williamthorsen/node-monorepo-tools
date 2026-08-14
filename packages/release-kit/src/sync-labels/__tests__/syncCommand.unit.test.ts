@@ -1,3 +1,4 @@
+import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -29,12 +30,12 @@ describe(syncLabelsCommand, () => {
 
   it('returns 1 with a migration message when the retired sync-labels config exists', () => {
     givenExistingFiles(RETIRED_SYNC_LABELS_CONFIG_PATH);
-    const errorSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    using capture = captureStdio();
 
     const result = syncLabelsCommand();
 
     expect(result).toBe(1);
-    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('no longer read'));
+    expect(capture.stderr).toContain('no longer read');
     expect(mockExecSync).not.toHaveBeenCalled();
   });
 
@@ -43,23 +44,23 @@ describe(syncLabelsCommand, () => {
       if (cmd === 'gh --version') throw new Error('command not found: gh');
       return Buffer.from('');
     });
-    const errorSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    using capture = captureStdio();
 
     const result = syncLabelsCommand();
 
     expect(result).toBe(1);
-    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('gh'));
+    expect(capture.stderr).toContain('gh');
   });
 
   it('returns 1 when workflow file does not exist', () => {
     mockExecSync.mockReturnValue(Buffer.from('gh version 2.0.0'));
     mockExistsSync.mockReturnValue(false);
-    const errorSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    using capture = captureStdio();
 
     const result = syncLabelsCommand();
 
     expect(result).toBe(1);
-    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('sync-labels.yaml'));
+    expect(capture.stderr).toContain('sync-labels.yaml');
   });
 
   it('returns 0 and triggers workflow on success', () => {
@@ -79,11 +80,11 @@ describe(syncLabelsCommand, () => {
       throw new Error('workflow dispatch failed');
     });
     givenExistingFiles('.github/workflows/sync-labels.yaml');
-    const errorSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    using capture = captureStdio();
 
     const result = syncLabelsCommand();
 
     expect(result).toBe(1);
-    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('workflow dispatch failed'));
+    expect(capture.stderr).toContain('workflow dispatch failed');
   });
 });

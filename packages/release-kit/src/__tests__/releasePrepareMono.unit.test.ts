@@ -1,3 +1,4 @@
+import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -1777,21 +1778,16 @@ describe(releasePrepareMono, () => {
         ],
       });
       setupNoBaseline(['core-v0.2.7', 'core-v0.2.8'], 'feat: addabc');
-      const messages: string[] = [];
-      const errorSpy = vi.spyOn(process.stderr, 'write').mockImplementation((chunk: string | Uint8Array) => {
-        messages.push(String(chunk));
-        return true;
-      });
+      using capture = captureStdio();
 
       releasePrepareMono(config, {});
 
-      expect(messages).toHaveLength(1);
-      const message = messages[0] ?? '';
+      expect(capture.stderrChunks).toHaveLength(1);
+      const message = capture.stderrChunks[0] ?? '';
       expect(message).toContain("no baseline tag found for core under 'nmr-core-v'");
       expect(message).toContain('candidate-shaped tags');
       expect(message).toContain('core-v0.2.7');
       expect(message).toContain('show-tag-prefixes');
-      errorSpy.mockRestore();
     });
 
     it('suppresses the hint when legacyIdentities is non-empty', () => {
@@ -1811,16 +1807,11 @@ describe(releasePrepareMono, () => {
         ],
       });
       setupNoBaseline(['core-v0.2.7'], 'feat: addabc');
-      const messages: string[] = [];
-      const errorSpy = vi.spyOn(process.stderr, 'write').mockImplementation((chunk: string | Uint8Array) => {
-        messages.push(String(chunk));
-        return true;
-      });
+      using capture = captureStdio();
 
       releasePrepareMono(config, {});
 
-      expect(messages).toHaveLength(0);
-      errorSpy.mockRestore();
+      expect(capture.stderrChunks).toHaveLength(0);
     });
 
     it('suppresses the hint when no candidate-shaped tags exist', () => {
@@ -1839,16 +1830,11 @@ describe(releasePrepareMono, () => {
         ],
       });
       setupNoBaseline([], 'feat: addabc');
-      const messages: string[] = [];
-      const errorSpy = vi.spyOn(process.stderr, 'write').mockImplementation((chunk: string | Uint8Array) => {
-        messages.push(String(chunk));
-        return true;
-      });
+      using capture = captureStdio();
 
       releasePrepareMono(config, {});
 
-      expect(messages).toHaveLength(0);
-      errorSpy.mockRestore();
+      expect(capture.stderrChunks).toHaveLength(0);
     });
 
     it("treats sibling workspaces' derived prefixes as known (not undeclared candidates)", () => {
@@ -1882,16 +1868,11 @@ describe(releasePrepareMono, () => {
       });
       // Only tags in the repo belong to the sibling `arrays` workspace. `core` has no baseline.
       setupNoBaseline(['node-monorepo-arrays-v1.0.0', 'node-monorepo-arrays-v1.1.0'], 'feat: addabc');
-      const messages: string[] = [];
-      const errorSpy = vi.spyOn(process.stderr, 'write').mockImplementation((chunk: string | Uint8Array) => {
-        messages.push(String(chunk));
-        return true;
-      });
+      using capture = captureStdio();
 
       releasePrepareMono(config, {});
 
-      expect(messages).toHaveLength(0);
-      errorSpy.mockRestore();
+      expect(capture.stderrChunks).toHaveLength(0);
     });
 
     it("treats sibling workspaces' declared legacyIdentities as known", () => {
@@ -1923,16 +1904,11 @@ describe(releasePrepareMono, () => {
         ],
       });
       setupNoBaseline(['arrays-v0.5.0', 'arrays-v0.6.0'], 'feat: addabc');
-      const messages: string[] = [];
-      const errorSpy = vi.spyOn(process.stderr, 'write').mockImplementation((chunk: string | Uint8Array) => {
-        messages.push(String(chunk));
-        return true;
-      });
+      using capture = captureStdio();
 
       releasePrepareMono(config, {});
 
-      expect(messages).toHaveLength(0);
-      errorSpy.mockRestore();
+      expect(capture.stderrChunks).toHaveLength(0);
     });
 
     it('prints at most one hint per prepare run even with multiple triggering workspaces', () => {
@@ -1961,16 +1937,11 @@ describe(releasePrepareMono, () => {
         ],
       });
       setupNoBaseline(['core-v0.2.7', 'arrays-v0.1.0'], 'feat: addabc');
-      const messages: string[] = [];
-      const errorSpy = vi.spyOn(process.stderr, 'write').mockImplementation((chunk: string | Uint8Array) => {
-        messages.push(String(chunk));
-        return true;
-      });
+      using capture = captureStdio();
 
       releasePrepareMono(config, {});
 
-      expect(messages).toHaveLength(1);
-      errorSpy.mockRestore();
+      expect(capture.stderrChunks).toHaveLength(1);
     });
   });
 
