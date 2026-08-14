@@ -18,7 +18,7 @@ External consumers reference reusable workflows by pointer tag:
 uses: williamthorsen/node-monorepo-tools/.github/workflows/audit.reusable.yaml@workflow/audit-v1
 ```
 
-This repo references its own reusable workflows by relative path (`./.github/workflows/{name}.reusable.yaml`), so callers inside this repo are not affected by pointer-tag updates. The exception is workflows we dogfood through the external ref (e.g., `sync-labels.yaml`), which exercise the same path consumers use.
+This repo's own callers use that same external ref rather than a relative path, so every workflow here is dogfooded through the exact path a consumer takes. Two consequences follow. A pull request never exercises an edit to a `*.reusable.yaml`, because the caller resolves the pointer tag's commit instead of the branch's. And the edit reaches nothing, this repo included, until the pointer tag moves to it.
 
 ### Publish trigger contract
 
