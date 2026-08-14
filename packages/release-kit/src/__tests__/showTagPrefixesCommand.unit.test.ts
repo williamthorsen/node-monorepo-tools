@@ -1,3 +1,4 @@
+import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockPreview = vi.hoisted(() => vi.fn());
@@ -13,24 +14,6 @@ vi.mock(import('../init/detectRepoType.ts'), () => ({
 
 import { showTagPrefixesCommand } from '../showTagPrefixesCommand.ts';
 
-/** Capture stdout output across a command invocation. */
-async function captureStdout(run: () => Promise<number>): Promise<{ exitCode: number; output: string }> {
-  const chunks: string[] = [];
-  const originalWrite = process.stdout.write.bind(process.stdout);
-  const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
-    chunks.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8'));
-    return true;
-  });
-  try {
-    const exitCode = await run();
-    return { exitCode, output: chunks.join('') };
-  } finally {
-    writeSpy.mockRestore();
-    // Silence unused-variable warning for the bound reference.
-    void originalWrite;
-  }
-}
-
 describe(showTagPrefixesCommand, () => {
   beforeEach(() => {
     mockDetectRepoType.mockReturnValue('monorepo');
@@ -43,13 +26,14 @@ describe(showTagPrefixesCommand, () => {
 
   it('renders a single-package row and exits 0 in single-package mode', async () => {
     mockDetectRepoType.mockReturnValue('single-package');
+    using capture = captureStdio();
 
-    const { exitCode, output } = await captureStdout(() => showTagPrefixesCommand());
+    const exitCode = await showTagPrefixesCommand();
 
     expect(exitCode).toBe(0);
-    expect(output).toContain('.');
-    expect(output).toContain('v');
-    expect(output).toContain('single-package mode');
+    expect(capture.stdout).toContain('.');
+    expect(capture.stdout).toContain('v');
+    expect(capture.stdout).toContain('single-package mode');
     expect(mockPreview).not.toHaveBeenCalled();
   });
 
@@ -68,13 +52,14 @@ describe(showTagPrefixesCommand, () => {
       collisions: [],
       undeclaredCandidates: [],
     });
+    using capture = captureStdio();
 
-    const { exitCode, output } = await captureStdout(() => showTagPrefixesCommand());
+    const exitCode = await showTagPrefixesCommand();
 
     expect(exitCode).toBe(0);
-    expect(output).toContain('packages/core');
-    expect(output).toContain("derived prefix 'nmr-core-v'");
-    expect(output).toContain('2 tags');
+    expect(capture.stdout).toContain('packages/core');
+    expect(capture.stdout).toContain("derived prefix 'nmr-core-v'");
+    expect(capture.stdout).toContain('2 tags');
   });
 
   it('surfaces the declared legacy-prefix line with a recognized marker when tags exist', async () => {
@@ -92,10 +77,11 @@ describe(showTagPrefixesCommand, () => {
       collisions: [],
       undeclaredCandidates: [],
     });
+    using capture = captureStdio();
 
-    const { output } = await captureStdout(() => showTagPrefixesCommand());
+    await showTagPrefixesCommand();
 
-    expect(output).toContain("3 legacy tags with 'core-v' prefix (recognized)");
+    expect(capture.stdout).toContain("3 legacy tags with 'core-v' prefix (recognized)");
   });
 
   it('notes declared-but-empty legacy prefixes', async () => {
@@ -113,10 +99,11 @@ describe(showTagPrefixesCommand, () => {
       collisions: [],
       undeclaredCandidates: [],
     });
+    using capture = captureStdio();
 
-    const { output } = await captureStdout(() => showTagPrefixesCommand());
+    await showTagPrefixesCommand();
 
-    expect(output).toContain("recorded legacy prefix 'obsolete-v' has no tags");
+    expect(capture.stdout).toContain("recorded legacy prefix 'obsolete-v' has no tags");
   });
 
   it('exits 1 on derivation failure and prints the error', async () => {
@@ -134,12 +121,13 @@ describe(showTagPrefixesCommand, () => {
       collisions: [],
       undeclaredCandidates: [],
     });
+    using capture = captureStdio();
 
-    const { exitCode, output } = await captureStdout(() => showTagPrefixesCommand());
+    const exitCode = await showTagPrefixesCommand();
 
     expect(exitCode).toBe(1);
-    expect(output).toContain('⛔ derivation failed');
-    expect(output).toContain("missing a 'name' field");
+    expect(capture.stdout).toContain('⛔ derivation failed');
+    expect(capture.stdout).toContain("missing a 'name' field");
   });
 
   it('exits 1 on collision and names the colliding workspaces', async () => {
@@ -165,12 +153,13 @@ describe(showTagPrefixesCommand, () => {
       collisions: [{ tagPrefix: 'foo-v', workspacePaths: ['packages/a-foo', 'packages/b-foo'] }],
       undeclaredCandidates: [],
     });
+    using capture = captureStdio();
 
-    const { exitCode, output } = await captureStdout(() => showTagPrefixesCommand());
+    const exitCode = await showTagPrefixesCommand();
 
     expect(exitCode).toBe(1);
-    expect(output).toContain('tag prefix collision');
-    expect(output).toContain('packages/a-foo, packages/b-foo');
+    expect(capture.stdout).toContain('tag prefix collision');
+    expect(capture.stdout).toContain('packages/a-foo, packages/b-foo');
   });
 
   it('prints the undeclared section with a copy-pasteable snippet and does not affect exit code', async () => {
@@ -190,15 +179,18 @@ describe(showTagPrefixesCommand, () => {
         { prefix: 'core-v', tagCount: 2, exampleTags: ['core-v0.2.7', 'core-v0.2.8'], suggestedDir: 'core' },
       ],
     });
+    using capture = captureStdio();
 
-    const { exitCode, output } = await captureStdout(() => showTagPrefixesCommand());
+    const exitCode = await showTagPrefixesCommand();
 
     expect(exitCode).toBe(0);
-    expect(output).toContain('Undeclared tag prefixes');
-    expect(output).toContain("'core-v'");
-    expect(output).toContain('core-v0.2.7');
-    expect(output).toContain("dir: 'core'");
-    expect(output).toContain("legacyIdentities: [{ name: 'TODO-fill-in-legacy-npm-name', tagPrefix: 'core-v' }]");
-    expect(output).toContain('TODO-fill-in-legacy-npm-name');
+    expect(capture.stdout).toContain('Undeclared tag prefixes');
+    expect(capture.stdout).toContain("'core-v'");
+    expect(capture.stdout).toContain('core-v0.2.7');
+    expect(capture.stdout).toContain("dir: 'core'");
+    expect(capture.stdout).toContain(
+      "legacyIdentities: [{ name: 'TODO-fill-in-legacy-npm-name', tagPrefix: 'core-v' }]",
+    );
+    expect(capture.stdout).toContain('TODO-fill-in-legacy-npm-name');
   });
 });

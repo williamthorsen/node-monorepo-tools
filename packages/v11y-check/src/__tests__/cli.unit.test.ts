@@ -1,3 +1,4 @@
+import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { auditCommand, checkCommand, syncCommand } from '../cli.ts';
@@ -48,33 +49,25 @@ vi.mock(import('../tmp.ts'), () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Stderr / stdout capture helpers
+// Suite setup
 // ---------------------------------------------------------------------------
 
-const captured = { stderr: '', stdout: '' };
+let capture: CapturedStdio;
 
 /**
- * Captures stdout and stderr and primes the mocks every command in this file depends on. Registered by each
- * suite below rather than at file scope, which would put a hook outside any describe.
+ * Opens a stdio capture and primes the mocks every command in this file depends on. Registered by each suite
+ * below rather than at file scope, which would put a hook outside any describe.
  */
-function captureStdio(): void {
-  captured.stderr = '';
-  captured.stdout = '';
-  vi.spyOn(process.stderr, 'write').mockImplementation((chunk: string | Uint8Array) => {
-    captured.stderr += String(chunk);
-    return true;
-  });
-  vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
-    captured.stdout += String(chunk);
-    return true;
-  });
+function primeSuite(): void {
+  capture = captureStdio();
   setupTempDir();
   mocks.generateAuditCiConfig.mockResolvedValue('/fake/tmp/audit-ci.json');
   mocks.scaffoldConfig.mockReturnValue({ configResult: { outcome: 'created' } });
 }
 
-/** Releases the stdio spies and clears the module mocks, so a suite starts from the same state each time. */
-function releaseStdio(): void {
+/** Disposes the capture and clears the module mocks, so a suite starts from the same state each time. */
+function releaseSuite(): void {
+  capture[Symbol.dispose]();
   vi.restoreAllMocks();
   vi.clearAllMocks();
 }
@@ -84,9 +77,9 @@ function releaseStdio(): void {
 // ---------------------------------------------------------------------------
 
 describe(auditCommand, () => {
-  beforeEach(captureStdio);
+  beforeEach(primeSuite);
 
-  afterEach(releaseStdio);
+  afterEach(releaseSuite);
 
   it('returns 1 when config loading fails', async () => {
     mocks.loadConfig.mockRejectedValue(new Error('Config not found'));
@@ -94,7 +87,7 @@ describe(auditCommand, () => {
     const exitCode = await auditCommand(makeOptions());
 
     expect(exitCode).toBe(1);
-    expect(captured.stderr).toContain('Config not found');
+    expect(capture.stderr).toContain('Config not found');
   });
 
   it('forwards stale entry warnings to stderr', async () => {
@@ -109,7 +102,7 @@ describe(auditCommand, () => {
 
     await auditCommand(makeOptions({ scopes: ['dev'] }));
 
-    expect(captured.stderr).toContain('stale allowlist entries in dev: GHSA-1234, GHSA-5678');
+    expect(capture.stderr).toContain('stale allowlist entries in dev: GHSA-1234, GHSA-5678');
   });
 
   it('forwards audit-ci warnings to stderr', async () => {
@@ -124,7 +117,7 @@ describe(auditCommand, () => {
 
     await auditCommand(makeOptions({ scopes: ['dev'] }));
 
-    expect(captured.stderr).toContain('warning: Some parse warning');
+    expect(capture.stderr).toContain('warning: Some parse warning');
   });
 
   it('returns non-zero exit code when any scope fails', async () => {
@@ -163,7 +156,7 @@ describe(auditCommand, () => {
 
     await auditCommand(makeOptions({ json: true, scopes: ['dev'] }));
 
-    const parsed: unknown = JSON.parse(captured.stdout);
+    const parsed: unknown = JSON.parse(capture.stdout);
     expect(parsed).toStrictEqual([{ id: 'GHSA-1', path: 'pkg', paths: ['pkg'], url: 'https://example.com/1' }]);
   });
 
@@ -179,7 +172,7 @@ describe(auditCommand, () => {
 
     await auditCommand(makeOptions({ scopes: ['dev'] }));
 
-    expect(captured.stderr).toContain('audit-ci error output');
+    expect(capture.stderr).toContain('audit-ci error output');
   });
 
   it('deduplicates advisory IDs across scopes in JSON mode', async () => {
@@ -226,7 +219,7 @@ describe(auditCommand, () => {
 
     await auditCommand(makeOptions({ json: true }));
 
-    const parsed: unknown = JSON.parse(captured.stdout);
+    const parsed: unknown = JSON.parse(capture.stdout);
     expect(parsed).toStrictEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: 'GHSA-shared' }),
@@ -252,9 +245,9 @@ describe(auditCommand, () => {
 // ---------------------------------------------------------------------------
 
 describe(checkCommand, () => {
-  beforeEach(captureStdio);
+  beforeEach(primeSuite);
 
-  afterEach(releaseStdio);
+  afterEach(releaseSuite);
 
   it('returns 1 when config loading fails', async () => {
     mocks.loadConfig.mockRejectedValue(new Error('Config not found'));
@@ -262,7 +255,7 @@ describe(checkCommand, () => {
     const exitCode = await checkCommand(makeOptions());
 
     expect(exitCode).toBe(1);
-    expect(captured.stderr).toContain('Config not found');
+    expect(capture.stderr).toContain('Config not found');
   });
 
   it('returns 0 when no vulnerabilities are found', async () => {
@@ -272,7 +265,7 @@ describe(checkCommand, () => {
     const exitCode = await checkCommand(makeOptions({ scopes: ['prod'] }));
 
     expect(exitCode).toBe(0);
-    expect(captured.stdout).toContain('No known vulnerabilities found.');
+    expect(capture.stdout).toContain('No known vulnerabilities found.');
   });
 
   it('returns 1 when unallowed vulnerabilities exist', async () => {
@@ -289,7 +282,7 @@ describe(checkCommand, () => {
     const exitCode = await checkCommand(makeOptions({ scopes: ['prod'] }));
 
     expect(exitCode).toBe(1);
-    expect(captured.stdout).toContain('GHSA-bad');
+    expect(capture.stdout).toContain('GHSA-bad');
   });
 
   it('classifies allowed vulnerabilities correctly', async () => {
@@ -311,7 +304,7 @@ describe(checkCommand, () => {
     const exitCode = await checkCommand(makeOptions({ scopes: ['dev'] }));
 
     expect(exitCode).toBe(0);
-    expect(captured.stdout).toContain('\u{26A0}\u{FE0F}');
+    expect(capture.stdout).toContain('\u{26A0}\u{FE0F}');
   });
 
   it('populates allowed entries with advisory fields from the audit result and metadata from the allowlist entry', async () => {
@@ -349,7 +342,7 @@ describe(checkCommand, () => {
 
     await checkCommand(makeOptions({ json: true, scopes: ['prod'] }));
 
-    const parsed: unknown = JSON.parse(captured.stdout);
+    const parsed: unknown = JSON.parse(capture.stdout);
     expect(parsed).toStrictEqual(
       expect.objectContaining({
         prod: expect.objectContaining({
@@ -401,7 +394,7 @@ describe(checkCommand, () => {
 
     await checkCommand(makeOptions({ json: true, scopes: ['prod'] }));
 
-    const parsed: unknown = JSON.parse(captured.stdout);
+    const parsed: unknown = JSON.parse(capture.stdout);
     expect(parsed).toStrictEqual(
       expect.objectContaining({
         prod: expect.objectContaining({
@@ -428,8 +421,8 @@ describe(checkCommand, () => {
     const exitCode = await checkCommand(makeOptions({ scopes: ['prod'] }));
 
     expect(exitCode).toBe(0);
-    expect(captured.stdout).toContain('GHSA-stale');
-    expect(captured.stdout).toContain('not needed');
+    expect(capture.stdout).toContain('GHSA-stale');
+    expect(capture.stdout).toContain('not needed');
   });
 
   it('outputs JSON when json option is true', async () => {
@@ -443,7 +436,7 @@ describe(checkCommand, () => {
 
     await checkCommand(makeOptions({ json: true, scopes: ['prod'] }));
 
-    const parsed: unknown = JSON.parse(captured.stdout);
+    const parsed: unknown = JSON.parse(capture.stdout);
     expect(parsed).toHaveProperty('prod');
   });
 
@@ -454,8 +447,8 @@ describe(checkCommand, () => {
     await checkCommand(makeOptions());
 
     expect(mocks.runReport).toHaveBeenCalledTimes(2);
-    expect(captured.stdout).toContain('Auditing dependencies');
-    expect(captured.stdout).toContain('No known vulnerabilities found.');
+    expect(capture.stdout).toContain('Auditing dependencies');
+    expect(capture.stdout).toContain('No known vulnerabilities found.');
   });
 
   it('displays prod before dev even when scopes are passed in reverse order', async () => {
@@ -474,8 +467,8 @@ describe(checkCommand, () => {
 
     await checkCommand(makeOptions({ scopes: ['dev', 'prod'] }));
 
-    const prodIndex = captured.stdout.indexOf('\u{1F4E6} prod:');
-    const devIndex = captured.stdout.indexOf('\u{1F527} dev:');
+    const prodIndex = capture.stdout.indexOf('\u{1F4E6} prod:');
+    const devIndex = capture.stdout.indexOf('\u{1F527} dev:');
     expect(prodIndex).toBeGreaterThanOrEqual(0);
     expect(devIndex).toBeGreaterThanOrEqual(0);
     expect(prodIndex).toBeLessThan(devIndex);
@@ -492,7 +485,7 @@ describe(checkCommand, () => {
 
     await checkCommand(makeOptions({ scopes: ['prod'] }));
 
-    expect(captured.stderr).toContain('audit-ci diagnostic output');
+    expect(capture.stderr).toContain('audit-ci diagnostic output');
   });
 
   it('forwards report warnings to stderr', async () => {
@@ -506,7 +499,7 @@ describe(checkCommand, () => {
 
     await checkCommand(makeOptions({ scopes: ['prod'] }));
 
-    expect(captured.stderr).toContain('warning: Parse warning');
+    expect(capture.stderr).toContain('warning: Parse warning');
   });
 
   it('invokes runReport with reportType "full" when verbose is true', async () => {
@@ -562,9 +555,9 @@ describe(checkCommand, () => {
 
     await checkCommand(makeOptions({ scopes: ['prod'], verbose: true }));
 
-    expect(captured.stdout).toContain('\u{26A0}\u{FE0F} GHSA-allowed');
-    expect(captured.stdout).toContain('Example title');
-    expect(captured.stdout).toContain('reason: Accepted');
+    expect(capture.stdout).toContain('\u{26A0}\u{FE0F} GHSA-allowed');
+    expect(capture.stdout).toContain('Example title');
+    expect(capture.stdout).toContain('reason: Accepted');
   });
 
   it('classifies below-threshold vulnerabilities separately and returns 0', async () => {
@@ -588,7 +581,7 @@ describe(checkCommand, () => {
     const exitCode = await checkCommand(makeOptions({ json: true, scopes: ['prod'] }));
 
     expect(exitCode).toBe(0);
-    const parsed: unknown = JSON.parse(captured.stdout);
+    const parsed: unknown = JSON.parse(capture.stdout);
     expect(parsed).toStrictEqual(
       expect.objectContaining({
         prod: expect.objectContaining({
@@ -620,7 +613,7 @@ describe(checkCommand, () => {
     const exitCode = await checkCommand(makeOptions({ json: true, scopes: ['prod'] }));
 
     expect(exitCode).toBe(0);
-    const parsed: unknown = JSON.parse(captured.stdout);
+    const parsed: unknown = JSON.parse(capture.stdout);
     expect(parsed).toStrictEqual(
       expect.objectContaining({
         prod: expect.objectContaining({
@@ -680,7 +673,7 @@ describe(checkCommand, () => {
 
     await checkCommand(makeOptions({ json: true, scopes: ['prod'], verbose: true }));
 
-    const parsed: unknown = JSON.parse(captured.stdout);
+    const parsed: unknown = JSON.parse(capture.stdout);
     expect(parsed).toStrictEqual(
       expect.objectContaining({
         prod: expect.objectContaining({
@@ -704,9 +697,9 @@ describe(checkCommand, () => {
 // ---------------------------------------------------------------------------
 
 describe(syncCommand, () => {
-  beforeEach(captureStdio);
+  beforeEach(primeSuite);
 
-  afterEach(releaseStdio);
+  afterEach(releaseSuite);
 
   it('returns 1 when config loading fails', async () => {
     mocks.loadConfig.mockRejectedValue(new Error('Config not found'));
@@ -747,9 +740,9 @@ describe(syncCommand, () => {
 
     await syncCommand(makeOptions({ scopes: ['dev'] }));
 
-    expect(captured.stdout).toContain('--- dev ---');
-    expect(captured.stdout).toContain('added: 1');
-    expect(captured.stdout).toContain('removed: 2');
+    expect(capture.stdout).toContain('--- dev ---');
+    expect(capture.stdout).toContain('added: 1');
+    expect(capture.stdout).toContain('removed: 2');
   });
 
   it('prints JSON in json mode', async () => {
@@ -762,7 +755,7 @@ describe(syncCommand, () => {
 
     await syncCommand(makeOptions({ json: true, scopes: ['dev'] }));
 
-    const parsed: unknown = JSON.parse(captured.stdout);
+    const parsed: unknown = JSON.parse(capture.stdout);
     expect(parsed).toStrictEqual(expect.objectContaining({ added: [], kept: [], removed: [] }));
   });
 
@@ -789,7 +782,7 @@ describe(syncCommand, () => {
 
     await syncCommand(makeOptions({ scopes: ['dev'] }));
 
-    expect(captured.stdout).toContain('Created config at');
+    expect(capture.stdout).toContain('Created config at');
   });
 
   it('scaffolds a config file when source is defaults', async () => {
@@ -843,7 +836,7 @@ describe(syncCommand, () => {
     const exitCode = await syncCommand(makeOptions({ scopes: ['dev'] }));
 
     expect(exitCode).toBe(1);
-    expect(captured.stderr).toContain('Failed to create config file');
+    expect(capture.stderr).toContain('Failed to create config file');
   });
 });
 
