@@ -1,3 +1,4 @@
+import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -37,7 +38,10 @@ class ExitError extends Error {
 }
 
 describe(createGithubReleaseCommand, () => {
+  let capture: CapturedStdio;
+
   beforeEach(() => {
+    capture = captureStdio();
     mockDiscoverWorkspaces.mockResolvedValue(undefined);
     mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: true }]);
     mockCreateGithubReleases.mockReturnValue({ created: ['v1.0.0'], skipped: [] });
@@ -60,10 +64,10 @@ describe(createGithubReleaseCommand, () => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
     silenceConsole(['info', 'warn']);
-    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {
+    capture[Symbol.dispose]();
     mockDiscoverWorkspaces.mockReset();
     mockResolveReleaseTags.mockReset();
     mockCreateGithubReleases.mockReset();
@@ -143,7 +147,7 @@ describe(createGithubReleaseCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith('Error: Unknown option: --unknown\n');
+    expect(capture.stderrChunks).toContain('Error: Unknown option: --unknown\n');
   });
 
   it('exits with code 1 when no release tags are found on HEAD', async () => {
@@ -160,7 +164,7 @@ describe(createGithubReleaseCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith(
+    expect(capture.stderrChunks).toContain(
       'Error: No release tags found on HEAD. Create tags with `release-kit tag` first.\n',
     );
   });
@@ -182,9 +186,7 @@ describe(createGithubReleaseCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith(
-      'Error: Unknown tag "core-v9.9.9" in --tags. Available: core-v1.3.0\n',
-    );
+    expect(capture.stderrChunks).toContain('Error: Unknown tag "core-v9.9.9" in --tags. Available: core-v1.3.0\n');
   });
 
   it('exits with code 1 when discoverWorkspaces throws', async () => {
@@ -201,7 +203,7 @@ describe(createGithubReleaseCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith('Error: Failed to discover workspaces: discovery failed\n');
+    expect(capture.stderrChunks).toContain('Error: Failed to discover workspaces: discovery failed\n');
   });
 
   it('does not exit when --tags is explicit and every skip is no-entry', async () => {
@@ -223,7 +225,7 @@ describe(createGithubReleaseCommand, () => {
 
     await createGithubReleaseCommand(['--tags=core-v1.3.0,extra-v0.1.0']);
 
-    expect(process.stderr.write).not.toHaveBeenCalled();
+    expect(capture.stderr).toBe('');
     expect(console.info).toHaveBeenCalledWith(
       'Skipped 2 tag(s) with no releasable content: core-v1.3.0 (no-entry), extra-v0.1.0 (no-entry).',
     );
@@ -241,7 +243,7 @@ describe(createGithubReleaseCommand, () => {
 
     await createGithubReleaseCommand(['--tags=core-v1.3.0']);
 
-    expect(process.stderr.write).not.toHaveBeenCalled();
+    expect(capture.stderr).toBe('');
     expect(console.info).toHaveBeenCalledWith(
       'Skipped 1 tag(s) with no releasable content: core-v1.3.0 (no-audience-content).',
     );
@@ -259,7 +261,7 @@ describe(createGithubReleaseCommand, () => {
 
     await createGithubReleaseCommand(['--tags=core-v1.3.0']);
 
-    expect(process.stderr.write).not.toHaveBeenCalled();
+    expect(capture.stderr).toBe('');
     expect(console.info).toHaveBeenCalledWith('Skipped 1 tag(s) with no releasable content: core-v1.3.0 (empty-body).');
   });
 
@@ -278,7 +280,7 @@ describe(createGithubReleaseCommand, () => {
 
     await createGithubReleaseCommand(['--tags=core-v1.3.0,extra-v0.1.0']);
 
-    expect(process.stderr.write).not.toHaveBeenCalled();
+    expect(capture.stderr).toBe('');
     expect(console.info).toHaveBeenCalledWith('Skipped 1 tag(s) with no releasable content: extra-v0.1.0 (no-entry).');
   });
 
@@ -309,7 +311,7 @@ describe(createGithubReleaseCommand, () => {
 
     await createGithubReleaseCommand(['--tags=core-v1.3.0,extra-v0.1.0']);
 
-    expect(process.stderr.write).not.toHaveBeenCalled();
+    expect(capture.stderr).toBe('');
     expect(console.info).toHaveBeenCalledWith(
       'Skipped 1 tag(s) with no releasable content: extra-v0.1.0 (no-audience-content).',
     );
@@ -331,7 +333,7 @@ describe(createGithubReleaseCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith('Error: Failed to create GitHub Releases: gh release failed\n');
+    expect(capture.stderrChunks).toContain('Error: Failed to create GitHub Releases: gh release failed\n');
   });
 
   it('exits with code 1 when resolveReleaseNotesConfig fails to load config', async () => {
@@ -355,7 +357,7 @@ describe(createGithubReleaseCommand, () => {
     expect(thrown?.code).toBe(1);
     expect(mockResolveReleaseNotesConfig).toHaveBeenCalledWith({ strictLoad: true });
     expect(mockCreateGithubReleases).not.toHaveBeenCalled();
-    expect(process.stderr.write).toHaveBeenCalledWith('Error: Failed to load config: read failure\n');
+    expect(capture.stderrChunks).toContain('Error: Failed to load config: read failure\n');
   });
 
   describe('publishability filter', () => {
@@ -384,7 +386,7 @@ describe(createGithubReleaseCommand, () => {
       await createGithubReleaseCommand([]);
 
       expect(mockResolveReleaseNotesConfig).not.toHaveBeenCalled();
-      expect(process.stderr.write).not.toHaveBeenCalled();
+      expect(capture.stderr).toBe('');
     });
 
     it('creates Releases for publishable tags and warns past the private one in a mixed set', async () => {
@@ -423,7 +425,7 @@ describe(createGithubReleaseCommand, () => {
 
       expect(thrown).toBeInstanceOf(ExitError);
       expect(thrown?.code).toBe(1);
-      expect(process.stderr.write).toHaveBeenCalledWith('Error: Missing value for option: --tags\n');
+      expect(capture.stderrChunks).toContain('Error: Missing value for option: --tags\n');
       expect(mockCreateGithubReleases).not.toHaveBeenCalled();
     });
 

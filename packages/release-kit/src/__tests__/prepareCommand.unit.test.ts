@@ -1,3 +1,4 @@
+import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -62,7 +63,10 @@ import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from '../releaseFiles.ts';
 import type { ReleasePlan } from '../releasePlan.ts';
 
 describe(prepareCommand, () => {
+  let capture: CapturedStdio;
+
   beforeEach(() => {
+    capture = captureStdio();
     mockDiscoverWorkspaces.mockResolvedValue(['packages/arrays', 'packages/strings']);
     mockLoadConfig.mockResolvedValue(undefined);
     // Default: pretend the root package.json does not exist. Tests that exercise the project
@@ -86,11 +90,10 @@ describe(prepareCommand, () => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
     silenceConsole(['info']);
-    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {
+    capture[Symbol.dispose]();
     mockAssertCleanWorkingTree.mockReset();
     mockDiscoverWorkspaces.mockReset();
     mockLoadConfig.mockReset();
@@ -166,7 +169,7 @@ describe(prepareCommand, () => {
     mockDiscoverWorkspaces.mockResolvedValue(undefined);
 
     await expect(prepareCommand(['--only=foo'])).rejects.toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('--only is only supported'));
+    expect(capture.stderr).toContain('--only is only supported');
   });
 
   it('exits with error for --force without --bump on a single-package repo', async () => {
@@ -176,7 +179,7 @@ describe(prepareCommand, () => {
     mockDiscoverWorkspaces.mockResolvedValue(undefined);
 
     await expect(prepareCommand(['--force'])).rejects.toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('--force without --bump'));
+    expect(capture.stderr).toContain('--force without --bump');
     expect(mockReleasePrepare).not.toHaveBeenCalled();
   });
 
@@ -195,7 +198,7 @@ describe(prepareCommand, () => {
 
   it('exits with error for --only with an unknown workspace name in monorepo mode', async () => {
     await expect(prepareCommand(['--only=arrays,nonexistent'])).rejects.toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('nonexistent'));
+    expect(capture.stderr).toContain('nonexistent');
     expect(mockReleasePrepareMono).not.toHaveBeenCalled();
   });
 
@@ -219,9 +222,9 @@ describe(prepareCommand, () => {
     });
 
     await expect(prepareCommand(['--only=arrays'])).rejects.toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('stranded by the release'));
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('strings'));
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('downstream of arrays'));
+    expect(capture.stderr).toContain('stranded by the release');
+    expect(capture.stderr).toContain('strings');
+    expect(capture.stderr).toContain('downstream of arrays');
     expect(mockReleasePrepareMono).not.toHaveBeenCalled();
   });
 
@@ -229,16 +232,16 @@ describe(prepareCommand, () => {
     mockLoadConfig.mockRejectedValue(new Error('parse error'));
 
     await expect(prepareCommand([])).rejects.toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('Failed to load config'));
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('parse error'));
+    expect(capture.stderr).toContain('Failed to load config');
+    expect(capture.stderr).toContain('parse error');
   });
 
   it('exits with error when config is invalid', async () => {
     mockLoadConfig.mockResolvedValue({ unknownField: true });
 
     await expect(prepareCommand([])).rejects.toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith('Invalid config:\n');
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('unknownField'));
+    expect(capture.stderrChunks).toContain('Invalid config:\n');
+    expect(capture.stderr).toContain('unknownField');
   });
 
   it('writes release tags after applying the plan', async () => {
@@ -297,10 +300,8 @@ describe(prepareCommand, () => {
     });
 
     await expect(prepareCommand([])).rejects.toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith(
-      "Error: workspace 'arrays' release stage: planVersionBump failed: ENOENT\n",
-    );
-    expect(process.stderr.write).not.toHaveBeenCalledWith(expect.stringContaining('Error preparing release'));
+    expect(capture.stderrChunks).toContain("Error: workspace 'arrays' release stage: planVersionBump failed: ENOENT\n");
+    expect(capture.stderr).not.toContain('Error preparing release');
   });
 
   it('prints validation errors with the canonical Error prefix and no "Error preparing release:" wrapper', async () => {
@@ -309,10 +310,8 @@ describe(prepareCommand, () => {
     });
 
     await expect(prepareCommand([])).rejects.toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith(
-      'Error: --set-version 0.3.0 is not greater than current version 0.5.0\n',
-    );
-    expect(process.stderr.write).not.toHaveBeenCalledWith(expect.stringContaining('Error preparing release'));
+    expect(capture.stderrChunks).toContain('Error: --set-version 0.3.0 is not greater than current version 0.5.0\n');
+    expect(capture.stderr).not.toContain('Error preparing release');
   });
 
   it('reports that the working tree is unchanged when computation fails', async () => {
@@ -321,7 +320,7 @@ describe(prepareCommand, () => {
     });
 
     await expect(prepareCommand([])).rejects.toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith('No files were written; the working tree is unchanged.\n');
+    expect(capture.stderrChunks).toContain('No files were written; the working tree is unchanged.\n');
   });
 
   it('exits and names the written and unwritten files when the apply pass fails', async () => {
@@ -341,9 +340,9 @@ describe(prepareCommand, () => {
     );
 
     await expect(prepareCommand([])).rejects.toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('permission denied'));
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('packages/arrays/package.json'));
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('Not written:'));
+    expect(capture.stderr).toContain('permission denied');
+    expect(capture.stderr).toContain('packages/arrays/package.json');
+    expect(capture.stderr).toContain('Not written:');
   });
 
   it('leaves the release applied and the tags file written when the format command fails', async () => {
@@ -359,7 +358,7 @@ describe(prepareCommand, () => {
 
     await expect(prepareCommand([])).rejects.toThrow(ExitError);
     expect(mockWriteFileWithCheck).toHaveBeenCalledWith(RELEASE_TAGS_FILE, 'arrays-v1.0.0', expect.any(Object));
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('the release is prepared'));
+    expect(capture.stderr).toContain('the release is prepared');
   });
 
   it('prints release tags file path when tags are produced', async () => {
@@ -420,7 +419,7 @@ describe(prepareCommand, () => {
 
     await prepareCommand([]);
 
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining("Run 'release-kit commit'"));
+    expect(capture.stderr).toContain("Run 'release-kit commit'");
   });
 
   it('does not print follow-up message during dry run', async () => {
@@ -428,7 +427,7 @@ describe(prepareCommand, () => {
 
     await prepareCommand(['--dry-run']);
 
-    expect(process.stderr.write).not.toHaveBeenCalledWith(expect.stringContaining("Run 'release-kit commit'"));
+    expect(capture.stderr).not.toContain("Run 'release-kit commit'");
   });
 
   it('applies workspace exclusion from config', async () => {
@@ -451,7 +450,7 @@ describe(prepareCommand, () => {
 
     await prepareCommand([]);
 
-    expect(process.stdout.write).toHaveBeenCalledWith(expect.any(String));
+    expect(capture.stdout).not.toBe('');
   });
 
   it('exits with error when the working tree is dirty', async () => {
@@ -460,7 +459,7 @@ describe(prepareCommand, () => {
     });
 
     await expect(prepareCommand([])).rejects.toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('uncommitted changes'));
+    expect(capture.stderr).toContain('uncommitted changes');
   });
 
   it('skips the clean-tree check when --no-git-checks is provided', async () => {
@@ -494,13 +493,13 @@ describe(prepareCommand, () => {
 
   it('exits with an error when --set-version is used without --only in monorepo mode', async () => {
     await expect(prepareCommand(['--set-version=1.0.0'])).rejects.toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('--set-version requires --only'));
+    expect(capture.stderr).toContain('--set-version requires --only');
     expect(mockReleasePrepareMono).not.toHaveBeenCalled();
   });
 
   it('exits with an error when --only matches multiple workspaces under --set-version', async () => {
     await expect(prepareCommand(['--only=arrays,strings', '--set-version=1.0.0'])).rejects.toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('exactly one workspace'));
+    expect(capture.stderr).toContain('exactly one workspace');
     expect(mockReleasePrepareMono).not.toHaveBeenCalled();
   });
 
@@ -509,7 +508,7 @@ describe(prepareCommand, () => {
     // (which runs before the --set-version narrowing check), so the error mentions the
     // unknown name rather than the "exactly one workspace" message.
     await expect(prepareCommand(['--only=nonexistent', '--set-version=1.0.0'])).rejects.toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('nonexistent'));
+    expect(capture.stderr).toContain('nonexistent');
     expect(mockReleasePrepareMono).not.toHaveBeenCalled();
   });
 
@@ -570,9 +569,7 @@ describe(prepareCommand, () => {
 
     it('rejects --only with an error before any release work runs', async () => {
       await expect(prepareCommand(['--only=arrays'])).rejects.toThrow(ExitError);
-      expect(process.stderr.write).toHaveBeenCalledWith(
-        expect.stringContaining('--only cannot be combined with a project release'),
-      );
+      expect(capture.stderr).toContain('--only cannot be combined with a project release');
       expect(mockReleasePrepareMono).not.toHaveBeenCalled();
     });
 
@@ -583,45 +580,44 @@ describe(prepareCommand, () => {
 
     it('rejects --set-version with the project-aware error (not the transitive --only error)', async () => {
       await expect(prepareCommand(['--set-version=1.2.3'])).rejects.toThrow(ExitError);
-      expect(process.stderr.write).toHaveBeenCalledWith(
-        expect.stringContaining('--set-version cannot be combined with a project release'),
-      );
-      expect(process.stderr.write).not.toHaveBeenCalledWith(expect.stringContaining('requires --only'));
+      expect(capture.stderr).toContain('--set-version cannot be combined with a project release');
+      expect(capture.stderr).not.toContain('requires --only');
       expect(mockReleasePrepareMono).not.toHaveBeenCalled();
     });
 
     it('rejects --set-version + --only with the project-aware error (project rule wins over --only rule)', async () => {
       await expect(prepareCommand(['--set-version=1.2.3', '--only=arrays'])).rejects.toThrow(ExitError);
-      expect(process.stderr.write).toHaveBeenCalledWith(
-        expect.stringContaining('--set-version cannot be combined with a project release'),
-      );
+      expect(capture.stderr).toContain('--set-version cannot be combined with a project release');
       expect(mockReleasePrepareMono).not.toHaveBeenCalled();
     });
   });
 });
 
 describe(parseArgs, () => {
+  let capture: CapturedStdio;
+
   beforeEach(() => {
+    capture = captureStdio();
     vi.spyOn(process, 'exit').mockImplementation((code) => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
     silenceConsole(['info']);
-    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {
+    capture[Symbol.dispose]();
     vi.restoreAllMocks();
   });
 
   it('exits with an error for an invalid bump type', () => {
     expect(() => parseArgs(['--bump=invalid'])).toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('Invalid bump type'));
+    expect(capture.stderr).toContain('Invalid bump type');
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 
   it('exits with an error for an unknown flag with the flag name in the message', () => {
     expect(() => parseArgs(['--foo'])).toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('Unknown option: --foo'));
+    expect(capture.stderr).toContain('Unknown option: --foo');
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 
@@ -629,7 +625,7 @@ describe(parseArgs, () => {
     // The bin dispatcher only intercepts bare `--help`/`-h`; the `=value` form slips past it
     // and reaches parseArgs, where `--help` is no longer a known flag.
     expect(() => parseArgs(['--help=value'])).toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('Unknown option: --help'));
+    expect(capture.stderr).toContain('Unknown option: --help');
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 
@@ -643,7 +639,7 @@ describe(parseArgs, () => {
 
   it('exits with an error when --only value is empty', () => {
     expect(() => parseArgs(['--only='])).toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('Missing value for option: --only'));
+    expect(capture.stderr).toContain('Missing value for option: --only');
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 
@@ -654,37 +650,31 @@ describe(parseArgs, () => {
 
   it('exits with an error when --set-version has a pre-release suffix', () => {
     expect(() => parseArgs(['--set-version=1.0.0-alpha'])).toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('Invalid --set-version'));
+    expect(capture.stderr).toContain('Invalid --set-version');
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 
   it('exits with an error when --set-version is not canonical N.N.N', () => {
     expect(() => parseArgs(['--set-version=1.0'])).toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('Invalid --set-version'));
+    expect(capture.stderr).toContain('Invalid --set-version');
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 
   it('exits with an error when --set-version is empty', () => {
     expect(() => parseArgs(['--set-version='])).toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith(
-      expect.stringContaining('Missing value for option: --set-version'),
-    );
+    expect(capture.stderr).toContain('Missing value for option: --set-version');
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 
   it('exits with an error when --set-version is combined with --bump', () => {
     expect(() => parseArgs(['--set-version=1.0.0', '--bump=minor'])).toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith(
-      expect.stringContaining('--set-version cannot be combined with --bump'),
-    );
+    expect(capture.stderr).toContain('--set-version cannot be combined with --bump');
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 
   it('exits with an error when --set-version is combined with --force', () => {
     expect(() => parseArgs(['--set-version=1.0.0', '--force'])).toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith(
-      expect.stringContaining('--set-version cannot be combined with --force'),
-    );
+    expect(capture.stderr).toContain('--set-version cannot be combined with --force');
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 

@@ -1,3 +1,4 @@
+import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { FlagSchema, ParseErrorKind } from '../parseArgs.ts';
@@ -209,14 +210,17 @@ describe(parseArgsOrExit, () => {
     }
   }
 
+  let capture: CapturedStdio;
+
   beforeEach(() => {
+    capture = captureStdio();
     vi.spyOn(process, 'exit').mockImplementation((code) => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
-    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {
+    capture[Symbol.dispose]();
     vi.restoreAllMocks();
   });
 
@@ -230,14 +234,14 @@ describe(parseArgsOrExit, () => {
   it('prints a usage error and exits with code 1 on a parse failure', () => {
     expect(() => parseArgsOrExit(['--unknown'], mixedSchema)).toThrow(ExitError);
 
-    expect(process.stderr.write).toHaveBeenCalledWith('Error: Unknown option: --unknown\n');
+    expect(capture.stderrChunks).toContain('Error: Unknown option: --unknown\n');
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 
   it('prints a usage error and exits with code 1 on an unexpected positional', () => {
     expect(() => parseArgsOrExit(['extra'], mixedSchema)).toThrow(ExitError);
 
-    expect(process.stderr.write).toHaveBeenCalledWith('Error: Unexpected positional argument: extra\n');
+    expect(capture.stderrChunks).toContain('Error: Unexpected positional argument: extra\n');
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 

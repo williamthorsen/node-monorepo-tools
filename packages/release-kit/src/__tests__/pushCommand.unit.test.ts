@@ -1,3 +1,4 @@
+import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -28,17 +29,20 @@ const TAGS: ResolvedTag[] = [
 ];
 
 describe(pushCommand, () => {
+  let capture: CapturedStdio;
+
   beforeEach(() => {
+    capture = captureStdio();
     mockResolveCommandTags.mockResolvedValue(TAGS);
     mockPushRelease.mockReturnValue([]);
     vi.spyOn(process, 'exit').mockImplementation((code) => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
     silenceConsole(['info']);
-    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {
+    capture[Symbol.dispose]();
     mockPushRelease.mockReset();
     mockResolveCommandTags.mockReset();
     vi.restoreAllMocks();
@@ -107,7 +111,7 @@ describe(pushCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith('Error: Unknown option: --only\n');
+    expect(capture.stderrChunks).toContain('Error: Unknown option: --only\n');
   });
 
   it('exits with code 1 on unknown flags', async () => {
@@ -122,7 +126,7 @@ describe(pushCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith('Error: Unknown option: --unknown\n');
+    expect(capture.stderrChunks).toContain('Error: Unknown option: --unknown\n');
     expect(mockPushRelease).not.toHaveBeenCalled();
   });
 
@@ -142,7 +146,7 @@ describe(pushCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith('Error: push failed\n');
+    expect(capture.stderrChunks).toContain('Error: push failed\n');
   });
 
   it('skips pushRelease when no tags are resolved', async () => {

@@ -1,3 +1,4 @@
+import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -73,7 +74,10 @@ class ExitError extends Error {
 }
 
 describe(publishCommand, () => {
+  let capture: CapturedStdio;
+
   beforeEach(() => {
+    capture = captureStdio();
     mockDiscoverWorkspaces.mockResolvedValue(undefined);
     mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: true }]);
     mockDetectPackageManager.mockReturnValue('npm');
@@ -97,10 +101,10 @@ describe(publishCommand, () => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
     silenceConsole(['info', 'warn']);
-    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {
+    capture[Symbol.dispose]();
     mockDiscoverWorkspaces.mockReset();
     mockResolveReleaseTags.mockReset();
     mockDetectPackageManager.mockReset();
@@ -169,7 +173,7 @@ describe(publishCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith('Error: Unknown option: --unknown\n');
+    expect(capture.stderrChunks).toContain('Error: Unknown option: --unknown\n');
     expect(mockPublishPackage).not.toHaveBeenCalled();
   });
 
@@ -187,7 +191,7 @@ describe(publishCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith(
+    expect(capture.stderrChunks).toContain(
       'Error: No release tags found on HEAD. Create tags with `release-kit tag` first.\n',
     );
   });
@@ -240,9 +244,7 @@ describe(publishCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith(
-      'Error: Unknown tag "missing-v9.9.9" in --tags. Available: core-v1.3.0\n',
-    );
+    expect(capture.stderrChunks).toContain('Error: Unknown tag "missing-v9.9.9" in --tags. Available: core-v1.3.0\n');
   });
 
   it('exits with code 1 when --only is passed (flag removed)', async () => {
@@ -257,7 +259,7 @@ describe(publishCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith('Error: Unknown option: --only\n');
+    expect(capture.stderrChunks).toContain('Error: Unknown option: --only\n');
   });
 
   it('exits with code 1 when publishPackage throws', async () => {
@@ -276,7 +278,7 @@ describe(publishCommand, () => {
 
     expect(thrown).toBeInstanceOf(ExitError);
     expect(thrown?.code).toBe(1);
-    expect(process.stderr.write).toHaveBeenCalledWith('Error: publish failed\n');
+    expect(capture.stderrChunks).toContain('Error: publish failed\n');
   });
 
   it('does not invoke any GitHub Release path during publish', async () => {
@@ -387,8 +389,8 @@ describe(publishCommand, () => {
 
       expect(thrown).toBeInstanceOf(ExitError);
       expect(thrown?.code).toBe(1);
-      expect(process.stderr.write).toHaveBeenCalledWith('Invalid config:\n');
-      expect(process.stderr.write).toHaveBeenCalledWith("  ❌ Unknown field: 'bogus'\n");
+      expect(capture.stderrChunks).toContain('Invalid config:\n');
+      expect(capture.stderrChunks).toContain("  ❌ Unknown field: 'bogus'\n");
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
   });
@@ -601,7 +603,7 @@ describe(publishCommand, () => {
 
       expect(thrown).toBeInstanceOf(ExitError);
       expect(thrown?.code).toBe(1);
-      expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('uncommitted changes'));
+      expect(capture.stderr).toContain('uncommitted changes');
       expect(mockResolveReleaseTags).not.toHaveBeenCalled();
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });

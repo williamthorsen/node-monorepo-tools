@@ -1,4 +1,5 @@
 import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
+import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -28,15 +29,18 @@ class ExitError extends Error {
 }
 
 describe(commitCommand, () => {
+  let capture: CapturedStdio;
+
   beforeEach(() => {
+    capture = captureStdio();
     vi.spyOn(process, 'exit').mockImplementation((code) => {
       throw new ExitError(typeof code === 'number' ? code : undefined);
     });
     silenceConsole(['info']);
-    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {
+    capture[Symbol.dispose]();
     mockReadFileSync.mockReset();
     mockExecFileSync.mockReset();
     vi.restoreAllMocks();
@@ -167,6 +171,6 @@ describe(commitCommand, () => {
 
   it('exits with error for unknown flags', () => {
     expect(() => commitCommand(['--unknown'])).toThrow(ExitError);
-    expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining('Unknown option'));
+    expect(capture.stderr).toContain('Unknown option');
   });
 });
