@@ -53,14 +53,15 @@ vi.mock(import('../tmp.ts'), () => ({
 // ---------------------------------------------------------------------------
 
 /**
- * Primes the mocks every command in this file depends on and returns an open stdio capture. Registered by each
- * suite below rather than at file scope, which would put a hook outside any describe.
+ * Opens a stdio capture and primes the mocks every command in this file depends on. Registered by each suite
+ * below rather than at file scope, which would put a hook outside any describe.
  */
 function primeSuite(): CapturedStdio {
+  const capture = captureStdio();
   setupTempDir();
   mocks.generateAuditCiConfig.mockResolvedValue('/fake/tmp/audit-ci.json');
   mocks.scaffoldConfig.mockReturnValue({ configResult: { outcome: 'created' } });
-  return captureStdio();
+  return capture;
 }
 
 // ---------------------------------------------------------------------------

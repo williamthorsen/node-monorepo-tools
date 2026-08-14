@@ -2,7 +2,7 @@ import { PassThrough } from 'node:stream';
 
 import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { formatErrorLine, reportError, reportWriteResult } from '../terminal.ts';
 import type { WriteResult } from '../writeFileWithCheck.ts';
@@ -14,10 +14,6 @@ describe(formatErrorLine, () => {
 });
 
 describe(reportError, () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('writes a canonical Error line with a trailing newline to stderr by default', () => {
     using capture = captureStdio();
 
