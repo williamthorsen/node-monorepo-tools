@@ -9,6 +9,9 @@ catalogs:
     '@williamthorsen/toolbelt.errors':
       specifier: 0.4.0
       version: 0.4.0
+    '@williamthorsen/toolbelt.testing':
+      specifier: 0.2.0
+      version: 0.2.0
     '@williamthorsen/toolbelt.vitest':
       specifier: 0.2.0
       version: 0.2.0
@@ -105,6 +108,9 @@ importers:
         specifier: 2.9.0
         version: 2.9.0
     devDependencies:
+      '@williamthorsen/toolbelt.testing':
+        specifier: 'catalog:'
+        version: 0.2.0
       '@williamthorsen/toolbelt.vitest':
         specifier: 'catalog:'
         version: 0.2.0(vitest@4.1.10)
@@ -130,6 +136,9 @@ importers:
         specifier: 'catalog:'
         version: 0.4.0
     devDependencies:
+      '@williamthorsen/toolbelt.testing':
+        specifier: 'catalog:'
+        version: 0.2.0
       '@williamthorsen/toolbelt.vitest':
         specifier: 'catalog:'
         version: 0.2.0(vitest@4.1.10)
@@ -161,6 +170,9 @@ importers:
       '@types/semver':
         specifier: 7.8.0
         version: 7.8.0
+      '@williamthorsen/toolbelt.testing':
+        specifier: 'catalog:'
+        version: 0.2.0
       '@williamthorsen/toolbelt.vitest':
         specifier: 'catalog:'
         version: 0.2.0(vitest@4.1.10)
@@ -186,6 +198,9 @@ importers:
         specifier: 4.4.3
         version: 4.4.3
     devDependencies:
+      '@williamthorsen/toolbelt.testing':
+        specifier: 'catalog:'
+        version: 0.2.0
       '@williamthorsen/toolbelt.vitest':
         specifier: 'catalog:'
         version: 0.2.0(vitest@4.1.10)
@@ -838,6 +853,10 @@ packages:
 
   '@williamthorsen/toolbelt.packaging@0.3.0':
     resolution: {integrity: sha512-cmWHKbVp+6cNe5pBtbzmTTm8DOB7B2m8prvyL2uyw/2va1VinoP4K1ud+K/9ehQCD8Yktgm6/p7uS7V7Jtt/qw==}
+    engines: {node: '>=24.0.0'}
+
+  '@williamthorsen/toolbelt.testing@0.2.0':
+    resolution: {integrity: sha512-QKAt2tUrmxtT3Qwrkfax+gnjEuZ9PLmwXUDeDfIVIhvh6dqV540hJBUwLV2eI6BsPGV33d4xxAAfnKCevRS9Bg==}
     engines: {node: '>=24.0.0'}
 
   '@williamthorsen/toolbelt.vitest@0.2.0':
@@ -3077,6 +3096,8 @@ snapshots:
   '@williamthorsen/toolbelt.packaging@0.3.0':
     dependencies:
       '@williamthorsen/toolbelt.filesystem': 0.4.0
+
+  '@williamthorsen/toolbelt.testing@0.2.0': {}
 
   '@williamthorsen/toolbelt.vitest@0.2.0(vitest@4.1.10)':
     dependencies:
