@@ -1,6 +1,6 @@
 import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
 import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockReadFileSync = vi.hoisted(() => vi.fn());
@@ -21,21 +21,12 @@ function errnoError(message: string, code: string): Error {
   return Object.assign(new Error(message), { code });
 }
 
-/** Sentinel error thrown by the mocked process.exit. */
-class ExitError extends Error {
-  constructor(public readonly code: number | undefined) {
-    super(`process.exit(${code})`);
-  }
-}
-
 describe(commitCommand, () => {
   let capture: CapturedStdio;
 
   beforeEach(() => {
     capture = captureStdio();
-    vi.spyOn(process, 'exit').mockImplementation((code) => {
-      throw new ExitError(typeof code === 'number' ? code : undefined);
-    });
+    throwOnProcessExit();
     silenceConsole(['info']);
   });
 
@@ -170,7 +161,7 @@ describe(commitCommand, () => {
   });
 
   it('exits with error for unknown flags', () => {
-    expect(() => commitCommand(['--unknown'])).toThrow(ExitError);
+    expect(() => commitCommand(['--unknown'])).toThrow(ProcessExitError);
     expect(capture.stderr).toContain('Unknown option');
   });
 });

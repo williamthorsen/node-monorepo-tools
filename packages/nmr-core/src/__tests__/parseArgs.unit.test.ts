@@ -1,4 +1,5 @@
 import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { ProcessExitError, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { FlagSchema, ParseErrorKind } from '../parseArgs.ts';
@@ -203,20 +204,11 @@ describe(parseArgs, () => {
 });
 
 describe(parseArgsOrExit, () => {
-  /** Sentinel error thrown by the mocked process.exit. */
-  class ExitError extends Error {
-    constructor(public readonly code: number | undefined) {
-      super(`process.exit(${code})`);
-    }
-  }
-
   let capture: CapturedStdio;
 
   beforeEach(() => {
     capture = captureStdio();
-    vi.spyOn(process, 'exit').mockImplementation((code) => {
-      throw new ExitError(typeof code === 'number' ? code : undefined);
-    });
+    throwOnProcessExit();
   });
 
   afterEach(() => {
@@ -232,14 +224,14 @@ describe(parseArgsOrExit, () => {
   });
 
   it('prints a usage error and exits with code 1 on a parse failure', () => {
-    expect(() => parseArgsOrExit(['--unknown'], mixedSchema)).toThrow(ExitError);
+    expect(() => parseArgsOrExit(['--unknown'], mixedSchema)).toThrow(ProcessExitError);
 
     expect(capture.stderrChunks).toContain('Error: Unknown option: --unknown\n');
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 
   it('prints a usage error and exits with code 1 on an unexpected positional', () => {
-    expect(() => parseArgsOrExit(['extra'], mixedSchema)).toThrow(ExitError);
+    expect(() => parseArgsOrExit(['extra'], mixedSchema)).toThrow(ProcessExitError);
 
     expect(capture.stderrChunks).toContain('Error: Unexpected positional argument: extra\n');
     expect(process.exit).toHaveBeenCalledWith(1);
