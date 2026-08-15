@@ -5,6 +5,12 @@
 - **Caller workflows:** `{name}.yaml` — repo-specific workflows that trigger on events (e.g., `workflow_dispatch`) and delegate to a reusable workflow.
 - **Reusable workflows:** `{name}.reusable.yaml` — shared workflows invoked via `workflow_call`. The Versioning section below covers how callers reach them.
 
+## Consumer requirements
+
+`audit`, `create-github-release`, and `publish` install pnpm with [`pnpm/setup`](https://github.com/pnpm/setup), which installs pnpm 11 or newer only and reads the version from the consumer's `packageManager` field. A repo pinned below that cannot run them. `release` carries no such floor: its consumer path installs release-kit from npm and never invokes pnpm.
+
+`create-github-release` and `publish` additionally require `@williamthorsen/release-kit` as a dependency, because they invoke it through `pnpm exec`.
+
 ## Versioning
 
 Two kinds of tags live in this repo, and they are deliberately shaped differently:
