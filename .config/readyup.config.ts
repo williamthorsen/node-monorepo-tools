@@ -8,6 +8,7 @@ export default defineRdyConfig({
     '@williamthorsen/nmr',
     '@williamthorsen/release-kit',
     '@williamthorsen/toolbelt.errors',
+    '@williamthorsen/toolbelt.vitest',
     '@williamthorsen/tsconfig',
     'codeassembly',
     'readyup',
