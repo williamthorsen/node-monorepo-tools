@@ -16,9 +16,10 @@ name: 'Reusable: Dependency audit'
 # detection improves over time and the CLI exposes no parsed API to break.
 #
 # Consumer prerequisites: `.config/v11y-check.config.json` (allowlist and scope
-# configuration), and a `packageManager` field pinning pnpm 11 or newer, which is
-# the range `pnpm/setup` installs. The audit-ci configs are generated transiently
-# at runtime and need not exist as permanent files.
+# configuration), and a `devEngines.packageManager` or `packageManager` field
+# pinning pnpm 11 or newer, which is the range `pnpm/setup` installs. The
+# audit-ci configs are generated transiently at runtime and need not exist as
+# permanent files.
 #
 # Usage:
 #   jobs:

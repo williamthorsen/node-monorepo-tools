@@ -125,7 +125,7 @@ Other options:
 
 The scaffolded workflow triggers on pull requests to `main`/`next`, on a daily schedule, and on manual `workflow_dispatch`. Commit the file into your repository so the caller runs in CI. If the reusable workflow's caller-side requirements change (for example, the tag bumps), re-run `v11y init --force` to refresh the file.
 
-The reusable workflow installs pnpm with [`pnpm/setup`](https://github.com/pnpm/setup), which installs pnpm 11 or newer only and reads the version from your `packageManager` field. A repository pinned below that cannot run it.
+The reusable workflow installs pnpm with [`pnpm/setup`](https://github.com/pnpm/setup), which installs pnpm 11 or newer only and reads the version from your `devEngines.packageManager` or `packageManager` field. A repository pinned below that cannot run it.
 
 ## Readiness checks
 

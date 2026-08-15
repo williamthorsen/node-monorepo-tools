@@ -7,9 +7,9 @@
 
 ## Consumer requirements
 
-`audit`, `create-github-release`, and `publish` install pnpm with [`pnpm/setup`](https://github.com/pnpm/setup), which installs pnpm 11 or newer only and reads the version from the consumer's `packageManager` field. A repo pinned below that cannot run them. `release` carries no such floor: its consumer path installs release-kit from npm and never invokes pnpm.
+`audit`, `create-github-release`, and `publish` install pnpm with [`pnpm/setup`](https://github.com/pnpm/setup), which installs pnpm 11 or newer only and reads the version from the consumer's `devEngines.packageManager` or `packageManager` field. A repo pinned below that cannot run them. `release` carries no such floor: its consumer path installs release-kit from npm and never invokes pnpm.
 
-`create-github-release` and `publish` additionally require `@williamthorsen/release-kit` as a dependency, because they invoke it through `pnpm exec`.
+`create-github-release` and `publish` additionally require `@williamthorsen/release-kit` as a root dependency. They invoke it through `pnpm exec`, which resolves from the repository root's `node_modules/.bin`, so declaring it in a workspace package alone does not satisfy this.
 
 ## Versioning
 

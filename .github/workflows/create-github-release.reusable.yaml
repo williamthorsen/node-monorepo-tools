@@ -5,8 +5,9 @@ name: 'Reusable: Create GitHub Release'
 #
 # Triggered by tag pushes (or any caller-defined event). Runs
 # `release-kit create-github-release --tags <tag>` through `pnpm exec`, so the
-# consumer must carry `@williamthorsen/release-kit` as a dependency. Independent
-# of publishing: consumers that do not publish to npm can still use this workflow.
+# consumer must carry `@williamthorsen/release-kit` as a root dependency, where
+# `pnpm exec` resolves it. Independent of publishing: consumers that do not
+# publish to npm can still use this workflow.
 # Releases whose changelog has no all-audience content (e.g., tooling-only)
 # succeed silently — the workflow does not fail.
 # When running in the `williamthorsen/node-monorepo-tools` repo itself (checked
@@ -14,8 +15,8 @@ name: 'Reusable: Create GitHub Release'
 # the workspace-linked binary is ready.
 # The calling workflow must grant `contents: write` permission so `gh release create` can run.
 #
-# Consumer prerequisite: a `packageManager` field pinning pnpm 11 or newer, which
-# is the range `pnpm/setup` installs.
+# Consumer prerequisite: a `devEngines.packageManager` or `packageManager` field
+# pinning pnpm 11 or newer, which is the range `pnpm/setup` installs.
 #
 # Usage:
 #   jobs:

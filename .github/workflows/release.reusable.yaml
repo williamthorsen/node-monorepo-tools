@@ -9,8 +9,9 @@ name: 'Reusable: Release'
 # deriving tags independently, so `tagPrefix` in the release config is the
 # single source of truth.
 #
-# Project dependencies are not installed: release-kit runs git-cliff and prettier
-# via `npx`, so no local node_modules are needed.
+# On the consumer path, project dependencies are not installed: release-kit runs
+# git-cliff and prettier via `npx`, so no local node_modules are needed. The
+# source-build path installs them.
 #
 # When running in the `williamthorsen/node-monorepo-tools` repo, release-kit is
 # built from source instead of installed from npm (auto-detected).
@@ -80,10 +81,11 @@ jobs:
           cache: true
           install: false
 
-      # `actions/setup-node` stays because this workflow needs npm and npx, which
-      # `pnpm/setup` strips from the runtime it installs: `release-kit prepare`
-      # spawns `npx git-cliff` and `npx prettier`, and the consumer path installs
-      # release-kit with `npm install --global`.
+      # `actions/setup-node` stays because this workflow needs `npm` and `npx` at a
+      # controlled version, paired with the Node.js they run under: `release-kit
+      # prepare` spawns `npx git-cliff` and `npx prettier`, and the consumer path
+      # installs release-kit with `npm install --global`. `pnpm/setup` omits both
+      # from the runtime it installs, leaving only the runner image's copies.
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:

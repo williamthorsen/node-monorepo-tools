@@ -27,9 +27,10 @@ describe('every reusable workflow that installs pnpm uses pnpm/setup', () => {
 /**
  * Guards the workflows that take their runtime from `pnpm/setup` against an `npm` or `npx` invocation.
  *
- * `pnpm/setup` strips `npm`, `npx`, and `corepack` from the Node.js archive it installs, so either name
- * resolves to nothing in these workflows. Only `audit.reusable.yaml` is exercised by a pull request; a
- * reintroduced invocation in the other two would otherwise first surface at release time.
+ * `pnpm/setup` omits `npm`, `npx`, and `corepack` from the Node.js archive it installs, so either name
+ * falls through to the runner image's copy, at a version no workflow here controls. Only
+ * `audit.reusable.yaml` is exercised by a pull request; a reintroduced invocation in the other two
+ * would otherwise first surface at release time.
  */
 describe('workflows whose runtime comes from pnpm/setup invoke neither npm nor npx', () => {
   it.each(PNPM_RUNTIME_WORKFLOWS)('%s.reusable.yaml', (name) => {
@@ -40,7 +41,7 @@ describe('workflows whose runtime comes from pnpm/setup invoke neither npm nor n
     );
     expect(
       collectRunCommands(content),
-      '`pnpm/setup` installs no `npm` or `npx`; reach a package binary with `pnpm exec` and an uninstalled one with `pnpm dlx`',
+      '`pnpm/setup` installs no `npm` or `npx`, so either falls through to the runner image at an uncontrolled version; reach a package binary with `pnpm exec` and an uninstalled one with `pnpm dlx`',
     ).not.toMatch(NPM_INVOCATION_PATTERN);
   });
 });

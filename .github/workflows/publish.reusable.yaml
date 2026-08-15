@@ -6,17 +6,18 @@ name: 'Reusable: Publish'
 # Triggered by tag pushes. Runs `pnpm install` before publishing so consumer
 # packages with build-time `prepare` hooks have their devDependencies on disk,
 # then invokes release-kit through `pnpm exec`, so the consumer must carry
-# `@williamthorsen/release-kit` as a dependency. release-kit shells out to
-# `pnpm publish`, and pnpm performs the npm OIDC token exchange itself, so no
-# `.npmrc` is written and no registry URL is configured.
+# `@williamthorsen/release-kit` as a root dependency, where `pnpm exec` resolves
+# it. release-kit shells out to `pnpm publish`, and pnpm performs the npm OIDC
+# token exchange itself, so no `.npmrc` is written and no registry URL is
+# configured.
 # Pass `provenance: true` to enable npm provenance attestations (requires a public repo).
 # When running in the `williamthorsen/node-monorepo-tools` repo itself (checked
 # via `github.repository`), release-kit is additionally built from source so
 # the workspace-linked binary is ready before `pnpm exec` invokes it.
 # The calling workflow must grant `id-token: write` and `contents: read` permissions.
 #
-# Consumer prerequisite: a `packageManager` field pinning pnpm 11 or newer, which
-# is the range `pnpm/setup` installs.
+# Consumer prerequisite: a `devEngines.packageManager` or `packageManager` field
+# pinning pnpm 11 or newer, which is the range `pnpm/setup` installs.
 #
 # Usage:
 #   jobs:
