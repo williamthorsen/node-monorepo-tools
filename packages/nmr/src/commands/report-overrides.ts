@@ -1,6 +1,9 @@
 import { getPnpmOverrides, readPackageJson } from '../helpers/package-json.ts';
+import { reportClosing } from '../helpers/reportClosing.ts';
 import { UserError } from '../UserError.ts';
 import { readWorkspaceOverrides } from '../workspace.ts';
+
+const OVERRIDES_ICON = '🔒';
 
 /**
  * Reports the pnpm dependency overrides declared in the monorepo root's `pnpm-workspace.yaml`, and rejects a
@@ -12,16 +15,24 @@ export function reportOverrides(monorepoRoot: string): void {
   const declared = listEntries(readWorkspaceOverrides(monorepoRoot));
 
   if (declared.length > 0) {
-    console.warn('🔒 WARN: pnpm overrides are active! Check whether these are still needed:');
+    console.warn(`${OVERRIDES_ICON} WARN: pnpm overrides are active:`);
     for (const [name, version] of declared) {
       console.warn(`- ${name} → ${version}`);
     }
+    reportClosing(`${OVERRIDES_ICON} ${describeOverrides(declared.length)}`, console.warn);
   }
 
   rejectLegacyOverrides(monorepoRoot);
 }
 
 // region | Helpers
+
+/** Names what the report came to: how many overrides are declared, and what is owed them. */
+function describeOverrides(count: number): string {
+  return count === 1
+    ? '1 override is active. Check whether it is still needed.'
+    : `${count} overrides are active. Check whether they are still needed.`;
+}
 
 /** Returns a record's entries ordered by key. */
 function listEntries<T>(overrides: Record<string, T> | undefined): [string, T][] {
