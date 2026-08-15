@@ -221,7 +221,7 @@ function buildSinglePackageInputs(
  * Workspace scopes mirror `releasePrepareMono.ts:722-723`: `buildTagPattern` over the workspace's
  * derived prefix plus any legacy-identity prefixes, with the workspace's `includePaths`. The
  * project scope mirrors `releasePrepareProject.ts:262-266`: `buildTagPattern([project.tagPrefix])`
- * with the union of all workspace paths.
+ * with the resolved `project.paths`.
  */
 function buildMonorepoInputs(
   discoveredPaths: string[],
@@ -244,9 +244,8 @@ function buildMonorepoInputs(
     filePath: resolveOverridePath('.'),
   };
   if (project !== undefined) {
-    const contributingPaths = config.workspaces.flatMap((workspace) => workspace.paths);
     const projectTagPattern = buildTagPattern([project.tagPrefix]);
-    projectScope.hashes = flattenEntriesToHashes(buildEntries(config, projectTagPattern, contributingPaths));
+    projectScope.hashes = flattenEntriesToHashes(buildEntries(config, projectTagPattern, project.paths));
   }
 
   return { project: projectScope, workspaces };

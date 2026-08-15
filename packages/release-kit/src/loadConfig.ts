@@ -113,9 +113,10 @@ export interface RootPackageInfo {
  * - `versionPatterns`: consumer value replaces defaults entirely.
  * - `formatCommand`, `cliffConfigPath`, `scopeAliases`: consumer value wins.
  * - `project`: present iff `userConfig.project` is declared. Resolves `tagPrefix` to
- *   `DEFAULT_PROJECT_TAG_PREFIX` when omitted. Requires `rootPackage` to be passed and to
- *   contain a valid `version` field; throws otherwise. The resolved prefix is included in
- *   the strict-prefix collision check across all workspace and retired-package prefixes.
+ *   `DEFAULT_PROJECT_TAG_PREFIX` and `paths` to the union of the retained workspaces' `paths`
+ *   when omitted. Requires `rootPackage` to be passed and to contain a valid `version` field;
+ *   throws otherwise. The resolved prefix is included in the strict-prefix collision check
+ *   across all workspace and retired-package prefixes.
  */
 export function mergeMonorepoConfig(
   discoveredPaths: string[],
@@ -152,7 +153,7 @@ export function mergeMonorepoConfig(
   }
 
   // Resolve the project block (when present) and validate the root package.json prerequisites.
-  const project = resolveProjectConfig(userConfig?.project, rootPackage);
+  const project = resolveProjectConfig(userConfig?.project, rootPackage, workspaces);
 
   // Merge workTypes
   const workTypes = resolveWorkTypes(userConfig?.workTypes);
@@ -333,9 +334,13 @@ function assertRetiredPackagesDoNotCollideWithActive(
  * Resolve the consumer-facing `project` block to a `ResolvedProjectConfig`.
  *
  * Returns `undefined` when the consumer did not declare a `project` block. Otherwise applies
- * defaults (`tagPrefix` → `DEFAULT_PROJECT_TAG_PREFIX`) and validates that the root
- * `package.json` exists with a `version` field — both prerequisites for emitting a project
- * tag and bumping a project version. Throws a clear, action-naming error otherwise.
+ * defaults (`tagPrefix` → `DEFAULT_PROJECT_TAG_PREFIX`, `paths` → the union of every contributing
+ * workspace's `paths`) and validates that the root `package.json` exists with a `version` field —
+ * both prerequisites for emitting a project tag and bumping a project version. Throws a clear,
+ * action-naming error otherwise.
+ *
+ * `workspaces` must be the post-exclusion set, so the default window matches the workspaces that
+ * actually contribute.
  *
  * The root-package read itself happens upstream in `loadConfig` (which is async). This
  * function is a pure transformation and never touches the filesystem.
@@ -343,6 +348,7 @@ function assertRetiredPackagesDoNotCollideWithActive(
 function resolveProjectConfig(
   userProject: ReleaseKitConfig['project'],
   rootPackage: RootPackageInfo | undefined,
+  workspaces: readonly WorkspaceConfig[],
 ): ResolvedProjectConfig | undefined {
   if (userProject === undefined) {
     return undefined;
@@ -359,7 +365,10 @@ function resolveProjectConfig(
     );
   }
 
-  return { tagPrefix: userProject.tagPrefix ?? DEFAULT_PROJECT_TAG_PREFIX };
+  return {
+    paths: userProject.paths ?? workspaces.flatMap((workspace) => workspace.paths),
+    tagPrefix: userProject.tagPrefix ?? DEFAULT_PROJECT_TAG_PREFIX,
+  };
 }
 
 /**

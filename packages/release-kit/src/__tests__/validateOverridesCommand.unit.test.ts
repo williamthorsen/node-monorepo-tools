@@ -399,10 +399,29 @@ describe(validateOverridesCommand, () => {
         includePaths: ['packages/bar/**'],
       });
 
-      // Project tier: project tagPattern; includePaths is the union of workspace globs.
+      // Project tier: project tagPattern; includePaths defaults to the union of workspace globs.
       expect(calls[2]).toStrictEqual({
         tagPattern: 'mono-v[0-9].*',
         includePaths: ['packages/foo/**', 'packages/bar/**'],
+      });
+    });
+
+    it('scopes the project tier to a declared project.paths', async () => {
+      const calls: { tagPattern: string | undefined; includePaths: readonly string[] | undefined }[] = [];
+
+      await validateOverridesCommand({
+        discoverWorkspaces: () => Promise.resolve(['packages/foo', 'packages/bar']),
+        loadConfig: () => Promise.resolve({ project: { paths: ['**'], tagPrefix: 'mono-v' } }),
+        buildEntries: (_config, tagPattern, includePaths) => {
+          calls.push({ tagPattern, includePaths });
+          return [];
+        },
+        validate: () => ({ errors: [], warnings: [] }),
+      });
+
+      expect(calls[2]).toStrictEqual({
+        tagPattern: 'mono-v[0-9].*',
+        includePaths: ['**'],
       });
     });
   });
