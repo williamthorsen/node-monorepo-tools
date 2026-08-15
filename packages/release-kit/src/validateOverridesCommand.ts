@@ -218,10 +218,11 @@ function buildSinglePackageInputs(
 /**
  * Build validation inputs for a monorepo, mirroring the per-scope hash universes `prepare` would compute.
  *
- * Workspace scopes mirror `releasePrepareMono.ts:722-723`: `buildTagPattern` over the workspace's
- * derived prefix plus any legacy-identity prefixes, with the workspace's `includePaths`. The
- * project scope mirrors `releasePrepareProject.ts:262-266`: `buildTagPattern([project.tagPrefix])`
- * with the resolved `project.paths`.
+ * Workspace scopes mirror `buildWorkspaceEntries` in `releasePrepareMono.ts`: `buildTagPattern`
+ * over the workspace's derived prefix plus any legacy-identity prefixes, with the workspace's
+ * `includePaths`. The project scope mirrors `planProjectChangelogs` in
+ * `releasePrepareProject.ts`: `buildTagPattern([project.tagPrefix])` with the resolved
+ * `project.paths`.
  */
 function buildMonorepoInputs(
   discoveredPaths: string[],

@@ -226,7 +226,7 @@ interface ProjectConfig {
 
 By default the contributing workspaces are implicit: every non-excluded discovered workspace contributes its `<dir>/**` glob, and the project release considers commits under their union.
 
-Declare `paths` to choose the window yourself. Each entry is used both as a `git log` pathspec and as a `git-cliff --include-path` pattern, so the commit window and the generated changelog always agree. A declared value **replaces** the workspace union rather than extending it: `paths: ['docs/**']` drops every workspace commit from the project release.
+Declare `paths` to choose the window yourself. Each entry reaches two matchers: `git log` as a pathspec, and `git-cliff --include-path` as a glob. A declared value **replaces** the workspace union rather than extending it: `paths: ['docs/**']` drops every workspace commit from the project release.
 
 A repo whose content lives at the root — where no commit matches any `<dir>/**` glob, so the project release would skip every run — declares the whole tree:
 
@@ -236,7 +236,9 @@ const config: ReleaseKitConfig = {
 };
 ```
 
-`'**'` is the whole-tree pattern, matching root-level files, dotfiles, and nested paths alike. `'.'` looks equivalent and is not: git-cliff matches no file against it, so the release would produce an empty changelog with no error.
+`'**'` is the whole-tree pattern, matching root-level files, dotfiles, and nested paths alike.
+
+Terminate a directory scope with `/**`. The two matchers agree on `'aws/**'` but diverge on a bare `'aws'`, which git reads as the whole subtree and git-cliff matches against nothing; `'.'` is the same trap for the repo root. A release under such an entry finds commits, bumps the version, and writes the tag, while its changelog gains no entry for them — and nothing reports an error.
 
 Validation rules:
 
