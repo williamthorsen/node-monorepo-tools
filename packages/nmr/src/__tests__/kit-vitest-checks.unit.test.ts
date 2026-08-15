@@ -1,7 +1,3 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
-
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
@@ -11,13 +7,13 @@ import {
   vitestConfigBuildsOnSharedConfig,
   vitestRootConfigBuildsOnSharedConfig,
 } from '../../.readyup/kits/default.ts';
+import { detailOf } from '../test-utils/detailOf.ts';
+import { buildRepo, removeFixtureDirs } from '../test-utils/fixture-repo.ts';
 
 const SHARED_CONFIG =
   "import { defineVitestConfig } from '@williamthorsen/nmr/vitest';\nexport default defineVitestConfig();\n";
 const SHARED_ROOT_CONFIG =
   "import { defineRootVitestConfig } from '@williamthorsen/nmr/vitest';\nexport default defineRootVitestConfig({ monorepoRoot: import.meta.dirname });\n";
-
-const fixtureDirs: string[] = [];
 
 describe(noRetiredVitestConfigs, () => {
   afterEach(removeFixtureDirs);
@@ -214,38 +210,3 @@ describe(noReExportOnlyVitestConfigs, () => {
     expect(noReExportOnlyVitestConfigs(dir)).toBe(true);
   });
 });
-
-/**
- * Builds a fixture repo in a temp directory from a path-to-content map.
- *
- * Temp directories rather than committed fixtures: a file named `*.integration.test.ts` under any `__tests__/`
- * directory would match this repo's own `unit` project include pattern and be collected as a test.
- */
-function buildRepo(files: Record<string, string>): string {
-  const dir = mkdtempSync(join(tmpdir(), 'nmr-kit-'));
-  fixtureDirs.push(dir);
-
-  for (const [relativePath, content] of Object.entries(files)) {
-    const absolutePath = join(dir, relativePath);
-    mkdirSync(dirname(absolutePath), { recursive: true });
-    writeFileSync(absolutePath, content, 'utf8');
-  }
-
-  return dir;
-}
-
-/** Extracts the detail string from a failing check outcome. */
-function detailOf(outcome: boolean | { ok: boolean; detail?: string | undefined }): string {
-  expect(outcome).toBeTypeOf('object');
-  if (typeof outcome === 'boolean') throw new TypeError('expected a CheckOutcome');
-  expect(outcome.ok).toBe(false);
-  return outcome.detail ?? '';
-}
-
-/** Removes every fixture directory built so far. */
-function removeFixtureDirs(): void {
-  for (const dir of fixtureDirs) {
-    rmSync(dir, { force: true, recursive: true });
-  }
-  fixtureDirs.length = 0;
-}

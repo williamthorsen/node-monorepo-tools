@@ -1,23 +1,14 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
-
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { prettierConfigBuildsOnSharedConfig } from '../../.readyup/kits/default.ts';
+import { detailOf } from '../test-utils/detailOf.ts';
+import { buildRepo, removeFixtureDirs } from '../test-utils/fixture-repo.ts';
 
 const SHARED_CONFIG =
   "import { definePrettierConfig } from '@williamthorsen/nmr/prettier';\nexport default definePrettierConfig();\n";
 
-const fixtureDirs: string[] = [];
-
 describe(prettierConfigBuildsOnSharedConfig, () => {
-  afterEach(() => {
-    for (const dir of fixtureDirs) {
-      rmSync(dir, { force: true, recursive: true });
-    }
-    fixtureDirs.length = 0;
-  });
+  afterEach(removeFixtureDirs);
 
   // Both spellings are configs Prettier reads, so a check matching only one would report a
   // conformant repo as stale. This repo uses the `.prettierrc.js` form.
@@ -100,28 +91,3 @@ describe(prettierConfigBuildsOnSharedConfig, () => {
     expect(detailOf(prettierConfigBuildsOnSharedConfig(dir))).toContain('missing');
   });
 });
-
-// region | Helpers
-
-function buildRepo(files: Record<string, string>): string {
-  const dir = mkdtempSync(join(tmpdir(), 'nmr-kit-'));
-  fixtureDirs.push(dir);
-
-  for (const [relativePath, content] of Object.entries(files)) {
-    const absolutePath = join(dir, relativePath);
-    mkdirSync(dirname(absolutePath), { recursive: true });
-    writeFileSync(absolutePath, content, 'utf8');
-  }
-
-  return dir;
-}
-
-/** Extracts the detail string from a failing check outcome. */
-function detailOf(outcome: boolean | { ok: boolean; detail?: string | undefined }): string {
-  expect(outcome).toBeTypeOf('object');
-  if (typeof outcome === 'boolean') throw new TypeError('expected a CheckOutcome');
-  expect(outcome.ok).toBe(false);
-  return outcome.detail ?? '';
-}
-
-// endregion | Helpers
