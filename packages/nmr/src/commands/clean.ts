@@ -4,6 +4,7 @@ import path from 'node:path';
 import { removeCheckCache } from '../check-cache.ts';
 import { loadRootConfig } from '../config.ts';
 import { findContainingPackageDir } from '../context.ts';
+import { reportClosing } from '../helpers/reportClosing.ts';
 import { applyDevBin, buildWorkspaceRegistry, resolveScript } from '../resolver.ts';
 import { resolveChannel, runCommand } from '../runner.ts';
 import { renderChain } from '../steps.ts';
@@ -82,6 +83,14 @@ async function clearCheckCache(scopeDir: string): Promise<void> {
   console.info(`${CLEAN_ICON} Removed all recorded check results.`);
 }
 
+/** Names what a sweep came to: the packages it cleaned, and any it left to an empty `clean` override. */
+function describeSweep(cleaned: number, skipped: number): string {
+  const packages = cleaned === 1 ? '1 package' : `${cleaned} packages`;
+  const skipClause = skipped === 0 ? '' : `, skipping ${skipped} with an empty clean override`;
+
+  return `Cleaned ${packages}${skipClause}.`;
+}
+
 /**
  * Cleans every workspace package, running each package's resolved `clean` — so a package that overrides
  * `clean`, in config or in its own `package.json`, still gets its own command rather than this sweep.
@@ -101,17 +110,22 @@ async function sweepWorkspace(monorepoRoot: string, workspacePackageDirs: string
   // Every package resolves the same registry, so it is built once; only tier-3 resolution varies per package.
   const registry = buildWorkspaceRegistry(config);
 
+  let cleaned = 0;
+  let skipped = 0;
+
   for (const packageDir of workspacePackageDirs) {
     const resolved = resolveScript(CLEAN_COMMAND, registry, packageDir, false);
     const resolvedCommand = resolved === undefined ? undefined : renderChain(resolved.steps);
 
     // An empty command is the package.json convention for "skip this script".
     if (resolvedCommand === undefined || resolvedCommand === '') {
+      skipped++;
       continue;
     }
 
     if (resolvedCommand === BUILT_IN_CLEAN) {
       await cleanPackage(packageDir);
+      cleaned++;
       continue;
     }
 
@@ -122,7 +136,10 @@ async function sweepWorkspace(monorepoRoot: string, workspacePackageDirs: string
     if (exitCode !== 0) {
       throw new Error(`nmr-clean: \`${command}\` failed in ${path.basename(packageDir)} with exit code ${exitCode}.`);
     }
+    cleaned++;
   }
+
+  reportClosing(`${CLEAN_ICON} ${describeSweep(cleaned, skipped)}`);
 }
 
 // endregion | Helpers
