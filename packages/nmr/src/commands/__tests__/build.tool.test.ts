@@ -878,6 +878,60 @@ describe('buildPackage caching', () => {
   });
 });
 
+describe('buildPackage closing statement', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-build-'));
+    silenceConsole(['info']);
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+    vi.mocked(console.info).mockRestore();
+    vi.mocked(ts.createProgram).mockClear();
+  });
+
+  it('closes the build with the count of files it published', async () => {
+    // Two sources, each emitting a `.js` and a `.d.ts`.
+    scaffoldPackage(dir, {
+      'index.ts': `export { helper } from './helper.ts';\n`,
+      'helper.ts': 'export const helper = 1;\n',
+    });
+
+    await buildPackage(dir);
+
+    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Compiled 4 files to dist/esm.'));
+  });
+
+  it('names the resolved outdir rather than the default', async () => {
+    scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' });
+
+    await buildPackage(dir, { outdir: 'build' });
+
+    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Compiled 2 files to build.'));
+  });
+
+  it('closes a package whose entry points emit nothing, which said nothing before', async () => {
+    // A `src` tree of declaration files alone is an entry point the compiler emits no output for.
+    scaffoldPackage(dir, { 'types.d.ts': 'export type Value = number;\n' });
+
+    await buildPackage(dir);
+
+    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Emitted no output.'));
+  });
+
+  it('leaves the skip path to its own conclusion', async () => {
+    scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' });
+    await buildPackage(dir);
+    vi.mocked(console.info).mockClear();
+
+    await buildPackage(dir);
+
+    expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('Compiled'));
+  });
+});
+
 describe(resolveBuildCachePath, () => {
   let root: string;
 

@@ -99,12 +99,15 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
     return;
   }
 
-  await emitPackage(packageDir, entryPoints, outdir);
+  const emittedFileCount = await emitPackage(packageDir, entryPoints, outdir);
 
   // Persist the digest only after a successful build, so a failed compile cannot poison the cache
   // and cause the next run to skip a never-completed build. Writing it after the output is in place also keeps
   // the digest from ever advertising output that is not yet published.
   await writeCacheEntry(cachePath, currentHash);
+
+  // Reported after the digest lands, so the line describes a build that completed and was recorded.
+  console.info(`${PACKAGE_ICON} ${path.basename(packageDir)}: ${describeEmit(emittedFileCount, outdir)}`);
 }
 
 /**
@@ -175,8 +178,10 @@ export function resolveTsconfigChain(packageDir: string, configFileName = 'tscon
  * Every throw therefore precedes the first rename, so a failed build leaves the previous output exactly as it
  * was. The output directory is never observed mid-write: it holds the previous build or the new one, and is
  * absent only between the two renames. Throws with formatted diagnostics when the program cannot be emitted.
+ *
+ * Reports how many files it published, which is zero for a package whose entry points emit nothing.
  */
-async function emitPackage(packageDir: string, entryPoints: string[], outdir: string): Promise<void> {
+async function emitPackage(packageDir: string, entryPoints: string[], outdir: string): Promise<number> {
   const compilerOptions = synthesizeCompilerOptions(packageDir, outdir);
   const rootNames = entryPoints.map((entry) => path.resolve(packageDir, entry));
   const sourceRoot = path.resolve(packageDir, SOURCE_ROOT);
@@ -210,11 +215,13 @@ async function emitPackage(packageDir: string, entryPoints: string[], outdir: st
   // leave a `dist` behind for a package whose entry points emit no output.
   if (staged.size === 0) {
     await rm(emitDir, { force: true, recursive: true });
-    return;
+    return 0;
   }
 
   writeStagedOutput(staged, emitDir, scratchDirs.staging);
   await swapIntoPlace(emitDir, scratchDirs);
+
+  return staged.size;
 }
 
 /**
@@ -564,6 +571,16 @@ function collectAliasPrefixes(compilerOptions: ts.CompilerOptions): string[] {
     return [];
   }
   return Object.keys(compilerOptions.paths).map((pattern) => pattern.replace(/\*$/, ''));
+}
+
+/** Names what an emit came to: the files it published, or their absence. */
+function describeEmit(fileCount: number, outdir: string): string {
+  if (fileCount === 0) {
+    return 'Emitted no output.';
+  }
+
+  // Always plural: every emitting source yields a `.js` and a `.d.ts`, so the count never lands on one.
+  return `Compiled ${fileCount} files to ${outdir.replace(/\/+$/u, '')}.`;
 }
 
 function formatDiagnostics(diagnostics: readonly ts.Diagnostic[]): string {
