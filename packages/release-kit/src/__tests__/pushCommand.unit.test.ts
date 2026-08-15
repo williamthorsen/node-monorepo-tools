@@ -1,5 +1,5 @@
-import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockPushRelease = vi.hoisted(() => vi.fn());
@@ -16,13 +16,6 @@ vi.mock(import('../resolveCommandTags.ts'), () => ({
 import { pushCommand } from '../pushCommand.ts';
 import type { ResolvedTag } from '../resolveReleaseTags.ts';
 
-/** Sentinel error thrown by the mocked process.exit. */
-class ExitError extends Error {
-  constructor(public readonly code: number | undefined) {
-    super(`process.exit(${code})`);
-  }
-}
-
 const TAGS: ResolvedTag[] = [
   { tag: 'core-v1.2.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
   { tag: 'cli-v0.5.0', dir: 'cli', workspacePath: 'packages/cli', isPublishable: true },
@@ -35,9 +28,7 @@ describe(pushCommand, () => {
     capture = captureStdio();
     mockResolveCommandTags.mockResolvedValue(TAGS);
     mockPushRelease.mockReturnValue([]);
-    vi.spyOn(process, 'exit').mockImplementation((code) => {
-      throw new ExitError(typeof code === 'number' ? code : undefined);
-    });
+    throwOnProcessExit();
     silenceConsole(['info']);
   });
 
@@ -82,50 +73,26 @@ describe(pushCommand, () => {
 
   it('propagates unknown-tag error from resolveCommandTags', async () => {
     mockResolveCommandTags.mockImplementation(() => {
-      throw new ExitError(1);
+      throw new ProcessExitError(1);
     });
 
-    let thrown: ExitError | undefined;
-    try {
-      await pushCommand(['--tags=missing-v9.9.9']);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    const error = await captureError(ProcessExitError, () => pushCommand(['--tags=missing-v9.9.9']));
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
+    expect(error.code).toBe(1);
     expect(mockPushRelease).not.toHaveBeenCalled();
   });
 
   it('exits with code 1 when --only is passed (flag removed)', async () => {
-    let thrown: ExitError | undefined;
-    try {
-      await pushCommand(['--only=core']);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    const error = await captureError(ProcessExitError, () => pushCommand(['--only=core']));
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
+    expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Error: Unknown option: --only\n');
   });
 
   it('exits with code 1 on unknown flags', async () => {
-    let thrown: ExitError | undefined;
-    try {
-      await pushCommand(['--unknown']);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    const error = await captureError(ProcessExitError, () => pushCommand(['--unknown']));
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
+    expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Error: Unknown option: --unknown\n');
     expect(mockPushRelease).not.toHaveBeenCalled();
   });
@@ -135,17 +102,9 @@ describe(pushCommand, () => {
       throw new Error('push failed');
     });
 
-    let thrown: ExitError | undefined;
-    try {
-      await pushCommand([]);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    const error = await captureError(ProcessExitError, () => pushCommand([]));
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
+    expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Error: push failed\n');
   });
 

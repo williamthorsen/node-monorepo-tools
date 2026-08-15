@@ -3,9 +3,9 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
-import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
+import { captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
+import { afterEach, assert, beforeEach, describe, expect, it } from 'vitest';
 
 import { mergeMonorepoConfig } from '../loadConfig.ts';
 import type { ReleasePlan } from '../releasePlan.ts';
@@ -454,7 +454,6 @@ describe('releasePrepareProject (tool)', () => {
     // reflects the user-observable behavior end-to-end. Failure must occur before any file is
     // written: assert no CHANGELOG.md, no bumped version, no project-tag artifact.
     const { prepareCommand } = await import('../prepareCommand.ts');
-    let exitCode: number | undefined;
 
     // Write a minimal release-kit config that declares the project block.
     mkdirSync(join(fixture.repoDir, '.config'), { recursive: true });
@@ -467,21 +466,17 @@ describe('releasePrepareProject (tool)', () => {
     const previousCwd = process.cwd();
     process.chdir(fixture.repoDir);
     using capture = captureStdio();
-    const exitSpy = vi.spyOn(process, 'exit').mockImplementation((code) => {
-      exitCode = typeof code === 'number' ? code : undefined;
-      throw new Error('process.exit');
-    });
+    const exit = throwOnProcessExit();
 
+    let error: ProcessExitError;
     try {
-      await prepareCommand(['--only=pkg-a', '--no-git-checks']);
-    } catch {
-      // Expected: process.exit threw.
+      error = await captureError(ProcessExitError, () => prepareCommand(['--only=pkg-a', '--no-git-checks']));
     } finally {
-      exitSpy.mockRestore();
+      exit[Symbol.dispose]();
       process.chdir(previousCwd);
     }
 
-    expect(exitCode).toBe(1);
+    expect(error.code).toBe(1);
     expect(capture.stderr).toContain('--only cannot be combined with a project release');
     // No file was written.
     expect(existsSync(join(fixture.repoDir, 'CHANGELOG.md'))).toBe(false);

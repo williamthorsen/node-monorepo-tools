@@ -1,4 +1,4 @@
-import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -2290,18 +2290,7 @@ describe(releasePrepareMono, () => {
       });
     }
 
-    /** Run `fn` and return the thrown Error. Fails the test if no Error is thrown. */
-    function captureError(fn: () => unknown): Error {
-      try {
-        fn();
-      } catch (error) {
-        if (error instanceof Error) return error;
-        throw new Error(`Expected an Error to be thrown, got ${typeof error}: ${String(error)}`, { cause: error });
-      }
-      throw new Error('Expected fn to throw, but it returned normally');
-    }
-
-    it("wraps a Phase 1 (bump-determination) throw with the workspace's release-stage label", () => {
+    it("wraps a Phase 1 (bump-determination) throw with the workspace's release-stage label", async () => {
       const config = makeArraysConfig();
       // Make the very first git invocation (`getCommitsSinceTarget`) throw — this exercises
       // the Phase 1 wrap inside `determineDirectBumps`.
@@ -2310,14 +2299,14 @@ describe(releasePrepareMono, () => {
         throw underlying;
       });
 
-      const wrapped = captureError(() => releasePrepareMono(config, {}));
+      const wrapped = await captureError(() => releasePrepareMono(config, {}));
 
       expect(wrapped.message).toMatch(/^workspace 'arrays' release stage: .*git describe failed: not a git repo$/);
       // `cause` is preserved through the chain — at minimum, an Error instance.
       expect(wrapped.cause).toBeInstanceOf(Error);
     });
 
-    it("wraps a Phase 3 (executeWorkspaceRelease) throw with the workspace's release-stage label", () => {
+    it("wraps a Phase 3 (executeWorkspaceRelease) throw with the workspace's release-stage label", async () => {
       const config = makeArraysConfig();
       // Phase 1 succeeds (git describe + git log succeed). `buildChangelogEntries` (which
       // `executeWorkspaceRelease` invokes) throws — this exercises the Phase 3 wrap inside
@@ -2333,14 +2322,14 @@ describe(releasePrepareMono, () => {
         throw underlying;
       });
 
-      const wrapped = captureError(() => releasePrepareMono(config, {}));
+      const wrapped = await captureError(() => releasePrepareMono(config, {}));
 
       expect(wrapped.message).toMatch(/^workspace 'arrays' release stage: .*git-cliff exited with status 1$/);
       // `cause` is preserved through the chain — at minimum, an Error instance.
       expect(wrapped.cause).toBeInstanceOf(Error);
     });
 
-    it('wraps a project-stage throw with the project release-stage label', () => {
+    it('wraps a project-stage throw with the project release-stage label', async () => {
       const config = makeArraysConfig({ project: { paths: ['packages/arrays/**'], tagPrefix: 'v' } });
       // Workspace stage succeeds; `buildChangelogEntries` for the project stage throws.
       const underlying = new Error('cliff exploded on root');
@@ -2367,13 +2356,13 @@ describe(releasePrepareMono, () => {
         return [];
       });
 
-      const wrapped = captureError(() => releasePrepareMono(config, {}));
+      const wrapped = await captureError(() => releasePrepareMono(config, {}));
 
       expect(wrapped.message).toMatch(/^project release stage: .*cliff exploded on root$/);
       expect(wrapped.cause).toBeInstanceOf(Error);
     });
 
-    it('does not wrap --set-version validation throws with a stage label', () => {
+    it('does not wrap --set-version validation throws with a stage label', async () => {
       const config = makeArraysConfig();
       mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
         if (cmd === 'git' && args[0] === 'describe') return 'arrays-v0.5.0\n';
@@ -2382,7 +2371,7 @@ describe(releasePrepareMono, () => {
       });
       mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '0.5.0' }));
 
-      const wrapped = captureError(() => releasePrepareMono(config, { setVersion: '0.3.0' }));
+      const wrapped = await captureError(() => releasePrepareMono(config, { setVersion: '0.3.0' }));
 
       expect(wrapped.message).toBe('--set-version 0.3.0 is not greater than current version 0.5.0');
       expect(wrapped.message).not.toContain('stage:');

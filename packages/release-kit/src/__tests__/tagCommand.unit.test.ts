@@ -1,5 +1,5 @@
-import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCreateTags = vi.hoisted(() => vi.fn());
@@ -10,22 +10,13 @@ vi.mock(import('../createTags.ts'), () => ({
 
 import { tagCommand } from '../tagCommand.ts';
 
-/** Sentinel error thrown by the mocked process.exit. */
-class ExitError extends Error {
-  constructor(public readonly code: number | undefined) {
-    super(`process.exit(${code})`);
-  }
-}
-
 describe(tagCommand, () => {
   let capture: CapturedStdio;
 
   beforeEach(() => {
     capture = captureStdio();
     mockCreateTags.mockReturnValue([]);
-    vi.spyOn(process, 'exit').mockImplementation((code) => {
-      throw new ExitError(typeof code === 'number' ? code : undefined);
-    });
+    throwOnProcessExit();
     silenceConsole(['info']);
   });
 
@@ -59,38 +50,22 @@ describe(tagCommand, () => {
     expect(mockCreateTags).toHaveBeenCalledWith({ dryRun: true, noGitChecks: true });
   });
 
-  it('exits with code 1 on unknown flags', () => {
-    let thrown: ExitError | undefined;
-    try {
-      tagCommand(['--unknown']);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+  it('exits with code 1 on unknown flags', async () => {
+    const error = await captureError(ProcessExitError, () => tagCommand(['--unknown']));
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
+    expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Error: Unknown option: --unknown\n');
     expect(mockCreateTags).not.toHaveBeenCalled();
   });
 
-  it('exits with code 1 when createTags throws', () => {
+  it('exits with code 1 when createTags throws', async () => {
     mockCreateTags.mockImplementation(() => {
       throw new Error('No tags file found. Run `release-kit prepare` first.');
     });
 
-    let thrown: ExitError | undefined;
-    try {
-      tagCommand([]);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    const error = await captureError(ProcessExitError, () => tagCommand([]));
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
+    expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Error: No tags file found. Run `release-kit prepare` first.\n');
   });
 });

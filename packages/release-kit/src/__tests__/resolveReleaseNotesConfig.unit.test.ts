@@ -1,5 +1,5 @@
-import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.ts';
@@ -22,21 +22,12 @@ vi.mock(import('../validateConfig.ts'), () => ({
 
 import { resolveReleaseNotesConfig } from '../resolveReleaseNotesConfig.ts';
 
-/** Sentinel error thrown by the mocked process.exit. */
-class ExitError extends Error {
-  constructor(public readonly code: number | undefined) {
-    super(`process.exit(${code})`);
-  }
-}
-
 describe(resolveReleaseNotesConfig, () => {
   let capture: CapturedStdio;
 
   beforeEach(() => {
     capture = captureStdio();
-    vi.spyOn(process, 'exit').mockImplementation((code) => {
-      throw new ExitError(typeof code === 'number' ? code : undefined);
-    });
+    throwOnProcessExit();
     silenceConsole(['warn']);
   });
 
@@ -66,17 +57,9 @@ describe(resolveReleaseNotesConfig, () => {
   it('exits with code 1 when loadConfig throws and strictLoad is true', async () => {
     mockLoadConfig.mockRejectedValue(new Error('config read failure'));
 
-    let thrown: ExitError | undefined;
-    try {
-      await resolveReleaseNotesConfig({ strictLoad: true });
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    const error = await captureError(ProcessExitError, () => resolveReleaseNotesConfig({ strictLoad: true }));
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
+    expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Error: Failed to load config: config read failure\n');
   });
 
@@ -101,17 +84,9 @@ describe(resolveReleaseNotesConfig, () => {
       warnings: [],
     });
 
-    let thrown: ExitError | undefined;
-    try {
-      await resolveReleaseNotesConfig();
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    const error = await captureError(ProcessExitError, () => resolveReleaseNotesConfig());
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
+    expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Invalid config:\n');
     expect(capture.stderrChunks).toContain("  \u{274C} Unknown field: 'bogus'\n");
   });
