@@ -5,13 +5,18 @@ name: 'Reusable: Publish'
 #
 # Triggered by tag pushes. Runs `pnpm install` before publishing so consumer
 # packages with build-time `prepare` hooks have their devDependencies on disk,
-# then invokes release-kit with OIDC-based npm authentication via `npx`, which
-# prefers the consumer's workspace-linked release-kit over a registry fetch.
+# then invokes release-kit through `pnpm exec`, so the consumer must carry
+# `@williamthorsen/release-kit` as a dependency. release-kit shells out to
+# `pnpm publish`, and pnpm performs the npm OIDC token exchange itself, so no
+# `.npmrc` is written and no registry URL is configured.
 # Pass `provenance: true` to enable npm provenance attestations (requires a public repo).
 # When running in the `williamthorsen/node-monorepo-tools` repo itself (checked
 # via `github.repository`), release-kit is additionally built from source so
-# the workspace-linked binary is ready before `npx` invokes it.
+# the workspace-linked binary is ready before `pnpm exec` invokes it.
 # The calling workflow must grant `id-token: write` and `contents: read` permissions.
+#
+# Consumer prerequisite: a `packageManager` field pinning pnpm 11 or newer, which
+# is the range `pnpm/setup` installs.
 #
 # Usage:
 #   jobs:
@@ -51,18 +56,15 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v6
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
+      - name: Set up pnpm and Node.js
+        uses: pnpm/setup@v2
         with:
-          node-version: ${{ inputs.node-version }}
-          registry-url: https://registry.npmjs.org
-          cache: pnpm
+          runtime: node@${{ inputs.node-version }}
+          cache: true
+          install: false
 
       # Always install dependencies so that consumer packages with a `prepare`
-      # lifecycle hook (e.g., a build step) can run during `npm publish`.
+      # lifecycle hook (e.g., a build step) can run during `pnpm publish`.
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -74,6 +76,6 @@ jobs:
 
       - name: Publish
         run: |
-          npx --yes @williamthorsen/release-kit publish \
+          pnpm exec release-kit publish \
             ${{ inputs.provenance && '--provenance' || '' }} \
             ${{ inputs.tags != '' && format('--tags="{0}"', inputs.tags) || '' }}
