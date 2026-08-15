@@ -36,6 +36,17 @@ describe(reportOverrides, () => {
 
     expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('pnpm overrides are active'));
     expect(silent.warn).toHaveBeenCalledWith('- some-package → 1.2.3');
+    expect(silent.warn).toHaveBeenCalledWith('\n🔒 1 override is active. Check whether it is still needed.');
+  });
+
+  it('closes the report with the count of overrides it named', () => {
+    writePackageJson({ name: 'test', version: '1.0.0' });
+    writeWorkspaceManifest('overrides:\n  some-package: 1.2.3\n  other-package: 4.5.6\n');
+
+    using silent = silenceConsole(['warn']);
+    reportOverrides(tmpDir);
+
+    expect(silent.warn).toHaveBeenCalledWith('\n🔒 2 overrides are active. Check whether they are still needed.');
   });
 
   // YAML's implicit typing turns an unquoted version into a number, which must not cost the entries beside it.

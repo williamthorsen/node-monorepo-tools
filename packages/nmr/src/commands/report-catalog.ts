@@ -1,6 +1,9 @@
 import { findContainingPackageDir } from '../context.ts';
 import { DEPENDENCY_FIELDS, readPackageJson } from '../helpers/package-json.ts';
+import { reportClosing } from '../helpers/reportClosing.ts';
 import { findMonorepoRoot, getWorkspacePackageDirs } from '../workspace.ts';
+
+const CATALOG_ICON = '📚';
 
 /** The protocol marking a specifier whose version comes from a `pnpm-workspace.yaml` catalog. */
 const CATALOG_PROTOCOL = 'catalog:';
@@ -34,15 +37,22 @@ export function reportCatalog(cwd: string): void {
     return;
   }
 
-  const subject = dependencies.length === 1 ? '1 dependency comes' : `${dependencies.length} dependencies come`;
-  console.warn(`📚 WARN: ${subject} from a catalog, which a package-scoped upgrade does not read:`);
+  console.warn(`${CATALOG_ICON} WARN: A package-scoped upgrade does not read the catalogs these come from:`);
   for (const { name, specifier } of dependencies) {
     console.warn(`- ${name} → ${specifier}`);
   }
-  console.warn(`Run \`nmr upgrade\` from ${monorepoRoot} to include them.`);
+  reportClosing(`${CATALOG_ICON} ${describeCatalog(dependencies.length, monorepoRoot)}`, console.warn);
 }
 
 // region | Helpers
+
+/** Names what the report came to: how many dependencies this pass left behind, and the root that reaches them. */
+function describeCatalog(count: number, monorepoRoot: string): string {
+  const subject = count === 1 ? '1 catalogued dependency went' : `${count} catalogued dependencies went`;
+  const object = count === 1 ? 'it' : 'them';
+
+  return `${subject} unread. Run \`nmr upgrade\` from ${monorepoRoot} to include ${object}.`;
+}
 
 /**
  * Returns the package's catalogued dependencies ordered by name, one entry per name.

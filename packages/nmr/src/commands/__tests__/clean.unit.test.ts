@@ -170,6 +170,34 @@ describe(runClean, () => {
     ).resolves.toBeUndefined();
   });
 
+  it('closes the sweep with the count of packages it cleaned', async () => {
+    scaffoldWorkspace(root);
+
+    await runClean(root);
+
+    expect(console.info).toHaveBeenCalledWith('\n🧹 Cleaned 2 packages.');
+  });
+
+  it('counts in the closing statement the packages it left to an empty clean override', async () => {
+    const { a } = scaffoldWorkspace(root);
+    fs.writeFileSync(
+      path.join(a, 'package.json'),
+      JSON.stringify({ name: 'a', type: 'module', scripts: { clean: '' } }),
+    );
+
+    await runClean(root);
+
+    expect(console.info).toHaveBeenCalledWith('\n🧹 Cleaned 1 package, skipping 1 with an empty clean override.');
+  });
+
+  it('closes nothing when the clean is scoped to one package, whose own line is already the conclusion', async () => {
+    const { a } = scaffoldWorkspace(root);
+
+    await runClean(a);
+
+    expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('Cleaned'));
+  });
+
   it('skips a package whose clean resolves to an empty command', async () => {
     // An empty script is the package.json convention for "skip this command", so the sweep must leave the
     // output of a package that opted out of cleaning intact.

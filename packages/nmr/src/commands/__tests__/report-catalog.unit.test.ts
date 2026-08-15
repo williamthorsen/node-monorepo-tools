@@ -28,10 +28,12 @@ describe(reportCatalog, () => {
     using silent = silenceConsole(['warn']);
     reportCatalog(packageDir);
 
-    expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('2 dependencies come from a catalog'));
+    expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('does not read the catalogs these come from'));
     expect(silent.warn).toHaveBeenCalledWith('- lodash → catalog:legacy');
     expect(silent.warn).toHaveBeenCalledWith('- zod → catalog:');
-    expect(silent.warn).toHaveBeenCalledWith(`Run \`nmr upgrade\` from ${monorepoRoot} to include them.`);
+    expect(silent.warn).toHaveBeenCalledWith(
+      `\n📚 2 catalogued dependencies went unread. Run \`nmr upgrade\` from ${monorepoRoot} to include them.`,
+    );
   });
 
   it('names an uncatalogued dependency nowhere in the report', () => {
@@ -54,7 +56,7 @@ describe(reportCatalog, () => {
     using silent = silenceConsole(['warn']);
     reportCatalog(packageDir);
 
-    expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('4 dependencies come from a catalog'));
+    expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('4 catalogued dependencies went unread'));
     expect(silent.warn).toHaveBeenCalledWith('- typescript → catalog:tooling');
     expect(silent.warn).toHaveBeenCalledWith('- vitest → catalog:default');
   });
@@ -68,7 +70,9 @@ describe(reportCatalog, () => {
     using silent = silenceConsole(['warn']);
     reportCatalog(packageDir);
 
-    expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('1 dependency comes from a catalog'));
+    expect(silent.warn).toHaveBeenCalledWith(
+      `\n📚 1 catalogued dependency went unread. Run \`nmr upgrade\` from ${monorepoRoot} to include it.`,
+    );
     expect(silent.warn.mock.calls.filter(([line]) => String(line).includes('typescript'))).toHaveLength(1);
   });
 
