@@ -37,7 +37,7 @@ export function reportCatalog(cwd: string): void {
     return;
   }
 
-  console.warn(`${CATALOG_ICON} WARN: A package-scoped upgrade does not read the catalog these come from:`);
+  console.warn(`${CATALOG_ICON} WARN: A package-scoped upgrade does not read the catalogs these come from:`);
   for (const { name, specifier } of dependencies) {
     console.warn(`- ${name} → ${specifier}`);
   }

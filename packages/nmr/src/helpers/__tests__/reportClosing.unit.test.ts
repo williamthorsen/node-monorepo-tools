@@ -1,3 +1,4 @@
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it, vi } from 'vitest';
 
 import { reportClosing } from '../reportClosing.ts';
@@ -20,11 +21,10 @@ describe(reportClosing, () => {
   });
 
   it('reports to stdout when no log function is given', () => {
-    const info = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    using silent = silenceConsole(['info']);
 
     reportClosing('📚 2 catalogued dependencies went unread.');
 
-    expect(info).toHaveBeenCalledWith('\n📚 2 catalogued dependencies went unread.');
-    info.mockRestore();
+    expect(silent.info).toHaveBeenCalledWith('\n📚 2 catalogued dependencies went unread.');
   });
 });

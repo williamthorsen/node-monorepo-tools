@@ -28,7 +28,7 @@ describe(reportCatalog, () => {
     using silent = silenceConsole(['warn']);
     reportCatalog(packageDir);
 
-    expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('does not read the catalog these come from'));
+    expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('does not read the catalogs these come from'));
     expect(silent.warn).toHaveBeenCalledWith('- lodash → catalog:legacy');
     expect(silent.warn).toHaveBeenCalledWith('- zod → catalog:');
     expect(silent.warn).toHaveBeenCalledWith(

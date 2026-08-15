@@ -178,7 +178,7 @@ describe(runClean, () => {
     expect(console.info).toHaveBeenCalledWith('\n🧹 Cleaned 2 packages.');
   });
 
-  it('names in the closing statement every package it left to an empty clean override', async () => {
+  it('counts in the closing statement the packages it left to an empty clean override', async () => {
     const { a } = scaffoldWorkspace(root);
     fs.writeFileSync(
       path.join(a, 'package.json'),
