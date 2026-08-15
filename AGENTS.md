@@ -63,11 +63,9 @@ If run under a package directory, the command applies to that package. Otherwise
 
 ### Testing
 
-- Vitest with v8 coverage provider, configured by two files at the repo root, both thin wrappers over `@williamthorsen/nmr/vitest`
-- Both configs declare four projects, an isolation ladder named for the furthest thing a test reaches: `unit` (every test file the others don't claim), `tool` (`*.tool.test.ts`, reaching a program the environment supplies), `localhost`, and `remote`. Select them with `--project`, which unions when repeated and accepts negation
-- Every test file names its tier, in the form `<subject>[.<aspect>].<tier>.test.ts`. Only the segment before `.test.` selects a project, so an earlier one (`app`, `packaged`) is free-form documentation. nmr's readyup kit reports an untiered file, which `rdy run --packages` runs here; no test run does, because the residual `unit` claims it and reports success
-- A tier names what a test reaches, not how it invokes it: `build.tool.test.ts` drives the TypeScript compiler in-process and is still `tool`. Nor does it describe preconditions: the four `*.packaged.unit.test.ts` files need a prior build but reach only the filesystem while running, so they are `unit`
-- `nmr test` runs `--project unit --project tool`, `test:unit` and `test:tool` narrow to one, and `test:all` runs every project. `localhost` and `remote` need something running, so no gate selects them and nothing in CI reaches them; `test:all` is the only script that does. The same six names work from the repo root and from inside a package; `root:test*` variants scope to root-level files alone
+- Vitest with v8 coverage provider, configured by two files at the repo root, both thin wrappers over `@williamthorsen/nmr/vitest`, so both declare the same four projects; `root:test*` reaches `vitest.root.config.ts` alone
+- `app` and `packaged` are the aspect segments in use here: `build.tool.test.ts` drives the TypeScript compiler in-process and is still `tool`, and the four `*.packaged.unit.test.ts` files need a prior build but reach only the filesystem while running, so they are `unit`
+- `rdy run --packages` runs nmr's readyup kit here, which is the only thing that reports a nonconformant test filename
 - The shared config sets `passWithNoTests`, so a run collecting no files passes, which `test:tool` needs in order to fan out across packages that have none. `__tests__/workspace-test-presence.app.unit.test.ts` keeps that from hiding a package whose suite disappeared
 - Typecheck uses `tsgo` (TypeScript native preview)
 
