@@ -1,5 +1,5 @@
-import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
@@ -66,13 +66,6 @@ vi.mock(import('../assertCleanWorkingTree.ts'), () => ({
 
 import { publishCommand } from '../publishCommand.ts';
 
-/** Sentinel error thrown by the mocked process.exit. */
-class ExitError extends Error {
-  constructor(public readonly code: number | undefined) {
-    super(`process.exit(${code})`);
-  }
-}
-
 describe(publishCommand, () => {
   let capture: CapturedStdio;
 
@@ -97,9 +90,7 @@ describe(publishCommand, () => {
         paths: [`${workspacePath}/**`],
       };
     });
-    vi.spyOn(process, 'exit').mockImplementation((code) => {
-      throw new ExitError(typeof code === 'number' ? code : undefined);
-    });
+    throwOnProcessExit();
     silenceConsole(['info', 'warn']);
   });
 
@@ -162,17 +153,9 @@ describe(publishCommand, () => {
   });
 
   it('exits with code 1 on unknown flags', async () => {
-    let thrown: ExitError | undefined;
-    try {
-      await publishCommand(['--unknown']);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    const error = await captureError(ProcessExitError, () => publishCommand(['--unknown']));
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
+    expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Error: Unknown option: --unknown\n');
     expect(mockPublishPackage).not.toHaveBeenCalled();
   });
@@ -180,17 +163,9 @@ describe(publishCommand, () => {
   it('exits with code 1 when no release tags are found on HEAD', async () => {
     mockResolveReleaseTags.mockReturnValue([]);
 
-    let thrown: ExitError | undefined;
-    try {
-      await publishCommand([]);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    const error = await captureError(ProcessExitError, () => publishCommand([]));
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
+    expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain(
       'Error: No release tags found on HEAD. Create tags with `release-kit tag` first.\n',
     );
@@ -233,32 +208,16 @@ describe(publishCommand, () => {
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
     ]);
 
-    let thrown: ExitError | undefined;
-    try {
-      await publishCommand(['--tags=missing-v9.9.9']);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    const error = await captureError(ProcessExitError, () => publishCommand(['--tags=missing-v9.9.9']));
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
+    expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Error: Unknown tag "missing-v9.9.9" in --tags. Available: core-v1.3.0\n');
   });
 
   it('exits with code 1 when --only is passed (flag removed)', async () => {
-    let thrown: ExitError | undefined;
-    try {
-      await publishCommand(['--only=core']);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    const error = await captureError(ProcessExitError, () => publishCommand(['--only=core']));
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
+    expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Error: Unknown option: --only\n');
   });
 
@@ -267,17 +226,9 @@ describe(publishCommand, () => {
       throw new Error('publish failed');
     });
 
-    let thrown: ExitError | undefined;
-    try {
-      await publishCommand([]);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    const error = await captureError(ProcessExitError, () => publishCommand([]));
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
+    expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Error: publish failed\n');
   });
 
@@ -333,16 +284,7 @@ describe(publishCommand, () => {
       }
     });
 
-    let thrown: ExitError | undefined;
-    try {
-      await publishCommand([]);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
-
-    expect(thrown).toBeInstanceOf(ExitError);
+    await captureError(ProcessExitError, () => publishCommand([]));
     expect(console.warn).toHaveBeenCalledWith('Packages published before failure:');
     expect(console.warn).toHaveBeenCalledWith('  core-v1.3.0');
   });
@@ -378,17 +320,9 @@ describe(publishCommand, () => {
         warnings: [],
       });
 
-      let thrown: ExitError | undefined;
-      try {
-        await publishCommand([]);
-      } catch (error: unknown) {
-        if (error instanceof ExitError) {
-          thrown = error;
-        }
-      }
+      const error = await captureError(ProcessExitError, () => publishCommand([]));
 
-      expect(thrown).toBeInstanceOf(ExitError);
-      expect(thrown?.code).toBe(1);
+      expect(error.code).toBe(1);
       expect(capture.stderrChunks).toContain('Invalid config:\n');
       expect(capture.stderrChunks).toContain("  ❌ Unknown field: 'bogus'\n");
       expect(mockPublishPackage).not.toHaveBeenCalled();
@@ -425,16 +359,7 @@ describe(publishCommand, () => {
         throw new Error('publish failed');
       });
 
-      let thrown: ExitError | undefined;
-      try {
-        await publishCommand([]);
-      } catch (error: unknown) {
-        if (error instanceof ExitError) {
-          thrown = error;
-        }
-      }
-
-      expect(thrown).toBeInstanceOf(ExitError);
+      await captureError(ProcessExitError, () => publishCommand([]));
       expect(mockWriteFileSync).toHaveBeenCalledWith('/pkg/README.md', '# Original README\n', 'utf8');
     });
 
@@ -592,17 +517,9 @@ describe(publishCommand, () => {
         throw new Error('Working tree has uncommitted changes.');
       });
 
-      let thrown: ExitError | undefined;
-      try {
-        await publishCommand([]);
-      } catch (error: unknown) {
-        if (error instanceof ExitError) {
-          thrown = error;
-        }
-      }
+      const error = await captureError(ProcessExitError, () => publishCommand([]));
 
-      expect(thrown).toBeInstanceOf(ExitError);
-      expect(thrown?.code).toBe(1);
+      expect(error.code).toBe(1);
       expect(capture.stderr).toContain('uncommitted changes');
       expect(mockResolveReleaseTags).not.toHaveBeenCalled();
       expect(mockPublishPackage).not.toHaveBeenCalled();

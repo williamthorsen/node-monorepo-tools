@@ -1,4 +1,5 @@
-import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { ProcessExitError, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
@@ -20,13 +21,6 @@ vi.mock(import('../deriveWorkspaceConfig.ts'), () => ({
 import { resolveCommandTags } from '../resolveCommandTags.ts';
 import type { ResolvedTag } from '../resolveReleaseTags.ts';
 import type { WorkspaceConfig } from '../types.ts';
-
-/** Sentinel error thrown by the mocked process.exit. */
-class ExitError extends Error {
-  constructor(public readonly code: number | undefined) {
-    super(`process.exit(${code})`);
-  }
-}
 
 const TAGS: ResolvedTag[] = [
   { tag: 'nmr-core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
@@ -66,9 +60,7 @@ describe(resolveCommandTags, () => {
       }
       throw new Error(`Unexpected workspace path: ${workspacePath}`);
     });
-    vi.spyOn(process, 'exit').mockImplementation((code) => {
-      throw new ExitError(typeof code === 'number' ? code : undefined);
-    });
+    throwOnProcessExit();
   });
 
   afterEach(() => {
@@ -130,34 +122,18 @@ describe(resolveCommandTags, () => {
   });
 
   it('exits with code 1 when the first tag in the filter is unknown', async () => {
-    let thrown: ExitError | undefined;
-    try {
-      await resolveCommandTags(['missing-v9.9.9', 'nmr-core-v1.3.0']);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    const error = await captureError(ProcessExitError, () => resolveCommandTags(['missing-v9.9.9', 'nmr-core-v1.3.0']));
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
+    expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain(
       'Error: Unknown tag "missing-v9.9.9" in --tags. Available: nmr-core-v1.3.0, cli-v0.5.0, release-kit-v2.1.0\n',
     );
   });
 
   it('exits with code 1 when the second tag in the filter is unknown', async () => {
-    let thrown: ExitError | undefined;
-    try {
-      await resolveCommandTags(['nmr-core-v1.3.0', 'missing-v9.9.9']);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    const error = await captureError(ProcessExitError, () => resolveCommandTags(['nmr-core-v1.3.0', 'missing-v9.9.9']));
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
+    expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain(
       'Error: Unknown tag "missing-v9.9.9" in --tags. Available: nmr-core-v1.3.0, cli-v0.5.0, release-kit-v2.1.0\n',
     );
@@ -166,17 +142,9 @@ describe(resolveCommandTags, () => {
   it('exits with code 1 when no release tags are found on HEAD', async () => {
     mockResolveReleaseTags.mockReturnValue([]);
 
-    let thrown: ExitError | undefined;
-    try {
-      await resolveCommandTags(undefined);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    const error = await captureError(ProcessExitError, () => resolveCommandTags(undefined));
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
+    expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain(
       'Error: No release tags found on HEAD. Create tags with `release-kit tag` first.\n',
     );
@@ -185,17 +153,9 @@ describe(resolveCommandTags, () => {
   it('exits with code 1 when discoverWorkspaces throws', async () => {
     mockDiscoverWorkspaces.mockRejectedValue(new Error('workspace read failure'));
 
-    let thrown: ExitError | undefined;
-    try {
-      await resolveCommandTags(undefined);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    const error = await captureError(ProcessExitError, () => resolveCommandTags(undefined));
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
+    expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Error: Failed to discover workspaces: workspace read failure\n');
     expect(mockResolveReleaseTags).not.toHaveBeenCalled();
   });
@@ -205,17 +165,9 @@ describe(resolveCommandTags, () => {
       throw new Error(`${workspacePath}/package.json is missing a 'name' field (required for tag derivation).`);
     });
 
-    let thrown: ExitError | undefined;
-    try {
-      await resolveCommandTags(undefined);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    const error = await captureError(ProcessExitError, () => resolveCommandTags(undefined));
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
+    expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain(
       "Error: Failed to resolve workspaces: packages/core/package.json is missing a 'name' field (required for tag derivation).\n",
     );

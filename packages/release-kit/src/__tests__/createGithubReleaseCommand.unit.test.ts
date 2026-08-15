@@ -1,5 +1,5 @@
-import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
@@ -30,13 +30,6 @@ vi.mock(import('../deriveWorkspaceConfig.ts'), () => ({
 
 import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';
 
-/** Sentinel error thrown by the mocked process.exit. */
-class ExitError extends Error {
-  constructor(public readonly code: number | undefined) {
-    super(`process.exit(${code})`);
-  }
-}
-
 describe(createGithubReleaseCommand, () => {
   let capture: CapturedStdio;
 
@@ -60,9 +53,7 @@ describe(createGithubReleaseCommand, () => {
       changelogJsonOutputPath: '.meta/changelog.json',
       sectionOrder: ['Bug fixes', 'Features'],
     });
-    vi.spyOn(process, 'exit').mockImplementation((code) => {
-      throw new ExitError(typeof code === 'number' ? code : undefined);
-    });
+    throwOnProcessExit();
     silenceConsole(['info', 'warn']);
   });
 
@@ -136,34 +127,18 @@ describe(createGithubReleaseCommand, () => {
   });
 
   it('exits with code 1 on unknown flags', async () => {
-    let thrown: ExitError | undefined;
-    try {
-      await createGithubReleaseCommand(['--unknown']);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    const error = await captureError(ProcessExitError, () => createGithubReleaseCommand(['--unknown']));
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
+    expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Error: Unknown option: --unknown\n');
   });
 
   it('exits with code 1 when no release tags are found on HEAD', async () => {
     mockResolveReleaseTags.mockReturnValue([]);
 
-    let thrown: ExitError | undefined;
-    try {
-      await createGithubReleaseCommand([]);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    const error = await captureError(ProcessExitError, () => createGithubReleaseCommand([]));
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
+    expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain(
       'Error: No release tags found on HEAD. Create tags with `release-kit tag` first.\n',
     );
@@ -175,34 +150,18 @@ describe(createGithubReleaseCommand, () => {
       { tag: 'core-v1.3.0', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
     ]);
 
-    let thrown: ExitError | undefined;
-    try {
-      await createGithubReleaseCommand(['--tags=core-v9.9.9']);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    const error = await captureError(ProcessExitError, () => createGithubReleaseCommand(['--tags=core-v9.9.9']));
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
+    expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Error: Unknown tag "core-v9.9.9" in --tags. Available: core-v1.3.0\n');
   });
 
   it('exits with code 1 when discoverWorkspaces throws', async () => {
     mockDiscoverWorkspaces.mockRejectedValue(new Error('discovery failed'));
 
-    let thrown: ExitError | undefined;
-    try {
-      await createGithubReleaseCommand([]);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    const error = await captureError(ProcessExitError, () => createGithubReleaseCommand([]));
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
+    expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Error: Failed to discover workspaces: discovery failed\n');
   });
 
@@ -322,39 +281,22 @@ describe(createGithubReleaseCommand, () => {
       throw new Error('gh release failed');
     });
 
-    let thrown: ExitError | undefined;
-    try {
-      await createGithubReleaseCommand([]);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    const error = await captureError(ProcessExitError, () => createGithubReleaseCommand([]));
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
+    expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Error: Failed to create GitHub Releases: gh release failed\n');
   });
 
   it('exits with code 1 when resolveReleaseNotesConfig fails to load config', async () => {
     mockResolveReleaseNotesConfig.mockImplementation(() => {
-      // Mirror the strictLoad path: the production code calls process.exit(1) inside the resolver,
-      // which the spy converts into ExitError. Throwing it here matches that observable behavior.
+      // The real resolver calls process.exit(1) internally; throwing ProcessExitError is what the caller observes.
       process.stderr.write('Error: Failed to load config: read failure\n');
-      throw new ExitError(1);
+      throw new ProcessExitError(1);
     });
 
-    let thrown: ExitError | undefined;
-    try {
-      await createGithubReleaseCommand([]);
-    } catch (error: unknown) {
-      if (error instanceof ExitError) {
-        thrown = error;
-      }
-    }
+    const error = await captureError(ProcessExitError, () => createGithubReleaseCommand([]));
 
-    expect(thrown).toBeInstanceOf(ExitError);
-    expect(thrown?.code).toBe(1);
+    expect(error.code).toBe(1);
     expect(mockResolveReleaseNotesConfig).toHaveBeenCalledWith({ strictLoad: true });
     expect(mockCreateGithubReleases).not.toHaveBeenCalled();
     expect(capture.stderrChunks).toContain('Error: Failed to load config: read failure\n');
@@ -414,17 +356,9 @@ describe(createGithubReleaseCommand, () => {
     it('rejects --tags= (empty value) with a missing-value error', async () => {
       // The shared parseArgs helper rejects empty `--flag=` values before the command sees them,
       // so the user gets a precise error rather than a confusing "Unknown tag" downstream.
-      let thrown: ExitError | undefined;
-      try {
-        await createGithubReleaseCommand(['--tags=']);
-      } catch (error: unknown) {
-        if (error instanceof ExitError) {
-          thrown = error;
-        }
-      }
+      const error = await captureError(ProcessExitError, () => createGithubReleaseCommand(['--tags=']));
 
-      expect(thrown).toBeInstanceOf(ExitError);
-      expect(thrown?.code).toBe(1);
+      expect(error.code).toBe(1);
       expect(capture.stderrChunks).toContain('Error: Missing value for option: --tags\n');
       expect(mockCreateGithubReleases).not.toHaveBeenCalled();
     });
