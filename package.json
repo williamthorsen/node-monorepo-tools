@@ -21,9 +21,6 @@
   "license": "ISC",
   "author": "William Thorsen <william@thorsen.dev> (https://github.com/williamthorsen)",
   "type": "module",
-  "workspaces": [
-    "packages/*"
-  ],
   "scripts": {
     "bootstrap": "pnpm --filter @williamthorsen/nmr-core run prepare && pnpm --filter @williamthorsen/nmr run prepare",
     "postinstall": "codeassembly sync --warn-only",
@@ -39,9 +36,10 @@
     "@williamthorsen/nmr": "workspace:*",
     "@williamthorsen/release-kit": "workspace:*",
     "@williamthorsen/strict-lint": "11.0.0",
+    "@williamthorsen/toolbelt.errors": "catalog:",
     "@williamthorsen/tsconfig": "0.5.0",
     "codeassembly": "0.9.0",
-    "eslint": "10.8.0",
+    "eslint": "10.8.1",
     "eslint-plugin-import": "2.32.0",
     "lefthook": "2.1.10",
     "prettier": "3.9.6",

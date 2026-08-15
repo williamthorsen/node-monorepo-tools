@@ -7,6 +7,7 @@ export default defineRdyConfig({
     '@williamthorsen/eslint-config-typescript',
     '@williamthorsen/nmr',
     '@williamthorsen/release-kit',
+    '@williamthorsen/toolbelt.errors',
     '@williamthorsen/tsconfig',
     'codeassembly',
     'readyup',
