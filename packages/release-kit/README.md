@@ -201,33 +201,48 @@ export default config;
 
 When configured, each `release-kit prepare` run additionally:
 
-- Computes commits since the last project tag (`<tagPrefix><version>`), filtered to the union of every contributing workspace's paths.
+- Computes commits since the last project tag (`<tagPrefix><version>`), filtered to `paths` (by default, the union of every contributing workspace's paths).
 - Bumps the root `package.json`'s `version` field using the same bump-derivation rules as workspaces (or the `--bump=...` override).
-- Regenerates the root `./CHANGELOG.md` from the structured `ChangelogEntry[]` produced by `git-cliff --context` (scoped to the project's `tagPrefix` and contributing paths) and any matching editorial overrides.
+- Regenerates the root `./CHANGELOG.md` from the structured `ChangelogEntry[]` produced by `git-cliff --context` (scoped to the project's `tagPrefix` and the same `paths`) and any matching editorial overrides.
 - Emits `./.meta/changelog.json` (when `changelogJson.enabled`).
 - With `--with-release-notes`, additionally emits `./docs/RELEASE_NOTES.v<version>.md`.
 - Appends the project tag to `tmp/.release-tags` so `release-kit commit` and `release-kit tag` pick it up alongside per-workspace tags.
 
-If no contributing workspace has commits since the last project tag, the project release is silently skipped — same behavior as a per-workspace skip.
+If no commit under `paths` has landed since the last project tag, the project release is silently skipped — same behavior as a per-workspace skip.
 
 #### `ProjectConfig`
 
 ```typescript
 interface ProjectConfig {
+  paths?: string[]; // Defaults to the union of every contributing workspace's paths
   tagPrefix?: string; // Defaults to 'v'
 }
 ```
 
-| Field       | Default | Description                                                          |
-| ----------- | ------- | -------------------------------------------------------------------- |
-| `tagPrefix` | `'v'`   | Prefix for project tags. The full tag is `${tagPrefix}${newVersion}` |
+| Field       | Default                 | Description                                                          |
+| ----------- | ----------------------- | -------------------------------------------------------------------- |
+| `paths`     | Contributing-path union | Patterns selecting the commits the project release considers         |
+| `tagPrefix` | `'v'`                   | Prefix for project tags. The full tag is `${tagPrefix}${newVersion}` |
 
-Contributing workspaces are implicit: every non-excluded discovered workspace contributes. There is no field to override the contributing set in this initial release; if a future consumer needs to release a workspace as a component but exclude it from the project release, that override can be added then.
+By default the contributing workspaces are implicit: every non-excluded discovered workspace contributes its `<dir>/**` glob, and the project release considers commits under their union.
+
+Declare `paths` to choose the window yourself. Each entry is used both as a `git log` pathspec and as a `git-cliff --include-path` pattern, so the commit window and the generated changelog always agree. A declared value **replaces** the workspace union rather than extending it: `paths: ['docs/**']` drops every workspace commit from the project release.
+
+A repo whose content lives at the root — where no commit matches any `<dir>/**` glob, so the project release would skip every run — declares the whole tree:
+
+```typescript
+const config: ReleaseKitConfig = {
+  project: { paths: ['**'] },
+};
+```
+
+`'**'` is the whole-tree pattern, matching root-level files, dotfiles, and nested paths alike. `'.'` looks equivalent and is not: git-cliff matches no file against it, so the release would produce an empty changelog with no error.
 
 Validation rules:
 
 - The root `package.json` must exist and declare a `version` field. release-kit reports an error at config-load time if either is missing.
-- The `project` block is rejected in single-package mode (the implicit "all non-excluded workspaces contribute" rule is meaningless in a single-package repo).
+- The `project` block is rejected in single-package mode (the package's own release already covers the whole repo, so a project tier would only duplicate it).
+- `paths`, when declared, must hold at least one non-empty string. An empty array is rejected: it reaches git and git-cliff as no filter at all, which is the inverse of how it reads.
 - Unknown fields inside `project` are rejected.
 
 CLI flag interactions:
