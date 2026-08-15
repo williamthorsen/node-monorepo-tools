@@ -15,9 +15,10 @@ name: 'Reusable: Dependency audit'
 # so no local install step is needed. `@latest` is deliberate: vulnerability
 # detection improves over time and the CLI exposes no parsed API to break.
 #
-# Consumer prerequisite: `.config/v11y-check.config.json` (allowlist and scope
-# configuration). The audit-ci configs are generated transiently at runtime and
-# need not exist as permanent files.
+# Consumer prerequisites: `.config/v11y-check.config.json` (allowlist and scope
+# configuration), and a `packageManager` field pinning pnpm 11 or newer, which is
+# the range `pnpm/setup` installs. The audit-ci configs are generated transiently
+# at runtime and need not exist as permanent files.
 #
 # Usage:
 #   jobs:
@@ -40,11 +41,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v6
-
-      - uses: actions/setup-node@v7
+      - uses: pnpm/setup@v2
         with:
-          node-version: '24'
+          runtime: node@24
+          install: false
 
       - name: Run prod audit
         id: audit
@@ -118,11 +118,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v6
-
-      - uses: actions/setup-node@v7
+      - uses: pnpm/setup@v2
         with:
-          node-version: '24'
+          runtime: node@24
+          install: false
 
       # The bare v11y-check invocation drives the human-readable body and emits its own
       # `-- 📦 prod --` and `-- 🔧 dev --` group headers, so the issue body intentionally
