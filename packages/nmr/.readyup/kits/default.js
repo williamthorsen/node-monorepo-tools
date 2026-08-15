@@ -180,6 +180,13 @@ var default_default = defineRdyKit({
           fix: "Remove pnpm from .tool-versions \u2014 manage via packageManager field and corepack"
         },
         {
+          name: "no package.json declares a pnpm field",
+          severity: "error",
+          quiet: true,
+          check: () => noPnpmFieldInPackageJson(),
+          fix: "Move these settings into pnpm-workspace.yaml, quoting each version under `overrides`, or run `pnpx codemod run pnpm-v10-to-v11`. pnpm 11 reads no key from the `pnpm` field, so an override left there pins nothing while an upgrade run with `--write` goes on rewriting it"
+        },
+        {
           name: ".config/nmr.config.ts uses defineConfig",
           severity: "recommend",
           skip: () => !fileExists(".config/nmr.config.ts") ? "no nmr config file" : false,
@@ -413,6 +420,15 @@ function isReExportOnly(content) {
   const statements = content.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "").split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
   return statements.length > 0 && statements.every((line) => RE_EXPORT_LINE_PATTERN.test(line));
 }
+function noPnpmFieldInPackageJson(cwd = process.cwd()) {
+  const declaring = findFiles(["**/package.json"], cwd).flatMap((relativePath) => {
+    const keys = readPnpmFieldKeys(readFileIn(cwd, relativePath));
+    if (keys === void 0) return [];
+    return [keys.length > 0 ? `${relativePath} (${keys.join(", ")})` : relativePath];
+  });
+  if (declaring.length === 0) return true;
+  return { ok: false, detail: formatPaths(declaring) };
+}
 function noReExportOnlyVitestConfigs(cwd = process.cwd()) {
   const nonRootConfigs = findFiles([`**/vitest.config.${CONFIG_EXTENSIONS}`], cwd).filter((path2) => path2.includes("/"));
   const reExports = nonRootConfigs.filter((path2) => isReExportOnly(readFileIn(cwd, path2)));
@@ -464,6 +480,18 @@ function readFileIn(cwd, relativePath) {
     return void 0;
   }
 }
+function readPnpmFieldKeys(content) {
+  if (content === void 0) return void 0;
+  let parsed;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return void 0;
+  }
+  if (!isRecord(parsed)) return void 0;
+  const pnpm = parsed["pnpm"];
+  return isRecord(pnpm) ? Object.keys(pnpm).toSorted() : void 0;
+}
 function resolvesVersionViaWorkspace(range) {
   return WORKSPACE_VERSION_MARKERS.some((marker) => range.startsWith(marker));
 }
@@ -483,6 +511,7 @@ export {
   everyTestFileNamesItsTier,
   hasSupportedEslintVersion,
   hasSupportedStrictLintVersion,
+  noPnpmFieldInPackageJson,
   noReExportOnlyVitestConfigs,
   noRetiredVitestConfigs,
   prettierConfigBuildsOnSharedConfig,

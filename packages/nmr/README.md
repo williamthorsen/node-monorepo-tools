@@ -876,7 +876,7 @@ ensure-prepublish-hooks
 
 ## Conformance checks
 
-nmr publishes a `readyup` kit that checks a consuming repo against the current release: the shared Vitest and Prettier configs, the workspace layout, the root script registry, and the [test-tier convention](#test-tiers). The kit ships inside the package, so it checks against the nmr version installed rather than whatever a repository ref happens to point at, and a tier added or renamed in nmr reaches the repo on upgrade.
+nmr publishes a `readyup` kit that checks a consuming repo against the current release: the shared Vitest and Prettier configs, the workspace layout, the root script registry, the [test-tier convention](#test-tiers), and that no `package.json` in the tree declares a `pnpm` field, which pnpm 11 reads no key from. Those settings belong in `pnpm-workspace.yaml`, and `pnpx codemod run pnpm-v10-to-v11` moves them. The kit ships inside the package, so it checks against the nmr version installed rather than whatever a repository ref happens to point at, and a tier added or renamed in nmr reaches the repo on upgrade.
 
 Add `readyup` as a devDependency, then name nmr in its config:
 
