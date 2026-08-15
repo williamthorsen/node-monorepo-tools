@@ -465,9 +465,30 @@ describe('mergeMonorepoConfig project block', () => {
     expect(result.project).toBeUndefined();
   });
 
-  it('resolves an empty project block to the default tagPrefix', () => {
+  it('resolves an empty project block to the default tagPrefix and the workspace-union paths', () => {
     const result = mergeMonorepoConfig(discoveredPaths, { project: {} }, { exists: true, version: '0.9.0' });
-    expect(result.project).toStrictEqual({ tagPrefix: 'v' });
+    expect(result.project).toStrictEqual({
+      paths: ['packages/arrays/**', 'packages/strings/**'],
+      tagPrefix: 'v',
+    });
+  });
+
+  it('defaults project paths to the retained workspaces alone when one is excluded', () => {
+    const result = mergeMonorepoConfig(
+      discoveredPaths,
+      { project: {}, workspaces: [{ dir: 'strings', shouldExclude: true }] },
+      { exists: true, version: '0.9.0' },
+    );
+    expect(result.project?.paths).toStrictEqual(['packages/arrays/**']);
+  });
+
+  it('preserves declared project paths instead of the workspace union', () => {
+    const result = mergeMonorepoConfig(
+      discoveredPaths,
+      { project: { paths: ['**'] } },
+      { exists: true, version: '0.9.0' },
+    );
+    expect(result.project?.paths).toStrictEqual(['**']);
   });
 
   it('preserves a custom project tagPrefix', () => {
@@ -476,7 +497,10 @@ describe('mergeMonorepoConfig project block', () => {
       { project: { tagPrefix: 'release-v' } },
       { exists: true, version: '0.9.0' },
     );
-    expect(result.project).toStrictEqual({ tagPrefix: 'release-v' });
+    expect(result.project).toStrictEqual({
+      paths: ['packages/arrays/**', 'packages/strings/**'],
+      tagPrefix: 'release-v',
+    });
   });
 
   it('throws when project is configured but the root package.json is missing', () => {

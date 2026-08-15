@@ -641,6 +641,27 @@ describe(validateConfig, () => {
       expect(config.project).toStrictEqual({ tagPrefix: 'release-v' });
     });
 
+    it('accepts a project block with paths', () => {
+      const { config, errors } = validateConfig({ project: { paths: ['**'] } });
+      expect(errors).toStrictEqual([]);
+      expect(config.project).toStrictEqual({ paths: ['**'] });
+    });
+
+    it('returns an error when paths is empty', () => {
+      const { errors } = validateConfig({ project: { paths: [] } });
+      expectErrorAtPath(errors, 'project.paths');
+    });
+
+    it('returns an error when paths holds a non-string', () => {
+      const { errors } = validateConfig({ project: { paths: [42] } });
+      expectErrorAtPath(errors, 'project.paths[0]');
+    });
+
+    it('returns an error when paths holds an empty string', () => {
+      const { errors } = validateConfig({ project: { paths: [''] } });
+      expect(errors).toContain('project.paths[0]: must be a non-empty string');
+    });
+
     it('returns an error when project is not an object', () => {
       const { errors } = validateConfig({ project: 'v' });
       expectErrorAtPath(errors, 'project');

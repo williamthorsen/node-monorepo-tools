@@ -182,6 +182,64 @@ describe('releasePrepareProject (tool)', () => {
     });
   }, 60_000);
 
+  it('releases from root-level commits alone when project.paths covers the whole tree', () => {
+    withinFixture(fixture.repoDir, () => {
+      const run = (command: string, args: string[]): void => {
+        execFileSync(command, args, { cwd: fixture.repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
+      };
+
+      // Anchor a project baseline past the fixture's workspace commits, so the only commit in
+      // the window is the root-level one landed below. The `release:` prefix keeps this commit
+      // out of the window itself.
+      writeFileSync(
+        join(fixture.repoDir, 'package.json'),
+        JSON.stringify({ name: 'fixture-monorepo', version: '0.9.1', private: true }, null, 2) + '\n',
+        'utf8',
+      );
+      run('git', ['add', '-A']);
+      run('git', ['commit', '--quiet', '-m', 'release: v0.9.1']);
+      run('git', ['tag', 'v0.9.1']);
+
+      mkdirSync(join(fixture.repoDir, 'aws'), { recursive: true });
+      writeFileSync(join(fixture.repoDir, 'aws', 'runbook.md'), '# Runbook\n', 'utf8');
+      run('git', ['add', '-A']);
+      run('git', ['commit', '--quiet', '-m', '## root|feat: Document the deployment runbook']);
+
+      const discoveredPaths = ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'];
+      const rootPackage = { exists: true, version: '0.9.1' };
+
+      // Default window (the workspace union) sees nothing, so the project stage skips.
+      const defaultConfig = mergeMonorepoConfig(
+        discoveredPaths,
+        { project: {}, changelogJson: { enabled: false } },
+        rootPackage,
+      );
+      expect(releasePrepareMono(defaultConfig, {}).project?.status).toBe('skipped');
+
+      // A whole-tree window sees the root commit and releases.
+      const wholeTreeConfig = mergeMonorepoConfig(
+        discoveredPaths,
+        { project: { paths: ['**'] }, changelogJson: { enabled: false } },
+        rootPackage,
+      );
+      const result = prepareAndApply(wholeTreeConfig, {});
+
+      const project = result.project;
+      assert(project?.status === 'released', 'expected released project');
+      expect(project.previousTag).toBe('v0.9.1');
+      expect(project.releaseType).toBe('minor');
+      expect(project.tag).toBe('v0.10.0');
+
+      const rootPackageJson: { version: string } = JSON.parse(
+        readFileSync(join(fixture.repoDir, 'package.json'), 'utf8'),
+      );
+      expect(rootPackageJson.version).toBe('0.10.0');
+
+      const rootChangelog = readFileSync(join(fixture.repoDir, 'CHANGELOG.md'), 'utf8');
+      expect(rootChangelog).toContain('Document the deployment runbook');
+    });
+  }, 60_000);
+
   it('overrides the project bump when --bump=major is supplied (1.x baseline)', () => {
     // Reset the fixture's root version to 1.x so the major bump is not collapsed by the
     // pre-1.0 rule in `bumpVersion`. The fixture's three feat/fix commits (created in

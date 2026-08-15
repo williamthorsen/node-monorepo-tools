@@ -1993,7 +1993,7 @@ describe(releasePrepareMono, () => {
             paths: ['packages/arrays/**'],
           },
         ],
-        project: { tagPrefix: 'v' },
+        project: { paths: ['packages/arrays/**'], tagPrefix: 'v' },
       });
       mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
         if (cmd === 'git' && args[0] === 'describe') {
@@ -2037,7 +2037,7 @@ describe(releasePrepareMono, () => {
             paths: ['packages/arrays/**'],
           },
         ],
-        project: { tagPrefix: 'v' },
+        project: { paths: ['packages/arrays/**'], tagPrefix: 'v' },
       });
       mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
         if (cmd === 'git' && args[0] === 'describe') {
@@ -2341,7 +2341,7 @@ describe(releasePrepareMono, () => {
     });
 
     it('wraps a project-stage throw with the project release-stage label', () => {
-      const config = makeArraysConfig({ project: { tagPrefix: 'v' } });
+      const config = makeArraysConfig({ project: { paths: ['packages/arrays/**'], tagPrefix: 'v' } });
       // Workspace stage succeeds; `buildChangelogEntries` for the project stage throws.
       const underlying = new Error('cliff exploded on root');
       mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {

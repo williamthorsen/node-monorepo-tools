@@ -82,7 +82,7 @@ function makeConfig(overrides?: Partial<MonorepoReleaseConfig>): MonorepoRelease
     workTypes: { feat: { header: 'Features' }, fix: { header: 'Bug fixes' } },
     changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: false },
     releaseNotes: { ...DEFAULT_RELEASE_NOTES_CONFIG },
-    project: { tagPrefix: 'v' },
+    project: { paths: ['packages/arrays/**', 'packages/strings/**'], tagPrefix: 'v' },
     ...overrides,
   };
 }
@@ -310,11 +310,9 @@ describe(releasePrepareProject, () => {
     });
   });
 
-  it('omits paths of workspaces absent from config.workspaces (e.g., excluded by discovery or --only)', () => {
+  it('scopes both the commit query and the changelog build to the resolved project paths', () => {
     setupDefaultGit();
-    const config = makeConfig({
-      workspaces: [makeWorkspace({ dir: 'arrays' })],
-    });
+    const config = makeConfig({ project: { paths: ['packages/arrays/**'], tagPrefix: 'v' } });
 
     releasePrepareProject({
       config,
@@ -324,16 +322,42 @@ describe(releasePrepareProject, () => {
       tags: [],
     });
 
+    expect(mockExecFileSync).toHaveBeenCalledWith(
+      'git',
+      ['log', 'v0.9.0..HEAD', expect.any(String), '--', 'packages/arrays/**'],
+      expect.anything(),
+    );
     expect(mockBuildChangelogEntries).toHaveBeenCalledTimes(1);
     expect(mockBuildChangelogEntries).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
-      expect.objectContaining({ includePaths: expect.arrayContaining(['packages/arrays/**']) }),
+      expect.objectContaining({ includePaths: ['packages/arrays/**'] }),
     );
-    expect(mockBuildChangelogEntries).not.toHaveBeenCalledWith(
+  });
+
+  // The workspace union is resolved into `project.paths` at config load, so a declared value
+  // must win here even when it disagrees with `config.workspaces`.
+  it('ignores config.workspaces when resolving the window', () => {
+    setupDefaultGit();
+    const config = makeConfig({ project: { paths: ['**'], tagPrefix: 'v' } });
+
+    releasePrepareProject({
+      config,
+      options: {},
+      modifiedFiles: [],
+      writes: [],
+      tags: [],
+    });
+
+    expect(mockExecFileSync).toHaveBeenCalledWith(
+      'git',
+      ['log', 'v0.9.0..HEAD', expect.any(String), '--', '**'],
+      expect.anything(),
+    );
+    expect(mockBuildChangelogEntries).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
-      expect.objectContaining({ includePaths: expect.arrayContaining(['packages/legacy/**']) }),
+      expect.objectContaining({ includePaths: ['**'] }),
     );
   });
 

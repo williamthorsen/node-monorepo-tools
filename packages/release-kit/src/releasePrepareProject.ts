@@ -71,8 +71,9 @@ export interface ReleasePrepareProjectArgs {
  *
  * Mirrors the per-workspace pipeline shape — find baseline tag → derive bump → bump version →
  * regenerate CHANGELOG → optionally emit changelog.json and release-notes previews — but
- * targets the root `package.json` and the root `CHANGELOG.md`. Contributing paths are the
- * union of every (already-filtered) workspace's `paths`.
+ * targets the root `package.json` and the root `CHANGELOG.md`. Contributing paths come from
+ * the resolved `project.paths`, which defaults to the union of every (already-filtered)
+ * workspace's `paths`.
  *
  * Returns a structured `{ status: 'skipped', skipReason, ... }` result when neither
  * commits nor `--force` provide a release signal. The caller should attach the returned
@@ -95,8 +96,8 @@ export function releasePrepareProject(args: ReleasePrepareProjectArgs): ProjectP
   const versionPatterns = config.versionPatterns ?? { ...DEFAULT_VERSION_PATTERNS };
   const breakingPolicies = config.breakingPolicies ?? DEFAULT_BREAKING_POLICIES;
 
-  // 1. Compute contributing paths (union of every non-excluded workspace's paths).
-  const contributingPaths = config.workspaces.flatMap((workspace) => workspace.paths);
+  // 1. Contributing paths, resolved at config load.
+  const contributingPaths = project.paths;
 
   // 2. Find the most recent project tag and the commits since it under contributing paths.
   const { tag, commits } = getCommitsSinceTarget([project.tagPrefix], contributingPaths);

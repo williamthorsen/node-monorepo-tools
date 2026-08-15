@@ -87,6 +87,12 @@ export interface ReleaseNotesConfig {
  * required in `ResolvedProjectConfig`.
  */
 export interface ResolvedProjectConfig {
+  /**
+   * Resolved commit window for the project release: the git pathspecs and git-cliff include-paths
+   * that select which commits the stage considers. Defaults to the union of every contributing
+   * workspace's `paths`.
+   */
+  paths: string[];
   /** Resolved tag prefix for project-level tags. */
   tagPrefix: string;
 }
@@ -369,6 +375,7 @@ export type WorkspaceOverride = z.infer<typeof workspaceOverrideSchema>;
 /** Schema for the optional `project` block. */
 export const projectConfigSchema = z
   .object({
+    paths: z.array(z.string().min(1)).min(1).optional(),
     tagPrefix: z.string().min(1).optional(),
   })
   .strict();
