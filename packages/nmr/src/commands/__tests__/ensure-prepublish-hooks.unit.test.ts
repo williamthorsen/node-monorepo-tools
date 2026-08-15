@@ -2,38 +2,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { readPackageJson } from '../../helpers/package-json.ts';
-import { ensurePrepublishHooks } from '../ensure-prepublish-hooks.ts';
-
-/**
- * Create a minimal monorepo fixture with a pnpm-workspace.yaml and the given packages under a `packages/` directory.
- */
-function createFixture(
-  tmpDir: string,
-  packages: Array<{ name: string; private?: boolean; prepublishOnly?: string }>,
-): void {
-  fs.writeFileSync(path.join(tmpDir, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n');
-  fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify({ name: 'root', private: true }));
-
-  const packagesDir = path.join(tmpDir, 'packages');
-  fs.mkdirSync(packagesDir);
-
-  for (const pkg of packages) {
-    const dirName = pkg.name.replace(/^@[^/]+\//, '');
-    const pkgDir = path.join(packagesDir, dirName);
-    fs.mkdirSync(pkgDir);
-
-    const pkgJson: Record<string, unknown> = { name: pkg.name, version: '1.0.0' };
-    if (pkg.private) pkgJson['private'] = true;
-    if (pkg.prepublishOnly) {
-      pkgJson['scripts'] = { prepublishOnly: pkg.prepublishOnly };
-    }
-
-    fs.writeFileSync(path.join(pkgDir, 'package.json'), JSON.stringify(pkgJson, null, 2) + '\n');
-  }
-}
+import type { EnsurePrepublishHooksResult, PackageHookStatus } from '../ensure-prepublish-hooks.ts';
+import { DEFAULT_HOOK, ensurePrepublishHooks, reportPrepublishHooks } from '../ensure-prepublish-hooks.ts';
 
 describe(ensurePrepublishHooks, () => {
   let tmpDir: string;
@@ -143,3 +117,104 @@ describe(ensurePrepublishHooks, () => {
     });
   });
 });
+
+describe(reportPrepublishHooks, () => {
+  it('closes a clean run with the count of packages carrying the hook', () => {
+    using silent = silenceConsole(['info']);
+
+    reportPrepublishHooks(buildResult([status('a', 'ok'), status('b', 'ok'), status('c', 'ok')]), DEFAULT_HOOK);
+
+    expect(silent.info).toHaveBeenCalledWith('\n3 publishable packages have prepublishOnly.');
+  });
+
+  it('closes a run with a miss by naming how many of them there are', () => {
+    using silent = silenceConsole(['info']);
+
+    reportPrepublishHooks(buildResult([status('a', 'ok'), status('b', 'missing')]), DEFAULT_HOOK);
+
+    expect(silent.info).toHaveBeenCalledWith(
+      '\n1 of 2 publishable packages is missing prepublishOnly. Run with --fix to add it.',
+    );
+  });
+
+  it('closes a fix run with what it added', () => {
+    using silent = silenceConsole(['info']);
+
+    reportPrepublishHooks(buildResult([status('a', 'fixed'), status('b', 'ok')]), DEFAULT_HOOK);
+
+    expect(silent.info).toHaveBeenCalledWith('\nAdded prepublishOnly to 1 of 2 publishable packages.');
+  });
+
+  it('closes a dry run with what it would add', () => {
+    using silent = silenceConsole(['info']);
+
+    reportPrepublishHooks(buildResult([status('a', 'would-fix')]), DEFAULT_HOOK);
+
+    expect(silent.info).toHaveBeenCalledWith('\nWould add prepublishOnly to 1 of 1 publishable package.');
+  });
+
+  it('closes a workspace of private packages with the one statement its output is', () => {
+    using silent = silenceConsole(['info']);
+
+    reportPrepublishHooks(buildResult([{ ...status('a', 'ok'), isPrivate: true }]), DEFAULT_HOOK);
+
+    expect(silent.info).toHaveBeenCalledExactlyOnceWith('No publishable packages found.');
+  });
+
+  it('reports a miss on the stream its other lines went to, leaving the failure to the exit code', () => {
+    using silent = silenceConsole(['info', 'warn']);
+
+    reportPrepublishHooks(buildResult([status('a', 'ok'), status('b', 'missing')]), DEFAULT_HOOK);
+
+    expect(silent.info).toHaveBeenCalledWith('✗ b: missing prepublishOnly');
+    expect(silent.warn).not.toHaveBeenCalled();
+  });
+});
+
+// region | Helpers
+
+/** Wraps package statuses as the result a run hands to the reporter. */
+function buildResult(packages: PackageHookStatus[]): EnsurePrepublishHooksResult {
+  return { packages, hasFailures: packages.some((pkg) => pkg.action === 'missing') };
+}
+
+/**
+ * Create a minimal monorepo fixture with a pnpm-workspace.yaml and the given packages under a `packages/` directory.
+ */
+function createFixture(
+  tmpDir: string,
+  packages: Array<{ name: string; private?: boolean; prepublishOnly?: string }>,
+): void {
+  fs.writeFileSync(path.join(tmpDir, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n');
+  fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify({ name: 'root', private: true }));
+
+  const packagesDir = path.join(tmpDir, 'packages');
+  fs.mkdirSync(packagesDir);
+
+  for (const pkg of packages) {
+    const dirName = pkg.name.replace(/^@[^/]+\//, '');
+    const pkgDir = path.join(packagesDir, dirName);
+    fs.mkdirSync(pkgDir);
+
+    const pkgJson: Record<string, unknown> = { name: pkg.name, version: '1.0.0' };
+    if (pkg.private) pkgJson['private'] = true;
+    if (pkg.prepublishOnly) {
+      pkgJson['scripts'] = { prepublishOnly: pkg.prepublishOnly };
+    }
+
+    fs.writeFileSync(path.join(pkgDir, 'package.json'), JSON.stringify(pkgJson, null, 2) + '\n');
+  }
+}
+
+/** Builds one package's status, with the hook present exactly when the action says it is. */
+function status(packageName: string, action: PackageHookStatus['action']): PackageHookStatus {
+  return {
+    packageName,
+    packageDir: `/packages/${packageName}`,
+    isPrivate: false,
+    prepublishOnly: action === 'ok' ? DEFAULT_HOOK : undefined,
+    action,
+  };
+}
+
+// endregion | Helpers
