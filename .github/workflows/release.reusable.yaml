@@ -70,21 +70,24 @@ jobs:
         if: ${{ env.BUILD_LOCAL != 'true' }}
         run: node -e "const fs=require('fs'),f='package.json',p=JSON.parse(fs.readFileSync(f));delete p.packageManager;fs.writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
 
+      # `runtime` is omitted, so this step installs pnpm alone and the Node.js
+      # step below owns the runtime. Its position ahead of that step is what
+      # keeps that true should this repo ever declare `devEngines.runtime`.
       - name: Set up pnpm
         if: ${{ env.BUILD_LOCAL == 'true' }}
-        uses: pnpm/action-setup@v6
+        uses: pnpm/setup@v2
+        with:
+          cache: true
+          install: false
 
-      # Materialize the cache flag via step output because the `env` context
-      # is not evaluated in `with:` blocks.
-      - name: Resolve pnpm cache flag
-        id: cache-flag
-        run: echo "value=${{ env.BUILD_LOCAL == 'true' && 'pnpm' || '' }}" >> "$GITHUB_OUTPUT"
-
+      # `actions/setup-node` stays because this workflow needs npm and npx, which
+      # `pnpm/setup` strips from the runtime it installs: `release-kit prepare`
+      # spawns `npx git-cliff` and `npx prettier`, and the consumer path installs
+      # release-kit with `npm install --global`.
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
           node-version: '24'
-          cache: ${{ steps.cache-flag.outputs.value }}
 
       - name: Disable Corepack
         if: ${{ env.BUILD_LOCAL != 'true' }}
