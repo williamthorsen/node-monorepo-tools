@@ -7,8 +7,8 @@ import {
   vitestConfigBuildsOnSharedConfig,
   vitestRootConfigBuildsOnSharedConfig,
 } from '../../.readyup/kits/default.ts';
-import { detailOf } from '../test-utils/detailOf.ts';
 import { buildRepo, removeFixtureDirs } from '../test-utils/fixture-repo.ts';
+import { getDetail } from '../test-utils/getDetail.ts';
 
 const SHARED_CONFIG =
   "import { defineVitestConfig } from '@williamthorsen/nmr/vitest';\nexport default defineVitestConfig();\n";
@@ -30,7 +30,7 @@ describe(noRetiredVitestConfigs, () => {
       'vitest.standalone.config.ts': 'export default {};\n',
     });
 
-    const detail = detailOf(noRetiredVitestConfigs(dir));
+    const detail = getDetail(noRetiredVitestConfigs(dir));
     expect(detail).toContain('2 found');
     expect(detail).toContain('packages/api/vitest.integration.config.ts');
     expect(detail).toContain('vitest.standalone.config.ts');
@@ -47,7 +47,7 @@ describe(noRetiredVitestConfigs, () => {
   it('matches config extensions beyond .ts', () => {
     const dir = buildRepo({ 'vitest.standalone.config.mts': 'export default {};\n' });
 
-    expect(detailOf(noRetiredVitestConfigs(dir))).toContain('vitest.standalone.config.mts');
+    expect(getDetail(noRetiredVitestConfigs(dir))).toContain('vitest.standalone.config.mts');
   });
 });
 
@@ -63,7 +63,7 @@ describe(vitestConfigBuildsOnSharedConfig, () => {
   it('reports a missing root config', () => {
     const dir = buildRepo({ 'package.json': '{}\n' });
 
-    expect(detailOf(vitestConfigBuildsOnSharedConfig(dir))).toBe('vitest.config.ts is missing');
+    expect(getDetail(vitestConfigBuildsOnSharedConfig(dir))).toBe('vitest.config.ts is missing');
   });
 
   it('reports a hand-rolled root config', () => {
@@ -71,13 +71,13 @@ describe(vitestConfigBuildsOnSharedConfig, () => {
       'vitest.config.ts': "import { defineConfig } from 'vitest/config';\nexport default defineConfig({});\n",
     });
 
-    expect(detailOf(vitestConfigBuildsOnSharedConfig(dir))).toContain('does not import defineVitestConfig');
+    expect(getDetail(vitestConfigBuildsOnSharedConfig(dir))).toContain('does not import defineVitestConfig');
   });
 
   it('is not satisfied by vitest.root.config.ts alone', () => {
     const dir = buildRepo({ 'vitest.root.config.ts': SHARED_ROOT_CONFIG });
 
-    expect(detailOf(vitestConfigBuildsOnSharedConfig(dir))).toBe('vitest.config.ts is missing');
+    expect(getDetail(vitestConfigBuildsOnSharedConfig(dir))).toBe('vitest.config.ts is missing');
   });
 });
 
@@ -93,13 +93,13 @@ describe(vitestRootConfigBuildsOnSharedConfig, () => {
   it('reports a missing root-tests config', () => {
     const dir = buildRepo({ 'vitest.config.ts': SHARED_CONFIG });
 
-    expect(detailOf(vitestRootConfigBuildsOnSharedConfig(dir))).toBe('vitest.root.config.ts is missing');
+    expect(getDetail(vitestRootConfigBuildsOnSharedConfig(dir))).toBe('vitest.root.config.ts is missing');
   });
 
   it('is not satisfied by a config importing only defineVitestConfig', () => {
     const dir = buildRepo({ 'vitest.root.config.ts': SHARED_CONFIG });
 
-    expect(detailOf(vitestRootConfigBuildsOnSharedConfig(dir))).toContain('does not import defineRootVitestConfig');
+    expect(getDetail(vitestRootConfigBuildsOnSharedConfig(dir))).toContain('does not import defineRootVitestConfig');
   });
 });
 
@@ -124,7 +124,7 @@ describe(everyTestFileNamesItsTier, () => {
       'packages/web/src/__tests__/web.smoke.test.tsx': '',
     });
 
-    const detail = detailOf(everyTestFileNamesItsTier(dir));
+    const detail = getDetail(everyTestFileNamesItsTier(dir));
     expect(detail).toContain('2 found');
     expect(detail).toContain('packages/api/src/__tests__/api.test.ts');
     expect(detail).toContain('packages/web/src/__tests__/web.smoke.test.tsx');
@@ -134,7 +134,7 @@ describe(everyTestFileNamesItsTier, () => {
   it('reports a misnamed file under a dot-directory', () => {
     const dir = buildRepo({ '.readyup/kits/__tests__/kit.test.ts': '' });
 
-    expect(detailOf(everyTestFileNamesItsTier(dir))).toContain('.readyup/kits/__tests__/kit.test.ts');
+    expect(getDetail(everyTestFileNamesItsTier(dir))).toContain('.readyup/kits/__tests__/kit.test.ts');
   });
 
   it('passes a file carrying an aspect segment ahead of its tier', () => {
@@ -147,7 +147,7 @@ describe(everyTestFileNamesItsTier, () => {
   it('reports a retired infix once, as the untiered file it is', () => {
     const dir = buildRepo({ 'packages/api/src/__tests__/api.int.test.ts': '' });
 
-    const detail = detailOf(everyTestFileNamesItsTier(dir));
+    const detail = getDetail(everyTestFileNamesItsTier(dir));
     expect(detail).toContain('1 found');
     expect(detail).toContain('packages/api/src/__tests__/api.int.test.ts');
   });
@@ -181,7 +181,7 @@ describe(noReExportOnlyVitestConfigs, () => {
       'vitest.config.ts': SHARED_CONFIG,
     });
 
-    expect(detailOf(noReExportOnlyVitestConfigs(dir))).toContain('packages/api/vitest.config.ts');
+    expect(getDetail(noReExportOnlyVitestConfigs(dir))).toContain('packages/api/vitest.config.ts');
   });
 
   it('leaves a substantive package config alone', () => {

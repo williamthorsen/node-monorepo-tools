@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { prettierConfigBuildsOnSharedConfig } from '../../.readyup/kits/default.ts';
-import { detailOf } from '../test-utils/detailOf.ts';
 import { buildRepo, removeFixtureDirs } from '../test-utils/fixture-repo.ts';
+import { getDetail } from '../test-utils/getDetail.ts';
 
 const SHARED_CONFIG =
   "import { definePrettierConfig } from '@williamthorsen/nmr/prettier';\nexport default definePrettierConfig();\n";
@@ -24,7 +24,7 @@ describe(prettierConfigBuildsOnSharedConfig, () => {
   it('fails when the config declares its own options instead', () => {
     const dir = buildRepo({ '.prettierrc.js': 'export default { singleQuote: true };\n' });
 
-    expect(detailOf(prettierConfigBuildsOnSharedConfig(dir))).toContain('.prettierrc.js');
+    expect(getDetail(prettierConfigBuildsOnSharedConfig(dir))).toContain('.prettierrc.js');
   });
 
   it('fails when the config imports a different export from the shared module', () => {
@@ -33,7 +33,7 @@ describe(prettierConfigBuildsOnSharedConfig, () => {
         "import { defineVitestConfig } from '@williamthorsen/nmr/vitest';\nexport default defineVitestConfig();\n",
     });
 
-    expect(detailOf(prettierConfigBuildsOnSharedConfig(dir))).toContain('prettier.config.js');
+    expect(getDetail(prettierConfigBuildsOnSharedConfig(dir))).toContain('prettier.config.js');
   });
 
   it('reports every stale config when both spellings are present', () => {
@@ -42,7 +42,7 @@ describe(prettierConfigBuildsOnSharedConfig, () => {
       'prettier.config.js': 'export default {};\n',
     });
 
-    const detail = detailOf(prettierConfigBuildsOnSharedConfig(dir));
+    const detail = getDetail(prettierConfigBuildsOnSharedConfig(dir));
     expect(detail).toContain('.prettierrc.js');
     expect(detail).toContain('prettier.config.js');
   });
@@ -53,20 +53,20 @@ describe(prettierConfigBuildsOnSharedConfig, () => {
     (filename) => {
       const dir = buildRepo({ [filename]: '{}\n' });
 
-      expect(detailOf(prettierConfigBuildsOnSharedConfig(dir))).toContain(filename);
+      expect(getDetail(prettierConfigBuildsOnSharedConfig(dir))).toContain(filename);
     },
   );
 
   it('fails a repo configuring Prettier through the package.json key', () => {
     const dir = buildRepo({ 'package.json': '{\n  "prettier": { "singleQuote": true }\n}\n' });
 
-    expect(detailOf(prettierConfigBuildsOnSharedConfig(dir))).toContain('package.json');
+    expect(getDetail(prettierConfigBuildsOnSharedConfig(dir))).toContain('package.json');
   });
 
   it('reports a missing config rather than a data-only one when there is neither', () => {
     const dir = buildRepo({ 'package.json': '{\n  "name": "repo"\n}\n' });
 
-    expect(detailOf(prettierConfigBuildsOnSharedConfig(dir))).toContain('missing');
+    expect(getDetail(prettierConfigBuildsOnSharedConfig(dir))).toContain('missing');
   });
 
   // Every repo this check runs against carries `prettier` as a dependency, so mistaking that entry for a config
@@ -76,18 +76,18 @@ describe(prettierConfigBuildsOnSharedConfig, () => {
       'package.json': '{\n  "name": "repo",\n  "devDependencies": {\n    "prettier": "3.9.6"\n  }\n}\n',
     });
 
-    expect(detailOf(prettierConfigBuildsOnSharedConfig(dir))).toContain('missing');
+    expect(getDetail(prettierConfigBuildsOnSharedConfig(dir))).toContain('missing');
   });
 
   it('reports a malformed package.json as a missing config rather than throwing', () => {
     const dir = buildRepo({ 'package.json': '{ not json\n' });
 
-    expect(detailOf(prettierConfigBuildsOnSharedConfig(dir))).toContain('missing');
+    expect(getDetail(prettierConfigBuildsOnSharedConfig(dir))).toContain('missing');
   });
 
   it('ignores a config inside a nested node_modules', () => {
     const dir = buildRepo({ 'node_modules/dep/.prettierrc.js': 'export default {};\n' });
 
-    expect(detailOf(prettierConfigBuildsOnSharedConfig(dir))).toContain('missing');
+    expect(getDetail(prettierConfigBuildsOnSharedConfig(dir))).toContain('missing');
   });
 });

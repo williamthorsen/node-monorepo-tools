@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { noPnpmFieldInPackageJson } from '../../.readyup/kits/default.ts';
-import { detailOf } from '../test-utils/detailOf.ts';
 import { buildRepo, removeFixtureDirs } from '../test-utils/fixture-repo.ts';
+import { getDetail } from '../test-utils/getDetail.ts';
 
 const WORKSPACE_YAML = "packages:\n  - packages/*\n\noverrides:\n  tar: '>=6.2.1'\n";
 
@@ -19,14 +19,16 @@ describe(noPnpmFieldInPackageJson, () => {
     expect(noPnpmFieldInPackageJson(dir)).toBe(true);
   });
 
+  // The fixture writes its keys out of order deliberately: the assertion names them sorted, so it pins the sort
+  // rather than the manifest's own order. Two repos declaring the same keys would otherwise render differently.
   it('reports the root and workspace manifests together, each with the keys it holds', () => {
     const dir = buildRepo({
-      'package.json': '{ "pnpm": { "overrides": { "tar": ">=6.2.1" }, "patchedDependencies": {} } }\n',
+      'package.json': '{ "pnpm": { "patchedDependencies": {}, "overrides": { "tar": ">=6.2.1" } } }\n',
       'packages/api/package.json': '{ "pnpm": { "overrides": { "semver": ">=7.5.2" } } }\n',
       'pnpm-workspace.yaml': WORKSPACE_YAML,
     });
 
-    const detail = detailOf(noPnpmFieldInPackageJson(dir));
+    const detail = getDetail(noPnpmFieldInPackageJson(dir));
     expect(detail).toContain('2 found');
     expect(detail).toContain('package.json (overrides, patchedDependencies)');
     expect(detail).toContain('packages/api/package.json (overrides)');
@@ -36,8 +38,8 @@ describe(noPnpmFieldInPackageJson, () => {
   it('reports a pnpm field holding no keys by path alone', () => {
     const dir = buildRepo({ 'package.json': '{ "pnpm": {} }\n' });
 
-    expect(detailOf(noPnpmFieldInPackageJson(dir))).toContain('package.json');
-    expect(detailOf(noPnpmFieldInPackageJson(dir))).not.toContain('(');
+    expect(getDetail(noPnpmFieldInPackageJson(dir))).toContain('package.json');
+    expect(getDetail(noPnpmFieldInPackageJson(dir))).not.toContain('(');
   });
 
   it('ignores a manifest inside a nested node_modules', () => {
@@ -55,7 +57,7 @@ describe(noPnpmFieldInPackageJson, () => {
       'packages/api/package.json': '{ "pnpm": { "overrides": { "tar": ">=6.2.1" } } }\n',
     });
 
-    const detail = detailOf(noPnpmFieldInPackageJson(dir));
+    const detail = getDetail(noPnpmFieldInPackageJson(dir));
     expect(detail).toContain('1 found');
     expect(detail).toContain('packages/api/package.json (overrides)');
   });
