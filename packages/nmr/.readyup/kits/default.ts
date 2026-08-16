@@ -75,6 +75,13 @@ export default defineRdyKit({
           fix: 'Remove pnpm from .tool-versions — manage via packageManager field and corepack',
         },
         {
+          name: 'no package.json declares a pnpm field',
+          severity: 'error',
+          quiet: true,
+          check: () => noPnpmFieldInPackageJson(),
+          fix: 'Move these settings into pnpm-workspace.yaml, quoting each version under `overrides`, or run `pnpx codemod run pnpm-v10-to-v11`. pnpm 11 reads no key from the `pnpm` field, so an override left there pins nothing while an upgrade run with `--write` goes on rewriting it',
+        },
+        {
           name: '.config/nmr.config.ts uses defineConfig',
           severity: 'recommend',
           skip: () => (!fileExists('.config/nmr.config.ts') ? 'no nmr config file' : false),
@@ -436,6 +443,29 @@ function isReExportOnly(content: string | undefined): boolean {
 }
 
 /**
+ * Checks that no `package.json` in the tree declares a `pnpm` field.
+ *
+ * pnpm 11 reads no key from that field, so every setting left in one is inert while still reading as
+ * maintained. taze keeps its own list of dependency fields, so an upgrade run with `--write` goes on rewriting
+ * the versions in `pnpm.overrides`, which is what makes a dead block look current.
+ *
+ * The whole tree rather than the workspace globs: the field is dead in every manifest, whether or not pnpm
+ * loads that one.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function noPnpmFieldInPackageJson(cwd: string = process.cwd()): boolean | CheckOutcome {
+  const declaring = findFiles(['**/package.json'], cwd).flatMap((relativePath) => {
+    const keys = readPnpmFieldKeys(readFileIn(cwd, relativePath));
+    if (keys === undefined) return [];
+    return [keys.length > 0 ? `${relativePath} (${keys.join(', ')})` : relativePath];
+  });
+
+  if (declaring.length === 0) return true;
+  return { ok: false, detail: formatPaths(declaring) };
+}
+
+/**
  * Checks that no package carries a `vitest.config.*` that only re-exports an ancestor config.
  *
  * Only non-root configs qualify, identified by their path carrying a separator.
@@ -509,6 +539,28 @@ function readFileIn(cwd: string, relativePath: string): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Returns the keys a manifest's `pnpm` field holds, sorted, or undefined when it declares no such field.
+ *
+ * A manifest that does not parse reads as declaring none: this check does not own the file, and throwing would
+ * take the rest of the checklist down over it.
+ */
+function readPnpmFieldKeys(content: string | undefined): string[] | undefined {
+  if (content === undefined) return undefined;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return undefined;
+  }
+
+  if (!isRecord(parsed)) return undefined;
+  const pnpm = parsed['pnpm'];
+
+  return isRecord(pnpm) ? Object.keys(pnpm).toSorted() : undefined;
 }
 
 /** Reports whether a range defers to a workspace-level declaration instead of naming a version. */
