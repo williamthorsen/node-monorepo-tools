@@ -16,7 +16,17 @@ import {
   hasExpectedBuildOutput,
   resolveBuildCachePath,
   resolveScratchDirs,
+  resolveToolchainFingerprint,
 } from './build-output.ts';
+
+/**
+ * The toolchain a build's emit comes from: the resolved compiler and the nmr running it. Both join the build
+ * hash, because the same sources can emit differently across either.
+ */
+export interface BuildToolchain {
+  compilerVersion: string;
+  fingerprint: string;
+}
 
 /** Output-shaping options folded into the build hash so a change to the emit shape busts the cache. */
 interface EmitConfig {
@@ -83,11 +93,16 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
     ...resolveTsconfigChain(packageDir),
   ];
 
+  const toolchain: BuildToolchain = {
+    compilerVersion: ts.version,
+    fingerprint: await resolveToolchainFingerprint(packageDir),
+  };
+
   const { changed, currentHash } = await detectBuildChanges(
     packageDir,
     [...entryPoints, ...dependencies],
     emitConfig,
-    ts.version,
+    toolchain,
     cachePath,
     hasExpectedBuildOutput(packageDir, outdir, entryPoints),
   );
@@ -111,15 +126,16 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
 }
 
 /**
- * Produces a digest of the given files (paths and contents), the emit config, and the compiler version.
+ * Produces a digest of the given files (paths and contents), the emit config, and the toolchain.
  * The file list is sorted so the digest is order-invariant, and each path is folded in so renames are detected.
- * The compiler version is included because the same sources can emit differently across TypeScript versions.
+ * The toolchain joins it because the same sources emit differently across TypeScript versions, and across the
+ * nmr versions whose emit logic drives them.
  */
 export async function computeBuildHash(
   packageDir: string,
   files: string[],
   emitConfig: object,
-  compilerVersion: string,
+  toolchain: BuildToolchain,
 ): Promise<string> {
   const hash = createHash('sha256');
   for (const file of files.toSorted()) {
@@ -130,7 +146,9 @@ export async function computeBuildHash(
 
   hash.update(JSON.stringify(emitConfig));
   hash.update('\0');
-  hash.update(compilerVersion);
+  hash.update(toolchain.compilerVersion);
+  hash.update('\0');
+  hash.update(toolchain.fingerprint);
   return hash.digest('hex');
 }
 
@@ -525,13 +543,13 @@ async function detectBuildChanges(
   packageDir: string,
   files: string[],
   emitConfig: EmitConfig,
-  compilerVersion: string,
+  toolchain: BuildToolchain,
   cachePath: string,
   outputPresent: boolean,
 ): Promise<{ changed: boolean; currentHash: string }> {
   const packageName = path.basename(packageDir);
   const previousHash = await readCacheEntry(cachePath);
-  const currentHash = await computeBuildHash(packageDir, files, emitConfig, compilerVersion);
+  const currentHash = await computeBuildHash(packageDir, files, emitConfig, toolchain);
 
   if (previousHash === currentHash) {
     if (outputPresent) {

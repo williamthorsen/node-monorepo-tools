@@ -1,8 +1,10 @@
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
-import { readCacheEntry, resolveCacheEntryPath } from '@williamthorsen/nmr-core';
+import { findPackageRoot, readCacheEntry, resolveCacheEntryPath } from '@williamthorsen/nmr-core';
 import { glob } from 'glob';
+
+import { readPackageJson } from '../helpers/package-json.ts';
 
 export interface BuildOptions {
   entryGlobs?: string[];
@@ -37,6 +39,9 @@ export const DEFAULT_OUTDIR = 'dist/esm/';
 
 /** The cache a build's entries live in. Renaming it orphans every entry a previous build wrote. */
 const BUILD_CACHE_TOOL = 'nmr-compile';
+
+/** The package root of the nmr running this build, whatever bin, symlink, or source layout it was reached through. */
+const SELF_DIR = findPackageRoot(import.meta.url);
 
 /**
  * Reports whether the output a build of `packageDir` would produce is currently on disk. Applies the rule the
@@ -119,3 +124,50 @@ export function resolveScratchDirs(emitDir: string): ScratchDirs {
     staging: path.join(parent, `.${name}.staging`),
   };
 }
+
+/**
+ * Resolves the fingerprint of the nmr compiling `packageDir`, which joins the build digest beside the compiler
+ * version: the same sources emit differently across nmr versions as they do across TypeScript versions. It is
+ * nmr's own build digest where one is on disk, which is what moves on a dev-loop edit the version does not
+ * follow, and nmr's package version otherwise -- the case in a consuming repo, whose installed copy was built
+ * elsewhere.
+ *
+ * A build of nmr itself takes the version too. Its digest is the entry that build is about to overwrite, so
+ * folding it would make the key a function of its own previous value, which never settles: nmr would rebuild on
+ * every invocation and move the fingerprint every other package reads.
+ *
+ * What the fingerprint names is the nmr that produced the output, not the sources sitting in `src`, so a package
+ * the pre-rebuild binary compiled keeps the old fingerprint and rebuilds on the run after.
+ */
+export async function resolveToolchainFingerprint(packageDir: string, selfDir: string = SELF_DIR): Promise<string> {
+  if (!isSameDir(packageDir, selfDir)) {
+    const digest = await readBuildDigest(selfDir);
+    if (digest !== undefined) {
+      return digest;
+    }
+  }
+
+  return readPackageJson(selfDir).version ?? '';
+}
+
+// region | Helpers
+
+/**
+ * Reports whether two paths name the same directory, comparing real paths so a checkout reached through a
+ * symlink is recognized as the directory it resolves to.
+ */
+function isSameDir(left: string, right: string): boolean {
+  return toRealPath(left) === toRealPath(right);
+}
+
+/** Resolves a path to its real location, falling back to the absolute path when nothing is there to resolve. */
+function toRealPath(dir: string): string {
+  const absolute = path.resolve(dir);
+  try {
+    return realpathSync(absolute);
+  } catch {
+    return absolute;
+  }
+}
+
+// endregion | Helpers
