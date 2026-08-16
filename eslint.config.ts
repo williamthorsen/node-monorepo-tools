@@ -24,10 +24,12 @@ const config = defineConfig([
         'LabeledStatement',
         'WithStatement',
         {
-          // Matches on the conditional's shape rather than the binding's name, so `err` and `e` are caught too.
-          // An `instanceof Error` test inside an `if` is a different shape and stays available for errno narrowing.
-          selector: "ConditionalExpression[test.operator='instanceof'][test.right.name='Error']",
-          message: "Extract a thrown value's message with `describeError` from '@williamthorsen/toolbelt.errors'.",
+          // Matches on the operator rather than the binding's name, so `err` and `e` are caught too. `isError`
+          // recognizes an Error crossing a realm boundary, which the built-in test reports as false, so no
+          // position is exempt.
+          selector: "BinaryExpression[operator='instanceof'][right.name='Error']",
+          message:
+            "Test a thrown value's errno with `hasErrnoCode` from '@williamthorsen/nmr-core'; otherwise narrow it with `isError`, or extract its message with `describeError`, from '@williamthorsen/toolbelt.errors'.",
         },
       ],
     },
