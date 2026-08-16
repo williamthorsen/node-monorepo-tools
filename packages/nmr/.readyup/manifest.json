@@ -5,12 +5,43 @@
       "checklists": [
         "nmr"
       ],
+      "esbuildVersion": "0.28.1",
+      "inputs": [
+        {
+          "hash": "67afdcb4",
+          "kind": "module",
+          "path": "kits/default.ts"
+        },
+        {
+          "hash": "8266101d",
+          "kind": "inline",
+          "path": "../package.json",
+          "paths": [
+            "version"
+          ]
+        },
+        {
+          "hash": "3dfc2ee7",
+          "kind": "module",
+          "path": "../src/default-scripts.ts"
+        },
+        {
+          "hash": "b42c7523",
+          "kind": "module",
+          "path": "../src/resolve-scripts.ts"
+        },
+        {
+          "hash": "c2d21075",
+          "kind": "module",
+          "path": "../src/tiers.ts"
+        }
+      ],
       "name": "default",
       "path": "kits/default.js",
-      "readyupVersion": "0.27.0",
+      "readyupVersion": "0.28.0",
       "source": "kits/default.ts",
       "sourceHash": "67afdcb4",
-      "targetHash": "3a7064ca"
+      "targetHash": "2f801b54"
     }
   ]
 }

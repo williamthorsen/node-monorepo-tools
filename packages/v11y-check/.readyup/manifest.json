@@ -5,12 +5,28 @@
       "checklists": [
         "v11y-check"
       ],
+      "esbuildVersion": "0.28.1",
+      "inputs": [
+        {
+          "hash": "52754bbb",
+          "kind": "module",
+          "path": "kits/default.ts"
+        },
+        {
+          "hash": "f02ebaf0",
+          "kind": "inline",
+          "path": "../package.json",
+          "paths": [
+            "version"
+          ]
+        }
+      ],
       "name": "default",
       "path": "kits/default.js",
-      "readyupVersion": "0.27.0",
+      "readyupVersion": "0.28.0",
       "source": "kits/default.ts",
       "sourceHash": "52754bbb",
-      "targetHash": "1f46cb09"
+      "targetHash": "62ce83ac"
     }
   ]
 }

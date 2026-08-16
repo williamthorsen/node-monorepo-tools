@@ -5,24 +5,63 @@
       "checklists": [
         "release-kit"
       ],
+      "esbuildVersion": "0.28.1",
+      "inputs": [
+        {
+          "hash": "fe239d01",
+          "kind": "module",
+          "path": "kits/default.ts"
+        },
+        {
+          "hash": "eff0fc40",
+          "kind": "inline",
+          "path": "../package.json",
+          "paths": [
+            "version"
+          ]
+        },
+        {
+          "hash": "850b703f",
+          "kind": "module",
+          "path": "../src/init/detectRepoType.ts"
+        },
+        {
+          "hash": "b6873aba",
+          "kind": "module",
+          "path": "../src/init/parseJsonRecord.ts"
+        },
+        {
+          "hash": "646fe51b",
+          "kind": "module",
+          "path": "../src/typeGuards.ts"
+        }
+      ],
       "name": "default",
       "path": "kits/default.js",
-      "readyupVersion": "0.27.0",
+      "readyupVersion": "0.28.0",
       "source": "kits/default.ts",
       "sourceHash": "fe239d01",
-      "targetHash": "6b363809"
+      "targetHash": "c386f6cb"
     },
     {
       "checklists": [
         "repo",
         "packages"
       ],
+      "esbuildVersion": "0.28.1",
+      "inputs": [
+        {
+          "hash": "ac484613",
+          "kind": "module",
+          "path": "kits/npm-auto-publish.ts"
+        }
+      ],
       "name": "npm-auto-publish",
       "path": "kits/npm-auto-publish.js",
-      "readyupVersion": "0.27.0",
+      "readyupVersion": "0.28.0",
       "source": "kits/npm-auto-publish.ts",
       "sourceHash": "ac484613",
-      "targetHash": "2e324215"
+      "targetHash": "0636c995"
     }
   ]
 }
