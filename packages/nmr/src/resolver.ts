@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { hasErrnoCode } from '@williamthorsen/nmr-core';
+
 import { parsePackageJson, readScriptRecord, resolvePackageJsonPath } from './helpers/package-json.ts';
 import { isObject } from './helpers/type-guards.ts';
 import type { ScriptRegistry, ScriptValue, StepSpec } from './resolve-scripts.ts';
@@ -136,7 +138,7 @@ export function readPackageJsonScripts(packageDir: string): Record<string, strin
   try {
     raw = readFileSync(file, 'utf8');
   } catch (error: unknown) {
-    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+    if (hasErrnoCode(error, 'ENOENT')) {
       return undefined;
     }
     throw error;

@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
-import { GIT_OUTPUT_LIMIT, parseArgsOrExit } from '@williamthorsen/nmr-core';
+import { GIT_OUTPUT_LIMIT, hasErrnoCode, parseArgsOrExit } from '@williamthorsen/nmr-core';
 
 import { readReleaseTags, RELEASE_SUMMARY_FILE, resolveReleaseTagsPath } from './releaseFiles.ts';
 
@@ -30,7 +30,7 @@ export function commitCommand(argv: string[]): void {
   try {
     summary = readFileSync(RELEASE_SUMMARY_FILE, 'utf8').trim();
   } catch (error: unknown) {
-    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+    if (hasErrnoCode(error, 'ENOENT')) {
       // Missing summary is acceptable.
     } else {
       throw error;

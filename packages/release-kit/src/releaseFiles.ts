@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import { hasErrnoCode } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 /**
@@ -58,18 +59,10 @@ export function readReleaseTags(): string[] {
 function describeTagsReadFailure(error: unknown): string {
   const tagsPath = resolveReleaseTagsPath();
 
-  if (getErrnoCode(error) === 'ENOENT') {
+  if (hasErrnoCode(error, 'ENOENT')) {
     return `No tags file found at ${tagsPath}. Run \`release-kit prepare\` first.`;
   }
 
   const detail = describeError(error);
   return `Cannot read the tags file at ${tagsPath}: ${detail}`;
-}
-
-/** Extracts Node's `code` property from a thrown value, when it carries one. */
-function getErrnoCode(error: unknown): string | undefined {
-  if (error instanceof Error && 'code' in error && typeof error.code === 'string') {
-    return error.code;
-  }
-  return undefined;
 }

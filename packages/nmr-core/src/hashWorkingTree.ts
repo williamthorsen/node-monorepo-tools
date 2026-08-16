@@ -6,6 +6,7 @@ import path from 'node:path';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { GIT_OUTPUT_LIMIT } from './gitOutputLimit.ts';
+import { hasErrnoCode } from './hasErrnoCode.ts';
 
 /**
  * A whole-repo content hash, or the reason one could not be produced. Every degraded condition (no repository,
@@ -206,7 +207,7 @@ function digestPathContent(toplevel: string, relativePath: string): PathContentR
   try {
     stats = lstatSync(absolutePath);
   } catch (error: unknown) {
-    if (isErrorWithCode(error, 'ENOENT')) {
+    if (hasErrnoCode(error, 'ENOENT')) {
       return { ok: true, kind: 'absent', digest: '' };
     }
     return { ok: false, reason: `could not stat ${relativePath}: ${describeError(error)}` };
@@ -249,10 +250,6 @@ function extractPath(record: string, precedingFieldCount: number): string | unde
 
   const extracted = record.slice(index);
   return extracted === '' ? undefined : extracted;
-}
-
-function isErrorWithCode(error: unknown, code: string): boolean {
-  return error instanceof Error && 'code' in error && error.code === code;
 }
 
 /**

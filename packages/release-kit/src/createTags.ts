@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 
-import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
+import { GIT_OUTPUT_LIMIT, hasErrnoCode } from '@williamthorsen/nmr-core';
 
 import { deleteFileIfExists } from './deleteFileIfExists.ts';
 import { readReleaseTags, RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './releaseFiles.ts';
@@ -69,7 +69,7 @@ function assertCleanWorkingTree(): void {
     execFileSync('git', ['diff', '--quiet'], { maxBuffer: GIT_OUTPUT_LIMIT });
     execFileSync('git', ['diff', '--quiet', '--cached'], { maxBuffer: GIT_OUTPUT_LIMIT });
   } catch (error: unknown) {
-    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+    if (hasErrnoCode(error, 'ENOENT')) {
       throw error;
     }
     throw new Error(
