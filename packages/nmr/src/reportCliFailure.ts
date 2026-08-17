@@ -1,7 +1,7 @@
 import type { Writable } from 'node:stream';
 
 import { reportError } from '@williamthorsen/nmr-core';
-import { describeError } from '@williamthorsen/toolbelt.errors';
+import { describeError, isError } from '@williamthorsen/toolbelt.errors';
 
 import { UserError } from './UserError.ts';
 
@@ -19,6 +19,6 @@ export function reportCliFailure(error: unknown, stderr: Writable): void {
     return;
   }
 
-  const detail = error instanceof Error && error.stack !== undefined ? error.stack : describeError(error);
+  const detail = isError(error) && error.stack !== undefined ? error.stack : describeError(error);
   stderr.write(`${detail}\n`);
 }
