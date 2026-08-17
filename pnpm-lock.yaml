@@ -124,8 +124,8 @@ importers:
         specifier: 3.9.6
         version: 3.9.6
       readyup:
-        specifier: 0.28.0
-        version: 0.28.0(esbuild@0.28.1)
+        specifier: 0.29.0
+        version: 0.29.0(esbuild@0.28.1)
       tinyglobby:
         specifier: 0.2.17
         version: 0.2.17
@@ -183,8 +183,8 @@ importers:
         specifier: 'catalog:'
         version: 0.4.0(vitest@4.1.10)
       readyup:
-        specifier: 0.28.0
-        version: 0.28.0(esbuild@0.28.1)
+        specifier: 0.29.0
+        version: 0.29.0(esbuild@0.28.1)
       smol-toml:
         specifier: 1.7.1
         version: 1.7.1
@@ -211,8 +211,8 @@ importers:
         specifier: 'catalog:'
         version: 0.4.0(vitest@4.1.10)
       readyup:
-        specifier: 0.28.0
-        version: 0.28.0(esbuild@0.28.1)
+        specifier: 0.29.0
+        version: 0.29.0(esbuild@0.28.1)
 
 packages:
 
@@ -837,20 +837,12 @@ packages:
     resolution: {integrity: sha512-UKeOOKngs5t5f9BKZ21hh/oyPIXueo5A+Mugkwc0f200abGdeNeZ9O7MbsvXb+h+o2t1E0BZzy8zk66OicsagQ==}
     engines: {node: '>=24.0.0'}
 
-  '@williamthorsen/toolbelt.filesystem@0.5.0':
-    resolution: {integrity: sha512-Wclpz5s7cfiD6Sw9afwsRwpNerR+/1NHhVrXES66xNfVb+WneOmPJegkW9hxuZwakjq7zRoUpBMYfAbJceCrXA==}
-    engines: {node: '>=24.0.0'}
-
   '@williamthorsen/toolbelt.filesystem@0.6.0':
     resolution: {integrity: sha512-V+HIpkcrdA+SReunl//jjuSLN2CaMhH0WDWC3TzvNVnaF6kInhYNRPzF9FKEA7vj0uRa+TDvEPl3SdO24bcNUg==}
     engines: {node: '>=24.0.0'}
 
   '@williamthorsen/toolbelt.packaging@0.3.0':
     resolution: {integrity: sha512-cmWHKbVp+6cNe5pBtbzmTTm8DOB7B2m8prvyL2uyw/2va1VinoP4K1ud+K/9ehQCD8Yktgm6/p7uS7V7Jtt/qw==}
-    engines: {node: '>=24.0.0'}
-
-  '@williamthorsen/toolbelt.packaging@0.4.0':
-    resolution: {integrity: sha512-Q6FB2Gbs0Njtos63fg7A219jKhJJ23/jdOzXoKlIYigndAJLo8NGZF9OYna8Csj5shmN096tIs8gjbim5doL1w==}
     engines: {node: '>=24.0.0'}
 
   '@williamthorsen/toolbelt.packaging@0.5.0':
@@ -2067,16 +2059,6 @@ packages:
     resolution: {integrity: sha512-7KA6+N9IGat52d83dvxnApAWN+MtVb1MiVuMR/cf1O4kYsJG+g/Aav0AHcHKsb6StinayfPLne0+fMX2sOzAKg==}
     engines: {node: '>=6'}
 
-  readyup@0.28.0:
-    resolution: {integrity: sha512-svMhuPbfEXKOrcQuPfwcpx3EUfNLChP2c24c2R/8Ib0FQcS+RzsjJyKgzEjDFvVQ0b+OckRBfT+Oh6zGbWxttQ==}
-    engines: {node: '>=24'}
-    hasBin: true
-    peerDependencies:
-      esbuild: '>=0.28.1'
-    peerDependenciesMeta:
-      esbuild:
-        optional: true
-
   readyup@0.29.0:
     resolution: {integrity: sha512-xvPFo15q89CS44ifkazliWe7ve8ibqR39GZCgdt5RTcCHg1coebCd5QRn3Mji9rNiLAHfK9G5NML1HWu8jznOg==}
     engines: {node: '>=24'}
@@ -3080,10 +3062,6 @@ snapshots:
     dependencies:
       '@williamthorsen/toolbelt.errors': 0.3.0
 
-  '@williamthorsen/toolbelt.filesystem@0.5.0':
-    dependencies:
-      '@williamthorsen/toolbelt.errors': 0.5.0
-
   '@williamthorsen/toolbelt.filesystem@0.6.0':
     dependencies:
       '@williamthorsen/toolbelt.errors': 0.5.0
@@ -3091,10 +3069,6 @@ snapshots:
   '@williamthorsen/toolbelt.packaging@0.3.0':
     dependencies:
       '@williamthorsen/toolbelt.filesystem': 0.4.0
-
-  '@williamthorsen/toolbelt.packaging@0.4.0':
-    dependencies:
-      '@williamthorsen/toolbelt.filesystem': 0.5.0
 
   '@williamthorsen/toolbelt.packaging@0.5.0':
     dependencies:
@@ -4397,18 +4371,6 @@ snapshots:
       util-deprecate: 1.0.2
 
   readline-transform@1.0.0: {}
-
-  readyup@0.28.0(esbuild@0.28.1):
-    dependencies:
-      '@williamthorsen/toolbelt.errors': 0.5.0
-      '@williamthorsen/toolbelt.packaging': 0.4.0
-      es-module-lexer: 2.3.1
-      jiti: 2.7.0
-      jsonc-parser: 3.3.1
-      picomatch: 4.0.5
-      zod: 4.4.3
-    optionalDependencies:
-      esbuild: 0.28.1
 
   readyup@0.29.0(esbuild@0.28.1):
     dependencies:

@@ -68,7 +68,7 @@
     "@types/semver": "7.8.0",
     "@williamthorsen/toolbelt.testing": "catalog:",
     "@williamthorsen/toolbelt.vitest": "catalog:",
-    "readyup": "0.28.0",
+    "readyup": "0.29.0",
     "smol-toml": "1.7.1"
   },
   "engines": {
