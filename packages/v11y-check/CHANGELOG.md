@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.15.3 — 2026-08-17
+
+### ♻️ Refactoring
+
+- Adopt silenceConsole across the test suites (#677)
+
+  Adopts `silenceConsole` from `@williamthorsen/toolbelt.vitest` to replace all hand-rolled `vi.spyOn(console, …)` spies and reduce boilerplate across the repo's test suites. The function returns a disposable, allowing the caller to use `using` to enable restoration of the console method at the end of the test scope.
+
+### 🧪 Tests
+
+- Replace the stdio spies with captureStdio (#678)
+
+  Replaces every `process.stdout` and `process.stderr` spy in the test suites with `captureStdio` from `@williamthorsen/toolbelt.testing` and deletes the obviated local capture helpers. `captureStdio` buffers writes rather than recording calls, so assertions that previously used `toHaveBeenCalledWith` instead check `stderr`/`stdout` strings and their chunk arrays.
+
+  Separately, `unicorn/no-nonstandard-builtin-properties` is off for test files. Its hand-maintained symbol table omits `Symbol.dispose`, which a suite-scoped capture calls to restore the streams, and `schema: []` offers no way to extend the table.
+
+### 👷 CI
+
+- Migrate the reusable workflows to pnpm/setup (#687)
+
+  Migrates the four reusable workflows from `pnpm/action-setup` to `pnpm/setup`, which installs pnpm as a native standalone binary and can supply the JavaScript runtime in the same step. `audit`, `create-github-release`, and `publish` now set up in one step with no `actions/setup-node`; `release` keeps it, because `pnpm/setup` omits `npm` and `npx` from the runtime it installs while `release-kit prepare` spawns `npx git-cliff` and `npx prettier`.
+
+  Migration: consumers of `audit`, `create-github-release`, and `publish` need a `devEngines.packageManager` or `packageManager` field pinning pnpm 11 or newer, the only range `pnpm/setup` installs. `create-github-release` and `publish` additionally need `@williamthorsen/release-kit` as a root dependency, because they now invoke it through `pnpm exec` instead of `npx --yes`.
+
 ## 0.15.2 — 2026-08-13
 
 ### ♻️ Refactoring

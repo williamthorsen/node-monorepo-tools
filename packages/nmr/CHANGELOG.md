@@ -2,6 +2,52 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.32.0 — 2026-08-17
+
+### 🎉 Features
+
+- Carry the test-tier convention in the ambient rulebook (#689)
+
+  Adds the test-tier convention to `nmr.md`, the ambient rulebook `codeassembly sync` deploys to each consuming repo's agent guidance. The guidance describes the `<subject>[.<aspect>].<tier>.test.ts` grammar and the four tiers, and warns that tests outside a `__tests__` directory are ignored. Tests not explicitly attributed to a tier are flagged by the ReadyUp kit bundled with `nmr`.
+
+  The previous guidance is removed from `AGENTS.md`.
+
+- Close each bin's output with a statement of what the run came to (#691)
+
+  Five nmr bins now end their output with a statement of the run's final result, rather than on whichever line the run happened to reach last, so the last line a reader sees carries the finding.
+
+  Separately, `ensure-prepublish-hooks` prints its whole report, including failure messages, on stdout, to avoid splitting the report across two streams. Failure still results in a non-zero exit code.
+
+- Reject a dead pnpm field in nmr's ReadyUp kit (#692)
+
+  nmr's ReadyUp kit now checks for the presence of a `pnpm` field in any `package.json`. pnpm 11 no longer reads any key from that field, but taze (the engine underlying `nmr upgrade`) reads `pnpm.overrides`. To avoid confusion, the kit flags this as an error.
+
+### 🐛 Bug fixes
+
+- Fold the running nmr's fingerprint into the build cache key (#693)
+
+  Fixes the issue that build output could be stale, but not reported to be stale, after an edit to `nmr-compile`'s own emit logic. The build cache key now folds a fingerprint of the `nmr` running the build alongside the TypeScript version it already carried. Any build keys generated against an `nmr` with a different fingerprint will be invalidated. Repos consuming `nmr` get the same behavior.
+
+### ♻️ Refactoring
+
+- Adopt silenceConsole across the test suites (#677)
+
+  Adopts `silenceConsole` from `@williamthorsen/toolbelt.vitest` to replace all hand-rolled `vi.spyOn(console, …)` spies and reduce boilerplate across the repo's test suites. The function returns a disposable, allowing the caller to use `using` to enable restoration of the console method at the end of the test scope.
+
+- Adopt `isError` and consolidate errno narrowing on a shared helper (#697)
+
+  Replaces every hand-rolled `instanceof Error` narrowing with `hasErrnoCode`, a new predicate exported from `@williamthorsen/nmr-core`, or with `isError` from `@williamthorsen/toolbelt.errors`. Previously the errno question was answered by inline copies alongside two private helpers of differing shape; both helpers are removed.
+
+  Separately, `eslint.config.ts` now bans `instanceof Error` in every position rather than in a ternary alone.
+
+### 🧪 Tests
+
+- Replace the stdio spies with captureStdio (#678)
+
+  Replaces every `process.stdout` and `process.stderr` spy in the test suites with `captureStdio` from `@williamthorsen/toolbelt.testing` and deletes the obviated local capture helpers. `captureStdio` buffers writes rather than recording calls, so assertions that previously used `toHaveBeenCalledWith` instead check `stderr`/`stdout` strings and their chunk arrays.
+
+  Separately, `unicorn/no-nonstandard-builtin-properties` is off for test files. Its hand-maintained symbol table omits `Symbol.dispose`, which a suite-scoped capture calls to restore the streams, and `schema: []` offers no way to extend the table.
+
 ## 0.31.0 — 2026-08-13
 
 ### 🎉 Features

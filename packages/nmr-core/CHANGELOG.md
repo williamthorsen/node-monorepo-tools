@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.10.1 — 2026-08-17
+
+### ♻️ Refactoring
+
+- Adopt silenceConsole across the test suites (#677)
+
+  Adopts `silenceConsole` from `@williamthorsen/toolbelt.vitest` to replace all hand-rolled `vi.spyOn(console, …)` spies and reduce boilerplate across the repo's test suites. The function returns a disposable, allowing the caller to use `using` to enable restoration of the console method at the end of the test scope.
+
+- Adopt `isError` and consolidate errno narrowing on a shared helper (#697)
+
+  Replaces every hand-rolled `instanceof Error` narrowing with `hasErrnoCode`, a new predicate exported from `@williamthorsen/nmr-core`, or with `isError` from `@williamthorsen/toolbelt.errors`. Previously the errno question was answered by inline copies alongside two private helpers of differing shape; both helpers are removed.
+
+  Separately, `eslint.config.ts` now bans `instanceof Error` in every position rather than in a ternary alone.
+
+### 🧪 Tests
+
+- Replace the stdio spies with captureStdio (#678)
+
+  Replaces every `process.stdout` and `process.stderr` spy in the test suites with `captureStdio` from `@williamthorsen/toolbelt.testing` and deletes the obviated local capture helpers. `captureStdio` buffers writes rather than recording calls, so assertions that previously used `toHaveBeenCalledWith` instead check `stderr`/`stdout` strings and their chunk arrays.
+
+  Separately, `unicorn/no-nonstandard-builtin-properties` is off for test files. Its hand-maintained symbol table omits `Symbol.dispose`, which a suite-scoped capture calls to restore the streams, and `schema: []` offers no way to extend the table.
+
+- Adopt throwOnProcessExit and captureError across the test suites (#690)
+
+  Adopts `throwOnProcessExit` from `@williamthorsen/toolbelt.vitest`, replacing every hand-rolled `process.exit` mock in the `release-kit` and `nmr-core` test suites, and `captureError` from `@williamthorsen/toolbelt.testing`, replacing inline try/catch/`instanceof` blocks.
+
+  Separately, `@williamthorsen/toolbelt.vitest` is now listed in the ReadyUp config, so that its kit is run by `rdy run --packages`.
+
 ## 0.10.0 — 2026-08-13
 
 ### 🎉 Features
