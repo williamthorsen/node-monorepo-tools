@@ -2022,6 +2022,47 @@ describe(releasePrepareMono, () => {
       expect(result.tags).toContain('v0.10.0');
     });
 
+    it('skips the project release and warns when the run is narrowed by --only', () => {
+      const config = makeConfig({
+        workspaces: [
+          {
+            dir: 'arrays',
+            name: '@test/arrays',
+            tagPrefix: 'arrays-v',
+            workspacePath: 'packages/arrays',
+            isPublishable: true,
+            packageFiles: ['packages/arrays/package.json'],
+            changelogPaths: ['packages/arrays'],
+            paths: ['packages/arrays/**'],
+          },
+        ],
+        project: { paths: ['packages/arrays/**'], tagPrefix: 'v' },
+      });
+      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+        if (cmd === 'git' && args[0] === 'describe') {
+          const matchArg = args.find((a: string) => a.startsWith('--match='));
+          if (matchArg === '--match=arrays-v*') return 'arrays-v1.0.0\n';
+          if (matchArg === '--match=v*') return 'v0.9.0\n';
+        }
+        if (cmd === 'git' && args[0] === 'log') {
+          return 'feat: shipabc123';
+        }
+        return '';
+      });
+      mockReadFileSync.mockImplementation((filePath: string) => {
+        if (filePath === './package.json') return JSON.stringify({ name: 'root', version: '0.9.0' });
+        return JSON.stringify({ version: '1.0.0' });
+      });
+
+      const result = releasePrepareMono(config, { only: ['arrays'] });
+
+      expect(result.project).toBeUndefined();
+      expect(result.tags).toContain('arrays-v1.1.0');
+      expect(result.tags).not.toContain('v0.10.0');
+      expect(result.warnings?.join('\n')).toContain('Project release skipped');
+      expect(result.warnings?.join('\n')).toContain('arrays');
+    });
+
     it('passes project files to the format command alongside per-workspace files', () => {
       const config = makeConfig({
         formatCommand: 'npx prettier --write',

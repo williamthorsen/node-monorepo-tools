@@ -205,27 +205,12 @@ function runMonorepoMode(
   // Reject `--set-version` when a project block is configured. `--set-version` is a workspace
   // operation; a project release rolls up every contributing workspace and derives its bump
   // from commits in the contributing-paths window — there is no flag designed to override the
-  // project version directly, and the two semantics do not compose. Runs before the `--only`
-  // rejection so a user passing `--set-version` (the primary intent) sees the project-aware
-  // error rather than the secondary `--only` error when both flags are supplied.
+  // project version directly, and the two semantics do not compose.
   if (setVersion !== undefined && config.project !== undefined) {
     reportError(
       '--set-version cannot be combined with a project release. ' +
         '--set-version operates on a single workspace; a project release rolls up every ' +
         'contributing workspace. To use --set-version, run on a config without a `project` block.',
-    );
-    process.exit(1);
-  }
-
-  // Reject `--only` when a project block is configured. Project releases roll up every
-  // contributing workspace; narrowing to a single workspace would produce ambiguous semantics
-  // around which workspaces participate in the project bump. A consumer that needs to release
-  // a single workspace must do so on a config without a `project` block.
-  if (only !== undefined && config.project !== undefined) {
-    reportError(
-      '--only cannot be combined with a project release. ' +
-        'To release a single workspace, use a config without a `project` block, ' +
-        'or run a full `prepare` (no --only) to include the project release.',
     );
     process.exit(1);
   }
@@ -284,7 +269,7 @@ function runMonorepoMode(
     }
   }
 
-  runAndReport(() => releasePrepareMono(config, options), dryRun);
+  runAndReport(() => releasePrepareMono(config, { ...options, ...(only !== undefined && { only }) }), dryRun);
 }
 
 interface PrepareOptions {

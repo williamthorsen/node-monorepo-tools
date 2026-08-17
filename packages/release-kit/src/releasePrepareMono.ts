@@ -94,7 +94,7 @@ interface Phase1Result {
  * Phase 3: Execute bumps and generate changelogs in dependency order.
  */
 export function releasePrepareMono(config: MonorepoReleaseConfig, options: ReleasePrepareOptions): ReleasePlan {
-  const { withReleaseNotes } = options;
+  const { only, withReleaseNotes } = options;
   const writes: PlannedWrite[] = [];
 
   if (withReleaseNotes === true && !config.changelogJson.enabled) {
@@ -175,27 +175,34 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
 
   // === Phase 3b: Project release ===
   // Runs after the per-workspace loop (so contributing workspaces are settled) but before
-  // `runFormatCommand` (so root files participate in formatting). `prepareCommand` rejects
-  // `--only` upstream when a project block is configured, so the orchestrator does not need
-  // a per-workspace narrowing guard here.
+  // `runFormatCommand` (so root files participate in formatting). A narrowed run skips the
+  // stage: the project release rolls up every contributing workspace, and `--only` has changed
+  // which workspaces those are, so a roll-up would cover a set the caller did not ask for.
   //
   // `releasePrepareProject` returns a structured `ProjectPrepareResult` for both released
-  // and skipped variants — `undefined` here continues to mean "no project block configured."
+  // and skipped variants — `undefined` here means "no project block configured, or narrowed away."
   let project: ProjectPrepareResult | undefined;
   if (config.project !== undefined) {
-    project = tryStage('project release stage', () =>
-      releasePrepareProject({
-        config,
-        options,
-        modifiedFiles,
-        writes,
-        tags,
-        warnings,
-        rootOverrides: overrideContext.project,
-        overrideWarnings: overrideContext.overrideWarnings,
-        globalMatchedRootKeys: overrideContext.globalMatchedRootKeys,
-      }),
-    );
+    if (only === undefined) {
+      project = tryStage('project release stage', () =>
+        releasePrepareProject({
+          config,
+          options,
+          modifiedFiles,
+          writes,
+          tags,
+          warnings,
+          rootOverrides: overrideContext.project,
+          overrideWarnings: overrideContext.overrideWarnings,
+          globalMatchedRootKeys: overrideContext.globalMatchedRootKeys,
+        }),
+      );
+    } else {
+      warnings.push(
+        `Project release skipped: --only narrows this run to ${only.join(', ')}. ` +
+          'Run `release-kit prepare` without --only to include the project release.',
+      );
+    }
   }
 
   // === Phase 4: Render the format command ===

@@ -3,8 +3,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
+import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, assert, beforeEach, describe, expect, it } from 'vitest';
 
 import { mergeMonorepoConfig } from '../loadConfig.ts';
@@ -449,10 +449,10 @@ describe('releasePrepareProject (tool)', () => {
     });
   }, 60_000);
 
-  it('rejects --only via prepareCommand before any project work runs', async () => {
-    // The CLI guard lives in prepareCommand. We exercise it directly so this test
-    // reflects the user-observable behavior end-to-end. Failure must occur before any file is
-    // written: assert no CHANGELOG.md, no bumped version, no project-tag artifact.
+  it('narrows to the named workspace via prepareCommand, leaving the project release unreleased', async () => {
+    // Exercise the CLI entry point directly so the test reflects user-observable behavior
+    // end-to-end: the named workspace releases, and the project tier is left alone. The
+    // untouched root version and absent root CHANGELOG.md are what prove the skip.
     const { prepareCommand } = await import('../prepareCommand.ts');
 
     // Write a minimal release-kit config that declares the project block.
@@ -467,23 +467,30 @@ describe('releasePrepareProject (tool)', () => {
     process.chdir(fixture.repoDir);
     using capture = captureStdio();
     const exit = throwOnProcessExit();
+    using _silent = silenceConsole(['info']);
 
-    let error: ProcessExitError;
     try {
-      error = await captureError(ProcessExitError, () => prepareCommand(['--only=pkg-a', '--no-git-checks']));
+      await prepareCommand(['--only=pkg-a', '--no-git-checks']);
     } finally {
       exit[Symbol.dispose]();
       process.chdir(previousCwd);
     }
 
-    expect(error.code).toBe(1);
-    expect(capture.stderr).toContain('--only cannot be combined with a project release');
-    // No file was written.
+    expect(capture.stderr).not.toContain('cannot be combined with a project release');
+    expect(capture.stdout).toContain('Project release skipped');
+
+    // The project release did not run: the root version and root changelog are untouched.
     expect(existsSync(join(fixture.repoDir, 'CHANGELOG.md'))).toBe(false);
     const rootPackageJson: { version: string } = JSON.parse(
       readFileSync(join(fixture.repoDir, 'package.json'), 'utf8'),
     );
     expect(rootPackageJson.version).toBe('0.9.0');
+
+    // The named workspace did release.
+    expect(existsSync(join(fixture.repoDir, 'packages', 'pkg-a', 'CHANGELOG.md'))).toBe(true);
+    const releaseTags = readFileSync(join(fixture.repoDir, 'tmp', '.release-tags'), 'utf8');
+    expect(releaseTags).toContain('pkg-a-v');
+    expect(releaseTags).not.toMatch(/^v\d/m);
   }, 60_000);
 });
 

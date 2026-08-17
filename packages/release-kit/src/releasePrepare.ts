@@ -57,6 +57,13 @@ export interface ReleasePrepareOptions {
    */
   setVersion?: string;
   /**
+   * Workspace directories the run was narrowed to by `--only` (monorepo only), with
+   * `config.workspaces` already filtered to match. Present only for a narrowed run, which
+   * skips the project release: the project tier rolls up every contributing workspace, and
+   * the narrowing has changed which workspaces those are.
+   */
+  only?: string[];
+  /**
    * If true, write per-workspace release-notes previews under `{workspacePath}/docs/`
    * (`README.v{version}.md` and `RELEASE_NOTES.v{version}.md`) after each workspace's
    * `changelog.json` is produced. Requires `config.changelogJson.enabled`; when disabled,

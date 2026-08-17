@@ -565,9 +565,24 @@ describe(prepareCommand, () => {
       });
     });
 
-    it('rejects --only with an error before any release work runs', async () => {
-      await expect(prepareCommand(['--only=arrays'])).rejects.toThrow(ProcessExitError);
-      expect(capture.stderr).toContain('--only cannot be combined with a project release');
+    it('accepts --only and passes the narrowing through to the orchestrator', async () => {
+      await prepareCommand(['--only=arrays']);
+
+      expect(mockReleasePrepareMono).toHaveBeenCalledWith(
+        expect.objectContaining({ workspaces: [expect.objectContaining({ tagPrefix: 'arrays-v' })] }),
+        expect.objectContaining({ only: ['arrays'] }),
+      );
+    });
+
+    it('omits the narrowing from the orchestrator options when --only is absent', async () => {
+      await prepareCommand([]);
+
+      expect(mockReleasePrepareMono.mock.calls[0]?.[1]).not.toHaveProperty('only');
+    });
+
+    it('still rejects --only with an unknown workspace name', async () => {
+      await expect(prepareCommand(['--only=nonexistent'])).rejects.toThrow(ProcessExitError);
+      expect(capture.stderr).toContain('nonexistent');
       expect(mockReleasePrepareMono).not.toHaveBeenCalled();
     });
 
@@ -583,7 +598,7 @@ describe(prepareCommand, () => {
       expect(mockReleasePrepareMono).not.toHaveBeenCalled();
     });
 
-    it('rejects --set-version + --only with the project-aware error (project rule wins over --only rule)', async () => {
+    it('rejects --set-version + --only with the project-aware error', async () => {
       await expect(prepareCommand(['--set-version=1.2.3', '--only=arrays'])).rejects.toThrow(ProcessExitError);
       expect(capture.stderr).toContain('--set-version cannot be combined with a project release');
       expect(mockReleasePrepareMono).not.toHaveBeenCalled();

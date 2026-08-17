@@ -271,9 +271,9 @@ export interface SkippedProjectResult {
  * Result of preparing a project-level release.
  *
  * Discriminated by `status`: `ReleasedProjectResult` for produced releases,
- * `SkippedProjectResult` for skips. `PrepareResult.project === undefined` continues to
- * mean "no project block configured" — only the result shape varies when the block IS
- * configured.
+ * `SkippedProjectResult` for skips. `PrepareResult.project === undefined` means either that
+ * no project block is configured or that `--only` narrowed the run, which skips the stage
+ * before it can produce a result; the skip is surfaced as a run warning instead.
  */
 export type ProjectPrepareResult = ReleasedProjectResult | SkippedProjectResult;
 
