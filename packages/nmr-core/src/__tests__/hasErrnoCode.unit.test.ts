@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import { hasErrnoCode } from '../hasErrnoCode.ts';
 
@@ -26,5 +26,10 @@ describe(hasErrnoCode, () => {
   it('returns false for a thrown value that is not an object', () => {
     expect(hasErrnoCode('ENOENT', 'ENOENT')).toBe(false);
     expect(hasErrnoCode(undefined, 'ENOENT')).toBe(false);
+  });
+
+  it('narrows the value to an Error carrying the code', () => {
+    // `expectTypeOf` is a run-time no-op: a mismatch surfaces as a type error rather than as a failure here.
+    expectTypeOf(hasErrnoCode).guards.toEqualTypeOf<Error & { code: string }>();
   });
 });
