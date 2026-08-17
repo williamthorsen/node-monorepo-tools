@@ -25,9 +25,13 @@ describe(prepareHelpText, () => {
     expect(prepareHelpText).toContain('Release even when no commits');
   });
 
-  it('documents the project-block caveat on both --set-version and --only', () => {
+  it('documents the project-block rejection on --set-version alone', () => {
     const caveats = prepareHelpText.match(/rejected when a 'project' block is configured/g);
-    expect(caveats).toHaveLength(2);
+    expect(caveats).toHaveLength(1);
+  });
+
+  it('documents that --only skips the project release rather than being rejected', () => {
+    expect(prepareHelpText).toMatch(/'project' block is configured, the project release is skipped/);
   });
 
   it('documents the single-package --force rejection caveat', () => {
