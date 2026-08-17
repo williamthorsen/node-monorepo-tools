@@ -18,13 +18,12 @@ Packages live under `packages/`:
 ### nmr script runner
 
 - Default scripts defined in `packages/nmr/src/default-scripts.ts`; a repo overrides them in `.config/nmr.config.ts`, which here adds only `check:content` and the `check:strict:post` hook that runs it
-- `build`, `typecheck`, and every `test` script but `test:watch` fan out to workspaces via an `-R {command}` step; every other root script covers the whole tree from the root instead
+- `build`, `typecheck`, and every `test` script but `test:watch` fan out to workspaces via an `-R {command}` step; no other root script does, and a `root:`-prefixed one covers root files alone
 
 ### Build system
 
 - A single TypeScript compiler-API emit via the nmr-managed `nmr-compile` bin (`packages/nmr/src/commands/build.ts`), the default `compile` script
 - Emits `.js` and `.d.ts` together; AST-based rewriting turns relative `.ts`→`.js` specifiers and tsconfig `paths` aliases into runnable relative `.js` in both outputs
-- Content-hash caching under `node_modules/.cache/nmr-compile/` skips rebuild when neither the sources nor the toolchain that compiles them have changed
 - ESM-only output (`type: "module"` in all packages)
 - The compiler baseline comes from the published `@williamthorsen/tsconfig`, which the root `tsconfig.json` extends and the package configs reach through it; changing a compiler option means upgrading that package, not editing a config here
 
