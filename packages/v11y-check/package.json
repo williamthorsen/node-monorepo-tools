@@ -55,6 +55,7 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@williamthorsen/toolbelt.filesystem": "catalog:",
     "@williamthorsen/toolbelt.testing": "catalog:",
     "@williamthorsen/toolbelt.vitest": "catalog:",
     "readyup": "0.29.0"

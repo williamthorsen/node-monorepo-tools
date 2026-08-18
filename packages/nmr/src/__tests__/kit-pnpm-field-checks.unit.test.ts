@@ -1,14 +1,12 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { noPnpmFieldInPackageJson } from '../../.readyup/kits/default.ts';
-import { buildRepo, removeFixtureDirs } from '../test-utils/fixture-repo.ts';
+import { buildRepo } from '../test-utils/fixture-repo.ts';
 import { getDetail } from '../test-utils/getDetail.ts';
 
 const WORKSPACE_YAML = "packages:\n  - packages/*\n\noverrides:\n  tar: '>=6.2.1'\n";
 
 describe(noPnpmFieldInPackageJson, () => {
-  afterEach(removeFixtureDirs);
-
   it('passes when the overrides live in pnpm-workspace.yaml alone', () => {
     const dir = buildRepo({
       'package.json': '{ "name": "root" }\n',

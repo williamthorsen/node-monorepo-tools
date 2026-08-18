@@ -82,6 +82,7 @@
     "yaml": "2.9.0"
   },
   "devDependencies": {
+    "@williamthorsen/toolbelt.filesystem": "catalog:",
     "@williamthorsen/toolbelt.testing": "catalog:",
     "@williamthorsen/toolbelt.vitest": "catalog:",
     "prettier": "3.9.6",

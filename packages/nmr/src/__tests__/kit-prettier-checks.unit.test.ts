@@ -1,15 +1,13 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { prettierConfigBuildsOnSharedConfig } from '../../.readyup/kits/default.ts';
-import { buildRepo, removeFixtureDirs } from '../test-utils/fixture-repo.ts';
+import { buildRepo } from '../test-utils/fixture-repo.ts';
 import { getDetail } from '../test-utils/getDetail.ts';
 
 const SHARED_CONFIG =
   "import { definePrettierConfig } from '@williamthorsen/nmr/prettier';\nexport default definePrettierConfig();\n";
 
 describe(prettierConfigBuildsOnSharedConfig, () => {
-  afterEach(removeFixtureDirs);
-
   // Both spellings are configs Prettier reads, so a check matching only one would report a
   // conformant repo as stale. This repo uses the `.prettierrc.js` form.
   it.each(['.prettierrc.js', '.prettierrc.mjs', '.prettierrc.ts', 'prettier.config.js', 'prettier.config.mts'])(

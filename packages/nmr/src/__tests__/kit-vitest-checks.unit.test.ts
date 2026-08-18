@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import {
   everyTestFileNamesItsTier,
@@ -7,7 +7,7 @@ import {
   vitestConfigBuildsOnSharedConfig,
   vitestRootConfigBuildsOnSharedConfig,
 } from '../../.readyup/kits/default.ts';
-import { buildRepo, removeFixtureDirs } from '../test-utils/fixture-repo.ts';
+import { buildRepo } from '../test-utils/fixture-repo.ts';
 import { getDetail } from '../test-utils/getDetail.ts';
 
 const SHARED_CONFIG =
@@ -16,8 +16,6 @@ const SHARED_ROOT_CONFIG =
   "import { defineRootVitestConfig } from '@williamthorsen/nmr/vitest';\nexport default defineRootVitestConfig({ monorepoRoot: import.meta.dirname });\n";
 
 describe(noRetiredVitestConfigs, () => {
-  afterEach(removeFixtureDirs);
-
   it('passes when no retired variant survives', () => {
     const dir = buildRepo({ 'vitest.config.ts': SHARED_CONFIG });
 
@@ -52,8 +50,6 @@ describe(noRetiredVitestConfigs, () => {
 });
 
 describe(vitestConfigBuildsOnSharedConfig, () => {
-  afterEach(removeFixtureDirs);
-
   it('passes when the root config imports defineVitestConfig', () => {
     const dir = buildRepo({ 'vitest.config.ts': SHARED_CONFIG });
 
@@ -82,8 +78,6 @@ describe(vitestConfigBuildsOnSharedConfig, () => {
 });
 
 describe(vitestRootConfigBuildsOnSharedConfig, () => {
-  afterEach(removeFixtureDirs);
-
   it('passes when the root-tests config imports defineRootVitestConfig', () => {
     const dir = buildRepo({ 'vitest.root.config.ts': SHARED_ROOT_CONFIG });
 
@@ -104,8 +98,6 @@ describe(vitestRootConfigBuildsOnSharedConfig, () => {
 });
 
 describe(everyTestFileNamesItsTier, () => {
-  afterEach(removeFixtureDirs);
-
   it('passes when every collected file names a tier', () => {
     const dir = buildRepo({
       '.readyup/kits/__tests__/kit.unit.test.ts': '',
@@ -166,8 +158,6 @@ describe(everyTestFileNamesItsTier, () => {
 });
 
 describe(noReExportOnlyVitestConfigs, () => {
-  afterEach(removeFixtureDirs);
-
   it('passes when no package carries a Vitest config', () => {
     const dir = buildRepo({ 'vitest.config.ts': SHARED_CONFIG });
 
