@@ -458,7 +458,7 @@ Per-entry fields are all optional, but at least one must be present per entry:
 Keys can be either the full 40-character commit SHA or a non-ambiguous prefix. The matcher walks every `ChangelogItem.hash` value present in the entry tree and resolves each override key to its set of matching hashes:
 
 - **Exact prefix match (1 hit)** — the override applies. A 7-character prefix is usually unambiguous within a single repo's history; longer prefixes are always safe.
-- **No matches (0 hits)** — the override is treated as a stale reference (probably from a rebase or branch deletion) and a warning is logged. The release continues.
+- **No matches (0 hits)** — the override is treated as a stale reference (probably from a rebase or branch deletion) and prepare reports a warning. The release continues.
 - **Ambiguous prefix (2+ hits)** — the release aborts with an error naming the key and the matching hashes. Lengthen the prefix or use the full SHA.
 
 Override application errors abort the run with a non-zero exit; warnings (zero-match keys) are non-fatal and surface on `PrepareResult.warnings`.
@@ -586,7 +586,7 @@ Workspace names for `--only` match the package directory name (e.g., `arrays`, `
 - `<workspacePath>/docs/README.v<version>.md` — the workspace `README.md` with release notes injected at the `<!-- section:release-notes -->` marker.
 - `<workspacePath>/docs/RELEASE_NOTES.v<version>.md` — the standalone release notes for this version.
 
-The publish-time inject-and-revert lifecycle is unchanged; previews are additive, deterministic, and safe to regenerate. When `changelogJson.enabled` is `false`, the flag logs a warning and skips preview generation. In dry-run mode, planned writes are logged and no files are created.
+The publish-time inject-and-revert lifecycle is unchanged; previews are additive, deterministic, and safe to regenerate. When `changelogJson.enabled` is `false`, prepare reports a warning and skips preview generation. In dry-run mode, planned writes are logged and no files are created.
 
 Because preview filenames are versioned, committing them will accumulate files over time. The recommended `.gitignore` entry for monorepos is:
 

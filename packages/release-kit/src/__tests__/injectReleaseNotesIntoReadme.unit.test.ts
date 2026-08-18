@@ -28,8 +28,10 @@ vi.mock(import('../renderReleaseNotes.ts'), () => ({
 import {
   injectReleaseNotesIntoReadme,
   renderInjectedReadme,
+  renderInjectedReadmeFromEntries,
   resolveReadmePath,
 } from '../injectReleaseNotesIntoReadme.ts';
+import type { ChangelogEntry } from '../types.ts';
 
 describe(injectReleaseNotesIntoReadme, () => {
   beforeEach(() => {
@@ -205,7 +207,9 @@ describe(renderInjectedReadme, () => {
     const result = renderInjectedReadme('# README\n', '/pkg/.meta/changelog.json', 'v1.2.3');
 
     expect(result).toBeUndefined();
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('not found; skipping README injection'));
+    expect(console.warn).toHaveBeenCalledWith(
+      'Warning: /pkg/.meta/changelog.json not found; skipping README injection',
+    );
   });
 
   it('returns undefined when changelog.json is unparseable', () => {
@@ -216,7 +220,9 @@ describe(renderInjectedReadme, () => {
     const result = renderInjectedReadme('# README\n', '/pkg/.meta/changelog.json', 'v1.2.3');
 
     expect(result).toBeUndefined();
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('could not parse'));
+    expect(console.warn).toHaveBeenCalledWith(
+      'Warning: could not parse /pkg/.meta/changelog.json; skipping README injection',
+    );
   });
 
   it('returns undefined when no changelog entry matches the version', () => {
@@ -227,7 +233,9 @@ describe(renderInjectedReadme, () => {
     const result = renderInjectedReadme('# README\n', '/pkg/.meta/changelog.json', 'v9.9.9');
 
     expect(result).toBeUndefined();
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('no changelog entry for version 9.9.9'));
+    expect(console.warn).toHaveBeenCalledWith(
+      'Warning: no changelog entry for version 9.9.9; skipping README injection',
+    );
   });
 
   it('returns undefined when all sections are dev-only', () => {
@@ -237,7 +245,9 @@ describe(renderInjectedReadme, () => {
     const result = renderInjectedReadme('# README\n', '/pkg/.meta/changelog.json', 'v1.2.3');
 
     expect(result).toBeUndefined();
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('no user-facing release notes'));
+    expect(console.warn).toHaveBeenCalledWith(
+      'Warning: no user-facing release notes for version 1.2.3; skipping README injection',
+    );
   });
 
   it('forwards sectionOrder to the renderer when provided', () => {
@@ -258,6 +268,68 @@ describe(renderInjectedReadme, () => {
 
     const renderOptions = mockRenderReleaseNotesSingle.mock.calls[0]?.[1];
     expect(renderOptions).not.toHaveProperty('sectionOrder');
+  });
+});
+
+describe(renderInjectedReadmeFromEntries, () => {
+  const entries: readonly ChangelogEntry[] = [
+    {
+      version: '1.2.3',
+      date: '2024-01-01',
+      sections: [{ title: 'Features', audience: 'all', items: [{ description: 'Add widget' }] }],
+    },
+  ];
+
+  beforeEach(() => {
+    mockExtractVersion.mockReturnValue('1.2.3');
+    mockMatchesAudience.mockReturnValue(() => true);
+    mockRenderReleaseNotesSingle.mockReturnValue('### Features\n\n- Add widget\n');
+  });
+
+  afterEach(() => {
+    mockExtractVersion.mockReset();
+    mockMatchesAudience.mockReset();
+    mockRenderReleaseNotesSingle.mockReset();
+    vi.restoreAllMocks();
+  });
+
+  it('returns the injected README and the standalone markdown when the entry renders', () => {
+    const result = renderInjectedReadmeFromEntries('# Pkg\n', entries, 'pkg-v1.2.3');
+
+    expect(result).toStrictEqual({
+      status: 'rendered',
+      rendered: {
+        injectedReadme: expect.stringContaining('### Features'),
+        releaseNotesMarkdown: '## Release notes — v1.2.3 (2024-01-01)\n\n### Features\n\n- Add widget',
+      },
+    });
+  });
+
+  it('reports no-entry with the version when no entry matches the tag', () => {
+    mockExtractVersion.mockReturnValue('9.9.9');
+
+    const result = renderInjectedReadmeFromEntries('# Pkg\n', entries, 'pkg-v9.9.9');
+
+    expect(result).toStrictEqual({ status: 'skipped', reason: 'no-entry', version: '9.9.9' });
+  });
+
+  it('reports empty-body with the version when the entry renders nothing', () => {
+    mockRenderReleaseNotesSingle.mockReturnValue('');
+
+    const result = renderInjectedReadmeFromEntries('# Pkg\n', entries, 'pkg-v1.2.3');
+
+    expect(result).toStrictEqual({ status: 'skipped', reason: 'empty-body', version: '1.2.3' });
+  });
+
+  it('reports a skip through its return value rather than the console', () => {
+    using silent = silenceConsole(['warn']);
+    mockRenderReleaseNotesSingle.mockReturnValue('');
+
+    renderInjectedReadmeFromEntries('# Pkg\n', entries, 'pkg-v1.2.3');
+    mockExtractVersion.mockReturnValue('9.9.9');
+    renderInjectedReadmeFromEntries('# Pkg\n', entries, 'pkg-v9.9.9');
+
+    expect(silent.warn).not.toHaveBeenCalled();
   });
 });
 

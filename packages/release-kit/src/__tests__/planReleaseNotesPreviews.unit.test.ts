@@ -34,8 +34,11 @@ describe(planReleaseNotesPreviews, () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue('# Pkg\n');
     mockRenderInjectedReadmeFromEntries.mockReturnValue({
-      injectedReadme: '# Pkg\n### Features\n\n- X\n',
-      releaseNotesMarkdown: '## Release notes — v1.2.3 (2024-01-01)\n\n### Features\n\n- X',
+      status: 'rendered',
+      rendered: {
+        injectedReadme: '# Pkg\n### Features\n\n- X\n',
+        releaseNotesMarkdown: '## Release notes — v1.2.3 (2024-01-01)\n\n### Features\n\n- X',
+      },
     });
   });
 
@@ -95,11 +98,31 @@ describe(planReleaseNotesPreviews, () => {
   });
 
   it('if the renderer reports no content for the version, plans nothing', () => {
-    mockRenderInjectedReadmeFromEntries.mockReturnValue(undefined);
+    mockRenderInjectedReadmeFromEntries.mockReturnValue({ status: 'skipped', reason: 'no-entry', version: '1.2.3' });
 
     const plan = planReleaseNotesPreviews(previewOptions());
 
     expect(plan.writes).toStrictEqual([]);
+  });
+
+  it('if no changelog entry matches the version, warns naming the version', () => {
+    mockRenderInjectedReadmeFromEntries.mockReturnValue({ status: 'skipped', reason: 'no-entry', version: '1.2.3' });
+
+    const plan = planReleaseNotesPreviews(previewOptions());
+
+    expect(plan.warnings).toStrictEqual([
+      'packages/a: no changelog entry for version 1.2.3; skipping release-notes previews',
+    ]);
+  });
+
+  it('if the entry has no user-facing content, warns naming the version', () => {
+    mockRenderInjectedReadmeFromEntries.mockReturnValue({ status: 'skipped', reason: 'empty-body', version: '1.2.3' });
+
+    const plan = planReleaseNotesPreviews(previewOptions());
+
+    expect(plan.warnings).toStrictEqual([
+      'packages/a: no user-facing release notes for version 1.2.3; skipping release-notes previews',
+    ]);
   });
 
   it('ends the standalone preview with a newline when the renderer omits one', () => {

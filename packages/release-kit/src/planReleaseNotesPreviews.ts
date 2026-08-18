@@ -4,7 +4,10 @@ import path from 'node:path';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { extractVersion } from './changelogJsonUtils.ts';
-import { renderInjectedReadmeFromEntries } from './injectReleaseNotesIntoReadme.ts';
+import {
+  renderInjectedReadmeFromEntries,
+  type RenderInjectedReadmeSkipReason,
+} from './injectReleaseNotesIntoReadme.ts';
 import type { PlannedWrite } from './releasePlan.ts';
 import type { ChangelogEntry } from './types.ts';
 
@@ -38,7 +41,7 @@ export interface ReleaseNotesPreviewsPlan {
  *
  * The injected-README preview is omitted (the standalone file is still planned) when the
  * workspace has no readable `README.md`. Both are omitted when the renderer reports no content
- * for this version, which it explains on stderr itself.
+ * for this version, with the reason recorded in `warnings`.
  */
 export function planReleaseNotesPreviews(options: PlanReleaseNotesPreviewsOptions): ReleaseNotesPreviewsPlan {
   const { workspacePath, tag, entries, sectionOrder } = options;
@@ -47,10 +50,12 @@ export function planReleaseNotesPreviews(options: PlanReleaseNotesPreviewsOption
   const readmePath = path.join(workspacePath, 'README.md');
   const readme = readWorkspaceReadme(readmePath, warnings);
 
-  const rendered = renderInjectedReadmeFromEntries(readme.content, entries, tag, sectionOrder);
-  if (rendered === undefined) {
+  const result = renderInjectedReadmeFromEntries(readme.content, entries, tag, sectionOrder);
+  if (result.status === 'skipped') {
+    warnings.push(describePreviewSkip(workspacePath, result.reason, result.version));
     return { writes: [], warnings };
   }
+  const { rendered } = result;
 
   if (!readme.exists && !readme.unreadable) {
     warnings.push(
@@ -75,6 +80,20 @@ export function planReleaseNotesPreviews(options: PlanReleaseNotesPreviewsOption
   });
 
   return { writes, warnings };
+}
+
+/**
+ * Describes a skipped preview as a warning naming the workspace, the reason, and the version.
+ *
+ * The workspace leads because the prepare report collects every workspace's warnings into a single
+ * block, so a message naming only the version cannot be traced back to the workspace it describes.
+ */
+function describePreviewSkip(workspacePath: string, reason: RenderInjectedReadmeSkipReason, version: string): string {
+  const cause =
+    reason === 'no-entry'
+      ? `no changelog entry for version ${version}`
+      : `no user-facing release notes for version ${version}`;
+  return `${workspacePath}: ${cause}; skipping release-notes previews`;
 }
 
 /**

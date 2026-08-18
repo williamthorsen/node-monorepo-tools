@@ -61,6 +61,7 @@ function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOpti
 
   if (workspace.status === 'skipped') {
     lines.push(`⏭️  ${workspace.skipReason}`);
+    formatWarnings(lines, result);
     return lines.join('\n');
   }
 

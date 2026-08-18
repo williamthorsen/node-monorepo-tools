@@ -143,6 +143,25 @@ describe(reportPrepare, () => {
       );
     });
 
+    it('surfaces warnings on a skipped single-package release', () => {
+      const result: PrepareResult = {
+        workspaces: [
+          {
+            status: 'skipped',
+            previousTag: 'v1.0.0',
+            commitCount: 1,
+            skipReason: 'No release-worthy changes found. Skipping.',
+          },
+        ],
+        tags: [],
+        warnings: ['packages/a: no changelog entry for version 1.0.1; skipping release-notes previews'],
+      };
+
+      expect(reportPrepare(result, { applied: true })).toContain(
+        '⚠️  packages/a: no changelog entry for version 1.0.1; skipping release-notes previews',
+      );
+    });
+
     it('surfaces warnings on a single-package release', () => {
       const result: PrepareResult = {
         workspaces: [makeReleasedWorkspace()],
