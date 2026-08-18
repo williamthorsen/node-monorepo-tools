@@ -33,6 +33,12 @@ const SEGMENT_SEPARATORS = new Set([';', '|', '&', '\n', '\r']);
 const SHELL_SAFE_TOKEN = /^[\w@%+=:,./-]+$/;
 
 /**
+ * The characters that end one token and begin the next: a shell's default IFS, and the carriage return a
+ * `\r\n` line ending carries. Every other character a shell reads inside the word holding it.
+ */
+const TOKEN_SEPARATORS = new Set([' ', '\t', '\n', '\r']);
+
+/**
  * One element of a resolved command chain, carrying how it was composed rather than how its text reads.
  * A `structural` step is nmr's own composition, held as argv; an `opaque` step is a command nmr does not parse.
  *
@@ -78,9 +84,9 @@ export function composeNmrStep(element: string, workspaceRoot: boolean, declines
 /**
  * Returns the text of the first opaque step that reaches nmr through a shell, or `undefined` when none does.
  *
- * Recognizes nmr in command position: at the start of the step, after `&&`, `||`, `;`, `|`, or a newline, and
- * behind a launcher such as `npx` or `pnpm exec`. A separator inside quotes opens no position, so a command
- * merely naming nmr in an argument is not a crossing.
+ * Recognizes nmr in command position: at the start of the step, after `&&`, `||`, `;`, `|`, or a newline, past
+ * any leading environment assignments, and behind a launcher such as `npx` or `pnpm exec`. A separator inside
+ * quotes opens no position, so a command merely naming nmr in an argument is not a crossing.
  *
  * Partial by construction, and partial in stated ways rather than arbitrary ones: a value-taking flag standing
  * immediately before the program name hides it (`npx -p foo nmr`), and a launcher outside `LAUNCHERS` goes
@@ -204,7 +210,7 @@ function quoteToken(token: string): string {
  * recognized whether named directly or reached through a launcher.
  */
 function readNmrTail(segment: string): readonly string[] | undefined {
-  const [head, ...rest] = dropLeadingAssignments(tokenize(segment));
+  const [head, ...rest] = dropLeadingAssignments(tokenizeSegment(segment));
 
   if (head === undefined) {
     return undefined;
@@ -282,6 +288,7 @@ function renderStep(step: Step): string {
  * Quote and escape state are tracked character by character rather than by matching tokens, so a separator
  * standing inside an argument stays part of the segment holding it. A backslash escapes outside quotes and
  * inside a double-quoted run; inside a single-quoted run the shell reads it literally, and so does this.
+ * `tokenizeSegment` tracks the same state on the same rules.
  *
  * A separator standing inside a redirection operator ends no command, so `nmr build 2>&1` is one segment.
  */
@@ -344,6 +351,68 @@ function splitSegments(command: string): string[] {
 /** Splits a composite element into argv tokens, dropping the empties surrounding whitespace would leave. */
 function tokenize(element: string): string[] {
   return element.split(/\s+/).filter((token) => token.length > 0);
+}
+
+/**
+ * Splits a shell segment into the tokens a shell reads, keeping a quoted run attached to the token holding
+ * it, so an environment assignment carrying a quoted space stays one token.
+ *
+ * Tracks quote and escape state as `splitSegments` does, the two sharing one set of rules.
+ *
+ * Keeps the quotes rather than stripping them: both questions asked of a token, whether it assigns an
+ * environment variable and whether it names the program, read the same on the raw token.
+ */
+function tokenizeSegment(segment: string): string[] {
+  const tokens: string[] = [];
+  let current = '';
+  let quote: string | undefined;
+  let index = 0;
+
+  while (index < segment.length) {
+    const char = segment[index] ?? '';
+
+    if (quote !== undefined) {
+      if (char === '\\' && quote === '"') {
+        current += char + (segment[index + 1] ?? '');
+        index += 2;
+        continue;
+      }
+      current += char;
+      if (char === quote) quote = undefined;
+      index += 1;
+      continue;
+    }
+
+    if (char === '\\') {
+      current += char + (segment[index + 1] ?? '');
+      index += 2;
+      continue;
+    }
+
+    if (QUOTES.has(char)) {
+      quote = char;
+      current += char;
+      index += 1;
+      continue;
+    }
+
+    if (TOKEN_SEPARATORS.has(char)) {
+      if (current !== '') {
+        tokens.push(current);
+      }
+      current = '';
+      index += 1;
+      continue;
+    }
+
+    current += char;
+    index += 1;
+  }
+
+  if (current !== '') {
+    tokens.push(current);
+  }
+  return tokens;
 }
 
 // endregion | Helpers

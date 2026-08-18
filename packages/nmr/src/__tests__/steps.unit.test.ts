@@ -41,6 +41,30 @@ describe(findNmrCrossing, () => {
     { command: 'rdy verify; nmr compile', scenario: 'a segment following ;' },
     { command: 'cat log | nmr compile', scenario: 'a segment following |' },
     { command: 'FORCE_COLOR=1 nmr build', scenario: 'a segment behind an environment assignment' },
+    {
+      command: 'NODE_OPTIONS="--max-old-space-size=4096 --enable-source-maps" nmr build',
+      scenario: 'a segment behind a quoted assignment carrying a space',
+    },
+    {
+      command: "TZ='America/New York' nmr build",
+      scenario: 'a segment behind a single-quoted assignment carrying a space',
+    },
+    {
+      command: String.raw`TZ=America/New\ York nmr build`,
+      scenario: 'a segment behind an assignment escaping a space',
+    },
+    {
+      command: 'CI=1 NODE_OPTIONS="--a --b" nmr build',
+      scenario: 'a segment behind two assignments, the second quoted',
+    },
+    {
+      command: 'NODE_OPTIONS="--a --b" pnpm exec nmr build',
+      scenario: 'a launcher behind a quoted assignment carrying a space',
+    },
+    {
+      command: String.raw`FOO="a \" b" nmr build`,
+      scenario: 'a segment behind an assignment whose quoted value escapes a quote',
+    },
     { command: 'rdy verify\nnmr compile', scenario: 'a segment on the next line' },
     { command: String.raw`echo 'a \' && nmr b`, scenario: 'a segment past a backslash single quotes read literally' },
     { command: 'npx nmr build', scenario: 'npx' },
@@ -80,6 +104,10 @@ describe(findNmrCrossing, () => {
     {
       scenario: 'a separator standing inside single quotes',
       steps: [{ kind: 'opaque', command: "echo 'a; nmr b'" }],
+    },
+    {
+      scenario: 'an assignment and nmr standing inside a quoted argument',
+      steps: [{ kind: 'opaque', command: 'echo "FOO=1 nmr build"' }],
     },
     {
       scenario: 'a separator the shell reads literally',
@@ -187,6 +215,10 @@ describe(readSelfReference, () => {
     { scenario: 'the value past the whitespace padding it', script: '  nmr build  ' },
     { scenario: 'a value carrying trailing arguments, which declare no step', script: 'nmr build --verbose' },
     { scenario: 'a value behind an environment assignment', script: 'FORCE_COLOR=1 nmr build' },
+    {
+      scenario: 'a value behind a quoted environment assignment carrying a space',
+      script: 'NODE_OPTIONS="--a --b" nmr build',
+    },
     { scenario: 'a value behind a launcher', script: 'pnpm exec nmr build' },
     { scenario: 'a value carrying a flag ahead of the command', script: 'nmr -q build' },
     // A redirection operator carries a separator character without ending the command it belongs to.
@@ -203,6 +235,10 @@ describe(readSelfReference, () => {
     { scenario: 'behind the steps it chains', script: 'rdy compile && nmr build' },
     { scenario: 'between the steps it chains', script: 'rdy verify && nmr build && rdy compile' },
     { scenario: 'behind a launcher', script: 'rdy compile && pnpm exec nmr build' },
+    {
+      scenario: 'behind a quoted environment assignment carrying a space',
+      script: 'rdy compile && NODE_OPTIONS="--a --b" nmr build',
+    },
     { scenario: 'past a separator other than &&', script: 'rdy compile; nmr build' },
     // A JSON string carries a newline, which a shell reads as a command separator.
     { scenario: 'on the line above the steps it chains', script: 'nmr build\nrdy compile' },
