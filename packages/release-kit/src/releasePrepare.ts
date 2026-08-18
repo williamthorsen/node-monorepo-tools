@@ -171,14 +171,14 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   // proceeds with zero qualifying commits since the last tag (`--force`, `--bump=X`, or
   // `--set-version` with no new commits), the routing helper bypasses git-cliff in favor
   // of the synthetic "Forced version bump." entry — issue #369.
-  const overrideWarnings: string[] = [];
+  const planWarnings: string[] = [];
   const changelogs = planSinglePackageChangelogs({
     config,
     commits,
     newTag,
     newVersion: bump.newVersion,
     overrides,
-    overrideWarnings,
+    overrideWarnings: planWarnings,
   });
   const { changelogFiles, changelogJsonFiles } = changelogs;
 
@@ -188,7 +188,7 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
     config,
     newTag,
     changelogs.entries,
-    overrideWarnings,
+    planWarnings,
   );
   writes.push(...changelogs.writes, ...previewWrites);
 
@@ -227,8 +227,8 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
     summary: buildReleaseSummary({ workspaces: [released] }),
     formatCommand,
   };
-  if (overrideWarnings.length > 0) {
-    plan.warnings = overrideWarnings;
+  if (planWarnings.length > 0) {
+    plan.warnings = planWarnings;
   }
   return plan;
 }
@@ -416,8 +416,8 @@ function planSinglePackageChangelogs(args: PlanSinglePackageChangelogsArgs): {
 /**
  * Plans the release-notes previews for a single-package workspace when the user requested them.
  *
- * Warns and plans nothing when `changelogJson.enabled` is false; plans nothing when no changelog
- * paths are configured, since there are then no entries to render.
+ * Records a warning and plans nothing when `changelogJson.enabled` is false; plans nothing when no
+ * changelog paths are configured, since there are then no entries to render.
  */
 function planSinglePackagePreviews(
   withReleaseNotes: boolean,
@@ -430,7 +430,7 @@ function planSinglePackagePreviews(
     return [];
   }
   if (!config.changelogJson.enabled) {
-    console.warn('Warning: --with-release-notes requires changelogJson.enabled; skipping preview generation');
+    warnings.push('--with-release-notes requires changelogJson.enabled; skipping preview generation');
     return [];
   }
   if (config.changelogPaths.length === 0) {

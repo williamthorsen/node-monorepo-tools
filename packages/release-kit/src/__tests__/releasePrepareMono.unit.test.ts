@@ -2160,7 +2160,7 @@ describe(releasePrepareMono, () => {
       expect(mockPlanReleaseNotesPreviews).not.toHaveBeenCalled();
     });
 
-    it('warns and skips when --with-release-notes is set but changelogJson.enabled is false', () => {
+    it('records a warning and skips when --with-release-notes is set but changelogJson.enabled is false', () => {
       const config = makeConfig({
         workspaces: [
           {
@@ -2187,12 +2187,13 @@ describe(releasePrepareMono, () => {
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
       using silent = silenceConsole(['warn']);
 
-      releasePrepareMono(config, { withReleaseNotes: true });
+      const plan = releasePrepareMono(config, { withReleaseNotes: true });
 
       expect(mockPlanReleaseNotesPreviews).not.toHaveBeenCalled();
-      expect(silent.warn).toHaveBeenCalledWith(
-        expect.stringContaining('--with-release-notes requires changelogJson.enabled'),
-      );
+      expect(plan.warnings).toStrictEqual([
+        '--with-release-notes requires changelogJson.enabled; skipping preview generation',
+      ]);
+      expect(silent.warn).not.toHaveBeenCalled();
     });
 
     it('does not invoke previews for skipped workspaces', () => {

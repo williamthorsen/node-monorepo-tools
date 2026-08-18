@@ -406,16 +406,17 @@ describe(releasePrepare, () => {
     );
   });
 
-  it('warns and skips preview generation when --with-release-notes is set but changelogJson is disabled', () => {
+  it('records a warning and skips preview generation when --with-release-notes is set but changelogJson is disabled', () => {
     setupFeatCommit();
     using silent = silenceConsole(['warn']);
 
-    releasePrepare(makeConfig(), { withReleaseNotes: true });
+    const plan = releasePrepare(makeConfig(), { withReleaseNotes: true });
 
     expect(mockPlanReleaseNotesPreviews).not.toHaveBeenCalled();
-    expect(silent.warn).toHaveBeenCalledWith(
-      expect.stringContaining('--with-release-notes requires changelogJson.enabled'),
-    );
+    expect(plan.warnings).toStrictEqual([
+      '--with-release-notes requires changelogJson.enabled; skipping preview generation',
+    ]);
+    expect(silent.warn).not.toHaveBeenCalled();
   });
 
   it('does not call planReleaseNotesPreviews when --with-release-notes is not set', () => {

@@ -96,9 +96,10 @@ interface Phase1Result {
 export function releasePrepareMono(config: MonorepoReleaseConfig, options: ReleasePrepareOptions): ReleasePlan {
   const { only, withReleaseNotes } = options;
   const writes: PlannedWrite[] = [];
+  const warnings: string[] = [];
 
   if (withReleaseNotes === true && !config.changelogJson.enabled) {
-    console.warn('Warning: --with-release-notes requires changelogJson.enabled; skipping preview generation');
+    warnings.push('--with-release-notes requires changelogJson.enabled; skipping preview generation');
   }
 
   // Derive section order once for all preview and markdown render writes.
@@ -131,7 +132,6 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
 
   // === Phase 2b: Topologically sort the release set ===
   const { sorted: sortedDirs, cyclicDirs } = topologicalSort(fullReleaseSet, graph);
-  const warnings: string[] = [];
   if (cyclicDirs.length > 0) {
     warnings.push(
       `Circular workspace dependencies detected among: ${cyclicDirs.join(', ')}. ` +
