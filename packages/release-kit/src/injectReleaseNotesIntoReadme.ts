@@ -19,28 +19,40 @@ export interface RenderedInjectedReadme {
 }
 
 /**
+ * Discriminated reason no release notes were rendered for a tag.
+ *
+ * Shares the vocabulary of `CreateReleaseSkipReason` in `createGithubRelease.ts`, which classifies
+ * the same two conditions on the GitHub-release path.
+ */
+export type RenderInjectedReadmeSkipReason = 'no-entry' | 'empty-body';
+
+/** Discriminated outcome of rendering release notes for a tag. */
+export type RenderInjectedReadmeResult =
+  | { status: 'rendered'; rendered: RenderedInjectedReadme }
+  | { status: 'skipped'; reason: RenderInjectedReadmeSkipReason; version: string };
+
+/**
  * Renders a README with release notes injected at the marker position, and the standalone
  * release-notes markdown, from an already-loaded README string and an in-memory entry set.
  *
- * This is the pure rendering core: it reads nothing and writes nothing, so a caller holding
- * entries a release has computed but not yet written gets the same result as one rendering from
- * a saved file.
+ * This is the pure rendering core: it reads nothing, writes nothing, and reports nothing, so a
+ * caller holding entries a release has computed but not yet written gets the same result as one
+ * rendering from a saved file, and each caller words a skip for its own output.
  *
- * Returns `undefined` when no entry matches the tag's version, or when the matching entry has no
- * public-audience sections.
+ * Carries the version on a skip because both callers name it in their message and only this
+ * function has derived it from the tag.
  */
 export function renderInjectedReadmeFromEntries(
   readme: string,
   entries: readonly ChangelogEntry[],
   tag: string,
   sectionOrder?: string[],
-): RenderedInjectedReadme | undefined {
+): RenderInjectedReadmeResult {
   const version = extractVersion(tag);
 
   const entry = entries.find((e) => e.version === version);
   if (entry === undefined) {
-    console.warn(`Warning: no changelog entry for version ${version}; skipping README injection`);
-    return undefined;
+    return { status: 'skipped', reason: 'no-entry', version };
   }
 
   const renderedSections = renderReleaseNotesSingle(entry, {
@@ -50,8 +62,7 @@ export function renderInjectedReadmeFromEntries(
   });
 
   if (renderedSections.trimEnd().length === 0) {
-    console.warn(`Warning: no user-facing release notes for version ${version}; skipping README injection`);
-    return undefined;
+    return { status: 'skipped', reason: 'empty-body', version };
   }
 
   // Prepend a labeled heading so readers can see both that the content is release notes
@@ -62,7 +73,7 @@ export function renderInjectedReadmeFromEntries(
   const releaseNotesMarkdown = `${labeledHeading}\n\n${renderedSections.trimEnd()}`;
   const injectedReadme = injectSection(readme, 'release-notes', releaseNotesMarkdown);
 
-  return { injectedReadme, releaseNotesMarkdown };
+  return { status: 'rendered', rendered: { injectedReadme, releaseNotesMarkdown } };
 }
 
 /**
@@ -70,7 +81,8 @@ export function renderInjectedReadmeFromEntries(
  * saved `changelog.json`, such as the publish-time injection flow.
  *
  * Adds the two skip conditions that only a file can present: the changelog is missing, or it does
- * not parse.
+ * not parse. Warns on every skip, its own and the renderer's alike, because the publish path has
+ * no other channel for the message.
  */
 export function renderInjectedReadme(
   readme: string,
@@ -89,7 +101,13 @@ export function renderInjectedReadme(
     return undefined;
   }
 
-  return renderInjectedReadmeFromEntries(readme, entries, tag, sectionOrder);
+  const result = renderInjectedReadmeFromEntries(readme, entries, tag, sectionOrder);
+  if (result.status === 'skipped') {
+    console.warn(`Warning: ${describeRenderSkip(result.reason, result.version)}; skipping README injection`);
+    return undefined;
+  }
+
+  return result.rendered;
 }
 
 /**
@@ -119,3 +137,14 @@ export function resolveReadmePath(workspacePath: string): string | undefined {
   const readmePath = join(workspacePath, 'README.md');
   return existsSync(readmePath) ? readmePath : undefined;
 }
+
+// region | Helpers
+
+/** Describes a render skip as a phrase naming the reason and the version it applies to. */
+function describeRenderSkip(reason: RenderInjectedReadmeSkipReason, version: string): string {
+  return reason === 'no-entry'
+    ? `no changelog entry for version ${version}`
+    : `no user-facing release notes for version ${version}`;
+}
+
+// endregion | Helpers
