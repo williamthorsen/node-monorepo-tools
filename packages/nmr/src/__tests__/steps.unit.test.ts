@@ -61,6 +61,10 @@ describe(findNmrCrossing, () => {
       command: 'NODE_OPTIONS="--a --b" pnpm exec nmr build',
       scenario: 'a launcher behind a quoted assignment carrying a space',
     },
+    {
+      command: String.raw`FOO="a \" b" nmr build`,
+      scenario: 'a segment behind an assignment whose quoted value escapes a quote',
+    },
     { command: 'rdy verify\nnmr compile', scenario: 'a segment on the next line' },
     { command: String.raw`echo 'a \' && nmr b`, scenario: 'a segment past a backslash single quotes read literally' },
     { command: 'npx nmr build', scenario: 'npx' },

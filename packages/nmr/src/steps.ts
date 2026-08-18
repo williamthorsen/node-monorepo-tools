@@ -32,8 +32,11 @@ const SEGMENT_SEPARATORS = new Set([';', '|', '&', '\n', '\r']);
 /** The characters a POSIX shell reads literally, so a token built only from them needs no quoting. */
 const SHELL_SAFE_TOKEN = /^[\w@%+=:,./-]+$/;
 
-/** Matches one whitespace character, which ends a token where it stands outside quotes. */
-const WHITESPACE = /\s/;
+/**
+ * The characters that end one token and begin the next: a shell's default IFS, and the carriage return a
+ * `\r\n` line ending carries. Every other character a shell reads inside the word holding it.
+ */
+const TOKEN_SEPARATORS = new Set([' ', '\t', '\n', '\r']);
 
 /**
  * One element of a resolved command chain, carrying how it was composed rather than how its text reads.
@@ -81,9 +84,9 @@ export function composeNmrStep(element: string, workspaceRoot: boolean, declines
 /**
  * Returns the text of the first opaque step that reaches nmr through a shell, or `undefined` when none does.
  *
- * Recognizes nmr in command position: at the start of the step, after `&&`, `||`, `;`, `|`, or a newline, and
- * behind a launcher such as `npx` or `pnpm exec`. A separator inside quotes opens no position, so a command
- * merely naming nmr in an argument is not a crossing.
+ * Recognizes nmr in command position: at the start of the step, after `&&`, `||`, `;`, `|`, or a newline, past
+ * any leading environment assignments, and behind a launcher such as `npx` or `pnpm exec`. A separator inside
+ * quotes opens no position, so a command merely naming nmr in an argument is not a crossing.
  *
  * Partial by construction, and partial in stated ways rather than arbitrary ones: a value-taking flag standing
  * immediately before the program name hides it (`npx -p foo nmr`), and a launcher outside `LAUNCHERS` goes
@@ -393,7 +396,7 @@ function tokenizeSegment(segment: string): string[] {
       continue;
     }
 
-    if (WHITESPACE.test(char)) {
+    if (TOKEN_SEPARATORS.has(char)) {
       if (current !== '') {
         tokens.push(current);
       }
