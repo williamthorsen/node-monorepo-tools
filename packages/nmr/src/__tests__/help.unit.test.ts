@@ -235,6 +235,22 @@ describe(generateHelp, () => {
       expect(help).not.toContain('* Overridden by package.json');
     });
 
+    // Resolution discards the entry, so rendering it as the command's value would name something nmr never runs.
+    it('does not mark or override an entry chaining steps onto a self-reference', () => {
+      fs.writeFileSync(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({
+          name: 'pkg-chained-self-ref',
+          scripts: { build: 'rdy compile && nmr build' },
+        }),
+      );
+
+      const help = generateHelp({}, tmpDir, false);
+      expect(help).not.toContain('build*');
+      expect(help).not.toContain('rdy compile');
+      expect(help).not.toContain('* Overridden by package.json');
+    });
+
     it('omits the footnote when no overrides are present', () => {
       fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify({ name: 'plain-pkg' }));
 

@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Step } from '../steps.ts';
-import { composeNmrStep, findNmrCrossing, findUnexpressibleToken, readNmrStep, renderChain } from '../steps.ts';
+import {
+  composeNmrStep,
+  findNmrCrossing,
+  findUnexpressibleToken,
+  readNmrStep,
+  readSelfReference,
+  renderChain,
+} from '../steps.ts';
 
 describe(composeNmrStep, () => {
   it('composes a bare command name as an nmr invocation', () => {
@@ -170,6 +177,58 @@ describe(readNmrStep, () => {
       isDelegate: true,
       isWorkspaceRoot: true,
     });
+  });
+});
+
+describe(readSelfReference, () => {
+  it.each([
+    { scenario: 'the whole value', script: 'nmr build' },
+    { scenario: 'the value past the whitespace padding it', script: '  nmr build  ' },
+    { scenario: 'a value carrying trailing arguments, which declare no step', script: 'nmr build --verbose' },
+    { scenario: 'a value behind an environment assignment', script: 'FORCE_COLOR=1 nmr build' },
+    { scenario: 'a value behind a launcher', script: 'pnpm exec nmr build' },
+    { scenario: 'a value carrying a flag ahead of the command', script: 'nmr -q build' },
+  ])('reads a self-reference standing as $scenario as sole', ({ script }) => {
+    expect(readSelfReference({ anchoredAtRoot: false, commandName: 'build', script })).toBe('sole');
+  });
+
+  it.each([
+    { scenario: 'ahead of the steps it chains', script: 'nmr build && rdy compile' },
+    { scenario: 'behind the steps it chains', script: 'rdy compile && nmr build' },
+    { scenario: 'between the steps it chains', script: 'rdy verify && nmr build && rdy compile' },
+    { scenario: 'behind a launcher', script: 'rdy compile && pnpm exec nmr build' },
+    { scenario: 'past a separator other than &&', script: 'rdy compile; nmr build' },
+  ])('reads a self-reference standing $scenario as chained', ({ script }) => {
+    expect(readSelfReference({ anchoredAtRoot: false, commandName: 'build', script })).toBe('chained');
+  });
+
+  it.each([
+    { scenario: 'another command', script: 'nmr compile && rdy compile' },
+    { scenario: 'no command at all', script: 'rdy compile && rdy verify' },
+    { scenario: 'the command it hands to other scopes with -R', script: 'nmr -R build && rdy compile' },
+    { scenario: 'the command it hands to one package with -F', script: 'nmr -F core build && rdy compile' },
+    { scenario: 'nmr inside an argument rather than in command position', script: "echo 'nmr build' && rdy compile" },
+  ])('reports nothing for a value naming $scenario', ({ script }) => {
+    expect(readSelfReference({ anchoredAtRoot: false, commandName: 'build', script })).toBeUndefined();
+  });
+
+  // `-w` reaches the root's registry and the root's package.json, which is this entry only at the root.
+  it('reports nothing for a -w self-reference read from a package', () => {
+    const script = 'nmr -w build && rdy compile';
+
+    expect(readSelfReference({ anchoredAtRoot: false, commandName: 'build', script })).toBeUndefined();
+  });
+
+  it('reads a -w self-reference read at the root as chained', () => {
+    const script = 'nmr -w build && rdy compile';
+
+    expect(readSelfReference({ anchoredAtRoot: true, commandName: 'build', script })).toBe('chained');
+  });
+
+  it('reads a hook entry re-invoking its own hook name', () => {
+    const script = 'nmr build:post && rdy compile';
+
+    expect(readSelfReference({ anchoredAtRoot: false, commandName: 'build:post', script })).toBe('chained');
   });
 });
 

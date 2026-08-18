@@ -51,6 +51,12 @@ export interface NmrStepTarget {
 }
 
 /**
+ * How a `package.json` entry names the command it is declared under: as its whole value, or alongside other
+ * steps. `sole` covers an entry carrying trailing arguments, which declare no step of their own.
+ */
+export type SelfReference = 'chained' | 'sole';
+
+/**
  * Composes the structural step that re-invokes nmr for one composite element.
  *
  * The element tokenizes on whitespace, so it may carry nmr's own flags but cannot carry a space-bearing token.
@@ -78,7 +84,7 @@ export function composeNmrStep(element: string, workspaceRoot: boolean, declines
  */
 export function findNmrCrossing(steps: readonly Step[]): string | undefined {
   for (const step of steps) {
-    if (step.kind === 'opaque' && splitSegments(step.command).some(reachesNmr)) {
+    if (step.kind === 'opaque' && splitSegments(step.command).some((segment) => readNmrTail(segment) !== undefined)) {
       return step.command;
     }
   }
@@ -108,44 +114,44 @@ export function readNmrStep(step: Step): NmrStepTarget | undefined {
   }
 
   const [file, ...rest] = step.argv;
-  if (file !== 'nmr') {
+
+  return file === 'nmr' ? readNmrTarget(rest) : undefined;
+}
+
+/**
+ * Reports whether a `package.json` entry re-invokes the command it is declared under, and whether it declares
+ * anything besides. Reports nothing for an entry that names another command, or none.
+ *
+ * Honouring such an entry would spawn a shell running the same command in the same directory, reaching the
+ * same entry again without bound, so resolution discards it however it reads. `chained` is what separates an
+ * entry that thereby loses steps from one that declares nothing to lose.
+ *
+ * A segment that delegates carries the command to other scopes rather than back to this one. `-w` re-enters
+ * only from the root, a package's entry reaching the root's registry and `package.json` instead of its own.
+ *
+ * Partial in the same ways `findNmrCrossing` is, and for the same reason: what goes unrecognized re-enters
+ * without bound, which hangs rather than passing quietly.
+ */
+export function readSelfReference(options: {
+  anchoredAtRoot: boolean;
+  commandName: string;
+  script: string;
+}): SelfReference | undefined {
+  const { anchoredAtRoot, commandName, script } = options;
+
+  const segments = splitSegments(script).filter((segment) => segment.trim() !== '');
+  const reenters = segments.some((segment) => {
+    const tail = readNmrTail(segment);
+    const target = tail === undefined ? undefined : readNmrTarget(tail);
+
+    return target?.command === commandName && !target.isDelegate && (anchoredAtRoot || !target.isWorkspaceRoot);
+  });
+
+  if (!reenters) {
     return undefined;
   }
 
-  let isDelegate = false;
-  let isWorkspaceRoot = false;
-  let index = 0;
-
-  while (index < rest.length) {
-    const token = rest[index] ?? '';
-
-    switch (token) {
-      // The pattern is the flag's value, and reading it as a command name would name whichever package it
-      // selects rather than the command every selected scope runs.
-      case '-F':
-      case '--filter':
-        isDelegate = true;
-        index += 2;
-        break;
-      case '-R':
-      case '--recursive':
-        isDelegate = true;
-        index += 1;
-        break;
-      case '-w':
-      case '--workspace-root':
-        isWorkspaceRoot = true;
-        index += 1;
-        break;
-      default:
-        if (!token.startsWith('-')) {
-          return { command: token, isDelegate, isWorkspaceRoot };
-        }
-        index += 1;
-    }
-  }
-
-  return undefined;
+  return segments.length === 1 ? 'sole' : 'chained';
 }
 
 /**
@@ -174,27 +180,75 @@ function quoteToken(token: string): string {
   return "'" + token.replaceAll("'", String.raw`'\''`) + "'";
 }
 
-/** Reports whether a segment runs nmr, whether named directly or reached through a launcher. */
-function reachesNmr(segment: string): boolean {
+/**
+ * Returns the tokens an nmr invocation carries, or `undefined` for a segment that runs something else. nmr is
+ * recognized whether named directly or reached through a launcher.
+ */
+function readNmrTail(segment: string): readonly string[] | undefined {
   const [head, ...rest] = dropLeadingAssignments(tokenize(segment));
 
   if (head === undefined) {
-    return false;
+    return undefined;
   }
   if (head === 'nmr') {
-    return true;
+    return rest;
   }
 
   const subcommands = LAUNCHERS.get(head);
   if (subcommands === undefined) {
-    return false;
+    return undefined;
   }
   if (subcommands.size === 0) {
-    return rest.find((token) => !token.startsWith('-')) === 'nmr';
+    const nameIndex = rest.findIndex((token) => !token.startsWith('-'));
+    return nameIndex !== -1 && rest[nameIndex] === 'nmr' ? rest.slice(nameIndex + 1) : undefined;
   }
 
   const subcommandIndex = rest.findIndex((token) => subcommands.has(token));
-  return subcommandIndex !== -1 && rest[subcommandIndex + 1] === 'nmr';
+  return subcommandIndex !== -1 && rest[subcommandIndex + 1] === 'nmr' ? rest.slice(subcommandIndex + 2) : undefined;
+}
+
+/**
+ * Returns what the tokens following `nmr` ask of it: the command they name, and the flags that decide which
+ * scopes run it. Reports nothing for tokens naming no command.
+ *
+ * The one reader of nmr's own flag grammar, shared by the argv a structural step carries and the shell segment
+ * an opaque one holds, so the two cannot drift apart.
+ */
+function readNmrTarget(tokens: readonly string[]): NmrStepTarget | undefined {
+  let isDelegate = false;
+  let isWorkspaceRoot = false;
+  let index = 0;
+
+  while (index < tokens.length) {
+    const token = tokens[index] ?? '';
+
+    switch (token) {
+      // The pattern is the flag's value, and reading it as a command name would name whichever package it
+      // selects rather than the command every selected scope runs.
+      case '-F':
+      case '--filter':
+        isDelegate = true;
+        index += 2;
+        break;
+      case '-R':
+      case '--recursive':
+        isDelegate = true;
+        index += 1;
+        break;
+      case '-w':
+      case '--workspace-root':
+        isWorkspaceRoot = true;
+        index += 1;
+        break;
+      default:
+        if (!token.startsWith('-')) {
+          return { command: token, isDelegate, isWorkspaceRoot };
+        }
+        index += 1;
+    }
+  }
+
+  return undefined;
 }
 
 /** Renders one step as the text a shell runs. */

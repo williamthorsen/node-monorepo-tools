@@ -75,7 +75,7 @@ function collectOverrides(packageDir: string): Record<string, string> {
   const filtered: Record<string, string> = {};
   for (const [name, value] of Object.entries(scripts)) {
     if (isHookName(name)) continue;
-    if (isSelfReferential(value, name)) continue;
+    if (isSelfReferential(value, name, packageDir)) continue;
     filtered[name] = value;
   }
   return filtered;

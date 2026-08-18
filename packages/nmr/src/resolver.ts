@@ -8,8 +8,9 @@ import { isObject } from './helpers/type-guards.ts';
 import type { ScriptRegistry, ScriptValue, StepSpec } from './resolve-scripts.ts';
 import { getDefaultRootScripts, getDefaultWorkspaceScripts } from './resolve-scripts.ts';
 import type { Step } from './steps.ts';
-import { composeNmrStep } from './steps.ts';
+import { composeNmrStep, readSelfReference } from './steps.ts';
 import type { NmrConfig } from './types.ts';
+import { isMonorepoRoot } from './workspace.ts';
 
 /**
  * Replace the first token of a command with a `devBin` substitute.
@@ -176,12 +177,42 @@ export function buildRootRegistry(config: NmrConfig): ScriptRegistry {
 }
 
 /**
- * Check whether a package.json script simply re-invokes the same nmr command,
- * e.g. `"build": "nmr build"` or `"build": "nmr build --verbose"`.
+ * Returns a `package.json` entry that re-invokes the command it is declared under alongside other steps, or
+ * `undefined` where the entry declares no such thing.
+ *
+ * Resolution discards a self-referential entry however it reads, so an entry that chains loses the steps it
+ * chained. This is what an invocation rejects on, read where the command runs rather than raised from
+ * resolution: the same scripts are resolved speculatively, for packages nobody named.
  */
-export function isSelfReferential(script: string, commandName: string): boolean {
-  const prefix = `nmr ${commandName}`;
-  return script === prefix || script.startsWith(`${prefix} `);
+export function findChainedSelfReference(packageDir: string | undefined, commandName: string): string | undefined {
+  if (packageDir === undefined) {
+    return undefined;
+  }
+
+  const scripts = readPackageJsonScripts(packageDir);
+  if (scripts === undefined || !Object.hasOwn(scripts, commandName)) {
+    return undefined;
+  }
+
+  const script = scripts[commandName];
+  if (script === undefined) {
+    return undefined;
+  }
+
+  return readSelfReference({ anchoredAtRoot: isMonorepoRoot(packageDir), commandName, script }) === 'chained'
+    ? script
+    : undefined;
+}
+
+/**
+ * Reports whether a `package.json` entry re-invokes the command it is declared under, wherever the
+ * re-invocation stands in it, e.g. `"build": "nmr build"` or `"build": "rdy compile && nmr build"`.
+ *
+ * Honouring one spawns a shell that runs the same command in the same directory, reaching the same entry
+ * again without bound, so resolution discards it.
+ */
+export function isSelfReferential(script: string, commandName: string, packageDir: string): boolean {
+  return readSelfReference({ anchoredAtRoot: isMonorepoRoot(packageDir), commandName, script }) !== undefined;
 }
 
 /**
@@ -204,7 +235,7 @@ export function resolveScript(
     const pkgScripts = readPackageJsonScripts(packageDir);
     if (pkgScripts && Object.hasOwn(pkgScripts, commandName)) {
       const override = pkgScripts[commandName];
-      if (override !== undefined && !isSelfReferential(override, commandName)) {
+      if (override !== undefined && !isSelfReferential(override, commandName, packageDir)) {
         return {
           origin: { tier: 'package', file: resolvePackageJsonPath(packageDir), key: commandName },
           steps: [{ kind: 'opaque', command: override }],
