@@ -110,7 +110,9 @@ describe(planReleaseNotesPreviews, () => {
 
     const plan = planReleaseNotesPreviews(previewOptions());
 
-    expect(plan.warnings).toStrictEqual(['no changelog entry for version 1.2.3; skipping release-notes previews']);
+    expect(plan.warnings).toStrictEqual([
+      'packages/a: no changelog entry for version 1.2.3; skipping release-notes previews',
+    ]);
   });
 
   it('if the entry has no user-facing content, warns naming the version', () => {
@@ -119,16 +121,8 @@ describe(planReleaseNotesPreviews, () => {
     const plan = planReleaseNotesPreviews(previewOptions());
 
     expect(plan.warnings).toStrictEqual([
-      'no user-facing release notes for version 1.2.3; skipping release-notes previews',
+      'packages/a: no user-facing release notes for version 1.2.3; skipping release-notes previews',
     ]);
-  });
-
-  it('words a renderer skip for previews rather than for README injection', () => {
-    mockRenderInjectedReadmeFromEntries.mockReturnValue({ status: 'skipped', reason: 'empty-body', version: '1.2.3' });
-
-    const plan = planReleaseNotesPreviews(previewOptions());
-
-    expect(plan.warnings.some((warning) => warning.includes('README injection'))).toBe(false);
   });
 
   it('ends the standalone preview with a newline when the renderer omits one', () => {

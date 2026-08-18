@@ -207,7 +207,9 @@ describe(renderInjectedReadme, () => {
     const result = renderInjectedReadme('# README\n', '/pkg/.meta/changelog.json', 'v1.2.3');
 
     expect(result).toBeUndefined();
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('not found; skipping README injection'));
+    expect(console.warn).toHaveBeenCalledWith(
+      'Warning: /pkg/.meta/changelog.json not found; skipping README injection',
+    );
   });
 
   it('returns undefined when changelog.json is unparseable', () => {
@@ -218,7 +220,9 @@ describe(renderInjectedReadme, () => {
     const result = renderInjectedReadme('# README\n', '/pkg/.meta/changelog.json', 'v1.2.3');
 
     expect(result).toBeUndefined();
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('could not parse'));
+    expect(console.warn).toHaveBeenCalledWith(
+      'Warning: could not parse /pkg/.meta/changelog.json; skipping README injection',
+    );
   });
 
   it('returns undefined when no changelog entry matches the version', () => {
@@ -229,7 +233,9 @@ describe(renderInjectedReadme, () => {
     const result = renderInjectedReadme('# README\n', '/pkg/.meta/changelog.json', 'v9.9.9');
 
     expect(result).toBeUndefined();
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('no changelog entry for version 9.9.9'));
+    expect(console.warn).toHaveBeenCalledWith(
+      'Warning: no changelog entry for version 9.9.9; skipping README injection',
+    );
   });
 
   it('returns undefined when all sections are dev-only', () => {
@@ -239,7 +245,9 @@ describe(renderInjectedReadme, () => {
     const result = renderInjectedReadme('# README\n', '/pkg/.meta/changelog.json', 'v1.2.3');
 
     expect(result).toBeUndefined();
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('no user-facing release notes'));
+    expect(console.warn).toHaveBeenCalledWith(
+      'Warning: no user-facing release notes for version 1.2.3; skipping README injection',
+    );
   });
 
   it('forwards sectionOrder to the renderer when provided', () => {

@@ -52,7 +52,7 @@ export function planReleaseNotesPreviews(options: PlanReleaseNotesPreviewsOption
 
   const result = renderInjectedReadmeFromEntries(readme.content, entries, tag, sectionOrder);
   if (result.status === 'skipped') {
-    warnings.push(describePreviewSkip(result.reason, result.version));
+    warnings.push(describePreviewSkip(workspacePath, result.reason, result.version));
     return { writes: [], warnings };
   }
   const { rendered } = result;
@@ -82,11 +82,18 @@ export function planReleaseNotesPreviews(options: PlanReleaseNotesPreviewsOption
   return { writes, warnings };
 }
 
-/** Describes a skipped preview as a warning naming the reason and the version it applies to. */
-function describePreviewSkip(reason: RenderInjectedReadmeSkipReason, version: string): string {
-  return reason === 'no-entry'
-    ? `no changelog entry for version ${version}; skipping release-notes previews`
-    : `no user-facing release notes for version ${version}; skipping release-notes previews`;
+/**
+ * Describes a skipped preview as a warning naming the workspace, the reason, and the version.
+ *
+ * The workspace leads because the prepare report collects every workspace's warnings into a single
+ * block, so a message naming only the version cannot be traced back to the workspace it describes.
+ */
+function describePreviewSkip(workspacePath: string, reason: RenderInjectedReadmeSkipReason, version: string): string {
+  const cause =
+    reason === 'no-entry'
+      ? `no changelog entry for version ${version}`
+      : `no user-facing release notes for version ${version}`;
+  return `${workspacePath}: ${cause}; skipping release-notes previews`;
 }
 
 /**

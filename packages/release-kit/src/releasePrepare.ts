@@ -67,7 +67,7 @@ export interface ReleasePrepareOptions {
    * If true, write per-workspace release-notes previews under `{workspacePath}/docs/`
    * (`README.v{version}.md` and `RELEASE_NOTES.v{version}.md`) after each workspace's
    * `changelog.json` is produced. Requires `config.changelogJson.enabled`; when disabled,
-   * a warning is logged and no previews are generated.
+   * a warning is recorded on the plan and no previews are generated.
    */
   withReleaseNotes?: boolean;
 }
