@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.32.1",
+    "date": "2026-08-18",
+    "sections": [
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Reject a `package.json` entry that chains steps onto a self-reference (#707)",
+            "body": "Fixes an issue where a `package.json` script re-invoking its own command alongside other steps (such as `\"build\": \"nmr build && rdy compile\"`) silently lost those steps: nmr discarded the entry and ran its own `build` in its place, so `rdy compile` never ran. nmr now refuses to run the entry and reports the error.\n\nSeparately, fixes an issue where the same chain written the other way round (e.g., `\"build\": \"rdy compile && nmr build\"`) was honored as an ordinary override, causing infinite recursion.",
+            "hash": "0ae6fad9680dc47be1c8b3066d426ba9cd0e6d13"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.32.0",
     "date": "2026-08-17",
     "sections": [

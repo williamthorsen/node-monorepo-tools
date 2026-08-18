@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## 10.4.1 — 2026-08-18
+
+### 🐛 Bug fixes
+
+- Accept `--only` under a project block, skipping the project release (#702)
+
+  Fixes an issue where `release-kit prepare --only` exited with an error in any repo whose config declares a `project` block, which left the `only` dispatch input that `release-kit init` scaffolds into `release.yaml` unusable. A narrowed run now releases the named workspaces and skips the project release, reporting the skip and the selection that caused it as a warning.
+
+- Route release-notes preview warnings through the prepare plan (#705)
+
+  Fixes an issue where `release-kit prepare --with-release-notes` printed its diagnostics to stderr ahead of the release report, and described a skipped release-notes preview as a skipped README injection. The messages now render as `⚠️` lines inside the report and are worded for release-notes previews; a skip belonging to one workspace names that workspace.
+
 ## 10.4.0 — 2026-08-17
 
 ### 🎉 Features

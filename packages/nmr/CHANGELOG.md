@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.32.1 — 2026-08-18
+
+### 🐛 Bug fixes
+
+- Reject a `package.json` entry that chains steps onto a self-reference (#707)
+
+  Fixes an issue where a `package.json` script re-invoking its own command alongside other steps (such as `"build": "nmr build && rdy compile"`) silently lost those steps: nmr discarded the entry and ran its own `build` in its place, so `rdy compile` never ran. nmr now refuses to run the entry and reports the error.
+
+  Separately, fixes an issue where the same chain written the other way round (e.g., `"build": "rdy compile && nmr build"`) was honored as an ordinary override, causing infinite recursion.
+
 ## 0.32.0 — 2026-08-17
 
 ### 🎉 Features

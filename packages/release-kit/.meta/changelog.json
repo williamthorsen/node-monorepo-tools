@@ -1,5 +1,27 @@
 [
   {
+    "version": "10.4.1",
+    "date": "2026-08-18",
+    "sections": [
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Accept `--only` under a project block, skipping the project release (#702)",
+            "body": "Fixes an issue where `release-kit prepare --only` exited with an error in any repo whose config declares a `project` block, which left the `only` dispatch input that `release-kit init` scaffolds into `release.yaml` unusable. A narrowed run now releases the named workspaces and skips the project release, reporting the skip and the selection that caused it as a warning.",
+            "hash": "d695171f77538a66373027a26ccb75e7e11cca87"
+          },
+          {
+            "description": "Route release-notes preview warnings through the prepare plan (#705)",
+            "body": "Fixes an issue where `release-kit prepare --with-release-notes` printed its diagnostics to stderr ahead of the release report, and described a skipped release-notes preview as a skipped README injection. The messages now render as `⚠️` lines inside the report and are worded for release-notes previews; a skip belonging to one workspace names that workspace.",
+            "hash": "47b0e025992e64bbb5b6a8ce951c5bb14b3d0315"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "10.4.0",
     "date": "2026-08-17",
     "sections": [
