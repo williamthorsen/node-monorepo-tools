@@ -30,6 +30,7 @@ import { resolveContext } from './context.ts';
 import { generateHelp } from './help.ts';
 import { deriveExcerpt } from './helpers/deriveExcerpt.ts';
 import { isHookName } from './helpers/hook-name.ts';
+import { resolvePackageJsonPath } from './helpers/package-json.ts';
 import { composeTranscript } from './helpers/transcript.ts';
 import { renderRecording, renderRefusal, resolveRecording } from './recording.ts';
 import { assembleReplay } from './replay-assembly.ts';
@@ -42,6 +43,7 @@ import {
   buildRootRegistry,
   buildWorkspaceRegistry,
   expandScript,
+  findChainedSelfReference,
   resolveScript,
 } from './resolver.ts';
 import type { RetainedOutput, RunStepsOptions } from './runner.ts';
@@ -49,6 +51,7 @@ import { resolveChannel, runSteps } from './runner.ts';
 import type { Step } from './steps.ts';
 import { composeNmrStep, findNmrCrossing, renderChain } from './steps.ts';
 import type { NmrConfig } from './types.ts';
+import { UserError } from './UserError.ts';
 import type { CommandVerbosity, ResolveVerbosityOptions } from './verbosity.ts';
 import { COMMAND_VERBOSITY_ENV_VAR, readVerbosityEnv, resolveVerbosity } from './verbosity.ts';
 import type { Verdict, VerdictOutcome } from './verdict.ts';
@@ -58,6 +61,17 @@ const VERSION = readPackageVersion(import.meta.url);
 
 /** The consequence a crossing carries, which every origin's line reports before naming its remedy. */
 const CROSSING_CONSEQUENCE = "so nmr handles the nested run's output as a tool's.";
+
+/**
+ * The control characters a declaration's text renders as an escape, paired with the escape a JSON string
+ * spells them with. `\n` and `\r` are what break a diagnostic across lines; `\t` is the third a script value
+ * realistically carries.
+ */
+const NAMED_ESCAPES = new Map([
+  ['\n', String.raw`\n`],
+  ['\r', String.raw`\r`],
+  ['\t', String.raw`\t`],
+]);
 
 /**
  * Marks a run made on a delegating caller's behalf, where a command the registry does not define exits 0
@@ -173,6 +187,16 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   }
 
   const registry = useRoot ? buildRootRegistry(context.config) : buildWorkspaceRegistry(context.config);
+
+  assertNoSelfReference({
+    anchorDir,
+    command,
+    isReading: parsed.log,
+    monorepoRoot: context.monorepoRoot,
+    registry,
+    workspaceRoot: parsed.workspaceRoot,
+  });
+
   const resolved = resolveScript(command, registry, anchorDir, parsed.workspaceRoot);
 
   if (!resolved) {
@@ -494,9 +518,7 @@ function describeCrossingRemedy(options: {
       };
     case 'config':
       return {
-        remedy:
-          `Write the nmr steps as a step list, and move any others to a \`${origin.key}:pre\` or ` +
-          `\`${origin.key}:post\` script.`,
+        remedy: `Write the nmr steps as a step list, and move any others to ${describeStepDestination(origin.key)}.`,
         subject: `${configSite}: \`${origin.field}.${origin.key}\``,
       };
     case 'package':
@@ -509,6 +531,20 @@ function describeCrossingRemedy(options: {
       throw new Error(`Unhandled script origin: ${JSON.stringify(unhandled)}`);
     }
   }
+}
+
+/**
+ * Names where the steps standing beside an entry's nmr invocations belong.
+ *
+ * A hook takes the other answer: nmr wraps a `:pre` or `:post` script in no hooks of its own, so naming one
+ * below it would name a script nmr never runs. Its own steps become a script the step list names instead.
+ */
+function describeStepDestination(key: string): string {
+  if (isHookName(key)) {
+    return 'a script of their own that the step list names, because a hook has no `:pre` or `:post` of its own';
+  }
+
+  return `a \`${key}:pre\` or \`${key}:post\` script`;
 }
 
 /** A resolved script's origin, refined into the tier whose remedy the diagnostic names. */
@@ -537,6 +573,25 @@ function describeOrigin(origin: ScriptOrigin, config: NmrConfig, useRoot: boolea
 }
 
 /**
+ * Renders a declaration's text as the file holds it, so a value written across lines quotes on one line.
+ *
+ * A diagnostic names a declaration the reader has to edit, and a JSON string holds an escape sequence where a
+ * shell would read a control character. Rendering the escape is what keeps the line one line, and it is the
+ * text the reader will search the file for.
+ *
+ * Renders at the quoting site alone. `formatPackageRemedy` decides its delete-the-entry branch by comparing a
+ * rendered chain against the entry, and an escape applied ahead of that comparison would defeat it.
+ */
+function escapeControlCharacters(text: string): string {
+  let escaped = text;
+  for (const [char, escape] of NAMED_ESCAPES) {
+    escaped = escaped.split(char).join(escape);
+  }
+
+  return escaped;
+}
+
+/**
  * Renders the line reporting a step that reaches nmr through a shell, which puts the nested run's output on the
  * channels a tool's takes: withheld as one block under `quiet`, and relayed through this process under `full`.
  *
@@ -552,7 +607,10 @@ function formatNmrCrossingWarning(options: {
 }): string {
   const { remedy, subject } = describeCrossingRemedy(options);
 
-  return `⚠️ ${subject} reaches nmr through a shell (\`${options.crossing}\`), ${CROSSING_CONSEQUENCE} ${remedy}`;
+  return (
+    `⚠️ ${subject} reaches nmr through a shell (\`${escapeControlCharacters(options.crossing)}\`), ` +
+    `${CROSSING_CONSEQUENCE} ${remedy}`
+  );
 }
 
 /**
@@ -576,6 +634,31 @@ function formatOverrideNotice(
 }
 
 /**
+ * Returns the edit that resolves a self-referential entry.
+ *
+ * A hook takes an edit of its own: nmr wraps a `:pre` or `:post` script in no hooks, so there is no script
+ * below it to move steps to. What has to go there is the re-invocation, which leaves the steps standing beside
+ * it as the ones the hook runs.
+ */
+function formatSelfReferenceRemedy(options: {
+  command: string;
+  monorepoRoot: string;
+  registry: ScriptRegistry;
+  script: string;
+  workspaceRoot: boolean;
+}): string {
+  const { command, monorepoRoot, registry, script, workspaceRoot } = options;
+
+  if (isHookName(command)) {
+    return `Delete the re-invocation: \`${command}\` runs the steps standing beside it.`;
+  }
+
+  const configSite = path.relative(monorepoRoot, resolveConfigPath(monorepoRoot));
+
+  return formatPackageRemedy({ configSite, crossing: script, key: command, registry, workspaceRoot });
+}
+
+/**
  * Returns the edit that resolves a crossing declared in a `package.json`, which holds no step list of its own.
  *
  * The entry has to go either way; where its steps go depends on what the registry already defines for the
@@ -595,16 +678,16 @@ function formatPackageRemedy(options: {
   if (registryEntry === undefined) {
     return (
       `A \`package.json\` script holds no step list: define \`${key}\` in \`${configSite}\` and move the ` +
-      `package-specific steps to a \`${key}:pre\` or \`${key}:post\` script.`
+      `package-specific steps to ${describeStepDestination(key)}.`
     );
   }
 
   const registryChain = renderChain(expandScript(registryEntry, workspaceRoot));
   if (registryChain === crossing) {
-    return `Delete the entry: nmr's own \`${key}\` already runs \`${registryChain}\`.`;
+    return `Delete the entry: nmr's own \`${key}\` already runs \`${escapeControlCharacters(registryChain)}\`.`;
   }
 
-  return `Delete the entry and move the steps it adds to a \`${key}:pre\` or \`${key}:post\` script.`;
+  return `Delete the entry and move the steps it adds to ${describeStepDestination(key)}.`;
 }
 
 /**
@@ -637,6 +720,46 @@ function findNoOpReason(resolvedCommand: string): 'empty-override' | 'noop-overr
 }
 
 /**
+ * Rejects a `package.json` entry that chains steps onto a re-invocation of its own command, which resolution
+ * discards, leaving those steps to run nowhere. Accepts every other entry in silence.
+ *
+ * Ahead of resolution rather than after it, so a command the registry does not define reports the declaration
+ * that names it rather than the name it could not find. A `--log` rejects none, running nothing whose steps
+ * could go missing.
+ *
+ * Raised as a `UserError`, the channel a malformed `scripts` value in the same file already takes. The remedy
+ * is the one a crossing names, the entry having to go either way; the consequence is not, this entry never
+ * running at all.
+ */
+function assertNoSelfReference(options: {
+  anchorDir: string;
+  command: string;
+  isReading: boolean;
+  monorepoRoot: string;
+  registry: ScriptRegistry;
+  workspaceRoot: boolean;
+}): void {
+  const { anchorDir, command, isReading, monorepoRoot, registry, workspaceRoot } = options;
+
+  if (isReading) {
+    return;
+  }
+
+  const script = findChainedSelfReference(anchorDir, command);
+  if (script === undefined) {
+    return;
+  }
+
+  const remedy = formatSelfReferenceRemedy({ command, monorepoRoot, registry, script, workspaceRoot });
+  const site = path.relative(monorepoRoot, resolvePackageJsonPath(anchorDir));
+
+  throw new UserError(
+    `${site}: \`scripts.${command}\` re-invokes \`nmr ${command}\` (\`${escapeControlCharacters(script)}\`), ` +
+      `so nmr cannot run the steps it chains. ${remedy}`,
+  );
+}
+
+/**
  * Returns true when a hook script resolves to a runnable command.
  * A hook is runnable when it resolves and the resolved value is neither
  * `""` nor `":"` (both of which mean "skip").
@@ -647,6 +770,12 @@ function hasRunnableHook(
   anchorDir: string,
   workspaceRoot: boolean,
 ): boolean {
+  // A rejected entry resolves to nothing wherever the registry defines no such hook, and dropping the hook
+  // would drop the report with it. Wrapping it is what puts the rejection in front of the hook's own process.
+  if (findChainedSelfReference(anchorDir, hookName) !== undefined) {
+    return true;
+  }
+
   const resolved = resolveScript(hookName, registry, anchorDir, workspaceRoot);
   if (!resolved) return false;
 

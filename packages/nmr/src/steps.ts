@@ -21,8 +21,13 @@ const LAUNCHERS = new Map<string, ReadonlySet<string>>([
 /** The characters that open a quoted run, inside which a separator is read literally. */
 const QUOTES = new Set(['"', "'"]);
 
-/** The characters that end one command and begin the next, the doubled `&&` and `||` included. */
-const SEGMENT_SEPARATORS = new Set([';', '|', '&']);
+/**
+ * The characters that end one command and begin the next, the doubled `&&` and `||` included.
+ *
+ * A newline separates two commands as `;` does, and a JSON string carries one, so an entry written across
+ * lines holds as many commands as an entry written with `&&`.
+ */
+const SEGMENT_SEPARATORS = new Set([';', '|', '&', '\n', '\r']);
 
 /** The characters a POSIX shell reads literally, so a token built only from them needs no quoting. */
 const SHELL_SAFE_TOKEN = /^[\w@%+=:,./-]+$/;
@@ -51,6 +56,12 @@ export interface NmrStepTarget {
 }
 
 /**
+ * How a `package.json` entry names the command it is declared under: as its whole value, or alongside other
+ * steps. `sole` covers an entry carrying trailing arguments, which declare no step of their own.
+ */
+export type SelfReference = 'chained' | 'sole';
+
+/**
  * Composes the structural step that re-invokes nmr for one composite element.
  *
  * The element tokenizes on whitespace, so it may carry nmr's own flags but cannot carry a space-bearing token.
@@ -67,9 +78,9 @@ export function composeNmrStep(element: string, workspaceRoot: boolean, declines
 /**
  * Returns the text of the first opaque step that reaches nmr through a shell, or `undefined` when none does.
  *
- * Recognizes nmr in command position: at the start of the step, after `&&`, `||`, `;`, or `|`, and behind a
- * launcher such as `npx` or `pnpm exec`. A separator inside quotes opens no position, so a command merely
- * naming nmr in an argument is not a crossing.
+ * Recognizes nmr in command position: at the start of the step, after `&&`, `||`, `;`, `|`, or a newline, and
+ * behind a launcher such as `npx` or `pnpm exec`. A separator inside quotes opens no position, so a command
+ * merely naming nmr in an argument is not a crossing.
  *
  * Partial by construction, and partial in stated ways rather than arbitrary ones: a value-taking flag standing
  * immediately before the program name hides it (`npx -p foo nmr`), and a launcher outside `LAUNCHERS` goes
@@ -78,7 +89,7 @@ export function composeNmrStep(element: string, workspaceRoot: boolean, declines
  */
 export function findNmrCrossing(steps: readonly Step[]): string | undefined {
   for (const step of steps) {
-    if (step.kind === 'opaque' && splitSegments(step.command).some(reachesNmr)) {
+    if (step.kind === 'opaque' && splitSegments(step.command).some((segment) => readNmrTail(segment) !== undefined)) {
       return step.command;
     }
   }
@@ -108,16 +119,127 @@ export function readNmrStep(step: Step): NmrStepTarget | undefined {
   }
 
   const [file, ...rest] = step.argv;
-  if (file !== 'nmr') {
+
+  return file === 'nmr' ? readNmrTarget(rest) : undefined;
+}
+
+/**
+ * Reports whether a `package.json` entry re-invokes the command it is declared under, and whether it declares
+ * anything besides. Reports nothing for an entry that names another command, or none.
+ *
+ * Honouring such an entry would spawn a shell running the same command in the same directory, reaching the
+ * same entry again without bound, so resolution discards it however it reads. `chained` is what separates an
+ * entry that thereby loses steps from one that declares nothing to lose.
+ *
+ * A segment that delegates carries the command to other scopes rather than back to this one. `-w` re-enters
+ * only from the root, a package's entry reaching the root's registry and `package.json` instead of its own.
+ *
+ * Partial in the same ways `findNmrCrossing` is, and for the same reason: what goes unrecognized re-enters
+ * without bound, which hangs rather than passing quietly.
+ */
+export function readSelfReference(options: {
+  anchoredAtRoot: boolean;
+  commandName: string;
+  script: string;
+}): SelfReference | undefined {
+  const { anchoredAtRoot, commandName, script } = options;
+
+  const segments = splitSegments(script).filter((segment) => segment.trim() !== '');
+  const reenters = segments.some((segment) => {
+    const tail = readNmrTail(segment);
+    const target = tail === undefined ? undefined : readNmrTarget(tail);
+
+    return target?.command === commandName && !target.isDelegate && (anchoredAtRoot || !target.isWorkspaceRoot);
+  });
+
+  if (!reenters) {
     return undefined;
   }
 
+  return segments.length === 1 ? 'sole' : 'chained';
+}
+
+/**
+ * Renders a step list as the `&&` chain a shell runs.
+ *
+ * The sole producer of a chain string: the check-result cache keys on that string, so a change to the rendering
+ * invalidates every recorded pass by construction rather than by anyone remembering to.
+ */
+export function renderChain(steps: readonly Step[]): string {
+  return steps.map(renderStep).join(' && ');
+}
+
+// region | Helpers
+
+/** Drops the leading `NAME=value` assignments, leaving the program name at the head. */
+function dropLeadingAssignments(tokens: readonly string[]): readonly string[] {
+  const start = tokens.findIndex((token) => !ENV_ASSIGNMENT.test(token));
+  return start === -1 ? [] : tokens.slice(start);
+}
+
+/**
+ * Reports whether a separator character stands inside a redirection operator rather than ending a command.
+ *
+ * `2>&1`, `>&2`, `<&3`, and `>|out` carry one after the redirection's own character, and `&>log` carries one
+ * before it. A break there splits one command into two, which a caller counting segments reads as two steps.
+ */
+function isRedirectionOperator(char: string, precedingText: string, nextChar: string | undefined): boolean {
+  if (char !== '&' && char !== '|') {
+    return false;
+  }
+
+  return (char === '&' && nextChar === '>') || /[<>]\s*$/.test(precedingText);
+}
+
+/** Quotes a token the shell would not read literally, and leaves every other token bare. */
+function quoteToken(token: string): string {
+  if (SHELL_SAFE_TOKEN.test(token)) {
+    return token;
+  }
+  return "'" + token.replaceAll("'", String.raw`'\''`) + "'";
+}
+
+/**
+ * Returns the tokens an nmr invocation carries, or `undefined` for a segment that runs something else. nmr is
+ * recognized whether named directly or reached through a launcher.
+ */
+function readNmrTail(segment: string): readonly string[] | undefined {
+  const [head, ...rest] = dropLeadingAssignments(tokenize(segment));
+
+  if (head === undefined) {
+    return undefined;
+  }
+  if (head === 'nmr') {
+    return rest;
+  }
+
+  const subcommands = LAUNCHERS.get(head);
+  if (subcommands === undefined) {
+    return undefined;
+  }
+  if (subcommands.size === 0) {
+    const nameIndex = rest.findIndex((token) => !token.startsWith('-'));
+    return nameIndex !== -1 && rest[nameIndex] === 'nmr' ? rest.slice(nameIndex + 1) : undefined;
+  }
+
+  const subcommandIndex = rest.findIndex((token) => subcommands.has(token));
+  return subcommandIndex !== -1 && rest[subcommandIndex + 1] === 'nmr' ? rest.slice(subcommandIndex + 2) : undefined;
+}
+
+/**
+ * Returns what the tokens following `nmr` ask of it: the command they name, and the flags that decide which
+ * scopes run it. Reports nothing for tokens naming no command.
+ *
+ * The one reader of nmr's own flag grammar, shared by the argv a structural step carries and the shell segment
+ * an opaque one holds, so the two cannot drift apart.
+ */
+function readNmrTarget(tokens: readonly string[]): NmrStepTarget | undefined {
   let isDelegate = false;
   let isWorkspaceRoot = false;
   let index = 0;
 
-  while (index < rest.length) {
-    const token = rest[index] ?? '';
+  while (index < tokens.length) {
+    const token = tokens[index] ?? '';
 
     switch (token) {
       // The pattern is the flag's value, and reading it as a command name would name whichever package it
@@ -148,67 +270,20 @@ export function readNmrStep(step: Step): NmrStepTarget | undefined {
   return undefined;
 }
 
-/**
- * Renders a step list as the `&&` chain a shell runs.
- *
- * The sole producer of a chain string: the check-result cache keys on that string, so a change to the rendering
- * invalidates every recorded pass by construction rather than by anyone remembering to.
- */
-export function renderChain(steps: readonly Step[]): string {
-  return steps.map(renderStep).join(' && ');
-}
-
-// region | Helpers
-
-/** Drops the leading `NAME=value` assignments, leaving the program name at the head. */
-function dropLeadingAssignments(tokens: readonly string[]): readonly string[] {
-  const start = tokens.findIndex((token) => !ENV_ASSIGNMENT.test(token));
-  return start === -1 ? [] : tokens.slice(start);
-}
-
-/** Quotes a token the shell would not read literally, and leaves every other token bare. */
-function quoteToken(token: string): string {
-  if (SHELL_SAFE_TOKEN.test(token)) {
-    return token;
-  }
-  return "'" + token.replaceAll("'", String.raw`'\''`) + "'";
-}
-
-/** Reports whether a segment runs nmr, whether named directly or reached through a launcher. */
-function reachesNmr(segment: string): boolean {
-  const [head, ...rest] = dropLeadingAssignments(tokenize(segment));
-
-  if (head === undefined) {
-    return false;
-  }
-  if (head === 'nmr') {
-    return true;
-  }
-
-  const subcommands = LAUNCHERS.get(head);
-  if (subcommands === undefined) {
-    return false;
-  }
-  if (subcommands.size === 0) {
-    return rest.find((token) => !token.startsWith('-')) === 'nmr';
-  }
-
-  const subcommandIndex = rest.findIndex((token) => subcommands.has(token));
-  return subcommandIndex !== -1 && rest[subcommandIndex + 1] === 'nmr';
-}
-
 /** Renders one step as the text a shell runs. */
 function renderStep(step: Step): string {
   return step.kind === 'opaque' ? step.command : step.argv.map(quoteToken).join(' ');
 }
 
 /**
- * Splits a command into the segments a shell would run as separate commands, breaking on `&&`, `||`, `;`, and
- * `|` outside quotes.
+ * Splits a command into the segments a shell would run as separate commands, breaking on `&&`, `||`, `;`, `|`,
+ * and a newline, outside quotes.
  *
  * Quote and escape state are tracked character by character rather than by matching tokens, so a separator
  * standing inside an argument stays part of the segment holding it. A backslash escapes outside quotes and
  * inside a double-quoted run; inside a single-quoted run the shell reads it literally, and so does this.
+ *
+ * A separator standing inside a redirection operator ends no command, so `nmr build 2>&1` is one segment.
  */
 function splitSegments(command: string): string[] {
   const segments: string[] = [];
@@ -245,6 +320,12 @@ function splitSegments(command: string): string[] {
     }
 
     if (SEGMENT_SEPARATORS.has(char)) {
+      if (isRedirectionOperator(char, current, command[index + 1])) {
+        current += char;
+        index += 1;
+        continue;
+      }
+
       // `&&` and `||` spend two characters on the break a lone `&` or `|` spends one on.
       index += command[index + 1] === char ? 2 : 1;
       segments.push(current);

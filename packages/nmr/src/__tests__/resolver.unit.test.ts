@@ -10,6 +10,7 @@ import {
   buildWorkspaceRegistry,
   describeScript,
   expandScript,
+  findChainedSelfReference,
   resolveScript,
 } from '../resolver.ts';
 import { UserError } from '../UserError.ts';
@@ -168,6 +169,49 @@ describe(buildRootRegistry, () => {
   });
 });
 
+describe(findChainedSelfReference, () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-test-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it.each([
+    { scenario: 'ahead of the steps it chains', script: 'nmr build && rdy compile' },
+    { scenario: 'behind the steps it chains', script: 'rdy compile && nmr build' },
+  ])('returns an entry re-invoking its own command $scenario', ({ script }) => {
+    writeScripts(tmpDir, { build: script });
+
+    expect(findChainedSelfReference(tmpDir, 'build')).toBe(script);
+  });
+
+  it.each([
+    { scenario: 'a self-reference standing alone', scripts: { build: 'nmr build' } },
+    { scenario: 'a self-reference carrying trailing arguments', scripts: { build: 'nmr build --verbose' } },
+    { scenario: 'an entry naming another command', scripts: { build: 'nmr compile && rdy compile' } },
+    { scenario: 'an entry naming no nmr command', scripts: { build: 'tsx build.ts' } },
+    { scenario: 'no entry for the command', scripts: { test: 'vitest' } },
+  ])('reports nothing for $scenario', ({ scripts }) => {
+    writeScripts(tmpDir, scripts);
+
+    expect(findChainedSelfReference(tmpDir, 'build')).toBeUndefined();
+  });
+
+  it('reports nothing for a command named for an `Object.prototype` member', () => {
+    writeScripts(tmpDir, { build: 'tsx build.ts' });
+
+    expect(findChainedSelfReference(tmpDir, 'constructor')).toBeUndefined();
+  });
+
+  it('reports nothing when no package anchors the resolution', () => {
+    expect(findChainedSelfReference(undefined, 'build')).toBeUndefined();
+  });
+});
+
 describe(resolveScript, () => {
   let tmpDir: string;
 
@@ -314,6 +358,36 @@ describe(resolveScript, () => {
         { kind: 'structural', argv: ['nmr', 'fmt'] },
         { kind: 'structural', argv: ['nmr', 'lint'] },
       ],
+    });
+  });
+
+  it.each([
+    { scenario: 'ahead of the steps it chains', script: 'nmr build && rdy compile' },
+    { scenario: 'behind the steps it chains', script: 'rdy compile && nmr build' },
+  ])('skips a self-referential package.json override standing $scenario', ({ script }) => {
+    writeScripts(tmpDir, { build: script });
+
+    const registry = { build: ['fmt', 'lint'] };
+
+    expect(resolveScript('build', registry, tmpDir, false)).toStrictEqual({
+      origin: { tier: 'registry', key: 'build' },
+      steps: [
+        { kind: 'structural', argv: ['nmr', 'fmt'] },
+        { kind: 'structural', argv: ['nmr', 'lint'] },
+      ],
+    });
+  });
+
+  // The build-output probe and the workspace clean sweep resolve scripts for packages nobody named, so a
+  // chained entry must not fail the command that happens to be running.
+  it('resolves another command from a package whose entry chains a self-reference', () => {
+    writeScripts(tmpDir, { build: 'nmr build && rdy compile' });
+
+    const registry = { compile: 'nmr-compile' };
+
+    expect(resolveScript('compile', registry, tmpDir, false)).toStrictEqual({
+      origin: { tier: 'registry', key: 'compile' },
+      steps: [{ kind: 'opaque', command: 'nmr-compile' }],
     });
   });
 
