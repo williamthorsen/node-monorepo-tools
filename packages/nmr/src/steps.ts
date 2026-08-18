@@ -21,8 +21,13 @@ const LAUNCHERS = new Map<string, ReadonlySet<string>>([
 /** The characters that open a quoted run, inside which a separator is read literally. */
 const QUOTES = new Set(['"', "'"]);
 
-/** The characters that end one command and begin the next, the doubled `&&` and `||` included. */
-const SEGMENT_SEPARATORS = new Set([';', '|', '&']);
+/**
+ * The characters that end one command and begin the next, the doubled `&&` and `||` included.
+ *
+ * A newline separates two commands as `;` does, and a JSON string carries one, so an entry written across
+ * lines holds as many commands as an entry written with `&&`.
+ */
+const SEGMENT_SEPARATORS = new Set([';', '|', '&', '\n', '\r']);
 
 /** The characters a POSIX shell reads literally, so a token built only from them needs no quoting. */
 const SHELL_SAFE_TOKEN = /^[\w@%+=:,./-]+$/;
@@ -73,9 +78,9 @@ export function composeNmrStep(element: string, workspaceRoot: boolean, declines
 /**
  * Returns the text of the first opaque step that reaches nmr through a shell, or `undefined` when none does.
  *
- * Recognizes nmr in command position: at the start of the step, after `&&`, `||`, `;`, or `|`, and behind a
- * launcher such as `npx` or `pnpm exec`. A separator inside quotes opens no position, so a command merely
- * naming nmr in an argument is not a crossing.
+ * Recognizes nmr in command position: at the start of the step, after `&&`, `||`, `;`, `|`, or a newline, and
+ * behind a launcher such as `npx` or `pnpm exec`. A separator inside quotes opens no position, so a command
+ * merely naming nmr in an argument is not a crossing.
  *
  * Partial by construction, and partial in stated ways rather than arbitrary ones: a value-taking flag standing
  * immediately before the program name hides it (`npx -p foo nmr`), and a launcher outside `LAUNCHERS` goes
@@ -172,6 +177,20 @@ function dropLeadingAssignments(tokens: readonly string[]): readonly string[] {
   return start === -1 ? [] : tokens.slice(start);
 }
 
+/**
+ * Reports whether a separator character stands inside a redirection operator rather than ending a command.
+ *
+ * `2>&1`, `>&2`, `<&3`, and `>|out` carry one after the redirection's own character, and `&>log` carries one
+ * before it. A break there splits one command into two, which a caller counting segments reads as two steps.
+ */
+function isRedirectionOperator(char: string, precedingText: string, nextChar: string | undefined): boolean {
+  if (char !== '&' && char !== '|') {
+    return false;
+  }
+
+  return (char === '&' && nextChar === '>') || /[<>]\s*$/.test(precedingText);
+}
+
 /** Quotes a token the shell would not read literally, and leaves every other token bare. */
 function quoteToken(token: string): string {
   if (SHELL_SAFE_TOKEN.test(token)) {
@@ -257,12 +276,14 @@ function renderStep(step: Step): string {
 }
 
 /**
- * Splits a command into the segments a shell would run as separate commands, breaking on `&&`, `||`, `;`, and
- * `|` outside quotes.
+ * Splits a command into the segments a shell would run as separate commands, breaking on `&&`, `||`, `;`, `|`,
+ * and a newline, outside quotes.
  *
  * Quote and escape state are tracked character by character rather than by matching tokens, so a separator
  * standing inside an argument stays part of the segment holding it. A backslash escapes outside quotes and
  * inside a double-quoted run; inside a single-quoted run the shell reads it literally, and so does this.
+ *
+ * A separator standing inside a redirection operator ends no command, so `nmr build 2>&1` is one segment.
  */
 function splitSegments(command: string): string[] {
   const segments: string[] = [];
@@ -299,6 +320,12 @@ function splitSegments(command: string): string[] {
     }
 
     if (SEGMENT_SEPARATORS.has(char)) {
+      if (isRedirectionOperator(char, current, command[index + 1])) {
+        current += char;
+        index += 1;
+        continue;
+      }
+
       // `&&` and `||` spend two characters on the break a lone `&` or `|` spends one on.
       index += command[index + 1] === char ? 2 : 1;
       segments.push(current);

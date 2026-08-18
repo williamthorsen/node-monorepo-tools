@@ -41,6 +41,7 @@ describe(findNmrCrossing, () => {
     { command: 'rdy verify; nmr compile', scenario: 'a segment following ;' },
     { command: 'cat log | nmr compile', scenario: 'a segment following |' },
     { command: 'FORCE_COLOR=1 nmr build', scenario: 'a segment behind an environment assignment' },
+    { command: 'rdy verify\nnmr compile', scenario: 'a segment on the next line' },
     { command: String.raw`echo 'a \' && nmr b`, scenario: 'a segment past a backslash single quotes read literally' },
     { command: 'npx nmr build', scenario: 'npx' },
     { command: 'npx --yes nmr build', scenario: 'npx carrying a flag' },
@@ -188,6 +189,11 @@ describe(readSelfReference, () => {
     { scenario: 'a value behind an environment assignment', script: 'FORCE_COLOR=1 nmr build' },
     { scenario: 'a value behind a launcher', script: 'pnpm exec nmr build' },
     { scenario: 'a value carrying a flag ahead of the command', script: 'nmr -q build' },
+    // A redirection operator carries a separator character without ending the command it belongs to.
+    { scenario: 'a value redirecting stderr onto stdout', script: 'nmr build 2>&1' },
+    { scenario: 'a value redirecting stdout onto stderr', script: 'nmr build >&2' },
+    { scenario: 'a value redirecting both streams to a file', script: 'nmr build &>log' },
+    { scenario: 'a value redirecting past noclobber', script: 'nmr build >|out' },
   ])('reads a self-reference standing as $scenario as sole', ({ script }) => {
     expect(readSelfReference({ anchoredAtRoot: false, commandName: 'build', script })).toBe('sole');
   });
@@ -198,6 +204,10 @@ describe(readSelfReference, () => {
     { scenario: 'between the steps it chains', script: 'rdy verify && nmr build && rdy compile' },
     { scenario: 'behind a launcher', script: 'rdy compile && pnpm exec nmr build' },
     { scenario: 'past a separator other than &&', script: 'rdy compile; nmr build' },
+    // A JSON string carries a newline, which a shell reads as a command separator.
+    { scenario: 'on the line above the steps it chains', script: 'nmr build\nrdy compile' },
+    { scenario: 'on the line below the steps it chains', script: 'rdy compile\nnmr build' },
+    { scenario: 'past a carriage return', script: 'rdy compile\r\nnmr build' },
   ])('reads a self-reference standing $scenario as chained', ({ script }) => {
     expect(readSelfReference({ anchoredAtRoot: false, commandName: 'build', script })).toBe('chained');
   });
