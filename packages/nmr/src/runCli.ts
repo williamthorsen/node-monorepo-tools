@@ -30,6 +30,7 @@ import { resolveContext } from './context.ts';
 import { generateHelp } from './help.ts';
 import { deriveExcerpt } from './helpers/deriveExcerpt.ts';
 import { isHookName } from './helpers/hook-name.ts';
+import { resolvePackageJsonPath } from './helpers/package-json.ts';
 import { composeTranscript } from './helpers/transcript.ts';
 import { renderRecording, renderRefusal, resolveRecording } from './recording.ts';
 import { assembleReplay } from './replay-assembly.ts';
@@ -42,6 +43,7 @@ import {
   buildRootRegistry,
   buildWorkspaceRegistry,
   expandScript,
+  findChainedSelfReference,
   resolveScript,
 } from './resolver.ts';
 import type { RetainedOutput, RunStepsOptions } from './runner.ts';
@@ -49,6 +51,7 @@ import { resolveChannel, runSteps } from './runner.ts';
 import type { Step } from './steps.ts';
 import { composeNmrStep, findNmrCrossing, renderChain } from './steps.ts';
 import type { NmrConfig } from './types.ts';
+import { UserError } from './UserError.ts';
 import type { CommandVerbosity, ResolveVerbosityOptions } from './verbosity.ts';
 import { COMMAND_VERBOSITY_ENV_VAR, readVerbosityEnv, resolveVerbosity } from './verbosity.ts';
 import type { Verdict, VerdictOutcome } from './verdict.ts';
@@ -173,6 +176,16 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   }
 
   const registry = useRoot ? buildRootRegistry(context.config) : buildWorkspaceRegistry(context.config);
+
+  assertNoSelfReference({
+    anchorDir,
+    command,
+    isReading: parsed.log,
+    monorepoRoot: context.monorepoRoot,
+    registry,
+    workspaceRoot: parsed.workspaceRoot,
+  });
+
   const resolved = resolveScript(command, registry, anchorDir, parsed.workspaceRoot);
 
   if (!resolved) {
@@ -576,6 +589,31 @@ function formatOverrideNotice(
 }
 
 /**
+ * Returns the edit that resolves a self-referential entry.
+ *
+ * A hook takes an edit of its own: nmr wraps a `:pre` or `:post` script in no hooks, so there is no script
+ * below it to move steps to. What has to go there is the re-invocation, which leaves the steps standing beside
+ * it as the ones the hook runs.
+ */
+function formatSelfReferenceRemedy(options: {
+  command: string;
+  monorepoRoot: string;
+  registry: ScriptRegistry;
+  script: string;
+  workspaceRoot: boolean;
+}): string {
+  const { command, monorepoRoot, registry, script, workspaceRoot } = options;
+
+  if (isHookName(command)) {
+    return `Delete the re-invocation: \`${command}\` runs the steps standing beside it.`;
+  }
+
+  const configSite = path.relative(monorepoRoot, resolveConfigPath(monorepoRoot));
+
+  return formatPackageRemedy({ configSite, crossing: script, key: command, registry, workspaceRoot });
+}
+
+/**
  * Returns the edit that resolves a crossing declared in a `package.json`, which holds no step list of its own.
  *
  * The entry has to go either way; where its steps go depends on what the registry already defines for the
@@ -637,6 +675,46 @@ function findNoOpReason(resolvedCommand: string): 'empty-override' | 'noop-overr
 }
 
 /**
+ * Rejects a `package.json` entry that chains steps onto a re-invocation of its own command, which resolution
+ * discards, leaving those steps to run nowhere. Accepts every other entry in silence.
+ *
+ * Ahead of resolution rather than after it, so a command the registry does not define reports the declaration
+ * that names it rather than the name it could not find. A `--log` rejects none, running nothing whose steps
+ * could go missing.
+ *
+ * Raised as a `UserError`, the channel a malformed `scripts` value in the same file already takes. The remedy
+ * is the one a crossing names, the entry having to go either way; the consequence is not, this entry never
+ * running at all.
+ */
+function assertNoSelfReference(options: {
+  anchorDir: string;
+  command: string;
+  isReading: boolean;
+  monorepoRoot: string;
+  registry: ScriptRegistry;
+  workspaceRoot: boolean;
+}): void {
+  const { anchorDir, command, isReading, monorepoRoot, registry, workspaceRoot } = options;
+
+  if (isReading) {
+    return;
+  }
+
+  const script = findChainedSelfReference(anchorDir, command);
+  if (script === undefined) {
+    return;
+  }
+
+  const remedy = formatSelfReferenceRemedy({ command, monorepoRoot, registry, script, workspaceRoot });
+  const site = path.relative(monorepoRoot, resolvePackageJsonPath(anchorDir));
+
+  throw new UserError(
+    `${site}: \`scripts.${command}\` re-invokes \`nmr ${command}\` (\`${script}\`), ` +
+      `so nmr cannot run the steps it chains. ${remedy}`,
+  );
+}
+
+/**
  * Returns true when a hook script resolves to a runnable command.
  * A hook is runnable when it resolves and the resolved value is neither
  * `""` nor `":"` (both of which mean "skip").
@@ -647,6 +725,12 @@ function hasRunnableHook(
   anchorDir: string,
   workspaceRoot: boolean,
 ): boolean {
+  // A rejected entry resolves to nothing wherever the registry defines no such hook, and dropping the hook
+  // would drop the report with it. Wrapping it is what puts the rejection in front of the hook's own process.
+  if (findChainedSelfReference(anchorDir, hookName) !== undefined) {
+    return true;
+  }
+
   const resolved = resolveScript(hookName, registry, anchorDir, workspaceRoot);
   if (!resolved) return false;
 

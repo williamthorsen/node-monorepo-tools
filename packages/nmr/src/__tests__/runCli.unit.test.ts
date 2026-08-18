@@ -10,6 +10,7 @@ import { runCli } from '../runCli.ts';
 import { runSteps } from '../runner.ts';
 import type { Step } from '../steps.ts';
 import { renderChain } from '../steps.ts';
+import { UserError } from '../UserError.ts';
 import { COMMAND_VERBOSITY_ENV_VAR } from '../verbosity.ts';
 
 vi.mock(import('../runner.ts'), async (importOriginal) => ({
@@ -551,6 +552,97 @@ describe(runCli, () => {
       const { stderr } = await runNmrReadingStderr(args, repo);
 
       expect(stderr).toBe('');
+    });
+  });
+
+  describe('a self-referential package.json entry', () => {
+    // The remedy is a crossing's, the entry having to go either way; the consequence names what is lost here.
+    it.each([
+      {
+        expected:
+          'package.json: `scripts.build` re-invokes `nmr build` (`nmr build && rdy compile`), ' +
+          'so nmr cannot run the steps it chains. ' +
+          'Delete the entry and move the steps it adds to a `build:pre` or `build:post` script.',
+        scenario: 'standing ahead of the steps it chains',
+        scripts: { build: 'nmr build && rdy compile' },
+      },
+      {
+        expected:
+          'package.json: `scripts.build` re-invokes `nmr build` (`rdy compile && nmr build`), ' +
+          'so nmr cannot run the steps it chains. ' +
+          'Delete the entry and move the steps it adds to a `build:pre` or `build:post` script.',
+        scenario: 'standing behind the steps it chains, which honouring would re-enter without bound',
+        scripts: { build: 'rdy compile && nmr build' },
+      },
+      {
+        expected:
+          'package.json: `scripts.probe` re-invokes `nmr probe` (`nmr probe && tsx sync.ts`), ' +
+          'so nmr cannot run the steps it chains. ' +
+          'A `package.json` script holds no step list: define `probe` in `.config/nmr.config.ts` and move the ' +
+          'package-specific steps to a `probe:pre` or `probe:post` script.',
+        scenario: 'naming a command the registry does not define',
+        scripts: { probe: 'nmr probe && tsx sync.ts' },
+      },
+    ])('given one $scenario, names the site and the edit that resolves it', async ({ expected, scripts }) => {
+      writePackageScripts(repo, scripts);
+      const command = Object.keys(scripts)[0] ?? '';
+
+      await expect(runNmr([command], repo)).rejects.toThrow(new UserError(expected));
+    });
+
+    it('runs nothing', async () => {
+      writePackageScripts(repo, { build: 'nmr build && rdy compile' });
+
+      await expect(runNmr(['build'], repo)).rejects.toThrow(UserError);
+      expect(mockedRunSteps).not.toHaveBeenCalled();
+    });
+
+    // `--log` reads a recording rather than running one, so no step of the entry could go missing.
+    it('is not rejected when the invocation only reads a recording', async () => {
+      writePackageScripts(repo, { build: 'nmr build && rdy compile' });
+
+      const { stderr } = await runNmrReadingStderr(['--log', 'build'], repo);
+
+      expect(stderr).not.toContain('re-invokes');
+    });
+
+    it.each([
+      { scenario: 'standing alone', scripts: { build: 'nmr build' } },
+      { scenario: 'carrying trailing arguments, which declare no step', scripts: { build: 'nmr build --verbose' } },
+    ])('reports nothing for one $scenario, running the registry entry instead', async ({ scripts }) => {
+      writePackageScripts(repo, scripts);
+
+      const { exitCode, stderr } = await runNmrReadingStderr(['build'], repo);
+
+      expect(stderr).toBe('');
+      expect(exitCode).toBe(0);
+      expect(stepsFromCall()).toStrictEqual([{ kind: 'structural', argv: ['nmr', '-R', 'build'] }]);
+    });
+
+    // nmr wraps a hook in no hooks of its own, so naming `lint:post:pre` would name a script that never runs.
+    it('tells a rejected hook to keep its steps, having no script below it to move them to', async () => {
+      writePackageScripts(repo, { 'lint:post': 'nmr lint:post && rdy compile' });
+
+      await expect(runNmr(['lint:post'], repo)).rejects.toThrow(
+        new UserError(
+          'package.json: `scripts.lint:post` re-invokes `nmr lint:post` (`nmr lint:post && rdy compile`), ' +
+            'so nmr cannot run the steps it chains. ' +
+            'Delete the re-invocation: `lint:post` runs the steps standing beside it.',
+        ),
+      );
+    });
+
+    // The default registry defines no hooks, so a dropped hook is the common case rather than a corner of it.
+    it('wraps a rejected hook the registry does not define, so its own process reports it', async () => {
+      writePackageScripts(repo, { 'lint:post': 'nmr lint:post && rdy compile' });
+
+      const { exitCode } = await runNmrReadingStderr(['lint'], repo);
+
+      expect(stepsFromCall()).toStrictEqual([
+        { kind: 'opaque', command: 'eslint --fix .' },
+        { kind: 'structural', argv: ['nmr', 'lint:post'] },
+      ]);
+      expect(exitCode).toBe(0);
     });
   });
 
