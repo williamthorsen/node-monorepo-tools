@@ -507,9 +507,7 @@ function describeCrossingRemedy(options: {
       };
     case 'config':
       return {
-        remedy:
-          `Write the nmr steps as a step list, and move any others to a \`${origin.key}:pre\` or ` +
-          `\`${origin.key}:post\` script.`,
+        remedy: `Write the nmr steps as a step list, and move any others to ${describeStepDestination(origin.key)}.`,
         subject: `${configSite}: \`${origin.field}.${origin.key}\``,
       };
     case 'package':
@@ -522,6 +520,20 @@ function describeCrossingRemedy(options: {
       throw new Error(`Unhandled script origin: ${JSON.stringify(unhandled)}`);
     }
   }
+}
+
+/**
+ * Names where the steps standing beside an entry's nmr invocations belong.
+ *
+ * A hook takes the other answer: nmr wraps a `:pre` or `:post` script in no hooks of its own, so naming one
+ * below it would name a script nmr never runs. Its own steps become a script the step list names instead.
+ */
+function describeStepDestination(key: string): string {
+  if (isHookName(key)) {
+    return 'a script of their own that the step list names, because a hook has no `:pre` or `:post` of its own';
+  }
+
+  return `a \`${key}:pre\` or \`${key}:post\` script`;
 }
 
 /** A resolved script's origin, refined into the tier whose remedy the diagnostic names. */
@@ -633,7 +645,7 @@ function formatPackageRemedy(options: {
   if (registryEntry === undefined) {
     return (
       `A \`package.json\` script holds no step list: define \`${key}\` in \`${configSite}\` and move the ` +
-      `package-specific steps to a \`${key}:pre\` or \`${key}:post\` script.`
+      `package-specific steps to ${describeStepDestination(key)}.`
     );
   }
 
@@ -642,7 +654,7 @@ function formatPackageRemedy(options: {
     return `Delete the entry: nmr's own \`${key}\` already runs \`${registryChain}\`.`;
   }
 
-  return `Delete the entry and move the steps it adds to a \`${key}:pre\` or \`${key}:post\` script.`;
+  return `Delete the entry and move the steps it adds to ${describeStepDestination(key)}.`;
 }
 
 /**

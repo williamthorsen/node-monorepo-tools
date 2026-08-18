@@ -507,6 +507,35 @@ describe(runCli, () => {
       expect(stderr.trim()).toBe(expected);
     });
 
+    // nmr wraps a hook in no hooks of its own, so a `probe:post:pre` would name a script that never runs.
+    it.each([
+      {
+        expected:
+          '⚠️ .config/nmr.config.ts: `rootScripts.probe:post` reaches nmr through a shell ' +
+          "(`nmr fmt && echo done`), so nmr handles the nested run's output as a tool's. " +
+          'Write the nmr steps as a step list, and move any others to a script of their own that the step ' +
+          'list names, because a hook has no `:pre` or `:post` of its own.',
+        scenario: 'a config entry',
+        setup: (repo: string) => writeConfig(repo, { rootScripts: { 'probe:post': 'nmr fmt && echo done' } }),
+      },
+      {
+        expected:
+          '⚠️ package.json: `scripts.probe:post` reaches nmr through a shell (`nmr fmt && echo done`), ' +
+          "so nmr handles the nested run's output as a tool's. " +
+          'A `package.json` script holds no step list: define `probe:post` in `.config/nmr.config.ts` and ' +
+          'move the package-specific steps to a script of their own that the step list names, because a hook ' +
+          'has no `:pre` or `:post` of its own.',
+        scenario: 'a package.json entry',
+        setup: (repo: string) => writePackageScripts(repo, { 'probe:post': 'nmr fmt && echo done' }),
+      },
+    ])('given a hook declared by $scenario, names no hook below it', async ({ expected, setup }) => {
+      setup(repo);
+
+      const { stderr } = await runNmrReadingStderr(['probe:post'], repo);
+
+      expect(stderr.trim()).toBe(expected);
+    });
+
     it('spends one line on it', async () => {
       writeConfig(repo, { rootScripts: { probe: 'nmr fmt' } });
 
