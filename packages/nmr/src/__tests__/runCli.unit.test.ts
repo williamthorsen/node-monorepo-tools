@@ -499,6 +499,16 @@ describe(runCli, () => {
         scenario: 'a package.json entry whose command the registry does not define',
         setup: (repo: string) => writePackageScripts(repo, { probe: 'nmr fmt && tsx sync.ts' }),
       },
+      {
+        expected:
+          '⚠️ package.json: `scripts.probe` reaches nmr through a shell (`tsx sync.ts\\nnmr fmt`), ' +
+          "so nmr handles the nested run's output as a tool's. " +
+          'A `package.json` script holds no step list: define `probe` in `.config/nmr.config.ts` and move the ' +
+          'package-specific steps to a `probe:pre` or `probe:post` script.',
+        command: 'probe',
+        scenario: 'a package.json entry written across lines, whose entry quotes as the file holds it',
+        setup: (repo: string) => writePackageScripts(repo, { probe: 'tsx sync.ts\nnmr fmt' }),
+      },
     ])('given $scenario, names the site and the edit that resolves it', async ({ command, expected, setup }) => {
       setup(repo);
 
@@ -611,6 +621,14 @@ describe(runCli, () => {
           'package-specific steps to a `probe:pre` or `probe:post` script.',
         scenario: 'naming a command the registry does not define',
         scripts: { probe: 'nmr probe && tsx sync.ts' },
+      },
+      {
+        expected:
+          'package.json: `scripts.build` re-invokes `nmr build` (`nmr build\\nrdy compile`), ' +
+          'so nmr cannot run the steps it chains. ' +
+          'Delete the entry and move the steps it adds to a `build:pre` or `build:post` script.',
+        scenario: 'written across lines, whose entry quotes as the file holds it',
+        scripts: { build: 'nmr build\nrdy compile' },
       },
     ])('given one $scenario, names the site and the edit that resolves it', async ({ expected, scripts }) => {
       writePackageScripts(repo, scripts);

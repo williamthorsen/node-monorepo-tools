@@ -63,6 +63,17 @@ const VERSION = readPackageVersion(import.meta.url);
 const CROSSING_CONSEQUENCE = "so nmr handles the nested run's output as a tool's.";
 
 /**
+ * The control characters a declaration's text renders as an escape, paired with the escape a JSON string
+ * spells them with. `\n` and `\r` are what break a diagnostic across lines; `\t` is the third a script value
+ * realistically carries.
+ */
+const NAMED_ESCAPES = new Map([
+  ['\n', String.raw`\n`],
+  ['\r', String.raw`\r`],
+  ['\t', String.raw`\t`],
+]);
+
+/**
  * Marks a run made on a delegating caller's behalf, where a command the registry does not define exits 0
  * rather than failing.
  */
@@ -562,6 +573,25 @@ function describeOrigin(origin: ScriptOrigin, config: NmrConfig, useRoot: boolea
 }
 
 /**
+ * Renders a declaration's text as the file holds it, so a value written across lines quotes on one line.
+ *
+ * A diagnostic names a declaration the reader has to edit, and a JSON string holds an escape sequence where a
+ * shell would read a control character. Rendering the escape is what keeps the line one line, and it is the
+ * text the reader will search the file for.
+ *
+ * Renders at the quoting site alone. `formatPackageRemedy` decides its delete-the-entry branch by comparing a
+ * rendered chain against the entry, and an escape applied ahead of that comparison would defeat it.
+ */
+function escapeControlCharacters(text: string): string {
+  let escaped = text;
+  for (const [char, escape] of NAMED_ESCAPES) {
+    escaped = escaped.split(char).join(escape);
+  }
+
+  return escaped;
+}
+
+/**
  * Renders the line reporting a step that reaches nmr through a shell, which puts the nested run's output on the
  * channels a tool's takes: withheld as one block under `quiet`, and relayed through this process under `full`.
  *
@@ -577,7 +607,10 @@ function formatNmrCrossingWarning(options: {
 }): string {
   const { remedy, subject } = describeCrossingRemedy(options);
 
-  return `⚠️ ${subject} reaches nmr through a shell (\`${options.crossing}\`), ${CROSSING_CONSEQUENCE} ${remedy}`;
+  return (
+    `⚠️ ${subject} reaches nmr through a shell (\`${escapeControlCharacters(options.crossing)}\`), ` +
+    `${CROSSING_CONSEQUENCE} ${remedy}`
+  );
 }
 
 /**
@@ -651,7 +684,7 @@ function formatPackageRemedy(options: {
 
   const registryChain = renderChain(expandScript(registryEntry, workspaceRoot));
   if (registryChain === crossing) {
-    return `Delete the entry: nmr's own \`${key}\` already runs \`${registryChain}\`.`;
+    return `Delete the entry: nmr's own \`${key}\` already runs \`${escapeControlCharacters(registryChain)}\`.`;
   }
 
   return `Delete the entry and move the steps it adds to ${describeStepDestination(key)}.`;
@@ -721,7 +754,7 @@ function assertNoSelfReference(options: {
   const site = path.relative(monorepoRoot, resolvePackageJsonPath(anchorDir));
 
   throw new UserError(
-    `${site}: \`scripts.${command}\` re-invokes \`nmr ${command}\` (\`${script}\`), ` +
+    `${site}: \`scripts.${command}\` re-invokes \`nmr ${command}\` (\`${escapeControlCharacters(script)}\`), ` +
       `so nmr cannot run the steps it chains. ${remedy}`,
   );
 }
