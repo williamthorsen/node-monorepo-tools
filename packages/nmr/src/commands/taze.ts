@@ -34,8 +34,8 @@ export interface RunTazeOptions {
  * root `node_modules/.bin`. This launcher is what bridges that gap: pnpm links nmr's own bins into the
  * consumer root, and nmr resolves taze from the tree it does control.
  *
- * No argument is interpreted or added here. Invocation policy (`--include-locked`, `--recursive`) lives in
- * the script registry, where it stays visible in `nmr` help output and overridable per repo.
+ * No argument is interpreted or added here. Invocation policy (`--recursive`) lives in the script registry,
+ * where it stays visible in `nmr` help output and overridable per repo. Upgrade policy lives in `taze.ts`.
  */
 export function runTaze(args: string[], options: RunTazeOptions = {}): number {
   const stderr = options.stderr ?? process.stderr;

@@ -10,7 +10,7 @@ describe(runTaze, () => {
   it('forwards every argument to the taze CLI, in order and unmodified', () => {
     const calls: Array<{ nodePath: string; argv: string[] }> = [];
 
-    runTaze(['--include-locked', '--recursive', 'major'], {
+    runTaze(['--recursive', 'major', '--write'], {
       resolveCliPath: () => '/fake/taze/cli.mjs',
       spawn: (nodePath, argv) => {
         calls.push({ nodePath, argv });
@@ -19,7 +19,7 @@ describe(runTaze, () => {
     });
 
     expect(calls).toHaveLength(1);
-    expect(calls[0]?.argv).toStrictEqual(['/fake/taze/cli.mjs', '--include-locked', '--recursive', 'major']);
+    expect(calls[0]?.argv).toStrictEqual(['/fake/taze/cli.mjs', '--recursive', 'major', '--write']);
   });
 
   it('runs the CLI on the current Node executable', () => {

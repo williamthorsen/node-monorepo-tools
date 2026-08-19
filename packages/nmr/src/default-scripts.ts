@@ -61,9 +61,8 @@ export const workspaceScripts: ScriptRegistry = {
   'test:unit': 'pnpm exec vitest --project unit',
   'test:watch': `pnpm exec vitest ${GATE_PROJECTS} --watch`,
   typecheck: 'tsgo --noEmit',
-  // Without `--include-locked`, nothing would be reported in a repo that pins exact version numbers. The
-  // command is a string because neither half names an nmr command: both are binaries.
-  upgrade: 'nmr-report-catalog && nmr-taze --include-locked',
+  // The command is a string because neither half names an nmr command: both are binaries.
+  upgrade: 'nmr-report-catalog && nmr-taze',
   'view-coverage': 'open coverage/index.html',
 };
 
@@ -100,7 +99,7 @@ export const rootScripts: ScriptRegistry = {
   'root:typecheck': 'tsgo --noEmit',
   // Carries the override report for the same reason `upgrade` does: both end in the tool that rewrites a
   // `pnpm.overrides` block, so both need the reporter's rejection ahead of them.
-  'root:upgrade': 'nmr-report-overrides && nmr-taze --include-locked',
+  'root:upgrade': 'nmr-report-overrides && nmr-taze',
   test: ['root:test', '-R test'],
   'test:all': ['root:test:all', '-R test:all'],
   'test:coverage': ['root:test', '-R test:coverage'],
@@ -112,5 +111,5 @@ export const rootScripts: ScriptRegistry = {
   typecheck: [ROOT_TYPECHECK_STEP, { run: '-R typecheck', declinesArgs: true }],
   // The command is a string because neither half names an nmr command: both are binaries, and a composite
   // element can name only a command.
-  upgrade: 'nmr-report-overrides && nmr-taze --include-locked --recursive',
+  upgrade: 'nmr-report-overrides && nmr-taze --recursive',
 };
