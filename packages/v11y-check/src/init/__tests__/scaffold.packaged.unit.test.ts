@@ -35,9 +35,7 @@ describe('copyWorkflowTemplate (packaged)', () => {
 
     // Import from the compiled JS so that `import.meta.url` points to dist/esm/init/scaffold.js.
     const mod: unknown = await import(distScaffoldPath);
-    if (!isScaffoldModule(mod)) {
-      throw new Error('Module does not export `copyWorkflowTemplate` as a function');
-    }
+    assert(isScaffoldModule(mod), 'Module does not export `copyWorkflowTemplate` as a function');
 
     const result = mod.copyWorkflowTemplate(false, false);
 
