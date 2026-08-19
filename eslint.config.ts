@@ -3,6 +3,11 @@ import { defineConfig, globalIgnores } from 'eslint/config';
 
 const config = defineConfig([
   ...baseConfig,
+  {
+    // A stale `eslint-disable` reports under no rule name, and strict-lint promotes only named rules, so raising
+    // it here is what fails the gate on one.
+    linterOptions: { reportUnusedDisableDirectives: 'error' },
+  },
   globalIgnores([
     // Completely ignore these files.
     '**/*.sh',
