@@ -4,7 +4,8 @@ import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate
 /**
  * Builds a fixture repo in a temp directory from a map of repo-relative paths to file contents, returning its
  * directory. Parent directories are created as needed, so a map may name a nested path directly. The directory is
- * removed when the calling test finishes, so this must be called from a test body rather than from a hook.
+ * removed when the calling test finishes, so this must be called from a test body or a per-test hook, never from
+ * `beforeAll`.
  *
  * Temp directories rather than committed fixtures: a fixture carries the very shape the check under test looks
  * for, so committing one turns this repo into a target of its own checks. A `*.integration.test.ts` under any
