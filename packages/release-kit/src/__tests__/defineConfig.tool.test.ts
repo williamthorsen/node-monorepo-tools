@@ -1,8 +1,8 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -55,19 +55,15 @@ interface ProbeResult {
 
 /** Write `source` alone into a temp directory as the entry module, then import it from a Node subprocess. */
 function loadStandalone(source: string): ProbeResult {
-  const dir = mkdtempSync(path.join(tmpdir(), 'release-kit-config-entry-'));
-  try {
-    // Declare ESM rather than lean on Node's syntax detection, so the module graph is the only thing under test.
-    writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'config-entry-fixture', type: 'module' }));
-    writeFileSync(path.join(dir, 'defineConfig.ts'), source);
+  using tree = createTempTree({}, { prefix: 'release-kit-config-entry-' });
+  // Declare ESM rather than lean on Node's syntax detection, so the module graph is the only thing under test.
+  writeFileSync(path.join(tree.dir, 'package.json'), JSON.stringify({ name: 'config-entry-fixture', type: 'module' }));
+  writeFileSync(path.join(tree.dir, 'defineConfig.ts'), source);
 
-    const { status, stdout, stderr } = spawnSync(process.execPath, ['--input-type=module', '--eval', PROBE], {
-      cwd: dir,
-      encoding: 'utf8',
-    });
+  const { status, stdout, stderr } = spawnSync(process.execPath, ['--input-type=module', '--eval', PROBE], {
+    cwd: tree.dir,
+    encoding: 'utf8',
+  });
 
-    return { status, stdout, stderr };
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+  return { status, stdout, stderr };
 }

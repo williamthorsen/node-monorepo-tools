@@ -1,8 +1,10 @@
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { chmodSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { syncWorkTypes } from '../syncWorkTypes.ts';
 
@@ -23,6 +25,26 @@ const SAMPLE_DATA = {
 };
 
 /** Build a `Response`-like object the helper can consume. */
+/**
+ * Creates a temporary tree that restores its own write permission before disposal. Disposal is a bare recursive
+ * remove, and a directory a test left read-only cannot have its entries unlinked until the mode is restored.
+ */
+function makeRestorableTree(): TempTree {
+  const tree = createTempTree({}, { prefix: 'work-types-sync-' });
+
+  return {
+    ...tree,
+    [Symbol.dispose]() {
+      try {
+        chmodSync(tree.dir, 0o755);
+      } catch {
+        // The directory may already be writable.
+      }
+      tree[Symbol.dispose]();
+    },
+  };
+}
+
 function makeResponse(init: { status: number; statusText?: string; body: string }): Response {
   const responseInit: ResponseInit = {
     status: init.status,
@@ -31,31 +53,25 @@ function makeResponse(init: { status: number; statusText?: string; body: string 
   return new Response(init.body, responseInit);
 }
 
-describe(syncWorkTypes, () => {
-  let tempDir: string;
-  let localPath: string;
+const it = test
+  .extend(
+    'tree',
+    makeFixture(() => makeRestorableTree()),
+  )
+  .extend('localPath', ({ tree }) => join(tree.dir, 'work-types.json'));
 
+describe(syncWorkTypes, () => {
   beforeEach(() => {
-    tempDir = mkdtempSync(join(tmpdir(), 'work-types-sync-'));
-    localPath = join(tempDir, 'work-types.json');
     // Default to no token so tests are deterministic regardless of the host shell's environment.
     // Individual tests opt into a stubbed token by calling `vi.stubEnv('GITHUB_TOKEN', '<value>')`.
     vi.stubEnv('GITHUB_TOKEN', '');
   });
 
   afterEach(() => {
-    // Restore write permissions so the temp tree can be removed even if a test made it
-    // read-only.
-    try {
-      chmodSync(tempDir, 0o755);
-    } catch {
-      // tempDir may already be writable; ignore.
-    }
-    rmSync(tempDir, { recursive: true, force: true });
     vi.unstubAllEnvs();
   });
 
-  it('exits 0 when sync writes new content to local', async () => {
+  it('exits 0 when sync writes new content to local', async ({ localPath }) => {
     const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(SAMPLE_DATA) }));
     const result = await syncWorkTypes({
       localPath,
@@ -66,7 +82,7 @@ describe(syncWorkTypes, () => {
     expect(result.message).toMatch(/Synced/);
   });
 
-  it('exits 0 when local already matches upstream', async () => {
+  it('exits 0 when local already matches upstream', async ({ localPath }) => {
     writeFileSync(localPath, `${JSON.stringify(SAMPLE_DATA, null, 2)}\n`, 'utf8');
     const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(SAMPLE_DATA) }));
     const result = await syncWorkTypes({
@@ -78,7 +94,7 @@ describe(syncWorkTypes, () => {
     expect(result.message).toMatch(/already matches/);
   });
 
-  it('exits 2 on a non-OK non-success HTTP status', async () => {
+  it('exits 2 on a non-OK non-success HTTP status', async ({ localPath }) => {
     const fakeFetch = vi
       .fn()
       .mockResolvedValue(makeResponse({ status: 500, statusText: 'Internal Server Error', body: '' }));
@@ -91,7 +107,7 @@ describe(syncWorkTypes, () => {
     expect(result.message).toMatch(/Error: Failed to fetch upstream work-types\.json: HTTP 500/);
   });
 
-  it('exits 2 with a network-error diagnostic when fetch rejects', async () => {
+  it('exits 2 with a network-error diagnostic when fetch rejects', async ({ localPath }) => {
     const fakeFetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
     const result = await syncWorkTypes({
       localPath,
@@ -102,9 +118,9 @@ describe(syncWorkTypes, () => {
     expect(result.message).toMatch(/Error: Failed to fetch upstream work-types\.json: ECONNREFUSED/);
   });
 
-  it('exits 2 with a write-failure diagnostic when the local path is not writable', async () => {
-    // Make tempDir read-only so writing the local file fails.
-    chmodSync(tempDir, 0o500);
+  it('exits 2 with a write-failure diagnostic when the local path is not writable', async ({ localPath, tree }) => {
+    // Make the directory read-only so writing the local file fails.
+    chmodSync(tree.dir, 0o500);
     const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(SAMPLE_DATA) }));
     const result = await syncWorkTypes({
       localPath,
@@ -116,7 +132,7 @@ describe(syncWorkTypes, () => {
     expect(result.message).toContain(localPath);
   });
 
-  it('exits 3 when upstream returns invalid JSON', async () => {
+  it('exits 3 when upstream returns invalid JSON', async ({ localPath }) => {
     const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: 'not json' }));
     const result = await syncWorkTypes({
       localPath,
@@ -127,7 +143,7 @@ describe(syncWorkTypes, () => {
     expect(result.message).toMatch(/not valid JSON/);
   });
 
-  it('preserves the local `$schema` IDE hint when upstream does not carry one', async () => {
+  it('preserves the local `$schema` IDE hint when upstream does not carry one', async ({ localPath }) => {
     // Upstream is canonical (no `$schema`); local carries the IDE-hint `$schema` so editors validate
     // edits against the colocated schema. Sync must re-inject `$schema` so the file remains
     // self-validating after the upstream content overwrites the local copy. This is symmetric with
@@ -156,7 +172,7 @@ describe(syncWorkTypes, () => {
     expect(synced.indexOf('"$schema"')).toBeLessThan(synced.indexOf('"tiers"'));
   });
 
-  it('does not inject `$schema` when local file does not carry one', async () => {
+  it('does not inject `$schema` when local file does not carry one', async ({ localPath }) => {
     // If the prior local content lacks `$schema` (e.g., upstream-canonical write), the sync must not
     // hallucinate one — the absence is itself the local truth.
     writeFileSync(localPath, `${JSON.stringify(SAMPLE_DATA, null, 2)}\n`, 'utf8');
@@ -174,7 +190,7 @@ describe(syncWorkTypes, () => {
     expect(synced).not.toContain('$schema');
   });
 
-  it('exits 3 when upstream JSON is missing required top-level keys', async () => {
+  it('exits 3 when upstream JSON is missing required top-level keys', async ({ localPath }) => {
     const fakeFetch = vi
       .fn()
       .mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify({ unrelated: true }) }));
@@ -188,7 +204,7 @@ describe(syncWorkTypes, () => {
   });
 
   describe('GITHUB_TOKEN auth header', () => {
-    it('sends `Authorization: Bearer <token>` when GITHUB_TOKEN is set', async () => {
+    it('sends `Authorization: Bearer <token>` when GITHUB_TOKEN is set', async ({ localPath }) => {
       vi.stubEnv('GITHUB_TOKEN', 'ghp_test_token_value');
       const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(SAMPLE_DATA) }));
       await syncWorkTypes({ localPath, upstreamUrl: FIXTURE_URL, fetch: fakeFetch });
@@ -197,7 +213,7 @@ describe(syncWorkTypes, () => {
       });
     });
 
-    it('sends no `init` argument when GITHUB_TOKEN is unset', async () => {
+    it('sends no `init` argument when GITHUB_TOKEN is unset', async ({ localPath }) => {
       vi.stubEnv('GITHUB_TOKEN', '');
       const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(SAMPLE_DATA) }));
       await syncWorkTypes({ localPath, upstreamUrl: FIXTURE_URL, fetch: fakeFetch });

@@ -1,12 +1,15 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { checkWorkTypesDrift } from '../checkWorkTypesDrift.ts';
 
 const FIXTURE_URL = 'https://test.example/work-types.json';
+
+const LOCAL_BASENAME = 'work-types.json';
 
 const SAMPLE_DATA = {
   tiers: ['public', 'internal', 'process'],
@@ -31,25 +34,30 @@ function makeResponse(init: { status: number; statusText?: string; body: string 
   return new Response(init.body, responseInit);
 }
 
-describe(checkWorkTypesDrift, () => {
-  let tempDir: string;
-  let localPath: string;
+const it = test
+  .extend(
+    'tree',
+    makeFixture(() =>
+      createTempTree(
+        { 'work-types.json': `${JSON.stringify(SAMPLE_DATA, null, 2)}\n` },
+        { prefix: 'work-types-drift-' },
+      ),
+    ),
+  )
+  .extend('localPath', ({ tree }) => join(tree.dir, LOCAL_BASENAME));
 
+describe(checkWorkTypesDrift, () => {
   beforeEach(() => {
-    tempDir = mkdtempSync(join(tmpdir(), 'work-types-drift-'));
-    localPath = join(tempDir, 'work-types.json');
-    writeFileSync(localPath, `${JSON.stringify(SAMPLE_DATA, null, 2)}\n`, 'utf8');
     // Default to no token so tests are deterministic regardless of the host shell's environment.
     // Individual tests opt into a stubbed token by calling `vi.stubEnv('GITHUB_TOKEN', '<value>')`.
     vi.stubEnv('GITHUB_TOKEN', '');
   });
 
   afterEach(() => {
-    rmSync(tempDir, { recursive: true, force: true });
     vi.unstubAllEnvs();
   });
 
-  it('exits 0 with a match message when local equals upstream', async () => {
+  it('exits 0 with a match message when local equals upstream', async ({ localPath }) => {
     const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(SAMPLE_DATA) }));
     const result = await checkWorkTypesDrift({
       localPath,
@@ -61,7 +69,7 @@ describe(checkWorkTypesDrift, () => {
     expect(fakeFetch).toHaveBeenCalledWith(FIXTURE_URL);
   });
 
-  it('exits 1 with a drift message when local differs from upstream', async () => {
+  it('exits 1 with a drift message when local differs from upstream', async ({ localPath }) => {
     const upstreamData = {
       ...SAMPLE_DATA,
       types: [
@@ -81,7 +89,7 @@ describe(checkWorkTypesDrift, () => {
     expect(result.message).toMatch(/Drift detected/);
   });
 
-  it('exits 0 with a transitional warning when upstream returns 404', async () => {
+  it('exits 0 with a transitional warning when upstream returns 404', async ({ localPath }) => {
     const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 404, body: 'Not Found' }));
     const result = await checkWorkTypesDrift({
       localPath,
@@ -92,7 +100,7 @@ describe(checkWorkTypesDrift, () => {
     expect(result.message).toMatch(/not yet published/);
   });
 
-  it('exits 2 on a non-OK non-404 HTTP status', async () => {
+  it('exits 2 on a non-OK non-404 HTTP status', async ({ localPath }) => {
     const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 500, statusText: 'Internal', body: '' }));
     const result = await checkWorkTypesDrift({
       localPath,
@@ -103,7 +111,7 @@ describe(checkWorkTypesDrift, () => {
     expect(result.message).toMatch(/Error: Failed to fetch upstream work-types\.json: HTTP 500/);
   });
 
-  it('exits 2 on a network error (rejected fetch)', async () => {
+  it('exits 2 on a network error (rejected fetch)', async ({ localPath }) => {
     const fakeFetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
     const result = await checkWorkTypesDrift({
       localPath,
@@ -114,7 +122,7 @@ describe(checkWorkTypesDrift, () => {
     expect(result.message).toMatch(/Error: Failed to fetch upstream work-types\.json: ECONNREFUSED/);
   });
 
-  it('exits 3 on a schema mismatch (upstream JSON missing tiers/types)', async () => {
+  it('exits 3 on a schema mismatch (upstream JSON missing tiers/types)', async ({ localPath }) => {
     const fakeFetch = vi
       .fn()
       .mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify({ unrelated: true }) }));
@@ -127,7 +135,7 @@ describe(checkWorkTypesDrift, () => {
     expect(result.message).toMatch(/expected schema shape/);
   });
 
-  it('exits 0 when local carries `$schema` IDE hint and upstream does not', async () => {
+  it('exits 0 when local carries `$schema` IDE hint and upstream does not', async ({ localPath }) => {
     const localWithSchemaHint = {
       $schema: './work-types.schema.json',
       ...SAMPLE_DATA,
@@ -143,7 +151,7 @@ describe(checkWorkTypesDrift, () => {
     expect(result.message).toMatch(/matches upstream/);
   });
 
-  it('exits 3 when upstream returns invalid JSON', async () => {
+  it('exits 3 when upstream returns invalid JSON', async ({ localPath }) => {
     const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: 'not json' }));
     const result = await checkWorkTypesDrift({
       localPath,
@@ -155,7 +163,7 @@ describe(checkWorkTypesDrift, () => {
   });
 
   describe('GITHUB_TOKEN auth header', () => {
-    it('sends `Authorization: Bearer <token>` when GITHUB_TOKEN is set', async () => {
+    it('sends `Authorization: Bearer <token>` when GITHUB_TOKEN is set', async ({ localPath }) => {
       vi.stubEnv('GITHUB_TOKEN', 'ghp_test_token_value');
       const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(SAMPLE_DATA) }));
       await checkWorkTypesDrift({ localPath, upstreamUrl: FIXTURE_URL, fetch: fakeFetch });
@@ -164,7 +172,7 @@ describe(checkWorkTypesDrift, () => {
       });
     });
 
-    it('sends no `init` argument when GITHUB_TOKEN is unset', async () => {
+    it('sends no `init` argument when GITHUB_TOKEN is unset', async ({ localPath }) => {
       vi.stubEnv('GITHUB_TOKEN', '');
       const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(SAMPLE_DATA) }));
       await checkWorkTypesDrift({ localPath, upstreamUrl: FIXTURE_URL, fetch: fakeFetch });

@@ -102,6 +102,8 @@ const config = defineConfig([
       'packages/nmr/src/commands/__tests__/ensure-prepublish-hooks.unit.test.ts',
       'packages/nmr/src/commands/__tests__/fmt.tool.test.ts',
       'packages/nmr/src/commands/__tests__/resolve-format-targets.tool.test.ts',
+      'packages/release-kit/src/__tests__/checkWorkTypesDrift.unit.test.ts',
+      'packages/release-kit/src/__tests__/syncWorkTypes.unit.test.ts',
     ],
     rules: {
       'vitest/consistent-test-it': 'off',
