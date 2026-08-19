@@ -71,7 +71,7 @@ nmr root:upgrade
 nmr -F @williamthorsen/nmr upgrade
 ```
 
-These honor the version ceilings declared in `taze.config.ts`, which holds `@types/node` to the Node major the `engines` floor requires and `typescript` below 7. Add `major` to propose major upgrades, still inside those ceilings, and `--write` to apply the proposals:
+These honor the version ceilings declared in `taze.config.ts`, which holds `@types/node` to the Node major the `engines` floor requires and `typescript` below 7. Add `major` to propose major upgrades for the dependencies carrying no such ceiling, and `--write` to apply the proposals:
 
 ```shell
 nmr upgrade major

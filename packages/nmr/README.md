@@ -524,8 +524,8 @@ A `pnpm.overrides` block left in the root `package.json` fails the command inste
 The upgrade tool ([taze](https://github.com/antfu-collective/taze)) arrives with nmr, so your repo declares no dependency on it. Everything after the command name is passed through, including the range mode:
 
 ```bash
-nmr upgrade         # upgrades available within each package's version ceilings
-nmr upgrade major   # major upgrades, still inside the ceilings
+nmr upgrade         # minor and patch upgrades within each dependency's declared range
+nmr upgrade major   # major upgrades, for dependencies carrying no per-package ceiling
 nmr upgrade --write # apply the proposals to package.json
 ```
 
@@ -544,7 +544,7 @@ export default defineConfig({
 });
 ```
 
-`defineConfig` supplies nmr's shared upgrade policy — a seven-day quarantine on brand-new releases, and the pair of settings that report a dependency pinned to an exact version: locked dependencies are included, and the range searched is `minor` — so your config carries only what is specific to your repo. Any setting you declare wins over nmr's default. Passing `undefined` clears a default rather than falling back to it, which is how you hand the quarantine policy back to `pnpm-workspace.yaml`'s `minimumReleaseAge`.
+`defineConfig` supplies nmr's shared upgrade policy — a seven-day quarantine on brand-new releases, and the pair of settings that report a dependency pinned to an exact version: locked dependencies are included, and the range searched is `minor` — so your config carries only what is specific to your repo. Any setting you declare wins over nmr's default. Passing `undefined` clears a default rather than falling back to it, which is how you hand the quarantine policy back to `pnpm-workspace.yaml`'s `minimumReleaseAge`. `mode` is the exception: the upgrade tool carries a default of its own for it, and clearing nmr's leaves no valid range to search, so name a mode instead.
 
 Everything the [taze configuration](https://github.com/antfu-collective/taze#config-file) accepts is accepted here.
 
@@ -552,8 +552,8 @@ Everything the [taze configuration](https://github.com/antfu-collective/taze#con
 
 Two consequences of the `minor` range mode the policy declares:
 
-- A `packageMode` entry that is not `minor` drops its dependency from a default pass rather than narrowing it, because the upgrade tool honors a per-package mode only when the pass's own mode matches it or is `default`. A `patch` ceiling therefore hides that dependency until you run `nmr upgrade patch`.
-- A `~` range is searched as `^`, so minor upgrades are proposed for it and `--write` applies them under the original `~`. Declare `mode: 'patch'` for the package, or clear the mode with `mode: undefined`, to hold a tilde range to patches.
+- A `packageMode` entry is honored only by the pass whose mode matches it, or by a `default` pass; every other pass drops that dependency rather than narrowing it. Under the policy's `minor` mode, a `patch` ceiling hides its dependency until you run `nmr upgrade patch`, and a `minor` ceiling hides it from `nmr upgrade major`.
+- A `~` range is searched as `^`, so minor upgrades are proposed for it and `--write` applies them under the original `~`. To hold one dependency to patches, give it a `packageMode` entry of `patch` and read it from `nmr upgrade patch`; to hold the whole repo there, declare `mode: 'patch'`.
 
 ## Default script registries
 

@@ -4,8 +4,8 @@ import type { CheckOptions } from 'taze';
  * A taze configuration.
  *
  * Every property admits `undefined` explicitly, unlike `Partial<CheckOptions>`, which rejects it under
- * `exactOptionalPropertyTypes`. Passing `undefined` is how a consumer clears one of nmr's defaults, so
- * the type has to allow it.
+ * `exactOptionalPropertyTypes`. Passing `undefined` is how a consumer clears `maturityPeriod`, so the type
+ * has to allow it.
  */
 export type TazeConfig = { [K in keyof CheckOptions]?: CheckOptions[K] | undefined };
 
