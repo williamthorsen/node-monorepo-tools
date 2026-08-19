@@ -76,6 +76,23 @@ const config = defineConfig([
     },
   }),
   {
+    // The suites taking their trees as fixtures bind `test.extend(...)` to `it`, which @vitest/eslint-plugin
+    // 1.6.27 misreads: `consistent-test-it` compares the resolved import name (`test`) rather than the local
+    // binding, so every describe-nested `it(...)` is a false positive. Delete this block when the upstream fix
+    // lands: https://github.com/vitest-dev/eslint-plugin-vitest/issues/956
+    //
+    // The list grows per converted suite rather than the preamble collapsing into a shared helper: an imported
+    // `it` traces back to no vitest export, at which point the plugin stops applying every vitest rule to the file.
+    files: [
+      'packages/nmr-core/src/__tests__/readPackageVersion.unit.test.ts',
+      'packages/nmr/src/__tests__/runCli.unit.test.ts',
+      'packages/nmr/src/commands/__tests__/build-output.unit.test.ts',
+    ],
+    rules: {
+      'vitest/consistent-test-it': 'off',
+    },
+  },
+  {
     files: ['**/scripts/**/*'],
     rules: {
       'no-console': 'off',
