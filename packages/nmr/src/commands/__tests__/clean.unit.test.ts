@@ -1,86 +1,74 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { makeFixture, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { describe, expect, test } from 'vitest';
 
 import { readCheckCacheEntry, writeCheckCacheEntry } from '../../check-cache.ts';
 import { resolveBuildCachePath } from '../build-output.ts';
 import { cleanPackage, runClean } from '../clean.ts';
 
+const it = test
+  .extend(
+    'tree',
+    makeFixture(() => createTempTree({}, { prefix: 'nmr-clean-' })),
+  )
+  // `auto`, because no test names the silencer: it exists for its effect on the console.
+  .extend(
+    'silenced',
+    { auto: true },
+    makeFixture(() => silenceConsole(['info'])),
+  );
+
 describe(cleanPackage, () => {
-  let dir: string;
+  it('removes the build output', async ({ tree }) => {
+    scaffoldBuiltPackage(tree.dir);
 
-  beforeEach(() => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-clean-'));
-    silenceConsole(['info']);
+    await cleanPackage(tree.dir);
+
+    expect(fs.existsSync(path.join(tree.dir, 'dist'))).toBe(false);
   });
 
-  afterEach(() => {
-    fs.rmSync(dir, { recursive: true, force: true });
-    vi.mocked(console.info).mockRestore();
+  it('removes the build cache, so the next build cannot skip on a stale digest', async ({ tree }) => {
+    scaffoldBuiltPackage(tree.dir);
+
+    await cleanPackage(tree.dir);
+
+    expect(fs.existsSync(resolveBuildCachePath(tree.dir))).toBe(false);
   });
 
-  it('removes the build output', async () => {
-    scaffoldBuiltPackage(dir);
+  it('leaves the sources intact', async ({ tree }) => {
+    scaffoldBuiltPackage(tree.dir);
 
-    await cleanPackage(dir);
+    await cleanPackage(tree.dir);
 
-    expect(fs.existsSync(path.join(dir, 'dist'))).toBe(false);
+    expect(fs.existsSync(path.join(tree.dir, 'src', 'index.ts'))).toBe(true);
+    expect(fs.existsSync(path.join(tree.dir, 'package.json'))).toBe(true);
   });
 
-  it('removes the build cache, so the next build cannot skip on a stale digest', async () => {
-    scaffoldBuiltPackage(dir);
+  it('is a no-op on a package that was never built', async ({ tree }) => {
+    fs.mkdirSync(path.join(tree.dir, 'node_modules'), { recursive: true });
+    fs.writeFileSync(path.join(tree.dir, 'package.json'), JSON.stringify({ name: 'fixture', type: 'module' }));
 
-    await cleanPackage(dir);
-
-    expect(fs.existsSync(resolveBuildCachePath(dir))).toBe(false);
-  });
-
-  it('leaves the sources intact', async () => {
-    scaffoldBuiltPackage(dir);
-
-    await cleanPackage(dir);
-
-    expect(fs.existsSync(path.join(dir, 'src', 'index.ts'))).toBe(true);
-    expect(fs.existsSync(path.join(dir, 'package.json'))).toBe(true);
-  });
-
-  it('is a no-op on a package that was never built', async () => {
-    fs.mkdirSync(path.join(dir, 'node_modules'), { recursive: true });
-    fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'fixture', type: 'module' }));
-
-    await expect(cleanPackage(dir)).resolves.toBeUndefined();
+    await expect(cleanPackage(tree.dir)).resolves.toBeUndefined();
   });
 });
 
 describe(runClean, () => {
-  let root: string;
-
-  beforeEach(() => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-clean-workspace-'));
-    silenceConsole(['info']);
-  });
-
-  afterEach(() => {
-    fs.rmSync(root, { recursive: true, force: true });
-    vi.mocked(console.info).mockRestore();
-  });
-
-  it('cleans every workspace package when run from the monorepo root', async () => {
+  it('cleans every workspace package when run from the monorepo root', async ({ tree }) => {
     // One process cleans them all. Re-invoking a bin per package would die as soon as the sweep removed
     // the output that bin loads from, in a repo that builds nmr itself — leaving the rest uncleaned.
-    const { a, b } = scaffoldWorkspace(root);
+    const { a, b } = scaffoldWorkspace(tree.dir);
 
-    await runClean(root);
+    await runClean(tree.dir);
 
     expect(hasOutput(a)).toBe(false);
     expect(hasOutput(b)).toBe(false);
   });
 
-  it('cleans only the containing package when run from inside one', async () => {
-    const { a, b } = scaffoldWorkspace(root);
+  it('cleans only the containing package when run from inside one', async ({ tree }) => {
+    const { a, b } = scaffoldWorkspace(tree.dir);
 
     await runClean(a);
 
@@ -88,18 +76,18 @@ describe(runClean, () => {
     expect(hasOutput(b)).toBe(true);
   });
 
-  it('cleans the current directory when it is not in a pnpm workspace', async () => {
-    scaffoldBuiltPackage(root);
+  it('cleans the current directory when it is not in a pnpm workspace', async ({ tree }) => {
+    scaffoldBuiltPackage(tree.dir);
 
-    await runClean(root);
+    await runClean(tree.dir);
 
-    expect(hasOutput(root)).toBe(false);
+    expect(hasOutput(tree.dir)).toBe(false);
   });
 
-  it("runs a package's own clean override from the root instead of sweeping it", async () => {
+  it("runs a package's own clean override from the root instead of sweeping it", async ({ tree }) => {
     // The sweep stands in for a per-package delegation, so a package that overrides `clean` must still get
     // its own command: a package emitting outside `dist` would otherwise be silently under-cleaned.
-    const { a, b } = scaffoldWorkspace(root);
+    const { a, b } = scaffoldWorkspace(tree.dir);
     fs.writeFileSync(
       path.join(a, 'package.json'),
       JSON.stringify({
@@ -109,105 +97,111 @@ describe(runClean, () => {
       }),
     );
 
-    await runClean(root);
+    await runClean(tree.dir);
 
     expect(fs.existsSync(path.join(a, 'cleaned.txt'))).toBe(true);
     expect(hasOutput(a)).toBe(true);
     expect(hasOutput(b)).toBe(false);
   });
 
-  it('fails loudly when a package’s clean override fails', async () => {
-    const { a } = scaffoldWorkspace(root);
+  it('fails loudly when a package’s clean override fails', async ({ tree }) => {
+    const { a } = scaffoldWorkspace(tree.dir);
     fs.writeFileSync(
       path.join(a, 'package.json'),
       JSON.stringify({ name: 'a', type: 'module', scripts: { clean: 'exit 3' } }),
     );
 
-    await expect(runClean(root)).rejects.toThrow(/exit code 3/);
+    await expect(runClean(tree.dir)).rejects.toThrow(/exit code 3/);
   });
 
-  it('cleans in-process even when devBin names the built-in clean', async () => {
+  it('cleans in-process even when devBin names the built-in clean', async ({ tree }) => {
     // `devBin` substitutes a dev binary on the spawn path only: the sweep is already running whichever build
     // devBin selected, and re-spawning the binary whose own output the sweep deletes is the failure the
     // single-process sweep exists to prevent. The substitute fails if spawned, so a clean sweep proves it was not.
-    const { a, b } = scaffoldWorkspace(root);
-    scaffoldConfig(root, { devBin: { 'nmr-clean': 'exit 7' } });
+    const { a, b } = scaffoldWorkspace(tree.dir);
+    scaffoldConfig(tree.dir, { devBin: { 'nmr-clean': 'exit 7' } });
 
-    await runClean(root);
+    await runClean(tree.dir);
 
     expect(hasOutput(a)).toBe(false);
     expect(hasOutput(b)).toBe(false);
   });
 
-  it('clears every recorded check result when run from the monorepo root', async () => {
-    scaffoldWorkspace(root);
-    await recordCheckResult(root, root, 'ci');
+  it('clears every recorded check result when run from the monorepo root', async ({ tree }) => {
+    scaffoldWorkspace(tree.dir);
+    await recordCheckResult(tree.dir, tree.dir, 'ci');
 
-    await runClean(root);
-
-    await expect(readCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci' })).resolves.toBeUndefined();
-  });
-
-  it('clears the whole table when run from inside one package', async () => {
-    // `b` is the package the invocation never enters, so its entry is what proves the clearing is repo-wide.
-    const { a, b } = scaffoldWorkspace(root);
-    await recordCheckResult(root, a, 'check');
-    await recordCheckResult(root, b, 'check');
-
-    await runClean(a);
-
-    await expect(readCheckCacheEntry({ monorepoRoot: root, anchorDir: b, command: 'check' })).resolves.toBeUndefined();
-  });
-
-  it('clears the recorded check results of a package standing outside a workspace', async () => {
-    scaffoldBuiltPackage(root);
-    await recordCheckResult(root, root, 'check');
-
-    await runClean(root);
+    await runClean(tree.dir);
 
     await expect(
-      readCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'check' }),
+      readCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'ci' }),
     ).resolves.toBeUndefined();
   });
 
-  it('closes the sweep with the count of packages it cleaned', async () => {
-    scaffoldWorkspace(root);
+  it('clears the whole table when run from inside one package', async ({ tree }) => {
+    // `b` is the package the invocation never enters, so its entry is what proves the clearing is repo-wide.
+    const { a, b } = scaffoldWorkspace(tree.dir);
+    await recordCheckResult(tree.dir, a, 'check');
+    await recordCheckResult(tree.dir, b, 'check');
 
-    await runClean(root);
+    await runClean(a);
+
+    await expect(
+      readCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: b, command: 'check' }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('clears the recorded check results of a package standing outside a workspace', async ({ tree }) => {
+    scaffoldBuiltPackage(tree.dir);
+    await recordCheckResult(tree.dir, tree.dir, 'check');
+
+    await runClean(tree.dir);
+
+    await expect(
+      readCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'check' }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('closes the sweep with the count of packages it cleaned', async ({ tree }) => {
+    scaffoldWorkspace(tree.dir);
+
+    await runClean(tree.dir);
 
     expect(console.info).toHaveBeenCalledWith('\n🧹 Cleaned 2 packages.');
   });
 
-  it('counts in the closing statement the packages it left to an empty clean override', async () => {
-    const { a } = scaffoldWorkspace(root);
+  it('counts in the closing statement the packages it left to an empty clean override', async ({ tree }) => {
+    const { a } = scaffoldWorkspace(tree.dir);
     fs.writeFileSync(
       path.join(a, 'package.json'),
       JSON.stringify({ name: 'a', type: 'module', scripts: { clean: '' } }),
     );
 
-    await runClean(root);
+    await runClean(tree.dir);
 
     expect(console.info).toHaveBeenCalledWith('\n🧹 Cleaned 1 package, skipping 1 with an empty clean override.');
   });
 
-  it('closes nothing when the clean is scoped to one package, whose own line is already the conclusion', async () => {
-    const { a } = scaffoldWorkspace(root);
+  it('closes nothing when the clean is scoped to one package, whose own line is already the conclusion', async ({
+    tree,
+  }) => {
+    const { a } = scaffoldWorkspace(tree.dir);
 
     await runClean(a);
 
     expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('Cleaned'));
   });
 
-  it('skips a package whose clean resolves to an empty command', async () => {
+  it('skips a package whose clean resolves to an empty command', async ({ tree }) => {
     // An empty script is the package.json convention for "skip this command", so the sweep must leave the
     // output of a package that opted out of cleaning intact.
-    const { a, b } = scaffoldWorkspace(root);
+    const { a, b } = scaffoldWorkspace(tree.dir);
     fs.writeFileSync(
       path.join(a, 'package.json'),
       JSON.stringify({ name: 'a', type: 'module', scripts: { clean: '' } }),
     );
 
-    await runClean(root);
+    await runClean(tree.dir);
 
     expect(hasOutput(a)).toBe(true);
     expect(hasOutput(b)).toBe(false);

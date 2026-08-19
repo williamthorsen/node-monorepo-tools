@@ -1,43 +1,39 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { describe, expect, test } from 'vitest';
 
 import { readPackageJson } from '../../helpers/package-json.ts';
 import type { EnsurePrepublishHooksResult, PackageHookStatus } from '../ensure-prepublish-hooks.ts';
 import { DEFAULT_HOOK, ensurePrepublishHooks, reportPrepublishHooks } from '../ensure-prepublish-hooks.ts';
 
+const it = test.extend(
+  'tree',
+  makeFixture(() => createTempTree({}, { prefix: 'nmr-prepublish-test-' })),
+);
+
 describe(ensurePrepublishHooks, () => {
-  let tmpDir: string;
-
-  beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-prepublish-test-'));
-  });
-
-  afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true });
-  });
-
   describe('check mode', () => {
-    it('reports ok when all non-private packages have prepublishOnly', () => {
-      createFixture(tmpDir, [
+    it('reports ok when all non-private packages have prepublishOnly', ({ tree }) => {
+      createFixture(tree.dir, [
         { name: '@scope/lib-a', prepublishOnly: 'pnpm run build' },
         { name: '@scope/lib-b', prepublishOnly: 'npm run compile' },
       ]);
 
-      const result = ensurePrepublishHooks(tmpDir, { fix: false, dryRun: false });
+      const result = ensurePrepublishHooks(tree.dir, { fix: false, dryRun: false });
 
       expect(result.hasFailures).toBe(false);
       expect(result.packages).toHaveLength(2);
       expect(result.packages.every((p) => p.action === 'ok')).toBe(true);
     });
 
-    it('reports missing when a non-private package lacks prepublishOnly', () => {
-      createFixture(tmpDir, [{ name: '@scope/lib-a', prepublishOnly: 'pnpm run build' }, { name: '@scope/lib-b' }]);
+    it('reports missing when a non-private package lacks prepublishOnly', ({ tree }) => {
+      createFixture(tree.dir, [{ name: '@scope/lib-a', prepublishOnly: 'pnpm run build' }, { name: '@scope/lib-b' }]);
 
-      const result = ensurePrepublishHooks(tmpDir, { fix: false, dryRun: false });
+      const result = ensurePrepublishHooks(tree.dir, { fix: false, dryRun: false });
 
       expect(result.hasFailures).toBe(true);
       const missing = result.packages.filter((p) => p.action === 'missing');
@@ -45,13 +41,13 @@ describe(ensurePrepublishHooks, () => {
       expect(missing[0]?.packageName).toBe('@scope/lib-b');
     });
 
-    it('skips private packages', () => {
-      createFixture(tmpDir, [
+    it('skips private packages', ({ tree }) => {
+      createFixture(tree.dir, [
         { name: '@scope/private-pkg', private: true },
         { name: '@scope/public-pkg', prepublishOnly: 'pnpm run build' },
       ]);
 
-      const result = ensurePrepublishHooks(tmpDir, { fix: false, dryRun: false });
+      const result = ensurePrepublishHooks(tree.dir, { fix: false, dryRun: false });
 
       expect(result.hasFailures).toBe(false);
       const privatePkg = result.packages.find((p) => p.packageName === '@scope/private-pkg');
@@ -61,58 +57,58 @@ describe(ensurePrepublishHooks, () => {
   });
 
   describe('fix mode', () => {
-    it('adds prepublishOnly to packages missing it', () => {
-      createFixture(tmpDir, [{ name: '@scope/lib-a' }, { name: '@scope/lib-b', prepublishOnly: 'pnpm run build' }]);
+    it('adds prepublishOnly to packages missing it', ({ tree }) => {
+      createFixture(tree.dir, [{ name: '@scope/lib-a' }, { name: '@scope/lib-b', prepublishOnly: 'pnpm run build' }]);
 
-      const result = ensurePrepublishHooks(tmpDir, { fix: true, dryRun: false });
+      const result = ensurePrepublishHooks(tree.dir, { fix: true, dryRun: false });
 
       expect(result.hasFailures).toBe(false);
       const fixed = result.packages.find((p) => p.packageName === '@scope/lib-a');
       expect(fixed?.action).toBe('fixed');
 
       // Verify file was actually written
-      const written = readPackageJson(path.join(tmpDir, 'packages', 'lib-a'));
+      const written = readPackageJson(path.join(tree.dir, 'packages', 'lib-a'));
       expect(written.scripts?.['prepublishOnly']).toBe('npm run build');
     });
 
-    it('creates scripts object if missing', () => {
-      createFixture(tmpDir, [{ name: '@scope/lib-a' }]);
+    it('creates scripts object if missing', ({ tree }) => {
+      createFixture(tree.dir, [{ name: '@scope/lib-a' }]);
 
-      ensurePrepublishHooks(tmpDir, { fix: true, dryRun: false });
+      ensurePrepublishHooks(tree.dir, { fix: true, dryRun: false });
 
-      const written = readPackageJson(path.join(tmpDir, 'packages', 'lib-a'));
+      const written = readPackageJson(path.join(tree.dir, 'packages', 'lib-a'));
       expect(written.scripts).toStrictEqual({ prepublishOnly: 'npm run build' });
     });
 
-    it('uses custom command when provided', () => {
-      createFixture(tmpDir, [{ name: '@scope/lib-a' }]);
+    it('uses custom command when provided', ({ tree }) => {
+      createFixture(tree.dir, [{ name: '@scope/lib-a' }]);
 
-      ensurePrepublishHooks(tmpDir, { fix: true, dryRun: false, command: 'pnpm run build' });
+      ensurePrepublishHooks(tree.dir, { fix: true, dryRun: false, command: 'pnpm run build' });
 
-      const written = readPackageJson(path.join(tmpDir, 'packages', 'lib-a'));
+      const written = readPackageJson(path.join(tree.dir, 'packages', 'lib-a'));
       expect(written.scripts?.['prepublishOnly']).toBe('pnpm run build');
     });
 
-    it('does not modify private packages', () => {
-      createFixture(tmpDir, [{ name: '@scope/private-pkg', private: true }]);
+    it('does not modify private packages', ({ tree }) => {
+      createFixture(tree.dir, [{ name: '@scope/private-pkg', private: true }]);
 
-      const result = ensurePrepublishHooks(tmpDir, { fix: true, dryRun: false });
+      const result = ensurePrepublishHooks(tree.dir, { fix: true, dryRun: false });
 
       expect(result.packages[0]?.action).toBe('ok');
     });
   });
 
   describe('dry-run mode', () => {
-    it('reports would-fix without writing files', () => {
-      createFixture(tmpDir, [{ name: '@scope/lib-a' }]);
+    it('reports would-fix without writing files', ({ tree }) => {
+      createFixture(tree.dir, [{ name: '@scope/lib-a' }]);
 
-      const result = ensurePrepublishHooks(tmpDir, { fix: true, dryRun: true });
+      const result = ensurePrepublishHooks(tree.dir, { fix: true, dryRun: true });
 
       expect(result.hasFailures).toBe(false);
       expect(result.packages[0]?.action).toBe('would-fix');
 
       // Verify file was NOT written
-      const raw = readPackageJson(path.join(tmpDir, 'packages', 'lib-a'));
+      const raw = readPackageJson(path.join(tree.dir, 'packages', 'lib-a'));
       expect(raw.scripts).toBeUndefined();
     });
   });

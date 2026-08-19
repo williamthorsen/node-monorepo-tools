@@ -1,9 +1,10 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { describe, expect, test } from 'vitest';
 
 // The bin runs the source directly under Node's type stripping, exactly as `prepare` does.
 // Driving it as a process is what covers the wiring the unit tests cannot: that `nmr-compile` reads the
@@ -22,20 +23,15 @@ const TSCONFIG = {
   include: ['src/'],
 };
 
+const it = test.extend(
+  'tree',
+  makeFixture(() => createTempTree({}, { prefix: 'nmr-cli-build-' })),
+);
+
 describe('nmr-compile', () => {
-  let dir: string;
-
-  beforeEach(() => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-cli-build-'));
-  });
-
-  afterEach(() => {
-    fs.rmSync(dir, { recursive: true, force: true });
-  });
-
-  it('excludes a directory the package config adds to the ignore set', () => {
+  it('excludes a directory the package config adds to the ignore set', ({ tree }) => {
     scaffoldPackage(
-      dir,
+      tree.dir,
       {
         'index.ts': 'export const value = 1;\n',
         'fixtures/sample.ts': 'export const sample = 1;\n',
@@ -43,32 +39,32 @@ describe('nmr-compile', () => {
       `export default { build: { extraIgnorePatterns: ['**/fixtures/**'] } };\n`,
     );
 
-    runCompile(dir);
+    runCompile(tree.dir);
 
-    expect(listEmitted(dir)).toStrictEqual(['index.d.ts', 'index.js']);
+    expect(listEmitted(tree.dir)).toStrictEqual(['index.d.ts', 'index.js']);
   });
 
-  it('builds on the defaults when the package has no config', () => {
-    scaffoldPackage(dir, {
+  it('builds on the defaults when the package has no config', ({ tree }) => {
+    scaffoldPackage(tree.dir, {
       'index.ts': 'export const value = 1;\n',
       'test-utils/helper.ts': 'export const helper = 1;\n',
     });
 
-    runCompile(dir);
+    runCompile(tree.dir);
 
-    expect(listEmitted(dir)).toStrictEqual(['index.d.ts', 'index.js']);
+    expect(listEmitted(tree.dir)).toStrictEqual(['index.d.ts', 'index.js']);
   });
 
-  it('fails when the package config declares a key the workspace tier does not honor', () => {
-    scaffoldPackage(dir, { 'index.ts': 'export const value = 1;\n' }, `export default { rootScripts: {} };\n`);
+  it('fails when the package config declares a key the workspace tier does not honor', ({ tree }) => {
+    scaffoldPackage(tree.dir, { 'index.ts': 'export const value = 1;\n' }, `export default { rootScripts: {} };\n`);
 
-    expect(() => runCompile(dir)).toThrow(/not rootScripts/);
-    expect(listEmitted(dir)).toStrictEqual([]);
+    expect(() => runCompile(tree.dir)).toThrow(/not rootScripts/);
+    expect(listEmitted(tree.dir)).toStrictEqual([]);
   });
 
-  it('fails when the package config misspells a build key rather than compiling on the defaults', () => {
+  it('fails when the package config misspells a build key rather than compiling on the defaults', ({ tree }) => {
     scaffoldPackage(
-      dir,
+      tree.dir,
       {
         'index.ts': 'export const value = 1;\n',
         'fixtures/sample.ts': 'export const sample = 1;\n',
@@ -76,8 +72,8 @@ describe('nmr-compile', () => {
       `export default { build: { extraIgnorePattern: ['**/fixtures/**'] } };\n`,
     );
 
-    expect(() => runCompile(dir)).toThrow(/unrecognized key `build\.extraIgnorePattern`/);
-    expect(listEmitted(dir)).toStrictEqual([]);
+    expect(() => runCompile(tree.dir)).toThrow(/unrecognized key `build\.extraIgnorePattern`/);
+    expect(listEmitted(tree.dir)).toStrictEqual([]);
   });
 });
 

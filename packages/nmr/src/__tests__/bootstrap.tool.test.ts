@@ -1,8 +1,8 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import * as ts from 'typescript';
 import { assert, describe, expect, it } from 'vitest';
 
@@ -75,42 +75,34 @@ describe('the build bootstrap', () => {
   });
 
   it('builds a package under Node type stripping alone', () => {
-    const fixture = mkdtempSync(path.join(tmpdir(), 'nmr-bootstrap-'));
-    try {
-      scaffoldPackage(fixture);
+    using tree = createTempTree({}, { prefix: 'nmr-bootstrap-' });
+    scaffoldPackage(tree.dir);
 
-      const result = spawnSync(process.execPath, [`--conditions=${SOURCE_CONDITION}`, BOOTSTRAP_ENTRY], {
-        cwd: fixture,
-        encoding: 'utf8',
-      });
+    const result = spawnSync(process.execPath, [`--conditions=${SOURCE_CONDITION}`, BOOTSTRAP_ENTRY], {
+      cwd: tree.dir,
+      encoding: 'utf8',
+    });
 
-      expect(result.stderr).toBe('');
-      expect(result.status).toBe(0);
-      expect(existsSync(path.join(fixture, 'dist', 'esm', 'index.js'))).toBe(true);
-    } finally {
-      rmSync(fixture, { recursive: true, force: true });
-    }
+    expect(result.stderr).toBe('');
+    expect(result.status).toBe(0);
+    expect(existsSync(path.join(tree.dir, 'dist', 'esm', 'index.js'))).toBe(true);
   });
 
   it('fails when a module it runs holds syntax the stripper cannot erase', () => {
     // Without this the case above could pass for the wrong reason: a runner blind to stripping failures would
     // report success whatever the bootstrap's own modules were written with.
-    const fixture = mkdtempSync(path.join(tmpdir(), 'nmr-bootstrap-'));
-    try {
-      const entry = path.join(fixture, 'non-erasable.ts');
-      writeFileSync(path.join(fixture, 'package.json'), JSON.stringify({ name: 'fixture', type: 'module' }));
-      writeFileSync(entry, 'enum Direction {\n  Up,\n}\n\nexport const value = Direction.Up;\n');
+    using tree = createTempTree({}, { prefix: 'nmr-bootstrap-' });
+    const entry = path.join(tree.dir, 'non-erasable.ts');
+    writeFileSync(path.join(tree.dir, 'package.json'), JSON.stringify({ name: 'fixture', type: 'module' }));
+    writeFileSync(entry, 'enum Direction {\n  Up,\n}\n\nexport const value = Direction.Up;\n');
 
-      const result = spawnSync(process.execPath, [`--conditions=${SOURCE_CONDITION}`, entry], {
-        cwd: fixture,
-        encoding: 'utf8',
-      });
+    const result = spawnSync(process.execPath, [`--conditions=${SOURCE_CONDITION}`, entry], {
+      cwd: tree.dir,
+      encoding: 'utf8',
+    });
 
-      expect(result.status).not.toBe(0);
-      expect(result.stderr).toContain('ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX');
-    } finally {
-      rmSync(fixture, { recursive: true, force: true });
-    }
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX');
   });
 });
 

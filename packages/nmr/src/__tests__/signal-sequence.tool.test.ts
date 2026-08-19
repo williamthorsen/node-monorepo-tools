@@ -1,11 +1,12 @@
 import type { ChildProcess } from 'node:child_process';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { afterEach, describe, expect, test } from 'vitest';
 
 import { readAmbientEnv } from '../test-utils/readAmbientEnv.ts';
 
@@ -19,50 +20,54 @@ const FIRST_STEP_WAIT_MS = 5_000;
 /** How long to wait for a marker before calling the step that writes it stalled. */
 const MARKER_TIMEOUT_MS = 20_000;
 
-describe('signal handling', () => {
-  let repo: string;
-  let child: ChildProcess | undefined;
+const it = test.extend(
+  'tree',
+  makeFixture(() =>
+    createTempTree(
+      {
+        '.config/nmr.config.ts': `export default ${JSON.stringify(config())};\n`,
+        'pnpm-workspace.yaml': 'packages:\n  - packages/*\n',
+      },
+      { prefix: 'nmr-signal-' },
+    ),
+  ),
+);
 
-  beforeEach(() => {
-    repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-signal-')));
-    fs.writeFileSync(path.join(repo, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n');
-    fs.mkdirSync(path.join(repo, '.config'), { recursive: true });
-    fs.writeFileSync(path.join(repo, '.config', 'nmr.config.ts'), `export default ${JSON.stringify(config())};\n`);
-  });
+describe('signal handling', () => {
+  let child: ChildProcess | undefined;
 
   afterEach(() => {
     if (child?.pid !== undefined && child.exitCode === null) child.kill('SIGKILL');
-    fs.rmSync(repo, { recursive: true, force: true });
   });
 
   // nmr installs no signal handler: the sequence ends because nmr is what holds it, where the shell it used to
   // spawn outlived the request and ran the rest of the chain with nobody watching.
-  it('given a signal to nmr alone, never starts the steps after the one that was running', async () => {
+  it('given a signal to nmr alone, never starts the steps after the one that was running', async ({ tree }) => {
     child = spawn(process.execPath, [CLI_PATH, 'sequence'], {
-      cwd: repo,
+      cwd: tree.dir,
       env: childEnv(),
       stdio: ['ignore', 'ignore', 'ignore'],
     });
-    await waitForMarker(path.join(repo, 'first-started'));
+    await waitForMarker(path.join(tree.dir, 'first-started'));
     process.kill(requirePid(child), 'SIGINT');
     const exitCode = await waitForExit(child);
 
     expect(exitCode).not.toBe(0);
-    expect(fs.existsSync(path.join(repo, 'second-ran'))).toBe(false);
+    expect(fs.existsSync(path.join(tree.dir, 'second-ran'))).toBe(false);
   }, 40_000);
 
   // Keeps the test above honest: absence of the second marker means the signal stopped the sequence, not that
   // the fixture never reached the second step under any circumstances.
-  it('runs the second step when no signal arrives', async () => {
+  it('runs the second step when no signal arrives', async ({ tree }) => {
     child = spawn(process.execPath, [CLI_PATH, 'control'], {
-      cwd: repo,
+      cwd: tree.dir,
       env: childEnv(),
       stdio: ['ignore', 'ignore', 'ignore'],
     });
     const exitCode = await waitForExit(child);
 
     expect(exitCode).toBe(0);
-    expect(fs.existsSync(path.join(repo, 'second-ran'))).toBe(true);
+    expect(fs.existsSync(path.join(tree.dir, 'second-ran'))).toBe(true);
   }, 40_000);
 });
 
