@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.15.5 — 2026-08-19
+
+### 🧪 Tests
+
+- Register fixture-repo cleanup against the test that asks for it (#715)
+
+  Routes nmr's `buildRepo` fixture helper through `createTempTree`, registering each fixture directory's removal against the test that requested it. The module-level accumulator and the exported `removeFixtureDirs` have been removed.
+
 ## 0.15.3 — 2026-08-17
 
 ### ♻️ Refactoring

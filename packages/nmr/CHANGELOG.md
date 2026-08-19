@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.32.2 — 2026-08-19
+
+### 🐛 Bug fixes
+
+- Recognize nmr behind a quoted environment assignment (#709)
+
+  Fixes an issue where a `package.json` entry that re-invoked its own command from behind an environment assignment whose quoted value carried a space (e.g., `"build": "NODE_OPTIONS=\"--a --b\" nmr build"`) caused nmr to hang.
+
+- Restore upgrade reporting for repos that pin exact versions (#720)
+
+  Fixes an issue where `nmr upgrade` reported nothing in a repo that pins dependencies to exact versions, however far behind the tree was. nmr's shared upgrade policy now supplies both settings the upgrade tool needs to report a bare pin -- locked dependencies are included, and the range searched is `minor` -- and the default `upgrade` scripts no longer pass `--include-locked`, which went inert on its own in taze 20.0.1. The policy reaches a repo only through a `taze.config.ts` calling `defineConfig`, and nmr's ReadyUp kit now warns when a repo carries none.
+
+  The `minor` range mode applies to every dependency, not only a pinned one: a `~` range is searched as `^`, so minor upgrades are proposed for it, and a `packageMode` entry other than `minor` drops its dependency from a default pass rather than narrowing it.
+
+### 🧪 Tests
+
+- Register fixture-repo cleanup against the test that asks for it (#715)
+
+  Routes nmr's `buildRepo` fixture helper through `createTempTree`, registering each fixture directory's removal against the test that requested it. The module-level accumulator and the exported `removeFixtureDirs` have been removed.
+
+- Convert the per-test temporary directories to test-scoped fixtures (#719)
+
+  Converts the suites that create a temporary directory in `nmr`, `nmr-core`, and `release-kit` to take it as a Vitest fixture built on `createTempTree`, or as a `using` declaration where the directory lives and dies inside one test body. Each suite loses the mutable binding and the `beforeEach`/`afterEach` pair that carried the directory's lifetime, and a directory is created only for the tests that name one.
+
+  Separately, `nmr lint:strict` now fails on a stale `eslint-disable` directive.
+
+- Register temporary-directory disposal where a helper holds the binding (#721)
+
+  Routes the temporary directory through `createTempTree` in the `nmr` and `release-kit` test suites whose describe-local helpers hold its binding, and registers its removal with `disposeOnTestFinished`. The hand-written `afterEach` teardown goes; the binding stays, so no suite helper changes signature.
+
 ## 0.32.1 — 2026-08-18
 
 ### 🐛 Bug fixes

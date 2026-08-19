@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.15.5",
+    "date": "2026-08-19",
+    "sections": [
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Register fixture-repo cleanup against the test that asks for it (#715)",
+            "body": "Routes nmr's `buildRepo` fixture helper through `createTempTree`, registering each fixture directory's removal against the test that requested it. The module-level accumulator and the exported `removeFixtureDirs` have been removed.",
+            "hash": "4186900691928b41e56b6f1855ca74b9700c1968"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.15.3",
     "date": "2026-08-17",
     "sections": [

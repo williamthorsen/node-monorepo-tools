@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## 10.4.2 — 2026-08-19
+
+### 🧪 Tests
+
+- Register fixture-repo cleanup against the test that asks for it (#715)
+
+  Routes nmr's `buildRepo` fixture helper through `createTempTree`, registering each fixture directory's removal against the test that requested it. The module-level accumulator and the exported `removeFixtureDirs` have been removed.
+
+- Convert the per-test temporary directories to test-scoped fixtures (#719)
+
+  Converts the suites that create a temporary directory in `nmr`, `nmr-core`, and `release-kit` to take it as a Vitest fixture built on `createTempTree`, or as a `using` declaration where the directory lives and dies inside one test body. Each suite loses the mutable binding and the `beforeEach`/`afterEach` pair that carried the directory's lifetime, and a directory is created only for the tests that name one.
+
+  Separately, `nmr lint:strict` now fails on a stale `eslint-disable` directive.
+
+- Register temporary-directory disposal where a helper holds the binding (#721)
+
+  Routes the temporary directory through `createTempTree` in the `nmr` and `release-kit` test suites whose describe-local helpers hold its binding, and registers its removal with `disposeOnTestFinished`. The hand-written `afterEach` teardown goes; the binding stays, so no suite helper changes signature.
+
 ## 10.4.1 — 2026-08-18
 
 ### 🐛 Bug fixes
