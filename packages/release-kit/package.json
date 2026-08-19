@@ -70,7 +70,7 @@
     "@williamthorsen/toolbelt.testing": "catalog:",
     "@williamthorsen/toolbelt.vitest": "catalog:",
     "readyup": "0.29.0",
-    "smol-toml": "1.7.1"
+    "smol-toml": "1.8.0"
   },
   "engines": {
     "node": ">=24"
