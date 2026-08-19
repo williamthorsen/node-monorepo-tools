@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
 
 import { syncWorkTypes } from '../syncWorkTypes.ts';
 
@@ -23,7 +23,7 @@ const SAMPLE_DATA = {
   ],
 };
 
-const it = test
+const it = baseIt
   .extend(
     'tree',
     makeFixture(() => makeRestorableTree()),

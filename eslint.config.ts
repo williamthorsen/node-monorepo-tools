@@ -76,46 +76,6 @@ const config = defineConfig([
     },
   }),
   {
-    // The suites taking their trees as fixtures bind `test.extend(...)` to `it`, which @vitest/eslint-plugin
-    // 1.6.27 misreads: `consistent-test-it` compares the resolved import name (`test`) rather than the local
-    // binding, so every describe-nested `it(...)` is a false positive. Delete this block when the upstream fix
-    // lands: https://github.com/vitest-dev/eslint-plugin-vitest/issues/956
-    //
-    // The narrower alternative is to root each chain at `it` (`import { it as baseIt }`) and disable the rule on
-    // the `.extend` line alone, which `@williamthorsen/toolbelt.vitest`'s README describes and which keeps the
-    // rule live on the rest of each file. This repo takes the wholesale form so that its suites read the same as
-    // `workshop`'s, which carries the identical block; the cost is that a `test(...)` written inside a `describe`
-    // goes unreported in every file listed here.
-    //
-    // The list grows per converted suite rather than the preamble collapsing into a shared helper: an imported
-    // `it` traces back to no vitest export, at which point the plugin stops applying every vitest rule to the file.
-    files: [
-      '__tests__/workspace-test-presence.app.unit.test.ts',
-      'packages/nmr-core/src/__tests__/cache-store.unit.test.ts',
-      'packages/nmr-core/src/__tests__/hashWorkingTree.tool.test.ts',
-      'packages/nmr-core/src/__tests__/readPackageVersion.unit.test.ts',
-      'packages/nmr/src/__tests__/check-cache.tool.test.ts',
-      'packages/nmr/src/__tests__/cli-build.tool.test.ts',
-      'packages/nmr/src/__tests__/config.unit.test.ts',
-      'packages/nmr/src/__tests__/help.unit.test.ts',
-      'packages/nmr/src/__tests__/resolver.unit.test.ts',
-      'packages/nmr/src/__tests__/runCli.unit.test.ts',
-      'packages/nmr/src/__tests__/signal-sequence.tool.test.ts',
-      'packages/nmr/src/__tests__/workspace.unit.test.ts',
-      'packages/nmr/src/commands/__tests__/build-output.unit.test.ts',
-      'packages/nmr/src/commands/__tests__/build.unit.test.ts',
-      'packages/nmr/src/commands/__tests__/clean.unit.test.ts',
-      'packages/nmr/src/commands/__tests__/ensure-prepublish-hooks.unit.test.ts',
-      'packages/nmr/src/commands/__tests__/fmt.tool.test.ts',
-      'packages/nmr/src/commands/__tests__/resolve-format-targets.tool.test.ts',
-      'packages/release-kit/src/__tests__/checkWorkTypesDrift.unit.test.ts',
-      'packages/release-kit/src/__tests__/syncWorkTypes.unit.test.ts',
-    ],
-    rules: {
-      'vitest/consistent-test-it': 'off',
-    },
-  },
-  {
     files: ['**/scripts/**/*'],
     rules: {
       'no-console': 'off',

@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, it as baseIt } from 'vitest';
 
 import { findMonorepoRoot, getWorkspacePackageDirs } from '../workspace.ts';
 
@@ -13,7 +13,7 @@ const NMR_PACKAGE_DIR = path.resolve(MONOREPO_ROOT, 'packages', 'nmr');
 
 const PREFIX = 'nmr-workspace-test-';
 
-const it = test
+const it = baseIt
   .extend(
     'toolsTree',
     makeFixture(() => createTempTree({ 'tools/cli/package.json': '{}' }, { prefix: PREFIX })),

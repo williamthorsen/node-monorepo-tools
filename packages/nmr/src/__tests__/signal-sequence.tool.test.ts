@@ -6,7 +6,7 @@ import process from 'node:process';
 
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, it as baseIt } from 'vitest';
 
 import { readAmbientEnv } from '../test-utils/readAmbientEnv.ts';
 
@@ -20,7 +20,8 @@ const FIRST_STEP_WAIT_MS = 5_000;
 /** How long to wait for a marker before calling the step that writes it stalled. */
 const MARKER_TIMEOUT_MS = 20_000;
 
-const it = test.extend(
+// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
+const it = baseIt.extend(
   'tree',
   makeFixture(() =>
     createTempTree(

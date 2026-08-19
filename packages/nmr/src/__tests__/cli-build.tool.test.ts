@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, it as baseIt } from 'vitest';
 
 // The bin runs the source directly under Node's type stripping, exactly as `prepare` does.
 // Driving it as a process is what covers the wiring the unit tests cannot: that `nmr-compile` reads the
@@ -23,7 +23,8 @@ const TSCONFIG = {
   include: ['src/'],
 };
 
-const it = test.extend(
+// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
+const it = baseIt.extend(
   'tree',
   makeFixture(() => createTempTree({}, { prefix: 'nmr-cli-build-' })),
 );

@@ -4,7 +4,7 @@ import { PassThrough } from 'node:stream';
 
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
 
 import { REPORT_FORMAT_ENV_VAR } from '../report-format.ts';
 import { runCli } from '../runCli.ts';
@@ -21,7 +21,8 @@ vi.mock(import('../runner.ts'), async (importOriginal) => ({
 
 const mockedRunSteps = vi.mocked(runSteps);
 
-const it = test.extend(
+// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
+const it = baseIt.extend(
   'tree',
   makeFixture(() =>
     createTempTree({ 'pnpm-workspace.yaml': 'packages:\n  - packages/*\n' }, { prefix: 'nmr-runcli-' }),

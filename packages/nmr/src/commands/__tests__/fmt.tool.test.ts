@@ -6,7 +6,7 @@ import type { TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, it as baseIt } from 'vitest';
 
 import { runFmt, runPrettier } from '../fmt.ts';
 
@@ -29,7 +29,7 @@ const TRACKED_FILES = {
  * relative to its own directory, and any explicit `--ignore-path` suppresses working-directory-relative
  * discovery. Asserting the argument set cannot detect either of those changing.
  */
-const it = test
+const it = baseIt
   .extend(
     'repositoryTree',
     makeFixture(() => scaffoldRepository(TRACKED_FILES)),

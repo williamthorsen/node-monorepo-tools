@@ -3,13 +3,13 @@ import path from 'node:path';
 
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { makeFixture, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, it as baseIt } from 'vitest';
 
 import { readCheckCacheEntry, writeCheckCacheEntry } from '../../check-cache.ts';
 import { resolveBuildCachePath } from '../build-output.ts';
 import { cleanPackage, runClean } from '../clean.ts';
 
-const it = test
+const it = baseIt
   .extend(
     'tree',
     makeFixture(() => createTempTree({}, { prefix: 'nmr-clean-' })),
