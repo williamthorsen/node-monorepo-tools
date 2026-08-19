@@ -1,9 +1,11 @@
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 
-import { afterEach, assert, beforeEach, describe, expect, it } from 'vitest';
+import type { TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { assert, describe, expect, it as baseIt } from 'vitest';
 
 import { resolveFormatTargets } from '../fmt.ts';
 
@@ -25,19 +27,15 @@ const TRACKED_FILES = {
   'packages/b/ok.js': 'const ok = 1;\n',
 };
 
+// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
+const it = baseIt.extend(
+  'tree',
+  makeFixture(() => scaffoldRepository(TRACKED_FILES)),
+);
+
 describe(resolveFormatTargets, () => {
-  let repository: string;
-
-  beforeEach(() => {
-    repository = scaffoldRepository(TRACKED_FILES);
-  });
-
-  afterEach(() => {
-    fs.rmSync(repository, { recursive: true, force: true });
-  });
-
-  it('selects every tracked file, in a stable order', () => {
-    const result = resolveFormatTargets(repository);
+  it('selects every tracked file, in a stable order', ({ tree }) => {
+    const result = resolveFormatTargets(tree.dir);
 
     expect(unwrap(result).files).toStrictEqual([
       '.prettierignore',
@@ -52,68 +50,68 @@ describe(resolveFormatTargets, () => {
     ]);
   });
 
-  it('selects an untracked file that git does not ignore', () => {
-    writeFile(repository, 'packages/b/fresh.js', 'const fresh = 1;\n');
+  it('selects an untracked file that git does not ignore', ({ tree }) => {
+    writeFile(tree.dir, 'packages/b/fresh.js', 'const fresh = 1;\n');
 
-    const result = resolveFormatTargets(repository);
+    const result = resolveFormatTargets(tree.dir);
 
     expect(unwrap(result).files).toContain('packages/b/fresh.js');
   });
 
-  it('omits a file ignored by a package-level .gitignore, from the repository root', () => {
-    writeFile(repository, 'packages/a/generated/gen.js', 'const gen = 1;\n');
+  it('omits a file ignored by a package-level .gitignore, from the repository root', ({ tree }) => {
+    writeFile(tree.dir, 'packages/a/generated/gen.js', 'const gen = 1;\n');
 
-    const result = resolveFormatTargets(repository);
+    const result = resolveFormatTargets(tree.dir);
 
     expect(unwrap(result).files).not.toContain('packages/a/generated/gen.js');
   });
 
-  it('omits it from inside the package too, so both working directories agree', () => {
-    writeFile(repository, 'packages/a/generated/gen.js', 'const gen = 1;\n');
+  it('omits it from inside the package too, so both working directories agree', ({ tree }) => {
+    writeFile(tree.dir, 'packages/a/generated/gen.js', 'const gen = 1;\n');
 
-    const result = resolveFormatTargets(path.join(repository, 'packages', 'a'));
+    const result = resolveFormatTargets(path.join(tree.dir, 'packages', 'a'));
 
     expect(unwrap(result).files).not.toContain('generated/gen.js');
   });
 
-  it('keeps a file matched by a package-level .prettierignore, leaving the exclusion to Prettier', () => {
-    const result = resolveFormatTargets(repository);
+  it('keeps a file matched by a package-level .prettierignore, leaving the exclusion to Prettier', ({ tree }) => {
+    const result = resolveFormatTargets(tree.dir);
 
     expect(unwrap(result).files).toContain('packages/a/protected.js');
-    expect(unwrap(result).ignorePaths).toContain(path.join(repository, 'packages/a/.prettierignore'));
+    expect(unwrap(result).ignorePaths).toContain(path.join(tree.dir, 'packages/a/.prettierignore'));
   });
 
-  it('reports the repository-root .prettierignore first', () => {
-    const result = resolveFormatTargets(repository);
+  it('reports the repository-root .prettierignore first', ({ tree }) => {
+    const result = resolveFormatTargets(tree.dir);
 
-    expect(unwrap(result).ignorePaths[0]).toBe(path.join(repository, '.prettierignore'));
+    expect(unwrap(result).ignorePaths[0]).toBe(path.join(tree.dir, '.prettierignore'));
   });
 
-  it('lists the repository-root .prettierignore once, though the pathspec also matches it', () => {
-    const result = resolveFormatTargets(repository);
-    const rootIgnorePath = path.join(repository, '.prettierignore');
+  it('lists the repository-root .prettierignore once, though the pathspec also matches it', ({ tree }) => {
+    const result = resolveFormatTargets(tree.dir);
+    const rootIgnorePath = path.join(tree.dir, '.prettierignore');
 
     expect(unwrap(result).ignorePaths.filter((entry) => entry === rootIgnorePath)).toHaveLength(1);
   });
 
-  it('still reports the repository-root .prettierignore when the repository has none', () => {
-    fs.rmSync(path.join(repository, '.prettierignore'));
+  it('still reports the repository-root .prettierignore when the repository has none', ({ tree }) => {
+    fs.rmSync(path.join(tree.dir, '.prettierignore'));
 
-    const result = resolveFormatTargets(repository);
+    const result = resolveFormatTargets(tree.dir);
 
-    expect(unwrap(result).ignorePaths[0]).toBe(path.join(repository, '.prettierignore'));
+    expect(unwrap(result).ignorePaths[0]).toBe(path.join(tree.dir, '.prettierignore'));
   });
 
-  it('omits a file deleted from the working tree but still held in the index', () => {
-    fs.rmSync(path.join(repository, 'root.js'));
+  it('omits a file deleted from the working tree but still held in the index', ({ tree }) => {
+    fs.rmSync(path.join(tree.dir, 'root.js'));
 
-    const result = resolveFormatTargets(repository);
+    const result = resolveFormatTargets(tree.dir);
 
     expect(unwrap(result).files).not.toContain('root.js');
   });
 
-  it('omits a submodule gitlink, which Prettier would otherwise recurse into', () => {
-    const submodule = path.join(repository, 'vendor', 'sub');
+  it('omits a submodule gitlink, which Prettier would otherwise recurse into', ({ tree }) => {
+    const submodule = path.join(tree.dir, 'vendor', 'sub');
     fs.mkdirSync(submodule, { recursive: true });
     writeFile(submodule, 'sub.js', 'const sub = 1;\n');
     runGitOrThrow(['init', '--quiet'], submodule);
@@ -121,53 +119,51 @@ describe(resolveFormatTargets, () => {
     runGitOrThrow(['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '--quiet', '--message', 'init'], submodule);
     runGitOrThrow(
       ['-c', 'protocol.file.allow=always', 'submodule', '--quiet', 'add', submodule, 'vendor/sub'],
-      repository,
+      tree.dir,
     );
 
-    const result = resolveFormatTargets(repository);
+    const result = resolveFormatTargets(tree.dir);
 
     // `.gitmodules` confirms the submodule was really added, so the gitlink's absence means something.
     expect(unwrap(result).files).toContain('.gitmodules');
     expect(unwrap(result).files).not.toContain('vendor/sub');
   });
 
-  it('discovers .prettierignore files from the repository root when run inside a package', () => {
-    const result = resolveFormatTargets(path.join(repository, 'packages', 'b'));
+  it('discovers .prettierignore files from the repository root when run inside a package', ({ tree }) => {
+    const result = resolveFormatTargets(path.join(tree.dir, 'packages', 'b'));
 
     expect(unwrap(result).ignorePaths).toStrictEqual([
-      path.join(repository, '.prettierignore'),
-      path.join(repository, 'packages/a/.prettierignore'),
+      path.join(tree.dir, '.prettierignore'),
+      path.join(tree.dir, 'packages/a/.prettierignore'),
     ]);
   });
 
-  it('does not mistake a file merely ending in .prettierignore for an ignore file', () => {
-    const result = resolveFormatTargets(repository);
+  it('does not mistake a file merely ending in .prettierignore for an ignore file', ({ tree }) => {
+    const result = resolveFormatTargets(tree.dir);
 
-    expect(unwrap(result).ignorePaths).not.toContain(path.join(repository, 'packages/b/custom.prettierignore'));
+    expect(unwrap(result).ignorePaths).not.toContain(path.join(tree.dir, 'packages/b/custom.prettierignore'));
   });
 
-  it('scopes the selection to the working directory', () => {
-    const result = resolveFormatTargets(path.join(repository, 'packages', 'b'));
+  it('scopes the selection to the working directory', ({ tree }) => {
+    const result = resolveFormatTargets(path.join(tree.dir, 'packages', 'b'));
 
     expect(unwrap(result).files).toStrictEqual(['custom.prettierignore', 'ok.js']);
   });
 
-  it('constrains the selection to the given pathspecs', () => {
-    const result = resolveFormatTargets(repository, ['packages/b']);
+  it('constrains the selection to the given pathspecs', ({ tree }) => {
+    const result = resolveFormatTargets(tree.dir, ['packages/b']);
 
     expect(unwrap(result).files).toStrictEqual(['packages/b/custom.prettierignore', 'packages/b/ok.js']);
   });
 
   it('fails rather than reporting an empty selection outside a git repository', () => {
-    const outside = makeTempDir('nmr-fmt-bare-');
-    writeFile(outside, 'stray.js', 'const stray = 1;\n');
+    using outside = createTempTree({}, { prefix: 'nmr-fmt-bare-' });
+    writeFile(outside.dir, 'stray.js', 'const stray = 1;\n');
 
-    const result = resolveFormatTargets(outside);
+    const result = resolveFormatTargets(outside.dir);
 
     assert(!result.ok, 'expected resolution to fail outside a git repository');
     expect(result.error).toMatch(/not a git repository/);
-
-    fs.rmSync(outside, { recursive: true, force: true });
   });
 });
 
@@ -175,26 +171,17 @@ describe(resolveFormatTargets, () => {
  * Creates a git repository holding `files`, staged rather than committed: `--cached` reads the index,
  * so staging is enough and the fixture needs no commit identity.
  */
-function scaffoldRepository(files: Record<string, string>): string {
-  const dir = makeTempDir('nmr-fmt-');
+function scaffoldRepository(files: Record<string, string>): TempTree {
+  const tree = createTempTree({}, { prefix: 'nmr-fmt-' });
 
   for (const [relativePath, contents] of Object.entries(files)) {
-    writeFile(dir, relativePath, contents);
+    writeFile(tree.dir, relativePath, contents);
   }
 
-  runGitOrThrow(['init', '--quiet'], dir);
-  runGitOrThrow(['add', '--all'], dir);
+  runGitOrThrow(['init', '--quiet'], tree.dir);
+  runGitOrThrow(['add', '--all'], tree.dir);
 
-  return dir;
-}
-
-/**
- * Creates a temp directory and resolves it through `realpath`, because macOS exposes the temp root
- * through a symlink while `git rev-parse --show-toplevel` reports the resolved path.
- */
-function makeTempDir(prefix: string): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
-  return fs.realpathSync(dir);
+  return tree;
 }
 
 function writeFile(dir: string, relativePath: string, contents: string): void {

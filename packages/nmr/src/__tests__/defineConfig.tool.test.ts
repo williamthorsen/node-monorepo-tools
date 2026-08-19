@@ -1,9 +1,9 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -73,20 +73,16 @@ function mutateEntry(search: string, replacement: string): string {
 function loadStandalone(source: string): ProbeResult {
   // Nothing else is written, not even a package.json: Node falls back to syntax detection and reads the export as
   // ESM, so a resolution failure can only come from a specifier the entry itself retained.
-  const dir = mkdtempSync(path.join(tmpdir(), 'nmr-config-entry-'));
-  try {
-    const entryPath = path.join(dir, ENTRY_BASENAME);
-    writeFileSync(entryPath, source);
+  using tree = createTempTree({}, { prefix: 'nmr-config-entry-' });
+  const entryPath = path.join(tree.dir, ENTRY_BASENAME);
+  writeFileSync(entryPath, source);
 
-    const probe = `await import(${JSON.stringify(pathToFileURL(entryPath).href)});`;
-    const { status, stderr } = spawnSync(process.execPath, ['--input-type=module', '--eval', probe], {
-      encoding: 'utf8',
-    });
+  const probe = `await import(${JSON.stringify(pathToFileURL(entryPath).href)});`;
+  const { status, stderr } = spawnSync(process.execPath, ['--input-type=module', '--eval', probe], {
+    encoding: 'utf8',
+  });
 
-    return { status, stderr };
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+  return { status, stderr };
 }
 
 // endregion | Helpers

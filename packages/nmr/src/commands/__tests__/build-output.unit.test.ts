@@ -1,40 +1,35 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 
 import { writeCacheEntry } from '@williamthorsen/nmr-core';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { describe, expect, it as baseIt } from 'vitest';
 
 import { resolveBuildCachePath, resolveToolchainFingerprint } from '../build-output.ts';
 
+const SELF_VERSION = '9.9.9';
+
+const it = baseIt
+  .extend(
+    'tree',
+    makeFixture(() => createTempTree({}, { prefix: 'nmr-toolchain-fingerprint-' })),
+  )
+  .extend('selfDir', ({ tree }) => scaffoldPackage(path.join(tree.dir, 'nmr'), SELF_VERSION))
+  .extend('packageDir', ({ tree }) => scaffoldPackage(path.join(tree.dir, 'consumer'), '1.0.0'));
+
 describe(resolveToolchainFingerprint, () => {
-  const SELF_VERSION = '9.9.9';
-
-  let root: string;
-  let selfDir: string;
-  let packageDir: string;
-
-  beforeEach(() => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-toolchain-fingerprint-'));
-    selfDir = scaffoldPackage(path.join(root, 'nmr'), SELF_VERSION);
-    packageDir = scaffoldPackage(path.join(root, 'consumer'), '1.0.0');
-  });
-
-  afterEach(() => {
-    fs.rmSync(root, { recursive: true, force: true });
-  });
-
-  it("returns the running nmr's build digest when one is on disk", async () => {
+  it("returns the running nmr's build digest when one is on disk", async ({ packageDir, selfDir }) => {
     await writeCacheEntry(resolveBuildCachePath(selfDir), 'a-build-digest');
 
     await expect(resolveToolchainFingerprint(packageDir, selfDir)).resolves.toBe('a-build-digest');
   });
 
-  it("returns the running nmr's version when no build digest is on disk", async () => {
+  it("returns the running nmr's version when no build digest is on disk", async ({ packageDir, selfDir }) => {
     await expect(resolveToolchainFingerprint(packageDir, selfDir)).resolves.toBe(SELF_VERSION);
   });
 
-  it('returns the version for a build of nmr itself, whatever digest is stored for it', async () => {
+  it('returns the version for a build of nmr itself, whatever digest is stored for it', async ({ selfDir }) => {
     await writeCacheEntry(resolveBuildCachePath(selfDir), 'a-build-digest');
     const first = await resolveToolchainFingerprint(selfDir, selfDir);
 
@@ -46,15 +41,15 @@ describe(resolveToolchainFingerprint, () => {
     expect(first).toBe(SELF_VERSION);
   });
 
-  it('recognizes a self-build reached through a symlinked path', async () => {
-    const link = path.join(root, 'linked-nmr');
+  it('recognizes a self-build reached through a symlinked path', async ({ selfDir, tree }) => {
+    const link = path.join(tree.dir, 'linked-nmr');
     fs.symlinkSync(selfDir, link, 'dir');
     await writeCacheEntry(resolveBuildCachePath(selfDir), 'a-build-digest');
 
     await expect(resolveToolchainFingerprint(link, selfDir)).resolves.toBe(SELF_VERSION);
   });
 
-  it('resolves a non-empty fingerprint from the running nmr', async () => {
+  it('resolves a non-empty fingerprint from the running nmr', async ({ packageDir }) => {
     await expect(resolveToolchainFingerprint(packageDir)).resolves.not.toBe('');
   });
 });

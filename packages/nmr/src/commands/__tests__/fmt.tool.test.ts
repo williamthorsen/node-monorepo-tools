@@ -1,10 +1,12 @@
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 
-import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { describe, expect, it as baseIt } from 'vitest';
 
 import { runFmt, runPrettier } from '../fmt.ts';
 
@@ -27,97 +29,104 @@ const TRACKED_FILES = {
  * relative to its own directory, and any explicit `--ignore-path` suppresses working-directory-relative
  * discovery. Asserting the argument set cannot detect either of those changing.
  */
+const it = baseIt
+  .extend(
+    'repositoryTree',
+    makeFixture(() => scaffoldRepository(TRACKED_FILES)),
+  )
+  .extend(
+    'stubTree',
+    makeFixture(() => scaffoldStub()),
+  )
+  .extend('cliPath', ({ stubTree }) => path.join(stubTree.dir, 'stub.cjs'))
+  .extend('recordPath', ({ stubTree }) => path.join(stubTree.dir, 'calls.jsonl'))
+  // `auto`, because no test names the capture: it exists for its effect on the streams.
+  .extend(
+    'captured',
+    { auto: true },
+    makeFixture(() => captureStdio()),
+  );
+
 describe(runFmt, () => {
-  let repository: string;
-  let capture: CapturedStdio;
+  it('honours a package-level .prettierignore from the repository root', ({ repositoryTree }) => {
+    writeFile(repositoryTree.dir, 'packages/a/protected.js', 'const  badly   =  1\n');
 
-  beforeEach(() => {
-    capture = captureStdio();
-    repository = scaffoldRepository(TRACKED_FILES);
+    expect(runFmt(['--check'], repositoryTree.dir)).toBe(0);
   });
 
-  afterEach(() => {
-    capture[Symbol.dispose]();
-    fs.rmSync(repository, { recursive: true, force: true });
+  it('honours a root .prettierignore mirroring a package pattern, so an existing mirror keeps passing', ({
+    repositoryTree,
+  }) => {
+    writeFile(repositoryTree.dir, 'packages/a/mirrored.js', 'const  badly   =  1\n');
+
+    expect(runFmt(['--check'], repositoryTree.dir)).toBe(0);
   });
 
-  it('honours a package-level .prettierignore from the repository root', () => {
-    writeFile(repository, 'packages/a/protected.js', 'const  badly   =  1\n');
+  it('still reports a badly formatted file that no ignore file covers', ({ repositoryTree }) => {
+    writeFile(repositoryTree.dir, 'packages/a/unprotected.js', 'const  badly   =  1\n');
 
-    expect(runFmt(['--check'], repository)).toBe(0);
+    expect(runFmt(['--check'], repositoryTree.dir)).not.toBe(0);
   });
 
-  it('honours a root .prettierignore mirroring a package pattern, so an existing mirror keeps passing', () => {
-    writeFile(repository, 'packages/a/mirrored.js', 'const  badly   =  1\n');
+  it('reaches the same verdict from inside the package as from the repository root', ({ repositoryTree }) => {
+    writeFile(repositoryTree.dir, 'packages/a/protected.js', 'const  badly   =  1\n');
 
-    expect(runFmt(['--check'], repository)).toBe(0);
+    expect(runFmt(['--check'], path.join(repositoryTree.dir, 'packages', 'a'))).toBe(0);
   });
 
-  it('still reports a badly formatted file that no ignore file covers', () => {
-    writeFile(repository, 'packages/a/unprotected.js', 'const  badly   =  1\n');
+  it('rewrites a badly formatted file in write mode', ({ repositoryTree }) => {
+    writeFile(repositoryTree.dir, 'packages/a/unprotected.js', 'const  badly   =  1\n');
 
-    expect(runFmt(['--check'], repository)).not.toBe(0);
+    expect(runFmt(['--write'], repositoryTree.dir)).toBe(0);
+    expect(fs.readFileSync(path.join(repositoryTree.dir, 'packages/a/unprotected.js'), 'utf8')).toBe(
+      'const badly = 1;\n',
+    );
   });
 
-  it('reaches the same verdict from inside the package as from the repository root', () => {
-    writeFile(repository, 'packages/a/protected.js', 'const  badly   =  1\n');
+  it('leaves a file protected by a package-level .prettierignore untouched in write mode', ({ repositoryTree }) => {
+    writeFile(repositoryTree.dir, 'packages/a/protected.js', 'const  badly   =  1\n');
 
-    expect(runFmt(['--check'], path.join(repository, 'packages', 'a'))).toBe(0);
+    expect(runFmt(['--write'], repositoryTree.dir)).toBe(0);
+    expect(fs.readFileSync(path.join(repositoryTree.dir, 'packages/a/protected.js'), 'utf8')).toBe(
+      'const  badly   =  1\n',
+    );
   });
 
-  it('rewrites a badly formatted file in write mode', () => {
-    writeFile(repository, 'packages/a/unprotected.js', 'const  badly   =  1\n');
+  it('does not fail on a path deleted from the working tree but still held in the index', ({ repositoryTree }) => {
+    fs.rmSync(path.join(repositoryTree.dir, 'root.js'));
 
-    expect(runFmt(['--write'], repository)).toBe(0);
-    expect(fs.readFileSync(path.join(repository, 'packages/a/unprotected.js'), 'utf8')).toBe('const badly = 1;\n');
+    expect(runFmt(['--check'], repositoryTree.dir)).toBe(0);
   });
 
-  it('leaves a file protected by a package-level .prettierignore untouched in write mode', () => {
-    writeFile(repository, 'packages/a/protected.js', 'const  badly   =  1\n');
+  it('constrains the run to the given pathspecs', ({ repositoryTree }) => {
+    writeFile(repositoryTree.dir, 'root-bad.js', 'const  badly   =  1\n');
 
-    expect(runFmt(['--write'], repository)).toBe(0);
-    expect(fs.readFileSync(path.join(repository, 'packages/a/protected.js'), 'utf8')).toBe('const  badly   =  1\n');
+    expect(runFmt(['--check', 'packages'], repositoryTree.dir)).toBe(0);
   });
 
-  it('does not fail on a path deleted from the working tree but still held in the index', () => {
-    fs.rmSync(path.join(repository, 'root.js'));
-
-    expect(runFmt(['--check'], repository)).toBe(0);
-  });
-
-  it('constrains the run to the given pathspecs', () => {
-    writeFile(repository, 'root-bad.js', 'const  badly   =  1\n');
-
-    expect(runFmt(['--check', 'packages'], repository)).toBe(0);
-  });
-
-  it('fails when the caller named paths that matched nothing', () => {
-    expect(runFmt(['--check', 'nothing-matches-this'], repository)).toBe(1);
+  it('fails when the caller named paths that matched nothing', ({ repositoryTree }) => {
+    expect(runFmt(['--check', 'nothing-matches-this'], repositoryTree.dir)).toBe(1);
   });
 
   it('passes quietly when a repository with no pathspecs has nothing to format', () => {
-    const empty = makeTempDir('nmr-fmt-empty-');
-    runGitOrThrow(['init', '--quiet'], empty);
+    using empty = createTempTree({}, { prefix: 'nmr-fmt-empty-' });
+    runGitOrThrow(['init', '--quiet'], empty.dir);
 
-    expect(runFmt(['--check'], empty)).toBe(0);
-
-    fs.rmSync(empty, { recursive: true, force: true });
+    expect(runFmt(['--check'], empty.dir)).toBe(0);
   });
 
-  it('rejects a bare invocation rather than defaulting to a mutation', () => {
-    expect(runFmt([], repository)).toBe(1);
+  it('rejects a bare invocation rather than defaulting to a mutation', ({ repositoryTree }) => {
+    expect(runFmt([], repositoryTree.dir)).toBe(1);
   });
 
-  it('rejects an unrecognized option rather than handing it to git as a pathspec', () => {
-    expect(runFmt(['--check', '--log-level', 'warn'], repository)).toBe(1);
+  it('rejects an unrecognized option rather than handing it to git as a pathspec', ({ repositoryTree }) => {
+    expect(runFmt(['--check', '--log-level', 'warn'], repositoryTree.dir)).toBe(1);
   });
 
   it('fails outside a git repository rather than reporting a clean run', () => {
-    const outside = makeTempDir('nmr-fmt-bare-');
+    using outside = createTempTree({}, { prefix: 'nmr-fmt-bare-' });
 
-    expect(runFmt(['--check'], outside)).toBe(1);
-
-    fs.rmSync(outside, { recursive: true, force: true });
+    expect(runFmt(['--check'], outside.dir)).toBe(1);
   });
 });
 
@@ -127,74 +136,56 @@ describe(runFmt, () => {
  * graph, and a test substitutes a recorder for it.
  */
 describe(runPrettier, () => {
-  let stubDir: string;
-  let cliPath: string;
-  let recordPath: string;
-  let capture: CapturedStdio;
-
-  beforeEach(() => {
-    capture = captureStdio();
-    stubDir = makeTempDir('nmr-fmt-stub-');
-    cliPath = path.join(stubDir, 'stub.cjs');
-    recordPath = path.join(stubDir, 'calls.jsonl');
-    writeRecordingStub(cliPath, recordPath, 0);
-  });
-
-  afterEach(() => {
-    capture[Symbol.dispose]();
-    fs.rmSync(stubDir, { recursive: true, force: true });
-  });
-
-  it('leaves unparseable files to Prettier rather than filtering them out', () => {
-    runPrettier({ cliPath, mode: 'check', files: ['a.js'], ignorePaths: [], cwd: stubDir });
+  it('leaves unparseable files to Prettier rather than filtering them out', ({ cliPath, recordPath, stubTree }) => {
+    runPrettier({ cliPath, mode: 'check', files: ['a.js'], ignorePaths: [], cwd: stubTree.dir });
 
     expect(readCalls(recordPath)[0]).toContain('--ignore-unknown');
   });
 
-  it('passes one --ignore-path per discovered ignore file, root-most first', () => {
+  it('passes one --ignore-path per discovered ignore file, root-most first', ({ cliPath, recordPath, stubTree }) => {
     const ignorePaths = ['/repo/.prettierignore', '/repo/packages/a/.prettierignore'];
 
-    runPrettier({ cliPath, mode: 'check', files: ['a.js'], ignorePaths, cwd: stubDir });
+    runPrettier({ cliPath, mode: 'check', files: ['a.js'], ignorePaths, cwd: stubTree.dir });
 
     const args = readCalls(recordPath)[0] ?? [];
     expect(args.filter((_, index) => args[index - 1] === '--ignore-path')).toStrictEqual(ignorePaths);
   });
 
-  it('checks without writing in check mode', () => {
-    runPrettier({ cliPath, mode: 'check', files: ['a.js'], ignorePaths: [], cwd: stubDir });
+  it('checks without writing in check mode', ({ cliPath, recordPath, stubTree }) => {
+    runPrettier({ cliPath, mode: 'check', files: ['a.js'], ignorePaths: [], cwd: stubTree.dir });
 
     const args = readCalls(recordPath)[0] ?? [];
     expect(args).toContain('--check');
     expect(args).not.toContain('--write');
   });
 
-  it('names the files it rewrites in write mode', () => {
-    runPrettier({ cliPath, mode: 'write', files: ['a.js'], ignorePaths: [], cwd: stubDir });
+  it('names the files it rewrites in write mode', ({ cliPath, recordPath, stubTree }) => {
+    runPrettier({ cliPath, mode: 'write', files: ['a.js'], ignorePaths: [], cwd: stubTree.dir });
 
     expect(readCalls(recordPath)[0]).toStrictEqual(expect.arrayContaining(['--list-different', '--write']));
   });
 
-  it('reports the exit code Prettier returned', () => {
+  it('reports the exit code Prettier returned', ({ cliPath, recordPath, stubTree }) => {
     writeRecordingStub(cliPath, recordPath, 2);
 
-    expect(runPrettier({ cliPath, mode: 'check', files: ['a.js'], ignorePaths: [], cwd: stubDir })).toBe(2);
+    expect(runPrettier({ cliPath, mode: 'check', files: ['a.js'], ignorePaths: [], cwd: stubTree.dir })).toBe(2);
   });
 
-  it('runs every batch when the selection exceeds the argument budget', () => {
+  it('runs every batch when the selection exceeds the argument budget', ({ cliPath, recordPath, stubTree }) => {
     // A ten-byte budget puts each of these paths in a batch of its own.
     runPrettier({
       cliPath,
       mode: 'check',
       files: ['one.js', 'two.js', 'six.js'],
       ignorePaths: [],
-      cwd: stubDir,
+      cwd: stubTree.dir,
       budgetBytes: 10,
     });
 
     expect(readCalls(recordPath)).toHaveLength(3);
   });
 
-  it('keeps running after a batch fails, and reports the first failing status', () => {
+  it('keeps running after a batch fails, and reports the first failing status', ({ cliPath, recordPath, stubTree }) => {
     writeRecordingStub(cliPath, recordPath, 3);
 
     const exitCode = runPrettier({
@@ -202,7 +193,7 @@ describe(runPrettier, () => {
       mode: 'check',
       files: ['one.js', 'two.js'],
       ignorePaths: [],
-      cwd: stubDir,
+      cwd: stubTree.dir,
       budgetBytes: 10,
     });
 
@@ -210,6 +201,14 @@ describe(runPrettier, () => {
     expect(readCalls(recordPath)).toHaveLength(2);
   });
 });
+
+/** Creates the stub tree carrying a recorder that exits 0, which most cases in the block take as given. */
+function scaffoldStub(): TempTree {
+  const tree = createTempTree({}, { prefix: 'nmr-fmt-stub-' });
+  writeRecordingStub(path.join(tree.dir, 'stub.cjs'), path.join(tree.dir, 'calls.jsonl'), 0);
+
+  return tree;
+}
 
 /** Writes a stand-in for the Prettier CLI that appends its arguments as one JSON line per invocation. */
 function writeRecordingStub(cliPath: string, recordPath: string, exitCode: number): void {
@@ -240,32 +239,23 @@ function readCalls(recordPath: string): string[][] {
  * Creates a git repository holding `files`, staged rather than committed: `--cached` reads the index,
  * so staging is enough and the fixture needs no commit identity.
  */
-function scaffoldRepository(files: Record<string, string>): string {
-  const dir = makeTempDir('nmr-fmt-run-');
+function scaffoldRepository(files: Record<string, string>): TempTree {
+  const tree = createTempTree({}, { prefix: 'nmr-fmt-run-' });
 
   for (const [relativePath, contents] of Object.entries(files)) {
-    writeFile(dir, relativePath, contents);
+    writeFile(tree.dir, relativePath, contents);
   }
 
-  runGitOrThrow(['init', '--quiet'], dir);
-  runGitOrThrow(['add', '--all'], dir);
+  runGitOrThrow(['init', '--quiet'], tree.dir);
+  runGitOrThrow(['add', '--all'], tree.dir);
 
-  return dir;
+  return tree;
 }
 
 function writeFile(dir: string, relativePath: string, contents: string): void {
   const filePath = path.join(dir, relativePath);
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, contents);
-}
-
-/**
- * Creates a temp directory and resolves it through `realpath`, because macOS exposes the temp root
- * through a symlink while `git rev-parse --show-toplevel` reports the resolved path.
- */
-function makeTempDir(prefix: string): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
-  return fs.realpathSync(dir);
 }
 
 function runGitOrThrow(args: string[], cwd: string): void {
