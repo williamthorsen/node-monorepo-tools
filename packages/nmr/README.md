@@ -524,7 +524,7 @@ A `pnpm.overrides` block left in the root `package.json` fails the command inste
 The upgrade tool ([taze](https://github.com/antfu-collective/taze)) arrives with nmr, so your repo declares no dependency on it. Everything after the command name is passed through, including the range mode:
 
 ```bash
-nmr upgrade         # minor and patch upgrades within each dependency's declared range
+nmr upgrade         # minor and patch upgrades, regardless of the range each dependency declares
 nmr upgrade major   # major upgrades, for dependencies carrying no per-package ceiling
 nmr upgrade --write # apply the proposals to package.json
 ```
