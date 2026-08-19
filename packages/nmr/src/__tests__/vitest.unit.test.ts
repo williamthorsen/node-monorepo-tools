@@ -1,9 +1,10 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { globSync } from 'tinyglobby';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it as baseIt } from 'vitest';
 import type { TestProjectConfiguration, TestProjectInlineConfiguration, ViteUserConfig } from 'vitest/config';
 
 import { defineRootVitestConfig, defineVitestConfig } from '../vitest.ts';
@@ -34,6 +35,55 @@ const FIXTURE_FILES = [
   'src/__tests__/thing.unit.test.ts', // the optional, purely informative `unit` infix
   'src/outside.test.ts', // outside a `__tests__` directory
 ];
+
+const it = baseIt
+  .extend(
+    'workspaceTree',
+    { scope: 'file' },
+    makeFixture(() => {
+      const tree = createTempTree({}, { prefix: 'nmr-vitest-workspace-' });
+      writeFileSync(
+        path.join(tree.dir, 'pnpm-workspace.yaml'),
+        "packages:\n  - 'packages/*'\n  - 'tools/cli'\n  - '!packages/legacy'\n",
+      );
+      for (const dir of ['packages/alpha', 'packages/legacy', 'tools/cli']) {
+        mkdirSync(path.join(tree.dir, dir), { recursive: true });
+        writeFileSync(path.join(tree.dir, dir, 'package.json'), '{}');
+      }
+
+      return tree;
+    }),
+  )
+  .extend(
+    'singlePackageTree',
+    { scope: 'file' },
+    // A pnpm-10 single-package repo: the manifest exists to carry settings and declares no `packages`.
+    makeFixture(() => {
+      const tree = createTempTree({}, { prefix: 'nmr-vitest-single-' });
+      writeFileSync(path.join(tree.dir, 'pnpm-workspace.yaml'), 'onlyBuiltDependencies:\n  - esbuild\n');
+
+      return tree;
+    }),
+  )
+  .extend(
+    'notARootTree',
+    { scope: 'file' },
+    makeFixture(() => createTempTree({}, { prefix: 'nmr-vitest-not-a-root-' })),
+  )
+  .extend(
+    'selectionTree',
+    { scope: 'file' },
+    makeFixture(() => {
+      const tree = createTempTree({}, { prefix: 'nmr-vitest-test-' });
+      for (const file of FIXTURE_FILES) {
+        const absolute = path.join(tree.dir, file);
+        mkdirSync(path.dirname(absolute), { recursive: true });
+        writeFileSync(absolute, '');
+      }
+
+      return tree;
+    }),
+  );
 
 describe(defineVitestConfig, () => {
   it('declares every tier, each inheriting the root config', () => {
@@ -283,36 +333,8 @@ describe(defineVitestConfig, () => {
 });
 
 describe(defineRootVitestConfig, () => {
-  let workspaceRoot: string;
-  let singlePackageRoot: string;
-  let notARoot: string;
-
-  beforeAll(() => {
-    workspaceRoot = mkdtempSync(path.join(tmpdir(), 'nmr-vitest-workspace-'));
-    writeFileSync(
-      path.join(workspaceRoot, 'pnpm-workspace.yaml'),
-      "packages:\n  - 'packages/*'\n  - 'tools/cli'\n  - '!packages/legacy'\n",
-    );
-    for (const dir of ['packages/alpha', 'packages/legacy', 'tools/cli']) {
-      mkdirSync(path.join(workspaceRoot, dir), { recursive: true });
-      writeFileSync(path.join(workspaceRoot, dir, 'package.json'), '{}');
-    }
-
-    // A pnpm-10 single-package repo: the manifest exists to carry settings and declares no `packages`.
-    singlePackageRoot = mkdtempSync(path.join(tmpdir(), 'nmr-vitest-single-'));
-    writeFileSync(path.join(singlePackageRoot, 'pnpm-workspace.yaml'), 'onlyBuiltDependencies:\n  - esbuild\n');
-
-    notARoot = mkdtempSync(path.join(tmpdir(), 'nmr-vitest-not-a-root-'));
-  });
-
-  afterAll(() => {
-    for (const dir of [workspaceRoot, singlePackageRoot, notARoot]) {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
-  it('derives one sorted, posix-separated glob per workspace package', () => {
-    const projects = getProjects(defineRootVitestConfig({ monorepoRoot: workspaceRoot }));
+  it('derives one sorted, posix-separated glob per workspace package', ({ workspaceTree }) => {
+    const projects = getProjects(defineRootVitestConfig({ monorepoRoot: workspaceTree.dir }));
 
     for (const project of projects) {
       expect(project.test?.exclude).toStrictEqual([
@@ -327,17 +349,17 @@ describe(defineRootVitestConfig, () => {
     }
   });
 
-  it('pins every project to the monorepo root, so the globs resolve from the same base', () => {
-    const projects = getProjects(defineRootVitestConfig({ monorepoRoot: workspaceRoot }));
+  it('pins every project to the monorepo root, so the globs resolve from the same base', ({ workspaceTree }) => {
+    const projects = getProjects(defineRootVitestConfig({ monorepoRoot: workspaceTree.dir }));
 
     for (const project of projects) {
-      expect(project.root).toBe(workspaceRoot);
+      expect(project.root).toBe(workspaceTree.dir);
     }
   });
 
-  it('throws a message naming the directory when it holds no workspace manifest', () => {
-    expect(() => defineRootVitestConfig({ monorepoRoot: notARoot })).toThrow(
-      `Not a monorepo root: no pnpm-workspace.yaml in ${notARoot}`,
+  it('throws a message naming the directory when it holds no workspace manifest', ({ notARootTree }) => {
+    expect(() => defineRootVitestConfig({ monorepoRoot: notARootTree.dir })).toThrow(
+      `Not a monorepo root: no pnpm-workspace.yaml in ${notARootTree.dir}`,
     );
   });
 
@@ -359,8 +381,8 @@ describe(defineRootVitestConfig, () => {
     }
   });
 
-  it('excludes no packages when the manifest declares none, as in a single-package repo', () => {
-    const projects = getProjects(defineRootVitestConfig({ monorepoRoot: singlePackageRoot }));
+  it('excludes no packages when the manifest declares none, as in a single-package repo', ({ singlePackageTree }) => {
+    const projects = getProjects(defineRootVitestConfig({ monorepoRoot: singlePackageTree.dir }));
 
     for (const project of projects) {
       expect(project.test?.exclude).toStrictEqual([
@@ -373,77 +395,66 @@ describe(defineRootVitestConfig, () => {
     }
   });
 
-  it('applies the workspace exclusion to the projects, not the root test block', () => {
-    const rootTest = defineRootVitestConfig({ monorepoRoot: workspaceRoot }).test ?? {};
+  it('applies the workspace exclusion to the projects, not the root test block', ({ workspaceTree }) => {
+    const rootTest = defineRootVitestConfig({ monorepoRoot: workspaceTree.dir }).test ?? {};
 
     expect(rootTest).not.toHaveProperty('exclude');
     expect(rootTest).not.toHaveProperty('include');
   });
 
-  it('reports no coverage of its own', () => {
-    expect(defineRootVitestConfig({ monorepoRoot: workspaceRoot }).test?.coverage?.include).toStrictEqual([]);
+  it('reports no coverage of its own', ({ workspaceTree }) => {
+    expect(defineRootVitestConfig({ monorepoRoot: workspaceTree.dir }).test?.coverage?.include).toStrictEqual([]);
   });
 
-  it('accepts a run that collects no test files', () => {
-    expect(defineRootVitestConfig({ monorepoRoot: workspaceRoot }).test?.passWithNoTests).toBe(true);
+  it('accepts a run that collects no test files', ({ workspaceTree }) => {
+    expect(defineRootVitestConfig({ monorepoRoot: workspaceTree.dir }).test?.passWithNoTests).toBe(true);
   });
 
-  it('skips an empty layer ahead of the layer carrying the monorepo root', () => {
-    const config = defineRootVitestConfig(undefined, { monorepoRoot: workspaceRoot });
+  it('skips an empty layer ahead of the layer carrying the monorepo root', ({ workspaceTree }) => {
+    const config = defineRootVitestConfig(undefined, { monorepoRoot: workspaceTree.dir });
 
     expect(getProjects(config)).toHaveLength(4);
   });
 
-  it('folds a shared layer ahead of the layer carrying the monorepo root', () => {
+  it('folds a shared layer ahead of the layer carrying the monorepo root', ({ workspaceTree }) => {
     const config = defineRootVitestConfig(
       { project: { setupFiles: ['./shared.ts'] }, root: { resolve: { conditions: ['source'] } } },
-      { monorepoRoot: workspaceRoot },
+      { monorepoRoot: workspaceTree.dir },
     );
 
     expect(config.resolve?.conditions).toStrictEqual(['source']);
     for (const project of getProjects(config)) {
       expect(project.test?.setupFiles).toStrictEqual(['./shared.ts']);
-      expect(project.root).toBe(workspaceRoot);
+      expect(project.root).toBe(workspaceTree.dir);
     }
   });
 
   // A shared layer describes settings, not which repo they belong to, so the root has to ride on the config file's
   // own layer — the only one whose `import.meta.dirname` states this repo.
-  it('throws when the last layer carries no monorepo root, however many precede it', () => {
+  it('throws when the last layer carries no monorepo root, however many precede it', ({ workspaceTree }) => {
     const build = () =>
       // @ts-expect-error - the last layer must carry `monorepoRoot`; a JavaScript consumer can still omit it
-      defineRootVitestConfig({ monorepoRoot: workspaceRoot }, { project: {} });
+      defineRootVitestConfig({ monorepoRoot: workspaceTree.dir }, { project: {} });
 
     expect(build).toThrow('defineRootVitestConfig requires `monorepoRoot`');
   });
 });
 
 describe('project file selection', () => {
-  let fixtureRoot: string;
+  // `for` rather than `each`: only `for` hands the fixture context to the case body.
+  it.for(['tool', 'localhost', 'remote'])(
+    'selects only its own infix for the %s project',
+    (tier, { selectionTree }) => {
+      expect(selectFiles(tier, selectionTree.dir)).toStrictEqual([`src/__tests__/thing.${tier}.test.ts`]);
+    },
+  );
 
-  beforeAll(() => {
-    fixtureRoot = mkdtempSync(path.join(tmpdir(), 'nmr-vitest-test-'));
-    for (const file of FIXTURE_FILES) {
-      const absolute = path.join(fixtureRoot, file);
-      mkdirSync(path.dirname(absolute), { recursive: true });
-      writeFileSync(absolute, '');
-    }
+  it('runs a file whose infix matches no tier under the unit project', ({ selectionTree }) => {
+    expect(selectFiles('unit', selectionTree.dir)).toContain('src/__tests__/thing.smoke.test.ts');
   });
 
-  afterAll(() => {
-    rmSync(fixtureRoot, { recursive: true, force: true });
-  });
-
-  it.each(['tool', 'localhost', 'remote'])('selects only its own infix for the %s project', (tier) => {
-    expect(selectFiles(tier, fixtureRoot)).toStrictEqual([`src/__tests__/thing.${tier}.test.ts`]);
-  });
-
-  it('runs a file whose infix matches no tier under the unit project', () => {
-    expect(selectFiles('unit', fixtureRoot)).toContain('src/__tests__/thing.smoke.test.ts');
-  });
-
-  it('leaves tiered, unnested, and excluded files out of the unit project', () => {
-    expect(selectFiles('unit', fixtureRoot)).toStrictEqual([
+  it('leaves tiered, unnested, and excluded files out of the unit project', ({ selectionTree }) => {
+    expect(selectFiles('unit', selectionTree.dir)).toStrictEqual([
       'src/__tests__/nested/deep.test.tsx',
       'src/__tests__/plain.test.ts',
       'src/__tests__/thing.app.test.ts',
@@ -453,16 +464,16 @@ describe('project file selection', () => {
   });
 
   // The residual subtracts the tiers, so an overlap would collect the same file twice and run it twice, green.
-  it('claims each file exactly once across the projects', () => {
-    const collected = PROJECT_NAMES.flatMap((name) => selectFiles(name, fixtureRoot));
+  it('claims each file exactly once across the projects', ({ selectionTree }) => {
+    const collected = PROJECT_NAMES.flatMap((name) => selectFiles(name, selectionTree.dir));
 
     expect(collected).toStrictEqual([...new Set(collected)]);
   });
 
   // A copy of the suite under `dist/` runs green against stale code, so no project may collect it.
-  it('leaves a test file copied into build output out of every project', () => {
+  it('leaves a test file copied into build output out of every project', ({ selectionTree }) => {
     for (const name of PROJECT_NAMES) {
-      expect(selectFiles(name, fixtureRoot)).not.toContain('dist/src/__tests__/copied.test.ts');
+      expect(selectFiles(name, selectionTree.dir)).not.toContain('dist/src/__tests__/copied.test.ts');
     }
   });
 });

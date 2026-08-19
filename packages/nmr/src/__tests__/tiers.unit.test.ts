@@ -1,9 +1,10 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { globSync } from 'tinyglobby';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it as baseIt } from 'vitest';
 
 import { ALL_TEST_PATTERNS, findTestFiles, hasTierInfix, TEST_COLLECTION_EXCLUDE, TIER_NAMES } from '../tiers.ts';
 
@@ -25,51 +26,52 @@ const COLLECTED_FILES = [
   'src/__tests__/plain.unit.test.ts',
 ];
 
+const it = baseIt
+  .extend(
+    'fixtureTree',
+    { scope: 'file' },
+    makeFixture(() => {
+      const tree = createTempTree({}, { prefix: 'nmr-tiers-' });
+      for (const file of FIXTURE_FILES) {
+        const absolute = path.join(tree.dir, file);
+        mkdirSync(path.dirname(absolute), { recursive: true });
+        writeFileSync(absolute, '');
+      }
+
+      return tree;
+    }),
+  )
+  .extend(
+    'emptyTree',
+    { scope: 'file' },
+    makeFixture(() => createTempTree({}, { prefix: 'nmr-tiers-empty-' })),
+  );
+
 describe(findTestFiles, () => {
-  let fixtureRoot: string;
-  let emptyRoot: string;
-
-  beforeAll(() => {
-    fixtureRoot = mkdtempSync(path.join(tmpdir(), 'nmr-tiers-'));
-    for (const file of FIXTURE_FILES) {
-      const absolute = path.join(fixtureRoot, file);
-      mkdirSync(path.dirname(absolute), { recursive: true });
-      writeFileSync(absolute, '');
-    }
-
-    emptyRoot = mkdtempSync(path.join(tmpdir(), 'nmr-tiers-empty-'));
-  });
-
-  afterAll(() => {
-    for (const dir of [fixtureRoot, emptyRoot]) {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
-  it('collects every test file the projects claim, and nothing else', () => {
-    expect(findTestFiles(fixtureRoot)).toStrictEqual(COLLECTED_FILES);
+  it('collects every test file the projects claim, and nothing else', ({ fixtureTree }) => {
+    expect(findTestFiles(fixtureTree.dir)).toStrictEqual(COLLECTED_FILES);
   });
 
   // The divergence the walk exists to close: `node:fs` globSync skips this file, so a check built on the collection
   // pattern would report clean while the file runs untiered under the residual project.
-  it('descends into a dot-directory', () => {
-    expect(findTestFiles(fixtureRoot)).toContain('.readyup/kits/__tests__/kit.unit.test.ts');
+  it('descends into a dot-directory', ({ fixtureTree }) => {
+    expect(findTestFiles(fixtureTree.dir)).toContain('.readyup/kits/__tests__/kit.unit.test.ts');
   });
 
   // Pinned against the engine Vitest discovers with, because over-reporting is a failure a consumer cannot fix and
   // under-reporting is the silence a conformance check exists to end.
-  it('agrees with the collection pattern about which files are in scope', () => {
+  it('agrees with the collection pattern about which files are in scope', ({ fixtureTree }) => {
     const globbed = globSync(ALL_TEST_PATTERNS, {
-      cwd: fixtureRoot,
+      cwd: fixtureTree.dir,
       dot: true,
       ignore: TEST_COLLECTION_EXCLUDE.map((dir) => `**/${dir}/**`),
     });
 
-    expect(globbed.toSorted()).toStrictEqual(findTestFiles(fixtureRoot));
+    expect(globbed.toSorted()).toStrictEqual(findTestFiles(fixtureTree.dir));
   });
 
-  it('returns an empty list for a tree holding no test file', () => {
-    expect(findTestFiles(emptyRoot)).toStrictEqual([]);
+  it('returns an empty list for a tree holding no test file', ({ emptyTree }) => {
+    expect(findTestFiles(emptyTree.dir)).toStrictEqual([]);
   });
 });
 
