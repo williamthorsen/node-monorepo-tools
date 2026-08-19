@@ -1,9 +1,10 @@
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { findMonorepoRoot, getWorkspacePackageDirs } from '@williamthorsen/nmr/workspace';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { describe, expect, test } from 'vitest';
 
 /** Directories that never hold a package's own tests, pruned so the walk stays cheap in a pnpm workspace. */
 const PRUNED = new Set(['node_modules', 'dist', 'coverage']);
@@ -15,6 +16,11 @@ const TEST_DIR = '__tests__';
 const TEST_FILE_PATTERN = /\.test\.tsx?$/;
 
 const monorepoRoot = findMonorepoRoot(import.meta.dirname);
+
+const it = test.extend(
+  'tree',
+  makeFixture(() => createTempTree({}, { prefix: 'nmr-presence-' })),
+);
 
 /**
  * Guards against a package's whole test suite silently disappearing. `passWithNoTests` means a run collecting
@@ -36,33 +42,23 @@ describe('every workspace package holds at least one collectable test file', () 
 });
 
 describe(hasTestFile, () => {
-  let tmpDir: string;
+  it('counts a test file under a __tests__ directory', ({ tree }) => {
+    writeFixture(tree.dir, 'src/__tests__/thing.test.ts');
 
-  beforeEach(() => {
-    tmpDir = mkdtempSync(path.join(tmpdir(), 'nmr-presence-'));
-  });
-
-  afterEach(() => {
-    rmSync(tmpDir, { recursive: true, force: true });
-  });
-
-  it('counts a test file under a __tests__ directory', () => {
-    writeFixture(tmpDir, 'src/__tests__/thing.test.ts');
-
-    expect(hasTestFile(tmpDir)).toBe(true);
+    expect(hasTestFile(tree.dir)).toBe(true);
   });
 
   // Vitest collects only from `__tests__`, so a file outside one is not a suite the guard can vouch for.
-  it('ignores a test file outside a __tests__ directory', () => {
-    writeFixture(tmpDir, 'src/thing.test.ts');
+  it('ignores a test file outside a __tests__ directory', ({ tree }) => {
+    writeFixture(tree.dir, 'src/thing.test.ts');
 
-    expect(hasTestFile(tmpDir)).toBe(false);
+    expect(hasTestFile(tree.dir)).toBe(false);
   });
 
-  it('ignores a dependency owning the only tests', () => {
-    writeFixture(tmpDir, 'node_modules/dep/__tests__/thing.test.ts');
+  it('ignores a dependency owning the only tests', ({ tree }) => {
+    writeFixture(tree.dir, 'node_modules/dep/__tests__/thing.test.ts');
 
-    expect(hasTestFile(tmpDir)).toBe(false);
+    expect(hasTestFile(tree.dir)).toBe(false);
   });
 });
 

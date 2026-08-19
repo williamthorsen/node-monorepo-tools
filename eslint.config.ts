@@ -84,6 +84,9 @@ const config = defineConfig([
     // The list grows per converted suite rather than the preamble collapsing into a shared helper: an imported
     // `it` traces back to no vitest export, at which point the plugin stops applying every vitest rule to the file.
     files: [
+      '__tests__/workspace-test-presence.app.unit.test.ts',
+      'packages/nmr-core/src/__tests__/cache-store.unit.test.ts',
+      'packages/nmr-core/src/__tests__/hashWorkingTree.tool.test.ts',
       'packages/nmr-core/src/__tests__/readPackageVersion.unit.test.ts',
       'packages/nmr/src/__tests__/runCli.unit.test.ts',
       'packages/nmr/src/commands/__tests__/build-output.unit.test.ts',
