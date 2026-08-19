@@ -4,13 +4,21 @@ import { defineConfig } from '../taze.ts';
 
 describe(defineConfig, () => {
   it("supplies nmr's shared upgrade policy when the repo declares none", () => {
-    expect(defineConfig({})).toStrictEqual({ maturityPeriod: 7 });
+    expect(defineConfig({})).toStrictEqual({ includeLocked: true, maturityPeriod: 7, mode: 'minor' });
   });
 
   it("passes the repo's own settings through untouched", () => {
     const config = defineConfig({ packageMode: { typescript: 'minor' } });
 
     expect(config.packageMode).toStrictEqual({ typescript: 'minor' });
+  });
+
+  it("lets a repo hold the range mode below nmr's default", () => {
+    expect(defineConfig({ mode: 'patch' }).mode).toBe('patch');
+  });
+
+  it('lets a repo opt out of reporting locked dependencies', () => {
+    expect(defineConfig({ includeLocked: false }).includeLocked).toBe(false);
   });
 
   it("lets a repo raise nmr's default", () => {

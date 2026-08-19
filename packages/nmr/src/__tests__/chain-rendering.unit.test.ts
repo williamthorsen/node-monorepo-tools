@@ -100,7 +100,7 @@ const WORKSPACE_CHAINS: readonly ChainRow[] = [
   },
   {
     command: 'upgrade',
-    chain: 'nmr-report-catalog && nmr-taze --include-locked',
+    chain: 'nmr-report-catalog && nmr-taze',
   },
   {
     command: 'view-coverage',
@@ -224,7 +224,7 @@ const ROOT_CHAINS: readonly ChainRow[] = [
   },
   {
     command: 'root:upgrade',
-    chain: 'nmr-report-overrides && nmr-taze --include-locked',
+    chain: 'nmr-report-overrides && nmr-taze',
   },
   {
     command: 'test',
@@ -262,7 +262,7 @@ const ROOT_CHAINS: readonly ChainRow[] = [
   },
   {
     command: 'upgrade',
-    chain: 'nmr-report-overrides && nmr-taze --include-locked --recursive',
+    chain: 'nmr-report-overrides && nmr-taze --recursive',
   },
 ];
 

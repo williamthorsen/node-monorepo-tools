@@ -46,7 +46,7 @@ describe(getDefaultWorkspaceScripts, () => {
   it('upgrades the current package without recursing', () => {
     const scripts = getDefaultWorkspaceScripts();
 
-    expect(scripts['upgrade']).toBe('nmr-report-catalog && nmr-taze --include-locked');
+    expect(scripts['upgrade']).toBe('nmr-report-catalog && nmr-taze');
     expect(scripts['report-overrides']).toBeUndefined();
   });
 
@@ -70,7 +70,7 @@ describe(getDefaultWorkspaceScripts, () => {
     const upgrade = getDefaultWorkspaceScripts()['upgrade'];
     assert(typeof upgrade === 'string', 'Expected upgrade to be a chained command');
 
-    expect(upgrade.split('&&').at(-1)?.trim()).toBe('nmr-taze --include-locked');
+    expect(upgrade.split('&&').at(-1)?.trim()).toBe('nmr-taze');
   });
 
   it('exposes the catalog report as a command of its own', () => {
@@ -192,8 +192,8 @@ describe(getDefaultRootScripts, () => {
     const scripts = getDefaultRootScripts();
 
     expect(scripts).toMatchObject({
-      'root:upgrade': 'nmr-report-overrides && nmr-taze --include-locked',
-      upgrade: 'nmr-report-overrides && nmr-taze --include-locked --recursive',
+      'root:upgrade': 'nmr-report-overrides && nmr-taze',
+      upgrade: 'nmr-report-overrides && nmr-taze --recursive',
     });
   });
 
@@ -216,7 +216,7 @@ describe(getDefaultRootScripts, () => {
   });
 
   it.each(UPGRADE_COMMANDS)('ends the %s chain with the upgrade tool so passthrough args reach it', (command) => {
-    expect(readChain(command).split('&&').at(-1)?.trim()).toMatch(/^nmr-taze /);
+    expect(readChain(command).split('&&').at(-1)?.trim()).toMatch(/^nmr-taze\b/);
   });
 });
 
