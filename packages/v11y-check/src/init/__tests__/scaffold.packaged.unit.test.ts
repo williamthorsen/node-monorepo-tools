@@ -1,8 +1,9 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
 import { assert, describe, expect, it } from 'vitest';
 
 const thisDir = dirname(fileURLToPath(import.meta.url));
@@ -29,30 +30,23 @@ describe('copyWorkflowTemplate (packaged)', () => {
       `Built output not found at ${distScaffoldPath}. Run \`nmr build\` before running this test.`,
     );
 
-    const tempDir = mkdtempSync(join(tmpdir(), 'v11y-check-scaffold-packaged-'));
-    const originalCwd = process.cwd();
+    using tree = createTempTree({}, { prefix: 'v11y-check-scaffold-packaged-' });
+    using _cwd = pointCwdAt(tree.dir, { chdir: true });
 
-    try {
-      process.chdir(tempDir);
-
-      // Import from the compiled JS so that `import.meta.url` points to dist/esm/init/scaffold.js.
-      const mod: unknown = await import(distScaffoldPath);
-      if (!isScaffoldModule(mod)) {
-        throw new Error('Module does not export `copyWorkflowTemplate` as a function');
-      }
-
-      const result = mod.copyWorkflowTemplate(false, false);
-
-      expect(result.outcome).toBe('created');
-
-      const workflowPath = join(tempDir, '.github', 'workflows', 'audit.yaml');
-      expect(existsSync(workflowPath)).toBe(true);
-
-      const content = readFileSync(workflowPath, 'utf8');
-      expect(content).toContain('name: Dependency audit');
-    } finally {
-      process.chdir(originalCwd);
-      rmSync(tempDir, { recursive: true, force: true });
+    // Import from the compiled JS so that `import.meta.url` points to dist/esm/init/scaffold.js.
+    const mod: unknown = await import(distScaffoldPath);
+    if (!isScaffoldModule(mod)) {
+      throw new Error('Module does not export `copyWorkflowTemplate` as a function');
     }
+
+    const result = mod.copyWorkflowTemplate(false, false);
+
+    expect(result.outcome).toBe('created');
+
+    const workflowPath = join(tree.dir, '.github', 'workflows', 'audit.yaml');
+    expect(existsSync(workflowPath)).toBe(true);
+
+    const content = readFileSync(workflowPath, 'utf8');
+    expect(content).toContain('name: Dependency audit');
   });
 });
