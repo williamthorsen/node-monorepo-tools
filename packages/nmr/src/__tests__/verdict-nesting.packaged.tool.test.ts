@@ -1,27 +1,26 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { describe, expect, it as baseIt } from 'vitest';
 
 import { REPORT_FORMAT_ENV_VAR } from '../report-format.ts';
 import { runCli } from '../runCli.ts';
 import { readAmbientEnv } from '../test-utils/readAmbientEnv.ts';
 
-// What a level reports is decided by that level's own process, not by the one that composed it, so every case
-// here spawns real child nmr processes. Those children run the built `nmr` on `PATH` rather than this source,
-// which is what the `packaged` segment of the filename records: a stale `dist` fails these and nothing else.
-describe('reporting through a real chain', () => {
-  let repo: string;
-
-  beforeAll(() => {
-    repo = mkdtempSync(path.join(tmpdir(), 'nmr-verdict-nesting-'));
-    writeFileSync(path.join(repo, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n");
-    writeFileSync(path.join(repo, 'package.json'), JSON.stringify({ name: 'nesting-root', private: true }));
-    mkdirSync(path.join(repo, '.config'), { recursive: true });
+// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
+const it = baseIt.extend(
+  'tree',
+  { scope: 'file' },
+  makeFixture(() => {
+    const tree = createTempTree({}, { prefix: 'nmr-verdict-nesting-' });
+    writeFileSync(path.join(tree.dir, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n");
+    writeFileSync(path.join(tree.dir, 'package.json'), JSON.stringify({ name: 'nesting-root', private: true }));
+    mkdirSync(path.join(tree.dir, '.config'), { recursive: true });
     writeFileSync(
-      path.join(repo, '.config', 'nmr.config.ts'),
+      path.join(tree.dir, '.config', 'nmr.config.ts'),
       `export default ${JSON.stringify({
         rootScripts: {
           boom: 'echo boom-noise && exit 1',
@@ -35,23 +34,26 @@ describe('reporting through a real chain', () => {
         },
       })};\n`,
     );
-  });
 
-  afterAll(() => {
-    rmSync(repo, { recursive: true, force: true });
-  });
+    return tree;
+  }),
+);
 
+// What a level reports is decided by that level's own process, not by the one that composed it, so every case
+// here spawns real child nmr processes. Those children run the built `nmr` on `PATH` rather than this source,
+// which is what the `packaged` segment of the filename records: a stale `dist` fails these and nothing else.
+describe('reporting through a real chain', () => {
   describe('nesting', () => {
-    it('lets each element of a composite report through the quiet ancestor nmr composed', async () => {
-      const { exitCode, stdout } = await runNmr(['-q', 'fanout'], repo);
+    it('lets each element of a composite report through the quiet ancestor nmr composed', async ({ tree }) => {
+      const { exitCode, stdout } = await runNmr(['-q', 'fanout'], tree.dir);
 
       expect(exitCode).toBe(0);
       expect(stdout).not.toContain('noise');
       expect(verdictCommands(stdout)).toStrictEqual(['demo:one', 'demo:two', 'fanout']);
     });
 
-    it('reports a delegating hook under the name it delegates to, and never under its own', async () => {
-      const { exitCode, stdout } = await runNmr(['-q', 'demo'], repo);
+    it('reports a delegating hook under the name it delegates to, and never under its own', async ({ tree }) => {
+      const { exitCode, stdout } = await runNmr(['-q', 'demo'], tree.dir);
 
       expect(exitCode).toBe(0);
       expect(stdout).not.toContain('noise');
@@ -60,13 +62,14 @@ describe('reporting through a real chain', () => {
   });
 
   describe('machine-readable reporting', () => {
-    it.each([
+    // `for` rather than `each`: only `for` hands the fixture context to the case body.
+    it.for([
       { args: ['--json', 'fanout'], overrides: {}, scenario: 'the flag' },
       { args: ['fanout'], overrides: { [REPORT_FORMAT_ENV_VAR]: 'json' }, scenario: 'an inherited value' },
     ])(
       'given $scenario, reports one JSON object per command and nothing else on stdout',
-      async ({ args, overrides }) => {
-        const { exitCode, stdout } = await runNmr(args, repo, overrides);
+      async ({ args, overrides }, { tree }) => {
+        const { exitCode, stdout } = await runNmr(args, tree.dir, overrides);
 
         expect(exitCode).toBe(0);
         expect(parseRecords(stdout).map((record) => record['command'])).toStrictEqual([
@@ -77,23 +80,23 @@ describe('reporting through a real chain', () => {
       },
     );
 
-    it("withholds the commands' own output on both streams where every one of them passed", async () => {
-      const { stderr, stdout } = await runNmr(['--json', 'fanout'], repo);
+    it("withholds the commands' own output on both streams where every one of them passed", async ({ tree }) => {
+      const { stderr, stdout } = await runNmr(['--json', 'fanout'], tree.dir);
 
       expect(stdout).not.toContain('noise');
       expect(stderr).not.toContain('noise');
     });
 
-    it("surrenders a failing command's output on stderr, leaving stdout parseable", async () => {
-      const { exitCode, stderr, stdout } = await runNmr(['--json', 'boom'], repo);
+    it("surrenders a failing command's output on stderr, leaving stdout parseable", async ({ tree }) => {
+      const { exitCode, stderr, stdout } = await runNmr(['--json', 'boom'], tree.dir);
 
       expect(exitCode).toBe(1);
       expect(stderr).toContain('boom-noise');
       expect(parseRecords(stdout)).toMatchObject([{ command: 'boom', exitCode: 1, outcome: 'failed' }]);
     });
 
-    it('lets no escape sequence a command wrote reach the stream', async () => {
-      const { stdout } = await runNmr(['--json', 'colorful'], repo);
+    it('lets no escape sequence a command wrote reach the stream', async ({ tree }) => {
+      const { stdout } = await runNmr(['--json', 'colorful'], tree.dir);
 
       expect(stdout).not.toContain('\u{1B}');
       expect(parseRecords(stdout)).toMatchObject([{ command: 'colorful', outcome: 'passed' }]);

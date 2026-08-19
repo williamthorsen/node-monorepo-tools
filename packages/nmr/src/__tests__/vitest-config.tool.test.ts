@@ -1,9 +1,9 @@
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { describe, expect, it as baseIt } from 'vitest';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../../..');
 const CONFIG_SOURCE = path.join(import.meta.dirname, '../vitest.ts');
@@ -83,95 +83,105 @@ const LAYER_ORDER_FILES: Record<string, string> = {
   ].join('\n'),
 };
 
-/**
- * Runs the shipped config against a real Vitest invocation. The coverage guarantee cannot be asserted from the
- * pattern alone: `isIncluded()` matches absolute paths with picomatch's `contains` flag, whose effect is not
- * visible in the pattern, and a unit test replicating that call would keep passing if Vitest stopped passing it.
- */
-describe('the shipped Vitest config, run for real', () => {
-  let projectRoot: string;
-  let coveredFiles: string[];
-  let collectedTestFiles: string[];
+// Each builder owns its tree through a `DisposableStack` and transfers it only past the last statement that can
+// throw: a fixture that fails never reaches its `onCleanup` registration, and both of these throw by design when
+// the child run does. `createTempTree` resolves through `realpath`, which the relative paths below depend on,
+// because macOS exposes the temp root through a symlink while Vitest reports resolved paths back.
+const it = baseIt
+  // eslint-disable-next-line no-empty-pattern -- Vitest parses a fixture's first parameter and rejects anything but a destructuring pattern.
+  .extend('project', { scope: 'file' }, ({}, { onCleanup }) => {
+    using stack = new DisposableStack();
+    const tree = stack.use(createTempTree({}, { prefix: 'nmr-vitest-config-' }));
+    scaffoldProject(tree, PROJECT_FILES);
+    stack.defer(() => unlinkNodeModules(tree.dir));
 
-  beforeAll(() => {
-    projectRoot = scaffoldProject(PROJECT_FILES);
-    const run = runVitestWithCoverage(projectRoot);
+    const run = runVitestWithCoverage(tree.dir);
 
     // Surface the child's own output, or a failure here reads as an unexplained empty result.
     if (run.status !== 0) {
       throw new Error(`fixture run failed with status ${String(run.status)}:\n${run.stdout}\n${run.stderr}`);
     }
 
-    coveredFiles = readCoveredFiles(projectRoot);
-    collectedTestFiles = readCollectedTestFiles(projectRoot);
-  }, 120_000);
+    const derived = {
+      collectedTestFiles: readCollectedTestFiles(tree.dir),
+      coveredFiles: readCoveredFiles(tree.dir),
+    };
+    const owned = stack.move();
+    onCleanup(() => {
+      owned.dispose();
+    });
 
-  afterAll(() => {
-    removeProject(projectRoot);
-  });
+    return derived;
+  })
+  // eslint-disable-next-line no-empty-pattern -- Vitest parses a fixture's first parameter and rejects anything but a destructuring pattern.
+  .extend('layers', { scope: 'file' }, ({}, { onCleanup }) => {
+    using stack = new DisposableStack();
+    const tree = stack.use(createTempTree({}, { prefix: 'nmr-vitest-layers-' }));
+    scaffoldProject(tree, LAYER_ORDER_FILES);
+    stack.defer(() => unlinkNodeModules(tree.dir));
 
-  // `src/uncovered.ts` appearing here also proves a source untouched by any test is reported rather than dropped.
-  it('measures the sources and nothing else', () => {
-    expect(coveredFiles).toStrictEqual(['src/covered.ts', 'src/uncovered.ts']);
-  });
-
-  it('excludes a fixture directory under src, whether or not a test imports it', () => {
-    expect(coveredFiles).not.toContain('src/__fixtures__/imported.ts');
-    expect(coveredFiles).not.toContain('src/__fixtures__/unimported.ts');
-  });
-
-  it('excludes a fixture nested under a tests directory, whether or not a test imports it', () => {
-    expect(coveredFiles).not.toContain('src/__tests__/fixtures/imported.ts');
-    expect(coveredFiles).not.toContain('src/__tests__/fixtures/unimported.ts');
-  });
-
-  it('runs the suite once, leaving the copy under build output uncollected', () => {
-    expect(collectedTestFiles).toStrictEqual(['src/__tests__/suite.test.ts']);
-  });
-});
-
-describe('composed option layers, run for real', () => {
-  let projectRoot: string;
-  let setupOrder: string[];
-
-  beforeAll(() => {
-    projectRoot = scaffoldProject(LAYER_ORDER_FILES);
-    const run = runVitest(projectRoot);
+    const run = runVitest(tree.dir);
 
     if (run.status !== 0) {
       throw new Error(`fixture run failed with status ${String(run.status)}:\n${run.stdout}\n${run.stderr}`);
     }
 
-    setupOrder = fs.readFileSync(path.join(projectRoot, SETUP_LOG), 'utf8').split('\n').filter(Boolean);
-  }, 120_000);
+    const setupOrder = fs.readFileSync(path.join(tree.dir, SETUP_LOG), 'utf8').split('\n').filter(Boolean);
+    const owned = stack.move();
+    onCleanup(() => {
+      owned.dispose();
+    });
 
-  afterAll(() => {
-    removeProject(projectRoot);
+    return { setupOrder };
   });
 
-  // A shared entry establishes the environment the later ones run in, so the order is the guarantee rather than
-  // the membership. Asserting on the config object would pass even if Vitest executed the two the other way round.
-  it('runs an earlier layer of setup files before a later one', () => {
-    expect(setupOrder).toStrictEqual(['shared', 'package']);
+/**
+ * Runs the shipped config against a real Vitest invocation. The coverage guarantee cannot be asserted from the
+ * pattern alone: `isIncluded()` matches absolute paths with picomatch's `contains` flag, whose effect is not
+ * visible in the pattern, and a unit test replicating that call would keep passing if Vitest stopped passing it.
+ */
+// The block's budget rather than the hook's: a file-scoped fixture is built inside the first test that names it,
+// where `testTimeout` governs and the tier's 30 seconds will not cover a real Vitest run.
+describe('the shipped Vitest config, run for real', { timeout: 120_000 }, () => {
+  // `src/uncovered.ts` appearing here also proves a source untouched by any test is reported rather than dropped.
+  it('measures the sources and nothing else', ({ project }) => {
+    expect(project.coveredFiles).toStrictEqual(['src/covered.ts', 'src/uncovered.ts']);
+  });
+
+  it('excludes a fixture directory under src, whether or not a test imports it', ({ project }) => {
+    expect(project.coveredFiles).not.toContain('src/__fixtures__/imported.ts');
+    expect(project.coveredFiles).not.toContain('src/__fixtures__/unimported.ts');
+  });
+
+  it('excludes a fixture nested under a tests directory, whether or not a test imports it', ({ project }) => {
+    expect(project.coveredFiles).not.toContain('src/__tests__/fixtures/imported.ts');
+    expect(project.coveredFiles).not.toContain('src/__tests__/fixtures/unimported.ts');
+  });
+
+  it('runs the suite once, leaving the copy under build output uncollected', ({ project }) => {
+    expect(project.collectedTestFiles).toStrictEqual(['src/__tests__/suite.test.ts']);
   });
 });
 
-/** Writes the fixture tree and links the repository's `node_modules` so Vitest and its coverage provider resolve. */
-function scaffoldProject(files: Record<string, string>): string {
-  // Resolve through `realpath`: macOS exposes the temp root through a symlink, while the paths Vitest reports back
-  // are resolved, and the two have to agree for the relative paths below to come out right.
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-vitest-config-')));
+describe('composed option layers, run for real', { timeout: 120_000 }, () => {
+  // A shared entry establishes the environment the later ones run in, so the order is the guarantee rather than
+  // the membership. Asserting on the config object would pass even if Vitest executed the two the other way round.
+  it('runs an earlier layer of setup files before a later one', ({ layers }) => {
+    expect(layers.setupOrder).toStrictEqual(['shared', 'package']);
+  });
+});
 
+/** Writes the fixture files into `tree` and links the repository's `node_modules` so Vitest and its coverage provider resolve. */
+function scaffoldProject(tree: TempTree, files: Record<string, string>): void {
   for (const [relativePath, contents] of Object.entries(files)) {
-    const absolute = path.join(dir, relativePath);
+    const absolute = path.join(tree.dir, relativePath);
     fs.mkdirSync(path.dirname(absolute), { recursive: true });
     fs.writeFileSync(absolute, contents);
   }
 
+  // `tree.symlink` resolves both ends inside the tree, and this target is the repository's own.
   // pnpm's internal links are relative, so they resolve through the link rather than needing an install here.
-  fs.symlinkSync(path.join(REPO_ROOT, 'node_modules'), path.join(dir, 'node_modules'), 'dir');
-
-  return dir;
+  fs.symlinkSync(path.join(REPO_ROOT, 'node_modules'), path.join(tree.dir, 'node_modules'), 'dir');
 }
 
 function runVitestWithCoverage(cwd: string): { status: number | null; stdout: string; stderr: string } {
@@ -262,10 +272,8 @@ function toRelativePosix(from: string, to: string): string {
   return path.relative(from, to).split(path.sep).join('/');
 }
 
-/** Unlinks `node_modules` before the recursive delete, so no failure mode can reach the repository's own tree. */
-function removeProject(projectRoot: string): void {
+/** Unlinks `node_modules`, which is deferred ahead of the tree's own removal so no failure mode can reach the repository's own tree. */
+function unlinkNodeModules(projectRoot: string): void {
   const link = path.join(projectRoot, 'node_modules');
   if (fs.existsSync(link)) fs.unlinkSync(link);
-
-  fs.rmSync(projectRoot, { recursive: true, force: true });
 }
