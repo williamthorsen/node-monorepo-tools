@@ -544,11 +544,16 @@ export default defineConfig({
 });
 ```
 
-`defineConfig` supplies nmr's shared upgrade policy — currently a seven-day quarantine on brand-new releases — so your config carries only what is specific to your repo. Any setting you declare wins over nmr's default. Passing `undefined` clears a default rather than falling back to it, which is how you hand the quarantine policy back to `pnpm-workspace.yaml`'s `minimumReleaseAge`.
+`defineConfig` supplies nmr's shared upgrade policy — a seven-day quarantine on brand-new releases, and the pair of settings that report a dependency pinned to an exact version: locked dependencies are included, and the range searched is `minor` — so your config carries only what is specific to your repo. Any setting you declare wins over nmr's default. Passing `undefined` clears a default rather than falling back to it, which is how you hand the quarantine policy back to `pnpm-workspace.yaml`'s `minimumReleaseAge`.
 
 Everything the [taze configuration](https://github.com/antfu-collective/taze#config-file) accepts is accepted here.
 
-> **Note:** `--include-locked` is part of both registry entries because a repo that pins dependencies to exact versions (pnpm's `savePrefix: ''`) has no dependency the tool would otherwise consider — without it, an upgrade pass reports nothing at all. Drop it via `.config/nmr.config.ts` if your repo declares version ranges instead.
+> **Note:** This file is what activates nmr's upgrade policy at all. A repo without one gets neither the release quarantine nor the settings that report a dependency pinned to an exact version, and `nmr upgrade` reports nothing in a repo using pnpm's `savePrefix: ''`. nmr's ReadyUp kit warns when the file is missing.
+
+Two consequences of the `minor` range mode the policy declares:
+
+- A `packageMode` entry that is not `minor` drops its dependency from a default pass rather than narrowing it, because the upgrade tool honors a per-package mode only when the pass's own mode matches it or is `default`. A `patch` ceiling therefore hides that dependency until you run `nmr upgrade patch`.
+- A `~` range is searched as `^`, so minor upgrades are proposed for it and `--write` applies them under the original `~`. Declare `mode: 'patch'` for the package, or clear the mode with `mode: undefined`, to hold a tilde range to patches.
 
 ## Default script registries
 
@@ -578,7 +583,7 @@ These scripts are available out of the box. Repo-wide config (tier 2) and per-pa
 | `test:unit`      | `pnpm exec vitest --project unit`                           |
 | `test:watch`     | `pnpm exec vitest --project unit --project tool --watch`    |
 | `typecheck`      | `tsgo --noEmit`                                             |
-| `upgrade`        | `nmr-report-catalog && nmr-taze --include-locked`           |
+| `upgrade`        | `nmr-report-catalog && nmr-taze`                            |
 | `view-coverage`  | `open coverage/index.html`                                  |
 
 `fmt` and `fmt:check` select their files through git rather than by walking the directory, which is what makes a package-level run and a root-level run apply the same ignore rules — see [file selection](#file-selection).
@@ -692,9 +697,9 @@ A file git ignores is never formatted, even when named directly. Trailing argume
 
 #### Dependencies
 
-| Command   | Runs                                                            |
-| --------- | --------------------------------------------------------------- |
-| `upgrade` | `nmr-report-overrides && nmr-taze --include-locked --recursive` |
+| Command   | Runs                                           |
+| --------- | ---------------------------------------------- |
+| `upgrade` | `nmr-report-overrides && nmr-taze --recursive` |
 
 See [dependency upgrades](#dependency-upgrades) for the workflow and its configuration.
 
@@ -713,7 +718,7 @@ These scripts operate on root-level code only (not workspace packages):
 | `root:test:tool`   | `vitest --config ./vitest.root.config.ts --project tool`                |
 | `root:test:unit`   | `vitest --config ./vitest.root.config.ts --project unit`                |
 | `root:typecheck`   | `tsgo --noEmit`                                                         |
-| `root:upgrade`     | `nmr-report-overrides && nmr-taze --include-locked`                     |
+| `root:upgrade`     | `nmr-report-overrides && nmr-taze`                                      |
 
 #### Utilities
 
@@ -865,7 +870,7 @@ Run the [taze](https://github.com/antfu-collective/taze) dependency-upgrade tool
 Under pnpm's isolated `node_modules`, a transitive package's binary is absent from the consuming repo's `node_modules/.bin`, so a repo that depends on nmr cannot run `taze` directly. `nmr-taze` can, because nmr is a direct dependency, and it resolves the tool from the tree nmr controls.
 
 ```bash
-nmr-taze --include-locked --recursive
+nmr-taze --recursive
 ```
 
 ### `ensure-prepublish-hooks`
