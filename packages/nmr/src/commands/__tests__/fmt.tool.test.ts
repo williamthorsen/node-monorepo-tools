@@ -202,7 +202,6 @@ describe(runPrettier, () => {
   });
 });
 
-/** Writes a stand-in for the Prettier CLI that appends its arguments as one JSON line per invocation. */
 /** Creates the stub tree carrying a recorder that exits 0, which most cases in the block take as given. */
 function scaffoldStub(): TempTree {
   const tree = createTempTree({}, { prefix: 'nmr-fmt-stub-' });
@@ -211,6 +210,7 @@ function scaffoldStub(): TempTree {
   return tree;
 }
 
+/** Writes a stand-in for the Prettier CLI that appends its arguments as one JSON line per invocation. */
 function writeRecordingStub(cliPath: string, recordPath: string, exitCode: number): void {
   const source = [
     "const fs = require('node:fs');",

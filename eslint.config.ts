@@ -81,6 +81,12 @@ const config = defineConfig([
     // binding, so every describe-nested `it(...)` is a false positive. Delete this block when the upstream fix
     // lands: https://github.com/vitest-dev/eslint-plugin-vitest/issues/956
     //
+    // The narrower alternative is to root each chain at `it` (`import { it as baseIt }`) and disable the rule on
+    // the `.extend` line alone, which `@williamthorsen/toolbelt.vitest`'s README describes and which keeps the
+    // rule live on the rest of each file. This repo takes the wholesale form so that its suites read the same as
+    // `workshop`'s, which carries the identical block; the cost is that a `test(...)` written inside a `describe`
+    // goes unreported in every file listed here.
+    //
     // The list grows per converted suite rather than the preamble collapsing into a shared helper: an imported
     // `it` traces back to no vitest export, at which point the plugin stops applying every vitest rule to the file.
     files: [

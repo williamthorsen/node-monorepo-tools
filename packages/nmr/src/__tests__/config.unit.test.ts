@@ -8,13 +8,6 @@ import { describe, expect, test } from 'vitest';
 import { loadConfig, loadRootConfig, loadWorkspaceConfig } from '../config.ts';
 import { UserError } from '../UserError.ts';
 
-/** Writes a config file into `dir/.config/nmr.config.ts`, creating the directory. */
-function writeConfig(dir: string, source: string): void {
-  const configDir = path.join(dir, '.config');
-  fs.mkdirSync(configDir, { recursive: true });
-  fs.writeFileSync(path.join(configDir, 'nmr.config.ts'), source);
-}
-
 const it = test.extend(
   'tree',
   makeFixture(() => createTempTree({}, { prefix: 'nmr-config-' })),
@@ -321,3 +314,14 @@ describe(loadRootConfig, () => {
     );
   });
 });
+
+// region | Helpers
+
+/** Writes a config file into `dir/.config/nmr.config.ts`, creating the directory. */
+function writeConfig(dir: string, source: string): void {
+  const configDir = path.join(dir, '.config');
+  fs.mkdirSync(configDir, { recursive: true });
+  fs.writeFileSync(path.join(configDir, 'nmr.config.ts'), source);
+}
+
+// endregion | Helpers

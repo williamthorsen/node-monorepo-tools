@@ -9,8 +9,6 @@ import { checkWorkTypesDrift } from '../checkWorkTypesDrift.ts';
 
 const FIXTURE_URL = 'https://test.example/work-types.json';
 
-const LOCAL_BASENAME = 'work-types.json';
-
 const SAMPLE_DATA = {
   tiers: ['public', 'internal', 'process'],
   types: [
@@ -25,15 +23,6 @@ const SAMPLE_DATA = {
   ],
 };
 
-/** Build a `Response`-like object the helper can consume. */
-function makeResponse(init: { status: number; statusText?: string; body: string }): Response {
-  const responseInit: ResponseInit = {
-    status: init.status,
-    statusText: init.statusText ?? 'OK',
-  };
-  return new Response(init.body, responseInit);
-}
-
 const it = test
   .extend(
     'tree',
@@ -44,7 +33,7 @@ const it = test
       ),
     ),
   )
-  .extend('localPath', ({ tree }) => join(tree.dir, LOCAL_BASENAME));
+  .extend('localPath', ({ tree }) => join(tree.dir, 'work-types.json'));
 
 describe(checkWorkTypesDrift, () => {
   beforeEach(() => {
@@ -181,3 +170,16 @@ describe(checkWorkTypesDrift, () => {
     });
   });
 });
+
+// region | Helpers
+
+/** Build a `Response`-like object the helper can consume. */
+function makeResponse(init: { status: number; statusText?: string; body: string }): Response {
+  const responseInit: ResponseInit = {
+    status: init.status,
+    statusText: init.statusText ?? 'OK',
+  };
+  return new Response(init.body, responseInit);
+}
+
+// endregion | Helpers

@@ -1,7 +1,6 @@
 import { chmodSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import type { TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
@@ -23,35 +22,6 @@ const SAMPLE_DATA = {
     },
   ],
 };
-
-/** Build a `Response`-like object the helper can consume. */
-/**
- * Creates a temporary tree that restores its own write permission before disposal. Disposal is a bare recursive
- * remove, and a directory a test left read-only cannot have its entries unlinked until the mode is restored.
- */
-function makeRestorableTree(): TempTree {
-  const tree = createTempTree({}, { prefix: 'work-types-sync-' });
-
-  return {
-    ...tree,
-    [Symbol.dispose]() {
-      try {
-        chmodSync(tree.dir, 0o755);
-      } catch {
-        // The directory may already be writable.
-      }
-      tree[Symbol.dispose]();
-    },
-  };
-}
-
-function makeResponse(init: { status: number; statusText?: string; body: string }): Response {
-  const responseInit: ResponseInit = {
-    status: init.status,
-    statusText: init.statusText ?? 'OK',
-  };
-  return new Response(init.body, responseInit);
-}
 
 const it = test
   .extend(
@@ -222,3 +192,36 @@ describe(syncWorkTypes, () => {
     });
   });
 });
+
+// region | Helpers
+
+/** Build a `Response`-like object the helper can consume. */
+function makeResponse(init: { status: number; statusText?: string; body: string }): Response {
+  const responseInit: ResponseInit = {
+    status: init.status,
+    statusText: init.statusText ?? 'OK',
+  };
+  return new Response(init.body, responseInit);
+}
+
+/**
+ * Creates a temporary tree that restores its own write permission before disposal. Disposal is a bare recursive
+ * remove, and a directory a test left read-only cannot have its entries unlinked until the mode is restored.
+ */
+function makeRestorableTree(): Disposable & { dir: string } {
+  const tree = createTempTree({}, { prefix: 'work-types-sync-' });
+
+  return {
+    dir: tree.dir,
+    [Symbol.dispose]() {
+      try {
+        chmodSync(tree.dir, 0o755);
+      } catch {
+        // The directory may already be writable.
+      }
+      tree[Symbol.dispose]();
+    },
+  };
+}
+
+// endregion | Helpers
