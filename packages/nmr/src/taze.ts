@@ -13,10 +13,17 @@ export type TazeConfig = { [K in keyof CheckOptions]?: CheckOptions[K] | undefin
  * Upgrade policy nmr applies to every consumer, so a repo's own config carries only what is local to it.
  */
 const SHARED_POLICY: TazeConfig = {
+  // Report a dependency pinned to a bare version, which a repo using pnpm's `savePrefix: ''` declares for
+  // every one of them. Load-bearing only alongside `mode`: taze 20.0.1 dropped the fallback that re-searched
+  // such a dependency at `minor`, so either setting alone leaves the repo reporting itself up to date.
+  includeLocked: true,
   // Quarantine brand-new releases for a week as supply-chain hygiene. Declaring it at all is also what
   // stops taze from inheriting pnpm's shorter `minimumReleaseAge`; the `minimumReleaseAgeExclude` list is
   // inherited either way, so first-party packages stay exempt.
   maturityPeriod: 7,
+  // Search a pinned dependency's minors, which the range it declares does not admit. Widens a `~` range to
+  // `^` as well, and confines a `packageMode` entry to the passes whose mode matches it.
+  mode: 'minor',
 };
 
 /**
