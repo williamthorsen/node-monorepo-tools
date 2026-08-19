@@ -43,9 +43,8 @@ var workspaceScripts = {
   "test:unit": "pnpm exec vitest --project unit",
   "test:watch": `pnpm exec vitest ${GATE_PROJECTS} --watch`,
   typecheck: "tsgo --noEmit",
-  // Without `--include-locked`, nothing would be reported in a repo that pins exact version numbers. The
-  // command is a string because neither half names an nmr command: both are binaries.
-  upgrade: "nmr-report-catalog && nmr-taze --include-locked",
+  // The command is a string because neither half names an nmr command: both are binaries.
+  upgrade: "nmr-report-catalog && nmr-taze",
   "view-coverage": "open coverage/index.html"
 };
 var rootScripts = {
@@ -81,7 +80,7 @@ var rootScripts = {
   "root:typecheck": "tsgo --noEmit",
   // Carries the override report for the same reason `upgrade` does: both end in the tool that rewrites a
   // `pnpm.overrides` block, so both need the reporter's rejection ahead of them.
-  "root:upgrade": "nmr-report-overrides && nmr-taze --include-locked",
+  "root:upgrade": "nmr-report-overrides && nmr-taze",
   test: ["root:test", "-R test"],
   "test:all": ["root:test:all", "-R test:all"],
   "test:coverage": ["root:test", "-R test:coverage"],
@@ -93,7 +92,7 @@ var rootScripts = {
   typecheck: [ROOT_TYPECHECK_STEP, { run: "-R typecheck", declinesArgs: true }],
   // The command is a string because neither half names an nmr command: both are binaries, and a composite
   // element can name only a command.
-  upgrade: "nmr-report-overrides && nmr-taze --include-locked --recursive"
+  upgrade: "nmr-report-overrides && nmr-taze --recursive"
 };
 
 // src/resolve-scripts.ts
@@ -272,6 +271,13 @@ var default_default = defineRdyKit({
           check: () => prettierConfigBuildsOnSharedConfig(),
           fix: "Replace the Prettier config with: import { definePrettierConfig } from '@williamthorsen/nmr/prettier'; export default definePrettierConfig();"
         },
+        // -- Shared upgrade policy -----------------------------------------------
+        {
+          name: "taze.config.ts builds on @williamthorsen/nmr/taze",
+          severity: "warn",
+          check: () => tazeConfigBuildsOnSharedConfig(),
+          fix: "Replace the taze config with: import { defineConfig } from '@williamthorsen/nmr/taze'; export default defineConfig(); \u2014 nmr's upgrade policy reaches a repo only through this file, so without it `nmr upgrade` reports nothing where dependencies are pinned to exact versions"
+        },
         // -- Audit dependency --------------------------------------------------------
         {
           name: "v11y-check in devDependencies",
@@ -303,6 +309,8 @@ var CONFIG_EXTENSIONS = "{ts,mts,cts,js,mjs,cjs}";
 var SHARED_VITEST_MODULE = "@williamthorsen/nmr/vitest";
 var SHARED_PRETTIER_MODULE = "@williamthorsen/nmr/prettier";
 var INERT_PRETTIER_CONFIGS = [".prettierrc", ".prettierrc.{json,json5,yaml,yml,toml}"];
+var SHARED_TAZE_MODULE = "@williamthorsen/nmr/taze";
+var INERT_TAZE_CONFIGS = [".tazerc", ".tazerc.json", "taze.config.json"];
 var RE_EXPORT_LINE_PATTERN = /^export\s*(?:\{\s*default\s*}|\*)\s*from\s*['"]\.\.\/[^'"]*['"];?$/;
 var MIN_ESLINT_VERSION = "10.0.0";
 var MIN_STRICT_LINT_VERSION = "9.3.0";
@@ -495,6 +503,22 @@ function readPnpmFieldKeys(content) {
 function resolvesVersionViaWorkspace(range) {
   return WORKSPACE_VERSION_MARKERS.some((marker) => range.startsWith(marker));
 }
+function tazeConfigBuildsOnSharedConfig(cwd = process.cwd()) {
+  const configs = findFiles([`taze.config.${CONFIG_EXTENSIONS}`], cwd);
+  if (configs.length === 0) {
+    return { ok: false, detail: describeMissingTazeConfig(cwd) };
+  }
+  const stale = configs.filter(
+    (relativePath) => !importsSharedExport(readFileIn(cwd, relativePath), "defineConfig", SHARED_TAZE_MODULE)
+  );
+  if (stale.length === 0) return true;
+  return { ok: false, detail: `does not import defineConfig from ${SHARED_TAZE_MODULE}: ${stale.join(", ")}` };
+}
+function describeMissingTazeConfig(cwd) {
+  const inert = findFiles(INERT_TAZE_CONFIGS, cwd);
+  if (inert.length > 0) return `holds no code to call the factory: ${inert.join(", ")}`;
+  return "taze.config.ts is missing";
+}
 function toolVersionsHasNoPnpm() {
   const content = readFile(".tool-versions");
   if (content === void 0) return true;
@@ -515,6 +539,7 @@ export {
   noReExportOnlyVitestConfigs,
   noRetiredVitestConfigs,
   prettierConfigBuildsOnSharedConfig,
+  tazeConfigBuildsOnSharedConfig,
   vitestConfigBuildsOnSharedConfig,
   vitestRootConfigBuildsOnSharedConfig
 };

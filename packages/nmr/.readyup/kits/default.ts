@@ -173,6 +173,14 @@ export default defineRdyKit({
           fix: "Replace the Prettier config with: import { definePrettierConfig } from '@williamthorsen/nmr/prettier'; export default definePrettierConfig();",
         },
 
+        // -- Shared upgrade policy -----------------------------------------------
+        {
+          name: 'taze.config.ts builds on @williamthorsen/nmr/taze',
+          severity: 'warn',
+          check: () => tazeConfigBuildsOnSharedConfig(),
+          fix: "Replace the taze config with: import { defineConfig } from '@williamthorsen/nmr/taze'; export default defineConfig(); — nmr's upgrade policy reaches a repo only through this file, so without it `nmr upgrade` reports nothing where dependencies are pinned to exact versions",
+        },
+
         // -- Audit dependency --------------------------------------------------------
         {
           name: 'v11y-check in devDependencies',
@@ -215,6 +223,11 @@ const SHARED_PRETTIER_MODULE = '@williamthorsen/nmr/prettier';
 
 /** Prettier config forms that hold data rather than code, so none of them can call a factory. */
 const INERT_PRETTIER_CONFIGS = ['.prettierrc', '.prettierrc.{json,json5,yaml,yml,toml}'];
+
+const SHARED_TAZE_MODULE = '@williamthorsen/nmr/taze';
+
+/** taze config forms that hold data rather than code, so none of them can call a factory. */
+const INERT_TAZE_CONFIGS = ['.tazerc', '.tazerc.json', 'taze.config.json'];
 
 /** Matches a line whose only content is a re-export from an ancestor directory. */
 const RE_EXPORT_LINE_PATTERN = /^export\s*(?:\{\s*default\s*}|\*)\s*from\s*['"]\.\.\/[^'"]*['"];?$/;
@@ -566,6 +579,37 @@ function readPnpmFieldKeys(content: string | undefined): string[] | undefined {
 /** Reports whether a range defers to a workspace-level declaration instead of naming a version. */
 function resolvesVersionViaWorkspace(range: string): boolean {
   return WORKSPACE_VERSION_MARKERS.some((marker) => range.startsWith(marker));
+}
+
+/**
+ * Checks that the repo's taze config is present and built on the shared config from nmr.
+ *
+ * Absence fails rather than skipping: taze reads no config at all without one, so the repo silently loses
+ * both the release-maturity soak and the pair of settings that report a dependency pinned to a bare version.
+ * A config in one of the data-only forms fails the same way, being unable to call a factory.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function tazeConfigBuildsOnSharedConfig(cwd: string = process.cwd()): boolean | CheckOutcome {
+  const configs = findFiles([`taze.config.${CONFIG_EXTENSIONS}`], cwd);
+
+  if (configs.length === 0) {
+    return { ok: false, detail: describeMissingTazeConfig(cwd) };
+  }
+
+  const stale = configs.filter(
+    (relativePath) => !importsSharedExport(readFileIn(cwd, relativePath), 'defineConfig', SHARED_TAZE_MODULE),
+  );
+  if (stale.length === 0) return true;
+  return { ok: false, detail: `does not import defineConfig from ${SHARED_TAZE_MODULE}: ${stale.join(', ')}` };
+}
+
+/** Names the data-only config standing in for an executable one, so the fix says what to convert. */
+function describeMissingTazeConfig(cwd: string): string {
+  const inert = findFiles(INERT_TAZE_CONFIGS, cwd);
+  if (inert.length > 0) return `holds no code to call the factory: ${inert.join(', ')}`;
+
+  return 'taze.config.ts is missing';
 }
 
 /** Checks that .tool-versions does not list pnpm. Pass if the file is absent. */
