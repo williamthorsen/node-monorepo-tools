@@ -1,9 +1,9 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { disposeOnTestFinished, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { reportOverrides } from '../report-overrides.ts';
 
@@ -11,11 +11,7 @@ describe(reportOverrides, () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-report-test-'));
-  });
-
-  afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true });
+    tmpDir = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-report-test-' })).dir;
   });
 
   it('does nothing when no overrides exist', () => {

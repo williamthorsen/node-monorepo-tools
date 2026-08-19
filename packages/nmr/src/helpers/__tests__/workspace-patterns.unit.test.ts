@@ -1,8 +1,9 @@
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { resolvePackageDirs } from '../workspace-patterns.ts';
 
@@ -20,11 +21,7 @@ describe(resolvePackageDirs, () => {
   }
 
   beforeEach(() => {
-    root = mkdtempSync(path.join(tmpdir(), 'nmr-workspace-patterns-'));
-  });
-
-  afterEach(() => {
-    rmSync(root, { recursive: true, force: true });
+    root = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-workspace-patterns-' })).dir;
   });
 
   it('resolves a single-level glob to the directories holding a manifest', () => {
