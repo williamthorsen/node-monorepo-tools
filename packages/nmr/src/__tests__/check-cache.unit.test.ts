@@ -1,9 +1,10 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { CheckCacheEntry, TreeSnapshot } from '../check-cache.ts';
 import {
@@ -33,12 +34,8 @@ describe('check-cache', () => {
   let root: string;
 
   beforeEach(() => {
-    root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-check-cache-')));
+    root = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-check-cache-' })).dir;
     fs.mkdirSync(path.join(root, 'node_modules'), { recursive: true });
-  });
-
-  afterEach(() => {
-    fs.rmSync(root, { recursive: true, force: true });
   });
 
   describe(resolveCacheableCommands, () => {

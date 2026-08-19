@@ -1,8 +1,9 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { CheckCacheEntry } from '../check-cache.ts';
 import { recordTranscript, writeCheckCacheEntry } from '../check-cache.ts';
@@ -25,12 +26,8 @@ describe('a recording', () => {
   let root: string;
 
   beforeEach(() => {
-    root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-recording-')));
+    root = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-recording-' })).dir;
     fs.mkdirSync(path.join(root, 'node_modules'), { recursive: true });
-  });
-
-  afterEach(() => {
-    fs.rmSync(root, { recursive: true, force: true });
   });
 
   describe(resolveRecording, () => {

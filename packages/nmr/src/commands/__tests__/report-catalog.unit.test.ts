@@ -1,9 +1,9 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { disposeOnTestFinished, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { reportCatalog } from '../report-catalog.ts';
 
@@ -11,12 +11,8 @@ describe(reportCatalog, () => {
   let monorepoRoot: string;
 
   beforeEach(() => {
-    monorepoRoot = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-report-catalog-test-')));
+    monorepoRoot = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-report-catalog-test-' })).dir;
     writeWorkspaceManifest();
-  });
-
-  afterEach(() => {
-    fs.rmSync(monorepoRoot, { recursive: true });
   });
 
   it('names every catalogued dependency, its specifier, and the root a covering pass runs from', () => {

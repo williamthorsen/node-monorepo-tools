@@ -1,8 +1,9 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { CheckCacheEntry, ReplayLine } from '../check-cache.ts';
 import { writeCheckCacheEntry } from '../check-cache.ts';
@@ -20,7 +21,7 @@ describe(assembleReplay, () => {
   let root: string;
 
   beforeEach(() => {
-    root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-assembly-')));
+    root = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-assembly-' })).dir;
     fs.mkdirSync(path.join(root, 'node_modules'), { recursive: true });
     fs.writeFileSync(path.join(root, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n");
     for (const name of ['a', 'b']) {
@@ -28,10 +29,6 @@ describe(assembleReplay, () => {
       fs.mkdirSync(packageDir, { recursive: true });
       fs.writeFileSync(path.join(packageDir, 'package.json'), JSON.stringify({ name }));
     }
-  });
-
-  afterEach(() => {
-    fs.rmSync(root, { recursive: true, force: true });
   });
 
   it('concatenates its constituents’ excerpts in the order its steps name them', async () => {

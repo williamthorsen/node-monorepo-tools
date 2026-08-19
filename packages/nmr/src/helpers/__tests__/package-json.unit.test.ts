@@ -1,8 +1,9 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { UserError } from '../../UserError.ts';
 import { readPackageJson } from '../package-json.ts';
@@ -15,11 +16,7 @@ describe(readPackageJson, () => {
   }
 
   beforeEach(() => {
-    dir = mkdtempSync(path.join(tmpdir(), 'nmr-pkgjson-'));
-  });
-
-  afterEach(() => {
-    rmSync(dir, { recursive: true, force: true });
+    dir = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-pkgjson-' })).dir;
   });
 
   it('parses the fields nmr reads', () => {

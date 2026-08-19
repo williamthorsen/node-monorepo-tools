@@ -1,12 +1,13 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { PassThrough } from 'node:stream';
 
 import { hashWorkingTree } from '@williamthorsen/nmr-core';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { CheckCacheEntry } from '../check-cache.ts';
 import { readCheckCacheEntry, RUN_ID_ENV_VAR, writeCheckCacheEntry } from '../check-cache.ts';
@@ -24,16 +25,12 @@ describe('the check-result cache gate', () => {
   let log: string;
 
   beforeEach(() => {
-    workspace = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-gate-')));
+    workspace = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-gate-' })).dir;
     repo = path.join(workspace, 'repo');
     // Outside the repository on purpose: a log inside it would be an untracked file, so every run would change
     // the very tree the run is being recorded against.
     log = path.join(workspace, 'log.txt');
     scaffoldRepo(repo, log);
-  });
-
-  afterEach(() => {
-    fs.rmSync(workspace, { recursive: true, force: true });
   });
 
   describe('a tree that has not changed', () => {

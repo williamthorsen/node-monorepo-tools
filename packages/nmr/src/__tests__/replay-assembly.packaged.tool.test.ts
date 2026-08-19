@@ -1,10 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { readCheckCacheEntry } from '../check-cache.ts';
 import { runCli } from '../runCli.ts';
@@ -20,13 +21,9 @@ describe('a composite’s assembled replay', () => {
 
   // A fixture per test, so each one decides for itself which of the fixture's commands are already warm.
   beforeEach(() => {
-    repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-assembly-e2e-')));
+    repo = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-assembly-e2e-' })).dir;
     scope = path.basename(repo);
     scaffoldRepo(repo);
-  });
-
-  afterEach(() => {
-    fs.rmSync(repo, { recursive: true, force: true });
   });
 
   it('records what its constituents wrote, in the order its steps name them', async () => {

@@ -1,6 +1,7 @@
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import type { MockInstance } from 'vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -47,7 +48,7 @@ describe(loadConfig, () => {
   beforeEach(() => {
     // A fresh directory per test. `import()` caches by URL for the process lifetime, so a reused fixture path would
     // replay the first config and pass every later case for the wrong reason.
-    tmpDir = actualFs.mkdtempSync(path.join(tmpdir(), 'release-kit-config-'));
+    tmpDir = disposeOnTestFinished(createTempTree({}, { prefix: 'release-kit-config-' })).dir;
     cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpDir);
     // Delegate to the real `existsSync`, so a mistyped fixture path surfaces as a missing config rather than as an
     // opaque module-resolution failure from the import.
@@ -58,7 +59,6 @@ describe(loadConfig, () => {
     cwdSpy.mockRestore();
     mockExistsSync.mockReset();
     mockReadFileSync.mockReset();
-    actualFs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
   it('returns undefined when the config file does not exist', async () => {

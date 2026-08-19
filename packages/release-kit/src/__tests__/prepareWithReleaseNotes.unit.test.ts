@@ -1,8 +1,9 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { planReleaseNotesPreviews } from '../planReleaseNotesPreviews.ts';
 import { applyReleasePlan } from '../releasePlan.ts';
@@ -45,12 +46,8 @@ describe(planReleaseNotesPreviews, () => {
   let tempDir: string;
 
   beforeEach(() => {
-    tempDir = mkdtempSync(join(tmpdir(), 'prepare-with-release-notes-'));
+    tempDir = disposeOnTestFinished(createTempTree({}, { prefix: 'prepare-with-release-notes-' })).dir;
     writeFileSync(join(tempDir, 'README.md'), readmeWithMarker, 'utf8');
-  });
-
-  afterEach(() => {
-    rmSync(tempDir, { recursive: true, force: true });
   });
 
   /** Plan the previews for the fixture release, then apply them as the CLI boundary would. */

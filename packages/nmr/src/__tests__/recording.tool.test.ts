@@ -1,10 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { RUN_IF_PRESENT_ENV_VAR, runCli } from '../runCli.ts';
 import { readAmbientEnv } from '../test-utils/readAmbientEnv.ts';
@@ -21,16 +22,12 @@ describe('a run printed by --log', () => {
   let log: string;
 
   beforeEach(() => {
-    workspace = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'nmr-log-')));
+    workspace = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-log-' })).dir;
     repo = path.join(workspace, 'repo');
     // Outside the repository on purpose: a log inside it would be an untracked file, so every run would change
     // the very tree the run is being recorded against.
     log = path.join(workspace, 'log.txt');
     scaffoldRepo(repo, log);
-  });
-
-  afterEach(() => {
-    fs.rmSync(workspace, { recursive: true, force: true });
   });
 
   describe('given a pass recorded on this tree', () => {
