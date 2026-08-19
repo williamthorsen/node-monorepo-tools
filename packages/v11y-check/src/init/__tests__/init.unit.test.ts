@@ -1,27 +1,20 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
+import { disposeOnTestFinished, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { initCommand } from '../initCommand.ts';
 import { scaffoldConfig, scaffoldFiles, scaffoldWorkflow } from '../scaffold.ts';
 
 describe(scaffoldConfig, () => {
-  let originalCwd: string;
   let tempDir: string;
 
   beforeEach(() => {
-    originalCwd = process.cwd();
-    tempDir = path.join(tmpdir(), `v11y-check-init-test-${Date.now()}`);
-    mkdirSync(tempDir, { recursive: true });
-    process.chdir(tempDir);
-  });
-
-  afterEach(() => {
-    process.chdir(originalCwd);
-    rmSync(tempDir, { recursive: true, force: true });
+    tempDir = disposeOnTestFinished(createTempTree({}, { prefix: 'v11y-check-init-test-' })).dir;
+    disposeOnTestFinished(pointCwdAt(tempDir, { chdir: true }));
   });
 
   it('creates config file with severityThreshold and $schema', () => {
@@ -75,19 +68,11 @@ describe(scaffoldConfig, () => {
 });
 
 describe(scaffoldWorkflow, () => {
-  let originalCwd: string;
   let tempDir: string;
 
   beforeEach(() => {
-    originalCwd = process.cwd();
-    tempDir = path.join(tmpdir(), `v11y-check-workflow-test-${Date.now()}`);
-    mkdirSync(tempDir, { recursive: true });
-    process.chdir(tempDir);
-  });
-
-  afterEach(() => {
-    process.chdir(originalCwd);
-    rmSync(tempDir, { recursive: true, force: true });
+    tempDir = disposeOnTestFinished(createTempTree({}, { prefix: 'v11y-check-workflow-test-' })).dir;
+    disposeOnTestFinished(pointCwdAt(tempDir, { chdir: true }));
   });
 
   it('creates workflow file matching the bundled template', () => {
@@ -147,19 +132,11 @@ describe(scaffoldWorkflow, () => {
 });
 
 describe(scaffoldFiles, () => {
-  let originalCwd: string;
   let tempDir: string;
 
   beforeEach(() => {
-    originalCwd = process.cwd();
-    tempDir = path.join(tmpdir(), `v11y-check-scaffold-files-test-${Date.now()}`);
-    mkdirSync(tempDir, { recursive: true });
-    process.chdir(tempDir);
-  });
-
-  afterEach(() => {
-    process.chdir(originalCwd);
-    rmSync(tempDir, { recursive: true, force: true });
+    tempDir = disposeOnTestFinished(createTempTree({}, { prefix: 'v11y-check-scaffold-files-test-' })).dir;
+    disposeOnTestFinished(pointCwdAt(tempDir, { chdir: true }));
   });
 
   it('writes both the config and the workflow', () => {
@@ -177,21 +154,12 @@ describe(scaffoldFiles, () => {
 });
 
 describe(initCommand, () => {
-  let originalCwd: string;
   let tempDir: string;
 
   beforeEach(() => {
-    originalCwd = process.cwd();
-    tempDir = path.join(tmpdir(), `v11y-check-initcmd-test-${Date.now()}`);
-    mkdirSync(tempDir, { recursive: true });
-    process.chdir(tempDir);
-    silenceConsole(['info']);
-  });
-
-  afterEach(() => {
-    process.chdir(originalCwd);
-    rmSync(tempDir, { recursive: true, force: true });
-    vi.restoreAllMocks();
+    tempDir = disposeOnTestFinished(createTempTree({}, { prefix: 'v11y-check-initcmd-test-' })).dir;
+    disposeOnTestFinished(pointCwdAt(tempDir, { chdir: true }));
+    disposeOnTestFinished(silenceConsole(['info']));
   });
 
   it('returns 0 and writes both files on successful scaffold', () => {

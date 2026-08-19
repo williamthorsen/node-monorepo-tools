@@ -1,8 +1,10 @@
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { afterEach, assert, beforeEach, describe, expect, it } from 'vitest';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { assert, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   applyChangelogOverrides,
@@ -23,12 +25,7 @@ describe(loadChangelogOverrides, () => {
   let tempDir: string;
 
   beforeEach(() => {
-    tempDir = join(tmpdir(), `test-overrides-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-    mkdirSync(tempDir, { recursive: true });
-  });
-
-  afterEach(() => {
-    rmSync(tempDir, { recursive: true, force: true });
+    tempDir = disposeOnTestFinished(createTempTree({}, { prefix: 'test-overrides-' })).dir;
   });
 
   it('returns an empty map when the file does not exist', () => {
@@ -340,12 +337,7 @@ describe(loadOverridesForScopes, () => {
   let tempDir: string;
 
   beforeEach(() => {
-    tempDir = join(tmpdir(), `test-overrides-scopes-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-    mkdirSync(tempDir, { recursive: true });
-  });
-
-  afterEach(() => {
-    rmSync(tempDir, { recursive: true, force: true });
+    tempDir = disposeOnTestFinished(createTempTree({}, { prefix: 'test-overrides-scopes-' })).dir;
   });
 
   it('returns empty maps when no scopes are requested', () => {
@@ -587,12 +579,7 @@ describe(validateAllChangelogOverrides, () => {
   let tempDir: string;
 
   beforeEach(() => {
-    tempDir = join(tmpdir(), `test-validate-overrides-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-    mkdirSync(tempDir, { recursive: true });
-  });
-
-  afterEach(() => {
-    rmSync(tempDir, { recursive: true, force: true });
+    tempDir = disposeOnTestFinished(createTempTree({}, { prefix: 'test-validate-overrides-' })).dir;
   });
 
   function writeOverrides(scopeDir: string, contents: string): string {
@@ -830,19 +817,11 @@ describe(validateAllChangelogOverrides, () => {
 });
 
 describe(createOverrideContext, () => {
-  let originalCwd: string;
   let tempDir: string;
 
   beforeEach(() => {
-    originalCwd = process.cwd();
-    tempDir = join(tmpdir(), `test-create-context-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-    mkdirSync(tempDir, { recursive: true });
-    process.chdir(tempDir);
-  });
-
-  afterEach(() => {
-    process.chdir(originalCwd);
-    rmSync(tempDir, { recursive: true, force: true });
+    tempDir = disposeOnTestFinished(createTempTree({}, { prefix: 'test-create-context-' })).dir;
+    disposeOnTestFinished(pointCwdAt(tempDir, { chdir: true }));
   });
 
   function makeWorkspace(workspacePath: string): WorkspaceConfig {
