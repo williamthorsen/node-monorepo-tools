@@ -86,7 +86,7 @@
     "@williamthorsen/toolbelt.testing": "catalog:",
     "@williamthorsen/toolbelt.vitest": "catalog:",
     "prettier": "3.9.6",
-    "readyup": "0.29.0",
+    "readyup": "catalog:",
     "tinyglobby": "0.2.17",
     "typescript": "6.0.3",
     "vitest": "4.1.10"

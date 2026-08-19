@@ -69,7 +69,7 @@
     "@williamthorsen/toolbelt.filesystem": "catalog:",
     "@williamthorsen/toolbelt.testing": "catalog:",
     "@williamthorsen/toolbelt.vitest": "catalog:",
-    "readyup": "0.29.0",
+    "readyup": "catalog:",
     "smol-toml": "1.8.0"
   },
   "engines": {

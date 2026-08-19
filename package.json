@@ -45,7 +45,7 @@
     "eslint-plugin-import": "2.32.0",
     "lefthook": "2.1.10",
     "prettier": "3.9.6",
-    "readyup": "0.29.0",
+    "readyup": "catalog:",
     "typescript": "6.0.3",
     "typescript-eslint": "8.67.0",
     "v11y-check": "workspace:*",

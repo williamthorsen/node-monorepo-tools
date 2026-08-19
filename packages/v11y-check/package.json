@@ -58,7 +58,7 @@
     "@williamthorsen/toolbelt.filesystem": "catalog:",
     "@williamthorsen/toolbelt.testing": "catalog:",
     "@williamthorsen/toolbelt.vitest": "catalog:",
-    "readyup": "0.29.0"
+    "readyup": "catalog:"
   },
   "engines": {
     "node": ">=24"
