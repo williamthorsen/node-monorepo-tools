@@ -1,5 +1,33 @@
 [
   {
+    "version": "0.33.0",
+    "date": "2026-08-20",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Drop the coverage step from the `check:strict` gate (#727)",
+            "body": "Drops the coverage step from `check:strict` in both the workspace and root registries: The gate now runs `test` rather than `test:coverage`.\n\nCoverage is still available as `nmr test:coverage`, run as a separate step.",
+            "hash": "90bb8b10021dca6ba4fef1563e6460b6c114ab40"
+          }
+        ]
+      },
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Convert the shared temporary directories to file-scoped fixtures (#722)",
+            "body": "Converts the `nmr` suites whose temporary directory outlives a single test to take it as a file-scoped Vitest fixture built on `createTempTree`. A builder that runs a program before handing over its tree (a TypeScript compile or a child Vitest run) holds the tree in a `DisposableStack` and transfers ownership only past the last statement that can throw, which is what removes the directory when that run fails.\n\nSeparately, `build.tool.test.ts` takes its per-test directories as a test-scoped fixture and registers its console silencers through `disposeOnTestFinished`.",
+            "hash": "9fe6c9a416f5e29b6b477dde3942d0bfb64fd8bc"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.32.2",
     "date": "2026-08-19",
     "sections": [

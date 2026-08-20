@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.33.0 — 2026-08-20
+
+### 🎉 Features
+
+- Drop the coverage step from the `check:strict` gate (#727)
+
+  Drops the coverage step from `check:strict` in both the workspace and root registries: The gate now runs `test` rather than `test:coverage`.
+
+  Coverage is still available as `nmr test:coverage`, run as a separate step.
+
+### 🧪 Tests
+
+- Convert the shared temporary directories to file-scoped fixtures (#722)
+
+  Converts the `nmr` suites whose temporary directory outlives a single test to take it as a file-scoped Vitest fixture built on `createTempTree`. A builder that runs a program before handing over its tree (a TypeScript compile or a child Vitest run) holds the tree in a `DisposableStack` and transfers ownership only past the last statement that can throw, which is what removes the directory when that run fails.
+
+  Separately, `build.tool.test.ts` takes its per-test directories as a test-scoped fixture and registers its console silencers through `disposeOnTestFinished`.
+
 ## 0.32.2 — 2026-08-19
 
 ### 🐛 Bug fixes

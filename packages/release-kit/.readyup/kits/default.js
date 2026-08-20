@@ -52,7 +52,7 @@ function detectRepoType() {
 
 // .readyup/kits/default.ts
 function getMinVersion() {
-  const picked = { "version": "10.4.2" };
+  const picked = { "version": "10.4.3" };
   if (typeof picked["version"] !== "string") {
     throw new TypeError("release-kit/package.json: 'version' must be a string");
   }

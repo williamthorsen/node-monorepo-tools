@@ -1,5 +1,27 @@
 [
   {
+    "version": "10.4.3",
+    "date": "2026-08-20",
+    "sections": [
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Register the working directory for disposal alongside the tree it points into (#724)",
+            "body": "Converts the `release-kit` and `v11y-check` suites that run from inside a temporary directory to `createTempTree` and `pointCwdAt`, registered through `disposeOnTestFinished` or scoped with `using`. Reverse-order disposal now restores the working directory before removing the tree it pointed into, which each suite previously had to sequence by hand.",
+            "hash": "6d3a42a33913ae9900b8a2d106329dcf690941e6"
+          },
+          {
+            "description": "Route the remaining hand-built temporary directories through createTempTree (#725)",
+            "body": "Replaces the hand-built temporary directories in the `release-kit` and `v11y-check` test suites with a `createTempTree` fixture, dropping the `beforeEach`/`afterEach` pairs that created and removed them.",
+            "hash": "92e76397f6f5ef3068b7f4805599fd090f930f7d"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "10.4.2",
     "date": "2026-08-19",
     "sections": [

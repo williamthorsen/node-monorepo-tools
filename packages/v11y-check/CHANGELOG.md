@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.15.6 — 2026-08-20
+
+### 🧪 Tests
+
+- Register the working directory for disposal alongside the tree it points into (#724)
+
+  Converts the `release-kit` and `v11y-check` suites that run from inside a temporary directory to `createTempTree` and `pointCwdAt`, registered through `disposeOnTestFinished` or scoped with `using`. Reverse-order disposal now restores the working directory before removing the tree it pointed into, which each suite previously had to sequence by hand.
+
+- Route the remaining hand-built temporary directories through createTempTree (#725)
+
+  Replaces the hand-built temporary directories in the `release-kit` and `v11y-check` test suites with a `createTempTree` fixture, dropping the `beforeEach`/`afterEach` pairs that created and removed them.
+
 ## 0.15.5 — 2026-08-19
 
 ### 🧪 Tests
