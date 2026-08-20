@@ -1,11 +1,18 @@
-import { mkdir, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { describe, expect, it as baseIt } from 'vitest';
 
 import { buildFlatConfig, generateAuditCiConfig } from '../generate.ts';
 import type { ScopeConfig } from '../types.ts';
+
+// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
+const it = baseIt.extend(
+  'tree',
+  makeFixture(() => createTempTree({}, { prefix: 'v11y-check-generate-test-' })),
+);
 
 describe(buildFlatConfig, () => {
   it('flattens allowlist entries to an array of IDs', () => {
@@ -68,33 +75,22 @@ describe(buildFlatConfig, () => {
 });
 
 describe(generateAuditCiConfig, () => {
-  let tempDir: string;
-
-  beforeEach(async () => {
-    tempDir = path.join(tmpdir(), `v11y-check-generate-test-${Date.now()}`);
-    await mkdir(tempDir, { recursive: true });
-  });
-
-  afterEach(async () => {
-    await rm(tempDir, { recursive: true, force: true });
-  });
-
-  it('writes the flat config file to the output directory', async () => {
+  it('writes the flat config file to the output directory', async ({ tree }) => {
     const scopeConfig: ScopeConfig = { allowlist: [], severityThreshold: 'moderate' };
-    const outputPath = await generateAuditCiConfig(scopeConfig, 'dev', tempDir);
+    const outputPath = await generateAuditCiConfig(scopeConfig, 'dev', tree.dir);
 
-    expect(outputPath).toBe(path.join(tempDir, 'audit-ci.dev.json'));
+    expect(outputPath).toBe(path.join(tree.dir, 'audit-ci.dev.json'));
     const content: unknown = JSON.parse(await readFile(outputPath, 'utf8'));
     expect(content).toHaveProperty('allowlist', []);
     expect(content).toHaveProperty('moderate', true);
   });
 
-  it('round-trips: config values appear in generated JSON', async () => {
+  it('round-trips: config values appear in generated JSON', async ({ tree }) => {
     const scopeConfig: ScopeConfig = {
       allowlist: [{ id: 'GHSA-abcd', path: 'pkg', url: 'https://example.com' }],
       severityThreshold: 'critical',
     };
-    const outputPath = await generateAuditCiConfig(scopeConfig, 'dev', tempDir);
+    const outputPath = await generateAuditCiConfig(scopeConfig, 'dev', tree.dir);
     const content: unknown = JSON.parse(await readFile(outputPath, 'utf8'));
 
     expect(content).toHaveProperty('allowlist', ['GHSA-abcd']);

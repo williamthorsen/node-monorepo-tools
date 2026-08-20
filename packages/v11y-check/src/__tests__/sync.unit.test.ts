@@ -1,8 +1,9 @@
-import { mkdir, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { describe, expect, it as baseIt } from 'vitest';
 
 import {
   buildUpdatedConfig,
@@ -19,6 +20,12 @@ function makeAuditResult(overrides: Partial<AuditResult> & Pick<AuditResult, 'id
 }
 
 const fixedDate = new Date('2025-06-15T00:00:00Z');
+
+// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
+const it = baseIt.extend(
+  'tree',
+  makeFixture(() => createTempTree({}, { prefix: 'v11y-check-sync-test-' })),
+);
 
 describe(computeSyncDiff, () => {
   it('adds new advisories not in the current allowlist', () => {
@@ -237,23 +244,12 @@ describe(formatUtcDatetime, () => {
 });
 
 describe(syncAllowlist, () => {
-  let tempDir: string;
-
-  beforeEach(async () => {
-    tempDir = path.join(tmpdir(), `v11y-check-sync-test-${Date.now()}`);
-    await mkdir(tempDir, { recursive: true });
-  });
-
-  afterEach(async () => {
-    await rm(tempDir, { recursive: true, force: true });
-  });
-
-  it('writes updated config to disk after sync', async () => {
+  it('writes updated config to disk after sync', async ({ tree }) => {
     const config: V11yCheckConfig = {
       dev: { allowlist: [], severityThreshold: 'high' },
       prod: { allowlist: [] },
     };
-    const configPath = path.join(tempDir, 'config.json');
+    const configPath = path.join(tree.dir, 'config.json');
 
     const auditResults: AuditResult[] = [
       makeAuditResult({ id: '1001', path: 'lodash', url: 'https://example.com/1001' }),
@@ -271,12 +267,12 @@ describe(syncAllowlist, () => {
     expect(written).toHaveProperty('dev.severityThreshold', 'high');
   });
 
-  it('reports a failed config write with the underlying error as the cause', async () => {
+  it('reports a failed config write with the underlying error as the cause', async ({ tree }) => {
     const config: V11yCheckConfig = {
       dev: { allowlist: [], severityThreshold: 'high' },
       prod: { allowlist: [] },
     };
-    const configPath = path.join(tempDir, 'absent-directory', 'config.json');
+    const configPath = path.join(tree.dir, 'absent-directory', 'config.json');
 
     const promise = syncAllowlist(config, 'dev', [], configPath, fixedDate);
 
