@@ -297,7 +297,7 @@ A check that passed on a working tree passes again on the same working tree. nmr
 
 ```console
 $ nmr ci
-# ... four minutes of build, typecheck, lint, and coverage ...
+# ... four minutes of build, typecheck, lint, and tests ...
 
 $ nmr ci
 ⏭️ node-monorepo-tools: ci: passed 2m ago on this tree, saved ~4m
@@ -392,7 +392,7 @@ $ nmr check
 ⏭️ nmr-core: check: passed 3m ago on this tree, saved ~48s — replayed: nmr-core: fmt:check: All matched files use Prettier code style!; nmr-core: test: Test Files 6 passed (6) Tests 41 passed (41)
 ```
 
-The assembly is flat: a constituent that is itself a composite contributes its own leaves' lines, so a skipped `ci` replays a package's `test:coverage` rather than one opaque `check:strict` line. A delegate expands into the scopes it fans out to, and a constituent that recorded no excerpt is absent rather than inferred: `typecheck` and `lint:check` print nothing on success and contribute nothing above, and a command outside the [cacheable set](#what-is-cached) records nothing at all, so `ci` replays what `check:strict` earned and nothing for `build`.
+The assembly is flat: a constituent that is itself a composite contributes its own leaves' lines, so a skipped `ci` replays a package's `test` rather than one opaque `check:strict` line. A delegate expands into the scopes it fans out to, and a constituent that recorded no excerpt is absent rather than inferred: `typecheck` and `lint:check` print nothing on success and contribute nothing above, and a command outside the [cacheable set](#what-is-cached) records nothing at all, so `ci` replays what `check:strict` earned and nothing for `build`.
 
 It is assembled when the composite records its pass rather than when it skips, so every excerpt in it was certified during that one run, on that one tree. `NMR_RUN_ID` is what makes that provable; see [reserved environment variables](#reserved-environment-variables).
 
@@ -565,7 +565,7 @@ These scripts are available out of the box. Repo-wide config (tier 2) and per-pa
 | ---------------- | ----------------------------------------------------------- |
 | `build`          | `compile`                                                   |
 | `check`          | `typecheck`, `fmt:check`, `lint:check`, `test`              |
-| `check:strict`   | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage`    |
+| `check:strict`   | `typecheck`, `fmt:check`, `lint:strict`, `test`             |
 | `clean`          | `nmr-clean`                                                 |
 | `compile`        | `nmr-compile`                                               |
 | `fix`            | `lint`, `fmt`                                               |
@@ -626,10 +626,12 @@ Neither is bound to a git hook. `prepush` is named for when you run it, not for 
 
 #### Check and quality
 
-| Command        | Runs                                                     |
-| -------------- | -------------------------------------------------------- |
-| `check`        | `typecheck`, `fmt:check`, `lint:check`, `test`           |
-| `check:strict` | `typecheck`, `fmt:check`, `lint:strict`, `test:coverage` |
+| Command        | Runs                                            |
+| -------------- | ----------------------------------------------- |
+| `check`        | `typecheck`, `fmt:check`, `lint:check`, `test`  |
+| `check:strict` | `typecheck`, `fmt:check`, `lint:strict`, `test` |
+
+Neither gate computes coverage: Instrumentation multiplies the wall time of the run they exist to keep short. Coverage is [`test:coverage`](#test-selections), run as a step of its own; a repo that wants it inside the gate [overrides](#configuration) `check:strict`.
 
 #### Fix
 

@@ -25,8 +25,8 @@ const WORKSPACE_CHAINS: readonly ChainRow[] = [
   },
   {
     command: 'check:strict',
-    chain: 'nmr typecheck && nmr fmt:check && nmr lint:strict && nmr test:coverage',
-    workspaceRootChain: 'nmr -w typecheck && nmr -w fmt:check && nmr -w lint:strict && nmr -w test:coverage',
+    chain: 'nmr typecheck && nmr fmt:check && nmr lint:strict && nmr test',
+    workspaceRootChain: 'nmr -w typecheck && nmr -w fmt:check && nmr -w lint:strict && nmr -w test',
   },
   {
     command: 'clean',
@@ -134,8 +134,8 @@ const ROOT_CHAINS: readonly ChainRow[] = [
   },
   {
     command: 'check:strict',
-    chain: 'nmr typecheck && nmr fmt:check && nmr lint:strict && nmr test:coverage',
-    workspaceRootChain: 'nmr -w typecheck && nmr -w fmt:check && nmr -w lint:strict && nmr -w test:coverage',
+    chain: 'nmr typecheck && nmr fmt:check && nmr lint:strict && nmr test',
+    workspaceRootChain: 'nmr -w typecheck && nmr -w fmt:check && nmr -w lint:strict && nmr -w test',
   },
   {
     command: 'ci',
