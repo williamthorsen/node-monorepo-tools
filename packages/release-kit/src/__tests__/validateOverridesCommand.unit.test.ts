@@ -1,8 +1,10 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { runGitCliff } from '../runGitCliff.ts';
 import type { ChangelogEntry } from '../types.ts';
@@ -195,18 +197,11 @@ describe(validateOverridesCommand, () => {
 
   describe('against the real validator (writes a temp override file)', () => {
     let tempDir: string;
-    let originalCwd: string;
 
     beforeEach(() => {
-      originalCwd = process.cwd();
-      tempDir = mkdtempSync(path.join(tmpdir(), 'validate-overrides-'));
+      tempDir = disposeOnTestFinished(createTempTree({}, { prefix: 'validate-overrides-' })).dir;
       mkdirSync(path.join(tempDir, '.meta'), { recursive: true });
-      process.chdir(tempDir);
-    });
-
-    afterEach(() => {
-      process.chdir(originalCwd);
-      rmSync(tempDir, { recursive: true, force: true });
+      disposeOnTestFinished(pointCwdAt(tempDir, { chdir: true }));
     });
 
     function writeOverrides(overrides: Record<string, unknown>): void {
@@ -275,20 +270,13 @@ describe(validateOverridesCommand, () => {
 
   describe('near-integration: full pipeline with mocked runGitCliff', () => {
     let tempDir: string;
-    let originalCwd: string;
 
     beforeEach(() => {
-      originalCwd = process.cwd();
-      tempDir = mkdtempSync(path.join(tmpdir(), 'validate-overrides-int-'));
+      tempDir = disposeOnTestFinished(createTempTree({}, { prefix: 'validate-overrides-int-' })).dir;
       mkdirSync(path.join(tempDir, '.meta'), { recursive: true });
-      process.chdir(tempDir);
+      disposeOnTestFinished(pointCwdAt(tempDir, { chdir: true }));
       mockedRunGitCliff.mockReset();
       mockedRunGitCliff.mockReturnValue('[]');
-    });
-
-    afterEach(() => {
-      process.chdir(originalCwd);
-      rmSync(tempDir, { recursive: true, force: true });
     });
 
     it('exercises real validateOverridesCommand → buildChangelogEntries → validator with a multi-release cliff context (#398)', async () => {
@@ -346,11 +334,9 @@ describe(validateOverridesCommand, () => {
   // here rather than silently producing wrong stale-key reports.
   describe('buildMonorepoInputs (monorepo wiring)', () => {
     let tempDir: string;
-    let originalCwd: string;
 
     beforeEach(() => {
-      originalCwd = process.cwd();
-      tempDir = mkdtempSync(path.join(tmpdir(), 'validate-overrides-mono-'));
+      tempDir = disposeOnTestFinished(createTempTree({}, { prefix: 'validate-overrides-mono-' })).dir;
       // Root package.json — required when the user config declares a `project` block.
       writeFileSync(path.join(tempDir, 'package.json'), JSON.stringify({ name: 'mono-root', version: '1.0.0' }));
       // Workspace `foo` with a legacy npm name `old-foo`.
@@ -359,12 +345,7 @@ describe(validateOverridesCommand, () => {
       // Workspace `bar` with a scoped npm name (strips to `bar` for tag-prefix derivation).
       mkdirSync(path.join(tempDir, 'packages/bar'), { recursive: true });
       writeFileSync(path.join(tempDir, 'packages/bar/package.json'), JSON.stringify({ name: '@scope/bar' }));
-      process.chdir(tempDir);
-    });
-
-    afterEach(() => {
-      process.chdir(originalCwd);
-      rmSync(tempDir, { recursive: true, force: true });
+      disposeOnTestFinished(pointCwdAt(tempDir, { chdir: true }));
     });
 
     it('passes per-workspace tagPattern (with legacy identities) and project-tier tagPattern with the union of workspace paths', async () => {
