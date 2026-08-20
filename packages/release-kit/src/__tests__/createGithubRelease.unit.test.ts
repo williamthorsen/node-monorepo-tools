@@ -1,9 +1,9 @@
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
-import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { makeFixture, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { afterEach, assert, describe, expect, it as baseIt, vi } from 'vitest';
 
 import type { ChangelogEntry } from '../types.ts';
 
@@ -26,10 +26,14 @@ const { createGithubRelease } = await import('../createGithubRelease.ts');
 const mockedExecFileSync = vi.mocked(execFileSync);
 const mockedRenderReleaseNotesSingle = vi.mocked(renderReleaseNotesSingle);
 
-describe(createGithubRelease, () => {
-  let tempDir: string;
-  let changelogJsonPath: string;
+const it = baseIt
+  .extend(
+    'tree',
+    makeFixture(() => createTempTree({}, { prefix: 'test-gh-release-' })),
+  )
+  .extend('changelogJsonPath', ({ tree }) => join(tree.dir, 'changelog.json'));
 
+describe(createGithubRelease, () => {
   const sampleEntries: ChangelogEntry[] = [
     {
       version: '1.0.0',
@@ -41,29 +45,22 @@ describe(createGithubRelease, () => {
     },
   ];
 
-  beforeEach(() => {
-    tempDir = join(tmpdir(), `test-gh-release-${Date.now()}`);
-    mkdirSync(tempDir, { recursive: true });
-    changelogJsonPath = join(tempDir, 'changelog.json');
-  });
-
   afterEach(() => {
-    rmSync(tempDir, { recursive: true, force: true });
     mockedRenderReleaseNotesSingle.mockClear();
   });
 
-  it('returns no-entry skip and warns when changelog.json does not exist', () => {
+  it('returns no-entry skip and warns when changelog.json does not exist', ({ tree }) => {
     using silent = silenceConsole(['warn']);
     const result = createGithubRelease({
       tag: 'v1.0.0',
-      changelogJsonPath: join(tempDir, 'nonexistent.json'),
+      changelogJsonPath: join(tree.dir, 'nonexistent.json'),
       dryRun: false,
     });
     expect(result).toStrictEqual({ status: 'skipped', reason: 'no-entry' });
     expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('not found'));
   });
 
-  it('returns no-entry skip and warns when changelog.json cannot be parsed', () => {
+  it('returns no-entry skip and warns when changelog.json cannot be parsed', ({ changelogJsonPath }) => {
     writeFileSync(changelogJsonPath, 'not valid json{{{', 'utf8');
     using silent = silenceConsole(['warn']);
 
@@ -76,7 +73,7 @@ describe(createGithubRelease, () => {
     expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('could not parse'));
   });
 
-  it('returns no-entry skip and warns when version is not in changelog.json', () => {
+  it('returns no-entry skip and warns when version is not in changelog.json', ({ changelogJsonPath }) => {
     writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
     using silent = silenceConsole(['warn']);
 
@@ -89,7 +86,7 @@ describe(createGithubRelease, () => {
     expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('no changelog entry'));
   });
 
-  it('logs the command in dry-run mode without executing', () => {
+  it('logs the command in dry-run mode without executing', ({ changelogJsonPath }) => {
     writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
     using silent = silenceConsole(['info']);
 
@@ -103,7 +100,7 @@ describe(createGithubRelease, () => {
     expect(silent.info).toHaveBeenCalledWith(expect.stringContaining('[dry-run]'));
   });
 
-  it('calls gh CLI with correct arguments', () => {
+  it('calls gh CLI with correct arguments', ({ changelogJsonPath }) => {
     writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
 
     createGithubRelease({
@@ -119,7 +116,7 @@ describe(createGithubRelease, () => {
     );
   });
 
-  it('passes only all-audience sections in the release notes', () => {
+  it('passes only all-audience sections in the release notes', ({ changelogJsonPath }) => {
     writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
 
     createGithubRelease({
@@ -137,7 +134,7 @@ describe(createGithubRelease, () => {
     expect(body).not.toContain('CI');
   });
 
-  it('propagates the error when gh CLI invocation fails', () => {
+  it('propagates the error when gh CLI invocation fails', ({ changelogJsonPath }) => {
     writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
     mockedExecFileSync.mockImplementationOnce(() => {
       throw new Error('gh failed');
@@ -152,7 +149,9 @@ describe(createGithubRelease, () => {
     ).toThrow('gh failed');
   });
 
-  it('skips release with reason no-audience-content when entry has only dev-audience sections', () => {
+  it('skips release with reason no-audience-content when entry has only dev-audience sections', ({
+    changelogJsonPath,
+  }) => {
     mockedExecFileSync.mockClear();
     using silent = silenceConsole(['warn']);
     const devOnlyEntries: ChangelogEntry[] = [
@@ -180,7 +179,7 @@ describe(createGithubRelease, () => {
     expect(silent.warn).not.toHaveBeenCalled();
   });
 
-  it('skips release with reason empty-body when rendered all-audience body is empty', () => {
+  it('skips release with reason empty-body when rendered all-audience body is empty', ({ changelogJsonPath }) => {
     mockedExecFileSync.mockClear();
     using silent = silenceConsole(['warn']);
     writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
@@ -197,7 +196,7 @@ describe(createGithubRelease, () => {
     expect(silent.warn).not.toHaveBeenCalled();
   });
 
-  it('extracts version from prefixed tags and matches correct entry', () => {
+  it('extracts version from prefixed tags and matches correct entry', ({ changelogJsonPath }) => {
     writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
 
     createGithubRelease({
@@ -219,7 +218,7 @@ describe(createGithubRelease, () => {
     expect(body).toContain('Add widget');
   });
 
-  it('forwards sectionOrder to renderReleaseNotesSingle when provided', () => {
+  it('forwards sectionOrder to renderReleaseNotesSingle when provided', ({ changelogJsonPath }) => {
     writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
 
     createGithubRelease({
@@ -235,7 +234,7 @@ describe(createGithubRelease, () => {
     );
   });
 
-  it('omits sectionOrder from render options when not provided', () => {
+  it('omits sectionOrder from render options when not provided', ({ changelogJsonPath }) => {
     writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
 
     createGithubRelease({

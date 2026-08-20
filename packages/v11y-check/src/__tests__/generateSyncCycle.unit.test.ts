@@ -1,29 +1,24 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { describe, expect, it as baseIt } from 'vitest';
 
 import { loadConfig } from '../config.ts';
 import { generateAuditCiConfig } from '../generate.ts';
 import { buildUpdatedConfig, computeSyncDiff, serializeConfig } from '../sync.ts';
 import type { AuditResult, V11yCheckConfig } from '../types.ts';
 
+const it = baseIt
+  .extend(
+    'tree',
+    makeFixture(() => createTempTree({ '.config/': '' }, { prefix: 'v11y-check-integration-' })),
+  )
+  .extend('configDir', ({ tree }) => path.join(tree.dir, '.config'));
+
 describe('generate -> sync cycle', () => {
-  let tempDir: string;
-  let configDir: string;
-
-  beforeEach(async () => {
-    tempDir = path.join(tmpdir(), `v11y-check-integration-${Date.now()}`);
-    configDir = path.join(tempDir, '.config');
-    await mkdir(configDir, { recursive: true });
-  });
-
-  afterEach(async () => {
-    await rm(tempDir, { recursive: true, force: true });
-  });
-
-  it('generates flat configs, then syncs allowlist based on audit results', async () => {
+  it('generates flat configs, then syncs allowlist based on audit results', async ({ configDir, tree }) => {
     // Write initial config with new schema
     const initialConfig: V11yCheckConfig = {
       dev: { severityThreshold: 'high', allowlist: [] },
@@ -36,11 +31,11 @@ describe('generate -> sync cycle', () => {
     await writeFile(configFilePath, JSON.stringify(initialConfig, null, 2), 'utf8');
 
     // Load and validate config
-    const loaded = await loadConfig(configFilePath, tempDir);
+    const loaded = await loadConfig(configFilePath, tree.dir);
     expect(loaded.config.prod.allowlist).toHaveLength(1);
 
     // Generate flat audit-ci configs to a temp output dir
-    const outputDir = path.join(tempDir, 'tmp');
+    const outputDir = path.join(tree.dir, 'tmp');
     await mkdir(outputDir, { recursive: true });
     const devPath = await generateAuditCiConfig(loaded.config.dev, 'dev', outputDir);
     const prodPath = await generateAuditCiConfig(loaded.config.prod, 'prod', outputDir);
@@ -77,7 +72,7 @@ describe('generate -> sync cycle', () => {
     await writeFile(configFilePath, serializeConfig(updatedConfig), 'utf8');
 
     // Verify persisted config
-    const reloaded = await loadConfig(configFilePath, tempDir);
+    const reloaded = await loadConfig(configFilePath, tree.dir);
     expect(reloaded.config.prod.allowlist).toHaveLength(1);
     expect(reloaded.config.prod.allowlist[0]?.id).toBe('GHSA-new1');
     expect(reloaded.config.prod.allowlist[0]?.reason).toBe('Added by v11y sync at 2025-06-15 00:00:00 UTC');
@@ -88,8 +83,8 @@ describe('generate -> sync cycle', () => {
     expect(updatedProdContent).toHaveProperty('allowlist', ['GHSA-new1']);
   });
 
-  it('works with a custom config path', async () => {
-    const customConfigPath = path.join(tempDir, 'custom', 'my-config.json');
+  it('works with a custom config path', async ({ tree }) => {
+    const customConfigPath = path.join(tree.dir, 'custom', 'my-config.json');
     const customConfigDir = path.dirname(customConfigPath);
     await mkdir(customConfigDir, { recursive: true });
 
@@ -99,7 +94,7 @@ describe('generate -> sync cycle', () => {
     };
     await writeFile(customConfigPath, JSON.stringify(config), 'utf8');
 
-    const loaded = await loadConfig(customConfigPath, tempDir);
+    const loaded = await loadConfig(customConfigPath, tree.dir);
     expect(loaded.configFilePath).toBe(customConfigPath);
     expect(loaded.configDir).toBe(customConfigDir);
 
@@ -110,8 +105,8 @@ describe('generate -> sync cycle', () => {
     expect(content).toHaveProperty('allowlist', []);
   });
 
-  it('returns defaults when no config file exists', async () => {
-    const emptyDir = path.join(tempDir, 'empty-project');
+  it('returns defaults when no config file exists', async ({ tree }) => {
+    const emptyDir = path.join(tree.dir, 'empty-project');
     await mkdir(emptyDir, { recursive: true });
 
     const result = await loadConfig(undefined, emptyDir);
