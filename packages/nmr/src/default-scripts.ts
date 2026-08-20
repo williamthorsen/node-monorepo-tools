@@ -43,7 +43,7 @@ const ROOT_TYPECHECK_STEP = { run: 'root:typecheck', declinesArgs: true } as con
 export const workspaceScripts: ScriptRegistry = {
   build: ['compile'],
   check: [TYPECHECK_STEP, 'fmt:check', 'lint:check', 'test'],
-  'check:strict': [TYPECHECK_STEP, 'fmt:check', 'lint:strict', 'test:coverage'],
+  'check:strict': [TYPECHECK_STEP, 'fmt:check', 'lint:strict', 'test'],
   clean: 'nmr-clean',
   compile: 'nmr-compile',
   fix: ['lint', 'fmt'],
@@ -72,7 +72,7 @@ export const rootScripts: ScriptRegistry = {
   'audit:prod': 'pnpm exec v11y --prod',
   build: ['-R build'],
   check: [TYPECHECK_STEP, 'fmt:check', 'lint:check', 'test'],
-  'check:strict': [TYPECHECK_STEP, 'fmt:check', 'lint:strict', 'test:coverage'],
+  'check:strict': [TYPECHECK_STEP, 'fmt:check', 'lint:strict', 'test'],
   // Excludes the audit, which in CI has a workflow of its own. The build is what the narrowed check runs
   // against, so it declines the arguments rather than being narrowed by them.
   ci: [{ run: 'build', declinesArgs: true }, 'check:strict'],

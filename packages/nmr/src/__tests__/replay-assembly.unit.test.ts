@@ -44,13 +44,13 @@ describe(assembleReplay, () => {
   it('splices a constituent composite’s lines in flat, each keeping its own attribution', async () => {
     await record({
       command: 'check:strict',
-      replay: [lineFor('typecheck'), lineFor('test:coverage', 'nmr-core')],
+      replay: [lineFor('typecheck'), lineFor('test', 'nmr-core')],
       scopeDir: root,
     });
 
     await expect(assemble([composeNmrStep('check:strict', false)])).resolves.toStrictEqual([
       lineFor('typecheck'),
-      lineFor('test:coverage', 'nmr-core'),
+      lineFor('test', 'nmr-core'),
     ]);
   });
 

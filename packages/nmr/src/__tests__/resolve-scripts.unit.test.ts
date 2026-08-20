@@ -13,6 +13,7 @@ describe(getDefaultWorkspaceScripts, () => {
     expect(scripts).toMatchObject({
       build: ['compile'],
       check: [{ run: 'typecheck', declinesArgs: true }, 'fmt:check', 'lint:check', 'test'],
+      'check:strict': [{ run: 'typecheck', declinesArgs: true }, 'fmt:check', 'lint:strict', 'test'],
       clean: 'nmr-clean',
       compile: 'nmr-compile',
       'fix:check': ['fmt:check', 'lint:check'],
@@ -85,7 +86,7 @@ describe(getDefaultRootScripts, () => {
     expect(scripts).toMatchObject({
       audit: ['audit:prod', 'audit:dev'],
       check: [{ run: 'typecheck', declinesArgs: true }, 'fmt:check', 'lint:check', 'test'],
-      'check:strict': [{ run: 'typecheck', declinesArgs: true }, 'fmt:check', 'lint:strict', 'test:coverage'],
+      'check:strict': [{ run: 'typecheck', declinesArgs: true }, 'fmt:check', 'lint:strict', 'test'],
       ci: [{ run: 'build', declinesArgs: true }, 'check:strict'],
       clean: 'nmr-clean',
       'fix:check': ['fmt:check', 'lint:check'],

@@ -9,9 +9,9 @@ import { getWorkspacePackageDirs } from './workspace.ts';
  * steps name them.
  *
  * A constituent that is itself a composite holds a flat, attributed list of its own, so splicing one in keeps
- * the assembly flat and a skipped `ci` replays a package's `test:coverage` rather than one opaque
- * `check:strict` line. Nothing is computed and nothing is inferred: a constituent with no admissible entry is
- * absent from the assembly.
+ * the assembly flat and a skipped `ci` replays a package's `test` rather than one opaque `check:strict`
+ * line. Nothing is computed and nothing is inferred: a constituent with no admissible entry is absent from
+ * the assembly.
  *
  * A constituent is looked up at the scope its own process anchors at: the composite's anchor, or the monorepo
  * root for an element carrying `-w`, which is how a package-scoped composite reaches a root command.

@@ -21,7 +21,7 @@
           ]
         },
         {
-          "hash": "94bb3c62",
+          "hash": "74bd7994",
           "kind": "module",
           "path": "../src/default-scripts.ts"
         },
@@ -41,7 +41,7 @@
       "readyupVersion": "0.30.0",
       "source": "kits/default.ts",
       "sourceHash": "904ac753",
-      "targetHash": "44bed65d"
+      "targetHash": "37840797"
     }
   ]
 }
