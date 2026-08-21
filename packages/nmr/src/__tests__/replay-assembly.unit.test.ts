@@ -1,7 +1,6 @@
-import fs from 'node:fs';
 import path from 'node:path';
 
-import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -18,22 +17,25 @@ const TREE_HASH = 'tree-hash';
 const RUN_ID = 'the-run';
 
 describe(assembleReplay, () => {
-  let root: string;
+  let tree: TempTree;
 
   beforeEach(() => {
-    root = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-assembly-' })).dir;
-    fs.mkdirSync(path.join(root, 'node_modules'), { recursive: true });
-    fs.writeFileSync(path.join(root, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n");
-    for (const name of ['a', 'b']) {
-      const packageDir = path.join(root, 'packages', name);
-      fs.mkdirSync(packageDir, { recursive: true });
-      fs.writeFileSync(path.join(packageDir, 'package.json'), JSON.stringify({ name }));
-    }
+    tree = disposeOnTestFinished(
+      createTempTree(
+        {
+          'node_modules/': '',
+          'packages/a/package.json': JSON.stringify({ name: 'a' }),
+          'packages/b/package.json': JSON.stringify({ name: 'b' }),
+          'pnpm-workspace.yaml': "packages:\n  - 'packages/*'\n",
+        },
+        { prefix: 'nmr-assembly-' },
+      ),
+    );
   });
 
   it('concatenates its constituents’ excerpts in the order its steps name them', async () => {
-    await record({ command: 'typecheck', scopeDir: root });
-    await record({ command: 'test', scopeDir: root });
+    await record({ command: 'typecheck', scopeDir: tree.dir });
+    await record({ command: 'test', scopeDir: tree.dir });
 
     await expect(assemble([composeNmrStep('typecheck', false), composeNmrStep('test', false)])).resolves.toStrictEqual([
       lineFor('typecheck'),
@@ -45,7 +47,7 @@ describe(assembleReplay, () => {
     await record({
       command: 'check:strict',
       replay: [lineFor('typecheck'), lineFor('test', 'nmr-core')],
-      scopeDir: root,
+      scopeDir: tree.dir,
     });
 
     await expect(assemble([composeNmrStep('check:strict', false)])).resolves.toStrictEqual([
@@ -55,8 +57,8 @@ describe(assembleReplay, () => {
   });
 
   it('expands a delegate into the scopes it fans out to', async () => {
-    await record({ command: 'test', scopeDir: path.join(root, 'packages', 'a') });
-    await record({ command: 'test', scopeDir: path.join(root, 'packages', 'b') });
+    await record({ command: 'test', scopeDir: tree.resolve('packages/a') });
+    await record({ command: 'test', scopeDir: tree.resolve('packages/b') });
 
     await expect(assemble([composeNmrStep('-R test', false)])).resolves.toStrictEqual([
       lineFor('test', 'a'),
@@ -66,8 +68,8 @@ describe(assembleReplay, () => {
 
   // The witness is what narrows a filter's candidates, so the pattern itself needs no interpretation.
   it('takes a filtered delegate’s lines from the scopes that recorded under this run', async () => {
-    await record({ command: 'test', scopeDir: path.join(root, 'packages', 'a') });
-    await record({ command: 'test', runId: 'another-run', scopeDir: path.join(root, 'packages', 'b') });
+    await record({ command: 'test', scopeDir: tree.resolve('packages/a') });
+    await record({ command: 'test', runId: 'another-run', scopeDir: tree.resolve('packages/b') });
 
     await expect(assemble([composeNmrStep('-F a test', false)])).resolves.toStrictEqual([lineFor('test', 'a')]);
   });
@@ -75,13 +77,13 @@ describe(assembleReplay, () => {
   // `-w` moves the child's anchor to the monorepo root, which is how a package-scoped composite reaches a
   // root command.
   it('reads a -w element at the monorepo root rather than at the composite’s own scope', async () => {
-    const packageDir = path.join(root, 'packages', 'a');
-    await record({ command: 'lint:check', scopeDir: root });
+    const packageDir = tree.resolve('packages/a');
+    await record({ command: 'lint:check', scopeDir: tree.dir });
     await record({ command: 'lint:check', scopeDir: packageDir });
 
     const replay = await assembleReplay({
       anchorDir: packageDir,
-      monorepoRoot: root,
+      monorepoRoot: tree.dir,
       runId: RUN_ID,
       steps: [composeNmrStep('-w lint:check', false)],
       treeHash: TREE_HASH,
@@ -91,19 +93,19 @@ describe(assembleReplay, () => {
   });
 
   it('leaves out an excerpt another run certified', async () => {
-    await record({ command: 'test', runId: 'another-run', scopeDir: root });
+    await record({ command: 'test', runId: 'another-run', scopeDir: tree.dir });
 
     await expect(assemble([composeNmrStep('test', false)])).resolves.toStrictEqual([]);
   });
 
   it('leaves out an excerpt describing another tree', async () => {
-    await record({ command: 'test', scopeDir: root, treeHash: 'another-tree' });
+    await record({ command: 'test', scopeDir: tree.dir, treeHash: 'another-tree' });
 
     await expect(assemble([composeNmrStep('test', false)])).resolves.toStrictEqual([]);
   });
 
   it('leaves out a constituent that recorded no excerpt', async () => {
-    await record({ command: 'test', hasRetention: false, scopeDir: root });
+    await record({ command: 'test', hasRetention: false, scopeDir: tree.dir });
 
     await expect(assemble([composeNmrStep('test', false)])).resolves.toStrictEqual([]);
   });
@@ -113,14 +115,14 @@ describe(assembleReplay, () => {
   });
 
   it('reads no entry for an opaque step, whose own output the leaf path retains', async () => {
-    await record({ command: 'test', scopeDir: root });
+    await record({ command: 'test', scopeDir: tree.dir });
 
     await expect(assemble([{ kind: 'opaque', command: 'vitest' }])).resolves.toStrictEqual([]);
   });
 
   it('enumerates no scope for a delegate outside a workspace', async () => {
-    fs.rmSync(path.join(root, 'pnpm-workspace.yaml'));
-    await record({ command: 'test', scopeDir: path.join(root, 'packages', 'a') });
+    tree.rm('pnpm-workspace.yaml');
+    await record({ command: 'test', scopeDir: tree.resolve('packages/a') });
 
     await expect(assemble([composeNmrStep('-R test', false)])).resolves.toStrictEqual([]);
   });
@@ -129,7 +131,7 @@ describe(assembleReplay, () => {
 
   /** Assembles what the given steps name, against the fixture's tree and run. */
   async function assemble(steps: readonly Step[]): Promise<ReplayLine[]> {
-    return assembleReplay({ anchorDir: root, monorepoRoot: root, runId: RUN_ID, steps, treeHash: TREE_HASH });
+    return assembleReplay({ anchorDir: tree.dir, monorepoRoot: tree.dir, runId: RUN_ID, steps, treeHash: TREE_HASH });
   }
 
   /** Records the entry a constituent's run would leave behind at one scope. */
@@ -141,7 +143,7 @@ describe(assembleReplay, () => {
     scopeDir: string;
     treeHash?: string;
   }): Promise<void> {
-    const scope = options.scopeDir === root ? 'root' : path.basename(options.scopeDir);
+    const scope = options.scopeDir === tree.dir ? 'root' : path.basename(options.scopeDir);
     const replay = options.replay ?? [lineFor(options.command, scope)];
     const entry: CheckCacheEntry = {
       key: `${options.command}-key`,
@@ -162,7 +164,7 @@ describe(assembleReplay, () => {
       anchorDir: options.scopeDir,
       command: options.command,
       entry,
-      monorepoRoot: root,
+      monorepoRoot: tree.dir,
     });
   }
 

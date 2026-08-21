@@ -1,4 +1,3 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
@@ -69,14 +68,14 @@ describe(getWorkspacePackageDirs, () => {
 
   describe('exact-path patterns', () => {
     it('resolves exact-path workspace patterns', ({ toolsTree }) => {
-      writeFileSync(path.join(toolsTree.dir, 'pnpm-workspace.yaml'), 'packages:\n  - tools/cli\n');
+      toolsTree.write('pnpm-workspace.yaml', 'packages:\n  - tools/cli\n');
       const dirs = getWorkspacePackageDirs(toolsTree.dir);
       expect(dirs).toStrictEqual([path.join(toolsTree.dir, 'tools', 'cli')]);
     });
 
     it('ignores exact-path patterns where the directory has no package.json', ({ toolsTree }) => {
-      mkdirSync(path.join(toolsTree.dir, 'tools', 'empty'), { recursive: true });
-      writeFileSync(path.join(toolsTree.dir, 'pnpm-workspace.yaml'), 'packages:\n  - tools/empty\n');
+      toolsTree.mkdir('tools/empty');
+      toolsTree.write('pnpm-workspace.yaml', 'packages:\n  - tools/empty\n');
       const dirs = getWorkspacePackageDirs(toolsTree.dir);
       expect(dirs).toStrictEqual([]);
     });
@@ -86,10 +85,7 @@ describe(getWorkspacePackageDirs, () => {
   // manifest's patterns reach it intact, exclusions included.
   describe('manifest patterns', () => {
     it('honors an exclusion declared in the manifest', ({ packagesTree }) => {
-      writeFileSync(
-        path.join(packagesTree.dir, 'pnpm-workspace.yaml'),
-        "packages:\n  - 'packages/*'\n  - '!packages/legacy'\n",
-      );
+      packagesTree.write('pnpm-workspace.yaml', "packages:\n  - 'packages/*'\n  - '!packages/legacy'\n");
       const dirs = getWorkspacePackageDirs(packagesTree.dir);
       expect(dirs).toStrictEqual([path.join(packagesTree.dir, 'packages', 'alpha')]);
     });
@@ -98,10 +94,7 @@ describe(getWorkspacePackageDirs, () => {
     // nmr and both packages resolve. A `yaml` release yielding a non-string instead would fail the
     // all-strings check and empty the result for a workspace that has packages; this pins that seam.
     it('resolves every package when an exclusion is left unquoted', ({ packagesTree }) => {
-      writeFileSync(
-        path.join(packagesTree.dir, 'pnpm-workspace.yaml'),
-        'packages:\n  - packages/*\n  - !packages/legacy\n',
-      );
+      packagesTree.write('pnpm-workspace.yaml', 'packages:\n  - packages/*\n  - !packages/legacy\n');
       const dirs = getWorkspacePackageDirs(packagesTree.dir);
       expect(dirs).toStrictEqual([
         path.join(packagesTree.dir, 'packages', 'alpha'),

@@ -1,6 +1,3 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
-import path from 'node:path';
-
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { globSync } from 'tinyglobby';
@@ -30,16 +27,9 @@ const it = baseIt
   .extend(
     'fixtureTree',
     { scope: 'file' },
-    makeFixture(() => {
-      const tree = createTempTree({}, { prefix: 'nmr-tiers-' });
-      for (const file of FIXTURE_FILES) {
-        const absolute = path.join(tree.dir, file);
-        mkdirSync(path.dirname(absolute), { recursive: true });
-        writeFileSync(absolute, '');
-      }
-
-      return tree;
-    }),
+    makeFixture(() =>
+      createTempTree(Object.fromEntries(FIXTURE_FILES.map((file) => [file, ''])), { prefix: 'nmr-tiers-' }),
+    ),
   )
   .extend(
     'emptyTree',

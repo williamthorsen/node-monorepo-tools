@@ -1,6 +1,3 @@
-import fs from 'node:fs';
-import path from 'node:path';
-
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -26,8 +23,7 @@ describe('a recording', () => {
   let root: string;
 
   beforeEach(() => {
-    root = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-recording-' })).dir;
-    fs.mkdirSync(path.join(root, 'node_modules'), { recursive: true });
+    root = disposeOnTestFinished(createTempTree({ 'node_modules/': '' }, { prefix: 'nmr-recording-' })).dir;
   });
 
   describe(resolveRecording, () => {
