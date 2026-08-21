@@ -1,8 +1,8 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import * as ts from 'typescript';
 import { assert, describe, expect, it } from 'vitest';
 
@@ -16,6 +16,9 @@ import { findMonorepoRoot, getWorkspacePackageDirs } from '../workspace.ts';
  * The subject is an environment capability the in-process suite never reaches twice over: module resolution
  * under an export condition Vitest does not pass, and Node's native type stripping, which is stricter than the
  * transform Vitest applies. Both are exercised through a real `node`.
+ *
+ * The wiring guards read the repository's own manifests and modules, which lie outside any temporary tree, so
+ * every `node:fs` call below the build cases is a read the tree's API cannot serve.
  */
 
 const NMR_SRC = path.resolve(import.meta.dirname, '..');
@@ -76,7 +79,7 @@ describe('the build bootstrap', () => {
 
   it('builds a package under Node type stripping alone', () => {
     using tree = createTempTree({}, { prefix: 'nmr-bootstrap-' });
-    scaffoldPackage(tree.dir);
+    scaffoldPackage(tree);
 
     const result = spawnSync(process.execPath, [`--conditions=${SOURCE_CONDITION}`, BOOTSTRAP_ENTRY], {
       cwd: tree.dir,
@@ -85,16 +88,20 @@ describe('the build bootstrap', () => {
 
     expect(result.stderr).toBe('');
     expect(result.status).toBe(0);
-    expect(existsSync(path.join(tree.dir, 'dist', 'esm', 'index.js'))).toBe(true);
+    expect(tree.exists('dist/esm/index.js')).toBe(true);
   });
 
   it('fails when a module it runs holds syntax the stripper cannot erase', () => {
     // Without this the case above could pass for the wrong reason: a runner blind to stripping failures would
     // report success whatever the bootstrap's own modules were written with.
-    using tree = createTempTree({}, { prefix: 'nmr-bootstrap-' });
-    const entry = path.join(tree.dir, 'non-erasable.ts');
-    writeFileSync(path.join(tree.dir, 'package.json'), JSON.stringify({ name: 'fixture', type: 'module' }));
-    writeFileSync(entry, 'enum Direction {\n  Up,\n}\n\nexport const value = Direction.Up;\n');
+    using tree = createTempTree(
+      {
+        'non-erasable.ts': 'enum Direction {\n  Up,\n}\n\nexport const value = Direction.Up;\n',
+        'package.json': JSON.stringify({ name: 'fixture', type: 'module' }),
+      },
+      { prefix: 'nmr-bootstrap-' },
+    );
+    const entry = tree.resolve('non-erasable.ts');
 
     const result = spawnSync(process.execPath, [`--conditions=${SOURCE_CONDITION}`, entry], {
       cwd: tree.dir,
@@ -269,14 +276,15 @@ function resolveFrom(specifier: string, fromDir: string, conditions: string[]): 
 }
 
 /** Writes the smallest package `nmr-compile` will build: a manifest, a tsconfig, and one emitting source file. */
-function scaffoldPackage(dir: string): void {
-  writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'fixture', type: 'module' }));
-  writeFileSync(path.join(dir, 'tsconfig.json'), JSON.stringify(TSCONFIG));
-  // Its own node_modules, so the build cache lands inside the temp tree rather than an ancestor of the OS
-  // temp root, and is removed with it.
-  mkdirSync(path.join(dir, 'node_modules'), { recursive: true });
-  mkdirSync(path.join(dir, 'src'), { recursive: true });
-  writeFileSync(path.join(dir, 'src', 'index.ts'), 'export const value: number = 1;\n');
+function scaffoldPackage(tree: TempTree): void {
+  tree.writeJson('package.json', { name: 'fixture', type: 'module' });
+  tree.writeJson('tsconfig.json', TSCONFIG);
+  tree.writeAll({
+    // Its own node_modules, so the build cache lands inside the temp tree rather than an ancestor of the OS
+    // temp root, and is removed with it.
+    'node_modules/': '',
+    'src/index.ts': 'export const value: number = 1;\n',
+  });
 }
 
 // endregion | Helpers
