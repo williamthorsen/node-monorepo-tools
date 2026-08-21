@@ -1,7 +1,4 @@
-import fs from 'node:fs';
-import path from 'node:path';
-
-import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
@@ -181,7 +178,7 @@ describe(findChainedSelfReference, () => {
     { scenario: 'ahead of the steps it chains', script: 'nmr build && rdy compile' },
     { scenario: 'behind the steps it chains', script: 'rdy compile && nmr build' },
   ])('returns an entry re-invoking its own command $scenario', ({ script }, { tree }) => {
-    writeScripts(tree.dir, { build: script });
+    writeScripts(tree, { build: script });
 
     expect(findChainedSelfReference(tree.dir, 'build')).toBe(script);
   });
@@ -193,13 +190,13 @@ describe(findChainedSelfReference, () => {
     { scenario: 'an entry naming no nmr command', scripts: { build: 'tsx build.ts' } },
     { scenario: 'no entry for the command', scripts: { test: 'vitest' } },
   ])('reports nothing for $scenario', ({ scripts }, { tree }) => {
-    writeScripts(tree.dir, scripts);
+    writeScripts(tree, scripts);
 
     expect(findChainedSelfReference(tree.dir, 'build')).toBeUndefined();
   });
 
   it('reports nothing for a command named for an `Object.prototype` member', ({ tree }) => {
-    writeScripts(tree.dir, { build: 'tsx build.ts' });
+    writeScripts(tree, { build: 'tsx build.ts' });
 
     expect(findChainedSelfReference(tree.dir, 'constructor')).toBeUndefined();
   });
@@ -260,34 +257,25 @@ describe(resolveScript, () => {
   });
 
   it('does not treat an `Object.prototype` member as a package.json override', ({ tree }) => {
-    fs.writeFileSync(
-      path.join(tree.dir, 'package.json'),
-      JSON.stringify({ name: 'test-pkg', scripts: { test: 'jest' } }),
-    );
+    tree.writeJson('package.json', { name: 'test-pkg', scripts: { test: 'jest' } });
 
     expect(resolveScript('constructor', { test: 'vitest' }, tree.dir, false)).toBeUndefined();
   });
 
   it('uses package.json override when present (tier 3)', ({ tree }) => {
-    fs.writeFileSync(
-      path.join(tree.dir, 'package.json'),
-      JSON.stringify({ name: 'test-pkg', scripts: { test: 'jest' } }),
-    );
+    const manifestPath = tree.writeJson('package.json', { name: 'test-pkg', scripts: { test: 'jest' } });
 
     const registry = { test: 'vitest' };
     const result = resolveScript('test', registry, tree.dir, false);
 
     expect(result).toStrictEqual({
-      origin: { tier: 'package', file: path.join(tree.dir, 'package.json'), key: 'test' },
+      origin: { tier: 'package', file: manifestPath, key: 'test' },
       steps: [{ kind: 'opaque', command: 'jest' }],
     });
   });
 
   it('does not rewrite tier-3 override strings when workspaceRoot is true', ({ tree }) => {
-    fs.writeFileSync(
-      path.join(tree.dir, 'package.json'),
-      JSON.stringify({ name: 'test-pkg', scripts: { build: 'nmr compile' } }),
-    );
+    const manifestPath = tree.writeJson('package.json', { name: 'test-pkg', scripts: { build: 'nmr compile' } });
 
     const registry = { build: ['fmt', 'lint'] };
     const result = resolveScript('build', registry, tree.dir, true);
@@ -295,28 +283,25 @@ describe(resolveScript, () => {
     // User-authored override strings pass through untouched; only generated
     // chains receive the -w flag.
     expect(result).toStrictEqual({
-      origin: { tier: 'package', file: path.join(tree.dir, 'package.json'), key: 'build' },
+      origin: { tier: 'package', file: manifestPath, key: 'build' },
       steps: [{ kind: 'opaque', command: 'nmr compile' }],
     });
   });
 
   it('skips execution when package.json override is empty string', ({ tree }) => {
-    fs.writeFileSync(path.join(tree.dir, 'package.json'), JSON.stringify({ name: 'test-pkg', scripts: { lint: '' } }));
+    const manifestPath = tree.writeJson('package.json', { name: 'test-pkg', scripts: { lint: '' } });
 
     const registry = { lint: 'eslint .' };
     const result = resolveScript('lint', registry, tree.dir, false);
 
     expect(result).toStrictEqual({
-      origin: { tier: 'package', file: path.join(tree.dir, 'package.json'), key: 'lint' },
+      origin: { tier: 'package', file: manifestPath, key: 'lint' },
       steps: [{ kind: 'opaque', command: '' }],
     });
   });
 
   it('skips self-referential package.json override (exact match)', ({ tree }) => {
-    fs.writeFileSync(
-      path.join(tree.dir, 'package.json'),
-      JSON.stringify({ name: 'test-pkg', scripts: { build: 'nmr build' } }),
-    );
+    tree.writeJson('package.json', { name: 'test-pkg', scripts: { build: 'nmr build' } });
 
     const registry = { build: ['fmt', 'lint'] };
     const result = resolveScript('build', registry, tree.dir, false);
@@ -331,10 +316,7 @@ describe(resolveScript, () => {
   });
 
   it('skips self-referential package.json override (with trailing args)', ({ tree }) => {
-    fs.writeFileSync(
-      path.join(tree.dir, 'package.json'),
-      JSON.stringify({ name: 'test-pkg', scripts: { build: 'nmr build --verbose' } }),
-    );
+    tree.writeJson('package.json', { name: 'test-pkg', scripts: { build: 'nmr build --verbose' } });
 
     const registry = { build: ['fmt', 'lint'] };
     const result = resolveScript('build', registry, tree.dir, false);
@@ -352,7 +334,7 @@ describe(resolveScript, () => {
     { scenario: 'ahead of the steps it chains', script: 'nmr build && rdy compile' },
     { scenario: 'behind the steps it chains', script: 'rdy compile && nmr build' },
   ])('skips a self-referential package.json override standing $scenario', ({ script }, { tree }) => {
-    writeScripts(tree.dir, { build: script });
+    writeScripts(tree, { build: script });
 
     const registry = { build: ['fmt', 'lint'] };
 
@@ -368,7 +350,7 @@ describe(resolveScript, () => {
   // The build-output probe and the workspace clean sweep resolve scripts for packages nobody named, so a
   // chained entry must not fail the command that happens to be running.
   it('resolves another command from a package whose entry chains a self-reference', ({ tree }) => {
-    writeScripts(tree.dir, { build: 'nmr build && rdy compile' });
+    writeScripts(tree, { build: 'nmr build && rdy compile' });
 
     const registry = { compile: 'nmr-compile' };
 
@@ -379,16 +361,13 @@ describe(resolveScript, () => {
   });
 
   it('does not skip non-self-referential nmr override', ({ tree }) => {
-    fs.writeFileSync(
-      path.join(tree.dir, 'package.json'),
-      JSON.stringify({ name: 'test-pkg', scripts: { build: 'nmr compile' } }),
-    );
+    const manifestPath = tree.writeJson('package.json', { name: 'test-pkg', scripts: { build: 'nmr compile' } });
 
     const registry = { build: ['fmt', 'lint'] };
     const result = resolveScript('build', registry, tree.dir, false);
 
     expect(result).toStrictEqual({
-      origin: { tier: 'package', file: path.join(tree.dir, 'package.json'), key: 'build' },
+      origin: { tier: 'package', file: manifestPath, key: 'build' },
       steps: [{ kind: 'opaque', command: 'nmr compile' }],
     });
   });
@@ -398,44 +377,41 @@ describe(resolveScript, () => {
       expected:
         '`scripts.build` must be a string. A step list belongs in `.config/nmr.config.ts` under `workspaceScripts`.',
       scenario: 'a step list written into a package',
-      setup: (dir: string) => writeScripts(dir, { build: ['compile'] }),
+      setup: (tree: TempTree) => writeScripts(tree, { build: ['compile'] }),
     },
     {
       expected: '`scripts.build` must be a string. A step list belongs in `.config/nmr.config.ts` under `rootScripts`.',
       scenario: 'a step list written into the monorepo root',
-      setup: (dir: string) => {
-        fs.writeFileSync(path.join(dir, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n');
-        writeScripts(dir, { build: ['compile'] });
+      setup: (tree: TempTree) => {
+        tree.write('pnpm-workspace.yaml', 'packages:\n  - packages/*\n');
+        writeScripts(tree, { build: ['compile'] });
       },
     },
     {
       expected: '`scripts.build` must be a string.',
       scenario: 'a value of some other type',
-      setup: (dir: string) => writeScripts(dir, { build: 7 }),
+      setup: (tree: TempTree) => writeScripts(tree, { build: 7 }),
     },
   ])('rejects $scenario, naming where it belongs', ({ expected, setup }, { tree }) => {
-    setup(tree.dir);
+    setup(tree);
 
     expect(() => resolveScript('build', { build: ['compile'] }, tree.dir, false)).toThrow(expected);
   });
 
   it('rejects a package.json that does not parse, naming the file', ({ tree }) => {
-    fs.writeFileSync(path.join(tree.dir, 'package.json'), '{ not json');
+    tree.write('package.json', '{ not json');
 
     expect(() => resolveScript('build', { build: ['compile'] }, tree.dir, false)).toThrow(UserError);
   });
 
   it('rejects a malformed script as a UserError', ({ tree }) => {
-    fs.writeFileSync(path.join(tree.dir, 'package.json'), JSON.stringify({ scripts: { build: ['compile'] } }));
+    tree.writeJson('package.json', { scripts: { build: ['compile'] } });
 
     expect(() => resolveScript('build', { build: ['compile'] }, tree.dir, false)).toThrow(UserError);
   });
 
   it('falls through to registry when package.json has no matching script', ({ tree }) => {
-    fs.writeFileSync(
-      path.join(tree.dir, 'package.json'),
-      JSON.stringify({ name: 'test-pkg', scripts: { other: 'echo hi' } }),
-    );
+    tree.writeJson('package.json', { name: 'test-pkg', scripts: { other: 'echo hi' } });
 
     const registry = { test: 'vitest' };
     const result = resolveScript('test', registry, tree.dir, false);
@@ -471,8 +447,8 @@ describe('test command resolution ignores the package contents', () => {
   });
 
   it('resolves the same six test commands when the retired variant config is present', ({ tree }) => {
-    fs.writeFileSync(path.join(tree.dir, 'vitest.integration.config.ts'), '');
-    fs.writeFileSync(path.join(tree.dir, 'vitest.standalone.config.ts'), '');
+    tree.write('vitest.integration.config.ts', '');
+    tree.write('vitest.standalone.config.ts', '');
     const registry = buildWorkspaceRegistry({});
 
     for (const [command, expectedCommand] of Object.entries(expected)) {
@@ -487,8 +463,8 @@ describe('test command resolution ignores the package contents', () => {
 // region | Helpers
 
 /** Writes a `package.json` carrying `scripts` as given, malformed values included. */
-function writeScripts(dir: string, scripts: Record<string, unknown>): void {
-  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'test-pkg', scripts }));
+function writeScripts(tree: TempTree, scripts: Record<string, unknown>): void {
+  tree.writeJson('package.json', { name: 'test-pkg', scripts });
 }
 
 // endregion | Helpers

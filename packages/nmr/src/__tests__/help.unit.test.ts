@@ -1,6 +1,3 @@
-import fs from 'node:fs';
-import path from 'node:path';
-
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
@@ -18,7 +15,7 @@ describe(generateHelp, () => {
   // omitted from a help text that looks complete.
   it('rejects a malformed package.json script rather than omitting it', () => {
     using tree = createTempTree({}, { prefix: 'nmr-help-' });
-    fs.writeFileSync(path.join(tree.dir, 'package.json'), JSON.stringify({ scripts: { build: ['compile'] } }));
+    tree.writeJson('package.json', { scripts: { build: ['compile'] } });
 
     expect(() => generateHelp({}, tree.dir, false)).toThrow('`scripts.build` must be a string');
   });
@@ -102,13 +99,10 @@ describe(generateHelp, () => {
 
   describe('overrides section behavior', () => {
     it('omits the package scripts section even when packageDir has scripts', ({ tree }) => {
-      fs.writeFileSync(
-        path.join(tree.dir, 'package.json'),
-        JSON.stringify({
-          name: 'pkg',
-          scripts: { something: 'echo something' },
-        }),
-      );
+      tree.writeJson('package.json', {
+        name: 'pkg',
+        scripts: { something: 'echo something' },
+      });
 
       const help = generateHelp({}, tree.dir, false);
       expect(help).not.toContain('Package scripts:');
@@ -118,13 +112,10 @@ describe(generateHelp, () => {
       // Use a sentinel value that is not present in any default registry entry,
       // so we can detect leakage of the package-script value distinctly from
       // unrelated registry rows.
-      fs.writeFileSync(
-        path.join(tree.dir, 'package.json'),
-        JSON.stringify({
-          name: 'pkg-with-hook',
-          scripts: { 'build:post': 'sentinel-hook-value' },
-        }),
-      );
+      tree.writeJson('package.json', {
+        name: 'pkg-with-hook',
+        scripts: { 'build:post': 'sentinel-hook-value' },
+      });
 
       const help = generateHelp({}, tree.dir, false);
       expect(help).not.toContain('build:post');
@@ -132,13 +123,10 @@ describe(generateHelp, () => {
     });
 
     it('omits non-override (tier-3-only) entries from a subpackage package.json', ({ tree }) => {
-      fs.writeFileSync(
-        path.join(tree.dir, 'package.json'),
-        JSON.stringify({
-          name: 'pkg-with-extra',
-          scripts: { 'custom-task': 'echo custom' },
-        }),
-      );
+      tree.writeJson('package.json', {
+        name: 'pkg-with-extra',
+        scripts: { 'custom-task': 'echo custom' },
+      });
 
       const help = generateHelp({}, tree.dir, false);
       expect(help).not.toContain('custom-task');
@@ -146,13 +134,10 @@ describe(generateHelp, () => {
     });
 
     it('omits generic pnpm lifecycle entries from a subpackage package.json', ({ tree }) => {
-      fs.writeFileSync(
-        path.join(tree.dir, 'package.json'),
-        JSON.stringify({
-          name: 'pkg-lifecycle',
-          scripts: { prepare: 'echo prepare', postinstall: 'echo postinstall' },
-        }),
-      );
+      tree.writeJson('package.json', {
+        name: 'pkg-lifecycle',
+        scripts: { prepare: 'echo prepare', postinstall: 'echo postinstall' },
+      });
 
       const help = generateHelp({}, tree.dir, false);
       expect(help).not.toContain('prepare');
@@ -162,13 +147,10 @@ describe(generateHelp, () => {
     it('omits an override named for an `Object.prototype` member', ({ tree }) => {
       // The registry is a plain object, so `'toString' in registry` is true and the override would be written in
       // as though it were overriding a real command.
-      fs.writeFileSync(
-        path.join(tree.dir, 'package.json'),
-        JSON.stringify({
-          name: 'pkg-prototype-name',
-          scripts: { toString: 'sentinel-prototype-value' },
-        }),
-      );
+      tree.writeJson('package.json', {
+        name: 'pkg-prototype-name',
+        scripts: { toString: 'sentinel-prototype-value' },
+      });
 
       const help = generateHelp({}, tree.dir, false);
       expect(help).not.toContain('toString');
@@ -177,13 +159,10 @@ describe(generateHelp, () => {
     });
 
     it('inlines workspace overrides with `*` marker and footnote when useRoot=false', ({ tree }) => {
-      fs.writeFileSync(
-        path.join(tree.dir, 'package.json'),
-        JSON.stringify({
-          name: 'pkg-override',
-          scripts: { lint: 'pkg-linter' },
-        }),
-      );
+      tree.writeJson('package.json', {
+        name: 'pkg-override',
+        scripts: { lint: 'pkg-linter' },
+      });
 
       const help = generateHelp({}, tree.dir, false);
       const workspaceSection = sectionOf(help, 'Workspace commands:', 'Root commands:');
@@ -196,13 +175,10 @@ describe(generateHelp, () => {
     });
 
     it('inlines root overrides with `*` marker and footnote when useRoot=true', ({ tree }) => {
-      fs.writeFileSync(
-        path.join(tree.dir, 'package.json'),
-        JSON.stringify({
-          name: 'root-override',
-          scripts: { lint: 'custom-linter' },
-        }),
-      );
+      tree.writeJson('package.json', {
+        name: 'root-override',
+        scripts: { lint: 'custom-linter' },
+      });
 
       const help = generateHelp({}, tree.dir, true);
       const rootSection = sectionOf(help, 'Root commands:', '* Overridden by package.json');
@@ -215,13 +191,10 @@ describe(generateHelp, () => {
     });
 
     it('does not mark or override self-referential entries', ({ tree }) => {
-      fs.writeFileSync(
-        path.join(tree.dir, 'package.json'),
-        JSON.stringify({
-          name: 'pkg-self-ref',
-          scripts: { build: 'nmr build' },
-        }),
-      );
+      tree.writeJson('package.json', {
+        name: 'pkg-self-ref',
+        scripts: { build: 'nmr build' },
+      });
 
       const help = generateHelp({}, tree.dir, false);
       expect(help).not.toContain('build*');
@@ -230,13 +203,10 @@ describe(generateHelp, () => {
 
     // Resolution discards the entry, so rendering it as the command's value would name something nmr never runs.
     it('does not mark or override an entry chaining steps onto a self-reference', ({ tree }) => {
-      fs.writeFileSync(
-        path.join(tree.dir, 'package.json'),
-        JSON.stringify({
-          name: 'pkg-chained-self-ref',
-          scripts: { build: 'rdy compile && nmr build' },
-        }),
-      );
+      tree.writeJson('package.json', {
+        name: 'pkg-chained-self-ref',
+        scripts: { build: 'rdy compile && nmr build' },
+      });
 
       const help = generateHelp({}, tree.dir, false);
       expect(help).not.toContain('build*');
@@ -245,20 +215,17 @@ describe(generateHelp, () => {
     });
 
     it('omits the footnote when no overrides are present', ({ tree }) => {
-      fs.writeFileSync(path.join(tree.dir, 'package.json'), JSON.stringify({ name: 'plain-pkg' }));
+      tree.writeJson('package.json', { name: 'plain-pkg' });
 
       const help = generateHelp({}, tree.dir, false);
       expect(help).not.toContain('* Overridden by package.json');
     });
 
     it('aligns the value column for marked and unmarked rows in the same section', ({ tree }) => {
-      fs.writeFileSync(
-        path.join(tree.dir, 'package.json'),
-        JSON.stringify({
-          name: 'align-pkg',
-          scripts: { lint: 'custom-linter' },
-        }),
-      );
+      tree.writeJson('package.json', {
+        name: 'align-pkg',
+        scripts: { lint: 'custom-linter' },
+      });
 
       const help = generateHelp({}, tree.dir, true);
       const rootSection = sectionOf(help, 'Root commands:', '* Overridden by package.json');
@@ -282,8 +249,8 @@ describe(generateHelp, () => {
     // Help renders the registry, so a probe reintroduced anywhere would show up as a different listing here.
     it('lists the same commands when the retired variant config is present', ({ tree }) => {
       const bare = sectionOf(generateHelp({}, tree.dir, false), 'Workspace commands:', 'Root commands:');
-      fs.writeFileSync(path.join(tree.dir, 'vitest.integration.config.ts'), '');
-      fs.writeFileSync(path.join(tree.dir, 'vitest.standalone.config.ts'), '');
+      tree.write('vitest.integration.config.ts', '');
+      tree.write('vitest.standalone.config.ts', '');
 
       const withConfigs = sectionOf(generateHelp({}, tree.dir, false), 'Workspace commands:', 'Root commands:');
 
