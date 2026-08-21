@@ -1,4 +1,3 @@
-import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
@@ -124,12 +123,12 @@ describe(checkWorkTypesDrift, () => {
     expect(result.message).toMatch(/expected schema shape/);
   });
 
-  it('exits 0 when local carries `$schema` IDE hint and upstream does not', async ({ localPath }) => {
+  it('exits 0 when local carries `$schema` IDE hint and upstream does not', async ({ localPath, tree }) => {
     const localWithSchemaHint = {
       $schema: './work-types.schema.json',
       ...SAMPLE_DATA,
     };
-    writeFileSync(localPath, `${JSON.stringify(localWithSchemaHint, null, 2)}\n`, 'utf8');
+    tree.write('work-types.json', `${JSON.stringify(localWithSchemaHint, null, 2)}\n`);
     const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(SAMPLE_DATA) }));
     const result = await checkWorkTypesDrift({
       localPath,

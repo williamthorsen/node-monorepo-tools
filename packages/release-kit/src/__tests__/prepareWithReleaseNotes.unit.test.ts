@@ -1,7 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-
-import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -43,17 +40,17 @@ npm install @scope/pkg
 `;
 
 describe(planReleaseNotesPreviews, () => {
-  let tempDir: string;
+  let tree: TempTree;
 
   beforeEach(() => {
-    tempDir = disposeOnTestFinished(createTempTree({}, { prefix: 'prepare-with-release-notes-' })).dir;
-    writeFileSync(join(tempDir, 'README.md'), readmeWithMarker, 'utf8');
+    tree = disposeOnTestFinished(createTempTree({}, { prefix: 'prepare-with-release-notes-' }));
+    tree.write('README.md', readmeWithMarker);
   });
 
   /** Plan the previews for the fixture release, then apply them as the CLI boundary would. */
   function planAndApply(): void {
     const previews = planReleaseNotesPreviews({
-      workspacePath: tempDir,
+      workspacePath: tree.dir,
       tag: 'pkg-v2.4.0',
       entries: changelogJsonFixture,
       sectionOrder: ['Features', 'Bug fixes'],
@@ -64,7 +61,7 @@ describe(planReleaseNotesPreviews, () => {
   it('writes both preview files under docs/ with correct content for a pending release', () => {
     planAndApply();
 
-    const readmePreview = readFileSync(join(tempDir, 'docs', 'README.v2.4.0.md'), 'utf8');
+    const readmePreview = tree.read('docs/README.v2.4.0.md');
     expect(readmePreview).toContain('# @scope/pkg');
     expect(readmePreview).toContain('## Installation');
     // Labeled heading anchors the injected content to a version.
@@ -74,7 +71,7 @@ describe(planReleaseNotesPreviews, () => {
     // Dev-only sections must not leak into the public README preview.
     expect(readmePreview).not.toContain('Internal');
 
-    const releaseNotesPreview = readFileSync(join(tempDir, 'docs', 'RELEASE_NOTES.v2.4.0.md'), 'utf8');
+    const releaseNotesPreview = tree.read('docs/RELEASE_NOTES.v2.4.0.md');
     expect(releaseNotesPreview).toContain('## Release notes — v2.4.0 (2026-04-23)');
     expect(releaseNotesPreview).toContain('### Features');
     expect(releaseNotesPreview).toContain('Add release-notes preview generator');
@@ -85,19 +82,18 @@ describe(planReleaseNotesPreviews, () => {
   it('overwrites existing preview files on re-run with the same version', () => {
     planAndApply();
 
-    const readmePreviewPath = join(tempDir, 'docs', 'README.v2.4.0.md');
-    writeFileSync(readmePreviewPath, 'STALE CONTENT', 'utf8');
+    tree.write('docs/README.v2.4.0.md', 'STALE CONTENT');
 
     planAndApply();
 
-    expect(readFileSync(readmePreviewPath, 'utf8')).toContain('### Features');
+    expect(tree.read('docs/README.v2.4.0.md')).toContain('### Features');
   });
 
   it('creates the docs/ directory when it does not already exist', () => {
-    expect(existsSync(join(tempDir, 'docs'))).toBe(false);
+    expect(tree.exists('docs')).toBe(false);
 
     planAndApply();
 
-    expect(existsSync(join(tempDir, 'docs'))).toBe(true);
+    expect(tree.exists('docs')).toBe(true);
   });
 });

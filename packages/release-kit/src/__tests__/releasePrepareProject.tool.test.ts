@@ -1,8 +1,8 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { captureStdio, pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { assert, beforeEach, describe, expect, it } from 'vitest';
@@ -30,10 +30,10 @@ import { releasePrepareMono } from '../releasePrepareMono.ts';
  * Build a temp git repo with three workspaces (`pkg-a`, `pkg-b`, `pkg-c`), a legacy `v0.9.0`
  * tag at the initial commit, and three feat/fix commits since (one per workspace).
  */
-function setupFixture(): string {
-  const repoDir = disposeOnTestFinished(createTempTree({}, { prefix: 'release-kit-project-' })).dir;
+function setupFixture(): TempTree {
+  const tree = disposeOnTestFinished(createTempTree({}, { prefix: 'release-kit-project-' }));
   const run = (command: string, args: string[]): void => {
-    execFileSync(command, args, { cwd: repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
+    execFileSync(command, args, { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
   };
 
   // Initialize a clean repo with deterministic config so `git commit` does not require a
@@ -45,30 +45,16 @@ function setupFixture(): string {
   run('git', ['config', 'tag.gpgSign', 'false']);
 
   // Root package.json (project block prerequisite).
-  writeFileSync(
-    join(repoDir, 'package.json'),
-    JSON.stringify({ name: 'fixture-monorepo', version: '0.9.0', private: true }, null, 2) + '\n',
-    'utf8',
-  );
+  tree.writeJson('package.json', { name: 'fixture-monorepo', version: '0.9.0', private: true });
 
   // pnpm workspace declaration so `discoverWorkspaces` finds the three packages and the
   // CLI takes the monorepo branch rather than single-package mode.
-  writeFileSync(join(repoDir, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n", 'utf8');
+  tree.write('pnpm-workspace.yaml', "packages:\n  - 'packages/*'\n");
 
   // Three workspaces.
   for (const name of ['pkg-a', 'pkg-b', 'pkg-c']) {
-    const wsDir = join(repoDir, 'packages', name);
-    mkdirSync(wsDir, { recursive: true });
-    writeFileSync(
-      join(wsDir, 'package.json'),
-      JSON.stringify({ name: `@fixture/${name}`, version: '1.0.0' }, null, 2) + '\n',
-      'utf8',
-    );
-    writeFileSync(
-      join(wsDir, 'index.ts'),
-      `export const ${name.replace('-', '_')} = ${JSON.stringify(name)};\n`,
-      'utf8',
-    );
+    tree.writeJson(`packages/${name}/package.json`, { name: `@fixture/${name}`, version: '1.0.0' });
+    tree.write(`packages/${name}/index.ts`, `export const ${name.replace('-', '_')} = ${JSON.stringify(name)};\n`);
   }
 
   // Initial commit, then anchor the legacy v0.9.0 tag at it.
@@ -83,15 +69,15 @@ function setupFixture(): string {
   // One feat per workspace plus one fix. The `##` synthetic ticket prefix is required by
   // the bundled cliff.toml.template's commit_parsers (any unticketed commit is skipped).
   for (const name of ['pkg-a', 'pkg-b']) {
-    writeFileSync(join(repoDir, 'packages', name, 'feature.ts'), `export const flag = true;\n`, 'utf8');
+    tree.write(`packages/${name}/feature.ts`, `export const flag = true;\n`);
     run('git', ['add', '-A']);
     run('git', ['commit', '--quiet', '-m', `## ${name}|feat: Add feature flag`]);
   }
-  writeFileSync(join(repoDir, 'packages', 'pkg-c', 'patch.ts'), `export const patched = true;\n`, 'utf8');
+  tree.write('packages/pkg-c/patch.ts', `export const patched = true;\n`);
   run('git', ['add', '-A']);
   run('git', ['commit', '--quiet', '-m', '## pkg-c|fix: Patch latent bug']);
 
-  return repoDir;
+  return tree;
 }
 
 /**
@@ -112,14 +98,14 @@ function prepareAndApply(...args: Parameters<typeof releasePrepareMono>): Releas
 }
 
 describe('releasePrepareProject (tool)', () => {
-  let repoDir: string;
+  let tree: TempTree;
 
   beforeEach(() => {
-    repoDir = setupFixture();
+    tree = setupFixture();
   });
 
   it('runs the project release alongside per-workspace releases and writes all artifacts', () => {
-    withinFixture(repoDir, () => {
+    withinFixture(tree.dir, () => {
       const config = mergeMonorepoConfig(
         ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
         { project: {}, changelogJson: { enabled: false } },
@@ -144,13 +130,13 @@ describe('releasePrepareProject (tool)', () => {
       expect(result.tags).toContain('pkg-c-v1.0.1');
 
       // Root package.json bumped to 0.10.0.
-      const rootPackageJson: { version: string } = JSON.parse(readFileSync(join(repoDir, 'package.json'), 'utf8'));
+      const rootPackageJson: { version: string } = JSON.parse(readFileSync(join(tree.dir, 'package.json'), 'utf8'));
       expect(rootPackageJson.version).toBe('0.10.0');
 
       // Root CHANGELOG.md regenerated and contains the new version header. After the SSOT
       // pivot, `renderChangelogMarkdown` emits `## <version> — <date>` (no brackets, no
       // leading `v`).
-      const rootChangelogPath = join(repoDir, 'CHANGELOG.md');
+      const rootChangelogPath = join(tree.dir, 'CHANGELOG.md');
       expect(existsSync(rootChangelogPath)).toBe(true);
       const rootChangelog = readFileSync(rootChangelogPath, 'utf8');
       expect(rootChangelog).toMatch(/## 0\.10\.0 — \d{4}-\d{2}-\d{2}/);
@@ -165,25 +151,20 @@ describe('releasePrepareProject (tool)', () => {
   }, 60_000);
 
   it('releases from root-level commits alone when project.paths covers the whole tree', () => {
-    withinFixture(repoDir, () => {
+    withinFixture(tree.dir, () => {
       const run = (command: string, args: string[]): void => {
-        execFileSync(command, args, { cwd: repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
+        execFileSync(command, args, { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
       };
 
       // Anchor a project baseline past the fixture's workspace commits, so the only commit in
       // the window is the root-level one landed below. The `release:` prefix keeps this commit
       // out of the window itself.
-      writeFileSync(
-        join(repoDir, 'package.json'),
-        JSON.stringify({ name: 'fixture-monorepo', version: '0.9.1', private: true }, null, 2) + '\n',
-        'utf8',
-      );
+      tree.writeJson('package.json', { name: 'fixture-monorepo', version: '0.9.1', private: true });
       run('git', ['add', '-A']);
       run('git', ['commit', '--quiet', '-m', 'release: v0.9.1']);
       run('git', ['tag', 'v0.9.1']);
 
-      mkdirSync(join(repoDir, 'aws'), { recursive: true });
-      writeFileSync(join(repoDir, 'aws', 'runbook.md'), '# Runbook\n', 'utf8');
+      tree.write('aws/runbook.md', '# Runbook\n');
       run('git', ['add', '-A']);
       run('git', ['commit', '--quiet', '-m', '## root|feat: Document the deployment runbook']);
 
@@ -212,10 +193,10 @@ describe('releasePrepareProject (tool)', () => {
       expect(project.releaseType).toBe('minor');
       expect(project.tag).toBe('v0.10.0');
 
-      const rootPackageJson: { version: string } = JSON.parse(readFileSync(join(repoDir, 'package.json'), 'utf8'));
+      const rootPackageJson: { version: string } = JSON.parse(readFileSync(join(tree.dir, 'package.json'), 'utf8'));
       expect(rootPackageJson.version).toBe('0.10.0');
 
-      const rootChangelog = readFileSync(join(repoDir, 'CHANGELOG.md'), 'utf8');
+      const rootChangelog = readFileSync(join(tree.dir, 'CHANGELOG.md'), 'utf8');
       expect(rootChangelog).toContain('Document the deployment runbook');
     });
   }, 60_000);
@@ -226,19 +207,15 @@ describe('releasePrepareProject (tool)', () => {
     // `setupFixture`) sit between this freshly-created `v1.0.0` baseline and HEAD when
     // we tag BEFORE the chore commit, so a natural minor bump is in scope and `--bump=major`
     // is exercised as a level chooser that overrides the natural bump.
-    execFileSync('git', ['tag', 'v1.0.0', 'HEAD~3'], { cwd: repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
-    writeFileSync(
-      join(repoDir, 'package.json'),
-      JSON.stringify({ name: 'fixture-monorepo', version: '1.0.0', private: true }, null, 2) + '\n',
-      'utf8',
-    );
-    execFileSync('git', ['add', '-A'], { cwd: repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
+    execFileSync('git', ['tag', 'v1.0.0', 'HEAD~3'], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
+    tree.writeJson('package.json', { name: 'fixture-monorepo', version: '1.0.0', private: true });
+    execFileSync('git', ['add', '-A'], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
     execFileSync('git', ['commit', '--quiet', '-m', 'chore: bump baseline'], {
-      cwd: repoDir,
+      cwd: tree.dir,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
-    withinFixture(repoDir, () => {
+    withinFixture(tree.dir, () => {
       const config = mergeMonorepoConfig(
         ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
         { project: {}, changelogJson: { enabled: false } },
@@ -256,7 +233,7 @@ describe('releasePrepareProject (tool)', () => {
   }, 60_000);
 
   it('computes the project tag without writing, when the plan is not applied', () => {
-    withinFixture(repoDir, () => {
+    withinFixture(tree.dir, () => {
       const config = mergeMonorepoConfig(
         ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
         { project: {}, changelogJson: { enabled: false } },
@@ -271,18 +248,16 @@ describe('releasePrepareProject (tool)', () => {
       expect(result.tags).toContain('v0.10.0');
 
       // Planning alone writes nothing to disk.
-      const rootPackageJson: { version: string } = JSON.parse(readFileSync(join(repoDir, 'package.json'), 'utf8'));
+      const rootPackageJson: { version: string } = JSON.parse(readFileSync(join(tree.dir, 'package.json'), 'utf8'));
       expect(rootPackageJson.version).toBe('0.9.0');
-      expect(existsSync(join(repoDir, 'CHANGELOG.md'))).toBe(false);
+      expect(existsSync(join(tree.dir, 'CHANGELOG.md'))).toBe(false);
     });
   }, 60_000);
 
   it('overwrites an unparseable existing root changelog.json without warning (no-read at project stage)', () => {
     // No warning is possible: the stage renders from the cliff entries alone and never parses the existing file.
-    withinFixture(repoDir, () => {
-      const changelogJsonPath = join(repoDir, '.meta', 'changelog.json');
-      mkdirSync(join(repoDir, '.meta'), { recursive: true });
-      writeFileSync(changelogJsonPath, '{this is not valid JSON', 'utf8');
+    withinFixture(tree.dir, () => {
+      const changelogJsonPath = tree.write('.meta/changelog.json', '{this is not valid JSON');
 
       using silent = silenceConsole(['warn']);
 
@@ -309,7 +284,7 @@ describe('releasePrepareProject (tool)', () => {
   }, 60_000);
 
   it('emits the project release-notes preview when --with-release-notes is set and changelogJson is enabled', () => {
-    withinFixture(repoDir, () => {
+    withinFixture(tree.dir, () => {
       const config = mergeMonorepoConfig(
         ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
         { project: {} },
@@ -319,7 +294,7 @@ describe('releasePrepareProject (tool)', () => {
       prepareAndApply(config, { withReleaseNotes: true });
 
       // The project preview file lives at root docs/.
-      const previewPath = join(repoDir, 'docs', 'RELEASE_NOTES.v0.10.0.md');
+      const previewPath = join(tree.dir, 'docs', 'RELEASE_NOTES.v0.10.0.md');
       expect(existsSync(previewPath)).toBe(true);
       const preview = readFileSync(previewPath, 'utf8');
       expect(preview).toContain('Release notes — v0.10.0');
@@ -330,10 +305,10 @@ describe('releasePrepareProject (tool)', () => {
     // Move the project baseline tag to HEAD so the project stage finds zero commits since.
     // Per-workspace baselines stay at the initial commit, so workspaces still release naturally
     // (we are testing the project stage's empty-range branch, not the workspace path).
-    execFileSync('git', ['tag', '--delete', 'v0.9.0'], { cwd: repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
-    execFileSync('git', ['tag', 'v0.9.0', 'HEAD'], { cwd: repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
+    execFileSync('git', ['tag', '--delete', 'v0.9.0'], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
+    execFileSync('git', ['tag', 'v0.9.0', 'HEAD'], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
 
-    withinFixture(repoDir, () => {
+    withinFixture(tree.dir, () => {
       const config = mergeMonorepoConfig(
         ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
         { project: {} },
@@ -352,7 +327,7 @@ describe('releasePrepareProject (tool)', () => {
 
       // Root CHANGELOG.md is rendered by `renderChangelogMarkdown` after the SSOT pivot,
       // so it leads with the `# Changelog` header and the version heading appears below.
-      const rootChangelogPath = join(repoDir, 'CHANGELOG.md');
+      const rootChangelogPath = join(tree.dir, 'CHANGELOG.md');
       expect(existsSync(rootChangelogPath)).toBe(true);
       const rootChangelog = readFileSync(rootChangelogPath, 'utf8');
       expect(rootChangelog).toMatch(/^# Changelog\n/);
@@ -361,7 +336,7 @@ describe('releasePrepareProject (tool)', () => {
       expect(rootChangelog).toContain('- Forced version bump.');
 
       // Root .meta/changelog.json contains a corresponding canonical entry.
-      const changelogJsonPath = join(repoDir, '.meta', 'changelog.json');
+      const changelogJsonPath = join(tree.dir, '.meta', 'changelog.json');
       expect(existsSync(changelogJsonPath)).toBe(true);
       const parsed: Array<{
         version: string;
@@ -383,13 +358,11 @@ describe('releasePrepareProject (tool)', () => {
     // produces only the new entry — git-cliff is not consulted to replay the full log.
     // Move the project baseline tag to HEAD so the project stage finds zero commits since,
     // forcing the empty-range branch.
-    execFileSync('git', ['tag', '--delete', 'v0.9.0'], { cwd: repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
-    execFileSync('git', ['tag', 'v0.9.0', 'HEAD'], { cwd: repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
+    execFileSync('git', ['tag', '--delete', 'v0.9.0'], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
+    execFileSync('git', ['tag', 'v0.9.0', 'HEAD'], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
 
     // Pre-seed the structured changelog with a prior entry that no current run could
     // reproduce. This entry must survive the empty-range release.
-    const changelogJsonPath = join(repoDir, '.meta', 'changelog.json');
-    mkdirSync(join(repoDir, '.meta'), { recursive: true });
     const priorEntry = {
       version: '0.8.0',
       date: '2026-01-15',
@@ -401,9 +374,9 @@ describe('releasePrepareProject (tool)', () => {
         },
       ],
     };
-    writeFileSync(changelogJsonPath, JSON.stringify([priorEntry], null, 2) + '\n', 'utf8');
+    const changelogJsonPath = tree.writeJson('.meta/changelog.json', [priorEntry]);
 
-    withinFixture(repoDir, () => {
+    withinFixture(tree.dir, () => {
       const config = mergeMonorepoConfig(
         ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
         { project: {} },
@@ -434,10 +407,9 @@ describe('releasePrepareProject (tool)', () => {
     const { prepareCommand } = await import('../prepareCommand.ts');
 
     // Write a minimal release-kit config that declares the project block.
-    mkdirSync(join(repoDir, '.config'), { recursive: true });
-    writeFileSync(join(repoDir, '.config', 'release-kit.config.ts'), 'export default { project: {} };\n', 'utf8');
+    tree.write('.config/release-kit.config.ts', 'export default { project: {} };\n');
 
-    using _cwd = pointCwdAt(repoDir, { chdir: true });
+    using _cwd = pointCwdAt(tree.dir, { chdir: true });
     using capture = captureStdio();
     const exit = throwOnProcessExit();
     using _silent = silenceConsole(['info']);
@@ -452,28 +424,28 @@ describe('releasePrepareProject (tool)', () => {
     expect(capture.stdout).toContain('Project release skipped');
 
     // The project release did not run: the root version and root changelog are untouched.
-    expect(existsSync(join(repoDir, 'CHANGELOG.md'))).toBe(false);
-    const rootPackageJson: { version: string } = JSON.parse(readFileSync(join(repoDir, 'package.json'), 'utf8'));
+    expect(existsSync(join(tree.dir, 'CHANGELOG.md'))).toBe(false);
+    const rootPackageJson: { version: string } = JSON.parse(readFileSync(join(tree.dir, 'package.json'), 'utf8'));
     expect(rootPackageJson.version).toBe('0.9.0');
 
     // The named workspace did release.
-    expect(existsSync(join(repoDir, 'packages', 'pkg-a', 'CHANGELOG.md'))).toBe(true);
-    const releaseTags = readFileSync(join(repoDir, 'tmp', '.release-tags'), 'utf8');
+    expect(existsSync(join(tree.dir, 'packages', 'pkg-a', 'CHANGELOG.md'))).toBe(true);
+    const releaseTags = readFileSync(join(tree.dir, 'tmp', '.release-tags'), 'utf8');
     expect(releaseTags).toContain('pkg-a-v');
     expect(releaseTags).not.toMatch(/^v\d/m);
   }, 60_000);
 });
 
 describe('prepare atomicity (tool)', () => {
-  let repoDir: string;
+  let tree: TempTree;
 
   beforeEach(() => {
-    repoDir = setupFixture();
+    tree = setupFixture();
   });
 
   it('leaves the working tree untouched when a workspace fails partway through preparation', () => {
-    withinFixture(repoDir, () => {
-      expect(gitStatus(repoDir)).toBe('');
+    withinFixture(tree.dir, () => {
+      expect(gitStatus(tree.dir)).toBe('');
 
       const config = mergeMonorepoConfig(
         ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
@@ -488,7 +460,7 @@ describe('prepare atomicity (tool)', () => {
       lastWorkspace.packageFiles = [...lastWorkspace.packageFiles, 'packages/pkg-c/missing.json'];
 
       expect(() => prepareAndApply(config, {})).toThrow('missing.json');
-      expect(gitStatus(repoDir)).toBe('');
+      expect(gitStatus(tree.dir)).toBe('');
     });
   }, 60_000);
 });

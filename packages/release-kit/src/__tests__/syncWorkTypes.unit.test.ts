@@ -1,4 +1,4 @@
-import { chmodSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
@@ -26,7 +26,7 @@ const SAMPLE_DATA = {
 const it = baseIt
   .extend(
     'tree',
-    makeFixture(() => makeRestorableTree()),
+    makeFixture(() => createTempTree({}, { prefix: 'work-types-sync-' })),
   )
   .extend('localPath', ({ tree }) => join(tree.dir, 'work-types.json'));
 
@@ -52,8 +52,8 @@ describe(syncWorkTypes, () => {
     expect(result.message).toMatch(/Synced/);
   });
 
-  it('exits 0 when local already matches upstream', async ({ localPath }) => {
-    writeFileSync(localPath, `${JSON.stringify(SAMPLE_DATA, null, 2)}\n`, 'utf8');
+  it('exits 0 when local already matches upstream', async ({ localPath, tree }) => {
+    tree.write('work-types.json', `${JSON.stringify(SAMPLE_DATA, null, 2)}\n`);
     const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(SAMPLE_DATA) }));
     const result = await syncWorkTypes({
       localPath,
@@ -89,7 +89,7 @@ describe(syncWorkTypes, () => {
   });
 
   it('exits 2 with a write-failure diagnostic when the local path is not writable', async ({ localPath, tree }) => {
-    // Make the directory read-only so writing the local file fails.
+    // Provoke the write failure with a read-only directory, a mode the tree's own API does not set.
     chmodSync(tree.dir, 0o500);
     const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(SAMPLE_DATA) }));
     const result = await syncWorkTypes({
@@ -113,13 +113,13 @@ describe(syncWorkTypes, () => {
     expect(result.message).toMatch(/not valid JSON/);
   });
 
-  it('preserves the local `$schema` IDE hint when upstream does not carry one', async ({ localPath }) => {
+  it('preserves the local `$schema` IDE hint when upstream does not carry one', async ({ localPath, tree }) => {
     // Upstream is canonical (no `$schema`); local carries the IDE-hint `$schema` so editors validate
     // edits against the colocated schema. Sync must re-inject `$schema` so the file remains
     // self-validating after the upstream content overwrites the local copy. This is symmetric with
     // `checkWorkTypesDrift`, which strips local `$schema` before comparing.
     const localContent = `${JSON.stringify({ $schema: './work-types.schema.json', ...SAMPLE_DATA }, null, 2)}\n`;
-    writeFileSync(localPath, localContent, 'utf8');
+    tree.write('work-types.json', localContent);
     const upstreamData = {
       ...SAMPLE_DATA,
       types: [
@@ -142,10 +142,10 @@ describe(syncWorkTypes, () => {
     expect(synced.indexOf('"$schema"')).toBeLessThan(synced.indexOf('"tiers"'));
   });
 
-  it('does not inject `$schema` when local file does not carry one', async ({ localPath }) => {
+  it('does not inject `$schema` when local file does not carry one', async ({ localPath, tree }) => {
     // If the prior local content lacks `$schema` (e.g., upstream-canonical write), the sync must not
     // hallucinate one — the absence is itself the local truth.
-    writeFileSync(localPath, `${JSON.stringify(SAMPLE_DATA, null, 2)}\n`, 'utf8');
+    tree.write('work-types.json', `${JSON.stringify(SAMPLE_DATA, null, 2)}\n`);
     const upstreamData = { ...SAMPLE_DATA, tiers: ['public', 'internal', 'process', 'future'] };
     const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(upstreamData) }));
 
@@ -202,26 +202,6 @@ function makeResponse(init: { status: number; statusText?: string; body: string 
     statusText: init.statusText ?? 'OK',
   };
   return new Response(init.body, responseInit);
-}
-
-/**
- * Creates a temporary tree that restores its own write permission before disposal. Disposal is a bare recursive
- * remove, and a directory a test left read-only cannot have its entries unlinked until the mode is restored.
- */
-function makeRestorableTree(): Disposable & { dir: string } {
-  const tree = createTempTree({}, { prefix: 'work-types-sync-' });
-
-  return {
-    dir: tree.dir,
-    [Symbol.dispose]() {
-      try {
-        chmodSync(tree.dir, 0o755);
-      } catch {
-        // The directory may already be writable.
-      }
-      tree[Symbol.dispose]();
-    },
-  };
 }
 
 // endregion | Helpers
