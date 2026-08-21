@@ -80,14 +80,15 @@ describe('nmr-compile', () => {
 
 // region | Helpers
 
-// `node:fs`, because the tree's `list` is one level deep and reports names alone, where this needs the whole
-// emit and has to tell a file from a directory.
+/** Lists the files the build emitted, as paths relative to the output directory. */
 function listEmitted(dir: string): string[] {
   const outdir = path.join(dir, 'dist', 'esm');
   if (!fs.existsSync(outdir)) {
     return [];
   }
 
+  // `node:fs`, because the tree's `list` is one level deep and reports names alone, where this needs the whole
+  // emit and has to tell a file from a directory.
   return fs
     .readdirSync(outdir, { recursive: true })
     .map(String)

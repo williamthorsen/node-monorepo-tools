@@ -598,7 +598,7 @@ describe('the check-result cache gate', () => {
       // that would have rebuilt it is exactly the run being skipped.
       await runNmr(COMMAND, repo);
 
-      writeBuildDigest(workspace, path.join(repo, 'packages', 'a'), 'digest-from-another-tree');
+      writeBuildDigest(workspace, 'repo/packages/a', 'digest-from-another-tree');
       const { stderr } = await runNmr(COMMAND, repo, { NMR_DEBUG: '1' });
 
       expect(runCount()).toBe(2);
@@ -607,7 +607,7 @@ describe('the check-result cache gate', () => {
 
     it('settles rather than missing forever once it has run against the output on disk', async () => {
       await runNmr(COMMAND, repo);
-      writeBuildDigest(workspace, path.join(repo, 'packages', 'a'), 'digest-from-another-tree');
+      writeBuildDigest(workspace, 'repo/packages/a', 'digest-from-another-tree');
       await runNmr(COMMAND, repo);
 
       await runNmr(COMMAND, repo);
@@ -782,10 +782,11 @@ function writeNmrShim(workspace: TempTree, log: string, output?: string): string
   return path.dirname(shim);
 }
 
-/** Writes the digest a build of `packageDir` would have left beside its output. */
-function writeBuildDigest(workspace: TempTree, packageDir: string, digest: string): void {
-  // The entry path folds a digest of the absolute package directory, so it is resolved and then relativized.
-  workspace.write(path.relative(workspace.dir, resolveBuildCachePath(packageDir)), digest);
+/** Writes the digest a build of the package at `packageEntry` would have left beside its output. */
+function writeBuildDigest(workspace: TempTree, packageEntry: string, digest: string): void {
+  // The cache path folds a digest of the absolute package directory, so it is resolved and then relativized.
+  const cachePath = resolveBuildCachePath(workspace.resolve(packageEntry));
+  workspace.write(path.relative(workspace.dir, cachePath), digest);
 }
 
 /** Runs git in `cwd`, discarding its output. */
@@ -811,7 +812,7 @@ function scaffoldRepo(workspace: TempTree, log: string): void {
     'repo/src/index.ts': 'export const value = 1;\n',
     'repo/tools/': '',
   });
-  writeBuildDigest(workspace, workspace.resolve('repo/packages/a'), 'digest-from-this-tree');
+  writeBuildDigest(workspace, 'repo/packages/a', 'digest-from-this-tree');
 
   writeConfig(workspace, log);
 

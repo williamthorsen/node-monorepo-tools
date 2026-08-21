@@ -269,7 +269,8 @@ function toRelativePosix(from: string, to: string): string {
 
 /**
  * Unlinks `node_modules`, which is deferred ahead of the tree's own removal so no failure mode can reach the
- * repository's own tree. `node:fs`, because `tree.rm` removes recursively and this has to be the unlink.
+ * repository's own tree. `node:fs`, because `tree.rm` removes with `force`: were this entry ever a real
+ * directory rather than the link, it would go silently where `unlinkSync` throws.
  */
 function unlinkNodeModules(projectRoot: string): void {
   const link = path.join(projectRoot, 'node_modules');
