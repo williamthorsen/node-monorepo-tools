@@ -1,7 +1,4 @@
-import fs from 'node:fs';
-import path from 'node:path';
-
-import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
@@ -26,12 +23,7 @@ describe(loadConfig, () => {
   });
 
   it('loads a config with a valid devBin mapping', async ({ tree }) => {
-    const configDir = path.join(tree.dir, '.config');
-    fs.mkdirSync(configDir);
-    fs.writeFileSync(
-      path.join(configDir, 'nmr.config.ts'),
-      `export default { devBin: { 'my-cli': 'tsx packages/my-cli/src/cli.ts' } };`,
-    );
+    writeConfig(tree, `export default { devBin: { 'my-cli': 'tsx packages/my-cli/src/cli.ts' } };`);
 
     const config = await loadConfig(tree.dir);
     expect(config.devBin).toStrictEqual({ 'my-cli': 'tsx packages/my-cli/src/cli.ts' });
@@ -39,26 +31,19 @@ describe(loadConfig, () => {
 
   // The class, not the message, is what the CLI boundary reads to print a config error without a stack trace.
   it('rejects an invalid config as a UserError', async ({ tree }) => {
-    writeConfig(tree.dir, `export default { devBin: { 'my-cli': 123 } };`);
+    writeConfig(tree, `export default { devBin: { 'my-cli': 123 } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow(UserError);
   });
 
   it('throws when devBin contains a non-string value', async ({ tree }) => {
-    const configDir = path.join(tree.dir, '.config');
-    fs.mkdirSync(configDir);
-    fs.writeFileSync(path.join(configDir, 'nmr.config.ts'), `export default { devBin: { 'my-cli': 123 } };`);
+    writeConfig(tree, `export default { devBin: { 'my-cli': 123 } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow('`devBin` must be a Record<string, string>');
   });
 
   it('loads a config without devBin (backward compatibility)', async ({ tree }) => {
-    const configDir = path.join(tree.dir, '.config');
-    fs.mkdirSync(configDir);
-    fs.writeFileSync(
-      path.join(configDir, 'nmr.config.ts'),
-      `export default { workspaceScripts: { hello: 'echo hello' } };`,
-    );
+    writeConfig(tree, `export default { workspaceScripts: { hello: 'echo hello' } };`);
 
     const config = await loadConfig(tree.dir);
     expect(config.devBin).toBeUndefined();
@@ -66,7 +51,7 @@ describe(loadConfig, () => {
   });
 
   it('loads build.extraIgnorePatterns', async ({ tree }) => {
-    writeConfig(tree.dir, `export default { build: { extraIgnorePatterns: ['**/fixtures/**'] } };`);
+    writeConfig(tree, `export default { build: { extraIgnorePatterns: ['**/fixtures/**'] } };`);
 
     const config = await loadConfig(tree.dir);
 
@@ -74,19 +59,19 @@ describe(loadConfig, () => {
   });
 
   it('throws when build is not an object', async ({ tree }) => {
-    writeConfig(tree.dir, `export default { build: 'nope' };`);
+    writeConfig(tree, `export default { build: 'nope' };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow('`build` must be an object');
   });
 
   it('throws when build.extraIgnorePatterns is not an array of strings', async ({ tree }) => {
-    writeConfig(tree.dir, `export default { build: { extraIgnorePatterns: ['ok', 7] } };`);
+    writeConfig(tree, `export default { build: { extraIgnorePatterns: ['ok', 7] } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow('`build.extraIgnorePatterns` must be a string[]');
   });
 
   it('throws naming an unrecognized top-level key and the recognized set', async ({ tree }) => {
-    writeConfig(tree.dir, `export default { bild: { extraIgnorePatterns: ['**/fixtures/**'] } };`);
+    writeConfig(tree, `export default { bild: { extraIgnorePatterns: ['**/fixtures/**'] } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow(
       'unrecognized key `bild`. Recognized: `build`, `checkCache`, `devBin`, `output`, `rootScripts`, ' +
@@ -95,14 +80,14 @@ describe(loadConfig, () => {
   });
 
   it('throws naming every unrecognized top-level key at once', async ({ tree }) => {
-    writeConfig(tree.dir, `export default { zeta: 1, alpha: 2 };`);
+    writeConfig(tree, `export default { zeta: 1, alpha: 2 };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow('unrecognized keys `alpha`, `zeta`');
   });
 
   it('loads every checkCache field', async ({ tree }) => {
     writeConfig(
-      tree.dir,
+      tree,
       `export default { checkCache: { enabled: false, extraCommands: ['verify'], excludeCommands: ['test'] } };`,
     );
 
@@ -116,32 +101,32 @@ describe(loadConfig, () => {
   });
 
   it('throws when checkCache is not an object', async ({ tree }) => {
-    writeConfig(tree.dir, `export default { checkCache: true };`);
+    writeConfig(tree, `export default { checkCache: true };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow('`checkCache` must be an object');
   });
 
   it('throws when checkCache.enabled is not a boolean', async ({ tree }) => {
-    writeConfig(tree.dir, `export default { checkCache: { enabled: 'no' } };`);
+    writeConfig(tree, `export default { checkCache: { enabled: 'no' } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow('`checkCache.enabled` must be a boolean');
   });
 
   it('throws when checkCache.extraCommands is not an array of strings', async ({ tree }) => {
-    writeConfig(tree.dir, `export default { checkCache: { extraCommands: ['ok', 7] } };`);
+    writeConfig(tree, `export default { checkCache: { extraCommands: ['ok', 7] } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow('`checkCache.extraCommands` must be a string[]');
   });
 
   it('throws when checkCache.excludeCommands is not an array of strings', async ({ tree }) => {
-    writeConfig(tree.dir, `export default { checkCache: { excludeCommands: 'test' } };`);
+    writeConfig(tree, `export default { checkCache: { excludeCommands: 'test' } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow('`checkCache.excludeCommands` must be a string[]');
   });
 
   it('throws naming an unrecognized checkCache subkey', async ({ tree }) => {
     // A misspelled subkey is a setting nothing reads, which no output of a cached run would reveal.
-    writeConfig(tree.dir, `export default { checkCache: { extraCommand: ['verify'] } };`);
+    writeConfig(tree, `export default { checkCache: { extraCommand: ['verify'] } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow(
       'unrecognized key `checkCache.extraCommand`. Recognized: `checkCache.enabled`, ' +
@@ -150,7 +135,7 @@ describe(loadConfig, () => {
   });
 
   it('loads a composite script whose elements are command names', async ({ tree }) => {
-    writeConfig(tree.dir, `export default { rootScripts: { check: ['typecheck', '-q test'] } };`);
+    writeConfig(tree, `export default { rootScripts: { check: ['typecheck', '-q test'] } };`);
 
     const config = await loadConfig(tree.dir);
 
@@ -158,10 +143,7 @@ describe(loadConfig, () => {
   });
 
   it('loads a composite script whose element declares what it does with trailing arguments', async ({ tree }) => {
-    writeConfig(
-      tree.dir,
-      `export default { rootScripts: { check: [{ run: 'typecheck', declinesArgs: true }, 'test'] } };`,
-    );
+    writeConfig(tree, `export default { rootScripts: { check: [{ run: 'typecheck', declinesArgs: true }, 'test'] } };`);
 
     const config = await loadConfig(tree.dir);
 
@@ -169,25 +151,25 @@ describe(loadConfig, () => {
   });
 
   it('throws naming the composite element and the token that puts it outside the grammar', async ({ tree }) => {
-    writeConfig(tree.dir, `export default { rootScripts: { check: ['build && echo done'] } };`);
+    writeConfig(tree, `export default { rootScripts: { check: ['build && echo done'] } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow('`rootScripts.check` element `build && echo done` carries `&&`');
   });
 
   it('holds a spec element to the same grammar its bare string is held to', async ({ tree }) => {
-    writeConfig(tree.dir, `export default { rootScripts: { check: [{ run: 'build && echo done' }] } };`);
+    writeConfig(tree, `export default { rootScripts: { check: [{ run: 'build && echo done' }] } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow('`rootScripts.check` element `build && echo done` carries `&&`');
   });
 
   it('throws naming the shape when an element is neither a string nor a spec', async ({ tree }) => {
-    writeConfig(tree.dir, `export default { rootScripts: { check: [{ command: 'typecheck' }] } };`);
+    writeConfig(tree, `export default { rootScripts: { check: [{ command: 'typecheck' }] } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow('`rootScripts` must be a Record<string, string | element[]>');
   });
 
   it('throws naming an unrecognized spec key, which would otherwise read as the default', async ({ tree }) => {
-    writeConfig(tree.dir, `export default { rootScripts: { check: [{ run: 'typecheck', declineArgs: true }] } };`);
+    writeConfig(tree, `export default { rootScripts: { check: [{ run: 'typecheck', declineArgs: true }] } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow(
       'unrecognized key `rootScripts.check.declineArgs`. Recognized: `rootScripts.check.declinesArgs`, ' +
@@ -196,13 +178,13 @@ describe(loadConfig, () => {
   });
 
   it('throws when a spec declares a non-boolean policy', async ({ tree }) => {
-    writeConfig(tree.dir, `export default { rootScripts: { check: [{ run: 'typecheck', declinesArgs: 'yes' }] } };`);
+    writeConfig(tree, `export default { rootScripts: { check: [{ run: 'typecheck', declinesArgs: 'yes' }] } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow('`rootScripts` must be a Record<string, string | element[]>');
   });
 
   it('throws naming an unrecognized build subkey', async ({ tree }) => {
-    writeConfig(tree.dir, `export default { build: { extendIgnore: ['**/fixtures/**'] } };`);
+    writeConfig(tree, `export default { build: { extendIgnore: ['**/fixtures/**'] } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow(
       'unrecognized key `build.extendIgnore`. Recognized: `build.extraIgnorePatterns`.',
@@ -210,7 +192,7 @@ describe(loadConfig, () => {
   });
 
   it('loads every output field', async ({ tree }) => {
-    writeConfig(tree.dir, `export default { output: { commandVerbosity: 'quiet', extraAgentEnvVars: ['MY_CLI'] } };`);
+    writeConfig(tree, `export default { output: { commandVerbosity: 'quiet', extraAgentEnvVars: ['MY_CLI'] } };`);
 
     const config = await loadConfig(tree.dir);
 
@@ -218,7 +200,7 @@ describe(loadConfig, () => {
   });
 
   it('throws when output is not an object', async ({ tree }) => {
-    writeConfig(tree.dir, `export default { output: 'quiet' };`);
+    writeConfig(tree, `export default { output: 'quiet' };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow('`output` must be an object');
   });
@@ -228,7 +210,7 @@ describe(loadConfig, () => {
     { scenario: 'a recognized value in the wrong case', value: `'QUIET'` },
     { scenario: 'a value that is not a string at all', value: '0' },
   ])('throws naming both accepted values given $scenario', async ({ value }, { tree }) => {
-    writeConfig(tree.dir, `export default { output: { commandVerbosity: ${value} } };`);
+    writeConfig(tree, `export default { output: { commandVerbosity: ${value} } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow(
       '`output.commandVerbosity` is `' + value.replaceAll(`'`, '') + '`, which is not one of: full, quiet',
@@ -236,13 +218,13 @@ describe(loadConfig, () => {
   });
 
   it('throws when output.extraAgentEnvVars is not an array of strings', async ({ tree }) => {
-    writeConfig(tree.dir, `export default { output: { extraAgentEnvVars: 'MY_CLI' } };`);
+    writeConfig(tree, `export default { output: { extraAgentEnvVars: 'MY_CLI' } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow('`output.extraAgentEnvVars` must be a string[]');
   });
 
   it('throws naming an unrecognized output subkey', async ({ tree }) => {
-    writeConfig(tree.dir, `export default { output: { agentEnvVars: ['MY_CLI'] } };`);
+    writeConfig(tree, `export default { output: { agentEnvVars: ['MY_CLI'] } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow(
       'unrecognized key `output.agentEnvVars`. Recognized: `output.commandVerbosity`, `output.extraAgentEnvVars`.',
@@ -256,7 +238,7 @@ describe(loadWorkspaceConfig, () => {
   });
 
   it('loads a config declaring build alone', async ({ tree }) => {
-    writeConfig(tree.dir, `export default { build: { extraIgnorePatterns: ['**/fixtures/**'] } };`);
+    writeConfig(tree, `export default { build: { extraIgnorePatterns: ['**/fixtures/**'] } };`);
 
     const config = await loadWorkspaceConfig(tree.dir);
 
@@ -266,7 +248,7 @@ describe(loadWorkspaceConfig, () => {
   it('throws naming every root-tier key the package config declares', async ({ tree }) => {
     // Silently dropping these would leave the package running on settings its own config appears to set.
     writeConfig(
-      tree.dir,
+      tree,
       `export default { rootScripts: { a: 'x' }, devBin: { b: 'y' }, output: { commandVerbosity: 'quiet' }, build: {} };`,
     );
 
@@ -280,10 +262,7 @@ describe(loadRootConfig, () => {
   });
 
   it('loads the script and devBin keys the root tier honors', async ({ tree }) => {
-    writeConfig(
-      tree.dir,
-      `export default { rootScripts: { a: 'x' }, workspaceScripts: { b: 'y' }, devBin: { c: 'z' } };`,
-    );
+    writeConfig(tree, `export default { rootScripts: { a: 'x' }, workspaceScripts: { b: 'y' }, devBin: { c: 'z' } };`);
 
     const config = await loadRootConfig(tree.dir);
 
@@ -291,7 +270,7 @@ describe(loadRootConfig, () => {
   });
 
   it('loads output, which the root tier honors', async ({ tree }) => {
-    writeConfig(tree.dir, `export default { output: { commandVerbosity: 'quiet' } };`);
+    writeConfig(tree, `export default { output: { commandVerbosity: 'quiet' } };`);
 
     const config = await loadRootConfig(tree.dir);
 
@@ -299,7 +278,7 @@ describe(loadRootConfig, () => {
   });
 
   it('loads checkCache, which the root tier honors', async ({ tree }) => {
-    writeConfig(tree.dir, `export default { checkCache: { excludeCommands: ['test:coverage'] } };`);
+    writeConfig(tree, `export default { checkCache: { excludeCommands: ['test:coverage'] } };`);
 
     const config = await loadRootConfig(tree.dir);
 
@@ -307,7 +286,7 @@ describe(loadRootConfig, () => {
   });
 
   it('throws when the root config declares build, which only a package config reaches', async ({ tree }) => {
-    writeConfig(tree.dir, `export default { build: { extraIgnorePatterns: ['**/fixtures/**'] } };`);
+    writeConfig(tree, `export default { build: { extraIgnorePatterns: ['**/fixtures/**'] } };`);
 
     await expect(loadRootConfig(tree.dir)).rejects.toThrow(
       'honors checkCache, devBin, output, rootScripts, workspaceScripts alone, not build. ' +
@@ -318,11 +297,9 @@ describe(loadRootConfig, () => {
 
 // region | Helpers
 
-/** Writes a config file into `dir/.config/nmr.config.ts`, creating the directory. */
-function writeConfig(dir: string, source: string): void {
-  const configDir = path.join(dir, '.config');
-  fs.mkdirSync(configDir, { recursive: true });
-  fs.writeFileSync(path.join(configDir, 'nmr.config.ts'), source);
+/** Writes a config file into the tree's `.config/nmr.config.ts`. */
+function writeConfig(tree: TempTree, source: string): void {
+  tree.write('.config/nmr.config.ts', source);
 }
 
 // endregion | Helpers

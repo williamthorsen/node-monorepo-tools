@@ -1,8 +1,7 @@
-import fs from 'node:fs';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
-import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
 
@@ -146,7 +145,7 @@ describe(runCli, () => {
     });
 
     it('wraps a command in the hooks that resolve, as structural steps of their own', async ({ tree }) => {
-      writeConfig(tree.dir, { rootScripts: { 'lint:post': 'echo done', 'lint:pre': 'echo starting' } });
+      writeConfig(tree, { rootScripts: { 'lint:post': 'echo done', 'lint:pre': 'echo starting' } });
 
       await runNmr(['lint'], tree.dir);
 
@@ -160,7 +159,7 @@ describe(runCli, () => {
 
   describe('passthrough arguments', () => {
     it('binds to every element of a composite and never to a hook', async ({ tree }) => {
-      writeConfig(tree.dir, { rootScripts: { 'fix:post': 'echo done', 'fix:pre': 'echo starting' } });
+      writeConfig(tree, { rootScripts: { 'fix:post': 'echo done', 'fix:pre': 'echo starting' } });
 
       await runNmr(['fix', '--dry-run'], tree.dir);
 
@@ -173,7 +172,7 @@ describe(runCli, () => {
     });
 
     it('leaves a declining element unnarrowed', async ({ tree }) => {
-      writeConfig(tree.dir, {
+      writeConfig(tree, {
         rootScripts: { verify: [{ run: 'build', declinesArgs: true }, 'lint'] },
       });
 
@@ -186,7 +185,7 @@ describe(runCli, () => {
     });
 
     it('runs nothing when no element accepts them, naming the command', async ({ tree }) => {
-      writeConfig(tree.dir, {
+      writeConfig(tree, {
         rootScripts: {
           verify: [
             { run: 'build', declinesArgs: true },
@@ -205,7 +204,7 @@ describe(runCli, () => {
     // The rejection precedes the recording branch, so reading what a command did and running it answer an
     // unroutable argument alike rather than one reporting nothing recorded.
     it('rejects an unroutable argument under --log too', async ({ tree }) => {
-      writeConfig(tree.dir, {
+      writeConfig(tree, {
         rootScripts: {
           verify: [
             { run: 'build', declinesArgs: true },
@@ -223,7 +222,7 @@ describe(runCli, () => {
     // An empty override resolves to no steps, and no step accepts on an empty list. The no-op check precedes
     // the rejection so the override keeps reporting as one.
     it('reports an empty override as a no-op rather than rejecting the argument', async ({ tree }) => {
-      writeConfig(tree.dir, { rootScripts: { verify: [] } });
+      writeConfig(tree, { rootScripts: { verify: [] } });
 
       const { exitCode, stdout } = await runNmrReadingStdout(['verify', 'src/'], tree.dir);
 
@@ -249,7 +248,7 @@ describe(runCli, () => {
 
   describe('devBin substitution', () => {
     it('substitutes a leaf tool, which is the case the README documents', async ({ tree }) => {
-      writeConfig(tree.dir, { devBin: { eslint: 'node ./scripts/eslint.js' } });
+      writeConfig(tree, { devBin: { eslint: 'node ./scripts/eslint.js' } });
 
       await runNmr(['lint'], tree.dir);
 
@@ -261,7 +260,7 @@ describe(runCli, () => {
     // A composite's first position is nmr's own, not a leaf tool's: substituting it replaced one link of a
     // chain and left the rest running the published binary.
     it('leaves a composite alone, where the first token is the nmr that carries it', async ({ tree }) => {
-      writeConfig(tree.dir, { devBin: { nmr: 'node ./cli.js' } });
+      writeConfig(tree, { devBin: { nmr: 'node ./cli.js' } });
 
       await runNmr(['fix'], tree.dir);
 
@@ -328,8 +327,7 @@ describe(runCli, () => {
 
     // The config is loaded after this point, so reaching it would make an invalid one break an unrelated flag.
     it('reports the version against a repo whose config cannot be loaded', async ({ tree }) => {
-      fs.mkdirSync(path.join(tree.dir, '.config'), { recursive: true });
-      fs.writeFileSync(path.join(tree.dir, '.config', 'nmr.config.ts'), `export default { bild: {} };\n`);
+      tree.write('.config/nmr.config.ts', `export default { bild: {} };\n`);
 
       const { exitCode, stdout } = await runNmrReadingStdout(['--version'], tree.dir);
 
@@ -338,7 +336,7 @@ describe(runCli, () => {
     });
 
     it('takes the verbosity the repo configured', async ({ tree }) => {
-      writeConfig(tree.dir, { output: { commandVerbosity: 'quiet' } });
+      writeConfig(tree, { output: { commandVerbosity: 'quiet' } });
 
       await runNmr(['fix'], tree.dir);
 
@@ -346,7 +344,7 @@ describe(runCli, () => {
     });
 
     it('lets an inherited full outrank a quiet the repo configured', async ({ tree }) => {
-      writeConfig(tree.dir, { output: { commandVerbosity: 'quiet' } });
+      writeConfig(tree, { output: { commandVerbosity: 'quiet' } });
 
       await runNmr(['fix'], tree.dir, { [COMMAND_VERBOSITY_ENV_VAR]: 'full' });
 
@@ -360,7 +358,7 @@ describe(runCli, () => {
     });
 
     it('goes quiet under a harness the repo added', async ({ tree }) => {
-      writeConfig(tree.dir, { output: { extraAgentEnvVars: ['MY_CLI'] } });
+      writeConfig(tree, { output: { extraAgentEnvVars: ['MY_CLI'] } });
 
       await runNmr(['fix'], tree.dir, { MY_CLI: '1' });
 
@@ -369,7 +367,7 @@ describe(runCli, () => {
 
     // Declining detection is what a configured `full` says, so no switch of its own exists to turn it off.
     it('stays loud under a detected harness when the repo configured full', async ({ tree }) => {
-      writeConfig(tree.dir, { output: { commandVerbosity: 'full' } });
+      writeConfig(tree, { output: { commandVerbosity: 'full' } });
 
       await runNmr(['fix'], tree.dir, { CLAUDECODE: '1' });
 
@@ -475,7 +473,7 @@ describe(runCli, () => {
           'Write the nmr steps as a step list, and move any others to a `probe:pre` or `probe:post` script.',
         command: 'probe',
         scenario: 'a config entry',
-        setup: (repo: string) => writeConfig(repo, { rootScripts: { probe: 'nmr fmt && echo done' } }),
+        setup: (tree: TempTree) => writeConfig(tree, { rootScripts: { probe: 'nmr fmt && echo done' } }),
       },
       {
         expected:
@@ -484,7 +482,7 @@ describe(runCli, () => {
           "Delete the entry: nmr's own `fix` already runs `nmr lint && nmr fmt`.",
         command: 'fix',
         scenario: 'a package.json entry restating what nmr already runs',
-        setup: (repo: string) => writePackageScripts(repo, { fix: 'nmr lint && nmr fmt' }),
+        setup: (tree: TempTree) => writePackageScripts(tree, { fix: 'nmr lint && nmr fmt' }),
       },
       {
         expected:
@@ -493,7 +491,7 @@ describe(runCli, () => {
           'Delete the entry and move the steps it adds to a `fix:pre` or `fix:post` script.',
         command: 'fix',
         scenario: 'a package.json entry adding steps to what nmr already runs',
-        setup: (repo: string) => writePackageScripts(repo, { fix: 'nmr lint && rdy compile' }),
+        setup: (tree: TempTree) => writePackageScripts(tree, { fix: 'nmr lint && rdy compile' }),
       },
       {
         expected:
@@ -503,7 +501,7 @@ describe(runCli, () => {
           'package-specific steps to a `probe:pre` or `probe:post` script.',
         command: 'probe',
         scenario: 'a package.json entry whose command the registry does not define',
-        setup: (repo: string) => writePackageScripts(repo, { probe: 'nmr fmt && tsx sync.ts' }),
+        setup: (tree: TempTree) => writePackageScripts(tree, { probe: 'nmr fmt && tsx sync.ts' }),
       },
       {
         expected:
@@ -513,12 +511,12 @@ describe(runCli, () => {
           'package-specific steps to a `probe:pre` or `probe:post` script.',
         command: 'probe',
         scenario: 'a package.json entry written across lines, whose entry quotes as the file holds it',
-        setup: (repo: string) => writePackageScripts(repo, { probe: 'tsx sync.ts\nnmr fmt' }),
+        setup: (tree: TempTree) => writePackageScripts(tree, { probe: 'tsx sync.ts\nnmr fmt' }),
       },
     ])(
       'given $scenario, names the site and the edit that resolves it',
       async ({ command, expected, setup }, { tree }) => {
-        setup(tree.dir);
+        setup(tree);
 
         const { stderr } = await runNmrReadingStderr([command], tree.dir);
 
@@ -535,7 +533,7 @@ describe(runCli, () => {
           'Write the nmr steps as a step list, and move any others to a script of their own that the step ' +
           'list names, because a hook has no `:pre` or `:post` of its own.',
         scenario: 'a config entry',
-        setup: (repo: string) => writeConfig(repo, { rootScripts: { 'probe:post': 'nmr fmt && echo done' } }),
+        setup: (tree: TempTree) => writeConfig(tree, { rootScripts: { 'probe:post': 'nmr fmt && echo done' } }),
       },
       {
         expected:
@@ -545,10 +543,10 @@ describe(runCli, () => {
           'move the package-specific steps to a script of their own that the step list names, because a hook ' +
           'has no `:pre` or `:post` of its own.',
         scenario: 'a package.json entry',
-        setup: (repo: string) => writePackageScripts(repo, { 'probe:post': 'nmr fmt && echo done' }),
+        setup: (tree: TempTree) => writePackageScripts(tree, { 'probe:post': 'nmr fmt && echo done' }),
       },
     ])('given a hook declared by $scenario, names no hook below it', async ({ expected, setup }, { tree }) => {
-      setup(tree.dir);
+      setup(tree);
 
       const { stderr } = await runNmrReadingStderr(['probe:post'], tree.dir);
 
@@ -556,7 +554,7 @@ describe(runCli, () => {
     });
 
     it('spends one line on it', async ({ tree }) => {
-      writeConfig(tree.dir, { rootScripts: { probe: 'nmr fmt' } });
+      writeConfig(tree, { rootScripts: { probe: 'nmr fmt' } });
 
       const { stderr } = await runNmrReadingStderr(['probe'], tree.dir);
 
@@ -567,7 +565,7 @@ describe(runCli, () => {
       { args: ['-q', 'probe'], scenario: 'the -q flag' },
       { args: ['probe'], env: { NMR_COMMAND_VERBOSITY: 'quiet' }, scenario: 'an inherited verbosity' },
     ])('reports it although $scenario made the run quiet', async ({ args, env }, { tree }) => {
-      writeConfig(tree.dir, { rootScripts: { probe: 'nmr fmt' } });
+      writeConfig(tree, { rootScripts: { probe: 'nmr fmt' } });
 
       const { stderr } = await runNmrReadingStderr(args, tree.dir, env);
 
@@ -575,7 +573,7 @@ describe(runCli, () => {
     });
 
     it('leaves the exit code alone', async ({ tree }) => {
-      writeConfig(tree.dir, { rootScripts: { probe: 'nmr fmt' } });
+      writeConfig(tree, { rootScripts: { probe: 'nmr fmt' } });
 
       const { exitCode } = await runNmrReadingStderr(['probe'], tree.dir);
 
@@ -583,7 +581,7 @@ describe(runCli, () => {
     });
 
     it('reports a step reaching nmr through a launcher', async ({ tree }) => {
-      writeConfig(tree.dir, { rootScripts: { probe: 'pnpm --recursive exec nmr build' } });
+      writeConfig(tree, { rootScripts: { probe: 'pnpm --recursive exec nmr build' } });
 
       const { stderr } = await runNmrReadingStderr(['probe'], tree.dir);
 
@@ -595,7 +593,7 @@ describe(runCli, () => {
       { args: ['-R', 'build'], scenario: 'the recursive delegate' },
       { args: ['-F', 'my-pkg', 'build'], scenario: 'the filter delegate' },
     ])('given $scenario, reports nothing', async ({ args }, { tree }) => {
-      writeConfig(tree.dir, { rootScripts: { build: 'pnpm --recursive exec nmr build' } });
+      writeConfig(tree, { rootScripts: { build: 'pnpm --recursive exec nmr build' } });
 
       const { stderr } = await runNmrReadingStderr(args, tree.dir);
 
@@ -640,14 +638,14 @@ describe(runCli, () => {
         scripts: { build: 'nmr build\nrdy compile' },
       },
     ])('given one $scenario, names the site and the edit that resolves it', async ({ expected, scripts }, { tree }) => {
-      writePackageScripts(tree.dir, scripts);
+      writePackageScripts(tree, scripts);
       const command = Object.keys(scripts)[0] ?? '';
 
       await expect(runNmr([command], tree.dir)).rejects.toThrow(new UserError(expected));
     });
 
     it('runs nothing', async ({ tree }) => {
-      writePackageScripts(tree.dir, { build: 'nmr build && rdy compile' });
+      writePackageScripts(tree, { build: 'nmr build && rdy compile' });
 
       await expect(runNmr(['build'], tree.dir)).rejects.toThrow(UserError);
       expect(mockedRunSteps).not.toHaveBeenCalled();
@@ -655,7 +653,7 @@ describe(runCli, () => {
 
     // `--log` reads a recording rather than running one, so no step of the entry could go missing.
     it('is not rejected when the invocation only reads a recording', async ({ tree }) => {
-      writePackageScripts(tree.dir, { build: 'nmr build && rdy compile' });
+      writePackageScripts(tree, { build: 'nmr build && rdy compile' });
 
       const { stderr } = await runNmrReadingStderr(['--log', 'build'], tree.dir);
 
@@ -666,7 +664,7 @@ describe(runCli, () => {
       { scenario: 'standing alone', scripts: { build: 'nmr build' } },
       { scenario: 'carrying trailing arguments, which declare no step', scripts: { build: 'nmr build --verbose' } },
     ])('reports nothing for one $scenario, running the registry entry instead', async ({ scripts }, { tree }) => {
-      writePackageScripts(tree.dir, scripts);
+      writePackageScripts(tree, scripts);
 
       const { exitCode, stderr } = await runNmrReadingStderr(['build'], tree.dir);
 
@@ -677,7 +675,7 @@ describe(runCli, () => {
 
     // nmr wraps a hook in no hooks of its own, so naming `lint:post:pre` would name a script that never runs.
     it('tells a rejected hook to keep its steps, having no script below it to move them to', async ({ tree }) => {
-      writePackageScripts(tree.dir, { 'lint:post': 'nmr lint:post && rdy compile' });
+      writePackageScripts(tree, { 'lint:post': 'nmr lint:post && rdy compile' });
 
       await expect(runNmr(['lint:post'], tree.dir)).rejects.toThrow(
         new UserError(
@@ -690,7 +688,7 @@ describe(runCli, () => {
 
     // The default registry defines no hooks, so a dropped hook is the common case rather than a corner of it.
     it('wraps a rejected hook the registry does not define, so its own process reports it', async ({ tree }) => {
-      writePackageScripts(tree.dir, { 'lint:post': 'nmr lint:post && rdy compile' });
+      writePackageScripts(tree, { 'lint:post': 'nmr lint:post && rdy compile' });
 
       const { exitCode } = await runNmrReadingStderr(['lint'], tree.dir);
 
@@ -739,7 +737,7 @@ describe(runCli, () => {
     });
 
     it('reports a skip as a JSON object naming why it ran nothing', async ({ tree }) => {
-      writePackageScripts(tree.dir, { typecheck: '' });
+      writePackageScripts(tree, { typecheck: '' });
 
       const { stdout } = await runNmrReadingStdout(['--json', 'typecheck'], tree.dir);
       const parsed: unknown = JSON.parse(stdout);
@@ -749,7 +747,7 @@ describe(runCli, () => {
 
     // The override notice is the one message a quiet run withholds, and a machine-readable run is quiet.
     it('leaves stdout carrying the object alone where a package script stands in for a built-in', async ({ tree }) => {
-      writePackageScripts(tree.dir, { typecheck: 'echo standing-in' });
+      writePackageScripts(tree, { typecheck: 'echo standing-in' });
 
       const { stdout } = await runNmrReadingStdout(['--json', 'typecheck'], tree.dir);
 
@@ -762,7 +760,7 @@ describe(runCli, () => {
       { args: ['-R', 'typecheck'], scenario: 'the recursive delegate, whose scopes each report' },
       { args: ['-F', 'my-pkg', 'typecheck'], scenario: 'the filter delegate, whose scope reports' },
     ])('given $scenario, reports no verdict', async ({ args }, { tree }) => {
-      writeConfig(tree.dir, { rootScripts: { 'typecheck:pre': 'echo hi' } });
+      writeConfig(tree, { rootScripts: { 'typecheck:pre': 'echo hi' } });
 
       const { stdout } = await runNmrReadingStdout(args, tree.dir);
 
@@ -780,7 +778,7 @@ describe(runCli, () => {
       { expected: 'the override is empty', script: '', scenario: 'an empty override' },
       { expected: 'the override is a no-op', script: ':', scenario: 'a no-op override' },
     ])('given $scenario, reports a skip distinguishable from a pass', async ({ expected, script }, { tree }) => {
-      writePackageScripts(tree.dir, { typecheck: script });
+      writePackageScripts(tree, { typecheck: script });
 
       const { exitCode, stdout } = await runNmrReadingStdout(['typecheck'], tree.dir);
 
@@ -793,7 +791,7 @@ describe(runCli, () => {
       { scenario: 'an empty override', script: '' },
       { scenario: 'a no-op override', script: ':' },
     ])('given $scenario, reports no skip verdict under --log', async ({ script }, { tree }) => {
-      writePackageScripts(tree.dir, { typecheck: script });
+      writePackageScripts(tree, { typecheck: script });
 
       const { exitCode, stdout } = await runNmrReadingStdout(['--log', 'typecheck'], tree.dir);
       const { stderr } = await runNmrReadingStderr(['--log', 'typecheck'], tree.dir);
@@ -804,7 +802,7 @@ describe(runCli, () => {
     });
 
     it('reports the skip in quiet mode, where a silent exit 0 would read as a pass', async ({ tree }) => {
-      writePackageScripts(tree.dir, { typecheck: ':' });
+      writePackageScripts(tree, { typecheck: ':' });
 
       const { stdout } = await runNmrReadingStdout(['-q', 'typecheck'], tree.dir);
 
@@ -860,14 +858,13 @@ function stepsFromCall(): readonly Step[] | undefined {
 }
 
 /** Writes the tier-3 scripts of the monorepo root's own `package.json`. */
-function writePackageScripts(repo: string, scripts: Record<string, string>): void {
-  fs.writeFileSync(path.join(repo, 'package.json'), JSON.stringify({ scripts }));
+function writePackageScripts(tree: TempTree, scripts: Record<string, string>): void {
+  tree.writeJson('package.json', { scripts });
 }
 
 /** Writes a monorepo-root config, which is the only tier that carries `devBin` and the script registries. */
-function writeConfig(repo: string, config: Record<string, unknown>): void {
-  fs.mkdirSync(path.join(repo, '.config'), { recursive: true });
-  fs.writeFileSync(path.join(repo, '.config', 'nmr.config.ts'), `export default ${JSON.stringify(config)};\n`);
+function writeConfig(tree: TempTree, config: Record<string, unknown>): void {
+  tree.write('.config/nmr.config.ts', `export default ${JSON.stringify(config)};\n`);
 }
 
 // endregion | Helpers

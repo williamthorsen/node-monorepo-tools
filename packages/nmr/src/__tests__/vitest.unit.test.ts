@@ -1,6 +1,3 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
-import path from 'node:path';
-
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { globSync } from 'tinyglobby';
@@ -40,30 +37,28 @@ const it = baseIt
   .extend(
     'workspaceTree',
     { scope: 'file' },
-    makeFixture(() => {
-      const tree = createTempTree({}, { prefix: 'nmr-vitest-workspace-' });
-      writeFileSync(
-        path.join(tree.dir, 'pnpm-workspace.yaml'),
-        "packages:\n  - 'packages/*'\n  - 'tools/cli'\n  - '!packages/legacy'\n",
-      );
-      for (const dir of ['packages/alpha', 'packages/legacy', 'tools/cli']) {
-        mkdirSync(path.join(tree.dir, dir), { recursive: true });
-        writeFileSync(path.join(tree.dir, dir, 'package.json'), '{}');
-      }
-
-      return tree;
-    }),
+    makeFixture(() =>
+      createTempTree(
+        {
+          'packages/alpha/package.json': '{}',
+          'packages/legacy/package.json': '{}',
+          'pnpm-workspace.yaml': "packages:\n  - 'packages/*'\n  - 'tools/cli'\n  - '!packages/legacy'\n",
+          'tools/cli/package.json': '{}',
+        },
+        { prefix: 'nmr-vitest-workspace-' },
+      ),
+    ),
   )
   .extend(
     'singlePackageTree',
     { scope: 'file' },
     // A pnpm-10 single-package repo: the manifest exists to carry settings and declares no `packages`.
-    makeFixture(() => {
-      const tree = createTempTree({}, { prefix: 'nmr-vitest-single-' });
-      writeFileSync(path.join(tree.dir, 'pnpm-workspace.yaml'), 'onlyBuiltDependencies:\n  - esbuild\n');
-
-      return tree;
-    }),
+    makeFixture(() =>
+      createTempTree(
+        { 'pnpm-workspace.yaml': 'onlyBuiltDependencies:\n  - esbuild\n' },
+        { prefix: 'nmr-vitest-single-' },
+      ),
+    ),
   )
   .extend(
     'notARootTree',
@@ -73,16 +68,9 @@ const it = baseIt
   .extend(
     'selectionTree',
     { scope: 'file' },
-    makeFixture(() => {
-      const tree = createTempTree({}, { prefix: 'nmr-vitest-test-' });
-      for (const file of FIXTURE_FILES) {
-        const absolute = path.join(tree.dir, file);
-        mkdirSync(path.dirname(absolute), { recursive: true });
-        writeFileSync(absolute, '');
-      }
-
-      return tree;
-    }),
+    makeFixture(() =>
+      createTempTree(Object.fromEntries(FIXTURE_FILES.map((file) => [file, ''])), { prefix: 'nmr-vitest-test-' }),
+    ),
   );
 
 describe(defineVitestConfig, () => {
