@@ -1,5 +1,3 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
-import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
@@ -14,29 +12,27 @@ import { readAmbientEnv } from '../test-utils/readAmbientEnv.ts';
 const it = baseIt.extend(
   'tree',
   { scope: 'file' },
-  makeFixture(() => {
-    const tree = createTempTree({}, { prefix: 'nmr-verdict-nesting-' });
-    writeFileSync(path.join(tree.dir, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n");
-    writeFileSync(path.join(tree.dir, 'package.json'), JSON.stringify({ name: 'nesting-root', private: true }));
-    mkdirSync(path.join(tree.dir, '.config'), { recursive: true });
-    writeFileSync(
-      path.join(tree.dir, '.config', 'nmr.config.ts'),
-      `export default ${JSON.stringify({
-        rootScripts: {
-          boom: 'echo boom-noise && exit 1',
-          colorful: String.raw`printf '\033[32mcolored-noise\033[39m\n'`,
-          demo: 'echo main-noise',
-          'demo:content': 'echo content-noise',
-          'demo:one': 'echo one-noise',
-          'demo:post': ['demo:content'],
-          'demo:two': 'echo two-noise',
-          fanout: ['demo:one', 'demo:two'],
-        },
-      })};\n`,
-    );
-
-    return tree;
-  }),
+  makeFixture(() =>
+    createTempTree(
+      {
+        '.config/nmr.config.ts': `export default ${JSON.stringify({
+          rootScripts: {
+            boom: 'echo boom-noise && exit 1',
+            colorful: String.raw`printf '\033[32mcolored-noise\033[39m\n'`,
+            demo: 'echo main-noise',
+            'demo:content': 'echo content-noise',
+            'demo:one': 'echo one-noise',
+            'demo:post': ['demo:content'],
+            'demo:two': 'echo two-noise',
+            fanout: ['demo:one', 'demo:two'],
+          },
+        })};\n`,
+        'package.json': JSON.stringify({ name: 'nesting-root', private: true }),
+        'pnpm-workspace.yaml': "packages:\n  - 'packages/*'\n",
+      },
+      { prefix: 'nmr-verdict-nesting-' },
+    ),
+  ),
 );
 
 // What a level reports is decided by that level's own process, not by the one that composed it, so every case

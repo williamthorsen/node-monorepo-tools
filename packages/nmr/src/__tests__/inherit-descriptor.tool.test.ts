@@ -1,5 +1,4 @@
 import { spawnSync } from 'node:child_process';
-import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
@@ -23,17 +22,15 @@ const PROBE = String.raw`node -e "process.stdout.write('TTY:' + (process.stdout.
 const it = baseIt.extend(
   'tree',
   { scope: 'file' },
-  makeFixture(() => {
-    const tree = createTempTree({}, { prefix: 'nmr-inherit-' });
-    fs.writeFileSync(path.join(tree.dir, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n');
-    fs.mkdirSync(path.join(tree.dir, '.config'), { recursive: true });
-    fs.writeFileSync(
-      path.join(tree.dir, '.config', 'nmr.config.ts'),
-      `export default ${JSON.stringify({ rootScripts: { probe: ['probe:leaf'], 'probe:leaf': PROBE } })};\n`,
-    );
-
-    return tree;
-  }),
+  makeFixture(() =>
+    createTempTree(
+      {
+        '.config/nmr.config.ts': `export default ${JSON.stringify({ rootScripts: { probe: ['probe:leaf'], 'probe:leaf': PROBE } })};\n`,
+        'pnpm-workspace.yaml': 'packages:\n  - packages/*\n',
+      },
+      { prefix: 'nmr-inherit-' },
+    ),
+  ),
 );
 
 // `script(1)` is the only way to hand nmr a terminal from a test, and its flags are not portable: BSD takes
