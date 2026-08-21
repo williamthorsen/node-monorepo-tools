@@ -776,6 +776,7 @@ function asDestination(stream: PassThrough, terminalFd: number | undefined): Pas
 function writeNmrShim(workspace: TempTree, log: string, output?: string): string {
   const echoOutput = output === undefined ? '' : `echo '${output}'\n`;
   const shim = workspace.write('bin/nmr', `#!/bin/sh\necho ran >> ${log}\n${echoOutput}`);
+  // `node:fs`, because the tree's write takes no mode and the shim has to be executable.
   fs.chmodSync(shim, 0o755);
 
   return path.dirname(shim);
@@ -793,8 +794,9 @@ function git(cwd: string, args: string[]): void {
 }
 
 /**
- * Writes a committed pnpm workspace inside a git repository: one built package, the pnpm files the install
- * fingerprint reads, and a config mapping the cacheable command to a script that appends one line per run.
+ * Writes a committed pnpm workspace under `repo/` in the workspace tree: one built package, the pnpm files the
+ * install fingerprint reads, and a config mapping the cacheable command to a script that appends one line per
+ * run. `bin/` and the run log sit beside it, outside the repository.
  */
 function scaffoldRepo(workspace: TempTree, log: string): void {
   workspace.writeAll({
