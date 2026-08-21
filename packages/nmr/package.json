@@ -78,7 +78,7 @@
     "@williamthorsen/toolbelt.errors": "catalog:",
     "glob": "13.0.6",
     "prettier-plugin-sh": "0.19.0",
-    "taze": "20.0.1",
+    "taze": "21.1.0",
     "yaml": "2.9.0"
   },
   "devDependencies": {
