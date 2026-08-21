@@ -13,8 +13,7 @@ const it = baseIt.extend(
 describe(generateHelp, () => {
   // The listing reads the same tier-3 scripts resolution does, so a malformed entry stops it rather than being
   // omitted from a help text that looks complete.
-  it('rejects a malformed package.json script rather than omitting it', () => {
-    using tree = createTempTree({}, { prefix: 'nmr-help-' });
+  it('rejects a malformed package.json script rather than omitting it', ({ tree }) => {
     tree.writeJson('package.json', { scripts: { build: ['compile'] } });
 
     expect(() => generateHelp({}, tree.dir, false)).toThrow('`scripts.build` must be a string');
