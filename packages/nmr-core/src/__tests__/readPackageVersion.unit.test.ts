@@ -16,14 +16,16 @@ const it = baseIt.extend(
 describe(readPackageVersion, () => {
   it('returns the version string from the nearest ancestor package.json', ({ tree }) => {
     tree.writeJson('package.json', { name: 'fixture', version: '1.2.3' });
-    const calleeFile = path.join(tree.mkdir('src'), 'callee.ts');
+    tree.mkdir('src');
+    const calleeFile = tree.resolve('src/callee.ts');
 
     expect(readPackageVersion(pathToFileURL(calleeFile).href)).toBe('1.2.3');
   });
 
   it('walks up multiple directory levels to find package.json', ({ tree }) => {
     tree.writeJson('package.json', { name: 'fixture', version: '4.5.6' });
-    const deepFile = path.join(tree.mkdir('a/b/c/d'), 'callee.ts');
+    tree.mkdir('a/b/c/d');
+    const deepFile = tree.resolve('a/b/c/d/callee.ts');
 
     expect(readPackageVersion(pathToFileURL(deepFile).href)).toBe('4.5.6');
   });

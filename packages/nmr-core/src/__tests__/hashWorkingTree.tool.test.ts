@@ -112,7 +112,7 @@ describe(hashWorkingTree, () => {
       tree.symlink('link', 'src/index.ts');
       const before = hashOf(tree.dir);
 
-      fs.rmSync(path.join(tree.dir, 'link'));
+      tree.rm('link');
       tree.symlink('link', 'src/other.ts');
 
       expect(hashOf(tree.dir)).not.toBe(before);
