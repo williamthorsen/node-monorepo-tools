@@ -26,7 +26,7 @@ const it = baseIt.extend(
 describe('cache-store', () => {
   describe(resolveCacheDir, () => {
     it('places the cache under the scope directory’s own node_modules', ({ tree }) => {
-      fs.mkdirSync(path.join(tree.dir, 'node_modules'), { recursive: true });
+      tree.mkdir('node_modules');
 
       expect(resolveCacheDir({ tool: TOOL, scopeDir: tree.dir })).toBe(
         path.join(tree.dir, 'node_modules', '.cache', TOOL),
@@ -36,9 +36,8 @@ describe('cache-store', () => {
     it('hoists to the nearest ancestor holding a node_modules', ({ tree }) => {
       // A zero-dependency package has no `node_modules` of its own; materializing one to hold a cache would
       // leave a directory the package never asked for.
-      fs.mkdirSync(path.join(tree.dir, 'node_modules'), { recursive: true });
-      const packageDir = path.join(tree.dir, 'packages', 'leaf');
-      fs.mkdirSync(packageDir, { recursive: true });
+      tree.mkdir('node_modules');
+      const packageDir = tree.mkdir('packages/leaf');
 
       expect(resolveCacheDir({ tool: TOOL, scopeDir: packageDir })).toBe(
         path.join(tree.dir, 'node_modules', '.cache', TOOL),
@@ -67,7 +66,7 @@ describe('cache-store', () => {
 
     it('separates scopes sharing one cache directory', ({ tree }) => {
       // Two packages hoisting to the same `node_modules` would otherwise write over each other's entries.
-      fs.mkdirSync(path.join(tree.dir, 'node_modules'), { recursive: true });
+      tree.mkdir('node_modules');
       const a = path.join(tree.dir, 'packages', 'a');
       const b = path.join(tree.dir, 'packages', 'b');
 
@@ -95,8 +94,7 @@ describe('cache-store', () => {
 
   describe(readCacheEntry, () => {
     it('returns the entry’s text', async ({ tree }) => {
-      const entryPath = path.join(tree.dir, 'entry.hash');
-      fs.writeFileSync(entryPath, 'a-digest');
+      const entryPath = tree.write('entry.hash', 'a-digest');
 
       await expect(readCacheEntry(entryPath)).resolves.toBe('a-digest');
     });
@@ -106,8 +104,7 @@ describe('cache-store', () => {
     });
 
     it('reads a directory in the entry’s place as a miss', async ({ tree }) => {
-      const entryPath = path.join(tree.dir, 'entry.hash');
-      fs.mkdirSync(entryPath);
+      const entryPath = tree.mkdir('entry.hash');
 
       await expect(readCacheEntry(entryPath)).resolves.toBeUndefined();
     });
@@ -115,8 +112,7 @@ describe('cache-store', () => {
 
   describe(readJsonCacheEntry, () => {
     it('returns the parsed entry when it satisfies the guard', async ({ tree }) => {
-      const entryPath = path.join(tree.dir, 'entry.json');
-      fs.writeFileSync(entryPath, JSON.stringify({ hash: 'abc' }));
+      const entryPath = tree.writeJson('entry.json', { hash: 'abc' });
 
       await expect(readJsonCacheEntry(entryPath, isHashEntry)).resolves.toStrictEqual({ hash: 'abc' });
     });
@@ -127,16 +123,14 @@ describe('cache-store', () => {
 
     it('reads unparseable content as a miss', async ({ tree }) => {
       // A torn write from a store predating atomic renames, or a truncated disk, must not throw at the caller.
-      const entryPath = path.join(tree.dir, 'entry.json');
-      fs.writeFileSync(entryPath, '{"hash": "abc');
+      const entryPath = tree.write('entry.json', '{"hash": "abc');
 
       await expect(readJsonCacheEntry(entryPath, isHashEntry)).resolves.toBeUndefined();
     });
 
     it('reads content of the wrong shape as a miss', async ({ tree }) => {
       // An entry written by an older format is content the caller cannot trust, so it may not reach the caller.
-      const entryPath = path.join(tree.dir, 'entry.json');
-      fs.writeFileSync(entryPath, JSON.stringify({ digest: 'abc' }));
+      const entryPath = tree.writeJson('entry.json', { digest: 'abc' });
 
       await expect(readJsonCacheEntry(entryPath, isHashEntry)).resolves.toBeUndefined();
     });
@@ -188,8 +182,7 @@ describe('cache-store', () => {
 
     it('reports a write it could not complete, leaving no temporary file behind', async ({ tree }) => {
       // A cache that silently fails to record is a cache that never hits, with nothing to explain why.
-      const entryPath = path.join(tree.dir, 'occupied');
-      fs.mkdirSync(entryPath);
+      const entryPath = tree.mkdir('occupied');
 
       await expect(writeCacheEntry(entryPath, 'a-digest')).rejects.toThrow(/occupied/);
 
