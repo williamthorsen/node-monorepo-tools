@@ -20,7 +20,6 @@ const config = defineConfig([
   {
     files: ['**/*.js', '**/*.cjs', '**/*.mjs', '**/*.ts', '**/*.tsx'],
     rules: {
-      'n/no-extraneous-import': ['error', { allowModules: ['vitest'] }],
       'no-console': ['error', { allow: ['debug', 'info', 'warn'] }],
       'no-restricted-syntax': [
         'error',
