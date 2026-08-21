@@ -1,6 +1,4 @@
-import fs from 'node:fs';
-import path from 'node:path';
-
+import type { TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { disposeOnTestFinished, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -8,10 +6,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { reportCatalog } from '../report-catalog.ts';
 
 describe(reportCatalog, () => {
-  let monorepoRoot: string;
+  let tree: TempTree;
 
   beforeEach(() => {
-    monorepoRoot = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-report-catalog-test-' })).dir;
+    tree = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-report-catalog-test-' }));
     writeWorkspaceManifest();
   });
 
@@ -28,7 +26,7 @@ describe(reportCatalog, () => {
     expect(silent.warn).toHaveBeenCalledWith('- lodash → catalog:legacy');
     expect(silent.warn).toHaveBeenCalledWith('- zod → catalog:');
     expect(silent.warn).toHaveBeenCalledWith(
-      `\n📚 2 catalogued dependencies went unread. Run \`nmr upgrade\` from ${monorepoRoot} to include them.`,
+      `\n📚 2 catalogued dependencies went unread. Run \`nmr upgrade\` from ${tree.dir} to include them.`,
     );
   });
 
@@ -67,7 +65,7 @@ describe(reportCatalog, () => {
     reportCatalog(packageDir);
 
     expect(silent.warn).toHaveBeenCalledWith(
-      `\n📚 1 catalogued dependency went unread. Run \`nmr upgrade\` from ${monorepoRoot} to include it.`,
+      `\n📚 1 catalogued dependency went unread. Run \`nmr upgrade\` from ${tree.dir} to include it.`,
     );
     expect(silent.warn.mock.calls.filter(([line]) => String(line).includes('typescript'))).toHaveLength(1);
   });
@@ -83,18 +81,17 @@ describe(reportCatalog, () => {
 
   it('says nothing when the pass runs at the monorepo root', () => {
     writePackage('a', { dependencies: { zod: 'catalog:' } });
-    fs.writeFileSync(path.join(monorepoRoot, 'package.json'), JSON.stringify({ name: 'root', private: true }));
+    tree.write('package.json', JSON.stringify({ name: 'root', private: true }));
 
     using silent = silenceConsole(['warn']);
-    reportCatalog(monorepoRoot);
+    reportCatalog(tree.dir);
 
     expect(silent.warn).not.toHaveBeenCalled();
   });
 
   it('says nothing when the directory is outside every declared workspace package', () => {
-    const outsideDir = path.join(monorepoRoot, 'tools');
-    fs.mkdirSync(outsideDir);
-    fs.writeFileSync(path.join(outsideDir, 'package.json'), JSON.stringify({ dependencies: { zod: 'catalog:' } }));
+    const outsideDir = tree.mkdir('tools');
+    tree.write('tools/package.json', JSON.stringify({ dependencies: { zod: 'catalog:' } }));
 
     using silent = silenceConsole(['warn']);
     reportCatalog(outsideDir);
@@ -106,15 +103,13 @@ describe(reportCatalog, () => {
 
   /** Writes a workspace package declaring the given manifest fields, and returns its directory. */
   function writePackage(name: string, fields: Record<string, Record<string, string>>): string {
-    const packageDir = path.join(monorepoRoot, 'packages', name);
-    fs.mkdirSync(packageDir, { recursive: true });
-    fs.writeFileSync(path.join(packageDir, 'package.json'), JSON.stringify({ name, ...fields }));
-    return packageDir;
+    tree.write(`packages/${name}/package.json`, JSON.stringify({ name, ...fields }));
+    return tree.resolve('packages', name);
   }
 
   /** Writes the manifest whose presence marks the temp directory as a monorepo root. */
   function writeWorkspaceManifest(): void {
-    fs.writeFileSync(path.join(monorepoRoot, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n');
+    tree.write('pnpm-workspace.yaml', 'packages:\n  - packages/*\n');
   }
 
   // endregion | Helpers
