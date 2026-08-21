@@ -1,4 +1,4 @@
-import { mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import path from 'node:path';
 
 import { findMonorepoRoot, getWorkspacePackageDirs } from '@williamthorsen/nmr/workspace';
@@ -44,20 +44,20 @@ describe('every workspace package holds at least one collectable test file', () 
 
 describe(hasTestFile, () => {
   it('counts a test file under a __tests__ directory', ({ tree }) => {
-    writeFixture(tree.dir, 'src/__tests__/thing.test.ts');
+    tree.write('src/__tests__/thing.test.ts', '');
 
     expect(hasTestFile(tree.dir)).toBe(true);
   });
 
   // Vitest collects only from `__tests__`, so a file outside one is not a suite the guard can vouch for.
   it('ignores a test file outside a __tests__ directory', ({ tree }) => {
-    writeFixture(tree.dir, 'src/thing.test.ts');
+    tree.write('src/thing.test.ts', '');
 
     expect(hasTestFile(tree.dir)).toBe(false);
   });
 
   it('ignores a dependency owning the only tests', ({ tree }) => {
-    writeFixture(tree.dir, 'node_modules/dep/__tests__/thing.test.ts');
+    tree.write('node_modules/dep/__tests__/thing.test.ts', '');
 
     expect(hasTestFile(tree.dir)).toBe(false);
   });
@@ -82,11 +82,4 @@ function hasTestFile(dir: string, inTestDir = false): boolean {
     if (inTestDir && isTestFile) return true;
   }
   return false;
-}
-
-/** Creates an empty file at `relativePath` under `root`, including any missing parent directories. */
-function writeFixture(root: string, relativePath: string): void {
-  const absolute = path.join(root, relativePath);
-  mkdirSync(path.dirname(absolute), { recursive: true });
-  writeFileSync(absolute, '');
 }
