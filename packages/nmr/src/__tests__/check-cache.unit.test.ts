@@ -1,8 +1,7 @@
-import fs from 'node:fs';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
-import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -31,11 +30,10 @@ import { COMMAND_VERBOSITY_ENV_VAR } from '../verbosity.ts';
 const SNAPSHOT: TreeSnapshot = { hash: 'tree-hash', headSha: 'head-sha' };
 
 describe('check-cache', () => {
-  let root: string;
+  let tree: TempTree;
 
   beforeEach(() => {
-    root = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-check-cache-' })).dir;
-    fs.mkdirSync(path.join(root, 'node_modules'), { recursive: true });
+    tree = disposeOnTestFinished(createTempTree({ 'node_modules/': '' }, { prefix: 'nmr-check-cache-' }));
   });
 
   describe(resolveCacheableCommands, () => {
@@ -78,11 +76,11 @@ describe('check-cache', () => {
 
   describe(computeCacheKey, () => {
     beforeEach(() => {
-      writeInstallFingerprint(root);
+      writeInstallFingerprint(tree);
     });
 
     it('agrees with itself on unchanged inputs', () => {
-      expect(keyOf(root)).toBe(keyOf(root));
+      expect(keyOf(tree.dir)).toBe(keyOf(tree.dir));
     });
 
     it.each([
@@ -98,50 +96,50 @@ describe('check-cache', () => {
       ['LC_ALL', { env: { LC_ALL: 'C' } }],
       ['NODE_OPTIONS', { env: { NODE_OPTIONS: '--max-old-space-size=8192' } }],
     ])('moves when %s changes', (_label, overrides) => {
-      expect(keyOf(root, overrides)).not.toBe(keyOf(root));
+      expect(keyOf(tree.dir, overrides)).not.toBe(keyOf(tree.dir));
     });
 
     it('moves when the scope changes', () => {
       // One tree can pass `check` at the root and fail it in a package; the two are different questions.
-      expect(keyOf(root, { anchorDir: path.join(root, 'packages', 'a') })).not.toBe(keyOf(root));
+      expect(keyOf(tree.dir, { anchorDir: tree.resolve('packages/a') })).not.toBe(keyOf(tree.dir));
     });
 
     it('moves when what is installed changes', () => {
-      const before = keyOf(root);
+      const before = keyOf(tree.dir);
 
-      fs.writeFileSync(path.join(root, 'node_modules', '.modules.yaml'), 'hoistPattern:\n  - "*"\n');
+      tree.write('node_modules/.modules.yaml', 'hoistPattern:\n  - "*"\n');
 
-      expect(keyOf(root)).not.toBe(before);
+      expect(keyOf(tree.dir)).not.toBe(before);
     });
 
     it('separates an unset environment variable from one set to the empty string', () => {
-      expect(keyOf(root, { env: { TZ: '' } })).not.toBe(keyOf(root, { env: {} }));
+      expect(keyOf(tree.dir, { env: { TZ: '' } })).not.toBe(keyOf(tree.dir, { env: {} }));
     });
 
     it('ignores an environment variable outside the fixed set', () => {
       // The set stays fixed so that two machines differing only in shell decoration agree on the key.
-      expect(keyOf(root, { env: { EDITOR: 'vim' } })).toBe(keyOf(root));
+      expect(keyOf(tree.dir, { env: { EDITOR: 'vim' } })).toBe(keyOf(tree.dir));
     });
 
     // Loudness changes what a run prints and never what it concludes, so a quiet run hits a pass a loud one
     // recorded. Folding it in would split every recorded pass across the two modes, and silently.
     it('ignores the verbosity a run was asked for', () => {
-      expect(keyOf(root, { env: { [COMMAND_VERBOSITY_ENV_VAR]: 'quiet' } })).toBe(
-        keyOf(root, { env: { [COMMAND_VERBOSITY_ENV_VAR]: 'full' } }),
+      expect(keyOf(tree.dir, { env: { [COMMAND_VERBOSITY_ENV_VAR]: 'quiet' } })).toBe(
+        keyOf(tree.dir, { env: { [COMMAND_VERBOSITY_ENV_VAR]: 'full' } }),
       );
     });
 
     // The format nmr reports its own verdicts in reaches no command, so it cannot change what one concludes.
     it('ignores the format a run reports in', () => {
-      expect(keyOf(root, { env: { [REPORT_FORMAT_ENV_VAR]: 'json' } })).toBe(
-        keyOf(root, { env: { [REPORT_FORMAT_ENV_VAR]: 'text' } }),
+      expect(keyOf(tree.dir, { env: { [REPORT_FORMAT_ENV_VAR]: 'json' } })).toBe(
+        keyOf(tree.dir, { env: { [REPORT_FORMAT_ENV_VAR]: 'text' } }),
       );
     });
 
     it('refuses a key when the install fingerprint is unreadable', () => {
-      fs.rmSync(path.join(root, 'node_modules', '.pnpm'), { recursive: true, force: true });
+      tree.rm('node_modules/.pnpm');
 
-      expect(computeCacheKey(keyOptions(root))).toStrictEqual({
+      expect(computeCacheKey(keyOptions(tree.dir))).toStrictEqual({
         ok: false,
         reason: expect.stringContaining('install fingerprint'),
       });
@@ -199,19 +197,19 @@ describe('check-cache', () => {
 
     describe('against the pass key', () => {
       beforeEach(() => {
-        writeInstallFingerprint(root);
+        writeInstallFingerprint(tree);
       });
 
       it('given a presentation variable, moves while the pass key stands', () => {
-        const passKey = keyOf(root, { env: { COLUMNS: '80' } });
+        const passKey = keyOf(tree.dir, { env: { COLUMNS: '80' } });
 
-        expect(passKey).toBe(keyOf(root));
+        expect(passKey).toBe(keyOf(tree.dir));
         expect(retentionKeyOf({ env: { COLUMNS: '80' }, passKey })).not.toBe(retentionKeyOf({ passKey }));
       });
 
       it('given a channel kind, moves while the pass key stands', () => {
-        expect(retentionKeyOf({ channels: { stderr: 2, stdout: 1 }, passKey: keyOf(root) })).not.toBe(
-          retentionKeyOf({ passKey: keyOf(root) }),
+        expect(retentionKeyOf({ channels: { stderr: 2, stdout: 1 }, passKey: keyOf(tree.dir) })).not.toBe(
+          retentionKeyOf({ passKey: keyOf(tree.dir) }),
         );
       });
     });
@@ -234,53 +232,53 @@ describe('check-cache', () => {
   describe('recorded entries', () => {
     it('reads back what it recorded', async () => {
       const entry = makeEntry();
-      await writeCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci', entry });
+      await writeCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'ci', entry });
 
-      await expect(readCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci' })).resolves.toStrictEqual(
-        entry,
-      );
+      await expect(
+        readCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'ci' }),
+      ).resolves.toStrictEqual(entry);
     });
 
     it('reports no entry for a command that never recorded one', async () => {
       await expect(
-        readCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'typecheck' }),
+        readCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'typecheck' }),
       ).resolves.toBeUndefined();
     });
 
     it('keeps one command’s entry separate from another’s', async () => {
       await writeCheckCacheEntry({
-        monorepoRoot: root,
-        anchorDir: root,
+        monorepoRoot: tree.dir,
+        anchorDir: tree.dir,
         command: 'ci',
         entry: makeEntry({ key: 'ci-key' }),
       });
       await writeCheckCacheEntry({
-        monorepoRoot: root,
-        anchorDir: root,
+        monorepoRoot: tree.dir,
+        anchorDir: tree.dir,
         command: 'typecheck',
         entry: makeEntry({ key: 'typecheck-key' }),
       });
 
-      const entry = await readCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci' });
+      const entry = await readCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'ci' });
       expect(entry?.key).toBe('ci-key');
     });
 
     it('keeps one scope’s entry separate from another’s', async () => {
-      const packageDir = path.join(root, 'packages', 'a');
+      const packageDir = tree.resolve('packages/a');
       await writeCheckCacheEntry({
-        monorepoRoot: root,
-        anchorDir: root,
+        monorepoRoot: tree.dir,
+        anchorDir: tree.dir,
         command: 'check',
         entry: makeEntry({ key: 'root-key' }),
       });
       await writeCheckCacheEntry({
-        monorepoRoot: root,
+        monorepoRoot: tree.dir,
         anchorDir: packageDir,
         command: 'check',
         entry: makeEntry({ key: 'package-key' }),
       });
 
-      const entry = await readCheckCacheEntry({ monorepoRoot: root, anchorDir: packageDir, command: 'check' });
+      const entry = await readCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: packageDir, command: 'check' });
       expect(entry?.key).toBe('package-key');
     });
 
@@ -292,17 +290,17 @@ describe('check-cache', () => {
           runId: 'a-run',
         },
       });
-      await writeCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'test', entry });
+      await writeCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'test', entry });
 
       await expect(
-        readCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'test' }),
+        readCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'test' }),
       ).resolves.toStrictEqual(entry);
     });
 
     it('reads an entry recorded before retention existed as a pass carrying nothing to replay', async () => {
-      await writeCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci', entry: makeEntry() });
+      await writeCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'ci', entry: makeEntry() });
 
-      const entry = await readCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci' });
+      const entry = await readCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'ci' });
 
       expect(entry?.key).toBe('a-key');
       expect(entry?.retention).toBeUndefined();
@@ -318,10 +316,10 @@ describe('check-cache', () => {
       ],
     ])('reads an entry claiming %s as a pass carrying nothing to replay', async (_label, retention) => {
       // What a skip would have replayed cannot decide whether the pass beneath it stands.
-      await writeCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci', entry: makeEntry() });
-      overwriteEntries(root, JSON.stringify({ ...makeEntry(), retention }));
+      await writeCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'ci', entry: makeEntry() });
+      overwriteEntries(tree, JSON.stringify({ ...makeEntry(), retention }));
 
-      const entry = await readCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci' });
+      const entry = await readCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'ci' });
 
       expect(entry?.key).toBe('a-key');
       expect(entry?.retention).toBeUndefined();
@@ -329,27 +327,32 @@ describe('check-cache', () => {
 
     it('reads an entry of the wrong shape as no entry', async () => {
       // An entry written by an older format is not a pass anyone can act on.
-      await writeCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci', entry: makeEntry() });
-      overwriteEntries(root, JSON.stringify({ treeHash: 'tree-hash' }));
+      await writeCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'ci', entry: makeEntry() });
+      overwriteEntries(tree, JSON.stringify({ treeHash: 'tree-hash' }));
 
       await expect(
-        readCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci' }),
+        readCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'ci' }),
       ).resolves.toBeUndefined();
     });
 
     it('clears every scope’s entries at once', async () => {
       // One removal is the whole table, so distrusting the cache never means hunting through packages.
-      const packageDir = path.join(root, 'packages', 'a');
-      await writeCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci', entry: makeEntry() });
-      await writeCheckCacheEntry({ monorepoRoot: root, anchorDir: packageDir, command: 'check', entry: makeEntry() });
+      const packageDir = tree.resolve('packages/a');
+      await writeCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'ci', entry: makeEntry() });
+      await writeCheckCacheEntry({
+        monorepoRoot: tree.dir,
+        anchorDir: packageDir,
+        command: 'check',
+        entry: makeEntry(),
+      });
 
-      await removeCheckCache(root);
+      await removeCheckCache(tree.dir);
 
       await expect(
-        readCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'ci' }),
+        readCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'ci' }),
       ).resolves.toBeUndefined();
       await expect(
-        readCheckCacheEntry({ monorepoRoot: root, anchorDir: packageDir, command: 'check' }),
+        readCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: packageDir, command: 'check' }),
       ).resolves.toBeUndefined();
     });
   });
@@ -359,7 +362,7 @@ describe('check-cache', () => {
 
     /** The ref for this test's temporary root, which `beforeEach` creates afresh. */
     function refFor(command: string, anchorDir?: string) {
-      return { ...REF, anchorDir: anchorDir ?? root, command, monorepoRoot: root };
+      return { ...REF, anchorDir: anchorDir ?? tree.dir, command, monorepoRoot: tree.dir };
     }
 
     it('reads back what it recorded', async () => {
@@ -380,7 +383,7 @@ describe('check-cache', () => {
     });
 
     it('keeps one scope’s transcript separate from another’s', async () => {
-      const packageDir = path.join(root, 'packages', 'a');
+      const packageDir = tree.resolve('packages/a');
       await recordTranscript(refFor('test'), 'root output');
       await recordTranscript(refFor('test', packageDir), 'package output');
 
@@ -398,19 +401,19 @@ describe('check-cache', () => {
     });
 
     it('leaves the entry beside it alone', async () => {
-      await writeCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'test', entry: makeEntry() });
+      await writeCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'test', entry: makeEntry() });
 
       await recordTranscript(refFor('test'), undefined);
 
       await expect(
-        readCheckCacheEntry({ monorepoRoot: root, anchorDir: root, command: 'test' }),
+        readCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'test' }),
       ).resolves.toBeDefined();
     });
 
     it('is cleared with the passes it belongs to', async () => {
       await recordTranscript(refFor('test'), 'test output');
 
-      await removeCheckCache(root);
+      await removeCheckCache(tree.dir);
 
       await expect(readTranscript(refFor('test'))).resolves.toBeUndefined();
     });
@@ -418,11 +421,11 @@ describe('check-cache', () => {
 
   describe(readBuildOutputState, () => {
     it('reports a digest for every package nmr’s build covers', async () => {
-      const { a, b } = scaffoldWorkspace(root);
-      writeBuildDigest(a, 'digest-a');
-      writeBuildDigest(b, 'digest-b');
+      const { a, b } = scaffoldWorkspace(tree);
+      writeBuildDigest(tree, a, 'digest-a');
+      writeBuildDigest(tree, b, 'digest-b');
 
-      await expect(readBuildOutputState(root, {})).resolves.toStrictEqual({
+      await expect(readBuildOutputState(tree.dir, {})).resolves.toStrictEqual({
         missing: [],
         digests: { 'packages/a': 'digest-a', 'packages/b': 'digest-b' },
       });
@@ -431,9 +434,9 @@ describe('check-cache', () => {
     it('keeps two packages of the same directory name apart', async () => {
       // A workspace glob set yielding `apps/web` beside `packages/web` would collapse onto one key if the
       // basename identified a package, and the shadowed one's output would never be compared again.
-      scaffoldCollidingWorkspace(root);
+      scaffoldCollidingWorkspace(tree);
 
-      await expect(readBuildOutputState(root, {})).resolves.toStrictEqual({
+      await expect(readBuildOutputState(tree.dir, {})).resolves.toStrictEqual({
         missing: [],
         digests: { 'apps/web': 'digest-app', 'packages/web': 'digest-package' },
       });
@@ -442,56 +445,56 @@ describe('check-cache', () => {
     it('names the package whose output went missing', async () => {
       // Build output is git-ignored, so the tree hash says nothing about it: without this a cached `ci`
       // would hand back a green exit over a repository that cannot run.
-      const { a } = scaffoldWorkspace(root);
-      fs.rmSync(path.join(a, 'dist'), { recursive: true, force: true });
+      const { a } = scaffoldWorkspace(tree);
+      tree.rm(`${a}/dist`);
 
-      await expect(readBuildOutputState(root, {})).resolves.toMatchObject({ missing: ['packages/a'] });
+      await expect(readBuildOutputState(tree.dir, {})).resolves.toMatchObject({ missing: ['packages/a'] });
     });
 
     it('leaves out a package that overrides build in its package.json', async () => {
       // An override emits somewhere this does not know about, so demanding a `dist` would make the package a
       // permanent miss rather than a covered one.
-      const { a } = scaffoldWorkspace(root);
-      fs.rmSync(path.join(a, 'dist'), { recursive: true, force: true });
-      writePackageJson(a, { build: 'tsup' });
+      const { a } = scaffoldWorkspace(tree);
+      tree.rm(`${a}/dist`);
+      writePackageJson(tree, a, { build: 'tsup' });
 
-      await expect(readBuildOutputState(root, {})).resolves.toMatchObject({ missing: [] });
+      await expect(readBuildOutputState(tree.dir, {})).resolves.toMatchObject({ missing: [] });
     });
 
     it('leaves out a package that overrides compile in its package.json', async () => {
-      const { a } = scaffoldWorkspace(root);
-      fs.rmSync(path.join(a, 'dist'), { recursive: true, force: true });
-      writePackageJson(a, { compile: 'tsc' });
+      const { a } = scaffoldWorkspace(tree);
+      tree.rm(`${a}/dist`);
+      writePackageJson(tree, a, { compile: 'tsc' });
 
-      await expect(readBuildOutputState(root, {})).resolves.toMatchObject({ missing: [] });
+      await expect(readBuildOutputState(tree.dir, {})).resolves.toMatchObject({ missing: [] });
     });
 
     it('leaves out every package when the repo redefines build in its config', async () => {
-      const { a } = scaffoldWorkspace(root);
-      fs.rmSync(path.join(a, 'dist'), { recursive: true, force: true });
+      const { a } = scaffoldWorkspace(tree);
+      tree.rm(`${a}/dist`);
 
-      await expect(readBuildOutputState(root, { workspaceScripts: { build: 'make' } })).resolves.toStrictEqual({
+      await expect(readBuildOutputState(tree.dir, { workspaceScripts: { build: 'make' } })).resolves.toStrictEqual({
         missing: [],
         digests: {},
       });
     });
 
     it('expects no output from a package whose sources emit none', async () => {
-      const { a } = scaffoldWorkspace(root);
-      fs.rmSync(path.join(a, 'dist'), { recursive: true, force: true });
-      fs.rmSync(path.join(a, 'src'), { recursive: true, force: true });
+      const { a } = scaffoldWorkspace(tree);
+      tree.rm(`${a}/dist`);
+      tree.rm(`${a}/src`);
 
-      await expect(readBuildOutputState(root, {})).resolves.toMatchObject({ missing: [] });
+      await expect(readBuildOutputState(tree.dir, {})).resolves.toMatchObject({ missing: [] });
     });
 
     it('expects no output from a package whose own config ignores every entry point', async () => {
       // The build compiles the entry set the package's own options leave; reading a different set here would
       // demand output the build never emits, and one such package takes the whole repo's gate down.
-      const { a } = scaffoldWorkspace(root);
-      fs.rmSync(path.join(a, 'dist'), { recursive: true, force: true });
-      writeWorkspaceConfig(a, { build: { extraIgnorePatterns: ['**/*.ts'] } });
+      const { a } = scaffoldWorkspace(tree);
+      tree.rm(`${a}/dist`);
+      writeWorkspaceConfig(tree, a, { build: { extraIgnorePatterns: ['**/*.ts'] } });
 
-      await expect(readBuildOutputState(root, {})).resolves.toMatchObject({ missing: [] });
+      await expect(readBuildOutputState(tree.dir, {})).resolves.toMatchObject({ missing: [] });
     });
   });
 
@@ -597,77 +600,77 @@ function makeEntry(overrides: Partial<CheckCacheEntry> = {}): CheckCacheEntry {
 }
 
 /** Replaces the content of every recorded entry, standing in for one written by an older format. */
-function overwriteEntries(root: string, content: string): void {
-  const cacheDir = path.join(root, 'node_modules', '.cache', 'nmr-check');
-  for (const entry of fs.readdirSync(cacheDir)) {
-    fs.writeFileSync(path.join(cacheDir, entry), content);
+function overwriteEntries(tree: TempTree, content: string): void {
+  const cacheDir = 'node_modules/.cache/nmr-check';
+  for (const entry of tree.list(cacheDir)) {
+    tree.write(`${cacheDir}/${entry}`, content);
   }
 }
 
 /** Writes a workspace whose globs yield two packages sharing a directory name, each freshly built. */
-function scaffoldCollidingWorkspace(root: string): void {
-  fs.writeFileSync(path.join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "apps/*"\n  - "packages/*"\n');
+function scaffoldCollidingWorkspace(tree: TempTree): void {
+  tree.write('pnpm-workspace.yaml', 'packages:\n  - "apps/*"\n  - "packages/*"\n');
 
-  for (const [relativePath, digest] of [
+  for (const [packagePath, digest] of [
     ['apps/web', 'digest-app'],
     ['packages/web', 'digest-package'],
   ] as const) {
-    const dir = path.join(root, relativePath);
-    fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
-    fs.mkdirSync(path.join(dir, 'dist', 'esm'), { recursive: true });
-    fs.writeFileSync(path.join(dir, 'src', 'index.ts'), 'export const value = 1;\n');
-    fs.writeFileSync(path.join(dir, 'dist', 'esm', 'index.js'), 'export const value = 1;\n');
-    writePackageJson(dir, undefined, relativePath.replace('/', '-'));
-    writeBuildDigest(dir, digest);
+    scaffoldBuiltPackage(tree, packagePath, packagePath.replace('/', '-'));
+    writeBuildDigest(tree, packagePath, digest);
   }
 }
 
-/** Writes a pnpm workspace holding two packages that look freshly built, and returns their directories. */
-function scaffoldWorkspace(root: string): { a: string; b: string } {
-  fs.writeFileSync(path.join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
+/** Writes a pnpm workspace holding two packages that look freshly built, and returns their paths in the tree. */
+function scaffoldWorkspace(tree: TempTree): { a: string; b: string } {
+  tree.write('pnpm-workspace.yaml', 'packages:\n  - "packages/*"\n');
 
-  const a = path.join(root, 'packages', 'a');
-  const b = path.join(root, 'packages', 'b');
-  for (const [dir, name] of [
+  const a = 'packages/a';
+  const b = 'packages/b';
+  for (const [packagePath, name] of [
     [a, 'a'],
     [b, 'b'],
   ] as const) {
-    fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
-    fs.mkdirSync(path.join(dir, 'dist', 'esm'), { recursive: true });
-    fs.writeFileSync(path.join(dir, 'src', 'index.ts'), 'export const value = 1;\n');
-    fs.writeFileSync(path.join(dir, 'dist', 'esm', 'index.js'), 'export const value = 1;\n');
-    writePackageJson(dir, undefined, name);
+    scaffoldBuiltPackage(tree, packagePath, name);
   }
 
   return { a, b };
 }
 
-/** Writes the digest a build of `packageDir` would have left behind. */
-function writeBuildDigest(packageDir: string, digest: string): void {
-  const cachePath = resolveBuildCachePath(packageDir);
-  fs.mkdirSync(path.dirname(cachePath), { recursive: true });
-  fs.writeFileSync(cachePath, digest);
+/** Writes the sources and emitted output of a package a build has already covered. */
+function scaffoldBuiltPackage(tree: TempTree, packagePath: string, name: string): void {
+  tree.writeAll({
+    [`${packagePath}/src/index.ts`]: 'export const value = 1;\n',
+    [`${packagePath}/dist/esm/index.js`]: 'export const value = 1;\n',
+  });
+  writePackageJson(tree, packagePath, undefined, name);
+}
+
+/** Writes the digest a build of the package at `packagePath` would have left behind. */
+function writeBuildDigest(tree: TempTree, packagePath: string, digest: string): void {
+  tree.write(resolveBuildCachePath(tree.resolve(packagePath)), digest);
 }
 
 /** Writes a package's own nmr config. */
-function writeWorkspaceConfig(packageDir: string, config: Record<string, unknown>): void {
-  fs.mkdirSync(path.join(packageDir, '.config'), { recursive: true });
-  fs.writeFileSync(path.join(packageDir, '.config', 'nmr.config.ts'), `export default ${JSON.stringify(config)};\n`);
+function writeWorkspaceConfig(tree: TempTree, packagePath: string, config: Record<string, unknown>): void {
+  tree.write(`${packagePath}/.config/nmr.config.ts`, `export default ${JSON.stringify(config)};\n`);
 }
 
 /** Writes the pnpm files the install fingerprint reads. */
-function writeInstallFingerprint(root: string): void {
-  fs.mkdirSync(path.join(root, 'node_modules', '.pnpm'), { recursive: true });
-  fs.writeFileSync(path.join(root, 'node_modules', '.modules.yaml'), 'hoistPattern:\n  - "types"\n');
-  fs.writeFileSync(path.join(root, 'node_modules', '.pnpm', 'lock.yaml'), 'lockfileVersion: "9.0"\n');
+function writeInstallFingerprint(tree: TempTree): void {
+  tree.writeAll({
+    'node_modules/.modules.yaml': 'hoistPattern:\n  - "types"\n',
+    'node_modules/.pnpm/lock.yaml': 'lockfileVersion: "9.0"\n',
+  });
 }
 
 /** Writes a package manifest, optionally declaring scripts that override the built-in build. */
-function writePackageJson(dir: string, scripts?: Record<string, string>, name = path.basename(dir)): void {
-  fs.writeFileSync(
-    path.join(dir, 'package.json'),
-    JSON.stringify({ name, type: 'module', ...(scripts && { scripts }) }),
-  );
+function writePackageJson(
+  tree: TempTree,
+  packagePath: string,
+  scripts?: Record<string, string>,
+  name = path.basename(packagePath),
+): void {
+  tree.writeJson(`${packagePath}/package.json`, { name, type: 'module', ...(scripts && { scripts }) });
 }
 
 // endregion | Helpers
