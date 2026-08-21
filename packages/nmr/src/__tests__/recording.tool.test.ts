@@ -1,9 +1,8 @@
 import { execFileSync } from 'node:child_process';
-import fs from 'node:fs';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
-import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -16,18 +15,21 @@ const COMMAND = 'typecheck';
 /** What the fixture's command writes, and so what a recording of it has to print back. */
 const OUTPUT = 'checked 12 files';
 
+/** The run log, which sits beside the repository rather than inside it. */
+const LOG_ENTRY = 'log.txt';
+
 describe('a run printed by --log', () => {
-  let workspace: string;
+  let workspace: TempTree;
   let repo: string;
   let log: string;
 
   beforeEach(() => {
-    workspace = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-log-' })).dir;
-    repo = path.join(workspace, 'repo');
+    workspace = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-log-' }));
+    repo = workspace.resolve('repo');
     // Outside the repository on purpose: a log inside it would be an untracked file, so every run would change
     // the very tree the run is being recorded against.
-    log = path.join(workspace, 'log.txt');
-    scaffoldRepo(repo, log);
+    log = workspace.resolve(LOG_ENTRY);
+    scaffoldRepo(workspace, log);
   });
 
   describe('given a pass recorded on this tree', () => {
@@ -70,7 +72,7 @@ describe('a run printed by --log', () => {
     });
 
     it('refuses once the tree has moved, naming the tree rather than printing the recording', async () => {
-      fs.writeFileSync(path.join(repo, 'src', 'index.ts'), 'export const value = 2;\n');
+      workspace.write('repo/src/index.ts', 'export const value = 2;\n');
 
       const { exitCode, stderr, stdout } = await runNmr(`--log ${COMMAND}`);
 
@@ -132,7 +134,7 @@ describe('a run printed by --log', () => {
 
   /** How many times the fixture's command has actually run. */
   function runCount(): number {
-    return fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n').length : 0;
+    return workspace.exists(LOG_ENTRY) ? workspace.read(LOG_ENTRY).trim().split('\n').length : 0;
   }
 
   async function runNmr(
@@ -185,24 +187,24 @@ function git(cwd: string, args: string[]): void {
 }
 
 /**
- * Writes a committed git repository holding the pnpm files the install fingerprint reads and a config mapping
- * the cacheable command to a script that both records its run and writes a recognizable line.
+ * Writes a committed git repository under `repo/` in the workspace, holding the pnpm files the install
+ * fingerprint reads and a config mapping the cacheable command to a script that both records its run and
+ * writes a recognizable line.
  */
-function scaffoldRepo(repo: string, log: string): void {
-  fs.mkdirSync(path.join(repo, 'src'), { recursive: true });
-  fs.mkdirSync(path.join(repo, 'node_modules', '.pnpm'), { recursive: true });
-  fs.writeFileSync(path.join(repo, 'node_modules', '.modules.yaml'), 'hoistPattern:\n  - "types"\n');
-  fs.writeFileSync(path.join(repo, 'node_modules', '.pnpm', 'lock.yaml'), 'lockfileVersion: "9.0"\n');
-
-  fs.writeFileSync(path.join(repo, '.gitignore'), 'node_modules/\ndist/\n');
-  fs.writeFileSync(path.join(repo, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
-  fs.writeFileSync(path.join(repo, 'package.json'), JSON.stringify({ name: 'log-root', private: true }));
-  fs.writeFileSync(path.join(repo, 'src', 'index.ts'), 'export const value = 1;\n');
-
+function scaffoldRepo(workspace: TempTree, log: string): void {
   const config = { rootScripts: { [COMMAND]: `echo ran >> ${log} && echo '${OUTPUT}'` } };
-  fs.mkdirSync(path.join(repo, '.config'), { recursive: true });
-  fs.writeFileSync(path.join(repo, '.config', 'nmr.config.ts'), `export default ${JSON.stringify(config)};\n`);
 
+  workspace.writeAll({
+    'repo/.config/nmr.config.ts': `export default ${JSON.stringify(config)};\n`,
+    'repo/.gitignore': 'node_modules/\ndist/\n',
+    'repo/node_modules/.modules.yaml': 'hoistPattern:\n  - "types"\n',
+    'repo/node_modules/.pnpm/lock.yaml': 'lockfileVersion: "9.0"\n',
+    'repo/package.json': JSON.stringify({ name: 'log-root', private: true }),
+    'repo/pnpm-workspace.yaml': 'packages:\n  - "packages/*"\n',
+    'repo/src/index.ts': 'export const value = 1;\n',
+  });
+
+  const repo = workspace.resolve('repo');
   git(repo, ['init', '--initial-branch=main']);
   git(repo, ['config', 'user.email', 'fixture@example.com']);
   git(repo, ['config', 'user.name', 'Fixture']);

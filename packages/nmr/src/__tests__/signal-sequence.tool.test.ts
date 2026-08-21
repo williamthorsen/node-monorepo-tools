@@ -1,10 +1,9 @@
 import type { ChildProcess } from 'node:child_process';
 import { spawn } from 'node:child_process';
-import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
-import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it as baseIt } from 'vitest';
 
@@ -49,12 +48,12 @@ describe('signal handling', () => {
       env: childEnv(),
       stdio: ['ignore', 'ignore', 'ignore'],
     });
-    await waitForMarker(path.join(tree.dir, 'first-started'));
+    await waitForMarker(tree, 'first-started');
     process.kill(requirePid(child), 'SIGINT');
     const exitCode = await waitForExit(child);
 
     expect(exitCode).not.toBe(0);
-    expect(fs.existsSync(path.join(tree.dir, 'second-ran'))).toBe(false);
+    expect(tree.exists('second-ran')).toBe(false);
   }, 40_000);
 
   // Keeps the test above honest: absence of the second marker means the signal stopped the sequence, not that
@@ -68,7 +67,7 @@ describe('signal handling', () => {
     const exitCode = await waitForExit(child);
 
     expect(exitCode).toBe(0);
-    expect(fs.existsSync(path.join(tree.dir, 'second-ran'))).toBe(true);
+    expect(tree.exists('second-ran')).toBe(true);
   }, 40_000);
 });
 
@@ -113,16 +112,16 @@ function waitForExit(target: ChildProcess): Promise<number | null> {
   return new Promise((resolve) => target.on('exit', (code: number | null) => resolve(code)));
 }
 
-/** Resolves once the file exists, so the signal lands while the first step is running rather than before it. */
-async function waitForMarker(markerPath: string): Promise<void> {
+/** Resolves once the entry exists, so the signal lands while the first step is running rather than before it. */
+async function waitForMarker(tree: TempTree, entryPath: string): Promise<void> {
   const deadline = Date.now() + MARKER_TIMEOUT_MS;
 
   while (Date.now() < deadline) {
-    if (fs.existsSync(markerPath)) return;
+    if (tree.exists(entryPath)) return;
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
 
-  throw new Error(`the first step never wrote ${markerPath}`);
+  throw new Error(`the first step never wrote ${entryPath}`);
 }
 
 // endregion | Helpers

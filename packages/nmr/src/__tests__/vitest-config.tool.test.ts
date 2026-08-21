@@ -103,8 +103,8 @@ const it = baseIt
     }
 
     const derived = {
-      collectedTestFiles: readCollectedTestFiles(tree.dir),
-      coveredFiles: readCoveredFiles(tree.dir),
+      collectedTestFiles: readCollectedTestFiles(tree),
+      coveredFiles: readCoveredFiles(tree),
     };
     const owned = stack.move();
     onCleanup(() => {
@@ -126,7 +126,7 @@ const it = baseIt
       throw new Error(`fixture run failed with status ${String(run.status)}:\n${run.stdout}\n${run.stderr}`);
     }
 
-    const setupOrder = fs.readFileSync(path.join(tree.dir, SETUP_LOG), 'utf8').split('\n').filter(Boolean);
+    const setupOrder = tree.read(SETUP_LOG).split('\n').filter(Boolean);
     const owned = stack.move();
     onCleanup(() => {
       owned.dispose();
@@ -173,15 +173,10 @@ describe('composed option layers, run for real', { timeout: 120_000 }, () => {
 
 /** Writes the fixture files into `tree` and links the repository's `node_modules` so Vitest and its coverage provider resolve. */
 function scaffoldProject(tree: TempTree, files: Record<string, string>): void {
-  for (const [relativePath, contents] of Object.entries(files)) {
-    const absolute = path.join(tree.dir, relativePath);
-    fs.mkdirSync(path.dirname(absolute), { recursive: true });
-    fs.writeFileSync(absolute, contents);
-  }
+  tree.writeAll(files);
 
-  // `tree.symlink` resolves both ends inside the tree, and this target is the repository's own.
   // pnpm's internal links are relative, so they resolve through the link rather than needing an install here.
-  fs.symlinkSync(path.join(REPO_ROOT, 'node_modules'), path.join(tree.dir, 'node_modules'), 'dir');
+  tree.symlink('node_modules', path.join(REPO_ROOT, 'node_modules'));
 }
 
 function runVitestWithCoverage(cwd: string): { status: number | null; stdout: string; stderr: string } {
@@ -228,25 +223,25 @@ function buildChildEnv(): NodeJS.ProcessEnv {
 }
 
 /** The files the coverage report measured, relative to the project root. Its keys are absolute paths. */
-function readCoveredFiles(projectRoot: string): string[] {
-  const summary = readJsonObject(path.join(projectRoot, 'coverage/coverage-summary.json'));
+function readCoveredFiles(tree: TempTree): string[] {
+  const summary = readJsonObject(tree, 'coverage/coverage-summary.json');
 
   return Object.keys(summary)
     .filter((key) => key !== 'total')
-    .map((absolute) => toRelativePosix(projectRoot, absolute))
+    .map((absolute) => toRelativePosix(tree.dir, absolute))
     .toSorted();
 }
 
 /** The test files the run collected, relative to the project root. */
-function readCollectedTestFiles(projectRoot: string): string[] {
-  const results = readJsonObject(path.join(projectRoot, 'results.json'));
+function readCollectedTestFiles(tree: TempTree): string[] {
+  const results = readJsonObject(tree, 'results.json');
   const testResults: unknown = 'testResults' in results ? results.testResults : undefined;
 
   if (!Array.isArray(testResults)) {
     throw new TypeError('the JSON reporter wrote no testResults array');
   }
 
-  return testResults.map((result: unknown) => toRelativePosix(projectRoot, readTestFileName(result))).toSorted();
+  return testResults.map((result: unknown) => toRelativePosix(tree.dir, readTestFileName(result))).toSorted();
 }
 
 /** The `name` of one JSON-reporter result, which holds the absolute path of the test file it ran. */
@@ -258,11 +253,11 @@ function readTestFileName(result: unknown): string {
   return result.name;
 }
 
-function readJsonObject(filePath: string): object {
-  const parsed: unknown = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+function readJsonObject(tree: TempTree, entryPath: string): object {
+  const parsed: unknown = tree.readJson(entryPath);
 
   if (parsed === null || typeof parsed !== 'object') {
-    throw new TypeError(`expected a JSON object in ${filePath}`);
+    throw new TypeError(`expected a JSON object in ${entryPath}`);
   }
 
   return parsed;
@@ -272,7 +267,11 @@ function toRelativePosix(from: string, to: string): string {
   return path.relative(from, to).split(path.sep).join('/');
 }
 
-/** Unlinks `node_modules`, which is deferred ahead of the tree's own removal so no failure mode can reach the repository's own tree. */
+/**
+ * Unlinks `node_modules`, which is deferred ahead of the tree's own removal so no failure mode can reach the
+ * repository's own tree. `node:fs`, because `tree.rm` removes with `force`: were this entry ever a real
+ * directory rather than the link, it would go silently where `unlinkSync` throws.
+ */
 function unlinkNodeModules(projectRoot: string): void {
   const link = path.join(projectRoot, 'node_modules');
   if (fs.existsSync(link)) fs.unlinkSync(link);

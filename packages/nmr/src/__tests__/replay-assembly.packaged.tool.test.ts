@@ -1,9 +1,8 @@
 import { execFileSync } from 'node:child_process';
-import fs from 'node:fs';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
-import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -21,9 +20,10 @@ describe('a composite’s assembled replay', () => {
 
   // A fixture per test, so each one decides for itself which of the fixture's commands are already warm.
   beforeEach(() => {
-    repo = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-assembly-e2e-' })).dir;
+    const tree = disposeOnTestFinished(createTempTree({}, { prefix: 'nmr-assembly-e2e-' }));
+    repo = tree.dir;
     scope = path.basename(repo);
-    scaffoldRepo(repo);
+    scaffoldRepo(tree);
   });
 
   it('records what its constituents wrote, in the order its steps name them', async () => {
@@ -133,15 +133,7 @@ function git(cwd: string, args: string[]): void {
  * `node_modules` is ignored because the entries the run records land there: untracked, they would move the
  * very tree hash the run is being recorded against.
  */
-function scaffoldRepo(repo: string): void {
-  fs.mkdirSync(path.join(repo, 'node_modules', '.pnpm'), { recursive: true });
-  fs.writeFileSync(path.join(repo, 'node_modules', '.modules.yaml'), 'hoistPattern:\n  - "types"\n');
-  fs.writeFileSync(path.join(repo, 'node_modules', '.pnpm', 'lock.yaml'), 'lockfileVersion: "9.0"\n');
-
-  fs.writeFileSync(path.join(repo, '.gitignore'), 'node_modules/\n');
-  fs.writeFileSync(path.join(repo, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n");
-  fs.writeFileSync(path.join(repo, 'package.json'), JSON.stringify({ name: 'assembly-root', private: true }));
-
+function scaffoldRepo(tree: TempTree): void {
   const config = {
     rootScripts: {
       check: ['typecheck', 'lint:check'],
@@ -149,9 +141,17 @@ function scaffoldRepo(repo: string): void {
       typecheck: "echo 'typecheck summary'",
     },
   };
-  fs.mkdirSync(path.join(repo, '.config'), { recursive: true });
-  fs.writeFileSync(path.join(repo, '.config', 'nmr.config.ts'), `export default ${JSON.stringify(config)};\n`);
 
+  tree.writeAll({
+    '.config/nmr.config.ts': `export default ${JSON.stringify(config)};\n`,
+    '.gitignore': 'node_modules/\n',
+    'node_modules/.modules.yaml': 'hoistPattern:\n  - "types"\n',
+    'node_modules/.pnpm/lock.yaml': 'lockfileVersion: "9.0"\n',
+    'package.json': JSON.stringify({ name: 'assembly-root', private: true }),
+    'pnpm-workspace.yaml': "packages:\n  - 'packages/*'\n",
+  });
+
+  const repo = tree.dir;
   git(repo, ['init', '--initial-branch=main']);
   git(repo, ['config', 'user.email', 'fixture@example.com']);
   git(repo, ['config', 'user.name', 'Fixture']);

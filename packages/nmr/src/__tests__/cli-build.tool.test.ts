@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
@@ -32,7 +32,7 @@ const it = baseIt.extend(
 describe('nmr-compile', () => {
   it('excludes a directory the package config adds to the ignore set', ({ tree }) => {
     scaffoldPackage(
-      tree.dir,
+      tree,
       {
         'index.ts': 'export const value = 1;\n',
         'fixtures/sample.ts': 'export const sample = 1;\n',
@@ -46,7 +46,7 @@ describe('nmr-compile', () => {
   });
 
   it('builds on the defaults when the package has no config', ({ tree }) => {
-    scaffoldPackage(tree.dir, {
+    scaffoldPackage(tree, {
       'index.ts': 'export const value = 1;\n',
       'test-utils/helper.ts': 'export const helper = 1;\n',
     });
@@ -57,7 +57,7 @@ describe('nmr-compile', () => {
   });
 
   it('fails when the package config declares a key the workspace tier does not honor', ({ tree }) => {
-    scaffoldPackage(tree.dir, { 'index.ts': 'export const value = 1;\n' }, `export default { rootScripts: {} };\n`);
+    scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' }, `export default { rootScripts: {} };\n`);
 
     expect(() => runCompile(tree.dir)).toThrow(/not rootScripts/);
     expect(listEmitted(tree.dir)).toStrictEqual([]);
@@ -65,7 +65,7 @@ describe('nmr-compile', () => {
 
   it('fails when the package config misspells a build key rather than compiling on the defaults', ({ tree }) => {
     scaffoldPackage(
-      tree.dir,
+      tree,
       {
         'index.ts': 'export const value = 1;\n',
         'fixtures/sample.ts': 'export const sample = 1;\n',
@@ -80,12 +80,15 @@ describe('nmr-compile', () => {
 
 // region | Helpers
 
+/** Lists the files the build emitted, as paths relative to the output directory. */
 function listEmitted(dir: string): string[] {
   const outdir = path.join(dir, 'dist', 'esm');
   if (!fs.existsSync(outdir)) {
     return [];
   }
 
+  // `node:fs`, because the tree's `list` is one level deep and reports names alone, where this needs the whole
+  // emit and has to tell a file from a directory.
   return fs
     .readdirSync(outdir, { recursive: true })
     .map(String)
@@ -95,20 +98,14 @@ function listEmitted(dir: string): string[] {
 }
 
 /** Writes a package tree, plus a `.config/nmr.config.ts` when `config` is given. */
-function scaffoldPackage(dir: string, sources: Record<string, string>, config?: string): void {
-  fs.mkdirSync(path.join(dir, 'node_modules'), { recursive: true });
-  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'fixture', type: 'module' }));
-  fs.writeFileSync(path.join(dir, 'tsconfig.json'), JSON.stringify(TSCONFIG));
-
-  for (const [relativePath, contents] of Object.entries(sources)) {
-    const filePath = path.join(dir, 'src', relativePath);
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, contents);
-  }
+function scaffoldPackage(tree: TempTree, sources: Record<string, string>, config?: string): void {
+  tree.writeJson('package.json', { name: 'fixture', type: 'module' });
+  tree.writeJson('tsconfig.json', TSCONFIG);
+  tree.mkdir('node_modules');
+  tree.writeAll(Object.fromEntries(Object.entries(sources).map(([name, contents]) => [`src/${name}`, contents])));
 
   if (config !== undefined) {
-    fs.mkdirSync(path.join(dir, '.config'), { recursive: true });
-    fs.writeFileSync(path.join(dir, '.config', 'nmr.config.ts'), config);
+    tree.write('.config/nmr.config.ts', config);
   }
 }
 
