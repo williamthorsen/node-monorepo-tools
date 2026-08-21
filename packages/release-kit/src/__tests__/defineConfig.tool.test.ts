@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
@@ -57,8 +57,8 @@ interface ProbeResult {
 function loadStandalone(source: string): ProbeResult {
   using tree = createTempTree({}, { prefix: 'release-kit-config-entry-' });
   // Declare ESM rather than lean on Node's syntax detection, so the module graph is the only thing under test.
-  writeFileSync(path.join(tree.dir, 'package.json'), JSON.stringify({ name: 'config-entry-fixture', type: 'module' }));
-  writeFileSync(path.join(tree.dir, 'defineConfig.ts'), source);
+  tree.writeJson('package.json', { name: 'config-entry-fixture', type: 'module' });
+  tree.write('defineConfig.ts', source);
 
   const { status, stdout, stderr } = spawnSync(process.execPath, ['--input-type=module', '--eval', PROBE], {
     cwd: tree.dir,

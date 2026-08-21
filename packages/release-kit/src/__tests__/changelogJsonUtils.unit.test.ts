@@ -1,4 +1,3 @@
-import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
@@ -97,30 +96,30 @@ describe(readChangelogEntries, () => {
 
   it('returns entries from a valid changelog JSON file', ({ tree }) => {
     const entries: ChangelogEntry[] = [{ version: '1.0.0', date: '2024-01-01', sections: [] }];
-    writeFileSync(join(tree.dir, 'changelog.json'), JSON.stringify(entries), 'utf8');
+    const changelogPath = tree.writeJson('changelog.json', entries);
 
-    const result = readChangelogEntries(join(tree.dir, 'changelog.json'));
+    const result = readChangelogEntries(changelogPath);
     expect(result).toHaveLength(1);
     expect(result?.[0]?.version).toBe('1.0.0');
   });
 
   it('returns undefined when file contains non-array JSON', ({ tree }) => {
-    writeFileSync(join(tree.dir, 'changelog.json'), '{"not": "array"}', 'utf8');
+    const changelogPath = tree.write('changelog.json', '{"not": "array"}');
 
-    expect(readChangelogEntries(join(tree.dir, 'changelog.json'))).toBeUndefined();
+    expect(readChangelogEntries(changelogPath)).toBeUndefined();
   });
 
   it('returns undefined when file contains malformed JSON', ({ tree }) => {
-    writeFileSync(join(tree.dir, 'changelog.json'), '{bad json', 'utf8');
+    const changelogPath = tree.write('changelog.json', '{bad json');
 
-    expect(readChangelogEntries(join(tree.dir, 'changelog.json'))).toBeUndefined();
+    expect(readChangelogEntries(changelogPath)).toBeUndefined();
   });
 
   it('filters out invalid entries from the array', ({ tree }) => {
     const mixed = [{ version: '1.0.0', date: '2024-01-01', sections: [] }, { invalid: true }, 'not-an-object'];
-    writeFileSync(join(tree.dir, 'changelog.json'), JSON.stringify(mixed), 'utf8');
+    const changelogPath = tree.writeJson('changelog.json', mixed);
 
-    const result = readChangelogEntries(join(tree.dir, 'changelog.json'));
+    const result = readChangelogEntries(changelogPath);
     expect(result).toHaveLength(1);
     expect(result?.[0]?.version).toBe('1.0.0');
   });

@@ -1,7 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
-import path from 'node:path';
-
-import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -196,16 +193,15 @@ describe(validateOverridesCommand, () => {
   });
 
   describe('against the real validator (writes a temp override file)', () => {
-    let tempDir: string;
+    let tree: TempTree;
 
     beforeEach(() => {
-      tempDir = disposeOnTestFinished(createTempTree({}, { prefix: 'validate-overrides-' })).dir;
-      mkdirSync(path.join(tempDir, '.meta'), { recursive: true });
-      disposeOnTestFinished(pointCwdAt(tempDir, { chdir: true }));
+      tree = disposeOnTestFinished(createTempTree({}, { prefix: 'validate-overrides-' }));
+      disposeOnTestFinished(pointCwdAt(tree.dir, { chdir: true }));
     });
 
     function writeOverrides(overrides: Record<string, unknown>): void {
-      writeFileSync(path.join(tempDir, '.meta', 'changelog-overrides.json'), JSON.stringify(overrides, null, 2));
+      tree.writeJson('.meta/changelog-overrides.json', overrides);
     }
 
     it('does NOT flag an override targeting a past-release commit as stale', async () => {
@@ -269,12 +265,11 @@ describe(validateOverridesCommand, () => {
   });
 
   describe('near-integration: full pipeline with mocked runGitCliff', () => {
-    let tempDir: string;
+    let tree: TempTree;
 
     beforeEach(() => {
-      tempDir = disposeOnTestFinished(createTempTree({}, { prefix: 'validate-overrides-int-' })).dir;
-      mkdirSync(path.join(tempDir, '.meta'), { recursive: true });
-      disposeOnTestFinished(pointCwdAt(tempDir, { chdir: true }));
+      tree = disposeOnTestFinished(createTempTree({}, { prefix: 'validate-overrides-int-' }));
+      disposeOnTestFinished(pointCwdAt(tree.dir, { chdir: true }));
       mockedRunGitCliff.mockReset();
       mockedRunGitCliff.mockReturnValue('[]');
     });
@@ -305,13 +300,10 @@ describe(validateOverridesCommand, () => {
         ]),
       );
 
-      writeFileSync(
-        path.join(tempDir, '.meta', 'changelog-overrides.json'),
-        JSON.stringify({
-          aabbcc12: { audience: 'skip' }, // past-release commit — must NOT be stale
-          deadbeef: { audience: 'skip' }, // unreachable — must be flagged stale
-        }),
-      );
+      tree.writeJson('.meta/changelog-overrides.json', {
+        aabbcc12: { audience: 'skip' }, // past-release commit — must NOT be stale
+        deadbeef: { audience: 'skip' }, // unreachable — must be flagged stale
+      });
 
       const result = await validateOverridesCommand({
         discoverWorkspaces: () => Promise.resolve(undefined),
@@ -333,19 +325,19 @@ describe(validateOverridesCommand, () => {
   // diverges from `releasePrepareMono.ts:722-723` / `releasePrepareProject.ts:262-266` fails
   // here rather than silently producing wrong stale-key reports.
   describe('buildMonorepoInputs (monorepo wiring)', () => {
-    let tempDir: string;
+    let tree: TempTree;
 
     beforeEach(() => {
-      tempDir = disposeOnTestFinished(createTempTree({}, { prefix: 'validate-overrides-mono-' })).dir;
-      // Root package.json — required when the user config declares a `project` block.
-      writeFileSync(path.join(tempDir, 'package.json'), JSON.stringify({ name: 'mono-root', version: '1.0.0' }));
-      // Workspace `foo` with a legacy npm name `old-foo`.
-      mkdirSync(path.join(tempDir, 'packages/foo'), { recursive: true });
-      writeFileSync(path.join(tempDir, 'packages/foo/package.json'), JSON.stringify({ name: 'foo' }));
-      // Workspace `bar` with a scoped npm name (strips to `bar` for tag-prefix derivation).
-      mkdirSync(path.join(tempDir, 'packages/bar'), { recursive: true });
-      writeFileSync(path.join(tempDir, 'packages/bar/package.json'), JSON.stringify({ name: '@scope/bar' }));
-      disposeOnTestFinished(pointCwdAt(tempDir, { chdir: true }));
+      tree = disposeOnTestFinished(createTempTree({}, { prefix: 'validate-overrides-mono-' }));
+      tree.writeAll({
+        // Root package.json — required when the user config declares a `project` block.
+        'package.json': JSON.stringify({ name: 'mono-root', version: '1.0.0' }),
+        // Workspace `foo` with a legacy npm name `old-foo`.
+        'packages/foo/package.json': JSON.stringify({ name: 'foo' }),
+        // Workspace `bar` with a scoped npm name (strips to `bar` for tag-prefix derivation).
+        'packages/bar/package.json': JSON.stringify({ name: '@scope/bar' }),
+      });
+      disposeOnTestFinished(pointCwdAt(tree.dir, { chdir: true }));
     });
 
     it('passes per-workspace tagPattern (with legacy identities) and project-tier tagPattern with the union of workspace paths', async () => {

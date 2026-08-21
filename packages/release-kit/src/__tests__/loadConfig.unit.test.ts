@@ -1,6 +1,4 @@
-import path from 'node:path';
-
-import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import type { MockInstance } from 'vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -42,14 +40,14 @@ function mockPackageNames(namesByPath: Record<string, string>): void {
 }
 
 describe(loadConfig, () => {
-  let tmpDir: string;
+  let tree: TempTree;
   let cwdSpy: MockInstance<() => string>;
 
   beforeEach(() => {
     // A fresh directory per test. `import()` caches by URL for the process lifetime, so a reused fixture path would
     // replay the first config and pass every later case for the wrong reason.
-    tmpDir = disposeOnTestFinished(createTempTree({}, { prefix: 'release-kit-config-' })).dir;
-    cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmpDir);
+    tree = disposeOnTestFinished(createTempTree({}, { prefix: 'release-kit-config-' }));
+    cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tree.dir);
     // Delegate to the real `existsSync`, so a mistyped fixture path surfaces as a missing config rather than as an
     // opaque module-resolution failure from the import.
     mockExistsSync.mockImplementation(actualFs.existsSync);
@@ -72,7 +70,7 @@ describe(loadConfig, () => {
 
     await loadConfig();
 
-    expect(mockExistsSync).toHaveBeenCalledWith(path.resolve(tmpDir, CONFIG_FILE_PATH));
+    expect(mockExistsSync).toHaveBeenCalledWith(tree.resolve(CONFIG_FILE_PATH));
   });
 
   it('returns the default export when present', async () => {
@@ -107,9 +105,7 @@ describe(loadConfig, () => {
 
   /** Writes `source` to the config path the loader resolves under the temp directory standing in for the cwd. */
   function writeConfig(source: string): void {
-    const configPath = path.resolve(tmpDir, CONFIG_FILE_PATH);
-    actualFs.mkdirSync(path.dirname(configPath), { recursive: true });
-    actualFs.writeFileSync(configPath, source);
+    tree.write(CONFIG_FILE_PATH, source);
   }
 });
 

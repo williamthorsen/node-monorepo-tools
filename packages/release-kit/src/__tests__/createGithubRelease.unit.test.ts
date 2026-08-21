@@ -1,4 +1,3 @@
-import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
@@ -26,12 +25,11 @@ const { createGithubRelease } = await import('../createGithubRelease.ts');
 const mockedExecFileSync = vi.mocked(execFileSync);
 const mockedRenderReleaseNotesSingle = vi.mocked(renderReleaseNotesSingle);
 
-const it = baseIt
-  .extend(
-    'tree',
-    makeFixture(() => createTempTree({}, { prefix: 'test-gh-release-' })),
-  )
-  .extend('changelogJsonPath', ({ tree }) => join(tree.dir, 'changelog.json'));
+// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
+const it = baseIt.extend(
+  'tree',
+  makeFixture(() => createTempTree({}, { prefix: 'test-gh-release-' })),
+);
 
 describe(createGithubRelease, () => {
   const sampleEntries: ChangelogEntry[] = [
@@ -60,8 +58,8 @@ describe(createGithubRelease, () => {
     expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('not found'));
   });
 
-  it('returns no-entry skip and warns when changelog.json cannot be parsed', ({ changelogJsonPath }) => {
-    writeFileSync(changelogJsonPath, 'not valid json{{{', 'utf8');
+  it('returns no-entry skip and warns when changelog.json cannot be parsed', ({ tree }) => {
+    const changelogJsonPath = tree.write('changelog.json', 'not valid json{{{');
     using silent = silenceConsole(['warn']);
 
     const result = createGithubRelease({
@@ -73,8 +71,8 @@ describe(createGithubRelease, () => {
     expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('could not parse'));
   });
 
-  it('returns no-entry skip and warns when version is not in changelog.json', ({ changelogJsonPath }) => {
-    writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
+  it('returns no-entry skip and warns when version is not in changelog.json', ({ tree }) => {
+    const changelogJsonPath = tree.writeJson('changelog.json', sampleEntries);
     using silent = silenceConsole(['warn']);
 
     const result = createGithubRelease({
@@ -86,8 +84,8 @@ describe(createGithubRelease, () => {
     expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('no changelog entry'));
   });
 
-  it('logs the command in dry-run mode without executing', ({ changelogJsonPath }) => {
-    writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
+  it('logs the command in dry-run mode without executing', ({ tree }) => {
+    const changelogJsonPath = tree.writeJson('changelog.json', sampleEntries);
     using silent = silenceConsole(['info']);
 
     const result = createGithubRelease({
@@ -100,8 +98,8 @@ describe(createGithubRelease, () => {
     expect(silent.info).toHaveBeenCalledWith(expect.stringContaining('[dry-run]'));
   });
 
-  it('calls gh CLI with correct arguments', ({ changelogJsonPath }) => {
-    writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
+  it('calls gh CLI with correct arguments', ({ tree }) => {
+    const changelogJsonPath = tree.writeJson('changelog.json', sampleEntries);
 
     createGithubRelease({
       tag: 'v1.0.0',
@@ -116,8 +114,8 @@ describe(createGithubRelease, () => {
     );
   });
 
-  it('passes only all-audience sections in the release notes', ({ changelogJsonPath }) => {
-    writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
+  it('passes only all-audience sections in the release notes', ({ tree }) => {
+    const changelogJsonPath = tree.writeJson('changelog.json', sampleEntries);
 
     createGithubRelease({
       tag: 'v1.0.0',
@@ -134,8 +132,8 @@ describe(createGithubRelease, () => {
     expect(body).not.toContain('CI');
   });
 
-  it('propagates the error when gh CLI invocation fails', ({ changelogJsonPath }) => {
-    writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
+  it('propagates the error when gh CLI invocation fails', ({ tree }) => {
+    const changelogJsonPath = tree.writeJson('changelog.json', sampleEntries);
     mockedExecFileSync.mockImplementationOnce(() => {
       throw new Error('gh failed');
     });
@@ -149,9 +147,7 @@ describe(createGithubRelease, () => {
     ).toThrow('gh failed');
   });
 
-  it('skips release with reason no-audience-content when entry has only dev-audience sections', ({
-    changelogJsonPath,
-  }) => {
+  it('skips release with reason no-audience-content when entry has only dev-audience sections', ({ tree }) => {
     mockedExecFileSync.mockClear();
     using silent = silenceConsole(['warn']);
     const devOnlyEntries: ChangelogEntry[] = [
@@ -164,7 +160,7 @@ describe(createGithubRelease, () => {
         ],
       },
     ];
-    writeFileSync(changelogJsonPath, JSON.stringify(devOnlyEntries), 'utf8');
+    const changelogJsonPath = tree.writeJson('changelog.json', devOnlyEntries);
 
     const result = createGithubRelease({
       tag: 'v2.0.0',
@@ -179,10 +175,10 @@ describe(createGithubRelease, () => {
     expect(silent.warn).not.toHaveBeenCalled();
   });
 
-  it('skips release with reason empty-body when rendered all-audience body is empty', ({ changelogJsonPath }) => {
+  it('skips release with reason empty-body when rendered all-audience body is empty', ({ tree }) => {
     mockedExecFileSync.mockClear();
     using silent = silenceConsole(['warn']);
-    writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
+    const changelogJsonPath = tree.writeJson('changelog.json', sampleEntries);
     mockedRenderReleaseNotesSingle.mockReturnValueOnce('   \n   ');
 
     const result = createGithubRelease({
@@ -196,8 +192,8 @@ describe(createGithubRelease, () => {
     expect(silent.warn).not.toHaveBeenCalled();
   });
 
-  it('extracts version from prefixed tags and matches correct entry', ({ changelogJsonPath }) => {
-    writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
+  it('extracts version from prefixed tags and matches correct entry', ({ tree }) => {
+    const changelogJsonPath = tree.writeJson('changelog.json', sampleEntries);
 
     createGithubRelease({
       tag: 'release-kit-v1.0.0',
@@ -218,8 +214,8 @@ describe(createGithubRelease, () => {
     expect(body).toContain('Add widget');
   });
 
-  it('forwards sectionOrder to renderReleaseNotesSingle when provided', ({ changelogJsonPath }) => {
-    writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
+  it('forwards sectionOrder to renderReleaseNotesSingle when provided', ({ tree }) => {
+    const changelogJsonPath = tree.writeJson('changelog.json', sampleEntries);
 
     createGithubRelease({
       tag: 'v1.0.0',
@@ -234,8 +230,8 @@ describe(createGithubRelease, () => {
     );
   });
 
-  it('omits sectionOrder from render options when not provided', ({ changelogJsonPath }) => {
-    writeFileSync(changelogJsonPath, JSON.stringify(sampleEntries), 'utf8');
+  it('omits sectionOrder from render options when not provided', ({ tree }) => {
+    const changelogJsonPath = tree.writeJson('changelog.json', sampleEntries);
 
     createGithubRelease({
       tag: 'v1.0.0',

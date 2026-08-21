@@ -1,7 +1,6 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { assert, beforeEach, describe, expect, it } from 'vitest';
@@ -22,20 +21,19 @@ import {
 import type { ChangelogEntry, ChangelogOverride, WorkspaceConfig } from '../types.ts';
 
 describe(loadChangelogOverrides, () => {
-  let tempDir: string;
+  let tree: TempTree;
 
   beforeEach(() => {
-    tempDir = disposeOnTestFinished(createTempTree({}, { prefix: 'test-overrides-' })).dir;
+    tree = disposeOnTestFinished(createTempTree({}, { prefix: 'test-overrides-' }));
   });
 
   it('returns an empty map when the file does not exist', () => {
-    const result = loadChangelogOverrides(join(tempDir, 'missing.json'));
+    const result = loadChangelogOverrides(join(tree.dir, 'missing.json'));
     expect(result).toStrictEqual({ overrides: new Map() });
   });
 
   it('returns an error when the file contains malformed JSON', () => {
-    const filePath = join(tempDir, 'overrides.json');
-    writeFileSync(filePath, '{not-valid', 'utf8');
+    const filePath = tree.write('overrides.json', '{not-valid');
 
     const result = loadChangelogOverrides(filePath);
     assert('errors' in result);
@@ -43,8 +41,7 @@ describe(loadChangelogOverrides, () => {
   });
 
   it('returns an error when the top-level JSON is not an object', () => {
-    const filePath = join(tempDir, 'overrides.json');
-    writeFileSync(filePath, '[]', 'utf8');
+    const filePath = tree.write('overrides.json', '[]');
 
     const result = loadChangelogOverrides(filePath);
     assert('errors' in result);
@@ -52,15 +49,10 @@ describe(loadChangelogOverrides, () => {
   });
 
   it('parses a valid override file into a Map', () => {
-    const filePath = join(tempDir, 'overrides.json');
-    writeFileSync(
-      filePath,
-      JSON.stringify({
-        '8296231': { audience: 'skip' },
-        abc1234d: { body: 'Replacement body' },
-      }),
-      'utf8',
-    );
+    const filePath = tree.writeJson('overrides.json', {
+      '8296231': { audience: 'skip' },
+      abc1234d: { body: 'Replacement body' },
+    });
 
     const result = loadChangelogOverrides(filePath);
     assert('overrides' in result);
@@ -334,10 +326,10 @@ describe(resolveOverridePath, () => {
 });
 
 describe(loadOverridesForScopes, () => {
-  let tempDir: string;
+  let tree: TempTree;
 
   beforeEach(() => {
-    tempDir = disposeOnTestFinished(createTempTree({}, { prefix: 'test-overrides-scopes-' })).dir;
+    tree = disposeOnTestFinished(createTempTree({}, { prefix: 'test-overrides-scopes-' }));
   });
 
   it('returns empty maps when no scopes are requested', () => {
@@ -349,8 +341,8 @@ describe(loadOverridesForScopes, () => {
 
   it('treats missing files as empty maps', () => {
     const result = loadOverridesForScopes({
-      project: join(tempDir, 'project'),
-      workspaces: [join(tempDir, 'workspace-a')],
+      project: join(tree.dir, 'project'),
+      workspaces: [join(tree.dir, 'workspace-a')],
     });
     expect(result.project.size).toBe(0);
     expect(result.perWorkspace.size).toBe(0);
@@ -358,20 +350,10 @@ describe(loadOverridesForScopes, () => {
   });
 
   it('loads project and per-workspace overrides into separate maps', () => {
-    const projectRoot = join(tempDir, 'project');
-    const workspaceRoot = join(tempDir, 'packages/foo');
-    mkdirSync(join(projectRoot, '.meta'), { recursive: true });
-    mkdirSync(join(workspaceRoot, '.meta'), { recursive: true });
-    writeFileSync(
-      join(projectRoot, '.meta/changelog-overrides.json'),
-      JSON.stringify({ aaa1111: { audience: 'skip' } }),
-      'utf8',
-    );
-    writeFileSync(
-      join(workspaceRoot, '.meta/changelog-overrides.json'),
-      JSON.stringify({ bbb2222: { description: 'Renamed' } }),
-      'utf8',
-    );
+    const projectRoot = join(tree.dir, 'project');
+    const workspaceRoot = join(tree.dir, 'packages/foo');
+    tree.writeJson('project/.meta/changelog-overrides.json', { aaa1111: { audience: 'skip' } });
+    tree.writeJson('packages/foo/.meta/changelog-overrides.json', { bbb2222: { description: 'Renamed' } });
 
     const result = loadOverridesForScopes({ project: projectRoot, workspaces: [workspaceRoot] });
     expect(result.errors).toStrictEqual([]);
@@ -380,9 +362,8 @@ describe(loadOverridesForScopes, () => {
   });
 
   it('omits per-workspace entries when the workspace file is empty', () => {
-    const workspaceRoot = join(tempDir, 'packages/empty');
-    mkdirSync(join(workspaceRoot, '.meta'), { recursive: true });
-    writeFileSync(join(workspaceRoot, '.meta/changelog-overrides.json'), '{}', 'utf8');
+    const workspaceRoot = join(tree.dir, 'packages/empty');
+    tree.write('packages/empty/.meta/changelog-overrides.json', '{}');
 
     const result = loadOverridesForScopes({ workspaces: [workspaceRoot] });
     expect(result.errors).toStrictEqual([]);
@@ -390,19 +371,12 @@ describe(loadOverridesForScopes, () => {
   });
 
   it('aggregates errors across multiple malformed files into one report', () => {
-    const projectRoot = join(tempDir, 'project');
-    const workspaceA = join(tempDir, 'packages/a');
-    const workspaceB = join(tempDir, 'packages/b');
-    mkdirSync(join(projectRoot, '.meta'), { recursive: true });
-    mkdirSync(join(workspaceA, '.meta'), { recursive: true });
-    mkdirSync(join(workspaceB, '.meta'), { recursive: true });
-    writeFileSync(join(projectRoot, '.meta/changelog-overrides.json'), '{not-valid', 'utf8');
-    writeFileSync(join(workspaceA, '.meta/changelog-overrides.json'), '[]', 'utf8');
-    writeFileSync(
-      join(workspaceB, '.meta/changelog-overrides.json'),
-      JSON.stringify({ valid1: { audience: 'skip' } }),
-      'utf8',
-    );
+    const projectRoot = join(tree.dir, 'project');
+    const workspaceA = join(tree.dir, 'packages/a');
+    const workspaceB = join(tree.dir, 'packages/b');
+    tree.write('project/.meta/changelog-overrides.json', '{not-valid');
+    tree.write('packages/a/.meta/changelog-overrides.json', '[]');
+    tree.writeJson('packages/b/.meta/changelog-overrides.json', { valid1: { audience: 'skip' } });
 
     const result = loadOverridesForScopes({
       project: projectRoot,
@@ -576,17 +550,11 @@ describe(applyWorkspaceOverrides, () => {
 });
 
 describe(validateAllChangelogOverrides, () => {
-  let tempDir: string;
+  let tree: TempTree;
 
   beforeEach(() => {
-    tempDir = disposeOnTestFinished(createTempTree({}, { prefix: 'test-validate-overrides-' })).dir;
+    tree = disposeOnTestFinished(createTempTree({}, { prefix: 'test-validate-overrides-' }));
   });
-
-  function writeOverrides(scopeDir: string, contents: string): string {
-    const filePath = join(scopeDir, 'overrides.json');
-    writeFileSync(filePath, contents, 'utf8');
-    return filePath;
-  }
 
   it('returns no findings when no scopes are provided', () => {
     const result = validateAllChangelogOverrides({});
@@ -596,18 +564,16 @@ describe(validateAllChangelogOverrides, () => {
 
   it('returns no findings when override files are absent (missing files are no-ops)', () => {
     const result = validateAllChangelogOverrides({
-      project: { filePath: join(tempDir, 'missing-project.json'), hashes: ['aaa1111'] },
-      workspaces: [{ filePath: join(tempDir, 'missing-workspace.json'), hashes: ['bbb2222'] }],
+      project: { filePath: join(tree.dir, 'missing-project.json'), hashes: ['aaa1111'] },
+      workspaces: [{ filePath: join(tree.dir, 'missing-workspace.json'), hashes: ['bbb2222'] }],
     });
     expect(result.errors).toStrictEqual([]);
     expect(result.warnings).toStrictEqual([]);
   });
 
   it('returns no findings on a clean run with all matched keys', () => {
-    const projectFile = writeOverrides(tempDir, JSON.stringify({ aaa1111: { audience: 'skip' } }));
-    const workspaceDir = join(tempDir, 'workspace-a');
-    mkdirSync(workspaceDir);
-    const workspaceFile = writeOverrides(workspaceDir, JSON.stringify({ bbb2222: { description: 'Cleaned' } }));
+    const projectFile = tree.writeJson('overrides.json', { aaa1111: { audience: 'skip' } });
+    const workspaceFile = tree.writeJson('workspace-a/overrides.json', { bbb2222: { description: 'Cleaned' } });
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFile },
@@ -619,10 +585,8 @@ describe(validateAllChangelogOverrides, () => {
   });
 
   it('reports schema/parse errors with the file path prefix', () => {
-    const projectFile = writeOverrides(tempDir, '{not-valid');
-    const workspaceDir = join(tempDir, 'workspace-a');
-    mkdirSync(workspaceDir);
-    const workspaceFile = writeOverrides(workspaceDir, '[]');
+    const projectFile = tree.write('overrides.json', '{not-valid');
+    const workspaceFile = tree.write('workspace-a/overrides.json', '[]');
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFile, hashes: [] },
@@ -637,7 +601,7 @@ describe(validateAllChangelogOverrides, () => {
   });
 
   it('reports per-key validation errors with the file path prefix', () => {
-    const projectFile = writeOverrides(tempDir, JSON.stringify({ abc: { unknown: true } }));
+    const projectFile = tree.writeJson('overrides.json', { abc: { unknown: true } });
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFile, hashes: [] },
@@ -649,9 +613,7 @@ describe(validateAllChangelogOverrides, () => {
   });
 
   it('reports ambiguous-prefix errors at workspace tier with the workspace file path', () => {
-    const workspaceDir = join(tempDir, 'workspace-a');
-    mkdirSync(workspaceDir);
-    const workspaceFile = writeOverrides(workspaceDir, JSON.stringify({ abc: { audience: 'skip' } }));
+    const workspaceFile = tree.writeJson('workspace-a/overrides.json', { abc: { audience: 'skip' } });
 
     const result = validateAllChangelogOverrides({
       workspaces: [{ filePath: workspaceFile, hashes: ['abc111', 'abc222'] }],
@@ -663,7 +625,7 @@ describe(validateAllChangelogOverrides, () => {
   });
 
   it('reports ambiguous-prefix errors at project tier with the project file path', () => {
-    const projectFile = writeOverrides(tempDir, JSON.stringify({ abc: { audience: 'skip' } }));
+    const projectFile = tree.writeJson('overrides.json', { abc: { audience: 'skip' } });
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFile, hashes: ['abc111', 'abc222'] },
@@ -677,10 +639,8 @@ describe(validateAllChangelogOverrides, () => {
   it('attributes a project-tier ambiguous-prefix error to the project file when detected via a workspace hash window', () => {
     // The project key 'abc' resolves ambiguously against workspace A's hashes. The error must
     // attribute to the project file (where 'abc' lives), not the workspace file (which is empty).
-    const projectFile = writeOverrides(tempDir, JSON.stringify({ abc: { audience: 'skip' } }));
-    const workspaceDir = join(tempDir, 'workspace-a');
-    mkdirSync(workspaceDir);
-    const workspaceFile = writeOverrides(workspaceDir, '{}');
+    const projectFile = tree.writeJson('overrides.json', { abc: { audience: 'skip' } });
+    const workspaceFile = tree.write('workspace-a/overrides.json', '{}');
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFile },
@@ -694,9 +654,7 @@ describe(validateAllChangelogOverrides, () => {
   });
 
   it('warns on a workspace-tier stale key with the workspace file path', () => {
-    const workspaceDir = join(tempDir, 'workspace-a');
-    mkdirSync(workspaceDir);
-    const workspaceFile = writeOverrides(workspaceDir, JSON.stringify({ stale12: { audience: 'skip' } }));
+    const workspaceFile = tree.writeJson('workspace-a/overrides.json', { stale12: { audience: 'skip' } });
 
     const result = validateAllChangelogOverrides({
       workspaces: [{ filePath: workspaceFile, hashes: ['real0001', 'real0002'] }],
@@ -710,10 +668,8 @@ describe(validateAllChangelogOverrides, () => {
   });
 
   it('warns on a root-tier key matched in no scope', () => {
-    const projectFile = writeOverrides(tempDir, JSON.stringify({ stale99: { audience: 'skip' } }));
-    const workspaceDir = join(tempDir, 'workspace-a');
-    mkdirSync(workspaceDir);
-    const workspaceFile = writeOverrides(workspaceDir, '{}');
+    const projectFile = tree.writeJson('overrides.json', { stale99: { audience: 'skip' } });
+    const workspaceFile = tree.write('workspace-a/overrides.json', '{}');
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFile },
@@ -728,13 +684,9 @@ describe(validateAllChangelogOverrides, () => {
   });
 
   it('does NOT warn on a root key matched in some workspace', () => {
-    const projectFile = writeOverrides(tempDir, JSON.stringify({ aaa1111: { audience: 'skip' } }));
-    const workspaceA = join(tempDir, 'a');
-    const workspaceB = join(tempDir, 'b');
-    mkdirSync(workspaceA);
-    mkdirSync(workspaceB);
-    const fileA = writeOverrides(workspaceA, '{}');
-    const fileB = writeOverrides(workspaceB, '{}');
+    const projectFile = tree.writeJson('overrides.json', { aaa1111: { audience: 'skip' } });
+    const fileA = tree.write('a/overrides.json', '{}');
+    const fileB = tree.write('b/overrides.json', '{}');
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFile },
@@ -749,10 +701,8 @@ describe(validateAllChangelogOverrides, () => {
   });
 
   it('does NOT warn on a root key matched only in the project release window', () => {
-    const projectFile = writeOverrides(tempDir, JSON.stringify({ aaa1111: { audience: 'skip' } }));
-    const workspaceDir = join(tempDir, 'workspace-a');
-    mkdirSync(workspaceDir);
-    const workspaceFile = writeOverrides(workspaceDir, '{}');
+    const projectFile = tree.writeJson('overrides.json', { aaa1111: { audience: 'skip' } });
+    const workspaceFile = tree.write('workspace-a/overrides.json', '{}');
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFile, hashes: ['aaa1111ext'] },
@@ -767,10 +717,8 @@ describe(validateAllChangelogOverrides, () => {
     // Root key 'aaa1111' is shadowed by an identical workspace key in the only workspace.
     // The workspace match counts toward the workspace tier, not the root, and there is no
     // project release window — so the root key matches nowhere and should be flagged stale.
-    const projectFile = writeOverrides(tempDir, JSON.stringify({ aaa1111: { audience: 'skip' } }));
-    const workspaceDir = join(tempDir, 'workspace-a');
-    mkdirSync(workspaceDir);
-    const workspaceFile = writeOverrides(workspaceDir, JSON.stringify({ aaa1111: { description: 'Workspace wins' } }));
+    const projectFile = tree.writeJson('overrides.json', { aaa1111: { audience: 'skip' } });
+    const workspaceFile = tree.writeJson('workspace-a/overrides.json', { aaa1111: { description: 'Workspace wins' } });
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFile },
@@ -784,10 +732,8 @@ describe(validateAllChangelogOverrides, () => {
   });
 
   it('reports both errors and warnings simultaneously when both classes occur', () => {
-    const projectFile = writeOverrides(tempDir, JSON.stringify({ stale99: { audience: 'skip' } }));
-    const workspaceDir = join(tempDir, 'workspace-a');
-    mkdirSync(workspaceDir);
-    const workspaceFile = writeOverrides(workspaceDir, JSON.stringify({ abc: { audience: 'skip' } }));
+    const projectFile = tree.writeJson('overrides.json', { stale99: { audience: 'skip' } });
+    const workspaceFile = tree.writeJson('workspace-a/overrides.json', { abc: { audience: 'skip' } });
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFile },
@@ -801,10 +747,10 @@ describe(validateAllChangelogOverrides, () => {
   });
 
   it('handles single-package mode (project scope only, no workspaces)', () => {
-    const projectFile = writeOverrides(
-      tempDir,
-      JSON.stringify({ aaa1111: { audience: 'skip' }, stale99: { audience: 'skip' } }),
-    );
+    const projectFile = tree.writeJson('overrides.json', {
+      aaa1111: { audience: 'skip' },
+      stale99: { audience: 'skip' },
+    });
 
     const result = validateAllChangelogOverrides({
       project: { filePath: projectFile, hashes: ['aaa1111ext'] },
@@ -817,11 +763,11 @@ describe(validateAllChangelogOverrides, () => {
 });
 
 describe(createOverrideContext, () => {
-  let tempDir: string;
+  let tree: TempTree;
 
   beforeEach(() => {
-    tempDir = disposeOnTestFinished(createTempTree({}, { prefix: 'test-create-context-' })).dir;
-    disposeOnTestFinished(pointCwdAt(tempDir, { chdir: true }));
+    tree = disposeOnTestFinished(createTempTree({}, { prefix: 'test-create-context-' }));
+    disposeOnTestFinished(pointCwdAt(tree.dir, { chdir: true }));
   });
 
   function makeWorkspace(workspacePath: string): WorkspaceConfig {
@@ -840,15 +786,13 @@ describe(createOverrideContext, () => {
   // Scenario 5: any malformed file aborts the run before any writes — both root and workspace.
   it('aborts with a combined error when a per-workspace file is malformed', () => {
     const workspacePath = 'packages/bad';
-    mkdirSync(join(tempDir, workspacePath, '.meta'), { recursive: true });
-    writeFileSync(join(tempDir, workspacePath, '.meta/changelog-overrides.json'), '{not-valid', 'utf8');
+    tree.write(`${workspacePath}/.meta/changelog-overrides.json`, '{not-valid');
 
     expect(() => createOverrideContext([makeWorkspace(workspacePath)])).toThrow(/Failed to load changelog overrides/);
   });
 
   it('aborts with a combined error when the project file is malformed', () => {
-    mkdirSync(join(tempDir, '.meta'), { recursive: true });
-    writeFileSync(join(tempDir, '.meta/changelog-overrides.json'), '[]', 'utf8');
+    tree.write('.meta/changelog-overrides.json', '[]');
 
     expect(() => createOverrideContext([])).toThrow(/Failed to load changelog overrides/);
   });
@@ -862,18 +806,10 @@ describe(createOverrideContext, () => {
   });
 
   it('loads project and per-workspace files into a populated context', () => {
-    mkdirSync(join(tempDir, '.meta'), { recursive: true });
-    mkdirSync(join(tempDir, 'packages/foo/.meta'), { recursive: true });
-    writeFileSync(
-      join(tempDir, '.meta/changelog-overrides.json'),
-      JSON.stringify({ aaa1111: { audience: 'skip' } }),
-      'utf8',
-    );
-    writeFileSync(
-      join(tempDir, 'packages/foo/.meta/changelog-overrides.json'),
-      JSON.stringify({ bbb2222: { description: 'Workspace replacement' } }),
-      'utf8',
-    );
+    tree.writeJson('.meta/changelog-overrides.json', { aaa1111: { audience: 'skip' } });
+    tree.writeJson('packages/foo/.meta/changelog-overrides.json', {
+      bbb2222: { description: 'Workspace replacement' },
+    });
 
     const context = createOverrideContext([makeWorkspace('packages/foo')]);
     expect(context.project.get('aaa1111')).toStrictEqual({ audience: 'skip' });
