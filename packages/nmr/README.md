@@ -567,9 +567,11 @@ Pass a different value for one run:
 nmr upgrade --request-timeout 90000
 ```
 
-To change it for every run, override the `upgrade` script, keeping the rest of the default:
+To change it for every run, override the `upgrade` script in `.config/nmr.config.ts`, keeping the rest of the default. This is nmr's own config, not the `taze.config.ts` above; taze ignores a `rootScripts` key, and nothing reports it:
 
 ```ts
+import { defineConfig } from '@williamthorsen/nmr/config';
+
 export default defineConfig({
   rootScripts: {
     upgrade: 'nmr-report-overrides && nmr-taze --recursive --request-timeout 90000',

@@ -52,12 +52,12 @@ export interface RunTazeOptions {
  * root `node_modules/.bin`. This launcher is what bridges that gap: pnpm links nmr's own bins into the
  * consumer root, and nmr resolves taze from the tree it does control.
  *
- * A request timeout is the one argument added, and only where `args` carries none. It belongs here because
- * both other sites are closed to it: a repo overriding the `upgrade` script would leave two of the flag, which
- * taze's parser collects into an array and reads as a near-zero deadline, and a `taze.config.ts` setting lands
- * in the object taze's own CLI defaults overwrite. Every other argument is forwarded untouched, so invocation
- * policy (`--recursive`) stays in the script registry, visible in `nmr` help output and overridable per repo,
- * and upgrade policy stays in `taze.ts`.
+ * A request timeout is the one argument added, and only where `args` carries none. Neither other site can hold
+ * it: an invocation's trailing arguments are appended to the resolved command string, so the same flag in the
+ * `upgrade` script would be doubled by `nmr upgrade --request-timeout ...`, and taze's parser collects the pair
+ * into an array it reads as a near-zero deadline; a `taze.config.ts` setting lands in the object taze's own CLI
+ * defaults overwrite. Every other argument is forwarded untouched, so invocation policy (`--recursive`) stays in
+ * the script registry, visible in `nmr` help output and overridable per repo, and upgrade policy in `taze.ts`.
  */
 export function runTaze(args: string[], options: RunTazeOptions = {}): number {
   const stderr = options.stderr ?? process.stderr;
@@ -94,11 +94,6 @@ export function resolveTazeCliPath(): string {
 
 // region | Helpers
 
-/** Returns the request-timeout argument to prepend, or nothing where the invocation sets one of its own. */
-function composeRequestTimeoutArgs(args: readonly string[]): string[] {
-  return carriesRequestTimeout(args) ? [] : [REQUEST_TIMEOUT_FLAG, String(REQUEST_TIMEOUT_MS)];
-}
-
 /** Reports whether the invocation sets a request timeout, in any spelling taze's CLI reads it from. */
 function carriesRequestTimeout(args: readonly string[]): boolean {
   for (const arg of args) {
@@ -106,6 +101,11 @@ function carriesRequestTimeout(args: readonly string[]): boolean {
     if (REQUEST_TIMEOUT_FLAGS.some((flag) => arg === flag || arg.startsWith(`${flag}=`))) return true;
   }
   return false;
+}
+
+/** Returns the request-timeout argument to prepend, or nothing where the invocation sets one of its own. */
+function composeRequestTimeoutArgs(args: readonly string[]): string[] {
+  return carriesRequestTimeout(args) ? [] : [REQUEST_TIMEOUT_FLAG, String(REQUEST_TIMEOUT_MS)];
 }
 
 /**

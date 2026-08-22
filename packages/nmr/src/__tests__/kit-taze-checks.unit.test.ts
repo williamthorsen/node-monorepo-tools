@@ -8,14 +8,18 @@ const SHARED_CONFIG = "import { defineConfig } from '@williamthorsen/nmr/taze';\
 
 describe(tazeConfigBuildsOnSharedConfig, () => {
   // unconfig resolves any of these, so a check matching only `.ts` would report a conformant repo as stale.
-  it.each(['taze.config.ts', 'taze.config.mts', 'taze.config.cts', 'taze.config.js', 'taze.config.mjs'])(
-    'passes when %s builds on the shared config',
-    (filename) => {
-      const dir = buildRepo({ [filename]: SHARED_CONFIG });
+  it.each([
+    'taze.config.ts',
+    'taze.config.mts',
+    'taze.config.cts',
+    'taze.config.js',
+    'taze.config.mjs',
+    'taze.config.cjs',
+  ])('passes when %s builds on the shared config', (filename) => {
+    const dir = buildRepo({ [filename]: SHARED_CONFIG });
 
-      expect(tazeConfigBuildsOnSharedConfig(dir)).toBe(true);
-    },
-  );
+    expect(tazeConfigBuildsOnSharedConfig(dir)).toBe(true);
+  });
 
   // The policy reaches a repo only through this file, so absence is the finding the check exists for.
   it('fails a repo that declares no taze config at all', () => {
@@ -107,14 +111,18 @@ describe(tazeConfigAvoidsClobberedOptions, () => {
   );
 
   // unconfig resolves any of these, so a check matching only `.ts` would miss a config that carries the setting.
-  it.each(['taze.config.ts', 'taze.config.mts', 'taze.config.cts', 'taze.config.js', 'taze.config.mjs'])(
-    'inspects %s',
-    (filename) => {
-      const dir = buildRepo({ [filename]: buildConfig('requestTimeout: 60000') });
+  it.each([
+    'taze.config.ts',
+    'taze.config.mts',
+    'taze.config.cts',
+    'taze.config.js',
+    'taze.config.mjs',
+    'taze.config.cjs',
+  ])('inspects %s', (filename) => {
+    const dir = buildRepo({ [filename]: buildConfig('requestTimeout: 60000') });
 
-      expect(getDetail(tazeConfigAvoidsClobberedOptions(dir))).toContain(filename);
-    },
-  );
+    expect(getDetail(tazeConfigAvoidsClobberedOptions(dir))).toContain(filename);
+  });
 
   it('names every discarded option a config declares', () => {
     const dir = buildRepo({
