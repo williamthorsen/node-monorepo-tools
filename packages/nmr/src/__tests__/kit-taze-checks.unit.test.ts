@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { tazeConfigBuildsOnSharedConfig } from '../../.readyup/kits/default.ts';
+import { tazeConfigAvoidsClobberedOptions, tazeConfigBuildsOnSharedConfig } from '../../.readyup/kits/default.ts';
 import { buildRepo } from '../test-utils/fixture-repo.ts';
 import { getDetail } from '../test-utils/getDetail.ts';
 
@@ -59,3 +59,76 @@ describe(tazeConfigBuildsOnSharedConfig, () => {
     expect(detail).toContain('taze.config.ts');
   });
 });
+
+describe(tazeConfigAvoidsClobberedOptions, () => {
+  it('passes a config declaring none of the discarded options', () => {
+    const dir = buildRepo({ 'taze.config.ts': buildConfig("packageMode: { typescript: 'minor' }") });
+
+    expect(tazeConfigAvoidsClobberedOptions(dir)).toBe(true);
+  });
+
+  it('passes a repo that declares no taze config at all', () => {
+    const dir = buildRepo({ 'package.json': '{}\n' });
+
+    expect(tazeConfigAvoidsClobberedOptions(dir)).toBe(true);
+  });
+
+  // taze's CLI carries a default for these two, so whatever the config declares is discarded.
+  it.each([
+    ['requestTimeout: 60000', 'requestTimeout'],
+    ['requestTimeout: 0', 'requestTimeout'],
+    ['concurrency: 4', 'concurrency'],
+  ])('reports %s, whose value never reaches taze', (setting, key) => {
+    const dir = buildRepo({ 'taze.config.ts': buildConfig(setting) });
+
+    expect(getDetail(tazeConfigAvoidsClobberedOptions(dir))).toContain(key);
+  });
+
+  // These three carry a CLI default matching taze's own, so only a departure from it is lost.
+  it.each([
+    ['githubActions: false', 'githubActions'],
+    ["githubActions: { style: 'tag' }", 'githubActions'],
+    ['ignoreOtherWorkspaces: false', 'ignoreOtherWorkspaces'],
+    ['nodeVersion: false', 'nodeVersion'],
+  ])('reports %s, which departs from the default the CLI reasserts', (setting, key) => {
+    const dir = buildRepo({ 'taze.config.ts': buildConfig(setting) });
+
+    expect(getDetail(tazeConfigAvoidsClobberedOptions(dir))).toContain(key);
+  });
+
+  // The reasserted default equals taze's own, so a config restating it loses nothing and is not a finding.
+  it.each(['githubActions: true', 'ignoreOtherWorkspaces: true', 'nodeVersion: true'])(
+    'passes %s, which taze honors anyway',
+    (setting) => {
+      const dir = buildRepo({ 'taze.config.ts': buildConfig(setting) });
+
+      expect(tazeConfigAvoidsClobberedOptions(dir)).toBe(true);
+    },
+  );
+
+  // unconfig resolves any of these, so a check matching only `.ts` would miss a config that carries the setting.
+  it.each(['taze.config.ts', 'taze.config.mts', 'taze.config.cts', 'taze.config.js', 'taze.config.mjs'])(
+    'inspects %s',
+    (filename) => {
+      const dir = buildRepo({ [filename]: buildConfig('requestTimeout: 60000') });
+
+      expect(getDetail(tazeConfigAvoidsClobberedOptions(dir))).toContain(filename);
+    },
+  );
+
+  it('names every discarded option a config declares', () => {
+    const dir = buildRepo({
+      'taze.config.ts': buildConfig('requestTimeout: 60000, concurrency: 4, nodeVersion: false'),
+    });
+
+    const detail = getDetail(tazeConfigAvoidsClobberedOptions(dir));
+    expect(detail).toContain('requestTimeout');
+    expect(detail).toContain('concurrency');
+    expect(detail).toContain('nodeVersion');
+  });
+});
+
+/** Builds a shared-config taze file carrying `settings`, the form the sibling check requires. */
+function buildConfig(settings: string): string {
+  return `import { defineConfig } from '@williamthorsen/nmr/taze';\nexport default defineConfig({ ${settings} });\n`;
+}

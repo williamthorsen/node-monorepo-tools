@@ -180,6 +180,13 @@ export default defineRdyKit({
           check: () => tazeConfigBuildsOnSharedConfig(),
           fix: "Replace the taze config with: import { defineConfig } from '@williamthorsen/nmr/taze'; export default defineConfig(); — nmr's upgrade policy reaches a repo only through this file, so without it `nmr upgrade` reports nothing where dependencies are pinned to exact versions",
         },
+        {
+          name: 'taze config declares no option taze discards',
+          severity: 'warn',
+          quiet: true,
+          check: () => tazeConfigAvoidsClobberedOptions(),
+          fix: "Set these through the upgrade script instead, as rootScripts: { upgrade: 'nmr-report-overrides && nmr-taze --recursive --request-timeout 90000' } in .config/nmr.config.ts, keeping the rest of the default script — taze's CLI writes a default for each of them over whatever the config file declares, so the value there never reaches taze (antfu-collective/taze#317). nmr already forwards a 30-second request timeout",
+        },
 
         // -- Audit dependency --------------------------------------------------------
         {
@@ -228,6 +235,22 @@ const SHARED_TAZE_MODULE = '@williamthorsen/nmr/taze';
 
 /** taze config forms that hold data rather than code, so none of them can call a factory. */
 const INERT_TAZE_CONFIGS = ['.tazerc', '.tazerc.json', 'taze.config.json'];
+
+/**
+ * taze options a config file cannot carry, each paired with the pattern that finds a declaration taze discards.
+ * Its CLI writes a default for every one of them into the options it merges over the config file.
+ *
+ * `concurrency` and `requestTimeout` lose whatever the file declares, so the key alone is the finding. The other
+ * three carry a CLI default equal to taze's own, so only a departure from it is lost, and matching the key alone
+ * would report a setting that reaches taze intact.
+ */
+const CLOBBERED_TAZE_OPTIONS: ReadonlyArray<{ key: string; pattern: RegExp }> = [
+  { key: 'concurrency', pattern: /\bconcurrency\s*:/ },
+  { key: 'githubActions', pattern: /\bgithubActions\s*:\s*(?:false|\{)/ },
+  { key: 'ignoreOtherWorkspaces', pattern: /\bignoreOtherWorkspaces\s*:\s*false/ },
+  { key: 'nodeVersion', pattern: /\bnodeVersion\s*:\s*false/ },
+  { key: 'requestTimeout', pattern: /\brequestTimeout\s*:/ },
+];
 
 /** Matches a line whose only content is a re-export from an ancestor directory. */
 const RE_EXPORT_LINE_PATTERN = /^export\s*(?:\{\s*default\s*}|\*)\s*from\s*['"]\.\.\/[^'"]*['"];?$/;
@@ -602,6 +625,30 @@ export function tazeConfigBuildsOnSharedConfig(cwd: string = process.cwd()): boo
   );
   if (stale.length === 0) return true;
   return { ok: false, detail: `does not import defineConfig from ${SHARED_TAZE_MODULE}: ${stale.join(', ')}` };
+}
+
+/**
+ * Checks that the repo's taze config declares no option taze's CLI discards.
+ *
+ * Reports the setting rather than the file, because the fix is per option: each one moves onto the upgrade
+ * script, where it reaches taze as a flag. A repo declaring none of them is already in the passing state.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function tazeConfigAvoidsClobberedOptions(cwd: string = process.cwd()): boolean | CheckOutcome {
+  const configs = findFiles([`taze.config.${CONFIG_EXTENSIONS}`], cwd);
+  const findings: string[] = [];
+
+  for (const relativePath of configs) {
+    const content = readFileIn(cwd, relativePath);
+    if (content === undefined) continue;
+
+    const discarded = CLOBBERED_TAZE_OPTIONS.filter(({ pattern }) => pattern.test(content)).map(({ key }) => key);
+    if (discarded.length > 0) findings.push(`${relativePath}: ${discarded.join(', ')}`);
+  }
+
+  if (findings.length === 0) return true;
+  return { ok: false, detail: formatPaths(findings) };
 }
 
 /** Names the data-only config standing in for an executable one, so the fix says what to convert. */
