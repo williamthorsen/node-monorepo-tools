@@ -35,7 +35,7 @@ describe(cleanPackage, () => {
 
     await cleanPackage(tree.dir);
 
-    expect(tree.exists(cacheEntry(tree, '.'))).toBe(false);
+    expect(tree.exists(resolveCacheEntry(tree, '.'))).toBe(false);
   });
 
   it('leaves the sources intact', async ({ tree }) => {
@@ -201,11 +201,6 @@ describe(runClean, () => {
   });
 });
 
-/** The package's build-cache entry, relative to the tree: the store returns the absolute path it keys. */
-function cacheEntry(tree: TempTree, packageEntry: string): string {
-  return path.relative(tree.dir, resolveBuildCachePath(tree.resolve(packageEntry)));
-}
-
 /** Returns true if the `dist` directory exists. */
 function hasOutput(tree: TempTree, packageEntry: string): boolean {
   return tree.exists(`${packageEntry}/dist`);
@@ -231,6 +226,11 @@ async function recordCheckResult(monorepoRoot: string, anchorDir: string, comman
   });
 }
 
+/** Resolves the package's build-cache entry, relative to the tree: the store returns the absolute path it keys. */
+function resolveCacheEntry(tree: TempTree, packageEntry: string): string {
+  return path.relative(tree.dir, resolveBuildCachePath(tree.resolve(packageEntry)));
+}
+
 /** Writes a package that looks freshly built: sources, emitted output, and a build-cache entry. */
 function scaffoldBuiltPackage(tree: TempTree, packageEntry: string): void {
   tree.writeAll({
@@ -239,7 +239,7 @@ function scaffoldBuiltPackage(tree: TempTree, packageEntry: string): void {
     [`${packageEntry}/package.json`]: JSON.stringify({ name: 'fixture', type: 'module' }),
     [`${packageEntry}/src/index.ts`]: 'export const value = 1;\n',
   });
-  tree.write(cacheEntry(tree, packageEntry), 'a-stale-digest');
+  tree.write(resolveCacheEntry(tree, packageEntry), 'a-stale-digest');
 }
 
 /** Writes an nmr config at the workspace root. */

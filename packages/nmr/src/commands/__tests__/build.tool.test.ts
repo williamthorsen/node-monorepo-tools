@@ -601,7 +601,7 @@ describe('buildPackage atomic publication', () => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
     await buildPackage(tree.dir);
 
-    tree.mkdir(stagingEntry(tree));
+    tree.mkdir(resolveStagingEntry(tree));
 
     // Inputs are unchanged, so this run never reaches the emit -- the one path with no other sweeper.
     await buildPackage(tree.dir);
@@ -614,7 +614,7 @@ describe('buildPackage atomic publication', () => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
     await buildPackage(tree.dir);
 
-    tree.write(`${stagingEntry(tree)}/orphan.js`, 'export const orphan = 1;\n');
+    tree.write(`${resolveStagingEntry(tree)}/orphan.js`, 'export const orphan = 1;\n');
 
     tree.write('src/index.ts', 'export const value = 2;\n');
     await buildPackage(tree.dir);
@@ -650,7 +650,7 @@ describe('buildPackage caching', () => {
   it('writes a cache file and skips an unchanged rebuild', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
     await buildPackage(tree.dir);
-    expect(tree.exists(cacheEntry(tree))).toBe(true);
+    expect(tree.exists(resolveCacheEntry(tree))).toBe(true);
 
     // Only the second (unchanged) build logs "No changes detected"; the first logs "Changes detected".
     await buildPackage(tree.dir);
@@ -690,7 +690,7 @@ describe('buildPackage caching', () => {
     await buildPackage(tree.dir);
 
     expect(resolveBuildCachePath(tree.dir)).toContain(path.join('node_modules', '.cache', 'nmr-compile'));
-    expect(tree.exists(cacheEntry(tree))).toBe(true);
+    expect(tree.exists(resolveCacheEntry(tree))).toBe(true);
     // The regression this guards: the digest must not land inside the published dist tree.
     expect(tree.exists('dist/esm/.cache')).toBe(false);
   });
@@ -778,7 +778,7 @@ describe('buildPackage caching', () => {
 
     await expect(buildPackage(tree.dir)).rejects.toThrow('compile failed');
 
-    expect(tree.exists(cacheEntry(tree))).toBe(false);
+    expect(tree.exists(resolveCacheEntry(tree))).toBe(false);
   });
 
   it('re-attempts and rebuilds after a transient compile failure instead of skipping', async ({ tree }) => {
@@ -794,13 +794,13 @@ describe('buildPackage caching', () => {
 
     expect(ts.createProgram).toHaveBeenCalledTimes(2);
     expect(tree.exists('dist/esm/index.js')).toBe(true);
-    expect(tree.exists(cacheEntry(tree))).toBe(true);
+    expect(tree.exists(resolveCacheEntry(tree))).toBe(true);
   });
 
   it('preserves an existing cache when a changed-source rebuild fails', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
     await buildPackage(tree.dir);
-    const lastGoodDigest = tree.read(cacheEntry(tree));
+    const lastGoodDigest = tree.read(resolveCacheEntry(tree));
 
     // A changed source forces the rebuild to be attempted rather than skipped; make that rebuild fail.
     tree.write('src/index.ts', 'export const value = 2;\n');
@@ -810,12 +810,12 @@ describe('buildPackage caching', () => {
     await expect(buildPackage(tree.dir)).rejects.toThrow('rebuild failed');
 
     // The failed rebuild must leave the last successful build's digest intact, not overwrite it.
-    expect(tree.read(cacheEntry(tree))).toBe(lastGoodDigest);
+    expect(tree.read(resolveCacheEntry(tree))).toBe(lastGoodDigest);
 
     // With the failure gone, the next run rebuilds the changed source and refreshes the cache.
     await buildPackage(tree.dir);
     expect(readOutput(tree, 'index.js')).toContain('value = 2');
-    expect(tree.read(cacheEntry(tree))).not.toBe(lastGoodDigest);
+    expect(tree.read(resolveCacheEntry(tree))).not.toBe(lastGoodDigest);
   });
 });
 
@@ -913,11 +913,6 @@ describe(resolveBuildCachePath, () => {
 
 // region | Helpers
 
-/** The package's build-cache entry, relative to the tree: the store returns the absolute path it keys. */
-function cacheEntry(tree: TempTree): string {
-  return path.relative(tree.dir, resolveBuildCachePath(tree.dir));
-}
-
 /** Lists every file under the package's emit directory, as sorted forward-slash paths relative to it. */
 function listEmitted(tree: TempTree): string[] {
   const outdir = tree.resolve('dist/esm');
@@ -946,8 +941,13 @@ function listScratch(tree: TempTree): string[] {
     .map((scratchDir) => path.basename(scratchDir));
 }
 
-/** The scratch directory a build stages into, relative to the tree: `resolveScratchDirs` reports it absolute. */
-function stagingEntry(tree: TempTree): string {
+/** Resolves the package's build-cache entry, relative to the tree: the store returns the absolute path it keys. */
+function resolveCacheEntry(tree: TempTree): string {
+  return path.relative(tree.dir, resolveBuildCachePath(tree.dir));
+}
+
+/** Resolves the scratch directory a build stages into: `resolveScratchDirs` reports it as an absolute path. */
+function resolveStagingEntry(tree: TempTree): string {
   return path.relative(tree.dir, resolveScratchDirs(tree.resolve('dist/esm')).staging);
 }
 
