@@ -546,7 +546,7 @@ export default defineConfig({
 
 `defineConfig` supplies nmr's shared upgrade policy — a seven-day quarantine on brand-new releases, and the pair of settings that report a dependency pinned to an exact version: locked dependencies are included, and the range searched is `minor` — so your config carries only what is specific to your repo. Any setting you declare wins over nmr's default. Passing `undefined` clears a default rather than falling back to it, which is how you hand the quarantine policy back to `pnpm-workspace.yaml`'s `minimumReleaseAge`. `mode` is the exception: the upgrade tool carries a default of its own for it, and clearing nmr's leaves no valid range to search, so name a mode instead.
 
-Everything the [taze configuration](https://github.com/antfu-collective/taze#config-file) accepts is accepted here.
+Everything the [taze configuration](https://github.com/antfu-collective/taze#config-file) accepts is accepted here, with five exceptions that reach the upgrade tool from no config file at all: `concurrency`, `githubActions`, `ignoreOtherWorkspaces`, `nodeVersion`, and `requestTimeout`. The tool's CLI writes a default for each of them over whatever the config declares ([taze#317](https://github.com/antfu-collective/taze/issues/317)), so the command line is the only place they can be set. nmr's ReadyUp kit warns when your config declares one, and [request timeout](#request-timeout) below shows how to set it instead.
 
 > **Note:** This file is what activates nmr's upgrade policy at all. A repo without one gets neither the release quarantine nor the settings that report a dependency pinned to an exact version, and `nmr upgrade` reports nothing in a repo using pnpm's `savePrefix: ''`. nmr's ReadyUp kit warns when the file is missing.
 
@@ -554,6 +554,30 @@ Two consequences of the `minor` range mode the policy declares:
 
 - A `packageMode` entry is honored only by the pass whose mode matches it, or by a `default` pass; every other pass drops that dependency rather than narrowing it. Under the policy's `minor` mode, a `patch` ceiling hides its dependency until you run `nmr upgrade patch`, and a `minor` ceiling hides it from `nmr upgrade major`.
 - A `~` range is searched as `^`, so minor upgrades are proposed for it and `--write` applies them under the original `~`. To hold one dependency to patches, give it a `packageMode` entry of `patch` and read it from `nmr upgrade patch`; to hold the whole repo there, declare `mode: 'patch'`.
+
+### Request timeout
+
+Every `upgrade` script reaches the upgrade tool with a 30-second request timeout, in place of the tool's own 5 seconds.
+
+Five seconds is too tight for a registry that proxies npm. The tool fetches a full packument whenever the resolved registry is not `registry.npmjs.org`, and a large one runs to tens of megabytes; the budget covers the whole retry chain rather than a single attempt, so one slow response ends the run with `Timeout requesting "<package>"`. The symptom is an upgrade pass that succeeds or fails according to how warm the tool's cache happens to be.
+
+Pass a different value for one run:
+
+```bash
+nmr upgrade --request-timeout 90000
+```
+
+To change it for every run, override the `upgrade` script, keeping the rest of the default:
+
+```ts
+export default defineConfig({
+  rootScripts: {
+    upgrade: 'nmr-report-overrides && nmr-taze --recursive --request-timeout 90000',
+  },
+});
+```
+
+The override is one command string rather than a list of steps, because a composite element names an nmr command and both halves here are binaries.
 
 ## Default script registries
 
@@ -867,7 +891,7 @@ nmr-fmt --write packages/nmr
 
 ### `nmr-taze`
 
-Run the [taze](https://github.com/antfu-collective/taze) dependency-upgrade tool, forwarding every argument to it untouched. This is what every `upgrade` chain ends with, `root:upgrade` included — see [dependency upgrades](#dependency-upgrades) for the workflow.
+Run the [taze](https://github.com/antfu-collective/taze) dependency-upgrade tool, forwarding every argument to it untouched and adding one of its own: a 30-second request timeout, unless the invocation already carries one. This is what every `upgrade` chain ends with, `root:upgrade` included — see [dependency upgrades](#dependency-upgrades) for the workflow, and [request timeout](#request-timeout) for why the timeout is set here.
 
 Under pnpm's isolated `node_modules`, a transitive package's binary is absent from the consuming repo's `node_modules/.bin`, so a repo that depends on nmr cannot run `taze` directly. `nmr-taze` can, because nmr is a direct dependency, and it resolves the tool from the tree nmr controls.
 
