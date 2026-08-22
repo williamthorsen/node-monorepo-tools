@@ -278,6 +278,13 @@ var default_default = defineRdyKit({
           check: () => tazeConfigBuildsOnSharedConfig(),
           fix: "Replace the taze config with: import { defineConfig } from '@williamthorsen/nmr/taze'; export default defineConfig(); \u2014 nmr's upgrade policy reaches a repo only through this file, so without it `nmr upgrade` reports nothing where dependencies are pinned to exact versions"
         },
+        {
+          name: "taze config declares no option taze discards",
+          severity: "warn",
+          quiet: true,
+          check: () => tazeConfigAvoidsClobberedOptions(),
+          fix: "Set these through the upgrade script instead, as rootScripts: { upgrade: 'nmr-report-overrides && nmr-taze --recursive --request-timeout 90000' } in .config/nmr.config.ts, keeping the rest of the default script \u2014 taze's CLI writes a default for each of them over whatever the config file declares, so the value there never reaches taze (antfu-collective/taze#317). nmr already forwards a 30-second request timeout"
+        },
         // -- Audit dependency --------------------------------------------------------
         {
           name: "v11y-check in devDependencies",
@@ -311,6 +318,13 @@ var SHARED_PRETTIER_MODULE = "@williamthorsen/nmr/prettier";
 var INERT_PRETTIER_CONFIGS = [".prettierrc", ".prettierrc.{json,json5,yaml,yml,toml}"];
 var SHARED_TAZE_MODULE = "@williamthorsen/nmr/taze";
 var INERT_TAZE_CONFIGS = [".tazerc", ".tazerc.json", "taze.config.json"];
+var CLOBBERED_TAZE_OPTIONS = [
+  { key: "concurrency", pattern: /\bconcurrency\s*:/ },
+  { key: "githubActions", pattern: /\bgithubActions\s*:\s*(?:false|\{)/ },
+  { key: "ignoreOtherWorkspaces", pattern: /\bignoreOtherWorkspaces\s*:\s*false/ },
+  { key: "nodeVersion", pattern: /\bnodeVersion\s*:\s*false/ },
+  { key: "requestTimeout", pattern: /\brequestTimeout\s*:/ }
+];
 var RE_EXPORT_LINE_PATTERN = /^export\s*(?:\{\s*default\s*}|\*)\s*from\s*['"]\.\.\/[^'"]*['"];?$/;
 var MIN_ESLINT_VERSION = "10.0.0";
 var MIN_STRICT_LINT_VERSION = "9.3.0";
@@ -514,6 +528,18 @@ function tazeConfigBuildsOnSharedConfig(cwd = process.cwd()) {
   if (stale.length === 0) return true;
   return { ok: false, detail: `does not import defineConfig from ${SHARED_TAZE_MODULE}: ${stale.join(", ")}` };
 }
+function tazeConfigAvoidsClobberedOptions(cwd = process.cwd()) {
+  const configs = findFiles([`taze.config.${CONFIG_EXTENSIONS}`], cwd);
+  const findings = [];
+  for (const relativePath of configs) {
+    const content = readFileIn(cwd, relativePath);
+    if (content === void 0) continue;
+    const discarded = CLOBBERED_TAZE_OPTIONS.filter(({ pattern }) => pattern.test(content)).map(({ key }) => key);
+    if (discarded.length > 0) findings.push(`${relativePath}: ${discarded.join(", ")}`);
+  }
+  if (findings.length === 0) return true;
+  return { ok: false, detail: formatPaths(findings) };
+}
 function describeMissingTazeConfig(cwd) {
   const inert = findFiles(INERT_TAZE_CONFIGS, cwd);
   if (inert.length > 0) return `holds no code to call the factory: ${inert.join(", ")}`;
@@ -539,6 +565,7 @@ export {
   noReExportOnlyVitestConfigs,
   noRetiredVitestConfigs,
   prettierConfigBuildsOnSharedConfig,
+  tazeConfigAvoidsClobberedOptions,
   tazeConfigBuildsOnSharedConfig,
   vitestConfigBuildsOnSharedConfig,
   vitestRootConfigBuildsOnSharedConfig

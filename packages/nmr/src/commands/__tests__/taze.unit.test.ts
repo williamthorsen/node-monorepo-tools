@@ -6,20 +6,52 @@ import { describe, expect, it } from 'vitest';
 import type { SpawnOutcome } from '../taze.ts';
 import { resolveTazeCliPath, runTaze } from '../taze.ts';
 
+const FAKE_CLI_PATH = '/fake/taze/cli.mjs';
+
 describe(runTaze, () => {
-  it('forwards every argument to the taze CLI, in order and unmodified', () => {
-    const calls: Array<{ nodePath: string; argv: string[] }> = [];
+  it("forwards every argument to the taze CLI, in order and unmodified, behind nmr's request timeout", () => {
+    const argv = runCapturingArgv(['--recursive', 'major', '--write']);
 
-    runTaze(['--recursive', 'major', '--write'], {
-      resolveCliPath: () => '/fake/taze/cli.mjs',
-      spawn: (nodePath, argv) => {
-        calls.push({ nodePath, argv });
-        return { status: 0 };
-      },
-    });
+    expect(argv).toStrictEqual([FAKE_CLI_PATH, '--request-timeout', '30000', '--recursive', 'major', '--write']);
+  });
 
-    expect(calls).toHaveLength(1);
-    expect(calls[0]?.argv).toStrictEqual(['/fake/taze/cli.mjs', '--recursive', 'major', '--write']);
+  it('gives taze a request timeout when the invocation carries none', () => {
+    expect(runCapturingArgv([])).toStrictEqual([FAKE_CLI_PATH, '--request-timeout', '30000']);
+  });
+
+  // Repeating the flag is not a harmless override: taze's parser collects the pair into an array and reads it
+  // as a near-zero deadline, so every spelling has to suppress the default rather than merely lose to it.
+  it.each([
+    ['--request-timeout', '90000'],
+    ['--request-timeout=90000'],
+    ['--requestTimeout', '90000'],
+    ['--requestTimeout=90000'],
+  ])("keeps the invocation's own request timeout, given as %s", (...supplied: string[]) => {
+    const argv = runCapturingArgv([...supplied, '--recursive']);
+
+    expect(argv).toStrictEqual([FAKE_CLI_PATH, ...supplied, '--recursive']);
+  });
+
+  // taze collects everything past a bare `--` for a downstream tool, so a timeout there is one it never reads.
+  it('still gives taze a request timeout when one appears after a bare --', () => {
+    const argv = runCapturingArgv(['--recursive', '--', '--request-timeout', '90000']);
+
+    expect(argv).toStrictEqual([
+      FAKE_CLI_PATH,
+      '--request-timeout',
+      '30000',
+      '--recursive',
+      '--',
+      '--request-timeout',
+      '90000',
+    ]);
+  });
+
+  // Appending would put the flag past a trailing `--`, where taze collects it instead of reading it.
+  it('places its request timeout ahead of the invocation, not after it', () => {
+    const argv = runCapturingArgv(['--']);
+
+    expect(argv).toStrictEqual([FAKE_CLI_PATH, '--request-timeout', '30000', '--']);
   });
 
   it('runs the CLI on the current Node executable', () => {
@@ -112,6 +144,21 @@ describe(resolveTazeCliPath, () => {
     expect(fs.existsSync(cliPath)).toBe(true);
   });
 });
+
+/** Runs `runTaze` against a stubbed CLI path and spawn, returning the argv the spawn received. */
+function runCapturingArgv(args: string[]): string[] {
+  let captured: string[] = [];
+
+  runTaze(args, {
+    resolveCliPath: () => FAKE_CLI_PATH,
+    spawn: (_nodePath, argv) => {
+      captured = argv;
+      return { status: 0 };
+    },
+  });
+
+  return captured;
+}
 
 /** Returns a writable stream plus a reader for everything written to it. */
 function captureStream(): { stderr: PassThrough; read: () => string } {
