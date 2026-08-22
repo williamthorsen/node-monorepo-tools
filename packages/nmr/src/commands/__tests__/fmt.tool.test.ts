@@ -1,6 +1,4 @@
 import { spawnSync } from 'node:child_process';
-import fs from 'node:fs';
-import path from 'node:path';
 
 import type { TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
@@ -24,6 +22,10 @@ const TRACKED_FILES = {
   'packages/a/protected.js': 'const protectedValue = 1;\n',
 };
 
+/** The stand-in for the Prettier CLI, and the file it appends one line to per invocation. */
+const STUB_ENTRY = 'stub.cjs';
+const RECORD_ENTRY = 'calls.jsonl';
+
 /**
  * These run the real Prettier, which is what the design depends on: an ignore file's patterns resolve
  * relative to its own directory, and any explicit `--ignore-path` suppresses working-directory-relative
@@ -38,8 +40,7 @@ const it = baseIt
     'stubTree',
     makeFixture(() => scaffoldStub()),
   )
-  .extend('cliPath', ({ stubTree }) => path.join(stubTree.dir, 'stub.cjs'))
-  .extend('recordPath', ({ stubTree }) => path.join(stubTree.dir, 'calls.jsonl'))
+  .extend('cliPath', ({ stubTree }) => stubTree.resolve(STUB_ENTRY))
   // `auto`, because no test names the capture: it exists for its effect on the streams.
   .extend(
     'captured',
@@ -49,7 +50,7 @@ const it = baseIt
 
 describe(runFmt, () => {
   it('honours a package-level .prettierignore from the repository root', ({ repositoryTree }) => {
-    writeFile(repositoryTree.dir, 'packages/a/protected.js', 'const  badly   =  1\n');
+    repositoryTree.write('packages/a/protected.js', 'const  badly   =  1\n');
 
     expect(runFmt(['--check'], repositoryTree.dir)).toBe(0);
   });
@@ -57,49 +58,45 @@ describe(runFmt, () => {
   it('honours a root .prettierignore mirroring a package pattern, so an existing mirror keeps passing', ({
     repositoryTree,
   }) => {
-    writeFile(repositoryTree.dir, 'packages/a/mirrored.js', 'const  badly   =  1\n');
+    repositoryTree.write('packages/a/mirrored.js', 'const  badly   =  1\n');
 
     expect(runFmt(['--check'], repositoryTree.dir)).toBe(0);
   });
 
   it('still reports a badly formatted file that no ignore file covers', ({ repositoryTree }) => {
-    writeFile(repositoryTree.dir, 'packages/a/unprotected.js', 'const  badly   =  1\n');
+    repositoryTree.write('packages/a/unprotected.js', 'const  badly   =  1\n');
 
     expect(runFmt(['--check'], repositoryTree.dir)).not.toBe(0);
   });
 
   it('reaches the same verdict from inside the package as from the repository root', ({ repositoryTree }) => {
-    writeFile(repositoryTree.dir, 'packages/a/protected.js', 'const  badly   =  1\n');
+    repositoryTree.write('packages/a/protected.js', 'const  badly   =  1\n');
 
-    expect(runFmt(['--check'], path.join(repositoryTree.dir, 'packages', 'a'))).toBe(0);
+    expect(runFmt(['--check'], repositoryTree.resolve('packages/a'))).toBe(0);
   });
 
   it('rewrites a badly formatted file in write mode', ({ repositoryTree }) => {
-    writeFile(repositoryTree.dir, 'packages/a/unprotected.js', 'const  badly   =  1\n');
+    repositoryTree.write('packages/a/unprotected.js', 'const  badly   =  1\n');
 
     expect(runFmt(['--write'], repositoryTree.dir)).toBe(0);
-    expect(fs.readFileSync(path.join(repositoryTree.dir, 'packages/a/unprotected.js'), 'utf8')).toBe(
-      'const badly = 1;\n',
-    );
+    expect(repositoryTree.read('packages/a/unprotected.js')).toBe('const badly = 1;\n');
   });
 
   it('leaves a file protected by a package-level .prettierignore untouched in write mode', ({ repositoryTree }) => {
-    writeFile(repositoryTree.dir, 'packages/a/protected.js', 'const  badly   =  1\n');
+    repositoryTree.write('packages/a/protected.js', 'const  badly   =  1\n');
 
     expect(runFmt(['--write'], repositoryTree.dir)).toBe(0);
-    expect(fs.readFileSync(path.join(repositoryTree.dir, 'packages/a/protected.js'), 'utf8')).toBe(
-      'const  badly   =  1\n',
-    );
+    expect(repositoryTree.read('packages/a/protected.js')).toBe('const  badly   =  1\n');
   });
 
   it('does not fail on a path deleted from the working tree but still held in the index', ({ repositoryTree }) => {
-    fs.rmSync(path.join(repositoryTree.dir, 'root.js'));
+    repositoryTree.rm('root.js');
 
     expect(runFmt(['--check'], repositoryTree.dir)).toBe(0);
   });
 
   it('constrains the run to the given pathspecs', ({ repositoryTree }) => {
-    writeFile(repositoryTree.dir, 'root-bad.js', 'const  badly   =  1\n');
+    repositoryTree.write('root-bad.js', 'const  badly   =  1\n');
 
     expect(runFmt(['--check', 'packages'], repositoryTree.dir)).toBe(0);
   });
@@ -136,42 +133,42 @@ describe(runFmt, () => {
  * graph, and a test substitutes a recorder for it.
  */
 describe(runPrettier, () => {
-  it('leaves unparseable files to Prettier rather than filtering them out', ({ cliPath, recordPath, stubTree }) => {
+  it('leaves unparseable files to Prettier rather than filtering them out', ({ cliPath, stubTree }) => {
     runPrettier({ cliPath, mode: 'check', files: ['a.js'], ignorePaths: [], cwd: stubTree.dir });
 
-    expect(readCalls(recordPath)[0]).toContain('--ignore-unknown');
+    expect(readCalls(stubTree)[0]).toContain('--ignore-unknown');
   });
 
-  it('passes one --ignore-path per discovered ignore file, root-most first', ({ cliPath, recordPath, stubTree }) => {
+  it('passes one --ignore-path per discovered ignore file, root-most first', ({ cliPath, stubTree }) => {
     const ignorePaths = ['/repo/.prettierignore', '/repo/packages/a/.prettierignore'];
 
     runPrettier({ cliPath, mode: 'check', files: ['a.js'], ignorePaths, cwd: stubTree.dir });
 
-    const args = readCalls(recordPath)[0] ?? [];
+    const args = readCalls(stubTree)[0] ?? [];
     expect(args.filter((_, index) => args[index - 1] === '--ignore-path')).toStrictEqual(ignorePaths);
   });
 
-  it('checks without writing in check mode', ({ cliPath, recordPath, stubTree }) => {
+  it('checks without writing in check mode', ({ cliPath, stubTree }) => {
     runPrettier({ cliPath, mode: 'check', files: ['a.js'], ignorePaths: [], cwd: stubTree.dir });
 
-    const args = readCalls(recordPath)[0] ?? [];
+    const args = readCalls(stubTree)[0] ?? [];
     expect(args).toContain('--check');
     expect(args).not.toContain('--write');
   });
 
-  it('names the files it rewrites in write mode', ({ cliPath, recordPath, stubTree }) => {
+  it('names the files it rewrites in write mode', ({ cliPath, stubTree }) => {
     runPrettier({ cliPath, mode: 'write', files: ['a.js'], ignorePaths: [], cwd: stubTree.dir });
 
-    expect(readCalls(recordPath)[0]).toStrictEqual(expect.arrayContaining(['--list-different', '--write']));
+    expect(readCalls(stubTree)[0]).toStrictEqual(expect.arrayContaining(['--list-different', '--write']));
   });
 
-  it('reports the exit code Prettier returned', ({ cliPath, recordPath, stubTree }) => {
-    writeRecordingStub(cliPath, recordPath, 2);
+  it('reports the exit code Prettier returned', ({ cliPath, stubTree }) => {
+    writeRecordingStub(stubTree, 2);
 
     expect(runPrettier({ cliPath, mode: 'check', files: ['a.js'], ignorePaths: [], cwd: stubTree.dir })).toBe(2);
   });
 
-  it('runs every batch when the selection exceeds the argument budget', ({ cliPath, recordPath, stubTree }) => {
+  it('runs every batch when the selection exceeds the argument budget', ({ cliPath, stubTree }) => {
     // A ten-byte budget puts each of these paths in a batch of its own.
     runPrettier({
       cliPath,
@@ -182,11 +179,11 @@ describe(runPrettier, () => {
       budgetBytes: 10,
     });
 
-    expect(readCalls(recordPath)).toHaveLength(3);
+    expect(readCalls(stubTree)).toHaveLength(3);
   });
 
-  it('keeps running after a batch fails, and reports the first failing status', ({ cliPath, recordPath, stubTree }) => {
-    writeRecordingStub(cliPath, recordPath, 3);
+  it('keeps running after a batch fails, and reports the first failing status', ({ cliPath, stubTree }) => {
+    writeRecordingStub(stubTree, 3);
 
     const exitCode = runPrettier({
       cliPath,
@@ -198,33 +195,33 @@ describe(runPrettier, () => {
     });
 
     expect(exitCode).toBe(3);
-    expect(readCalls(recordPath)).toHaveLength(2);
+    expect(readCalls(stubTree)).toHaveLength(2);
   });
 });
 
 /** Creates the stub tree carrying a recorder that exits 0, which most cases in the block take as given. */
 function scaffoldStub(): TempTree {
   const tree = createTempTree({}, { prefix: 'nmr-fmt-stub-' });
-  writeRecordingStub(path.join(tree.dir, 'stub.cjs'), path.join(tree.dir, 'calls.jsonl'), 0);
+  writeRecordingStub(tree, 0);
 
   return tree;
 }
 
 /** Writes a stand-in for the Prettier CLI that appends its arguments as one JSON line per invocation. */
-function writeRecordingStub(cliPath: string, recordPath: string, exitCode: number): void {
+function writeRecordingStub(tree: TempTree, exitCode: number): void {
   const source = [
     "const fs = require('node:fs');",
-    `fs.appendFileSync(${JSON.stringify(recordPath)}, JSON.stringify(process.argv.slice(2)) + ${JSON.stringify('\n')});`,
+    `fs.appendFileSync(${JSON.stringify(tree.resolve(RECORD_ENTRY))}, JSON.stringify(process.argv.slice(2)) + ${JSON.stringify('\n')});`,
     `process.exit(${exitCode});`,
   ].join('\n');
-  fs.writeFileSync(cliPath, `${source}\n`);
+  tree.write(STUB_ENTRY, `${source}\n`);
 }
 
-function readCalls(recordPath: string): string[][] {
-  if (!fs.existsSync(recordPath)) return [];
+function readCalls(tree: TempTree): string[][] {
+  if (!tree.exists(RECORD_ENTRY)) return [];
 
   const calls: string[][] = [];
-  for (const line of fs.readFileSync(recordPath, 'utf8').split('\n')) {
+  for (const line of tree.read(RECORD_ENTRY).split('\n')) {
     if (line === '') continue;
     const parsed: unknown = JSON.parse(line);
     if (!Array.isArray(parsed)) throw new TypeError(`stub recorded a non-array invocation: ${line}`);
@@ -240,22 +237,12 @@ function readCalls(recordPath: string): string[][] {
  * so staging is enough and the fixture needs no commit identity.
  */
 function scaffoldRepository(files: Record<string, string>): TempTree {
-  const tree = createTempTree({}, { prefix: 'nmr-fmt-run-' });
-
-  for (const [relativePath, contents] of Object.entries(files)) {
-    writeFile(tree.dir, relativePath, contents);
-  }
+  const tree = createTempTree(files, { prefix: 'nmr-fmt-run-' });
 
   runGitOrThrow(['init', '--quiet'], tree.dir);
   runGitOrThrow(['add', '--all'], tree.dir);
 
   return tree;
-}
-
-function writeFile(dir: string, relativePath: string, contents: string): void {
-  const filePath = path.join(dir, relativePath);
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, contents);
 }
 
 function runGitOrThrow(args: string[], cwd: string): void {

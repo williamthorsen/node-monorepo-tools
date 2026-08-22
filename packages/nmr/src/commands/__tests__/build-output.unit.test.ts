@@ -1,7 +1,5 @@
-import fs from 'node:fs';
-import path from 'node:path';
-
 import { writeCacheEntry } from '@williamthorsen/nmr-core';
+import type { TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
@@ -15,8 +13,8 @@ const it = baseIt
     'tree',
     makeFixture(() => createTempTree({}, { prefix: 'nmr-toolchain-fingerprint-' })),
   )
-  .extend('selfDir', ({ tree }) => scaffoldPackage(path.join(tree.dir, 'nmr'), SELF_VERSION))
-  .extend('packageDir', ({ tree }) => scaffoldPackage(path.join(tree.dir, 'consumer'), '1.0.0'));
+  .extend('selfDir', ({ tree }) => scaffoldPackage(tree, 'nmr', SELF_VERSION))
+  .extend('packageDir', ({ tree }) => scaffoldPackage(tree, 'consumer', '1.0.0'));
 
 describe(resolveToolchainFingerprint, () => {
   it("returns the running nmr's build digest when one is on disk", async ({ packageDir, selfDir }) => {
@@ -42,8 +40,7 @@ describe(resolveToolchainFingerprint, () => {
   });
 
   it('recognizes a self-build reached through a symlinked path', async ({ selfDir, tree }) => {
-    const link = path.join(tree.dir, 'linked-nmr');
-    fs.symlinkSync(selfDir, link, 'dir');
+    const link = tree.symlink('linked-nmr', selfDir);
     await writeCacheEntry(resolveBuildCachePath(selfDir), 'a-build-digest');
 
     await expect(resolveToolchainFingerprint(link, selfDir)).resolves.toBe(SELF_VERSION);
@@ -57,11 +54,13 @@ describe(resolveToolchainFingerprint, () => {
 // region | Helpers
 
 /** Writes a package holding only a `package.json` and a `node_modules`, which keeps its cache entry inside it. */
-function scaffoldPackage(dir: string, version: string): string {
-  fs.mkdirSync(path.join(dir, 'node_modules'), { recursive: true });
-  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: path.basename(dir), version }));
+function scaffoldPackage(tree: TempTree, entry: string, version: string): string {
+  tree.writeAll({
+    [`${entry}/node_modules/`]: '',
+    [`${entry}/package.json`]: JSON.stringify({ name: entry, version }),
+  });
 
-  return dir;
+  return tree.resolve(entry);
 }
 
 // endregion | Helpers

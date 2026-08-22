@@ -1,6 +1,4 @@
-import fs from 'node:fs';
-import path from 'node:path';
-
+import type { TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
@@ -19,7 +17,7 @@ const it = baseIt.extend(
 describe(ensurePrepublishHooks, () => {
   describe('check mode', () => {
     it('reports ok when all non-private packages have prepublishOnly', ({ tree }) => {
-      createFixture(tree.dir, [
+      createFixture(tree, [
         { name: '@scope/lib-a', prepublishOnly: 'pnpm run build' },
         { name: '@scope/lib-b', prepublishOnly: 'npm run compile' },
       ]);
@@ -32,7 +30,7 @@ describe(ensurePrepublishHooks, () => {
     });
 
     it('reports missing when a non-private package lacks prepublishOnly', ({ tree }) => {
-      createFixture(tree.dir, [{ name: '@scope/lib-a', prepublishOnly: 'pnpm run build' }, { name: '@scope/lib-b' }]);
+      createFixture(tree, [{ name: '@scope/lib-a', prepublishOnly: 'pnpm run build' }, { name: '@scope/lib-b' }]);
 
       const result = ensurePrepublishHooks(tree.dir, { fix: false, dryRun: false });
 
@@ -43,7 +41,7 @@ describe(ensurePrepublishHooks, () => {
     });
 
     it('skips private packages', ({ tree }) => {
-      createFixture(tree.dir, [
+      createFixture(tree, [
         { name: '@scope/private-pkg', private: true },
         { name: '@scope/public-pkg', prepublishOnly: 'pnpm run build' },
       ]);
@@ -59,7 +57,7 @@ describe(ensurePrepublishHooks, () => {
 
   describe('fix mode', () => {
     it('adds prepublishOnly to packages missing it', ({ tree }) => {
-      createFixture(tree.dir, [{ name: '@scope/lib-a' }, { name: '@scope/lib-b', prepublishOnly: 'pnpm run build' }]);
+      createFixture(tree, [{ name: '@scope/lib-a' }, { name: '@scope/lib-b', prepublishOnly: 'pnpm run build' }]);
 
       const result = ensurePrepublishHooks(tree.dir, { fix: true, dryRun: false });
 
@@ -68,30 +66,30 @@ describe(ensurePrepublishHooks, () => {
       expect(fixed?.action).toBe('fixed');
 
       // Verify file was actually written
-      const written = readPackageJson(path.join(tree.dir, 'packages', 'lib-a'));
+      const written = readPackageJson(tree.resolve('packages/lib-a'));
       expect(written.scripts?.['prepublishOnly']).toBe('npm run build');
     });
 
     it('creates scripts object if missing', ({ tree }) => {
-      createFixture(tree.dir, [{ name: '@scope/lib-a' }]);
+      createFixture(tree, [{ name: '@scope/lib-a' }]);
 
       ensurePrepublishHooks(tree.dir, { fix: true, dryRun: false });
 
-      const written = readPackageJson(path.join(tree.dir, 'packages', 'lib-a'));
+      const written = readPackageJson(tree.resolve('packages/lib-a'));
       expect(written.scripts).toStrictEqual({ prepublishOnly: 'npm run build' });
     });
 
     it('uses custom command when provided', ({ tree }) => {
-      createFixture(tree.dir, [{ name: '@scope/lib-a' }]);
+      createFixture(tree, [{ name: '@scope/lib-a' }]);
 
       ensurePrepublishHooks(tree.dir, { fix: true, dryRun: false, command: 'pnpm run build' });
 
-      const written = readPackageJson(path.join(tree.dir, 'packages', 'lib-a'));
+      const written = readPackageJson(tree.resolve('packages/lib-a'));
       expect(written.scripts?.['prepublishOnly']).toBe('pnpm run build');
     });
 
     it('does not modify private packages', ({ tree }) => {
-      createFixture(tree.dir, [{ name: '@scope/private-pkg', private: true }]);
+      createFixture(tree, [{ name: '@scope/private-pkg', private: true }]);
 
       const result = ensurePrepublishHooks(tree.dir, { fix: true, dryRun: false });
 
@@ -101,7 +99,7 @@ describe(ensurePrepublishHooks, () => {
 
   describe('dry-run mode', () => {
     it('reports would-fix without writing files', ({ tree }) => {
-      createFixture(tree.dir, [{ name: '@scope/lib-a' }]);
+      createFixture(tree, [{ name: '@scope/lib-a' }]);
 
       const result = ensurePrepublishHooks(tree.dir, { fix: true, dryRun: true });
 
@@ -109,7 +107,7 @@ describe(ensurePrepublishHooks, () => {
       expect(result.packages[0]?.action).toBe('would-fix');
 
       // Verify file was NOT written
-      const raw = readPackageJson(path.join(tree.dir, 'packages', 'lib-a'));
+      const raw = readPackageJson(tree.resolve('packages/lib-a'));
       expect(raw.scripts).toBeUndefined();
     });
   });
@@ -179,19 +177,16 @@ function buildResult(packages: PackageHookStatus[]): EnsurePrepublishHooksResult
  * Create a minimal monorepo fixture with a pnpm-workspace.yaml and the given packages under a `packages/` directory.
  */
 function createFixture(
-  tmpDir: string,
+  tree: TempTree,
   packages: Array<{ name: string; private?: boolean; prepublishOnly?: string }>,
 ): void {
-  fs.writeFileSync(path.join(tmpDir, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n');
-  fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify({ name: 'root', private: true }));
-
-  const packagesDir = path.join(tmpDir, 'packages');
-  fs.mkdirSync(packagesDir);
+  tree.writeAll({
+    'package.json': JSON.stringify({ name: 'root', private: true }),
+    'pnpm-workspace.yaml': 'packages:\n  - packages/*\n',
+  });
 
   for (const pkg of packages) {
     const dirName = pkg.name.replace(/^@[^/]+\//, '');
-    const pkgDir = path.join(packagesDir, dirName);
-    fs.mkdirSync(pkgDir);
 
     const pkgJson: Record<string, unknown> = { name: pkg.name, version: '1.0.0' };
     if (pkg.private) pkgJson['private'] = true;
@@ -199,7 +194,7 @@ function createFixture(
       pkgJson['scripts'] = { prepublishOnly: pkg.prepublishOnly };
     }
 
-    fs.writeFileSync(path.join(pkgDir, 'package.json'), JSON.stringify(pkgJson, null, 2) + '\n');
+    tree.writeJson(`packages/${dirName}/package.json`, pkgJson);
   }
 }
 

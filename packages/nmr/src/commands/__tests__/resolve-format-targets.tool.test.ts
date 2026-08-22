@@ -1,5 +1,4 @@
 import { spawnSync } from 'node:child_process';
-import fs from 'node:fs';
 import path from 'node:path';
 
 import type { TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
@@ -51,7 +50,7 @@ describe(resolveFormatTargets, () => {
   });
 
   it('selects an untracked file that git does not ignore', ({ tree }) => {
-    writeFile(tree.dir, 'packages/b/fresh.js', 'const fresh = 1;\n');
+    tree.write('packages/b/fresh.js', 'const fresh = 1;\n');
 
     const result = resolveFormatTargets(tree.dir);
 
@@ -59,7 +58,7 @@ describe(resolveFormatTargets, () => {
   });
 
   it('omits a file ignored by a package-level .gitignore, from the repository root', ({ tree }) => {
-    writeFile(tree.dir, 'packages/a/generated/gen.js', 'const gen = 1;\n');
+    tree.write('packages/a/generated/gen.js', 'const gen = 1;\n');
 
     const result = resolveFormatTargets(tree.dir);
 
@@ -67,7 +66,7 @@ describe(resolveFormatTargets, () => {
   });
 
   it('omits it from inside the package too, so both working directories agree', ({ tree }) => {
-    writeFile(tree.dir, 'packages/a/generated/gen.js', 'const gen = 1;\n');
+    tree.write('packages/a/generated/gen.js', 'const gen = 1;\n');
 
     const result = resolveFormatTargets(path.join(tree.dir, 'packages', 'a'));
 
@@ -95,7 +94,7 @@ describe(resolveFormatTargets, () => {
   });
 
   it('still reports the repository-root .prettierignore when the repository has none', ({ tree }) => {
-    fs.rmSync(path.join(tree.dir, '.prettierignore'));
+    tree.rm('.prettierignore');
 
     const result = resolveFormatTargets(tree.dir);
 
@@ -103,7 +102,7 @@ describe(resolveFormatTargets, () => {
   });
 
   it('omits a file deleted from the working tree but still held in the index', ({ tree }) => {
-    fs.rmSync(path.join(tree.dir, 'root.js'));
+    tree.rm('root.js');
 
     const result = resolveFormatTargets(tree.dir);
 
@@ -111,9 +110,8 @@ describe(resolveFormatTargets, () => {
   });
 
   it('omits a submodule gitlink, which Prettier would otherwise recurse into', ({ tree }) => {
-    const submodule = path.join(tree.dir, 'vendor', 'sub');
-    fs.mkdirSync(submodule, { recursive: true });
-    writeFile(submodule, 'sub.js', 'const sub = 1;\n');
+    const submodule = tree.mkdir('vendor/sub');
+    tree.write('vendor/sub/sub.js', 'const sub = 1;\n');
     runGitOrThrow(['init', '--quiet'], submodule);
     runGitOrThrow(['add', '--all'], submodule);
     runGitOrThrow(['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '--quiet', '--message', 'init'], submodule);
@@ -158,7 +156,7 @@ describe(resolveFormatTargets, () => {
 
   it('fails rather than reporting an empty selection outside a git repository', () => {
     using outside = createTempTree({}, { prefix: 'nmr-fmt-bare-' });
-    writeFile(outside.dir, 'stray.js', 'const stray = 1;\n');
+    outside.write('stray.js', 'const stray = 1;\n');
 
     const result = resolveFormatTargets(outside.dir);
 
@@ -172,22 +170,12 @@ describe(resolveFormatTargets, () => {
  * so staging is enough and the fixture needs no commit identity.
  */
 function scaffoldRepository(files: Record<string, string>): TempTree {
-  const tree = createTempTree({}, { prefix: 'nmr-fmt-' });
-
-  for (const [relativePath, contents] of Object.entries(files)) {
-    writeFile(tree.dir, relativePath, contents);
-  }
+  const tree = createTempTree(files, { prefix: 'nmr-fmt-' });
 
   runGitOrThrow(['init', '--quiet'], tree.dir);
   runGitOrThrow(['add', '--all'], tree.dir);
 
   return tree;
-}
-
-function writeFile(dir: string, relativePath: string, contents: string): void {
-  const filePath = path.join(dir, relativePath);
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, contents);
 }
 
 function runGitOrThrow(args: string[], cwd: string): void {
