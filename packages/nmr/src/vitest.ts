@@ -96,10 +96,10 @@ const GIT_ISOLATION_SETUP_FILE = resolveGitIsolationSetupFile();
 // replace its defaults rather than extend them, so emitting them here is what keeps `module` reachable: a
 // dependency exposing a `module` entry otherwise falls through to whatever its `exports` lists next.
 //
-// A replaced list still resolves `node` and `development` under Vitest, so no test run distinguishes a complete
-// list from a narrowed one. `vitest.unit.test.ts` pins both against `vite`'s own exports, which is what holds
-// them complete. Hardcoded rather than read from `vite`, which nmr would otherwise have to declare as a peer
-// dependency for every consumer to satisfy.
+// A replaced list still resolves `node` and `development` under Vitest, so only a dependency exposing a `module`
+// entry distinguishes a complete list from a narrowed one, and no fixture here has one. `vitest.unit.test.ts`
+// pins both against `vite`'s own exports, which is what holds them complete. Hardcoded rather than read from
+// `vite`, which nmr would otherwise have to declare as a peer dependency for every consumer to satisfy.
 const SOURCE_CLIENT_CONDITIONS = ['source', 'module', 'browser', 'development|production'];
 const SOURCE_SERVER_CONDITIONS = ['source', 'module', 'node', 'development|production'];
 
