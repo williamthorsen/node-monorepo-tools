@@ -1,5 +1,4 @@
 import { execFileSync } from 'node:child_process';
-import fs from 'node:fs';
 import path from 'node:path';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
@@ -42,7 +41,7 @@ describe('nmr-compile', () => {
 
     runCompile(tree.dir);
 
-    expect(listEmitted(tree.dir)).toStrictEqual(['index.d.ts', 'index.js']);
+    expect(listEmitted(tree)).toStrictEqual(['index.d.ts', 'index.js']);
   });
 
   it('builds on the defaults when the package has no config', ({ tree }) => {
@@ -53,14 +52,14 @@ describe('nmr-compile', () => {
 
     runCompile(tree.dir);
 
-    expect(listEmitted(tree.dir)).toStrictEqual(['index.d.ts', 'index.js']);
+    expect(listEmitted(tree)).toStrictEqual(['index.d.ts', 'index.js']);
   });
 
   it('fails when the package config declares a key the workspace tier does not honor', ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' }, `export default { rootScripts: {} };\n`);
 
     expect(() => runCompile(tree.dir)).toThrow(/not rootScripts/);
-    expect(listEmitted(tree.dir)).toStrictEqual([]);
+    expect(listEmitted(tree)).toStrictEqual([]);
   });
 
   it('fails when the package config misspells a build key rather than compiling on the defaults', ({ tree }) => {
@@ -74,27 +73,15 @@ describe('nmr-compile', () => {
     );
 
     expect(() => runCompile(tree.dir)).toThrow(/unrecognized key `build\.extraIgnorePattern`/);
-    expect(listEmitted(tree.dir)).toStrictEqual([]);
+    expect(listEmitted(tree)).toStrictEqual([]);
   });
 });
 
 // region | Helpers
 
-/** Lists the files the build emitted, as paths relative to the output directory. */
-function listEmitted(dir: string): string[] {
-  const outdir = path.join(dir, 'dist', 'esm');
-  if (!fs.existsSync(outdir)) {
-    return [];
-  }
-
-  // `node:fs`, because the tree's `list` is one level deep and reports names alone, where this needs the whole
-  // emit and has to tell a file from a directory.
-  return fs
-    .readdirSync(outdir, { recursive: true })
-    .map(String)
-    .filter((entry) => fs.statSync(path.join(outdir, entry)).isFile())
-    .map((entry) => entry.split(path.sep).join('/'))
-    .toSorted();
+/** Lists the files the build emitted, relative to the output directory. */
+function listEmitted(tree: TempTree): string[] {
+  return tree.listFiles('dist/esm');
 }
 
 /** Writes a package tree, plus a `.config/nmr.config.ts` when `config` is given. */

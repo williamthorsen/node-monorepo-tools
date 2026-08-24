@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto';
-import fs from 'node:fs';
 import path from 'node:path';
 
 import type { TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
@@ -913,21 +912,9 @@ describe(resolveBuildCachePath, () => {
 
 // region | Helpers
 
-/** Lists every file under the package's emit directory, as sorted forward-slash paths relative to it. */
+/** Lists every file under the package's emit directory, relative to it. */
 function listEmitted(tree: TempTree): string[] {
-  const outdir = tree.resolve('dist/esm');
-  // `node:fs`, because this walks the emit tree to any depth and tells a file from a directory, where the
-  // tree's `list` reaches one level and reports names alone.
-  if (!fs.existsSync(outdir)) {
-    return [];
-  }
-
-  return fs
-    .readdirSync(outdir, { recursive: true })
-    .map(String)
-    .filter((entry) => fs.statSync(path.join(outdir, entry)).isFile())
-    .map((entry) => entry.split(path.sep).join('/'))
-    .toSorted();
+  return tree.listFiles('dist/esm');
 }
 
 /** Returns the names of the scratch directories still sitting beside the package's emit directory. */

@@ -10,7 +10,7 @@
  * A check asserting the absence of something declares `quiet`: a conformant repo is already in the passing
  * state, so only a failure is worth a line.
  */
-import { existsSync, globSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, globSync, readdirSync } from 'node:fs';
 import { basename, join, sep } from 'node:path';
 
 import { type CheckOutcome, defineRdyKit, pickJson } from 'readyup';
@@ -568,13 +568,9 @@ function noWorkspaceRunScriptReferences(): boolean | CheckOutcome {
   };
 }
 
-/** Reads a file resolved against `cwd`, returning undefined when it cannot be read. */
+/** Reads a file resolved against `cwd`, returning undefined when it is absent. */
 function readFileIn(cwd: string, relativePath: string): string | undefined {
-  try {
-    return readFileSync(join(cwd, relativePath), 'utf8');
-  } catch {
-    return undefined;
-  }
+  return readFile(join(cwd, relativePath));
 }
 
 /**

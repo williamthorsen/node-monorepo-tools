@@ -1,10 +1,10 @@
 /** @noformat — @generated. Do not edit. Compiled by rdy. */
 /* eslint-disable */
-export const __readyupVersion = "0.30.0";
+export const __readyupVersion = "0.32.0";
 
 
 // .readyup/kits/default.ts
-import { existsSync, globSync, readdirSync as readdirSync2, readFileSync } from "node:fs";
+import { existsSync, globSync, readdirSync as readdirSync2 } from "node:fs";
 import { basename, join, sep } from "node:path";
 import { defineRdyKit } from "readyup";
 import {
@@ -496,11 +496,7 @@ function noWorkspaceRunScriptReferences() {
   };
 }
 function readFileIn(cwd, relativePath) {
-  try {
-    return readFileSync(join(cwd, relativePath), "utf8");
-  } catch {
-    return void 0;
-  }
+  return readFile(join(cwd, relativePath));
 }
 function readPnpmFieldKeys(content) {
   if (content === void 0) return void 0;

@@ -2,11 +2,11 @@ packages:
   - packages/*
 
 catalog:
-  '@williamthorsen/toolbelt.errors': 0.6.0
-  '@williamthorsen/toolbelt.filesystem': 0.7.0
+  '@williamthorsen/toolbelt.errors': 0.6.1
+  '@williamthorsen/toolbelt.filesystem': 0.8.0
   '@williamthorsen/toolbelt.testing': 0.3.0
-  '@williamthorsen/toolbelt.vitest': 0.5.0
-  'readyup': 0.30.0
+  '@williamthorsen/toolbelt.vitest': 0.5.1
+  'readyup': 0.32.0
 
 allowBuilds:
   esbuild: true
