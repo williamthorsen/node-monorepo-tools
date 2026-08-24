@@ -23,8 +23,11 @@ export type RootOverrides = Omit<ViteUserConfig, 'test'> & { test?: RootTestOpti
 
 export interface VitestConfigOptions {
   /**
-   * Merged into the root config.
-   * Vite-level options such as `resolve.conditions` reach every project, because each project declares `extends: true`.
+   * Merged into the root config, which every project inherits because each declares `extends: true`.
+   *
+   * `resolve` is per-environment. Vitest resolves a test's own imports through the server environment, so a
+   * condition meant for them goes under `ssr`; a top-level `resolve.conditions` entry reaches the client
+   * environment, which only browser-mode tests resolve through.
    */
   root?: RootOverrides;
 
@@ -90,11 +93,13 @@ const TIER_TIMEOUT = 30_000;
 const GIT_ISOLATION_SETUP_FILE = resolveGitIsolationSetupFile();
 
 // The `source` condition, then Vite's own defaults for each environment. Vite lets a supplied `conditions` array
-// replace its defaults rather than extend them, so emitting them here is what keeps `node` and `module` reachable:
-// without them a dependency branching on `browser` resolves its browser entry inside a node test.
+// replace its defaults rather than extend them, so emitting them here is what keeps `module` reachable: a
+// dependency exposing a `module` entry otherwise falls through to whatever its `exports` lists next.
 //
-// Hardcoded rather than read from `vite`, which nmr would otherwise have to declare as a peer dependency for every
-// consumer to satisfy. `vitest.unit.test.ts` pins both lists against Vite's own exports.
+// A replaced list still resolves `node` and `development` under Vitest, so no test run distinguishes a complete
+// list from a narrowed one. `vitest.unit.test.ts` pins both against `vite`'s own exports, which is what holds
+// them complete. Hardcoded rather than read from `vite`, which nmr would otherwise have to declare as a peer
+// dependency for every consumer to satisfy.
 const SOURCE_CLIENT_CONDITIONS = ['source', 'module', 'browser', 'development|production'];
 const SOURCE_SERVER_CONDITIONS = ['source', 'module', 'node', 'development|production'];
 
@@ -293,16 +298,6 @@ function getWorkspaceExcludePatterns(monorepoRoot: string): string[] {
     .toSorted();
 }
 
-/**
- * Locates the setup file shipped beside this module. The extension is read from the resolved filesystem path
- * rather than from `import.meta.url`, which Vite may hand over carrying a version query.
- */
-function resolveGitIsolationSetupFile(): string {
-  const thisFile = fileURLToPath(import.meta.url);
-
-  return path.join(path.dirname(thisFile), `vitest-git-isolation${path.extname(thisFile)}`);
-}
-
 /** Reads one boolean option across the layers, the last to declare it winning, defaulting to `true`. */
 function resolveFlag(layers: readonly VitestConfigOptions[], name: 'isolateGit' | 'resolveFromSource'): boolean {
   let resolved = true;
@@ -313,4 +308,14 @@ function resolveFlag(layers: readonly VitestConfigOptions[], name: 'isolateGit' 
   }
 
   return resolved;
+}
+
+/**
+ * Locates the setup file shipped beside this module. The extension is read from the resolved filesystem path
+ * rather than from `import.meta.url`, which Vite may hand over carrying a version query.
+ */
+function resolveGitIsolationSetupFile(): string {
+  const thisFile = fileURLToPath(import.meta.url);
+
+  return path.join(path.dirname(thisFile), `vitest-git-isolation${path.extname(thisFile)}`);
 }

@@ -1089,7 +1089,7 @@ export default defineVitestConfig({ isolateGit: false, resolveFromSource: false 
 
 `resolveFromSource: false` is for a repo that resolves a `source` condition it does not want in tests; `isolateGit: false` is for a suite meant to read the developer's own git configuration.
 
-**Vite replaces its condition defaults rather than extending them.** A config writing `conditions: ['source']` by hand therefore drops `module`, `node`, and `development|production`, and a dependency branching on `browser` resolves its browser entry inside a node test. The factory emits `source` alongside Vite's defaults for each environment, so a consumer adding a condition through the `root` seam adds to a complete list.
+**Vite replaces its condition defaults rather than extending them.** A config writing `conditions: ['source']` by hand therefore drops `module`, so a dependency exposing a `module` entry falls through to whatever its `exports` lists next. A replaced list still resolves `node` and `development` under Vitest, which is why nothing in a test run reports the loss. The factory emits `source` alongside Vite's defaults for each environment, so a config declaring no conditions of its own starts from a complete list.
 
 **A package declaring a `source` condition must ship its sources.** Every nmr consumer now resolves that condition, so a published package whose `files` carries `dist` alone resolves to a path that is not in the tarball. A package that publishes only its build output takes a bespoke condition name instead, the way `@williamthorsen/nmr-core` uses `nmr-source` for the build's own bootstrap.
 
@@ -1100,7 +1100,7 @@ Vitest applies some options at the root of a `projects` config and others per pr
 ```ts
 export default defineVitestConfig({
   // Vite-level options, plus the test options Vitest honours only at the root.
-  root: { resolve: { conditions: ['development'] } },
+  root: { ssr: { resolve: { conditions: ['my-condition'] } } },
   // Applied to every project.
   project: { setupFiles: ['./vitest.setup.ts'] },
   // Applied to one tier, after the `project` block above.
@@ -1115,6 +1115,8 @@ export default defineVitestConfig({
 Arrays concatenate rather than replace. `exclude` and `setupFiles` therefore add to what the config already declares, and no surface can narrow `include` or drop a default exclusion. Adding an `include` pattern through `project` widens all four projects at once, so a file matching it is collected by each and runs four times.
 
 `resolve.conditions` concatenates too, onto the `source` condition and the Vite defaults the factory already emits, but layer order carries no meaning there: Vite consumes conditions as a set, and which one wins is decided by the key order of the consumed package's own `exports`. A later layer can add a condition and can never remove or outrank one an earlier layer contributed; removing `source` is what `resolveFromSource: false` is for. `resolve.alias` is the one key that merges override-first, so a later alias takes precedence over an earlier one.
+
+**A condition for the tests' own resolution goes under `ssr`.** `resolve` is per-environment, and Vitest resolves a test's imports through the server environment, so `root: { ssr: { resolve: { conditions: ['my-condition'] } } }` is the seam that reaches them. A top-level `root: { resolve: { conditions: [...] } }` entry reaches the client environment, which only browser-mode tests resolve through; it composes into that array and never reports that a node test did not see it. `resolve.alias` is not per-environment, so a top-level alias reaches both.
 
 ### Sharing options across config files
 

@@ -238,6 +238,15 @@ describe(defineVitestConfig, () => {
     expect(config.resolve?.conditions).toStrictEqual([...SOURCE_CLIENT_CONDITIONS, 'development']);
   });
 
+  // Vitest resolves a test's imports through the server environment, so this is the seam a condition meant for
+  // them travels through; the top-level array reaches the client environment alone.
+  it('concatenates a layer condition onto the server array', () => {
+    const config = defineVitestConfig({ root: { ssr: { resolve: { conditions: ['development'] } } } });
+
+    expect(config.ssr?.resolve?.conditions).toStrictEqual([...SOURCE_SERVER_CONDITIONS, 'development']);
+    expect(config.resolve?.conditions).toStrictEqual(SOURCE_CLIENT_CONDITIONS);
+  });
+
   it('merges a root override into the existing block rather than replacing it', () => {
     const config = defineVitestConfig({ root: { test: { coverage: { reportsDirectory: './cov' } } } });
 

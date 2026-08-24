@@ -260,8 +260,9 @@ describe('composed option layers, run for real', { timeout: 120_000 }, () => {
 });
 
 describe('the defaults the factory supplies, run for real', { timeout: 120_000 }, () => {
-  // Both halves matter: `source` selects the source entry, and Vite's own `node` default survives alongside it.
-  // Emitting `source` alone would replace that default and resolve the browser entry inside this node run.
+  // This run reaches `source` alone. That the emitted list also carries Vite's defaults is held by the unit
+  // test's pin against `vite`'s exports: a replaced list still resolves `node` and `development` under Vitest,
+  // so no run here can tell a complete list from a narrowed one.
   it('resolves a linked dependency through its source condition', ({ defaults }) => {
     expect(defaults.supplied).toMatchObject({ entry: 'source' });
   });
