@@ -7,8 +7,8 @@ settings:
 catalogs:
   default:
     '@williamthorsen/toolbelt.errors':
-      specifier: 0.6.0
-      version: 0.6.0
+      specifier: 0.6.1
+      version: 0.6.1
     '@williamthorsen/toolbelt.filesystem':
       specifier: 0.8.0
       version: 0.8.0
@@ -55,7 +55,7 @@ importers:
         version: 11.0.0(eslint@10.8.1(jiti@2.7.0)(supports-color@7.2.0))
       '@williamthorsen/toolbelt.errors':
         specifier: 'catalog:'
-        version: 0.6.0
+        version: 0.6.1
       '@williamthorsen/toolbelt.filesystem':
         specifier: 'catalog:'
         version: 0.8.0
@@ -109,7 +109,7 @@ importers:
         version: link:../nmr-core
       '@williamthorsen/toolbelt.errors':
         specifier: 'catalog:'
-        version: 0.6.0
+        version: 0.6.1
       glob:
         specifier: 13.0.6
         version: 13.0.6
@@ -152,7 +152,7 @@ importers:
     dependencies:
       '@williamthorsen/toolbelt.errors':
         specifier: 'catalog:'
-        version: 0.6.0
+        version: 0.6.1
     devDependencies:
       '@williamthorsen/toolbelt.filesystem':
         specifier: 'catalog:'
@@ -171,7 +171,7 @@ importers:
         version: link:../nmr-core
       '@williamthorsen/toolbelt.errors':
         specifier: 'catalog:'
-        version: 0.6.0
+        version: 0.6.1
       glob:
         specifier: 13.0.6
         version: 13.0.6
@@ -214,7 +214,7 @@ importers:
         version: link:../nmr-core
       '@williamthorsen/toolbelt.errors':
         specifier: 'catalog:'
-        version: 0.6.0
+        version: 0.6.1
       audit-ci:
         specifier: 7.1.0
         version: 7.1.0
