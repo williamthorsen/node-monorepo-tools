@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
@@ -9,6 +10,7 @@ const REPO_ROOT = path.resolve(import.meta.dirname, '../../../..');
 const CONFIG_SOURCE = path.join(import.meta.dirname, '../vitest.ts');
 const VITEST_CLI = path.join(REPO_ROOT, 'node_modules/vitest/vitest.mjs');
 const SETUP_LOG = 'setup-order.log';
+const OBSERVED_LOG = 'observed.json';
 
 /**
  * A package tree whose files sit on either side of every boundary the exclusions draw.
@@ -57,6 +59,67 @@ const PROJECT_FILES: Record<string, string> = {
  * A package whose config composes two option layers, each contributing a setup file that records when it ran.
  * Only a real run settles the order: the config object shows the array, not which entry Vitest executes first.
  */
+/**
+ * A tree whose dependency reports which export condition selected it, alongside the two configs that decide.
+ *
+ * The dependency is reached through a symlink whose target sits outside any `node_modules`: Vite hands a real
+ * `node_modules` dependency to Node's resolver, which never consults `resolve.conditions`, and inlines a linked
+ * one, which is why the condition reaches a workspace package at all.
+ */
+const DEFAULTS_FILES: Record<string, string> = {
+  'package.json': JSON.stringify({ name: 'vitest-defaults-fixture', private: true, type: 'module' }),
+
+  'vitest.config.ts': `import { defineVitestConfig } from ${JSON.stringify(CONFIG_SOURCE)};\n\nexport default defineVitestConfig();\n`,
+
+  'vitest.optout.config.ts': [
+    `import { defineVitestConfig } from ${JSON.stringify(CONFIG_SOURCE)};`,
+    '',
+    'export default defineVitestConfig({ isolateGit: false, resolveFromSource: false });',
+    '',
+  ].join('\n'),
+
+  // Each entry names the condition that selected it, so a dropped `node` is distinguishable from a dropped `source`.
+  'dependency/package.json': JSON.stringify({
+    name: '@fixture/dep',
+    private: true,
+    type: 'module',
+    exports: {
+      '.': {
+        source: './src/index.ts',
+        browser: './dist/browser.js',
+        node: './dist/node.js',
+        default: './dist/default.js',
+      },
+    },
+  }),
+  'dependency/src/index.ts': 'export const entry = "source";\n',
+  'dependency/dist/browser.js': 'export const entry = "browser";\n',
+  'dependency/dist/default.js': 'export const entry = "default";\n',
+  'dependency/dist/node.js': 'export const entry = "node";\n',
+
+  'src/__tests__/defaults.test.ts': [
+    "import { writeFileSync } from 'node:fs';",
+    '',
+    "import { expect, it } from 'vitest';",
+    '',
+    "import { entry } from '@fixture/dep';",
+    '',
+    "it('records the entry it resolved and the git configuration it inherited', () => {",
+    `  writeFileSync(`,
+    `    new URL(${JSON.stringify(`../../${OBSERVED_LOG}`)}, import.meta.url),`,
+    '    JSON.stringify({',
+    '      entry,',
+    '      gitConfigGlobal: process.env.GIT_CONFIG_GLOBAL,',
+    '      gitConfigNoSystem: process.env.GIT_CONFIG_NOSYSTEM,',
+    '      gitConfigSystem: process.env.GIT_CONFIG_SYSTEM,',
+    '    }),',
+    '  );',
+    '  expect(entry).toBeTypeOf("string");',
+    '});',
+    '',
+  ].join('\n'),
+};
+
 const LAYER_ORDER_FILES: Record<string, string> = {
   'package.json': JSON.stringify({ name: 'vitest-layer-fixture', private: true, type: 'module' }),
 
@@ -105,6 +168,26 @@ const it = baseIt
     const derived = {
       collectedTestFiles: readCollectedTestFiles(tree),
       coveredFiles: readCoveredFiles(tree),
+    };
+    const owned = stack.move();
+    onCleanup(() => {
+      owned.dispose();
+    });
+
+    return derived;
+  })
+  // eslint-disable-next-line no-empty-pattern -- Vitest parses a fixture's first parameter and rejects anything but a destructuring pattern.
+  .extend('defaults', { scope: 'file' }, ({}, { onCleanup }) => {
+    using stack = new DisposableStack();
+    const tree = stack.use(createTempTree({}, { prefix: 'nmr-vitest-defaults-' }));
+    scaffoldProject(tree, DEFAULTS_FILES);
+    // Relative, so the link resolves through the tree rather than through the path this process happens to hold.
+    tree.symlink('src/node_modules/@fixture/dep', '../../../dependency');
+    stack.defer(() => unlinkNodeModules(tree.dir));
+
+    const derived = {
+      optedOut: readObserved(tree, runVitest(tree.dir, ['--config', 'vitest.optout.config.ts'])),
+      supplied: readObserved(tree, runVitest(tree.dir)),
     };
     const owned = stack.move();
     onCleanup(() => {
@@ -167,7 +250,37 @@ describe('composed option layers, run for real', { timeout: 120_000 }, () => {
   // A shared entry establishes the environment the later ones run in, so the order is the guarantee rather than
   // the membership. Asserting on the config object would pass even if Vitest executed the two the other way round.
   it('runs an earlier layer of setup files before a later one', ({ layers }) => {
-    expect(layers.setupOrder).toStrictEqual(['shared', 'package']);
+    expect(layers.setupOrder.map((entry) => entry.split(':')[0])).toStrictEqual(['shared', 'package']);
+  });
+
+  // nmr's own setup file writes nothing to this log, so what the first layer observed is the evidence it ran.
+  it('isolates git before the first setup file a layer supplies', ({ layers }) => {
+    expect(layers.setupOrder[0]).toBe('shared:isolated');
+  });
+});
+
+describe('the defaults the factory supplies, run for real', { timeout: 120_000 }, () => {
+  // Both halves matter: `source` selects the source entry, and Vite's own `node` default survives alongside it.
+  // Emitting `source` alone would replace that default and resolve the browser entry inside this node run.
+  it('resolves a linked dependency through its source condition', ({ defaults }) => {
+    expect(defaults.supplied).toMatchObject({ entry: 'source' });
+  });
+
+  it('isolates git in the test process', ({ defaults }) => {
+    expect(defaults.supplied).toMatchObject({
+      gitConfigGlobal: os.devNull,
+      gitConfigNoSystem: '1',
+      gitConfigSystem: os.devNull,
+    });
+  });
+
+  // The condition is what selects the source entry, rather than anything incidental about the fixture: without it
+  // the same tree resolves the `node` entry, which is also what proves `node` was in the emitted list.
+  //
+  // The report carries `entry` alone because an unset variable serializes to no key at all, so the absent three
+  // are the assertion that nothing set them.
+  it('falls back to the node entry and the ambient git configuration when both defaults are off', ({ defaults }) => {
+    expect(defaults.optedOut).toStrictEqual({ entry: 'node' });
   });
 });
 
@@ -193,16 +306,25 @@ function runVitestWithCoverage(cwd: string): { status: number | null; stdout: st
   return spawnSync(process.execPath, args, { cwd, encoding: 'utf8', env: buildChildEnv() });
 }
 
-function runVitest(cwd: string): { status: number | null; stdout: string; stderr: string } {
-  return spawnSync(process.execPath, [VITEST_CLI, 'run'], { cwd, encoding: 'utf8', env: buildChildEnv() });
+function runVitest(cwd: string, extraArgs: string[] = []): { status: number | null; stdout: string; stderr: string } {
+  return spawnSync(process.execPath, [VITEST_CLI, 'run', ...extraArgs], {
+    cwd,
+    encoding: 'utf8',
+    env: buildChildEnv(),
+  });
 }
 
-/** A setup file that appends its own name to a log beside itself, so the run records the order the two ran in. */
+/**
+ * A setup file that appends its own name to a log beside itself, so the run records the order the two ran in.
+ * The name carries whether git isolation was already in place, which is the only evidence that nmr's own setup
+ * file ran ahead of the layers': it declares no entry in this log of its own.
+ */
 function buildSetupFile(name: string): string {
   return [
     "import { appendFileSync } from 'node:fs';",
     '',
-    `appendFileSync(new URL(${JSON.stringify(SETUP_LOG)}, import.meta.url), ${JSON.stringify(`${name}\n`)});`,
+    `const state = process.env.GIT_CONFIG_GLOBAL === undefined ? 'bare' : 'isolated';`,
+    `appendFileSync(new URL(${JSON.stringify(SETUP_LOG)}, import.meta.url), \`${name}:\${state}\\n\`);`,
     '',
   ].join('\n');
 }
@@ -210,16 +332,29 @@ function buildSetupFile(name: string): string {
 /**
  * Strips the variables the parent Vitest run exports. Inherited, they leak the parent's worker identity and
  * coverage output directory into the child, which then reports on the wrong run.
+ *
+ * `GIT_CONFIG_*` is stripped for the same reason: this repo's own suite runs under the isolation the config
+ * supplies, so a child inheriting it observes isolation whether or not the config under test asked for any.
  */
 function buildChildEnv(): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
 
   for (const [name, value] of Object.entries(process.env)) {
-    if (name === 'TEST' || name === 'NODE_V8_COVERAGE' || name.startsWith('VITEST')) continue;
+    if (name === 'TEST' || name === 'NODE_V8_COVERAGE') continue;
+    if (name.startsWith('VITEST') || name.startsWith('GIT_CONFIG_')) continue;
     env[name] = value;
   }
 
   return env;
+}
+
+/** One fixture run's report, after failing loudly with the child's own output where the run did not succeed. */
+function readObserved(tree: TempTree, run: { status: number | null; stdout: string; stderr: string }): unknown {
+  if (run.status !== 0) {
+    throw new Error(`fixture run failed with status ${String(run.status)}:\n${run.stdout}\n${run.stderr}`);
+  }
+
+  return tree.readJson(OBSERVED_LOG);
 }
 
 /** The files the coverage report measured, relative to the project root. Its keys are absolute paths. */
