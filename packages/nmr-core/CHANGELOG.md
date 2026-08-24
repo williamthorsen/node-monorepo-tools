@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.10.3 — 2026-08-24
+
+### 🧪 Tests
+
+- Scaffold the nmr-core, root, and v11y-check trees through the write API (#734)
+
+  Converts the `node:fs` scaffolding in five test suites across `nmr-core`, the repo root, and `v11y-check` to the temporary tree's own write API, which refuses a path that escapes the tree. Fixture helpers in `hashWorkingTree.tool.test.ts` and `init.unit.test.ts` take the tree itself in place of a captured directory string.
+
 ## 0.10.2 — 2026-08-19
 
 ### 🧪 Tests

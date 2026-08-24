@@ -2,6 +2,48 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.34.0 — 2026-08-24
+
+### 🎉 Features
+
+- 🚨 **Breaking:** Make defineVitestConfig resolve from source and isolate git (#749)
+
+  Adds two defaults to `defineVitestConfig` and `defineRootVitestConfig` in `@williamthorsen/nmr/vitest`: Workspace packages resolve through their `source` export condition, so a suite runs without a prior build; and every project loads a setup file that keeps the developer's git configuration out of the subprocesses a test spawns.
+
+  Each is individually opt-out-able through the new `isolateGit` and `resolveFromSource` options. A consumer's own `resolve.conditions` and `setupFiles` compose alongside what the factory supplies.
+
+  Migration: A workspace package declaring a `source` condition is resolved from source in tests that previously read its `dist`. A package that publishes only its build output takes a bespoke condition name instead, as `@williamthorsen/nmr-core` does with `nmr-source`.
+
+### 🐛 Bug fixes
+
+- Stop nmr upgrade from timing out against a proxying registry (#744)
+
+  Fixes an issue where `nmr upgrade` timed out intermittently against a registry that proxies npm. Every `upgrade` script now calls taze with a 30-second request timeout in place of the 5-second default; a different request timeout specified by the caller is respected.
+
+  The ReadyUp kit bundled with nmr now warns when a taze config sets a value that the taze CLI will not use.
+
+### ♻️ Refactoring
+
+- Upgrade ReadyUp and the toolbelt packages, adopting their new APIs (#748)
+
+  Upgrades `readyup` and the `@williamthorsen/toolbelt.*` packages to their latest versions.
+
+  The `readFile` utility from `readyup` replaces hand-rolled code in `nmr`.
+
+### 🧪 Tests
+
+- Scaffold the nmr unit-tier trees through the tree's write API (#738)
+
+  Scaffolds the temporary trees of the ten unit-tier suites in `packages/nmr/src/__tests__/` through the tree's own write API, retiring the `node:fs` import from them. A helper that writes now takes the tree and a tree-relative path; one that only composes arguments for a production function keeps its directory string.
+
+- Scaffold and inspect the tool-tier fixtures through the tree's own API (#739)
+
+  Converts the tool-tier test suites under `packages/nmr/src/__tests__/` from bare `node:fs` scaffolding to the `TempTree` API of `@williamthorsen/toolbelt.filesystem`. Fixture directories, writes, removals, and in-tree reads now go through the tree. Each `node:fs` call that remains is one the tree's API cannot express.
+
+- Scaffold the commands and helpers fixtures through the tree's own API (#742)
+
+  Converts the test suites under `packages/nmr/src/commands/__tests__/` and `packages/nmr/src/helpers/__tests__/` from bare `node:fs` scaffolding to the `TempTree` API of `@williamthorsen/toolbelt.filesystem`. Fixture directories, writes, removals, links, and in-tree reads now go through the tree. One `node:fs` call remains because its listing cannot be expressed by the tree's API.
+
 ## 0.33.0 — 2026-08-20
 
 ### 🎉 Features

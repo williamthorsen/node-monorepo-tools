@@ -1,5 +1,66 @@
 [
   {
+    "version": "0.34.0",
+    "date": "2026-08-24",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Make defineVitestConfig resolve from source and isolate git (#749)",
+            "body": "Adds two defaults to `defineVitestConfig` and `defineRootVitestConfig` in `@williamthorsen/nmr/vitest`: Workspace packages resolve through their `source` export condition, so a suite runs without a prior build; and every project loads a setup file that keeps the developer's git configuration out of the subprocesses a test spawns.\n\nEach is individually opt-out-able through the new `isolateGit` and `resolveFromSource` options. A consumer's own `resolve.conditions` and `setupFiles` compose alongside what the factory supplies.\n\nMigration: A workspace package declaring a `source` condition is resolved from source in tests that previously read its `dist`. A package that publishes only its build output takes a bespoke condition name instead, as `@williamthorsen/nmr-core` does with `nmr-source`.",
+            "breaking": true,
+            "hash": "0ebf2434c9054eb099a0eedbdfdcb936a173bbc5"
+          }
+        ]
+      },
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Stop nmr upgrade from timing out against a proxying registry (#744)",
+            "body": "Fixes an issue where `nmr upgrade` timed out intermittently against a registry that proxies npm. Every `upgrade` script now calls taze with a 30-second request timeout in place of the 5-second default; a different request timeout specified by the caller is respected.\n\nThe ReadyUp kit bundled with nmr now warns when a taze config sets a value that the taze CLI will not use.",
+            "hash": "b3cebd9538bf952d22aa9d816ae67501dcee5205"
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Upgrade ReadyUp and the toolbelt packages, adopting their new APIs (#748)",
+            "body": "Upgrades `readyup` and the `@williamthorsen/toolbelt.*` packages to their latest versions.\n\nThe `readFile` utility from `readyup` replaces hand-rolled code in `nmr`.",
+            "hash": "9e54b0670c67b6b1da5d7afca7fe071ecbed2797"
+          }
+        ]
+      },
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Scaffold the nmr unit-tier trees through the tree's write API (#738)",
+            "body": "Scaffolds the temporary trees of the ten unit-tier suites in `packages/nmr/src/__tests__/` through the tree's own write API, retiring the `node:fs` import from them. A helper that writes now takes the tree and a tree-relative path; one that only composes arguments for a production function keeps its directory string.",
+            "hash": "7e07a07f48dda1099d4e70782f4ad2ac612d8b1a"
+          },
+          {
+            "description": "Scaffold and inspect the tool-tier fixtures through the tree's own API (#739)",
+            "body": "Converts the tool-tier test suites under `packages/nmr/src/__tests__/` from bare `node:fs` scaffolding to the `TempTree` API of `@williamthorsen/toolbelt.filesystem`. Fixture directories, writes, removals, and in-tree reads now go through the tree. Each `node:fs` call that remains is one the tree's API cannot express.",
+            "hash": "6109c400aa3981ee0daf0287663806b440d211e7"
+          },
+          {
+            "description": "Scaffold the commands and helpers fixtures through the tree's own API (#742)",
+            "body": "Converts the test suites under `packages/nmr/src/commands/__tests__/` and `packages/nmr/src/helpers/__tests__/` from bare `node:fs` scaffolding to the `TempTree` API of `@williamthorsen/toolbelt.filesystem`. Fixture directories, writes, removals, links, and in-tree reads now go through the tree. One `node:fs` call remains because its listing cannot be expressed by the tree's API.",
+            "hash": "58838dfee3a4ef70c4eb0cda22811d58f2f9fdba"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.33.0",
     "date": "2026-08-20",
     "sections": [

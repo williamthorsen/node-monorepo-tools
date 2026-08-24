@@ -1,5 +1,33 @@
 [
   {
+    "version": "10.4.4",
+    "date": "2026-08-24",
+    "sections": [
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Upgrade ReadyUp and the toolbelt packages, adopting their new APIs (#748)",
+            "body": "Upgrades `readyup` and the `@williamthorsen/toolbelt.*` packages to their latest versions.\n\nThe `readFile` utility from `readyup` replaces hand-rolled code in `nmr`.",
+            "hash": "9e54b0670c67b6b1da5d7afca7fe071ecbed2797"
+          }
+        ]
+      },
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Scaffold the temporary trees through the tree's own write API (#736)",
+            "body": "Scaffolds every `release-kit` test suite that holds a temporary tree through the tree's own write API rather than bare `node:fs`.\n\nAlso deletes `syncWorkTypes.unit.test.ts`'s wrapper `Disposable`, which restored a read-only tree's write permission before disposal; the pinned `@williamthorsen/toolbelt.filesystem` disposes such a tree on its own.",
+            "hash": "30d8125d1ce2c0660b4b03a1350b4f10deb31d0f"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "10.4.3",
     "date": "2026-08-20",
     "sections": [

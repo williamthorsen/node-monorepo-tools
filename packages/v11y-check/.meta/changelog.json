@@ -1,5 +1,33 @@
 [
   {
+    "version": "0.15.7",
+    "date": "2026-08-24",
+    "sections": [
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Upgrade ReadyUp and the toolbelt packages, adopting their new APIs (#748)",
+            "body": "Upgrades `readyup` and the `@williamthorsen/toolbelt.*` packages to their latest versions.\n\nThe `readFile` utility from `readyup` replaces hand-rolled code in `nmr`.",
+            "hash": "9e54b0670c67b6b1da5d7afca7fe071ecbed2797"
+          }
+        ]
+      },
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Scaffold the nmr-core, root, and v11y-check trees through the write API (#734)",
+            "body": "Converts the `node:fs` scaffolding in five test suites across `nmr-core`, the repo root, and `v11y-check` to the temporary tree's own write API, which refuses a path that escapes the tree. Fixture helpers in `hashWorkingTree.tool.test.ts` and `init.unit.test.ts` take the tree itself in place of a captured directory string.",
+            "hash": "91afecf0302d84ac8e67607b81a0269b1c410464"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.15.6",
     "date": "2026-08-20",
     "sections": [

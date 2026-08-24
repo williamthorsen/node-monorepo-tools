@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## 10.4.4 — 2026-08-24
+
+### ♻️ Refactoring
+
+- Upgrade ReadyUp and the toolbelt packages, adopting their new APIs (#748)
+
+  Upgrades `readyup` and the `@williamthorsen/toolbelt.*` packages to their latest versions.
+
+  The `readFile` utility from `readyup` replaces hand-rolled code in `nmr`.
+
+### 🧪 Tests
+
+- Scaffold the temporary trees through the tree's own write API (#736)
+
+  Scaffolds every `release-kit` test suite that holds a temporary tree through the tree's own write API rather than bare `node:fs`.
+
+  Also deletes `syncWorkTypes.unit.test.ts`'s wrapper `Disposable`, which restored a read-only tree's write permission before disposal; the pinned `@williamthorsen/toolbelt.filesystem` disposes such a tree on its own.
+
 ## 10.4.3 — 2026-08-20
 
 ### 🧪 Tests
