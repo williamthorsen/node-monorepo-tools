@@ -1,6 +1,9 @@
+import { fileURLToPath } from 'node:url';
+
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { globSync } from 'tinyglobby';
+import { defaultClientConditions, defaultServerConditions } from 'vite';
 import { describe, expect, it as baseIt } from 'vitest';
 import type { TestProjectConfiguration, TestProjectInlineConfiguration, ViteUserConfig } from 'vitest/config';
 
@@ -8,6 +11,13 @@ import { defineRootVitestConfig, defineVitestConfig } from '../vitest.ts';
 
 /** Every project the shared config declares, in the order it emits them: the residual, then the ladder. */
 const PROJECT_NAMES = ['unit', 'tool', 'localhost', 'remote'];
+
+// Composed from Vite's own exports rather than spelled out, so a release that changes either default list fails
+// every assertion reading one, rather than leaving the config to narrow resolution silently.
+const SOURCE_CLIENT_CONDITIONS = ['source', ...defaultClientConditions];
+const SOURCE_SERVER_CONDITIONS = ['source', ...defaultServerConditions];
+
+const GIT_ISOLATION_SETUP_FILE = fileURLToPath(new URL('../vitest-git-isolation.ts', import.meta.url));
 
 // Spelled out rather than derived from the config, so the assertion fails if the derivation itself drifts.
 const TIERED_PATTERNS = [
@@ -161,16 +171,71 @@ describe(defineVitestConfig, () => {
     }
   });
 
+  // Vite lets a supplied `conditions` array replace its defaults rather than extend them, so emitting `source`
+  // alone would drop `node` and `module` -- and a dependency branching on `browser` would then resolve its browser
+  // entry inside a node test. Composed from Vite's exports, so a release changing either list fails here.
+  it("adds the source condition to Vite's defaults for each environment, rather than replacing them", () => {
+    const config = defineVitestConfig();
+
+    expect(config.resolve?.conditions).toStrictEqual(SOURCE_CLIENT_CONDITIONS);
+    expect(config.ssr?.resolve?.conditions).toStrictEqual(SOURCE_SERVER_CONDITIONS);
+  });
+
+  it('drops the source condition, and no other setting, when resolveFromSource is off', () => {
+    const config = defineVitestConfig({ resolveFromSource: false });
+
+    expect(config.resolve).toBeUndefined();
+    expect(config.ssr).toBeUndefined();
+    expect(config.test?.projects).toHaveLength(PROJECT_NAMES.length);
+  });
+
+  it("keeps a layer's own conditions when resolveFromSource is off", () => {
+    const config = defineVitestConfig({ resolveFromSource: false, root: { resolve: { conditions: ['development'] } } });
+
+    expect(config.resolve?.conditions).toStrictEqual(['development']);
+  });
+
+  // Without it, a suite that spawns git reads the developer's identity and can block on a signing passphrase,
+  // and nothing in the run says so.
+  it('isolates git subprocesses in every project', () => {
+    const projects = getProjects(defineVitestConfig());
+
+    expect(projects.map((project) => project.test?.setupFiles)).toStrictEqual(
+      PROJECT_NAMES.map(() => [GIT_ISOLATION_SETUP_FILE]),
+    );
+  });
+
+  it('declares no setup files at all when isolateGit is off', () => {
+    const projects = getProjects(defineVitestConfig({ isolateGit: false }));
+
+    expect(projects.map((project) => project.test?.setupFiles)).toStrictEqual(PROJECT_NAMES.map(() => undefined));
+  });
+
+  it("keeps a layer's own setup files when isolateGit is off", () => {
+    const projects = getProjects(defineVitestConfig({ isolateGit: false, project: { setupFiles: ['./setup.ts'] } }));
+
+    expect(projects.map((project) => project.test?.setupFiles)).toStrictEqual(PROJECT_NAMES.map(() => ['./setup.ts']));
+  });
+
+  it.for(['isolateGit', 'resolveFromSource'] as const)('lets a later layer turn %s back on', (flag) => {
+    const config = defineVitestConfig({ [flag]: false }, { [flag]: true });
+
+    expect(config.resolve?.conditions).toStrictEqual(SOURCE_CLIENT_CONDITIONS);
+    expect(getProjects(config)[0]?.test?.setupFiles).toStrictEqual([GIT_ISOLATION_SETUP_FILE]);
+  });
+
   it('applies a project override to every project', () => {
     const projects = getProjects(defineVitestConfig({ project: { setupFiles: ['./setup.ts'] } }));
 
-    expect(projects.map((project) => project.test?.setupFiles)).toStrictEqual(PROJECT_NAMES.map(() => ['./setup.ts']));
+    expect(projects.map((project) => project.test?.setupFiles)).toStrictEqual(
+      PROJECT_NAMES.map(() => [GIT_ISOLATION_SETUP_FILE, './setup.ts']),
+    );
   });
 
   it('applies a root override to the root config', () => {
     const config = defineVitestConfig({ root: { resolve: { conditions: ['development'] } } });
 
-    expect(config.resolve?.conditions).toStrictEqual(['development']);
+    expect(config.resolve?.conditions).toStrictEqual([...SOURCE_CLIENT_CONDITIONS, 'development']);
   });
 
   it('merges a root override into the existing block rather than replacing it', () => {
@@ -209,7 +274,7 @@ describe(defineVitestConfig, () => {
     );
 
     expect(projects.map((project) => project.test?.setupFiles)).toStrictEqual(
-      PROJECT_NAMES.map(() => ['./shared.ts', './package.ts']),
+      PROJECT_NAMES.map(() => [GIT_ISOLATION_SETUP_FILE, './shared.ts', './package.ts']),
     );
   });
 
@@ -223,11 +288,11 @@ describe(defineVitestConfig, () => {
 
   it('folds a root layer from any position, not only the first', () => {
     const config = defineVitestConfig(
-      { root: { resolve: { conditions: ['source'] } } },
+      { root: { resolve: { conditions: ['development'] } } },
       { root: { test: { passWithNoTests: false } } },
     );
 
-    expect(config.resolve?.conditions).toStrictEqual(['source']);
+    expect(config.resolve?.conditions).toStrictEqual([...SOURCE_CLIENT_CONDITIONS, 'development']);
     expect(config.test?.passWithNoTests).toBe(false);
   });
 
@@ -406,13 +471,13 @@ describe(defineRootVitestConfig, () => {
 
   it('folds a shared layer ahead of the layer carrying the monorepo root', ({ workspaceTree }) => {
     const config = defineRootVitestConfig(
-      { project: { setupFiles: ['./shared.ts'] }, root: { resolve: { conditions: ['source'] } } },
+      { project: { setupFiles: ['./shared.ts'] }, root: { resolve: { conditions: ['development'] } } },
       { monorepoRoot: workspaceTree.dir },
     );
 
-    expect(config.resolve?.conditions).toStrictEqual(['source']);
+    expect(config.resolve?.conditions).toStrictEqual([...SOURCE_CLIENT_CONDITIONS, 'development']);
     for (const project of getProjects(config)) {
-      expect(project.test?.setupFiles).toStrictEqual(['./shared.ts']);
+      expect(project.test?.setupFiles).toStrictEqual([GIT_ISOLATION_SETUP_FILE, './shared.ts']);
       expect(project.root).toBe(workspaceTree.dir);
     }
   });

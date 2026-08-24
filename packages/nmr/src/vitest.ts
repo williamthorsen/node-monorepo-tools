@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import type { TestProjectInlineConfiguration, ViteUserConfig } from 'vitest/config';
 import { defaultExclude, mergeConfig } from 'vitest/config';
@@ -36,6 +37,18 @@ export interface VitestConfigOptions {
    * would flatten.
    */
   tiers?: Partial<Record<TierName, ProjectConfig>>;
+
+  /**
+   * Loads nmr's git-isolation setup file into every project, ahead of any the layers supply. Defaults to `true`.
+   * Turn it off only where a suite is meant to read the developer's own git configuration.
+   */
+  isolateGit?: boolean;
+
+  /**
+   * Resolves workspace packages through their `source` export condition, so a suite runs without a prior build.
+   * Defaults to `true`. A package declaring no such condition is unaffected.
+   */
+  resolveFromSource?: boolean;
 }
 
 export interface RootVitestConfigOptions extends VitestConfigOptions {
@@ -68,6 +81,22 @@ const TIERED_PATTERNS = NAMED_TIERS.flatMap(buildTierPatterns);
  * fail quickly. The `project` seam merges over this and reaches every project at once; the `tiers` seam targets one.
  */
 const TIER_TIMEOUT = 30_000;
+
+/**
+ * nmr's git-isolation setup file, resolved beside this module and carrying this module's own extension, so a
+ * consumer reaching the compiled `.js` twin and nmr's own tests importing this file as `.ts` both land on a file
+ * that exists.
+ */
+const GIT_ISOLATION_SETUP_FILE = resolveGitIsolationSetupFile();
+
+// The `source` condition, then Vite's own defaults for each environment. Vite lets a supplied `conditions` array
+// replace its defaults rather than extend them, so emitting them here is what keeps `node` and `module` reachable:
+// without them a dependency branching on `browser` resolves its browser entry inside a node test.
+//
+// Hardcoded rather than read from `vite`, which nmr would otherwise have to declare as a peer dependency for every
+// consumer to satisfy. `vitest.unit.test.ts` pins both lists against Vite's own exports.
+const SOURCE_CLIENT_CONDITIONS = ['source', 'module', 'browser', 'development|production'];
+const SOURCE_SERVER_CONDITIONS = ['source', 'module', 'node', 'development|production'];
 
 // Fixtures are excluded from coverage but never from collection: a coverage exclude cannot hide a real test, while a
 // collection exclude could swallow one legitimately placed under `fixtures/`. `__snapshots__` needs no entry because
@@ -143,6 +172,10 @@ function buildConfig(
   assertKnownTiers(layers);
 
   const config: ViteUserConfig = {
+    ...(resolveFlag(layers, 'resolveFromSource') && {
+      resolve: { conditions: SOURCE_CLIENT_CONDITIONS },
+      ssr: { resolve: { conditions: SOURCE_SERVER_CONDITIONS } },
+    }),
     test: {
       coverage: {
         enabled: false, // don't check coverage unless the `--coverage` flag is passed
@@ -190,6 +223,8 @@ function buildProjects(
     })),
   ];
 
+  const isolateGit = resolveFlag(layers, 'isolateGit');
+
   return projectTiers.map(({ exclude, include, name, timeout }) => {
     const project: TestProjectInlineConfiguration = {
       // Without this, Vitest gives the project no Vite config file at all, so root-level options such as
@@ -201,6 +236,7 @@ function buildProjects(
         exclude: [...COLLECTION_EXCLUDE, ...exclude, ...extraExclude],
         include,
         name,
+        ...(isolateGit && { setupFiles: [GIT_ISOLATION_SETUP_FILE] }),
         ...(timeout !== undefined && { hookTimeout: timeout, testTimeout: timeout }),
       },
     };
@@ -255,4 +291,26 @@ function getWorkspaceExcludePatterns(monorepoRoot: string): string[] {
   return getWorkspacePackageDirs(monorepoRoot)
     .map((dir) => `${path.relative(monorepoRoot, dir).split(path.sep).join('/')}/**`)
     .toSorted();
+}
+
+/**
+ * Locates the setup file shipped beside this module. The extension is read from the resolved filesystem path
+ * rather than from `import.meta.url`, which Vite may hand over carrying a version query.
+ */
+function resolveGitIsolationSetupFile(): string {
+  const thisFile = fileURLToPath(import.meta.url);
+
+  return path.join(path.dirname(thisFile), `vitest-git-isolation${path.extname(thisFile)}`);
+}
+
+/** Reads one boolean option across the layers, the last to declare it winning, defaulting to `true`. */
+function resolveFlag(layers: readonly VitestConfigOptions[], name: 'isolateGit' | 'resolveFromSource'): boolean {
+  let resolved = true;
+
+  for (const layer of layers) {
+    const declared = layer[name];
+    if (declared !== undefined) resolved = declared;
+  }
+
+  return resolved;
 }
