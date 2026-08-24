@@ -1074,6 +1074,25 @@ Every tier above `unit` carries a 30-second `testTimeout` and `hookTimeout`, whe
 
 To raise a budget for one tier and no other, use the `tiers` seam below. The `project` seam merges over both budgets as well, but like every option passed through it the value reaches all four projects at once -- raising a tier's budget raises `unit`'s with it. To lift the ceiling for a single file rather than a whole tier, pass a timeout to the individual test or hook, which stays the narrower tool.
 
+### What the config supplies
+
+Two settings a workspace test runner needs almost universally are part of what the factory produces, so a config file declares neither:
+
+- **Workspace packages resolve from source.** `source` leads the emitted `resolve.conditions` and `ssr.resolve.conditions`, so a cross-package import reaches the dependency's `.ts` rather than its `dist/` and a suite runs without a prior build. A package declaring no such condition is unaffected.
+- **Git subprocesses are isolated.** Every project loads a setup file that points `GIT_CONFIG_GLOBAL` and `GIT_CONFIG_SYSTEM` at the null device and sets `GIT_CONFIG_NOSYSTEM`, so a test that spawns `git` reads neither the developer's identity nor a signing config that can block on a passphrase. It leads each project's `setupFiles`, ahead of every entry the layers add, because a shared setup establishes the environment the rest run in.
+
+Both defaults exist because omitting either is silent rather than loud: the tiers still exist and the suite still runs green, testing `dist/` and the developer's git identity instead. Turn either off through its own option, which folds across layers like any other, the last layer to declare it winning:
+
+```ts
+export default defineVitestConfig({ isolateGit: false, resolveFromSource: false });
+```
+
+`resolveFromSource: false` is for a repo that resolves a `source` condition it does not want in tests; `isolateGit: false` is for a suite meant to read the developer's own git configuration.
+
+**Vite replaces its condition defaults rather than extending them.** A config writing `conditions: ['source']` by hand therefore drops `module`, so a dependency exposing a `module` entry falls through to whatever its `exports` lists next. A replaced list still resolves `node` and `development` under Vitest, which is why nothing in a test run reports the loss. The factory emits `source` alongside Vite's defaults for each environment, so a config declaring no conditions of its own starts from a complete list.
+
+**A package declaring a `source` condition must ship its sources.** Every nmr consumer now resolves that condition, so a published package whose `files` carries `dist` alone resolves to a path that is not in the tarball. A package that publishes only its build output takes a bespoke condition name instead, the way `@williamthorsen/nmr-core` uses `nmr-source` for the build's own bootstrap.
+
 ### Customizing by scope
 
 Vitest applies some options at the root of a `projects` config and others per project, and placing one at the wrong level is silent rather than loud. The factory therefore takes separate override surfaces instead of one merged config:
@@ -1081,7 +1100,7 @@ Vitest applies some options at the root of a `projects` config and others per pr
 ```ts
 export default defineVitestConfig({
   // Vite-level options, plus the test options Vitest honours only at the root.
-  root: { resolve: { conditions: ['development'] } },
+  root: { ssr: { resolve: { conditions: ['my-condition'] } } },
   // Applied to every project.
   project: { setupFiles: ['./vitest.setup.ts'] },
   // Applied to one tier, after the `project` block above.
@@ -1095,7 +1114,9 @@ export default defineVitestConfig({
 
 Arrays concatenate rather than replace. `exclude` and `setupFiles` therefore add to what the config already declares, and no surface can narrow `include` or drop a default exclusion. Adding an `include` pattern through `project` widens all four projects at once, so a file matching it is collected by each and runs four times.
 
-`resolve.conditions` concatenates too, but layer order carries no meaning there: Vite consumes conditions as a set, and which one wins is decided by the key order of the consumed package's own `exports`. A later layer can add a condition and can never remove or outrank one an earlier layer contributed. `resolve.alias` is the one key that merges override-first, so a later alias takes precedence over an earlier one.
+`resolve.conditions` concatenates too, onto the `source` condition and the Vite defaults the factory already emits, but layer order carries no meaning there: Vite consumes conditions as a set, and which one wins is decided by the key order of the consumed package's own `exports`. A later layer can add a condition and can never remove or outrank one an earlier layer contributed; removing `source` is what `resolveFromSource: false` is for. `resolve.alias` is the one key that merges override-first, so a later alias takes precedence over an earlier one.
+
+**A condition for the tests' own resolution goes under `ssr`.** `resolve` is per-environment, and Vitest resolves a test's imports through the server environment, so `root: { ssr: { resolve: { conditions: ['my-condition'] } } }` is the seam that reaches them. A top-level `root: { resolve: { conditions: [...] } }` entry reaches the client environment, which only browser-mode tests resolve through; it composes into that array and never reports that a node test did not see it. `resolve.alias` is not per-environment, so a top-level alias reaches both.
 
 ### Sharing options across config files
 
@@ -1108,7 +1129,7 @@ import { fileURLToPath } from 'node:url';
 import type { VitestConfigOptions } from '@williamthorsen/nmr/vitest';
 
 export const shared: VitestConfigOptions = {
-  root: { resolve: { conditions: ['source'] } },
+  root: { resolve: { alias: { '~': fileURLToPath(new URL('.', import.meta.url)) } } },
   project: { setupFiles: [fileURLToPath(new URL('./vitest.setup.ts', import.meta.url))] },
 };
 ```
@@ -1130,7 +1151,7 @@ Order is the point where `setupFiles` is concerned, since a shared setup file es
 
 **Do not merge two returned configs.** `mergeConfig(defineVitestConfig(), defineVitestConfig(mine))` looks like the idiomatic recovery and fails at startup: both sides declare the same four project names, which Vitest rejects with `Project name "unit" ... is not unique`. Layers merge the factory's inputs instead, which is why they yield four projects however many fold.
 
-A config file that omits the shared layer still loses those settings, silently -- Vitest's own resolution contract, not something the factory can intercept. Guard it with a test that fails when a package's suite goes missing, which also catches a shared `exclude` pattern swallowing one package's tests.
+A config file that omits the shared layer still loses those settings, silently -- Vitest's own resolution contract, not something the factory can intercept. Guard it with a test that fails when a package's suite goes missing, which also catches a shared `exclude` pattern swallowing one package's tests. Source resolution and git isolation need no such guard: the factory supplies both, so a config file cannot omit them by forgetting a layer.
 
 ### What the config excludes
 
@@ -1187,3 +1208,17 @@ nmr once selected a package's test scripts by looking for a `vitest.integration.
 Until step 1 is done, every test command that names a tier fails against a config declaring no projects, with `Error: No projects matched the filter "unit", "tool".` at startup. `test:all` is the exception: it names no project, so it runs everything the config collects.
 
 That is a change for the better. While `test` selected by negation, an unmigrated config produced a _green_ run, because `--project '!integration'` had nothing to exclude, so the separation was lost with no error anywhere. Positive selection turns the same state into a startup failure that names the missing projects.
+
+### Migrating a repo that layered source resolution or git isolation by hand
+
+The factory supplies both, so the layer a repo wrote for them, and any guard test that checked every config file imported it, can go.
+
+1. Delete the shared module's `resolve.conditions` entry for `source` and its `ssr.resolve` twin. Keep the module for whatever else it carries; delete it outright once it carries nothing.
+2. Delete the git-isolation setup file and its `setupFiles` entry. nmr's runs in its place, ahead of every entry a layer adds.
+3. Delete the test that asserted each config file imports the shared module, where the module is gone.
+
+Two behaviors change on upgrade even in a repo that layered neither.
+
+A suite whose tests run `git commit` while relying on the developer's global identity now fails with git's own `Please tell me who you are`. Set the identity locally in the fixture repo the test builds -- `git -C <repo> config user.email`, `user.name`, and `commit.gpgsign false` -- which is what makes the test report the same result on every machine.
+
+A workspace package declaring a `source` condition is now resolved from source in tests that previously read its `dist`. That is the point of the default, and it means a suite stops exercising build output it may have been exercising by accident.
