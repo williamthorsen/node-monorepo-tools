@@ -250,7 +250,7 @@ describe('composed option layers, run for real', { timeout: 120_000 }, () => {
   // A shared entry establishes the environment the later ones run in, so the order is the guarantee rather than
   // the membership. Asserting on the config object would pass even if Vitest executed the two the other way round.
   it('runs an earlier layer of setup files before a later one', ({ layers }) => {
-    expect(layers.setupOrder.map((entry) => entry.split(':')[0])).toStrictEqual(['shared', 'package']);
+    expect(layers.setupOrder.map((entry) => entry.split(':', 1)[0])).toStrictEqual(['shared', 'package']);
   });
 
   // nmr's own setup file writes nothing to this log, so what the first layer observed is the evidence it ran.

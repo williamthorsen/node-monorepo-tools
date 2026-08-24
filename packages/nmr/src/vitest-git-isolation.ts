@@ -9,6 +9,6 @@
 import os from 'node:os';
 
 // The null device reads as an empty config file, which is what leaves git with no global or system settings at all.
-process.env.GIT_CONFIG_GLOBAL = os.devNull;
-process.env.GIT_CONFIG_SYSTEM = os.devNull;
-process.env.GIT_CONFIG_NOSYSTEM = '1';
+process.env['GIT_CONFIG_GLOBAL'] = os.devNull;
+process.env['GIT_CONFIG_SYSTEM'] = os.devNull;
+process.env['GIT_CONFIG_NOSYSTEM'] = '1';
