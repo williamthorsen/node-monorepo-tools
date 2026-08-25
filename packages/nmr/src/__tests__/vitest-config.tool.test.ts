@@ -56,10 +56,6 @@ const PROJECT_FILES: Record<string, string> = {
 };
 
 /**
- * A package whose config composes two option layers, each contributing a setup file that records when it ran.
- * Only a real run settles the order: the config object shows the array, not which entry Vitest executes first.
- */
-/**
  * A tree whose dependency reports which export condition selected it, alongside the two configs that decide.
  *
  * The dependency is reached through a symlink whose target sits outside any `node_modules`: Vite hands a real
@@ -120,6 +116,10 @@ const DEFAULTS_FILES: Record<string, string> = {
   ].join('\n'),
 };
 
+/**
+ * A package whose config composes two option layers, each contributing a setup file that records when it ran.
+ * Only a real run settles the order: the config object shows the array, not which entry Vitest executes first.
+ */
 const LAYER_ORDER_FILES: Record<string, string> = {
   'package.json': JSON.stringify({ name: 'vitest-layer-fixture', private: true, type: 'module' }),
 
@@ -141,6 +141,44 @@ const LAYER_ORDER_FILES: Record<string, string> = {
     '',
     "it('runs once both setup files have', () => {",
     '  expect(true).toBe(true);',
+    '});',
+    '',
+  ].join('\n'),
+};
+
+/**
+ * A tree whose only route to a module is the alias its `tsconfig.json` declares, alongside the two configs that
+ * decide whether Vite follows it. The alias target sits outside `src/`, where neither collection nor coverage
+ * reaches it, so the import is the only thing that can pull it in.
+ */
+const TSCONFIG_PATHS_FILES: Record<string, string> = {
+  'package.json': JSON.stringify({ name: 'vitest-tsconfig-paths-fixture', private: true, type: 'module' }),
+
+  'tsconfig.json': JSON.stringify({
+    compilerOptions: { baseUrl: '.', paths: { '@alias/target': ['./aliased/target.ts'] } },
+  }),
+
+  'vitest.config.ts': `import { defineVitestConfig } from ${JSON.stringify(CONFIG_SOURCE)};\n\nexport default defineVitestConfig();\n`,
+
+  'vitest.optin.config.ts': [
+    `import { defineVitestConfig } from ${JSON.stringify(CONFIG_SOURCE)};`,
+    '',
+    'export default defineVitestConfig({ tsconfigPaths: true });',
+    '',
+  ].join('\n'),
+
+  'aliased/target.ts': 'export const target = "aliased";\n',
+
+  'src/__tests__/alias.test.ts': [
+    "import { writeFileSync } from 'node:fs';",
+    '',
+    "import { expect, it } from 'vitest';",
+    '',
+    "import { target } from '@alias/target';",
+    '',
+    "it('records the module the alias reached', () => {",
+    `  writeFileSync(new URL(${JSON.stringify(`../../${OBSERVED_LOG}`)}, import.meta.url), JSON.stringify({ target }));`,
+    '  expect(target).toBeTypeOf("string");',
     '});',
     '',
   ].join('\n'),
@@ -216,6 +254,25 @@ const it = baseIt
     });
 
     return { setupOrder };
+  })
+  // eslint-disable-next-line no-empty-pattern -- Vitest parses a fixture's first parameter and rejects anything but a destructuring pattern.
+  .extend('tsconfigPaths', { scope: 'file' }, ({}, { onCleanup }) => {
+    using stack = new DisposableStack();
+    const tree = stack.use(createTempTree({}, { prefix: 'nmr-vitest-tsconfig-paths-' }));
+    scaffoldProject(tree, TSCONFIG_PATHS_FILES);
+    stack.defer(() => unlinkNodeModules(tree.dir));
+
+    const derived = {
+      optedIn: readObserved(tree, runVitest(tree.dir, ['--config', 'vitest.optin.config.ts'])),
+      // The default run resolves no alias and so writes no report; its failure is what it has to say.
+      byDefault: runVitest(tree.dir),
+    };
+    const owned = stack.move();
+    onCleanup(() => {
+      owned.dispose();
+    });
+
+    return derived;
   });
 
 /**
@@ -282,6 +339,22 @@ describe('the defaults the factory supplies, run for real', { timeout: 120_000 }
   // are the assertion that nothing set them.
   it('falls back to the node entry and the ambient git configuration when both defaults are off', ({ defaults }) => {
     expect(defaults.optedOut).toStrictEqual({ entry: 'node' });
+  });
+});
+
+// Vite holds `tsconfigPaths` outside its per-environment resolve options, so the config emits the top-level key
+// alone. Whether that key reaches the environment a test's own imports resolve through is Vite's to decide, and
+// only a run can report it: the emitted config looks identical either way.
+describe('tsconfig paths resolution, run for real', { timeout: 120_000 }, () => {
+  it('reaches a module through the alias the tsconfig declares when the flag is on', ({ tsconfigPaths }) => {
+    expect(tsconfigPaths.optedIn).toStrictEqual({ target: 'aliased' });
+  });
+
+  // The loud failure is what makes the flag safe to leave off, and it is the same evidence that the opted-in run
+  // resolved through the alias rather than through anything incidental about the fixture.
+  it('fails naming the unresolved specifier when the flag is off', ({ tsconfigPaths }) => {
+    expect(tsconfigPaths.byDefault.status).not.toBe(0);
+    expect(`${tsconfigPaths.byDefault.stdout}${tsconfigPaths.byDefault.stderr}`).toContain('@alias/target');
   });
 });
 
