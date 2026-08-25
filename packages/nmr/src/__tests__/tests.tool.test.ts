@@ -79,7 +79,7 @@ describe('the exported conventions check, wired into a real run', { timeout: 120
 
   it('names the file sitting outside a tests directory, and where it belongs', ({ run }) => {
     expect(run.output).toContain('src/outside.unit.test.ts');
-    expect(run.output).toContain('__tests__');
+    expect(run.output).toContain('must sit under a `__tests__` directory');
   });
 
   // The guard's `exclude` and the config's `testCollectionExclude` describe one scope, so a directory named in both

@@ -9,13 +9,6 @@ const REPO_ROOT = path.resolve(import.meta.dirname, '../../../..');
 
 const VITEST_CLI = path.join(REPO_ROOT, 'node_modules/vitest/vitest.mjs');
 
-/** What one spawned run reports back. */
-export interface VitestRun {
-  status: number | null;
-  stderr: string;
-  stdout: string;
-}
-
 /** Runs Vitest once in `cwd`, in a child process of its own. */
 export function runVitest(cwd: string, extraArgs: string[] = []): VitestRun {
   return spawnSync(process.execPath, [VITEST_CLI, 'run', ...extraArgs], {
@@ -41,6 +34,13 @@ export function scaffoldProject(tree: TempTree, files: Record<string, string>): 
 export function unlinkNodeModules(projectRoot: string): void {
   const link = path.join(projectRoot, 'node_modules');
   if (fs.existsSync(link)) fs.unlinkSync(link);
+}
+
+/** What one spawned run reports back. */
+export interface VitestRun {
+  status: number | null;
+  stderr: string;
+  stdout: string;
 }
 
 // region | Helpers
