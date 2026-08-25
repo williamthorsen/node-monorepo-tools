@@ -7,6 +7,7 @@ import { defaultClientConditions, defaultServerConditions } from 'vite';
 import { describe, expect, it as baseIt } from 'vitest';
 import type { TestProjectConfiguration, TestProjectInlineConfiguration, ViteUserConfig } from 'vitest/config';
 
+import type { VitestConfigOptions } from '../vitest.ts';
 import { defineRootVitestConfig, defineVitestConfig } from '../vitest.ts';
 
 /** Every project the shared config declares, in the order it emits them: the residual, then the ladder. */
@@ -31,6 +32,8 @@ const FIXTURE_FILES = [
   // A build that copies sources rather than compiling them. The `dist/src/` shape is the one that also survives the
   // coverage include, so the single fixture stands for both surfaces.
   'dist/src/__tests__/copied.test.ts',
+  // Collected until the repo names the directory: Vitest's own defaults prune `node_modules` and `.git` alone.
+  'generated/__tests__/scaffold.test.ts',
   'node_modules/pkg/__tests__/dep.test.ts', // excluded by Vitest's own defaults
   'src/__tests__/nested/deep.test.tsx', // nested, and the tsx branch of the brace expansion
   'src/__tests__/plain.test.ts',
@@ -168,6 +171,39 @@ describe(defineVitestConfig, () => {
   it('extends the default exclusions from Vitest rather than replacing them', () => {
     for (const project of getProjects(defineVitestConfig())) {
       expect(project.test?.exclude).toStrictEqual(expect.arrayContaining(['**/node_modules/**', '**/.git/**']));
+    }
+  });
+
+  it('keeps a directory the caller excludes out of every project, after the ones always pruned', () => {
+    const projects = getProjects(defineVitestConfig({ testCollectionExclude: ['generated'] }));
+
+    for (const project of projects) {
+      expect(project.test?.exclude).toStrictEqual([
+        '**/node_modules/**',
+        '**/.git/**',
+        '**/coverage/**',
+        '**/dist/**',
+        '**/generated/**',
+        ...(project.test?.name === 'unit' ? TIERED_PATTERNS : []),
+      ]);
+    }
+  });
+
+  // Arrays compose across layers everywhere else in this config, and a shared layer's exclusions and a package's
+  // own are both meant to hold.
+  it('concatenates the exclusions every layer declares', () => {
+    const config = defineVitestConfig({ testCollectionExclude: ['shared'] }, { testCollectionExclude: ['local'] });
+
+    for (const project of getProjects(config)) {
+      expect(project.test?.exclude).toStrictEqual(expect.arrayContaining(['**/shared/**', '**/local/**']));
+    }
+  });
+
+  it('emits a directory once when a layer names one the shared config already prunes', () => {
+    const projects = getProjects(defineVitestConfig({ testCollectionExclude: ['dist'] }));
+
+    for (const project of projects) {
+      expect(project.test?.exclude?.filter((pattern) => pattern === '**/dist/**')).toHaveLength(1);
     }
   });
 
@@ -460,6 +496,14 @@ describe(defineRootVitestConfig, () => {
     expect(config.resolve?.tsconfigPaths).toBe(true);
   });
 
+  it('takes the collection exclusions the package factory takes', ({ workspaceTree }) => {
+    const config = defineRootVitestConfig({ monorepoRoot: workspaceTree.dir, testCollectionExclude: ['generated'] });
+
+    for (const project of getProjects(config)) {
+      expect(project.test?.exclude).toContain('**/generated/**');
+    }
+  });
+
   it('pins every project to the monorepo root, so the globs resolve from the same base', ({ workspaceTree }) => {
     const projects = getProjects(defineRootVitestConfig({ monorepoRoot: workspaceTree.dir }));
 
@@ -566,6 +610,7 @@ describe('project file selection', () => {
 
   it('leaves tiered, unnested, and excluded files out of the unit project', ({ selectionTree }) => {
     expect(selectFiles('unit', selectionTree.dir)).toStrictEqual([
+      'generated/__tests__/scaffold.test.ts',
       'src/__tests__/nested/deep.test.tsx',
       'src/__tests__/plain.test.ts',
       'src/__tests__/thing.app.test.ts',
@@ -586,6 +631,15 @@ describe('project file selection', () => {
     for (const name of PROJECT_NAMES) {
       expect(selectFiles(name, selectionTree.dir)).not.toContain('dist/src/__tests__/copied.test.ts');
     }
+  });
+
+  // The exclusion the repo declares is what keeps the sweep and the collection glob describing one scope. Both
+  // halves are asserted here, because a directory Vitest still collects from is one the sweep must not skip.
+  it('drops a generated directory from collection once the repo excludes it', ({ selectionTree }) => {
+    const excluded = { testCollectionExclude: ['generated'] };
+
+    expect(selectFiles('unit', selectionTree.dir)).toContain('generated/__tests__/scaffold.test.ts');
+    expect(selectFiles('unit', selectionTree.dir, excluded)).not.toContain('generated/__tests__/scaffold.test.ts');
   });
 });
 
@@ -608,8 +662,8 @@ function getTestTimeouts(config: ViteUserConfig): Map<string, number | undefined
 }
 
 /** Resolves a project's patterns against the fixture tree using the engine Vitest discovers with. */
-function selectFiles(name: string, cwd: string): string[] {
-  const project = getProjects(defineVitestConfig()).find(({ test }) => test?.name === name);
+function selectFiles(name: string, cwd: string, options?: VitestConfigOptions): string[] {
+  const project = getProjects(defineVitestConfig(options)).find(({ test }) => test?.name === name);
 
   return globSync(project?.test?.include ?? [], { cwd, ignore: project?.test?.exclude ?? [] }).toSorted();
 }

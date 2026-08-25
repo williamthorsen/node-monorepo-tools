@@ -917,7 +917,7 @@ ensure-prepublish-hooks
 
 ## Conformance checks
 
-nmr publishes a `readyup` kit that checks a consuming repo against the current release: the shared Vitest and Prettier configs, the workspace layout, the root script registry, the [test-tier convention](#test-tiers), and that no `package.json` in the tree declares a `pnpm` field, which pnpm 11 reads no key from. Those settings belong in `pnpm-workspace.yaml`, and `pnpx codemod run pnpm-v10-to-v11` moves them. The kit ships inside the package, so it checks against the nmr version installed rather than whatever a repository ref happens to point at, and a tier added or renamed in nmr reaches the repo on upgrade.
+nmr publishes a `readyup` kit that checks a consuming repo against the current release: the shared Vitest and Prettier configs, the workspace layout, the root script registry, the [test-tier convention](#test-tiers), and that no `package.json` in the tree declares a `pnpm` field, which pnpm 11 reads no key from. Those settings belong in `pnpm-workspace.yaml`, and `pnpx codemod run pnpm-v10-to-v11` moves them. The kit ships inside the package, so it checks against the nmr version installed rather than whatever a repository ref happens to point at, and a tier added or renamed in nmr reaches the repo on upgrade. A repo that wants the tier convention in its own gate rather than in a command run by hand declares the [conventions check](#gating-the-test-file-conventions) instead, which also covers the half the kit does not.
 
 Add `readyup` as a devDependency, then name nmr in its config:
 
@@ -1066,13 +1066,47 @@ vitest                               # every project
 
 **Every test file names its tier**, in the form `<subject>[.<aspect>].<tier>.test.ts`. Only the segment immediately before `.test.` selects a project, so an earlier one is free for documentation: `resolveConfig.packaged.unit.test.ts` reads as a companion to `resolveConfig.unit.test.ts` and still names `unit`.
 
-`unit` is defined by subtracting the tiers rather than by an allow-list of infixes, so a file such as `parser.smoke.test.ts` runs under `unit` instead of being silently dropped. That is a safety net, not a licence to omit the tier: a file whose tier segment is missing or misspelt runs under `unit` and reports success, so no test run distinguishes it from a conformant one. [nmr's readyup kit](#conformance-checks) reports those files, which is the only thing that does.
+`unit` is defined by subtracting the tiers rather than by an allow-list of infixes, so a file such as `parser.smoke.test.ts` runs under `unit` instead of being silently dropped. That is a safety net, not a licence to omit the tier: a file whose tier segment is missing or misspelt runs under `unit` and reports success, so no test run distinguishes it from a conformant one until the repo declares the [conventions check](#gating-the-test-file-conventions). In a repo that has not, [nmr's readyup kit](#conformance-checks) is what reports those files.
 
 `localhost` and `remote` have no test script of their own. They are declared anyway, so that a `*.remote.test.ts` file cannot fall into `unit` and run in the default gate unnoticed.
 
 Every tier above `unit` carries a 30-second `testTimeout` and `hookTimeout`, where `unit` keeps Vitest's defaults of 5 and 10 seconds. A tier test waits on something it doesn't control, and coverage instrumentation multiplies that wait, so the defaults turn a green suite flaky the moment `nmr test:coverage` collects it. Both budgets move together because a tier that scaffolds in `beforeAll` moves that wait out from under `testTimeout` entirely, where raising the test budget alone never reaches it. `unit` keeps the tight budgets, which is what makes a hung unit test fail fast.
 
 To raise a budget for one tier and no other, use the `tiers` seam below. The `project` seam merges over both budgets as well, but like every option passed through it the value reaches all four projects at once -- raising a tier's budget raises `unit`'s with it. To lift the ceiling for a single file rather than a whole tier, pass a timeout to the individual test or hook, which stays the narrower tool.
+
+### Gating the test-file conventions
+
+Both halves of the convention are silent on their own: an untiered file runs under the residual `unit` and passes, and a file outside `__tests__` is collected by nothing at all. `@williamthorsen/nmr/tests` exports a check that reports both, which a repo declares from a one-line test of its own:
+
+```ts
+// __tests__/test-file-conventions.unit.test.ts
+import { checkTestFileConventions } from '@williamthorsen/nmr/tests';
+
+checkTestFileConventions();
+```
+
+It declares one suite with an assertion per half, each carrying the remedy that fixes it: the four tier names and the rename form, or the `__tests__` directory the file belongs in. The guard names its own tier like any other test file, so a misnamed guard reports itself.
+
+A repo linting with `vitest/require-hook` needs a disable directive on that call, which the rule reads as setup work where it declares the suite:
+
+```ts
+// eslint-disable-next-line vitest/require-hook -- the call declares the suite, where the rule reads it as setup work.
+checkTestFileConventions();
+```
+
+The sweep starts at the monorepo root rather than at the directory Vitest supplies, so one call covers the whole repo from whichever package the run began in. `rootDir` overrides that, for a check pointed at a tree other than the repo's own.
+
+An exported check rather than a step nmr runs for you, because nothing nmr runs reaches the whole tree: `nmr test` fans out per package, and a direct `vitest` invocation runs no nmr script at all. A test the repo owns also lets the repo scope what the sweep covers.
+
+`exclude` names directory basenames the sweep prunes at any depth, additive to the ones nmr always prunes:
+
+```ts
+checkTestFileConventions({ exclude: ['cypress', 'generated'] });
+```
+
+**Pass the same array to [`testCollectionExclude`](#what-the-config-excludes).** The two describe one scope, and naming a directory in only one is a defect in either direction. Pruned from the sweep alone, the directory's test files still run and still report nothing, which is the silence this check exists to end. Excluded from collection alone, the sweep reports files a consumer has no reason to act on.
+
+Expect the first run to fail in a repo that has never gated this. Vitest 4 excludes only `node_modules` and `.git` by default, so a `__tests__` tree under a generated or vendored directory is collected and runs today; naming that directory in both lists is the fix, rather than widening what nmr prunes for everyone.
 
 ### What the config supplies
 
@@ -1169,7 +1203,15 @@ A config file that omits the shared layer still loses those settings, silently -
 
 ### What the config excludes
 
-Collection skips `**/node_modules/**`, `**/.git/**`, and `**/dist/**`. Coverage skips `**/__{fixtures,mocks,tests}__/**`, `**/index.ts`, and `**/*.d.ts`.
+Collection skips `**/node_modules/**`, `**/.git/**`, `**/coverage/**`, and `**/dist/**`. Coverage skips `**/__{fixtures,mocks,tests}__/**`, `**/index.ts`, and `**/*.d.ts`.
+
+`testCollectionExclude` adds to the collection list. It takes directory basenames rather than globs, matched at any depth, so the same array serves the [conventions check](#gating-the-test-file-conventions):
+
+```ts
+export default defineVitestConfig({ testCollectionExclude: ['cypress', 'generated'] });
+```
+
+Every layer's entries are concatenated, and a name the shared config already prunes is emitted once. A repo needing a glob rather than a directory name has the `project` seam's own `exclude`.
 
 Because both seams concatenate, a consumer can add an exclusion but never remove one. A pattern therefore earns its place in these lists only by preventing a _silent_ failure, one a consumer cannot self-diagnose. A visible failure, such as a stray file sitting at 0% in the coverage report, is left to the consumer's own `project` seam.
 
@@ -1206,7 +1248,7 @@ The projects were once named `unit`, `integration`, and `app`, for what a test _
 2. Rename every `*.app.test.ts` onto the convention. `app` was never a tier, so keep it as the aspect segment and add the tier after it: `scaffold.app.test.ts` becomes `scaffold.app.unit.test.ts`.
 3. Replace `nmr test:integration` with `nmr test:tool`, and `nmr root:test:integration` with `nmr root:test:tool`, wherever a script or workflow names them.
 
-**A file left without a tier is a silent failure.** The residual `unit` claims it and it runs in the default gate -- green, with nothing reporting that the separation was lost. [nmr's readyup kit](#conformance-checks) reports every such file; a passing test run does not. Run it before treating the migration as done.
+**A file left without a tier is a silent failure.** The residual `unit` claims it and it runs in the default gate -- green, with nothing reporting that the separation was lost. Declare the [conventions check](#gating-the-test-file-conventions), which turns that state into a failing test run, or run [nmr's readyup kit](#conformance-checks), which reports every such file. Do one of the two before treating the migration as done.
 
 `nmr test` also runs the `tool` tier, which the old `test` excluded. Those tests previously ran in no default selection at all: `check`, `check:strict`, and `ci` all inherited the exclusion, so a green pipeline said nothing about them. Expect `nmr test` to take longer and to surface failures that were never gated.
 

@@ -42,6 +42,10 @@
       "types": "./dist/esm/taze.d.ts",
       "default": "./dist/esm/taze.js"
     },
+    "./tests": {
+      "types": "./dist/esm/tests.d.ts",
+      "default": "./dist/esm/tests.js"
+    },
     "./vitest": {
       "types": "./dist/esm/vitest.d.ts",
       "default": "./dist/esm/vitest.js"
