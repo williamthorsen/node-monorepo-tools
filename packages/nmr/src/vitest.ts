@@ -52,6 +52,16 @@ export interface VitestConfigOptions {
    * Defaults to `true`. A package declaring no such condition is unaffected.
    */
   resolveFromSource?: boolean;
+
+  /**
+   * Resolves a specifier through the `paths` a `tsconfig.json` declares, so a test reaches an alias the way `tsc`
+   * does. Defaults to `false`, matching Vite, and requires Vite 8.
+   *
+   * Not a default, because both directions are safe to leave to the consumer: omitting it fails loudly with an
+   * unresolved import, while turning it on for a repo that declares `paths` for `tsc` alone changes which module a
+   * specifier reaches with nothing in the run reporting it. A repo declaring no `paths` is unaffected either way.
+   */
+  tsconfigPaths?: boolean;
 }
 
 export interface RootVitestConfigOptions extends VitestConfigOptions {
@@ -176,11 +186,19 @@ function buildConfig(
 
   assertKnownTiers(layers);
 
+  const resolveFromSource = resolveFlag(layers, 'resolveFromSource', true);
+
+  // Both flags contribute to one `resolve` block, which a second spread would replace rather than merge into.
+  // `tsconfigPaths` needs no `ssr` twin the way the conditions do: Vite holds it outside its per-environment
+  // resolve options and spreads the top-level block into every environment's defaults.
+  const resolve = {
+    ...(resolveFromSource && { conditions: SOURCE_CLIENT_CONDITIONS }),
+    ...(resolveFlag(layers, 'tsconfigPaths', false) && { tsconfigPaths: true }),
+  };
+
   const config: ViteUserConfig = {
-    ...(resolveFlag(layers, 'resolveFromSource') && {
-      resolve: { conditions: SOURCE_CLIENT_CONDITIONS },
-      ssr: { resolve: { conditions: SOURCE_SERVER_CONDITIONS } },
-    }),
+    ...(Object.keys(resolve).length > 0 && { resolve }),
+    ...(resolveFromSource && { ssr: { resolve: { conditions: SOURCE_SERVER_CONDITIONS } } }),
     test: {
       coverage: {
         enabled: false, // don't check coverage unless the `--coverage` flag is passed
@@ -228,7 +246,7 @@ function buildProjects(
     })),
   ];
 
-  const isolateGit = resolveFlag(layers, 'isolateGit');
+  const isolateGit = resolveFlag(layers, 'isolateGit', true);
 
   return projectTiers.map(({ exclude, include, name, timeout }) => {
     const project: TestProjectInlineConfiguration = {
@@ -298,9 +316,16 @@ function getWorkspaceExcludePatterns(monorepoRoot: string): string[] {
     .toSorted();
 }
 
-/** Reads one boolean option across the layers, the last to declare it winning, defaulting to `true`. */
-function resolveFlag(layers: readonly VitestConfigOptions[], name: 'isolateGit' | 'resolveFromSource'): boolean {
-  let resolved = true;
+/**
+ * Reads one boolean option across the layers, the last to declare it winning, and the caller's fallback where none
+ * does. Each call site states its own fallback, so a flag cannot inherit one chosen for a different flag.
+ */
+function resolveFlag(
+  layers: readonly VitestConfigOptions[],
+  name: 'isolateGit' | 'resolveFromSource' | 'tsconfigPaths',
+  fallback: boolean,
+): boolean {
+  let resolved = fallback;
 
   for (const layer of layers) {
     const declared = layer[name];

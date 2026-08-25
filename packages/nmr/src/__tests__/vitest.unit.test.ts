@@ -195,6 +195,35 @@ describe(defineVitestConfig, () => {
     expect(config.resolve?.conditions).toStrictEqual(['development']);
   });
 
+  // Vite holds `tsconfigPaths` outside its per-environment resolve options, so the top-level key is the whole
+  // emission. That it reaches the environment a test's own imports resolve through is held by the tool-tier suite,
+  // which no assertion on the config object can stand in for.
+  it('emits tsconfig paths resolution, and no server twin, when the flag is on', () => {
+    const config = defineVitestConfig({ tsconfigPaths: true });
+
+    expect(config.resolve?.tsconfigPaths).toBe(true);
+    expect(config.ssr?.resolve).toStrictEqual({ conditions: SOURCE_SERVER_CONDITIONS });
+  });
+
+  it('leaves tsconfig paths resolution off by default, as Vite does', () => {
+    expect(defineVitestConfig().resolve?.tsconfigPaths).toBeUndefined();
+  });
+
+  // Both flags contribute to the same `resolve` block. One written over the other would drop the conditions, and
+  // every cross-package import would resolve to `dist` with the suite still green.
+  it('carries the source conditions and tsconfig paths together when both are on', () => {
+    const config = defineVitestConfig({ resolveFromSource: true, tsconfigPaths: true });
+
+    expect(config.resolve).toStrictEqual({ conditions: SOURCE_CLIENT_CONDITIONS, tsconfigPaths: true });
+  });
+
+  it('emits tsconfig paths resolution alone when resolveFromSource is off', () => {
+    const config = defineVitestConfig({ resolveFromSource: false, tsconfigPaths: true });
+
+    expect(config.resolve).toStrictEqual({ tsconfigPaths: true });
+    expect(config.ssr).toBeUndefined();
+  });
+
   // Without it, a suite that spawns git reads the developer's identity and can block on a signing passphrase,
   // and nothing in the run says so.
   it('isolates git subprocesses in every project', () => {
@@ -222,6 +251,20 @@ describe(defineVitestConfig, () => {
 
     expect(config.resolve?.conditions).toStrictEqual(SOURCE_CLIENT_CONDITIONS);
     expect(getProjects(config)[0]?.test?.setupFiles).toStrictEqual([GIT_ISOLATION_SETUP_FILE]);
+  });
+
+  // The two flags above default on, so one case covers both directions for them. This one defaults off, and each
+  // direction crosses a different branch: one adds the key, the other has to leave the block without it.
+  it('lets a later layer turn tsconfigPaths on', () => {
+    const config = defineVitestConfig({ tsconfigPaths: false }, { tsconfigPaths: true });
+
+    expect(config.resolve?.tsconfigPaths).toBe(true);
+  });
+
+  it('lets a later layer turn tsconfigPaths back off', () => {
+    const config = defineVitestConfig({ tsconfigPaths: true }, { tsconfigPaths: false });
+
+    expect(config.resolve?.tsconfigPaths).toBeUndefined();
   });
 
   it('applies a project override to every project', () => {
@@ -409,6 +452,12 @@ describe(defineRootVitestConfig, () => {
         'tools/cli/**',
       ]);
     }
+  });
+
+  it('takes the resolution flags the package factory takes', ({ workspaceTree }) => {
+    const config = defineRootVitestConfig({ monorepoRoot: workspaceTree.dir, tsconfigPaths: true });
+
+    expect(config.resolve?.tsconfigPaths).toBe(true);
   });
 
   it('pins every project to the monorepo root, so the globs resolve from the same base', ({ workspaceTree }) => {
