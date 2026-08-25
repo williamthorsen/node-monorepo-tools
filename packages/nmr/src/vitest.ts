@@ -42,6 +42,18 @@ export interface VitestConfigOptions {
   tiers?: Partial<Record<TierName, ProjectConfig>>;
 
   /**
+   * Directory basenames kept out of every project's collection, additive to the ones the shared config always
+   * prunes. Each name is matched at any depth, and every layer's entries are concatenated rather than the last
+   * winning, matching the config's rule for arrays.
+   *
+   * The same array declares the scope of nmr's exported test-file conventions check, so the sweep and the
+   * collection glob cannot drift. Excluding a directory from the sweep alone leaves a test file that runs and
+   * reports nothing; excluding it from collection alone leaves a report a consumer cannot act on. A repo wanting
+   * a glob rather than a directory name has the `project` seam's own `exclude`.
+   */
+  testCollectionExclude?: readonly string[];
+
+  /**
    * Loads nmr's git-isolation setup file into every project, ahead of any the layers supply. Defaults to `true`.
    * Turn it off only where a suite is meant to read the developer's own git configuration.
    */
@@ -119,12 +131,6 @@ const SOURCE_SERVER_CONDITIONS = ['source', 'module', 'node', 'development|produ
 //
 // Each entry names what cannot hold runtime code by construction: a directory, a barrel, a declaration file.
 const COVERAGE_EXCLUDE = ['**/__{fixtures,mocks,tests}__/**', '**/index.ts', '**/*.d.ts'];
-
-// The pruned directories as collection globs, unioned with Vitest's own defaults so a later release's addition still
-// reaches every project. `dist/` is excluded from collection but deliberately not from coverage: a stale test copy
-// under it passes green, which a consumer cannot self-diagnose, whereas a `dist/` entry in the coverage report is a
-// visible 0% they can.
-const COLLECTION_EXCLUDE = [...new Set([...defaultExclude, ...TEST_COLLECTION_EXCLUDE.map((dir) => `**/${dir}/**`)])];
 
 const PACKAGE_COVERAGE_INCLUDE = ['**/src/**/*.{ts,tsx}'];
 
@@ -246,6 +252,7 @@ function buildProjects(
     })),
   ];
 
+  const collectionExclude = buildCollectionExclude(layers);
   const isolateGit = resolveFlag(layers, 'isolateGit', true);
 
   return projectTiers.map(({ exclude, include, name, timeout }) => {
@@ -256,7 +263,7 @@ function buildProjects(
       // Patterns resolve against the project root, which otherwise defaults to the working directory.
       ...(projectRoot !== undefined && { root: projectRoot }),
       test: {
-        exclude: [...COLLECTION_EXCLUDE, ...exclude, ...extraExclude],
+        exclude: [...collectionExclude, ...exclude, ...extraExclude],
         include,
         name,
         ...(isolateGit && { setupFiles: [GIT_ISOLATION_SETUP_FILE] }),
@@ -307,6 +314,21 @@ function assertKnownTiers(layers: readonly VitestConfigOptions[]): void {
       }
     }
   }
+}
+
+/**
+ * Builds the collection exclusions every project carries: Vitest's own defaults, the directories the shared config
+ * always prunes, and whatever the layers add, each directory name as a glob matching at any depth.
+ *
+ * Unioned with Vitest's defaults so a later release's addition still reaches every project. `dist/` is excluded from
+ * collection but deliberately not from coverage: a stale test copy under it passes green, which a consumer cannot
+ * self-diagnose, whereas a `dist/` entry in the coverage report is a visible 0% they can.
+ */
+function buildCollectionExclude(layers: readonly VitestConfigOptions[]): string[] {
+  const declared = layers.flatMap((layer) => layer.testCollectionExclude ?? []);
+  const globs = [...TEST_COLLECTION_EXCLUDE, ...declared].map((dir) => `**/${dir}/**`);
+
+  return [...new Set([...defaultExclude, ...globs])];
 }
 
 /** Resolves each workspace package directory to a glob relative to the monorepo root. */
