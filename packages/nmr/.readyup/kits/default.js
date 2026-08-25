@@ -108,10 +108,8 @@ var TEST_EXTENSIONS = "{ts,tsx}";
 var TEST_GLOB_PREFIX = `**/${TEST_DIR}/**`;
 var TEST_FILE_PATTERN = /\.test\.tsx?$/;
 var ALL_TEST_PATTERNS = [`${TEST_GLOB_PREFIX}/*.test.${TEST_EXTENSIONS}`];
-function findTestFiles(rootDir) {
-  const found = [];
-  collectTestFiles(rootDir, "", false, found);
-  return found.toSorted();
+function findTestFiles(rootDir, options = {}) {
+  return walkTestFiles(rootDir, options, false);
 }
 function hasTierInfix(filePath) {
   const tiers = TIER_NAMES;
@@ -119,17 +117,26 @@ function hasTierInfix(filePath) {
 }
 var TEST_COLLECTION_EXCLUDE = [".git", "coverage", "dist", "node_modules"];
 var TIER_NAMES = ["unit", "tool", "localhost", "remote"];
-function collectTestFiles(dir, relativeDir, inTestDir, found) {
+function collectTestFiles(dir, relativeDir, inTestDir, context) {
   const entries = readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
     const relativePath = relativeDir === "" ? entry.name : `${relativeDir}/${entry.name}`;
     if (entry.isDirectory()) {
-      if (TEST_COLLECTION_EXCLUDE.includes(entry.name)) continue;
-      collectTestFiles(path.join(dir, entry.name), relativePath, inTestDir || entry.name === TEST_DIR, found);
-    } else if (inTestDir && TEST_FILE_PATTERN.test(entry.name)) {
-      found.push(relativePath);
+      if (context.pruned.has(entry.name)) continue;
+      collectTestFiles(path.join(dir, entry.name), relativePath, inTestDir || entry.name === TEST_DIR, context);
+    } else if (inTestDir !== context.misplaced && TEST_FILE_PATTERN.test(entry.name)) {
+      context.found.push(relativePath);
     }
   }
+}
+function walkTestFiles(rootDir, { exclude = [] }, misplaced) {
+  const context = {
+    found: [],
+    misplaced,
+    pruned: /* @__PURE__ */ new Set([...TEST_COLLECTION_EXCLUDE, ...exclude])
+  };
+  collectTestFiles(rootDir, "", false, context);
+  return context.found.toSorted();
 }
 
 // .readyup/kits/default.ts
