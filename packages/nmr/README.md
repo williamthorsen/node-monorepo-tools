@@ -1039,7 +1039,7 @@ import { defineVitestConfig } from '@williamthorsen/nmr/vitest';
 export default defineVitestConfig();
 ```
 
-`vitest` is a peer dependency (`>=4.0.0 <5`), declared optional — the consuming repo provides it, and repos that never import this subpath are unaffected.
+`vitest` is a peer dependency (`>=4.0.0 <5`), declared optional — the consuming repo provides it, and repos that never import this subpath are unaffected. `vite` is an optional peer as well (`>=8.0.0 <9`), required only by the [`tsconfigPaths` setting](#resolving-through-tsconfig-paths); a repo that declares a `vite` of its own below that range sees an unmet-peer warning whether or not it sets the flag.
 
 ### Test tiers
 
@@ -1103,7 +1103,7 @@ export default defineVitestConfig({ tsconfigPaths: true });
 
 It folds across layers like the other two, the last layer to declare it winning. It needs no `ssr` counterpart the way a condition does: Vite holds this setting outside its per-environment resolve options, so the single key reaches the environment a test's own imports resolve through.
 
-**It is an opt-in because neither direction is silent in the way the two defaults are.** Leaving it off fails loudly, with an unresolved import naming the specifier. Turning it on is the silent direction, for a repo that declares `paths` for `tsc` alone: a specifier that resolved through a package's `exports` starts resolving through the alias instead, and nothing in the run reports the switch. A repo declaring no `paths` is unaffected either way.
+**It is an opt-in because its silent direction is the reverse of the two defaults'.** Leaving it off fails loudly, with an unresolved import naming the specifier. Turning it on is the silent direction, for a repo that declares `paths` for `tsc` alone: a specifier that resolved through a package's `exports` starts resolving through the alias instead, and nothing in the run reports the switch. A repo declaring no `paths` is unaffected either way.
 
 **It requires Vite 8**, where `resolve.tsconfigPaths` arrived. nmr declares `vite` as an optional peer at `>=8.0.0 <9`, so a repo holding a stale `vite` of its own hears about it at install time. That check does not reach a repo whose only Vite comes in through Vitest's own dependency, and Vitest 4 accepts Vite 6 and 7: on those, the emitted key does nothing and the aliased import fails exactly as it would with the flag off.
 
