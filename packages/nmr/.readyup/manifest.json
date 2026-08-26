@@ -38,10 +38,10 @@
       ],
       "name": "default",
       "path": "kits/default.js",
-      "readyupVersion": "0.32.0",
+      "readyupVersion": "0.34.0",
       "source": "kits/default.ts",
       "sourceHash": "f58e8934",
-      "targetHash": "37718b8e"
+      "targetHash": "06fcc92e"
     }
   ]
 }

@@ -287,8 +287,8 @@ export function readmeHasReleaseNotesMarkers(content: string): boolean {
  *
  * Validates `${dir}/README.md` for each publishable package; aggregates failures into the `CheckOutcome.detail` field.
  * A missing README counts as a failure for that package (no README → no markers).
- * In single-package mode, `discoverWorkspaces` yields a single root entry (`dir: '.'`),
- * so the same loop handles both repo types.
+ * Workspace discovery reports the repo root in both repo types, so a publishable root is checked like any other
+ * package and the same loop handles both.
  */
 export function readmesHaveReleaseNotesMarkers(): boolean | CheckOutcome {
   const failing: string[] = [];
