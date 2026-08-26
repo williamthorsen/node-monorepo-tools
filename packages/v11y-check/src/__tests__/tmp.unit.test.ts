@@ -25,6 +25,7 @@ describe(withTempDir, () => {
 
     await withTempDir(async (dir) => {
       capturedDir = dir;
+      // eslint-disable-next-line no-restricted-syntax -- `withTempDir` yields a bare directory, so there is no tree to write through.
       await writeFile(path.join(dir, 'test.txt'), 'hello', 'utf8');
     });
 

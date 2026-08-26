@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
@@ -10,15 +10,16 @@ import { generateAuditCiConfig } from '../generate.ts';
 import { buildUpdatedConfig, computeSyncDiff, serializeConfig } from '../sync.ts';
 import type { AuditResult, V11yCheckConfig } from '../types.ts';
 
-const it = baseIt
-  .extend(
-    'tree',
-    makeFixture(() => createTempTree({ '.config/': '' }, { prefix: 'v11y-check-integration-' })),
-  )
-  .extend('configDir', ({ tree }) => path.join(tree.dir, '.config'));
+const CONFIG_ENTRY = '.config/v11y-check.config.json';
+
+// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
+const it = baseIt.extend(
+  'tree',
+  makeFixture(() => createTempTree({ '.config/': '' }, { prefix: 'v11y-check-integration-' })),
+);
 
 describe('generate -> sync cycle', () => {
-  it('generates flat configs, then syncs allowlist based on audit results', async ({ configDir, tree }) => {
+  it('generates flat configs, then syncs allowlist based on audit results', async ({ tree }) => {
     // Write initial config with new schema
     const initialConfig: V11yCheckConfig = {
       dev: { severityThreshold: 'high', allowlist: [] },
@@ -27,16 +28,14 @@ describe('generate -> sync cycle', () => {
         allowlist: [{ id: 'GHSA-stale', path: 'old-pkg', reason: 'will be removed', url: 'https://example.com/stale' }],
       },
     };
-    const configFilePath = path.join(configDir, 'v11y-check.config.json');
-    await writeFile(configFilePath, JSON.stringify(initialConfig, null, 2), 'utf8');
+    const configFilePath = tree.writeJson(CONFIG_ENTRY, initialConfig);
 
     // Load and validate config
     const loaded = await loadConfig(configFilePath, tree.dir);
     expect(loaded.config.prod.allowlist).toHaveLength(1);
 
     // Generate flat audit-ci configs to a temp output dir
-    const outputDir = path.join(tree.dir, 'tmp');
-    await mkdir(outputDir, { recursive: true });
+    const outputDir = tree.mkdir('tmp');
     const devPath = await generateAuditCiConfig(loaded.config.dev, 'dev', outputDir);
     const prodPath = await generateAuditCiConfig(loaded.config.prod, 'prod', outputDir);
 
@@ -69,7 +68,7 @@ describe('generate -> sync cycle', () => {
 
     // Build and write updated config
     const updatedConfig = buildUpdatedConfig(loaded.config, 'prod', [...kept, ...added]);
-    await writeFile(configFilePath, serializeConfig(updatedConfig), 'utf8');
+    tree.write(CONFIG_ENTRY, serializeConfig(updatedConfig));
 
     // Verify persisted config
     const reloaded = await loadConfig(configFilePath, tree.dir);
@@ -84,15 +83,12 @@ describe('generate -> sync cycle', () => {
   });
 
   it('works with a custom config path', async ({ tree }) => {
-    const customConfigPath = path.join(tree.dir, 'custom', 'my-config.json');
-    const customConfigDir = path.dirname(customConfigPath);
-    await mkdir(customConfigDir, { recursive: true });
-
     const config: V11yCheckConfig = {
       dev: { allowlist: [] },
       prod: { allowlist: [] },
     };
-    await writeFile(customConfigPath, JSON.stringify(config), 'utf8');
+    const customConfigPath = tree.writeJson('custom/my-config.json', config);
+    const customConfigDir = tree.resolve('custom');
 
     const loaded = await loadConfig(customConfigPath, tree.dir);
     expect(loaded.configFilePath).toBe(customConfigPath);
@@ -106,8 +102,7 @@ describe('generate -> sync cycle', () => {
   });
 
   it('returns defaults when no config file exists', async ({ tree }) => {
-    const emptyDir = path.join(tree.dir, 'empty-project');
-    await mkdir(emptyDir, { recursive: true });
+    const emptyDir = tree.mkdir('empty-project');
 
     const result = await loadConfig(undefined, emptyDir);
     expect(result.configSource).toBe('defaults');

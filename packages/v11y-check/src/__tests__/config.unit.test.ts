@@ -1,4 +1,3 @@
-import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
@@ -8,6 +7,8 @@ import { describe, expect, it as baseIt } from 'vitest';
 import { loadConfig } from '../config.ts';
 import { DEFAULT_CONFIG } from '../types.ts';
 
+const CONFIG_ENTRY = '.config/v11y-check.config.json';
+
 // eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
   'tree',
@@ -16,9 +17,6 @@ const it = baseIt.extend(
 
 describe(loadConfig, () => {
   it('loads and validates a well-formed config', async ({ tree }) => {
-    const configDir = path.join(tree.dir, '.config');
-    await mkdir(configDir, { recursive: true });
-
     const config = {
       dev: { severityThreshold: 'high', allowlist: [] },
       prod: {
@@ -26,12 +24,12 @@ describe(loadConfig, () => {
         allowlist: [{ id: 'GHSA-1234', path: 'lodash', url: 'https://example.com' }],
       },
     };
-    await writeFile(path.join(configDir, 'v11y-check.config.json'), JSON.stringify(config), 'utf8');
+    tree.writeJson(CONFIG_ENTRY, config);
 
     const result = await loadConfig(undefined, tree.dir);
     expect(result.config.dev.severityThreshold).toBe('high');
     expect(result.config.prod.allowlist).toHaveLength(1);
-    expect(result.configDir).toBe(configDir);
+    expect(result.configDir).toBe(tree.resolve('.config'));
     expect(result.configSource).toBe('file');
   });
 
@@ -39,7 +37,7 @@ describe(loadConfig, () => {
     const result = await loadConfig(undefined, tree.dir);
     expect(result.config).toStrictEqual(DEFAULT_CONFIG);
     expect(result.configSource).toBe('defaults');
-    expect(result.configFilePath).toBe(path.resolve(tree.dir, '.config/v11y-check.config.json'));
+    expect(result.configFilePath).toBe(path.resolve(tree.dir, CONFIG_ENTRY));
   });
 
   it('throws when an explicit config path does not exist', async ({ tree }) => {
@@ -47,42 +45,34 @@ describe(loadConfig, () => {
   });
 
   it('throws when the config file is not valid JSON', async ({ tree }) => {
-    const configDir = path.join(tree.dir, '.config');
-    await mkdir(configDir, { recursive: true });
-    await writeFile(path.join(configDir, 'v11y-check.config.json'), 'not json', 'utf8');
+    tree.write(CONFIG_ENTRY, 'not json');
 
     await expect(loadConfig(undefined, tree.dir)).rejects.toThrow(/not valid JSON/);
   });
 
   it('throws when the config fails schema validation', async ({ tree }) => {
-    const configDir = path.join(tree.dir, '.config');
-    await mkdir(configDir, { recursive: true });
-    await writeFile(path.join(configDir, 'v11y-check.config.json'), JSON.stringify({ bad: true }), 'utf8');
+    tree.writeJson(CONFIG_ENTRY, { bad: true });
 
     await expect(loadConfig(undefined, tree.dir)).rejects.toThrow(/Invalid config/);
   });
 
   it('rejects configs with old boolean severity fields', async ({ tree }) => {
-    const configDir = path.join(tree.dir, '.config');
-    await mkdir(configDir, { recursive: true });
     const config = {
       dev: { moderate: true, allowlist: [] },
       prod: { allowlist: [] },
     };
-    await writeFile(path.join(configDir, 'v11y-check.config.json'), JSON.stringify(config), 'utf8');
+    tree.writeJson(CONFIG_ENTRY, config);
 
     await expect(loadConfig(undefined, tree.dir)).rejects.toThrow(/Invalid config/);
   });
 
   it('rejects configs with outDir', async ({ tree }) => {
-    const configDir = path.join(tree.dir, '.config');
-    await mkdir(configDir, { recursive: true });
     const config = {
       outDir: '../tmp',
       dev: { allowlist: [] },
       prod: { allowlist: [] },
     };
-    await writeFile(path.join(configDir, 'v11y-check.config.json'), JSON.stringify(config), 'utf8');
+    tree.writeJson(CONFIG_ENTRY, config);
 
     await expect(loadConfig(undefined, tree.dir)).rejects.toThrow(/Invalid config/);
   });
@@ -92,8 +82,7 @@ describe(loadConfig, () => {
       dev: { allowlist: [] },
       prod: { allowlist: [] },
     };
-    const customPath = path.join(tree.dir, 'custom.json');
-    await writeFile(customPath, JSON.stringify(config), 'utf8');
+    const customPath = tree.writeJson('custom.json', config);
 
     const result = await loadConfig(customPath, tree.dir);
     expect(result.config.dev.allowlist).toStrictEqual([]);
@@ -102,14 +91,11 @@ describe(loadConfig, () => {
   });
 
   it('loads a config with empty allowlists', async ({ tree }) => {
-    const configDir = path.join(tree.dir, '.config');
-    await mkdir(configDir, { recursive: true });
-
     const config = {
       dev: { allowlist: [] },
       prod: { allowlist: [] },
     };
-    await writeFile(path.join(configDir, 'v11y-check.config.json'), JSON.stringify(config), 'utf8');
+    tree.writeJson(CONFIG_ENTRY, config);
 
     const result = await loadConfig(undefined, tree.dir);
     expect(result.config.dev.allowlist).toStrictEqual([]);
@@ -117,14 +103,12 @@ describe(loadConfig, () => {
   });
 
   it('accepts a config with $schema field', async ({ tree }) => {
-    const configDir = path.join(tree.dir, '.config');
-    await mkdir(configDir, { recursive: true });
     const config = {
       $schema: 'https://example.com/schema.json',
       dev: { allowlist: [] },
       prod: { allowlist: [] },
     };
-    await writeFile(path.join(configDir, 'v11y-check.config.json'), JSON.stringify(config), 'utf8');
+    tree.writeJson(CONFIG_ENTRY, config);
 
     const result = await loadConfig(undefined, tree.dir);
     expect(result.config.$schema).toBe('https://example.com/schema.json');
