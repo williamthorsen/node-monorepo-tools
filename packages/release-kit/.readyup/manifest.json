@@ -5,7 +5,7 @@
       "checklists": [
         "release-kit"
       ],
-      "esbuildVersion": "0.28.1",
+      "esbuildVersion": "0.28.2",
       "inputs": [
         {
           "hash": "fe239d01",
@@ -48,7 +48,7 @@
         "repo",
         "packages"
       ],
-      "esbuildVersion": "0.28.1",
+      "esbuildVersion": "0.28.2",
       "inputs": [
         {
           "hash": "ac484613",

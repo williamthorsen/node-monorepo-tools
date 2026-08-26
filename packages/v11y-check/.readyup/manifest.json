@@ -5,7 +5,7 @@
       "checklists": [
         "v11y-check"
       ],
-      "esbuildVersion": "0.28.1",
+      "esbuildVersion": "0.28.2",
       "inputs": [
         {
           "hash": "52754bbb",

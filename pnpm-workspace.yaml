@@ -6,6 +6,7 @@ catalog:
   '@williamthorsen/toolbelt.filesystem': 0.8.0
   '@williamthorsen/toolbelt.testing': 0.4.0
   '@williamthorsen/toolbelt.vitest': 0.6.0
+  esbuild: ^0.28.2
   'readyup': 0.32.0
 
 allowBuilds:

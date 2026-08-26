@@ -5,7 +5,7 @@
       "checklists": [
         "nmr"
       ],
-      "esbuildVersion": "0.28.1",
+      "esbuildVersion": "0.28.2",
       "inputs": [
         {
           "hash": "f58e8934",
