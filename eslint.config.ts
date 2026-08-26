@@ -1,7 +1,7 @@
 import baseConfig, { createConfig } from '@williamthorsen/eslint-config-typescript';
 import { defineConfig, globalIgnores } from 'eslint/config';
 
-import { syntaxRestrictions, testScaffoldingRestrictions } from './eslint.restrictions.ts';
+import { syntaxRestrictions, testCodeRestrictions } from './eslint.restrictions.ts';
 
 const config = defineConfig([
   ...baseConfig,
@@ -27,9 +27,9 @@ const config = defineConfig([
     },
   },
   {
-    files: ['**/__tests__/**'],
+    files: ['**/__tests__/**', '**/test-utils/**'],
     rules: {
-      'no-restricted-syntax': ['error', ...syntaxRestrictions, ...testScaffoldingRestrictions],
+      'no-restricted-syntax': ['error', ...testCodeRestrictions],
     },
   },
   {

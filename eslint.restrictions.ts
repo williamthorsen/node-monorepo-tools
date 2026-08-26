@@ -3,6 +3,22 @@ const SCAFFOLD_MESSAGE =
 
 const SYNC_SCAFFOLD_NAMES = '/^(mkdirSync|writeFileSync|symlinkSync)$/';
 
+const scaffoldingRestrictions = [
+  {
+    selector: `CallExpression:matches([callee.name=${SYNC_SCAFFOLD_NAMES}], [callee.property.name=${SYNC_SCAFFOLD_NAMES}])`,
+    message: SCAFFOLD_MESSAGE,
+  },
+  {
+    // The promises and callback forms name `mkdir` and `symlink` as the tree does, so a property-name match on
+    // those would report the very API the message recommends; they are restricted in the bare-call form a named
+    // import produces. `writeFile` carries no such collision, the tree's method being `write`, so its member form
+    // is restricted too and `fsp.writeFile` is caught alongside it.
+    selector:
+      'CallExpression:matches([callee.name=/^(mkdir|writeFile|symlink)$/], [callee.property.name=/^writeFile$/])',
+    message: SCAFFOLD_MESSAGE,
+  },
+];
+
 /**
  * Syntax restricted everywhere in the repository. ESLint replaces a rule's options rather than merging them, so
  * every block raising `no-restricted-syntax` spreads this list instead of restating it.
@@ -23,19 +39,8 @@ export const syntaxRestrictions = [
 ];
 
 /**
- * Syntax restricted in test files alone: the `node:fs` calls that scaffold a temporary directory by hand, which
- * the tree's own API does in one call.
+ * Everything restricted in test code: the repo-wide set, plus the `node:fs` calls that scaffold a temporary
+ * directory by hand, which the tree's own API does in one call. Composed here rather than at the config's call
+ * site, because dropping half of it there disables the repo-wide set for test code with nothing to report it.
  */
-export const testScaffoldingRestrictions = [
-  {
-    selector: `CallExpression:matches([callee.name=${SYNC_SCAFFOLD_NAMES}], [callee.property.name=${SYNC_SCAFFOLD_NAMES}])`,
-    message: SCAFFOLD_MESSAGE,
-  },
-  {
-    // The promises and callback forms share their names with the tree's `mkdir`, `write`, and `symlink`, so a
-    // property-name match here would report the very API the message recommends. Only the bare-call form, which
-    // a named import from `node:fs/promises` produces, is restricted.
-    selector: 'CallExpression[callee.name=/^(mkdir|writeFile|symlink)$/]',
-    message: SCAFFOLD_MESSAGE,
-  },
-];
+export const testCodeRestrictions = [...syntaxRestrictions, ...scaffoldingRestrictions];
