@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- this suite holds no tree, managing its temporary directories by hand until #622 converts it. */
 import { execSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

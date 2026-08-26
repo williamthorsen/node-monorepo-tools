@@ -1,6 +1,8 @@
 import baseConfig, { createConfig } from '@williamthorsen/eslint-config-typescript';
 import { defineConfig, globalIgnores } from 'eslint/config';
 
+import { syntaxRestrictions, testScaffoldingRestrictions } from './eslint.restrictions.ts';
+
 const config = defineConfig([
   ...baseConfig,
   {
@@ -21,21 +23,13 @@ const config = defineConfig([
     files: ['**/*.js', '**/*.cjs', '**/*.mjs', '**/*.ts', '**/*.tsx'],
     rules: {
       'no-console': ['error', { allow: ['debug', 'info', 'warn'] }],
-      'no-restricted-syntax': [
-        'error',
-        // ESLint replaces a rule's options rather than merging them, so the base config's entries are restated here.
-        'DebuggerStatement',
-        'LabeledStatement',
-        'WithStatement',
-        {
-          // Matches on the operator rather than the binding's name, so `err` and `e` are caught too. `isError`
-          // recognizes an Error crossing a realm boundary, which the built-in test reports as false, so no
-          // position is exempt.
-          selector: "BinaryExpression[operator='instanceof'][right.name='Error']",
-          message:
-            "Test a thrown value's errno with `hasErrnoCode` from '@williamthorsen/nmr-core'; otherwise narrow it with `isError`, or extract its message with `describeError`, from '@williamthorsen/toolbelt.errors'.",
-        },
-      ],
+      'no-restricted-syntax': ['error', ...syntaxRestrictions],
+    },
+  },
+  {
+    files: ['**/__tests__/**'],
+    rules: {
+      'no-restricted-syntax': ['error', ...syntaxRestrictions, ...testScaffoldingRestrictions],
     },
   },
   {
