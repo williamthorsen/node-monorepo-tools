@@ -1,18 +1,7 @@
 import { isFlatChecklist, type RdyCheck, type RdyChecklist } from 'readyup';
-import type { DiscoverWorkspacesOptions, Workspace } from 'readyup/check-utils';
-import { assert, describe, expect, it, vi } from 'vitest';
-
-const { mockedDiscoverWorkspaces } = vi.hoisted(() => ({
-  mockedDiscoverWorkspaces: vi.fn<(options?: DiscoverWorkspacesOptions) => Workspace[]>(),
-}));
-
-vi.mock(import('readyup/check-utils'), async (importOriginal) => {
-  const actual = await importOriginal<typeof import('readyup/check-utils')>();
-  return {
-    ...actual,
-    discoverWorkspaces: mockedDiscoverWorkspaces,
-  };
-});
+import { discoverWorkspaces } from 'readyup/check-utils';
+import { makeWorkspace } from 'readyup/testing';
+import { assert, describe, expect, it } from 'vitest';
 
 import kit, {
   buildWorkspaceCheck,
@@ -22,6 +11,7 @@ import kit, {
   skipIfNothingPublishable,
   skipIfNotPublishable,
 } from '../../.readyup/kits/npm-auto-publish.ts';
+import { PNPM_WORKSPACE, scaffoldRepo } from '../test-utils/scaffoldRepo.ts';
 
 // Verbatim payloads from npm 11.16.0. Both commands write the envelope to stdout and exit nonzero.
 const WHOAMI_E401 =
@@ -31,21 +21,35 @@ const TRUST_E401 = String.raw`{"error":{"code":"E401","summary":"401 Unauthorize
 const OWNER_REPO = 'williamthorsen/node-monorepo-tools';
 const WORKFLOW_FILE = 'publish.yaml';
 
+// Repo shapes the discovery-dependent tests scaffold. Discovery reports the root alongside the members and returns
+// the matched directories sorted, which is the order every assertion below reads.
+const MONOREPO_PUBLISHING_NOTHING = {
+  'package.json': '{"name":"monorepo","private":true}',
+  'pnpm-workspace.yaml': PNPM_WORKSPACE,
+  'packages/private/package.json': '{"name":"@scope/private","private":true}',
+};
+
+const MONOREPO_WITH_PRIVATE_ROOT = {
+  'package.json': '{"name":"monorepo","private":true}',
+  'pnpm-workspace.yaml': PNPM_WORKSPACE,
+  'packages/private/package.json': '{"name":"@scope/private","private":true}',
+  'packages/published/package.json': '{"name":"@scope/published"}',
+};
+
+// A single-package repo declares no workspace globs, so its only entry is the root, here a publishable one.
+const SINGLE_PACKAGE_REPO = { 'package.json': '{"name":"single-package"}' };
+
 describe(skipIfNothingPublishable, () => {
   it('returns false when at least one workspace is publishable', () => {
-    mockWorkspaces([makeWorkspace({ isPackage: false }), makeWorkspace({ isPackage: true })]);
+    scaffoldRepo(MONOREPO_WITH_PRIVATE_ROOT);
 
     expect(skipIfNothingPublishable()).toBe(false);
   });
 
-  it('returns the skip reason when every workspace is private', () => {
-    mockWorkspaces([makeWorkspace({ isPackage: false }), makeWorkspace({ isPackage: false })]);
-
-    expect(skipIfNothingPublishable()).toBe('no publishable packages');
-  });
-
-  it('returns the skip reason when no workspace is discovered', () => {
-    mockWorkspaces([]);
+  // Discovery reports the root, so the private-root monorepo is the closest a repo comes to an empty list:
+  // The list is never empty, and every entry in it is private.
+  it('returns the skip reason when every workspace is private, the root included', () => {
+    scaffoldRepo(MONOREPO_PUBLISHING_NOTHING);
 
     expect(skipIfNothingPublishable()).toBe('no publishable packages');
   });
@@ -234,13 +238,13 @@ describe('repo checklist', () => {
   });
 
   it('skips publish.yaml exists when the repo publishes nothing', () => {
-    mockWorkspaces([makeWorkspace({ isPackage: false })]);
+    scaffoldRepo(MONOREPO_PUBLISHING_NOTHING);
 
     expect(findCheck('publish.yaml exists', findChecklist('repo').checks).skip?.()).toBe('no publishable packages');
   });
 
   it('runs publish.yaml exists when the repo publishes something', () => {
-    mockWorkspaces([makeWorkspace({ isPackage: true })]);
+    scaffoldRepo(MONOREPO_WITH_PRIVATE_ROOT);
 
     expect(findCheck('publish.yaml exists', findChecklist('repo').checks).skip?.()).toBe(false);
   });
@@ -271,13 +275,13 @@ describe('packages checklist', () => {
   });
 
   it('skips the npm session check when the repo publishes nothing', () => {
-    mockWorkspaces([makeWorkspace({ isPackage: false })]);
+    scaffoldRepo(MONOREPO_PUBLISHING_NOTHING);
 
     expect(findCheck('npm session is usable', packagesChecklist.checks).skip?.()).toBe('no publishable packages');
   });
 
   it('runs the npm session check when the repo publishes something', () => {
-    mockWorkspaces([makeWorkspace({ isPackage: true })]);
+    scaffoldRepo(MONOREPO_WITH_PRIVATE_ROOT);
 
     expect(findCheck('npm session is usable', packagesChecklist.checks).skip?.()).toBe(false);
   });
@@ -293,23 +297,44 @@ describe('packages checklist', () => {
     expect(descriptor?.value).toBeTypeOf('string');
   });
 
-  // Read names only: the per-workspace `trusted publisher configured` check declares `fix` as a getter that shells
-  // out to git, so touching one here would put a subprocess in a unit test.
-  it('hangs a check for every discovered workspace beneath the npm session check', () => {
-    mockWorkspaces([
-      makeWorkspace({ isPackage: true, name: '@scope/published' }),
-      makeWorkspace({ isPackage: false, name: '@scope/private' }),
-    ]);
+  // Read names only: The per-workspace `trusted publisher configured` check declares `fix` as a getter that shells
+  // out to git. A private member keeps its row. A private root does not: The row is what reports the workspace
+  // as skipped, and the root is not a workspace a consumer wrote.
+  it('hangs a check for every discovered member beneath the npm session check', () => {
+    scaffoldRepo(MONOREPO_WITH_PRIVATE_ROOT);
 
     const gate = findCheck('npm session is usable', packagesChecklist.checks);
 
-    expect(gate.checks?.map((check) => check.name)).toStrictEqual(['@scope/published', '@scope/private']);
+    expect(gate.checks?.map((check) => check.name)).toStrictEqual(['@scope/private', '@scope/published']);
+  });
+
+  it('hangs no check for a private repo root', () => {
+    scaffoldRepo(MONOREPO_WITH_PRIVATE_ROOT);
+
+    const gate = findCheck('npm session is usable', packagesChecklist.checks);
+
+    // Read the unfiltered list first, so the root's absence below is the filter's doing rather than the tree's.
+    expect(discoverWorkspaces().map((workspace) => workspace.name)).toContain('monorepo');
+    expect(gate.checks?.map((check) => check.name)).not.toContain('monorepo');
+  });
+
+  it('hangs the full workspace check for a publishable repo root', () => {
+    scaffoldRepo(SINGLE_PACKAGE_REPO);
+
+    const gate = findCheck('npm session is usable', packagesChecklist.checks);
+
+    expect(gate.checks?.map((check) => check.name)).toStrictEqual(['single-package']);
+    expect(gate.checks?.[0]?.checks?.map((check) => check.name)).toStrictEqual([
+      'repository field exists',
+      'published to npm',
+      'files field exists',
+    ]);
   });
 });
 
 // region | Helpers
 
-/** Finds a check by name among `siblings`, asserting it exists so a rename fails loudly. */
+/** Finds a check by name among `siblings`. */
 function findCheck(name: string, siblings: RdyCheck[]): RdyCheck {
   const check = siblings.find((candidate) => candidate.name === name);
   assert(check, `Expected a "${name}" check`);
@@ -321,24 +346,6 @@ function findChecklist(name: string): RdyChecklist {
   const checklist = kit.checklists.find((candidate) => candidate.name === name);
   assert(checklist && isFlatChecklist(checklist), `Expected the kit to carry a flat "${name}" checklist`);
   return checklist;
-}
-
-/** Builds a minimal Workspace-shaped fixture. */
-function makeWorkspace(overrides: Partial<Workspace> & Pick<Workspace, 'isPackage'>): Workspace {
-  return {
-    dir: 'packages/example',
-    absolutePath: '/repo/packages/example',
-    name: '@scope/example',
-    packageJson: { name: '@scope/example' },
-    ...overrides,
-  };
-}
-
-/** Makes `discoverWorkspaces` yield the given workspaces, honoring the filter its callers pass. */
-function mockWorkspaces(workspaces: Workspace[]): void {
-  mockedDiscoverWorkspaces.mockImplementation((options) =>
-    workspaces.filter((workspace) => options?.filter?.(workspace) ?? true),
-  );
 }
 
 // endregion | Helpers

@@ -8,7 +8,7 @@
       "esbuildVersion": "0.28.2",
       "inputs": [
         {
-          "hash": "fe239d01",
+          "hash": "461f1a2c",
           "kind": "module",
           "path": "kits/default.ts"
         },
@@ -38,10 +38,10 @@
       ],
       "name": "default",
       "path": "kits/default.js",
-      "readyupVersion": "0.32.0",
+      "readyupVersion": "0.34.0",
       "source": "kits/default.ts",
-      "sourceHash": "fe239d01",
-      "targetHash": "e9daa536"
+      "sourceHash": "461f1a2c",
+      "targetHash": "ae673810"
     },
     {
       "checklists": [
@@ -51,17 +51,17 @@
       "esbuildVersion": "0.28.2",
       "inputs": [
         {
-          "hash": "ac484613",
+          "hash": "15641d4a",
           "kind": "module",
           "path": "kits/npm-auto-publish.ts"
         }
       ],
       "name": "npm-auto-publish",
       "path": "kits/npm-auto-publish.js",
-      "readyupVersion": "0.32.0",
+      "readyupVersion": "0.34.0",
       "source": "kits/npm-auto-publish.ts",
-      "sourceHash": "ac484613",
-      "targetHash": "6f5398ef"
+      "sourceHash": "15641d4a",
+      "targetHash": "f6659ee6"
     }
   ]
 }

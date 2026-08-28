@@ -1,6 +1,6 @@
-/** @noformat — @generated. Do not edit. Compiled by rdy. */
+/** @noformat -- @generated. Do not edit. Compiled by rdy. */
 /* eslint-disable */
-export const __readyupVersion = "0.32.0";
+export const __readyupVersion = "0.34.0";
 
 
 // .readyup/kits/npm-auto-publish.ts
@@ -68,6 +68,9 @@ var packagesChecklist = defineRdyChecklist({
       },
       fix: 'Set "packageManager": "pnpm@..." in root package.json'
     },
+    // Unfalsifiable on readyup 0.33 and later, where discovery reports the repo root and throws on an unreadable
+    // root package.json rather than returning an empty list. It stays for a consumer below that, whose monorepo
+    // mode returns the matched directories alone and so returns nothing when the globs match nothing.
     {
       name: "At least one workspace discovered",
       check: () => discoverWorkspaces().length > 0,
@@ -86,7 +89,9 @@ var packagesChecklist = defineRdyChecklist({
       // reach the registry on every run regardless of the skip. Per-outcome wording goes in the check's detail.
       fix: 'Restore a usable npm session: log in with "npm login", or restore access to the registry, which the trusted-publisher check queries directly',
       get checks() {
-        return discoverWorkspaces().map((workspace) => buildWorkspaceCheck(workspace));
+        return discoverWorkspaces({ filter: belongsInPackagesChecklist }).map(
+          (workspace) => buildWorkspaceCheck(workspace)
+        );
       }
     }
   ]
@@ -95,6 +100,9 @@ var npm_auto_publish_default = defineRdyKit({
   fixLocation: "inline",
   checklists: [repoChecklist, packagesChecklist]
 });
+function belongsInPackagesChecklist(workspace) {
+  return !workspace.isRoot || workspace.isPackage;
+}
 function buildWorkspaceCheck(workspace) {
   const displayName = workspace.name ?? "(unnamed)";
   const pkgJsonPath = path.join(workspace.dir, "package.json");

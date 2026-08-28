@@ -88,6 +88,9 @@ export const packagesChecklist = defineRdyChecklist({
       },
       fix: 'Set "packageManager": "pnpm@..." in root package.json',
     },
+    // Unfalsifiable on readyup 0.33 and later, where discovery reports the repo root and throws on an unreadable
+    // root package.json rather than returning an empty list. It stays for a consumer below that, whose monorepo
+    // mode returns the matched directories alone and so returns nothing when the globs match nothing.
     {
       name: 'At least one workspace discovered',
       check: () => discoverWorkspaces().length > 0,
@@ -106,7 +109,9 @@ export const packagesChecklist = defineRdyChecklist({
       // reach the registry on every run regardless of the skip. Per-outcome wording goes in the check's detail.
       fix: 'Restore a usable npm session: log in with "npm login", or restore access to the registry, which the trusted-publisher check queries directly',
       get checks(): RdyCheck[] {
-        return discoverWorkspaces().map((workspace) => buildWorkspaceCheck(workspace));
+        return discoverWorkspaces({ filter: belongsInPackagesChecklist }).map((workspace) =>
+          buildWorkspaceCheck(workspace),
+        );
       },
     },
   ],
@@ -118,6 +123,16 @@ export default defineRdyKit({
 });
 
 // region | Helpers
+
+/**
+ * Reports whether a workspace earns a row in the per-package checklist.
+ *
+ * Workspace discovery reports the repo root alongside the members, and a private root publishes nothing. A publishable
+ * root stays, because it is the only entry a single-package repo has.
+ */
+function belongsInPackagesChecklist(workspace: Workspace): boolean {
+  return !workspace.isRoot || workspace.isPackage;
+}
 
 /** Builds a parent check for a workspace with nested publish-readiness children. */
 export function buildWorkspaceCheck(workspace: Workspace): RdyCheck {
@@ -236,10 +251,8 @@ export type NpmAuthStatus =
 /**
  * Classifies the outcome of `npm whoami --json`.
  *
- * A zero exit means authenticated, without inspecting the payload: npm's success shape is not
- * something this kit should depend on. Any failure npm does not identify as missing credentials is
- * reported as an unreachable registry carrying npm's own summary, so an unrecognized error is never
- * reported as a missing login.
+ * A zero exit means authenticated.
+ * Any failure other than missing credentials forwards npm's summary and is reported as an unreachable registry.
  *
  * @internal - Exported only to enable testing
  */
@@ -271,10 +284,9 @@ export type TrustQueryResult =
   | { status: 'not-configured' };
 
 /**
- * Classifies the outcome of `npm trust list <package> --json` against the expected publisher.
+ * Returns an object classifying the outcome of `npm trust list <package> --json` against the expected publisher.
  *
- * A query that could not be answered is its own state, distinct from a package that has no trusted
- * publisher.
+ * A query that could not be answered is its own state, distinct from a package that has no trusted publisher.
  *
  * @internal - Exported only to enable testing
  */
@@ -328,9 +340,8 @@ function describeTrustRelationships(relationships: TrustRelationship[]): string 
     .join(', ');
 }
 
-// Cached so that the registry is queried at most once per kit invocation. The precondition's `fix`
-// getter reads this too: readyup resolves `fix` before running the check, so the memo is what lets
-// remediation vary by outcome without a second round trip.
+// Cached so that the registry is queried at most once per kit invocation.
+// The precondition's `fix` getter reads this too: ReadyUp resolves `fix` before running the check.
 const getCachedNpmAuthStatus: () => NpmAuthStatus = (() => {
   let cached: NpmAuthStatus | undefined;
   return () => (cached ??= classifyNpmAuth(runNpmJson('npm whoami --json')));
@@ -439,11 +450,10 @@ interface TrustRelationship {
 }
 
 /**
- * Reads the trust relationships from a successful `npm trust list` payload.
+ * Reads the trust relationships from a successful `npm trust list` payload and returns them in an array.
  *
- * The subcommand is named `list`, so a package may carry more than one relationship; both a bare
- * object and an array of them are accepted. An entry carrying no `type` field describes no
- * relationship, which is absence rather than an unreadable response.
+ * The subcommand is named `list`, so a package can have more than one relationship; both a bare object and an array of
+ * them are accepted. An entry with no `type` field describes no relationship.
  */
 function readTrustRelationships(stdout: string): TrustRelationship[] | undefined {
   let parsed: unknown;
@@ -472,8 +482,8 @@ export interface NpmCommandResult {
 /**
  * Runs an npm command, capturing stdout whether or not the command exits zero.
  *
- * The command is expected to carry `--json`: npm writes its machine-readable error envelope to
- * stdout, which `execSync` hangs on the thrown error rather than returning.
+ * The command is expected to include `--json`: npm writes its machine-readable error envelope to stdout,
+ * which `execSync` hangs on the thrown error rather than returning.
  */
 function runNpmJson(command: string): NpmCommandResult {
   try {
@@ -487,8 +497,8 @@ function runNpmJson(command: string): NpmCommandResult {
 /**
  * Skip predicate: Returns the skip reason when the repo publishes nothing, else `false` (the checks should run).
  *
- * Wired into the check that parents each checklist's substantive work, so a repo that publishes nothing reports one
- * line per checklist and reaches neither the npm registry nor the GitHub API.
+ * Wired into the check that parents each checklist's substantive work. A repo that publishes nothing reports
+ * one line per checklist, and no call for that repo is made to the npm registry or the GitHub API.
  *
  * @internal - Exported only to enable testing
  */
