@@ -21,7 +21,7 @@ import { discoverWorkspaces } from '../discoverWorkspaces.ts';
 
 describe(discoverWorkspaces, () => {
   beforeEach(() => {
-    silenceConsole(['warn']);
+    void silenceConsole(['warn']);
   });
 
   afterEach(() => {

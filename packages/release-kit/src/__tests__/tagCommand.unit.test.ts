@@ -16,8 +16,8 @@ describe(tagCommand, () => {
   beforeEach(() => {
     capture = captureStdio();
     mockCreateTags.mockReturnValue([]);
-    throwOnProcessExit();
-    silenceConsole(['info']);
+    void throwOnProcessExit();
+    void silenceConsole(['info']);
   });
 
   afterEach(() => {

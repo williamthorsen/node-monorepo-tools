@@ -29,7 +29,7 @@ function makeWorkspace(
 
 describe(resolveReleaseTags, () => {
   beforeEach(() => {
-    silenceConsole(['warn']);
+    void silenceConsole(['warn']);
   });
 
   afterEach(() => {

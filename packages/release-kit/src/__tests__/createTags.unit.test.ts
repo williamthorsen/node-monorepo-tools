@@ -19,7 +19,7 @@ import { createTags } from '../createTags.ts';
 
 describe(createTags, () => {
   beforeEach(() => {
-    silenceConsole(['info', 'warn']);
+    void silenceConsole(['info', 'warn']);
   });
 
   afterEach(() => {

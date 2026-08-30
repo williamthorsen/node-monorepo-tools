@@ -28,8 +28,8 @@ describe(pushCommand, () => {
     capture = captureStdio();
     mockResolveCommandTags.mockResolvedValue(TAGS);
     mockPushRelease.mockReturnValue([]);
-    throwOnProcessExit();
-    silenceConsole(['info']);
+    void throwOnProcessExit();
+    void silenceConsole(['info']);
   });
 
   afterEach(() => {

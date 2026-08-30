@@ -35,7 +35,7 @@ import type { ChangelogEntry } from '../types.ts';
 
 describe(injectReleaseNotesIntoReadme, () => {
   beforeEach(() => {
-    silenceConsole(['warn']);
+    void silenceConsole(['warn']);
   });
 
   afterEach(() => {
@@ -147,7 +147,7 @@ describe(injectReleaseNotesIntoReadme, () => {
 
 describe(renderInjectedReadme, () => {
   beforeEach(() => {
-    silenceConsole(['warn']);
+    void silenceConsole(['warn']);
   });
 
   afterEach(() => {

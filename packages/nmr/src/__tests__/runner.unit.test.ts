@@ -273,6 +273,7 @@ describe(runCommand, () => {
         stdout: stream,
       });
       const child = getChild();
+      // eslint-disable-next-line sky-pilot/no-floating-disposable -- the child owns this stream; requireStdout only narrows child.stdout
       const childStdout = requireStdout(child);
       childStdout.write('a'.repeat(64));
       await flushEventLoop();
@@ -338,6 +339,7 @@ describe(runCommand, () => {
         stdout: destination,
       });
       const child = getChild();
+      // eslint-disable-next-line sky-pilot/no-floating-disposable -- the child owns this stream; requireStdout only narrows child.stdout
       const childStdout = requireStdout(child);
       destination.emit('error', Object.assign(new Error('write EPIPE'), { code: 'EPIPE' }));
       await flushEventLoop();

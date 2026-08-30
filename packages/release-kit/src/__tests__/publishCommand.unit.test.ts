@@ -90,8 +90,8 @@ describe(publishCommand, () => {
         paths: [`${workspacePath}/**`],
       };
     });
-    throwOnProcessExit();
-    silenceConsole(['info', 'warn']);
+    void throwOnProcessExit();
+    void silenceConsole(['info', 'warn']);
   });
 
   afterEach(() => {
