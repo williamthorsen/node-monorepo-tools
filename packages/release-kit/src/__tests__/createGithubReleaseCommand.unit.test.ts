@@ -53,8 +53,8 @@ describe(createGithubReleaseCommand, () => {
       changelogJsonOutputPath: '.meta/changelog.json',
       sectionOrder: ['Bug fixes', 'Features'],
     });
-    throwOnProcessExit();
-    silenceConsole(['info', 'warn']);
+    void throwOnProcessExit();
+    void silenceConsole(['info', 'warn']);
   });
 
   afterEach(() => {

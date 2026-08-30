@@ -27,8 +27,8 @@ describe(resolveReleaseNotesConfig, () => {
 
   beforeEach(() => {
     capture = captureStdio();
-    throwOnProcessExit();
-    silenceConsole(['warn']);
+    void throwOnProcessExit();
+    void silenceConsole(['warn']);
   });
 
   afterEach(() => {

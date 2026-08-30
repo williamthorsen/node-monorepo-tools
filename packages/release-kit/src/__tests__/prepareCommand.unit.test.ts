@@ -86,8 +86,8 @@ describe(prepareCommand, () => {
     // Default: no commits anywhere, so the stranded-dependents validator stays silent.
     mockGetCommitsSinceTarget.mockReturnValue({ tag: undefined, commits: [] });
     mockWriteFileWithCheck.mockImplementation((path: string) => ({ filePath: path, outcome: 'created' }));
-    throwOnProcessExit();
-    silenceConsole(['info']);
+    void throwOnProcessExit();
+    void silenceConsole(['info']);
   });
 
   afterEach(() => {
@@ -611,8 +611,8 @@ describe(parseArgs, () => {
 
   beforeEach(() => {
     capture = captureStdio();
-    throwOnProcessExit();
-    silenceConsole(['info']);
+    void throwOnProcessExit();
+    void silenceConsole(['info']);
   });
 
   afterEach(() => {

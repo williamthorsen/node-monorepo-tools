@@ -208,7 +208,7 @@ describe(parseArgsOrExit, () => {
 
   beforeEach(() => {
     capture = captureStdio();
-    throwOnProcessExit();
+    void throwOnProcessExit();
   });
 
   afterEach(() => {

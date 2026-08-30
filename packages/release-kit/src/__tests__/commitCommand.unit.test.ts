@@ -26,8 +26,8 @@ describe(commitCommand, () => {
 
   beforeEach(() => {
     capture = captureStdio();
-    throwOnProcessExit();
-    silenceConsole(['info']);
+    void throwOnProcessExit();
+    void silenceConsole(['info']);
   });
 
   afterEach(() => {

@@ -12,7 +12,7 @@ import type { ResolvedTag } from '../resolveReleaseTags.ts';
 
 describe(publishPackage, () => {
   beforeEach(() => {
-    silenceConsole(['info']);
+    void silenceConsole(['info']);
   });
 
   afterEach(() => {

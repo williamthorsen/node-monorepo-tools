@@ -60,7 +60,7 @@ describe(resolveCommandTags, () => {
       }
       throw new Error(`Unexpected workspace path: ${workspacePath}`);
     });
-    throwOnProcessExit();
+    void throwOnProcessExit();
   });
 
   afterEach(() => {
