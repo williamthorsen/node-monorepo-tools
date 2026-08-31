@@ -29,7 +29,7 @@ From a package directory:
 
 ```bash
 nmr test  # Run tests for the current package
-nmr build # Compile to .js and .d.ts in one pass
+nmr build # Compile to .js and .d.ts
 nmr check # Typecheck, format check, lint check, and tests
 ```
 
@@ -781,7 +781,7 @@ Position determines ownership: flags before the command name are nmr's own, and 
 ```bash
 # From a package directory
 nmr test  # Run workspace test script
-nmr build # Compile to .js and .d.ts in one pass
+nmr build # Compile to .js and .d.ts
 
 # From the monorepo root
 nmr test    # Root tests + recursive workspace tests
@@ -858,7 +858,7 @@ nmr-clean
 
 ### `nmr-compile`
 
-Compile a single package's `src` tree to `dist/esm` with the TypeScript compiler API, emitting `.js` and `.d.ts` in one pass. Because the compiler parses each source file, every relative import form — static, re-export, dynamic `import()`, and bare side-effect — is rewritten from `.ts` to `.js` in both outputs, and `.ts` occurrences inside strings and comments are left intact. tsconfig `paths` aliases are resolved to runnable relative `.js` specifiers in both outputs, sourced from the package's tsconfig. An aliased import whose target resolves outside the package's `src/` and is not resolvable without the alias mapping fails the build with a diagnostic, rather than being emitted verbatim to produce output that fails at runtime. The build is skipped when no input has changed and the previous output is still on disk (the key is cached under `node_modules/.cache/nmr-compile/`, outside the published output). Deleting the output by any means — `nmr clean`, `rm -rf dist`, `git clean` — therefore forces a rebuild rather than a skip. This is the default `compile` script — run it from a package directory.
+Compile a single package's `src` tree to `dist/esm` with the TypeScript compiler API, emitting `.js` from one program and `.d.ts` from a second that reuses it. The package's own `removeComments` governs the `.js` emit; the declarations emit forces it off, so `.d.ts` files carry their doc comments either way. Because the compiler parses each source file, every relative import form — static, re-export, dynamic `import()`, and bare side-effect — is rewritten from `.ts` to `.js` in both outputs, and `.ts` occurrences inside strings and comments are left intact. tsconfig `paths` aliases are resolved to runnable relative `.js` specifiers in both outputs, sourced from the package's tsconfig. An aliased import whose target resolves outside the package's `src/` and is not resolvable without the alias mapping fails the build with a diagnostic, rather than being emitted verbatim to produce output that fails at runtime. The build is skipped when no input has changed and the previous output is still on disk (the key is cached under `node_modules/.cache/nmr-compile/`, outside the published output). Deleting the output by any means — `nmr clean`, `rm -rf dist`, `git clean` — therefore forces a rebuild rather than a skip. This is the default `compile` script — run it from a package directory.
 
 **What it compiles.** Entry points are `src/**/*.ts` less the directories that hold test scaffolding rather than shipped code: `__fixtures__/`, `__mocks__/`, `__tests__/`, and `test-utils/`. Add to that list per package with [`build.extraIgnorePatterns`](#package-level-configuration). Ignoring a directory drops it as an _entry point_, not from the emit: the compiler still emits whatever the surviving entry points import, so a helper that production code uses is still compiled and its importer never emits a dangling specifier. This list is deliberately not the Vitest [coverage exclusions](#what-the-config-excludes) — helpers live in `test-utils/` precisely so they stay covered.
 
