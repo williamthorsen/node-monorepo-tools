@@ -22,8 +22,8 @@ Packages live under `packages/`:
 
 ### Build system
 
-- A single TypeScript compiler-API emit via the nmr-managed `nmr-compile` bin (`packages/nmr/src/commands/build.ts`), the default `compile` script
-- Emits `.js` and `.d.ts` together; AST-based rewriting turns relative `.ts`→`.js` specifiers and tsconfig `paths` aliases into runnable relative `.js` in both outputs
+- Two TypeScript compiler-API emits via the nmr-managed `nmr-compile` bin (`packages/nmr/src/commands/build.ts`), the default `compile` script
+- Emits `.js` from one program and `.d.ts` from a second that reuses it, which is what keeps doc comments in the declarations while the package's own `removeComments` still governs the `.js`; AST-based rewriting turns relative `.ts`→`.js` specifiers and tsconfig `paths` aliases into runnable relative `.js` in both outputs
 - ESM-only output (`type: "module"` in all packages)
 - The compiler baseline comes from the published `@williamthorsen/tsconfig`, which the root `tsconfig.json` extends and the package configs reach through it; changing a compiler option means upgrading that package, not editing a config here
 
