@@ -195,7 +195,8 @@ export function resolveTsconfigChain(packageDir: string, configFileName = 'tscon
  * buffered in memory, written to a staging directory, and swapped into place by rename.
  *
  * The scripts emit runs under the package's own `removeComments` and the declarations emit forces it off, so
- * `.d.ts` files carry their doc comments whatever a package does with its `.js`.
+ * `.d.ts` files carry their doc comments whatever a package does with its `.js`. Both programs read through
+ * one caching host, so the file set is parsed once.
  *
  * Every throw therefore precedes the first rename, so a failed build leaves the previous output exactly as it
  * was. The output directory is never observed mid-write: it holds the previous build or the new one, and is
@@ -222,17 +223,20 @@ async function emitPackage(packageDir: string, entryPoints: string[], outdir: st
     emitted.set(fileName, { text, writeByteOrderMark });
   }
 
+  const host = createCachingCompilerHost(compilerOptions);
+
   // `declarationDir` is inert while `declaration` is off: TypeScript reports the pairing only as an options
   // diagnostic, which this build never surfaces.
-  const scriptProgram = ts.createProgram(rootNames, { ...compilerOptions, declaration: false });
+  const scriptProgram = ts.createProgram(rootNames, { ...compilerOptions, declaration: false }, host);
   assertEmitSucceeded(scriptProgram.emit(undefined, collect));
 
   // `removeComments` governs a whole program, which is why comments need a program of their own. `oldProgram`
-  // reuses the parsed and resolved sources, so this one costs a type checker rather than a parse.
+  // carries the module resolutions across; the source files come from the host, so sharing it is what keeps
+  // the file set to a single parse.
   const declarationProgram = ts.createProgram(
     rootNames,
     { ...compilerOptions, emitDeclarationOnly: true, removeComments: false },
-    undefined,
+    host,
     scriptProgram,
   );
   assertEmitSucceeded(declarationProgram.emit(undefined, collect));
@@ -260,6 +264,30 @@ function assertEmitSucceeded(result: ts.EmitResult): void {
   if (result.emitSkipped) {
     throw new Error(`nmr-compile: emit failed.\n${formatDiagnostics(result.diagnostics)}`);
   }
+}
+
+/**
+ * Builds a compiler host that memoizes `getSourceFile` on file name, so a file read by more than one program
+ * is parsed once. `ts.createCompilerHost` re-reads and re-parses on every call, and a program built over an
+ * `oldProgram` still asks the host for each file in order to compare it.
+ */
+function createCachingCompilerHost(compilerOptions: ts.CompilerOptions): ts.CompilerHost {
+  const host = ts.createCompilerHost(compilerOptions);
+  const parsed = new Map<string, ts.SourceFile | undefined>();
+  const readSourceFile = host.getSourceFile.bind(host);
+
+  host.getSourceFile = (fileName, languageVersionOrOptions, onError, shouldCreateNewSourceFile) => {
+    // A file the host cannot read yields `undefined`, which the cache holds so the miss is not re-read.
+    if (parsed.has(fileName)) {
+      return parsed.get(fileName);
+    }
+
+    const sourceFile = readSourceFile(fileName, languageVersionOrOptions, onError, shouldCreateNewSourceFile);
+    parsed.set(fileName, sourceFile);
+    return sourceFile;
+  };
+
+  return host;
 }
 
 /**

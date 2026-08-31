@@ -84,12 +84,27 @@ function scaffoldPackage(
   });
 }
 
+/** Reads the programs the mocked compiler returned, in the order the build created them. */
+function collectPrograms(): ts.Program[] {
+  const programs: ts.Program[] = [];
+  for (const result of vi.mocked(ts.createProgram).mock.results) {
+    if (isProgram(result.value)) {
+      programs.push(result.value);
+    }
+  }
+  return programs;
+}
+
 /**
  * Counts the builds that reached the compiler. A build creates two programs, the scripts program and the
  * declarations program over it, and only the first is created without an `oldProgram`.
  */
 function countBuilds(): number {
   return vi.mocked(ts.createProgram).mock.calls.filter((call) => call[3] === undefined).length;
+}
+
+function isProgram(value: unknown): value is ts.Program {
+  return typeof value === 'object' && value !== null && 'getSourceFile' in value;
 }
 
 function readOutput(tree: TempTree, relativePath: string): string {
@@ -277,6 +292,19 @@ describe('buildPackage emit correctness', () => {
 
   afterEach(() => {
     vi.mocked(ts.createProgram).mockClear();
+  });
+
+  it('parses each source once across the two programs', async ({ tree }) => {
+    scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
+
+    await buildPackage(tree.dir);
+
+    // Object identity is the only reliable signal: `structureIsReused` reports the module resolutions alone,
+    // and reads `2` whether or not the source files are shared.
+    const [scriptProgram, declarationProgram] = collectPrograms();
+    assert(scriptProgram !== undefined && declarationProgram !== undefined);
+    const entry = tree.resolve('src/index.ts');
+    expect(scriptProgram.getSourceFile(entry)).toBe(declarationProgram.getSourceFile(entry));
   });
 
   it('throws when an aliased import resolves to a missing file', async ({ tree }) => {
