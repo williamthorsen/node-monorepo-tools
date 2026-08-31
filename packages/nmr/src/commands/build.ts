@@ -61,8 +61,8 @@ const TS_EXTENSION = '.ts';
 const JS_EXTENSION = '.js';
 
 /**
- * Compiles a package's `src` tree to `dist/esm` with the TypeScript compiler API, emitting `.js`
- * and `.d.ts` in one pass and rewriting relative `.ts` specifiers and tsconfig `paths` aliases to
+ * Compiles a package's `src` tree to `dist/esm` with the TypeScript compiler API, emitting `.js` and
+ * `.d.ts` from two programs and rewriting relative `.ts` specifiers and tsconfig `paths` aliases to
  * runnable relative `.js` specifiers in both outputs. Skips the build only when no input has changed
  * and the previous output is still on disk.
  *
@@ -190,13 +190,16 @@ export function resolveTsconfigChain(packageDir: string, configFileName = 'tscon
 // region | Emit
 
 /**
- * Runs a single TypeScript program emit (`.js` + `.d.ts`), rewrites relative `.ts` specifiers and tsconfig
- * `paths` aliases to runnable relative `.js` specifiers, and publishes the result atomically: the emit is
+ * Runs two TypeScript program emits, `.js` and then `.d.ts`, rewrites relative `.ts` specifiers and tsconfig
+ * `paths` aliases to runnable relative `.js` specifiers, and publishes the result atomically: both emits are
  * buffered in memory, written to a staging directory, and swapped into place by rename.
+ *
+ * The scripts emit runs under the package's own `removeComments` and the declarations emit forces it off, so
+ * `.d.ts` files carry their doc comments whatever a package does with its `.js`.
  *
  * Every throw therefore precedes the first rename, so a failed build leaves the previous output exactly as it
  * was. The output directory is never observed mid-write: it holds the previous build or the new one, and is
- * absent only between the two renames. Throws with formatted diagnostics when the program cannot be emitted.
+ * absent only between the two renames. Throws with formatted diagnostics when either program cannot be emitted.
  *
  * Reports how many files it published, which is zero for a package whose entry points emit nothing.
  */
@@ -212,18 +215,27 @@ async function emitPackage(packageDir: string, entryPoints: string[], outdir: st
   // that skips on unchanged inputs would publish it.
   await removeScratchDirs(scratchDirs);
 
-  const program = ts.createProgram(rootNames, compilerOptions);
-
   // Buffer rather than write: the compiler's own `writeFile` would put the emit under `emitDir`, which is
   // still serving the previous build to anything that reads it while this one runs.
   const emitted = new Map<string, StagedFile>();
-  const emitResult = program.emit(undefined, (fileName, text, writeByteOrderMark) => {
+  function collect(fileName: string, text: string, writeByteOrderMark: boolean): void {
     emitted.set(fileName, { text, writeByteOrderMark });
-  });
-
-  if (emitResult.emitSkipped) {
-    throw new Error(`nmr-compile: emit failed.\n${formatDiagnostics(emitResult.diagnostics)}`);
   }
+
+  // `declarationDir` is inert while `declaration` is off: TypeScript reports the pairing only as an options
+  // diagnostic, which this build never surfaces.
+  const scriptProgram = ts.createProgram(rootNames, { ...compilerOptions, declaration: false });
+  assertEmitSucceeded(scriptProgram.emit(undefined, collect));
+
+  // `removeComments` governs a whole program, which is why comments need a program of their own. `oldProgram`
+  // reuses the parsed and resolved sources, so this one costs a type checker rather than a parse.
+  const declarationProgram = ts.createProgram(
+    rootNames,
+    { ...compilerOptions, emitDeclarationOnly: true, removeComments: false },
+    undefined,
+    scriptProgram,
+  );
+  assertEmitSucceeded(declarationProgram.emit(undefined, collect));
 
   const staged = new Map<string, StagedFile>();
   for (const [fileName, file] of emitted) {
@@ -241,6 +253,13 @@ async function emitPackage(packageDir: string, entryPoints: string[], outdir: st
   await swapIntoPlace(emitDir, scratchDirs);
 
   return staged.size;
+}
+
+/** Throws with formatted diagnostics when the compiler skipped an emit. */
+function assertEmitSucceeded(result: ts.EmitResult): void {
+  if (result.emitSkipped) {
+    throw new Error(`nmr-compile: emit failed.\n${formatDiagnostics(result.diagnostics)}`);
+  }
 }
 
 /**

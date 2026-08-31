@@ -26,6 +26,30 @@ type ConfigStep = (tree: TempTree) => void;
 /** The package config a build reads, which several cases create, rewrite, or delete between runs. */
 const CONFIG_ENTRY = '.config/nmr.config.ts';
 
+/** A source carrying one comment of every kind whose survival the emit decides. */
+const COMMENTED_SOURCE = `/*! @license Fixture 1.0 */
+
+/** Adds two numbers. */
+export function add(a: number, b: number): number {
+  // Sum before returning.
+  return a + b;
+}
+
+export function swallow(): void {
+  try {
+    add(1, 2);
+  } catch {
+    // Nothing to do when the addition throws.
+  }
+}
+
+/** A scope. */
+export interface Scope {
+  /** The root-level option. */
+  root?: string;
+}
+`;
+
 const TSCONFIG = {
   compilerOptions: {
     module: 'NodeNext',
@@ -58,6 +82,14 @@ function scaffoldPackage(
     'tsconfig.json': JSON.stringify(tsconfig),
     ...Object.fromEntries(Object.entries(sources).map(([entry, contents]) => [`src/${entry}`, contents])),
   });
+}
+
+/**
+ * Counts the builds that reached the compiler. A build creates two programs, the scripts program and the
+ * declarations program over it, and only the first is created without an `oldProgram`.
+ */
+function countBuilds(): number {
+  return vi.mocked(ts.createProgram).mock.calls.filter((call) => call[3] === undefined).length;
 }
 
 function readOutput(tree: TempTree, relativePath: string): string {
@@ -302,6 +334,49 @@ describe('buildPackage emit correctness', () => {
   });
 });
 
+describe('buildPackage comment retention', () => {
+  beforeEach(() => {
+    disposeOnTestFinished(silenceConsole(['info']));
+  });
+
+  afterEach(() => {
+    vi.mocked(ts.createProgram).mockClear();
+  });
+
+  it('keeps doc comments in the declarations a comment-stripping package emits', async ({ tree }) => {
+    scaffoldPackage(tree, { 'index.ts': COMMENTED_SOURCE }, { removeComments: true });
+
+    await buildPackage(tree.dir);
+
+    const declaration = readOutput(tree, 'index.d.ts');
+    expect(declaration).toContain('/** Adds two numbers. */');
+    expect(declaration).toContain('/** The root-level option. */');
+  });
+
+  it('strips every script comment but the license banner when the package sets removeComments', async ({ tree }) => {
+    scaffoldPackage(tree, { 'index.ts': COMMENTED_SOURCE }, { removeComments: true });
+
+    await buildPackage(tree.dir);
+
+    const script = readOutput(tree, 'index.js');
+    expect(script).toContain('/*! @license Fixture 1.0 */');
+    expect(script).not.toContain('/** Adds two numbers. */');
+    expect(script).not.toContain('Sum before returning');
+    // A comment alone in an empty block attaches to no node in the emitted tree.
+    expect(script).not.toContain('Nothing to do when the addition throws');
+  });
+
+  it('keeps script comments when the package leaves removeComments unset', async ({ tree }) => {
+    scaffoldPackage(tree, { 'index.ts': COMMENTED_SOURCE });
+
+    await buildPackage(tree.dir);
+
+    expect(readOutput(tree, 'index.js')).toContain('/** Adds two numbers. */');
+    expect(readOutput(tree, 'index.js')).toContain('Sum before returning');
+    expect(readOutput(tree, 'index.d.ts')).toContain('/** Adds two numbers. */');
+  });
+});
+
 describe('buildPackage with extends-inherited tsconfig paths', () => {
   beforeEach(() => {
     disposeOnTestFinished(silenceConsole(['info']));
@@ -342,7 +417,7 @@ describe('buildPackage with extends-inherited tsconfig paths', () => {
 
     await buildPackage(packageDir);
 
-    expect(ts.createProgram).toHaveBeenCalledTimes(2);
+    expect(countBuilds()).toBe(2);
   });
 });
 
@@ -595,6 +670,26 @@ describe('buildPackage atomic publication', () => {
     expect(readOutput(tree, 'index.js')).toBe(published);
   });
 
+  it('leaves the previous output intact when the declarations emit reports itself skipped', async ({ tree }) => {
+    scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
+    await buildPackage(tree.dir);
+    const published = readOutput(tree, 'index.js');
+
+    tree.write('src/index.ts', 'export const value = 2;\n');
+    const compile = vi.mocked(ts.createProgram).getMockImplementation();
+    assert(compile !== undefined);
+    // The scripts program emits successfully, so the failure lands with a full buffer and nothing published.
+    vi.mocked(ts.createProgram)
+      .mockImplementationOnce(compile)
+      .mockImplementationOnce((...args) => ({
+        ...compile(...args),
+        emit: () => ({ diagnostics: [], emitSkipped: true }),
+      }));
+    await expect(buildPackage(tree.dir)).rejects.toThrow(/emit failed/);
+
+    expect(readOutput(tree, 'index.js')).toBe(published);
+  });
+
   it('clears a scratch directory on a build that skips', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
     await buildPackage(tree.dir);
@@ -703,7 +798,7 @@ describe('buildPackage caching', () => {
 
     await buildPackage(tree.dir);
 
-    expect(ts.createProgram).toHaveBeenCalledTimes(2);
+    expect(countBuilds()).toBe(2);
     expect(tree.exists('dist/esm/index.js')).toBe(true);
   });
 
@@ -718,7 +813,7 @@ describe('buildPackage caching', () => {
 
     await buildPackage(tree.dir);
 
-    expect(ts.createProgram).toHaveBeenCalledTimes(2);
+    expect(countBuilds()).toBe(2);
     expect(tree.exists('dist/esm/index.js')).toBe(true);
   });
 
@@ -790,7 +885,7 @@ describe('buildPackage caching', () => {
     // Instead it must re-attempt, and with the transient failure gone, produce output and cache it.
     await buildPackage(tree.dir);
 
-    expect(ts.createProgram).toHaveBeenCalledTimes(2);
+    expect(countBuilds()).toBe(2);
     expect(tree.exists('dist/esm/index.js')).toBe(true);
     expect(tree.exists(resolveCacheEntry(tree))).toBe(true);
   });
