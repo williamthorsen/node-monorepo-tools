@@ -11,10 +11,11 @@
  * state, so only a failure is worth a line.
  */
 import { existsSync, globSync, readdirSync } from 'node:fs';
-import { basename, join, sep } from 'node:path';
+import { basename, dirname, join, sep } from 'node:path';
 
 import { type CheckOutcome, defineRdyKit, pickJson } from 'readyup';
 import {
+  discoverWorkspaces,
   fileContains,
   fileExists,
   hasDevDependency,
@@ -23,6 +24,7 @@ import {
   isRecord,
   readFile,
   readPackageJson,
+  type Workspace,
 } from 'readyup/check-utils';
 
 import { getDefaultRootScripts } from '../../src/resolve-scripts.ts';
@@ -140,16 +142,22 @@ export default defineRdyKit({
           fix: "Delete every vitest.standalone.config.* and vitest.integration.config.*. nmr's test scripts select Vitest projects instead of naming config files",
         },
         {
-          name: 'vitest.config.ts builds on @williamthorsen/nmr/vitest',
+          name: 'every vitest.config builds on @williamthorsen/nmr/vitest',
           severity: 'error',
           check: () => vitestConfigBuildsOnSharedConfig(),
-          fix: "Replace vitest.config.ts with: import { defineVitestConfig } from '@williamthorsen/nmr/vitest'; export default defineVitestConfig();",
+          fix: "Replace each listed config with: import { defineVitestConfig } from '@williamthorsen/nmr/vitest'; export default defineVitestConfig(); -- a config that does not call the factory declares no projects, so every tier-selecting test command fails against it. Pass your own settings to the factory as layers to keep them",
         },
         {
           name: 'vitest.root.config.ts builds on @williamthorsen/nmr/vitest',
           severity: 'error',
           check: () => vitestRootConfigBuildsOnSharedConfig(),
           fix: "Replace vitest.root.config.ts with: import { defineRootVitestConfig } from '@williamthorsen/nmr/vitest'; export default defineRootVitestConfig({ monorepoRoot: import.meta.dirname });",
+        },
+        {
+          name: 'every workspace with a Vite config has a Vitest config',
+          severity: 'error',
+          check: () => everyViteConfigHasVitestConfig(),
+          fix: 'Add a vitest.config.ts calling defineVitestConfig() from @williamthorsen/nmr/vitest beside each listed vite.config -- Vitest stops its config search at the first directory holding either name, so the Vite config otherwise wins and the projects model is never reached',
         },
         {
           name: 'every test file names its isolation tier',
@@ -221,8 +229,13 @@ export default defineRdyKit({
 /** Directories whose contents are generated or vendored, and so are never the source of a finding. */
 const SCAN_EXCLUDE_DIRS = new Set(['.git', 'coverage', 'dist', 'node_modules']);
 
-/** Extensions a Vitest config can carry. Globbing `.ts` alone would miss a repo on any other one. */
+/** Extensions a Vite or Vitest config can carry. Globbing `.ts` alone would miss a repo on any other one. */
 const CONFIG_EXTENSIONS = '{ts,mts,cts,js,mjs,cjs}';
+
+/** Matches a Vite config, which fills Vitest's one config slot wherever no Vitest config sits beside it. */
+const VITE_CONFIG_PATTERN = `vite.config.${CONFIG_EXTENSIONS}`;
+
+const VITEST_CONFIG_PATTERN = `vitest.config.${CONFIG_EXTENSIONS}`;
 
 const SHARED_VITEST_MODULE = '@williamthorsen/nmr/vitest';
 
@@ -304,12 +317,7 @@ function checkNoMatchingFiles(patterns: string[], cwd: string): boolean | CheckO
   return { ok: false, detail: formatPaths(found) };
 }
 
-/**
- * Checks that a root Vitest config is present and built on the shared config from nmr.
- *
- * An absent file is folded in here rather than split into its own check: a repo with no root config leaves
- * packages walking up past the repo root, which is a worse failure than a wrong config, not a lesser one.
- */
+/** Checks that a root-level Vitest config is present and built on the shared config from nmr. */
 function checkRootVitestConfig(baseName: string, exportName: string, cwd: string): boolean | CheckOutcome {
   const matches = findFiles([`${baseName}.${CONFIG_EXTENSIONS}`], cwd);
   if (matches.length === 0) {
@@ -401,6 +409,31 @@ export function everyTestFileNamesItsTier(cwd: string = process.cwd()): boolean 
 }
 
 /**
+ * Checks that every workspace holding a Vite config holds a Vitest config beside it.
+ *
+ * Vitest resolves one config per run by ascending from the run root and stopping at the first directory
+ * holding any of its candidate filenames, `vite.config.*` among them. A workspace carrying only a Vite
+ * config ends that search on a config declaring no projects, and every tier-selecting test command then
+ * fails with `No projects matched the filter`. Within one directory `vitest.config.*` is tried first, which
+ * is why a Vitest config beside the Vite config restores the projects model.
+ *
+ * Declared workspaces rather than a tree-wide glob: the search only ascends, so a Vite config nested below
+ * a workspace root is never reached and reporting it would be a false positive.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function everyViteConfigHasVitestConfig(): boolean | CheckOutcome {
+  const unpaired = memberWorkspaces().flatMap((workspace) => {
+    const viteConfigs = findWorkspaceConfigs(workspace, VITE_CONFIG_PATTERN);
+    if (viteConfigs.length === 0) return [];
+    return findWorkspaceConfigs(workspace, VITEST_CONFIG_PATTERN).length > 0 ? [] : viteConfigs;
+  });
+
+  if (unpaired.length === 0) return true;
+  return { ok: false, detail: formatPaths(unpaired) };
+}
+
+/**
  * Globs for the given patterns, pruning generated and vendored directories.
  *
  * The `exclude` callback receives a path relative to `cwd`, not a bare name, so the comparison has to be
@@ -413,6 +446,11 @@ function findFiles(patterns: string[], cwd: string): string[] {
   return globSync(patterns, { cwd, exclude: (path) => SCAN_EXCLUDE_DIRS.has(basename(path)) })
     .map((path) => path.split(sep).join('/'))
     .toSorted();
+}
+
+/** Returns a workspace's own configs matching the pattern, as paths relative to the repo root. */
+function findWorkspaceConfigs(workspace: Workspace, pattern: string): string[] {
+  return findFiles([pattern], workspace.absolutePath).map((name) => `${workspace.dir}/${name}`);
 }
 
 /**
@@ -447,6 +485,11 @@ export function hasSupportedStrictLintVersion(): boolean {
   });
 }
 
+/** Reports whether a Vite config sits in the same directory as the given file. */
+function hasViteConfigBeside(cwd: string, relativePath: string): boolean {
+  return findFiles([VITE_CONFIG_PATTERN], join(cwd, dirname(relativePath))).length > 0;
+}
+
 /**
  * Checks whether a config imports a named export from one of nmr's shared-config modules.
  *
@@ -457,6 +500,17 @@ function importsSharedExport(content: string | undefined, exportName: string, mo
   if (content === undefined) return false;
   const pattern = new RegExp(String.raw`import\s*\{[^}]*\b${exportName}\b[^}]*\}\s*from\s*['"]${moduleSpecifier}['"]`);
   return pattern.test(content);
+}
+
+/**
+ * Reports whether `noReExportOnlyVitestConfigs` owns a config, which is where deleting it is the right fix.
+ *
+ * Deleting is right only where nothing else in the directory would take over resolution. A config beside a
+ * Vite config belongs to `vitestConfigBuildsOnSharedConfig` instead, which tells it to call the factory.
+ * Both checks read ownership from here, so the two cannot come to report the same file or neither.
+ */
+function isOwnedByReExportCheck(cwd: string, relativePath: string): boolean {
+  return isReExportOnly(readFileIn(cwd, relativePath)) && !hasViteConfigBeside(cwd, relativePath);
 }
 
 /**
@@ -476,6 +530,21 @@ function isReExportOnly(content: string | undefined): boolean {
     .filter((line) => line.length > 0);
 
   return statements.length > 0 && statements.every((line) => RE_EXPORT_LINE_PATTERN.test(line));
+}
+
+/**
+ * Returns every workspace but the root, or an empty list where discovery fails.
+ *
+ * These are the directories a Vitest run starts from, so their own configs decide what that run resolves.
+ * Discovery throws where the root manifest is missing or unreadable, and readyup catches a throw at kit
+ * level rather than check level, so one would take the rest of the checklist down with it.
+ */
+function memberWorkspaces(): Workspace[] {
+  try {
+    return discoverWorkspaces({ filter: (workspace) => !workspace.isRoot });
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -504,13 +573,15 @@ export function noPnpmFieldInPackageJson(cwd: string = process.cwd()): boolean |
 /**
  * Checks that no package carries a `vitest.config.*` that only re-exports an ancestor config.
  *
- * Only non-root configs qualify, identified by their path carrying a separator.
+ * Only non-root configs qualify, identified by their path carrying a separator. One beside a Vite config is
+ * load-bearing rather than redundant, so it is left to `vitestConfigBuildsOnSharedConfig`: deleting it would
+ * hand resolution to the Vite config, producing the failure that check exists to prevent.
  *
  * @internal - Exported only to enable testing
  */
 export function noReExportOnlyVitestConfigs(cwd: string = process.cwd()): boolean | CheckOutcome {
-  const nonRootConfigs = findFiles([`**/vitest.config.${CONFIG_EXTENSIONS}`], cwd).filter((path) => path.includes('/'));
-  const reExports = nonRootConfigs.filter((path) => isReExportOnly(readFileIn(cwd, path)));
+  const nonRootConfigs = findFiles([`**/${VITEST_CONFIG_PATTERN}`], cwd).filter((path) => path.includes('/'));
+  const reExports = nonRootConfigs.filter((path) => isOwnedByReExportCheck(cwd, path));
 
   if (reExports.length === 0) return true;
   return { ok: false, detail: formatPaths(reExports) };
@@ -663,14 +734,35 @@ function toolVersionsHasNoPnpm(): boolean {
 }
 
 /**
- * Checks that the root `vitest.config.*` is present and built on `defineVitestConfig`.
+ * Checks that the root `vitest.config.*` is present, and that it and every workspace's own build on
+ * `defineVitestConfig`.
  *
- * This is the ancestor config every workspace package resolves by walking up from its own directory.
+ * The root config is the ancestor a workspace resolves by walking up from its own directory. Its absence is
+ * folded in here rather than split into a check of its own: a repo without it leaves packages walking up
+ * past the repo root, which is a worse failure than a wrong config, not a lesser one.
+ *
+ * A workspace config that does not call the factory declares no projects, so it fails a tier-selecting run
+ * exactly as a missing root config does; presence alone is no evidence the projects model is reached.
+ *
+ * A re-export-only config with no Vite config beside it is left to `noReExportOnlyVitestConfigs`, whose fix
+ * deletes it rather than rewriting it.
  *
  * @internal - Exported only to enable testing
  */
-export function vitestConfigBuildsOnSharedConfig(cwd: string = process.cwd()): boolean | CheckOutcome {
-  return checkRootVitestConfig('vitest.config', 'defineVitestConfig', cwd);
+export function vitestConfigBuildsOnSharedConfig(): boolean | CheckOutcome {
+  const cwd = process.cwd();
+  const rootConfigs = findFiles([VITEST_CONFIG_PATTERN], cwd);
+  if (rootConfigs.length === 0) return { ok: false, detail: 'vitest.config.ts is missing' };
+
+  const workspaceConfigs = memberWorkspaces()
+    .flatMap((workspace) => findWorkspaceConfigs(workspace, VITEST_CONFIG_PATTERN))
+    .filter((relativePath) => !isOwnedByReExportCheck(cwd, relativePath));
+
+  const stale = [...rootConfigs, ...workspaceConfigs].filter(
+    (relativePath) => !importsSharedExport(readFileIn(cwd, relativePath), 'defineVitestConfig', SHARED_VITEST_MODULE),
+  );
+  if (stale.length === 0) return true;
+  return { ok: false, detail: `does not import defineVitestConfig from ${SHARED_VITEST_MODULE}: ${stale.join(', ')}` };
 }
 
 /**
