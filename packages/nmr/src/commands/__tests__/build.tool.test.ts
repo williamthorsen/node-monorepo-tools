@@ -300,11 +300,16 @@ describe('buildPackage emit correctness', () => {
     await buildPackage(tree.dir);
 
     // Object identity is the only reliable signal: `structureIsReused` reports the module resolutions alone,
-    // and reads `2` whether or not the source files are shared.
+    // and reads `2` whether or not the source files are shared. The whole set is asserted because the `lib.*`
+    // files outnumber the package's own sources 63 to 1 here and carry nearly all of the avoided parse.
     const [scriptProgram, declarationProgram] = collectPrograms();
     assert(scriptProgram !== undefined && declarationProgram !== undefined);
-    const entry = tree.resolve('src/index.ts');
-    expect(scriptProgram.getSourceFile(entry)).toBe(declarationProgram.getSourceFile(entry));
+    const reparsed = scriptProgram
+      .getSourceFiles()
+      .filter((sourceFile) => declarationProgram.getSourceFile(sourceFile.fileName) !== sourceFile)
+      .map((sourceFile) => sourceFile.fileName);
+
+    expect(reparsed).toStrictEqual([]);
   });
 
   it('throws when an aliased import resolves to a missing file', async ({ tree }) => {
