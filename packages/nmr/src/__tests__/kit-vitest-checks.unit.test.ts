@@ -226,7 +226,9 @@ describe(everyViteConfigHasVitestConfig, () => {
       'vitest.config.ts': SHARED_CONFIG,
     });
 
-    expect(getDetail(everyViteConfigHasVitestConfig())).toContain('negation pattern');
+    const detail = getDetail(everyViteConfigHasVitestConfig());
+    expect(detail).toContain('cannot enumerate workspaces');
+    expect(detail).toContain('negation pattern');
   });
 });
 

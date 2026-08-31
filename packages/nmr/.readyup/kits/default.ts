@@ -402,8 +402,9 @@ type WorkspaceDiscovery = { ok: true; workspaces: Workspace[] } | { ok: false; d
  * These are the directories a Vitest run starts from, so their own configs decide what that run resolves.
  * A failure is returned rather than thrown, because readyup catches a throw at kit level and one would take
  * the rest of the checklist down with it; it is returned rather than swallowed, because an empty list turns
- * every check built on this one into a pass over a repo it verified nothing about. Discovery throws on an
- * unreadable root manifest and on a negation pattern in the workspace globs, which readyup does not support.
+ * every check built on this one into a pass over a repo it verified nothing about. Discovery throws where the
+ * root manifest is unreadable, and where the workspace globs use a YAML or glob feature readyup's discovery
+ * does not support, a negation pattern among them.
  *
  * A check built on this reads `process.cwd()` and can offer no directory of its own: readyup's public entry
  * exports `discoverWorkspaces` alone, not the `discoverWorkspacesAt(dir)` form its source declares.
@@ -412,7 +413,7 @@ function discoverMemberWorkspaces(): WorkspaceDiscovery {
   try {
     return { ok: true, workspaces: discoverWorkspaces({ filter: (workspace) => !workspace.isRoot }) };
   } catch (error) {
-    return { ok: false, detail: describeError(error) };
+    return { ok: false, detail: `cannot enumerate workspaces: ${describeError(error)}` };
   }
 }
 

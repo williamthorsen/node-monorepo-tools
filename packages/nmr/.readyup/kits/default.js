@@ -442,7 +442,7 @@ function discoverMemberWorkspaces() {
   try {
     return { ok: true, workspaces: discoverWorkspaces({ filter: (workspace) => !workspace.isRoot }) };
   } catch (error) {
-    return { ok: false, detail: describeError(error) };
+    return { ok: false, detail: `cannot enumerate workspaces: ${describeError(error)}` };
   }
 }
 function everyTestFileNamesItsTier(cwd = process.cwd()) {
