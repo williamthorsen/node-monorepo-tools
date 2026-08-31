@@ -6,6 +6,25 @@ export const __readyupVersion = "0.35.0";
 // .readyup/kits/default.ts
 import { existsSync, globSync, readdirSync as readdirSync2 } from "node:fs";
 import { basename, dirname, join, sep } from "node:path";
+
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.6.3/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/isError.js
+function isError(error) {
+  return error instanceof Error || Object.prototype.toString.call(error) === "[object Error]";
+}
+
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.6.3/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/describeError.js
+function describeError(error) {
+  try {
+    if (isError(error) && typeof error.message === "string" && error.message !== "") {
+      return error.message;
+    }
+    return String(error);
+  } catch {
+    return "[unstringifiable value]";
+  }
+}
+
+// .readyup/kits/default.ts
 import { defineRdyKit } from "readyup";
 import {
   discoverWorkspaces,
@@ -419,13 +438,22 @@ function hasPrettierConfigKey(cwd) {
     return false;
   }
 }
+function discoverMemberWorkspaces() {
+  try {
+    return { ok: true, workspaces: discoverWorkspaces({ filter: (workspace) => !workspace.isRoot }) };
+  } catch (error) {
+    return { ok: false, detail: describeError(error) };
+  }
+}
 function everyTestFileNamesItsTier(cwd = process.cwd()) {
   const untiered = findTestFiles(cwd).filter((path2) => !hasTierInfix(path2));
   if (untiered.length === 0) return true;
   return { ok: false, detail: formatPaths(untiered) };
 }
 function everyViteConfigHasVitestConfig() {
-  const unpaired = memberWorkspaces().flatMap((workspace) => {
+  const discovery = discoverMemberWorkspaces();
+  if (!discovery.ok) return discovery;
+  const unpaired = discovery.workspaces.flatMap((workspace) => {
     const viteConfigs = findWorkspaceConfigs(workspace, VITE_CONFIG_PATTERN);
     if (viteConfigs.length === 0) return [];
     return findWorkspaceConfigs(workspace, VITEST_CONFIG_PATTERN).length > 0 ? [] : viteConfigs;
@@ -475,13 +503,6 @@ function isReExportOnly(content) {
   if (content === void 0) return false;
   const statements = content.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "").split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
   return statements.length > 0 && statements.every((line) => RE_EXPORT_LINE_PATTERN.test(line));
-}
-function memberWorkspaces() {
-  try {
-    return discoverWorkspaces({ filter: (workspace) => !workspace.isRoot });
-  } catch {
-    return [];
-  }
 }
 function noPnpmFieldInPackageJson(cwd = process.cwd()) {
   const declaring = findFiles(["**/package.json"], cwd).flatMap((relativePath) => {
@@ -591,12 +612,14 @@ function vitestConfigBuildsOnSharedConfig() {
   const cwd = process.cwd();
   const rootConfigs = findFiles([VITEST_CONFIG_PATTERN], cwd);
   if (rootConfigs.length === 0) return { ok: false, detail: "vitest.config.ts is missing" };
-  const workspaceConfigs = memberWorkspaces().flatMap((workspace) => findWorkspaceConfigs(workspace, VITEST_CONFIG_PATTERN)).filter((relativePath) => !isOwnedByReExportCheck(cwd, relativePath));
+  const discovery = discoverMemberWorkspaces();
+  if (!discovery.ok) return discovery;
+  const workspaceConfigs = discovery.workspaces.flatMap((workspace) => findWorkspaceConfigs(workspace, VITEST_CONFIG_PATTERN)).filter((relativePath) => !isOwnedByReExportCheck(cwd, relativePath));
   const stale = [...rootConfigs, ...workspaceConfigs].filter(
     (relativePath) => !importsSharedExport(readFileIn(cwd, relativePath), "defineVitestConfig", SHARED_VITEST_MODULE)
   );
   if (stale.length === 0) return true;
-  return { ok: false, detail: `does not import defineVitestConfig from ${SHARED_VITEST_MODULE}: ${stale.join(", ")}` };
+  return { ok: false, detail: formatPaths(stale) };
 }
 function vitestRootConfigBuildsOnSharedConfig(cwd = process.cwd()) {
   return checkRootVitestConfig("vitest.root.config", "defineRootVitestConfig", cwd);

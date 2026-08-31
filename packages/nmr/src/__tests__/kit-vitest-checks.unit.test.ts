@@ -70,7 +70,21 @@ describe(vitestConfigBuildsOnSharedConfig, () => {
       'vitest.config.ts': "import { defineConfig } from 'vitest/config';\nexport default defineConfig({});\n",
     });
 
-    expect(getDetail(vitestConfigBuildsOnSharedConfig())).toContain('does not import defineVitestConfig');
+    expect(getDetail(vitestConfigBuildsOnSharedConfig())).toContain('vitest.config.ts');
+  });
+
+  // readyup rejects a negation pattern by throwing. Swallowing that into an empty workspace list would pass
+  // a repo that does have workspaces, verifying nothing about them.
+  it('reports an unsupported workspace glob rather than passing', () => {
+    useMonorepo({
+      'packages/api/package.json': '{ "name": "api" }\n',
+      'packages/api/vitest.config.ts':
+        "import { defineConfig } from 'vitest/config';\nexport default defineConfig({});\n",
+      'pnpm-workspace.yaml': 'packages:\n  - packages/*\n  - "!packages/legacy"\n',
+      'vitest.config.ts': SHARED_CONFIG,
+    });
+
+    expect(getDetail(vitestConfigBuildsOnSharedConfig())).toContain('negation pattern');
   });
 
   it('is not satisfied by vitest.root.config.ts alone', () => {
@@ -197,11 +211,22 @@ describe(everyViteConfigHasVitestConfig, () => {
     expect(everyViteConfigHasVitestConfig()).toBe(true);
   });
 
-  it('yields no finding where the root manifest is unreadable', () => {
+  it('reports an unreadable root manifest rather than passing', () => {
     const dir = buildRepo({ 'packages/api/vite.config.ts': 'export default {};\n' });
     disposeOnTestFinished(pointCwdAt(dir));
 
-    expect(everyViteConfigHasVitestConfig()).toBe(true);
+    expect(getDetail(everyViteConfigHasVitestConfig())).toContain('no readable package.json');
+  });
+
+  it('reports an unsupported workspace glob rather than passing', () => {
+    useMonorepo({
+      'packages/api/package.json': '{ "name": "api" }\n',
+      'packages/api/vite.config.ts': 'export default {};\n',
+      'pnpm-workspace.yaml': 'packages:\n  - packages/*\n  - "!packages/legacy"\n',
+      'vitest.config.ts': SHARED_CONFIG,
+    });
+
+    expect(getDetail(everyViteConfigHasVitestConfig())).toContain('negation pattern');
   });
 });
 

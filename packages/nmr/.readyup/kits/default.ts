@@ -13,6 +13,7 @@
 import { existsSync, globSync, readdirSync } from 'node:fs';
 import { basename, dirname, join, sep } from 'node:path';
 
+import { describeError } from '@williamthorsen/toolbelt.errors';
 import { type CheckOutcome, defineRdyKit, pickJson } from 'readyup';
 import {
   discoverWorkspaces,
@@ -392,6 +393,29 @@ function hasPrettierConfigKey(cwd: string): boolean {
   }
 }
 
+/** Either the repo's member workspaces or the reason discovery could not enumerate them. */
+type WorkspaceDiscovery = { ok: true; workspaces: Workspace[] } | { ok: false; detail: string };
+
+/**
+ * Returns every workspace but the root, or the reason discovery could not enumerate them.
+ *
+ * These are the directories a Vitest run starts from, so their own configs decide what that run resolves.
+ * A failure is returned rather than thrown, because readyup catches a throw at kit level and one would take
+ * the rest of the checklist down with it; it is returned rather than swallowed, because an empty list turns
+ * every check built on this one into a pass over a repo it verified nothing about. Discovery throws on an
+ * unreadable root manifest and on a negation pattern in the workspace globs, which readyup does not support.
+ *
+ * A check built on this reads `process.cwd()` and can offer no directory of its own: readyup's public entry
+ * exports `discoverWorkspaces` alone, not the `discoverWorkspacesAt(dir)` form its source declares.
+ */
+function discoverMemberWorkspaces(): WorkspaceDiscovery {
+  try {
+    return { ok: true, workspaces: discoverWorkspaces({ filter: (workspace) => !workspace.isRoot }) };
+  } catch (error) {
+    return { ok: false, detail: describeError(error) };
+  }
+}
+
 /**
  * Checks that every test file the shared config's projects collect names one of nmr's isolation tiers.
  *
@@ -423,7 +447,10 @@ export function everyTestFileNamesItsTier(cwd: string = process.cwd()): boolean 
  * @internal - Exported only to enable testing
  */
 export function everyViteConfigHasVitestConfig(): boolean | CheckOutcome {
-  const unpaired = memberWorkspaces().flatMap((workspace) => {
+  const discovery = discoverMemberWorkspaces();
+  if (!discovery.ok) return discovery;
+
+  const unpaired = discovery.workspaces.flatMap((workspace) => {
     const viteConfigs = findWorkspaceConfigs(workspace, VITE_CONFIG_PATTERN);
     if (viteConfigs.length === 0) return [];
     return findWorkspaceConfigs(workspace, VITEST_CONFIG_PATTERN).length > 0 ? [] : viteConfigs;
@@ -507,7 +534,8 @@ function importsSharedExport(content: string | undefined, exportName: string, mo
  *
  * Deleting is right only where nothing else in the directory would take over resolution. A config beside a
  * Vite config belongs to `vitestConfigBuildsOnSharedConfig` instead, which tells it to call the factory.
- * Both checks read ownership from here, so the two cannot come to report the same file or neither.
+ * Both checks read ownership from here, so within a member workspace exactly one of them reports a config.
+ * Outside one, only the re-export check looks, and a config beside a Vite config falls to neither.
  */
 function isOwnedByReExportCheck(cwd: string, relativePath: string): boolean {
   return isReExportOnly(readFileIn(cwd, relativePath)) && !hasViteConfigBeside(cwd, relativePath);
@@ -530,21 +558,6 @@ function isReExportOnly(content: string | undefined): boolean {
     .filter((line) => line.length > 0);
 
   return statements.length > 0 && statements.every((line) => RE_EXPORT_LINE_PATTERN.test(line));
-}
-
-/**
- * Returns every workspace but the root, or an empty list where discovery fails.
- *
- * These are the directories a Vitest run starts from, so their own configs decide what that run resolves.
- * Discovery throws where the root manifest is missing or unreadable, and readyup catches a throw at kit
- * level rather than check level, so one would take the rest of the checklist down with it.
- */
-function memberWorkspaces(): Workspace[] {
-  try {
-    return discoverWorkspaces({ filter: (workspace) => !workspace.isRoot });
-  } catch {
-    return [];
-  }
 }
 
 /**
@@ -754,7 +767,10 @@ export function vitestConfigBuildsOnSharedConfig(): boolean | CheckOutcome {
   const rootConfigs = findFiles([VITEST_CONFIG_PATTERN], cwd);
   if (rootConfigs.length === 0) return { ok: false, detail: 'vitest.config.ts is missing' };
 
-  const workspaceConfigs = memberWorkspaces()
+  const discovery = discoverMemberWorkspaces();
+  if (!discovery.ok) return discovery;
+
+  const workspaceConfigs = discovery.workspaces
     .flatMap((workspace) => findWorkspaceConfigs(workspace, VITEST_CONFIG_PATTERN))
     .filter((relativePath) => !isOwnedByReExportCheck(cwd, relativePath));
 
@@ -762,7 +778,7 @@ export function vitestConfigBuildsOnSharedConfig(): boolean | CheckOutcome {
     (relativePath) => !importsSharedExport(readFileIn(cwd, relativePath), 'defineVitestConfig', SHARED_VITEST_MODULE),
   );
   if (stale.length === 0) return true;
-  return { ok: false, detail: `does not import defineVitestConfig from ${SHARED_VITEST_MODULE}: ${stale.join(', ')}` };
+  return { ok: false, detail: formatPaths(stale) };
 }
 
 /**
