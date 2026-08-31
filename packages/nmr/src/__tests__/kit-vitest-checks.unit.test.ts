@@ -1,13 +1,16 @@
+import { pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it } from 'vitest';
 
 import {
   everyTestFileNamesItsTier,
+  everyViteConfigHasVitestConfig,
   noReExportOnlyVitestConfigs,
   noRetiredVitestConfigs,
   vitestConfigBuildsOnSharedConfig,
   vitestRootConfigBuildsOnSharedConfig,
 } from '../../.readyup/kits/default.ts';
-import { buildRepo } from '../test-utils/fixture-repo.ts';
+import { buildMonorepo, buildRepo } from '../test-utils/fixture-repo.ts';
 import { getDetail } from '../test-utils/getDetail.ts';
 
 const SHARED_CONFIG =
@@ -51,29 +54,181 @@ describe(noRetiredVitestConfigs, () => {
 
 describe(vitestConfigBuildsOnSharedConfig, () => {
   it('passes when the root config imports defineVitestConfig', () => {
-    const dir = buildRepo({ 'vitest.config.ts': SHARED_CONFIG });
+    useMonorepo({ 'vitest.config.ts': SHARED_CONFIG });
 
-    expect(vitestConfigBuildsOnSharedConfig(dir)).toBe(true);
+    expect(vitestConfigBuildsOnSharedConfig()).toBe(true);
   });
 
   it('reports a missing root config', () => {
-    const dir = buildRepo({ 'package.json': '{}\n' });
+    useMonorepo({});
 
-    expect(getDetail(vitestConfigBuildsOnSharedConfig(dir))).toBe('vitest.config.ts is missing');
+    expect(getDetail(vitestConfigBuildsOnSharedConfig())).toBe('vitest.config.ts is missing');
   });
 
   it('reports a hand-rolled root config', () => {
-    const dir = buildRepo({
+    useMonorepo({
       'vitest.config.ts': "import { defineConfig } from 'vitest/config';\nexport default defineConfig({});\n",
     });
 
-    expect(getDetail(vitestConfigBuildsOnSharedConfig(dir))).toContain('does not import defineVitestConfig');
+    expect(getDetail(vitestConfigBuildsOnSharedConfig())).toContain('vitest.config.ts');
+  });
+
+  // readyup rejects a negation pattern by throwing. Swallowing that into an empty workspace list would pass
+  // a repo that does have workspaces, verifying nothing about them.
+  it('reports an unsupported workspace glob rather than passing', () => {
+    useMonorepo({
+      'packages/api/package.json': '{ "name": "api" }\n',
+      'packages/api/vitest.config.ts':
+        "import { defineConfig } from 'vitest/config';\nexport default defineConfig({});\n",
+      'pnpm-workspace.yaml': 'packages:\n  - packages/*\n  - "!packages/legacy"\n',
+      'vitest.config.ts': SHARED_CONFIG,
+    });
+
+    expect(getDetail(vitestConfigBuildsOnSharedConfig())).toContain('negation pattern');
   });
 
   it('is not satisfied by vitest.root.config.ts alone', () => {
-    const dir = buildRepo({ 'vitest.root.config.ts': SHARED_ROOT_CONFIG });
+    useMonorepo({ 'vitest.root.config.ts': SHARED_ROOT_CONFIG });
 
-    expect(getDetail(vitestConfigBuildsOnSharedConfig(dir))).toBe('vitest.config.ts is missing');
+    expect(getDetail(vitestConfigBuildsOnSharedConfig())).toBe('vitest.config.ts is missing');
+  });
+
+  it('reports a workspace config that does not call the factory', () => {
+    useMonorepo({
+      'packages/api/package.json': '{ "name": "api" }\n',
+      'packages/api/vitest.config.ts':
+        "import { defineConfig } from 'vitest/config';\nexport default defineConfig({});\n",
+      'vitest.config.ts': SHARED_CONFIG,
+    });
+
+    expect(getDetail(vitestConfigBuildsOnSharedConfig())).toContain('packages/api/vitest.config.ts');
+  });
+
+  it('passes a workspace config that calls the factory with its own layers', () => {
+    useMonorepo({
+      'packages/api/package.json': '{ "name": "api" }\n',
+      'packages/api/vitest.config.ts':
+        "import { defineVitestConfig } from '@williamthorsen/nmr/vitest';\nexport default defineVitestConfig({ project: { environment: 'jsdom' } });\n",
+      'vitest.config.ts': SHARED_CONFIG,
+    });
+
+    expect(vitestConfigBuildsOnSharedConfig()).toBe(true);
+  });
+
+  // The delete check owns this one, and its fix is correct here: nothing in the directory would take over
+  // resolution. Reporting it twice would hand the reader two fixes that contradict each other.
+  it('leaves a re-export-only workspace config to the delete check', () => {
+    useMonorepo({
+      'packages/api/package.json': '{ "name": "api" }\n',
+      'packages/api/vitest.config.ts': 'export { default } from "../../vitest.config.ts";\n',
+      'vitest.config.ts': SHARED_CONFIG,
+    });
+
+    expect(vitestConfigBuildsOnSharedConfig()).toBe(true);
+  });
+
+  it('reports a re-export-only workspace config sitting beside a Vite config', () => {
+    useMonorepo({
+      'packages/api/package.json': '{ "name": "api" }\n',
+      'packages/api/vite.config.ts': 'export default {};\n',
+      'packages/api/vitest.config.ts': 'export { default } from "../../vitest.config.ts";\n',
+      'vitest.config.ts': SHARED_CONFIG,
+    });
+
+    expect(getDetail(vitestConfigBuildsOnSharedConfig())).toContain('packages/api/vitest.config.ts');
+  });
+
+  it('ignores a config below a workspace root, which no run resolves', () => {
+    useMonorepo({
+      'packages/api/package.json': '{ "name": "api" }\n',
+      'packages/api/src/vitest.config.ts':
+        "import { defineConfig } from 'vitest/config';\nexport default defineConfig({});\n",
+      'vitest.config.ts': SHARED_CONFIG,
+    });
+
+    expect(vitestConfigBuildsOnSharedConfig()).toBe(true);
+  });
+});
+
+describe(everyViteConfigHasVitestConfig, () => {
+  it('passes when no workspace carries a Vite config', () => {
+    useMonorepo({ 'packages/api/package.json': '{ "name": "api" }\n', 'vitest.config.ts': SHARED_CONFIG });
+
+    expect(everyViteConfigHasVitestConfig()).toBe(true);
+  });
+
+  it('reports the unpaired Vite config by path', () => {
+    useMonorepo({
+      'packages/api/package.json': '{ "name": "api" }\n',
+      'packages/api/vite.config.ts': 'export default {};\n',
+      'vitest.config.ts': SHARED_CONFIG,
+    });
+
+    expect(getDetail(everyViteConfigHasVitestConfig())).toContain('packages/api/vite.config.ts');
+  });
+
+  it('passes when a Vitest config sits beside the Vite config', () => {
+    useMonorepo({
+      'packages/api/package.json': '{ "name": "api" }\n',
+      'packages/api/vite.config.ts': 'export default {};\n',
+      'packages/api/vitest.config.ts': SHARED_CONFIG,
+      'vitest.config.ts': SHARED_CONFIG,
+    });
+
+    expect(everyViteConfigHasVitestConfig()).toBe(true);
+  });
+
+  it('matches config extensions beyond .ts on both sides', () => {
+    useMonorepo({
+      'packages/api/package.json': '{ "name": "api" }\n',
+      'packages/api/vite.config.mts': 'export default {};\n',
+      'packages/api/vitest.config.mts': SHARED_CONFIG,
+      'packages/web/package.json': '{ "name": "web" }\n',
+      'packages/web/vite.config.mjs': 'export default {};\n',
+      'vitest.config.ts': SHARED_CONFIG,
+    });
+
+    const detail = getDetail(everyViteConfigHasVitestConfig());
+    expect(detail).toContain('packages/web/vite.config.mjs');
+    expect(detail).not.toContain('packages/api');
+  });
+
+  // Vitest's config search only ascends from the run root, so neither of these is ever resolved from the
+  // workspace whose tests would run.
+  it('ignores a Vite config nested below a workspace root', () => {
+    useMonorepo({
+      'packages/api/package.json': '{ "name": "api" }\n',
+      'packages/api/src/vite.config.ts': 'export default {};\n',
+      'vitest.config.ts': SHARED_CONFIG,
+    });
+
+    expect(everyViteConfigHasVitestConfig()).toBe(true);
+  });
+
+  it('ignores a Vite config at the repo root, which the root-config check reports', () => {
+    useMonorepo({ 'vite.config.ts': 'export default {};\n' });
+
+    expect(everyViteConfigHasVitestConfig()).toBe(true);
+  });
+
+  it('reports an unreadable root manifest rather than passing', () => {
+    const dir = buildRepo({ 'packages/api/vite.config.ts': 'export default {};\n' });
+    disposeOnTestFinished(pointCwdAt(dir));
+
+    expect(getDetail(everyViteConfigHasVitestConfig())).toContain('no readable package.json');
+  });
+
+  it('reports an unsupported workspace glob rather than passing', () => {
+    useMonorepo({
+      'packages/api/package.json': '{ "name": "api" }\n',
+      'packages/api/vite.config.ts': 'export default {};\n',
+      'pnpm-workspace.yaml': 'packages:\n  - packages/*\n  - "!packages/legacy"\n',
+      'vitest.config.ts': SHARED_CONFIG,
+    });
+
+    const detail = getDetail(everyViteConfigHasVitestConfig());
+    expect(detail).toContain('cannot enumerate workspaces');
+    expect(detail).toContain('negation pattern');
   });
 });
 
@@ -194,9 +349,30 @@ describe(noReExportOnlyVitestConfigs, () => {
     expect(noReExportOnlyVitestConfigs(dir)).toBe(true);
   });
 
+  // Deleting this one would hand resolution to the Vite config beside it, which is the failure the pairing
+  // check exists to prevent. The content check reports it instead, telling it to call the factory.
+  it('leaves a re-export beside a Vite config alone, which resolution then depends on', () => {
+    const dir = buildRepo({
+      'packages/api/vite.config.ts': 'export default {};\n',
+      'packages/api/vitest.config.ts': 'export { default } from "../../vitest.config.ts";\n',
+      'vitest.config.ts': SHARED_CONFIG,
+    });
+
+    expect(noReExportOnlyVitestConfigs(dir)).toBe(true);
+  });
+
   it('never reports the root config, which is the re-export target', () => {
     const dir = buildRepo({ 'vitest.config.ts': 'export { default } from "../other.ts";\n' });
 
     expect(noReExportOnlyVitestConfigs(dir)).toBe(true);
   });
 });
+
+// region | Helpers
+
+/** Builds a fixture monorepo and points `process.cwd()` at it, which is what workspace discovery reads. */
+function useMonorepo(files: Record<string, string>): void {
+  disposeOnTestFinished(pointCwdAt(buildMonorepo(files)));
+}
+
+// endregion | Helpers

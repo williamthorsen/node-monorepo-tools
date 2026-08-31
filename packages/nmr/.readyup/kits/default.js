@@ -5,9 +5,29 @@ export const __readyupVersion = "0.35.0";
 
 // .readyup/kits/default.ts
 import { existsSync, globSync, readdirSync as readdirSync2 } from "node:fs";
-import { basename, join, sep } from "node:path";
+import { basename, dirname, join, sep } from "node:path";
+
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.6.3/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/isError.js
+function isError(error) {
+  return error instanceof Error || Object.prototype.toString.call(error) === "[object Error]";
+}
+
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.6.3/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/describeError.js
+function describeError(error) {
+  try {
+    if (isError(error) && typeof error.message === "string" && error.message !== "") {
+      return error.message;
+    }
+    return String(error);
+  } catch {
+    return "[unstringifiable value]";
+  }
+}
+
+// .readyup/kits/default.ts
 import { defineRdyKit } from "readyup";
 import {
+  discoverWorkspaces,
   fileContains,
   fileExists,
   hasDevDependency,
@@ -247,16 +267,22 @@ var default_default = defineRdyKit({
           fix: "Delete every vitest.standalone.config.* and vitest.integration.config.*. nmr's test scripts select Vitest projects instead of naming config files"
         },
         {
-          name: "vitest.config.ts builds on @williamthorsen/nmr/vitest",
+          name: "every vitest.config builds on @williamthorsen/nmr/vitest",
           severity: "error",
           check: () => vitestConfigBuildsOnSharedConfig(),
-          fix: "Replace vitest.config.ts with: import { defineVitestConfig } from '@williamthorsen/nmr/vitest'; export default defineVitestConfig();"
+          fix: "Replace each listed config with: import { defineVitestConfig } from '@williamthorsen/nmr/vitest'; export default defineVitestConfig(); -- a config that does not call the factory declares no projects, so every tier-selecting test command fails against it. Pass your own settings to the factory as layers to keep them"
         },
         {
           name: "vitest.root.config.ts builds on @williamthorsen/nmr/vitest",
           severity: "error",
           check: () => vitestRootConfigBuildsOnSharedConfig(),
           fix: "Replace vitest.root.config.ts with: import { defineRootVitestConfig } from '@williamthorsen/nmr/vitest'; export default defineRootVitestConfig({ monorepoRoot: import.meta.dirname });"
+        },
+        {
+          name: "every workspace with a Vite config has a Vitest config",
+          severity: "error",
+          check: () => everyViteConfigHasVitestConfig(),
+          fix: "Add a vitest.config.ts calling defineVitestConfig() from @williamthorsen/nmr/vitest beside each listed vite.config -- Vitest stops its config search at the first directory holding either name, so the Vite config otherwise wins and the projects model is never reached"
         },
         {
           name: "every test file names its isolation tier",
@@ -320,6 +346,8 @@ var default_default = defineRdyKit({
 });
 var SCAN_EXCLUDE_DIRS = /* @__PURE__ */ new Set([".git", "coverage", "dist", "node_modules"]);
 var CONFIG_EXTENSIONS = "{ts,mts,cts,js,mjs,cjs}";
+var VITE_CONFIG_PATTERN = `vite.config.${CONFIG_EXTENSIONS}`;
+var VITEST_CONFIG_PATTERN = `vitest.config.${CONFIG_EXTENSIONS}`;
 var SHARED_VITEST_MODULE = "@williamthorsen/nmr/vitest";
 var SHARED_PRETTIER_MODULE = "@williamthorsen/nmr/prettier";
 var INERT_PRETTIER_CONFIGS = [".prettierrc", ".prettierrc.{json,json5,yaml,yml,toml}"];
@@ -410,13 +438,34 @@ function hasPrettierConfigKey(cwd) {
     return false;
   }
 }
+function discoverMemberWorkspaces() {
+  try {
+    return { ok: true, workspaces: discoverWorkspaces({ filter: (workspace) => !workspace.isRoot }) };
+  } catch (error) {
+    return { ok: false, detail: `cannot enumerate workspaces: ${describeError(error)}` };
+  }
+}
 function everyTestFileNamesItsTier(cwd = process.cwd()) {
   const untiered = findTestFiles(cwd).filter((path2) => !hasTierInfix(path2));
   if (untiered.length === 0) return true;
   return { ok: false, detail: formatPaths(untiered) };
 }
+function everyViteConfigHasVitestConfig() {
+  const discovery = discoverMemberWorkspaces();
+  if (!discovery.ok) return discovery;
+  const unpaired = discovery.workspaces.flatMap((workspace) => {
+    const viteConfigs = findWorkspaceConfigs(workspace, VITE_CONFIG_PATTERN);
+    if (viteConfigs.length === 0) return [];
+    return findWorkspaceConfigs(workspace, VITEST_CONFIG_PATTERN).length > 0 ? [] : viteConfigs;
+  });
+  if (unpaired.length === 0) return true;
+  return { ok: false, detail: formatPaths(unpaired) };
+}
 function findFiles(patterns, cwd) {
   return globSync(patterns, { cwd, exclude: (path2) => SCAN_EXCLUDE_DIRS.has(basename(path2)) }).map((path2) => path2.split(sep).join("/")).toSorted();
+}
+function findWorkspaceConfigs(workspace, pattern) {
+  return findFiles([pattern], workspace.absolutePath).map((name) => `${workspace.dir}/${name}`);
 }
 function formatPaths(paths) {
   return `${paths.length} found:
@@ -439,10 +488,16 @@ function hasSupportedStrictLintVersion() {
     exempt: resolvesVersionViaWorkspace
   });
 }
+function hasViteConfigBeside(cwd, relativePath) {
+  return findFiles([VITE_CONFIG_PATTERN], join(cwd, dirname(relativePath))).length > 0;
+}
 function importsSharedExport(content, exportName, moduleSpecifier) {
   if (content === void 0) return false;
   const pattern = new RegExp(String.raw`import\s*\{[^}]*\b${exportName}\b[^}]*\}\s*from\s*['"]${moduleSpecifier}['"]`);
   return pattern.test(content);
+}
+function isOwnedByReExportCheck(cwd, relativePath) {
+  return isReExportOnly(readFileIn(cwd, relativePath)) && !hasViteConfigBeside(cwd, relativePath);
 }
 function isReExportOnly(content) {
   if (content === void 0) return false;
@@ -459,8 +514,8 @@ function noPnpmFieldInPackageJson(cwd = process.cwd()) {
   return { ok: false, detail: formatPaths(declaring) };
 }
 function noReExportOnlyVitestConfigs(cwd = process.cwd()) {
-  const nonRootConfigs = findFiles([`**/vitest.config.${CONFIG_EXTENSIONS}`], cwd).filter((path2) => path2.includes("/"));
-  const reExports = nonRootConfigs.filter((path2) => isReExportOnly(readFileIn(cwd, path2)));
+  const nonRootConfigs = findFiles([`**/${VITEST_CONFIG_PATTERN}`], cwd).filter((path2) => path2.includes("/"));
+  const reExports = nonRootConfigs.filter((path2) => isOwnedByReExportCheck(cwd, path2));
   if (reExports.length === 0) return true;
   return { ok: false, detail: formatPaths(reExports) };
 }
@@ -553,8 +608,18 @@ function toolVersionsHasNoPnpm() {
   if (content === void 0) return true;
   return !/^pnpm\s/m.test(content);
 }
-function vitestConfigBuildsOnSharedConfig(cwd = process.cwd()) {
-  return checkRootVitestConfig("vitest.config", "defineVitestConfig", cwd);
+function vitestConfigBuildsOnSharedConfig() {
+  const cwd = process.cwd();
+  const rootConfigs = findFiles([VITEST_CONFIG_PATTERN], cwd);
+  if (rootConfigs.length === 0) return { ok: false, detail: "vitest.config.ts is missing" };
+  const discovery = discoverMemberWorkspaces();
+  if (!discovery.ok) return discovery;
+  const workspaceConfigs = discovery.workspaces.flatMap((workspace) => findWorkspaceConfigs(workspace, VITEST_CONFIG_PATTERN)).filter((relativePath) => !isOwnedByReExportCheck(cwd, relativePath));
+  const stale = [...rootConfigs, ...workspaceConfigs].filter(
+    (relativePath) => !importsSharedExport(readFileIn(cwd, relativePath), "defineVitestConfig", SHARED_VITEST_MODULE)
+  );
+  if (stale.length === 0) return true;
+  return { ok: false, detail: formatPaths(stale) };
 }
 function vitestRootConfigBuildsOnSharedConfig(cwd = process.cwd()) {
   return checkRootVitestConfig("vitest.root.config", "defineRootVitestConfig", cwd);
@@ -562,6 +627,7 @@ function vitestRootConfigBuildsOnSharedConfig(cwd = process.cwd()) {
 export {
   default_default as default,
   everyTestFileNamesItsTier,
+  everyViteConfigHasVitestConfig,
   hasSupportedEslintVersion,
   hasSupportedStrictLintVersion,
   noPnpmFieldInPackageJson,

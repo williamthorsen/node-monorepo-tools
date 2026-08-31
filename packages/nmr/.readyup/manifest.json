@@ -2,13 +2,16 @@
   "version": 1,
   "kits": [
     {
+      "bundledDependencies": {
+        "@williamthorsen/toolbelt.errors": "0.6.3"
+      },
       "checklists": [
         "nmr"
       ],
       "esbuildVersion": "0.28.2",
       "inputs": [
         {
-          "hash": "f58e8934",
+          "hash": "b67d9796",
           "kind": "module",
           "path": "kits/default.ts"
         },
@@ -40,8 +43,8 @@
       "path": "kits/default.js",
       "readyupVersion": "0.35.0",
       "source": "kits/default.ts",
-      "sourceHash": "f58e8934",
-      "targetHash": "c26cee2a"
+      "sourceHash": "b67d9796",
+      "targetHash": "57accc0b"
     }
   ]
 }
