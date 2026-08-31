@@ -3,8 +3,7 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import type { LabelSpec, ReleaseKitConfig, RepoLabelsConfig } from '../defineConfig.ts';
-import { defineConfig } from '../defineConfig.ts';
+import { defineConfig, type LabelSpec, type ReleaseKitConfig, type RepoLabelsConfig } from '../defineConfig.ts';
 
 /** The entry module's basename. The `./config` subpath's targets are this name with the built extensions. */
 const ENTRY_BASENAME = 'defineConfig';

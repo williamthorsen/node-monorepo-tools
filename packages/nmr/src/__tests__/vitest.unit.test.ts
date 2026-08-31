@@ -7,8 +7,7 @@ import { defaultClientConditions, defaultServerConditions } from 'vite';
 import { describe, expect, it as baseIt } from 'vitest';
 import type { TestProjectConfiguration, TestProjectInlineConfiguration, ViteUserConfig } from 'vitest/config';
 
-import type { VitestConfigOptions } from '../vitest.ts';
-import { defineRootVitestConfig, defineVitestConfig } from '../vitest.ts';
+import { defineRootVitestConfig, defineVitestConfig, type VitestConfigOptions } from '../vitest.ts';
 
 /** Every project the shared config declares, in the order it emits them: the residual, then the ladder. */
 const PROJECT_NAMES = ['unit', 'tool', 'localhost', 'remote'];

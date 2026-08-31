@@ -1,8 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
-import type { TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
-import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { assert, describe, expect, it as baseIt } from 'vitest';
 

@@ -5,8 +5,8 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesyst
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { CheckCacheEntry, TreeSnapshot } from '../check-cache.ts';
 import {
+  type CheckCacheEntry,
   computeCacheKey,
   computeRetentionKey,
   DEFAULT_CACHEABLE_COMMANDS,
@@ -20,6 +20,7 @@ import {
   resolveCacheableCommands,
   resolveRunId,
   RUN_ID_ENV_VAR,
+  type TreeSnapshot,
   writeCheckCacheEntry,
   writeDebugNote,
 } from '../check-cache.ts';

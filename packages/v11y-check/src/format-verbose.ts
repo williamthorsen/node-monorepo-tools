@@ -1,6 +1,13 @@
 import { formatActionHints } from './format-actions.ts';
-import type { AllowedVuln, CheckResult, ScopeCheckResult, StaleEntry } from './format-check.ts';
-import { displayId, formatSeveritySuffix, severityIndicator } from './format-check.ts';
+import {
+  type AllowedVuln,
+  type CheckResult,
+  displayId,
+  formatSeveritySuffix,
+  type ScopeCheckResult,
+  severityIndicator,
+  type StaleEntry,
+} from './format-check.ts';
 import { formatRelativeTime } from './format-time.ts';
 import type { AuditResult, AuditScope, SeverityThreshold } from './types.ts';
 

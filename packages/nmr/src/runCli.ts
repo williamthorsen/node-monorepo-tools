@@ -4,9 +4,10 @@ import type { Writable } from 'node:stream';
 import { readPackageVersion, reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
-import type { BuildOutputState, CheckCacheEntry, ReplayLine, Retention, TreeSnapshot } from './check-cache.ts';
 import {
+  type BuildOutputState,
   certifyRetention,
+  type CheckCacheEntry,
   computeCacheKey,
   computeRetentionKey,
   CURRENT_RUNTIME,
@@ -18,10 +19,13 @@ import {
   readBuildOutputState,
   readCheckCacheEntry,
   recordTranscript,
+  type ReplayLine,
   resolveRunId,
   resolveTreeSnapshot,
+  type Retention,
   RUN_ID_ENV_VAR,
   TREE_SNAPSHOT_ENV_VAR,
+  type TreeSnapshot,
   writeCheckCacheEntry,
   writeDebugNote,
 } from './check-cache.ts';
@@ -34,28 +38,30 @@ import { resolvePackageJsonPath } from './helpers/package-json.ts';
 import { composeTranscript } from './helpers/transcript.ts';
 import { renderRecording, renderRefusal, resolveRecording } from './recording.ts';
 import { assembleReplay } from './replay-assembly.ts';
-import type { ReportFormat } from './report-format.ts';
-import { readReportFormatEnv, REPORT_FORMAT_ENV_VAR, resolveReportFormat } from './report-format.ts';
+import { readReportFormatEnv, REPORT_FORMAT_ENV_VAR, type ReportFormat, resolveReportFormat } from './report-format.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
-import type { ResolvedScript, ScriptOrigin } from './resolver.ts';
 import {
   applyDevBinToSteps,
   buildRootRegistry,
   buildWorkspaceRegistry,
   expandScript,
   findChainedSelfReference,
+  type ResolvedScript,
   resolveScript,
+  type ScriptOrigin,
 } from './resolver.ts';
-import type { RetainedOutput, RunStepsOptions } from './runner.ts';
-import { resolveChannel, runSteps } from './runner.ts';
-import type { Step } from './steps.ts';
-import { composeNmrStep, findNmrCrossing, renderChain } from './steps.ts';
+import { resolveChannel, type RetainedOutput, runSteps, type RunStepsOptions } from './runner.ts';
+import { composeNmrStep, findNmrCrossing, renderChain, type Step } from './steps.ts';
 import type { NmrConfig } from './types.ts';
 import { UserError } from './UserError.ts';
-import type { CommandVerbosity, ResolveVerbosityOptions } from './verbosity.ts';
-import { COMMAND_VERBOSITY_ENV_VAR, readVerbosityEnv, resolveVerbosity } from './verbosity.ts';
-import type { Verdict, VerdictOutcome } from './verdict.ts';
-import { writeVerdict } from './verdict.ts';
+import {
+  COMMAND_VERBOSITY_ENV_VAR,
+  type CommandVerbosity,
+  readVerbosityEnv,
+  resolveVerbosity,
+  type ResolveVerbosityOptions,
+} from './verbosity.ts';
+import { type Verdict, type VerdictOutcome, writeVerdict } from './verdict.ts';
 
 const VERSION = readPackageVersion(import.meta.url);
 

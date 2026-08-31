@@ -14,8 +14,7 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
   };
 });
 
-import type { ReleasePlan } from '../releasePlan.ts';
-import { applyReleasePlan } from '../releasePlan.ts';
+import { applyReleasePlan, type ReleasePlan } from '../releasePlan.ts';
 
 describe(applyReleasePlan, () => {
   beforeEach(() => {

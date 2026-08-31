@@ -4,11 +4,9 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesyst
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { CheckCacheEntry, ReplayLine } from '../check-cache.ts';
-import { writeCheckCacheEntry } from '../check-cache.ts';
+import { type CheckCacheEntry, type ReplayLine, writeCheckCacheEntry } from '../check-cache.ts';
 import { assembleReplay } from '../replay-assembly.ts';
-import type { Step } from '../steps.ts';
-import { composeNmrStep } from '../steps.ts';
+import { composeNmrStep, type Step } from '../steps.ts';
 
 /** The tree every admissible entry in these tests describes. */
 const TREE_HASH = 'tree-hash';

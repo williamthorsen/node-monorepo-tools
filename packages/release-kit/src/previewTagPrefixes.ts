@@ -5,8 +5,7 @@ import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
-import type { UndeclaredTagPrefix } from './detectUndeclaredTagPrefixes.ts';
-import { detectUndeclaredTagPrefixes } from './detectUndeclaredTagPrefixes.ts';
+import { detectUndeclaredTagPrefixes, type UndeclaredTagPrefix } from './detectUndeclaredTagPrefixes.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
 import { loadConfig } from './loadConfig.ts';
 import type { LegacyIdentity, ReleaseKitConfig, RetiredPackage } from './types.ts';

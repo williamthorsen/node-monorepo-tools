@@ -26,7 +26,7 @@
           "path": "../src/default-scripts.ts"
         },
         {
-          "hash": "b42c7523",
+          "hash": "c53d0c51",
           "kind": "module",
           "path": "../src/resolve-scripts.ts"
         },
@@ -38,10 +38,10 @@
       ],
       "name": "default",
       "path": "kits/default.js",
-      "readyupVersion": "0.34.0",
+      "readyupVersion": "0.35.0",
       "source": "kits/default.ts",
       "sourceHash": "f58e8934",
-      "targetHash": "06fcc92e"
+      "targetHash": "c26cee2a"
     }
   ]
 }

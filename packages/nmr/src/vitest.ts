@@ -1,13 +1,11 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { TestProjectInlineConfiguration, ViteUserConfig } from 'vitest/config';
-import { defaultExclude, mergeConfig } from 'vitest/config';
+import { defaultExclude, mergeConfig, type TestProjectInlineConfiguration, type ViteUserConfig } from 'vitest/config';
 import type { InlineConfig, ProjectConfig } from 'vitest/node';
 
 import { isObject } from './helpers/type-guards.ts';
-import type { TierName } from './tiers.ts';
-import { ALL_TEST_PATTERNS, buildTierPatterns, TEST_COLLECTION_EXCLUDE, TIER_NAMES } from './tiers.ts';
+import { ALL_TEST_PATTERNS, buildTierPatterns, TEST_COLLECTION_EXCLUDE, TIER_NAMES, type TierName } from './tiers.ts';
 import { getWorkspacePackageDirs } from './workspace.ts';
 
 export type { TierName } from './tiers.ts';

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Step } from '../steps.ts';
 import {
   composeNmrStep,
   findNmrCrossing,
@@ -8,6 +7,7 @@ import {
   readNmrStep,
   readSelfReference,
   renderChain,
+  type Step,
 } from '../steps.ts';
 
 describe(composeNmrStep, () => {

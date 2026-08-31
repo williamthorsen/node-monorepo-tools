@@ -1,7 +1,6 @@
 import path from 'node:path';
 
-import type { TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
-import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { makeFixture, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 

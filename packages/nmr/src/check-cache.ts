@@ -4,8 +4,8 @@ import path from 'node:path';
 import process from 'node:process';
 import type { Writable } from 'node:stream';
 
-import type { CacheEntryRef } from '@williamthorsen/nmr-core';
 import {
+  type CacheEntryRef,
   hashWorkingTree,
   readCacheEntry,
   readHeadSha,
@@ -21,8 +21,7 @@ import { hasBuildOutput, readBuildDigest } from './commands/build-output.ts';
 import { loadWorkspaceConfig } from './config.ts';
 import { isHookName } from './helpers/hook-name.ts';
 import { isObject, isStringRecord } from './helpers/type-guards.ts';
-import type { ScriptRegistry } from './resolve-scripts.ts';
-import { getDefaultWorkspaceScripts } from './resolve-scripts.ts';
+import { getDefaultWorkspaceScripts, type ScriptRegistry } from './resolve-scripts.ts';
 import { buildWorkspaceRegistry, resolveScript } from './resolver.ts';
 import type { OutputChannel, OutputChannels } from './runner.ts';
 import { renderChain } from './steps.ts';

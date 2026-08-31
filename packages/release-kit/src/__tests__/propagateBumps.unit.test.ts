@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { DependencyGraph } from '../buildDependencyGraph.ts';
-import type { ReleaseEntry } from '../propagateBumps.ts';
-import { propagateBumps } from '../propagateBumps.ts';
+import { propagateBumps, type ReleaseEntry } from '../propagateBumps.ts';
 import type { WorkspaceConfig } from '../types.ts';
 
 describe(propagateBumps, () => {

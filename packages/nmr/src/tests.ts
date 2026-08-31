@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { TestFileScanOptions } from './tiers.ts';
-import { findMisplacedTestFiles, findUntieredTestFiles, TIER_NAMES } from './tiers.ts';
+import { findMisplacedTestFiles, findUntieredTestFiles, type TestFileScanOptions, TIER_NAMES } from './tiers.ts';
 import { findMonorepoRoot } from './workspace.ts';
 
 const MISPLACED_REMEDY =

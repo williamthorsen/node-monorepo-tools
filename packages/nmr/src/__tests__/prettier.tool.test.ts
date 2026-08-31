@@ -1,8 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import type { Config } from 'prettier';
-import { format, getFileInfo, getSupportInfo, resolveConfig } from 'prettier';
+import { type Config, format, getFileInfo, getSupportInfo, resolveConfig } from 'prettier';
 import { describe, expect, it } from 'vitest';
 
 import { definePrettierConfig } from '../prettier.ts';

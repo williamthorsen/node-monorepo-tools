@@ -1,8 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import type { WriteResult } from '@williamthorsen/nmr-core';
-import { findPackageRoot, writeFileWithCheck } from '@williamthorsen/nmr-core';
+import { findPackageRoot, writeFileWithCheck, type WriteResult } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import type { RepoType } from './detectRepoType.ts';

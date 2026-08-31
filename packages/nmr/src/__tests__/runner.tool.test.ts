@@ -3,8 +3,7 @@ import { PassThrough } from 'node:stream';
 
 import { describe, expect, it } from 'vitest';
 
-import type { OutputChannels } from '../runner.ts';
-import { runCommand } from '../runner.ts';
+import { type OutputChannels, runCommand } from '../runner.ts';
 
 const PRODUCED_BYTES = 2_000_000;
 

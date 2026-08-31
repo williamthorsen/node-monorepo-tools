@@ -1,5 +1,4 @@
-import type { ScriptRegistry } from './default-scripts.ts';
-import { rootScripts, workspaceScripts } from './default-scripts.ts';
+import { rootScripts, type ScriptRegistry, workspaceScripts } from './default-scripts.ts';
 
 export type { ScriptRegistry, ScriptValue, StepSpec } from './default-scripts.ts';
 

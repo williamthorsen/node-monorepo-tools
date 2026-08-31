@@ -1,8 +1,7 @@
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 
-import type { TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
-import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { disposeOnTestFinished, makeFixture, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import * as ts from 'typescript';
 import { afterEach, assert, beforeEach, describe, expect, it as baseIt, vi } from 'vitest';

@@ -8,8 +8,7 @@ import { beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
 import { REPORT_FORMAT_ENV_VAR } from '../report-format.ts';
 import { runCli } from '../runCli.ts';
 import { runSteps } from '../runner.ts';
-import type { Step } from '../steps.ts';
-import { renderChain } from '../steps.ts';
+import { renderChain, type Step } from '../steps.ts';
 import { UserError } from '../UserError.ts';
 import { COMMAND_VERBOSITY_ENV_VAR } from '../verbosity.ts';
 

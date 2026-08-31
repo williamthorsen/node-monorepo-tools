@@ -2,8 +2,7 @@ import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testi
 import { ProcessExitError, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { FlagSchema, ParseErrorKind } from '../parseArgs.ts';
-import { parseArgs, parseArgsOrExit, ParseError } from '../parseArgs.ts';
+import { type FlagSchema, parseArgs, parseArgsOrExit, ParseError, type ParseErrorKind } from '../parseArgs.ts';
 
 const emptySchema = {} satisfies FlagSchema;
 

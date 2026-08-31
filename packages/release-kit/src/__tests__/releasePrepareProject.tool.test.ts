@@ -8,8 +8,7 @@ import { disposeOnTestFinished, silenceConsole, throwOnProcessExit } from '@will
 import { assert, beforeEach, describe, expect, it } from 'vitest';
 
 import { mergeMonorepoConfig } from '../loadConfig.ts';
-import type { ReleasePlan } from '../releasePlan.ts';
-import { applyReleasePlan } from '../releasePlan.ts';
+import { applyReleasePlan, type ReleasePlan } from '../releasePlan.ts';
 import { releasePrepareMono } from '../releasePrepareMono.ts';
 
 /**

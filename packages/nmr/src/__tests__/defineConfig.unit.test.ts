@@ -3,8 +3,7 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import type { BuildConfig, CheckCacheConfig, NmrConfig } from '../defineConfig.ts';
-import { defineConfig } from '../defineConfig.ts';
+import { type BuildConfig, type CheckCacheConfig, defineConfig, type NmrConfig } from '../defineConfig.ts';
 import { isObject } from '../helpers/type-guards.ts';
 
 /** The entry module's basename. The `./config` subpath's targets are this name with the built extensions. */

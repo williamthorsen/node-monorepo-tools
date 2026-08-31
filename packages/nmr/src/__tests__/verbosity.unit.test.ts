@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import type { OutputConfig } from '../types.ts';
-import type { CommandVerbosity, VerbosityRead } from '../verbosity.ts';
-import { AGENT_ENV_VARS, COMMAND_VERBOSITY_ENV_VAR, readVerbosityEnv, resolveVerbosity } from '../verbosity.ts';
+import {
+  AGENT_ENV_VARS,
+  COMMAND_VERBOSITY_ENV_VAR,
+  type CommandVerbosity,
+  readVerbosityEnv,
+  resolveVerbosity,
+  type VerbosityRead,
+} from '../verbosity.ts';
 
 describe(readVerbosityEnv, () => {
   it.each([

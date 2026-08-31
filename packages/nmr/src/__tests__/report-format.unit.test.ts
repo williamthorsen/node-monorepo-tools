@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ReportFormat, ReportFormatRead } from '../report-format.ts';
-import { readReportFormatEnv, REPORT_FORMAT_ENV_VAR, resolveReportFormat } from '../report-format.ts';
+import {
+  readReportFormatEnv,
+  REPORT_FORMAT_ENV_VAR,
+  type ReportFormat,
+  type ReportFormatRead,
+  resolveReportFormat,
+} from '../report-format.ts';
 
 describe(readReportFormatEnv, () => {
   it.each([

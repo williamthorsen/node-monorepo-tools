@@ -2,8 +2,14 @@ import { PassThrough } from 'node:stream';
 
 import { describe, expect, it, vi } from 'vitest';
 
-import type { Verdict, VerdictOutcome } from '../verdict.ts';
-import { renderVerdict, serializeVerdict, VERDICT_LINE_LIMIT, writeVerdict } from '../verdict.ts';
+import {
+  renderVerdict,
+  serializeVerdict,
+  type Verdict,
+  VERDICT_LINE_LIMIT,
+  type VerdictOutcome,
+  writeVerdict,
+} from '../verdict.ts';
 
 describe(renderVerdict, () => {
   it('reports a pass with its scope, command, and duration', () => {

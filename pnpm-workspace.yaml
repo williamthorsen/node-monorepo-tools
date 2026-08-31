@@ -2,16 +2,17 @@ packages:
   - packages/*
 
 catalog:
-  '@williamthorsen/toolbelt.errors': 0.6.2
-  '@williamthorsen/toolbelt.filesystem': 0.8.1
+  '@williamthorsen/toolbelt.errors': 0.6.3
+  '@williamthorsen/toolbelt.filesystem': 0.8.2
   '@williamthorsen/toolbelt.testing': 0.5.0
-  '@williamthorsen/toolbelt.vitest': 0.7.0
+  '@williamthorsen/toolbelt.vitest': 0.8.0
   esbuild: ^0.28.2
-  'readyup': 0.34.0
+  'readyup': 0.35.0
 
 allowBuilds:
   esbuild: true
   lefthook: true
+  unrs-resolver: true
 
 # eslint-plugin-import has no release declaring an eslint 10 peer, but it shims the removed APIs
 # internally and runs under eslint 10. Clear the false unmet-peer scoped to this one edge.

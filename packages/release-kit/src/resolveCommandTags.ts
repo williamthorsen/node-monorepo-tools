@@ -6,8 +6,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
-import type { ResolvedTag } from './resolveReleaseTags.ts';
-import { resolveReleaseTags } from './resolveReleaseTags.ts';
+import { type ResolvedTag, resolveReleaseTags } from './resolveReleaseTags.ts';
 import type { WorkspaceConfig } from './types.ts';
 
 /**

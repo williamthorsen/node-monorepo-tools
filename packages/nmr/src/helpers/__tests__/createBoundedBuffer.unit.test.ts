@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { BoundedBufferOptions } from '../createBoundedBuffer.ts';
-import { createBoundedBuffer } from '../createBoundedBuffer.ts';
+import { type BoundedBufferOptions, createBoundedBuffer } from '../createBoundedBuffer.ts';
 
 const SMALL_BOUND: BoundedBufferOptions = { headLimitBytes: 4, tailLimitBytes: 4 };
 

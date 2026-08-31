@@ -1,5 +1,4 @@
-import type { ChildProcess } from 'node:child_process';
-import { spawn } from 'node:child_process';
+import { type ChildProcess, spawn } from 'node:child_process';
 import os from 'node:os';
 import process from 'node:process';
 import type { Readable, Writable } from 'node:stream';

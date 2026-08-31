@@ -1,5 +1,4 @@
-import type { CheckCacheEntry } from './check-cache.ts';
-import { readCheckCacheEntry, readTranscript } from './check-cache.ts';
+import { type CheckCacheEntry, readCheckCacheEntry, readTranscript } from './check-cache.ts';
 import { formatDuration } from './helpers/duration.ts';
 
 /**

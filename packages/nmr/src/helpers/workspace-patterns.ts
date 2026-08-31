@@ -1,5 +1,4 @@
-import type { GlobOptionsWithoutFileTypes } from 'node:fs';
-import { globSync } from 'node:fs';
+import { type GlobOptionsWithoutFileTypes, globSync } from 'node:fs';
 import path from 'node:path';
 
 /**

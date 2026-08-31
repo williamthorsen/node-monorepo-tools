@@ -2,8 +2,7 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import type { V11yCheckConfig } from './types.ts';
-import { DEFAULT_CONFIG, v11yCheckConfigSchema } from './types.ts';
+import { DEFAULT_CONFIG, type V11yCheckConfig, v11yCheckConfigSchema } from './types.ts';
 
 /** Default config file path, relative to the working directory. */
 export const DEFAULT_CONFIG_PATH = '.config/v11y-check.config.json';

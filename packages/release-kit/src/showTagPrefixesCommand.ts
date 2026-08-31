@@ -1,6 +1,5 @@
 import { detectRepoType } from './init/detectRepoType.ts';
-import type { TagPrefixPreview, TagPrefixPreviewRow } from './previewTagPrefixes.ts';
-import { previewTagPrefixes } from './previewTagPrefixes.ts';
+import { previewTagPrefixes, type TagPrefixPreview, type TagPrefixPreviewRow } from './previewTagPrefixes.ts';
 
 /**
  * Orchestrate the CLI `show-tag-prefixes` command.

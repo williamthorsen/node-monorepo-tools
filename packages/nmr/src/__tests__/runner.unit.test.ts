@@ -4,8 +4,7 @@ import { PassThrough, Writable } from 'node:stream';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { OutputChannels } from '../runner.ts';
-import { resolveChannel, resolveInheritedChannel, runCommand, runSteps } from '../runner.ts';
+import { type OutputChannels, resolveChannel, resolveInheritedChannel, runCommand, runSteps } from '../runner.ts';
 import type { Step } from '../steps.ts';
 
 vi.mock(import('node:child_process'), () => ({

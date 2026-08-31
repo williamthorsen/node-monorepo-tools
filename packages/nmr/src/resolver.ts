@@ -5,10 +5,14 @@ import { hasErrnoCode } from '@williamthorsen/nmr-core';
 
 import { parsePackageJson, readScriptRecord, resolvePackageJsonPath } from './helpers/package-json.ts';
 import { isObject } from './helpers/type-guards.ts';
-import type { ScriptRegistry, ScriptValue, StepSpec } from './resolve-scripts.ts';
-import { getDefaultRootScripts, getDefaultWorkspaceScripts } from './resolve-scripts.ts';
-import type { Step } from './steps.ts';
-import { composeNmrStep, readSelfReference } from './steps.ts';
+import {
+  getDefaultRootScripts,
+  getDefaultWorkspaceScripts,
+  type ScriptRegistry,
+  type ScriptValue,
+  type StepSpec,
+} from './resolve-scripts.ts';
+import { composeNmrStep, readSelfReference, type Step } from './steps.ts';
 import type { NmrConfig } from './types.ts';
 import { isMonorepoRoot } from './workspace.ts';
 

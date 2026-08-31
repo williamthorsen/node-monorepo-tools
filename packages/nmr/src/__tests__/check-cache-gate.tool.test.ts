@@ -9,8 +9,7 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesyst
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { CheckCacheEntry } from '../check-cache.ts';
-import { readCheckCacheEntry, RUN_ID_ENV_VAR, writeCheckCacheEntry } from '../check-cache.ts';
+import { type CheckCacheEntry, readCheckCacheEntry, RUN_ID_ENV_VAR, writeCheckCacheEntry } from '../check-cache.ts';
 import { resolveBuildCachePath } from '../commands/build-output.ts';
 import type { ScriptValue } from '../resolve-scripts.ts';
 import { runCli } from '../runCli.ts';

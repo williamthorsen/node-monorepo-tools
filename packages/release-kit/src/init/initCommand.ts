@@ -1,11 +1,8 @@
-import type { WriteResult } from '@williamthorsen/nmr-core';
-import { printError, printStep, printSuccess, reportWriteResult } from '@williamthorsen/nmr-core';
+import { printError, printStep, printSuccess, reportWriteResult, type WriteResult } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
-import type { CheckResult } from './checks.ts';
-import { hasPackageJson, isGitRepo, usesPnpm } from './checks.ts';
-import type { RepoType } from './detectRepoType.ts';
-import { detectRepoType } from './detectRepoType.ts';
+import { type CheckResult, hasPackageJson, isGitRepo, usesPnpm } from './checks.ts';
+import { detectRepoType, type RepoType } from './detectRepoType.ts';
 import { scaffoldFiles } from './scaffold.ts';
 
 interface InitOptions {

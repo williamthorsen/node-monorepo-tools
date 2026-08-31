@@ -2,10 +2,8 @@ import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { CheckCacheEntry } from '../check-cache.ts';
-import { recordTranscript, writeCheckCacheEntry } from '../check-cache.ts';
-import type { Recording } from '../recording.ts';
-import { renderRecording, renderRefusal, resolveRecording } from '../recording.ts';
+import { type CheckCacheEntry, recordTranscript, writeCheckCacheEntry } from '../check-cache.ts';
+import { type Recording, renderRecording, renderRefusal, resolveRecording } from '../recording.ts';
 
 const COMMAND = 'test';
 const KEY = 'a-key';

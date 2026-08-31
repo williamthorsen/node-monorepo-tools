@@ -3,18 +3,29 @@ import process from 'node:process';
 import { reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
-import type { LoadConfigResult } from './config.ts';
-import { loadConfig } from './config.ts';
-import type { AllowedVuln, CheckResult, ScopeCheckResult } from './format-check.ts';
-import { formatCheckJson, formatCheckText } from './format-check.ts';
+import { loadConfig, type LoadConfigResult } from './config.ts';
+import {
+  type AllowedVuln,
+  type CheckResult,
+  formatCheckJson,
+  formatCheckText,
+  type ScopeCheckResult,
+} from './format-check.ts';
 import { formatCheckVerboseText } from './format-verbose.ts';
 import { generateAuditCiConfig } from './generate.ts';
 import { scaffoldConfig } from './init/scaffold.ts';
 import { parseAuditCiOutput, runAudit, runReport } from './run-audit.ts';
 import { syncAllowlist } from './sync.ts';
 import { withTempDir } from './tmp.ts';
-import type { AllowlistEntry, AuditResult, AuditScope, CommandOptions, SeverityThreshold } from './types.ts';
-import { AUDIT_SCOPES, isSeverityAtOrAbove } from './types.ts';
+import {
+  type AllowlistEntry,
+  AUDIT_SCOPES,
+  type AuditResult,
+  type AuditScope,
+  type CommandOptions,
+  isSeverityAtOrAbove,
+  type SeverityThreshold,
+} from './types.ts';
 
 /**
  * Run the default audit command (CI mode).

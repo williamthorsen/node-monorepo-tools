@@ -8,8 +8,8 @@ import { glob } from 'glob';
 import * as ts from 'typescript';
 
 import { resolveConfigPath } from '../config.ts';
-import type { BuildOptions, ScratchDirs } from './build-output.ts';
 import {
+  type BuildOptions,
   DEFAULT_ENTRY_GLOBS,
   DEFAULT_IGNORE_PATTERNS,
   DEFAULT_OUTDIR,
@@ -17,6 +17,7 @@ import {
   resolveBuildCachePath,
   resolveScratchDirs,
   resolveToolchainFingerprint,
+  type ScratchDirs,
 } from './build-output.ts';
 
 /**

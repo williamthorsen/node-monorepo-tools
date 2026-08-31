@@ -4,8 +4,7 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesyst
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
-import type { TreeSnapshot } from '../check-cache.ts';
-import { encodeTreeSnapshot, resolveTreeSnapshot, TREE_SNAPSHOT_ENV_VAR } from '../check-cache.ts';
+import { encodeTreeSnapshot, resolveTreeSnapshot, TREE_SNAPSHOT_ENV_VAR, type TreeSnapshot } from '../check-cache.ts';
 
 // eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(

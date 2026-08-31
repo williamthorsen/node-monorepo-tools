@@ -3,8 +3,7 @@ import { PassThrough } from 'node:stream';
 
 import { describe, expect, it } from 'vitest';
 
-import type { SpawnOutcome } from '../taze.ts';
-import { resolveTazeCliPath, runTaze } from '../taze.ts';
+import { resolveTazeCliPath, runTaze, type SpawnOutcome } from '../taze.ts';
 
 const FAKE_CLI_PATH = '/fake/taze/cli.mjs';
 

@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import type { CheckResult, ScopeCheckResult } from '../format-check.ts';
-import { formatCheckJson, formatCheckText, severityIndicator } from '../format-check.ts';
+import {
+  type CheckResult,
+  formatCheckJson,
+  formatCheckText,
+  type ScopeCheckResult,
+  severityIndicator,
+} from '../format-check.ts';
 
 // ---------------------------------------------------------------------------
 // Helpers
