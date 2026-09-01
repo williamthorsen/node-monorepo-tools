@@ -1,9 +1,10 @@
 import { isFlatChecklist, type RdyCheck } from 'readyup';
 import { assert, describe, expect, it, vi } from 'vitest';
 
-const { mockedFileContains, mockedFileExists, mockedReadFile } = vi.hoisted(() => ({
+const { mockedFileContains, mockedFileExists, mockedHasDevDependency, mockedReadFile } = vi.hoisted(() => ({
   mockedFileContains: vi.fn<(path: string, pattern: RegExp) => boolean>(),
   mockedFileExists: vi.fn<(path: string) => boolean>(),
+  mockedHasDevDependency: vi.fn<(name: string) => boolean>(),
   mockedReadFile: vi.fn<(path: string) => string | undefined>(),
 }));
 
@@ -13,12 +14,14 @@ vi.mock(import('readyup/check-utils'), async (importOriginal) => {
     ...actual,
     fileContains: mockedFileContains,
     fileExists: mockedFileExists,
+    hasDevDependency: mockedHasDevDependency,
     readFile: mockedReadFile,
   };
 });
 
 import kit, { configFileExportsConfig } from '../../.readyup/kits/default.ts';
 
+const CHANGESETS_CHECK = '@changesets/cli not in devDependencies';
 const CONFIG_GATE = '.config/release-kit.config.ts exports a config';
 
 describe(configFileExportsConfig, () => {
@@ -111,6 +114,29 @@ describe('release-kit config gate', () => {
   });
 });
 
+describe(CHANGESETS_CHECK, () => {
+  it('passes when @changesets/cli is absent', () => {
+    mockedHasDevDependency.mockReturnValue(false);
+
+    expect(getChangesetsCheck().check()).toBe(true);
+  });
+
+  // The mock keys on the name, so this case covers a mistyped package name as well as a dropped negation.
+  it('fails when @changesets/cli is declared', () => {
+    mockedHasDevDependency.mockImplementation((name) => name === '@changesets/cli');
+
+    expect(getChangesetsCheck().check()).toBe(false);
+  });
+
+  it('reports at recommend, which leaves a default run passing', () => {
+    expect(getChangesetsCheck().severity).toBe('recommend');
+  });
+
+  it('stays quiet where the package is absent', () => {
+    expect(getChangesetsCheck().quiet).toBe(true);
+  });
+});
+
 // region | Helpers
 
 /**
@@ -124,6 +150,11 @@ function findCheck(name: string, siblings: RdyCheck[]): RdyCheck {
   const check = siblings.find((candidate) => candidate.name === name);
   assert(check, `Expected a "${name}" check`);
   return check;
+}
+
+/** Returns the check reporting a repo that still declares the superseded changesets CLI. */
+function getChangesetsCheck(): RdyCheck {
+  return findCheck(CHANGESETS_CHECK, getReleaseKitChecks());
 }
 
 /** Returns the check that every config-dependent check hangs beneath. */
