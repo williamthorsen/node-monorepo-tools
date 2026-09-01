@@ -1067,7 +1067,7 @@ If your format command does not accept file arguments, update it to one that doe
 ## Migration from changesets
 
 1. Add `@williamthorsen/release-kit` as a dev dependency.
-2. Remove `@changesets/cli` from dev dependencies.
+2. Remove `@changesets/cli` from dev dependencies. The [default readyup kit](#readiness-checks) reports a repo that still declares it.
 3. Delete the `.changeset/` directory.
 4. Run `npx @williamthorsen/release-kit init` to scaffold workflow and config files.
 5. Remove `changeset:*` scripts from `package.json` (no replacement needed — the CLI handles everything).

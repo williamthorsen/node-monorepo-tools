@@ -206,6 +206,13 @@ export default defineRdyKit({
           fix: 'pnpm remove git-cliff — release-kit handles changelog generation directly',
         },
         {
+          name: '@changesets/cli not in devDependencies',
+          severity: 'recommend',
+          quiet: true,
+          check: () => !hasDevDependency('@changesets/cli'),
+          fix: 'pnpm remove @changesets/cli, then delete .changeset/ and any changeset:* scripts; release-kit supersedes changesets',
+        },
+        {
           name: '.config/git-cliff.toml matches current template',
           severity: 'warn',
           skip: () => (!fileExists('.config/git-cliff.toml') ? 'no local cliff config (using fallback)' : false),
