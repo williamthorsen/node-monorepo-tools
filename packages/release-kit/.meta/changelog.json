@@ -1,5 +1,38 @@
 [
   {
+    "version": "10.5.0",
+    "date": "2026-09-01",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Report a consuming repo that still declares @changesets/cli (#764)",
+            "body": "Adds a check to the default ReadyUp kit in `@williamthorsen/release-kit` that reports a repo still declaring `@changesets/cli`, the release tool superseded by release-kit. The check reports at `recommend` severity; its fix directs the consumer to remove the dependency together with the `.changeset/` directory and any `changeset:*` scripts.",
+            "hash": "62f8a9ed0dc005ed84e066bf5d144ada9f3f69ae"
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Upgrade to readyup v0.34 and exclude a private repo root from kit checks (#759)",
+            "body": "Upgrades `readyup` to v0.34, whose `discoverWorkspaces` now reports the repo root. `release-kit`'s `npm-auto-publish` kit filters that root out unless it is publishable, so a private root is no longer listed in the kit's report.\n\nTest suites for release-kit's ReadyUp kits have been refactored to use the patterns documented in v0.34.",
+            "hash": "2c0cf04c9a282e10e03c3fd1a44d4330b8a25a94"
+          },
+          {
+            "description": "Upgrade eslint-config-typescript and mark the discards it now reports (#761)",
+            "body": "Upgrades `@williamthorsen/eslint-config-typescript` to v12 and fixes violations surfaced by the newly added rule warning against a disposable that is discarded or that is bound to a declaration that never releases it.",
+            "hash": "61f59fe51681c590278f7c969bb3889309396dcc"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "10.4.4",
     "date": "2026-08-24",
     "sections": [

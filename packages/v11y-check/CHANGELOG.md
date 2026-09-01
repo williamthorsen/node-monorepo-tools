@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.15.8 — 2026-09-01
+
+### ♻️ Refactoring
+
+- Upgrade to readyup v0.34 and exclude a private repo root from kit checks (#759)
+
+  Upgrades `readyup` to v0.34, whose `discoverWorkspaces` now reports the repo root. `release-kit`'s `npm-auto-publish` kit filters that root out unless it is publishable, so a private root is no longer listed in the kit's report.
+
+  Test suites for release-kit's ReadyUp kits have been refactored to use the patterns documented in v0.34.
+
+### ⚙️ Tooling
+
+- Restrict node:fs scaffolding in test code to the temporary tree's API (#756)
+
+  Adds an ESLint restriction that flags the `node:fs` and `node:fs/promises` calls that scaffold a temporary directory in test code instead of using the `TempTree` API. Also migrates `v11y-check`'s `node:fs/promises` scaffolding to that API.
+
 ## 0.15.7 — 2026-08-24
 
 ### ♻️ Refactoring

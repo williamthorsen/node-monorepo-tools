@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## 10.5.0 — 2026-09-01
+
+### 🎉 Features
+
+- Report a consuming repo that still declares @changesets/cli (#764)
+
+  Adds a check to the default ReadyUp kit in `@williamthorsen/release-kit` that reports a repo still declaring `@changesets/cli`, the release tool superseded by release-kit. The check reports at `recommend` severity; its fix directs the consumer to remove the dependency together with the `.changeset/` directory and any `changeset:*` scripts.
+
+### ♻️ Refactoring
+
+- Upgrade to readyup v0.34 and exclude a private repo root from kit checks (#759)
+
+  Upgrades `readyup` to v0.34, whose `discoverWorkspaces` now reports the repo root. `release-kit`'s `npm-auto-publish` kit filters that root out unless it is publishable, so a private root is no longer listed in the kit's report.
+
+  Test suites for release-kit's ReadyUp kits have been refactored to use the patterns documented in v0.34.
+
+- Upgrade eslint-config-typescript and mark the discards it now reports (#761)
+
+  Upgrades `@williamthorsen/eslint-config-typescript` to v12 and fixes violations surfaced by the newly added rule warning against a disposable that is discarded or that is bound to a declaration that never releases it.
+
 ## 10.4.4 — 2026-08-24
 
 ### ♻️ Refactoring

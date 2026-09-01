@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.10.4 — 2026-09-01
+
+### ♻️ Refactoring
+
+- Upgrade eslint-config-typescript and mark the discards it now reports (#761)
+
+  Upgrades `@williamthorsen/eslint-config-typescript` to v12 and fixes violations surfaced by the newly added rule warning against a disposable that is discarded or that is bound to a declaration that never releases it.
+
 ## 0.10.3 — 2026-08-24
 
 ### 🧪 Tests

@@ -1,5 +1,33 @@
 [
   {
+    "version": "0.15.8",
+    "date": "2026-09-01",
+    "sections": [
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Upgrade to readyup v0.34 and exclude a private repo root from kit checks (#759)",
+            "body": "Upgrades `readyup` to v0.34, whose `discoverWorkspaces` now reports the repo root. `release-kit`'s `npm-auto-publish` kit filters that root out unless it is publishable, so a private root is no longer listed in the kit's report.\n\nTest suites for release-kit's ReadyUp kits have been refactored to use the patterns documented in v0.34.",
+            "hash": "2c0cf04c9a282e10e03c3fd1a44d4330b8a25a94"
+          }
+        ]
+      },
+      {
+        "title": "⚙️ Tooling",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Restrict node:fs scaffolding in test code to the temporary tree's API (#756)",
+            "body": "Adds an ESLint restriction that flags the `node:fs` and `node:fs/promises` calls that scaffold a temporary directory in test code instead of using the `TempTree` API. Also migrates `v11y-check`'s `node:fs/promises` scaffolding to that API.",
+            "hash": "c3290759d44f6396602bd3bd69a00d6518e2e0cc"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.15.7",
     "date": "2026-08-24",
     "sections": [

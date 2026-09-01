@@ -2,6 +2,52 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.35.0 — 2026-09-01
+
+### 🎉 Features
+
+- Expose tsconfigPaths as a first-class Vitest config flag (#751)
+
+  Adds a `tsconfigPaths` option to `defineVitestConfig` and `defineRootVitestConfig` in `@williamthorsen/nmr/vitest`. It emits Vite's `resolve.tsconfigPaths`, so a test resolves an aliased specifier through the `paths` its own `tsconfig.json` declares, the way `tsc` does.
+
+  The option defaults to `false` and requires Vite 8, which `@williamthorsen/nmr` now declares as an optional peer dependency at `>=8.0.0 <9`.
+
+- Publish a test-file conventions check consuming repos can gate in CI (#753)
+
+  Adds `checkTestFileConventions` at `@williamthorsen/nmr/tests`, which a consuming repo calls from a test of its own. It fails the run on any test file that names no isolation tier or sits outside `__tests__`. Both passed silently before.
+
+  Adds `testCollectionExclude` to `defineVitestConfig` and `defineRootVitestConfig`. The same array of directory names goes to the check's `exclude`, so one declaration scopes both the sweep and what Vitest collects.
+
+- Keep doc comments in published declaration files (#762)
+
+  Changes the behavior of `nmr-compile` so that it preserves doc comments in `.d.ts` files.
+
+  TypeScript's `removeComments` governs a whole emit, so a TS configuration that kept comments out of JavaScript also kept them out of declaration files. `nmr-compile` now emits from two programs: The first produces the `.js` under the package's own `removeComments`, and the second produces the declarations with comments.
+
+- Report workspaces whose Vitest config bypasses the projects model (#763)
+
+  Adds a check to nmr's ReadyUp kit to report every workspace that holds a Vite config without a Vitest config beside it, and widens the existing content check from the repo root to every workspace, so a Vitest config that does not build on `defineVitestConfig` is reported. The purpose of these checks is to ensure that tier-selecting test commands are supported.
+
+  Also fixes an issue where the `no package re-exports the ancestor Vitest config` check incorrectly advised a consumer to delete a config.
+
+### ♻️ Refactoring
+
+- Upgrade to readyup v0.34 and exclude a private repo root from kit checks (#759)
+
+  Upgrades `readyup` to v0.34, whose `discoverWorkspaces` now reports the repo root. `release-kit`'s `npm-auto-publish` kit filters that root out unless it is publishable, so a private root is no longer listed in the kit's report.
+
+  Test suites for release-kit's ReadyUp kits have been refactored to use the patterns documented in v0.34.
+
+- Upgrade eslint-config-typescript and mark the discards it now reports (#761)
+
+  Upgrades `@williamthorsen/eslint-config-typescript` to v12 and fixes violations surfaced by the newly added rule warning against a disposable that is discarded or that is bound to a declaration that never releases it.
+
+### ⚙️ Tooling
+
+- Restrict node:fs scaffolding in test code to the temporary tree's API (#756)
+
+  Adds an ESLint restriction that flags the `node:fs` and `node:fs/promises` calls that scaffold a temporary directory in test code instead of using the `TempTree` API. Also migrates `v11y-check`'s `node:fs/promises` scaffolding to that API.
+
 ## 0.34.0 — 2026-08-24
 
 ### 🎉 Features

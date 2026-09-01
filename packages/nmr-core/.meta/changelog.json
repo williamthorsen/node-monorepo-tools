@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.10.4",
+    "date": "2026-09-01",
+    "sections": [
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Upgrade eslint-config-typescript and mark the discards it now reports (#761)",
+            "body": "Upgrades `@williamthorsen/eslint-config-typescript` to v12 and fixes violations surfaced by the newly added rule warning against a disposable that is discarded or that is bound to a declaration that never releases it.",
+            "hash": "61f59fe51681c590278f7c969bb3889309396dcc"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.10.3",
     "date": "2026-08-24",
     "sections": [
