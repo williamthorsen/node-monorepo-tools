@@ -22,6 +22,11 @@ export function packsPath(filesField: unknown, path: string): boolean {
   });
 }
 
+/** Splits a glob into its metacharacters and the literal runs between them. */
+const GLOB_TOKEN_PATTERN = /\*\*\/|\*\*|\*|\?|[^*?]+/g;
+
+// region | Helpers
+
 /**
  * Compiles one `files` entry into an anchored pattern, or `undefined` where the entry can include nothing.
  *
@@ -36,15 +41,15 @@ function compileEntry(entry: string): RegExp | undefined {
   return new RegExp(`^${translateGlob(normalized)}$`);
 }
 
+/** Narrows an `unknown` value to `string[]`. */
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
+}
+
 /** Lists `path` and every directory above it, so an entry matching an ancestor also matches the file beneath it. */
 function listAncestorPrefixes(path: string): string[] {
   const segments = path.split('/');
   return segments.map((_segment, index) => segments.slice(0, index + 1).join('/'));
-}
-
-/** Narrows an `unknown` value to `string[]`. */
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
 }
 
 /**
@@ -76,5 +81,4 @@ function translateGlob(pattern: string): string {
   return source;
 }
 
-/** Splits a glob into its metacharacters and the literal runs between them. */
-const GLOB_TOKEN_PATTERN = /\*\*\/|\*\*|\*|\?|[^*?]+/g;
+// endregion | Helpers

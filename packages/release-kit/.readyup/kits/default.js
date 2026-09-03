@@ -59,18 +59,19 @@ function packsPath(filesField, path) {
     return pattern !== void 0 && prefixes.some((prefix) => pattern.test(prefix));
   });
 }
+var GLOB_TOKEN_PATTERN = /\*\*\/|\*\*|\*|\?|[^*?]+/g;
 function compileEntry(entry) {
   if (entry.startsWith("!")) return void 0;
   const normalized = entry.replace(/^\.?\//, "").replace(/\/+$/, "");
   if (normalized === "") return void 0;
   return new RegExp(`^${translateGlob(normalized)}$`);
 }
+function isStringArray(value) {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
 function listAncestorPrefixes(path) {
   const segments = path.split("/");
   return segments.map((_segment, index) => segments.slice(0, index + 1).join("/"));
-}
-function isStringArray(value) {
-  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
 }
 function translateGlob(pattern) {
   let source = "";
@@ -94,7 +95,6 @@ function translateGlob(pattern) {
   }
   return source;
 }
-var GLOB_TOKEN_PATTERN = /\*\*\/|\*\*|\*|\?|[^*?]+/g;
 
 // .readyup/kits/default.ts
 function getMinVersion() {
