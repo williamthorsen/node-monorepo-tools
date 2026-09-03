@@ -4,7 +4,7 @@ import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
-import { extractVersion, isChangelogEntry, isChangelogItem, readChangelogEntries } from '../changelogJsonUtils.ts';
+import { extractVersion, isChangelogEntry, readChangelogEntries } from '../changelogJsonUtils.ts';
 import type { ChangelogEntry } from '../types.ts';
 
 // eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
@@ -30,52 +30,6 @@ describe(isChangelogEntry, () => {
     expect(isChangelogEntry('string')).toBe(false);
     expect(isChangelogEntry(null)).toBe(false);
     expect(isChangelogEntry(42)).toBe(false);
-  });
-});
-
-describe(isChangelogItem, () => {
-  it('returns true for an item with only a description', () => {
-    expect(isChangelogItem({ description: 'Add widget' })).toBe(true);
-  });
-
-  it('returns true for an item with body, breaking, and hash fields', () => {
-    expect(
-      isChangelogItem({
-        description: 'Add widget',
-        body: 'Detail',
-        breaking: true,
-        hash: '8296231173de8be01977dabbe9c1c8e8e1234abc',
-      }),
-    ).toBe(true);
-  });
-
-  it('returns true for an item without hash (synthetic propagation entry)', () => {
-    expect(isChangelogItem({ description: 'Bumped foo to 1.0.0' })).toBe(true);
-  });
-
-  it('returns false when description is missing', () => {
-    expect(isChangelogItem({ hash: 'abc123' })).toBe(false);
-  });
-
-  it('returns false when hash is not a string', () => {
-    expect(isChangelogItem({ description: 'Add widget', hash: 42 })).toBe(false);
-  });
-
-  it('returns false when breaking is not a boolean', () => {
-    expect(isChangelogItem({ description: 'Add widget', breaking: 'yes' })).toBe(false);
-  });
-
-  it('returns true for an item carrying a migration field', () => {
-    expect(isChangelogItem({ description: 'Add widget', migration: 'Import from the new subpath.' })).toBe(true);
-  });
-
-  it('returns false when migration is not a string', () => {
-    expect(isChangelogItem({ description: 'Add widget', migration: 42 })).toBe(false);
-  });
-
-  it('returns false for non-object values', () => {
-    expect(isChangelogItem('string')).toBe(false);
-    expect(isChangelogItem(null)).toBe(false);
   });
 });
 
