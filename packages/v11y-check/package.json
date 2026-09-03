@@ -36,8 +36,10 @@
     "v11y-check": "bin/v11y.js"
   },
   "files": [
+    ".meta/changelog.json",
     ".readyup/kits/*.js",
     ".readyup/manifest.json",
+    "CHANGELOG.md",
     "bin",
     "dist",
     "templates"

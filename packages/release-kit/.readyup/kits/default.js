@@ -50,6 +50,52 @@ function detectRepoType() {
   return "single-package";
 }
 
+// src/packsPath.ts
+function packsPath(filesField, path) {
+  if (!isStringArray(filesField)) return true;
+  const prefixes = listAncestorPrefixes(path);
+  return filesField.some((entry) => {
+    const pattern = compileEntry(entry);
+    return pattern !== void 0 && prefixes.some((prefix) => pattern.test(prefix));
+  });
+}
+var GLOB_TOKEN_PATTERN = /\*\*\/|\*\*|\*|\?|[^*?]+/g;
+function compileEntry(entry) {
+  if (entry.startsWith("!")) return void 0;
+  const normalized = entry.replace(/^\.?\//, "").replace(/\/+$/, "");
+  if (normalized === "") return void 0;
+  return new RegExp(`^${translateGlob(normalized)}$`);
+}
+function isStringArray(value) {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
+function listAncestorPrefixes(path) {
+  const segments = path.split("/");
+  return segments.map((_segment, index) => segments.slice(0, index + 1).join("/"));
+}
+function translateGlob(pattern) {
+  let source = "";
+  for (const [token] of pattern.matchAll(GLOB_TOKEN_PATTERN)) {
+    switch (token) {
+      case "**/":
+        source += String.raw`(?:[^/]*\/)*`;
+        break;
+      case "**":
+        source += ".*";
+        break;
+      case "*":
+        source += "[^/]*";
+        break;
+      case "?":
+        source += "[^/]";
+        break;
+      default:
+        source += RegExp.escape(token);
+    }
+  }
+  return source;
+}
+
 // .readyup/kits/default.ts
 function getMinVersion() {
   const picked = { "version": "10.5.0" };
@@ -61,6 +107,7 @@ function getMinVersion() {
 function hasPublishablePackages() {
   return discoverWorkspaces({ filter: (w) => w.isPackage }).length > 0;
 }
+var DEFAULT_CHANGELOG_JSON_PATH = ".meta/changelog.json";
 var CONFIG_EXPORT_PATTERNS = [
   /export\s+default\b/,
   /export\s+(?:const|let|var)\s+config\b/,
@@ -204,6 +251,32 @@ var default_default = defineRdyKit({
             }
           ]
         },
+        // Deliberately outside the config gate above: that check skips where the config file is absent, and a repo
+        // with no config file still defaults `changelogJson.enabled` to true and still publishes tarballs.
+        {
+          name: "published packages ship CHANGELOG.md",
+          severity: "warn",
+          skip: () => !hasPublishablePackages() ? "no publishable packages" : false,
+          check: () => packagesShipChangelog(),
+          fix: 'Add "CHANGELOG.md" to the files field of each affected package.json'
+        },
+        {
+          name: "changelog.json generation is enabled",
+          severity: "recommend",
+          skip: () => !hasPublishablePackages() ? "no publishable packages" : false,
+          check: () => changelogJsonIsEnabled(),
+          fix: "Remove changelogJson.enabled: false from .config/release-kit.config.ts so release-kit writes the machine-readable changelog that upgrade tooling reads before CHANGELOG.md",
+          checks: [
+            {
+              name: "published packages ship the changelog JSON",
+              severity: "warn",
+              check: () => packagesShipChangelogJson(),
+              get fix() {
+                return `Add "${resolveChangelogJsonOutputPath()}" to the files field of each affected package.json`;
+              }
+            }
+          ]
+        },
         {
           name: "config does not use removed releaseNotes.shouldCreateGithubRelease",
           severity: "error",
@@ -264,6 +337,11 @@ var default_default = defineRdyKit({
     }
   ]
 });
+function changelogJsonIsEnabled() {
+  const content = readFile(".config/release-kit.config.ts");
+  if (content === void 0) return true;
+  return !/changelogJson\s*:\s*\{[^}]*enabled\s*:\s*false/.test(content);
+}
 function configFileExportsConfig() {
   const content = readFile(".config/release-kit.config.ts");
   if (content === void 0) return false;
@@ -275,6 +353,12 @@ function labelsHaveCurrentPresetHash(presetName, expectedHash) {
   const pattern = new RegExp(`^# ${presetName} preset hash: (.+)$`, "m");
   const match = pattern.exec(content);
   return match !== null && match[1] === expectedHash;
+}
+function packagesShipChangelog() {
+  return reportWorkspacesOmitting("CHANGELOG.md");
+}
+function packagesShipChangelogJson() {
+  return reportWorkspacesOmitting(resolveChangelogJsonOutputPath());
 }
 function readmeHasReleaseNotesMarkers(content) {
   return content.includes("<!-- section:release-notes -->") && content.includes("<!-- /section:release-notes -->");
@@ -308,16 +392,41 @@ function releaseNotesInjectsIntoReadme() {
   if (content === void 0) return false;
   return /shouldInjectIntoReadme\s*:\s*true/.test(content);
 }
+function reportWorkspacesOmitting(path) {
+  const failing = [];
+  const packageWorkspaces = discoverWorkspaces({ filter: (w) => w.isPackage });
+  for (const { dir, packageJson } of packageWorkspaces) {
+    if (!packsPath(packageJson["files"], path)) {
+      failing.push(dir === "." ? "package.json" : `${dir}/package.json`);
+    }
+  }
+  if (failing.length === 0) return true;
+  return {
+    ok: false,
+    detail: `files field omits ${path}: ${failing.join(", ")}`
+  };
+}
+function resolveChangelogJsonOutputPath() {
+  const content = readFile(".config/release-kit.config.ts");
+  if (content === void 0) return DEFAULT_CHANGELOG_JSON_PATH;
+  const match = /changelogJson\s*:\s*\{[^}]*outputPath\s*:\s*['"]([^'"]+)['"]/.exec(content);
+  return match?.[1] ?? DEFAULT_CHANGELOG_JSON_PATH;
+}
 export {
   CLIFF_TEMPLATE_HASH,
   COMMON_PRESET_HASH,
+  DEFAULT_CHANGELOG_JSON_PATH,
   PUBLISH_WORKFLOW_HASH_MONOREPO,
   PUBLISH_WORKFLOW_HASH_SINGLE,
   RELEASE_WORKFLOW_HASH_MONOREPO,
   RELEASE_WORKFLOW_HASH_SINGLE,
   SYNC_LABELS_WORKFLOW_HASH,
+  changelogJsonIsEnabled,
   configFileExportsConfig,
   default_default as default,
+  packagesShipChangelog,
+  packagesShipChangelogJson,
   readmeHasReleaseNotesMarkers,
-  readmesHaveReleaseNotesMarkers
+  readmesHaveReleaseNotesMarkers,
+  resolveChangelogJsonOutputPath
 };

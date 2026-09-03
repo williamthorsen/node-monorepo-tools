@@ -38,14 +38,15 @@
     "release-kit": "./bin/release-kit.js"
   },
   "files": [
+    ".meta/changelog.json",
     ".readyup/kits/*.js",
     ".readyup/manifest.json",
+    "CHANGELOG.md",
     "bin",
-    "dist/*",
     "cliff.toml.template",
+    "dist/*",
     "presets/**",
-    "schemas/**",
-    "CHANGELOG.md"
+    "schemas/**"
   ],
   "scripts": {
     "build:post": "node scripts/copy-work-types.js && rdy compile",
