@@ -1,17 +1,21 @@
 import { isFlatChecklist, type RdyCheck } from 'readyup';
+import type { Workspace } from 'readyup/check-utils';
 import { assert, describe, expect, it, vi } from 'vitest';
 
-const { mockedFileContains, mockedFileExists, mockedHasDevDependency, mockedReadFile } = vi.hoisted(() => ({
-  mockedFileContains: vi.fn<(path: string, pattern: RegExp) => boolean>(),
-  mockedFileExists: vi.fn<(path: string) => boolean>(),
-  mockedHasDevDependency: vi.fn<(name: string) => boolean>(),
-  mockedReadFile: vi.fn<(path: string) => string | undefined>(),
-}));
+const { mockedDiscoverWorkspaces, mockedFileContains, mockedFileExists, mockedHasDevDependency, mockedReadFile } =
+  vi.hoisted(() => ({
+    mockedDiscoverWorkspaces: vi.fn<() => Workspace[]>(() => []),
+    mockedFileContains: vi.fn<(path: string, pattern: RegExp) => boolean>(),
+    mockedFileExists: vi.fn<(path: string) => boolean>(),
+    mockedHasDevDependency: vi.fn<(name: string) => boolean>(),
+    mockedReadFile: vi.fn<(path: string) => string | undefined>(),
+  }));
 
 vi.mock(import('readyup/check-utils'), async (importOriginal) => {
   const actual = await importOriginal<typeof import('readyup/check-utils')>();
   return {
     ...actual,
+    discoverWorkspaces: mockedDiscoverWorkspaces,
     fileContains: mockedFileContains,
     fileExists: mockedFileExists,
     hasDevDependency: mockedHasDevDependency,
@@ -21,6 +25,8 @@ vi.mock(import('readyup/check-utils'), async (importOriginal) => {
 
 import kit, { configFileExportsConfig } from '../../.readyup/kits/default.ts';
 
+const CHANGELOG_CHECK = 'published packages ship CHANGELOG.md';
+const CHANGELOG_JSON_GATE = 'changelog.json generation is enabled';
 const CHANGESETS_CHECK = '@changesets/cli not in devDependencies';
 const CONFIG_GATE = '.config/release-kit.config.ts exports a config';
 
@@ -114,6 +120,66 @@ describe('release-kit config gate', () => {
   });
 });
 
+// Both checks sit at the top level rather than beneath the config gate, which skips where the config file is
+// absent. A repo with no config file inherits `changelogJson.enabled: true` and still publishes tarballs, so
+// nesting them would mask exactly the repos the checks exist for.
+describe('changelog packaging checks', () => {
+  it('hangs neither check beneath the config gate', () => {
+    const gateChildNames = getConfigGate().checks?.map((check) => check.name);
+
+    expect(gateChildNames).not.toContain(CHANGELOG_CHECK);
+    expect(gateChildNames).not.toContain(CHANGELOG_JSON_GATE);
+  });
+
+  it('reports a missing CHANGELOG.md at warn', () => {
+    expect(getChangelogCheck().severity).toBe('warn');
+  });
+
+  // Disabling changelogJson is a declared opt-out rather than a defect, so it stays below the failing threshold.
+  it('reports a disabled changelogJson at recommend', () => {
+    expect(getChangelogJsonGate().severity).toBe('recommend');
+  });
+
+  it('reports a tarball missing the changelog JSON at warn', () => {
+    expect(findCheck('published packages ship the changelog JSON', getChangelogJsonGate().checks ?? []).severity).toBe(
+      'warn',
+    );
+  });
+
+  it.each([
+    ['the CHANGELOG.md check', () => getChangelogCheck()],
+    ['the changelogJson gate', () => getChangelogJsonGate()],
+  ])('skips %s where the repo publishes nothing', (_label, getCheck) => {
+    mockedDiscoverWorkspaces.mockReturnValue([]);
+
+    expect(getCheck().skip?.()).toBe('no publishable packages');
+  });
+
+  it.each([
+    ['the CHANGELOG.md check', () => getChangelogCheck()],
+    ['the changelogJson gate', () => getChangelogJsonGate()],
+  ])('runs %s where the repo publishes a package', (_label, getCheck) => {
+    mockedDiscoverWorkspaces.mockReturnValue([buildPublishableWorkspace()]);
+
+    expect(getCheck().skip?.()).toBe(false);
+  });
+
+  // The gate's own skip already covers the nested check; repeating it is what produced the duplicate lines the
+  // config gate's tests guard against.
+  it('declares no skip on the nested check', () => {
+    const nested = findCheck('published packages ship the changelog JSON', getChangelogJsonGate().checks ?? []);
+
+    expect(nested.skip).toBeUndefined();
+  });
+
+  it('names the configured output path in the nested fix', () => {
+    mockedReadFile.mockReturnValue('export default defineConfig({ changelogJson: { outputPath: "docs/cl.json" } });\n');
+    const nested = findCheck('published packages ship the changelog JSON', getChangelogJsonGate().checks ?? []);
+
+    expect(nested.fix).toBe('Add "docs/cl.json" to the files field of each affected package.json');
+  });
+});
+
 describe(CHANGESETS_CHECK, () => {
   it('passes when @changesets/cli is absent', () => {
     mockedHasDevDependency.mockReturnValue(false);
@@ -140,6 +206,16 @@ describe(CHANGESETS_CHECK, () => {
 // region | Helpers
 
 /**
+ * Builds a publishable workspace for the mocked discovery to return.
+ *
+ * `hasPublishablePackages` reads the returned array's length and nothing else, so the field values are inert;
+ * the shape is filled in because `discoverWorkspaces` promises it, not because a check reads it.
+ */
+function buildPublishableWorkspace(): Workspace {
+  return { dir: '.', absolutePath: '/repo', name: 'solo', isPackage: true, isRoot: true, packageJson: {} };
+}
+
+/**
  * Finds a check by name among `siblings`, asserting it exists so a rename fails loudly.
  *
  * The caller names the level to search rather than getting a tree walk. Reading the name of every check would fire
@@ -150,6 +226,16 @@ function findCheck(name: string, siblings: RdyCheck[]): RdyCheck {
   const check = siblings.find((candidate) => candidate.name === name);
   assert(check, `Expected a "${name}" check`);
   return check;
+}
+
+/** Returns the check reporting a publishable workspace whose tarball would omit `CHANGELOG.md`. */
+function getChangelogCheck(): RdyCheck {
+  return findCheck(CHANGELOG_CHECK, getReleaseKitChecks());
+}
+
+/** Returns the check the changelog-JSON packaging check hangs beneath. */
+function getChangelogJsonGate(): RdyCheck {
+  return findCheck(CHANGELOG_JSON_GATE, getReleaseKitChecks());
 }
 
 /** Returns the check reporting a repo that still declares the superseded changesets CLI. */

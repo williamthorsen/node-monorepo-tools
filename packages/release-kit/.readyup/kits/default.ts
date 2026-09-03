@@ -24,6 +24,7 @@ import {
 } from 'readyup/check-utils';
 
 import { detectRepoType } from '../../src/init/detectRepoType.ts';
+import { packsPath } from '../../src/packsPath.ts';
 
 function getMinVersion(): string {
   // `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline only the listed fields.
@@ -39,6 +40,15 @@ function getMinVersion(): string {
 function hasPublishablePackages(): boolean {
   return discoverWorkspaces({ filter: (w) => w.isPackage }).length > 0;
 }
+
+/**
+ * Where release-kit writes the structured changelog when the config names no other path.
+ *
+ * Mirrors `DEFAULT_CHANGELOG_JSON_CONFIG.outputPath`, which the kit does not import: reaching `src/defaults.ts`
+ * would pull the work-types taxonomy and its dependencies into the bundle this package publishes.
+ * `src/__tests__/kit-changelog-packaging-checks.unit.test.ts` asserts the two stay equal.
+ */
+export const DEFAULT_CHANGELOG_JSON_PATH = '.meta/changelog.json';
 
 /** Source shapes that can put `default` or `config` on the module namespace, which is what `loadConfig` reads. */
 const CONFIG_EXPORT_PATTERNS = [
@@ -191,6 +201,32 @@ export default defineRdyKit({
             },
           ],
         },
+        // Deliberately outside the config gate above: that check skips where the config file is absent, and a repo
+        // with no config file still defaults `changelogJson.enabled` to true and still publishes tarballs.
+        {
+          name: 'published packages ship CHANGELOG.md',
+          severity: 'warn',
+          skip: () => (!hasPublishablePackages() ? 'no publishable packages' : false),
+          check: () => packagesShipChangelog(),
+          fix: 'Add "CHANGELOG.md" to the files field of each affected package.json',
+        },
+        {
+          name: 'changelog.json generation is enabled',
+          severity: 'recommend',
+          skip: () => (!hasPublishablePackages() ? 'no publishable packages' : false),
+          check: () => changelogJsonIsEnabled(),
+          fix: 'Remove changelogJson.enabled: false from .config/release-kit.config.ts so release-kit writes the machine-readable changelog that upgrade tooling reads before CHANGELOG.md',
+          checks: [
+            {
+              name: 'published packages ship the changelog JSON',
+              severity: 'warn',
+              check: () => packagesShipChangelogJson(),
+              get fix() {
+                return `Add "${resolveChangelogJsonOutputPath()}" to the files field of each affected package.json`;
+              },
+            },
+          ],
+        },
         {
           name: 'config does not use removed releaseNotes.shouldCreateGithubRelease',
           severity: 'error',
@@ -255,6 +291,20 @@ export default defineRdyKit({
 // region | Helpers
 
 /**
+ * Checks whether the repo leaves structured changelog generation on.
+ *
+ * A repo with no config file inherits the enabled default, so an unreadable config passes rather than reporting
+ * an opt-out nobody declared.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function changelogJsonIsEnabled(): boolean {
+  const content = readFile('.config/release-kit.config.ts');
+  if (content === undefined) return true;
+  return !/changelogJson\s*:\s*\{[^}]*enabled\s*:\s*false/.test(content);
+}
+
+/**
  * Checks that the config file exports a config release-kit can load.
  *
  * `loadConfig` resolves `imported.default ?? imported.config` and throws when the file exports neither, so the
@@ -277,6 +327,24 @@ function labelsHaveCurrentPresetHash(presetName: string, expectedHash: string): 
   const pattern = new RegExp(`^# ${presetName} preset hash: (.+)$`, 'm');
   const match = pattern.exec(content);
   return match !== null && match[1] === expectedHash;
+}
+
+/**
+ * Checks that every publishable workspace would publish `CHANGELOG.md`.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function packagesShipChangelog(): boolean | CheckOutcome {
+  return reportWorkspacesOmitting('CHANGELOG.md');
+}
+
+/**
+ * Checks that every publishable workspace would publish the structured changelog.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function packagesShipChangelogJson(): boolean | CheckOutcome {
+  return reportWorkspacesOmitting(resolveChangelogJsonOutputPath());
 }
 
 /**
@@ -336,6 +404,45 @@ function releaseNotesInjectsIntoReadme(): boolean {
   const content = readFile('.config/release-kit.config.ts');
   if (content === undefined) return false;
   return /shouldInjectIntoReadme\s*:\s*true/.test(content);
+}
+
+/**
+ * Names the publishable workspaces whose `files` field would leave `path` out of the tarball.
+ *
+ * Workspace discovery reports the repo root in both repo types, so a publishable root is checked like any other
+ * package and a `private: true` workspace is filtered out before its `files` field is read. The check does not
+ * require `path` to exist on disk: a repo adopting release-kit before its first release should widen `files`
+ * then, not after the first changelog is generated.
+ */
+function reportWorkspacesOmitting(path: string): boolean | CheckOutcome {
+  const failing: string[] = [];
+  const packageWorkspaces = discoverWorkspaces({ filter: (w) => w.isPackage });
+  for (const { dir, packageJson } of packageWorkspaces) {
+    if (!packsPath(packageJson['files'], path)) {
+      failing.push(dir === '.' ? 'package.json' : `${dir}/package.json`);
+    }
+  }
+
+  if (failing.length === 0) return true;
+  return {
+    ok: false,
+    detail: `files field omits ${path}: ${failing.join(', ')}`,
+  };
+}
+
+/**
+ * Resolves the path release-kit writes the structured changelog to.
+ *
+ * Reads the raw config text rather than importing the config, as the neighboring config checks do.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function resolveChangelogJsonOutputPath(): string {
+  const content = readFile('.config/release-kit.config.ts');
+  if (content === undefined) return DEFAULT_CHANGELOG_JSON_PATH;
+
+  const match = /changelogJson\s*:\s*\{[^}]*outputPath\s*:\s*['"]([^'"]+)['"]/.exec(content);
+  return match?.[1] ?? DEFAULT_CHANGELOG_JSON_PATH;
 }
 
 // endregion | Helpers

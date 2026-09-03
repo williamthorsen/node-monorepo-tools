@@ -8,7 +8,7 @@
       "esbuildVersion": "0.28.2",
       "inputs": [
         {
-          "hash": "c948b179",
+          "hash": "4a359cc9",
           "kind": "module",
           "path": "kits/default.ts"
         },
@@ -31,6 +31,11 @@
           "path": "../src/init/parseJsonRecord.ts"
         },
         {
+          "hash": "436ba3cd",
+          "kind": "module",
+          "path": "../src/packsPath.ts"
+        },
+        {
           "hash": "646fe51b",
           "kind": "module",
           "path": "../src/typeGuards.ts"
@@ -40,8 +45,8 @@
       "path": "kits/default.js",
       "readyupVersion": "0.35.0",
       "source": "kits/default.ts",
-      "sourceHash": "c948b179",
-      "targetHash": "08e4eb5a"
+      "sourceHash": "4a359cc9",
+      "targetHash": "7be7c860"
     },
     {
       "checklists": [
