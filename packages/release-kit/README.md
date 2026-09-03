@@ -394,6 +394,40 @@ Work types from your config are merged with these defaults by key — your entri
 
 The default `devOnlySections` (excluded from public release notes but still written to `CHANGELOG.md`) are derived from the `internal` and `process` tiers (excluding `fmt`). Override via `changelogJson.devOnlySections` in your config; matching is decorator-tolerant, so a bare-name override like `['Internal features']` keeps working against the emoji-prefixed and prefix-decorated default titles.
 
+## `changelog.json` item schema
+
+Each item under a section in `.meta/changelog.json` carries one required field and four optional ones:
+
+| Field         | Type      | Meaning                                                                                                                           |
+| ------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `description` | `string`  | The bullet headline, taken from the commit subject with the ticket ID and type prefix stripped.                                   |
+| `body`        | `string`  | The commit body, with trailing trailer metadata stripped.                                                                         |
+| `breaking`    | `boolean` | Present and `true` where the commit subject carried the `!` prefix. See [`!` (breaking change) policy](#-breaking-change-policy). |
+| `migration`   | `string`  | The migration step for a consumer. See below.                                                                                     |
+| `hash`        | `string`  | The full commit SHA, and the key on which an override entry matches. Absent on synthetic propagation entries.                     |
+
+Every optional field is omitted rather than emitted as `null`, so a consumer tests for presence.
+
+### The `migration` field
+
+A commit body states a migration step as a paragraph opening with the literal label `Migration:`. Where one is present, `migration` carries that paragraph with the label stripped:
+
+```jsonc
+{
+  "description": "Rename the workspace field",
+  "body": "Renames `name` to `id`.\n\nMigration: Change any uses of `name` to `id`.",
+  "migration": "Change any uses of `name` to `id`.",
+}
+```
+
+Three properties are worth knowing:
+
+- **It is independent of `breaking`.** A `fix` cannot carry `!` under the default breaking policy, and a `fix` that tightens validation still imposes a migration. Filter on `migration` to find every step; filter on `breaking` to find every breaking change.
+- **`body` keeps the paragraph.** The field is an extraction, not a move, so `CHANGELOG.md` and `.meta/changelog.json` go on agreeing.
+- **It is derived, not authored.** `migration` is not a field an override file can set (see [File shape](#file-shape)); it is re-derived from whatever `body` an override installs, and cleared where that body carries no labeled paragraph. To change the migration text, override `body`.
+
+The label match is exact: `migration:` and `**Migration:**` are not recognized.
+
 ## Editorial overrides
 
 Generated changelogs occasionally need editorial correction — typos, redacted scope, reworded entries, or historical commits whose bodies carry verbatim PR-template scaffolding (`## What`, `## Why`, etc.) that renders as literal text in user-facing release notes. Rewriting git history is not viable, and any in-place edit to `CHANGELOG.md` or `.meta/changelog.json` is overwritten on the next release because release-kit regenerates both artifacts from scratch.
@@ -454,6 +488,8 @@ Per-entry fields are all optional, but at least one must be present per entry:
 | `description` | `string`                   | Replaces the entry's bullet headline. Other fields are preserved.                                                                 |
 | `body`        | `string`                   | Replaces the entry's body (the prose that renders below the bullet). Other fields are preserved.                                  |
 | `breaking`    | `boolean`                  | Toggles the `🚨 **Breaking:** ` marker on the bullet.                                                                             |
+
+There is no `migration` key: the field is derived from `body`, so an override that replaces `body` re-derives it. See [The `migration` field](#the-migration-field).
 
 ### Hash-prefix matching
 

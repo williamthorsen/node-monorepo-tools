@@ -238,6 +238,65 @@ describe(applyChangelogOverrides, () => {
     expect(result.entries[0]?.sections[0]?.items[0]?.body).toBe('Cleaned-up body text');
   });
 
+  it('re-derives migration from a replacement body', () => {
+    const entries = [makeEntry(['abc1234'])];
+    const overrides = new Map([['abc1234', { body: 'Reworded.\n\nMigration: Import from the new subpath.' }]]);
+    const result = applyChangelogOverrides(entries, overrides);
+    expect(result.entries[0]?.sections[0]?.items[0]?.migration).toBe('Import from the new subpath.');
+  });
+
+  it('clears a migration that the superseded body carried when the replacement carries none', () => {
+    const entries: ChangelogEntry[] = [
+      {
+        version: '1.0.0',
+        date: '2024-01-01',
+        sections: [
+          {
+            title: 'Features',
+            audience: 'all',
+            items: [
+              {
+                description: 'Item abc1234',
+                body: 'Migration: Import from the old subpath.',
+                migration: 'Import from the old subpath.',
+                hash: 'abc1234',
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    const overrides = new Map([['abc1234', { body: 'Reworded, with no migration step.' }]]);
+    const result = applyChangelogOverrides(entries, overrides);
+    expect(result.entries[0]?.sections[0]?.items[0]).not.toHaveProperty('migration');
+  });
+
+  it('leaves migration alone when the override does not replace the body', () => {
+    const entries: ChangelogEntry[] = [
+      {
+        version: '1.0.0',
+        date: '2024-01-01',
+        sections: [
+          {
+            title: 'Features',
+            audience: 'all',
+            items: [
+              {
+                description: 'Item abc1234',
+                body: 'Migration: Import from the new subpath.',
+                migration: 'Import from the new subpath.',
+                hash: 'abc1234',
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    const overrides = new Map([['abc1234', { description: 'Reworded headline' }]]);
+    const result = applyChangelogOverrides(entries, overrides);
+    expect(result.entries[0]?.sections[0]?.items[0]?.migration).toBe('Import from the new subpath.');
+  });
+
   it('toggles breaking on an existing item', () => {
     const entries: ChangelogEntry[] = [
       {
