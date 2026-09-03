@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
+import { extractMigration } from './extractMigration.ts';
 import { isRecord } from './typeGuards.ts';
 import type { ChangelogEntry, ChangelogItem, ChangelogOverride, ChangelogSection, WorkspaceConfig } from './types.ts';
 
@@ -315,7 +316,9 @@ function applyOverridesToItems(
 /**
  * Apply a single override's per-field replacements to a `ChangelogItem`.
  *
- * Replaces `description`, `body`, and `breaking` when each is present on the override.
+ * Replaces `description`, `body`, and `breaking` when each is present on the override, and
+ * re-derives `migration` from a replacement body so the two cannot disagree. `migration` is not
+ * settable from an override file; it lives in the body that the override already replaces.
  * Leaves the original `hash` intact so future override applications continue to match.
  */
 function applyOverrideToItem(item: ChangelogItem, override: ChangelogOverride): ChangelogItem {
@@ -325,6 +328,13 @@ function applyOverrideToItem(item: ChangelogItem, override: ChangelogOverride): 
   }
   if (override.body !== undefined) {
     result.body = override.body;
+    const migration = extractMigration(override.body);
+    if (migration === undefined) {
+      // The spread carried a migration extracted from the superseded body.
+      delete result.migration;
+    } else {
+      result.migration = migration;
+    }
   }
   if (override.breaking !== undefined) {
     result.breaking = override.breaking;

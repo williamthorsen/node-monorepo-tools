@@ -2,6 +2,7 @@ import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { extractVersion } from './changelogJsonUtils.ts';
 import { DEFAULT_WORK_TYPES } from './defaults.ts';
+import { extractMigration } from './extractMigration.ts';
 import type { GenerateChangelogOptions } from './generateChangelogs.ts';
 import { COMMIT_PREPROCESSOR_PATTERNS, PIPE_SCOPE_SOURCE } from './parseCommitMessage.ts';
 import { resolveCliffConfigPath } from './resolveCliffConfigPath.ts';
@@ -189,6 +190,12 @@ function transformReleases(releases: CliffContextRelease[], devOnlySections: Set
       }
       if (breaking) {
         item.breaking = true;
+      }
+      // Derive from the trailer-stripped body rather than the raw message, so the field comes
+      // from exactly the text that lands in `body`.
+      const migration = extractMigration(body);
+      if (migration !== undefined) {
+        item.migration = migration;
       }
       if (commit.id !== undefined && commit.id !== '') {
         item.hash = commit.id;

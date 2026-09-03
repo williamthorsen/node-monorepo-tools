@@ -65,6 +65,14 @@ describe(isChangelogItem, () => {
     expect(isChangelogItem({ description: 'Add widget', breaking: 'yes' })).toBe(false);
   });
 
+  it('returns true for an item carrying a migration field', () => {
+    expect(isChangelogItem({ description: 'Add widget', migration: 'Import from the new subpath.' })).toBe(true);
+  });
+
+  it('returns false when migration is not a string', () => {
+    expect(isChangelogItem({ description: 'Add widget', migration: 42 })).toBe(false);
+  });
+
   it('returns false for non-object values', () => {
     expect(isChangelogItem('string')).toBe(false);
     expect(isChangelogItem(null)).toBe(false);

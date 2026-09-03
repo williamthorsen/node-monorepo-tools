@@ -6,15 +6,16 @@ import type { ChangelogEntry, ChangelogItem } from './types.ts';
 /**
  * Type guard for `ChangelogItem` values parsed from JSON.
  *
- * Accepts the required `description` plus optional `body`, `breaking`, and `hash` fields. The
- * `hash` field is shape-checked but not required — synthetic propagation entries omit it, and
- * pre-hash `changelog.json` files are still considered valid.
+ * Accepts the required `description` plus optional `body`, `breaking`, `migration`, and `hash`
+ * fields. The `hash` field is shape-checked but not required — synthetic propagation entries omit
+ * it, and pre-hash `changelog.json` files are still considered valid.
  */
 export function isChangelogItem(value: unknown): value is ChangelogItem {
   if (!isRecord(value)) return false;
   if (typeof value['description'] !== 'string') return false;
   if (value['body'] !== undefined && typeof value['body'] !== 'string') return false;
   if (value['breaking'] !== undefined && typeof value['breaking'] !== 'boolean') return false;
+  if (value['migration'] !== undefined && typeof value['migration'] !== 'string') return false;
   if (value['hash'] !== undefined && typeof value['hash'] !== 'string') return false;
   return true;
 }

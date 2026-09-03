@@ -469,6 +469,53 @@ describe(buildChangelogEntries, () => {
       expect(items[0]).not.toHaveProperty('body');
     });
   });
+
+  describe('migration extraction', () => {
+    function runAndReadItems(message: string): ChangelogEntry['sections'][number]['items'] {
+      const cliffContext = [
+        {
+          version: 'v1.0.0',
+          timestamp: 1_700_000_000,
+          commits: [{ message, group: 'Features' }],
+        },
+      ];
+      mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
+      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
+      return entries[0]?.sections[0]?.items ?? [];
+    }
+
+    it('extracts the labeled paragraph and leaves it in the body', () => {
+      const message =
+        '#1 feat!: Rename the field\n\nRenames `name` to `id`.\n\nMigration: Change any uses of `name` to `id`.';
+      const items = runAndReadItems(message);
+      expect(items[0]?.migration).toBe('Change any uses of `name` to `id`.');
+      expect(items[0]?.body).toBe('Renames `name` to `id`.\n\nMigration: Change any uses of `name` to `id`.');
+    });
+
+    it('extracts from a non-breaking commit', () => {
+      const message = '#1 fix: Tighten version validation\n\nMigration: Quote every version number in a rulebook.';
+      const items = runAndReadItems(message);
+      expect(items[0]?.migration).toBe('Quote every version number in a rulebook.');
+      expect(items[0]).not.toHaveProperty('breaking');
+    });
+
+    it('extracts from the trailer-stripped body, not the raw message', () => {
+      const message =
+        '#1 feat: Add widget\n\nMigration: Import from the new subpath.\nSigned-off-by: Author <a@example.com>';
+      const items = runAndReadItems(message);
+      expect(items[0]?.migration).toBe('Import from the new subpath.');
+    });
+
+    it('omits migration when the body carries no labeled paragraph', () => {
+      const items = runAndReadItems('#1 feat: Add widget\n\nIntroduces a widget.');
+      expect(items[0]).not.toHaveProperty('migration');
+    });
+
+    it('omits migration when the commit has no body', () => {
+      const items = runAndReadItems('#1 feat: Add widget');
+      expect(items[0]).not.toHaveProperty('migration');
+    });
+  });
 });
 
 describe('buildChangelogEntries + renderReleaseNotesSingle integration', () => {
