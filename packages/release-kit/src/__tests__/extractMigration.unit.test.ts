@@ -23,6 +23,12 @@ describe(extractMigration, () => {
     expect(extractMigration(body)).toBe('Quote every version number.');
   });
 
+  it('finds the paragraph after a run of blank lines', () => {
+    const body = 'Adds a widget.\n\n\nMigration: Quote every version number.';
+
+    expect(extractMigration(body)).toBe('Quote every version number.');
+  });
+
   it('takes the first labeled paragraph when the body carries two', () => {
     const body = 'Migration: Quote every version number.\n\nMigration: Also rename the field.';
 

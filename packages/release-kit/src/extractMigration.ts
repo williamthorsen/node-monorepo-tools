@@ -1,5 +1,5 @@
-/** Splits a commit body into paragraphs on a blank line, tolerating trailing whitespace on the blank one. */
-const PARAGRAPH_SEPARATOR = /\n[ \t]*\n/;
+/** Splits a commit body into paragraphs on a run of blank lines, tolerating trailing whitespace on each. */
+const PARAGRAPH_SEPARATOR = /\n(?:[ \t]*\n)+/;
 
 /** Matches the literal `Migration:` label opening a paragraph, with the whitespace that follows it. */
 const MIGRATION_LABEL = /^Migration:[ \t]*/;
