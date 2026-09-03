@@ -64,6 +64,8 @@ That's it for most repos. The CLI auto-discovers workspaces and applies sensible
 4. **Version bump + changelog**: bumps `package.json` versions, builds structured `ChangelogEntry[]` from `git-cliff --context`, applies any [editorial overrides](#editorial-overrides) from per-scope `.meta/changelog-overrides.json` files, and renders both `CHANGELOG.md` and `.meta/changelog.json` from that single source. `git-cliff` is invoked only for its `--context` JSON; markdown rendering happens in-process so `.meta/changelog.json` and `CHANGELOG.md` always agree.
 5. **Release tags file**: writes computed tags to `tmp/.release-tags` for the release workflow to read when tagging and pushing.
 
+Neither changelog reaches a published tarball on its own. npm stopped including `CHANGELOG` automatically in npm 7, so a package that declares a `files` field ships a changelog only where that field names `CHANGELOG.md` and `.meta/changelog.json`. release-kit's readyup kit reports a publishable workspace whose `files` field omits either.
+
 ## Commit format
 
 release-kit parses commits in these formats:
