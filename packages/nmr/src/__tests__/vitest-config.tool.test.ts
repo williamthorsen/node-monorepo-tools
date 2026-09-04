@@ -103,9 +103,12 @@ const DEFAULTS_FILES: Record<string, string> = {
     `    new URL(${JSON.stringify(`../../${OBSERVED_LOG}`)}, import.meta.url),`,
     '    JSON.stringify({',
     '      entry,',
+    '      gitConfigCount: process.env.GIT_CONFIG_COUNT,',
     '      gitConfigGlobal: process.env.GIT_CONFIG_GLOBAL,',
+    '      gitConfigKey0: process.env.GIT_CONFIG_KEY_0,',
     '      gitConfigNoSystem: process.env.GIT_CONFIG_NOSYSTEM,',
     '      gitConfigSystem: process.env.GIT_CONFIG_SYSTEM,',
+    '      gitConfigValue0: process.env.GIT_CONFIG_VALUE_0,',
     '    }),',
     '  );',
     '  expect(entry).toBeTypeOf("string");',
@@ -324,16 +327,19 @@ describe('the defaults the factory supplies, run for real', { timeout: 120_000 }
 
   it('isolates git in the test process', ({ defaults }) => {
     expect(defaults.supplied).toMatchObject({
+      gitConfigCount: '1',
       gitConfigGlobal: os.devNull,
+      gitConfigKey0: 'core.excludesFile',
       gitConfigNoSystem: '1',
       gitConfigSystem: os.devNull,
+      gitConfigValue0: os.devNull,
     });
   });
 
   // The condition is what selects the source entry, rather than anything incidental about the fixture: without it
   // the same tree resolves the `node` entry, which is also what proves `node` was in the emitted list.
   //
-  // The report carries `entry` alone because an unset variable serializes to no key at all, so the absent three
+  // The report carries `entry` alone because an unset variable serializes to no key at all, so the absent six
   // are the assertion that nothing set them.
   it('falls back to the node entry and the ambient git configuration when both defaults are off', ({ defaults }) => {
     expect(defaults.optedOut).toStrictEqual({ entry: 'node' });
