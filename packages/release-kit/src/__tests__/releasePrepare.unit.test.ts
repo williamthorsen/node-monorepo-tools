@@ -145,6 +145,23 @@ describe(releasePrepare, () => {
     expect(workspace.changelogFiles).toStrictEqual(['CHANGELOG.md']);
   });
 
+  it('returns a skipped workspace and plans nothing when no commits exist since the tag', () => {
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') {
+        return 'v1.0.0\n';
+      }
+      return '';
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+
+    const result = releasePrepare(makeConfig(), {});
+
+    expect(result.workspaces).toHaveLength(1);
+    expect(result.workspaces[0]).toMatchObject({ status: 'skipped', commitCount: 0, previousTag: 'v1.0.0' });
+    expect(result.tags).toStrictEqual([]);
+    expect(result.writes).toStrictEqual([]);
+  });
+
   it('applies patch floor when commits exist but none are release-worthy', () => {
     mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
       if (cmd === 'git' && args[0] === 'describe') {
