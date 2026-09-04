@@ -9,6 +9,9 @@ const REPO_ROOT = path.resolve(import.meta.dirname, '../../../..');
 
 const VITEST_CLI = path.join(REPO_ROOT, 'node_modules/vitest/vitest.mjs');
 
+/** Environment names a child Vitest run must not inherit. */
+const STRIPPED_ENV_NAMES = new Set(['GIT_ATTR_NOSYSTEM', 'NODE_V8_COVERAGE', 'TEST']);
+
 /** Runs Vitest once in `cwd`, in a child process of its own. */
 export function runVitest(cwd: string, extraArgs: string[] = []): VitestRun {
   return spawnSync(process.execPath, [VITEST_CLI, 'run', ...extraArgs], {
@@ -49,14 +52,14 @@ export interface VitestRun {
  * Strips the variables the parent Vitest run exports. Inherited, they leak the parent's worker identity and
  * coverage output directory into the child, which then reports on the wrong run.
  *
- * `GIT_CONFIG_*` is stripped for the same reason: this repo's own suite runs under the isolation the config
- * supplies, so a child inheriting it observes isolation whether or not the config under test asked for any.
+ * The git isolation variables are stripped for the same reason: this repo's own suite runs under the isolation the
+ * config supplies, so a child inheriting them observes isolation whether or not the config under test asked for any.
  */
 function buildChildEnv(): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
 
   for (const [name, value] of Object.entries(process.env)) {
-    if (name === 'TEST' || name === 'NODE_V8_COVERAGE') continue;
+    if (STRIPPED_ENV_NAMES.has(name)) continue;
     if (name.startsWith('VITEST') || name.startsWith('GIT_CONFIG_')) continue;
     env[name] = value;
   }
