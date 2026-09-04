@@ -76,6 +76,9 @@ describe(runGitCliff, () => {
   });
 
   it('defaults RUST_LOG to warn, which drops cliff INFO output such as its update notice', () => {
+    // The default only applies when nothing is inherited, so the developer's own RUST_LOG is cleared first.
+    vi.stubEnv('RUST_LOG', undefined);
+
     runGitCliff('cliff.toml', []);
 
     expect(mockExecFileSync).toHaveBeenCalledWith(
