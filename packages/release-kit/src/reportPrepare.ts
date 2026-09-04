@@ -1,4 +1,5 @@
 import { bold, dim, sectionHeader } from './format.ts';
+import { GIT_CLIFF_VERSION } from './runGitCliff.ts';
 import type {
   PolicyViolation,
   PrepareResult,
@@ -8,6 +9,9 @@ import type {
   ReleasedWorkspaceResult,
   WorkspacePrepareResult,
 } from './types.ts';
+
+/** The npx invocation a dry run reports for each changelog file; the `...` stands for the args `runGitCliff` derives. */
+const CLIFF_DRY_RUN_COMMAND = `npx --prefer-offline --yes git-cliff@${GIT_CLIFF_VERSION} ...`;
 
 /** How the plan was carried out, which decides the tense the report is rendered in. */
 export interface ReportPrepareOptions {
@@ -192,7 +196,7 @@ function formatProjectSection(lines: string[], project: ProjectPrepareResult, dr
   lines.push(dim('  Generating changelogs...'));
   for (const file of project.changelogFiles) {
     if (dryRun) {
-      lines.push(dim(`    [dry-run] Would run: npx --yes git-cliff ... --output ${file}`));
+      lines.push(dim(`    [dry-run] Would run: ${CLIFF_DRY_RUN_COMMAND} --output ${file}`));
     } else {
       lines.push(dim(`    Generating changelog: ${file}`));
     }
@@ -312,7 +316,7 @@ function formatBumpFiles(lines: string[], workspace: ReleasedWorkspaceResult, dr
 function formatChangelogFiles(lines: string[], workspace: ReleasedWorkspaceResult, dryRun: boolean, indent = ''): void {
   for (const file of workspace.changelogFiles) {
     if (dryRun) {
-      lines.push(dim(`${indent}  [dry-run] Would run: npx --yes git-cliff ... --output ${file}`));
+      lines.push(dim(`${indent}  [dry-run] Would run: ${CLIFF_DRY_RUN_COMMAND} --output ${file}`));
     } else {
       lines.push(dim(`${indent}  Generating changelog: ${file}`));
     }
