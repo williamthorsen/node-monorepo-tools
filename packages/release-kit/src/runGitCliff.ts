@@ -11,6 +11,9 @@ import { join } from 'node:path';
  */
 export const GIT_CLIFF_VERSION = '2.13.1';
 
+/** The npx arguments that precede the cliff args at every invocation, and that the dry-run report renders. */
+export const GIT_CLIFF_NPX_ARGS: readonly string[] = ['--prefer-offline', '--yes', `git-cliff@${GIT_CLIFF_VERSION}`];
+
 /**
  * Invokes `git-cliff` via `npx` and returns the output it produced.
  *
@@ -53,23 +56,10 @@ export function runGitCliff(cliffConfigPath: string, cliffArgs: readonly string[
 
     // stdout carries nothing once `--output` is set, and discarding it leaves no parent-side buffer.
     // stderr is inherited so npx and cliff errors reach the terminal.
-    execFileSync(
-      'npx',
-      [
-        '--prefer-offline',
-        '--yes',
-        `git-cliff@${GIT_CLIFF_VERSION}`,
-        '--config',
-        configPath,
-        ...cliffArgs,
-        '--output',
-        outputPath,
-      ],
-      {
-        stdio: ['ignore', 'ignore', 'inherit'],
-        env: { ...process.env, npm_config_progress: 'false', RUST_LOG: process.env['RUST_LOG'] ?? 'warn' },
-      },
-    );
+    execFileSync('npx', [...GIT_CLIFF_NPX_ARGS, '--config', configPath, ...cliffArgs, '--output', outputPath], {
+      stdio: ['ignore', 'ignore', 'inherit'],
+      env: { ...process.env, npm_config_progress: 'false', RUST_LOG: process.env['RUST_LOG'] ?? 'warn' },
+    });
 
     return readFileSync(outputPath, 'utf8');
   } finally {

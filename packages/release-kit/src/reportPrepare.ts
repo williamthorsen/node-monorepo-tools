@@ -1,5 +1,5 @@
 import { bold, dim, sectionHeader } from './format.ts';
-import { GIT_CLIFF_VERSION } from './runGitCliff.ts';
+import { GIT_CLIFF_NPX_ARGS } from './runGitCliff.ts';
 import type {
   PolicyViolation,
   PrepareResult,
@@ -11,7 +11,7 @@ import type {
 } from './types.ts';
 
 /** The npx invocation a dry run reports for each changelog file; the `...` stands for the args `runGitCliff` derives. */
-const CLIFF_DRY_RUN_COMMAND = `npx --prefer-offline --yes git-cliff@${GIT_CLIFF_VERSION} ...`;
+const CLIFF_DRY_RUN_COMMAND = `npx ${GIT_CLIFF_NPX_ARGS.join(' ')} ...`;
 
 /** How the plan was carried out, which decides the tense the report is rendered in. */
 export interface ReportPrepareOptions {
