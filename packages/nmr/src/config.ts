@@ -228,8 +228,14 @@ function assertResolvableCheckCacheCommands(config: NmrConfig, configPath: strin
  * Collects the command names the workspace's `package.json` files declare, the resolution tier the merged
  * registries do not describe.
  *
- * A workspace layout this cannot read yields no names rather than an exception: a name that resolves nowhere is
- * reported on its own terms, and the manifest is not what the reader was asked about.
+ * A manifest whose content this cannot read contributes no names, and a readable sibling still contributes its
+ * own. The sweep runs for the config's sake rather than the package's, so a manifest that is malformed
+ * elsewhere in the workspace must not fail every command run anywhere in it; the package's own runs report it,
+ * where the message names something the reader was asking about.
+ *
+ * A package manifest that cannot be read at all is a different matter and propagates. An unreadable path is a
+ * fault in the checkout rather than a statement about the manifest's content, and one nothing else here would
+ * report.
  */
 function readDeclaredScriptNames(monorepoRoot: string): Set<string> {
   let packageDirs: string[];
@@ -242,13 +248,25 @@ function readDeclaredScriptNames(monorepoRoot: string): Set<string> {
   const names = new Set<string>();
   const dirs = [monorepoRoot, ...packageDirs];
   for (const dir of dirs) {
-    const scripts = readPackageJsonScripts(dir) ?? {};
+    const scripts = readScriptNames(dir);
     for (const name of Object.keys(scripts)) {
       names.add(name);
     }
   }
 
   return names;
+}
+
+/** Reads one package's declared scripts, treating a manifest whose content does not parse as declaring none. */
+function readScriptNames(packageDir: string): Record<string, string> {
+  try {
+    return readPackageJsonScripts(packageDir) ?? {};
+  } catch (error: unknown) {
+    if (error instanceof UserError) {
+      return {};
+    }
+    throw error;
+  }
 }
 
 /** Validates and extracts the `output` field from the raw config object. */

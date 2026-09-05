@@ -13,9 +13,10 @@ describe(findClosestName, () => {
     expect(findClosestName('test:unti', COMMANDS)).toBe('test:unit');
   });
 
-  // The ceiling scales with length, so a long name absorbs the slips a short one cannot.
-  it('names a candidate several edits from a long name', () => {
-    expect(findClosestName('root:test:coverge', COMMANDS)).toBe('root:test:coverage');
+  // Three edits from a fifteen-character name, which only the scaled ceiling admits: a ceiling capped at two
+  // would reject it.
+  it('names a candidate three edits from a long name', () => {
+    expect(findClosestName('root:tst:covrge', COMMANDS)).toBe('root:test:coverage');
   });
 
   it('names nothing for a name close to no candidate', () => {

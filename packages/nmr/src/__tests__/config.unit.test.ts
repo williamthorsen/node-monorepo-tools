@@ -337,16 +337,38 @@ describe('checkCache command resolution', () => {
     );
   });
 
-  // The sweep is what a repo pays on every invocation, so a config that needs none must not trigger one. The
-  // unreadable manifest is the probe: reading it at all would surface as the parse rejection.
+  // The sweep is what a repo pays on every invocation, so a config that needs none must not trigger one. A
+  // directory standing where the manifest belongs is the probe: it fails the read itself, which no swallow
+  // covers, so a sweep would surface as `EISDIR`.
   it('reads no package.json while every name resolves', async ({ tree }) => {
     makeMonorepoRoot(tree);
-    tree.write('packages/core/package.json', '{ not json');
+    tree.write('packages/core/package.json/placeholder', '');
     writeConfig(tree, `export default { checkCache: { extraCommands: ['typecheck'] } };`);
 
     const config = await loadConfig(tree.dir);
 
     expect(config.checkCache).toStrictEqual({ extraCommands: ['typecheck'] });
+  });
+
+  // A manifest is swept for the config's sake, so one that is malformed elsewhere in the workspace must not
+  // stand in for the answer the reader asked for.
+  it('rejects an unresolvable name past a manifest whose content does not parse', async ({ tree }) => {
+    makeMonorepoRoot(tree);
+    tree.write('packages/core/package.json', '{ not json');
+    writeConfig(tree, `export default { checkCache: { extraCommands: ['nonesuch-command'] } };`);
+
+    await expect(loadConfig(tree.dir)).rejects.toThrow(
+      '`checkCache.extraCommands` names no command: `nonesuch-command`',
+    );
+  });
+
+  // The unreadable path is a fault in the checkout, which nothing else in a config load would report.
+  it('propagates a package manifest that cannot be read at all', async ({ tree }) => {
+    makeMonorepoRoot(tree);
+    tree.write('packages/core/package.json/placeholder', '');
+    writeConfig(tree, `export default { checkCache: { extraCommands: ['nonesuch-command'] } };`);
+
+    await expect(loadConfig(tree.dir)).rejects.toThrow('EISDIR');
   });
 
   it('rejects a hook name, which the gate never consults', async ({ tree }) => {
