@@ -248,7 +248,7 @@ function readDeclaredScriptNames(monorepoRoot: string): Set<string> {
   const names = new Set<string>();
   const dirs = [monorepoRoot, ...packageDirs];
   for (const dir of dirs) {
-    const scripts = readScriptNames(dir);
+    const scripts = readPackageScripts(dir);
     for (const name of Object.keys(scripts)) {
       names.add(name);
     }
@@ -258,7 +258,7 @@ function readDeclaredScriptNames(monorepoRoot: string): Set<string> {
 }
 
 /** Reads one package's declared scripts, treating a manifest whose content does not parse as declaring none. */
-function readScriptNames(packageDir: string): Record<string, string> {
+function readPackageScripts(packageDir: string): Record<string, string> {
   try {
     return readPackageJsonScripts(packageDir) ?? {};
   } catch (error: unknown) {
