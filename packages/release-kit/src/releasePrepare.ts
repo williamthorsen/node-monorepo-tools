@@ -22,7 +22,6 @@ import { readCurrentVersion } from './readCurrentVersion.ts';
 import type { PlannedWrite, ReleasePlan } from './releasePlan.ts';
 import { renderChangelogMarkdown } from './renderChangelogMarkdown.ts';
 import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
-import { refreshGitCliffCache } from './runGitCliff.ts';
 import type {
   ChangelogEntry,
   ChangelogOverride,
@@ -123,7 +122,6 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
     if (!isForwardVersion(currentVersion, setVersion)) {
       throw new Error(`--set-version ${setVersion} is not greater than current version ${currentVersion}`);
     }
-    refreshGitCliffCache();
     bump = planVersionSet(config.packageFiles, setVersion);
   } else {
     if (bumpOverride === undefined) {
@@ -155,10 +153,7 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
       };
     }
 
-    // 3. Plan the version bumps. The `--prefer-offline` flag in `runGitCliff` would otherwise
-    // pin the cached binary forever; one warmup per run revalidates it without losing the
-    // per-call perf win.
-    refreshGitCliffCache();
+    // 3. Plan the version bumps.
     bump = planVersionBump(config.packageFiles, releaseType);
   }
 

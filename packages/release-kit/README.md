@@ -946,7 +946,7 @@ These kits are no longer reachable through `rdy run --from github:williamthorsen
 This package shells out to two external tools:
 
 - **`git`** — must be available on `PATH`. Used to find tags and retrieve commit history.
-- **`git-cliff`** — automatically downloaded and cached via `npx` on first invocation. No need to install it as a dev dependency.
+- **`git-cliff`** — pinned to an exact version and fetched via `npx` on first invocation, then served from npx's cache. No need to install it as a dev dependency. The pin moves only when a new release-kit version names a newer git-cliff, so two releases cut months apart run the same changelog generator.
 
 ## Upgrading from v4 to v5
 
@@ -1100,7 +1100,7 @@ If your format command does not accept file arguments, update it to one that doe
 
 ### v1.1.0: `git-cliff` is no longer a required dev dependency
 
-`git-cliff` is now invoked via `npx --yes git-cliff` instead of requiring it as a dev dependency. You can remove it from your `devDependencies`. The version is not pinned, so `npx` downloads and caches the latest version on first invocation. To pin a specific version, use `npx --yes git-cliff@2.12.0` by wrapping the call in a custom script.
+`git-cliff` is now invoked via `npx` instead of requiring it as a dev dependency. You can remove it from your `devDependencies`. release-kit names an exact version in the invocation, so the version you get is decided by the release-kit version you install rather than by whatever the registry serves that day.
 
 ## Migration from changesets
 

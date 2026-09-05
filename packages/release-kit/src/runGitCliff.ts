@@ -3,7 +3,16 @@ import { copyFileSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
+/**
+ * The exact `git-cliff` version every invocation resolves.
+ *
+ * npm's `git-cliff` trails the upstream release, so this pin normally sits behind the newest version cliff
+ * itself reports. Bumping it is an edit to this line, once npm publishes the version you want.
+ */
+export const GIT_CLIFF_VERSION = '2.13.1';
+
+/** The npx arguments that precede the cliff args at every invocation, and that the dry-run report renders. */
+export const GIT_CLIFF_NPX_ARGS: readonly string[] = ['--prefer-offline', '--yes', `git-cliff@${GIT_CLIFF_VERSION}`];
 
 /**
  * Invokes `git-cliff` via `npx` and returns the output it produced.
@@ -16,15 +25,14 @@ import { GIT_OUTPUT_LIMIT } from '@williamthorsen/nmr-core';
  * entire matching tag history on every run, so its size grows without bound with the repo;
  * a file accommodates that, while a pipe is bounded by `maxBuffer`.
  *
- * The `--prefer-offline` flag and `npm_config_progress=false` env entry are deliberate: `--prefer-offline` skips
- * npx's per-call npm-registry revalidation HTTP round-trip (~2.5 s per invocation on a warm cache), and
- * `npm_config_progress=false` suppresses npx's animated stderr spinner, which otherwise renders as a transient flicker.
+ * The npx spec names an exact version, which leaves npm no staleness to check, so `--prefer-offline` skips the
+ * per-call registry revalidation round-trip (~2.5 s per invocation on a warm cache) without stranding the run
+ * on whatever the cache happens to hold.
  *
- * Because `--prefer-offline` also suppresses npx's cache-staleness check, the cached `git-cliff` binary
- * would otherwise drift further and further behind upstream, with each cliff invocation re-emitting the
- * "A new version of git-cliff is available" notice and the local cache never updating.
- * `refreshGitCliffCache` (below) revalidates the cache once at the top of each `prepare` run so that
- * subsequent `--prefer-offline` calls run against a current binary.
+ * Two env entries are set for the child. `npm_config_progress=false` suppresses npx's animated stderr spinner,
+ * which otherwise renders as a transient flicker. `RUST_LOG=warn` drops cliff's INFO lines, among them the
+ * crates.io update notice it emits on every invocation while npm trails upstream, and leaves warnings and errors
+ * in place; an inherited `RUST_LOG` wins, so raising the level for debugging still works.
  *
  * The helper injects `--config <path>` and `--output <path>` itself — callers must NOT include either in `cliffArgs`.
  * `--output` is appended last so a caller that passes one anyway cannot redirect the output the helper then reads.
@@ -48,39 +56,13 @@ export function runGitCliff(cliffConfigPath: string, cliffArgs: readonly string[
 
     // stdout carries nothing once `--output` is set, and discarding it leaves no parent-side buffer.
     // stderr is inherited so npx and cliff errors reach the terminal.
-    execFileSync(
-      'npx',
-      ['--prefer-offline', '--yes', 'git-cliff', '--config', configPath, ...cliffArgs, '--output', outputPath],
-      {
-        stdio: ['ignore', 'ignore', 'inherit'],
-        env: { ...process.env, npm_config_progress: 'false' },
-      },
-    );
+    execFileSync('npx', [...GIT_CLIFF_NPX_ARGS, '--config', configPath, ...cliffArgs, '--output', outputPath], {
+      stdio: ['ignore', 'ignore', 'inherit'],
+      env: { ...process.env, npm_config_progress: 'false', RUST_LOG: process.env['RUST_LOG'] ?? 'warn' },
+    });
 
     return readFileSync(outputPath, 'utf8');
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }
-}
-
-/**
- * Revalidate npx's cache for `git-cliff` once per `prepare` run.
- *
- * Spawns `npx --yes git-cliff --version` *without* `--prefer-offline`, so that npm performs its normal
- * registry-staleness check and refreshes the cached binary if a newer version is available.
- * Subsequent `runGitCliff` calls within the same run keep `--prefer-offline` (preserving the per-call perf win)
- * but now run against an up-to-date cache, so git-cliff's own self-update notice no longer fires repeatedly.
- *
- * Stdio: stdin ignored, stdout piped (the version line is suppressed as noise), stderr inherited (npm errors and
- * any rare upgrade notice surface, but only once per run). `maxBuffer` is declared even though the piped output
- * is a single version line, because every call that pipes stdout declares one.
- *
- * Errors propagate unchanged — a failed cache refresh fails the prepare run loudly rather than silently degrading.
- */
-export function refreshGitCliffCache(): void {
-  execFileSync('npx', ['--yes', 'git-cliff', '--version'], {
-    maxBuffer: GIT_OUTPUT_LIMIT,
-    stdio: ['ignore', 'pipe', 'inherit'],
-    env: { ...process.env, npm_config_progress: 'false' },
-  });
 }

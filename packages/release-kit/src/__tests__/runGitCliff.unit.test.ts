@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Leave every `vi.fn()` bare. An inline implementation infers a narrow `Mock<() => string>`, which no overloaded
 // `node:fs` export accepts: `Mock<T>` derives its one call signature from `ReturnType<T>`, and that collapses an
@@ -20,10 +20,13 @@ vi.mock(import('node:fs'), () => ({
 }));
 vi.mock(import('node:os'), () => ({ tmpdir: mockTmpdir }));
 
-import { refreshGitCliffCache, runGitCliff } from '../runGitCliff.ts';
+import { GIT_CLIFF_VERSION, runGitCliff } from '../runGitCliff.ts';
 
 /** The output path the helper derives from the mocked temp dir; asserted against in several cases. */
 const OUTPUT_PATH = '/tmp/cliff-abc123/output.json';
+
+/** The pinned npx package spec, built from the constant so a deliberate bump leaves these cases alone. */
+const CLIFF_SPEC = `git-cliff@${GIT_CLIFF_VERSION}`;
 
 describe(runGitCliff, () => {
   beforeEach(() => {
@@ -35,15 +38,23 @@ describe(runGitCliff, () => {
     mockTmpdir.mockReset().mockReturnValue('/tmp');
   });
 
-  it('passes --prefer-offline and --yes to npx ahead of git-cliff', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('passes --prefer-offline and --yes to npx ahead of the pinned git-cliff spec', () => {
     runGitCliff('cliff.toml', ['--tag', 'v1.0.0']);
 
     expect(mockExecFileSync).toHaveBeenCalledTimes(1);
     expect(mockExecFileSync).toHaveBeenCalledWith(
       'npx',
-      ['--prefer-offline', '--yes', 'git-cliff', '--config', 'cliff.toml', '--tag', 'v1.0.0', '--output', OUTPUT_PATH],
+      ['--prefer-offline', '--yes', CLIFF_SPEC, '--config', 'cliff.toml', '--tag', 'v1.0.0', '--output', OUTPUT_PATH],
       expect.any(Object),
     );
+  });
+
+  it('pins an exact version, so npx has no range or tag left to resolve', () => {
+    expect(GIT_CLIFF_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
   });
 
   it('sets npm_config_progress=false in the spawned env while preserving inherited variables', () => {
@@ -61,6 +72,31 @@ describe(runGitCliff, () => {
           PATH: previousPath,
         }),
       }),
+    );
+  });
+
+  it('defaults RUST_LOG to warn, which drops cliff INFO output such as its update notice', () => {
+    // The default only applies when nothing is inherited, so the developer's own RUST_LOG is cleared first.
+    vi.stubEnv('RUST_LOG', undefined);
+
+    runGitCliff('cliff.toml', []);
+
+    expect(mockExecFileSync).toHaveBeenCalledWith(
+      'npx',
+      expect.any(Array),
+      expect.objectContaining({ env: expect.objectContaining({ RUST_LOG: 'warn' }) }),
+    );
+  });
+
+  it('leaves an inherited RUST_LOG in place, so raising the level for debugging still works', () => {
+    vi.stubEnv('RUST_LOG', 'debug');
+
+    runGitCliff('cliff.toml', []);
+
+    expect(mockExecFileSync).toHaveBeenCalledWith(
+      'npx',
+      expect.any(Array),
+      expect.objectContaining({ env: expect.objectContaining({ RUST_LOG: 'debug' }) }),
     );
   });
 
@@ -83,7 +119,7 @@ describe(runGitCliff, () => {
       [
         '--prefer-offline',
         '--yes',
-        'git-cliff',
+        CLIFF_SPEC,
         '--config',
         'cliff.toml',
         '--output',
@@ -182,73 +218,5 @@ describe(runGitCliff, () => {
     });
 
     expect(() => runGitCliff('cliff.toml', [])).toThrow(underlying);
-  });
-});
-
-describe(refreshGitCliffCache, () => {
-  beforeEach(() => {
-    mockExecFileSync.mockReset();
-  });
-
-  it('invokes npx --yes git-cliff --version without --prefer-offline', () => {
-    mockExecFileSync.mockReturnValueOnce('');
-
-    refreshGitCliffCache();
-
-    expect(mockExecFileSync).toHaveBeenCalledTimes(1);
-    expect(mockExecFileSync).toHaveBeenCalledWith('npx', ['--yes', 'git-cliff', '--version'], expect.any(Object));
-    // The omission of --prefer-offline is the whole point of this helper.
-    const [, args] = mockExecFileSync.mock.calls[0] ?? [];
-    expect(args).not.toContain('--prefer-offline');
-    // No --config: the warmup does not need a cliff config to revalidate the cache.
-    expect(args).not.toContain('--config');
-  });
-
-  it('uses stdio ["ignore", "pipe", "inherit"] so the version line is suppressed but errors surface', () => {
-    mockExecFileSync.mockReturnValueOnce('');
-
-    refreshGitCliffCache();
-
-    expect(mockExecFileSync).toHaveBeenCalledWith(
-      'npx',
-      expect.any(Array),
-      expect.objectContaining({ stdio: ['ignore', 'pipe', 'inherit'] }),
-    );
-  });
-
-  it('sets npm_config_progress=false in the spawned env while preserving inherited variables', () => {
-    mockExecFileSync.mockReturnValueOnce('');
-    const previousPath = process.env['PATH'];
-
-    refreshGitCliffCache();
-
-    expect(mockExecFileSync).toHaveBeenCalledWith(
-      'npx',
-      expect.any(Array),
-      expect.objectContaining({
-        env: expect.objectContaining({
-          npm_config_progress: 'false',
-          PATH: previousPath,
-        }),
-      }),
-    );
-  });
-
-  it('rethrows the underlying execFileSync error without wrapping it', () => {
-    const underlying = new Error('npx exited with code 1');
-    mockExecFileSync.mockImplementationOnce(() => {
-      throw underlying;
-    });
-
-    // Capture and assert reference identity; `toThrow(underlying)` matches by message/class
-    // and would pass even if the helper wrapped the error in a fresh Error with the same
-    // message string.
-    let caught: unknown;
-    try {
-      refreshGitCliffCache();
-    } catch (error) {
-      caught = error;
-    }
-    expect(caught).toBe(underlying);
   });
 });
