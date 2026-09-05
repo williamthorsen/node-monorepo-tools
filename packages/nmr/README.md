@@ -491,6 +491,10 @@ export default defineConfig({
 
 `extraCommands` extends the default set rather than replacing it, so naming one command cannot silently drop the rest; `excludeCommands` is applied afterwards, so a name in both is excluded. `enabled: false` turns the gate off entirely. The key is `checkCache`, in the monorepo-root config.
 
+**A name in either list must resolve to a command**, whether through nmr's defaults, the repo config's script records, or a package's own `package.json` scripts. Both lists are read by name alone, so a misspelt entry would otherwise be inert: the command it meant to name would go on running, indistinguishable from one that cannot be cached at all. A name that resolves nowhere fails config load, naming the closest command where there is one. A hook name is rejected too, since a hook is never gated on its own -- it runs as part of the chain of the command it wraps, and is skipped or run with it.
+
+The test is resolvability rather than membership of the cacheable set, so an `excludeCommands` entry keeps standing after a release moves its name out of the defaults.
+
 ```ts
 export default defineConfig({
   output: {

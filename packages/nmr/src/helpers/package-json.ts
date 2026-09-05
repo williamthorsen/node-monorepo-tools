@@ -3,9 +3,9 @@ import path from 'node:path';
 
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
-import { CONFIG_RELATIVE_PATH } from '../config.ts';
 import { UserError } from '../UserError.ts';
 import { isMonorepoRoot } from '../workspace.ts';
+import { CONFIG_RELATIVE_PATH } from './config-path.ts';
 import { readStringValues } from './readStringValues.ts';
 import { isObject } from './type-guards.ts';
 
