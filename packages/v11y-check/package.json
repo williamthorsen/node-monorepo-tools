@@ -54,7 +54,7 @@
     "@williamthorsen/nmr-core": "workspace:*",
     "@williamthorsen/toolbelt.errors": "catalog:",
     "audit-ci": "7.1.0",
-    "zod": "4.5.2"
+    "zod": "4.5.4"
   },
   "devDependencies": {
     "@williamthorsen/toolbelt.filesystem": "catalog:",
