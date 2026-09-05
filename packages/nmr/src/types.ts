@@ -22,13 +22,14 @@ export interface CheckCacheConfig {
   enabled?: boolean;
   /**
    * Command names removed from the cacheable set, applied after `extraCommands`. This is how a repo retires a
-   * name whose chain turned out to do more than report an exit status.
+   * name whose chain turned out to do more than report an exit status. Every name has to resolve to a command.
    */
   excludeCommands?: string[];
   /**
    * Command names added to the cacheable set. Extends rather than replaces, so that declaring one command
    * cannot silently drop the defaults. A name listed here promises exit-status-only semantics through its whole
-   * chain, hooks included.
+   * chain, hooks included, and has to resolve to a command: both lists are read by name alone, so a misspelt
+   * entry would otherwise be inert.
    */
   extraCommands?: string[];
 }

@@ -7,7 +7,7 @@ import { readCacheEntry, writeCacheEntry } from '@williamthorsen/nmr-core';
 import { glob } from 'glob';
 import * as ts from 'typescript';
 
-import { resolveConfigPath } from '../config.ts';
+import { resolveConfigPath } from '../helpers/config-path.ts';
 import {
   type BuildOptions,
   DEFAULT_ENTRY_GLOBS,

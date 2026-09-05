@@ -135,6 +135,9 @@ describe('the check-result cache gate', () => {
 
     it('does not record a run that executed nothing', async () => {
       // `NMR_RUN_IF_PRESENT` turns an unresolvable command into a silent success; nothing ran, so nothing passed.
+      // The package declares `ghost` so the config resolves it, which is the shape a fan-out has: the command
+      // exists in some scopes and not in the one being run.
+      workspace.write('repo/packages/a/package.json', JSON.stringify({ name: 'a', scripts: { ghost: 'true' } }));
       writeConfig(workspace, log, { checkCache: { extraCommands: ['ghost'] } });
 
       const { exitCode } = await runNmr('ghost', repo, { NMR_RUN_IF_PRESENT: '1' });

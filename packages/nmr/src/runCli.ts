@@ -29,9 +29,9 @@ import {
   writeCheckCacheEntry,
   writeDebugNote,
 } from './check-cache.ts';
-import { resolveConfigPath } from './config.ts';
 import { resolveContext } from './context.ts';
 import { generateHelp } from './help.ts';
+import { resolveConfigPath } from './helpers/config-path.ts';
 import { deriveExcerpt } from './helpers/deriveExcerpt.ts';
 import { isHookName } from './helpers/hook-name.ts';
 import { resolvePackageJsonPath } from './helpers/package-json.ts';

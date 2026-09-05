@@ -1,18 +1,16 @@
 import { existsSync } from 'node:fs';
-import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { resolveConfigPath } from './helpers/config-path.ts';
+import { findClosestName } from './helpers/findClosestName.ts';
+import { isHookName } from './helpers/hook-name.ts';
 import { isObject, isStringRecord } from './helpers/type-guards.ts';
+import { buildRootRegistry, buildWorkspaceRegistry, readPackageJsonScripts } from './resolver.ts';
 import { findUnexpressibleToken } from './steps.ts';
 import type { BuildConfig, CheckCacheConfig, NmrConfig, OutputConfig, ScriptValue, StepSpec } from './types.ts';
 import { UserError } from './UserError.ts';
 import { formatVerbosityRejection, isCommandVerbosity } from './verbosity.ts';
-
-const CONFIG_FILENAME = 'nmr.config.ts';
-const CONFIG_DIR = '.config';
-
-/** The config's path relative to the directory holding it, for a message composed without one in hand. */
-export const CONFIG_RELATIVE_PATH = path.join(CONFIG_DIR, CONFIG_FILENAME);
+import { getWorkspacePackageDirs, isMonorepoRoot } from './workspace.ts';
 
 interface ConfigTier {
   /** Names the tier in an error message. */
@@ -44,15 +42,6 @@ const RECOGNIZED_BUILD_KEYS = ['extraIgnorePatterns'];
 const RECOGNIZED_CHECK_CACHE_KEYS = ['enabled', 'excludeCommands', 'extraCommands'];
 const RECOGNIZED_OUTPUT_KEYS = ['commandVerbosity', 'extraAgentEnvVars'];
 const RECOGNIZED_STEP_KEYS = ['declinesArgs', 'run'];
-
-/**
- * Resolves the config-file path for a directory, whether that is the monorepo root or a package.
- * Callers that only need to know whether a config exists -- the build, which folds it into its cache digest -- go
- * through this rather than spelling the path again, so that the two cannot drift into hashing a file nothing reads.
- */
-export function resolveConfigPath(baseDir: string): string {
-  return path.join(baseDir, CONFIG_DIR, CONFIG_FILENAME);
-}
 
 /** Narrows an unknown value to a record of script entries. */
 function isScriptRecord(value: unknown): value is Record<string, ScriptValue> {
@@ -182,6 +171,86 @@ function validateCheckCacheField(value: Record<string, unknown>, configPath: str
   return config;
 }
 
+/**
+ * Rejects a `checkCache` name that resolves to no command. Both fields are read by name alone, so a misspelt
+ * entry is inert: the command it meant to name goes on running, indistinguishable from one that cannot be
+ * cached at all.
+ *
+ * The test is resolvability rather than membership of the cacheable set, so an `excludeCommands` entry written
+ * against a name a later release moves out of the defaults keeps standing.
+ *
+ * Reads nothing while every name resolves in the merged registries, and reaches a package's own `scripts` only
+ * once one misses them: those are a resolution tier of their own, so a name declared only there is valid.
+ *
+ * Stands aside outside a monorepo root, where `checkCache` is a key this tier does not honor. `assertTierKeys`
+ * reports that, and of the two messages it is the one that names the real mistake.
+ */
+function assertResolvableCheckCacheCommands(config: NmrConfig, configPath: string, baseDir: string): void {
+  const { checkCache } = config;
+  if (checkCache === undefined || !isMonorepoRoot(baseDir)) {
+    return;
+  }
+
+  const fields = ['excludeCommands', 'extraCommands'] as const;
+  const entries = fields.flatMap((field) => (checkCache[field] ?? []).map((command) => ({ command, field })));
+
+  const hook = entries.find(({ command }) => isHookName(command));
+  if (hook !== undefined) {
+    throw new UserError(
+      `Invalid nmr config at ${configPath}: \`checkCache.${hook.field}\` names the hook \`${hook.command}\`, ` +
+        'which is never gated on its own: it runs as part of the chain of the command it wraps.',
+    );
+  }
+
+  const registered = new Set([
+    ...Object.keys(buildRootRegistry(config)),
+    ...Object.keys(buildWorkspaceRegistry(config)),
+  ]);
+  const missing = entries.filter(({ command }) => !registered.has(command));
+  if (missing.length === 0) {
+    return;
+  }
+
+  const declared = readDeclaredScriptNames(baseDir);
+  const unresolvable = missing.find(({ command }) => !declared.has(command));
+  if (unresolvable === undefined) {
+    return;
+  }
+
+  const closest = findClosestName(unresolvable.command, [...registered, ...declared]);
+  throw new UserError(
+    `Invalid nmr config at ${configPath}: \`checkCache.${unresolvable.field}\` names no command: ` +
+      `\`${unresolvable.command}\`.${closest === undefined ? '' : ` Did you mean \`${closest}\`?`}`,
+  );
+}
+
+/**
+ * Collects the command names the workspace's `package.json` files declare, the resolution tier the merged
+ * registries do not describe.
+ *
+ * A workspace layout this cannot read yields no names rather than an exception: a name that resolves nowhere is
+ * reported on its own terms, and the manifest is not what the reader was asked about.
+ */
+function readDeclaredScriptNames(monorepoRoot: string): Set<string> {
+  let packageDirs: string[];
+  try {
+    packageDirs = getWorkspacePackageDirs(monorepoRoot);
+  } catch {
+    packageDirs = [];
+  }
+
+  const names = new Set<string>();
+  const dirs = [monorepoRoot, ...packageDirs];
+  for (const dir of dirs) {
+    const scripts = readPackageJsonScripts(dir) ?? {};
+    for (const name of Object.keys(scripts)) {
+      names.add(name);
+    }
+  }
+
+  return names;
+}
+
 /** Validates and extracts the `output` field from the raw config object. */
 function validateOutputField(value: Record<string, unknown>, configPath: string): OutputConfig | undefined {
   const output: unknown = value['output'];
@@ -234,7 +303,7 @@ function validateStringRecordField(
 }
 
 /** Validates that a loaded value conforms to the expected `NmrConfig` shape. */
-function validateConfig(value: unknown, configPath: string): NmrConfig {
+function validateConfig(value: unknown, configPath: string, baseDir: string): NmrConfig {
   if (!isObject(value)) {
     throw new UserError(`Invalid nmr config at ${configPath}: expected an object, got ${typeof value}`);
   }
@@ -260,6 +329,9 @@ function validateConfig(value: unknown, configPath: string): NmrConfig {
   const rootScripts = validateScriptField(value, 'rootScripts', configPath);
   if (rootScripts) config.rootScripts = rootScripts;
 
+  // Last, because it resolves the names against the registries the script fields above contribute to.
+  assertResolvableCheckCacheCommands(config, configPath, baseDir);
+
   return config;
 }
 
@@ -280,7 +352,7 @@ export async function loadConfig(baseDir: string): Promise<NmrConfig> {
   const imported: unknown = await import(pathToFileURL(configPath).href);
   const loaded = isObject(imported) ? imported['default'] : undefined;
 
-  return validateConfig(loaded, configPath);
+  return validateConfig(loaded, configPath, baseDir);
 }
 
 /**

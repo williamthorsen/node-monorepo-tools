@@ -295,11 +295,106 @@ describe(loadRootConfig, () => {
   });
 });
 
+describe('checkCache command resolution', () => {
+  it('accepts a name the repo config declares', async ({ tree }) => {
+    makeMonorepoRoot(tree);
+    writeConfig(
+      tree,
+      `export default { rootScripts: { 'verify:contracts': 'node verify.js' }, ` +
+        `checkCache: { extraCommands: ['verify:contracts'] } };`,
+    );
+
+    const config = await loadConfig(tree.dir);
+
+    expect(config.checkCache).toStrictEqual({ extraCommands: ['verify:contracts'] });
+  });
+
+  it('accepts a name only a package.json declares', async ({ tree }) => {
+    makeMonorepoRoot(tree);
+    writePackage(tree, 'core', { 'verify:contracts': 'node verify.js' });
+    writeConfig(tree, `export default { checkCache: { extraCommands: ['verify:contracts'] } };`);
+
+    const config = await loadConfig(tree.dir);
+
+    expect(config.checkCache).toStrictEqual({ extraCommands: ['verify:contracts'] });
+  });
+
+  it('rejects an extraCommands name that matches no command', async ({ tree }) => {
+    makeMonorepoRoot(tree);
+    writeConfig(tree, `export default { checkCache: { extraCommands: ['nonesuch-command'] } };`);
+
+    await expect(loadConfig(tree.dir)).rejects.toThrow(
+      '`checkCache.extraCommands` names no command: `nonesuch-command`',
+    );
+  });
+
+  it('rejects an excludeCommands name that matches no command', async ({ tree }) => {
+    makeMonorepoRoot(tree);
+    writeConfig(tree, `export default { checkCache: { excludeCommands: ['nonesuch-command'] } };`);
+
+    await expect(loadConfig(tree.dir)).rejects.toThrow(
+      '`checkCache.excludeCommands` names no command: `nonesuch-command`',
+    );
+  });
+
+  // The sweep is what a repo pays on every invocation, so a config that needs none must not trigger one. The
+  // unreadable manifest is the probe: reading it at all would surface as the parse rejection.
+  it('reads no package.json while every name resolves', async ({ tree }) => {
+    makeMonorepoRoot(tree);
+    tree.write('packages/core/package.json', '{ not json');
+    writeConfig(tree, `export default { checkCache: { extraCommands: ['typecheck'] } };`);
+
+    const config = await loadConfig(tree.dir);
+
+    expect(config.checkCache).toStrictEqual({ extraCommands: ['typecheck'] });
+  });
+
+  it('rejects a hook name, which the gate never consults', async ({ tree }) => {
+    makeMonorepoRoot(tree);
+    writeConfig(tree, `export default { checkCache: { extraCommands: ['check:strict:post'] } };`);
+
+    await expect(loadConfig(tree.dir)).rejects.toThrow(
+      '`checkCache.extraCommands` names the hook `check:strict:post`, which is never gated on its own',
+    );
+  });
+
+  it('names the closest command in the rejection', async ({ tree }) => {
+    makeMonorepoRoot(tree);
+    writeConfig(tree, `export default { checkCache: { extraCommands: ['typechek'] } };`);
+
+    await expect(loadConfig(tree.dir)).rejects.toThrow('`typechek`. Did you mean `typecheck`?');
+  });
+
+  it('offers no suggestion for a name close to nothing', async ({ tree }) => {
+    makeMonorepoRoot(tree);
+    writeConfig(tree, `export default { checkCache: { extraCommands: ['zzzzzzzzzzzzzzzzzzzz'] } };`);
+
+    await expect(loadConfig(tree.dir)).rejects.toThrow(/`zzzzzzzzzzzzzzzzzzzz`\.$/);
+  });
+
+  // `checkCache` belongs to the root tier, and naming its misplacement is more use than naming a name it holds.
+  it('stands aside for a package config, whose tier rejection is the accurate one', async ({ tree }) => {
+    writeConfig(tree, `export default { checkCache: { extraCommands: ['nonesuch-command'] } };`);
+
+    await expect(loadWorkspaceConfig(tree.dir)).rejects.toThrow('honors build alone, not checkCache');
+  });
+});
+
 // region | Helpers
+
+/** Turns the tree into a monorepo root, the only tier at which `checkCache` names are resolved. */
+function makeMonorepoRoot(tree: TempTree): void {
+  tree.write('pnpm-workspace.yaml', "packages:\n  - 'packages/*'\n");
+}
 
 /** Writes a config file into the tree's `.config/nmr.config.ts`. */
 function writeConfig(tree: TempTree, source: string): void {
   tree.write('.config/nmr.config.ts', source);
+}
+
+/** Writes a workspace package declaring the given `package.json` scripts. */
+function writePackage(tree: TempTree, name: string, scripts: Record<string, string>): void {
+  tree.write(`packages/${name}/package.json`, JSON.stringify({ name, scripts }));
 }
 
 // endregion | Helpers
