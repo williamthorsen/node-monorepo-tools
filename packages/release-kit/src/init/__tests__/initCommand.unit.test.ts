@@ -1,4 +1,4 @@
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { listConsoleLines, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockIsGitRepo = vi.hoisted(() => vi.fn());
@@ -147,7 +147,7 @@ describe(initCommand, () => {
 
     initCommand({ dryRun: false, force: false, withConfig: false });
 
-    const allOutput = silent.info.mock.calls.map((call) => String(call[0])).join('\n');
+    const allOutput = listConsoleLines(silent.info).join('\n');
     expect(allOutput).toContain('provenance: true');
     expect(allOutput).toContain('trusted publisher');
   });

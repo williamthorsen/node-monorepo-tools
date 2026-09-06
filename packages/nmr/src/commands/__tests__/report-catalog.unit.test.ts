@@ -1,5 +1,5 @@
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
-import { disposeOnTestFinished, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { disposeOnTestFinished, listConsoleLines, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { reportCatalog } from '../report-catalog.ts';
@@ -66,7 +66,7 @@ describe(reportCatalog, () => {
     expect(silent.warn).toHaveBeenCalledWith(
       `\n📚 1 catalogued dependency went unread. Run \`nmr upgrade\` from ${tree.dir} to include it.`,
     );
-    expect(silent.warn.mock.calls.filter(([line]) => String(line).includes('typescript'))).toHaveLength(1);
+    expect(listConsoleLines(silent.warn).filter((line) => line.includes('typescript'))).toHaveLength(1);
   });
 
   it('says nothing when the package declares no catalogued dependency', () => {
