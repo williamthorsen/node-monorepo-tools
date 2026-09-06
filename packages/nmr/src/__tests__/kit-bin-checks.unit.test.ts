@@ -9,10 +9,10 @@ import {
 import { buildMonorepo } from '../test-utils/fixture-repo.ts';
 import { getDetail } from '../test-utils/getDetail.ts';
 
-/** The shape nmr's own bins carry: the build entry named as a bare dynamic import. */
+/** nmr's own wrapper shape: the build entry named as a bare dynamic import. */
 const IMPORT_WRAPPER = "await import('../dist/esm/cli.js');\n";
 
-/** The shape codeassembly and toolbelt carry: the build entry named through a URL the wrapper then imports. */
+/** The wrapper shape used by codeassembly and toolbelt: the build entry named through a URL that the wrapper then imports. */
 const URL_WRAPPER =
   "const entryPoint = new URL('../dist/esm/cli.js', import.meta.url);\nawait import(entryPoint.href);\n";
 
@@ -121,7 +121,7 @@ describe(everyBinWrapperTargetIsCoveredByFiles, () => {
 
 // region | Helpers
 
-/** Renders a workspace manifest carrying the given fields, which every fixture package here needs a name beside. */
+/** Renders a workspace manifest with the given fields, which every fixture package here needs a name beside. */
 function buildManifest(fields: Record<string, unknown>): string {
   return `${JSON.stringify({ name: '@fixture/tool', ...fields }, undefined, 2)}\n`;
 }

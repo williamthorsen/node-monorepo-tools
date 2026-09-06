@@ -56,7 +56,7 @@ describe(everyBinTargetIsACommittedWrapper, () => {
 
 // region | Helpers
 
-/** Renders the workspace manifest each fixture package here declares, carrying only a name and its bins. */
+/** Renders the workspace manifest each fixture package here declares, with only a name and its bins. */
 function buildManifest(bin: Record<string, string>): string {
   return `${JSON.stringify({ name: '@fixture/tool', bin }, undefined, 2)}\n`;
 }

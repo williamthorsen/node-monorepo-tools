@@ -146,7 +146,7 @@ export default defineRdyKit({
           name: "every bin wrapper's build-output target is covered by files",
           severity: 'warn',
           check: () => everyBinWrapperTargetIsCoveredByFiles(),
-          fix: 'Add the build output directory to `files` in each listed package. npm and pnpm publish the bin target itself whatever `files` says, so the wrapper ships pointing at output the tarball does not carry',
+          fix: 'Add the build output directory to `files` in each listed package. npm and pnpm publish the bin target itself whatever `files` says, so the wrapper ships pointing at build output missing from the tarball',
         },
 
         // -- Vitest projects -----------------------------------------------------
@@ -536,7 +536,7 @@ function describeBinTargetDefect(
   return trackedPaths.has(`${workspace.dir}/${entry.target}`) ? undefined : 'untracked';
 }
 
-/** Strips the leading `./` a manifest may carry, which no comparison here should have to allow for. */
+/** Strips a leading `./` from a `bin` target, which no comparison here should have to allow for. */
 function normalizeBinTarget(target: string): string {
   return target.replace(/^\.\//, '');
 }
