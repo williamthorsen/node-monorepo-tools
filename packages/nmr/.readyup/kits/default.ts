@@ -11,7 +11,7 @@
  * state, so only a failure is worth a line.
  */
 import { existsSync, globSync, readdirSync } from 'node:fs';
-import { basename, dirname, join, sep } from 'node:path';
+import { basename, dirname, join, posix, sep } from 'node:path';
 
 import { describeError } from '@williamthorsen/toolbelt.errors';
 import { type CheckOutcome, defineRdyKit, pickJson } from 'readyup';
@@ -23,6 +23,7 @@ import {
   hasMinDevDependencyVersion,
   hasPackageJsonField,
   isRecord,
+  listTrackedFiles,
   readFile,
   readPackageJson,
   type Workspace,
@@ -134,6 +135,20 @@ export default defineRdyKit({
           fix: 'Add "build": ":" to packages that don\'t need a build, or ensure packages that use the default nmr build have a tsconfig.json and a src/ directory',
         },
 
+        // -- Bin targets ---------------------------------------------------------
+        {
+          name: 'every bin target is a committed wrapper',
+          severity: 'error',
+          check: () => everyBinTargetIsACommittedWrapper(),
+          fix: `Point each listed entry at a committed wrapper under bin/ that loads the build output at runtime. pnpm links a workspace package's bins during the install's link phase, which runs before anything is built, so a target that is not committed does not exist when pnpm reaches for it — and pnpm never retries, leaving the link missing for the life of the node_modules tree`,
+        },
+        {
+          name: "every bin wrapper's build-output target is covered by files",
+          severity: 'warn',
+          check: () => everyBinWrapperTargetIsCoveredByFiles(),
+          fix: 'Add the build output directory to `files` in each listed package. npm and pnpm publish the bin target itself whatever `files` says, so the wrapper ships pointing at output the tarball does not carry',
+        },
+
         // -- Vitest projects -----------------------------------------------------
         {
           name: 'no retired Vitest config variants',
@@ -229,6 +244,17 @@ export default defineRdyKit({
 
 /** Directories whose contents are generated or vendored, and so are never the source of a finding. */
 const SCAN_EXCLUDE_DIRS = new Set(['.git', 'coverage', 'dist', 'node_modules']);
+
+/** The directory a build writes its output to, which a `bin` target names only where it has skipped the wrapper. */
+const BUILD_OUTPUT_DIR = 'dist';
+
+/**
+ * Matches the first relative specifier a bin wrapper names, which is the build entry it loads at runtime.
+ *
+ * One pattern reaches both shapes in use: `await import('../dist/esm/cli.js')`, and the newer
+ * `new URL('../dist/esm/cli.js', import.meta.url)` whose href the wrapper then imports.
+ */
+const WRAPPER_TARGET_PATTERN = /['"](\.\.?\/[^'"]+)['"]/;
 
 /** Extensions a Vite or Vitest config can carry. Globbing `.ts` alone would miss a repo on any other one. */
 const CONFIG_EXTENSIONS = '{ts,mts,cts,js,mjs,cjs}';
@@ -415,6 +441,138 @@ function discoverMemberWorkspaces(): WorkspaceDiscovery {
   } catch (error) {
     return { ok: false, detail: `cannot enumerate workspaces: ${describeError(error)}` };
   }
+}
+
+/**
+ * Checks that every workspace `bin` entry points at a committed wrapper rather than at build output.
+ *
+ * pnpm links a workspace package's bins during the install's link phase, which runs before anything is built, and
+ * never retries: a target that is not committed is missing for the life of the `node_modules` tree, and deleting
+ * that tree is the only repair. Private packages are in scope, because pnpm links their bins too.
+ *
+ * Tracking rather than presence is what the second reason reads. A target under `dist/` is on disk in any built
+ * checkout, so its absence is evidence only in a fresh clone, while git's ignorance of it holds either way.
+ *
+ * @internal - Exported only to enable testing
+ */
+export async function everyBinTargetIsACommittedWrapper(): Promise<boolean | CheckOutcome> {
+  const discovery = discoverMemberWorkspaces();
+  if (!discovery.ok) return discovery;
+
+  const tracked = await listTrackedFiles();
+  const trackedPaths = tracked === undefined ? undefined : new Set(tracked);
+
+  const offenders = discovery.workspaces.flatMap((workspace) =>
+    readBinEntries(workspace).flatMap((entry) => {
+      const defect = describeBinTargetDefect(workspace, entry, trackedPaths);
+      return defect === undefined ? [] : [`${describeBinEntry(workspace, entry)} (${defect})`];
+    }),
+  );
+
+  if (offenders.length === 0) return true;
+  return { ok: false, detail: formatPaths(offenders) };
+}
+
+/**
+ * Checks that `files` covers the build output each bin wrapper loads at runtime.
+ *
+ * npm and pnpm publish every `bin` target whatever `files` says, so the wrapper always ships; what `files` can
+ * drop is the build entry it reaches for, which publishes a bin resolving to nothing. No package here declares
+ * `main`, whose own force-include would otherwise catch the same omission.
+ *
+ * A package declaring no `files`, an unreadable wrapper, and a wrapper naming no relative specifier each skip:
+ * the wrapper's shape is a convention rather than a contract, and a `bin` target that is not a wrapper at all
+ * belongs to `everyBinTargetIsACommittedWrapper`.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function everyBinWrapperTargetIsCoveredByFiles(): boolean | CheckOutcome {
+  const discovery = discoverMemberWorkspaces();
+  if (!discovery.ok) return discovery;
+
+  const cwd = process.cwd();
+  const offenders = discovery.workspaces.flatMap((workspace) => {
+    const files = workspace.packageJson['files'];
+    if (!Array.isArray(files)) return [];
+
+    const published = new Set(files.flatMap((entry) => (typeof entry === 'string' ? [readFirstSegment(entry)] : [])));
+
+    return readBinEntries(workspace).flatMap((entry) => {
+      const target = readWrapperTarget(cwd, workspace, entry);
+      if (target === undefined || published.has(readFirstSegment(target))) return [];
+      return [`${describeBinEntry(workspace, entry)} -> ${target}`];
+    });
+  });
+
+  if (offenders.length === 0) return true;
+  return { ok: false, detail: formatPaths(offenders) };
+}
+
+/** One `bin` entry of a workspace package, with its target normalized to a package-relative path. */
+interface BinEntry {
+  readonly command: string;
+  readonly target: string;
+}
+
+/** Renders one entry as `{package}:{command} -> {target}`, the form an offender is reported in. */
+function describeBinEntry(workspace: Workspace, entry: BinEntry): string {
+  return `${workspace.name ?? workspace.dir}:${entry.command} -> ${entry.target}`;
+}
+
+/**
+ * Names what is wrong with a `bin` target, or undefined where nothing is.
+ *
+ * A target under `dist/` reports under that reason alone, though it is untracked as well: the two share one fix,
+ * and naming the directory is what points at the wrapper pattern. A tree outside a git repository yields no
+ * listing, which skips the tracking reason rather than failing it.
+ */
+function describeBinTargetDefect(
+  workspace: Workspace,
+  entry: BinEntry,
+  trackedPaths: ReadonlySet<string> | undefined,
+): string | undefined {
+  if (readFirstSegment(entry.target) === BUILD_OUTPUT_DIR) return `names a path under ${BUILD_OUTPUT_DIR}/`;
+  if (trackedPaths === undefined) return undefined;
+  return trackedPaths.has(`${workspace.dir}/${entry.target}`) ? undefined : 'untracked';
+}
+
+/** Strips the leading `./` a manifest may carry, which no comparison here should have to allow for. */
+function normalizeBinTarget(target: string): string {
+  return target.replace(/^\.\//, '');
+}
+
+/**
+ * Reads a workspace's `bin` field as entries, expanding npm's string form, which names the command after the
+ * package. A leading `./` is stripped, so a target compares against `files` and the tracked listing alike.
+ */
+function readBinEntries(workspace: Workspace): BinEntry[] {
+  const bin = workspace.packageJson['bin'];
+
+  if (typeof bin === 'string') {
+    const command = workspace.name?.split('/').at(-1) ?? basename(workspace.dir);
+    return [{ command, target: normalizeBinTarget(bin) }];
+  }
+
+  if (!isRecord(bin)) return [];
+  return Object.entries(bin).flatMap(([command, target]) =>
+    typeof target === 'string' ? [{ command, target: normalizeBinTarget(target) }] : [],
+  );
+}
+
+/** Reads the leading path segment of a `bin` target or a `files` entry, which is the granularity `files` publishes at. */
+function readFirstSegment(entry: string): string {
+  return normalizeBinTarget(entry).split('/', 1).at(0) ?? '';
+}
+
+/** Resolves the build entry a wrapper loads, as a package-relative path, or undefined where it names none. */
+function readWrapperTarget(cwd: string, workspace: Workspace, entry: BinEntry): string | undefined {
+  const content = readFileIn(cwd, `${workspace.dir}/${entry.target}`);
+  if (content === undefined) return undefined;
+
+  const specifier = WRAPPER_TARGET_PATTERN.exec(content)?.[1];
+  if (specifier === undefined) return undefined;
+
+  return posix.normalize(posix.join(posix.dirname(entry.target), specifier));
 }
 
 /**
