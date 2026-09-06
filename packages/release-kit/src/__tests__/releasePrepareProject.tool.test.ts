@@ -273,7 +273,6 @@ describe('releasePrepareProject (tool)', () => {
 
       prepareAndApply(config, {});
 
-      // No warning was emitted (the existing file was never parsed).
       expect(listConsoleLines(silent.warn).join('\n')).not.toContain('could not parse existing');
 
       // The file was overwritten with cliff-derived content (valid JSON).
