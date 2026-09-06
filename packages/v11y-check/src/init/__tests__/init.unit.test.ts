@@ -1,6 +1,6 @@
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { disposeOnTestFinished, listConsoleLines, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { initCommand } from '../initCommand.ts';
@@ -208,7 +208,7 @@ describe(initCommand, () => {
 
     initCommand({ dryRun: false, force: false });
 
-    const fullOutput = silent.info.mock.calls.map((args) => args.map(String).join(' ')).join('\n');
+    const fullOutput = listConsoleLines(silent.info).join('\n');
     expect(fullOutput).toContain('.github/workflows/audit.yaml');
     expect(fullOutput).toContain('.config/v11y-check.config.json');
   });
@@ -218,7 +218,7 @@ describe(initCommand, () => {
 
     initCommand({ dryRun: false, force: false });
 
-    const fullOutput = silent.info.mock.calls.map((args) => args.map(String).join(' ')).join('\n');
+    const fullOutput = listConsoleLines(silent.info).join('\n');
     expect(fullOutput).not.toContain('generate');
   });
 

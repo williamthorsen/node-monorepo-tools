@@ -4,7 +4,12 @@ import { join } from 'node:path';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { captureStdio, pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
+import {
+  disposeOnTestFinished,
+  listConsoleLines,
+  silenceConsole,
+  throwOnProcessExit,
+} from '@williamthorsen/toolbelt.vitest/candidate';
 import { assert, beforeEach, describe, expect, it } from 'vitest';
 
 import { mergeMonorepoConfig } from '../loadConfig.ts';
@@ -268,11 +273,7 @@ describe('releasePrepareProject (tool)', () => {
 
       prepareAndApply(config, {});
 
-      // No warning was emitted (the existing file was never parsed).
-      const warnedAboutChangelogJson = silent.warn.mock.calls.some((call) =>
-        call.some((arg) => typeof arg === 'string' && arg.includes('could not parse existing')),
-      );
-      expect(warnedAboutChangelogJson).toBe(false);
+      expect(listConsoleLines(silent.warn).join('\n')).not.toContain('could not parse existing');
 
       // The file was overwritten with cliff-derived content (valid JSON).
       const written = readFileSync(changelogJsonPath, 'utf8');
