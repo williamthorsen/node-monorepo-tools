@@ -5,7 +5,7 @@ export const __readyupVersion = "0.35.0";
 
 // .readyup/kits/default.ts
 import { existsSync, globSync, readdirSync as readdirSync2 } from "node:fs";
-import { basename, dirname, join, sep } from "node:path";
+import { basename, dirname, join, posix, sep } from "node:path";
 
 // ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.6.3/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/isError.js
 function isError(error) {
@@ -34,6 +34,7 @@ import {
   hasMinDevDependencyVersion,
   hasPackageJsonField,
   isRecord,
+  listTrackedFiles,
   readFile,
   readPackageJson
 } from "readyup/check-utils";
@@ -258,6 +259,19 @@ var default_default = defineRdyKit({
           check: allWorkspacePackagesCanBuild,
           fix: `Add "build": ":" to packages that don't need a build, or ensure packages that use the default nmr build have a tsconfig.json and a src/ directory`
         },
+        // -- Bin targets ---------------------------------------------------------
+        {
+          name: "every bin target is a committed wrapper",
+          severity: "error",
+          check: () => everyBinTargetIsACommittedWrapper(),
+          fix: `Point each listed entry at a committed wrapper under bin/ that loads the build output at runtime. pnpm links a workspace package's bins during the install's link phase, which runs before anything is built, so a target that is not committed does not exist when pnpm reaches for it \u2014 and pnpm never retries, leaving the link missing for the life of the node_modules tree`
+        },
+        {
+          name: "every bin wrapper's build-output target is covered by files",
+          severity: "warn",
+          check: () => everyBinWrapperTargetIsCoveredByFiles(),
+          fix: "Add the build output directory to `files` in each listed package. npm and pnpm publish the bin target itself whatever `files` says, so the wrapper ships pointing at build output missing from the tarball"
+        },
         // -- Vitest projects -----------------------------------------------------
         {
           name: "no retired Vitest config variants",
@@ -345,6 +359,8 @@ var default_default = defineRdyKit({
   ]
 });
 var SCAN_EXCLUDE_DIRS = /* @__PURE__ */ new Set([".git", "coverage", "dist", "node_modules"]);
+var BUILD_OUTPUT_DIR = "dist";
+var WRAPPER_TARGET_PATTERN = /['"](\.\.?\/[^'"]+)['"]/;
 var CONFIG_EXTENSIONS = "{ts,mts,cts,js,mjs,cjs}";
 var VITE_CONFIG_PATTERN = `vite.config.${CONFIG_EXTENSIONS}`;
 var VITEST_CONFIG_PATTERN = `vitest.config.${CONFIG_EXTENSIONS}`;
@@ -444,6 +460,70 @@ function discoverMemberWorkspaces() {
   } catch (error) {
     return { ok: false, detail: `cannot enumerate workspaces: ${describeError(error)}` };
   }
+}
+async function everyBinTargetIsACommittedWrapper() {
+  const discovery = discoverMemberWorkspaces();
+  if (!discovery.ok) return discovery;
+  const tracked = await listTrackedFiles();
+  const trackedPaths = tracked === void 0 ? void 0 : new Set(tracked);
+  const offenders = discovery.workspaces.flatMap(
+    (workspace) => readBinEntries(workspace).flatMap((entry) => {
+      const defect = describeBinTargetDefect(workspace, entry, trackedPaths);
+      return defect === void 0 ? [] : [`${describeBinEntry(workspace, entry)} (${defect})`];
+    })
+  );
+  if (offenders.length === 0) return true;
+  return { ok: false, detail: formatPaths(offenders) };
+}
+function everyBinWrapperTargetIsCoveredByFiles() {
+  const discovery = discoverMemberWorkspaces();
+  if (!discovery.ok) return discovery;
+  const cwd = process.cwd();
+  const offenders = discovery.workspaces.flatMap((workspace) => {
+    const files = workspace.packageJson["files"];
+    if (!Array.isArray(files)) return [];
+    const published = new Set(files.flatMap((entry) => typeof entry === "string" ? [readFirstSegment(entry)] : []));
+    return readBinEntries(workspace).flatMap((entry) => {
+      const target = readWrapperTarget(cwd, workspace, entry);
+      if (target === void 0 || published.has(readFirstSegment(target))) return [];
+      return [`${describeBinEntry(workspace, entry)} -> ${target}`];
+    });
+  });
+  if (offenders.length === 0) return true;
+  return { ok: false, detail: formatPaths(offenders) };
+}
+function describeBinEntry(workspace, entry) {
+  return `${workspace.name ?? workspace.dir}:${entry.command} -> ${entry.target}`;
+}
+function describeBinTargetDefect(workspace, entry, trackedPaths) {
+  if (readFirstSegment(entry.target) === BUILD_OUTPUT_DIR) return `names a path under ${BUILD_OUTPUT_DIR}/`;
+  if (trackedPaths === void 0) return void 0;
+  return trackedPaths.has(`${workspace.dir}/${entry.target}`) ? void 0 : "untracked";
+}
+function normalizeBinTarget(target) {
+  return target.replace(/^\.\//, "");
+}
+function readBinEntries(workspace) {
+  const bin = workspace.packageJson["bin"];
+  if (typeof bin === "string") {
+    const command = workspace.name?.split("/").at(-1) ?? basename(workspace.dir);
+    return [{ command, target: normalizeBinTarget(bin) }];
+  }
+  if (!isRecord(bin)) return [];
+  return Object.entries(bin).flatMap(
+    ([command, target]) => typeof target === "string" ? [{ command, target: normalizeBinTarget(target) }] : []
+  );
+}
+function readFirstSegment(entry) {
+  return normalizeBinTarget(entry).split("/", 1).at(0) ?? "";
+}
+function readWrapperTarget(cwd, workspace, entry) {
+  if (readFirstSegment(entry.target) === BUILD_OUTPUT_DIR) return void 0;
+  const content = readFileIn(cwd, `${workspace.dir}/${entry.target}`);
+  if (content === void 0) return void 0;
+  const specifier = WRAPPER_TARGET_PATTERN.exec(content)?.[1];
+  if (specifier === void 0) return void 0;
+  return posix.normalize(posix.join(posix.dirname(entry.target), specifier));
 }
 function everyTestFileNamesItsTier(cwd = process.cwd()) {
   const untiered = findTestFiles(cwd).filter((path2) => !hasTierInfix(path2));
@@ -626,6 +706,8 @@ function vitestRootConfigBuildsOnSharedConfig(cwd = process.cwd()) {
 }
 export {
   default_default as default,
+  everyBinTargetIsACommittedWrapper,
+  everyBinWrapperTargetIsCoveredByFiles,
   everyTestFileNamesItsTier,
   everyViteConfigHasVitestConfig,
   hasSupportedEslintVersion,
