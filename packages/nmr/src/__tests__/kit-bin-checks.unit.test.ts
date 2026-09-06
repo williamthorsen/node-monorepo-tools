@@ -112,7 +112,17 @@ describe(everyBinWrapperTargetIsCoveredByFiles, () => {
 
   it('skips a bin target that is no wrapper, which the committed-wrapper check owns', () => {
     useMonorepo({
+      // Build output the target names, whose own first relative import would otherwise read as a wrapper's.
+      'packages/tool/dist/esm/cli.js': "import { runCli } from './runCli.js';\nrunCli();\n",
       'packages/tool/package.json': buildManifest({ bin: { tool: 'dist/esm/cli.js' }, files: ['bin'] }),
+    });
+
+    expect(everyBinWrapperTargetIsCoveredByFiles()).toBe(true);
+  });
+
+  it('skips a bin target with no readable file', () => {
+    useMonorepo({
+      'packages/tool/package.json': buildManifest({ bin: { tool: 'bin/tool.js' }, files: ['bin'] }),
     });
 
     expect(everyBinWrapperTargetIsCoveredByFiles()).toBe(true);

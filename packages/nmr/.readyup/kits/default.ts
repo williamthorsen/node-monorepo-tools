@@ -425,7 +425,6 @@ type WorkspaceDiscovery = { ok: true; workspaces: Workspace[] } | { ok: false; d
 /**
  * Returns every workspace but the root, or the reason discovery could not enumerate them.
  *
- * These are the directories a Vitest run starts from, so their own configs decide what that run resolves.
  * A failure is returned rather than thrown, because readyup catches a throw at kit level and one would take
  * the rest of the checklist down with it; it is returned rather than swallowed, because an empty list turns
  * every check built on this one into a pass over a repo it verified nothing about. Discovery throws where the
@@ -480,9 +479,9 @@ export async function everyBinTargetIsACommittedWrapper(): Promise<boolean | Che
  * drop is the build entry it reaches for, which publishes a bin resolving to nothing. No package here declares
  * `main`, whose own force-include would otherwise catch the same omission.
  *
- * A package declaring no `files`, an unreadable wrapper, and a wrapper naming no relative specifier each skip:
- * the wrapper's shape is a convention rather than a contract, and a `bin` target that is not a wrapper at all
- * belongs to `everyBinTargetIsACommittedWrapper`.
+ * A package declaring no `files` skips, as does a target under `dist/`, which is build output rather than a
+ * wrapper and belongs to `everyBinTargetIsACommittedWrapper`. An unreadable file and one naming no relative
+ * specifier skip too: the wrapper's shape is a convention rather than a contract.
  *
  * @internal - Exported only to enable testing
  */
@@ -559,13 +558,27 @@ function readBinEntries(workspace: Workspace): BinEntry[] {
   );
 }
 
-/** Reads the leading path segment of a `bin` target or a `files` entry, which is the granularity `files` publishes at. */
+/**
+ * Reads the leading path segment of a `bin` target or a `files` entry.
+ *
+ * Comparing at this granularity accepts a `files` entry naming a subdirectory of the target, so `files:
+ * ["dist/esm"]` passes a wrapper loading `../dist/cjs/cli.js`. The coarsening under-reports rather than
+ * misreports.
+ */
 function readFirstSegment(entry: string): string {
   return normalizeBinTarget(entry).split('/', 1).at(0) ?? '';
 }
 
-/** Resolves the build entry a wrapper loads, as a package-relative path, or undefined where it names none. */
+/**
+ * Resolves the build entry a wrapper loads, as a package-relative path, or undefined where it names none.
+ *
+ * A target under `dist/` resolves to undefined: it is build output rather than a wrapper, and in a built
+ * checkout reading it would match the compiled entry's own first relative import. A build directory under any
+ * other name is still read as a wrapper, which is the residue of identifying one by `dist/` alone.
+ */
 function readWrapperTarget(cwd: string, workspace: Workspace, entry: BinEntry): string | undefined {
+  if (readFirstSegment(entry.target) === BUILD_OUTPUT_DIR) return undefined;
+
   const content = readFileIn(cwd, `${workspace.dir}/${entry.target}`);
   if (content === undefined) return undefined;
 

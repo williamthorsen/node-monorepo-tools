@@ -518,6 +518,7 @@ function readFirstSegment(entry) {
   return normalizeBinTarget(entry).split("/", 1).at(0) ?? "";
 }
 function readWrapperTarget(cwd, workspace, entry) {
+  if (readFirstSegment(entry.target) === BUILD_OUTPUT_DIR) return void 0;
   const content = readFileIn(cwd, `${workspace.dir}/${entry.target}`);
   if (content === void 0) return void 0;
   const specifier = WRAPPER_TARGET_PATTERN.exec(content)?.[1];
