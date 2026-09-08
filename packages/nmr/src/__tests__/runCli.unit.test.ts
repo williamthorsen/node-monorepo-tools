@@ -193,15 +193,40 @@ describe(runCli, () => {
       expect(stderr).toContain('Did you mean `my-pkg`?');
     });
 
-    // A path pattern selects by directory, so the name rule would name the wrong thing to go looking at.
-    it('states the directory rule for a pattern pnpm reads as a path', async ({ tree }) => {
+    // A directory pattern selects by directory, so the name rule would name the wrong thing to go looking at.
+    it.for([{ pattern: './packages/nope' }, { pattern: '{packages/nope}' }])(
+      'states the directory rule for $pattern, which pnpm reads as a directory',
+      async ({ pattern }, { tree }) => {
+        mockedReadFilterSelection.mockReturnValue('empty');
+
+        const { exitCode, stderr } = await runNmrReadingStderr(['-F', pattern, 'build'], tree.dir);
+
+        expect(exitCode).toBe(1);
+        expect(stderr).toContain(`-F/--filter matched no workspace: \`${pattern}\``);
+        expect(stderr).toContain('selects the packages under a directory');
+        expect(stderr).not.toContain('manifest `name`');
+      },
+    );
+
+    // An exclusion that leaves nothing standing is not a misspelt name, and no name would repair it.
+    it('states the exclusion rule for a pattern that only excludes', async ({ tree }) => {
       mockedReadFilterSelection.mockReturnValue('empty');
 
-      const { exitCode, stderr } = await runNmrReadingStderr(['-F', './packages/nope', 'build'], tree.dir);
+      const { exitCode, stderr } = await runNmrReadingStderr(['-F', '!./packages/*', 'build'], tree.dir);
 
       expect(exitCode).toBe(1);
-      expect(stderr).toContain('-F/--filter matched no workspace: `./packages/nope`');
-      expect(stderr).toContain('A pattern beginning with `.` or `/` selects the packages under a directory');
+      expect(stderr).toContain('A pattern beginning with `!` excludes what it matches');
+      expect(stderr).not.toContain('manifest `name`');
+    });
+
+    // Nothing changed is what an empty changed-since selection reports, and no name repairs that either.
+    it('states the changed-since rule for a pattern carrying a git ref', async ({ tree }) => {
+      mockedReadFilterSelection.mockReturnValue('empty');
+
+      const { exitCode, stderr } = await runNmrReadingStderr(['-F', '[origin/main]', 'build'], tree.dir);
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('selects the packages changed since a git ref, and none has changed');
       expect(stderr).not.toContain('manifest `name`');
     });
 

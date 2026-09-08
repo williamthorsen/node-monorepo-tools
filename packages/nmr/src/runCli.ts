@@ -744,14 +744,28 @@ function findEmptySelectionRefusal(options: { context: ResolvedContext; parsed: 
  * Returns the line a filter selecting no workspace gets, naming the pattern and what it is matched against.
  *
  * The rule is stated because the mistake it catches is passing a directory name: a package's directory and its
- * manifest `name` differ often enough that the pattern looks right to the reader who wrote it. A pattern pnpm
- * reads as a path is the other mistake and gets the other rule, there being no name in it to suggest against.
+ * manifest `name` differ often enough that the pattern looks right to the reader who wrote it.
+ *
+ * Three other forms state a rule of their own: a directory pattern, an exclusion, and a changed-since
+ * selector. None of them carries a name, so none of them gets a name suggested back.
  */
 function formatEmptyFilterError(pattern: string, names: readonly string[]): string {
   const rejection = `-F/--filter matched no workspace: \`${pattern}\`.`;
 
-  if (pattern.startsWith('.') || pattern.startsWith('/')) {
-    return `${rejection} A pattern beginning with \`.\` or \`/\` selects the packages under a directory, and no package sits under this one.`;
+  if (pattern.startsWith('!')) {
+    return `${rejection} A pattern beginning with \`!\` excludes what it matches, and this one leaves no package standing.`;
+  }
+
+  if (pattern.includes('[')) {
+    return `${rejection} A pattern carrying \`[<ref>]\` selects the packages changed since a git ref, and none has changed.`;
+  }
+
+  if (pattern.startsWith('.') || pattern.startsWith('/') || pattern.startsWith('{')) {
+    return (
+      `${rejection} ` +
+      'A pattern written `./dir`, `/dir`, or `{dir}` selects the packages under a directory, ' +
+      'and no package sits under this one.'
+    );
   }
 
   return (
