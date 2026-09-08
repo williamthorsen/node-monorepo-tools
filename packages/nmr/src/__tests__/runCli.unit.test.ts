@@ -5,6 +5,7 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesyst
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
 
+import { readFilterSelection } from '../helpers/filter-selection.ts';
 import { REPORT_FORMAT_ENV_VAR } from '../report-format.ts';
 import { runCli } from '../runCli.ts';
 import { runSteps } from '../runner.ts';
@@ -17,20 +18,38 @@ vi.mock(import('../runner.ts'), async (importOriginal) => ({
   runSteps: vi.fn(),
 }));
 
-const mockedRunSteps = vi.mocked(runSteps);
+// The probe spawns pnpm, which a unit test neither has nor needs: what it answers is the input to the gate.
+vi.mock(import('../helpers/filter-selection.ts'), async (importOriginal) => ({
+  ...(await importOriginal()),
+  readFilterSelection: vi.fn(),
+}));
 
-// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
-const it = baseIt.extend(
-  'tree',
-  makeFixture(() =>
-    createTempTree({ 'pnpm-workspace.yaml': 'packages:\n  - packages/*\n' }, { prefix: 'nmr-runcli-' }),
-  ),
-);
+const mockedRunSteps = vi.mocked(runSteps);
+const mockedReadFilterSelection = vi.mocked(readFilterSelection);
+
+const it = baseIt
+  .extend(
+    'tree',
+    makeFixture(() =>
+      createTempTree(
+        { 'packages/my-pkg/package.json': '{"name":"my-pkg"}', 'pnpm-workspace.yaml': 'packages:\n  - packages/*\n' },
+        { prefix: 'nmr-runcli-' },
+      ),
+    ),
+  )
+  .extend(
+    'packagelessTree',
+    makeFixture(() =>
+      createTempTree({ 'pnpm-workspace.yaml': 'packages:\n  - packages/*\n' }, { prefix: 'nmr-runcli-empty-' }),
+    ),
+  );
 
 describe(runCli, () => {
   beforeEach(() => {
     mockedRunSteps.mockReset();
     mockedRunSteps.mockResolvedValue({ exitCode: 0 });
+    mockedReadFilterSelection.mockReset();
+    mockedReadFilterSelection.mockReturnValue('selected');
   });
 
   describe('delegation', () => {
@@ -115,6 +134,145 @@ describe(runCli, () => {
       await runNmr(['-F', 'my-pkg', '--log', 'test'], tree.dir);
 
       expect(mockedRunSteps.mock.calls[0]?.[2].env).toMatchObject({ NMR_RUN_IF_PRESENT: '1' });
+    });
+  });
+
+  describe('empty selection', () => {
+    // An empty pattern reads as no filter at all in composition, which would run the command unfiltered.
+    it('rejects an empty pattern as it rejects a missing one', async ({ tree }) => {
+      const { exitCode, stderr } = await runNmrReadingStderr(['-F', '', 'build'], tree.dir);
+
+      expect(exitCode).toBe(1);
+      expect(stepsFromCall()).toBeUndefined();
+      expect(stderr).toContain('-F/--filter requires a pattern argument');
+    });
+
+    it('asks pnpm what the pattern selects, from the monorepo root the delegate runs in', async ({ tree }) => {
+      await runNmr(['-F', 'my-pkg', 'build'], tree.dir);
+
+      expect(mockedReadFilterSelection).toHaveBeenCalledWith('my-pkg', tree.dir);
+    });
+
+    it('refuses a filter that selects nothing, naming the pattern and what it is matched against', async ({ tree }) => {
+      mockedReadFilterSelection.mockReturnValue('empty');
+
+      const { exitCode, stderr } = await runNmrReadingStderr(['-F', 'secrets', 'test'], tree.dir);
+
+      expect(exitCode).toBe(1);
+      expect(stepsFromCall()).toBeUndefined();
+      expect(stderr).toContain('-F/--filter matched no workspace: `secrets`');
+      expect(stderr).toContain("A pattern matches a package's manifest `name`, not its directory name.");
+    });
+
+    // Reading what a scope recorded is as silent as running it, so the refusal covers the flag too.
+    it('refuses under `--log` as well', async ({ tree }) => {
+      mockedReadFilterSelection.mockReturnValue('empty');
+
+      const { exitCode, stderr } = await runNmrReadingStderr(['-F', 'secrets', '--log', 'test'], tree.dir);
+
+      expect(exitCode).toBe(1);
+      expect(stepsFromCall()).toBeUndefined();
+      expect(stderr).toContain('-F/--filter matched no workspace: `secrets`');
+    });
+
+    // A directory name standing in for a longer manifest name is the reported mistake, and it sits too many
+    // edits away for the nearest-name search to reach.
+    it('names a workspace whose name contains the rejected pattern', async ({ tree }) => {
+      mockedReadFilterSelection.mockReturnValue('empty');
+
+      const { stderr } = await runNmrReadingStderr(['-F', 'pkg', 'build'], tree.dir);
+
+      expect(stderr).toContain('Did you mean `my-pkg`?');
+    });
+
+    it('names the nearest workspace where no name contains the pattern', async ({ tree }) => {
+      mockedReadFilterSelection.mockReturnValue('empty');
+
+      const { stderr } = await runNmrReadingStderr(['-F', 'my-pkq', 'build'], tree.dir);
+
+      expect(stderr).toContain('Did you mean `my-pkg`?');
+    });
+
+    // A directory pattern selects by directory, so the name rule would name the wrong thing to go looking at.
+    it.for([{ pattern: './packages/nope' }, { pattern: '{packages/nope}' }])(
+      'states the directory rule for $pattern, which pnpm reads as a directory',
+      async ({ pattern }, { tree }) => {
+        mockedReadFilterSelection.mockReturnValue('empty');
+
+        const { exitCode, stderr } = await runNmrReadingStderr(['-F', pattern, 'build'], tree.dir);
+
+        expect(exitCode).toBe(1);
+        expect(stderr).toContain(`-F/--filter matched no workspace: \`${pattern}\``);
+        expect(stderr).toContain('selects the packages under a directory');
+        expect(stderr).not.toContain('manifest `name`');
+      },
+    );
+
+    // An exclusion that leaves nothing standing is not a misspelt name, and no name would repair it.
+    it('states the exclusion rule for a pattern that only excludes', async ({ tree }) => {
+      mockedReadFilterSelection.mockReturnValue('empty');
+
+      const { exitCode, stderr } = await runNmrReadingStderr(['-F', '!./packages/*', 'build'], tree.dir);
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('A pattern beginning with `!` excludes what it matches');
+      expect(stderr).not.toContain('manifest `name`');
+    });
+
+    // Nothing changed is what an empty changed-since selection reports, and no name repairs that either.
+    it('states the changed-since rule for a pattern carrying a git ref', async ({ tree }) => {
+      mockedReadFilterSelection.mockReturnValue('empty');
+
+      const { exitCode, stderr } = await runNmrReadingStderr(['-F', '[origin/main]', 'build'], tree.dir);
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('selects the packages changed since a git ref, and none has changed');
+      expect(stderr).not.toContain('manifest `name`');
+    });
+
+    it('lists the workspace names where the pattern is near none of them', async ({ tree }) => {
+      mockedReadFilterSelection.mockReturnValue('empty');
+
+      const { stderr } = await runNmrReadingStderr(['-F', 'zzzzzzzzzz', 'build'], tree.dir);
+
+      expect(stderr).toContain('The workspace declares `my-pkg`.');
+    });
+
+    // Only an answered probe refuses: an unread one leaves pnpm to report the selector it rejected.
+    it('delegates where the probe could not resolve the selection', async ({ tree }) => {
+      mockedReadFilterSelection.mockReturnValue('unresolved');
+
+      const { exitCode } = await runNmrReadingStderr(['-F', '[bogus-ref]', 'build'], tree.dir);
+
+      expect(exitCode).toBe(0);
+      expect(stepsFromCall()).toStrictEqual([
+        { kind: 'structural', argv: ['pnpm', '--filter', '[bogus-ref]', 'exec', 'nmr', 'build'] },
+      ]);
+    });
+
+    // `pnpm --recursive` leaves the root project out, so a workspace with no package fans out to nothing.
+    it('refuses a recursive delegation in a workspace that declares no package', async ({ packagelessTree }) => {
+      const { exitCode, stderr } = await runNmrReadingStderr(['-R', 'build'], packagelessTree.dir);
+
+      expect(exitCode).toBe(1);
+      expect(stepsFromCall()).toBeUndefined();
+      expect(stderr).toContain('-R/--recursive matched no workspace');
+    });
+
+    it('leaves a recursive delegation alone where the workspace declares a package', async ({ tree }) => {
+      const { exitCode } = await runNmrReadingStderr(['-R', 'build'], tree.dir);
+
+      expect(exitCode).toBe(0);
+      expect(stepsFromCall()).toStrictEqual([
+        { kind: 'structural', argv: ['pnpm', '--recursive', 'exec', 'nmr', 'build'] },
+      ]);
+    });
+
+    // The probe is a filter's own question; a recursive delegation has no pattern to put to pnpm.
+    it('asks pnpm nothing for a recursive delegation', async ({ tree }) => {
+      await runNmr(['-R', 'build'], tree.dir);
+
+      expect(mockedReadFilterSelection).not.toHaveBeenCalled();
     });
   });
 

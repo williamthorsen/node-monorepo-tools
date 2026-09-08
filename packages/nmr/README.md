@@ -250,6 +250,8 @@ The scope is the directory the command's registry belongs to: a package's own di
 
 Verdicts nest. A composite reports, and so does every command it expands into; a `:pre` or `:post` hook reports nothing of its own, since the command it wraps already reports for the chain, though a hook that delegates to a named command reports under that name. A `-R` or `-F` invocation reports nothing either, every scope it fans out to reporting instead. A cold repo-wide `nmr ci` in this package's own monorepo spends 26 lines on a run that prints roughly 250.
 
+**A fan-out that selects no scope fails.** A `-F` pattern matches a package's manifest `name` rather than its directory name, so a plausible directory name selects nothing, and pnpm exits 0 over an empty selection as it does over a passing one. nmr asks pnpm what the pattern selects and refuses the invocation where the answer is nothing, naming the pattern and, where the pattern carries a name, the names it could have named. A pattern of another form states the rule its own shape answers to: a directory (`./dir`, `/dir`, `{dir}`), an exclusion (`!`), or a changed-since selector (`[<ref>]`), none of which a workspace name repairs. A pattern pnpm rejects rather than resolves, such as a bad git ref in a `[since]` selector, is left to pnpm to report. `-R` is refused on the same ground where the workspace declares no package at all, which is its only empty selection.
+
 A verdict is one write of at most 512 bytes, the smallest `PIPE_BUF` POSIX permits, so packages running concurrently under `pnpm --recursive` cannot interleave within a line. A line longer than that is cut and marked with `…`; nothing nmr reports today comes near it.
 
 **Verdicts print in every verbosity.** `-q` withholds the output of the commands nmr runs, never nmr's own words: a passing quiet run reports its verdicts and nothing else. A command whose override resolved to `""` or `":"` reports the skip rather than exiting 0 in silence, which is what separates it from a command that passed. An `NMR_RUN_IF_PRESENT` miss reports nothing, having no command to report on.
@@ -432,7 +434,7 @@ $ nmr --log test
 📭 nmr: test: no recording; the last pass was 3m ago, on a tree this is not
 ```
 
-**`--log` reaches the scopes `-F` and `-R` select.** The flag rides the delegate, so each scope prints its own recording. There a scope with nothing to show reports its gap and exits 0: partial coverage is a survey's normal shape, and failing on the first gap would hide every scope that had something.
+**`--log` reaches the scopes `-F` and `-R` select.** The flag rides the delegate, so each scope prints its own recording. There a scope with nothing to show reports its gap and exits 0: partial coverage is a survey's normal shape, and failing on the first gap would hide every scope that had something. A selection of no scope at all is the other case and fails, as it does for a run: there is no survey to be partial.
 
 **Retention has a ceiling of 256 KiB per recorded pass**, distinct from the 512 bytes a verdict line is held to. A transcript overrunning it keeps 128 KiB from each end, because a run's opening and its closing statement each carry what the other does not, and the drop is marked with a line naming the bytes it stands for rather than being cut silently.
 
@@ -770,7 +772,7 @@ Position determines ownership: flags before the command name are nmr's own, and 
 
 | Flag                     | Description                                                    | Default |
 | ------------------------ | -------------------------------------------------------------- | ------- |
-| `-F, --filter <pattern>` | Run command in matching packages                               | —       |
+| `-F, --filter <pattern>` | Run command in packages whose manifest `name` matches          | —       |
 | `-R, --recursive`        | Run command in all packages                                    | —       |
 | `-w, --workspace-root`   | Use root scripts, running at the monorepo root                 | —       |
 | `-q, --quiet`            | Suppress command output, keeping nmr's verdicts                | —       |
@@ -793,7 +795,7 @@ nmr ci      # build + check:strict
 nmr prepush # audit + ci
 
 # Target specific packages
-nmr --filter core test # Test only the core package
+nmr --filter core test # Test only the package whose manifest name is `core`
 nmr --recursive lint   # Lint all workspace packages
 
 # Force root context from anywhere
