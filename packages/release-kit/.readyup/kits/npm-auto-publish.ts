@@ -395,7 +395,6 @@ function describeTrustRelationships(relationships: TrustRelationship[]): string 
 }
 
 // Cached so that the registry is queried at most once per kit invocation.
-// The precondition's `fix` getter reads this too: ReadyUp resolves `fix` before running the check.
 const getCachedNpmAuthStatus: () => NpmAuthStatus = (() => {
   let cached: NpmAuthStatus | undefined;
   return () => (cached ??= classifyNpmAuth(runNpmJson('npm whoami --json')));
@@ -501,11 +500,9 @@ function parseProvenanceSetting(workflowContent: string): boolean {
   return /^[^#]*provenance:\s*['"]?true['"]?/im.test(workflowContent);
 }
 
-/** Queries the trust endpoint for the first workspace the packages checklist names, where it names one. */
+/** Queries the trust endpoint for the workspace the probe names, where a repo names one. */
 function probeTrustQuery(): TrustQueryResult | undefined {
-  const probeName = discoverWorkspaces({ filter: belongsInPackagesChecklist }).find(
-    (workspace) => workspace.name !== undefined,
-  )?.name;
+  const probeName = selectProbeName();
 
   return probeName === undefined ? undefined : getTrustQueryResult(probeName);
 }
@@ -587,6 +584,21 @@ function runNpmJson(command: string): NpmCommandResult {
     const stdout = isRecord(error) && typeof error['stdout'] === 'string' ? error['stdout'] : '';
     return { exitOk: false, stdout };
   }
+}
+
+/**
+ * Returns the name the capability probe queries with, or undefined where the repo names no publishable workspace.
+ *
+ * Publishable is the criterion rather than membership of the packages checklist, which also admits a private member.
+ * A private member's row is skipped, so its trusted-publisher check never reads the answer the probe memoized, and
+ * the query would pay for nothing.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function selectProbeName(): string | undefined {
+  return discoverWorkspaces({ filter: (workspace) => workspace.isPackage }).find(
+    (workspace) => workspace.name !== undefined,
+  )?.name;
 }
 
 /**

@@ -9,6 +9,7 @@ import kit, {
   classifyTrustCapability,
   classifyTrustQuery,
   packagesChecklist,
+  selectProbeName,
   skipIfNothingPublishable,
   skipIfNotPublishable,
 } from '../../.readyup/kits/npm-auto-publish.ts';
@@ -42,6 +43,28 @@ const MONOREPO_WITH_PRIVATE_ROOT = {
 
 // A single-package repo declares no workspace globs, so its only entry is the root, here a publishable one.
 const SINGLE_PACKAGE_REPO = { 'package.json': '{"name":"single-package"}' };
+
+describe(selectProbeName, () => {
+  // The private member sorts first, so a checklist-membership filter would have picked it. Its row is skipped,
+  // which would leave the probe's memoized answer unread and the round-trip unpaid for.
+  it('passes over a private member that sorts ahead of a publishable one', () => {
+    scaffoldRepo(MONOREPO_WITH_PRIVATE_ROOT);
+
+    expect(selectProbeName()).toBe('@scope/published');
+  });
+
+  it('names a publishable repo root', () => {
+    scaffoldRepo(SINGLE_PACKAGE_REPO);
+
+    expect(selectProbeName()).toBe('single-package');
+  });
+
+  it('names nothing when every workspace is private', () => {
+    scaffoldRepo(MONOREPO_PUBLISHING_NOTHING);
+
+    expect(selectProbeName()).toBeUndefined();
+  });
+});
 
 describe(skipIfNothingPublishable, () => {
   it('returns false when at least one workspace is publishable', () => {

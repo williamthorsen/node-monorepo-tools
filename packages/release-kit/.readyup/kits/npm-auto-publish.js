@@ -351,9 +351,7 @@ function parseProvenanceSetting(workflowContent) {
   return /^[^#]*provenance:\s*['"]?true['"]?/im.test(workflowContent);
 }
 function probeTrustQuery() {
-  const probeName = discoverWorkspaces({ filter: belongsInPackagesChecklist }).find(
-    (workspace) => workspace.name !== void 0
-  )?.name;
+  const probeName = selectProbeName();
   return probeName === void 0 ? void 0 : getTrustQueryResult(probeName);
 }
 function readNpmError(stdout) {
@@ -396,6 +394,11 @@ function runNpmJson(command) {
     return { exitOk: false, stdout };
   }
 }
+function selectProbeName() {
+  return discoverWorkspaces({ filter: (workspace) => workspace.isPackage }).find(
+    (workspace) => workspace.name !== void 0
+  )?.name;
+}
 function skipIfNothingPublishable() {
   const publishable = discoverWorkspaces({ filter: (workspace) => workspace.isPackage });
   return publishable.length > 0 ? false : "no publishable packages";
@@ -410,6 +413,7 @@ export {
   classifyTrustQuery,
   npm_auto_publish_default as default,
   packagesChecklist,
+  selectProbeName,
   skipIfNotPublishable,
   skipIfNothingPublishable
 };
