@@ -937,7 +937,7 @@ rdy list --from npm:@williamthorsen/release-kit                  # what release-
 
 `--packages` is the form that survives release-kit publishing further kits. Every form needs `readyup` 0.23 or later, and `@williamthorsen/release-kit` as a _direct_ devDependency: a strict pnpm layout links nothing else into the project, so a transitive copy is unreachable.
 
-`npm-auto-publish` queries the npm registry for each package's trusted publisher, so it needs an authenticated npm session and is meant to be invoked deliberately rather than swept up by an unattended run. Without a login it reports one error naming the missing login and blocks the rest of the `packages` checklist, rather than reporting a trusted-publisher failure for every package.
+`npm-auto-publish` queries the npm registry for each package's trusted publisher, so it needs an npm session elevated by two-factor authentication, and is meant to be invoked deliberately rather than swept up by an unattended run. A session that cannot answer those queries, whether it is missing a login, missing the elevation, or facing an unreachable registry, is reported once by the `npm session can answer trust queries` gate. The rows that would repeat the failed query then stand down: the trusted-publisher rows in every case, and `published to npm` where the registry itself is unreachable. Each package's `package.json` checks report throughout, since they read no registry.
 
 These kits are no longer reachable through `rdy run --from github:williamthorsen/node-monorepo-tools`. Repos still using that form should switch to one of the invocations above.
 
