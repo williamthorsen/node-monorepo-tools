@@ -56,7 +56,7 @@
       "esbuildVersion": "0.28.2",
       "inputs": [
         {
-          "hash": "15641d4a",
+          "hash": "2f1fb68c",
           "kind": "module",
           "path": "kits/npm-auto-publish.ts"
         }
@@ -65,8 +65,8 @@
       "path": "kits/npm-auto-publish.js",
       "readyupVersion": "0.35.0",
       "source": "kits/npm-auto-publish.ts",
-      "sourceHash": "15641d4a",
-      "targetHash": "721e337b"
+      "sourceHash": "2f1fb68c",
+      "targetHash": "2998479e"
     }
   ]
 }
