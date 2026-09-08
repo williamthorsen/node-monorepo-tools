@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.16.0 — 2026-09-08
+
+### 🎉 Features
+
+- Report a package whose tarball would omit its changelog (#768)
+
+  Adds ReadyUp checks to verify that every published package bundles its changelog files: the human-readable `CHANGELOG.md` and the machine-readable `changelog.json`.
+
+### 🧪 Tests
+
+- Read console spy output with listConsoleLines rather than by hand (#781)
+
+  - Replaces the hand-rolled reads of a console spy's `mock.calls` in the `nmr`, `release-kit`, and `v11y-check` test suites with `listConsoleLines` from `@williamthorsen/toolbelt.vitest/candidate`.
+  - Clears the `toolbelt.vitest/no-console-calls-read` recommendation that `rdy run --packages` reported.
+
 ## 0.15.8 — 2026-09-01
 
 ### ♻️ Refactoring

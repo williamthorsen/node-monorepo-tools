@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.36.0 — 2026-09-08
+
+### 🎉 Features
+
+- Report a package whose tarball would omit its changelog (#768)
+
+  Adds ReadyUp checks to verify that every published package bundles its changelog files: the human-readable `CHANGELOG.md` and the machine-readable `changelog.json`.
+
+- Reject a checkCache command name that matches no command (#778)
+
+  Modifies `nmr` so that it rejects a `checkCache.extraCommands` or `checkCache.excludeCommands` name that matches no command, so a misspelt entry fails config load instead of silently having no effect.
+
+  Modifies `nmr` so that it resolves names listed in either field against nmr's default scripts, the repo config's script registries, and each package's `package.json` scripts, so a name that only a package declares is accepted.
+
+  Migration: Correct or remove any `checkCache.extraCommands` or `checkCache.excludeCommands` entry that names no command, and any entry that names a hook, which is rejected too. The error reports the field, the offending name, and the closest command where there is one.
+
+- Report a bin target that is not a committed wrapper (#780)
+
+  - Adds `every bin target is a committed wrapper` to nmr's readyup kit, which reports a workspace `bin` target naming a path under `dist/`, or one that git does not track, because pnpm links a package's bins before anything is built and never retries a failed link.
+  - Adds `every bin wrapper's build-output target is covered by files`, which reports a wrapper loading build output that `files` omits, since that publishes a bin resolving to nothing.
+
+  Migration: Replace a `bin` target naming a path under `dist/` with a committed wrapper under `bin/` that imports the build entry, commit the wrapper, and extend `files` to cover the output that the wrapper loads.
+
+### 🐛 Bug fixes
+
+- Keep global git ignore rules and attributes out of test subprocesses (#773)
+
+  Fixes an issue where a test that spawns `git` read ignore rules and attributes from outside the repository, so a suite could pass or fail on whatever a developer or their machine happened to have configured. The setup file that `defineVitestConfig` loads by default now isolates both, alongside the git configuration already covered.
+
+  Migration: Where a test needs its own `core.excludesFile` or `core.attributesFile`, pass it on the invocation as `git -c core.excludesFile=<path>`. An environment-injected key now outranks repository-local config.
+
+### 🧪 Tests
+
+- Read console spy output with listConsoleLines rather than by hand (#781)
+
+  - Replaces the hand-rolled reads of a console spy's `mock.calls` in the `nmr`, `release-kit`, and `v11y-check` test suites with `listConsoleLines` from `@williamthorsen/toolbelt.vitest/candidate`.
+  - Clears the `toolbelt.vitest/no-console-calls-read` recommendation that `rdy run --packages` reported.
+
 ## 0.35.0 — 2026-09-01
 
 ### 🎉 Features

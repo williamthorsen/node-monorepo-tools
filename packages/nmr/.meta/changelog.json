@@ -1,5 +1,56 @@
 [
   {
+    "version": "0.36.0",
+    "date": "2026-09-08",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Report a package whose tarball would omit its changelog (#768)",
+            "body": "Adds ReadyUp checks to verify that every published package bundles its changelog files: the human-readable `CHANGELOG.md` and the machine-readable `changelog.json`.",
+            "hash": "25dd5c01b5e5b0ac26b266613fe71f47428e6c5c"
+          },
+          {
+            "description": "Reject a checkCache command name that matches no command (#778)",
+            "body": "Modifies `nmr` so that it rejects a `checkCache.extraCommands` or `checkCache.excludeCommands` name that matches no command, so a misspelt entry fails config load instead of silently having no effect.\n\nModifies `nmr` so that it resolves names listed in either field against nmr's default scripts, the repo config's script registries, and each package's `package.json` scripts, so a name that only a package declares is accepted.\n\nMigration: Correct or remove any `checkCache.extraCommands` or `checkCache.excludeCommands` entry that names no command, and any entry that names a hook, which is rejected too. The error reports the field, the offending name, and the closest command where there is one.",
+            "migration": "Correct or remove any `checkCache.extraCommands` or `checkCache.excludeCommands` entry that names no command, and any entry that names a hook, which is rejected too. The error reports the field, the offending name, and the closest command where there is one.",
+            "hash": "393cd125000a2cb1337df5f3b794860eecf34d3f"
+          },
+          {
+            "description": "Report a bin target that is not a committed wrapper (#780)",
+            "body": "- Adds `every bin target is a committed wrapper` to nmr's readyup kit, which reports a workspace `bin` target naming a path under `dist/`, or one that git does not track, because pnpm links a package's bins before anything is built and never retries a failed link.\n- Adds `every bin wrapper's build-output target is covered by files`, which reports a wrapper loading build output that `files` omits, since that publishes a bin resolving to nothing.\n\nMigration: Replace a `bin` target naming a path under `dist/` with a committed wrapper under `bin/` that imports the build entry, commit the wrapper, and extend `files` to cover the output that the wrapper loads.",
+            "migration": "Replace a `bin` target naming a path under `dist/` with a committed wrapper under `bin/` that imports the build entry, commit the wrapper, and extend `files` to cover the output that the wrapper loads.",
+            "hash": "b39c921be6a7d5568adafb1a80a5d3b84ba579f4"
+          }
+        ]
+      },
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Keep global git ignore rules and attributes out of test subprocesses (#773)",
+            "body": "Fixes an issue where a test that spawns `git` read ignore rules and attributes from outside the repository, so a suite could pass or fail on whatever a developer or their machine happened to have configured. The setup file that `defineVitestConfig` loads by default now isolates both, alongside the git configuration already covered.\r\n\r\nMigration: Where a test needs its own `core.excludesFile` or `core.attributesFile`, pass it on the invocation as `git -c core.excludesFile=<path>`. An environment-injected key now outranks repository-local config.",
+            "hash": "59b454ff3344a7c00d766f041a5862faa1ee6f1f"
+          }
+        ]
+      },
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Read console spy output with listConsoleLines rather than by hand (#781)",
+            "body": "- Replaces the hand-rolled reads of a console spy's `mock.calls` in the `nmr`, `release-kit`, and `v11y-check` test suites with `listConsoleLines` from `@williamthorsen/toolbelt.vitest/candidate`.\n- Clears the `toolbelt.vitest/no-console-calls-read` recommendation that `rdy run --packages` reported.",
+            "hash": "9a5fbc2f01e8468821be89c345c59ade913074f4"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.35.0",
     "date": "2026-09-01",
     "sections": [
@@ -70,6 +121,7 @@
             "description": "Make defineVitestConfig resolve from source and isolate git (#749)",
             "body": "Adds two defaults to `defineVitestConfig` and `defineRootVitestConfig` in `@williamthorsen/nmr/vitest`: Workspace packages resolve through their `source` export condition, so a suite runs without a prior build; and every project loads a setup file that keeps the developer's git configuration out of the subprocesses a test spawns.\n\nEach is individually opt-out-able through the new `isolateGit` and `resolveFromSource` options. A consumer's own `resolve.conditions` and `setupFiles` compose alongside what the factory supplies.\n\nMigration: A workspace package declaring a `source` condition is resolved from source in tests that previously read its `dist`. A package that publishes only its build output takes a bespoke condition name instead, as `@williamthorsen/nmr-core` does with `nmr-source`.",
             "breaking": true,
+            "migration": "A workspace package declaring a `source` condition is resolved from source in tests that previously read its `dist`. A package that publishes only its build output takes a bespoke condition name instead, as `@williamthorsen/nmr-core` does with `nmr-source`.",
             "hash": "0ebf2434c9054eb099a0eedbdfdcb936a173bbc5"
           }
         ]
@@ -294,6 +346,7 @@
             "description": "Refine nmr upgrade to support catalogs (#661)",
             "body": "Adds `nmr-report-catalog`, which names the dependencies a package takes from a pnpm catalog, their `catalog:` specifiers, and the monorepo root a covering pass runs from. The workspace `upgrade` default chains it ahead of the upgrade tool, and `nmr report-catalog` runs it alone. Because taze reads `pnpm-workspace.yaml` only when that file sits at its working directory, changes to the catalog are not attempted during a package-scoped upgrade.\n\nSeparately, `nmr-report-overrides` now reports the `overrides` block in `pnpm-workspace.yaml` and fails on a `pnpm.overrides` block in the root `package.json`. Both `upgrade` and `root:upgrade` run the reporter ahead of taze. This avoids a scenario where taze would meaninglessly write to the latter block.\n\nMigration: Move the block to `overrides` in `pnpm-workspace.yaml`, quoting each version, or run `pnpx codemod run pnpm-v10-to-v11`. `engines` declares `pnpm: \">=11\"`.",
             "breaking": true,
+            "migration": "Move the block to `overrides` in `pnpm-workspace.yaml`, quoting each version, or run `pnpx codemod run pnpm-v10-to-v11`. `engines` declares `pnpm: \">=11\"`.",
             "hash": "ff02d039ab51303939d285169f9b38522a596015"
           },
           {
@@ -320,6 +373,7 @@
             "description": "Bind trailing arguments to every step that accepts them (#675)",
             "body": "Routes an argument passed to an `nmr` command to every step of that command that accepts it, in place of the last step alone. Thus, `nmr test <file>` therefore runs only that file's tests; previously, the root suite ran in full alongside the narrowed package runs. Steps by default accept passed arguments, but can be configured to ignore them. If no step of a command accepts the argument, `nmr` names the command and runs nothing.\n\nA command carrying an argument also reads the check-result cache nowhere in its chain, so it no longer skips part of its work from a pass recorded for an unnarrowed run.\n\nMigration: Existing configs need no change, since a bare string element keeps its present meaning. Two behaviors differ: A composite passes its arguments to every accepting step rather than to its final step alone; and `nmr typecheck <file>` at the repo root is refused, where it previously checked that file under default compiler options at the root and hunted for it in every package.",
             "breaking": true,
+            "migration": "Existing configs need no change, since a bare string element keeps its present meaning. Two behaviors differ: A composite passes its arguments to every accepting step rather than to its final step alone; and `nmr typecheck <file>` at the repo root is refused, where it previously checked that file under default compiler options at the root and hunted for it in every package.",
             "hash": "af8a5a6aa57099df3f1c690d313fb093fcfe99f0"
           }
         ]

@@ -1,5 +1,60 @@
 [
   {
+    "version": "10.6.0",
+    "date": "2026-09-08",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Report a package whose tarball would omit its changelog (#768)",
+            "body": "Adds ReadyUp checks to verify that every published package bundles its changelog files: the human-readable `CHANGELOG.md` and the machine-readable `changelog.json`.",
+            "hash": "25dd5c01b5e5b0ac26b266613fe71f47428e6c5c"
+          },
+          {
+            "description": "Add a migration field to changelog.json items (#770)",
+            "body": "Adds an optional `migration` field to entries in the `.meta/changelog.json` that `release-kit` generates. If a commit body contains a labeled migration step, that content is copied to the `migration` field.",
+            "hash": "a01f93f04e799a6e498b28e35a414349596c9d21"
+          }
+        ]
+      },
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Pin git-cliff and remove the per-run npx cache refresh (#776)",
+            "body": "Fixes an issue where git-cliff's version was unpinned, resulting in a per-run cache refresh. An exact version is now pinned.\n\nRemoves the per-run cache refresh, which re-ran `npx` without `--prefer-offline` once per prepare and forced a registry round trip. An exact version leaves npm nothing to revalidate, so a prepare run no longer waits on registry latency.\n\nAlso silences git-cliff's INFO output, in particular the crates.io update notice.",
+            "hash": "82acfde5405ee4c81ac8d8d4eca468722bad5ca4"
+          }
+        ]
+      },
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Remove the unwired isChangelogItem type guard (#771)",
+            "body": "Removes the unused `isChangelogItem` from `release-kit`'s `changelogJsonUtils.ts`, together with its tests.\n\nDocumentation is updated to record the boundary on `isChangelogEntry`: Entries parsed from `.meta/changelog.json` are shape-checked at the top level only, and strict validation applies only to the human-authored `.meta/changelog-overrides.json`.",
+            "hash": "f76ad8e6ebc852dc790e2dcdf874c1bb8aeb0245"
+          }
+        ]
+      },
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Read console spy output with listConsoleLines rather than by hand (#781)",
+            "body": "- Replaces the hand-rolled reads of a console spy's `mock.calls` in the `nmr`, `release-kit`, and `v11y-check` test suites with `listConsoleLines` from `@williamthorsen/toolbelt.vitest/candidate`.\n- Clears the `toolbelt.vitest/no-console-calls-read` recommendation that `rdy run --packages` reported.",
+            "hash": "9a5fbc2f01e8468821be89c345c59ade913074f4"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "10.5.0",
     "date": "2026-09-01",
     "sections": [

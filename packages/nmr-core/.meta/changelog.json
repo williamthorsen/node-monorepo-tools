@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.11.0",
+    "date": "2026-09-08",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Report a package whose tarball would omit its changelog (#768)",
+            "body": "Adds ReadyUp checks to verify that every published package bundles its changelog files: the human-readable `CHANGELOG.md` and the machine-readable `changelog.json`.",
+            "hash": "25dd5c01b5e5b0ac26b266613fe71f47428e6c5c"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.10.4",
     "date": "2026-09-01",
     "sections": [

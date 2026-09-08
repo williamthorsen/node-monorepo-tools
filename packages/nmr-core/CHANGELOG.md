@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.11.0 — 2026-09-08
+
+### 🎉 Features
+
+- Report a package whose tarball would omit its changelog (#768)
+
+  Adds ReadyUp checks to verify that every published package bundles its changelog files: the human-readable `CHANGELOG.md` and the machine-readable `changelog.json`.
+
 ## 0.10.4 — 2026-09-01
 
 ### ♻️ Refactoring

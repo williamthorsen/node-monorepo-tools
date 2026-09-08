@@ -2,6 +2,43 @@
 
 All notable changes to this project will be documented in this file.
 
+## 10.6.0 — 2026-09-08
+
+### 🎉 Features
+
+- Report a package whose tarball would omit its changelog (#768)
+
+  Adds ReadyUp checks to verify that every published package bundles its changelog files: the human-readable `CHANGELOG.md` and the machine-readable `changelog.json`.
+
+- Add a migration field to changelog.json items (#770)
+
+  Adds an optional `migration` field to entries in the `.meta/changelog.json` that `release-kit` generates. If a commit body contains a labeled migration step, that content is copied to the `migration` field.
+
+### 🐛 Bug fixes
+
+- Pin git-cliff and remove the per-run npx cache refresh (#776)
+
+  Fixes an issue where git-cliff's version was unpinned, resulting in a per-run cache refresh. An exact version is now pinned.
+
+  Removes the per-run cache refresh, which re-ran `npx` without `--prefer-offline` once per prepare and forced a registry round trip. An exact version leaves npm nothing to revalidate, so a prepare run no longer waits on registry latency.
+
+  Also silences git-cliff's INFO output, in particular the crates.io update notice.
+
+### ♻️ Refactoring
+
+- Remove the unwired isChangelogItem type guard (#771)
+
+  Removes the unused `isChangelogItem` from `release-kit`'s `changelogJsonUtils.ts`, together with its tests.
+
+  Documentation is updated to record the boundary on `isChangelogEntry`: Entries parsed from `.meta/changelog.json` are shape-checked at the top level only, and strict validation applies only to the human-authored `.meta/changelog-overrides.json`.
+
+### 🧪 Tests
+
+- Read console spy output with listConsoleLines rather than by hand (#781)
+
+  - Replaces the hand-rolled reads of a console spy's `mock.calls` in the `nmr`, `release-kit`, and `v11y-check` test suites with `listConsoleLines` from `@williamthorsen/toolbelt.vitest/candidate`.
+  - Clears the `toolbelt.vitest/no-console-calls-read` recommendation that `rdy run --packages` reported.
+
 ## 10.5.0 — 2026-09-01
 
 ### 🎉 Features
