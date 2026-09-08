@@ -8,6 +8,8 @@ export interface ResolvedContext {
   monorepoRoot: string;
   isRoot: boolean;
   packageDir?: string;
+  /** The workspace's package directories, resolved once here rather than swept for again by each reader. */
+  workspacePackageDirs: string[];
   config: NmrConfig;
 }
 
@@ -48,6 +50,7 @@ export async function resolveContext(cwd?: string): Promise<ResolvedContext> {
     monorepoRoot,
     isRoot: packageDir === undefined,
     ...(packageDir !== undefined && { packageDir }),
+    workspacePackageDirs: workspaceDirs,
     config,
   };
 }

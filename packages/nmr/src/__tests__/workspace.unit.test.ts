@@ -4,7 +4,7 @@ import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
-import { findMonorepoRoot, getWorkspacePackageDirs } from '../workspace.ts';
+import { findMonorepoRoot, getWorkspacePackageDirs, readWorkspacePackageNames } from '../workspace.ts';
 
 // The monorepo root is two levels up from packages/nmr
 const MONOREPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..', '..');
@@ -101,5 +101,33 @@ describe(getWorkspacePackageDirs, () => {
         path.join(packagesTree.dir, 'packages', 'legacy'),
       ]);
     });
+  });
+});
+
+describe(readWorkspacePackageNames, () => {
+  it('reads the name each manifest declares', ({ packagesTree }) => {
+    packagesTree.write('packages/alpha/package.json', '{"name":"@scope/alpha"}');
+    packagesTree.write('packages/legacy/package.json', '{"name":"legacy"}');
+
+    const names = readWorkspacePackageNames([
+      path.join(packagesTree.dir, 'packages', 'alpha'),
+      path.join(packagesTree.dir, 'packages', 'legacy'),
+    ]);
+
+    expect(names).toStrictEqual(['@scope/alpha', 'legacy']);
+  });
+
+  // The names serve a diagnostic, so a manifest that cannot be read costs its own name and no more.
+  it('passes over a manifest that is missing, unparseable, or nameless', ({ packagesTree }) => {
+    packagesTree.write('packages/alpha/package.json', '{"name":"@scope/alpha"}');
+    packagesTree.write('packages/legacy/package.json', '{ oops');
+
+    const names = readWorkspacePackageNames([
+      path.join(packagesTree.dir, 'packages', 'alpha'),
+      path.join(packagesTree.dir, 'packages', 'legacy'),
+      path.join(packagesTree.dir, 'packages', 'nameless'),
+    ]);
+
+    expect(names).toStrictEqual(['@scope/alpha']);
   });
 });

@@ -29,10 +29,12 @@ import {
   writeCheckCacheEntry,
   writeDebugNote,
 } from './check-cache.ts';
-import { resolveContext } from './context.ts';
+import { resolveContext, type ResolvedContext } from './context.ts';
 import { generateHelp } from './help.ts';
 import { resolveConfigPath } from './helpers/config-path.ts';
 import { deriveExcerpt } from './helpers/deriveExcerpt.ts';
+import { readFilterSelection } from './helpers/filter-selection.ts';
+import { findClosestName } from './helpers/findClosestName.ts';
 import { isHookName } from './helpers/hook-name.ts';
 import { resolvePackageJsonPath } from './helpers/package-json.ts';
 import { composeTranscript } from './helpers/transcript.ts';
@@ -62,11 +64,15 @@ import {
   type ResolveVerbosityOptions,
 } from './verbosity.ts';
 import { type Verdict, type VerdictOutcome, writeVerdict } from './verdict.ts';
+import { readWorkspacePackageNames } from './workspace.ts';
 
 const VERSION = readPackageVersion(import.meta.url);
 
 /** The consequence a crossing carries, which every origin's line reports before naming its remedy. */
 const CROSSING_CONSEQUENCE = "so nmr handles the nested run's output as a tool's.";
+
+/** How many workspace names a diagnostic lists before it reports the rest as a count. */
+const NAME_CEILING = 10;
 
 /**
  * The control characters a declaration's text renders as an escape, paired with the escape a JSON string
@@ -189,7 +195,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   // -F and -R: delegate to pnpm, which runs one nmr per scope it selects
   const delegation = composeDelegation({ childEnv, command, parsed });
   if (delegation !== undefined) {
-    return runSteps([delegation.step], context.monorepoRoot, { ...runOptions, env: delegation.env });
+    return runDelegation({ context, delegation, parsed, runOptions, stderr });
   }
 
   const registry = useRoot ? buildRootRegistry(context.config) : buildWorkspaceRegistry(context.config);
@@ -711,6 +717,95 @@ function findArgError(parsed: ParsedArgs): string | undefined {
 }
 
 /**
+ * Returns the line refusing a delegation that would select no scope, or `undefined` where it selects at least
+ * one.
+ *
+ * A selection of nothing runs nothing and reports nothing, which reads exactly like a run that passed. pnpm
+ * carries neither signal -- its exit code is 0 either way, and the `Scope: 0 of N` line it prints under `run`
+ * is absent under the `exec` a delegation composes -- so the refusal is nmr's to make, ahead of the delegate.
+ *
+ * A filter is put to pnpm, which owns what the pattern means; a `-R` is not, since `pnpm --recursive` leaves
+ * the root project out and a workspace declaring no package is its only empty selection.
+ */
+function findEmptySelectionRefusal(options: { context: ResolvedContext; parsed: ParsedArgs }): string | undefined {
+  const { context, parsed } = options;
+
+  if (parsed.filter !== undefined) {
+    if (readFilterSelection(parsed.filter, context.monorepoRoot) !== 'empty') {
+      return undefined;
+    }
+    return formatEmptyFilterError(parsed.filter, readWorkspacePackageNames(context.workspacePackageDirs));
+  }
+
+  return context.workspacePackageDirs.length === 0 ? formatEmptyWorkspaceError() : undefined;
+}
+
+/**
+ * Returns the line a filter selecting no workspace gets, naming the pattern and what it is matched against.
+ *
+ * The rule is stated because the mistake it catches is passing a directory name: a package's directory and its
+ * manifest `name` differ often enough that the pattern looks right to the reader who wrote it. A pattern pnpm
+ * reads as a path is the other mistake and gets the other rule, there being no name in it to suggest against.
+ */
+function formatEmptyFilterError(pattern: string, names: readonly string[]): string {
+  const rejection = `-F/--filter matched no workspace: \`${pattern}\`.`;
+
+  if (pattern.startsWith('.') || pattern.startsWith('/')) {
+    return `${rejection} A pattern beginning with \`.\` or \`/\` selects the packages under a directory, and no package sits under this one.`;
+  }
+
+  return (
+    `${rejection} A pattern matches a package's manifest \`name\`, ` +
+    `not its directory name.${suggestWorkspaceNames(pattern, names)}`
+  );
+}
+
+/** Returns the line a recursive invocation gets in a workspace that declares no package. */
+function formatEmptyWorkspaceError(): string {
+  return (
+    '-R/--recursive matched no workspace: pnpm-workspace.yaml declares no package directory, ' +
+    'so there is no scope to fan out to.'
+  );
+}
+
+/**
+ * Returns the sentence pointing a rejected pattern at the names it could have named, or nothing where the
+ * workspace declares none.
+ *
+ * A containing name comes ahead of the nearest one: a directory name commonly stands for a longer manifest
+ * name, and `secrets` sits nine edits from `@scope/toolbelt.secrets`, past any ceiling that would still reject
+ * a name the user never meant.
+ */
+function suggestWorkspaceNames(pattern: string, names: readonly string[]): string {
+  if (names.length === 0) {
+    return '';
+  }
+
+  const containing = names.filter((name) => name.toLowerCase().includes(pattern.toLowerCase()));
+  if (containing.length > 0) {
+    return ` Did you mean ${renderNames(containing)}?`;
+  }
+
+  const closest = findClosestName(pattern, names);
+  if (closest !== undefined) {
+    return ` Did you mean \`${closest}\`?`;
+  }
+
+  return ` The workspace declares ${renderNames(names)}.`;
+}
+
+/** Renders names for a diagnostic, capped so a large workspace does not fill the terminal. */
+function renderNames(names: readonly string[]): string {
+  const shown = names
+    .slice(0, NAME_CEILING)
+    .map((name) => `\`${name}\``)
+    .join(', ');
+  const remainder = names.length - NAME_CEILING;
+
+  return remainder > 0 ? `${shown}, and ${remainder} more` : shown;
+}
+
+/**
  * Returns why a resolved command runs nothing, or `undefined` when there is something to run. A command that
  * ran nothing is not a command that passed, and the two exit alike, so the reason is what a verdict spends on
  * telling them apart.
@@ -907,7 +1002,9 @@ function parseArgs(args: string[]): ParseResult {
     if (arg === '-F' || arg === '--filter') {
       i++;
       const filterValue = args[i];
-      if (filterValue === undefined) {
+      // An empty pattern is rejected with a missing one: composition reads a filter for its truth, so an
+      // empty one would run the command unfiltered rather than in the scopes the invocation asked for.
+      if (!filterValue) {
         return { ok: false, error: '-F/--filter requires a pattern argument' };
       }
       parsed.filter = filterValue;
@@ -1237,6 +1334,30 @@ function resolveCacheKey(options: {
   }
 
   return result.key;
+}
+
+/**
+ * Runs a `-F` or `-R` delegation, or refuses it where it would select no scope.
+ *
+ * The refusal precedes the delegate rather than reading its outcome, since a delegation that selected nothing
+ * has already run to completion, reporting nothing and exiting 0, by the time nmr sees it.
+ */
+async function runDelegation(options: {
+  context: ResolvedContext;
+  delegation: { env: NodeJS.ProcessEnv; step: Step };
+  parsed: ParsedArgs;
+  runOptions: RunStepsOptions;
+  stderr: Writable;
+}): Promise<RunCliResult> {
+  const { context, delegation, parsed, runOptions, stderr } = options;
+
+  const refusal = findEmptySelectionRefusal({ context, parsed });
+  if (refusal !== undefined) {
+    reportError(refusal, stderr);
+    return { exitCode: 1 };
+  }
+
+  return runSteps([delegation.step], context.monorepoRoot, { ...runOptions, env: delegation.env });
 }
 
 /**

@@ -8,6 +8,9 @@ import { isObject } from './helpers/type-guards.ts';
 import { resolvePackageDirs } from './helpers/workspace-patterns.ts';
 import { UserError } from './UserError.ts';
 
+/** The manifest a package's name is declared in. */
+const PACKAGE_MANIFEST = 'package.json';
+
 /** The manifest whose presence marks a directory as the monorepo root. */
 const WORKSPACE_MANIFEST = 'pnpm-workspace.yaml';
 
@@ -82,6 +85,32 @@ export function readWorkspaceOverrides(monorepoRoot: string): Record<string, str
   const overrides = parsed['overrides'];
 
   return isObject(overrides) ? readStringValues(overrides) : undefined;
+}
+
+/**
+ * Reads the manifest `name` each of the given package directories declares, which is what a `-F` pattern
+ * matches.
+ *
+ * A directory whose manifest is missing, unparseable, or nameless contributes nothing. The sweep runs for a
+ * diagnostic's sake, so one malformed manifest elsewhere in the workspace must not replace the diagnostic the
+ * reader asked for with a failure of its own.
+ */
+export function readWorkspacePackageNames(packageDirs: readonly string[]): string[] {
+  const names: string[] = [];
+
+  for (const dir of packageDirs) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(readFileSync(path.join(dir, PACKAGE_MANIFEST), 'utf8'));
+    } catch {
+      continue;
+    }
+    if (isObject(parsed) && typeof parsed['name'] === 'string') {
+      names.push(parsed['name']);
+    }
+  }
+
+  return names;
 }
 
 function getPackagesFromParsedYaml(parsed: unknown): string[] | undefined {
