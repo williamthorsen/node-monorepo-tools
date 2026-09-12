@@ -64,7 +64,7 @@ export interface SourceResolutionContext {
 }
 
 /**
- * Resolves a bare specifier to the file its package's `source` condition names, or nothing where the condition
+ * Resolves a bare specifier to the file name by its package's `source` condition, or nothing where the condition
  * does not reach it.
  *
  * Answers a bare specifier naming a package whose real directory sits outside every `node_modules`. Every other
@@ -110,7 +110,7 @@ export function resolveSourceTarget(
 // region | Helpers
 
 /**
- * Walks up from a directory to the package directory a bare specifier names, without resolving the specifier itself:
+ * Walks up from a directory to the package directory named by a bare specifier, without resolving the specifier itself:
  * The `exports` map the caller is about to read may not name any entry reached by the default conditions.
  */
 function findPackageDir(
