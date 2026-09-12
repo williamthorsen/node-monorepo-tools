@@ -6,6 +6,7 @@ import type { InlineConfig, ProjectConfig } from 'vitest/node';
 
 import { isObject } from './helpers/type-guards.ts';
 import { ALL_TEST_PATTERNS, buildTierPatterns, TEST_COLLECTION_EXCLUDE, TIER_NAMES, type TierName } from './tiers.ts';
+import { createSourceResolutionPlugin } from './vitest-source-resolution.ts';
 import { getWorkspacePackageDirs } from './workspace.ts';
 
 export type { TierName } from './tiers.ts';
@@ -58,8 +59,9 @@ export interface VitestConfigOptions {
   isolateGit?: boolean;
 
   /**
-   * Resolves workspace packages through their `source` export condition, so a suite runs without a prior build.
-   * Defaults to `true`. A package declaring no such condition is unaffected.
+   * Resolves a package whose files sit outside every `node_modules` through its `source` export condition, so a
+   * suite runs without a prior build. Defaults to `true`. A package declaring no such condition is unaffected,
+   * and so is every package under `node_modules`, which Node resolves and which the condition never reaches.
    */
   resolveFromSource?: boolean;
 
@@ -112,16 +114,20 @@ const TIER_TIMEOUT = 30_000;
  */
 const GIT_ISOLATION_SETUP_FILE = resolveGitIsolationSetupFile();
 
-// The `source` condition, then Vite's own defaults for each environment. Vite lets a supplied `conditions` array
-// replace its defaults rather than extend them, so emitting them here is what keeps `module` reachable: a
-// dependency exposing a `module` entry otherwise falls through to whatever its `exports` lists next.
+// Vite's own defaults for each environment. Vite lets a supplied `conditions` array replace its defaults rather
+// than extend them, so emitting them here is what keeps `module` reachable once a layer adds a condition of its
+// own: a dependency exposing a `module` entry otherwise falls through to whatever its `exports` lists next.
 //
 // A replaced list still resolves `node` and `development` under Vitest, so only a dependency exposing a `module`
 // entry distinguishes a complete list from a narrowed one, and no fixture here has one. `vitest.unit.test.ts`
 // pins both against `vite`'s own exports, which is what holds them complete. Hardcoded rather than read from
 // `vite`, which nmr would otherwise have to declare as a peer dependency for every consumer to satisfy.
-const SOURCE_CLIENT_CONDITIONS = ['source', 'module', 'browser', 'development|production'];
-const SOURCE_SERVER_CONDITIONS = ['source', 'module', 'node', 'development|production'];
+//
+// The `source` condition is deliberately absent: Vitest turns the server list into `--conditions` flags on the
+// worker process, where Node applies every entry to each package that it resolves natively, `node_modules` included.
+// `vitest-source-resolution.ts` resolves that condition inside Vite instead, where the reach is nmr's to decide.
+const CLIENT_CONDITIONS = ['module', 'browser', 'development|production'];
+const SERVER_CONDITIONS = ['module', 'node', 'development|production'];
 
 // Fixtures are excluded from coverage but never from collection: a coverage exclude cannot hide a real test, while a
 // collection exclude could swallow one legitimately placed under `fixtures/`. `__snapshots__` needs no entry because
@@ -190,19 +196,22 @@ function buildConfig(
 
   assertKnownTiers(layers);
 
-  const resolveFromSource = resolveFlag(layers, 'resolveFromSource', true);
-
-  // Both flags contribute to one `resolve` block, which a second spread would replace rather than merge into.
-  // `tsconfigPaths` needs no `ssr` twin the way the conditions do: Vite holds it outside its per-environment
-  // resolve options and spreads the top-level block into every environment's defaults.
+  // The conditions are emitted whichever way `resolveFromSource` is set, because they carry Vite's defaults
+  // rather than anything source resolution contributes: A layer adding one condition would otherwise replace
+  // the defaults rather than extend them.
+  //
+  // `tsconfigPaths` shares the block, which a second spread would replace rather than merge into, and needs no
+  // `ssr` twin the way the conditions do: Vite holds it outside its per-environment resolve options and spreads
+  // the top-level block into every environment's defaults.
   const resolve = {
-    ...(resolveFromSource && { conditions: SOURCE_CLIENT_CONDITIONS }),
+    conditions: CLIENT_CONDITIONS,
     ...(resolveFlag(layers, 'tsconfigPaths', false) && { tsconfigPaths: true }),
   };
 
   const config: ViteUserConfig = {
-    ...(Object.keys(resolve).length > 0 && { resolve }),
-    ...(resolveFromSource && { ssr: { resolve: { conditions: SOURCE_SERVER_CONDITIONS } } }),
+    ...(resolveFlag(layers, 'resolveFromSource', true) && { plugins: [createSourceResolutionPlugin()] }),
+    resolve,
+    ssr: { resolve: { conditions: SERVER_CONDITIONS } },
     test: {
       coverage: {
         enabled: false, // don't check coverage unless the `--coverage` flag is passed

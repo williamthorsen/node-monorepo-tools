@@ -7,6 +7,7 @@ import { defaultClientConditions, defaultServerConditions } from 'vite';
 import { describe, expect, it as baseIt } from 'vitest';
 import type { TestProjectConfiguration, TestProjectInlineConfiguration, ViteUserConfig } from 'vitest/config';
 
+import { isObject } from '../helpers/type-guards.ts';
 import { defineRootVitestConfig, defineVitestConfig, type VitestConfigOptions } from '../vitest.ts';
 
 /** Every project the shared config declares, in the order it emits them: the residual, then the ladder. */
@@ -14,8 +15,11 @@ const PROJECT_NAMES = ['unit', 'tool', 'localhost', 'remote'];
 
 // Composed from Vite's own exports rather than spelled out, so a release that changes either default list fails
 // every assertion reading one, rather than leaving the config to narrow resolution silently.
-const SOURCE_CLIENT_CONDITIONS = ['source', ...defaultClientConditions];
-const SOURCE_SERVER_CONDITIONS = ['source', ...defaultServerConditions];
+const CLIENT_CONDITIONS = [...defaultClientConditions];
+const SERVER_CONDITIONS = [...defaultServerConditions];
+
+/** The plugin the config emits to resolve the `source` condition, named as the config names it. */
+const SOURCE_RESOLUTION_PLUGIN = 'nmr:resolve-from-source';
 
 const GIT_ISOLATION_SETUP_FILE = fileURLToPath(new URL('../vitest-git-isolation.ts', import.meta.url));
 
@@ -150,7 +154,7 @@ describe(defineVitestConfig, () => {
     expect(rootTest.coverage?.include).toStrictEqual(['**/src/**/*.{ts,tsx}']);
   });
 
-  // Pinned rather than sampled: the risk is an addition, not a removal.
+  // Pinned rather than sampled: The risk is an addition, not a removal.
   it('excludes from coverage only what cannot hold runtime code', () => {
     const rootTest = defineVitestConfig().test ?? {};
 
@@ -206,28 +210,37 @@ describe(defineVitestConfig, () => {
     }
   });
 
-  // Vite lets a supplied `conditions` array replace its defaults rather than extend them, so emitting `source`
-  // alone would drop `node` and `module` -- and a dependency branching on `browser` would then resolve its browser
-  // entry inside a node test. Composed from Vite's exports, so a release changing either list fails here.
-  it("adds the source condition to Vite's defaults for each environment, rather than replacing them", () => {
+  // Vitest turns the server list into `--conditions` flags on the worker process, so an entry here reaches every
+  // package Node resolves natively. `source` is therefore resolved by a plugin rather than named here, and what
+  // remains is Vite's own defaults, composed from its exports so a release changing either list fails here.
+  it("emits Vite's default conditions for each environment, and no condition of its own", () => {
     const config = defineVitestConfig();
 
-    expect(config.resolve?.conditions).toStrictEqual(SOURCE_CLIENT_CONDITIONS);
-    expect(config.ssr?.resolve?.conditions).toStrictEqual(SOURCE_SERVER_CONDITIONS);
+    expect(config.resolve?.conditions).toStrictEqual(CLIENT_CONDITIONS);
+    expect(config.ssr?.resolve?.conditions).toStrictEqual(SERVER_CONDITIONS);
+    expect(config.resolve?.conditions).not.toContain('source');
+    expect(config.ssr?.resolve?.conditions).not.toContain('source');
   });
 
-  it('drops the source condition, and no other setting, when resolveFromSource is off', () => {
+  it('resolves the source condition through a plugin by default', () => {
+    expect(getPluginNames(defineVitestConfig())).toContain(SOURCE_RESOLUTION_PLUGIN);
+  });
+
+  it('drops the plugin, and no other setting, when resolveFromSource is off', () => {
     const config = defineVitestConfig({ resolveFromSource: false });
 
-    expect(config.resolve).toBeUndefined();
-    expect(config.ssr).toBeUndefined();
+    expect(getPluginNames(config)).not.toContain(SOURCE_RESOLUTION_PLUGIN);
+    expect(config.resolve?.conditions).toStrictEqual(CLIENT_CONDITIONS);
+    expect(config.ssr?.resolve?.conditions).toStrictEqual(SERVER_CONDITIONS);
     expect(config.test?.projects).toHaveLength(PROJECT_NAMES.length);
   });
 
-  it("keeps a layer's own conditions when resolveFromSource is off", () => {
+  // The defaults are emitted whichever way the flag is set, because a supplied array replaces Vite's rather than
+  // extending it: A repo turning source resolution off would otherwise resolve a `module` entry differently.
+  it("concatenates a layer's own conditions onto the defaults when resolveFromSource is off", () => {
     const config = defineVitestConfig({ resolveFromSource: false, root: { resolve: { conditions: ['development'] } } });
 
-    expect(config.resolve?.conditions).toStrictEqual(['development']);
+    expect(config.resolve?.conditions).toStrictEqual([...CLIENT_CONDITIONS, 'development']);
   });
 
   // Vite holds `tsconfigPaths` outside its per-environment resolve options, so the top-level key is the whole
@@ -237,26 +250,26 @@ describe(defineVitestConfig, () => {
     const config = defineVitestConfig({ tsconfigPaths: true });
 
     expect(config.resolve?.tsconfigPaths).toBe(true);
-    expect(config.ssr?.resolve).toStrictEqual({ conditions: SOURCE_SERVER_CONDITIONS });
+    expect(config.ssr?.resolve).toStrictEqual({ conditions: SERVER_CONDITIONS });
   });
 
   it('leaves tsconfig paths resolution off by default, as Vite does', () => {
     expect(defineVitestConfig().resolve?.tsconfigPaths).toBeUndefined();
   });
 
-  // Both flags contribute to the same `resolve` block. One written over the other would drop the conditions, and
-  // every cross-package import would resolve to `dist` with the suite still green.
-  it('carries the source conditions and tsconfig paths together when both are on', () => {
+  // Both settings contribute to the same `resolve` block. One written over the other would drop the conditions,
+  // and a dependency exposing a `module` entry would resolve elsewhere with the suite still green.
+  it('carries the conditions and tsconfig paths together', () => {
     const config = defineVitestConfig({ resolveFromSource: true, tsconfigPaths: true });
 
-    expect(config.resolve).toStrictEqual({ conditions: SOURCE_CLIENT_CONDITIONS, tsconfigPaths: true });
+    expect(config.resolve).toStrictEqual({ conditions: CLIENT_CONDITIONS, tsconfigPaths: true });
   });
 
-  it('emits tsconfig paths resolution alone when resolveFromSource is off', () => {
+  it('keeps the conditions alongside tsconfig paths when resolveFromSource is off', () => {
     const config = defineVitestConfig({ resolveFromSource: false, tsconfigPaths: true });
 
-    expect(config.resolve).toStrictEqual({ tsconfigPaths: true });
-    expect(config.ssr).toBeUndefined();
+    expect(config.resolve).toStrictEqual({ conditions: CLIENT_CONDITIONS, tsconfigPaths: true });
+    expect(config.ssr?.resolve?.conditions).toStrictEqual(SERVER_CONDITIONS);
   });
 
   // Without it, a suite that spawns git reads the developer's identity and can block on a signing passphrase,
@@ -284,12 +297,12 @@ describe(defineVitestConfig, () => {
   it.for(['isolateGit', 'resolveFromSource'] as const)('lets a later layer turn %s back on', (flag) => {
     const config = defineVitestConfig({ [flag]: false }, { [flag]: true });
 
-    expect(config.resolve?.conditions).toStrictEqual(SOURCE_CLIENT_CONDITIONS);
+    expect(getPluginNames(config)).toContain(SOURCE_RESOLUTION_PLUGIN);
     expect(getProjects(config)[0]?.test?.setupFiles).toStrictEqual([GIT_ISOLATION_SETUP_FILE]);
   });
 
   // The two flags above default on, so one case covers both directions for them. This one defaults off, and each
-  // direction crosses a different branch: one adds the key, the other has to leave the block without it.
+  // direction crosses a different branch: One adds the key, the other has to leave the block without it.
   it('lets a later layer turn tsconfigPaths on', () => {
     const config = defineVitestConfig({ tsconfigPaths: false }, { tsconfigPaths: true });
 
@@ -313,7 +326,7 @@ describe(defineVitestConfig, () => {
   it('applies a root override to the root config', () => {
     const config = defineVitestConfig({ root: { resolve: { conditions: ['development'] } } });
 
-    expect(config.resolve?.conditions).toStrictEqual([...SOURCE_CLIENT_CONDITIONS, 'development']);
+    expect(config.resolve?.conditions).toStrictEqual([...CLIENT_CONDITIONS, 'development']);
   });
 
   // Vitest resolves a test's imports through the server environment, so this is the seam a condition meant for
@@ -321,8 +334,8 @@ describe(defineVitestConfig, () => {
   it('concatenates a layer condition onto the server array', () => {
     const config = defineVitestConfig({ root: { ssr: { resolve: { conditions: ['development'] } } } });
 
-    expect(config.ssr?.resolve?.conditions).toStrictEqual([...SOURCE_SERVER_CONDITIONS, 'development']);
-    expect(config.resolve?.conditions).toStrictEqual(SOURCE_CLIENT_CONDITIONS);
+    expect(config.ssr?.resolve?.conditions).toStrictEqual([...SERVER_CONDITIONS, 'development']);
+    expect(config.resolve?.conditions).toStrictEqual(CLIENT_CONDITIONS);
   });
 
   it('merges a root override into the existing block rather than replacing it', () => {
@@ -379,11 +392,11 @@ describe(defineVitestConfig, () => {
       { root: { test: { passWithNoTests: false } } },
     );
 
-    expect(config.resolve?.conditions).toStrictEqual([...SOURCE_CLIENT_CONDITIONS, 'development']);
+    expect(config.resolve?.conditions).toStrictEqual([...CLIENT_CONDITIONS, 'development']);
     expect(config.test?.passWithNoTests).toBe(false);
   });
 
-  // The point of the seam: raising one tier's ceiling leaves `unit` on the tight budget that fails a hung test fast.
+  // The point of the seam: Raising one tier's ceiling leaves `unit` on the tight budget that fails a hung test fast.
   it('targets one tier, leaving the others on their base budgets', () => {
     const budgets = getTestTimeouts(defineVitestConfig({ tiers: { tool: { testTimeout: 120_000 } } }));
 
@@ -411,9 +424,9 @@ describe(defineVitestConfig, () => {
     expect(budgets.get('unit')).toBe(1_000);
   });
 
-  // Locality beats specificity across layers: the nearer config wins even where the further one was specific.
+  // Locality beats specificity across layers: The nearer config wins even where the further one was specific.
   // Pinned because folding every layer's uniform block before any tier target would invert it, and no assertion
-  // about array order would notice -- that refactor keeps the entries contiguous.
+  // about array order would notice; that refactor keeps the entries contiguous.
   it('lets a later uniform block override an earlier layer of tier targets', () => {
     const budgets = getTestTimeouts(
       defineVitestConfig({ tiers: { tool: { testTimeout: 120_000 } } }, { project: { testTimeout: 10_000 } }),
@@ -576,7 +589,7 @@ describe(defineRootVitestConfig, () => {
       { monorepoRoot: workspaceTree.dir },
     );
 
-    expect(config.resolve?.conditions).toStrictEqual([...SOURCE_CLIENT_CONDITIONS, 'development']);
+    expect(config.resolve?.conditions).toStrictEqual([...CLIENT_CONDITIONS, 'development']);
     for (const project of getProjects(config)) {
       expect(project.test?.setupFiles).toStrictEqual([GIT_ISOLATION_SETUP_FILE, './shared.ts']);
       expect(project.root).toBe(workspaceTree.dir);
@@ -595,7 +608,6 @@ describe(defineRootVitestConfig, () => {
 });
 
 describe('project file selection', () => {
-  // `for` rather than `each`: only `for` hands the fixture context to the case body.
   it.for(['tool', 'localhost', 'remote'])(
     'selects only its own infix for the %s project',
     (tier, { selectionTree }) => {
@@ -641,6 +653,13 @@ describe('project file selection', () => {
     expect(selectFiles('unit', selectionTree.dir, excluded)).not.toContain('generated/__tests__/scaffold.test.ts');
   });
 });
+
+/** Names every plugin declared by a config, which is how an assertion reaches one without running Vite. */
+function getPluginNames(config: ViteUserConfig): string[] {
+  return (config.plugins ?? []).flatMap((plugin) =>
+    isObject(plugin) && typeof plugin.name === 'string' ? [plugin.name] : [],
+  );
+}
 
 /** Narrows the declared projects to the inline form, which is the only form the factories emit. */
 function getProjects(config: ViteUserConfig): TestProjectInlineConfiguration[] {
