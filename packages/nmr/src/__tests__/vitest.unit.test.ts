@@ -658,7 +658,7 @@ describe('project file selection', () => {
 /** Names every plugin a config declares, which is how an assertion reaches one without running Vite. */
 function getPluginNames(config: ViteUserConfig): string[] {
   return (config.plugins ?? []).flatMap((plugin) =>
-    isObject(plugin) && typeof plugin['name'] === 'string' ? [plugin['name']] : [],
+    isObject(plugin) && typeof plugin.name === 'string' ? [plugin.name] : [],
   );
 }
 

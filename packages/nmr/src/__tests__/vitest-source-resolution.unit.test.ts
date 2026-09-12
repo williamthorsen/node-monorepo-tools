@@ -45,6 +45,7 @@ const TREE_FILES: Record<string, string> = {
   'unconditioned/dist/index.js': '',
 };
 
+// eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
   'tree',
   { scope: 'file' },
@@ -99,7 +100,7 @@ describe(resolveSourceTarget, () => {
   // Falling through to the build output is what nothing in a run reports, and what resolving from source exists
   // to prevent.
   it('rejects a source condition naming a file the package does not hold', ({ tree }) => {
-    expect(() => resolve(tree, '@fixture/linked/gone')).toThrowError(
+    expect(() => resolve(tree, '@fixture/linked/gone')).toThrow(
       /@fixture\/linked.*"\.\/gone".*"\.\/src\/gone\.ts".*does not exist/s,
     );
   });

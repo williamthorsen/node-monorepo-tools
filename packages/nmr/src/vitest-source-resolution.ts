@@ -42,9 +42,10 @@ export function createSourceResolutionPlugin(): Plugin {
     // Ahead of Vite's own resolver, which would otherwise answer first and never consult the condition.
     enforce: 'pre',
     resolveId(id, importer) {
-      if (importer === undefined) return undefined;
+      if (importer === undefined) return;
 
       return resolveSourceTarget(id, importer, {
+        // eslint-disable-next-line unicorn/no-this-outside-of-class -- Rollup delivers the plugin context as `this`, which is the only route to the resolving environment.
         environmentCondition: this.environment.name === 'client' ? CLIENT_CONDITION : SERVER_CONDITION,
         manifests,
         packageDirs,
@@ -92,7 +93,9 @@ export function resolveSourceTarget(
   const selected = selectTarget(matched.value, conditions);
   if (!selected?.usedSource) return undefined;
 
-  const declared = matched.wildcard === undefined ? selected.target : selected.target.replaceAll('*', matched.wildcard);
+  // A function replacement, because a `$` sequence in a literal one is a substitution pattern rather than text.
+  const wildcard = matched.wildcard;
+  const declared = wildcard === undefined ? selected.target : selected.target.replaceAll('*', () => wildcard);
   if (!declared.startsWith('./')) return undefined;
 
   const target = path.resolve(packageDir, declared);
@@ -160,7 +163,7 @@ function isInsideNodeModules(dir: string): boolean {
 function matchSubpath(exportsValue: unknown, subpath: string): { value: unknown; wildcard?: string } | undefined {
   if (exportsValue === undefined) return undefined;
 
-  if (!isObject(exportsValue) || !Object.keys(exportsValue).some((key) => key.startsWith('.'))) {
+  if (!isObject(exportsValue) || Object.keys(exportsValue).every((key) => !key.startsWith('.'))) {
     return subpath === '.' ? { value: exportsValue } : undefined;
   }
 
@@ -242,7 +245,7 @@ function parseSpecifier(specifier: string): { name: string; subpath: string } | 
 
   const segments = specifier.split('/');
   const nameLength = specifier.startsWith('@') ? 2 : 1;
-  if (segments.length < nameLength || segments.some((segment) => segment === '')) return undefined;
+  if (segments.length < nameLength || segments.includes('')) return undefined;
 
   const rest = segments.slice(nameLength);
 
