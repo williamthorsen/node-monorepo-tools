@@ -67,8 +67,8 @@ export interface SourceResolutionContext {
  * Resolves a bare specifier to the file its package's `source` condition names, or nothing where the condition
  * does not reach it.
  *
- * Returns nothing for every specifier this resolver has no business answering -- a relative or absolute path, a
- * virtual module, a builtin, a package under `node_modules` -- so Vite resolves it as it would have. Throws
+ * Returns nothing for every specifier this resolver has no business answering -- such as a relative or absolute path,
+ * a virtual module, a builtin, or a package under `node_modules` -- so Vite resolves it as it would have. Throws
  * where the condition names a file that does not exist, because falling through to the build output is the
  * staleness that resolving from source exists to prevent, and nothing in a run reports it.
  */
@@ -109,8 +109,8 @@ export function resolveSourceTarget(
 // region | Helpers
 
 /**
- * Walks up from a directory to the package directory a bare specifier names, without resolving the specifier
- * itself: the `exports` map the caller is about to read may name no entry that the default conditions reach.
+ * Walks up from a directory to the package directory a bare specifier names, without resolving the specifier itself:
+ * The `exports` map the caller is about to read may not name any entry reached by the default conditions.
  */
 function findPackageDir(
   name: string,
@@ -157,8 +157,8 @@ function isInsideNodeModules(dir: string): boolean {
  * Finds the `exports` entry serving one subpath, by an exact key and then by the longest `*` pattern that
  * matches, as Node's own resolution does.
  *
- * An `exports` value that is not a subpath map serves the `.` subpath alone: Node reads a string, an array, and
- * an object whose keys are all conditions as the package's single entry.
+ * An `exports` value that is not a subpath map serves the `.` subpath alone:
+ * Node reads a string, an array, and an object whose keys are all conditions as the package's single entry.
  */
 function matchSubpath(exportsValue: unknown, subpath: string): { value: unknown; wildcard?: string } | undefined {
   if (exportsValue === undefined) return undefined;
@@ -200,10 +200,10 @@ function readManifest(packageDir: string, cache: Map<string, unknown> | undefine
 }
 
 /**
- * Walks one `exports` entry to the target it names, taking `source` ahead of every other condition at each
- * level, and reports whether the winning branch passed through one.
+ * Walks one `exports` entry to the target it names, taking `source` ahead of every other condition at each level, and
+ * reports whether the winning branch passed through one.
  *
- * A caller acts on the target only when it did: an entry reached without `source` is the one Vite resolves on
+ * A caller acts on the target only when it did: An entry reached without `source` is the one Vite resolves on
  * its own, and answering with it here would replace Vite's resolution with a narrower copy of it.
  */
 function selectTarget(
@@ -238,7 +238,7 @@ function selectTarget(
   return undefined;
 }
 
-/** Splits a bare specifier into its package name and subpath, rejecting every specifier that names no package. */
+/** Splits a bare specifier into its package name and subpath, rejecting every specifier that doesn't name a package. */
 function parseSpecifier(specifier: string): { name: string; subpath: string } | undefined {
   if (specifier.startsWith('.') || specifier.startsWith('/') || specifier.startsWith('\0')) return undefined;
   if (specifier.includes(':') || isBuiltin(specifier)) return undefined;

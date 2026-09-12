@@ -154,7 +154,7 @@ describe(defineVitestConfig, () => {
     expect(rootTest.coverage?.include).toStrictEqual(['**/src/**/*.{ts,tsx}']);
   });
 
-  // Pinned rather than sampled: the risk is an addition, not a removal.
+  // Pinned rather than sampled: The risk is an addition, not a removal.
   it('excludes from coverage only what cannot hold runtime code', () => {
     const rootTest = defineVitestConfig().test ?? {};
 
@@ -236,7 +236,7 @@ describe(defineVitestConfig, () => {
   });
 
   // The defaults are emitted whichever way the flag is set, because a supplied array replaces Vite's rather than
-  // extending it: a repo turning source resolution off would otherwise resolve a `module` entry differently.
+  // extending it: A repo turning source resolution off would otherwise resolve a `module` entry differently.
   it("concatenates a layer's own conditions onto the defaults when resolveFromSource is off", () => {
     const config = defineVitestConfig({ resolveFromSource: false, root: { resolve: { conditions: ['development'] } } });
 
@@ -302,7 +302,7 @@ describe(defineVitestConfig, () => {
   });
 
   // The two flags above default on, so one case covers both directions for them. This one defaults off, and each
-  // direction crosses a different branch: one adds the key, the other has to leave the block without it.
+  // direction crosses a different branch: One adds the key, the other has to leave the block without it.
   it('lets a later layer turn tsconfigPaths on', () => {
     const config = defineVitestConfig({ tsconfigPaths: false }, { tsconfigPaths: true });
 
@@ -396,7 +396,7 @@ describe(defineVitestConfig, () => {
     expect(config.test?.passWithNoTests).toBe(false);
   });
 
-  // The point of the seam: raising one tier's ceiling leaves `unit` on the tight budget that fails a hung test fast.
+  // The point of the seam: Raising one tier's ceiling leaves `unit` on the tight budget that fails a hung test fast.
   it('targets one tier, leaving the others on their base budgets', () => {
     const budgets = getTestTimeouts(defineVitestConfig({ tiers: { tool: { testTimeout: 120_000 } } }));
 
@@ -424,9 +424,9 @@ describe(defineVitestConfig, () => {
     expect(budgets.get('unit')).toBe(1_000);
   });
 
-  // Locality beats specificity across layers: the nearer config wins even where the further one was specific.
+  // Locality beats specificity across layers: The nearer config wins even where the further one was specific.
   // Pinned because folding every layer's uniform block before any tier target would invert it, and no assertion
-  // about array order would notice -- that refactor keeps the entries contiguous.
+  // about array order would notice; that refactor keeps the entries contiguous.
   it('lets a later uniform block override an earlier layer of tier targets', () => {
     const budgets = getTestTimeouts(
       defineVitestConfig({ tiers: { tool: { testTimeout: 120_000 } } }, { project: { testTimeout: 10_000 } }),
@@ -608,7 +608,6 @@ describe(defineRootVitestConfig, () => {
 });
 
 describe('project file selection', () => {
-  // `for` rather than `each`: only `for` hands the fixture context to the case body.
   it.for(['tool', 'localhost', 'remote'])(
     'selects only its own infix for the %s project',
     (tier, { selectionTree }) => {

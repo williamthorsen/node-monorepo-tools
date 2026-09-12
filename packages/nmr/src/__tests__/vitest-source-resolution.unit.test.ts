@@ -5,9 +5,9 @@ import { describe, expect, it as baseIt } from 'vitest';
 import { resolveSourceTarget } from '../vitest-source-resolution.ts';
 
 /**
- * A package outside every `node_modules`, reached through a link the way pnpm links a workspace package, and a
- * second one whose real directory sits inside `node_modules`. The pair is what separates the two outcomes: only
- * the real path distinguishes them, since both are reached by a bare specifier from the same importer.
+ * A package outside every `node_modules`, reached through a link the way pnpm links a workspace package, and
+ * a second one whose real directory sits inside `node_modules`. The pair is what separates the two outcomes:
+ * Only the real path distinguishes them, since both are reached by a bare specifier from the same importer.
  */
 const TREE_FILES: Record<string, string> = {
   'importer.ts': '',
@@ -81,8 +81,8 @@ describe(resolveSourceTarget, () => {
     expect(resolve(tree, '@fixture/linked/sub')).toBe(tree.resolve('linked/src/sub.ts'));
   });
 
-  // Node picks the pattern with the longest base rather than the first that matches, and both patterns here
-  // match: taking `./*` would resolve a file that the package does not hold.
+  // Node picks the pattern with the longest base rather than the first that matches, and both patterns here match:
+  // Taking `./*` would resolve a file that the package does not hold.
   it('resolves a pattern export, preferring the longest matching base', ({ tree }) => {
     expect(resolve(tree, '@fixture/linked/deep/one')).toBe(tree.resolve('linked/src/deep/one.ts'));
     expect(resolve(tree, '@fixture/linked/thing')).toBe(tree.resolve('linked/src/any-thing.ts'));
