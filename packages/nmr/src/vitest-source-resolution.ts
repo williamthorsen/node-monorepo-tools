@@ -67,10 +67,11 @@ export interface SourceResolutionContext {
  * Resolves a bare specifier to the file its package's `source` condition names, or nothing where the condition
  * does not reach it.
  *
- * Returns nothing for every specifier this resolver has no business answering -- such as a relative or absolute path,
- * a virtual module, a builtin, or a package under `node_modules` -- so Vite resolves it as it would have. Throws
- * where the condition names a file that does not exist, because falling through to the build output is the
- * staleness that resolving from source exists to prevent, and nothing in a run reports it.
+ * Answers a bare specifier naming a package whose real directory sits outside every `node_modules`. Every other
+ * specifier returns nothing -- such as a relative or absolute path, a virtual module, a builtin, or a package under
+ * `node_modules` -- so Vite resolves the specifier through its own conditions. Throws where the condition names a
+ * file that does not exist, because falling through to the build output is the staleness that resolving from source
+ * exists to prevent, and nothing in a run reports it.
  */
 export function resolveSourceTarget(
   specifier: string,
@@ -200,11 +201,12 @@ function readManifest(packageDir: string, cache: Map<string, unknown> | undefine
 }
 
 /**
- * Walks one `exports` entry to the target it names, taking `source` ahead of every other condition at each level, and
- * reports whether the winning branch passed through one.
+ * Walks one `exports` entry to the target that it names, taking `source` ahead of every other condition at each
+ * level, and reports through `usedSource` whether the winning branch passed through a `source` key.
  *
- * A caller acts on the target only when it did: An entry reached without `source` is the one Vite resolves on
- * its own, and answering with it here would replace Vite's resolution with a narrower copy of it.
+ * `resolveSourceTarget` returns the target only when `usedSource` is set. A target reached without `source` is the
+ * one that Vite resolves through its own conditions, so returning it here would replace Vite's resolution with a
+ * narrower copy.
  */
 function selectTarget(
   value: unknown,
