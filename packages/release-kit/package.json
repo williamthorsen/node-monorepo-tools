@@ -71,7 +71,8 @@
     "@williamthorsen/toolbelt.testing": "catalog:",
     "@williamthorsen/toolbelt.vitest": "catalog:",
     "readyup": "catalog:",
-    "smol-toml": "1.8.0"
+    "smol-toml": "1.8.0",
+    "vitest": "catalog:"
   },
   "engines": {
     "node": ">=24"

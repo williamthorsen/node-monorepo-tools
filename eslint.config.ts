@@ -1,4 +1,4 @@
-import baseConfig, { createConfig } from '@williamthorsen/eslint-config-typescript';
+import baseConfig, { commonIgnores, createConfig, toolIgnores } from '@williamthorsen/eslint-config-typescript';
 import { defineConfig, globalIgnores } from 'eslint/config';
 
 import { syntaxRestrictions, testCodeRestrictions } from './eslint.restrictions.ts';
@@ -10,15 +10,7 @@ const config = defineConfig([
     // it here is what fails the gate on one.
     linterOptions: { reportUnusedDisableDirectives: 'error' },
   },
-  globalIgnores([
-    // Completely ignore these files.
-    '**/*.sh',
-    '**/.claude/**',
-    '**/.readyup/**/*.js',
-    '**/coverage/**',
-    '**/dist/**',
-    '**/local/**',
-  ]),
+  globalIgnores([...commonIgnores, ...toolIgnores]),
   {
     files: ['**/*.js', '**/*.cjs', '**/*.mjs', '**/*.ts', '**/*.tsx'],
     rules: {
@@ -33,7 +25,7 @@ const config = defineConfig([
     },
   },
   {
-    files: ['**/*.ts', '**/*.mts', '**/*.tsx', '**/*.md/*.ts'],
+    files: ['**/*.ts', '**/*.mts', '**/*.tsx'],
     languageOptions: {
       parserOptions: {
         // Anchor the project service (enabled by the base config) at the repo root.

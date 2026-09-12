@@ -60,7 +60,8 @@
     "@williamthorsen/toolbelt.filesystem": "catalog:",
     "@williamthorsen/toolbelt.testing": "catalog:",
     "@williamthorsen/toolbelt.vitest": "catalog:",
-    "readyup": "catalog:"
+    "readyup": "catalog:",
+    "vitest": "catalog:"
   },
   "engines": {
     "node": ">=24"
