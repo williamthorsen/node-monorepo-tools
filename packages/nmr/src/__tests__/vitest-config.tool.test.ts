@@ -57,7 +57,7 @@ const PROJECT_FILES: Record<string, string> = {
  * A tree whose dependencies report which export condition selected each, alongside the two configs that decide.
  *
  * One is reached through a symlink whose target sits outside any `node_modules`, which is the shape of a
- * workspace package and the only shape source resolution reaches. The other pair is a real `node_modules`
+ * workspace package and the only shape that source resolution reaches. The other pair is a real `node_modules`
  * dependency importing a second one that declares a TypeScript `source` entry: Vitest externalizes both and
  * hands them to Node, which refuses to strip types under `node_modules`, so the run fails outright wherever
  * `source` reaches that far. The indirection is load-bearing -- importing the TypeScript entry directly does not

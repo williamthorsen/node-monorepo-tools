@@ -124,7 +124,7 @@ const GIT_ISOLATION_SETUP_FILE = resolveGitIsolationSetupFile();
 // `vite`, which nmr would otherwise have to declare as a peer dependency for every consumer to satisfy.
 //
 // The `source` condition is deliberately absent: Vitest turns the server list into `--conditions` flags on the
-// worker process, where Node applies every entry to each package it resolves natively, `node_modules` included.
+// worker process, where Node applies every entry to each package that it resolves natively, `node_modules` included.
 // `vitest-source-resolution.ts` resolves that condition inside Vite instead, where the reach is nmr's to decide.
 const CLIENT_CONDITIONS = ['module', 'browser', 'development|production'];
 const SERVER_CONDITIONS = ['module', 'node', 'development|production'];
@@ -197,7 +197,7 @@ function buildConfig(
   assertKnownTiers(layers);
 
   // The conditions are emitted whichever way `resolveFromSource` is set, because they carry Vite's defaults
-  // rather than anything source resolution contributes: a layer adding one condition would otherwise replace
+  // rather than anything source resolution contributes: A layer adding one condition would otherwise replace
   // the defaults rather than extend them.
   //
   // `tsconfigPaths` shares the block, which a second spread would replace rather than merge into, and needs no

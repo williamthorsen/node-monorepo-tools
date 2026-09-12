@@ -18,7 +18,10 @@ const TREE_FILES: Record<string, string> = {
       '.': { source: './src/index.ts', default: './dist/index.js' },
       './*': { source: './src/any-*.ts', default: './dist/index.js' },
       './deep/*': { source: './src/deep/*.ts', default: './dist/index.js' },
+      './asset': { source: './src/asset.ts', default: './dist/index.js' },
+      './directory': { source: './src/directory', default: './dist/index.js' },
       './dual': { browser: { source: './src/browser.ts' }, node: { source: './src/node.ts' } },
+      './extensionless': { source: './src/extensionless', default: './dist/index.js' },
       './gone': { source: './src/gone.ts', default: './dist/index.js' },
       './listed': [{ source: './src/listed.ts' }, './dist/index.js'],
       './plain': './dist/index.js',
@@ -27,8 +30,11 @@ const TREE_FILES: Record<string, string> = {
   }),
   'linked/dist/index.js': '',
   'linked/src/any-thing.ts': '',
+  'linked/src/asset.ts': '',
   'linked/src/browser.ts': '',
   'linked/src/deep/one.ts': '',
+  'linked/src/directory/index.ts': '',
+  'linked/src/extensionless.ts': '',
   'linked/src/index.ts': '',
   'linked/src/listed.ts': '',
   'linked/src/node.ts': '',
@@ -43,6 +49,15 @@ const TREE_FILES: Record<string, string> = {
 
   'unconditioned/package.json': JSON.stringify({ name: 'unconditioned', exports: './dist/index.js' }),
   'unconditioned/dist/index.js': '',
+
+  // A package that imports itself by name, which no `node_modules` entry serves.
+  'selfpkg/package.json': JSON.stringify({
+    name: '@fixture/selfpkg',
+    exports: { '.': { source: './src/index.ts', default: './dist/index.js' } },
+  }),
+  'selfpkg/dist/index.js': '',
+  'selfpkg/src/index.ts': '',
+  'selfpkg/src/importer.ts': '',
 };
 
 // eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
@@ -90,7 +105,7 @@ describe(resolveSourceTarget, () => {
 
   it('resolves a source condition nested under the resolving environment', ({ tree }) => {
     expect(resolve(tree, '@fixture/linked/dual')).toBe(tree.resolve('linked/src/node.ts'));
-    expect(resolve(tree, '@fixture/linked/dual', 'browser')).toBe(tree.resolve('linked/src/browser.ts'));
+    expect(resolve(tree, '@fixture/linked/dual', 'client')).toBe(tree.resolve('linked/src/browser.ts'));
   });
 
   it('resolves the first entry of an array that reaches a source condition', ({ tree }) => {
@@ -99,9 +114,9 @@ describe(resolveSourceTarget, () => {
 
   // Falling through to the build output is what nothing in a run reports, and what resolving from source exists
   // to prevent.
-  it('rejects a source condition naming a file the package does not hold', ({ tree }) => {
+  it('rejects a source condition that reaches no file', ({ tree }) => {
     expect(() => resolve(tree, '@fixture/linked/gone')).toThrow(
-      /@fixture\/linked.*"\.\/gone".*"\.\/src\/gone\.ts".*does not exist/s,
+      /@fixture\/linked.*"\.\/gone".*"\.\/src\/gone\.ts".*reaches no file/s,
     );
   });
 
@@ -115,13 +130,59 @@ describe(resolveSourceTarget, () => {
   it('leaves a specifier naming no installed package to Vite', ({ tree }) => {
     expect(resolve(tree, '@fixture/absent')).toBeUndefined();
   });
+
+  // Vite reads a self-reference off the importer's own manifest, so no `node_modules` entry serves this import and
+  // the walk alone would decline it, leaving the suite to run against the package's build output.
+  it('resolves a package that imports itself by name', ({ tree }) => {
+    const importer = tree.resolve('selfpkg/src/importer.ts');
+
+    expect(resolveSourceTarget('@fixture/selfpkg', importer, { environmentName: 'ssr' })).toBe(
+      tree.resolve('selfpkg/src/index.ts'),
+    );
+  });
+
+  // Vite looks the subpath up without the suffix and re-appends it, so carrying the suffix into the `exports` map
+  // would expand a `*` pattern into a path that nobody wrote.
+  it('resolves a subpath carrying a query suffix, and keeps the suffix', ({ tree }) => {
+    expect(resolve(tree, '@fixture/linked/asset?raw')).toBe(`${tree.resolve('linked/src/asset.ts')}?raw`);
+    expect(resolve(tree, '@fixture/linked/thing?raw')).toBe(`${tree.resolve('linked/src/any-thing.ts')}?raw`);
+  });
+
+  it('resolves a subpath carrying a hash suffix, and keeps the suffix', ({ tree }) => {
+    expect(resolve(tree, '@fixture/linked/asset#frag')).toBe(`${tree.resolve('linked/src/asset.ts')}#frag`);
+  });
+
+  // `source` is a bundler condition that Node never reads, so a package may point it where only Vite's own
+  // extension and index resolution reaches.
+  it('resolves a target that names a file only under an extension', ({ tree }) => {
+    expect(resolve(tree, '@fixture/linked/extensionless')).toBe(tree.resolve('linked/src/extensionless.ts'));
+  });
+
+  it('resolves a target that names a directory holding an index', ({ tree }) => {
+    expect(resolve(tree, '@fixture/linked/directory')).toBe(tree.resolve('linked/src/directory/index.ts'));
+  });
+
+  // The environment decides which branch of a dual-target `exports` map is taken, and a run reaches the client
+  // branch only under browser mode, which no suite here runs. Vitest names its environments `client` and `ssr`;
+  // a release renaming either would take the wrong branch here with every suite still green.
+  it.for([
+    ['client', 'linked/src/browser.ts'],
+    ['ssr', 'linked/src/node.ts'],
+    ['__vitest_vm__', 'linked/src/node.ts'],
+  ] as const)('resolves the %s environment through its own condition', ([environment, expected], { expect, tree }) => {
+    expect(resolve(tree, '@fixture/linked/dual', environment)).toBe(tree.resolve(expected));
+  });
+
+  it('declines where there is no importer to resolve from', () => {
+    expect(resolveSourceTarget('@fixture/linked', undefined, { environmentName: 'ssr' })).toBeUndefined();
+  });
 });
 
 // region | Helpers
 
-/** Resolves one specifier from a file at the tree's root, through the environment's condition. */
-function resolve(tree: TempTree, specifier: string, environmentCondition = 'node'): string | undefined {
-  return resolveSourceTarget(specifier, tree.resolve('importer.ts'), { environmentCondition });
+/** Resolves one specifier from a file at the tree's root, as the named environment. */
+function resolve(tree: TempTree, specifier: string, environmentName = 'ssr'): string | undefined {
+  return resolveSourceTarget(specifier, tree.resolve('importer.ts'), { environmentName });
 }
 
 // endregion | Helpers
