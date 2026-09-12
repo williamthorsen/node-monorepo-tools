@@ -54,11 +54,14 @@ const PROJECT_FILES: Record<string, string> = {
 };
 
 /**
- * A tree whose dependency reports which export condition selected it, alongside the two configs that decide.
+ * A tree whose dependencies report which export condition selected each, alongside the two configs that decide.
  *
- * The dependency is reached through a symlink whose target sits outside any `node_modules`: Vite hands a real
- * `node_modules` dependency to Node's resolver, which never consults `resolve.conditions`, and inlines a linked
- * one, which is why the condition reaches a workspace package at all.
+ * One is reached through a symlink whose target sits outside any `node_modules`, which is the shape of a
+ * workspace package and the only shape source resolution reaches. The other pair is a real `node_modules`
+ * dependency importing a second one that declares a TypeScript `source` entry: Vitest externalizes both and
+ * hands them to Node, which refuses to strip types under `node_modules`, so the run fails outright wherever
+ * `source` reaches that far. The indirection is load-bearing -- importing the TypeScript entry directly does not
+ * reproduce it, because Vitest inlines a `.ts` that Vite resolved itself.
  */
 const DEFAULTS_FILES: Record<string, string> = {
   'package.json': JSON.stringify({ name: 'vitest-defaults-fixture', private: true, type: 'module' }),
@@ -91,18 +94,38 @@ const DEFAULTS_FILES: Record<string, string> = {
   'dependency/dist/default.js': 'export const entry = "default";\n',
   'dependency/dist/node.js': 'export const entry = "node";\n',
 
+  // A plain-JavaScript dependency whose own import reaches Node's resolver rather than Vite's.
+  'src/node_modules/@fixture/client/package.json': JSON.stringify({
+    name: '@fixture/client',
+    private: true,
+    type: 'module',
+    exports: { '.': './dist/index.js' },
+  }),
+  'src/node_modules/@fixture/client/dist/index.js': 'export { entry } from "@fixture/deep";\n',
+
+  'src/node_modules/@fixture/deep/package.json': JSON.stringify({
+    name: '@fixture/deep',
+    private: true,
+    type: 'module',
+    exports: { '.': { source: './src/index.ts', default: './dist/default.js' } },
+  }),
+  'src/node_modules/@fixture/deep/src/index.ts': 'export const entry: string = "source";\n',
+  'src/node_modules/@fixture/deep/dist/default.js': 'export const entry = "default";\n',
+
   'src/__tests__/defaults.test.ts': [
     "import { writeFileSync } from 'node:fs';",
     '',
     "import { expect, it } from 'vitest';",
     '',
     "import { entry } from '@fixture/dep';",
+    "import { entry as transitiveEntry } from '@fixture/client';",
     '',
-    "it('records the entry it resolved and the git configuration it inherited', () => {",
+    "it('records the entries it resolved and the git configuration it inherited', () => {",
     `  writeFileSync(`,
     `    new URL(${JSON.stringify(`../../${OBSERVED_LOG}`)}, import.meta.url),`,
     '    JSON.stringify({',
     '      entry,',
+    '      transitiveEntry,',
     '      gitAttrNoSystem: process.env.GIT_ATTR_NOSYSTEM,',
     '      gitConfigCount: process.env.GIT_CONFIG_COUNT,',
     '      gitConfigGlobal: process.env.GIT_CONFIG_GLOBAL,',
@@ -328,6 +351,12 @@ describe('the defaults the factory supplies, run for real', { timeout: 120_000 }
     expect(defaults.supplied).toMatchObject({ entry: 'source' });
   });
 
+  // The run's own success is half the assertion: where `source` reaches Node, this import fails to load at all,
+  // because Node refuses to strip the types from the entry it then selects under `node_modules`.
+  it('leaves a dependency under node_modules to resolve without the source condition', ({ defaults }) => {
+    expect(defaults.supplied).toMatchObject({ transitiveEntry: 'default' });
+  });
+
   it('isolates git in the test process', ({ defaults }) => {
     expect(defaults.supplied).toMatchObject({
       gitAttrNoSystem: '1',
@@ -342,13 +371,14 @@ describe('the defaults the factory supplies, run for real', { timeout: 120_000 }
     });
   });
 
-  // The condition is what selects the source entry, rather than anything incidental about the fixture: without it
-  // the same tree resolves the `node` entry, which is also what proves `node` was in the emitted list.
+  // Source resolution is what selects the source entry, rather than anything incidental about the fixture:
+  // without it the same tree resolves the `node` entry, which is also what proves `node` was in the emitted list.
+  // The dependency under `node_modules` resolves the same either way, because the flag never reached it.
   //
-  // The report carries `entry` alone because an unset variable serializes to no key at all, so the absent nine
-  // are the assertion that nothing set them.
+  // The report carries the two entries alone because an unset variable serializes to no key at all, so the
+  // absent nine are the assertion that nothing set them.
   it('falls back to the node entry and the ambient git configuration when both defaults are off', ({ defaults }) => {
-    expect(defaults.optedOut).toStrictEqual({ entry: 'node' });
+    expect(defaults.optedOut).toStrictEqual({ entry: 'node', transitiveEntry: 'default' });
   });
 });
 
