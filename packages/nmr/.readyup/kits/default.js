@@ -252,6 +252,14 @@ var default_default = defineRdyKit({
           check: noRedundantRootScripts,
           fix: "Remove scripts from root package.json that nmr provides as built-in root scripts \u2014 invoke via nmr directly"
         },
+        // -- Git hooks -----------------------------------------------------------
+        {
+          name: "no root install script runs lefthook install unguarded",
+          severity: "warn",
+          quiet: true,
+          check: () => noUnguardedLefthookInstall(),
+          fix: "Guard each listed script as `lefthook check-install || lefthook install`, which writes hooks only when they are missing or stale. A bare `lefthook install` rewrites `.git/hooks` on every install, so when that directory is not writable, as in an agent's sandbox, `pnpm install` fails and pnpm's `verifyDepsBeforeRun` then reinstalls before every `pnpm exec`"
+        },
         // -- Workspace build readiness -------------------------------------------
         {
           name: "all workspace packages can build",
@@ -377,6 +385,9 @@ var CLOBBERED_TAZE_OPTIONS = [
   { key: "requestTimeout", pattern: /\brequestTimeout\s*:/ }
 ];
 var RE_EXPORT_LINE_PATTERN = /^export\s*(?:\{\s*default\s*}|\*)\s*from\s*['"]\.\.\/[^'"]*['"];?$/;
+var INSTALL_LIFECYCLE_SCRIPTS = ["preinstall", "install", "postinstall", "prepare"];
+var LEFTHOOK_CHECK_INSTALL_PATTERN = /\blefthook\s+check-install\b/;
+var LEFTHOOK_INSTALL_PATTERN = /\blefthook\s+install\b/;
 var MIN_ESLINT_VERSION = "10.0.0";
 var MIN_STRICT_LINT_VERSION = "9.3.0";
 var WORKSPACE_VERSION_MARKERS = ["catalog:", "workspace:"];
@@ -618,6 +629,17 @@ function noRetiredVitestConfigs(cwd = process.cwd()) {
     cwd
   );
 }
+function noUnguardedLefthookInstall(cwd = process.cwd()) {
+  const scripts = readRootScripts(cwd);
+  const unguarded = INSTALL_LIFECYCLE_SCRIPTS.flatMap((name) => {
+    const command = scripts[name];
+    if (typeof command !== "string") return [];
+    const isUnguarded = LEFTHOOK_INSTALL_PATTERN.test(command) && !LEFTHOOK_CHECK_INSTALL_PATTERN.test(command);
+    return isUnguarded ? [`${name}: ${command}`] : [];
+  });
+  if (unguarded.length === 0) return true;
+  return { ok: false, detail: formatPaths(unguarded) };
+}
 function noWorkspaceRunScriptReferences() {
   const packagesDir = join(process.cwd(), "packages");
   if (!existsSync(packagesDir)) return true;
@@ -651,6 +673,19 @@ function readPnpmFieldKeys(content) {
   if (!isRecord(parsed)) return void 0;
   const pnpm = parsed["pnpm"];
   return isRecord(pnpm) ? Object.keys(pnpm).toSorted() : void 0;
+}
+function readRootScripts(cwd) {
+  const content = readFileIn(cwd, "package.json");
+  if (content === void 0) return {};
+  let parsed;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return {};
+  }
+  if (!isRecord(parsed)) return {};
+  const scripts = parsed["scripts"];
+  return isRecord(scripts) ? scripts : {};
 }
 function resolvesVersionViaWorkspace(range) {
   return WORKSPACE_VERSION_MARKERS.some((marker) => range.startsWith(marker));
@@ -715,6 +750,7 @@ export {
   noPnpmFieldInPackageJson,
   noReExportOnlyVitestConfigs,
   noRetiredVitestConfigs,
+  noUnguardedLefthookInstall,
   prettierConfigBuildsOnSharedConfig,
   tazeConfigAvoidsClobberedOptions,
   tazeConfigBuildsOnSharedConfig,
