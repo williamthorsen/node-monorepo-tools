@@ -54,6 +54,9 @@ logs
 # OS files
 .DS_Store
 
+# Release-notes previews
+packages/*/docs/*.v*.md
+
 # Testing
 coverage/
 .shellspec-local

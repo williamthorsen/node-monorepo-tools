@@ -72,7 +72,8 @@
     "CHANGELOG.md",
     "agents",
     "bin",
-    "dist"
+    "dist",
+    "docs"
   ],
   "scripts": {
     "build:post": "rdy compile",

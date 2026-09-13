@@ -11,7 +11,7 @@ A line earns a place in it only if both hold:
 1. **It is absent from nmr's own output.** Bare `nmr` already prints the flags, every command, and the shell command each resolves to; failing checks already name their own fix. Repeating any of that costs launch tokens to say something the agent will be told anyway, at the moment it matters.
 2. **The obvious action goes wrong without it.** Guidance that prevents a silent mistake earns its place; guidance that prevents a mistake the next error message would diagnose does not.
 
-Everything else belongs in `packages/nmr/README.md`, reachable on demand at `node_modules/@williamthorsen/nmr/README.md`, with a pointer from the cheatsheet naming the topic so an agent knows to look. When adding a feature, document it there and extend that pointer rather than the cheatsheet.
+Everything else belongs in the topic document under `packages/nmr/docs/` that covers it, reachable on demand at `node_modules/@williamthorsen/nmr/docs/`, with a pointer from the cheatsheet naming the topic and its document so an agent knows where to look. When adding a feature, document it there and extend that pointer rather than the cheatsheet.
 
 ## Constraints on rulebook bodies
 
