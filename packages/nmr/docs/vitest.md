@@ -35,7 +35,7 @@ To raise a budget for one tier and no other, use the `tiers` seam below. The `pr
 
 ### Test selections
 
-Select them at run time with `--project`, which unions when repeated and accepts negation.
+Select the tiers at run time with `--project`, which unions when repeated and accepts negation.
 
 Every package resolves the same six test commands. Nothing is detected on disk: the commands select [Vitest projects](#shared-vitest-config), so a package separates its tool-tier tests by naming them `*.tool.test.ts`, not by carrying extra config files.
 

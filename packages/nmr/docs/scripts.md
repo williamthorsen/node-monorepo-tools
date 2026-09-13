@@ -98,10 +98,11 @@ A minimal `.config/nmr.config.ts` is in the [README](../README.md#configuration)
 | `workspaceScripts` | `Record<string, ScriptValue>`                                                 | Scripts added or overridden in the workspace registry (tier 2)                      |
 | `rootScripts`      | `Record<string, ScriptValue>`                                                 | Scripts added or overridden in the root registry (tier 2)                           |
 | `devBin`           | `Record<string, string>`                                                      | Map binary names to source-repo replacement commands                                |
+| `output`           | `{ commandVerbosity?: CommandVerbosity; extraAgentEnvVars?: string[] }`       | How loudly runs report command output; see [configuring](reporting.md#configuring)  |
 
 All fields are optional. [Script values](#script-values) describes `ScriptValue` and its step form, and both types are exported from `@williamthorsen/nmr/config`.
 
-Each field belongs to exactly one tier, and a config loads only the fields its own tier honors: `build` in a package config, the other four in the monorepo-root config. Declaring a field at the wrong tier fails with a message naming it and where it goes, as does a key nmr does not recognize at all — a typo cannot degrade into a setting that silently applies nowhere.
+Each field belongs to exactly one tier, and a config loads only the fields its own tier honors: `build` in a package config, the other five in the monorepo-root config. Declaring a field at the wrong tier fails with a message naming it and where it goes, as does a key nmr does not recognize at all — a typo cannot degrade into a setting that silently applies nowhere.
 
 ### Package-level configuration
 
