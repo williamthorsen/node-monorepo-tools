@@ -618,7 +618,7 @@ describe(validateConfig, () => {
     it('returns a targeted migration error when shouldCreateGithubRelease is set', () => {
       const { errors } = validateConfig({ releaseNotes: { shouldCreateGithubRelease: true } });
       expect(errors).toContain(
-        'releaseNotes.shouldCreateGithubRelease is no longer supported. Adoption is now signaled by installing the create-github-release workflow. Remove this field from your config; see README for the updated workflow.',
+        'releaseNotes.shouldCreateGithubRelease is no longer supported. Adoption is now signaled by installing the create-github-release workflow, which `release-kit init` scaffolds. Remove this field from your config.',
       );
     });
 

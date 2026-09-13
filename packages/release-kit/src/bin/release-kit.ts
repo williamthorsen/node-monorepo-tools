@@ -44,8 +44,9 @@ Commands:
   work-types       Check for or sync work-type taxonomy drift against the upstream canonical
 
 Options:
-  --dry-run     Preview changes without writing files
-  --help, -h    Show this help message
+  --dry-run        Preview changes without writing files
+  --help, -h       Show this help message
+  --version, -V    Show the version number
 `);
 }
 
@@ -109,7 +110,7 @@ function showInitHelp(): void {
 Usage: release-kit init [options]
 
 Initialize release-kit in the current repository.
-By default, scaffolds only the GitHub Actions workflow file.
+By default, scaffolds only the GitHub Actions workflow files.
 
 Options:
   --with-config   Also scaffold .config/release-kit.config.ts and .config/git-cliff.toml

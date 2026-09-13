@@ -1,8 +1,10 @@
+<!-- readme-type: cli -->
+
 # @williamthorsen/release-kit
 
 Version-bumping and changelog-generation toolkit for release workflows.
 
-Provides a self-contained CLI that auto-discovers workspaces from `pnpm-workspace.yaml`, parses conventional commits, determines version bumps, updates `package.json` files, and generates changelogs from `git-cliff --context` output rendered in-process (with optional [editorial overrides](#editorial-overrides)).
+Provides a self-contained CLI that auto-discovers workspaces from `pnpm-workspace.yaml`, parses conventional commits, determines version bumps, updates `package.json` files, and generates changelogs from `git-cliff --context` output rendered in-process (with optional [editorial overrides](docs/editorial-overrides.md)).
 
 <!-- section:release-notes --><!-- /section:release-notes -->
 
@@ -17,54 +19,52 @@ pnpm add -D @williamthorsen/release-kit
 ## Quick start
 
 ```bash
-# 1. Set up release-kit in your repo (scaffolds the release workflow)
+# 1. Scaffold the release workflows
 npx @williamthorsen/release-kit init
 
 # 2. Preview what a release would do
 npx @williamthorsen/release-kit prepare --dry-run
 ```
 
-Example output from `prepare --dry-run` in a monorepo:
+Example output from `prepare --dry-run` in a monorepo whose `arrays` workspace has two commits since its last release:
 
 ```
 🔍 DRY RUN — no files will be modified
 
-── arrays ──────────────────────────────────────
-  Found 4 commits since arrays-v1.2.0
-  Parsed 3 typed commits
+━━━ arrays ━━━
+  Found 2 commits since arrays-v1.2.0
+  Parsed 2 typed commits
   Bumping versions (minor)...
   📦 1.2.0 → 1.3.0 (minor)
-  [dry-run] Would bump packages/arrays/package.json
+    [dry-run] Would bump packages/arrays/package.json
   Generating changelogs...
-  [dry-run] Would write packages/arrays/CHANGELOG.md
+    [dry-run] Would run: npx --prefer-offline --yes git-cliff@<version> ... --output packages/arrays/CHANGELOG.md
   🏷️  arrays-v1.3.0
-
-── strings ─────────────────────────────────────
-  Found 2 commits since strings-v0.5.1
-  Parsed 2 typed commits
-  Bumping versions (patch)...
-  📦 0.5.1 → 0.5.2 (patch)
-  [dry-run] Would bump packages/strings/package.json
-  Generating changelogs...
-  [dry-run] Would write packages/strings/CHANGELOG.md
-  🏷️  strings-v0.5.2
 
 ✅ Release preparation complete.
    🏷️  arrays-v1.3.0
-   🏷️  strings-v0.5.2
+  [dry-run] Would write tmp/.release-tags: arrays-v1.3.0
+  [dry-run] Would write tmp/.release-summary
 ```
 
-That's it for most repos. The CLI auto-discovers workspaces and applies sensible defaults. The bundled `cliff.toml.template` is used automatically — no need to copy it. Customize only what you need via `.config/release-kit.config.ts`.
+Commit the scaffolded workflows, then start a release from the `release` workflow. It runs `prepare` in CI, then commits, tags, and pushes the result:
+
+```sh
+gh workflow run release.yaml                  # every workspace with release-worthy changes
+gh workflow run release.yaml -f only=arrays   # the named workspaces alone
+```
+
+The CLI applies defaults to every discovered workspace and uses the bundled `cliff.toml.template` unless the repository provides a git-cliff config of its own. [Releasing](docs/releasing.md) covers `prepare`'s flags, release-notes previews, and the workflow's inputs.
 
 ## How it works
 
 1. **Workspace discovery**: reads `pnpm-workspace.yaml` and resolves its `packages` globs to find workspace directories. Each directory containing a `package.json` becomes a workspace. If no workspace file is found, the repo is treated as a single-package project.
 2. **Config loading**: loads `.config/release-kit.config.ts` (if present) and merges it with discovered defaults.
 3. **Commit analysis**: for each workspace, finds commits since the last version tag, parses them for type and scope, and determines the appropriate version bump.
-4. **Version bump + changelog**: bumps `package.json` versions, builds structured `ChangelogEntry[]` from `git-cliff --context`, applies any [editorial overrides](#editorial-overrides) from per-scope `.meta/changelog-overrides.json` files, and renders both `CHANGELOG.md` and `.meta/changelog.json` from that single source. `git-cliff` is invoked only for its `--context` JSON; markdown rendering happens in-process so `.meta/changelog.json` and `CHANGELOG.md` always agree.
+4. **Version bump + changelog**: bumps `package.json` versions, builds structured `ChangelogEntry[]` from `git-cliff --context`, applies any [editorial overrides](docs/editorial-overrides.md) from per-scope `.meta/changelog-overrides.json` files, and renders both `CHANGELOG.md` and `.meta/changelog.json` from that single source. `git-cliff` is invoked only for its `--context` JSON; markdown rendering happens in-process so `.meta/changelog.json` and `CHANGELOG.md` always agree.
 5. **Release tags file**: writes computed tags to `tmp/.release-tags` for the release workflow to read when tagging and pushing.
 
-Neither changelog reaches a published tarball on its own. npm stopped including `CHANGELOG` automatically in npm 7, so a package that declares a `files` field ships a changelog only where that field names `CHANGELOG.md` and `.meta/changelog.json`. release-kit's readyup kit reports a publishable workspace whose `files` field omits either.
+[Changelogs](docs/changelogs.md) covers what reaches a published tarball, the `changelog.json` item schema, and the git-cliff config.
 
 ## Commit format
 
@@ -81,11 +81,11 @@ type(scope)!: description      # conventional scoped breaking change
 
 The `scope|type:` format scopes a commit to a specific workspace in a monorepo. Use `scopeAliases` in your config to map shorthand names to canonical scope names.
 
+[Work types and tiers](docs/work-types.md) lists the recognized types and how each one affects the bump and the changelog.
+
 ## Configuration
 
 Configuration is optional. The CLI works out of the box by auto-discovering workspaces and applying defaults. Create `.config/release-kit.config.ts` only when you need to customize behavior.
-
-### Config file
 
 ```typescript
 import { defineConfig } from '@williamthorsen/release-kit/config';
@@ -109,815 +109,18 @@ export default defineConfig({
 
 Node loads the file directly, so a relative import inside it needs an explicit file extension — `./work-types.ts`, not `./work-types`.
 
-### `ReleaseKitConfig` reference
+[Configuration](docs/configuration.md) lists every field and covers legacy identities, retired packages, and tag prefixes. [Project releases](docs/project-releases.md) covers releasing a monorepo as one combined deliverable.
 
-| Field              | Type                                                      | Description                                                                                                                                          |
-| ------------------ | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `cliffConfigPath`  | `string`                                                  | Explicit path to cliff config. If omitted, resolved automatically: `.config/git-cliff.toml` → `cliff.toml` → bundled template                        |
-| `workspaces`       | `WorkspaceOverride[]`                                     | Override or exclude discovered workspaces (matched by `dir`)                                                                                         |
-| `formatCommand`    | `string`                                                  | Shell command to run after changelog generation; modified file paths are appended as arguments                                                       |
-| `versionPatterns`  | `VersionPatterns`                                         | Rules for which commit types trigger major/minor bumps                                                                                               |
-| `scopeAliases`     | `Record<string, string>`                                  | Maps shorthand scope names to canonical names in commits                                                                                             |
-| `workTypes`        | `Record<string, WorkTypeConfig>`                          | Work type definitions, merged with defaults by key                                                                                                   |
-| `breakingPolicies` | `Record<string, 'forbidden' \| 'optional' \| 'required'>` | Per-type `!`-policy lookup. Defaults to `DEFAULT_BREAKING_POLICIES`. Replaces the default entirely when provided. Set to `{}` to disable enforcement |
-| `retiredPackages`  | `RetiredPackage[]`                                        | Packages that once lived in this repo but have been extracted or removed; suppresses undeclared-tag-prefix warnings                                  |
-| `project`          | `ProjectConfig`                                           | Opt-in project-level release block. Declaring `project: {}` (even empty) enables a project-release stage in `prepare`                                |
-| `repoLabels`       | `RepoLabelsConfig`                                        | Declares the repository's label registry for `sync-labels`; see [Label configuration](#label-configuration)                                          |
+## External dependencies
 
-All fields are optional.
+This package shells out to two external tools:
 
-### `WorkspaceOverride`
-
-```typescript
-interface WorkspaceOverride {
-  dir: string; // Package directory name (e.g., 'arrays')
-  shouldExclude?: boolean; // If true, exclude from release processing
-  legacyIdentities?: LegacyIdentity[]; // Prior `(name, tagPrefix)` identities for this workspace
-}
-
-interface LegacyIdentity {
-  name: string; // Full scoped npm name at the time (e.g., '@scope/pkg')
-  tagPrefix: string; // Tag prefix under which historical tags were published (e.g., 'core-v')
-}
-```
-
-`legacyIdentities` captures prior identities of a workspace as complete `(name, tagPrefix)` snapshots. The union of the current `tagPrefix` and each identity's `tagPrefix` is consulted when release-kit searches for the most recent baseline tag and when generating changelogs. Use it when a workspace's historical tags were published under a different npm name, a different tag prefix, or both — typically across a package rename. Both fields are required per identity: each entry must be a complete historical snapshot that stays valid regardless of subsequent renames. Run `release-kit show-tag-prefixes` to detect undeclared candidates and produce a paste-ready config snippet. Listing the current identity (full `(name, tagPrefix)` match) is rejected as a no-op duplicate; an identity whose `tagPrefix` matches the current but whose `name` differs is valid and documents a prior rename that reused the same tag shape. If the workspace no longer exists in this repo at all (the package was extracted or removed), use [`retiredPackages`](#retiredpackage) instead.
-
-### `RetiredPackage`
-
-```typescript
-interface RetiredPackage {
-  name: string; // Final scoped npm name while the package lived in this repo
-  tagPrefix: string; // Tag prefix under which the package's historical tags were published
-  successor?: string; // Optional successor package name (e.g., 'readyup')
-}
-```
-
-`retiredPackages` is the repo-level complement to `legacyIdentities`. Use `legacyIdentities` when the workspace still exists in this repo under a new identity; use `retiredPackages` when no workspace for this package exists in this repo anymore — the package was extracted to another repo or removed outright. Retired entries are inert: release-kit never consults them for baseline lookup or changelog attribution. Their declared `tagPrefix` values are recognized as historical, so `show-tag-prefixes` stops flagging them under "Undeclared tag prefixes."
-
-Worked example — `preflight` was extracted from this monorepo and continues as the standalone `readyup` project. Its tags stay in this repo as historical anchors:
-
-```typescript
-import { defineConfig } from '@williamthorsen/release-kit/config';
-
-export default defineConfig({
-  retiredPackages: [{ name: '@scope/preflight', tagPrefix: 'preflight-v', successor: 'readyup' }],
-});
-```
-
-Validation rules:
-
-- `name` and `tagPrefix` are required per entry and must be non-empty strings.
-- `successor` is optional; if present, it must be a non-empty string.
-- Full-tuple `(name, tagPrefix)` duplicates within `retiredPackages` are rejected.
-- Two entries sharing the same `tagPrefix` but different `name`s are accepted — this documents a package renamed within the repo before being retired.
-
-`show-tag-prefixes` currently does not render a dedicated "Retired packages" section (deferred). Declaring a retired entry is verifiable by confirming that its `tagPrefix` stops appearing under "Undeclared tag prefixes" in the `show-tag-prefixes` output.
-
-### Tag prefix collisions
-
-Tag prefixes from distinct owners must not be identical or be a strict prefix of one another. An owner is one of:
-
-- An active workspace, comprising its derived `tagPrefix` plus any declared `legacyIdentities[].tagPrefix`. Identities of the same workspace are one owner, so their prefixes are allowed to overlap (this represents the same package across renames).
-- A `retiredPackages[]` entry (one owner per entry).
-- The `project` block, when configured.
-
-release-kit resolves baseline tags via `git describe --match=<prefix>*`, so a strict-prefix overlap between distinct owners would cause that glob to return cross-matches against the wrong owner's history. For example, a project prefix of `v` collides with a workspace prefix of `vue-helpers-v`, since `git describe --match=v*` would return both project tags and `vue-helpers` tags.
-
-The rule is enforced at config load; the resulting error identifies both colliding declarations.
-
-### Project releases
-
-Some monorepos ship a single combined deliverable — a Chrome extension, a CLI binary, a packaged desktop app — for which the per-workspace tags and changelogs alone do not describe what the user actually receives. Declare the optional `project` block to add a project-level release stage that runs alongside the per-workspace pipeline.
-
-```typescript
-import type { ReleaseKitConfig } from '@williamthorsen/release-kit/config';
-
-const config: ReleaseKitConfig = {
-  // Empty object is enough to opt in. Every non-excluded workspace contributes.
-  project: {},
-};
-
-export default config;
-```
-
-When configured, each `release-kit prepare` run additionally:
-
-- Computes commits since the last project tag (`<tagPrefix><version>`), filtered to `paths` (by default, the union of every contributing workspace's paths).
-- Bumps the root `package.json`'s `version` field using the same bump-derivation rules as workspaces (or the `--bump=...` override).
-- Regenerates the root `./CHANGELOG.md` from the structured `ChangelogEntry[]` produced by `git-cliff --context` (scoped to the project's `tagPrefix` and the same `paths`) and any matching editorial overrides.
-- Emits `./.meta/changelog.json` (when `changelogJson.enabled`).
-- With `--with-release-notes`, additionally emits `./docs/RELEASE_NOTES.v<version>.md`.
-- Appends the project tag to `tmp/.release-tags` so `release-kit commit` and `release-kit tag` pick it up alongside per-workspace tags.
-
-If no commit under `paths` has landed since the last project tag, the project release is silently skipped — same behavior as a per-workspace skip.
-
-#### `ProjectConfig`
-
-```typescript
-interface ProjectConfig {
-  paths?: string[]; // Defaults to the union of every contributing workspace's paths
-  tagPrefix?: string; // Defaults to 'v'
-}
-```
-
-| Field       | Default                 | Description                                                          |
-| ----------- | ----------------------- | -------------------------------------------------------------------- |
-| `paths`     | Contributing-path union | Patterns selecting the commits the project release considers         |
-| `tagPrefix` | `'v'`                   | Prefix for project tags. The full tag is `${tagPrefix}${newVersion}` |
-
-By default the contributing workspaces are implicit: every non-excluded discovered workspace contributes its `<dir>/**` glob, and the project release considers commits under their union.
-
-Declare `paths` to choose the window yourself. Each entry reaches two matchers: `git log` as a pathspec, and `git-cliff --include-path` as a glob. A declared value **replaces** the workspace union rather than extending it: `paths: ['docs/**']` drops every workspace commit from the project release.
-
-A repo whose content lives at the root — where no commit matches any `<dir>/**` glob, so the project release would skip every run — declares the whole tree:
-
-```typescript
-const config: ReleaseKitConfig = {
-  project: { paths: ['**'] },
-};
-```
-
-`'**'` is the whole-tree pattern, matching root-level files, dotfiles, and nested paths alike.
-
-Terminate a directory scope with `/**`. The two matchers agree on `'aws/**'` but diverge on a bare `'aws'`, which git reads as the whole subtree and git-cliff matches against nothing; `'.'` is the same trap for the repo root. A release under such an entry finds commits, bumps the version, and writes the tag, while its changelog gains no entry for them — and nothing reports an error.
-
-Validation rules:
-
-- The root `package.json` must exist and declare a `version` field. release-kit reports an error at config-load time if either is missing.
-- The `project` block is rejected in single-package mode (the package's own release already covers the whole repo, so a project tier would only duplicate it).
-- `paths`, when declared, must hold at least one non-empty string. An empty array is rejected: it reaches git and git-cliff as no filter at all, which is the inverse of how it reads.
-- Unknown fields inside `project` are rejected.
-
-CLI flag interactions:
-
-- `--dry-run` previews project artifacts alongside workspace artifacts; no files are written.
-- `--bump=major|minor|patch` propagates to the project release as a level chooser. It does not trigger a release on its own when there are no commits or no bump-worthy commits.
-- `--force` runs the project release even when no commits or no bump-worthy commits exist since the last project tag. Defaults to patch when `--bump` is not given; combine with `--bump=X` to release at a different level.
-- `--only` narrows the run to the named workspaces and skips the project release, which is reported as a warning. The project release rolls up every contributing workspace, and `--only` changes which workspaces those are, so rolling up a narrowed set would release a project version covering work the run excluded. Run a full `prepare` (no `--only`) to include the project release.
-- `--set-version` is rejected with an error when `project` is configured. `--set-version` operates on a single workspace, but a project release rolls up every contributing workspace; the two semantics don't compose. To use `--set-version`, run on a config without a `project` block.
-
-`--bump` and `--force` are orthogonal: `--bump` is purely a level chooser; `--force` is purely a release trigger. Examples:
-
-```sh
-# Release every target at its natural bump level (no flags).
-release-kit prepare
-
-# Force a release even when no bump-worthy commits exist; defaults to patch
-# per target, with each target keeping its natural bump if one is derivable.
-release-kit prepare --force
-
-# Force a release at a uniform level across every releasing target.
-release-kit prepare --force --bump=minor
-
-# --bump=X alone is a level chooser, NOT a trigger. If a target has no
-# bump-worthy commits, it skips with a "Pass --force..." reason. If it has
-# bump-worthy commits, the override applies. (Behavioral change from earlier
-# release-kit versions, where --bump=X alone would force a release.)
-release-kit prepare --bump=minor
-```
-
-### `VersionPatterns`
-
-Defines which commit types trigger major or minor bumps. Any recognized type not listed defaults to a patch bump.
-
-```typescript
-interface VersionPatterns {
-  major: string[]; // Patterns triggering a major bump ('!' = any breaking change)
-  minor: string[]; // Commit types triggering a minor bump
-}
-```
-
-Default: `{ major: ['!'], minor: ['feat'] }`
-
-### Work types and tiers
-
-The canonical taxonomy lives in `packages/release-kit/src/work-types.json` and is split into three tiers that drive section rendering and audience classification.
-
-| Tier     | Key         | Header                    | Aliases       | `!` policy   |
-| -------- | ----------- | ------------------------- | ------------- | ------------ |
-| public   | `feat`      | 🎉 Features               | `feature`     | optional     |
-| public   | `drop`      | 🪦 Removed                |               | **required** |
-| public   | `deprecate` | 🗑️ Deprecated             |               | forbidden    |
-| public   | `fix`       | 🐛 Bug fixes              | `bugfix`      | forbidden    |
-| public   | `sec`       | 🔒 Security               | `security`    | optional     |
-| public   | `perf`      | ⚡ Performance            | `performance` | forbidden    |
-| internal | `internal`  | 🏗️ Internal features      | `utility`     | forbidden    |
-| internal | `refactor`  | ♻️ Refactoring            |               | forbidden    |
-| internal | `tests`     | 🧪 Tests                  | `test`        | forbidden    |
-| process  | `tooling`   | ⚙️ Tooling                |               | forbidden    |
-| process  | `ci`        | 👷 CI                     |               | forbidden    |
-| process  | `deps`      | 📦 Dependencies           | `dep`         | forbidden    |
-| process  | `ai`        | 🤖 Agentic support        |               | forbidden    |
-| process  | `docs`      | 📚 Documentation          | `doc`         | forbidden    |
-| process  | `fmt`       | (excluded from changelog) |               | forbidden    |
-
-#### Tier semantics
-
-- **`public`** — visible to all audiences. `public`-tier sections appear in both public release notes and dev changelogs.
-- **`internal`** — dev-only. `internal`-tier sections appear in dev changelogs but not in public-facing release notes.
-- **`process`** — dev-only. Same audience treatment as `internal`.
-
-Section render order is **tier order (`public` → `internal` → `process`), then row order within tier**. The bundled `cliff.toml.template` encodes this order via hidden `<!-- NN -->` HTML-comment prefixes on each parser's `group` value; tera's `group_by` filter sorts groups lexicographically (now monotonic by row number), and the body template's `striptags` filter erases the prefix from rendered headings.
-
-#### `docs` reclassification
-
-`docs`/Documentation has moved from the all-audience tier (where it lived before this taxonomy was formalised) to the dev-only `process` tier. **Documentation commits no longer appear in public-facing release notes.** They still appear in `CHANGELOG.md` and `changelog.json` under the `audience: 'dev'` classification.
-
-#### `utility` alias
-
-`utility:` is a backward-compat alias for `internal:`. Both forms parse to the same canonical type, route to the same `🏗️ Internal features` section, and are subject to the same `!` policy.
-
-#### `!` (breaking change) policy
-
-Each work-type carries a `breakingPolicy` value:
-
-- `optional` (`feat`, `sec`) — `!` is allowed; both `type:` and `type!:` parse cleanly.
-- `forbidden` (most types) — `!` is a policy violation. The premise: types like `internal!`, `perf!`, `fix!` are contradictory; an internal change cannot break a consumer contract, a pure perf change preserves the contract, and a bug-fix is by definition not a contract change.
-- `required` (`drop`) — bare `drop:` is a policy violation; only `drop!:` is accepted. The premise: removing a feature always breaks consumers; the `!` form makes that explicit.
-
-##### Two-tier policy enforcement
-
-The `!` policy operates at two distinct levels with different semantics:
-
-- **Write-time** (commit-msg hook) — strict rejection. Policy violations are blocked at the gate where the author can act on them immediately. _Hook-based enforcement is tracked separately and is not yet shipped._
-- **Release-time** (`parseCommitMessage`) — tolerant warn-and-continue. Commits already in the log cannot be rewritten, so a policy-violating commit is parsed using its canonical type with `breaking: false` (the `!` is dropped from the parse) and a `onPolicyViolation` callback fires. Callers (`decideRelease` etc.) can collect these warnings and surface them in the release report. A single legacy `internal!` in a year-old log does not block releases.
-
-A `BREAKING CHANGE:` body footer on a `forbidden`-policy type triggers the same warning path as the prefix `!` does — the spirit of the policy is "internal/perf/etc. cannot be breaking", which must apply to both surfaces.
-
-The release-prepare orchestrators (`releasePrepare`, `releasePrepareMono`, `releasePrepareProject`) apply `DEFAULT_BREAKING_POLICIES` automatically. Violations encountered while parsing each workspace's or project's commit window are collected onto the corresponding result's `policyViolations` field and rendered under the section in the prepare report:
-
-```
-arrays
-  Found 1 commits since arrays-v1.0.0
-  ⚠️  1 policy violation:
-      · def5678 'internal!: refactor cache' — type 'internal' at prefix surface
-  Bumping versions (patch)...
-  📦 1.0.0 → 1.0.1 (patch)
-```
-
-To customize, set `breakingPolicies` in `release-kit.config.ts` — provide a partial map to override individual types, or `{}` to disable enforcement entirely (the parser falls back to `'optional'` for any missing type). Violations remain warnings, never failures.
-
-#### `🚨 **Breaking:**` bullet marker
-
-Items whose commit subject carries the `!` prefix (e.g. `feat!`, `drop!`, `feat(api)!`) are rendered with a `🚨 **Breaking:** ` prefix on the bullet:
-
-```markdown
-- 🚨 **Breaking:** Drop legacy /v1 endpoint
-```
-
-Only the prefix `!` triggers this marker. A `BREAKING CHANGE:` body footer on its own does **not** retroactively mark a changelog item as breaking — the changelog signal is tied to the commit-prefix policy. This avoids surprise breaking-marker appearances for older commits written under earlier conventions.
-
-The emoji and label of this marker are sourced from the `markers.breaking` entry in `work-types.json` (see [Section markers](#section-markers)) so consumers that render their own breaking-changes section draw from the same SSOT.
-
-### Section markers
-
-Alongside `tiers` and `types`, `work-types.json` exposes a top-level `markers` object for cross-cutting section markers — visual indicators that aren't tied to a specific work type. Today the canonical entry is `breaking`; additional keys (e.g., security advisories, migration notices) can be added without a schema change.
-
-```jsonc
-{
-  "markers": {
-    "breaking": { "emoji": "🚨", "label": "Breaking" },
-  },
-}
-```
-
-Entries store plain text only — the SSOT is format-agnostic, so consumers apply their own emphasis (Markdown bold, ANSI escape, HTML `<strong>`) when constructing the rendered form. release-kit's own renderer constructs the per-bullet prefix as `${emoji} **${label}:** ` from this entry.
-
-#### `fmt`
-
-`fmt:` commits are recognized by `parseCommitMessage` (they contribute to a patch bump) but `fmt` carries `excludedFromChangelog: true`. The bundled `cliff.toml.template` skips `fmt:` commits at the parser level, so they never appear in `CHANGELOG.md`, `changelog.json`, or release notes. The label and emoji are present in `work-types.json` for schema parity with the codeassembly upstream but never render.
-
-#### Custom work types
-
-Work types from your config are merged with these defaults by key — your entries override or extend, they don't replace the full set. Release-notes sections are rendered in the declaration order of the merged work-types record, with any unknown titles trailing the known ones.
-
-The default `devOnlySections` (excluded from public release notes but still written to `CHANGELOG.md`) are derived from the `internal` and `process` tiers (excluding `fmt`). Override via `changelogJson.devOnlySections` in your config; matching is decorator-tolerant, so a bare-name override like `['Internal features']` keeps working against the emoji-prefixed and prefix-decorated default titles.
-
-## `changelog.json` item schema
-
-Each item under a section in `.meta/changelog.json` carries one required field and four optional ones:
-
-| Field         | Type      | Meaning                                                                                                                           |
-| ------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `description` | `string`  | The bullet headline, taken from the commit subject with the ticket ID and type prefix stripped.                                   |
-| `body`        | `string`  | The commit body, with trailing trailer metadata stripped.                                                                         |
-| `breaking`    | `boolean` | Present and `true` where the commit subject carried the `!` prefix. See [`!` (breaking change) policy](#-breaking-change-policy). |
-| `migration`   | `string`  | The migration step for a consumer. See below.                                                                                     |
-| `hash`        | `string`  | The full commit SHA, and the key on which an override entry matches. Absent on synthetic propagation entries.                     |
-
-Every optional field is omitted rather than emitted as `null`, so a consumer tests for presence.
-
-### The `migration` field
-
-A commit body states a migration step as a paragraph opening with the literal label `Migration:`. Where one is present, `migration` carries that paragraph with the label stripped:
-
-```jsonc
-{
-  "description": "Rename the workspace field",
-  "body": "Renames `name` to `id`.\n\nMigration: Change any uses of `name` to `id`.",
-  "migration": "Change any uses of `name` to `id`.",
-}
-```
-
-Three properties are worth knowing:
-
-- **It is independent of `breaking`.** A `fix` cannot carry `!` under the default breaking policy, and a `fix` that tightens validation still imposes a migration. Filter on `migration` to find every step; filter on `breaking` to find every breaking change.
-- **`body` keeps the paragraph.** The field is an extraction, not a move, so `CHANGELOG.md` and `.meta/changelog.json` go on agreeing.
-- **It is derived, not authored.** `migration` is not a field an override file can set (see [File shape](#file-shape)); it is re-derived from whatever `body` an override installs, and cleared where that body carries no labeled paragraph. To change the migration text, override `body`.
-
-The label match is exact: `migration:` and `**Migration:**` are not recognized.
-
-## Editorial overrides
-
-Generated changelogs occasionally need editorial correction — typos, redacted scope, reworded entries, or historical commits whose bodies carry verbatim PR-template scaffolding (`## What`, `## Why`, etc.) that renders as literal text in user-facing release notes. Rewriting git history is not viable, and any in-place edit to `CHANGELOG.md` or `.meta/changelog.json` is overwritten on the next release because release-kit regenerates both artifacts from scratch.
-
-Override files are the supported escape hatch. Drop a checked-in JSON file at the conventional path for the scope you want to influence, keyed by commit hash, and `release-kit prepare` applies the overrides between `buildChangelogEntries` and serialization. Both `CHANGELOG.md` and `.meta/changelog.json` reflect the post-override view, so downstream consumers (the GitHub Release body, the in-app release-notes page, etc.) see the same content.
-
-### File-location convention
-
-| Scope               | Path                                           | Applies to                                              |
-| ------------------- | ---------------------------------------------- | ------------------------------------------------------- |
-| Project (root)      | `.meta/changelog-overrides.json`               | The project changelog and every workspace's changelog   |
-| Workspace           | `packages/<ws>/.meta/changelog-overrides.json` | Only that workspace's changelog                         |
-| Single-package mode | `.meta/changelog-overrides.json`               | The package's changelog (collapses to the project case) |
-
-Filenames have no leading dot — the `.meta/` directory already provides the visibility property and parallels its sibling artifacts (`changelog.json`, `label-map.json`).
-
-### Composition: per-key shadowing
-
-When a workspace's changelog is rendered, both files are consulted:
-
-- The root file's overrides apply globally.
-- The workspace file's overrides apply only to that workspace.
-- When the **same hash key** (string-equal, byte-for-byte) appears in both files, the **workspace entry wins entirely** for that workspace's changelog — no field-level merge, the workspace entry replaces the root entry.
-- Different prefix strings that happen to resolve to the same commit do **not** shadow; they fall through to the existing ambiguous-prefix error so you can correct your override file.
-- Other keys in the root file still apply for that workspace.
-
-The project-level changelog applies only the root file. Per-workspace files describe per-workspace editorial intent and have no meaning at the aggregated project tier.
-
-### Stale-key warnings
-
-A key that doesn't match any commit gets a stale-reference warning. The warning's scope mirrors the file's scope:
-
-- **Per-workspace files** are warned against their own apply context. A key in `packages/foo/.meta/changelog-overrides.json` that doesn't match any commit in foo's changelog is unambiguously stale and is warned immediately.
-- **Root file** keys are aggregated globally — a root key that matches in any workspace or in the project changelog is non-stale; a root key matched nowhere is warned exactly once after all batches complete.
-
-### File shape
-
-```json
-{
-  "82962311": {
-    "audience": "skip"
-  },
-  "abc1234d": {
-    "body": "Cleaned-up prose without the original PR-template scaffolding."
-  },
-  "ef567890": {
-    "description": "Rewritten headline that fixes the typo",
-    "body": "Optional replacement body."
-  }
-}
-```
-
-Per-entry fields are all optional, but at least one must be present per entry:
-
-| Field         | Type                       | Effect                                                                                                                            |
-| ------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `audience`    | `'all' \| 'dev' \| 'skip'` | `'skip'` removes the entry entirely. `'all'` and `'dev'` are reserved for a future audience-reclassification feature (see below). |
-| `description` | `string`                   | Replaces the entry's bullet headline. Other fields are preserved.                                                                 |
-| `body`        | `string`                   | Replaces the entry's body (the prose that renders below the bullet). Other fields are preserved.                                  |
-| `breaking`    | `boolean`                  | Toggles the `🚨 **Breaking:** ` marker on the bullet.                                                                             |
-
-There is no `migration` key: the field is derived from `body`, so an override that replaces `body` re-derives it. See [The `migration` field](#the-migration-field).
-
-### Hash-prefix matching
-
-Keys can be either the full 40-character commit SHA or a non-ambiguous prefix. The matcher walks every `ChangelogItem.hash` value present in the entry tree and resolves each override key to its set of matching hashes:
-
-- **Exact prefix match (1 hit)** — the override applies. A 7-character prefix is usually unambiguous within a single repo's history; longer prefixes are always safe.
-- **No matches (0 hits)** — the override is treated as a stale reference (probably from a rebase or branch deletion) and prepare reports a warning. The release continues.
-- **Ambiguous prefix (2+ hits)** — the release aborts with an error naming the key and the matching hashes. Lengthen the prefix or use the full SHA.
-
-Override application errors abort the run with a non-zero exit; warnings (zero-match keys) are non-fatal and surface on `PrepareResult.warnings`.
-
-### Validation
-
-The override file is validated when `release-kit prepare` loads it. Each error names the offending key so you can locate it in your file:
-
-- Missing file → empty map, no error (the no-op default — projects that do not need overrides skip the file entirely).
-- Malformed JSON → error.
-- Wrong top-level shape (e.g., array, primitive) → error.
-- Unknown fields on an entry → error.
-- Wrong field types (e.g., `description` as a number) → error.
-- An entry with no fields set → error (a copy-paste mistake more often than not).
-- `audience: 'all'` or `audience: 'dev'` → error in the current release: only `'skip'` is supported (see below).
-
-#### Standalone validation: `release-kit overrides validate`
-
-For a focused overrides-only health check (locally or as a CI gate), run:
-
-```sh
-pnpm exec release-kit overrides validate
-```
-
-This walks every `.meta/changelog-overrides.json` file across the project tier and per-workspace tier, reporting three classes of finding:
-
-| Class               | Examples                                                                                    | Exit code |
-| ------------------- | ------------------------------------------------------------------------------------------- | --------- |
-| Schema/parse errors | malformed JSON, unknown fields, wrong field types, no-field entries, unsupported `audience` | `2`       |
-| Ambiguous-prefix    | an override key resolves to 2+ commit hashes                                                | `2`       |
-| Stale-key warnings  | an override key resolves to no commit in its applicable scope                               | `1`       |
-
-Exit code semantics:
-
-- `0` — clean (no errors, no stale keys).
-- `1` — only stale-key warnings.
-- `2` — schema/parse or ambiguous-prefix errors (errors dominate when both classes are present).
-
-Tier-aware stale-key semantics match `release-kit prepare`'s match-set exactly: a workspace-tier key is stale if it does not match in its own workspace's history; a root-tier key is stale only if it matches in **no** scope (no workspace AND not the project release window).
-
-The same logic is also exposed programmatically via the `validateAllChangelogOverrides` function exported from `@williamthorsen/release-kit`, for callers that want to integrate the check into their own tooling.
-
-### Audience semantics: v1 supports `'skip'` only
-
-The on-disk format declares the full `'all' | 'dev' | 'skip'` audience vocabulary so the file format will not need to change when the v2 reclassification feature ships. In the current release, only `'skip'` is supported at runtime; `'all'` and `'dev'` are rejected with an explicit "not yet supported" error.
-
-The eventual v2 behavior will let an override move a single item to a different audience section (e.g., reclassifying a `Documentation` entry as `Internal features` to keep it out of public-facing release notes). v1 deliberately leaves that as a separate change so the override mechanism can ship now and the section-split logic can land additively later.
-
-### Worked example 1: cleaning up scaffolded historical commits (root file)
-
-Suppose a year-old commit `82962311` was authored from a PR template that left `## What` / `## Why` headings in the body, and that commit now appears in your in-app release notes as literal Markdown headings. Add an override at the project tier:
-
-```json
-// .meta/changelog-overrides.json
-{
-  "82962311": {
-    "body": "Add the in-app release-notes page with version-aware navigation."
-  }
-}
-```
-
-On the next `release-kit prepare` run, the matched item's body is replaced before the JSON and Markdown artifacts are written. The original git history is untouched.
-
-### Worked example 2: suppressing a cross-attribution spillover (workspace file)
-
-Release-kit attributes commits to workspaces by file path, so a commit that primarily belongs to one workspace can land in another's changelog if it touched files there. Suppose commit `1ce3d2f` renamed the `audit-deps` package to `v11y-check` (scope `v11y-check`) but also edited `packages/nmr/src/default-scripts.ts` and `packages/nmr/README.md`. The commit correctly appears in `packages/v11y-check/CHANGELOG.md`, but it also spills into `packages/nmr/CHANGELOG.md` where it isn't the right editorial framing.
-
-Drop a workspace-tier override at `packages/nmr/.meta/changelog-overrides.json`:
-
-```json
-// packages/nmr/.meta/changelog-overrides.json
-{
-  "1ce3d2f": {
-    "audience": "skip"
-  }
-}
-```
-
-The commit is now suppressed in nmr's changelog only — it still appears in v11y-check's, where it belongs. A root-tier `'skip'` would have removed it from both, which is the wrong outcome.
-
-### Rendering pipeline change
-
-Prior versions of release-kit shelled out to `git-cliff` for both structured `--context` JSON and rendered Markdown (cliff's body template). After this change, `git-cliff` is invoked only for `--context` JSON; release-kit's in-process `renderChangelogMarkdown` produces `CHANGELOG.md` from the same `ChangelogEntry[]` that drives `.meta/changelog.json`. The two artifacts can no longer disagree.
-
-The bundled `cliff.toml.template`'s body template has been emptied (the `[git].commit_parsers` section is still load-bearing for `--context` group assignment); custom `.config/git-cliff.toml` files no longer need a body template.
-
-Observable output differences from the prior cliff-rendered format:
-
-- Trailers (`Signed-off-by:`, `Co-authored-by:`, `Closes #N`, GitHub PR URLs) are stripped from rendered bodies.
-- Items whose commit subject carries the `!` breaking marker render with a `🚨 **Breaking:** ` prefix.
-- Empty version entries (releases with no commits routed to a section) are omitted; the prior cliff template rendered them as bare headings.
-- The footer comment is now `<!-- Generated by release-kit. Do not edit this file. Use .meta/changelog-overrides.json to override entries. -->`.
-
-The first release that ships under the new renderer will produce a one-time noisy diff in `CHANGELOG.md` (whitespace, trailers, breaking markers). Subsequent releases stabilize.
-
-## CLI reference
-
-### Global options
-
-| Flag              | Description         |
-| ----------------- | ------------------- |
-| `--help`, `-h`    | Show help message   |
-| `--version`, `-V` | Show version number |
-
-### `release-kit prepare`
-
-Run release preparation with automatic workspace discovery.
-
-| Flag                         | Description                                                                                                                                                                                                                                                             |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--dry-run`                  | Preview changes without writing files                                                                                                                                                                                                                                   |
-| `--bump=major\|minor\|patch` | Override the bump type for all workspaces                                                                                                                                                                                                                               |
-| `--set-version=X.Y.Z`        | Set an explicit canonical semver version; bypasses commit-derived bumps. In monorepo mode it requires `--only`, and is rejected when a `project` block is configured.                                                                                                   |
-| `--force`                    | Release even when no commits or no bump-worthy commits exist since the last tag. In monorepo/project mode, defaults to patch (combine with `--bump=X` for a different level); in single-package mode, a bare `--force` is rejected — pass `--bump=major\|minor\|patch`. |
-| `--only=name1,name2`         | Only process the named workspaces (monorepo only). When a `project` block is configured, the project release is skipped.                                                                                                                                                |
-| `--with-release-notes`       | Write per-workspace release-notes previews under `<workspacePath>/docs/`                                                                                                                                                                                                |
-| `--help`, `-h`               | Show help                                                                                                                                                                                                                                                               |
-
-Workspace names for `--only` match the package directory name (e.g., `arrays`, `release-kit`).
-
-#### Previewing release notes with `--with-release-notes`
-
-`--with-release-notes` writes two versioned files per workspace after each workspace's `changelog.json` is produced:
-
-- `<workspacePath>/docs/README.v<version>.md` — the workspace `README.md` with release notes injected at the `<!-- section:release-notes -->` marker.
-- `<workspacePath>/docs/RELEASE_NOTES.v<version>.md` — the standalone release notes for this version.
-
-The publish-time inject-and-revert lifecycle is unchanged; previews are additive, deterministic, and safe to regenerate. When `changelogJson.enabled` is `false`, prepare reports a warning and skips preview generation. In dry-run mode, planned writes are logged and no files are created.
-
-Because preview filenames are versioned, committing them will accumulate files over time. The recommended `.gitignore` entry for monorepos is:
-
-```gitignore
-packages/*/docs/*.v*.md
-```
-
-For single-package repos:
-
-```gitignore
-docs/*.v*.md
-```
-
-#### Setting an explicit version with `--set-version`
-
-The `--set-version` flag is a first-class escape hatch for the cases where commit-derived bump logic produces the wrong version — most notably, promoting a pre-1.0 package to 1.0.0. Pre-1.0 packages collapse a `feat!` breaking change to a minor bump (matching semantic-release's `initialMajor: false` and release-please's `bump-minor-pre-major`), so a deliberate promotion to 1.0.0 must be requested explicitly.
-
-The flag validates that:
-
-- The value is canonical `N.N.N` semver (pre-release suffixes are rejected).
-- The target is strictly greater than the current version (numeric comparison on each component).
-- In monorepo mode, `--only` is set and resolves to exactly one workspace.
-
-`--set-version` is mutually exclusive with `--bump` and `--force`. The rest of the pipeline (changelog generation, tag creation, commit summary, propagation to dependents) runs unchanged, so dependents receive a propagated patch bump triggered by the overridden version.
-
-Promoting a pre-1.0 package to 1.0.0 in a monorepo:
-
-```sh
-release-kit prepare --only arrays --set-version 1.0.0
-```
-
-An empty changelog section is expected for a bare promotion, because the changelog is generated from commits since the last tag. To include a narrative entry, land a descriptive release commit (e.g., a `feat!` describing the stable API) before running `prepare`.
-
-### `release-kit publish`
-
-Publish packages that have release tags on HEAD. The publish workflow's reusable workflow `publish.reusable.yaml` invokes this command in CI.
-
-| Flag                   | Description                                                                  |
-| ---------------------- | ---------------------------------------------------------------------------- |
-| `--dry-run`            | Preview without publishing                                                   |
-| `--no-git-checks`      | Skip the clean-working-tree check                                            |
-| `--tags=tag1,tag2,...` | Only publish the named tags (comma-separated, full tag names)                |
-| `--provenance`         | Generate provenance statement (requires OIDC, not supported by classic yarn) |
-| `--help`, `-h`         | Show help                                                                    |
-
-#### Publishability filter
-
-`publish` and `create-github-release` operate only on workspaces where `package.json#private` is absent or `false`. A workspace marked `private: true` is "versioned but not published": it can still be tagged by `release-kit tag` and get a `CHANGELOG.md` entry, but it is skipped by both `release-kit publish` (no registry publish) and `release-kit create-github-release` (no GitHub Release). `private: true` alone routes a workspace out of publish and announce — no extra release config is required. Other commands ignore this filter and operate on private workspaces unchanged.
-
-An unpublishable tag is always skipped cleanly, never fatal. For `release-kit publish`, whether the skip is announced depends on how the tag was resolved:
-
-- **Without `--tags`** (implicit resolution): unpublishable tags on HEAD are silently filtered. The pre-publish listing shows only the publishable subset. If the filter empties the set, `release-kit publish` prints `Nothing to publish.` and exits 0.
-- **With `--tags`** (explicit naming): each named tag pointing at an unpublishable workspace is skipped with a warning, and any publishable tags named in the same command still publish.
-
-`release-kit create-github-release` skips unpublishable workspaces with a warning regardless of `--tags`; an all-private tag set is a clean no-op.
-
-Example warning when an explicit tag is unpublishable:
-
-```
-Skipping basic-v1.0.0 (packages/basic): package.json#private is true.
-```
-
-### `release-kit create-github-release`
-
-Create GitHub Releases from `changelog.json` for tags on HEAD. Independent of `npm publish`: invoking this command creates Releases for publishable packages whether or not they were published to a registry. Private workspaces are skipped (see [Publishability filter](#publishability-filter)).
-
-| Flag                   | Description                                                               |
-| ---------------------- | ------------------------------------------------------------------------- |
-| `--dry-run`            | Preview without creating releases                                         |
-| `--tags=tag1,tag2,...` | Only create releases for the named tags (comma-separated, full tag names) |
-| `--help`, `-h`         | Show help                                                                 |
-
-When `--tags` is omitted, every release tag pointing at HEAD is processed. The CLI requires the `gh` CLI on `PATH` and `contents: write` permission. The bundled `create-github-release.reusable.yaml` GitHub Actions workflow runs this command in CI.
-
-### `release-kit show-tag-prefixes`
-
-Print a per-workspace table of derived tag prefixes, tag counts, and declared legacy prefixes. Also surfaces any release-shaped tag prefix in the repo that is neither a derived prefix nor declared via `legacyIdentities`, along with a copy-pasteable `workspaces: [...]` config snippet. The snippet uses a `TODO-fill-in-legacy-npm-name` placeholder for each identity's `name`; replace it with the package's prior npm name before pasting.
-
-| Flag           | Description |
-| -------------- | ----------- |
-| `--help`, `-h` | Show help   |
-
-Exits `0` when every workspace derives a prefix and there are no cross-workspace collisions; exits `1` on any derivation failure or collision. Undeclared candidates do not affect the exit code — they surface as a warning via the `legacy tag prefixes are declared` readyup check.
-
-In single-package mode, prints a single row with `workspacePath = .` and `derivedPrefix = v`; legacy entries and undeclared-candidate scanning are not applicable.
-
-### `release-kit init`
-
-Initialize release-kit in the current repository. By default, scaffolds only the GitHub Actions workflow file. Use `--with-config` to also scaffold configuration files.
-
-| Flag            | Description                                                                |
-| --------------- | -------------------------------------------------------------------------- |
-| `--with-config` | Also scaffold `.config/release-kit.config.ts` and `.config/git-cliff.toml` |
-| `--force`       | Overwrite existing files instead of skipping them                          |
-| `--dry-run`     | Preview changes without writing files                                      |
-| `--help`, `-h`  | Show help                                                                  |
-
-Scaffolded files:
-
-- `.github/workflows/create-github-release.yaml` — workflow that creates a GitHub Release on tag push, independent of npm publish
-- `.github/workflows/publish.yaml` — workflow that delegates to a reusable publish workflow
-- `.github/workflows/release.yaml` — workflow that delegates to a reusable release workflow
-- `.config/release-kit.config.ts` — starter config with commented-out customization examples (with `--with-config`)
-- `.config/git-cliff.toml` — copied from the bundled template (with `--with-config`)
-
-### `release-kit work-types`
-
-Manage the canonical work-types taxonomy used by changelog and release-notes generation.
-
-| Subcommand | Description                                                                         |
-| ---------- | ----------------------------------------------------------------------------------- |
-| `check`    | Compare the local `work-types.json` against the upstream codeassembly canonical     |
-| `sync`     | Overwrite the local `work-types.json` with the upstream contents (after validation) |
-
-`check` exit codes:
-
-| Code | Meaning                                                                           |
-| ---- | --------------------------------------------------------------------------------- |
-| `0`  | Match (or upstream missing — transitional warning printed)                        |
-| `1`  | Drift detected                                                                    |
-| `2`  | Network error or non-OK HTTP response                                             |
-| `3`  | Schema mismatch (upstream JSON does not parse or fails the top-level shape check) |
-
-The check is non-blocking initially: until codeassembly publishes its `work-types.json`, the upstream URL returns 404 and `check` exits 0 with a warning. CI flip to a blocking check is tracked as a follow-up once the upstream ships.
-
-These commands are also exposed as `nmr work-types:check` / `nmr work-types:sync` from any package directory.
-
-#### Authenticated fetches
-
-When the upstream codeassembly repo is private, both `check` and `sync` need a GitHub token to fetch the canonical `work-types.json`. Set `GITHUB_TOKEN` in the environment and the commands send `Authorization: Bearer <token>` automatically; without it, requests are unauthenticated and a private upstream will return 404.
-
-```sh
-# Source from `gh auth` for local runs:
-export GITHUB_TOKEN=$(gh auth token)
-pnpm exec release-kit work-types check
-```
-
-The token needs `contents: read` on the codeassembly repo (fine-grained PAT scope) or the equivalent classic-PAT scope. A token without sufficient scope still produces a 404 — same response as a missing upstream — so a misconfigured token degrades to the transitional-warning path rather than failing loudly. CI wiring against private upstream is deferred until either codeassembly is publicly readable or a cross-repo PAT is provisioned as a workflow secret.
-
-### `release-kit sync-labels`
-
-Manage GitHub label definitions via the `repoLabels` block of `.config/release-kit.config.ts`.
-
-| Subcommand | Description                                                    | Flags                  |
-| ---------- | -------------------------------------------------------------- | ---------------------- |
-| `init`     | Scaffold the caller workflow, seed config, and generate labels | `--dry-run`, `--force` |
-| `generate` | Regenerate `.github/labels.yaml` from config                   | `--check`              |
-| `sync`     | Trigger the `sync-labels` GitHub Actions workflow via `gh` CLI | —                      |
-
-`init` scaffolds the `.github/workflows/sync-labels.yaml` caller workflow and seeds a `repoLabels` block with scope labels discovered from workspaces and declared `retiredPackages`. When `.config/release-kit.config.ts` does not exist, `init` writes it; when it does, `init` prints the block for manual paste — a hand-authored config is never rewritten. `generate` resolves the block and writes `.github/labels.yaml`; with `--check` it regenerates in memory and exits non-zero if the committed file is stale or missing, writing nothing. `sync` triggers the workflow remotely — it requires the `gh` CLI and an existing workflow file.
-
-Every `sync-labels` subcommand refuses to run while the retired `.config/sync-labels.config.ts` is present, so custom labels cannot be silently dropped mid-migration; see [Migrating from `.config/sync-labels.config.ts`](#migrating-from-configsync-labelsconfigts).
-
-#### Label configuration
-
-```typescript
-import { defineConfig } from '@williamthorsen/release-kit/config';
-
-export default defineConfig({
-  repoLabels: {
-    extends: ['common'],
-    labels: {
-      'scope:my-package': { color: '00ff96' }, // add, with no description
-      bug: { color: 'b60205', description: 'Something broken' }, // replace the preset's `bug`
-      wontfix: null, // remove the preset's `wontfix`
-    },
-  },
-});
-```
-
-The block declares the repository's label registry — the set of labels defined on the GitHub repo, distinct from labels applied to PRs and issues. Resolution is an ordered fold with last-writer-wins:
-
-1. Presets, in `extends` order — a later preset wins on a shared name.
-2. The `labels` record — an entry adds a label, replaces one an earlier layer defined, or removes it (`null`). Replacement is wholesale: an entry omitting `description` resolves to no description rather than inheriting the one an earlier layer supplied.
-
-`description` is optional throughout, in a preset as in the `labels` record, and `sync-labels init` generates none for a scope label. The generated file spells an absent description `''` because `github-label-sync` reads an omitted description as "leave the label's current one alone"; the empty form clears it.
-
-Overlaps are never errors; order resolves them, and the committed `.github/labels.yaml` diff is where an unexpected change surfaces at review. The one config error is a dangling `null` — removing a name no preset defines — because that misstatement is invisible in the output diff.
-
-#### Migrating from `.config/sync-labels.config.ts`
-
-Label configuration formerly lived in a standalone `.config/sync-labels.config.ts` (`presets` + a `labels` array). To migrate:
-
-1. Move the preset list to `repoLabels.extends` in `.config/release-kit.config.ts`.
-2. Convert each `labels` array entry to a `'name': { color }` record entry under `repoLabels.labels`, adding `description` where the label carries one.
-3. Delete `.config/sync-labels.config.ts` and run `release-kit sync-labels generate`.
-
-The regenerated `.github/labels.yaml` differs only in its `# Source:` header line. Name collisions with preset labels, which the old format rejected, now mean your entry replaces the preset label.
-
-#### When labels are applied
-
-The scaffolded workflow carries three triggers:
-
-| Trigger                                                   | Job     | Token           | Effect                            |
-| --------------------------------------------------------- | ------- | --------------- | --------------------------------- |
-| Push to the default branch touching `.github/labels.yaml` | `sync`  | `issues: write` | Applies the labels                |
-| Manual dispatch (`release-kit sync-labels sync`)          | `sync`  | `issues: write` | Applies the labels                |
-| Pull request touching `.github/labels.yaml`               | `check` | `issues: read`  | Logs the diff without applying it |
-
-Applying on merge closes the window in which a regenerated `.github/labels.yaml` sits unapplied — a window in which a later manual dispatch would apply a label set nobody reviewed.
-
-The `check` job runs the same sync in dry-run. Its **Label diff** log group lists every create, edit, rename, and deletion the sync would perform, including deletions of labels the file does not declare — the destructive edits a diff of `.github/labels.yaml` alone cannot show, because a label created by hand or by another workflow is absent from the file both before and after. Read that log; the check reports success whether or not the diff is destructive, so a green check is not evidence that nothing will be deleted.
-
-The two jobs are split because a job's permissions are fixed when the run is created and cannot vary by trigger. The split is what keeps a write-scoped token out of pull-request runs.
-
-The push trigger filters on the path alone; the `sync` job compares `github.ref_name` against the repository's default branch. The workflow therefore needs no per-repo edit whatever that branch is named — and a push touching `.github/labels.yaml` on any other branch produces a run whose jobs all skip.
-
-Manual dispatch is not a preview. It matches the `sync` job, so it applies the labels, deletions included; only the pull-request path runs in dry-run.
-
-#### Dry-run checks on fork pull requests
-
-GitHub issues a read-only `GITHUB_TOKEN` to pull requests from forks, and by default holds runs from first-time contributors until a maintainer approves them. The dry-run reads labels and writes nothing, so the check normally runs once approved. A repo that disables workflows on fork pull requests gets no check at all; to preview such a change, push the branch to the base repo and open the pull request from there.
-
-#### Migrating an existing repo
-
-The caller workflow gained the `push` and `pull_request` triggers after its first release. A repo scaffolded before that keeps working on manual dispatch alone — nothing breaks — but it applies labels only when someone remembers to. To adopt the new shape:
-
-```sh
-pnpm exec release-kit sync-labels init --force
-```
-
-`readyup` prompts for this: its `sync-labels.yaml matches template` check fails once the scaffolded workflow no longer matches the current template.
-
-#### Published JSON Schema for `.meta/label-map.json`
-
-release-kit publishes a JSON Schema for `.meta/label-map.json` — a separate, generic data file that maps commit-prefix scopes and types to GitHub label names. The schema lives at `packages/release-kit/schemas/label-map.json` in this repo and is reachable via the stable raw URL:
-
-```
-https://github.com/williamthorsen/node-monorepo-tools/raw/release-kit-v<version>/packages/release-kit/schemas/label-map.json
-```
-
-Consumers reference it from the top of their `.meta/label-map.json`:
-
-```json
-{
-  "$schema": "https://github.com/williamthorsen/node-monorepo-tools/raw/release-kit-v<version>/packages/release-kit/schemas/label-map.json",
-  "types": { "feat": "feature", "fix": "fix" },
-  "scopes": { "audit": "scope:audit" }
-}
-```
-
-release-kit publishes the schema only; it does not generate `.meta/label-map.json`. Generation requires commit-prefix knowledge that lives outside release-kit (in agent-conventions tooling), and is owned by those consumers.
-
-## GitHub Actions workflow
-
-The `init` command scaffolds a release workflow at `.github/workflows/release.yaml` that delegates to a reusable release workflow. The scaffolded workflow accepts these inputs:
-
-| Input  | Type   | Description                                                         |
-| ------ | ------ | ------------------------------------------------------------------- |
-| `only` | string | Workspaces to release (comma-separated, leave empty for all)        |
-| `bump` | choice | Override bump type: `patch`, `minor`, `major` (empty = auto-detect) |
-
-For repos that need a self-contained workflow instead of the reusable one, the scaffolded file can be expanded. The key steps are: checkout with full history (`fetch-depth: 0`), run `release-kit prepare` with optional `--only` and `--bump` flags, check for changes, read tags from `tmp/.release-tags`, then commit, tag, and push.
-
-### Triggering a release
-
-```sh
-# All workspaces
-gh workflow run release.yaml
-
-# Specific workspace(s)
-gh workflow run release.yaml -f only=arrays
-gh workflow run release.yaml -f only=arrays,strings -f bump=minor
-```
-
-Or use the GitHub UI: Actions > Release > Run workflow.
-
-## cliff.toml setup
-
-The package includes a bundled `cliff.toml.template` that is used automatically when no custom config is found. The resolution order:
-
-| Priority | Path                          | Notes                                           |
-| -------- | ----------------------------- | ----------------------------------------------- |
-| 1        | `cliffConfigPath` in config   | Explicit path, returned without existence check |
-| 2        | `.config/git-cliff.toml`      | Project-level override                          |
-| 3        | `cliff.toml`                  | Repo root fallback                              |
-| 4        | Bundled `cliff.toml.template` | Automatic fallback                              |
-
-The bundled template provides a generic git-cliff configuration that:
-
-- Strips issue-ticket prefixes matching `^[A-Z]+-\d+\s+` (e.g., `TOOL-123 `, `AFG-456 `)
-- Handles both `type: description` and `workspace|type: description` commit formats
-- Groups commits by work type via `[git].commit_parsers`
-
-The body template is intentionally empty: release-kit reads cliff's `--context` JSON output and renders `CHANGELOG.md` in-process via `renderChangelogMarkdown` (see [Editorial overrides](#editorial-overrides) for the rationale). The `[git].commit_parsers` section remains load-bearing for `--context` group assignment.
-
-To customize, scaffold a local copy with `release-kit init --with-config` and edit `.config/git-cliff.toml`. Edit only the `[git]` section — body-template changes have no effect.
+- **`git`** — must be available on `PATH`. Used to find tags and retrieve commit history.
+- **`git-cliff`** — pinned to an exact version and fetched via `npx` on first invocation, then served from npx's cache. No need to install it as a dev dependency. The pin moves only when a new release-kit version names a newer git-cliff, so two releases cut months apart run the same changelog generator.
 
 ## Readiness checks
 
-release-kit publishes two [readyup](https://www.npmjs.com/package/readyup) kits that check a consuming repo against the release it has installed: the `default` kit covers release-kit's own setup — workflows matching the current templates, config free of removed fields, sync-labels wiring — and `npm-auto-publish` covers a repo's OIDC-based npm publishing setup. Both ship inside the package, so they check against the version you installed rather than whatever a repository ref happens to point at, and a check added in a release reaches your repo on upgrade.
-
-Add `readyup` as a devDependency, then name release-kit in its config:
+release-kit publishes two [readyup](https://www.npmjs.com/package/readyup) kits: `default` checks release-kit's own setup, and `npm-auto-publish` checks OIDC-based npm publishing. Add `readyup` as a devDependency, then name release-kit in its config:
 
 ```ts
 // .config/readyup.config.ts
@@ -929,186 +132,33 @@ export default defineRdyConfig({
 ```
 
 ```bash
-rdy run --packages                                               # every kit each listed package publishes
-rdy run --from npm:@williamthorsen/release-kit                   # the default kit alone
-rdy run --from npm:@williamthorsen/release-kit npm-auto-publish  # the npm-auto-publish kit
-rdy list --from npm:@williamthorsen/release-kit                  # what release-kit publishes
+rdy run --packages
 ```
 
-`--packages` is the form that survives release-kit publishing further kits. Every form needs `readyup` 0.23 or later, and `@williamthorsen/release-kit` as a _direct_ devDependency: a strict pnpm layout links nothing else into the project, so a transitive copy is unreachable.
+`rdy run` needs `readyup` 0.23 or later, and `@williamthorsen/release-kit` as a _direct_ devDependency: a strict pnpm layout links nothing else into the project; therefore, a transitive copy is unreachable.
 
-`npm-auto-publish` queries the npm registry for each package's trusted publisher, so it needs an npm session elevated by two-factor authentication, and is meant to be invoked deliberately rather than swept up by an unattended run. A session that cannot answer those queries, whether it is missing a login, missing the elevation, or facing an unreachable registry, is reported once by the `npm session can answer trust queries` gate. The rows that would repeat the failed query then stand down: the trusted-publisher rows in every case, and `published to npm` where the registry itself is unreachable. Each package's `package.json` checks report throughout, since they read no registry.
-
-These kits are no longer reachable through `rdy run --from github:williamthorsen/node-monorepo-tools`. Repos still using that form should switch to one of the invocations above.
-
-## External dependencies
-
-This package shells out to two external tools:
-
-- **`git`** — must be available on `PATH`. Used to find tags and retrieve commit history.
-- **`git-cliff`** — pinned to an exact version and fetched via `npx` on first invocation, then served from npx's cache. No need to install it as a dev dependency. The pin moves only when a new release-kit version names a newer git-cliff, so two releases cut months apart run the same changelog generator.
-
-## Upgrading from v4 to v5
-
-Release-kit v5 derives each workspace's tag prefix from its unscoped `package.json` `name`, so a package at `packages/core` with `"name": "@scope/nmr-core"` uses tags like `nmr-core-v1.3.0`. Repos that previously tagged under the directory basename (e.g., `core-v1.3.0`) do not need to rewrite history — declare the prior identity in `legacyIdentities` so release-kit recognizes historical tags under both the new and old prefixes.
-
-Minimal worked example for a repo whose pre-v5 tags were `core-v0.2.7` and whose npm name has not changed:
-
-```typescript
-// .config/release-kit.config.ts
-import type { ReleaseKitConfig } from '@williamthorsen/release-kit/config';
-
-const config: ReleaseKitConfig = {
-  workspaces: [
-    {
-      dir: 'core',
-      legacyIdentities: [{ name: '@scope/nmr-core', tagPrefix: 'core-v' }],
-    },
-  ],
-};
-
-export default config;
-```
-
-Each `legacyIdentity` is a complete `(name, tagPrefix)` snapshot of the workspace at an earlier point. In the common case — the tag-derivation rule changed but the npm name did not — the identity's `name` equals the current `name`. If an earlier publish used a different npm name, use that prior name here.
-
-Verify with `release-kit show-tag-prefixes` — it prints the derived prefix per workspace, tag counts under each declared legacy prefix, and any undeclared release-shaped prefixes it finds in the repo (with a copy-pasteable config snippet that includes a `TODO-fill-in-legacy-npm-name` placeholder to replace with the prior npm name). After declaring, `release-kit prepare` consults the union of the current and legacy tag prefixes when searching for the most recent baseline tag, and changelog generation matches tags under either prefix.
-
-See the `legacyIdentities` entry in the [`WorkspaceOverride`](#workspaceoverride) section for the config shape.
-
-## Using `deriveWorkspaceConfig()` for manual configuration
-
-If you need to build a `MonorepoReleaseConfig` manually (e.g., for the legacy script-based approach), the exported `deriveWorkspaceConfig()` helper creates a `WorkspaceConfig` from a workspace-relative path. It reads the workspace's `package.json` to derive the tag prefix from the package name:
-
-```typescript
-import { deriveWorkspaceConfig } from '@williamthorsen/release-kit';
-
-// packages/arrays/package.json contains `"name": "@scope/arrays"`
-deriveWorkspaceConfig('packages/arrays');
-// => {
-//   dir: 'arrays',
-//   name: '@scope/arrays',
-//   tagPrefix: 'arrays-v',
-//   workspacePath: 'packages/arrays',
-//   packageFiles: ['packages/arrays/package.json'],
-//   changelogPaths: ['packages/arrays'],
-//   paths: ['packages/arrays/**'],
-// }
-```
-
-`dir` is the basename of the workspace path and is the stable internal identifier used by `--only`, `WorkspaceOverride.dir`, and the dependency graph. `tagPrefix` is derived from the unscoped `package.json` `name` — any leading `@scope/` is stripped — so tags reflect the package identity rather than the directory layout. For example, a workspace at `packages/core` with `"name": "@williamthorsen/nmr-core"` produces `tagPrefix: 'nmr-core-v'`, yielding tags like `nmr-core-v1.3.0`.
-
-The workspace's `package.json` must declare a non-empty `name` field; `deriveWorkspaceConfig()` throws otherwise. If two workspaces produce the same `tagPrefix` (because their unscoped names collide), `mergeMonorepoConfig()` throws and names the colliding workspaces so you can rename one.
-
-## Legacy script-based approach
-
-The CLI-driven approach is recommended for new setups. The script-based approach (using `runReleasePrepare` with a manually maintained config) is still supported for backward compatibility.
-
-```typescript
-// .github/scripts/release.config.ts
-import type { MonorepoReleaseConfig } from '@williamthorsen/release-kit';
-import { deriveWorkspaceConfig } from '@williamthorsen/release-kit';
-
-export const config: MonorepoReleaseConfig = {
-  workspaces: [deriveWorkspaceConfig('packages/arrays'), deriveWorkspaceConfig('packages/strings')],
-  formatCommand: 'npx prettier --write',
-};
-```
-
-```typescript
-// .github/scripts/release-prepare.ts
-import { runReleasePrepare } from '@williamthorsen/release-kit';
-import { config } from './release.config.ts';
-
-runReleasePrepare(config);
-```
-
-The key difference: the script-based approach requires manually listing every workspace, while the CLI auto-discovers them from `pnpm-workspace.yaml`.
-
-## Breaking changes
-
-### `resolveReleaseTags` takes workspaces; `WorkspaceConfig` requires `workspacePath`
-
-Tag resolution is now driven by workspace records rather than a caller-supplied directory map, so `resolveReleaseTags` can report both the workspace `dir` and its `workspacePath` for every resolved tag.
-
-- `resolveReleaseTags` signature changed from `(workspaceMap?: Map<string, string>)` to `(workspaces?: readonly WorkspaceConfig[])`.
-- `WorkspaceConfig` gained a required `workspacePath: string` field.
-
-Replace direct `Map`-based calls with `deriveWorkspaceConfig()`, which now populates `workspacePath` for you:
-
-```diff
--import { resolveReleaseTags } from '@williamthorsen/release-kit';
--
--const workspaceMap = new Map([['core', 'packages/core']]);
--resolveReleaseTags(workspaceMap);
-+import { deriveWorkspaceConfig, resolveReleaseTags } from '@williamthorsen/release-kit';
-+
-+resolveReleaseTags([deriveWorkspaceConfig('packages/core')]);
-```
-
-If you construct `WorkspaceConfig` objects directly, add `workspacePath` alongside the other required fields.
-
-### `release-kit publish` and `release-kit push` replace `--only` with `--tags`
-
-The `--only=<dir>` flag on `release-kit publish` and `release-kit push` has been removed. Both commands now filter by full tag name via `--tags=<tag1>[,<tag2>...]`, matching `release-kit create-github-release`. Passing `--only=...` after upgrading produces an `Unknown option: --only` error.
-
-Local usage mapping:
-
-```diff
--release-kit publish --only=core
-+release-kit publish --tags=core-v1.3.0
-
--release-kit push --only=core,cli
-+release-kit push --tags=core-v1.3.0,cli-v0.5.0
-```
-
-Omitting `--tags` preserves the previous behavior of operating on every release tag at HEAD. The reusable workflow `publish.reusable.yaml` also accepts an optional `tags:` input, and the scaffolded `publish.yaml` now passes `tags: ${{ github.ref_name }}` so the publish scope is explicit rather than relying on `actions/checkout@v6`'s fetch default. Existing callers that do not set `tags:` continue to work unchanged.
-
-### GitHub Release creation moved to its own command and workflow
-
-`release-kit publish` no longer creates GitHub Releases as a side effect, and the `releaseNotes.shouldCreateGithubRelease` config field has been removed. Adoption is now signaled by installing the dedicated `create-github-release.reusable.yaml` workflow.
-
-If you previously set the field, remove it from `.config/release-kit.config.ts`. The new caller template (scaffolded by `release-kit init`) looks like this:
-
-```yaml
-name: Create GitHub Release
-on:
-  push:
-    tags:
-      - '*-v[0-9]*.[0-9]*.[0-9]*'
-permissions:
-  contents: write
-jobs:
-  create-github-release:
-    uses: williamthorsen/node-monorepo-tools/.github/workflows/create-github-release.reusable.yaml@workflow/create-github-release-v1
-    with:
-      tag: ${{ github.ref_name }}
-```
-
-The CLI command was renamed from `release-kit github-release` to `release-kit create-github-release`, and its filter flag changed from `--only=<package-name>` to `--tags=<full-tag-name>[,...]`.
-
-### v1.1.0: `formatCommand` receives file paths as trailing arguments
-
-Previously, `formatCommand` was executed as-is (e.g., `pnpm run fmt` would run without arguments). Now, the paths of all modified files (package.json files and changelogs) are appended as trailing arguments.
-
-If your format command does not accept file arguments, update it to one that does:
-
-```diff
--formatCommand: 'pnpm run fmt',
-+formatCommand: 'npx prettier --write',
-```
-
-### v1.1.0: `git-cliff` is no longer a required dev dependency
-
-`git-cliff` is now invoked via `npx` instead of requiring it as a dev dependency. You can remove it from your `devDependencies`. release-kit names an exact version in the invocation, so the version you get is decided by the release-kit version you install rather than by whatever the registry serves that day.
+[Readiness checks](docs/readiness-checks.md) covers running each kit alone and what `npm-auto-publish` needs from the npm session.
 
 ## Migration from changesets
 
 1. Add `@williamthorsen/release-kit` as a dev dependency.
 2. Remove `@changesets/cli` from dev dependencies. The [default readyup kit](#readiness-checks) reports a repo that still declares it.
 3. Delete the `.changeset/` directory.
-4. Run `npx @williamthorsen/release-kit init` to scaffold workflow and config files.
+4. Run `npx @williamthorsen/release-kit init` to scaffold the release workflows.
 5. Remove `changeset:*` scripts from `package.json` (no replacement needed — the CLI handles everything).
 6. Create an initial version tag for each package (e.g., `git tag v1.0.0` or `git tag arrays-v1.0.0`).
 
 No cliff config copy is needed — the bundled template is used automatically. To customize, run `release-kit init --with-config`.
+
+## Documentation
+
+- [Configuration](docs/configuration.md): `ReleaseKitConfig` fields, workspace overrides and legacy identities, retired packages, tag prefixes, and version patterns
+- [Project releases](docs/project-releases.md): the `project` block, and how a project release interacts with `prepare`'s flags
+- [Releasing](docs/releasing.md): `init`, `prepare`'s flags and release-notes previews, and the release workflow
+- [Publishing](docs/publishing.md): `publish`, the publishability filter, and `create-github-release`
+- [Changelogs](docs/changelogs.md): the `changelog.json` item schema, the git-cliff config, and release-notes injection
+- [Editorial overrides](docs/editorial-overrides.md): correcting generated changelog entries, and `overrides validate`
+- [Work types and tiers](docs/work-types.md): tiers, the `!` policy, markers, custom work types, and `work-types check` and `sync`
+- [Labels](docs/labels.md): `sync-labels`, label configuration, the workflow's triggers, and the `label-map.json` schema
+- [Readiness checks](docs/readiness-checks.md): both readyup kits, and how to run each
+- [Programmatic API](docs/api.md): `deriveWorkspaceConfig()`, the script-based approach, and `resolveReleaseTags`
