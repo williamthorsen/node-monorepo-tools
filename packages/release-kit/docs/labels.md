@@ -1,6 +1,8 @@
-# `release-kit sync-labels`
+# Labels
 
 How to declare the repository's labels in `.config/release-kit.config.ts`, how the scaffolded workflow applies them, and the published schema for `.meta/label-map.json`.
+
+## `release-kit sync-labels`
 
 Manage GitHub label definitions via the `repoLabels` block of `.config/release-kit.config.ts`.
 
@@ -8,7 +10,7 @@ Manage GitHub label definitions via the `repoLabels` block of `.config/release-k
 
 Every `sync-labels` subcommand refuses to run while the retired `.config/sync-labels.config.ts` is present, so custom labels cannot be silently dropped mid-migration, and the refusal names what to move and where.
 
-## Label configuration
+### Label configuration
 
 ```typescript
 import { defineConfig } from '@williamthorsen/release-kit/config';
@@ -34,7 +36,7 @@ The block declares the repository's label registry — the set of labels defined
 
 Overlaps are never errors; order resolves them, and the committed `.github/labels.yaml` diff is where an unexpected change surfaces at review. The one config error is a dangling `null` — removing a name no preset defines — because that misstatement is invisible in the output diff.
 
-## When labels are applied
+### When labels are applied
 
 The scaffolded workflow carries three triggers:
 
@@ -54,11 +56,11 @@ The push trigger filters on the path alone; the `sync` job compares `github.ref_
 
 Manual dispatch is not a preview. It matches the `sync` job, so it applies the labels, deletions included; only the pull-request path runs in dry-run.
 
-## Dry-run checks on fork pull requests
+### Dry-run checks on fork pull requests
 
 GitHub issues a read-only `GITHUB_TOKEN` to pull requests from forks, and by default holds runs from first-time contributors until a maintainer approves them. The dry-run reads labels and writes nothing, so the check normally runs once approved. A repo that disables workflows on fork pull requests gets no check at all; to preview such a change, push the branch to the base repo and open the pull request from there.
 
-## Published JSON Schema for `.meta/label-map.json`
+### Published JSON Schema for `.meta/label-map.json`
 
 release-kit publishes a JSON Schema for `.meta/label-map.json` — a separate, generic data file that maps commit-prefix scopes and types to GitHub label names. The schema lives at `packages/release-kit/schemas/label-map.json` in this repo and is reachable via the stable raw URL:
 
