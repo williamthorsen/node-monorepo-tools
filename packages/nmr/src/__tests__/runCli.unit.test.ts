@@ -404,7 +404,7 @@ describe(runCli, () => {
   });
 
   describe('devBin substitution', () => {
-    it('substitutes a leaf tool, which is the case the README documents', async ({ tree }) => {
+    it('substitutes a leaf tool, which is the case docs/scripts.md documents', async ({ tree }) => {
       writeConfig(tree, { devBin: { eslint: 'node ./scripts/eslint.js' } });
 
       await runNmr(['lint'], tree.dir);

@@ -61,7 +61,7 @@ export function renderVerdict(verdict: Verdict): string {
  * Held to the ceiling the prose line is held to, so one write still reaches a pipe whole where concurrent
  * scopes share a descriptor. Cuts land inside the record's text rather than across its structure, which is
  * what leaves the line parseable, and a record is fitted by rungs, each shedding what a reader can better
- * spare than the rung below it. What the ceiling costs is [documented](../README.md#reporting-for-a-machine)
+ * spare than the rung below it. What the ceiling costs is [documented](../docs/reporting.md#reporting-for-a-machine)
  * in the same order.
  */
 export function serializeVerdict(verdict: Verdict): string {
