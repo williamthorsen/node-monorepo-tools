@@ -13,7 +13,7 @@ const CLI_PATH = path.join(MONOREPO_ROOT, 'packages', 'nmr', 'dist', 'esm', 'cli
 const BIN_DIR = path.join(MONOREPO_ROOT, 'node_modules', '.bin');
 
 /**
- * A leaf that reports whether the descriptor it was handed is a terminal. The marker is distinctive on both
+ * A leaf that reports whether the descriptor it inherited is a terminal. The marker is distinctive on both
  * sides, because a `false` reading spelled `not-tty` would satisfy an assertion looking for `tty`.
  */
 const PROBE = String.raw`node -e "process.stdout.write('TTY:' + (process.stdout.isTTY === true) + '\n')"`;
@@ -33,15 +33,15 @@ const it = baseIt.extend(
   ),
 );
 
-// `script(1)` is the only way to hand nmr a terminal from a test, and its flags are not portable: BSD takes
-// `script -q <file> <command>` where util-linux takes `script -q -c "<command>" <file>`. CI runs on Linux, so
-// the inherit path goes uncovered there until a util-linux branch is added.
-describe.skipIf(process.platform !== 'darwin')('descriptor inheritance', () => {
+// `script(1)` is the only way for a test to run nmr on a pseudo-terminal. The Claude Code sandbox denies the `openpty`
+// call that `script` needs to allocate one; the suite cannot run there.
+describe.skipIf(process.env['SANDBOX_RUNTIME'] !== undefined)('descriptor inheritance', () => {
   // The pair is what makes this a test of inheritance rather than of `script(1)`: the same composite reports a
-  // terminal only when nmr had one to hand down.
-  it('hands its terminal to the leaf below a structural step', ({ tree }) => {
-    // BSD `script` prefixes `^D\b\b` and emits CRLF, so the marker is matched as a substring.
-    const { stdout } = run(['script', '-q', '/dev/null', process.execPath, CLI_PATH, 'probe'], tree.dir);
+  // terminal only when nmr had one to pass on.
+  it('passes its terminal to the leaf below a structural step', ({ tree }) => {
+    // Output through a terminal ends lines in CRLF, and BSD `script` also prefixes `^D\b\b`; the marker is
+    // therefore matched as a substring.
+    const { stdout } = run(wrapInTerminal([process.execPath, CLI_PATH, 'probe']), tree.dir);
 
     expect(stdout).toContain('TTY:true');
   });
@@ -53,6 +53,11 @@ describe.skipIf(process.platform !== 'darwin')('descriptor inheritance', () => {
   });
 
   // region | Helpers
+
+  /** Quotes a token for a POSIX shell, which reads everything inside single quotes literally. */
+  function quoteForShell(token: string): string {
+    return "'" + token.replaceAll("'", String.raw`'\''`) + "'";
+  }
 
   /**
    * Runs a command against the fixture repo. `.bin` joins PATH because a structural step spawns `nmr` by argv,
@@ -75,6 +80,17 @@ describe.skipIf(process.platform !== 'darwin')('descriptor inheritance', () => {
     });
 
     return { stdout: result.stdout };
+  }
+
+  /**
+   * Returns an argv that runs the given one on a pseudo-terminal through `script(1)`. BSD `script` takes the
+   * command as trailing arguments; util-linux `script` takes it as one shell string, whose tokens are quoted.
+   */
+  function wrapInTerminal(argv: readonly string[]): [string, ...string[]] {
+    if (process.platform === 'darwin') {
+      return ['script', '-q', '/dev/null', ...argv];
+    }
+    return ['script', '-q', '-c', argv.map((token) => quoteForShell(token)).join(' '), '/dev/null'];
   }
 
   // endregion | Helpers
