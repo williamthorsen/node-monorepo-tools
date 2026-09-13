@@ -127,6 +127,15 @@ export default defineRdyKit({
           fix: 'Remove scripts from root package.json that nmr provides as built-in root scripts — invoke via nmr directly',
         },
 
+        // -- Git hooks -----------------------------------------------------------
+        {
+          name: 'no root install script runs lefthook install unguarded',
+          severity: 'warn',
+          quiet: true,
+          check: () => noUnguardedLefthookInstall(),
+          fix: "Guard each listed script as `lefthook check-install || lefthook install`, which writes hooks only when they are missing or stale. A bare `lefthook install` rewrites `.git/hooks` on every install, so when that directory is not writable, as in an agent's sandbox, `pnpm install` fails and pnpm's `verifyDepsBeforeRun` then reinstalls before every `pnpm exec`",
+        },
+
         // -- Workspace build readiness -------------------------------------------
         {
           name: 'all workspace packages can build',
@@ -294,6 +303,21 @@ const CLOBBERED_TAZE_OPTIONS: ReadonlyArray<{ key: string; pattern: RegExp }> = 
 
 /** Matches a line whose only content is a re-export from an ancestor directory. */
 const RE_EXPORT_LINE_PATTERN = /^export\s*(?:\{\s*default\s*}|\*)\s*from\s*['"]\.\.\/[^'"]*['"];?$/;
+
+/** Root scripts that `pnpm install` runs, in the order that it runs them. */
+const INSTALL_LIFECYCLE_SCRIPTS = [
+  'pnpm:devPreinstall',
+  'preinstall',
+  'install',
+  'postinstall',
+  'preprepare',
+  'prepare',
+  'postprepare',
+];
+
+const LEFTHOOK_CHECK_INSTALL_PATTERN = /\blefthook\s+check-install\b/;
+
+const LEFTHOOK_INSTALL_PATTERN = /\blefthook\s+install\b/;
 
 /** The first ESLint release that resolves config per linted file rather than from the working directory. */
 const MIN_ESLINT_VERSION = '10.0.0';
@@ -801,6 +825,27 @@ export function noRetiredVitestConfigs(cwd: string = process.cwd()): boolean | C
   );
 }
 
+/**
+ * Checks that no root script that `pnpm install` runs invokes `lefthook install` without `lefthook check-install`.
+ *
+ * Any `check-install` in the script counts as the guard, so an `if !` spelling passes and an unusual spelling
+ * errs toward a false negative. A script run by hand is out of scope, because forcing a reinstall is its purpose.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function noUnguardedLefthookInstall(cwd: string = process.cwd()): boolean | CheckOutcome {
+  const scripts = readRootScripts(cwd);
+  const unguarded = INSTALL_LIFECYCLE_SCRIPTS.flatMap((name) => {
+    const command = scripts[name];
+    if (typeof command !== 'string') return [];
+    const isUnguarded = LEFTHOOK_INSTALL_PATTERN.test(command) && !LEFTHOOK_CHECK_INSTALL_PATTERN.test(command);
+    return isUnguarded ? [`${name}: ${command}`] : [];
+  });
+
+  if (unguarded.length === 0) return true;
+  return { ok: false, detail: formatPaths(unguarded) };
+}
+
 /** Checks that no workspace package.json references run-workspace-script or "pnpm run ws". */
 function noWorkspaceRunScriptReferences(): boolean | CheckOutcome {
   const packagesDir = join(process.cwd(), 'packages');
@@ -849,6 +894,26 @@ function readPnpmFieldKeys(content: string | undefined): string[] | undefined {
   const pnpm = parsed['pnpm'];
 
   return isRecord(pnpm) ? Object.keys(pnpm).toSorted() : undefined;
+}
+
+/**
+ * Returns the root manifest's `scripts`, or an empty record when the manifest is absent, does not parse, or declares
+ * no scripts object. A malformed manifest is not this check's to report.
+ */
+function readRootScripts(cwd: string): Record<string, unknown> {
+  const content = readFileIn(cwd, 'package.json');
+  if (content === undefined) return {};
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return {};
+  }
+
+  if (!isRecord(parsed)) return {};
+  const scripts = parsed['scripts'];
+  return isRecord(scripts) ? scripts : {};
 }
 
 /** Reports whether a range defers to a workspace-level declaration instead of naming a version. */

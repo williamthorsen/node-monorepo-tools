@@ -24,7 +24,7 @@
   "scripts": {
     "bootstrap": "pnpm --filter @williamthorsen/nmr-core run prepare && pnpm --filter @williamthorsen/nmr run prepare",
     "postinstall": "codeassembly sync --warn-only",
-    "prepare": "lefthook install"
+    "prepare": "lefthook check-install || lefthook install"
   },
   "devDependencies": {
     "@types/node": "24.13.3",
