@@ -73,7 +73,8 @@
     "agents",
     "bin",
     "dist",
-    "docs"
+    "docs",
+    "!docs/*.v*.md"
   ],
   "scripts": {
     "build:post": "rdy compile",
