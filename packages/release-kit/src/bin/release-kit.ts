@@ -110,7 +110,7 @@ function showInitHelp(): void {
 Usage: release-kit init [options]
 
 Initialize release-kit in the current repository.
-By default, scaffolds only the GitHub Actions workflow file.
+By default, scaffolds only the GitHub Actions workflow files.
 
 Options:
   --with-config   Also scaffold .config/release-kit.config.ts and .config/git-cliff.toml

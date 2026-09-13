@@ -6,7 +6,7 @@ The [README](../README.md#quick-start) shows the first run.
 
 ## `release-kit init`
 
-Initialize release-kit in the current repository. By default, scaffolds only the GitHub Actions workflow file. Use `--with-config` to also scaffold configuration files.
+Initialize release-kit in the current repository. By default, scaffolds only the GitHub Actions workflow files. Use `--with-config` to also scaffold configuration files.
 
 Scaffolded files:
 
@@ -86,12 +86,13 @@ An empty changelog section is expected for a bare promotion, because the changel
 
 The `init` command scaffolds a release workflow at `.github/workflows/release.yaml` that delegates to a reusable release workflow. The scaffolded workflow accepts these inputs:
 
-| Input  | Type   | Description                                                         |
-| ------ | ------ | ------------------------------------------------------------------- |
-| `only` | string | Workspaces to release (comma-separated, leave empty for all)        |
-| `bump` | choice | Override bump type: `patch`, `minor`, `major` (empty = auto-detect) |
+| Input   | Type    | Description                                                                                                                 |
+| ------- | ------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `only`  | string  | Workspaces to release (comma-separated, leave empty for all)                                                                |
+| `bump`  | choice  | Override bump type: `patch`, `minor`, `major` (empty = auto-detect)                                                         |
+| `force` | boolean | Release even when no commits or no bump-worthy commits exist (defaults to patch; combine with `bump` for a different level) |
 
-For repos that need a self-contained workflow instead of the reusable one, the scaffolded file can be expanded. The key steps are: checkout with full history (`fetch-depth: 0`), run `release-kit prepare` with optional `--only` and `--bump` flags, check for changes, read tags from `tmp/.release-tags`, then commit, tag, and push.
+For repos that need a self-contained workflow instead of the reusable one, the scaffolded file can be expanded. The key steps are: checkout with full history (`fetch-depth: 0`), run `release-kit prepare` with optional `--only`, `--bump`, and `--force` flags, check for changes, read tags from `tmp/.release-tags`, then commit, tag, and push.
 
 ### Triggering a release
 

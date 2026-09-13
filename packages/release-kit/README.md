@@ -47,7 +47,7 @@ Example output from `prepare --dry-run` in a monorepo whose `arrays` workspace h
   [dry-run] Would write tmp/.release-summary
 ```
 
-Commit the scaffolded workflows, then start a release from the `release` workflow. It runs `prepare` in CI, then commits, tags, and pushes the result, and each pushed tag triggers the publish and GitHub Release workflows:
+Commit the scaffolded workflows, then start a release from the `release` workflow. It runs `prepare` in CI, then commits, tags, and pushes the result:
 
 ```sh
 gh workflow run release.yaml                  # every workspace with release-worthy changes
@@ -144,7 +144,7 @@ rdy run --packages
 1. Add `@williamthorsen/release-kit` as a dev dependency.
 2. Remove `@changesets/cli` from dev dependencies. The [default readyup kit](#readiness-checks) reports a repo that still declares it.
 3. Delete the `.changeset/` directory.
-4. Run `npx @williamthorsen/release-kit init` to scaffold workflow and config files.
+4. Run `npx @williamthorsen/release-kit init` to scaffold the release workflows.
 5. Remove `changeset:*` scripts from `package.json` (no replacement needed — the CLI handles everything).
 6. Create an initial version tag for each package (e.g., `git tag v1.0.0` or `git tag arrays-v1.0.0`).
 
