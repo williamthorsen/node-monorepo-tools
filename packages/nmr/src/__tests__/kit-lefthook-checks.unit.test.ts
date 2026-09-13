@@ -5,7 +5,7 @@ import { buildRepo } from '../test-utils/fixture-repo.ts';
 import { getDetail } from '../test-utils/getDetail.ts';
 
 describe(noUnguardedLefthookInstall, () => {
-  it.each(['preinstall', 'install', 'postinstall', 'prepare'])(
+  it.each(['pnpm:devPreinstall', 'preinstall', 'install', 'postinstall', 'preprepare', 'prepare', 'postprepare'])(
     'reports an unguarded lefthook install in %s',
     (name) => {
       const dir = buildRepo({ 'package.json': buildManifest({ [name]: 'lefthook install' }) });

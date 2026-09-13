@@ -385,7 +385,15 @@ var CLOBBERED_TAZE_OPTIONS = [
   { key: "requestTimeout", pattern: /\brequestTimeout\s*:/ }
 ];
 var RE_EXPORT_LINE_PATTERN = /^export\s*(?:\{\s*default\s*}|\*)\s*from\s*['"]\.\.\/[^'"]*['"];?$/;
-var INSTALL_LIFECYCLE_SCRIPTS = ["preinstall", "install", "postinstall", "prepare"];
+var INSTALL_LIFECYCLE_SCRIPTS = [
+  "pnpm:devPreinstall",
+  "preinstall",
+  "install",
+  "postinstall",
+  "preprepare",
+  "prepare",
+  "postprepare"
+];
 var LEFTHOOK_CHECK_INSTALL_PATTERN = /\blefthook\s+check-install\b/;
 var LEFTHOOK_INSTALL_PATTERN = /\blefthook\s+install\b/;
 var MIN_ESLINT_VERSION = "10.0.0";

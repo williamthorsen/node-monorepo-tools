@@ -305,7 +305,15 @@ const CLOBBERED_TAZE_OPTIONS: ReadonlyArray<{ key: string; pattern: RegExp }> = 
 const RE_EXPORT_LINE_PATTERN = /^export\s*(?:\{\s*default\s*}|\*)\s*from\s*['"]\.\.\/[^'"]*['"];?$/;
 
 /** Root scripts that `pnpm install` runs, in the order that it runs them. */
-const INSTALL_LIFECYCLE_SCRIPTS = ['preinstall', 'install', 'postinstall', 'prepare'];
+const INSTALL_LIFECYCLE_SCRIPTS = [
+  'pnpm:devPreinstall',
+  'preinstall',
+  'install',
+  'postinstall',
+  'preprepare',
+  'prepare',
+  'postprepare',
+];
 
 const LEFTHOOK_CHECK_INSTALL_PATTERN = /\blefthook\s+check-install\b/;
 
