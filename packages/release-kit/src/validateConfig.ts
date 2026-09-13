@@ -68,7 +68,7 @@ function preprocessDeprecatedKeys(raw: unknown): { cleaned: unknown; deprecation
 
   if (isRecord(cleaned['releaseNotes']) && Object.hasOwn(cleaned['releaseNotes'], 'shouldCreateGithubRelease')) {
     errors.push(
-      'releaseNotes.shouldCreateGithubRelease is no longer supported. Adoption is now signaled by installing the create-github-release workflow. Remove this field from your config; see README for the updated workflow.',
+      'releaseNotes.shouldCreateGithubRelease is no longer supported. Adoption is now signaled by installing the create-github-release workflow, which `release-kit init` scaffolds. Remove this field from your config.',
     );
     const releaseNotesCopy = { ...cleaned['releaseNotes'] };
     delete releaseNotesCopy['shouldCreateGithubRelease'];

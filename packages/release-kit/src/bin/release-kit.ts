@@ -44,8 +44,9 @@ Commands:
   work-types       Check for or sync work-type taxonomy drift against the upstream canonical
 
 Options:
-  --dry-run     Preview changes without writing files
-  --help, -h    Show this help message
+  --dry-run        Preview changes without writing files
+  --help, -h       Show this help message
+  --version, -V    Show the version number
 `);
 }
 

@@ -282,7 +282,7 @@ var default_default = defineRdyKit({
           severity: "error",
           quiet: true,
           check: () => fileDoesNotContain(".config/release-kit.config.ts", /shouldCreateGithubRelease/),
-          fix: "Remove 'shouldCreateGithubRelease' from .config/release-kit.config.ts. Adoption of GitHub Releases is now signaled by installing the create-github-release workflow (see release-kit README for setup)."
+          fix: "Remove 'shouldCreateGithubRelease' from .config/release-kit.config.ts. Adoption of GitHub Releases is now signaled by installing the create-github-release workflow, which `release-kit init` scaffolds."
         },
         {
           name: "git-cliff not in devDependencies",
