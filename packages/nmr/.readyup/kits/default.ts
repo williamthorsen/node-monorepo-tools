@@ -647,7 +647,7 @@ export function everyTestFileNamesItsTier(cwd: string = process.cwd()): boolean 
 /**
  * Checks that every test file sits under a `__tests__` directory.
  *
- * Every project in the shared config collects only from one, so a file outside it runs nowhere and reports nothing.
+ * The shared config's projects collect only from `__tests__`, so a file outside one runs nowhere and reports nothing.
  * Such a file is reported here whether or not it names a tier, and never by `everyTestFileNamesItsTier`.
  *
  * @internal - Exported only to enable testing
@@ -1012,7 +1012,7 @@ function describeMissingTazeConfig(cwd: string): string {
  * test-file convention in the repo's own test run.
  *
  * Without it, an untiered file runs under `unit` and a misplaced one runs nowhere, and no test run reports either.
- * The import is the evidence, as for the shared-config checks; an import that nothing calls is lint's to report.
+ * Only the import is matched; an import that nothing calls is lint's to report.
  *
  * @internal - Exported only to enable testing
  */
