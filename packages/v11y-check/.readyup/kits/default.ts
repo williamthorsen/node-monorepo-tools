@@ -68,7 +68,7 @@ export default defineRdyKit({
               name: 'audit.yaml matches template',
               severity: 'warn',
               check: () => fileMatchesHash('.github/workflows/audit.yaml', AUDIT_WORKFLOW_HASH),
-              fix: 'Replace .github/workflows/audit.yaml with the current template at williamthorsen/node-monorepo-tools:.github/workflows/audit.yaml',
+              fix: 'Run `v11y init --force` to regenerate audit.yaml from the current template',
             },
           ],
         },
