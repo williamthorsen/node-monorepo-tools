@@ -15,7 +15,7 @@ describe(scaffoldConfig, () => {
   });
 
   it('creates config file with severityThreshold and $schema', () => {
-    const result = scaffoldConfig({ dryRun: false, force: false });
+    const result = scaffoldConfig({ dryRun: false });
 
     expect(result.configResult.outcome).toBe('created');
     const configPath = '.config/v11y-check.config.json';
@@ -29,31 +29,19 @@ describe(scaffoldConfig, () => {
     expect(content).toHaveProperty('prod.allowlist');
   });
 
-  it('skips without error when config already exists and force is false', () => {
+  it('skips without error when config already exists', () => {
     const configPath = '.config/v11y-check.config.json';
     tree.write(configPath, '{"existing": true}');
 
-    const result = scaffoldConfig({ dryRun: false, force: false });
+    const result = scaffoldConfig({ dryRun: false });
     expect(result.configResult.outcome).toBe('skipped');
 
     // Existing file should be unchanged
     expect(tree.readJson(configPath)).toStrictEqual({ existing: true });
   });
 
-  it('overwrites existing file when force is true', () => {
-    const configPath = '.config/v11y-check.config.json';
-    tree.write(configPath, '{"existing": true}');
-
-    const result = scaffoldConfig({ dryRun: false, force: true });
-    expect(result.configResult.outcome).toBe('overwritten');
-
-    const content = tree.readJson(configPath);
-    expect(content).toHaveProperty('dev.severityThreshold');
-    expect(content).toHaveProperty('prod.severityThreshold');
-  });
-
   it('returns created outcome without writing in dry-run mode', () => {
-    const result = scaffoldConfig({ dryRun: true, force: false });
+    const result = scaffoldConfig({ dryRun: true });
 
     expect(result.configResult.outcome).toBe('created');
     expect(tree.exists('.config/v11y-check.config.json')).toBe(false);
@@ -192,6 +180,17 @@ describe(initCommand, () => {
 
     expect(exitCode).toBe(0);
     expect(tree.read(workflowPath)).toContain('name: Dependency audit');
+  });
+
+  it('leaves an existing config untouched when --force is passed', () => {
+    const configPath = '.config/v11y-check.config.json';
+    const existingConfig = '{"prod": {"allowlist": [{"id": "GHSA-xxxx-xxxx-xxxx"}]}}\n';
+    tree.write(configPath, existingConfig);
+
+    const exitCode = initCommand({ dryRun: false, force: true });
+
+    expect(exitCode).toBe(0);
+    expect(tree.read(configPath)).toBe(existingConfig);
   });
 
   it('returns 0 when the workflow is already up-to-date', () => {

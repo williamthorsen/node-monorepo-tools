@@ -19,13 +19,14 @@ interface ScaffoldResult {
 }
 
 /**
- * Scaffold the v11y-check config file with sensible defaults.
+ * Scaffold the v11y-check config file with sensible defaults, never overwriting an existing one, whose allowlist
+ * `v11y sync` maintains.
  *
  * Returns `{ configResult }` to preserve the signature consumed by `syncCommand`, which predates
  * the workflow scaffolding and treats the config result as a named field.
  */
-export function scaffoldConfig({ dryRun, force }: ScaffoldOptions): ScaffoldResult {
-  const configResult = writeFileWithCheck(CONFIG_PATH, v11yCheckConfigTemplate, { dryRun, overwrite: force });
+export function scaffoldConfig({ dryRun }: { dryRun: boolean }): ScaffoldResult {
+  const configResult = writeFileWithCheck(CONFIG_PATH, v11yCheckConfigTemplate, { dryRun, overwrite: false });
   return { configResult };
 }
 
@@ -70,10 +71,10 @@ export function scaffoldWorkflow(dryRun: boolean, overwrite: boolean): WriteResu
  *
  * Writes both the config file and the GitHub Actions workflow. Returns a flat array of write
  * results in the order [config, workflow]. `ScaffoldOptions.force` is translated to `overwrite`
- * when calling the workflow helpers.
+ * for the workflow alone; an existing config is never overwritten.
  */
 export function scaffoldFiles({ dryRun, force }: ScaffoldOptions): WriteResult[] {
-  const { configResult } = scaffoldConfig({ dryRun, force });
+  const { configResult } = scaffoldConfig({ dryRun });
   const workflowResult = scaffoldWorkflow(dryRun, force);
   return [configResult, workflowResult];
 }

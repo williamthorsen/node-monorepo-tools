@@ -116,17 +116,17 @@ describe('scaffold', () => {
       expect(mockWriteFileWithCheck).toHaveBeenCalledTimes(2);
     });
 
-    it('translates force to overwrite when calling the workflow helpers', () => {
+    it('translates force to overwrite for the workflow and never for the config', () => {
       mockReadFileSync.mockReturnValue('name: Dependency audit\n');
       mockWriteFileWithCheck
-        .mockReturnValueOnce({ filePath: '.config/v11y-check.config.json', outcome: 'overwritten' })
+        .mockReturnValueOnce({ filePath: '.config/v11y-check.config.json', outcome: 'skipped' })
         .mockReturnValueOnce({ filePath: '.github/workflows/audit.yaml', outcome: 'overwritten' });
 
       scaffoldFiles({ dryRun: false, force: true });
 
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.config/v11y-check.config.json', expect.any(String), {
         dryRun: false,
-        overwrite: true,
+        overwrite: false,
       });
       expect(mockWriteFileWithCheck).toHaveBeenCalledWith('.github/workflows/audit.yaml', 'name: Dependency audit\n', {
         dryRun: false,

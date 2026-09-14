@@ -93,7 +93,7 @@ Other options:
 
 ```
   --dry-run, -n   Preview changes without writing files
-  --force, -f     Overwrite existing files
+  --force, -f     Overwrite an existing workflow (an existing config is never overwritten)
 ```
 
 ### JSON output shape
@@ -165,5 +165,5 @@ To migrate an existing config:
 
 1. Remove the `outDir` field.
 2. Replace severity booleans with `severityThreshold` in each scope.
-3. Optionally add a `$schema` field (run `v11y init --force` to regenerate, or add it manually).
+3. Optionally add a `$schema` field set to `https://github.com/williamthorsen/node-monorepo-tools/raw/v11y-check-v<version>/packages/v11y-check/schemas/config.json`, with `<version>` replaced by the installed v11y-check version.
 4. Delete any generated `audit-ci.*.json` files that were in your config directory.

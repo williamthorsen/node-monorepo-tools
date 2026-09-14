@@ -821,7 +821,7 @@ describe(syncCommand, () => {
 
     await syncCommand(makeOptions({ scopes: ['dev'] }));
 
-    expect(mocks.scaffoldConfig).toHaveBeenCalledWith({ dryRun: false, force: false });
+    expect(mocks.scaffoldConfig).toHaveBeenCalledWith({ dryRun: false });
   });
 
   it('does not scaffold when source is file', async () => {
