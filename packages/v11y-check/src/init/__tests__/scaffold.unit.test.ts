@@ -1,13 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const mockExistsSync = vi.hoisted(() => vi.fn());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockFindPackageRoot = vi.hoisted(() => vi.fn().mockReturnValue('/fake/package'));
 const mockReadPackageVersion = vi.hoisted(() => vi.fn().mockReturnValue('0.0.0-test'));
 const mockWriteFileWithCheck = vi.hoisted(() => vi.fn());
 
 vi.mock(import('node:fs'), () => ({
-  existsSync: mockExistsSync,
   readFileSync: mockReadFileSync,
 }));
 
@@ -21,7 +19,6 @@ import { copyWorkflowTemplate, scaffoldFiles, scaffoldWorkflow } from '../scaffo
 
 describe('scaffold', () => {
   afterEach(() => {
-    mockExistsSync.mockReset();
     mockReadFileSync.mockReset();
     mockFindPackageRoot.mockReset().mockReturnValue('/fake/package');
     mockReadPackageVersion.mockReset().mockReturnValue('0.0.0-test');
@@ -29,21 +26,25 @@ describe('scaffold', () => {
   });
 
   describe(copyWorkflowTemplate, () => {
-    it('returns failed with error when the template file is not found', () => {
-      mockExistsSync.mockReturnValue(false);
+    it.each([
+      ['the template file is missing', 'ENOENT: no such file or directory'],
+      ['the template file is unreadable', 'EACCES: permission denied'],
+    ])('returns failed naming the template path and the cause when %s', (_label, cause) => {
+      mockReadFileSync.mockImplementation(() => {
+        throw new Error(cause);
+      });
 
       const result = copyWorkflowTemplate(false, false);
 
       expect(result).toStrictEqual({
         filePath: '.github/workflows/audit.yaml',
         outcome: 'failed',
-        error: expect.stringContaining('Could not find bundled template at'),
+        error: `Failed to read bundled template at /fake/package/templates/audit.yaml.template: ${cause}`,
       });
       expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
     });
 
     it('reads the template and delegates to writeFileWithCheck', () => {
-      mockExistsSync.mockReturnValue(true);
       mockReadFileSync.mockReturnValue('name: Dependency audit\n');
       mockWriteFileWithCheck.mockReturnValue({ filePath: '.github/workflows/audit.yaml', outcome: 'created' });
 
@@ -55,22 +56,6 @@ describe('scaffold', () => {
         overwrite: false,
       });
       expect(result).toStrictEqual({ filePath: '.github/workflows/audit.yaml', outcome: 'created' });
-    });
-
-    it('returns failed with error when readFileSync throws for the template', () => {
-      mockExistsSync.mockReturnValue(true);
-      mockReadFileSync.mockImplementation(() => {
-        throw new Error('EACCES: permission denied');
-      });
-
-      const result = copyWorkflowTemplate(false, false);
-
-      expect(result).toStrictEqual({
-        filePath: '.github/workflows/audit.yaml',
-        outcome: 'failed',
-        error: expect.stringContaining('EACCES: permission denied'),
-      });
-      expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
     });
 
     it('returns failed with error when findPackageRoot throws', () => {
@@ -89,7 +74,6 @@ describe('scaffold', () => {
     });
 
     it('passes dryRun and overwrite options through', () => {
-      mockExistsSync.mockReturnValue(true);
       mockReadFileSync.mockReturnValue('template content');
       mockWriteFileWithCheck.mockReturnValue({ filePath: '.github/workflows/audit.yaml', outcome: 'overwritten' });
 
@@ -104,7 +88,6 @@ describe('scaffold', () => {
 
   describe(scaffoldWorkflow, () => {
     it('delegates to copyWorkflowTemplate and returns its result', () => {
-      mockExistsSync.mockReturnValue(true);
       mockReadFileSync.mockReturnValue('name: Dependency audit\n');
       mockWriteFileWithCheck.mockReturnValue({ filePath: '.github/workflows/audit.yaml', outcome: 'created' });
 
@@ -120,7 +103,6 @@ describe('scaffold', () => {
 
   describe(scaffoldFiles, () => {
     it('returns config and workflow results in order', () => {
-      mockExistsSync.mockReturnValue(true);
       mockReadFileSync.mockReturnValue('name: Dependency audit\n');
       mockWriteFileWithCheck
         .mockReturnValueOnce({ filePath: '.config/v11y-check.config.json', outcome: 'created' })
@@ -135,7 +117,6 @@ describe('scaffold', () => {
     });
 
     it('translates force to overwrite when calling the workflow helpers', () => {
-      mockExistsSync.mockReturnValue(true);
       mockReadFileSync.mockReturnValue('name: Dependency audit\n');
       mockWriteFileWithCheck
         .mockReturnValueOnce({ filePath: '.config/v11y-check.config.json', outcome: 'overwritten' })
@@ -154,7 +135,6 @@ describe('scaffold', () => {
     });
 
     it('passes dryRun through to both helpers', () => {
-      mockExistsSync.mockReturnValue(true);
       mockReadFileSync.mockReturnValue('name: Dependency audit\n');
       mockWriteFileWithCheck
         .mockReturnValueOnce({ filePath: '.config/v11y-check.config.json', outcome: 'created' })
@@ -173,7 +153,9 @@ describe('scaffold', () => {
     });
 
     it('returns the failed workflow result when the template is missing', () => {
-      mockExistsSync.mockReturnValue(false);
+      mockReadFileSync.mockImplementation(() => {
+        throw new Error('ENOENT: no such file or directory');
+      });
       mockWriteFileWithCheck.mockReturnValueOnce({ filePath: '.config/v11y-check.config.json', outcome: 'created' });
 
       const results = scaffoldFiles({ dryRun: false, force: false });

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { findPackageRoot, writeFileWithCheck, type WriteResult } from '@williamthorsen/nmr-core';
@@ -40,16 +40,16 @@ export function copyWorkflowTemplate(dryRun: boolean, overwrite: boolean): Write
   }
   const templatePath = resolve(root, 'templates', 'audit.yaml.template');
 
-  if (!existsSync(templatePath)) {
-    return { filePath: WORKFLOW_PATH, outcome: 'failed', error: `Could not find bundled template at ${templatePath}` };
-  }
-
   let content: string;
   try {
     content = readFileSync(templatePath, 'utf8');
   } catch (error: unknown) {
     const message = describeError(error);
-    return { filePath: WORKFLOW_PATH, outcome: 'failed', error: `Failed to read template ${templatePath}: ${message}` };
+    return {
+      filePath: WORKFLOW_PATH,
+      outcome: 'failed',
+      error: `Failed to read bundled template at ${templatePath}: ${message}`,
+    };
   }
 
   return writeFileWithCheck(WORKFLOW_PATH, content, { dryRun, overwrite });

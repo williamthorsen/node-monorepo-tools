@@ -1,12 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const mockExistsSync = vi.hoisted(() => vi.fn());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockFindPackageRoot = vi.hoisted(() => vi.fn().mockReturnValue('/fake/package'));
 const mockWriteFileWithCheck = vi.hoisted(() => vi.fn());
 
 vi.mock(import('node:fs'), () => ({
-  existsSync: mockExistsSync,
   readFileSync: mockReadFileSync,
 }));
 
@@ -19,7 +17,6 @@ import { copyCliffTemplate, scaffoldFiles } from '../scaffold.ts';
 
 describe('scaffold', () => {
   afterEach(() => {
-    mockExistsSync.mockReset();
     mockReadFileSync.mockReset();
     mockFindPackageRoot.mockReset().mockReturnValue('/fake/package');
     mockWriteFileWithCheck.mockReset();
@@ -88,7 +85,6 @@ describe('scaffold', () => {
         .mockReturnValueOnce({ filePath: '.github/workflows/release.yaml', outcome: 'created' })
         .mockReturnValueOnce({ filePath: '.config/release-kit.config.ts', outcome: 'created' })
         .mockReturnValueOnce({ filePath: '.config/git-cliff.toml', outcome: 'created' });
-      mockExistsSync.mockReturnValue(true); // template path exists
       mockReadFileSync.mockReturnValue('[changelog]\nbody = "template"');
 
       const results = scaffoldFiles({
@@ -178,20 +174,41 @@ describe('scaffold', () => {
   });
 
   describe(copyCliffTemplate, () => {
-    it('returns failed with error when the template file is not found', () => {
-      mockExistsSync.mockReturnValue(false);
+    it.each([
+      ['the template file is missing', 'ENOENT: no such file or directory'],
+      ['the template file is unreadable', 'EACCES: permission denied'],
+    ])('returns failed naming the template path and the cause when %s', (_label, cause) => {
+      mockReadFileSync.mockImplementation(() => {
+        throw new Error(cause);
+      });
 
       const result = copyCliffTemplate(false, false);
 
       expect(result).toStrictEqual({
         filePath: '.config/git-cliff.toml',
         outcome: 'failed',
-        error: expect.stringContaining('Could not find bundled template at'),
+        error: `Failed to read bundled template at /fake/package/cliff.toml.template: ${cause}`,
       });
+      expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
+    });
+
+    it('returns failed with error when findPackageRoot throws', () => {
+      mockFindPackageRoot.mockImplementation(() => {
+        throw new Error('Could not find package root from /fake/path');
+      });
+
+      const result = copyCliffTemplate(false, false);
+
+      expect(result).toStrictEqual({
+        filePath: '.config/git-cliff.toml',
+        outcome: 'failed',
+        error: 'Failed to resolve package root: Could not find package root from /fake/path',
+      });
+      expect(mockReadFileSync).not.toHaveBeenCalled();
+      expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
     });
 
     it('reads the template and delegates to writeFileWithCheck', () => {
-      mockExistsSync.mockReturnValue(true);
       mockReadFileSync.mockReturnValue('[changelog]\nbody = "template content"');
       mockWriteFileWithCheck.mockReturnValue({ filePath: '.config/git-cliff.toml', outcome: 'created' });
 
@@ -206,24 +223,7 @@ describe('scaffold', () => {
       expect(result).toStrictEqual({ filePath: '.config/git-cliff.toml', outcome: 'created' });
     });
 
-    it('returns failed with error when readFileSync throws for the template', () => {
-      mockExistsSync.mockReturnValue(true);
-      mockReadFileSync.mockImplementation(() => {
-        throw new Error('EACCES: permission denied');
-      });
-
-      const result = copyCliffTemplate(false, false);
-
-      expect(result).toStrictEqual({
-        filePath: '.config/git-cliff.toml',
-        outcome: 'failed',
-        error: expect.stringContaining('EACCES: permission denied'),
-      });
-      expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
-    });
-
     it('passes dryRun and overwrite options through', () => {
-      mockExistsSync.mockReturnValue(true);
       mockReadFileSync.mockReturnValue('template content');
       mockWriteFileWithCheck.mockReturnValue({ filePath: '.config/git-cliff.toml', outcome: 'overwritten' });
 
