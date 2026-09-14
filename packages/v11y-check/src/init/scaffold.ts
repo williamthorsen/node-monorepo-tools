@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { findPackageRoot, writeFileWithCheck, type WriteResult } from '@williamthorsen/nmr-core';
@@ -19,13 +19,14 @@ interface ScaffoldResult {
 }
 
 /**
- * Scaffold the v11y-check config file with sensible defaults.
+ * Scaffold the v11y-check config file with sensible defaults, never overwriting an existing one, whose allowlist
+ * `v11y sync` maintains.
  *
  * Returns `{ configResult }` to preserve the signature consumed by `syncCommand`, which predates
  * the workflow scaffolding and treats the config result as a named field.
  */
-export function scaffoldConfig({ dryRun, force }: ScaffoldOptions): ScaffoldResult {
-  const configResult = writeFileWithCheck(CONFIG_PATH, v11yCheckConfigTemplate, { dryRun, overwrite: force });
+export function scaffoldConfig({ dryRun }: { dryRun: boolean }): ScaffoldResult {
+  const configResult = writeFileWithCheck(CONFIG_PATH, v11yCheckConfigTemplate, { dryRun, overwrite: false });
   return { configResult };
 }
 
@@ -40,16 +41,16 @@ export function copyWorkflowTemplate(dryRun: boolean, overwrite: boolean): Write
   }
   const templatePath = resolve(root, 'templates', 'audit.yaml.template');
 
-  if (!existsSync(templatePath)) {
-    return { filePath: WORKFLOW_PATH, outcome: 'failed', error: `Could not find bundled template at ${templatePath}` };
-  }
-
   let content: string;
   try {
     content = readFileSync(templatePath, 'utf8');
   } catch (error: unknown) {
     const message = describeError(error);
-    return { filePath: WORKFLOW_PATH, outcome: 'failed', error: `Failed to read template ${templatePath}: ${message}` };
+    return {
+      filePath: WORKFLOW_PATH,
+      outcome: 'failed',
+      error: `Failed to read bundled template at ${templatePath}: ${message}`,
+    };
   }
 
   return writeFileWithCheck(WORKFLOW_PATH, content, { dryRun, overwrite });
@@ -70,10 +71,10 @@ export function scaffoldWorkflow(dryRun: boolean, overwrite: boolean): WriteResu
  *
  * Writes both the config file and the GitHub Actions workflow. Returns a flat array of write
  * results in the order [config, workflow]. `ScaffoldOptions.force` is translated to `overwrite`
- * when calling the workflow helpers.
+ * for the workflow alone; an existing config is never overwritten.
  */
 export function scaffoldFiles({ dryRun, force }: ScaffoldOptions): WriteResult[] {
-  const { configResult } = scaffoldConfig({ dryRun, force });
+  const { configResult } = scaffoldConfig({ dryRun });
   const workflowResult = scaffoldWorkflow(dryRun, force);
   return [configResult, workflowResult];
 }

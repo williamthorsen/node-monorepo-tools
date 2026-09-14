@@ -42,7 +42,7 @@ Scaffold a starter config file and GitHub Actions workflow.
 
 Options:
   --dry-run, -n   Preview changes without writing files
-  --force, -f     Overwrite existing files
+  --force, -f     Overwrite an existing workflow (an existing config is never overwritten)
   --help, -h      Show this help message
 `);
 }

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { findPackageRoot, writeFileWithCheck, type WriteResult } from '@williamthorsen/nmr-core';
@@ -17,19 +17,25 @@ interface ScaffoldOptions {
 /** Copy the bundled cliff.toml.template to `.config/git-cliff.toml` in the target repo. */
 export function copyCliffTemplate(dryRun: boolean, overwrite: boolean): WriteResult {
   const destPath = '.config/git-cliff.toml';
-  const root = findPackageRoot(import.meta.url);
-  const templatePath = resolve(root, 'cliff.toml.template');
-
-  if (!existsSync(templatePath)) {
-    return { filePath: destPath, outcome: 'failed', error: `Could not find bundled template at ${templatePath}` };
+  let root: string;
+  try {
+    root = findPackageRoot(import.meta.url);
+  } catch (error: unknown) {
+    const message = describeError(error);
+    return { filePath: destPath, outcome: 'failed', error: `Failed to resolve package root: ${message}` };
   }
+  const templatePath = resolve(root, 'cliff.toml.template');
 
   let content: string;
   try {
     content = readFileSync(templatePath, 'utf8');
   } catch (error: unknown) {
     const message = describeError(error);
-    return { filePath: destPath, outcome: 'failed', error: `Failed to read template ${templatePath}: ${message}` };
+    return {
+      filePath: destPath,
+      outcome: 'failed',
+      error: `Failed to read bundled template at ${templatePath}: ${message}`,
+    };
   }
 
   return writeFileWithCheck(destPath, content, { dryRun, overwrite });

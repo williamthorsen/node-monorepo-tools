@@ -218,7 +218,7 @@ export async function syncCommand(options: CommandOptions): Promise<number> {
 
   // When no config exists, scaffold one first so sync operates on a real file.
   if (configSource === 'defaults') {
-    const { configResult } = scaffoldConfig({ dryRun: false, force: false });
+    const { configResult } = scaffoldConfig({ dryRun: false });
     if (configResult.outcome === 'failed') {
       reportError('Failed to create config file');
       return 1;

@@ -7,13 +7,15 @@ import { describe, expect, it } from 'vitest';
 import {
   CLIFF_TEMPLATE_HASH,
   COMMON_PRESET_HASH,
+  CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO,
+  CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE,
   PUBLISH_WORKFLOW_HASH_MONOREPO,
   PUBLISH_WORKFLOW_HASH_SINGLE,
   RELEASE_WORKFLOW_HASH_MONOREPO,
   RELEASE_WORKFLOW_HASH_SINGLE,
   SYNC_LABELS_WORKFLOW_HASH,
 } from '../../.readyup/kits/default.ts';
-import { publishWorkflow, releaseWorkflow } from '../init/templates.ts';
+import { createGithubReleaseWorkflow, publishWorkflow, releaseWorkflow } from '../init/templates.ts';
 import { syncLabelsWorkflow } from '../sync-labels/templates.ts';
 
 const packageDir = join(import.meta.dirname, '..', '..');
@@ -35,6 +37,22 @@ describe('rdy kit hashes match their source artifacts', () => {
     const actualHash = computeHash(readFileSync(join(presetsDir, 'common.yaml'), 'utf8'));
 
     expect(actualHash, `COMMON_PRESET_HASH is stale -- update it to: ${actualHash}`).toBe(COMMON_PRESET_HASH);
+  });
+
+  it('CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO matches createGithubReleaseWorkflow("monorepo")', () => {
+    const actualHash = computeHash(createGithubReleaseWorkflow('monorepo'));
+
+    expect(actualHash, `CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO is stale -- update it to: ${actualHash}`).toBe(
+      CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO,
+    );
+  });
+
+  it('CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE matches createGithubReleaseWorkflow("single-package")', () => {
+    const actualHash = computeHash(createGithubReleaseWorkflow('single-package'));
+
+    expect(actualHash, `CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE is stale -- update it to: ${actualHash}`).toBe(
+      CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE,
+    );
   });
 
   it('PUBLISH_WORKFLOW_HASH_MONOREPO matches publishWorkflow("monorepo")', () => {
