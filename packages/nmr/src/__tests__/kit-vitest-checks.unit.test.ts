@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   everyTestFileNamesItsTier,
+  everyTestFileSitsUnderTestsDir,
   everyViteConfigHasVitestConfig,
   noReExportOnlyVitestConfigs,
   noRetiredVitestConfigs,
@@ -299,7 +300,7 @@ describe(everyTestFileNamesItsTier, () => {
     expect(detail).toContain('packages/api/src/__tests__/api.int.test.ts');
   });
 
-  it('ignores a misnamed file outside __tests__, which no project collects', () => {
+  it('leaves a misnamed file outside __tests__ to the placement check', () => {
     const dir = buildRepo({ 'packages/api/src/fixtures/legacy.integration.test.ts': '' });
 
     expect(everyTestFileNamesItsTier(dir)).toBe(true);
@@ -309,6 +310,55 @@ describe(everyTestFileNamesItsTier, () => {
     const dir = buildRepo({ 'node_modules/dep/__tests__/dep.test.ts': '' });
 
     expect(everyTestFileNamesItsTier(dir)).toBe(true);
+  });
+});
+
+describe(everyTestFileSitsUnderTestsDir, () => {
+  it('passes when every test file sits under a __tests__ directory', () => {
+    const dir = buildRepo({
+      '.readyup/kits/__tests__/kit.unit.test.ts': '',
+      'packages/api/src/__tests__/api.unit.test.ts': '',
+      'packages/api/src/__tests__/nested/api.tool.test.ts': '',
+      'packages/api/src/api.ts': '',
+    });
+
+    expect(everyTestFileSitsUnderTestsDir(dir)).toBe(true);
+  });
+
+  it('reports every offender by path', () => {
+    const dir = buildRepo({
+      'packages/api/src/__tests__/api.unit.test.ts': '',
+      'packages/api/src/api.unit.test.ts': '',
+      'packages/web/test/web.unit.test.tsx': '',
+    });
+
+    const detail = getDetail(everyTestFileSitsUnderTestsDir(dir));
+    expect(detail).toContain('2 found');
+    expect(detail).toContain('packages/api/src/api.unit.test.ts');
+    expect(detail).toContain('packages/web/test/web.unit.test.tsx');
+  });
+
+  it('reports a file outside __tests__ whether or not it names a tier', () => {
+    const dir = buildRepo({ 'packages/api/src/fixtures/legacy.integration.test.ts': '' });
+
+    expect(getDetail(everyTestFileSitsUnderTestsDir(dir))).toContain(
+      'packages/api/src/fixtures/legacy.integration.test.ts',
+    );
+  });
+
+  it('reports a misplaced file under a dot-directory', () => {
+    const dir = buildRepo({ '.readyup/kits/kit.unit.test.ts': '' });
+
+    expect(getDetail(everyTestFileSitsUnderTestsDir(dir))).toContain('.readyup/kits/kit.unit.test.ts');
+  });
+
+  it('ignores test files under dependencies and build output', () => {
+    const dir = buildRepo({
+      'node_modules/dep/dep.test.ts': '',
+      'packages/api/dist/api.unit.test.ts': '',
+    });
+
+    expect(everyTestFileSitsUnderTestsDir(dir)).toBe(true);
   });
 });
 

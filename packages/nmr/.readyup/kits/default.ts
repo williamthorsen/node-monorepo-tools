@@ -30,7 +30,7 @@ import {
 } from 'readyup/check-utils';
 
 import { getDefaultRootScripts } from '../../src/resolve-scripts.ts';
-import { findTestFiles, hasTierInfix, TIER_NAMES } from '../../src/tiers.ts';
+import { findMisplacedTestFiles, findUntieredTestFiles, TIER_NAMES } from '../../src/tiers.ts';
 
 export default defineRdyKit({
   checklists: [
@@ -189,6 +189,12 @@ export default defineRdyKit({
           severity: 'error',
           check: () => everyTestFileNamesItsTier(),
           fix: `Rename each to <subject>[.<aspect>].<tier>.test.ts, naming one of ${TIER_NAMES.join(', ')}. Use tool for a test that reaches a program the environment supplies, which is where a retired .int. or .integration. file belongs. Only the segment before .test. selects a project, so an untiered file runs under the residual unit project and reports success`,
+        },
+        {
+          name: 'every test file sits under a __tests__ directory',
+          severity: 'error',
+          check: () => everyTestFileSitsUnderTestsDir(),
+          fix: 'Move each into a __tests__ directory, the only place from which the shared Vitest config collects. No project collects a file outside one, so it runs nowhere and reports nothing',
         },
         {
           name: 'no package re-exports the ancestor Vitest config',
@@ -622,10 +628,25 @@ function readWrapperTarget(cwd: string, workspace: Workspace, entry: BinEntry): 
  * @internal - Exported only to enable testing
  */
 export function everyTestFileNamesItsTier(cwd: string = process.cwd()): boolean | CheckOutcome {
-  const untiered = findTestFiles(cwd).filter((path) => !hasTierInfix(path));
+  const untiered = findUntieredTestFiles(cwd);
 
   if (untiered.length === 0) return true;
   return { ok: false, detail: formatPaths(untiered) };
+}
+
+/**
+ * Checks that every test file sits under a `__tests__` directory.
+ *
+ * Every project in the shared config collects only from one, so a file outside it runs nowhere and reports nothing.
+ * Such a file is reported here whether or not it names a tier, and never by `everyTestFileNamesItsTier`.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function everyTestFileSitsUnderTestsDir(cwd: string = process.cwd()): boolean | CheckOutcome {
+  const misplaced = findMisplacedTestFiles(cwd);
+
+  if (misplaced.length === 0) return true;
+  return { ok: false, detail: formatPaths(misplaced) };
 }
 
 /**

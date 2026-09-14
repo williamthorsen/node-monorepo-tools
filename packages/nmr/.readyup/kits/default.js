@@ -129,8 +129,14 @@ var TEST_EXTENSIONS = "{ts,tsx}";
 var TEST_GLOB_PREFIX = `**/${TEST_DIR}/**`;
 var TEST_FILE_PATTERN = /\.test\.tsx?$/;
 var ALL_TEST_PATTERNS = [`${TEST_GLOB_PREFIX}/*.test.${TEST_EXTENSIONS}`];
+function findMisplacedTestFiles(rootDir, options = {}) {
+  return walkTestFiles(rootDir, options, true);
+}
 function findTestFiles(rootDir, options = {}) {
   return walkTestFiles(rootDir, options, false);
+}
+function findUntieredTestFiles(rootDir, options = {}) {
+  return findTestFiles(rootDir, options).filter((file) => !hasTierInfix(file));
 }
 function hasTierInfix(filePath) {
   const tiers = TIER_NAMES;
@@ -311,6 +317,12 @@ var default_default = defineRdyKit({
           severity: "error",
           check: () => everyTestFileNamesItsTier(),
           fix: `Rename each to <subject>[.<aspect>].<tier>.test.ts, naming one of ${TIER_NAMES.join(", ")}. Use tool for a test that reaches a program the environment supplies, which is where a retired .int. or .integration. file belongs. Only the segment before .test. selects a project, so an untiered file runs under the residual unit project and reports success`
+        },
+        {
+          name: "every test file sits under a __tests__ directory",
+          severity: "error",
+          check: () => everyTestFileSitsUnderTestsDir(),
+          fix: "Move each into a __tests__ directory, the only place from which the shared Vitest config collects. No project collects a file outside one, so it runs nowhere and reports nothing"
         },
         {
           name: "no package re-exports the ancestor Vitest config",
@@ -545,9 +557,14 @@ function readWrapperTarget(cwd, workspace, entry) {
   return posix.normalize(posix.join(posix.dirname(entry.target), specifier));
 }
 function everyTestFileNamesItsTier(cwd = process.cwd()) {
-  const untiered = findTestFiles(cwd).filter((path2) => !hasTierInfix(path2));
+  const untiered = findUntieredTestFiles(cwd);
   if (untiered.length === 0) return true;
   return { ok: false, detail: formatPaths(untiered) };
+}
+function everyTestFileSitsUnderTestsDir(cwd = process.cwd()) {
+  const misplaced = findMisplacedTestFiles(cwd);
+  if (misplaced.length === 0) return true;
+  return { ok: false, detail: formatPaths(misplaced) };
 }
 function everyViteConfigHasVitestConfig() {
   const discovery = discoverMemberWorkspaces();
@@ -752,6 +769,7 @@ export {
   everyBinTargetIsACommittedWrapper,
   everyBinWrapperTargetIsCoveredByFiles,
   everyTestFileNamesItsTier,
+  everyTestFileSitsUnderTestsDir,
   everyViteConfigHasVitestConfig,
   hasSupportedEslintVersion,
   hasSupportedStrictLintVersion,
