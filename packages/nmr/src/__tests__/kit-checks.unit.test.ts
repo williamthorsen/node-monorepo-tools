@@ -1,5 +1,4 @@
-import { isFlatChecklist, type RdyCheck } from 'readyup';
-import { assert, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 const { mockedHasDevDependency, mockedHasMinDevDependencyVersion } = vi.hoisted(() => ({
   mockedHasDevDependency: vi.fn<(name: string) => boolean>(),
@@ -15,7 +14,8 @@ vi.mock(import('readyup/check-utils'), async (importOriginal) => {
   };
 });
 
-import kit, { hasSupportedEslintVersion, hasSupportedStrictLintVersion } from '../../.readyup/kits/default.ts';
+import { hasSupportedEslintVersion, hasSupportedStrictLintVersion } from '../../.readyup/kits/default.ts';
+import { findKitCheck } from '../test-utils/findKitCheck.ts';
 
 describe(hasSupportedEslintVersion, () => {
   // The floor is ESLint 10, the release that resolves config per linted file. Pinning the argument is the point
@@ -67,28 +67,18 @@ describe('lint version-floor checks', () => {
   ];
 
   it.each(cases)('reports $checkName as an error', ({ checkName }) => {
-    expect(findCheck(checkName).severity).toBe('error');
+    expect(findKitCheck(checkName).severity).toBe('error');
   });
 
   it.each(cases)('skips $checkName when $dependency is absent', ({ checkName, skipReason }) => {
     mockedHasDevDependency.mockReturnValue(false);
 
-    expect(findCheck(checkName).skip?.()).toBe(skipReason);
+    expect(findKitCheck(checkName).skip?.()).toBe(skipReason);
   });
 
   it.each(cases)('runs $checkName when $dependency is present', ({ checkName }) => {
     mockedHasDevDependency.mockReturnValue(true);
 
-    expect(findCheck(checkName).skip?.()).toBe(false);
+    expect(findKitCheck(checkName).skip?.()).toBe(false);
   });
 });
-
-/** Finds a check by name in the kit's `nmr` checklist, asserting it exists so a rename fails loudly. */
-function findCheck(name: string): RdyCheck {
-  const checklist = kit.checklists.find((candidate) => candidate.name === 'nmr');
-  assert(checklist && isFlatChecklist(checklist), 'Expected the kit to carry a flat `nmr` checklist');
-
-  const check = checklist.checks.find((candidate) => candidate.name === name);
-  assert(check, `Expected the nmr checklist to carry a "${name}" check`);
-  return check;
-}

@@ -129,8 +129,14 @@ var TEST_EXTENSIONS = "{ts,tsx}";
 var TEST_GLOB_PREFIX = `**/${TEST_DIR}/**`;
 var TEST_FILE_PATTERN = /\.test\.tsx?$/;
 var ALL_TEST_PATTERNS = [`${TEST_GLOB_PREFIX}/*.test.${TEST_EXTENSIONS}`];
+function findMisplacedTestFiles(rootDir, options = {}) {
+  return walkTestFiles(rootDir, options, true);
+}
 function findTestFiles(rootDir, options = {}) {
   return walkTestFiles(rootDir, options, false);
+}
+function findUntieredTestFiles(rootDir, options = {}) {
+  return findTestFiles(rootDir, options).filter((file) => !hasTierInfix(file));
 }
 function hasTierInfix(filePath) {
   const tiers = TIER_NAMES;
@@ -307,10 +313,24 @@ var default_default = defineRdyKit({
           fix: "Add a vitest.config.ts calling defineVitestConfig() from @williamthorsen/nmr/vitest beside each listed vite.config -- Vitest stops its config search at the first directory holding either name, so the Vite config otherwise wins and the projects model is never reached"
         },
         {
+          name: "the test suite gates the test-file conventions",
+          severity: "warn",
+          check: () => testSuiteGatesTestFileConventions(),
+          fix: "Add a test of the repo's own under a __tests__ directory that declares the check: import { checkTestFileConventions } from '@williamthorsen/nmr/tests'; checkTestFileConventions(); -- passing `exclude` the directory names that the repo passes to `testCollectionExclude`. Without it no test run reports an untiered or misplaced test file, and this kit reports them in its place against nmr's built-in exclusions alone"
+        },
+        {
           name: "every test file names its isolation tier",
           severity: "error",
+          skip: () => describeConventionsGuardSkip(),
           check: () => everyTestFileNamesItsTier(),
           fix: `Rename each to <subject>[.<aspect>].<tier>.test.ts, naming one of ${TIER_NAMES.join(", ")}. Use tool for a test that reaches a program the environment supplies, which is where a retired .int. or .integration. file belongs. Only the segment before .test. selects a project, so an untiered file runs under the residual unit project and reports success`
+        },
+        {
+          name: "every test file sits under a __tests__ directory",
+          severity: "error",
+          skip: () => describeConventionsGuardSkip(),
+          check: () => everyTestFileSitsUnderTestsDir(),
+          fix: "Move each into a __tests__ directory, the only place from which the shared Vitest config collects. No project collects a file outside one, so it runs nowhere and reports nothing. For a file that is not a test, declare checkTestFileConventions with its directory in `exclude` instead, which this check then defers to"
         },
         {
           name: "no package re-exports the ancestor Vitest config",
@@ -376,6 +396,7 @@ var SHARED_VITEST_MODULE = "@williamthorsen/nmr/vitest";
 var SHARED_PRETTIER_MODULE = "@williamthorsen/nmr/prettier";
 var INERT_PRETTIER_CONFIGS = [".prettierrc", ".prettierrc.{json,json5,yaml,yml,toml}"];
 var SHARED_TAZE_MODULE = "@williamthorsen/nmr/taze";
+var SHARED_TESTS_MODULE = "@williamthorsen/nmr/tests";
 var INERT_TAZE_CONFIGS = [".tazerc", ".tazerc.json", "taze.config.json"];
 var CLOBBERED_TAZE_OPTIONS = [
   { key: "concurrency", pattern: /\bconcurrency\s*:/ },
@@ -545,9 +566,14 @@ function readWrapperTarget(cwd, workspace, entry) {
   return posix.normalize(posix.join(posix.dirname(entry.target), specifier));
 }
 function everyTestFileNamesItsTier(cwd = process.cwd()) {
-  const untiered = findTestFiles(cwd).filter((path2) => !hasTierInfix(path2));
+  const untiered = findUntieredTestFiles(cwd);
   if (untiered.length === 0) return true;
   return { ok: false, detail: formatPaths(untiered) };
+}
+function everyTestFileSitsUnderTestsDir(cwd = process.cwd()) {
+  const misplaced = findMisplacedTestFiles(cwd);
+  if (misplaced.length === 0) return true;
+  return { ok: false, detail: formatPaths(misplaced) };
 }
 function everyViteConfigHasVitestConfig() {
   const discovery = discoverMemberWorkspaces();
@@ -726,6 +752,22 @@ function describeMissingTazeConfig(cwd) {
   if (inert.length > 0) return `holds no code to call the factory: ${inert.join(", ")}`;
   return "taze.config.ts is missing";
 }
+function testSuiteGatesTestFileConventions(cwd = process.cwd()) {
+  if (findConventionsGuard(cwd) !== void 0) return true;
+  return {
+    ok: false,
+    detail: `no test file under __tests__ imports checkTestFileConventions from ${SHARED_TESTS_MODULE}`
+  };
+}
+function describeConventionsGuardSkip() {
+  const guard = findConventionsGuard(process.cwd());
+  return guard === void 0 ? false : `reported by checkTestFileConventions in ${guard}`;
+}
+function findConventionsGuard(cwd) {
+  return findTestFiles(cwd).find(
+    (relativePath) => importsSharedExport(readFileIn(cwd, relativePath), "checkTestFileConventions", SHARED_TESTS_MODULE)
+  );
+}
 function toolVersionsHasNoPnpm() {
   const content = readFile(".tool-versions");
   if (content === void 0) return true;
@@ -752,6 +794,7 @@ export {
   everyBinTargetIsACommittedWrapper,
   everyBinWrapperTargetIsCoveredByFiles,
   everyTestFileNamesItsTier,
+  everyTestFileSitsUnderTestsDir,
   everyViteConfigHasVitestConfig,
   hasSupportedEslintVersion,
   hasSupportedStrictLintVersion,
@@ -762,6 +805,7 @@ export {
   prettierConfigBuildsOnSharedConfig,
   tazeConfigAvoidsClobberedOptions,
   tazeConfigBuildsOnSharedConfig,
+  testSuiteGatesTestFileConventions,
   vitestConfigBuildsOnSharedConfig,
   vitestRootConfigBuildsOnSharedConfig
 };

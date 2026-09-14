@@ -94,6 +94,8 @@ checkTestFileConventions({ exclude: ['cypress', 'generated'] });
 
 Expect the first run to fail in a repo that has never gated this. Vitest 4 excludes only `node_modules` and `.git` by default, so a `__tests__` tree under a generated or vendored directory is collected and runs today; naming that directory in both lists is the fix, rather than widening what nmr prunes for everyone.
 
+In a repo that has not declared the check, [nmr's readyup kit](../README.md#conformance-checks) reports both halves and warns that the check is missing. Once a test file under `__tests__` imports it, the kit skips both reports and names that file as the reason. Only the check reads the repo's `exclude`, and a kit report beside it could only repeat its findings or name a directory that the repo has pruned.
+
 ## What the config supplies
 
 Two settings a workspace test runner needs almost universally are part of what the factory produces, so a config file declares neither:
