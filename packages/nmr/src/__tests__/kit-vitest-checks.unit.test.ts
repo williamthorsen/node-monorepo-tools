@@ -22,7 +22,7 @@ const SHARED_ROOT_CONFIG =
   "import { defineRootVitestConfig } from '@williamthorsen/nmr/vitest';\nexport default defineRootVitestConfig({ monorepoRoot: import.meta.dirname });\n";
 const CONVENTIONS_GUARD =
   "import { checkTestFileConventions } from '@williamthorsen/nmr/tests';\n\ncheckTestFileConventions();\n";
-const TEST_FILE_SWEEPS = [
+const TEST_FILE_SWEEP_NAMES = [
   'every test file names its isolation tier',
   'every test file sits under a __tests__ directory',
 ];
@@ -412,11 +412,11 @@ describe(testSuiteGatesTestFileConventions, () => {
 });
 
 describe('test-file sweeps', () => {
-  it.each(TEST_FILE_SWEEPS)('reports "%s" as an error', (checkName) => {
+  it.each(TEST_FILE_SWEEP_NAMES)('reports "%s" as an error', (checkName) => {
     expect(findKitCheck(checkName).severity).toBe('error');
   });
 
-  it.each(TEST_FILE_SWEEPS)('skips "%s" in favor of the guard that the suite declares', (checkName) => {
+  it.each(TEST_FILE_SWEEP_NAMES)('skips "%s" in favor of the guard that the suite declares', (checkName) => {
     usePlainRepo({ '__tests__/test-file-conventions.unit.test.ts': CONVENTIONS_GUARD });
 
     expect(findKitCheck(checkName).skip?.()).toBe(
@@ -424,7 +424,7 @@ describe('test-file sweeps', () => {
     );
   });
 
-  it.each(TEST_FILE_SWEEPS)('runs "%s" when the suite declares no guard', (checkName) => {
+  it.each(TEST_FILE_SWEEP_NAMES)('runs "%s" when the suite declares no guard', (checkName) => {
     usePlainRepo({ '__tests__/example.unit.test.ts': '' });
 
     expect(findKitCheck(checkName).skip?.()).toBe(false);
