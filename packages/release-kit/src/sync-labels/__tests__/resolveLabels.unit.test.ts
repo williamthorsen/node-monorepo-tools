@@ -86,6 +86,56 @@ describe(resolveLabels, () => {
     expect(result).toStrictEqual([{ name: 'bug', color: 'ff0000', description: 'Custom bug' }, featureLabel]);
   });
 
+  it('resolves a later preset name that differs only in case to the later preset, keeping its spelling', () => {
+    const recasedBug: LabelDefinition = { ...bugLabel, name: 'Bug' };
+    mockLoadPreset.mockImplementation((name: string) => {
+      if (name === 'preset-a') return [bugLabel, featureLabel];
+      if (name === 'preset-b') return [recasedBug];
+      return [];
+    });
+
+    const config: RepoLabelsConfig = { extends: ['preset-a', 'preset-b'] };
+    const result = resolveLabels(config);
+
+    expect(result).toStrictEqual([recasedBug, featureLabel]);
+  });
+
+  it('replaces a preset label with a local entry whose name differs only in case, keeping the local spelling', () => {
+    mockLoadPreset.mockReturnValue([bugLabel, featureLabel]);
+
+    const config: RepoLabelsConfig = {
+      extends: ['common'],
+      labels: { Bug: { color: 'ff0000' } },
+    };
+    const result = resolveLabels(config);
+
+    expect(result).toStrictEqual([{ name: 'Bug', color: 'ff0000' }, featureLabel]);
+  });
+
+  it('throws on labels keys that differ only in case, naming each group', () => {
+    const config: RepoLabelsConfig = {
+      labels: {
+        bug: { color: 'd73a4a' },
+        Bug: { color: 'ff0000' },
+        feature: { color: '0075ca' },
+        FEATURE: { color: '0075ca' },
+      },
+    };
+
+    expect(() => resolveLabels(config)).toThrow("'bug' and 'Bug'; 'feature' and 'FEATURE'");
+  });
+
+  it('throws on labels keys that differ only in case when one of them is null', () => {
+    mockLoadPreset.mockReturnValue([bugLabel]);
+
+    const config: RepoLabelsConfig = {
+      extends: ['common'],
+      labels: { bug: null, Bug: { color: 'ff0000' } },
+    };
+
+    expect(() => resolveLabels(config)).toThrow("'bug' and 'Bug'");
+  });
+
   it('carries no description key for a local entry that omits one', () => {
     const config: RepoLabelsConfig = { labels: { 'scope:nmr': { color: '00ff96' } } };
 
@@ -114,6 +164,18 @@ describe(resolveLabels, () => {
     const config: RepoLabelsConfig = {
       extends: ['common'],
       labels: { bug: null },
+    };
+    const result = resolveLabels(config);
+
+    expect(result).toStrictEqual([featureLabel]);
+  });
+
+  it('removes a preset label when a null entry names it in a different case', () => {
+    mockLoadPreset.mockReturnValue([bugLabel, featureLabel]);
+
+    const config: RepoLabelsConfig = {
+      extends: ['common'],
+      labels: { BUG: null },
     };
     const result = resolveLabels(config);
 
