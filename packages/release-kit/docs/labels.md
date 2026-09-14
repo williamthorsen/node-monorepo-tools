@@ -36,7 +36,7 @@ Names match case-insensitively, as GitHub matches them: `Bug` in the `labels` re
 
 `description` is optional throughout, in a preset as in the `labels` record, and `sync-labels init` generates none for a scope label. The generated file spells an absent description `''` because `github-label-sync` reads an omitted description as "leave the label's current one alone"; the empty form clears it.
 
-Overlaps are never errors; order resolves them, and the committed `.github/labels.yaml` diff is where an unexpected change surfaces at review. Two misstatements are config errors, because neither is visible in the output diff: a dangling `null`, which removes a name that no preset defines, and `labels` keys that differ only in case, all but one of which the fold would discard.
+Overlaps between layers are never errors; order resolves them, and the committed `.github/labels.yaml` diff is where an unexpected change surfaces at review. Two misstatements are config errors, because neither is visible in the output diff: a dangling `null`, which removes a name that no preset defines, and `labels` keys that differ only in case, all but one of which the fold would discard.
 
 ### When labels are applied
 
