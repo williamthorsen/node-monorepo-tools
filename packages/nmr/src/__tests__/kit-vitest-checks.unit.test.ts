@@ -8,9 +8,11 @@ import {
   everyViteConfigHasVitestConfig,
   noReExportOnlyVitestConfigs,
   noRetiredVitestConfigs,
+  testSuiteGatesTestFileConventions,
   vitestConfigBuildsOnSharedConfig,
   vitestRootConfigBuildsOnSharedConfig,
 } from '../../.readyup/kits/default.ts';
+import { findKitCheck } from '../test-utils/findKitCheck.ts';
 import { buildMonorepo, buildRepo } from '../test-utils/fixture-repo.ts';
 import { getDetail } from '../test-utils/getDetail.ts';
 
@@ -18,6 +20,12 @@ const SHARED_CONFIG =
   "import { defineVitestConfig } from '@williamthorsen/nmr/vitest';\nexport default defineVitestConfig();\n";
 const SHARED_ROOT_CONFIG =
   "import { defineRootVitestConfig } from '@williamthorsen/nmr/vitest';\nexport default defineRootVitestConfig({ monorepoRoot: import.meta.dirname });\n";
+const CONVENTIONS_GUARD =
+  "import { checkTestFileConventions } from '@williamthorsen/nmr/tests';\n\ncheckTestFileConventions();\n";
+const TEST_FILE_SWEEPS = [
+  'every test file names its isolation tier',
+  'every test file sits under a __tests__ directory',
+];
 
 describe(noRetiredVitestConfigs, () => {
   it('passes when no retired variant survives', () => {
@@ -362,6 +370,67 @@ describe(everyTestFileSitsUnderTestsDir, () => {
   });
 });
 
+describe(testSuiteGatesTestFileConventions, () => {
+  it('passes when a root __tests__ file imports the guard', () => {
+    const dir = buildRepo({ '__tests__/test-file-conventions.unit.test.ts': CONVENTIONS_GUARD });
+
+    expect(testSuiteGatesTestFileConventions(dir)).toBe(true);
+  });
+
+  it("passes when a package's __tests__ file imports the guard", () => {
+    const dir = buildRepo({ 'packages/api/src/__tests__/conventions.unit.test.ts': CONVENTIONS_GUARD });
+
+    expect(testSuiteGatesTestFileConventions(dir)).toBe(true);
+  });
+
+  it('reports a suite that declares no guard', () => {
+    const dir = buildRepo({ 'packages/api/src/__tests__/api.unit.test.ts': '' });
+
+    expect(getDetail(testSuiteGatesTestFileConventions(dir))).toBe(
+      'no test file under __tests__ imports checkTestFileConventions from @williamthorsen/nmr/tests',
+    );
+  });
+
+  it('does not count a guard outside __tests__, which no project collects', () => {
+    const dir = buildRepo({ 'test/test-file-conventions.unit.test.ts': CONVENTIONS_GUARD });
+
+    expect(getDetail(testSuiteGatesTestFileConventions(dir))).toContain('no test file under __tests__');
+  });
+
+  it('does not count checkTestFileConventions imported from another module', () => {
+    const dir = buildRepo({
+      '__tests__/test-file-conventions.unit.test.ts':
+        "import { checkTestFileConventions } from '../scripts/conventions.ts';\n\ncheckTestFileConventions();\n",
+    });
+
+    expect(getDetail(testSuiteGatesTestFileConventions(dir))).toContain('no test file under __tests__');
+  });
+
+  it('warns rather than failing the run', () => {
+    expect(findKitCheck('the test suite gates the test-file conventions').severity).toBe('warn');
+  });
+});
+
+describe('test-file sweeps', () => {
+  it.each(TEST_FILE_SWEEPS)('reports "%s" as an error', (checkName) => {
+    expect(findKitCheck(checkName).severity).toBe('error');
+  });
+
+  it.each(TEST_FILE_SWEEPS)('skips "%s" in favor of the guard that the suite declares', (checkName) => {
+    usePlainRepo({ '__tests__/test-file-conventions.unit.test.ts': CONVENTIONS_GUARD });
+
+    expect(findKitCheck(checkName).skip?.()).toBe(
+      'reported by checkTestFileConventions in __tests__/test-file-conventions.unit.test.ts',
+    );
+  });
+
+  it.each(TEST_FILE_SWEEPS)('runs "%s" when the suite declares no guard', (checkName) => {
+    usePlainRepo({ '__tests__/example.unit.test.ts': '' });
+
+    expect(findKitCheck(checkName).skip?.()).toBe(false);
+  });
+});
+
 describe(noReExportOnlyVitestConfigs, () => {
   it('passes when no package carries a Vitest config', () => {
     const dir = buildRepo({ 'vitest.config.ts': SHARED_CONFIG });
@@ -423,6 +492,11 @@ describe(noReExportOnlyVitestConfigs, () => {
 /** Builds a fixture monorepo and points `process.cwd()` at it, which is what workspace discovery reads. */
 function useMonorepo(files: Record<string, string>): void {
   disposeOnTestFinished(pointCwdAt(buildMonorepo(files)));
+}
+
+/** Builds a bare fixture repo and points `process.cwd()` at it, which is what a check's `skip` reads. */
+function usePlainRepo(files: Record<string, string>): void {
+  disposeOnTestFinished(pointCwdAt(buildRepo(files)));
 }
 
 // endregion | Helpers

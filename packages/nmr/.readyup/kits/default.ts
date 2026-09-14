@@ -14,7 +14,7 @@ import { existsSync, globSync, readdirSync } from 'node:fs';
 import { basename, dirname, join, posix, sep } from 'node:path';
 
 import { describeError } from '@williamthorsen/toolbelt.errors';
-import { type CheckOutcome, defineRdyKit, pickJson } from 'readyup';
+import { type CheckOutcome, defineRdyKit, pickJson, type SkipResult } from 'readyup';
 import {
   discoverWorkspaces,
   fileContains,
@@ -30,7 +30,7 @@ import {
 } from 'readyup/check-utils';
 
 import { getDefaultRootScripts } from '../../src/resolve-scripts.ts';
-import { findMisplacedTestFiles, findUntieredTestFiles, TIER_NAMES } from '../../src/tiers.ts';
+import { findMisplacedTestFiles, findTestFiles, findUntieredTestFiles, TIER_NAMES } from '../../src/tiers.ts';
 
 export default defineRdyKit({
   checklists: [
@@ -185,14 +185,22 @@ export default defineRdyKit({
           fix: 'Add a vitest.config.ts calling defineVitestConfig() from @williamthorsen/nmr/vitest beside each listed vite.config -- Vitest stops its config search at the first directory holding either name, so the Vite config otherwise wins and the projects model is never reached',
         },
         {
+          name: 'the test suite gates the test-file conventions',
+          severity: 'warn',
+          check: () => testSuiteGatesTestFileConventions(),
+          fix: "Add a test of the repo's own under a __tests__ directory that declares the check: import { checkTestFileConventions } from '@williamthorsen/nmr/tests'; checkTestFileConventions(); -- passing `exclude` the directory names that the repo passes to `testCollectionExclude`. Without it no test run reports an untiered or misplaced test file, and this kit reports them in its place against nmr's built-in exclusions alone",
+        },
+        {
           name: 'every test file names its isolation tier',
           severity: 'error',
+          skip: () => describeConventionsGuardSkip(),
           check: () => everyTestFileNamesItsTier(),
           fix: `Rename each to <subject>[.<aspect>].<tier>.test.ts, naming one of ${TIER_NAMES.join(', ')}. Use tool for a test that reaches a program the environment supplies, which is where a retired .int. or .integration. file belongs. Only the segment before .test. selects a project, so an untiered file runs under the residual unit project and reports success`,
         },
         {
           name: 'every test file sits under a __tests__ directory',
           severity: 'error',
+          skip: () => describeConventionsGuardSkip(),
           check: () => everyTestFileSitsUnderTestsDir(),
           fix: 'Move each into a __tests__ directory, the only place from which the shared Vitest config collects. No project collects a file outside one, so it runs nowhere and reports nothing',
         },
@@ -287,6 +295,8 @@ const SHARED_PRETTIER_MODULE = '@williamthorsen/nmr/prettier';
 const INERT_PRETTIER_CONFIGS = ['.prettierrc', '.prettierrc.{json,json5,yaml,yml,toml}'];
 
 const SHARED_TAZE_MODULE = '@williamthorsen/nmr/taze';
+
+const SHARED_TESTS_MODULE = '@williamthorsen/nmr/tests';
 
 /** taze config forms that hold data rather than code, so none of them can call a factory. */
 const INERT_TAZE_CONFIGS = ['.tazerc', '.tazerc.json', 'taze.config.json'];
@@ -995,6 +1005,46 @@ function describeMissingTazeConfig(cwd: string): string {
   if (inert.length > 0) return `holds no code to call the factory: ${inert.join(', ')}`;
 
   return 'taze.config.ts is missing';
+}
+
+/**
+ * Checks that a test file under `__tests__` declares `checkTestFileConventions`, which gates both halves of the
+ * test-file convention in the repo's own test run.
+ *
+ * Without it, an untiered file runs under `unit` and a misplaced one runs nowhere, and no test run reports either.
+ * The import is the evidence, as for the shared-config checks; an import that nothing calls is lint's to report.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function testSuiteGatesTestFileConventions(cwd: string = process.cwd()): boolean | CheckOutcome {
+  if (findConventionsGuard(cwd) !== undefined) return true;
+  return {
+    ok: false,
+    detail: `no test file under __tests__ imports checkTestFileConventions from ${SHARED_TESTS_MODULE}`,
+  };
+}
+
+/**
+ * Returns the reason the test-file sweeps skip when the repo's suite declares `checkTestFileConventions`, or `false`
+ * when it does not.
+ *
+ * The guard reports the same files under the repo's own `exclude`, which no kit check can read, so a sweep beside it
+ * can only repeat its findings or report a directory that the repo has excluded.
+ */
+function describeConventionsGuardSkip(): SkipResult {
+  const guard = findConventionsGuard(process.cwd());
+  return guard === undefined ? false : `reported by checkTestFileConventions in ${guard}`;
+}
+
+/**
+ * Returns the first test file under `__tests__` that imports `checkTestFileConventions`, or undefined when none does.
+ *
+ * A guard outside `__tests__` does not count, because no project collects it.
+ */
+function findConventionsGuard(cwd: string): string | undefined {
+  return findTestFiles(cwd).find((relativePath) =>
+    importsSharedExport(readFileIn(cwd, relativePath), 'checkTestFileConventions', SHARED_TESTS_MODULE),
+  );
 }
 
 /** Checks that .tool-versions does not list pnpm. Pass if the file is absent. */
