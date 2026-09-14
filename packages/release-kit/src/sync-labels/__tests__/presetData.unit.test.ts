@@ -13,16 +13,17 @@ const presetNames = readdirSync(presetsDir)
 
 /**
  * Integrity check over the bundled preset data. Duplicate names within a preset are not a
- * runtime error — label resolution is a last-writer-wins fold — so this test is what keeps
- * a bundled preset from shipping a silently self-overwriting entry.
+ * runtime error, because label resolution is a last-writer-wins fold; this test keeps a bundled
+ * preset from shipping a silently self-overwriting entry. Names are compared case-insensitively,
+ * as GitHub compares them.
  */
 describe('bundled label presets', () => {
   it('ships at least the common preset', () => {
     expect(presetNames).toContain('common');
   });
 
-  it.each(presetNames)('preset "%s" defines each label name only once', (presetName) => {
-    const names = loadPreset(presetName).map((label) => label.name);
-    expect([...new Set(names)]).toStrictEqual(names);
+  it.each(presetNames)('preset "%s" defines each label name only once, ignoring case', (presetName) => {
+    const lowercasedNames = loadPreset(presetName).map((label) => label.name.toLowerCase());
+    expect([...new Set(lowercasedNames)]).toStrictEqual(lowercasedNames);
   });
 });

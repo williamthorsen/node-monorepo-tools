@@ -32,9 +32,11 @@ The block declares the repository's label registry — the set of labels defined
 1. Presets, in `extends` order — a later preset wins on a shared name.
 2. The `labels` record — an entry adds a label, replaces one an earlier layer defined, or removes it (`null`). Replacement is wholesale: an entry omitting `description` resolves to no description rather than inheriting the one an earlier layer supplied.
 
+Names match case-insensitively, as GitHub matches them: `Bug` in the `labels` record replaces a preset's `bug`, and `Bug: null` removes it. A label takes the spelling of the last layer to write it.
+
 `description` is optional throughout, in a preset as in the `labels` record, and `sync-labels init` generates none for a scope label. The generated file spells an absent description `''` because `github-label-sync` reads an omitted description as "leave the label's current one alone"; the empty form clears it.
 
-Overlaps are never errors; order resolves them, and the committed `.github/labels.yaml` diff is where an unexpected change surfaces at review. The one config error is a dangling `null` — removing a name no preset defines — because that misstatement is invisible in the output diff.
+Overlaps between layers are never errors; order resolves them, and the committed `.github/labels.yaml` diff is where an unexpected change surfaces at review. Two misstatements are config errors, because neither is visible in the output diff: a dangling `null`, which removes a name that no preset defines, and `labels` keys that differ only in case, all but one of which the fold would discard.
 
 ### When labels are applied
 
