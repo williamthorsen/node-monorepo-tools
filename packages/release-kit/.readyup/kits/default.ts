@@ -66,6 +66,10 @@ export const RELEASE_WORKFLOW_HASH_MONOREPO = '0a9724b7b3c5e24087fd3a8f36fed8e99
 export const RELEASE_WORKFLOW_HASH_SINGLE = 'a3d19bbc1ba8bb30622e53c590137b97e3179e80988c0967737b021cdaeab73f';
 export const PUBLISH_WORKFLOW_HASH_MONOREPO = '0afa9ffe914f3dc8f043e68252ebc604c8cc1a953422fcea37a909a4def370ee';
 export const PUBLISH_WORKFLOW_HASH_SINGLE = '6f31183e0a1e66be791a19266c3b028dadbd9fe010f7fc4452f3f8970c937b43';
+export const CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO =
+  'c455d88c93d855737c96079945ff729a9d094f846519c24afbefe83a425c1d7f';
+export const CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE =
+  'f595831ff28f8b3a01d97e6cb0cfe100262f7a8821091c6c458b0c0224cebba8';
 
 export default defineRdyKit({
   checklists: [
@@ -143,6 +147,22 @@ export default defineRdyKit({
               fix: 'Update publish.yaml to use @workflow/publish-v1 (run `release-kit init --force` to regenerate, or replace the ref manually)',
             },
           ],
+        },
+        {
+          name: 'create-github-release.yaml matches template',
+          severity: 'warn',
+          skip: () =>
+            !fileExists('.github/workflows/create-github-release.yaml')
+              ? 'no create-github-release workflow (GitHub Releases not adopted)'
+              : false,
+          check: () => {
+            const hash =
+              detectRepoType() === 'monorepo'
+                ? CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO
+                : CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE;
+            return fileMatchesHash('.github/workflows/create-github-release.yaml', hash);
+          },
+          fix: 'Run `release-kit init --force` to regenerate create-github-release.yaml from the current template',
         },
         {
           name: '.config/release-kit.config.ts exports a config',

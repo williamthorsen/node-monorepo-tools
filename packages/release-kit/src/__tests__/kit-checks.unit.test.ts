@@ -2,14 +2,25 @@ import { isFlatChecklist, type RdyCheck } from 'readyup';
 import type { Workspace } from 'readyup/check-utils';
 import { assert, describe, expect, it, vi } from 'vitest';
 
-const { mockedDiscoverWorkspaces, mockedFileContains, mockedFileExists, mockedHasDevDependency, mockedReadFile } =
-  vi.hoisted(() => ({
-    mockedDiscoverWorkspaces: vi.fn<() => Workspace[]>(() => []),
-    mockedFileContains: vi.fn<(path: string, pattern: RegExp) => boolean>(),
-    mockedFileExists: vi.fn<(path: string) => boolean>(),
-    mockedHasDevDependency: vi.fn<(name: string) => boolean>(),
-    mockedReadFile: vi.fn<(path: string) => string | undefined>(),
-  }));
+import type { RepoType } from '../init/detectRepoType.ts';
+
+const {
+  mockedDetectRepoType,
+  mockedDiscoverWorkspaces,
+  mockedFileContains,
+  mockedFileExists,
+  mockedFileMatchesHash,
+  mockedHasDevDependency,
+  mockedReadFile,
+} = vi.hoisted(() => ({
+  mockedDetectRepoType: vi.fn<() => RepoType>(),
+  mockedDiscoverWorkspaces: vi.fn<() => Workspace[]>(() => []),
+  mockedFileContains: vi.fn<(path: string, pattern: RegExp) => boolean>(),
+  mockedFileExists: vi.fn<(path: string) => boolean>(),
+  mockedFileMatchesHash: vi.fn<(path: string, expectedHash: string) => boolean>(),
+  mockedHasDevDependency: vi.fn<(name: string) => boolean>(),
+  mockedReadFile: vi.fn<(path: string) => string | undefined>(),
+}));
 
 vi.mock(import('readyup/check-utils'), async (importOriginal) => {
   const actual = await importOriginal<typeof import('readyup/check-utils')>();
@@ -18,17 +29,28 @@ vi.mock(import('readyup/check-utils'), async (importOriginal) => {
     discoverWorkspaces: mockedDiscoverWorkspaces,
     fileContains: mockedFileContains,
     fileExists: mockedFileExists,
+    fileMatchesHash: mockedFileMatchesHash,
     hasDevDependency: mockedHasDevDependency,
     readFile: mockedReadFile,
   };
 });
 
-import kit, { configFileExportsConfig } from '../../.readyup/kits/default.ts';
+vi.mock(import('../init/detectRepoType.ts'), () => ({
+  detectRepoType: mockedDetectRepoType,
+}));
+
+import kit, {
+  configFileExportsConfig,
+  CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO,
+  CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE,
+} from '../../.readyup/kits/default.ts';
 
 const CHANGELOG_CHECK = 'published packages ship CHANGELOG.md';
 const CHANGELOG_JSON_GATE = 'changelog.json generation is enabled';
 const CHANGESETS_CHECK = '@changesets/cli not in devDependencies';
 const CONFIG_GATE = '.config/release-kit.config.ts exports a config';
+const CREATE_GITHUB_RELEASE_CHECK = 'create-github-release.yaml matches template';
+const CREATE_GITHUB_RELEASE_PATH = '.github/workflows/create-github-release.yaml';
 
 describe(configFileExportsConfig, () => {
   it('returns false when the config file is absent', () => {
@@ -203,6 +225,33 @@ describe(CHANGESETS_CHECK, () => {
   });
 });
 
+describe(CREATE_GITHUB_RELEASE_CHECK, () => {
+  it('skips where the repo has not installed the workflow', () => {
+    mockedFileExists.mockReturnValue(false);
+
+    expect(getCreateGithubReleaseCheck().skip?.()).toBe(
+      'no create-github-release workflow (GitHub Releases not adopted)',
+    );
+  });
+
+  it('runs where the repo has installed the workflow', () => {
+    mockedFileExists.mockImplementation((path) => path === CREATE_GITHUB_RELEASE_PATH);
+
+    expect(getCreateGithubReleaseCheck().skip?.()).toBe(false);
+  });
+
+  it.each([
+    ['monorepo', CREATE_GITHUB_RELEASE_WORKFLOW_HASH_MONOREPO],
+    ['single-package', CREATE_GITHUB_RELEASE_WORKFLOW_HASH_SINGLE],
+  ] as const)('reports drift against the %s hash', (repoType, hash) => {
+    mockedDetectRepoType.mockReturnValue(repoType);
+    mockedFileMatchesHash.mockReturnValue(false);
+
+    expect(getCreateGithubReleaseCheck().check()).toBe(false);
+    expect(mockedFileMatchesHash).toHaveBeenLastCalledWith(CREATE_GITHUB_RELEASE_PATH, hash);
+  });
+});
+
 // region | Helpers
 
 /**
@@ -246,6 +295,11 @@ function getChangesetsCheck(): RdyCheck {
 /** Returns the check that every config-dependent check hangs beneath. */
 function getConfigGate(): RdyCheck {
   return findCheck(CONFIG_GATE, getReleaseKitChecks());
+}
+
+/** Returns the check comparing an installed `create-github-release.yaml` against its template. */
+function getCreateGithubReleaseCheck(): RdyCheck {
+  return findCheck(CREATE_GITHUB_RELEASE_CHECK, getReleaseKitChecks());
 }
 
 /** Returns the top-level checks of the kit's `release-kit` checklist. */
