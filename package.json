@@ -42,7 +42,6 @@
     "@williamthorsen/tsconfig": "0.9.0",
     "codeassembly": "0.14.0",
     "eslint": "10.10.0",
-    "eslint-plugin-import": "2.32.0",
     "lefthook": "2.1.12",
     "prettier": "3.9.6",
     "readyup": "catalog:",
