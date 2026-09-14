@@ -69,8 +69,7 @@ function findCaseVariantGroups(names: string[]): string[][] {
 
 /** Sorts labels alphabetically by name (case-insensitive). */
 function sortLabels(labels: LabelDefinition[]): LabelDefinition[] {
-  // eslint-disable-next-line unicorn/no-array-sort -- toSorted requires Node 20+; engine target is >=18.17.0
-  return [...labels].sort((a, b) => a.name.localeCompare(b.name));
+  return labels.toSorted((a, b) => a.name.localeCompare(b.name));
 }
 
 /** Returns the key that identifies a label name, compared case-insensitively as GitHub and `github-label-sync` do. */
