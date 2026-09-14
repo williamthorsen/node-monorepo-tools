@@ -202,7 +202,7 @@ export default defineRdyKit({
           severity: 'error',
           skip: () => describeConventionsGuardSkip(),
           check: () => everyTestFileSitsUnderTestsDir(),
-          fix: 'Move each into a __tests__ directory, the only place from which the shared Vitest config collects. No project collects a file outside one, so it runs nowhere and reports nothing',
+          fix: 'Move each into a __tests__ directory, the only place from which the shared Vitest config collects. No project collects a file outside one, so it runs nowhere and reports nothing. For a file that is not a test, declare checkTestFileConventions with its directory in `exclude` instead, which this check then defers to',
         },
         {
           name: 'no package re-exports the ancestor Vitest config',
