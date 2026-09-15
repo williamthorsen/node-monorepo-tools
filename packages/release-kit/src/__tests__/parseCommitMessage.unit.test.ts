@@ -495,6 +495,18 @@ describe('parseCommitMessage `!` policy enforcement', () => {
     ['bugfix!', 'fix'],
     ['perf!', 'perf'],
     ['performance!', 'perf'],
+  ])('accepts `%s` as a compliant breaking commit under the optional policy', (prefix, canonicalType) => {
+    const onPolicyViolation = vi.fn<PolicyViolationHandler>();
+    const result = parseCommitMessage(`${prefix}: change a contract`, 'h', DEFAULT_WORK_TYPES, undefined, {
+      breakingPolicies: DEFAULT_BREAKING_POLICIES,
+      onPolicyViolation,
+    });
+    expect(result?.type).toBe(canonicalType);
+    expect(result?.breaking).toBe(true);
+    expect(onPolicyViolation).not.toHaveBeenCalled();
+  });
+
+  it.each([
     ['deps!', 'deps'],
     ['tests!', 'tests'],
     ['tooling!', 'tooling'],
@@ -530,27 +542,27 @@ describe('parseCommitMessage `!` policy enforcement', () => {
 
   it('treats `BREAKING CHANGE:` body footer on a forbidden-policy type as a policy violation with breaking: false', () => {
     const onPolicyViolation = vi.fn<PolicyViolationHandler>();
-    const message = 'fix: patch null check\n\nBREAKING CHANGE: removes deprecated path';
+    const message = 'refactor: extract parser\n\nBREAKING CHANGE: removes deprecated path';
     const result = parseCommitMessage(message, 'p14', DEFAULT_WORK_TYPES, undefined, {
       breakingPolicies: DEFAULT_BREAKING_POLICIES,
       onPolicyViolation,
     });
-    expect(result?.type).toBe('fix');
+    expect(result?.type).toBe('refactor');
     expect(result?.breaking).toBe(false);
-    expect(onPolicyViolation).toHaveBeenCalledWith({ message, hash: 'p14' }, 'fix', 'body');
+    expect(onPolicyViolation).toHaveBeenCalledWith({ message, hash: 'p14' }, 'refactor', 'body');
   });
 
   it('reports both prefix and body surfaces independently when both are present on a forbidden type', () => {
     const onPolicyViolation = vi.fn<PolicyViolationHandler>();
-    const message = 'fix!: patch null check\n\nBREAKING CHANGE: removes deprecated path';
+    const message = 'refactor!: extract parser\n\nBREAKING CHANGE: removes deprecated path';
     const result = parseCommitMessage(message, 'p15', DEFAULT_WORK_TYPES, undefined, {
       breakingPolicies: DEFAULT_BREAKING_POLICIES,
       onPolicyViolation,
     });
     expect(result?.breaking).toBe(false);
     expect(onPolicyViolation).toHaveBeenCalledTimes(2);
-    expect(onPolicyViolation).toHaveBeenCalledWith({ message, hash: 'p15' }, 'fix', 'prefix');
-    expect(onPolicyViolation).toHaveBeenCalledWith({ message, hash: 'p15' }, 'fix', 'body');
+    expect(onPolicyViolation).toHaveBeenCalledWith({ message, hash: 'p15' }, 'refactor', 'prefix');
+    expect(onPolicyViolation).toHaveBeenCalledWith({ message, hash: 'p15' }, 'refactor', 'body');
   });
 
   it('does not invoke the policy callback for compliant commits', () => {
