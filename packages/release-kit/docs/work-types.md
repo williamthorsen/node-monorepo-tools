@@ -63,13 +63,19 @@ To customize, set `breakingPolicies` in `release-kit.config.ts`. The map replace
 
 ## `🚨 **Breaking:**` bullet marker
 
-Items whose commit subject carries the `!` prefix (e.g. `feat!`, `drop!`, `feat(api)!`) are rendered with a `🚨 **Breaking:** ` prefix on the bullet:
+Items whose commit subject carries the `!` prefix (e.g. `feat!`, `drop!`, `feat(api)!`) on a type whose policy permits it are rendered with a `🚨 **Breaking:** ` prefix on the bullet:
 
 ```markdown
 - 🚨 **Breaking:** Drop legacy /v1 endpoint
 ```
 
-Only the prefix `!` triggers this marker. A `BREAKING CHANGE:` body footer on its own does **not** retroactively mark a changelog item as breaking — the changelog signal is tied to the commit-prefix policy. This avoids surprise breaking-marker appearances for older commits written under earlier conventions.
+The marker agrees with the version bump:
+
+- A `forbidden`-policy type carrying `!`, such as `refactor!`, gets no marker, just as its `!` raises no bump; the prepare report lists it as a policy violation. An [editorial override](editorial-overrides.md) that sets `breaking: true` restores the marker for one entry.
+- The configured `breakingPolicies` map, `{}` included, decides which types permit the marker.
+- A commit whose type the parser cannot resolve has no policy, so its `!` prefix alone decides.
+
+A `BREAKING CHANGE:` body footer on its own does **not** retroactively mark a changelog item as breaking, even on a type whose policy permits `!`; the changelog signal is tied to the commit prefix. This avoids surprise breaking-marker appearances for older commits written under earlier conventions.
 
 The emoji and label of this marker are sourced from the `markers.breaking` entry in `work-types.json` (see [Section markers](#section-markers)) so consumers that render their own breaking-changes section draw from the same SSOT.
 

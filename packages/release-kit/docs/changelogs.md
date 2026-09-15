@@ -8,13 +8,13 @@ Neither `CHANGELOG.md` nor `.meta/changelog.json` reaches a published tarball on
 
 Each item under a section in `.meta/changelog.json` carries one required field and four optional ones:
 
-| Field         | Type      | Meaning                                                                                                                                        |
-| ------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `description` | `string`  | The bullet headline, taken from the commit subject with the ticket ID and type prefix stripped.                                                |
-| `body`        | `string`  | The commit body, with trailing trailer metadata stripped.                                                                                      |
-| `breaking`    | `boolean` | Present and `true` where the commit subject carried the `!` prefix. See [`!` (breaking change) policy](work-types.md#-breaking-change-policy). |
-| `migration`   | `string`  | The migration step for a consumer. See below.                                                                                                  |
-| `hash`        | `string`  | The full commit SHA, and the key on which an override entry matches. Absent on synthetic propagation entries.                                  |
+| Field         | Type      | Meaning                                                                                                                                                                         |
+| ------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `description` | `string`  | The bullet headline, taken from the commit subject with the ticket ID and type prefix stripped.                                                                                 |
+| `body`        | `string`  | The commit body, with trailing trailer metadata stripped.                                                                                                                       |
+| `breaking`    | `boolean` | Present and `true` where the commit subject carried the `!` prefix and the commit's type permits it. See [`!` (breaking change) policy](work-types.md#-breaking-change-policy). |
+| `migration`   | `string`  | The migration step for a consumer. See below.                                                                                                                                   |
+| `hash`        | `string`  | The full commit SHA, and the key on which an override entry matches. Absent on synthetic propagation entries.                                                                   |
 
 Every optional field is omitted rather than emitted as `null`, so a consumer tests for presence.
 

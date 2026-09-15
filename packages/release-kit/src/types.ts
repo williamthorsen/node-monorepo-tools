@@ -14,11 +14,12 @@ export interface ChangelogItem {
   /**
    * Whether this item represents a breaking change.
    *
-   * `true` when the commit subject carries the `!` prefix (e.g. `feat!:` or `drop(scope)!:`).
-   * The `BREAKING CHANGE:` body footer is intentionally NOT considered here — only the prefix
-   * `!` marks a changelog item as breaking. Renderers prefix breaking-item bullets with the
-   * marker constructed from `WORK_TYPES_DATA.markers.breaking` (rendered as `🚨 **Breaking:** `
-   * with the canonical SSOT values) to surface them prominently in release notes.
+   * `true` when the commit subject carries the `!` prefix (e.g. `feat!:` or `drop(scope)!:`) and
+   * the commit's work-type policy permits it, so the item agrees with the version bump.
+   * The `BREAKING CHANGE:` body footer is intentionally NOT considered here. Renderers prefix
+   * breaking-item bullets with the marker constructed from `WORK_TYPES_DATA.markers.breaking`
+   * (rendered as `🚨 **Breaking:** ` with the canonical SSOT values) to surface them prominently
+   * in release notes.
    */
   breaking?: boolean;
   /**
