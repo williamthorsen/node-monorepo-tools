@@ -33,7 +33,7 @@ import { resolveContext, type ResolvedContext } from './context.ts';
 import { generateHelp } from './help.ts';
 import { resolveConfigPath } from './helpers/config-path.ts';
 import { deriveExcerpt } from './helpers/deriveExcerpt.ts';
-import { readFilterSelection } from './helpers/filter-selection.ts';
+import { type FilterSelection, readFilterSelection } from './helpers/filter-selection.ts';
 import { findClosestName } from './helpers/findClosestName.ts';
 import { isHookName } from './helpers/hook-name.ts';
 import { resolvePackageJsonPath } from './helpers/package-json.ts';
@@ -438,7 +438,7 @@ function composeDelegation(options: {
   childEnv: NodeJS.ProcessEnv;
   command: string;
   parsed: ParsedArgs;
-}): { env: NodeJS.ProcessEnv; step: Step } | undefined {
+}): { env: NodeJS.ProcessEnv; step: Extract<Step, { kind: 'structural' }> } | undefined {
   const { childEnv, command, parsed } = options;
 
   let scope: string[] | undefined;
@@ -724,14 +724,19 @@ function findArgError(parsed: ParsedArgs): string | undefined {
  * carries neither signal -- its exit code is 0 either way, and the `Scope: 0 of N` line it prints under `run`
  * is absent under the `exec` a delegation composes -- so the refusal is nmr's to make, ahead of the delegate.
  *
- * A filter is put to pnpm, which owns what the pattern means; a `-R` is not, since `pnpm --recursive` leaves
- * the root project out and a workspace declaring no package is its only empty selection.
+ * A filter is put to pnpm, which owns what the pattern means, and `selection` is pnpm's answer; a `-R` is not,
+ * and carries none, since `pnpm --recursive` leaves the root project out and a workspace declaring no package is
+ * its only empty selection.
  */
-function findEmptySelectionRefusal(options: { context: ResolvedContext; parsed: ParsedArgs }): string | undefined {
-  const { context, parsed } = options;
+function findEmptySelectionRefusal(options: {
+  context: ResolvedContext;
+  parsed: ParsedArgs;
+  selection: FilterSelection | undefined;
+}): string | undefined {
+  const { context, parsed, selection } = options;
 
   if (parsed.filter !== undefined) {
-    if (readFilterSelection(parsed.filter, context.monorepoRoot) !== 'empty') {
+    if (selection !== 'empty') {
       return undefined;
     }
     return formatEmptyFilterError(parsed.filter, readWorkspacePackageNames(context.workspacePackageDirs));
@@ -1355,23 +1360,35 @@ function resolveCacheKey(options: {
  *
  * The refusal precedes the delegate rather than reading its outcome, since a delegation that selected nothing
  * has already run to completion, reporting nothing and exiting 0, by the time nmr sees it.
+ *
+ * A `-R` delegation gives its packages no stdin, as does a filter that pnpm lists as several packages. pnpm 12
+ * starts each package of a concurrent `exec` in a background process group, which the system stops when it reads
+ * from the terminal or changes its mode, so a command such as `next build` would hang the run. pnpm keeps a serial
+ * run in the foreground, which nmr cannot observe; `-R` itself and a filter's package count stand in for it, and a
+ * `-R` or a dependency-chain filter that pnpm runs serially loses its input as well. A filter whose selection pnpm
+ * did not report keeps nmr's stdin.
  */
 async function runDelegation(options: {
   context: ResolvedContext;
-  delegation: { env: NodeJS.ProcessEnv; step: Step };
+  delegation: { env: NodeJS.ProcessEnv; step: Extract<Step, { kind: 'structural' }> };
   parsed: ParsedArgs;
   runOptions: RunStepsOptions;
   stderr: Writable;
 }): Promise<RunCliResult> {
   const { context, delegation, parsed, runOptions, stderr } = options;
 
-  const refusal = findEmptySelectionRefusal({ context, parsed });
+  const selection = parsed.filter === undefined ? undefined : readFilterSelection(parsed.filter, context.monorepoRoot);
+
+  const refusal = findEmptySelectionRefusal({ context, parsed, selection });
   if (refusal !== undefined) {
     reportError(refusal, stderr);
     return { exitCode: 1 };
   }
 
-  return runSteps([delegation.step], context.monorepoRoot, { ...runOptions, env: delegation.env });
+  const shouldWithholdInput = parsed.filter === undefined || selection === 'multiple';
+  const step = shouldWithholdInput ? { ...delegation.step, shouldWithholdInput } : delegation.step;
+
+  return runSteps([step], context.monorepoRoot, { ...runOptions, env: delegation.env });
 }
 
 /**

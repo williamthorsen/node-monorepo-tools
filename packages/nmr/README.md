@@ -51,6 +51,8 @@ nmr --filter core test # Test only the package whose manifest name is `core`
 nmr --recursive lint   # Lint all workspace packages
 ```
 
+`--recursive`, and a `--filter` that selects more than one package, give each package no terminal input. An interactive command such as `test:watch` needs a filter that selects a single package.
+
 Position determines ownership: flags before the command name are nmr's own, and everything after the command name is forwarded untouched to the resolved command.
 
 `nmr --help` lists every flag and command, with the shell command each command resolves to. Per-package `package.json` files need no script entries.

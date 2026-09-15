@@ -10,7 +10,7 @@ const SELECTION_MARKER = 'nmr-selected-scope';
 
 /**
  * Asks pnpm what a `-F` pattern selects, so an invocation that would select nothing is caught before it
- * delegates.
+ * delegates, and one selecting several packages is told from one selecting a single package.
  *
  * pnpm's own selector answers rather than a matcher of nmr's: `-F` means the whole selector language, names
  * and globs alongside `./path`, `{dir}`, `pkg...`, `!negation`, and `[since]`, and a matcher here would leave
@@ -22,8 +22,8 @@ const SELECTION_MARKER = 'nmr-selected-scope';
  * The listing counts the root project wherever the filter leaves it standing, while the `exec` a delegation
  * composes runs there only where the pattern selects the root positively: `-F '!./packages/*'` lists the root
  * and executes nowhere. A listing of the root alone is therefore the one reading the listing cannot settle,
- * and it is put to `exec` itself. Every other listing settles on its own, a selection of two or more running
- * in at least one scope whether or not the root is among them.
+ * and it is put to `exec` itself. Every other listing settles on its own, and counts the packages beside the
+ * root: two of them run in two scopes, while one beside the root may run in that package alone.
  */
 export function readFilterSelection(pattern: string, monorepoRoot: string): FilterSelection {
   const listing = spawnSync('pnpm', ['ls', '--filter', pattern, '--depth', '-1', '--json'], {
@@ -42,7 +42,7 @@ export function readFilterSelection(pattern: string, monorepoRoot: string): Filt
 /**
  * Reduces a listing to what it proves about the selection.
  *
- * Only `empty` is a positive claim, so every outcome the probe cannot read resolves to `unresolved` and the
+ * Every outcome the probe cannot read resolves to `unresolved`, which claims nothing about the selection, and the
  * invocation delegates as it would have. A pattern pnpm rejects rather than resolves, such as a bad git ref in
  * a changed-since selector, is pnpm's to report, and reporting it here as a match failure would name a
  * different fault than the one the user has.
@@ -67,20 +67,28 @@ export function interpretSelectionProbe(probe: SelectionProbe, monorepoRoot: str
     return 'empty';
   }
 
-  return parsed.every((entry: unknown) => isRootEntry(entry, monorepoRoot)) ? 'root-only' : 'selected';
+  const packageCount = parsed.filter((entry: unknown) => !isRootEntry(entry, monorepoRoot)).length;
+  if (packageCount === 0) {
+    return 'root-only';
+  }
+
+  return packageCount === 1 ? 'single' : 'multiple';
 }
 
-/** Reduces a marked delegate run to what it proves: a scope that wrote the marker is a scope the run reached. */
+/**
+ * Reduces a marked delegate run to what it proves: a scope that wrote the marker is a scope the run reached. The
+ * run is made only for a listing of the root alone, so that scope is the only one.
+ */
 export function interpretDelegateProbe(probe: SelectionProbe): FilterSelection {
   if (probe.error !== undefined || probe.status !== 0) {
     return 'unresolved';
   }
 
-  return probe.stdout.includes(SELECTION_MARKER) ? 'selected' : 'empty';
+  return probe.stdout.includes(SELECTION_MARKER) ? 'single' : 'empty';
 }
 
-/** What a `-F` pattern selected, as far as pnpm could be asked. */
-export type FilterSelection = 'empty' | 'selected' | 'unresolved';
+/** What a `-F` pattern selected, as far as pnpm could be asked. `multiple` is two or more packages beside the root. */
+export type FilterSelection = 'empty' | 'multiple' | 'single' | 'unresolved';
 
 /** What a listing proves, `root-only` being the reading that only the delegate can settle. */
 export type ProbeReading = FilterSelection | 'root-only';

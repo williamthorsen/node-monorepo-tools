@@ -5,7 +5,7 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesyst
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
 
-import { readFilterSelection } from '../helpers/filter-selection.ts';
+import { type FilterSelection, readFilterSelection } from '../helpers/filter-selection.ts';
 import { REPORT_FORMAT_ENV_VAR } from '../report-format.ts';
 import { runCli } from '../runCli.ts';
 import { runSteps } from '../runner.ts';
@@ -49,7 +49,7 @@ describe(runCli, () => {
     mockedRunSteps.mockReset();
     mockedRunSteps.mockResolvedValue({ exitCode: 0 });
     mockedReadFilterSelection.mockReset();
-    mockedReadFilterSelection.mockReturnValue('selected');
+    mockedReadFilterSelection.mockReturnValue('single');
   });
 
   describe('delegation', () => {
@@ -73,11 +73,6 @@ describe(runCli, () => {
         args: ['-F', 'my-pkg', 'test', '-t', 'a b'],
         expected: ['pnpm', '--filter', 'my-pkg', 'exec', 'nmr', 'test', '-t', 'a b'],
         scenario: 'a passthrough argument holding a space',
-      },
-      {
-        args: ['-R', 'build'],
-        expected: ['pnpm', '--recursive', 'exec', 'nmr', 'build'],
-        scenario: 'a recursive delegate',
       },
     ])('given $scenario, delegates through pnpm as argv tokens', async ({ args, expected }, { tree }) => {
       await runNmr(args, tree.dir);
@@ -119,13 +114,20 @@ describe(runCli, () => {
     it.for([
       {
         args: ['-F', 'my-pkg', '--log', 'test'],
-        expected: ['pnpm', '--filter', 'my-pkg', 'exec', 'nmr', '--log', 'test'],
+        expected: { kind: 'structural', argv: ['pnpm', '--filter', 'my-pkg', 'exec', 'nmr', '--log', 'test'] },
       },
-      { args: ['-R', '--log', 'test'], expected: ['pnpm', '--recursive', 'exec', 'nmr', '--log', 'test'] },
+      {
+        args: ['-R', '--log', 'test'],
+        expected: {
+          kind: 'structural',
+          argv: ['pnpm', '--recursive', 'exec', 'nmr', '--log', 'test'],
+          shouldWithholdInput: true,
+        },
+      },
     ])('carries `--log` into the delegate, ahead of the command name', async ({ args, expected }, { tree }) => {
       await runNmr(args, tree.dir);
 
-      expect(stepsFromCall()).toStrictEqual([{ kind: 'structural', argv: expected }]);
+      expect(stepsFromCall()).toStrictEqual([expected]);
     });
 
     // A fan-out asks every selected scope, so a scope that never ran the command is a gap in a survey rather
@@ -134,6 +136,51 @@ describe(runCli, () => {
       await runNmr(['-F', 'my-pkg', '--log', 'test'], tree.dir);
 
       expect(mockedRunSteps.mock.calls[0]?.[2].env).toMatchObject({ NMR_RUN_IF_PRESENT: '1' });
+    });
+  });
+
+  describe('input', () => {
+    it('gives the packages of a recursive delegate no stdin', async ({ tree }) => {
+      await runNmr(['-R', 'build'], tree.dir);
+
+      expect(stepsFromCall()).toStrictEqual([
+        { kind: 'structural', argv: ['pnpm', '--recursive', 'exec', 'nmr', 'build'], shouldWithholdInput: true },
+      ]);
+    });
+
+    it('gives no stdin to the packages of a filter selecting several', async ({ tree }) => {
+      mockedReadFilterSelection.mockReturnValue('multiple');
+
+      await runNmr(['-F', './packages/*', 'build'], tree.dir);
+
+      expect(stepsFromCall()).toStrictEqual([
+        {
+          kind: 'structural',
+          argv: ['pnpm', '--filter', './packages/*', 'exec', 'nmr', 'build'],
+          shouldWithholdInput: true,
+        },
+      ]);
+    });
+
+    it.for<{ selection: FilterSelection }>([{ selection: 'single' }, { selection: 'unresolved' }])(
+      'given a filter whose selection reads $selection, keeps nmr stdin',
+      async ({ selection }, { tree }) => {
+        mockedReadFilterSelection.mockReturnValue(selection);
+
+        await runNmr(['-F', 'my-pkg', 'build'], tree.dir);
+
+        expect(stepsFromCall()).toStrictEqual([
+          { kind: 'structural', argv: ['pnpm', '--filter', 'my-pkg', 'exec', 'nmr', 'build'] },
+        ]);
+      },
+    );
+
+    it('asks pnpm once for both the refusal and the input', async ({ tree }) => {
+      mockedReadFilterSelection.mockReturnValue('multiple');
+
+      await runNmr(['-F', './packages/*', 'build'], tree.dir);
+
+      expect(mockedReadFilterSelection).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -264,7 +311,7 @@ describe(runCli, () => {
 
       expect(exitCode).toBe(0);
       expect(stepsFromCall()).toStrictEqual([
-        { kind: 'structural', argv: ['pnpm', '--recursive', 'exec', 'nmr', 'build'] },
+        { kind: 'structural', argv: ['pnpm', '--recursive', 'exec', 'nmr', 'build'], shouldWithholdInput: true },
       ]);
     });
 
