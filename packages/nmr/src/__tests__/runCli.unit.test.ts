@@ -49,7 +49,7 @@ describe(runCli, () => {
     mockedRunSteps.mockReset();
     mockedRunSteps.mockResolvedValue({ exitCode: 0 });
     mockedReadFilterSelection.mockReset();
-    mockedReadFilterSelection.mockReturnValue('selected');
+    mockedReadFilterSelection.mockReturnValue('single');
   });
 
   describe('delegation', () => {

@@ -6,16 +6,23 @@ const MONOREPO_ROOT = '/repo';
 
 const ROOT_ENTRY = { name: 'repo', path: MONOREPO_ROOT, version: '0.0.0' };
 const PACKAGE_ENTRY = { name: '@scope/pkg', path: '/repo/packages/pkg', version: '1.0.0' };
+const OTHER_PACKAGE_ENTRY = { name: '@scope/other', path: '/repo/packages/other', version: '1.0.0' };
 
 describe(interpretSelectionProbe, () => {
   it('reads a resolved selection of no projects as empty', () => {
     expect(interpretSelectionProbe({ error: undefined, status: 0, stdout: '[]' }, MONOREPO_ROOT)).toBe('empty');
   });
 
-  it('reads a resolved selection of one package as selected', () => {
+  it('reads a resolved selection of one package as single', () => {
     const stdout = JSON.stringify([PACKAGE_ENTRY]);
 
-    expect(interpretSelectionProbe({ error: undefined, status: 0, stdout }, MONOREPO_ROOT)).toBe('selected');
+    expect(interpretSelectionProbe({ error: undefined, status: 0, stdout }, MONOREPO_ROOT)).toBe('single');
+  });
+
+  it('reads a resolved selection of two packages as multiple', () => {
+    const stdout = JSON.stringify([PACKAGE_ENTRY, OTHER_PACKAGE_ENTRY]);
+
+    expect(interpretSelectionProbe({ error: undefined, status: 0, stdout }, MONOREPO_ROOT)).toBe('multiple');
   });
 
   // The listing counts the root wherever the filter leaves it standing; the delegate runs there only where the
@@ -26,11 +33,17 @@ describe(interpretSelectionProbe, () => {
     expect(interpretSelectionProbe({ error: undefined, status: 0, stdout }, MONOREPO_ROOT)).toBe('root-only');
   });
 
-  // A selection holding a package runs somewhere whether or not the root is counted alongside it.
-  it('reads the root beside a package as selected', () => {
+  // The listed root may not run, so it does not count toward a second scope.
+  it('reads the root beside one package as single', () => {
     const stdout = JSON.stringify([ROOT_ENTRY, PACKAGE_ENTRY]);
 
-    expect(interpretSelectionProbe({ error: undefined, status: 0, stdout }, MONOREPO_ROOT)).toBe('selected');
+    expect(interpretSelectionProbe({ error: undefined, status: 0, stdout }, MONOREPO_ROOT)).toBe('single');
+  });
+
+  it('reads the root beside two packages as multiple', () => {
+    const stdout = JSON.stringify([ROOT_ENTRY, PACKAGE_ENTRY, OTHER_PACKAGE_ENTRY]);
+
+    expect(interpretSelectionProbe({ error: undefined, status: 0, stdout }, MONOREPO_ROOT)).toBe('multiple');
   });
 
   // The failing exit is what pnpm reports a rejected selector with, and the delegate reports it again.
@@ -57,8 +70,8 @@ describe(interpretSelectionProbe, () => {
 });
 
 describe(interpretDelegateProbe, () => {
-  it('reads a run that reached a scope as selected', () => {
-    expect(interpretDelegateProbe({ error: undefined, status: 0, stdout: 'nmr-selected-scope' })).toBe('selected');
+  it('reads a run that reached a scope as single', () => {
+    expect(interpretDelegateProbe({ error: undefined, status: 0, stdout: 'nmr-selected-scope' })).toBe('single');
   });
 
   it('reads a run that reached no scope as empty', () => {
