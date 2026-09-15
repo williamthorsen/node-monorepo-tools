@@ -1,8 +1,8 @@
 # Work types and tiers
 
-The taxonomy against which release-kit parses commits: its tiers, the breaking-change policy, section markers, customization, and the commands that compare it with its upstream.
+The taxonomy against which release-kit parses commits: its tiers, the breaking-change policy, section markers, customization, and the maintainer scripts that keep release-kit's copy level with its upstream.
 
-release-kit bundles a copy of the codeassembly canonical taxonomy in `packages/release-kit/src/work-types.json`, kept level by `release-kit work-types sync`. The taxonomy is split into three tiers that drive section rendering and audience classification.
+release-kit bundles a copy of the codeassembly canonical taxonomy in `packages/release-kit/src/work-types.json`, kept level by the [maintainer scripts](#maintaining-the-bundled-taxonomy). The taxonomy is split into three tiers that drive section rendering and audience classification.
 
 | Tier     | Key         | Header                    | Aliases       | `!` policy   |
 | -------- | ----------- | ------------------------- | ------------- | ------------ |
@@ -103,14 +103,17 @@ Work types from your config are merged with these defaults by key — your entri
 
 The default `devOnlySections` (excluded from public release notes but still written to `CHANGELOG.md`) are derived from the `internal` and `process` tiers (excluding `fmt`). Override via `changelogJson.devOnlySections` in your config; matching is decorator-tolerant, so a bare-name override like `['Internal features']` keeps working against the emoji-prefixed and prefix-decorated default titles.
 
-## `release-kit work-types`
+## Maintaining the bundled taxonomy
 
-Manage the canonical work-types taxonomy used by changelog and release-notes generation.
+`src/workTypesData.ts` mirrors `src/work-types.json` for runtime use. Two maintainer scripts of the release-kit package compare that JSON with its codeassembly upstream and update it. They exist only in a checkout of this repository and are not part of the published `release-kit` CLI.
+
+- `nmr work-types:check` compares the content of `src/work-types.json` with the upstream, ignoring the local `$schema` hint.
+- `nmr work-types:sync` overwrites `src/work-types.json` with the upstream when their content differs.
+
+Both run from `packages/release-kit`, or from anywhere in the repository as `nmr -F @williamthorsen/release-kit work-types:check` and `nmr -F @williamthorsen/release-kit work-types:sync`. After `sync` writes the file, update `src/workTypesData.ts` to match; `workTypesData.unit.test.ts` fails until the two agree.
 
 `check` exits 0 on a match, 1 on drift, 2 when the upstream fetch fails, and 3 when either file is not valid JSON or the upstream fails the shape check. When the upstream URL returns 404, `check` exits 0 with a warning.
 
-These commands are also exposed as `nmr work-types:check` / `nmr work-types:sync` from any package directory.
-
 ### Authenticated fetches
 
-The upstream codeassembly repo is public, so `check` and `sync` need no token. When `GITHUB_TOKEN` is set in the environment, both commands send it as `Authorization: Bearer <token>`.
+The upstream codeassembly repo is public, so `check` and `sync` need no token. When `GITHUB_TOKEN` is set in the environment, both scripts send it as `Authorization: Bearer <token>`.
