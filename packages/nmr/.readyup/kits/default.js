@@ -41,8 +41,8 @@ import {
 
 // src/default-scripts.ts
 var GATE_PROJECTS = "--project unit --project tool";
-var TYPECHECK_STEP = { run: "typecheck", declinesArgs: true };
-var ROOT_TYPECHECK_STEP = { run: "root:typecheck", declinesArgs: true };
+var TYPECHECK_STEP = { run: "typecheck", shouldDeclineArguments: true };
+var ROOT_TYPECHECK_STEP = { run: "root:typecheck", shouldDeclineArguments: true };
 var workspaceScripts = {
   build: ["compile"],
   check: [TYPECHECK_STEP, "fmt:check", "lint:check", "test"],
@@ -77,7 +77,7 @@ var rootScripts = {
   "check:strict": [TYPECHECK_STEP, "fmt:check", "lint:strict", "test"],
   // Excludes the audit, which in CI has a workflow of its own. The build is what the narrowed check runs
   // against, so it declines the arguments rather than being narrowed by them.
-  ci: [{ run: "build", declinesArgs: true }, "check:strict"],
+  ci: [{ run: "build", shouldDeclineArguments: true }, "check:strict"],
   clean: "nmr-clean",
   fix: ["lint", "fmt"],
   "fix:check": ["fmt:check", "lint:check"],
@@ -88,7 +88,7 @@ var rootScripts = {
   "lint:strict": "strict-lint",
   // The audit costs seconds and `ci` costs minutes, so the cheap gate fails first. The audit reads the
   // dependency tree, which no argument narrowing the code under test says anything about.
-  prepush: [{ run: "audit", declinesArgs: true }, "ci"],
+  prepush: [{ run: "audit", shouldDeclineArguments: true }, "ci"],
   "report-overrides": "nmr-report-overrides",
   "root:check": [ROOT_TYPECHECK_STEP, "fmt:check", "root:lint:check", "root:test"],
   "root:lint": "eslint --fix --ignore-pattern 'packages/**' .",
@@ -110,7 +110,7 @@ var rootScripts = {
   "test:watch": `vitest ${GATE_PROJECTS} --watch`,
   // Neither step is narrowable, so `nmr typecheck <file>` is rejected rather than checking that file under
   // default options at the root and hunting for it in every package.
-  typecheck: [ROOT_TYPECHECK_STEP, { run: "-R typecheck", declinesArgs: true }],
+  typecheck: [ROOT_TYPECHECK_STEP, { run: "-R typecheck", shouldDeclineArguments: true }],
   // The command is a string because neither half names an nmr command: both are binaries, and a composite
   // element can name only a command.
   upgrade: "nmr-report-overrides && nmr-taze --recursive"

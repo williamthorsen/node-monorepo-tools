@@ -44,19 +44,19 @@ const TOKEN_SEPARATORS = new Set([' ', '\t', '\n', '\r']);
  *
  * A structural step's argv leads with the file to spawn, so the runner has one to hand `spawn` without a shell.
  *
- * `declinesArgs` travels from the composite element that composed the step to the one reader that acts on it,
+ * `shouldDeclineArguments` travels from the composite element that composed the step to the one reader that acts on it,
  * the binding of the invocation's trailing arguments. Every stage between the two -- the devBin substitution,
  * the chain rendering, the replay assembly, the runner -- passes it through and asks nothing of it.
  *
  * `shouldWithholdInput` is read by the runner alone, which gives the step's child the null device as stdin rather
- * than nmr's own. Like `declinesArgs`, it is set only where it holds and leaves the rendered chain unchanged.
+ * than nmr's own. Like `shouldDeclineArguments`, it is set only where it holds and leaves the rendered chain unchanged.
  */
 export type Step =
   | { kind: 'opaque'; command: string }
   | {
       kind: 'structural';
       argv: readonly [string, ...(readonly string[])];
-      declinesArgs?: boolean;
+      shouldDeclineArguments?: boolean;
       shouldWithholdInput?: boolean;
     };
 
@@ -81,12 +81,16 @@ export type SelfReference = 'chained' | 'sole';
  * The element tokenizes on whitespace, so it may carry nmr's own flags but cannot carry a space-bearing token.
  * `-w` is prepended as its own token, so the child selects the root registry on its own.
  *
- * `declinesArgs` is set only where it holds, so a step that takes the trailing arguments renders and compares
+ * `shouldDeclineArguments` is set only where it holds, so a step that takes the trailing arguments renders and compares
  * exactly as it did before any element declared anything.
  */
-export function composeNmrStep(element: string, workspaceRoot: boolean, declinesArgs = false): Step {
+export function composeNmrStep(element: string, workspaceRoot: boolean, shouldDeclineArguments = false): Step {
   const flags = workspaceRoot ? ['-w'] : [];
-  return { kind: 'structural', argv: ['nmr', ...flags, ...tokenize(element)], ...(declinesArgs && { declinesArgs }) };
+  return {
+    kind: 'structural',
+    argv: ['nmr', ...flags, ...tokenize(element)],
+    ...(shouldDeclineArguments && { shouldDeclineArguments }),
+  };
 }
 
 /**

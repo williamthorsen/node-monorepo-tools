@@ -143,11 +143,14 @@ describe(loadConfig, () => {
   });
 
   it('loads a composite script whose element declares what it does with trailing arguments', async ({ tree }) => {
-    writeConfig(tree, `export default { rootScripts: { check: [{ run: 'typecheck', declinesArgs: true }, 'test'] } };`);
+    writeConfig(
+      tree,
+      `export default { rootScripts: { check: [{ run: 'typecheck', shouldDeclineArguments: true }, 'test'] } };`,
+    );
 
     const config = await loadConfig(tree.dir);
 
-    expect(config.rootScripts).toStrictEqual({ check: [{ run: 'typecheck', declinesArgs: true }, 'test'] });
+    expect(config.rootScripts).toStrictEqual({ check: [{ run: 'typecheck', shouldDeclineArguments: true }, 'test'] });
   });
 
   it('throws naming the composite element and the token that puts it outside the grammar', async ({ tree }) => {
@@ -169,16 +172,19 @@ describe(loadConfig, () => {
   });
 
   it('throws naming an unrecognized spec key, which would otherwise read as the default', async ({ tree }) => {
-    writeConfig(tree, `export default { rootScripts: { check: [{ run: 'typecheck', declineArgs: true }] } };`);
+    writeConfig(tree, `export default { rootScripts: { check: [{ run: 'typecheck', shouldDeclineArgs: true }] } };`);
 
     await expect(loadConfig(tree.dir)).rejects.toThrow(
-      'unrecognized key `rootScripts.check.declineArgs`. Recognized: `rootScripts.check.declinesArgs`, ' +
-        '`rootScripts.check.run`.',
+      'unrecognized key `rootScripts.check.shouldDeclineArgs`. Recognized: `rootScripts.check.run`, ' +
+        '`rootScripts.check.shouldDeclineArguments`.',
     );
   });
 
   it('throws when a spec declares a non-boolean policy', async ({ tree }) => {
-    writeConfig(tree, `export default { rootScripts: { check: [{ run: 'typecheck', declinesArgs: 'yes' }] } };`);
+    writeConfig(
+      tree,
+      `export default { rootScripts: { check: [{ run: 'typecheck', shouldDeclineArguments: 'yes' }] } };`,
+    );
 
     await expect(loadConfig(tree.dir)).rejects.toThrow('`rootScripts` must be a Record<string, string | element[]>');
   });

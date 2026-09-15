@@ -1,6 +1,6 @@
 /**
  * One element of a composite, paired with what it does with the invocation's trailing arguments. The bare
- * string form of an element is this spec with `declinesArgs` left at its default.
+ * string form of an element is this spec with `shouldDeclineArguments` left at its default.
  */
 export interface StepSpec {
   /** A command name, optionally preceded by nmr's own flags, as it would be typed after `nmr`. */
@@ -9,7 +9,7 @@ export interface StepSpec {
    * Set where the trailing arguments cannot narrow this step's work: it is a prerequisite the narrowed steps
    * run against, or the tool it reaches would be misled by them. A declining step runs unnarrowed.
    */
-  declinesArgs?: boolean;
+  shouldDeclineArguments?: boolean;
 }
 
 export type ScriptValue = string | ReadonlyArray<string | StepSpec>;
@@ -29,10 +29,10 @@ const GATE_PROJECTS = '--project unit --project tool';
  * In the root registry it names a composite whose own steps both decline, so unmarking it there fails the
  * whole check on a forwarded argument rather than misleading the compiler.
  */
-const TYPECHECK_STEP = { run: 'typecheck', declinesArgs: true } as const;
+const TYPECHECK_STEP = { run: 'typecheck', shouldDeclineArguments: true } as const;
 
 /** The root-scoped typecheck step, declining for the reason `TYPECHECK_STEP` gives: it reaches tsgo directly. */
-const ROOT_TYPECHECK_STEP = { run: 'root:typecheck', declinesArgs: true } as const;
+const ROOT_TYPECHECK_STEP = { run: 'root:typecheck', shouldDeclineArguments: true } as const;
 
 /**
  * Workspace scripts, identical for every package.
@@ -75,7 +75,7 @@ export const rootScripts: ScriptRegistry = {
   'check:strict': [TYPECHECK_STEP, 'fmt:check', 'lint:strict', 'test'],
   // Excludes the audit, which in CI has a workflow of its own. The build is what the narrowed check runs
   // against, so it declines the arguments rather than being narrowed by them.
-  ci: [{ run: 'build', declinesArgs: true }, 'check:strict'],
+  ci: [{ run: 'build', shouldDeclineArguments: true }, 'check:strict'],
   clean: 'nmr-clean',
   fix: ['lint', 'fmt'],
   'fix:check': ['fmt:check', 'lint:check'],
@@ -86,7 +86,7 @@ export const rootScripts: ScriptRegistry = {
   'lint:strict': 'strict-lint',
   // The audit costs seconds and `ci` costs minutes, so the cheap gate fails first. The audit reads the
   // dependency tree, which no argument narrowing the code under test says anything about.
-  prepush: [{ run: 'audit', declinesArgs: true }, 'ci'],
+  prepush: [{ run: 'audit', shouldDeclineArguments: true }, 'ci'],
   'report-overrides': 'nmr-report-overrides',
   'root:check': [ROOT_TYPECHECK_STEP, 'fmt:check', 'root:lint:check', 'root:test'],
   'root:lint': "eslint --fix --ignore-pattern 'packages/**' .",
@@ -108,7 +108,7 @@ export const rootScripts: ScriptRegistry = {
   'test:watch': `vitest ${GATE_PROJECTS} --watch`,
   // Neither step is narrowable, so `nmr typecheck <file>` is rejected rather than checking that file under
   // default options at the root and hunting for it in every package.
-  typecheck: [ROOT_TYPECHECK_STEP, { run: '-R typecheck', declinesArgs: true }],
+  typecheck: [ROOT_TYPECHECK_STEP, { run: '-R typecheck', shouldDeclineArguments: true }],
   // The command is a string because neither half names an nmr command: both are binaries, and a composite
   // element can name only a command.
   upgrade: 'nmr-report-overrides && nmr-taze --recursive',

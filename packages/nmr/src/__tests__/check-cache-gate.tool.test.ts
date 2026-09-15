@@ -197,7 +197,7 @@ describe('the check-result cache gate', () => {
     // narrowed siblings ran.
     it('serves no step of its chain from a recorded pass, the declining one included', async () => {
       writeConfig(workspace, log, {
-        command: [{ run: 'lint:check', declinesArgs: true }, 'fmt:check'],
+        command: [{ run: 'lint:check', shouldDeclineArguments: true }, 'fmt:check'],
         extraRootScripts: { 'fmt:check': `echo fmt >> ${log}`, 'lint:check': `echo lint >> ${log}` },
       });
 
@@ -211,7 +211,7 @@ describe('the check-result cache gate', () => {
 
     it('still records the pass a declining step earned, having run its whole work', async () => {
       writeConfig(workspace, log, {
-        command: [{ run: 'lint:check', declinesArgs: true }, 'fmt:check'],
+        command: [{ run: 'lint:check', shouldDeclineArguments: true }, 'fmt:check'],
         extraRootScripts: { 'fmt:check': `echo fmt >> ${log}`, 'lint:check': `echo lint >> ${log}` },
       });
 

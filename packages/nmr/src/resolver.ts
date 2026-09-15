@@ -107,7 +107,7 @@ export function expandScript(script: ScriptValue, workspaceRoot: boolean): reado
   return script.map((element) =>
     typeof element === 'string'
       ? composeNmrStep(element, workspaceRoot)
-      : composeNmrStep(element.run, workspaceRoot, element.declinesArgs),
+      : composeNmrStep(element.run, workspaceRoot, element.shouldDeclineArguments),
   );
 }
 
@@ -126,7 +126,7 @@ function describeElement(element: string | StepSpec): string {
   if (typeof element === 'string') {
     return element;
   }
-  return element.declinesArgs === true ? `${element.run} (no args)` : element.run;
+  return element.shouldDeclineArguments === true ? `${element.run} (no args)` : element.run;
 }
 
 /**

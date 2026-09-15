@@ -377,15 +377,15 @@ function buildChildEnv(options: {
  * An opaque step is a leaf tool, and nmr hands it the arguments rather than judging whether it can use them.
  * Only a composite declares, and only against its default of receiving them.
  */
-function acceptsArgs(step: Step): boolean {
-  return step.kind === 'opaque' || step.declinesArgs !== true;
+function acceptsArguments(step: Step): boolean {
+  return step.kind === 'opaque' || step.shouldDeclineArguments !== true;
 }
 
 /**
  * Binds the invocation's trailing arguments to every step that accepts them, leaving a declining step to run
  * unnarrowed, and refuses the invocation where no step accepts them at all.
  *
- * The refusal and the binding read `acceptsArgs` together, so what nmr rejects is exactly what would have left
+ * The refusal and the binding read `acceptsArguments` together, so what nmr rejects is exactly what would have left
  * the arguments nowhere to land. Splitting the two is what would let them drift.
  *
  * A hook is out of reach here rather than excluded: `wrapWithHooks` wraps what this returns, so a `:pre` or
@@ -399,12 +399,12 @@ function bindPassthrough(
   if (passthrough.length === 0) {
     return { ok: true, steps };
   }
-  if (!steps.some(acceptsArgs)) {
-    return { ok: false, error: formatUnroutableArgsError(command) };
+  if (!steps.some(acceptsArguments)) {
+    return { ok: false, error: formatUnroutableArgumentsError(command) };
   }
 
   const boundSteps: readonly Step[] = steps.map((step) => {
-    if (!acceptsArgs(step)) {
+    if (!acceptsArguments(step)) {
       return step;
     }
     return step.kind === 'structural'
@@ -416,7 +416,7 @@ function bindPassthrough(
 }
 
 /** Returns the line an invocation gets when its arguments have nowhere to land. */
-function formatUnroutableArgsError(command: string): string {
+function formatUnroutableArgumentsError(command: string): string {
   return (
     `\`${command}\` takes no trailing arguments: every step of its chain declines them. ` +
     'Running it unnarrowed is not what the arguments asked for, so nothing ran.'

@@ -106,8 +106,8 @@ describe(expandScript, () => {
   });
 
   it('carries a declining spec onto its step', () => {
-    expect(expandScript([{ run: 'typecheck', declinesArgs: true }, 'test'], false)).toStrictEqual([
-      { kind: 'structural', argv: ['nmr', 'typecheck'], declinesArgs: true },
+    expect(expandScript([{ run: 'typecheck', shouldDeclineArguments: true }, 'test'], false)).toStrictEqual([
+      { kind: 'structural', argv: ['nmr', 'typecheck'], shouldDeclineArguments: true },
       { kind: 'structural', argv: ['nmr', 'test'] },
     ]);
   });
@@ -115,14 +115,14 @@ describe(expandScript, () => {
   // The check-result cache keys on the rendered chain, so an accepting step that carried the property would
   // invalidate every recorded pass the moment the defaults declared anything.
   it('leaves an accepting spec indistinguishable from a bare element', () => {
-    expect(expandScript([{ run: 'test', declinesArgs: false }], false)).toStrictEqual([
+    expect(expandScript([{ run: 'test', shouldDeclineArguments: false }], false)).toStrictEqual([
       { kind: 'structural', argv: ['nmr', 'test'] },
     ]);
   });
 
   it('propagates -w to a spec element', () => {
-    expect(expandScript([{ run: 'typecheck', declinesArgs: true }], true)).toStrictEqual([
-      { kind: 'structural', argv: ['nmr', '-w', 'typecheck'], declinesArgs: true },
+    expect(expandScript([{ run: 'typecheck', shouldDeclineArguments: true }], true)).toStrictEqual([
+      { kind: 'structural', argv: ['nmr', '-w', 'typecheck'], shouldDeclineArguments: true },
     ]);
   });
 });
@@ -137,7 +137,7 @@ describe(describeScript, () => {
   });
 
   it('names a declining element, which reads alike otherwise', () => {
-    expect(describeScript([{ run: 'typecheck', declinesArgs: true }, { run: 'test' }])).toBe(
+    expect(describeScript([{ run: 'typecheck', shouldDeclineArguments: true }, { run: 'test' }])).toBe(
       '[typecheck (no args), test]',
     );
   });
@@ -167,7 +167,7 @@ describe(buildRootRegistry, () => {
     });
 
     expect(registry).toMatchObject({
-      ci: [{ run: 'build', declinesArgs: true }, 'check:strict'],
+      ci: [{ run: 'build', shouldDeclineArguments: true }, 'check:strict'],
       'demo:catwalk': 'pnpx http-server --port=5189',
     });
   });
