@@ -427,6 +427,26 @@ describe(buildChangelogEntries, () => {
       const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
       expect(entries[0]?.sections[0]?.items[0]?.breaking).toBe(true);
     });
+
+    it('omits breaking for a `!` commit whose type is added by `workTypes` and forbidden by `breakingPolicies`', () => {
+      const cliffContext = [
+        {
+          version: 'v1.0.0',
+          timestamp: 1_700_000_000,
+          commits: [{ message: '#1 chore!: Rework build', group: 'Chores' }],
+        },
+      ];
+      mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
+      const entries = buildChangelogEntries(
+        {
+          ...makeConfig(),
+          workTypes: { ...DEFAULT_WORK_TYPES, chore: { header: 'Chores' } },
+          breakingPolicies: { ...DEFAULT_BREAKING_POLICIES, chore: 'forbidden' },
+        },
+        'v1.0.0',
+      );
+      expect(entries[0]?.sections[0]?.items[0]).not.toHaveProperty('breaking');
+    });
   });
 
   describe('body extraction', () => {
