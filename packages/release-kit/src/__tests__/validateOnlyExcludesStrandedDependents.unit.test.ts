@@ -221,7 +221,7 @@ function makeGraph(workspaces: WorkspaceConfig[], edges: Record<string, string[]
     }
   }
 
-  return { packageNameToDir, dirToPackageName, dependentsOf, dependenciesOf };
+  return { packageNameToDir, dirToPackageName, dirToVersion: new Map(), dependentsOf, dependenciesOf };
 }
 
 /** Build a `hasCommits` probe from a map of `dir` to `{ has, tag }`. Defaults to no commits. */

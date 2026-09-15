@@ -264,6 +264,36 @@ describe(releasePrepareMono, () => {
     expect(countCliffCalls()).toBe(0);
   });
 
+  it('skips a workspace with no commits whose package.json has no version', () => {
+    const config = makeConfig({
+      workspaces: [
+        {
+          dir: 'arrays',
+          name: '@test/arrays',
+          tagPrefix: 'arrays-v',
+          workspacePath: 'packages/arrays',
+          isPublishable: false,
+          packageFiles: ['packages/arrays/package.json'],
+          changelogPaths: ['packages/arrays'],
+          paths: ['packages/arrays/**'],
+        },
+      ],
+    });
+
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') {
+        return 'arrays-v1.0.0\n';
+      }
+      return '';
+    });
+    mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', private: true }));
+
+    const result = releasePrepareMono(config, {});
+
+    expect(result.tags).toStrictEqual([]);
+    expect(result.workspaces).toStrictEqual([expect.objectContaining({ name: 'arrays', status: 'skipped' })]);
+  });
+
   it('processes only workspaces with commits when multiple are configured', () => {
     const config = makeConfig({
       workspaces: [

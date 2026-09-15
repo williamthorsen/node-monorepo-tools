@@ -11,16 +11,12 @@ describe(propagateBumps, () => {
     const graph = makeGraph(
       { '@scope/core': 'core', '@scope/release-kit': 'release-kit' },
       { '@scope/core': [dependent] },
+      { core: '1.0.0', 'release-kit': '2.0.0' },
     );
 
     const directBumps = new Map<string, ReleaseEntry>([['core', { releaseType: 'minor' }]]);
 
-    const currentVersions = new Map([
-      ['core', '1.0.0'],
-      ['release-kit', '2.0.0'],
-    ]);
-
-    const result = propagateBumps(directBumps, graph, currentVersions);
+    const result = propagateBumps(directBumps, graph);
 
     expect(result.get('core')).toMatchObject({ releaseType: 'minor' });
     expect(result.get('release-kit')).toMatchObject({
@@ -36,17 +32,12 @@ describe(propagateBumps, () => {
     const graph = makeGraph(
       { '@scope/core': 'core', '@scope/middle': 'middle', '@scope/app': 'app' },
       { '@scope/core': [compB], '@scope/middle': [compC] },
+      { core: '1.0.0', middle: '2.0.0', app: '3.0.0' },
     );
 
     const directBumps = new Map<string, ReleaseEntry>([['core', { releaseType: 'patch' }]]);
 
-    const currentVersions = new Map([
-      ['core', '1.0.0'],
-      ['middle', '2.0.0'],
-      ['app', '3.0.0'],
-    ]);
-
-    const result = propagateBumps(directBumps, graph, currentVersions);
+    const result = propagateBumps(directBumps, graph);
 
     expect(result.get('core')).toMatchObject({ releaseType: 'patch' });
     expect(result.get('middle')).toMatchObject({
@@ -65,6 +56,7 @@ describe(propagateBumps, () => {
     const graph = makeGraph(
       { '@scope/core': 'core', '@scope/release-kit': 'release-kit' },
       { '@scope/core': [dependent] },
+      { core: '1.0.0', 'release-kit': '2.0.0' },
     );
 
     const directBumps = new Map<string, ReleaseEntry>([
@@ -72,12 +64,7 @@ describe(propagateBumps, () => {
       ['release-kit', { releaseType: 'minor' }],
     ]);
 
-    const currentVersions = new Map([
-      ['core', '1.0.0'],
-      ['release-kit', '2.0.0'],
-    ]);
-
-    const result = propagateBumps(directBumps, graph, currentVersions);
+    const result = propagateBumps(directBumps, graph);
 
     // release-kit keeps its minor bump but gains propagatedFrom metadata.
     expect(result.get('release-kit')).toMatchObject({
@@ -93,17 +80,13 @@ describe(propagateBumps, () => {
     const graph = makeGraph(
       { '@scope/alpha': 'alpha', '@scope/beta': 'beta' },
       { '@scope/alpha': [compB], '@scope/beta': [compA] },
+      { alpha: '1.0.0', beta: '2.0.0' },
     );
 
     const directBumps = new Map<string, ReleaseEntry>([['alpha', { releaseType: 'patch' }]]);
 
-    const currentVersions = new Map([
-      ['alpha', '1.0.0'],
-      ['beta', '2.0.0'],
-    ]);
-
     // Should terminate without infinite loop.
-    const result = propagateBumps(directBumps, graph, currentVersions);
+    const result = propagateBumps(directBumps, graph);
 
     expect(result.get('alpha')).toMatchObject({ releaseType: 'patch' });
     expect(result.get('beta')).toMatchObject({
@@ -115,19 +98,18 @@ describe(propagateBumps, () => {
   it('adds propagatedFrom metadata to a directly bumped workspace with a propagated dependency', () => {
     const dependent = makeWorkspace('kit');
 
-    const graph = makeGraph({ '@scope/core': 'core', '@scope/kit': 'kit' }, { '@scope/core': [dependent] });
+    const graph = makeGraph(
+      { '@scope/core': 'core', '@scope/kit': 'kit' },
+      { '@scope/core': [dependent] },
+      { core: '1.0.0', kit: '1.0.0' },
+    );
 
     const directBumps = new Map<string, ReleaseEntry>([
       ['core', { releaseType: 'major' }],
       ['kit', { releaseType: 'patch' }],
     ]);
 
-    const currentVersions = new Map([
-      ['core', '1.0.0'],
-      ['kit', '1.0.0'],
-    ]);
-
-    const result = propagateBumps(directBumps, graph, currentVersions);
+    const result = propagateBumps(directBumps, graph);
 
     // kit is already in set with patch; propagation adds metadata but keeps bump type.
     expect(result.get('kit')).toMatchObject({
@@ -142,6 +124,7 @@ describe(propagateBumps, () => {
     const graph = makeGraph(
       { '@scope/core': 'core', '@scope/utils': 'utils', '@scope/app': 'app' },
       { '@scope/core': [compC], '@scope/utils': [compC] },
+      { core: '1.0.0', utils: '2.0.0', app: '3.0.0' },
     );
 
     const directBumps = new Map<string, ReleaseEntry>([
@@ -149,13 +132,7 @@ describe(propagateBumps, () => {
       ['utils', { releaseType: 'minor' }],
     ]);
 
-    const currentVersions = new Map([
-      ['core', '1.0.0'],
-      ['utils', '2.0.0'],
-      ['app', '3.0.0'],
-    ]);
-
-    const result = propagateBumps(directBumps, graph, currentVersions);
+    const result = propagateBumps(directBumps, graph);
 
     const appEntry = result.get('app');
     expect(appEntry).toBeDefined();
@@ -166,12 +143,11 @@ describe(propagateBumps, () => {
   });
 
   it('returns only direct bumps when there are no dependents', () => {
-    const graph = makeGraph({ '@scope/core': 'core' }, {});
+    const graph = makeGraph({ '@scope/core': 'core' }, {}, { core: '1.0.0' });
 
     const directBumps = new Map<string, ReleaseEntry>([['core', { releaseType: 'minor' }]]);
-    const currentVersions = new Map([['core', '1.0.0']]);
 
-    const result = propagateBumps(directBumps, graph, currentVersions);
+    const result = propagateBumps(directBumps, graph);
 
     expect(result.size).toBe(1);
     expect(result.get('core')).toMatchObject({ releaseType: 'minor' });
@@ -180,7 +156,11 @@ describe(propagateBumps, () => {
   it('uses newVersionOverride for propagation metadata instead of a bump-computed version', () => {
     const dependent = makeWorkspace('app');
 
-    const graph = makeGraph({ '@scope/core': 'core', '@scope/app': 'app' }, { '@scope/core': [dependent] });
+    const graph = makeGraph(
+      { '@scope/core': 'core', '@scope/app': 'app' },
+      { '@scope/core': [dependent] },
+      { core: '0.5.0', app: '2.0.0' },
+    );
 
     // The sentinel releaseType ('patch') would compute 0.5.1 from 0.5.0, but the explicit
     // override must win so dependents see the set-version value.
@@ -188,12 +168,7 @@ describe(propagateBumps, () => {
       ['core', { releaseType: 'patch', newVersionOverride: '1.0.0' }],
     ]);
 
-    const currentVersions = new Map([
-      ['core', '0.5.0'],
-      ['app', '2.0.0'],
-    ]);
-
-    const result = propagateBumps(directBumps, graph, currentVersions);
+    const result = propagateBumps(directBumps, graph);
 
     expect(result.get('app')).toMatchObject({
       releaseType: 'patch',
@@ -206,12 +181,14 @@ describe(propagateBumps, () => {
 function makeGraph(
   nameToDir: Record<string, string>,
   dependentsOf: Record<string, WorkspaceConfig[]>,
+  dirToVersion: Record<string, string>,
 ): DependencyGraph {
   const packageNameToDir = new Map(Object.entries(nameToDir));
   const dirToPackageName = new Map(Object.entries(nameToDir).map(([name, dir]) => [dir, name]));
   return {
     packageNameToDir,
     dirToPackageName,
+    dirToVersion: new Map(Object.entries(dirToVersion)),
     dependentsOf: new Map(Object.entries(dependentsOf)),
     dependenciesOf: new Map(),
   };
