@@ -492,6 +492,11 @@ describe(runCommand, () => {
 
 const OPAQUE_STEP: Step = { kind: 'opaque', command: 'eslint .' };
 const STRUCTURAL_STEP: Step = { kind: 'structural', argv: ['nmr', '-w', 'typecheck'] };
+const WITHHOLDING_STEP: Step = {
+  kind: 'structural',
+  argv: ['pnpm', '--recursive', 'exec', 'nmr', 'build'],
+  shouldWithholdInput: true,
+};
 
 describe(runSteps, () => {
   beforeEach(() => {
@@ -601,6 +606,18 @@ describe(runSteps, () => {
       });
 
       expect(stdioFromCall().slice(1)).toStrictEqual(['pipe', 'pipe']);
+    });
+
+    it.each([
+      { expected: 'ignore', scenario: 'a structural step that withholds input', step: WITHHOLDING_STEP },
+      { expected: 'inherit', scenario: 'a structural step', step: STRUCTURAL_STEP },
+      { expected: 'inherit', scenario: 'an opaque step', step: OPAQUE_STEP },
+    ])('given $scenario, gives the child stdin $expected', async ({ expected, step }) => {
+      stubSequence([0]);
+
+      await runSteps([step], undefined, { stderr: new PassThrough(), stdout: new PassThrough() });
+
+      expect(stdioFromCall()[0]).toBe(expected);
     });
   });
 

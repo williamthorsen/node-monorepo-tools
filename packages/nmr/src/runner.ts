@@ -155,7 +155,7 @@ export async function runCommand(
   cwd: string | undefined,
   options: RunCommandOptions,
 ): Promise<RunCommandResult> {
-  return runSpawned({ args: [], file: command, useShell: true }, cwd, options);
+  return runSpawned({ args: [], file: command, input: 'inherit', useShell: true }, cwd, options);
 }
 
 // region | Helpers
@@ -164,12 +164,14 @@ export async function runCommand(
 interface SpawnSpec {
   args: readonly string[];
   file: string;
+  /** Whether the child reads nmr's own stdin or the null device. */
+  input: 'ignore' | 'inherit';
   useShell: boolean;
 }
 
 /** Spawns one child on the caller's channels and resolves once it has ended. */
 async function runSpawned(
-  { args, file, useShell }: SpawnSpec,
+  { args, file, input, useShell }: SpawnSpec,
   cwd: string | undefined,
   options: RunCommandOptions,
 ): Promise<RunCommandResult> {
@@ -180,7 +182,7 @@ async function runSpawned(
 
   const child = spawn(file, args, {
     shell: useShell,
-    stdio: ['inherit', options.channels.stdout, options.channels.stderr],
+    stdio: [input, options.channels.stdout, options.channels.stderr],
     cwd,
     env,
   });
@@ -231,14 +233,15 @@ function runStep(
   const { quiet, stderr, stdout } = options;
 
   if (step.kind === 'opaque') {
-    return runSpawned({ args: [], file: step.command, useShell: true }, cwd, {
+    return runSpawned({ args: [], file: step.command, input: 'inherit', useShell: true }, cwd, {
       ...options,
       channels: { stderr: resolveChannel(stderr, quiet), stdout: resolveChannel(stdout, quiet) },
     });
   }
 
   const [file, ...args] = step.argv;
-  return runSpawned({ args, file, useShell: false }, cwd, {
+  const input = step.shouldWithholdInput === true ? 'ignore' : 'inherit';
+  return runSpawned({ args, file, input, useShell: false }, cwd, {
     ...options,
     quiet: false,
     channels: { stderr: resolveInheritedChannel(stderr), stdout: resolveInheritedChannel(stdout) },
