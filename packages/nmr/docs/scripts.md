@@ -40,11 +40,11 @@ Each array element is a command name, optionally preceded by nmr's own flags, sp
 Trailing arguments reach every step of a composite, so `nmr fix --dry-run` runs `nmr lint --dry-run`, then `nmr fmt --dry-run`. A step whose work the arguments cannot narrow declines them by taking the long form of an element, and runs unnarrowed:
 
 ```ts
-// "ci": [{ run: "build", declinesArgs: true }, "check:strict"]
+// "ci": [{ run: "build", shouldDeclineArguments: true }, "check:strict"]
 // nmr ci src/foo.ts  ->  nmr build && nmr check:strict src/foo.ts
 ```
 
-`{ run }` is the bare string element with room for the declaration; `declinesArgs` defaults to `false`, and an element that accepts is written as the string. Decline where the step is a prerequisite the narrowed steps run against, or where the tool it reaches would be misled — `tsgo --noEmit foo.ts` abandons the tsconfig, which is why every default `typecheck` step declines. A leaf tool that merely ignores what it is handed is not a reason to decline: nmr forwards, and the tool decides.
+`{ run }` is the bare string element with room for the declaration; `shouldDeclineArguments` defaults to `false`, and an element that accepts is written as the string. Decline where the step is a prerequisite the narrowed steps run against, or where the tool it reaches would be misled — `tsgo --noEmit foo.ts` abandons the tsconfig, which is why every default `typecheck` step declines. A leaf tool that merely ignores what it is handed is not a reason to decline: nmr forwards, and the tool decides.
 
 Where no step of a command accepts them, nmr rejects the invocation and runs nothing, rather than running the whole command unnarrowed. That is what `nmr typecheck src/foo.ts` gets at the root, whose two steps both decline.
 

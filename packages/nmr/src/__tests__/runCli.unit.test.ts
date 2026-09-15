@@ -377,13 +377,13 @@ describe(runCli, () => {
 
     it('leaves a declining element unnarrowed', async ({ tree }) => {
       writeConfig(tree, {
-        rootScripts: { verify: [{ run: 'build', declinesArgs: true }, 'lint'] },
+        rootScripts: { verify: [{ run: 'build', shouldDeclineArguments: true }, 'lint'] },
       });
 
       await runNmr(['verify', 'src/'], tree.dir);
 
       expect(stepsFromCall()).toStrictEqual([
-        { kind: 'structural', argv: ['nmr', 'build'], declinesArgs: true },
+        { kind: 'structural', argv: ['nmr', 'build'], shouldDeclineArguments: true },
         { kind: 'structural', argv: ['nmr', 'lint', 'src/'] },
       ]);
     });
@@ -392,8 +392,8 @@ describe(runCli, () => {
       writeConfig(tree, {
         rootScripts: {
           verify: [
-            { run: 'build', declinesArgs: true },
-            { run: 'lint', declinesArgs: true },
+            { run: 'build', shouldDeclineArguments: true },
+            { run: 'lint', shouldDeclineArguments: true },
           ],
         },
       });
@@ -411,8 +411,8 @@ describe(runCli, () => {
       writeConfig(tree, {
         rootScripts: {
           verify: [
-            { run: 'build', declinesArgs: true },
-            { run: 'lint', declinesArgs: true },
+            { run: 'build', shouldDeclineArguments: true },
+            { run: 'lint', shouldDeclineArguments: true },
           ],
         },
       });

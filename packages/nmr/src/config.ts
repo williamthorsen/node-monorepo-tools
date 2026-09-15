@@ -41,7 +41,10 @@ const RECOGNIZED_KEYS = [...CONFIG_TIERS.root.honoredKeys, ...CONFIG_TIERS.works
 const RECOGNIZED_BUILD_KEYS = ['extraIgnorePatterns'];
 const RECOGNIZED_CHECK_CACHE_KEYS = ['enabled', 'excludeCommands', 'extraCommands'];
 const RECOGNIZED_OUTPUT_KEYS = ['commandVerbosity', 'extraAgentEnvVars'];
-const RECOGNIZED_STEP_KEYS = ['declinesArgs', 'run'];
+const RECOGNIZED_STEP_KEYS = ['run', 'shouldDeclineArguments'];
+
+/** Maps each retired step key to the key that replaced it. */
+const RETIRED_STEP_KEYS: ReadonlyMap<string, string> = new Map([['declinesArgs', 'shouldDeclineArguments']]);
 
 /** Narrows an unknown value to a record of script entries. */
 function isScriptRecord(value: unknown): value is Record<string, ScriptValue> {
@@ -58,8 +61,8 @@ function isScriptElement(value: unknown): value is string | StepSpec {
   if (typeof value === 'string') return true;
   if (!isObject(value) || typeof value['run'] !== 'string') return false;
 
-  const declinesArgs: unknown = value['declinesArgs'];
-  return declinesArgs === undefined || typeof declinesArgs === 'boolean';
+  const shouldDeclineArguments: unknown = value['shouldDeclineArguments'];
+  return shouldDeclineArguments === undefined || typeof shouldDeclineArguments === 'boolean';
 }
 
 /** Validates and extracts a single script-record field from the raw config object. */
@@ -75,7 +78,7 @@ function validateScriptField(
   if (!isScriptRecord(scripts)) {
     throw new UserError(
       `Invalid nmr config at ${configPath}: \`${fieldName}\` must be a Record<string, string | element[]>, ` +
-        'where an element is a command string or `{ run: string, declinesArgs?: boolean }`',
+        'where an element is a command string or `{ run: string, shouldDeclineArguments?: boolean }`',
     );
   }
   assertValidElements(scripts, fieldName, configPath);
@@ -88,7 +91,7 @@ function validateScriptField(
  * An instruction is a command name optionally preceded by nmr's own flags; one carrying a quoted argument or
  * shell syntax renders as a single quoted token, so accepting it would run a command nobody wrote. A spec
  * carrying a key nmr does not recognize is rejected for the reason every other nested config object is: a
- * misspelled `declinesArgs` would otherwise read as the default, narrowing a step meant to decline.
+ * misspelled `shouldDeclineArguments` would otherwise read as the default, narrowing a step meant to decline.
  */
 function assertValidElements(scripts: Record<string, ScriptValue>, fieldName: string, configPath: string): void {
   for (const [command, script] of Object.entries(scripts)) {
@@ -96,6 +99,7 @@ function assertValidElements(scripts: Record<string, ScriptValue>, fieldName: st
 
     for (const spec of script) {
       if (typeof spec !== 'string') {
+        assertNoRetiredKeys(spec, RETIRED_STEP_KEYS, configPath, `${fieldName}.${command}.`);
         assertRecognizedKeys(spec, RECOGNIZED_STEP_KEYS, configPath, `${fieldName}.${command}.`);
       }
 
@@ -399,6 +403,23 @@ export async function loadWorkspaceConfig(packageDir: string): Promise<NmrConfig
   assertTierKeys(config, CONFIG_TIERS.workspace, resolveConfigPath(packageDir));
 
   return config;
+}
+
+/** Throws on a retired key, naming the key that replaced it. */
+function assertNoRetiredKeys(
+  value: object,
+  retiredKeys: ReadonlyMap<string, string>,
+  configPath: string,
+  prefix: string,
+): void {
+  for (const key of Object.keys(value)) {
+    const replacement = retiredKeys.get(key);
+    if (replacement === undefined) continue;
+
+    throw new UserError(
+      `Invalid nmr config at ${configPath}: \`${prefix}${key}\` was renamed to \`${prefix}${replacement}\`.`,
+    );
+  }
 }
 
 /**

@@ -12,8 +12,8 @@ describe(getDefaultWorkspaceScripts, () => {
 
     expect(scripts).toMatchObject({
       build: ['compile'],
-      check: [{ run: 'typecheck', declinesArgs: true }, 'fmt:check', 'lint:check', 'test'],
-      'check:strict': [{ run: 'typecheck', declinesArgs: true }, 'fmt:check', 'lint:strict', 'test'],
+      check: [{ run: 'typecheck', shouldDeclineArguments: true }, 'fmt:check', 'lint:check', 'test'],
+      'check:strict': [{ run: 'typecheck', shouldDeclineArguments: true }, 'fmt:check', 'lint:strict', 'test'],
       clean: 'nmr-clean',
       compile: 'nmr-compile',
       'fix:check': ['fmt:check', 'lint:check'],
@@ -85,15 +85,20 @@ describe(getDefaultRootScripts, () => {
 
     expect(scripts).toMatchObject({
       audit: ['audit:prod', 'audit:dev'],
-      check: [{ run: 'typecheck', declinesArgs: true }, 'fmt:check', 'lint:check', 'test'],
-      'check:strict': [{ run: 'typecheck', declinesArgs: true }, 'fmt:check', 'lint:strict', 'test'],
-      ci: [{ run: 'build', declinesArgs: true }, 'check:strict'],
+      check: [{ run: 'typecheck', shouldDeclineArguments: true }, 'fmt:check', 'lint:check', 'test'],
+      'check:strict': [{ run: 'typecheck', shouldDeclineArguments: true }, 'fmt:check', 'lint:strict', 'test'],
+      ci: [{ run: 'build', shouldDeclineArguments: true }, 'check:strict'],
       clean: 'nmr-clean',
       'fix:check': ['fmt:check', 'lint:check'],
       fmt: 'nmr-fmt --write',
       'fmt:check': 'nmr-fmt --check',
       'report-overrides': 'nmr-report-overrides',
-      'root:check': [{ run: 'root:typecheck', declinesArgs: true }, 'fmt:check', 'root:lint:check', 'root:test'],
+      'root:check': [
+        { run: 'root:typecheck', shouldDeclineArguments: true },
+        'fmt:check',
+        'root:lint:check',
+        'root:test',
+      ],
     });
   });
 
@@ -106,7 +111,7 @@ describe(getDefaultRootScripts, () => {
   it('composes prepush from audit and ci, in that order', () => {
     const scripts = getDefaultRootScripts();
 
-    expect(scripts['prepush']).toStrictEqual([{ run: 'audit', declinesArgs: true }, 'ci']);
+    expect(scripts['prepush']).toStrictEqual([{ run: 'audit', shouldDeclineArguments: true }, 'ci']);
   });
 
   it('composes root scripts that delegate to workspaces', () => {
@@ -115,8 +120,8 @@ describe(getDefaultRootScripts, () => {
     expect(scripts).toMatchObject({
       test: ['root:test', '-R test'],
       typecheck: [
-        { run: 'root:typecheck', declinesArgs: true },
-        { run: '-R typecheck', declinesArgs: true },
+        { run: 'root:typecheck', shouldDeclineArguments: true },
+        { run: '-R typecheck', shouldDeclineArguments: true },
       ],
     });
   });
@@ -251,7 +256,10 @@ describe('every step reaching a typecheck', () => {
         const instruction = typeof element === 'string' ? element : element.run;
         if (!instruction.endsWith('typecheck')) continue;
 
-        expect(typeof element === 'string' ? false : element.declinesArgs, `${command} -> ${instruction}`).toBe(true);
+        expect(
+          typeof element === 'string' ? false : element.shouldDeclineArguments,
+          `${command} -> ${instruction}`,
+        ).toBe(true);
       }
     }
   });
