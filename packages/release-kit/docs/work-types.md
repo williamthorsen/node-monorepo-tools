@@ -2,7 +2,7 @@
 
 The taxonomy against which release-kit parses commits: its tiers, the breaking-change policy, section markers, customization, and the commands that compare it with its upstream.
 
-The canonical taxonomy lives in `packages/release-kit/src/work-types.json` and is split into three tiers that drive section rendering and audience classification.
+release-kit bundles a copy of the codeassembly canonical taxonomy in `packages/release-kit/src/work-types.json`, kept level by `release-kit work-types sync`. The taxonomy is split into three tiers that drive section rendering and audience classification.
 
 | Tier     | Key         | Header                    | Aliases       | `!` policy   |
 | -------- | ----------- | ------------------------- | ------------- | ------------ |

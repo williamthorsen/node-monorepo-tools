@@ -5,8 +5,9 @@
  * runtime consumption: The compiler baseline does not enable JSON module imports, and a TS constant keeps
  * `breakingPolicy` typed as its three-value union.
  *
- * A drift test (`workTypesData.unit.test.ts`) asserts that this constant deep-equals the parsed contents
- * of `work-types.json`, so a change to the JSON is copied here by hand.
+ * `nmr work-types:sync` updates only the JSON, so copy its change here by hand. A drift test
+ * (`workTypesData.unit.test.ts`) asserts that this constant deep-equals the parsed contents of
+ * `work-types.json`.
  */
 
 /** Schema for a single entry. */
