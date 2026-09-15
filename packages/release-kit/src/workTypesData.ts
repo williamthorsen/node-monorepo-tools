@@ -1,15 +1,12 @@
 /**
- * Canonical work-types data — runtime mirror of `work-types.json`.
+ * Canonical work-types data: the runtime mirror of `work-types.json`.
  *
- * `work-types.json` is the canonical SSOT for the taxonomy and is the file
- * `release-kit work-types check` / `:sync` operate on. This `.ts` mirror exists for
- * runtime consumption: ESM JSON imports require an `import attributes` clause that
- * esbuild's `bundle: false` mode strips, so a plain TS module is the most reliable way
- * to ship the data to consumers.
+ * `work-types.json` is release-kit's copy of the codeassembly canonical. This `.ts` mirror exists for
+ * runtime consumption: The compiler baseline does not enable JSON module imports, and a TS constant keeps
+ * `breakingPolicy` typed as its three-value union.
  *
- * A drift test (`workTypesData.unit.test.ts`) asserts that this constant deep-equals the
- * parsed contents of `work-types.json`. To change the taxonomy, edit BOTH files (or run
- * `nmr work-types:sync` to pull from upstream).
+ * A drift test (`workTypesData.unit.test.ts`) asserts that this constant deep-equals the parsed contents
+ * of `work-types.json`, so a change to the JSON is copied here by hand.
  */
 
 /** Schema for a single entry. */
@@ -19,6 +16,7 @@ export interface WorkTypeEntry {
   aliases: string[];
   emoji: string;
   label: string;
+  description: string;
   breakingPolicy: 'forbidden' | 'optional' | 'required';
   excludedFromChangelog?: boolean;
 }
@@ -37,6 +35,8 @@ export interface MarkerEntry {
 
 /** Schema for the full data. */
 export interface WorkTypesData {
+  /** Semantic version of the data shape, as declared by the upstream canonical. */
+  version: string;
   tiers: string[];
   types: WorkTypeEntry[];
   /**
@@ -51,20 +51,64 @@ export interface WorkTypesData {
 
 /** Canonical work-types data, kept in lockstep with `work-types.json`. */
 export const WORK_TYPES_DATA: WorkTypesData = {
+  version: '1.1.0',
   tiers: ['public', 'internal', 'process'],
   types: [
-    { tier: 'public', key: 'feat', aliases: ['feature'], emoji: '🎉', label: 'Features', breakingPolicy: 'optional' },
-    { tier: 'public', key: 'drop', aliases: [], emoji: '🪦', label: 'Removed', breakingPolicy: 'required' },
-    { tier: 'public', key: 'deprecate', aliases: [], emoji: '🗑️', label: 'Deprecated', breakingPolicy: 'forbidden' },
-    { tier: 'public', key: 'fix', aliases: ['bugfix'], emoji: '🐛', label: 'Bug fixes', breakingPolicy: 'forbidden' },
-    { tier: 'public', key: 'sec', aliases: ['security'], emoji: '🔒', label: 'Security', breakingPolicy: 'optional' },
+    {
+      tier: 'public',
+      key: 'feat',
+      aliases: ['feature'],
+      emoji: '🎉',
+      label: 'Features',
+      description: 'A change that gives consumers a new capability or extends an existing one.',
+      breakingPolicy: 'optional',
+    },
+    {
+      tier: 'public',
+      key: 'drop',
+      aliases: [],
+      emoji: '🪦',
+      label: 'Removed',
+      description: 'A change that removes a capability or surface on which consumers depend.',
+      breakingPolicy: 'required',
+    },
+    {
+      tier: 'public',
+      key: 'deprecate',
+      aliases: [],
+      emoji: '🗑️',
+      label: 'Deprecated',
+      description:
+        'A change that marks a capability or surface for removal while the capability or surface keeps working.',
+      breakingPolicy: 'forbidden',
+    },
+    {
+      tier: 'public',
+      key: 'fix',
+      aliases: ['bugfix'],
+      emoji: '🐛',
+      label: 'Bug fixes',
+      description: 'A change that corrects behavior that consumers meet and that differs from what was intended.',
+      breakingPolicy: 'optional',
+    },
+    {
+      tier: 'public',
+      key: 'sec',
+      aliases: ['security'],
+      emoji: '🔒',
+      label: 'Security',
+      description: 'A change that closes a vulnerability or hardens a consumer-facing surface against attack.',
+      breakingPolicy: 'optional',
+    },
     {
       tier: 'public',
       key: 'perf',
       aliases: ['performance'],
       emoji: '⚡',
       label: 'Performance',
-      breakingPolicy: 'forbidden',
+      description:
+        'A change that reduces the time, memory, or other resources that consumer-facing work uses, without changing its result.',
+      breakingPolicy: 'optional',
     },
     {
       tier: 'internal',
@@ -72,6 +116,8 @@ export const WORK_TYPES_DATA: WorkTypesData = {
       aliases: ['utility'],
       emoji: '🏗️',
       label: 'Internal features',
+      description:
+        'A change that adds or extends a capability that consumers do not use directly, such as a helper or an internal module.',
       breakingPolicy: 'forbidden',
     },
     {
@@ -80,19 +126,65 @@ export const WORK_TYPES_DATA: WorkTypesData = {
       aliases: [],
       emoji: '♻️',
       label: 'Refactoring',
+      description: 'A change that restructures existing code without changing its behavior.',
       breakingPolicy: 'forbidden',
     },
-    { tier: 'internal', key: 'tests', aliases: ['test'], emoji: '🧪', label: 'Tests', breakingPolicy: 'forbidden' },
-    { tier: 'process', key: 'tooling', aliases: [], emoji: '⚙️', label: 'Tooling', breakingPolicy: 'forbidden' },
-    { tier: 'process', key: 'ci', aliases: [], emoji: '👷', label: 'CI', breakingPolicy: 'forbidden' },
-    { tier: 'process', key: 'deps', aliases: ['dep'], emoji: '📦', label: 'Dependencies', breakingPolicy: 'forbidden' },
-    { tier: 'process', key: 'ai', aliases: [], emoji: '🤖', label: 'Agentic support', breakingPolicy: 'forbidden' },
+    {
+      tier: 'internal',
+      key: 'tests',
+      aliases: ['test'],
+      emoji: '🧪',
+      label: 'Tests',
+      description:
+        'A change confined to tests, test fixtures, or test helpers, including one that unblocks a build or a type check.',
+      breakingPolicy: 'forbidden',
+    },
+    {
+      tier: 'process',
+      key: 'tooling',
+      aliases: [],
+      emoji: '⚙️',
+      label: 'Tooling',
+      description:
+        'A change to the tools used to develop the project: build, lint, formatting, and release configuration, and development scripts.',
+      breakingPolicy: 'forbidden',
+    },
+    {
+      tier: 'process',
+      key: 'ci',
+      aliases: [],
+      emoji: '👷',
+      label: 'CI',
+      description: 'A change to continuous-integration workflows and their configuration.',
+      breakingPolicy: 'forbidden',
+    },
+    {
+      tier: 'process',
+      key: 'deps',
+      aliases: ['dep'],
+      emoji: '📦',
+      label: 'Dependencies',
+      description:
+        'A change that adds, removes, or upgrades a dependency, including its lockfile and version-catalog entries.',
+      breakingPolicy: 'forbidden',
+    },
+    {
+      tier: 'process',
+      key: 'ai',
+      aliases: [],
+      emoji: '🤖',
+      label: 'Agentic support',
+      description:
+        "A change to guidance on working in the repository itself, such as its `AGENTS.md` or a repo-local skill, or to the repository's agent configuration.",
+      breakingPolicy: 'forbidden',
+    },
     {
       tier: 'process',
       key: 'docs',
       aliases: ['doc'],
       emoji: '📚',
       label: 'Documentation',
+      description: 'A change to documentation for human readers, such as a README, a guide, or a code comment.',
       breakingPolicy: 'forbidden',
     },
     {
@@ -101,6 +193,8 @@ export const WORK_TYPES_DATA: WorkTypesData = {
       aliases: [],
       emoji: '🎨',
       label: 'Formatting',
+      description:
+        'A change to formatting alone, such as whitespace or line wrapping, that leaves the content unchanged.',
       breakingPolicy: 'forbidden',
       excludedFromChangelog: true,
     },
