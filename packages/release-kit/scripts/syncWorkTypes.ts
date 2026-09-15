@@ -5,7 +5,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { isRecord } from '../src/typeGuards.ts';
 import { UPSTREAM_WORK_TYPES_URL } from './checkWorkTypesDrift.ts';
-import { buildFetchInit, hasExpectedTopLevelShape } from './workTypesUtils.ts';
+import { buildFetchInit, hasExpectedTopLevelShape, matchesUpstream } from './workTypesUtils.ts';
 
 /** Outcome of a sync operation. */
 export interface SyncResult {
@@ -27,27 +27,11 @@ export interface SyncWorkTypesDependencies {
   upstreamUrl?: string;
 }
 
-/** Extract the prior `$schema` IDE-hint URL from local file content, or `undefined` if absent or unparseable. */
-function extractLocalSchemaUrl(content: string): string | undefined {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(content);
-  } catch {
-    return undefined;
-  }
-  if (!isRecord(parsed)) {
-    return undefined;
-  }
-  const schema = parsed['$schema'];
-  return typeof schema === 'string' ? schema : undefined;
-}
-
 /**
  * Fetches the upstream `work-types.json`, validates its top-level shape, and overwrites the
- * file at `localPath` with the formatted upstream contents.
+ * file at `localPath` with the upstream contents unless that file already matches upstream.
  *
- * Output is reformatted to match the local file's conventions (2-space indent, trailing
- * newline) so subsequent diffs are content-driven, not whitespace-driven.
+ * The written file keeps the local `$schema` IDE hint, a 2-space indent, and a trailing newline.
  */
 export async function syncWorkTypes(
   localPath: string,
@@ -94,29 +78,22 @@ export async function syncWorkTypes(
     };
   }
 
-  let priorContent: string | undefined;
-  try {
-    priorContent = readFileSync(localPath, 'utf8');
-  } catch {
-    priorContent = undefined;
-  }
+  const localJson = readLocalJson(localPath);
 
-  // Preserve the local-only `$schema` IDE hint if the prior file carried one. Upstream never carries
-  // `$schema` (the relative path is local-decoration), and `checkWorkTypesDrift` strips it before
-  // comparison; sync must symmetrically re-inject it so the synced file remains self-validating in
-  // editors. Spread it first so it serialises at the top of the JSON object.
-  const localSchemaUrl = priorContent !== undefined ? extractLocalSchemaUrl(priorContent) : undefined;
-  const outputJson = localSchemaUrl !== undefined ? { $schema: localSchemaUrl, ...upstreamJson } : upstreamJson;
-
-  // Re-serialise with 2-space indent + trailing newline to match the local format.
-  const formatted = `${JSON.stringify(outputJson, null, 2)}\n`;
-
-  if (priorContent === formatted) {
+  if (localJson !== undefined && matchesUpstream(localJson, upstreamJson)) {
     return {
       exitCode: 0,
       message: `Local work-types.json already matches upstream (${localPath}).`,
     };
   }
+
+  // Preserve the local-only `$schema` IDE hint if the prior file carried one. Upstream never carries
+  // `$schema` (the relative path is local-decoration), and `matchesUpstream` strips it before
+  // comparison; sync must symmetrically re-inject it so the synced file remains self-validating in
+  // editors. Spread it first so it serialises at the top of the JSON object.
+  const localSchemaUrl = extractLocalSchemaUrl(localJson);
+  const outputJson = localSchemaUrl !== undefined ? { $schema: localSchemaUrl, ...upstreamJson } : upstreamJson;
+  const formatted = `${JSON.stringify(outputJson, null, 2)}\n`;
 
   try {
     writeFileSync(localPath, formatted, 'utf8');
@@ -131,3 +108,31 @@ export async function syncWorkTypes(
     message: `Synced work-types.json from ${url} → ${localPath}. Update src/workTypesData.ts to match.`,
   };
 }
+
+// region | Helpers
+
+/** Returns the `$schema` IDE-hint URL from the parsed local file, or `undefined` if it has none. */
+function extractLocalSchemaUrl(localJson: unknown): string | undefined {
+  if (!isRecord(localJson)) {
+    return undefined;
+  }
+  const schema = localJson['$schema'];
+  return typeof schema === 'string' ? schema : undefined;
+}
+
+/** Reads and parses the file at `localPath`, returning `undefined` when it is missing or not valid JSON. */
+function readLocalJson(localPath: string): unknown {
+  let content: string;
+  try {
+    content = readFileSync(localPath, 'utf8');
+  } catch {
+    return undefined;
+  }
+  try {
+    return JSON.parse(content);
+  } catch {
+    return undefined;
+  }
+}
+
+// endregion | Helpers

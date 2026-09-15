@@ -64,6 +64,21 @@ describe(syncWorkTypes, () => {
     expect(result.message).not.toContain('workTypesData.ts');
   });
 
+  it('leaves a local file untouched when its content matches upstream in another format', async ({
+    localPath,
+    tree,
+  }) => {
+    const localContent = `${JSON.stringify({ $schema: './work-types.schema.json', ...SAMPLE_DATA })}\n`;
+    tree.write('work-types.json', localContent);
+    const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(SAMPLE_DATA) }));
+
+    const result = await syncWorkTypes(localPath, { upstreamUrl: FIXTURE_URL, fetch: fakeFetch });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.message).toMatch(/already matches/);
+    expect(readFileSync(localPath, 'utf8')).toBe(localContent);
+  });
+
   it('exits 2 on a non-OK non-success HTTP status', async ({ localPath }) => {
     const fakeFetch = vi
       .fn()
