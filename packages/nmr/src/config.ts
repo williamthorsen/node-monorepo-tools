@@ -43,6 +43,9 @@ const RECOGNIZED_CHECK_CACHE_KEYS = ['enabled', 'excludeCommands', 'extraCommand
 const RECOGNIZED_OUTPUT_KEYS = ['commandVerbosity', 'extraAgentEnvVars'];
 const RECOGNIZED_STEP_KEYS = ['run', 'shouldDeclineArguments'];
 
+/** Maps each retired step key to the key that replaced it. */
+const RETIRED_STEP_KEYS: ReadonlyMap<string, string> = new Map([['declinesArgs', 'shouldDeclineArguments']]);
+
 /** Narrows an unknown value to a record of script entries. */
 function isScriptRecord(value: unknown): value is Record<string, ScriptValue> {
   if (!isObject(value)) return false;
@@ -96,6 +99,7 @@ function assertValidElements(scripts: Record<string, ScriptValue>, fieldName: st
 
     for (const spec of script) {
       if (typeof spec !== 'string') {
+        assertNoRetiredKeys(spec, RETIRED_STEP_KEYS, configPath, `${fieldName}.${command}.`);
         assertRecognizedKeys(spec, RECOGNIZED_STEP_KEYS, configPath, `${fieldName}.${command}.`);
       }
 
@@ -399,6 +403,23 @@ export async function loadWorkspaceConfig(packageDir: string): Promise<NmrConfig
   assertTierKeys(config, CONFIG_TIERS.workspace, resolveConfigPath(packageDir));
 
   return config;
+}
+
+/** Throws on a retired key, naming the key that replaced it. */
+function assertNoRetiredKeys(
+  value: object,
+  retiredKeys: ReadonlyMap<string, string>,
+  configPath: string,
+  prefix: string,
+): void {
+  for (const key of Object.keys(value)) {
+    const replacement = retiredKeys.get(key);
+    if (replacement === undefined) continue;
+
+    throw new UserError(
+      `Invalid nmr config at ${configPath}: \`${prefix}${key}\` was renamed to \`${prefix}${replacement}\`.`,
+    );
+  }
 }
 
 /**

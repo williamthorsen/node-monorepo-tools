@@ -180,6 +180,18 @@ describe(loadConfig, () => {
     );
   });
 
+  // The non-boolean value pins that the shape check leaves a retired key to the hint.
+  it.for(['true', 'false', `'yes'`])(
+    'throws naming the replacement when a spec declares the renamed `declinesArgs: %s`',
+    async (value, { tree }) => {
+      writeConfig(tree, `export default { rootScripts: { check: [{ run: 'typecheck', declinesArgs: ${value} }] } };`);
+
+      await expect(loadConfig(tree.dir)).rejects.toThrow(
+        '`rootScripts.check.declinesArgs` was renamed to `rootScripts.check.shouldDeclineArguments`.',
+      );
+    },
+  );
+
   it('throws when a spec declares a non-boolean policy', async ({ tree }) => {
     writeConfig(
       tree,
