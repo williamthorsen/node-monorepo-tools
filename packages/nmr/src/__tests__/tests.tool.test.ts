@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
 import { runVitest, scaffoldProject, unlinkNodeModules } from '../test-utils/vitest-run.ts';

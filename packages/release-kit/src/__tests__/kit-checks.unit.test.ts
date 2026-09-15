@@ -15,7 +15,7 @@ const {
 } = vi.hoisted(() => ({
   mockedDetectRepoType: vi.fn<() => RepoType>(),
   mockedDiscoverWorkspaces: vi.fn<() => Workspace[]>(() => []),
-  mockedFileContains: vi.fn<(path: string, pattern: RegExp) => boolean>(),
+  mockedFileContains: vi.fn<(path: string, pattern: RegExp | string) => boolean>(),
   mockedFileExists: vi.fn<(path: string) => boolean>(),
   mockedFileMatchesHash: vi.fn<(path: string, expectedHash: string) => boolean>(),
   mockedHasDevDependency: vi.fn<(name: string) => boolean>(),
@@ -271,7 +271,7 @@ function buildPublishableWorkspace(): Workspace {
  * the `@williamthorsen/release-kit >= x` name getter, whose compile-time-only `pickJson` throws against the
  * uncompiled source this suite imports.
  */
-function findCheck(name: string, siblings: RdyCheck[]): RdyCheck {
+function findCheck(name: string, siblings: readonly RdyCheck[]): RdyCheck {
   const check = siblings.find((candidate) => candidate.name === name);
   assert(check, `Expected a "${name}" check`);
   return check;
@@ -303,7 +303,7 @@ function getCreateGithubReleaseCheck(): RdyCheck {
 }
 
 /** Returns the top-level checks of the kit's `release-kit` checklist. */
-function getReleaseKitChecks(): RdyCheck[] {
+function getReleaseKitChecks(): readonly RdyCheck[] {
   const checklist = kit.checklists.find((candidate) => candidate.name === 'release-kit');
   assert(checklist && isFlatChecklist(checklist), 'Expected the kit to carry a flat `release-kit` checklist');
   return checklist.checks;

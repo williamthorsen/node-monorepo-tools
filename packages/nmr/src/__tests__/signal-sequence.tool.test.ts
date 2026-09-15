@@ -2,7 +2,7 @@ import { type ChildProcess, spawn } from 'node:child_process';
 import path from 'node:path';
 import process from 'node:process';
 
-import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it as baseIt } from 'vitest';
 

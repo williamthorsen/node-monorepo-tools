@@ -1,5 +1,4 @@
-import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
-import { pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
+import { createTempTree, pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 
 /** The `packages:` block a monorepo fixture declares, which is what puts `discoverWorkspaces` into monorepo mode. */

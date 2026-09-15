@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 
-import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { globSync } from 'tinyglobby';
 import { defaultClientConditions, defaultServerConditions } from 'vite';

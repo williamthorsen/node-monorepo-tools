@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 
-import { createTempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, assert, describe, expect, it as baseIt, vi } from 'vitest';
 

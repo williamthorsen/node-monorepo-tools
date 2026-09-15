@@ -103,7 +103,7 @@ export const packagesChecklist = defineRdyChecklist({
   // The gate stands beside the workspace rows rather than above them, so a session that cannot answer trust queries
   // suppresses the trusted-publisher rows alone and leaves the package.json checks reporting. The rows no longer
   // hang beneath the gate's skip, so a repo that publishes nothing has to be held to its one line here.
-  get checks(): RdyCheck[] {
+  get checks(): readonly RdyCheck[] {
     const sessionCheck = buildSessionCheck();
     if (skipIfNothingPublishable() !== false) {
       return [sessionCheck];

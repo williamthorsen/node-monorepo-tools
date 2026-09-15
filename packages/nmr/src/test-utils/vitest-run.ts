@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import type { TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
+import type { TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 
 /** The monorepo root, which holds the `node_modules` a fixture project resolves Vitest through. */
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../../..');

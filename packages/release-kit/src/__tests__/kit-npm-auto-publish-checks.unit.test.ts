@@ -440,7 +440,7 @@ describe('packages checklist', () => {
 // region | Helpers
 
 /** Finds a check by name among `siblings`. */
-function findCheck(name: string, siblings: RdyCheck[]): RdyCheck {
+function findCheck(name: string, siblings: readonly RdyCheck[]): RdyCheck {
   const check = siblings.find((candidate) => candidate.name === name);
   assert(check, `Expected a "${name}" check`);
   return check;

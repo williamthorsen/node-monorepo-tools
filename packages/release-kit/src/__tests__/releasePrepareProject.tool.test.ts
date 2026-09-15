@@ -2,8 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.filesystem/candidate';
-import { captureStdio, pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
+import { captureStdio, createTempTree, pointCwdAt, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import {
   disposeOnTestFinished,
   listConsoleLines,
