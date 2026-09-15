@@ -77,7 +77,7 @@ describe(checkWorkTypesDrift, () => {
     expect(result.message).toMatch(/Drift detected/);
   });
 
-  it('exits 0 with a transitional warning when upstream returns 404', async ({ localPath }) => {
+  it('exits 0 with a warning when upstream returns 404', async ({ localPath }) => {
     const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 404, body: 'Not Found' }));
     const result = await checkWorkTypesDrift({
       localPath,
@@ -85,7 +85,7 @@ describe(checkWorkTypesDrift, () => {
       fetch: fakeFetch,
     });
     expect(result.exitCode).toBe(0);
-    expect(result.message).toMatch(/not yet published/);
+    expect(result.message).toMatch(/not found/);
   });
 
   it('exits 2 on a non-OK non-404 HTTP status', async ({ localPath }) => {

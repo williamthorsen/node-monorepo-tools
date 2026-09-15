@@ -25,8 +25,8 @@ export interface ChangelogItem {
    * Migration instruction for a consumer, taken from the `Migration:` paragraph of `body`.
    *
    * Derived from `body` wherever `body` is set, and absent where the body carries no labeled
-   * paragraph. Independent of `breaking`: a `fix` that tightens validation cannot carry `!` under
-   * the default breaking policy and still imposes a migration. `body` keeps the paragraph, so
+   * paragraph. Independent of `breaking`: a `deprecate` commit cannot carry `!` under the default
+   * breaking policy and still imposes a migration. `body` keeps the paragraph, so
    * `CHANGELOG.md` goes on rendering it in place.
    */
   migration?: string;
