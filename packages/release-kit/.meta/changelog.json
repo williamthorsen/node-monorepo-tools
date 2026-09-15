@@ -1,5 +1,33 @@
 [
   {
+    "version": "10.8.0",
+    "date": "2026-09-15",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Allow the breaking marker on fix and perf commits (#818)",
+            "body": "- Makes `release-kit prepare` bump the major version for a `fix!` or `perf!` commit under the default breaking policies, instead of reporting a policy violation and bumping only the patch version while the changelog marked the entry breaking.\n- Corrects `docs/work-types.md` to state that a `breakingPolicies` map replaces the default policies rather than overriding individual types, and that release-kit treats every type omitted by the map as `optional`.",
+            "hash": "9d7bbe89deef6cdcedd999336e1cb8118bbf739f"
+          }
+        ]
+      },
+      {
+        "title": "🐛 Bug fixes",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Omit the breaking marker from changelog entries whose type forbids it (#819)",
+            "body": "- Makes the configured `breakingPolicies` map decide whether the changelog marks a commit breaking, as it already decides the version bump.",
+            "hash": "6ff7414f6f826fc85ae3337c4ac6bd9e38fe6ef7"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "10.7.0",
     "date": "2026-09-15",
     "sections": [

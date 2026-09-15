@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## 10.8.0 — 2026-09-15
+
+### 🎉 Features
+
+- Allow the breaking marker on fix and perf commits (#818)
+
+  - Makes `release-kit prepare` bump the major version for a `fix!` or `perf!` commit under the default breaking policies, instead of reporting a policy violation and bumping only the patch version while the changelog marked the entry breaking.
+  - Corrects `docs/work-types.md` to state that a `breakingPolicies` map replaces the default policies rather than overriding individual types, and that release-kit treats every type omitted by the map as `optional`.
+
+### 🐛 Bug fixes
+
+- Omit the breaking marker from changelog entries whose type forbids it (#819)
+
+  - Makes the configured `breakingPolicies` map decide whether the changelog marks a commit breaking, as it already decides the version bump.
+
 ## 10.7.0 — 2026-09-15
 
 ### 🎉 Features
