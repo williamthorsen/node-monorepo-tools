@@ -18,6 +18,9 @@ const BIN_DIR = path.join(MONOREPO_ROOT, 'node_modules', '.bin');
  */
 const PROBE = String.raw`node -e "process.stdout.write('TTY:' + (process.stdout.isTTY === true) + '\n')"`;
 
+/** A package leaf that reports whether its stdin is a terminal, marked apart from `PROBE` so neither matches the other. */
+const STDIN_PROBE = String.raw`node -e "process.stdout.write('STDIN:' + (process.stdin.isTTY === true) + '\n')"`;
+
 // eslint-disable-next-line vitest/consistent-test-it -- the rule reads this builder call as a top-level test.
 const it = baseIt.extend(
   'tree',
@@ -26,6 +29,9 @@ const it = baseIt.extend(
     createTempTree(
       {
         '.config/nmr.config.ts': `export default ${JSON.stringify({ rootScripts: { probe: ['probe:leaf'], 'probe:leaf': PROBE } })};\n`,
+        'package.json': JSON.stringify({ name: 'inherit-root', private: true, type: 'module' }),
+        'packages/alpha/package.json': JSON.stringify({ name: 'alpha', scripts: { 'stdin-probe': STDIN_PROBE } }),
+        'packages/beta/package.json': JSON.stringify({ name: 'beta', scripts: { 'stdin-probe': STDIN_PROBE } }),
         'pnpm-workspace.yaml': 'packages:\n  - packages/*\n',
       },
       { prefix: 'nmr-inherit-' },
@@ -50,6 +56,22 @@ describe.skipIf(process.env['SANDBOX_RUNTIME'] !== undefined)('descriptor inheri
     const { stdout } = run([process.execPath, CLI_PATH, 'probe'], tree.dir);
 
     expect(stdout).toContain('TTY:false');
+  });
+
+  // The pair for the cases below: a terminal that reaches a package through pnpm is one a fan-out could withhold.
+  it('passes its terminal to the package a one-package filter selects', ({ tree }) => {
+    const { stdout } = run(wrapInTerminal([process.execPath, CLI_PATH, '-F', 'alpha', 'stdin-probe']), tree.dir);
+
+    expect(stdout).toContain('STDIN:true');
+  });
+
+  it.for([
+    { args: ['-R', 'stdin-probe'], scenario: 'a recursive run' },
+    { args: ['-F', './packages/*', 'stdin-probe'], scenario: 'a filter selecting several packages' },
+  ])('given $scenario, gives every package no terminal input', ({ args }, { tree }) => {
+    const { stdout } = run(wrapInTerminal([process.execPath, CLI_PATH, ...args]), tree.dir);
+
+    expect(stdout.match(/STDIN:false/g)).toHaveLength(2);
   });
 
   // region | Helpers
