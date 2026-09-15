@@ -404,6 +404,24 @@ describe(releasePrepare, () => {
     );
   });
 
+  it('fails without a warning, naming the package file, when --set-version meets an unreadable package file', () => {
+    mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'describe') {
+        return 'v0.5.0\n';
+      }
+      return '';
+    });
+    mockReadFileSync.mockImplementation(() => {
+      throw new Error('EACCES: permission denied');
+    });
+    using silent = silenceConsole(['warn']);
+
+    expect(() => releasePrepare(makeConfig(), { setVersion: '1.0.0' })).toThrow(
+      'Failed to read package.json: EACCES: permission denied',
+    );
+    expect(silent.warn).not.toHaveBeenCalled();
+  });
+
   it('calls planReleaseNotesPreviews when --with-release-notes is set and changelogJson is enabled', () => {
     setupFeatCommit();
     vi.spyOn(process, 'cwd').mockReturnValue('/single-pkg');

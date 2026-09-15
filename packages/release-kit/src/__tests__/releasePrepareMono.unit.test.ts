@@ -2359,21 +2359,6 @@ describe(releasePrepareMono, () => {
       expect(wrapped.message).toMatch(/^project release stage: .*cliff exploded on root$/);
       expect(wrapped.cause).toBeInstanceOf(Error);
     });
-
-    it('does not wrap --set-version validation throws with a stage label', async () => {
-      const config = makeArraysConfig();
-      mockExecFileSync.mockImplementation((cmd: string, args: string[]) => {
-        if (cmd === 'git' && args[0] === 'describe') return 'arrays-v0.5.0\n';
-        if (cmd === 'git' && args[0] === 'log') return '';
-        return '';
-      });
-      mockReadFileSync.mockReturnValue(JSON.stringify({ name: '@test/arrays', version: '0.5.0' }));
-
-      const wrapped = await captureError(() => releasePrepareMono(config, { setVersion: '0.3.0' }));
-
-      expect(wrapped.message).toBe('--set-version 0.3.0 is not greater than current version 0.5.0');
-      expect(wrapped.message).not.toContain('stage:');
-    });
   });
 
   describe('policy violations', () => {

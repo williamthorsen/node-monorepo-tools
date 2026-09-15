@@ -302,16 +302,6 @@ describe(prepareCommand, () => {
     expect(capture.stderr).not.toContain('Error preparing release');
   });
 
-  it('prints validation errors with the canonical Error prefix and no "Error preparing release:" wrapper', async () => {
-    mockReleasePrepareMono.mockImplementation(() => {
-      throw new Error('--set-version 0.3.0 is not greater than current version 0.5.0');
-    });
-
-    await expect(prepareCommand([])).rejects.toThrow(ProcessExitError);
-    expect(capture.stderrChunks).toContain('Error: --set-version 0.3.0 is not greater than current version 0.5.0\n');
-    expect(capture.stderr).not.toContain('Error preparing release');
-  });
-
   it('reports that the working tree is unchanged when computation fails', async () => {
     mockReleasePrepareMono.mockImplementation(() => {
       throw new Error("workspace 'arrays' release stage: ENOBUFS");

@@ -10,7 +10,6 @@ import {
   loadOverridesForScopes,
 } from './changelogOverrides.ts';
 import { createPolicyViolationCollector } from './collectPolicyViolations.ts';
-import { isForwardVersion } from './compareVersions.ts';
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { determineBumpFromCommits } from './determineBumpFromCommits.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
@@ -18,7 +17,6 @@ import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import { resolveWorkTypes } from './loadConfig.ts';
 import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
 import { planVersionBump, planVersionSet, type VersionBumpPlan } from './planVersionBump.ts';
-import { readCurrentVersion } from './readCurrentVersion.ts';
 import type { PlannedWrite, ReleasePlan } from './releasePlan.ts';
 import { renderChangelogMarkdown } from './renderChangelogMarkdown.ts';
 import { deriveSectionOrder } from './resolveReleaseNotesConfig.ts';
@@ -109,19 +107,6 @@ export function releasePrepare(config: ReleaseConfig, options: ReleasePrepareOpt
   let bump: VersionBumpPlan;
 
   if (setVersion !== undefined) {
-    // Bypass commit-derived bump logic. Read the current version directly from the primary
-    // package file so validation runs once, before any version write is planned.
-    const primaryPackageFile = config.packageFiles[0];
-    if (primaryPackageFile === undefined) {
-      throw new Error('No package files specified');
-    }
-    const currentVersion = readCurrentVersion(primaryPackageFile);
-    if (currentVersion === undefined) {
-      throw new Error(`Cannot validate --set-version: failed to read current version from ${primaryPackageFile}`);
-    }
-    if (!isForwardVersion(currentVersion, setVersion)) {
-      throw new Error(`--set-version ${setVersion} is not greater than current version ${currentVersion}`);
-    }
     bump = planVersionSet(config.packageFiles, setVersion);
   } else {
     if (bumpOverride === undefined) {

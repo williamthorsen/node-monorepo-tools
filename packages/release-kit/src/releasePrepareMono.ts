@@ -15,7 +15,6 @@ import {
   type OverrideContext,
 } from './changelogOverrides.ts';
 import { createPolicyViolationCollector } from './collectPolicyViolations.ts';
-import { isForwardVersion } from './compareVersions.ts';
 import { decideRelease } from './decideRelease.ts';
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { detectUndeclaredTagPrefixes } from './detectUndeclaredTagPrefixes.ts';
@@ -274,16 +273,6 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
     // --set-version bypass: skip commit-derived bump logic for the overridden workspace.
     // Validation that only one workspace is targeted runs in `prepareCommand` before this function.
     if (setVersion !== undefined) {
-      const currentVersion = currentVersions.get(workspace.dir);
-      if (currentVersion === undefined) {
-        throw new Error(
-          `Cannot validate --set-version: failed to read current version from ${primaryPackageFile ?? '(no package file)'}`,
-        );
-      }
-      if (!isForwardVersion(currentVersion, setVersion)) {
-        throw new Error(`--set-version ${setVersion} is not greater than current version ${currentVersion}`);
-      }
-
       // The releaseType in the ReleaseEntry is a sentinel value; `newVersionOverride` takes
       // precedence when propagation computes dependent versions.
       directBumps.set(workspace.dir, { releaseType: 'patch', newVersionOverride: setVersion });
