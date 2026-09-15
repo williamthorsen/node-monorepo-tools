@@ -32,7 +32,7 @@ A commit body states a migration step as a paragraph opening with the literal la
 
 Three properties are worth knowing:
 
-- **It is independent of `breaking`.** A `deprecate` cannot carry `!` under the default breaking policy, and a `deprecate` still imposes a migration. Filter on `migration` to find every step; filter on `breaking` to find every breaking change.
+- **It is independent of `breaking`.** A `deprecate` cannot carry `!` under the default breaking policy, and a `deprecate` still calls for a migration. Filter on `migration` to find every step; filter on `breaking` to find every breaking change.
 - **`body` keeps the paragraph.** The field is an extraction, not a move, so `CHANGELOG.md` and `.meta/changelog.json` go on agreeing.
 - **It is derived, not authored.** `migration` is not a field an override file can set (see [File shape](editorial-overrides.md#file-shape)); it is re-derived from whatever `body` an override installs, and cleared where that body carries no labeled paragraph. To change the migration text, override `body`.
 
