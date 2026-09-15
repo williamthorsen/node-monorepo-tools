@@ -4,7 +4,7 @@
 # Main categories
 - name: ai
   color: a2eeef
-  description: Documentation and configs used by agents
+  description: Guidance on working in this repo, such as its AGENTS.md or a repo-local skill, or its agent config
 - name: breaking
   color: b60205
   description: Breaking API change or removal of functionality
@@ -16,7 +16,7 @@
   description: Marks functionality for future removal
 - name: documentation
   color: a2eeef
-  description: Improvements or additions to documentation
+  description: Documentation for human readers, such as a README, a guide, or a code comment
 - name: feature
   color: '0075ca'
   description: Added or improved external functionality
