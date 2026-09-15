@@ -1,6 +1,6 @@
 import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.ts';
+import { DEFAULT_BREAKING_POLICIES, DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.ts';
 import { matchesAudience, renderReleaseNotesSingle } from '../renderReleaseNotes.ts';
 import type { ChangelogEntry, ChangelogJsonConfig, ReleaseConfig } from '../types.ts';
 
@@ -372,6 +372,79 @@ describe(buildChangelogEntries, () => {
       ];
       mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
       const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
+      expect(entries[0]?.sections[0]?.items[0]).not.toHaveProperty('breaking');
+    });
+
+    it.each([
+      ['#1 deprecate!: Deprecate legacy flag', 'Deprecated'],
+      ['#1 refactor!: Restructure parser', 'Refactoring'],
+      ['#1 utility!: Add shared helper', 'Internal features'],
+    ])('omits breaking for `%s`, whose type forbids `!`', (message, group) => {
+      const cliffContext = [{ version: 'v1.0.0', timestamp: 1_700_000_000, commits: [{ message, group }] }];
+      mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
+      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
+      expect(entries[0]?.sections[0]?.items[0]).not.toHaveProperty('breaking');
+    });
+
+    it('sets breaking: true for a `refactor!:` commit when `breakingPolicies` is `{}`', () => {
+      const cliffContext = [
+        {
+          version: 'v1.0.0',
+          timestamp: 1_700_000_000,
+          commits: [{ message: '#1 refactor!: Restructure parser', group: 'Refactoring' }],
+        },
+      ];
+      mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
+      const entries = buildChangelogEntries({ ...makeConfig(), breakingPolicies: {} }, 'v1.0.0');
+      expect(entries[0]?.sections[0]?.items[0]?.breaking).toBe(true);
+    });
+
+    it('omits breaking for a `feat!:` commit when `breakingPolicies` forbids `feat`', () => {
+      const cliffContext = [
+        {
+          version: 'v1.0.0',
+          timestamp: 1_700_000_000,
+          commits: [{ message: '#1 feat!: Redesign API', group: 'Features' }],
+        },
+      ];
+      mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
+      const entries = buildChangelogEntries(
+        { ...makeConfig(), breakingPolicies: { ...DEFAULT_BREAKING_POLICIES, feat: 'forbidden' } },
+        'v1.0.0',
+      );
+      expect(entries[0]?.sections[0]?.items[0]).not.toHaveProperty('breaking');
+    });
+
+    it('sets breaking: true for a `!` commit whose type is not a configured work type', () => {
+      const cliffContext = [
+        {
+          version: 'v1.0.0',
+          timestamp: 1_700_000_000,
+          commits: [{ message: '#1 chore!: Rework build', group: 'Other' }],
+        },
+      ];
+      mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
+      const entries = buildChangelogEntries(makeConfig(), 'v1.0.0');
+      expect(entries[0]?.sections[0]?.items[0]?.breaking).toBe(true);
+    });
+
+    it('omits breaking for a `!` commit whose type is added by `workTypes` and forbidden by `breakingPolicies`', () => {
+      const cliffContext = [
+        {
+          version: 'v1.0.0',
+          timestamp: 1_700_000_000,
+          commits: [{ message: '#1 chore!: Rework build', group: 'Chores' }],
+        },
+      ];
+      mockRunGitCliff.mockReturnValueOnce(JSON.stringify(cliffContext));
+      const entries = buildChangelogEntries(
+        {
+          ...makeConfig(),
+          workTypes: { ...DEFAULT_WORK_TYPES, chore: { header: 'Chores' } },
+          breakingPolicies: { ...DEFAULT_BREAKING_POLICIES, chore: 'forbidden' },
+        },
+        'v1.0.0',
+      );
       expect(entries[0]?.sections[0]?.items[0]).not.toHaveProperty('breaking');
     });
   });
