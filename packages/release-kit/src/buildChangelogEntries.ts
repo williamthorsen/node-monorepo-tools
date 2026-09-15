@@ -1,10 +1,10 @@
 import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { extractVersion } from './changelogJsonUtils.ts';
-import { DEFAULT_WORK_TYPES } from './defaults.ts';
+import { DEFAULT_BREAKING_POLICIES, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { extractMigration } from './extractMigration.ts';
 import type { GenerateChangelogOptions } from './generateChangelogs.ts';
-import { COMMIT_PREPROCESSOR_PATTERNS, PIPE_SCOPE_SOURCE } from './parseCommitMessage.ts';
+import { COMMIT_PREPROCESSOR_PATTERNS, parseCommitMessage, PIPE_SCOPE_SOURCE } from './parseCommitMessage.ts';
 import { resolveCliffConfigPath } from './resolveCliffConfigPath.ts';
 import { runGitCliff } from './runGitCliff.ts';
 import { stripEmojiPrefix } from './stripEmojiPrefix.ts';
@@ -80,7 +80,7 @@ interface CliffContextRelease {
  * malformed-config, and template-resolution failures earlier than before.
  */
 export function buildChangelogEntries(
-  config: Pick<ReleaseConfig, 'cliffConfigPath' | 'changelogJson'>,
+  config: Pick<ReleaseConfig, 'breakingPolicies' | 'changelogJson' | 'cliffConfigPath' | 'workTypes'>,
   tag: string,
   options?: GenerateChangelogOptions,
 ): ChangelogEntry[] {
@@ -102,7 +102,9 @@ export function buildChangelogEntries(
 
     const releases = parseCliffContext(contextJson);
     const devOnlySections = new Set(config.changelogJson.devOnlySections);
-    return transformReleases(releases, devOnlySections);
+    const workTypes = config.workTypes ?? DEFAULT_WORK_TYPES;
+    const breakingPolicies = config.breakingPolicies ?? DEFAULT_BREAKING_POLICIES;
+    return transformReleases(releases, devOnlySections, workTypes, breakingPolicies);
   } catch (error: unknown) {
     throw chainError(`Failed to build changelog entries for tag ${tag}`, error);
   }
@@ -153,7 +155,12 @@ function toCliffContextCommit(value: unknown): CliffContextCommit {
 }
 
 /** Transform git-cliff context releases into `ChangelogEntry[]`. */
-function transformReleases(releases: CliffContextRelease[], devOnlySections: Set<string>): ChangelogEntry[] {
+function transformReleases(
+  releases: CliffContextRelease[],
+  devOnlySections: Set<string>,
+  workTypes: NonNullable<ReleaseConfig['workTypes']>,
+  breakingPolicies: NonNullable<ReleaseConfig['breakingPolicies']>,
+): ChangelogEntry[] {
   const entries: ChangelogEntry[] = [];
   // Normalise dev-only entries once so consumer overrides written as bare names (e.g. `'Internal'`)
   // match decorated default titles (`<!-- NN -->🏗️ Internal features`) without requiring config updates.
@@ -177,7 +184,7 @@ function transformReleases(releases: CliffContextRelease[], devOnlySections: Set
       const group = stripCommentPrefix(commit.group ?? 'Other');
       const description = extractDescription(commit.message);
       const body = extractBody(commit.message);
-      const breaking = subjectHasBreakingMarker(commit.message);
+      const breaking = isBreakingUnderPolicy(commit, workTypes, breakingPolicies);
 
       let items = sectionMap.get(group);
       if (items === undefined) {
@@ -232,6 +239,26 @@ function stripCommentPrefix(group: string): string {
   return group.replace(HTML_COMMENT_PREFIX_PATTERN, '');
 }
 
+/**
+ * Decides whether a commit's changelog item is breaking.
+ *
+ * The item is breaking when the subject carries a prefix `!` and the commit's work-type policy permits it, which keeps
+ * the item in agreement with the version bump. A commit whose type the parser cannot resolve has no policy, so its
+ * prefix `!` alone decides. The subject check comes first because the parse also counts a `BREAKING CHANGE:` footer
+ * on an `optional`-policy type, which the changelog ignores.
+ */
+function isBreakingUnderPolicy(
+  commit: CliffContextCommit,
+  workTypes: NonNullable<ReleaseConfig['workTypes']>,
+  breakingPolicies: NonNullable<ReleaseConfig['breakingPolicies']>,
+): boolean {
+  if (!subjectHasBreakingMarker(commit.message)) {
+    return false;
+  }
+  const parsed = parseCommitMessage(commit.message, commit.id ?? '', workTypes, undefined, { breakingPolicies });
+  return parsed?.breaking ?? true;
+}
+
 /** Matches a type-token with an optional scope (parenthesized or pipe-prefixed) followed by `!:`. */
 const SUBJECT_BREAKING_MARKER_PATTERN = new RegExp(String.raw`^(?:${PIPE_SCOPE_SOURCE}\|)?\w+(?:\([^)]+\))?!:`);
 
@@ -240,8 +267,8 @@ const SUBJECT_BREAKING_MARKER_PATTERN = new RegExp(String.raw`^(?:${PIPE_SCOPE_S
  *
  * Matches `type!:`, `type(scope)!:`, and `scope|type!:` formats at the start of the first line, after any leading
  * ticket prefix (e.g. `#42 `, `TOOL-123 `, `## `) is stripped via `COMMIT_PREPROCESSOR_PATTERNS`.
- * The `BREAKING CHANGE:` body footer is not considered: Only the prefix `!` marks a changelog item as breaking,
- * keeping the changelog signal aligned with the commit-prefix policy.
+ * The `BREAKING CHANGE:` body footer is not considered. The marker alone does not make an item breaking: The commit's
+ * work-type policy must also permit `!` (see `isBreakingUnderPolicy`).
  * The regex is anchored so descriptions containing `!:` later in the line (e.g. `"Fix edge case using field!: value
  * notation"`) are not misclassified as breaking.
  */
