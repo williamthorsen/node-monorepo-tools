@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { assert, describe, expect, it } from 'vitest';
 
-import { DEFAULT_WORK_TYPES } from '../defaults.ts';
+import { DEFAULT_BREAKING_POLICIES, DEFAULT_WORK_TYPES } from '../defaults.ts';
 
 const thisDir = dirname(fileURLToPath(import.meta.url));
 const docPath = resolve(thisDir, '..', '..', 'docs', 'work-types.md');
@@ -13,6 +13,7 @@ const docContent = readFileSync(docPath, 'utf8');
 interface DocWorkTypeRow {
   key: string;
   header: string;
+  breakingPolicy: string;
 }
 
 describe('docs/work-types.md "Work types and tiers" table alignment with DEFAULT_WORK_TYPES', () => {
@@ -34,6 +35,12 @@ describe('docs/work-types.md "Work types and tiers" table alignment with DEFAULT
       expect(row.header, `header for "${row.key}"`).toBe(expectedHeader);
     }
   });
+
+  it('uses the canonical `!` policy for each work type', () => {
+    for (const row of rows) {
+      expect(row.breakingPolicy, `\`!\` policy for "${row.key}"`).toBe(DEFAULT_BREAKING_POLICIES[row.key]);
+    }
+  });
 });
 
 // region | Helpers
@@ -51,15 +58,16 @@ function parseWorkTypesTable(): DocWorkTypeRow[] {
 
   for (const line of lines) {
     // A row looks like `| Tier | \`key\` | Header | aliases | policy |`.
-    // Capture only the `key` and `Header` columns by skipping the leading tier column.
-    const rowMatch = /^\|\s*[^|]+\|\s*`([^`]+)`\s*\|\s*([^|]+?)\s*\|/.exec(line);
+    // Capture the `key`, `Header`, and policy columns, skipping the tier and aliases columns.
+    const rowMatch = /^\|\s*[^|]+\|\s*`([^`]+)`\s*\|\s*([^|]+?)\s*\|[^|]*\|\s*([^|]+?)\s*\|/.exec(line);
     if (rowMatch) {
-      const [, key, header] = rowMatch;
-      if (key === undefined || header === undefined) {
+      const [, key, header, policy] = rowMatch;
+      if (key === undefined || header === undefined || policy === undefined) {
         continue;
       }
       inTable = true;
-      rows.push({ key, header: header.trim() });
+      // The policy cell bolds `required` for emphasis.
+      rows.push({ key, header: header.trim(), breakingPolicy: policy.replaceAll('*', '') });
       continue;
     }
     if (inTable && line.trim() === '') {
