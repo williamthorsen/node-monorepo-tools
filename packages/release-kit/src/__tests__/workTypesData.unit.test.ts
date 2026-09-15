@@ -5,124 +5,16 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { WORK_TYPES_DATA } from '../defaults.ts';
+import { isRecord } from '../typeGuards.ts';
 
 const ALLOWED_BREAKING_POLICIES = new Set(['forbidden', 'optional', 'required']);
 
 const thisDir = dirname(fileURLToPath(import.meta.url));
 const workTypesJsonPath = resolve(thisDir, '..', 'work-types.json');
 
-interface WorkTypesJsonData {
-  $schema?: string;
-  tiers: string[];
-  types: Array<{
-    tier: string;
-    key: string;
-    aliases: string[];
-    emoji: string;
-    label: string;
-    breakingPolicy: string;
-    excludedFromChangelog?: boolean;
-  }>;
-  markers: {
-    [key: string]: { emoji: string; label: string };
-    breaking: { emoji: string; label: string };
-  };
-}
-
-function readJsonFile(): WorkTypesJsonData {
-  const content = readFileSync(workTypesJsonPath, 'utf8');
-  const parsed: unknown = JSON.parse(content);
-  if (!isWorkTypesJsonData(parsed)) {
-    throw new Error(`work-types.json at ${workTypesJsonPath} does not match expected shape`);
-  }
-  return parsed;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item): item is string => typeof item === 'string');
-}
-
-function isWorkTypesJsonData(value: unknown): value is WorkTypesJsonData {
-  if (!isRecord(value)) return false;
-  if (!isStringArray(value['tiers'])) return false;
-  if (!Array.isArray(value['types']) || !value['types'].every(isWorkTypesEntry)) return false;
-  if (!isMarkersRecord(value['markers'])) return false;
-  return true;
-}
-
-function isMarkerEntry(value: unknown): value is { emoji: string; label: string } {
-  if (!isRecord(value)) return false;
-  return typeof value['emoji'] === 'string' && typeof value['label'] === 'string';
-}
-
-function isMarkersRecord(value: unknown): value is WorkTypesJsonData['markers'] {
-  if (!isRecord(value)) return false;
-  if (!isMarkerEntry(value['breaking'])) return false;
-  return Object.values(value).every(isMarkerEntry);
-}
-
-function isWorkTypesEntry(value: unknown): value is WorkTypesJsonData['types'][number] {
-  if (!isRecord(value)) return false;
-  if (
-    typeof value['tier'] !== 'string' ||
-    typeof value['key'] !== 'string' ||
-    typeof value['emoji'] !== 'string' ||
-    typeof value['label'] !== 'string' ||
-    typeof value['breakingPolicy'] !== 'string'
-  ) {
-    return false;
-  }
-  if (!isStringArray(value['aliases'])) return false;
-  if (value['excludedFromChangelog'] !== undefined && typeof value['excludedFromChangelog'] !== 'boolean') {
-    return false;
-  }
-  return true;
-}
-
 describe('work-types.json mirrors workTypesData.ts (drift detection)', () => {
-  it('the TS mirror has the same `tiers` as the JSON canonical', () => {
-    const json = readJsonFile();
-    expect(WORK_TYPES_DATA.tiers).toStrictEqual(json.tiers);
-  });
-
-  it('the TS mirror has the same number of `types` as the JSON canonical', () => {
-    const json = readJsonFile();
-    expect(WORK_TYPES_DATA.types).toHaveLength(json.types.length);
-  });
-
-  it('every JSON entry deep-equals its TS counterpart at the same index', () => {
-    const json = readJsonFile();
-    for (const [index, jsonEntry] of json.types.entries()) {
-      const tsEntry = WORK_TYPES_DATA.types[index];
-      expect(tsEntry, `index ${index} (${jsonEntry.key}) missing in TS mirror`).toBeDefined();
-      // Compare field-by-field; `excludedFromChangelog` is optional, others are required.
-      expect(tsEntry?.tier).toBe(jsonEntry.tier);
-      expect(tsEntry?.key).toBe(jsonEntry.key);
-      expect(tsEntry?.aliases).toStrictEqual(jsonEntry.aliases);
-      expect(tsEntry?.emoji).toBe(jsonEntry.emoji);
-      expect(tsEntry?.label).toBe(jsonEntry.label);
-      expect(tsEntry?.breakingPolicy).toBe(jsonEntry.breakingPolicy);
-      expect(tsEntry?.excludedFromChangelog).toBe(jsonEntry.excludedFromChangelog);
-    }
-  });
-
-  it('the TS mirror exposes the same `markers` keys as the JSON canonical', () => {
-    const json = readJsonFile();
-    expect(new Set(Object.keys(WORK_TYPES_DATA.markers))).toStrictEqual(new Set(Object.keys(json.markers)));
-  });
-
-  it('every JSON marker deep-equals its TS counterpart', () => {
-    const json = readJsonFile();
-    for (const [key, jsonMarker] of Object.entries(json.markers)) {
-      const tsMarker = WORK_TYPES_DATA.markers[key];
-      expect(tsMarker, `marker "${key}" missing in TS mirror`).toBeDefined();
-      expect(tsMarker?.emoji).toBe(jsonMarker.emoji);
-      expect(tsMarker?.label).toBe(jsonMarker.label);
-    }
+  it('the TS mirror deep-equals the JSON canonical, apart from its `$schema` hint', () => {
+    expect(WORK_TYPES_DATA).toStrictEqual(readJsonWithoutSchemaHint());
   });
 });
 
@@ -226,3 +118,16 @@ describe('work-types.json structural invariants', () => {
     expect(internalEntry?.aliases).toContain('utility');
   });
 });
+
+// region | Helpers
+/** Reads `work-types.json` and drops the local-only `$schema` IDE hint, which the TS mirror does not carry. */
+function readJsonWithoutSchemaHint(): Record<string, unknown> {
+  const parsed: unknown = JSON.parse(readFileSync(workTypesJsonPath, 'utf8'));
+  if (!isRecord(parsed)) {
+    throw new Error(`work-types.json at ${workTypesJsonPath} is not a JSON object`);
+  }
+  const data = { ...parsed };
+  delete data['$schema'];
+  return data;
+}
+// endregion | Helpers

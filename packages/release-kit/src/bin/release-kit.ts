@@ -231,7 +231,7 @@ Subcommands:
   sync          Overwrite the local work-types.json with the upstream contents
 
 Exit codes (check):
-  0    Match (or upstream missing — transitional warning printed)
+  0    Match (or upstream not found, with a warning)
   1    Drift detected
   2    Network error
   3    Schema mismatch
@@ -246,8 +246,8 @@ function showWorkTypesCheckHelp(): void {
 Usage: release-kit work-types check
 
 Compare the local work-types.json against the upstream codeassembly canonical and report
-drift. Exit 0 on match, 1 on drift, 0 + warning when upstream is missing (transitional),
-2 on network error, 3 on schema mismatch.
+drift. Exit 0 on match, 1 on drift, 0 + warning when upstream is not found, 2 on network
+error, 3 on schema mismatch.
 
 Options:
   --help, -h    Show this help message

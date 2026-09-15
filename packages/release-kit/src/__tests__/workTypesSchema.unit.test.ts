@@ -22,11 +22,14 @@ describe('work-types.schema.json', () => {
     expect(schema).toMatchObject({ $schema: 'http://json-schema.org/draft-07/schema#' });
   });
 
-  it('requires `tiers`, `types`, and `markers` at the top level', () => {
+  it('requires `tiers`, `types`, `markers`, and a semver `version` at the top level', () => {
     expect(schema).toMatchObject({
       type: 'object',
       additionalProperties: false,
-      required: expect.arrayContaining(['tiers', 'types', 'markers']),
+      required: expect.arrayContaining(['tiers', 'types', 'markers', 'version']),
+      properties: {
+        version: { type: 'string', pattern: String.raw`^\d+\.\d+\.\d+$` },
+      },
     });
   });
 
@@ -70,12 +73,23 @@ describe('work-types.schema.json', () => {
     });
   });
 
-  it('preserves the existing `workType` shape so types-only consumers continue to validate', () => {
+  it('requires every `workType` field that the upstream canonical declares, including a non-empty `description`', () => {
     expect(schema).toMatchObject({
       definitions: {
         workType: {
           type: 'object',
-          required: expect.arrayContaining(['tier', 'key', 'aliases', 'emoji', 'label', 'breakingPolicy']),
+          required: expect.arrayContaining([
+            'tier',
+            'key',
+            'aliases',
+            'emoji',
+            'label',
+            'breakingPolicy',
+            'description',
+          ]),
+          properties: {
+            description: { type: 'string', minLength: 1 },
+          },
         },
       },
     });

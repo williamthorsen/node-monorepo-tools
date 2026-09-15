@@ -27,10 +27,9 @@ export type PolicyViolationSurface = 'prefix' | 'body';
 /**
  * Callback invoked when `parseCommitMessage` detects a `!`-policy violation.
  *
- * Two-tier policy: at write-time (commit-msg hook, OOS for ticket #355), violations are
- * rejected outright; at release-time (this parser), violations are warn-and-continue so
- * legacy log entries don't block releases. Callers (`decideRelease`, `releasePrepareMono`,
- * etc.) collect callback invocations and surface them in the release report.
+ * The parser warns and continues on a violation, so legacy log entries don't block releases.
+ * Callers (`decideRelease`, `releasePrepareMono`, etc.) collect callback invocations and
+ * surface them in the release report.
  */
 export type PolicyViolationHandler = (commit: Commit, type: string, surface: PolicyViolationSurface) => void;
 
@@ -61,7 +60,7 @@ export interface ParseCommitMessageOptions {
  * `!`-policy enforcement is **release-time tolerant**: when the resolved type's policy
  * forbids `!`, the marker is dropped from the parse (`breaking: false`) and
  * `onPolicyViolation` is invoked. When the policy requires `!`, a bare type triggers the
- * same warning path. The strict write-time gate (commit-msg hook) is out of scope.
+ * same warning path.
  */
 export function parseCommitMessage(
   message: string,
@@ -135,11 +134,10 @@ interface BreakingPolicyInputs {
 }
 
 /**
- * Apply the two-tier `!`-policy rules and return the effective `breaking` flag.
+ * Applies the `!`-policy rules and returns the effective `breaking` flag.
  *
- * Release-time tolerant: violations invoke `onPolicyViolation` and the marker is dropped
- * (`breaking: false`) rather than rejecting the commit. The strict write-time gate lives in
- * the commit-msg hook and is out of scope here.
+ * A violation invokes `onPolicyViolation` and drops the marker (`breaking: false`); the
+ * commit still parses.
  */
 function evaluateBreakingPolicy(inputs: BreakingPolicyInputs): boolean {
   const { commit, resolvedType, hasPrefixBreaking, hasFooterBreaking, policy, onPolicyViolation } = inputs;

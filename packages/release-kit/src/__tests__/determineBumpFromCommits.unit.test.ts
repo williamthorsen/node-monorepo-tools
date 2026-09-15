@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { DEFAULT_VERSION_PATTERNS } from '../defaults.ts';
+import { DEFAULT_BREAKING_POLICIES, DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from '../defaults.ts';
 import { determineBumpFromCommits } from '../determineBumpFromCommits.ts';
+import type { PolicyViolationHandler } from '../parseCommitMessage.ts';
 import type { Commit, VersionPatterns, WorkTypeConfig } from '../types.ts';
 
 const workTypes: Record<string, WorkTypeConfig> = {
@@ -116,6 +117,20 @@ describe(determineBumpFromCommits, () => {
 
       expect(result.releaseType).toBe('minor');
       expect(result.parsedCommitCount).toBe(1);
+    });
+  });
+
+  describe('default breaking policies', () => {
+    it.each(['fix!', 'perf!'])('returns major for a `%s` commit and reports no policy violation', (prefix) => {
+      const onPolicyViolation = vi.fn<PolicyViolationHandler>();
+      const commits = [makeCommit(`${prefix}: change a contract`)];
+      const result = determineBumpFromCommits(commits, DEFAULT_WORK_TYPES, versionPatterns, undefined, {
+        breakingPolicies: DEFAULT_BREAKING_POLICIES,
+        onPolicyViolation,
+      });
+
+      expect(result.releaseType).toBe('major');
+      expect(onPolicyViolation).not.toHaveBeenCalled();
     });
   });
 });

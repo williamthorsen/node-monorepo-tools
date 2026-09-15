@@ -2,16 +2,16 @@
 
 The taxonomy against which release-kit parses commits: its tiers, the breaking-change policy, section markers, customization, and the commands that compare it with its upstream.
 
-The canonical taxonomy lives in `packages/release-kit/src/work-types.json` and is split into three tiers that drive section rendering and audience classification.
+release-kit bundles a copy of the codeassembly canonical taxonomy in `packages/release-kit/src/work-types.json`, kept level by `release-kit work-types sync`. The taxonomy is split into three tiers that drive section rendering and audience classification.
 
 | Tier     | Key         | Header                    | Aliases       | `!` policy   |
 | -------- | ----------- | ------------------------- | ------------- | ------------ |
 | public   | `feat`      | 🎉 Features               | `feature`     | optional     |
 | public   | `drop`      | 🪦 Removed                |               | **required** |
 | public   | `deprecate` | 🗑️ Deprecated             |               | forbidden    |
-| public   | `fix`       | 🐛 Bug fixes              | `bugfix`      | forbidden    |
+| public   | `fix`       | 🐛 Bug fixes              | `bugfix`      | optional     |
 | public   | `sec`       | 🔒 Security               | `security`    | optional     |
-| public   | `perf`      | ⚡ Performance            | `performance` | forbidden    |
+| public   | `perf`      | ⚡ Performance            | `performance` | optional     |
 | internal | `internal`  | 🏗️ Internal features      | `utility`     | forbidden    |
 | internal | `refactor`  | ♻️ Refactoring            |               | forbidden    |
 | internal | `tests`     | 🧪 Tests                  | `test`        | forbidden    |
@@ -38,18 +38,15 @@ Section render order is **tier order (`public` → `internal` → `process`), th
 
 Each work-type carries a `breakingPolicy` value:
 
-- `optional` (`feat`, `sec`) — `!` is allowed; both `type:` and `type!:` parse cleanly.
-- `forbidden` (most types) — `!` is a policy violation. The premise: types like `internal!`, `perf!`, `fix!` are contradictory; an internal change cannot break a consumer contract, a pure perf change preserves the contract, and a bug-fix is by definition not a contract change.
-- `required` (`drop`) — bare `drop:` is a policy violation; only `drop!:` is accepted. The premise: removing a feature always breaks consumers; the `!` form makes that explicit.
+- `optional` (`feat`, `fix`, `sec`, `perf`): `!` is allowed; both `type:` and `type!:` parse cleanly. Any of these can break consumers, and the marker records when one does: A fix can break consumers who relied on the defective behavior, and a performance change can break a contract to achieve its gain.
+- `forbidden` (`deprecate` and every `internal`- and `process`-tier type): `!` is a policy violation. Deprecating a surface keeps it working, and removing it is a `drop`. Internal- and process-tier work does not face consumers; a change that breaks consumers faces them and therefore takes a public-tier type.
+- `required` (`drop`): Bare `drop:` is a policy violation; only `drop!:` is accepted. Removing a public surface always breaks consumers, and the `!` form makes that explicit.
 
-### Two-tier policy enforcement
+### Policy enforcement
 
-The `!` policy operates at two distinct levels with different semantics:
+`parseCommitMessage` enforces the `!` policy at release time and treats a violation as a warning. Commits already in the log cannot be rewritten, so a policy-violating commit is parsed using its canonical type with `breaking: false` (the `!` is dropped from the parse) and an `onPolicyViolation` callback fires. Callers (`decideRelease` etc.) can collect these warnings and surface them in the release report. A single legacy `internal!` in a year-old log does not block releases.
 
-- **Write-time** (commit-msg hook) — strict rejection. Policy violations are blocked at the gate where the author can act on them immediately. _Hook-based enforcement is tracked separately and is not yet shipped._
-- **Release-time** (`parseCommitMessage`) — tolerant warn-and-continue. Commits already in the log cannot be rewritten, so a policy-violating commit is parsed using its canonical type with `breaking: false` (the `!` is dropped from the parse) and a `onPolicyViolation` callback fires. Callers (`decideRelease` etc.) can collect these warnings and surface them in the release report. A single legacy `internal!` in a year-old log does not block releases.
-
-A `BREAKING CHANGE:` body footer on a `forbidden`-policy type triggers the same warning path as the prefix `!` does — the spirit of the policy is "internal/perf/etc. cannot be breaking", which must apply to both surfaces.
+A `BREAKING CHANGE:` body footer on a `forbidden`-policy type triggers the same warning path as the prefix `!` does: A type that cannot be breaking is parsed as non-breaking whichever surface carries the signal.
 
 The release-prepare orchestrators (`releasePrepare`, `releasePrepareMono`, `releasePrepareProject`) apply `DEFAULT_BREAKING_POLICIES` automatically. Violations encountered while parsing each workspace's or project's commit window are collected onto the corresponding result's `policyViolations` field and rendered under the section in the prepare report:
 
@@ -62,7 +59,7 @@ arrays
   📦 1.0.0 → 1.0.1 (patch)
 ```
 
-To customize, set `breakingPolicies` in `release-kit.config.ts` — provide a partial map to override individual types, or `{}` to disable enforcement entirely (the parser falls back to `'optional'` for any missing type). Violations remain warnings, never failures.
+To customize, set `breakingPolicies` in `release-kit.config.ts`. The map replaces the default policies rather than merging with them, and the parser treats any type that the map omits as `'optional'`: A config that changes one type lists every policy that it keeps, and `{}` disables enforcement entirely. Violations remain warnings, never failures.
 
 ## `🚨 **Breaking:**` bullet marker
 
@@ -104,18 +101,10 @@ The default `devOnlySections` (excluded from public release notes but still writ
 
 Manage the canonical work-types taxonomy used by changelog and release-notes generation.
 
-The check is non-blocking initially: until codeassembly publishes its `work-types.json`, the upstream URL returns 404 and `check` exits 0 with a warning. CI flip to a blocking check is tracked as a follow-up once the upstream ships.
+`check` exits 0 on a match, 1 on drift, 2 when the upstream fetch fails, and 3 when either file is not valid JSON or the upstream fails the shape check. When the upstream URL returns 404, `check` exits 0 with a warning.
 
 These commands are also exposed as `nmr work-types:check` / `nmr work-types:sync` from any package directory.
 
 ### Authenticated fetches
 
-When the upstream codeassembly repo is private, both `check` and `sync` need a GitHub token to fetch the canonical `work-types.json`. Set `GITHUB_TOKEN` in the environment and the commands send `Authorization: Bearer <token>` automatically; without it, requests are unauthenticated and a private upstream will return 404.
-
-```sh
-# Source from `gh auth` for local runs:
-export GITHUB_TOKEN=$(gh auth token)
-pnpm exec release-kit work-types check
-```
-
-The token needs `contents: read` on the codeassembly repo (fine-grained PAT scope) or the equivalent classic-PAT scope. A token without sufficient scope still produces a 404 — same response as a missing upstream — so a misconfigured token degrades to the transitional-warning path rather than failing loudly. CI wiring against private upstream is deferred until either codeassembly is publicly readable or a cross-repo PAT is provisioned as a workflow secret.
+The upstream codeassembly repo is public, so `check` and `sync` need no token. When `GITHUB_TOKEN` is set in the environment, both commands send it as `Authorization: Bearer <token>`.

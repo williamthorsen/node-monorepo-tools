@@ -15,7 +15,7 @@ export const UPSTREAM_WORK_TYPES_URL =
 export interface DriftCheckResult {
   /**
    * Process exit code semantics:
-   * - `0` — match (or upstream missing/transitional, with a warning).
+   * - `0` — match (or upstream not found, with a warning).
    * - `1` — drift detected.
    * - `2` — network error.
    * - `3` — schema mismatch (upstream JSON does not parse or fails the schema invariants).
@@ -46,8 +46,7 @@ function resolveDefaultLocalPath(): string {
  *
  * Failure modes:
  * - Network error → exit 2 with a diagnostic.
- * - Upstream 404 → exit 0 with a transitional warning (codeassembly hasn't published the
- *   JSON yet; the check is informational while migration is in flight).
+ * - Upstream 404 → exit 0 with a warning.
  * - Schema mismatch → exit 3 with a diagnostic.
  * - Drift → exit 1 with a unified-diff-style message.
  * - Match → exit 0.
@@ -84,7 +83,7 @@ export async function checkWorkTypesDrift(
   if (response.status === 404) {
     return {
       exitCode: 0,
-      message: `Upstream work-types.json not yet published at ${url}; skipping drift check.`,
+      message: `Upstream work-types.json not found at ${url}; skipping drift check.`,
     };
   }
 

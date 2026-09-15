@@ -1,133 +1,149 @@
 {
   "$schema": "./work-types.schema.json",
-  "tiers": ["public", "internal", "process"],
-  "types": [
-    {
-      "tier": "public",
-      "key": "feat",
-      "aliases": ["feature"],
-      "emoji": "🎉",
-      "label": "Features",
-      "breakingPolicy": "optional"
-    },
-    {
-      "tier": "public",
-      "key": "drop",
-      "aliases": [],
-      "emoji": "🪦",
-      "label": "Removed",
-      "breakingPolicy": "required"
-    },
-    {
-      "tier": "public",
-      "key": "deprecate",
-      "aliases": [],
-      "emoji": "🗑️",
-      "label": "Deprecated",
-      "breakingPolicy": "forbidden"
-    },
-    {
-      "tier": "public",
-      "key": "fix",
-      "aliases": ["bugfix"],
-      "emoji": "🐛",
-      "label": "Bug fixes",
-      "breakingPolicy": "forbidden"
-    },
-    {
-      "tier": "public",
-      "key": "sec",
-      "aliases": ["security"],
-      "emoji": "🔒",
-      "label": "Security",
-      "breakingPolicy": "optional"
-    },
-    {
-      "tier": "public",
-      "key": "perf",
-      "aliases": ["performance"],
-      "emoji": "⚡",
-      "label": "Performance",
-      "breakingPolicy": "forbidden"
-    },
-    {
-      "tier": "internal",
-      "key": "internal",
-      "aliases": ["utility"],
-      "emoji": "🏗️",
-      "label": "Internal features",
-      "breakingPolicy": "forbidden"
-    },
-    {
-      "tier": "internal",
-      "key": "refactor",
-      "aliases": [],
-      "emoji": "♻️",
-      "label": "Refactoring",
-      "breakingPolicy": "forbidden"
-    },
-    {
-      "tier": "internal",
-      "key": "tests",
-      "aliases": ["test"],
-      "emoji": "🧪",
-      "label": "Tests",
-      "breakingPolicy": "forbidden"
-    },
-    {
-      "tier": "process",
-      "key": "tooling",
-      "aliases": [],
-      "emoji": "⚙️",
-      "label": "Tooling",
-      "breakingPolicy": "forbidden"
-    },
-    {
-      "tier": "process",
-      "key": "ci",
-      "aliases": [],
-      "emoji": "👷",
-      "label": "CI",
-      "breakingPolicy": "forbidden"
-    },
-    {
-      "tier": "process",
-      "key": "deps",
-      "aliases": ["dep"],
-      "emoji": "📦",
-      "label": "Dependencies",
-      "breakingPolicy": "forbidden"
-    },
-    {
-      "tier": "process",
-      "key": "ai",
-      "aliases": [],
-      "emoji": "🤖",
-      "label": "Agentic support",
-      "breakingPolicy": "forbidden"
-    },
-    {
-      "tier": "process",
-      "key": "docs",
-      "aliases": ["doc"],
-      "emoji": "📚",
-      "label": "Documentation",
-      "breakingPolicy": "forbidden"
-    },
-    {
-      "tier": "process",
-      "key": "fmt",
-      "aliases": [],
-      "emoji": "🎨",
-      "label": "Formatting",
-      "breakingPolicy": "forbidden",
-      "excludedFromChangelog": true
-    }
-  ],
   "markers": {
     "breaking": {
       "emoji": "🚨",
       "label": "Breaking"
     }
-  }
+  },
+  "tiers": ["public", "internal", "process"],
+  "types": [
+    {
+      "aliases": ["feature"],
+      "breakingPolicy": "optional",
+      "description": "A change that gives consumers a new capability or extends an existing one.",
+      "emoji": "🎉",
+      "key": "feat",
+      "label": "Features",
+      "tier": "public"
+    },
+    {
+      "aliases": [],
+      "breakingPolicy": "required",
+      "description": "A change that removes a capability or surface on which consumers depend.",
+      "emoji": "🪦",
+      "key": "drop",
+      "label": "Removed",
+      "tier": "public"
+    },
+    {
+      "aliases": [],
+      "breakingPolicy": "forbidden",
+      "description": "A change that marks a capability or surface for removal while the capability or surface keeps working.",
+      "emoji": "🗑️",
+      "key": "deprecate",
+      "label": "Deprecated",
+      "tier": "public"
+    },
+    {
+      "aliases": ["bugfix"],
+      "breakingPolicy": "optional",
+      "description": "A change that corrects behavior that consumers meet and that differs from what was intended.",
+      "emoji": "🐛",
+      "key": "fix",
+      "label": "Bug fixes",
+      "tier": "public"
+    },
+    {
+      "aliases": ["security"],
+      "breakingPolicy": "optional",
+      "description": "A change that closes a vulnerability or hardens a consumer-facing surface against attack.",
+      "emoji": "🔒",
+      "key": "sec",
+      "label": "Security",
+      "tier": "public"
+    },
+    {
+      "aliases": ["performance"],
+      "breakingPolicy": "optional",
+      "description": "A change that reduces the time, memory, or other resources that consumer-facing work uses, without changing its result.",
+      "emoji": "⚡",
+      "key": "perf",
+      "label": "Performance",
+      "tier": "public"
+    },
+    {
+      "aliases": ["utility"],
+      "breakingPolicy": "forbidden",
+      "description": "A change that adds or extends a capability that consumers do not use directly, such as a helper or an internal module.",
+      "emoji": "🏗️",
+      "key": "internal",
+      "label": "Internal features",
+      "tier": "internal"
+    },
+    {
+      "aliases": [],
+      "breakingPolicy": "forbidden",
+      "description": "A change that restructures existing code without changing its behavior.",
+      "emoji": "♻️",
+      "key": "refactor",
+      "label": "Refactoring",
+      "tier": "internal"
+    },
+    {
+      "aliases": ["test"],
+      "breakingPolicy": "forbidden",
+      "description": "A change confined to tests, test fixtures, or test helpers, including one that unblocks a build or a type check.",
+      "emoji": "🧪",
+      "key": "tests",
+      "label": "Tests",
+      "tier": "internal"
+    },
+    {
+      "aliases": [],
+      "breakingPolicy": "forbidden",
+      "description": "A change to the tools used to develop the project: build, lint, formatting, and release configuration, and development scripts.",
+      "emoji": "⚙️",
+      "key": "tooling",
+      "label": "Tooling",
+      "tier": "process"
+    },
+    {
+      "aliases": [],
+      "breakingPolicy": "forbidden",
+      "description": "A change to continuous-integration workflows and their configuration.",
+      "emoji": "👷",
+      "key": "ci",
+      "label": "CI",
+      "tier": "process"
+    },
+    {
+      "aliases": ["dep"],
+      "breakingPolicy": "forbidden",
+      "description": "A change that adds, removes, or upgrades a dependency, including its lockfile and version-catalog entries.",
+      "emoji": "📦",
+      "key": "deps",
+      "label": "Dependencies",
+      "tier": "process"
+    },
+    {
+      "aliases": [],
+      "breakingPolicy": "forbidden",
+      "description": "A change to guidance on working in the repository itself, such as its `AGENTS.md` or a repo-local skill, or to the repository's agent configuration.",
+      "emoji": "🤖",
+      "key": "ai",
+      "label": "Agentic support",
+      "tier": "process"
+    },
+    {
+      "aliases": ["doc"],
+      "breakingPolicy": "forbidden",
+      "description": "A change to documentation for human readers, such as a README, a guide, or a code comment.",
+      "emoji": "📚",
+      "key": "docs",
+      "label": "Documentation",
+      "tier": "process"
+    },
+    {
+      "aliases": [],
+      "breakingPolicy": "forbidden",
+      "description": "A change to formatting alone, such as whitespace or line wrapping, that leaves the content unchanged.",
+      "emoji": "🎨",
+      "excludedFromChangelog": true,
+      "key": "fmt",
+      "label": "Formatting",
+      "tier": "process"
+    }
+  ],
+  "version": "1.1.0"
 }
