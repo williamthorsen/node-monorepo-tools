@@ -15,7 +15,6 @@ import {
   type OverrideContext,
 } from './changelogOverrides.ts';
 import { createPolicyViolationCollector } from './collectPolicyViolations.ts';
-import { isForwardVersion } from './compareVersions.ts';
 import { decideRelease } from './decideRelease.ts';
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { detectUndeclaredTagPrefixes } from './detectUndeclaredTagPrefixes.ts';
@@ -25,8 +24,7 @@ import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import { resolveWorkTypes } from './loadConfig.ts';
 import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
 import { planVersionBump, planVersionSet } from './planVersionBump.ts';
-import { type CurrentVersions, propagateBumps, type ReleaseEntry } from './propagateBumps.ts';
-import { readCurrentVersion } from './readCurrentVersion.ts';
+import { propagateBumps, type ReleaseEntry } from './propagateBumps.ts';
 import type { PlannedWrite, ReleasePlan } from './releasePlan.ts';
 import type { ReleasePrepareOptions } from './releasePrepare.ts';
 import { releasePrepareProject } from './releasePrepareProject.ts';
@@ -79,7 +77,6 @@ interface Phase1Result {
   directBumps: Map<string, ReleaseEntry>;
   directResults: Map<string, DirectBumpResult>;
   skippedResults: SkippedResult[];
-  currentVersions: CurrentVersions;
 }
 
 /**
@@ -112,7 +109,7 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
   const overrideContext = createOverrideContext(config.workspaces);
 
   // === Phase 1: Determine direct bumps ===
-  const { directBumps, directResults, skippedResults, currentVersions } = determineDirectBumps(config, options);
+  const { directBumps, directResults, skippedResults } = determineDirectBumps(config, options);
 
   // Build a lookup of previous tags for all workspaces (needed for propagated ones).
   const previousTags = new Map<string, string | undefined>();
@@ -125,7 +122,7 @@ export function releasePrepareMono(config: MonorepoReleaseConfig, options: Relea
 
   // === Phase 2: Build graph and propagate bumps ===
   const graph = buildDependencyGraph(config.workspaces);
-  const fullReleaseSet = propagateBumps(directBumps, graph, currentVersions);
+  const fullReleaseSet = propagateBumps(directBumps, graph);
 
   // === Phase 2b: Topologically sort the release set ===
   const { sorted: sortedDirs, cyclicDirs } = topologicalSort(fullReleaseSet, graph);
@@ -241,7 +238,6 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
   const directBumps = new Map<string, ReleaseEntry>();
   const directResults = new Map<string, DirectBumpResult>();
   const skippedResults: SkippedResult[] = [];
-  const currentVersions: CurrentVersions = new Map();
   const hintState: BaselineHintState = { emitted: false };
   // Build once: the union of every workspace's derived and declared tag prefixes. Passed into
   // the baseline hint so sibling workspaces' tags aren't misclassified as undeclared candidates.
@@ -260,30 +256,9 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
       maybeEmitBaselineHint(workspace, knownPrefixes, hintState);
     }
 
-    // Read current version from the first package file.
-    // Important: this read must occur BEFORE any bypass branch so propagation sees the
-    // pre-write current version.
-    const primaryPackageFile = workspace.packageFiles[0];
-    if (primaryPackageFile !== undefined) {
-      const currentVersion = tryStage(stageLabel, () => readCurrentVersion(primaryPackageFile));
-      if (currentVersion !== undefined) {
-        currentVersions.set(workspace.dir, currentVersion);
-      }
-    }
-
     // --set-version bypass: skip commit-derived bump logic for the overridden workspace.
     // Validation that only one workspace is targeted runs in `prepareCommand` before this function.
     if (setVersion !== undefined) {
-      const currentVersion = currentVersions.get(workspace.dir);
-      if (currentVersion === undefined) {
-        throw new Error(
-          `Cannot validate --set-version: failed to read current version from ${primaryPackageFile ?? '(no package file)'}`,
-        );
-      }
-      if (!isForwardVersion(currentVersion, setVersion)) {
-        throw new Error(`--set-version ${setVersion} is not greater than current version ${currentVersion}`);
-      }
-
       // The releaseType in the ReleaseEntry is a sentinel value; `newVersionOverride` takes
       // precedence when propagation computes dependent versions.
       directBumps.set(workspace.dir, { releaseType: 'patch', newVersionOverride: setVersion });
@@ -351,7 +326,7 @@ function determineDirectBumps(config: MonorepoReleaseConfig, options: ReleasePre
     });
   }
 
-  return { directBumps, directResults, skippedResults, currentVersions };
+  return { directBumps, directResults, skippedResults };
 }
 
 /** Collect skipped workspaces, excluding those promoted via propagation. */
@@ -791,7 +766,7 @@ function findWorkspace(workspaces: readonly WorkspaceConfig[], dir: string): Wor
 
 /**
  * Runs `fn` and rethrows any thrown value behind a stage label. The composed message starts with
- * `<stageLabel>:`, which is how the outer CLI boundary recognizes a stage-attributed error.
+ * `<stageLabel>:`.
  */
 function tryStage<T>(stageLabel: string, fn: () => T): T {
   try {

@@ -15,9 +15,6 @@ export interface ReleaseEntry {
   newVersionOverride?: string;
 }
 
-/** Map from workspace `dir` to its current version string (read from package.json). */
-export type CurrentVersions = Map<string, string>;
-
 /**
  * Walk upward through the dependency graph via BFS, adding `patch` bumps for dependents
  * not already in the release set with a higher bump.
@@ -28,7 +25,6 @@ export type CurrentVersions = Map<string, string>;
 export function propagateBumps(
   directBumps: Map<string, ReleaseEntry>,
   graph: DependencyGraph,
-  currentVersions: CurrentVersions,
 ): Map<string, ReleaseEntry> {
   const result = new Map<string, ReleaseEntry>();
 
@@ -59,7 +55,7 @@ export function propagateBumps(
     }
 
     // Compute the new version for this workspace after its bump.
-    const currentVersion = currentVersions.get(dir);
+    const currentVersion = graph.dirToVersion.get(dir);
     const entry = result.get(dir);
     if (currentVersion === undefined || entry === undefined) {
       continue;

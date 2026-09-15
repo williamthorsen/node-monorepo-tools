@@ -4,12 +4,14 @@ import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import type { WorkspaceConfig } from './types.ts';
 
-/** Reverse adjacency map from package names to their workspace dependents. */
+/** Identities, current versions, and `workspace:` dependency edges of the workspaces' packages. */
 export interface DependencyGraph {
   /** Resolve a package name to its workspace `dir`. */
   packageNameToDir: Map<string, string>;
   /** Resolve a workspace `dir` to its package name (inverse of `packageNameToDir`). */
   dirToPackageName: Map<string, string>;
+  /** Resolve a workspace `dir` to its current version; absent when its `package.json` has no string `version`. */
+  dirToVersion: Map<string, string>;
   /** Map a package name to the workspaces that depend on it. */
   dependentsOf: Map<string, WorkspaceConfig[]>;
   /**
@@ -21,6 +23,7 @@ export interface DependencyGraph {
 
 interface PackageJsonSubset {
   name?: string;
+  version?: unknown;
   dependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
 }
@@ -30,20 +33,20 @@ function isPackageJsonSubset(value: unknown): value is PackageJsonSubset {
 }
 
 /**
- * Build a reverse dependency graph from the workspaces' `package.json` files.
+ * Builds the dependency graph from the workspaces' `package.json` files.
  *
  * Reads each workspace's primary `package.json` (first entry in `packageFiles`) to discover
- * `workspace:` references in `dependencies` and `peerDependencies`. Returns a map from each
- * package name to the workspaces that depend on it, enabling upward traversal from a bumped
- * package to all its dependents.
+ * `workspace:` references in `dependencies` and `peerDependencies`, and to record its current
+ * version.
  */
 export function buildDependencyGraph(workspaces: readonly WorkspaceConfig[]): DependencyGraph {
   const packageNameToDir = new Map<string, string>();
   const dirToPackageName = new Map<string, string>();
+  const dirToVersion = new Map<string, string>();
   const dependentsOf = new Map<string, WorkspaceConfig[]>();
   const dependenciesOf = new Map<string, Set<string>>();
 
-  // First pass: read each workspace's package.json, cache the result, and register its name.
+  // First pass: read each workspace's package.json, cache the result, and register its name and version.
   const workspacePackages = new Map<WorkspaceConfig, PackageJsonSubset>();
   for (const workspace of workspaces) {
     const primaryPackageFile = workspace.packageFiles[0];
@@ -53,6 +56,10 @@ export function buildDependencyGraph(workspaces: readonly WorkspaceConfig[]): De
 
     const pkg = readPackageJsonSubset(primaryPackageFile);
     workspacePackages.set(workspace, pkg);
+
+    if (typeof pkg.version === 'string') {
+      dirToVersion.set(workspace.dir, pkg.version);
+    }
 
     if (pkg.name === undefined) {
       continue;
@@ -87,7 +94,7 @@ export function buildDependencyGraph(workspaces: readonly WorkspaceConfig[]): De
     }
   }
 
-  return { packageNameToDir, dirToPackageName, dependentsOf, dependenciesOf };
+  return { packageNameToDir, dirToPackageName, dirToVersion, dependentsOf, dependenciesOf };
 }
 
 /** Read and parse a package.json file, returning only the fields needed for graph building. */

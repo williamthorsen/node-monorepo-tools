@@ -135,4 +135,28 @@ describe(planVersionSet, () => {
   it('throws when no package files are specified', () => {
     expect(() => planVersionSet([], '1.0.0')).toThrow('No package files specified');
   });
+
+  it('throws when the requested version is lower than the current version', () => {
+    mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
+
+    expect(() => planVersionSet(['packages/a/package.json'], '0.3.0')).toThrow(
+      '--set-version 0.3.0 is not greater than current version 0.5.0',
+    );
+  });
+
+  it('throws when the requested version equals the current version', () => {
+    mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg', version: '0.5.0' }));
+
+    expect(() => planVersionSet(['packages/a/package.json'], '0.5.0')).toThrow(
+      '--set-version 0.5.0 is not greater than current version 0.5.0',
+    );
+  });
+
+  it('names the package file when it has no version to compare against', () => {
+    mockReadFileSync.mockReturnValue(JSON.stringify({ name: 'pkg' }));
+
+    expect(() => planVersionSet(['packages/a/package.json'], '1.0.0')).toThrow(
+      "No valid 'version' field found in packages/a/package.json",
+    );
+  });
 });

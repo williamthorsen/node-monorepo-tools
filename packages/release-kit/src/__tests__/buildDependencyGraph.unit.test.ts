@@ -163,6 +163,38 @@ describe(buildDependencyGraph, () => {
     expect(graph.dependentsOf.get('@scope/middle')).toStrictEqual([compC]);
   });
 
+  it("records each workspace's version by dir", () => {
+    mockReadFileSync.mockImplementation((filePath: string) => {
+      if (filePath.includes('core')) {
+        return JSON.stringify({ name: '@scope/core', version: '1.0.0' });
+      }
+      return JSON.stringify({ name: '@scope/app', version: '2.3.4' });
+    });
+
+    const graph = buildDependencyGraph([makeWorkspace('core'), makeWorkspace('app')]);
+
+    expect(graph.dirToVersion).toStrictEqual(
+      new Map([
+        ['core', '1.0.0'],
+        ['app', '2.3.4'],
+      ]),
+    );
+  });
+
+  it('omits the version of a workspace whose package.json has no string version', () => {
+    mockReadFileSync.mockImplementation((filePath: string) => {
+      if (filePath.includes('private')) {
+        return JSON.stringify({ name: '@scope/private', private: true });
+      }
+      return JSON.stringify({ name: '@scope/odd', version: 2 });
+    });
+
+    const graph = buildDependencyGraph([makeWorkspace('private'), makeWorkspace('odd')]);
+
+    expect(graph.dirToVersion.size).toBe(0);
+    expect(graph.packageNameToDir.size).toBe(2);
+  });
+
   it('returns empty maps when no workspaces have workspace dependencies', () => {
     const comp = makeWorkspace('standalone');
 

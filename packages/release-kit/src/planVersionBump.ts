@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { chainError } from '@williamthorsen/toolbelt.errors/candidate';
 
 import { bumpVersion } from './bumpVersion.ts';
+import { isForwardVersion } from './compareVersions.ts';
 import type { PlannedWrite } from './releasePlan.ts';
 import type { ReleaseType } from './types.ts';
 
@@ -39,11 +40,15 @@ export function planVersionBump(packageFiles: readonly string[], releaseType: Re
 
 /**
  * Computes an explicit version assignment for a workspace's package files without writing them,
- * bypassing commit-derived bump logic. Backs the `--set-version` flag.
+ * bypassing commit-derived bump logic. Backs the `--set-version` flag, and so rejects a
+ * `newVersion` that is not greater than the current version.
  */
 export function planVersionSet(packageFiles: readonly string[], newVersion: string): VersionBumpPlan {
   const { firstFile, firstPkg } = readPrimaryPackage(packageFiles);
   const currentVersion = firstPkg.version;
+  if (!isForwardVersion(currentVersion, newVersion)) {
+    throw new Error(`--set-version ${newVersion} is not greater than current version ${currentVersion}`);
+  }
 
   return { currentVersion, newVersion, writes: renderVersionWrites(packageFiles, firstFile, firstPkg, newVersion) };
 }
