@@ -766,7 +766,7 @@ function findWorkspace(workspaces: readonly WorkspaceConfig[], dir: string): Wor
 
 /**
  * Runs `fn` and rethrows any thrown value behind a stage label. The composed message starts with
- * `<stageLabel>:`, which is how the outer CLI boundary recognizes a stage-attributed error.
+ * `<stageLabel>:`.
  */
 function tryStage<T>(stageLabel: string, fn: () => T): T {
   try {

@@ -33,12 +33,11 @@ function isPackageJsonSubset(value: unknown): value is PackageJsonSubset {
 }
 
 /**
- * Build a reverse dependency graph from the workspaces' `package.json` files.
+ * Builds the dependency graph from the workspaces' `package.json` files.
  *
  * Reads each workspace's primary `package.json` (first entry in `packageFiles`) to discover
  * `workspace:` references in `dependencies` and `peerDependencies`, and to record its current
- * version. Returns a map from each package name to the workspaces that depend on it, enabling
- * upward traversal from a bumped package to all its dependents.
+ * version.
  */
 export function buildDependencyGraph(workspaces: readonly WorkspaceConfig[]): DependencyGraph {
   const packageNameToDir = new Map<string, string>();
