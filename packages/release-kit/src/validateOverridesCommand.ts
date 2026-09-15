@@ -25,8 +25,7 @@ const SYNTHETIC_VALIDATE_TAG = 'validate-only';
 
 /**
  * Result of {@link validateOverridesCommand}: tiered exit code paired with a human-readable
- * message. Mirrors the shape of `checkWorkTypesDrift` so the CLI dispatch layer can stay
- * uniformly thin.
+ * message, which keeps the CLI dispatch layer thin.
  *
  * Exit codes:
  * - `0` — clean: no errors, no warnings.

@@ -8,7 +8,6 @@
 import { parseArgsOrExit, readPackageVersion, reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
-import { checkWorkTypesDrift } from '../checkWorkTypesDrift.ts';
 import { commitCommand } from '../commitCommand.ts';
 import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';
 import { showPrepareHelp } from '../help/prepareHelp.ts';
@@ -20,7 +19,6 @@ import { showTagPrefixesCommand } from '../showTagPrefixesCommand.ts';
 import { generateCommand } from '../sync-labels/generateCommand.ts';
 import { syncLabelsInitCommand } from '../sync-labels/initCommand.ts';
 import { syncLabelsCommand } from '../sync-labels/syncCommand.ts';
-import { syncWorkTypes } from '../syncWorkTypes.ts';
 import { tagCommand } from '../tagCommand.ts';
 import { validateOverridesCommand } from '../validateOverridesCommand.ts';
 
@@ -41,7 +39,6 @@ Commands:
   init             Initialize release-kit in the current repository
   overrides        Manage editorial changelog overrides
   sync-labels      Manage GitHub label synchronization
-  work-types       Check for or sync work-type taxonomy drift against the upstream canonical
 
 Options:
   --dry-run        Preview changes without writing files
@@ -214,52 +211,6 @@ Exit codes:
   0    Clean — no errors, no stale keys
   1    Stale-key warnings only (no errors)
   2    Schema/parse or ambiguous-prefix errors (errors dominate)
-
-Options:
-  --help, -h    Show this help message
-`);
-}
-
-function showWorkTypesHelp(): void {
-  console.info(`
-Usage: release-kit work-types <subcommand>
-
-Manage the canonical work-types taxonomy used by changelog and release-notes generation.
-
-Subcommands:
-  check         Compare the local work-types.json against the upstream codeassembly canonical
-  sync          Overwrite the local work-types.json with the upstream contents
-
-Exit codes (check):
-  0    Match (or upstream not found, with a warning)
-  1    Drift detected
-  2    Network error
-  3    Schema mismatch
-
-Options:
-  --help, -h    Show this help message
-`);
-}
-
-function showWorkTypesCheckHelp(): void {
-  console.info(`
-Usage: release-kit work-types check
-
-Compare the local work-types.json against the upstream codeassembly canonical and report
-drift. Exit 0 on match, 1 on drift, 0 + warning when upstream is not found, 2 on network
-error, 3 on schema mismatch.
-
-Options:
-  --help, -h    Show this help message
-`);
-}
-
-function showWorkTypesSyncHelp(): void {
-  console.info(`
-Usage: release-kit work-types sync
-
-Fetch the upstream work-types.json, validate its top-level shape, and overwrite the local
-copy with the upstream content (formatted with 2-space indent + trailing newline).
 
 Options:
   --help, -h    Show this help message
@@ -486,57 +437,6 @@ if (command === 'overrides') {
 
   reportError(`Unknown subcommand: ${subcommand}`);
   showOverridesHelp();
-  process.exit(1);
-}
-
-if (command === 'work-types') {
-  const subcommand = flags[0];
-
-  if (subcommand === undefined || ['--help', '-h'].includes(subcommand)) {
-    showWorkTypesHelp();
-    process.exit(0);
-  }
-
-  const subflags = flags.slice(1);
-
-  if (subcommand === 'check') {
-    if (subflags.some((f) => f === '--help' || f === '-h')) {
-      showWorkTypesCheckHelp();
-      process.exit(0);
-    }
-    if (subflags.length > 0) {
-      reportError(`Unknown option: ${subflags[0]}`);
-      process.exit(1);
-    }
-    const result = await checkWorkTypesDrift();
-    if (result.exitCode === 0) {
-      console.info(result.message);
-    } else {
-      process.stderr.write(`${result.message}\n`);
-    }
-    process.exit(result.exitCode);
-  }
-
-  if (subcommand === 'sync') {
-    if (subflags.some((f) => f === '--help' || f === '-h')) {
-      showWorkTypesSyncHelp();
-      process.exit(0);
-    }
-    if (subflags.length > 0) {
-      reportError(`Unknown option: ${subflags[0]}`);
-      process.exit(1);
-    }
-    const result = await syncWorkTypes();
-    if (result.exitCode === 0) {
-      console.info(result.message);
-    } else {
-      process.stderr.write(`${result.message}\n`);
-    }
-    process.exit(result.exitCode);
-  }
-
-  reportError(`Unknown subcommand: ${subcommand}`);
-  showWorkTypesHelp();
   process.exit(1);
 }
 

@@ -43,33 +43,47 @@ describe(syncWorkTypes, () => {
 
   it('exits 0 when sync writes new content to local', async ({ localPath }) => {
     const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(SAMPLE_DATA) }));
-    const result = await syncWorkTypes({
-      localPath,
+    const result = await syncWorkTypes(localPath, {
       upstreamUrl: FIXTURE_URL,
       fetch: fakeFetch,
     });
     expect(result.exitCode).toBe(0);
     expect(result.message).toMatch(/Synced/);
+    expect(result.message).toContain('Update src/workTypesData.ts to match.');
   });
 
   it('exits 0 when local already matches upstream', async ({ localPath, tree }) => {
     tree.write('work-types.json', `${JSON.stringify(SAMPLE_DATA, null, 2)}\n`);
     const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(SAMPLE_DATA) }));
-    const result = await syncWorkTypes({
-      localPath,
+    const result = await syncWorkTypes(localPath, {
       upstreamUrl: FIXTURE_URL,
       fetch: fakeFetch,
     });
     expect(result.exitCode).toBe(0);
     expect(result.message).toMatch(/already matches/);
+    expect(result.message).not.toContain('workTypesData.ts');
+  });
+
+  it('leaves a local file untouched when its content matches upstream in another format', async ({
+    localPath,
+    tree,
+  }) => {
+    const localContent = `${JSON.stringify({ $schema: './work-types.schema.json', ...SAMPLE_DATA })}\n`;
+    tree.write('work-types.json', localContent);
+    const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(SAMPLE_DATA) }));
+
+    const result = await syncWorkTypes(localPath, { upstreamUrl: FIXTURE_URL, fetch: fakeFetch });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.message).toMatch(/already matches/);
+    expect(readFileSync(localPath, 'utf8')).toBe(localContent);
   });
 
   it('exits 2 on a non-OK non-success HTTP status', async ({ localPath }) => {
     const fakeFetch = vi
       .fn()
       .mockResolvedValue(makeResponse({ status: 500, statusText: 'Internal Server Error', body: '' }));
-    const result = await syncWorkTypes({
-      localPath,
+    const result = await syncWorkTypes(localPath, {
       upstreamUrl: FIXTURE_URL,
       fetch: fakeFetch,
     });
@@ -79,8 +93,7 @@ describe(syncWorkTypes, () => {
 
   it('exits 2 with a network-error diagnostic when fetch rejects', async ({ localPath }) => {
     const fakeFetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
-    const result = await syncWorkTypes({
-      localPath,
+    const result = await syncWorkTypes(localPath, {
       upstreamUrl: FIXTURE_URL,
       fetch: fakeFetch,
     });
@@ -92,8 +105,7 @@ describe(syncWorkTypes, () => {
     // Provoke the write failure with a read-only directory, a mode the tree's own API does not set.
     chmodSync(tree.dir, 0o500);
     const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(SAMPLE_DATA) }));
-    const result = await syncWorkTypes({
-      localPath,
+    const result = await syncWorkTypes(localPath, {
       upstreamUrl: FIXTURE_URL,
       fetch: fakeFetch,
     });
@@ -104,8 +116,7 @@ describe(syncWorkTypes, () => {
 
   it('exits 3 when upstream returns invalid JSON', async ({ localPath }) => {
     const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: 'not json' }));
-    const result = await syncWorkTypes({
-      localPath,
+    const result = await syncWorkTypes(localPath, {
       upstreamUrl: FIXTURE_URL,
       fetch: fakeFetch,
     });
@@ -129,8 +140,7 @@ describe(syncWorkTypes, () => {
     };
     const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(upstreamData) }));
 
-    const result = await syncWorkTypes({
-      localPath,
+    const result = await syncWorkTypes(localPath, {
       upstreamUrl: FIXTURE_URL,
       fetch: fakeFetch,
     });
@@ -149,8 +159,7 @@ describe(syncWorkTypes, () => {
     const upstreamData = { ...SAMPLE_DATA, tiers: ['public', 'internal', 'process', 'future'] };
     const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(upstreamData) }));
 
-    const result = await syncWorkTypes({
-      localPath,
+    const result = await syncWorkTypes(localPath, {
       upstreamUrl: FIXTURE_URL,
       fetch: fakeFetch,
     });
@@ -164,8 +173,7 @@ describe(syncWorkTypes, () => {
     const fakeFetch = vi
       .fn()
       .mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify({ unrelated: true }) }));
-    const result = await syncWorkTypes({
-      localPath,
+    const result = await syncWorkTypes(localPath, {
       upstreamUrl: FIXTURE_URL,
       fetch: fakeFetch,
     });
@@ -177,7 +185,7 @@ describe(syncWorkTypes, () => {
     it('sends `Authorization: Bearer <token>` when GITHUB_TOKEN is set', async ({ localPath }) => {
       vi.stubEnv('GITHUB_TOKEN', 'ghp_test_token_value');
       const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(SAMPLE_DATA) }));
-      await syncWorkTypes({ localPath, upstreamUrl: FIXTURE_URL, fetch: fakeFetch });
+      await syncWorkTypes(localPath, { upstreamUrl: FIXTURE_URL, fetch: fakeFetch });
       expect(fakeFetch).toHaveBeenCalledWith(FIXTURE_URL, {
         headers: { Authorization: 'Bearer ghp_test_token_value' },
       });
@@ -186,7 +194,7 @@ describe(syncWorkTypes, () => {
     it('sends no `init` argument when GITHUB_TOKEN is unset', async ({ localPath }) => {
       vi.stubEnv('GITHUB_TOKEN', '');
       const fakeFetch = vi.fn().mockResolvedValue(makeResponse({ status: 200, body: JSON.stringify(SAMPLE_DATA) }));
-      await syncWorkTypes({ localPath, upstreamUrl: FIXTURE_URL, fetch: fakeFetch });
+      await syncWorkTypes(localPath, { upstreamUrl: FIXTURE_URL, fetch: fakeFetch });
       expect(fakeFetch).toHaveBeenCalledWith(FIXTURE_URL);
       expect(fakeFetch.mock.calls[0]).toHaveLength(1);
     });
