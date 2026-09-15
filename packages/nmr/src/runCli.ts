@@ -1361,11 +1361,12 @@ function resolveCacheKey(options: {
  * The refusal precedes the delegate rather than reading its outcome, since a delegation that selected nothing
  * has already run to completion, reporting nothing and exiting 0, by the time nmr sees it.
  *
- * A delegation reaching several packages gives them no stdin. pnpm 12 starts each package of a concurrent `exec`
- * in a background process group, which the system stops when it reads from the terminal or changes its mode, so a
- * command such as `next build` would hang the run. pnpm keeps a serial run in the foreground, which nmr cannot
- * observe; the package count stands in for it, and a dependency-chain filter that pnpm runs serially loses its
- * input as well. A filter whose selection pnpm did not report keeps nmr's stdin.
+ * A `-R` delegation gives its packages no stdin, as does a filter that pnpm lists as several packages. pnpm 12
+ * starts each package of a concurrent `exec` in a background process group, which the system stops when it reads
+ * from the terminal or changes its mode, so a command such as `next build` would hang the run. pnpm keeps a serial
+ * run in the foreground, which nmr cannot observe; `-R` itself and a filter's package count stand in for it, and a
+ * `-R` or a dependency-chain filter that pnpm runs serially loses its input as well. A filter whose selection pnpm
+ * did not report keeps nmr's stdin.
  */
 async function runDelegation(options: {
   context: ResolvedContext;
