@@ -1,6 +1,4 @@
 import { readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { formatErrorLine } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
@@ -26,23 +24,15 @@ export interface DriftCheckResult {
 
 /** Minimal injection seam so unit tests can substitute a deterministic fetcher. */
 export interface CheckWorkTypesDriftDependencies {
-  /** Absolute path of the local `work-types.json`. Defaults to the bundled file. */
-  localPath?: string;
   /** HTTP fetcher. Defaults to global `fetch` (Node 18+). */
   fetch?: typeof globalThis.fetch;
   /** Override the upstream URL (used by tests; production callers should leave default). */
   upstreamUrl?: string;
 }
 
-/** Resolve the path of the locally-bundled `work-types.json` regardless of cwd. */
-function resolveDefaultLocalPath(): string {
-  const moduleDir = dirname(fileURLToPath(import.meta.url));
-  return resolve(moduleDir, 'work-types.json');
-}
-
 /**
- * Compare the bundled `work-types.json` against the upstream codeassembly canonical and
- * report drift.
+ * Compares the `work-types.json` at `localPath` against the upstream codeassembly canonical and
+ * reports drift.
  *
  * Failure modes:
  * - Network error → exit 2 with a diagnostic.
@@ -52,9 +42,9 @@ function resolveDefaultLocalPath(): string {
  * - Match → exit 0.
  */
 export async function checkWorkTypesDrift(
+  localPath: string,
   dependencies: CheckWorkTypesDriftDependencies = {},
 ): Promise<DriftCheckResult> {
-  const localPath = dependencies.localPath ?? resolveDefaultLocalPath();
   const fetcher = dependencies.fetch ?? globalThis.fetch;
   const url = dependencies.upstreamUrl ?? UPSTREAM_WORK_TYPES_URL;
 

@@ -1,12 +1,10 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { formatErrorLine } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
+import { isRecord } from '../src/typeGuards.ts';
 import { UPSTREAM_WORK_TYPES_URL } from './checkWorkTypesDrift.ts';
-import { isRecord } from './typeGuards.ts';
 import { buildFetchInit, hasExpectedTopLevelShape } from './workTypesUtils.ts';
 
 /** Outcome of a sync operation. */
@@ -23,18 +21,10 @@ export interface SyncResult {
 
 /** Minimal injection seam so unit tests can substitute a deterministic fetcher. */
 export interface SyncWorkTypesDependencies {
-  /** Absolute path of the local `work-types.json`. Defaults to the bundled file. */
-  localPath?: string;
   /** HTTP fetcher. Defaults to global `fetch`. */
   fetch?: typeof globalThis.fetch;
   /** Override the upstream URL (used by tests). */
   upstreamUrl?: string;
-}
-
-/** Resolve the path of the locally-bundled `work-types.json` regardless of cwd. */
-function resolveDefaultLocalPath(): string {
-  const moduleDir = dirname(fileURLToPath(import.meta.url));
-  return resolve(moduleDir, 'work-types.json');
 }
 
 /** Extract the prior `$schema` IDE-hint URL from local file content, or `undefined` if absent or unparseable. */
@@ -53,14 +43,16 @@ function extractLocalSchemaUrl(content: string): string | undefined {
 }
 
 /**
- * Fetch the upstream `work-types.json`, validate its top-level shape, and overwrite the
- * locally-bundled copy with the formatted upstream contents.
+ * Fetches the upstream `work-types.json`, validates its top-level shape, and overwrites the
+ * file at `localPath` with the formatted upstream contents.
  *
  * Output is reformatted to match the local file's conventions (2-space indent, trailing
  * newline) so subsequent diffs are content-driven, not whitespace-driven.
  */
-export async function syncWorkTypes(dependencies: SyncWorkTypesDependencies = {}): Promise<SyncResult> {
-  const localPath = dependencies.localPath ?? resolveDefaultLocalPath();
+export async function syncWorkTypes(
+  localPath: string,
+  dependencies: SyncWorkTypesDependencies = {},
+): Promise<SyncResult> {
   const fetcher = dependencies.fetch ?? globalThis.fetch;
   const url = dependencies.upstreamUrl ?? UPSTREAM_WORK_TYPES_URL;
 
@@ -136,6 +128,6 @@ export async function syncWorkTypes(dependencies: SyncWorkTypesDependencies = {}
   }
   return {
     exitCode: 0,
-    message: `Synced work-types.json from ${url} → ${localPath}.`,
+    message: `Synced work-types.json from ${url} → ${localPath}. Update src/workTypesData.ts to match.`,
   };
 }
