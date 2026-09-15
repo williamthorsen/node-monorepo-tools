@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.11.1",
+    "date": "2026-09-15",
+    "sections": [
+      {
+        "title": "⚙️ Tooling",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Upgrade eslint-config-typescript to v17 and adopt its ignore lists (#797)",
+            "body": "- Declares `vitest` as `catalog:` in every workspace that imports it, with the pnpm catalog pinning 4.1.11, because v17 no longer exempts `vitest` from `n/no-extraneous-import`.\n- Builds the global ignores in `eslint.config.ts` from the published `commonIgnores` and `toolIgnores`, which also exclude `pnpm-lock.yaml` and each `.readyup/manifest.json`, so the `eslint --fix` in `nmr lint` can no longer rewrite a kit manifest and make the next build's `rdy verify` fail.",
+            "hash": "b201669444763ad5bef85730b114098ef352e09b"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.11.0",
     "date": "2026-09-08",
     "sections": [

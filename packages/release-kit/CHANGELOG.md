@@ -2,6 +2,52 @@
 
 All notable changes to this project will be documented in this file.
 
+## 10.7.0 — 2026-09-15
+
+### 🎉 Features
+
+- Fix scaffold error handling and cover every scaffolded workflow (#806)
+
+  - Adds a `create-github-release.yaml matches template` check to release-kit's ReadyUp kit, which warns when `.github/workflows/create-github-release.yaml` differs from the template for the detected repo type and skips in a repo that has not installed that workflow.
+  - Stops `v11y init --force` from replacing an existing `.config/v11y-check.config.json` with the defaults, which discarded the repo's thresholds and the allowlist maintained by `v11y sync`.
+
+  Migration: To reset `.config/v11y-check.config.json` to its defaults, delete the file and run `v11y init`, because `v11y init --force` now overwrites only `.github/workflows/audit.yaml`.
+
+### 🐛 Bug fixes
+
+- Gate the trusted-publisher checks on trust-query capability (#786)
+
+  - Fixes the issue that the `npm-auto-publish` kit advised `npm trust github …` for every package when the npm session lacked the two-factor authentication that trust queries need.
+
+- Treat label names that differ only in case as one label (#808)
+
+  - Fixes the issue that `sync-labels generate` wrote a preset's `bug` and a local `Bug` to `.github/labels.yaml` as two labels, which made the first sync fail to create the second and every later sync rename the existing label back and forth.
+  - Lets a `labels` entry change a preset label's casing: `Bug` replaces a preset's `bug` and appears in the output as `Bug`, and `Bug: null` removes it.
+  - Makes `labels` keys that differ only in case a config error that names each group, such as `'bug' and 'Bug'`, since folding them would discard all but one without any sign in the output.
+
+  Migration: Keep one of any keys in the `labels` record that differ only in case, and delete the others.
+
+### ♻️ Refactoring
+
+- Remove the redundant, soft-failing version read from release prepare (#811)
+
+  - Deletes `readCurrentVersion` from `release-kit`, moving into `planVersionSet` the check that a `--set-version` target exceeds the current version and recording each workspace's version in the `DependencyGraph` passed to `propagateBumps`.
+  - Stops prepare from printing a warning before it fails on an unreadable `package.json`, and replaces `failed to read current version` for a missing `version` under `--set-version` with an error from `planVersionSet` that reports the missing `version` field.
+
+### ⚙️ Tooling
+
+- Upgrade eslint-config-typescript to v17 and adopt its ignore lists (#797)
+
+  - Declares `vitest` as `catalog:` in every workspace that imports it, with the pnpm catalog pinning 4.1.11, because v17 no longer exempts `vitest` from `n/no-extraneous-import`.
+  - Builds the global ignores in `eslint.config.ts` from the published `commonIgnores` and `toolIgnores`, which also exclude `pnpm-lock.yaml` and each `.readyup/manifest.json`, so the `eslint --fix` in `nmr lint` can no longer rewrite a kit manifest and make the next build's `rdy verify` fail.
+
+### 📚 Documentation
+
+- Trim the release-kit README and move reference detail into shipped docs (#802)
+
+  - Adds `docs` to the published `files` of `@williamthorsen/release-kit` and a `!docs/*.v*.md` exclusion to both it and `@williamthorsen/nmr`, because `pnpm pack` would otherwise include the release-notes previews that a local checkout holds.
+  - Adds `--version` to the options that `release-kit --help` lists, and points the hints for the removed `releaseNotes.shouldCreateGithubRelease` field at `release-kit init` instead of the README.
+
 ## 10.6.0 — 2026-09-08
 
 ### 🎉 Features

@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.17.0 — 2026-09-15
+
+### 🎉 Features
+
+- Fix scaffold error handling and cover every scaffolded workflow (#806)
+
+  - Adds a `create-github-release.yaml matches template` check to release-kit's ReadyUp kit, which warns when `.github/workflows/create-github-release.yaml` differs from the template for the detected repo type and skips in a repo that has not installed that workflow.
+  - Stops `v11y init --force` from replacing an existing `.config/v11y-check.config.json` with the defaults, which discarded the repo's thresholds and the allowlist maintained by `v11y sync`.
+
+  Migration: To reset `.config/v11y-check.config.json` to its defaults, delete the file and run `v11y init`, because `v11y init --force` now overwrites only `.github/workflows/audit.yaml`.
+
+### ⚙️ Tooling
+
+- Upgrade eslint-config-typescript to v17 and adopt its ignore lists (#797)
+
+  - Declares `vitest` as `catalog:` in every workspace that imports it, with the pnpm catalog pinning 4.1.11, because v17 no longer exempts `vitest` from `n/no-extraneous-import`.
+  - Builds the global ignores in `eslint.config.ts` from the published `commonIgnores` and `toolIgnores`, which also exclude `pnpm-lock.yaml` and each `.readyup/manifest.json`, so the `eslint --fix` in `nmr lint` can no longer rewrite a kit manifest and make the next build's `rdy verify` fail.
+
 ## 0.16.0 — 2026-09-08
 
 ### 🎉 Features

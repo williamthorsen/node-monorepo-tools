@@ -2,6 +2,69 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.37.0 — 2026-09-15
+
+### 🎉 Features
+
+- Guard lefthook install in root prepare and report unguarded installs (#798)
+
+  - Adds a `warn` check to the readyup kit of `@williamthorsen/nmr` that reports a root script run by `pnpm install`, such as `prepare` or `postinstall`, whose command calls `lefthook install` without `lefthook check-install`.
+  - Includes in the check's suggested fix the guarded form `lefthook check-install || lefthook install`, which skips rewriting `.git/hooks` while `lefthook.yml` is unchanged since the last install, so that a repo using that form can run `pnpm install` without write access to `.git/hooks`, as inside the Claude Code sandbox, and under pnpm's default `verifyDepsBeforeRun` avoids a reinstall before every `pnpm exec`.
+
+- Report misplaced test files and a missing guard from the readyup kit (#804)
+
+  - Adds an `error` check to the `@williamthorsen/nmr` readyup kit that reports each `*.test.ts` or `*.test.tsx` file outside a `__tests__` directory, which no Vitest project collects and which therefore runs nowhere.
+  - Adds a `warn` check that passes once a test file under `__tests__` imports `checkTestFileConventions` from `@williamthorsen/nmr/tests`, and whose fix shows the one-line guard test to add.
+  - Makes the kit skip both test-file checks once it finds that guard, because the guard reports the same files and applies the repo's `exclude` list, which the kit cannot read.
+
+### 🐛 Bug fixes
+
+- Fail when a -F pattern selects no workspace (#785)
+
+  - Fixes a run that reported success without doing anything. `nmr -F <pattern> <command>` printed nothing and exited 0 when the pattern matched no package. It now exits 1, names the rejected pattern, and explains the likely cause.
+  - Covers three further selections that ran nothing and exited 0: an exclusion that leaves only the workspace root, such as `nmr -F '!./packages/*'`; `-R` in a workspace that declares no package; and an empty `-F ''`.
+
+  Migration: Replace any `-F` pattern that names a directory with the package's manifest `name`. A filter that selects nothing now fails the run instead of passing in silence.
+
+- Fix test runs failing on a dependency with a TypeScript source export (#793)
+
+  - Fixes the issue that, with `resolveFromSource` at its default of `true`, every test in a file failed with `Stripping types is currently unsupported for files under node_modules` when the file's imports reached a dependency whose `exports` map declares a `source` condition pointing at TypeScript.
+  - Limits the source resolution enabled by `resolveFromSource` to packages whose real path lies outside every `node_modules`, which covers workspace packages and packages linked into the repo from elsewhere.
+  - Makes an import of a workspace package fail when that package's `source` condition names a missing file, instead of resolving to the build output without warning.
+  - Makes conditions that a config adds to `resolve.conditions` or `ssr.resolve.conditions` extend Vite's defaults when `resolveFromSource` is `false`, instead of replacing them.
+
+  Migration: Point each workspace package's `source` condition at a file that exists, or remove the condition. Build a workspace package before running a test that reaches it through an externalized dependency (one that Vitest loads through Node instead of transforming): Node resolves that import without the `source` condition, so it loads the package's build output.
+
+- Prevent a recursive or multi-package run from hanging under pnpm 12 (#814)
+
+  - Fixes a hang under pnpm 12: In a terminal, `nmr -R <command>`, a root command that runs in every package such as `nmr build`, and a `-F` pattern that selects several packages printed nothing and waited until Ctrl+C when a package command read keyboard input or changed the terminal's mode, as the spinner in `next build` does.
+  - Gives no terminal input to each package of a `-R` run or a multi-package `-F` run, including a dependency-chain filter such as `-F 'app...'`, and keeps it for a `-F` filter that selects one package, which an interactive command such as `nmr -F <pkg> test:watch` needs.
+
+### 🧪 Tests
+
+- Run the descriptor-inheritance test on Linux and skip it in a sandbox (#803)
+
+  - Stops `nmr ci` from failing in every Claude Code sandbox session on macOS by skipping the suite in `inherit-descriptor.tool.test.ts` when `SANDBOX_RUNTIME` is set, because the sandbox does not let `script(1)` open a pseudo-terminal.
+
+### ⚙️ Tooling
+
+- Upgrade eslint-config-typescript to v17 and adopt its ignore lists (#797)
+
+  - Declares `vitest` as `catalog:` in every workspace that imports it, with the pnpm catalog pinning 4.1.11, because v17 no longer exempts `vitest` from `n/no-extraneous-import`.
+  - Builds the global ignores in `eslint.config.ts` from the published `commonIgnores` and `toolIgnores`, which also exclude `pnpm-lock.yaml` and each `.readyup/manifest.json`, so the `eslint --fix` in `nmr lint` can no longer rewrite a kit manifest and make the next build's `rdy verify` fail.
+
+### 📚 Documentation
+
+- Trim the README and move reference detail into shipped topic docs (#800)
+
+  - Deletes the default script registry tables and the CLI flag table, which `nmr --help` prints, and the migration sections, which `CHANGELOG.md` records, rather than moving them.
+  - Adds `docs` to the files published with `@williamthorsen/nmr`, and changes the closing pointer in `agents/guidance/rulebooks/nmr.md` to name each topic's document under `node_modules/@williamthorsen/nmr/docs/` in place of `README.md`.
+
+- Trim the release-kit README and move reference detail into shipped docs (#802)
+
+  - Adds `docs` to the published `files` of `@williamthorsen/release-kit` and a `!docs/*.v*.md` exclusion to both it and `@williamthorsen/nmr`, because `pnpm pack` would otherwise include the release-notes previews that a local checkout holds.
+  - Adds `--version` to the options that `release-kit --help` lists, and points the hints for the removed `releaseNotes.shouldCreateGithubRelease` field at `release-kit init` instead of the README.
+
 ## 0.36.0 — 2026-09-08
 
 ### 🎉 Features
