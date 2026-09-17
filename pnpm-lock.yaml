@@ -260,8 +260,8 @@ importers:
         specifier: 'catalog:'
         version: 4.1.11(@types/node@24.13.3)(@vitest/coverage-v8@4.1.11)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
       zod:
-        specifier: 4.5.4
-        version: 4.5.4
+        specifier: 4.6.1
+        version: 4.6.1
 
   packages/nmr:
     dependencies:
@@ -352,8 +352,8 @@ importers:
         specifier: 2.9.0
         version: 2.9.0
       zod:
-        specifier: 4.5.4
-        version: 4.5.4
+        specifier: 4.6.1
+        version: 4.6.1
     devDependencies:
       '@types/semver':
         specifier: 7.8.0
@@ -389,8 +389,8 @@ importers:
         specifier: 7.1.0
         version: 7.1.0
       zod:
-        specifier: 4.5.4
-        version: 4.5.4
+        specifier: 4.6.1
+        version: 4.6.1
     devDependencies:
       '@williamthorsen/toolbelt.filesystem':
         specifier: 'catalog:'
@@ -3004,6 +3004,9 @@ packages:
 
   zod@4.5.4:
     resolution: {integrity: sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA==}
+
+  zod@4.6.1:
+    resolution: {integrity: sha512-341aRWQsve0rvronKNTqZpjmzdbUDlFuzHaI/XLg/Ej82qffDJRRfBTCuv7+9q/rMjB6LSLyEBnW4InJeMtt/Q==}
 
 snapshots:
 
@@ -5769,3 +5772,5 @@ snapshots:
   yocto-queue@0.1.0: {}
 
   zod@4.5.4: {}
+
+  zod@4.6.1: {}
