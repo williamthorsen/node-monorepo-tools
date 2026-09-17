@@ -96,7 +96,7 @@ function formatScopeVerbose(
   return lines.concat(blocks.join('\n\n')).join('\n');
 }
 
-/** Format an unallowed vulnerability block with the `failed` marker. */
+/** Formats an unallowed vulnerability block with the `failed` marker. */
 function formatUnallowedBlock(vuln: AuditResult, style: OutputStyle): string {
   const message = `${displayId(vuln)}${formatSeveritySuffix(vuln.severity, style)}`;
   const headerLine = `${MARKER_INDENT}${formatMarkedLine(style, 'failed', message)}`;
@@ -104,7 +104,7 @@ function formatUnallowedBlock(vuln: AuditResult, style: OutputStyle): string {
   return [headerLine, ...detail].join('\n');
 }
 
-/** Format an allowed vulnerability block with the `passed` marker plus reason/addedAt context. */
+/** Formats an allowed vulnerability block with the `passed` marker plus reason/addedAt context. */
 function formatAllowedBlock(vuln: AllowedVuln, now: Date, style: OutputStyle): string {
   const allowedSuffix = vuln.addedAt !== undefined ? formatAllowedSuffix(vuln.addedAt, now) : '';
   const message = `${displayId(vuln)}${formatSeveritySuffix(vuln.severity, style)}${allowedSuffix}`;
@@ -118,12 +118,12 @@ function formatAllowedBlock(vuln: AllowedVuln, now: Date, style: OutputStyle): s
   return [headerLine, ...detail].join('\n');
 }
 
-/** Format a stale entry as a single line with the `stale` marker. */
+/** Formats a stale entry as a single line with the `stale` marker. */
 function formatStaleLine(entry: StaleEntry, style: OutputStyle): string {
   return `${MARKER_INDENT}${formatMarkedLine(style, 'stale', `${entry.id}  not needed`)}`;
 }
 
-/** Format a below-threshold vulnerability block with the `skipped` marker and "ignored (below threshold)" annotation. */
+/** Formats a below-threshold vulnerability block with the `skipped` marker and "ignored (below threshold)" annotation. */
 function formatBelowThresholdBlock(vuln: AuditResult, style: OutputStyle): string {
   const message = `${displayId(vuln)}${formatSeveritySuffix(vuln.severity, style)}  ignored (below threshold)`;
   const headerLine = `${MARKER_INDENT}${formatMarkedLine(style, 'skipped', message)}`;
@@ -185,7 +185,7 @@ function formatAllowedSuffix(addedAt: string, now: Date): string {
   return `  allowed ${relative} (${addedAt})`;
 }
 
-/** Wrap a description (possibly multi-paragraph) by display columns, indenting every line to the detail indent. */
+/** Wraps a description (possibly multi-paragraph) by display columns, indenting every line to the detail indent. */
 function formatDescriptionLines(description: string, detailIndent: string): string[] {
   const paragraphs = description.split(/\n\s*\n/);
   const lines: string[] = [];

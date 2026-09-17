@@ -56,7 +56,7 @@ const SEVERITY_GLYPH_NAMES: Record<string, V11yGlyphName> = {
   moderate: 'severityModerate',
 };
 
-/** Map a severity string to its indicator in a style: a colored circle when rich, nothing when plain. */
+/** Maps a severity string to its indicator in a style: a colored circle when rich, nothing when plain. */
 export function severityIndicator(severity: string | undefined, style: OutputStyle): string {
   if (severity === undefined) return '';
   const name = SEVERITY_GLYPH_NAMES[severity];
