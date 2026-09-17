@@ -53,7 +53,7 @@ The release-prepare orchestrators (`releasePrepare`, `releasePrepareMono`, `rele
 ```
 arrays
   Found 1 commits since arrays-v1.0.0
-  ⚠️  1 policy violation:
+  🟠 1 policy violation:
       · def5678 'internal!: refactor cache' — type 'internal' at prefix surface
   Bumping versions (patch)...
   📦 1.0.0 → 1.0.1 (patch)
