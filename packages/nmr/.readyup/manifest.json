@@ -3,7 +3,7 @@
   "kits": [
     {
       "bundledDependencies": {
-        "@williamthorsen/toolbelt.errors": "0.8.0"
+        "@williamthorsen/toolbelt.errors": "0.8.1"
       },
       "checklists": [
         "nmr"
@@ -44,7 +44,7 @@
       "readyupVersion": "0.37.0",
       "source": "kits/default.ts",
       "sourceHash": "488459c0",
-      "targetHash": "caf7bdc0"
+      "targetHash": "ca04f91b"
     }
   ]
 }
