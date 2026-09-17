@@ -566,6 +566,31 @@ describe(checkCommand, () => {
     expect(capture.stdout).toContain('reason: Accepted');
   });
 
+  it.each([
+    ['compact', false],
+    ['verbose', true],
+  ])('renders %s text output in the style resolved for stdout', async (_format, verbose) => {
+    const config = makeConfig({
+      prod: {
+        allowlist: [{ id: 'GHSA-allowed', path: 'pkg', url: 'https://example.com/allowed' }],
+      },
+    });
+    setupLoadConfig(config);
+    mocks.runReport.mockReturnValue({
+      results: [
+        { id: 'GHSA-allowed', path: 'pkg', paths: ['pkg'], severity: 'moderate', url: 'https://example.com/allowed' },
+      ],
+      stdout: '',
+      stderr: '',
+      warnings: [],
+    });
+
+    // Each stream gets a different style, so the assertion fails if the formatter receives the other stream's.
+    await checkCommand(makeOptions({ scopes: ['prod'], styles: { stderr: 'rich', stdout: 'plain' }, verbose }));
+
+    expect(capture.stdout).toContain('PASS  GHSA-allowed');
+  });
+
   it('classifies below-threshold vulnerabilities separately and returns 0', async () => {
     const config = makeConfig({
       prod: {
