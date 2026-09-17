@@ -1,16 +1,18 @@
-// ANSI escape helpers for styled terminal output.
+// Styling helpers for terminal output. Each helper emits escapes only for a stream that renders them.
 
-/** Wrap text in ANSI bold. */
-export function bold(text: string): string {
-  return `\u{1B}[1m${text}\u{1B}[0m`;
+import { styleText } from 'node:util';
+
+/** Styles text bold, returning it unstyled for a stream that cannot render color. */
+export function bold(text: string, stream: NodeJS.WritableStream = process.stdout): string {
+  return styleText('bold', text, { stream });
 }
 
-/** Wrap text in ANSI dim. */
-export function dim(text: string): string {
-  return `\u{1B}[2m${text}\u{1B}[0m`;
+/** Styles text dim, returning it unstyled for a stream that cannot render color. */
+export function dim(text: string, stream: NodeJS.WritableStream = process.stdout): string {
+  return styleText('dim', text, { stream });
 }
 
-/** Render a section header for separating workspaces in CLI output. */
+/** Renders a section header for separating workspaces in CLI output. */
 export function sectionHeader(name: string): string {
   return `━━━ ${name} ━━━`;
 }
