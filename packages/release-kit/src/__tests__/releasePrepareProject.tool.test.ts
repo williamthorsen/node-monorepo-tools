@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import type { StreamStyles } from '@williamthorsen/nmr-core';
 import { captureStdio, createTempTree, pointCwdAt, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import {
   disposeOnTestFinished,
@@ -14,6 +15,8 @@ import { assert, beforeEach, describe, expect, it } from 'vitest';
 import { mergeMonorepoConfig } from '../loadConfig.ts';
 import { applyReleasePlan, type ReleasePlan } from '../releasePlan.ts';
 import { releasePrepareMono } from '../releasePrepareMono.ts';
+
+const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
 /**
  * End-to-end project-release tests that:
@@ -414,7 +417,7 @@ describe('releasePrepareProject (tool)', () => {
     using _silent = silenceConsole(['info']);
 
     try {
-      await prepareCommand(['--only=pkg-a', '--no-git-checks']);
+      await prepareCommand(['--only=pkg-a', '--no-git-checks'], RICH_STYLES);
     } finally {
       exit[Symbol.dispose]();
     }

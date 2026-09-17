@@ -1,4 +1,7 @@
+import { formatStatusLine, measureGlyphColumn, type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
+
 import { bold, dim, sectionHeader } from './format.ts';
+import { formatGlyphLine } from './glyphs.ts';
 import { GIT_CLIFF_NPX_ARGS } from './runGitCliff.ts';
 import type {
   PolicyViolation,
@@ -19,6 +22,7 @@ export interface ReportPrepareOptions {
   applied: boolean;
   /** The format command's failure message, when it ran and failed. */
   formatError?: string;
+  style: OutputStyle;
 }
 
 /**
@@ -45,6 +49,7 @@ export function reportPrepare(plan: PrepareResult, options: ReportPrepareOptions
 /** Format output for a single-package release. */
 function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOptions): string {
   const dryRun = !options.applied;
+  const { style } = options;
   const lines: string[] = [];
   const workspace = result.workspaces[0];
 
@@ -60,12 +65,12 @@ function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOpti
     lines.push(dim(`  Parsed ${workspace.parsedCommitCount} typed commits`));
   }
 
-  formatUnparseableWarning(lines, workspace);
-  formatPolicyViolations(lines, workspace.policyViolations);
+  formatUnparseableWarning(lines, workspace, style);
+  formatPolicyViolations(lines, workspace.policyViolations, style);
 
   if (workspace.status === 'skipped') {
-    lines.push(`⏭️  ${workspace.skipReason}`);
-    formatWarnings(lines, result);
+    lines.push(formatStatusLine(style, 'skipped', workspace.skipReason));
+    formatWarnings(lines, result, style);
     return lines.join('\n');
   }
 
@@ -84,9 +89,17 @@ function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOpti
   }
 
   if (workspace.setVersion !== undefined) {
-    lines.push(`📦 ${workspace.currentVersion} → ${bold(workspace.newVersion)} (version override)`);
+    lines.push(
+      formatGlyphLine(style, 'bump', `${workspace.currentVersion} → ${bold(workspace.newVersion)} (version override)`),
+    );
   } else if (workspace.releaseType !== undefined) {
-    lines.push(`📦 ${workspace.currentVersion} → ${bold(workspace.newVersion)} (${workspace.releaseType})`);
+    lines.push(
+      formatGlyphLine(
+        style,
+        'bump',
+        `${workspace.currentVersion} → ${bold(workspace.newVersion)} (${workspace.releaseType})`,
+      ),
+    );
   }
 
   // Bump file details
@@ -101,10 +114,13 @@ function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOpti
   formatFormatCommand(lines, result, options);
 
   // Warnings
-  formatWarnings(lines, result);
+  formatWarnings(lines, result, style);
 
   // Completion
-  lines.push(`✅ Release preparation complete.`, `   🏷️  ${bold(workspace.tag)}`);
+  lines.push(
+    formatStatusLine(style, 'passed', 'Release preparation complete.'),
+    `   ${formatGlyphLine(style, 'tag', bold(workspace.tag))}`,
+  );
 
   return lines.join('\n');
 }
@@ -112,30 +128,31 @@ function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOpti
 /** Format output for a monorepo release with multiple workspaces. */
 function formatMultiWorkspace(result: PrepareResult, options: ReportPrepareOptions): string {
   const dryRun = !options.applied;
+  const { style } = options;
   const lines: string[] = [];
 
   for (const workspace of result.workspaces) {
-    formatWorkspaceSection(lines, workspace, dryRun);
+    formatWorkspaceSection(lines, workspace, dryRun, style);
   }
 
   if (result.project !== undefined) {
-    formatProjectSection(lines, result.project, dryRun);
+    formatProjectSection(lines, result.project, dryRun, style);
   }
 
   // Format command
   formatFormatCommand(lines, result, options);
 
   // Warnings
-  formatWarnings(lines, result);
+  formatWarnings(lines, result, style);
 
   // Tag summary
   if (result.tags.length > 0) {
-    lines.push(`\n✅ Release preparation complete.`);
+    lines.push(`\n${formatStatusLine(style, 'passed', 'Release preparation complete.')}`);
     for (const tag of result.tags) {
-      lines.push(`   🏷️  ${bold(tag)}`);
+      lines.push(`   ${formatGlyphLine(style, 'tag', bold(tag))}`);
     }
   } else {
-    lines.push(`\n⏭️  No workspaces had release-worthy changes.`);
+    lines.push(`\n${formatStatusLine(style, 'skipped', 'No workspaces had release-worthy changes.')}`);
   }
 
   return lines.join('\n');
@@ -153,16 +170,21 @@ function formatMultiWorkspace(result: PrepareResult, options: ReportPrepareOptio
  * intentionally suppressed in the terminal rendering for symmetry with the existing
  * skipped workspace rendering.
  */
-function formatProjectSection(lines: string[], project: ProjectPrepareResult, dryRun: boolean): void {
+function formatProjectSection(
+  lines: string[],
+  project: ProjectPrepareResult,
+  dryRun: boolean,
+  style: OutputStyle,
+): void {
   lines.push(`\n${sectionHeader('project')}`);
 
   const since = project.previousTag === undefined ? '(no previous release found)' : `since ${project.previousTag}`;
   lines.push(dim(`  Found ${project.commitCount} commits ${since}`));
 
-  formatPolicyViolations(lines, project.policyViolations, '  ');
+  formatPolicyViolations(lines, project.policyViolations, style, '  ');
 
   if (project.status === 'skipped') {
-    lines.push(`  ⏭️  ${project.skipReason}`);
+    lines.push(`  ${formatStatusLine(style, 'skipped', project.skipReason)}`);
     return;
   }
 
@@ -178,11 +200,11 @@ function formatProjectSection(lines: string[], project: ProjectPrepareResult, dr
     lines.push(`  Using bump override: ${project.bumpOverride}`);
   }
 
-  formatProjectUnparseable(lines, project);
+  formatProjectUnparseable(lines, project, style);
 
   lines.push(
     dim(`  Bumping versions (${releaseType})...`),
-    `  📦 ${currentVersion} → ${bold(newVersion)} (${releaseType})`,
+    `  ${formatGlyphLine(style, 'bump', `${currentVersion} → ${bold(newVersion)} (${releaseType})`)}`,
   );
 
   for (const file of project.bumpedFiles) {
@@ -203,11 +225,11 @@ function formatProjectSection(lines: string[], project: ProjectPrepareResult, dr
   }
   formatPreviewFiles(lines, project, dryRun, '  ');
 
-  lines.push(`  🏷️  ${bold(tag)}`);
+  lines.push(`  ${formatGlyphLine(style, 'tag', bold(tag))}`);
 }
 
 /** Append the unparseable-commit warning lines for a project release, if any. */
-function formatProjectUnparseable(lines: string[], project: ReleasedProjectResult): void {
+function formatProjectUnparseable(lines: string[], project: ReleasedProjectResult, style: OutputStyle): void {
   const unparseable = project.unparseableCommits;
   if (unparseable === undefined || unparseable.length === 0) {
     return;
@@ -215,7 +237,9 @@ function formatProjectUnparseable(lines: string[], project: ReleasedProjectResul
   const count = unparseable.length;
   const isPatchFloor = project.parsedCommitCount === 0;
   const suffix = isPatchFloor ? ' (defaulting to patch bump)' : '';
-  lines.push(`    ⚠️  ${count} commit${count === 1 ? '' : 's'} could not be parsed${suffix}`);
+  lines.push(
+    `    ${formatStatusLine(style, 'warning', `${count} commit${count === 1 ? '' : 's'} could not be parsed${suffix}`)}`,
+  );
   for (const commit of unparseable) {
     const shortHash = commit.hash.slice(0, 7);
     const truncatedMessage = commit.message.length > 72 ? `${commit.message.slice(0, 69)}...` : commit.message;
@@ -224,7 +248,12 @@ function formatProjectUnparseable(lines: string[], project: ReleasedProjectResul
 }
 
 /** Render a single workspace's section within multi-workspace output. */
-function formatWorkspaceSection(lines: string[], workspace: WorkspacePrepareResult, dryRun: boolean): void {
+function formatWorkspaceSection(
+  lines: string[],
+  workspace: WorkspacePrepareResult,
+  dryRun: boolean,
+  style: OutputStyle,
+): void {
   if (workspace.name !== undefined) {
     lines.push(`\n${sectionHeader(workspace.name)}`);
   }
@@ -233,7 +262,7 @@ function formatWorkspaceSection(lines: string[], workspace: WorkspacePrepareResu
   lines.push(dim(`  Found ${workspace.commitCount} commits ${since}`));
 
   if (workspace.status === 'skipped') {
-    lines.push(`  ⏭️  ${workspace.skipReason}`);
+    lines.push(`  ${formatStatusLine(style, 'skipped', workspace.skipReason)}`);
     return;
   }
 
@@ -241,17 +270,17 @@ function formatWorkspaceSection(lines: string[], workspace: WorkspacePrepareResu
   const isPropagatedOnly = propagatedFrom !== undefined && workspace.commitCount === 0;
 
   formatCommitSummary(lines, workspace, propagatedFrom, isPropagatedOnly);
-  formatUnparseableWarning(lines, workspace, '  ');
-  formatPolicyViolations(lines, workspace.policyViolations, '  ');
+  formatUnparseableWarning(lines, workspace, style, '  ');
+  formatPolicyViolations(lines, workspace.policyViolations, style, '  ');
   formatBumpLabels(lines, workspace, isPropagatedOnly);
-  formatVersionLine(lines, workspace, propagatedFrom, isPropagatedOnly);
+  formatVersionLine(lines, workspace, propagatedFrom, isPropagatedOnly, style);
 
   formatBumpFiles(lines, workspace, dryRun, '  ');
   lines.push(dim('  Generating changelogs...'));
   formatChangelogFiles(lines, workspace, dryRun, '  ');
   formatPreviewFiles(lines, workspace, dryRun, '  ');
 
-  lines.push(`  🏷️  ${bold(workspace.tag)}`);
+  lines.push(`  ${formatGlyphLine(style, 'tag', bold(workspace.tag))}`);
 }
 
 /** Append the commit-count summary line for a workspace (propagation-only or parsed counts). */
@@ -292,12 +321,14 @@ function formatVersionLine(
   workspace: ReleasedWorkspaceResult,
   propagatedFrom: PropagationSource[] | undefined,
   isPropagatedOnly: boolean,
+  style: OutputStyle,
 ): void {
+  const versions = `${workspace.currentVersion} → ${bold(workspace.newVersion)}`;
   if (workspace.setVersion !== undefined) {
-    lines.push(`  📦 ${workspace.currentVersion} → ${bold(workspace.newVersion)} (version override)`);
+    lines.push(`  ${formatGlyphLine(style, 'bump', `${versions} (version override)`)}`);
   } else if (workspace.releaseType !== undefined) {
     const suffix = isPropagatedOnly ? formatPropagationSuffix(propagatedFrom) : '';
-    lines.push(`  📦 ${workspace.currentVersion} → ${bold(workspace.newVersion)} (${workspace.releaseType}${suffix})`);
+    lines.push(`  ${formatGlyphLine(style, 'bump', `${versions} (${workspace.releaseType}${suffix})`)}`);
   }
 }
 
@@ -348,7 +379,12 @@ function formatPreviewFiles(
  * caller passes only the section-level indent (e.g., `''` for single-package, `'  '` for
  * multi-workspace).
  */
-function formatUnparseableWarning(lines: string[], workspace: WorkspacePrepareResult, indent = ''): void {
+function formatUnparseableWarning(
+  lines: string[],
+  workspace: WorkspacePrepareResult,
+  style: OutputStyle,
+  indent = '',
+): void {
   const unparseable = workspace.unparseableCommits;
   if (unparseable === undefined || unparseable.length === 0) {
     return;
@@ -357,7 +393,9 @@ function formatUnparseableWarning(lines: string[], workspace: WorkspacePrepareRe
   const count = unparseable.length;
   const isPatchFloor = workspace.parsedCommitCount === 0;
   const suffix = isPatchFloor ? ' (defaulting to patch bump)' : '';
-  lines.push(`${indent}  ⚠️  ${count} commit${count === 1 ? '' : 's'} could not be parsed${suffix}`);
+  lines.push(
+    `${indent}  ${formatStatusLine(style, 'warning', `${count} commit${count === 1 ? '' : 's'} could not be parsed${suffix}`)}`,
+  );
 
   for (const commit of unparseable) {
     const shortHash = commit.hash.slice(0, 7);
@@ -378,13 +416,18 @@ function formatUnparseableWarning(lines: string[], workspace: WorkspacePrepareRe
  * caller passes only the section-level indent (e.g., `''` for single-package, `'  '` for
  * multi-workspace).
  */
-function formatPolicyViolations(lines: string[], violations: PolicyViolation[] | undefined, indent = ''): void {
+function formatPolicyViolations(
+  lines: string[],
+  violations: PolicyViolation[] | undefined,
+  style: OutputStyle,
+  indent = '',
+): void {
   if (violations === undefined || violations.length === 0) {
     return;
   }
 
   const count = violations.length;
-  lines.push(`${indent}  ⚠️  ${count} policy violation${count === 1 ? '' : 's'}:`);
+  lines.push(`${indent}  ${formatStatusLine(style, 'warning', `${count} policy violation${count === 1 ? '' : 's'}:`)}`);
   for (const violation of violations) {
     const shortHash = violation.commitHash.slice(0, 7);
     const subject = violation.commitSubject;
@@ -405,7 +448,7 @@ function formatPropagationSuffix(propagatedFrom: PropagationSource[] | undefined
 }
 
 /** Append warning lines when the prepare result includes warnings. */
-function formatWarnings(lines: string[], result: PrepareResult): void {
+function formatWarnings(lines: string[], result: PrepareResult, style: OutputStyle): void {
   const { warnings } = result;
   if (warnings === undefined || warnings.length === 0) {
     return;
@@ -413,7 +456,7 @@ function formatWarnings(lines: string[], result: PrepareResult): void {
 
   lines.push('');
   for (const warning of warnings) {
-    lines.push(`⚠️  ${warning}`);
+    lines.push(formatStatusLine(style, 'warning', warning));
   }
 }
 
@@ -433,5 +476,10 @@ function formatFormatCommand(lines: string[], result: PrepareResult, options: Re
     return;
   }
 
-  lines.push(`\n  ⚠️  Format command failed: ${result.formatCommand.command}`, `     ${options.formatError}`);
+  // Indent the failure message to the column at which the status line's message starts.
+  const messageIndent = ' '.repeat(2 + measureGlyphColumn(STATUS_GLYPHS[options.style]) + 1);
+  lines.push(
+    `\n  ${formatStatusLine(options.style, 'warning', `Format command failed: ${result.formatCommand.command}`)}`,
+    `${messageIndent}${options.formatError}`,
+  );
 }

@@ -15,6 +15,7 @@ import { initCommand } from '../init/initCommand.ts';
 import { prepareCommand } from '../prepareCommand.ts';
 import { publishCommand } from '../publishCommand.ts';
 import { pushCommand } from '../pushCommand.ts';
+import { OUTPUT_STYLE_ENV_VAR, resolveStylesOrExit } from '../resolveStylesOrExit.ts';
 import { showTagPrefixesCommand } from '../showTagPrefixesCommand.ts';
 import { generateCommand } from '../sync-labels/generateCommand.ts';
 import { syncLabelsInitCommand } from '../sync-labels/initCommand.ts';
@@ -44,6 +45,11 @@ Options:
   --dry-run        Preview changes without writing files
   --help, -h       Show this help message
   --version, -V    Show the version number
+
+Environment:
+  ${OUTPUT_STYLE_ENV_VAR}
+                   Output style: auto (default), plain, or rich. auto prints plain,
+                   without emoji, when CI is set or the stream is not a terminal.
 `);
 }
 
@@ -250,13 +256,19 @@ if (command === undefined || ['--help', '-h'].includes(command)) {
 
 const flags = args.slice(1);
 
+const styles = resolveStylesOrExit({
+  env: process.env,
+  stderrIsTty: process.stderr.isTTY,
+  stdoutIsTty: process.stdout.isTTY,
+});
+
 if (command === 'prepare') {
   if (flags.some((f) => f === '--help' || f === '-h')) {
     showPrepareHelp();
     process.exit(0);
   }
 
-  await prepareCommand(flags);
+  await prepareCommand(flags, styles);
   process.exit(0);
 }
 
@@ -281,7 +293,7 @@ if (command === 'tag') {
     process.exit(0);
   }
 
-  tagCommand(flags);
+  tagCommand(flags, styles);
   process.exit(0);
 }
 
@@ -301,7 +313,7 @@ if (command === 'create-github-release') {
     process.exit(0);
   }
 
-  await createGithubReleaseCommand(flags);
+  await createGithubReleaseCommand(flags, styles);
   process.exit(0);
 }
 
@@ -311,7 +323,7 @@ if (command === 'publish') {
     process.exit(0);
   }
 
-  await publishCommand(flags);
+  await publishCommand(flags, styles);
   process.exit(0);
 }
 
@@ -325,7 +337,7 @@ if (command === 'show-tag-prefixes') {
     process.exit(1);
   }
 
-  const exitCode = await showTagPrefixesCommand();
+  const exitCode = await showTagPrefixesCommand(styles);
   process.exit(exitCode);
 }
 
@@ -342,7 +354,7 @@ if (command === 'init') {
   };
 
   const { dryRun, force, withConfig } = parseArgsOrExit(flags, initFlagSchema).flags;
-  const exitCode = initCommand({ dryRun, force, withConfig });
+  const exitCode = initCommand({ dryRun, force, styles, withConfig });
   process.exit(exitCode);
 }
 
@@ -368,7 +380,7 @@ if (command === 'sync-labels') {
     };
 
     const { dryRun, force } = parseArgsOrExit(subflags, syncLabelsInitFlagSchema).flags;
-    const exitCode = await syncLabelsInitCommand({ dryRun, force });
+    const exitCode = await syncLabelsInitCommand({ dryRun, force, styles });
     process.exit(exitCode);
   }
 
@@ -383,7 +395,7 @@ if (command === 'sync-labels') {
     };
 
     const { check } = parseArgsOrExit(subflags, generateFlagSchema).flags;
-    const exitCode = await generateCommand({ check });
+    const exitCode = await generateCommand({ check, styles });
     process.exit(exitCode);
   }
 
@@ -426,7 +438,7 @@ if (command === 'overrides') {
       reportError(`Unknown option: ${subflags[0]}`);
       process.exit(1);
     }
-    const result = await validateOverridesCommand();
+    const result = await validateOverridesCommand(styles);
     if (result.exitCode === 0) {
       console.info(result.message);
     } else {

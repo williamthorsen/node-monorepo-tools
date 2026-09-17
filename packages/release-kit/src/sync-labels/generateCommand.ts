@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-import { reportError } from '@williamthorsen/nmr-core';
+import { type OutputStyle, reportError, type StreamStyles } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 import { stringify } from 'yaml';
 
@@ -41,8 +41,8 @@ export function formatLabelsYaml(labels: LabelDefinition[], presetHashes: Map<st
  * Reports an actionable error and returns `undefined` when the config file is missing,
  * fails to load or validate, or carries no `repoLabels` block.
  */
-export async function loadRepoLabelsConfig(): Promise<RepoLabelsConfig | undefined> {
-  const result = await loadValidatedConfig();
+export async function loadRepoLabelsConfig(stderrStyle: OutputStyle): Promise<RepoLabelsConfig | undefined> {
+  const result = await loadValidatedConfig(stderrStyle);
 
   if (result.status === 'missing') {
     reportError(`No config file found at ${CONFIG_FILE_PATH}. Run \`release-kit sync-labels init\` first.`);
@@ -66,6 +66,7 @@ export async function loadRepoLabelsConfig(): Promise<RepoLabelsConfig | undefin
 interface GenerateOptions {
   /** Compare the regenerated content against the committed file instead of writing. */
   check?: boolean;
+  styles: StreamStyles;
 }
 
 /**
@@ -75,12 +76,12 @@ interface GenerateOptions {
  * and writes `.github/labels.yaml` -- or, with `check`, regenerates in memory and reports whether the committed file
  * is stale, writing nothing. Returns 0 on success, 1 on failure.
  */
-export async function generateCommand({ check = false }: GenerateOptions = {}): Promise<number> {
+export async function generateCommand({ check = false, styles }: GenerateOptions): Promise<number> {
   if (checkRetiredSyncLabelsConfig()) {
     return 1;
   }
 
-  const repoLabels = await loadRepoLabelsConfig();
+  const repoLabels = await loadRepoLabelsConfig(styles.stderr);
   if (repoLabels === undefined) {
     return 1;
   }

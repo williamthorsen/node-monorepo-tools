@@ -4,7 +4,7 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
+import { parseArgsOrExit, reportError, type StreamStyles } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
@@ -28,7 +28,7 @@ const publishFlagSchema = {
  * Orchestrate the CLI `publish` command: parse flags, discover workspaces, resolve tags from HEAD,
  * detect the package manager, validate `--tags`, and publish each tag with inject/restore lifecycle.
  */
-export async function publishCommand(argv: string[]): Promise<void> {
+export async function publishCommand(argv: string[], styles: StreamStyles): Promise<void> {
   const parsed = parseArgsOrExit(argv, publishFlagSchema);
 
   const { dryRun, noGitChecks, provenance } = parsed.flags;
@@ -61,7 +61,7 @@ export async function publishCommand(argv: string[]): Promise<void> {
   }
 
   const packageManager = detectPackageManager();
-  const { releaseNotes, changelogJsonOutputPath, sectionOrder } = await resolveReleaseNotesConfig();
+  const { releaseNotes, changelogJsonOutputPath, sectionOrder } = await resolveReleaseNotesConfig(styles.stderr);
 
   const shouldInject = releaseNotes.shouldInjectIntoReadme;
 

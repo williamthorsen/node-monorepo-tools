@@ -1,3 +1,4 @@
+import type { StreamStyles } from '@williamthorsen/nmr-core';
 import { listConsoleLines, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -36,6 +37,9 @@ vi.mock(import('@williamthorsen/nmr-core'), () => ({
 
 import { initCommand } from '../initCommand.ts';
 
+// The streams differ so that a helper given the other stream's style fails its assertion.
+const SPLIT_STYLES: StreamStyles = { stderr: 'plain', stdout: 'rich' };
+
 /** Configure all eligibility checks to pass and repo type to single-package. */
 function setupPassingChecks(): void {
   mockIsGitRepo.mockReturnValue({ ok: true });
@@ -65,18 +69,32 @@ describe(initCommand, () => {
   it('returns 0 on success', () => {
     setupPassingChecks();
 
-    const exitCode = initCommand({ dryRun: false, force: false, withConfig: false });
+    const exitCode = initCommand({ dryRun: false, force: false, styles: SPLIT_STYLES, withConfig: false });
 
     expect(exitCode).toBe(0);
     expect(mockScaffoldFiles).toHaveBeenCalledTimes(1);
   });
 
+  it('passes the stdout style to every printSuccess call', () => {
+    setupPassingChecks();
+
+    initCommand({ dryRun: false, force: false, styles: SPLIT_STYLES, withConfig: false });
+
+    expect(mockPrintSuccess.mock.calls).toStrictEqual([
+      ['Git repository detected', 'rich'],
+      ['package.json found', 'rich'],
+      ['pnpm detected', 'rich'],
+      ['Detected: single-package', 'rich'],
+    ]);
+  });
+
   it('returns 1 when eligibility check fails', () => {
     mockIsGitRepo.mockReturnValue({ ok: false, message: 'Not a git repo' });
 
-    const exitCode = initCommand({ dryRun: false, force: false, withConfig: false });
+    const exitCode = initCommand({ dryRun: false, force: false, styles: SPLIT_STYLES, withConfig: false });
 
     expect(exitCode).toBe(1);
+    expect(mockPrintError).toHaveBeenCalledWith('Not a git repo', 'plain');
     expect(mockScaffoldFiles).not.toHaveBeenCalled();
   });
 
@@ -85,10 +103,10 @@ describe(initCommand, () => {
       throw new Error('unexpected filesystem error');
     });
 
-    const exitCode = initCommand({ dryRun: false, force: false, withConfig: false });
+    const exitCode = initCommand({ dryRun: false, force: false, styles: SPLIT_STYLES, withConfig: false });
 
     expect(exitCode).toBe(1);
-    expect(mockPrintError).toHaveBeenCalledWith(expect.stringContaining('unexpected filesystem error'));
+    expect(mockPrintError).toHaveBeenCalledWith(expect.stringContaining('unexpected filesystem error'), 'plain');
     expect(mockScaffoldFiles).not.toHaveBeenCalled();
   });
 
@@ -98,10 +116,10 @@ describe(initCommand, () => {
       throw new Error('Cannot read package.json');
     });
 
-    const exitCode = initCommand({ dryRun: false, force: false, withConfig: false });
+    const exitCode = initCommand({ dryRun: false, force: false, styles: SPLIT_STYLES, withConfig: false });
 
     expect(exitCode).toBe(1);
-    expect(mockPrintError).toHaveBeenCalledWith(expect.stringContaining('Cannot read package.json'));
+    expect(mockPrintError).toHaveBeenCalledWith(expect.stringContaining('Cannot read package.json'), 'plain');
     expect(mockScaffoldFiles).not.toHaveBeenCalled();
   });
 
@@ -111,16 +129,16 @@ describe(initCommand, () => {
       throw new Error('EACCES: permission denied');
     });
 
-    const exitCode = initCommand({ dryRun: false, force: false, withConfig: false });
+    const exitCode = initCommand({ dryRun: false, force: false, styles: SPLIT_STYLES, withConfig: false });
 
     expect(exitCode).toBe(1);
-    expect(mockPrintError).toHaveBeenCalledWith(expect.stringContaining('EACCES: permission denied'));
+    expect(mockPrintError).toHaveBeenCalledWith(expect.stringContaining('EACCES: permission denied'), 'plain');
   });
 
   it('passes force as overwrite to scaffoldFiles', () => {
     setupPassingChecks();
 
-    initCommand({ dryRun: false, force: true, withConfig: false });
+    initCommand({ dryRun: false, force: true, styles: SPLIT_STYLES, withConfig: false });
 
     expect(mockScaffoldFiles).toHaveBeenCalledWith(expect.objectContaining({ overwrite: true }));
   });
@@ -128,7 +146,7 @@ describe(initCommand, () => {
   it('passes withConfig to scaffoldFiles', () => {
     setupPassingChecks();
 
-    initCommand({ dryRun: false, force: false, withConfig: true });
+    initCommand({ dryRun: false, force: false, styles: SPLIT_STYLES, withConfig: true });
 
     expect(mockScaffoldFiles).toHaveBeenCalledWith(expect.objectContaining({ withConfig: true }));
   });
@@ -136,7 +154,7 @@ describe(initCommand, () => {
   it('passes dryRun to scaffoldFiles', () => {
     setupPassingChecks();
 
-    initCommand({ dryRun: true, force: false, withConfig: false });
+    initCommand({ dryRun: true, force: false, styles: SPLIT_STYLES, withConfig: false });
 
     expect(mockScaffoldFiles).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }));
   });
@@ -145,7 +163,7 @@ describe(initCommand, () => {
     setupPassingChecks();
     using silent = silenceConsole(['info']);
 
-    initCommand({ dryRun: false, force: false, withConfig: false });
+    initCommand({ dryRun: false, force: false, styles: SPLIT_STYLES, withConfig: false });
 
     const allOutput = listConsoleLines(silent.info).join('\n');
     expect(allOutput).toContain('provenance: true');
@@ -156,7 +174,7 @@ describe(initCommand, () => {
     setupPassingChecks();
     using silent = silenceConsole(['info']);
 
-    initCommand({ dryRun: true, force: false, withConfig: false });
+    initCommand({ dryRun: true, force: false, styles: SPLIT_STYLES, withConfig: false });
 
     expect(silent.info).toHaveBeenCalledWith('[dry-run mode]');
   });
@@ -165,7 +183,7 @@ describe(initCommand, () => {
     setupPassingChecks();
     mockDetectRepoType.mockReturnValue('monorepo');
 
-    initCommand({ dryRun: false, force: false, withConfig: false });
+    initCommand({ dryRun: false, force: false, styles: SPLIT_STYLES, withConfig: false });
 
     expect(mockScaffoldFiles).toHaveBeenCalledWith(expect.objectContaining({ repoType: 'monorepo' }));
   });
@@ -174,7 +192,7 @@ describe(initCommand, () => {
     mockIsGitRepo.mockReturnValue({ ok: true });
     mockHasPackageJson.mockReturnValue({ ok: false, message: 'No package.json found' });
 
-    const exitCode = initCommand({ dryRun: false, force: false, withConfig: false });
+    const exitCode = initCommand({ dryRun: false, force: false, styles: SPLIT_STYLES, withConfig: false });
 
     expect(exitCode).toBe(1);
     expect(mockScaffoldFiles).not.toHaveBeenCalled();
@@ -185,7 +203,7 @@ describe(initCommand, () => {
     mockHasPackageJson.mockReturnValue({ ok: true });
     mockUsesPnpm.mockReturnValue({ ok: false, message: 'pnpm not detected' });
 
-    const exitCode = initCommand({ dryRun: false, force: false, withConfig: false });
+    const exitCode = initCommand({ dryRun: false, force: false, styles: SPLIT_STYLES, withConfig: false });
 
     expect(exitCode).toBe(1);
     expect(mockScaffoldFiles).not.toHaveBeenCalled();
@@ -194,7 +212,7 @@ describe(initCommand, () => {
   it('does not call hasPackageJson or usesPnpm when isGitRepo fails', () => {
     mockIsGitRepo.mockReturnValue({ ok: false, message: 'Not a git repo' });
 
-    initCommand({ dryRun: false, force: false, withConfig: false });
+    initCommand({ dryRun: false, force: false, styles: SPLIT_STYLES, withConfig: false });
 
     expect(mockHasPackageJson).not.toHaveBeenCalled();
     expect(mockUsesPnpm).not.toHaveBeenCalled();
@@ -204,7 +222,7 @@ describe(initCommand, () => {
     mockIsGitRepo.mockReturnValue({ ok: true });
     mockHasPackageJson.mockReturnValue({ ok: false, message: 'No package.json found' });
 
-    initCommand({ dryRun: false, force: false, withConfig: false });
+    initCommand({ dryRun: false, force: false, styles: SPLIT_STYLES, withConfig: false });
 
     expect(mockUsesPnpm).not.toHaveBeenCalled();
   });
@@ -213,7 +231,7 @@ describe(initCommand, () => {
     setupPassingChecks();
     mockScaffoldFiles.mockReturnValue([{ filePath: '.github/workflows/release.yaml', outcome: 'failed' }]);
 
-    const exitCode = initCommand({ dryRun: false, force: false, withConfig: false });
+    const exitCode = initCommand({ dryRun: false, force: false, styles: SPLIT_STYLES, withConfig: false });
 
     expect(exitCode).toBe(1);
   });
@@ -230,8 +248,8 @@ describe(initCommand, () => {
     const result = { filePath: '.github/workflows/release.yaml', outcome };
     mockScaffoldFiles.mockReturnValue([result]);
 
-    initCommand({ dryRun, force: false, withConfig: false });
+    initCommand({ dryRun, force: false, styles: SPLIT_STYLES, withConfig: false });
 
-    expect(mockReportWriteResult).toHaveBeenCalledWith(result, dryRun);
+    expect(mockReportWriteResult).toHaveBeenCalledWith(result, dryRun, SPLIT_STYLES);
   });
 });

@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 
-import { reportWriteResult, writeFileWithCheck } from '@williamthorsen/nmr-core';
+import { reportWriteResult, type StreamStyles, writeFileWithCheck } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { discoverWorkspaces } from '../discoverWorkspaces.ts';
@@ -15,6 +15,7 @@ import type { LabelDefinition } from './types.ts';
 interface InitOptions {
   dryRun: boolean;
   force: boolean;
+  styles: StreamStyles;
 }
 
 /** Caller workflow output path. */
@@ -28,7 +29,7 @@ const WORKFLOW_PATH = '.github/workflows/sync-labels.yaml';
  * printed to stdout for manual paste when the file is already there — an existing,
  * hand-authored config is never rewritten. Returns 0 on success, 1 on failure.
  */
-export async function syncLabelsInitCommand({ dryRun, force }: InitOptions): Promise<number> {
+export async function syncLabelsInitCommand({ dryRun, force, styles }: InitOptions): Promise<number> {
   if (checkRetiredSyncLabelsConfig()) {
     return 1;
   }
@@ -55,7 +56,7 @@ export async function syncLabelsInitCommand({ dryRun, force }: InitOptions): Pro
   }
 
   const configExists = existsSync(CONFIG_FILE_PATH);
-  const retiredNames = configExists ? await loadRetiredPackageNames() : [];
+  const retiredNames = configExists ? await loadRetiredPackageNames(styles) : [];
   if (retiredNames === undefined) {
     return 1;
   }
@@ -66,7 +67,7 @@ export async function syncLabelsInitCommand({ dryRun, force }: InitOptions): Pro
   // Scaffold caller workflow
   console.info('\n> Scaffolding files');
   const workflowResult = writeFileWithCheck(WORKFLOW_PATH, syncLabelsWorkflow(), { dryRun, overwrite: force });
-  reportWriteResult(workflowResult, dryRun);
+  reportWriteResult(workflowResult, dryRun, styles);
 
   // Seed the repoLabels block: print for manual paste when the config exists, write a new file otherwise.
   if (configExists) {
@@ -92,7 +93,7 @@ export async function syncLabelsInitCommand({ dryRun, force }: InitOptions): Pro
     dryRun,
     overwrite: force,
   });
-  reportWriteResult(configResult, dryRun);
+  reportWriteResult(configResult, dryRun, styles);
 
   if (workflowResult.outcome === 'failed' || configResult.outcome === 'failed') {
     process.stderr.write('Failed to scaffold one or more files.\n');
@@ -104,7 +105,7 @@ export async function syncLabelsInitCommand({ dryRun, force }: InitOptions): Pro
     console.info(`\n> [dry-run] Would generate ${LABELS_OUTPUT_PATH}`);
   } else {
     console.info('\n> Generating labels');
-    const generateExitCode = await generateCommand();
+    const generateExitCode = await generateCommand({ styles });
     if (generateExitCode !== 0) {
       return generateExitCode;
     }
@@ -131,8 +132,8 @@ export async function syncLabelsInitCommand({ dryRun, force }: InitOptions): Pro
  * Returns `undefined` when the config cannot be loaded or validated — init must not seed
  * a label set from a config it cannot read.
  */
-async function loadRetiredPackageNames(): Promise<string[] | undefined> {
-  const result = await loadValidatedConfig();
+async function loadRetiredPackageNames(styles: StreamStyles): Promise<string[] | undefined> {
+  const result = await loadValidatedConfig(styles.stderr);
   if (result.status === 'invalid') {
     return undefined;
   }

@@ -1,7 +1,7 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
-import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
+import { parseArgsOrExit, reportError, type StreamStyles } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { createGithubReleases } from './createGithubRelease.ts';
@@ -22,7 +22,7 @@ const createGithubReleaseFlagSchema = {
  * Private/unpublishable workspaces are skipped with a warning and never get a Release, matching
  * `release-kit publish`; an all-private tag set is a clean no-op.
  */
-export async function createGithubReleaseCommand(argv: string[]): Promise<void> {
+export async function createGithubReleaseCommand(argv: string[], styles: StreamStyles): Promise<void> {
   const parsed = parseArgsOrExit(argv, createGithubReleaseFlagSchema);
 
   const { dryRun } = parsed.flags;
@@ -45,7 +45,9 @@ export async function createGithubReleaseCommand(argv: string[]): Promise<void> 
     return;
   }
 
-  const { changelogJsonOutputPath, sectionOrder } = await resolveReleaseNotesConfig({ strictLoad: true });
+  const { changelogJsonOutputPath, sectionOrder } = await resolveReleaseNotesConfig(styles.stderr, {
+    strictLoad: true,
+  });
 
   let outcome;
   try {

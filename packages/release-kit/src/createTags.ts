@@ -1,13 +1,15 @@
 import { execFileSync } from 'node:child_process';
 
-import { GIT_OUTPUT_LIMIT, hasErrnoCode } from '@williamthorsen/nmr-core';
+import { GIT_OUTPUT_LIMIT, hasErrnoCode, type OutputStyle } from '@williamthorsen/nmr-core';
 
 import { deleteFileIfExists } from './deleteFileIfExists.ts';
+import { formatGlyphLine } from './glyphs.ts';
 import { readReleaseTags, RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './releaseFiles.ts';
 
 export interface CreateTagsOptions {
   dryRun: boolean;
   noGitChecks: boolean;
+  style: OutputStyle;
 }
 
 /**
@@ -16,7 +18,7 @@ export interface CreateTagsOptions {
  * Returns the list of tag names that were created (or would be created in dry-run mode).
  */
 export function createTags(options: CreateTagsOptions): string[] {
-  const { dryRun, noGitChecks } = options;
+  const { dryRun, noGitChecks, style } = options;
 
   const tags = readReleaseTags();
 
@@ -31,7 +33,7 @@ export function createTags(options: CreateTagsOptions): string[] {
   if (dryRun) {
     console.info('[dry-run] Would create tags:');
     for (const tag of tags) {
-      console.info(`🏷️ ${tag}`);
+      console.info(formatGlyphLine(style, 'tag', tag));
     }
     return tags;
   }
@@ -54,7 +56,7 @@ export function createTags(options: CreateTagsOptions): string[] {
 
   console.info('Created tags:');
   for (const tag of tags) {
-    console.info(`🏷️ ${tag}`);
+    console.info(formatGlyphLine(style, 'tag', tag));
   }
 
   deleteFileIfExists(RELEASE_TAGS_FILE);
