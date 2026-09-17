@@ -1,4 +1,4 @@
-import { formatErrorLine } from '@williamthorsen/nmr-core';
+import { formatErrorLine, formatStatusLine, type OutputStyle, type StreamStyles } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { buildChangelogEntries } from './buildChangelogEntries.ts';
@@ -65,6 +65,7 @@ export interface ValidateOverridesCommandDependencies {
  * project scope; monorepo expands to a project scope plus one scope per workspace.
  */
 export async function validateOverridesCommand(
+  styles: StreamStyles,
   dependencies: ValidateOverridesCommandDependencies = {},
 ): Promise<ValidateOverridesCommandResult> {
   const discover = dependencies.discoverWorkspaces ?? discoverWorkspaces;
@@ -105,7 +106,8 @@ export async function validateOverridesCommand(
   }
 
   const result = validate(inputs);
-  return formatValidateOverridesResult(result);
+  // A message has glyphs only when its exit code is non-zero, and the entry point writes that one to stderr.
+  return formatValidateOverridesResult(result, styles.stderr);
 }
 
 /**
@@ -114,6 +116,7 @@ export async function validateOverridesCommand(
  */
 export function formatValidateOverridesResult(
   result: ValidateAllChangelogOverridesResult,
+  style: OutputStyle,
 ): ValidateOverridesCommandResult {
   const { errors, warnings } = result;
   if (errors.length === 0 && warnings.length === 0) {
@@ -122,8 +125,8 @@ export function formatValidateOverridesResult(
 
   const exitCode = errors.length > 0 ? 2 : 1;
   const summary = formatSummaryLine(errors.length, warnings.length);
-  const errorLines = errors.map((message) => `  ❌ ${message}`);
-  const warningLines = warnings.map((message) => `  ⚠️  ${message}`);
+  const errorLines = errors.map((message) => `  ${formatStatusLine(style, 'failed', message)}`);
+  const warningLines = warnings.map((message) => `  ${formatStatusLine(style, 'warning', message)}`);
   const message = [summary, '', ...errorLines, ...warningLines].join('\n');
   return { exitCode, message };
 }

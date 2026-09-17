@@ -1,3 +1,5 @@
+import { formatStatusLine, type OutputStyle, type StreamStyles } from '@williamthorsen/nmr-core';
+
 import { detectRepoType } from './init/detectRepoType.ts';
 import { previewTagPrefixes, type TagPrefixPreview, type TagPrefixPreviewRow } from './previewTagPrefixes.ts';
 
@@ -12,14 +14,14 @@ import { previewTagPrefixes, type TagPrefixPreview, type TagPrefixPreviewRow } f
  *
  * @returns The exit code the caller should use.
  */
-export async function showTagPrefixesCommand(): Promise<number> {
+export async function showTagPrefixesCommand(styles: StreamStyles): Promise<number> {
   if (detectRepoType() === 'single-package') {
     process.stdout.write(renderSinglePackage());
     return 0;
   }
 
   const preview = await previewTagPrefixes();
-  process.stdout.write(renderMonorepo(preview));
+  process.stdout.write(renderMonorepo(preview, styles.stdout));
   return computeExitCode(preview);
 }
 
@@ -34,18 +36,21 @@ function renderSinglePackage(): string {
 }
 
 /** Render the full monorepo preview: workspace table, collision footer, undeclared section. */
-function renderMonorepo(preview: TagPrefixPreview): string {
+function renderMonorepo(preview: TagPrefixPreview, style: OutputStyle): string {
   const lines: string[] = ['Workspace tag prefixes:', ''];
   for (const row of preview.workspaces) {
-    lines.push(...renderWorkspaceRow(row));
+    lines.push(...renderWorkspaceRow(row, style));
   }
 
   if (preview.collisions.length > 0) {
     lines.push(
       '',
-      ...preview.collisions.map(
-        (collision) =>
-          `⛔ tag prefix collision: '${collision.tagPrefix}' used by ${collision.workspacePaths.join(', ')}`,
+      ...preview.collisions.map((collision) =>
+        formatStatusLine(
+          style,
+          'failed',
+          `tag prefix collision: '${collision.tagPrefix}' used by ${collision.workspacePaths.join(', ')}`,
+        ),
       ),
     );
   }
@@ -73,21 +78,27 @@ function renderMonorepo(preview: TagPrefixPreview): string {
 }
 
 /** Render a single workspace's lines: header with derived-prefix status, plus legacy-entry lines. */
-function renderWorkspaceRow(row: TagPrefixPreviewRow): string[] {
+function renderWorkspaceRow(row: TagPrefixPreviewRow, style: OutputStyle): string[] {
   const lines: string[] = [];
   if (row.derivedPrefix === null) {
-    lines.push(`  ${row.workspacePath} — ⛔ derivation failed: ${row.derivationError ?? 'unknown error'}`);
+    const failure = formatStatusLine(style, 'failed', `derivation failed: ${row.derivationError ?? 'unknown error'}`);
+    lines.push(`  ${row.workspacePath} — ${failure}`);
     return lines;
   }
 
-  const statusMarker = row.derivedTagCount > 0 ? `✅ ${row.derivedTagCount} tags` : '⚠️ no existing tags';
+  const statusMarker =
+    row.derivedTagCount > 0
+      ? formatStatusLine(style, 'passed', `${row.derivedTagCount} tags`)
+      : formatStatusLine(style, 'warning', 'no existing tags');
   lines.push(`  ${row.workspacePath} — derived prefix '${row.derivedPrefix}', ${statusMarker}`);
 
   for (const entry of row.legacyEntries) {
     if (entry.tagCount > 0) {
-      lines.push(`      ✅ ${entry.tagCount} legacy tags with '${entry.prefix}' prefix (recognized)`);
+      const recognized = `${entry.tagCount} legacy tags with '${entry.prefix}' prefix (recognized)`;
+      lines.push(`      ${formatStatusLine(style, 'passed', recognized)}`);
     } else {
-      lines.push(`      ⚠️ recorded legacy prefix '${entry.prefix}' has no tags`);
+      const tagless = `recorded legacy prefix '${entry.prefix}' has no tags`;
+      lines.push(`      ${formatStatusLine(style, 'warning', tagless)}`);
     }
   }
   return lines;

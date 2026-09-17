@@ -1,7 +1,7 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
-import { reportError } from '@williamthorsen/nmr-core';
+import { formatStatusLine, type OutputStyle, printError, reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from './defaults.ts';
@@ -33,6 +33,7 @@ export interface ResolveReleaseNotesConfigOptions {
  * When `strictLoad` is `true`, a load failure prints an error and calls `process.exit(1)`.
  */
 export async function resolveReleaseNotesConfig(
+  stderrStyle: OutputStyle,
   options: ResolveReleaseNotesConfigOptions = {},
 ): Promise<ResolvedReleaseNotesConfig> {
   const { strictLoad = false } = options;
@@ -60,12 +61,12 @@ export async function resolveReleaseNotesConfig(
   if (errors.length > 0) {
     process.stderr.write('Invalid config:\n');
     for (const err of errors) {
-      process.stderr.write(`  ❌ ${err}\n`);
+      printError(err, stderrStyle);
     }
     process.exit(1);
   }
   for (const warning of warnings) {
-    console.warn(`  ⚠️  ${warning}`);
+    console.warn(`  ${formatStatusLine(stderrStyle, 'warning', warning)}`);
   }
 
   return {

@@ -39,10 +39,10 @@ Example output from `prepare --dry-run` in a monorepo whose `arrays` workspace h
     [dry-run] Would bump packages/arrays/package.json
   Generating changelogs...
     [dry-run] Would run: npx --prefer-offline --yes git-cliff@<version> ... --output packages/arrays/CHANGELOG.md
-  🏷️  arrays-v1.3.0
+  🔖 arrays-v1.3.0
 
 ✅ Release preparation complete.
-   🏷️  arrays-v1.3.0
+   🔖 arrays-v1.3.0
   [dry-run] Would write tmp/.release-tags: arrays-v1.3.0
   [dry-run] Would write tmp/.release-summary
 ```

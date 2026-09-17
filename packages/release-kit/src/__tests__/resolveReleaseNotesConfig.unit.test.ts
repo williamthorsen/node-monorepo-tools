@@ -43,7 +43,7 @@ describe(resolveReleaseNotesConfig, () => {
   it('returns defaults when loadConfig throws', async () => {
     mockLoadConfig.mockRejectedValue(new Error('config read failure'));
 
-    const result = await resolveReleaseNotesConfig();
+    const result = await resolveReleaseNotesConfig('rich');
 
     expect(result).toStrictEqual({
       releaseNotes: { ...DEFAULT_RELEASE_NOTES_CONFIG },
@@ -57,7 +57,7 @@ describe(resolveReleaseNotesConfig, () => {
   it('exits with code 1 when loadConfig throws and strictLoad is true', async () => {
     mockLoadConfig.mockRejectedValue(new Error('config read failure'));
 
-    const error = await captureError(ProcessExitError, () => resolveReleaseNotesConfig({ strictLoad: true }));
+    const error = await captureError(ProcessExitError, () => resolveReleaseNotesConfig('rich', { strictLoad: true }));
 
     expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Error: Failed to load config: config read failure\n');
@@ -66,7 +66,7 @@ describe(resolveReleaseNotesConfig, () => {
   it('returns defaults when raw config is undefined', async () => {
     mockLoadConfig.mockResolvedValue(undefined);
 
-    const result = await resolveReleaseNotesConfig();
+    const result = await resolveReleaseNotesConfig('rich');
 
     expect(result).toStrictEqual({
       releaseNotes: { ...DEFAULT_RELEASE_NOTES_CONFIG },
@@ -84,11 +84,22 @@ describe(resolveReleaseNotesConfig, () => {
       warnings: [],
     });
 
-    const error = await captureError(ProcessExitError, () => resolveReleaseNotesConfig());
+    const error = await captureError(ProcessExitError, () => resolveReleaseNotesConfig('rich'));
 
     expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Invalid config:\n');
     expect(capture.stderrChunks).toContain("  \u{274C} Unknown field: 'bogus'\n");
+  });
+
+  it('reports errors and warnings without a pictographic character in the plain style', async () => {
+    mockLoadConfig.mockResolvedValue({ bogus: 123 });
+    mockValidateConfig.mockReturnValue({ config: {}, errors: [], warnings: ['a warning'] });
+    await resolveReleaseNotesConfig('plain');
+    mockValidateConfig.mockReturnValue({ config: {}, errors: ['an error'], warnings: [] });
+    await captureError(ProcessExitError, () => resolveReleaseNotesConfig('plain'));
+
+    expect(console.warn).toHaveBeenCalledWith('  WARN  a warning');
+    expect(capture.stderrChunks).toContain('  FAIL  an error\n');
   });
 
   it('logs each warning from validateConfig', async () => {
@@ -102,7 +113,7 @@ describe(resolveReleaseNotesConfig, () => {
       ],
     });
 
-    await resolveReleaseNotesConfig();
+    await resolveReleaseNotesConfig('rich');
 
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('shouldInjectIntoReadme is enabled'));
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('another warning'));
@@ -122,7 +133,7 @@ describe(resolveReleaseNotesConfig, () => {
       warnings: [],
     });
 
-    const result = await resolveReleaseNotesConfig();
+    const result = await resolveReleaseNotesConfig('rich');
 
     expect(result).toStrictEqual({
       releaseNotes: {
@@ -142,7 +153,7 @@ describe(resolveReleaseNotesConfig, () => {
       warnings: [],
     });
 
-    const result = await resolveReleaseNotesConfig();
+    const result = await resolveReleaseNotesConfig('rich');
 
     expect(result.sectionOrder).toStrictEqual(defaultSectionOrder);
   });
@@ -160,7 +171,7 @@ describe(resolveReleaseNotesConfig, () => {
       warnings: [],
     });
 
-    const result = await resolveReleaseNotesConfig();
+    const result = await resolveReleaseNotesConfig('rich');
 
     // `fix` appears at its canonical index, but its header is overridden to 'Fixes'.
     const fixIndex = Object.keys(DEFAULT_WORK_TYPES).indexOf('fix');
@@ -182,7 +193,7 @@ describe(resolveReleaseNotesConfig, () => {
       warnings: [],
     });
 
-    const result = await resolveReleaseNotesConfig();
+    const result = await resolveReleaseNotesConfig('rich');
 
     expect(result.changelogJsonOutputPath).toBe(DEFAULT_CHANGELOG_JSON_CONFIG.outputPath);
   });

@@ -1,4 +1,4 @@
-import { reportError } from '@williamthorsen/nmr-core';
+import { type OutputStyle, printError, reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { loadConfig } from './loadConfig.ts';
@@ -16,7 +16,7 @@ export type LoadValidatedConfigResult =
  * Load `.config/release-kit.config.ts` and validate it against the shared schema,
  * reporting load failures and validation errors to stderr.
  */
-export async function loadValidatedConfig(): Promise<LoadValidatedConfigResult> {
+export async function loadValidatedConfig(stderrStyle: OutputStyle): Promise<LoadValidatedConfigResult> {
   let raw: unknown;
   try {
     raw = await loadConfig();
@@ -34,7 +34,7 @@ export async function loadValidatedConfig(): Promise<LoadValidatedConfigResult> 
   if (errors.length > 0) {
     process.stderr.write('Invalid config:\n');
     for (const err of errors) {
-      process.stderr.write(`  ❌ ${err}\n`);
+      printError(err, stderrStyle);
     }
     return { status: 'invalid' };
   }

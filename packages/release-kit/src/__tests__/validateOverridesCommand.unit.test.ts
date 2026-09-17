@@ -1,3 +1,4 @@
+import type { StreamStyles } from '@williamthorsen/nmr-core';
 import { createTempTree, pointCwdAt, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -5,6 +6,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runGitCliff } from '../runGitCliff.ts';
 import type { ChangelogEntry } from '../types.ts';
 import { formatValidateOverridesResult, validateOverridesCommand } from '../validateOverridesCommand.ts';
+
+const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
 // Stub `runGitCliff` so the near-integration block can exercise the real
 // `validateOverridesCommand → buildChangelogEntries → validateAllChangelogOverrides` pipeline
@@ -42,55 +45,80 @@ function entriesFromReleases(specs: { version: string; hashes: string[] }[]): Ch
 
 describe(formatValidateOverridesResult, () => {
   it('returns exit 0 with a success message when there are no findings', () => {
-    const result = formatValidateOverridesResult({ errors: [], warnings: [] });
+    const result = formatValidateOverridesResult({ errors: [], warnings: [] }, 'rich');
     expect(result.exitCode).toBe(0);
     expect(result.message).toMatch(/valid/);
   });
 
   it('returns exit 1 with only warnings rendered (zero-count error category is omitted)', () => {
-    const result = formatValidateOverridesResult({
-      errors: [],
-      warnings: ["packages/foo/.meta/changelog-overrides.json: Override key 'stale99' did not match"],
-    });
+    const result = formatValidateOverridesResult(
+      {
+        errors: [],
+        warnings: ["packages/foo/.meta/changelog-overrides.json: Override key 'stale99' did not match"],
+      },
+      'rich',
+    );
     expect(result.exitCode).toBe(1);
     expect(result.message).toContain('Found 1 warning:');
     expect(result.message).not.toContain('error');
     expect(result.message).toContain('stale99');
     expect(result.message).not.toContain('❌');
-    expect(result.message).toContain('⚠️');
+    expect(result.message).toContain('🟠');
   });
 
   it('omits the warning category from the summary when only errors are present', () => {
-    const result = formatValidateOverridesResult({
-      errors: ["file.json: Override key 'abc' is ambiguous: matches multiple commits"],
-      warnings: [],
-    });
+    const result = formatValidateOverridesResult(
+      {
+        errors: ["file.json: Override key 'abc' is ambiguous: matches multiple commits"],
+        warnings: [],
+      },
+      'rich',
+    );
     expect(result.message).toContain('Found 1 error:');
     expect(result.message).not.toContain('warning');
   });
 
   it('returns exit 2 when any error is present, regardless of warnings', () => {
-    const result = formatValidateOverridesResult({
-      errors: [".meta/changelog-overrides.json: Override key 'abc' is ambiguous: matches multiple commits"],
-      warnings: ["packages/foo/.meta/changelog-overrides.json: Override key 'stale' did not match"],
-    });
+    const result = formatValidateOverridesResult(
+      {
+        errors: [".meta/changelog-overrides.json: Override key 'abc' is ambiguous: matches multiple commits"],
+        warnings: ["packages/foo/.meta/changelog-overrides.json: Override key 'stale' did not match"],
+      },
+      'rich',
+    );
     expect(result.exitCode).toBe(2);
     expect(result.message).toContain('ambiguous');
     expect(result.message).toContain('stale');
   });
 
+  it('renders errors and warnings without a pictographic character in the plain style', () => {
+    const findings = { errors: ['file.json: error a'], warnings: ['file.json: warn a'] };
+
+    const plain = formatValidateOverridesResult(findings, 'plain');
+
+    // The rich render proves that the fixture reaches both glyph-bearing branches.
+    expect(formatValidateOverridesResult(findings, 'rich').message).toContain(
+      '  ❌ file.json: error a\n  🟠 file.json: warn a',
+    );
+    expect(plain.message).toContain('  FAIL  file.json: error a\n  WARN  file.json: warn a');
+    expect(plain.message).not.toMatch(/\p{Extended_Pictographic}/u);
+  });
+
   it('pluralizes the summary line', () => {
-    const result = formatValidateOverridesResult({
-      errors: ['file.json: error a', 'file.json: error b'],
-      warnings: ['file.json: warn a'],
-    });
+    const result = formatValidateOverridesResult(
+      {
+        errors: ['file.json: error a', 'file.json: error b'],
+        warnings: ['file.json: warn a'],
+      },
+      'rich',
+    );
     expect(result.message).toContain('Found 2 errors and 1 warning');
   });
 });
 
 describe(validateOverridesCommand, () => {
   it('returns exit 0 in a single-package layout with no overrides', async () => {
-    const result = await validateOverridesCommand({
+    const result = await validateOverridesCommand(RICH_STYLES, {
       discoverWorkspaces: () => Promise.resolve(undefined),
       loadConfig: () => Promise.resolve(undefined),
       buildEntries: () => entriesFromHashes([]),
@@ -100,7 +128,7 @@ describe(validateOverridesCommand, () => {
   });
 
   it('returns exit 1 when validation surfaces only warnings', async () => {
-    const result = await validateOverridesCommand({
+    const result = await validateOverridesCommand(RICH_STYLES, {
       discoverWorkspaces: () => Promise.resolve(undefined),
       loadConfig: () => Promise.resolve(undefined),
       buildEntries: () => entriesFromHashes([]),
@@ -110,7 +138,7 @@ describe(validateOverridesCommand, () => {
   });
 
   it('returns exit 2 when validation surfaces errors', async () => {
-    const result = await validateOverridesCommand({
+    const result = await validateOverridesCommand(RICH_STYLES, {
       discoverWorkspaces: () => Promise.resolve(undefined),
       loadConfig: () => Promise.resolve(undefined),
       buildEntries: () => entriesFromHashes([]),
@@ -120,7 +148,7 @@ describe(validateOverridesCommand, () => {
   });
 
   it('returns exit 2 with a config-load failure message', async () => {
-    const result = await validateOverridesCommand({
+    const result = await validateOverridesCommand(RICH_STYLES, {
       discoverWorkspaces: () => Promise.resolve(undefined),
       loadConfig: () => Promise.reject(new Error('boom')),
       validate: () => ({ errors: [], warnings: [] }),
@@ -132,7 +160,7 @@ describe(validateOverridesCommand, () => {
 
   it('returns exit 2 with an Invalid config message when the loaded config fails validation', async () => {
     // `validateConfig` rejects non-record top-level values with "Config must be an object".
-    const result = await validateOverridesCommand({
+    const result = await validateOverridesCommand(RICH_STYLES, {
       discoverWorkspaces: () => Promise.resolve(undefined),
       loadConfig: () => Promise.resolve(42),
       validate: () => ({ errors: [], warnings: [] }),
@@ -145,7 +173,7 @@ describe(validateOverridesCommand, () => {
 
   it('passes a project-only scope to validate in single-package mode', async () => {
     let received: { workspaces: number; projectHashes: number } | undefined;
-    await validateOverridesCommand({
+    await validateOverridesCommand(RICH_STYLES, {
       discoverWorkspaces: () => Promise.resolve(undefined),
       loadConfig: () => Promise.resolve(undefined),
       buildEntries: () => entriesFromHashes(['hash1', 'hash2']),
@@ -170,7 +198,7 @@ describe(validateOverridesCommand, () => {
     // available to the validator. An override targeting a hash in a past release (here:
     // 'aabbcc1234') was reported stale because the validator never saw that hash.
     let capturedHashes: readonly string[] = [];
-    await validateOverridesCommand({
+    await validateOverridesCommand(RICH_STYLES, {
       discoverWorkspaces: () => Promise.resolve(undefined),
       loadConfig: () => Promise.resolve(undefined),
       buildEntries: () =>
@@ -208,7 +236,7 @@ describe(validateOverridesCommand, () => {
       const unreleasedHash = '9988aabbccddeeff9988aabbccddeeff9988aabb';
       writeOverrides({ aabbcc12: { audience: 'skip' } });
 
-      const result = await validateOverridesCommand({
+      const result = await validateOverridesCommand(RICH_STYLES, {
         discoverWorkspaces: () => Promise.resolve(undefined),
         loadConfig: () => Promise.resolve(undefined),
         buildEntries: () =>
@@ -226,7 +254,7 @@ describe(validateOverridesCommand, () => {
     it('flags an override targeting an unreachable hash as stale', async () => {
       writeOverrides({ deadbeef: { audience: 'skip' } });
 
-      const result = await validateOverridesCommand({
+      const result = await validateOverridesCommand(RICH_STYLES, {
         discoverWorkspaces: () => Promise.resolve(undefined),
         loadConfig: () => Promise.resolve(undefined),
         buildEntries: () =>
@@ -244,7 +272,7 @@ describe(validateOverridesCommand, () => {
     it('surfaces an ambiguous-prefix error with file-path attribution', async () => {
       writeOverrides({ aa: { audience: 'skip' } });
 
-      const result = await validateOverridesCommand({
+      const result = await validateOverridesCommand(RICH_STYLES, {
         discoverWorkspaces: () => Promise.resolve(undefined),
         loadConfig: () => Promise.resolve(undefined),
         buildEntries: () =>
@@ -304,7 +332,7 @@ describe(validateOverridesCommand, () => {
         deadbeef: { audience: 'skip' }, // unreachable — must be flagged stale
       });
 
-      const result = await validateOverridesCommand({
+      const result = await validateOverridesCommand(RICH_STYLES, {
         discoverWorkspaces: () => Promise.resolve(undefined),
         loadConfig: () => Promise.resolve(undefined),
       });
@@ -342,7 +370,7 @@ describe(validateOverridesCommand, () => {
     it('passes per-workspace tagPattern (with legacy identities) and project-tier tagPattern with the union of workspace paths', async () => {
       const calls: { tagPattern: string | undefined; includePaths: readonly string[] | undefined }[] = [];
 
-      await validateOverridesCommand({
+      await validateOverridesCommand(RICH_STYLES, {
         discoverWorkspaces: () => Promise.resolve(['packages/foo', 'packages/bar']),
         loadConfig: () =>
           Promise.resolve({
@@ -381,7 +409,7 @@ describe(validateOverridesCommand, () => {
     it('scopes the project tier to a declared project.paths', async () => {
       const calls: { tagPattern: string | undefined; includePaths: readonly string[] | undefined }[] = [];
 
-      await validateOverridesCommand({
+      await validateOverridesCommand(RICH_STYLES, {
         discoverWorkspaces: () => Promise.resolve(['packages/foo', 'packages/bar']),
         loadConfig: () => Promise.resolve({ project: { paths: ['**'], tagPrefix: 'mono-v' } }),
         buildEntries: (_config, tagPattern, includePaths) => {

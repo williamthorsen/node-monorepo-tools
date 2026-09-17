@@ -3,7 +3,14 @@
 
 import { execSync } from 'node:child_process';
 
-import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
+import {
+  formatStatusLine,
+  type OutputStyle,
+  parseArgsOrExit,
+  printError,
+  reportError,
+  type StreamStyles,
+} from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
@@ -11,6 +18,7 @@ import { buildDependencyGraph } from './buildDependencyGraph.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
 import { dim } from './format.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
+import { formatGlyphLine } from './glyphs.ts';
 import { loadConfig, mergeMonorepoConfig, mergeSinglePackageConfig, readRootPackageVersion } from './loadConfig.ts';
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './releaseFiles.ts';
 import { applyReleasePlan, type ReleasePlan } from './releasePlan.ts';
@@ -111,7 +119,7 @@ export function parseArgs(argv: string[]): {
  * 4. Delegates to `releasePrepare` or `releasePrepareMono` to compute the release plan.
  * 5. Applies the plan, runs the format command, and prints the result via `reportPrepare`.
  */
-export async function prepareCommand(argv: string[]): Promise<void> {
+export async function prepareCommand(argv: string[], styles: StreamStyles): Promise<void> {
   const { dryRun, force, noGitChecks, bumpOverride, only, setVersion, withReleaseNotes } = parseArgs(argv);
   const options = {
     force,
@@ -121,7 +129,7 @@ export async function prepareCommand(argv: string[]): Promise<void> {
   };
 
   if (dryRun) {
-    console.info('\n🔍 DRY RUN — no files will be modified\n');
+    console.info(`\n${formatGlyphLine(styles.stdout, 'dryRun', 'DRY RUN — no files will be modified')}\n`);
   }
 
   // Guard against running on a dirty working tree (skip for dry runs and --no-git-checks).
@@ -134,7 +142,7 @@ export async function prepareCommand(argv: string[]): Promise<void> {
     }
   }
 
-  const userConfig = await loadAndValidateConfig();
+  const userConfig = await loadAndValidateConfig(styles.stderr);
 
   // 3. Discover workspaces
   let discoveredPaths: string[] | undefined;
@@ -147,9 +155,9 @@ export async function prepareCommand(argv: string[]): Promise<void> {
 
   // 4. Determine mode, merge config, and run
   if (discoveredPaths === undefined) {
-    runSinglePackageMode(userConfig, options, only, dryRun);
+    runSinglePackageMode(userConfig, options, only, dryRun, styles.stdout);
   } else {
-    runMonorepoMode(discoveredPaths, userConfig, options, only, setVersion, dryRun);
+    runMonorepoMode(discoveredPaths, userConfig, options, only, setVersion, dryRun, styles.stdout);
   }
 }
 
@@ -158,6 +166,7 @@ function runSinglePackageMode(
   options: PrepareOptions,
   only: string[] | undefined,
   dryRun: boolean,
+  style: OutputStyle,
 ): void {
   if (only !== undefined) {
     reportError('--only is only supported for monorepo configurations');
@@ -179,7 +188,7 @@ function runSinglePackageMode(
   }
 
   const config = mergeSinglePackageConfig(userConfig);
-  runAndReport(() => releasePrepare(config, options), dryRun);
+  runAndReport(() => releasePrepare(config, options), dryRun, style);
 }
 
 function runMonorepoMode(
@@ -189,6 +198,7 @@ function runMonorepoMode(
   only: string[] | undefined,
   setVersion: string | undefined,
   dryRun: boolean,
+  style: OutputStyle,
 ): void {
   let config: MonorepoReleaseConfig;
   try {
@@ -268,7 +278,7 @@ function runMonorepoMode(
     }
   }
 
-  runAndReport(() => releasePrepareMono(config, { ...options, ...(only !== undefined && { only }) }), dryRun);
+  runAndReport(() => releasePrepareMono(config, { ...options, ...(only !== undefined && { only }) }), dryRun, style);
 }
 
 interface PrepareOptions {
@@ -279,7 +289,7 @@ interface PrepareOptions {
 }
 
 /** Loads and validate the release-kit config file, exiting on errors. */
-async function loadAndValidateConfig(): Promise<ReleaseKitConfig | undefined> {
+async function loadAndValidateConfig(stderrStyle: OutputStyle): Promise<ReleaseKitConfig | undefined> {
   let rawConfig: unknown;
   try {
     rawConfig = await loadConfig();
@@ -296,13 +306,13 @@ async function loadAndValidateConfig(): Promise<ReleaseKitConfig | undefined> {
   if (errors.length > 0) {
     process.stderr.write('Invalid config:\n');
     for (const err of errors) {
-      process.stderr.write(`  ❌ ${err}\n`);
+      printError(err, stderrStyle);
     }
     process.exit(1);
   }
 
   for (const warning of warnings) {
-    console.warn(`  ⚠️  ${warning}`);
+    console.warn(`  ${formatStatusLine(stderrStyle, 'warning', warning)}`);
   }
 
   return config;
@@ -316,7 +326,7 @@ async function loadAndValidateConfig(): Promise<ReleaseKitConfig | undefined> {
  * the plan just put on disk; its failure leaves the release materialized and the tags file in
  * place, so `release-kit commit` still proceeds.
  */
-function runAndReport(computePlan: () => ReleasePlan, dryRun: boolean): void {
+function runAndReport(computePlan: () => ReleasePlan, dryRun: boolean, style: OutputStyle): void {
   let plan: ReleasePlan;
   try {
     plan = computePlan();
@@ -327,7 +337,7 @@ function runAndReport(computePlan: () => ReleasePlan, dryRun: boolean): void {
   }
 
   if (dryRun) {
-    process.stdout.write(reportPrepare(plan, { applied: false }) + '\n');
+    process.stdout.write(reportPrepare(plan, { applied: false, style }) + '\n');
     reportPlanFiles(plan, true);
     return;
   }
@@ -342,7 +352,7 @@ function runAndReport(computePlan: () => ReleasePlan, dryRun: boolean): void {
   const formatError = runFormatCommand(plan.formatCommand);
 
   process.stdout.write(
-    reportPrepare(plan, { applied: true, ...(formatError !== undefined && { formatError }) }) + '\n',
+    reportPrepare(plan, { applied: true, style, ...(formatError !== undefined && { formatError }) }) + '\n',
   );
   reportPlanFiles(plan, false);
 

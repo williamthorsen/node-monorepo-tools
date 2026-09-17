@@ -1,3 +1,4 @@
+import type { StreamStyles } from '@williamthorsen/nmr-core';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { ProcessExitError, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,6 +10,8 @@ vi.mock(import('../createTags.ts'), () => ({
 }));
 
 import { tagCommand } from '../tagCommand.ts';
+
+const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
 describe(tagCommand, () => {
   let capture: CapturedStdio;
@@ -27,31 +30,31 @@ describe(tagCommand, () => {
   });
 
   it('delegates to createTags with default options', () => {
-    tagCommand([]);
+    tagCommand([], RICH_STYLES);
 
-    expect(mockCreateTags).toHaveBeenCalledWith({ dryRun: false, noGitChecks: false });
+    expect(mockCreateTags).toHaveBeenCalledWith({ dryRun: false, noGitChecks: false, style: 'rich' });
   });
 
   it('passes dryRun when --dry-run is provided', () => {
-    tagCommand(['--dry-run']);
+    tagCommand(['--dry-run'], RICH_STYLES);
 
-    expect(mockCreateTags).toHaveBeenCalledWith({ dryRun: true, noGitChecks: false });
+    expect(mockCreateTags).toHaveBeenCalledWith({ dryRun: true, noGitChecks: false, style: 'rich' });
   });
 
   it('passes noGitChecks when --no-git-checks is provided', () => {
-    tagCommand(['--no-git-checks']);
+    tagCommand(['--no-git-checks'], RICH_STYLES);
 
-    expect(mockCreateTags).toHaveBeenCalledWith({ dryRun: false, noGitChecks: true });
+    expect(mockCreateTags).toHaveBeenCalledWith({ dryRun: false, noGitChecks: true, style: 'rich' });
   });
 
   it('passes both flags when both are provided', () => {
-    tagCommand(['--dry-run', '--no-git-checks']);
+    tagCommand(['--dry-run', '--no-git-checks'], RICH_STYLES);
 
-    expect(mockCreateTags).toHaveBeenCalledWith({ dryRun: true, noGitChecks: true });
+    expect(mockCreateTags).toHaveBeenCalledWith({ dryRun: true, noGitChecks: true, style: 'rich' });
   });
 
   it('exits with code 1 on unknown flags', async () => {
-    const error = await captureError(ProcessExitError, () => tagCommand(['--unknown']));
+    const error = await captureError(ProcessExitError, () => tagCommand(['--unknown'], RICH_STYLES));
 
     expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Error: Unknown option: --unknown\n');
@@ -63,7 +66,7 @@ describe(tagCommand, () => {
       throw new Error('No tags file found. Run `release-kit prepare` first.');
     });
 
-    const error = await captureError(ProcessExitError, () => tagCommand([]));
+    const error = await captureError(ProcessExitError, () => tagCommand([], RICH_STYLES));
 
     expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Error: No tags file found. Run `release-kit prepare` first.\n');

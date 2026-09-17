@@ -1,7 +1,7 @@
 /* eslint n/no-process-exit: off */
 /* eslint unicorn/no-process-exit: off */
 
-import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
+import { parseArgsOrExit, reportError, type StreamStyles } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { createTags } from './createTags.ts';
@@ -12,12 +12,12 @@ const tagFlagSchema = {
 };
 
 /** Orchestrate the CLI `tag` command: parse flags and delegate to `createTags`. */
-export function tagCommand(argv: string[]): void {
+export function tagCommand(argv: string[], styles: StreamStyles): void {
   // Help flags are handled upstream in the CLI entry point (bin/release-kit.ts).
   const { dryRun, noGitChecks } = parseArgsOrExit(argv, tagFlagSchema).flags;
 
   try {
-    createTags({ dryRun, noGitChecks });
+    createTags({ dryRun, noGitChecks, style: styles.stdout });
   } catch (error: unknown) {
     reportError(describeError(error));
     process.exit(1);

@@ -1,3 +1,4 @@
+import type { StreamStyles } from '@williamthorsen/nmr-core';
 import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -41,6 +42,8 @@ vi.mock(import('node:fs'), () => ({
 import { formatLabelsYaml, generateCommand, LABELS_OUTPUT_PATH } from '../generateCommand.ts';
 import { RETIRED_SYNC_LABELS_CONFIG_PATH } from '../retiredConfig.ts';
 
+const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
+
 describe(generateCommand, () => {
   afterEach(() => {
     mockExistsSync.mockReset();
@@ -57,7 +60,7 @@ describe(generateCommand, () => {
     mockExistsSync.mockImplementation((path: string) => path === RETIRED_SYNC_LABELS_CONFIG_PATH);
     using capture = captureStdio();
 
-    const exitCode = await generateCommand();
+    const exitCode = await generateCommand({ styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
     expect(capture.stderr).toContain('no longer read');
@@ -69,7 +72,7 @@ describe(generateCommand, () => {
     mockLoadConfig.mockResolvedValue(undefined);
     using capture = captureStdio();
 
-    const exitCode = await generateCommand();
+    const exitCode = await generateCommand({ styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
     expect(capture.stderr).toContain('Error: No config file found');
@@ -80,7 +83,7 @@ describe(generateCommand, () => {
     mockLoadConfig.mockRejectedValue(new Error('parse failure'));
     using capture = captureStdio();
 
-    const exitCode = await generateCommand();
+    const exitCode = await generateCommand({ styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
     expect(capture.stderr).toContain('parse failure');
@@ -92,7 +95,7 @@ describe(generateCommand, () => {
     mockValidateConfig.mockReturnValue({ config: {}, errors: ['repoLabels.extends: invalid'], warnings: [] });
     using capture = captureStdio();
 
-    const exitCode = await generateCommand();
+    const exitCode = await generateCommand({ styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
     expect(capture.stderr).toContain('repoLabels.extends: invalid');
@@ -103,7 +106,7 @@ describe(generateCommand, () => {
     givenValidConfig({});
     using capture = captureStdio();
 
-    const exitCode = await generateCommand();
+    const exitCode = await generateCommand({ styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
     expect(capture.stderr).toContain('repoLabels');
@@ -117,7 +120,7 @@ describe(generateCommand, () => {
     });
     using capture = captureStdio();
 
-    const exitCode = await generateCommand();
+    const exitCode = await generateCommand({ styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
     expect(capture.stderr).toContain("Label 'ghost' is set to null");
@@ -131,7 +134,7 @@ describe(generateCommand, () => {
     mockHashPresetFile.mockReturnValue('abc123');
     using _silent = silenceConsole(['info']);
 
-    const exitCode = await generateCommand();
+    const exitCode = await generateCommand({ styles: RICH_STYLES });
 
     expect(exitCode).toBe(0);
     expect(mockMkdirSync).toHaveBeenCalledWith('.github', { recursive: true });
@@ -152,7 +155,7 @@ describe(generateCommand, () => {
 
     mockReadFileSync.mockReturnValue(formatLabelsYaml(labels, new Map([['common', 'abc123']])));
 
-    const exitCode = await generateCommand({ check: true });
+    const exitCode = await generateCommand({ check: true, styles: RICH_STYLES });
 
     expect(exitCode).toBe(0);
     expect(mockWriteFileSync).not.toHaveBeenCalled();
@@ -166,7 +169,7 @@ describe(generateCommand, () => {
     mockReadFileSync.mockReturnValue('# outdated content\n');
     using capture = captureStdio();
 
-    const exitCode = await generateCommand({ check: true });
+    const exitCode = await generateCommand({ check: true, styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
     expect(capture.stderr).toContain('stale');
@@ -182,7 +185,7 @@ describe(generateCommand, () => {
     });
     using capture = captureStdio();
 
-    const exitCode = await generateCommand({ check: true });
+    const exitCode = await generateCommand({ check: true, styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
     expect(capture.stderr).toContain('missing');
@@ -198,7 +201,7 @@ describe(generateCommand, () => {
     });
     using capture = captureStdio();
 
-    const exitCode = await generateCommand();
+    const exitCode = await generateCommand({ styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
     expect(capture.stderr).toContain('EACCES');

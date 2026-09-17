@@ -99,10 +99,12 @@ export function reportError(message: string, stream: Writable = process.stderr):
 }
 
 /**
- * Prints a terminal message for a write result based on its outcome. A given style applies to
- * every outcome; without one, each message takes the style detected for its own stream.
+ * Prints a terminal message for a write result based on its outcome: a failure to stderr, every
+ * other outcome to stdout. Each message takes its own stream's style from `styles`; without
+ * `styles`, it takes the style detected for that stream.
  */
-export function reportWriteResult(result: WriteResult, dryRun: boolean, style?: OutputStyle): void {
+export function reportWriteResult(result: WriteResult, dryRun: boolean, styles?: StreamStyles): void {
+  const style = styles?.stdout;
   switch (result.outcome) {
     case 'created':
       if (dryRun) {
@@ -130,9 +132,9 @@ export function reportWriteResult(result: WriteResult, dryRun: boolean, style?: 
       break;
     case 'failed':
       if (result.error) {
-        printError(`Failed to write ${result.filePath}: ${result.error}`, style);
+        printError(`Failed to write ${result.filePath}: ${result.error}`, styles?.stderr);
       } else {
-        printError(`Failed to write ${result.filePath}`, style);
+        printError(`Failed to write ${result.filePath}`, styles?.stderr);
       }
       break;
   }
