@@ -5,7 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { bold, dim, sectionHeader } from '../format.ts';
 
-const ESCAPE = '\u{1B}';
+/** SGR codes that open each style. The closing code is Node's choice, so no assertion pins it. */
+const BOLD_OPEN = '\u{1B}[1m';
+const DIM_OPEN = '\u{1B}[2m';
 
 /** Stream states for which no escapes are emitted. */
 const PLAIN_STATES = [
@@ -48,7 +50,7 @@ describe('color-aware styling', () => {
 
       const styled = bold('hello', createStream());
 
-      expect(styled).toContain(ESCAPE);
+      expect(styled).toContain(BOLD_OPEN);
       expect(styled).toContain('hello');
     });
   });
@@ -65,14 +67,8 @@ describe('color-aware styling', () => {
 
       const styled = dim('hello', createStream());
 
-      expect(styled).toContain(ESCAPE);
+      expect(styled).toContain(DIM_OPEN);
       expect(styled).toContain('hello');
-    });
-
-    it('styles the text differently from bold', () => {
-      const terminal = createColorTerminal();
-
-      expect(dim('hello', terminal)).not.toBe(bold('hello', terminal));
     });
   });
 });
