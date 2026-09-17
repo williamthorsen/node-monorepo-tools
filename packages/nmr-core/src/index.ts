@@ -24,14 +24,30 @@ export type {
 } from './parseArgs.ts';
 export { parseArgs, parseArgsOrExit, ParseError } from './parseArgs.ts';
 export { readPackageVersion } from './readPackageVersion.ts';
+export type {
+  GlyphSet,
+  InvalidOutputStyle,
+  OutputStyle,
+  ResolveStreamStylesOptions,
+  StatusGlyphName,
+  StreamStyleResolution,
+  StreamStyles,
+} from './terminal.ts';
 export {
+  defineGlyphSet,
+  describeInvalidOutputStyle,
   formatErrorLine,
+  formatStatusLine,
+  measureGlyphColumn,
   printError,
   printSkip,
   printStep,
   printSuccess,
   reportError,
   reportWriteResult,
+  resolveStreamStyles,
+  STATUS_GLYPHS,
+  wrapToWidth,
 } from './terminal.ts';
 export type { WriteOutcome, WriteResult } from './writeFileWithCheck.ts';
 export { writeFileWithCheck } from './writeFileWithCheck.ts';
