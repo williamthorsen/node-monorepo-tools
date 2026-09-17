@@ -310,7 +310,7 @@ describe(checkCommand, () => {
     const exitCode = await checkCommand(makeOptions({ scopes: ['dev'] }));
 
     expect(exitCode).toBe(0);
-    expect(capture.stdout).toContain('\u{26A0}\u{FE0F}');
+    expect(capture.stdout).toContain('\u{2705}');
   });
 
   it('populates allowed entries with advisory fields from the audit result and metadata from the allowlist entry', async () => {
@@ -561,7 +561,7 @@ describe(checkCommand, () => {
 
     await checkCommand(makeOptions({ scopes: ['prod'], verbose: true }));
 
-    expect(capture.stdout).toContain('\u{26A0}\u{FE0F} GHSA-allowed');
+    expect(capture.stdout).toContain('\u{2705} GHSA-allowed');
     expect(capture.stdout).toContain('Example title');
     expect(capture.stdout).toContain('reason: Accepted');
   });

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { CheckResult, ScopeCheckResult } from '../format-check.ts';
 import { formatRelativeTime } from '../format-time.ts';
 import { formatCheckVerboseText } from '../format-verbose.ts';
+import { buildPopulatedCheckResult } from '../test-utils/buildPopulatedCheckResult.ts';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -29,12 +30,12 @@ const FIXED_NOW = new Date('2026-04-15T00:00:00Z');
 describe(formatCheckVerboseText, () => {
   it('renders "(none)" for an empty scope', () => {
     const result = makeCheckResult();
-    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
+    const output = formatCheckVerboseText(result, ['prod'], 'rich', FIXED_NOW);
     expect(output).toContain('-- \u{1F4E6} prod --');
     expect(output).toContain('  (none)');
   });
 
-  it('renders an unallowed vulnerability with 🚨 marker, title, path, and link', () => {
+  it('renders an unallowed vulnerability with the failed marker, title, path, and link', () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
@@ -54,8 +55,8 @@ describe(formatCheckVerboseText, () => {
       },
     });
 
-    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
-    expect(output).toContain('\u{1F6A8} GHSA-unallowed');
+    const output = formatCheckVerboseText(result, ['prod'], 'rich', FIXED_NOW);
+    expect(output).toContain('\u{274C} GHSA-unallowed');
     expect(output).toContain('\u{1F534} high');
     expect(output).toContain('Prototype pollution in lodash');
     expect(output).toContain('path: my-app>lodash');
@@ -79,8 +80,8 @@ describe(formatCheckVerboseText, () => {
       },
     });
 
-    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
-    expect(output).toContain('\u{1F6A8} 1234');
+    const output = formatCheckVerboseText(result, ['prod'], 'rich', FIXED_NOW);
+    expect(output).toContain('\u{274C} 1234');
   });
 
   it('renders multi-path vulnerabilities with a plural "paths:" list', () => {
@@ -101,7 +102,7 @@ describe(formatCheckVerboseText, () => {
       },
     });
 
-    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
+    const output = formatCheckVerboseText(result, ['prod'], 'rich', FIXED_NOW);
     expect(output).toContain('paths:');
     expect(output).toContain('- app>some-lib>lodash');
     expect(output).toContain('- app>other-lib>lodash');
@@ -125,7 +126,7 @@ describe(formatCheckVerboseText, () => {
       },
     });
 
-    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
+    const output = formatCheckVerboseText(result, ['prod'], 'rich', FIXED_NOW);
     expect(output).toContain('path: pkg');
     expect(output).not.toMatch(/paths:\s*\n/);
   });
@@ -150,7 +151,7 @@ describe(formatCheckVerboseText, () => {
       },
     });
 
-    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
+    const output = formatCheckVerboseText(result, ['prod'], 'rich', FIXED_NOW);
     expect(output).toContain('     Merging');
     // No single line should contain the whole description.
     const lines = output.split('\n');
@@ -177,7 +178,7 @@ describe(formatCheckVerboseText, () => {
       },
     });
 
-    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
+    const output = formatCheckVerboseText(result, ['prod'], 'rich', FIXED_NOW);
     expect(output).toContain('First paragraph.');
     expect(output).toContain('Second paragraph.');
     // Expect a blank line between the two paragraphs.
@@ -204,7 +205,7 @@ describe(formatCheckVerboseText, () => {
       },
     });
 
-    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
+    const output = formatCheckVerboseText(result, ['prod'], 'rich', FIXED_NOW);
     // Link is the last content line, followed by scope newline, not a description.
     expect(output).toContain('link: https://example.com/nodesc');
   });
@@ -213,7 +214,7 @@ describe(formatCheckVerboseText, () => {
   // Allowed entries
   // --------------------
 
-  it('renders an allowed entry with ⚠️ marker and "allowed X ago (YYYY-MM-DD)"', () => {
+  it('renders an allowed entry with the passed marker and "allowed X ago (YYYY-MM-DD)"', () => {
     const result = makeCheckResult({
       prod: {
         allowed: [
@@ -235,8 +236,8 @@ describe(formatCheckVerboseText, () => {
       },
     });
 
-    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
-    expect(output).toContain('\u{26A0}\u{FE0F} GHSA-allowed');
+    const output = formatCheckVerboseText(result, ['prod'], 'rich', FIXED_NOW);
+    expect(output).toContain('\u{2705} GHSA-allowed');
     expect(output).toContain('allowed 2 weeks ago (2026-04-01)');
     expect(output).toContain('reason: Accepted risk: no user input reaches this path');
     expect(output).toContain('Regex denial of service');
@@ -261,7 +262,7 @@ describe(formatCheckVerboseText, () => {
       },
     });
 
-    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
+    const output = formatCheckVerboseText(result, ['prod'], 'rich', FIXED_NOW);
     expect(output).toContain('allowed 1 week ago (2026-04-01T14:30:00.000Z)');
   });
 
@@ -283,7 +284,7 @@ describe(formatCheckVerboseText, () => {
       },
     });
 
-    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
+    const output = formatCheckVerboseText(result, ['prod'], 'rich', FIXED_NOW);
     expect(output).toContain('GHSA-noAddedAt');
     expect(output).not.toContain('allowed ');
   });
@@ -306,7 +307,7 @@ describe(formatCheckVerboseText, () => {
       },
     });
 
-    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
+    const output = formatCheckVerboseText(result, ['prod'], 'rich', FIXED_NOW);
     expect(output).toContain('allowed (not-a-date)');
     expect(output).not.toContain('allowed  (not-a-date)');
   });
@@ -329,7 +330,7 @@ describe(formatCheckVerboseText, () => {
       },
     });
 
-    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
+    const output = formatCheckVerboseText(result, ['prod'], 'rich', FIXED_NOW);
     expect(output).not.toContain('reason:');
   });
 
@@ -337,7 +338,7 @@ describe(formatCheckVerboseText, () => {
   // Stale entries
   // --------------------
 
-  it('renders stale entries as a single "🗑️ <id>  not needed" line', () => {
+  it('renders stale entries as a single "🧹 <id>  not needed" line', () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
@@ -347,8 +348,8 @@ describe(formatCheckVerboseText, () => {
       },
     });
 
-    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
-    expect(output).toContain('  \u{1F5D1}\u{FE0F} GHSA-stale-entry-0000  not needed');
+    const output = formatCheckVerboseText(result, ['prod'], 'rich', FIXED_NOW);
+    expect(output).toContain('  \u{1F9F9} GHSA-stale-entry-0000  not needed');
   });
 
   it('ends output with a newline when actions are present', () => {
@@ -361,7 +362,7 @@ describe(formatCheckVerboseText, () => {
       },
     });
 
-    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
+    const output = formatCheckVerboseText(result, ['prod'], 'rich', FIXED_NOW);
     expect(output).toMatch(/\n$/);
   });
 
@@ -375,7 +376,7 @@ describe(formatCheckVerboseText, () => {
       },
     });
 
-    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
+    const output = formatCheckVerboseText(result, ['prod'], 'rich', FIXED_NOW);
     expect(output).toContain('not needed\n\n');
     expect(output).toContain('Actions:');
   });
@@ -397,13 +398,13 @@ describe(formatCheckVerboseText, () => {
       },
     });
 
-    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
+    const output = formatCheckVerboseText(result, ['prod'], 'rich', FIXED_NOW);
     expect(output).toContain('Actions:');
     expect(output).toContain('add the listed vulnerabilities to the allowlist and remove stale entries');
   });
 
   it('omits the Actions footer when the allowlist is fully current', () => {
-    const output = formatCheckVerboseText(makeCheckResult(), ['prod', 'dev'], FIXED_NOW);
+    const output = formatCheckVerboseText(makeCheckResult(), ['prod', 'dev'], 'rich', FIXED_NOW);
     expect(output).not.toContain('Actions:');
   });
 
@@ -411,7 +412,7 @@ describe(formatCheckVerboseText, () => {
   // Below-threshold entries
   // --------------------
 
-  it('renders a below-threshold vulnerability with info marker and "ignored (below threshold)" annotation', () => {
+  it('renders a below-threshold vulnerability with the skipped marker and "ignored (below threshold)" annotation', () => {
     const result = makeCheckResult({
       prod: {
         allowed: [],
@@ -431,8 +432,8 @@ describe(formatCheckVerboseText, () => {
       },
     });
 
-    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW);
-    expect(output).toContain('\u{2139}\u{FE0F} GHSA-low');
+    const output = formatCheckVerboseText(result, ['prod'], 'rich', FIXED_NOW);
+    expect(output).toContain('\u{23E9} GHSA-low');
     expect(output).toContain('\u{1F7E1} low');
     expect(output).toContain('ignored (below threshold)');
     expect(output).toContain('ReDoS in brace-expansion');
@@ -442,15 +443,64 @@ describe(formatCheckVerboseText, () => {
 
   it('shows threshold in scope header when above low', () => {
     const result = makeCheckResult();
-    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW, { prod: 'moderate' });
+    const output = formatCheckVerboseText(result, ['prod'], 'rich', FIXED_NOW, { prod: 'moderate' });
     expect(output).toContain('-- \u{1F4E6} prod -- (threshold: \u{1F7E0} moderate)');
   });
 
   it('omits threshold from scope header when threshold is low', () => {
     const result = makeCheckResult();
-    const output = formatCheckVerboseText(result, ['prod'], FIXED_NOW, { prod: 'low' });
+    const output = formatCheckVerboseText(result, ['prod'], 'rich', FIXED_NOW, { prod: 'low' });
     expect(output).toContain('-- \u{1F4E6} prod --');
     expect(output).not.toContain('threshold:');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatCheckVerboseText: plain style
+// ---------------------------------------------------------------------------
+
+describe(`${formatCheckVerboseText.name} in plain style`, () => {
+  it('prints no pictographic character', () => {
+    const output = formatCheckVerboseText(buildPopulatedCheckResult(), ['prod', 'dev'], 'plain', FIXED_NOW, {
+      dev: 'high',
+      prod: 'moderate',
+    });
+
+    expect(output).not.toMatch(/\p{Extended_Pictographic}/u);
+  });
+
+  it('states each status in words and indents detail lines under the text after the marker', () => {
+    const output = formatCheckVerboseText(buildPopulatedCheckResult(), ['prod'], 'plain', FIXED_NOW, {
+      prod: 'moderate',
+    });
+
+    expect(output.split('\n').slice(0, 9)).toStrictEqual([
+      '-- prod -- (threshold: moderate)',
+      '  FAIL  GHSA-prod-unallowed  high',
+      '        Unallowed advisory',
+      '        path: lodash',
+      '        link: https://github.com/advisories/GHSA-prod-unallowed',
+      '',
+      '        An unallowed advisory.',
+      '',
+      '  PASS  GHSA-prod-allowed  moderate  allowed 2 weeks ago (2026-04-01T00:00:00.000Z)',
+    ]);
+    expect(output).toContain('\n        reason: No fix is published.\n');
+    expect(output).toContain('\n  STALE GHSA-prod-stale  not needed\n');
+    expect(output).toContain('\n  SKIP  GHSA-prod-low  low  ignored (below threshold)\n');
+  });
+});
+
+describe(`${formatCheckVerboseText.name} in rich style`, () => {
+  it('marks each block with one glyph, its status', () => {
+    const output = formatCheckVerboseText(buildPopulatedCheckResult(), ['prod'], 'rich', FIXED_NOW, {
+      prod: 'moderate',
+    });
+
+    expect(output).toContain('\n  \u{274C} GHSA-prod-unallowed  \u{1F534} high\n     Unallowed advisory\n');
+    expect(output).toContain('\n  \u{2705} GHSA-prod-allowed  \u{1F7E0} moderate  allowed 2 weeks ago');
+    expect(output).toContain('\n  \u{1F9F9} GHSA-prod-stale  not needed\n');
+    expect(output).toContain('\n  \u{23E9} GHSA-prod-low  \u{1F7E1} low  ignored (below threshold)\n');
   });
 });
 

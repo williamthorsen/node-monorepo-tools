@@ -182,11 +182,11 @@ export async function checkCommand(options: CommandOptions): Promise<number> {
       }
 
       if (options.verbose && !options.json) {
-        process.stdout.write(formatCheckVerboseText(checkResult, scopes, undefined, thresholds));
+        process.stdout.write(formatCheckVerboseText(checkResult, scopes, options.styles.stdout, undefined, thresholds));
       } else if (options.json) {
         process.stdout.write(formatCheckJson(checkResult, scopes));
       } else {
-        process.stdout.write(formatCheckText(checkResult, scopes, undefined, thresholds));
+        process.stdout.write(formatCheckText(checkResult, scopes, options.styles.stdout, undefined, thresholds));
       }
 
       const hasUnallowed = scopes.some((s) => checkResult[s].unallowed.length > 0);
