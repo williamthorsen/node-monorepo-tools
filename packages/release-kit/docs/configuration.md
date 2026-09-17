@@ -1,6 +1,6 @@
 # Configuration
 
-The fields of `.config/release-kit.config.ts`, how a workspace declares its prior identities or a retired package, the rule against colliding tag prefixes, and the patterns that decide a bump.
+The fields of `.config/release-kit.config.ts`, how a workspace declares its prior identities or a retired package, the rule against colliding tag prefixes, the patterns that decide a bump, and the environment variable that sets the output style.
 
 A minimal config file is in the [README](../README.md#configuration).
 
@@ -103,3 +103,25 @@ interface VersionPatterns {
 ```
 
 Default: `{ major: ['!'], minor: ['feat'] }`
+
+## Output style
+
+release-kit prints in one of two styles. `rich` marks each status with an emoji, such as ✅ or 🟠. `plain` replaces each emoji with a word, such as `PASS` or `WARN`, which a reader of a log can search for. The style is decided separately for stdout and stderr, so redirecting one stream to a file leaves the other rich at a terminal.
+
+The `RELEASE_KIT_OUTPUT_STYLE` environment variable sets the style for every command, `init` and `sync-labels init` included:
+
+| Value   | Effect                                                                   |
+| ------- | ------------------------------------------------------------------------ |
+| `auto`  | Detect the style of each stream. The same as leaving the variable unset. |
+| `plain` | Print plain on both streams.                                             |
+| `rich`  | Print rich on both streams, even in a pipe or under CI.                  |
+
+Any other value is a usage error: release-kit reports it and exits with code 1.
+
+The variable outranks detection. Under `auto`, release-kit defers to detection, which reads `CI`, then the stream, then `TERM`. A stream is plain when any of these holds, and rich otherwise:
+
+1. `CI` is set to anything other than an empty string or `false`.
+2. The stream is not a terminal, as when its output is piped or redirected.
+3. `TERM` is `linux`, the Linux virtual console, which draws no emoji.
+
+The style governs emoji alone. Changelog section emoji are file content rather than terminal output, and they are unaffected.
