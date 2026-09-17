@@ -1,3 +1,4 @@
+import type { StreamStyles } from '@williamthorsen/nmr-core';
 import { z } from 'zod';
 
 // ---------------------------------------------------------------------------
@@ -117,6 +118,7 @@ export interface CommandOptions {
   configPath?: string | undefined;
   json: boolean;
   scopes: AuditScope[];
+  styles: StreamStyles;
   verbose: boolean;
 }
 

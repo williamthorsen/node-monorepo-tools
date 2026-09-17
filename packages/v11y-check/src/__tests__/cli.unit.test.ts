@@ -864,7 +864,7 @@ function makeConfig(overrides?: Partial<V11yCheckConfig>): V11yCheckConfig {
 }
 
 function makeOptions(overrides?: Partial<CommandOptions>): CommandOptions {
-  return { json: false, scopes: [], verbose: false, ...overrides };
+  return { json: false, scopes: [], styles: { stderr: 'rich', stdout: 'rich' }, verbose: false, ...overrides };
 }
 
 function setupLoadConfig(config?: V11yCheckConfig, source: 'defaults' | 'file' = 'file'): void {

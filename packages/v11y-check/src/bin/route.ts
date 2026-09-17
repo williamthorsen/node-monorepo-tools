@@ -1,8 +1,11 @@
-import { parseArgs, readPackageVersion, reportError } from '@williamthorsen/nmr-core';
+import process from 'node:process';
+
+import { parseArgs, readPackageVersion, reportError, type StreamStyles } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { auditCommand, checkCommand, syncCommand } from '../cli.ts';
 import { initCommand } from '../init/initCommand.ts';
+import { OUTPUT_STYLE_ENV_VAR, resolveStyles } from '../resolveStyles.ts';
 import type { AuditScope, CommandOptions } from '../types.ts';
 
 const VERSION = readPackageVersion(import.meta.url);
@@ -31,6 +34,11 @@ Other options:
   --verbose, -v        Show detailed per-vulnerability output
   --help, -h           Show this help message
   --version, -V        Show version number
+
+Environment:
+  ${OUTPUT_STYLE_ENV_VAR}
+                       Output style: auto (default), plain, or rich. auto prints plain,
+                       without emoji, when CI is set or the stream is not a terminal.
 `);
 }
 
@@ -65,7 +73,7 @@ Other options:
 }
 
 /** Parse the shared flags (--dev, --prod, --config, --json, --verbose) from argv. */
-function parseSharedFlags(flags: string[]): CommandOptions {
+function parseSharedFlags(flags: string[], styles: StreamStyles): CommandOptions {
   const flagSchema = {
     config: { long: '--config', type: 'string' as const },
     dev: { long: '--dev', type: 'boolean' as const },
@@ -88,6 +96,7 @@ function parseSharedFlags(flags: string[]): CommandOptions {
     configPath: parsed.config,
     json: parsed.json,
     scopes,
+    styles,
     verbose: parsed.verbose,
   };
 }
@@ -123,16 +132,25 @@ export async function routeCommand(args: string[]): Promise<number> {
     return 0;
   }
 
+  const styles = resolveStyles({
+    env: process.env,
+    stderrIsTty: process.stderr.isTTY,
+    stdoutIsTty: process.stdout.isTTY,
+  });
+  if (styles === undefined) {
+    return 1;
+  }
+
   if (command === 'check') {
-    return handleSubcommand(args.slice(1), checkCommand);
+    return handleSubcommand(args.slice(1), styles, checkCommand);
   }
 
   if (command === 'init') {
-    return handleInit(args.slice(1));
+    return handleInit(args.slice(1), styles);
   }
 
   if (command === 'sync') {
-    return handleSubcommand(args.slice(1), syncCommand, showSyncHelp);
+    return handleSubcommand(args.slice(1), styles, syncCommand, showSyncHelp);
   }
 
   // Check for typos before falling through to the default command
@@ -149,16 +167,17 @@ export async function routeCommand(args: string[]): Promise<number> {
   // Handle --raw: strip it from args and route to auditCommand (raw passthrough).
   if (args.includes('--raw')) {
     const filteredArgs = args.filter((a) => a !== '--raw');
-    return handleSubcommand(filteredArgs, auditCommand);
+    return handleSubcommand(filteredArgs, styles, auditCommand);
   }
 
   // Default (no args or flag-only args): grouped check command.
-  return handleSubcommand(args, checkCommand);
+  return handleSubcommand(args, styles, checkCommand);
 }
 
 /** Parse shared flags and dispatch to a subcommand handler. */
 async function handleSubcommand(
   flags: string[],
+  styles: StreamStyles,
   handler: (options: CommandOptions) => Promise<number>,
   helpFn: () => void = showHelp,
 ): Promise<number> {
@@ -169,7 +188,7 @@ async function handleSubcommand(
 
   let options: CommandOptions;
   try {
-    options = parseSharedFlags(flags);
+    options = parseSharedFlags(flags, styles);
   } catch (error: unknown) {
     reportError(describeError(error));
     return 1;
@@ -184,7 +203,7 @@ async function handleSubcommand(
 }
 
 /** Handle the `init` subcommand with its own flag set. */
-function handleInit(flags: string[]): number {
+function handleInit(flags: string[], styles: StreamStyles): number {
   if (flags.some((f) => f === '--help' || f === '-h')) {
     showInitHelp();
     return 0;
@@ -203,5 +222,5 @@ function handleInit(flags: string[]): number {
     return 1;
   }
 
-  return initCommand({ dryRun: parsed.flags.dryRun, force: parsed.flags.force });
+  return initCommand({ dryRun: parsed.flags.dryRun, force: parsed.flags.force, styles });
 }

@@ -1,4 +1,4 @@
-import { printError, printStep, reportWriteResult } from '@williamthorsen/nmr-core';
+import { printError, printStep, reportWriteResult, type StreamStyles } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { scaffoldFiles } from './scaffold.ts';
@@ -6,6 +6,7 @@ import { scaffoldFiles } from './scaffold.ts';
 interface InitOptions {
   dryRun: boolean;
   force: boolean;
+  styles: StreamStyles;
 }
 
 /**
