@@ -295,6 +295,18 @@ describe(resolveStreamStyles, () => {
   const terminals = { stderrIsTty: true, stdoutIsTty: true };
   const pipes = { stderrIsTty: false, stdoutIsTty: false };
 
+  it('takes the style from the flag over the variable', () => {
+    const resolution = resolveStreamStyles({
+      argv: ['--output-style', 'rich'],
+      env: { [envVar]: 'plain' },
+      envVar,
+      flag: '--output-style',
+      ...pipes,
+    });
+
+    expect(resolution).toStrictEqual({ styles: { stderr: 'rich', stdout: 'rich' } });
+  });
+
   it.each(['plain', 'rich'] as const)('takes %s from the variable over CI and the terminal state', (style) => {
     const contrary =
       style === 'plain'

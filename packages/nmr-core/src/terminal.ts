@@ -30,15 +30,19 @@ export {
 } from '@williamthorsen/toolbelt.terminal/candidate';
 
 export interface ResolveStreamStylesOptions {
+  /** Raw arguments in which to find `flag`; read only when `flag` is given. */
+  readonly argv?: readonly string[] | undefined;
   readonly env: Readonly<Record<string, string | undefined>>;
   /** The environment variable holding the caller's standing preference: `auto`, `plain`, or `rich`. */
   readonly envVar: string;
+  /** The flag naming a style for one invocation, leading dashes included; it outranks `envVar`. */
+  readonly flag?: string | undefined;
   readonly stderrIsTty: boolean;
   readonly stdoutIsTty: boolean;
 }
 
 export interface StreamStyleResolution {
-  /** The value of `envVar` when it names no setting; both styles then come from detection. */
+  /** The first value of `flag` or `envVar` that names no setting; resolution continues with the next source. */
   readonly invalid?: InvalidOutputStyle | undefined;
   readonly styles: StreamStyles;
 }
@@ -135,16 +139,17 @@ export function reportWriteResult(result: WriteResult, dryRun: boolean, style?: 
 }
 
 /**
- * Resolves the style of each output stream: the named environment variable, else detection from
- * `CI`, the stream's terminal state, and `TERM`. Never throws; a value that names no setting is
- * returned in `invalid`, for the caller to report with `describeInvalidOutputStyle`.
+ * Resolves the style of each output stream: the flag when one is named, else the named environment
+ * variable, else detection from `CI`, the stream's terminal state, and `TERM`. Never throws; a value
+ * that names no setting is returned in `invalid`, for the caller to report with
+ * `describeInvalidOutputStyle`.
  */
 export function resolveStreamStyles(options: ResolveStreamStylesOptions): StreamStyleResolution {
-  const { env, envVar, stderrIsTty, stdoutIsTty } = options;
-  const stderr = resolveOutputStyle({ argv: [], env, envVar, isTty: stderrIsTty });
-  const stdout = resolveOutputStyle({ argv: [], env, envVar, isTty: stdoutIsTty });
+  const { argv = [], env, envVar, flag, stderrIsTty, stdoutIsTty } = options;
+  const stderr = resolveOutputStyle({ argv, env, envVar, flag, isTty: stderrIsTty });
+  const stdout = resolveOutputStyle({ argv, env, envVar, flag, isTty: stdoutIsTty });
   const styles = { stderr: stderr.style, stdout: stdout.style };
-  // Both resolutions read the same variable, so either one reports an invalid value.
+  // Both resolutions read the same flag and variable, so either one reports an invalid value.
   return stdout.invalid === undefined ? { styles } : { invalid: stdout.invalid, styles };
 }
 
