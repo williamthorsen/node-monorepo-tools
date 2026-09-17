@@ -1,3 +1,4 @@
+import type { OutputStyle } from '@williamthorsen/nmr-core';
 import { describe, expect, it } from 'vitest';
 
 import type { CheckResult, ScopeCheckResult } from '../format-check.ts';
@@ -22,6 +23,22 @@ function makeCheckResult(overrides?: Partial<CheckResult>): CheckResult {
 }
 
 const FIXED_NOW = new Date('2026-04-15T00:00:00Z');
+
+/** Lists the lines that a description occupies in the verbose output of a single unallowed entry. */
+function listDescriptionLines(description: string, style: OutputStyle = 'rich'): string[] {
+  const result = makeCheckResult({
+    prod: {
+      allowed: [],
+      belowThreshold: [],
+      stale: [],
+      unallowed: [{ description, id: 'GHSA-wrap', path: 'pkg', paths: ['pkg'], url: 'https://example.com/wrap' }],
+    },
+  });
+  const lines = formatCheckVerboseText(result, ['prod'], style, FIXED_NOW).split('\n');
+  const linkIndex = lines.findIndex((line) => line.includes('link: '));
+  // A blank line separates the link from the description, and another ends the block.
+  return lines.slice(linkIndex + 2, lines.indexOf('', linkIndex + 2));
+}
 
 // ---------------------------------------------------------------------------
 // formatCheckVerboseText: unallowed entries
@@ -157,6 +174,60 @@ describe(formatCheckVerboseText, () => {
     const lines = output.split('\n');
     const veryLongLine = lines.find((line) => line.length > 90);
     expect(veryLongLine).toBeUndefined();
+  });
+
+  it('wraps an ASCII description at 72 columns of content', () => {
+    const description =
+      'Merging user-controlled objects into a plain object can lead to prototype pollution, enabling attackers to modify Object.prototype.';
+
+    expect(listDescriptionLines(description)).toStrictEqual([
+      '     Merging user-controlled objects into a plain object can lead to',
+      '     prototype pollution, enabling attackers to modify Object.prototype.',
+    ]);
+  });
+
+  it('wraps a CJK description by display columns', () => {
+    // Each word is 4 characters and 8 columns, so 8 words and 7 spaces fill 71 of the 72 columns.
+    const word = '\u{8106}\u{5F31}\u{6027}\u{3042}';
+    const description = Array.from({ length: 20 }, () => word).join(' ');
+    const fullLine = `     ${Array.from({ length: 8 }, () => word).join(' ')}`;
+
+    expect(listDescriptionLines(description)).toStrictEqual([
+      fullLine,
+      fullLine,
+      `     ${Array.from({ length: 4 }, () => word).join(' ')}`,
+    ]);
+  });
+
+  it('wraps an emoji description by display columns', () => {
+    // A ZWJ sequence is 5 UTF-16 code units and 2 columns, so a word of 4 is 8 columns.
+    const word = '\u{1F469}\u{200D}\u{1F4BB}'.repeat(4);
+    const description = Array.from({ length: 12 }, () => word).join(' ');
+
+    expect(listDescriptionLines(description)).toStrictEqual([
+      `     ${Array.from({ length: 8 }, () => word).join(' ')}`,
+      `     ${Array.from({ length: 4 }, () => word).join(' ')}`,
+    ]);
+  });
+
+  it('leaves a word wider than the content width whole on a line of its own', () => {
+    const wideWord = '\u{8106}'.repeat(40);
+
+    expect(listDescriptionLines(`before ${wideWord} after`)).toStrictEqual([
+      '     before',
+      `     ${wideWord}`,
+      '     after',
+    ]);
+  });
+
+  it('widens the indent in plain style and keeps 72 columns of content', () => {
+    const description =
+      'Merging user-controlled objects into a plain object can lead to prototype pollution, enabling attackers to modify Object.prototype.';
+
+    expect(listDescriptionLines(description, 'plain')).toStrictEqual([
+      '        Merging user-controlled objects into a plain object can lead to',
+      '        prototype pollution, enabling attackers to modify Object.prototype.',
+    ]);
   });
 
   it('preserves paragraph breaks in description', () => {

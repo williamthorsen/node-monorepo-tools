@@ -1,4 +1,4 @@
-import type { OutputStyle } from '@williamthorsen/nmr-core';
+import { type OutputStyle, wrapToWidth } from '@williamthorsen/nmr-core';
 
 import { formatActionHints } from './format-actions.ts';
 import {
@@ -26,7 +26,7 @@ const SCOPE_GLYPH_NAMES: Record<AuditScope, V11yGlyphName> = {
 /** Indentation of a block's header line, ahead of its row marker. */
 const MARKER_INDENT = '  ';
 
-/** Approximate target width for wrapped description lines. */
+/** Target width, in display columns, of a wrapped description line's content. */
 const WRAP_COLUMNS = 72;
 
 // ---------------------------------------------------------------------------
@@ -185,40 +185,17 @@ function formatAllowedSuffix(addedAt: string, now: Date): string {
   return `  allowed ${relative} (${addedAt})`;
 }
 
-/** Wrap a description (possibly multi-paragraph) to the detail indent. */
+/** Wrap a description (possibly multi-paragraph) by display columns, indenting every line to the detail indent. */
 function formatDescriptionLines(description: string, detailIndent: string): string[] {
   const paragraphs = description.split(/\n\s*\n/);
   const lines: string[] = [];
   let needsSeparator = false;
   for (const paragraph of paragraphs) {
     if (needsSeparator) lines.push('');
-    const wrapped = wrapParagraph(paragraph.trim(), WRAP_COLUMNS);
-    for (const wrappedLine of wrapped) {
-      lines.push(`${detailIndent}${wrappedLine}`);
-    }
+    // `wrapToWidth` counts the indent inside `width`, and `WRAP_COLUMNS` is the width of the content alone.
+    const wrapped = wrapToWidth(paragraph, { indent: detailIndent.length, width: WRAP_COLUMNS + detailIndent.length });
+    if (wrapped !== '') lines.push(...wrapped.split('\n'));
     needsSeparator = true;
   }
-  return lines;
-}
-
-/** Word-wrap a single paragraph to the given column width. */
-function wrapParagraph(paragraph: string, columns: number): string[] {
-  if (paragraph.length === 0) return [];
-  const words = paragraph.split(/\s+/);
-  const lines: string[] = [];
-  let current = '';
-  for (const word of words) {
-    if (current === '') {
-      current = word;
-      continue;
-    }
-    if (current.length + 1 + word.length > columns) {
-      lines.push(current);
-      current = word;
-    } else {
-      current += ` ${word}`;
-    }
-  }
-  if (current !== '') lines.push(current);
   return lines;
 }
