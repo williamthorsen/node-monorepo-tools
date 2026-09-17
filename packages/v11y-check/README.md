@@ -1,3 +1,5 @@
+<!-- readme-type: cli -->
+
 # v11y-check
 
 Wraps [audit-ci](https://github.com/IBM/audit-ci) with a richer config model, typed JSON source of truth, and a sync workflow that automates allowlist management.
@@ -65,6 +67,12 @@ The source-of-truth config lives at `.config/v11y-check.config.json`:
   - **`severityThreshold`** (optional) — Fail on advisories at or above this severity. Valid values: `'low'`, `'moderate'`, `'high'`, `'critical'`. When omitted, audit-ci uses its own defaults.
   - **`allowlist`** — Typed advisory entries with `id`, `path`, `url`, and optional `reason` and `addedAt`. `addedAt` is an ISO 8601 UTC datetime (e.g., `2026-04-15T09:30:00.000Z`) populated automatically by `v11y sync` on new entries; existing entries retain whatever value they had. Older `YYYY-MM-DD` values are still accepted.
 
+### Output style
+
+The `V11Y_CHECK_OUTPUT_STYLE` environment variable sets the style for every command, `init` included: `rich` marks each finding with an emoji, such as ❌ or ✅, and `plain` prints a word in its place, such as `FAIL` or `PASS`, which a reader of a log can search for. `auto`, the default, defers to detection. Any other value is a usage error that exits with code 1.
+
+Detection decides stdout and stderr separately. A stream is plain when `CI` is set to anything other than an empty string or `false`, when the stream is not a terminal, or when `TERM` is `linux`; otherwise it is rich. `--json` output contains no emoji in either style.
+
 ## CLI reference
 
 ```
@@ -87,6 +95,11 @@ Other options:
   --verbose, -v        Show detailed per-vulnerability output
   --help, -h           Show this help message
   --version, -V        Show version number
+
+Environment:
+  V11Y_CHECK_OUTPUT_STYLE
+                       Output style: auto (default), plain, or rich. auto prints plain,
+                       without emoji, when CI is set or the stream is not a terminal.
 ```
 
 ### Init options

@@ -310,7 +310,7 @@ describe(checkCommand, () => {
     const exitCode = await checkCommand(makeOptions({ scopes: ['dev'] }));
 
     expect(exitCode).toBe(0);
-    expect(capture.stdout).toContain('\u{26A0}\u{FE0F}');
+    expect(capture.stdout).toContain('\u{2705}');
   });
 
   it('populates allowed entries with advisory fields from the audit result and metadata from the allowlist entry', async () => {
@@ -561,9 +561,34 @@ describe(checkCommand, () => {
 
     await checkCommand(makeOptions({ scopes: ['prod'], verbose: true }));
 
-    expect(capture.stdout).toContain('\u{26A0}\u{FE0F} GHSA-allowed');
+    expect(capture.stdout).toContain('\u{2705} GHSA-allowed');
     expect(capture.stdout).toContain('Example title');
     expect(capture.stdout).toContain('reason: Accepted');
+  });
+
+  it.each([
+    ['compact', false],
+    ['verbose', true],
+  ])('renders %s text output in the style resolved for stdout', async (_format, verbose) => {
+    const config = makeConfig({
+      prod: {
+        allowlist: [{ id: 'GHSA-allowed', path: 'pkg', url: 'https://example.com/allowed' }],
+      },
+    });
+    setupLoadConfig(config);
+    mocks.runReport.mockReturnValue({
+      results: [
+        { id: 'GHSA-allowed', path: 'pkg', paths: ['pkg'], severity: 'moderate', url: 'https://example.com/allowed' },
+      ],
+      stdout: '',
+      stderr: '',
+      warnings: [],
+    });
+
+    // Each stream gets a different style, so the assertion fails if the formatter receives the other stream's.
+    await checkCommand(makeOptions({ scopes: ['prod'], styles: { stderr: 'rich', stdout: 'plain' }, verbose }));
+
+    expect(capture.stdout).toContain('PASS  GHSA-allowed');
   });
 
   it('classifies below-threshold vulnerabilities separately and returns 0', async () => {
@@ -864,7 +889,7 @@ function makeConfig(overrides?: Partial<V11yCheckConfig>): V11yCheckConfig {
 }
 
 function makeOptions(overrides?: Partial<CommandOptions>): CommandOptions {
-  return { json: false, scopes: [], verbose: false, ...overrides };
+  return { json: false, scopes: [], styles: { stderr: 'rich', stdout: 'rich' }, verbose: false, ...overrides };
 }
 
 function setupLoadConfig(config?: V11yCheckConfig, source: 'defaults' | 'file' = 'file'): void {

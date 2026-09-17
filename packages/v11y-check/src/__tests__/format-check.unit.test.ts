@@ -7,6 +7,7 @@ import {
   type ScopeCheckResult,
   severityIndicator,
 } from '../format-check.ts';
+import { buildPopulatedCheckResult } from '../test-utils/buildPopulatedCheckResult.ts';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -31,6 +32,10 @@ function makeCheckResult(overrides?: Partial<CheckResult>): CheckResult {
 // ---------------------------------------------------------------------------
 
 describe(severityIndicator, () => {
+  it.each(['critical', 'high', 'moderate', 'low', 'info'])('returns no indicator for %s in plain style', (severity) => {
+    expect(severityIndicator(severity, 'plain')).toBe('');
+  });
+
   it.each([
     ['critical', '\u{1F534}'],
     ['high', '\u{1F534}'],
@@ -38,15 +43,15 @@ describe(severityIndicator, () => {
     ['low', '\u{1F7E1}'],
     ['info', '\u{1F7E1}'],
   ])('returns correct indicator for %s', (severity, expected) => {
-    expect(severityIndicator(severity)).toBe(expected);
+    expect(severityIndicator(severity, 'rich')).toBe(expected);
   });
 
   it('returns empty string for undefined severity', () => {
-    expect(severityIndicator(undefined)).toBe('');
+    expect(severityIndicator(undefined, 'rich')).toBe('');
   });
 
   it('returns empty string for unknown severity', () => {
-    expect(severityIndicator('unknown')).toBe('');
+    expect(severityIndicator('unknown', 'rich')).toBe('');
   });
 });
 
@@ -59,7 +64,7 @@ describe(formatCheckText, () => {
 
   it('prints "No known vulnerabilities found." when both scopes are clean', () => {
     const result = makeCheckResult();
-    const output = formatCheckText(result, ['prod', 'dev'], FIXED_NOW);
+    const output = formatCheckText(result, ['prod', 'dev'], 'rich', FIXED_NOW);
 
     expect(output).toContain('\u{1F52C} Auditing dependencies ...');
     expect(output).toContain('No known vulnerabilities found.');
@@ -69,7 +74,7 @@ describe(formatCheckText, () => {
 
   it('prints "No known vulnerabilities found." when a single clean scope is audited', () => {
     const result = makeCheckResult();
-    const output = formatCheckText(result, ['prod'], FIXED_NOW);
+    const output = formatCheckText(result, ['prod'], 'rich', FIXED_NOW);
 
     expect(output).toContain('\u{1F52C} Auditing prod dependencies ...');
     expect(output).toContain('No known vulnerabilities found.');
@@ -79,13 +84,13 @@ describe(formatCheckText, () => {
 
   it('includes "dev" in the intro banner when only dev is audited', () => {
     const result = makeCheckResult();
-    const output = formatCheckText(result, ['dev'], FIXED_NOW);
+    const output = formatCheckText(result, ['dev'], 'rich', FIXED_NOW);
     expect(output).toContain('\u{1F52C} Auditing dev dependencies ...');
   });
 
   it('omits scope name from intro banner when both scopes are audited', () => {
     const result = makeCheckResult();
-    const output = formatCheckText(result, ['prod', 'dev'], FIXED_NOW);
+    const output = formatCheckText(result, ['prod', 'dev'], 'rich', FIXED_NOW);
     expect(output).toContain('\u{1F52C} Auditing dependencies ...');
   });
 
@@ -110,7 +115,7 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['prod', 'dev'], FIXED_NOW);
+    const output = formatCheckText(result, ['prod', 'dev'], 'rich', FIXED_NOW);
     expect(output).toContain('  \u{1F4E6} prod:');
     expect(output).toContain('  \u{1F527} dev:');
   });
@@ -134,7 +139,7 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['prod', 'dev'], FIXED_NOW);
+    const output = formatCheckText(result, ['prod', 'dev'], 'rich', FIXED_NOW);
     expect(output).toContain('  \u{1F4E6} prod:');
     expect(output).toContain('  No known vulnerabilities found.');
     expect(output).toContain('  \u{1F527} dev:');
@@ -162,8 +167,8 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['prod'], FIXED_NOW);
-    expect(output).toContain('  \u{2022} \u{1F6A8} GHSA-abcd-efgh-1234: .>path>to>dep  \u{1F534} critical');
+    const output = formatCheckText(result, ['prod'], 'rich', FIXED_NOW);
+    expect(output).toContain('  \u{2022} \u{274C} GHSA-abcd-efgh-1234: .>path>to>dep  \u{1F534} critical');
   });
 
   it('falls back to numeric ID when ghsaId is absent', () => {
@@ -176,8 +181,8 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['prod'], FIXED_NOW);
-    expect(output).toContain('\u{1F6A8} 1234: pkg');
+    const output = formatCheckText(result, ['prod'], 'rich', FIXED_NOW);
+    expect(output).toContain('\u{274C} 1234: pkg');
   });
 
   it('omits severity suffix when severity is undefined', () => {
@@ -190,8 +195,8 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['prod'], FIXED_NOW);
-    expect(output).toContain('  \u{2022} \u{1F6A8} GHSA-1: pkg');
+    const output = formatCheckText(result, ['prod'], 'rich', FIXED_NOW);
+    expect(output).toContain('  \u{2022} \u{274C} GHSA-1: pkg');
     expect(output).not.toContain('\u{1F534}');
     expect(output).not.toContain('\u{1F7E0}');
   });
@@ -218,9 +223,9 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['dev'], FIXED_NOW);
-    expect(output).toContain('\u{26A0}\u{FE0F} GHSA-allowed: express  \u{1F7E0} moderate');
-    expect(output).toContain('\u{2705} allowed since 2 weeks ago (2026-04-01T00:00:00.000Z)');
+    const output = formatCheckText(result, ['dev'], 'rich', FIXED_NOW);
+    expect(output).toContain('\u{2705} GHSA-allowed: express  \u{1F7E0} moderate');
+    expect(output).toContain('\u{2022} allowed since 2 weeks ago (2026-04-01T00:00:00.000Z)');
   });
 
   it('renders "allowed (addedAt)" without "since" when addedAt is unparseable', () => {
@@ -241,8 +246,8 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['prod'], FIXED_NOW);
-    expect(output).toContain('\u{2705} allowed (not-a-date)');
+    const output = formatCheckText(result, ['prod'], 'rich', FIXED_NOW);
+    expect(output).toContain('\u{2022} allowed (not-a-date)');
     expect(output).not.toContain('since');
   });
 
@@ -256,7 +261,7 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['prod'], FIXED_NOW);
+    const output = formatCheckText(result, ['prod'], 'rich', FIXED_NOW);
     expect(output).toContain('GHSA-nodate');
     expect(output).not.toContain('allowed');
   });
@@ -273,8 +278,8 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['prod'], FIXED_NOW);
-    expect(output).toContain('  \u{2022} \u{1F5D1}\u{FE0F} GHSA-old \u{2022} not needed');
+    const output = formatCheckText(result, ['prod'], 'rich', FIXED_NOW);
+    expect(output).toContain('  \u{2022} \u{1F9F9} GHSA-old \u{2022} not needed');
   });
 
   // --- Mixed findings ---
@@ -308,7 +313,7 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['prod'], FIXED_NOW);
+    const output = formatCheckText(result, ['prod'], 'rich', FIXED_NOW);
     expect(output).toContain('GHSA-bad');
     expect(output).toContain('GHSA-ok');
     expect(output).toContain('GHSA-stale');
@@ -330,7 +335,7 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['prod'], FIXED_NOW);
+    const output = formatCheckText(result, ['prod'], 'rich', FIXED_NOW);
     expect(output).toContain('GHSA-prod');
     expect(output).not.toContain('GHSA-dev');
   });
@@ -347,7 +352,7 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['prod'], FIXED_NOW);
+    const output = formatCheckText(result, ['prod'], 'rich', FIXED_NOW);
     expect(output).toContain('Actions:');
     expect(output).toContain('Run `v11y check --prod --verbose` for full report');
     expect(output).toContain('Run `v11y sync` to add the listed vulnerabilities to the allowlist.');
@@ -363,7 +368,7 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['prod'], FIXED_NOW);
+    const output = formatCheckText(result, ['prod'], 'rich', FIXED_NOW);
     expect(output).toContain('Actions:');
     expect(output).toContain('Run `v11y sync` to remove stale allowlist entries.');
     // No verbose hint for stale-only
@@ -380,14 +385,14 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['prod'], FIXED_NOW);
+    const output = formatCheckText(result, ['prod'], 'rich', FIXED_NOW);
     expect(output).toContain('Actions:');
     expect(output).toContain('add the listed vulnerabilities to the allowlist and remove stale entries');
   });
 
   it('omits the Actions footer when the allowlist is fully current', () => {
     const result = makeCheckResult();
-    const output = formatCheckText(result, ['prod', 'dev'], FIXED_NOW);
+    const output = formatCheckText(result, ['prod', 'dev'], 'rich', FIXED_NOW);
     expect(output).not.toContain('Actions:');
   });
 
@@ -412,7 +417,7 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['prod', 'dev'], FIXED_NOW);
+    const output = formatCheckText(result, ['prod', 'dev'], 'rich', FIXED_NOW);
     expect(output).toContain('Actions:');
     expect(output).toContain('Run `v11y check --verbose` for full report');
     expect(output).toContain('Run `v11y sync` to add the listed vulnerabilities to the allowlist.');
@@ -428,7 +433,7 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['prod', 'dev'], FIXED_NOW);
+    const output = formatCheckText(result, ['prod', 'dev'], 'rich', FIXED_NOW);
     expect(output).toContain('Actions:');
     expect(output).toContain('Run `v11y sync` to remove stale allowlist entries.');
     expect(output).not.toContain('--verbose');
@@ -459,7 +464,7 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['prod', 'dev'], FIXED_NOW);
+    const output = formatCheckText(result, ['prod', 'dev'], 'rich', FIXED_NOW);
     expect(output).toContain('Actions:');
     expect(output).toContain('add the listed vulnerabilities to the allowlist and remove stale entries');
     expect(output).toContain('Run `v11y check --verbose` for full report');
@@ -488,9 +493,9 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['prod'], FIXED_NOW);
-    expect(output).toContain('\u{2139}\u{FE0F} GHSA-low: brace-expansion');
-    expect(output).toContain('\u{1F6AB} ignored');
+    const output = formatCheckText(result, ['prod'], 'rich', FIXED_NOW);
+    expect(output).toContain('\u{23E9} GHSA-low: brace-expansion');
+    expect(output).toContain('\u{2022} ignored');
   });
 
   it('does not print "No known vulnerabilities found." when only below-threshold vulns exist', () => {
@@ -505,7 +510,7 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['prod'], FIXED_NOW);
+    const output = formatCheckText(result, ['prod'], 'rich', FIXED_NOW);
     expect(output).not.toContain('No known vulnerabilities found.');
   });
 
@@ -513,13 +518,13 @@ describe(formatCheckText, () => {
 
   it('shows threshold in intro banner for single-scope when above low', () => {
     const result = makeCheckResult();
-    const output = formatCheckText(result, ['prod'], FIXED_NOW, { prod: 'moderate' });
+    const output = formatCheckText(result, ['prod'], 'rich', FIXED_NOW, { prod: 'moderate' });
     expect(output).toContain('\u{1F52C} Auditing prod dependencies (threshold: \u{1F7E0} moderate) ...');
   });
 
   it('omits threshold from intro banner when threshold is low', () => {
     const result = makeCheckResult();
-    const output = formatCheckText(result, ['prod'], FIXED_NOW, { prod: 'low' });
+    const output = formatCheckText(result, ['prod'], 'rich', FIXED_NOW, { prod: 'low' });
     expect(output).toContain('\u{1F52C} Auditing prod dependencies ...');
     expect(output).not.toContain('threshold:');
   });
@@ -536,7 +541,7 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['prod', 'dev'], FIXED_NOW, { prod: 'moderate', dev: 'high' });
+    const output = formatCheckText(result, ['prod', 'dev'], 'rich', FIXED_NOW, { prod: 'moderate', dev: 'high' });
     expect(output).toContain('\u{1F4E6} prod: (threshold: \u{1F7E0} moderate)');
     expect(output).toContain('\u{1F527} dev: (threshold: \u{1F534} high)');
   });
@@ -560,9 +565,9 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['prod', 'dev'], FIXED_NOW, { prod: 'moderate' });
-    expect(output).toContain('\u{2139}\u{FE0F} GHSA-bt: brace-expansion');
-    expect(output).toContain('\u{1F6AB} ignored');
+    const output = formatCheckText(result, ['prod', 'dev'], 'rich', FIXED_NOW, { prod: 'moderate' });
+    expect(output).toContain('\u{23E9} GHSA-bt: brace-expansion');
+    expect(output).toContain('\u{2022} ignored');
     expect(output).toContain('\u{1F4E6} prod: (threshold: \u{1F7E0} moderate)');
   });
 
@@ -580,10 +585,69 @@ describe(formatCheckText, () => {
       },
     });
 
-    const output = formatCheckText(result, ['prod'], FIXED_NOW);
+    const output = formatCheckText(result, ['prod'], 'rich', FIXED_NOW);
     expect(output).toContain('Run `v11y check --prod --verbose` for full report');
     // No sync hint since nothing to sync
     expect(output).not.toContain('v11y sync');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatCheckText: plain style
+// ---------------------------------------------------------------------------
+
+describe(`${formatCheckText.name} in plain style`, () => {
+  it('prints no pictographic character for multiple scopes', () => {
+    const output = formatCheckText(buildPopulatedCheckResult(), ['prod', 'dev'], 'plain', FIXED_NOW, {
+      dev: 'high',
+      prod: 'moderate',
+    });
+
+    expect(output).not.toMatch(/\p{Extended_Pictographic}/u);
+  });
+
+  it('prints no pictographic character for a single scope', () => {
+    const output = formatCheckText(buildPopulatedCheckResult(), ['prod'], 'plain', FIXED_NOW, { prod: 'moderate' });
+
+    expect(output).not.toMatch(/\p{Extended_Pictographic}/u);
+  });
+
+  it('states each status in words, aligned across markers', () => {
+    const output = formatCheckText(buildPopulatedCheckResult(), ['prod'], 'plain', FIXED_NOW, { prod: 'moderate' });
+
+    expect(output.split('\n').slice(0, 6)).toStrictEqual([
+      'Auditing prod dependencies (threshold: moderate) ...',
+      '  \u{2022} FAIL  GHSA-prod-unallowed: lodash  high',
+      '  \u{2022} PASS  GHSA-prod-allowed: express  moderate \u{2022} allowed since 2 weeks ago (2026-04-01T00:00:00.000Z)',
+      '  \u{2022} PASS  1002: qs  info \u{2022} allowed (not-a-date)',
+      '  \u{2022} STALE GHSA-prod-stale \u{2022} not needed',
+      '  \u{2022} SKIP  GHSA-prod-low: brace-expansion  low \u{2022} ignored',
+    ]);
+  });
+
+  it('labels each scope without a glyph', () => {
+    const output = formatCheckText(buildPopulatedCheckResult(), ['prod', 'dev'], 'plain', FIXED_NOW, {
+      dev: 'high',
+      prod: 'moderate',
+    });
+
+    expect(output).toContain('\n  prod: (threshold: moderate)\n');
+    expect(output).toContain('\n  dev: (threshold: high)\n');
+  });
+});
+
+describe(`${formatCheckText.name} in rich style`, () => {
+  it('marks each row with one glyph, its status', () => {
+    const output = formatCheckText(buildPopulatedCheckResult(), ['prod'], 'rich', FIXED_NOW, { prod: 'moderate' });
+
+    expect(output.split('\n').slice(0, 6)).toStrictEqual([
+      '\u{1F52C} Auditing prod dependencies (threshold: \u{1F7E0} moderate) ...',
+      '  \u{2022} \u{274C} GHSA-prod-unallowed: lodash  \u{1F534} high',
+      '  \u{2022} \u{2705} GHSA-prod-allowed: express  \u{1F7E0} moderate \u{2022} allowed since 2 weeks ago (2026-04-01T00:00:00.000Z)',
+      '  \u{2022} \u{2705} 1002: qs  \u{1F7E1} info \u{2022} allowed (not-a-date)',
+      '  \u{2022} \u{1F9F9} GHSA-prod-stale \u{2022} not needed',
+      '  \u{2022} \u{23E9} GHSA-prod-low: brace-expansion  \u{1F7E1} low \u{2022} ignored',
+    ]);
   });
 });
 

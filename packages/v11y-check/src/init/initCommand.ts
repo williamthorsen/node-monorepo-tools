@@ -1,4 +1,4 @@
-import { printError, printStep, reportWriteResult } from '@williamthorsen/nmr-core';
+import { printError, printStep, reportWriteResult, type StreamStyles } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { scaffoldFiles } from './scaffold.ts';
@@ -6,6 +6,7 @@ import { scaffoldFiles } from './scaffold.ts';
 interface InitOptions {
   dryRun: boolean;
   force: boolean;
+  styles: StreamStyles;
 }
 
 /**
@@ -14,7 +15,7 @@ interface InitOptions {
  * Scaffolds the starter config file and the GitHub Actions workflow, then prints next steps.
  * Returns the process exit code (0 for success, 1 if any write failed).
  */
-export function initCommand({ dryRun, force }: InitOptions): number {
+export function initCommand({ dryRun, force, styles }: InitOptions): number {
   if (dryRun) {
     console.info('[dry-run mode]');
   }
@@ -24,12 +25,12 @@ export function initCommand({ dryRun, force }: InitOptions): number {
   try {
     results = scaffoldFiles({ dryRun, force });
   } catch (error: unknown) {
-    printError(`Failed to scaffold files: ${describeError(error)}`);
+    printError(`Failed to scaffold files: ${describeError(error)}`, styles.stderr);
     return 1;
   }
 
   for (const result of results) {
-    reportWriteResult(result, dryRun);
+    reportWriteResult(result, dryRun, styles);
   }
 
   if (results.some((r) => r.outcome === 'failed')) {

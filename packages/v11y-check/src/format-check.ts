@@ -1,6 +1,9 @@
+import type { OutputStyle } from '@williamthorsen/nmr-core';
+
 import { formatActionHints } from './format-actions.ts';
 import { deriveSummary } from './format-summary.ts';
 import { formatRelativeTime } from './format-time.ts';
+import { formatGlyphLine, formatMarkedLine, V11Y_GLYPHS, type V11yGlyphName } from './glyphs.ts';
 import type { AuditResult, AuditScope, SeverityThreshold } from './types.ts';
 
 // ---------------------------------------------------------------------------
@@ -45,18 +48,19 @@ export interface CheckResult {
 // Severity indicator
 // ---------------------------------------------------------------------------
 
-const SEVERITY_INDICATORS: Record<string, string> = {
-  critical: '\u{1F534}',
-  high: '\u{1F534}',
-  info: '\u{1F7E1}',
-  low: '\u{1F7E1}',
-  moderate: '\u{1F7E0}',
+const SEVERITY_GLYPH_NAMES: Record<string, V11yGlyphName> = {
+  critical: 'severityHigh',
+  high: 'severityHigh',
+  info: 'severityLow',
+  low: 'severityLow',
+  moderate: 'severityModerate',
 };
 
-/** Map a severity string to a colored circle emoji. */
-export function severityIndicator(severity: string | undefined): string {
+/** Maps a severity string to its indicator in a style: a colored circle when rich, nothing when plain. */
+export function severityIndicator(severity: string | undefined, style: OutputStyle): string {
   if (severity === undefined) return '';
-  return SEVERITY_INDICATORS[severity] ?? '';
+  const name = SEVERITY_GLYPH_NAMES[severity];
+  return name === undefined ? '' : V11Y_GLYPHS[style][name].text;
 }
 
 // ---------------------------------------------------------------------------
@@ -72,9 +76,9 @@ export function displayId(vuln: { ghsaId?: string | undefined; id: string }): st
 // Scope labels
 // ---------------------------------------------------------------------------
 
-const SCOPE_LABELS: Record<AuditScope, string> = {
-  dev: '  \u{1F527} dev:',
-  prod: '  \u{1F4E6} prod:',
+const SCOPE_GLYPH_NAMES: Record<AuditScope, V11yGlyphName> = {
+  dev: 'scopeDev',
+  prod: 'scopeProd',
 };
 
 const SCOPE_NAMES: Record<AuditScope, string> = {
@@ -87,28 +91,33 @@ const SCOPE_NAMES: Record<AuditScope, string> = {
 // ---------------------------------------------------------------------------
 
 /** Format a threshold annotation, e.g. `(threshold: 🟠 moderate)`. Returns empty string for `low` threshold. */
-function formatThresholdAnnotation(threshold: SeverityThreshold | undefined): string {
+function formatThresholdAnnotation(threshold: SeverityThreshold | undefined, style: OutputStyle): string {
   if (threshold === undefined || threshold === 'low') return '';
-  const indicator = severityIndicator(threshold);
+  const indicator = severityIndicator(threshold, style);
   const indicatorPart = indicator.length > 0 ? `${indicator} ` : '';
   return `(threshold: ${indicatorPart}${threshold})`;
 }
 
 /** Build the intro banner reflecting the scopes being audited. */
-function formatIntroBanner(scopes: AuditScope[], thresholds?: Partial<Record<AuditScope, SeverityThreshold>>): string {
+function formatIntroBanner(
+  scopes: AuditScope[],
+  style: OutputStyle,
+  thresholds?: Partial<Record<AuditScope, SeverityThreshold>>,
+): string {
   const first = scopes[0];
   // `first` is always defined here; the guard narrows for TypeScript.
   if (scopes.length === 1 && first !== undefined) {
-    const annotation = formatThresholdAnnotation(thresholds?.[first]);
-    return `\u{1F52C} Auditing ${SCOPE_NAMES[first]} dependencies${annotation && ` ${annotation}`} ...`;
+    const annotation = formatThresholdAnnotation(thresholds?.[first], style);
+    const message = `Auditing ${SCOPE_NAMES[first]} dependencies${annotation && ` ${annotation}`} ...`;
+    return formatGlyphLine(style, 'audit', message);
   }
-  return '\u{1F52C} Auditing dependencies ...';
+  return formatGlyphLine(style, 'audit', 'Auditing dependencies ...');
 }
 
 /** Build the severity suffix for a finding line, e.g. `  🔴 critical`. */
-export function formatSeveritySuffix(severity: string | undefined): string {
+export function formatSeveritySuffix(severity: string | undefined, style: OutputStyle): string {
   if (severity === undefined || severity === '') return '';
-  const emoji = severityIndicator(severity);
+  const emoji = severityIndicator(severity, style);
   const emojiPart = emoji.length > 0 ? `${emoji} ` : '';
   return `  ${emojiPart}${severity}`;
 }
@@ -116,29 +125,32 @@ export function formatSeveritySuffix(severity: string | undefined): string {
 /** Build the "allowed since X ago (datetime)" suffix for entries with `addedAt`. */
 function formatAllowedSuffix(addedAt: string, now: Date): string {
   const relative = formatRelativeTime(addedAt, now);
-  if (relative.length === 0) return ` \u{2022} \u{2705} allowed (${addedAt})`;
-  return ` \u{2022} \u{2705} allowed since ${relative} (${addedAt})`;
+  if (relative.length === 0) return ` \u{2022} allowed (${addedAt})`;
+  return ` \u{2022} allowed since ${relative} (${addedAt})`;
 }
 
 /** Format a single unallowed vulnerability as a bullet line. */
-function formatUnallowedLine(vuln: AuditResult): string {
-  return `  \u{2022} \u{1F6A8} ${displayId(vuln)}: ${vuln.path}${formatSeveritySuffix(vuln.severity)}`;
+function formatUnallowedLine(vuln: AuditResult, style: OutputStyle): string {
+  const message = `${displayId(vuln)}: ${vuln.path}${formatSeveritySuffix(vuln.severity, style)}`;
+  return `  \u{2022} ${formatMarkedLine(style, 'failed', message)}`;
 }
 
 /** Format a single allowed vulnerability as a bullet line. */
-function formatAllowedLine(vuln: AllowedVuln, now: Date): string {
+function formatAllowedLine(vuln: AllowedVuln, now: Date, style: OutputStyle): string {
   const suffix = vuln.addedAt !== undefined ? formatAllowedSuffix(vuln.addedAt, now) : '';
-  return `  \u{2022} \u{26A0}\u{FE0F} ${displayId(vuln)}: ${vuln.path}${formatSeveritySuffix(vuln.severity)}${suffix}`;
+  const message = `${displayId(vuln)}: ${vuln.path}${formatSeveritySuffix(vuln.severity, style)}${suffix}`;
+  return `  \u{2022} ${formatMarkedLine(style, 'passed', message)}`;
 }
 
 /** Format a single stale entry as a bullet line. */
-function formatStaleLine(entry: StaleEntry): string {
-  return `  \u{2022} \u{1F5D1}\u{FE0F} ${entry.id} \u{2022} not needed`;
+function formatStaleLine(entry: StaleEntry, style: OutputStyle): string {
+  return `  \u{2022} ${formatMarkedLine(style, 'stale', `${entry.id} \u{2022} not needed`)}`;
 }
 
 /** Format a single below-threshold vulnerability as a bullet line. */
-function formatBelowThresholdLine(vuln: AuditResult): string {
-  return `  \u{2022} \u{2139}\u{FE0F} ${displayId(vuln)}: ${vuln.path}${formatSeveritySuffix(vuln.severity)} \u{2022} \u{1F6AB} ignored`;
+function formatBelowThresholdLine(vuln: AuditResult, style: OutputStyle): string {
+  const message = `${displayId(vuln)}: ${vuln.path}${formatSeveritySuffix(vuln.severity, style)} \u{2022} ignored`;
+  return `  \u{2022} ${formatMarkedLine(style, 'skipped', message)}`;
 }
 
 /** Check whether a scope has any findings. */
@@ -152,16 +164,16 @@ function hasFindings(result: ScopeCheckResult): boolean {
 }
 
 /** Format a scope's finding lines (without scope header). */
-function formatScopeFindings(result: ScopeCheckResult, now: Date): string[] {
-  const lines: string[] = Array.from(result.unallowed, (vuln) => formatUnallowedLine(vuln));
+function formatScopeFindings(result: ScopeCheckResult, now: Date, style: OutputStyle): string[] {
+  const lines: string[] = Array.from(result.unallowed, (vuln) => formatUnallowedLine(vuln, style));
   for (const vuln of result.allowed) {
-    lines.push(formatAllowedLine(vuln, now));
+    lines.push(formatAllowedLine(vuln, now, style));
   }
   for (const entry of result.stale) {
-    lines.push(formatStaleLine(entry));
+    lines.push(formatStaleLine(entry, style));
   }
   for (const vuln of result.belowThreshold) {
-    lines.push(formatBelowThresholdLine(vuln));
+    lines.push(formatBelowThresholdLine(vuln, style));
   }
   return lines;
 }
@@ -175,11 +187,12 @@ function formatScopeFindings(result: ScopeCheckResult, now: Date): string[] {
 export function formatCheckText(
   result: CheckResult,
   scopes: AuditScope[],
+  style: OutputStyle,
   now?: Date,
   thresholds?: Partial<Record<AuditScope, SeverityThreshold>>,
 ): string {
   const effectiveNow = now ?? new Date();
-  const lines: string[] = [formatIntroBanner(scopes, thresholds)];
+  const lines: string[] = [formatIntroBanner(scopes, style, thresholds)];
 
   const anyFindings = scopes.some((scope) => hasFindings(result[scope]));
 
@@ -193,7 +206,7 @@ export function formatCheckText(
   if (singleScope !== undefined) {
     const scope = singleScope;
     const scopeResult = result[scope];
-    lines.push(...formatScopeFindings(scopeResult, effectiveNow));
+    lines.push(...formatScopeFindings(scopeResult, effectiveNow, style));
     const actions = formatActionHints(result, scopes);
     if (actions.length > 0) {
       lines.push('', ...actions.split('\n').filter((l) => l.length > 0));
@@ -204,11 +217,11 @@ export function formatCheckText(
   // Multiple scopes: show scope headers.
   for (const scope of scopes) {
     const scopeResult = result[scope];
-    const annotation = formatThresholdAnnotation(thresholds?.[scope]);
-    const header = `${SCOPE_LABELS[scope]}${annotation && ` ${annotation}`}`;
-    lines.push(header);
+    const annotation = formatThresholdAnnotation(thresholds?.[scope], style);
+    const label = formatGlyphLine(style, SCOPE_GLYPH_NAMES[scope], `${SCOPE_NAMES[scope]}:`);
+    lines.push(`  ${label}${annotation && ` ${annotation}`}`);
     if (hasFindings(scopeResult)) {
-      lines.push(...formatScopeFindings(scopeResult, effectiveNow));
+      lines.push(...formatScopeFindings(scopeResult, effectiveNow, style));
     } else {
       lines.push('  No known vulnerabilities found.');
     }

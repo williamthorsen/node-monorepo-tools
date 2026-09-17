@@ -1,3 +1,5 @@
+import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { disposeOnTestFinished, listConsoleLines, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { auditCommand, checkCommand, syncCommand } from '../../cli.ts';
@@ -17,6 +19,7 @@ vi.mock(import('../../init/initCommand.ts'), () => ({
 describe(routeCommand, () => {
   afterEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
   });
 
   it('returns 0 for --version', async () => {
@@ -175,11 +178,64 @@ describe(routeCommand, () => {
 
   it('forwards --dry-run flag to initCommand', async () => {
     await routeCommand(['init', '--dry-run']);
-    expect(initCommand).toHaveBeenCalledWith({ dryRun: true, force: false });
+    expect(initCommand).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true, force: false }));
   });
 
   it('forwards --force flag to initCommand', async () => {
     await routeCommand(['init', '--force']);
-    expect(initCommand).toHaveBeenCalledWith({ dryRun: false, force: true });
+    expect(initCommand).toHaveBeenCalledWith(expect.objectContaining({ dryRun: false, force: true }));
   });
+
+  it('states the output-style variable and its three values in --help', async () => {
+    const silent = disposeOnTestFinished(silenceConsole(['info']));
+
+    await routeCommand(['--help']);
+
+    const help = listConsoleLines(silent.info).join('\n');
+    expect(help).toContain('V11Y_CHECK_OUTPUT_STYLE');
+    expect(help).toMatch(/auto.*plain.*rich/);
+  });
+
+  it.each(['plain', 'rich'] as const)(
+    'passes the %s style resolved from the variable to checkCommand',
+    async (setting) => {
+      vi.stubEnv('V11Y_CHECK_OUTPUT_STYLE', setting);
+
+      await routeCommand(['check']);
+
+      expect(checkCommand).toHaveBeenCalledWith(
+        expect.objectContaining({ styles: { stderr: setting, stdout: setting } }),
+      );
+    },
+  );
+
+  it.each(['plain', 'rich'] as const)(
+    'passes the %s style resolved from the variable to initCommand',
+    async (setting) => {
+      vi.stubEnv('V11Y_CHECK_OUTPUT_STYLE', setting);
+
+      await routeCommand(['init']);
+
+      expect(initCommand).toHaveBeenCalledWith(
+        expect.objectContaining({ styles: { stderr: setting, stdout: setting } }),
+      );
+    },
+  );
+
+  it.each([['check'], ['init'], ['sync'], ['--raw'], []])(
+    'returns 1 with the shared usage error for args %j when the variable names no style',
+    async (...args) => {
+      const capture = disposeOnTestFinished(captureStdio());
+      vi.stubEnv('V11Y_CHECK_OUTPUT_STYLE', 'loud');
+
+      const exitCode = await routeCommand(args);
+
+      expect(exitCode).toBe(1);
+      expect(capture.stderr).toContain('V11Y_CHECK_OUTPUT_STYLE must be one of: auto, plain, rich (got "loud")');
+      expect(auditCommand).not.toHaveBeenCalled();
+      expect(checkCommand).not.toHaveBeenCalled();
+      expect(initCommand).not.toHaveBeenCalled();
+      expect(syncCommand).not.toHaveBeenCalled();
+    },
+  );
 });

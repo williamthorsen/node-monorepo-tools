@@ -1,3 +1,5 @@
+import { type OutputStyle, wrapToWidth } from '@williamthorsen/nmr-core';
+
 import { formatActionHints } from './format-actions.ts';
 import {
   type AllowedVuln,
@@ -9,27 +11,22 @@ import {
   type StaleEntry,
 } from './format-check.ts';
 import { formatRelativeTime } from './format-time.ts';
+import { formatGlyphLine, formatMarkedLine, measureRowMarkerColumn, type V11yGlyphName } from './glyphs.ts';
 import type { AuditResult, AuditScope, SeverityThreshold } from './types.ts';
 
 // ---------------------------------------------------------------------------
 // Display constants
 // ---------------------------------------------------------------------------
 
-const STATUS_UNALLOWED = '\u{1F6A8}';
-const STATUS_ALLOWED = '\u{26A0}\u{FE0F}';
-const STATUS_BELOW_THRESHOLD = '\u{2139}\u{FE0F}';
-const STATUS_STALE = '\u{1F5D1}\u{FE0F}';
-
-/** Scope display metadata. */
-const SCOPE_HEADERS: Record<AuditScope, string> = {
-  prod: '-- \u{1F4E6} prod --',
-  dev: '-- \u{1F527} dev --',
+const SCOPE_GLYPH_NAMES: Record<AuditScope, V11yGlyphName> = {
+  dev: 'scopeDev',
+  prod: 'scopeProd',
 };
 
-/** Indentation for entry detail lines (below the marker + id line). */
-const DETAIL_INDENT = ' '.repeat(5);
+/** Indentation of a block's header line, ahead of its row marker. */
+const MARKER_INDENT = '  ';
 
-/** Approximate target width for wrapped description lines. */
+/** Target width, in display columns, of a wrapped description line's content. */
 const WRAP_COLUMNS = 72;
 
 // ---------------------------------------------------------------------------
@@ -40,12 +37,13 @@ const WRAP_COLUMNS = 72;
 export function formatCheckVerboseText(
   result: CheckResult,
   scopes: AuditScope[],
+  style: OutputStyle,
   now?: Date,
   thresholds?: Partial<Record<AuditScope, SeverityThreshold>>,
 ): string {
   const effectiveNow = now ?? new Date();
   const sections: string[] = Array.from(scopes, (scope) =>
-    formatScopeVerbose(scope, result[scope], effectiveNow, thresholds?.[scope]),
+    formatScopeVerbose(scope, result[scope], effectiveNow, style, thresholds?.[scope]),
   );
 
   const actions = formatActionHints(result, scopes);
@@ -55,9 +53,9 @@ export function formatCheckVerboseText(
 }
 
 /** Format a threshold annotation for scope headers. Returns empty string for `low` or undefined threshold. */
-function formatThresholdSuffix(threshold: SeverityThreshold | undefined): string {
+function formatThresholdSuffix(threshold: SeverityThreshold | undefined, style: OutputStyle): string {
   if (threshold === undefined || threshold === 'low') return '';
-  const indicator = severityIndicator(threshold);
+  const indicator = severityIndicator(threshold, style);
   const indicatorPart = indicator.length > 0 ? `${indicator} ` : '';
   return ` (threshold: ${indicatorPart}${threshold})`;
 }
@@ -67,10 +65,11 @@ function formatScopeVerbose(
   scope: AuditScope,
   result: ScopeCheckResult,
   now: Date,
+  style: OutputStyle,
   threshold?: SeverityThreshold,
 ): string {
-  const thresholdSuffix = formatThresholdSuffix(threshold);
-  const lines: string[] = [`${SCOPE_HEADERS[scope]}${thresholdSuffix}`];
+  const thresholdSuffix = formatThresholdSuffix(threshold, style);
+  const lines: string[] = [`-- ${formatGlyphLine(style, SCOPE_GLYPH_NAMES[scope], scope)} --${thresholdSuffix}`];
   const hasFindings =
     result.unallowed.length > 0 ||
     result.allowed.length > 0 ||
@@ -82,69 +81,81 @@ function formatScopeVerbose(
     return lines.join('\n');
   }
 
-  const blocks: string[] = Array.from(result.unallowed, (vuln) => formatUnallowedBlock(vuln));
+  const blocks: string[] = Array.from(result.unallowed, (vuln) => formatUnallowedBlock(vuln, style));
   for (const vuln of result.allowed) {
-    blocks.push(formatAllowedBlock(vuln, now));
+    blocks.push(formatAllowedBlock(vuln, now, style));
   }
   for (const entry of result.stale) {
-    blocks.push(formatStaleLine(entry));
+    blocks.push(formatStaleLine(entry, style));
   }
   for (const vuln of result.belowThreshold) {
-    blocks.push(formatBelowThresholdBlock(vuln));
+    blocks.push(formatBelowThresholdBlock(vuln, style));
   }
 
   // Join blocks with a blank line between them.
   return lines.concat(blocks.join('\n\n')).join('\n');
 }
 
-/** Format an unallowed vulnerability block with 🚨 marker. */
-function formatUnallowedBlock(vuln: AuditResult): string {
-  const headerLine = `  ${STATUS_UNALLOWED} ${displayId(vuln)}${formatSeveritySuffix(vuln.severity)}`;
-  const detail = formatAdvisoryDetail(vuln);
+/** Formats an unallowed vulnerability block with the `failed` marker. */
+function formatUnallowedBlock(vuln: AuditResult, style: OutputStyle): string {
+  const message = `${displayId(vuln)}${formatSeveritySuffix(vuln.severity, style)}`;
+  const headerLine = `${MARKER_INDENT}${formatMarkedLine(style, 'failed', message)}`;
+  const detail = formatAdvisoryDetail(vuln, style);
   return [headerLine, ...detail].join('\n');
 }
 
-/** Format an allowed vulnerability block with ⚠️ marker plus reason/addedAt context. */
-function formatAllowedBlock(vuln: AllowedVuln, now: Date): string {
+/** Formats an allowed vulnerability block with the `passed` marker plus reason/addedAt context. */
+function formatAllowedBlock(vuln: AllowedVuln, now: Date, style: OutputStyle): string {
   const allowedSuffix = vuln.addedAt !== undefined ? formatAllowedSuffix(vuln.addedAt, now) : '';
-  const headerLine = `  ${STATUS_ALLOWED} ${displayId(vuln)}${formatSeveritySuffix(vuln.severity)}${allowedSuffix}`;
+  const message = `${displayId(vuln)}${formatSeveritySuffix(vuln.severity, style)}${allowedSuffix}`;
+  const headerLine = `${MARKER_INDENT}${formatMarkedLine(style, 'passed', message)}`;
   const hasTitle = vuln.title !== undefined;
-  const detail = formatAdvisoryDetail(vuln);
+  const detail = formatAdvisoryDetail(vuln, style);
   if (vuln.reason !== undefined) {
     const reasonLineIndex = findReasonInsertionIndex(hasTitle);
-    detail.splice(reasonLineIndex, 0, `${DETAIL_INDENT}reason: ${vuln.reason}`);
+    detail.splice(reasonLineIndex, 0, `${buildDetailIndent(style)}reason: ${vuln.reason}`);
   }
   return [headerLine, ...detail].join('\n');
 }
 
-/** Format a stale entry as a single line with 🗑️ marker. */
-function formatStaleLine(entry: StaleEntry): string {
-  return `  ${STATUS_STALE} ${entry.id}  not needed`;
+/** Formats a stale entry as a single line with the `stale` marker. */
+function formatStaleLine(entry: StaleEntry, style: OutputStyle): string {
+  return `${MARKER_INDENT}${formatMarkedLine(style, 'stale', `${entry.id}  not needed`)}`;
 }
 
-/** Format a below-threshold vulnerability block with ℹ️ marker and "ignored (below threshold)" annotation. */
-function formatBelowThresholdBlock(vuln: AuditResult): string {
-  const headerLine = `  ${STATUS_BELOW_THRESHOLD} ${displayId(vuln)}${formatSeveritySuffix(vuln.severity)}  ignored (below threshold)`;
-  const detail = formatAdvisoryDetail(vuln);
+/** Formats a below-threshold vulnerability block with the `skipped` marker and "ignored (below threshold)" annotation. */
+function formatBelowThresholdBlock(vuln: AuditResult, style: OutputStyle): string {
+  const message = `${displayId(vuln)}${formatSeveritySuffix(vuln.severity, style)}  ignored (below threshold)`;
+  const headerLine = `${MARKER_INDENT}${formatMarkedLine(style, 'skipped', message)}`;
+  const detail = formatAdvisoryDetail(vuln, style);
   return [headerLine, ...detail].join('\n');
 }
 
 /** Shared advisory detail lines (title, paths, link, description) for unallowed or allowed entries. */
-function formatAdvisoryDetail(vuln: {
-  description?: string | undefined;
-  paths: string[];
-  title?: string | undefined;
-  url: string;
-}): string[] {
+function formatAdvisoryDetail(
+  vuln: {
+    description?: string | undefined;
+    paths: string[];
+    title?: string | undefined;
+    url: string;
+  },
+  style: OutputStyle,
+): string[] {
+  const detailIndent = buildDetailIndent(style);
   const lines: string[] = [];
   if (vuln.title !== undefined) {
-    lines.push(`${DETAIL_INDENT}${vuln.title}`);
+    lines.push(`${detailIndent}${vuln.title}`);
   }
-  lines.push(...formatPathsLines(vuln.paths), `${DETAIL_INDENT}link: ${vuln.url}`);
+  lines.push(...formatPathsLines(vuln.paths, detailIndent), `${detailIndent}link: ${vuln.url}`);
   if (vuln.description !== undefined) {
-    lines.push('', ...formatDescriptionLines(vuln.description));
+    lines.push('', ...formatDescriptionLines(vuln.description, detailIndent));
   }
   return lines;
+}
+
+/** Builds the indentation that puts an entry's detail lines under the text that follows its row marker. */
+function buildDetailIndent(style: OutputStyle): string {
+  return ' '.repeat(MARKER_INDENT.length + measureRowMarkerColumn(style) + 1);
 }
 
 /** Find the index at which to insert the `reason:` line: just after the title (or at top if no title). */
@@ -155,14 +166,14 @@ function findReasonInsertionIndex(hasTitle: boolean): number {
 }
 
 /** Build `path:` or `paths:` lines for a single or multiple paths. */
-function formatPathsLines(paths: string[]): string[] {
+function formatPathsLines(paths: string[], detailIndent: string): string[] {
   if (paths.length === 0) return [];
   if (paths.length === 1) {
-    return [`${DETAIL_INDENT}path: ${paths[0]}`];
+    return [`${detailIndent}path: ${paths[0]}`];
   }
-  const lines = [`${DETAIL_INDENT}paths:`];
+  const lines = [`${detailIndent}paths:`];
   for (const pathValue of paths) {
-    lines.push(`${DETAIL_INDENT}  - ${pathValue}`);
+    lines.push(`${detailIndent}  - ${pathValue}`);
   }
   return lines;
 }
@@ -174,40 +185,17 @@ function formatAllowedSuffix(addedAt: string, now: Date): string {
   return `  allowed ${relative} (${addedAt})`;
 }
 
-/** Wrap a description (possibly multi-paragraph) to the detail indent. */
-function formatDescriptionLines(description: string): string[] {
+/** Wraps a description (possibly multi-paragraph) by display columns, indenting every line to the detail indent. */
+function formatDescriptionLines(description: string, detailIndent: string): string[] {
   const paragraphs = description.split(/\n\s*\n/);
   const lines: string[] = [];
   let needsSeparator = false;
   for (const paragraph of paragraphs) {
     if (needsSeparator) lines.push('');
-    const wrapped = wrapParagraph(paragraph.trim(), WRAP_COLUMNS);
-    for (const wrappedLine of wrapped) {
-      lines.push(`${DETAIL_INDENT}${wrappedLine}`);
-    }
+    // `wrapToWidth` counts the indent inside `width`, and `WRAP_COLUMNS` is the width of the content alone.
+    const wrapped = wrapToWidth(paragraph, { indent: detailIndent.length, width: WRAP_COLUMNS + detailIndent.length });
+    if (wrapped !== '') lines.push(...wrapped.split('\n'));
     needsSeparator = true;
   }
-  return lines;
-}
-
-/** Word-wrap a single paragraph to the given column width. */
-function wrapParagraph(paragraph: string, columns: number): string[] {
-  if (paragraph.length === 0) return [];
-  const words = paragraph.split(/\s+/);
-  const lines: string[] = [];
-  let current = '';
-  for (const word of words) {
-    if (current === '') {
-      current = word;
-      continue;
-    }
-    if (current.length + 1 + word.length > columns) {
-      lines.push(current);
-      current = word;
-    } else {
-      current += ` ${word}`;
-    }
-  }
-  if (current !== '') lines.push(current);
   return lines;
 }
