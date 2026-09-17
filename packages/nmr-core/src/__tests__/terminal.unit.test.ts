@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   formatErrorLine,
   formatStatusLine,
+  type OutputStyle,
   printError,
   printSkip,
   printSuccess,
@@ -268,11 +269,12 @@ describe(reportWriteResult, () => {
   it.each([
     { style: 'plain', success: '  PASS  Created some/file.ts', skip: '  WARN  some/file.ts (already exists)' },
     { style: 'rich', success: '  ✅ Created some/file.ts', skip: '  🟠 some/file.ts (already exists)' },
-  ] as const)('passes the $style style to the stdout helpers', ({ style, success, skip }) => {
+  ] as const)('passes the $style style of stdout to the stdout helpers', ({ style, success, skip }) => {
     using silent = silenceConsole(['info']);
+    const styles = { stderr: otherStyle(style), stdout: style };
 
-    reportWriteResult({ filePath: 'some/file.ts', outcome: 'created' }, false, style);
-    reportWriteResult({ filePath: 'some/file.ts', outcome: 'skipped' }, false, style);
+    reportWriteResult({ filePath: 'some/file.ts', outcome: 'created' }, false, styles);
+    reportWriteResult({ filePath: 'some/file.ts', outcome: 'skipped' }, false, styles);
 
     expect(silent.info).toHaveBeenNthCalledWith(1, success);
     expect(silent.info).toHaveBeenNthCalledWith(2, skip);
@@ -281,10 +283,11 @@ describe(reportWriteResult, () => {
   it.each([
     { style: 'plain', expected: '  FAIL  Failed to write some/file.ts\n' },
     { style: 'rich', expected: '  ❌ Failed to write some/file.ts\n' },
-  ] as const)('passes the $style style to the stderr helper', ({ style, expected }) => {
+  ] as const)('passes the $style style of stderr to the stderr helper', ({ style, expected }) => {
     using capture = captureStdio();
+    const styles = { stderr: style, stdout: otherStyle(style) };
 
-    reportWriteResult({ filePath: 'some/file.ts', outcome: 'failed' }, false, style);
+    reportWriteResult({ filePath: 'some/file.ts', outcome: 'failed' }, false, styles);
 
     expect(capture.stderr).toBe(expected);
   });
@@ -367,6 +370,11 @@ describe(resolveStreamStyles, () => {
 });
 
 // region | Helpers
+/** Returns the style that a helper given the wrong stream's style would print in. */
+function otherStyle(style: OutputStyle): OutputStyle {
+  return style === 'plain' ? 'rich' : 'plain';
+}
+
 /** Sets a stream's `isTTY` until disposed, then restores the property as it was. */
 function stubIsTty(stream: NodeJS.WriteStream, isTty: boolean): Disposable {
   const original = Object.getOwnPropertyDescriptor(stream, 'isTTY');
