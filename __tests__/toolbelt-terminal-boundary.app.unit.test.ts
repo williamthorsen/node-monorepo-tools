@@ -6,11 +6,11 @@ import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
-const SEAM_DEPENDENCY = '@williamthorsen/toolbelt.terminal';
+const TERMINAL_DEPENDENCY = '@williamthorsen/toolbelt.terminal';
 
 /** The one module that imports the dependency, and the one manifest that declares it. */
-const SEAM_MODULE = 'packages/nmr-core/src/terminal.ts';
-const SEAM_MANIFEST = 'packages/nmr-core/package.json';
+const TERMINAL_IMPORTER = 'packages/nmr-core/src/terminal.ts';
+const TERMINAL_DECLARER = 'packages/nmr-core/package.json';
 
 const DEPENDENCY_FIELDS = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'];
 
@@ -31,26 +31,26 @@ const it = baseIt.extend(
 );
 
 /**
- * Guards the seam over the experimental `toolbelt.terminal` API: A change to that API is repaired in one
- * module only while that module is its sole importer and nmr-core its sole declarer.
+ * Guards the boundary around the experimental `toolbelt.terminal` API: A change to that API is repaired in
+ * one module only while that module is its sole importer and nmr-core its sole declarer.
  */
 describe('the toolbelt.terminal boundary', () => {
-  it('has the seam module as its only importer', () => {
-    expect(findImporters(monorepoRoot)).toStrictEqual([SEAM_MODULE]);
+  it("has nmr-core's terminal module as its only importer", () => {
+    expect(findImporters(monorepoRoot)).toStrictEqual([TERMINAL_IMPORTER]);
   });
 
   it('has nmr-core as its only declarer', () => {
-    expect(findDeclarers(monorepoRoot)).toStrictEqual([SEAM_MANIFEST]);
+    expect(findDeclarers(monorepoRoot)).toStrictEqual([TERMINAL_DECLARER]);
   });
 });
 
 describe(findImporters, () => {
   it.for([
-    { name: 'a static import', code: `import { wrapToWidth } from '${SEAM_DEPENDENCY}/candidate';\n` },
-    { name: 'a type-only import', code: `import type { OutputStyle } from "${SEAM_DEPENDENCY}/candidate";\n` },
-    { name: 'a re-export', code: `export { wrapToWidth } from '${SEAM_DEPENDENCY}';\n` },
-    { name: 'a dynamic import', code: `const terminal = await import('${SEAM_DEPENDENCY}/candidate');\n` },
-    { name: 'a module mock', code: `vi.mock('${SEAM_DEPENDENCY}/candidate');\n` },
+    { name: 'a static import', code: `import { wrapToWidth } from '${TERMINAL_DEPENDENCY}/candidate';\n` },
+    { name: 'a type-only import', code: `import type { OutputStyle } from "${TERMINAL_DEPENDENCY}/candidate";\n` },
+    { name: 'a re-export', code: `export { wrapToWidth } from '${TERMINAL_DEPENDENCY}';\n` },
+    { name: 'a dynamic import', code: `const terminal = await import('${TERMINAL_DEPENDENCY}/candidate');\n` },
+    { name: 'a module mock', code: `vi.mock('${TERMINAL_DEPENDENCY}/candidate');\n` },
   ])('reports $name', ({ code }, { tree }) => {
     tree.write('packages/release-kit/src/format.ts', code);
 
@@ -58,13 +58,13 @@ describe(findImporters, () => {
   });
 
   it('ignores a sibling package whose name extends the dependency name', ({ tree }) => {
-    tree.write('packages/nmr/src/runner.ts', `import { x } from '${SEAM_DEPENDENCY}-extras';\n`);
+    tree.write('packages/nmr/src/runner.ts', `import { x } from '${TERMINAL_DEPENDENCY}-extras';\n`);
 
     expect(findImporters(tree.dir)).toStrictEqual([]);
   });
 
   it('ignores an installed dependency that imports it', ({ tree }) => {
-    tree.write('node_modules/dep/index.js', `import { wrapToWidth } from '${SEAM_DEPENDENCY}';\n`);
+    tree.write('node_modules/dep/index.js', `import { wrapToWidth } from '${TERMINAL_DEPENDENCY}';\n`);
 
     expect(findImporters(tree.dir)).toStrictEqual([]);
   });
@@ -72,7 +72,7 @@ describe(findImporters, () => {
 
 describe(findDeclarers, () => {
   it.for(DEPENDENCY_FIELDS)('reports a manifest naming it under %s', (field, { tree }) => {
-    tree.write('packages/release-kit/package.json', JSON.stringify({ [field]: { [SEAM_DEPENDENCY]: 'catalog:' } }));
+    tree.write('packages/release-kit/package.json', JSON.stringify({ [field]: { [TERMINAL_DEPENDENCY]: 'catalog:' } }));
 
     expect(findDeclarers(tree.dir)).toStrictEqual(['packages/release-kit/package.json']);
   });
@@ -80,7 +80,7 @@ describe(findDeclarers, () => {
   it('ignores a manifest that declares other dependencies', ({ tree }) => {
     tree.write(
       'packages/nmr/package.json',
-      JSON.stringify({ dependencies: { [`${SEAM_DEPENDENCY}-extras`]: '1.0.0' } }),
+      JSON.stringify({ dependencies: { [`${TERMINAL_DEPENDENCY}-extras`]: '1.0.0' } }),
     );
 
     expect(findDeclarers(tree.dir)).toStrictEqual([]);
@@ -90,11 +90,11 @@ describe(findDeclarers, () => {
 // region | Helpers
 
 /** Reports whether a parsed manifest names the dependency in any of its dependency fields. */
-function declaresSeamDependency(manifest: unknown): boolean {
+function declaresTerminalDependency(manifest: unknown): boolean {
   if (!isRecord(manifest)) return false;
   return DEPENDENCY_FIELDS.some((field) => {
     const dependencies = manifest[field];
-    return isRecord(dependencies) && Object.hasOwn(dependencies, SEAM_DEPENDENCY);
+    return isRecord(dependencies) && Object.hasOwn(dependencies, TERMINAL_DEPENDENCY);
   });
 }
 
@@ -102,7 +102,7 @@ function declaresSeamDependency(manifest: unknown): boolean {
 function findDeclarers(rootDir: string): string[] {
   return listFiles(rootDir)
     .filter((file) => path.basename(file) === 'package.json')
-    .filter((file) => declaresSeamDependency(JSON.parse(readFileSync(path.join(rootDir, file), 'utf8'))))
+    .filter((file) => declaresTerminalDependency(JSON.parse(readFileSync(path.join(rootDir, file), 'utf8'))))
     .toSorted();
 }
 

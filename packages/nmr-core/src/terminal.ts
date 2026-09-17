@@ -1,4 +1,4 @@
-// Terminal output helpers for styled CLI messages, and the repo's single seam over `@williamthorsen/toolbelt.terminal`.
+// Terminal output helpers for styled CLI messages, and the repo's only importer of `@williamthorsen/toolbelt.terminal`.
 
 import process from 'node:process';
 import type { Writable } from 'node:stream';
