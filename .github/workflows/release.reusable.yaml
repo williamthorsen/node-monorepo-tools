@@ -54,8 +54,8 @@ jobs:
     env:
       BUILD_LOCAL: ${{ github.repository == 'williamthorsen/node-monorepo-tools' }}
       GITHUB_TOKEN: ${{ github.token }}
-      # Allow npx to run even when package.json declares a different package
-      # manager (e.g., pnpm). Without this, Corepack blocks npm/npx.
+      # Keeps a Corepack `npm` shim from refusing `npm link --workspace` on the
+      # source-build path, where the pnpm `packageManager` pin survives.
       COREPACK_ENABLE_STRICT: '0'
 
     steps:
@@ -90,10 +90,6 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: '24'
-
-      - name: Disable Corepack
-        if: ${{ env.BUILD_LOCAL != 'true' }}
-        run: corepack disable
 
       # Install globally so the binary is on PATH.
       # npm exec / npx binary resolution is unreliable with scoped packages
