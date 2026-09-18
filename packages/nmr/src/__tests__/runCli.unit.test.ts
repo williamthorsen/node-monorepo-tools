@@ -61,6 +61,12 @@ const it = baseIt
         { prefix: 'nmr-runcli-excluded-' },
       ),
     ),
+  )
+  .extend(
+    'taggedTree',
+    makeFixture(() =>
+      createTempTree({ 'pnpm-workspace.yaml': 'packages:\n  - !packages/legacy\n' }, { prefix: 'nmr-runcli-tagged-' }),
+    ),
   );
 
 describe(runCli, () => {
@@ -349,6 +355,17 @@ describe(runCli, () => {
       expect(stderr).toContain('pnpm-workspace.yaml declares `packages/*`, `!packages/*`');
       expect(stderr).toContain('`!` entries exclude every directory matched by the positive patterns');
       expect(stderr).toContain('Drop or narrow the exclusion');
+    });
+
+    // An unquoted `!pkg` reaches the matcher as an empty entry, which is the very case this message's remedy
+    // names, so quoting it back as an empty pair of backticks is what the reader must not be given.
+    it('names an entry YAML left empty rather than quoting nothing', async ({ taggedTree }) => {
+      const { exitCode, stderr } = await runNmrReadingStderr(['-R', 'build'], taggedTree.dir);
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('pnpm-workspace.yaml declares 1 entry that YAML left empty');
+      expect(stderr).toContain('quote any `!` entry');
+      expect(stderr).not.toContain('``');
     });
 
     // The pattern-shape rules answer which pattern would have matched, and in a package-free workspace none

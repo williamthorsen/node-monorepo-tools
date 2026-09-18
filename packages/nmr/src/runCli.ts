@@ -863,7 +863,7 @@ function formatEmptyFilterError(pattern: string, names: readonly string[]): stri
  */
 function describeEmptyWorkspace(monorepoRoot: string): string {
   const { cause, patterns } = diagnoseEmptyWorkspace(monorepoRoot);
-  const declared = patterns.length === 0 ? 'declares no `packages` list' : `declares ${renderQuotedList(patterns)}`;
+  const declared = describeDeclaredPatterns(patterns);
 
   switch (cause) {
     case 'all-excluded':
@@ -889,6 +889,29 @@ function describeEmptyWorkspace(monorepoRoot: string): string {
       throw new Error(`Unhandled empty-workspace cause: ${String(unhandled)}`);
     }
   }
+}
+
+/**
+ * Returns the clause naming what the manifest's `packages` key declares, which every empty-workspace message
+ * leads with.
+ *
+ * An entry the parser left empty is what an unquoted `!pkg` becomes, and the matcher drops it. Naming it as an
+ * empty entry is what a reader can act on: quoting it renders an empty pair of backticks, and it does so in the
+ * one case the `no-pattern` remedy is written for.
+ */
+function describeDeclaredPatterns(patterns: readonly string[]): string {
+  const quotable = patterns.filter((pattern) => pattern.trim() !== '');
+  const emptied = patterns.length - quotable.length;
+
+  if (emptied === 0) {
+    return patterns.length === 0 ? 'declares no `packages` list' : `declares ${renderQuotedList(patterns)}`;
+  }
+
+  const emptiedClause = `${emptied} ${emptied === 1 ? 'entry' : 'entries'} that YAML left empty`;
+
+  return quotable.length === 0
+    ? `declares ${emptiedClause}`
+    : `declares ${renderQuotedList(quotable)}, beside ${emptiedClause}`;
 }
 
 /** Returns the rejection a filter leads its line with, naming the pattern that selected nothing. */

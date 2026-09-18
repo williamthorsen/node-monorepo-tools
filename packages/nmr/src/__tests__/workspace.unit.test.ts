@@ -115,6 +115,7 @@ describe(diagnoseEmptyWorkspace, () => {
     { patterns: '[]', scenario: 'an empty list' },
     { patterns: "'packages/*'", scenario: 'a list holding something other than strings' },
     { patterns: "\n  - '!packages/legacy'", scenario: 'exclusions alone' },
+    { patterns: '\n  - !packages/legacy', scenario: 'an unquoted `!` entry, which YAML leaves empty' },
   ])('reports no-pattern given $scenario', ({ patterns }, { packagesTree }) => {
     packagesTree.write(
       'pnpm-workspace.yaml',
