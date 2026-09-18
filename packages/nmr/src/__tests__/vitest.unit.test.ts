@@ -505,11 +505,23 @@ describe(defineVitestConfig, () => {
     expect(build).toThrow('Invalid Vitest config: `resolveFromSource` was renamed to `shouldResolveFromSource`.');
   });
 
-  it('rejects an option key outside the recognized set, naming it', () => {
+  // Asserted whole, because the recognized set is the remedy the consumer acts on: a message naming the bad key
+  // and nothing else leaves them to guess the spelling it should have been.
+  it('rejects an option key outside the recognized set, naming it and the recognized set', () => {
     // @ts-expect-error - the key is a typo; a JavaScript consumer can still write it
     const build = () => defineVitestConfig({ tsconfigPath: true });
 
-    expect(build).toThrow('Invalid Vitest config: unrecognized option `tsconfigPath`.');
+    expect(build).toThrow(
+      'Invalid Vitest config: unrecognized option `tsconfigPath`. Recognized: `project`, `root`, ' +
+        '`shouldIsolateGit`, `shouldResolveFromSource`, `testCollectionExclude`, `tiers`, `tsconfigPaths`.',
+    );
+  });
+
+  it('names every unrecognized key of one layer, sorted', () => {
+    // @ts-expect-error - both keys are typos; a JavaScript consumer can still write them
+    const build = () => defineVitestConfig({ tsconfigPath: true, isolateGitt: false });
+
+    expect(build).toThrow('Invalid Vitest config: unrecognized options `isolateGitt`, `tsconfigPath`.');
   });
 
   it('checks every layer for an unrecognized key, not only the last', () => {
