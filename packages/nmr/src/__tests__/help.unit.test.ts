@@ -32,8 +32,10 @@ describe(generateHelp, () => {
     expect(help).toContain('--json');
     expect(help).toContain('--log');
     expect(help).toContain('--no-cache');
+    expect(help).toContain('--output-style <style>');
     expect(help).toContain('-?, --help');
     expect(help).toContain('-V, --version');
+    expect(help).toContain('NMR_OUTPUT_STYLE');
   });
 
   it('includes workspace commands section', () => {
