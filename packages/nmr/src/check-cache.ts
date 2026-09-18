@@ -402,12 +402,12 @@ export async function readCheckCacheEntry(options: {
   command: string;
   monorepoRoot: string;
 }): Promise<CheckCacheEntry | undefined> {
-  const parsed = await readJsonCacheEntry(resolveEntryPath(options), isParsedCheckCacheEntry);
-  if (parsed === undefined) {
+  const parsedEntry = await readJsonCacheEntry(resolveEntryPath(options), isParsedCheckCacheEntry);
+  if (parsedEntry === undefined) {
     return undefined;
   }
 
-  const { retention, ...pass } = parsed;
+  const { retention, ...pass } = parsedEntry;
 
   return isRetention(retention) ? { ...pass, retention } : pass;
 }
@@ -453,8 +453,8 @@ export async function removeCheckCache(scopeDir: string): Promise<void> {
 export function resolveCacheableCommands(checkCache: CheckCacheConfig | undefined): Set<string> {
   const commands = new Set([...DEFAULT_CACHEABLE_COMMANDS, ...(checkCache?.extraCommands ?? [])]);
   const excludedCommands = checkCache?.excludeCommands ?? [];
-  for (const excluded of excludedCommands) {
-    commands.delete(excluded);
+  for (const excludedCommand of excludedCommands) {
+    commands.delete(excludedCommand);
   }
 
   return commands;
@@ -469,9 +469,9 @@ export function resolveCacheableCommands(checkCache: CheckCacheConfig | undefine
  * constituent entry is held to before its excerpt joins an assembly.
  */
 export function resolveRunId(env: NodeJS.ProcessEnv): string {
-  const inherited = env[RUN_ID_ENV_VAR];
+  const inheritedRunId = env[RUN_ID_ENV_VAR];
 
-  return inherited === undefined || inherited === '' ? randomUUID() : inherited;
+  return inheritedRunId === undefined || inheritedRunId === '' ? randomUUID() : inheritedRunId;
 }
 
 /**
@@ -490,14 +490,14 @@ export function resolveTreeSnapshot(options: {
   // An inherited snapshot is trusted only while HEAD stands where it did when the snapshot was taken. A
   // process that outlives the run that spawned it carries the variable with it, and would otherwise gate a
   // later invocation on an observation of a tree that has since moved on.
-  const inherited = decodeTreeSnapshot(options.env[TREE_SNAPSHOT_ENV_VAR]);
-  if (inherited !== undefined && readHeadSha(options.monorepoRoot) === inherited.headSha) {
-    return { ok: true, snapshot: inherited };
+  const inheritedSnapshot = decodeTreeSnapshot(options.env[TREE_SNAPSHOT_ENV_VAR]);
+  if (inheritedSnapshot !== undefined && readHeadSha(options.monorepoRoot) === inheritedSnapshot.headSha) {
+    return { ok: true, snapshot: inheritedSnapshot };
   }
 
-  const hashed = hashWorkingTree(options.monorepoRoot);
-  if (!hashed.ok) {
-    return hashed;
+  const hashedTree = hashWorkingTree(options.monorepoRoot);
+  if (!hashedTree.ok) {
+    return hashedTree;
   }
 
   let physicalRoot: string;
@@ -506,11 +506,11 @@ export function resolveTreeSnapshot(options: {
   } catch {
     return { ok: false, reason: `could not resolve ${options.monorepoRoot}` };
   }
-  if (hashed.toplevel !== physicalRoot) {
-    return { ok: false, reason: `the monorepo root is not the git toplevel (${hashed.toplevel})` };
+  if (hashedTree.toplevel !== physicalRoot) {
+    return { ok: false, reason: `the monorepo root is not the git toplevel (${hashedTree.toplevel})` };
   }
 
-  return { ok: true, snapshot: { hash: hashed.hash, headSha: hashed.headSha } };
+  return { ok: true, snapshot: { hash: hashedTree.hash, headSha: hashedTree.headSha } };
 }
 
 /** Records a pass, replacing whatever this command last recorded at this scope. */

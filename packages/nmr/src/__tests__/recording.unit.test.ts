@@ -84,11 +84,15 @@ describe('a recording', () => {
     it.each([
       ['the tree moved', { treeHash: 'another-tree' }, { ingredient: 'tree' }],
       ['the chain changed', { commandString: 'vitest run --coverage' }, { ingredient: 'command-string' }],
-      ['nmr was upgraded', { nmrVersion: '1.1.0' }, { ingredient: 'nmr-version', current: '1.1.0', recorded: '1.0.0' }],
+      [
+        'nmr was upgraded',
+        { nmrVersion: '1.1.0' },
+        { ingredient: 'nmr-version', currentVersion: '1.1.0', recordedVersion: '1.0.0' },
+      ],
       [
         'Node was upgraded',
         { nodeVersion: 'v25.0.0' },
-        { ingredient: 'node-version', current: 'v25.0.0', recorded: 'v24.0.0' },
+        { ingredient: 'node-version', currentVersion: 'v25.0.0', recordedVersion: 'v24.0.0' },
       ],
       ['only the install moved', {}, { ingredient: 'other' }],
     ])('given %s, names the ingredient that moved', async (_scenario, current, difference) => {
@@ -197,7 +201,7 @@ describe('a recording', () => {
         {
           kind: 'mismatched',
           ageMs: 60_000,
-          difference: { ingredient: 'nmr-version', current: '1.1.0', recorded: '1.0.0' },
+          difference: { ingredient: 'nmr-version', currentVersion: '1.1.0', recordedVersion: '1.0.0' },
         },
         'under nmr 1.0.0, not 1.1.0',
       ],
@@ -206,7 +210,7 @@ describe('a recording', () => {
         {
           kind: 'mismatched',
           ageMs: 60_000,
-          difference: { ingredient: 'node-version', current: 'v25.0.0', recorded: 'v24.0.0' },
+          difference: { ingredient: 'node-version', currentVersion: 'v25.0.0', recordedVersion: 'v24.0.0' },
         },
         'under Node v24.0.0, not v25.0.0',
       ],

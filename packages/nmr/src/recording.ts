@@ -31,8 +31,8 @@ export interface Recording {
 export type KeyDifference =
   | { ingredient: 'tree' }
   | { ingredient: 'command-string' }
-  | { ingredient: 'nmr-version'; current: string; recorded: string }
-  | { ingredient: 'node-version'; current: string; recorded: string }
+  | { ingredient: 'nmr-version'; currentVersion: string; recordedVersion: string }
+  | { ingredient: 'node-version'; currentVersion: string; recordedVersion: string }
   | { ingredient: 'other' };
 
 /** What `--log` found for one command at one scope. */
@@ -151,14 +151,14 @@ function describeDifference(difference: KeyDifference): string {
     case 'command-string':
       return 'over a command chain this is not';
     case 'nmr-version':
-      return `under nmr ${difference.recorded}, not ${difference.current}`;
+      return `under nmr ${difference.recordedVersion}, not ${difference.currentVersion}`;
     case 'node-version':
-      return `under Node ${difference.recorded}, not ${difference.current}`;
+      return `under Node ${difference.recordedVersion}, not ${difference.currentVersion}`;
     case 'other':
       return 'under an install or environment this run does not share';
     default: {
-      const unhandled: never = difference;
-      throw new Error(`Unhandled key difference: ${JSON.stringify(unhandled)}`);
+      const unhandledDifference: never = difference;
+      throw new Error(`Unhandled key difference: ${JSON.stringify(unhandledDifference)}`);
     }
   }
 }
@@ -177,8 +177,8 @@ function describeRefusal(command: string, refusal: RecordingRefusal): string {
     case 'no-output':
       return `the pass ${formatDuration(refusal.ageMs)} ago retained none, as a run printing nothing or writing to a terminal does`;
     default: {
-      const unhandled: never = refusal;
-      throw new Error(`Unhandled refusal: ${JSON.stringify(unhandled)}`);
+      const unhandledRefusal: never = refusal;
+      throw new Error(`Unhandled refusal: ${JSON.stringify(unhandledRefusal)}`);
     }
   }
 }
@@ -195,10 +195,10 @@ function findKeyDifference(entry: CheckCacheEntry, current: RunIdentity): KeyDif
     return { ingredient: 'command-string' };
   }
   if (entry.nmrVersion !== current.nmrVersion) {
-    return { ingredient: 'nmr-version', current: current.nmrVersion, recorded: entry.nmrVersion };
+    return { ingredient: 'nmr-version', currentVersion: current.nmrVersion, recordedVersion: entry.nmrVersion };
   }
   if (entry.nodeVersion !== current.nodeVersion) {
-    return { ingredient: 'node-version', current: current.nodeVersion, recorded: entry.nodeVersion };
+    return { ingredient: 'node-version', currentVersion: current.nodeVersion, recordedVersion: entry.nodeVersion };
   }
 
   return { ingredient: 'other' };

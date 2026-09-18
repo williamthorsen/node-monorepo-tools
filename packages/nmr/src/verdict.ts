@@ -79,9 +79,9 @@ export function renderVerdict(verdict: Verdict, style: OutputStyle): string {
  * in the same order.
  */
 export function serializeVerdict(verdict: Verdict): string {
-  const rendered = JSON.stringify(verdict);
+  const renderedLine = JSON.stringify(verdict);
 
-  return isWithinBudget(rendered) ? rendered : renderWithinBudget(verdict);
+  return isWithinBudget(renderedLine) ? renderedLine : renderWithinBudget(verdict);
 }
 
 /**
@@ -132,8 +132,8 @@ function describeOutcome(verdict: Verdict, style: OutputStyle): { marker: string
     case 'no-op':
       return { marker: NMR_GLYPHS[style].noop.text, phrase: `skipped, ${describeNoOpReason(verdict.reason)}` };
     default: {
-      const unhandled: never = verdict;
-      throw new Error(`Unhandled verdict outcome: ${JSON.stringify(unhandled)}`);
+      const unhandledVerdict: never = verdict;
+      throw new Error(`Unhandled verdict outcome: ${JSON.stringify(unhandledVerdict)}`);
     }
   }
 }
@@ -148,8 +148,8 @@ function describeNoOpReason(reason: NoOpReason): string {
     case 'noop-override':
       return 'the override is a no-op';
     default: {
-      const unhandled: never = reason;
-      throw new Error(`Unhandled no-op reason: ${String(unhandled)}`);
+      const unhandledReason: never = reason;
+      throw new Error(`Unhandled no-op reason: ${String(unhandledReason)}`);
     }
   }
 }
@@ -196,17 +196,18 @@ function flattenDetail(detail: string): string {
  * toward -- counting one, as the empty detail slot would be every time, puts the target at the mark and
  * collapses the whole set on the first pass.
  */
-function findCutTarget(sizes: readonly number[], longest: number, overrunBytes: number): number {
-  const below = sizes.filter((size) => size < longest && size > MIN_CUT_BYTES);
-  const share = Math.ceil(overrunBytes / sizes.filter((size) => size === longest).length);
-  const target = below.length === 0 ? longest - share : Math.max(...below, longest - overrunBytes);
+function findCutTarget(sizes: readonly number[], longestSize: number, overrunBytes: number): number {
+  const smallerSizes = sizes.filter((size) => size < longestSize && size > MIN_CUT_BYTES);
+  const share = Math.ceil(overrunBytes / sizes.filter((size) => size === longestSize).length);
+  const target =
+    smallerSizes.length === 0 ? longestSize - share : Math.max(...smallerSizes, longestSize - overrunBytes);
 
   return Math.max(MIN_CUT_BYTES, target);
 }
 
 /** Reports whether a rendered line, once the newline is counted, sits inside the ceiling. */
-function isWithinBudget(rendered: string): boolean {
-  return Buffer.byteLength(rendered) <= LINE_BUDGET_BYTES;
+function isWithinBudget(renderedLine: string): boolean {
+  return Buffer.byteLength(renderedLine) <= LINE_BUDGET_BYTES;
 }
 
 /** Returns what each constituent of a replay is, with the excerpt it carried gone. */
@@ -234,24 +235,26 @@ function readCuttableText(verdict: Verdict): string[] {
  * gone. Each is marked, as the prose line marks the same fields when it clamps.
  */
 function renderClamped(record: Record<string, unknown>): string {
-  const clamped = { ...record };
-  let rendered = JSON.stringify(clamped);
+  const clampedRecord = { ...record };
+  let renderedLine = JSON.stringify(clampedRecord);
 
-  while (!isWithinBudget(rendered)) {
+  while (!isWithinBudget(renderedLine)) {
     const fields = ['command', 'scope'];
-    const sizes = fields.map((field) => Buffer.byteLength(typeof clamped[field] === 'string' ? clamped[field] : ''));
-    const longest = Math.max(...sizes);
-    if (longest <= MIN_CUT_BYTES) {
-      return rendered;
+    const sizes = fields.map((field) =>
+      Buffer.byteLength(typeof clampedRecord[field] === 'string' ? clampedRecord[field] : ''),
+    );
+    const longestSize = Math.max(...sizes);
+    if (longestSize <= MIN_CUT_BYTES) {
+      return renderedLine;
     }
 
-    const target = findCutTarget(sizes, longest, Buffer.byteLength(rendered) - LINE_BUDGET_BYTES);
-    const field = fields[sizes.indexOf(longest)] ?? 'command';
-    clamped[field] = clampToBytes(typeof clamped[field] === 'string' ? clamped[field] : '', target);
-    rendered = JSON.stringify(clamped);
+    const target = findCutTarget(sizes, longestSize, Buffer.byteLength(renderedLine) - LINE_BUDGET_BYTES);
+    const field = fields[sizes.indexOf(longestSize)] ?? 'command';
+    clampedRecord[field] = clampToBytes(typeof clampedRecord[field] === 'string' ? clampedRecord[field] : '', target);
+    renderedLine = JSON.stringify(clampedRecord);
   }
 
-  return rendered;
+  return renderedLine;
 }
 
 /**
@@ -264,28 +267,28 @@ function renderClamped(record: Record<string, unknown>): string {
  * corrupt the records of every scope sharing it, where a marked cut costs only its own.
  */
 function renderWithinBudget(verdict: Verdict): string {
-  const shortened = shortenCuttableText(verdict);
-  const shortenedLine = JSON.stringify(shortened);
+  const shortenedVerdict = shortenCuttableText(verdict);
+  const shortenedLine = JSON.stringify(shortenedVerdict);
   if (isWithinBudget(shortenedLine)) {
     return shortenedLine;
   }
 
-  const record: Record<string, unknown> = { ...shortened };
+  const record: Record<string, unknown> = { ...shortenedVerdict };
   delete record['detail'];
 
-  const attribution = readAttribution(shortened);
-  for (let kept = attribution.length; kept > 0; kept--) {
-    record['replay'] = attribution.slice(0, kept);
-    const rendered = JSON.stringify(record);
-    if (isWithinBudget(rendered)) {
-      return rendered;
+  const attribution = readAttribution(shortenedVerdict);
+  for (let keptCount = attribution.length; keptCount > 0; keptCount--) {
+    record['replay'] = attribution.slice(0, keptCount);
+    const renderedLine = JSON.stringify(record);
+    if (isWithinBudget(renderedLine)) {
+      return renderedLine;
     }
   }
 
   delete record['replay'];
-  const bare = JSON.stringify(record);
+  const bareLine = JSON.stringify(record);
 
-  return isWithinBudget(bare) ? bare : renderClamped(record);
+  return isWithinBudget(bareLine) ? bareLine : renderClamped(record);
 }
 
 /**
@@ -297,15 +300,15 @@ function renderWithinBudget(verdict: Verdict): string {
  */
 function shortenCuttableText(verdict: Verdict): Verdict {
   let candidate = verdict;
-  let rendered = JSON.stringify(candidate);
+  let renderedLine = JSON.stringify(candidate);
 
-  while (!isWithinBudget(rendered)) {
-    const shortened = shortenLongestText(candidate, Buffer.byteLength(rendered) - LINE_BUDGET_BYTES);
-    if (shortened === undefined) {
+  while (!isWithinBudget(renderedLine)) {
+    const shortenedVerdict = shortenLongestText(candidate, Buffer.byteLength(renderedLine) - LINE_BUDGET_BYTES);
+    if (shortenedVerdict === undefined) {
       return candidate;
     }
-    candidate = shortened;
-    rendered = JSON.stringify(candidate);
+    candidate = shortenedVerdict;
+    renderedLine = JSON.stringify(candidate);
   }
 
   return candidate;
@@ -321,13 +324,13 @@ function shortenCuttableText(verdict: Verdict): Verdict {
 function shortenLongestText(verdict: Verdict, overrunBytes: number): Verdict | undefined {
   const texts = readCuttableText(verdict);
   const sizes = texts.map((text) => Buffer.byteLength(text));
-  const longest = Math.max(...sizes);
-  if (longest <= MIN_CUT_BYTES) {
+  const longestSize = Math.max(...sizes);
+  if (longestSize <= MIN_CUT_BYTES) {
     return undefined;
   }
 
-  const index = sizes.indexOf(longest);
-  const target = findCutTarget(sizes, longest, overrunBytes);
+  const index = sizes.indexOf(longestSize);
+  const target = findCutTarget(sizes, longestSize, overrunBytes);
 
   return writeCuttableText(verdict, index, clampToBytes(texts[index] ?? '', target));
 }
