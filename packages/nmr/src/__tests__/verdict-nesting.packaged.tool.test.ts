@@ -4,6 +4,7 @@ import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
+import { OUTPUT_STYLE_ENV_VAR, OUTPUT_STYLE_FLAG } from '../output-style.ts';
 import { REPORT_FORMAT_ENV_VAR } from '../report-format.ts';
 import { runCli } from '../runCli.ts';
 import { readAmbientEnv } from '../test-utils/readAmbientEnv.ts';
@@ -54,6 +55,28 @@ describe('reporting through a real chain', () => {
       expect(exitCode).toBe(0);
       expect(stdout).not.toContain('noise');
       expect(verdictCommands(stdout)).toStrictEqual(['demo:content', 'demo']);
+    });
+  });
+
+  describe('output style', () => {
+    // Every stream here is a pipe, which is what each nested process would detect on its own.
+    it('reports every level in the plain words a pipe calls for', async ({ tree }) => {
+      const { exitCode, stdout } = await runNmr(['-q', 'fanout'], tree.dir);
+
+      expect(exitCode).toBe(0);
+      expect(verdictMarkers(stdout)).toStrictEqual(['PASS', 'PASS', 'PASS']);
+    });
+
+    // `for` rather than `each`: only `for` hands the fixture context to the case body.
+    it.for([
+      { args: [OUTPUT_STYLE_FLAG, 'rich', '-q', 'fanout'], overrides: {}, scenario: 'the flag' },
+      { args: ['-q', 'fanout'], overrides: { [OUTPUT_STYLE_ENV_VAR]: 'rich' }, scenario: 'an inherited value' },
+    ])('given $scenario, carries the style to every process below it', async ({ args, overrides }, { tree }) => {
+      const { exitCode, stdout } = await runNmr(args, tree.dir, overrides);
+
+      expect(exitCode).toBe(0);
+      expect(verdictMarkers(stdout)).toStrictEqual(['✅', '✅', '✅']);
+      expect(verdictCommands(stdout)).toStrictEqual(['demo:one', 'demo:two', 'fanout']);
     });
   });
 
@@ -164,6 +187,15 @@ function verdictCommands(stdout: string): string[] {
     .map((line) => /^\S+ [^:]+: (?<command>\S+): (?:passed|failed|skipped)/u.exec(line))
     .filter((match) => match !== null)
     .map((match) => match.groups?.['command'] ?? '');
+}
+
+/** Reads the marker each verdict line opens with, in the order the lines arrived. */
+function verdictMarkers(stdout: string): string[] {
+  return stdout
+    .split('\n')
+    .map((line) => /^(?<marker>\S+) [^:]+: \S+: (?:passed|failed|skipped)/u.exec(line))
+    .filter((match) => match !== null)
+    .map((match) => match.groups?.['marker'] ?? '');
 }
 
 // endregion | Helpers

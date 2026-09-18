@@ -1,6 +1,9 @@
 import type { Writable } from 'node:stream';
 
+import { type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
+
 import type { ReplayLine } from './check-cache.ts';
+import { NMR_GLYPHS } from './glyphs.ts';
 import { clampToBytes, TRUNCATION_MARK } from './helpers/clampToBytes.ts';
 import { formatDuration, formatSaving } from './helpers/duration.ts';
 import type { ReportFormat } from './report-format.ts';
@@ -46,13 +49,16 @@ export type VerdictOutcome = { detail?: string } & (
  * The line ends without terminal punctuation and reserves its tail for `detail`, so a later change appends to
  * the grammar rather than rewriting it. A detail carrying nothing but line breaks takes its whole clause with
  * it, rather than leaving a separator pointing at nothing.
+ *
+ * The marker takes no padding column: every plain marker a verdict reaches for is four characters, so the
+ * lines align by construction. `formatStatusLine` pads to a column that `BLOCK` widens, and no verdict is one.
  */
-export function renderVerdict(verdict: Verdict): string {
-  const { icon, phrase } = describeOutcome(verdict);
+export function renderVerdict(verdict: Verdict, style: OutputStyle): string {
+  const { marker, phrase } = describeOutcome(verdict, style);
   const detail = flattenDetail(verdict.detail ?? renderReplay(verdict) ?? '');
   const detailClause = detail === '' ? '' : ` — ${detail}`;
 
-  return clampToBytes(`${icon} ${verdict.scope}: ${verdict.command}: ${phrase}${detailClause}`, LINE_BUDGET_BYTES);
+  return clampToBytes(`${marker} ${verdict.scope}: ${verdict.command}: ${phrase}${detailClause}`, LINE_BUDGET_BYTES);
 }
 
 /**
@@ -75,8 +81,8 @@ export function serializeVerdict(verdict: Verdict): string {
  * share one descriptor. Both renderings spend the one record, so neither can come to report what the other
  * does not.
  */
-export function writeVerdict(verdict: Verdict, stream: Writable, format: ReportFormat): void {
-  const line = format === 'json' ? serializeVerdict(verdict) : renderVerdict(verdict);
+export function writeVerdict(verdict: Verdict, stream: Writable, format: ReportFormat, style: OutputStyle): void {
+  const line = format === 'json' ? serializeVerdict(verdict) : renderVerdict(verdict, style);
 
   stream.write(`${line}\n`);
 }
@@ -95,24 +101,29 @@ const MIN_CUT_BYTES = Buffer.byteLength(TRUNCATION_MARK);
 /** Marks the detail as a recording of an earlier run rather than as what this invocation produced. */
 const REPLAY_MARKER = 'replayed:';
 
-/** Returns the icon a verdict leads with and the phrase it reports, which no other module composes. */
-function describeOutcome(verdict: Verdict): { icon: string; phrase: string } {
+/** Returns the marker a verdict leads with and the phrase it reports, which no other module composes. */
+function describeOutcome(verdict: Verdict, style: OutputStyle): { marker: string; phrase: string } {
+  const statuses = STATUS_GLYPHS[style];
+
   switch (verdict.outcome) {
     case 'passed':
-      return { icon: '✅', phrase: `passed in ${formatDuration(verdict.durationMs)}` };
+      return { marker: statuses.passed.text, phrase: `passed in ${formatDuration(verdict.durationMs)}` };
     case 'failed':
       return {
-        icon: '❌',
+        marker: statuses.failed.text,
         phrase: `failed in ${formatDuration(verdict.durationMs)} (exit ${verdict.exitCode})`,
       };
     case 'recalled': {
       const saving = formatSaving(verdict.savedMs);
       const savingClause = saving === undefined ? '' : `, ${saving}`;
-      return { icon: '⏭️', phrase: `passed ${formatDuration(verdict.ageMs)} ago on this tree${savingClause}` };
+      return {
+        marker: statuses.skipped.text,
+        phrase: `passed ${formatDuration(verdict.ageMs)} ago on this tree${savingClause}`,
+      };
     }
     case 'no-op':
       return {
-        icon: '⛔',
+        marker: NMR_GLYPHS[style].noop.text,
         phrase: `skipped, the override is ${verdict.reason === 'empty-override' ? 'empty' : 'a no-op'}`,
       };
     default: {

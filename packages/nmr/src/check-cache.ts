@@ -7,12 +7,14 @@ import type { Writable } from 'node:stream';
 import {
   type CacheEntryRef,
   hashWorkingTree,
+  type OutputStyle,
   readCacheEntry,
   readHeadSha,
   readJsonCacheEntry,
   removeCacheDir,
   removeCacheEntry,
   resolveCacheEntryPath,
+  STATUS_GLYPHS,
   writeCacheEntry,
 } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
@@ -319,10 +321,10 @@ export function findStaleBuildOutput(
  * command rather than a flag to nmr. Passing it on unchanged is the honest thing to do with an argument, so
  * the warning is all that separates this from a silently un-bypassed run.
  */
-export function formatMisplacedNoCacheWarning(command: string): string {
+export function formatMisplacedNoCacheWarning(command: string, style: OutputStyle): string {
   return (
-    `⚠️ --no-cache after the command name is passed to \`${command}\`, not read by nmr. ` +
-    `Did you mean \`nmr --no-cache ${command}\`?`
+    `${STATUS_GLYPHS[style].warning.text} --no-cache after the command name is passed to \`${command}\`, ` +
+    `not read by nmr. Did you mean \`nmr --no-cache ${command}\`?`
   );
 }
 

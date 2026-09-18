@@ -13,7 +13,7 @@ import {
 
 describe(renderVerdict, () => {
   it('reports a pass with its scope, command, and duration', () => {
-    expect(renderVerdict(makeVerdict({ outcome: 'passed', durationMs: 12_449 }))).toBe(
+    expect(renderVerdict(makeVerdict({ outcome: 'passed', durationMs: 12_449 }), 'rich')).toBe(
       '✅ nmr-core: test: passed in 12.4s',
     );
   });
@@ -21,30 +21,30 @@ describe(renderVerdict, () => {
   it('reports a failure with the exit code, which separates an interrupt from a real failure', () => {
     const verdict = makeVerdict({ outcome: 'failed', durationMs: 1_200, exitCode: 130 });
 
-    expect(renderVerdict(verdict)).toBe('❌ nmr-core: test: failed in 1.2s (exit 130)');
+    expect(renderVerdict(verdict, 'rich')).toBe('❌ nmr-core: test: failed in 1.2s (exit 130)');
   });
 
   it('reports a recalled pass with its age and saving', () => {
     const verdict = makeVerdict({ outcome: 'recalled', ageMs: 240_000, savedMs: 12_000 });
 
-    expect(renderVerdict(verdict)).toBe('⏭️ nmr-core: test: passed 4m ago on this tree, saved ~12s');
+    expect(renderVerdict(verdict, 'rich')).toBe('⏩ nmr-core: test: passed 4m ago on this tree, saved ~12s');
   });
 
   it('drops the saving clause when the recalled pass was too quick to have saved anything', () => {
     const verdict = makeVerdict({ outcome: 'recalled', ageMs: 240_000, savedMs: 40 });
 
-    expect(renderVerdict(verdict)).toBe('⏭️ nmr-core: test: passed 4m ago on this tree');
+    expect(renderVerdict(verdict, 'rich')).toBe('⏩ nmr-core: test: passed 4m ago on this tree');
   });
 
   it.each([
-    ['empty-override', '⛔ nmr-core: test: skipped, the override is empty'],
-    ['noop-override', '⛔ nmr-core: test: skipped, the override is a no-op'],
+    ['empty-override', '⚪ nmr-core: test: skipped, the override is empty'],
+    ['noop-override', '⚪ nmr-core: test: skipped, the override is a no-op'],
   ] as const)('distinguishes the %s from a pass', (reason, expected) => {
-    expect(renderVerdict(makeVerdict({ outcome: 'no-op', reason }))).toBe(expected);
+    expect(renderVerdict(makeVerdict({ outcome: 'no-op', reason }), 'rich')).toBe(expected);
   });
 
   it('ends without terminal punctuation, so a later change appends to the line', () => {
-    const line = renderVerdict(makeVerdict({ outcome: 'passed', durationMs: 12_000 }));
+    const line = renderVerdict(makeVerdict({ outcome: 'passed', durationMs: 12_000 }), 'rich');
 
     expect(line).not.toMatch(/[.!?]$/);
   });
@@ -52,7 +52,7 @@ describe(renderVerdict, () => {
   it('appends the detail to the tail the grammar reserves for it', () => {
     const verdict = makeVerdict({ outcome: 'passed', durationMs: 12_000, detail: 'Test Files 6 passed (6)' });
 
-    expect(renderVerdict(verdict)).toBe('✅ nmr-core: test: passed in 12s — Test Files 6 passed (6)');
+    expect(renderVerdict(verdict, 'rich')).toBe('✅ nmr-core: test: passed in 12s — Test Files 6 passed (6)');
   });
 
   describe('a replayed excerpt', () => {
@@ -64,8 +64,8 @@ describe(renderVerdict, () => {
         replay: [{ command: 'test', excerpt: 'Test Files 6 passed (6)', scope: 'nmr-core' }],
       });
 
-      expect(renderVerdict(verdict)).toBe(
-        '⏭️ nmr-core: test: passed 4m ago on this tree, saved ~12s — replayed: Test Files 6 passed (6)',
+      expect(renderVerdict(verdict, 'rich')).toBe(
+        '⏩ nmr-core: test: passed 4m ago on this tree, saved ~12s — replayed: Test Files 6 passed (6)',
       );
     });
 
@@ -77,7 +77,7 @@ describe(renderVerdict, () => {
         replay: [{ command: 'test', excerpt: '6 passed', scope: 'nmr-core' }],
       });
 
-      expect(renderVerdict(verdict)).not.toContain('nmr-core: test: 6 passed');
+      expect(renderVerdict(verdict, 'rich')).not.toContain('nmr-core: test: 6 passed');
     });
 
     // A composite where one constituent speaks replays one line, and the bare form would present another
@@ -90,8 +90,8 @@ describe(renderVerdict, () => {
         replay: [{ command: 'fmt:check', excerpt: 'All matched files use Prettier code style!', scope: 'nmr-core' }],
       });
 
-      expect(renderVerdict(verdict)).toBe(
-        '⏭️ nmr-core: test: passed 4m ago on this tree, saved ~12s — ' +
+      expect(renderVerdict(verdict, 'rich')).toBe(
+        '⏩ nmr-core: test: passed 4m ago on this tree, saved ~12s — ' +
           'replayed: nmr-core: fmt:check: All matched files use Prettier code style!',
       );
     });
@@ -104,7 +104,7 @@ describe(renderVerdict, () => {
         replay: [{ command: 'test', excerpt: '6 passed', scope: 'nmr' }],
       });
 
-      expect(renderVerdict(verdict)).toContain('replayed: nmr: test: 6 passed');
+      expect(renderVerdict(verdict, 'rich')).toContain('replayed: nmr: test: 6 passed');
     });
 
     it('attributes each excerpt where several scopes contributed', () => {
@@ -118,8 +118,8 @@ describe(renderVerdict, () => {
         ],
       });
 
-      expect(renderVerdict(verdict)).toBe(
-        '⏭️ nmr-core: test: passed 4m ago on this tree, saved ~12s — ' +
+      expect(renderVerdict(verdict, 'rich')).toBe(
+        '⏩ nmr-core: test: passed 4m ago on this tree, saved ~12s — ' +
           'replayed: nmr-core: test:unit: 6 passed; nmr: test:unit: 4 passed',
       );
     });
@@ -130,7 +130,7 @@ describe(renderVerdict, () => {
     ])('reports the verdict alone for $scenario', ({ replay }) => {
       const verdict = makeVerdict({ outcome: 'recalled', ageMs: 240_000, savedMs: 12_000, ...(replay && { replay }) });
 
-      expect(renderVerdict(verdict)).toBe('⏭️ nmr-core: test: passed 4m ago on this tree, saved ~12s');
+      expect(renderVerdict(verdict, 'rich')).toBe('⏩ nmr-core: test: passed 4m ago on this tree, saved ~12s');
     });
 
     it('collapses the line breaks an excerpt carries, so one verdict stays one line', () => {
@@ -141,7 +141,7 @@ describe(renderVerdict, () => {
         replay: [{ command: 'test', excerpt: 'first\nsecond', scope: 'nmr-core' }],
       });
 
-      expect(renderVerdict(verdict)).toContain('replayed: first second');
+      expect(renderVerdict(verdict, 'rich')).toContain('replayed: first second');
     });
 
     it('holds a replayed line to the same ceiling, so the single write survives an excerpt', () => {
@@ -152,7 +152,7 @@ describe(renderVerdict, () => {
         replay: [{ command: 'test', excerpt: 'x'.repeat(VERDICT_LINE_LIMIT), scope: 'nmr-core' }],
       });
 
-      const line = renderVerdict(verdict);
+      const line = renderVerdict(verdict, 'rich');
 
       expect(Buffer.byteLength(line) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT);
       expect(line).toMatch(/…$/);
@@ -163,13 +163,13 @@ describe(renderVerdict, () => {
     it('collapses the line breaks it carries, so one verdict stays one line', () => {
       const verdict = makeVerdict({ outcome: 'passed', durationMs: 12_000, detail: 'line one\nline two' });
 
-      expect(renderVerdict(verdict)).toBe('✅ nmr-core: test: passed in 12s — line one line two');
+      expect(renderVerdict(verdict, 'rich')).toBe('✅ nmr-core: test: passed in 12s — line one line two');
     });
 
     it('spends one space on a run of them, and none on the ones bounding the text', () => {
       const verdict = makeVerdict({ outcome: 'passed', durationMs: 12_000, detail: '\r\nfirst\r\n\r\nsecond\n' });
 
-      expect(renderVerdict(verdict)).toBe('✅ nmr-core: test: passed in 12s — first second');
+      expect(renderVerdict(verdict, 'rich')).toBe('✅ nmr-core: test: passed in 12s — first second');
     });
 
     it.each([
@@ -178,7 +178,33 @@ describe(renderVerdict, () => {
     ])('drops the whole clause for $scenario, rather than pointing a separator at nothing', ({ detail }) => {
       const verdict = makeVerdict({ outcome: 'passed', durationMs: 12_000, detail });
 
-      expect(renderVerdict(verdict)).toBe('✅ nmr-core: test: passed in 12s');
+      expect(renderVerdict(verdict, 'rich')).toBe('✅ nmr-core: test: passed in 12s');
+    });
+  });
+
+  describe('the plain style', () => {
+    it.each([
+      { expected: 'PASS nmr-core: test: passed in 12s', outcome: { outcome: 'passed', durationMs: 12_000 } },
+      {
+        expected: 'FAIL nmr-core: test: failed in 1.2s (exit 130)',
+        outcome: { outcome: 'failed', durationMs: 1_200, exitCode: 130 },
+      },
+      {
+        expected: 'SKIP nmr-core: test: passed 4m ago on this tree, saved ~12s',
+        outcome: { outcome: 'recalled', ageMs: 240_000, savedMs: 12_000 },
+      },
+      {
+        expected: 'NOOP nmr-core: test: skipped, the override is empty',
+        outcome: { outcome: 'no-op', reason: 'empty-override' },
+      },
+    ] satisfies { expected: string; outcome: VerdictOutcome }[])('renders `$expected`', ({ expected, outcome }) => {
+      expect(renderVerdict(makeVerdict(outcome), 'plain')).toBe(expected);
+    });
+
+    it('keeps the detail clause and its separator, which the style does not govern', () => {
+      const verdict = makeVerdict({ outcome: 'passed', durationMs: 12_000, detail: 'Test Files 6 passed (6)' });
+
+      expect(renderVerdict(verdict, 'plain')).toBe('PASS nmr-core: test: passed in 12s — Test Files 6 passed (6)');
     });
   });
 
@@ -186,20 +212,20 @@ describe(renderVerdict, () => {
     it('leaves room for the newline the write appends', () => {
       const verdict = makeVerdict({ outcome: 'passed', durationMs: 12_000, detail: 'x'.repeat(VERDICT_LINE_LIMIT) });
 
-      expect(Buffer.byteLength(renderVerdict(verdict)) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT);
+      expect(Buffer.byteLength(renderVerdict(verdict, 'rich')) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT);
     });
 
     it('marks the cut, so a truncated line is distinguishable from a complete one', () => {
       const verdict = makeVerdict({ outcome: 'passed', durationMs: 12_000, detail: 'x'.repeat(VERDICT_LINE_LIMIT) });
 
-      expect(renderVerdict(verdict)).toMatch(/…$/);
+      expect(renderVerdict(verdict, 'rich')).toMatch(/…$/);
     });
 
     it('cuts between code points, so a multi-byte character never reaches the wire in halves', () => {
       // Every unit is three bytes, so a byte-wise cut would land inside one for two budgets out of three.
       const verdict = makeVerdict({ outcome: 'passed', durationMs: 12_000, detail: '⏭'.repeat(VERDICT_LINE_LIMIT) });
 
-      const line = renderVerdict(verdict);
+      const line = renderVerdict(verdict, 'rich');
 
       expect(line).toBe(Buffer.from(line).toString('utf8'));
       expect(Buffer.byteLength(line) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT);
@@ -208,7 +234,7 @@ describe(renderVerdict, () => {
     it('leaves a line within the ceiling untouched', () => {
       const verdict = makeVerdict({ outcome: 'passed', durationMs: 12_000 });
 
-      expect(renderVerdict(verdict)).not.toContain('…');
+      expect(renderVerdict(verdict, 'rich')).not.toContain('…');
     });
   });
 });
@@ -414,7 +440,7 @@ describe(writeVerdict, () => {
     const stream = new PassThrough();
     const write = vi.spyOn(stream, 'write');
 
-    writeVerdict(makeVerdict({ outcome: 'passed', durationMs: 12_000 }), stream, 'text');
+    writeVerdict(makeVerdict({ outcome: 'passed', durationMs: 12_000 }), stream, 'text', 'rich');
 
     expect(write).toHaveBeenCalledTimes(1);
     expect(write).toHaveBeenCalledWith('✅ nmr-core: test: passed in 12s\n');
@@ -424,7 +450,7 @@ describe(writeVerdict, () => {
     const stream = new PassThrough();
     const write = vi.spyOn(stream, 'write');
 
-    writeVerdict(makeVerdict({ outcome: 'passed', durationMs: 12_000 }), stream, 'json');
+    writeVerdict(makeVerdict({ outcome: 'passed', durationMs: 12_000 }), stream, 'json', 'rich');
 
     expect(write).toHaveBeenCalledTimes(1);
     expect(write).toHaveBeenCalledWith('{"command":"test","scope":"nmr-core","outcome":"passed","durationMs":12000}\n');

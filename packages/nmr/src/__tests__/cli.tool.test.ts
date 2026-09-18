@@ -206,13 +206,13 @@ describe('nmr CLI', () => {
 
     it('includes package name in override-script message', async () => {
       const { stdout } = await runNmr('build', { cwd: overridePkgDir });
-      expect(stdout).toContain('📦 test-override: Using override script: echo ok');
+      expect(stdout).toContain('test-override: Using override script: echo ok');
     });
 
     it('distinguishes a colon override from a command that passed', async () => {
       const { stdout, exitCode } = await runNmr('build', { cwd: noopPkgDir });
       expect(exitCode).toBe(0);
-      expect(stdout).toContain('⛔ test-noop: build: skipped, the override is a no-op');
+      expect(stdout).toContain('NOOP test-noop: build: skipped, the override is a no-op');
     });
 
     it('suppresses override-script message in quiet mode', async () => {
@@ -286,7 +286,7 @@ describe('nmr CLI', () => {
     it('suppresses the command output on a successful quiet run, leaving the verdict', async () => {
       const { stdout, stderr, exitCode } = await runNmr('-q typecheck', { cwd: quietPkgDir });
       expect(exitCode).toBe(0);
-      expect(stdout).toMatch(/^✅ [\w-]+: typecheck: passed in [\d.]+s\n$/);
+      expect(stdout).toMatch(/^PASS [\w-]+: typecheck: passed in [\d.]+s\n$/);
       expect(stderr).toBe('');
     });
 

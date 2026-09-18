@@ -756,7 +756,7 @@ describe(runCli, () => {
     it.for([
       {
         expected:
-          '⚠️ .config/nmr.config.ts: `rootScripts.probe` reaches nmr through a shell ' +
+          'WARN .config/nmr.config.ts: `rootScripts.probe` reaches nmr through a shell ' +
           "(`nmr fmt && echo done`), so nmr handles the nested run's output as a tool's. " +
           'Write the nmr steps as a step list, and move any others to a `probe:pre` or `probe:post` script.',
         command: 'probe',
@@ -765,7 +765,7 @@ describe(runCli, () => {
       },
       {
         expected:
-          '⚠️ package.json: `scripts.fix` reaches nmr through a shell (`nmr lint && nmr fmt`), ' +
+          'WARN package.json: `scripts.fix` reaches nmr through a shell (`nmr lint && nmr fmt`), ' +
           "so nmr handles the nested run's output as a tool's. " +
           "Delete the entry: nmr's own `fix` already runs `nmr lint && nmr fmt`.",
         command: 'fix',
@@ -774,7 +774,7 @@ describe(runCli, () => {
       },
       {
         expected:
-          '⚠️ package.json: `scripts.fix` reaches nmr through a shell (`nmr lint && rdy compile`), ' +
+          'WARN package.json: `scripts.fix` reaches nmr through a shell (`nmr lint && rdy compile`), ' +
           "so nmr handles the nested run's output as a tool's. " +
           'Delete the entry and move the steps it adds to a `fix:pre` or `fix:post` script.',
         command: 'fix',
@@ -783,7 +783,7 @@ describe(runCli, () => {
       },
       {
         expected:
-          '⚠️ package.json: `scripts.probe` reaches nmr through a shell (`nmr fmt && tsx sync.ts`), ' +
+          'WARN package.json: `scripts.probe` reaches nmr through a shell (`nmr fmt && tsx sync.ts`), ' +
           "so nmr handles the nested run's output as a tool's. " +
           'A `package.json` script holds no step list: define `probe` in `.config/nmr.config.ts` and move the ' +
           'package-specific steps to a `probe:pre` or `probe:post` script.',
@@ -793,7 +793,7 @@ describe(runCli, () => {
       },
       {
         expected:
-          '⚠️ package.json: `scripts.probe` reaches nmr through a shell (`tsx sync.ts\\nnmr fmt`), ' +
+          'WARN package.json: `scripts.probe` reaches nmr through a shell (`tsx sync.ts\\nnmr fmt`), ' +
           "so nmr handles the nested run's output as a tool's. " +
           'A `package.json` script holds no step list: define `probe` in `.config/nmr.config.ts` and move the ' +
           'package-specific steps to a `probe:pre` or `probe:post` script.',
@@ -816,7 +816,7 @@ describe(runCli, () => {
     it.for([
       {
         expected:
-          '⚠️ .config/nmr.config.ts: `rootScripts.probe:post` reaches nmr through a shell ' +
+          'WARN .config/nmr.config.ts: `rootScripts.probe:post` reaches nmr through a shell ' +
           "(`nmr fmt && echo done`), so nmr handles the nested run's output as a tool's. " +
           'Write the nmr steps as a step list, and move any others to a script of their own that the step ' +
           'list names, because a hook has no `:pre` or `:post` of its own.',
@@ -825,7 +825,7 @@ describe(runCli, () => {
       },
       {
         expected:
-          '⚠️ package.json: `scripts.probe:post` reaches nmr through a shell (`nmr fmt && echo done`), ' +
+          'WARN package.json: `scripts.probe:post` reaches nmr through a shell (`nmr fmt && echo done`), ' +
           "so nmr handles the nested run's output as a tool's. " +
           'A `package.json` script holds no step list: define `probe:post` in `.config/nmr.config.ts` and ' +
           'move the package-specific steps to a script of their own that the step list names, because a hook ' +
@@ -839,6 +839,14 @@ describe(runCli, () => {
       const { stderr } = await runNmrReadingStderr(['probe:post'], tree.dir);
 
       expect(stderr.trim()).toBe(expected);
+    });
+
+    it('opens the warning in emoji where the invocation asked for rich', async ({ tree }) => {
+      writeConfig(tree, { rootScripts: { probe: 'nmr fmt' } });
+
+      const { stderr } = await runNmrReadingStderr([OUTPUT_STYLE_FLAG, 'rich', 'probe'], tree.dir);
+
+      expect(stderr.startsWith('🟠 ')).toBe(true);
     });
 
     it('spends one line on it', async ({ tree }) => {
@@ -993,6 +1001,14 @@ describe(runCli, () => {
       const { stdout } = await runNmrReadingStdout(['typecheck'], tree.dir);
 
       expect(stdout).toMatch(
+        new RegExp(String.raw`^PASS ${path.basename(tree.dir)}: typecheck: passed in [\d.]+s` + '\n$'),
+      );
+    });
+
+    it('reports a pass in emoji where the invocation asked for rich', async ({ tree }) => {
+      const { stdout } = await runNmrReadingStdout([OUTPUT_STYLE_FLAG, 'rich', 'typecheck'], tree.dir);
+
+      expect(stdout).toMatch(
         new RegExp(String.raw`^✅ ${path.basename(tree.dir)}: typecheck: passed in [\d.]+s` + '\n$'),
       );
     });
@@ -1003,7 +1019,7 @@ describe(runCli, () => {
       const { exitCode, stdout } = await runNmrReadingStdout(['typecheck'], tree.dir);
 
       expect(exitCode).toBe(130);
-      expect(stdout).toContain('❌');
+      expect(stdout).toContain('FAIL');
       expect(stdout).toContain('typecheck: failed in');
       expect(stdout).toContain('(exit 130)');
     });
@@ -1013,7 +1029,7 @@ describe(runCli, () => {
     }) => {
       const { stdout } = await runNmrReadingStdout(['-q', 'typecheck'], tree.dir);
 
-      expect(stdout).toContain('✅');
+      expect(stdout).toContain('PASS');
     });
 
     it('reports the same pass as a JSON object, and writes no prose line beside it', async ({ tree }) => {
@@ -1039,7 +1055,7 @@ describe(runCli, () => {
 
       const { stdout } = await runNmrReadingStdout(['--json', 'typecheck'], tree.dir);
 
-      expect(stdout).not.toContain('📦');
+      expect(stdout).not.toContain('Using override script');
       expect(stdout.trimEnd().split('\n')).toHaveLength(1);
     });
 
@@ -1071,7 +1087,7 @@ describe(runCli, () => {
       const { exitCode, stdout } = await runNmrReadingStdout(['typecheck'], tree.dir);
 
       expect(exitCode).toBe(0);
-      expect(stdout).toBe(`⛔ ${path.basename(tree.dir)}: typecheck: skipped, ${expected}\n`);
+      expect(stdout).toBe(`NOOP ${path.basename(tree.dir)}: typecheck: skipped, ${expected}\n`);
     });
 
     // A verdict is a report on a run, and `--log` makes none: the reader gets a refusal instead.
@@ -1094,7 +1110,7 @@ describe(runCli, () => {
 
       const { stdout } = await runNmrReadingStdout(['-q', 'typecheck'], tree.dir);
 
-      expect(stdout).toContain('⛔');
+      expect(stdout).toContain('NOOP');
     });
   });
 });
