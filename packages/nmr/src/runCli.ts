@@ -74,15 +74,18 @@ import {
   type ResolveVerbosityOptions,
 } from './verbosity.ts';
 import { type Verdict, type VerdictOutcome, writeVerdict } from './verdict.ts';
-import { readWorkspacePackageNames } from './workspace.ts';
+import { diagnoseEmptyWorkspace, readWorkspacePackageNames } from './workspace.ts';
 
 const VERSION = readPackageVersion(import.meta.url);
 
 /** The consequence a crossing carries, which every origin's line reports before naming its remedy. */
 const CROSSING_CONSEQUENCE = "so nmr handles the nested run's output as a tool's.";
 
-/** How many workspace names a diagnostic lists before it reports the rest as a count. */
-const NAME_CEILING = 10;
+/** Leads the line a recursive invocation gets where the workspace it would fan out to holds no package. */
+const RECURSIVE_REJECTION = '-R/--recursive matched no workspace:';
+
+/** How many items a diagnostic lists before it reports the rest as a count. */
+const LIST_CEILING = 10;
 
 /**
  * The control characters a declaration's text renders as an escape, paired with the escape a JSON string
@@ -796,14 +799,21 @@ function findEmptySelectionRefusal(options: {
 }): string | undefined {
   const { context, parsed, selection } = options;
 
+  const isPackageless = context.workspacePackageDirs.length === 0;
+
   if (parsed.filter !== undefined) {
     if (selection !== 'empty') {
       return undefined;
     }
+    // A workspace holding no package would have refused whatever the pattern was, so the pattern-shape rules
+    // below answer the wrong question there: no name rule and no near-name search repairs a workspace.
+    if (isPackageless) {
+      return `${formatFilterRejection(parsed.filter)} ${describeEmptyWorkspace(context.monorepoRoot)}`;
+    }
     return formatEmptyFilterError(parsed.filter, readWorkspacePackageNames(context.workspacePackageDirs));
   }
 
-  return context.workspacePackageDirs.length === 0 ? formatEmptyWorkspaceError() : undefined;
+  return isPackageless ? `${RECURSIVE_REJECTION} ${describeEmptyWorkspace(context.monorepoRoot)}` : undefined;
 }
 
 /**
@@ -816,7 +826,7 @@ function findEmptySelectionRefusal(options: {
  * selector. None of them carries a name, so none of them gets a name suggested back.
  */
 function formatEmptyFilterError(pattern: string, names: readonly string[]): string {
-  const rejection = `-F/--filter matched no workspace: \`${pattern}\`.`;
+  const rejection = formatFilterRejection(pattern);
 
   if (pattern.startsWith('!')) {
     return `${rejection} A pattern beginning with \`!\` excludes what it matches, and this one leaves no package standing.`;
@@ -840,12 +850,46 @@ function formatEmptyFilterError(pattern: string, names: readonly string[]): stri
   );
 }
 
-/** Returns the line a recursive invocation gets in a workspace that declares no package. */
-function formatEmptyWorkspaceError(): string {
-  return (
-    '-R/--recursive matched no workspace: pnpm-workspace.yaml declares no package directory, ' +
-    'so there is no scope to fan out to.'
-  );
+/**
+ * Returns the sentences naming which of the three conditions left the workspace holding no package, and the
+ * remedy for that one. Every one of them quotes the `packages` list the manifest declares.
+ *
+ * The `package.json` requirement is stated under `no-manifest` because it is a divergence from pnpm, which
+ * recognizes two further manifests, and the reader of a workspace that pnpm resolves has no way to infer it.
+ */
+function describeEmptyWorkspace(monorepoRoot: string): string {
+  const { cause, patterns } = diagnoseEmptyWorkspace(monorepoRoot);
+  const declared = patterns.length === 0 ? 'declares no `packages` list' : `declares ${renderQuotedList(patterns)}`;
+
+  switch (cause) {
+    case 'all-excluded':
+      return (
+        `pnpm-workspace.yaml ${declared}, whose \`!\` entries exclude every directory matched by the positive ` +
+        'patterns. Drop or narrow the exclusion.'
+      );
+    case 'no-manifest':
+      return (
+        `pnpm-workspace.yaml ${declared}, and the matcher found no directory holding a \`package.json\`. ` +
+        'nmr counts a directory as a package only where it holds `package.json`; unlike pnpm, it recognizes ' +
+        'neither `package.yaml` nor `package.json5`. Add a `package.json` to the directory that should be a ' +
+        'package, or declare a pattern reaching a directory that holds one.'
+      );
+    case 'no-pattern':
+      return (
+        `pnpm-workspace.yaml ${declared}, so no pattern reaches the matcher. Declare a positive pattern such ` +
+        'as `packages/*`, and quote any `!` entry, which YAML reads as a tag rather than a string where it ' +
+        'stands bare.'
+      );
+    default: {
+      const unhandled: never = cause;
+      throw new Error(`Unhandled empty-workspace cause: ${String(unhandled)}`);
+    }
+  }
+}
+
+/** Returns the rejection a filter leads its line with, naming the pattern that selected nothing. */
+function formatFilterRejection(pattern: string): string {
+  return `-F/--filter matched no workspace: \`${pattern}\`.`;
 }
 
 /**
@@ -863,7 +907,7 @@ function suggestWorkspaceNames(pattern: string, names: readonly string[]): strin
 
   const containing = names.filter((name) => name.toLowerCase().includes(pattern.toLowerCase()));
   if (containing.length > 0) {
-    return ` Did you mean ${renderNames(containing)}?`;
+    return ` Did you mean ${renderQuotedList(containing)}?`;
   }
 
   const closest = findClosestName(pattern, names);
@@ -871,16 +915,16 @@ function suggestWorkspaceNames(pattern: string, names: readonly string[]): strin
     return ` Did you mean \`${closest}\`?`;
   }
 
-  return ` The workspace declares ${renderNames(names)}.`;
+  return ` The workspace declares ${renderQuotedList(names)}.`;
 }
 
-/** Renders names for a diagnostic, capped so a large workspace does not fill the terminal. */
-function renderNames(names: readonly string[]): string {
-  const shown = names
-    .slice(0, NAME_CEILING)
-    .map((name) => `\`${name}\``)
+/** Renders a list of items for a diagnostic, backticked and capped so a long one does not fill the terminal. */
+function renderQuotedList(items: readonly string[]): string {
+  const shown = items
+    .slice(0, LIST_CEILING)
+    .map((item) => `\`${item}\``)
     .join(', ');
-  const remainder = names.length - NAME_CEILING;
+  const remainder = items.length - LIST_CEILING;
 
   return remainder > 0 ? `${shown}, and ${remainder} more` : shown;
 }
