@@ -17,8 +17,8 @@ export interface BuildOptions {
 
 /** The pair of directories a build publishes through, both siblings of the emit directory. */
 export interface ScratchDirs {
-  previous: string;
-  staging: string;
+  previousDir: string;
+  stagingDir: string;
 }
 
 export const DEFAULT_ENTRY_GLOBS = ['src/**/*.ts'];
@@ -120,8 +120,8 @@ export function resolveScratchDirs(emitDir: string): ScratchDirs {
   const name = path.basename(emitDir);
 
   return {
-    previous: path.join(parent, `.${name}.previous`),
-    staging: path.join(parent, `.${name}.staging`),
+    previousDir: path.join(parent, `.${name}.previous`),
+    stagingDir: path.join(parent, `.${name}.staging`),
   };
 }
 

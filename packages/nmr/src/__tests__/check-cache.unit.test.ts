@@ -427,7 +427,7 @@ describe('check-cache', () => {
       writeBuildDigest(tree, b, 'digest-b');
 
       await expect(readBuildOutputState(tree.dir, {})).resolves.toStrictEqual({
-        missing: [],
+        missingPackages: [],
         digests: { 'packages/a': 'digest-a', 'packages/b': 'digest-b' },
       });
     });
@@ -438,7 +438,7 @@ describe('check-cache', () => {
       scaffoldCollidingWorkspace(tree);
 
       await expect(readBuildOutputState(tree.dir, {})).resolves.toStrictEqual({
-        missing: [],
+        missingPackages: [],
         digests: { 'apps/web': 'digest-app', 'packages/web': 'digest-package' },
       });
     });
@@ -449,7 +449,7 @@ describe('check-cache', () => {
       const { a } = scaffoldWorkspace(tree);
       tree.rm(`${a}/dist`);
 
-      await expect(readBuildOutputState(tree.dir, {})).resolves.toMatchObject({ missing: ['packages/a'] });
+      await expect(readBuildOutputState(tree.dir, {})).resolves.toMatchObject({ missingPackages: ['packages/a'] });
     });
 
     it('leaves out a package that overrides build in its package.json', async () => {
@@ -459,7 +459,7 @@ describe('check-cache', () => {
       tree.rm(`${a}/dist`);
       writePackageJson(tree, a, { build: 'tsup' });
 
-      await expect(readBuildOutputState(tree.dir, {})).resolves.toMatchObject({ missing: [] });
+      await expect(readBuildOutputState(tree.dir, {})).resolves.toMatchObject({ missingPackages: [] });
     });
 
     it('leaves out a package that overrides compile in its package.json', async () => {
@@ -467,7 +467,7 @@ describe('check-cache', () => {
       tree.rm(`${a}/dist`);
       writePackageJson(tree, a, { compile: 'tsc' });
 
-      await expect(readBuildOutputState(tree.dir, {})).resolves.toMatchObject({ missing: [] });
+      await expect(readBuildOutputState(tree.dir, {})).resolves.toMatchObject({ missingPackages: [] });
     });
 
     it('leaves out every package when the repo redefines build in its config', async () => {
@@ -475,7 +475,7 @@ describe('check-cache', () => {
       tree.rm(`${a}/dist`);
 
       await expect(readBuildOutputState(tree.dir, { workspaceScripts: { build: 'make' } })).resolves.toStrictEqual({
-        missing: [],
+        missingPackages: [],
         digests: {},
       });
     });
@@ -485,7 +485,7 @@ describe('check-cache', () => {
       tree.rm(`${a}/dist`);
       tree.rm(`${a}/src`);
 
-      await expect(readBuildOutputState(tree.dir, {})).resolves.toMatchObject({ missing: [] });
+      await expect(readBuildOutputState(tree.dir, {})).resolves.toMatchObject({ missingPackages: [] });
     });
 
     it('expects no output from a package whose own config ignores every entry point', async () => {
@@ -495,7 +495,7 @@ describe('check-cache', () => {
       tree.rm(`${a}/dist`);
       writeWorkspaceConfig(tree, a, { build: { extraIgnorePatterns: ['**/*.ts'] } });
 
-      await expect(readBuildOutputState(tree.dir, {})).resolves.toMatchObject({ missing: [] });
+      await expect(readBuildOutputState(tree.dir, {})).resolves.toMatchObject({ missingPackages: [] });
     });
   });
 

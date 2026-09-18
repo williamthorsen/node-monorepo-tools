@@ -270,7 +270,7 @@ async function emitPackage(packageDir: string, entryPoints: string[], outdir: st
     return 0;
   }
 
-  writeStagedOutput(stagedFiles, emitDir, scratchDirs.staging);
+  writeStagedOutput(stagedFiles, emitDir, scratchDirs.stagingDir);
   await swapIntoPlace(emitDir, scratchDirs);
 
   return stagedFiles.size;
@@ -322,8 +322,8 @@ async function discardScratchDirs(scratchDirs: ScratchDirs): Promise<void> {
 
 /** Removes both scratch directories, tolerating their absence. */
 async function removeScratchDirs(scratchDirs: ScratchDirs): Promise<void> {
-  await rm(scratchDirs.previous, { force: true, recursive: true });
-  await rm(scratchDirs.staging, { force: true, recursive: true });
+  await rm(scratchDirs.previousDir, { force: true, recursive: true });
+  await rm(scratchDirs.stagingDir, { force: true, recursive: true });
 }
 
 /**
@@ -360,15 +360,15 @@ function resolveEmitDir(packageDir: string, outdir: string): string {
 async function swapIntoPlace(emitDir: string, scratchDirs: ScratchDirs): Promise<void> {
   const hadPreviousOutput = existsSync(emitDir);
   if (hadPreviousOutput) {
-    await rename(emitDir, scratchDirs.previous);
+    await rename(emitDir, scratchDirs.previousDir);
   }
 
   try {
-    await rename(scratchDirs.staging, emitDir);
+    await rename(scratchDirs.stagingDir, emitDir);
   } catch (error: unknown) {
     // Restore only when `previous` holds the outgoing output and nothing has since taken its place.
     if (hadPreviousOutput && !existsSync(emitDir)) {
-      await rename(scratchDirs.previous, emitDir);
+      await rename(scratchDirs.previousDir, emitDir);
     }
     throw error;
   }

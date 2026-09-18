@@ -1051,9 +1051,9 @@ function listEmitted(tree: TempTree): string[] {
 /** Returns the names of the scratch directories still sitting beside the package's emit directory. */
 function listScratch(tree: TempTree): string[] {
   // Listed rather than reached through `Object.values`, whose fixed-key overload yields `any[]`.
-  const { previous, staging } = resolveScratchDirs(tree.resolve('dist/esm'));
+  const { previousDir, stagingDir } = resolveScratchDirs(tree.resolve('dist/esm'));
 
-  return [previous, staging]
+  return [previousDir, stagingDir]
     .map((scratchDir) => path.relative(tree.dir, scratchDir))
     .filter((scratchDir) => tree.exists(scratchDir))
     .map((scratchDir) => path.basename(scratchDir));
@@ -1066,7 +1066,7 @@ function resolveCacheEntry(tree: TempTree): string {
 
 /** Resolves the scratch directory a build stages into: `resolveScratchDirs` reports it as an absolute path. */
 function resolveStagingEntry(tree: TempTree): string {
-  return path.relative(tree.dir, resolveScratchDirs(tree.resolve('dist/esm')).staging);
+  return path.relative(tree.dir, resolveScratchDirs(tree.resolve('dist/esm')).stagingDir);
 }
 
 // endregion | Helpers

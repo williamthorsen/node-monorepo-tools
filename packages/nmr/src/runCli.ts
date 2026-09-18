@@ -215,9 +215,9 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   };
 
   // -F and -R: delegate to pnpm, which runs one nmr per scope it selects
-  const delegation = composeDelegation({ childEnv, command, parsed });
+  const delegation = composeDelegation({ childEnv, command, parsedArgs: parsed });
   if (delegation !== undefined) {
-    return runDelegation({ context, delegation, parsed, runOptions, stderr });
+    return runDelegation({ context, delegation, parsedArgs: parsed, runOptions, stderr });
   }
 
   const registry = shouldUseRoot ? buildRootRegistry(context.config) : buildWorkspaceRegistry(context.config);
@@ -283,7 +283,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     isWorkspaceRoot: parsed.isWorkspaceRoot,
     monorepoRoot: context.monorepoRoot,
     registry,
-    resolved: resolvedScript,
+    resolvedScript,
     shouldUseRoot,
     stderr,
     style: styles.stderr,
@@ -512,15 +512,15 @@ function formatUnroutableArgumentsError(command: string): string {
 function composeDelegation(options: {
   childEnv: NodeJS.ProcessEnv;
   command: string;
-  parsed: ParsedArgs;
+  parsedArgs: ParsedArgs;
 }): { env: NodeJS.ProcessEnv; step: Extract<Step, { kind: 'structural' }> } | undefined {
-  const { childEnv, command, parsed } = options;
+  const { childEnv, command, parsedArgs } = options;
 
   let scope: string[] | undefined;
-  let shouldRunIfPresent = parsed.shouldPrintLog;
-  if (parsed.filter) {
-    scope = ['--filter', parsed.filter];
-  } else if (parsed.recursive) {
+  let shouldRunIfPresent = parsedArgs.shouldPrintLog;
+  if (parsedArgs.filter) {
+    scope = ['--filter', parsedArgs.filter];
+  } else if (parsedArgs.recursive) {
     scope = ['--recursive'];
     shouldRunIfPresent = true;
   }
@@ -528,13 +528,13 @@ function composeDelegation(options: {
     return undefined;
   }
 
-  const flags = parsed.shouldPrintLog ? ['--log'] : [];
+  const flags = parsedArgs.shouldPrintLog ? ['--log'] : [];
 
   return {
     env: shouldRunIfPresent ? { ...childEnv, [RUN_IF_PRESENT_ENV_VAR]: '1' } : childEnv,
     step: {
       kind: 'structural',
-      argv: ['pnpm', ...scope, 'exec', 'nmr', ...flags, command, ...parsed.passthrough],
+      argv: ['pnpm', ...scope, 'exec', 'nmr', ...flags, command, ...parsedArgs.passthrough],
     },
   };
 }
@@ -589,13 +589,13 @@ async function composeRetention(options: {
  * an origin kind added without a remedy fails to compile.
  */
 function describeCrossingRemedy(options: {
-  crossing: string;
+  crossingStep: string;
   isWorkspaceRoot: boolean;
   monorepoRoot: string;
   origin: DiagnosticOrigin;
   registry: ScriptRegistry;
 }): { remedy: string; subject: string } {
-  const { crossing, isWorkspaceRoot, monorepoRoot, origin, registry } = options;
+  const { crossingStep, isWorkspaceRoot, monorepoRoot, origin, registry } = options;
   const configSite = path.relative(monorepoRoot, resolveConfigPath(monorepoRoot));
 
   switch (origin.tier) {
@@ -611,7 +611,7 @@ function describeCrossingRemedy(options: {
       };
     case 'package':
       return {
-        remedy: formatPackageRemedy({ configSite, crossing, isWorkspaceRoot, key: origin.key, registry }),
+        remedy: formatPackageRemedy({ configSite, crossingStep, isWorkspaceRoot, key: origin.key, registry }),
         subject: `${path.relative(monorepoRoot, origin.file)}: \`scripts.${origin.key}\``,
       };
     default: {
@@ -687,7 +687,7 @@ function escapeControlCharacters(text: string): string {
  * derives the remedy from that site rather than naming one tier for every case.
  */
 function formatNmrCrossingWarning(options: {
-  crossing: string;
+  crossingStep: string;
   isWorkspaceRoot: boolean;
   monorepoRoot: string;
   origin: DiagnosticOrigin;
@@ -698,7 +698,7 @@ function formatNmrCrossingWarning(options: {
 
   return (
     `${STATUS_GLYPHS[options.style].warning.text} ${subject} reaches nmr through a shell ` +
-    `(\`${escapeControlCharacters(options.crossing)}\`), ${CROSSING_CONSEQUENCE} ${remedy}`
+    `(\`${escapeControlCharacters(options.crossingStep)}\`), ${CROSSING_CONSEQUENCE} ${remedy}`
   );
 }
 
@@ -708,7 +708,7 @@ function formatNmrCrossingWarning(options: {
  * tier-3 entry that happens to resolve is not standing in for anything.
  */
 function formatOverrideNotice(
-  resolved: ResolvedScript,
+  resolvedScript: ResolvedScript,
   registry: ScriptRegistry,
   command: string,
   anchorDir: string,
@@ -716,11 +716,11 @@ function formatOverrideNotice(
   style: OutputStyle,
 ): string | undefined {
   const registryEntry = Object.hasOwn(registry, command) ? registry[command] : undefined;
-  if (quiet || resolved.origin.tier !== 'package' || registryEntry === undefined) {
+  if (quiet || resolvedScript.origin.tier !== 'package' || registryEntry === undefined) {
     return undefined;
   }
 
-  const notice = `${path.basename(anchorDir)}: Using override script: ${renderChain(resolved.steps)}`;
+  const notice = `${path.basename(anchorDir)}: Using override script: ${renderChain(resolvedScript.steps)}`;
 
   return `${formatGlyphLine(NMR_GLYPHS, style, 'package', notice)}\n`;
 }
@@ -747,7 +747,7 @@ function formatSelfReferenceRemedy(options: {
 
   const configSite = path.relative(monorepoRoot, resolveConfigPath(monorepoRoot));
 
-  return formatPackageRemedy({ configSite, crossing: script, isWorkspaceRoot, key: command, registry });
+  return formatPackageRemedy({ configSite, crossingStep: script, isWorkspaceRoot, key: command, registry });
 }
 
 /**
@@ -759,12 +759,12 @@ function formatSelfReferenceRemedy(options: {
  */
 function formatPackageRemedy(options: {
   configSite: string;
-  crossing: string;
+  crossingStep: string;
   isWorkspaceRoot: boolean;
   key: string;
   registry: ScriptRegistry;
 }): string {
-  const { configSite, crossing, isWorkspaceRoot, key, registry } = options;
+  const { configSite, crossingStep, isWorkspaceRoot, key, registry } = options;
   const registryEntry = Object.hasOwn(registry, key) ? registry[key] : undefined;
 
   if (registryEntry === undefined) {
@@ -775,7 +775,7 @@ function formatPackageRemedy(options: {
   }
 
   const registryChain = renderChain(expandScript(registryEntry, isWorkspaceRoot));
-  if (registryChain === crossing) {
+  if (registryChain === crossingStep) {
     return `Delete the entry: nmr's own \`${key}\` already runs \`${escapeControlCharacters(registryChain)}\`.`;
   }
 
@@ -810,23 +810,23 @@ function findArgError(parsed: ParsedArgs): string | undefined {
  */
 function findEmptySelectionRefusal(options: {
   context: ResolvedContext;
-  parsed: ParsedArgs;
+  parsedArgs: ParsedArgs;
   selection: FilterSelection | undefined;
 }): string | undefined {
-  const { context, parsed, selection } = options;
+  const { context, parsedArgs, selection } = options;
 
   const isPackageless = context.workspacePackageDirs.length === 0;
 
-  if (parsed.filter !== undefined) {
+  if (parsedArgs.filter !== undefined) {
     if (selection !== 'empty') {
       return undefined;
     }
     // A workspace holding no package would have refused whatever the pattern was, so the pattern-shape rules
     // below answer the wrong question there: no name rule and no near-name search repairs a workspace.
     if (isPackageless) {
-      return `${formatFilterRejection(parsed.filter)} ${describeEmptyWorkspace(context.monorepoRoot)}`;
+      return `${formatFilterRejection(parsedArgs.filter)} ${describeEmptyWorkspace(context.monorepoRoot)}`;
     }
-    return formatEmptyFilterError(parsed.filter, readWorkspacePackageNames(context.workspacePackageDirs));
+    return formatEmptyFilterError(parsedArgs.filter, readWorkspacePackageNames(context.workspacePackageDirs));
   }
 
   return isPackageless ? `${RECURSIVE_REJECTION} ${describeEmptyWorkspace(context.monorepoRoot)}` : undefined;
@@ -1085,9 +1085,9 @@ async function lookUpRecordedPass(options: {
     return undefined;
   }
 
-  const [missing] = buildOutput.missing;
-  if (missing !== undefined) {
-    writeDebugNote(`running ${command}: ${missing} has no build output`, env, stderr);
+  const [missingPackage] = buildOutput.missingPackages;
+  if (missingPackage !== undefined) {
+    writeDebugNote(`running ${command}: ${missingPackage} has no build output`, env, stderr);
     return undefined;
   }
 
@@ -1237,7 +1237,7 @@ async function reportRecording(options: {
   const lookup = await resolveRecording({
     anchorDir: options.anchorDir,
     command,
-    current: {
+    currentIdentity: {
       commandString: options.commandString,
       nmrVersion: VERSION,
       nodeVersion: CURRENT_RUNTIME.nodeVersion,
@@ -1323,16 +1323,16 @@ function readOutputStyleArgument(args: string[], index: number): OutputStyleArgu
  * the verdict reports as one, so the two are distinguished here rather than read back out of the rendering.
  */
 function readRunnableSteps(
-  resolved: ResolvedScript,
+  resolvedScript: ResolvedScript,
   workspacePackageDirs: readonly string[],
 ): { isEmptiedByWorkspace: boolean; steps: readonly Step[] } {
   if (workspacePackageDirs.length > 0) {
-    return { isEmptiedByWorkspace: false, steps: resolved.steps };
+    return { isEmptiedByWorkspace: false, steps: resolvedScript.steps };
   }
 
-  const steps = dropRecursiveSteps(resolved.steps);
+  const steps = dropRecursiveSteps(resolvedScript.steps);
 
-  return { isEmptiedByWorkspace: steps.length === 0 && resolved.steps.length > 0, steps };
+  return { isEmptiedByWorkspace: steps.length === 0 && resolvedScript.steps.length > 0, steps };
 }
 
 /**
@@ -1348,21 +1348,21 @@ function reportNmrCrossing(options: {
   isWorkspaceRoot: boolean;
   monorepoRoot: string;
   registry: ScriptRegistry;
-  resolved: ResolvedScript;
+  resolvedScript: ResolvedScript;
   shouldUseRoot: boolean;
   stderr: Writable;
   style: OutputStyle;
 }): void {
-  const crossingStep = findNmrCrossing(options.resolved.steps);
+  const crossingStep = findNmrCrossing(options.resolvedScript.steps);
   if (options.isReading || crossingStep === undefined) {
     return;
   }
 
   const warning = formatNmrCrossingWarning({
-    crossing: crossingStep,
+    crossingStep,
     isWorkspaceRoot: options.isWorkspaceRoot,
     monorepoRoot: options.monorepoRoot,
-    origin: describeOrigin(options.resolved.origin, options.config, options.shouldUseRoot),
+    origin: describeOrigin(options.resolvedScript.origin, options.config, options.shouldUseRoot),
     registry: options.registry,
     style: options.style,
   });
@@ -1443,9 +1443,9 @@ async function recordPass(options: {
   // Read after the chain, so the digests describe the output the pass was actually earned over. A pass over a
   // repository still missing output describes a state no later run should be held to, so it is not recorded.
   const output = await readBuildOutputState(monorepoRoot, options.config);
-  const [missing] = output.missing;
-  if (missing !== undefined) {
-    writeDebugNote(`not recording ${command}: ${missing} has no build output`, env, stderr);
+  const [missingPackage] = output.missingPackages;
+  if (missingPackage !== undefined) {
+    writeDebugNote(`not recording ${command}: ${missingPackage} has no build output`, env, stderr);
     return;
   }
 
@@ -1557,21 +1557,22 @@ function resolveCacheKey(options: {
 async function runDelegation(options: {
   context: ResolvedContext;
   delegation: { env: NodeJS.ProcessEnv; step: Extract<Step, { kind: 'structural' }> };
-  parsed: ParsedArgs;
+  parsedArgs: ParsedArgs;
   runOptions: RunStepsOptions;
   stderr: Writable;
 }): Promise<RunCliResult> {
-  const { context, delegation, parsed, runOptions, stderr } = options;
+  const { context, delegation, parsedArgs, runOptions, stderr } = options;
 
-  const selection = parsed.filter === undefined ? undefined : readFilterSelection(parsed.filter, context.monorepoRoot);
+  const selection =
+    parsedArgs.filter === undefined ? undefined : readFilterSelection(parsedArgs.filter, context.monorepoRoot);
 
-  const refusal = findEmptySelectionRefusal({ context, parsed, selection });
+  const refusal = findEmptySelectionRefusal({ context, parsedArgs, selection });
   if (refusal !== undefined) {
     reportError(refusal, stderr);
     return { exitCode: 1 };
   }
 
-  const shouldWithholdInput = parsed.filter === undefined || selection === 'multiple';
+  const shouldWithholdInput = parsedArgs.filter === undefined || selection === 'multiple';
   const step = shouldWithholdInput ? { ...delegation.step, shouldWithholdInput } : delegation.step;
 
   return runSteps([step], context.monorepoRoot, { ...runOptions, env: delegation.env });

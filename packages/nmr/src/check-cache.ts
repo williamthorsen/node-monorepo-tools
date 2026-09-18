@@ -85,7 +85,7 @@ export interface Retention {
 /** What nmr's own build has left on disk across the workspace. */
 export interface BuildOutputState {
   /** Covered packages whose output is absent. */
-  missing: string[];
+  missingPackages: string[];
   /** The digest of the inputs each covered package's output was built from, keyed by package name. */
   digests: Record<string, string>;
 }
@@ -349,7 +349,7 @@ export function isCacheableCommand(checkCache: CheckCacheConfig | undefined, com
  * out rather than made a permanent miss.
  */
 export async function readBuildOutputState(monorepoRoot: string, config: NmrConfig): Promise<BuildOutputState> {
-  const state: BuildOutputState = { missing: [], digests: {} };
+  const state: BuildOutputState = { missingPackages: [], digests: {} };
 
   let packageDirs: string[];
   try {
@@ -383,7 +383,7 @@ export async function readBuildOutputState(monorepoRoot: string, config: NmrConf
     if (await hasBuildOutput(packageDir, options)) {
       state.digests[name] = (await readBuildDigest(packageDir)) ?? '';
     } else {
-      state.missing.push(name);
+      state.missingPackages.push(name);
     }
   }
 

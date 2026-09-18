@@ -104,7 +104,7 @@ export function renderRefusal(options: {
 export async function resolveRecording(options: {
   anchorDir: string;
   command: string;
-  current: RunIdentity;
+  currentIdentity: RunIdentity;
   isCacheable: boolean;
   key: string | undefined;
   monorepoRoot: string;
@@ -125,7 +125,10 @@ export async function resolveRecording(options: {
 
   const ageMs = Math.max(0, Date.now() - Date.parse(entry.recordedAt));
   if (entry.key !== options.key) {
-    return { ok: false, refusal: { kind: 'mismatched', ageMs, difference: findKeyDifference(entry, options.current) } };
+    return {
+      ok: false,
+      refusal: { kind: 'mismatched', ageMs, difference: findKeyDifference(entry, options.currentIdentity) },
+    };
   }
 
   const transcript = await readTranscript({ anchorDir, command, monorepoRoot });
