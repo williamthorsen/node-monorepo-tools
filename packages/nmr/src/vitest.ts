@@ -259,12 +259,12 @@ function buildConfig(
     },
   };
 
-  let merged = config;
+  let mergedConfig = config;
   for (const { root } of layers) {
-    if (root) merged = mergeConfig(merged, root);
+    if (root) mergedConfig = mergeConfig(mergedConfig, root);
   }
 
-  return merged;
+  return mergedConfig;
 }
 
 /** One project's definition before it becomes a Vitest project config: the residual, then every named tier. */
@@ -311,12 +311,12 @@ function buildProjects(
       },
     };
 
-    let merged = project;
+    let mergedProject = project;
     for (const layer of layers) {
-      merged = applyLayer(merged, layer, name);
+      mergedProject = applyLayer(mergedProject, layer, name);
     }
 
-    return merged;
+    return mergedProject;
   });
 }
 
@@ -333,9 +333,9 @@ function applyLayer(
   tier: TierName,
 ): TestProjectInlineConfiguration {
   const withProject = layer.project ? mergeConfig(project, { test: layer.project }) : project;
-  const targeted = layer.tiers?.[tier];
+  const targetedOverrides = layer.tiers?.[tier];
 
-  return targeted ? mergeConfig(withProject, { test: targeted }) : withProject;
+  return targetedOverrides ? mergeConfig(withProject, { test: targetedOverrides }) : withProject;
 }
 
 /**
@@ -344,12 +344,12 @@ function applyLayer(
  * ships with a migration note, so the throw is that migration's signal rather than a surprise.
  */
 function assertKnownTiers(layers: readonly VitestConfigOptions[]): void {
-  const known: readonly string[] = TIER_NAMES;
+  const knownTiers: readonly string[] = TIER_NAMES;
 
   for (const { tiers } of layers) {
     const declaredTiers = Object.keys(tiers ?? {});
     for (const name of declaredTiers) {
-      if (!known.includes(name)) {
+      if (!knownTiers.includes(name)) {
         throw new TypeError(`Unknown tier "${name}" in \`tiers\`. Valid tiers: ${TIER_NAMES.join(', ')}.`);
       }
     }
@@ -388,12 +388,12 @@ function assertOptionKeys(
     assertNoRetiredOptions(layer);
 
     const recognizedKeys = index === lastIndex ? lastLayerKeys : RECOGNIZED_OPTION_KEYS;
-    const unrecognized = Object.keys(layer).filter((key) => !recognizedKeys.includes(key));
-    if (unrecognized.length === 0) return;
+    const unrecognizedKeys = Object.keys(layer).filter((key) => !recognizedKeys.includes(key));
+    if (unrecognizedKeys.length === 0) return;
 
     throw new TypeError(
-      `Invalid Vitest config: unrecognized ${unrecognized.length === 1 ? 'option' : 'options'} ` +
-        `${formatOptionKeys(unrecognized)}. Recognized: ${formatOptionKeys(recognizedKeys)}.`,
+      `Invalid Vitest config: unrecognized ${unrecognizedKeys.length === 1 ? 'option' : 'options'} ` +
+        `${formatOptionKeys(unrecognizedKeys)}. Recognized: ${formatOptionKeys(recognizedKeys)}.`,
     );
   });
 }
@@ -407,8 +407,8 @@ function assertOptionKeys(
  * self-diagnose, whereas a `dist/` entry in the coverage report is a visible 0% they can.
  */
 function buildCollectionExclude(layers: readonly VitestConfigOptions[]): string[] {
-  const declared = layers.flatMap((layer) => layer.testCollectionExclude ?? []);
-  const globs = [...TEST_COLLECTION_EXCLUDE, ...declared].map((dir) => `**/${dir}/**`);
+  const declaredDirs = layers.flatMap((layer) => layer.testCollectionExclude ?? []);
+  const globs = [...TEST_COLLECTION_EXCLUDE, ...declaredDirs].map((dir) => `**/${dir}/**`);
 
   return [...new Set([...defaultExclude, ...globs])];
 }
@@ -437,14 +437,14 @@ function resolveFlag(
   name: 'shouldIsolateGit' | 'shouldResolveFromSource' | 'tsconfigPaths',
   isOnByDefault: boolean,
 ): boolean {
-  let resolved = isOnByDefault;
+  let resolvedFlag = isOnByDefault;
 
   for (const layer of layers) {
-    const declared = layer[name];
-    if (declared !== undefined) resolved = declared;
+    const declaredFlag = layer[name];
+    if (declaredFlag !== undefined) resolvedFlag = declaredFlag;
   }
 
-  return resolved;
+  return resolvedFlag;
 }
 
 /**
