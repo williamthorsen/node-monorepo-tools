@@ -4,7 +4,12 @@ import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
-import { findMonorepoRoot, getWorkspacePackageDirs, readWorkspacePackageNames } from '../workspace.ts';
+import {
+  diagnoseEmptyWorkspace,
+  findMonorepoRoot,
+  getWorkspacePackageDirs,
+  readWorkspacePackageNames,
+} from '../workspace.ts';
 
 // The monorepo root is two levels up from packages/nmr
 const MONOREPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..', '..');
@@ -101,6 +106,61 @@ describe(getWorkspacePackageDirs, () => {
         path.join(packagesTree.dir, 'packages', 'legacy'),
       ]);
     });
+  });
+});
+
+describe(diagnoseEmptyWorkspace, () => {
+  it.for([
+    { patterns: undefined, scenario: 'no `packages` key' },
+    { patterns: '[]', scenario: 'an empty list' },
+    { patterns: "'packages/*'", scenario: 'a list holding something other than strings' },
+    { patterns: "\n  - '!packages/legacy'", scenario: 'exclusions alone' },
+    { patterns: '\n  - !packages/legacy', scenario: 'an unquoted `!` entry, which YAML leaves empty' },
+  ])('reports no-pattern given $scenario', ({ patterns }, { packagesTree }) => {
+    packagesTree.write(
+      'pnpm-workspace.yaml',
+      patterns === undefined ? 'shamefully-hoist: true\n' : `packages: ${patterns}\n`,
+    );
+
+    expect(diagnoseEmptyWorkspace(packagesTree.dir).cause).toBe('no-pattern');
+  });
+
+  it('reports no-manifest where the pattern matches no directory holding one', ({ toolsTree }) => {
+    toolsTree.mkdir('tools/empty');
+    toolsTree.write('pnpm-workspace.yaml', "packages:\n  - 'tools/empty'\n");
+
+    expect(diagnoseEmptyWorkspace(toolsTree.dir)).toStrictEqual({ cause: 'no-manifest', patterns: ['tools/empty'] });
+  });
+
+  it('reports all-excluded where the exclusions remove every match', ({ packagesTree }) => {
+    packagesTree.write('pnpm-workspace.yaml', "packages:\n  - 'packages/*'\n  - '!packages/*'\n");
+
+    expect(diagnoseEmptyWorkspace(packagesTree.dir)).toStrictEqual({
+      cause: 'all-excluded',
+      patterns: ['packages/*', '!packages/*'],
+    });
+  });
+
+  // An exclusion that removes some but not all of the matches leaves the workspace non-empty, so the only
+  // exclusion-bearing manifest reaching the diagnosis with no positive match is one whose patterns matched none.
+  it('reports no-manifest where exclusions are declared but the positive patterns matched nothing', ({ toolsTree }) => {
+    toolsTree.write('pnpm-workspace.yaml', "packages:\n  - 'packages/*'\n  - '!packages/legacy'\n");
+
+    expect(diagnoseEmptyWorkspace(toolsTree.dir).cause).toBe('no-manifest');
+  });
+
+  it('carries the declared patterns, which a message quotes back', ({ packagesTree }) => {
+    packagesTree.write('pnpm-workspace.yaml', "packages:\n  - 'apps/*'\n");
+
+    expect(diagnoseEmptyWorkspace(packagesTree.dir).patterns).toStrictEqual(['apps/*']);
+  });
+
+  it('throws a message naming the directory when it holds no manifest', () => {
+    using notARoot = createTempTree({}, { prefix: PREFIX });
+
+    expect(() => diagnoseEmptyWorkspace(notARoot.dir)).toThrow(
+      `Not a monorepo root: no pnpm-workspace.yaml in ${notARoot.dir}`,
+    );
   });
 });
 

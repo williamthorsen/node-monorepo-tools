@@ -5,7 +5,7 @@ import { parse } from 'yaml';
 
 import { readStringValues } from './helpers/readStringValues.ts';
 import { isObject } from './helpers/type-guards.ts';
-import { resolvePackageDirs } from './helpers/workspace-patterns.ts';
+import { matchPackageDirs, resolvePackageDirs, splitWorkspacePatterns } from './helpers/workspace-patterns.ts';
 import { UserError } from './UserError.ts';
 
 /** The manifest a package's name is declared in. */
@@ -13,6 +13,19 @@ const PACKAGE_MANIFEST = 'package.json';
 
 /** The manifest whose presence marks a directory as the monorepo root. */
 const WORKSPACE_MANIFEST = 'pnpm-workspace.yaml';
+
+/** Which of three conditions left a workspace resolving to no package directory. */
+export type EmptyWorkspaceCause = 'all-excluded' | 'no-manifest' | 'no-pattern';
+
+/**
+ * Why a workspace resolved to no package directory, together with the `packages` list its manifest declares.
+ *
+ * The patterns travel with the cause because every message composed from one quotes them back to the reader.
+ */
+export interface EmptyWorkspaceDiagnosis {
+  cause: EmptyWorkspaceCause;
+  patterns: string[];
+}
 
 /** Reports whether a directory is the monorepo root, which the workspace manifest's presence marks. */
 export function isMonorepoRoot(dir: string): boolean {
@@ -46,22 +59,33 @@ export function findMonorepoRoot(startDir?: string): string {
  * `monorepoRoot` holds no manifest at all — the caller named a directory that is not a monorepo root.
  */
 export function getWorkspacePackageDirs(monorepoRoot: string): string[] {
-  const workspaceFile = path.join(monorepoRoot, WORKSPACE_MANIFEST);
+  return resolvePackageDirs(monorepoRoot, readWorkspacePatterns(monorepoRoot));
+}
 
-  if (!existsSync(workspaceFile)) {
-    throw new UserError(`Not a monorepo root: no ${WORKSPACE_MANIFEST} in ${monorepoRoot}`);
+/**
+ * Reports which of three conditions left a workspace with no package directory, for a caller that has already
+ * resolved one and found it empty.
+ *
+ * Reaches the filesystem a second time for `all-excluded` alone, re-matching the positive patterns without the
+ * exclusion set. That runs on a diagnostic path, where a workspace resolution has already failed.
+ *
+ * `no-pattern` covers every manifest whose `packages` key reaches the matcher with nothing positive: a key that
+ * is absent, empty, not a list of strings, or holds only `!` entries. One remedy answers all four, so the
+ * conditions below them are not worth telling apart.
+ */
+export function diagnoseEmptyWorkspace(monorepoRoot: string): EmptyWorkspaceDiagnosis {
+  const patterns = readWorkspacePatterns(monorepoRoot);
+  const { excluded, included } = splitWorkspacePatterns(patterns);
+
+  if (included.length === 0) {
+    return { cause: 'no-pattern', patterns };
   }
 
-  const content = readFileSync(workspaceFile, 'utf8');
-  const parsed: unknown = parse(content);
-
-  const packages = getPackagesFromParsedYaml(parsed);
-
-  if (!packages) {
-    return [];
+  if (excluded.length > 0 && matchPackageDirs(monorepoRoot, included, []).length > 0) {
+    return { cause: 'all-excluded', patterns };
   }
 
-  return resolvePackageDirs(monorepoRoot, packages);
+  return { cause: 'no-manifest', patterns };
 }
 
 /**
@@ -113,6 +137,12 @@ export function readWorkspacePackageNames(packageDirs: readonly string[]): strin
   return names;
 }
 
+// region | Helpers
+
+/**
+ * Reads the `packages` list a parsed workspace manifest declares, or nothing where it declares no usable one:
+ * no `packages` key, a key that is not a list, or a list holding something other than strings.
+ */
 function getPackagesFromParsedYaml(parsed: unknown): string[] | undefined {
   if (!isObject(parsed)) return undefined;
   const packages = parsed['packages'];
@@ -120,3 +150,23 @@ function getPackagesFromParsedYaml(parsed: unknown): string[] | undefined {
   if (!packages.every((p): p is string => typeof p === 'string')) return undefined;
   return packages;
 }
+
+/**
+ * Reads the `packages` list the monorepo root's `pnpm-workspace.yaml` declares.
+ *
+ * Returns an empty list where the manifest declares no usable one, and throws where the manifest itself is
+ * absent: the caller named a directory that is not a monorepo root.
+ */
+function readWorkspacePatterns(monorepoRoot: string): string[] {
+  const workspaceFile = path.join(monorepoRoot, WORKSPACE_MANIFEST);
+
+  if (!existsSync(workspaceFile)) {
+    throw new UserError(`Not a monorepo root: no ${WORKSPACE_MANIFEST} in ${monorepoRoot}`);
+  }
+
+  const parsed: unknown = parse(readFileSync(workspaceFile, 'utf8'));
+
+  return getPackagesFromParsedYaml(parsed) ?? [];
+}
+
+// endregion | Helpers

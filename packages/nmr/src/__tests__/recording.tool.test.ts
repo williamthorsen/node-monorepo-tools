@@ -15,6 +15,15 @@ const COMMAND = 'typecheck';
 /** What the fixture's command writes, and so what a recording of it has to print back. */
 const OUTPUT = 'checked 12 files';
 
+/**
+ * A composite the package-free fixture drops a step from: `test` resolves to a root step beside a `-R` one,
+ * and the workspace this fixture declares holds no package for the fan-out to reach.
+ */
+const FANNED_COMMAND = 'test';
+
+/** The constituent that survives the drop, which a recording of the composite has to name as the chain. */
+const SURVIVING_STEP = 'root:test';
+
 /** The run log, which sits beside the repository rather than inside it. */
 const LOG_ENTRY = 'log.txt';
 
@@ -77,6 +86,18 @@ describe('a run printed by --log', () => {
       expect(stderr).toContain('on a tree this is not');
       expect(stdout).toBe('');
     });
+  });
+
+  // The fan-out step is dropped before the chain is rendered, and the rendering is what the recording carries.
+  // A filter applied after it would leave the recording naming a step the run never took.
+  it('records the chain the run took, the dropped fan-out step left out of it', async () => {
+    await runNmr(FANNED_COMMAND);
+
+    const { exitCode, stdout } = await runNmr(`--log ${FANNED_COMMAND}`);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain(`$ nmr ${SURVIVING_STEP}`);
+    expect(stdout).not.toContain('-R');
   });
 
   it('refuses when nothing has recorded a pass', async () => {
@@ -189,7 +210,12 @@ function git(cwd: string, args: string[]): void {
  * writes a recognizable line.
  */
 function scaffoldRepo(workspace: TempTree, log: string): void {
-  const config = { rootScripts: { [COMMAND]: `echo ran >> ${log} && echo '${OUTPUT}'` } };
+  const config = {
+    rootScripts: {
+      [COMMAND]: `echo ran >> ${log} && echo '${OUTPUT}'`,
+      [SURVIVING_STEP]: `echo '${OUTPUT}'`,
+    },
+  };
 
   workspace.writeAll({
     'repo/.config/nmr.config.ts': `export default ${JSON.stringify(config)};\n`,

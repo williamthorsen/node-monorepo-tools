@@ -144,7 +144,7 @@ Every command nmr runs reports one line naming the scope it ran at, the command,
 
 **A pipe and a CI log get words rather than emoji.** The same four lines read `PASS`, `FAIL`, `SKIP`, and `NOOP` there, which `grep FAIL` finds. `--output-style` and `NMR_OUTPUT_STYLE` each force either style.
 
-**Verdicts print in every verbosity.** `-q` withholds the output of the commands nmr runs, never nmr's own words: a passing quiet run reports its verdicts and nothing else. A command whose override resolved to `""` or `":"` reports the skip rather than exiting 0 in silence, which is what separates it from a command that passed. An `NMR_RUN_IF_PRESENT` miss reports nothing, having no command to report on.
+**Verdicts print in every verbosity.** `-q` withholds the output of the commands nmr runs, never nmr's own words: a passing quiet run reports its verdicts and nothing else. A command that ran nothing reports the skip rather than exiting 0 in silence, which is what separates it from a command that passed: an override resolving to `""` or `":"`, and a fan-out step that a package-free workspace left nothing to do. An `NMR_RUN_IF_PRESENT` miss reports nothing, having no command to report on.
 
 [What nmr reports](docs/reporting.md) covers how verdicts nest, the `--json` format, the output style, and where the verbosity of a run comes from.
 

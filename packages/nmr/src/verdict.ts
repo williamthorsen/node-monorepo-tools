@@ -20,6 +20,14 @@ import type { ReportFormat } from './report-format.ts';
 export const VERDICT_LINE_LIMIT = 512;
 
 /**
+ * Why a command ran nothing, which the `no-op` outcome carries and `--json` serializes.
+ *
+ * `empty-workspace` and `empty-override` both leave a chain with no step in it, so the reason is what tells
+ * a command emptied by the workspace apart from one emptied by an override.
+ */
+export type NoOpReason = 'empty-override' | 'empty-workspace' | 'noop-override';
+
+/**
  * What a command nmr ran came to, holding the facts a reporting line is rendered from rather than the line
  * itself, so a machine-readable rendering spends the same record a human-readable one does.
  *
@@ -40,7 +48,7 @@ export type VerdictOutcome = { detail?: string } & (
   | { outcome: 'passed'; durationMs: number }
   | { outcome: 'failed'; durationMs: number; exitCode: number }
   | { outcome: 'recalled'; ageMs: number; savedMs: number; replay?: ReplayLine[] }
-  | { outcome: 'no-op'; reason: 'empty-override' | 'noop-override' }
+  | { outcome: 'no-op'; reason: NoOpReason }
 );
 
 /**
@@ -122,13 +130,26 @@ function describeOutcome(verdict: Verdict, style: OutputStyle): { marker: string
       };
     }
     case 'no-op':
-      return {
-        marker: NMR_GLYPHS[style].noop.text,
-        phrase: `skipped, the override is ${verdict.reason === 'empty-override' ? 'empty' : 'a no-op'}`,
-      };
+      return { marker: NMR_GLYPHS[style].noop.text, phrase: `skipped, ${describeNoOpReason(verdict.reason)}` };
     default: {
       const unhandled: never = verdict;
       throw new Error(`Unhandled verdict outcome: ${JSON.stringify(unhandled)}`);
+    }
+  }
+}
+
+/** Returns the clause naming why a command ran nothing, which the `no-op` phrase ends with. */
+function describeNoOpReason(reason: NoOpReason): string {
+  switch (reason) {
+    case 'empty-override':
+      return 'the override is empty';
+    case 'empty-workspace':
+      return 'the workspace declares no package';
+    case 'noop-override':
+      return 'the override is a no-op';
+    default: {
+      const unhandled: never = reason;
+      throw new Error(`Unhandled no-op reason: ${String(unhandled)}`);
     }
   }
 }

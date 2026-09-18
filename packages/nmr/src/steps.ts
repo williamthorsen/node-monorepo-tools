@@ -65,6 +65,11 @@ export interface NmrStepTarget {
   command: string;
   /** Whether the command is fanned out to other scopes, where a `-R` or `-F` sends it. */
   isDelegate: boolean;
+  /**
+   * Whether the command is fanned out to every package, where a `-R` sends it. A separate field rather than a
+   * narrowing of `isDelegate`, whose reader surveys the scopes a `-F` may also have reached.
+   */
+  isRecursive: boolean;
   /** Whether the command runs against the root registry, where a `-w` anchors it. */
   isWorkspaceRoot: boolean;
 }
@@ -91,6 +96,16 @@ export function composeNmrStep(element: string, workspaceRoot: boolean, shouldDe
     argv: ['nmr', ...flags, ...tokenize(element)],
     ...(shouldDeclineArguments && { shouldDeclineArguments }),
   };
+}
+
+/**
+ * Returns the steps that still run in a workspace holding no package: every step but the ones a `-R` fans out.
+ *
+ * A `-F` step is left standing. It names one package, and its absence is a real error whoever composed the
+ * step, where a `-R` asked for every package and a workspace with none has nothing for it to do.
+ */
+export function dropRecursiveSteps(steps: readonly Step[]): Step[] {
+  return steps.filter((step) => readNmrStep(step)?.isRecursive !== true);
 }
 
 /**
@@ -253,6 +268,7 @@ function readNmrTail(segment: string): readonly string[] | undefined {
  */
 function readNmrTarget(tokens: readonly string[]): NmrStepTarget | undefined {
   let isDelegate = false;
+  let isRecursive = false;
   let isWorkspaceRoot = false;
   let index = 0;
 
@@ -270,6 +286,7 @@ function readNmrTarget(tokens: readonly string[]): NmrStepTarget | undefined {
       case '-R':
       case '--recursive':
         isDelegate = true;
+        isRecursive = true;
         index += 1;
         break;
       case '-w':
@@ -279,7 +296,7 @@ function readNmrTarget(tokens: readonly string[]): NmrStepTarget | undefined {
         break;
       default:
         if (!token.startsWith('-')) {
-          return { command: token, isDelegate, isWorkspaceRoot };
+          return { command: token, isDelegate, isRecursive, isWorkspaceRoot };
         }
         index += 1;
     }

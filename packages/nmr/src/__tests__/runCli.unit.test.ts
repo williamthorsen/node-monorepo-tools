@@ -43,6 +43,30 @@ const it = baseIt
     makeFixture(() =>
       createTempTree({ 'pnpm-workspace.yaml': 'packages:\n  - packages/*\n' }, { prefix: 'nmr-runcli-empty-' }),
     ),
+  )
+  .extend(
+    'patternlessTree',
+    makeFixture(() =>
+      createTempTree({ 'pnpm-workspace.yaml': 'shamefully-hoist: true\n' }, { prefix: 'nmr-runcli-patternless-' }),
+    ),
+  )
+  .extend(
+    'excludedTree',
+    makeFixture(() =>
+      createTempTree(
+        {
+          'packages/my-pkg/package.json': '{"name":"my-pkg"}',
+          'pnpm-workspace.yaml': "packages:\n  - 'packages/*'\n  - '!packages/*'\n",
+        },
+        { prefix: 'nmr-runcli-excluded-' },
+      ),
+    ),
+  )
+  .extend(
+    'taggedTree',
+    makeFixture(() =>
+      createTempTree({ 'pnpm-workspace.yaml': 'packages:\n  - !packages/legacy\n' }, { prefix: 'nmr-runcli-tagged-' }),
+    ),
   );
 
 describe(runCli, () => {
@@ -299,12 +323,64 @@ describe(runCli, () => {
     });
 
     // `pnpm --recursive` leaves the root project out, so a workspace with no package fans out to nothing.
-    it('refuses a recursive delegation in a workspace that declares no package', async ({ packagelessTree }) => {
+    // `packagelessTree` declares `packages/*` over an empty tree, which is the no-manifest condition.
+    it('refuses a recursive delegation in a workspace whose patterns match no manifest', async ({
+      packagelessTree,
+    }) => {
       const { exitCode, stderr } = await runNmrReadingStderr(['-R', 'build'], packagelessTree.dir);
 
       expect(exitCode).toBe(1);
       expect(stepsFromCall()).toBeUndefined();
-      expect(stderr).toContain('-R/--recursive matched no workspace');
+      expect(stderr).toContain('-R/--recursive matched no workspace:');
+      expect(stderr).toContain('pnpm-workspace.yaml declares `packages/*`');
+      expect(stderr).toContain('the matcher found no directory holding a `package.json`');
+      expect(stderr).toContain('unlike pnpm, it recognizes neither `package.yaml` nor `package.json5`');
+      expect(stderr).toContain('Add a `package.json`');
+    });
+
+    it('refuses a recursive delegation where the manifest declares no positive pattern', async ({
+      patternlessTree,
+    }) => {
+      const { exitCode, stderr } = await runNmrReadingStderr(['-R', 'build'], patternlessTree.dir);
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('pnpm-workspace.yaml declares no `packages` list, so no pattern reaches the matcher');
+      expect(stderr).toContain('Declare a positive pattern such as `packages/*`');
+    });
+
+    it('refuses a recursive delegation where the exclusions remove every match', async ({ excludedTree }) => {
+      const { exitCode, stderr } = await runNmrReadingStderr(['-R', 'build'], excludedTree.dir);
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('pnpm-workspace.yaml declares `packages/*`, `!packages/*`');
+      expect(stderr).toContain('`!` entries exclude every directory matched by the positive patterns');
+      expect(stderr).toContain('Drop or narrow the exclusion');
+    });
+
+    // An unquoted `!pkg` reaches the matcher as an empty entry, which is the very case this message's remedy
+    // names, so quoting it back as an empty pair of backticks is what the reader must not be given.
+    it('names an entry YAML left empty rather than quoting nothing', async ({ taggedTree }) => {
+      const { exitCode, stderr } = await runNmrReadingStderr(['-R', 'build'], taggedTree.dir);
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('pnpm-workspace.yaml declares 1 entry that YAML left empty');
+      expect(stderr).toContain('quote any `!` entry');
+      expect(stderr).not.toContain('``');
+    });
+
+    // The pattern-shape rules answer which pattern would have matched, and in a package-free workspace none
+    // would have, so the workspace is the cause to report.
+    it('reports the workspace where a filter is refused in a workspace holding no package', async ({
+      packagelessTree,
+    }) => {
+      mockedReadFilterSelection.mockReturnValue('empty');
+
+      const { exitCode, stderr } = await runNmrReadingStderr(['-F', 'my-pkg', 'build'], packagelessTree.dir);
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('-F/--filter matched no workspace: `my-pkg`.');
+      expect(stderr).toContain('the matcher found no directory holding a `package.json`');
+      expect(stderr).not.toContain('manifest `name`');
     });
 
     it('leaves a recursive delegation alone where the workspace declares a package', async ({ tree }) => {
@@ -321,6 +397,73 @@ describe(runCli, () => {
       await runNmr(['-R', 'build'], tree.dir);
 
       expect(mockedReadFilterSelection).not.toHaveBeenCalled();
+    });
+  });
+
+  // A `-R` nmr composed into its own script asked for no fan-out on the caller's behalf, so a workspace with
+  // no package leaves it nothing to do rather than failing the run. A typed `-R` keeps refusing, above.
+  describe('a composed recursive step in a package-free workspace', () => {
+    it('drops the recursive step and runs what stands beside it', async ({ packagelessTree }) => {
+      await runNmr(['test'], packagelessTree.dir);
+
+      expect(stepsFromCall()).toStrictEqual([{ kind: 'structural', argv: ['nmr', 'root:test'] }]);
+    });
+
+    it('drops the recursive step from a composite whose other step declines the arguments', async ({
+      packagelessTree,
+    }) => {
+      await runNmr(['typecheck'], packagelessTree.dir);
+
+      expect(stepsFromCall()).toStrictEqual([
+        { kind: 'structural', argv: ['nmr', 'root:typecheck'], shouldDeclineArguments: true },
+      ]);
+    });
+
+    it('reports a no-op naming the workspace where the drop leaves no step at all', async ({ packagelessTree }) => {
+      const { exitCode, stdout } = await runNmrReadingStdout(['build'], packagelessTree.dir);
+
+      expect(exitCode).toBe(0);
+      expect(mockedRunSteps).not.toHaveBeenCalled();
+      expect(stdout).toContain('build: skipped, the workspace declares no package');
+      expect(stdout).not.toContain('the override is empty');
+    });
+
+    it('names the workspace in the JSON verdict, which a consumer reads the reason from', async ({
+      packagelessTree,
+    }) => {
+      const { stdout } = await runNmrReadingStdout(['--json', 'build'], packagelessTree.dir);
+      const parsed: unknown = JSON.parse(stdout);
+
+      expect(parsed).toMatchObject({ command: 'build', outcome: 'no-op', reason: 'empty-workspace' });
+    });
+
+    it('leaves a composite carrying no recursive step reaching every constituent', async ({ packagelessTree }) => {
+      await runNmr(['ci'], packagelessTree.dir);
+
+      expect(stepsFromCall()).toStrictEqual([
+        { kind: 'structural', argv: ['nmr', 'build'], shouldDeclineArguments: true },
+        { kind: 'structural', argv: ['nmr', 'check:strict'] },
+      ]);
+    });
+
+    it('still reports an empty override as an empty override, which the drop did not empty', async ({
+      packagelessTree,
+    }) => {
+      writePackageScripts(packagelessTree, { build: '' });
+
+      const { stdout } = await runNmrReadingStdout(['--json', 'build'], packagelessTree.dir);
+      const parsed: unknown = JSON.parse(stdout);
+
+      expect(parsed).toMatchObject({ outcome: 'no-op', reason: 'empty-override' });
+    });
+
+    it('leaves a recursive step standing where the workspace holds a package', async ({ tree }) => {
+      await runNmr(['test'], tree.dir);
+
+      expect(stepsFromCall()).toStrictEqual([
+        { kind: 'structural', argv: ['nmr', 'root:test'] },
+        { kind: 'structural', argv: ['nmr', '-R', 'test'] },
+      ]);
     });
   });
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   composeNmrStep,
+  dropRecursiveSteps,
   findNmrCrossing,
   findUnexpressibleToken,
   readNmrStep,
@@ -29,6 +30,37 @@ describe(composeNmrStep, () => {
 
   it('drops the empty tokens surrounding and repeated whitespace would leave', () => {
     expect(composeNmrStep('  -q   build ', false)).toStrictEqual({ kind: 'structural', argv: ['nmr', '-q', 'build'] });
+  });
+});
+
+describe(dropRecursiveSteps, () => {
+  it('drops a -R step and keeps the rest of the chain', () => {
+    const steps = [composeNmrStep('root:test', false), composeNmrStep('-R test', false)];
+
+    expect(dropRecursiveSteps(steps)).toStrictEqual([composeNmrStep('root:test', false)]);
+  });
+
+  it('drops the long form of -R', () => {
+    expect(dropRecursiveSteps([composeNmrStep('--recursive build', false)])).toStrictEqual([]);
+  });
+
+  // A -F step names one package, so its absence is a real error whoever composed the step.
+  it('keeps a -F step, whose selection is a specific package rather than every one', () => {
+    const steps = [composeNmrStep('-F core build', false)];
+
+    expect(dropRecursiveSteps(steps)).toStrictEqual(steps);
+  });
+
+  it('keeps an opaque step, whose text nmr does not parse', () => {
+    const steps: Step[] = [{ kind: 'opaque', command: 'pnpm --recursive exec nmr build' }];
+
+    expect(dropRecursiveSteps(steps)).toStrictEqual(steps);
+  });
+
+  it('keeps a -R step that names no command, which resolves to no invocation to drop', () => {
+    const steps = [composeStep(['nmr', '-R'])];
+
+    expect(dropRecursiveSteps(steps)).toStrictEqual(steps);
   });
 });
 
@@ -156,33 +188,38 @@ describe(readNmrStep, () => {
   it.each([
     {
       argv: ['nmr', 'fmt:check'],
-      expected: { command: 'fmt:check', isDelegate: false, isWorkspaceRoot: false },
+      expected: { command: 'fmt:check', isDelegate: false, isRecursive: false, isWorkspaceRoot: false },
       scenario: 'a bare command',
     },
     {
       argv: ['nmr', '-w', 'test'],
-      expected: { command: 'test', isDelegate: false, isWorkspaceRoot: true },
+      expected: { command: 'test', isDelegate: false, isRecursive: false, isWorkspaceRoot: true },
       scenario: 'a -w element, which anchors at the monorepo root',
     },
     {
       argv: ['nmr', '--workspace-root', 'test'],
-      expected: { command: 'test', isDelegate: false, isWorkspaceRoot: true },
+      expected: { command: 'test', isDelegate: false, isRecursive: false, isWorkspaceRoot: true },
       scenario: 'the long form of -w',
     },
     {
       argv: ['nmr', '-q', 'build'],
-      expected: { command: 'build', isDelegate: false, isWorkspaceRoot: false },
+      expected: { command: 'build', isDelegate: false, isRecursive: false, isWorkspaceRoot: false },
       scenario: 'a flag it carries',
     },
     {
       argv: ['nmr', '-R', 'test'],
-      expected: { command: 'test', isDelegate: true, isWorkspaceRoot: false },
+      expected: { command: 'test', isDelegate: true, isRecursive: true, isWorkspaceRoot: false },
       scenario: 'a -R delegate',
     },
     {
+      argv: ['nmr', '--recursive', 'test'],
+      expected: { command: 'test', isDelegate: true, isRecursive: true, isWorkspaceRoot: false },
+      scenario: 'the long form of -R',
+    },
+    {
       argv: ['nmr', '--filter', 'core', 'test'],
-      expected: { command: 'test', isDelegate: true, isWorkspaceRoot: false },
-      scenario: 'a --filter delegate, past the pattern',
+      expected: { command: 'test', isDelegate: true, isRecursive: false, isWorkspaceRoot: false },
+      scenario: 'a --filter delegate, whose fan-out is not a recursive one',
     },
   ])('reads the command behind $scenario', ({ argv, expected }) => {
     expect(readNmrStep(composeStep(argv))).toStrictEqual(expected);
@@ -204,6 +241,7 @@ describe(readNmrStep, () => {
     expect(readNmrStep(composeNmrStep('-R test:coverage', true))).toStrictEqual({
       command: 'test:coverage',
       isDelegate: true,
+      isRecursive: true,
       isWorkspaceRoot: true,
     });
   });

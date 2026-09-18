@@ -63,7 +63,7 @@ import {
   type ScriptOrigin,
 } from './resolver.ts';
 import { resolveChannel, type RetainedOutput, runSteps, type RunStepsOptions } from './runner.ts';
-import { composeNmrStep, findNmrCrossing, renderChain, type Step } from './steps.ts';
+import { composeNmrStep, dropRecursiveSteps, findNmrCrossing, renderChain, type Step } from './steps.ts';
 import type { NmrConfig } from './types.ts';
 import { UserError } from './UserError.ts';
 import {
@@ -73,16 +73,19 @@ import {
   resolveVerbosity,
   type ResolveVerbosityOptions,
 } from './verbosity.ts';
-import { type Verdict, type VerdictOutcome, writeVerdict } from './verdict.ts';
-import { readWorkspacePackageNames } from './workspace.ts';
+import { type NoOpReason, type Verdict, type VerdictOutcome, writeVerdict } from './verdict.ts';
+import { diagnoseEmptyWorkspace, readWorkspacePackageNames } from './workspace.ts';
 
 const VERSION = readPackageVersion(import.meta.url);
 
 /** The consequence a crossing carries, which every origin's line reports before naming its remedy. */
 const CROSSING_CONSEQUENCE = "so nmr handles the nested run's output as a tool's.";
 
-/** How many workspace names a diagnostic lists before it reports the rest as a count. */
-const NAME_CEILING = 10;
+/** Leads the line a recursive invocation gets where the workspace it would fan out to holds no package. */
+const RECURSIVE_REJECTION = '-R/--recursive matched no workspace:';
+
+/** How many items a diagnostic lists before it reports the rest as a count. */
+const LIST_CEILING = 10;
 
 /**
  * The control characters a declaration's text renders as an escape, paired with the escape a JSON string
@@ -238,15 +241,19 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     return { exitCode: 1 };
   }
 
-  const resolvedCommand = renderChain(resolved.steps);
+  // Ahead of the rendering, which is the cache key and what `--log` resolves: a filter applied later would let
+  // a run and a reading of its recording disagree about what the chain was.
+  const { isEmptiedByWorkspace, steps: runnableSteps } = readRunnableSteps(resolved, context.workspacePackageDirs);
 
-  const noOpReason = findNoOpReason(resolvedCommand);
+  const resolvedCommand = renderChain(runnableSteps);
+
+  const noOpReason = findNoOpReason(resolvedCommand, isEmptiedByWorkspace);
   if (noOpReason !== undefined && !parsed.log) {
     reportVerdict({ command, scope, outcome: 'no-op', reason: noOpReason }, stdout, format, styles.stdout);
     return { exitCode: 0 };
   }
 
-  const substitutedSteps = applyDevBinToSteps(resolved.steps, context.config.devBin, context.monorepoRoot);
+  const substitutedSteps = applyDevBinToSteps(runnableSteps, context.config.devBin, context.monorepoRoot);
   const substitutedCommand = renderChain(substitutedSteps);
 
   // Ahead of the recording branch as well as the run, so that reading what a command did and running it answer
@@ -796,14 +803,21 @@ function findEmptySelectionRefusal(options: {
 }): string | undefined {
   const { context, parsed, selection } = options;
 
+  const isPackageless = context.workspacePackageDirs.length === 0;
+
   if (parsed.filter !== undefined) {
     if (selection !== 'empty') {
       return undefined;
     }
+    // A workspace holding no package would have refused whatever the pattern was, so the pattern-shape rules
+    // below answer the wrong question there: no name rule and no near-name search repairs a workspace.
+    if (isPackageless) {
+      return `${formatFilterRejection(parsed.filter)} ${describeEmptyWorkspace(context.monorepoRoot)}`;
+    }
     return formatEmptyFilterError(parsed.filter, readWorkspacePackageNames(context.workspacePackageDirs));
   }
 
-  return context.workspacePackageDirs.length === 0 ? formatEmptyWorkspaceError() : undefined;
+  return isPackageless ? `${RECURSIVE_REJECTION} ${describeEmptyWorkspace(context.monorepoRoot)}` : undefined;
 }
 
 /**
@@ -816,7 +830,7 @@ function findEmptySelectionRefusal(options: {
  * selector. None of them carries a name, so none of them gets a name suggested back.
  */
 function formatEmptyFilterError(pattern: string, names: readonly string[]): string {
-  const rejection = `-F/--filter matched no workspace: \`${pattern}\`.`;
+  const rejection = formatFilterRejection(pattern);
 
   if (pattern.startsWith('!')) {
     return `${rejection} A pattern beginning with \`!\` excludes what it matches, and this one leaves no package standing.`;
@@ -840,12 +854,69 @@ function formatEmptyFilterError(pattern: string, names: readonly string[]): stri
   );
 }
 
-/** Returns the line a recursive invocation gets in a workspace that declares no package. */
-function formatEmptyWorkspaceError(): string {
-  return (
-    '-R/--recursive matched no workspace: pnpm-workspace.yaml declares no package directory, ' +
-    'so there is no scope to fan out to.'
-  );
+/**
+ * Returns the sentences naming which of the three conditions left the workspace holding no package, and the
+ * remedy for that one. Every one of them quotes the `packages` list the manifest declares.
+ *
+ * The `package.json` requirement is stated under `no-manifest` because it is a divergence from pnpm, which
+ * recognizes two further manifests, and the reader of a workspace that pnpm resolves has no way to infer it.
+ */
+function describeEmptyWorkspace(monorepoRoot: string): string {
+  const { cause, patterns } = diagnoseEmptyWorkspace(monorepoRoot);
+  const declared = describeDeclaredPatterns(patterns);
+
+  switch (cause) {
+    case 'all-excluded':
+      return (
+        `pnpm-workspace.yaml ${declared}, whose \`!\` entries exclude every directory matched by the positive ` +
+        'patterns. Drop or narrow the exclusion.'
+      );
+    case 'no-manifest':
+      return (
+        `pnpm-workspace.yaml ${declared}, and the matcher found no directory holding a \`package.json\`. ` +
+        'nmr counts a directory as a package only where it holds `package.json`; unlike pnpm, it recognizes ' +
+        'neither `package.yaml` nor `package.json5`. Add a `package.json` to the directory that should be a ' +
+        'package, or declare a pattern reaching a directory that holds one.'
+      );
+    case 'no-pattern':
+      return (
+        `pnpm-workspace.yaml ${declared}, so no pattern reaches the matcher. Declare a positive pattern such ` +
+        'as `packages/*`, and quote any `!` entry, which YAML reads as a tag rather than a string where it ' +
+        'stands bare.'
+      );
+    default: {
+      const unhandled: never = cause;
+      throw new Error(`Unhandled empty-workspace cause: ${String(unhandled)}`);
+    }
+  }
+}
+
+/**
+ * Returns the clause naming what the manifest's `packages` key declares, which every empty-workspace message
+ * leads with.
+ *
+ * An entry the parser left empty is what an unquoted `!pkg` becomes, and the matcher drops it. Naming it as an
+ * empty entry is what a reader can act on: quoting it renders an empty pair of backticks, and it does so in the
+ * one case the `no-pattern` remedy is written for.
+ */
+function describeDeclaredPatterns(patterns: readonly string[]): string {
+  const quotable = patterns.filter((pattern) => pattern.trim() !== '');
+  const emptied = patterns.length - quotable.length;
+
+  if (emptied === 0) {
+    return patterns.length === 0 ? 'declares no `packages` list' : `declares ${renderQuotedList(patterns)}`;
+  }
+
+  const emptiedClause = `${emptied} ${emptied === 1 ? 'entry' : 'entries'} that YAML left empty`;
+
+  return quotable.length === 0
+    ? `declares ${emptiedClause}`
+    : `declares ${renderQuotedList(quotable)}, beside ${emptiedClause}`;
+}
+
+/** Returns the rejection a filter leads its line with, naming the pattern that selected nothing. */
+function formatFilterRejection(pattern: string): string {
+  return `-F/--filter matched no workspace: \`${pattern}\`.`;
 }
 
 /**
@@ -863,7 +934,7 @@ function suggestWorkspaceNames(pattern: string, names: readonly string[]): strin
 
   const containing = names.filter((name) => name.toLowerCase().includes(pattern.toLowerCase()));
   if (containing.length > 0) {
-    return ` Did you mean ${renderNames(containing)}?`;
+    return ` Did you mean ${renderQuotedList(containing)}?`;
   }
 
   const closest = findClosestName(pattern, names);
@@ -871,16 +942,16 @@ function suggestWorkspaceNames(pattern: string, names: readonly string[]): strin
     return ` Did you mean \`${closest}\`?`;
   }
 
-  return ` The workspace declares ${renderNames(names)}.`;
+  return ` The workspace declares ${renderQuotedList(names)}.`;
 }
 
-/** Renders names for a diagnostic, capped so a large workspace does not fill the terminal. */
-function renderNames(names: readonly string[]): string {
-  const shown = names
-    .slice(0, NAME_CEILING)
-    .map((name) => `\`${name}\``)
+/** Renders a list of items for a diagnostic, backticked and capped so a long one does not fill the terminal. */
+function renderQuotedList(items: readonly string[]): string {
+  const shown = items
+    .slice(0, LIST_CEILING)
+    .map((item) => `\`${item}\``)
     .join(', ');
-  const remainder = names.length - NAME_CEILING;
+  const remainder = items.length - LIST_CEILING;
 
   return remainder > 0 ? `${shown}, and ${remainder} more` : shown;
 }
@@ -889,8 +960,14 @@ function renderNames(names: readonly string[]): string {
  * Returns why a resolved command runs nothing, or `undefined` when there is something to run. A command that
  * ran nothing is not a command that passed, and the two exit alike, so the reason is what a verdict spends on
  * telling them apart.
+ *
+ * A chain the package-free filter emptied renders exactly as an `""` override does, so the caller states which
+ * it was rather than leaving the reason to be read back out of the string.
  */
-function findNoOpReason(resolvedCommand: string): 'empty-override' | 'noop-override' | undefined {
+function findNoOpReason(resolvedCommand: string, isEmptiedByWorkspace: boolean): NoOpReason | undefined {
+  if (isEmptiedByWorkspace) {
+    return 'empty-workspace';
+  }
   if (resolvedCommand === '') {
     return 'empty-override';
   }
@@ -1224,6 +1301,26 @@ function readOutputStyleArgument(args: string[], index: number): OutputStyleArgu
   }
 
   return { ok: true, value, consumed: assignment === undefined ? 2 : 1 };
+}
+
+/**
+ * Returns the steps a resolved script runs at this scope, and whether dropping one left the chain empty.
+ *
+ * A `-R` step in a workspace that holds no package has no scope to reach, and nmr composed it rather than the
+ * caller, so it is dropped rather than refused. A chain that was already empty was emptied by an override, which
+ * the verdict reports as one, so the two are distinguished here rather than read back out of the rendering.
+ */
+function readRunnableSteps(
+  resolved: ResolvedScript,
+  workspacePackageDirs: readonly string[],
+): { isEmptiedByWorkspace: boolean; steps: readonly Step[] } {
+  if (workspacePackageDirs.length > 0) {
+    return { isEmptiedByWorkspace: false, steps: resolved.steps };
+  }
+
+  const steps = dropRecursiveSteps(resolved.steps);
+
+  return { isEmptiedByWorkspace: steps.length === 0 && resolved.steps.length > 0, steps };
 }
 
 /**
