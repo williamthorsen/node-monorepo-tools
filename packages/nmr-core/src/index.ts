@@ -37,6 +37,7 @@ export {
   defineGlyphSet,
   describeInvalidOutputStyle,
   formatErrorLine,
+  formatGlyphLine,
   formatStatusLine,
   measureGlyphColumn,
   printError,

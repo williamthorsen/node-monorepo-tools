@@ -3,11 +3,17 @@ import { existsSync } from 'node:fs';
 import { readFile, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 
-import { type OutputStyle, readCacheEntry, STATUS_GLYPHS, writeCacheEntry } from '@williamthorsen/nmr-core';
+import {
+  formatGlyphLine,
+  type OutputStyle,
+  readCacheEntry,
+  STATUS_GLYPHS,
+  writeCacheEntry,
+} from '@williamthorsen/nmr-core';
 import { glob } from 'glob';
 import * as ts from 'typescript';
 
-import { formatGlyphLine } from '../glyphs.ts';
+import { NMR_GLYPHS } from '../glyphs.ts';
 import { resolveConfigPath } from '../helpers/config-path.ts';
 import {
   type BuildOptions,
@@ -129,6 +135,7 @@ export async function buildPackage(packageDir: string, options: BuildPackageOpti
   // Reported after the digest lands, so the line describes a build that completed and was recorded.
   console.info(
     formatGlyphLine(
+      NMR_GLYPHS,
       options.style,
       'package',
       `${path.basename(packageDir)}: ${describeEmit(emittedFileCount, outdir)}`,
@@ -615,11 +622,11 @@ async function detectBuildChanges(
       console.info(`${STATUS_GLYPHS[style].skipped.text} ${packageName}: No changes detected. Skipping build.`);
       return { changed: false, currentHash };
     }
-    console.info(formatGlyphLine(style, 'package', `${packageName}: Build output is missing. Rebuilding.`));
+    console.info(formatGlyphLine(NMR_GLYPHS, style, 'package', `${packageName}: Build output is missing. Rebuilding.`));
     return { changed: true, currentHash };
   }
 
-  console.info(formatGlyphLine(style, 'package', `${packageName}: Changes detected.`));
+  console.info(formatGlyphLine(NMR_GLYPHS, style, 'package', `${packageName}: Changes detected.`));
   return { changed: true, currentHash };
 }
 

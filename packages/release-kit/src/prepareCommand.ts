@@ -4,6 +4,7 @@
 import { execSync } from 'node:child_process';
 
 import {
+  formatGlyphLine,
   formatStatusLine,
   type OutputStyle,
   parseArgsOrExit,
@@ -18,7 +19,7 @@ import { buildDependencyGraph } from './buildDependencyGraph.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
 import { dim } from './format.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
-import { formatGlyphLine } from './glyphs.ts';
+import { RELEASE_GLYPHS } from './glyphs.ts';
 import { loadConfig, mergeMonorepoConfig, mergeSinglePackageConfig, readRootPackageVersion } from './loadConfig.ts';
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './releaseFiles.ts';
 import { applyReleasePlan, type ReleasePlan } from './releasePlan.ts';
@@ -129,7 +130,9 @@ export async function prepareCommand(argv: string[], styles: StreamStyles): Prom
   };
 
   if (dryRun) {
-    console.info(`\n${formatGlyphLine(styles.stdout, 'dryRun', 'DRY RUN — no files will be modified')}\n`);
+    console.info(
+      `\n${formatGlyphLine(RELEASE_GLYPHS, styles.stdout, 'dryRun', 'DRY RUN — no files will be modified')}\n`,
+    );
   }
 
   // Guard against running on a dirty working tree (skip for dry runs and --no-git-checks).

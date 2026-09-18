@@ -1,4 +1,4 @@
-import { type OutputStyle, wrapToWidth } from '@williamthorsen/nmr-core';
+import { formatGlyphLine, type OutputStyle, wrapToWidth } from '@williamthorsen/nmr-core';
 
 import { formatActionHints } from './format-actions.ts';
 import {
@@ -11,7 +11,7 @@ import {
   type StaleEntry,
 } from './format-check.ts';
 import { formatRelativeTime } from './format-time.ts';
-import { formatGlyphLine, formatMarkedLine, measureRowMarkerColumn, type V11yGlyphName } from './glyphs.ts';
+import { formatMarkedLine, measureRowMarkerColumn, V11Y_GLYPHS, type V11yGlyphName } from './glyphs.ts';
 import type { AuditResult, AuditScope, SeverityThreshold } from './types.ts';
 
 // ---------------------------------------------------------------------------
@@ -69,7 +69,9 @@ function formatScopeVerbose(
   threshold?: SeverityThreshold,
 ): string {
   const thresholdSuffix = formatThresholdSuffix(threshold, style);
-  const lines: string[] = [`-- ${formatGlyphLine(style, SCOPE_GLYPH_NAMES[scope], scope)} --${thresholdSuffix}`];
+  const lines: string[] = [
+    `-- ${formatGlyphLine(V11Y_GLYPHS, style, SCOPE_GLYPH_NAMES[scope], scope)} --${thresholdSuffix}`,
+  ];
   const hasFindings =
     result.unallowed.length > 0 ||
     result.allowed.length > 0 ||

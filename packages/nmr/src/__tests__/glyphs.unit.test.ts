@@ -1,7 +1,7 @@
 import { defineGlyphSet, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
 import { describe, expect, it } from 'vitest';
 
-import { formatGlyphLine, NMR_GLYPHS, type NmrGlyphName } from '../glyphs.ts';
+import { NMR_GLYPHS, type NmrGlyphName } from '../glyphs.ts';
 
 /** Every name the set defines, so a case reaches each one rather than whichever it happens to spell. */
 const GLYPH_NAMES = ['catalog', 'clean', 'noop', 'overrides', 'package', 'recording'] as const satisfies NmrGlyphName[];
@@ -39,19 +39,5 @@ describe('NMR_GLYPHS', () => {
     ];
 
     expect(new Set(verdictMarkers.map((glyph) => glyph.width))).toStrictEqual(new Set([4]));
-  });
-});
-
-describe(formatGlyphLine, () => {
-  it('separates a rich glyph from the message', () => {
-    expect(formatGlyphLine('rich', 'clean', 'Removed build output.')).toBe('🧹 Removed build output.');
-  });
-
-  it('spends no leading space where the plain variant is empty', () => {
-    expect(formatGlyphLine('plain', 'clean', 'Removed build output.')).toBe('Removed build output.');
-  });
-
-  it('separates a plain glyph that carries a word from the message', () => {
-    expect(formatGlyphLine('plain', 'noop', 'nothing ran')).toBe('NOOP nothing ran');
   });
 });

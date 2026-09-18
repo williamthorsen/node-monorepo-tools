@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatGlyphLine, formatMarkedLine, measureRowMarkerColumn, V11Y_GLYPHS } from '../glyphs.ts';
+import { formatMarkedLine, measureRowMarkerColumn, V11Y_GLYPHS } from '../glyphs.ts';
 
 describe('V11Y_GLYPHS', () => {
   it('has no pictographic character in any plain variant', () => {
@@ -9,18 +9,6 @@ describe('V11Y_GLYPHS', () => {
       .join('');
 
     expect(plainText).not.toMatch(/\p{Extended_Pictographic}/u);
-  });
-});
-
-describe(formatGlyphLine, () => {
-  it('separates a glyph from its message with one space', () => {
-    expect(formatGlyphLine('rich', 'stale', '1234')).toBe('\u{1F9F9} 1234');
-    expect(formatGlyphLine('plain', 'stale', '1234')).toBe('STALE 1234');
-  });
-
-  it('omits the separating space when the variant is empty', () => {
-    expect(formatGlyphLine('rich', 'scopeDev', 'dev')).toBe('\u{1F527} dev');
-    expect(formatGlyphLine('plain', 'scopeDev', 'dev')).toBe('dev');
   });
 });
 

@@ -1,7 +1,7 @@
-import type { OutputStyle } from '@williamthorsen/nmr-core';
+import { formatGlyphLine, type OutputStyle } from '@williamthorsen/nmr-core';
 
 import { findContainingPackageDir } from '../context.ts';
-import { formatGlyphLine } from '../glyphs.ts';
+import { NMR_GLYPHS } from '../glyphs.ts';
 import { DEPENDENCY_FIELDS, readPackageJson } from '../helpers/package-json.ts';
 import { reportClosing } from '../helpers/reportClosing.ts';
 import { findMonorepoRoot, getWorkspacePackageDirs } from '../workspace.ts';
@@ -39,12 +39,20 @@ export function reportCatalog(cwd: string, style: OutputStyle): void {
   }
 
   console.warn(
-    formatGlyphLine(style, 'catalog', 'WARN: A package-scoped upgrade does not read the catalogs these come from:'),
+    formatGlyphLine(
+      NMR_GLYPHS,
+      style,
+      'catalog',
+      'WARN: A package-scoped upgrade does not read the catalogs these come from:',
+    ),
   );
   for (const { name, specifier } of dependencies) {
     console.warn(`- ${name} → ${specifier}`);
   }
-  reportClosing(formatGlyphLine(style, 'catalog', describeCatalog(dependencies.length, monorepoRoot)), console.warn);
+  reportClosing(
+    formatGlyphLine(NMR_GLYPHS, style, 'catalog', describeCatalog(dependencies.length, monorepoRoot)),
+    console.warn,
+  );
 }
 
 // region | Helpers

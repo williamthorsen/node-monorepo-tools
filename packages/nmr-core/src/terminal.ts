@@ -5,6 +5,7 @@ import type { Writable } from 'node:stream';
 
 import {
   detectOutputStyle,
+  type GlyphSet,
   type InvalidOutputStyle,
   measureGlyphColumn,
   type OutputStyle,
@@ -59,6 +60,20 @@ export interface StreamStyles {
  */
 export function formatErrorLine(message: string): string {
   return `Error: ${message}`;
+}
+
+/**
+ * Renders a glyph from `glyphs` and a message, omitting the separating space when the glyph's variant is
+ * empty, which is what a set declares for a name whose message always opens on a word.
+ */
+export function formatGlyphLine<Name extends string>(
+  glyphs: GlyphSet<Name>,
+  style: OutputStyle,
+  name: Name,
+  message: string,
+): string {
+  const { text } = glyphs[style][name];
+  return text === '' ? message : `${text} ${message}`;
 }
 
 /** Renders a status marker and a message, padding the marker so that messages align across statuses. */

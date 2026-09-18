@@ -1,6 +1,6 @@
-import type { OutputStyle } from '@williamthorsen/nmr-core';
+import { formatGlyphLine, type OutputStyle } from '@williamthorsen/nmr-core';
 
-import { formatGlyphLine } from '../glyphs.ts';
+import { NMR_GLYPHS } from '../glyphs.ts';
 import { getPnpmOverrides, readPackageJson } from '../helpers/package-json.ts';
 import { reportClosing } from '../helpers/reportClosing.ts';
 import { UserError } from '../UserError.ts';
@@ -16,11 +16,11 @@ export function reportOverrides(monorepoRoot: string, style: OutputStyle): void 
   const declared = listEntries(readWorkspaceOverrides(monorepoRoot));
 
   if (declared.length > 0) {
-    console.warn(formatGlyphLine(style, 'overrides', 'WARN: pnpm overrides are active:'));
+    console.warn(formatGlyphLine(NMR_GLYPHS, style, 'overrides', 'WARN: pnpm overrides are active:'));
     for (const [name, version] of declared) {
       console.warn(`- ${name} → ${version}`);
     }
-    reportClosing(formatGlyphLine(style, 'overrides', describeOverrides(declared.length)), console.warn);
+    reportClosing(formatGlyphLine(NMR_GLYPHS, style, 'overrides', describeOverrides(declared.length)), console.warn);
   }
 
   rejectLegacyOverrides(monorepoRoot);

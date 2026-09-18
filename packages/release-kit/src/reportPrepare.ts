@@ -1,7 +1,13 @@
-import { formatStatusLine, measureGlyphColumn, type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
+import {
+  formatGlyphLine,
+  formatStatusLine,
+  measureGlyphColumn,
+  type OutputStyle,
+  STATUS_GLYPHS,
+} from '@williamthorsen/nmr-core';
 
 import { bold, dim, sectionHeader } from './format.ts';
-import { formatGlyphLine } from './glyphs.ts';
+import { RELEASE_GLYPHS } from './glyphs.ts';
 import { GIT_CLIFF_NPX_ARGS } from './runGitCliff.ts';
 import type {
   PolicyViolation,
@@ -90,11 +96,17 @@ function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOpti
 
   if (workspace.setVersion !== undefined) {
     lines.push(
-      formatGlyphLine(style, 'bump', `${workspace.currentVersion} → ${bold(workspace.newVersion)} (version override)`),
+      formatGlyphLine(
+        RELEASE_GLYPHS,
+        style,
+        'bump',
+        `${workspace.currentVersion} → ${bold(workspace.newVersion)} (version override)`,
+      ),
     );
   } else if (workspace.releaseType !== undefined) {
     lines.push(
       formatGlyphLine(
+        RELEASE_GLYPHS,
         style,
         'bump',
         `${workspace.currentVersion} → ${bold(workspace.newVersion)} (${workspace.releaseType})`,
@@ -119,7 +131,7 @@ function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOpti
   // Completion
   lines.push(
     formatStatusLine(style, 'passed', 'Release preparation complete.'),
-    `   ${formatGlyphLine(style, 'tag', bold(workspace.tag))}`,
+    `   ${formatGlyphLine(RELEASE_GLYPHS, style, 'tag', bold(workspace.tag))}`,
   );
 
   return lines.join('\n');
@@ -149,7 +161,7 @@ function formatMultiWorkspace(result: PrepareResult, options: ReportPrepareOptio
   if (result.tags.length > 0) {
     lines.push(`\n${formatStatusLine(style, 'passed', 'Release preparation complete.')}`);
     for (const tag of result.tags) {
-      lines.push(`   ${formatGlyphLine(style, 'tag', bold(tag))}`);
+      lines.push(`   ${formatGlyphLine(RELEASE_GLYPHS, style, 'tag', bold(tag))}`);
     }
   } else {
     lines.push(`\n${formatStatusLine(style, 'skipped', 'No workspaces had release-worthy changes.')}`);
@@ -204,7 +216,7 @@ function formatProjectSection(
 
   lines.push(
     dim(`  Bumping versions (${releaseType})...`),
-    `  ${formatGlyphLine(style, 'bump', `${currentVersion} → ${bold(newVersion)} (${releaseType})`)}`,
+    `  ${formatGlyphLine(RELEASE_GLYPHS, style, 'bump', `${currentVersion} → ${bold(newVersion)} (${releaseType})`)}`,
   );
 
   for (const file of project.bumpedFiles) {
@@ -225,7 +237,7 @@ function formatProjectSection(
   }
   formatPreviewFiles(lines, project, dryRun, '  ');
 
-  lines.push(`  ${formatGlyphLine(style, 'tag', bold(tag))}`);
+  lines.push(`  ${formatGlyphLine(RELEASE_GLYPHS, style, 'tag', bold(tag))}`);
 }
 
 /** Append the unparseable-commit warning lines for a project release, if any. */
@@ -280,7 +292,7 @@ function formatWorkspaceSection(
   formatChangelogFiles(lines, workspace, dryRun, '  ');
   formatPreviewFiles(lines, workspace, dryRun, '  ');
 
-  lines.push(`  ${formatGlyphLine(style, 'tag', bold(workspace.tag))}`);
+  lines.push(`  ${formatGlyphLine(RELEASE_GLYPHS, style, 'tag', bold(workspace.tag))}`);
 }
 
 /** Append the commit-count summary line for a workspace (propagation-only or parsed counts). */
@@ -325,10 +337,12 @@ function formatVersionLine(
 ): void {
   const versions = `${workspace.currentVersion} → ${bold(workspace.newVersion)}`;
   if (workspace.setVersion !== undefined) {
-    lines.push(`  ${formatGlyphLine(style, 'bump', `${versions} (version override)`)}`);
+    lines.push(`  ${formatGlyphLine(RELEASE_GLYPHS, style, 'bump', `${versions} (version override)`)}`);
   } else if (workspace.releaseType !== undefined) {
     const suffix = isPropagatedOnly ? formatPropagationSuffix(propagatedFrom) : '';
-    lines.push(`  ${formatGlyphLine(style, 'bump', `${versions} (${workspace.releaseType}${suffix})`)}`);
+    lines.push(
+      `  ${formatGlyphLine(RELEASE_GLYPHS, style, 'bump', `${versions} (${workspace.releaseType}${suffix})`)}`,
+    );
   }
 }
 

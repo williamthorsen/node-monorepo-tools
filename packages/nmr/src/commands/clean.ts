@@ -1,12 +1,12 @@
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
 
-import type { OutputStyle } from '@williamthorsen/nmr-core';
+import { formatGlyphLine, type OutputStyle } from '@williamthorsen/nmr-core';
 
 import { removeCheckCache } from '../check-cache.ts';
 import { loadRootConfig } from '../config.ts';
 import { findContainingPackageDir } from '../context.ts';
-import { formatGlyphLine } from '../glyphs.ts';
+import { NMR_GLYPHS } from '../glyphs.ts';
 import { reportClosing } from '../helpers/reportClosing.ts';
 import { applyDevBin, buildWorkspaceRegistry, resolveScript } from '../resolver.ts';
 import { resolveChannel, runCommand } from '../runner.ts';
@@ -35,7 +35,9 @@ export async function cleanPackage(packageDir: string, style: OutputStyle): Prom
   await rm(path.resolve(packageDir, OUTPUT_ROOT), { recursive: true, force: true });
   await rm(resolveBuildCachePath(packageDir), { force: true });
 
-  console.info(formatGlyphLine(style, 'clean', `${path.basename(packageDir)}: Removed build output and cache.`));
+  console.info(
+    formatGlyphLine(NMR_GLYPHS, style, 'clean', `${path.basename(packageDir)}: Removed build output and cache.`),
+  );
 }
 
 /**
@@ -81,7 +83,7 @@ export async function runClean(cwd: string, style: OutputStyle): Promise<void> {
 async function clearCheckCache(scopeDir: string, style: OutputStyle): Promise<void> {
   await removeCheckCache(scopeDir);
 
-  console.info(formatGlyphLine(style, 'clean', 'Removed all recorded check results.'));
+  console.info(formatGlyphLine(NMR_GLYPHS, style, 'clean', 'Removed all recorded check results.'));
 }
 
 /** Names what a sweep came to: the packages it cleaned, and any it left to an empty `clean` override. */
@@ -140,7 +142,7 @@ async function sweepWorkspace(monorepoRoot: string, workspacePackageDirs: string
     cleaned++;
   }
 
-  reportClosing(formatGlyphLine(style, 'clean', describeSweep(cleaned, skipped)));
+  reportClosing(formatGlyphLine(NMR_GLYPHS, style, 'clean', describeSweep(cleaned, skipped)));
 }
 
 // endregion | Helpers

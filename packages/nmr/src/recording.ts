@@ -1,7 +1,7 @@
-import { type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
+import { formatGlyphLine, type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
 
 import { type CheckCacheEntry, readCheckCacheEntry, readTranscript } from './check-cache.ts';
-import { formatGlyphLine } from './glyphs.ts';
+import { NMR_GLYPHS } from './glyphs.ts';
 import { formatDuration } from './helpers/duration.ts';
 
 /**
@@ -68,6 +68,7 @@ export function renderRecording(options: {
   const age = formatDuration(Math.max(0, Date.now() - Date.parse(entry.recordedAt)));
   const header =
     formatGlyphLine(
+      NMR_GLYPHS,
       options.style,
       'recording',
       `${options.scope}: ${options.command} — recorded ${entry.recordedAt} (${age} ago), ` +

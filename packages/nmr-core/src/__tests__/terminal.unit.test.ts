@@ -5,7 +5,9 @@ import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  defineGlyphSet,
   formatErrorLine,
+  formatGlyphLine,
   formatStatusLine,
   type OutputStyle,
   printError,
@@ -22,6 +24,27 @@ import type { WriteResult } from '../writeFileWithCheck.ts';
 describe(formatErrorLine, () => {
   it('renders the canonical Error line without a trailing newline', () => {
     expect(formatErrorLine('something went wrong')).toBe('Error: something went wrong');
+  });
+});
+
+describe(formatGlyphLine, () => {
+  const glyphs = defineGlyphSet({
+    decorated: { plain: '', rich: '\u{1F9F9}' },
+    worded: { plain: 'NOOP', rich: '\u{26AA}' },
+  });
+
+  it('separates a rich glyph from the message with one space', () => {
+    expect(formatGlyphLine(glyphs, 'rich', 'decorated', 'Removed build output.')).toBe(
+      '\u{1F9F9} Removed build output.',
+    );
+  });
+
+  it('spends no leading space where the plain variant is empty', () => {
+    expect(formatGlyphLine(glyphs, 'plain', 'decorated', 'Removed build output.')).toBe('Removed build output.');
+  });
+
+  it('separates a plain glyph that carries a word from the message', () => {
+    expect(formatGlyphLine(glyphs, 'plain', 'worded', 'nothing ran')).toBe('NOOP nothing ran');
   });
 });
 

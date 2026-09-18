@@ -3,6 +3,7 @@ import type { Writable } from 'node:stream';
 
 import {
   describeInvalidOutputStyle,
+  formatGlyphLine,
   type OutputStyle,
   readPackageVersion,
   reportError,
@@ -37,7 +38,7 @@ import {
   writeDebugNote,
 } from './check-cache.ts';
 import { resolveContext, type ResolvedContext } from './context.ts';
-import { formatGlyphLine } from './glyphs.ts';
+import { NMR_GLYPHS } from './glyphs.ts';
 import { generateHelp } from './help.ts';
 import { resolveConfigPath } from './helpers/config-path.ts';
 import { deriveExcerpt } from './helpers/deriveExcerpt.ts';
@@ -702,7 +703,7 @@ function formatOverrideNotice(
 
   const notice = `${path.basename(anchorDir)}: Using override script: ${renderChain(resolved.steps)}`;
 
-  return `${formatGlyphLine(style, 'package', notice)}\n`;
+  return `${formatGlyphLine(NMR_GLYPHS, style, 'package', notice)}\n`;
 }
 
 /**

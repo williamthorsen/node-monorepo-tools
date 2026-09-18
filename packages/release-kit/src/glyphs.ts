@@ -1,4 +1,4 @@
-import { defineGlyphSet, type OutputStyle } from '@williamthorsen/nmr-core';
+import { defineGlyphSet } from '@williamthorsen/nmr-core';
 
 /** Glyphs that name no status; a status marker comes from nmr-core's `STATUS_GLYPHS`. */
 export const RELEASE_GLYPHS = defineGlyphSet({
@@ -9,9 +9,3 @@ export const RELEASE_GLYPHS = defineGlyphSet({
 });
 
 export type ReleaseGlyphName = keyof (typeof RELEASE_GLYPHS)['rich'];
-
-/** Renders a glyph and a message, omitting the separating space when the glyph's variant is empty. */
-export function formatGlyphLine(style: OutputStyle, name: ReleaseGlyphName, message: string): string {
-  const { text } = RELEASE_GLYPHS[style][name];
-  return text === '' ? message : `${text} ${message}`;
-}
