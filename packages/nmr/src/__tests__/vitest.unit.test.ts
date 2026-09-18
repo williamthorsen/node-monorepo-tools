@@ -226,8 +226,8 @@ describe(defineVitestConfig, () => {
     expect(getPluginNames(defineVitestConfig())).toContain(SOURCE_RESOLUTION_PLUGIN);
   });
 
-  it('drops the plugin, and no other setting, when resolveFromSource is off', () => {
-    const config = defineVitestConfig({ resolveFromSource: false });
+  it('drops the plugin, and no other setting, when shouldResolveFromSource is off', () => {
+    const config = defineVitestConfig({ shouldResolveFromSource: false });
 
     expect(getPluginNames(config)).not.toContain(SOURCE_RESOLUTION_PLUGIN);
     expect(config.resolve?.conditions).toStrictEqual(CLIENT_CONDITIONS);
@@ -237,8 +237,11 @@ describe(defineVitestConfig, () => {
 
   // The defaults are emitted whichever way the flag is set, because a supplied array replaces Vite's rather than
   // extending it: A repo turning source resolution off would otherwise resolve a `module` entry differently.
-  it("concatenates a layer's own conditions onto the defaults when resolveFromSource is off", () => {
-    const config = defineVitestConfig({ resolveFromSource: false, root: { resolve: { conditions: ['development'] } } });
+  it("concatenates a layer's own conditions onto the defaults when shouldResolveFromSource is off", () => {
+    const config = defineVitestConfig({
+      shouldResolveFromSource: false,
+      root: { resolve: { conditions: ['development'] } },
+    });
 
     expect(config.resolve?.conditions).toStrictEqual([...CLIENT_CONDITIONS, 'development']);
   });
@@ -260,13 +263,13 @@ describe(defineVitestConfig, () => {
   // Both settings contribute to the same `resolve` block. One written over the other would drop the conditions,
   // and a dependency exposing a `module` entry would resolve elsewhere with the suite still green.
   it('carries the conditions and tsconfig paths together', () => {
-    const config = defineVitestConfig({ resolveFromSource: true, tsconfigPaths: true });
+    const config = defineVitestConfig({ shouldResolveFromSource: true, tsconfigPaths: true });
 
     expect(config.resolve).toStrictEqual({ conditions: CLIENT_CONDITIONS, tsconfigPaths: true });
   });
 
-  it('keeps the conditions alongside tsconfig paths when resolveFromSource is off', () => {
-    const config = defineVitestConfig({ resolveFromSource: false, tsconfigPaths: true });
+  it('keeps the conditions alongside tsconfig paths when shouldResolveFromSource is off', () => {
+    const config = defineVitestConfig({ shouldResolveFromSource: false, tsconfigPaths: true });
 
     expect(config.resolve).toStrictEqual({ conditions: CLIENT_CONDITIONS, tsconfigPaths: true });
     expect(config.ssr?.resolve?.conditions).toStrictEqual(SERVER_CONDITIONS);
@@ -282,19 +285,21 @@ describe(defineVitestConfig, () => {
     );
   });
 
-  it('declares no setup files at all when isolateGit is off', () => {
-    const projects = getProjects(defineVitestConfig({ isolateGit: false }));
+  it('declares no setup files at all when shouldIsolateGit is off', () => {
+    const projects = getProjects(defineVitestConfig({ shouldIsolateGit: false }));
 
     expect(projects.map((project) => project.test?.setupFiles)).toStrictEqual(PROJECT_NAMES.map(() => undefined));
   });
 
-  it("keeps a layer's own setup files when isolateGit is off", () => {
-    const projects = getProjects(defineVitestConfig({ isolateGit: false, project: { setupFiles: ['./setup.ts'] } }));
+  it("keeps a layer's own setup files when shouldIsolateGit is off", () => {
+    const projects = getProjects(
+      defineVitestConfig({ shouldIsolateGit: false, project: { setupFiles: ['./setup.ts'] } }),
+    );
 
     expect(projects.map((project) => project.test?.setupFiles)).toStrictEqual(PROJECT_NAMES.map(() => ['./setup.ts']));
   });
 
-  it.for(['isolateGit', 'resolveFromSource'] as const)('lets a later layer turn %s back on', (flag) => {
+  it.for(['shouldIsolateGit', 'shouldResolveFromSource'] as const)('lets a later layer turn %s back on', (flag) => {
     const config = defineVitestConfig({ [flag]: false }, { [flag]: true });
 
     expect(getPluginNames(config)).toContain(SOURCE_RESOLUTION_PLUGIN);
@@ -483,6 +488,45 @@ describe(defineVitestConfig, () => {
 
     expect(build).toThrow('Unknown tier "toool"');
   });
+
+  // `resolveFlag` reads each layer by key, so an old spelling would otherwise leave the flag on its default with
+  // nothing in the run reporting it.
+  it('rejects the retired isolateGit, naming its replacement', () => {
+    // @ts-expect-error - the option was renamed; a JavaScript consumer can still write the old spelling
+    const build = () => defineVitestConfig({ isolateGit: false });
+
+    expect(build).toThrow('Invalid Vitest config: `isolateGit` was renamed to `shouldIsolateGit`.');
+  });
+
+  it('rejects the retired resolveFromSource, naming its replacement', () => {
+    // @ts-expect-error - the option was renamed; a JavaScript consumer can still write the old spelling
+    const build = () => defineVitestConfig({ resolveFromSource: false });
+
+    expect(build).toThrow('Invalid Vitest config: `resolveFromSource` was renamed to `shouldResolveFromSource`.');
+  });
+
+  it('rejects an option key outside the recognized set, naming it', () => {
+    // @ts-expect-error - the key is a typo; a JavaScript consumer can still write it
+    const build = () => defineVitestConfig({ tsconfigPath: true });
+
+    expect(build).toThrow('Invalid Vitest config: unrecognized option `tsconfigPath`.');
+  });
+
+  it('checks every layer for an unrecognized key, not only the last', () => {
+    // @ts-expect-error - the key is a typo; a JavaScript consumer can still write it
+    const build = () => defineVitestConfig({ tsconfigPath: true }, { project: {} });
+
+    expect(build).toThrow('unrecognized option `tsconfigPath`');
+  });
+
+  // Only `defineRootVitestConfig` reads this key, and only from its final layer. Recognizing it here would accept
+  // a setting that nothing reads.
+  it('rejects the root-only monorepoRoot', () => {
+    // @ts-expect-error - the option belongs to `defineRootVitestConfig`; a JavaScript consumer can still write it
+    const build = () => defineVitestConfig({ monorepoRoot: '/repo' });
+
+    expect(build).toThrow('unrecognized option `monorepoRoot`');
+  });
 });
 
 describe(defineRootVitestConfig, () => {
@@ -604,6 +648,22 @@ describe(defineRootVitestConfig, () => {
       defineRootVitestConfig({ monorepoRoot: workspaceTree.dir }, { project: {} });
 
     expect(build).toThrow('defineRootVitestConfig requires `monorepoRoot`');
+  });
+
+  // The final layer recognizes one key more than the rest; the retired-key check runs on it all the same.
+  it('rejects a retired option on the layer carrying the monorepo root', ({ workspaceTree }) => {
+    // @ts-expect-error - the option was renamed; a JavaScript consumer can still write the old spelling
+    const build = () => defineRootVitestConfig({ isolateGit: false, monorepoRoot: workspaceTree.dir });
+
+    expect(build).toThrow('`isolateGit` was renamed to `shouldIsolateGit`.');
+  });
+
+  it('rejects the monorepo root on a layer other than the last', ({ workspaceTree }) => {
+    const build = () =>
+      // @ts-expect-error - only the final layer states the monorepo root; a JavaScript consumer can still write it
+      defineRootVitestConfig({ monorepoRoot: workspaceTree.dir }, { monorepoRoot: workspaceTree.dir });
+
+    expect(build).toThrow('unrecognized option `monorepoRoot`');
   });
 });
 

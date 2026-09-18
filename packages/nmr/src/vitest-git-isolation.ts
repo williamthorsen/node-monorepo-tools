@@ -6,7 +6,7 @@
  * it passes against whatever the developer or the machine happens to have configured and can block outright on a
  * signing passphrase.
  *
- * `defineVitestConfig` loads this into every project by default; see nmr's `isolateGit` option.
+ * `defineVitestConfig` loads this into every project by default; see nmr's `shouldIsolateGit` option.
  */
 import os from 'node:os';
 
