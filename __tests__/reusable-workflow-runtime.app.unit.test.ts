@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -9,6 +9,9 @@ const PNPM_WORKFLOWS = ['audit', 'create-github-release', 'publish', 'release'];
 
 /** Workflows whose Node.js runtime comes from `pnpm/setup`, which installs no `npm`, `npx`, or `corepack`. */
 const PNPM_RUNTIME_WORKFLOWS = ['audit', 'create-github-release', 'publish'];
+
+/** Matches a `corepack` invocation at the start of a command or after a shell separator. */
+const COREPACK_INVOCATION_PATTERN = /(?:^|[\s;&|(])corepack\s/m;
 
 /** Matches an `npm` or `npx` invocation at the start of a command or after a shell separator. */
 const NPM_INVOCATION_PATTERN = /(?:^|[\s;&|(])(?:npm|npx)\s/m;
@@ -43,6 +46,22 @@ describe('workflows whose runtime comes from pnpm/setup invoke neither npm nor n
       collectRunCommands(content),
       '`pnpm/setup` installs no `npm` or `npx`, so either falls through to the runner image at an uncontrolled version; reach a package binary with `pnpm exec` and an uninstalled one with `pnpm dlx`',
     ).not.toMatch(NPM_INVOCATION_PATTERN);
+  });
+});
+
+/**
+ * Guards every reusable workflow against a `corepack` invocation.
+ *
+ * Node 25 removed Corepack from the distribution, so a call to it fails outright on a runner Node
+ * that bundles none. `COREPACK_ENABLE_STRICT` in `env:` is unaffected, because an environment
+ * variable needs no Corepack to exist.
+ */
+describe('no reusable workflow invokes corepack', () => {
+  it.each(listReusableWorkflows())('%s.reusable.yaml', (name) => {
+    expect(
+      collectRunCommands(readWorkflow(name)),
+      'Node 25 and later bundle no `corepack`; neutralize Corepack with the `COREPACK_ENABLE_STRICT` environment variable instead',
+    ).not.toMatch(COREPACK_INVOCATION_PATTERN);
   });
 });
 
@@ -90,6 +109,14 @@ function collectRunCommands(content: string): string {
   }
 
   return commands.filter((line) => !/^\s*#/.test(line)).join('\n');
+}
+
+/** Lists the base name of every `*.reusable.yaml` workflow, the form that `readWorkflow` takes. */
+function listReusableWorkflows(): string[] {
+  return readdirSync(workflowsDir)
+    .filter((entry) => entry.endsWith('.reusable.yaml'))
+    .map((entry) => entry.replace(/\.reusable\.yaml$/, ''))
+    .sort();
 }
 
 function readWorkflow(name: string): string {
