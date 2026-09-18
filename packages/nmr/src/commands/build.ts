@@ -3,10 +3,17 @@ import { existsSync } from 'node:fs';
 import { readFile, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 
-import { readCacheEntry, writeCacheEntry } from '@williamthorsen/nmr-core';
+import {
+  formatGlyphLine,
+  type OutputStyle,
+  readCacheEntry,
+  STATUS_GLYPHS,
+  writeCacheEntry,
+} from '@williamthorsen/nmr-core';
 import { glob } from 'glob';
 import * as ts from 'typescript';
 
+import { NMR_GLYPHS } from '../glyphs.ts';
 import { resolveConfigPath } from '../helpers/config-path.ts';
 import {
   type BuildOptions,
@@ -29,6 +36,11 @@ export interface BuildToolchain {
   fingerprint: string;
 }
 
+/** What a build needs beyond its sources: the options shaping the emit, and the style it reports in. */
+export interface BuildPackageOptions extends BuildOptions {
+  style: OutputStyle;
+}
+
 /** Output-shaping options folded into the build hash so a change to the emit shape busts the cache. */
 interface EmitConfig {
   outdir: string;
@@ -41,9 +53,6 @@ interface StagedFile {
   text: string;
   writeByteOrderMark: boolean;
 }
-
-const PACKAGE_ICON = '📦';
-const SKIPPED_ICON = '⏭️';
 
 const SOURCE_ROOT = 'src';
 
@@ -70,7 +79,7 @@ const JS_EXTENSION = '.js';
  * current inputs rather than an accumulation of every build that ever ran. Assets belong outside it, or in a
  * `build:post` hook, which runs after the output is published.
  */
-export async function buildPackage(packageDir: string, options: BuildOptions = {}): Promise<void> {
+export async function buildPackage(packageDir: string, options: BuildPackageOptions): Promise<void> {
   assertSupportedTypeScript();
 
   const cachePath = resolveBuildCachePath(packageDir);
@@ -106,6 +115,7 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
     toolchain,
     cachePath,
     hasExpectedBuildOutput(packageDir, outdir, entryPoints),
+    options.style,
   );
   if (!changed) {
     // The only path that never reaches `emitPackage`, and so the only one where a scratch directory left by a
@@ -123,7 +133,14 @@ export async function buildPackage(packageDir: string, options: BuildOptions = {
   await writeCacheEntry(cachePath, currentHash);
 
   // Reported after the digest lands, so the line describes a build that completed and was recorded.
-  console.info(`${PACKAGE_ICON} ${path.basename(packageDir)}: ${describeEmit(emittedFileCount, outdir)}`);
+  console.info(
+    formatGlyphLine(
+      NMR_GLYPHS,
+      options.style,
+      'package',
+      `${path.basename(packageDir)}: ${describeEmit(emittedFileCount, outdir)}`,
+    ),
+  );
 }
 
 /**
@@ -580,7 +597,7 @@ function getModuleSpecifier(node: ts.Node): ts.StringLiteralLike | undefined {
 
 /**
  * Compares the current input digest against the cached one, reporting whether a build is needed and
- * returning the freshly computed digest. Emits the 📦/⏭️ status but performs no write, so the caller
+ * returning the freshly computed digest. Emits the status line but performs no write, so the caller
  * can persist the digest only after a successful build.
  *
  * Unchanged inputs alone do not license a skip: the cache lives outside `dist`, so wiping the output
@@ -594,6 +611,7 @@ async function detectBuildChanges(
   toolchain: BuildToolchain,
   cachePath: string,
   outputPresent: boolean,
+  style: OutputStyle,
 ): Promise<{ changed: boolean; currentHash: string }> {
   const packageName = path.basename(packageDir);
   const previousHash = await readCacheEntry(cachePath);
@@ -601,14 +619,14 @@ async function detectBuildChanges(
 
   if (previousHash === currentHash) {
     if (outputPresent) {
-      console.info(`${SKIPPED_ICON} ${packageName}: No changes detected. Skipping build.`);
+      console.info(`${STATUS_GLYPHS[style].skipped.text} ${packageName}: No changes detected. Skipping build.`);
       return { changed: false, currentHash };
     }
-    console.info(`${PACKAGE_ICON} ${packageName}: Build output is missing. Rebuilding.`);
+    console.info(formatGlyphLine(NMR_GLYPHS, style, 'package', `${packageName}: Build output is missing. Rebuilding.`));
     return { changed: true, currentHash };
   }
 
-  console.info(`${PACKAGE_ICON} ${packageName}: Changes detected.`);
+  console.info(formatGlyphLine(NMR_GLYPHS, style, 'package', `${packageName}: Changes detected.`));
   return { changed: true, currentHash };
 }
 

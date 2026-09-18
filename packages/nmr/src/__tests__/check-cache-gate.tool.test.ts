@@ -52,7 +52,7 @@ describe('the check-result cache gate', () => {
 
       const { stdout } = await runNmr(COMMAND, repo);
 
-      expect(stdout).toContain(`⏭️ ${path.basename(repo)}: ${COMMAND}:`);
+      expect(stdout).toContain(`SKIP ${path.basename(repo)}: ${COMMAND}:`);
       expect(stdout).toContain('on this tree');
     });
 
@@ -62,7 +62,7 @@ describe('the check-result cache gate', () => {
       const { stdout, exitCode } = await runNmr(`-q ${COMMAND}`, repo);
 
       expect(exitCode).toBe(0);
-      expect(stdout).toContain(`⏭️ ${path.basename(repo)}: ${COMMAND}:`);
+      expect(stdout).toContain(`SKIP ${path.basename(repo)}: ${COMMAND}:`);
       expect(runCount()).toBe(1);
     });
 

@@ -25,12 +25,6 @@ export type V11yGlyphName = keyof (typeof V11Y_GLYPHS)['rich'];
 /** A glyph that opens a finding's row: a status, or the stale marker. */
 export type RowMarkerName = StatusGlyphName | 'stale';
 
-/** Renders a glyph and a message, omitting the separating space when the glyph's variant is empty. */
-export function formatGlyphLine(style: OutputStyle, name: V11yGlyphName, message: string): string {
-  const { text } = V11Y_GLYPHS[style][name];
-  return text === '' ? message : `${text} ${message}`;
-}
-
 /** Renders a row marker and a message, padding the marker so that messages align across markers. */
 export function formatMarkedLine(style: OutputStyle, name: RowMarkerName, message: string): string {
   const glyph = name === 'stale' ? V11Y_GLYPHS[style].stale : STATUS_GLYPHS[style][name];

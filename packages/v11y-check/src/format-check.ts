@@ -1,9 +1,9 @@
-import type { OutputStyle } from '@williamthorsen/nmr-core';
+import { formatGlyphLine, type OutputStyle } from '@williamthorsen/nmr-core';
 
 import { formatActionHints } from './format-actions.ts';
 import { deriveSummary } from './format-summary.ts';
 import { formatRelativeTime } from './format-time.ts';
-import { formatGlyphLine, formatMarkedLine, V11Y_GLYPHS, type V11yGlyphName } from './glyphs.ts';
+import { formatMarkedLine, V11Y_GLYPHS, type V11yGlyphName } from './glyphs.ts';
 import type { AuditResult, AuditScope, SeverityThreshold } from './types.ts';
 
 // ---------------------------------------------------------------------------
@@ -109,9 +109,9 @@ function formatIntroBanner(
   if (scopes.length === 1 && first !== undefined) {
     const annotation = formatThresholdAnnotation(thresholds?.[first], style);
     const message = `Auditing ${SCOPE_NAMES[first]} dependencies${annotation && ` ${annotation}`} ...`;
-    return formatGlyphLine(style, 'audit', message);
+    return formatGlyphLine(V11Y_GLYPHS, style, 'audit', message);
   }
-  return formatGlyphLine(style, 'audit', 'Auditing dependencies ...');
+  return formatGlyphLine(V11Y_GLYPHS, style, 'audit', 'Auditing dependencies ...');
 }
 
 /** Build the severity suffix for a finding line, e.g. `  🔴 critical`. */
@@ -218,7 +218,7 @@ export function formatCheckText(
   for (const scope of scopes) {
     const scopeResult = result[scope];
     const annotation = formatThresholdAnnotation(thresholds?.[scope], style);
-    const label = formatGlyphLine(style, SCOPE_GLYPH_NAMES[scope], `${SCOPE_NAMES[scope]}:`);
+    const label = formatGlyphLine(V11Y_GLYPHS, style, SCOPE_GLYPH_NAMES[scope], `${SCOPE_NAMES[scope]}:`);
     lines.push(`  ${label}${annotation && ` ${annotation}`}`);
     if (hasFindings(scopeResult)) {
       lines.push(...formatScopeFindings(scopeResult, effectiveNow, style));

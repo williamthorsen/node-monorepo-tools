@@ -1,9 +1,10 @@
+import { formatGlyphLine, type OutputStyle } from '@williamthorsen/nmr-core';
+
+import { NMR_GLYPHS } from '../glyphs.ts';
 import { getPnpmOverrides, readPackageJson } from '../helpers/package-json.ts';
 import { reportClosing } from '../helpers/reportClosing.ts';
 import { UserError } from '../UserError.ts';
 import { readWorkspaceOverrides } from '../workspace.ts';
-
-const OVERRIDES_ICON = '🔒';
 
 /**
  * Reports the pnpm dependency overrides declared in the monorepo root's `pnpm-workspace.yaml`, and rejects a
@@ -11,15 +12,15 @@ const OVERRIDES_ICON = '🔒';
  *
  * Runs ahead of the report produced by the root `upgrade` script.
  */
-export function reportOverrides(monorepoRoot: string): void {
+export function reportOverrides(monorepoRoot: string, style: OutputStyle): void {
   const declared = listEntries(readWorkspaceOverrides(monorepoRoot));
 
   if (declared.length > 0) {
-    console.warn(`${OVERRIDES_ICON} WARN: pnpm overrides are active:`);
+    console.warn(formatGlyphLine(NMR_GLYPHS, style, 'overrides', 'WARN: pnpm overrides are active:'));
     for (const [name, version] of declared) {
       console.warn(`- ${name} → ${version}`);
     }
-    reportClosing(`${OVERRIDES_ICON} ${describeOverrides(declared.length)}`, console.warn);
+    reportClosing(formatGlyphLine(NMR_GLYPHS, style, 'overrides', describeOverrides(declared.length)), console.warn);
   }
 
   rejectLegacyOverrides(monorepoRoot);

@@ -1,9 +1,12 @@
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
 
+import { formatGlyphLine, type OutputStyle } from '@williamthorsen/nmr-core';
+
 import { removeCheckCache } from '../check-cache.ts';
 import { loadRootConfig } from '../config.ts';
 import { findContainingPackageDir } from '../context.ts';
+import { NMR_GLYPHS } from '../glyphs.ts';
 import { reportClosing } from '../helpers/reportClosing.ts';
 import { applyDevBin, buildWorkspaceRegistry, resolveScript } from '../resolver.ts';
 import { resolveChannel, runCommand } from '../runner.ts';
@@ -11,8 +14,6 @@ import { renderChain } from '../steps.ts';
 import type { NmrConfig } from '../types.ts';
 import { findMonorepoRoot, getWorkspacePackageDirs } from '../workspace.ts';
 import { resolveBuildCachePath } from './build-output.ts';
-
-const CLEAN_ICON = '🧹';
 
 /** The command name whose per-package resolution the root sweep honors. */
 const CLEAN_COMMAND = 'clean';
@@ -30,11 +31,13 @@ const OUTPUT_ROOT = 'dist';
  * Removes a package's build output and the build-cache entry that describes it, so no state survives to
  * make the next build skip. Removal is idempotent: an already-clean package is a silent no-op.
  */
-export async function cleanPackage(packageDir: string): Promise<void> {
+export async function cleanPackage(packageDir: string, style: OutputStyle): Promise<void> {
   await rm(path.resolve(packageDir, OUTPUT_ROOT), { recursive: true, force: true });
   await rm(resolveBuildCachePath(packageDir), { force: true });
 
-  console.info(`${CLEAN_ICON} ${path.basename(packageDir)}: Removed build output and cache.`);
+  console.info(
+    formatGlyphLine(NMR_GLYPHS, style, 'clean', `${path.basename(packageDir)}: Removed build output and cache.`),
+  );
 }
 
 /**
@@ -48,39 +51,39 @@ export async function cleanPackage(packageDir: string): Promise<void> {
  * a `rimraf` in nmr's dependency tree would be unreachable — while nmr's own bins are linked into the
  * consumer's `node_modules/.bin`, nmr being a direct dependency.
  */
-export async function runClean(cwd: string = process.cwd()): Promise<void> {
+export async function runClean(cwd: string, style: OutputStyle): Promise<void> {
   let monorepoRoot: string;
   try {
     monorepoRoot = findMonorepoRoot(cwd);
   } catch {
     // Outside a pnpm workspace there is nothing to sweep; clean the package standing here, as nmr-compile
     // compiles the package standing here.
-    await clearCheckCache(cwd);
-    await cleanPackage(cwd);
+    await clearCheckCache(cwd, style);
+    await cleanPackage(cwd, style);
     return;
   }
 
   // Cleared repo-wide, whatever scope the clean was invoked at: a check result records the tree it passed on,
   // not the package it ran in, so one package's entries are not separable from the rest.
-  await clearCheckCache(monorepoRoot);
+  await clearCheckCache(monorepoRoot, style);
 
   const workspacePackageDirs = getWorkspacePackageDirs(monorepoRoot);
   const packageDir = findContainingPackageDir(cwd, workspacePackageDirs);
   if (packageDir !== undefined) {
-    await cleanPackage(packageDir);
+    await cleanPackage(packageDir, style);
     return;
   }
 
-  await sweepWorkspace(monorepoRoot, workspacePackageDirs);
+  await sweepWorkspace(monorepoRoot, workspacePackageDirs, style);
 }
 
 // region | Helpers
 
 /** Removes every recorded check result for `scopeDir`, so nothing survives to make the next check skip. */
-async function clearCheckCache(scopeDir: string): Promise<void> {
+async function clearCheckCache(scopeDir: string, style: OutputStyle): Promise<void> {
   await removeCheckCache(scopeDir);
 
-  console.info(`${CLEAN_ICON} Removed all recorded check results.`);
+  console.info(formatGlyphLine(NMR_GLYPHS, style, 'clean', 'Removed all recorded check results.'));
 }
 
 /** Names what a sweep came to: the packages it cleaned, and any it left to an empty `clean` override. */
@@ -105,7 +108,7 @@ function describeSweep(cleaned: number, skipped: number): string {
  * it is known not to be the built-in: this process is already whichever build `devBin` selects, so rewriting
  * the built-in into a dev binary would spawn the same code per package and forfeit the single-process guarantee.
  */
-async function sweepWorkspace(monorepoRoot: string, workspacePackageDirs: string[]): Promise<void> {
+async function sweepWorkspace(monorepoRoot: string, workspacePackageDirs: string[], style: OutputStyle): Promise<void> {
   const config: NmrConfig = await loadRootConfig(monorepoRoot);
   // Every package resolves the same registry, so it is built once; only tier-3 resolution varies per package.
   const registry = buildWorkspaceRegistry(config);
@@ -124,7 +127,7 @@ async function sweepWorkspace(monorepoRoot: string, workspacePackageDirs: string
     }
 
     if (resolvedCommand === BUILT_IN_CLEAN) {
-      await cleanPackage(packageDir);
+      await cleanPackage(packageDir, style);
       cleaned++;
       continue;
     }
@@ -139,7 +142,7 @@ async function sweepWorkspace(monorepoRoot: string, workspacePackageDirs: string
     cleaned++;
   }
 
-  reportClosing(`${CLEAN_ICON} ${describeSweep(cleaned, skipped)}`);
+  reportClosing(formatGlyphLine(NMR_GLYPHS, style, 'clean', describeSweep(cleaned, skipped)));
 }
 
 // endregion | Helpers

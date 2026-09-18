@@ -1,7 +1,15 @@
 import path from 'node:path';
 import type { Writable } from 'node:stream';
 
-import { readPackageVersion, reportError } from '@williamthorsen/nmr-core';
+import {
+  describeInvalidOutputStyle,
+  formatGlyphLine,
+  type OutputStyle,
+  readPackageVersion,
+  reportError,
+  STATUS_GLYPHS,
+  type StreamStyles,
+} from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import {
@@ -30,6 +38,7 @@ import {
   writeDebugNote,
 } from './check-cache.ts';
 import { resolveContext, type ResolvedContext } from './context.ts';
+import { NMR_GLYPHS } from './glyphs.ts';
 import { generateHelp } from './help.ts';
 import { resolveConfigPath } from './helpers/config-path.ts';
 import { deriveExcerpt } from './helpers/deriveExcerpt.ts';
@@ -38,6 +47,7 @@ import { findClosestName } from './helpers/findClosestName.ts';
 import { isHookName } from './helpers/hook-name.ts';
 import { resolvePackageJsonPath } from './helpers/package-json.ts';
 import { composeTranscript } from './helpers/transcript.ts';
+import { isTerminalStream, OUTPUT_STYLE_ENV_VAR, OUTPUT_STYLE_FLAG, resolveOutputStyles } from './output-style.ts';
 import { renderRecording, renderRefusal, resolveRecording } from './recording.ts';
 import { assembleReplay } from './replay-assembly.ts';
 import { readReportFormatEnv, REPORT_FORMAT_ENV_VAR, type ReportFormat, resolveReportFormat } from './report-format.ts';
@@ -126,13 +136,20 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   }
   const { parsed } = parseResult;
 
-  // Ahead of every other outcome, `--version` and `--help` included, so one variable's validity has one answer.
+  // Ahead of every other outcome, `--version` and `--help` included, so one source's validity has one answer.
   // The levels below the environment wait on the config, which `--version` must keep not loading.
-  const inherited = readPresentationEnv(env);
+  const inherited = readPresentation({
+    env,
+    flagValue: parsed.outputStyle,
+    stderrIsTty: isTerminalStream(stderr),
+    stdoutIsTty: isTerminalStream(stdout),
+  });
   if (!inherited.ok) {
     reportError(inherited.error, stderr);
     return { exitCode: 1 };
   }
+  const { styles } = inherited;
+
   if (parsed.version) {
     stdout.write(`${VERSION}\n`);
     return { exitCode: 0 };
@@ -172,6 +189,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     monorepoRoot: context.monorepoRoot,
     passthrough: parsed.passthrough,
     stderr,
+    style: styles.stderr,
   });
 
   const noCache = parsed.noCache || env[NO_CACHE_ENV_VAR] === '1';
@@ -183,6 +201,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     passthrough: parsed.passthrough,
     runId,
     snapshot,
+    styles,
     verbosity,
   });
   const runOptions: RunStepsOptions = {
@@ -223,7 +242,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   const noOpReason = findNoOpReason(resolvedCommand);
   if (noOpReason !== undefined && !parsed.log) {
-    reportVerdict({ command, scope, outcome: 'no-op', reason: noOpReason }, stdout, format);
+    reportVerdict({ command, scope, outcome: 'no-op', reason: noOpReason }, stdout, format, styles.stdout);
     return { exitCode: 0 };
   }
 
@@ -255,6 +274,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     registry,
     resolved,
     stderr,
+    style: styles.stderr,
     useRoot,
     workspaceRoot: parsed.workspaceRoot,
   });
@@ -287,6 +307,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
       snapshot,
       stderr,
       stdout,
+      styles,
     });
   }
 
@@ -300,7 +321,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     key,
     monorepoRoot: context.monorepoRoot,
     noCache,
-    overrideNotice: formatOverrideNotice(resolved, registry, command, anchorDir, quiet),
+    overrideNotice: formatOverrideNotice(resolved, registry, command, anchorDir, quiet, styles.stdout),
     ownSteps: mainSteps,
     runId,
     runOptions,
@@ -309,7 +330,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     stdout,
   });
 
-  reportVerdict({ command, scope, ...outcome }, stdout, format);
+  reportVerdict({ command, scope, ...outcome }, stdout, format, styles.stdout);
 
   return { exitCode };
 }
@@ -322,6 +343,8 @@ interface ParsedArgs {
   json: boolean;
   log: boolean;
   noCache: boolean;
+  /** The flag's value as it was written, which the style resolver rather than the parser narrows. */
+  outputStyle?: string;
   quiet: boolean;
   recursive: boolean;
   workspaceRoot: boolean;
@@ -332,6 +355,34 @@ interface ParsedArgs {
 }
 
 type ParseResult = { ok: true; parsed: ParsedArgs } | { ok: false; error: string };
+
+/** A field a flag sets by being written, none of which takes a value of its own. */
+type BooleanFlagName = 'help' | 'json' | 'log' | 'noCache' | 'quiet' | 'recursive' | 'version' | 'workspaceRoot';
+
+/** What the presentation sources came to, or the message naming why one of them could not be read. */
+type PresentationRead =
+  | { ok: true; format: ReportFormat | undefined; styles: StreamStyles; verbosity: CommandVerbosity | undefined }
+  | { ok: false; error: string };
+
+/** What `--output-style` was given, and how many arguments it spent, or why the flag carried no value. */
+type OutputStyleArgumentRead = { ok: true; value: string; consumed: number } | { ok: false; error: string };
+
+/** Every spelling of a boolean flag, paired with the field it sets. */
+const BOOLEAN_FLAGS = new Map<string, BooleanFlagName>([
+  ['-?', 'help'],
+  ['--help', 'help'],
+  ['--json', 'json'],
+  ['--log', 'log'],
+  ['--no-cache', 'noCache'],
+  ['-q', 'quiet'],
+  ['--quiet', 'quiet'],
+  ['-R', 'recursive'],
+  ['--recursive', 'recursive'],
+  ['-V', 'version'],
+  ['--version', 'version'],
+  ['-w', 'workspaceRoot'],
+  ['--workspace-root', 'workspaceRoot'],
+]);
 
 /**
  * Builds the environment every process below this one inherits. The snapshot travels down so a chain of nmr
@@ -347,6 +398,10 @@ type ParseResult = { ok: true; parsed: ParsedArgs } | { ok: false; error: string
  * folded into `noCache` by the caller: `openGate` has already stood this invocation's own gate down for them,
  * but the steps below it are separate nmr invocations carrying none of their own, so a narrowed command would
  * otherwise serve part of its work from a recorded pass.
+ *
+ * The style written down is the resolved one and never `auto`, so a child on a pipe renders as this process
+ * does rather than detecting plain on its own descriptor. It is the style stdout resolved to: the verdicts and
+ * nearly every other line a child prints go there.
  */
 function buildChildEnv(options: {
   env: NodeJS.ProcessEnv;
@@ -355,9 +410,10 @@ function buildChildEnv(options: {
   passthrough: readonly string[];
   runId: string;
   snapshot: TreeSnapshot | undefined;
+  styles: StreamStyles;
   verbosity: CommandVerbosity;
 }): NodeJS.ProcessEnv {
-  const { env, format, noCache, passthrough, runId, snapshot, verbosity } = options;
+  const { env, format, noCache, passthrough, runId, snapshot, styles, verbosity } = options;
 
   const bypassesCache = noCache || passthrough.length > 0;
 
@@ -366,6 +422,7 @@ function buildChildEnv(options: {
     ...(snapshot !== undefined && { [TREE_SNAPSHOT_ENV_VAR]: encodeTreeSnapshot(snapshot) }),
     ...(bypassesCache && { [NO_CACHE_ENV_VAR]: '1' }),
     [COMMAND_VERBOSITY_ENV_VAR]: verbosity,
+    [OUTPUT_STYLE_ENV_VAR]: styles.stdout,
     [REPORT_FORMAT_ENV_VAR]: format,
     [RUN_ID_ENV_VAR]: runId,
   };
@@ -615,13 +672,14 @@ function formatNmrCrossingWarning(options: {
   monorepoRoot: string;
   origin: DiagnosticOrigin;
   registry: ScriptRegistry;
+  style: OutputStyle;
   workspaceRoot: boolean;
 }): string {
   const { remedy, subject } = describeCrossingRemedy(options);
 
   return (
-    `⚠️ ${subject} reaches nmr through a shell (\`${escapeControlCharacters(options.crossing)}\`), ` +
-    `${CROSSING_CONSEQUENCE} ${remedy}`
+    `${STATUS_GLYPHS[options.style].warning.text} ${subject} reaches nmr through a shell ` +
+    `(\`${escapeControlCharacters(options.crossing)}\`), ${CROSSING_CONSEQUENCE} ${remedy}`
   );
 }
 
@@ -636,13 +694,16 @@ function formatOverrideNotice(
   command: string,
   anchorDir: string,
   quiet: boolean,
+  style: OutputStyle,
 ): string | undefined {
   const registryEntry = Object.hasOwn(registry, command) ? registry[command] : undefined;
   if (quiet || resolved.origin.tier !== 'package' || registryEntry === undefined) {
     return undefined;
   }
 
-  return `📦 ${path.basename(anchorDir)}: Using override script: ${renderChain(resolved.steps)}\n`;
+  const notice = `${path.basename(anchorDir)}: Using override script: ${renderChain(resolved.steps)}`;
+
+  return `${formatGlyphLine(NMR_GLYPHS, style, 'package', notice)}\n`;
 }
 
 /**
@@ -974,8 +1035,9 @@ function openGate(options: {
   monorepoRoot: string;
   passthrough: string[];
   stderr: Writable;
+  style: OutputStyle;
 }): TreeSnapshot | undefined {
-  const { command, config, env, monorepoRoot, passthrough, stderr } = options;
+  const { command, config, env, monorepoRoot, passthrough, stderr, style } = options;
 
   if (!isCacheableCommand(config.checkCache, command)) {
     return undefined;
@@ -984,7 +1046,7 @@ function openGate(options: {
   // A `--no-cache` past the command name is an argument to that command, and is passed on as one. Saying so is
   // all that stands between a developer and a bypass they believe happened.
   if (passthrough.includes('--no-cache')) {
-    stderr.write(`${formatMisplacedNoCacheWarning(command)}\n`);
+    stderr.write(`${formatMisplacedNoCacheWarning(command, style)}\n`);
   }
   if (passthrough.length > 0) {
     writeDebugNote(`gate disabled: ${command} was passed arguments`, env, stderr);
@@ -1030,44 +1092,21 @@ function parseArgs(args: string[]): ParseResult {
       i++;
       continue;
     }
-    if (arg === '-R' || arg === '--recursive') {
-      parsed.recursive = true;
+
+    const booleanFlag = BOOLEAN_FLAGS.get(arg);
+    if (booleanFlag !== undefined) {
+      parsed[booleanFlag] = true;
       i++;
       continue;
     }
-    if (arg === '-w' || arg === '--workspace-root') {
-      parsed.workspaceRoot = true;
-      i++;
-      continue;
-    }
-    if (arg === '-?' || arg === '--help') {
-      parsed.help = true;
-      i++;
-      continue;
-    }
-    if (arg === '-V' || arg === '--version') {
-      parsed.version = true;
-      i++;
-      continue;
-    }
-    if (arg === '-q' || arg === '--quiet') {
-      parsed.quiet = true;
-      i++;
-      continue;
-    }
-    if (arg === '--json') {
-      parsed.json = true;
-      i++;
-      continue;
-    }
-    if (arg === '--log') {
-      parsed.log = true;
-      i++;
-      continue;
-    }
-    if (arg === '--no-cache') {
-      parsed.noCache = true;
-      i++;
+
+    const styleArgument = readOutputStyleArgument(args, i);
+    if (styleArgument !== undefined) {
+      if (!styleArgument.ok) {
+        return styleArgument;
+      }
+      parsed.outputStyle = styleArgument.value;
+      i += styleArgument.consumed;
       continue;
     }
 
@@ -1102,8 +1141,9 @@ async function reportRecording(options: {
   snapshot: TreeSnapshot | undefined;
   stderr: Writable;
   stdout: Writable;
+  styles: StreamStyles;
 }): Promise<RunCliResult> {
-  const { command, config, scope } = options;
+  const { command, config, scope, styles } = options;
 
   const lookup = await resolveRecording({
     anchorDir: options.anchorDir,
@@ -1120,24 +1160,31 @@ async function reportRecording(options: {
   });
 
   if (!lookup.ok) {
-    options.stderr.write(`${renderRefusal({ command, refusal: lookup.refusal, scope })}\n`);
+    options.stderr.write(`${renderRefusal({ command, refusal: lookup.refusal, scope, style: styles.stderr })}\n`);
     return { exitCode: options.env[RUN_IF_PRESENT_ENV_VAR] === '1' ? 0 : 1 };
   }
 
-  options.stdout.write(renderRecording({ command, recording: lookup.recording, scope }));
+  options.stdout.write(renderRecording({ command, recording: lookup.recording, scope, style: styles.stdout }));
 
   return { exitCode: 0 };
 }
 
 /**
- * Reads the two variables that decide how a run presents itself, or the message naming why one of them could
- * not be read. Read together, so a run carrying two unreadable values is not fixed one release at a time.
+ * Reads everything that decides how a run presents itself: the two inherited variables, and the style each
+ * output stream resolves to. Read together, so a run carrying two unreadable values is not fixed one release
+ * at a time.
+ *
+ * The style is resolved here rather than beside its use, so that a value naming no style is rejected where an
+ * unreadable variable is, which is ahead of `--version` and of the config load.
  */
-function readPresentationEnv(
-  env: NodeJS.ProcessEnv,
-):
-  | { ok: true; format: ReportFormat | undefined; verbosity: CommandVerbosity | undefined }
-  | { ok: false; error: string } {
+function readPresentation(options: {
+  env: NodeJS.ProcessEnv;
+  flagValue: string | undefined;
+  stderrIsTty: boolean;
+  stdoutIsTty: boolean;
+}): PresentationRead {
+  const { env } = options;
+
   const verbosity = readVerbosityEnv(env);
   if (!verbosity.ok) {
     return verbosity;
@@ -1148,7 +1195,35 @@ function readPresentationEnv(
     return format;
   }
 
-  return { ok: true, format: format.format, verbosity: verbosity.verbosity };
+  const { invalid, styles } = resolveOutputStyles(options);
+  if (invalid !== undefined) {
+    return { ok: false, error: describeInvalidOutputStyle(invalid) };
+  }
+
+  return { ok: true, format: format.format, styles, verbosity: verbosity.verbosity };
+}
+
+/**
+ * Returns what `--output-style` at `index` names, or `undefined` where the argument is not the flag.
+ *
+ * Both spellings are read, so neither `--output-style plain` nor `--output-style=plain` is taken for the
+ * command name. An empty value is rejected with a missing one: nmr-core reads `''` as absent, which would
+ * leave the flag naming whatever the variable or detection chose rather than what the invocation asked for.
+ * The value itself is left to the resolver, which rejects it in the words nmr's siblings use.
+ */
+function readOutputStyleArgument(args: string[], index: number): OutputStyleArgumentRead | undefined {
+  const arg = args[index] ?? '';
+  const assignment = arg.startsWith(`${OUTPUT_STYLE_FLAG}=`) ? arg.slice(OUTPUT_STYLE_FLAG.length + 1) : undefined;
+  if (arg !== OUTPUT_STYLE_FLAG && assignment === undefined) {
+    return undefined;
+  }
+
+  const value = assignment ?? args[index + 1];
+  if (!value) {
+    return { ok: false, error: `${OUTPUT_STYLE_FLAG} requires a value argument: auto, plain, or rich` };
+  }
+
+  return { ok: true, value, consumed: assignment === undefined ? 2 : 1 };
 }
 
 /**
@@ -1165,6 +1240,7 @@ function reportNmrCrossing(options: {
   registry: ScriptRegistry;
   resolved: ResolvedScript;
   stderr: Writable;
+  style: OutputStyle;
   useRoot: boolean;
   workspaceRoot: boolean;
 }): void {
@@ -1178,6 +1254,7 @@ function reportNmrCrossing(options: {
     monorepoRoot: options.monorepoRoot,
     origin: describeOrigin(options.resolved.origin, options.config, options.useRoot),
     registry: options.registry,
+    style: options.style,
     workspaceRoot: options.workspaceRoot,
   });
 
@@ -1192,11 +1269,11 @@ function reportNmrCrossing(options: {
  * invocation reports none either, and needs no test here -- it returns before a verdict is composed, every
  * scope it fans out to reporting one of its own.
  */
-function reportVerdict(verdict: Verdict, stdout: Writable, format: ReportFormat): void {
+function reportVerdict(verdict: Verdict, stdout: Writable, format: ReportFormat, style: OutputStyle): void {
   if (isHookName(verdict.command)) {
     return;
   }
-  writeVerdict(verdict, stdout, format);
+  writeVerdict(verdict, stdout, format, style);
 }
 
 /**

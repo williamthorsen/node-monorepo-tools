@@ -57,7 +57,21 @@ The format is nmr's own reporting and not a mode the commands it runs are told a
 
 `-q` sets it for the run and outranks an inherited value. Both values are spelled out so either direction is expressible: export `NMR_COMMAND_VERBOSITY=quiet` for a quiet shell, and set `full` on one invocation to opt back out.
 
+`NMR_OUTPUT_STYLE` is nmr's own as well, and carries the style every marker nmr prints is rendered in; see [output style](#output-style) below.
+
 `NMR_REPORT_FORMAT` is nmr's own as well, and carries how nmr renders its own verdicts. Its values are `text` and `json`; any other non-empty value is reported and exits 1, and an empty value reads as unset. `--json` sets it for the run and outranks an inherited value, and both values are spelled out so either direction is expressible: export `NMR_REPORT_FORMAT=json` for a shell whose consumer parses, and set `text` on one invocation to opt back out. Two sources, then, where a verbosity has four: no repo-level default and no harness detection, since detection would hand every agent JSON in place of the prose the [shipped guidance](../README.md#agent-guidance) teaches. See [reporting for a machine](#reporting-for-a-machine) for what the objects carry.
+
+### Output style
+
+`--output-style <auto|plain|rich>` sets the style for one invocation, and `NMR_OUTPUT_STYLE` sets it for a shell: `rich` marks each verdict with an emoji, such as ✅ or ❌, and `plain` prints a word in its place, such as `PASS` or `FAIL`, which a reader of a log can search for. `auto`, the default, defers to detection. Any other value is a usage error that exits with code 1, whichever source named it. The flag outranks the variable, and both name `auto` as well as a style, so a shell exporting one style is overridable on one invocation in either direction.
+
+Detection decides stdout and stderr separately. A stream is plain when `CI` is set to anything other than an empty string or `false`, when the stream is not a terminal, or when `TERM` is `linux`; otherwise it is rich. `--json` output carries no marker in either style.
+
+**The flag belongs to `nmr`.** A standalone bin -- `nmr-clean`, `nmr-compile`, `nmr-report-catalog`, `nmr-report-overrides`, `nmr-ensure-prepublish-hooks` -- takes the variable alone, and passing it the flag gets that bin's unknown-option error. `nmr <command>` exports the style it resolved, so a bin run through nmr renders as nmr does.
+
+**A nested run follows the one that spawned it.** The resolved style, never `auto`, travels down as `NMR_OUTPUT_STYLE`, so a child whose own stdout is a pipe still renders rich where the parent resolved rich. The style exported is the one stdout resolved to, which is where the verdicts and nearly every other line go; a parent at a terminal whose stderr alone is redirected therefore hands its children `rich`.
+
+The style is out of the [pass key](check-cache.md#what-the-key-is-made-of) and the [retention key](check-cache.md#replaying-a-skipped-runs-output) alike, as the verbosity is: it changes how a run renders and never what a command concludes. Selecting it neither invalidates a recorded pass nor costs a replay, and an excerpt recorded rich replays as recorded in a plain run.
 
 ### Where a verbosity comes from
 

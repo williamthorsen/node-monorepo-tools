@@ -7,14 +7,18 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { buildPackage } from './commands/build.ts';
 import { loadWorkspaceConfig } from './config.ts';
+import { resolveBinStyles } from './resolveBinStyles.ts';
 
 try {
+  const { stdout } = resolveBinStyles();
+
   // `nmr-compile` always runs with the package as its working directory -- from the root recursion, from a
   // package-level invocation, and from either `prepare` script -- so the package's own config is right here.
   const packageDir = process.cwd();
   const { build } = await loadWorkspaceConfig(packageDir);
 
   await buildPackage(packageDir, {
+    style: stdout,
     ...(build?.extraIgnorePatterns !== undefined && { extraIgnorePatterns: build.extraIgnorePatterns }),
   });
 } catch (error) {

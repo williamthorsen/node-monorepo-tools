@@ -519,7 +519,14 @@ describe('check-cache', () => {
 
   describe('what the gate says out loud', () => {
     it('names the flag’s intended position when it lands after the command', () => {
-      expect(formatMisplacedNoCacheWarning('ci')).toContain('nmr --no-cache ci');
+      expect(formatMisplacedNoCacheWarning('ci', 'rich')).toContain('nmr --no-cache ci');
+    });
+
+    it.each([
+      { expected: '🟠 ', style: 'rich' },
+      { expected: 'WARN ', style: 'plain' },
+    ] as const)('opens the warning on the $style marker', ({ expected, style }) => {
+      expect(formatMisplacedNoCacheWarning('ci', style).startsWith(expected)).toBe(true);
     });
 
     it('says nothing about a gate decision unless asked', () => {

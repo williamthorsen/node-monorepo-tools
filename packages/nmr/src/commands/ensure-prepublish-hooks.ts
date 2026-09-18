@@ -1,6 +1,8 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
+
 import { readPackageJson } from '../helpers/package-json.ts';
 import { reportClosing } from '../helpers/reportClosing.ts';
 import { isObject } from '../helpers/type-guards.ts';
@@ -96,10 +98,14 @@ export function ensurePrepublishHooks(
  * Reports one line per publishable package and closes with what the run came to. Private packages appear in
  * neither: they publish nothing, so a `prepublishOnly` is not theirs to carry.
  *
- * Every line goes to stdout, the `✗` included, and the exit code is what carries a failure. A report split
+ * Every line goes to stdout, a failure's included, and the exit code is what carries a failure. A report split
  * across two streams leaves no reader holding the whole list.
  */
-export function reportPrepublishHooks(result: EnsurePrepublishHooksResult, hookCommand: string): void {
+export function reportPrepublishHooks(
+  result: EnsurePrepublishHooksResult,
+  hookCommand: string,
+  style: OutputStyle,
+): void {
   const publishable = result.packages.filter((pkg) => !pkg.isPrivate);
 
   if (publishable.length === 0) {
@@ -108,7 +114,7 @@ export function reportPrepublishHooks(result: EnsurePrepublishHooksResult, hookC
   }
 
   for (const pkg of publishable) {
-    console.info(renderHookStatus(pkg, hookCommand));
+    console.info(renderHookStatus(pkg, hookCommand, style));
   }
 
   reportClosing(describeHookRun(publishable));
@@ -160,15 +166,22 @@ function describeHookRun(publishable: PackageHookStatus[]): string {
   return `${packages} ${publishable.length === 1 ? 'has' : 'have'} prepublishOnly.`;
 }
 
-/** Renders one package's line, naming the hook it carries or the one the run would add. */
-function renderHookStatus(pkg: PackageHookStatus, hookCommand: string): string {
+/**
+ * Renders one package's line, naming the hook it carries or the one the run would add.
+ *
+ * A package carrying the hook and one the run added both pass, so both open on the pass marker; the dry run's
+ * `~` is neither outcome and stays the mark of a line reporting what a write would do.
+ */
+function renderHookStatus(pkg: PackageHookStatus, hookCommand: string, style: OutputStyle): string {
+  const statuses = STATUS_GLYPHS[style];
+
   switch (pkg.action) {
     case 'ok':
-      return `✓ ${pkg.packageName}: prepublishOnly = "${pkg.prepublishOnly}"`;
+      return `${statuses.passed.text} ${pkg.packageName}: prepublishOnly = "${pkg.prepublishOnly}"`;
     case 'missing':
-      return `✗ ${pkg.packageName}: missing prepublishOnly`;
+      return `${statuses.failed.text} ${pkg.packageName}: missing prepublishOnly`;
     case 'fixed':
-      return `✓ ${pkg.packageName}: added prepublishOnly = "${hookCommand}"`;
+      return `${statuses.passed.text} ${pkg.packageName}: added prepublishOnly = "${hookCommand}"`;
     case 'would-fix':
       return `~ ${pkg.packageName}: would add prepublishOnly = "${hookCommand}"`;
   }

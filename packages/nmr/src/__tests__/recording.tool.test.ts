@@ -48,10 +48,7 @@ describe('a run printed by --log', () => {
       const { stdout } = await runNmr(`--log ${COMMAND}`);
 
       expect(stdout).toMatch(
-        new RegExp(
-          String.raw`^📼 ${path.basename(repo)}: ${COMMAND} — recorded \d{4}-.*ago\), ran in .*\n\$ .*echo`,
-          'u',
-        ),
+        new RegExp(String.raw`^${path.basename(repo)}: ${COMMAND} — recorded \d{4}-.*ago\), ran in .*\n\$ .*echo`, 'u'),
       );
     });
 

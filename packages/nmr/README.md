@@ -138,13 +138,15 @@ Every command nmr runs reports one line naming the scope it ran at, the command,
 ```console
 ✅ nmr-core: test: passed in 12.4s
 ❌ nmr: build: failed in 1.2s (exit 1)
-⏭️ nmr-core: test: passed 4m ago on this tree, saved ~12s
-⛔ nmr-core: lint: skipped, the override is empty
+⏩ nmr-core: test: passed 4m ago on this tree, saved ~12s
+⚪ nmr-core: lint: skipped, the override is empty
 ```
+
+**A pipe and a CI log get words rather than emoji.** The same four lines read `PASS`, `FAIL`, `SKIP`, and `NOOP` there, which `grep FAIL` finds. `--output-style` and `NMR_OUTPUT_STYLE` each force either style.
 
 **Verdicts print in every verbosity.** `-q` withholds the output of the commands nmr runs, never nmr's own words: a passing quiet run reports its verdicts and nothing else. A command whose override resolved to `""` or `":"` reports the skip rather than exiting 0 in silence, which is what separates it from a command that passed. An `NMR_RUN_IF_PRESENT` miss reports nothing, having no command to report on.
 
-[What nmr reports](docs/reporting.md) covers how verdicts nest, the `--json` format, and where the verbosity of a run comes from.
+[What nmr reports](docs/reporting.md) covers how verdicts nest, the `--json` format, the output style, and where the verbosity of a run comes from.
 
 ## Check-result cache
 
@@ -155,7 +157,7 @@ $ nmr ci
 # ... four minutes of build, typecheck, lint, and tests ...
 
 $ nmr ci
-⏭️ node-monorepo-tools: ci: passed 2m ago on this tree, saved ~4m
+⏩ node-monorepo-tools: ci: passed 2m ago on this tree, saved ~4m
 ```
 
 [Check-result cache](docs/check-cache.md) covers what is cached, what a hit requires, replaying and reading a recorded run, and bypassing or configuring the cache.
@@ -259,7 +261,7 @@ rdy list --from npm:@williamthorsen/nmr  # what nmr publishes
 ## Documentation
 
 - [Scripts and configuration](docs/scripts.md): override tiers, script values, hooks, `defineConfig` fields, `devBin`, and the default commands
-- [What nmr reports](docs/reporting.md): verdicts, `--json`, and verbosity
+- [What nmr reports](docs/reporting.md): verdicts, `--json`, output style, and verbosity
 - [Check-result cache](docs/check-cache.md): what is skipped, what a hit requires, and replaying, reading, and bypassing recorded runs
 - [Dependency upgrades](docs/upgrades.md): `nmr upgrade`, the upgrade policy, `report-catalog`, `report-overrides`, and `nmr-taze`
 - [Standalone utilities](docs/utilities.md): `nmr-clean`, `nmr-compile`, `nmr-fmt`, and `ensure-prepublish-hooks`

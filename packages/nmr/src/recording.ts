@@ -1,4 +1,7 @@
+import { formatGlyphLine, type OutputStyle, STATUS_GLYPHS } from '@williamthorsen/nmr-core';
+
 import { type CheckCacheEntry, readCheckCacheEntry, readTranscript } from './check-cache.ts';
+import { NMR_GLYPHS } from './glyphs.ts';
 import { formatDuration } from './helpers/duration.ts';
 
 /**
@@ -55,12 +58,22 @@ export type RecordingRefusal =
  * lets a reader at a terminal be shown what a piped run wrote. The command string is the whole chain, hooks
  * included, so the header names what earned the pass and not merely what was typed.
  */
-export function renderRecording(options: { command: string; recording: Recording; scope: string }): string {
+export function renderRecording(options: {
+  command: string;
+  recording: Recording;
+  scope: string;
+  style: OutputStyle;
+}): string {
   const { entry } = options.recording;
   const age = formatDuration(Math.max(0, Date.now() - Date.parse(entry.recordedAt)));
   const header =
-    `📼 ${options.scope}: ${options.command} — recorded ${entry.recordedAt} (${age} ago), ` +
-    `ran in ${formatDuration(entry.durationMs)}\n$ ${entry.commandString}\n\n`;
+    formatGlyphLine(
+      NMR_GLYPHS,
+      options.style,
+      'recording',
+      `${options.scope}: ${options.command} — recorded ${entry.recordedAt} (${age} ago), ` +
+        `ran in ${formatDuration(entry.durationMs)}`,
+    ) + `\n$ ${entry.commandString}\n\n`;
 
   return `${header}${appendNewline(renderBody(options.recording))}`;
 }
@@ -69,8 +82,15 @@ export function renderRecording(options: { command: string; recording: Recording
  * Renders a refusal on the one line a fan-out can attribute, in the grammar a verdict uses: the scope, the
  * command, and what is missing.
  */
-export function renderRefusal(options: { command: string; refusal: RecordingRefusal; scope: string }): string {
-  return `📭 ${options.scope}: ${options.command}: no recording; ${describeRefusal(options.command, options.refusal)}`;
+export function renderRefusal(options: {
+  command: string;
+  refusal: RecordingRefusal;
+  scope: string;
+  style: OutputStyle;
+}): string {
+  const { text } = STATUS_GLYPHS[options.style].warning;
+
+  return `${text} ${options.scope}: ${options.command}: no recording; ${describeRefusal(options.command, options.refusal)}`;
 }
 
 /**

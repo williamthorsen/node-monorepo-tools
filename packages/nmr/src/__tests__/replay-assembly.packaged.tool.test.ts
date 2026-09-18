@@ -56,8 +56,8 @@ describe('a composite’s assembled replay', () => {
     const { stdout } = await runNmr(['-q', 'check']);
 
     // The warm constituent skipped and was certified by this run; the other ran in it.
-    expect(stdout).toContain(`⏭️ ${scope}: typecheck:`);
-    expect(stdout).toContain(`✅ ${scope}: lint:check:`);
+    expect(stdout).toContain(`SKIP ${scope}: typecheck:`);
+    expect(stdout).toContain(`PASS ${scope}: lint:check:`);
     await expect(readEntry('check')).resolves.toMatchObject({
       retention: {
         replay: [

@@ -19,7 +19,7 @@ describe(reportCatalog, () => {
     });
 
     using silent = silenceConsole(['warn']);
-    reportCatalog(packageDir);
+    reportCatalog(packageDir, 'rich');
 
     expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('does not read the catalogs these come from'));
     expect(silent.warn).toHaveBeenCalledWith('- lodash → catalog:legacy');
@@ -29,11 +29,25 @@ describe(reportCatalog, () => {
     );
   });
 
+  it('drops the glyph in a plain run, the word after it carrying the line', () => {
+    const packageDir = writePackage('a', { dependencies: { zod: 'catalog:' } });
+
+    using silent = silenceConsole(['warn']);
+    reportCatalog(packageDir, 'plain');
+
+    expect(silent.warn).toHaveBeenCalledWith(
+      'WARN: A package-scoped upgrade does not read the catalogs these come from:',
+    );
+    expect(silent.warn).toHaveBeenCalledWith(
+      `\n1 catalogued dependency went unread. Run \`nmr upgrade\` from ${tree.dir} to include it.`,
+    );
+  });
+
   it('names an uncatalogued dependency nowhere in the report', () => {
     const packageDir = writePackage('a', { dependencies: { zod: 'catalog:', semver: '7.5.0' } });
 
     using silent = silenceConsole(['warn']);
-    reportCatalog(packageDir);
+    reportCatalog(packageDir, 'rich');
 
     expect(silent.warn).not.toHaveBeenCalledWith(expect.stringContaining('semver'));
   });
@@ -47,7 +61,7 @@ describe(reportCatalog, () => {
     });
 
     using silent = silenceConsole(['warn']);
-    reportCatalog(packageDir);
+    reportCatalog(packageDir, 'rich');
 
     expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('4 catalogued dependencies went unread'));
     expect(silent.warn).toHaveBeenCalledWith('- typescript → catalog:tooling');
@@ -61,7 +75,7 @@ describe(reportCatalog, () => {
     });
 
     using silent = silenceConsole(['warn']);
-    reportCatalog(packageDir);
+    reportCatalog(packageDir, 'rich');
 
     expect(silent.warn).toHaveBeenCalledWith(
       `\n📚 1 catalogued dependency went unread. Run \`nmr upgrade\` from ${tree.dir} to include it.`,
@@ -73,7 +87,7 @@ describe(reportCatalog, () => {
     const packageDir = writePackage('a', { dependencies: { semver: '7.5.0' } });
 
     using silent = silenceConsole(['warn']);
-    reportCatalog(packageDir);
+    reportCatalog(packageDir, 'rich');
 
     expect(silent.warn).not.toHaveBeenCalled();
   });
@@ -83,7 +97,7 @@ describe(reportCatalog, () => {
     tree.write('package.json', JSON.stringify({ name: 'root', private: true }));
 
     using silent = silenceConsole(['warn']);
-    reportCatalog(tree.dir);
+    reportCatalog(tree.dir, 'rich');
 
     expect(silent.warn).not.toHaveBeenCalled();
   });
@@ -93,7 +107,7 @@ describe(reportCatalog, () => {
     tree.write('tools/package.json', JSON.stringify({ dependencies: { zod: 'catalog:' } }));
 
     using silent = silenceConsole(['warn']);
-    reportCatalog(outsideDir);
+    reportCatalog(outsideDir, 'rich');
 
     expect(silent.warn).not.toHaveBeenCalled();
   });
