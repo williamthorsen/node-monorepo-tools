@@ -77,7 +77,7 @@ $ nmr test
 # ... the suite runs ...
 
 $ nmr test
-⏭️ nmr: test: passed 2m ago on this tree, saved ~12s — replayed: Test Files 6 passed (6) Tests 41 passed (41)
+⏩ nmr: test: passed 2m ago on this tree, saved ~12s — replayed: Test Files 6 passed (6) Tests 41 passed (41)
 ```
 
 The excerpt is the last blank-line-delimited block of what the command wrote, which is the closing statement a tool separates from its progress output. It is flattened onto one line, with escape sequences stripped, table rules dropped, and a redrawn progress line reduced to what a reader was left looking at. Nothing is parsed and no figure is computed: nmr replays bytes it recorded. A block wider than a few kilobytes is cut and marked with `…`, so a command whose closing statement is one long line cannot carry its whole output into the cache.
@@ -90,7 +90,7 @@ The excerpt and the whole transcript it is drawn from are written by the same op
 
 ```console
 $ nmr check
-⏭️ nmr-core: check: passed 3m ago on this tree, saved ~48s — replayed: nmr-core: fmt:check: All matched files use Prettier code style!; nmr-core: test: Test Files 6 passed (6) Tests 41 passed (41)
+⏩ nmr-core: check: passed 3m ago on this tree, saved ~48s — replayed: nmr-core: fmt:check: All matched files use Prettier code style!; nmr-core: test: Test Files 6 passed (6) Tests 41 passed (41)
 ```
 
 The assembly is flat: a constituent that is itself a composite contributes its own leaves' lines, so a skipped `ci` replays a package's `test` rather than one opaque `check:strict` line. A delegate expands into the scopes it fans out to, and a constituent that recorded no excerpt is absent rather than inferred: `typecheck` and `lint:check` print nothing on success and contribute nothing above, and a command outside the [cacheable set](#what-is-cached) records nothing at all, so `ci` replays what `check:strict` earned and nothing for `build`.
@@ -99,7 +99,7 @@ It is assembled when the composite records its pass rather than when it skips, s
 
 **A skip certifies what it replays.** Recalling a pass proves the excerpt describes this tree, and a matching retention key proves it describes this presentation environment, so a skip restamps the recalled entry with the run replaying it. A constituent already warm when a composite ran therefore still contributes its line: `nmr check` after `nmr test` replays the test summary. The restamp touches nothing else -- the instant and the duration belong to the run that earned the pass.
 
-**A replay is held to more than the pass is.** Retention carries its own key: the [pass key](#what-the-key-is-made-of) folded with the channel each output stream ran on and with `CI`, `COLUMNS`, `FORCE_COLOR`, `NO_COLOR`, and `TERM`. A recording made under a different one is recalled as a pass all the same; its excerpt is simply not replayed, and the verdict prints alone, as it does for a pass that retained nothing.
+**A replay is held to more than the pass is.** Retention carries its own key: the [pass key](#what-the-key-is-made-of) folded with the channel each output stream ran on and with `CI`, `COLUMNS`, `FORCE_COLOR`, `NO_COLOR`, and `TERM`. `NMR_OUTPUT_STYLE` is in neither key, so a rich run and a plain one share a recorded pass and replay each other's excerpts as recorded. A recording made under a different one is recalled as a pass all the same; its excerpt is simply not replayed, and the verdict prints alone, as it does for a pass that retained nothing.
 
 The whole line, excerpt included, is held to the same [512-byte ceiling](reporting.md#what-nmr-reports) every verdict is, so one write still carries it whole under concurrent fan-out. An assembly wide enough to overrun it is cut and marked with `…` rather than spread over several lines.
 
@@ -109,7 +109,7 @@ The excerpt is a line; the run behind it is kept whole. `nmr --log <command>` pr
 
 ```console
 $ nmr --log test
-📼 nmr: test — recorded 2026-08-12T15:04:05.412Z (12m ago), ran in 12.4s
+💾 nmr: test — recorded 2026-08-12T15:04:05.412Z (12m ago), ran in 12.4s
 $ pnpm exec vitest --project unit --project tool
 
  ✓ src/__tests__/resolver.unit.test.ts (18 tests) 12ms
@@ -130,7 +130,7 @@ The header is what presents the body as a recording rather than as this invocati
 
 ```console
 $ nmr --log test
-📭 nmr: test: no recording; the last pass was 3m ago, on a tree this is not
+🟠 nmr: test: no recording; the last pass was 3m ago, on a tree this is not
 ```
 
 **`--log` reaches the scopes `-F` and `-R` select.** The flag rides the delegate, so each scope prints its own recording. There a scope with nothing to show reports its gap and exits 0: partial coverage is a survey's normal shape, and failing on the first gap would hide every scope that had something. A selection of no scope at all is the other case and fails, as it does for a run: there is no survey to be partial.

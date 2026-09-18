@@ -4,8 +4,8 @@ import { defineGlyphSet, type OutputStyle } from '@williamthorsen/nmr-core';
  * Glyphs that name no status; a status marker comes from nmr-core's `STATUS_GLYPHS`. A plain variant is empty
  * where a word always follows the glyph, and a word where the glyph opens a line of its own.
  *
- * `noop` is a circle rather than ⛔ or 🚫, which read as an error: nothing ran because the repo asked for
- * nothing to run, which is neither a failure nor a block.
+ * `noop` is a neutral circle: nothing ran because the repo asked for nothing to run, which is neither a
+ * failure nor a block.
  */
 export const NMR_GLYPHS = defineGlyphSet({
   catalog: { plain: '', rich: '\u{1F4DA}' },
