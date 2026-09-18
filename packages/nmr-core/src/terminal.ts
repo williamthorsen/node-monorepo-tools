@@ -21,12 +21,15 @@ export type {
   InvalidOutputStyle,
   OutputStyle,
   StatusGlyphName,
+  TruncateToWidthOptions,
 } from '@williamthorsen/toolbelt.terminal/candidate';
 export {
   defineGlyphSet,
   describeInvalidOutputStyle,
   measureGlyphColumn,
+  measureWidth,
   STATUS_GLYPHS,
+  truncateToWidth,
   wrapToWidth,
 } from '@williamthorsen/toolbelt.terminal/candidate';
 
