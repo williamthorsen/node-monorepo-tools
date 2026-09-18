@@ -20,16 +20,16 @@ export function isReportFormat(value: string): value is ReportFormat {
  * with the one the loudness ladder performs and leaves room for a level below the environment.
  */
 export function readReportFormatEnv(env: NodeJS.ProcessEnv): ReportFormatRead {
-  const raw = env[REPORT_FORMAT_ENV_VAR];
-  if (raw === undefined || raw === '') {
+  const rawValue = env[REPORT_FORMAT_ENV_VAR];
+  if (rawValue === undefined || rawValue === '') {
     return { ok: true };
   }
 
-  if (!isReportFormat(raw)) {
-    return { ok: false, error: formatReportFormatRejection(REPORT_FORMAT_ENV_VAR, raw) };
+  if (!isReportFormat(rawValue)) {
+    return { ok: false, error: formatReportFormatRejection(REPORT_FORMAT_ENV_VAR, rawValue) };
   }
 
-  return { ok: true, format: raw };
+  return { ok: true, format: rawValue };
 }
 
 /**

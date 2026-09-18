@@ -21,18 +21,18 @@ export interface ResolvedContext {
  * pnpm, which resolves a cwd to the package that encloses it most nearly.
  */
 export function findContainingPackageDir(dir: string, workspacePackageDirs: string[]): string | undefined {
-  const resolved = path.resolve(dir);
-  let nearest: string | undefined;
+  const resolvedDir = path.resolve(dir);
+  let nearestDir: string | undefined;
 
   for (const pkgDir of workspacePackageDirs) {
     const resolvedPkgDir = path.resolve(pkgDir);
-    if (resolved !== resolvedPkgDir && !resolved.startsWith(resolvedPkgDir + path.sep)) continue;
-    if (nearest === undefined || resolvedPkgDir.length > nearest.length) {
-      nearest = resolvedPkgDir;
+    if (resolvedDir !== resolvedPkgDir && !resolvedDir.startsWith(resolvedPkgDir + path.sep)) continue;
+    if (nearestDir === undefined || resolvedPkgDir.length > nearestDir.length) {
+      nearestDir = resolvedPkgDir;
     }
   }
 
-  return nearest;
+  return nearestDir;
 }
 
 /**

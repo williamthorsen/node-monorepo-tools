@@ -46,16 +46,16 @@ export function isCommandVerbosity(value: string): value is CommandVerbosity {
  * and detection levels reachable: a floor written in here would outrank both of them.
  */
 export function readVerbosityEnv(env: NodeJS.ProcessEnv): VerbosityRead {
-  const raw = env[COMMAND_VERBOSITY_ENV_VAR];
-  if (raw === undefined || raw === '') {
+  const rawValue = env[COMMAND_VERBOSITY_ENV_VAR];
+  if (rawValue === undefined || rawValue === '') {
     return { ok: true };
   }
 
-  if (!isCommandVerbosity(raw)) {
-    return { ok: false, error: formatVerbosityRejection(COMMAND_VERBOSITY_ENV_VAR, raw) };
+  if (!isCommandVerbosity(rawValue)) {
+    return { ok: false, error: formatVerbosityRejection(COMMAND_VERBOSITY_ENV_VAR, rawValue) };
   }
 
-  return { ok: true, verbosity: raw };
+  return { ok: true, verbosity: rawValue };
 }
 
 export interface ResolveVerbosityOptions {

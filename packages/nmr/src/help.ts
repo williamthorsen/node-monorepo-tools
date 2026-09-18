@@ -51,15 +51,15 @@ export function generateHelp(config: NmrConfig, packageDir: string | undefined, 
   let hadOverride = false;
 
   const workspaceRegistry = filterHooks(buildWorkspaceRegistry(config));
-  const workspaceMarked = !shouldUseRoot ? applyOverrides(workspaceRegistry, overrides) : new Set<string>();
-  if (workspaceMarked.size > 0) hadOverride = true;
-  formatRegistry(workspaceRegistry, workspaceMarked, lines);
+  const workspaceMarkedNames = !shouldUseRoot ? applyOverrides(workspaceRegistry, overrides) : new Set<string>();
+  if (workspaceMarkedNames.size > 0) hadOverride = true;
+  formatRegistry(workspaceRegistry, workspaceMarkedNames, lines);
 
   lines.push('', 'Root commands:');
   const rootRegistry = filterHooks(buildRootRegistry(config));
-  const rootMarked = shouldUseRoot ? applyOverrides(rootRegistry, overrides) : new Set<string>();
-  if (rootMarked.size > 0) hadOverride = true;
-  formatRegistry(rootRegistry, rootMarked, lines);
+  const rootMarkedNames = shouldUseRoot ? applyOverrides(rootRegistry, overrides) : new Set<string>();
+  if (rootMarkedNames.size > 0) hadOverride = true;
+  formatRegistry(rootRegistry, rootMarkedNames, lines);
 
   if (hadOverride) {
     lines.push('', '* Overridden by package.json');
@@ -78,13 +78,13 @@ function collectOverrides(packageDir: string): Record<string, string> {
   const scripts = readPackageJsonScripts(packageDir);
   if (!scripts) return {};
 
-  const filtered: Record<string, string> = {};
+  const candidateOverrides: Record<string, string> = {};
   for (const [name, value] of Object.entries(scripts)) {
     if (isHookName(name)) continue;
     if (isSelfReferential(value, name, packageDir)) continue;
-    filtered[name] = value;
+    candidateOverrides[name] = value;
   }
-  return filtered;
+  return candidateOverrides;
 }
 
 /**
@@ -94,36 +94,36 @@ function collectOverrides(packageDir: string): Record<string, string> {
  * names so the renderer can attach the `*` marker.
  */
 function applyOverrides(registry: ScriptRegistry, overrides: Record<string, string>): Set<string> {
-  const marked = new Set<string>();
+  const markedNames = new Set<string>();
   for (const [name, value] of Object.entries(overrides)) {
     if (!Object.hasOwn(registry, name)) {
       continue;
     }
 
     registry[name] = value;
-    marked.add(name);
+    markedNames.add(name);
   }
-  return marked;
+  return markedNames;
 }
 
 /**
  * Returns a copy of `registry` with hook entries (`*:pre`, `*:post`) removed.
  */
 function filterHooks(registry: ScriptRegistry): ScriptRegistry {
-  const filtered: ScriptRegistry = {};
+  const hooklessRegistry: ScriptRegistry = {};
   for (const [key, value] of Object.entries(registry)) {
-    if (!isHookName(key)) filtered[key] = value;
+    if (!isHookName(key)) hooklessRegistry[key] = value;
   }
-  return filtered;
+  return hooklessRegistry;
 }
 
 /**
  * Renders each registry entry as `  <key><marker>  <value>`, where `marker`
- * is `*` for entries in `marked` and a space otherwise. The combined
+ * is `*` for entries in `markedNames` and a space otherwise. The combined
  * `key + marker` is padded so the value column lines up across marked and
  * unmarked rows.
  */
-function formatRegistry(registry: ScriptRegistry, marked: Set<string>, lines: string[]): void {
+function formatRegistry(registry: ScriptRegistry, markedNames: Set<string>, lines: string[]): void {
   const keys = Object.keys(registry);
   if (keys.length === 0) return;
 
@@ -134,7 +134,7 @@ function formatRegistry(registry: ScriptRegistry, marked: Set<string>, lines: st
   const pad = Math.max(maxKeyLen + 1 + 2, 20);
 
   for (const [key, value] of Object.entries(registry)) {
-    const marker = marked.has(key) ? '*' : ' ';
+    const marker = markedNames.has(key) ? '*' : ' ';
     lines.push(`  ${(key + marker).padEnd(pad)} ${describeScript(value)}`);
   }
 }

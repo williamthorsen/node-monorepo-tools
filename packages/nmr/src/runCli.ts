@@ -141,17 +141,17 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   // Ahead of every other outcome, `--version` and `--help` included, so one source's validity has one answer.
   // The levels below the environment wait on the config, which `--version` must keep not loading.
-  const inherited = readPresentation({
+  const presentationRead = readPresentation({
     env,
     flagValue: parsed.outputStyle,
     stderrIsTty: isTerminalStream(stderr),
     stdoutIsTty: isTerminalStream(stdout),
   });
-  if (!inherited.ok) {
-    reportError(inherited.error, stderr);
+  if (!presentationRead.ok) {
+    reportError(presentationRead.error, stderr);
     return { exitCode: 1 };
   }
-  const { styles } = inherited;
+  const { styles } = presentationRead;
 
   if (parsed.shouldShowVersion) {
     stdout.write(`${VERSION}\n`);
@@ -160,10 +160,10 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   const context = await resolveContext(cwd);
 
-  const format = resolveReportFormat({ envFormat: inherited.format, hasJsonFlag: parsed.shouldEmitJson });
+  const format = resolveReportFormat({ envFormat: presentationRead.format, hasJsonFlag: parsed.shouldEmitJson });
   const verbosity = resolveReportingVerbosity({
     env,
-    envVerbosity: inherited.verbosity,
+    envVerbosity: presentationRead.verbosity,
     format,
     output: context.config.output,
     hasQuietFlag: parsed.quiet,
@@ -231,9 +231,9 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     registry,
   });
 
-  const resolved = resolveScript(command, registry, anchorDir, parsed.isWorkspaceRoot);
+  const resolvedScript = resolveScript(command, registry, anchorDir, parsed.isWorkspaceRoot);
 
-  if (!resolved) {
+  if (!resolvedScript) {
     if (env[RUN_IF_PRESENT_ENV_VAR] === '1') {
       return { exitCode: 0 };
     }
@@ -243,7 +243,10 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   // Ahead of the rendering, which is the cache key and what `--log` resolves: a filter applied later would let
   // a run and a reading of its recording disagree about what the chain was.
-  const { isEmptiedByWorkspace, steps: runnableSteps } = readRunnableSteps(resolved, context.workspacePackageDirs);
+  const { isEmptiedByWorkspace, steps: runnableSteps } = readRunnableSteps(
+    resolvedScript,
+    context.workspacePackageDirs,
+  );
 
   const resolvedCommand = renderChain(runnableSteps);
 
@@ -258,13 +261,13 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   // Ahead of the recording branch as well as the run, so that reading what a command did and running it answer
   // an unroutable argument the same way.
-  const bound = bindPassthrough(substitutedSteps, parsed.passthrough, command);
-  if (!bound.ok) {
-    reportError(bound.error, stderr);
+  const bindResult = bindPassthrough(substitutedSteps, parsed.passthrough, command);
+  if (!bindResult.ok) {
+    reportError(bindResult.error, stderr);
     return { exitCode: 1 };
   }
 
-  const mainSteps = bound.steps;
+  const mainSteps = bindResult.steps;
 
   // Hook recursion guard: a command ending in `:pre` or `:post` is a leaf operation, and is not itself
   // wrapped in further hook lookups.
@@ -280,7 +283,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     isWorkspaceRoot: parsed.isWorkspaceRoot,
     monorepoRoot: context.monorepoRoot,
     registry,
-    resolved,
+    resolved: resolvedScript,
     shouldUseRoot,
     stderr,
     style: styles.stderr,
@@ -327,7 +330,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     env,
     key,
     monorepoRoot: context.monorepoRoot,
-    overrideNotice: formatOverrideNotice(resolved, registry, command, anchorDir, quiet, styles.stdout),
+    overrideNotice: formatOverrideNotice(resolvedScript, registry, command, anchorDir, quiet, styles.stdout),
     ownSteps: mainSteps,
     runId,
     runOptions,
@@ -611,8 +614,8 @@ function describeCrossingRemedy(options: {
         subject: `${path.relative(monorepoRoot, origin.file)}: \`scripts.${origin.key}\``,
       };
     default: {
-      const unhandled: never = origin;
-      throw new Error(`Unhandled script origin: ${JSON.stringify(unhandled)}`);
+      const unhandledOrigin: never = origin;
+      throw new Error(`Unhandled script origin: ${JSON.stringify(unhandledOrigin)}`);
     }
   }
 }
@@ -667,12 +670,12 @@ function describeOrigin(origin: ScriptOrigin, config: NmrConfig, shouldUseRoot: 
  * rendered chain against the entry, and an escape applied ahead of that comparison would defeat it.
  */
 function escapeControlCharacters(text: string): string {
-  let escaped = text;
+  let escapedText = text;
   for (const [char, escape] of NAMED_ESCAPES) {
-    escaped = escaped.split(char).join(escape);
+    escapedText = escapedText.split(char).join(escape);
   }
 
-  return escaped;
+  return escapedText;
 }
 
 /**
@@ -871,30 +874,30 @@ function formatEmptyFilterError(pattern: string, names: readonly string[]): stri
  */
 function describeEmptyWorkspace(monorepoRoot: string): string {
   const { cause, patterns } = diagnoseEmptyWorkspace(monorepoRoot);
-  const declared = describeDeclaredPatterns(patterns);
+  const declaredClause = describeDeclaredPatterns(patterns);
 
   switch (cause) {
     case 'all-excluded':
       return (
-        `pnpm-workspace.yaml ${declared}, whose \`!\` entries exclude every directory matched by the positive ` +
+        `pnpm-workspace.yaml ${declaredClause}, whose \`!\` entries exclude every directory matched by the positive ` +
         'patterns. Drop or narrow the exclusion.'
       );
     case 'no-manifest':
       return (
-        `pnpm-workspace.yaml ${declared}, and the matcher found no directory holding a \`package.json\`. ` +
+        `pnpm-workspace.yaml ${declaredClause}, and the matcher found no directory holding a \`package.json\`. ` +
         'nmr counts a directory as a package only where it holds `package.json`; unlike pnpm, it recognizes ' +
         'neither `package.yaml` nor `package.json5`. Add a `package.json` to the directory that should be a ' +
         'package, or declare a pattern reaching a directory that holds one.'
       );
     case 'no-pattern':
       return (
-        `pnpm-workspace.yaml ${declared}, so no pattern reaches the matcher. Declare a positive pattern such ` +
+        `pnpm-workspace.yaml ${declaredClause}, so no pattern reaches the matcher. Declare a positive pattern such ` +
         'as `packages/*`, and quote any `!` entry, which YAML reads as a tag rather than a string where it ' +
         'stands bare.'
       );
     default: {
-      const unhandled: never = cause;
-      throw new Error(`Unhandled empty-workspace cause: ${String(unhandled)}`);
+      const unhandledCause: never = cause;
+      throw new Error(`Unhandled empty-workspace cause: ${String(unhandledCause)}`);
     }
   }
 }
@@ -908,18 +911,18 @@ function describeEmptyWorkspace(monorepoRoot: string): string {
  * one case the `no-pattern` remedy is written for.
  */
 function describeDeclaredPatterns(patterns: readonly string[]): string {
-  const quotable = patterns.filter((pattern) => pattern.trim() !== '');
-  const emptied = patterns.length - quotable.length;
+  const quotablePatterns = patterns.filter((pattern) => pattern.trim() !== '');
+  const emptiedCount = patterns.length - quotablePatterns.length;
 
-  if (emptied === 0) {
+  if (emptiedCount === 0) {
     return patterns.length === 0 ? 'declares no `packages` list' : `declares ${renderQuotedList(patterns)}`;
   }
 
-  const emptiedClause = `${emptied} ${emptied === 1 ? 'entry' : 'entries'} that YAML left empty`;
+  const emptiedClause = `${emptiedCount} ${emptiedCount === 1 ? 'entry' : 'entries'} that YAML left empty`;
 
-  return quotable.length === 0
+  return quotablePatterns.length === 0
     ? `declares ${emptiedClause}`
-    : `declares ${renderQuotedList(quotable)}, beside ${emptiedClause}`;
+    : `declares ${renderQuotedList(quotablePatterns)}, beside ${emptiedClause}`;
 }
 
 /** Returns the rejection a filter leads its line with, naming the pattern that selected nothing. */
@@ -940,14 +943,14 @@ function suggestWorkspaceNames(pattern: string, names: readonly string[]): strin
     return '';
   }
 
-  const containing = names.filter((name) => name.toLowerCase().includes(pattern.toLowerCase()));
-  if (containing.length > 0) {
-    return ` Did you mean ${renderQuotedList(containing)}?`;
+  const containingNames = names.filter((name) => name.toLowerCase().includes(pattern.toLowerCase()));
+  if (containingNames.length > 0) {
+    return ` Did you mean ${renderQuotedList(containingNames)}?`;
   }
 
-  const closest = findClosestName(pattern, names);
-  if (closest !== undefined) {
-    return ` Did you mean \`${closest}\`?`;
+  const closestName = findClosestName(pattern, names);
+  if (closestName !== undefined) {
+    return ` Did you mean \`${closestName}\`?`;
   }
 
   return ` The workspace declares ${renderQuotedList(names)}.`;
@@ -955,13 +958,13 @@ function suggestWorkspaceNames(pattern: string, names: readonly string[]): strin
 
 /** Renders a list of items for a diagnostic, backticked and capped so a long one does not fill the terminal. */
 function renderQuotedList(items: readonly string[]): string {
-  const shown = items
+  const shownItems = items
     .slice(0, LIST_CEILING)
     .map((item) => `\`${item}\``)
     .join(', ');
   const remainder = items.length - LIST_CEILING;
 
-  return remainder > 0 ? `${shown}, and ${remainder} more` : shown;
+  return remainder > 0 ? `${shownItems}, and ${remainder} more` : shownItems;
 }
 
 /**
@@ -1042,10 +1045,10 @@ function hasRunnableHook(
     return true;
   }
 
-  const resolved = resolveScript(hookName, registry, anchorDir, isWorkspaceRoot);
-  if (!resolved) return false;
+  const resolvedScript = resolveScript(hookName, registry, anchorDir, isWorkspaceRoot);
+  if (!resolvedScript) return false;
 
-  const chain = renderChain(resolved.steps);
+  const chain = renderChain(resolvedScript.steps);
   return chain !== '' && chain !== ':';
 }
 
@@ -1089,9 +1092,9 @@ async function lookUpRecordedPass(options: {
 
   // Presence alone would let a `dist` compiled from another tree pass for this one: git ignores build output,
   // so restoring a tree restores none of it, and the run that would have rebuilt it is the one being skipped.
-  const stale = findStaleBuildOutput(entry.buildDigests, buildOutput.digests);
-  if (stale !== undefined) {
-    writeDebugNote(`running ${command}: ${stale}'s build output came from a different tree`, env, stderr);
+  const stalePackage = findStaleBuildOutput(entry.buildDigests, buildOutput.digests);
+  if (stalePackage !== undefined) {
+    writeDebugNote(`running ${command}: ${stalePackage}'s build output came from a different tree`, env, stderr);
     return undefined;
   }
 
@@ -1148,7 +1151,7 @@ function openGate(options: {
 }
 
 function parseArgs(args: string[]): ParseResult {
-  const parsed: ParsedArgs = {
+  const parsedArgs: ParsedArgs = {
     isWorkspaceRoot: false,
     quiet: false,
     recursive: false,
@@ -1173,14 +1176,14 @@ function parseArgs(args: string[]): ParseResult {
       if (!filterValue) {
         return { ok: false, error: '-F/--filter requires a pattern argument' };
       }
-      parsed.filter = filterValue;
+      parsedArgs.filter = filterValue;
       i++;
       continue;
     }
 
     const booleanFlag = BOOLEAN_FLAGS.get(arg);
     if (booleanFlag !== undefined) {
-      parsed[booleanFlag] = true;
+      parsedArgs[booleanFlag] = true;
       i++;
       continue;
     }
@@ -1190,20 +1193,20 @@ function parseArgs(args: string[]): ParseResult {
       if (!styleArgument.ok) {
         return styleArgument;
       }
-      parsed.outputStyle = styleArgument.value;
+      parsedArgs.outputStyle = styleArgument.value;
       i += styleArgument.consumed;
       continue;
     }
 
     // First non-flag argument is the command; rest is passthrough
-    parsed.command = arg;
-    parsed.passthrough = args.slice(i + 1);
+    parsedArgs.command = arg;
+    parsedArgs.passthrough = args.slice(i + 1);
     break;
   }
 
-  const error = findArgError(parsed);
+  const error = findArgError(parsedArgs);
 
-  return error === undefined ? { ok: true, parsed } : { ok: false, error };
+  return error === undefined ? { ok: true, parsed: parsedArgs } : { ok: false, error };
 }
 
 /**
@@ -1280,9 +1283,9 @@ function readPresentation(options: {
     return format;
   }
 
-  const { invalid, styles } = resolveOutputStyles(options);
-  if (invalid !== undefined) {
-    return { ok: false, error: describeInvalidOutputStyle(invalid) };
+  const { invalid: invalidStyle, styles } = resolveOutputStyles(options);
+  if (invalidStyle !== undefined) {
+    return { ok: false, error: describeInvalidOutputStyle(invalidStyle) };
   }
 
   return { ok: true, format: format.format, styles, verbosity: verbosity.verbosity };
@@ -1349,13 +1352,13 @@ function reportNmrCrossing(options: {
   stderr: Writable;
   style: OutputStyle;
 }): void {
-  const crossing = findNmrCrossing(options.resolved.steps);
-  if (options.isReading || crossing === undefined) {
+  const crossingStep = findNmrCrossing(options.resolved.steps);
+  if (options.isReading || crossingStep === undefined) {
     return;
   }
 
   const warning = formatNmrCrossingWarning({
-    crossing,
+    crossing: crossingStep,
     isWorkspaceRoot: options.isWorkspaceRoot,
     monorepoRoot: options.monorepoRoot,
     origin: describeOrigin(options.resolved.origin, options.config, options.shouldUseRoot),
@@ -1426,12 +1429,12 @@ async function recordPass(options: {
   const { anchorDir, command, env, monorepoRoot, snapshot, stderr } = options;
 
   // Hashed afresh rather than inherited: an inherited snapshot is the observation this is meant to re-test.
-  const current = resolveTreeSnapshot({ monorepoRoot, env: {} });
-  if (!current.ok) {
-    writeDebugNote(`not recording ${command}: ${current.reason}`, env, stderr);
+  const currentRead = resolveTreeSnapshot({ monorepoRoot, env: {} });
+  if (!currentRead.ok) {
+    writeDebugNote(`not recording ${command}: ${currentRead.reason}`, env, stderr);
     return;
   }
-  if (current.snapshot.hash !== snapshot.hash) {
+  if (currentRead.snapshot.hash !== snapshot.hash) {
     writeDebugNote(`not recording ${command}: the tree changed while it ran`, env, stderr);
     return;
   }
@@ -1447,9 +1450,9 @@ async function recordPass(options: {
 
   // The check read one output and the entry would record the other, so neither describes the pass. A chain that
   // builds its own covered output disagrees with itself here and declines for the same reason.
-  const changed = findStaleBuildOutput(options.buildOutputBefore.digests, output.digests);
-  if (changed !== undefined) {
-    writeDebugNote(`not recording ${command}: ${changed}'s build output changed while it ran`, env, stderr);
+  const changedPackage = findStaleBuildOutput(options.buildOutputBefore.digests, output.digests);
+  if (changedPackage !== undefined) {
+    writeDebugNote(`not recording ${command}: ${changedPackage}'s build output changed while it ran`, env, stderr);
     return;
   }
 
@@ -1625,7 +1628,7 @@ async function runGated(options: {
       : undefined;
 
   if (gate !== undefined && !options.shouldBypassCache) {
-    const recalled = await lookUpRecordedPass({
+    const recalledPass = await lookUpRecordedPass({
       anchorDir,
       buildOutput: gate.buildOutputBefore,
       command,
@@ -1635,8 +1638,8 @@ async function runGated(options: {
       retentionKey: gate.retentionKey,
       stderr,
     });
-    if (recalled !== undefined) {
-      const { entry, ...recall } = recalled;
+    if (recalledPass !== undefined) {
+      const { entry, ...recall } = recalledPass;
       // An excerpt this run declined to replay is one it has not certified, and vouching for it here would put
       // another environment's output into the assembly a composite above this one records.
       if (recall.replay !== undefined) {
