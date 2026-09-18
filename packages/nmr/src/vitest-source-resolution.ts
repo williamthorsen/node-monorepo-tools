@@ -102,7 +102,7 @@ export function resolveSourceTarget(
   const environmentCondition = context.environmentName === 'client' ? CLIENT_CONDITION : SERVER_CONDITION;
   const conditions = new Set([environmentCondition, ...SHARED_CONDITIONS]);
   const selected = selectTarget(matched.value, conditions);
-  if (!selected?.usedSource) return undefined;
+  if (!selected?.didUseSource) return undefined;
 
   // A function replacement, because a `$` sequence in a literal one is a substitution pattern rather than text.
   const wildcard = matched.wildcard;
@@ -300,17 +300,17 @@ function readManifest(packageDir: string, cache: Map<string, unknown> | undefine
 
 /**
  * Walks one `exports` entry to the target that it names, taking `source` ahead of every other condition at each
- * level, and reports through `usedSource` whether the winning branch passed through a `source` key.
+ * level, and reports through `didUseSource` whether the winning branch passed through a `source` key.
  *
- * `resolveSourceTarget` returns the target only when `usedSource` is set. A target reached without `source` is the
+ * `resolveSourceTarget` returns the target only when `didUseSource` is set. A target reached without `source` is the
  * one that Vite resolves through its own conditions, so returning it here would replace Vite's resolution with a
  * narrower copy.
  */
 function selectTarget(
   value: unknown,
   conditions: ReadonlySet<string>,
-): { target: string; usedSource: boolean } | undefined {
-  if (typeof value === 'string') return { target: value, usedSource: false };
+): { target: string; didUseSource: boolean } | undefined {
+  if (typeof value === 'string') return { target: value, didUseSource: false };
 
   if (Array.isArray(value)) {
     for (const entry of value) {
@@ -325,7 +325,7 @@ function selectTarget(
   const source = value[SOURCE_CONDITION];
   if (source !== undefined) {
     const selected = selectTarget(source, conditions);
-    if (selected) return { target: selected.target, usedSource: true };
+    if (selected) return { target: selected.target, didUseSource: true };
   }
 
   for (const [key, entry] of Object.entries(value)) {

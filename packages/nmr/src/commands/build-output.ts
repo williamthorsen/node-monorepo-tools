@@ -66,8 +66,8 @@ export async function hasBuildOutput(packageDir: string, options: BuildOptions =
  * The emit is what makes an outdir, so what counts is whether any entry point emits, not how many there are.
  */
 export function hasExpectedBuildOutput(packageDir: string, outdir: string, entryPoints: string[]): boolean {
-  const emitsOutput = entryPoints.some((entry) => !entry.endsWith('.d.ts'));
-  if (!emitsOutput) {
+  const doesEmitOutput = entryPoints.some((entry) => !entry.endsWith('.d.ts'));
+  if (!doesEmitOutput) {
     return true;
   }
 

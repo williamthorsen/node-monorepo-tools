@@ -610,7 +610,7 @@ async function detectBuildChanges(
   emitConfig: EmitConfig,
   toolchain: BuildToolchain,
   cachePath: string,
-  outputPresent: boolean,
+  isOutputPresent: boolean,
   style: OutputStyle,
 ): Promise<{ changed: boolean; currentHash: string }> {
   const packageName = path.basename(packageDir);
@@ -618,7 +618,7 @@ async function detectBuildChanges(
   const currentHash = await computeBuildHash(packageDir, files, emitConfig, toolchain);
 
   if (previousHash === currentHash) {
-    if (outputPresent) {
+    if (isOutputPresent) {
       console.info(`${STATUS_GLYPHS[style].skipped.text} ${packageName}: No changes detected. Skipping build.`);
       return { changed: false, currentHash };
     }
