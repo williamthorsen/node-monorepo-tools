@@ -36,8 +36,8 @@ const STREAM_MARKER = '\n… nmr: stderr …\n';
  * stderr on failure is the command's own output going to a stream that may be a terminal, and stripping its
  * color there would be a loss.
  */
-export function cleanTranscript(raw: string): string {
-  return raw
+export function cleanTranscript(rawText: string): string {
+  return rawText
     .replaceAll(ANSI_PATTERN, '')
     .split('\n')
     .map((line) => renderCarriageReturns(line))

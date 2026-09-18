@@ -190,18 +190,22 @@ function describeRefusal(command: string, refusal: RecordingRefusal): string {
  * Names the first ingredient a recorded pass and this invocation disagree on, in the order a reader would
  * check them: the tree, then the chain that would run, then the versions the key folds in.
  */
-function findKeyDifference(entry: CheckCacheEntry, current: RunIdentity): KeyDifference {
-  if (current.treeHash !== undefined && entry.treeHash !== current.treeHash) {
+function findKeyDifference(entry: CheckCacheEntry, currentIdentity: RunIdentity): KeyDifference {
+  if (currentIdentity.treeHash !== undefined && entry.treeHash !== currentIdentity.treeHash) {
     return { ingredient: 'tree' };
   }
-  if (entry.commandString !== current.commandString) {
+  if (entry.commandString !== currentIdentity.commandString) {
     return { ingredient: 'command-string' };
   }
-  if (entry.nmrVersion !== current.nmrVersion) {
-    return { ingredient: 'nmr-version', currentVersion: current.nmrVersion, recordedVersion: entry.nmrVersion };
+  if (entry.nmrVersion !== currentIdentity.nmrVersion) {
+    return { ingredient: 'nmr-version', currentVersion: currentIdentity.nmrVersion, recordedVersion: entry.nmrVersion };
   }
-  if (entry.nodeVersion !== current.nodeVersion) {
-    return { ingredient: 'node-version', currentVersion: current.nodeVersion, recordedVersion: entry.nodeVersion };
+  if (entry.nodeVersion !== currentIdentity.nodeVersion) {
+    return {
+      ingredient: 'node-version',
+      currentVersion: currentIdentity.nodeVersion,
+      recordedVersion: entry.nodeVersion,
+    };
   }
 
   return { ingredient: 'other' };

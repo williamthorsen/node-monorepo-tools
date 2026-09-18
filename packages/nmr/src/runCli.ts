@@ -137,13 +137,13 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     reportError(parseResult.error, stderr);
     return { exitCode: 1 };
   }
-  const { parsed } = parseResult;
+  const { parsedArgs } = parseResult;
 
   // Ahead of every other outcome, `--version` and `--help` included, so one source's validity has one answer.
   // The levels below the environment wait on the config, which `--version` must keep not loading.
   const presentationRead = readPresentation({
     env,
-    flagValue: parsed.outputStyle,
+    flagValue: parsedArgs.outputStyle,
     stderrIsTty: isTerminalStream(stderr),
     stdoutIsTty: isTerminalStream(stdout),
   });
@@ -153,35 +153,35 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   }
   const { styles } = presentationRead;
 
-  if (parsed.shouldShowVersion) {
+  if (parsedArgs.shouldShowVersion) {
     stdout.write(`${VERSION}\n`);
     return { exitCode: 0 };
   }
 
   const context = await resolveContext(cwd);
 
-  const format = resolveReportFormat({ envFormat: presentationRead.format, hasJsonFlag: parsed.shouldEmitJson });
+  const format = resolveReportFormat({ envFormat: presentationRead.format, hasJsonFlag: parsedArgs.shouldEmitJson });
   const verbosity = resolveReportingVerbosity({
     env,
     envVerbosity: presentationRead.verbosity,
     format,
     output: context.config.output,
-    hasQuietFlag: parsed.quiet,
+    hasQuietFlag: parsedArgs.quiet,
   });
   const quiet = verbosity === 'quiet';
 
   // Determine which registry to use
-  const shouldUseRoot = parsed.isWorkspaceRoot || context.isRoot;
+  const shouldUseRoot = parsedArgs.isWorkspaceRoot || context.isRoot;
 
   // Anchors registry resolution and execution alike: a script runs in the directory its registry belongs to.
   const anchorDir = shouldUseRoot ? context.monorepoRoot : (context.packageDir ?? context.monorepoRoot);
 
-  if (parsed.shouldShowHelp || !parsed.command) {
+  if (parsedArgs.shouldShowHelp || !parsedArgs.command) {
     stdout.write(`${generateHelp(context.config, anchorDir, shouldUseRoot)}\n`);
     return { exitCode: 0 };
   }
 
-  const { command } = parsed;
+  const { command } = parsedArgs;
 
   const scope = path.basename(anchorDir);
 
@@ -190,18 +190,18 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     config: context.config,
     env,
     monorepoRoot: context.monorepoRoot,
-    passthrough: parsed.passthrough,
+    passthrough: parsedArgs.passthrough,
     stderr,
     style: styles.stderr,
   });
 
-  const shouldBypassCache = parsed.shouldBypassCache || env[NO_CACHE_ENV_VAR] === '1';
+  const shouldBypassCache = parsedArgs.shouldBypassCache || env[NO_CACHE_ENV_VAR] === '1';
   const runId = resolveRunId(env);
   const childEnv = buildChildEnv({
     env,
     format,
     shouldBypassCache,
-    passthrough: parsed.passthrough,
+    passthrough: parsedArgs.passthrough,
     runId,
     snapshot,
     styles,
@@ -215,9 +215,9 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   };
 
   // -F and -R: delegate to pnpm, which runs one nmr per scope it selects
-  const delegation = composeDelegation({ childEnv, command, parsedArgs: parsed });
+  const delegation = composeDelegation({ childEnv, command, parsedArgs });
   if (delegation !== undefined) {
-    return runDelegation({ context, delegation, parsedArgs: parsed, runOptions, stderr });
+    return runDelegation({ context, delegation, parsedArgs, runOptions, stderr });
   }
 
   const registry = shouldUseRoot ? buildRootRegistry(context.config) : buildWorkspaceRegistry(context.config);
@@ -225,13 +225,13 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   assertNoSelfReference({
     anchorDir,
     command,
-    isReading: parsed.shouldPrintLog,
-    isWorkspaceRoot: parsed.isWorkspaceRoot,
+    isReading: parsedArgs.shouldPrintLog,
+    isWorkspaceRoot: parsedArgs.isWorkspaceRoot,
     monorepoRoot: context.monorepoRoot,
     registry,
   });
 
-  const resolvedScript = resolveScript(command, registry, anchorDir, parsed.isWorkspaceRoot);
+  const resolvedScript = resolveScript(command, registry, anchorDir, parsedArgs.isWorkspaceRoot);
 
   if (!resolvedScript) {
     if (env[RUN_IF_PRESENT_ENV_VAR] === '1') {
@@ -251,7 +251,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   const resolvedCommand = renderChain(runnableSteps);
 
   const noOpReason = findNoOpReason(resolvedCommand, isEmptiedByWorkspace);
-  if (noOpReason !== undefined && !parsed.shouldPrintLog) {
+  if (noOpReason !== undefined && !parsedArgs.shouldPrintLog) {
     reportVerdict({ command, scope, outcome: 'no-op', reason: noOpReason }, stdout, format, styles.stdout);
     return { exitCode: 0 };
   }
@@ -261,7 +261,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   // Ahead of the recording branch as well as the run, so that reading what a command did and running it answer
   // an unroutable argument the same way.
-  const bindResult = bindPassthrough(substitutedSteps, parsed.passthrough, command);
+  const bindResult = bindPassthrough(substitutedSteps, parsedArgs.passthrough, command);
   if (!bindResult.ok) {
     reportError(bindResult.error, stderr);
     return { exitCode: 1 };
@@ -274,13 +274,13 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   const isHookInvocation = isHookName(command);
   const fullSteps = isHookInvocation
     ? mainSteps
-    : wrapWithHooks(command, mainSteps, registry, anchorDir, parsed.isWorkspaceRoot);
+    : wrapWithHooks(command, mainSteps, registry, anchorDir, parsedArgs.isWorkspaceRoot);
   const fullCommand = renderChain(fullSteps);
 
   reportNmrCrossing({
     config: context.config,
-    isReading: parsed.shouldPrintLog,
-    isWorkspaceRoot: parsed.isWorkspaceRoot,
+    isReading: parsedArgs.shouldPrintLog,
+    isWorkspaceRoot: parsedArgs.isWorkspaceRoot,
     monorepoRoot: context.monorepoRoot,
     registry,
     resolvedScript,
@@ -304,7 +304,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   // Reading a recording is not running one: the branch takes over once the key describing this chain is in
   // hand, and nothing below it -- hook, verdict, or cache write -- is reached.
-  if (parsed.shouldPrintLog) {
+  if (parsedArgs.shouldPrintLog) {
     return reportRecording({
       anchorDir,
       command,
@@ -364,7 +364,7 @@ interface ParsedArgs {
   passthrough: string[];
 }
 
-type ParseResult = { ok: true; parsed: ParsedArgs } | { ok: false; error: string };
+type ParseResult = { ok: true; parsedArgs: ParsedArgs } | { ok: false; error: string };
 
 /** A field a flag sets by being written, none of which takes a value of its own. */
 type BooleanFlagName =
@@ -1207,7 +1207,7 @@ function parseArgs(args: string[]): ParseResult {
 
   const error = findArgError(parsedArgs);
 
-  return error === undefined ? { ok: true, parsed: parsedArgs } : { ok: false, error };
+  return error === undefined ? { ok: true, parsedArgs } : { ok: false, error };
 }
 
 /**

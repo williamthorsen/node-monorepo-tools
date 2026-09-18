@@ -87,9 +87,9 @@ export function getPnpmOverrides(pkg: PackageJson): Record<string, unknown> | un
  * A file the user wrote by hand is theirs to fix, so the failure names it rather than reporting the parser's
  * own stack.
  */
-export function parsePackageJson(raw: string, file: string): unknown {
+export function parsePackageJson(rawText: string, file: string): unknown {
   try {
-    return JSON.parse(raw);
+    return JSON.parse(rawText);
   } catch (error: unknown) {
     throw new UserError(`Invalid package.json at ${file}: ${describeError(error)}`);
   }

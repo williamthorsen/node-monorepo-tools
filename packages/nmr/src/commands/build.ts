@@ -424,8 +424,8 @@ function synthesizeCompilerOptions(packageDir: string, outdir: string): ts.Compi
  * `declarationDir` to the same directory, so this is unreachable -- which is the point: mapping the path across
  * would otherwise discard, in silence, a file a direct emit would have written.
  */
-function writeStagedOutput(staged: Map<string, StagedFile>, emitDir: string, stagingDir: string): void {
-  for (const [fileName, file] of staged) {
+function writeStagedOutput(stagedFiles: Map<string, StagedFile>, emitDir: string, stagingDir: string): void {
+  for (const [fileName, file] of stagedFiles) {
     if (!isWithin(emitDir, fileName)) {
       throw new Error(
         `nmr-compile: the compiler emitted ${fileName}, which is outside the output directory ${emitDir}. ` +

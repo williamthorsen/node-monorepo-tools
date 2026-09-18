@@ -143,9 +143,9 @@ export function readWorkspacePackageNames(packageDirs: readonly string[]): strin
  * Reads the `packages` list a parsed workspace manifest declares, or nothing where it declares no usable one:
  * no `packages` key, a key that is not a list, or a list holding something other than strings.
  */
-function getPackagesFromParsedYaml(parsed: unknown): string[] | undefined {
-  if (!isObject(parsed)) return undefined;
-  const packages = parsed['packages'];
+function getPackagesFromParsedYaml(parsedManifest: unknown): string[] | undefined {
+  if (!isObject(parsedManifest)) return undefined;
+  const packages = parsedManifest['packages'];
   if (!Array.isArray(packages)) return undefined;
   if (!packages.every((p): p is string => typeof p === 'string')) return undefined;
   return packages;
