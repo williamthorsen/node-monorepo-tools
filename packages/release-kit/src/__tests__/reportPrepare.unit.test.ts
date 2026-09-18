@@ -1053,10 +1053,11 @@ describe(reportPrepare, () => {
     });
 
     it('cuts a subject at a grapheme boundary rather than inside an emoji sequence', () => {
-      // The budget falls inside the ZWJ sequence, which a code-unit cut would split.
+      // The old code-unit cut fell inside the ZWJ sequence; the column budget admits the sequence whole.
       const output = reportViolation(`${'x'.repeat(68)}👨‍👩‍👧‍👦 and more`);
 
       const subject = readViolationSubject(output);
+      expect(subject).toContain('👨‍👩‍👧‍👦');
       expect(subject).not.toContain('\u{FFFD}');
       expect(Array.from(subject).some((character) => isSurrogate(character))).toBe(false);
     });
