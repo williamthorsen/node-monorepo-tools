@@ -243,9 +243,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   // Ahead of the rendering, which is the cache key and what `--log` resolves: a filter applied later would let
   // a run and a reading of its recording disagree about what the chain was.
-  const isPackageless = context.workspacePackageDirs.length === 0;
-  const runnableSteps = isPackageless ? dropRecursiveSteps(resolved.steps) : resolved.steps;
-  const isEmptiedByWorkspace = runnableSteps.length === 0 && resolved.steps.length > 0;
+  const { isEmptiedByWorkspace, steps: runnableSteps } = readRunnableSteps(resolved, context.workspacePackageDirs);
 
   const resolvedCommand = renderChain(runnableSteps);
 
@@ -1280,6 +1278,26 @@ function readOutputStyleArgument(args: string[], index: number): OutputStyleArgu
   }
 
   return { ok: true, value, consumed: assignment === undefined ? 2 : 1 };
+}
+
+/**
+ * Returns the steps a resolved script runs at this scope, and whether dropping one left the chain empty.
+ *
+ * A `-R` step in a workspace that holds no package has no scope to reach, and nmr composed it rather than the
+ * caller, so it is dropped rather than refused. A chain that was already empty was emptied by an override, which
+ * the verdict reports as one, so the two are distinguished here rather than read back out of the rendering.
+ */
+function readRunnableSteps(
+  resolved: ResolvedScript,
+  workspacePackageDirs: readonly string[],
+): { isEmptiedByWorkspace: boolean; steps: readonly Step[] } {
+  if (workspacePackageDirs.length > 0) {
+    return { isEmptiedByWorkspace: false, steps: resolved.steps };
+  }
+
+  const steps = dropRecursiveSteps(resolved.steps);
+
+  return { isEmptiedByWorkspace: steps.length === 0 && resolved.steps.length > 0, steps };
 }
 
 /**
