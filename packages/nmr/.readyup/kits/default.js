@@ -144,14 +144,14 @@ function hasTierInfix(filePath) {
 }
 var TEST_COLLECTION_EXCLUDE = [".git", "coverage", "dist", "node_modules"];
 var TIER_NAMES = ["unit", "tool", "localhost", "remote"];
-function collectTestFiles(dir, relativeDir, inTestDir, context) {
+function collectTestFiles(dir, relativeDir, isInTestDir, context) {
   const entries = readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
     const relativePath = relativeDir === "" ? entry.name : `${relativeDir}/${entry.name}`;
     if (entry.isDirectory()) {
       if (context.pruned.has(entry.name)) continue;
-      collectTestFiles(path.join(dir, entry.name), relativePath, inTestDir || entry.name === TEST_DIR, context);
-    } else if (inTestDir !== context.misplaced && TEST_FILE_PATTERN.test(entry.name)) {
+      collectTestFiles(path.join(dir, entry.name), relativePath, isInTestDir || entry.name === TEST_DIR, context);
+    } else if (isInTestDir !== context.misplaced && TEST_FILE_PATTERN.test(entry.name)) {
       context.found.push(relativePath);
     }
   }

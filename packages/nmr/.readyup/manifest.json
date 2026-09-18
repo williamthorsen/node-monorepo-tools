@@ -34,7 +34,7 @@
           "path": "../src/resolve-scripts.ts"
         },
         {
-          "hash": "2dfde614",
+          "hash": "b8cd07d5",
           "kind": "module",
           "path": "../src/tiers.ts"
         }
@@ -44,7 +44,7 @@
       "readyupVersion": "0.38.0",
       "source": "kits/default.ts",
       "sourceHash": "3323dc61",
-      "targetHash": "736bb5f5"
+      "targetHash": "3145af4e"
     }
   ]
 }

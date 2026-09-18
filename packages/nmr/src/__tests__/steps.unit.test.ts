@@ -16,7 +16,7 @@ describe(composeNmrStep, () => {
     expect(composeNmrStep('fmt:check', false)).toStrictEqual({ kind: 'structural', argv: ['nmr', 'fmt:check'] });
   });
 
-  it('prepends -w as its own token when workspaceRoot is true', () => {
+  it('prepends -w as its own token when isWorkspaceRoot is true', () => {
     expect(composeNmrStep('fmt:check', true)).toStrictEqual({ kind: 'structural', argv: ['nmr', '-w', 'fmt:check'] });
   });
 
