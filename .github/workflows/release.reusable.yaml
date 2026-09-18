@@ -54,8 +54,8 @@ jobs:
     env:
       BUILD_LOCAL: ${{ github.repository == 'williamthorsen/node-monorepo-tools' }}
       GITHUB_TOKEN: ${{ github.token }}
-      # Keeps a Corepack `npm` shim from refusing `npm link --workspace` on the
-      # source-build path, where the pnpm `packageManager` pin survives.
+      # Keeps Corepack shims from refusing `npm` and `npx` on the source-build
+      # path, where the pnpm `packageManager` pin survives.
       COREPACK_ENABLE_STRICT: '0'
 
     steps:
