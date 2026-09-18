@@ -15,7 +15,7 @@ describe(reportOverrides, () => {
     writePackageJson({ name: 'test', version: '1.0.0' });
 
     using silent = silenceConsole(['warn']);
-    reportOverrides(tree.dir);
+    reportOverrides(tree.dir, 'rich');
 
     expect(silent.warn).not.toHaveBeenCalled();
   });
@@ -25,11 +25,22 @@ describe(reportOverrides, () => {
     writeWorkspaceManifest('overrides:\n  some-package: 1.2.3\n');
 
     using silent = silenceConsole(['warn']);
-    reportOverrides(tree.dir);
+    reportOverrides(tree.dir, 'rich');
 
     expect(silent.warn).toHaveBeenCalledWith(expect.stringContaining('pnpm overrides are active'));
     expect(silent.warn).toHaveBeenCalledWith('- some-package → 1.2.3');
     expect(silent.warn).toHaveBeenCalledWith('\n🔒 1 override is active. Check whether it is still needed.');
+  });
+
+  it('drops the glyph in a plain run, the word after it carrying the line', () => {
+    writePackageJson({ name: 'test', version: '1.0.0' });
+    writeWorkspaceManifest('overrides:\n  some-package: 1.2.3\n');
+
+    using silent = silenceConsole(['warn']);
+    reportOverrides(tree.dir, 'plain');
+
+    expect(silent.warn).toHaveBeenCalledWith('WARN: pnpm overrides are active:');
+    expect(silent.warn).toHaveBeenCalledWith('\n1 override is active. Check whether it is still needed.');
   });
 
   it('closes the report with the count of overrides it named', () => {
@@ -37,7 +48,7 @@ describe(reportOverrides, () => {
     writeWorkspaceManifest('overrides:\n  some-package: 1.2.3\n  other-package: 4.5.6\n');
 
     using silent = silenceConsole(['warn']);
-    reportOverrides(tree.dir);
+    reportOverrides(tree.dir, 'rich');
 
     expect(silent.warn).toHaveBeenCalledWith('\n🔒 2 overrides are active. Check whether they are still needed.');
   });
@@ -48,7 +59,7 @@ describe(reportOverrides, () => {
     writeWorkspaceManifest('overrides:\n  react: 18\n  node-fetch: 2.6.7\n');
 
     using silent = silenceConsole(['warn']);
-    reportOverrides(tree.dir);
+    reportOverrides(tree.dir, 'rich');
 
     expect(silent.warn).toHaveBeenCalledWith('- node-fetch → 2.6.7');
     expect(silent.warn).not.toHaveBeenCalledWith(expect.stringContaining('react'));
@@ -59,7 +70,7 @@ describe(reportOverrides, () => {
     writeWorkspaceManifest('packages:\n  - packages/*\n');
 
     using silent = silenceConsole(['warn']);
-    reportOverrides(tree.dir);
+    reportOverrides(tree.dir, 'rich');
 
     expect(silent.warn).not.toHaveBeenCalled();
   });
@@ -73,14 +84,14 @@ describe(reportOverrides, () => {
 
     using _silent = silenceConsole(['warn']);
 
-    expect(() => reportOverrides(tree.dir)).toThrow(
+    expect(() => reportOverrides(tree.dir, 'rich')).toThrow(
       expect.objectContaining({
         message: expect.stringContaining('- some-package → 1.2.3'),
         name: 'UserError',
       }),
     );
-    expect(() => reportOverrides(tree.dir)).toThrow(/other-package → 4\.5\.6/);
-    expect(() => reportOverrides(tree.dir)).toThrow(/pnpm-workspace\.yaml/);
+    expect(() => reportOverrides(tree.dir, 'rich')).toThrow(/other-package → 4\.5\.6/);
+    expect(() => reportOverrides(tree.dir, 'rich')).toThrow(/pnpm-workspace\.yaml/);
   });
 
   // The gate proves the block absent, so a value it cannot render is still a key the user has to move.
@@ -93,14 +104,14 @@ describe(reportOverrides, () => {
 
     using _silent = silenceConsole(['warn']);
 
-    expect(() => reportOverrides(tree.dir)).toThrow(/react → 18/);
+    expect(() => reportOverrides(tree.dir, 'rich')).toThrow(/react → 18/);
   });
 
   it('accepts an empty pnpm.overrides block', () => {
     writePackageJson({ name: 'test', version: '1.0.0', pnpm: { overrides: {} } });
 
     using silent = silenceConsole(['warn']);
-    reportOverrides(tree.dir);
+    reportOverrides(tree.dir, 'rich');
 
     expect(silent.warn).not.toHaveBeenCalled();
   });
@@ -115,7 +126,7 @@ describe(reportOverrides, () => {
 
     using silent = silenceConsole(['warn']);
 
-    expect(() => reportOverrides(tree.dir)).toThrow(/legacy-package/);
+    expect(() => reportOverrides(tree.dir, 'rich')).toThrow(/legacy-package/);
     expect(silent.warn).toHaveBeenCalledWith('- current-package → 2.0.0');
   });
 

@@ -1,9 +1,11 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import path from 'node:path';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
+
+import { OUTPUT_STYLE_ENV_VAR } from '../output-style.ts';
 
 // The bin runs the source directly under Node's type stripping, exactly as `prepare` does.
 // Driving it as a process is what covers the wiring the unit tests cannot: that `nmr-compile` reads the
@@ -75,6 +77,32 @@ describe('nmr-compile', () => {
     expect(() => runCompile(tree.dir)).toThrow(/unrecognized key `build\.extraIgnorePattern`/);
     expect(listEmitted(tree)).toStrictEqual([]);
   });
+
+  // The bin carries no flag of its own; what reaches it is the variable `nmr <command>` exports to it.
+  it.for([
+    { marker: '', style: 'plain' },
+    { marker: '📦 ', style: 'rich' },
+  ])('reports its build in the $style the variable names', ({ marker, style }, { tree }) => {
+    scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
+
+    const lines = runCompile(tree.dir, { [OUTPUT_STYLE_ENV_VAR]: style }).split('\n');
+
+    expect(lines).toContain(`${marker}${path.basename(tree.dir)}: Changes detected.`);
+  });
+
+  it('exits 1 on a variable that names no style, in the words every nmr package rejects one with', ({ tree }) => {
+    scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
+
+    const { status, stderr } = spawnSync(process.execPath, [CLI_PATH], {
+      cwd: tree.dir,
+      encoding: 'utf8',
+      env: { ...process.env, [OUTPUT_STYLE_ENV_VAR]: 'fancy' },
+    });
+
+    expect(status).toBe(1);
+    expect(stderr).toContain(`${OUTPUT_STYLE_ENV_VAR} must be one of: auto, plain, rich (got "fancy")`);
+    expect(listEmitted(tree)).toStrictEqual([]);
+  });
 });
 
 // region | Helpers
@@ -96,8 +124,9 @@ function scaffoldPackage(tree: TempTree, sources: Record<string, string>, config
   }
 }
 
-function runCompile(dir: string): string {
-  return execFileSync(process.execPath, [CLI_PATH], { cwd: dir, encoding: 'utf8' });
+/** Runs the bin against `dir`, returning what it wrote to stdout. */
+function runCompile(dir: string, env: NodeJS.ProcessEnv = {}): string {
+  return execFileSync(process.execPath, [CLI_PATH], { cwd: dir, encoding: 'utf8', env: { ...process.env, ...env } });
 }
 
 // endregion | Helpers

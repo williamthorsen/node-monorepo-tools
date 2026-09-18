@@ -120,7 +120,7 @@ describe(reportPrepublishHooks, () => {
   it('closes a clean run with the count of packages carrying the hook', () => {
     using silent = silenceConsole(['info']);
 
-    reportPrepublishHooks(buildResult([status('a', 'ok'), status('b', 'ok'), status('c', 'ok')]), DEFAULT_HOOK);
+    reportPrepublishHooks(buildResult([status('a', 'ok'), status('b', 'ok'), status('c', 'ok')]), DEFAULT_HOOK, 'rich');
 
     expect(silent.info).toHaveBeenCalledWith('\n3 publishable packages have prepublishOnly.');
   });
@@ -128,7 +128,7 @@ describe(reportPrepublishHooks, () => {
   it('closes a run with a miss by naming how many of them there are', () => {
     using silent = silenceConsole(['info']);
 
-    reportPrepublishHooks(buildResult([status('a', 'ok'), status('b', 'missing')]), DEFAULT_HOOK);
+    reportPrepublishHooks(buildResult([status('a', 'ok'), status('b', 'missing')]), DEFAULT_HOOK, 'rich');
 
     expect(silent.info).toHaveBeenCalledWith(
       '\n1 of 2 publishable packages is missing prepublishOnly. Run with --fix to add it.',
@@ -138,7 +138,7 @@ describe(reportPrepublishHooks, () => {
   it('closes a fix run with what it added', () => {
     using silent = silenceConsole(['info']);
 
-    reportPrepublishHooks(buildResult([status('a', 'fixed'), status('b', 'ok')]), DEFAULT_HOOK);
+    reportPrepublishHooks(buildResult([status('a', 'fixed'), status('b', 'ok')]), DEFAULT_HOOK, 'rich');
 
     expect(silent.info).toHaveBeenCalledWith('\nAdded prepublishOnly to 1 of 2 publishable packages.');
   });
@@ -146,7 +146,7 @@ describe(reportPrepublishHooks, () => {
   it('closes a dry run with what it would add', () => {
     using silent = silenceConsole(['info']);
 
-    reportPrepublishHooks(buildResult([status('a', 'would-fix')]), DEFAULT_HOOK);
+    reportPrepublishHooks(buildResult([status('a', 'would-fix')]), DEFAULT_HOOK, 'rich');
 
     expect(silent.info).toHaveBeenCalledWith('\nWould add prepublishOnly to 1 of 1 publishable package.');
   });
@@ -154,7 +154,7 @@ describe(reportPrepublishHooks, () => {
   it('closes a workspace of private packages with the one statement its output is', () => {
     using silent = silenceConsole(['info']);
 
-    reportPrepublishHooks(buildResult([{ ...status('a', 'ok'), isPrivate: true }]), DEFAULT_HOOK);
+    reportPrepublishHooks(buildResult([{ ...status('a', 'ok'), isPrivate: true }]), DEFAULT_HOOK, 'rich');
 
     expect(silent.info).toHaveBeenCalledExactlyOnceWith('No publishable packages found.');
   });
@@ -162,10 +162,30 @@ describe(reportPrepublishHooks, () => {
   it('reports a miss on the stream its other lines went to, leaving the failure to the exit code', () => {
     using silent = silenceConsole(['info', 'warn']);
 
-    reportPrepublishHooks(buildResult([status('a', 'ok'), status('b', 'missing')]), DEFAULT_HOOK);
+    reportPrepublishHooks(buildResult([status('a', 'ok'), status('b', 'missing')]), DEFAULT_HOOK, 'rich');
 
-    expect(silent.info).toHaveBeenCalledWith('✗ b: missing prepublishOnly');
+    expect(silent.info).toHaveBeenCalledWith('❌ b: missing prepublishOnly');
     expect(silent.warn).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { expected: 'PASS a: prepublishOnly = "npm run build"', style: 'plain' },
+    { expected: '✅ a: prepublishOnly = "npm run build"', style: 'rich' },
+  ] as const)('opens a $style line on the status marker', ({ expected, style }) => {
+    using silent = silenceConsole(['info']);
+
+    reportPrepublishHooks(buildResult([status('a', 'ok')]), DEFAULT_HOOK, style);
+
+    expect(silent.info).toHaveBeenCalledWith(expected);
+  });
+
+  // Neither outcome: the line reports what a write would do rather than what a package is.
+  it('leaves the dry run’s mark outside the status set', () => {
+    using silent = silenceConsole(['info']);
+
+    reportPrepublishHooks(buildResult([status('a', 'would-fix')]), DEFAULT_HOOK, 'plain');
+
+    expect(silent.info).toHaveBeenCalledWith('~ a: would add prepublishOnly = "npm run build"');
   });
 });
 

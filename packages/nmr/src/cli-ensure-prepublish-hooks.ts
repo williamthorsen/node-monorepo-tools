@@ -2,6 +2,7 @@ import { parseArgsOrExit, reportError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { DEFAULT_HOOK, ensurePrepublishHooks, reportPrepublishHooks } from './commands/ensure-prepublish-hooks.ts';
+import { resolveBinStyles } from './resolveBinStyles.ts';
 import { findMonorepoRoot } from './workspace.ts';
 
 const flagSchema = {
@@ -17,7 +18,7 @@ try {
   const options = command ? { fix, dryRun, command } : { fix, dryRun };
   const result = ensurePrepublishHooks(monorepoRoot, options);
 
-  reportPrepublishHooks(result, command ?? DEFAULT_HOOK);
+  reportPrepublishHooks(result, command ?? DEFAULT_HOOK, resolveBinStyles().stdout);
 
   if (result.hasFailures) {
     process.exitCode = 1;

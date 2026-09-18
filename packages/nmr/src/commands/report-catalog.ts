@@ -1,9 +1,10 @@
+import type { OutputStyle } from '@williamthorsen/nmr-core';
+
 import { findContainingPackageDir } from '../context.ts';
+import { formatGlyphLine } from '../glyphs.ts';
 import { DEPENDENCY_FIELDS, readPackageJson } from '../helpers/package-json.ts';
 import { reportClosing } from '../helpers/reportClosing.ts';
 import { findMonorepoRoot, getWorkspacePackageDirs } from '../workspace.ts';
-
-const CATALOG_ICON = '📚';
 
 /** The protocol marking a specifier whose version comes from a `pnpm-workspace.yaml` catalog. */
 const CATALOG_PROTOCOL = 'catalog:';
@@ -23,7 +24,7 @@ interface CataloguedDependency {
  *
  * Runs ahead of the report produced by the workspace `upgrade` script.
  */
-export function reportCatalog(cwd: string): void {
+export function reportCatalog(cwd: string, style: OutputStyle): void {
   const monorepoRoot = findMonorepoRoot(cwd);
   const packageDir = findContainingPackageDir(cwd, getWorkspacePackageDirs(monorepoRoot));
 
@@ -37,11 +38,13 @@ export function reportCatalog(cwd: string): void {
     return;
   }
 
-  console.warn(`${CATALOG_ICON} WARN: A package-scoped upgrade does not read the catalogs these come from:`);
+  console.warn(
+    formatGlyphLine(style, 'catalog', 'WARN: A package-scoped upgrade does not read the catalogs these come from:'),
+  );
   for (const { name, specifier } of dependencies) {
     console.warn(`- ${name} → ${specifier}`);
   }
-  reportClosing(`${CATALOG_ICON} ${describeCatalog(dependencies.length, monorepoRoot)}`, console.warn);
+  reportClosing(formatGlyphLine(style, 'catalog', describeCatalog(dependencies.length, monorepoRoot)), console.warn);
 }
 
 // region | Helpers

@@ -24,7 +24,7 @@ describe(cleanPackage, () => {
   it('removes the build output', async ({ tree }) => {
     scaffoldBuiltPackage(tree, '.');
 
-    await cleanPackage(tree.dir);
+    await cleanPackage(tree.dir, 'rich');
 
     expect(tree.exists('dist')).toBe(false);
   });
@@ -32,7 +32,7 @@ describe(cleanPackage, () => {
   it('removes the build cache, so the next build cannot skip on a stale digest', async ({ tree }) => {
     scaffoldBuiltPackage(tree, '.');
 
-    await cleanPackage(tree.dir);
+    await cleanPackage(tree.dir, 'rich');
 
     expect(tree.exists(resolveCacheEntry(tree, '.'))).toBe(false);
   });
@@ -40,7 +40,7 @@ describe(cleanPackage, () => {
   it('leaves the sources intact', async ({ tree }) => {
     scaffoldBuiltPackage(tree, '.');
 
-    await cleanPackage(tree.dir);
+    await cleanPackage(tree.dir, 'rich');
 
     expect(tree.exists('src/index.ts')).toBe(true);
     expect(tree.exists('package.json')).toBe(true);
@@ -52,7 +52,7 @@ describe(cleanPackage, () => {
       'package.json': JSON.stringify({ name: 'fixture', type: 'module' }),
     });
 
-    await expect(cleanPackage(tree.dir)).resolves.toBeUndefined();
+    await expect(cleanPackage(tree.dir, 'rich')).resolves.toBeUndefined();
   });
 });
 
@@ -62,7 +62,7 @@ describe(runClean, () => {
     // the output that bin loads from, in a repo that builds nmr itself — leaving the rest uncleaned.
     const { a, b } = scaffoldWorkspace(tree);
 
-    await runClean(tree.dir);
+    await runClean(tree.dir, 'rich');
 
     expect(hasOutput(tree, a)).toBe(false);
     expect(hasOutput(tree, b)).toBe(false);
@@ -71,7 +71,7 @@ describe(runClean, () => {
   it('cleans only the containing package when run from inside one', async ({ tree }) => {
     const { a, b } = scaffoldWorkspace(tree);
 
-    await runClean(tree.resolve(a));
+    await runClean(tree.resolve(a), 'rich');
 
     expect(hasOutput(tree, a)).toBe(false);
     expect(hasOutput(tree, b)).toBe(true);
@@ -80,7 +80,7 @@ describe(runClean, () => {
   it('cleans the current directory when it is not in a pnpm workspace', async ({ tree }) => {
     scaffoldBuiltPackage(tree, '.');
 
-    await runClean(tree.dir);
+    await runClean(tree.dir, 'rich');
 
     expect(hasOutput(tree, '.')).toBe(false);
   });
@@ -98,7 +98,7 @@ describe(runClean, () => {
       }),
     );
 
-    await runClean(tree.dir);
+    await runClean(tree.dir, 'rich');
 
     expect(tree.exists(`${a}/cleaned.txt`)).toBe(true);
     expect(hasOutput(tree, a)).toBe(true);
@@ -109,7 +109,7 @@ describe(runClean, () => {
     const { a } = scaffoldWorkspace(tree);
     tree.write(`${a}/package.json`, JSON.stringify({ name: 'a', type: 'module', scripts: { clean: 'exit 3' } }));
 
-    await expect(runClean(tree.dir)).rejects.toThrow(/exit code 3/);
+    await expect(runClean(tree.dir, 'rich')).rejects.toThrow(/exit code 3/);
   });
 
   it('cleans in-process even when devBin names the built-in clean', async ({ tree }) => {
@@ -119,7 +119,7 @@ describe(runClean, () => {
     const { a, b } = scaffoldWorkspace(tree);
     scaffoldConfig(tree, { devBin: { 'nmr-clean': 'exit 7' } });
 
-    await runClean(tree.dir);
+    await runClean(tree.dir, 'rich');
 
     expect(hasOutput(tree, a)).toBe(false);
     expect(hasOutput(tree, b)).toBe(false);
@@ -129,7 +129,7 @@ describe(runClean, () => {
     scaffoldWorkspace(tree);
     await recordCheckResult(tree.dir, tree.dir, 'ci');
 
-    await runClean(tree.dir);
+    await runClean(tree.dir, 'rich');
 
     await expect(
       readCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'ci' }),
@@ -142,7 +142,7 @@ describe(runClean, () => {
     await recordCheckResult(tree.dir, tree.resolve(a), 'check');
     await recordCheckResult(tree.dir, tree.resolve(b), 'check');
 
-    await runClean(tree.resolve(a));
+    await runClean(tree.resolve(a), 'rich');
 
     await expect(
       readCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.resolve(b), command: 'check' }),
@@ -153,7 +153,7 @@ describe(runClean, () => {
     scaffoldBuiltPackage(tree, '.');
     await recordCheckResult(tree.dir, tree.dir, 'check');
 
-    await runClean(tree.dir);
+    await runClean(tree.dir, 'rich');
 
     await expect(
       readCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'check' }),
@@ -163,16 +163,24 @@ describe(runClean, () => {
   it('closes the sweep with the count of packages it cleaned', async ({ tree }) => {
     scaffoldWorkspace(tree);
 
-    await runClean(tree.dir);
+    await runClean(tree.dir, 'rich');
 
     expect(console.info).toHaveBeenCalledWith('\n🧹 Cleaned 2 packages.');
+  });
+
+  it('drops the glyph in a plain run, the statement alone carrying the line', async ({ tree }) => {
+    scaffoldWorkspace(tree);
+
+    await runClean(tree.dir, 'plain');
+
+    expect(console.info).toHaveBeenCalledWith('\nCleaned 2 packages.');
   });
 
   it('counts in the closing statement the packages it left to an empty clean override', async ({ tree }) => {
     const { a } = scaffoldWorkspace(tree);
     tree.write(`${a}/package.json`, JSON.stringify({ name: 'a', type: 'module', scripts: { clean: '' } }));
 
-    await runClean(tree.dir);
+    await runClean(tree.dir, 'rich');
 
     expect(console.info).toHaveBeenCalledWith('\n🧹 Cleaned 1 package, skipping 1 with an empty clean override.');
   });
@@ -182,7 +190,7 @@ describe(runClean, () => {
   }) => {
     const { a } = scaffoldWorkspace(tree);
 
-    await runClean(tree.resolve(a));
+    await runClean(tree.resolve(a), 'rich');
 
     expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('Cleaned'));
   });
@@ -193,7 +201,7 @@ describe(runClean, () => {
     const { a, b } = scaffoldWorkspace(tree);
     tree.write(`${a}/package.json`, JSON.stringify({ name: 'a', type: 'module', scripts: { clean: '' } }));
 
-    await runClean(tree.dir);
+    await runClean(tree.dir, 'rich');
 
     expect(hasOutput(tree, a)).toBe(true);
     expect(hasOutput(tree, b)).toBe(false);
