@@ -43,10 +43,10 @@
       ],
       "name": "default",
       "path": "kits/default.js",
-      "readyupVersion": "0.37.0",
+      "readyupVersion": "0.38.0",
       "source": "kits/default.ts",
       "sourceHash": "a20ce64b",
-      "targetHash": "ea9b6509"
+      "targetHash": "09feb541"
     },
     {
       "checklists": [
@@ -63,10 +63,10 @@
       ],
       "name": "npm-auto-publish",
       "path": "kits/npm-auto-publish.js",
-      "readyupVersion": "0.37.0",
+      "readyupVersion": "0.38.0",
       "source": "kits/npm-auto-publish.ts",
       "sourceHash": "4eed1e9c",
-      "targetHash": "aa45c1ff"
+      "targetHash": "d6126351"
     }
   ]
 }
