@@ -210,7 +210,7 @@ var default_default = defineRdyKit({
           severity: "warn",
           quiet: true,
           check: toolVersionsHasNoPnpm,
-          fix: "Remove pnpm from .tool-versions \u2014 manage via packageManager field and corepack"
+          fix: "Remove pnpm from .tool-versions \u2014 manage via the packageManager field"
         },
         {
           name: "no package.json declares a pnpm field",
