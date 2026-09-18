@@ -1,3 +1,4 @@
+import { measureWidth } from '@williamthorsen/nmr-core';
 import { describe, expect, it } from 'vitest';
 
 import { bold, dim, sectionHeader } from '../format.ts';
@@ -7,6 +8,9 @@ import type { PolicyViolation, PrepareResult, ReleasedWorkspaceResult } from '..
 
 /** The dry-run command the report attributes to a changelog file, built from the pin the invocation names. */
 const CLIFF_DRY_RUN_COMMAND = `npx --prefer-offline --yes git-cliff@${GIT_CLIFF_VERSION} ...`;
+
+/** The column budget `reportPrepare` cuts a commit subject to. */
+const SUBJECT_COLUMN_BUDGET = 72;
 
 describe(reportPrepare, () => {
   describe('single-package mode', () => {
@@ -1033,36 +1037,37 @@ describe(reportPrepare, () => {
       expect(output).not.toContain('policy violation');
     });
 
-    it('truncates long commit subjects to 72 characters with ellipsis at 69', () => {
-      const longSubject = `internal!: ${'x'.repeat(80)}`;
-      const result: PrepareResult = {
-        workspaces: [
-          {
-            status: 'released',
-            commitCount: 1,
-            parsedCommitCount: 1,
-            releaseType: 'patch',
-            currentVersion: '1.0.0',
-            newVersion: '1.0.1',
-            tag: 'v1.0.1',
-            bumpedFiles: ['package.json'],
-            changelogFiles: ['./CHANGELOG.md'],
-            policyViolations: [
-              {
-                commitHash: 'def5678',
-                commitSubject: longSubject,
-                type: 'internal',
-                surface: 'prefix',
-              },
-            ],
-          },
-        ],
-        tags: ['v1.0.1'],
-      };
+    it('cuts a long commit subject to the column budget, marking the cut with an ellipsis', () => {
+      const output = reportViolation(`internal!: ${'x'.repeat(80)}`);
 
-      const output = reportPrepare(result, { applied: true, style: 'rich' });
+      const subject = readViolationSubject(output);
+      expect(measureWidth(subject)).toBeLessThanOrEqual(SUBJECT_COLUMN_BUDGET);
+      expect(subject.endsWith('…')).toBe(true);
+    });
 
-      expect(output).toContain(`'${longSubject.slice(0, 69)}...'`);
+    it('cuts a subject of wide characters by column rather than by code unit', () => {
+      // 71 code units, which the budget admits, and 141 columns, which it does not.
+      const output = reportViolation(`x${'発'.repeat(70)}`);
+
+      expect(measureWidth(readViolationSubject(output))).toBeLessThanOrEqual(SUBJECT_COLUMN_BUDGET);
+    });
+
+    it('cuts a subject at a grapheme boundary rather than inside an emoji sequence', () => {
+      // The old code-unit cut fell inside the ZWJ sequence; the column budget admits the sequence whole.
+      const output = reportViolation(`${'x'.repeat(68)}👨‍👩‍👧‍👦 and more`);
+
+      const subject = readViolationSubject(output);
+      expect(subject).toContain('👨‍👩‍👧‍👦');
+      expect(subject).not.toContain('\u{FFFD}');
+      expect(Array.from(subject).some((character) => isSurrogate(character))).toBe(false);
+    });
+
+    it('renders a subject within the column budget whole', () => {
+      const subject = 'internal!: refactor cache';
+
+      const output = reportViolation(subject);
+
+      expect(readViolationSubject(output)).toBe(subject);
     });
   });
 
@@ -1182,6 +1187,12 @@ describe(reportPrepare, () => {
   });
 });
 
+/** Reports whether a code point is a surrogate, which a cut inside a surrogate pair leaves behind. */
+function isSurrogate(character: string): boolean {
+  const codePoint = character.codePointAt(0) ?? 0;
+  return codePoint >= 0xd800 && codePoint <= 0xdfff;
+}
+
 /** Build a released single-package workspace result, overriding any field. */
 function makeReleasedWorkspace(overrides: Partial<ReleasedWorkspaceResult> = {}): ReleasedWorkspaceResult {
   return {
@@ -1197,4 +1208,26 @@ function makeReleasedWorkspace(overrides: Partial<ReleasedWorkspaceResult> = {})
     changelogFiles: ['./CHANGELOG.md'],
     ...overrides,
   };
+}
+
+/** Reads back the subject the policy-violation bullet rendered, which the report quotes. */
+function readViolationSubject(output: string): string {
+  const match = /· \w+ '(.*)' — type /.exec(output);
+  if (match?.[1] === undefined) {
+    throw new Error(`No policy-violation bullet in output:\n${output}`);
+  }
+  return match[1];
+}
+
+/** Renders a report whose one policy violation carries `commitSubject`. */
+function reportViolation(commitSubject: string): string {
+  const result: PrepareResult = {
+    workspaces: [
+      makeReleasedWorkspace({
+        policyViolations: [{ commitHash: 'def5678', commitSubject, type: 'internal', surface: 'prefix' }],
+      }),
+    ],
+    tags: ['v1.0.1'],
+  };
+  return reportPrepare(result, { applied: true, style: 'rich' });
 }

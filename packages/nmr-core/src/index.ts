@@ -32,6 +32,7 @@ export type {
   StatusGlyphName,
   StreamStyleResolution,
   StreamStyles,
+  TruncateToWidthOptions,
 } from './terminal.ts';
 export {
   defineGlyphSet,
@@ -40,6 +41,7 @@ export {
   formatGlyphLine,
   formatStatusLine,
   measureGlyphColumn,
+  measureWidth,
   printError,
   printSkip,
   printStep,
@@ -48,6 +50,7 @@ export {
   reportWriteResult,
   resolveStreamStyles,
   STATUS_GLYPHS,
+  truncateToWidth,
   wrapToWidth,
 } from './terminal.ts';
 export type { WriteOutcome, WriteResult } from './writeFileWithCheck.ts';
