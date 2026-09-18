@@ -4,6 +4,7 @@ import {
   measureGlyphColumn,
   type OutputStyle,
   STATUS_GLYPHS,
+  truncateToWidth,
 } from '@williamthorsen/nmr-core';
 
 import { bold, dim, sectionHeader } from './format.ts';
@@ -21,6 +22,9 @@ import type {
 
 /** The npx invocation a dry run reports for each changelog file; the `...` stands for the args `runGitCliff` derives. */
 const CLIFF_DRY_RUN_COMMAND = `npx ${GIT_CLIFF_NPX_ARGS.join(' ')} ...`;
+
+/** The rendered width a commit subject is cut to, wherever the report prints one. */
+const SUBJECT_COLUMN_BUDGET = 72;
 
 /** How the plan was carried out, which decides the tense the report is rendered in. */
 export interface ReportPrepareOptions {
@@ -254,7 +258,7 @@ function formatProjectUnparseable(lines: string[], project: ReleasedProjectResul
   );
   for (const commit of unparseable) {
     const shortHash = commit.hash.slice(0, 7);
-    const truncatedMessage = commit.message.length > 72 ? `${commit.message.slice(0, 69)}...` : commit.message;
+    const truncatedMessage = truncateSubject(commit.message);
     lines.push(`      · ${shortHash} ${truncatedMessage}`);
   }
 }
@@ -413,7 +417,7 @@ function formatUnparseableWarning(
 
   for (const commit of unparseable) {
     const shortHash = commit.hash.slice(0, 7);
-    const truncatedMessage = commit.message.length > 72 ? `${commit.message.slice(0, 69)}...` : commit.message;
+    const truncatedMessage = truncateSubject(commit.message);
     lines.push(`${indent}    · ${shortHash} ${truncatedMessage}`);
   }
 }
@@ -421,9 +425,9 @@ function formatUnparseableWarning(
 /**
  * Append policy-violation lines when applicable.
  *
- * Renders one header line plus one bullet per violation. Subject truncation matches
- * `formatUnparseableWarning`'s 72-char convention. Returns early when no violations
- * were collected, leaving the lines array unchanged.
+ * Renders one header line plus one bullet per violation, cutting each subject through
+ * `truncateSubject`. Returns early when no violations were collected, leaving the lines
+ * array unchanged.
  *
  * `indent` is an additional outer indent prepended to both the header and bullet lines; base
  * spacing (2 spaces for the header, 4 for bullets) is encoded in the format strings, so the
@@ -445,7 +449,7 @@ function formatPolicyViolations(
   for (const violation of violations) {
     const shortHash = violation.commitHash.slice(0, 7);
     const subject = violation.commitSubject;
-    const truncatedSubject = subject.length > 72 ? `${subject.slice(0, 69)}...` : subject;
+    const truncatedSubject = truncateSubject(subject);
     lines.push(
       `${indent}    · ${shortHash} '${truncatedSubject}' — type '${violation.type}' at ${violation.surface} surface`,
     );
@@ -496,4 +500,9 @@ function formatFormatCommand(lines: string[], result: PrepareResult, options: Re
     `\n  ${formatStatusLine(options.style, 'warning', `Format command failed: ${result.formatCommand.command}`)}`,
     `${messageIndent}${options.formatError}`,
   );
+}
+
+/** Cuts a commit subject to the report's column budget, marking the cut with `truncateToWidth`'s default ellipsis. */
+function truncateSubject(subject: string): string {
+  return truncateToWidth(subject, { width: SUBJECT_COLUMN_BUDGET });
 }
