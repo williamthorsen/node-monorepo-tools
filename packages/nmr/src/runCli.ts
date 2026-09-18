@@ -514,12 +514,12 @@ function composeDelegation(options: {
   const { childEnv, command, parsed } = options;
 
   let scope: string[] | undefined;
-  let runIfPresent = parsed.shouldPrintLog;
+  let shouldRunIfPresent = parsed.shouldPrintLog;
   if (parsed.filter) {
     scope = ['--filter', parsed.filter];
   } else if (parsed.recursive) {
     scope = ['--recursive'];
-    runIfPresent = true;
+    shouldRunIfPresent = true;
   }
   if (scope === undefined) {
     return undefined;
@@ -528,7 +528,7 @@ function composeDelegation(options: {
   const flags = parsed.shouldPrintLog ? ['--log'] : [];
 
   return {
-    env: runIfPresent ? { ...childEnv, [RUN_IF_PRESENT_ENV_VAR]: '1' } : childEnv,
+    env: shouldRunIfPresent ? { ...childEnv, [RUN_IF_PRESENT_ENV_VAR]: '1' } : childEnv,
     step: {
       kind: 'structural',
       argv: ['pnpm', ...scope, 'exec', 'nmr', ...flags, command, ...parsed.passthrough],
