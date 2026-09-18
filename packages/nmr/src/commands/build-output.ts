@@ -162,11 +162,11 @@ function isSameDir(left: string, right: string): boolean {
 
 /** Resolves a path to its real location, falling back to the absolute path when nothing is there to resolve. */
 function toRealPath(dir: string): string {
-  const absolute = path.resolve(dir);
+  const absoluteDir = path.resolve(dir);
   try {
-    return realpathSync(absolute);
+    return realpathSync(absoluteDir);
   } catch {
-    return absolute;
+    return absoluteDir;
   }
 }
 

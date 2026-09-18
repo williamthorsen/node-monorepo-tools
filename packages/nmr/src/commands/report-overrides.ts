@@ -13,14 +13,17 @@ import { readWorkspaceOverrides } from '../workspace.ts';
  * Runs ahead of the report produced by the root `upgrade` script.
  */
 export function reportOverrides(monorepoRoot: string, style: OutputStyle): void {
-  const declared = listEntries(readWorkspaceOverrides(monorepoRoot));
+  const declaredOverrides = listEntries(readWorkspaceOverrides(monorepoRoot));
 
-  if (declared.length > 0) {
+  if (declaredOverrides.length > 0) {
     console.warn(formatGlyphLine(NMR_GLYPHS, style, 'overrides', 'WARN: pnpm overrides are active:'));
-    for (const [name, version] of declared) {
+    for (const [name, version] of declaredOverrides) {
       console.warn(`- ${name} → ${version}`);
     }
-    reportClosing(formatGlyphLine(NMR_GLYPHS, style, 'overrides', describeOverrides(declared.length)), console.warn);
+    reportClosing(
+      formatGlyphLine(NMR_GLYPHS, style, 'overrides', describeOverrides(declaredOverrides.length)),
+      console.warn,
+    );
   }
 
   rejectLegacyOverrides(monorepoRoot);
@@ -48,16 +51,16 @@ function listEntries<T>(overrides: Record<string, T> | undefined): [string, T][]
  * looking maintained while it governs nothing, and failing here is what keeps the write from happening.
  */
 function rejectLegacyOverrides(monorepoRoot: string): void {
-  const legacy = listEntries(getPnpmOverrides(readPackageJson(monorepoRoot)));
+  const legacyOverrides = listEntries(getPnpmOverrides(readPackageJson(monorepoRoot)));
 
-  if (legacy.length === 0) {
+  if (legacyOverrides.length === 0) {
     return;
   }
 
   throw new UserError(
     [
       'pnpm 11 reads no `pnpm.overrides` from package.json, so these pin nothing while an upgrade run with `--write` goes on rewriting them:',
-      ...legacy.map(([name, version]) => `- ${name} → ${String(version)}`),
+      ...legacyOverrides.map(([name, version]) => `- ${name} → ${String(version)}`),
       'Move them to the `overrides` block in pnpm-workspace.yaml, quoting each version, or run `pnpx codemod run pnpm-v10-to-v11`.',
     ].join('\n'),
   );

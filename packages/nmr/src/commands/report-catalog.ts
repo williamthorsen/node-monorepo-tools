@@ -73,18 +73,20 @@ function describeCatalog(count: number, monorepoRoot: string): string {
  */
 function findCataloguedDependencies(packageDir: string): CataloguedDependency[] {
   const pkg = readPackageJson(packageDir);
-  const found = new Map<string, string>();
+  const foundDependencies = new Map<string, string>();
 
   for (const field of DEPENDENCY_FIELDS) {
-    const declared = Object.entries(pkg[field] ?? {});
-    for (const [name, specifier] of declared) {
-      if (specifier.startsWith(CATALOG_PROTOCOL) && !found.has(name)) {
-        found.set(name, specifier);
+    const declaredEntries = Object.entries(pkg[field] ?? {});
+    for (const [name, specifier] of declaredEntries) {
+      if (specifier.startsWith(CATALOG_PROTOCOL) && !foundDependencies.has(name)) {
+        foundDependencies.set(name, specifier);
       }
     }
   }
 
-  return [...found].map(([name, specifier]) => ({ name, specifier })).toSorted((a, b) => a.name.localeCompare(b.name));
+  return [...foundDependencies]
+    .map(([name, specifier]) => ({ name, specifier }))
+    .toSorted((a, b) => a.name.localeCompare(b.name));
 }
 
 // endregion | Helpers
