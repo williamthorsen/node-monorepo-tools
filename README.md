@@ -1,3 +1,5 @@
+<!-- readme-type: monorepo-root -->
+
 # Pnpm Node monorepo
 
 ## Packages
@@ -14,7 +16,7 @@
 ### Prerequisites
 
 - **Node** -- the version is pinned in `.tool-versions`, which [asdf](https://asdf-vm.com/) and [mise](https://mise.jdx.dev/) both read.
-- **pnpm** -- the version is pinned by the `packageManager` field in the root `package.json`. [Corepack](https://github.com/nodejs/corepack) reads that field and gives you the matching version, so it is the method least likely to drift from the repo; its README covers installation. Any [other method](https://pnpm.io/installation) works too.
+- **pnpm** -- the version is pinned by the `packageManager` field in the root `package.json`. pnpm's [installation page](https://pnpm.io/installation) covers the standalone script and the other installation methods.
 
 ### Set up a checkout
 
