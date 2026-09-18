@@ -116,7 +116,7 @@ function listReusableWorkflows(): string[] {
   return readdirSync(workflowsDir)
     .filter((entry) => entry.endsWith('.reusable.yaml'))
     .map((entry) => entry.replace(/\.reusable\.yaml$/, ''))
-    .sort();
+    .toSorted();
 }
 
 function readWorkflow(name: string): string {
