@@ -29,7 +29,7 @@ export const DEFAULT_HOOK = 'npm run build';
  */
 export function ensurePrepublishHooks(
   monorepoRoot: string,
-  options: { fix: boolean; dryRun: boolean; command?: string },
+  options: { shouldFix: boolean; isDryRun: boolean; command?: string },
 ): EnsurePrepublishHooksResult {
   const hookCommand = options.command ?? DEFAULT_HOOK;
   const packageDirs = getWorkspacePackageDirs(monorepoRoot);
@@ -64,10 +64,10 @@ export function ensurePrepublishHooks(
       continue;
     }
 
-    if (options.fix) {
-      const action = options.dryRun ? ('would-fix' as const) : ('fixed' as const);
+    if (options.shouldFix) {
+      const action = options.isDryRun ? ('would-fix' as const) : ('fixed' as const);
 
-      if (!options.dryRun) {
+      if (!options.isDryRun) {
         addPrepublishOnly(packageDir, hookCommand);
       }
 
