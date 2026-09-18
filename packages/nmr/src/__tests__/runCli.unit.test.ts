@@ -383,6 +383,73 @@ describe(runCli, () => {
     });
   });
 
+  // A `-R` nmr composed into its own script asked for no fan-out on the caller's behalf, so a workspace with
+  // no package leaves it nothing to do rather than failing the run. A typed `-R` keeps refusing, above.
+  describe('a composed recursive step in a package-free workspace', () => {
+    it('drops the recursive step and runs what stands beside it', async ({ packagelessTree }) => {
+      await runNmr(['test'], packagelessTree.dir);
+
+      expect(stepsFromCall()).toStrictEqual([{ kind: 'structural', argv: ['nmr', 'root:test'] }]);
+    });
+
+    it('drops the recursive step from a composite whose other step declines the arguments', async ({
+      packagelessTree,
+    }) => {
+      await runNmr(['typecheck'], packagelessTree.dir);
+
+      expect(stepsFromCall()).toStrictEqual([
+        { kind: 'structural', argv: ['nmr', 'root:typecheck'], shouldDeclineArguments: true },
+      ]);
+    });
+
+    it('reports a no-op naming the workspace where the drop leaves no step at all', async ({ packagelessTree }) => {
+      const { exitCode, stdout } = await runNmrReadingStdout(['build'], packagelessTree.dir);
+
+      expect(exitCode).toBe(0);
+      expect(mockedRunSteps).not.toHaveBeenCalled();
+      expect(stdout).toContain('build: skipped, the workspace declares no package');
+      expect(stdout).not.toContain('the override is empty');
+    });
+
+    it('names the workspace in the JSON verdict, which a consumer reads the reason from', async ({
+      packagelessTree,
+    }) => {
+      const { stdout } = await runNmrReadingStdout(['--json', 'build'], packagelessTree.dir);
+      const parsed: unknown = JSON.parse(stdout);
+
+      expect(parsed).toMatchObject({ command: 'build', outcome: 'no-op', reason: 'empty-workspace' });
+    });
+
+    it('leaves a composite carrying no recursive step reaching every constituent', async ({ packagelessTree }) => {
+      await runNmr(['ci'], packagelessTree.dir);
+
+      expect(stepsFromCall()).toStrictEqual([
+        { kind: 'structural', argv: ['nmr', 'build'], shouldDeclineArguments: true },
+        { kind: 'structural', argv: ['nmr', 'check:strict'] },
+      ]);
+    });
+
+    it('still reports an empty override as an empty override, which the drop did not empty', async ({
+      packagelessTree,
+    }) => {
+      writePackageScripts(packagelessTree, { build: '' });
+
+      const { stdout } = await runNmrReadingStdout(['--json', 'build'], packagelessTree.dir);
+      const parsed: unknown = JSON.parse(stdout);
+
+      expect(parsed).toMatchObject({ outcome: 'no-op', reason: 'empty-override' });
+    });
+
+    it('leaves a recursive step standing where the workspace holds a package', async ({ tree }) => {
+      await runNmr(['test'], tree.dir);
+
+      expect(stepsFromCall()).toStrictEqual([
+        { kind: 'structural', argv: ['nmr', 'root:test'] },
+        { kind: 'structural', argv: ['nmr', '-R', 'test'] },
+      ]);
+    });
+  });
+
   describe('step composition', () => {
     it('resolves a composite to one structural step per element', async ({ tree }) => {
       await runNmr(['fix'], tree.dir);

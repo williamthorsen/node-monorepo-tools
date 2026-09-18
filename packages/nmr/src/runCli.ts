@@ -63,7 +63,7 @@ import {
   type ScriptOrigin,
 } from './resolver.ts';
 import { resolveChannel, type RetainedOutput, runSteps, type RunStepsOptions } from './runner.ts';
-import { composeNmrStep, findNmrCrossing, renderChain, type Step } from './steps.ts';
+import { composeNmrStep, dropRecursiveSteps, findNmrCrossing, renderChain, type Step } from './steps.ts';
 import type { NmrConfig } from './types.ts';
 import { UserError } from './UserError.ts';
 import {
@@ -73,7 +73,7 @@ import {
   resolveVerbosity,
   type ResolveVerbosityOptions,
 } from './verbosity.ts';
-import { type Verdict, type VerdictOutcome, writeVerdict } from './verdict.ts';
+import { type NoOpReason, type Verdict, type VerdictOutcome, writeVerdict } from './verdict.ts';
 import { diagnoseEmptyWorkspace, readWorkspacePackageNames } from './workspace.ts';
 
 const VERSION = readPackageVersion(import.meta.url);
@@ -241,15 +241,21 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     return { exitCode: 1 };
   }
 
-  const resolvedCommand = renderChain(resolved.steps);
+  // Ahead of the rendering, which is the cache key and what `--log` resolves: a filter applied later would let
+  // a run and a reading of its recording disagree about what the chain was.
+  const isPackageless = context.workspacePackageDirs.length === 0;
+  const runnableSteps = isPackageless ? dropRecursiveSteps(resolved.steps) : resolved.steps;
+  const isEmptiedByWorkspace = runnableSteps.length === 0 && resolved.steps.length > 0;
 
-  const noOpReason = findNoOpReason(resolvedCommand);
+  const resolvedCommand = renderChain(runnableSteps);
+
+  const noOpReason = findNoOpReason(resolvedCommand, isEmptiedByWorkspace);
   if (noOpReason !== undefined && !parsed.log) {
     reportVerdict({ command, scope, outcome: 'no-op', reason: noOpReason }, stdout, format, styles.stdout);
     return { exitCode: 0 };
   }
 
-  const substitutedSteps = applyDevBinToSteps(resolved.steps, context.config.devBin, context.monorepoRoot);
+  const substitutedSteps = applyDevBinToSteps(runnableSteps, context.config.devBin, context.monorepoRoot);
   const substitutedCommand = renderChain(substitutedSteps);
 
   // Ahead of the recording branch as well as the run, so that reading what a command did and running it answer
@@ -933,8 +939,14 @@ function renderQuotedList(items: readonly string[]): string {
  * Returns why a resolved command runs nothing, or `undefined` when there is something to run. A command that
  * ran nothing is not a command that passed, and the two exit alike, so the reason is what a verdict spends on
  * telling them apart.
+ *
+ * A chain the package-free filter emptied renders exactly as an `""` override does, so the caller states which
+ * it was rather than leaving the reason to be read back out of the string.
  */
-function findNoOpReason(resolvedCommand: string): 'empty-override' | 'noop-override' | undefined {
+function findNoOpReason(resolvedCommand: string, isEmptiedByWorkspace: boolean): NoOpReason | undefined {
+  if (isEmptiedByWorkspace) {
+    return 'empty-workspace';
+  }
   if (resolvedCommand === '') {
     return 'empty-override';
   }
