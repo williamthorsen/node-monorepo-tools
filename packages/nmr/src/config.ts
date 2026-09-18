@@ -153,12 +153,12 @@ function validateCheckCacheField(value: Record<string, unknown>, configPath: str
 
   const config: CheckCacheConfig = {};
 
-  const enabled: unknown = checkCache['enabled'];
-  if (enabled !== undefined) {
-    if (typeof enabled !== 'boolean') {
+  const enabledValue: unknown = checkCache['enabled'];
+  if (enabledValue !== undefined) {
+    if (typeof enabledValue !== 'boolean') {
       throw new UserError(`Invalid nmr config at ${configPath}: \`checkCache.enabled\` must be a boolean`);
     }
-    config.enabled = enabled;
+    config.enabled = enabledValue;
   }
 
   for (const field of ['excludeCommands', 'extraCommands'] as const) {
@@ -206,25 +206,25 @@ function assertResolvableCheckCacheCommands(config: NmrConfig, configPath: strin
     );
   }
 
-  const registered = new Set([
+  const registeredNames = new Set([
     ...Object.keys(buildRootRegistry(config)),
     ...Object.keys(buildWorkspaceRegistry(config)),
   ]);
-  const missing = entries.filter(({ command }) => !registered.has(command));
-  if (missing.length === 0) {
+  const missingEntries = entries.filter(({ command }) => !registeredNames.has(command));
+  if (missingEntries.length === 0) {
     return;
   }
 
-  const declared = readDeclaredScriptNames(baseDir);
-  const unresolvable = missing.find(({ command }) => !declared.has(command));
-  if (unresolvable === undefined) {
+  const declaredNames = readDeclaredScriptNames(baseDir);
+  const unresolvableEntry = missingEntries.find(({ command }) => !declaredNames.has(command));
+  if (unresolvableEntry === undefined) {
     return;
   }
 
-  const closest = findClosestName(unresolvable.command, [...registered, ...declared]);
+  const closestName = findClosestName(unresolvableEntry.command, [...registeredNames, ...declaredNames]);
   throw new UserError(
-    `Invalid nmr config at ${configPath}: \`checkCache.${unresolvable.field}\` names no command: ` +
-      `\`${unresolvable.command}\`.${closest === undefined ? '' : ` Did you mean \`${closest}\`?`}`,
+    `Invalid nmr config at ${configPath}: \`checkCache.${unresolvableEntry.field}\` names no command: ` +
+      `\`${unresolvableEntry.command}\`.${closestName === undefined ? '' : ` Did you mean \`${closestName}\`?`}`,
   );
 }
 
@@ -290,9 +290,9 @@ function validateOutputField(value: Record<string, unknown>, configPath: string)
   if (commandVerbosity !== undefined) {
     if (typeof commandVerbosity !== 'string' || !isCommandVerbosity(commandVerbosity)) {
       // A non-string renders through JSON so an object reaches the reader as its shape, not `[object Object]`.
-      const rendered = typeof commandVerbosity === 'string' ? commandVerbosity : JSON.stringify(commandVerbosity);
+      const renderedValue = typeof commandVerbosity === 'string' ? commandVerbosity : JSON.stringify(commandVerbosity);
       throw new UserError(
-        `Invalid nmr config at ${configPath}: ${formatVerbosityRejection('`output.commandVerbosity`', rendered)}`,
+        `Invalid nmr config at ${configPath}: ${formatVerbosityRejection('`output.commandVerbosity`', renderedValue)}`,
       );
     }
     config.commandVerbosity = commandVerbosity;
@@ -371,10 +371,10 @@ export async function loadConfig(baseDir: string): Promise<NmrConfig> {
 
   // Node type-strips `.ts` natively at this package's engines floor, so the config needs no transform step
   // and no loader dependency. `import()` takes a URL, not a path: A bare Windows path parses as a scheme.
-  const imported: unknown = await import(pathToFileURL(configPath).href);
-  const loaded = isObject(imported) ? imported['default'] : undefined;
+  const importedModule: unknown = await import(pathToFileURL(configPath).href);
+  const loadedConfig = isObject(importedModule) ? importedModule['default'] : undefined;
 
-  return validateConfig(loaded, configPath, baseDir);
+  return validateConfig(loadedConfig, configPath, baseDir);
 }
 
 /**
@@ -427,14 +427,14 @@ function assertNoRetiredKeys(
  * typo or a stale spelling, and the setting it appears to make is one nothing reads.
  */
 function assertRecognizedKeys(value: object, recognizedKeys: string[], configPath: string, prefix = ''): void {
-  const unrecognized = Object.keys(value).filter((key) => !recognizedKeys.includes(key));
-  if (unrecognized.length === 0) {
+  const unrecognizedKeys = Object.keys(value).filter((key) => !recognizedKeys.includes(key));
+  if (unrecognizedKeys.length === 0) {
     return;
   }
 
   throw new UserError(
-    `Invalid nmr config at ${configPath}: unrecognized ${unrecognized.length === 1 ? 'key' : 'keys'} ` +
-      `${formatKeyList(unrecognized, prefix)}. Recognized: ${formatKeyList(recognizedKeys, prefix)}.`,
+    `Invalid nmr config at ${configPath}: unrecognized ${unrecognizedKeys.length === 1 ? 'key' : 'keys'} ` +
+      `${formatKeyList(unrecognizedKeys, prefix)}. Recognized: ${formatKeyList(recognizedKeys, prefix)}.`,
   );
 }
 
@@ -443,14 +443,14 @@ function assertRecognizedKeys(value: object, recognizedKeys: string[], configPat
  * they go. Each tier loads the same file shape, so only the loader can tell a key apart from one it honors.
  */
 function assertTierKeys(config: NmrConfig, tier: ConfigTier, configPath: string): void {
-  const unsupported = Object.keys(config).filter((key) => !tier.honoredKeys.includes(key));
-  if (unsupported.length === 0) {
+  const unsupportedKeys = Object.keys(config).filter((key) => !tier.honoredKeys.includes(key));
+  if (unsupportedKeys.length === 0) {
     return;
   }
 
   throw new UserError(
     `Invalid nmr config at ${configPath}: ${tier.label} honors ${tier.honoredKeys.toSorted().join(', ')} alone, ` +
-      `not ${unsupported.toSorted().join(', ')}. Move those keys to ${tier.elsewhere}.`,
+      `not ${unsupportedKeys.toSorted().join(', ')}. Move those keys to ${tier.elsewhere}.`,
   );
 }
 

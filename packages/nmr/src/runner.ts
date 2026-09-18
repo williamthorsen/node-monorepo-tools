@@ -51,7 +51,7 @@ export interface RunStepsResult {
    * What the list's opaque steps produced, absent unless every one of them was captured whole and there was
    * at least one to capture.
    */
-  retained?: RetainedOutput;
+  retainedOutput?: RetainedOutput;
 }
 
 /** How a command ended, and the exit code that carries that ending to nmr's own caller. */
@@ -105,7 +105,7 @@ export async function runSteps(
   cwd: string | undefined,
   options: RunStepsOptions,
 ): Promise<RunStepsResult> {
-  const resolved = {
+  const resolvedOptions = {
     ...options,
     quiet: options.quiet === true,
     stdout: options.stdout ?? process.stdout,
@@ -116,7 +116,7 @@ export async function runSteps(
   let isCaptureWhole = true;
 
   for (const step of steps) {
-    const result = await runStep(step, cwd, resolved);
+    const result = await runStep(step, cwd, resolvedOptions);
 
     // Read from the step's kind rather than from whether the child handed back a pipe. A structural step runs
     // on inherited descriptors, but a destination carrying none falls back to a pipe and is captured like any
@@ -191,7 +191,7 @@ async function runSpawned(
   const stdoutCapture = child.stdout === null ? undefined : captureStream(child.stdout, quiet ? undefined : stdout);
   const stderrCapture = child.stderr === null ? undefined : captureStream(child.stderr, quiet ? undefined : stderr);
 
-  const completion = await awaitCompletion(child, () => {
+  const commandCompletion = await awaitCompletion(child, () => {
     stdoutCapture?.stopReading();
     stderrCapture?.stopReading();
   });
@@ -200,7 +200,7 @@ async function runSpawned(
   stderrCapture?.detach();
 
   const result: RunCommandResult = {
-    ...completion,
+    ...commandCompletion,
     stdout: stdoutCapture?.toBuffer(),
     stderr: stderrCapture?.toBuffer(),
   };
@@ -257,13 +257,13 @@ function runStep(
 function composeRetainedOutput(
   parts: readonly RetainedOutput[],
   isCaptureWhole: boolean,
-): { retained?: RetainedOutput } {
+): { retainedOutput?: RetainedOutput } {
   if (!isCaptureWhole || parts.length === 0) {
     return {};
   }
 
   return {
-    retained: {
+    retainedOutput: {
       stderr: Buffer.concat(parts.map((part) => part.stderr)),
       stdout: Buffer.concat(parts.map((part) => part.stdout)),
     },
@@ -275,7 +275,7 @@ function captureStream(
   source: Readable,
   destination: Writable | undefined,
 ): { toBuffer: () => Buffer | undefined; detach: () => void; stopReading: () => void } {
-  const retained = createBoundedBuffer();
+  const retainedCopy = createBoundedBuffer();
   let isComplete = true;
 
   /**
@@ -300,10 +300,10 @@ function captureStream(
     destination.on('error', abandon);
     source.pipe(destination, { end: false });
   }
-  source.on('data', (chunk: Buffer) => retained.append(chunk));
+  source.on('data', (chunk: Buffer) => retainedCopy.append(chunk));
 
   return {
-    toBuffer: () => (isComplete ? retained.toBuffer() : undefined),
+    toBuffer: () => (isComplete ? retainedCopy.toBuffer() : undefined),
     detach: () => {
       destination?.off('error', abandon);
     },
@@ -330,11 +330,11 @@ function awaitCompletion(child: ChildProcess, stopReading: () => void): Promise<
     });
 
     child.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
-      const completion = describeExit(code, signal);
-      exitCompletion = completion;
+      const exitDescription = describeExit(code, signal);
+      exitCompletion = exitDescription;
       graceTimer = setTimeout(() => {
         stopReading();
-        settle(completion);
+        settle(exitDescription);
       }, PIPE_DRAIN_GRACE_MS);
     });
 

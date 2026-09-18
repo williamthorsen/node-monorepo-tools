@@ -554,15 +554,16 @@ async function composeRetention(options: {
   command: string;
   key: string;
   monorepoRoot: string;
-  retained: RetainedOutput | undefined;
+  retainedOutput: RetainedOutput | undefined;
   runId: string;
   steps: readonly Step[];
   treeHash: string;
 }): Promise<Retention | undefined> {
-  const { anchorDir, command, key, retained, runId } = options;
+  const { anchorDir, command, key, retainedOutput, runId } = options;
 
-  if (retained !== undefined) {
-    const excerpt = deriveExcerpt(retained.stdout.toString('utf8')) ?? deriveExcerpt(retained.stderr.toString('utf8'));
+  if (retainedOutput !== undefined) {
+    const excerpt =
+      deriveExcerpt(retainedOutput.stdout.toString('utf8')) ?? deriveExcerpt(retainedOutput.stderr.toString('utf8'));
     if (excerpt === undefined) {
       return undefined;
     }
@@ -1419,7 +1420,7 @@ async function recordPass(options: {
   env: NodeJS.ProcessEnv;
   key: string;
   monorepoRoot: string;
-  retained: RetainedOutput | undefined;
+  retainedOutput: RetainedOutput | undefined;
   ownSteps: readonly Step[];
   retentionKey: string;
   runId: string;
@@ -1461,14 +1462,14 @@ async function recordPass(options: {
     command,
     key: options.retentionKey,
     monorepoRoot,
-    retained: options.retained,
+    retainedOutput: options.retainedOutput,
     runId: options.runId,
     steps: options.ownSteps,
     treeHash: snapshot.hash,
   });
 
   const ref = { anchorDir, command, monorepoRoot };
-  const transcript = options.retained === undefined ? undefined : composeTranscript(options.retained);
+  const transcript = options.retainedOutput === undefined ? undefined : composeTranscript(options.retainedOutput);
 
   try {
     // Ahead of the entry, and withdrawn again where the entry fails to land, so a reader never dates one
@@ -1655,7 +1656,7 @@ async function runGated(options: {
   }
 
   const startedAt = Date.now();
-  const { exitCode, retained } = await runSteps(options.steps, anchorDir, options.runOptions);
+  const { exitCode, retainedOutput } = await runSteps(options.steps, anchorDir, options.runOptions);
   const durationMs = Date.now() - startedAt;
 
   if (exitCode === 0 && gate !== undefined) {
@@ -1670,7 +1671,7 @@ async function runGated(options: {
       key: gate.key,
       monorepoRoot,
       ownSteps: options.ownSteps,
-      retained,
+      retainedOutput,
       retentionKey: gate.retentionKey,
       runId: options.runId,
       snapshot: gate.snapshot,

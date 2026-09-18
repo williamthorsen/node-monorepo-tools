@@ -40,30 +40,30 @@ export type PackageJson = {
  */
 export function readPackageJson(dir: string): PackageJson {
   const file = resolvePackageJsonPath(dir);
-  const parsed = parsePackageJson(readFileSync(file, 'utf8'), file);
+  const parsedManifest = parsePackageJson(readFileSync(file, 'utf8'), file);
 
-  if (!isObject(parsed)) {
+  if (!isObject(parsedManifest)) {
     throw new UserError(`Invalid package.json in ${dir}: expected an object`);
   }
 
   const pkg: PackageJson = {};
-  if (typeof parsed['name'] === 'string') pkg.name = parsed['name'];
-  if (parsed['private'] === true) pkg.private = true;
-  if (typeof parsed['version'] === 'string') pkg.version = parsed['version'];
-  if (typeof parsed['packageManager'] === 'string') pkg.packageManager = parsed['packageManager'];
-  if (isObject(parsed['scripts'])) {
-    pkg.scripts = readScriptRecord(dir, parsed['scripts']);
+  if (typeof parsedManifest['name'] === 'string') pkg.name = parsedManifest['name'];
+  if (parsedManifest['private'] === true) pkg.private = true;
+  if (typeof parsedManifest['version'] === 'string') pkg.version = parsedManifest['version'];
+  if (typeof parsedManifest['packageManager'] === 'string') pkg.packageManager = parsedManifest['packageManager'];
+  if (isObject(parsedManifest['scripts'])) {
+    pkg.scripts = readScriptRecord(dir, parsedManifest['scripts']);
   }
-  if (isObject(parsed['pnpm'])) {
-    const pnpm = parsed['pnpm'];
+  if (isObject(parsedManifest['pnpm'])) {
+    const pnpm = parsedManifest['pnpm'];
     if (isObject(pnpm['overrides'])) {
       pkg.pnpm = { overrides: pnpm['overrides'] };
     }
   }
   for (const field of DEPENDENCY_FIELDS) {
-    const declared = parsed[field];
-    if (isObject(declared)) {
-      pkg[field] = readStringValues(declared);
+    const declaredDependencies = parsedManifest[field];
+    if (isObject(declaredDependencies)) {
+      pkg[field] = readStringValues(declaredDependencies);
     }
   }
 

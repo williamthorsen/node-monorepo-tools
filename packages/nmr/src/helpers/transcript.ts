@@ -52,8 +52,8 @@ export function cleanTranscript(raw: string): string {
  * failure: nmr reads each through a pipe of its own, so their true interleaving is not among the facts it
  * holds. A stream carrying nothing contributes neither content nor marker.
  */
-export function composeTranscript(retained: RetainedOutput): string | undefined {
-  const streams = [retained.stdout, retained.stderr]
+export function composeTranscript(retainedOutput: RetainedOutput): string | undefined {
+  const streams = [retainedOutput.stdout, retainedOutput.stderr]
     .map((stream) => cleanTranscript(stream.toString('utf8')))
     .filter((stream) => stream.trim() !== '');
   if (streams.length === 0) {

@@ -27,7 +27,7 @@ export function applyDevBin(command: string, devBin: Record<string, string> | un
 
   const spaceIndex = command.indexOf(' ');
   const firstToken = spaceIndex === -1 ? command : command.slice(0, spaceIndex);
-  const rest = spaceIndex === -1 ? '' : command.slice(spaceIndex);
+  const restOfCommand = spaceIndex === -1 ? '' : command.slice(spaceIndex);
 
   const replacement = devBin[firstToken];
   if (replacement === undefined) {
@@ -35,7 +35,7 @@ export function applyDevBin(command: string, devBin: Record<string, string> | un
   }
 
   const resolvedReplacement = resolveReplacementPaths(replacement, monorepoRoot);
-  return resolvedReplacement + rest;
+  return resolvedReplacement + restOfCommand;
 }
 
 /**
@@ -139,9 +139,9 @@ function describeElement(element: string | StepSpec): string {
 export function readPackageJsonScripts(packageDir: string): Record<string, string> | undefined {
   const file = resolvePackageJsonPath(packageDir);
 
-  let raw: string;
+  let rawText: string;
   try {
-    raw = readFileSync(file, 'utf8');
+    rawText = readFileSync(file, 'utf8');
   } catch (error: unknown) {
     if (hasErrnoCode(error, 'ENOENT')) {
       return undefined;
@@ -149,10 +149,10 @@ export function readPackageJsonScripts(packageDir: string): Record<string, strin
     throw error;
   }
 
-  const parsed = parsePackageJson(raw, file);
-  if (!isObject(parsed)) return undefined;
+  const parsedManifest = parsePackageJson(rawText, file);
+  if (!isObject(parsedManifest)) return undefined;
 
-  const scripts = parsed['scripts'];
+  const scripts = parsedManifest['scripts'];
   if (!isObject(scripts)) return undefined;
 
   return readScriptRecord(packageDir, scripts);
@@ -238,11 +238,11 @@ export function resolveScript(
   if (packageDir) {
     const pkgScripts = readPackageJsonScripts(packageDir);
     if (pkgScripts && Object.hasOwn(pkgScripts, commandName)) {
-      const override = pkgScripts[commandName];
-      if (override !== undefined && !isSelfReferential(override, commandName, packageDir)) {
+      const overrideCommand = pkgScripts[commandName];
+      if (overrideCommand !== undefined && !isSelfReferential(overrideCommand, commandName, packageDir)) {
         return {
           origin: { tier: 'package', file: resolvePackageJsonPath(packageDir), key: commandName },
-          steps: [{ kind: 'opaque', command: override }],
+          steps: [{ kind: 'opaque', command: overrideCommand }],
         };
       }
     }

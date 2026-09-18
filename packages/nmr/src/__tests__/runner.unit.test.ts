@@ -630,8 +630,8 @@ describe(runSteps, () => {
         stdout: new PassThrough(),
       });
 
-      expect(result.retained?.stdout.toString('utf8')).toBe('a summary\n');
-      expect(result.retained?.stderr.toString('utf8')).toBe('a warning\n');
+      expect(result.retainedOutput?.stdout.toString('utf8')).toBe('a summary\n');
+      expect(result.retainedOutput?.stderr.toString('utf8')).toBe('a warning\n');
     });
 
     it('concatenates several opaque steps per stream in declaration order', async () => {
@@ -642,7 +642,7 @@ describe(runSteps, () => {
         stdout: new PassThrough(),
       });
 
-      expect(result.retained?.stdout.toString('utf8')).toBe('first\nsecond\n');
+      expect(result.retainedOutput?.stdout.toString('utf8')).toBe('first\nsecond\n');
     });
 
     // A composite hands its descriptors to the nmr processes below it, and a destination carrying none makes
@@ -655,7 +655,7 @@ describe(runSteps, () => {
         stdout: new PassThrough(),
       });
 
-      expect(result.retained).toBeUndefined();
+      expect(result.retainedOutput).toBeUndefined();
     });
 
     it('given hooks wrapped around the command, retains the command output alone', async () => {
@@ -671,7 +671,7 @@ describe(runSteps, () => {
         { stderr: new PassThrough(), stdout: new PassThrough() },
       );
 
-      expect(result.retained?.stdout.toString('utf8')).toBe('the command\n');
+      expect(result.retainedOutput?.stdout.toString('utf8')).toBe('the command\n');
     });
 
     it('given a stream handed to the child as a descriptor, retains nothing', async () => {
@@ -682,7 +682,7 @@ describe(runSteps, () => {
         stdout: createTerminalStream(),
       });
 
-      expect(result.retained).toBeUndefined();
+      expect(result.retainedOutput).toBeUndefined();
     });
 
     it('given one opaque step captured and another handed a descriptor, retains nothing', async () => {
@@ -710,7 +710,7 @@ describe(runSteps, () => {
         stdout: new PassThrough(),
       });
 
-      expect(result.retained).toBeUndefined();
+      expect(result.retainedOutput).toBeUndefined();
     });
 
     it('given a failing step, still carries back what ran', async () => {
@@ -722,7 +722,7 @@ describe(runSteps, () => {
       });
 
       expect(result.exitCode).toBe(1);
-      expect(result.retained?.stdout.toString('utf8')).toBe('the failure\n');
+      expect(result.retainedOutput?.stdout.toString('utf8')).toBe('the failure\n');
     });
   });
 
