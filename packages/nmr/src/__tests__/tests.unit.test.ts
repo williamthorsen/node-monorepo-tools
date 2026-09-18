@@ -4,7 +4,7 @@ import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
-import { reportTestFileConventions } from '../tests.ts';
+import { checkTestFileConventions, reportTestFileConventions } from '../tests.ts';
 
 // Derived from this file's own location rather than from the function under test, so the assertion has a second
 // opinion about where the root is.
@@ -37,17 +37,35 @@ describe(reportTestFileConventions, () => {
 
   it('sweeps the directory the caller names, reporting each half once', ({ tree }) => {
     expect(reportTestFileConventions({ rootDir: tree.dir })).toStrictEqual({
-      misplaced: ['generated/scaffold.unit.test.ts', 'src/outside.unit.test.ts'],
+      misplacedFiles: ['generated/scaffold.unit.test.ts', 'src/outside.unit.test.ts'],
       rootDir: tree.dir,
-      untiered: ['generated/__tests__/scaffold.test.ts', 'src/__tests__/untiered.test.ts'],
+      untieredFiles: ['generated/__tests__/scaffold.test.ts', 'src/__tests__/untiered.test.ts'],
     });
   });
 
   it('threads the exclusions to both halves', ({ tree }) => {
-    expect(reportTestFileConventions({ exclude: ['generated'], rootDir: tree.dir })).toStrictEqual({
-      misplaced: ['src/outside.unit.test.ts'],
+    expect(reportTestFileConventions({ excludedBasenames: ['generated'], rootDir: tree.dir })).toStrictEqual({
+      misplacedFiles: ['src/outside.unit.test.ts'],
       rootDir: tree.dir,
-      untiered: ['src/__tests__/untiered.test.ts'],
+      untieredFiles: ['src/__tests__/untiered.test.ts'],
     });
+  });
+
+  it('rejects the retired exclude, naming its replacement', () => {
+    // @ts-expect-error - the option was renamed; a JavaScript consumer can still write the old spelling
+    const sweep = () => reportTestFileConventions({ exclude: ['generated'] });
+
+    expect(sweep).toThrow('Invalid test-file-conventions options: `exclude` was renamed to `excludedBasenames`.');
+  });
+});
+
+// The guard runs on this entry point too, because it takes the same options object and a consumer reaches it
+// directly rather than through the reporting half.
+describe(checkTestFileConventions, () => {
+  it('rejects the retired exclude, naming its replacement', () => {
+    // @ts-expect-error - the option was renamed; a JavaScript consumer can still write the old spelling
+    const declare = () => checkTestFileConventions({ exclude: ['generated'] });
+
+    expect(declare).toThrow('Invalid test-file-conventions options: `exclude` was renamed to `excludedBasenames`.');
   });
 });

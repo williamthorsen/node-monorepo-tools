@@ -82,7 +82,7 @@ export interface TestFileScanOptions {
    * config's `testCollectionExclude`. A directory pruned from the sweep but still collected by Vitest is the
    * silence these sweeps exist to end.
    */
-  exclude?: readonly string[];
+  excludedBasenames?: readonly string[];
 }
 
 /**
@@ -132,11 +132,11 @@ interface WalkContext {
  * The two halves of the convention read the same pattern and the same prune set, differing only in which side of
  * `__tests__` they keep, so they cannot disagree about what counts as a test file or about what is out of scope.
  */
-function walkTestFiles(rootDir: string, { exclude = [] }: TestFileScanOptions, misplaced: boolean): string[] {
+function walkTestFiles(rootDir: string, { excludedBasenames = [] }: TestFileScanOptions, misplaced: boolean): string[] {
   const context: WalkContext = {
     found: [],
     misplaced,
-    pruned: new Set([...TEST_COLLECTION_EXCLUDE, ...exclude]),
+    pruned: new Set([...TEST_COLLECTION_EXCLUDE, ...excludedBasenames]),
   };
 
   collectTestFiles(rootDir, '', false, context);

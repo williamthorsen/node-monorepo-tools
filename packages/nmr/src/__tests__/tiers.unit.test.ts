@@ -67,7 +67,7 @@ describe(findMisplacedTestFiles, () => {
   });
 
   it('prunes a directory the caller excludes', ({ fixtureTree }) => {
-    expect(findMisplacedTestFiles(fixtureTree.dir, { exclude: CALLER_EXCLUDE })).toStrictEqual([
+    expect(findMisplacedTestFiles(fixtureTree.dir, { excludedBasenames: CALLER_EXCLUDE })).toStrictEqual([
       'src/nested/outside.test.tsx',
       'src/outside.unit.test.ts',
     ]);
@@ -106,7 +106,7 @@ describe(findTestFiles, () => {
   });
 
   it('prunes a directory the caller excludes, at any depth', ({ fixtureTree }) => {
-    expect(findTestFiles(fixtureTree.dir, { exclude: CALLER_EXCLUDE })).toStrictEqual([
+    expect(findTestFiles(fixtureTree.dir, { excludedBasenames: CALLER_EXCLUDE })).toStrictEqual([
       '.readyup/kits/__tests__/kit.unit.test.ts',
       'src/__tests__/nested/deep.unit.test.tsx',
       'src/__tests__/plain.unit.test.ts',
@@ -125,7 +125,7 @@ describe(findUntieredTestFiles, () => {
   });
 
   it('prunes a directory the caller excludes', ({ fixtureTree }) => {
-    expect(findUntieredTestFiles(fixtureTree.dir, { exclude: CALLER_EXCLUDE })).toStrictEqual([]);
+    expect(findUntieredTestFiles(fixtureTree.dir, { excludedBasenames: CALLER_EXCLUDE })).toStrictEqual([]);
   });
 
   it('returns an empty list for a tree holding no test file', ({ emptyTree }) => {
