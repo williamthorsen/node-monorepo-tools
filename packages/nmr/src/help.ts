@@ -19,11 +19,11 @@ import type { NmrConfig } from './types.ts';
  * `package.json:scripts` that match a registry name in the active section
  * are inlined as overrides: the registry value is replaced with the
  * override value and the row's command name is suffixed with `*`. The
- * active section is the root section when `useRoot` is true (root cwd
+ * active section is the root section when `shouldUseRoot` is true (root cwd
  * or `-w`), otherwise the workspace section. A footnote is appended once
  * if any override marker was rendered.
  */
-export function generateHelp(config: NmrConfig, packageDir: string | undefined, useRoot: boolean): string {
+export function generateHelp(config: NmrConfig, packageDir: string | undefined, shouldUseRoot: boolean): string {
   const lines: string[] = [
     'Usage: nmr [flags] <command> [args...]',
     '',
@@ -51,13 +51,13 @@ export function generateHelp(config: NmrConfig, packageDir: string | undefined, 
   let hadOverride = false;
 
   const workspaceRegistry = filterHooks(buildWorkspaceRegistry(config));
-  const workspaceMarked = !useRoot ? applyOverrides(workspaceRegistry, overrides) : new Set<string>();
+  const workspaceMarked = !shouldUseRoot ? applyOverrides(workspaceRegistry, overrides) : new Set<string>();
   if (workspaceMarked.size > 0) hadOverride = true;
   formatRegistry(workspaceRegistry, workspaceMarked, lines);
 
   lines.push('', 'Root commands:');
   const rootRegistry = filterHooks(buildRootRegistry(config));
-  const rootMarked = useRoot ? applyOverrides(rootRegistry, overrides) : new Set<string>();
+  const rootMarked = shouldUseRoot ? applyOverrides(rootRegistry, overrides) : new Set<string>();
   if (rootMarked.size > 0) hadOverride = true;
   formatRegistry(rootRegistry, rootMarked, lines);
 
