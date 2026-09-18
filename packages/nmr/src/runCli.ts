@@ -1,7 +1,12 @@
 import path from 'node:path';
 import type { Writable } from 'node:stream';
 
-import { readPackageVersion, reportError } from '@williamthorsen/nmr-core';
+import {
+  describeInvalidOutputStyle,
+  readPackageVersion,
+  reportError,
+  type StreamStyles,
+} from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import {
@@ -38,6 +43,7 @@ import { findClosestName } from './helpers/findClosestName.ts';
 import { isHookName } from './helpers/hook-name.ts';
 import { resolvePackageJsonPath } from './helpers/package-json.ts';
 import { composeTranscript } from './helpers/transcript.ts';
+import { isTerminalStream, OUTPUT_STYLE_ENV_VAR, OUTPUT_STYLE_FLAG, resolveOutputStyles } from './output-style.ts';
 import { renderRecording, renderRefusal, resolveRecording } from './recording.ts';
 import { assembleReplay } from './replay-assembly.ts';
 import { readReportFormatEnv, REPORT_FORMAT_ENV_VAR, type ReportFormat, resolveReportFormat } from './report-format.ts';
@@ -133,6 +139,18 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     reportError(inherited.error, stderr);
     return { exitCode: 1 };
   }
+
+  const { invalid, styles } = resolveOutputStyles({
+    env,
+    ...(parsed.outputStyle !== undefined && { flagValue: parsed.outputStyle }),
+    stderrIsTty: isTerminalStream(stderr),
+    stdoutIsTty: isTerminalStream(stdout),
+  });
+  if (invalid !== undefined) {
+    reportError(describeInvalidOutputStyle(invalid), stderr);
+    return { exitCode: 1 };
+  }
+
   if (parsed.version) {
     stdout.write(`${VERSION}\n`);
     return { exitCode: 0 };
@@ -183,6 +201,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     passthrough: parsed.passthrough,
     runId,
     snapshot,
+    styles,
     verbosity,
   });
   const runOptions: RunStepsOptions = {
@@ -322,6 +341,8 @@ interface ParsedArgs {
   json: boolean;
   log: boolean;
   noCache: boolean;
+  /** The flag's value as it was written, which the style resolver rather than the parser narrows. */
+  outputStyle?: string;
   quiet: boolean;
   recursive: boolean;
   workspaceRoot: boolean;
@@ -347,6 +368,10 @@ type ParseResult = { ok: true; parsed: ParsedArgs } | { ok: false; error: string
  * folded into `noCache` by the caller: `openGate` has already stood this invocation's own gate down for them,
  * but the steps below it are separate nmr invocations carrying none of their own, so a narrowed command would
  * otherwise serve part of its work from a recorded pass.
+ *
+ * The style written down is the resolved one and never `auto`, so a child on a pipe renders as this process
+ * does rather than detecting plain on its own descriptor. It is the style stdout resolved to: the verdicts and
+ * nearly every other line a child prints go there.
  */
 function buildChildEnv(options: {
   env: NodeJS.ProcessEnv;
@@ -355,9 +380,10 @@ function buildChildEnv(options: {
   passthrough: readonly string[];
   runId: string;
   snapshot: TreeSnapshot | undefined;
+  styles: StreamStyles;
   verbosity: CommandVerbosity;
 }): NodeJS.ProcessEnv {
-  const { env, format, noCache, passthrough, runId, snapshot, verbosity } = options;
+  const { env, format, noCache, passthrough, runId, snapshot, styles, verbosity } = options;
 
   const bypassesCache = noCache || passthrough.length > 0;
 
@@ -366,6 +392,7 @@ function buildChildEnv(options: {
     ...(snapshot !== undefined && { [TREE_SNAPSHOT_ENV_VAR]: encodeTreeSnapshot(snapshot) }),
     ...(bypassesCache && { [NO_CACHE_ENV_VAR]: '1' }),
     [COMMAND_VERBOSITY_ENV_VAR]: verbosity,
+    [OUTPUT_STYLE_ENV_VAR]: styles.stdout,
     [REPORT_FORMAT_ENV_VAR]: format,
     [RUN_ID_ENV_VAR]: runId,
   };
@@ -1067,6 +1094,23 @@ function parseArgs(args: string[]): ParseResult {
     }
     if (arg === '--no-cache') {
       parsed.noCache = true;
+      i++;
+      continue;
+    }
+    // Both spellings are read here, so neither `--output-style plain` nor `--output-style=plain` is taken for
+    // the command name.
+    if (arg === OUTPUT_STYLE_FLAG || arg.startsWith(`${OUTPUT_STYLE_FLAG}=`)) {
+      const assignment = arg === OUTPUT_STYLE_FLAG ? undefined : arg.slice(OUTPUT_STYLE_FLAG.length + 1);
+      if (assignment === undefined) {
+        i++;
+      }
+      const styleValue = assignment ?? args[i];
+      // An empty value is rejected with a missing one: nmr-core reads `''` as absent, which would leave the
+      // flag naming whatever the variable or detection chose rather than what the invocation asked for.
+      if (!styleValue) {
+        return { ok: false, error: `${OUTPUT_STYLE_FLAG} requires a value argument: auto, plain, or rich` };
+      }
+      parsed.outputStyle = styleValue;
       i++;
       continue;
     }

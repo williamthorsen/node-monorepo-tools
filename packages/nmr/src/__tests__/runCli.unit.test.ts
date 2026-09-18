@@ -6,6 +6,7 @@ import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
 
 import { type FilterSelection, readFilterSelection } from '../helpers/filter-selection.ts';
+import { OUTPUT_STYLE_ENV_VAR, OUTPUT_STYLE_FLAG } from '../output-style.ts';
 import { REPORT_FORMAT_ENV_VAR } from '../report-format.ts';
 import { runCli } from '../runCli.ts';
 import { runSteps } from '../runner.ts';
@@ -656,6 +657,89 @@ describe(runCli, () => {
       expect(exitCode).toBe(1);
       expect(Buffer.concat(written)).toHaveLength(0);
       expect(mockedRunSteps).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('output style', () => {
+    it.for([
+      {
+        args: ['-F', 'my-pkg', 'build'],
+        expected: 'plain',
+        scenario: 'a run passing no flag, whose streams are pipes',
+      },
+      { args: [OUTPUT_STYLE_FLAG, 'rich', '-F', 'my-pkg', 'build'], expected: 'rich', scenario: 'the flag' },
+      {
+        args: [`${OUTPUT_STYLE_FLAG}=rich`, '-F', 'my-pkg', 'build'],
+        expected: 'rich',
+        scenario: 'the flag written as an assignment',
+      },
+    ])('given $scenario, hands the resolved style to every process below it', async ({ args, expected }, { tree }) => {
+      await runNmr(args, tree.dir);
+
+      expect(mockedRunSteps.mock.calls[0]?.[2].env).toMatchObject({ [OUTPUT_STYLE_ENV_VAR]: expected });
+    });
+
+    it('lets an inherited rich reach a run that passed no flag', async ({ tree }) => {
+      await runNmr(['-F', 'my-pkg', 'build'], tree.dir, { [OUTPUT_STYLE_ENV_VAR]: 'rich' });
+
+      expect(mockedRunSteps.mock.calls[0]?.[2].env).toMatchObject({ [OUTPUT_STYLE_ENV_VAR]: 'rich' });
+    });
+
+    it('lets the flag outrank an inherited rich', async ({ tree }) => {
+      await runNmr([OUTPUT_STYLE_FLAG, 'plain', '-F', 'my-pkg', 'build'], tree.dir, {
+        [OUTPUT_STYLE_ENV_VAR]: 'rich',
+      });
+
+      expect(mockedRunSteps.mock.calls[0]?.[2].env).toMatchObject({ [OUTPUT_STYLE_ENV_VAR]: 'plain' });
+    });
+
+    // Never `auto`: a child on a pipe would otherwise detect plain rather than following the parent.
+    it('exports a resolved style for an inherited auto', async ({ tree }) => {
+      await runNmr(['-F', 'my-pkg', 'build'], tree.dir, { [OUTPUT_STYLE_ENV_VAR]: 'auto' });
+
+      expect(mockedRunSteps.mock.calls[0]?.[2].env).toMatchObject({ [OUTPUT_STYLE_ENV_VAR]: 'plain' });
+    });
+
+    it.for([
+      { args: [OUTPUT_STYLE_FLAG], scenario: 'a flag standing at the end of the arguments' },
+      { args: [`${OUTPUT_STYLE_FLAG}=`], scenario: 'an assignment carrying nothing' },
+    ])('rejects $scenario', async ({ args }, { tree }) => {
+      const { exitCode, stderr } = await runNmrReadingStderr(args, tree.dir);
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain(OUTPUT_STYLE_FLAG);
+    });
+
+    it.for([
+      { args: ['--version'], scenario: 'the version flag' },
+      { args: ['--help'], scenario: 'the help flag' },
+      { args: ['build'], scenario: 'a command' },
+    ])('given an unrecognized inherited value, rejects $scenario before doing anything', async ({ args }, { tree }) => {
+      const stdout = new PassThrough();
+      const written: Buffer[] = [];
+      stdout.on('data', (chunk: Buffer) => {
+        written.push(chunk);
+      });
+
+      const { exitCode } = await runCli({
+        args,
+        cwd: tree.dir,
+        env: { [OUTPUT_STYLE_ENV_VAR]: 'fancy' },
+        stderr: new PassThrough(),
+        stdout,
+      });
+
+      expect(exitCode).toBe(1);
+      expect(Buffer.concat(written)).toHaveLength(0);
+      expect(mockedRunSteps).not.toHaveBeenCalled();
+    });
+
+    it('names the flag and every accepted value when it rejects the flag', async ({ tree }) => {
+      const { exitCode, stderr } = await runNmrReadingStderr([OUTPUT_STYLE_FLAG, 'fancy', 'fix'], tree.dir);
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain(OUTPUT_STYLE_FLAG);
+      expect(stderr).toContain('auto, plain, rich');
     });
   });
 

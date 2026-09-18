@@ -184,6 +184,9 @@ const RETENTION_KEY_FORMAT = 'nmr-retention-v1';
  * Environment variables a tool reads to decide how to present itself. They change what a transcript looks
  * like without changing what the command concludes, so they belong to the retention key alone: a run under a
  * different terminal width recalls the same pass and declines to replay its excerpt.
+ *
+ * `NMR_OUTPUT_STYLE` is not among them, for the reason `output-style.ts` states: a run declines no recording
+ * over a style, and replays a rich excerpt in a plain run as it replays a plain one in a rich run.
  */
 const RETENTION_KEYED_ENV_VARS = ['CI', 'COLUMNS', 'FORCE_COLOR', 'NO_COLOR', 'TERM'];
 
