@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.12.0 — 2026-09-18
+
+### 🎉 Features
+
+- Give nmr-core's print helpers plain output in pipes and CI logs (#834)
+
+  - Stops `printError`, `printSkip`, `printSuccess`, and `reportWriteResult` in `@williamthorsen/nmr-core` from printing emoji into a pipe or a CI log: Each helper now detects a plain or rich style from `CI` and the terminal state of its own stream (stderr for `printError`, stdout for the others), and accepts an optional trailing `OutputStyle` that outranks detection.
+  - Adds `resolveStreamStyles`, which resolves a `plain` or `rich` output style separately for stdout and stderr, reading a caller-named flag first, then a caller-named environment variable (`auto`, `plain`, or `rich`), then `CI`, the stream's terminal state, and `TERM`, and which returns a setting that it does not recognize in `invalid` instead of throwing.
+  - Re-exports `defineGlyphSet`, `STATUS_GLYPHS`, `wrapToWidth`, `measureGlyphColumn`, and `describeInvalidOutputStyle` from the experimental `/candidate` API of `@williamthorsen/toolbelt.terminal`, so that a package that depends on `@williamthorsen/nmr-core` builds glyph sets and wraps text without declaring that dependency itself.
+  - Changes the rich marker of `printSkip` from ⚠️ to 🟠, the `warning` glyph in `STATUS_GLYPHS`; rich `printError` and `printSuccess` output is unchanged.
+
+- Give release-kit plain output in pipes and CI logs (#835)
+
+  - Adds the `RELEASE_KIT_OUTPUT_STYLE` environment variable, which accepts `auto`, `plain`, or `rich` and outranks the detection from `CI`, the stream's terminal state, and `TERM`; any other value is a usage error that exits with code 1.
+  - Changes the emoji in rich output so that none has a different meaning from the one that it has in `nmr`: warnings from ⚠️ to 🟠, skips from ⏭️ to ⏩, the errors of `show-tag-prefixes` from ⛔ to ❌, and the tag marker from 🏷️ to 🔖.
+  - Adds a required `style` parameter to `formatValidateOverridesResult`, which the package root exports.
+
+- Give nmr plain output in pipes and CI logs (#838)
+
+  - Stops `nmr` from printing emoji to a pipe or a CI log: When the output stream is not a terminal or `CI` is set, a verdict reads `PASS`, `FAIL`, `SKIP`, or `NOOP` and a command icon is omitted, so that a log can be searched for a verdict.
+  - Adds `--output-style <auto|plain|rich>` to `nmr` and the `NMR_OUTPUT_STYLE` variable, each forcing either style; the flag outranks the variable, a value that names no style exits 1 with a usage error, and neither enters a check-cache key: A rich run and a plain run share a recorded pass.
+  - Replaces several rich glyphs, taking the status markers from the set that release-kit and v11y-check print so that one status has one glyph across the three tools: a recalled pass shows ⏩ in place of ⏭️, a skipped empty override shows ⚪ in place of ⛔, a warning and the `--log` refusal show 🟠 in place of ⚠️ and 📭, the `--log` header shows 💾 in place of 📼, and `nmr-ensure-prepublish-hooks` reports ✅ and ❌ in place of ✓ and ✗.
+
 ## 0.11.1 — 2026-09-15
 
 ### ⚙️ Tooling

@@ -1,5 +1,35 @@
 [
   {
+    "version": "0.38.0",
+    "date": "2026-09-18",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Give nmr plain output in pipes and CI logs (#838)",
+            "body": "- Stops `nmr` from printing emoji to a pipe or a CI log: When the output stream is not a terminal or `CI` is set, a verdict reads `PASS`, `FAIL`, `SKIP`, or `NOOP` and a command icon is omitted, so that a log can be searched for a verdict.\n- Adds `--output-style <auto|plain|rich>` to `nmr` and the `NMR_OUTPUT_STYLE` variable, each forcing either style; the flag outranks the variable, a value that names no style exits 1 with a usage error, and neither enters a check-cache key: A rich run and a plain run share a recorded pass.\n- Replaces several rich glyphs, taking the status markers from the set that release-kit and v11y-check print so that one status has one glyph across the three tools: a recalled pass shows ⏩ in place of ⏭️, a skipped empty override shows ⚪ in place of ⛔, a warning and the `--log` refusal show 🟠 in place of ⚠️ and 📭, the `--log` header shows 💾 in place of 📼, and `nmr-ensure-prepublish-hooks` reports ✅ and ❌ in place of ✓ and ✗.",
+            "hash": "693b3a7f57def3d299ced240c19bda90f6253bdc"
+          }
+        ]
+      },
+      {
+        "title": "🪦 Removed",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Rename the declinesArgs step declaration to shouldDeclineArguments (#822)",
+            "body": "- Makes a `.config/nmr.config.ts` that still declares `declinesArgs` on a composite script's `{ run, declinesArgs }` step fail to load, with an error that names `shouldDeclineArguments` as the replacement.\n- Renames the matching field of the `StepSpec` type exported by `@williamthorsen/nmr/config` and `@williamthorsen/nmr/scripts`.\n\nMigration: Rename `declinesArgs` to `shouldDeclineArguments` in each composite script step of `.config/nmr.config.ts`, and in any code that sets or reads the field on a `StepSpec`.",
+            "breaking": true,
+            "migration": "Rename `declinesArgs` to `shouldDeclineArguments` in each composite script step of `.config/nmr.config.ts`, and in any code that sets or reads the field on a `StepSpec`.",
+            "hash": "b12333390e731c1a9d7055d293b686028c89ad26"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.37.0",
     "date": "2026-09-15",
     "sections": [

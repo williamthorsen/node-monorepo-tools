@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.18.0 — 2026-09-18
+
+### 🎉 Features
+
+- Adopt output styles, shared glyphs, and column-aware wrapping (#836)
+
+  - Makes `v11y-check` print `check` and `init` output without emoji, and with a word such as `PASS` or `STALE` in place of each row marker, to whichever of stdout and stderr is not a terminal, or to both when `CI` is set.
+  - Adds the `V11Y_CHECK_OUTPUT_STYLE` environment variable, which accepts `auto`, `plain`, or `rich`, overrides that detection, and makes any other value a usage error that exits with code 1.
+  - Changes the emoji row markers of rich output: ❌ replaces 🚨 for an unallowed row, ✅ replaces ⚠️ for an allowed row, ⏩ replaces ℹ️ for a below-threshold row, 🧹 replaces 🗑️ for a stale row, and the `allowed` and `ignored` suffixes of a compact row lose their emoji.
+
+- Give nmr plain output in pipes and CI logs (#838)
+
+  - Stops `nmr` from printing emoji to a pipe or a CI log: When the output stream is not a terminal or `CI` is set, a verdict reads `PASS`, `FAIL`, `SKIP`, or `NOOP` and a command icon is omitted, so that a log can be searched for a verdict.
+  - Adds `--output-style <auto|plain|rich>` to `nmr` and the `NMR_OUTPUT_STYLE` variable, each forcing either style; the flag outranks the variable, a value that names no style exits 1 with a usage error, and neither enters a check-cache key: A rich run and a plain run share a recorded pass.
+  - Replaces several rich glyphs, taking the status markers from the set that release-kit and v11y-check print so that one status has one glyph across the three tools: a recalled pass shows ⏩ in place of ⏭️, a skipped empty override shows ⚪ in place of ⛔, a warning and the `--log` refusal show 🟠 in place of ⚠️ and 📭, the `--log` header shows 💾 in place of 📼, and `nmr-ensure-prepublish-hooks` reports ✅ and ❌ in place of ✓ and ✗.
+
 ## 0.17.0 — 2026-09-15
 
 ### 🎉 Features

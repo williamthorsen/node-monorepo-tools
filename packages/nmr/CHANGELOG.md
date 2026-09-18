@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.38.0 — 2026-09-18
+
+### 🎉 Features
+
+- Give nmr plain output in pipes and CI logs (#838)
+
+  - Stops `nmr` from printing emoji to a pipe or a CI log: When the output stream is not a terminal or `CI` is set, a verdict reads `PASS`, `FAIL`, `SKIP`, or `NOOP` and a command icon is omitted, so that a log can be searched for a verdict.
+  - Adds `--output-style <auto|plain|rich>` to `nmr` and the `NMR_OUTPUT_STYLE` variable, each forcing either style; the flag outranks the variable, a value that names no style exits 1 with a usage error, and neither enters a check-cache key: A rich run and a plain run share a recorded pass.
+  - Replaces several rich glyphs, taking the status markers from the set that release-kit and v11y-check print so that one status has one glyph across the three tools: a recalled pass shows ⏩ in place of ⏭️, a skipped empty override shows ⚪ in place of ⛔, a warning and the `--log` refusal show 🟠 in place of ⚠️ and 📭, the `--log` header shows 💾 in place of 📼, and `nmr-ensure-prepublish-hooks` reports ✅ and ❌ in place of ✓ and ✗.
+
+### 🪦 Removed
+
+- 🚨 **Breaking:** Rename the declinesArgs step declaration to shouldDeclineArguments (#822)
+
+  - Makes a `.config/nmr.config.ts` that still declares `declinesArgs` on a composite script's `{ run, declinesArgs }` step fail to load, with an error that names `shouldDeclineArguments` as the replacement.
+  - Renames the matching field of the `StepSpec` type exported by `@williamthorsen/nmr/config` and `@williamthorsen/nmr/scripts`.
+
+  Migration: Rename `declinesArgs` to `shouldDeclineArguments` in each composite script step of `.config/nmr.config.ts`, and in any code that sets or reads the field on a `StepSpec`.
+
 ## 0.37.0 — 2026-09-15
 
 ### 🎉 Features

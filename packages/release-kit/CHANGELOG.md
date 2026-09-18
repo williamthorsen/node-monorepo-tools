@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## 10.9.0 — 2026-09-18
+
+### 🎉 Features
+
+- Give release-kit plain output in pipes and CI logs (#835)
+
+  - Adds the `RELEASE_KIT_OUTPUT_STYLE` environment variable, which accepts `auto`, `plain`, or `rich` and outranks the detection from `CI`, the stream's terminal state, and `TERM`; any other value is a usage error that exits with code 1.
+  - Changes the emoji in rich output so that none has a different meaning from the one that it has in `nmr`: warnings from ⚠️ to 🟠, skips from ⏭️ to ⏩, the errors of `show-tag-prefixes` from ⛔ to ❌, and the tag marker from 🏷️ to 🔖.
+  - Adds a required `style` parameter to `formatValidateOverridesResult`, which the package root exports.
+
+- Give nmr plain output in pipes and CI logs (#838)
+
+  - Stops `nmr` from printing emoji to a pipe or a CI log: When the output stream is not a terminal or `CI` is set, a verdict reads `PASS`, `FAIL`, `SKIP`, or `NOOP` and a command icon is omitted, so that a log can be searched for a verdict.
+  - Adds `--output-style <auto|plain|rich>` to `nmr` and the `NMR_OUTPUT_STYLE` variable, each forcing either style; the flag outranks the variable, a value that names no style exits 1 with a usage error, and neither enters a check-cache key: A rich run and a plain run share a recorded pass.
+  - Replaces several rich glyphs, taking the status markers from the set that release-kit and v11y-check print so that one status has one glyph across the three tools: a recalled pass shows ⏩ in place of ⏭️, a skipped empty override shows ⚪ in place of ⛔, a warning and the `--log` refusal show 🟠 in place of ⚠️ and 📭, the `--log` header shows 💾 in place of 📼, and `nmr-ensure-prepublish-hooks` reports ✅ and ❌ in place of ✓ and ✗.
+
+### 🐛 Bug fixes
+
+- Move work-types check and sync from the CLI into maintainer scripts (#820)
+
+  - Removes the `release-kit work-types` command, whose `sync` rewrote an unused copy of `work-types.json` inside `node_modules` and whose `check` reported drift that a consumer could not fix.
+
+- Exclude distributed agent guidance from ai and documentation labels (#825)
+
+  - Marks a `.github/labels.yaml` generated from the previous `common` preset as stale in the default readyup kit, whose "labels.yaml has current common preset" check reports the file until the repo regenerates it.
+
+- Suppress bold and dim escapes for a stream that cannot render them (#830)
+
+  - Stops `release-kit prepare` from writing raw escape bytes into piped output, redirected files, and CI logs: It styled bold and dim unconditionally, without checking whether the destination renders escapes.
+  - Honors `NO_COLOR`, `NODE_DISABLE_COLORS`, and `FORCE_COLOR`, which the previous styling ignored.
+
 ## 10.8.0 — 2026-09-15
 
 ### 🎉 Features
@@ -334,7 +365,7 @@ All notable changes to this project will be documented in this file.
 
 ### ♻️ Refactoring
 
-- 🚨 **Breaking:** Move defineConfig to a dedicated config subpath (#566)
+- Move defineConfig to a dedicated config subpath (#566)
 
   `defineConfig` now comes from the `@williamthorsen/release-kit/config` subpath rather than from the package root. The subpath also carries the config types.
 
@@ -680,11 +711,11 @@ All notable changes to this project will be documented in this file.
 
 ### ♻️ Refactoring
 
-- 🚨 **Breaking:** Rename `component` to `workspace` in config API and internals (#296)
+- Rename `component` to `workspace` in config API and internals (#296)
 
   Renames release-kit's per-workspace vocabulary from "component" to "workspace" throughout the public API, internal types, validation messages, CLI help, init templates, and documentation. Behavior is unchanged; only identifiers, error-message strings, scaffolded template text, and prose have been changed.
 
-- 🚨 **Breaking:** Rename `node-monorepo-core` to `nmr-core` (#304)
+- Rename `node-monorepo-core` to `nmr-core` (#304)
 
   Renames the shared-utilities package from `@williamthorsen/node-monorepo-core` to `@williamthorsen/nmr-core`, aligning it with the repository's `nmr-*` naming convention. The package's functionality and version are unchanged; only the published name differs.
 
