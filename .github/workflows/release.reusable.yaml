@@ -3,18 +3,16 @@ name: 'Reusable: Release'
 
 # Reusable release workflow for projects using @williamthorsen/release-kit.
 #
-# Installs `@williamthorsen/release-kit` globally and runs `release-kit prepare`
-# to bump versions and generate changelogs. The CLI writes computed tag names to
-# `tmp/.release-tags` (relative to the project root). This workflow reads that file instead of
-# deriving tags independently, so `tagPrefix` in the release config is the
+# Installs `@williamthorsen/release-kit` globally and runs `release-kit prepare` to bump versions and generate
+# changelogs. The CLI writes computed tag names to `tmp/.release-tags` (relative to the project root).
+# This workflow reads that file instead of deriving tags independently, so `tagPrefix` in the release config is the
 # single source of truth.
 #
-# On the consumer path, project dependencies are not installed: release-kit runs
-# git-cliff and prettier via `npx`, so no local node_modules are needed. The
-# source-build path installs them.
+# On the consumer path, project dependencies are not installed: release-kit runs git-cliff and prettier via `npx`,
+# so no local node_modules are needed. The source-build path installs them.
 #
-# When running in the `williamthorsen/node-monorepo-tools` repo, release-kit is
-# built from source instead of installed from npm (auto-detected).
+# When running in the `williamthorsen/node-monorepo-tools` repo, release-kit is built from source instead of installed
+# from npm (auto-detected).
 #
 # Usage:
 #   jobs:
@@ -54,8 +52,8 @@ jobs:
     env:
       BUILD_LOCAL: ${{ github.repository == 'williamthorsen/node-monorepo-tools' }}
       GITHUB_TOKEN: ${{ github.token }}
-      # Allow npx to run even when package.json declares a different package
-      # manager (e.g., pnpm). Without this, Corepack blocks npm/npx.
+      # Keeps Corepack shims from refusing `npm` and `npx` on the source-build path, where the pnpm `packageManager`
+      # pin survives.
       COREPACK_ENABLE_STRICT: '0'
 
     steps:
@@ -65,15 +63,14 @@ jobs:
           fetch-depth: 0
           token: ${{ github.token }}
 
-      # Strip the packageManager field so that actions/setup-node does not
-      # try to install it. The field is irrelevant for release preparation.
+      # Strip the packageManager field so that actions/setup-node does not try to install it.
+      # The field is irrelevant for release preparation.
       - name: Neutralize packageManager field
         if: ${{ env.BUILD_LOCAL != 'true' }}
         run: node -e "const fs=require('fs'),f='package.json',p=JSON.parse(fs.readFileSync(f));delete p.packageManager;fs.writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
 
-      # `runtime` is omitted, so this step installs pnpm alone and the Node.js
-      # step below owns the runtime. Its position ahead of that step is what
-      # keeps that true should this repo ever declare `devEngines.runtime`.
+      # `runtime` is omitted, so this step installs pnpm alone and the Node.js step below owns the runtime.
+      # Its position ahead of that step is what keeps that true should this repo ever declare `devEngines.runtime`.
       - name: Set up pnpm
         if: ${{ env.BUILD_LOCAL == 'true' }}
         uses: pnpm/setup@v2
@@ -81,29 +78,23 @@ jobs:
           cache: true
           install: false
 
-      # `actions/setup-node` stays because this workflow needs `npm` and `npx` at a
-      # controlled version, paired with the Node.js they run under: `release-kit
-      # prepare` spawns `npx git-cliff` and `npx prettier`, and the consumer path
-      # installs release-kit with `npm install --global`. `pnpm/setup` omits both
-      # from the runtime it installs, leaving only the runner image's copies.
+      # `actions/setup-node` stays because this workflow needs `npm` and `npx` at a controlled version, paired with the
+      # Node.js they run under: `release-kit prepare` spawns `npx git-cliff` and `npx prettier`, and the consumer path
+      # installs release-kit with `npm install --global`. `pnpm/setup` omits both from the runtime it installs, leaving
+      # only the runner image's copies.
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
           node-version: '24'
 
-      - name: Disable Corepack
-        if: ${{ env.BUILD_LOCAL != 'true' }}
-        run: corepack disable
-
-      # Install globally so the binary is on PATH.
-      # npm exec / npx binary resolution is unreliable with scoped packages
+      # Install globally so the binary is on PATH. npm exec / npx binary resolution is unreliable with scoped packages
       # on newer npm versions (11.x), so explicit install is more robust.
       - name: Install release-kit from npm
         if: ${{ env.BUILD_LOCAL != 'true' }}
         run: npm install --global @williamthorsen/release-kit
 
-      # Build release-kit from source to avoid bootstrap problems when
-      # releasing a version that introduces new CLI flags.
+      # Build release-kit from source to avoid bootstrap problems when releasing a version
+      # that introduces new CLI flags.
       - name: Install dependencies
         if: ${{ env.BUILD_LOCAL == 'true' }}
         run: pnpm install --frozen-lockfile
