@@ -89,8 +89,8 @@ export type SelfReference = 'chained' | 'sole';
  * `shouldDeclineArguments` is set only where it holds, so a step that takes the trailing arguments renders and compares
  * exactly as it did before any element declared anything.
  */
-export function composeNmrStep(element: string, workspaceRoot: boolean, shouldDeclineArguments = false): Step {
-  const flags = workspaceRoot ? ['-w'] : [];
+export function composeNmrStep(element: string, isWorkspaceRoot: boolean, shouldDeclineArguments = false): Step {
+  const flags = isWorkspaceRoot ? ['-w'] : [];
   return {
     kind: 'structural',
     argv: ['nmr', ...flags, ...tokenize(element)],
@@ -178,14 +178,14 @@ export function readSelfReference(options: {
   const { anchoredAtRoot, commandName, script } = options;
 
   const segments = splitSegments(script).filter((segment) => segment.trim() !== '');
-  const reenters = segments.some((segment) => {
+  const doesReenter = segments.some((segment) => {
     const tail = readNmrTail(segment);
     const target = tail === undefined ? undefined : readNmrTarget(tail);
 
     return target?.command === commandName && !target.isDelegate && (anchoredAtRoot || !target.isWorkspaceRoot);
   });
 
-  if (!reenters) {
+  if (!doesReenter) {
     return undefined;
   }
 

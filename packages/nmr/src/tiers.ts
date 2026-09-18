@@ -103,7 +103,7 @@ export type TierName = (typeof TIER_NAMES)[number];
  * `relativeDir` is composed with `/` as it descends, so the result needs no separator conversion. A symlinked
  * directory reports as a file here and is skipped, which is what keeps a cyclic tree from hanging the walk.
  */
-function collectTestFiles(dir: string, relativeDir: string, inTestDir: boolean, context: WalkContext): void {
+function collectTestFiles(dir: string, relativeDir: string, isInTestDir: boolean, context: WalkContext): void {
   const entries = readdirSync(dir, { withFileTypes: true });
 
   for (const entry of entries) {
@@ -111,8 +111,8 @@ function collectTestFiles(dir: string, relativeDir: string, inTestDir: boolean, 
 
     if (entry.isDirectory()) {
       if (context.pruned.has(entry.name)) continue;
-      collectTestFiles(path.join(dir, entry.name), relativePath, inTestDir || entry.name === TEST_DIR, context);
-    } else if (inTestDir !== context.misplaced && TEST_FILE_PATTERN.test(entry.name)) {
+      collectTestFiles(path.join(dir, entry.name), relativePath, isInTestDir || entry.name === TEST_DIR, context);
+    } else if (isInTestDir !== context.misplaced && TEST_FILE_PATTERN.test(entry.name)) {
       context.found.push(relativePath);
     }
   }

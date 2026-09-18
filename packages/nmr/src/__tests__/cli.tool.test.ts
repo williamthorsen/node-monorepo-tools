@@ -695,7 +695,7 @@ export default defineConfig({
       it('propagates -w to hook subprocesses so they resolve via root registry', async () => {
         clearConfigLog();
         // wroot-cmd and its hooks live only in rootScripts. Without -w propagation,
-        // the parent's `useRoot=true` decision is lost in the subprocess `nmr X:pre` call,
+        // the parent's `shouldUseRoot=true` decision is lost in the subprocess `nmr X:pre` call,
         // and the child re-derives a workspace registry from the package cwd, failing to resolve the hook.
         const { exitCode } = await runNmr('-w wroot-cmd', { cwd: configPkgDir });
         expect(exitCode).toBe(0);
@@ -712,7 +712,7 @@ export default defineConfig({
         expect(readConfigLog()).toStrictEqual(['wroot-step1', 'wroot-step2']);
       });
 
-      // Reaches `useRoot` through `context.isRoot` rather than through the `-w` flag (the two disjuncts at runCli.ts).
+      // Reaches `shouldUseRoot` through `context.isRoot` rather than through the `-w` flag (the two disjuncts at runCli.ts).
       // This is the path an ordinary root `package.json` script takes.
       it('resolves tier-3 (root package.json) scripts at the monorepo root', async () => {
         clearConfigLog();
@@ -724,7 +724,7 @@ export default defineConfig({
       it('resolves tier-3 (root package.json) scripts under -w from a subpackage', async () => {
         clearConfigLog();
         // wpkg-cmd and its hooks live only in the root package.json scripts (tier 3 from root cwd).
-        // Under -w from a subpackage, packageDir must follow useRoot so the resolver consults root's package.json
+        // Under -w from a subpackage, packageDir must follow shouldUseRoot so the resolver consults root's package.json
         // instead of the subpackage's, otherwise the command and its hooks fail with "Unknown command".
         const { stdout, exitCode } = await runNmr('-w wpkg-cmd', { cwd: configPkgDir });
         expect(exitCode).toBe(0);

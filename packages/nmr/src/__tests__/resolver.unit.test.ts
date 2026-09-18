@@ -75,7 +75,7 @@ describe(expandScript, () => {
     expect(expandScript('vitest', false)).toStrictEqual([{ kind: 'opaque', command: 'vitest' }]);
   });
 
-  it('holds a string script as a single opaque step regardless of workspaceRoot', () => {
+  it('holds a string script as a single opaque step regardless of isWorkspaceRoot', () => {
     expect(expandScript('vitest', true)).toStrictEqual([{ kind: 'opaque', command: 'vitest' }]);
   });
 
@@ -90,14 +90,14 @@ describe(expandScript, () => {
     expect(expandScript(['test'], false)).toStrictEqual([{ kind: 'structural', argv: ['nmr', 'test'] }]);
   });
 
-  it('propagates -w to each step when workspaceRoot is true', () => {
+  it('propagates -w to each step when isWorkspaceRoot is true', () => {
     expect(expandScript(['fmt', 'lint'], true)).toStrictEqual([
       { kind: 'structural', argv: ['nmr', '-w', 'fmt'] },
       { kind: 'structural', argv: ['nmr', '-w', 'lint'] },
     ]);
   });
 
-  it('propagates -w to a single-element array when workspaceRoot is true', () => {
+  it('propagates -w to a single-element array when isWorkspaceRoot is true', () => {
     expect(expandScript(['test'], true)).toStrictEqual([{ kind: 'structural', argv: ['nmr', '-w', 'test'] }]);
   });
 
@@ -230,7 +230,7 @@ describe(resolveScript, () => {
     });
   });
 
-  it('propagates -w through composite expansion when workspaceRoot is true', () => {
+  it('propagates -w through composite expansion when isWorkspaceRoot is true', () => {
     const registry = { build: ['fmt', 'lint'] };
     const result = resolveScript('build', registry, undefined, true);
 
@@ -274,7 +274,7 @@ describe(resolveScript, () => {
     });
   });
 
-  it('does not rewrite tier-3 override strings when workspaceRoot is true', ({ tree }) => {
+  it('does not rewrite tier-3 override strings when isWorkspaceRoot is true', ({ tree }) => {
     const manifestPath = tree.writeJson('package.json', { name: 'test-pkg', scripts: { build: 'nmr compile' } });
 
     const registry = { build: ['fmt', 'lint'] };

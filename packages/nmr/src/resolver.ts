@@ -100,14 +100,14 @@ export interface ResolvedScript {
  * A bare string element and the `{ run }` spec compose the same step. The spec's only addition is the
  * declaration of what the step does with the invocation's trailing arguments, which position cannot carry.
  */
-export function expandScript(script: ScriptValue, workspaceRoot: boolean): readonly Step[] {
+export function expandScript(script: ScriptValue, isWorkspaceRoot: boolean): readonly Step[] {
   if (typeof script === 'string') {
     return [{ kind: 'opaque', command: script }];
   }
   return script.map((element) =>
     typeof element === 'string'
-      ? composeNmrStep(element, workspaceRoot)
-      : composeNmrStep(element.run, workspaceRoot, element.shouldDeclineArguments),
+      ? composeNmrStep(element, isWorkspaceRoot)
+      : composeNmrStep(element.run, isWorkspaceRoot, element.shouldDeclineArguments),
   );
 }
 
@@ -232,7 +232,7 @@ export function resolveScript(
   commandName: string,
   registry: ScriptRegistry,
   packageDir: string | undefined,
-  workspaceRoot: boolean,
+  isWorkspaceRoot: boolean,
 ): ResolvedScript | undefined {
   // Check tier 3: per-package package.json overrides
   if (packageDir) {
@@ -258,5 +258,5 @@ export function resolveScript(
     return undefined;
   }
 
-  return { origin: { tier: 'registry', key: commandName }, steps: expandScript(registryEntry, workspaceRoot) };
+  return { origin: { tier: 'registry', key: commandName }, steps: expandScript(registryEntry, isWorkspaceRoot) };
 }

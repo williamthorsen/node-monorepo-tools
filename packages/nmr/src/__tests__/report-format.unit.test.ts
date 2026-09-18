@@ -45,7 +45,7 @@ describe(resolveReportFormat, () => {
   });
 
   it('given the flag alone, resolves to json', () => {
-    expect(resolve({ jsonFlag: true })).toBe('json');
+    expect(resolve({ hasJsonFlag: true })).toBe('json');
   });
 
   it('given an environment value alone, resolves to it', () => {
@@ -53,7 +53,7 @@ describe(resolveReportFormat, () => {
   });
 
   it('given the flag against a text environment, resolves to json', () => {
-    expect(resolve({ envFormat: 'text', jsonFlag: true })).toBe('json');
+    expect(resolve({ envFormat: 'text', hasJsonFlag: true })).toBe('json');
   });
 
   // Both values spelled out is what lets one invocation opt back out of a format exported for the shell.
@@ -71,8 +71,8 @@ function errorFrom(read: ReportFormatRead): string {
 }
 
 /** Resolves against an empty ladder, so each case declares only the levels it is about. */
-function resolve(options: { envFormat?: ReportFormat; jsonFlag?: boolean }): ReportFormat {
-  return resolveReportFormat({ envFormat: options.envFormat, jsonFlag: options.jsonFlag ?? false });
+function resolve(options: { envFormat?: ReportFormat; hasJsonFlag?: boolean }): ReportFormat {
+  return resolveReportFormat({ envFormat: options.envFormat, hasJsonFlag: options.hasJsonFlag ?? false });
 }
 
 // endregion | Helpers

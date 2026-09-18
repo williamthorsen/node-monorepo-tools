@@ -62,8 +62,8 @@ export interface ResolveVerbosityOptions {
   /** Read for the detection level, and for that alone: the variable this module owns arrives as `envVerbosity`. */
   env: NodeJS.ProcessEnv;
   envVerbosity: CommandVerbosity | undefined;
+  hasQuietFlag: boolean;
   output: OutputConfig | undefined;
-  quietFlag: boolean;
 }
 
 /**
@@ -74,9 +74,9 @@ export interface ResolveVerbosityOptions {
  * rejection is left for this to report and the whole ladder reads in one place.
  */
 export function resolveVerbosity(options: ResolveVerbosityOptions): CommandVerbosity {
-  const { env, envVerbosity, output, quietFlag } = options;
+  const { env, envVerbosity, hasQuietFlag, output } = options;
 
-  if (quietFlag) return 'quiet';
+  if (hasQuietFlag) return 'quiet';
   if (envVerbosity !== undefined) return envVerbosity;
   if (output?.commandVerbosity !== undefined) return output.commandVerbosity;
 

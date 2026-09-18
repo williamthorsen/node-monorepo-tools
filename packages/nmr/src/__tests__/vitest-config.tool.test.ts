@@ -71,7 +71,7 @@ const DEFAULTS_FILES: Record<string, string> = {
   'vitest.optout.config.ts': [
     `import { defineVitestConfig } from ${JSON.stringify(CONFIG_SOURCE)};`,
     '',
-    'export default defineVitestConfig({ isolateGit: false, resolveFromSource: false });',
+    'export default defineVitestConfig({ shouldIsolateGit: false, shouldResolveFromSource: false });',
     '',
   ].join('\n'),
 

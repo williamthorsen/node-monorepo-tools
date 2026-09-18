@@ -62,14 +62,14 @@ export type ReportFormatRead = { ok: true; format?: ReportFormat } | { ok: false
  * report and the whole ladder reads in one place.
  */
 export function resolveReportFormat(options: ResolveReportFormatOptions): ReportFormat {
-  const { envFormat, jsonFlag } = options;
+  const { envFormat, hasJsonFlag } = options;
 
-  if (jsonFlag) return 'json';
+  if (hasJsonFlag) return 'json';
 
   return envFormat ?? 'text';
 }
 
 export interface ResolveReportFormatOptions {
   envFormat: ReportFormat | undefined;
-  jsonFlag: boolean;
+  hasJsonFlag: boolean;
 }

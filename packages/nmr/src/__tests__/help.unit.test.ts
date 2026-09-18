@@ -159,7 +159,7 @@ describe(generateHelp, () => {
       expect(help).not.toContain('* Overridden by package.json');
     });
 
-    it('inlines workspace overrides with `*` marker and footnote when useRoot=false', ({ tree }) => {
+    it('inlines workspace overrides with `*` marker and footnote when shouldUseRoot=false', ({ tree }) => {
       tree.writeJson('package.json', {
         name: 'pkg-override',
         scripts: { lint: 'pkg-linter' },
@@ -175,7 +175,7 @@ describe(generateHelp, () => {
       expect(rootSection).not.toContain('pkg-linter');
     });
 
-    it('inlines root overrides with `*` marker and footnote when useRoot=true', ({ tree }) => {
+    it('inlines root overrides with `*` marker and footnote when shouldUseRoot=true', ({ tree }) => {
       tree.writeJson('package.json', {
         name: 'root-override',
         scripts: { lint: 'custom-linter' },

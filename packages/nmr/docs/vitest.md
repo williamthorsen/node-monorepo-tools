@@ -106,12 +106,12 @@ Two settings a workspace test runner needs almost universally are part of what t
 Both defaults exist because omitting either is silent rather than loud: the tiers still exist and the suite still runs green, testing `dist/` and the developer's git identity instead. Turn either off through its own option, which folds across layers like any other, the last layer to declare it winning:
 
 ```ts
-export default defineVitestConfig({ isolateGit: false, resolveFromSource: false });
+export default defineVitestConfig({ shouldIsolateGit: false, shouldResolveFromSource: false });
 ```
 
-`resolveFromSource: false` is for a repo whose own packages declare a `source` condition that it does not want in tests; `isolateGit: false` is for a suite meant to read the developer's own git configuration.
+`shouldResolveFromSource: false` is for a repo whose own packages declare a `source` condition that it does not want in tests; `shouldIsolateGit: false` is for a suite meant to read the developer's own git configuration.
 
-**Vite replaces its condition defaults rather than extending them.** A config writing `conditions: ['my-condition']` by hand therefore drops `module`, so a dependency exposing a `module` entry falls through to whatever its `exports` lists next. A replaced list still resolves `node` and `development` under Vitest, which is why nothing in a test run reports the loss. The factory emits Vite's defaults for each environment, whichever way `resolveFromSource` is set, so a layer adding a condition extends a complete list rather than replacing one.
+**Vite replaces its condition defaults rather than extending them.** A config writing `conditions: ['my-condition']` by hand therefore drops `module`, so a dependency exposing a `module` entry falls through to whatever its `exports` lists next. A replaced list still resolves `node` and `development` under Vitest, which is why nothing in a test run reports the loss. The factory emits Vite's defaults for each environment, whichever way `shouldResolveFromSource` is set, so a layer adding a condition extends a complete list rather than replacing one.
 
 **The condition is resolved by a plugin rather than named as a Vite condition, which is what bounds its reach.** Vitest turns `ssr.resolve.conditions` into `--conditions` flags on the worker process, where Node applies every entry to each package that it resolves natively. Node refuses to strip types from a file under `node_modules`, so a `source` condition reaching that far makes any dependency declaring a TypeScript entry fail to load, the dependency of a dependency included. Resolving inside Vite keeps the condition where nmr decides its reach, and leaves a published package to resolve through its other conditions however it declares `source`.
 

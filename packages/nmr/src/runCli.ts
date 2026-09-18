@@ -153,31 +153,31 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   }
   const { styles } = inherited;
 
-  if (parsed.version) {
+  if (parsed.shouldShowVersion) {
     stdout.write(`${VERSION}\n`);
     return { exitCode: 0 };
   }
 
   const context = await resolveContext(cwd);
 
-  const format = resolveReportFormat({ envFormat: inherited.format, jsonFlag: parsed.json });
+  const format = resolveReportFormat({ envFormat: inherited.format, hasJsonFlag: parsed.shouldEmitJson });
   const verbosity = resolveReportingVerbosity({
     env,
     envVerbosity: inherited.verbosity,
     format,
     output: context.config.output,
-    quietFlag: parsed.quiet,
+    hasQuietFlag: parsed.quiet,
   });
   const quiet = verbosity === 'quiet';
 
   // Determine which registry to use
-  const useRoot = parsed.workspaceRoot || context.isRoot;
+  const shouldUseRoot = parsed.isWorkspaceRoot || context.isRoot;
 
   // Anchors registry resolution and execution alike: a script runs in the directory its registry belongs to.
-  const anchorDir = useRoot ? context.monorepoRoot : (context.packageDir ?? context.monorepoRoot);
+  const anchorDir = shouldUseRoot ? context.monorepoRoot : (context.packageDir ?? context.monorepoRoot);
 
-  if (parsed.help || !parsed.command) {
-    stdout.write(`${generateHelp(context.config, anchorDir, useRoot)}\n`);
+  if (parsed.shouldShowHelp || !parsed.command) {
+    stdout.write(`${generateHelp(context.config, anchorDir, shouldUseRoot)}\n`);
     return { exitCode: 0 };
   }
 
@@ -195,12 +195,12 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     style: styles.stderr,
   });
 
-  const noCache = parsed.noCache || env[NO_CACHE_ENV_VAR] === '1';
+  const shouldBypassCache = parsed.shouldBypassCache || env[NO_CACHE_ENV_VAR] === '1';
   const runId = resolveRunId(env);
   const childEnv = buildChildEnv({
     env,
     format,
-    noCache,
+    shouldBypassCache,
     passthrough: parsed.passthrough,
     runId,
     snapshot,
@@ -220,18 +220,18 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     return runDelegation({ context, delegation, parsed, runOptions, stderr });
   }
 
-  const registry = useRoot ? buildRootRegistry(context.config) : buildWorkspaceRegistry(context.config);
+  const registry = shouldUseRoot ? buildRootRegistry(context.config) : buildWorkspaceRegistry(context.config);
 
   assertNoSelfReference({
     anchorDir,
     command,
-    isReading: parsed.log,
+    isReading: parsed.shouldPrintLog,
+    isWorkspaceRoot: parsed.isWorkspaceRoot,
     monorepoRoot: context.monorepoRoot,
     registry,
-    workspaceRoot: parsed.workspaceRoot,
   });
 
-  const resolved = resolveScript(command, registry, anchorDir, parsed.workspaceRoot);
+  const resolved = resolveScript(command, registry, anchorDir, parsed.isWorkspaceRoot);
 
   if (!resolved) {
     if (env[RUN_IF_PRESENT_ENV_VAR] === '1') {
@@ -248,7 +248,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   const resolvedCommand = renderChain(runnableSteps);
 
   const noOpReason = findNoOpReason(resolvedCommand, isEmptiedByWorkspace);
-  if (noOpReason !== undefined && !parsed.log) {
+  if (noOpReason !== undefined && !parsed.shouldPrintLog) {
     reportVerdict({ command, scope, outcome: 'no-op', reason: noOpReason }, stdout, format, styles.stdout);
     return { exitCode: 0 };
   }
@@ -271,19 +271,19 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
   const isHookInvocation = isHookName(command);
   const fullSteps = isHookInvocation
     ? mainSteps
-    : wrapWithHooks(command, mainSteps, registry, anchorDir, parsed.workspaceRoot);
+    : wrapWithHooks(command, mainSteps, registry, anchorDir, parsed.isWorkspaceRoot);
   const fullCommand = renderChain(fullSteps);
 
   reportNmrCrossing({
     config: context.config,
-    isReading: parsed.log,
+    isReading: parsed.shouldPrintLog,
+    isWorkspaceRoot: parsed.isWorkspaceRoot,
     monorepoRoot: context.monorepoRoot,
     registry,
     resolved,
+    shouldUseRoot,
     stderr,
     style: styles.stderr,
-    useRoot,
-    workspaceRoot: parsed.workspaceRoot,
   });
 
   // The key waits until the whole chain is known, so it describes what would actually run: the hooks wrapped
@@ -301,7 +301,7 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 
   // Reading a recording is not running one: the branch takes over once the key describing this chain is in
   // hand, and nothing below it -- hook, verdict, or cache write -- is reached.
-  if (parsed.log) {
+  if (parsed.shouldPrintLog) {
     return reportRecording({
       anchorDir,
       command,
@@ -327,11 +327,11 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
     env,
     key,
     monorepoRoot: context.monorepoRoot,
-    noCache,
     overrideNotice: formatOverrideNotice(resolved, registry, command, anchorDir, quiet, styles.stdout),
     ownSteps: mainSteps,
     runId,
     runOptions,
+    shouldBypassCache,
     snapshot,
     stderr,
     stdout,
@@ -347,16 +347,16 @@ export async function runCli(options: RunCliOptions): Promise<RunCliResult> {
 /** @internal */
 interface ParsedArgs {
   filter?: string;
-  json: boolean;
-  log: boolean;
-  noCache: boolean;
+  isWorkspaceRoot: boolean;
   /** The flag's value as it was written, which the style resolver rather than the parser narrows. */
   outputStyle?: string;
   quiet: boolean;
   recursive: boolean;
-  workspaceRoot: boolean;
-  help: boolean;
-  version: boolean;
+  shouldBypassCache: boolean;
+  shouldEmitJson: boolean;
+  shouldPrintLog: boolean;
+  shouldShowHelp: boolean;
+  shouldShowVersion: boolean;
   command?: string;
   passthrough: string[];
 }
@@ -364,7 +364,15 @@ interface ParsedArgs {
 type ParseResult = { ok: true; parsed: ParsedArgs } | { ok: false; error: string };
 
 /** A field a flag sets by being written, none of which takes a value of its own. */
-type BooleanFlagName = 'help' | 'json' | 'log' | 'noCache' | 'quiet' | 'recursive' | 'version' | 'workspaceRoot';
+type BooleanFlagName =
+  | 'isWorkspaceRoot'
+  | 'quiet'
+  | 'recursive'
+  | 'shouldBypassCache'
+  | 'shouldEmitJson'
+  | 'shouldPrintLog'
+  | 'shouldShowHelp'
+  | 'shouldShowVersion';
 
 /** What the presentation sources came to, or the message naming why one of them could not be read. */
 type PresentationRead =
@@ -376,19 +384,19 @@ type OutputStyleArgumentRead = { ok: true; value: string; consumed: number } | {
 
 /** Every spelling of a boolean flag, paired with the field it sets. */
 const BOOLEAN_FLAGS = new Map<string, BooleanFlagName>([
-  ['-?', 'help'],
-  ['--help', 'help'],
-  ['--json', 'json'],
-  ['--log', 'log'],
-  ['--no-cache', 'noCache'],
+  ['-?', 'shouldShowHelp'],
+  ['--help', 'shouldShowHelp'],
+  ['--json', 'shouldEmitJson'],
+  ['--log', 'shouldPrintLog'],
+  ['--no-cache', 'shouldBypassCache'],
   ['-q', 'quiet'],
   ['--quiet', 'quiet'],
   ['-R', 'recursive'],
   ['--recursive', 'recursive'],
-  ['-V', 'version'],
-  ['--version', 'version'],
-  ['-w', 'workspaceRoot'],
-  ['--workspace-root', 'workspaceRoot'],
+  ['-V', 'shouldShowVersion'],
+  ['--version', 'shouldShowVersion'],
+  ['-w', 'isWorkspaceRoot'],
+  ['--workspace-root', 'isWorkspaceRoot'],
 ]);
 
 /**
@@ -402,7 +410,7 @@ const BOOLEAN_FLAGS = new Map<string, BooleanFlagName>([
  * re-derived at every link from an environment a caller may have set.
  *
  * Trailing arguments bypass alongside `--no-cache`, which is why the passthrough is read here rather than
- * folded into `noCache` by the caller: `openGate` has already stood this invocation's own gate down for them,
+ * folded into `shouldBypassCache` by the caller: `openGate` has already stood this invocation's own gate down for them,
  * but the steps below it are separate nmr invocations carrying none of their own, so a narrowed command would
  * otherwise serve part of its work from a recorded pass.
  *
@@ -413,16 +421,16 @@ const BOOLEAN_FLAGS = new Map<string, BooleanFlagName>([
 function buildChildEnv(options: {
   env: NodeJS.ProcessEnv;
   format: ReportFormat;
-  noCache: boolean;
   passthrough: readonly string[];
   runId: string;
+  shouldBypassCache: boolean;
   snapshot: TreeSnapshot | undefined;
   styles: StreamStyles;
   verbosity: CommandVerbosity;
 }): NodeJS.ProcessEnv {
-  const { env, format, noCache, passthrough, runId, snapshot, styles, verbosity } = options;
+  const { env, format, passthrough, runId, shouldBypassCache, snapshot, styles, verbosity } = options;
 
-  const bypassesCache = noCache || passthrough.length > 0;
+  const bypassesCache = shouldBypassCache || passthrough.length > 0;
 
   return {
     ...env,
@@ -506,21 +514,21 @@ function composeDelegation(options: {
   const { childEnv, command, parsed } = options;
 
   let scope: string[] | undefined;
-  let runIfPresent = parsed.log;
+  let shouldRunIfPresent = parsed.shouldPrintLog;
   if (parsed.filter) {
     scope = ['--filter', parsed.filter];
   } else if (parsed.recursive) {
     scope = ['--recursive'];
-    runIfPresent = true;
+    shouldRunIfPresent = true;
   }
   if (scope === undefined) {
     return undefined;
   }
 
-  const flags = parsed.log ? ['--log'] : [];
+  const flags = parsed.shouldPrintLog ? ['--log'] : [];
 
   return {
-    env: runIfPresent ? { ...childEnv, [RUN_IF_PRESENT_ENV_VAR]: '1' } : childEnv,
+    env: shouldRunIfPresent ? { ...childEnv, [RUN_IF_PRESENT_ENV_VAR]: '1' } : childEnv,
     step: {
       kind: 'structural',
       argv: ['pnpm', ...scope, 'exec', 'nmr', ...flags, command, ...parsed.passthrough],
@@ -578,12 +586,12 @@ async function composeRetention(options: {
  */
 function describeCrossingRemedy(options: {
   crossing: string;
+  isWorkspaceRoot: boolean;
   monorepoRoot: string;
   origin: DiagnosticOrigin;
   registry: ScriptRegistry;
-  workspaceRoot: boolean;
 }): { remedy: string; subject: string } {
-  const { crossing, monorepoRoot, origin, registry, workspaceRoot } = options;
+  const { crossing, isWorkspaceRoot, monorepoRoot, origin, registry } = options;
   const configSite = path.relative(monorepoRoot, resolveConfigPath(monorepoRoot));
 
   switch (origin.tier) {
@@ -599,7 +607,7 @@ function describeCrossingRemedy(options: {
       };
     case 'package':
       return {
-        remedy: formatPackageRemedy({ configSite, crossing, key: origin.key, registry, workspaceRoot }),
+        remedy: formatPackageRemedy({ configSite, crossing, isWorkspaceRoot, key: origin.key, registry }),
         subject: `${path.relative(monorepoRoot, origin.file)}: \`scripts.${origin.key}\``,
       };
     default: {
@@ -635,12 +643,12 @@ type DiagnosticOrigin =
  * Resolution reports the defaults and the config as one tier, having received them merged. Separating them
  * needs the config, which this holds and resolution does not.
  */
-function describeOrigin(origin: ScriptOrigin, config: NmrConfig, useRoot: boolean): DiagnosticOrigin {
+function describeOrigin(origin: ScriptOrigin, config: NmrConfig, shouldUseRoot: boolean): DiagnosticOrigin {
   if (origin.tier === 'package') {
     return origin;
   }
 
-  const field = useRoot ? 'rootScripts' : 'workspaceScripts';
+  const field = shouldUseRoot ? 'rootScripts' : 'workspaceScripts';
   const configScripts = config[field];
 
   return configScripts !== undefined && Object.hasOwn(configScripts, origin.key)
@@ -676,11 +684,11 @@ function escapeControlCharacters(text: string): string {
  */
 function formatNmrCrossingWarning(options: {
   crossing: string;
+  isWorkspaceRoot: boolean;
   monorepoRoot: string;
   origin: DiagnosticOrigin;
   registry: ScriptRegistry;
   style: OutputStyle;
-  workspaceRoot: boolean;
 }): string {
   const { remedy, subject } = describeCrossingRemedy(options);
 
@@ -722,12 +730,12 @@ function formatOverrideNotice(
  */
 function formatSelfReferenceRemedy(options: {
   command: string;
+  isWorkspaceRoot: boolean;
   monorepoRoot: string;
   registry: ScriptRegistry;
   script: string;
-  workspaceRoot: boolean;
 }): string {
-  const { command, monorepoRoot, registry, script, workspaceRoot } = options;
+  const { command, isWorkspaceRoot, monorepoRoot, registry, script } = options;
 
   if (isHookName(command)) {
     return `Delete the re-invocation: \`${command}\` runs the steps standing beside it.`;
@@ -735,7 +743,7 @@ function formatSelfReferenceRemedy(options: {
 
   const configSite = path.relative(monorepoRoot, resolveConfigPath(monorepoRoot));
 
-  return formatPackageRemedy({ configSite, crossing: script, key: command, registry, workspaceRoot });
+  return formatPackageRemedy({ configSite, crossing: script, isWorkspaceRoot, key: command, registry });
 }
 
 /**
@@ -748,11 +756,11 @@ function formatSelfReferenceRemedy(options: {
 function formatPackageRemedy(options: {
   configSite: string;
   crossing: string;
+  isWorkspaceRoot: boolean;
   key: string;
   registry: ScriptRegistry;
-  workspaceRoot: boolean;
 }): string {
-  const { configSite, crossing, key, registry, workspaceRoot } = options;
+  const { configSite, crossing, isWorkspaceRoot, key, registry } = options;
   const registryEntry = Object.hasOwn(registry, key) ? registry[key] : undefined;
 
   if (registryEntry === undefined) {
@@ -762,7 +770,7 @@ function formatPackageRemedy(options: {
     );
   }
 
-  const registryChain = renderChain(expandScript(registryEntry, workspaceRoot));
+  const registryChain = renderChain(expandScript(registryEntry, isWorkspaceRoot));
   if (registryChain === crossing) {
     return `Delete the entry: nmr's own \`${key}\` already runs \`${escapeControlCharacters(registryChain)}\`.`;
   }
@@ -777,7 +785,7 @@ function formatPackageRemedy(options: {
  * for nothing; the help text answers a different question and is not a stand-in for the flag's own grammar.
  */
 function findArgError(parsed: ParsedArgs): string | undefined {
-  if (parsed.log && parsed.command === undefined && !parsed.help && !parsed.version) {
+  if (parsed.shouldPrintLog && parsed.command === undefined && !parsed.shouldShowHelp && !parsed.shouldShowVersion) {
     return '--log requires a command name: `nmr --log <command>`';
   }
 
@@ -993,11 +1001,11 @@ function assertNoSelfReference(options: {
   anchorDir: string;
   command: string;
   isReading: boolean;
+  isWorkspaceRoot: boolean;
   monorepoRoot: string;
   registry: ScriptRegistry;
-  workspaceRoot: boolean;
 }): void {
-  const { anchorDir, command, isReading, monorepoRoot, registry, workspaceRoot } = options;
+  const { anchorDir, command, isReading, isWorkspaceRoot, monorepoRoot, registry } = options;
 
   if (isReading) {
     return;
@@ -1008,7 +1016,7 @@ function assertNoSelfReference(options: {
     return;
   }
 
-  const remedy = formatSelfReferenceRemedy({ command, monorepoRoot, registry, script, workspaceRoot });
+  const remedy = formatSelfReferenceRemedy({ command, isWorkspaceRoot, monorepoRoot, registry, script });
   const site = path.relative(monorepoRoot, resolvePackageJsonPath(anchorDir));
 
   throw new UserError(
@@ -1026,7 +1034,7 @@ function hasRunnableHook(
   hookName: string,
   registry: ScriptRegistry,
   anchorDir: string,
-  workspaceRoot: boolean,
+  isWorkspaceRoot: boolean,
 ): boolean {
   // A rejected entry resolves to nothing wherever the registry defines no such hook, and dropping the hook
   // would drop the report with it. Wrapping it is what puts the rejection in front of the hook's own process.
@@ -1034,7 +1042,7 @@ function hasRunnableHook(
     return true;
   }
 
-  const resolved = resolveScript(hookName, registry, anchorDir, workspaceRoot);
+  const resolved = resolveScript(hookName, registry, anchorDir, isWorkspaceRoot);
   if (!resolved) return false;
 
   const chain = renderChain(resolved.steps);
@@ -1141,14 +1149,14 @@ function openGate(options: {
 
 function parseArgs(args: string[]): ParseResult {
   const parsed: ParsedArgs = {
-    json: false,
-    log: false,
-    noCache: false,
+    isWorkspaceRoot: false,
     quiet: false,
     recursive: false,
-    workspaceRoot: false,
-    help: false,
-    version: false,
+    shouldBypassCache: false,
+    shouldEmitJson: false,
+    shouldPrintLog: false,
+    shouldShowHelp: false,
+    shouldShowVersion: false,
     passthrough: [],
   };
 
@@ -1333,13 +1341,13 @@ function readRunnableSteps(
 function reportNmrCrossing(options: {
   config: NmrConfig;
   isReading: boolean;
+  isWorkspaceRoot: boolean;
   monorepoRoot: string;
   registry: ScriptRegistry;
   resolved: ResolvedScript;
+  shouldUseRoot: boolean;
   stderr: Writable;
   style: OutputStyle;
-  useRoot: boolean;
-  workspaceRoot: boolean;
 }): void {
   const crossing = findNmrCrossing(options.resolved.steps);
   if (options.isReading || crossing === undefined) {
@@ -1348,11 +1356,11 @@ function reportNmrCrossing(options: {
 
   const warning = formatNmrCrossingWarning({
     crossing,
+    isWorkspaceRoot: options.isWorkspaceRoot,
     monorepoRoot: options.monorepoRoot,
-    origin: describeOrigin(options.resolved.origin, options.config, options.useRoot),
+    origin: describeOrigin(options.resolved.origin, options.config, options.shouldUseRoot),
     registry: options.registry,
     style: options.style,
-    workspaceRoot: options.workspaceRoot,
   });
 
   options.stderr.write(`${warning}\n`);
@@ -1585,11 +1593,11 @@ async function runGated(options: {
   env: NodeJS.ProcessEnv;
   key: string | undefined;
   monorepoRoot: string;
-  noCache: boolean;
   overrideNotice: string | undefined;
   ownSteps: readonly Step[];
   runId: string;
   runOptions: RunStepsOptions;
+  shouldBypassCache: boolean;
   snapshot: TreeSnapshot | undefined;
   steps: readonly Step[];
   stderr: Writable;
@@ -1616,7 +1624,7 @@ async function runGated(options: {
         }
       : undefined;
 
-  if (gate !== undefined && !options.noCache) {
+  if (gate !== undefined && !options.shouldBypassCache) {
     const recalled = await lookUpRecordedPass({
       anchorDir,
       buildOutput: gate.buildOutputBefore,
@@ -1698,16 +1706,16 @@ function wrapWithHooks(
   mainSteps: readonly Step[],
   registry: ScriptRegistry,
   anchorDir: string,
-  workspaceRoot: boolean,
+  isWorkspaceRoot: boolean,
 ): readonly Step[] {
   const steps: Step[] = [];
 
-  if (hasRunnableHook(`${command}:pre`, registry, anchorDir, workspaceRoot)) {
-    steps.push(composeNmrStep(`${command}:pre`, workspaceRoot));
+  if (hasRunnableHook(`${command}:pre`, registry, anchorDir, isWorkspaceRoot)) {
+    steps.push(composeNmrStep(`${command}:pre`, isWorkspaceRoot));
   }
   steps.push(...mainSteps);
-  if (hasRunnableHook(`${command}:post`, registry, anchorDir, workspaceRoot)) {
-    steps.push(composeNmrStep(`${command}:post`, workspaceRoot));
+  if (hasRunnableHook(`${command}:post`, registry, anchorDir, isWorkspaceRoot)) {
+    steps.push(composeNmrStep(`${command}:post`, isWorkspaceRoot));
   }
 
   return steps;

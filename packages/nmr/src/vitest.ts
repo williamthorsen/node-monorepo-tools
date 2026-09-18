@@ -56,14 +56,14 @@ export interface VitestConfigOptions {
    * Loads nmr's git-isolation setup file into every project, ahead of any the layers supply. Defaults to `true`.
    * Turn it off only where a suite is meant to read the developer's own git configuration.
    */
-  isolateGit?: boolean;
+  shouldIsolateGit?: boolean;
 
   /**
    * Resolves a package whose files sit outside every `node_modules` through its `source` export condition, so a
    * suite runs without a prior build. Defaults to `true`. A package declaring no such condition is unaffected,
    * and so is every package under `node_modules`, which Node resolves and which the condition never reaches.
    */
-  resolveFromSource?: boolean;
+  shouldResolveFromSource?: boolean;
 
   /**
    * Resolves a specifier through the `paths` a `tsconfig.json` declares, so a test reaches an alias the way `tsc`
@@ -138,6 +138,35 @@ const COVERAGE_EXCLUDE = ['**/__{fixtures,mocks,tests}__/**', '**/index.ts', '**
 
 const PACKAGE_COVERAGE_INCLUDE = ['**/src/**/*.{ts,tsx}'];
 
+/**
+ * Every option key the factories honour, held as a record so an option added to `VitestConfigOptions` without an
+ * entry here fails to compile rather than being rejected at run time as unrecognized.
+ */
+const RECOGNIZED_OPTIONS: Record<keyof VitestConfigOptions, true> = {
+  project: true,
+  root: true,
+  shouldIsolateGit: true,
+  shouldResolveFromSource: true,
+  testCollectionExclude: true,
+  tiers: true,
+  tsconfigPaths: true,
+};
+
+/** The base set, plus the root option that only a root config's final layer states. */
+const RECOGNIZED_ROOT_OPTIONS: Record<keyof RootVitestConfigOptions, true> = {
+  ...RECOGNIZED_OPTIONS,
+  monorepoRoot: true,
+};
+
+const RECOGNIZED_OPTION_KEYS = Object.keys(RECOGNIZED_OPTIONS);
+const RECOGNIZED_ROOT_OPTION_KEYS = Object.keys(RECOGNIZED_ROOT_OPTIONS);
+
+/** Maps each retired option key to the key that replaced it. */
+const RETIRED_OPTION_KEYS: ReadonlyMap<string, string> = new Map([
+  ['isolateGit', 'shouldIsolateGit'],
+  ['resolveFromSource', 'shouldResolveFromSource'],
+]);
+
 const MISSING_MONOREPO_ROOT =
   'defineRootVitestConfig requires `monorepoRoot`, an absolute path to the directory holding pnpm-workspace.yaml. Pass `import.meta.dirname` in the last options layer, from the root config.';
 
@@ -152,6 +181,8 @@ const MISSING_MONOREPO_ROOT =
  * An `undefined` layer is skipped, so `defineVitestConfig(shared, isCI ? ciLayer : undefined)` composes.
  */
 export function defineVitestConfig(...layers: (VitestConfigOptions | undefined)[]): ViteUserConfig {
+  assertOptionKeys(layers, RECOGNIZED_OPTION_KEYS);
+
   return buildConfig(layers, { coverageInclude: PACKAGE_COVERAGE_INCLUDE });
 }
 
@@ -173,6 +204,8 @@ export function defineRootVitestConfig(...layers: RootConfigLayers): ViteUserCon
   if (typeof monorepoRoot !== 'string' || !path.isAbsolute(monorepoRoot)) {
     throw new TypeError(MISSING_MONOREPO_ROOT);
   }
+
+  assertOptionKeys(layers, RECOGNIZED_ROOT_OPTION_KEYS);
 
   return buildConfig(layers, {
     coverageInclude: [],
@@ -196,7 +229,7 @@ function buildConfig(
 
   assertKnownTiers(layers);
 
-  // The conditions are emitted whichever way `resolveFromSource` is set, because they carry Vite's defaults
+  // The conditions are emitted whichever way `shouldResolveFromSource` is set, because they carry Vite's defaults
   // rather than anything source resolution contributes: A layer adding one condition would otherwise replace
   // the defaults rather than extend them.
   //
@@ -209,7 +242,7 @@ function buildConfig(
   };
 
   const config: ViteUserConfig = {
-    ...(resolveFlag(layers, 'resolveFromSource', true) && { plugins: [createSourceResolutionPlugin()] }),
+    ...(resolveFlag(layers, 'shouldResolveFromSource', true) && { plugins: [createSourceResolutionPlugin()] }),
     resolve,
     ssr: { resolve: { conditions: SERVER_CONDITIONS } },
     test: {
@@ -260,7 +293,7 @@ function buildProjects(
   ];
 
   const collectionExclude = buildCollectionExclude(layers);
-  const isolateGit = resolveFlag(layers, 'isolateGit', true);
+  const shouldIsolateGit = resolveFlag(layers, 'shouldIsolateGit', true);
 
   return projectTiers.map(({ exclude, include, name, timeout }) => {
     const project: TestProjectInlineConfiguration = {
@@ -273,7 +306,7 @@ function buildProjects(
         exclude: [...collectionExclude, ...exclude, ...extraExclude],
         include,
         name,
-        ...(isolateGit && { setupFiles: [GIT_ISOLATION_SETUP_FILE] }),
+        ...(shouldIsolateGit && { setupFiles: [GIT_ISOLATION_SETUP_FILE] }),
         ...(timeout !== undefined && { hookTimeout: timeout, testTimeout: timeout }),
       },
     };
@@ -324,6 +357,48 @@ function assertKnownTiers(layers: readonly VitestConfigOptions[]): void {
 }
 
 /**
+ * Rejects an option key that a release renamed, naming its replacement. Runs ahead of the recognized-key check, so
+ * an old spelling is answered with its new one rather than with the whole recognized set.
+ */
+function assertNoRetiredOptions(layer: VitestConfigOptions): void {
+  for (const key of Object.keys(layer)) {
+    const replacement = RETIRED_OPTION_KEYS.get(key);
+    if (replacement !== undefined) {
+      throw new TypeError(`Invalid Vitest config: \`${key}\` was renamed to \`${replacement}\`.`);
+    }
+  }
+}
+
+/**
+ * Rejects an option key outside the recognized set, and an old spelling of a renamed one. `resolveFlag` and the
+ * folds below read each layer by key, so an unrecognized key makes a setting that nothing applies.
+ *
+ * Only the last layer may state `monorepoRoot`, which `defineRootVitestConfig` reads from that layer alone;
+ * recognizing it on every layer would accept it where nothing reads it, which is the failure this guard prevents.
+ */
+function assertOptionKeys(
+  layers: readonly (VitestConfigOptions | undefined)[],
+  lastLayerKeys: readonly string[],
+): void {
+  const lastIndex = layers.length - 1;
+
+  layers.forEach((layer, index) => {
+    if (layer === undefined) return;
+
+    assertNoRetiredOptions(layer);
+
+    const recognizedKeys = index === lastIndex ? lastLayerKeys : RECOGNIZED_OPTION_KEYS;
+    const unrecognized = Object.keys(layer).filter((key) => !recognizedKeys.includes(key));
+    if (unrecognized.length === 0) return;
+
+    throw new TypeError(
+      `Invalid Vitest config: unrecognized ${unrecognized.length === 1 ? 'option' : 'options'} ` +
+        `${formatOptionKeys(unrecognized)}. Recognized: ${formatOptionKeys(recognizedKeys)}.`,
+    );
+  });
+}
+
+/**
  * Builds the collection exclusions every project carries: Vitest's own defaults, the directories the shared config
  * always prunes, and whatever the layers add, each directory name as a glob matching at any depth.
  *
@@ -338,6 +413,14 @@ function buildCollectionExclude(layers: readonly VitestConfigOptions[]): string[
   return [...new Set([...defaultExclude, ...globs])];
 }
 
+/** Renders option keys as a sorted, backtick-quoted list. */
+function formatOptionKeys(keys: readonly string[]): string {
+  return keys
+    .toSorted()
+    .map((key) => `\`${key}\``)
+    .join(', ');
+}
+
 /** Resolves each workspace package directory to a glob relative to the monorepo root. */
 function getWorkspaceExcludePatterns(monorepoRoot: string): string[] {
   return getWorkspacePackageDirs(monorepoRoot)
@@ -346,15 +429,15 @@ function getWorkspaceExcludePatterns(monorepoRoot: string): string[] {
 }
 
 /**
- * Reads one boolean option across the layers, the last to declare it winning, and the caller's fallback where none
- * does. Each call site states its own fallback, so a flag cannot inherit one chosen for a different flag.
+ * Reads one boolean option across the layers, the last to declare it winning, and the caller's default where none
+ * does. Each call site states its own default, so a flag cannot inherit one chosen for a different flag.
  */
 function resolveFlag(
   layers: readonly VitestConfigOptions[],
-  name: 'isolateGit' | 'resolveFromSource' | 'tsconfigPaths',
-  fallback: boolean,
+  name: 'shouldIsolateGit' | 'shouldResolveFromSource' | 'tsconfigPaths',
+  isOnByDefault: boolean,
 ): boolean {
-  let resolved = fallback;
+  let resolved = isOnByDefault;
 
   for (const layer of layers) {
     const declared = layer[name];

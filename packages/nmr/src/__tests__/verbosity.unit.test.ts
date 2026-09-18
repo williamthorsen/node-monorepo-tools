@@ -48,7 +48,7 @@ describe(resolveVerbosity, () => {
     });
 
     it('given the flag alone, resolves to quiet', () => {
-      expect(resolve({ quietFlag: true })).toBe('quiet');
+      expect(resolve({ hasQuietFlag: true })).toBe('quiet');
     });
 
     it('given an environment value alone, resolves to it', () => {
@@ -70,7 +70,7 @@ describe(resolveVerbosity, () => {
 
   describe('each level outranking the one below it', () => {
     it('given the flag against a full environment, resolves to quiet', () => {
-      expect(resolve({ envVerbosity: 'full', quietFlag: true })).toBe('quiet');
+      expect(resolve({ envVerbosity: 'full', hasQuietFlag: true })).toBe('quiet');
     });
 
     it('given a full environment against a quiet config, resolves to full', () => {
@@ -115,14 +115,14 @@ function errorFrom(read: VerbosityRead): string {
 function resolve(options: {
   env?: NodeJS.ProcessEnv;
   envVerbosity?: CommandVerbosity;
+  hasQuietFlag?: boolean;
   output?: OutputConfig;
-  quietFlag?: boolean;
 }): CommandVerbosity {
   return resolveVerbosity({
     env: options.env ?? {},
     envVerbosity: options.envVerbosity,
+    hasQuietFlag: options.hasQuietFlag ?? false,
     output: options.output,
-    quietFlag: options.quietFlag ?? false,
   });
 }
 
