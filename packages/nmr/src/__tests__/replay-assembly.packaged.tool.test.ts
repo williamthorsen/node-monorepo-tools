@@ -122,7 +122,7 @@ describe('a composite’s assembled replay', () => {
 // region | Helpers
 
 /** Runs git in `cwd`, discarding its output. */
-function git(cwd: string, args: string[]): void {
+function runGit(cwd: string, args: string[]): void {
   execFileSync('git', args, { cwd, stdio: 'ignore' });
 }
 
@@ -152,12 +152,12 @@ function scaffoldRepo(tree: TempTree): void {
   });
 
   const repo = tree.dir;
-  git(repo, ['init', '--initial-branch=main']);
-  git(repo, ['config', 'user.email', 'fixture@example.com']);
-  git(repo, ['config', 'user.name', 'Fixture']);
-  git(repo, ['config', 'commit.gpgsign', 'false']);
-  git(repo, ['add', '--all']);
-  git(repo, ['commit', '--message', 'initial']);
+  runGit(repo, ['init', '--initial-branch=main']);
+  runGit(repo, ['config', 'user.email', 'fixture@example.com']);
+  runGit(repo, ['config', 'user.name', 'Fixture']);
+  runGit(repo, ['config', 'commit.gpgsign', 'false']);
+  runGit(repo, ['add', '--all']);
+  runGit(repo, ['commit', '--message', 'initial']);
 }
 
 // endregion | Helpers

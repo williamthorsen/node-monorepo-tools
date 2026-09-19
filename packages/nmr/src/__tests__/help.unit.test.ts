@@ -166,12 +166,12 @@ describe(generateHelp, () => {
       });
 
       const help = generateHelp({}, tree.dir, false);
-      const workspaceSection = sectionOf(help, 'Workspace commands:', 'Root commands:');
+      const workspaceSection = readSection(help, 'Workspace commands:', 'Root commands:');
       expect(workspaceSection).toContain('lint*');
       expect(workspaceSection).toContain('pkg-linter');
       expect(help).toContain('* Overridden by package.json');
 
-      const rootSection = sectionOf(help, 'Root commands:', '* Overridden by package.json');
+      const rootSection = readSection(help, 'Root commands:', '* Overridden by package.json');
       expect(rootSection).not.toContain('pkg-linter');
     });
 
@@ -182,12 +182,12 @@ describe(generateHelp, () => {
       });
 
       const help = generateHelp({}, tree.dir, true);
-      const rootSection = sectionOf(help, 'Root commands:', '* Overridden by package.json');
+      const rootSection = readSection(help, 'Root commands:', '* Overridden by package.json');
       expect(rootSection).toContain('lint*');
       expect(rootSection).toContain('custom-linter');
       expect(help).toContain('* Overridden by package.json');
 
-      const workspaceSection = sectionOf(help, 'Workspace commands:', 'Root commands:');
+      const workspaceSection = readSection(help, 'Workspace commands:', 'Root commands:');
       expect(workspaceSection).not.toContain('custom-linter');
     });
 
@@ -229,7 +229,7 @@ describe(generateHelp, () => {
       });
 
       const help = generateHelp({}, tree.dir, true);
-      const rootSection = sectionOf(help, 'Root commands:', '* Overridden by package.json');
+      const rootSection = readSection(help, 'Root commands:', '* Overridden by package.json');
       const rows = rootSection.split('\n').filter((line) => line.startsWith('  ') && line.trim().length > 0);
       // All rendered rows in the root section should share the same value-column offset
       const valueColumns = new Set(rows.map((line) => findValueColumn(line)));
@@ -239,9 +239,9 @@ describe(generateHelp, () => {
 
   describe('test commands', () => {
     it('lists all six test commands for every package', ({ tree }) => {
-      const workspaceSection = sectionOf(generateHelp({}, tree.dir, false), 'Workspace commands:', 'Root commands:');
+      const workspaceSection = readSection(generateHelp({}, tree.dir, false), 'Workspace commands:', 'Root commands:');
 
-      expect(commandNamesIn(workspaceSection)).toStrictEqual(
+      expect(readCommandNames(workspaceSection)).toStrictEqual(
         expect.arrayContaining(['test', 'test:all', 'test:coverage', 'test:tool', 'test:unit', 'test:watch']),
       );
       expect(workspaceSection).toContain('pnpm exec vitest --project unit --project tool');
@@ -249,20 +249,24 @@ describe(generateHelp, () => {
 
     // Help renders the registry, so a probe reintroduced anywhere would show up as a different listing here.
     it('lists the same commands when the retired variant config is present', ({ tree }) => {
-      const bareSection = sectionOf(generateHelp({}, tree.dir, false), 'Workspace commands:', 'Root commands:');
+      const bareSection = readSection(generateHelp({}, tree.dir, false), 'Workspace commands:', 'Root commands:');
       tree.write('vitest.integration.config.ts', '');
       tree.write('vitest.standalone.config.ts', '');
 
-      const withConfigsSection = sectionOf(generateHelp({}, tree.dir, false), 'Workspace commands:', 'Root commands:');
+      const withConfigsSection = readSection(
+        generateHelp({}, tree.dir, false),
+        'Workspace commands:',
+        'Root commands:',
+      );
 
       expect(withConfigsSection).toBe(bareSection);
       expect(withConfigsSection).not.toContain('vitest.standalone.config.ts');
     });
 
     it('lists the root test selections in root context', ({ tree }) => {
-      const rootSection = sectionOf(generateHelp({}, tree.dir, true), 'Root commands:', '* Overridden');
+      const rootSection = readSection(generateHelp({}, tree.dir, true), 'Root commands:', '* Overridden');
 
-      expect(commandNamesIn(rootSection)).toStrictEqual(
+      expect(readCommandNames(rootSection)).toStrictEqual(
         expect.arrayContaining([
           'root:test',
           'root:test:all',
@@ -276,7 +280,7 @@ describe(generateHelp, () => {
     });
 
     it('describes a delegating root selection as the steps it runs', ({ tree }) => {
-      const rootSection = sectionOf(generateHelp({}, tree.dir, true), 'Root commands:', '* Overridden');
+      const rootSection = readSection(generateHelp({}, tree.dir, true), 'Root commands:', '* Overridden');
 
       expect(rootSection).toContain('[root:test, -R test]');
     });
@@ -287,7 +291,7 @@ describe(generateHelp, () => {
  * Collects the command name from every rendered registry row in `section`, dropping the `*` override marker.
  * Names compare exactly, so a row is not satisfied by a longer sibling that merely contains it.
  */
-function commandNamesIn(section: string): string[] {
+function readCommandNames(section: string): string[] {
   return section
     .split('\n')
     .filter((line) => line.startsWith('  '))
@@ -298,7 +302,7 @@ function commandNamesIn(section: string): string[] {
  * Extracts the substring between two markers (exclusive of the end marker).
  * Returns the portion of `help` from `start` up to (but not including) `end`.
  */
-function sectionOf(help: string, start: string, end: string): string {
+function readSection(help: string, start: string, end: string): string {
   const startIdx = help.indexOf(start);
   const endIdx = help.indexOf(end, startIdx + start.length);
   if (startIdx === -1) return '';

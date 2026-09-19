@@ -64,7 +64,7 @@ describe('a run printed by --log', () => {
     it('runs nothing and reports no verdict', async () => {
       const { stdout } = await runNmr(`--log ${COMMAND}`);
 
-      expect(runCount()).toBe(1);
+      expect(countRuns()).toBe(1);
       expect(stdout).not.toContain('passed');
     });
 
@@ -150,8 +150,8 @@ describe('a run printed by --log', () => {
 
   // region | Helpers
 
-  /** How many times the fixture's command has actually run. */
-  function runCount(): number {
+  /** Counts how many times the fixture's command has actually run. */
+  function countRuns(): number {
     return workspace.exists(LOG_ENTRY) ? workspace.read(LOG_ENTRY).trim().split('\n').length : 0;
   }
 
@@ -162,8 +162,8 @@ describe('a run printed by --log', () => {
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
     const stdoutChunks: Buffer[] = [];
     const stderrChunks: Buffer[] = [];
-    const stdout = asDestination(new PassThrough(), options.terminalFd);
-    const stderr = asDestination(new PassThrough(), options.terminalFd);
+    const stdout = buildDestination(new PassThrough(), options.terminalFd);
+    const stderr = buildDestination(new PassThrough(), options.terminalFd);
     stdout.on('data', (chunk: Buffer) => {
       stdoutChunks.push(chunk);
     });
@@ -195,12 +195,12 @@ describe('a run printed by --log', () => {
  * Decorates a destination as a terminal on the given descriptor, so the runner hands the child that descriptor
  * and nmr sees none of what flows through it. Left undecorated, the stream carries no descriptor and is piped.
  */
-function asDestination(stream: PassThrough, terminalFd: number | undefined): PassThrough {
+function buildDestination(stream: PassThrough, terminalFd: number | undefined): PassThrough {
   return terminalFd === undefined ? stream : Object.assign(stream, { fd: terminalFd, isTTY: true });
 }
 
 /** Runs git in `cwd`, discarding its output. */
-function git(cwd: string, args: string[]): void {
+function runGit(cwd: string, args: string[]): void {
   execFileSync('git', args, { cwd, stdio: 'ignore' });
 }
 
@@ -228,12 +228,12 @@ function scaffoldRepo(workspace: TempTree, log: string): void {
   });
 
   const repo = workspace.resolve('repo');
-  git(repo, ['init', '--initial-branch=main']);
-  git(repo, ['config', 'user.email', 'fixture@example.com']);
-  git(repo, ['config', 'user.name', 'Fixture']);
-  git(repo, ['config', 'commit.gpgsign', 'false']);
-  git(repo, ['add', '--all']);
-  git(repo, ['commit', '--message', 'initial']);
+  runGit(repo, ['init', '--initial-branch=main']);
+  runGit(repo, ['config', 'user.email', 'fixture@example.com']);
+  runGit(repo, ['config', 'user.name', 'Fixture']);
+  runGit(repo, ['config', 'commit.gpgsign', 'false']);
+  runGit(repo, ['add', '--all']);
+  runGit(repo, ['commit', '--message', 'initial']);
 }
 
 // endregion | Helpers

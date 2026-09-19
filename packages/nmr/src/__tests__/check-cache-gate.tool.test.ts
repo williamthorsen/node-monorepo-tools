@@ -38,12 +38,12 @@ describe('the check-result cache gate', () => {
   describe('a tree that has not changed', () => {
     it('runs the first time and skips the second', async () => {
       expect((await runNmr(COMMAND, repo)).exitCode).toBe(0);
-      expect(runCount()).toBe(1);
+      expect(countRuns()).toBe(1);
 
       const secondRun = await runNmr(COMMAND, repo);
 
       expect(secondRun.exitCode).toBe(0);
-      expect(runCount()).toBe(1);
+      expect(countRuns()).toBe(1);
       expect(secondRun.stdout).toContain('passed');
     });
 
@@ -63,7 +63,7 @@ describe('the check-result cache gate', () => {
 
       expect(exitCode).toBe(0);
       expect(stdout).toContain(`SKIP ${path.basename(repo)}: ${COMMAND}:`);
-      expect(runCount()).toBe(1);
+      expect(countRuns()).toBe(1);
     });
 
     // The boundary belongs to the command's shape, not to the run's outcome, so a command that usually skips
@@ -87,7 +87,7 @@ describe('the check-result cache gate', () => {
       const { exitCode } = await runNmr(COMMAND, path.join(repo, 'tools'));
 
       expect(exitCode).toBe(0);
-      expect(runCount()).toBe(1);
+      expect(countRuns()).toBe(1);
     });
   });
 
@@ -98,7 +98,7 @@ describe('the check-result cache gate', () => {
       workspace.write('repo/src/index.ts', 'export const value = 2;\n');
 
       expect((await runNmr(COMMAND, repo)).exitCode).toBe(0);
-      expect(runCount()).toBe(2);
+      expect(countRuns()).toBe(2);
     });
 
     it('runs again when an untracked file appears', async () => {
@@ -108,7 +108,7 @@ describe('the check-result cache gate', () => {
 
       await runNmr(COMMAND, repo);
 
-      expect(runCount()).toBe(2);
+      expect(countRuns()).toBe(2);
     });
   });
 
@@ -119,7 +119,7 @@ describe('the check-result cache gate', () => {
       expect((await runNmr(COMMAND, repo)).exitCode).toBe(3);
       await runNmr(COMMAND, repo);
 
-      expect(runCount()).toBe(2);
+      expect(countRuns()).toBe(2);
     });
 
     it('does not record a run that changed the tree it was asked about', async () => {
@@ -129,7 +129,7 @@ describe('the check-result cache gate', () => {
       await runNmr(COMMAND, repo);
       const { stderr } = await runNmr(COMMAND, repo, { NMR_DEBUG: '1' });
 
-      expect(runCount()).toBe(2);
+      expect(countRuns()).toBe(2);
       expect(stderr).toContain('the tree changed while it ran');
     });
 
@@ -146,14 +146,14 @@ describe('the check-result cache gate', () => {
       const { exitCode } = await runNmr('ghost', repo, { NMR_RUN_IF_PRESENT: '1' });
 
       expect(exitCode).toBe(0);
-      expect(cacheEntryCount()).toBe(0);
+      expect(countCacheEntries()).toBe(0);
     });
 
     it('does not record a command carrying arguments', async () => {
       // Arguments change what a command does in ways the gate cannot see, so they take it out of scope.
       await runNmr(`${COMMAND} --flag`, repo);
 
-      expect(cacheEntryCount()).toBe(0);
+      expect(countCacheEntries()).toBe(0);
     });
   });
 
@@ -162,11 +162,11 @@ describe('the check-result cache gate', () => {
       await runNmr(COMMAND, repo);
 
       await runNmr(`--no-cache ${COMMAND}`, repo);
-      expect(runCount()).toBe(2);
+      expect(countRuns()).toBe(2);
 
       // Re-recorded, so the next ordinary run skips again rather than paying for the bypass twice.
       await runNmr(COMMAND, repo);
-      expect(runCount()).toBe(2);
+      expect(countRuns()).toBe(2);
     });
 
     it('reaches the whole chain through the environment', async () => {
@@ -175,7 +175,7 @@ describe('the check-result cache gate', () => {
       const { exitCode } = await runNmr(COMMAND, repo, { NMR_NO_CACHE: '1' });
 
       expect(exitCode).toBe(0);
-      expect(runCount()).toBe(2);
+      expect(countRuns()).toBe(2);
     });
 
     it('warns when it lands after the command name, where it is an argument', async () => {
@@ -202,11 +202,11 @@ describe('the check-result cache gate', () => {
       });
 
       await runNmr(COMMAND, repo);
-      expect(runCount()).toBe(2);
+      expect(countRuns()).toBe(2);
 
       await runNmr(`${COMMAND} --flag`, repo);
 
-      expect(runCount()).toBe(4);
+      expect(countRuns()).toBe(4);
     });
 
     it('still records the pass a declining step earned, having run its whole work', async () => {
@@ -216,12 +216,12 @@ describe('the check-result cache gate', () => {
       });
 
       await runNmr(`${COMMAND} --flag`, repo);
-      expect(runCount()).toBe(2);
+      expect(countRuns()).toBe(2);
 
       // Only `lint:check` recorded a pass, so only it skips.
       await runNmr(COMMAND, repo);
 
-      expect(runCount()).toBe(3);
+      expect(countRuns()).toBe(3);
     });
   });
 
@@ -242,11 +242,11 @@ describe('the check-result cache gate', () => {
       writeConfig(workspace, log, { extraRootScripts: { check: [COMMAND] } });
 
       await runNmr('check', repo);
-      expect(runCount()).toBe(1);
+      expect(countRuns()).toBe(1);
 
       await runNmr(COMMAND, repo);
 
-      expect(runCount()).toBe(1);
+      expect(countRuns()).toBe(1);
     });
   });
 
@@ -257,7 +257,7 @@ describe('the check-result cache gate', () => {
       await runNmr(COMMAND, repo);
       await runNmr(COMMAND, repo);
 
-      expect(runCount()).toBe(2);
+      expect(countRuns()).toBe(2);
     });
 
     it('never gates anything once the configuration turns it off', async () => {
@@ -266,7 +266,7 @@ describe('the check-result cache gate', () => {
       await runNmr(COMMAND, repo);
       await runNmr(COMMAND, repo);
 
-      expect(runCount()).toBe(2);
+      expect(countRuns()).toBe(2);
     });
 
     it('never gates a command outside the cacheable set', async () => {
@@ -276,8 +276,8 @@ describe('the check-result cache gate', () => {
       await runNmr('fmt', repo);
       await runNmr('fmt', repo);
 
-      expect(runCount()).toBe(2);
-      expect(cacheEntryCount()).toBe(0);
+      expect(countRuns()).toBe(2);
+      expect(countCacheEntries()).toBe(0);
     });
 
     it('stands aside outside a git repository, and says why when asked', async () => {
@@ -286,7 +286,7 @@ describe('the check-result cache gate', () => {
       await runNmr(COMMAND, repo);
       const { stderr } = await runNmr(COMMAND, repo, { NMR_DEBUG: '1' });
 
-      expect(runCount()).toBe(2);
+      expect(countRuns()).toBe(2);
       expect(stderr).toContain('not a git repository');
     });
 
@@ -296,7 +296,7 @@ describe('the check-result cache gate', () => {
       await runNmr(COMMAND, repo);
       const { stderr } = await runNmr(COMMAND, repo, { NMR_DEBUG: '1' });
 
-      expect(runCount()).toBe(2);
+      expect(countRuns()).toBe(2);
       expect(stderr).toContain('install fingerprint');
     });
 
@@ -311,7 +311,7 @@ describe('the check-result cache gate', () => {
       await runNmr(COMMAND, repo);
       const { stderr } = await runNmr(COMMAND, repo, { NMR_DEBUG: '1' });
 
-      expect(runCount()).toBe(2);
+      expect(countRuns()).toBe(2);
       expect(stderr).toContain('devBin substituted');
     });
 
@@ -409,7 +409,7 @@ describe('the check-result cache gate', () => {
 
       const { stdout } = await runNmr(COMMAND, repo);
 
-      expect(runCount()).toBe(1);
+      expect(countRuns()).toBe(1);
       expect(stdout).toContain('replayed: 27 passed (27)');
     });
 
@@ -420,7 +420,7 @@ describe('the check-result cache gate', () => {
       const { stdout } = await runNmr(COMMAND, repo, { COLUMNS: '80' });
 
       // Still a pass on this tree; only the excerpt is another environment's.
-      expect(runCount()).toBe(1);
+      expect(countRuns()).toBe(1);
       expect(stdout).toContain('on this tree');
       expect(stdout).not.toContain('replayed:');
     });
@@ -430,7 +430,7 @@ describe('the check-result cache gate', () => {
 
       const { stdout } = await runNmr(COMMAND, repo);
 
-      expect(runCount()).toBe(1);
+      expect(countRuns()).toBe(1);
       expect(stdout).toContain('on this tree');
       expect(stdout).not.toContain('replayed:');
     });
@@ -593,7 +593,7 @@ describe('the check-result cache gate', () => {
       workspace.rm('repo/packages/a/dist');
       const { stderr } = await runNmr(COMMAND, repo, { NMR_DEBUG: '1' });
 
-      expect(runCount()).toBe(2);
+      expect(countRuns()).toBe(2);
       expect(stderr).toContain('packages/a has no build output');
     });
 
@@ -606,7 +606,7 @@ describe('the check-result cache gate', () => {
       writeBuildDigest(workspace, 'repo/packages/a', 'digest-from-another-tree');
       const { stderr } = await runNmr(COMMAND, repo, { NMR_DEBUG: '1' });
 
-      expect(runCount()).toBe(2);
+      expect(countRuns()).toBe(2);
       expect(stderr).toContain('came from a different tree');
     });
 
@@ -617,7 +617,7 @@ describe('the check-result cache gate', () => {
 
       await runNmr(COMMAND, repo);
 
-      expect(runCount()).toBe(2);
+      expect(countRuns()).toBe(2);
     });
 
     it('skips again once the output is back', async () => {
@@ -629,7 +629,7 @@ describe('the check-result cache gate', () => {
 
       await runNmr(COMMAND, repo);
 
-      expect(runCount()).toBe(2);
+      expect(countRuns()).toBe(2);
     });
   });
 
@@ -643,7 +643,7 @@ describe('the check-result cache gate', () => {
 
       const { stderr } = await runNmr(COMMAND, repo, { NMR_DEBUG: '1' });
 
-      expect(cacheEntryCount()).toBe(0);
+      expect(countCacheEntries()).toBe(0);
       expect(stderr).toContain("packages/a's build output changed while it ran");
     });
 
@@ -658,7 +658,7 @@ describe('the check-result cache gate', () => {
 
       const { stderr } = await runNmr(COMMAND, repo, { NMR_DEBUG: '1' });
 
-      expect(cacheEntryCount()).toBe(0);
+      expect(countCacheEntries()).toBe(0);
       expect(stderr).toContain("packages/a's build output changed while it ran");
     });
 
@@ -671,7 +671,7 @@ describe('the check-result cache gate', () => {
 
       await runNmr(`--no-cache ${COMMAND}`, repo);
 
-      expect(cacheEntryCount()).toBe(0);
+      expect(countCacheEntries()).toBe(0);
     });
 
     it('settles rather than missing forever once the digest stands still', async () => {
@@ -684,14 +684,14 @@ describe('the check-result cache gate', () => {
 
       await runNmr(COMMAND, repo);
 
-      expect(runCount()).toBe(2);
+      expect(countRuns()).toBe(2);
     });
   });
 
   // region | Helpers
 
   /** Counts the entries the cache currently holds for the fixture repository. */
-  function cacheEntryCount(): number {
+  function countCacheEntries(): number {
     const cacheDir = 'repo/node_modules/.cache/nmr-check';
     return workspace.exists(cacheDir) ? workspace.list(cacheDir).length : 0;
   }
@@ -713,7 +713,7 @@ describe('the check-result cache gate', () => {
   }
 
   /** Counts how many times the fixture's command has actually run. */
-  function runCount(): number {
+  function countRuns(): number {
     return readLog().length;
   }
 
@@ -731,8 +731,8 @@ describe('the check-result cache gate', () => {
     const ambientEnv = readAmbientEnv();
     const stdoutChunks: Buffer[] = [];
     const stderrChunks: Buffer[] = [];
-    const stdout = asDestination(new PassThrough(), options.terminalFd);
-    const stderr = asDestination(new PassThrough(), options.terminalFd);
+    const stdout = buildDestination(new PassThrough(), options.terminalFd);
+    const stderr = buildDestination(new PassThrough(), options.terminalFd);
     stdout.on('data', (chunk: Buffer) => {
       stdoutChunks.push(chunk);
     });
@@ -769,7 +769,7 @@ describe('the check-result cache gate', () => {
  * Decorates a destination as a terminal on the given descriptor, so the runner hands the child that descriptor
  * and nmr sees none of what flows through it. Left undecorated, the stream carries no descriptor and is piped.
  */
-function asDestination(stream: PassThrough, terminalFd: number | undefined): PassThrough {
+function buildDestination(stream: PassThrough, terminalFd: number | undefined): PassThrough {
   return terminalFd === undefined ? stream : Object.assign(stream, { fd: terminalFd, isTTY: true });
 }
 
@@ -795,7 +795,7 @@ function writeBuildDigest(workspace: TempTree, packageEntry: string, digest: str
 }
 
 /** Runs git in `cwd`, discarding its output. */
-function git(cwd: string, args: string[]): void {
+function runGit(cwd: string, args: string[]): void {
   execFileSync('git', args, { cwd, stdio: 'ignore' });
 }
 
@@ -822,12 +822,12 @@ function scaffoldRepo(workspace: TempTree, log: string): void {
   writeConfig(workspace, log);
 
   const repo = workspace.resolve('repo');
-  git(repo, ['init', '--initial-branch=main']);
-  git(repo, ['config', 'user.email', 'fixture@example.com']);
-  git(repo, ['config', 'user.name', 'Fixture']);
-  git(repo, ['config', 'commit.gpgsign', 'false']);
-  git(repo, ['add', '--all']);
-  git(repo, ['commit', '--message', 'initial']);
+  runGit(repo, ['init', '--initial-branch=main']);
+  runGit(repo, ['config', 'user.email', 'fixture@example.com']);
+  runGit(repo, ['config', 'user.name', 'Fixture']);
+  runGit(repo, ['config', 'commit.gpgsign', 'false']);
+  runGit(repo, ['add', '--all']);
+  runGit(repo, ['commit', '--message', 'initial']);
 }
 
 /**

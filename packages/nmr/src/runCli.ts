@@ -484,7 +484,7 @@ function bindPassthrough(
     }
     return step.kind === 'structural'
       ? { ...step, argv: [...step.argv, ...passthrough] }
-      : { kind: 'opaque', command: `${step.command} ${passthrough.map(shellQuote).join(' ')}` };
+      : { kind: 'opaque', command: `${step.command} ${passthrough.map(quoteForShell).join(' ')}` };
   });
 
   return { ok: true, steps: boundSteps };
@@ -1695,7 +1695,7 @@ async function runGated(options: {
  * Shell-escapes a single argument by wrapping in single quotes
  * and escaping any embedded single quotes.
  */
-function shellQuote(arg: string): string {
+function quoteForShell(arg: string): string {
   return "'" + arg.replace(/'/g, String.raw`'\''`) + "'";
 }
 

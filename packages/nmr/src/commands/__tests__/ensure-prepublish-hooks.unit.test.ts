@@ -120,7 +120,11 @@ describe(reportPrepublishHooks, () => {
   it('closes a clean run with the count of packages carrying the hook', () => {
     using silent = silenceConsole(['info']);
 
-    reportPrepublishHooks(buildResult([status('a', 'ok'), status('b', 'ok'), status('c', 'ok')]), DEFAULT_HOOK, 'rich');
+    reportPrepublishHooks(
+      buildResult([buildStatus('a', 'ok'), buildStatus('b', 'ok'), buildStatus('c', 'ok')]),
+      DEFAULT_HOOK,
+      'rich',
+    );
 
     expect(silent.info).toHaveBeenCalledWith('\n3 publishable packages have prepublishOnly.');
   });
@@ -128,7 +132,7 @@ describe(reportPrepublishHooks, () => {
   it('closes a run with a miss by naming how many of them there are', () => {
     using silent = silenceConsole(['info']);
 
-    reportPrepublishHooks(buildResult([status('a', 'ok'), status('b', 'missing')]), DEFAULT_HOOK, 'rich');
+    reportPrepublishHooks(buildResult([buildStatus('a', 'ok'), buildStatus('b', 'missing')]), DEFAULT_HOOK, 'rich');
 
     expect(silent.info).toHaveBeenCalledWith(
       '\n1 of 2 publishable packages is missing prepublishOnly. Run with --fix to add it.',
@@ -138,7 +142,7 @@ describe(reportPrepublishHooks, () => {
   it('closes a fix run with what it added', () => {
     using silent = silenceConsole(['info']);
 
-    reportPrepublishHooks(buildResult([status('a', 'fixed'), status('b', 'ok')]), DEFAULT_HOOK, 'rich');
+    reportPrepublishHooks(buildResult([buildStatus('a', 'fixed'), buildStatus('b', 'ok')]), DEFAULT_HOOK, 'rich');
 
     expect(silent.info).toHaveBeenCalledWith('\nAdded prepublishOnly to 1 of 2 publishable packages.');
   });
@@ -146,7 +150,7 @@ describe(reportPrepublishHooks, () => {
   it('closes a dry run with what it would add', () => {
     using silent = silenceConsole(['info']);
 
-    reportPrepublishHooks(buildResult([status('a', 'would-fix')]), DEFAULT_HOOK, 'rich');
+    reportPrepublishHooks(buildResult([buildStatus('a', 'would-fix')]), DEFAULT_HOOK, 'rich');
 
     expect(silent.info).toHaveBeenCalledWith('\nWould add prepublishOnly to 1 of 1 publishable package.');
   });
@@ -154,7 +158,7 @@ describe(reportPrepublishHooks, () => {
   it('closes a workspace of private packages with the one statement its output is', () => {
     using silent = silenceConsole(['info']);
 
-    reportPrepublishHooks(buildResult([{ ...status('a', 'ok'), isPrivate: true }]), DEFAULT_HOOK, 'rich');
+    reportPrepublishHooks(buildResult([{ ...buildStatus('a', 'ok'), isPrivate: true }]), DEFAULT_HOOK, 'rich');
 
     expect(silent.info).toHaveBeenCalledExactlyOnceWith('No publishable packages found.');
   });
@@ -162,7 +166,7 @@ describe(reportPrepublishHooks, () => {
   it('reports a miss on the stream its other lines went to, leaving the failure to the exit code', () => {
     using silent = silenceConsole(['info', 'warn']);
 
-    reportPrepublishHooks(buildResult([status('a', 'ok'), status('b', 'missing')]), DEFAULT_HOOK, 'rich');
+    reportPrepublishHooks(buildResult([buildStatus('a', 'ok'), buildStatus('b', 'missing')]), DEFAULT_HOOK, 'rich');
 
     expect(silent.info).toHaveBeenCalledWith('❌ b: missing prepublishOnly');
     expect(silent.warn).not.toHaveBeenCalled();
@@ -174,7 +178,7 @@ describe(reportPrepublishHooks, () => {
   ] as const)('opens a $style line on the status marker', ({ expectedLine, style }) => {
     using silent = silenceConsole(['info']);
 
-    reportPrepublishHooks(buildResult([status('a', 'ok')]), DEFAULT_HOOK, style);
+    reportPrepublishHooks(buildResult([buildStatus('a', 'ok')]), DEFAULT_HOOK, style);
 
     expect(silent.info).toHaveBeenCalledWith(expectedLine);
   });
@@ -183,7 +187,7 @@ describe(reportPrepublishHooks, () => {
   it('leaves the dry run’s mark outside the status set', () => {
     using silent = silenceConsole(['info']);
 
-    reportPrepublishHooks(buildResult([status('a', 'would-fix')]), DEFAULT_HOOK, 'plain');
+    reportPrepublishHooks(buildResult([buildStatus('a', 'would-fix')]), DEFAULT_HOOK, 'plain');
 
     expect(silent.info).toHaveBeenCalledWith('~ a: would add prepublishOnly = "npm run build"');
   });
@@ -222,7 +226,7 @@ function createFixture(
 }
 
 /** Builds one package's status, with the hook present exactly when the action says it is. */
-function status(packageName: string, action: PackageHookStatus['action']): PackageHookStatus {
+function buildStatus(packageName: string, action: PackageHookStatus['action']): PackageHookStatus {
   return {
     packageName,
     packageDir: `/packages/${packageName}`,

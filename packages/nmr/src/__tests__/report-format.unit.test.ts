@@ -31,7 +31,7 @@ describe(readReportFormatEnv, () => {
   });
 
   it('names the variable and both accepted values when it rejects', () => {
-    const error = errorFrom(readReportFormatEnv({ [REPORT_FORMAT_ENV_VAR]: 'ndjson' }));
+    const error = requireError(readReportFormatEnv({ [REPORT_FORMAT_ENV_VAR]: 'ndjson' }));
 
     expect(error).toContain(REPORT_FORMAT_ENV_VAR);
     expect(error).toContain('text');
@@ -65,7 +65,7 @@ describe(resolveReportFormat, () => {
 // region | Helpers
 
 /** Returns the rejection message, failing the test when the value was accepted. */
-function errorFrom(read: ReportFormatRead): string {
+function requireError(read: ReportFormatRead): string {
   if (read.ok) throw new Error('Expected an unrecognized value to be rejected');
   return read.error;
 }

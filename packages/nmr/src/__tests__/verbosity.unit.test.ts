@@ -36,7 +36,7 @@ describe(readVerbosityEnv, () => {
   });
 
   it('names the variable and both accepted values when it rejects', () => {
-    const error = errorFrom(readVerbosityEnv({ [COMMAND_VERBOSITY_ENV_VAR]: 'silent' }));
+    const error = requireError(readVerbosityEnv({ [COMMAND_VERBOSITY_ENV_VAR]: 'silent' }));
 
     expect(error).toContain(COMMAND_VERBOSITY_ENV_VAR);
     expect(error).toContain('full');
@@ -109,7 +109,7 @@ describe(resolveVerbosity, () => {
 // region | Helpers
 
 /** Returns the rejection message, failing the test when the value was accepted. */
-function errorFrom(read: VerbosityRead): string {
+function requireError(read: VerbosityRead): string {
   if (read.ok) throw new Error('Expected an unrecognized value to be rejected');
   return read.error;
 }

@@ -81,7 +81,7 @@ describe('check-cache', () => {
     });
 
     it('agrees with itself on unchanged inputs', () => {
-      expect(keyOf(tree.dir)).toBe(keyOf(tree.dir));
+      expect(requireKey(tree.dir)).toBe(requireKey(tree.dir));
     });
 
     it.each([
@@ -97,50 +97,50 @@ describe('check-cache', () => {
       ['LC_ALL', { env: { LC_ALL: 'C' } }],
       ['NODE_OPTIONS', { env: { NODE_OPTIONS: '--max-old-space-size=8192' } }],
     ])('moves when %s changes', (_label, overrides) => {
-      expect(keyOf(tree.dir, overrides)).not.toBe(keyOf(tree.dir));
+      expect(requireKey(tree.dir, overrides)).not.toBe(requireKey(tree.dir));
     });
 
     it('moves when the scope changes', () => {
       // One tree can pass `check` at the root and fail it in a package; the two are different questions.
-      expect(keyOf(tree.dir, { anchorDir: tree.resolve('packages/a') })).not.toBe(keyOf(tree.dir));
+      expect(requireKey(tree.dir, { anchorDir: tree.resolve('packages/a') })).not.toBe(requireKey(tree.dir));
     });
 
     it('moves when what is installed changes', () => {
-      const beforeKey = keyOf(tree.dir);
+      const beforeKey = requireKey(tree.dir);
 
       tree.write('node_modules/.modules.yaml', 'hoistPattern:\n  - "*"\n');
 
-      expect(keyOf(tree.dir)).not.toBe(beforeKey);
+      expect(requireKey(tree.dir)).not.toBe(beforeKey);
     });
 
     it('separates an unset environment variable from one set to the empty string', () => {
-      expect(keyOf(tree.dir, { env: { TZ: '' } })).not.toBe(keyOf(tree.dir, { env: {} }));
+      expect(requireKey(tree.dir, { env: { TZ: '' } })).not.toBe(requireKey(tree.dir, { env: {} }));
     });
 
     it('ignores an environment variable outside the fixed set', () => {
       // The set stays fixed so that two machines differing only in shell decoration agree on the key.
-      expect(keyOf(tree.dir, { env: { EDITOR: 'vim' } })).toBe(keyOf(tree.dir));
+      expect(requireKey(tree.dir, { env: { EDITOR: 'vim' } })).toBe(requireKey(tree.dir));
     });
 
     // Loudness changes what a run prints and never what it concludes, so a quiet run hits a pass a loud one
     // recorded. Folding it in would split every recorded pass across the two modes, and silently.
     it('ignores the verbosity a run was asked for', () => {
-      expect(keyOf(tree.dir, { env: { [COMMAND_VERBOSITY_ENV_VAR]: 'quiet' } })).toBe(
-        keyOf(tree.dir, { env: { [COMMAND_VERBOSITY_ENV_VAR]: 'full' } }),
+      expect(requireKey(tree.dir, { env: { [COMMAND_VERBOSITY_ENV_VAR]: 'quiet' } })).toBe(
+        requireKey(tree.dir, { env: { [COMMAND_VERBOSITY_ENV_VAR]: 'full' } }),
       );
     });
 
     // The format nmr reports its own verdicts in reaches no command, so it cannot change what one concludes.
     it('ignores the format a run reports in', () => {
-      expect(keyOf(tree.dir, { env: { [REPORT_FORMAT_ENV_VAR]: 'json' } })).toBe(
-        keyOf(tree.dir, { env: { [REPORT_FORMAT_ENV_VAR]: 'text' } }),
+      expect(requireKey(tree.dir, { env: { [REPORT_FORMAT_ENV_VAR]: 'json' } })).toBe(
+        requireKey(tree.dir, { env: { [REPORT_FORMAT_ENV_VAR]: 'text' } }),
       );
     });
 
     it('refuses a key when the install fingerprint is unreadable', () => {
       tree.rm('node_modules/.pnpm');
 
-      expect(computeCacheKey(keyOptions(tree.dir))).toStrictEqual({
+      expect(computeCacheKey(buildKeyOptions(tree.dir))).toStrictEqual({
         ok: false,
         reason: expect.stringContaining('install fingerprint'),
       });
@@ -149,7 +149,7 @@ describe('check-cache', () => {
 
   describe(computeRetentionKey, () => {
     it('agrees with itself on unchanged inputs', () => {
-      expect(retentionKeyOf()).toBe(retentionKeyOf());
+      expect(buildRetentionKey()).toBe(buildRetentionKey());
     });
 
     it.each([
@@ -159,41 +159,41 @@ describe('check-cache', () => {
       ['NO_COLOR', { env: { NO_COLOR: '1' } }],
       ['TERM', { env: { TERM: 'dumb' } }],
     ])('moves when %s changes', (_label, overrides) => {
-      expect(retentionKeyOf(overrides)).not.toBe(retentionKeyOf());
+      expect(buildRetentionKey(overrides)).not.toBe(buildRetentionKey());
     });
 
     it.each([
       ['stdout', { channels: { stderr: 'pipe', stdout: 1 } }],
       ['stderr', { channels: { stderr: 2, stdout: 'pipe' } }],
     ] as const)('moves when the channel %s ran on changes', (_label, overrides) => {
-      expect(retentionKeyOf(overrides)).not.toBe(retentionKeyOf());
+      expect(buildRetentionKey(overrides)).not.toBe(buildRetentionKey());
     });
 
     // The number names which terminal a command wrote to, not whether what it wrote was a transcript.
     it('ignores which descriptor a stream ran on', () => {
-      expect(retentionKeyOf({ channels: { stderr: 2, stdout: 1 } })).toBe(
-        retentionKeyOf({ channels: { stderr: 9, stdout: 8 } }),
+      expect(buildRetentionKey({ channels: { stderr: 2, stdout: 1 } })).toBe(
+        buildRetentionKey({ channels: { stderr: 9, stdout: 8 } }),
       );
     });
 
     // A machine-readable run is quiet, so it leaves a command on the channels a quiet run does and replays
     // what one recorded. Folding the format in would split every retained excerpt across the two.
     it('ignores the format a run reports in', () => {
-      expect(retentionKeyOf({ env: { [REPORT_FORMAT_ENV_VAR]: 'json' } })).toBe(
-        retentionKeyOf({ env: { [REPORT_FORMAT_ENV_VAR]: 'text' } }),
+      expect(buildRetentionKey({ env: { [REPORT_FORMAT_ENV_VAR]: 'json' } })).toBe(
+        buildRetentionKey({ env: { [REPORT_FORMAT_ENV_VAR]: 'text' } }),
       );
     });
 
     it('moves when the pass it certifies moves', () => {
-      expect(retentionKeyOf({ passKey: 'another-pass' })).not.toBe(retentionKeyOf());
+      expect(buildRetentionKey({ passKey: 'another-pass' })).not.toBe(buildRetentionKey());
     });
 
     it('separates an unset environment variable from one set to the empty string', () => {
-      expect(retentionKeyOf({ env: { TERM: '' } })).not.toBe(retentionKeyOf({ env: {} }));
+      expect(buildRetentionKey({ env: { TERM: '' } })).not.toBe(buildRetentionKey({ env: {} }));
     });
 
     it('ignores an environment variable outside the fixed set', () => {
-      expect(retentionKeyOf({ env: { EDITOR: 'vim' } })).toBe(retentionKeyOf());
+      expect(buildRetentionKey({ env: { EDITOR: 'vim' } })).toBe(buildRetentionKey());
     });
 
     describe('against the pass key', () => {
@@ -202,15 +202,15 @@ describe('check-cache', () => {
       });
 
       it('given a presentation variable, moves while the pass key stands', () => {
-        const passKey = keyOf(tree.dir, { env: { COLUMNS: '80' } });
+        const passKey = requireKey(tree.dir, { env: { COLUMNS: '80' } });
 
-        expect(passKey).toBe(keyOf(tree.dir));
-        expect(retentionKeyOf({ env: { COLUMNS: '80' }, passKey })).not.toBe(retentionKeyOf({ passKey }));
+        expect(passKey).toBe(requireKey(tree.dir));
+        expect(buildRetentionKey({ env: { COLUMNS: '80' }, passKey })).not.toBe(buildRetentionKey({ passKey }));
       });
 
       it('given a channel kind, moves while the pass key stands', () => {
-        expect(retentionKeyOf({ channels: { stderr: 2, stdout: 1 }, passKey: keyOf(tree.dir) })).not.toBe(
-          retentionKeyOf({ passKey: keyOf(tree.dir) }),
+        expect(buildRetentionKey({ channels: { stderr: 2, stdout: 1 }, passKey: requireKey(tree.dir) })).not.toBe(
+          buildRetentionKey({ passKey: requireKey(tree.dir) }),
         );
       });
     });
@@ -362,49 +362,49 @@ describe('check-cache', () => {
     const REF = { anchorDir: '', command: 'test', monorepoRoot: '' };
 
     /** The ref for this test's temporary root, which `beforeEach` creates afresh. */
-    function refFor(command: string, anchorDir?: string) {
+    function buildRef(command: string, anchorDir?: string) {
       return { ...REF, anchorDir: anchorDir ?? tree.dir, command, monorepoRoot: tree.dir };
     }
 
     it('reads back what it recorded', async () => {
-      await recordTranscript(refFor('test'), 'Test Files  6 passed (6)\n');
+      await recordTranscript(buildRef('test'), 'Test Files  6 passed (6)\n');
 
-      await expect(readTranscript(refFor('test'))).resolves.toBe('Test Files  6 passed (6)\n');
+      await expect(readTranscript(buildRef('test'))).resolves.toBe('Test Files  6 passed (6)\n');
     });
 
     it('reports none for a command that recorded none', async () => {
-      await expect(readTranscript(refFor('typecheck'))).resolves.toBeUndefined();
+      await expect(readTranscript(buildRef('typecheck'))).resolves.toBeUndefined();
     });
 
     it('keeps one command’s transcript separate from another’s', async () => {
-      await recordTranscript(refFor('test'), 'test output');
-      await recordTranscript(refFor('typecheck'), 'typecheck output');
+      await recordTranscript(buildRef('test'), 'test output');
+      await recordTranscript(buildRef('typecheck'), 'typecheck output');
 
-      await expect(readTranscript(refFor('test'))).resolves.toBe('test output');
+      await expect(readTranscript(buildRef('test'))).resolves.toBe('test output');
     });
 
     it('keeps one scope’s transcript separate from another’s', async () => {
       const packageDir = tree.resolve('packages/a');
-      await recordTranscript(refFor('test'), 'root output');
-      await recordTranscript(refFor('test', packageDir), 'package output');
+      await recordTranscript(buildRef('test'), 'root output');
+      await recordTranscript(buildRef('test', packageDir), 'package output');
 
-      await expect(readTranscript(refFor('test', packageDir))).resolves.toBe('package output');
+      await expect(readTranscript(buildRef('test', packageDir))).resolves.toBe('package output');
     });
 
     // A composite retains nothing of its own, so a leaf's transcript left standing beside its entry would be
     // dated by a run that never produced it.
     it('withdraws what an earlier pass left when this pass retained nothing', async () => {
-      await recordTranscript(refFor('test'), 'an earlier run');
+      await recordTranscript(buildRef('test'), 'an earlier run');
 
-      await recordTranscript(refFor('test'), undefined);
+      await recordTranscript(buildRef('test'), undefined);
 
-      await expect(readTranscript(refFor('test'))).resolves.toBeUndefined();
+      await expect(readTranscript(buildRef('test'))).resolves.toBeUndefined();
     });
 
     it('leaves the entry beside it alone', async () => {
       await writeCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'test', entry: makeEntry() });
 
-      await recordTranscript(refFor('test'), undefined);
+      await recordTranscript(buildRef('test'), undefined);
 
       await expect(
         readCheckCacheEntry({ monorepoRoot: tree.dir, anchorDir: tree.dir, command: 'test' }),
@@ -412,11 +412,11 @@ describe('check-cache', () => {
     });
 
     it('is cleared with the passes it belongs to', async () => {
-      await recordTranscript(refFor('test'), 'test output');
+      await recordTranscript(buildRef('test'), 'test output');
 
       await removeCheckCache(tree.dir);
 
-      await expect(readTranscript(refFor('test'))).resolves.toBeUndefined();
+      await expect(readTranscript(buildRef('test'))).resolves.toBeUndefined();
     });
   });
 
@@ -559,8 +559,8 @@ describe('check-cache', () => {
 // region | Helpers
 
 /** Returns the key for a set of inputs, failing the test if no key could be computed. */
-function keyOf(root: string, overrides: Partial<Parameters<typeof computeCacheKey>[0]> = {}): string {
-  const result = computeCacheKey({ ...keyOptions(root), ...overrides });
+function requireKey(root: string, overrides: Partial<Parameters<typeof computeCacheKey>[0]> = {}): string {
+  const result = computeCacheKey({ ...buildKeyOptions(root), ...overrides });
   if (!result.ok) {
     throw new Error(`expected a key, got: ${result.reason}`);
   }
@@ -568,7 +568,7 @@ function keyOf(root: string, overrides: Partial<Parameters<typeof computeCacheKe
 }
 
 /** The baseline key inputs each test varies one ingredient of. */
-function keyOptions(root: string): Parameters<typeof computeCacheKey>[0] {
+function buildKeyOptions(root: string): Parameters<typeof computeCacheKey>[0] {
   return {
     anchorDir: root,
     command: 'ci',
@@ -581,8 +581,8 @@ function keyOptions(root: string): Parameters<typeof computeCacheKey>[0] {
   };
 }
 
-/** The baseline retention-key inputs each test varies one ingredient of. */
-function retentionKeyOf(overrides: Partial<Parameters<typeof computeRetentionKey>[0]> = {}): string {
+/** Returns the retention key for the baseline inputs, varied by `overrides`. */
+function buildRetentionKey(overrides: Partial<Parameters<typeof computeRetentionKey>[0]> = {}): string {
   return computeRetentionKey({
     channels: { stderr: 'pipe', stdout: 'pipe' },
     env: {},

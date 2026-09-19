@@ -438,7 +438,7 @@ function readCoveredFiles(tree: TempTree): string[] {
 
   return Object.keys(summary)
     .filter((key) => key !== 'total')
-    .map((absolute) => toRelativePosix(tree.dir, absolute))
+    .map((absolute) => buildRelativePosixPath(tree.dir, absolute))
     .toSorted();
 }
 
@@ -451,7 +451,7 @@ function readCollectedTestFiles(tree: TempTree): string[] {
     throw new TypeError('the JSON reporter wrote no testResults array');
   }
 
-  return testResults.map((result: unknown) => toRelativePosix(tree.dir, readTestFileName(result))).toSorted();
+  return testResults.map((result: unknown) => buildRelativePosixPath(tree.dir, readTestFileName(result))).toSorted();
 }
 
 /** The `name` of one JSON-reporter result, which holds the absolute path of the test file it ran. */
@@ -473,6 +473,6 @@ function readJsonObject(tree: TempTree, entryPath: string): object {
   return parsedJson;
 }
 
-function toRelativePosix(from: string, to: string): string {
+function buildRelativePosixPath(from: string, to: string): string {
   return path.relative(from, to).split(path.sep).join('/');
 }

@@ -46,7 +46,7 @@ describe('reporting through a real chain', () => {
 
       expect(exitCode).toBe(0);
       expect(stdout).not.toContain('noise');
-      expect(verdictCommands(stdout)).toStrictEqual(['demo:one', 'demo:two', 'fanout']);
+      expect(readVerdictCommands(stdout)).toStrictEqual(['demo:one', 'demo:two', 'fanout']);
     });
 
     it('reports a delegating hook under the name it delegates to, and never under its own', async ({ tree }) => {
@@ -54,7 +54,7 @@ describe('reporting through a real chain', () => {
 
       expect(exitCode).toBe(0);
       expect(stdout).not.toContain('noise');
-      expect(verdictCommands(stdout)).toStrictEqual(['demo:content', 'demo']);
+      expect(readVerdictCommands(stdout)).toStrictEqual(['demo:content', 'demo']);
     });
   });
 
@@ -64,7 +64,7 @@ describe('reporting through a real chain', () => {
       const { exitCode, stdout } = await runNmr(['-q', 'fanout'], tree.dir);
 
       expect(exitCode).toBe(0);
-      expect(verdictMarkers(stdout)).toStrictEqual(['PASS', 'PASS', 'PASS']);
+      expect(readVerdictMarkers(stdout)).toStrictEqual(['PASS', 'PASS', 'PASS']);
     });
 
     // `for` rather than `each`: only `for` hands the fixture context to the case body.
@@ -75,8 +75,8 @@ describe('reporting through a real chain', () => {
       const { exitCode, stdout } = await runNmr(args, tree.dir, overrides);
 
       expect(exitCode).toBe(0);
-      expect(verdictMarkers(stdout)).toStrictEqual(['✅', '✅', '✅']);
-      expect(verdictCommands(stdout)).toStrictEqual(['demo:one', 'demo:two', 'fanout']);
+      expect(readVerdictMarkers(stdout)).toStrictEqual(['✅', '✅', '✅']);
+      expect(readVerdictCommands(stdout)).toStrictEqual(['demo:one', 'demo:two', 'fanout']);
     });
   });
 
@@ -181,7 +181,7 @@ async function runNmr(
 }
 
 /** Reads the command each verdict line names, in the order the lines arrived. */
-function verdictCommands(stdout: string): string[] {
+function readVerdictCommands(stdout: string): string[] {
   return stdout
     .split('\n')
     .map((line) => /^\S+ [^:]+: (?<command>\S+): (?:passed|failed|skipped)/u.exec(line))
@@ -190,7 +190,7 @@ function verdictCommands(stdout: string): string[] {
 }
 
 /** Reads the marker each verdict line opens with, in the order the lines arrived. */
-function verdictMarkers(stdout: string): string[] {
+function readVerdictMarkers(stdout: string): string[] {
   return stdout
     .split('\n')
     .map((line) => /^(?<marker>\S+) [^:]+: \S+: (?:passed|failed|skipped)/u.exec(line))

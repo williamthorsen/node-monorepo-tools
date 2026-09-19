@@ -61,21 +61,21 @@ const SHELL_PATHS = ['.bashrc', 'thing.bash', 'thing.sh', 'thing.zsh'];
 describe(definePrettierConfig, () => {
   describe('shell formatting', () => {
     it('formats a shell script the way shfmt does with no flags', async () => {
-      const output = await format(readFixture('messy.sh'), toFormatOptions(definePrettierConfig(), 'messy.sh'));
+      const output = await format(readFixture('messy.sh'), buildFormatOptions(definePrettierConfig(), 'messy.sh'));
 
       expect(output).toBe(readFixture('messy.expected.sh'));
     });
 
     it('leaves an already-formatted shell script alone', async () => {
       const source = readFixture('messy.expected.sh');
-      const output = await format(source, toFormatOptions(definePrettierConfig(), 'messy.expected.sh'));
+      const output = await format(source, buildFormatOptions(definePrettierConfig(), 'messy.expected.sh'));
 
       expect(output).toBe(source);
     });
 
     it('lets a caller override a pinned shfmt option', async () => {
       const config = definePrettierConfig({ spaceRedirects: true });
-      const output = await format(readFixture('messy.sh'), toFormatOptions(config, 'messy.sh'));
+      const output = await format(readFixture('messy.sh'), buildFormatOptions(config, 'messy.sh'));
 
       expect(output).toContain('echo a > out.txt');
     });
@@ -115,21 +115,21 @@ describe(definePrettierConfig, () => {
     // nothing, so the explicit parser is the only thing routing it to the shell printer.
     it.each(['APKBUILD', 'thing.ebuild'])('formats %s through an explicitly assigned parser', async (file) => {
       const config = definePrettierConfig();
-      const output = await format('build() {\n\t\tmake\n}\n', { ...toFormatOptions(config, file), parser: 'sh' });
+      const output = await format('build() {\n\t\tmake\n}\n', { ...buildFormatOptions(config, file), parser: 'sh' });
 
       expect(output).toBe('build() {\n  make\n}\n');
     });
 
     it('formats a Dockerfile through the inferred Dockerfile printer', async () => {
       const config = definePrettierConfig();
-      const output = await format('FROM node:24-alpine   AS base\n', toFormatOptions(config, 'Dockerfile'));
+      const output = await format('FROM node:24-alpine   AS base\n', buildFormatOptions(config, 'Dockerfile'));
 
       expect(output).toBe('FROM node:24-alpine AS base\n');
     });
   });
 
   // These resolve a real config file, the only way `overrides` apply: `format()` ignores them, so the cases built
-  // on `toFormatOptions` cannot reach the Markdown carve-out at all.
+  // on `buildFormatOptions` cannot reach the Markdown carve-out at all.
   describe('embedded code in Markdown', () => {
     it.each(['README', 'doc.markdown', 'doc.md', 'doc.mdx', 'docs/deep/nested/doc.md'])(
       'leaves a documented command with angle-bracket placeholders byte-identical in %s',
@@ -238,7 +238,7 @@ function readFixture(name: string): string {
 }
 
 /** Drops `overrides`, which Prettier resolves from a config file rather than honouring in `format`. */
-function toFormatOptions(config: Config, filepath: string): Config & { filepath: string } {
+function buildFormatOptions(config: Config, filepath: string): Config & { filepath: string } {
   const { overrides: _overrides, ...flat } = config;
 
   return { ...flat, filepath };

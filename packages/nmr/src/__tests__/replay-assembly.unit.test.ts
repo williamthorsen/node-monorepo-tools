@@ -36,21 +36,21 @@ describe(assembleReplay, () => {
     await record({ command: 'test', scopeDir: tree.dir });
 
     await expect(assemble([composeNmrStep('typecheck', false), composeNmrStep('test', false)])).resolves.toStrictEqual([
-      lineFor('typecheck'),
-      lineFor('test'),
+      buildReplayLine('typecheck'),
+      buildReplayLine('test'),
     ]);
   });
 
   it('splices a constituent composite’s lines in flat, each keeping its own attribution', async () => {
     await record({
       command: 'check:strict',
-      replay: [lineFor('typecheck'), lineFor('test', 'nmr-core')],
+      replay: [buildReplayLine('typecheck'), buildReplayLine('test', 'nmr-core')],
       scopeDir: tree.dir,
     });
 
     await expect(assemble([composeNmrStep('check:strict', false)])).resolves.toStrictEqual([
-      lineFor('typecheck'),
-      lineFor('test', 'nmr-core'),
+      buildReplayLine('typecheck'),
+      buildReplayLine('test', 'nmr-core'),
     ]);
   });
 
@@ -59,8 +59,8 @@ describe(assembleReplay, () => {
     await record({ command: 'test', scopeDir: tree.resolve('packages/b') });
 
     await expect(assemble([composeNmrStep('-R test', false)])).resolves.toStrictEqual([
-      lineFor('test', 'a'),
-      lineFor('test', 'b'),
+      buildReplayLine('test', 'a'),
+      buildReplayLine('test', 'b'),
     ]);
   });
 
@@ -69,7 +69,7 @@ describe(assembleReplay, () => {
     await record({ command: 'test', scopeDir: tree.resolve('packages/a') });
     await record({ command: 'test', runId: 'another-run', scopeDir: tree.resolve('packages/b') });
 
-    await expect(assemble([composeNmrStep('-F a test', false)])).resolves.toStrictEqual([lineFor('test', 'a')]);
+    await expect(assemble([composeNmrStep('-F a test', false)])).resolves.toStrictEqual([buildReplayLine('test', 'a')]);
   });
 
   // `-w` moves the child's anchor to the monorepo root, which is how a package-scoped composite reaches a
@@ -87,7 +87,7 @@ describe(assembleReplay, () => {
       treeHash: TREE_HASH,
     });
 
-    expect(replay).toStrictEqual([lineFor('lint:check')]);
+    expect(replay).toStrictEqual([buildReplayLine('lint:check')]);
   });
 
   it('leaves out an excerpt another run certified', async () => {
@@ -142,7 +142,7 @@ describe(assembleReplay, () => {
     treeHash?: string;
   }): Promise<void> {
     const scope = options.scopeDir === tree.dir ? 'root' : path.basename(options.scopeDir);
-    const replay = options.replay ?? [lineFor(options.command, scope)];
+    const replay = options.replay ?? [buildReplayLine(options.command, scope)];
     const entry: CheckCacheEntry = {
       key: `${options.command}-key`,
       treeHash: options.treeHash ?? TREE_HASH,
@@ -172,7 +172,7 @@ describe(assembleReplay, () => {
 // region | Helpers
 
 /** Renders the line a scope's run of one command contributes. */
-function lineFor(command: string, scope = 'root'): ReplayLine {
+function buildReplayLine(command: string, scope = 'root'): ReplayLine {
   return { command, excerpt: `${command} summary`, scope };
 }
 

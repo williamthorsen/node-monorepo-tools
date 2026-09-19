@@ -13,7 +13,7 @@ export interface BoundedBuffer {
   /** Retains a chunk, dropping bytes from the middle once both ends are full. */
   append: (chunk: Buffer) => void;
   /** Renders the retained bytes, with a marker naming the dropped count standing in for what was dropped. */
-  toBuffer: () => Buffer;
+  readBuffer: () => Buffer;
 }
 
 /**
@@ -71,7 +71,7 @@ export function createBoundedBuffer(options: BoundedBufferOptions = {}): Bounded
     tailBytes = Math.min(tailLimitBytes, tailBytes + chunk.length);
   }
 
-  function toBuffer(): Buffer {
+  function readBuffer(): Buffer {
     const headBuffer = Buffer.concat(headChunks);
     if (tailRing === undefined) {
       return headBuffer;
@@ -88,5 +88,5 @@ export function createBoundedBuffer(options: BoundedBufferOptions = {}): Bounded
     return Buffer.concat([headBuffer, Buffer.from(formatElisionMarker(elidedBytes)), tailBuffer]);
   }
 
-  return { append, toBuffer };
+  return { append, readBuffer };
 }
