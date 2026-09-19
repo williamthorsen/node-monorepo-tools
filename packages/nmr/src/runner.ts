@@ -201,8 +201,8 @@ async function runSpawned(
 
   const result: RunCommandResult = {
     ...commandCompletion,
-    stdout: stdoutCapture?.toBuffer(),
-    stderr: stderrCapture?.toBuffer(),
+    stdout: stdoutCapture?.readBuffer(),
+    stderr: stderrCapture?.readBuffer(),
   };
 
   // A spawn failure has no captured output to forward, so quiet mode reports it rather than exiting 1 in silence.
@@ -274,7 +274,7 @@ function composeRetainedOutput(
 function captureStream(
   source: Readable,
   destination: Writable | undefined,
-): { toBuffer: () => Buffer | undefined; detach: () => void; stopReading: () => void } {
+): { readBuffer: () => Buffer | undefined; detach: () => void; stopReading: () => void } {
   const retainedCopy = createBoundedBuffer();
   let isComplete = true;
 
@@ -303,7 +303,7 @@ function captureStream(
   source.on('data', (chunk: Buffer) => retainedCopy.append(chunk));
 
   return {
-    toBuffer: () => (isComplete ? retainedCopy.toBuffer() : undefined),
+    readBuffer: () => (isComplete ? retainedCopy.readBuffer() : undefined),
     detach: () => {
       destination?.off('error', abandon);
     },

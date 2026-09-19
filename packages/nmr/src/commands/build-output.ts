@@ -157,11 +157,11 @@ export async function resolveToolchainFingerprint(packageDir: string, selfDir: s
  * symlink is recognized as the directory it resolves to.
  */
 function isSameDir(left: string, right: string): boolean {
-  return toRealPath(left) === toRealPath(right);
+  return resolveRealPath(left) === resolveRealPath(right);
 }
 
 /** Resolves a path to its real location, falling back to the absolute path when nothing is there to resolve. */
-function toRealPath(dir: string): string {
+function resolveRealPath(dir: string): string {
   const absoluteDir = path.resolve(dir);
   try {
     return realpathSync(absoluteDir);

@@ -10,7 +10,7 @@ function retain(chunks: string[]): string {
   for (const chunk of chunks) {
     buffer.append(Buffer.from(chunk));
   }
-  return buffer.toBuffer().toString('utf8');
+  return buffer.readBuffer().toString('utf8');
 }
 
 describe(createBoundedBuffer, () => {
@@ -56,6 +56,6 @@ describe(createBoundedBuffer, () => {
     buffer.append(encodedBuffer.subarray(0, 2));
     buffer.append(encodedBuffer.subarray(2));
 
-    expect(buffer.toBuffer().toString('utf8')).toBe('€');
+    expect(buffer.readBuffer().toString('utf8')).toBe('€');
   });
 });

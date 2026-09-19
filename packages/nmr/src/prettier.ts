@@ -130,7 +130,7 @@ export function definePrettierConfig(options: PrettierConfigOptions = {}): Confi
 function buildShellPlugin(): Plugin {
   return {
     ...shPlugin,
-    languages: shPlugin.languages.filter(isInferredLanguage).map(withoutExcludedFilenames),
+    languages: shPlugin.languages.filter(isInferredLanguage).map(dropExcludedFilenames),
   };
 }
 
@@ -139,7 +139,7 @@ function isInferredLanguage(language: SupportLanguage): boolean {
 }
 
 /** Drops the filenames no formatter should claim. Only the Shell language declares any of them. */
-function withoutExcludedFilenames(language: SupportLanguage): SupportLanguage {
+function dropExcludedFilenames(language: SupportLanguage): SupportLanguage {
   if (language.filenames === undefined) return language;
 
   return { ...language, filenames: language.filenames.filter((name) => !EXCLUDED_FILENAMES.has(name)) };
@@ -151,10 +151,10 @@ function withoutExcludedFilenames(language: SupportLanguage): SupportLanguage {
  * produce no diff to notice.
  */
 function assertNoReplacement(options: PrettierConfigOptions): void {
-  if ('overrides' in options) throw ownedKeyError('overrides', 'additionalOverrides');
-  if ('plugins' in options) throw ownedKeyError('plugins', 'additionalPlugins');
+  if ('overrides' in options) throw buildOwnedKeyError('overrides', 'additionalOverrides');
+  if ('plugins' in options) throw buildOwnedKeyError('plugins', 'additionalPlugins');
 }
 
-function ownedKeyError(key: string, seam: string): TypeError {
+function buildOwnedKeyError(key: string, seam: string): TypeError {
   return new TypeError(`definePrettierConfig: \`${key}\` is owned by this config. Use \`${seam}\` to append to it.`);
 }

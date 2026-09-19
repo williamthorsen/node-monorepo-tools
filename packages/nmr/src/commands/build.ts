@@ -466,13 +466,13 @@ function rewriteSpecifiers(
     text,
     ts.ScriptTarget.Latest,
     /* setParentNodes */ false,
-    scriptKindFor(outputFile),
+    resolveScriptKind(outputFile),
   );
   const aliasPrefixes = collectAliasPrefixes(compilerOptions);
   const sourceContainingFile = mapOutputToSource(outputFile, compilerOptions, sourceRoot);
 
   const edits: Array<{ start: number; end: number; text: string }> = [];
-  forEachModuleSpecifier(sourceFile, (literal) => {
+  visitModuleSpecifiers(sourceFile, (literal) => {
     const replacement = resolveSpecifierReplacement(
       literal.text,
       sourceContainingFile,
@@ -561,12 +561,12 @@ function resolveSpecifierReplacement(
     );
   }
 
-  const relativeSpecifier = toRelativeSpecifier(path.dirname(sourceContainingFile), resolvedModule.resolvedFileName);
+  const relativeSpecifier = buildRelativeSpecifier(path.dirname(sourceContainingFile), resolvedModule.resolvedFileName);
   return swapTypeScriptExtension(relativeSpecifier);
 }
 
 /** Invokes the callback with every module-specifier string literal found in the file. */
-function forEachModuleSpecifier(sourceFile: ts.SourceFile, visit: (literal: ts.StringLiteralLike) => void): void {
+function visitModuleSpecifiers(sourceFile: ts.SourceFile, visit: (literal: ts.StringLiteralLike) => void): void {
   function walk(node: ts.Node): void {
     const specifier = getModuleSpecifier(node);
     if (specifier !== undefined) {
@@ -761,12 +761,12 @@ function mapOutputToSource(outputFile: string, compilerOptions: ts.CompilerOptio
 }
 
 /** Expresses `targetFile` as a `./`- or `../`-prefixed POSIX specifier relative to `fromDir`. */
-function toRelativeSpecifier(fromDir: string, targetFile: string): string {
+function buildRelativeSpecifier(fromDir: string, targetFile: string): string {
   const relativePath = path.relative(fromDir, targetFile).split(path.sep).join('/');
   return relativePath.startsWith('.') ? relativePath : `./${relativePath}`;
 }
 
-function scriptKindFor(file: string): ts.ScriptKind {
+function resolveScriptKind(file: string): ts.ScriptKind {
   return file.endsWith('.d.ts') ? ts.ScriptKind.TS : ts.ScriptKind.JS;
 }
 

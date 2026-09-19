@@ -88,13 +88,13 @@ export function splitWorkspacePatterns(patterns: readonly string[]): WorkspacePa
 
     const isNegated = pattern.startsWith('!');
     const target = isNegated ? excludedPatterns : includedPatterns;
-    target.push(toManifestPattern(isNegated ? pattern.slice(1) : pattern));
+    target.push(buildManifestPattern(isNegated ? pattern.slice(1) : pattern));
   }
 
   return { excludedPatterns, includedPatterns };
 }
 
 /** Rewrites a workspace pattern to match the manifest within it, tolerating a trailing slash. */
-function toManifestPattern(pattern: string): string {
+function buildManifestPattern(pattern: string): string {
   return `${pattern.replace(/\/?$/, '')}/${MANIFEST}`;
 }
