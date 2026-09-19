@@ -97,6 +97,13 @@ describe(pushCommand, () => {
     expect(mockPushRelease).not.toHaveBeenCalled();
   });
 
+  it('rejects --config, which it reads no config to honor', async () => {
+    const error = await captureError(ProcessExitError, () => pushCommand(['--config', 'alt.config.ts']));
+
+    expect(error.code).toBe(1);
+    expect(capture.stderrChunks).toContain('Error: Unknown option: --config\n');
+  });
+
   it('exits with code 1 when pushRelease throws', async () => {
     mockPushRelease.mockImplementation(() => {
       throw new Error('push failed');

@@ -12,14 +12,16 @@ export const RETIRED_SYNC_LABELS_CONFIG_PATH = '.config/sync-labels.config.ts';
  *
  * Returns `true` when the file exists, in which case the caller must abort. The check is
  * unconditional on config content: file presence alone triggers it, so a half-migrated
- * repo cannot silently lose its custom labels.
+ * repo cannot silently lose its custom labels. `configPath` names the config to move the labels
+ * into; it defaults to `CONFIG_FILE_PATH`, which `sync-labels sync` relies on because it takes
+ * no `--config`.
  */
-export function checkRetiredSyncLabelsConfig(): boolean {
+export function checkRetiredSyncLabelsConfig(configPath: string = CONFIG_FILE_PATH): boolean {
   if (!existsSync(RETIRED_SYNC_LABELS_CONFIG_PATH)) {
     return false;
   }
   reportError(
-    `${RETIRED_SYNC_LABELS_CONFIG_PATH} is no longer read. Move its labels into the \`repoLabels\` block of ${CONFIG_FILE_PATH} (presets move to \`repoLabels.extends\`; each label becomes a \`'name': { color, description }\` entry under \`repoLabels.labels\`), then delete the file.`,
+    `${RETIRED_SYNC_LABELS_CONFIG_PATH} is no longer read. Move its labels into the \`repoLabels\` block of ${configPath} (presets move to \`repoLabels.extends\`; each label becomes a \`'name': { color, description }\` entry under \`repoLabels.labels\`), then delete the file.`,
   );
   return true;
 }

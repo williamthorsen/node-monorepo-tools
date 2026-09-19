@@ -63,6 +63,27 @@ describe(resolveReleaseNotesConfig, () => {
     expect(capture.stderrChunks).toContain('Error: Failed to load config: config read failure\n');
   });
 
+  it('exits with code 1 when loadConfig throws for a named configPath', async () => {
+    mockLoadConfig.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
+
+    const error = await captureError(ProcessExitError, () =>
+      resolveReleaseNotesConfig('rich', { configPath: 'elsewhere/absent.config.ts' }),
+    );
+
+    expect(error.code).toBe(1);
+    expect(capture.stderrChunks).toContain(
+      'Error: Failed to load config: Config file not found: /repo/elsewhere/absent.config.ts\n',
+    );
+  });
+
+  it('forwards configPath to the loader', async () => {
+    mockLoadConfig.mockResolvedValue(undefined);
+
+    await resolveReleaseNotesConfig('rich', { configPath: 'elsewhere/alternative.config.ts' });
+
+    expect(mockLoadConfig).toHaveBeenCalledWith('elsewhere/alternative.config.ts');
+  });
+
   it('returns defaults when raw config is undefined', async () => {
     mockLoadConfig.mockResolvedValue(undefined);
 

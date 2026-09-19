@@ -129,6 +129,51 @@ describe(syncLabelsInitCommand, () => {
     expect(silent.info).toHaveBeenCalledWith(expect.stringContaining("'scope:preflight'"));
   });
 
+  it('reads the named config and names it in the paste instructions', async () => {
+    givenExistingFiles();
+    mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
+    givenValidConfig({});
+    mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
+    using silent = silenceConsole(['info']);
+
+    const exitCode = await syncLabelsInitCommand({
+      configPath: 'elsewhere/alternative.config.ts',
+      dryRun: false,
+      force: false,
+      styles: SPLIT_STYLES,
+    });
+
+    expect(exitCode).toBe(0);
+    expect(mockLoadConfig).toHaveBeenCalledWith('elsewhere/alternative.config.ts');
+    expect(silent.info).toHaveBeenCalledWith(expect.stringContaining('elsewhere/alternative.config.ts already exists'));
+    expect(silent.info).toHaveBeenCalledWith(
+      expect.stringContaining('Paste the block above into elsewhere/alternative.config.ts'),
+    );
+    expect(mockWriteFileWithCheck).not.toHaveBeenCalledWith(CONFIG_FILE_PATH, expect.anything(), expect.anything());
+  });
+
+  it('returns 1 rather than scaffolding when the named config does not exist', async () => {
+    givenExistingFiles();
+    mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);
+    mockLoadConfig.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
+    mockWriteFileWithCheck.mockReturnValue({ outcome: 'created', filePath: '' });
+    using _silent = silenceConsole(['info']);
+    using _capture = captureStdio();
+
+    const exitCode = await syncLabelsInitCommand({
+      configPath: 'elsewhere/absent.config.ts',
+      dryRun: false,
+      force: false,
+      styles: SPLIT_STYLES,
+    });
+
+    expect(exitCode).toBe(1);
+    expect(mockReportError).toHaveBeenCalledWith(
+      expect.stringContaining('Config file not found: /repo/elsewhere/absent.config.ts'),
+    );
+    expect(mockWriteFileWithCheck).not.toHaveBeenCalledWith(CONFIG_FILE_PATH, expect.anything(), expect.anything());
+  });
+
   it('returns 1 when the existing config fails validation', async () => {
     givenExistingFiles(CONFIG_FILE_PATH);
     mockDiscoverWorkspaces.mockResolvedValue(['packages/core']);

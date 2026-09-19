@@ -17,6 +17,8 @@ export interface ResolvedReleaseNotesConfig {
 }
 
 export interface ResolveReleaseNotesConfigOptions {
+  /** Config file to read, relative to the working directory. Defaults to `CONFIG_FILE_PATH`. */
+  configPath?: string;
   /**
    * When `true`, a `loadConfig()` rejection causes `process.exit(1)` rather than a fallback to
    * defaults. Use from CLI commands whose entire behavior depends on the resolved config (e.g.
@@ -30,19 +32,20 @@ export interface ResolveReleaseNotesConfigOptions {
  * Load and validate the release-kit config.
  *
  * By default, falls back to defaults when `loadConfig()` rejects (legacy publish behavior).
- * When `strictLoad` is `true`, a load failure prints an error and calls `process.exit(1)`.
+ * A load failure prints an error and calls `process.exit(1)` when `strictLoad` is `true`, and also when
+ * `configPath` names the file: leniency covers a broken default config, not a file the caller asked for.
  */
 export async function resolveReleaseNotesConfig(
   stderrStyle: OutputStyle,
   options: ResolveReleaseNotesConfigOptions = {},
 ): Promise<ResolvedReleaseNotesConfig> {
-  const { strictLoad = false } = options;
+  const { configPath, strictLoad = false } = options;
   let rawConfig: unknown;
   try {
-    rawConfig = await loadConfig();
+    rawConfig = await loadConfig(configPath);
   } catch (error: unknown) {
     const message = describeError(error);
-    if (strictLoad) {
+    if (strictLoad || configPath !== undefined) {
       reportError(`Failed to load config: ${message}`);
       process.exit(1);
     }

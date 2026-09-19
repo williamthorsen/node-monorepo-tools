@@ -164,4 +164,9 @@ describe(commitCommand, () => {
     expect(() => commitCommand(['--unknown'])).toThrow(ProcessExitError);
     expect(capture.stderr).toContain('Unknown option');
   });
+
+  it('rejects --config, which it reads no config to honor', () => {
+    expect(() => commitCommand(['--config', 'alt.config.ts'])).toThrow(ProcessExitError);
+    expect(capture.stderr).toContain('Unknown option: --config');
+  });
 });

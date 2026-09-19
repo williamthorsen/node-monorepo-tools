@@ -237,6 +237,18 @@ describe(prepareCommand, () => {
     expect(capture.stderr).toContain('parse error');
   });
 
+  it('forwards --config to the loader', async () => {
+    await prepareCommand(['--config', 'elsewhere/alternative.config.ts'], RICH_STYLES);
+
+    expect(mockLoadConfig).toHaveBeenCalledWith('elsewhere/alternative.config.ts');
+  });
+
+  it('reads the default path when --config is absent', async () => {
+    await prepareCommand([], RICH_STYLES);
+
+    expect(mockLoadConfig).toHaveBeenCalledWith(undefined);
+  });
+
   it('exits with error when config is invalid', async () => {
     mockLoadConfig.mockResolvedValue({ unknownField: true });
 
@@ -661,6 +673,13 @@ describe(parseArgs, () => {
     expect(() => parseArgs(['--foo'])).toThrow(ProcessExitError);
     expect(capture.stderr).toContain('Unknown option: --foo');
     expect(process.exit).toHaveBeenCalledWith(1);
+  });
+
+  it('parses --config into configPath and leaves it undefined when absent', () => {
+    expect(parseArgs(['--config', 'elsewhere/alternative.config.ts']).configPath).toBe(
+      'elsewhere/alternative.config.ts',
+    );
+    expect(parseArgs([]).configPath).toBeUndefined();
   });
 
   it('rejects --help=value as an unknown option', () => {

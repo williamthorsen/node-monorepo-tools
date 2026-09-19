@@ -16,6 +16,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { buildDependencyGraph } from './buildDependencyGraph.ts';
+import { configFlagSchema } from './configFlagSchema.ts';
 import { discoverWorkspaces } from './discoverWorkspaces.ts';
 import { dim } from './format.ts';
 import { getCommitsSinceTarget } from './getCommitsSinceTarget.ts';
@@ -40,6 +41,7 @@ function isReleaseType(value: string): value is ReleaseType {
 }
 
 export const prepareFlagSchema = {
+  ...configFlagSchema,
   dryRun: { long: '--dry-run', type: 'boolean' as const },
   force: { long: '--force', type: 'boolean' as const },
   noGitChecks: {
@@ -55,6 +57,7 @@ export const prepareFlagSchema = {
 
 /** Parses CLI arguments into structured options. Prints a usage error and exits on invalid input. */
 export function parseArgs(argv: string[]): {
+  configPath: string | undefined;
   dryRun: boolean;
   force: boolean;
   noGitChecks: boolean;
@@ -101,6 +104,7 @@ export function parseArgs(argv: string[]): {
   }
 
   return {
+    configPath: flags.config,
     dryRun: flags.dryRun,
     force: flags.force,
     noGitChecks: flags.noGitChecks,
@@ -121,7 +125,7 @@ export function parseArgs(argv: string[]): {
  * 5. Applies the plan, runs the format command, and prints the result via `reportPrepare`.
  */
 export async function prepareCommand(argv: string[], styles: StreamStyles): Promise<void> {
-  const { dryRun, force, noGitChecks, bumpOverride, only, setVersion, withReleaseNotes } = parseArgs(argv);
+  const { configPath, dryRun, force, noGitChecks, bumpOverride, only, setVersion, withReleaseNotes } = parseArgs(argv);
   const options = {
     force,
     ...(bumpOverride !== undefined && { bumpOverride }),
@@ -145,7 +149,7 @@ export async function prepareCommand(argv: string[], styles: StreamStyles): Prom
     }
   }
 
-  const userConfig = await loadAndValidateConfig(styles.stderr);
+  const userConfig = await loadAndValidateConfig(styles.stderr, configPath);
 
   // 3. Discover workspaces
   let discoveredPaths: string[] | undefined;
@@ -292,10 +296,13 @@ interface PrepareOptions {
 }
 
 /** Loads and validate the release-kit config file, exiting on errors. */
-async function loadAndValidateConfig(stderrStyle: OutputStyle): Promise<ReleaseKitConfig | undefined> {
+async function loadAndValidateConfig(
+  stderrStyle: OutputStyle,
+  configPath?: string,
+): Promise<ReleaseKitConfig | undefined> {
   let rawConfig: unknown;
   try {
-    rawConfig = await loadConfig();
+    rawConfig = await loadConfig(configPath);
   } catch (error: unknown) {
     reportError(`Failed to load config: ${describeError(error)}`);
     process.exit(1);

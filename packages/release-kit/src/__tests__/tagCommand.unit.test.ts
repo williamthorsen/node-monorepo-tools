@@ -61,6 +61,13 @@ describe(tagCommand, () => {
     expect(mockCreateTags).not.toHaveBeenCalled();
   });
 
+  it('rejects --config, which it reads no config to honor', async () => {
+    const error = await captureError(ProcessExitError, () => tagCommand(['--config', 'alt.config.ts'], RICH_STYLES));
+
+    expect(error.code).toBe(1);
+    expect(capture.stderrChunks).toContain('Error: Unknown option: --config\n');
+  });
+
   it('exits with code 1 when createTags throws', async () => {
     mockCreateTags.mockImplementation(() => {
       throw new Error('No tags file found. Run `release-kit prepare` first.');
