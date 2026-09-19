@@ -6,6 +6,7 @@ import { assert, describe, expect, it } from 'vitest';
 import kit, {
   buildWorkspaceCheck,
   classifyNpmAuth,
+  classifyProvenanceSetting,
   classifyTrustCapability,
   classifyTrustQuery,
   packagesChecklist,
@@ -25,6 +26,9 @@ const TRUST_EOTP =
 const OWNER_REPO = 'williamthorsen/node-monorepo-tools';
 const SESSION_GATE = 'npm session can answer trust queries';
 const WORKFLOW_FILE = 'publish.yaml';
+
+const WORKFLOW_WITHOUT_PROVENANCE = 'jobs:\n  publish:\n    steps:\n      - run: npm publish\n';
+const WORKFLOW_WITH_PROVENANCE = `${WORKFLOW_WITHOUT_PROVENANCE}        with:\n          provenance: true\n`;
 
 // Repo shapes the discovery-dependent tests scaffold. Discovery reports the root alongside the members and returns
 // the matched directories sorted, which is the order every assertion below reads.
@@ -195,6 +199,46 @@ describe(classifyNpmAuth, () => {
 
   it('reports an unreadable payload as unreachable', () => {
     expect(classifyNpmAuth({ exitOk: false, stdout: 'npm error code E401' }).status).toBe('unreachable');
+  });
+});
+
+describe(classifyProvenanceSetting, () => {
+  it('reports an unreadable workflow ahead of an unreportable visibility', () => {
+    const outcome = classifyProvenanceSetting(undefined, 'unknown');
+
+    expect(outcome.detail).toBe('Cannot read .github/workflows/publish.yaml');
+    expect(outcome.fix).toBe("Check the file's permissions");
+  });
+
+  it('reports an unreportable visibility', () => {
+    const outcome = classifyProvenanceSetting(WORKFLOW_WITH_PROVENANCE, 'unknown');
+
+    expect(outcome.detail).toBe("The GitHub CLI could not report the repo's visibility");
+    expect(outcome.fix).toBe('Install and authenticate the GitHub CLI: gh auth login');
+  });
+
+  it('reports a public repo whose workflow omits provenance', () => {
+    const outcome = classifyProvenanceSetting(WORKFLOW_WITHOUT_PROVENANCE, 'public');
+
+    expect(outcome.detail).toBe('The repo is public and publish.yaml does not set provenance: true');
+    expect(outcome.fix).toBe(
+      'Set provenance: true in .github/workflows/publish.yaml — public repos should generate provenance attestations',
+    );
+  });
+
+  it('reports a private repo whose workflow sets provenance', () => {
+    const outcome = classifyProvenanceSetting(WORKFLOW_WITH_PROVENANCE, 'private');
+
+    expect(outcome.detail).toBe('The repo is private and publish.yaml sets provenance: true');
+    expect(outcome.fix).toBe('Make the GitHub repo public — OIDC publishing with provenance requires a public repo');
+  });
+
+  it('passes a public repo whose workflow sets provenance', () => {
+    expect(classifyProvenanceSetting(WORKFLOW_WITH_PROVENANCE, 'public')).toStrictEqual({ ok: true });
+  });
+
+  it('passes a private repo whose workflow omits provenance', () => {
+    expect(classifyProvenanceSetting(WORKFLOW_WITHOUT_PROVENANCE, 'private')).toStrictEqual({ ok: true });
   });
 });
 
@@ -396,8 +440,8 @@ describe('packages checklist', () => {
     expect(findCheck(SESSION_GATE, packagesChecklist.checks).checks).toBeUndefined();
   });
 
-  // Asserted against the property descriptor because readyup takes outcome-specific wording in `detail` rather
-  // than in a `fix` that varies with what the check found.
+  // Asserted against the property descriptor because the remediation is the same however the session fails, so
+  // nothing here should vary with what the check found.
   it('declares the npm session fix as a value, not an accessor', () => {
     const descriptor = Object.getOwnPropertyDescriptor(findCheck(SESSION_GATE, packagesChecklist.checks), 'fix');
 
