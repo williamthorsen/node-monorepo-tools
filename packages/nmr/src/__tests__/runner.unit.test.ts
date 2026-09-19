@@ -47,7 +47,7 @@ function stubSpawn(): () => FakeChild {
 }
 
 /** Reads the stdio array the runner passed to spawn. */
-function stdioFromCall(): unknown[] {
+function readStdioFromCall(): unknown[] {
   const options = mockedSpawn.mock.calls[0]?.[2];
   if (!options || !Array.isArray(options.stdio)) throw new Error('Expected stdio to be an array');
   return options.stdio;
@@ -117,7 +117,7 @@ function stubSequence(exitCodes: readonly number[], outputs: readonly StepOutput
 }
 
 /** Reads the file each spawn was asked for, in call order. */
-function filesFromCalls(): (string | undefined)[] {
+function readFilesFromCalls(): (string | undefined)[] {
   return mockedSpawn.mock.calls.map((call) => call[0]);
 }
 
@@ -194,7 +194,7 @@ describe(runCommand, () => {
       await endChild(getChild());
       await pendingRun;
 
-      expect(stdioFromCall().slice(1)).toStrictEqual(['pipe', 2]);
+      expect(readStdioFromCall().slice(1)).toStrictEqual(['pipe', 2]);
     });
 
     it('given a descriptor channel, retains no copy of that stream', async () => {
@@ -222,7 +222,7 @@ describe(runCommand, () => {
       await endChild(getChild());
       await pendingRun;
 
-      expect(stdioFromCall()[0]).toBe('inherit');
+      expect(readStdioFromCall()[0]).toBe('inherit');
     });
 
     it('passes caller-supplied env and cwd to spawn', async () => {
@@ -536,7 +536,7 @@ describe(runSteps, () => {
         stdout: new PassThrough(),
       });
 
-      expect(filesFromCalls()).toStrictEqual(['eslint .', 'nmr']);
+      expect(readFilesFromCalls()).toStrictEqual(['eslint .', 'nmr']);
     });
 
     it('given an empty step list, exits 0 without spawning', async () => {
@@ -585,7 +585,7 @@ describe(runSteps, () => {
         stdout: Object.assign(new PassThrough(), { fd: 1 }),
       });
 
-      expect(stdioFromCall().slice(1)).toStrictEqual(expectedStdio);
+      expect(readStdioFromCall().slice(1)).toStrictEqual(expectedStdio);
     });
 
     it('falls back to a pipe for a structural step when the stream carries no descriptor', async () => {
@@ -593,7 +593,7 @@ describe(runSteps, () => {
 
       await runSteps([STRUCTURAL_STEP], undefined, { stderr: new PassThrough(), stdout: new PassThrough() });
 
-      expect(stdioFromCall().slice(1)).toStrictEqual(['pipe', 'pipe']);
+      expect(readStdioFromCall().slice(1)).toStrictEqual(['pipe', 'pipe']);
     });
 
     it('withholds an opaque step under quiet, where a descriptor would leave nothing to withhold', async () => {
@@ -605,7 +605,7 @@ describe(runSteps, () => {
         stdout: createTerminalStream(),
       });
 
-      expect(stdioFromCall().slice(1)).toStrictEqual(['pipe', 'pipe']);
+      expect(readStdioFromCall().slice(1)).toStrictEqual(['pipe', 'pipe']);
     });
 
     it.each([
@@ -617,7 +617,7 @@ describe(runSteps, () => {
 
       await runSteps([step], undefined, { stderr: new PassThrough(), stdout: new PassThrough() });
 
-      expect(stdioFromCall()[0]).toBe(expectedStdin);
+      expect(readStdioFromCall()[0]).toBe(expectedStdin);
     });
   });
 

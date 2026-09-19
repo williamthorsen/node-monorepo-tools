@@ -146,14 +146,14 @@ describe('the check-result cache gate', () => {
       const { exitCode } = await runNmr('ghost', repo, { NMR_RUN_IF_PRESENT: '1' });
 
       expect(exitCode).toBe(0);
-      expect(cacheEntryCount()).toBe(0);
+      expect(countCacheEntries()).toBe(0);
     });
 
     it('does not record a command carrying arguments', async () => {
       // Arguments change what a command does in ways the gate cannot see, so they take it out of scope.
       await runNmr(`${COMMAND} --flag`, repo);
 
-      expect(cacheEntryCount()).toBe(0);
+      expect(countCacheEntries()).toBe(0);
     });
   });
 
@@ -277,7 +277,7 @@ describe('the check-result cache gate', () => {
       await runNmr('fmt', repo);
 
       expect(runCount()).toBe(2);
-      expect(cacheEntryCount()).toBe(0);
+      expect(countCacheEntries()).toBe(0);
     });
 
     it('stands aside outside a git repository, and says why when asked', async () => {
@@ -643,7 +643,7 @@ describe('the check-result cache gate', () => {
 
       const { stderr } = await runNmr(COMMAND, repo, { NMR_DEBUG: '1' });
 
-      expect(cacheEntryCount()).toBe(0);
+      expect(countCacheEntries()).toBe(0);
       expect(stderr).toContain("packages/a's build output changed while it ran");
     });
 
@@ -658,7 +658,7 @@ describe('the check-result cache gate', () => {
 
       const { stderr } = await runNmr(COMMAND, repo, { NMR_DEBUG: '1' });
 
-      expect(cacheEntryCount()).toBe(0);
+      expect(countCacheEntries()).toBe(0);
       expect(stderr).toContain("packages/a's build output changed while it ran");
     });
 
@@ -671,7 +671,7 @@ describe('the check-result cache gate', () => {
 
       await runNmr(`--no-cache ${COMMAND}`, repo);
 
-      expect(cacheEntryCount()).toBe(0);
+      expect(countCacheEntries()).toBe(0);
     });
 
     it('settles rather than missing forever once the digest stands still', async () => {
@@ -691,7 +691,7 @@ describe('the check-result cache gate', () => {
   // region | Helpers
 
   /** Counts the entries the cache currently holds for the fixture repository. */
-  function cacheEntryCount(): number {
+  function countCacheEntries(): number {
     const cacheDir = 'repo/node_modules/.cache/nmr-check';
     return workspace.exists(cacheDir) ? workspace.list(cacheDir).length : 0;
   }
@@ -731,8 +731,8 @@ describe('the check-result cache gate', () => {
     const ambientEnv = readAmbientEnv();
     const stdoutChunks: Buffer[] = [];
     const stderrChunks: Buffer[] = [];
-    const stdout = asDestination(new PassThrough(), options.terminalFd);
-    const stderr = asDestination(new PassThrough(), options.terminalFd);
+    const stdout = buildDestination(new PassThrough(), options.terminalFd);
+    const stderr = buildDestination(new PassThrough(), options.terminalFd);
     stdout.on('data', (chunk: Buffer) => {
       stdoutChunks.push(chunk);
     });
@@ -769,7 +769,7 @@ describe('the check-result cache gate', () => {
  * Decorates a destination as a terminal on the given descriptor, so the runner hands the child that descriptor
  * and nmr sees none of what flows through it. Left undecorated, the stream carries no descriptor and is piped.
  */
-function asDestination(stream: PassThrough, terminalFd: number | undefined): PassThrough {
+function buildDestination(stream: PassThrough, terminalFd: number | undefined): PassThrough {
   return terminalFd === undefined ? stream : Object.assign(stream, { fd: terminalFd, isTTY: true });
 }
 
@@ -795,7 +795,7 @@ function writeBuildDigest(workspace: TempTree, packageEntry: string, digest: str
 }
 
 /** Runs git in `cwd`, discarding its output. */
-function git(cwd: string, args: string[]): void {
+function runGit(cwd: string, args: string[]): void {
   execFileSync('git', args, { cwd, stdio: 'ignore' });
 }
 
@@ -822,12 +822,12 @@ function scaffoldRepo(workspace: TempTree, log: string): void {
   writeConfig(workspace, log);
 
   const repo = workspace.resolve('repo');
-  git(repo, ['init', '--initial-branch=main']);
-  git(repo, ['config', 'user.email', 'fixture@example.com']);
-  git(repo, ['config', 'user.name', 'Fixture']);
-  git(repo, ['config', 'commit.gpgsign', 'false']);
-  git(repo, ['add', '--all']);
-  git(repo, ['commit', '--message', 'initial']);
+  runGit(repo, ['init', '--initial-branch=main']);
+  runGit(repo, ['config', 'user.email', 'fixture@example.com']);
+  runGit(repo, ['config', 'user.name', 'Fixture']);
+  runGit(repo, ['config', 'commit.gpgsign', 'false']);
+  runGit(repo, ['add', '--all']);
+  runGit(repo, ['commit', '--message', 'initial']);
 }
 
 /**

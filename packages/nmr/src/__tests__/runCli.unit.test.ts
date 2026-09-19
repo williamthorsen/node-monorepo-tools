@@ -102,20 +102,20 @@ describe(runCli, () => {
     ])('given $scenario, delegates through pnpm as argv tokens', async ({ args, expectedArgv }, { tree }) => {
       await runNmr(args, tree.dir);
 
-      expect(stepsFromCall()).toStrictEqual([{ kind: 'structural', argv: expectedArgv }]);
+      expect(readStepsFromCall()).toStrictEqual([{ kind: 'structural', argv: expectedArgv }]);
     });
 
     // A delegate spawns `pnpm`, not `nmr`, and still inherits: what classifies a step is how nmr composed it.
     it('classifies the delegate as structural although the binary it spawns is pnpm', async ({ tree }) => {
       await runNmr(['-R', 'build'], tree.dir);
 
-      expect(stepsFromCall()?.[0]?.kind).toBe('structural');
+      expect(readStepsFromCall()?.[0]?.kind).toBe('structural');
     });
 
     it('renders the delegate to the chain string it had as one shell command', async ({ tree }) => {
       await runNmr(['-F', './packages/*', 'test', '-t', 'a b'], tree.dir);
 
-      expect(renderChain(stepsFromCall() ?? [])).toBe("pnpm --filter './packages/*' exec nmr test -t 'a b'");
+      expect(renderChain(readStepsFromCall() ?? [])).toBe("pnpm --filter './packages/*' exec nmr test -t 'a b'");
     });
 
     it('runs the delegate from the monorepo root', async ({ tree }) => {
@@ -152,7 +152,7 @@ describe(runCli, () => {
     ])('carries `--log` into the delegate, ahead of the command name', async ({ args, expectedStep }, { tree }) => {
       await runNmr(args, tree.dir);
 
-      expect(stepsFromCall()).toStrictEqual([expectedStep]);
+      expect(readStepsFromCall()).toStrictEqual([expectedStep]);
     });
 
     // A fan-out asks every selected scope, so a scope that never ran the command is a gap in a survey rather
@@ -168,7 +168,7 @@ describe(runCli, () => {
     it('gives the packages of a recursive delegate no stdin', async ({ tree }) => {
       await runNmr(['-R', 'build'], tree.dir);
 
-      expect(stepsFromCall()).toStrictEqual([
+      expect(readStepsFromCall()).toStrictEqual([
         { kind: 'structural', argv: ['pnpm', '--recursive', 'exec', 'nmr', 'build'], shouldWithholdInput: true },
       ]);
     });
@@ -178,7 +178,7 @@ describe(runCli, () => {
 
       await runNmr(['-F', './packages/*', 'build'], tree.dir);
 
-      expect(stepsFromCall()).toStrictEqual([
+      expect(readStepsFromCall()).toStrictEqual([
         {
           kind: 'structural',
           argv: ['pnpm', '--filter', './packages/*', 'exec', 'nmr', 'build'],
@@ -194,7 +194,7 @@ describe(runCli, () => {
 
         await runNmr(['-F', 'my-pkg', 'build'], tree.dir);
 
-        expect(stepsFromCall()).toStrictEqual([
+        expect(readStepsFromCall()).toStrictEqual([
           { kind: 'structural', argv: ['pnpm', '--filter', 'my-pkg', 'exec', 'nmr', 'build'] },
         ]);
       },
@@ -215,7 +215,7 @@ describe(runCli, () => {
       const { exitCode, stderr } = await runNmrReadingStderr(['-F', '', 'build'], tree.dir);
 
       expect(exitCode).toBe(1);
-      expect(stepsFromCall()).toBeUndefined();
+      expect(readStepsFromCall()).toBeUndefined();
       expect(stderr).toContain('-F/--filter requires a pattern argument');
     });
 
@@ -231,7 +231,7 @@ describe(runCli, () => {
       const { exitCode, stderr } = await runNmrReadingStderr(['-F', 'secrets', 'test'], tree.dir);
 
       expect(exitCode).toBe(1);
-      expect(stepsFromCall()).toBeUndefined();
+      expect(readStepsFromCall()).toBeUndefined();
       expect(stderr).toContain('-F/--filter matched no workspace: `secrets`');
       expect(stderr).toContain("A pattern matches a package's manifest `name`, not its directory name.");
     });
@@ -243,7 +243,7 @@ describe(runCli, () => {
       const { exitCode, stderr } = await runNmrReadingStderr(['-F', 'secrets', '--log', 'test'], tree.dir);
 
       expect(exitCode).toBe(1);
-      expect(stepsFromCall()).toBeUndefined();
+      expect(readStepsFromCall()).toBeUndefined();
       expect(stderr).toContain('-F/--filter matched no workspace: `secrets`');
     });
 
@@ -317,7 +317,7 @@ describe(runCli, () => {
       const { exitCode } = await runNmrReadingStderr(['-F', '[bogus-ref]', 'build'], tree.dir);
 
       expect(exitCode).toBe(0);
-      expect(stepsFromCall()).toStrictEqual([
+      expect(readStepsFromCall()).toStrictEqual([
         { kind: 'structural', argv: ['pnpm', '--filter', '[bogus-ref]', 'exec', 'nmr', 'build'] },
       ]);
     });
@@ -330,7 +330,7 @@ describe(runCli, () => {
       const { exitCode, stderr } = await runNmrReadingStderr(['-R', 'build'], packagelessTree.dir);
 
       expect(exitCode).toBe(1);
-      expect(stepsFromCall()).toBeUndefined();
+      expect(readStepsFromCall()).toBeUndefined();
       expect(stderr).toContain('-R/--recursive matched no workspace:');
       expect(stderr).toContain('pnpm-workspace.yaml declares `packages/*`');
       expect(stderr).toContain('the matcher found no directory holding a `package.json`');
@@ -387,7 +387,7 @@ describe(runCli, () => {
       const { exitCode } = await runNmrReadingStderr(['-R', 'build'], tree.dir);
 
       expect(exitCode).toBe(0);
-      expect(stepsFromCall()).toStrictEqual([
+      expect(readStepsFromCall()).toStrictEqual([
         { kind: 'structural', argv: ['pnpm', '--recursive', 'exec', 'nmr', 'build'], shouldWithholdInput: true },
       ]);
     });
@@ -406,7 +406,7 @@ describe(runCli, () => {
     it('drops the recursive step and runs what stands beside it', async ({ packagelessTree }) => {
       await runNmr(['test'], packagelessTree.dir);
 
-      expect(stepsFromCall()).toStrictEqual([{ kind: 'structural', argv: ['nmr', 'root:test'] }]);
+      expect(readStepsFromCall()).toStrictEqual([{ kind: 'structural', argv: ['nmr', 'root:test'] }]);
     });
 
     it('drops the recursive step from a composite whose other step declines the arguments', async ({
@@ -414,7 +414,7 @@ describe(runCli, () => {
     }) => {
       await runNmr(['typecheck'], packagelessTree.dir);
 
-      expect(stepsFromCall()).toStrictEqual([
+      expect(readStepsFromCall()).toStrictEqual([
         { kind: 'structural', argv: ['nmr', 'root:typecheck'], shouldDeclineArguments: true },
       ]);
     });
@@ -440,7 +440,7 @@ describe(runCli, () => {
     it('leaves a composite carrying no recursive step reaching every constituent', async ({ packagelessTree }) => {
       await runNmr(['ci'], packagelessTree.dir);
 
-      expect(stepsFromCall()).toStrictEqual([
+      expect(readStepsFromCall()).toStrictEqual([
         { kind: 'structural', argv: ['nmr', 'build'], shouldDeclineArguments: true },
         { kind: 'structural', argv: ['nmr', 'check:strict'] },
       ]);
@@ -460,7 +460,7 @@ describe(runCli, () => {
     it('leaves a recursive step standing where the workspace holds a package', async ({ tree }) => {
       await runNmr(['test'], tree.dir);
 
-      expect(stepsFromCall()).toStrictEqual([
+      expect(readStepsFromCall()).toStrictEqual([
         { kind: 'structural', argv: ['nmr', 'root:test'] },
         { kind: 'structural', argv: ['nmr', '-R', 'test'] },
       ]);
@@ -471,7 +471,7 @@ describe(runCli, () => {
     it('resolves a composite to one structural step per element', async ({ tree }) => {
       await runNmr(['fix'], tree.dir);
 
-      expect(stepsFromCall()).toStrictEqual([
+      expect(readStepsFromCall()).toStrictEqual([
         { kind: 'structural', argv: ['nmr', 'lint'] },
         { kind: 'structural', argv: ['nmr', 'fmt'] },
       ]);
@@ -480,13 +480,13 @@ describe(runCli, () => {
     it('resolves a string script to one opaque step', async ({ tree }) => {
       await runNmr(['lint'], tree.dir);
 
-      expect(stepsFromCall()).toStrictEqual([{ kind: 'opaque', command: 'eslint --fix .' }]);
+      expect(readStepsFromCall()).toStrictEqual([{ kind: 'opaque', command: 'eslint --fix .' }]);
     });
 
     it('propagates `-w` to each element, so a child selects the root registry on its own', async ({ tree }) => {
       await runNmr(['-w', 'fix'], tree.dir);
 
-      expect(stepsFromCall()).toStrictEqual([
+      expect(readStepsFromCall()).toStrictEqual([
         { kind: 'structural', argv: ['nmr', '-w', 'lint'] },
         { kind: 'structural', argv: ['nmr', '-w', 'fmt'] },
       ]);
@@ -497,7 +497,7 @@ describe(runCli, () => {
 
       await runNmr(['lint'], tree.dir);
 
-      expect(stepsFromCall()).toStrictEqual([
+      expect(readStepsFromCall()).toStrictEqual([
         { kind: 'structural', argv: ['nmr', 'lint:pre'] },
         { kind: 'opaque', command: 'eslint --fix .' },
         { kind: 'structural', argv: ['nmr', 'lint:post'] },
@@ -511,7 +511,7 @@ describe(runCli, () => {
 
       await runNmr(['fix', '--dry-run'], tree.dir);
 
-      expect(stepsFromCall()).toStrictEqual([
+      expect(readStepsFromCall()).toStrictEqual([
         { kind: 'structural', argv: ['nmr', 'fix:pre'] },
         { kind: 'structural', argv: ['nmr', 'lint', '--dry-run'] },
         { kind: 'structural', argv: ['nmr', 'fmt', '--dry-run'] },
@@ -526,7 +526,7 @@ describe(runCli, () => {
 
       await runNmr(['verify', 'src/'], tree.dir);
 
-      expect(stepsFromCall()).toStrictEqual([
+      expect(readStepsFromCall()).toStrictEqual([
         { kind: 'structural', argv: ['nmr', 'build'], shouldDeclineArguments: true },
         { kind: 'structural', argv: ['nmr', 'lint', 'src/'] },
       ]);
@@ -545,7 +545,7 @@ describe(runCli, () => {
       const { exitCode, stderr } = await runNmrReadingStderr(['verify', 'src/'], tree.dir);
 
       expect(exitCode).toBe(1);
-      expect(stepsFromCall()).toBeUndefined();
+      expect(readStepsFromCall()).toBeUndefined();
       expect(stderr).toContain('`verify` takes no trailing arguments');
     });
 
@@ -581,7 +581,7 @@ describe(runCli, () => {
     it('binds to a string script as shell-quoted text', async ({ tree }) => {
       await runNmr(['lint', '--max-warnings', '0'], tree.dir);
 
-      expect(stepsFromCall()).toStrictEqual([{ kind: 'opaque', command: "eslint --fix . '--max-warnings' '0'" }]);
+      expect(readStepsFromCall()).toStrictEqual([{ kind: 'opaque', command: "eslint --fix . '--max-warnings' '0'" }]);
     });
 
     it('quotes a structural argument once, where the chain string quotes only what the shell would act on', async ({
@@ -589,8 +589,8 @@ describe(runCli, () => {
     }) => {
       await runNmr(['fix', '-t', 'a b'], tree.dir);
 
-      expect(stepsFromCall()?.at(-1)).toStrictEqual({ kind: 'structural', argv: ['nmr', 'fmt', '-t', 'a b'] });
-      expect(renderChain(stepsFromCall() ?? [])).toBe("nmr lint -t 'a b' && nmr fmt -t 'a b'");
+      expect(readStepsFromCall()?.at(-1)).toStrictEqual({ kind: 'structural', argv: ['nmr', 'fmt', '-t', 'a b'] });
+      expect(renderChain(readStepsFromCall() ?? [])).toBe("nmr lint -t 'a b' && nmr fmt -t 'a b'");
     });
   });
 
@@ -600,7 +600,7 @@ describe(runCli, () => {
 
       await runNmr(['lint'], tree.dir);
 
-      expect(stepsFromCall()).toStrictEqual([
+      expect(readStepsFromCall()).toStrictEqual([
         { kind: 'opaque', command: `node ${path.join(tree.dir, 'scripts/eslint.js')} --fix .` },
       ]);
     });
@@ -612,7 +612,7 @@ describe(runCli, () => {
 
       await runNmr(['fix'], tree.dir);
 
-      expect(stepsFromCall()).toStrictEqual([
+      expect(readStepsFromCall()).toStrictEqual([
         { kind: 'structural', argv: ['nmr', 'lint'] },
         { kind: 'structural', argv: ['nmr', 'fmt'] },
       ]);
@@ -641,12 +641,12 @@ describe(runCli, () => {
     // A flag belongs in the rendered string exactly when it changes what the command does, which `-q` does not.
     it('renders the same chain string loud and quiet', async ({ tree }) => {
       await runNmr(['fix'], tree.dir);
-      const loudChain = renderChain(stepsFromCall() ?? []);
+      const loudChain = renderChain(readStepsFromCall() ?? []);
 
       mockedRunSteps.mockClear();
       await runNmr(['-q', 'fix'], tree.dir);
 
-      expect(renderChain(stepsFromCall() ?? [])).toBe(loudChain);
+      expect(renderChain(readStepsFromCall() ?? [])).toBe(loudChain);
     });
 
     it.for([
@@ -773,12 +773,12 @@ describe(runCli, () => {
     // A flag belongs in the rendered string exactly when it changes what the command does, which this does not.
     it('renders the same chain string in either format', async ({ tree }) => {
       await runNmr(['fix'], tree.dir);
-      const text = renderChain(stepsFromCall() ?? []);
+      const text = renderChain(readStepsFromCall() ?? []);
 
       mockedRunSteps.mockClear();
       await runNmr(['--json', 'fix'], tree.dir);
 
-      expect(renderChain(stepsFromCall() ?? [])).toBe(text);
+      expect(renderChain(readStepsFromCall() ?? [])).toBe(text);
     });
 
     it.for([
@@ -1118,7 +1118,7 @@ describe(runCli, () => {
 
       expect(stderr).toBe('');
       expect(exitCode).toBe(0);
-      expect(stepsFromCall()).toStrictEqual([{ kind: 'structural', argv: ['nmr', '-R', 'build'] }]);
+      expect(readStepsFromCall()).toStrictEqual([{ kind: 'structural', argv: ['nmr', '-R', 'build'] }]);
     });
 
     // nmr wraps a hook in no hooks of its own, so naming `lint:post:pre` would name a script that never runs.
@@ -1140,7 +1140,7 @@ describe(runCli, () => {
 
       const { exitCode } = await runNmrReadingStderr(['lint'], tree.dir);
 
-      expect(stepsFromCall()).toStrictEqual([
+      expect(readStepsFromCall()).toStrictEqual([
         { kind: 'opaque', command: 'eslint --fix .' },
         { kind: 'structural', argv: ['nmr', 'lint:post'] },
       ]);
@@ -1309,7 +1309,7 @@ async function runNmrReadingStderr(
 }
 
 /** Reads the step list the runner was handed. */
-function stepsFromCall(): readonly Step[] | undefined {
+function readStepsFromCall(): readonly Step[] | undefined {
   return mockedRunSteps.mock.calls[0]?.[0];
 }
 

@@ -380,7 +380,7 @@ describe(serializeVerdict, () => {
     it('keeps every constituent named where the ceiling can hold them all', () => {
       const parsedVerdict = parseVerdict(serializeVerdict(makeAssembly(8, 49)));
 
-      expect(scopesOf(parsedVerdict)).toStrictEqual([
+      expect(readScopes(parsedVerdict)).toStrictEqual([
         'scope-0',
         'scope-1',
         'scope-2',
@@ -398,7 +398,7 @@ describe(serializeVerdict, () => {
     it('drops the trailing constituents at a width the ceiling cannot name', () => {
       const line = serializeVerdict(makeAssembly(12, 49));
 
-      expect(scopesOf(parseVerdict(line))).toStrictEqual([
+      expect(readScopes(parseVerdict(line))).toStrictEqual([
         'scope-0',
         'scope-1',
         'scope-2',
@@ -415,14 +415,16 @@ describe(serializeVerdict, () => {
     it('sheds the excerpts before the constituents carrying them', () => {
       const parsedVerdict = parseVerdict(serializeVerdict(makeAssembly(8, 49)));
 
-      expect(excerptsOf(parsedVerdict)).toStrictEqual([]);
-      expect(scopesOf(parsedVerdict)).toHaveLength(8);
+      expect(readExcerpts(parsedVerdict)).toStrictEqual([]);
+      expect(readScopes(parsedVerdict)).toHaveLength(8);
     });
 
     // The overrun is shared, so no constituent is emptied to leave a later one whole. Which excerpts would
     // have survived was decided by step order, which carries no meaning for a consumer.
     it("cuts an assembly's excerpts down together rather than spending the overrun on the first", () => {
-      const lengths = excerptsOf(parseVerdict(serializeVerdict(makeAssembly(4, 200)))).map((excerpt) => excerpt.length);
+      const lengths = readExcerpts(parseVerdict(serializeVerdict(makeAssembly(4, 200)))).map(
+        (excerpt) => excerpt.length,
+      );
 
       // Comparable rather than equal: the share is integer arithmetic, so the last cut absorbs the remainder.
       expect(lengths).toHaveLength(4);
@@ -431,7 +433,7 @@ describe(serializeVerdict, () => {
 
     // An excerpt cut to nothing reads as a run that recorded nothing, which is a different fact.
     it('leaves every cut excerpt marked rather than emptied', () => {
-      const excerpts = excerptsOf(parseVerdict(serializeVerdict(makeAssembly(4, 200))));
+      const excerpts = readExcerpts(parseVerdict(serializeVerdict(makeAssembly(4, 200))));
 
       expect(excerpts.every((excerpt) => excerpt.endsWith('…'))).toBe(true);
       expect(excerpts).not.toContain('');
@@ -474,7 +476,7 @@ const OVERSIZED_STRUCTURE: Verdict = {
 };
 
 /** Reads the excerpts a parsed record's replay carries, skipping an entry the ladder shed the excerpt from. */
-function excerptsOf(parsedVerdict: unknown): string[] {
+function readExcerpts(parsedVerdict: unknown): string[] {
   return readReplay(parsedVerdict).flatMap((line) => (typeof line['excerpt'] === 'string' ? [line['excerpt']] : []));
 }
 
@@ -520,7 +522,7 @@ function readReplay(parsedVerdict: unknown): Record<string, unknown>[] {
 }
 
 /** Reads the scope each constituent of a parsed record's replay names. */
-function scopesOf(parsedVerdict: unknown): string[] {
+function readScopes(parsedVerdict: unknown): string[] {
   return readReplay(parsedVerdict).flatMap((line) => (typeof line['scope'] === 'string' ? [line['scope']] : []));
 }
 

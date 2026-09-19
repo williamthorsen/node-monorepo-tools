@@ -24,7 +24,7 @@ const it = baseIt.extend(
   makeFixture(() =>
     createTempTree(
       {
-        '.config/nmr.config.ts': `export default ${JSON.stringify(config())};\n`,
+        '.config/nmr.config.ts': `export default ${JSON.stringify(buildConfig())};\n`,
         'pnpm-workspace.yaml': 'packages:\n  - packages/*\n',
       },
       { prefix: 'nmr-signal-' },
@@ -44,7 +44,7 @@ describe('signal handling', () => {
   it('given a signal to nmr alone, never starts the steps after the one that was running', async ({ tree }) => {
     child = spawn(process.execPath, [CLI_PATH, 'sequence'], {
       cwd: tree.dir,
-      env: childEnv(),
+      env: buildChildEnv(),
       stdio: ['ignore', 'ignore', 'ignore'],
     });
     await waitForMarker(tree, 'first-started');
@@ -60,7 +60,7 @@ describe('signal handling', () => {
   it('runs the second step when no signal arrives', async ({ tree }) => {
     child = spawn(process.execPath, [CLI_PATH, 'control'], {
       cwd: tree.dir,
-      env: childEnv(),
+      env: buildChildEnv(),
       stdio: ['ignore', 'ignore', 'ignore'],
     });
     const exitCode = await waitForExit(child);
@@ -73,7 +73,7 @@ describe('signal handling', () => {
 // region | Helpers
 
 /** The environment the run needs: `nmr` on PATH for the argv spawn, and none of nmr's own variables carried over. */
-function childEnv(): NodeJS.ProcessEnv {
+function buildChildEnv(): NodeJS.ProcessEnv {
   const ambientEnv = readAmbientEnv();
 
   return { ...ambientEnv, PATH: `${BIN_DIR}${path.delimiter}${ambientEnv['PATH'] ?? ''}` };
@@ -84,7 +84,7 @@ function childEnv(): NodeJS.ProcessEnv {
  * enough to be signalled, and `control`, which runs straight through. The wait is bounded so the process tree
  * orphaned by killing nmr goes away on its own rather than lingering past the suite.
  */
-function config(): Record<string, unknown> {
+function buildConfig(): Record<string, unknown> {
   const announceCommand = `node -e "require('node:fs').writeFileSync('first-started',''); setTimeout(() => {}, ${FIRST_STEP_WAIT_MS})"`;
   const secondCommand = `node -e "require('node:fs').writeFileSync('second-ran','')"`;
 

@@ -16,7 +16,7 @@ describe(resolveTreeSnapshot, () => {
   it('takes the snapshot a parent process already observed', ({ tree }) => {
     // One invocation hashes the tree once; every process below it gates on that same observation.
     initRepo(tree);
-    const snapshot: TreeSnapshot = { hash: 'tree-hash', headSha: headShaOf(tree.dir) };
+    const snapshot: TreeSnapshot = { hash: 'tree-hash', headSha: readHeadSha(tree.dir) };
 
     const resolution = resolveTreeSnapshot({
       monorepoRoot: tree.dir,
@@ -30,7 +30,7 @@ describe(resolveTreeSnapshot, () => {
     // A process outliving the run that spawned it carries the variable with it. Gating a later invocation on
     // an observation of a tree that has since been committed over is the one way this cache wrongly skips.
     initRepo(tree);
-    const staleSnapshot: TreeSnapshot = { hash: 'tree-hash', headSha: headShaOf(tree.dir) };
+    const staleSnapshot: TreeSnapshot = { hash: 'tree-hash', headSha: readHeadSha(tree.dir) };
     tree.write('src/index.ts', 'export const value = 2;\n');
     commitAll(tree.dir, 'second');
 
@@ -48,7 +48,7 @@ describe(resolveTreeSnapshot, () => {
 
     expect(resolveTreeSnapshot({ monorepoRoot: tree.dir, env: {} })).toMatchObject({
       ok: true,
-      snapshot: { headSha: headShaOf(tree.dir) },
+      snapshot: { headSha: readHeadSha(tree.dir) },
     });
   });
 
@@ -82,26 +82,26 @@ describe(resolveTreeSnapshot, () => {
 
 /** Stages everything and commits it. */
 function commitAll(repo: string, message: string): void {
-  git(repo, ['add', '--all']);
-  git(repo, ['commit', '--message', message]);
+  runGit(repo, ['add', '--all']);
+  runGit(repo, ['commit', '--message', message]);
 }
 
 /** Runs git in `cwd` and returns its stdout. */
-function git(cwd: string, args: string[]): string {
+function runGit(cwd: string, args: string[]): string {
   return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
 /** Returns the commit HEAD names in the fixture. */
-function headShaOf(repo: string): string {
-  return git(repo, ['rev-parse', 'HEAD']).trim();
+function readHeadSha(repo: string): string {
+  return runGit(repo, ['rev-parse', 'HEAD']).trim();
 }
 
 /** Writes a committed fixture repository holding one source file. */
 function initRepo(tree: TempTree): void {
-  git(tree.dir, ['init', '--initial-branch=main']);
-  git(tree.dir, ['config', 'user.email', 'fixture@example.com']);
-  git(tree.dir, ['config', 'user.name', 'Fixture']);
-  git(tree.dir, ['config', 'commit.gpgsign', 'false']);
+  runGit(tree.dir, ['init', '--initial-branch=main']);
+  runGit(tree.dir, ['config', 'user.email', 'fixture@example.com']);
+  runGit(tree.dir, ['config', 'user.name', 'Fixture']);
+  runGit(tree.dir, ['config', 'commit.gpgsign', 'false']);
 
   tree.write('src/index.ts', 'export const value = 1;\n');
   commitAll(tree.dir, 'initial');

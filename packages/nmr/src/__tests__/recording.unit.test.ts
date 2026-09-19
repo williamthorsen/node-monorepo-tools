@@ -26,43 +26,43 @@ describe('a recording', () => {
 
   describe(resolveRecording, () => {
     it('given a pass recorded on this tree, returns it with the transcript beside it', async () => {
-      await writeCheckCacheEntry({ ...refFor(), entry: makeEntry() });
-      await recordTranscript(refFor(), 'Test Files  6 passed (6)\n');
+      await writeCheckCacheEntry({ ...buildRef(), entry: makeEntry() });
+      await recordTranscript(buildRef(), 'Test Files  6 passed (6)\n');
 
-      const lookup = await resolveRecording(lookupFor());
+      const lookup = await resolveRecording(buildLookup());
 
       expect(lookup).toMatchObject({ ok: true, recording: { transcript: 'Test Files  6 passed (6)\n' } });
     });
 
     it('given a composite, returns the assembly it recorded and no transcript', async () => {
-      const retention = { key: 'a-retention-key', runId: 'a-run', replay: [replayLine()] };
-      await writeCheckCacheEntry({ ...refFor(), entry: { ...makeEntry(), retention } });
+      const retention = { key: 'a-retention-key', runId: 'a-run', replay: [buildReplayLine()] };
+      await writeCheckCacheEntry({ ...buildRef(), entry: { ...makeEntry(), retention } });
 
       const recording = await resolveOrThrow();
 
       expect(recording.transcript).toBeUndefined();
-      expect(recording.entry.retention?.replay).toStrictEqual([replayLine()]);
+      expect(recording.entry.retention?.replay).toStrictEqual([buildReplayLine()]);
     });
 
     it('given a command outside the cacheable set, refuses without reading an entry', async () => {
-      await writeCheckCacheEntry({ ...refFor(), entry: makeEntry() });
-      await recordTranscript(refFor(), 'output');
+      await writeCheckCacheEntry({ ...buildRef(), entry: makeEntry() });
+      await recordTranscript(buildRef(), 'output');
 
-      const lookup = await resolveRecording({ ...lookupFor(), isCacheable: false });
+      const lookup = await resolveRecording({ ...buildLookup(), isCacheable: false });
 
       expect(lookup).toStrictEqual({ ok: false, refusal: { kind: 'uncacheable' } });
     });
 
     it('given a gate standing aside, refuses rather than reading an entry it cannot vouch for', async () => {
-      await writeCheckCacheEntry({ ...refFor(), entry: makeEntry() });
+      await writeCheckCacheEntry({ ...buildRef(), entry: makeEntry() });
 
-      const lookup = await resolveRecording({ ...lookupFor(), key: undefined });
+      const lookup = await resolveRecording({ ...buildLookup(), key: undefined });
 
       expect(lookup).toStrictEqual({ ok: false, refusal: { kind: 'gate-aside' } });
     });
 
     it('given nothing recorded at all, refuses', async () => {
-      const lookup = await resolveRecording(lookupFor());
+      const lookup = await resolveRecording(buildLookup());
 
       expect(lookup).toStrictEqual({ ok: false, refusal: { kind: 'unrecorded' } });
     });
@@ -70,10 +70,10 @@ describe('a recording', () => {
     // The same admission a skip is held to, so `--log` shows what would have been recalled and nothing else.
     it('given a pass recorded under another key, refuses and reports its age', async () => {
       const recordedAt = new Date(Date.now() - 120_000).toISOString();
-      await writeCheckCacheEntry({ ...refFor(), entry: { ...makeEntry(), key: 'another-key', recordedAt } });
-      await recordTranscript(refFor(), 'output from another tree');
+      await writeCheckCacheEntry({ ...buildRef(), entry: { ...makeEntry(), key: 'another-key', recordedAt } });
+      await recordTranscript(buildRef(), 'output from another tree');
 
-      const lookup = await resolveRecording(lookupFor());
+      const lookup = await resolveRecording(buildLookup());
 
       expect(lookup).toMatchObject({ ok: false, refusal: { kind: 'mismatched', ageMs: expect.any(Number) } });
       expect(lookup).not.toMatchObject({ ok: true });
@@ -96,25 +96,28 @@ describe('a recording', () => {
       ],
       ['only the install moved', {}, { ingredient: 'other' }],
     ])('given %s, names the ingredient that moved', async (_scenario, current, difference) => {
-      await writeCheckCacheEntry({ ...refFor(), entry: { ...makeEntry(), key: 'another-key' } });
+      await writeCheckCacheEntry({ ...buildRef(), entry: { ...makeEntry(), key: 'another-key' } });
 
-      const lookup = await resolveRecording({ ...lookupFor(), currentIdentity: { ...IDENTITY, ...current } });
+      const lookup = await resolveRecording({ ...buildLookup(), currentIdentity: { ...IDENTITY, ...current } });
 
       expect(lookup).toMatchObject({ ok: false, refusal: { difference } });
     });
 
     it('leaves the tree unattributed where no snapshot was taken', async () => {
-      await writeCheckCacheEntry({ ...refFor(), entry: { ...makeEntry(), key: 'another-key' } });
+      await writeCheckCacheEntry({ ...buildRef(), entry: { ...makeEntry(), key: 'another-key' } });
 
-      const lookup = await resolveRecording({ ...lookupFor(), currentIdentity: { ...IDENTITY, treeHash: undefined } });
+      const lookup = await resolveRecording({
+        ...buildLookup(),
+        currentIdentity: { ...IDENTITY, treeHash: undefined },
+      });
 
       expect(lookup).toMatchObject({ ok: false, refusal: { difference: { ingredient: 'other' } } });
     });
 
     it('given a pass that retained nothing, refuses', async () => {
-      await writeCheckCacheEntry({ ...refFor(), entry: makeEntry() });
+      await writeCheckCacheEntry({ ...buildRef(), entry: makeEntry() });
 
-      const lookup = await resolveRecording(lookupFor());
+      const lookup = await resolveRecording(buildLookup());
 
       expect(lookup).toMatchObject({ ok: false, refusal: { kind: 'no-output' } });
     });
@@ -122,11 +125,11 @@ describe('a recording', () => {
     // The retention key certifies that a recording describes this presentation environment, which is what a
     // replayed excerpt needs and what a dated recording does not.
     it('prints a recording made under another presentation environment', async () => {
-      const retention = { key: 'a-key-from-another-terminal', runId: 'a-run', replay: [replayLine()] };
-      await writeCheckCacheEntry({ ...refFor(), entry: { ...makeEntry(), retention } });
-      await recordTranscript(refFor(), 'output recorded through a pipe\n');
+      const retention = { key: 'a-key-from-another-terminal', runId: 'a-run', replay: [buildReplayLine()] };
+      await writeCheckCacheEntry({ ...buildRef(), entry: { ...makeEntry(), retention } });
+      await recordTranscript(buildRef(), 'output recorded through a pipe\n');
 
-      const lookup = await resolveRecording(lookupFor());
+      const lookup = await resolveRecording(buildLookup());
 
       expect(lookup).toMatchObject({ ok: true, recording: { transcript: 'output recorded through a pipe\n' } });
     });
@@ -174,7 +177,7 @@ describe('a recording', () => {
     });
 
     it('given a composite, prints one attributed line per excerpt', () => {
-      const replay = [replayLine(), { command: 'lint:check', excerpt: 'no problems', scope: 'nmr' }];
+      const replay = [buildReplayLine(), { command: 'lint:check', excerpt: 'no problems', scope: 'nmr' }];
       const entry = { ...makeEntry(), retention: { key: 'a-retention-key', runId: 'a-run', replay } };
 
       const renderedText = renderRecording({ command: 'check', recording: { entry }, scope: SCOPE, style: 'rich' });
@@ -271,22 +274,22 @@ describe('a recording', () => {
 
   /** Resolves what this scope has to show, failing the test where it has nothing. */
   async function resolveOrThrow(): Promise<Recording> {
-    const lookup = await resolveRecording(lookupFor());
+    const lookup = await resolveRecording(buildLookup());
     if (!lookup.ok) {
       throw new Error(`expected a recording, got: ${lookup.refusal.kind}`);
     }
     return lookup.recording;
   }
 
-  function lookupFor() {
-    return { ...refFor(), currentIdentity: { ...IDENTITY }, isCacheable: true, key: KEY };
+  function buildLookup() {
+    return { ...buildRef(), currentIdentity: { ...IDENTITY }, isCacheable: true, key: KEY };
   }
 
-  function refFor() {
+  function buildRef() {
     return { anchorDir: root, command: COMMAND, monorepoRoot: root };
   }
 
-  function replayLine() {
+  function buildReplayLine() {
     return { command: 'typecheck', excerpt: 'no errors', scope: 'nmr-core' };
   }
 
