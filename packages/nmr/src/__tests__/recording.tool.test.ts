@@ -64,7 +64,7 @@ describe('a run printed by --log', () => {
     it('runs nothing and reports no verdict', async () => {
       const { stdout } = await runNmr(`--log ${COMMAND}`);
 
-      expect(runCount()).toBe(1);
+      expect(countRuns()).toBe(1);
       expect(stdout).not.toContain('passed');
     });
 
@@ -150,8 +150,8 @@ describe('a run printed by --log', () => {
 
   // region | Helpers
 
-  /** How many times the fixture's command has actually run. */
-  function runCount(): number {
+  /** Counts how many times the fixture's command has actually run. */
+  function countRuns(): number {
     return workspace.exists(LOG_ENTRY) ? workspace.read(LOG_ENTRY).trim().split('\n').length : 0;
   }
 
