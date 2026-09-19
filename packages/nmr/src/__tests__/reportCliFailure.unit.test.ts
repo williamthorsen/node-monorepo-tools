@@ -7,22 +7,22 @@ import { UserError } from '../UserError.ts';
 
 describe(reportCliFailure, () => {
   it('reports a user error as its message alone', () => {
-    const written = reportToString(new UserError('Invalid nmr config at /repo/.config/nmr.config.ts: nope'));
+    const writtenReport = reportToString(new UserError('Invalid nmr config at /repo/.config/nmr.config.ts: nope'));
 
-    expect(written).toBe('Error: Invalid nmr config at /repo/.config/nmr.config.ts: nope\n');
+    expect(writtenReport).toBe('Error: Invalid nmr config at /repo/.config/nmr.config.ts: nope\n');
   });
 
   it('reports nmr’s own fault with the stack a report of one starts from', () => {
-    const written = reportToString(new Error('unhandled script origin'));
+    const writtenReport = reportToString(new Error('unhandled script origin'));
 
-    expect(written).toContain('unhandled script origin');
-    expect(written).toContain('    at ');
+    expect(writtenReport).toContain('unhandled script origin');
+    expect(writtenReport).toContain('    at ');
   });
 
   it('describes a thrown non-Error, which carries no stack to report', () => {
-    const written = reportToString('just a string');
+    const writtenReport = reportToString('just a string');
 
-    expect(written).toBe('just a string\n');
+    expect(writtenReport).toBe('just a string\n');
   });
 });
 

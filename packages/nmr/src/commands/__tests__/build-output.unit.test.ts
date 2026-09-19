@@ -28,14 +28,14 @@ describe(resolveToolchainFingerprint, () => {
 
   it('returns the version for a build of nmr itself, whatever digest is stored for it', async ({ selfDir }) => {
     await writeCacheEntry(resolveBuildCachePath(selfDir), 'a-build-digest');
-    const first = await resolveToolchainFingerprint(selfDir, selfDir);
+    const firstFingerprint = await resolveToolchainFingerprint(selfDir, selfDir);
 
     // The digest a build writes is the entry this resolution would read, so a self-build that folded it would
     // key itself on its own previous key and never settle.
     await writeCacheEntry(resolveBuildCachePath(selfDir), 'the-next-build-digest');
 
-    await expect(resolveToolchainFingerprint(selfDir, selfDir)).resolves.toBe(first);
-    expect(first).toBe(SELF_VERSION);
+    await expect(resolveToolchainFingerprint(selfDir, selfDir)).resolves.toBe(firstFingerprint);
+    expect(firstFingerprint).toBe(SELF_VERSION);
   });
 
   it('recognizes a self-build reached through a symlinked path', async ({ selfDir, tree }) => {

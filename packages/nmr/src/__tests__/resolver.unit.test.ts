@@ -374,13 +374,14 @@ describe(resolveScript, () => {
 
   it.for([
     {
-      expected:
+      expectedMessage:
         '`scripts.build` must be a string. A step list belongs in `.config/nmr.config.ts` under `workspaceScripts`.',
       scenario: 'a step list written into a package',
       setup: (tree: TempTree) => writeScripts(tree, { build: ['compile'] }),
     },
     {
-      expected: '`scripts.build` must be a string. A step list belongs in `.config/nmr.config.ts` under `rootScripts`.',
+      expectedMessage:
+        '`scripts.build` must be a string. A step list belongs in `.config/nmr.config.ts` under `rootScripts`.',
       scenario: 'a step list written into the monorepo root',
       setup: (tree: TempTree) => {
         tree.write('pnpm-workspace.yaml', 'packages:\n  - packages/*\n');
@@ -388,14 +389,14 @@ describe(resolveScript, () => {
       },
     },
     {
-      expected: '`scripts.build` must be a string.',
+      expectedMessage: '`scripts.build` must be a string.',
       scenario: 'a value of some other type',
       setup: (tree: TempTree) => writeScripts(tree, { build: 7 }),
     },
-  ])('rejects $scenario, naming where it belongs', ({ expected, setup }, { tree }) => {
+  ])('rejects $scenario, naming where it belongs', ({ expectedMessage, setup }, { tree }) => {
     setup(tree);
 
-    expect(() => resolveScript('build', { build: ['compile'] }, tree.dir, false)).toThrow(expected);
+    expect(() => resolveScript('build', { build: ['compile'] }, tree.dir, false)).toThrow(expectedMessage);
   });
 
   it('rejects a package.json that does not parse, naming the file', ({ tree }) => {
@@ -426,7 +427,7 @@ describe(resolveScript, () => {
 // Guards against reintroducing the retired on-disk probe: nmr once chose a package's test scripts by looking for a
 // `vitest.integration.config.ts`, so the fixture plants exactly that file and asserts it changes nothing.
 describe('test command resolution ignores the package contents', () => {
-  const expected: Record<string, string> = {
+  const expectedCommands: Record<string, string> = {
     test: 'pnpm exec vitest --project unit --project tool',
     'test:all': 'pnpm exec vitest',
     'test:coverage': 'pnpm exec vitest --project unit --project tool --coverage',
@@ -438,7 +439,7 @@ describe('test command resolution ignores the package contents', () => {
   it('resolves the same six test commands for a bare package', ({ tree }) => {
     const registry = buildWorkspaceRegistry({});
 
-    for (const [command, expectedCommand] of Object.entries(expected)) {
+    for (const [command, expectedCommand] of Object.entries(expectedCommands)) {
       expect(resolveScript(command, registry, tree.dir, false)).toStrictEqual({
         origin: { tier: 'registry', key: command },
         steps: [{ kind: 'opaque', command: expectedCommand }],
@@ -451,7 +452,7 @@ describe('test command resolution ignores the package contents', () => {
     tree.write('vitest.standalone.config.ts', '');
     const registry = buildWorkspaceRegistry({});
 
-    for (const [command, expectedCommand] of Object.entries(expected)) {
+    for (const [command, expectedCommand] of Object.entries(expectedCommands)) {
       expect(resolveScript(command, registry, tree.dir, false)).toStrictEqual({
         origin: { tier: 'registry', key: command },
         steps: [{ kind: 'opaque', command: expectedCommand }],

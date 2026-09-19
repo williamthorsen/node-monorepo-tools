@@ -29,21 +29,27 @@ describe(composeTranscript, () => {
   });
 
   it('given one stream carrying content, returns it alone and names no stream', () => {
-    const composed = composeTranscript({ stdout: Buffer.from('all files pass\n'), stderr: NOTHING });
+    const composedTranscript = composeTranscript({ stdout: Buffer.from('all files pass\n'), stderr: NOTHING });
 
-    expect(composed).toBe('all files pass\n');
+    expect(composedTranscript).toBe('all files pass\n');
   });
 
   it('given both streams carrying content, follows stdout with stderr, naming where it begins', () => {
-    const composed = composeTranscript({ stdout: Buffer.from('ran 6 files\n'), stderr: Buffer.from('1 warning\n') });
+    const composedTranscript = composeTranscript({
+      stdout: Buffer.from('ran 6 files\n'),
+      stderr: Buffer.from('1 warning\n'),
+    });
 
-    expect(composed).toBe('ran 6 files\n\n… nmr: stderr …\n1 warning\n');
+    expect(composedTranscript).toBe('ran 6 files\n\n… nmr: stderr …\n1 warning\n');
   });
 
   it('cleans what it composes', () => {
-    const composed = composeTranscript({ stdout: Buffer.from('\u{1B}[32m✓ passed\u{1B}[39m'), stderr: NOTHING });
+    const composedTranscript = composeTranscript({
+      stdout: Buffer.from('\u{1B}[32m✓ passed\u{1B}[39m'),
+      stderr: NOTHING,
+    });
 
-    expect(composed).toBe('✓ passed');
+    expect(composedTranscript).toBe('✓ passed');
   });
 
   describe('a transcript overrunning the ceiling', () => {
@@ -53,17 +59,17 @@ describe(composeTranscript, () => {
     function composeOverrun(): string {
       const filler = 'x'.repeat(OVERRUN_BYTES - 'HEAD'.length - 'TAIL'.length);
 
-      const composed = composeTranscript({ stdout: Buffer.from(`HEAD${filler}TAIL`), stderr: NOTHING });
-      if (composed === undefined) throw new Error('the fixture composed nothing');
+      const composedTranscript = composeTranscript({ stdout: Buffer.from(`HEAD${filler}TAIL`), stderr: NOTHING });
+      if (composedTranscript === undefined) throw new Error('the fixture composed nothing');
 
-      return composed;
+      return composedTranscript;
     }
 
     it('keeps both ends', () => {
-      const composed = composeOverrun();
+      const composedTranscript = composeOverrun();
 
-      expect(composed.startsWith('HEAD')).toBe(true);
-      expect(composed.endsWith('TAIL')).toBe(true);
+      expect(composedTranscript.startsWith('HEAD')).toBe(true);
+      expect(composedTranscript.endsWith('TAIL')).toBe(true);
     });
 
     it('marks what it dropped rather than cutting silently', () => {
@@ -78,9 +84,9 @@ describe(composeTranscript, () => {
     it('cuts between characters, never inside one', () => {
       const filler = '✓'.repeat(Math.ceil(OVERRUN_BYTES / Buffer.byteLength('✓')));
 
-      const composed = composeTranscript({ stdout: Buffer.from(filler), stderr: NOTHING });
+      const composedTranscript = composeTranscript({ stdout: Buffer.from(filler), stderr: NOTHING });
 
-      expect(composed).not.toContain('�');
+      expect(composedTranscript).not.toContain('�');
     });
   });
 });

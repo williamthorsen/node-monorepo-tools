@@ -62,11 +62,11 @@ describe('the build bootstrap', () => {
   it('resolves every workspace import to source rather than to build output', () => {
     // Anything in this graph resolving to a `dist` resolves to output the bootstrap has not produced yet, and
     // a fresh clone's install fails before a single package is built.
-    const resolved = collectWorkspaceImports().map((entry) =>
+    const resolvedUrls = collectWorkspaceImports().map((entry) =>
       resolveFrom(entry.specifier, entry.fromDir, [SOURCE_CONDITION]),
     );
 
-    expect(resolved.filter((url) => url.includes('/dist/'))).toStrictEqual([]);
+    expect(resolvedUrls.filter((url) => url.includes('/dist/'))).toStrictEqual([]);
   });
 
   it('resolves that same import to build output when the condition is absent', () => {
@@ -131,7 +131,7 @@ describe("nmr-core's bootstrap wiring", () => {
 
   it('opts into the source condition when it builds itself', () => {
     // The resolution guards above prove what the condition does; nothing else proves anything passes it.
-    expect(readNmrCoreWiring().prepare).toContain(`--conditions ${SOURCE_CONDITION}`);
+    expect(readNmrCoreWiring().prepareScript).toContain(`--conditions ${SOURCE_CONDITION}`);
   });
 });
 
@@ -146,21 +146,21 @@ interface WorkspaceImport {
 interface NmrCoreWiring {
   /** The condition keys of the root export, in declaration order, which is the order Node matches them in. */
   conditions: string[];
-  prepare: string;
+  prepareScript: string;
   rootEntry: Record<string, string>;
 }
 
 /** Returns every module reachable from the bootstrap entry through relative specifiers, the entry included. */
 function collectClosure(entry: string): string[] {
-  const seen = new Set<string>();
+  const seenFiles = new Set<string>();
   const queue = [entry];
 
   while (queue.length > 0) {
     const file = queue.pop();
-    if (file === undefined || seen.has(file) || !existsSync(file)) {
+    if (file === undefined || seenFiles.has(file) || !existsSync(file)) {
       continue;
     }
-    seen.add(file);
+    seenFiles.add(file);
 
     for (const specifier of readSpecifiers(file)) {
       if (specifier.startsWith('.')) {
@@ -169,7 +169,7 @@ function collectClosure(entry: string): string[] {
     }
   }
 
-  return [...seen];
+  return [...seenFiles];
 }
 
 /** Returns every workspace-package specifier the bootstrap closure imports, paired with its importing directory. */
@@ -188,25 +188,25 @@ function isPackageSpecifier(specifier: string, packageName: string): boolean {
 
 /** Reads the nmr-core manifest fields the bootstrap depends on, failing loudly when they are not where expected. */
 function readNmrCoreWiring(): NmrCoreWiring {
-  const malformed = `${NMR_CORE_MANIFEST} does not carry the exports and scripts the bootstrap depends on`;
-  const parsed: unknown = JSON.parse(readFileSync(NMR_CORE_MANIFEST, 'utf8'));
-  if (!isObject(parsed)) {
-    throw new Error(malformed);
+  const malformedMessage = `${NMR_CORE_MANIFEST} does not carry the exports and scripts the bootstrap depends on`;
+  const parsedManifest: unknown = JSON.parse(readFileSync(NMR_CORE_MANIFEST, 'utf8'));
+  if (!isObject(parsedManifest)) {
+    throw new Error(malformedMessage);
   }
 
-  const exportMap: unknown = parsed['exports'];
-  const scripts: unknown = parsed['scripts'];
+  const exportMap: unknown = parsedManifest['exports'];
+  const scripts: unknown = parsedManifest['scripts'];
   if (!isObject(exportMap) || !isObject(scripts)) {
-    throw new Error(malformed);
+    throw new Error(malformedMessage);
   }
 
   const rootEntry: unknown = exportMap['.'];
-  const prepare: unknown = scripts['prepare'];
-  if (!isStringRecord(rootEntry) || typeof prepare !== 'string') {
-    throw new Error(malformed);
+  const prepareScript: unknown = scripts['prepare'];
+  if (!isStringRecord(rootEntry) || typeof prepareScript !== 'string') {
+    throw new Error(malformedMessage);
   }
 
-  return { conditions: Object.keys(rootEntry), prepare, rootEntry };
+  return { conditions: Object.keys(rootEntry), prepareScript, rootEntry };
 }
 
 /**
@@ -224,9 +224,9 @@ function readSpecifiers(file: string): string[] {
   const specifiers: string[] = [];
 
   function walk(node: ts.Node): void {
-    const literal = getModuleSpecifier(node);
-    if (literal !== undefined) {
-      specifiers.push(literal.text);
+    const literalNode = getModuleSpecifier(node);
+    if (literalNode !== undefined) {
+      specifiers.push(literalNode.text);
     }
     ts.forEachChild(node, walk);
   }
@@ -241,8 +241,8 @@ function getModuleSpecifier(node: ts.Node): ts.StringLiteralLike | undefined {
     return ts.isStringLiteralLike(node.moduleSpecifier) ? node.moduleSpecifier : undefined;
   }
   if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
-    const [first] = node.arguments;
-    return first !== undefined && ts.isStringLiteralLike(first) ? first : undefined;
+    const [firstArgument] = node.arguments;
+    return firstArgument !== undefined && ts.isStringLiteralLike(firstArgument) ? firstArgument : undefined;
   }
 
   return undefined;
@@ -251,11 +251,11 @@ function getModuleSpecifier(node: ts.Node): ts.StringLiteralLike | undefined {
 /** Returns the `name` of every package the workspace manifest claims, which is what makes a specifier local. */
 function readWorkspacePackageNames(): string[] {
   return getWorkspacePackageDirs(findMonorepoRoot(import.meta.dirname)).map((dir) => {
-    const parsed: unknown = JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8'));
-    if (!isObject(parsed) || typeof parsed['name'] !== 'string') {
+    const parsedManifest: unknown = JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8'));
+    if (!isObject(parsedManifest) || typeof parsedManifest['name'] !== 'string') {
       throw new Error(`${dir} holds no package.json carrying a name`);
     }
-    return parsed['name'];
+    return parsedManifest['name'];
   });
 }
 

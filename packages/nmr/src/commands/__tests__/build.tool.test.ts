@@ -234,9 +234,9 @@ const it = baseIt
       await buildPackage(tree.dir, { style: 'rich' });
     }
 
-    const owned = stack.move();
+    const ownedStack = stack.move();
     onCleanup(() => {
-      owned.dispose();
+      ownedStack.dispose();
     });
 
     return tree;
@@ -304,12 +304,12 @@ describe('buildPackage emit correctness', () => {
     // files outnumber the package's own sources 63 to 1 here and carry nearly all of the avoided parse.
     const [scriptProgram, declarationProgram] = collectPrograms();
     assert(scriptProgram !== undefined && declarationProgram !== undefined);
-    const reparsed = scriptProgram
+    const reparsedFileNames = scriptProgram
       .getSourceFiles()
       .filter((sourceFile) => declarationProgram.getSourceFile(sourceFile.fileName) !== sourceFile)
       .map((sourceFile) => sourceFile.fileName);
 
-    expect(reparsed).toStrictEqual([]);
+    expect(reparsedFileNames).toStrictEqual([]);
   });
 
   it('throws when an aliased import resolves to a missing file', async ({ tree }) => {
@@ -664,20 +664,20 @@ describe('buildPackage atomic publication', () => {
   it('leaves the previous output intact when the specifier rewrite fails', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
     await buildPackage(tree.dir, { style: 'rich' });
-    const published = readOutput(tree, 'index.js');
+    const publishedOutput = readOutput(tree, 'index.js');
 
     // An alias with no target survives the emit and fails in the rewrite pass, which is the furthest point
     // a build can fail: everything the publish needs has already been produced.
     tree.write('src/index.ts', `import { missing } from '~/nonexistent.ts';\nexport const value = missing;\n`);
     await expect(buildPackage(tree.dir, { style: 'rich' })).rejects.toThrow(/could not resolve aliased import/);
 
-    expect(readOutput(tree, 'index.js')).toBe(published);
+    expect(readOutput(tree, 'index.js')).toBe(publishedOutput);
   });
 
   it('leaves the previous output intact when writing the staged output fails', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
     await buildPackage(tree.dir, { style: 'rich' });
-    const published = readOutput(tree, 'index.js');
+    const publishedOutput = readOutput(tree, 'index.js');
 
     tree.write('src/index.ts', 'export const value = 2;\n');
     const writeFile = vi.spyOn(ts.sys, 'writeFile').mockImplementationOnce(() => {
@@ -686,13 +686,13 @@ describe('buildPackage atomic publication', () => {
     await expect(buildPackage(tree.dir, { style: 'rich' })).rejects.toThrow('ENOSPC');
     writeFile.mockRestore();
 
-    expect(readOutput(tree, 'index.js')).toBe(published);
+    expect(readOutput(tree, 'index.js')).toBe(publishedOutput);
   });
 
   it('leaves the previous output intact when the emit reports itself skipped', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
     await buildPackage(tree.dir, { style: 'rich' });
-    const published = readOutput(tree, 'index.js');
+    const publishedOutput = readOutput(tree, 'index.js');
 
     tree.write('src/index.ts', 'export const value = 2;\n');
     const compile = vi.mocked(ts.createProgram).getMockImplementation();
@@ -704,13 +704,13 @@ describe('buildPackage atomic publication', () => {
     }));
     await expect(buildPackage(tree.dir, { style: 'rich' })).rejects.toThrow(/emit failed/);
 
-    expect(readOutput(tree, 'index.js')).toBe(published);
+    expect(readOutput(tree, 'index.js')).toBe(publishedOutput);
   });
 
   it('leaves the previous output intact when the declarations emit reports itself skipped', async ({ tree }) => {
     scaffoldPackage(tree, { 'index.ts': 'export const value = 1;\n' });
     await buildPackage(tree.dir, { style: 'rich' });
-    const published = readOutput(tree, 'index.js');
+    const publishedOutput = readOutput(tree, 'index.js');
 
     tree.write('src/index.ts', 'export const value = 2;\n');
     const compile = vi.mocked(ts.createProgram).getMockImplementation();
@@ -724,7 +724,7 @@ describe('buildPackage atomic publication', () => {
       }));
     await expect(buildPackage(tree.dir, { style: 'rich' })).rejects.toThrow(/emit failed/);
 
-    expect(readOutput(tree, 'index.js')).toBe(published);
+    expect(readOutput(tree, 'index.js')).toBe(publishedOutput);
   });
 
   it('clears a scratch directory on a build that skips', async ({ tree }) => {
@@ -1021,11 +1021,11 @@ describe(resolveBuildCachePath, () => {
 
   it('derives a stable, package-specific key', ({ tree }) => {
     tree.writeAll({ 'a/node_modules/': '', 'b/node_modules/': '' });
-    const a = tree.resolve('a');
-    const b = tree.resolve('b');
+    const aDir = tree.resolve('a');
+    const bDir = tree.resolve('b');
 
-    expect(resolveBuildCachePath(a)).toBe(resolveBuildCachePath(a));
-    expect(resolveBuildCachePath(a)).not.toBe(resolveBuildCachePath(b));
+    expect(resolveBuildCachePath(aDir)).toBe(resolveBuildCachePath(aDir));
+    expect(resolveBuildCachePath(aDir)).not.toBe(resolveBuildCachePath(bDir));
   });
 
   it('resolves to the path entries already on disk were written under', ({ tree }) => {

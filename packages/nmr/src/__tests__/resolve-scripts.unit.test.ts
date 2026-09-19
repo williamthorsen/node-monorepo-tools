@@ -52,26 +52,26 @@ describe(getDefaultWorkspaceScripts, () => {
   });
 
   it('reports the catalog before the upgrade report', () => {
-    const upgrade = getDefaultWorkspaceScripts()['upgrade'];
-    assert(typeof upgrade === 'string', 'Expected upgrade to be a chained command');
+    const upgradeScript = getDefaultWorkspaceScripts()['upgrade'];
+    assert(typeof upgradeScript === 'string', 'Expected upgrade to be a chained command');
 
-    expect(upgrade.indexOf('report-catalog')).toBeLessThan(upgrade.indexOf('nmr-taze'));
+    expect(upgradeScript.indexOf('report-catalog')).toBeLessThan(upgradeScript.indexOf('nmr-taze'));
   });
 
   it('chains only bins on upgrade, so no step spawns a second nmr', () => {
-    const upgrade = getDefaultWorkspaceScripts()['upgrade'];
-    assert(typeof upgrade === 'string', 'Expected upgrade to be a chained command');
+    const upgradeScript = getDefaultWorkspaceScripts()['upgrade'];
+    assert(typeof upgradeScript === 'string', 'Expected upgrade to be a chained command');
 
-    for (const step of upgrade.split('&&')) {
+    for (const step of upgradeScript.split('&&')) {
       expect(step.trim()).not.toMatch(/^nmr\s/);
     }
   });
 
   it('ends the upgrade chain with the upgrade tool so passthrough args reach it', () => {
-    const upgrade = getDefaultWorkspaceScripts()['upgrade'];
-    assert(typeof upgrade === 'string', 'Expected upgrade to be a chained command');
+    const upgradeScript = getDefaultWorkspaceScripts()['upgrade'];
+    assert(typeof upgradeScript === 'string', 'Expected upgrade to be a chained command');
 
-    expect(upgrade.split('&&').at(-1)?.trim()).toBe('nmr-taze');
+    expect(upgradeScript.split('&&').at(-1)?.trim()).toBe('nmr-taze');
   });
 
   it('exposes the catalog report as a command of its own', () => {

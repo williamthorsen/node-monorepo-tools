@@ -137,30 +137,32 @@ describe('a recording', () => {
       const recordedAt = new Date(Date.now() - 60_000).toISOString();
       const entry = { ...makeEntry(), recordedAt, durationMs: 12_400, commandString: 'vitest --project unit' };
 
-      const rendered = renderRecording({ command: COMMAND, recording: { entry }, scope: SCOPE, style: 'rich' });
+      const renderedText = renderRecording({ command: COMMAND, recording: { entry }, scope: SCOPE, style: 'rich' });
 
-      expect(rendered.split('\n', 1)[0]).toBe(
+      expect(renderedText.split('\n', 1)[0]).toBe(
         `💾 ${SCOPE}: ${COMMAND} — recorded ${recordedAt} (1m ago), ran in 12.4s`,
       );
-      expect(rendered.split('\n', 2)[1]).toBe('$ vitest --project unit');
+      expect(renderedText.split('\n', 2)[1]).toBe('$ vitest --project unit');
     });
 
     it('opens a plain header on the scope, the glyph having no plain variant', () => {
       const recordedAt = new Date(Date.now() - 60_000).toISOString();
       const entry = { ...makeEntry(), recordedAt, durationMs: 12_400, commandString: 'vitest --project unit' };
 
-      const rendered = renderRecording({ command: COMMAND, recording: { entry }, scope: SCOPE, style: 'plain' });
+      const renderedText = renderRecording({ command: COMMAND, recording: { entry }, scope: SCOPE, style: 'plain' });
 
-      expect(rendered.split('\n', 1)[0]).toBe(`${SCOPE}: ${COMMAND} — recorded ${recordedAt} (1m ago), ran in 12.4s`);
+      expect(renderedText.split('\n', 1)[0]).toBe(
+        `${SCOPE}: ${COMMAND} — recorded ${recordedAt} (1m ago), ran in 12.4s`,
+      );
     });
 
     it('prints the transcript below a blank line, as the run wrote it', () => {
       const recording: Recording = { entry: makeEntry(), transcript: 'first\nlast\n' };
 
-      const rendered = renderRecording({ command: COMMAND, recording, scope: SCOPE, style: 'rich' });
+      const renderedText = renderRecording({ command: COMMAND, recording, scope: SCOPE, style: 'rich' });
 
-      expect(rendered.endsWith('\nfirst\nlast\n')).toBe(true);
-      expect(rendered).toContain('\n\nfirst');
+      expect(renderedText.endsWith('\nfirst\nlast\n')).toBe(true);
+      expect(renderedText).toContain('\n\nfirst');
     });
 
     it('terminates a transcript that does not terminate itself', () => {
@@ -175,9 +177,9 @@ describe('a recording', () => {
       const replay = [replayLine(), { command: 'lint:check', excerpt: 'no problems', scope: 'nmr' }];
       const entry = { ...makeEntry(), retention: { key: 'a-retention-key', runId: 'a-run', replay } };
 
-      const rendered = renderRecording({ command: 'check', recording: { entry }, scope: SCOPE, style: 'rich' });
+      const renderedText = renderRecording({ command: 'check', recording: { entry }, scope: SCOPE, style: 'rich' });
 
-      expect(rendered).toContain('nmr-core: typecheck: no errors\nnmr: lint:check: no problems\n');
+      expect(renderedText).toContain('nmr-core: typecheck: no errors\nnmr: lint:check: no problems\n');
     });
   });
 
@@ -221,32 +223,32 @@ describe('a recording', () => {
       ],
       ['no-output', { kind: 'no-output', ageMs: 60_000 }, 'the pass 1m ago retained none'],
     ] as const)('given %s, names the scope, the command, and what is missing', (_kind, refusal, clause) => {
-      const rendered = renderRefusal({ command: COMMAND, refusal, scope: SCOPE, style: 'rich' });
+      const renderedText = renderRefusal({ command: COMMAND, refusal, scope: SCOPE, style: 'rich' });
 
-      expect(rendered.startsWith(`🟠 ${SCOPE}: ${COMMAND}: no recording; `)).toBe(true);
-      expect(rendered).toContain(clause);
+      expect(renderedText.startsWith(`🟠 ${SCOPE}: ${COMMAND}: no recording; `)).toBe(true);
+      expect(renderedText).toContain(clause);
     });
 
     it('stays on one line, so a fan-out’s gaps stay attributable', () => {
-      const rendered = renderRefusal({
+      const renderedText = renderRefusal({
         command: COMMAND,
         refusal: { kind: 'unrecorded' },
         scope: SCOPE,
         style: 'rich',
       });
 
-      expect(rendered).not.toContain('\n');
+      expect(renderedText).not.toContain('\n');
     });
 
     it('opens a plain refusal on the warning word', () => {
-      const rendered = renderRefusal({
+      const renderedText = renderRefusal({
         command: COMMAND,
         refusal: { kind: 'unrecorded' },
         scope: SCOPE,
         style: 'plain',
       });
 
-      expect(rendered.startsWith(`WARN ${SCOPE}: ${COMMAND}: no recording; `)).toBe(true);
+      expect(renderedText.startsWith(`WARN ${SCOPE}: ${COMMAND}: no recording; `)).toBe(true);
     });
   });
 

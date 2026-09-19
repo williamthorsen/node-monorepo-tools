@@ -432,9 +432,9 @@ describe(runCli, () => {
       packagelessTree,
     }) => {
       const { stdout } = await runNmrReadingStdout(['--json', 'build'], packagelessTree.dir);
-      const parsed: unknown = JSON.parse(stdout);
+      const parsedVerdict: unknown = JSON.parse(stdout);
 
-      expect(parsed).toMatchObject({ command: 'build', outcome: 'no-op', reason: 'empty-workspace' });
+      expect(parsedVerdict).toMatchObject({ command: 'build', outcome: 'no-op', reason: 'empty-workspace' });
     });
 
     it('leaves a composite carrying no recursive step reaching every constituent', async ({ packagelessTree }) => {
@@ -452,9 +452,9 @@ describe(runCli, () => {
       writePackageScripts(packagelessTree, { build: '' });
 
       const { stdout } = await runNmrReadingStdout(['--json', 'build'], packagelessTree.dir);
-      const parsed: unknown = JSON.parse(stdout);
+      const parsedVerdict: unknown = JSON.parse(stdout);
 
-      expect(parsed).toMatchObject({ outcome: 'no-op', reason: 'empty-override' });
+      expect(parsedVerdict).toMatchObject({ outcome: 'no-op', reason: 'empty-override' });
     });
 
     it('leaves a recursive step standing where the workspace holds a package', async ({ tree }) => {
@@ -641,12 +641,12 @@ describe(runCli, () => {
     // A flag belongs in the rendered string exactly when it changes what the command does, which `-q` does not.
     it('renders the same chain string loud and quiet', async ({ tree }) => {
       await runNmr(['fix'], tree.dir);
-      const loud = renderChain(stepsFromCall() ?? []);
+      const loudChain = renderChain(stepsFromCall() ?? []);
 
       mockedRunSteps.mockClear();
       await runNmr(['-q', 'fix'], tree.dir);
 
-      expect(renderChain(stepsFromCall() ?? [])).toBe(loud);
+      expect(renderChain(stepsFromCall() ?? [])).toBe(loudChain);
     });
 
     it.for([
@@ -655,9 +655,9 @@ describe(runCli, () => {
       { args: ['build'], scenario: 'a command' },
     ])('given an unrecognized inherited value, rejects $scenario before doing anything', async ({ args }, { tree }) => {
       const stdout = new PassThrough();
-      const written: Buffer[] = [];
+      const writtenChunks: Buffer[] = [];
       stdout.on('data', (chunk: Buffer) => {
-        written.push(chunk);
+        writtenChunks.push(chunk);
       });
 
       const { exitCode } = await runCli({
@@ -669,7 +669,7 @@ describe(runCli, () => {
       });
 
       expect(exitCode).toBe(1);
-      expect(Buffer.concat(written)).toHaveLength(0);
+      expect(Buffer.concat(writtenChunks)).toHaveLength(0);
       expect(mockedRunSteps).not.toHaveBeenCalled();
     });
 
@@ -784,9 +784,9 @@ describe(runCli, () => {
       { args: ['build'], scenario: 'a command' },
     ])('given an unrecognized inherited value, rejects $scenario before doing anything', async ({ args }, { tree }) => {
       const stdout = new PassThrough();
-      const written: Buffer[] = [];
+      const writtenChunks: Buffer[] = [];
       stdout.on('data', (chunk: Buffer) => {
-        written.push(chunk);
+        writtenChunks.push(chunk);
       });
 
       const { exitCode } = await runCli({
@@ -798,7 +798,7 @@ describe(runCli, () => {
       });
 
       expect(exitCode).toBe(1);
-      expect(Buffer.concat(written)).toHaveLength(0);
+      expect(Buffer.concat(writtenChunks)).toHaveLength(0);
       expect(mockedRunSteps).not.toHaveBeenCalled();
     });
   });
@@ -859,9 +859,9 @@ describe(runCli, () => {
       { args: ['build'], scenario: 'a command' },
     ])('given an unrecognized inherited value, rejects $scenario before doing anything', async ({ args }, { tree }) => {
       const stdout = new PassThrough();
-      const written: Buffer[] = [];
+      const writtenChunks: Buffer[] = [];
       stdout.on('data', (chunk: Buffer) => {
-        written.push(chunk);
+        writtenChunks.push(chunk);
       });
 
       const { exitCode } = await runCli({
@@ -873,7 +873,7 @@ describe(runCli, () => {
       });
 
       expect(exitCode).toBe(1);
-      expect(Buffer.concat(written)).toHaveLength(0);
+      expect(Buffer.concat(writtenChunks)).toHaveLength(0);
       expect(mockedRunSteps).not.toHaveBeenCalled();
     });
 
@@ -1177,19 +1177,19 @@ describe(runCli, () => {
 
     it('reports the same pass as a JSON object, and writes no prose line beside it', async ({ tree }) => {
       const { stdout } = await runNmrReadingStdout(['--json', 'typecheck'], tree.dir);
-      const parsed: unknown = JSON.parse(stdout);
+      const parsedVerdict: unknown = JSON.parse(stdout);
 
       expect(stdout.endsWith('\n')).toBe(true);
-      expect(parsed).toMatchObject({ command: 'typecheck', outcome: 'passed', scope: path.basename(tree.dir) });
+      expect(parsedVerdict).toMatchObject({ command: 'typecheck', outcome: 'passed', scope: path.basename(tree.dir) });
     });
 
     it('reports a skip as a JSON object naming why it ran nothing', async ({ tree }) => {
       writePackageScripts(tree, { typecheck: '' });
 
       const { stdout } = await runNmrReadingStdout(['--json', 'typecheck'], tree.dir);
-      const parsed: unknown = JSON.parse(stdout);
+      const parsedVerdict: unknown = JSON.parse(stdout);
 
-      expect(parsed).toMatchObject({ command: 'typecheck', outcome: 'no-op', reason: 'empty-override' });
+      expect(parsedVerdict).toMatchObject({ command: 'typecheck', outcome: 'no-op', reason: 'empty-override' });
     });
 
     // The override notice is the one message a quiet run withholds, and a machine-readable run is quiet.

@@ -704,9 +704,9 @@ describe('project file selection', () => {
 
   // The residual subtracts the tiers, so an overlap would collect the same file twice and run it twice, green.
   it('claims each file exactly once across the projects', ({ selectionTree }) => {
-    const collected = PROJECT_NAMES.flatMap((name) => selectFiles(name, selectionTree.dir));
+    const collectedFiles = PROJECT_NAMES.flatMap((name) => selectFiles(name, selectionTree.dir));
 
-    expect(collected).toStrictEqual([...new Set(collected)]);
+    expect(collectedFiles).toStrictEqual([...new Set(collectedFiles)]);
   });
 
   // A copy of the suite under `dist/` runs green against stale code, so no project may collect it.
@@ -719,10 +719,12 @@ describe('project file selection', () => {
   // The exclusion the repo declares is what keeps the sweep and the collection glob describing one scope. Both
   // halves are asserted here, because a directory Vitest still collects from is one the sweep must not skip.
   it('drops a generated directory from collection once the repo excludes it', ({ selectionTree }) => {
-    const excluded = { testCollectionExclude: ['generated'] };
+    const excludedConfig = { testCollectionExclude: ['generated'] };
 
     expect(selectFiles('unit', selectionTree.dir)).toContain('generated/__tests__/scaffold.test.ts');
-    expect(selectFiles('unit', selectionTree.dir, excluded)).not.toContain('generated/__tests__/scaffold.test.ts');
+    expect(selectFiles('unit', selectionTree.dir, excludedConfig)).not.toContain(
+      'generated/__tests__/scaffold.test.ts',
+    );
   });
 });
 

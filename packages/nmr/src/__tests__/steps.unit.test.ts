@@ -172,11 +172,11 @@ describe(findUnexpressibleToken, () => {
   });
 
   it.each([
-    { element: "lint --ignore-pattern 'packages/**'", expected: "'packages/**'", scenario: 'a quoted argument' },
-    { element: 'build && echo done', expected: '&&', scenario: 'a shell operator' },
-    { element: 'test --reporter=$REPORTER', expected: '--reporter=$REPORTER', scenario: 'a variable reference' },
-  ])('given $scenario, returns the token that puts it outside the grammar', ({ element, expected }) => {
-    expect(findUnexpressibleToken(element)).toBe(expected);
+    { element: "lint --ignore-pattern 'packages/**'", expectedToken: "'packages/**'", scenario: 'a quoted argument' },
+    { element: 'build && echo done', expectedToken: '&&', scenario: 'a shell operator' },
+    { element: 'test --reporter=$REPORTER', expectedToken: '--reporter=$REPORTER', scenario: 'a variable reference' },
+  ])('given $scenario, returns the token that puts it outside the grammar', ({ element, expectedToken }) => {
+    expect(findUnexpressibleToken(element)).toBe(expectedToken);
   });
 
   it('returns the leftmost offending token when the element holds several', () => {
@@ -188,41 +188,41 @@ describe(readNmrStep, () => {
   it.each([
     {
       argv: ['nmr', 'fmt:check'],
-      expected: { command: 'fmt:check', isDelegate: false, isRecursive: false, isWorkspaceRoot: false },
+      expectedStep: { command: 'fmt:check', isDelegate: false, isRecursive: false, isWorkspaceRoot: false },
       scenario: 'a bare command',
     },
     {
       argv: ['nmr', '-w', 'test'],
-      expected: { command: 'test', isDelegate: false, isRecursive: false, isWorkspaceRoot: true },
+      expectedStep: { command: 'test', isDelegate: false, isRecursive: false, isWorkspaceRoot: true },
       scenario: 'a -w element, which anchors at the monorepo root',
     },
     {
       argv: ['nmr', '--workspace-root', 'test'],
-      expected: { command: 'test', isDelegate: false, isRecursive: false, isWorkspaceRoot: true },
+      expectedStep: { command: 'test', isDelegate: false, isRecursive: false, isWorkspaceRoot: true },
       scenario: 'the long form of -w',
     },
     {
       argv: ['nmr', '-q', 'build'],
-      expected: { command: 'build', isDelegate: false, isRecursive: false, isWorkspaceRoot: false },
+      expectedStep: { command: 'build', isDelegate: false, isRecursive: false, isWorkspaceRoot: false },
       scenario: 'a flag it carries',
     },
     {
       argv: ['nmr', '-R', 'test'],
-      expected: { command: 'test', isDelegate: true, isRecursive: true, isWorkspaceRoot: false },
+      expectedStep: { command: 'test', isDelegate: true, isRecursive: true, isWorkspaceRoot: false },
       scenario: 'a -R delegate',
     },
     {
       argv: ['nmr', '--recursive', 'test'],
-      expected: { command: 'test', isDelegate: true, isRecursive: true, isWorkspaceRoot: false },
+      expectedStep: { command: 'test', isDelegate: true, isRecursive: true, isWorkspaceRoot: false },
       scenario: 'the long form of -R',
     },
     {
       argv: ['nmr', '--filter', 'core', 'test'],
-      expected: { command: 'test', isDelegate: true, isRecursive: false, isWorkspaceRoot: false },
+      expectedStep: { command: 'test', isDelegate: true, isRecursive: false, isWorkspaceRoot: false },
       scenario: 'a --filter delegate, whose fan-out is not a recursive one',
     },
-  ])('reads the command behind $scenario', ({ argv, expected }) => {
-    expect(readNmrStep(composeStep(argv))).toStrictEqual(expected);
+  ])('reads the command behind $scenario', ({ argv, expectedStep }) => {
+    expect(readNmrStep(composeStep(argv))).toStrictEqual(expectedStep);
   });
 
   it.each([
@@ -352,13 +352,13 @@ describe(renderChain, () => {
 
   // A structural token is a single argument, so anything the shell would act on has to survive rendering as text.
   it.each([
-    { expected: "'./packages/*'", scenario: 'a glob', token: './packages/*' },
-    { expected: "'a b'", scenario: 'a space', token: 'a b' },
-    { expected: "'$HOME'", scenario: 'a variable reference', token: '$HOME' },
-    { expected: String.raw`'it'\''s'`, scenario: 'a single quote', token: "it's" },
-    { expected: "''", scenario: 'nothing at all', token: '' },
-  ])('quotes a structural token holding $scenario', ({ expected, token }) => {
-    expect(renderChain([{ kind: 'structural', argv: ['pnpm', token] }])).toBe(`pnpm ${expected}`);
+    { expectedToken: "'./packages/*'", scenario: 'a glob', token: './packages/*' },
+    { expectedToken: "'a b'", scenario: 'a space', token: 'a b' },
+    { expectedToken: "'$HOME'", scenario: 'a variable reference', token: '$HOME' },
+    { expectedToken: String.raw`'it'\''s'`, scenario: 'a single quote', token: "it's" },
+    { expectedToken: "''", scenario: 'nothing at all', token: '' },
+  ])('quotes a structural token holding $scenario', ({ expectedToken, token }) => {
+    expect(renderChain([{ kind: 'structural', argv: ['pnpm', token] }])).toBe(`pnpm ${expectedToken}`);
   });
 });
 

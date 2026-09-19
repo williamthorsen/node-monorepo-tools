@@ -169,9 +169,12 @@ describe(resolveSourceTarget, () => {
     ['client', 'linked/src/browser.ts'],
     ['ssr', 'linked/src/node.ts'],
     ['__vitest_vm__', 'linked/src/node.ts'],
-  ] as const)('resolves the %s environment through its own condition', ([environment, expected], { expect, tree }) => {
-    expect(resolve(tree, '@fixture/linked/dual', environment)).toBe(tree.resolve(expected));
-  });
+  ] as const)(
+    'resolves the %s environment through its own condition',
+    ([environment, expectedPath], { expect, tree }) => {
+      expect(resolve(tree, '@fixture/linked/dual', environment)).toBe(tree.resolve(expectedPath));
+    },
+  );
 
   it('declines where there is no importer to resolve from', () => {
     expect(resolveSourceTarget('@fixture/linked', undefined, { environmentName: 'ssr' })).toBeUndefined();

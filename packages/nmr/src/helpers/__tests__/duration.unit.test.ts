@@ -10,8 +10,8 @@ describe(formatDuration, () => {
     [12_000, '12s'],
     [12_449, '12.4s'],
     [59_999, '59.9s'],
-  ])('renders %ims in seconds as %s', (milliseconds, expected) => {
-    expect(formatDuration(milliseconds)).toBe(expected);
+  ])('renders %ims in seconds as %s', (milliseconds, expectedText) => {
+    expect(formatDuration(milliseconds)).toBe(expectedText);
   });
 
   it.each([
@@ -19,23 +19,23 @@ describe(formatDuration, () => {
     [90_000, '1m 30s'],
     [240_000, '4m'],
     [3_599_999, '59m 59s'],
-  ])('renders %ims in minutes as %s', (milliseconds, expected) => {
-    expect(formatDuration(milliseconds)).toBe(expected);
+  ])('renders %ims in minutes as %s', (milliseconds, expectedText) => {
+    expect(formatDuration(milliseconds)).toBe(expectedText);
   });
 
   it.each([
     [3_600_000, '1h'],
     [7_200_000, '2h'],
     [7_500_000, '2h 5m'],
-  ])('renders %ims in hours as %s', (milliseconds, expected) => {
-    expect(formatDuration(milliseconds)).toBe(expected);
+  ])('renders %ims in hours as %s', (milliseconds, expectedText) => {
+    expect(formatDuration(milliseconds)).toBe(expectedText);
   });
 
   it.each([
     [89_999, '1m 29s'],
     [119_999, '1m 59s'],
-  ])('truncates %ims to %s rather than rounding up to the next unit', (milliseconds, expected) => {
-    expect(formatDuration(milliseconds)).toBe(expected);
+  ])('truncates %ims to %s rather than rounding up to the next unit', (milliseconds, expectedText) => {
+    expect(formatDuration(milliseconds)).toBe(expectedText);
   });
 });
 

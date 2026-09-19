@@ -12,24 +12,27 @@ import {
 
 describe(readVerbosityEnv, () => {
   it.each([
-    { raw: undefined, scenario: 'no value at all' },
-    { raw: '', scenario: 'a value left empty' },
-  ])('given $scenario, names no verbosity, leaving the levels below reachable', ({ raw }) => {
-    const env = raw === undefined ? {} : { [COMMAND_VERBOSITY_ENV_VAR]: raw };
+    { rawValue: undefined, scenario: 'no value at all' },
+    { rawValue: '', scenario: 'a value left empty' },
+  ])('given $scenario, names no verbosity, leaving the levels below reachable', ({ rawValue }) => {
+    const env = rawValue === undefined ? {} : { [COMMAND_VERBOSITY_ENV_VAR]: rawValue };
 
     expect(readVerbosityEnv(env)).toStrictEqual({ ok: true });
   });
 
-  it.each([{ raw: 'full' }, { raw: 'quiet' }])('reads a $raw the environment names', ({ raw }) => {
-    expect(readVerbosityEnv({ [COMMAND_VERBOSITY_ENV_VAR]: raw })).toStrictEqual({ ok: true, verbosity: raw });
+  it.each([{ rawValue: 'full' }, { rawValue: 'quiet' }])('reads a $rawValue the environment names', ({ rawValue }) => {
+    expect(readVerbosityEnv({ [COMMAND_VERBOSITY_ENV_VAR]: rawValue })).toStrictEqual({
+      ok: true,
+      verbosity: rawValue,
+    });
   });
 
   it.each([
-    { raw: 'silent', scenario: 'a point that is not on the ladder' },
-    { raw: 'QUIET', scenario: 'a recognized value in the wrong case' },
-    { raw: ' quiet', scenario: 'a recognized value carrying whitespace' },
-  ])('given $scenario, resolves to nothing rather than a mode nobody chose', ({ raw }) => {
-    expect(readVerbosityEnv({ [COMMAND_VERBOSITY_ENV_VAR]: raw }).ok).toBe(false);
+    { rawValue: 'silent', scenario: 'a point that is not on the ladder' },
+    { rawValue: 'QUIET', scenario: 'a recognized value in the wrong case' },
+    { rawValue: ' quiet', scenario: 'a recognized value carrying whitespace' },
+  ])('given $scenario, resolves to nothing rather than a mode nobody chose', ({ rawValue }) => {
+    expect(readVerbosityEnv({ [COMMAND_VERBOSITY_ENV_VAR]: rawValue }).ok).toBe(false);
   });
 
   it('names the variable and both accepted values when it rejects', () => {

@@ -230,16 +230,16 @@ const it = baseIt
       throw new Error(`fixture run failed with status ${String(run.status)}:\n${run.stdout}\n${run.stderr}`);
     }
 
-    const derived = {
+    const derivedObservations = {
       collectedTestFiles: readCollectedTestFiles(tree),
       coveredFiles: readCoveredFiles(tree),
     };
-    const owned = stack.move();
+    const ownedStack = stack.move();
     onCleanup(() => {
-      owned.dispose();
+      ownedStack.dispose();
     });
 
-    return derived;
+    return derivedObservations;
   })
   // eslint-disable-next-line no-empty-pattern -- Vitest parses a fixture's first parameter and rejects anything but a destructuring pattern.
   .extend('defaults', { scope: 'file' }, ({}, { onCleanup }) => {
@@ -250,16 +250,16 @@ const it = baseIt
     tree.symlink('src/node_modules/@fixture/dep', '../../../dependency');
     stack.defer(() => unlinkNodeModules(tree.dir));
 
-    const derived = {
+    const derivedObservations = {
       optedOut: readObserved(tree, runVitest(tree.dir, ['--config', 'vitest.optout.config.ts'])),
       supplied: readObserved(tree, runVitest(tree.dir)),
     };
-    const owned = stack.move();
+    const ownedStack = stack.move();
     onCleanup(() => {
-      owned.dispose();
+      ownedStack.dispose();
     });
 
-    return derived;
+    return derivedObservations;
   })
   // eslint-disable-next-line no-empty-pattern -- Vitest parses a fixture's first parameter and rejects anything but a destructuring pattern.
   .extend('layers', { scope: 'file' }, ({}, { onCleanup }) => {
@@ -275,9 +275,9 @@ const it = baseIt
     }
 
     const setupOrder = tree.read(SETUP_LOG).split('\n').filter(Boolean);
-    const owned = stack.move();
+    const ownedStack = stack.move();
     onCleanup(() => {
-      owned.dispose();
+      ownedStack.dispose();
     });
 
     return { setupOrder };
@@ -289,17 +289,17 @@ const it = baseIt
     scaffoldProject(tree, TSCONFIG_PATHS_FILES);
     stack.defer(() => unlinkNodeModules(tree.dir));
 
-    const derived = {
+    const derivedObservations = {
       optedIn: readObserved(tree, runVitest(tree.dir, ['--config', 'vitest.optin.config.ts'])),
       // The default run resolves no alias and so writes no report; its failure is what it has to say.
       byDefault: runVitest(tree.dir),
     };
-    const owned = stack.move();
+    const ownedStack = stack.move();
     onCleanup(() => {
-      owned.dispose();
+      ownedStack.dispose();
     });
 
-    return derived;
+    return derivedObservations;
   });
 
 /**
@@ -464,13 +464,13 @@ function readTestFileName(result: unknown): string {
 }
 
 function readJsonObject(tree: TempTree, entryPath: string): object {
-  const parsed: unknown = tree.readJson(entryPath);
+  const parsedJson: unknown = tree.readJson(entryPath);
 
-  if (parsed === null || typeof parsed !== 'object') {
+  if (parsedJson === null || typeof parsedJson !== 'object') {
     throw new TypeError(`expected a JSON object in ${entryPath}`);
   }
 
-  return parsed;
+  return parsedJson;
 }
 
 function toRelativePosix(from: string, to: string): string {

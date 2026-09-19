@@ -18,29 +18,29 @@ describe(resolveTreeSnapshot, () => {
     initRepo(tree);
     const snapshot: TreeSnapshot = { hash: 'tree-hash', headSha: headShaOf(tree.dir) };
 
-    const resolved = resolveTreeSnapshot({
+    const resolution = resolveTreeSnapshot({
       monorepoRoot: tree.dir,
       env: { [TREE_SNAPSHOT_ENV_VAR]: encodeTreeSnapshot(snapshot) },
     });
 
-    expect(resolved).toStrictEqual({ ok: true, snapshot });
+    expect(resolution).toStrictEqual({ ok: true, snapshot });
   });
 
   it('retakes the snapshot when HEAD has moved since the parent observed it', ({ tree }) => {
     // A process outliving the run that spawned it carries the variable with it. Gating a later invocation on
     // an observation of a tree that has since been committed over is the one way this cache wrongly skips.
     initRepo(tree);
-    const stale: TreeSnapshot = { hash: 'tree-hash', headSha: headShaOf(tree.dir) };
+    const staleSnapshot: TreeSnapshot = { hash: 'tree-hash', headSha: headShaOf(tree.dir) };
     tree.write('src/index.ts', 'export const value = 2;\n');
     commitAll(tree.dir, 'second');
 
-    const resolved = resolveTreeSnapshot({
+    const resolution = resolveTreeSnapshot({
       monorepoRoot: tree.dir,
-      env: { [TREE_SNAPSHOT_ENV_VAR]: encodeTreeSnapshot(stale) },
+      env: { [TREE_SNAPSHOT_ENV_VAR]: encodeTreeSnapshot(staleSnapshot) },
     });
 
-    expect(resolved).toMatchObject({ ok: true });
-    expect(resolved).not.toStrictEqual({ ok: true, snapshot: stale });
+    expect(resolution).toMatchObject({ ok: true });
+    expect(resolution).not.toStrictEqual({ ok: true, snapshot: staleSnapshot });
   });
 
   it('hashes the tree itself when no parent passed one down', ({ tree }) => {
@@ -69,9 +69,9 @@ describe(resolveTreeSnapshot, () => {
     // A repository holding the monorepo in a subdirectory has content outside it that the checks may still
     // read, and a hash covering more than the monorepo would move for edits that cannot affect it.
     initRepo(tree);
-    const nested = tree.mkdir('monorepo');
+    const nestedDir = tree.mkdir('monorepo');
 
-    expect(resolveTreeSnapshot({ monorepoRoot: nested, env: {} })).toStrictEqual({
+    expect(resolveTreeSnapshot({ monorepoRoot: nestedDir, env: {} })).toStrictEqual({
       ok: false,
       reason: expect.stringContaining('not the git toplevel'),
     });

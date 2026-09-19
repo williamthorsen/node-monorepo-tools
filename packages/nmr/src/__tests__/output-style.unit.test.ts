@@ -32,10 +32,13 @@ describe(resolveOutputStyles, () => {
     },
   );
 
-  it.each([{ raw: 'plain' }, { raw: 'rich' }])(
-    'given a variable naming $raw, resolves both streams to it',
-    ({ raw }) => {
-      expect(resolve({ env: { [OUTPUT_STYLE_ENV_VAR]: raw } })).toStrictEqual({ stderr: raw, stdout: raw });
+  it.each([{ rawValue: 'plain' }, { rawValue: 'rich' }])(
+    'given a variable naming $rawValue, resolves both streams to it',
+    ({ rawValue }) => {
+      expect(resolve({ env: { [OUTPUT_STYLE_ENV_VAR]: rawValue } })).toStrictEqual({
+        stderr: rawValue,
+        stdout: rawValue,
+      });
     },
   );
 

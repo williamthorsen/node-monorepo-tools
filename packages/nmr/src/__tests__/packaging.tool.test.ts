@@ -45,11 +45,11 @@ function listPackedPaths(): Array<string> {
     stdio: ['ignore', 'pipe', 'ignore'],
   });
 
-  const parsed: unknown = JSON.parse(stdout);
-  if (!isPackReport(parsed)) {
+  const parsedManifest: unknown = JSON.parse(stdout);
+  if (!isPackReport(parsedManifest)) {
     throw new Error(`pnpm pack --json returned no file list: ${stdout}`);
   }
-  return parsed.files.map((file) => file.path);
+  return parsedManifest.files.map((file) => file.path);
 }
 
 /** Narrows `pnpm pack --json` output to the one field this test reads. */

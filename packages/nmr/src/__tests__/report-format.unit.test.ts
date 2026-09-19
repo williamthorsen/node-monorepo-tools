@@ -10,24 +10,24 @@ import {
 
 describe(readReportFormatEnv, () => {
   it.each([
-    { raw: undefined, scenario: 'no value at all' },
-    { raw: '', scenario: 'a value left empty' },
-  ])('given $scenario, names no format, leaving the level below reachable', ({ raw }) => {
-    const env = raw === undefined ? {} : { [REPORT_FORMAT_ENV_VAR]: raw };
+    { rawValue: undefined, scenario: 'no value at all' },
+    { rawValue: '', scenario: 'a value left empty' },
+  ])('given $scenario, names no format, leaving the level below reachable', ({ rawValue }) => {
+    const env = rawValue === undefined ? {} : { [REPORT_FORMAT_ENV_VAR]: rawValue };
 
     expect(readReportFormatEnv(env)).toStrictEqual({ ok: true });
   });
 
-  it.each([{ raw: 'json' }, { raw: 'text' }])('reads a $raw the environment names', ({ raw }) => {
-    expect(readReportFormatEnv({ [REPORT_FORMAT_ENV_VAR]: raw })).toStrictEqual({ ok: true, format: raw });
+  it.each([{ rawValue: 'json' }, { rawValue: 'text' }])('reads a $rawValue the environment names', ({ rawValue }) => {
+    expect(readReportFormatEnv({ [REPORT_FORMAT_ENV_VAR]: rawValue })).toStrictEqual({ ok: true, format: rawValue });
   });
 
   it.each([
-    { raw: 'ndjson', scenario: 'a point that is not on the ladder' },
-    { raw: 'JSON', scenario: 'a recognized value in the wrong case' },
-    { raw: ' json', scenario: 'a recognized value carrying whitespace' },
-  ])('given $scenario, resolves to nothing rather than a rendering nobody chose', ({ raw }) => {
-    expect(readReportFormatEnv({ [REPORT_FORMAT_ENV_VAR]: raw }).ok).toBe(false);
+    { rawValue: 'ndjson', scenario: 'a point that is not on the ladder' },
+    { rawValue: 'JSON', scenario: 'a recognized value in the wrong case' },
+    { rawValue: ' json', scenario: 'a recognized value carrying whitespace' },
+  ])('given $scenario, resolves to nothing rather than a rendering nobody chose', ({ rawValue }) => {
+    expect(readReportFormatEnv({ [REPORT_FORMAT_ENV_VAR]: rawValue }).ok).toBe(false);
   });
 
   it('names the variable and both accepted values when it rejects', () => {

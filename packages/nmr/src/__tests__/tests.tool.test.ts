@@ -53,9 +53,9 @@ const it = baseIt.extend('run', { scope: 'file' }, ({}, { onCleanup }) => {
   stack.defer(() => unlinkNodeModules(tree.dir));
 
   const run = runVitest(tree.dir);
-  const owned = stack.move();
+  const ownedStack = stack.move();
   onCleanup(() => {
-    owned.dispose();
+    ownedStack.dispose();
   });
 
   return { output: `${run.stdout}${run.stderr}`, status: run.status };

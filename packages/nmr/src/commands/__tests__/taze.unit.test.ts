@@ -146,17 +146,17 @@ describe(resolveTazeCliPath, () => {
 
 /** Runs `runTaze` against a stubbed CLI path and spawn, returning the argv the spawn received. */
 function runCapturingArgv(args: string[]): string[] {
-  let captured: string[] = [];
+  let capturedArgs: string[] = [];
 
   runTaze(args, {
     resolveCliPath: () => FAKE_CLI_PATH,
     spawn: (_nodePath, argv) => {
-      captured = argv;
+      capturedArgs = argv;
       return { status: 0 };
     },
   });
 
-  return captured;
+  return capturedArgs;
 }
 
 /** Returns a writable stream plus a reader for everything written to it. */

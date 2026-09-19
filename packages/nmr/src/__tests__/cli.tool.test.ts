@@ -45,7 +45,7 @@ async function runNmr(
   options: { cwd?: string; env?: Record<string, string> } = {},
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   const args = argString.length === 0 ? [] : argString.split(/\s+/).filter((s) => s.length > 0);
-  const ambient = readAmbientEnv();
+  const ambientEnv = readAmbientEnv();
   const stdoutChunks: Buffer[] = [];
   const stderrChunks: Buffer[] = [];
   const stdoutStream = new PassThrough();
@@ -60,7 +60,7 @@ async function runNmr(
   const { exitCode } = await runCli({
     args,
     cwd: options.cwd ?? MONOREPO_ROOT,
-    env: { ...ambient, ...options.env },
+    env: { ...ambientEnv, ...options.env },
     stdout: stdoutStream,
     stderr: stderrStream,
   });
