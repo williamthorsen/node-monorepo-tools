@@ -113,9 +113,9 @@ function waitForExit(target: ChildProcess): Promise<number | null> {
 
 /** Resolves once the entry exists, so the signal lands while the first step is running rather than before it. */
 async function waitForMarker(tree: TempTree, entryPath: string): Promise<void> {
-  const deadline = Date.now() + MARKER_TIMEOUT_MS;
+  const deadlineMs = Date.now() + MARKER_TIMEOUT_MS;
 
-  while (Date.now() < deadline) {
+  while (Date.now() < deadlineMs) {
     if (tree.exists(entryPath)) return;
     await new Promise((resolve) => setTimeout(resolve, 25));
   }

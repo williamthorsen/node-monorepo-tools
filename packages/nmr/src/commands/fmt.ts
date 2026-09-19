@@ -253,7 +253,7 @@ export function runPrettier(options: RunPrettierOptions): number {
     ...MODE_ARGS[mode],
   ];
 
-  let firstFailure = 0;
+  let firstFailureStatus = 0;
 
   for (const batch of batchWithinBudget(files, budgetBytes)) {
     const result = spawnSync(process.execPath, [...prettierArgs, ...batch], { cwd, stdio: 'inherit' });
@@ -264,30 +264,30 @@ export function runPrettier(options: RunPrettierOptions): number {
     }
 
     const status = result.status ?? 1;
-    if (status !== 0 && firstFailure === 0) {
-      firstFailure = status;
+    if (status !== 0 && firstFailureStatus === 0) {
+      firstFailureStatus = status;
     }
   }
 
-  return firstFailure;
+  return firstFailureStatus;
 }
 
-/** Groups paths into batches whose combined byte length stays within `budget`. */
-function batchWithinBudget(files: string[], budget: number): string[][] {
+/** Groups paths into batches whose combined byte length stays within `budgetBytes`. */
+function batchWithinBudget(files: string[], budgetBytes: number): string[][] {
   const batches: string[][] = [];
   let batch: string[] = [];
-  let size = 0;
+  let sizeBytes = 0;
 
   for (const file of files) {
     // The separator each argument costs the caller alongside its own bytes.
-    const cost = Buffer.byteLength(file) + 1;
-    if (batch.length > 0 && size + cost > budget) {
+    const costBytes = Buffer.byteLength(file) + 1;
+    if (batch.length > 0 && sizeBytes + costBytes > budgetBytes) {
       batches.push(batch);
       batch = [];
-      size = 0;
+      sizeBytes = 0;
     }
     batch.push(file);
-    size += cost;
+    sizeBytes += costBytes;
   }
 
   if (batch.length > 0) batches.push(batch);

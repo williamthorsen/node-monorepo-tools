@@ -17,7 +17,7 @@ import type { ReportFormat } from './report-format.ts';
  * truncation point from one machine to the next. The ceiling governs pipes: a terminal offers no such
  * guarantee at any size.
  */
-export const VERDICT_LINE_LIMIT = 512;
+export const VERDICT_LINE_LIMIT_BYTES = 512;
 
 /**
  * Why a command ran nothing, which the `no-op` outcome carries and `--json` serializes.
@@ -101,7 +101,7 @@ export function writeVerdict(verdict: Verdict, stream: Writable, format: ReportF
 const NEWLINE_BYTES = 1;
 
 /** What a rendered line may spend, the newline `writeVerdict` appends already taken out of the ceiling. */
-const LINE_BUDGET_BYTES = VERDICT_LINE_LIMIT - NEWLINE_BYTES;
+const LINE_BUDGET_BYTES = VERDICT_LINE_LIMIT_BYTES - NEWLINE_BYTES;
 
 /** What a cut never takes a string below, so every string that was cut still carries the mark saying so. */
 const MIN_CUT_BYTES = Buffer.byteLength(TRUNCATION_MARK);

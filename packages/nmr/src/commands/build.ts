@@ -471,7 +471,7 @@ function rewriteSpecifiers(
   const aliasPrefixes = collectAliasPrefixes(compilerOptions);
   const sourceContainingFile = mapOutputToSource(outputFile, compilerOptions, sourceRoot);
 
-  const edits: Array<{ start: number; end: number; text: string }> = [];
+  const edits: Array<{ startOffset: number; endOffset: number; text: string }> = [];
   visitModuleSpecifiers(sourceFile, (literal) => {
     const replacement = resolveSpecifierReplacement(
       literal.text,
@@ -483,9 +483,9 @@ function rewriteSpecifiers(
     if (replacement === undefined) {
       return;
     }
-    const start = literal.getStart(sourceFile);
-    const quote = text[start] ?? '"';
-    edits.push({ start, end: literal.getEnd(), text: `${quote}${replacement}${quote}` });
+    const startOffset = literal.getStart(sourceFile);
+    const quote = text[startOffset] ?? '"';
+    edits.push({ startOffset, endOffset: literal.getEnd(), text: `${quote}${replacement}${quote}` });
   });
 
   if (edits.length === 0) {
@@ -494,10 +494,10 @@ function rewriteSpecifiers(
 
   // Apply edits from the end of the text backwards so earlier offsets stay valid as it is spliced.
   // eslint-disable-next-line unicorn/no-array-sort -- spread already creates a fresh copy
-  const orderedEdits = [...edits].sort((a, b) => b.start - a.start);
+  const orderedEdits = [...edits].sort((a, b) => b.startOffset - a.startOffset);
   let updatedText = text;
   for (const edit of orderedEdits) {
-    updatedText = updatedText.slice(0, edit.start) + edit.text + updatedText.slice(edit.end);
+    updatedText = updatedText.slice(0, edit.startOffset) + edit.text + updatedText.slice(edit.endOffset);
   }
   return updatedText;
 }

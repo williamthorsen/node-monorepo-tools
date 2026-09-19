@@ -5,8 +5,8 @@
  * `1m 30s`, where rounding would claim `2m`. Below a minute the tenth is kept, since that is the scale at which
  * one check's runtime differs from another's; a whole number sheds the `.0` rather than reading `12.0s`.
  */
-export function formatDuration(milliseconds: number): string {
-  const total = Math.max(0, milliseconds);
+export function formatDuration(durationMs: number): string {
+  const total = Math.max(0, durationMs);
 
   if (total < MILLISECONDS_PER_MINUTE) {
     return `${truncateToTenth(total)}s`;
@@ -29,12 +29,12 @@ export function formatDuration(milliseconds: number): string {
  * Guards its own input rather than trusting the caller's, because the clause is shared: a non-finite duration
  * compares false against the threshold, and would reach a reader as `saved ~NaNs`.
  */
-export function formatSaving(milliseconds: number): string | undefined {
-  if (!Number.isFinite(milliseconds) || milliseconds < MILLISECONDS_PER_SECOND) {
+export function formatSaving(durationMs: number): string | undefined {
+  if (!Number.isFinite(durationMs) || durationMs < MILLISECONDS_PER_SECOND) {
     return undefined;
   }
 
-  return `saved ~${formatDuration(milliseconds)}`;
+  return `saved ~${formatDuration(durationMs)}`;
 }
 
 // region | Helpers
@@ -55,8 +55,8 @@ function joinUnits(major: string, minor: number, minorUnit: string): string {
  * Divides the integer count rather than truncating a seconds float, whose binary representation puts 0.3 just
  * under three tenths and would render it `0.2s`.
  */
-function truncateToTenth(milliseconds: number): number {
-  return Math.floor(milliseconds / 100) / 10;
+function truncateToTenth(durationMs: number): number {
+  return Math.floor(durationMs / 100) / 10;
 }
 
 // endregion | Helpers
