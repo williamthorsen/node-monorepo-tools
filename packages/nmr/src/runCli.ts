@@ -383,7 +383,7 @@ type PresentationRead =
   | { ok: false; error: string };
 
 /** What `--output-style` was given, and how many arguments it spent, or why the flag carried no value. */
-type OutputStyleArgumentRead = { ok: true; value: string; consumed: number } | { ok: false; error: string };
+type OutputStyleArgumentRead = { ok: true; value: string; consumedCount: number } | { ok: false; error: string };
 
 /** Every spelling of a boolean flag, paired with the field it sets. */
 const BOOLEAN_FLAGS = new Map<string, BooleanFlagName>([
@@ -1169,44 +1169,44 @@ function parseArgs(args: string[]): ParseResult {
     passthrough: [],
   };
 
-  let i = 0;
-  while (i < args.length) {
-    const arg = args[i];
+  let index = 0;
+  while (index < args.length) {
+    const arg = args[index];
     if (arg === undefined) break;
 
     if (arg === '-F' || arg === '--filter') {
-      i++;
-      const filterValue = args[i];
+      index++;
+      const filterValue = args[index];
       // An empty pattern is rejected with a missing one: composition reads a filter for its truth, so an
       // empty one would run the command unfiltered rather than in the scopes the invocation asked for.
       if (!filterValue) {
         return { ok: false, error: '-F/--filter requires a pattern argument' };
       }
       parsedArgs.filter = filterValue;
-      i++;
+      index++;
       continue;
     }
 
     const booleanFlag = BOOLEAN_FLAGS.get(arg);
     if (booleanFlag !== undefined) {
       parsedArgs[booleanFlag] = true;
-      i++;
+      index++;
       continue;
     }
 
-    const styleArgument = readOutputStyleArgument(args, i);
+    const styleArgument = readOutputStyleArgument(args, index);
     if (styleArgument !== undefined) {
       if (!styleArgument.ok) {
         return styleArgument;
       }
       parsedArgs.outputStyle = styleArgument.value;
-      i += styleArgument.consumed;
+      index += styleArgument.consumedCount;
       continue;
     }
 
     // First non-flag argument is the command; rest is passthrough
     parsedArgs.command = arg;
-    parsedArgs.passthrough = args.slice(i + 1);
+    parsedArgs.passthrough = args.slice(index + 1);
     break;
   }
 
@@ -1317,7 +1317,7 @@ function readOutputStyleArgument(args: string[], index: number): OutputStyleArgu
     return { ok: false, error: `${OUTPUT_STYLE_FLAG} requires a value argument: auto, plain, or rich` };
   }
 
-  return { ok: true, value, consumed: assignment === undefined ? 2 : 1 };
+  return { ok: true, value, consumedCount: assignment === undefined ? 2 : 1 };
 }
 
 /**
@@ -1661,9 +1661,9 @@ async function runGated(options: {
     stdout.write(options.overrideNotice);
   }
 
-  const startedAt = Date.now();
+  const startedAtMs = Date.now();
   const { exitCode, retainedOutput } = await runSteps(options.steps, anchorDir, options.runOptions);
-  const durationMs = Date.now() - startedAt;
+  const durationMs = Date.now() - startedAtMs;
 
   if (exitCode === 0 && gate !== undefined) {
     await recordPass({

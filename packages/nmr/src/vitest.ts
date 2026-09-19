@@ -105,7 +105,7 @@ const TIERED_PATTERNS = NAMED_TIERS.flatMap(buildTierPatterns);
  * A per-project value rather than a root one, so the fast tier keeps the tight budget that makes a hung unit test
  * fail quickly. The `project` seam merges over this and reaches every project at once; the `tiers` seam targets one.
  */
-const TIER_TIMEOUT = 30_000;
+const TIER_TIMEOUT_MS = 30_000;
 
 /**
  * nmr's git-isolation setup file, resolved beside this module and carrying this module's own extension, so a
@@ -273,7 +273,7 @@ interface ProjectTier {
   include: string[];
   name: TierName;
   /** Budget for `hookTimeout` and `testTimeout` alike, held as one field so the two cannot drift apart. */
-  timeout?: number;
+  timeoutMs?: number;
 }
 
 /** Builds one project per tier, in ladder order, each inheriting the root config. */
@@ -288,14 +288,14 @@ function buildProjects(
       exclude: [],
       include: buildTierPatterns(tier),
       name: tier,
-      timeout: TIER_TIMEOUT,
+      timeoutMs: TIER_TIMEOUT_MS,
     })),
   ];
 
   const collectionExclude = buildCollectionExclude(layers);
   const shouldIsolateGit = resolveFlag(layers, 'shouldIsolateGit', true);
 
-  return projectTiers.map(({ exclude, include, name, timeout }) => {
+  return projectTiers.map(({ exclude, include, name, timeoutMs }) => {
     const project: TestProjectInlineConfiguration = {
       // Without this, Vitest gives the project no Vite config file at all, so root-level options such as
       // `resolve.conditions` never reach it.
@@ -307,7 +307,7 @@ function buildProjects(
         include,
         name,
         ...(shouldIsolateGit && { setupFiles: [GIT_ISOLATION_SETUP_FILE] }),
-        ...(timeout !== undefined && { hookTimeout: timeout, testTimeout: timeout }),
+        ...(timeoutMs !== undefined && { hookTimeout: timeoutMs, testTimeout: timeoutMs }),
       },
     };
 

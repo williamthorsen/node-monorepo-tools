@@ -52,9 +52,9 @@ describe(ensurePrepublishHooks, () => {
       const result = ensurePrepublishHooks(tree.dir, { shouldFix: false, isDryRun: false });
 
       expect(result.hasFailures).toBe(false);
-      const privatePkg = result.packages.find((p) => p.packageName === '@scope/private-pkg');
-      expect(privatePkg?.isPrivate).toBe(true);
-      expect(privatePkg?.action).toBe('ok');
+      const privatePackage = result.packages.find((p) => p.packageName === '@scope/private-pkg');
+      expect(privatePackage?.isPrivate).toBe(true);
+      expect(privatePackage?.action).toBe('ok');
     });
   });
 
@@ -197,7 +197,7 @@ describe(reportPrepublishHooks, () => {
 
 /** Wraps package statuses as the result a run hands to the reporter. */
 function buildResult(packages: PackageHookStatus[]): EnsurePrepublishHooksResult {
-  return { packages, hasFailures: packages.some((pkg) => pkg.action === 'missing') };
+  return { packages, hasFailures: packages.some((packageStatus) => packageStatus.action === 'missing') };
 }
 
 /**
@@ -212,16 +212,16 @@ function createFixture(
     'pnpm-workspace.yaml': 'packages:\n  - packages/*\n',
   });
 
-  for (const pkg of packages) {
-    const dirName = pkg.name.replace(/^@[^/]+\//, '');
+  for (const packageSpec of packages) {
+    const dirName = packageSpec.name.replace(/^@[^/]+\//, '');
 
-    const pkgJson: Record<string, unknown> = { name: pkg.name, version: '1.0.0' };
-    if (pkg.private) pkgJson['private'] = true;
-    if (pkg.prepublishOnly) {
-      pkgJson['scripts'] = { prepublishOnly: pkg.prepublishOnly };
+    const packageJson: Record<string, unknown> = { name: packageSpec.name, version: '1.0.0' };
+    if (packageSpec.private) packageJson['private'] = true;
+    if (packageSpec.prepublishOnly) {
+      packageJson['scripts'] = { prepublishOnly: packageSpec.prepublishOnly };
     }
 
-    tree.writeJson(`packages/${dirName}/package.json`, pkgJson);
+    tree.writeJson(`packages/${dirName}/package.json`, packageJson);
   }
 }
 

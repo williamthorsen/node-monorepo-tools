@@ -72,11 +72,11 @@ function describeCatalog(count: number, monorepoRoot: string): string {
  * common pair -- and the reader is owed one line per dependency rather than one per declaration.
  */
 function findCataloguedDependencies(packageDir: string): CataloguedDependency[] {
-  const pkg = readPackageJson(packageDir);
+  const packageJson = readPackageJson(packageDir);
   const foundDependencies = new Map<string, string>();
 
   for (const field of DEPENDENCY_FIELDS) {
-    const declaredEntries = Object.entries(pkg[field] ?? {});
+    const declaredEntries = Object.entries(packageJson[field] ?? {});
     for (const [name, specifier] of declaredEntries) {
       if (specifier.startsWith(CATALOG_PROTOCOL) && !foundDependencies.has(name)) {
         foundDependencies.set(name, specifier);

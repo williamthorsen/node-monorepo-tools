@@ -127,14 +127,14 @@ function formatRegistry(registry: ScriptRegistry, markedNames: Set<string>, line
   const keys = Object.keys(registry);
   if (keys.length === 0) return;
 
-  const maxKeyLen = Math.max(...keys.map((k) => k.length));
+  const maxKeyLength = Math.max(...keys.map((k) => k.length));
   // +1 so there is room for the `*` marker character on every row, +2 to
   // preserve the prior gap before the value column. The minimum (20) keeps
   // narrow registries from collapsing.
-  const pad = Math.max(maxKeyLen + 1 + 2, 20);
+  const padWidth = Math.max(maxKeyLength + 1 + 2, 20);
 
   for (const [key, value] of Object.entries(registry)) {
     const marker = markedNames.has(key) ? '*' : ' ';
-    lines.push(`  ${(key + marker).padEnd(pad)} ${describeScript(value)}`);
+    lines.push(`  ${(key + marker).padEnd(padWidth)} ${describeScript(value)}`);
   }
 }

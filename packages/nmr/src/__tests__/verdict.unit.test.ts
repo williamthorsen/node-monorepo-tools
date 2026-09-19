@@ -6,7 +6,7 @@ import {
   renderVerdict,
   serializeVerdict,
   type Verdict,
-  VERDICT_LINE_LIMIT,
+  VERDICT_LINE_LIMIT_BYTES,
   type VerdictOutcome,
   writeVerdict,
 } from '../verdict.ts';
@@ -150,12 +150,12 @@ describe(renderVerdict, () => {
         outcome: 'recalled',
         ageMs: 240_000,
         savedMs: 12_000,
-        replay: [{ command: 'test', excerpt: 'x'.repeat(VERDICT_LINE_LIMIT), scope: 'nmr-core' }],
+        replay: [{ command: 'test', excerpt: 'x'.repeat(VERDICT_LINE_LIMIT_BYTES), scope: 'nmr-core' }],
       });
 
       const line = renderVerdict(verdict, 'rich');
 
-      expect(Buffer.byteLength(line) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT);
+      expect(Buffer.byteLength(line) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT_BYTES);
       expect(line).toMatch(/…$/);
     });
   });
@@ -214,25 +214,37 @@ describe(renderVerdict, () => {
 
   describe('the byte ceiling', () => {
     it('leaves room for the newline the write appends', () => {
-      const verdict = makeVerdict({ outcome: 'passed', durationMs: 12_000, detail: 'x'.repeat(VERDICT_LINE_LIMIT) });
+      const verdict = makeVerdict({
+        outcome: 'passed',
+        durationMs: 12_000,
+        detail: 'x'.repeat(VERDICT_LINE_LIMIT_BYTES),
+      });
 
-      expect(Buffer.byteLength(renderVerdict(verdict, 'rich')) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT);
+      expect(Buffer.byteLength(renderVerdict(verdict, 'rich')) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT_BYTES);
     });
 
     it('marks the cut, so a truncated line is distinguishable from a complete one', () => {
-      const verdict = makeVerdict({ outcome: 'passed', durationMs: 12_000, detail: 'x'.repeat(VERDICT_LINE_LIMIT) });
+      const verdict = makeVerdict({
+        outcome: 'passed',
+        durationMs: 12_000,
+        detail: 'x'.repeat(VERDICT_LINE_LIMIT_BYTES),
+      });
 
       expect(renderVerdict(verdict, 'rich')).toMatch(/…$/);
     });
 
     it('cuts between code points, so a multi-byte character never reaches the wire in halves', () => {
       // Every unit is three bytes, so a byte-wise cut would land inside one for two budgets out of three.
-      const verdict = makeVerdict({ outcome: 'passed', durationMs: 12_000, detail: '⏭'.repeat(VERDICT_LINE_LIMIT) });
+      const verdict = makeVerdict({
+        outcome: 'passed',
+        durationMs: 12_000,
+        detail: '⏭'.repeat(VERDICT_LINE_LIMIT_BYTES),
+      });
 
       const line = renderVerdict(verdict, 'rich');
 
       expect(line).toBe(Buffer.from(line).toString('utf8'));
-      expect(Buffer.byteLength(line) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT);
+      expect(Buffer.byteLength(line) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT_BYTES);
     });
 
     it('leaves a line within the ceiling untouched', () => {
@@ -310,7 +322,7 @@ describe(serializeVerdict, () => {
     it('holds an assembly whose excerpts would overrun to the ceiling, and still parses', () => {
       const line = serializeVerdict(makeAssembly(6, 400));
 
-      expect(Buffer.byteLength(line) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT);
+      expect(Buffer.byteLength(line) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT_BYTES);
       expect(() => parseVerdict(line)).not.toThrow();
     });
 
@@ -340,7 +352,7 @@ describe(serializeVerdict, () => {
       const line = serializeVerdict(verdict);
 
       expect(line).toBe(Buffer.from(line).toString('utf8'));
-      expect(Buffer.byteLength(line) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT);
+      expect(Buffer.byteLength(line) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT_BYTES);
       expect(() => parseVerdict(line)).not.toThrow();
     });
 
@@ -354,7 +366,7 @@ describe(serializeVerdict, () => {
       };
       const line = serializeVerdict(verdict);
 
-      expect(Buffer.byteLength(line) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT);
+      expect(Buffer.byteLength(line) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT_BYTES);
       expect(() => parseVerdict(line)).not.toThrow();
     });
 
@@ -370,7 +382,7 @@ describe(serializeVerdict, () => {
     it('holds the ceiling where the structural fields alone overrun it', () => {
       const line = serializeVerdict(OVERSIZED_STRUCTURE);
 
-      expect(Buffer.byteLength(line) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT);
+      expect(Buffer.byteLength(line) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT_BYTES);
       expect(() => parseVerdict(line)).not.toThrow();
       expect(line).toContain('…');
     });
@@ -409,7 +421,7 @@ describe(serializeVerdict, () => {
         'scope-7',
         'scope-8',
       ]);
-      expect(Buffer.byteLength(line) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT);
+      expect(Buffer.byteLength(line) + 1).toBeLessThanOrEqual(VERDICT_LINE_LIMIT_BYTES);
     });
 
     it('sheds the excerpts before the constituents carrying them', () => {

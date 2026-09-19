@@ -72,8 +72,8 @@ export function formatElisionMarker(byteCount: number): string {
 // region | Helpers
 
 /** Moves an offset back off the head of a character it lands inside, so a cut never closes on half of one. */
-function alignEnd(buffer: Buffer, end: number): number {
-  let alignedOffset = Math.min(buffer.length, end);
+function alignEnd(buffer: Buffer, endOffset: number): number {
+  let alignedOffset = Math.min(buffer.length, endOffset);
   while (alignedOffset > 0 && isContinuationByte(buffer[alignedOffset])) {
     alignedOffset--;
   }
@@ -82,8 +82,8 @@ function alignEnd(buffer: Buffer, end: number): number {
 }
 
 /** Moves an offset forward off the tail of a character it lands inside, so a cut never opens on half of one. */
-function alignStart(buffer: Buffer, start: number): number {
-  let alignedOffset = Math.max(0, start);
+function alignStart(buffer: Buffer, startOffset: number): number {
+  let alignedOffset = Math.max(0, startOffset);
   while (alignedOffset < buffer.length && isContinuationByte(buffer[alignedOffset])) {
     alignedOffset++;
   }

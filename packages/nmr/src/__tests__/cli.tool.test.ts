@@ -170,32 +170,32 @@ describe('nmr CLI', () => {
 
   describe('override script messages', () => {
     let tempRoot: string;
-    let overridePkgDir: string;
-    let noopPkgDir: string;
-    let prototypeNamePkgDir: string;
+    let overridePackageDir: string;
+    let noopPackageDir: string;
+    let prototypeNamePackageDir: string;
 
     beforeAll(() => {
       tempRoot = mkdtempSync(path.join(tmpdir(), 'nmr-test-'));
       writeFileSync(path.join(tempRoot, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n");
 
-      overridePkgDir = path.join(tempRoot, 'packages', 'test-override');
-      mkdirSync(overridePkgDir, { recursive: true });
+      overridePackageDir = path.join(tempRoot, 'packages', 'test-override');
+      mkdirSync(overridePackageDir, { recursive: true });
       writeFileSync(
-        path.join(overridePkgDir, 'package.json'),
+        path.join(overridePackageDir, 'package.json'),
         JSON.stringify({ name: 'test-override', scripts: { build: 'echo ok' } }),
       );
 
-      noopPkgDir = path.join(tempRoot, 'packages', 'test-noop');
-      mkdirSync(noopPkgDir, { recursive: true });
+      noopPackageDir = path.join(tempRoot, 'packages', 'test-noop');
+      mkdirSync(noopPackageDir, { recursive: true });
       writeFileSync(
-        path.join(noopPkgDir, 'package.json'),
+        path.join(noopPackageDir, 'package.json'),
         JSON.stringify({ name: 'test-noop', scripts: { build: ':' } }),
       );
 
-      prototypeNamePkgDir = path.join(tempRoot, 'packages', 'test-prototype-name');
-      mkdirSync(prototypeNamePkgDir, { recursive: true });
+      prototypeNamePackageDir = path.join(tempRoot, 'packages', 'test-prototype-name');
+      mkdirSync(prototypeNamePackageDir, { recursive: true });
       writeFileSync(
-        path.join(prototypeNamePkgDir, 'package.json'),
+        path.join(prototypeNamePackageDir, 'package.json'),
         JSON.stringify({ name: 'test-prototype-name', scripts: { toString: 'echo ok' } }),
       );
     });
@@ -205,25 +205,25 @@ describe('nmr CLI', () => {
     });
 
     it('includes package name in override-script message', async () => {
-      const { stdout } = await runNmr('build', { cwd: overridePkgDir });
+      const { stdout } = await runNmr('build', { cwd: overridePackageDir });
       expect(stdout).toContain('test-override: Using override script: echo ok');
     });
 
     it('distinguishes a colon override from a command that passed', async () => {
-      const { stdout, exitCode } = await runNmr('build', { cwd: noopPkgDir });
+      const { stdout, exitCode } = await runNmr('build', { cwd: noopPackageDir });
       expect(exitCode).toBe(0);
       expect(stdout).toContain('NOOP test-noop: build: skipped, the override is a no-op');
     });
 
     it('suppresses override-script message in quiet mode', async () => {
-      const { stdout } = await runNmr('--quiet build', { cwd: overridePkgDir });
+      const { stdout } = await runNmr('--quiet build', { cwd: overridePackageDir });
       expect(stdout).not.toContain('Using override script');
     });
 
     // The registry is a plain object, so an unguarded lookup of `toString` finds the inherited function rather
     // than the `undefined` that suppresses the notice. Exit 0 is the indirect assertion that the script ran.
     it('announces no override for a script named for an `Object.prototype` member', async () => {
-      const { stdout, exitCode } = await runNmr('toString', { cwd: prototypeNamePkgDir });
+      const { stdout, exitCode } = await runNmr('toString', { cwd: prototypeNamePackageDir });
 
       expect(exitCode).toBe(0);
       expect(stdout).not.toContain('Using override script');
@@ -249,15 +249,15 @@ describe('nmr CLI', () => {
     // A fixture rather than this repo's own package: `typecheck` is cacheable, so running it here would record
     // a pass into the developer's own check-result cache as a side effect of running the suite.
     let quietRoot: string;
-    let quietPkgDir: string;
+    let quietPackageDir: string;
 
     beforeAll(() => {
       quietRoot = mkdtempSync(path.join(tmpdir(), 'nmr-quiet-'));
       writeFileSync(path.join(quietRoot, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n");
-      quietPkgDir = path.join(quietRoot, 'packages', 'quiet-pkg');
-      mkdirSync(quietPkgDir, { recursive: true });
+      quietPackageDir = path.join(quietRoot, 'packages', 'quiet-pkg');
+      mkdirSync(quietPackageDir, { recursive: true });
       writeFileSync(
-        path.join(quietPkgDir, 'package.json'),
+        path.join(quietPackageDir, 'package.json'),
         JSON.stringify({ name: 'quiet-pkg', scripts: { typecheck: 'echo noise && echo trouble >&2' } }),
       );
     });
@@ -284,7 +284,7 @@ describe('nmr CLI', () => {
     });
 
     it('suppresses the command output on a successful quiet run, leaving the verdict', async () => {
-      const { stdout, stderr, exitCode } = await runNmr('-q typecheck', { cwd: quietPkgDir });
+      const { stdout, stderr, exitCode } = await runNmr('-q typecheck', { cwd: quietPackageDir });
       expect(exitCode).toBe(0);
       expect(stdout).toMatch(/^PASS [\w-]+: typecheck: passed in [\d.]+s\n$/);
       expect(stderr).toBe('');
@@ -327,9 +327,9 @@ describe('nmr CLI', () => {
     });
 
     it('runs pre and post hooks around the main command', async () => {
-      const pkgDir = path.join(tempRoot, 'packages', 'both-hooks');
+      const packageDir = path.join(tempRoot, 'packages', 'both-hooks');
       writePackage(
-        pkgDir,
+        packageDir,
         {
           clean: `echo main >> ${logFile}`,
           'clean:pre': `echo pre >> ${logFile}`,
@@ -339,15 +339,15 @@ describe('nmr CLI', () => {
       );
       clearLog();
 
-      const { exitCode } = await runNmr('clean', { cwd: pkgDir });
+      const { exitCode } = await runNmr('clean', { cwd: packageDir });
       expect(exitCode).toBe(0);
       expect(readLog()).toStrictEqual(['pre', 'main', 'post']);
     });
 
     it('runs pre-only hook when post is undefined', async () => {
-      const pkgDir = path.join(tempRoot, 'packages', 'pre-only');
+      const packageDir = path.join(tempRoot, 'packages', 'pre-only');
       writePackage(
-        pkgDir,
+        packageDir,
         {
           clean: `echo main >> ${logFile}`,
           'clean:pre': `echo pre >> ${logFile}`,
@@ -356,15 +356,15 @@ describe('nmr CLI', () => {
       );
       clearLog();
 
-      const { exitCode } = await runNmr('clean', { cwd: pkgDir });
+      const { exitCode } = await runNmr('clean', { cwd: packageDir });
       expect(exitCode).toBe(0);
       expect(readLog()).toStrictEqual(['pre', 'main']);
     });
 
     it('runs post-only hook when pre is undefined', async () => {
-      const pkgDir = path.join(tempRoot, 'packages', 'post-only');
+      const packageDir = path.join(tempRoot, 'packages', 'post-only');
       writePackage(
-        pkgDir,
+        packageDir,
         {
           clean: `echo main >> ${logFile}`,
           'clean:post': `echo post >> ${logFile}`,
@@ -373,26 +373,26 @@ describe('nmr CLI', () => {
       );
       clearLog();
 
-      const { exitCode } = await runNmr('clean', { cwd: pkgDir });
+      const { exitCode } = await runNmr('clean', { cwd: packageDir });
       expect(exitCode).toBe(0);
       expect(readLog()).toStrictEqual(['main', 'post']);
     });
 
     it('is a silent no-op when no hooks are defined', async () => {
-      const pkgDir = path.join(tempRoot, 'packages', 'no-hooks');
-      writePackage(pkgDir, { clean: `echo main >> ${logFile}` }, 'no-hooks');
+      const packageDir = path.join(tempRoot, 'packages', 'no-hooks');
+      writePackage(packageDir, { clean: `echo main >> ${logFile}` }, 'no-hooks');
       clearLog();
 
-      const { exitCode, stderr } = await runNmr('clean', { cwd: pkgDir });
+      const { exitCode, stderr } = await runNmr('clean', { cwd: packageDir });
       expect(exitCode).toBe(0);
       expect(readLog()).toStrictEqual(['main']);
       expect(stderr).toBe('');
     });
 
     it('short-circuits when pre-hook fails — main and post do not run', async () => {
-      const pkgDir = path.join(tempRoot, 'packages', 'pre-fails');
+      const packageDir = path.join(tempRoot, 'packages', 'pre-fails');
       writePackage(
-        pkgDir,
+        packageDir,
         {
           clean: `echo main >> ${logFile}`,
           'clean:pre': `echo pre >> ${logFile} && exit 7`,
@@ -402,15 +402,15 @@ describe('nmr CLI', () => {
       );
       clearLog();
 
-      const { exitCode } = await runNmr('clean', { cwd: pkgDir });
+      const { exitCode } = await runNmr('clean', { cwd: packageDir });
       expect(exitCode).toBe(7);
       expect(readLog()).toStrictEqual(['pre']);
     });
 
     it('short-circuits when main fails — post does not run', async () => {
-      const pkgDir = path.join(tempRoot, 'packages', 'main-fails');
+      const packageDir = path.join(tempRoot, 'packages', 'main-fails');
       writePackage(
-        pkgDir,
+        packageDir,
         {
           clean: `echo main >> ${logFile} && exit 5`,
           'clean:pre': `echo pre >> ${logFile}`,
@@ -420,15 +420,15 @@ describe('nmr CLI', () => {
       );
       clearLog();
 
-      const { exitCode } = await runNmr('clean', { cwd: pkgDir });
+      const { exitCode } = await runNmr('clean', { cwd: packageDir });
       expect(exitCode).toBe(5);
       expect(readLog()).toStrictEqual(['pre', 'main']);
     });
 
     it('propagates the exit code when post-hook fails', async () => {
-      const pkgDir = path.join(tempRoot, 'packages', 'post-fails');
+      const packageDir = path.join(tempRoot, 'packages', 'post-fails');
       writePackage(
-        pkgDir,
+        packageDir,
         {
           clean: `echo main >> ${logFile}`,
           'clean:pre': `echo pre >> ${logFile}`,
@@ -438,15 +438,15 @@ describe('nmr CLI', () => {
       );
       clearLog();
 
-      const { exitCode } = await runNmr('clean', { cwd: pkgDir });
+      const { exitCode } = await runNmr('clean', { cwd: packageDir });
       expect(exitCode).toBe(9);
       expect(readLog()).toStrictEqual(['pre', 'main', 'post']);
     });
 
     it('runs hooks when the main command is overridden in package.json', async () => {
-      const pkgDir = path.join(tempRoot, 'packages', 'override-main');
+      const packageDir = path.join(tempRoot, 'packages', 'override-main');
       writePackage(
-        pkgDir,
+        packageDir,
         {
           clean: `echo override-main >> ${logFile}`,
           'clean:pre': `echo pre >> ${logFile}`,
@@ -456,15 +456,15 @@ describe('nmr CLI', () => {
       );
       clearLog();
 
-      const { exitCode } = await runNmr('clean', { cwd: pkgDir });
+      const { exitCode } = await runNmr('clean', { cwd: packageDir });
       expect(exitCode).toBe(0);
       expect(readLog()).toStrictEqual(['pre', 'override-main', 'post']);
     });
 
     it('directly invokes the pre hook without cascading', async () => {
-      const pkgDir = path.join(tempRoot, 'packages', 'direct-pre');
+      const packageDir = path.join(tempRoot, 'packages', 'direct-pre');
       writePackage(
-        pkgDir,
+        packageDir,
         {
           clean: `echo main >> ${logFile}`,
           'clean:pre': `echo pre >> ${logFile}`,
@@ -474,7 +474,7 @@ describe('nmr CLI', () => {
       );
       clearLog();
 
-      const { exitCode, stderr } = await runNmr('clean:pre', { cwd: pkgDir });
+      const { exitCode, stderr } = await runNmr('clean:pre', { cwd: packageDir });
       expect(exitCode).toBe(0);
       // Only the pre hook itself should run — no cascading attempt to find pre:pre/pre:post
       expect(readLog()).toStrictEqual(['pre']);
@@ -482,9 +482,9 @@ describe('nmr CLI', () => {
     });
 
     it('directly invokes the post hook without cascading', async () => {
-      const pkgDir = path.join(tempRoot, 'packages', 'direct-post');
+      const packageDir = path.join(tempRoot, 'packages', 'direct-post');
       writePackage(
-        pkgDir,
+        packageDir,
         {
           clean: `echo main >> ${logFile}`,
           'clean:post': `echo post >> ${logFile}`,
@@ -493,19 +493,19 @@ describe('nmr CLI', () => {
       );
       clearLog();
 
-      const { exitCode, stderr } = await runNmr('clean:post', { cwd: pkgDir });
+      const { exitCode, stderr } = await runNmr('clean:post', { cwd: packageDir });
       expect(exitCode).toBe(0);
       expect(readLog()).toStrictEqual(['post']);
       expect(stderr).not.toContain('Unknown command');
     });
 
     it('attaches passthrough args to the main command only', async () => {
-      const pkgDir = path.join(tempRoot, 'packages', 'passthrough');
+      const packageDir = path.join(tempRoot, 'packages', 'passthrough');
       // Use a wrapper script so we can capture argv without shell-redirection
       // ambiguities (where `>> file --flag` would parse as redirect + extra args).
-      const captureScript = path.join(pkgDir, 'capture.sh');
+      const captureScript = path.join(packageDir, 'capture.sh');
       writePackage(
-        pkgDir,
+        packageDir,
         {
           clean: `bash ${captureScript} main`,
           'clean:pre': `bash ${captureScript} pre`,
@@ -516,15 +516,15 @@ describe('nmr CLI', () => {
       writeFileSync(captureScript, `#!/bin/bash\nlabel="$1"\nshift\necho "$label args=$*" >> ${logFile}\n`);
       clearLog();
 
-      const { exitCode } = await runNmr('clean --flag value', { cwd: pkgDir });
+      const { exitCode } = await runNmr('clean --flag value', { cwd: packageDir });
       expect(exitCode).toBe(0);
       expect(readLog()).toStrictEqual(['pre args=', 'main args=--flag value', 'post args=']);
     });
 
     it('skips hooks when main command is overridden to empty string', async () => {
-      const pkgDir = path.join(tempRoot, 'packages', 'main-skip-empty');
+      const packageDir = path.join(tempRoot, 'packages', 'main-skip-empty');
       writePackage(
-        pkgDir,
+        packageDir,
         {
           clean: '',
           'clean:pre': `echo pre >> ${logFile}`,
@@ -534,15 +534,15 @@ describe('nmr CLI', () => {
       );
       clearLog();
 
-      const { exitCode } = await runNmr('clean', { cwd: pkgDir });
+      const { exitCode } = await runNmr('clean', { cwd: packageDir });
       expect(exitCode).toBe(0);
       expect(readLog()).toStrictEqual([]);
     });
 
     it('skips hooks when main command is overridden to colon', async () => {
-      const pkgDir = path.join(tempRoot, 'packages', 'main-skip-colon');
+      const packageDir = path.join(tempRoot, 'packages', 'main-skip-colon');
       writePackage(
-        pkgDir,
+        packageDir,
         {
           clean: ':',
           'clean:pre': `echo pre >> ${logFile}`,
@@ -552,15 +552,15 @@ describe('nmr CLI', () => {
       );
       clearLog();
 
-      const { exitCode } = await runNmr('clean', { cwd: pkgDir });
+      const { exitCode } = await runNmr('clean', { cwd: packageDir });
       expect(exitCode).toBe(0);
       expect(readLog()).toStrictEqual([]);
     });
 
     it('treats empty-string hook as silent no-op', async () => {
-      const pkgDir = path.join(tempRoot, 'packages', 'hook-skip-empty');
+      const packageDir = path.join(tempRoot, 'packages', 'hook-skip-empty');
       writePackage(
-        pkgDir,
+        packageDir,
         {
           clean: `echo main >> ${logFile}`,
           'clean:pre': '',
@@ -570,7 +570,7 @@ describe('nmr CLI', () => {
       );
       clearLog();
 
-      const { stdout, exitCode } = await runNmr('clean', { cwd: pkgDir });
+      const { stdout, exitCode } = await runNmr('clean', { cwd: packageDir });
       expect(exitCode).toBe(0);
       expect(readLog()).toStrictEqual(['main', 'post']);
       // No "Skipping" message should appear for the hook
@@ -578,9 +578,9 @@ describe('nmr CLI', () => {
     });
 
     it('treats colon-valued hook as silent no-op', async () => {
-      const pkgDir = path.join(tempRoot, 'packages', 'hook-skip-colon');
+      const packageDir = path.join(tempRoot, 'packages', 'hook-skip-colon');
       writePackage(
-        pkgDir,
+        packageDir,
         {
           clean: `echo main >> ${logFile}`,
           'clean:pre': ':',
@@ -590,16 +590,16 @@ describe('nmr CLI', () => {
       );
       clearLog();
 
-      const { stdout, exitCode } = await runNmr('clean', { cwd: pkgDir });
+      const { stdout, exitCode } = await runNmr('clean', { cwd: packageDir });
       expect(exitCode).toBe(0);
       expect(readLog()).toStrictEqual(['main', 'post']);
       expect(stdout).not.toContain('no-op');
     });
 
     it('suppresses hook chain output under --quiet', async () => {
-      const pkgDir = path.join(tempRoot, 'packages', 'quiet-hooks');
+      const packageDir = path.join(tempRoot, 'packages', 'quiet-hooks');
       writePackage(
-        pkgDir,
+        packageDir,
         {
           clean: `echo main-noise && echo main >> ${logFile}`,
           'clean:pre': `echo pre-noise && echo pre >> ${logFile}`,
@@ -609,7 +609,7 @@ describe('nmr CLI', () => {
       );
       clearLog();
 
-      const { stdout, exitCode } = await runNmr('-q clean', { cwd: pkgDir });
+      const { stdout, exitCode } = await runNmr('-q clean', { cwd: packageDir });
       expect(exitCode).toBe(0);
       // Log proves the full chain ran
       expect(readLog()).toStrictEqual(['pre', 'main', 'post']);
@@ -620,7 +620,7 @@ describe('nmr CLI', () => {
 
     describe('config-defined hooks', () => {
       let configRoot: string;
-      let configPkgDir: string;
+      let configPackageDir: string;
       let configLogFile: string;
 
       beforeAll(() => {
@@ -667,10 +667,10 @@ export default defineConfig({
 `;
         writeFileSync(path.join(configRoot, '.config', 'nmr.config.ts'), configContent);
 
-        configPkgDir = path.join(configRoot, 'packages', 'cfg-pkg');
-        mkdirSync(configPkgDir, { recursive: true });
+        configPackageDir = path.join(configRoot, 'packages', 'cfg-pkg');
+        mkdirSync(configPackageDir, { recursive: true });
         writeFileSync(
-          path.join(configPkgDir, 'package.json'),
+          path.join(configPackageDir, 'package.json'),
           JSON.stringify({
             name: 'cfg-pkg',
             scripts: { clean: `echo main >> ${configLogFile}` },
@@ -686,7 +686,7 @@ export default defineConfig({
 
       it('runs hooks when main command is overridden in package.json (composite pre)', async () => {
         clearConfigLog();
-        const { exitCode } = await runNmr('clean', { cwd: configPkgDir });
+        const { exitCode } = await runNmr('clean', { cwd: configPackageDir });
         expect(exitCode).toBe(0);
         // composite pre-hook expands to nmr cfg-pre-step1 && nmr cfg-pre-step2
         expect(readConfigLog()).toStrictEqual(['step1', 'step2', 'main', 'cfg-post']);
@@ -697,7 +697,7 @@ export default defineConfig({
         // wroot-cmd and its hooks live only in rootScripts. Without -w propagation,
         // the parent's `shouldUseRoot=true` decision is lost in the subprocess `nmr X:pre` call,
         // and the child re-derives a workspace registry from the package cwd, failing to resolve the hook.
-        const { exitCode } = await runNmr('-w wroot-cmd', { cwd: configPkgDir });
+        const { exitCode } = await runNmr('-w wroot-cmd', { cwd: configPackageDir });
         expect(exitCode).toBe(0);
         expect(readConfigLog()).toStrictEqual(['wroot-pre', 'wroot-main', 'wroot-post']);
       });
@@ -707,7 +707,7 @@ export default defineConfig({
         // wroot-composite and its steps live only in rootScripts. The composite expands to `nmr -w wroot-step1 && nmr
         // -w wroot-step2` so each child resolves via the root registry. Without -w propagation in expandScript, the
         // children re-derive a workspace registry from the package cwd and fail with "Unknown command".
-        const { exitCode } = await runNmr('-w wroot-composite', { cwd: configPkgDir });
+        const { exitCode } = await runNmr('-w wroot-composite', { cwd: configPackageDir });
         expect(exitCode).toBe(0);
         expect(readConfigLog()).toStrictEqual(['wroot-step1', 'wroot-step2']);
       });
@@ -726,7 +726,7 @@ export default defineConfig({
         // wpkg-cmd and its hooks live only in the root package.json scripts (tier 3 from root cwd).
         // Under -w from a subpackage, packageDir must follow shouldUseRoot so the resolver consults root's package.json
         // instead of the subpackage's, otherwise the command and its hooks fail with "Unknown command".
-        const { stdout, exitCode } = await runNmr('-w wpkg-cmd', { cwd: configPkgDir });
+        const { stdout, exitCode } = await runNmr('-w wpkg-cmd', { cwd: configPackageDir });
         expect(exitCode).toBe(0);
         expect(readConfigLog()).toStrictEqual(['wpkg-pre', 'wpkg-main', 'wpkg-post']);
         // wpkg-cmd is in no registry, so the override-script message is suppressed: it announces a
@@ -738,7 +738,7 @@ export default defineConfig({
 
   describe('script working directory', () => {
     let anchorRoot: string;
-    let anchorPkgDir: string;
+    let anchorPackageDir: string;
     let anchorLogFile: string;
 
     beforeAll(() => {
@@ -756,11 +756,11 @@ export default defineConfig({
       mkdirSync(path.join(anchorRoot, 'tools'), { recursive: true });
       writeFileSync(path.join(anchorRoot, 'tools', 'where.txt'), 'sub\n');
 
-      anchorPkgDir = path.join(anchorRoot, 'packages', 'anchor-pkg');
-      mkdirSync(path.join(anchorPkgDir, 'src'), { recursive: true });
-      writeFileSync(path.join(anchorPkgDir, 'package.json'), JSON.stringify({ name: 'anchor-pkg' }));
-      writeFileSync(path.join(anchorPkgDir, 'where.txt'), 'pkg\n');
-      writeFileSync(path.join(anchorPkgDir, 'src', 'where.txt'), 'src\n');
+      anchorPackageDir = path.join(anchorRoot, 'packages', 'anchor-pkg');
+      mkdirSync(path.join(anchorPackageDir, 'src'), { recursive: true });
+      writeFileSync(path.join(anchorPackageDir, 'package.json'), JSON.stringify({ name: 'anchor-pkg' }));
+      writeFileSync(path.join(anchorPackageDir, 'where.txt'), 'pkg\n');
+      writeFileSync(path.join(anchorPackageDir, 'src', 'where.txt'), 'src\n');
 
       // `anchor-inner` lives only in rootScripts; `anchor-where` in both.
       mkdirSync(path.join(anchorRoot, '.config'), { recursive: true });
@@ -789,7 +789,7 @@ export default defineConfig({
 
     it('runs a root script at the monorepo root under -w from a package dir', async () => {
       clearAnchorLog();
-      const { exitCode } = await runNmr('-w anchor-where', { cwd: anchorPkgDir });
+      const { exitCode } = await runNmr('-w anchor-where', { cwd: anchorPackageDir });
       expect(exitCode).toBe(0);
       expect(readAnchorLog()).toStrictEqual(['root']);
     });
@@ -803,7 +803,7 @@ export default defineConfig({
 
     it('runs a workspace script at the package root from a subdirectory of the package', async () => {
       clearAnchorLog();
-      const { exitCode } = await runNmr('anchor-where', { cwd: path.join(anchorPkgDir, 'src') });
+      const { exitCode } = await runNmr('anchor-where', { cwd: path.join(anchorPackageDir, 'src') });
       expect(exitCode).toBe(0);
       expect(readAnchorLog()).toStrictEqual(['pkg']);
     });
@@ -817,7 +817,7 @@ export default defineConfig({
 
     it('resolves a root-only command chained inside a root script string', async () => {
       clearAnchorLog();
-      const { exitCode } = await runNmr('-w anchor-chain', { cwd: anchorPkgDir });
+      const { exitCode } = await runNmr('-w anchor-chain', { cwd: anchorPackageDir });
       expect(exitCode).toBe(0);
       expect(readAnchorLog()).toStrictEqual(['inner']);
     });

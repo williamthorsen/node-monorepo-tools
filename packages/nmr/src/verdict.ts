@@ -17,7 +17,7 @@ import type { ReportFormat } from './report-format.ts';
  * truncation point from one machine to the next. The ceiling governs pipes: a terminal offers no such
  * guarantee at any size.
  */
-export const VERDICT_LINE_LIMIT = 512;
+export const VERDICT_LINE_LIMIT_BYTES = 512;
 
 /**
  * Why a command ran nothing, which the `no-op` outcome carries and `--json` serializes.
@@ -101,7 +101,7 @@ export function writeVerdict(verdict: Verdict, stream: Writable, format: ReportF
 const NEWLINE_BYTES = 1;
 
 /** What a rendered line may spend, the newline `writeVerdict` appends already taken out of the ceiling. */
-const LINE_BUDGET_BYTES = VERDICT_LINE_LIMIT - NEWLINE_BYTES;
+const LINE_BUDGET_BYTES = VERDICT_LINE_LIMIT_BYTES - NEWLINE_BYTES;
 
 /** What a cut never takes a string below, so every string that was cut still carries the mark saying so. */
 const MIN_CUT_BYTES = Buffer.byteLength(TRUNCATION_MARK);
@@ -196,11 +196,13 @@ function flattenDetail(detail: string): string {
  * toward -- counting one, as the empty detail slot would be every time, puts the target at the mark and
  * collapses the whole set on the first pass.
  */
-function findCutTarget(sizes: readonly number[], longestSize: number, overrunBytes: number): number {
-  const smallerSizes = sizes.filter((size) => size < longestSize && size > MIN_CUT_BYTES);
-  const share = Math.ceil(overrunBytes / sizes.filter((size) => size === longestSize).length);
+function findCutTarget(sizesBytes: readonly number[], longestSizeBytes: number, overrunBytes: number): number {
+  const smallerSizesBytes = sizesBytes.filter((size) => size < longestSizeBytes && size > MIN_CUT_BYTES);
+  const share = Math.ceil(overrunBytes / sizesBytes.filter((size) => size === longestSizeBytes).length);
   const target =
-    smallerSizes.length === 0 ? longestSize - share : Math.max(...smallerSizes, longestSize - overrunBytes);
+    smallerSizesBytes.length === 0
+      ? longestSizeBytes - share
+      : Math.max(...smallerSizesBytes, longestSizeBytes - overrunBytes);
 
   return Math.max(MIN_CUT_BYTES, target);
 }
@@ -240,16 +242,16 @@ function renderClamped(record: Record<string, unknown>): string {
 
   while (!isWithinBudget(renderedLine)) {
     const fields = ['command', 'scope'];
-    const sizes = fields.map((field) =>
+    const sizesBytes = fields.map((field) =>
       Buffer.byteLength(typeof clampedRecord[field] === 'string' ? clampedRecord[field] : ''),
     );
-    const longestSize = Math.max(...sizes);
-    if (longestSize <= MIN_CUT_BYTES) {
+    const longestSizeBytes = Math.max(...sizesBytes);
+    if (longestSizeBytes <= MIN_CUT_BYTES) {
       return renderedLine;
     }
 
-    const target = findCutTarget(sizes, longestSize, Buffer.byteLength(renderedLine) - LINE_BUDGET_BYTES);
-    const field = fields[sizes.indexOf(longestSize)] ?? 'command';
+    const target = findCutTarget(sizesBytes, longestSizeBytes, Buffer.byteLength(renderedLine) - LINE_BUDGET_BYTES);
+    const field = fields[sizesBytes.indexOf(longestSizeBytes)] ?? 'command';
     clampedRecord[field] = clampToBytes(typeof clampedRecord[field] === 'string' ? clampedRecord[field] : '', target);
     renderedLine = JSON.stringify(clampedRecord);
   }
@@ -323,14 +325,14 @@ function shortenCuttableText(verdict: Verdict): Verdict {
  */
 function shortenLongestText(verdict: Verdict, overrunBytes: number): Verdict | undefined {
   const texts = readCuttableText(verdict);
-  const sizes = texts.map((text) => Buffer.byteLength(text));
-  const longestSize = Math.max(...sizes);
-  if (longestSize <= MIN_CUT_BYTES) {
+  const sizesBytes = texts.map((text) => Buffer.byteLength(text));
+  const longestSizeBytes = Math.max(...sizesBytes);
+  if (longestSizeBytes <= MIN_CUT_BYTES) {
     return undefined;
   }
 
-  const index = sizes.indexOf(longestSize);
-  const target = findCutTarget(sizes, longestSize, overrunBytes);
+  const index = sizesBytes.indexOf(longestSizeBytes);
+  const target = findCutTarget(sizesBytes, longestSizeBytes, overrunBytes);
 
   return writeCuttableText(verdict, index, clampToBytes(texts[index] ?? '', target));
 }

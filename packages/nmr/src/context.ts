@@ -24,11 +24,11 @@ export function findContainingPackageDir(dir: string, workspacePackageDirs: stri
   const resolvedDir = path.resolve(dir);
   let nearestDir: string | undefined;
 
-  for (const pkgDir of workspacePackageDirs) {
-    const resolvedPkgDir = path.resolve(pkgDir);
-    if (resolvedDir !== resolvedPkgDir && !resolvedDir.startsWith(resolvedPkgDir + path.sep)) continue;
-    if (nearestDir === undefined || resolvedPkgDir.length > nearestDir.length) {
-      nearestDir = resolvedPkgDir;
+  for (const packageDir of workspacePackageDirs) {
+    const resolvedPackageDir = path.resolve(packageDir);
+    if (resolvedDir !== resolvedPackageDir && !resolvedDir.startsWith(resolvedPackageDir + path.sep)) continue;
+    if (nearestDir === undefined || resolvedPackageDir.length > nearestDir.length) {
+      nearestDir = resolvedPackageDir;
     }
   }
 

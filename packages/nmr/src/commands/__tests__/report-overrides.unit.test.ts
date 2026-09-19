@@ -133,8 +133,8 @@ describe(reportOverrides, () => {
   // region | Helpers
 
   /** Writes the monorepo root's `package.json`. */
-  function writePackageJson(pkg: Record<string, unknown>): void {
-    tree.write('package.json', JSON.stringify(pkg));
+  function writePackageJson(packageJson: Record<string, unknown>): void {
+    tree.write('package.json', JSON.stringify(packageJson));
   }
 
   /** Writes the monorepo root's `pnpm-workspace.yaml`. */
