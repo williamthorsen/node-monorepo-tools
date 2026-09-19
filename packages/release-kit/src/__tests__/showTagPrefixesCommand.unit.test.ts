@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockPreview = vi.hoisted(() => vi.fn());
 const mockDetectRepoType = vi.hoisted(() => vi.fn());
+const mockAssertConfigLoadable = vi.hoisted(() => vi.fn());
 
 vi.mock(import('../previewTagPrefixes.ts'), () => ({
   previewTagPrefixes: mockPreview,
@@ -13,6 +14,11 @@ vi.mock(import('../init/detectRepoType.ts'), () => ({
   detectRepoType: mockDetectRepoType,
 }));
 
+vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
+  const original = await importOriginal();
+  return { ...original, assertConfigLoadable: mockAssertConfigLoadable };
+});
+
 import { showTagPrefixesCommand } from '../showTagPrefixesCommand.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
@@ -20,11 +26,13 @@ const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 describe(showTagPrefixesCommand, () => {
   beforeEach(() => {
     mockDetectRepoType.mockReturnValue('monorepo');
+    mockAssertConfigLoadable.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
     mockPreview.mockReset();
     mockDetectRepoType.mockReset();
+    mockAssertConfigLoadable.mockReset();
   });
 
   it('renders a single-package row and exits 0 in single-package mode', async () => {
@@ -42,16 +50,15 @@ describe(showTagPrefixesCommand, () => {
 
   it('forwards the config path to the preview', async () => {
     mockPreview.mockResolvedValue({ workspaces: [], collisions: [], undeclaredCandidates: [] });
-    using capture = captureStdio();
-    capture;
+    using _capture = captureStdio();
 
     await showTagPrefixesCommand(RICH_STYLES, 'elsewhere/alternative.config.ts');
 
     expect(mockPreview).toHaveBeenCalledWith('elsewhere/alternative.config.ts');
   });
 
-  it('exits 1 and reports when the preview cannot load the config', async () => {
-    mockPreview.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
+  it('exits 1 and reports when the named config cannot be loaded', async () => {
+    mockAssertConfigLoadable.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
     using capture = captureStdio();
 
     const exitCode = await showTagPrefixesCommand(RICH_STYLES, 'elsewhere/absent.config.ts');
@@ -59,6 +66,40 @@ describe(showTagPrefixesCommand, () => {
     expect(exitCode).toBe(1);
     expect(capture.stderr).toContain('Config file not found: /repo/elsewhere/absent.config.ts');
     expect(capture.stdout).toBe('');
+    expect(mockPreview).not.toHaveBeenCalled();
+  });
+
+  it('exits 1 in single-package mode when the named config cannot be loaded', async () => {
+    mockDetectRepoType.mockReturnValue('single-package');
+    mockAssertConfigLoadable.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
+    using capture = captureStdio();
+
+    const exitCode = await showTagPrefixesCommand(RICH_STYLES, 'elsewhere/absent.config.ts');
+
+    expect(exitCode).toBe(1);
+    expect(capture.stderr).toContain('Config file not found: /repo/elsewhere/absent.config.ts');
+    expect(capture.stdout).toBe('');
+  });
+
+  it('asserts the named config is loadable before the repo-type branch', async () => {
+    mockDetectRepoType.mockReturnValue('single-package');
+    using _capture = captureStdio();
+
+    const exitCode = await showTagPrefixesCommand(RICH_STYLES, 'elsewhere/alternative.config.ts');
+
+    expect(exitCode).toBe(0);
+    expect(mockAssertConfigLoadable).toHaveBeenCalledWith('elsewhere/alternative.config.ts');
+  });
+
+  it('exits 1 and reports when the preview itself fails', async () => {
+    mockPreview.mockRejectedValue(new Error('Failed to read pnpm-workspace.yaml'));
+    using capture = captureStdio();
+
+    const exitCode = await showTagPrefixesCommand(RICH_STYLES);
+
+    expect(exitCode).toBe(1);
+    expect(capture.stderr).toContain('Failed to read pnpm-workspace.yaml');
+    expect(capture.stderr).not.toContain('Failed to load config');
   });
 
   it('exits 0 when every workspace derives a prefix and no collisions or undeclared exist', async () => {

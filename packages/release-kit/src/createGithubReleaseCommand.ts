@@ -7,6 +7,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 import { configFlagSchema } from './configFlagSchema.ts';
 import { createGithubReleases } from './createGithubRelease.ts';
 import { formatPrivateSkip } from './formatPrivateSkip.ts';
+import { assertConfigLoadable } from './loadConfig.ts';
 import { parseRequestedTags } from './parseRequestedTags.ts';
 import { resolveCommandTags } from './resolveCommandTags.ts';
 import { resolveReleaseNotesConfig } from './resolveReleaseNotesConfig.ts';
@@ -28,6 +29,15 @@ export async function createGithubReleaseCommand(argv: string[], styles: StreamS
   const parsed = parseArgsOrExit(argv, createGithubReleaseFlagSchema);
 
   const { dryRun } = parsed.flags;
+
+  // An all-private tag set returns below without reading a config, so a named path is opened first.
+  try {
+    await assertConfigLoadable(parsed.flags.config);
+  } catch (error: unknown) {
+    reportError(`Failed to load config: ${describeError(error)}`);
+    process.exit(1);
+  }
+
   const requestedTags = parseRequestedTags(parsed.flags.tags);
 
   const resolvedTags = await resolveCommandTags(requestedTags);

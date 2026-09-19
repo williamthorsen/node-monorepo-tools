@@ -2,6 +2,7 @@ import { formatStatusLine, type OutputStyle, reportError, type StreamStyles } fr
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { detectRepoType } from './init/detectRepoType.ts';
+import { assertConfigLoadable } from './loadConfig.ts';
 import { previewTagPrefixes, type TagPrefixPreview, type TagPrefixPreviewRow } from './previewTagPrefixes.ts';
 
 /**
@@ -17,6 +18,14 @@ import { previewTagPrefixes, type TagPrefixPreview, type TagPrefixPreviewRow } f
  * @returns The exit code the caller should use.
  */
 export async function showTagPrefixesCommand(styles: StreamStyles, configPath?: string): Promise<number> {
+  // The single-package branch below reads no config, so a named path is opened ahead of it.
+  try {
+    await assertConfigLoadable(configPath);
+  } catch (error: unknown) {
+    reportError(`Failed to load config: ${describeError(error)}`);
+    return 1;
+  }
+
   if (detectRepoType() === 'single-package') {
     process.stdout.write(renderSinglePackage());
     return 0;
@@ -26,7 +35,7 @@ export async function showTagPrefixesCommand(styles: StreamStyles, configPath?: 
   try {
     preview = await previewTagPrefixes(configPath);
   } catch (error: unknown) {
-    reportError(`Failed to load config: ${describeError(error)}`);
+    reportError(describeError(error));
     return 1;
   }
 

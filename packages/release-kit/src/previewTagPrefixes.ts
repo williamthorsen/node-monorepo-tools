@@ -86,7 +86,8 @@ export async function previewTagPrefixes(configPath?: string): Promise<TagPrefix
  * Load and validate the config file, returning undefined on absent/invalid.
  *
  * A load failure is swallowed only for the default path, where a broken config still leaves the preview's
- * derived prefixes worth showing. A named path is a file the caller asked for, so its failure propagates.
+ * derived prefixes worth showing; for a named path it propagates, because the caller asked for that file.
+ * A config that loads and then fails validation yields no overrides on either path.
  */
 async function loadUserConfig(configPath?: string): Promise<ReleaseKitConfig | undefined> {
   let raw: unknown;

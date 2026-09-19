@@ -16,6 +16,7 @@ const actualFs = await vi.importActual<typeof import('node:fs')>('node:fs');
 
 import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from '../defaults.ts';
 import {
+  assertConfigLoadable,
   CONFIG_FILE_PATH,
   loadConfig,
   mergeMonorepoConfig,
@@ -123,6 +124,32 @@ describe(loadConfig, () => {
     await expect(loadConfig('elsewhere/absent.config.ts')).rejects.toThrow(
       `Config file not found: ${tree.resolve('elsewhere/absent.config.ts')}`,
     );
+  });
+
+  describe(assertConfigLoadable, () => {
+    it('resolves without reading anything when no path is named', async () => {
+      await expect(assertConfigLoadable(undefined)).resolves.toBeUndefined();
+    });
+
+    it('resolves when the named path loads', async () => {
+      tree.write('elsewhere/alternative.config.ts', 'export default { formatCommand: "pnpm run alt" };');
+
+      await expect(assertConfigLoadable('elsewhere/alternative.config.ts')).resolves.toBeUndefined();
+    });
+
+    it('rejects when the named path does not exist', async () => {
+      await expect(assertConfigLoadable('elsewhere/absent.config.ts')).rejects.toThrow(
+        `Config file not found: ${tree.resolve('elsewhere/absent.config.ts')}`,
+      );
+    });
+
+    it('rejects when the named path exists but exports nothing usable', async () => {
+      tree.write('elsewhere/empty.config.ts', 'export const unrelated = true;');
+
+      await expect(assertConfigLoadable('elsewhere/empty.config.ts')).rejects.toThrow(
+        'must have a default export or a named `config` export',
+      );
+    });
   });
 
   /** Writes `source` to the config path the loader resolves under the temp directory standing in for the cwd. */

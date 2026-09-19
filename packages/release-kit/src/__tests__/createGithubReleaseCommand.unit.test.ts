@@ -8,6 +8,7 @@ const mockResolveReleaseTags = vi.hoisted(() => vi.fn());
 const mockCreateGithubReleases = vi.hoisted(() => vi.fn());
 const mockResolveReleaseNotesConfig = vi.hoisted(() => vi.fn());
 const mockDeriveWorkspaceConfig = vi.hoisted(() => vi.fn());
+const mockAssertConfigLoadable = vi.hoisted(() => vi.fn());
 
 vi.mock(import('../discoverWorkspaces.ts'), () => ({
   discoverWorkspaces: mockDiscoverWorkspaces,
@@ -28,6 +29,11 @@ vi.mock(import('../resolveReleaseNotesConfig.ts'), () => ({
 vi.mock(import('../deriveWorkspaceConfig.ts'), () => ({
   deriveWorkspaceConfig: mockDeriveWorkspaceConfig,
 }));
+
+vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
+  const original = await importOriginal();
+  return { ...original, assertConfigLoadable: mockAssertConfigLoadable };
+});
 
 import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';
 
@@ -56,6 +62,7 @@ describe(createGithubReleaseCommand, () => {
       changelogJsonOutputPath: '.meta/changelog.json',
       sectionOrder: ['Bug fixes', 'Features'],
     });
+    mockAssertConfigLoadable.mockResolvedValue(undefined);
     void throwOnProcessExit();
     void silenceConsole(['info', 'warn']);
   });
@@ -66,6 +73,7 @@ describe(createGithubReleaseCommand, () => {
     mockResolveReleaseTags.mockReset();
     mockCreateGithubReleases.mockReset();
     mockResolveReleaseNotesConfig.mockReset();
+    mockAssertConfigLoadable.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -134,6 +142,19 @@ describe(createGithubReleaseCommand, () => {
 
     expect(error.code).toBe(1);
     expect(capture.stderrChunks).toContain('Error: Unknown option: --unknown\n');
+  });
+
+  it('exits with code 1 for a named config that fails to load before an all-private tag set returns', async () => {
+    mockResolveReleaseTags.mockReturnValue([{ tag: 'v1.0.0', dir: '.', workspacePath: '.', isPublishable: false }]);
+    mockAssertConfigLoadable.mockRejectedValue(new Error('Config file not found: /repo/elsewhere/absent.config.ts'));
+
+    const error = await captureError(ProcessExitError, () =>
+      createGithubReleaseCommand(['--config', 'elsewhere/absent.config.ts'], RICH_STYLES),
+    );
+
+    expect(error.code).toBe(1);
+    expect(capture.stderr).toContain('Config file not found: /repo/elsewhere/absent.config.ts');
+    expect(mockCreateGithubReleases).not.toHaveBeenCalled();
   });
 
   it('forwards --config to the release-notes config resolver', async () => {
