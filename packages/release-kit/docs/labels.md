@@ -8,6 +8,8 @@ Manage GitHub label definitions via the `repoLabels` block of `.config/release-k
 
 `init` scaffolds the `.github/workflows/sync-labels.yaml` caller workflow and seeds a `repoLabels` block with scope labels discovered from workspaces and declared `retiredPackages`. When `.config/release-kit.config.ts` does not exist, `init` writes it; when it does, `init` prints the block for manual paste — a hand-authored config is never rewritten. `generate` resolves the block and writes `.github/labels.yaml`; with `--check` it regenerates in memory and exits non-zero if the committed file is stale or missing, writing nothing. `sync` triggers the workflow remotely — it requires the `gh` CLI and an existing workflow file.
 
+`init` and `generate` accept `--config <path>` to read a config elsewhere; `sync` reads none and rejects the flag. Under `--config`, `init` reads the named file and prints the block for manual paste, and fails when that file does not exist rather than scaffolding one, so its write target stays `.config/release-kit.config.ts`. See [Config file location](configuration.md#config-file-location).
+
 Every `sync-labels` subcommand refuses to run while the retired `.config/sync-labels.config.ts` is present, so custom labels cannot be silently dropped mid-migration, and the refusal names what to move and where.
 
 ### Label configuration
