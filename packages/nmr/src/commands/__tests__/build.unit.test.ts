@@ -53,15 +53,15 @@ describe(computeBuildHash, () => {
   it('changes the digest when the compiler version changes', async ({ tree }) => {
     tree.write('a.ts', 'export const x = 1;');
 
-    const under59Hash = await computeBuildHash(tree.dir, ['a.ts'], { outdir: 'dist/esm/' }, TOOLCHAIN);
-    const under60Hash = await computeBuildHash(
+    const underTs59Hash = await computeBuildHash(tree.dir, ['a.ts'], { outdir: 'dist/esm/' }, TOOLCHAIN);
+    const underTs60Hash = await computeBuildHash(
       tree.dir,
       ['a.ts'],
       { outdir: 'dist/esm/' },
       { ...TOOLCHAIN, compilerVersion: '6.0.3' },
     );
 
-    expect(under60Hash).not.toBe(under59Hash);
+    expect(underTs60Hash).not.toBe(underTs59Hash);
   });
 
   it('changes the digest when the toolchain fingerprint changes', async ({ tree }) => {
