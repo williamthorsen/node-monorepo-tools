@@ -50,8 +50,9 @@ export function readPackageJson(dir: string): PackageJson {
   if (typeof parsedManifest['name'] === 'string') packageJson.name = parsedManifest['name'];
   if (parsedManifest['private'] === true) packageJson.private = true;
   if (typeof parsedManifest['version'] === 'string') packageJson.version = parsedManifest['version'];
-  if (typeof parsedManifest['packageManager'] === 'string')
+  if (typeof parsedManifest['packageManager'] === 'string') {
     packageJson.packageManager = parsedManifest['packageManager'];
+  }
   if (isObject(parsedManifest['scripts'])) {
     packageJson.scripts = readScriptRecord(dir, parsedManifest['scripts']);
   }

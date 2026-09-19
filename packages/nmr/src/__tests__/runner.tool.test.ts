@@ -38,7 +38,7 @@ describe(runCommand, () => {
   it('when a descendant holds the output pipe open, resolves on the exit status without waiting for it', async () => {
     const destination = new PassThrough();
     const received = collect(destination);
-    const startedAt = Date.now();
+    const startedAtMs = Date.now();
 
     // `sleep` inherits the pipe and outlives the shell, so the pipe never closes on its own.
     const result = await runCommand('sleep 20 & echo ready', undefined, {
@@ -49,6 +49,6 @@ describe(runCommand, () => {
 
     expect(result).toMatchObject({ exitCode: 0, outcome: 'exited' });
     expect(received().toString('utf8')).toContain('ready');
-    expect(Date.now() - startedAt).toBeLessThan(10_000);
+    expect(Date.now() - startedAtMs).toBeLessThan(10_000);
   }, 30_000);
 });

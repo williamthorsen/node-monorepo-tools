@@ -196,11 +196,11 @@ function flattenDetail(detail: string): string {
  * toward -- counting one, as the empty detail slot would be every time, puts the target at the mark and
  * collapses the whole set on the first pass.
  */
-function findCutTarget(sizes: readonly number[], longestSize: number, overrunBytes: number): number {
-  const smallerSizes = sizes.filter((size) => size < longestSize && size > MIN_CUT_BYTES);
-  const share = Math.ceil(overrunBytes / sizes.filter((size) => size === longestSize).length);
+function findCutTarget(sizesBytes: readonly number[], longestSizeBytes: number, overrunBytes: number): number {
+  const smallerSizes = sizesBytes.filter((size) => size < longestSizeBytes && size > MIN_CUT_BYTES);
+  const share = Math.ceil(overrunBytes / sizesBytes.filter((size) => size === longestSizeBytes).length);
   const target =
-    smallerSizes.length === 0 ? longestSize - share : Math.max(...smallerSizes, longestSize - overrunBytes);
+    smallerSizes.length === 0 ? longestSizeBytes - share : Math.max(...smallerSizes, longestSizeBytes - overrunBytes);
 
   return Math.max(MIN_CUT_BYTES, target);
 }
@@ -240,16 +240,16 @@ function renderClamped(record: Record<string, unknown>): string {
 
   while (!isWithinBudget(renderedLine)) {
     const fields = ['command', 'scope'];
-    const sizes = fields.map((field) =>
+    const sizesBytes = fields.map((field) =>
       Buffer.byteLength(typeof clampedRecord[field] === 'string' ? clampedRecord[field] : ''),
     );
-    const longestSize = Math.max(...sizes);
-    if (longestSize <= MIN_CUT_BYTES) {
+    const longestSizeBytes = Math.max(...sizesBytes);
+    if (longestSizeBytes <= MIN_CUT_BYTES) {
       return renderedLine;
     }
 
-    const target = findCutTarget(sizes, longestSize, Buffer.byteLength(renderedLine) - LINE_BUDGET_BYTES);
-    const field = fields[sizes.indexOf(longestSize)] ?? 'command';
+    const target = findCutTarget(sizesBytes, longestSizeBytes, Buffer.byteLength(renderedLine) - LINE_BUDGET_BYTES);
+    const field = fields[sizesBytes.indexOf(longestSizeBytes)] ?? 'command';
     clampedRecord[field] = clampToBytes(typeof clampedRecord[field] === 'string' ? clampedRecord[field] : '', target);
     renderedLine = JSON.stringify(clampedRecord);
   }
@@ -323,14 +323,14 @@ function shortenCuttableText(verdict: Verdict): Verdict {
  */
 function shortenLongestText(verdict: Verdict, overrunBytes: number): Verdict | undefined {
   const texts = readCuttableText(verdict);
-  const sizes = texts.map((text) => Buffer.byteLength(text));
-  const longestSize = Math.max(...sizes);
-  if (longestSize <= MIN_CUT_BYTES) {
+  const sizesBytes = texts.map((text) => Buffer.byteLength(text));
+  const longestSizeBytes = Math.max(...sizesBytes);
+  if (longestSizeBytes <= MIN_CUT_BYTES) {
     return undefined;
   }
 
-  const index = sizes.indexOf(longestSize);
-  const target = findCutTarget(sizes, longestSize, overrunBytes);
+  const index = sizesBytes.indexOf(longestSizeBytes);
+  const target = findCutTarget(sizesBytes, longestSizeBytes, overrunBytes);
 
   return writeCuttableText(verdict, index, clampToBytes(texts[index] ?? '', target));
 }
