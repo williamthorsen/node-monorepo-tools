@@ -292,8 +292,8 @@ export type RepoVisibility = 'private' | 'public' | 'unknown';
 /**
  * Classifies the provenance setting in the publish workflow against the repo's visibility.
  *
- * An unreadable workflow is reported ahead of an unreportable visibility, so the check names the file it could
- * not read rather than the CLI that also failed.
+ * An unreadable workflow is reported ahead of an unreportable visibility, so the check names the file that it
+ * could not read rather than the CLI that also failed.
  *
  * @internal - Exported only to enable testing
  */
